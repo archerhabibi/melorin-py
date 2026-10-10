@@ -1,0 +1,130 @@
+import datetime as dt
+import uuid
+
+from pydantic import BaseModel, Field, HttpUrl, model_validator
+
+
+class CreateProduct(BaseModel):
+    code: str = Field(min_length=2, max_length=50, pattern="^[A-Za-z0-9_-]+$")
+    name: str = Field(min_length=2, max_length=200)
+    description: str | None = None
+    category: str | None = None
+    duration_days: int = Field(gt=0)
+    traffic_gb: int = Field(ge=0)
+    max_devices: int | None = Field(default=None, gt=0)
+    main_price: int = Field(ge=0)
+    reseller_price: int = Field(ge=0)
+    currency: str = "IRT"
+    is_test: bool = False
+
+
+class ProductOut(CreateProduct):
+    id: uuid.UUID
+    is_active: bool
+    created_at: dt.datetime
+    updated_at: dt.datetime
+
+
+class Availability(BaseModel):
+    store_id: uuid.UUID
+    enabled: bool = True
+    customer_price: int | None = Field(default=None, ge=0)
+    listed: bool = True
+
+
+class CreatePanel(BaseModel):
+    name: str
+    kind: str = Field(pattern="^(sanaei|pasarguard|mock)$")
+    base_url: str
+    credentials: dict = {}
+    config: dict = {}
+
+    @model_validator(mode="after")
+    def _sanaei_contract(self):
+        # 3x-ui needs a subscription base (served on a separate Sub Port/Path) and a target inbound,
+        # otherwise provisioning creates panel clients that can never be delivered.
+        if self.kind == "sanaei":
+            cfg, cred = self.config or {}, self.credentials or {}
+            if cred and not (cred.get("api_token") or (cred.get("username") and cred.get("password"))):
+                raise ValueError("sanaei: credentials need api_token or username+password")
+            if not str(cfg.get("sub_base_url") or "").startswith(("http://", "https://")):
+                raise ValueError("sanaei: config.sub_base_url is required, e.g. https://sub.example.com:2096/sub")
+            if not (cfg.get("inbound_ids") or cfg.get("inbound_id") or cfg.get("template_username")):
+                raise ValueError("sanaei: config.inbound_ids or config.template_username is required")
+            if cfg.get("api_style", "auto") not in ("auto", "v3", "legacy"):
+                raise ValueError("sanaei: config.api_style must be auto, v3 or legacy")
+        if self.kind == "pasarguard":
+            cfg, cred = self.config or {}, self.credentials or {}
+            if not (cred.get("api_key") or cred.get("access_token") or (cred.get("username") and cred.get("password"))):
+                raise ValueError("pasarguard: credentials need api_key, access_token or username+password")
+            template_id = cfg.get("user_template_id")
+            if template_id is None and not cfg.get("group_ids"):
+                raise ValueError("pasarguard: config.group_ids or config.user_template_id is required")
+            if template_id is not None:
+                try:
+                    if int(template_id) <= 0:
+                        raise ValueError
+                except (TypeError, ValueError) as exc:
+                    raise ValueError("pasarguard: config.user_template_id must be a positive integer") from exc
+        return self
+
+
+class CreateBotStoreBinding(BaseModel):
+    bot_key: str = Field(min_length=8, max_length=120)
+    bot_username: str | None = Field(default=None, max_length=100)
+    store_id: uuid.UUID
+    bot_kind: str = Field(default="reseller", pattern="^(main|reseller)$")
+    config: dict = Field(default_factory=dict)
+
+
+class PanelOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    kind: str
+    base_url: str
+    is_enabled: bool
+    health_status: str
+    last_health_at: dt.datetime | None
+
+
+class CreateServer(BaseModel):
+    name: str
+    panel_id: uuid.UUID
+    location: str | None = None
+    capacity: int = Field(gt=0, le=100000)
+    product_codes: list[str] | None = None
+    allow_test: bool = True
+
+
+class FeatureUpdate(BaseModel):
+    enabled: bool
+    scope_type: str = "global"
+    scope_id: str = "*"
+    note: str | None = None
+
+
+class SettingUpdate(BaseModel):
+    value: object
+
+
+class ReviewPayment(BaseModel):
+    approve: bool
+    reason: str | None = None
+
+
+class ResellerApproval(BaseModel):
+    approve: bool
+    debt_limit: int = Field(default=0, ge=0)
+    reason: str | None = None
+
+
+class OrderAction(BaseModel):
+    reason: str | None = Field(default=None, max_length=500)
+
+
+class AttachExistingAccount(BaseModel):
+    server_id: uuid.UUID
+    username: str
+    panel_ref: str | None = None
+    subscription_url: str | None = None
+    reason: str | None = None

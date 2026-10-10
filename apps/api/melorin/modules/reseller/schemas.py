@@ -1,0 +1,65 @@
+import datetime as dt
+import uuid
+
+from pydantic import BaseModel, Field, HttpUrl
+
+
+class ApplicationIn(BaseModel):
+    store_name: str = Field(min_length=2, max_length=200)
+    message: str | None = Field(default=None, max_length=2000)
+    target_store_id: uuid.UUID | None = None
+
+
+class StoreBrandingUpdate(BaseModel):
+    branding: dict | None = None
+    bot_messages: dict | None = None
+
+
+class CustomerOut(BaseModel):
+    user_id: uuid.UUID
+    display_name: str | None
+    email: str | None
+    status: str
+    joined_at: dt.datetime
+
+
+class CustomerWalletAdjustment(BaseModel):
+    """Reseller top-up/correction of its own customer's wallet in its own store (v1.1)."""
+
+    amount: int = Field(description="positive = top-up (cash received by the reseller), negative = correction within balance")
+    reason: str = Field(min_length=3, max_length=500)
+    reference: str | None = Field(default=None, max_length=200, description="receipt / transfer reference")
+    idempotency_key: str = Field(min_length=8, max_length=100)
+
+
+class PaymentConfigIn(BaseModel):
+    is_enabled: bool = True
+    public_config: dict = Field(default_factory=dict, description="manual_card: card_number, holder, bank, min_amount, max_amount")
+    secret: dict | None = Field(default=None, description="gateway secrets, e.g. {merchant_id}; write-only")
+
+
+class PaymentReview(BaseModel):
+    approve: bool
+    note: str | None = Field(default=None, max_length=500)
+
+
+class ApiCredentialIn(BaseModel):
+    name: str = Field(min_length=2, max_length=100)
+    scopes: list[str] = Field(default_factory=lambda: ["catalog:read", "customers:read", "orders:read"])
+    rate_limit_per_minute: int = Field(default=120, ge=1, le=6000)
+    ip_allowlist: list[str] | None = None
+    activate: bool = True
+    expires_at: dt.datetime | None = None
+
+
+class WebhookEndpointIn(BaseModel):
+    url: HttpUrl
+    events: list[str] = Field(default_factory=list)
+    description: str | None = Field(default=None, max_length=200)
+
+
+class WebhookEndpointPatch(BaseModel):
+    url: HttpUrl | None = None
+    events: list[str] | None = None
+    description: str | None = Field(default=None, max_length=200)
+    status: str | None = Field(default=None, pattern="^(active|disabled)$")

@@ -1,0 +1,9 @@
+FROM python:3.12-slim
+WORKDIR /app
+COPY apps/telegram-reseller/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY apps/telegram-reseller/runner.py .
+COPY apps/telegram-main/runner.py /app/telegram-main/runner.py
+RUN useradd --create-home --uid 10003 bot && mkdir -p /var/lib/melorin && chown -R bot:bot /app /var/lib/melorin
+USER bot
+CMD ["python", "runner.py"]

@@ -1,0 +1,27 @@
+groups:
+  - name: melorin-core
+    rules:
+      - alert: MelorinDatabaseUnavailable
+        expr: melorin_alert{alertname="MelorinDatabaseUnavailable",state="firing"} > 0
+        for: 2m
+        labels: {severity: critical}
+        annotations: {summary: "Melorin database unavailable"}
+      - alert: MelorinRedisUnavailable
+        expr: melorin_alert{alertname="MelorinRedisUnavailable",state="firing"} > 0
+        for: 2m
+        labels: {severity: critical}
+        annotations: {summary: "Melorin Redis unavailable"}
+      - alert: MelorinWorkerStale
+        expr: melorin_alert{alertname="MelorinWorkerStale",state="firing"} > 0
+        for: 2m
+        labels: {severity: critical}
+        annotations: {summary: "Melorin worker heartbeat stale"}
+      - alert: MelorinPanelsUnhealthy
+        expr: melorin_alert{alertname="MelorinPanelsUnhealthy",state="firing"} > 0
+        for: 5m
+        labels: {severity: warning}
+        annotations: {summary: "One or more enabled VPN panels are unhealthy"}
+      - alert: MelorinOutboxBacklog
+        expr: melorin_alert{alertname="MelorinOutboxBacklog",state="firing"} > 5m
+        labels: {severity: warning}
+        annotations: {summary: "Melorin outbox backlog is growing"}

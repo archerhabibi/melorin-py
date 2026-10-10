@@ -1,0 +1,66 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: {POSTGRES_PASSWORD: test, POSTGRES_USER: melorin, POSTGRES_DB: melorin}
+        ports: [5432:5432]
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+    defaults: {run: {working-directory: apps/api}}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: pip install -r requirements.txt
+      - run: python -m pip install --disable-pip-version-check pip-audit==2.10.1
+      - run: pip-audit -r requirements.txt
+      - run: python ../../scripts/preflight.py --runtime
+      - run: python ../../scripts/verify_runtime.py
+      - run: bash ../../scripts/check_secrets.sh
+      - run: python ../../scripts/check_frontend_contracts.py
+      - run: python ../../scripts/check_release_matrix.py
+      - run: bash ../../scripts/run_quality_gate.sh
+      - run: ruff check melorin --config pyproject.toml
+      - run: ruff format --check melorin tests --config pyproject.toml
+      - run: python -m compileall -q melorin
+      - run: pytest -q -m "not integration" --cov=melorin --cov-report=term-missing --cov-report=xml --cov-fail-under=20
+        env: {MELORIN_DATABASE_URL: postgresql+asyncpg://melorin:test@localhost:5432/melorin, MELORIN_JWT_SECRET: ci-secret}
+      - run: pytest -q -m integration
+        env: {MELORIN_DATABASE_URL: postgresql+asyncpg://melorin:test@localhost:5432/melorin, MELORIN_REDIS_URL: redis://localhost:6379/0, MELORIN_JWT_SECRET: ci-secret-ci-secret-ci-secret-1234, MELORIN_ALLOW_MOCK_PROVIDERS: 'true'}
+      - run: docker build -f apps/api/Dockerfile -t melorin-api .
+        working-directory: .
+      - run: python scripts/check_web_lockfiles.py
+        working-directory: .
+      - run: npm ci --include=dev --ignore-scripts --no-audit --no-fund
+        working-directory: apps/store-web
+      - run: npm audit --audit-level=high
+        working-directory: apps/store-web
+      - run: npm run build
+        working-directory: apps/store-web
+      - run: npm ci --include=dev --ignore-scripts --no-audit --no-fund
+        working-directory: apps/admin-web
+      - run: npm audit --audit-level=high
+        working-directory: apps/admin-web
+      - run: npm run build
+        working-directory: apps/admin-web
+      - run: docker build -f apps/store-web/Dockerfile -t melorin-store-web .
+        working-directory: .
+      - run: docker build -f apps/admin-web/Dockerfile -t melorin-admin-web .
+        working-directory: .
+      - run: alembic check
+        env: {MELORIN_DATABASE_URL: postgresql+asyncpg://melorin:test@localhost:5432/melorin, MELORIN_JWT_SECRET: ci-secret}
+      - run: |
+          alembic upgrade head
+          python -m melorin.cli bootstrap
+          python scripts/postgres_concurrency_smoke.py
+          nohup uvicorn melorin.app:app --port 8000 > /tmp/api.log 2>&1 &
+          nohup arq melorin.worker.arq_app.WorkerSettings > /tmp/worker.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf localhost:8000/health/live && break; sleep 1; done
+          python ../../scripts/e2e_smoke.py
+        env: {MELORIN_DATABASE_URL: 'postgresql+asyncpg://melorin:test@localhost:5432/melorin', MELORIN_REDIS_URL: 'redis://localhost:6379/0', MELORIN_ALLOW_MOCK_PROVIDERS: 'true', MELORIN_BOOTSTRAP_ADMIN_EMAIL: admin@example.com, MELORIN_BOOTSTRAP_ADMIN_PASSWORD: 'Adm1n-Pass-9xQ!', MELORIN_JWT_SECRET: ci-secret-ci-secret-ci-secret-1234}

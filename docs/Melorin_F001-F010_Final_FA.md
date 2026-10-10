@@ -1,0 +1,5 @@
+# تکمیل نهایی F001 تا F010 ملورین
+
+F001 تا F010 در baseline تجمعی پیاده‌سازی شدند. F001 از Docker context ریشه استفاده می‌کند. F002 رفتار هم‌مبدأ `/api` را برای هر دو Web فراهم می‌کند و Store Web اکنون Store اصلی و catalog را از Core می‌خواند، نه فقط از پلن‌های hard-coded. F003 و F004 routing Store، Admin و Core را در Caddy انجام می‌دهند و دامنه‌ها صریحاً به کانتینر Caddy منتقل می‌شوند. F005 شامل manifest و lockfile برای هر دو Web است و CI هر دو اپ را با dev dependency و context ریشه build می‌کند. F006 رمزهای ضعیف staging/production را رد می‌کند. F007 و F008 بکاپ امن بدون رمز در argv، رمزنگاری، checksum، retention و کپی off-host اختیاری دارند. F009 خواندن آپلود را محدود و magic-byte را بررسی می‌کند. F010 idempotency را Store-scoped کرده، unique constraint و recovery درخواست‌های همزمان دارد، ردیف‌های مالی را lock می‌کند و intent پرداخت خارجی را پیش از provider ثبت می‌کند.
+
+راستی‌آزمایی‌های قابل اجرا شامل compile/AST پایتون، syntax فایل‌های JavaScript، بررسی source/manifest، syntax اسکریپت و assertionهای CI/Caddy موفق شدند. npm و Docker در این محیط نصب نیستند؛ بنابراین نتیجه live build ادعا نمی‌شود.

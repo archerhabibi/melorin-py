@@ -1,0 +1,113 @@
+name: melorin
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: melorin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: melorin
+    volumes: [postgres_data:/var/lib/postgresql/data]
+    healthcheck: {test: [CMD-SHELL, 'pg_isready -U melorin -d melorin'], interval: 5s, timeout: 5s, retries: 10}
+    networks: [backend]
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes: [redis_data:/data]
+    healthcheck: {test: [CMD, redis-cli, ping], interval: 5s, timeout: 3s, retries: 10}
+    networks: [backend]
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    env_file: [.env]
+    command: uvicorn melorin.app:app --host 0.0.0.0 --port 8000
+    healthcheck: {test: [CMD, python, -c, 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8000/health/live", timeout=3)'], interval: 10s, timeout: 5s, retries: 12, start_period: 20s}
+    volumes: [api_storage:/app/var]
+    depends_on: {postgres: {condition: service_healthy}, redis: {condition: service_healthy}}
+    networks: [backend]
+  worker:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    env_file: [.env]
+    command: arq melorin.worker.arq_app.WorkerSettings
+    healthcheck: {test: [CMD, python, -c, 'import os, redis; r=redis.Redis.from_url(os.environ["MELORIN_REDIS_URL"]); raise SystemExit(0 if r.get("melorin:worker:last_tick") else 1)'], interval: 15s, timeout: 5s, retries: 8, start_period: 25s}
+    volumes: [api_storage:/app/var]
+    depends_on: {postgres: {condition: service_healthy}, redis: {condition: service_healthy}}
+    networks: [backend]
+  store_web:
+    build:
+      context: .
+      dockerfile: apps/store-web/Dockerfile
+    depends_on: {api: {condition: service_healthy}}
+    healthcheck: {test: [CMD, wget, --spider, --quiet, http://127.0.0.1/], interval: 15s, timeout: 5s, retries: 8}
+    networks: [backend]
+  admin_web:
+    build:
+      context: .
+      dockerfile: apps/admin-web/Dockerfile
+    depends_on: {api: {condition: service_healthy}}
+    healthcheck: {test: [CMD, wget, --spider, --quiet, http://127.0.0.1/], interval: 15s, timeout: 5s, retries: 8}
+    networks: [backend]
+  telegram_main:
+    build:
+      context: .
+      dockerfile: apps/telegram-main/Dockerfile
+    env_file: [.env]
+    environment:
+      MELORIN_CORE_URL: http://api:8000
+      MELORIN_TELEGRAM_OFFSET_FILE: /var/lib/melorin/main-offset.json
+    volumes: [telegram_main_state:/var/lib/melorin]
+    depends_on: {api: {condition: service_healthy}}
+    healthcheck: {test: [CMD, python, -c, 'import os; raise SystemExit(0 if os.environ.get("MELORIN_TELEGRAM_TOKEN") else 1)'], interval: 30s, timeout: 5s, retries: 3}
+    networks: [backend]
+  telegram_reseller:
+    build:
+      context: .
+      dockerfile: apps/telegram-reseller/Dockerfile
+    env_file: [.env]
+    environment:
+      MELORIN_CORE_URL: http://api:8000
+      MELORIN_TELEGRAM_OFFSET_FILE: /var/lib/melorin/reseller-offset.json
+    volumes: [telegram_reseller_state:/var/lib/melorin]
+    depends_on: {api: {condition: service_healthy}}
+    healthcheck: {test: [CMD, python, -c, 'import os; raise SystemExit(0 if os.environ.get("MELORIN_TELEGRAM_RESELLER_TOKEN") and os.environ.get("MELORIN_STORE_SLUG") else 1)'], interval: 30s, timeout: 5s, retries: 3}
+    networks: [backend]
+  caddy:
+    image: caddy:2-alpine
+    ports: ["80:80", "443:443"]
+    environment:
+      MELORIN_DOMAIN: ${MELORIN_DOMAIN:-localhost}
+      MELORIN_ADMIN_DOMAIN: ${MELORIN_ADMIN_DOMAIN:-admin.localhost}
+    volumes: [./infra/Caddyfile:/etc/caddy/Caddyfile:ro, caddy_data:/data, caddy_config:/config]
+    depends_on:
+      api: {condition: service_healthy}
+      store_web: {condition: service_healthy}
+      admin_web: {condition: service_healthy}
+    healthcheck: {test: [CMD, wget, --spider, --quiet, http://127.0.0.1/health/live], interval: 15s, timeout: 5s, retries: 8}
+    networks: [backend]
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    volumes:
+      - ./infra/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - ./secrets/metrics-token:/etc/prometheus/metrics-token:ro
+      - prometheus_data:/prometheus
+    depends_on: {api: {condition: service_healthy}}
+    healthcheck: {test: [CMD, wget, --spider, --quiet, http://127.0.0.1:9090/-/ready], interval: 15s, timeout: 5s, retries: 8}
+    networks: [backend]
+volumes:
+  postgres_data: {}
+  redis_data: {}
+  api_storage: {}
+  caddy_data: {}
+  caddy_config: {}
+  telegram_main_state: {}
+  telegram_reseller_state: {}
+  prometheus_data: {}
+networks:
+  backend:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16

@@ -1,0 +1,52 @@
+"""ARQ + Redis worker entrypoint.
+
+The DB outbox remains the source of truth. ARQ provides distributed scheduling,
+retry isolation and horizontal workers; each claimed outbox/delivery row remains
+idempotent, so a crash is safe.
+"""
+import asyncio
+import time
+
+from arq import cron
+from arq.connections import RedisSettings
+
+from melorin.core.config import get_settings
+from melorin.core.db import session_factory
+from melorin.worker.runner import claim_batch, claim_webhook_batch, process_event, process_webhook
+from melorin.worker.jobs import backup_job, privacy_retention_job
+from melorin.core.metrics import set_gauge
+
+
+async def poll_tick(ctx):
+    async with session_factory()() as session:
+        events = await claim_batch(session)
+        deliveries = await claim_webhook_batch(session)
+    if events or deliveries:
+        await asyncio.gather(*(process_event(e) for e in events), *(process_webhook(d) for d in deliveries))
+    await ctx["redis"].set("melorin:worker:last_tick", str(time.time()), ex=15)
+    set_gauge("melorin_worker_last_tick", __import__("time").time())
+    return {"events": len(events), "deliveries": len(deliveries)}
+
+
+async def startup(ctx):
+    # Polling is scheduled by ARQ cron below. Do not enqueue a chained job
+    # from inside the running job: a fixed job id can stall the chain.
+    return None
+
+
+async def shutdown(ctx):
+    pass
+
+
+class WorkerSettings:
+    functions = [poll_tick, backup_job]
+    cron_jobs = [
+        cron(poll_tick, second=set(range(0, 60, 2)), unique=True),
+        cron(backup_job, hour=2, minute=0, unique=True),
+        cron(privacy_retention_job, hour=3, minute=0, unique=True),
+    ]
+    on_startup = startup
+    on_shutdown = shutdown
+    redis_settings = RedisSettings.from_dsn(get_settings().redis_url or "redis://localhost:6379/0")
+    max_jobs = 20
+    job_timeout = 120

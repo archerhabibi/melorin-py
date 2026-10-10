@@ -1,0 +1,41 @@
+import uuid
+
+from fastapi import APIRouter, Header
+from sqlalchemy import select
+
+from melorin.core.deps import CurrentUser, OwnerCtx, Session, StoreCtx
+from melorin.core.errors import NotFound
+from melorin.modules.orders import service
+from melorin.modules.orders.models import Order
+from melorin.modules.orders.schemas import CreateOrder, OrderOut
+
+router = APIRouter(tags=["orders"])
+
+
+def out(o: Order) -> OrderOut:
+    return OrderOut(id=o.id, number=o.number, store_id=o.store_id, user_id=o.user_id, product_id=o.product_id, kind=o.kind, status=o.status, payment_method=o.payment_method, channel=o.channel, currency=o.currency, unit_price=o.unit_price, discount=o.discount, total=o.total, coupon_code=o.coupon_code, product_snapshot=o.product_snapshot, vpn_account_id=o.vpn_account_id, needs_review=o.needs_review, created_at=o.created_at, paid_at=o.paid_at, completed_at=o.completed_at)
+
+
+@router.post("/stores/{store_id}/orders", response_model=OrderOut, status_code=201)
+async def create_order(body: CreateOrder, ctx: StoreCtx, session: Session, idempotency_key: str = Header(..., alias="Idempotency-Key", min_length=8, max_length=100)):
+    o = await service.create_order(session, ctx, product_id=body.product_id, payment_method=body.payment_method, idempotency_key=idempotency_key, coupon_code=body.coupon_code, kind=body.kind, vpn_account_id=body.vpn_account_id, channel="web")
+    return out(o)
+
+
+@router.post("/stores/{store_id}/test-account", response_model=OrderOut, status_code=201)
+async def test_account(ctx: StoreCtx, session: Session):
+    return out(await service.create_test_order(session, ctx, "web"))
+
+
+@router.get("/stores/{store_id}/orders", response_model=list[OrderOut])
+async def list_orders(ctx: StoreCtx, session: Session):
+    rows = (await session.scalars(select(Order).where(Order.user_id == ctx.user.id, Order.store_id == ctx.store.id).order_by(Order.created_at.desc()).limit(100))).all()
+    return [out(o) for o in rows]
+
+
+@router.get("/orders/{order_id}", response_model=OrderOut)
+async def get_order(order_id: uuid.UUID, user: CurrentUser, session: Session):
+    o = await session.get(Order, order_id)
+    if not o or (o.user_id != user.id and not user.is_super_admin):
+        raise NotFound("سفارش")
+    return out(o)

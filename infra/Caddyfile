@@ -1,0 +1,41 @@
+{$MELORIN_DOMAIN:localhost} {
+  encode gzip
+  @blocked_ops path /metrics /docs /redoc /openapi.json
+  respond @blocked_ops 404
+  @api path /api/* /health/* /health /healthz
+  handle @api {
+    reverse_proxy api:8000
+  }
+  handle {
+    reverse_proxy store_web:80
+  }
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    X-Content-Type-Options nosniff
+    X-Frame-Options DENY
+    Referrer-Policy strict-origin-when-cross-origin
+    Content-Security-Policy "default-src 'self'; connect-src 'self' https:; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:"
+    Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  }
+}
+
+{$MELORIN_ADMIN_DOMAIN:admin.localhost} {
+  encode gzip
+  @blocked_ops path /metrics /docs /redoc /openapi.json
+  respond @blocked_ops 404
+  @api path /api/* /health/* /health /healthz
+  handle @api {
+    reverse_proxy api:8000
+  }
+  handle {
+    reverse_proxy admin_web:80
+  }
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    X-Content-Type-Options nosniff
+    X-Frame-Options DENY
+    Referrer-Policy strict-origin-when-cross-origin
+    Content-Security-Policy "default-src 'self'; connect-src 'self' https:; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:"
+    Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  }
+}
