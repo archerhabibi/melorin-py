@@ -36,6 +36,63 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-12 21:28 UTC - Claude - bot  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** Telegram main bot: handle custom top-up amount input
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `apps/telegram-main/runner.py`
+- **Ref:** `deb0c6e`
+
+### 2026-10-12 21:28 UTC - Claude - tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** tests: align migration tests with frozen 0001 DDL snapshot
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (3):** `apps/api/tests/test_h002_migration_source.py`, `apps/api/tests/test_h013_baseline_contract.py`, `apps/api/tests/test_i14_i22_regressions.py`
+- **Ref:** `d7a5292`
+
+### 2026-10-12 21:28 UTC - Claude - admin-web, api  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** Admin: change-password endpoint and settings UI
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (3):** `apps/admin-web/src/AdminExtra.jsx`, `apps/api/melorin/modules/identity/router.py`, `apps/api/melorin/modules/identity/schemas.py`
+- **Ref:** `5b5825c`
+
+### 2026-10-12 21:18 UTC - Claude - tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** tests: follow I40/I41 docs to docs/history
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `apps/api/tests/test_i14_i22_regressions.py`
+- **Ref:** `7368860`
+
+### 2026-10-12 21:17 UTC - Claude - tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** tests: follow I39 audit doc to docs/history
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `apps/api/tests/test_i14_i22_regressions.py`
+- **Ref:** `e44c19e`
+
+### 2026-10-12 21:17 UTC - Claude - other, db, docs  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** Apply LA10-LA22: frozen 0001 DDL snapshot, installer pinning, docs moved to docs/history
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (35):** `README.md`, `apps/api/alembic/versions/0001_initial.py`, `docs/history/I34_EXTERNAL_INTEGRATIONS.md`, `docs/history/I35_TEST_MATRIX.md`, `docs/history/I36_OPERATIONS_CLI.md`, `docs/history/I37_PRIVACY_RETENTION.md`, `docs/history/I38_PGCLOCK_GATEWAYS_IRT.md`, `docs/history/I39_IRT_IRR_AUDIT.md` (+27 more)
+- **Ref:** `e51d204`
+
+### 2026-10-12 21:17 UTC - Claude - bot  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** Telegram main bot: Persian public reply-keyboard menu
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `apps/telegram-main/runner.py`
+- **Ref:** `77744e7`
+
+
 ### 2026-10-12 - Claude (with owner) - server-side log and SSH deploy restored
 - **Before:** after the reset to 27b7ee5 there was no server operations log and no automatic deployment.
 - **Problem:** changes made directly on the server were invisible to git, and updating the server was manual.
