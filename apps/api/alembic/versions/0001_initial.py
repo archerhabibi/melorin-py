@@ -1,60 +1,160 @@
 """Frozen initial Melorin schema.
 
-The source fingerprint prevents model changes from silently changing 0001.
-Future schema changes must be explicit Alembic revisions.
+Rebuilt as a static DDL snapshot of the models at commit 3b2262a (the state
+that MODEL_SOURCE_FINGERPRINT was computed from). Later revisions 0002-0009
+then apply on top. Future schema changes must be explicit Alembic revisions;
+this file must not be regenerated from the live models.
 """
-import hashlib
-from pathlib import Path
-
 from alembic import op
-from sqlalchemy.schema import CreateIndex, CreateTable
 
-from melorin.core.db import Base
-from melorin import models  # noqa: F401, register every model before baseline DDL
-
-# BASELINE_SCHEMA_CONTRACT: frozen and regression-tested.
 revision = "0001_initial"
 down_revision = None
 branch_labels = None
 depends_on = None
+# Fingerprint of the model sources at commit 3b2262a (informational).
 MODEL_SOURCE_FINGERPRINT = "d472864d69e219a4ca630f9d77e42ceedfb680241a6999a80baf9324a230fb9b"
 
-# Tables introduced by a later migration must not leak into the frozen
-# baseline through the current SQLAlchemy metadata.  In particular,
-# 0008 owns bot_store_bindings and its indexes.
-_LATER_MIGRATION_TABLES = frozenset({"bot_store_bindings"})
-
-
-def _model_source_fingerprint() -> str:
-    root = Path(__file__).resolve().parents[2] / "melorin"
-    files = [root / "core" / "db.py", *sorted(root.glob("modules/*/models.py"))]
-    digest = hashlib.sha256()
-    for path in files:
-        digest.update(str(path.relative_to(root)).encode())
-        digest.update(b"\0")
-        digest.update(path.read_bytes())
-        digest.update(b"\0")
-    return digest.hexdigest()
+BASELINE_DDL = [
+    "CREATE TABLE audit_events (\n\tactor_id UUID, \n\tactor_type VARCHAR(20) NOT NULL, \n\taction VARCHAR(80) NOT NULL, \n\tentity_type VARCHAR(50), \n\tentity_id VARCHAR(64), \n\tstore_id UUID, \n\tdata JSON, \n\tip VARCHAR(64), \n\tcorrelation_id VARCHAR(64), \n\tid UUID NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_audit_events PRIMARY KEY (id)\n)",
+    "CREATE TABLE backup_runs (\n\tstatus VARCHAR(20) NOT NULL, \n\tlocation VARCHAR(300), \n\tsize BIGINT, \n\tdetails TEXT, \n\tid UUID NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_backup_runs PRIMARY KEY (id)\n)",
+    "CREATE TABLE feature_flags (\n\tkey VARCHAR(50) NOT NULL, \n\tscope_type VARCHAR(20) NOT NULL, \n\tscope_id VARCHAR(64) NOT NULL, \n\tenabled BOOLEAN NOT NULL, \n\tnote VARCHAR(500), \n\tid UUID NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_feature_flags PRIMARY KEY (id), \n\tCONSTRAINT uq_feature_flags_key_scope_type_scope_id UNIQUE (key, scope_type, scope_id)\n)",
+    "CREATE TABLE outbox_events (\n\ttopic VARCHAR(80) NOT NULL, \n\tpayload JSON NOT NULL, \n\tstatus VARCHAR(20) NOT NULL, \n\tattempts INTEGER NOT NULL, \n\tavailable_at TIMESTAMP WITH TIME ZONE NOT NULL, \n\tlocked_at TIMESTAMP WITH TIME ZONE, \n\tprocessed_at TIMESTAMP WITH TIME ZONE, \n\tlast_error TEXT, \n\tdedup_key VARCHAR(200), \n\tcorrelation_id VARCHAR(64), \n\tid UUID NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_outbox_events PRIMARY KEY (id), \n\tCONSTRAINT uq_outbox_events_dedup_key UNIQUE (dedup_key)\n)",
+    "CREATE TABLE panels (\n\tname VARCHAR(100) NOT NULL, \n\tkind VARCHAR(20) NOT NULL, \n\tbase_url VARCHAR(300) NOT NULL, \n\tcredentials_enc TEXT, \n\tconfig JSON, \n\tis_enabled BOOLEAN NOT NULL, \n\thealth_status VARCHAR(20) NOT NULL, \n\tlast_health_at TIMESTAMP WITH TIME ZONE, \n\tlast_health_error TEXT, \n\tid UUID NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_panels PRIMARY KEY (id)\n)",
+    "CREATE TABLE products (\n\tcode VARCHAR(50) NOT NULL, \n\tname VARCHAR(200) NOT NULL, \n\tdescription TEXT, \n\tcategory VARCHAR(100), \n\tduration_days INTEGER NOT NULL, \n\ttraffic_gb INTEGER NOT NULL, \n\tmax_devices INTEGER, \n\tspecs JSON, \n\tmain_price BIGINT NOT NULL, \n\treseller_price BIGINT NOT NULL, \n\tcurrency VARCHAR(8) NOT NULL, \n\tis_active BOOLEAN NOT NULL, \n\tis_test BOOLEAN NOT NULL, \n\tsort INTEGER NOT NULL, \n\tarchived_at TIMESTAMP WITH TIME ZONE, \n\tid UUID NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_products PRIMARY KEY (id), \n\tCONSTRAINT uq_products_code UNIQUE (code)\n)",
+    "CREATE TABLE security_events (\n\tkind VARCHAR(50) NOT NULL, \n\tuser_id UUID, \n\tip VARCHAR(64), \n\tdata JSON, \n\tid UUID NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_security_events PRIMARY KEY (id)\n)",
+    "CREATE TABLE system_settings (\n\tkey VARCHAR(100) NOT NULL, \n\tvalue JSON, \n\tid UUID NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_system_settings PRIMARY KEY (id), \n\tCONSTRAINT uq_system_settings_key UNIQUE (key)\n)",
+    "CREATE TABLE users (\n\tdisplay_name VARCHAR(200), \n\temail VARCHAR(320), \n\tpassword_hash VARCHAR(255), \n\tis_super_admin BOOLEAN NOT NULL, \n\tadmin_roles JSON NOT NULL, \n\tis_active BOOLEAN NOT NULL, \n\tis_guest BOOLEAN NOT NULL, \n\tlocale VARCHAR(8) NOT NULL, \n\treferral_code VARCHAR(16) NOT NULL, \n\ttotp_secret_enc VARCHAR(500), \n\ttotp_enabled BOOLEAN NOT NULL, \n\ttotp_last_counter INTEGER, \n\tallowed_ips JSON, \n\tarchived_at TIMESTAMP WITH TIME ZONE, \n\tid UUID NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_users PRIMARY KEY (id), \n\tCONSTRAINT uq_users_email UNIQUE (email), \n\tCONSTRAINT uq_users_referral_code UNIQUE (referral_code)\n)",
+    "CREATE TABLE identities (\n\tuser_id UUID NOT NULL, \n\tprovider VARCHAR(20) NOT NULL, \n\tsubject VARCHAR(320) NOT NULL, \n\tverified_at TIMESTAMP WITH TIME ZONE, \n\tdata JSON, \n\tid UUID NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_identities PRIMARY KEY (id), \n\tCONSTRAINT uq_identities_provider_subject UNIQUE (provider, subject), \n\tCONSTRAINT fk_identities_user_id_users FOREIGN KEY(user_id) REFERENCES users (id)\n)",
+    "CREATE TABLE identity_link_reviews (\n\temail VARCHAR(320) NOT NULL, \n\tsource_user_id UUID NOT NULL, \n\tcandidate_user_ids JSON NOT NULL, \n\tprovider VARCHAR(20) NOT NULL, \n\treason VARCHAR(200) NOT NULL, \n\tstatus VARCHAR(20) NOT NULL, \n\tresolved_by UUID, \n\tresolution_note VARCHAR(500), \n\tid UUID NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_identity_link_reviews PRIMARY KEY (id), \n\tCONSTRAINT fk_identity_link_reviews_source_user_id_users FOREIGN KEY(source_user_id) REFERENCES users (id)\n)",
+    "CREATE TABLE refresh_tokens (\n\tuser_id UUID NOT NULL, \n\ttoken_hash VARCHAR(64) NOT NULL, \n\tfamily_id UUID NOT NULL, \n\texpires_at TIMESTAMP WITH TIME ZONE NOT NULL, \n\trevoked_at TIMESTAMP WITH TIME ZONE, \n\tuser_agent VARCHAR(300), \n\tid UUID NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_refresh_tokens PRIMARY KEY (id), \n\tCONSTRAINT fk_refresh_tokens_user_id_users FOREIGN KEY(user_id) REFERENCES users (id), \n\tCONSTRAINT uq_refresh_tokens_token_hash UNIQUE (token_hash)\n)",
+    "CREATE TABLE servers (\n\tname VARCHAR(100) NOT NULL, \n\tpanel_id UUID NOT NULL, \n\tlocation VARCHAR(100), \n\tcapacity INTEGER NOT NULL, \n\tproduct_codes JSON, \n\tallow_test BOOLEAN NOT NULL, \n\tis_enabled BOOLEAN NOT NULL, \n\tid UUID NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_servers PRIMARY KEY (id), \n\tCONSTRAINT fk_servers_panel_id_panels FOREIGN KEY(panel_id) REFERENCES panels (id)\n)",
+    "CREATE TABLE stores (\n\tkind VARCHAR(20) NOT NULL, \n\tname VARCHAR(200) NOT NULL, \n\tslug VARCHAR(80) NOT NULL, \n\towner_user_id UUID, \n\tparent_store_id UUID, \n\tstatus VARCHAR(20) NOT NULL, \n\tcurrency VARCHAR(8) NOT NULL, \n\tbranding JSON, \n\tbot_messages JSON, \n\tbot_token_enc VARCHAR(500), \n\tbot_username VARCHAR(100), \n\tid UUID NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_stores PRIMARY KEY (id), \n\tCONSTRAINT uq_stores_slug UNIQUE (slug), \n\tCONSTRAINT fk_stores_owner_user_id_users FOREIGN KEY(owner_user_id) REFERENCES users (id), \n\tCONSTRAINT fk_stores_parent_store_id_stores FOREIGN KEY(parent_store_id) REFERENCES stores (id)\n)",
+    "CREATE TABLE terms_acceptances (\n\tuser_id UUID NOT NULL, \n\tdocument VARCHAR(20) NOT NULL, \n\tversion VARCHAR(20) NOT NULL, \n\tid UUID NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_terms_acceptances PRIMARY KEY (id), \n\tCONSTRAINT fk_terms_acceptances_user_id_users FOREIGN KEY(user_id) REFERENCES users (id)\n)",
+    "CREATE TABLE verification_codes (\n\tpurpose VARCHAR(30) NOT NULL, \n\ttarget VARCHAR(320) NOT NULL, \n\tcode_hash VARCHAR(64) NOT NULL, \n\tuser_id UUID, \n\tattempts INTEGER NOT NULL, \n\texpires_at TIMESTAMP WITH TIME ZONE NOT NULL, \n\tused_at TIMESTAMP WITH TIME ZONE, \n\tid UUID NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_verification_codes PRIMARY KEY (id), \n\tCONSTRAINT fk_verification_codes_user_id_users FOREIGN KEY(user_id) REFERENCES users (id)\n)",
+    "CREATE TABLE api_credentials (\n\tstore_id UUID NOT NULL, \n\tname VARCHAR(100) NOT NULL, \n\tkey_prefix VARCHAR(16) NOT NULL, \n\tkey_hash VARCHAR(64) NOT NULL, \n\tscopes JSON NOT NULL, \n\tstatus VARCHAR(20) NOT NULL, \n\trate_limit_per_minute INTEGER NOT NULL, \n\tip_allowlist JSON, \n\tcreated_by UUID, \n\trotated_from_id UUID, \n\trevoked_at TIMESTAMP WITH TIME ZONE, \n\texpires_at TIMESTAMP WITH TIME ZONE, \n\tlast_used_at TIMESTAMP WITH TIME ZONE, \n\tid UUID NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_api_credentials PRIMARY KEY (id), \n\tCONSTRAINT fk_api_credentials_store_id_stores FOREIGN KEY(store_id) REFERENCES stores (id), \n\tCONSTRAINT uq_api_credentials_key_hash UNIQUE (key_hash)\n)",
+    "CREATE TABLE commission_clawbacks (\n\treferrer_user_id UUID NOT NULL, \n\tstore_id UUID NOT NULL, \n\tcurrency VARCHAR(8) NOT NULL, \n\toutstanding BIGINT NOT NULL, \n\tid UUID NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_commission_clawbacks PRIMARY KEY (id), \n\tCONSTRAINT uq_commission_clawbacks_referrer_user_id_store_id_currency UNIQUE (referrer_user_id, store_id, currency), \n\tCONSTRAINT fk_commission_clawbacks_referrer_user_id_users FOREIGN KEY(referrer_user_id) REFERENCES users (id), \n\tCONSTRAINT fk_commission_clawbacks_store_id_stores FOREIGN KEY(store_id) REFERENCES stores (id)\n)",
+    "CREATE TABLE commission_rules (\n\tstore_id UUID NOT NULL, \n\tproduct_id UUID, \n\tkind VARCHAR(20) NOT NULL, \n\tmodel VARCHAR(10) NOT NULL, \n\tvalue BIGINT NOT NULL, \n\tmax_amount BIGINT, \n\tis_active BOOLEAN NOT NULL, \n\tid UUID NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_commission_rules PRIMARY KEY (id), \n\tCONSTRAINT uq_commission_rules_store_id_product_id_kind UNIQUE (store_id, product_id, kind), \n\tCONSTRAINT fk_commission_rules_store_id_stores FOREIGN KEY(store_id) REFERENCES stores (id), \n\tCONSTRAINT fk_commission_rules_product_id_products FOREIGN KEY(product_id) REFERENCES products (id)\n)",
+    "CREATE TABLE coupons (\n\tcode VARCHAR(50) NOT NULL, \n\towner_key VARCHAR(64) NOT NULL, \n\tstore_id UUID, \n\tscope VARCHAR(10) NOT NULL, \n\tallowed_store_ids JSON, \n\tallowed_store_kinds JSON, \n\tproduct_ids JSON, \n\tcreator_type VARCHAR(10) NOT NULL, \n\tcreator_id UUID, \n\tfunded_by VARCHAR(10) NOT NULL, \n\tpercent_bp INTEGER NOT NULL, \n\tfixed BIGINT NOT NULL, \n\tmax_discount BIGINT, \n\tmin_amount BIGINT NOT NULL, \n\tcurrency VARCHAR(8), \n\tstarts_at TIMESTAMP WITH TIME ZONE, \n\tends_at TIMESTAMP WITH TIME ZONE, \n\tmax_redemptions INTEGER, \n\tper_customer_limit INTEGER, \n\tredemptions INTEGER NOT NULL, \n\tcombinable BOOLEAN NOT NULL, \n\tstatus VARCHAR(20) NOT NULL, \n\tid UUID NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_coupons PRIMARY KEY (id), \n\tCONSTRAINT uq_coupons_owner_key_code UNIQUE (owner_key, code), \n\tCONSTRAINT fk_coupons_store_id_stores FOREIGN KEY(store_id) REFERENCES stores (id)\n)",
+    "CREATE TABLE file_objects (\n\towner_user_id UUID NOT NULL, \n\tstore_id UUID, \n\tpurpose VARCHAR(30) NOT NULL, \n\tstorage_key VARCHAR(300) NOT NULL, \n\tcontent_type VARCHAR(100) NOT NULL, \n\tsize BIGINT NOT NULL, \n\tsha256 VARCHAR(64) NOT NULL, \n\tid UUID NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_file_objects PRIMARY KEY (id), \n\tCONSTRAINT fk_file_objects_owner_user_id_users FOREIGN KEY(owner_user_id) REFERENCES users (id), \n\tCONSTRAINT fk_file_objects_store_id_stores FOREIGN KEY(store_id) REFERENCES stores (id)\n)",
+    "CREATE TABLE ledger_transactions (\n\tkind VARCHAR(40) NOT NULL, \n\tidempotency_key VARCHAR(200) NOT NULL, \n\tstore_id UUID, \n\torder_id UUID, \n\tpayment_id UUID, \n\treverses_id UUID, \n\tactor_id UUID, \n\tcurrency VARCHAR(8) NOT NULL, \n\tmemo VARCHAR(500), \n\tid UUID NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_ledger_transactions PRIMARY KEY (id), \n\tCONSTRAINT uq_ledger_transactions_idempotency_key UNIQUE (idempotency_key), \n\tCONSTRAINT fk_ledger_transactions_store_id_stores FOREIGN KEY(store_id) REFERENCES stores (id), \n\tCONSTRAINT fk_ledger_transactions_reverses_id_ledger_transactions FOREIGN KEY(reverses_id) REFERENCES ledger_transactions (id)\n)",
+    "CREATE TABLE notifications (\n\tuser_id UUID NOT NULL, \n\tstore_id UUID, \n\tkind VARCHAR(50) NOT NULL, \n\ttitle VARCHAR(200) NOT NULL, \n\tbody TEXT NOT NULL, \n\tdedup_key VARCHAR(200), \n\ttelegram_status VARCHAR(20) NOT NULL, \n\tread_at TIMESTAMP WITH TIME ZONE, \n\tid UUID NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_notifications PRIMARY KEY (id), \n\tCONSTRAINT fk_notifications_user_id_users FOREIGN KEY(user_id) REFERENCES users (id), \n\tCONSTRAINT fk_notifications_store_id_stores FOREIGN KEY(store_id) REFERENCES stores (id), \n\tCONSTRAINT uq_notifications_dedup_key UNIQUE (dedup_key)\n)",
+    "CREATE TABLE orders (\n\tnumber VARCHAR(20) NOT NULL, \n\tuser_id UUID NOT NULL, \n\tstore_id UUID NOT NULL, \n\tproduct_id UUID NOT NULL, \n\tkind VARCHAR(20) NOT NULL, \n\tvpn_account_id UUID, \n\tstatus VARCHAR(30) NOT NULL, \n\tpayment_method VARCHAR(20) NOT NULL, \n\tchannel VARCHAR(20) NOT NULL, \n\tcurrency VARCHAR(8) NOT NULL, \n\tunit_price BIGINT NOT NULL, \n\tdiscount BIGINT NOT NULL, \n\ttotal BIGINT NOT NULL, \n\treseller_cost BIGINT, \n\tcoupon_code VARCHAR(50), \n\tpricing_snapshot JSON NOT NULL, \n\tproduct_snapshot JSON NOT NULL, \n\tidempotency_key VARCHAR(100), \n\tprovisioning_attempts INTEGER NOT NULL, \n\tneeds_review BOOLEAN NOT NULL, \n\tlast_error TEXT, \n\tpaid_at TIMESTAMP WITH TIME ZONE, \n\tcompleted_at TIMESTAMP WITH TIME ZONE, \n\tid UUID NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_orders PRIMARY KEY (id), \n\tCONSTRAINT uq_orders_user_id_store_id_idempotency_key UNIQUE (user_id, store_id, idempotency_key), \n\tCONSTRAINT uq_orders_number UNIQUE (number), \n\tCONSTRAINT fk_orders_user_id_users FOREIGN KEY(user_id) REFERENCES users (id), \n\tCONSTRAINT fk_orders_store_id_stores FOREIGN KEY(store_id) REFERENCES stores (id), \n\tCONSTRAINT fk_orders_product_id_products FOREIGN KEY(product_id) REFERENCES products (id)\n)",
+    "CREATE TABLE referral_relationships (\n\tstore_id UUID NOT NULL, \n\treferrer_user_id UUID NOT NULL, \n\treferred_user_id UUID NOT NULL, \n\tid UUID NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_referral_relationships PRIMARY KEY (id), \n\tCONSTRAINT uq_referral_relationships_referred_user_id UNIQUE (referred_user_id), \n\tCONSTRAINT fk_referral_relationships_store_id_stores FOREIGN KEY(store_id) REFERENCES stores (id), \n\tCONSTRAINT fk_referral_relationships_referrer_user_id_users FOREIGN KEY(referrer_user_id) REFERENCES users (id), \n\tCONSTRAINT fk_referral_relationships_referred_user_id_users FOREIGN KEY(referred_user_id) REFERENCES users (id)\n)",
+    "CREATE TABLE reseller_applications (\n\tuser_id UUID NOT NULL, \n\tstore_name VARCHAR(200) NOT NULL, \n\tmessage TEXT, \n\tstatus VARCHAR(20) NOT NULL, \n\treviewed_by UUID, \n\treviewed_at TIMESTAMP WITH TIME ZONE, \n\ttarget_store_id UUID NOT NULL, \n\tstore_id UUID, \n\tid UUID NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_reseller_applications PRIMARY KEY (id), \n\tCONSTRAINT fk_reseller_applications_user_id_users FOREIGN KEY(user_id) REFERENCES users (id), \n\tCONSTRAINT fk_reseller_applications_reviewed_by_users FOREIGN KEY(reviewed_by) REFERENCES users (id), \n\tCONSTRAINT fk_reseller_applications_target_store_id_stores FOREIGN KEY(target_store_id) REFERENCES stores (id), \n\tCONSTRAINT fk_reseller_applications_store_id_stores FOREIGN KEY(store_id) REFERENCES stores (id)\n)",
+    "CREATE TABLE reseller_profiles (\n\tstore_id UUID NOT NULL, \n\tuser_id UUID NOT NULL, \n\tdebt_limit BIGINT NOT NULL, \n\tapi_enabled BOOLEAN NOT NULL, \n\tsales_enabled BOOLEAN NOT NULL, \n\tid UUID NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_reseller_profiles PRIMARY KEY (id), \n\tCONSTRAINT uq_reseller_profiles_store_id UNIQUE (store_id), \n\tCONSTRAINT fk_reseller_profiles_store_id_stores FOREIGN KEY(store_id) REFERENCES stores (id), \n\tCONSTRAINT fk_reseller_profiles_user_id_users FOREIGN KEY(user_id) REFERENCES users (id)\n)",
+    "CREATE TABLE store_memberships (\n\tstore_id UUID NOT NULL, \n\tuser_id UUID NOT NULL, \n\trole VARCHAR(20) NOT NULL, \n\tstatus VARCHAR(20) NOT NULL, \n\tnote VARCHAR(500), \n\tid UUID NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_store_memberships PRIMARY KEY (id), \n\tCONSTRAINT uq_store_memberships_store_id_user_id UNIQUE (store_id, user_id), \n\tCONSTRAINT fk_store_memberships_store_id_stores FOREIGN KEY(store_id) REFERENCES stores (id), \n\tCONSTRAINT fk_store_memberships_user_id_users FOREIGN KEY(user_id) REFERENCES users (id)\n)",
+    "CREATE TABLE store_payment_configurations (\n\tstore_id UUID NOT NULL, \n\tprovider VARCHAR(30) NOT NULL, \n\tis_enabled BOOLEAN NOT NULL, \n\tpublic_config JSON, \n\tsecret_enc TEXT, \n\tupdated_by UUID, \n\tid UUID NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_store_payment_configurations PRIMARY KEY (id), \n\tCONSTRAINT uq_store_payment_configurations_store_id_provider UNIQUE (store_id, provider), \n\tCONSTRAINT fk_store_payment_configurations_store_id_stores FOREIGN KEY(store_id) REFERENCES stores (id)\n)",
+    "CREATE TABLE store_products (\n\tstore_id UUID NOT NULL, \n\tproduct_id UUID NOT NULL, \n\tis_enabled BOOLEAN NOT NULL, \n\tcustomer_price BIGINT, \n\tis_listed BOOLEAN NOT NULL, \n\tid UUID NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_store_products PRIMARY KEY (id), \n\tCONSTRAINT uq_store_products_store_id_product_id UNIQUE (store_id, product_id), \n\tCONSTRAINT fk_store_products_store_id_stores FOREIGN KEY(store_id) REFERENCES stores (id), \n\tCONSTRAINT fk_store_products_product_id_products FOREIGN KEY(product_id) REFERENCES products (id)\n)",
+    "CREATE TABLE telegram_event_destinations (\n\tstore_id UUID, \n\tchat_id VARCHAR(50) NOT NULL, \n\ttopics JSON, \n\tis_enabled BOOLEAN NOT NULL, \n\tnote TEXT, \n\tid UUID NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_telegram_event_destinations PRIMARY KEY (id), \n\tCONSTRAINT uq_telegram_event_destinations_store_id UNIQUE (store_id), \n\tCONSTRAINT fk_telegram_event_destinations_store_id_stores FOREIGN KEY(store_id) REFERENCES stores (id)\n)",
+    "CREATE TABLE tickets (\n\tuser_id UUID NOT NULL, \n\tstore_id UUID NOT NULL, \n\tsubject VARCHAR(200) NOT NULL, \n\tstatus VARCHAR(20) NOT NULL, \n\tdepartment VARCHAR(50), \n\tid UUID NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_tickets PRIMARY KEY (id), \n\tCONSTRAINT fk_tickets_user_id_users FOREIGN KEY(user_id) REFERENCES users (id), \n\tCONSTRAINT fk_tickets_store_id_stores FOREIGN KEY(store_id) REFERENCES stores (id)\n)",
+    "CREATE TABLE wallets (\n\tuser_id UUID NOT NULL, \n\tstore_id UUID NOT NULL, \n\tkind VARCHAR(20) NOT NULL, \n\tcurrency VARCHAR(8) NOT NULL, \n\tbalance BIGINT NOT NULL, \n\tid UUID NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_wallets PRIMARY KEY (id), \n\tCONSTRAINT uq_wallets_user_id_store_id_kind_currency UNIQUE (user_id, store_id, kind, currency), \n\tCONSTRAINT fk_wallets_user_id_users FOREIGN KEY(user_id) REFERENCES users (id), \n\tCONSTRAINT fk_wallets_store_id_stores FOREIGN KEY(store_id) REFERENCES stores (id)\n)",
+    "CREATE TABLE webhook_endpoints (\n\tstore_id UUID NOT NULL, \n\turl VARCHAR(500) NOT NULL, \n\tdescription VARCHAR(200), \n\tevents JSON NOT NULL, \n\tsecret_enc TEXT NOT NULL, \n\tprevious_secret_enc TEXT, \n\tprevious_secret_expires_at TIMESTAMP WITH TIME ZONE, \n\tstatus VARCHAR(20) NOT NULL, \n\tconsecutive_failures INTEGER NOT NULL, \n\tcreated_by UUID, \n\tid UUID NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_webhook_endpoints PRIMARY KEY (id), \n\tCONSTRAINT fk_webhook_endpoints_store_id_stores FOREIGN KEY(store_id) REFERENCES stores (id)\n)",
+    "CREATE TABLE commissions (\n\tstore_id UUID NOT NULL, \n\torder_id UUID NOT NULL, \n\treferrer_user_id UUID NOT NULL, \n\tkind VARCHAR(20) NOT NULL, \n\tamount BIGINT NOT NULL, \n\tstatus VARCHAR(20) NOT NULL, \n\tledger_tx_id UUID, \n\treversed_amount BIGINT NOT NULL, \n\toffset_amount BIGINT NOT NULL, \n\tcurrency VARCHAR(8), \n\tid UUID NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_commissions PRIMARY KEY (id), \n\tCONSTRAINT uq_commissions_order_id_kind UNIQUE (order_id, kind), \n\tCONSTRAINT fk_commissions_store_id_stores FOREIGN KEY(store_id) REFERENCES stores (id), \n\tCONSTRAINT fk_commissions_order_id_orders FOREIGN KEY(order_id) REFERENCES orders (id), \n\tCONSTRAINT fk_commissions_referrer_user_id_users FOREIGN KEY(referrer_user_id) REFERENCES users (id)\n)",
+    "CREATE TABLE coupon_redemptions (\n\tcoupon_id UUID NOT NULL, \n\torder_id UUID NOT NULL, \n\tuser_id UUID NOT NULL, \n\tstore_id UUID NOT NULL, \n\tamount BIGINT NOT NULL, \n\tcurrency VARCHAR(8) NOT NULL, \n\tstatus VARCHAR(20) NOT NULL, \n\tid UUID NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_coupon_redemptions PRIMARY KEY (id), \n\tCONSTRAINT uq_coupon_redemptions_coupon_id_order_id UNIQUE (coupon_id, order_id), \n\tCONSTRAINT fk_coupon_redemptions_coupon_id_coupons FOREIGN KEY(coupon_id) REFERENCES coupons (id), \n\tCONSTRAINT fk_coupon_redemptions_order_id_orders FOREIGN KEY(order_id) REFERENCES orders (id), \n\tCONSTRAINT fk_coupon_redemptions_user_id_users FOREIGN KEY(user_id) REFERENCES users (id), \n\tCONSTRAINT fk_coupon_redemptions_store_id_stores FOREIGN KEY(store_id) REFERENCES stores (id)\n)",
+    "CREATE TABLE ledger_entries (\n\ttransaction_id UUID NOT NULL, \n\taccount VARCHAR(120) NOT NULL, \n\twallet_id UUID, \n\tamount BIGINT NOT NULL, \n\tbalance_after BIGINT, \n\tid UUID NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_ledger_entries PRIMARY KEY (id), \n\tCONSTRAINT fk_ledger_entries_transaction_id_ledger_transactions FOREIGN KEY(transaction_id) REFERENCES ledger_transactions (id), \n\tCONSTRAINT fk_ledger_entries_wallet_id_wallets FOREIGN KEY(wallet_id) REFERENCES wallets (id)\n)",
+    "CREATE TABLE order_state_transitions (\n\torder_id UUID NOT NULL, \n\tfrom_status VARCHAR(30) NOT NULL, \n\tto_status VARCHAR(30) NOT NULL, \n\treason VARCHAR(500), \n\tactor_id UUID, \n\tid UUID NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_order_state_transitions PRIMARY KEY (id), \n\tCONSTRAINT fk_order_state_transitions_order_id_orders FOREIGN KEY(order_id) REFERENCES orders (id)\n)",
+    "CREATE TABLE payments (\n\tuser_id UUID NOT NULL, \n\tstore_id UUID NOT NULL, \n\tpurpose VARCHAR(20) NOT NULL, \n\torder_id UUID, \n\tprovider VARCHAR(30) NOT NULL, \n\tamount BIGINT NOT NULL, \n\tcurrency VARCHAR(8) NOT NULL, \n\tstatus VARCHAR(20) NOT NULL, \n\texternal_ref VARCHAR(200), \n\treceipt_file_id UUID, \n\treviewed_by UUID, \n\treviewed_at TIMESTAMP WITH TIME ZONE, \n\tidempotency_key VARCHAR(100), \n\tmeta JSON, \n\tid UUID NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_payments PRIMARY KEY (id), \n\tCONSTRAINT uq_payments_provider_external_ref UNIQUE (provider, external_ref), \n\tCONSTRAINT uq_payments_user_id_store_id_idempotency_key UNIQUE (user_id, store_id, idempotency_key), \n\tCONSTRAINT fk_payments_user_id_users FOREIGN KEY(user_id) REFERENCES users (id), \n\tCONSTRAINT fk_payments_store_id_stores FOREIGN KEY(store_id) REFERENCES stores (id), \n\tCONSTRAINT fk_payments_order_id_orders FOREIGN KEY(order_id) REFERENCES orders (id), \n\tCONSTRAINT fk_payments_receipt_file_id_file_objects FOREIGN KEY(receipt_file_id) REFERENCES file_objects (id)\n)",
+    "CREATE TABLE test_account_grants (\n\tuser_id UUID NOT NULL, \n\tstore_id UUID NOT NULL, \n\torder_id UUID NOT NULL, \n\tidentity_keys JSON, \n\tid UUID NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_test_account_grants PRIMARY KEY (id), \n\tCONSTRAINT fk_test_account_grants_user_id_users FOREIGN KEY(user_id) REFERENCES users (id), \n\tCONSTRAINT fk_test_account_grants_store_id_stores FOREIGN KEY(store_id) REFERENCES stores (id), \n\tCONSTRAINT fk_test_account_grants_order_id_orders FOREIGN KEY(order_id) REFERENCES orders (id)\n)",
+    "CREATE TABLE ticket_messages (\n\tticket_id UUID NOT NULL, \n\tauthor_id UUID NOT NULL, \n\tis_staff BOOLEAN NOT NULL, \n\tbody TEXT NOT NULL, \n\tattachment_id UUID, \n\tid UUID NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_ticket_messages PRIMARY KEY (id), \n\tCONSTRAINT fk_ticket_messages_ticket_id_tickets FOREIGN KEY(ticket_id) REFERENCES tickets (id), \n\tCONSTRAINT fk_ticket_messages_author_id_users FOREIGN KEY(author_id) REFERENCES users (id), \n\tCONSTRAINT fk_ticket_messages_attachment_id_file_objects FOREIGN KEY(attachment_id) REFERENCES file_objects (id)\n)",
+    "CREATE TABLE vpn_accounts (\n\tusername VARCHAR(64) NOT NULL, \n\tuser_id UUID NOT NULL, \n\tstore_id UUID NOT NULL, \n\torder_id UUID NOT NULL, \n\tproduct_id UUID NOT NULL, \n\tserver_id UUID, \n\tpanel_id UUID, \n\tpanel_ref VARCHAR(200), \n\tstatus VARCHAR(20) NOT NULL, \n\tis_test BOOLEAN NOT NULL, \n\texpires_at TIMESTAMP WITH TIME ZONE, \n\ttraffic_limit_bytes BIGINT NOT NULL, \n\ttraffic_used_bytes BIGINT NOT NULL, \n\tsubscription_url TEXT, \n\tlinks JSON, \n\tnear_expiry_notified BOOLEAN NOT NULL, \n\tarchived_at TIMESTAMP WITH TIME ZONE, \n\tid UUID NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_vpn_accounts PRIMARY KEY (id), \n\tCONSTRAINT uq_vpn_accounts_username UNIQUE (username), \n\tCONSTRAINT fk_vpn_accounts_user_id_users FOREIGN KEY(user_id) REFERENCES users (id), \n\tCONSTRAINT fk_vpn_accounts_store_id_stores FOREIGN KEY(store_id) REFERENCES stores (id), \n\tCONSTRAINT fk_vpn_accounts_order_id_orders FOREIGN KEY(order_id) REFERENCES orders (id), \n\tCONSTRAINT fk_vpn_accounts_product_id_products FOREIGN KEY(product_id) REFERENCES products (id), \n\tCONSTRAINT fk_vpn_accounts_server_id_servers FOREIGN KEY(server_id) REFERENCES servers (id), \n\tCONSTRAINT fk_vpn_accounts_panel_id_panels FOREIGN KEY(panel_id) REFERENCES panels (id)\n)",
+    "CREATE TABLE webhook_deliveries (\n\tendpoint_id UUID NOT NULL, \n\tstore_id UUID NOT NULL, \n\tevent_id VARCHAR(64) NOT NULL, \n\tevent_type VARCHAR(60) NOT NULL, \n\tpayload JSON NOT NULL, \n\tstatus VARCHAR(20) NOT NULL, \n\tattempts INTEGER NOT NULL, \n\tnext_attempt_at TIMESTAMP WITH TIME ZONE NOT NULL, \n\tlast_status_code INTEGER, \n\tlast_error TEXT, \n\tlast_response_ms INTEGER, \n\tdelivered_at TIMESTAMP WITH TIME ZONE, \n\tid UUID NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_webhook_deliveries PRIMARY KEY (id), \n\tCONSTRAINT uq_webhook_deliveries_endpoint_id_event_id UNIQUE (endpoint_id, event_id), \n\tCONSTRAINT fk_webhook_deliveries_endpoint_id_webhook_endpoints FOREIGN KEY(endpoint_id) REFERENCES webhook_endpoints (id)\n)",
+    "CREATE TABLE payment_attempts (\n\tpayment_id UUID NOT NULL, \n\taction VARCHAR(30) NOT NULL, \n\tresult VARCHAR(30) NOT NULL, \n\tdata JSON, \n\tid UUID NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_payment_attempts PRIMARY KEY (id), \n\tCONSTRAINT fk_payment_attempts_payment_id_payments FOREIGN KEY(payment_id) REFERENCES payments (id)\n)",
+    "CREATE TABLE provisioning_attempts (\n\torder_id UUID NOT NULL, \n\tvpn_account_id UUID, \n\tattempt_no INTEGER NOT NULL, \n\taction VARCHAR(20) NOT NULL, \n\tstatus VARCHAR(20) NOT NULL, \n\terror_kind VARCHAR(20), \n\terror TEXT, \n\tfinished_at TIMESTAMP WITH TIME ZONE, \n\tid UUID NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_provisioning_attempts PRIMARY KEY (id), \n\tCONSTRAINT uq_provisioning_attempts_order_id_attempt_no UNIQUE (order_id, attempt_no), \n\tCONSTRAINT fk_provisioning_attempts_order_id_orders FOREIGN KEY(order_id) REFERENCES orders (id), \n\tCONSTRAINT fk_provisioning_attempts_vpn_account_id_vpn_accounts FOREIGN KEY(vpn_account_id) REFERENCES vpn_accounts (id)\n)",
+    "CREATE TABLE reconciliation_issues (\n\tvpn_account_id UUID NOT NULL, \n\tkind VARCHAR(40) NOT NULL, \n\tdetails JSON, \n\tstatus VARCHAR(20) NOT NULL, \n\tid UUID NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tCONSTRAINT pk_reconciliation_issues PRIMARY KEY (id), \n\tCONSTRAINT fk_reconciliation_issues_vpn_account_id_vpn_accounts FOREIGN KEY(vpn_account_id) REFERENCES vpn_accounts (id)\n)",
+    "CREATE INDEX ix_audit_events_store_id ON audit_events (store_id)",
+    "CREATE INDEX ix_audit_events_entity_id ON audit_events (entity_id)",
+    "CREATE INDEX ix_audit_events_actor_id ON audit_events (actor_id)",
+    "CREATE INDEX ix_audit_events_action ON audit_events (action)",
+    "CREATE INDEX ix_outbox_events_status ON outbox_events (status)",
+    "CREATE INDEX ix_outbox_events_topic ON outbox_events (topic)",
+    "CREATE INDEX ix_outbox_events_available_at ON outbox_events (available_at)",
+    "CREATE INDEX ix_products_category ON products (category)",
+    "CREATE INDEX ix_security_events_kind ON security_events (kind)",
+    "CREATE INDEX ix_identities_user_id ON identities (user_id)",
+    "CREATE INDEX ix_identity_link_reviews_email ON identity_link_reviews (email)",
+    "CREATE INDEX ix_identity_link_reviews_status ON identity_link_reviews (status)",
+    "CREATE INDEX ix_refresh_tokens_user_id ON refresh_tokens (user_id)",
+    "CREATE INDEX ix_refresh_tokens_family_id ON refresh_tokens (family_id)",
+    "CREATE INDEX ix_servers_panel_id ON servers (panel_id)",
+    "CREATE INDEX ix_stores_owner_user_id ON stores (owner_user_id)",
+    "CREATE INDEX ix_stores_parent_store_id ON stores (parent_store_id)",
+    "CREATE INDEX ix_stores_kind ON stores (kind)",
+    "CREATE INDEX ix_terms_acceptances_user_id ON terms_acceptances (user_id)",
+    "CREATE INDEX ix_verification_codes_code_hash ON verification_codes (code_hash)",
+    "CREATE INDEX ix_verification_codes_target ON verification_codes (target)",
+    "CREATE INDEX ix_verification_codes_purpose ON verification_codes (purpose)",
+    "CREATE INDEX ix_api_credentials_store_id ON api_credentials (store_id)",
+    "CREATE INDEX ix_api_credentials_key_prefix ON api_credentials (key_prefix)",
+    "CREATE INDEX ix_commission_clawbacks_referrer_user_id ON commission_clawbacks (referrer_user_id)",
+    "CREATE INDEX ix_commission_rules_store_id ON commission_rules (store_id)",
+    "CREATE INDEX ix_coupons_code ON coupons (code)",
+    "CREATE INDEX ix_coupons_store_id ON coupons (store_id)",
+    "CREATE INDEX ix_file_objects_owner_user_id ON file_objects (owner_user_id)",
+    "CREATE INDEX ix_ledger_transactions_kind ON ledger_transactions (kind)",
+    "CREATE INDEX ix_ledger_transactions_order_id ON ledger_transactions (order_id)",
+    "CREATE INDEX ix_ledger_transactions_payment_id ON ledger_transactions (payment_id)",
+    "CREATE INDEX ix_ledger_transactions_store_id ON ledger_transactions (store_id)",
+    "CREATE INDEX ix_notifications_user_id ON notifications (user_id)",
+    "CREATE INDEX ix_orders_store_id ON orders (store_id)",
+    "CREATE INDEX ix_orders_product_id ON orders (product_id)",
+    "CREATE INDEX ix_orders_user_id ON orders (user_id)",
+    "CREATE INDEX ix_orders_status ON orders (status)",
+    "CREATE INDEX ix_referral_relationships_store_id ON referral_relationships (store_id)",
+    "CREATE INDEX ix_referral_relationships_referrer_user_id ON referral_relationships (referrer_user_id)",
+    "CREATE UNIQUE INDEX uq_reseller_application_pending_user_store ON reseller_applications (user_id, target_store_id) WHERE status = 'pending'",
+    "CREATE INDEX ix_reseller_applications_target_store_id ON reseller_applications (target_store_id)",
+    "CREATE INDEX ix_reseller_applications_user_id ON reseller_applications (user_id)",
+    "CREATE INDEX ix_reseller_profiles_user_id ON reseller_profiles (user_id)",
+    "CREATE INDEX ix_store_memberships_store_id ON store_memberships (store_id)",
+    "CREATE INDEX ix_store_memberships_user_id ON store_memberships (user_id)",
+    "CREATE INDEX ix_store_payment_configurations_store_id ON store_payment_configurations (store_id)",
+    "CREATE INDEX ix_store_products_product_id ON store_products (product_id)",
+    "CREATE INDEX ix_store_products_store_id ON store_products (store_id)",
+    "CREATE INDEX ix_tickets_user_id ON tickets (user_id)",
+    "CREATE INDEX ix_tickets_store_id ON tickets (store_id)",
+    "CREATE INDEX ix_tickets_status ON tickets (status)",
+    "CREATE INDEX ix_wallets_store_id ON wallets (store_id)",
+    "CREATE INDEX ix_wallets_user_id ON wallets (user_id)",
+    "CREATE INDEX ix_webhook_endpoints_store_id ON webhook_endpoints (store_id)",
+    "CREATE INDEX ix_commissions_referrer_user_id ON commissions (referrer_user_id)",
+    "CREATE INDEX ix_commissions_store_id ON commissions (store_id)",
+    "CREATE INDEX ix_coupon_redemptions_coupon_id ON coupon_redemptions (coupon_id)",
+    "CREATE INDEX ix_coupon_redemptions_user_id ON coupon_redemptions (user_id)",
+    "CREATE INDEX ix_coupon_redemptions_store_id ON coupon_redemptions (store_id)",
+    "CREATE INDEX ix_coupon_redemptions_order_id ON coupon_redemptions (order_id)",
+    "CREATE INDEX ix_ledger_entries_wallet_id ON ledger_entries (wallet_id)",
+    "CREATE INDEX ix_ledger_entries_transaction_id ON ledger_entries (transaction_id)",
+    "CREATE INDEX ix_ledger_entries_account ON ledger_entries (account)",
+    "CREATE INDEX ix_order_state_transitions_order_id ON order_state_transitions (order_id)",
+    "CREATE INDEX ix_payments_store_id ON payments (store_id)",
+    "CREATE INDEX ix_payments_user_id ON payments (user_id)",
+    "CREATE INDEX ix_payments_order_id ON payments (order_id)",
+    "CREATE INDEX ix_payments_status ON payments (status)",
+    "CREATE INDEX ix_test_account_grants_user_id ON test_account_grants (user_id)",
+    "CREATE INDEX ix_ticket_messages_ticket_id ON ticket_messages (ticket_id)",
+    "CREATE INDEX ix_vpn_accounts_store_id ON vpn_accounts (store_id)",
+    "CREATE INDEX ix_vpn_accounts_order_id ON vpn_accounts (order_id)",
+    "CREATE INDEX ix_vpn_accounts_server_id ON vpn_accounts (server_id)",
+    "CREATE INDEX ix_vpn_accounts_user_id ON vpn_accounts (user_id)",
+    "CREATE INDEX ix_vpn_accounts_status ON vpn_accounts (status)",
+    "CREATE INDEX ix_vpn_accounts_expires_at ON vpn_accounts (expires_at)",
+    "CREATE INDEX ix_webhook_deliveries_next_attempt_at ON webhook_deliveries (next_attempt_at)",
+    "CREATE INDEX ix_webhook_deliveries_event_type ON webhook_deliveries (event_type)",
+    "CREATE INDEX ix_webhook_deliveries_store_id ON webhook_deliveries (store_id)",
+    "CREATE INDEX ix_webhook_deliveries_status ON webhook_deliveries (status)",
+    "CREATE INDEX ix_webhook_deliveries_endpoint_id ON webhook_deliveries (endpoint_id)",
+    "CREATE INDEX ix_payment_attempts_payment_id ON payment_attempts (payment_id)",
+    "CREATE INDEX ix_provisioning_attempts_order_id ON provisioning_attempts (order_id)",
+    "CREATE INDEX ix_reconciliation_issues_vpn_account_id ON reconciliation_issues (vpn_account_id)"
+]
 
 
 def upgrade() -> None:
-    if _model_source_fingerprint() != MODEL_SOURCE_FINGERPRINT:
-        raise RuntimeError(
-            "0001_initial is frozen; model sources changed. Add an explicit Alembic revision "
-            "or intentionally regenerate the baseline fingerprint."
-        )
-    baseline_tables = [
-        table for table in Base.metadata.sorted_tables
-        if table.name not in _LATER_MIGRATION_TABLES
-    ]
-    for table in baseline_tables:
-        op.execute(CreateTable(table))
-    for table in baseline_tables:
-        for index in table.indexes:
-            op.execute(CreateIndex(index))
+    conn = op.get_bind()
+    for statement in BASELINE_DDL:
+        conn.exec_driver_sql(statement)
 
 
 def downgrade() -> None:
-    # Deliberately non-destructive. The original bootstrap migration used
-    # A destructive downgrade could destroy an entire database, so it is blocked.
+    # Deliberately non-destructive. A destructive downgrade could destroy an entire database, so it is blocked.
     raise RuntimeError("0001_initial downgrade is intentionally blocked; restore a backup or use an explicit rollback migration")

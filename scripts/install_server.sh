@@ -2,7 +2,7 @@
 # Melorin server installer (Ubuntu/Debian). Run as root on the target server:
 #   DOMAIN=shop.example.com ADMIN_DOMAIN=admin.example.com ADMIN_EMAIL=you@example.com \
 #   bash scripts/install_server.sh
-# Optional: MAIN_BOT_TOKEN (otherwise you are asked for it), REPO_URL, APP_DIR,
+# Optional: MAIN_BOT_TOKEN (otherwise you are asked for it), REPO_URL, REPO_REF, APP_DIR,
 # EXTERNAL_PROXY=true when ports 80/443 are already owned by a host proxy.
 # Idempotent: an existing .env is never overwritten. New environments are
 # assembled in .env.tmp and atomically renamed only after validation succeeds.
@@ -11,6 +11,8 @@
 set -euo pipefail
 
 REPO_URL="${REPO_URL:-https://github.com/archerhabibi/melorin-py.git}"
+# Pin production installs to a reviewed commit; override only during a deliberate release.
+REPO_REF="${REPO_REF:-17f8a35}"
 APP_DIR="${APP_DIR:-/opt/melorin}"
 DOMAIN="${DOMAIN:?set DOMAIN, e.g. shop.example.com}"
 ADMIN_DOMAIN="${ADMIN_DOMAIN:?set ADMIN_DOMAIN, e.g. admin.example.com}"
@@ -45,7 +47,9 @@ if [ ! -d "$APP_DIR/.git" ]; then
   git clone "$REPO_URL" "$APP_DIR"
 fi
 cd "$APP_DIR"
-git pull --ff-only
+# Never deploy an unreviewed moving branch. Fetch and check out the pinned release.
+git fetch --quiet --tags origin main
+git checkout --quiet --detach "$REPO_REF"
 
 rand() { openssl rand -hex 32; }
 fernet() { head -c 32 /dev/urandom | base64 | tr '+/' '-_'; }
@@ -108,6 +112,7 @@ if [ ! -f .env ]; then
   else
     echo ">> no bot token set: the main bot will not start until MELORIN_TELEGRAM_TOKEN is added to .env."
   fi
+  unset BOT
   mv -f "$ENV_FILE" .env
   unset ENV_FILE
   chmod 600 .env
@@ -145,12 +150,18 @@ fi
 
 compose build
 compose run --rm api alembic upgrade head
+# Capture the one-time password before bootstrap, then remove it from disk.
+BOOTSTRAP_PASSWORD="$(sed -n 's/^MELORIN_BOOTSTRAP_ADMIN_PASSWORD=//p' .env)"
 compose up -d
 # Migrations do not create the first operator account. Bootstrap is explicit,
 # idempotent, and runs only after the database and application image exist.
 compose run --rm api python -m melorin.cli bootstrap
 # The one-time bootstrap TOTP is persisted encrypted in the database; do not
 # leave the raw seed in the long-lived environment file.
+if grep -q '^MELORIN_BOOTSTRAP_ADMIN_PASSWORD=' .env; then
+  sed -i '/^MELORIN_BOOTSTRAP_ADMIN_PASSWORD=/d' .env
+  chmod 600 .env
+fi
 if grep -q '^MELORIN_BOOTSTRAP_ADMIN_TOTP_SECRET=' .env; then
   BOOTSTRAP_TOTP="$(sed -n 's/^MELORIN_BOOTSTRAP_ADMIN_TOTP_SECRET=//p' .env)"
   sed -i '/^MELORIN_BOOTSTRAP_ADMIN_TOTP_SECRET=/d' .env
@@ -162,7 +173,9 @@ echo
 echo "Done."
 echo "  Store : https://${DOMAIN}"
 echo "  Admin : https://${ADMIN_DOMAIN}   (login: ${ADMIN_EMAIL})"
-echo "  Admin password: ${APP_DIR}/.env -> MELORIN_BOOTSTRAP_ADMIN_PASSWORD (change it after first login)"
+if [ -n "${BOOTSTRAP_PASSWORD:-}" ]; then
+  echo "  Admin password (save now, then it is removed from .env): ${BOOTSTRAP_PASSWORD}"
+fi
 if [ -n "${BOOTSTRAP_TOTP:-}" ]; then
   echo "  Admin TOTP secret (save once in an authenticator): ${BOOTSTRAP_TOTP}"
 fi

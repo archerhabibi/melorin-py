@@ -10,16 +10,18 @@ Production-oriented modular monolith for a multi-store VPN platform. The impleme
 pointing at the server, and **ports 80 and 443 free** (Caddy obtains the TLS certificates automatically).
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/archerhabibi/melorin-py/main/scripts/install_server.sh -o install.sh
-DOMAIN=shop.example.com ADMIN_DOMAIN=admin.example.com ADMIN_EMAIL=you@example.com bash install.sh
+curl -fsSL https://raw.githubusercontent.com/archerhabibi/melorin-py/17f8a35/scripts/install_server.sh -o install.sh
+# Verify the downloaded script against the release checksum before running it.
+sha256sum install.sh
+DOMAIN=shop.example.com ADMIN_DOMAIN=admin.example.com ADMIN_EMAIL=you@example.com REPO_REF=17f8a35 bash install.sh
 ```
 
 If the repository is private, copy `scripts/install_server.sh` to the server and set `REPO_URL` to a read-only
-deploy-key URL. The installer will:
+deploy-key URL. Always set `REPO_REF` to a reviewed commit or release tag, never a moving branch. The installer will:
 
 - install Docker and clone the project to `/opt/melorin`;
 - ask for the **main Telegram bot token** (from @BotFather) - the only bot configured at install time
-  (or pass `MAIN_BOT_TOKEN=...`); reseller bots stay disabled until you enable the compose profile `reseller`;
+  (or pass `MAIN_BOT_TOKEN=...`); prefer the interactive prompt so the token is not exposed in shell history or process listings. Reseller bots stay disabled until you enable the compose profile `reseller`;
 - generate every secret (database, JWT, encryption key, service and metrics tokens, admin password) into `.env`;
 - create the key pair for encrypted local backups;
 - run database migrations, start all services, and install the automatic change recorder (cron, see below).
@@ -28,8 +30,7 @@ It is safe to run again: an existing `.env` and backup key are never overwritten
 
 After it finishes:
 
-1. Open `https://admin.example.com` and log in with the admin e-mail. The generated password is in
-   `/opt/melorin/.env` as `MELORIN_BOOTSTRAP_ADMIN_PASSWORD`; change it at first login.
+1. Open `https://admin.example.com` and log in with the admin e-mail. The installer prints the one-time password and removes it from `.env` immediately after bootstrap; save it securely and change it at first login.
 2. **Copy `/opt/melorin/secrets/backup/age-identity.txt` to a safe place off the server.** It is the only key that
    can decrypt the backups; without it they cannot be restored.
 3. Configure panels, payments and other providers as described in `docs/`.
@@ -38,7 +39,7 @@ After it finishes:
 
 If another service already owns ports 80/443, install with `EXTERNAL_PROXY=true`. The installer then binds only loopback ports: store `127.0.0.1:18080`, admin `127.0.0.1:18081`, and API `127.0.0.1:18000`. Route `/api/*` and `/health/*` to the API, and route each hostname to its matching web port.
 
-The installer validates inputs before publishing `.env`; a failed run leaves no partial new environment file. It creates the encrypted local-backup key, runs `alembic upgrade head`, starts the stack, and runs the idempotent admin bootstrap. Save the printed one-time TOTP seed in an authenticator, then remove the bootstrap password from `.env` after first login.
+The installer validates inputs before publishing `.env`; a failed run leaves no partial new environment file. It creates the encrypted local-backup key, runs `alembic upgrade head`, starts the stack, and runs the idempotent admin bootstrap. Save the printed one-time TOTP seed in an authenticator. The installer removes both bootstrap credentials from `.env` after bootstrap.
 
 ## Optional: SMTP and S3 backup
 
