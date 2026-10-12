@@ -22,7 +22,7 @@ deploy-key URL. The installer will:
   (or pass `MAIN_BOT_TOKEN=...`); reseller bots stay disabled until you enable the compose profile `reseller`;
 - generate every secret (database, JWT, encryption key, service and metrics tokens, admin password) into `.env`;
 - create the key pair for encrypted local backups;
-- run database migrations and start all services.
+- run database migrations, start all services, and install the automatic change recorder (cron, see below).
 
 It is safe to run again: an existing `.env` and backup key are never overwritten.
 
@@ -43,6 +43,20 @@ enabled in the Admin panel the encrypted file is also copied there.
 
 ### Updating
 
+Preferred: automatic deployment. Every push to `main` runs `.github/workflows/deploy.yml`, which connects to the
+server over SSH and runs `git pull`, `docker compose build`, migrations and `docker compose up -d`, then writes the
+result to the server's operations log. Set it up once:
+
+1. On the server create a user that owns `/opt/melorin` and is in the `docker` group (`adduser --disabled-password deploy`,
+   `usermod -aG docker deploy`, `chown -R deploy:deploy /opt/melorin`).
+2. Create a dedicated SSH key pair, add the public key to that user's `authorized_keys`, and get the host key with
+   `ssh-keyscan -t ed25519 -p 22 SERVER_IP`.
+3. In GitHub (Settings -> Secrets and variables -> Actions) create the secrets `DEPLOY_HOST`, `DEPLOY_USER`,
+   `DEPLOY_PORT`, `DEPLOY_SSH_KEY` (private key) and `DEPLOY_KNOWN_HOSTS`. Keep the private key only there.
+4. Run the workflow once from the Actions tab (*Deploy -> Run workflow*) and check it is green.
+
+Manual alternative:
+
 ```bash
 cd /opt/melorin && git pull --ff-only && docker compose build && docker compose run --rm api alembic upgrade head && docker compose up -d
 ```
@@ -53,25 +67,21 @@ cd /opt/melorin && git pull --ff-only && docker compose build && docker compose 
 docker compose ps                         # service state
 docker compose logs --tail=200 api worker telegram_main
 curl https://shop.example.com/health/live
+scripts/ops_log.sh                        # add a note (before / problem / action / after) to the server log
 ```
 
 ## Change log is mandatory
 
-**Every change - code, configuration or server action - must be recorded in [docs/CHANGE_LOG.md](docs/CHANGE_LOG.md).**
-Nobody has to remember to do it: on every push to `main` the `Changelog` GitHub workflow writes an entry for each
-commit that has none. But you are still expected to give the reason. Put these single-line trailers in your commit
-message (`make setup-git` installs a template) and they become the entry:
+**Every change - code, configuration or server action - must be recorded.** Nobody has to remember to do it,
+because it is recorded automatically, but you are still expected to give the reason:
 
-```
-Problem: what was wrong / the error
-Action:  what was changed to fix it
-After:   how it was verified
-Before:  how it behaved before        (optional)
-Area:    api | bot | infra | ...      (optional)
-```
+| Where | Recorded automatically by | You add the reason with |
+|---|---|---|
+| `docs/CHANGE_LOG.md` (code in git) | the `Changelog` GitHub workflow on every push to `main` | commit-message trailers `Problem:` `Action:` `After:` (`Before:`, `Area:`; `make setup-git` installs a template), or edit the entry |
+| `var/ops-log.md` on the server | `scripts/ops_watch.sh` (cron, every 5 min: new deployed commit, `.env` key changes - names only, hand-edited files, container restarts/crashes) and the deploy workflow | `scripts/ops_log.sh` |
 
-Each entry records **before**, **problem/error**, **action taken**, **after (verified result)** and who/when.
-Auto-generated entries never invent facts - missing fields say "not provided". Never put secrets in the log.
+Each entry records **before**, **problem/error**, **action taken to fix it**, **after (verified result)** and who/when.
+Auto-generated entries never invent facts - missing fields say "not provided". Never put secrets in a log.
 Details: [CONTRIBUTING.md](CONTRIBUTING.md). This applies equally to people, contractors and AI assistants.
 
 ## Quick start (local development)
@@ -101,8 +111,8 @@ The initial bootstrap migration is included; review and replace its metadata boo
 - `apps/api/melorin`: FastAPI Core, pure domain, modules, adapters, worker.
 - `docs`: architecture source, ADR/open decisions, operations runbook.
 - `infra`: reverse proxy and deployment files.
-- `scripts`: server installer, backup/restore scripts, change-log automation, smoke tests.
-- `.github/workflows`: `ci.yml` (lint, compile, tests, migration and build quality gates) and `changelog.yml` (automatic change log).
+- `scripts`: server installer, backup/restore scripts, change-log and server-log automation, smoke tests.
+- `.github/workflows`: `ci.yml` (lint, compile, tests, migration and build quality gates), `changelog.yml` (automatic change log) and `deploy.yml` (SSH deploy).
 - `docs/CHANGE_LOG.md`: **change log - every change must be recorded** (see below).
 
 ## Scope delivered

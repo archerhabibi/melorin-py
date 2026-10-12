@@ -5,7 +5,7 @@ These rules apply to everyone who changes this project: maintainers, contractors
 
 ## 1. The change log is mandatory
 
-Every change must end up in `docs/CHANGE_LOG.md` with **before, problem, action and after**.
+Every change must be recorded - code in `docs/CHANGE_LOG.md`, server actions in `var/ops-log.md` - with **before, problem, action and after**.
 
 You do not have to remember to do it: the `Changelog` workflow adds an entry for every commit pushed to `main`
 that does not already contain one. Entries made this way say "not provided by the author" for facts they cannot
@@ -24,8 +24,10 @@ After: tests/test_wallet.py passes; ledger reconciles
 `make setup-git` installs a commit template with these fields. Alternatively, write the entry yourself in
 `docs/CHANGE_LOG.md` in the same commit; the bot then skips that commit.
 
-Work done directly on the server (it does not appear in git) must be recorded the same way: add an entry to
-`docs/CHANGE_LOG.md` and commit it.
+**Anything done on the server -> `var/ops-log.md`.** `scripts/ops_watch.sh` (cron, every 5 minutes) records changed
+commits, `.env` key changes (names only), hand-edited files and container restarts automatically, and the deploy
+workflow records every deploy. It cannot know the reason, so run `scripts/ops_log.sh` and describe what was wrong,
+what you did to fix it and the result.
 
 Never put secrets (tokens, passwords, keys, `.env` values) in the change log, commit messages or issues.
 

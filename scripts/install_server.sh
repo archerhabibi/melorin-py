@@ -114,6 +114,7 @@ fi
 docker compose build
 docker compose run --rm api alembic upgrade head
 docker compose up -d
+bash scripts/install_ops_watch.sh "$APP_DIR" || echo ">> could not install the automatic change recorder (see scripts/install_ops_watch.sh)" >&2
 
 echo
 echo "Done."
@@ -123,6 +124,7 @@ echo "  Admin password: ${APP_DIR}/.env -> MELORIN_BOOTSTRAP_ADMIN_PASSWORD (cha
 echo "  DNS   : both domains must point to this server (certificates are issued automatically on first visit)."
 echo "  SMTP / S3: not required. Enable them later in Admin -> Settings -> Integrations."
 echo "  Backups: encrypted, daily 02:00 UTC, stored locally in the api_storage volume (/app/var/backups)."
+echo "  Server log: changes made on this server are recorded automatically in ${APP_DIR}/var/ops-log.md (add reasons with scripts/ops_log.sh)."
 echo "  Reseller bots are disabled by default (compose profile 'reseller')."
 if [ "${NEW_BACKUP_KEY:-0}" = 1 ]; then
   echo "  !! Copy ${APP_DIR}/secrets/backup/age-identity.txt to a safe place OFF this server."

@@ -5,8 +5,12 @@ newest first. Git history keeps the exact diff; this file keeps the *why*.
 
 ## It fills itself - nobody has to remember
 
-`.github/workflows/changelog.yml` runs `scripts/changelog_auto.py` on **every push to `main`** and commits an entry
-for each commit that does not already have one, so the log is complete even for people who do not know it exists.
+| Layer | What records the change | Who it covers |
+|---|---|---|
+| Code (this file) | `.github/workflows/changelog.yml` runs `scripts/changelog_auto.py` on **every push to `main`** and commits an entry for each commit that has none | anyone who pushes, aware of this log or not |
+| Server (`var/ops-log.md`) | `scripts/ops_watch.sh` (cron, every 5 min) records new deployed commit, `.env` key changes (names only), hand-edited files, container restarts/crashes | anyone who touches the server |
+| Server, deploys | `deploy.yml` writes success/failure with the commit | automatic deploys |
+| Server, manual notes | `scripts/ops_log.sh` | people who want to add the *reason* |
 
 Auto entries are honest: fields the author did not supply say "_not provided by the author_".
 To make an entry complete without editing this file, put single-line trailers in the commit message
@@ -14,7 +18,6 @@ To make an entry complete without editing this file, put single-line trailers in
 A commit that edits this file itself is considered already documented and is skipped.
 Commits containing `[skip changelog]` and the bot's own commits are skipped.
 If `main` is protected, allow `github-actions[bot]` to bypass so the bot can push the log.
-Changes made directly on the server are not visible to git: record them yourself (commit a note here).
 
 ## Entry template
 
@@ -32,6 +35,16 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 ---
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
+
+### 2026-10-12 - Claude (with owner) - server-side log and SSH deploy restored
+- **Before:** after the reset to 27b7ee5 there was no server operations log and no automatic deployment.
+- **Problem:** changes made directly on the server were invisible to git, and updating the server was manual.
+- **Action:** restored `scripts/ops_watch.sh`, `scripts/ops_log.sh`, `scripts/install_ops_watch.sh` (cron, called by
+  the installer) and `.github/workflows/deploy.yml`; README, README.fa.md, CONTRIBUTING.md updated.
+- **After:** scripts syntax-checked and the watcher was tested earlier on a scratch copy (baseline, new commit,
+  hand edit, `.env` change, no secret values written). Deploy workflow needs the DEPLOY_* secrets before its first
+  run; cron and workflow NOT yet run on the real server.
+- **Ref:** this commit
 
 ### 2026-10-11 - Claude (with owner) - reset to 27b7ee5 and re-applied the agreed changes
 - **Before:** `main` carried extra commits (custom ports, TLS-from-files, SMTP/backup installer, server-side logging).

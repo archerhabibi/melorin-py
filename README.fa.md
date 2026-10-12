@@ -12,7 +12,7 @@ DOMAIN=shop.example.com ADMIN_DOMAIN=admin.example.com ADMIN_EMAIL=you@example.c
 ```
 
 نصاب Docker را نصب می‌کند، پروژه را در `/opt/melorin` قرار می‌دهد، **توکن بات اصلی تلگرام** را می‌پرسد (یا `MAIN_BOT_TOKEN=...`)،
-همهٔ secretها را خودکار می‌سازد، کلید پشتیبان‌گیری رمزنگاری‌شده را می‌سازد، migration می‌زند و سرویس‌ها را بالا می‌آورد. اجرای دوباره‌اش بی‌خطر است.
+همهٔ secretها را خودکار می‌سازد، کلید پشتیبان‌گیری رمزنگاری‌شده را می‌سازد، migration می‌زند، سرویس‌ها را بالا می‌آورد و ثبت‌کنندهٔ خودکار تغییرات سرور (cron) را نصب می‌کند. اجرای دوباره‌اش بی‌خطر است.
 بات‌های ریسلر پیش‌فرض خاموش‌اند (`COMPOSE_PROFILES=reseller`). اگر ریپو private است، اسکریپت را دستی به سرور ببرید و `REPO_URL` را با deploy key فقط‌خواندنی بدهید.
 
 بعد از نصب:
@@ -21,12 +21,21 @@ DOMAIN=shop.example.com ADMIN_DOMAIN=admin.example.com ADMIN_EMAIL=you@example.c
 
 **SMTP و S3 اختیاری هستند** و بعداً از پنل ادمین (تنظیمات ← یکپارچه‌سازی‌ها) فعال می‌شوند. بدون SMTP فقط ورود با کد ایمیلی کار نمی‌کند. پشتیبان رمزنگاری‌شده هر روز ساعت ۰۲:۰۰ UTC به‌صورت محلی ذخیره می‌شود و اگر S3 فعال باشد روی آن هم کپی می‌شود.
 
-به‌روزرسانی: `cd /opt/melorin && git pull --ff-only && docker compose build && docker compose run --rm api alembic upgrade head && docker compose up -d`
+## به‌روزرسانی
+**خودکار (پیشنهادی):** با هر push به `main`، workflow به‌نام `deploy.yml` با SSH به سرور وصل می‌شود و `git pull`، build، migration و `up -d` را اجرا می‌کند و نتیجه را در لاگ سرور ثبت می‌کند. راه‌اندازی (یک‌بار):
+1. روی سرور کاربری بسازید که مالک `/opt/melorin` و عضو گروه `docker` باشد (`adduser --disabled-password deploy` ، `usermod -aG docker deploy` ، `chown -R deploy:deploy /opt/melorin`).
+2. یک جفت کلید SSH مخصوص بسازید، کلید عمومی را به `authorized_keys` همان کاربر اضافه کنید و host key را با `ssh-keyscan -t ed25519 -p 22 IP_سرور` بگیرید.
+3. در GitHub (Settings ← Secrets and variables ← Actions) این secretها را بسازید: `DEPLOY_HOST`، `DEPLOY_USER`، `DEPLOY_PORT`، `DEPLOY_SSH_KEY` (کلید خصوصی) و `DEPLOY_KNOWN_HOSTS`. کلید خصوصی فقط همان‌جا بماند.
+4. از تب Actions یک‌بار *Deploy ← Run workflow* را اجرا کنید و سبز بودنش را ببینید.
+
+**دستی:** `cd /opt/melorin && git pull --ff-only && docker compose build && docker compose run --rm api alembic upgrade head && docker compose up -d`
 
 ## ثبت تغییرات اجباری است
-**هر تغییری — کد، تنظیمات یا کار روی سرور — باید در `docs/CHANGE_LOG.md` ثبت شود.** لازم نیست کسی یادش بماند: روی هر push به `main` بات (workflow به‌نام `Changelog`) برای commitهای بدون ورودی خودش ورودی می‌نویسد.
-ولی دلیل تغییر را خودتان بدهید؛ در پیام commit این خط‌ها را بنویسید (`make setup-git` قالبش را فعال می‌کند):
-`Problem:` (مشکل) ، `Action:` (کاری که برای رفعش شد) ، `After:` (نتیجهٔ تأییدشده) ، و در صورت نیاز `Before:` و `Area:`.
+**هر تغییری — کد، تنظیمات یا کار روی سرور — باید ثبت شود**؛ و لازم نیست کسی یادش بماند، چون خودکار ثبت می‌شود. ولی دلیل را خودتان اضافه کنید:
+
+- **کد (در git) ← `docs/CHANGE_LOG.md`:** روی هر push به `main` بات (workflow به‌نام `Changelog`) برای commitهای بدون ورودی ورودی می‌نویسد. در پیام commit بنویسید (`make setup-git` قالبش را فعال می‌کند):
+  `Problem:` (مشکل) ، `Action:` (کاری که برای رفعش شد) ، `After:` (نتیجهٔ تأییدشده) ، و در صورت نیاز `Before:` و `Area:`.
+- **کار روی سرور ← `var/ops-log.md`:** `scripts/ops_watch.sh` هر ۵ دقیقه تغییر commit، تغییر کلیدهای `.env` (فقط نام، نه مقدار)، دستکاری فایل‌ها و ری‌استارت کانتینرها را خودکار ثبت می‌کند؛ نتیجهٔ deploy هم ثبت می‌شود. دلیل را با `scripts/ops_log.sh` اضافه کنید.
 
 هر ورودی شامل: **قبل**، **مشکل/خطا**، **اقدام برای رفع**، **بعد (نتیجهٔ تأییدشده)**، و چه کسی/چه زمانی. هرگز secret، توکن یا مقدار `.env` را در لاگ ننویسید.
 این قانون برای همه است: اعضای تیم، پیمانکاران و دستیارهای هوش مصنوعی. جزئیات: [CONTRIBUTING.md](CONTRIBUTING.md).
