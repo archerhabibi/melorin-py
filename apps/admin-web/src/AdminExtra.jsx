@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { authFetch } from "./api.js";
 import { Plus, Search, X } from "lucide-react";
 import { Badge, confirmDialog, dt, isStatus, promptDialog } from "./ui.jsx";
+import PanelsView from "./PanelsView.jsx";
 const money = (n) => new Intl.NumberFormat("fa-IR").format(n || 0);
 const box = "card";
 const inp = "inp";
@@ -40,16 +41,8 @@ function Products({ api, toast }) {
   const { rows, call, reload } = useList(api, "/api/v1/admin/products", toast);
   const create = async (v, done) => { const r = await call("/api/v1/admin/products", { method: "POST", body: JSON.stringify({ code: v.code, name: v.name, duration_days: +v.days, traffic_gb: +v.gb, max_devices: v.dev ? +v.dev : null, main_price: +v.main, reseller_price: +v.res, currency: v.cur || "IRT" }) }); if (r.ok) { toast("محصول ساخته شد"); done(); reload(); } else toast("ساخت محصول ناموفق بود"); };
   const toggle = async (p) => { const r = await call(`/api/v1/admin/products/${p.id}`, { method: "PATCH", body: JSON.stringify({ is_active: !p.is_active }) }); r.ok ? reload() : toast("تغییر ناموفق بود"); };
-  return <><Form label="افزودن محصول" onSubmit={create} fields={[["code", "کد"], ["name", "نام"], ["days", "روز", "number"], ["gb", "ترافیک GB", "number"], ["dev", "دستگاه", "number"], ["main", "قیمت اصلی", "number"], ["res", "قیمت نماینده", "number"], ["cur", "ارز (IRT)"]]} />
-    <Table title="محصولات" cols={["کد", "نام", "مدت", "ترافیک", "قیمت", "وضعیت", ""]} rows={rows.map((p) => [p.code, p.name, `${p.duration_days} روز`, `${p.traffic_gb} GB`, `${money(p.main_price)} ${p.currency}`, p.is_active ? "فعال" : "غیرفعال", <button className={ghost} onClick={() => toggle(p)}>{p.is_active ? "غیرفعال‌سازی" : "فعال‌سازی"}</button>])} /></>;
-}
-
-function Panels({ api, toast }) {
-  const { rows, call, reload } = useList(api, "/api/v1/admin/panels", toast);
-  const create = async (v, done) => { let credentials = {}, config = {}; try { credentials = v.cred ? JSON.parse(v.cred) : {}; } catch { return toast("JSON اعتبارنامه نامعتبر است"); } try { config = v.cfg ? JSON.parse(v.cfg) : {}; } catch { return toast("JSON تنظیمات پنل نامعتبر است"); } const r = await call("/api/v1/admin/panels", { method: "POST", body: JSON.stringify({ name: v.name, kind: v.kind, base_url: v.url, credentials, config }) }); if (r.ok) { toast("پنل ثبت شد"); done(); reload(); } else toast("ثبت پنل ناموفق بود"); };
-  const check = async (p) => { const r = await call(`/api/v1/admin/panels/${p.id}/health`, { method: "POST" }); toast(r.ok ? "بررسی سلامت انجام شد" : "بررسی ناموفق بود"); reload(); };
-  return <><Form label="افزودن پنل" onSubmit={create} fields={[["name", "نام"], ["kind", "نوع (sanaei|pasarguard|mock)"], ["url", "Base URL (با web base path)"], ["cred", 'Credentials JSON — سنایی: {"api_token":"..."}'], ["cfg", 'Config JSON — سنایی: {"inbound_ids":[1],"sub_base_url":"https://sub.example.com:2096/sub"}']]} />
-    <Table title="پنل‌ها" cols={["نام", "نوع", "آدرس", "سلامت", "آخرین بررسی", ""]} rows={rows.map((p) => [p.name, p.kind, <span dir="ltr">{p.base_url}</span>, p.health_status, p.last_health_at ? dt(p.last_health_at) : "-", <button className={ghost} onClick={() => check(p)}>بررسی سلامت</button>])} /></>;
+  return <><Form label="افزودن محصول VPN" onSubmit={create} fields={[["code", "کد"], ["name", "نام"], ["days", "روز", "number"], ["gb", "ترافیک GB", "number"], ["dev", "دستگاه", "number"], ["main", "قیمت اصلی", "number"], ["res", "قیمت نماینده", "number"], ["cur", "ارز (IRT)"]]} />
+    <Table title="محصولات VPN" cols={["کد", "نام", "مدت", "ترافیک", "قیمت", "وضعیت", ""]} rows={rows.map((p) => [p.code, p.name, `${p.duration_days} روز`, `${p.traffic_gb} GB`, `${money(p.main_price)} ${p.currency}`, p.is_active ? "فعال" : "غیرفعال", <button className={ghost} onClick={() => toggle(p)}>{p.is_active ? "غیرفعال‌سازی" : "فعال‌سازی"}</button>])} /></>;
 }
 
 function Coupons({ api, toast }) {
@@ -221,4 +214,4 @@ function Tickets({ api, toast }) {
     <div className="mt-4 flex gap-2"><input className={inp} value={text} onChange={(e) => setText(e.target.value)} placeholder="پاسخ پشتیبانی…" /><button disabled={!text.trim()} className={btn} onClick={send}>ارسال</button></div></section>;
 }
 
-export const extraRoutes = { "سفارش‌ها": Orders, "پرداخت‌ها": Payments, "تیکت‌ها": Tickets, "محصولات": Products, "پنل‌ها": Panels, "کوپن‌ها": Coupons, "تنظیمات": Settings, "ممیزی": Audit, "بررسی هویت": Reviews };
+export const extraRoutes = { "سفارش‌ها": Orders, "پرداخت‌ها": Payments, "تیکت‌ها": Tickets, "محصولات VPN": Products, "پنل‌ها": PanelsView, "کوپن‌ها": Coupons, "تنظیمات": Settings, "ممیزی": Audit, "بررسی هویت": Reviews };

@@ -70,7 +70,7 @@ class CreatePanel(BaseModel):
                 raise ValueError("sanaei: config.api_style must be auto, v3 or legacy")
         if self.kind == "pasarguard":
             cfg, cred = self.config or {}, self.credentials or {}
-            if not (cred.get("api_key") or cred.get("access_token") or (cred.get("username") and cred.get("password"))):
+            if cred and not (cred.get("api_key") or cred.get("access_token") or (cred.get("username") and cred.get("password"))):
                 raise ValueError("pasarguard: credentials need api_key, access_token or username+password")
             template_id = cfg.get("user_template_id")
             if template_id is None and not cfg.get("group_ids"):
@@ -100,6 +100,15 @@ class PanelOut(BaseModel):
     is_enabled: bool
     health_status: str
     last_health_at: dt.datetime | None
+    last_health_error: str | None = None
+    config: dict | None = None
+    has_credentials: bool = False
+    created_at: dt.datetime | None = None
+    updated_at: dt.datetime | None = None
+
+
+class PanelState(BaseModel):
+    is_enabled: bool
 
 
 class CreateServer(BaseModel):

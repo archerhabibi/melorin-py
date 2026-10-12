@@ -14,13 +14,20 @@ import { Activity, Bell, CircleAlert, CreditCard, Database, Download, Fingerprin
 const groups = [
   ['نمای کلی', [['داشبورد', LayoutDashboard, 'home']]],
   ['عملیات', [['سفارش‌ها', Package, 'orders'], ['پرداخت‌ها', CreditCard, 'payments'], ['اکانت‌های VPN', Server, 'vpn'], ['تیکت‌ها', Ticket, 'tickets']]],
-  ['فروش و مشتریان', [['کاربران', Users, 'users'], ['فروشگاه‌ها', Store, 'stores'], ['محصولات', Boxes, 'products'], ['کوپن‌ها', Percent, 'coupons']]],
-  ['زیرساخت و سیستم', [['پنل‌ها', PanelTop, 'panels'], ['تنظیمات', Settings, 'settings'], ['ممیزی', ScrollText, 'audit'], ['بررسی هویت', Fingerprint, 'identity']]],
+  ['فروش و مشتریان', [['کاربران', Users, 'users'], ['فروشگاه‌ها', Store, 'stores'], ['کوپن‌ها', Percent, 'coupons']]],
+  ['زیرساخت و سیستم', [['پنل‌ها', PanelTop, 'panels'], ['محصولات VPN', Boxes, 'products'], ['تنظیمات', Settings, 'settings'], ['ممیزی', ScrollText, 'audit'], ['بررسی هویت', Fingerprint, 'identity']]],
 ];
 const flat = groups.flatMap(([, items]) => items);
 const fromHash = () => (flat.find((x) => `#/${x[2]}` === window.location.hash) || flat[0])[0];
 
 const todayLabel = () => new Intl.DateTimeFormat('fa-IR-u-ca-persian', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
+// Live wall-clock shown next to the date (browser timezone, Persian digits).
+const timeFmt = new Intl.DateTimeFormat('fa-IR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+function Clock() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => { const t = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(t); }, []);
+  return <time dateTime={now.toISOString()} dir="ltr" className="inline-block tabular-nums">{timeFmt.format(now)}</time>;
+}
 const money = (v) => new Intl.NumberFormat('fa-IR').format(v || 0);
 const moneyByCurrency = (rows) => (rows || []).map((x) => `${money(x.amount)} ${x.currency}`).join(' · ') || '۰';
 
@@ -166,7 +173,7 @@ export default function App({ onLogout }) {
       <div className="m-4 rounded-2xl bg-white/[.07] p-4"><div className={`flex items-center gap-2 text-xs ${api.health ? 'text-[#8ce0ba]' : 'text-[#f4c95d]'}`}><span className="h-2 w-2 rounded-full bg-current" />Core API {api.health ? 'پایدار' : 'در انتظار'}</div></div></aside>
     <div className="lg:mr-64">
       <header className="sticky top-0 z-10 flex h-[72px] items-center justify-between border-b border-[var(--ln)] bg-[var(--bg)]/85 px-5 backdrop-blur md:px-9">
-        <div className="flex items-center gap-3"><button aria-label="باز کردن منو" className="btn btn-g lg:hidden" onClick={() => setOpen(true)}><Menu size={20} /></button><div><div className="text-xs text-[var(--mu)]">{todayLabel()}</div><h1 className="text-lg font-extrabold">{section}</h1></div></div>
+        <div className="flex items-center gap-3"><button aria-label="باز کردن منو" className="btn btn-g lg:hidden" onClick={() => setOpen(true)}><Menu size={20} /></button><div><div className="text-xs text-[var(--mu)]">{todayLabel()} <span aria-hidden="true">·</span> <Clock /></div><h1 className="text-lg font-extrabold">{section}</h1></div></div>
         <div className="flex items-center gap-2">
           <button aria-label="به‌روزرسانی داده‌ها" title="به‌روزرسانی" onClick={() => { api.refresh(); toast('داده‌ها از Core دوباره دریافت شد'); }} className="btn btn-g"><RefreshCw size={17} className={api.loading ? 'animate-spin' : ''} /></button>
           <button onClick={() => setPal(true)} aria-label="جستجوی سریع" className="btn btn-g hidden gap-2 text-[var(--mu)] md:inline-flex"><Search size={15} />جستجو<kbd className="rounded bg-[var(--mb)] px-1.5 text-[10px]" dir="ltr">Ctrl K</kbd></button>
