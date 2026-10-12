@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-12 23:46 UTC - Claude - admin-web, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** Admin: panels management view (edit/enable/health error), VPN products move, live clock; store date+time format
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (8):** `apps/admin-web/src/AdminExtra.jsx`, `apps/admin-web/src/App.jsx`, `apps/admin-web/src/PanelsView.jsx`, `apps/admin-web/src/styles.css`, `apps/api/melorin/modules/admin/router.py`, `apps/api/melorin/modules/admin/schemas.py`, `apps/api/tests/test_panel_admin_management.py`, `apps/store-web/src/ui.jsx`
+- **Ref:** `58a41e6`
+
+
 ### 2026-10-12 22:49 UTC - Claude - admin-web, api, tests  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
