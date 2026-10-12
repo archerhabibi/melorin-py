@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { setTokens } from "./auth.js";
+import { ThemeButton } from "./ui.jsx";
 
 export default function AdminAuth({ base, onSuccess }) {
   const [email, setEmail] = useState("");
@@ -30,23 +31,23 @@ export default function AdminAuth({ base, onSuccess }) {
     finally { setBusy(false); }
   }
 
-  return <main dir="rtl" className="grid min-h-screen place-items-center bg-[#11243f] p-6 text-[#11243f]">
-    <section className="w-full max-w-md rounded-[2rem] bg-[#f8f9f6] p-8 shadow-2xl">
-      <div className="mb-8 flex items-center gap-3">
-        <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#f4c95d] text-xl font-extrabold">م</div>
-        <div><div className="font-extrabold">ملورین</div><div className="text-xs tracking-[.16em] text-[#71808b]">CONTROL ROOM</div></div>
-      </div>
-      <div className="text-sm font-bold text-[#b55328]">ورود امن مدیر</div>
+  const onKey = (e) => { if (e.key === "Enter" && email && password && !busy) login(); };
+  return <main dir="rtl" className="relative grid min-h-screen place-items-center overflow-hidden bg-[var(--nav)] p-6">
+    <div aria-hidden className="pointer-events-none absolute -left-24 -top-24 h-96 w-96 rounded-full bg-[#f4c95d]/10 blur-3xl" />
+    <div className="absolute left-5 top-5"><ThemeButton /></div>
+    <section className="card rise w-full max-w-md p-8 shadow-2xl" onKeyDown={onKey}>
+      <div className="mb-8 flex items-center gap-3"><div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#f4c95d] text-xl font-extrabold text-[#0f1f38]">م</div><div><div className="font-extrabold">ملورین</div><div className="text-xs tracking-[.16em] text-[var(--mu)]">CONTROL ROOM</div></div></div>
+      <div className="text-sm font-bold text-[var(--ac)]">ورود امن مدیر</div>
       <h1 className="mt-2 text-3xl font-extrabold">اتاق کنترل آماده‌ست.</h1>
-      <p className="mt-3 text-sm leading-7 text-[#71808b]">با رمز اولیه نصب و کد TOTP وارد شوید.</p>
-      <label className="mt-7 block text-sm font-bold">ایمیل مدیر</label>
-      <input dir="ltr" type="email" value={email} onChange={e => setEmail(e.target.value)} className="mt-2 w-full rounded-xl border border-[#dce0dc] bg-white p-3 outline-none focus:border-[#b55328]" placeholder="admin@example.com" />
-      <label className="mt-4 block text-sm font-bold">رمز عبور</label>
-      <input dir="ltr" type="password" value={password} onChange={e => setPassword(e.target.value)} className="mt-2 w-full rounded-xl border border-[#dce0dc] bg-white p-3 outline-none focus:border-[#b55328]" />
-      <label className="mt-4 block text-sm font-bold">کد TOTP</label>
-      <input dir="ltr" inputMode="numeric" value={totp} onChange={e => setTotp(e.target.value)} className="mt-2 w-full rounded-xl border border-[#dce0dc] bg-white p-3 text-center tracking-[.5em] outline-none focus:border-[#b55328]" placeholder="------" />
-      {error && <div className="mt-4 rounded-xl bg-[#fff2ee] p-3 text-sm font-bold text-[#91390c]">{error}</div>}
-      <button disabled={busy || !email || !password} onClick={login} className="mt-5 w-full rounded-xl bg-[#11243f] p-3.5 font-bold text-white disabled:opacity-40">{busy ? "در حال بررسی..." : "ورود به داشبورد"}</button>
+      <p className="mt-3 text-sm leading-7 text-[var(--mu)]">با رمز اولیه نصب و کد TOTP وارد شوید.</p>
+      <label htmlFor="em" className="mt-7 block text-sm font-bold">ایمیل مدیر</label>
+      <input id="em" dir="ltr" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} className="inp mt-2" placeholder="admin@example.com" />
+      <label htmlFor="pw" className="mt-4 block text-sm font-bold">رمز عبور</label>
+      <input id="pw" dir="ltr" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} className="inp mt-2" />
+      <label htmlFor="tp" className="mt-4 block text-sm font-bold">کد TOTP</label>
+      <input id="tp" dir="ltr" inputMode="numeric" autoComplete="one-time-code" maxLength={8} value={totp} onChange={(e) => setTotp(e.target.value)} className="inp mt-2 text-center tracking-[.5em]" placeholder="------" />
+      {error && <div role="alert" className="mt-4 rounded-xl bg-[var(--bdb)] p-3 text-sm font-bold text-[var(--bd)]">{error}</div>}
+      <button disabled={busy || !email || !password} onClick={login} className="btn mt-5 w-full py-3">{busy ? "در حال بررسی..." : "ورود به داشبورد"}</button>
     </section>
   </main>;
 }

@@ -84,6 +84,14 @@ async def report_summary(_: AdminUser, session: Session):
     }
 
 
+@router.get("/reports/timeseries")
+async def report_timeseries(_: AdminUser, session: Session, days: int = Query(default=30, ge=7, le=90)):
+    """Zero-filled daily orders + per-currency sales for the dashboard chart."""
+    from melorin.modules.admin.timeseries import build_timeseries
+
+    return await build_timeseries(session, days)
+
+
 @router.get("/reports/orders.csv")
 async def export_orders(_: AdminUser, session: Session, status: str | None = Query(default=None)):
     q = select(Order).order_by(Order.created_at.desc()).limit(5000)

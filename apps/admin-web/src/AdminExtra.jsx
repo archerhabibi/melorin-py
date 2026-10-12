@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { authFetch } from "./api.js";
+import { Plus, Search, X } from "lucide-react";
+import { Badge, confirmDialog, dt, isStatus, promptDialog } from "./ui.jsx";
 const money = (n) => new Intl.NumberFormat("fa-IR").format(n || 0);
-const box = "rounded-2xl border border-[#dce0dc] bg-white shadow-sm";
-const inp = "w-full rounded-xl border border-[#dce0dc] p-2.5 text-sm outline-none focus:border-[#b55328]";
-const btn = "rounded-xl bg-[#11243f] px-4 py-2 text-sm font-bold text-white disabled:opacity-40";
-const ghost = "rounded-lg border border-[#dce0dc] px-3 py-1.5 text-xs font-bold";
+const box = "card";
+const inp = "inp";
+const btn = "btn";
+const ghost = "btn btn-g";
 
 function useList(api, path, toast) {
   const [rows, setRows] = useState([]); const [tick, setTick] = useState(0);
@@ -12,8 +14,27 @@ function useList(api, path, toast) {
   useEffect(() => { call(path).then((r) => r.ok ? r.json() : Promise.reject()).then((d) => setRows(Array.isArray(d) ? d : d.items || [])).catch(() => toast("دریافت داده ناموفق بود")); }, [path, tick]);
   return { rows, call, reload: () => setTick((x) => x + 1) };
 }
-const Table = ({ cols, rows, title, extra }) => <section className={`${box} overflow-hidden`}><div className="flex items-center justify-between border-b border-[#e6e8e5] px-5 py-4"><h3 className="font-extrabold">{title}</h3>{extra}</div><div className="overflow-x-auto"><table className="w-full min-w-[640px] text-right text-sm"><thead className="bg-[#fafbf9] text-xs text-[#55636e]"><tr>{cols.map((c) => <th key={c} className="px-5 py-3 font-medium">{c}</th>)}</tr></thead><tbody>{rows.length ? rows.map((r, i) => <tr key={i} className="border-t border-[#edf0ed]">{r.map((c, j) => <td key={j} className="px-5 py-3">{c ?? "-"}</td>)}</tr>) : <tr><td colSpan={cols.length} className="p-10 text-center text-[#71808b]">داده‌ای وجود ندارد</td></tr>}</tbody></table></div></section>;
-const Form = ({ fields, onSubmit, label }) => { const [v, setV] = useState({}); return <div className={`${box} mb-5 grid gap-3 p-5 sm:grid-cols-3`}>{fields.map(([k, l, t]) => <label key={k} className="text-xs font-bold text-[#55636e]">{l}<input type={t || "text"} dir="ltr" className={`${inp} mt-1`} value={v[k] ?? ""} onChange={(e) => setV({ ...v, [k]: e.target.value })} /></label>)}<div className="flex items-end"><button className={btn} onClick={() => onSubmit(v, () => setV({}))}>{label}</button></div></div>; };
+const Table = ({ cols, rows, title, extra }) => {
+  const [q, setQ] = useState("");
+  const show = q ? rows.filter((r) => r.some((c) => typeof c === "string" && c.toLowerCase().includes(q.toLowerCase()))) : rows;
+  return <section className={`${box} rise overflow-hidden`}>
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--ln)] px-5 py-4"><h3 className="font-extrabold">{title} <span className="text-xs font-medium text-[var(--mu)]">({show.length.toLocaleString("fa-IR")})</span></h3>
+      <div className="flex items-center gap-2">{extra}<label className="relative"><Search size={15} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--mu)]" /><input aria-label="جستجو" value={q} onChange={(e) => setQ(e.target.value)} placeholder="جستجو…" className={`${inp} w-44 pr-9`} /></label></div></div>
+    <div className="max-h-[70vh] overflow-auto"><table className="tbl min-w-[640px]"><thead><tr>{cols.map((c, i) => <th key={i}>{c}</th>)}</tr></thead><tbody>{show.length ? show.map((r, i) => <tr key={i}>{r.map((c, j) => <td key={j}>{isStatus(c) ? <Badge s={c} /> : (c ?? "-")}</td>)}</tr>) : <tr><td colSpan={cols.length} className="p-12 text-center text-[var(--mu)]">{q ? "نتیجه‌ای پیدا نشد" : "داده‌ای وجود ندارد"}</td></tr>}</tbody></table></div>
+  </section>;
+};
+const JSONK = new Set(["cred", "cfg"]);
+const Form = ({ fields, onSubmit, label }) => {
+  const [v, setV] = useState({}); const [open, setOpen] = useState(false);
+  if (!open) return <div className="mb-5"><button className="btn" onClick={() => setOpen(true)}><Plus size={16} />{label}</button></div>;
+  return <section className="card rise mb-5 p-5">
+    <div className="mb-4 flex items-center justify-between"><h3 className="font-extrabold">{label}</h3><button aria-label="بستن فرم" className="btn btn-g" onClick={() => setOpen(false)}><X size={15} /></button></div>
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{fields.map(([k, l, t]) => JSONK.has(k)
+      ? <label key={k} className="text-xs font-bold text-[var(--mu)] sm:col-span-2 lg:col-span-4">{l}<textarea rows={3} dir="ltr" spellCheck={false} className={`${inp} mt-1.5 font-mono text-xs`} value={v[k] ?? ""} onChange={(e) => setV({ ...v, [k]: e.target.value })} /></label>
+      : <label key={k} className="text-xs font-bold text-[var(--mu)]">{l}<input type={t || "text"} dir="ltr" className={`${inp} mt-1.5`} value={v[k] ?? ""} onChange={(e) => setV({ ...v, [k]: e.target.value })} /></label>)}</div>
+    <div className="mt-5 flex gap-2"><button className={btn} onClick={() => onSubmit(v, () => { setV({}); setOpen(false); })}>{label}</button><button className="btn btn-g" onClick={() => setOpen(false)}>انصراف</button></div>
+  </section>;
+};
 
 function Products({ api, toast }) {
   const { rows, call, reload } = useList(api, "/api/v1/admin/products", toast);
@@ -28,7 +49,7 @@ function Panels({ api, toast }) {
   const create = async (v, done) => { let credentials = {}, config = {}; try { credentials = v.cred ? JSON.parse(v.cred) : {}; } catch { return toast("JSON اعتبارنامه نامعتبر است"); } try { config = v.cfg ? JSON.parse(v.cfg) : {}; } catch { return toast("JSON تنظیمات پنل نامعتبر است"); } const r = await call("/api/v1/admin/panels", { method: "POST", body: JSON.stringify({ name: v.name, kind: v.kind, base_url: v.url, credentials, config }) }); if (r.ok) { toast("پنل ثبت شد"); done(); reload(); } else toast("ثبت پنل ناموفق بود"); };
   const check = async (p) => { const r = await call(`/api/v1/admin/panels/${p.id}/health`, { method: "POST" }); toast(r.ok ? "بررسی سلامت انجام شد" : "بررسی ناموفق بود"); reload(); };
   return <><Form label="افزودن پنل" onSubmit={create} fields={[["name", "نام"], ["kind", "نوع (sanaei|pasarguard|mock)"], ["url", "Base URL (با web base path)"], ["cred", 'Credentials JSON — سنایی: {"api_token":"..."}'], ["cfg", 'Config JSON — سنایی: {"inbound_ids":[1],"sub_base_url":"https://sub.example.com:2096/sub"}']]} />
-    <Table title="پنل‌ها" cols={["نام", "نوع", "آدرس", "سلامت", "آخرین بررسی", ""]} rows={rows.map((p) => [p.name, p.kind, <span dir="ltr">{p.base_url}</span>, p.health_status, p.last_health_at ? new Date(p.last_health_at).toLocaleString("fa-IR") : "-", <button className={ghost} onClick={() => check(p)}>بررسی سلامت</button>])} /></>;
+    <Table title="پنل‌ها" cols={["نام", "نوع", "آدرس", "سلامت", "آخرین بررسی", ""]} rows={rows.map((p) => [p.name, p.kind, <span dir="ltr">{p.base_url}</span>, p.health_status, p.last_health_at ? dt(p.last_health_at) : "-", <button className={ghost} onClick={() => check(p)}>بررسی سلامت</button>])} /></>;
 }
 
 function Coupons({ api, toast }) {
@@ -44,10 +65,10 @@ function SettingRow({ k, v, save }) {
   const [t, setT] = useState(JSON.stringify(v));
   useEffect(() => setT(JSON.stringify(v)), [v]);
   const dirty = t !== JSON.stringify(v);
-  return <div className="flex items-center gap-3 border-t border-[#edf0ed] px-5 py-3"><code dir="ltr" className="w-60 shrink-0 text-xs font-bold">{k}</code><input dir="ltr" className={inp} value={t} onChange={(e) => setT(e.target.value)} /><button disabled={!dirty} className={btn} onClick={() => save(k, t)}>ذخیره</button></div>;
+  return <div className="flex items-center gap-3 border-t border-[var(--ln)] px-5 py-3"><code dir="ltr" className="w-60 shrink-0 text-xs font-bold text-[var(--tx)]">{k}</code><input dir="ltr" className={inp} value={t} onChange={(e) => setT(e.target.value)} /><button disabled={!dirty} className={btn} onClick={() => save(k, t)}>ذخیره</button></div>;
 }
 
-const Field = ({ label, children }) => <label className="block text-xs font-bold text-[#55636e]">{label}<div className="mt-1">{children}</div></label>;
+const Field = ({ label, children }) => <label className="block text-xs font-bold text-[var(--mu)]">{label}<div className="mt-1">{children}</div></label>;
 const Toggle = ({ on, set, label }) => <label className="flex cursor-pointer items-center gap-2 text-sm font-bold"><input type="checkbox" checked={on} onChange={(e) => set(e.target.checked)} />{label}</label>;
 
 function Integrations({ api, toast }) {
@@ -69,11 +90,11 @@ function Integrations({ api, toast }) {
   const sm = (k) => (v) => setEm({ ...em, [k]: v });
   const s3s = (k) => (v) => setS3({ ...s3, [k]: v });
   return <section className={`${box} space-y-6 p-5`}>
-    <h3 className="font-extrabold">یکپارچه‌سازی‌ها <span className="text-xs font-normal text-[#71808b]">(اختیاری؛ برای نصب لازم نیستند)</span></h3>
+    <h3 className="font-extrabold">یکپارچه‌سازی‌ها <span className="text-xs font-normal text-[var(--mu)]">(اختیاری؛ برای نصب لازم نیستند)</span></h3>
     <div className="grid gap-6 lg:grid-cols-2">
-      <div className="space-y-3 rounded-xl border border-[#edf0ed] p-4">
+      <div className="space-y-3 rounded-xl border border-[var(--ln)] p-4">
         <div className="flex items-center justify-between"><b>ایمیل (SMTP)</b><Toggle on={em.enabled} set={sm("enabled")} label={em.enabled ? "فعال" : "غیرفعال"} /></div>
-        <p className="text-xs text-[#71808b]">وقتی غیرفعال است، ورود با کد ایمیلی در دسترس نیست؛ بقیه‌ی روش‌های ورود و سیستم عادی کار می‌کنند.</p>
+        <p className="text-xs text-[var(--mu)]">وقتی غیرفعال است، ورود با کد ایمیلی در دسترس نیست؛ بقیه‌ی روش‌های ورود و سیستم عادی کار می‌کنند.</p>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="میزبان SMTP"><input dir="ltr" className={inp} value={em.host} onChange={(e) => sm("host")(e.target.value)} placeholder="smtp.example.com" /></Field>
           <Field label="پورت"><input dir="ltr" type="number" className={inp} value={em.port} onChange={(e) => sm("port")(+e.target.value)} /></Field>
@@ -88,9 +109,9 @@ function Integrations({ api, toast }) {
           <button disabled={!to || busy === "emt"} className={ghost} onClick={() => send("/api/v1/admin/integrations/email/test", { to }, "ایمیل تست ارسال شد", "emt")}>ارسال تست</button>
         </div>
       </div>
-      <div className="space-y-3 rounded-xl border border-[#edf0ed] p-4">
+      <div className="space-y-3 rounded-xl border border-[var(--ln)] p-4">
         <div className="flex items-center justify-between"><b>بکاپ</b></div>
-        <p className="text-xs text-[#71808b]">بکاپ محلی همیشه فعال است (رمزگذاری‌شده، روزانه ۰۲:۰۰ UTC، نگهداری {local?.retention_days} روز در <code dir="ltr">{local?.dir}</code>). کپی خارج از سرور روی S3 اختیاری است.</p>
+        <p className="text-xs text-[var(--mu)]">بکاپ محلی همیشه فعال است (رمزگذاری‌شده، روزانه ۰۲:۰۰ UTC، نگهداری {local?.retention_days} روز در <code dir="ltr">{local?.dir}</code>). کپی خارج از سرور روی S3 اختیاری است.</p>
         <Toggle on={s3.enabled} set={s3s("enabled")} label={s3.enabled ? "کپی روی S3 فعال" : "کپی روی S3 غیرفعال"} />
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Endpoint (برای S3 سازگار)"><input dir="ltr" className={inp} value={s3.endpoint} onChange={(e) => s3s("endpoint")(e.target.value)} placeholder="https://s3.example.com" /></Field>
@@ -124,7 +145,7 @@ function ChangeAdminPassword({ api, toast }) {
     toast("رمز ادمین با موفقیت تغییر کرد");
   };
   return <section className={`${box} space-y-4 p-5`}>
-    <div><h3 className="font-extrabold">امنیت حساب ادمین</h3><p className="mt-1 text-xs text-[#71808b]">برای تغییر رمز، رمز فعلی لازم است. توکن نشست فعلی حفظ می‌شود.</p></div>
+    <div><h3 className="font-extrabold">امنیت حساب ادمین</h3><p className="mt-1 text-xs text-[var(--mu)]">برای تغییر رمز، رمز فعلی لازم است. توکن نشست فعلی حفظ می‌شود.</p></div>
     <div className="grid gap-3 md:grid-cols-3">
       <Field label="رمز فعلی"><input dir="ltr" type="password" autoComplete="current-password" className={inp} value={v.current} onChange={(e) => setV({ ...v, current: e.target.value })} /></Field>
       <Field label="رمز جدید"><input dir="ltr" type="password" autoComplete="new-password" className={inp} value={v.next} onChange={(e) => setV({ ...v, next: e.target.value })} /></Field>
@@ -143,17 +164,17 @@ function Settings({ api, toast }) {
   const setFlag = async (f) => { const r = await flags.call(`/api/v1/admin/feature-flags/${encodeURIComponent(f.key)}`, { method: "PUT", body: JSON.stringify({ enabled: !f.enabled, scope_type: f.scope_type, scope_id: f.scope_id, note: f.note }) }); r.ok ? flags.reload() : toast("تغییر ناموفق بود"); };
   const save = async (key, text) => {
     let value; try { value = JSON.parse(text); } catch { return toast("مقدار باید JSON معتبر باشد"); }
-    if (!window.confirm(`مقدار ${key} تغییر کند؟`)) return;
+    if (!(await confirmDialog(`مقدار «${key}» تغییر کند؟`, { title: "تغییر تنظیم سیستم", ok: "ذخیره" }))) return;
     const r = await flags.call(`/api/v1/admin/settings/${key}`, { method: "PUT", body: JSON.stringify({ value }) });
     if (r.ok) { toast("تنظیم ذخیره شد"); setTick((x) => x + 1); } else toast("ذخیره ناموفق بود");
   };
   return <div className="space-y-5"><ChangeAdminPassword api={api} toast={toast} /><Integrations api={api} toast={toast} /><Table title="Feature Flags" cols={["کلید", "محدوده", "فعال", ""]} rows={flags.rows.map((f) => [f.key, `${f.scope_type}:${f.scope_id}`, f.enabled ? "بله" : "خیر", <button className={ghost} onClick={() => setFlag(f)}>{f.enabled ? "خاموش" : "روشن"}</button>])} />
-    <section className={`${box} overflow-hidden`}><h3 className="px-5 py-4 font-extrabold">تنظیمات سیستم <span className="text-xs font-normal text-[#71808b]">(مقدار به‌صورت JSON)</span></h3>{Object.entries(obj).map(([k, v]) => <SettingRow key={k} k={k} v={v} save={save} />)}</section></div>;
+    <section className={`${box} overflow-hidden`}><h3 className="px-5 py-4 font-extrabold">تنظیمات سیستم <span className="text-xs font-normal text-[var(--mu)]">(مقدار به‌صورت JSON)</span></h3>{Object.entries(obj).map(([k, v]) => <SettingRow key={k} k={k} v={v} save={save} />)}</section></div>;
 }
 
 function Audit({ api, toast }) {
   const { rows } = useList(api, "/api/v1/admin/audit", toast);
-  return <Table title="لاگ ممیزی" cols={["زمان", "عملیات", "نقش", "موجودیت", "Correlation"]} rows={rows.map((a) => [a.created_at ? new Date(a.created_at).toLocaleString("fa-IR") : "-", a.action, a.actor_type, `${a.entity_type || ""} ${String(a.entity_id || "").slice(0, 8)}`, <span className="text-xs">{String(a.correlation_id || "").slice(0, 8)}</span>])} />;
+  return <Table title="لاگ ممیزی" cols={["زمان", "عملیات", "نقش", "موجودیت", "Correlation"]} rows={rows.map((a) => [dt(a.created_at), a.action, a.actor_type, `${a.entity_type || ""} ${String(a.entity_id || "").slice(0, 8)}`, <span className="text-xs">{String(a.correlation_id || "").slice(0, 8)}</span>])} />;
 }
 
 function Reviews({ api, toast }) {
@@ -163,30 +184,30 @@ function Reviews({ api, toast }) {
 }
 
 
-const ask = (m) => { const r = window.prompt(m, ""); return r === null ? null : r; };
+const ask = (m) => promptDialog(m, { title: "ثبت دلیل" });
 function Orders({ api, toast }) {
   const { rows, call, reload } = useList(api, "/api/v1/admin/orders", toast);
   const act = async (o, kind, label) => {
-    const reason = kind === "retry" ? "" : ask(`دلیل ${label}:`); if (reason === null) return;
-    if (kind === "refund" && !window.confirm("استرداد این سفارش انجام شود؟")) return;
+    const reason = kind === "retry" ? "" : await ask(`دلیل ${label} را وارد کنید.`); if (reason === null) return;
+    if (kind === "refund" && !(await confirmDialog("استرداد این سفارش انجام شود؟ این عملیات مالی است.", { title: "استرداد سفارش", danger: true, ok: "استرداد" }))) return;
     const r = await call(`/api/v1/admin/orders/${o.id}/${kind}`, { method: "POST", body: JSON.stringify({ reason }) });
     if (r.ok) { toast(`${label} ثبت شد`); reload(); } else toast(`${label} ناموفق بود`);
   };
   return <Table title="سفارش‌ها" cols={["شماره", "Store", "مبلغ", "وضعیت", "بررسی", "اقدام"]} rows={rows.map((o) => [o.number, String(o.store_id || "").slice(0, 8), `${money(o.total)} ${o.currency || ""}`, o.status, o.needs_review ? "بله" : "خیر",
-    <div className="flex gap-1.5"><button className={ghost} onClick={() => act(o, "retry", "تلاش مجدد")}>تلاش مجدد</button><button className={ghost} onClick={() => act(o, "manual-review", "بررسی دستی")}>بررسی دستی</button><button className={`${ghost} text-[#91390c]`} onClick={() => act(o, "refund", "استرداد")}>استرداد</button></div>])} />;
+    <div className="flex gap-1.5"><button className={ghost} onClick={() => act(o, "retry", "تلاش مجدد")}>تلاش مجدد</button><button className={ghost} onClick={() => act(o, "manual-review", "بررسی دستی")}>بررسی دستی</button><button className={`${ghost} btn-d`} onClick={() => act(o, "refund", "استرداد")}>استرداد</button></div>])} />;
 }
 
 function Payments({ api, toast }) {
   const { rows, call, reload } = useList(api, "/api/v1/admin/payments", toast);
   const review = async (p, approve) => {
-    const reason = approve ? "" : ask("دلیل رد پرداخت:"); if (reason === null) return;
+    const reason = approve ? "" : await ask("دلیل رد پرداخت را وارد کنید."); if (reason === null) return;
     const r = await call(`/api/v1/admin/payments/${p.id}/review`, { method: "POST", body: JSON.stringify({ approve, reason }) });
     if (r.ok) { toast(approve ? "پرداخت تأیید شد" : "پرداخت رد شد"); reload(); } else toast("بررسی ناموفق بود");
   };
   const view = async (p) => { const r = await call(`/api/v1/admin/payments/${p.id}/receipt`); if (!r.ok) return toast("نمایش رسید ناموفق بود"); const url = URL.createObjectURL(await r.blob()); window.open(url, "_blank", "noopener"); setTimeout(() => URL.revokeObjectURL(url), 60000); };
   const pending = (p) => ["pending", "review", "receipt_submitted", "awaiting_review"].includes(p.status) && p.has_receipt;
   return <Table title="پرداخت‌ها" cols={["مبلغ", "درگاه", "وضعیت", "رسید", "اقدام"]} rows={rows.map((p) => [`${money(p.amount)} ${p.currency}`, p.provider, p.status, p.has_receipt ? <button className={ghost} onClick={() => view(p)}>مشاهده رسید</button> : "ندارد",
-    pending(p) ? <div className="flex gap-1.5"><button className={ghost} onClick={() => review(p, true)}>تأیید</button><button className={`${ghost} text-[#91390c]`} onClick={() => review(p, false)}>رد</button></div> : "-"])} />;
+    pending(p) ? <div className="flex gap-1.5"><button className={ghost} onClick={() => review(p, true)}>تأیید</button><button className={`${ghost} btn-d`} onClick={() => review(p, false)}>رد</button></div> : "-"])} />;
 }
 
 function Tickets({ api, toast }) {
@@ -194,9 +215,9 @@ function Tickets({ api, toast }) {
   const [sel, setSel] = useState(null); const [msgs, setMsgs] = useState([]); const [text, setText] = useState("");
   const open = async (t) => { setSel(t); const r = await call(`/api/v1/tickets/${t.id}/messages`); setMsgs(r.ok ? await r.json() : []); };
   const send = async () => { const r = await call(`/api/v1/tickets/${sel.id}/messages`, { method: "POST", body: JSON.stringify({ body: text }) }); if (r.ok) { setText(""); open(sel); reload(); } else toast("ارسال پاسخ ناموفق بود"); };
-  if (!sel) return <Table title="تیکت‌ها" cols={["موضوع", "Store", "وضعیت", "آخرین تغییر", ""]} rows={rows.map((t) => [t.subject, String(t.store_id || "").slice(0, 8), t.status, t.updated_at ? new Date(t.updated_at).toLocaleString("fa-IR") : "-", <button className={ghost} onClick={() => open(t)}>مشاهده و پاسخ</button>])} />;
-  return <section className={`${box} p-5`}><button className="text-sm font-bold text-[#b55328]" onClick={() => setSel(null)}>→ بازگشت</button><h3 className="mt-2 font-extrabold">{sel.subject}</h3>
-    <div className="mt-4 space-y-3">{msgs.map((m) => <div key={m.id} className={`max-w-[80%] rounded-2xl p-3 text-sm leading-7 ${m.is_staff ? "mr-auto bg-[#dcefe4]" : "bg-[#f3f4f1]"}`}>{m.body}<div className="mt-1 text-[10px] text-[#71808b]">{m.is_staff ? "پشتیبانی" : "مشتری"} · {new Date(m.created_at).toLocaleString("fa-IR")}</div></div>)}</div>
+  if (!sel) return <Table title="تیکت‌ها" cols={["موضوع", "Store", "وضعیت", "آخرین تغییر", ""]} rows={rows.map((t) => [t.subject, String(t.store_id || "").slice(0, 8), t.status, dt(t.updated_at), <button className={ghost} onClick={() => open(t)}>مشاهده و پاسخ</button>])} />;
+  return <section className={`${box} p-5`}><button className="text-sm font-bold text-[var(--ac)]" onClick={() => setSel(null)}>→ بازگشت</button><h3 className="mt-2 font-extrabold">{sel.subject}</h3>
+    <div className="mt-4 space-y-3">{msgs.map((m) => <div key={m.id} className={`max-w-[80%] rounded-2xl p-3 text-sm leading-7 ${m.is_staff ? "mr-auto bg-[var(--okb)] text-[var(--tx)]" : "bg-[var(--mb)]"}`}>{m.body}<div className="mt-1 text-[10px] text-[var(--mu)]">{m.is_staff ? "پشتیبانی" : "مشتری"} · {new Date(m.created_at).toLocaleString("fa-IR")}</div></div>)}</div>
     <div className="mt-4 flex gap-2"><input className={inp} value={text} onChange={(e) => setText(e.target.value)} placeholder="پاسخ پشتیبانی…" /><button disabled={!text.trim()} className={btn} onClick={send}>ارسال</button></div></section>;
 }
 

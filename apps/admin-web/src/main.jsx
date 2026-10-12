@@ -4,6 +4,7 @@ import App from './App.jsx';
 import { getAccessToken, setTokens } from './auth.js';
 import AdminAuth from './AdminAuth.jsx';
 import './styles.css';
+import './theme.js';
 
 function Root() {
   const [signedIn, setSignedIn] = useState(() => Boolean(getAccessToken()));
@@ -17,9 +18,9 @@ function Root() {
       .catch(() => {})
       .finally(() => setChecking(false));
   }, [base]);
-  if (checking) return <main className="grid min-h-screen place-items-center bg-[#11243f] text-white">در حال بررسی نشست…</main>;
+  if (checking) return <main className="grid min-h-screen place-items-center bg-[var(--nav)] text-white/80"><div className="skel h-2 w-40" aria-label="در حال بررسی نشست" /></main>;
   return signedIn
-    ? <App />
+    ? <App onLogout={() => setSignedIn(false)} />
     : <AdminAuth base={base} onSuccess={() => setSignedIn(true)} />;
 }
 
