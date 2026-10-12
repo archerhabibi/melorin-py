@@ -23,12 +23,14 @@ from melorin.modules.payments import service as payment_service
 from melorin.modules.payments.models import Payment
 from melorin.modules.stores.models import BotStoreBinding, ResellerApplication, ResellerProfile, Store, StoreMembership
 from melorin.modules.admin import bot_bindings
+from melorin.modules.admin.integrations import router as integrations_router
 from melorin.modules.system.models import AuditEvent, BackupRun, FeatureFlag, SystemSetting
 from melorin.modules.webhooks import service as webhook_service
 from melorin.modules.tickets.models import Ticket
 from melorin.modules.vpn.models import Panel, Server, VpnAccount
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+router.include_router(integrations_router)
 
 
 @router.get("/bot-store-bindings")
@@ -372,6 +374,8 @@ async def settings(_: AdminUser, session: Session): return await settings_store.
 
 @router.put("/settings/{key:path}")
 async def update_setting(key: str, body: SettingUpdate, admin: AdminUser, session: Session):
+    if key.startswith("integration."):
+        raise AppError("SETTING_RESERVED", "این تنظیم فقط از بخش یکپارچه‌سازی‌ها قابل تغییر است.", 400)
     await settings_store.set_value(session, key, body.value); audit.record(session, "system_setting.updated", actor_id=admin.id, actor_type="admin", entity_type="system_setting", entity_id=key, data={"value": body.value}); await session.commit(); return {"ok": True}
 
 

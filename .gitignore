@@ -10,3 +10,4 @@ node_modules/
 var/
 coverage.xml
 htmlcov/
+secrets/backup/

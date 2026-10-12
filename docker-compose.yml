@@ -32,7 +32,7 @@ services:
     env_file: [.env]
     command: arq melorin.worker.arq_app.WorkerSettings
     healthcheck: {test: [CMD, python, -c, 'import os, redis; r=redis.Redis.from_url(os.environ["MELORIN_REDIS_URL"]); raise SystemExit(0 if r.get("melorin:worker:last_tick") else 1)'], interval: 15s, timeout: 5s, retries: 8, start_period: 25s}
-    volumes: [api_storage:/app/var]
+    volumes: [api_storage:/app/var, './secrets/backup:/run/melorin-backup:ro']
     depends_on: {postgres: {condition: service_healthy}, redis: {condition: service_healthy}}
     networks: [backend]
   store_web:

@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from melorin.core import audit
 from melorin.core.config import get_settings
 from melorin.core.db import utcnow
-from melorin.core.email import send_email
+from melorin.core.email import email_available, send_email
 from melorin.core.errors import AppError
 from melorin.core.security import (
     create_access_token,
@@ -107,6 +107,8 @@ def _norm_email(e: str) -> str:
 
 async def request_email_code(session: AsyncSession, email: str) -> str | None:
     email = _norm_email(email)
+    if not await email_available():
+        raise AppError("EMAIL_DISABLED", "ورود با کد ایمیلی در حال حاضر فعال نیست. از روش‌های دیگر ورود استفاده کنید.", 503)
     code = new_numeric_code()
     session.add(VerificationCode(purpose="email_login", target=email, code_hash=token_hash(email + code), expires_at=utcnow() + CODE_TTL))
     await session.commit()

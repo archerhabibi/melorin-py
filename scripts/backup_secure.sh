@@ -37,8 +37,13 @@ age --encrypt --recipients-file "$MELORIN_BACKUP_RECIPIENT_FILE" --output "$out"
 sha256sum "$out" > "$out.sha256"
 sha256sum --check "$out.sha256"
 find "$MELORIN_BACKUP_DIR" -type f -mtime +"$MELORIN_BACKUP_RETENTION_DAYS" -delete
+# Off-site copy is optional (S3 etc.). A failure here must not hide the local artifact: print its path and exit 3.
+offsite_rc=0
 if [[ -n "${MELORIN_BACKUP_OFFSITE_URI:-}" ]]; then
-  rclone copy "$out" "$MELORIN_BACKUP_OFFSITE_URI"
-  rclone copy "$out.sha256" "$MELORIN_BACKUP_OFFSITE_URI"
+  rclone copy "$out" "$MELORIN_BACKUP_OFFSITE_URI" && rclone copy "$out.sha256" "$MELORIN_BACKUP_OFFSITE_URI" || offsite_rc=$?
 fi
 echo "$out"
+if [[ "$offsite_rc" -ne 0 ]]; then
+  echo "off-site copy failed (rclone exit $offsite_rc); local backup kept at $out" >&2
+  exit 3
+fi

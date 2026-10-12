@@ -94,10 +94,10 @@ class Settings(BaseSettings):
                 raise ValueError("MELORIN_ALLOW_MOCK_PROVIDERS cannot be enabled outside development")
             if not self.redis_url or not self.require_redis_rate_limit:
                 raise ValueError("Redis and coordinated rate limiting are required outside development")
-            if self.email_backend == "console":
-                raise ValueError("Console email backend is not allowed outside development")
-            if not self.backup_recipient_file or not self.backup_offsite_uri:
-                raise ValueError("Encrypted off-host backups are required outside development")
+            # SMTP and S3 off-site backup are optional (enabled later from the Admin panel).
+            # Local backups are always encrypted, so the age recipient file stays mandatory.
+            if not self.backup_recipient_file:
+                raise ValueError("MELORIN_BACKUP_RECIPIENT_FILE is required outside development (local backups are encrypted)")
         return self
 
     @property

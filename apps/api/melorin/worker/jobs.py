@@ -1,52 +1,65 @@
 """Periodic jobs. Run from cron/scheduler: health, expiry, reconciliation, backup status."""
+import asyncio
 import datetime as dt
 import logging
 import os
 from pathlib import Path
-import asyncio
 
 from sqlalchemy import select
 
-from melorin.core import events, flags, settings_store
+from melorin.core import events, flags, integrations, settings_store
 from melorin.core.db import session_factory, utcnow
+from melorin.modules.identity.models import VerificationCode
 from melorin.modules.notifications.models import Notification
-from melorin.modules.system.models import OutboxEvent
-from melorin.modules.system.models import BackupRun
+from melorin.modules.system.models import BackupRun, OutboxEvent
 from melorin.modules.vpn import service
 from melorin.modules.vpn.models import Panel, VpnAccount
-from melorin.modules.identity.models import VerificationCode
 
 log = logging.getLogger("melorin.jobs")
 
 
 async def backup_job():
-    """Run the encrypted backup boundary and persist an auditable result."""
+    """Always write an encrypted LOCAL backup; also copy it to S3 when enabled in the Admin panel."""
     root = Path(os.getenv("MELORIN_PROJECT_ROOT", "/app"))
     script = root / "scripts" / "backup_secure.sh"
     started = utcnow()
     status, location, details, size = "failed", None, None, None
+    env = dict(os.environ)
     try:
+        async with session_factory()() as session:
+            s3 = await integrations.get_backup_s3(session)
+        if integrations.backup_s3_ready(s3):
+            env.update(integrations.rclone_env(s3))
+            env["MELORIN_BACKUP_OFFSITE_URI"] = integrations.rclone_uri(s3)
         proc = await asyncio.create_subprocess_exec(
             str(script),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=str(root),
+            env=env,
         )
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=900)
-        if proc.returncode:
-            details = stderr.decode(errors="replace")[-2000:]
-        else:
-            location = stdout.decode(errors="replace").strip().splitlines()[-1]
-            status = "succeeded"
+        lines = stdout.decode(errors="replace").strip().splitlines()
+        if proc.returncode in (0, 3) and lines:
+            location = lines[-1]
             size = Path(location).stat().st_size if Path(location).exists() else None
-            details = "encrypted artifact and checksum verification completed"
+            if proc.returncode == 0:
+                status = "succeeded"
+                details = "encrypted artifact and checksum verification completed" + (
+                    "; copied to S3" if env.get("MELORIN_BACKUP_OFFSITE_URI") else "; local only"
+                )
+            else:  # exit 3: local backup is fine, the off-site copy failed
+                status = "partial"
+                details = "local backup OK but S3 upload failed: " + stderr.decode(errors="replace")[-1500:]
+        else:
+            details = stderr.decode(errors="replace")[-2000:]
     except Exception as exc:
         details = str(exc)[:2000]
     async with session_factory()() as session:
         session.add(BackupRun(status=status, location=location, size=size, details=details, created_at=started))
         await session.commit()
     if status != "succeeded":
-        log.error("backup failed: %s", details)
+        log.error("backup %s: %s", status, details)
     return status
 
 

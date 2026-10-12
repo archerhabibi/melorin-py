@@ -37,7 +37,7 @@ async def set_value(session: AsyncSession, key: str, value) -> None:
 
 
 async def all_settings(session: AsyncSession) -> dict:
-    rows = (await session.scalars(select(SystemSetting))).all()
+    rows = (await session.scalars(select(SystemSetting).where(~SystemSetting.key.startswith("integration.")))).all()
     out = dict(DEFAULTS)
     out.update({r.key: r.value for r in rows})
     return out

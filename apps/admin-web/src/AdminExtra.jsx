@@ -46,6 +46,69 @@ function SettingRow({ k, v, save }) {
   const dirty = t !== JSON.stringify(v);
   return <div className="flex items-center gap-3 border-t border-[#edf0ed] px-5 py-3"><code dir="ltr" className="w-60 shrink-0 text-xs font-bold">{k}</code><input dir="ltr" className={inp} value={t} onChange={(e) => setT(e.target.value)} /><button disabled={!dirty} className={btn} onClick={() => save(k, t)}>ذخیره</button></div>;
 }
+
+const Field = ({ label, children }) => <label className="block text-xs font-bold text-[#55636e]">{label}<div className="mt-1">{children}</div></label>;
+const Toggle = ({ on, set, label }) => <label className="flex cursor-pointer items-center gap-2 text-sm font-bold"><input type="checkbox" checked={on} onChange={(e) => set(e.target.checked)} />{label}</label>;
+
+function Integrations({ api, toast }) {
+  const call = (p, o = {}) => authFetch(api.base, p, o);
+  const [em, setEm] = useState(null); const [s3, setS3] = useState(null); const [local, setLocal] = useState(null);
+  const [pw, setPw] = useState(""); const [sk, setSk] = useState(""); const [to, setTo] = useState(""); const [busy, setBusy] = useState("");
+  const load = () => call("/api/v1/admin/integrations").then((r) => r.ok ? r.json() : Promise.reject()).then((d) => { setEm(d.email); setS3(d.backup.s3); setLocal(d.backup.local); setPw(""); setSk(""); }).catch(() => toast("دریافت تنظیمات ناموفق بود"));
+  useEffect(() => { load(); }, []);
+  if (!em || !s3) return null;
+  const send = async (path, body, okMsg, tag) => {
+    setBusy(tag);
+    const r = await call(path, { method: path.endsWith("/test") ? "POST" : "PUT", body: JSON.stringify(body) });
+    setBusy("");
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) return toast(d?.error?.message || d?.detail?.message || "ذخیره ناموفق بود");
+    if (path.endsWith("/test")) return toast(d.ok ? okMsg : `ناموفق: ${d.error || ""}`);
+    toast(okMsg); load();
+  };
+  const sm = (k) => (v) => setEm({ ...em, [k]: v });
+  const s3s = (k) => (v) => setS3({ ...s3, [k]: v });
+  return <section className={`${box} space-y-6 p-5`}>
+    <h3 className="font-extrabold">یکپارچه‌سازی‌ها <span className="text-xs font-normal text-[#71808b]">(اختیاری؛ برای نصب لازم نیستند)</span></h3>
+    <div className="grid gap-6 lg:grid-cols-2">
+      <div className="space-y-3 rounded-xl border border-[#edf0ed] p-4">
+        <div className="flex items-center justify-between"><b>ایمیل (SMTP)</b><Toggle on={em.enabled} set={sm("enabled")} label={em.enabled ? "فعال" : "غیرفعال"} /></div>
+        <p className="text-xs text-[#71808b]">وقتی غیرفعال است، ورود با کد ایمیلی در دسترس نیست؛ بقیه‌ی روش‌های ورود و سیستم عادی کار می‌کنند.</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="میزبان SMTP"><input dir="ltr" className={inp} value={em.host} onChange={(e) => sm("host")(e.target.value)} placeholder="smtp.example.com" /></Field>
+          <Field label="پورت"><input dir="ltr" type="number" className={inp} value={em.port} onChange={(e) => sm("port")(+e.target.value)} /></Field>
+          <Field label="نام کاربری"><input dir="ltr" className={inp} value={em.username} onChange={(e) => sm("username")(e.target.value)} /></Field>
+          <Field label={`رمز عبور${em.password_set ? " (ذخیره شده؛ برای تغییر بنویسید)" : ""}`}><input dir="ltr" type="password" autoComplete="new-password" className={inp} value={pw} onChange={(e) => setPw(e.target.value)} /></Field>
+          <Field label="آدرس فرستنده"><input dir="ltr" className={inp} value={em.from_addr} onChange={(e) => sm("from_addr")(e.target.value)} placeholder="no-reply@example.com" /></Field>
+          <Field label="امنیت اتصال"><select className={inp} value={em.security} onChange={(e) => sm("security")(e.target.value)}><option value="starttls">STARTTLS (۵۸۷)</option><option value="ssl">SSL/TLS (۴۶۵)</option><option value="none">بدون رمزنگاری</option></select></Field>
+        </div>
+        <div className="flex flex-wrap items-end gap-2">
+          <button disabled={busy === "em"} className={btn} onClick={() => send("/api/v1/admin/integrations/email", { enabled: em.enabled, host: em.host, port: em.port, username: em.username, password: pw === "" ? null : pw, from_addr: em.from_addr, security: em.security }, "تنظیمات ایمیل ذخیره شد", "em")}>ذخیره</button>
+          <input dir="ltr" className={`${inp} max-w-[14rem]`} value={to} onChange={(e) => setTo(e.target.value)} placeholder="ایمیل برای تست" />
+          <button disabled={!to || busy === "emt"} className={ghost} onClick={() => send("/api/v1/admin/integrations/email/test", { to }, "ایمیل تست ارسال شد", "emt")}>ارسال تست</button>
+        </div>
+      </div>
+      <div className="space-y-3 rounded-xl border border-[#edf0ed] p-4">
+        <div className="flex items-center justify-between"><b>بکاپ</b></div>
+        <p className="text-xs text-[#71808b]">بکاپ محلی همیشه فعال است (رمزگذاری‌شده، روزانه ۰۲:۰۰ UTC، نگهداری {local?.retention_days} روز در <code dir="ltr">{local?.dir}</code>). کپی خارج از سرور روی S3 اختیاری است.</p>
+        <Toggle on={s3.enabled} set={s3s("enabled")} label={s3.enabled ? "کپی روی S3 فعال" : "کپی روی S3 غیرفعال"} />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Endpoint (برای S3 سازگار)"><input dir="ltr" className={inp} value={s3.endpoint} onChange={(e) => s3s("endpoint")(e.target.value)} placeholder="https://s3.example.com" /></Field>
+          <Field label="Region"><input dir="ltr" className={inp} value={s3.region} onChange={(e) => s3s("region")(e.target.value)} placeholder="us-east-1" /></Field>
+          <Field label="Bucket"><input dir="ltr" className={inp} value={s3.bucket} onChange={(e) => s3s("bucket")(e.target.value)} /></Field>
+          <Field label="Prefix"><input dir="ltr" className={inp} value={s3.prefix} onChange={(e) => s3s("prefix")(e.target.value)} /></Field>
+          <Field label="Access Key"><input dir="ltr" className={inp} value={s3.access_key} onChange={(e) => s3s("access_key")(e.target.value)} /></Field>
+          <Field label={`Secret Key${s3.secret_key_set ? " (ذخیره شده؛ برای تغییر بنویسید)" : ""}`}><input dir="ltr" type="password" autoComplete="new-password" className={inp} value={sk} onChange={(e) => setSk(e.target.value)} /></Field>
+        </div>
+        <div className="flex gap-2">
+          <button disabled={busy === "s3"} className={btn} onClick={() => send("/api/v1/admin/integrations/backup-s3", { enabled: s3.enabled, endpoint: s3.endpoint, region: s3.region, bucket: s3.bucket, prefix: s3.prefix, access_key: s3.access_key, secret_key: sk === "" ? null : sk }, "تنظیمات S3 ذخیره شد", "s3")}>ذخیره</button>
+          <button disabled={busy === "s3t"} className={ghost} onClick={() => send("/api/v1/admin/integrations/backup-s3/test", {}, "اتصال به S3 موفق بود", "s3t")}>تست اتصال</button>
+        </div>
+      </div>
+    </div>
+  </section>;
+}
+
 function Settings({ api, toast }) {
   const flags = useList(api, "/api/v1/admin/feature-flags", toast);
   const settings = useList(api, "/api/v1/admin/settings", toast);
@@ -59,7 +122,7 @@ function Settings({ api, toast }) {
     const r = await flags.call(`/api/v1/admin/settings/${key}`, { method: "PUT", body: JSON.stringify({ value }) });
     if (r.ok) { toast("تنظیم ذخیره شد"); setTick((x) => x + 1); } else toast("ذخیره ناموفق بود");
   };
-  return <div className="space-y-5"><Table title="Feature Flags" cols={["کلید", "محدوده", "فعال", ""]} rows={flags.rows.map((f) => [f.key, `${f.scope_type}:${f.scope_id}`, f.enabled ? "بله" : "خیر", <button className={ghost} onClick={() => setFlag(f)}>{f.enabled ? "خاموش" : "روشن"}</button>])} />
+  return <div className="space-y-5"><Integrations api={api} toast={toast} /><Table title="Feature Flags" cols={["کلید", "محدوده", "فعال", ""]} rows={flags.rows.map((f) => [f.key, `${f.scope_type}:${f.scope_id}`, f.enabled ? "بله" : "خیر", <button className={ghost} onClick={() => setFlag(f)}>{f.enabled ? "خاموش" : "روشن"}</button>])} />
     <section className={`${box} overflow-hidden`}><h3 className="px-5 py-4 font-extrabold">تنظیمات سیستم <span className="text-xs font-normal text-[#71808b]">(مقدار به‌صورت JSON)</span></h3>{Object.entries(obj).map(([k, v]) => <SettingRow key={k} k={k} v={v} save={save} />)}</section></div>;
 }
 
