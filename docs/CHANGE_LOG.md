@@ -139,3 +139,10 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 - **Action:** applied the patch (65 files): off-site S3 backup optional again (local age-encrypted backup stays required); `scripts/telegram_healthcheck.py` (getMe) copied into both bot images; `migration_smoke.sh` checks 0009 and runs in CI; deterministic tie-break in migration 0009 dedup (`created_at`, then `id`); lint policy `E4/E9/F`; installer builds `.env.tmp`; `I17-I33` notes moved to `docs/history/`; `auth_cookie_smoke.py`; runbook and README additions. On top of the patch: the installer now promotes `.env.tmp` to `.env` after validation (the patch built it but never renamed it), and 7 stale or wrong test assertions were corrected (readiness ping, `.is_private`, fail-closed rate limit fixture, J04 fixture tokens, by-slug check pointed at the reseller runner, `parsed_api` name, J19 lint policy).
 - **After:** `pytest` 157 passed, 1 skipped; `ruff check` clean; shell syntax and release matrix checks pass. NOT run: `ruff format --check` (fails on 80 files, pre-existing), PostgreSQL migration smoke, web builds, `npm audit`.
 - **Ref:** this commit
+
+### 2026-10-13 - Claude (with owner) - store-web redesign (melorin-store-redesign-patch)
+- **Before:** `apps/store-web` used hard-coded colors, system font (Tahoma), a single light theme and inline styles.
+- **Problem:** the storefront looked dated and had no shared design system, loading/error states or mobile navigation.
+- **Action:** new design system (light/dark tokens in `styles.css`, Tailwind token mapping, shared primitives in `src/ui.jsx`); redesigned home, login/code/checkout dialogs, dashboard and reseller panel; self-hosted Vazirmatn via `@fontsource-variable/vazirmatn`. API calls and state logic unchanged.
+- **After:** `npm run build` passes; `check_frontend_contracts.py` and `check_web_lockfiles.py` pass; visually checked on desktop/mobile in light and dark with a mocked API. Not run against a live Core.
+- **Ref:** this commit
