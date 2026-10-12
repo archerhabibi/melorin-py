@@ -282,14 +282,14 @@ def test_i39_irt_irr_boundaries_are_explicit():
 
 def test_i40_currency_payment_contract_exists():
     test = (ROOT / "tests/test_i40_currency_payment_contract.py").read_text()
-    doc = (ROOT.parent.parent / "I40_CURRENCY_PAYMENT_CONTRACT.md").read_text()
+    doc = (ROOT.parent.parent / "docs/history/I40_CURRENCY_PAYMENT_CONTRACT.md").read_text()
     assert "_gateway_amount" in test
     assert "destination/currency mismatch" in doc
 
 
 def test_i41_restore_drill_is_real_and_isolated():
     script = (ROOT.parent.parent / "scripts/backup_restore_drill.sh").read_text()
-    doc = (ROOT.parent.parent / "I41_BACKUP_RESTORE_DRILL.md").read_text()
+    doc = (ROOT.parent.parent / "docs/history/I41_BACKUP_RESTORE_DRILL.md").read_text()
     assert "createdb" in script and "pg_restore" in script and "dropdb" in script
     assert "restore_drill" in script
     assert "RPO" in doc and "RTO" in doc
