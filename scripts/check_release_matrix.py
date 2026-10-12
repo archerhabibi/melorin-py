@@ -8,8 +8,8 @@ assert "Production-evidenced" in text
 assert text.count("| Blocked |") >= 10
 assert "historical" in text.lower()
 assert "J01-J19 remediation status" in text
-assert "0008" in text
+assert "0009" in text
 assert "0005" not in text
-policy = Path("I33_DOCUMENTATION_STATUS.md").read_text()
+policy = Path("docs/history/I33_DOCUMENTATION_STATUS.md").read_text()
 assert "I33" in policy
 print("release evidence matrix is present and fail-closed")

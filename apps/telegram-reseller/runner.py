@@ -3,7 +3,7 @@
 Same Core-authenticated transport as the main runner, bound to one reseller Store
 (``MELORIN_STORE_SLUG``). Customers get the full storefront; Store owners get extra
 commands (/report, /customers, /payments). Authorization is enforced by Core (403 for
-non-owners); this process never holds panel/server credentials or other stores' data.
+non-owners); this process never holds infrastructure credentials or other stores' data.
 """
 import os
 import asyncio

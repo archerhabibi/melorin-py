@@ -5,7 +5,7 @@ This is the authoritative release-status document. Older phase/F finding reports
 | Area | Implemented in source | Static-tested | Runtime-tested | Production-evidenced | Current decision |
 |---|---:|---:|---:|---:|---|
 | API/Core startup and dependencies | Yes | Yes | Yes (2026-10-10, local PG16/Redis7, full E2E) | No | Blocked |
-| Explicit Alembic baseline and upgrade | Yes | Yes | Yes (fresh DB to 0008, `alembic check` clean) | No | Blocked |
+| Explicit Alembic baseline and upgrade | Yes | Yes | Yes (fresh DB to 0009, `alembic check` clean) | No | Blocked |
 | Store/Admin Web routing and API contract | Yes | Yes | Yes (headless Chromium vs live API) | No | Blocked |
 | Deterministic Web lockfiles/build | Yes | Yes | Yes (`npm ci` + build; Docker image build not run) | No | Blocked |
 | Telegram Main/Reseller runners | Yes | Yes | No | No | Blocked |

@@ -24,5 +24,5 @@ async def test_live_health_over_asgi_transport():
 @pytest.mark.concurrency
 def test_external_concurrency_smoke_is_declared():
     """The DB race test is intentionally executed as a script with real services."""
-    script = Path(__file__).parents[2] / "scripts" / "postgres_concurrency_smoke.py"
+    script = Path(__file__).parents[3] / "scripts" / "postgres_concurrency_smoke.py"
     assert script.is_file()

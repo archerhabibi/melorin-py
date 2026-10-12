@@ -9,7 +9,7 @@ def test_reseller_runner_supports_multiple_core_bound_store_bots():
     assert "MELORIN_RESELLER_BOTS_JSON" in source
     assert "store_slug" in source and "state_suffix" in source
     assert "asyncio.gather" in source
-    assert "/api/v1/stores/by-slug/" in (ROOT / "apps/telegram-main/runner.py").read_text()
+    assert "/api/v1/stores/by-slug/" in (ROOT / "apps/telegram-reseller/runner.py").read_text()
 
 
 def test_reseller_runner_routes_business_operations_through_core():

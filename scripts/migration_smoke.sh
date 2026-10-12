@@ -17,7 +17,17 @@ async def main():
     async with engine().begin() as conn:
         result = await conn.execute(text("select version_num from alembic_version"))
         version = result.scalar_one()
-        assert version == "0008_bot_store_bindings", version
+        assert version == "0009_referral_first_reward_guard", version
+        columns = (await conn.execute(text(
+            "select column_name from information_schema.columns "
+            "where table_name = 'commissions' and column_name = 'referred_user_id'"
+        ))).scalars().all()
+        assert columns == ["referred_user_id"], columns
+        constraints = (await conn.execute(text(
+            "select constraint_name from information_schema.table_constraints "
+            "where table_name = 'commissions' and constraint_name = 'uq_commissions_referred_user_id_kind'"
+        ))).scalars().all()
+        assert constraints == ["uq_commissions_referred_user_id_kind"], constraints
         print("migration smoke passed:", version)
 
 asyncio.run(main())

@@ -55,6 +55,8 @@ jobs:
         working-directory: .
       - run: alembic check
         env: {MELORIN_DATABASE_URL: postgresql+asyncpg://melorin:test@localhost:5432/melorin, MELORIN_JWT_SECRET: ci-secret}
+      - run: bash ../../scripts/migration_smoke.sh
+        env: {MELORIN_DATABASE_URL: postgresql+asyncpg://melorin:test@localhost:5432/melorin, MELORIN_JWT_SECRET: ci-secret}
       - run: |
           alembic upgrade head
           python -m melorin.cli bootstrap

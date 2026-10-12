@@ -46,5 +46,8 @@ def test_production_accepts_valid_fernet_key_and_https_origins():
         backup_recipient_file="/tmp/recipients",
         backup_offsite_uri="s3://bucket/melorin",
         cors_origins=["https://app.example.com"],
+        public_api_url="https://app.example.com",
+        metrics_token="m" * 40,
+        health_token="h" * 40,
     )
     assert settings.env == "production" and not settings.is_dev

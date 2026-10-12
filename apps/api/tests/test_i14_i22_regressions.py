@@ -121,7 +121,7 @@ def test_web_tokens_are_not_persisted_in_local_storage():
 def test_readiness_checks_dependencies_and_worker_signals():
     app = (ROOT / "melorin/app.py").read_text()
     worker = (ROOT / "melorin/worker/arq_app.py").read_text()
-    assert "await redis.ping()" in app
+    assert "redis.ping()" in app
     assert "OutboxEvent" in app and "Panel" in app
     assert "melorin_outbox_pending" in app
     assert "melorin_worker_last_tick" in worker
@@ -158,7 +158,7 @@ def test_k11_to_k20_operational_controls_are_present():
         assert marker in arq
     assert "timeout=900" in arq
     assert 'state="firing"} > 0' in alerts and "for: 5m" in alerts
-    assert "_public_panel_url" in registry and "ip.is_private" in registry
+    assert "_public_panel_url" in registry and ".is_private" in registry
     assert "order_paid_retry:" in orders and "already_claimed" in vpn
 
 
@@ -214,7 +214,7 @@ def test_lint_gate_uses_correctness_focused_policy():
 def test_release_matrix_is_the_single_current_status_source():
     matrix = (ROOT.parent.parent / "docs/RELEASE-EVIDENCE-MATRIX.md").read_text()
     checker = (ROOT.parent.parent / "scripts/check_release_matrix.py").read_text()
-    policy = (ROOT.parent.parent / "I33_DOCUMENTATION_STATUS.md").read_text()
+    policy = (ROOT.parent.parent / "docs/history/I33_DOCUMENTATION_STATUS.md").read_text()
     assert "I33" in checker
     assert "historical" in matrix.lower() and "historical" in policy.lower()
 

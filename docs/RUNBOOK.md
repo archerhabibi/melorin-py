@@ -11,7 +11,7 @@
 Stop writes at Caddy or disable the `purchase` and `payment` feature flags. Restore the latest encrypted backup to a new instance. Run migrations and integrity checks, then re-enable in staging first.
 
 ## Redis failure
-The database remains the financial source of truth. Rate-limit/coordination degrades to development fallback; restore Redis before scaling multiple workers.
+The database remains the financial source of truth. In staging/production, rate limiting fails closed while Redis is unavailable; this prevents a multi-worker bypass. Restore Redis and verify `/health/ready` before reopening login traffic or scaling workers.
 
 ## Panel failure
 Panel health becomes unhealthy; provisioning selects no server and sends orders to manual review. Do not refund until Panel state is reconciled. Use admin retry or attach an existing account.
@@ -33,3 +33,13 @@ Default is 1 run/day, 30-day retention, encrypted local plus off-server copy. A 
 4. Run `alembic upgrade head`, then exercise wallet top-up, duplicate callback, wallet-only checkout, coupon quota concurrency, reseller debt-limit boundary, refund/clawback and webhook retry tests.
 5. Verify ARQ/Redis queue health and PostgreSQL outbox recovery after a worker restart.
 6. Perform a real restore drill and record RPO <= 24h and RTO <= 8h before enabling production sales.
+
+
+## Acceptance smoke
+
+Run `MELORIN_RUN_EXTERNAL_PROVIDERS=1 scripts/integration_smoke.sh` with a real panel URL and sandbox payment credentials before selling. Run `MELORIN_RUN_TELEGRAM_SMOKE=1 scripts/integration_smoke.sh` with a rotated BotFather token to verify Telegram. Record the results with `scripts/ops_log.sh`; do not paste secrets into ClickUp, logs, or reports.
+
+
+## Session and backup acceptance
+
+For a live deployment, run `BASE_URL=https://shop.example.com COOKIE_JAR=... python scripts/auth_cookie_smoke.py` to verify refresh-cookie rotation, HttpOnly protection, and same-origin CORS behavior. Run `scripts/backup_restore_verify.sh` for archive verification and `scripts/backup_restore_drill.sh` against an isolated PostgreSQL 16 database for a real restore drill.

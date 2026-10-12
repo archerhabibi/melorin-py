@@ -23,3 +23,8 @@ def main():
         return 2
     print("Preflight passed: " + ", ".join(tools)); return 0
 if __name__ == "__main__": raise SystemExit(main())
+
+healthcheck = ROOT / "scripts/telegram_healthcheck.py"
+assert healthcheck.is_file(), "Telegram healthcheck script is missing"
+for dockerfile in (ROOT / "apps/telegram-main/Dockerfile", ROOT / "apps/telegram-reseller/Dockerfile"):
+    assert "telegram_healthcheck.py" in dockerfile.read_text(), f"{dockerfile}: healthcheck not copied into image"

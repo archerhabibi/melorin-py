@@ -101,8 +101,9 @@ class Settings(BaseSettings):
             # Local backups are always encrypted, so the age recipient file stays mandatory.
             if not self.backup_recipient_file:
                 raise ValueError("MELORIN_BACKUP_RECIPIENT_FILE is required outside development (local backups are encrypted)")
-            if not self.backup_offsite_uri:
-                raise ValueError("MELORIN_BACKUP_OFFSITE_URI is required outside development (local backup is not disaster recovery)")
+            # Off-site S3/rclone backup is optional. Local encrypted backups keep the
+            # installation and daily operation working without an S3 account; admins
+            # can enable and test the off-site copy from Admin -> Settings -> Integrations.
         return self
 
     @property

@@ -4,7 +4,8 @@
 #   bash scripts/install_server.sh
 # Optional: MAIN_BOT_TOKEN (otherwise you are asked for it), REPO_URL, APP_DIR,
 # EXTERNAL_PROXY=true when ports 80/443 are already owned by a host proxy.
-# Idempotent: an existing .env is never overwritten.
+# Idempotent: an existing .env is never overwritten. New environments are
+# assembled in .env.tmp and atomically renamed only after validation succeeds.
 # Default mode uses the bundled Caddy. EXTERNAL_PROXY=true uses loopback
 # bindings and leaves TLS/routing to the existing host proxy.
 set -euo pipefail
@@ -50,12 +51,12 @@ rand() { openssl rand -hex 32; }
 fernet() { head -c 32 /dev/urandom | base64 | tr '+/' '-_'; }
 
 set_kv() { # set_kv KEY VALUE  (replace line or append)
-  local k="$1" v="$2"
-  if grep -qE "^${k}=" .env; then
+  local k="$1" v="$2" file="${ENV_FILE:-.env}"
+  if grep -qE "^${k}=" "$file"; then
     local esc="${v//\\/\\\\}"; esc="${esc//&/\\&}"; esc="${esc//|/\\|}"
-    sed -i "s|^${k}=.*|${k}=${esc}|" .env
+    sed -i "s|^${k}=.*|${k}=${esc}|" "$file"
   else
-    echo "${k}=${v}" >> .env
+    echo "${k}=${v}" >> "$file"
   fi
 }
 
@@ -70,7 +71,11 @@ if [ ! -f .env ]; then
     BOT=""
   fi
 
-  cp .env.example .env
+  # Never expose a half-written production environment to Compose or a retry.
+  ENV_FILE=.env.tmp
+  export ENV_FILE
+  rm -f "$ENV_FILE"
+  cp .env.example "$ENV_FILE"
   PGPASS="$(rand)"
   set_kv MELORIN_ENV production
   set_kv POSTGRES_PASSWORD "$PGPASS"
@@ -103,14 +108,11 @@ if [ ! -f .env ]; then
   else
     echo ">> no bot token set: the main bot will not start until MELORIN_TELEGRAM_TOKEN is added to .env."
   fi
+  mv -f "$ENV_FILE" .env
+  unset ENV_FILE
   chmod 600 .env
 fi
-if [ "${MELORIN_ENV:-production}" = "production" ] && [ -z "${BACKUP_OFFSITE_URI:-}" ]; then
-  echo "BACKUP_OFFSITE_URI is required for production disaster recovery." >&2
-  exit 1
-fi
-
-# --- Local encrypted backups (no S3 / SMTP needed; both are optional and enabled later in the Admin panel) ---
+# --- Local encrypted backups (S3 / SMTP are optional and enabled later in Admin) ---
 # The worker only receives the PUBLIC age recipient. The private identity stays on the host in secrets/backup/.
 mkdir -p secrets/backup
 if [ ! -s secrets/backup/recipients.txt ]; then
@@ -123,9 +125,11 @@ if [ ! -s secrets/backup/recipients.txt ]; then
 fi
 chmod 755 secrets/backup
 set_kv MELORIN_BACKUP_RECIPIENT_FILE /run/melorin-backup/recipients.txt
-  if [ -n "${BACKUP_OFFSITE_URI:-}" ]; then
-    set_kv MELORIN_BACKUP_OFFSITE_URI "$BACKUP_OFFSITE_URI"
-  fi
+# Optional bootstrap value for operators who already have an off-site target.
+# It is intentionally not required: S3/rclone can be configured later in Admin.
+if [ -n "${BACKUP_OFFSITE_URI:-}" ]; then
+  set_kv MELORIN_BACKUP_OFFSITE_URI "$BACKUP_OFFSITE_URI"
+fi
 
 # Prometheus reads a file secret, not the .env value. Write it atomically and
 # keep it readable only by the monitoring container's root user.

@@ -22,7 +22,8 @@ def upgrade() -> None:
             "DELETE FROM commissions c USING commissions newer "
             "WHERE c.kind = 'signup_reward' AND newer.kind = c.kind "
             "AND newer.referred_user_id = c.referred_user_id "
-            "AND newer.created_at < c.created_at"
+            "AND (newer.created_at < c.created_at "
+            "OR (newer.created_at = c.created_at AND newer.id < c.id))"
         )
     )
     op.create_foreign_key(

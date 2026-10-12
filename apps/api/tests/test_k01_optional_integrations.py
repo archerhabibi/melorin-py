@@ -1,4 +1,4 @@
-"""SMTP is optional, while production backups require an off-site destination."""
+"""SMTP and off-site S3 backups are optional production integrations."""
 import pytest
 from cryptography.fernet import Fernet
 from sqlalchemy import select
@@ -30,9 +30,9 @@ def _prod(**kw):
     return Settings(**base)
 
 
-def test_production_starts_without_smtp_with_offsite_backup():
-    s = _prod(email_backend="console")
-    assert s.env == "production" and s.backup_offsite_uri and s.email_backend == "console"
+def test_production_starts_without_smtp_or_s3():
+    s = _prod(email_backend="console", backup_offsite_uri="")
+    assert s.env == "production" and not s.backup_offsite_uri and s.email_backend == "console"
 
 
 def test_production_still_requires_the_local_backup_recipient():

@@ -34,7 +34,13 @@ After it finishes:
    can decrypt the backups; without it they cannot be restored.
 3. Configure panels, payments and other providers as described in `docs/`.
 
-### Optional: SMTP and S3 backup
+### Existing reverse proxy (EXTERNAL_PROXY)
+
+If another service already owns ports 80/443, install with `EXTERNAL_PROXY=true`. The installer then binds only loopback ports: store `127.0.0.1:18080`, admin `127.0.0.1:18081`, and API `127.0.0.1:18000`. Route `/api/*` and `/health/*` to the API, and route each hostname to its matching web port.
+
+The installer validates inputs before publishing `.env`; a failed run leaves no partial new environment file. It creates the encrypted local-backup key, runs `alembic upgrade head`, starts the stack, and runs the idempotent admin bootstrap. Save the printed one-time TOTP seed in an authenticator, then remove the bootstrap password from `.env` after first login.
+
+## Optional: SMTP and S3 backup
 
 SMTP and off-site (S3-compatible) backup are **optional** and are configured later in the Admin panel under
 *Settings -> Integrations*. Without SMTP, e-mail-code login is unavailable (the other login methods are not affected).
@@ -150,4 +156,4 @@ Release status is authoritative in `docs/RELEASE-EVIDENCE-MATRIX.md`. Historical
 phase and finding reports describe changes, not approval; the matrix remains
 fail-closed until runtime and production evidence is attached. The current API
 map is `docs/API-IMPLEMENTATION.md`, and the migration head is
-`0008_bot_store_bindings`. Do not mark a phase report as current status.
+`0009_referral_first_reward_guard`. Do not mark a phase report as current status.

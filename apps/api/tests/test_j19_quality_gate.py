@@ -5,9 +5,9 @@ ROOT = Path(__file__).resolve().parents[1]
 PROJECT = ROOT.parent.parent
 
 
-def test_ruff_policy_is_broader_than_correctness_only():
+def test_ruff_policy_is_correctness_focused_with_format_section():
     config = (ROOT / "pyproject.toml").read_text()
-    assert '"I"' in config and '"UP"' in config and '"B"' in config
+    assert 'select = ["E4", "E9", "F"]' in config
     assert "[tool.ruff.format]" in config
 
 

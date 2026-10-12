@@ -1,3 +1,4 @@
+from collections import defaultdict
 import pytest
 
 from melorin.core import ratelimit
@@ -64,6 +65,6 @@ async def test_redis_outage_uses_bounded_local_limiter(monkeypatch):
             raise RuntimeError("redis unavailable")
 
     monkeypatch.setattr(ratelimit, "get_redis", lambda: Down())
-    monkeypatch.setattr(ratelimit, "_mem", {})
+    monkeypatch.setattr(ratelimit, "_mem", defaultdict(lambda: [0, 0.0]))
     assert await ratelimit.hit("auth:203.0.113.20", 1, 60)
     assert not await ratelimit.hit("auth:203.0.113.20", 1, 60)

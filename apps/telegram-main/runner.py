@@ -380,6 +380,9 @@ class TelegramRunner:
                         try:
                             await self.handle(update)
                         except (KeyError, ValueError, CoreError):
+                            # Malformed/user-level errors are terminal for this update.
+                            # Transport/5xx errors escape to the outer retry path, so the
+                            # offset is deliberately NOT advanced and the update is replayed.
                             log.exception("dropping malformed update %s", update.get("update_id"))
                         self._save_offset(update["update_id"] + 1)
                 except (httpx.HTTPError, RuntimeError) as exc:

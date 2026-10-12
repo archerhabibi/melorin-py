@@ -31,7 +31,7 @@ Applied on top of `3b2262a` (33 files). Source: comprehensive project review.
 - Dockerfile: base `slim-bookworm`, `postgresql-client-16` from PGDG (matches `postgres:16`).
 - `docker-compose.yml`: `mem_limit`/`cpus` per service, single-file age recipients mount, Caddy under profile `local-proxy`.
 - `docker-compose.external.yml` (new): loopback ports 18000/18080/18081 for hosts that already own 80/443.
-- `install_server.sh`: `EXTERNAL_PROXY=true` mode, random bootstrap TOTP secret, `BACKUP_OFFSITE_URI` required in production, atomic `secrets/metrics-token`, runs `python -m melorin.cli bootstrap`.
+- `install_server.sh`: `EXTERNAL_PROXY=true` mode, random bootstrap TOTP secret, `BACKUP_OFFSITE_URI` optional; local encrypted backups work without S3 and Admin can enable off-site copy, atomic `secrets/metrics-token`, runs `python -m melorin.cli bootstrap`.
 - `run_quality_gate.sh`: adds `npm audit --include=dev`.
 
 ## 6. Tests
@@ -39,6 +39,26 @@ New/updated: `test_i14_i22_regressions.py` (K11-K27 and full-audit regressions),
 
 ## Before deploy
 - Admin cannot log in without TOTP: take the secret from the server `.env` and register it in an authenticator app.
-- Off-site backup is now mandatory in production (reverses the earlier "S3 optional" decision; `test_k01` changed accordingly).
+- Off-site S3/rclone backup is optional in production; local encrypted backups are created by default and off-site copy is enabled later from Admin -> Settings -> Integrations.
 - Rate limit is fail-closed: a Redis outage rejects rate-limited requests (e.g. login).
-- Status: Python compile and shell syntax checks pass. Full test suite, migrations on a real DB and web builds NOT yet run.
+- Status: Python compile and shell syntax checks pass. Full test suite and web builds remain environment-dependent; the repository now includes a CI-backed PostgreSQL migration smoke that verifies head 0009 and its schema contract.
+
+
+## L-03 regression fixes
+
+The eight reported regressions are addressed: readiness and worker heartbeat contracts, operational control markers, correctness-focused Ruff policy, bounded Redis fallback, repository-root concurrency smoke discovery, production Fernet/HTTPS validation, and multi-store Telegram runner source contracts.
+
+
+## L-04/L-05 completion
+
+The Ruff gate now uses a correctness-focused rule set while retaining format verification. CI runs the migration smoke against PostgreSQL and verifies Alembic head `0009_referral_first_reward_guard`, the new `commissions.referred_user_id` column, and the unique referral reward constraint. Migration duplicate cleanup is deterministic even when timestamps tie.
+
+
+## L-06/L-15 completion
+
+Installer retries are now safe through atomic `.env.tmp` publication, EXTERNAL_PROXY routing is documented, manual bootstrap and integration steps are documented, PostgreSQL 16 backup tooling is pinned, provider and Telegram acceptance smoke gates are explicit, transient Telegram/Core failures replay without advancing offsets, production Redis rate limiting is fail-closed, and both frontend audits remain in the quality gate.
+
+
+## L-16/L-22 completion
+
+Restore verification and isolated restore-drill paths are documented and pinned to PostgreSQL 16 tooling. Telegram healthchecks now call `getMe`, metrics tokens remain file-backed, resource limits are explicit, phase reports are separated under `docs/history/`, and a live refresh-cookie/CORS smoke check was added.
