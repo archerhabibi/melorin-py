@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-12 22:49 UTC - Claude - admin-web, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** Admin web redesign: Vazirmatn fonts, dashboard trend chart, /admin/reports/timeseries endpoint
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (21):** `apps/admin-web/index.html`, `apps/admin-web/public/fonts/OFL.txt`, `apps/admin-web/public/fonts/Vazirmatn-Bold.woff2`, `apps/admin-web/public/fonts/Vazirmatn-ExtraBold.woff2`, `apps/admin-web/public/fonts/Vazirmatn-Medium.woff2`, `apps/admin-web/public/fonts/Vazirmatn-Regular.woff2`, `apps/admin-web/src/AdminAuth.jsx`, `apps/admin-web/src/AdminExtra.jsx` (+13 more)
+- **Ref:** `70fd30c`
+
+
 ### 2026-10-12 21:28 UTC - Claude - bot  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
