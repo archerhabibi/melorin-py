@@ -234,6 +234,12 @@ class TelegramRunner:
         if text in main:
             self._set_state(ctx.chat_id, None)
             await main[text](ctx, "")
+        elif st.get("topup_amount"):
+            digits = "".join(ch for ch in text.translate(str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")) if ch.isdigit())
+            if not digits or int(digits) <= 0:
+                return await self.send(ctx.chat_id, "مبلغ نامعتبر است. فقط عدد (به تومان) وارد کنید:")
+            self._set_state(ctx.chat_id, None)
+            await self.create_topup(ctx, int(digits))
         elif st.get("reply_ticket"):
             await self.api(ctx, "POST", f"/api/v1/tickets/{st['reply_ticket']}/messages", json={"body": text})
             self._set_state(ctx.chat_id, None)
