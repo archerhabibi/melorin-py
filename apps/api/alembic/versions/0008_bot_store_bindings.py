@@ -13,6 +13,9 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # This is the sole owner of bot_store_bindings.  The frozen 0001
+    # baseline explicitly excludes it, so fresh installs cannot receive
+    # duplicate table/index DDL.
     op.create_table(
         "bot_store_bindings",
         sa.Column("id", sa.Uuid(), primary_key=True),

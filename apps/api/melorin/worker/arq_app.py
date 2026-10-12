@@ -13,7 +13,7 @@ from arq.connections import RedisSettings
 from melorin.core.config import get_settings
 from melorin.core.db import session_factory
 from melorin.worker.runner import claim_batch, claim_webhook_batch, process_event, process_webhook
-from melorin.worker.jobs import backup_job, privacy_retention_job
+from melorin.worker.jobs import backup_job, expiry_job, near_expiry_job, panel_health_job, privacy_retention_job, reconciliation_job
 from melorin.core.metrics import set_gauge
 
 
@@ -39,14 +39,21 @@ async def shutdown(ctx):
 
 
 class WorkerSettings:
-    functions = [poll_tick, backup_job]
+    functions = [poll_tick, backup_job, panel_health_job, expiry_job, near_expiry_job, reconciliation_job, privacy_retention_job]
     cron_jobs = [
         cron(poll_tick, second=set(range(0, 60, 2)), unique=True),
-        cron(backup_job, hour=2, minute=0, unique=True),
+        cron(backup_job, hour=2, minute=0, unique=True, timeout=900),
+        cron(panel_health_job, minute=set(range(0, 60, 5)), unique=True),
+        cron(expiry_job, minute=set(range(0, 60, 5)), unique=True),
+        cron(near_expiry_job, minute=set(range(0, 60, 15)), unique=True),
+        cron(reconciliation_job, minute=10, unique=True),
         cron(privacy_retention_job, hour=3, minute=0, unique=True),
     ]
     on_startup = startup
     on_shutdown = shutdown
     redis_settings = RedisSettings.from_dsn(get_settings().redis_url or "redis://localhost:6379/0")
     max_jobs = 20
+    # Keep the default short for ordinary jobs; backup_job has its own
+    # 15-minute cron timeout above.
     job_timeout = 120
+    max_tries = 1

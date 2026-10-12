@@ -13,7 +13,14 @@ depends_on = None
 
 
 def upgrade() -> None:
-    if "uq_reseller_application_pending_user" in {i["name"] for i in sa.inspect(op.get_bind()).get_indexes("reseller_applications")}:
+    inspector = sa.inspect(op.get_bind())
+    app_columns = {c["name"] for c in inspector.get_columns("reseller_applications")}
+    existing_indexes = {i["name"] for i in inspector.get_indexes("reseller_applications")}
+    # Current baselines already have the store-scoped column and index.
+    # Do not recreate the obsolete global user-only uniqueness rule.
+    if "target_store_id" in app_columns:
+        return
+    if "uq_reseller_application_pending_user" in existing_indexes:
         return
     op.create_index(
         "uq_reseller_application_pending_user",
@@ -25,4 +32,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("uq_reseller_application_pending_user", table_name="reseller_applications")
+    indexes = {i["name"] for i in sa.inspect(op.get_bind()).get_indexes("reseller_applications")}
+    if "uq_reseller_application_pending_user" in indexes:
+        op.drop_index("uq_reseller_application_pending_user", table_name="reseller_applications")

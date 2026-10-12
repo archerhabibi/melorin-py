@@ -50,6 +50,7 @@ class Settings(BaseSettings):
 
     bootstrap_admin_email: str | None = None
     bootstrap_admin_password: str | None = None
+    bootstrap_admin_totp_secret: str | None = None
     seed_demo_data: bool = False
 
     worker_poll_interval: float = 2.0
@@ -82,6 +83,8 @@ class Settings(BaseSettings):
                 raise ValueError("MELORIN_DATABASE_URL contains a weak/default credential")
             if not self.bootstrap_admin_password or len(self.bootstrap_admin_password) < 24 or self.bootstrap_admin_password in {"change-me-now", "password"}:
                 raise ValueError("MELORIN_BOOTSTRAP_ADMIN_PASSWORD must be a strong one-time credential")
+            if not self.bootstrap_admin_totp_secret or len(self.bootstrap_admin_totp_secret.strip()) < 16:
+                raise ValueError("MELORIN_BOOTSTRAP_ADMIN_TOTP_SECRET is required outside development")
             if self.jwt_secret == "dev-insecure-change-me" or len(self.jwt_secret) < 32:
                 raise ValueError("MELORIN_JWT_SECRET must be a unique secret of at least 32 characters outside development")
             if self.bot_service_secret in {"dev-bot-secret", ""} or len(self.bot_service_secret) < 32:
@@ -98,6 +101,8 @@ class Settings(BaseSettings):
             # Local backups are always encrypted, so the age recipient file stays mandatory.
             if not self.backup_recipient_file:
                 raise ValueError("MELORIN_BACKUP_RECIPIENT_FILE is required outside development (local backups are encrypted)")
+            if not self.backup_offsite_uri:
+                raise ValueError("MELORIN_BACKUP_OFFSITE_URI is required outside development (local backup is not disaster recovery)")
         return self
 
     @property

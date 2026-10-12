@@ -184,6 +184,8 @@ async def review_store_payment(payment_id: uuid.UUID, body: PaymentReview, ctx: 
     p = await session.get(Payment, payment_id)
     if not p or p.store_id != ctx.store.id:
         raise NotFound("پرداخت")
+    if p.provider != "manual_card":
+        raise AppError("PAYMENT_REVIEW_FORBIDDEN", "تأیید پرداخت‌های درگاه فقط پس از callback معتبر انجام می‌شود.", 403)
     if body.approve:
         p = await payments.mark_succeeded(session, p.id, actor_id=ctx.user.id, actor_type="reseller", note=body.note)
     else:

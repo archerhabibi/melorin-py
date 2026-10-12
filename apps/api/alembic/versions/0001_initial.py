@@ -17,7 +17,12 @@ revision = "0001_initial"
 down_revision = None
 branch_labels = None
 depends_on = None
-MODEL_SOURCE_FINGERPRINT = "a679a521f9931de7f44afad5082ddaa068f004ed8ff7e2937295ce18995ec6cc"
+MODEL_SOURCE_FINGERPRINT = "d472864d69e219a4ca630f9d77e42ceedfb680241a6999a80baf9324a230fb9b"
+
+# Tables introduced by a later migration must not leak into the frozen
+# baseline through the current SQLAlchemy metadata.  In particular,
+# 0008 owns bot_store_bindings and its indexes.
+_LATER_MIGRATION_TABLES = frozenset({"bot_store_bindings"})
 
 
 def _model_source_fingerprint() -> str:
@@ -38,9 +43,13 @@ def upgrade() -> None:
             "0001_initial is frozen; model sources changed. Add an explicit Alembic revision "
             "or intentionally regenerate the baseline fingerprint."
         )
-    for table in Base.metadata.sorted_tables:
+    baseline_tables = [
+        table for table in Base.metadata.sorted_tables
+        if table.name not in _LATER_MIGRATION_TABLES
+    ]
+    for table in baseline_tables:
         op.execute(CreateTable(table))
-    for table in Base.metadata.sorted_tables:
+    for table in baseline_tables:
         for index in table.indexes:
             op.execute(CreateIndex(index))
 

@@ -11,6 +11,7 @@ import json
 import logging
 import mimetypes
 import os
+import os
 from pathlib import Path
 
 import httpx
@@ -222,8 +223,13 @@ class TelegramRunner:
             doc = message["document"]
             file_id, ctype = doc["file_id"], doc.get("mime_type") or mimetypes.guess_type(doc.get("file_name", ""))[0] or "application/octet-stream"
         info = await self.tg("getFile", {"file_id": file_id})
+        max_bytes = int(os.getenv("MELORIN_MAX_UPLOAD_BYTES", str(5 * 1024 * 1024)))
+        if int(info.get("file_size") or 0) > max_bytes:
+            return await self.send(ctx.chat_id, "حجم فایل بیشتر از حد مجاز است.")
         dl = await self.client.get(f"https://api.telegram.org/file/bot{self.token}/{info['file_path']}")
         dl.raise_for_status()
+        if len(dl.content) > max_bytes:
+            return await self.send(ctx.chat_id, "حجم فایل بیشتر از حد مجاز است.")
         await self.api(ctx, "POST", f"/api/v1/payments/{pid}/receipt", files={"file": ("receipt", dl.content, ctype)})
         self._set_state(ctx.chat_id, None)
         await self.send(ctx.chat_id, "رسید دریافت شد ✅ پس از تأیید، کیف پول شما شارژ می‌شود.")

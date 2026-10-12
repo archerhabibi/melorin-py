@@ -9,12 +9,16 @@ services:
     volumes: [postgres_data:/var/lib/postgresql/data]
     healthcheck: {test: [CMD-SHELL, 'pg_isready -U melorin -d melorin'], interval: 5s, timeout: 5s, retries: 10}
     networks: [backend]
+    mem_limit: 768m
+    cpus: 1.0
   redis:
     image: redis:7-alpine
     command: redis-server --appendonly yes
     volumes: [redis_data:/data]
     healthcheck: {test: [CMD, redis-cli, ping], interval: 5s, timeout: 3s, retries: 10}
     networks: [backend]
+    mem_limit: 256m
+    cpus: 0.5
   api:
     build:
       context: .
@@ -25,6 +29,8 @@ services:
     volumes: [api_storage:/app/var]
     depends_on: {postgres: {condition: service_healthy}, redis: {condition: service_healthy}}
     networks: [backend]
+    mem_limit: 768m
+    cpus: 1.0
   worker:
     build:
       context: .
@@ -32,9 +38,13 @@ services:
     env_file: [.env]
     command: arq melorin.worker.arq_app.WorkerSettings
     healthcheck: {test: [CMD, python, -c, 'import os, redis; r=redis.Redis.from_url(os.environ["MELORIN_REDIS_URL"]); raise SystemExit(0 if r.get("melorin:worker:last_tick") else 1)'], interval: 15s, timeout: 5s, retries: 8, start_period: 25s}
-    volumes: [api_storage:/app/var, './secrets/backup:/run/melorin-backup:ro']
+    volumes:
+      - api_storage:/app/var
+      - ./secrets/backup/recipients.txt:/run/melorin-backup/recipients.txt:ro
     depends_on: {postgres: {condition: service_healthy}, redis: {condition: service_healthy}}
     networks: [backend]
+    mem_limit: 768m
+    cpus: 1.0
   store_web:
     build:
       context: .
@@ -42,6 +52,8 @@ services:
     depends_on: {api: {condition: service_healthy}}
     healthcheck: {test: [CMD, wget, --spider, --quiet, http://127.0.0.1/], interval: 15s, timeout: 5s, retries: 8}
     networks: [backend]
+    mem_limit: 128m
+    cpus: 0.25
   admin_web:
     build:
       context: .
@@ -49,6 +61,8 @@ services:
     depends_on: {api: {condition: service_healthy}}
     healthcheck: {test: [CMD, wget, --spider, --quiet, http://127.0.0.1/], interval: 15s, timeout: 5s, retries: 8}
     networks: [backend]
+    mem_limit: 128m
+    cpus: 0.25
   telegram_main:
     build:
       context: .
@@ -75,6 +89,7 @@ services:
     healthcheck: {test: [CMD, python, -c, 'import os; raise SystemExit(0 if os.environ.get("MELORIN_TELEGRAM_RESELLER_TOKEN") and os.environ.get("MELORIN_STORE_SLUG") else 1)'], interval: 30s, timeout: 5s, retries: 3}
     networks: [backend]
   caddy:
+    profiles: [local-proxy]
     image: caddy:2-alpine
     ports: ["80:80", "443:443"]
     environment:

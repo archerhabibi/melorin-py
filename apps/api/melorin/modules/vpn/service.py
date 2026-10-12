@@ -51,6 +51,13 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
         return "missing"
     if order.status not in (OrderStatus.PAID, OrderStatus.PROCESSING, OrderStatus.PROVISIONING):
         return "ignored"
+    # A committed provisioning state is the single-writer lease. A second
+    # worker must not call the remote panel for the same order concurrently.
+    if order.status == OrderStatus.PROVISIONING:
+        started = order.updated_at.replace(tzinfo=order.updated_at.tzinfo or dt.UTC) if order.updated_at else utcnow()
+        if utcnow() - started < dt.timedelta(minutes=15):
+            return "already_claimed"
+        order.status = OrderStatus.PROCESSING
     if order.status == OrderStatus.PAID:
         order.status = OrderStatus.PROCESSING
     product = await session.get(Product, order.product_id)

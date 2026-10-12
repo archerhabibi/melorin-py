@@ -1,6 +1,7 @@
 import hmac
 import logging
 import time
+import asyncio
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -96,9 +97,9 @@ async def ready(request: Request):
     redis = get_redis()
     if redis is not None:
         try:
-            await redis.ping()
+            await asyncio.wait_for(redis.ping(), timeout=2.5)
             redis_ok = True
-            worker_last_tick = await redis.get("melorin:worker:last_tick")
+            worker_last_tick = await asyncio.wait_for(redis.get("melorin:worker:last_tick"), timeout=2.5)
             worker_age = time.time() - float(worker_last_tick) if worker_last_tick else None
             worker_ok = worker_age is not None and 0 <= worker_age <= 15
         except Exception:
@@ -141,4 +142,22 @@ async def openapi_version(): return {"version": app.version}
 async def metrics(request: Request):
     if not s.is_dev and not hmac.compare_digest(request.headers.get("Authorization", ""), f"Bearer {s.metrics_token}"):
         return PlainTextResponse("unauthorized\n", status_code=401)
+    # Prometheus scrapes this endpoint directly, so refresh dependency and
+    # worker freshness gauges here instead of waiting for a separate
+    # readiness request to happen.
+    from melorin.core.redis import get_redis
+    redis = get_redis()
+    redis_ok = worker_ok = False
+    worker_last_tick = None
+    if redis is not None:
+        try:
+            redis_ok = True
+            worker_last_tick = await asyncio.wait_for(redis.get("melorin:worker:last_tick"), timeout=2.5)
+            worker_age = time.time() - float(worker_last_tick) if worker_last_tick else None
+            worker_ok = worker_age is not None and 0 <= worker_age <= 15
+        except Exception:
+            redis_ok = False
+    set_alert("MelorinRedisUnavailable", not redis_ok, summary="Redis unavailable", severity="critical")
+    set_alert("MelorinWorkerStale", not worker_ok, summary="Worker heartbeat stale", severity="critical", details=str(worker_last_tick or "missing"))
+    set_gauge("melorin_worker_last_tick", float(worker_last_tick or 0))
     return PlainTextResponse(render(), media_type="text/plain; version=0.0.4")

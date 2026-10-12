@@ -1,4 +1,4 @@
-"""SMTP and S3 off-site backup are optional: a production install must work without them."""
+"""SMTP is optional, while production backups require an off-site destination."""
 import pytest
 from cryptography.fernet import Fernet
 from sqlalchemy import select
@@ -21,17 +21,18 @@ def _prod(**kw):
     base = dict(
         env="production", database_url="postgresql+asyncpg://app:strong@localhost/db", jwt_secret="x" * 40, bot_service_secret="y" * 40,
         bootstrap_admin_password="Strong-admin-password-123456", encryption_key=Fernet.generate_key().decode(),
+        bootstrap_admin_totp_secret="A" * 20,
         redis_url="redis://localhost", require_redis_rate_limit=True, metrics_token="m" * 40, health_token="h" * 40,
         public_api_url="https://shop.example.com:9443", cors_origins=["https://shop.example.com:9443"],
-        backup_recipient_file="/run/melorin-backup/recipients.txt",
+        backup_recipient_file="/run/melorin-backup/recipients.txt", backup_offsite_uri="s3://bucket/melorin",
     )
     base.update(kw)
     return Settings(**base)
 
 
-def test_production_starts_without_smtp_and_without_s3():
-    s = _prod(email_backend="console", backup_offsite_uri="")
-    assert s.env == "production" and s.backup_offsite_uri == "" and s.email_backend == "console"
+def test_production_starts_without_smtp_with_offsite_backup():
+    s = _prod(email_backend="console")
+    assert s.env == "production" and s.backup_offsite_uri and s.email_backend == "console"
 
 
 def test_production_still_requires_the_local_backup_recipient():

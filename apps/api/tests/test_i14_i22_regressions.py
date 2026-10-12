@@ -24,6 +24,26 @@ def test_migration_and_worker_blockers_are_fixed():
     assert "enqueue_job" not in arq
 
 
+def test_store_scoped_reseller_migration_skips_legacy_index_on_current_schema():
+    migration = (ROOT / "alembic/versions/0004_f027_f030.py").read_text()
+    assert 'if "target_store_id" in app_columns:' in migration
+    assert "uq_reseller_application_pending_user" in migration
+
+
+def test_installer_supports_external_proxy_and_bootstraps_admin():
+    root = ROOT.parent.parent
+    installer = (root / "scripts/install_server.sh").read_text()
+    external = (root / "docker-compose.external.yml").read_text()
+    compose = (root / "docker-compose.yml").read_text()
+    assert 'EXTERNAL_PROXY="${EXTERNAL_PROXY:-false}"' in installer
+    assert "docker-compose.external.yml" in installer
+    assert "python -m melorin.cli bootstrap" in installer
+    assert "127.0.0.1:18000:8000" in external
+    assert "127.0.0.1:18080:80" in external
+    assert "127.0.0.1:18081:80" in external
+    assert "profiles: [local-proxy]" in compose
+
+
 def test_bootstrap_cli_and_ci_use_real_entrypoints():
     assert (ROOT / "melorin/cli.py").exists()
     cli = (ROOT / "melorin/cli.py").read_text()
@@ -107,6 +127,70 @@ def test_readiness_checks_dependencies_and_worker_signals():
     assert "melorin_worker_last_tick" in worker
     assert "melorin:worker:last_tick" in worker
     assert "worker_last_tick" in app
+
+
+def test_redis_and_bootstrap_admin_have_bounded_operational_paths():
+    redis = (ROOT / "melorin/core/redis.py").read_text()
+    app = (ROOT / "melorin/app.py").read_text()
+    config = (ROOT / "melorin/core/config.py").read_text()
+    cli = (ROOT / "melorin/cli.py").read_text()
+    installer = (ROOT.parent.parent / "scripts/install_server.sh").read_text()
+    assert "socket_connect_timeout=1.5" in redis
+    assert "socket_timeout=2.0" in redis
+    assert "asyncio.wait_for(redis.ping(), timeout=2.5)" in app
+    assert "bootstrap_admin_totp_secret" in config
+    assert "user.totp_enabled = True" in cli
+    assert "MELORIN_BOOTSTRAP_ADMIN_TOTP_SECRET" in installer
+
+
+def test_k11_to_k20_operational_controls_are_present():
+    root = ROOT.parent.parent
+    compose = (root / "docker-compose.yml").read_text()
+    installer = (root / "scripts/install_server.sh").read_text()
+    arq = (ROOT / "melorin/worker/arq_app.py").read_text()
+    alerts = (root / "infra/alerts.yml").read_text()
+    registry = (ROOT / "melorin/modules/vpn/adapters/registry.py").read_text()
+    orders = (ROOT / "melorin/modules/orders/service.py").read_text()
+    vpn = (ROOT / "melorin/modules/vpn/service.py").read_text()
+    assert "secrets/metrics-token" in compose and "tmp_metrics" in installer
+    assert "recipients.txt:/run/melorin-backup/recipients.txt:ro" in compose
+    for marker in ("panel_health_job", "expiry_job", "near_expiry_job", "reconciliation_job"):
+        assert marker in arq
+    assert "timeout=900" in arq
+    assert 'state="firing"} > 0' in alerts and "for: 5m" in alerts
+    assert "_public_panel_url" in registry and "ip.is_private" in registry
+    assert "order_paid_retry:" in orders and "already_claimed" in vpn
+
+
+def test_k21_to_k27_hardening_is_wired():
+    root = ROOT.parent.parent
+    limiter = (ROOT / "melorin/core/ratelimit.py").read_text()
+    identity = (ROOT / "melorin/modules/identity/service.py").read_text()
+    config = (ROOT / "melorin/core/config.py").read_text()
+    compose = (root / "docker-compose.yml").read_text()
+    store_auth = (root / "apps/store-web/src/App.jsx").read_text()
+    quality = (root / "scripts/run_quality_gate.sh").read_text()
+    assert "return False" in limiter and "if not user.is_active" in identity
+    assert "backup_offsite_uri" in config
+    assert "mem_limit:" in compose and "cpus:" in compose
+    assert 'credentials:"include"' in store_auth and "/api/v1/auth/refresh" in store_auth
+    assert "npm audit --include=dev" in quality
+
+
+def test_full_project_regressions_are_wired():
+    root = ROOT.parent.parent
+    product_schema = (ROOT / "melorin/modules/admin/schemas.py").read_text()
+    product_router = (ROOT / "melorin/modules/admin/router.py").read_text()
+    payment_router = (ROOT / "melorin/modules/reseller/router.py").read_text()
+    referral_model = (ROOT / "melorin/modules/referral/models.py").read_text()
+    migration = (ROOT / "alembic/versions/0009_referral_first_reward_guard.py").read_text()
+    dockerfile = (ROOT / "Dockerfile").read_text()
+    assert "class ProductPatch" in product_schema and "body: ProductPatch" in product_router
+    assert "PAYMENT_REVIEW_FORBIDDEN" in payment_router
+    assert "referred_user_id" in referral_model and "0009_referral_first_reward_guard" in migration
+    assert "postgresql-client-16" in dockerfile and "apt.postgresql.org" in dockerfile
+    telegram = (root / "apps/telegram-main/runner.py").read_text()
+    assert "MELORIN_MAX_UPLOAD_BYTES" in telegram and "file_size" in telegram
 
 
 def test_worker_has_one_runtime_entrypoint():

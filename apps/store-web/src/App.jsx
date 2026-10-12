@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Dashboard, { Faq } from "./Dashboard.jsx";
 import Reseller from "./Reseller.jsx";
-import { clearTokens, getAccessToken, getRefreshToken, setTokens } from "./auth.js";
+import { clearTokens, getAccessToken, setTokens } from "./auth.js";
 
 export default function App(){
   const [active, setActive] = useState("Orbit");
@@ -27,11 +27,10 @@ export default function App(){
   const base = (import.meta.env?.VITE_MELORIN_API_URL || window.location.origin).replace(/\/$/, "");
   async function coreFetch(path, options={}) {
     let token = accessToken;
-    let response = await fetch(`${base}${path}`, {...options, headers: {...(options.headers||{}), ...(token ? {Authorization:`Bearer ${token}`} : {})}});
+    let response = await fetch(`${base}${path}`, {...options, credentials:"include", headers: {...(options.headers||{}), ...(token ? {Authorization:`Bearer ${token}`} : {})}});
     if (response.status === 401) {
-      const refresh = getRefreshToken();
-      if (refresh) {
-        const rr = await fetch(`${base}/api/v1/auth/refresh`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({refresh_token:refresh})});
+      {
+        const rr = await fetch(`${base}/api/v1/auth/refresh`, {method:"POST", credentials:"include", headers:{"Content-Type":"application/json"}, body:"{}"});
         if (rr.ok) { const pair = await rr.json(); setTokens(pair); setAccessToken(pair.access_token); response = await fetch(`${base}${path}`, {...options, headers: {...(options.headers||{}), Authorization:`Bearer ${pair.access_token}`}}); }
       }
     }
@@ -49,12 +48,12 @@ export default function App(){
     } catch { setNotice("ورود را کامل کنید تا حساب نمایش داده شود"); }
   }
   async function requestCode() {
-    const r = await fetch(`${base}/api/v1/auth/email/request-code`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({email})});
+    const r = await fetch(`${base}/api/v1/auth/email/request-code`, {method:"POST", credentials:"include", headers:{"Content-Type":"application/json"}, body:JSON.stringify({email})});
     if (!r.ok) throw Error("login request failed");
     setModal("code"); setNotice("کد ورود ارسال شد");
   }
   async function verifyCode() {
-    const r = await fetch(`${base}/api/v1/auth/email/verify-code`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({email, code:loginCode})});
+    const r = await fetch(`${base}/api/v1/auth/email/verify-code`, {method:"POST", credentials:"include", headers:{"Content-Type":"application/json"}, body:JSON.stringify({email, code:loginCode})});
     if (!r.ok) throw Error("invalid code");
     const pair = await r.json(); setTokens(pair); setAccessToken(pair.access_token); setModal(""); setNotice("خوش آمدی");
   }
@@ -71,6 +70,13 @@ export default function App(){
       .then(r => r.ok ? r.json() : Promise.reject(new Error(String(r.status))))
       .then(data => { setCatalog(Array.isArray(data) ? data : (data.items || [])); setApiState("اتصال Core برقرار است"); })
       .catch(() => { setCatalog([]); setApiState("Core در دسترس نیست؛ کاتالوگ موقتاً نمایش داده نمی‌شود"); });
+  }, []);
+  useEffect(() => {
+    if (accessToken) return;
+    fetch(`${base}/api/v1/auth/refresh`, {method:"POST", credentials:"include", headers:{"Content-Type":"application/json"}, body:"{}"})
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(pair => { setTokens(pair); setAccessToken(pair.access_token); })
+      .catch(() => {});
   }, []);
   useEffect(() => { if (storeId && accessToken) loadAccount(); }, [storeId, accessToken]);
   const choose = async (product) => {

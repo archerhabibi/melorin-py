@@ -18,6 +18,21 @@ class CreateProduct(BaseModel):
     is_test: bool = False
 
 
+class ProductPatch(BaseModel):
+    code: str | None = Field(default=None, min_length=2, max_length=50, pattern="^[A-Za-z0-9_-]+$")
+    name: str | None = Field(default=None, min_length=2, max_length=200)
+    description: str | None = None
+    category: str | None = None
+    duration_days: int | None = Field(default=None, gt=0)
+    traffic_gb: int | None = Field(default=None, ge=0)
+    max_devices: int | None = Field(default=None, gt=0)
+    main_price: int | None = Field(default=None, ge=0)
+    reseller_price: int | None = Field(default=None, ge=0)
+    currency: str | None = None
+    is_test: bool | None = None
+    is_active: bool | None = None
+
+
 class ProductOut(CreateProduct):
     id: uuid.UUID
     is_active: bool

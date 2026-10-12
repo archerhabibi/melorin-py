@@ -1,8 +1,15 @@
-FROM python:3.12-slim-trixie
+FROM python:3.12-slim-bookworm
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=/app
 WORKDIR /app
-# Backup tooling used by scripts/backup_secure.sh (worker): pg_dump, age encryption, rclone (optional S3 copy).
-RUN apt-get update && apt-get install -y --no-install-recommends postgresql-client age rclone \
+# Backup tooling used by scripts/backup_secure.sh (worker). Keep the client
+# major aligned with the postgres:16 service to make custom-format restores
+# work without a cross-major compatibility workaround.
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gnupg age rclone \
+    && install -d /usr/share/postgresql-common/pgdg \
+    && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg \
+    && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg] http://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends postgresql-client-16 \
     && rm -rf /var/lib/apt/lists/*
 RUN useradd --create-home --uid 10001 appuser
 COPY apps/api/requirements.txt .

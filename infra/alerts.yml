@@ -22,6 +22,7 @@ groups:
         labels: {severity: warning}
         annotations: {summary: "One or more enabled VPN panels are unhealthy"}
       - alert: MelorinOutboxBacklog
-        expr: melorin_alert{alertname="MelorinOutboxBacklog",state="firing"} > 5m
+        expr: melorin_alert{alertname="MelorinOutboxBacklog",state="firing"} > 0
+        for: 5m
         labels: {severity: warning}
         annotations: {summary: "Melorin outbox backlog is growing"}

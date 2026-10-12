@@ -38,6 +38,8 @@ async def user_by_referral_code(session: AsyncSession, code: str | None) -> User
 
 # ---------------- tokens ----------------
 async def issue_tokens(session: AsyncSession, user: User, family: uuid.UUID | None = None, ua: str | None = None) -> TokenPair:
+    if not user.is_active:
+        raise AppError("UNAUTHORIZED", "حساب کاربری غیرفعال است.", 401)
     access, ttl = create_access_token(user.id, user.is_super_admin)
     raw = new_opaque_token()
     session.add(

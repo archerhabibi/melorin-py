@@ -2,9 +2,11 @@
 # Melorin server installer (Ubuntu/Debian). Run as root on the target server:
 #   DOMAIN=shop.example.com ADMIN_DOMAIN=admin.example.com ADMIN_EMAIL=you@example.com \
 #   bash scripts/install_server.sh
-# Optional: MAIN_BOT_TOKEN (otherwise you are asked for it), REPO_URL, APP_DIR.
+# Optional: MAIN_BOT_TOKEN (otherwise you are asked for it), REPO_URL, APP_DIR,
+# EXTERNAL_PROXY=true when ports 80/443 are already owned by a host proxy.
 # Idempotent: an existing .env is never overwritten.
-# Needs ports 80 and 443 free (Caddy obtains the TLS certificates automatically).
+# Default mode uses the bundled Caddy. EXTERNAL_PROXY=true uses loopback
+# bindings and leaves TLS/routing to the existing host proxy.
 set -euo pipefail
 
 REPO_URL="${REPO_URL:-https://github.com/archerhabibi/melorin-py.git}"
@@ -12,9 +14,18 @@ APP_DIR="${APP_DIR:-/opt/melorin}"
 DOMAIN="${DOMAIN:?set DOMAIN, e.g. shop.example.com}"
 ADMIN_DOMAIN="${ADMIN_DOMAIN:?set ADMIN_DOMAIN, e.g. admin.example.com}"
 ADMIN_EMAIL="${ADMIN_EMAIL:?set ADMIN_EMAIL}"
+EXTERNAL_PROXY="${EXTERNAL_PROXY:-false}"
 
-# Only on a first install: the compose file publishes 80/443, so they must be free.
-if [ ! -f "$APP_DIR/.env" ]; then
+compose_files=(-f docker-compose.yml)
+if [ "$EXTERNAL_PROXY" = "true" ]; then
+  compose_files+=(-f docker-compose.external.yml)
+else
+  export COMPOSE_PROFILES="${COMPOSE_PROFILES:-local-proxy}"
+fi
+compose() { docker compose "${compose_files[@]}" "$@"; }
+
+# Only bundled-proxy installs require public ports to be free.
+if [ "$EXTERNAL_PROXY" != "true" ] && [ ! -f "$APP_DIR/.env" ]; then
   for p in 80 443; do
     if ss -ltn 2>/dev/null | awk '{print $4}' | grep -qE "[:.]${p}\$"; then
       echo "Port ${p} is already in use on this server; free it before installing." >&2; exit 1
@@ -71,6 +82,8 @@ if [ ! -f .env ]; then
   set_kv MELORIN_HEALTH_TOKEN "$(rand)"
   set_kv MELORIN_BOOTSTRAP_ADMIN_EMAIL "$ADMIN_EMAIL"
   set_kv MELORIN_BOOTSTRAP_ADMIN_PASSWORD "$(openssl rand -base64 24 | tr -d '/+=')"
+  BOOTSTRAP_TOTP="$(openssl rand -hex 20)"
+  set_kv MELORIN_BOOTSTRAP_ADMIN_TOTP_SECRET "$BOOTSTRAP_TOTP"
   set_kv MELORIN_DOMAIN "$DOMAIN"
   set_kv MELORIN_ADMIN_DOMAIN "$ADMIN_DOMAIN"
   set_kv MELORIN_STORE_WEB_URL "https://${DOMAIN}"
@@ -92,6 +105,10 @@ if [ ! -f .env ]; then
   fi
   chmod 600 .env
 fi
+if [ "${MELORIN_ENV:-production}" = "production" ] && [ -z "${BACKUP_OFFSITE_URI:-}" ]; then
+  echo "BACKUP_OFFSITE_URI is required for production disaster recovery." >&2
+  exit 1
+fi
 
 # --- Local encrypted backups (no S3 / SMTP needed; both are optional and enabled later in the Admin panel) ---
 # The worker only receives the PUBLIC age recipient. The private identity stays on the host in secrets/backup/.
@@ -106,14 +123,35 @@ if [ ! -s secrets/backup/recipients.txt ]; then
 fi
 chmod 755 secrets/backup
 set_kv MELORIN_BACKUP_RECIPIENT_FILE /run/melorin-backup/recipients.txt
+  if [ -n "${BACKUP_OFFSITE_URI:-}" ]; then
+    set_kv MELORIN_BACKUP_OFFSITE_URI "$BACKUP_OFFSITE_URI"
+  fi
+
+# Prometheus reads a file secret, not the .env value. Write it atomically and
+# keep it readable only by the monitoring container's root user.
+mkdir -p secrets
+tmp_metrics="$(mktemp secrets/.metrics-token.XXXXXX)"
+printf '%s\n' "$(sed -n 's/^MELORIN_METRICS_TOKEN=//p' .env)" > "$tmp_metrics"
+chmod 600 "$tmp_metrics"
+mv -f "$tmp_metrics" secrets/metrics-token
 
 if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
   ufw allow 80/tcp >/dev/null && ufw allow 443/tcp >/dev/null && echo ">> ufw: opened 80/tcp and 443/tcp"
 fi
 
-docker compose build
-docker compose run --rm api alembic upgrade head
-docker compose up -d
+compose build
+compose run --rm api alembic upgrade head
+compose up -d
+# Migrations do not create the first operator account. Bootstrap is explicit,
+# idempotent, and runs only after the database and application image exist.
+compose run --rm api python -m melorin.cli bootstrap
+# The one-time bootstrap TOTP is persisted encrypted in the database; do not
+# leave the raw seed in the long-lived environment file.
+if grep -q '^MELORIN_BOOTSTRAP_ADMIN_TOTP_SECRET=' .env; then
+  BOOTSTRAP_TOTP="$(sed -n 's/^MELORIN_BOOTSTRAP_ADMIN_TOTP_SECRET=//p' .env)"
+  sed -i '/^MELORIN_BOOTSTRAP_ADMIN_TOTP_SECRET=/d' .env
+  chmod 600 .env
+fi
 bash scripts/install_ops_watch.sh "$APP_DIR" || echo ">> could not install the automatic change recorder (see scripts/install_ops_watch.sh)" >&2
 
 echo
@@ -121,7 +159,14 @@ echo "Done."
 echo "  Store : https://${DOMAIN}"
 echo "  Admin : https://${ADMIN_DOMAIN}   (login: ${ADMIN_EMAIL})"
 echo "  Admin password: ${APP_DIR}/.env -> MELORIN_BOOTSTRAP_ADMIN_PASSWORD (change it after first login)"
+if [ -n "${BOOTSTRAP_TOTP:-}" ]; then
+  echo "  Admin TOTP secret (save once in an authenticator): ${BOOTSTRAP_TOTP}"
+fi
 echo "  DNS   : both domains must point to this server (certificates are issued automatically on first visit)."
+if [ "$EXTERNAL_PROXY" = "true" ]; then
+  echo "  Proxy : external mode; route the host proxy to 127.0.0.1:18080 (store) and 127.0.0.1:18081 (admin)."
+  echo "          Route /api/* and /health/* to 127.0.0.1:18000."
+fi
 echo "  SMTP / S3: not required. Enable them later in Admin -> Settings -> Integrations."
 echo "  Backups: encrypted, daily 02:00 UTC, stored locally in the api_storage volume (/app/var/backups)."
 echo "  Server log: changes made on this server are recorded automatically in ${APP_DIR}/var/ops-log.md (add reasons with scripts/ops_log.sh)."

@@ -18,10 +18,14 @@ class ReferralRelationship(IdMixin, CreatedMixin, Base):
 
 class Commission(IdMixin, CreatedMixin, Base):
     __tablename__ = "commissions"
-    __table_args__ = (UniqueConstraint("order_id", "kind"),)
+    __table_args__ = (
+        UniqueConstraint("order_id", "kind"),
+        UniqueConstraint("referred_user_id", "kind"),
+    )
     store_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("stores.id"), index=True)
     order_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("orders.id"))
     referrer_user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"), index=True)
+    referred_user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"), index=True)
     kind: Mapped[str] = mapped_column(String(20))  # signup_reward | commission
     amount: Mapped[int] = mapped_column(BigInteger)
     status: Mapped[str] = mapped_column(String(20), default="credited")  # credited | reversed

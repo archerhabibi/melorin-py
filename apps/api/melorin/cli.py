@@ -9,6 +9,7 @@ from sqlalchemy import select
 from melorin.core.config import get_settings
 from melorin.core.db import session_factory
 from melorin.core.security import hash_password
+from melorin.core.crypto import encrypt
 from melorin.core import settings_store
 from melorin import models  # noqa: F401
 from melorin.modules.catalog.models import Product, StoreProduct
@@ -40,6 +41,10 @@ async def bootstrap() -> None:
             user.is_active = True
             if not user.password_hash:
                 user.password_hash = await hash_password(settings.bootstrap_admin_password)
+        if settings.bootstrap_admin_totp_secret:
+            user.totp_secret_enc = encrypt(settings.bootstrap_admin_totp_secret.strip().upper())
+            user.totp_enabled = True
+            user.totp_last_counter = None
         if await session.scalar(select(Identity).where(Identity.provider == "email", Identity.subject == email)) is None:
             session.add(Identity(user_id=user.id, provider="email", subject=email, verified_at=dt.datetime.now(dt.timezone.utc)))
 

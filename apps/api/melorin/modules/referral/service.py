@@ -69,7 +69,7 @@ async def on_order_completed(session: AsyncSession, order_id: uuid.UUID) -> None
     tx = None
     if payout:
         tx, _ = await wallet.post(session, kind="referral_" + kind, key=f"referral:{order.id}:{kind}", currency=order.currency, store_id=order.store_id, order_id=order.id, postings=[wallet.Posting(payout, wallet=w), wallet.Posting(-payout, account=wallet.acc_referral_expense(order.store_id))], memo="پاداش معرفی" if kind == "signup_reward" else "کمیسیون معرفی")
-    session.add(Commission(store_id=order.store_id, order_id=order.id, referrer_user_id=rel.referrer_user_id, kind=kind, amount=gross, offset_amount=recovered, status="credited", ledger_tx_id=tx.id if tx else None, currency=order.currency))
+    session.add(Commission(store_id=order.store_id, order_id=order.id, referrer_user_id=rel.referrer_user_id, referred_user_id=order.user_id, kind=kind, amount=gross, offset_amount=recovered, status="credited", ledger_tx_id=tx.id if tx else None, currency=order.currency))
     if recovered:
         audit.record(session, "commission.clawback_offset", actor_type="system", entity_type="commission", entity_id=order.id, store_id=order.store_id, data={"recovered": recovered, "gross": gross})
     await events.emit(session, events.NOTIFY, {"user_id": rel.referrer_user_id, "store_id": order.store_id, "kind": "referral", "title": "پاداش معرفی", "body": f"مبلغ {payout:,} به کیف پول شما اضافه شد."}, dedup_key=f"notify:referral:{order.id}:{kind}")

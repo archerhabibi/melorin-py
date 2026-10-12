@@ -11,5 +11,8 @@ python scripts/check_release_matrix.py
 python -m compileall -q apps/api/melorin apps/api/tests apps/telegram-main apps/telegram-reseller
 ruff check apps/api/melorin --config apps/api/pyproject.toml
 ruff format --check apps/api/melorin apps/api/tests --config apps/api/pyproject.toml
+for web in apps/store-web apps/admin-web; do
+  (cd "$web" && npm audit --include=dev --audit-level=high)
+done
 python scripts/test_matrix.py unit
 echo "Melorin quality gate passed"

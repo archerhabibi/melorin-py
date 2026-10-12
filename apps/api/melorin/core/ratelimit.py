@@ -42,9 +42,9 @@ async def hit(key: str, limit: int, window: int) -> bool:
             _redis_degraded = True
     settings = get_settings()
     if settings.env in {"staging", "production"} and settings.require_redis_rate_limit:
-        # Use a bounded local limiter rather than returning 429 to every user.
-        # This degraded mode is intentionally visible via the health endpoint.
-        return await _local_hit(key, limit, window)
+        # Authentication limits must remain globally enforceable. A local
+        # fallback would multiply the limit across API workers.
+        return False
     return await _local_hit(key, limit, window)
 
 

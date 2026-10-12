@@ -139,12 +139,13 @@ async def list_products(_: AdminUser, session: Session):
 
 
 @router.patch("/products/{product_id}", response_model=ProductOut)
-async def update_product(product_id: uuid.UUID, body: CreateProduct, admin: AdminUser, session: Session):
+async def update_product(product_id: uuid.UUID, body: ProductPatch, admin: AdminUser, session: Session):
     p = await session.get(Product, product_id)
     if not p: raise NotFound("محصول")
-    before = {"main_price": p.main_price, "reseller_price": p.reseller_price, "duration_days": p.duration_days, "traffic_gb": p.traffic_gb}
-    for k, v in body.model_dump().items(): setattr(p, k, v)
-    audit.record(session, "product.updated", actor_id=admin.id, actor_type="admin", entity_type="product", entity_id=p.id, data={"before": before, "after": body.model_dump()})
+    before = {"main_price": p.main_price, "reseller_price": p.reseller_price, "duration_days": p.duration_days, "traffic_gb": p.traffic_gb, "is_active": p.is_active}
+    changes = body.model_dump(exclude_none=True)
+    for k, v in changes.items(): setattr(p, k, v)
+    audit.record(session, "product.updated", actor_id=admin.id, actor_type="admin", entity_type="product", entity_id=p.id, data={"before": before, "after": changes})
     await session.commit(); return p
 
 

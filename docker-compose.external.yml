@@ -1,0 +1,12 @@
+services:
+  api:
+    ports:
+      - "127.0.0.1:18000:8000"
+  store_web:
+    ports:
+      - "127.0.0.1:18080:80"
+  admin_web:
+    ports:
+      - "127.0.0.1:18081:80"
+  caddy:
+    profiles: ["external-proxy-disabled"]

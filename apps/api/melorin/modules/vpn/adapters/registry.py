@@ -1,4 +1,6 @@
 import json
+import ipaddress
+import socket
 from urllib.parse import urlparse
 
 from melorin.core.crypto import decrypt
@@ -12,11 +14,29 @@ from melorin.modules.vpn.adapters.sanaei import SanaeiAdapter
 ADAPTERS: dict[str, type] = {"sanaei": SanaeiAdapter, "pasarguard": PasarGuardAdapter, "mock": MockPanelAdapter}
 
 
+def _public_panel_url(url: str) -> bool:
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
+        return False
+    try:
+        addresses = {item[4][0] for item in socket.getaddrinfo(parsed.hostname, parsed.port or 443, type=socket.SOCK_STREAM)}
+    except socket.gaierror:
+        return False
+    return bool(addresses) and all(
+        not (ip := ipaddress.ip_address(address)).is_private
+        and not ip.is_loopback
+        and not ip.is_link_local
+        and not ip.is_reserved
+        and not ip.is_multicast
+        for address in addresses
+    )
+
+
 def build_adapter(panel) -> PanelAdapter:
     if panel.kind == "mock" and not get_settings().allow_mock_providers:
         raise AppError("MOCK_PROVIDER_DISABLED", "Mock provisioning is disabled in this environment.", 503)
     if get_settings().env in {"staging", "production"}:
-        if urlparse(panel.base_url).scheme != "https" or (panel.config or {}).get("verify_tls") is False:
+        if not _public_panel_url(panel.base_url) or (panel.config or {}).get("verify_tls") is False:
             raise AppError("PANEL_TLS_VERIFY_REQUIRED", "Panel connections require HTTPS and certificate verification.", 503)
     try:
         cls = ADAPTERS[panel.kind]

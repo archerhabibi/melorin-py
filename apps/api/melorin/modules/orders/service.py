@@ -235,9 +235,10 @@ async def admin_retry(session: AsyncSession, order: Order, admin: User) -> None:
     if order.status not in RETRYABLE:
         raise AppError("INVALID_ORDER_STATE", "این سفارش قابل تلاش مجدد نیست.", 409)
     await transition(session, order, S.PROCESSING, reason="admin retry", actor_id=admin.id)
-    order.provisioning_attempts = 0
+    retry_generation = order.provisioning_attempts + 1
+    order.provisioning_attempts = retry_generation
     order.needs_review = False
-    await events.emit(session, events.ORDER_PAID, {"order_id": order.id})
+    await events.emit(session, events.ORDER_PAID, {"order_id": order.id, "retry_generation": retry_generation}, dedup_key=f"order_paid_retry:{order.id}:{retry_generation}")
     audit.record(session, "provisioning.retry", actor_id=admin.id, actor_type="admin", entity_type="order", entity_id=order.id, store_id=order.store_id)
     await session.commit()
 
