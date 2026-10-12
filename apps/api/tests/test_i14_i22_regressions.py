@@ -272,7 +272,7 @@ def test_i39_irt_irr_boundaries_are_explicit():
     migration = (ROOT / "alembic/versions/0002_v11.py").read_text()
     smoke = (ROOT.parent.parent / "scripts/postgres_concurrency_smoke.py").read_text()
     zarinpal = (ROOT / "melorin/modules/payments/adapters/zarinpal.py").read_text()
-    audit = (ROOT.parent.parent / "I39_IRT_IRR_AUDIT.md").read_text()
+    audit = (ROOT.parent.parent / "docs/history/I39_IRT_IRR_AUDIT.md").read_text()
     assert "default=\"'IRT'\"" in migration
     assert 'currency="IRT"' in smoke
     assert "_gateway_amount" in zarinpal
