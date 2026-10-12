@@ -12,7 +12,9 @@ def test_migration_and_worker_blockers_are_fixed():
     assert "await c.commit()" in env
     assert "async with connectable.begin()" not in env
     assert "await c.run_sync(lambda conn: context.run_migrations())" in env
-    assert "CreateTable(table))" in baseline
+    assert "BASELINE_DDL" in baseline
+    assert "conn.exec_driver_sql(statement)" in baseline
+    assert "CreateTable" not in baseline
     assert "MODEL_SOURCE_FINGERPRINT" in baseline
     assert "from melorin import models" in runner
     assert "from melorin.modules.vpn.adapters.registry import build_adapter" in runner
