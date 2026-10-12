@@ -20,3 +20,5 @@ test:; cd apps/api && pytest -q
 lint:; cd apps/api && ruff check melorin --config pyproject.toml && ruff format --check melorin tests --config pyproject.toml
 api:; cd apps/api && uvicorn melorin.app:app --reload
 worker:; cd apps/api && arq melorin.worker.arq_app.WorkerSettings
+
+setup-git:; git config commit.template .gitmessage && echo 'commit template enabled (optional trailers fill docs/CHANGE_LOG.md)'

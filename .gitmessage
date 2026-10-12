@@ -1,0 +1,8 @@
+# Subject: what changed (one line)
+
+# Optional single-line trailers - they fill docs/CHANGE_LOG.md automatically:
+# Area: api
+# Before: how it behaved before
+# Problem: the bug / error / missing piece
+# Action: what was changed to fix it
+# After: how it was verified

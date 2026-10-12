@@ -1,0 +1,32 @@
+name: Changelog
+# Fills docs/CHANGE_LOG.md automatically for every push to main, whoever pushed it.
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+concurrency:
+  group: changelog
+  cancel-in-progress: false
+jobs:
+  log:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Generate entries for commits without one
+        run: python3 scripts/changelog_auto.py --before "${{ github.event.before }}" --after "${{ github.sha }}"
+      - name: Commit the log
+        run: |
+          if git diff --quiet -- docs/CHANGE_LOG.md; then echo "no new entries"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/CHANGE_LOG.md
+          git commit -m "docs: auto change-log entries [skip changelog]"
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep 5
+          done
+          echo "could not push change log (is main protected? allow github-actions to bypass)" >&2
+          exit 1
