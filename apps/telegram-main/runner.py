@@ -11,7 +11,6 @@ import json
 import logging
 import mimetypes
 import os
-import os
 from pathlib import Path
 
 import httpx
@@ -20,16 +19,24 @@ log = logging.getLogger("melorin.telegram.main")
 
 HELP = (
     "فرمان‌ها:\n"
-    "/plans سرویس‌ها و خرید\n/wallet کیف پول و تراکنش‌ها\n/topup مبلغ — شارژ کیف پول\n"
-    "/orders سفارش‌ها\n/accounts اکانت‌های VPN\n/test دریافت اکانت تست\n"
-    "/tickets تیکت‌ها\n/ticket موضوع | متن — تیکت جدید\n/notifications اعلان‌ها\n"
-    "/link کد — اتصال به حساب وب\n/me حساب من"
+    "/plans خرید اکانت\n/wallet کیف پول و شارژ حساب\n/topup مبلغ — شارژ کیف پول\n"
+    "/accounts استعلام و تمدید اکانت\n/test دریافت اکانت تست\n"
+    "/tickets پشتیبانی و تیکت‌ها\n/me حساب کاربری\n/referral دعوت از دوستان"
 )
-MENU = [
-    [("🛒 سرویس‌ها", "menu:plans"), ("👛 کیف پول", "menu:wallet")],
-    [("📦 سفارش‌ها", "menu:orders"), ("🔑 اکانت‌ها", "menu:accounts")],
-    [("🎫 تیکت‌ها", "menu:tickets"), ("🔔 اعلان‌ها", "menu:notifications")],
+
+# Must stay in sync with the public bot's Persian reply keyboard.
+MAIN_MENU = [
+    ["🛒 خرید اکانت", "🔍 استعلام و تمدید اکانت"],
+    ["💰 کیف پول و شارژ حساب", "👤 حساب کاربری"],
+    ["🎁 دعوت از دوستان", "🧪 دریافت اکانت تست"],
+    ["📜 قوانین خرید و آموزش", "🎧 پشتیبانی"],
+    ["🤖 درخواست ربات نماینده و همکاری"],
 ]
+
+# Inline actions used inside the flows behind the reply keyboard.
+MENU = [[("🛒 خرید اکانت", "menu:plans"), ("💰 کیف پول", "menu:wallet")],
+        [("📦 سفارش‌ها", "menu:orders"), ("🔑 اکانت‌ها", "menu:accounts")],
+        [("🎫 تیکت‌ها", "menu:tickets"), ("🔔 اعلان‌ها", "menu:notifications")]]
 
 
 def money(n) -> str:
@@ -42,6 +49,10 @@ def gb(b) -> str:
 
 def keyboard(rows):
     return {"inline_keyboard": [[{"text": t, "callback_data": d} for t, d in row] for row in rows]}
+
+
+def reply_keyboard(rows):
+    return {"keyboard": [[{"text": text} for text in row] for row in rows], "resize_keyboard": True}
 
 
 class CoreError(Exception):
@@ -78,11 +89,12 @@ class TelegramRunner:
             "/start": self.cmd_start, "/help": self.cmd_help, "/me": self.cmd_me, "/plans": self.cmd_plans,
             "/wallet": self.cmd_wallet, "/topup": self.cmd_topup, "/orders": self.cmd_orders,
             "/accounts": self.cmd_accounts, "/test": self.cmd_test, "/tickets": self.cmd_tickets,
-            "/ticket": self.cmd_ticket, "/notifications": self.cmd_notifications, "/link": self.cmd_link,
+            "/ticket": self.cmd_ticket, "/notifications": self.cmd_notifications, "/link": self.cmd_link, "/referral": self.cmd_referral,
         }
         self.callbacks = {
             "menu": self.cb_menu, "plan": self.cb_plan, "buy": self.cb_buy, "ticket": self.cb_ticket,
-            "reply": self.cb_reply, "readall": self.cb_readall,
+            "reply": self.cb_reply, "readall": self.cb_readall, "wallet": self.cb_wallet_amount,
+            "account": self.cb_account,
         }
 
     # ---------- persistence ----------
@@ -122,11 +134,14 @@ class TelegramRunner:
             raise RuntimeError(data.get("description", method))
         return data["result"]
 
-    async def send(self, chat_id, text: str, rows=None) -> None:
+    async def send(self, chat_id, text: str, rows=None, *, reply=False) -> None:
         payload = {"chat_id": chat_id, "text": text[:4000]}
         if rows:
-            payload["reply_markup"] = keyboard(rows)
+            payload["reply_markup"] = reply_keyboard(rows) if reply else keyboard(rows)
         await self.tg("sendMessage", payload)
+
+    async def send_main_menu(self, chat_id, text: str) -> None:
+        await self.send(chat_id, text, MAIN_MENU, reply=True)
 
     async def api(self, ctx: Ctx, method: str, path: str, **kw) -> dict | list:
         headers = {"Authorization": f"Bearer {ctx.pair['access_token']}", "Accept": "application/json", **kw.pop("headers", {})}
@@ -205,12 +220,31 @@ class TelegramRunner:
 
     async def on_text(self, ctx: Ctx, text: str) -> None:
         st = self.state.get(str(ctx.chat_id)) or {}
-        if st.get("reply_ticket"):
+        main = {
+            "🛒 خرید اکانت": self.cmd_plans,
+            "🔍 استعلام و تمدید اکانت": self.cmd_accounts,
+            "💰 کیف پول و شارژ حساب": self.cmd_wallet,
+            "👤 حساب کاربری": self.cmd_me,
+            "🎁 دعوت از دوستان": self.cmd_referral,
+            "🧪 دریافت اکانت تست": self.cmd_test,
+            "📜 قوانین خرید و آموزش": self.cmd_rules,
+            "🎧 پشتیبانی": self.cmd_support,
+            "🤖 درخواست ربات نماینده و همکاری": self.cmd_reseller,
+        }
+        if text in main:
+            self._set_state(ctx.chat_id, None)
+            await main[text](ctx, "")
+        elif st.get("reply_ticket"):
             await self.api(ctx, "POST", f"/api/v1/tickets/{st['reply_ticket']}/messages", json={"body": text})
             self._set_state(ctx.chat_id, None)
-            await self.send(ctx.chat_id, "پیام شما ثبت شد ✅")
+            await self.send_main_menu(ctx.chat_id, "پیام شما ثبت شد ✅")
+        elif st.get("new_ticket_subject"):
+            store = await self.store_info()
+            t = await self.api(ctx, "POST", f"/api/v1/stores/{store['id']}/tickets", json={"subject": st["new_ticket_subject"], "body": text})
+            self._set_state(ctx.chat_id, None)
+            await self.send_main_menu(ctx.chat_id, f"✅ تیکت شما با شماره {t.get('id', '-') } ثبت شد.")
         else:
-            await self.send(ctx.chat_id, "برای دیدن فرمان‌ها /help را بفرستید.", MENU)
+            await self.send_main_menu(ctx.chat_id, "از منوی زیر انتخاب کنید:")
 
     async def on_file(self, ctx: Ctx, message: dict) -> None:
         st = self.state.get(str(ctx.chat_id)) or {}
@@ -239,7 +273,7 @@ class TelegramRunner:
         if arg.startswith("link_"):
             return await self.cmd_link(ctx, arg[5:])
         store = await self.store_info()
-        await self.send(ctx.chat_id, f"به {store.get('name', 'ملورین')} خوش آمدید 👋\nاز منوی زیر شروع کنید.", MENU)
+        await self.send_main_menu(ctx.chat_id, f"به {store.get('name', 'ملورین')} خوش آمدید 👋\nاز منوی زیر شروع کنید.")
 
     async def cmd_help(self, ctx, arg):
         await self.send(ctx.chat_id, HELP, MENU)
@@ -289,14 +323,19 @@ class TelegramRunner:
         tx = await self.api(ctx, "GET", f"/api/v1/stores/{store['id']}/wallet/transactions")
         items = tx if isinstance(tx, list) else tx.get("items", [])
         lines = [f"{t['kind']}: {money(t['amount'])}" for t in items[:5]]
-        await self.send(ctx.chat_id, f"موجودی: {money(w['balance'])} {w['currency']}\n\nآخرین تراکنش‌ها:\n" + ("\n".join(lines) or "—") + "\n\nشارژ: /topup مبلغ")
+        amounts = [[("۲۰۰,۰۰۰ تومان", "wallet:amount:200000"), ("۵۰۰,۰۰۰ تومان", "wallet:amount:500000")],
+                   [("۱,۰۰۰,۰۰۰ تومان", "wallet:amount:1000000"), ("✏️ مبلغ دلخواه", "wallet:amount:custom")]]
+        await self.send(ctx.chat_id, f"💰 موجودی کیف پول شما: {money(w['balance'])} {w['currency']}\n\nبرای شارژ، مبلغ را انتخاب کنید:", amounts)
 
-    async def cmd_topup(self, ctx, arg):
-        digits = "".join(ch for ch in arg.translate(str.maketrans("۰۱۲۳۴۵۶۷۸۹", "0123456789")) if ch.isdigit())
-        if not digits or int(digits) <= 0:
-            return await self.send(ctx.chat_id, "مبلغ را وارد کنید. مثال: /topup 100000")
+    async def cb_wallet_amount(self, ctx, value):
+        if value == "custom":
+            self._set_state(ctx.chat_id, {"topup_amount": True})
+            return await self.send(ctx.chat_id, "مبلغ دلخواه را به تومان وارد کنید (فقط عدد):")
+        await self.create_topup(ctx, int(value))
+
+    async def create_topup(self, ctx, amount):
         store = await self.store_info()
-        p = await self.api(ctx, "POST", f"/api/v1/stores/{store['id']}/wallet/topups", headers={"Idempotency-Key": f"{ctx.idem}-topup"}, json={"amount": int(digits), "provider": "manual_card"})
+        p = await self.api(ctx, "POST", f"/api/v1/stores/{store['id']}/wallet/topups", headers={"Idempotency-Key": f"{ctx.idem}-topup"}, json={"amount": amount, "provider": "manual_card"})
         ins = p.get("instructions") or {}
         lines = [f"درخواست شارژ {money(p['amount'])} {p['currency']} ثبت شد."]
         if ins.get("card_number"):
@@ -307,6 +346,37 @@ class TelegramRunner:
             lines.append("پس از واریز، عکس رسید را همین‌جا بفرستید.")
             self._set_state(ctx.chat_id, {"receipt_payment": p["id"]})
         await self.send(ctx.chat_id, "\n".join(lines))
+
+    async def cb_account(self, ctx, value):
+        rows = await self.api(ctx, "GET", "/api/v1/vpn-accounts")
+        account = next((a for a in rows if str(a.get("id")) == value), None)
+        if not account:
+            return await self.send(ctx.chat_id, "این اکانت دیگر در دسترس نیست.")
+        await self.send(ctx.chat_id, f"اکانت: {account.get('username', '-') }\n🔗 {account.get('subscription_url') or 'در حال آماده‌سازی'}")
+
+    async def cmd_referral(self, ctx, arg):
+        data = await self.api(ctx, "GET", "/api/v1/me/referrals")
+        bot = await self.tg("getMe", {})
+        username = bot.get("username", "MelorinBot")
+        count = data.get("referred_count", data.get("count", data.get("total", 0)))
+        await self.send(ctx.chat_id, f"🎁 لینک دعوت اختصاصی شما:\nhttps://t.me/{username}?start={ctx.user['id']}\n\nتعداد زیرمجموعه‌ها: {count}")
+
+    async def cmd_rules(self, ctx, arg):
+        await self.send(ctx.chat_id, "📜 قوانین خرید:\n\n۱. پس از خرید امکان بازگشت وجه وجود ندارد مگر در صورت خرابی سرویس.\n۲. اکانت‌ها فقط برای استفاده‌ی شخصی هستند.\n۳. برای هرگونه مشکل با پشتیبانی در تماس باشید.")
+
+    async def cmd_support(self, ctx, arg):
+        self._set_state(ctx.chat_id, {"new_ticket_subject": "پشتیبانی تلگرام"})
+        await self.send(ctx.chat_id, "🎧 پیام خود را برای پشتیبانی بنویسید:")
+
+    async def cmd_reseller(self, ctx, arg):
+        self._set_state(ctx.chat_id, {"new_ticket_subject": "🤖 درخواست ربات نماینده و همکاری"})
+        await self.send(ctx.chat_id, "📌 توضیحات خود را برای ثبت درخواست نمایندگی ارسال نمایید.")
+
+    async def cmd_topup(self, ctx, arg):
+        digits = "".join(ch for ch in arg.translate(str.maketrans("۰۱۲۳۴۵۶۷۸۹", "0123456789")) if ch.isdigit())
+        if not digits or int(digits) <= 0:
+            return await self.send(ctx.chat_id, "مبلغ را وارد کنید. مثال: /topup 100000")
+        await self.create_topup(ctx, int(digits))
 
     async def cmd_orders(self, ctx, arg):
         store = await self.store_info()
