@@ -11,7 +11,7 @@ from melorin.core.security import totp_counter, totp_new_secret, totp_verify, ve
 from melorin.modules.identity import service
 from melorin.modules.identity.models import Identity, User
 from melorin.modules.identity.schemas import (
-    EmailCodeRequest, EmailCodeVerify, GoogleLogin, IdentityOut, LinkCodeOut, MeOut, MeUpdate, PasswordLogin,
+    AdminPasswordChange, EmailCodeRequest, EmailCodeVerify, GoogleLogin, IdentityOut, LinkCodeOut, MeOut, MeUpdate, PasswordLogin,
     RefreshRequest, SetPassword, TelegramBotLogin, TelegramLink, TelegramWebAppLogin, TokenPair, TotpEnable, TotpSetupOut,
 )
 from melorin.modules.referral import service as referral
@@ -196,6 +196,22 @@ async def create_telegram_link_code(user: CurrentUser, session: Session):
 @me.post("/identities/email")
 async def attach_email(body: EmailCodeVerify, user: CurrentUser, session: Session):
     await service.attach_email(session, user, body.email, body.code)
+    return {"ok": True}
+
+
+@auth.post("/admin/password")
+async def change_admin_password(body: AdminPasswordChange, admin: CurrentUser, session: Session):
+    if not admin.is_super_admin:
+        raise AppError("FORBIDDEN", "فقط ادمین می‌تواند رمز این حساب را تغییر دهد.", 403)
+    if not await verify_password(body.current_password, admin.password_hash):
+        audit.security_event(session, "admin.password_change_failed", admin.id)
+        await session.commit()
+        raise AppError("INVALID_CURRENT_PASSWORD", "رمز فعلی نادرست است.", 401)
+    if body.current_password == body.new_password:
+        raise AppError("PASSWORD_UNCHANGED", "رمز جدید باید با رمز فعلی متفاوت باشد.", 400)
+    admin.password_hash = await hash_password(body.new_password)
+    audit.record(session, "admin.password_changed", actor_id=admin.id, actor_type="admin", entity_type="user", entity_id=admin.id)
+    await session.commit()
     return {"ok": True}
 
 

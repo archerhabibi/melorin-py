@@ -109,6 +109,31 @@ function Integrations({ api, toast }) {
   </section>;
 }
 
+function ChangeAdminPassword({ api, toast }) {
+  const [v, setV] = useState({ current: "", next: "", confirm: "" });
+  const [busy, setBusy] = useState(false);
+  const submit = async () => {
+    if (v.next.length < 8) return toast("رمز جدید باید حداقل ۸ کاراکتر باشد");
+    if (v.next !== v.confirm) return toast("تکرار رمز جدید یکسان نیست");
+    setBusy(true);
+    const r = await authFetch(api.base, "/api/v1/auth/admin/password", { method: "POST", body: JSON.stringify({ current_password: v.current, new_password: v.next }) });
+    const d = await r.json().catch(() => ({}));
+    setBusy(false);
+    if (!r.ok) return toast(d?.error?.message || d?.detail?.message || "تغییر رمز ناموفق بود");
+    setV({ current: "", next: "", confirm: "" });
+    toast("رمز ادمین با موفقیت تغییر کرد");
+  };
+  return <section className={`${box} space-y-4 p-5`}>
+    <div><h3 className="font-extrabold">امنیت حساب ادمین</h3><p className="mt-1 text-xs text-[#71808b]">برای تغییر رمز، رمز فعلی لازم است. توکن نشست فعلی حفظ می‌شود.</p></div>
+    <div className="grid gap-3 md:grid-cols-3">
+      <Field label="رمز فعلی"><input dir="ltr" type="password" autoComplete="current-password" className={inp} value={v.current} onChange={(e) => setV({ ...v, current: e.target.value })} /></Field>
+      <Field label="رمز جدید"><input dir="ltr" type="password" autoComplete="new-password" className={inp} value={v.next} onChange={(e) => setV({ ...v, next: e.target.value })} /></Field>
+      <Field label="تکرار رمز جدید"><input dir="ltr" type="password" autoComplete="new-password" className={inp} value={v.confirm} onChange={(e) => setV({ ...v, confirm: e.target.value })} /></Field>
+    </div>
+    <button disabled={busy || !v.current || !v.next || !v.confirm} className={btn} onClick={submit}>{busy ? "در حال ذخیره..." : "تغییر رمز"}</button>
+  </section>;
+}
+
 function Settings({ api, toast }) {
   const flags = useList(api, "/api/v1/admin/feature-flags", toast);
   const settings = useList(api, "/api/v1/admin/settings", toast);
@@ -122,7 +147,7 @@ function Settings({ api, toast }) {
     const r = await flags.call(`/api/v1/admin/settings/${key}`, { method: "PUT", body: JSON.stringify({ value }) });
     if (r.ok) { toast("تنظیم ذخیره شد"); setTick((x) => x + 1); } else toast("ذخیره ناموفق بود");
   };
-  return <div className="space-y-5"><Integrations api={api} toast={toast} /><Table title="Feature Flags" cols={["کلید", "محدوده", "فعال", ""]} rows={flags.rows.map((f) => [f.key, `${f.scope_type}:${f.scope_id}`, f.enabled ? "بله" : "خیر", <button className={ghost} onClick={() => setFlag(f)}>{f.enabled ? "خاموش" : "روشن"}</button>])} />
+  return <div className="space-y-5"><ChangeAdminPassword api={api} toast={toast} /><Integrations api={api} toast={toast} /><Table title="Feature Flags" cols={["کلید", "محدوده", "فعال", ""]} rows={flags.rows.map((f) => [f.key, `${f.scope_type}:${f.scope_id}`, f.enabled ? "بله" : "خیر", <button className={ghost} onClick={() => setFlag(f)}>{f.enabled ? "خاموش" : "روشن"}</button>])} />
     <section className={`${box} overflow-hidden`}><h3 className="px-5 py-4 font-extrabold">تنظیمات سیستم <span className="text-xs font-normal text-[#71808b]">(مقدار به‌صورت JSON)</span></h3>{Object.entries(obj).map(([k, v]) => <SettingRow key={k} k={k} v={v} save={save} />)}</section></div>;
 }
 

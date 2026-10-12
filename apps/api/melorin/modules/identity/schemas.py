@@ -33,6 +33,11 @@ class SetPassword(BaseModel):
     password: str = Field(min_length=8, max_length=128)
 
 
+class AdminPasswordChange(BaseModel):
+    current_password: str = Field(min_length=8, max_length=128)
+    new_password: str = Field(min_length=8, max_length=128)
+
+
 class GoogleLogin(BaseModel):
     id_token: str
 
