@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-13 23:36 UTC - archerhabibi - api, tests, bot  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(delivery): single Telegram post with QR, subscription link and wallet balance - - New order.delivery outbox topic handled by modules/orders/delivery.py: one photo message (QR of the subscription link) whose caption carries account details, tap-to-copy link and the wallet balance right after th…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (9):** `apps/api/melorin/channels/telegram.py`, `apps/api/melorin/core/events.py`, `apps/api/melorin/modules/orders/delivery.py`, `apps/api/melorin/modules/vpn/service.py`, `apps/api/melorin/worker/runner.py`, `apps/api/pyproject.toml`, `apps/api/requirements.txt`, `apps/api/tests/test_order_delivery_post.py` (+1 more)
+- **Ref:** `dcb45a9`
+
+
 ### 2026-10-13 23:16 UTC - archerhabibi - api, tests  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
