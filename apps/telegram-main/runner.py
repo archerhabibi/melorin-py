@@ -5,13 +5,22 @@ tickets stay in Core. Every update is exchanged for a Core session through
 ``/api/v1/auth/telegram/bot`` (X-Bot-Secret). The offset is persisted so a restart
 replays no acknowledged update; order/top-up calls carry an Idempotency-Key derived
 from the Telegram update/callback id so a replay can never double-charge.
+
+UX model (v2): inline navigation edits the tapped message in place (one "window" instead of
+a growing chat), every screen has a back button, purchase screens show the wallet balance
+before and after the payment, and accounts open as cards with usage bar, QR and renewal.
 """
 import asyncio
+import base64
+import datetime as dt
+import html
+import io
 import json
 import logging
 import mimetypes
 import os
 import re
+import uuid
 from pathlib import Path
 
 import httpx
@@ -21,9 +30,16 @@ log = logging.getLogger("melorin.telegram.main")
 HELP = (
     "فرمان‌ها:\n"
     "/plans خرید اکانت\n/wallet کیف پول و شارژ حساب\n/topup مبلغ — شارژ کیف پول\n"
-    "/accounts استعلام و تمدید اکانت\n/test دریافت اکانت تست\n"
+    "/accounts استعلام و تمدید اکانت\n/orders سفارش‌ها\n/test دریافت اکانت تست\n"
     "/tickets پشتیبانی و تیکت‌ها\n/me حساب کاربری\n/referral دعوت از دوستان"
 )
+
+# Registered with Telegram (setMyCommands) so the "Menu" button lists them.
+BOT_COMMANDS = [
+    ("start", "شروع و منوی اصلی"), ("plans", "🛒 خرید اکانت"), ("accounts", "🔑 اکانت‌های من"),
+    ("wallet", "💰 کیف پول و شارژ"), ("orders", "📦 سفارش‌ها"), ("test", "🧪 اکانت تست"),
+    ("tickets", "🎧 پشتیبانی"), ("referral", "🎁 دعوت از دوستان"), ("help", "راهنما"),
+]
 
 # Must stay in sync with the public bot's Persian reply keyboard.
 MAIN_MENU = [
@@ -39,9 +55,32 @@ MENU = [[("🛒 خرید اکانت", "menu:plans"), ("💰 کیف پول", "men
         [("📦 سفارش‌ها", "menu:orders"), ("🔑 اکانت‌ها", "menu:accounts")],
         [("🎫 تیکت‌ها", "menu:tickets"), ("🔔 اعلان‌ها", "menu:notifications")]]
 
+CURRENCY_LABEL = {"IRT": "تومان", "IRR": "ریال"}
+ACCOUNT_STATUS = {"active": "🟢 فعال", "pending": "⏳ در انتظار", "provisioning": "⏳ در حال ساخت", "suspended": "🟠 مسدود",
+                  "expired": "🔴 منقضی", "revoked": "⛔ لغوشده", "archived": "📁 بایگانی"}
+ORDER_STATUS = {"pending": "⏳ در انتظار پرداخت", "paid": "💳 پرداخت‌شده", "processing": "⚙️ در حال پردازش",
+                "provisioning": "⚙️ در حال ساخت اکانت", "completed": "✅ تکمیل‌شده", "provisioning_failed": "❌ ناموفق",
+                "refund_pending": "↩️ در حال بازگشت وجه", "refunded": "↩️ بازگشت داده شد", "cancelled": "🚫 لغوشده",
+                "manual_review": "🔎 در حال بررسی"}
+TX_KIND = {"purchase": "🛒 خرید", "topup": "💳 شارژ", "refund": "↩️ بازگشت وجه", "topup_refund": "↩️ برگشت شارژ",
+           "referral_first": "🎁 پاداش دعوت", "referral_recurring": "🎁 پاداش دعوت", "manual_adjustment": "✏️ اصلاح دستی"}
+PAGE_SIZE = 8
+
+
+def esc(v) -> str:
+    return html.escape(str(v if v is not None else ""), quote=False)
+
 
 def money(n) -> str:
     return f"{int(n or 0):,}"
+
+
+def cur(code) -> str:
+    return CURRENCY_LABEL.get(str(code or "").upper(), str(code or ""))
+
+
+def fmt(n, code) -> str:
+    return f"{money(n)} {cur(code)}"
 
 
 def gb(b) -> str:
@@ -56,6 +95,55 @@ def reply_keyboard(rows):
     return {"keyboard": [[{"text": text} for text in row] for row in rows], "resize_keyboard": True}
 
 
+def b64(value) -> str:
+    """UUID -> 22 chars so two ids still fit in Telegram's 64-byte callback_data limit."""
+    return base64.urlsafe_b64encode(uuid.UUID(str(value)).bytes).decode().rstrip("=")
+
+
+def unb64(token: str) -> str:
+    try:
+        return str(uuid.UUID(bytes=base64.urlsafe_b64decode(token + "==")))
+    except (ValueError, TypeError) as exc:
+        raise CoreError(400, "گزینه نامعتبر است. دوباره از منو انتخاب کنید.") from exc
+
+
+def usage_bar(used, limit, width: int = 10) -> str:
+    if not limit:
+        return f"♾ نامحدود · مصرف {gb(used)} GB"
+    pct = min(1.0, (used or 0) / limit)
+    filled = round(pct * width)
+    return f"{'▰' * filled}{'▱' * (width - filled)} {int(pct * 100)}٪\n{gb(used)} / {gb(limit)} GB"
+
+
+def parse_dt(value) -> dt.datetime | None:
+    if not value:
+        return None
+    try:
+        d = dt.datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return d if d.tzinfo else d.replace(tzinfo=dt.UTC)
+
+
+def expiry_line(value) -> str:
+    d = parse_dt(value)
+    if d is None:
+        return "⏳ انقضا: نامحدود"
+    left = (d - dt.datetime.now(dt.UTC)).days
+    tail = f"{left} روز مانده" if left >= 0 else "منقضی شده"
+    return f"⏳ انقضا: {d:%Y-%m-%d} ({tail})"
+
+
+def qr_png(data: str) -> bytes | None:
+    try:
+        import segno
+    except ImportError:  # optional dependency: the bot still works, just without the QR image
+        return None
+    buf = io.BytesIO()
+    segno.make(data, error="m").save(buf, kind="png", scale=8, border=4)
+    return buf.getvalue()
+
+
 class CoreError(Exception):
     def __init__(self, status: int, message: str):
         super().__init__(message)
@@ -63,9 +151,10 @@ class CoreError(Exception):
 
 
 class Ctx:
-    def __init__(self, chat_id, user, pair, update_id, callback_id=None):
+    def __init__(self, chat_id, user, pair, update_id, callback_id=None, message_id=None):
         self.chat_id, self.user, self.pair = chat_id, user, pair
         self.update_id, self.callback_id = update_id, callback_id
+        self.message_id = message_id  # the tapped message (callbacks only) -> edited in place
 
     @property
     def idem(self) -> str:
@@ -95,7 +184,8 @@ class TelegramRunner:
         self.callbacks = {
             "menu": self.cb_menu, "plan": self.cb_plan, "buy": self.cb_buy, "ticket": self.cb_ticket,
             "reply": self.cb_reply, "readall": self.cb_readall, "wallet": self.cb_wallet_amount,
-            "account": self.cb_account,
+            "account": self.cb_account, "plans": self.cb_plans, "cpn": self.cb_coupon, "qr": self.cb_qr,
+            "rnw": self.cb_renew, "rnq": self.cb_renew_quote, "rnb": self.cb_renew_buy, "noop": self.cb_noop,
         }
 
     # ---------- persistence ----------
@@ -135,11 +225,44 @@ class TelegramRunner:
             raise RuntimeError(data.get("description", method))
         return data["result"]
 
-    async def send(self, chat_id, text: str, rows=None, *, reply=False) -> None:
+    async def send(self, chat_id, text: str, rows=None, *, reply=False, html: bool = False) -> None:
         payload = {"chat_id": chat_id, "text": text[:4000]}
+        if html:
+            payload["parse_mode"] = "HTML"
+            payload["link_preview_options"] = {"is_disabled": True}
         if rows:
             payload["reply_markup"] = reply_keyboard(rows) if reply else keyboard(rows)
         await self.tg("sendMessage", payload)
+
+    async def screen(self, ctx: Ctx, text: str, rows=None) -> None:
+        """Show an HTML screen. From an inline button the tapped message is edited in place
+        (single-window navigation); otherwise, or when Telegram refuses the edit, a new message is sent."""
+        if ctx.message_id and ctx.callback_id:
+            payload = {"chat_id": ctx.chat_id, "message_id": ctx.message_id, "text": text[:4000], "parse_mode": "HTML",
+                       "link_preview_options": {"is_disabled": True}}
+            if rows:
+                payload["reply_markup"] = keyboard(rows)
+            try:
+                await self.tg("editMessageText", payload)
+                return
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code != 400:
+                    raise  # transient: let the runner retry the update
+                try:
+                    reason = str(exc.response.json().get("description", ""))
+                except ValueError:
+                    reason = ""
+                if "not modified" in reason:
+                    return  # same content: nothing to do
+                # message is a photo / too old to edit -> fall through to a fresh message
+        await self.send(ctx.chat_id, text, rows, html=True)
+
+    async def send_photo(self, chat_id, png: bytes, caption: str, rows=None) -> None:
+        data = {"chat_id": str(chat_id), "caption": caption[:1024], "parse_mode": "HTML"}
+        if rows:
+            data["reply_markup"] = json.dumps(keyboard(rows))
+        r = await self.client.post(f"https://api.telegram.org/bot{self.token}/sendPhoto", data=data, files={"photo": ("qr.png", png, "image/png")})
+        r.raise_for_status()
 
     async def send_main_menu(self, chat_id, text: str) -> None:
         await self.send(chat_id, text, MAIN_MENU, reply=True)
@@ -202,7 +325,8 @@ class TelegramRunner:
         referral = arg[4:] if text.lower().startswith("/start") and arg.startswith("ref_") else None
         pair = await self.core_login(message, referral)
         user = message.get("_telegram_from") or message.get("from") or {}
-        ctx = Ctx(message["chat"]["id"], user, pair, update["update_id"], callback["id"] if callback else None)
+        ctx = Ctx(message["chat"]["id"], user, pair, update["update_id"], callback["id"] if callback else None,
+                  message.get("message_id") if callback else None)
         try:
             if callback:
                 prefix, _, rest = (callback.get("data") or "").partition(":")
@@ -241,6 +365,12 @@ class TelegramRunner:
                 return await self.send(ctx.chat_id, "مبلغ نامعتبر است. فقط عدد (به تومان) وارد کنید:")
             self._set_state(ctx.chat_id, None)
             await self.create_topup(ctx, int(digits))
+        elif st.get("coupon_for"):
+            pid = st["coupon_for"]
+            # One-shot: clear first so a rejected code or an insufficient balance
+            # never leaves the next free-text message to be read as a coupon again.
+            self._set_state(ctx.chat_id, None)
+            await self.show_quote(ctx, pid, coupon=text.strip().upper())
         elif st.get("reply_ticket"):
             await self.api(ctx, "POST", f"/api/v1/tickets/{st['reply_ticket']}/messages", json={"body": text})
             self._set_state(ctx.chat_id, None)
@@ -281,13 +411,31 @@ class TelegramRunner:
             return await self.cmd_link(ctx, arg[5:])
         store = await self.store_info()
         await self.send_main_menu(ctx.chat_id, f"به {store.get('name', 'ملورین')} خوش آمدید 👋\nاز منوی زیر شروع کنید.")
+        await self.cmd_home(ctx, "")
+
+    async def cmd_home(self, ctx, arg):
+        """Dashboard card: wallet balance + account count + quick actions (skipped silently on any Core error)."""
+        try:
+            store = await self.store_info()
+            w = await self.api(ctx, "GET", f"/api/v1/stores/{store['id']}/wallet")
+            accounts = await self.api(ctx, "GET", "/api/v1/vpn-accounts")
+        except CoreError:
+            return
+        active = sum(1 for a in accounts if a.get("status") == "active")
+        name = ctx.user.get("first_name") or "دوست عزیز"
+        text = (f"سلام {esc(name)} 👋\n\n💰 موجودی کیف پول: <b>{esc(fmt(w['balance'], w['currency']))}</b>\n"
+                f"🔑 اکانت‌های فعال: <b>{active}</b> از {len(accounts)}")
+        await self.screen(ctx, text, [[("🛒 خرید اکانت", "menu:plans"), ("🔑 اکانت‌های من", "menu:accounts")],
+                                      [("💰 کیف پول", "menu:wallet"), ("📦 سفارش‌ها", "menu:orders")]])
 
     async def cmd_help(self, ctx, arg):
         await self.send(ctx.chat_id, HELP, MENU)
 
     async def cmd_me(self, ctx, arg):
         me = await self.api(ctx, "GET", "/api/v1/me")
-        await self.send(ctx.chat_id, f"حساب: {me.get('display_name') or me.get('email') or me['id']}\nکد دعوت: {me.get('referral_code', '-')}")
+        who = me.get("display_name") or me.get("email") or me["id"]
+        await self.screen(ctx, f"👤 <b>حساب کاربری</b>\n\nنام: {esc(who)}\nکد دعوت: <code>{esc(me.get('referral_code', '-'))}</code>",
+                          [[("💰 کیف پول", "menu:wallet"), ("🔑 اکانت‌ها", "menu:accounts")]])
 
     async def cmd_link(self, ctx, arg):
         code = arg.strip()
@@ -299,40 +447,113 @@ class TelegramRunner:
             r.raise_for_status()
         await self.send(ctx.chat_id, "حساب تلگرام به حساب وب شما متصل شد ✅" if r.status_code < 400 else f"⚠️ {self._err(r)}")
 
-    async def cmd_plans(self, ctx, arg):
+    async def cb_noop(self, ctx, _):
+        return None
+
+    # ----- shop: plans -> plan card -> confirm -> pay -----
+    async def catalog_items(self) -> list:
         store = await self.store_info()
         r = await self.client.get(f"{self.core}/api/v1/stores/{store['id']}/catalog")
         r.raise_for_status()
-        items = r.json()
+        return r.json()
+
+    async def cmd_plans(self, ctx, arg):
+        await self.show_plans(ctx, 0)
+
+    async def cb_plans(self, ctx, page):
+        await self.show_plans(ctx, int(page) if page.isdigit() else 0)
+
+    async def show_plans(self, ctx, page: int, *, renew: str | None = None):
+        items = await self.catalog_items()
         if not items:
-            return await self.send(ctx.chat_id, "فعلاً سرویسی برای فروش موجود نیست.")
-        rows = [[(f"{p['name']} · {money(p['price'])} {p['currency']}", f"plan:{p['product_id']}")] for p in items[:20]]
-        await self.send(ctx.chat_id, "یک سرویس انتخاب کنید:", rows)
+            return await self.screen(ctx, "فعلاً سرویسی برای فروش موجود نیست.")
+        pages = max(1, -(-len(items) // PAGE_SIZE))
+        page = min(max(page, 0), pages - 1)
+        chunk = items[page * PAGE_SIZE:(page + 1) * PAGE_SIZE]
+        pick = (lambda pid: f"rnq:{renew}:{b64(pid)}") if renew else (lambda pid: f"plan:{pid}")
+        rows = [[(f"{p['name']} · {fmt(p['price'], p['currency'])}", pick(p["product_id"]))] for p in chunk]
+        if pages > 1 and not renew:
+            rows.append([("‹ قبلی", f"plans:{page - 1}") if page else ("·", "noop"), (f"{page + 1}/{pages}", "noop"),
+                         ("بعدی ›", f"plans:{page + 1}") if page < pages - 1 else ("·", "noop")])
+        if renew:
+            rows.append([("↩︎ بازگشت به اکانت", f"account:{unb64(renew)}")])
+        title = "🔄 <b>تمدید اکانت</b>\nسرویس موردنظر برای تمدید را انتخاب کنید:" if renew else "🛒 <b>خرید اکانت</b>\nیک سرویس انتخاب کنید:"
+        await self.screen(ctx, title, rows)
 
     async def cb_plan(self, ctx, pid):
+        self._set_state(ctx.chat_id, None)
+        await self.show_quote(ctx, pid)
+
+    async def show_quote(self, ctx, pid, *, coupon: str | None = None, renew: str | None = None):
+        """One card: what you buy, price, discount, wallet balance BEFORE and AFTER, and the right next button."""
         store = await self.store_info()
-        q = await self.api(ctx, "POST", f"/api/v1/stores/{store['id']}/checkout/quote", json={"product_id": pid})
-        txt = f"پیش‌فاکتور\nقیمت: {money(q['unit_price'])}\nتخفیف: {money(q['discount'])}\nمبلغ نهایی: {money(q['total'])} {q['currency']}\nموجودی کیف پول: {money(q.get('wallet_balance'))}"
+        body = {"product_id": pid}
+        if coupon:
+            body["coupon_code"] = coupon
+        q = await self.api(ctx, "POST", f"/api/v1/stores/{store['id']}/checkout/quote", json=body)
+        c = q["currency"]
+        lines = ["🔄 <b>تمدید اکانت</b>" if renew else "🧾 <b>پیش‌فاکتور</b>", ""]
+        lines.append(f"💵 قیمت: {esc(fmt(q['unit_price'], c))}")
+        if q.get("discount"):
+            tag = f" ({esc(q.get('coupon_code'))})" if q.get("coupon_code") else ""
+            lines.append(f"🏷 تخفیف{tag}: {esc(fmt(q['discount'], c))}")
+        lines.append(f"💰 مبلغ نهایی: <b>{esc(fmt(q['total'], c))}</b>")
+        balance = int(q.get("wallet_balance") or 0)
+        lines += ["", f"👛 موجودی کیف پول: {esc(fmt(balance, c))}"]
         if q.get("sufficient_funds"):
-            await self.send(ctx.chat_id, txt, [[("✅ پرداخت از کیف پول", f"buy:{pid}")], [("↩︎ بازگشت", "menu:plans")]])
+            lines.append(f"📉 موجودی پس از پرداخت: <b>{esc(fmt(balance - int(q['total']), c))}</b>")
+            if coupon:
+                self._set_state(ctx.chat_id, {"coupon": {"pid": str(pid), "code": coupon}})
+            go = f"rnb:{renew}:{b64(pid)}" if renew else f"buy:{pid}"
+            rows = [[("✅ تأیید و پرداخت از کیف پول", go)]]
         else:
-            await self.send(ctx.chat_id, txt + "\n\nموجودی کافی نیست. با /topup مبلغ کیف پول را شارژ کنید.", [[("↩︎ بازگشت", "menu:plans")]])
+            short = int(q["total"]) - balance
+            lines.append(f"⚠️ موجودی کافی نیست؛ <b>{esc(fmt(short, c))}</b> کم دارید.")
+            rows = [[(f"💳 شارژ {fmt(short, c)}", f"wallet:amount:{short}")]]
+        if not renew:
+            rows.append([("🎟 کد تخفیف", f"cpn:{pid}")])
+        rows.append([("↩︎ بازگشت", f"rnw:{renew}" if renew else "menu:plans")])
+        await self.screen(ctx, "\n".join(lines), rows)
+
+    async def cb_coupon(self, ctx, pid):
+        self._set_state(ctx.chat_id, {"coupon_for": pid})
+        await self.screen(ctx, "🎟 کد تخفیف را بفرستید:", [[("↩︎ بازگشت", f"plan:{pid}")]])
+
+    def _coupon_for(self, ctx, pid) -> str | None:
+        c = (self.state.get(str(ctx.chat_id)) or {}).get("coupon") or {}
+        return c.get("code") if c.get("pid") == str(pid) else None
 
     async def cb_buy(self, ctx, pid):
         store = await self.store_info()
-        o = await self.api(ctx, "POST", f"/api/v1/stores/{store['id']}/orders", headers={"Idempotency-Key": ctx.idem},
-                           json={"product_id": pid, "payment_method": "wallet", "kind": "purchase"})
-        await self.send(ctx.chat_id, f"✅ پرداخت از کیف پول انجام شد.\nسفارش {o['number']} ثبت شد و اکانت شما در چند لحظه آماده و همین‌جا ارسال می‌شود (لینک اشتراک، QR کد و موجودی کیف پول).")
+        body = {"product_id": pid, "payment_method": "wallet", "kind": "purchase"}
+        if self._coupon_for(ctx, pid):
+            body["coupon_code"] = self._coupon_for(ctx, pid)
+        o = await self.api(ctx, "POST", f"/api/v1/stores/{store['id']}/orders", headers={"Idempotency-Key": ctx.idem}, json=body)
+        self._set_state(ctx.chat_id, None)
+        await self.order_done(ctx, o, "✅ <b>پرداخت از کیف پول انجام شد</b>")
 
+    async def order_done(self, ctx, o, title: str):
+        paid = f"\n💰 مبلغ پرداختی: {esc(fmt(o['total'], o.get('currency')))}" if o.get("total") is not None else ""
+        await self.screen(ctx, f"{title}\n\n📦 سفارش: <code>{esc(o['number'])}</code>{paid}\n"
+                               "⚙️ اکانت شما در چند لحظه ساخته و همین‌جا ارسال می‌شود "
+                               "(لینک اشتراک، QR کد و موجودی کیف پول).", [[("🔑 اکانت‌های من", "menu:accounts")]])
+
+    # ----- wallet -----
     async def cmd_wallet(self, ctx, arg):
         store = await self.store_info()
         w = await self.api(ctx, "GET", f"/api/v1/stores/{store['id']}/wallet")
         tx = await self.api(ctx, "GET", f"/api/v1/stores/{store['id']}/wallet/transactions")
         items = tx if isinstance(tx, list) else tx.get("items", [])
-        lines = [f"{t['kind']}: {money(t['amount'])}" for t in items[:5]]
+        lines = [f"💰 <b>کیف پول</b>\n\nموجودی: <b>{esc(fmt(w['balance'], w['currency']))}</b>"]
+        if items:
+            lines.append("\n🕘 آخرین تراکنش‌ها:")
+            for t in items[:5]:
+                amt = int(t["amount"])
+                lines.append(f"{TX_KIND.get(t['kind'], esc(t['kind']))}  {'➕' if amt > 0 else '➖'} {money(abs(amt))}")
+        lines.append("\nبرای شارژ، مبلغ را انتخاب کنید:")
         amounts = [[("۲۰۰,۰۰۰ تومان", "wallet:amount:200000"), ("۵۰۰,۰۰۰ تومان", "wallet:amount:500000")],
                    [("۱,۰۰۰,۰۰۰ تومان", "wallet:amount:1000000"), ("✏️ مبلغ دلخواه", "wallet:amount:custom")]]
-        await self.send(ctx.chat_id, f"💰 موجودی کیف پول شما: {money(w['balance'])} {w['currency']}\n\nبرای شارژ، مبلغ را انتخاب کنید:", amounts)
+        await self.screen(ctx, "\n".join(lines), amounts)
 
     async def cb_wallet_amount(self, ctx, value):
         # Callback data is split once in handle(), so this receives
@@ -351,29 +572,102 @@ class TelegramRunner:
         store = await self.store_info()
         p = await self.api(ctx, "POST", f"/api/v1/stores/{store['id']}/wallet/topups", headers={"Idempotency-Key": f"{ctx.idem}-topup"}, json={"amount": amount, "provider": "manual_card"})
         ins = p.get("instructions") or {}
-        lines = [f"درخواست شارژ {money(p['amount'])} {p['currency']} ثبت شد."]
+        lines = [f"💳 <b>درخواست شارژ {esc(fmt(p['amount'], p['currency']))} ثبت شد</b>", ""]
         if ins.get("card_number"):
-            lines += [f"کارت: {ins['card_number']}", f"به نام: {ins.get('holder', '-')}", f"بانک: {ins.get('bank', '-')}"]
+            lines += ["شماره کارت (برای کپی لمس کنید):", f"<code>{esc(ins['card_number'])}</code>",
+                      f"به نام: {esc(ins.get('holder', '-'))}", f"بانک: {esc(ins.get('bank', '-'))}"]
         if ins.get("redirect_url"):
-            lines.append(f"پرداخت آنلاین: {ins['redirect_url']}")
+            lines.append(f"🌐 پرداخت آنلاین: {esc(ins['redirect_url'])}")
         else:
-            lines.append("پس از واریز، عکس رسید را همین‌جا بفرستید.")
+            lines += ["", "📸 پس از واریز، عکس رسید را همین‌جا بفرستید."]
             self._set_state(ctx.chat_id, {"receipt_payment": p["id"]})
-        await self.send(ctx.chat_id, "\n".join(lines))
+        await self.send(ctx.chat_id, "\n".join(lines), html=True)
+
+    async def cmd_topup(self, ctx, arg):
+        digits = "".join(ch for ch in arg.translate(str.maketrans("۰۱۲۳۴۵۶۷۸۹", "0123456789")) if ch.isdigit())
+        if not digits or int(digits) <= 0:
+            return await self.send(ctx.chat_id, "مبلغ را وارد کنید. مثال: /topup 100000")
+        await self.create_topup(ctx, int(digits))
+
+    # ----- accounts: list -> card (usage bar, link) -> QR / renew -----
+    async def cmd_accounts(self, ctx, arg):
+        rows = await self.api(ctx, "GET", "/api/v1/vpn-accounts")
+        if not rows:
+            return await self.screen(ctx, "🔑 هنوز اکانتی ندارید.", [[("🛒 خرید اکانت", "menu:plans")], [("🧪 دریافت اکانت تست", "menu:test")]])
+        buttons = []
+        for a in rows[:20]:
+            d = parse_dt(a.get("expires_at"))
+            left = f" · {(d - dt.datetime.now(dt.UTC)).days}ر" if d else ""
+            buttons.append([(f"{ACCOUNT_STATUS.get(a['status'], '•').split()[0]} {a['username']}{left}", f"account:{a['id']}")])
+        await self.screen(ctx, "🔑 <b>اکانت‌های من</b>\nبرای مشاهده، تمدید یا QR کد یکی را انتخاب کنید:", buttons)
+
+    async def _find_account(self, ctx, account_id):
+        rows = await self.api(ctx, "GET", "/api/v1/vpn-accounts")
+        return next((a for a in rows if str(a.get("id")) == str(account_id)), None)
 
     async def cb_account(self, ctx, value):
-        rows = await self.api(ctx, "GET", "/api/v1/vpn-accounts")
-        account = next((a for a in rows if str(a.get("id")) == value), None)
+        account = await self._find_account(ctx, value)
         if not account:
-            return await self.send(ctx.chat_id, "این اکانت دیگر در دسترس نیست.")
-        await self.send(ctx.chat_id, f"اکانت: {account.get('username', '-') }\n🔗 {account.get('subscription_url') or 'در حال آماده‌سازی'}")
+            return await self.screen(ctx, "این اکانت دیگر در دسترس نیست.", [[("↩︎ بازگشت", "menu:accounts")]])
+        link = account.get("subscription_url")
+        lines = [f"👤 <b>{esc(account.get('username', '-'))}</b>", f"وضعیت: {ACCOUNT_STATUS.get(account['status'], esc(account['status']))}",
+                 expiry_line(account.get("expires_at")), "", f"📊 {usage_bar(account.get('traffic_used_bytes'), account.get('traffic_limit_bytes'))}"]
+        lines += ["", "🔗 لینک اشتراک (برای کپی لمس کنید):", f"<code>{esc(link)}</code>"] if link else ["", "🔗 لینک در حال آماده‌سازی است."]
+        action = []
+        if link:
+            action.append(("📷 QR کد", f"qr:{b64(account['id'])}"))
+        if not account.get("is_test") and account["status"] in ("active", "expired", "suspended"):
+            action.append(("🔄 تمدید", f"rnw:{b64(account['id'])}"))
+        rows = ([action] if action else []) + [[("↩︎ بازگشت", "menu:accounts")]]
+        await self.screen(ctx, "\n".join(lines), rows)
 
+    async def cb_qr(self, ctx, token):
+        account = await self._find_account(ctx, unb64(token))
+        link = (account or {}).get("subscription_url")
+        if not link:
+            raise CoreError(404, "لینک اشتراک این اکانت هنوز آماده نیست.")
+        png = qr_png(link)
+        caption = f"📷 QR کد اشتراک <b>{esc(account['username'])}</b>\n\n<code>{esc(link)}</code>"
+        if png:
+            await self.send_photo(ctx.chat_id, png, caption)
+        else:
+            await self.send(ctx.chat_id, f"🔗 <code>{esc(link)}</code>", html=True)
+
+    async def cb_renew(self, ctx, token):
+        unb64(token)  # validate early
+        await self.show_plans(ctx, 0, renew=token)
+
+    async def cb_renew_quote(self, ctx, rest):
+        acc, _, pid = rest.partition(":")
+        unb64(acc)
+        await self.show_quote(ctx, unb64(pid), renew=acc)
+
+    async def cb_renew_buy(self, ctx, rest):
+        acc, _, pid = rest.partition(":")
+        store = await self.store_info()
+        o = await self.api(ctx, "POST", f"/api/v1/stores/{store['id']}/orders", headers={"Idempotency-Key": ctx.idem},
+                           json={"product_id": unb64(pid), "payment_method": "wallet", "kind": "renewal", "vpn_account_id": unb64(acc)})
+        await self.order_done(ctx, o, "✅ <b>تمدید با کیف پول پرداخت شد</b>")
+
+    async def cmd_test(self, ctx, arg):
+        store = await self.store_info()
+        o = await self.api(ctx, "POST", f"/api/v1/stores/{store['id']}/test-account")
+        await self.send(ctx.chat_id, f"🧪 اکانت تست ساخته شد ({o['number']}). لینک و QR کد همین‌جا ارسال می‌شود.")
+
+    async def cmd_orders(self, ctx, arg):
+        store = await self.store_info()
+        os_ = await self.api(ctx, "GET", f"/api/v1/stores/{store['id']}/orders")
+        lines = [f"🧾 <code>{esc(o['number'])}</code> · {esc(fmt(o['total'], o['currency']))} · {ORDER_STATUS.get(o['status'], esc(o['status']))}" for o in os_[:10]]
+        await self.screen(ctx, "📦 <b>سفارش‌ها</b>\n\n" + ("\n".join(lines) or "هنوز سفارشی ندارید."), [[("🛒 خرید اکانت", "menu:plans")]])
+
+    # ----- engagement / support -----
     async def cmd_referral(self, ctx, arg):
         data = await self.api(ctx, "GET", "/api/v1/me/referrals")
         bot = await self.tg("getMe", {})
         username = bot.get("username", "MelorinBot")
         count = data.get("referred_count", data.get("count", data.get("total", 0)))
-        await self.send(ctx.chat_id, f"🎁 لینک دعوت اختصاصی شما:\nhttps://t.me/{username}?start={ctx.user['id']}\n\nتعداد زیرمجموعه‌ها: {count}")
+        code = data.get("referral_code") or ctx.user["id"]
+        await self.send(ctx.chat_id, f"🎁 <b>دعوت از دوستان</b>\n\nلینک اختصاصی شما:\nhttps://t.me/{esc(username)}?start=ref_{esc(code)}\n\nتعداد زیرمجموعه‌ها: <b>{count}</b>", html=True)
 
     async def cmd_rules(self, ctx, arg):
         await self.send(ctx.chat_id, "📜 قوانین خرید:\n\n۱. پس از خرید امکان بازگشت وجه وجود ندارد مگر در صورت خرابی سرویس.\n۲. اکانت‌ها فقط برای استفاده‌ی شخصی هستند.\n۳. برای هرگونه مشکل با پشتیبانی در تماس باشید.")
@@ -385,32 +679,6 @@ class TelegramRunner:
     async def cmd_reseller(self, ctx, arg):
         self._set_state(ctx.chat_id, {"new_ticket_subject": "🤖 درخواست ربات نماینده و همکاری"})
         await self.send(ctx.chat_id, "📌 توضیحات خود را برای ثبت درخواست نمایندگی ارسال نمایید.")
-
-    async def cmd_topup(self, ctx, arg):
-        digits = "".join(ch for ch in arg.translate(str.maketrans("۰۱۲۳۴۵۶۷۸۹", "0123456789")) if ch.isdigit())
-        if not digits or int(digits) <= 0:
-            return await self.send(ctx.chat_id, "مبلغ را وارد کنید. مثال: /topup 100000")
-        await self.create_topup(ctx, int(digits))
-
-    async def cmd_orders(self, ctx, arg):
-        store = await self.store_info()
-        os_ = await self.api(ctx, "GET", f"/api/v1/stores/{store['id']}/orders")
-        lines = [f"{o['number']} · {money(o['total'])} {o['currency']} · {o['status']}" for o in os_[:10]]
-        await self.send(ctx.chat_id, "سفارش‌ها:\n" + ("\n".join(lines) or "هنوز سفارشی ندارید."))
-
-    async def cmd_accounts(self, ctx, arg):
-        rows = await self.api(ctx, "GET", "/api/v1/vpn-accounts")
-        if not rows:
-            return await self.send(ctx.chat_id, "اکانتی ندارید. از /plans خرید کنید یا /test بگیرید.")
-        for a in rows[:8]:
-            lim = gb(a["traffic_limit_bytes"]) if a.get("traffic_limit_bytes") else "∞"
-            exp = (a.get("expires_at") or "نامحدود")[:10]
-            await self.send(ctx.chat_id, f"👤 {a['username']}\nوضعیت: {a['status']}\nانقضا: {exp}\nمصرف: {gb(a['traffic_used_bytes'])} / {lim} GB\n🔗 {a.get('subscription_url') or 'در حال آماده‌سازی'}")
-
-    async def cmd_test(self, ctx, arg):
-        store = await self.store_info()
-        o = await self.api(ctx, "POST", f"/api/v1/stores/{store['id']}/test-account")
-        await self.send(ctx.chat_id, f"اکانت تست ساخته شد ({o['number']}). لینک را از /accounts بگیرید.")
 
     async def cmd_tickets(self, ctx, arg):
         store = await self.store_info()
@@ -448,11 +716,18 @@ class TelegramRunner:
 
     async def cb_menu(self, ctx, name):
         fn = {"plans": self.cmd_plans, "wallet": self.cmd_wallet, "orders": self.cmd_orders, "accounts": self.cmd_accounts,
-              "tickets": self.cmd_tickets, "notifications": self.cmd_notifications}.get(name)
+              "tickets": self.cmd_tickets, "notifications": self.cmd_notifications, "test": self.cmd_test, "home": self.cmd_home}.get(name)
         await (fn(ctx, "") if fn else self.cmd_help(ctx, ""))
 
     # ---------- loop ----------
+    async def setup_menu(self) -> None:
+        try:
+            await self.tg("setMyCommands", {"commands": [{"command": c, "description": d} for c, d in BOT_COMMANDS]})
+        except (httpx.HTTPError, RuntimeError):  # cosmetic: never block startup on it
+            log.warning("setMyCommands failed", exc_info=True)
+
     async def run(self) -> None:
+        await self.setup_menu()
         try:
             while True:
                 payload = {"timeout": 25, "allowed_updates": ["message", "callback_query"]}
