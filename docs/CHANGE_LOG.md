@@ -36,6 +36,23 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-13 02:53 UTC - Claude - scripts  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** installer: pin REPO_REF to the m07 hardening commit (9d8d4e0)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `scripts/install_server.sh`
+- **Ref:** `d7d3728`
+
+### 2026-10-13 02:53 UTC - Claude - config, other, admin-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** m07: admin IP allowlist, security headers, bootstrap/TOTP hardening, main-store product publishing + backfill (0011), admin error boundary - Applied from melorin-m07-03-16 patch with fixes found during verification: - 0011 revision id shortened to <=32 chars (alembic_version.version_num is varchar(…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (24):** `.env.example`, `README.fa.md`, `README.md`, `apps/admin-web/nginx.conf`, `apps/admin-web/src/AdminExtra.jsx`, `apps/admin-web/src/main.jsx`, `apps/api/alembic/versions/0011_backfill_main_products.py`, `apps/api/melorin/cli.py` (+16 more)
+- **Ref:** `9d8d4e0`
+
+
 ### 2026-10-13 02:06 UTC - Claude - admin-web, db, api  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
