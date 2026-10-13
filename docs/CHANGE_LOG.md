@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-13 05:05 UTC - archerhabibi - admin-web, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** Payments: zarinpal as supported destination, payment settings forms in admin - - gateway_catalog: add zarinpal (IRT/IRR); service maps unsupported currency to PAYMENT_CURRENCY_UNSUPPORTED (400) instead of an unhandled ValueError - Admin Settings: first-class forms for main-store card info and Zarin…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (4):** `apps/admin-web/src/AdminExtra.jsx`, `apps/api/melorin/modules/payments/gateway_catalog.py`, `apps/api/melorin/modules/payments/service.py`, `apps/api/tests/test_wallet_payment_regressions.py`
+- **Ref:** `23cfe49`
+
+
 ### 2026-10-13 04:23 UTC - archerhabibi - admin-web, api, tests  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
