@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-13 03:40 UTC - archerhabibi - config, other, admin-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** Admin IP allowlist: configurable in admin panel, OFF by default, not asked at install - - Remove MELORIN_ADMIN_ALLOWED_IPS env/config requirement and installer prompt - Store allowlist in DB (integration.admin_access); Settings -> Integrations UI section - Refuse enabling with empty list or without…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (15):** `.env.example`, `README.fa.md`, `README.md`, `apps/admin-web/src/AdminExtra.jsx`, `apps/api/melorin/cli.py`, `apps/api/melorin/core/config.py`, `apps/api/melorin/core/deps.py`, `apps/api/melorin/core/integrations.py` (+7 more)
+- **Ref:** `992a169`
+
+
 ### 2026-10-13 02:53 UTC - Claude - scripts  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
