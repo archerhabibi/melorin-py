@@ -10,7 +10,7 @@ PyJWT==2.15.0
 cryptography==50.0.0
 httpx==0.28.1
 python-multipart==0.0.32
-redis==5.2.1
+redis==8.1.0
 arq==0.26.3
 segno==1.6.6
 
