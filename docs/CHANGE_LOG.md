@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-13 20:22 UTC - archerhabibi - admin-web, db, api  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** Core allocation: single place decides group/panel/server for every channel - - Product.default_panel_group_id (migration 0013) applied by the core to bot, site and tests - vpn/allocation.py: resolve_order_group (before payment) and resolve_allocation (provisioning) - Server product_codes validated …
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (11):** `apps/admin-web/src/ProductsView.jsx`, `apps/api/alembic/versions/0013_product_default_panel_group.py`, `apps/api/melorin/modules/admin/router.py`, `apps/api/melorin/modules/admin/schemas.py`, `apps/api/melorin/modules/catalog/models.py`, `apps/api/melorin/modules/orders/service.py`, `apps/api/melorin/modules/vpn/allocation.py`, `apps/api/melorin/modules/vpn/service.py` (+3 more)
+- **Ref:** `687fd05`
+
+
 ### 2026-10-13 14:40 UTC - archerhabibi - admin-web  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
