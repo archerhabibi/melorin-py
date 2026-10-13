@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-13 05:58 UTC - archerhabibi - admin-web, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** Wallet/payment fix v2: telegram top-up callback, payments page settings, job adapter close - - Telegram: wallet callback receives "amount:<n>|custom"; parse it correctly and validate the amount (previously int("amount:200000") failed) - Admin Payments page now hosts the card/Zarinpal settings forms…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (5):** `apps/admin-web/src/AdminExtra.jsx`, `apps/api/melorin/worker/jobs.py`, `apps/api/tests/test_wallet_payment_regressions.py`, `apps/store-web/src/Dashboard.jsx`, `apps/telegram-main/runner.py`
+- **Ref:** `2f5a706`
+
+
 ### 2026-10-13 05:05 UTC - archerhabibi - admin-web, api, tests  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
