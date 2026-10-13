@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-13 14:40 UTC - archerhabibi - admin-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** Admin: add server creation form to Panels view - New ServerForm component posts to /api/v1/admin/servers; opened from a new "افزودن سرور" button in PanelsView. Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com> Claude-Session: https://claude.ai/code/session_01VAXgCKFRzCWz5GfoX82fwQ
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `apps/admin-web/src/PanelsView.jsx`, `apps/admin-web/src/ServerForm.jsx`
+- **Ref:** `548270d`
+
+
 ### 2026-10-13 06:23 UTC - archerhabibi - api, tests  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
