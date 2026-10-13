@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-13 02:06 UTC - Claude - admin-web, db, api  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** Sales baskets: panel pools, naming policy, store overrides (migration 0010); admin label renamed to 'سبد فروش VPN'
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (14):** `apps/admin-web/src/AdminExtra.jsx`, `apps/admin-web/src/App.jsx`, `apps/api/alembic/versions/0010_sales_baskets.py`, `apps/api/melorin/models.py`, `apps/api/melorin/modules/admin/router.py`, `apps/api/melorin/modules/admin/schemas.py`, `apps/api/melorin/modules/catalog/router.py`, `apps/api/melorin/modules/orders/models.py` (+6 more)
+- **Ref:** `1275da1`
+
+
 ### 2026-10-13 00:07 UTC - Claude - admin-web, api, tests  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
