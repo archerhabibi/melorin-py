@@ -2,9 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { X, CheckCircle2, AlertCircle, Info, Moon, Sun, Inbox } from "lucide-react";
 
 export const fa = (n) => new Intl.NumberFormat("fa-IR").format(Number(n) || 0);
-// Date + time, e.g. ۱۴۰۵/۰۷/۲۱، ۱۴:۳۰
-const FD = { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false };
-export const fd = (d) => (d ? new Date(d).toLocaleString("fa-IR", FD) : "—");
+export const fd = (d) => (d ? new Date(d).toLocaleDateString("fa-IR") : "—");
 
 /* ---------- theme ---------- */
 const KEY = "melorin-theme";

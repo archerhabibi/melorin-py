@@ -169,12 +169,6 @@ async def set_availability(product_id: uuid.UUID, body: Availability, admin: Adm
 
 
 # ----- Panels / servers -----
-def _panel_out(p: Panel) -> PanelOut:
-    out = PanelOut.model_validate(p, from_attributes=True)
-    out.has_credentials = bool(p.credentials_enc)
-    return out
-
-
 @router.post("/panels", response_model=PanelOut, status_code=201)
 async def create_panel(body: CreatePanel, admin: AdminUser, session: Session):
     from urllib.parse import urlparse
@@ -183,16 +177,12 @@ async def create_panel(body: CreatePanel, admin: AdminUser, session: Session):
         raise AppError("PANEL_HTTPS_REQUIRED", "آدرس پنل در محیط عملیاتی باید HTTPS باشد.", 400)
     if get_settings().env in {"staging", "production"} and body.config.get("verify_tls") is False:
         raise AppError("PANEL_TLS_VERIFY_REQUIRED", "TLS verification در محیط عملیاتی قابل خاموش‌کردن نیست.", 400)
-    if body.kind == "pasarguard" and not body.credentials:
-        raise AppError("PANEL_CREDENTIALS_REQUIRED", "اعتبارنامه پنل پاسارگارد لازم است.", 400)
     p = Panel(name=body.name, kind=body.kind, base_url=body.base_url, credentials_enc=encrypt(__import__("json").dumps(body.credentials)), config=body.config)
-    session.add(p); await session.flush(); audit.record(session, "panel.created", actor_id=admin.id, actor_type="admin", entity_type="panel", entity_id=p.id, data={"kind": p.kind, "url": p.base_url}); await session.commit(); await session.refresh(p); return _panel_out(p)
+    session.add(p); await session.flush(); audit.record(session, "panel.created", actor_id=admin.id, actor_type="admin", entity_type="panel", entity_id=p.id, data={"kind": p.kind, "url": p.base_url}); await session.commit(); return p
 
 
 @router.get("/panels", response_model=list[PanelOut])
-async def panels(_: AdminUser, session: Session):
-    rows = (await session.scalars(select(Panel).order_by(Panel.created_at))).all()
-    return [_panel_out(p) for p in rows]
+async def panels(_: AdminUser, session: Session): return (await session.scalars(select(Panel))).all()
 
 
 @router.patch("/panels/{panel_id}")
@@ -204,29 +194,12 @@ async def update_panel(panel_id: uuid.UUID, body: CreatePanel, admin: AdminUser,
     parsed = urlparse(body.base_url)
     if get_settings().env in {"staging", "production"} and (parsed.scheme != "https" or body.config.get("verify_tls") is False):
         raise AppError("PANEL_TLS_VERIFY_REQUIRED", "پنل production باید HTTPS و TLS verification فعال داشته باشد.", 400)
-    changed = [k for k, new in (("name", body.name), ("kind", body.kind), ("base_url", body.base_url), ("config", body.config)) if getattr(p, k) != new]
     p.name, p.base_url, p.kind, p.config = body.name, body.base_url, body.kind, body.config
     if body.credentials:
         p.credentials_enc = encrypt(__import__("json").dumps(body.credentials))
-        changed.append("credentials")
-    if set(changed) - {"name"}:
-        # Connection details changed: the previous health result no longer describes this panel.
-        p.health_status, p.last_health_at, p.last_health_error = "unknown", None, None
-    audit.record(session, "panel.updated", actor_id=admin.id, actor_type="admin", entity_type="panel", entity_id=p.id, data={"kind": p.kind, "url": p.base_url, "changed": changed})
+    audit.record(session, "panel.updated", actor_id=admin.id, actor_type="admin", entity_type="panel", entity_id=p.id, data={"kind": p.kind, "url": p.base_url})
     await session.commit()
     return {"ok": True}
-
-
-@router.post("/panels/{panel_id}/state")
-async def set_panel_state(panel_id: uuid.UUID, body: PanelState, admin: AdminUser, session: Session):
-    p = await session.get(Panel, panel_id)
-    if not p:
-        raise NotFound("پنل")
-    if p.is_enabled != body.is_enabled:
-        p.is_enabled = body.is_enabled
-        audit.record(session, "panel.enabled" if body.is_enabled else "panel.disabled", actor_id=admin.id, actor_type="admin", entity_type="panel", entity_id=p.id, data={"kind": p.kind, "url": p.base_url})
-        await session.commit()
-    return {"ok": True, "is_enabled": p.is_enabled}
 
 
 @router.post("/servers", response_model=dict, status_code=201)
@@ -242,21 +215,17 @@ async def panel_health(panel_id: uuid.UUID, _: AdminUser, session: Session):
     p = await session.get(Panel, panel_id)
     if not p: raise NotFound("پنل")
     adapter = None
-    error: str | None = None
     try:
         adapter = build_adapter(p)
         ok = await adapter.health_check()
-        if not ok:
-            error = "پنل پاسخ سالم نداد."
-    except Exception as exc:
+    except Exception:
         ok = False
-        error = (getattr(exc, "message", None) or str(exc) or exc.__class__.__name__)[:300]
     finally:
         if adapter is not None:
             try: await adapter.close()
             except Exception: pass
-    p.health_status, p.last_health_at, p.last_health_error = "healthy" if ok else "unhealthy", utcnow(), (None if ok else error)
-    await session.commit(); return {"healthy": ok, "error": None if ok else error}
+    p.health_status, p.last_health_at = "healthy" if ok else "unhealthy", utcnow()
+    await session.commit(); return {"healthy": ok}
 
 
 # ----- Payments, orders, manual recovery -----
