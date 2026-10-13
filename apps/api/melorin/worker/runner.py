@@ -75,6 +75,9 @@ async def process_event(e: OutboxEvent):
                 from melorin.modules.referral.service import on_order_completed
                 await on_order_completed(session, uuid.UUID(str(p["order_id"])))
                 await _webhook(session, "order.completed", p, f"order.completed:{p.get('order_id')}")
+            elif e.topic == events.ORDER_DELIVERY:
+                from melorin.modules.orders.delivery import deliver_order
+                await deliver_order(session, uuid.UUID(str(p["order_id"])))
             elif e.topic == events.ORDER_REFUNDED:
                 from melorin.modules.referral.service import on_order_refunded
                 await on_order_refunded(session, uuid.UUID(str(p["order_id"])))

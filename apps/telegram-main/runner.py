@@ -322,7 +322,7 @@ class TelegramRunner:
         store = await self.store_info()
         o = await self.api(ctx, "POST", f"/api/v1/stores/{store['id']}/orders", headers={"Idempotency-Key": ctx.idem},
                            json={"product_id": pid, "payment_method": "wallet", "kind": "purchase"})
-        await self.send(ctx.chat_id, f"سفارش {o['number']} ثبت شد ✅\nوضعیت: {o['status']}\nپس از آماده شدن، اکانت را در /accounts ببینید.", [[("🔑 اکانت‌ها", "menu:accounts")]])
+        await self.send(ctx.chat_id, f"✅ پرداخت از کیف پول انجام شد.\nسفارش {o['number']} ثبت شد و اکانت شما در چند لحظه آماده و همین‌جا ارسال می‌شود (لینک اشتراک، QR کد و موجودی کیف پول).")
 
     async def cmd_wallet(self, ctx, arg):
         store = await self.store_info()

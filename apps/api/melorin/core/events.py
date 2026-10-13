@@ -11,6 +11,7 @@ from melorin.modules.system.models import OutboxEvent
 # Topics
 ORDER_PAID = "order.paid"
 ORDER_COMPLETED = "order.completed"
+ORDER_DELIVERY = "order.delivery"
 ORDER_REFUNDED = "order.refunded"
 PROVISIONING_FAILED = "provisioning.failed"
 PAYMENT_SUCCEEDED = "payment.succeeded"

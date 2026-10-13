@@ -39,6 +39,25 @@ class TelegramChannel:
     async def send_message(self, chat_id: int | str, text: str, **kwargs: Any) -> dict[str, Any]:
         return await self.telegram("sendMessage", {"chat_id": chat_id, "text": text, **kwargs})
 
+    async def send_photo(self, chat_id: int | str, photo: bytes, *, caption: str | None = None, parse_mode: str | None = None, reply_markup: dict[str, Any] | None = None, filename: str = "qr.png") -> dict[str, Any]:
+        """Send one photo post (image + caption) in a single Telegram message."""
+        import json as _json
+
+        data: dict[str, Any] = {"chat_id": str(chat_id)}
+        if caption:
+            data["caption"] = caption
+        if parse_mode:
+            data["parse_mode"] = parse_mode
+        if reply_markup:
+            data["reply_markup"] = _json.dumps(reply_markup)
+        async with httpx.AsyncClient(base_url=f"https://api.telegram.org/bot{self.token}", timeout=self.timeout) as client:
+            response = await client.post("/sendPhoto", data=data, files={"photo": (filename, photo, "image/png")})
+            response.raise_for_status()
+            result = response.json()
+            if not result.get("ok"):
+                raise RuntimeError(result.get("description", "Telegram API request failed"))
+            return result
+
     async def authenticate_update(self, update: dict[str, Any], *, bot_secret: str) -> dict[str, Any]:
         """Resolve Telegram identity through Core before any channel operation."""
         return await self.core("POST", "/api/v1/auth/telegram/bot", bot_secret=bot_secret, json={"update": update, "channel": self.channel})

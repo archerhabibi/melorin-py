@@ -249,6 +249,7 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
                     {"order_id": order.id, "vpn_account_id": account.id, "store_id": order.store_id},
                     dedup_key=f"order_completed:{order.id}",
                 )
+                await events.emit(session, events.ORDER_DELIVERY, {"order_id": order.id, "store_id": order.store_id}, dedup_key=f"order_delivery:{order.id}")
                 await session.commit()
                 return "completed_after_reconcile"
         # Both TRANSIENT and unreconciled UNKNOWN errors feed the same
@@ -273,7 +274,8 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
     await _record_panel_group_sale(session, order, panel.id)
     audit.record(session, "provisioning.completed", actor_type="system", entity_type="vpn_account", entity_id=account.id, store_id=order.store_id, data={"order_id": str(order.id), "panel": panel.kind})
     await events.emit(session, events.ORDER_COMPLETED, {"order_id": order.id, "vpn_account_id": account.id, "store_id": order.store_id}, dedup_key=f"order_completed:{order.id}")
-    await events.emit(session, events.NOTIFY, {"user_id": order.user_id, "store_id": order.store_id, "kind": "vpn_account", "title": "اکانت شما آماده شد", "body": "اکانت VPN شما با موفقیت ساخته شد."}, dedup_key=f"notify:account:{account.id}")
+    # One rich Telegram post (QR + subscription link + wallet balance) instead of a generic notice.
+    await events.emit(session, events.ORDER_DELIVERY, {"order_id": order.id, "store_id": order.store_id}, dedup_key=f"order_delivery:{order.id}")
     await session.commit()
     return "completed"
 
