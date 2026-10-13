@@ -22,3 +22,15 @@ def test_telegram_topup_surfaces_core_configuration_errors():
     source = (ROOT.parent / "telegram-main/runner.py").read_text()
     assert 'except CoreError as exc:' in source
     assert '⚠️ {exc.message}' in source
+
+
+def test_wallet_callback_parses_nested_amount_payload():
+    source = (ROOT.parent / "telegram-main/runner.py").read_text()
+    assert 'prefix, _, raw = value.partition(":")' in source
+    assert 'if raw == "custom":' in source
+    assert "re.fullmatch" in source
+
+
+def test_panel_health_job_accepts_sync_or_async_adapter_close():
+    source = (ROOT / "melorin/worker/jobs.py").read_text()
+    assert "inspect.isawaitable(result)" in source

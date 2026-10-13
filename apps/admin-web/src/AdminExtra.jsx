@@ -198,7 +198,7 @@ function Settings({ api, toast }) {
     if (r.ok) { toast("تنظیم ذخیره شد"); setTick((x) => x + 1); } else toast("ذخیره ناموفق بود");
   };
   const rawSettings = Object.entries(obj).filter(([k]) => !["card.info", "gateway.zarinpal"].includes(k));
-  return <div className="space-y-5"><ChangeAdminPassword api={api} toast={toast} /><Integrations api={api} toast={toast} /><PaymentSettings obj={obj} save={save} toast={toast} /><Table title="Feature Flags" cols={["کلید", "محدوده", "فعال", ""]} rows={flags.rows.map((f) => [f.key, `${f.scope_type}:${f.scope_id}`, f.enabled ? "بله" : "خیر", <button className={ghost} onClick={() => setFlag(f)}>{f.enabled ? "خاموش" : "روشن"}</button>])} />
+  return <div className="space-y-5"><ChangeAdminPassword api={api} toast={toast} /><Integrations api={api} toast={toast} /><Table title="Feature Flags" cols={["کلید", "محدوده", "فعال", ""]} rows={flags.rows.map((f) => [f.key, `${f.scope_type}:${f.scope_id}`, f.enabled ? "بله" : "خیر", <button className={ghost} onClick={() => setFlag(f)}>{f.enabled ? "خاموش" : "روشن"}</button>])} />
     <section className={`${box} overflow-hidden`}><h3 className="px-5 py-4 font-extrabold">تنظیمات پیشرفته سیستم <span className="text-xs font-normal text-[var(--mu)]">(مقدار به‌صورت JSON)</span></h3>{rawSettings.map(([k, v]) => <SettingRow key={k} k={k} v={v} save={save} />)}</section></div>;
 }
 
@@ -229,6 +229,14 @@ function Orders({ api, toast }) {
 
 function Payments({ api, toast }) {
   const { rows, call, reload } = useList(api, "/api/v1/admin/payments", toast);
+  const [obj, setObj] = useState({});
+  useEffect(() => { authFetch(api.base, "/api/v1/admin/settings").then((r) => r.ok ? r.json() : {}).then(setObj).catch(() => {}); }, []);
+  const saveSetting = async (key, value) => {
+    let parsed;
+    try { parsed = JSON.parse(value); } catch { return toast("مقدار باید JSON معتبر باشد"); }
+    const r = await call(`/api/v1/admin/settings/${key}`, { method: "PUT", body: JSON.stringify({ value: parsed }) });
+    if (r.ok) { toast("تنظیم پرداخت ذخیره شد"); setObj((x) => ({ ...x, [key]: parsed })); } else toast("ذخیره تنظیم پرداخت ناموفق بود");
+  };
   const review = async (p, approve) => {
     const reason = approve ? "" : await ask("دلیل رد پرداخت را وارد کنید."); if (reason === null) return;
     const r = await call(`/api/v1/admin/payments/${p.id}/review`, { method: "POST", body: JSON.stringify({ approve, reason }) });
@@ -236,8 +244,9 @@ function Payments({ api, toast }) {
   };
   const view = async (p) => { const r = await call(`/api/v1/admin/payments/${p.id}/receipt`); if (!r.ok) return toast("نمایش رسید ناموفق بود"); const url = URL.createObjectURL(await r.blob()); window.open(url, "_blank", "noopener"); setTimeout(() => URL.revokeObjectURL(url), 60000); };
   const pending = (p) => ["pending", "review", "receipt_submitted", "awaiting_review"].includes(p.status) && p.has_receipt;
-  return <Table title="پرداخت‌ها" cols={["مبلغ", "درگاه", "وضعیت", "رسید", "اقدام"]} rows={rows.map((p) => [`${money(p.amount)} ${p.currency}`, p.provider, p.status, p.has_receipt ? <button className={ghost} onClick={() => view(p)}>مشاهده رسید</button> : "ندارد",
+  return <><PaymentSettings obj={obj} save={saveSetting} toast={toast} /><Table title="پرداخت‌ها" cols={["مبلغ", "درگاه", "وضعیت", "رسید", "اقدام"]} rows={rows.map((p) => [`${money(p.amount)} ${p.currency}`, p.provider, p.status, p.has_receipt ? <button className={ghost} onClick={() => view(p)}>مشاهده رسید</button> : "ندارد",
     pending(p) ? <div className="flex gap-1.5"><button className={ghost} onClick={() => review(p, true)}>تأیید</button><button className={`${ghost} btn-d`} onClick={() => review(p, false)}>رد</button></div> : "-"])} />;
+  </>;
 }
 
 function Tickets({ api, toast }) {

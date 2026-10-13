@@ -1,6 +1,7 @@
 """Periodic jobs. Run from cron/scheduler: health, expiry, reconciliation, backup status."""
 import asyncio
 import datetime as dt
+import inspect
 import logging
 import os
 from pathlib import Path
@@ -16,6 +17,16 @@ from melorin.modules.vpn import service
 from melorin.modules.vpn.models import Panel, VpnAccount
 
 log = logging.getLogger("melorin.jobs")
+
+
+async def _close_adapter(adapter) -> None:
+    """Close adapters safely, including legacy/test adapters with sync close()."""
+    close = getattr(adapter, "close", None)
+    if not close:
+        return
+    result = close()
+    if inspect.isawaitable(result):
+        await result
 
 
 async def backup_job():
@@ -77,8 +88,11 @@ async def panel_health_job():
             except Exception as exc:
                 p.health_status, p.last_health_at, p.last_health_error = "unhealthy", utcnow(), str(exc)[:500]
             finally:
-                if adapter and hasattr(adapter, "close"):
-                    await adapter.close()
+                if adapter:
+                    try:
+                        await _close_adapter(adapter)
+                    except Exception:
+                        log.exception("panel adapter close failed panel=%s", p.id)
         await s.commit()
 
 

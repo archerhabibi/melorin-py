@@ -46,7 +46,7 @@ function Wallet({ coreFetch, storeId, wallet, reload, notify }) {
       if (!r.ok) throw 0;
       const p = await r.json(); setPay(p);
       if (p.instructions?.redirect_url) window.location.href = p.instructions.redirect_url;
-    } catch { notify("ایجاد درخواست شارژ ناموفق بود"); } finally { setBusy(false); }
+    } catch (e) { notify(e?.message || "ایجاد درخواست شارژ ناموفق بود"); } finally { setBusy(false); }
   }
   async function receipt(file) {
     const fd_ = new FormData(); fd_.append("file", file);

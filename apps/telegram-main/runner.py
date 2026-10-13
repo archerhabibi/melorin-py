@@ -11,6 +11,7 @@ import json
 import logging
 import mimetypes
 import os
+import re
 from pathlib import Path
 
 import httpx
@@ -334,10 +335,17 @@ class TelegramRunner:
         await self.send(ctx.chat_id, f"💰 موجودی کیف پول شما: {money(w['balance'])} {w['currency']}\n\nبرای شارژ، مبلغ را انتخاب کنید:", amounts)
 
     async def cb_wallet_amount(self, ctx, value):
-        if value == "custom":
+        # Callback data is split once in handle(), so this receives
+        # "amount:200000" or "amount:custom", not just the suffix.
+        prefix, _, raw = value.partition(":")
+        if prefix != "amount":
+            raise CoreError(400, "گزینه شارژ نامعتبر است. دوباره از منوی کیف پول انتخاب کنید.")
+        if raw == "custom":
             self._set_state(ctx.chat_id, {"topup_amount": True})
             return await self.send(ctx.chat_id, "مبلغ دلخواه را به تومان وارد کنید (فقط عدد):")
-        await self.create_topup(ctx, int(value))
+        if not re.fullmatch(r"\d+", raw) or int(raw) <= 0:
+            raise CoreError(400, "مبلغ شارژ نامعتبر است.")
+        await self.create_topup(ctx, int(raw))
 
     async def create_topup(self, ctx, amount):
         store = await self.store_info()
