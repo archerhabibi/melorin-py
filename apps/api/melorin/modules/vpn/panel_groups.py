@@ -7,10 +7,10 @@ from sqlalchemy.orm import Mapped, mapped_column
 from melorin.core.db import Base, IdMixin, TimestampMixin
 
 
-class SalesBasket(IdMixin, TimestampMixin, Base):
+class PanelGroup(IdMixin, TimestampMixin, Base):
     """A sellable pool of panels with routing, naming and quota policy."""
 
-    __tablename__ = "sales_baskets"
+    __tablename__ = "panel_groups"
     name: Mapped[str] = mapped_column(String(120))
     selection_mode: Mapped[str] = mapped_column(String(20), default="automatic")  # automatic | manual
     naming_mode: Mapped[str] = mapped_column(String(20), default="automatic")  # automatic | custom
@@ -21,10 +21,10 @@ class SalesBasket(IdMixin, TimestampMixin, Base):
     config: Mapped[dict | None] = mapped_column(JSON)
 
 
-class SalesBasketPanel(IdMixin, TimestampMixin, Base):
-    __tablename__ = "sales_basket_panels"
-    __table_args__ = (UniqueConstraint("basket_id", "panel_id"),)
-    basket_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("sales_baskets.id", ondelete="CASCADE"), index=True)
+class PanelGroupMember(IdMixin, TimestampMixin, Base):
+    __tablename__ = "panel_group_members"
+    __table_args__ = (UniqueConstraint("panel_group_id", "panel_id"),)
+    panel_group_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("panel_groups.id", ondelete="CASCADE"), index=True)
     panel_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("panels.id"), index=True)
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     sales_limit: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -32,11 +32,11 @@ class SalesBasketPanel(IdMixin, TimestampMixin, Base):
     sort: Mapped[int] = mapped_column(Integer, default=0)
 
 
-class StoreSalesBasket(IdMixin, TimestampMixin, Base):
-    __tablename__ = "store_sales_baskets"
-    __table_args__ = (UniqueConstraint("store_id", "basket_id"),)
+class StorePanelGroup(IdMixin, TimestampMixin, Base):
+    __tablename__ = "store_panel_groups"
+    __table_args__ = (UniqueConstraint("store_id", "panel_group_id"),)
     store_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("stores.id", ondelete="CASCADE"), index=True)
-    basket_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("sales_baskets.id", ondelete="CASCADE"), index=True)
+    panel_group_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("panel_groups.id", ondelete="CASCADE"), index=True)
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
 
 

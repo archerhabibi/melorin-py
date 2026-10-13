@@ -15,7 +15,7 @@ const groups = [
   ['نمای کلی', [['داشبورد', LayoutDashboard, 'home']]],
   ['عملیات', [['سفارش‌ها', Package, 'orders'], ['پرداخت‌ها', CreditCard, 'payments'], ['اکانت‌های VPN', Server, 'vpn'], ['تیکت‌ها', Ticket, 'tickets']]],
   ['فروش و مشتریان', [['کاربران', Users, 'users'], ['فروشگاه‌ها', Store, 'stores'], ['کوپن‌ها', Percent, 'coupons']]],
-    ['زیرساخت و سیستم', [['پنل‌ها', PanelTop, 'panels'], ['محصولات VPN', Boxes, 'products'], ['سبدهای فروش VPN', Boxes, 'sales-baskets'], ['تنظیمات', Settings, 'settings'], ['ممیزی', ScrollText, 'audit'], ['بررسی هویت', Fingerprint, 'identity']]],
+    ['زیرساخت و سیستم', [['پنل‌ها', PanelTop, 'panels'], ['محصولات VPN', Boxes, 'products'], ['گروه‌های پنل VPN', Boxes, 'panel-groups'], ['تنظیمات', Settings, 'settings'], ['ممیزی', ScrollText, 'audit'], ['بررسی هویت', Fingerprint, 'identity']]],
 ];
 const flat = groups.flatMap(([, items]) => items);
 const fromHash = () => (flat.find((x) => `#/${x[2]}` === window.location.hash) || flat[0])[0];

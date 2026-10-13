@@ -16,7 +16,7 @@ class Order(IdMixin, TimestampMixin, Base):
     product_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("products.id"), index=True)
     kind: Mapped[str] = mapped_column(String(20), default="purchase")  # purchase | renewal | test
     vpn_account_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("vpn_accounts.id", use_alter=True))
-    basket_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("sales_baskets.id"))
+    panel_group_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("panel_groups.id"))
     selected_panel_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("panels.id"))
     requested_account_name: Mapped[str | None] = mapped_column(String(64))
     status: Mapped[str] = mapped_column(String(30), index=True)

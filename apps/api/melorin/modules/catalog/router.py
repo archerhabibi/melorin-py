@@ -11,7 +11,7 @@ from melorin.modules.catalog import service
 from melorin.modules.catalog.models import Coupon, CouponRedemption
 from melorin.modules.catalog.schemas import CatalogItem, CouponIn, CouponPatch, CouponValidateIn, QuoteRequest, QuoteWalletOut, StoreOut
 from melorin.modules.stores.models import Store
-from melorin.modules.vpn.baskets import SalesBasket, StoreSalesBasket, SalesBasketPanel
+from melorin.modules.vpn.panel_groups import PanelGroup, StorePanelGroup, PanelGroupMember
 from melorin.modules.wallet import service as wallet
 
 public = APIRouter(tags=["catalog"])
@@ -58,19 +58,19 @@ async def catalog(store_id: uuid.UUID, session: Session):
     ]
 
 
-@public.get("/stores/{store_id}/sales-baskets")
-async def sales_baskets(store_id: uuid.UUID, session: Session):
+@public.get("/stores/{store_id}/panel-groups")
+async def panel_groups(store_id: uuid.UUID, session: Session):
     store = await session.get(Store, store_id)
     if not store or store.status != "active": raise NotFound("فروشگاه")
-    q = select(SalesBasket).where(SalesBasket.is_enabled.is_(True))
+    q = select(PanelGroup).where(PanelGroup.is_enabled.is_(True))
     if store.kind == "reseller":
-        q = q.outerjoin(StoreSalesBasket, and_(StoreSalesBasket.basket_id == SalesBasket.id, StoreSalesBasket.store_id == store.id)).where(
-            SalesBasket.reseller_enabled.is_(True), (StoreSalesBasket.id.is_(None) | StoreSalesBasket.is_enabled.is_(True))
+        q = q.outerjoin(StorePanelGroup, and_(StorePanelGroup.panel_group_id == PanelGroup.id, StorePanelGroup.store_id == store.id)).where(
+            PanelGroup.reseller_enabled.is_(True), (StorePanelGroup.id.is_(None) | StorePanelGroup.is_enabled.is_(True))
         )
-    baskets = (await session.scalars(q.order_by(SalesBasket.created_at.desc()))).all()
+    panel_groups = (await session.scalars(q.order_by(PanelGroup.created_at.desc()))).all()
     result = []
-    for b in baskets:
-        panels = (await session.execute(select(SalesBasketPanel.panel_id).where(SalesBasketPanel.basket_id == b.id, SalesBasketPanel.is_enabled.is_(True)))).scalars().all()
+    for b in panel_groups:
+        panels = (await session.execute(select(PanelGroupMember.panel_id).where(PanelGroupMember.panel_group_id == b.id, PanelGroupMember.is_enabled.is_(True)))).scalars().all()
         result.append({"id": b.id, "name": b.name, "selection_mode": b.selection_mode, "naming_mode": b.naming_mode, "panels": panels, "sales_limit": b.sales_limit, "sold_count": b.sold_count})
     return result
 

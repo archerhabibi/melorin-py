@@ -10,7 +10,7 @@ class CreateOrder(BaseModel):
     coupon_code: str | None = Field(default=None, max_length=50)
     kind: str = Field(default="purchase", pattern="^(purchase|renewal)$")
     vpn_account_id: uuid.UUID | None = None
-    basket_id: uuid.UUID | None = None
+    panel_group_id: uuid.UUID | None = None
     selected_panel_id: uuid.UUID | None = None
     account_name: str | None = Field(default=None, max_length=40)
 
@@ -32,7 +32,7 @@ class OrderOut(BaseModel):
     coupon_code: str | None
     product_snapshot: dict
     vpn_account_id: uuid.UUID | None
-    basket_id: uuid.UUID | None = None
+    panel_group_id: uuid.UUID | None = None
     selected_panel_id: uuid.UUID | None = None
     requested_account_name: str | None = None
     needs_review: bool

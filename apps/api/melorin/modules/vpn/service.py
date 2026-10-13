@@ -18,7 +18,7 @@ from melorin.modules.system.models import OutboxEvent
 from melorin.modules.vpn.adapters.base import AccountSpec, ErrorKind, PanelError
 from melorin.modules.vpn.adapters.registry import build_adapter
 from melorin.modules.vpn.models import Panel, ProvisioningAttempt, ReconciliationIssue, Server, VpnAccount
-from melorin.modules.vpn.baskets import SalesBasket, SalesBasketPanel, StoreSalesBasket, clean_custom_name
+from melorin.modules.vpn.panel_groups import PanelGroup, PanelGroupMember, StorePanelGroup, clean_custom_name
 
 
 async def choose_server(session: AsyncSession, product: Product, *, is_test: bool) -> tuple[Server, Panel] | None:
@@ -39,22 +39,22 @@ async def choose_server(session: AsyncSession, product: Product, *, is_test: boo
     return server, panel
 
 
-async def choose_basket_panel(session, order, product):
-    """Resolve basket policy before normal server selection."""
-    if not order.basket_id:
+async def choose_panel_group_panel(session, order, product):
+    """Resolve panel_group policy before normal server selection."""
+    if not order.panel_group_id:
         return None
-    basket = await session.get(SalesBasket, order.basket_id, with_for_update=True)
-    if not basket or not basket.is_enabled:
-        raise PanelError(ErrorKind.PERMANENT, "سبد فروش انتخاب‌شده فعال نیست.")
-    if basket.sales_limit is not None and basket.sold_count >= basket.sales_limit:
-        raise PanelError(ErrorKind.PERMANENT, "ظرفیت فروش این سبد تکمیل شده است.")
+    panel_group = await session.get(PanelGroup, order.panel_group_id, with_for_update=True)
+    if not panel_group or not panel_group.is_enabled:
+        raise PanelError(ErrorKind.PERMANENT, "گروه پنل انتخاب‌شده فعال نیست.")
+    if panel_group.sales_limit is not None and panel_group.sold_count >= panel_group.sales_limit:
+        raise PanelError(ErrorKind.PERMANENT, "ظرفیت فروش این گروه تکمیل شده است.")
     if order.store_id:
-        access = await session.scalar(select(StoreSalesBasket).where(StoreSalesBasket.store_id == order.store_id, StoreSalesBasket.basket_id == basket.id))
+        access = await session.scalar(select(StorePanelGroup).where(StorePanelGroup.store_id == order.store_id, StorePanelGroup.panel_group_id == panel_group.id))
         if access and not access.is_enabled:
-            raise PanelError(ErrorKind.PERMANENT, "این سبد برای فروشگاه فعال نیست.")
-    q = select(SalesBasketPanel, Panel).join(Panel, Panel.id == SalesBasketPanel.panel_id).where(
-        SalesBasketPanel.basket_id == basket.id, SalesBasketPanel.is_enabled.is_(True), Panel.is_enabled.is_(True), Panel.health_status == "healthy"
-    ).order_by(SalesBasketPanel.sort, Panel.created_at)
+            raise PanelError(ErrorKind.PERMANENT, "این گروه برای فروشگاه فعال نیست.")
+    q = select(PanelGroupMember, Panel).join(Panel, Panel.id == PanelGroupMember.panel_id).where(
+        PanelGroupMember.panel_group_id == panel_group.id, PanelGroupMember.is_enabled.is_(True), Panel.is_enabled.is_(True), Panel.health_status == "healthy"
+    ).order_by(PanelGroupMember.sort, Panel.created_at)
     rows = (await session.execute(q)).all()
     candidates = []
     for bp, panel in rows:
@@ -65,21 +65,21 @@ async def choose_basket_panel(session, order, product):
         active = await session.scalar(select(func.count()).select_from(VpnAccount).where(VpnAccount.panel_id == panel.id, VpnAccount.status == VpnStatus.ACTIVE)) or 0
         candidates.append((active, bp.sort, str(panel.id), panel))
     if not candidates:
-        raise PanelError(ErrorKind.PERMANENT, "هیچ پنل قابل فروشی در این سبد وجود ندارد.")
-    if basket.selection_mode == "manual" and not order.selected_panel_id:
-        raise PanelError(ErrorKind.PERMANENT, "برای این سبد باید پنل انتخاب شود.")
-    if basket.selection_mode == "automatic" and order.selected_panel_id:
-        raise PanelError(ErrorKind.PERMANENT, "در سبد انتخاب خودکار، انتخاب پنل مجاز نیست.")
+        raise PanelError(ErrorKind.PERMANENT, "هیچ پنل قابل فروشی در این گروه وجود ندارد.")
+    if panel_group.selection_mode == "manual" and not order.selected_panel_id:
+        raise PanelError(ErrorKind.PERMANENT, "برای این گروه باید پنل انتخاب شود.")
+    if panel_group.selection_mode == "automatic" and order.selected_panel_id:
+        raise PanelError(ErrorKind.PERMANENT, "در گروه انتخاب خودکار، انتخاب پنل مجاز نیست.")
     return min(candidates)[3]
 
 
-async def _record_basket_sale(session, order, panel_id):
-    if not order.basket_id or order.kind == "renewal":
+async def _record_panel_group_sale(session, order, panel_id):
+    if not order.panel_group_id or order.kind == "renewal":
         return
-    basket = await session.get(SalesBasket, order.basket_id, with_for_update=True)
-    if basket:
-        basket.sold_count += 1
-    bp = await session.scalar(select(SalesBasketPanel).where(SalesBasketPanel.basket_id == order.basket_id, SalesBasketPanel.panel_id == panel_id).with_for_update())
+    panel_group = await session.get(PanelGroup, order.panel_group_id, with_for_update=True)
+    if panel_group:
+        panel_group.sold_count += 1
+    bp = await session.scalar(select(PanelGroupMember).where(PanelGroupMember.panel_group_id == order.panel_group_id, PanelGroupMember.panel_id == panel_id).with_for_update())
     if bp:
         bp.sold_count += 1
 
@@ -123,7 +123,7 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
         server = await session.get(Server, account.server_id)
     else:
         try:
-            basket_panel = await choose_basket_panel(session, order, product)
+            group_panel = await choose_panel_group_panel(session, order, product)
         except PanelError as e:
             order.status = OrderStatus.MANUAL_REVIEW
             order.needs_review = True
@@ -131,9 +131,9 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
             await session.commit()
             return "manual_review"
         chosen = await choose_server(session, product, is_test=order.kind == "test")
-        if basket_panel:
-            compatible = (await session.scalars(select(Server).where(Server.panel_id == basket_panel.id, Server.is_enabled.is_(True)))).all()
-            chosen = (compatible[0], basket_panel) if compatible else None
+        if group_panel:
+            compatible = (await session.scalars(select(Server).where(Server.panel_id == group_panel.id, Server.is_enabled.is_(True)))).all()
+            chosen = (compatible[0], group_panel) if compatible else None
         if not chosen:
             order.status = OrderStatus.MANUAL_REVIEW
             order.needs_review = True
@@ -160,10 +160,10 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
         else:
             expire = utcnow() + dt.timedelta(days=product.duration_days)
             traffic = product.traffic_gb * 1024**3 if product.traffic_gb else 0
-            basket = await session.get(SalesBasket, order.basket_id) if order.basket_id else None
-            if basket and basket.naming_mode == "custom":
+            panel_group = await session.get(PanelGroup, order.panel_group_id) if order.panel_group_id else None
+            if panel_group and panel_group.naming_mode == "custom":
                 generated_name = f"{clean_custom_name(order.requested_account_name)}_{order.number}"
-            elif basket:
+            elif panel_group:
                 prefix = re.sub(r"[^A-Za-z0-9]", "", panel.name)[:4] or "Pnl"
                 store = await session.get(Store, order.store_id)
                 generated_name = f"{prefix}_{product.traffic_gb}G{re.sub(r'[^A-Za-z0-9]', '', (store.name if store else 'S'))[:1]}{order.number}"
@@ -223,7 +223,7 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
     attempt.vpn_account_id, attempt.status, attempt.finished_at = account.id, "succeeded", utcnow()
     order.vpn_account_id, order.status, order.completed_at = account.id, OrderStatus.COMPLETED, utcnow()
     order.last_error, order.needs_review = None, False
-    await _record_basket_sale(session, order, panel.id)
+    await _record_panel_group_sale(session, order, panel.id)
     audit.record(session, "provisioning.completed", actor_type="system", entity_type="vpn_account", entity_id=account.id, store_id=order.store_id, data={"order_id": str(order.id), "panel": panel.kind})
     await events.emit(session, events.ORDER_COMPLETED, {"order_id": order.id, "vpn_account_id": account.id, "store_id": order.store_id}, dedup_key=f"order_completed:{order.id}")
     await events.emit(session, events.NOTIFY, {"user_id": order.user_id, "store_id": order.store_id, "kind": "vpn_account", "title": "اکانت شما آماده شد", "body": "اکانت VPN شما با موفقیت ساخته شد."}, dedup_key=f"notify:account:{account.id}")

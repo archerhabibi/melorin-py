@@ -53,7 +53,7 @@ async def create_order(
     coupon_code: str | None = None,
     kind: str = "purchase",
     vpn_account_id: uuid.UUID | None = None,
-    basket_id: uuid.UUID | None = None,
+    panel_group_id: uuid.UUID | None = None,
     selected_panel_id: uuid.UUID | None = None,
     account_name: str | None = None,
     channel: str = "web",
@@ -98,7 +98,7 @@ async def create_order(
         vpn_account_id=account.id if account else None, status=S.PENDING, payment_method="wallet", channel=channel,
         currency=q.currency, unit_price=q.unit_price, discount=q.discount, total=q.total, reseller_cost=q.reseller_cost,
         coupon_code=q.coupon_code, pricing_snapshot=snapshot, product_snapshot=catalog.product_snapshot(product),
-        basket_id=basket_id, selected_panel_id=selected_panel_id, requested_account_name=account_name,
+        panel_group_id=panel_group_id, selected_panel_id=selected_panel_id, requested_account_name=account_name,
         idempotency_key=idempotency_key,
     )
     # The pre-check above is only an optimization. Two requests can pass it

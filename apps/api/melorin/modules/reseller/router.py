@@ -25,7 +25,7 @@ from fastapi import Header
 from types import SimpleNamespace
 from melorin.modules.catalog import service as catalog_service
 from melorin.modules.stores.models import Store
-from melorin.modules.vpn.baskets import SalesBasket, StoreSalesBasket
+from melorin.modules.vpn.panel_groups import PanelGroup, StorePanelGroup
 
 router = APIRouter(tags=["reseller"])
 
@@ -89,27 +89,27 @@ async def profile(ctx: OwnerCtx, session: Session):
     }
 
 
-@router.get("/stores/{store_id}/reseller/sales-baskets")
-async def reseller_sales_baskets(ctx: OwnerCtx, session: Session):
+@router.get("/stores/{store_id}/reseller/panel-groups")
+async def reseller_panel_groups(ctx: OwnerCtx, session: Session):
     rows = (await session.execute(
-        select(SalesBasket, StoreSalesBasket).join(StoreSalesBasket, StoreSalesBasket.basket_id == SalesBasket.id, isouter=True)
-        .where(SalesBasket.is_enabled.is_(True), SalesBasket.reseller_enabled.is_(True))
-        .order_by(SalesBasket.created_at.desc())
+        select(PanelGroup, StorePanelGroup).join(StorePanelGroup, StorePanelGroup.panel_group_id == PanelGroup.id, isouter=True)
+        .where(PanelGroup.is_enabled.is_(True), PanelGroup.reseller_enabled.is_(True))
+        .order_by(PanelGroup.created_at.desc())
     )).all()
     return [{"id": b.id, "name": b.name, "selection_mode": b.selection_mode, "naming_mode": b.naming_mode,
              "is_enabled": access.is_enabled if access else True, "sales_limit": b.sales_limit, "sold_count": b.sold_count}
             for b, access in rows]
 
 
-@router.put("/stores/{store_id}/reseller/sales-baskets/{basket_id}")
-async def toggle_reseller_sales_basket(basket_id: uuid.UUID, body: dict, ctx: OwnerCtx, session: Session):
-    b = await session.get(SalesBasket, basket_id)
-    if not b or not b.is_enabled or not b.reseller_enabled: raise NotFound("سبد فروش")
-    row = await session.scalar(select(StoreSalesBasket).where(StoreSalesBasket.store_id == ctx.store.id, StoreSalesBasket.basket_id == b.id))
+@router.put("/stores/{store_id}/reseller/panel-groups/{panel_group_id}")
+async def toggle_reseller_panel_group(panel_group_id: uuid.UUID, body: dict, ctx: OwnerCtx, session: Session):
+    b = await session.get(PanelGroup, panel_group_id)
+    if not b or not b.is_enabled or not b.reseller_enabled: raise NotFound("گروه پنل")
+    row = await session.scalar(select(StorePanelGroup).where(StorePanelGroup.store_id == ctx.store.id, StorePanelGroup.panel_group_id == b.id))
     if not row:
-        row = StoreSalesBasket(store_id=ctx.store.id, basket_id=b.id); session.add(row)
+        row = StorePanelGroup(store_id=ctx.store.id, panel_group_id=b.id); session.add(row)
     row.is_enabled = bool(body.get("is_enabled", True))
-    audit.record(session, "reseller.sales_basket_toggled", actor_id=ctx.user.id, actor_type="reseller", entity_type="sales_basket", entity_id=b.id, store_id=ctx.store.id, data={"enabled": row.is_enabled})
+    audit.record(session, "reseller.panel_group_toggled", actor_id=ctx.user.id, actor_type="reseller", entity_type="panel_group", entity_id=b.id, store_id=ctx.store.id, data={"enabled": row.is_enabled})
     await session.commit()
     return {"ok": True, "is_enabled": row.is_enabled}
 
