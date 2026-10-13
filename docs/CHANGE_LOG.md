@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-13 23:46 UTC - archerhabibi - tests, bot  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(telegram-main): redesigned bot UX (in-place screens, quote card, account cards, renewal) - - Inline navigation edits the tapped message in place (screen()), with a fallback to a new message when Telegram refuses the edit; "not modified" is ignored. - Quote card shows price, discount, wallet ba…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (4):** `apps/api/tests/test_telegram_ux_v2.py`, `apps/telegram-main/requirements.txt`, `apps/telegram-main/runner.py`, `apps/telegram-reseller/requirements.txt`
+- **Ref:** `c6d7a9f`
+
+
 ### 2026-10-13 23:36 UTC - archerhabibi - api, tests, bot  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
