@@ -2,7 +2,7 @@
 
 پلتفرم چندفروشگاهی فروش VPN. مستندات کامل انگلیسی در [README.md](README.md) است؛ این صفحه فقط نصب و قوانین کار را خلاصه می‌کند.
 
-در نصب production مقدار `ADMIN_ALLOWED_IPS` را هم تنظیم کنید، مثلاً `ADMIN_ALLOWED_IPS=203.0.113.10/32`؛ درخواست‌های API ادمین از IPهای دیگر رد می‌شوند. هنگام به‌روزرسانی در حالت پراکسی خارجی، همیشه از `docker compose -f docker-compose.yml -f docker-compose.external.yml up -d --build` استفاده کنید.
+محدودیت IP ادمین اختیاری و به‌طور پیش‌فرض خاموش است و موقع نصب پرسیده نمی‌شود. برای فعال‌کردن: پنل ادمین ← تنظیمات ← یکپارچه‌سازی‌ها ← «دسترسی ادمین (محدودیت IP)». اگر قفل شدید: `docker compose exec -T api python -m melorin.cli disable-admin-ip-allowlist`. هنگام به‌روزرسانی در حالت پراکسی خارجی، همیشه از `docker compose -f docker-compose.yml -f docker-compose.external.yml up -d --build` استفاده کنید.
 secretهای production را در فایل root-owned با سطح دسترسی `600` نگه دارید و ترجیحاً از secret file داکر یا سیستم‌عامل استفاده کنید؛ توکن را در خط فرمان وارد نکنید و هر توکن بات افشاشده را بچرخانید. اگر رمز ادمین گم شد، بدون ذخیره در history این دستور را اجرا کنید: `docker compose exec -T api python -m melorin.cli reset-admin-password admin@example.com`.
 
 ## نصب روی سرور

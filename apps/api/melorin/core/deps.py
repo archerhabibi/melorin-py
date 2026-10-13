@@ -11,7 +11,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from melorin.core import audit
+from melorin.core import audit, integrations
 from melorin.core.config import get_settings
 from melorin.core.context import client_ip
 from melorin.core.db import get_session
@@ -45,23 +45,27 @@ async def current_user(user: User | None = Depends(optional_user)) -> User:
     return user
 
 
-async def require_admin(user: User = Depends(current_user)) -> User:
+async def require_admin(session: Session, user: User = Depends(current_user)) -> User:
     if not user.is_super_admin:
         raise Forbidden()
     if not user.totp_enabled:
         raise AppError("ADMIN_2FA_REQUIRED", "فعال‌سازی احراز هویت دومرحله‌ای برای ادمین الزامی است.", 403)
     if user.allowed_ips and client_ip.get() not in user.allowed_ips:
         raise AppError("IP_NOT_ALLOWED", "دسترسی از این IP مجاز نیست.", 403)
-    allowed = [ipaddress.ip_network(value, strict=False) for value in get_settings().admin_allowed_ips]
-    if allowed:
-        # Fail closed: an unresolvable peer ("?", unix socket, ...) is never allowed.
-        try:
-            ip = ipaddress.ip_address(client_ip.get() or "")
-        except ValueError:
-            ip = None
-        if ip is None or not any(ip in network for network in allowed):
-            raise AppError("ADMIN_IP_NOT_ALLOWED", "دسترسی ادمین از این IP مجاز نیست.", 403)
+    # Optional global allowlist, configured in the admin panel (Settings -> Integrations). OFF by default.
+    access = await integrations.get_admin_access(session)
+    if access.get("enabled") and access.get("ips") and not ip_allowed(client_ip.get(), access["ips"]):
+        raise AppError("ADMIN_IP_NOT_ALLOWED", "دسترسی ادمین از این IP مجاز نیست.", 403)
     return user
+
+
+def ip_allowed(ip: str | None, networks: list[str]) -> bool:
+    """Fail closed: an unresolvable peer ("?", unix socket, ...) is never allowed."""
+    try:
+        addr = ipaddress.ip_address(ip or "")
+    except ValueError:
+        return False
+    return any(addr in ipaddress.ip_network(n, strict=False) for n in networks)
 
 
 async def require_bot_service(x_bot_secret: str = Header(default="")) -> None:

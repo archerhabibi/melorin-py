@@ -145,9 +145,18 @@ async def reset_admin_password(email: str) -> None:
         print(f"admin password reset for {user.email}; existing TOTP remains unchanged")
 
 
+async def disable_admin_ip_allowlist() -> None:
+    """Break-glass: turn the admin IP allowlist off if an admin locked themselves out."""
+    from melorin.core import integrations
+    async with session_factory()() as session:
+        await integrations.save(session, integrations.ADMIN_ACCESS_KEY, {"enabled": False, "ips": []})
+        await session.commit()
+    print("admin IP allowlist disabled")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m melorin.cli")
-    parser.add_argument("command", choices=("bootstrap", "outbox-replay", "rotate-encryption-key", "reset-admin-password"))
+    parser.add_argument("command", choices=("bootstrap", "outbox-replay", "rotate-encryption-key", "reset-admin-password", "disable-admin-ip-allowlist"))
     parser.add_argument("value", nargs="?")
     args = parser.parse_args()
     if args.command == "bootstrap":
@@ -160,6 +169,8 @@ def main() -> None:
         if not args.value:
             parser.error("rotate-encryption-key requires a Fernet key")
         asyncio.run(rotate_encryption_key(args.value))
+    elif args.command == "disable-admin-ip-allowlist":
+        asyncio.run(disable_admin_ip_allowlist())
     else:
         if not args.value:
             parser.error("reset-admin-password requires the admin email")

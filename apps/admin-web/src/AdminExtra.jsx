@@ -143,11 +143,12 @@ const Toggle = ({ on, set, label }) => <label className="flex cursor-pointer ite
 
 function Integrations({ api, toast }) {
   const call = (p, o = {}) => authFetch(api.base, p, o);
+  const [aa, setAa] = useState(null); const [ipText, setIpText] = useState("");
   const [em, setEm] = useState(null); const [s3, setS3] = useState(null); const [local, setLocal] = useState(null);
   const [pw, setPw] = useState(""); const [sk, setSk] = useState(""); const [to, setTo] = useState(""); const [busy, setBusy] = useState("");
-  const load = () => call("/api/v1/admin/integrations").then((r) => r.ok ? r.json() : Promise.reject()).then((d) => { setEm(d.email); setS3(d.backup.s3); setLocal(d.backup.local); setPw(""); setSk(""); }).catch(() => toast("دریافت تنظیمات ناموفق بود"));
+  const load = () => call("/api/v1/admin/integrations").then((r) => r.ok ? r.json() : Promise.reject()).then((d) => { setAa(d.admin_access); setIpText((d.admin_access?.ips || []).join("\n")); setEm(d.email); setS3(d.backup.s3); setLocal(d.backup.local); setPw(""); setSk(""); }).catch(() => toast("دریافت تنظیمات ناموفق بود"));
   useEffect(() => { load(); }, []);
-  if (!em || !s3) return null;
+  if (!em || !s3 || !aa) return null;
   const send = async (path, body, okMsg, tag) => {
     setBusy(tag);
     const r = await call(path, { method: path.endsWith("/test") ? "POST" : "PUT", body: JSON.stringify(body) });
@@ -161,6 +162,12 @@ function Integrations({ api, toast }) {
   const s3s = (k) => (v) => setS3({ ...s3, [k]: v });
   return <section className={`${box} space-y-6 p-5`}>
     <h3 className="font-extrabold">یکپارچه‌سازی‌ها <span className="text-xs font-normal text-[var(--mu)]">(اختیاری؛ برای نصب لازم نیستند)</span></h3>
+    <div className="space-y-3 rounded-xl border border-[var(--ln)] p-4">
+      <div className="flex items-center justify-between"><b>دسترسی ادمین (محدودیت IP)</b><Toggle on={aa.enabled} set={(v) => setAa({ ...aa, enabled: v })} label={aa.enabled ? "فعال" : "غیرفعال"} /></div>
+      <p className="text-xs text-[var(--mu)]">به‌طور پیش‌فرض خاموش است. در حالت فعال، API ادمین فقط از IPها/CIDRهای زیر پاسخ می‌دهد (هر خط یک مورد). IP فعلی شما: <code dir="ltr">{aa.your_ip}</code>. اگر قفل شدید، روی سرور: <code dir="ltr">python -m melorin.cli disable-admin-ip-allowlist</code></p>
+      <textarea dir="ltr" rows={3} className={inp} value={ipText} onChange={(e) => setIpText(e.target.value)} placeholder={"203.0.113.10/32\n198.51.100.0/24"} />
+      <button disabled={busy === "aa"} className={btn} onClick={() => send("/api/v1/admin/integrations/admin-access", { enabled: aa.enabled, ips: ipText.split(/[\s,]+/).filter(Boolean) }, "تنظیمات دسترسی ادمین ذخیره شد", "aa")}>ذخیره</button>
+    </div>
     <div className="grid gap-6 lg:grid-cols-2">
       <div className="space-y-3 rounded-xl border border-[var(--ln)] p-4">
         <div className="flex items-center justify-between"><b>ایمیل (SMTP)</b><Toggle on={em.enabled} set={sm("enabled")} label={em.enabled ? "فعال" : "غیرفعال"} /></div>

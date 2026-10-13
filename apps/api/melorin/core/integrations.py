@@ -12,6 +12,7 @@ from melorin.core.crypto import decrypt, encrypt
 PREFIX = "integration."
 EMAIL_KEY = PREFIX + "email"
 BACKUP_S3_KEY = PREFIX + "backup_s3"
+ADMIN_ACCESS_KEY = PREFIX + "admin_access"
 
 EMAIL_DEFAULT: dict = {
     "enabled": False, "host": "", "port": 587, "username": "", "password_enc": None,
@@ -21,6 +22,7 @@ BACKUP_S3_DEFAULT: dict = {
     "enabled": False, "endpoint": "", "region": "", "bucket": "", "prefix": "melorin",
     "access_key": "", "secret_key_enc": None,
 }
+ADMIN_ACCESS_DEFAULT: dict = {"enabled": False, "ips": []}  # OFF by default: no IP restriction on the admin API
 
 
 def is_integration_key(key: str) -> bool:
@@ -34,6 +36,10 @@ async def _load(session: AsyncSession, key: str, default: dict) -> dict:
 
 async def get_email(session: AsyncSession) -> dict:
     return await _load(session, EMAIL_KEY, EMAIL_DEFAULT)
+
+
+async def get_admin_access(session: AsyncSession) -> dict:
+    return await _load(session, ADMIN_ACCESS_KEY, ADMIN_ACCESS_DEFAULT)
 
 
 async def get_backup_s3(session: AsyncSession) -> dict:

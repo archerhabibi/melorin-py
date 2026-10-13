@@ -17,7 +17,6 @@ APP_DIR="${APP_DIR:-/opt/melorin}"
 DOMAIN="${DOMAIN:?set DOMAIN, e.g. shop.example.com}"
 ADMIN_DOMAIN="${ADMIN_DOMAIN:?set ADMIN_DOMAIN, e.g. admin.example.com}"
 ADMIN_EMAIL="${ADMIN_EMAIL:?set ADMIN_EMAIL}"
-ADMIN_ALLOWED_IPS="${ADMIN_ALLOWED_IPS:?set ADMIN_ALLOWED_IPS, e.g. 203.0.113.10/32}"
 EXTERNAL_PROXY="${EXTERNAL_PROXY:-false}"
 
 compose_files=(-f docker-compose.yml)
@@ -54,15 +53,6 @@ git checkout --quiet --detach "$REPO_REF"
 
 rand() { openssl rand -hex 32; }
 fernet() { head -c 32 /dev/urandom | base64 | tr '+/' '-_'; }
-
-ips_to_json() { # "a, b" -> ["a","b"]  (pydantic list settings must be JSON in .env)
-  local IFS=',' item out=""
-  for item in $1; do
-    item="${item//[[:space:]]/}"
-    [ -n "$item" ] && out+="${out:+,}\"${item}\""
-  done
-  printf '[%s]' "$out"
-}
 
 set_kv() { # set_kv KEY VALUE  (replace line or append)
   local k="$1" v="$2" file="${ENV_FILE:-.env}"
@@ -107,7 +97,6 @@ if [ ! -f .env ]; then
   set_kv MELORIN_BOOTSTRAP_ADMIN_TOTP_SECRET "$BOOTSTRAP_TOTP"
   set_kv MELORIN_DOMAIN "$DOMAIN"
   set_kv MELORIN_ADMIN_DOMAIN "$ADMIN_DOMAIN"
-  set_kv MELORIN_ADMIN_ALLOWED_IPS "$(ips_to_json "$ADMIN_ALLOWED_IPS")"
   set_kv MELORIN_STORE_WEB_URL "https://${DOMAIN}"
   set_kv MELORIN_PUBLIC_API_URL "https://${DOMAIN}"
   set_kv MELORIN_CORS_ORIGINS "[\"https://${DOMAIN}\",\"https://${ADMIN_DOMAIN}\"]"

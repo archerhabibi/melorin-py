@@ -1,5 +1,6 @@
 """Admin: optional SMTP e-mail and S3 off-site backup. Both are disabled until an admin turns them on."""
 import asyncio
+import ipaddress
 import os
 from typing import Literal
 
@@ -8,7 +9,8 @@ from pydantic import BaseModel, EmailStr, Field
 
 from melorin.core import audit, integrations
 from melorin.core.config import get_settings
-from melorin.core.deps import AdminUser, Session
+from melorin.core.context import client_ip
+from melorin.core.deps import AdminUser, Session, ip_allowed
 from melorin.core.email import send_with_config
 from melorin.core.errors import AppError
 
@@ -23,6 +25,11 @@ class EmailIn(BaseModel):
     password: str | None = Field(None, max_length=500)  # None keeps the stored password, "" clears it
     from_addr: str = Field("", max_length=254)
     security: Literal["starttls", "ssl", "none"] = "starttls"
+
+
+class AdminAccessIn(BaseModel):
+    enabled: bool
+    ips: list[str] = Field(default_factory=list, max_length=50)
 
 
 class EmailTestIn(BaseModel):
@@ -43,12 +50,38 @@ class BackupS3In(BaseModel):
 async def get_integrations(_: AdminUser, session: Session):
     s = get_settings()
     return {
+        "admin_access": {**await integrations.get_admin_access(session), "your_ip": client_ip.get()},
         "email": integrations.public_email(await integrations.get_email(session)),
         "backup": {
             "local": {"enabled": True, "dir": s.backup_dir, "retention_days": s.backup_retention_days},
             "s3": integrations.public_backup_s3(await integrations.get_backup_s3(session)),
         },
     }
+
+
+@router.put("/admin-access")
+async def update_admin_access(body: AdminAccessIn, admin: AdminUser, session: Session):
+    ips: list[str] = []
+    for raw in body.ips:
+        value = raw.strip()
+        if not value:
+            continue
+        try:
+            ips.append(str(ipaddress.ip_network(value, strict=False)))
+        except ValueError:
+            raise AppError("ADMIN_IP_INVALID", f"آدرس IP یا CIDR نامعتبر است: {value}", 400) from None
+    ips = list(dict.fromkeys(ips))
+    if body.enabled:
+        if not ips:
+            raise AppError("ADMIN_IP_EMPTY", "برای فعال‌سازی، حداقل یک IP یا CIDR لازم است.", 400)
+        if not ip_allowed(client_ip.get(), ips):
+            raise AppError("ADMIN_IP_LOCKOUT", "IP فعلی شما در فهرست نیست؛ با این تنظیم از پنل بیرون می‌افتید. IP خودتان را هم اضافه کنید.", 400)
+    new = {"enabled": body.enabled, "ips": ips}
+    await integrations.save(session, integrations.ADMIN_ACCESS_KEY, new)
+    audit.record(session, "integration.admin_access.updated", actor_id=admin.id, actor_type="admin", entity_type="integration",
+                 entity_id="admin_access", data=new)
+    await session.commit()
+    return {**new, "your_ip": client_ip.get()}
 
 
 @router.put("/email")

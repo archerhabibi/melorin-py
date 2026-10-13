@@ -25,5 +25,5 @@ def test_admin_access_is_ip_restricted_and_proxy_updates_are_documented():
     config = (ROOT / "melorin/core/config.py").read_text()
     readme = (ROOT.parent.parent / "README.md").read_text()
     assert "ADMIN_IP_NOT_ALLOWED" in deps
-    assert "admin_allowed_ips" in config
+    assert "admin_allowed_ips" not in config  # moved to the admin panel, OFF by default
     assert "docker-compose.external.yml up -d --build" in readme
