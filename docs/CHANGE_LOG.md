@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-13 03:55 UTC - archerhabibi - admin-web, db, api  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** Rename sales baskets to panel groups everywhere (API, DB, frontend, CI, tests) - - Models/modules: SalesBasket -> PanelGroup, SalesBasketPanel -> PanelGroupMember, StoreSalesBasket -> StorePanelGroup; vpn/baskets.py -> vpn/panel_groups.py - API: /sales-baskets -> /panel-groups (admin, public catalo…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (20):** `apps/admin-web/src/AdminExtra.jsx`, `apps/admin-web/src/App.jsx`, `apps/api/alembic/versions/0012_baskets_to_panel_groups.py`, `apps/api/melorin/models.py`, `apps/api/melorin/modules/admin/router.py`, `apps/api/melorin/modules/admin/schemas.py`, `apps/api/melorin/modules/catalog/router.py`, `apps/api/melorin/modules/orders/models.py` (+12 more)
+- **Ref:** `68ee7ef`
+
+
 ### 2026-10-13 03:40 UTC - archerhabibi - config, other, admin-web  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
