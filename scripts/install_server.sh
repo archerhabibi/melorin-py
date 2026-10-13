@@ -12,11 +12,12 @@ set -euo pipefail
 
 REPO_URL="${REPO_URL:-https://github.com/archerhabibi/melorin-py.git}"
 # Pin production installs to a reviewed commit; override only during a deliberate release.
-REPO_REF="${REPO_REF:-17f8a35}"
+REPO_REF="${REPO_REF:-21ec341}"
 APP_DIR="${APP_DIR:-/opt/melorin}"
 DOMAIN="${DOMAIN:?set DOMAIN, e.g. shop.example.com}"
 ADMIN_DOMAIN="${ADMIN_DOMAIN:?set ADMIN_DOMAIN, e.g. admin.example.com}"
 ADMIN_EMAIL="${ADMIN_EMAIL:?set ADMIN_EMAIL}"
+ADMIN_ALLOWED_IPS="${ADMIN_ALLOWED_IPS:?set ADMIN_ALLOWED_IPS, e.g. 203.0.113.10/32}"
 EXTERNAL_PROXY="${EXTERNAL_PROXY:-false}"
 
 compose_files=(-f docker-compose.yml)
@@ -53,6 +54,15 @@ git checkout --quiet --detach "$REPO_REF"
 
 rand() { openssl rand -hex 32; }
 fernet() { head -c 32 /dev/urandom | base64 | tr '+/' '-_'; }
+
+ips_to_json() { # "a, b" -> ["a","b"]  (pydantic list settings must be JSON in .env)
+  local IFS=',' item out=""
+  for item in $1; do
+    item="${item//[[:space:]]/}"
+    [ -n "$item" ] && out+="${out:+,}\"${item}\""
+  done
+  printf '[%s]' "$out"
+}
 
 set_kv() { # set_kv KEY VALUE  (replace line or append)
   local k="$1" v="$2" file="${ENV_FILE:-.env}"
@@ -91,10 +101,13 @@ if [ ! -f .env ]; then
   set_kv MELORIN_HEALTH_TOKEN "$(rand)"
   set_kv MELORIN_BOOTSTRAP_ADMIN_EMAIL "$ADMIN_EMAIL"
   set_kv MELORIN_BOOTSTRAP_ADMIN_PASSWORD "$(openssl rand -base64 24 | tr -d '/+=')"
-  BOOTSTRAP_TOTP="$(openssl rand -hex 20)"
+  # RFC 6238 secrets must be RFC 4648 base32, not hexadecimal text.
+  # 20 random bytes = 160 bits = exactly 32 base32 characters (no padding, no filler).
+  BOOTSTRAP_TOTP="$(head -c 20 /dev/urandom | base32 | tr -d '=\n')"
   set_kv MELORIN_BOOTSTRAP_ADMIN_TOTP_SECRET "$BOOTSTRAP_TOTP"
   set_kv MELORIN_DOMAIN "$DOMAIN"
   set_kv MELORIN_ADMIN_DOMAIN "$ADMIN_DOMAIN"
+  set_kv MELORIN_ADMIN_ALLOWED_IPS "$(ips_to_json "$ADMIN_ALLOWED_IPS")"
   set_kv MELORIN_STORE_WEB_URL "https://${DOMAIN}"
   set_kv MELORIN_PUBLIC_API_URL "https://${DOMAIN}"
   set_kv MELORIN_CORS_ORIGINS "[\"https://${DOMAIN}\",\"https://${ADMIN_DOMAIN}\"]"

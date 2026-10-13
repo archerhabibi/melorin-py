@@ -25,6 +25,7 @@ def _prod(**kw):
         redis_url="redis://localhost", require_redis_rate_limit=True, metrics_token="m" * 40, health_token="h" * 40,
         public_api_url="https://shop.example.com:9443", cors_origins=["https://shop.example.com:9443"],
         backup_recipient_file="/run/melorin-backup/recipients.txt", backup_offsite_uri="s3://bucket/melorin",
+        admin_allowed_ips=["203.0.113.10/32"],
     )
     base.update(kw)
     return Settings(**base)

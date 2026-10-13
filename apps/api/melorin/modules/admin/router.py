@@ -137,6 +137,15 @@ async def create_product(body: CreateProduct, admin: AdminUser, session: Session
         raise AppError("PRODUCT_CODE_EXISTS", "کد محصول تکراری است.", 409)
     p = Product(**body.model_dump())
     session.add(p); await session.flush()
+    main = await session.scalar(select(Store).where(Store.kind == "main", Store.status == "active"))
+    if main:
+        session.add(StoreProduct(
+            product_id=p.id,
+            store_id=main.id,
+            is_enabled=True,
+            is_listed=True,
+            customer_price=None,
+        ))
     audit.record(session, "product.created", actor_id=admin.id, actor_type="admin", entity_type="product", entity_id=p.id, data=body.model_dump())
     await session.commit()
     return p

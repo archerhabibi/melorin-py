@@ -1,5 +1,6 @@
 """Authentication, authorization and StoreContext resolution. Enforced in Core, never trusted from UI."""
 import hmac
+import ipaddress
 import uuid
 from dataclasses import dataclass
 from typing import Annotated
@@ -51,6 +52,15 @@ async def require_admin(user: User = Depends(current_user)) -> User:
         raise AppError("ADMIN_2FA_REQUIRED", "فعال‌سازی احراز هویت دومرحله‌ای برای ادمین الزامی است.", 403)
     if user.allowed_ips and client_ip.get() not in user.allowed_ips:
         raise AppError("IP_NOT_ALLOWED", "دسترسی از این IP مجاز نیست.", 403)
+    allowed = [ipaddress.ip_network(value, strict=False) for value in get_settings().admin_allowed_ips]
+    if allowed:
+        # Fail closed: an unresolvable peer ("?", unix socket, ...) is never allowed.
+        try:
+            ip = ipaddress.ip_address(client_ip.get() or "")
+        except ValueError:
+            ip = None
+        if ip is None or not any(ip in network for network in allowed):
+            raise AppError("ADMIN_IP_NOT_ALLOWED", "دسترسی ادمین از این IP مجاز نیست.", 403)
     return user
 
 

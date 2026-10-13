@@ -3,6 +3,9 @@ import argparse
 import datetime as dt
 import asyncio
 import uuid
+import base64
+import binascii
+import getpass
 
 from sqlalchemy import select
 
@@ -22,6 +25,15 @@ async def bootstrap() -> None:
     settings = get_settings()
     if not settings.bootstrap_admin_email or not settings.bootstrap_admin_password:
         raise SystemExit("MELORIN_BOOTSTRAP_ADMIN_EMAIL and MELORIN_BOOTSTRAP_ADMIN_PASSWORD are required")
+    if len(settings.bootstrap_admin_password) < 24 or settings.bootstrap_admin_password in {"change-me-now", "password"}:
+        raise SystemExit("MELORIN_BOOTSTRAP_ADMIN_PASSWORD must be a strong one-time credential")
+    totp_secret = (settings.bootstrap_admin_totp_secret or "").strip().upper()
+    try:
+        if len(totp_secret) < 16:
+            raise ValueError
+        base64.b32decode(totp_secret + "=" * (-len(totp_secret) % 8), casefold=True)
+    except (binascii.Error, ValueError):
+        raise SystemExit("MELORIN_BOOTSTRAP_ADMIN_TOTP_SECRET is required for the first admin bootstrap")
     async with session_factory()() as session:
         email = settings.bootstrap_admin_email.strip().lower()
         user = await session.scalar(select(User).where(User.email == email))
@@ -42,7 +54,7 @@ async def bootstrap() -> None:
             if not user.password_hash:
                 user.password_hash = await hash_password(settings.bootstrap_admin_password)
         if settings.bootstrap_admin_totp_secret:
-            user.totp_secret_enc = encrypt(settings.bootstrap_admin_totp_secret.strip().upper())
+            user.totp_secret_enc = encrypt(totp_secret)
             user.totp_enabled = True
             user.totp_last_counter = None
         if await session.scalar(select(Identity).where(Identity.provider == "email", Identity.subject == email)) is None:
@@ -119,9 +131,23 @@ async def rotate_encryption_key(new_key: str) -> None:
         print("encryption rotation completed; set MELORIN_ENCRYPTION_KEY to the reviewed new key")
 
 
+async def reset_admin_password(email: str) -> None:
+    async with session_factory()() as session:
+        user = await session.scalar(select(User).where(User.email == email.strip().lower(), User.is_super_admin.is_(True)))
+        if not user:
+            raise SystemExit("super-admin not found")
+        password = getpass.getpass("New admin password (hidden): ")
+        confirm = getpass.getpass("Repeat new admin password: ")
+        if len(password) < 24 or password != confirm:
+            raise SystemExit("password must match and be at least 24 characters")
+        user.password_hash = await hash_password(password)
+        await session.commit()
+        print(f"admin password reset for {user.email}; existing TOTP remains unchanged")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m melorin.cli")
-    parser.add_argument("command", choices=("bootstrap", "outbox-replay", "rotate-encryption-key"))
+    parser.add_argument("command", choices=("bootstrap", "outbox-replay", "rotate-encryption-key", "reset-admin-password"))
     parser.add_argument("value", nargs="?")
     args = parser.parse_args()
     if args.command == "bootstrap":
@@ -130,10 +156,14 @@ def main() -> None:
         if not args.value:
             parser.error("outbox-replay requires an event UUID")
         asyncio.run(outbox_replay(args.value))
-    else:
+    elif args.command == "rotate-encryption-key":
         if not args.value:
             parser.error("rotate-encryption-key requires a Fernet key")
         asyncio.run(rotate_encryption_key(args.value))
+    else:
+        if not args.value:
+            parser.error("reset-admin-password requires the admin email")
+        asyncio.run(reset_admin_password(args.value))
 
 
 if __name__ == "__main__":

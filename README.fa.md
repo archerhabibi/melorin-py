@@ -2,6 +2,9 @@
 
 پلتفرم چندفروشگاهی فروش VPN. مستندات کامل انگلیسی در [README.md](README.md) است؛ این صفحه فقط نصب و قوانین کار را خلاصه می‌کند.
 
+در نصب production مقدار `ADMIN_ALLOWED_IPS` را هم تنظیم کنید، مثلاً `ADMIN_ALLOWED_IPS=203.0.113.10/32`؛ درخواست‌های API ادمین از IPهای دیگر رد می‌شوند. هنگام به‌روزرسانی در حالت پراکسی خارجی، همیشه از `docker compose -f docker-compose.yml -f docker-compose.external.yml up -d --build` استفاده کنید.
+secretهای production را در فایل root-owned با سطح دسترسی `600` نگه دارید و ترجیحاً از secret file داکر یا سیستم‌عامل استفاده کنید؛ توکن را در خط فرمان وارد نکنید و هر توکن بات افشاشده را بچرخانید. اگر رمز ادمین گم شد، بدون ذخیره در history این دستور را اجرا کنید: `docker compose exec -T api python -m melorin.cli reset-admin-password admin@example.com`.
+
 ## نصب روی سرور
 
 **پیش‌نیاز:** سرور اوبونتو با دسترسی root، دو دامنه (فروشگاه و ادمین) که به سرور اشاره کنند، و **آزاد بودن پورت 80 و 443** (گواهی TLS خودکار توسط Caddy گرفته می‌شود).
@@ -16,7 +19,7 @@ DOMAIN=shop.example.com ADMIN_DOMAIN=admin.example.com ADMIN_EMAIL=you@example.c
 بات‌های ریسلر پیش‌فرض خاموش‌اند (`COMPOSE_PROFILES=reseller`). اگر ریپو private است، اسکریپت را دستی به سرور ببرید و `REPO_URL` را با deploy key فقط‌خواندنی بدهید.
 
 بعد از نصب:
-1. با `https://admin.example.com` وارد شوید. رمز اولیهٔ ادمین در `/opt/melorin/.env` (کلید `MELORIN_BOOTSTRAP_ADMIN_PASSWORD`) است؛ بعد از اولین ورود عوضش کنید.
+1. با `https://admin.example.com` وارد شوید. نصاب رمز اولیه و seed مربوط به bootstrap را بعد از ساخت ادمین از `.env` حذف می‌کند؛ آن‌ها را همان موقع در جای امن نگه دارید.
 2. **فایل `/opt/melorin/secrets/backup/age-identity.txt` را حتماً جای امن و خارج از سرور کپی کنید.** بدون آن، پشتیبان‌ها قابل بازیابی نیستند.
 
 **SMTP و S3 اختیاری هستند** و بعداً از پنل ادمین (تنظیمات ← یکپارچه‌سازی‌ها) فعال می‌شوند. بدون SMTP فقط ورود با کد ایمیلی کار نمی‌کند. پشتیبان رمزنگاری‌شده هر روز ساعت ۰۲:۰۰ UTC به‌صورت محلی ذخیره می‌شود و اگر S3 فعال باشد روی آن هم کپی می‌شود.

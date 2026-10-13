@@ -1,4 +1,5 @@
 """Application settings. All tunables come from env (prefix MELORIN_) or DB SystemSetting."""
+import ipaddress
 from functools import lru_cache
 from typing import Literal
 from urllib.parse import urlparse
@@ -59,6 +60,7 @@ class Settings(BaseSettings):
     # Compose pins the reverse-proxy network to 172.28.0.0/16. Override this
     # with the exact proxy CIDR(s) in any external deployment.
     trusted_proxy_ips: list[str] = ["127.0.0.1", "::1", "172.28.0.0/16"]
+    admin_allowed_ips: list[str] = []
 
     @model_validator(mode="after")
     def validate_runtime_security(self):
@@ -78,13 +80,20 @@ class Settings(BaseSettings):
                 raise ValueError("CORS wildcard origins, methods, and headers are not allowed outside development")
             if not self.public_api_url or not (parsed_api := urlparse(self.public_api_url)).scheme or not parsed_api.netloc or parsed_api.scheme != "https":
                 raise ValueError("MELORIN_PUBLIC_API_URL must be an absolute HTTPS URL outside development")
+            if not self.admin_allowed_ips:
+                raise ValueError("MELORIN_ADMIN_ALLOWED_IPS must contain at least one trusted admin IP or CIDR")
+            try:
+                for value in self.admin_allowed_ips:
+                    ipaddress.ip_network(value, strict=False)
+            except ValueError as exc:
+                raise ValueError("MELORIN_ADMIN_ALLOWED_IPS contains an invalid IP or CIDR") from exc
         if self.env in {"staging", "production"}:
             if "change-me" in self.database_url or "melorin:melorin@" in self.database_url:
                 raise ValueError("MELORIN_DATABASE_URL contains a weak/default credential")
-            if not self.bootstrap_admin_password or len(self.bootstrap_admin_password) < 24 or self.bootstrap_admin_password in {"change-me-now", "password"}:
-                raise ValueError("MELORIN_BOOTSTRAP_ADMIN_PASSWORD must be a strong one-time credential")
-            if not self.bootstrap_admin_totp_secret or len(self.bootstrap_admin_totp_secret.strip()) < 16:
-                raise ValueError("MELORIN_BOOTSTRAP_ADMIN_TOTP_SECRET is required outside development")
+            # Bootstrap credentials are one-time inputs consumed by
+            # `melorin.cli bootstrap`, not runtime production requirements.
+            # They are intentionally removed from .env afterwards and must not be
+            # required merely to restart an already-bootstrapped production stack.
             if self.jwt_secret == "dev-insecure-change-me" or len(self.jwt_secret) < 32:
                 raise ValueError("MELORIN_JWT_SECRET must be a unique secret of at least 32 characters outside development")
             if self.bot_service_secret in {"dev-bot-secret", ""} or len(self.bot_service_secret) < 32:

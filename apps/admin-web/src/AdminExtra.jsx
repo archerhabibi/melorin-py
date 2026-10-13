@@ -32,17 +32,70 @@ const Form = ({ fields, onSubmit, label }) => {
     <div className="mb-4 flex items-center justify-between"><h3 className="font-extrabold">{label}</h3><button aria-label="بستن فرم" className="btn btn-g" onClick={() => setOpen(false)}><X size={15} /></button></div>
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{fields.map(([k, l, t]) => JSONK.has(k)
       ? <label key={k} className="text-xs font-bold text-[var(--mu)] sm:col-span-2 lg:col-span-4">{l}<textarea rows={3} dir="ltr" spellCheck={false} className={`${inp} mt-1.5 font-mono text-xs`} value={v[k] ?? ""} onChange={(e) => setV({ ...v, [k]: e.target.value })} /></label>
-      : <label key={k} className="text-xs font-bold text-[var(--mu)]">{l}<input type={t || "text"} dir="ltr" className={`${inp} mt-1.5`} value={v[k] ?? ""} onChange={(e) => setV({ ...v, [k]: e.target.value })} /></label>)}</div>
+      : <label key={k} className="text-xs font-bold text-[var(--mu)]">{l}{t === "select"
+        ? <select dir="ltr" className={`${inp} mt-1.5`} value={v[k] ?? "IRT"} onChange={(e) => setV({ ...v, [k]: e.target.value })}><option value="IRT">IRT</option><option value="USD">USD</option><option value="USDT">USDT</option><option value="XTR">XTR</option></select>
+        : <input type={t || "text"} dir="ltr" className={`${inp} mt-1.5`} value={v[k] ?? ""} onChange={(e) => setV({ ...v, [k]: e.target.value })} />}</label>)}</div>
     <div className="mt-5 flex gap-2"><button className={btn} onClick={() => onSubmit(v, () => { setV({}); setOpen(false); })}>{label}</button><button className="btn btn-g" onClick={() => setOpen(false)}>انصراف</button></div>
   </section>;
 };
 
 function Products({ api, toast }) {
   const { rows, call, reload } = useList(api, "/api/v1/admin/products", toast);
-  const create = async (v, done) => { const r = await call("/api/v1/admin/products", { method: "POST", body: JSON.stringify({ code: v.code, name: v.name, duration_days: +v.days, traffic_gb: +v.gb, max_devices: v.dev ? +v.dev : null, main_price: +v.main, reseller_price: +v.res, currency: v.cur || "IRT" }) }); if (r.ok) { toast("محصول ساخته شد"); done(); reload(); } else toast("ساخت محصول ناموفق بود"); };
+  const stores = useList(api, "/api/v1/admin/stores", toast).rows;
+  const create = async (v, done) => { const r = await call("/api/v1/admin/products", { method: "POST", body: JSON.stringify({ code: v.code, name: v.name, duration_days: +v.days, traffic_gb: +v.gb, max_devices: v.dev ? +v.dev : null, main_price: +v.main, reseller_price: +v.res, currency: v.cur || "IRT" }) }); if (r.ok) { toast("محصول ساخته شد"); done(); reload(); } else { const d = await r.json().catch(() => ({})); toast(d?.error?.message || "ساخت محصول ناموفق بود"); } };
   const toggle = async (p) => { const r = await call(`/api/v1/admin/products/${p.id}`, { method: "PATCH", body: JSON.stringify({ is_active: !p.is_active }) }); r.ok ? reload() : toast("تغییر ناموفق بود"); };
-  return <><Form label="افزودن محصول VPN" onSubmit={create} fields={[["code", "کد"], ["name", "نام"], ["days", "روز", "number"], ["gb", "ترافیک GB", "number"], ["dev", "دستگاه", "number"], ["main", "قیمت اصلی", "number"], ["res", "قیمت نماینده", "number"], ["cur", "ارز (IRT)"]]} />
-    <Table title="محصولات VPN" cols={["کد", "نام", "مدت", "ترافیک", "قیمت", "وضعیت", ""]} rows={rows.map((p) => [p.code, p.name, `${p.duration_days} روز`, `${p.traffic_gb} GB`, `${money(p.main_price)} ${p.currency}`, p.is_active ? "فعال" : "غیرفعال", <button className={ghost} onClick={() => toggle(p)}>{p.is_active ? "غیرفعال‌سازی" : "فعال‌سازی"}</button>])} /></>;
+  return <><Form label="افزودن محصول VPN" onSubmit={create} fields={[["code", "کد"], ["name", "نام"], ["days", "روز", "number"], ["gb", "ترافیک GB", "number"], ["dev", "دستگاه", "number"], ["main", "قیمت اصلی", "number"], ["res", "قیمت نماینده", "number"], ["cur", "ارز", "select"]]} />
+    <Table title="محصولات VPN" cols={["کد", "نام", "مدت", "ترافیک", "قیمت", "وضعیت", ""]} rows={rows.map((p) => [p.code, p.name, `${p.duration_days} روز`, `${p.traffic_gb} GB`, `${money(p.main_price)} ${p.currency}`, p.is_active ? "فعال" : "غیرفعال", <button className={ghost} onClick={() => toggle(p)}>{p.is_active ? "غیرفعال‌سازی" : "فعال‌سازی"}</button>])} />
+    <ProductAvailability api={api} toast={toast} products={rows} stores={stores} /></>;
+}
+
+function ProductAvailability({ api, toast, products, stores }) {
+  const [productId, setProductId] = useState("");
+  const [storeId, setStoreId] = useState("");
+  const [price, setPrice] = useState("");
+  const [listed, setListed] = useState(true);
+  const [enabled, setEnabled] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const main = stores.find((s) => s.kind === "main");
+  const selected = products.find((p) => String(p.id) === productId);
+  useEffect(() => {
+    if (!productId && products[0]) setProductId(String(products[0].id));
+    if (!storeId && (main || stores[0])) setStoreId(String((main || stores[0]).id));
+  }, [products, stores]);
+  useEffect(() => {
+    const p = products.find((x) => String(x.id) === productId);
+    const s = stores.find((x) => String(x.id) === storeId);
+    if (p && s) setPrice(String(s.kind === "main" ? p.main_price : (p.reseller_price || p.main_price)));
+  }, [productId, storeId, products, stores]);
+  const publish = async () => {
+    if (!productId || !storeId) return toast("محصول و فروشگاه را انتخاب کنید");
+    setBusy(true);
+    const s = stores.find((x) => String(x.id) === storeId);
+    const r = await authFetch(api.base, `/api/v1/admin/products/${productId}/availability`, {
+      method: "POST",
+      body: JSON.stringify({ store_id: storeId, enabled, listed, customer_price: s?.kind === "reseller" ? Number(price || 0) : null }),
+    });
+    setBusy(false);
+    if (!r.ok) return toast("انتشار محصول در فروشگاه ناموفق بود");
+    toast(`«${selected?.name || "محصول"}» در «${s?.name || "فروشگاه"}» منتشر شد`);
+  };
+  if (!products.length || !stores.length) return <section className="card mt-5 p-5 text-sm text-[var(--mu)]">برای انتشار محصول، ابتدا حداقل یک محصول و فروشگاه بسازید.</section>;
+  return <section className="card rise mt-5 p-5">
+    <div className="mb-4">
+      <h3 className="font-extrabold">انتشار محصول در فروشگاه</h3>
+      <p className="mt-1 text-xs leading-6 text-[var(--mu)]">محصول تا وقتی اینجا فعال نشود، در سایت و بات نمایش داده نمی‌شود.</p>
+    </div>
+    <div className="grid gap-3 md:grid-cols-4">
+      <label className="text-xs font-bold text-[var(--mu)]">محصول<select className={`${inp} mt-1.5`} value={productId} onChange={(e) => setProductId(e.target.value)}>{products.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.code})</option>)}</select></label>
+      <label className="text-xs font-bold text-[var(--mu)]">فروشگاه<select className={`${inp} mt-1.5`} value={storeId} onChange={(e) => setStoreId(e.target.value)}>{stores.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.kind})</option>)}</select></label>
+      <label className="text-xs font-bold text-[var(--mu)]">قیمت نماینده<input className={`${inp} mt-1.5`} type="number" min="0" value={price} onChange={(e) => setPrice(e.target.value)} /></label>
+      <div className="flex items-end"><button className={`${btn} w-full`} disabled={busy} onClick={publish}>{busy ? "در حال ذخیره..." : "انتشار / ذخیره"}</button></div>
+    </div>
+    <div className="mt-4 flex flex-wrap gap-5">
+      <Toggle on={enabled} set={setEnabled} label="قابل فروش" />
+      <Toggle on={listed} set={setListed} label="نمایش در کاتالوگ" />
+    </div>
+  </section>;
 }
 
 function SalesBaskets({ api, toast }) {

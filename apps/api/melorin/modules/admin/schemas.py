@@ -1,6 +1,8 @@
 import datetime as dt
 import uuid
 
+from typing import Literal
+
 from pydantic import BaseModel, Field, HttpUrl, model_validator
 
 
@@ -14,7 +16,7 @@ class CreateProduct(BaseModel):
     max_devices: int | None = Field(default=None, gt=0)
     main_price: int = Field(ge=0)
     reseller_price: int = Field(ge=0)
-    currency: str = "IRT"
+    currency: Literal["IRT", "USD", "USDT", "XTR"] = "IRT"
     is_test: bool = False
 
 
@@ -28,7 +30,7 @@ class ProductPatch(BaseModel):
     max_devices: int | None = Field(default=None, gt=0)
     main_price: int | None = Field(default=None, ge=0)
     reseller_price: int | None = Field(default=None, ge=0)
-    currency: str | None = None
+    currency: Literal["IRT", "USD", "USDT", "XTR"] | None = None
     is_test: bool | None = None
     is_active: bool | None = None
 

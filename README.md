@@ -38,6 +38,8 @@ After it finishes:
 ### Existing reverse proxy (EXTERNAL_PROXY)
 
 If another service already owns ports 80/443, install with `EXTERNAL_PROXY=true`. The installer then binds only loopback ports: store `127.0.0.1:18080`, admin `127.0.0.1:18081`, and API `127.0.0.1:18000`. Route `/api/*` and `/health/*` to the API, and route each hostname to its matching web port.
+Set `ADMIN_ALLOWED_IPS` during installation, for example `ADMIN_ALLOWED_IPS=203.0.113.10/32`, or production admin API requests are denied. During updates, keep using the same compose override: `docker compose -f docker-compose.yml -f docker-compose.external.yml up -d --build`.
+Production secrets are one-time/bootstrap or runtime-only values: keep `.env` root-owned with mode `600`, prefer Docker/host secret files, never pass tokens on the command line, and rotate any bot token that was exposed. The installer removes the bootstrap password and TOTP seed after bootstrap. If the admin password is lost, reset it without putting it in shell history: `docker compose exec -T api python -m melorin.cli reset-admin-password admin@example.com`.
 
 The installer validates inputs before publishing `.env`; a failed run leaves no partial new environment file. It creates the encrypted local-backup key, runs `alembic upgrade head`, starts the stack, and runs the idempotent admin bootstrap. Save the printed one-time TOTP seed in an authenticator. The installer removes both bootstrap credentials from `.env` after bootstrap.
 
