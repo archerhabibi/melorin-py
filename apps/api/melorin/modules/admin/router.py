@@ -161,7 +161,10 @@ async def update_product(product_id: uuid.UUID, body: ProductPatch, admin: Admin
     p = await session.get(Product, product_id)
     if not p: raise NotFound("محصول")
     before = {"main_price": p.main_price, "reseller_price": p.reseller_price, "duration_days": p.duration_days, "traffic_gb": p.traffic_gb, "is_active": p.is_active}
-    changes = body.model_dump(exclude_none=True)
+    # Explicit null clears these optional fields (e.g. "unlimited devices"); other fields ignore null.
+    changes = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None or k in {"max_devices", "description", "category"}}
+    if "code" in changes and changes["code"] != p.code and await session.scalar(select(Product.id).where(Product.code == changes["code"])):
+        raise AppError("PRODUCT_CODE_EXISTS", "کد محصول تکراری است.", 409)
     for k, v in changes.items(): setattr(p, k, v)
     audit.record(session, "product.updated", actor_id=admin.id, actor_type="admin", entity_type="product", entity_id=p.id, data={"before": before, "after": changes})
     await session.commit(); return p
@@ -282,12 +285,22 @@ async def create_panel_group(body: CreatePanelGroup, admin: AdminUser, session: 
 async def update_panel_group(panel_group_id: uuid.UUID, body: UpdatePanelGroup, admin: AdminUser, session: Session):
     b = await session.get(PanelGroup, panel_group_id)
     if not b: raise NotFound("گروه پنل")
-    for k, v in body.model_dump(exclude_none=True, exclude={"panel_ids"}).items(): setattr(b, k, v)
+    # Explicit null is meaningful only for sales_limit (= unlimited); other fields ignore null.
+    for k, v in body.model_dump(exclude_unset=True, exclude={"panel_ids"}).items():
+        if v is not None or k == "sales_limit": setattr(b, k, v)
     if body.panel_ids is not None:
         valid = (await session.scalars(select(Panel.id).where(Panel.id.in_(body.panel_ids)))).all()
         if len(valid) != len(set(body.panel_ids)): raise NotFound("پنل گروه")
-        await session.execute(delete(PanelGroupMember).where(PanelGroupMember.panel_group_id == b.id))
-        for i, pid in enumerate(body.panel_ids): session.add(PanelGroupMember(panel_group_id=b.id, panel_id=pid, sort=i))
+        if b.selection_mode == "manual" and not body.panel_ids:
+            raise AppError("PANEL_GROUP_PANELS_REQUIRED", "گروه دستی باید حداقل یک پنل داشته باشد.", 400)
+        # Sync instead of delete+insert so per-panel sold_count / limits survive edits.
+        existing = {m.panel_id: m for m in (await session.scalars(select(PanelGroupMember).where(PanelGroupMember.panel_group_id == b.id))).all()}
+        wanted = list(dict.fromkeys(body.panel_ids))
+        for pid, m in existing.items():
+            if pid not in wanted: await session.delete(m)
+        for i, pid in enumerate(wanted):
+            if pid in existing: existing[pid].sort = i
+            else: session.add(PanelGroupMember(panel_group_id=b.id, panel_id=pid, sort=i))
     audit.record(session, "panel_group.updated", actor_id=admin.id, actor_type="admin", entity_type="panel_group", entity_id=b.id)
     await session.commit()
     rows = (await session.scalars(select(PanelGroupMember).where(PanelGroupMember.panel_group_id == b.id).order_by(PanelGroupMember.sort))).all()

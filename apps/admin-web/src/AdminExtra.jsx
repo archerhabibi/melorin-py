@@ -3,6 +3,8 @@ import { authFetch } from "./api.js";
 import { Plus, Search, X } from "lucide-react";
 import { Badge, confirmDialog, dt, isStatus, promptDialog } from "./ui.jsx";
 import PanelsView from "./PanelsView.jsx";
+import ProductsView from "./ProductsView.jsx";
+import PanelGroupsView from "./PanelGroupsView.jsx";
 const money = (n) => new Intl.NumberFormat("fa-IR").format(n || 0);
 const box = "card";
 const inp = "inp";
@@ -38,89 +40,6 @@ const Form = ({ fields, onSubmit, label }) => {
     <div className="mt-5 flex gap-2"><button className={btn} onClick={() => onSubmit(v, () => { setV({}); setOpen(false); })}>{label}</button><button className="btn btn-g" onClick={() => setOpen(false)}>انصراف</button></div>
   </section>;
 };
-
-function Products({ api, toast }) {
-  const { rows, call, reload } = useList(api, "/api/v1/admin/products", toast);
-  const stores = useList(api, "/api/v1/admin/stores", toast).rows;
-  const create = async (v, done) => { const r = await call("/api/v1/admin/products", { method: "POST", body: JSON.stringify({ code: v.code, name: v.name, duration_days: +v.days, traffic_gb: +v.gb, max_devices: v.dev ? +v.dev : null, main_price: +v.main, reseller_price: +v.res, currency: v.cur || "IRT" }) }); if (r.ok) { toast("محصول ساخته شد"); done(); reload(); } else { const d = await r.json().catch(() => ({})); toast(d?.error?.message || "ساخت محصول ناموفق بود"); } };
-  const toggle = async (p) => { const r = await call(`/api/v1/admin/products/${p.id}`, { method: "PATCH", body: JSON.stringify({ is_active: !p.is_active }) }); r.ok ? reload() : toast("تغییر ناموفق بود"); };
-  return <><Form label="افزودن محصول VPN" onSubmit={create} fields={[["code", "کد"], ["name", "نام"], ["days", "روز", "number"], ["gb", "ترافیک GB", "number"], ["dev", "دستگاه", "number"], ["main", "قیمت اصلی", "number"], ["res", "قیمت نماینده", "number"], ["cur", "ارز", "select"]]} />
-    <Table title="محصولات VPN" cols={["کد", "نام", "مدت", "ترافیک", "قیمت", "وضعیت", ""]} rows={rows.map((p) => [p.code, p.name, `${p.duration_days} روز`, `${p.traffic_gb} GB`, `${money(p.main_price)} ${p.currency}`, p.is_active ? "فعال" : "غیرفعال", <button className={ghost} onClick={() => toggle(p)}>{p.is_active ? "غیرفعال‌سازی" : "فعال‌سازی"}</button>])} />
-    <ProductAvailability api={api} toast={toast} products={rows} stores={stores} /></>;
-}
-
-function ProductAvailability({ api, toast, products, stores }) {
-  const [productId, setProductId] = useState("");
-  const [storeId, setStoreId] = useState("");
-  const [price, setPrice] = useState("");
-  const [listed, setListed] = useState(true);
-  const [enabled, setEnabled] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const main = stores.find((s) => s.kind === "main");
-  const selected = products.find((p) => String(p.id) === productId);
-  useEffect(() => {
-    if (!productId && products[0]) setProductId(String(products[0].id));
-    if (!storeId && (main || stores[0])) setStoreId(String((main || stores[0]).id));
-  }, [products, stores]);
-  useEffect(() => {
-    const p = products.find((x) => String(x.id) === productId);
-    const s = stores.find((x) => String(x.id) === storeId);
-    if (p && s) setPrice(String(s.kind === "main" ? p.main_price : (p.reseller_price || p.main_price)));
-  }, [productId, storeId, products, stores]);
-  const publish = async () => {
-    if (!productId || !storeId) return toast("محصول و فروشگاه را انتخاب کنید");
-    setBusy(true);
-    const s = stores.find((x) => String(x.id) === storeId);
-    const r = await authFetch(api.base, `/api/v1/admin/products/${productId}/availability`, {
-      method: "POST",
-      body: JSON.stringify({ store_id: storeId, enabled, listed, customer_price: s?.kind === "reseller" ? Number(price || 0) : null }),
-    });
-    setBusy(false);
-    if (!r.ok) return toast("انتشار محصول در فروشگاه ناموفق بود");
-    toast(`«${selected?.name || "محصول"}» در «${s?.name || "فروشگاه"}» منتشر شد`);
-  };
-  if (!products.length || !stores.length) return <section className="card mt-5 p-5 text-sm text-[var(--mu)]">برای انتشار محصول، ابتدا حداقل یک محصول و فروشگاه بسازید.</section>;
-  return <section className="card rise mt-5 p-5">
-    <div className="mb-4">
-      <h3 className="font-extrabold">انتشار محصول در فروشگاه</h3>
-      <p className="mt-1 text-xs leading-6 text-[var(--mu)]">محصول تا وقتی اینجا فعال نشود، در سایت و بات نمایش داده نمی‌شود.</p>
-    </div>
-    <div className="grid gap-3 md:grid-cols-4">
-      <label className="text-xs font-bold text-[var(--mu)]">محصول<select className={`${inp} mt-1.5`} value={productId} onChange={(e) => setProductId(e.target.value)}>{products.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.code})</option>)}</select></label>
-      <label className="text-xs font-bold text-[var(--mu)]">فروشگاه<select className={`${inp} mt-1.5`} value={storeId} onChange={(e) => setStoreId(e.target.value)}>{stores.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.kind})</option>)}</select></label>
-      <label className="text-xs font-bold text-[var(--mu)]">قیمت نماینده<input className={`${inp} mt-1.5`} type="number" min="0" value={price} onChange={(e) => setPrice(e.target.value)} /></label>
-      <div className="flex items-end"><button className={`${btn} w-full`} disabled={busy} onClick={publish}>{busy ? "در حال ذخیره..." : "انتشار / ذخیره"}</button></div>
-    </div>
-    <div className="mt-4 flex flex-wrap gap-5">
-      <Toggle on={enabled} set={setEnabled} label="قابل فروش" />
-      <Toggle on={listed} set={setListed} label="نمایش در کاتالوگ" />
-    </div>
-  </section>;
-}
-
-function PanelGroups({ api, toast }) {
-  const { rows, call, reload } = useList(api, "/api/v1/admin/panel-groups", toast);
-  const panels = useList(api, "/api/v1/admin/panels", toast).rows;
-  const create = async (v, done) => {
-    const panel_ids = panels.filter((p) => (v.panels || "").split(",").map((x) => x.trim()).includes(String(p.id))).map((p) => p.id);
-    const r = await call("/api/v1/admin/panel-groups", { method: "POST", body: JSON.stringify({
-      name: v.name, selection_mode: v.mode || "automatic", naming_mode: v.naming || "automatic",
-      sales_limit: v.limit ? +v.limit : null, panel_ids,
-    })});
-    if (r.ok) { toast("گروه پنل VPN ساخته شد"); done(); reload(); } else toast("ساخت گروه ناموفق بود");
-  };
-  const toggle = async (b) => {
-    const r = await call(`/api/v1/admin/panel-groups/${b.id}`, { method: "PATCH", body: JSON.stringify({ is_enabled: !b.is_enabled }) });
-    r.ok ? reload() : toast("تغییر وضعیت ناموفق بود");
-  };
-  return <><Form label="افزودن گروه پنل VPN" onSubmit={create} fields={[
-    ["name", "نام گروه"], ["mode", "حالت انتخاب (automatic/manual)"], ["naming", "نام‌گذاری (automatic/custom)"],
-    ["limit", "سقف فروش", "number"], ["panels", "شناسه پنل‌ها، با کاما جدا"],
-  ]} /><Table title="گروه‌های پنل VPN" cols={["نام", "انتخاب", "نام‌گذاری", "پنل‌ها", "فروش", "وضعیت", ""]} rows={rows.map((b) => [
-    b.name, b.selection_mode, b.naming_mode, b.panels?.length || 0, `${b.sold_count}/${b.sales_limit ?? "∞"}`,
-    b.is_enabled ? "فعال" : "غیرفعال", <button className={ghost} onClick={() => toggle(b)}>{b.is_enabled ? "غیرفعال‌سازی" : "فعال‌سازی"}</button>
-  ])} /></>;
-}
 
 function Coupons({ api, toast }) {
   const { rows, call, reload } = useList(api, "/api/v1/admin/coupons", toast);
@@ -298,4 +217,4 @@ function Tickets({ api, toast }) {
     <div className="mt-4 flex gap-2"><input className={inp} value={text} onChange={(e) => setText(e.target.value)} placeholder="پاسخ پشتیبانی…" /><button disabled={!text.trim()} className={btn} onClick={send}>ارسال</button></div></section>;
 }
 
-export const extraRoutes = { "سفارش‌ها": Orders, "پرداخت‌ها": Payments, "تیکت‌ها": Tickets, "محصولات VPN": Products, "پنل‌ها": PanelsView, "گروه‌های پنل VPN": PanelGroups, "کوپن‌ها": Coupons, "تنظیمات": Settings, "ممیزی": Audit, "بررسی هویت": Reviews };
+export const extraRoutes = { "سفارش‌ها": Orders, "پرداخت‌ها": Payments, "تیکت‌ها": Tickets, "محصولات VPN": ProductsView, "پنل‌ها": PanelsView, "گروه‌های پنل VPN": PanelGroupsView, "کوپن‌ها": Coupons, "تنظیمات": Settings, "ممیزی": Audit, "بررسی هویت": Reviews };
