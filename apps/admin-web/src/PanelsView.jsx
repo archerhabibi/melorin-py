@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { authFetch } from "./api.js";
 import { Badge, confirmDialog, dt, sid } from "./ui.jsx";
+import { ServerForm } from "./ServerForm.jsx";
 import {
   Activity, AlertTriangle, Check, ChevronDown, Copy, ExternalLink, Eye, EyeOff, FlaskConical, KeyRound,
   LayoutGrid, List, Pencil, Plus, RefreshCw, Save, Search, Server, ServerCog, ShieldAlert, ShieldCheck, X,
@@ -290,6 +291,7 @@ export default function PanelsView({ api, toast }) {
     if (ok) await load();
   };
 
+  const [serverOpen, setServerOpen] = useState(false);
   const counts = useMemo(() => { const c = { all: 0, healthy: 0, unhealthy: 0, unknown: 0 }; (rows || []).forEach((p) => { c.all++; c[state(p)]++; }); return c; }, [rows]);
   const shown = useMemo(() => (rows || []).filter((p) => (filter === "all" || state(p) === filter) && `${p.name} ${p.base_url} ${kindOf(p.kind).title}`.toLowerCase().includes(q.trim().toLowerCase())), [rows, filter, q]);
   const loading = rows === null;
@@ -309,6 +311,7 @@ export default function PanelsView({ api, toast }) {
       <div className="mr-auto flex items-center gap-2">
         <button className="btn btn-g !py-2 !text-sm" onClick={checkAll} disabled={!!bulk || !counts.all}><RefreshCw size={14} className={bulk ? "animate-spin" : ""} />{bulk ? `${num(bulk.done)} از ${num(bulk.total)}` : "بررسی همه"}</button>
         <button className="btn" onClick={() => setDrawer("add")}><Plus size={16} />افزودن پنل</button>
+        <button className="btn btn-g !py-2 !text-sm" onClick={() => setServerOpen(true)}><Plus size={16} />افزودن سرور</button>
       </div>
     </div>
 
@@ -322,6 +325,7 @@ export default function PanelsView({ api, toast }) {
       : layout === "grid" ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{shown.map((p) => <PanelCard key={p.id} p={p} busy={busy.has(p.id)} onCheck={check} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} />)}</div>
         : <PanelTable rows={shown} busy={busy} onCheck={check} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} />}
 
+    {serverOpen && <ServerForm api={api} panels={rows || []} toast={toast} onClose={() => setServerOpen(false)} onSaved={load} />}
     {drawer && (drawer === "add" || editing) && <PanelDrawer key={drawer} panel={drawer === "add" ? null : editing} onClose={() => setDrawer(null)} onSubmit={save} onToggle={toggle} toggling={editing ? busy.has(editing.id) : false} />}
   </div>;
 }
