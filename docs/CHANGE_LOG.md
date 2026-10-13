@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-13 23:05 UTC - archerhabibi - db, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(api): 6-char short codes, 4-attempt provisioning retry and auto-refund - - Add core/codes.py: 4-char sequence prefix + 2-char random suffix codes (32-symbol unambiguous alphabet) for orders and tickets. - Migration 0014: order/ticket sequences, orders.number VARCHAR(6) with backfill, tickets.n…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (11):** `apps/api/alembic/versions/0014_short_codes_and_auto_refund.py`, `apps/api/melorin/core/codes.py`, `apps/api/melorin/core/settings_store.py`, `apps/api/melorin/modules/admin/router.py`, `apps/api/melorin/modules/orders/models.py`, `apps/api/melorin/modules/orders/service.py`, `apps/api/melorin/modules/tickets/models.py`, `apps/api/melorin/modules/tickets/router.py` (+3 more)
+- **Ref:** `db29ef1`
+
+
 ### 2026-10-13 20:22 UTC - archerhabibi - admin-web, db, api  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
