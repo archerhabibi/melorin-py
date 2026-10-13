@@ -6,6 +6,7 @@ are configured. Automatic settlement is only implemented by an adapter.
 
 SUPPORTED_DESTINATIONS = {
     "manual_card": {"currencies": {"IRT", "IRR"}, "requires_review": True},
+    "zarinpal": {"currencies": {"IRT", "IRR"}, "requires_review": False},
     "external_gateway": {"currencies": {"IRT", "IRR", "USD", "EUR", "AED", "TRY"}, "requires_review": True},
     "crypto": {"currencies": {"USDT", "USD", "EUR"}, "requires_review": True},
     "telegram_stars": {"currencies": {"XTR"}, "requires_review": False},

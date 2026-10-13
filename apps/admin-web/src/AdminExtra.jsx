@@ -60,6 +60,39 @@ function SettingRow({ k, v, save }) {
 const Field = ({ label, children }) => <label className="block text-xs font-bold text-[var(--mu)]">{label}<div className="mt-1">{children}</div></label>;
 const Toggle = ({ on, set, label }) => <label className="flex cursor-pointer items-center gap-2 text-sm font-bold"><input type="checkbox" checked={on} onChange={(e) => set(e.target.checked)} />{label}</label>;
 
+function PaymentSettings({ obj, save, toast }) {
+  const card = obj["card.info"] || {};
+  const zp = obj["gateway.zarinpal"] || {};
+  const [cardForm, setCardForm] = useState({ card_number: "", holder: "", bank: "", ...card });
+  const [zpForm, setZpForm] = useState({ merchant_id: "", sandbox: false, ...zp });
+  useEffect(() => setCardForm({ card_number: "", holder: "", bank: "", ...(obj["card.info"] || {}) }), [obj]);
+  useEffect(() => setZpForm({ merchant_id: "", sandbox: false, ...(obj["gateway.zarinpal"] || {}) }), [obj]);
+  const store = async (key, value) => { await save(key, JSON.stringify(value)); };
+  return <section className={`${box} p-5`}>
+    <h3 className="font-extrabold">تنظیمات پرداخت</h3>
+    <p className="mt-1 text-xs text-[var(--mu)]">از این فرم‌ها استفاده کن؛ دیگر لازم نیست ساختار JSON را حدس بزنی.</p>
+    <div className="mt-4 grid gap-4 md:grid-cols-2">
+      <div className="rounded-2xl border border-[var(--ln)] p-4">
+        <h4 className="font-bold">کارت‌به‌کارت فروشگاه اصلی</h4>
+        <div className="mt-3 grid gap-3">
+          <Field label="شماره کارت"><input dir="ltr" className={inp} value={cardForm.card_number} onChange={(e) => setCardForm({ ...cardForm, card_number: e.target.value })} /></Field>
+          <Field label="نام صاحب کارت"><input className={inp} value={cardForm.holder} onChange={(e) => setCardForm({ ...cardForm, holder: e.target.value })} /></Field>
+          <Field label="بانک"><input className={inp} value={cardForm.bank} onChange={(e) => setCardForm({ ...cardForm, bank: e.target.value })} /></Field>
+        </div>
+        <button className={`${btn} mt-4`} disabled={!cardForm.card_number.trim() || !cardForm.holder.trim()} onClick={() => store("card.info", cardForm)}>ذخیره اطلاعات کارت</button>
+      </div>
+      <div className="rounded-2xl border border-[var(--ln)] p-4">
+        <h4 className="font-bold">زرین‌پال فروشگاه اصلی</h4>
+        <div className="mt-3 grid gap-3">
+          <Field label="Merchant ID"><input dir="ltr" className={inp} value={zpForm.merchant_id} onChange={(e) => setZpForm({ ...zpForm, merchant_id: e.target.value })} /></Field>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!zpForm.sandbox} onChange={(e) => setZpForm({ ...zpForm, sandbox: e.target.checked })} />حالت Sandbox</label>
+        </div>
+        <button className={`${btn} mt-4`} disabled={!zpForm.merchant_id.trim()} onClick={() => store("gateway.zarinpal", zpForm)}>ذخیره تنظیمات زرین‌پال</button>
+      </div>
+    </div>
+  </section>;
+}
+
 function Integrations({ api, toast }) {
   const call = (p, o = {}) => authFetch(api.base, p, o);
   const [aa, setAa] = useState(null); const [ipText, setIpText] = useState("");
@@ -164,8 +197,9 @@ function Settings({ api, toast }) {
     const r = await flags.call(`/api/v1/admin/settings/${key}`, { method: "PUT", body: JSON.stringify({ value }) });
     if (r.ok) { toast("تنظیم ذخیره شد"); setTick((x) => x + 1); } else toast("ذخیره ناموفق بود");
   };
-  return <div className="space-y-5"><ChangeAdminPassword api={api} toast={toast} /><Integrations api={api} toast={toast} /><Table title="Feature Flags" cols={["کلید", "محدوده", "فعال", ""]} rows={flags.rows.map((f) => [f.key, `${f.scope_type}:${f.scope_id}`, f.enabled ? "بله" : "خیر", <button className={ghost} onClick={() => setFlag(f)}>{f.enabled ? "خاموش" : "روشن"}</button>])} />
-    <section className={`${box} overflow-hidden`}><h3 className="px-5 py-4 font-extrabold">تنظیمات سیستم <span className="text-xs font-normal text-[var(--mu)]">(مقدار به‌صورت JSON)</span></h3>{Object.entries(obj).map(([k, v]) => <SettingRow key={k} k={k} v={v} save={save} />)}</section></div>;
+  const rawSettings = Object.entries(obj).filter(([k]) => !["card.info", "gateway.zarinpal"].includes(k));
+  return <div className="space-y-5"><ChangeAdminPassword api={api} toast={toast} /><Integrations api={api} toast={toast} /><PaymentSettings obj={obj} save={save} toast={toast} /><Table title="Feature Flags" cols={["کلید", "محدوده", "فعال", ""]} rows={flags.rows.map((f) => [f.key, `${f.scope_type}:${f.scope_id}`, f.enabled ? "بله" : "خیر", <button className={ghost} onClick={() => setFlag(f)}>{f.enabled ? "خاموش" : "روشن"}</button>])} />
+    <section className={`${box} overflow-hidden`}><h3 className="px-5 py-4 font-extrabold">تنظیمات پیشرفته سیستم <span className="text-xs font-normal text-[var(--mu)]">(مقدار به‌صورت JSON)</span></h3>{rawSettings.map(([k, v]) => <SettingRow key={k} k={k} v={v} save={save} />)}</section></div>;
 }
 
 function Audit({ api, toast }) {

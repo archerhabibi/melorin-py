@@ -23,8 +23,11 @@ P = PaymentStatus
 async def store_payment_settings(session: AsyncSession, store: Store, provider: str) -> dict:
     """Payment destination belongs to the Store (v1.1). Main store may fall back to legacy global settings."""
     cfg = await session.scalar(select(StorePaymentConfiguration).where(StorePaymentConfiguration.store_id == store.id, StorePaymentConfiguration.provider == provider))
-    if provider in {"external_gateway", "crypto", "telegram_stars"}:
-        validate_destination(provider, store.currency)
+    if provider in {"zarinpal", "external_gateway", "crypto", "telegram_stars"}:
+        try:
+            validate_destination(provider, store.currency)
+        except ValueError as exc:
+            raise AppError("PAYMENT_CURRENCY_UNSUPPORTED", "این درگاه با ارز فروشگاه سازگار نیست.", 400) from exc
     if cfg is not None:
         if not cfg.is_enabled:
             raise AppError("PAYMENT_METHOD_DISABLED", "این روش شارژ در این فروشگاه فعال نیست.", 400)
