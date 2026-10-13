@@ -11,9 +11,9 @@ const dur = (d) => (d % 30 === 0 && d >= 30 ? `${num(d / 30)} ماهه` : `${num
 const gb = (n) => (n ? `${num(n)} گیگ` : "نامحدود");
 const pct = (a, b) => (b > 0 ? Math.round(((a - b) / b) * 100) : null);
 
-const EMPTY = { code: "", name: "", description: "", category: "", duration_days: "30", unlimited_traffic: false, traffic_gb: "", unlimited_devices: true, max_devices: "", currency: "IRT", main_price: "", reseller_price: "", is_active: true, is_test: false };
-const fromProduct = (p) => ({ code: p.code, name: p.name, description: p.description || "", category: p.category || "", duration_days: String(p.duration_days), unlimited_traffic: !p.traffic_gb, traffic_gb: p.traffic_gb ? String(p.traffic_gb) : "", unlimited_devices: !p.max_devices, max_devices: p.max_devices ? String(p.max_devices) : "", currency: p.currency, main_price: String(p.main_price), reseller_price: String(p.reseller_price), is_active: p.is_active, is_test: !!p.is_test });
-const payload = (f) => ({ code: f.code.trim(), name: f.name.trim(), description: f.description.trim() || null, category: f.category.trim() || null, duration_days: +f.duration_days, traffic_gb: f.unlimited_traffic ? 0 : +f.traffic_gb, max_devices: f.unlimited_devices ? null : +f.max_devices, currency: f.currency, main_price: +f.main_price, reseller_price: +f.reseller_price, is_test: f.is_test });
+const EMPTY = { code: "", name: "", description: "", category: "", duration_days: "30", unlimited_traffic: false, traffic_gb: "", unlimited_devices: true, max_devices: "", currency: "IRT", main_price: "", reseller_price: "", is_active: true, is_test: false, default_panel_group_id: "" };
+const fromProduct = (p) => ({ code: p.code, name: p.name, description: p.description || "", category: p.category || "", duration_days: String(p.duration_days), unlimited_traffic: !p.traffic_gb, traffic_gb: p.traffic_gb ? String(p.traffic_gb) : "", unlimited_devices: !p.max_devices, max_devices: p.max_devices ? String(p.max_devices) : "", currency: p.currency, main_price: String(p.main_price), reseller_price: String(p.reseller_price), is_active: p.is_active, is_test: !!p.is_test, default_panel_group_id: p.default_panel_group_id || "" });
+const payload = (f) => ({ code: f.code.trim(), name: f.name.trim(), description: f.description.trim() || null, category: f.category.trim() || null, duration_days: +f.duration_days, traffic_gb: f.unlimited_traffic ? 0 : +f.traffic_gb, max_devices: f.unlimited_devices ? null : +f.max_devices, currency: f.currency, main_price: +f.main_price, reseller_price: +f.reseller_price, is_test: f.is_test, default_panel_group_id: f.default_panel_group_id || null });
 function validate(f) {
   const e = {};
   if (!/^[A-Za-z0-9_-]{2,50}$/.test(f.code.trim())) e.code = "کد ۲ تا ۵۰ نویسه؛ فقط حروف انگلیسی، عدد، - و _";
@@ -58,6 +58,8 @@ function ProductDrawer({ product, stores, call, toast, onClose, onSubmit }) {
   const edit = !!product;
   const [f, setF] = useState(() => (product ? fromProduct(product) : EMPTY)); const base = useRef(JSON.stringify(f));
   const [tried, setTried] = useState(false), [busy, setBusy] = useState(false), [srv, setSrv] = useState("");
+  const [groups, setGroups] = useState([]);
+  useEffect(() => { let on = true; call("/api/v1/admin/panel-groups").then((r) => (r.ok ? r.json() : [])).then((g) => { if (on) setGroups(Array.isArray(g) ? g : []); }).catch(() => {}); return () => { on = false; }; }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const set = (k) => (v) => { setSrv(""); setF((x) => ({ ...x, [k]: v })); };
   const err = useMemo(() => validate(f), [f]); const dirty = JSON.stringify(f) !== base.current;
   const submit = async () => { setTried(true); if (Object.keys(err).length) return; setBusy(true); const m = await onSubmit(payload(f), f.is_active, product); setBusy(false); if (m) setSrv(m); };
@@ -72,6 +74,14 @@ function ProductDrawer({ product, stores, call, toast, onClose, onSubmit }) {
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="دسته‌بندی" hint="اختیاری؛ برای گروه‌بندی در فروشگاه"><input className="inp" maxLength={100} value={f.category} onChange={(e) => set("category")(e.target.value)} /></Field>
         <Field label="توضیحات" hint="اختیاری"><input className="inp" value={f.description} onChange={(e) => set("description")(e.target.value)} /></Field>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="گروه پنل پیش‌فرض" hint="هسته برای همه‌ی کانال‌ها (ربات و سایت) از همین گروه اکانت می‌سازد؛ فقط گروه‌های فعال با انتخاب خودکار">
+          <select className="inp" value={f.default_panel_group_id} onChange={(e) => set("default_panel_group_id")(e.target.value)}>
+            <option value="">بدون گروه (انتخاب مستقیم سرور)</option>
+            {groups.filter((g) => g.id === f.default_panel_group_id || (g.is_enabled && g.selection_mode === "automatic")).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+          </select>
+        </Field>
       </div>
     </Section>
     <Section title={edit ? "مشخصات پلن" : "۲ · مشخصات پلن"}>

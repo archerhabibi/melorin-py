@@ -131,10 +131,20 @@ async def backup_status(_: AdminUser, session: Session):
 
 
 # ----- Catalog -----
+async def _check_default_group(session, group_id) -> None:
+    """A product's default group is applied by the core to every channel, so it must be usable without any choice by the buyer."""
+    group = await session.get(PanelGroup, group_id)
+    if not group: raise NotFound("گروه پنل")
+    if not group.is_enabled: raise AppError("DEFAULT_GROUP_DISABLED", "گروه پیش‌فرض محصول باید فعال باشد.", 422)
+    if group.selection_mode != "automatic":
+        raise AppError("DEFAULT_GROUP_MANUAL", "گروه پیش‌فرض محصول باید انتخاب خودکار باشد؛ ربات و سایت پنل را انتخاب نمی‌کنند.", 422)
+
+
 @router.post("/products", response_model=ProductOut, status_code=201)
 async def create_product(body: CreateProduct, admin: AdminUser, session: Session):
     if await session.scalar(select(Product.id).where(Product.code == body.code)):
         raise AppError("PRODUCT_CODE_EXISTS", "کد محصول تکراری است.", 409)
+    if body.default_panel_group_id is not None: await _check_default_group(session, body.default_panel_group_id)
     p = Product(**body.model_dump())
     session.add(p); await session.flush()
     main = await session.scalar(select(Store).where(Store.kind == "main", Store.status == "active"))
@@ -146,7 +156,7 @@ async def create_product(body: CreateProduct, admin: AdminUser, session: Session
             is_listed=True,
             customer_price=None,
         ))
-    audit.record(session, "product.created", actor_id=admin.id, actor_type="admin", entity_type="product", entity_id=p.id, data=body.model_dump())
+    audit.record(session, "product.created", actor_id=admin.id, actor_type="admin", entity_type="product", entity_id=p.id, data=body.model_dump(mode="json"))
     await session.commit()
     return p
 
@@ -160,13 +170,14 @@ async def list_products(_: AdminUser, session: Session):
 async def update_product(product_id: uuid.UUID, body: ProductPatch, admin: AdminUser, session: Session):
     p = await session.get(Product, product_id)
     if not p: raise NotFound("محصول")
-    before = {"main_price": p.main_price, "reseller_price": p.reseller_price, "duration_days": p.duration_days, "traffic_gb": p.traffic_gb, "is_active": p.is_active}
+    before = {"main_price": p.main_price, "reseller_price": p.reseller_price, "duration_days": p.duration_days, "traffic_gb": p.traffic_gb, "is_active": p.is_active, "default_panel_group_id": str(p.default_panel_group_id) if p.default_panel_group_id else None}
     # Explicit null clears these optional fields (e.g. "unlimited devices"); other fields ignore null.
-    changes = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None or k in {"max_devices", "description", "category"}}
+    changes = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None or k in {"max_devices", "description", "category", "default_panel_group_id"}}
+    if changes.get("default_panel_group_id") is not None: await _check_default_group(session, changes["default_panel_group_id"])
     if "code" in changes and changes["code"] != p.code and await session.scalar(select(Product.id).where(Product.code == changes["code"])):
         raise AppError("PRODUCT_CODE_EXISTS", "کد محصول تکراری است.", 409)
     for k, v in changes.items(): setattr(p, k, v)
-    audit.record(session, "product.updated", actor_id=admin.id, actor_type="admin", entity_type="product", entity_id=p.id, data={"before": before, "after": changes})
+    audit.record(session, "product.updated", actor_id=admin.id, actor_type="admin", entity_type="product", entity_id=p.id, data={"before": before, "after": {k: (str(v) if isinstance(v, uuid.UUID) else v) for k, v in changes.items()}})
     await session.commit(); return p
 
 
@@ -245,6 +256,12 @@ async def set_panel_state(panel_id: uuid.UUID, body: PanelState, admin: AdminUse
 @router.post("/servers", response_model=dict, status_code=201)
 async def create_server(body: CreateServer, admin: AdminUser, session: Session):
     if not await session.get(Panel, body.panel_id): raise NotFound("پنل")
+    codes = sorted({c.strip() for c in (body.product_codes or []) if c and c.strip()})
+    if codes:
+        known = set((await session.scalars(select(Product.code).where(Product.code.in_(codes)))).all())
+        unknown = [c for c in codes if c not in known]
+        if unknown: raise AppError("UNKNOWN_PRODUCT_CODES", "کد محصول نامعتبر است: " + "، ".join(unknown), 422)
+    body = body.model_copy(update={"product_codes": codes or None})
     s = Server(**body.model_dump()); session.add(s); await session.flush(); audit.record(session, "server.created", actor_id=admin.id, actor_type="admin", entity_type="server", entity_id=s.id); await session.commit(); return {"id": s.id}
 
 
@@ -285,6 +302,8 @@ async def create_panel_group(body: CreatePanelGroup, admin: AdminUser, session: 
 async def update_panel_group(panel_group_id: uuid.UUID, body: UpdatePanelGroup, admin: AdminUser, session: Session):
     b = await session.get(PanelGroup, panel_group_id)
     if not b: raise NotFound("گروه پنل")
+    if body.selection_mode == "manual" and b.selection_mode != "manual" and await session.scalar(select(func.count()).select_from(Product).where(Product.default_panel_group_id == b.id)):
+        raise AppError("DEFAULT_GROUP_IN_USE", "این گروه پیش‌فرض یک یا چند محصول است و نمی‌تواند دستی شود؛ ابتدا گروه پیش‌فرض آن محصولات را تغییر دهید.", 409)
     # Explicit null is meaningful only for sales_limit (= unlimited); other fields ignore null.
     for k, v in body.model_dump(exclude_unset=True, exclude={"panel_ids"}).items():
         if v is not None or k == "sales_limit": setattr(b, k, v)

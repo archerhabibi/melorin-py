@@ -18,6 +18,7 @@ class CreateProduct(BaseModel):
     reseller_price: int = Field(ge=0)
     currency: Literal["IRT", "USD", "USDT", "XTR"] = "IRT"
     is_test: bool = False
+    default_panel_group_id: uuid.UUID | None = None
 
 
 class ProductPatch(BaseModel):
@@ -33,6 +34,7 @@ class ProductPatch(BaseModel):
     currency: Literal["IRT", "USD", "USDT", "XTR"] | None = None
     is_test: bool | None = None
     is_active: bool | None = None
+    default_panel_group_id: uuid.UUID | None = None
 
 
 class ProductOut(CreateProduct):

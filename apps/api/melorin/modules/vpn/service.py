@@ -17,65 +17,14 @@ from melorin.modules.stores.models import Store
 from melorin.modules.system.models import OutboxEvent
 from melorin.modules.vpn.adapters.base import AccountSpec, ErrorKind, PanelError
 from melorin.modules.vpn.adapters.registry import build_adapter
+from melorin.modules.vpn.allocation import resolve_allocation
 from melorin.modules.vpn.models import Panel, ProvisioningAttempt, ReconciliationIssue, Server, VpnAccount
 from melorin.modules.vpn.panel_groups import PanelGroup, PanelGroupMember, StorePanelGroup, clean_custom_name
 
 
-async def choose_server(session: AsyncSession, product: Product, *, is_test: bool) -> tuple[Server, Panel] | None:
-    rows = (await session.execute(select(Server, Panel).join(Panel, Panel.id == Server.panel_id).where(Server.is_enabled.is_(True), Panel.is_enabled.is_(True), Server.allow_test.is_(True) if is_test else True))).all()
-    # Health is cached and maintained by health job. Unknown health is not eligible.
-    candidates = []
-    for server, panel in rows:
-        if panel.health_status != "healthy":
-            continue
-        if server.product_codes and product.code not in server.product_codes:
-            continue
-        active = await session.scalar(select(func.count()).select_from(VpnAccount).where(VpnAccount.server_id == server.id, VpnAccount.status.in_([VpnStatus.ACTIVE, VpnStatus.PROVISIONING]))) or 0
-        if active < server.capacity:
-            candidates.append((active, str(server.id), server, panel))
-    if not candidates:
-        return None
-    _, _, server, panel = min(candidates)
-    return server, panel
-
-
-async def choose_panel_group_panel(session, order, product):
-    """Resolve panel_group policy before normal server selection."""
-    if not order.panel_group_id:
-        return None
-    panel_group = await session.get(PanelGroup, order.panel_group_id, with_for_update=True)
-    if not panel_group or not panel_group.is_enabled:
-        raise PanelError(ErrorKind.PERMANENT, "گروه پنل انتخاب‌شده فعال نیست.")
-    if panel_group.sales_limit is not None and panel_group.sold_count >= panel_group.sales_limit:
-        raise PanelError(ErrorKind.PERMANENT, "ظرفیت فروش این گروه تکمیل شده است.")
-    if order.store_id:
-        access = await session.scalar(select(StorePanelGroup).where(StorePanelGroup.store_id == order.store_id, StorePanelGroup.panel_group_id == panel_group.id))
-        if access and not access.is_enabled:
-            raise PanelError(ErrorKind.PERMANENT, "این گروه برای فروشگاه فعال نیست.")
-    q = select(PanelGroupMember, Panel).join(Panel, Panel.id == PanelGroupMember.panel_id).where(
-        PanelGroupMember.panel_group_id == panel_group.id, PanelGroupMember.is_enabled.is_(True), Panel.is_enabled.is_(True), Panel.health_status == "healthy"
-    ).order_by(PanelGroupMember.sort, Panel.created_at)
-    rows = (await session.execute(q)).all()
-    candidates = []
-    for bp, panel in rows:
-        if bp.sales_limit is not None and bp.sold_count >= bp.sales_limit:
-            continue
-        if order.selected_panel_id and panel.id != order.selected_panel_id:
-            continue
-        active = await session.scalar(select(func.count()).select_from(VpnAccount).where(VpnAccount.panel_id == panel.id, VpnAccount.status == VpnStatus.ACTIVE)) or 0
-        candidates.append((active, bp.sort, str(panel.id), panel))
-    if not candidates:
-        raise PanelError(ErrorKind.PERMANENT, "هیچ پنل قابل فروشی در این گروه وجود ندارد.")
-    if panel_group.selection_mode == "manual" and not order.selected_panel_id:
-        raise PanelError(ErrorKind.PERMANENT, "برای این گروه باید پنل انتخاب شود.")
-    if panel_group.selection_mode == "automatic" and order.selected_panel_id:
-        raise PanelError(ErrorKind.PERMANENT, "در گروه انتخاب خودکار، انتخاب پنل مجاز نیست.")
-    return min(candidates)[3]
-
-
 async def _record_panel_group_sale(session, order, panel_id):
-    if not order.panel_group_id or order.kind == "renewal":
-        return
+    if not order.panel_group_id or order.kind in ("renewal", "test"):
+        return  # renewals reuse an account; test accounts never consume a group's sales quota
     panel_group = await session.get(PanelGroup, order.panel_group_id, with_for_update=True)
     if panel_group:
         panel_group.sold_count += 1
@@ -116,32 +65,21 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
     if not await flags.is_enabled(session, "provisioning", store_id=order.store_id):
         await session.commit()
         return "blocked"
-    # For an existing renewal account, use its panel. New accounts need server selection.
+    # Renewals keep their own panel. New accounts are placed by the single allocation core.
     account = await session.get(VpnAccount, order.vpn_account_id) if order.vpn_account_id else None
     if account and account.panel_id and account.server_id:
         panel = await session.get(Panel, account.panel_id)
         server = await session.get(Server, account.server_id)
     else:
         try:
-            group_panel = await choose_panel_group_panel(session, order, product)
+            server, panel, _group = await resolve_allocation(session, order, product)
         except PanelError as e:
             order.status = OrderStatus.MANUAL_REVIEW
             order.needs_review = True
             order.last_error = e.message
             await session.commit()
+            await events.emit(session, events.PROVISIONING_FAILED, {"order_id": order.id, "store_id": order.store_id}, dedup_key=f"prov_fail:{order.id}:{order.provisioning_attempts}:alloc")
             return "manual_review"
-        chosen = await choose_server(session, product, is_test=order.kind == "test")
-        if group_panel:
-            compatible = (await session.scalars(select(Server).where(Server.panel_id == group_panel.id, Server.is_enabled.is_(True)))).all()
-            chosen = (compatible[0], group_panel) if compatible else None
-        if not chosen:
-            order.status = OrderStatus.MANUAL_REVIEW
-            order.needs_review = True
-            order.last_error = "no healthy compatible server"
-            await session.commit()
-            await events.emit(session, events.PROVISIONING_FAILED, {"order_id": order.id, "store_id": order.store_id}, dedup_key=f"prov_fail:{order.id}:no_server")
-            return "manual_review"
-        server, panel = chosen
     order.provisioning_attempts += 1
     attempt = ProvisioningAttempt(order_id=order.id, vpn_account_id=account.id if account else None, attempt_no=order.provisioning_attempts, action="extend" if account else "create", status="running")
     session.add(attempt)

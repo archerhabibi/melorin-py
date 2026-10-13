@@ -24,6 +24,7 @@ class Product(IdMixin, TimestampMixin, Base):
     is_test: Mapped[bool] = mapped_column(Boolean, default=False)
     sort: Mapped[int] = mapped_column(Integer, default=0)
     archived_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    default_panel_group_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("panel_groups.id", ondelete="SET NULL"), index=True, nullable=True)
 
 
 class StoreProduct(IdMixin, TimestampMixin, Base):

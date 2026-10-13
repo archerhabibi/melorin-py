@@ -18,6 +18,7 @@ from melorin.modules.identity.models import User
 from melorin.modules.orders.models import Order, OrderStateTransition
 from melorin.modules.stores.models import ResellerProfile, Store
 from melorin.modules.system.models import TestAccountGrant
+from melorin.modules.vpn import allocation
 from melorin.modules.vpn.models import VpnAccount
 from melorin.modules.wallet import service as wallet
 
@@ -85,6 +86,12 @@ async def create_order(
             raise AppError("ACCOUNT_NOT_RENEWABLE", "این اکانت قابل تمدید نیست.", 409)
     elif kind != "purchase":
         raise AppError("BAD_ORDER_KIND", "نوع سفارش نامعتبر است.", 400)
+    else:
+        # Core rule for every channel (bot, website, ...): the product default group applies and an unusable
+        # group is rejected here, before any money moves, instead of becoming a paid order in manual review.
+        panel_group_id, selected_panel_id = await allocation.resolve_order_group(
+            session, store_id=store.id, product=product, panel_group_id=panel_group_id, selected_panel_id=selected_panel_id
+        )
 
     main = await main_store(session)
     unit = catalog.unit_price_of(store, product, sp)
@@ -212,7 +219,10 @@ async def create_test_order(session: AsyncSession, ctx: StoreContext, channel: s
         raise AppError("TEST_LIMIT", "سقف دریافت اکانت تست شما پر شده است.", 409)
     if grants and grants[0].created_at.replace(tzinfo=dt.UTC) > utcnow() - dt.timedelta(hours=cooldown):
         raise AppError("TEST_COOLDOWN", "هنوز امکان دریافت اکانت تست جدید نیست.", 409)
+    # Test accounts are placed by the same core rule as purchases (product default group, same eligibility).
+    panel_group_id, selected_panel_id = await allocation.resolve_order_group(session, store_id=ctx.store.id, product=product)
     order = Order(
+        panel_group_id=panel_group_id, selected_panel_id=selected_panel_id,
         number=new_order_number(), user_id=ctx.user.id, store_id=ctx.store.id, product_id=product.id, kind="test", status=S.PENDING,
         payment_method="free", channel=channel, currency=product.currency, unit_price=0, discount=0, total=0,
         pricing_snapshot={"test": True}, product_snapshot=catalog.product_snapshot(product), idempotency_key=f"test:{uuid.uuid4()}",
