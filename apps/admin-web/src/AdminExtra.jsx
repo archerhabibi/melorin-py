@@ -45,6 +45,30 @@ function Products({ api, toast }) {
     <Table title="محصولات VPN" cols={["کد", "نام", "مدت", "ترافیک", "قیمت", "وضعیت", ""]} rows={rows.map((p) => [p.code, p.name, `${p.duration_days} روز`, `${p.traffic_gb} GB`, `${money(p.main_price)} ${p.currency}`, p.is_active ? "فعال" : "غیرفعال", <button className={ghost} onClick={() => toggle(p)}>{p.is_active ? "غیرفعال‌سازی" : "فعال‌سازی"}</button>])} /></>;
 }
 
+function SalesBaskets({ api, toast }) {
+  const { rows, call, reload } = useList(api, "/api/v1/admin/sales-baskets", toast);
+  const panels = useList(api, "/api/v1/admin/panels", toast).rows;
+  const create = async (v, done) => {
+    const panel_ids = panels.filter((p) => (v.panels || "").split(",").map((x) => x.trim()).includes(String(p.id))).map((p) => p.id);
+    const r = await call("/api/v1/admin/sales-baskets", { method: "POST", body: JSON.stringify({
+      name: v.name, selection_mode: v.mode || "automatic", naming_mode: v.naming || "automatic",
+      sales_limit: v.limit ? +v.limit : null, panel_ids,
+    })});
+    if (r.ok) { toast("سبد فروش VPN ساخته شد"); done(); reload(); } else toast("ساخت سبد ناموفق بود");
+  };
+  const toggle = async (b) => {
+    const r = await call(`/api/v1/admin/sales-baskets/${b.id}`, { method: "PATCH", body: JSON.stringify({ is_enabled: !b.is_enabled }) });
+    r.ok ? reload() : toast("تغییر وضعیت ناموفق بود");
+  };
+  return <><Form label="افزودن سبد فروش VPN" onSubmit={create} fields={[
+    ["name", "نام سبد"], ["mode", "حالت انتخاب (automatic/manual)"], ["naming", "نام‌گذاری (automatic/custom)"],
+    ["limit", "سقف فروش", "number"], ["panels", "شناسه پنل‌ها، با کاما جدا"],
+  ]} /><Table title="سبدهای فروش VPN" cols={["نام", "انتخاب", "نام‌گذاری", "پنل‌ها", "فروش", "وضعیت", ""]} rows={rows.map((b) => [
+    b.name, b.selection_mode, b.naming_mode, b.panels?.length || 0, `${b.sold_count}/${b.sales_limit ?? "∞"}`,
+    b.is_enabled ? "فعال" : "غیرفعال", <button className={ghost} onClick={() => toggle(b)}>{b.is_enabled ? "غیرفعال‌سازی" : "فعال‌سازی"}</button>
+  ])} /></>;
+}
+
 function Coupons({ api, toast }) {
   const { rows, call, reload } = useList(api, "/api/v1/admin/coupons", toast);
   const stores = useList(api, "/api/v1/admin/stores", toast).rows;
@@ -214,4 +238,4 @@ function Tickets({ api, toast }) {
     <div className="mt-4 flex gap-2"><input className={inp} value={text} onChange={(e) => setText(e.target.value)} placeholder="پاسخ پشتیبانی…" /><button disabled={!text.trim()} className={btn} onClick={send}>ارسال</button></div></section>;
 }
 
-export const extraRoutes = { "سفارش‌ها": Orders, "پرداخت‌ها": Payments, "تیکت‌ها": Tickets, "محصولات VPN": Products, "پنل‌ها": PanelsView, "کوپن‌ها": Coupons, "تنظیمات": Settings, "ممیزی": Audit, "بررسی هویت": Reviews };
+export const extraRoutes = { "سفارش‌ها": Orders, "پرداخت‌ها": Payments, "تیکت‌ها": Tickets, "محصولات VPN": Products, "پنل‌ها": PanelsView, "سبدهای فروش VPN": SalesBaskets, "کوپن‌ها": Coupons, "تنظیمات": Settings, "ممیزی": Audit, "بررسی هویت": Reviews };

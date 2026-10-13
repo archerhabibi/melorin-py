@@ -1,7 +1,7 @@
 import uuid
 
 from fastapi import APIRouter
-from sqlalchemy import select
+from sqlalchemy import and_, select
 
 from melorin.core import audit
 from melorin.core.deps import OwnerCtx, Session, StoreCtx, main_store
@@ -11,6 +11,7 @@ from melorin.modules.catalog import service
 from melorin.modules.catalog.models import Coupon, CouponRedemption
 from melorin.modules.catalog.schemas import CatalogItem, CouponIn, CouponPatch, CouponValidateIn, QuoteRequest, QuoteWalletOut, StoreOut
 from melorin.modules.stores.models import Store
+from melorin.modules.vpn.baskets import SalesBasket, StoreSalesBasket, SalesBasketPanel
 from melorin.modules.wallet import service as wallet
 
 public = APIRouter(tags=["catalog"])
@@ -55,6 +56,23 @@ async def catalog(store_id: uuid.UUID, session: Session):
         )
         for p, sp in rows
     ]
+
+
+@public.get("/stores/{store_id}/sales-baskets")
+async def sales_baskets(store_id: uuid.UUID, session: Session):
+    store = await session.get(Store, store_id)
+    if not store or store.status != "active": raise NotFound("فروشگاه")
+    q = select(SalesBasket).where(SalesBasket.is_enabled.is_(True))
+    if store.kind == "reseller":
+        q = q.outerjoin(StoreSalesBasket, and_(StoreSalesBasket.basket_id == SalesBasket.id, StoreSalesBasket.store_id == store.id)).where(
+            SalesBasket.reseller_enabled.is_(True), (StoreSalesBasket.id.is_(None) | StoreSalesBasket.is_enabled.is_(True))
+        )
+    baskets = (await session.scalars(q.order_by(SalesBasket.created_at.desc()))).all()
+    result = []
+    for b in baskets:
+        panels = (await session.execute(select(SalesBasketPanel.panel_id).where(SalesBasketPanel.basket_id == b.id, SalesBasketPanel.is_enabled.is_(True)))).scalars().all()
+        result.append({"id": b.id, "name": b.name, "selection_mode": b.selection_mode, "naming_mode": b.naming_mode, "panels": panels, "sales_limit": b.sales_limit, "sold_count": b.sold_count})
+    return result
 
 
 async def _quote(session, ctx, product_id, code):

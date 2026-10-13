@@ -4,7 +4,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response, StreamingResponse
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 
 from melorin.core import audit, flags, settings_store
 from melorin.core.config import get_settings
@@ -28,6 +28,7 @@ from melorin.modules.system.models import AuditEvent, BackupRun, FeatureFlag, Sy
 from melorin.modules.webhooks import service as webhook_service
 from melorin.modules.tickets.models import Ticket
 from melorin.modules.vpn.models import Panel, Server, VpnAccount
+from melorin.modules.vpn.baskets import SalesBasket, SalesBasketPanel, StoreSalesBasket
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 router.include_router(integrations_router)
@@ -233,6 +234,66 @@ async def set_panel_state(panel_id: uuid.UUID, body: PanelState, admin: AdminUse
 async def create_server(body: CreateServer, admin: AdminUser, session: Session):
     if not await session.get(Panel, body.panel_id): raise NotFound("پنل")
     s = Server(**body.model_dump()); session.add(s); await session.flush(); audit.record(session, "server.created", actor_id=admin.id, actor_type="admin", entity_type="server", entity_id=s.id); await session.commit(); return {"id": s.id}
+
+
+def _basket_out(b, panels):
+    return {"id": b.id, "name": b.name, "selection_mode": b.selection_mode, "naming_mode": b.naming_mode,
+            "is_enabled": b.is_enabled, "reseller_enabled": b.reseller_enabled, "sales_limit": b.sales_limit,
+            "sold_count": b.sold_count, "panels": [{"id": p.id, "panel_id": p.panel_id, "is_enabled": p.is_enabled,
+            "sales_limit": p.sales_limit, "sold_count": p.sold_count, "sort": p.sort} for p in panels]}
+
+
+@router.get("/sales-baskets")
+async def list_sales_baskets(_: AdminUser, session: Session):
+    baskets = (await session.scalars(select(SalesBasket).order_by(SalesBasket.created_at.desc()))).all()
+    result = []
+    for b in baskets:
+        rows = (await session.scalars(select(SalesBasketPanel).where(SalesBasketPanel.basket_id == b.id).order_by(SalesBasketPanel.sort))).all()
+        result.append(_basket_out(b, rows))
+    return result
+
+
+@router.post("/sales-baskets", status_code=201)
+async def create_sales_basket(body: CreateSalesBasket, admin: AdminUser, session: Session):
+    if body.selection_mode == "manual" and not body.panel_ids:
+        raise AppError("BASKET_PANELS_REQUIRED", "سبد دستی باید حداقل یک پنل داشته باشد.", 400)
+    valid = (await session.scalars(select(Panel.id).where(Panel.id.in_(body.panel_ids)))).all()
+    if len(valid) != len(set(body.panel_ids)): raise NotFound("پنل سبد")
+    b = SalesBasket(name=body.name, selection_mode=body.selection_mode, naming_mode=body.naming_mode,
+                    is_enabled=body.is_enabled, reseller_enabled=body.reseller_enabled, sales_limit=body.sales_limit)
+    session.add(b); await session.flush()
+    for i, pid in enumerate(body.panel_ids): session.add(SalesBasketPanel(basket_id=b.id, panel_id=pid, sort=i))
+    audit.record(session, "sales_basket.created", actor_id=admin.id, actor_type="admin", entity_type="sales_basket", entity_id=b.id)
+    await session.commit()
+    rows = (await session.scalars(select(SalesBasketPanel).where(SalesBasketPanel.basket_id == b.id))).all()
+    return _basket_out(b, rows)
+
+
+@router.patch("/sales-baskets/{basket_id}")
+async def update_sales_basket(basket_id: uuid.UUID, body: UpdateSalesBasket, admin: AdminUser, session: Session):
+    b = await session.get(SalesBasket, basket_id)
+    if not b: raise NotFound("سبد فروش")
+    for k, v in body.model_dump(exclude_none=True, exclude={"panel_ids"}).items(): setattr(b, k, v)
+    if body.panel_ids is not None:
+        valid = (await session.scalars(select(Panel.id).where(Panel.id.in_(body.panel_ids)))).all()
+        if len(valid) != len(set(body.panel_ids)): raise NotFound("پنل سبد")
+        await session.execute(delete(SalesBasketPanel).where(SalesBasketPanel.basket_id == b.id))
+        for i, pid in enumerate(body.panel_ids): session.add(SalesBasketPanel(basket_id=b.id, panel_id=pid, sort=i))
+    audit.record(session, "sales_basket.updated", actor_id=admin.id, actor_type="admin", entity_type="sales_basket", entity_id=b.id)
+    await session.commit()
+    rows = (await session.scalars(select(SalesBasketPanel).where(SalesBasketPanel.basket_id == b.id).order_by(SalesBasketPanel.sort))).all()
+    return _basket_out(b, rows)
+
+
+@router.put("/sales-baskets/{basket_id}/stores/{store_id}")
+async def set_sales_basket_store(basket_id: uuid.UUID, store_id: uuid.UUID, body: dict, admin: AdminUser, session: Session):
+    if not await session.get(SalesBasket, basket_id) or not await session.get(Store, store_id): raise NotFound("سبد یا فروشگاه")
+    row = await session.scalar(select(StoreSalesBasket).where(StoreSalesBasket.basket_id == basket_id, StoreSalesBasket.store_id == store_id))
+    if not row:
+        row = StoreSalesBasket(basket_id=basket_id, store_id=store_id); session.add(row)
+    row.is_enabled = bool(body.get("is_enabled", True))
+    await session.commit()
+    return {"ok": True, "is_enabled": row.is_enabled}
 
 
 @router.post("/panels/{panel_id}/health")

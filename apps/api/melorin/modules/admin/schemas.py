@@ -111,6 +111,33 @@ class PanelState(BaseModel):
     is_enabled: bool
 
 
+class CreateSalesBasket(BaseModel):
+    name: str = Field(min_length=2, max_length=120)
+    selection_mode: str = Field(default="automatic", pattern="^(automatic|manual)$")
+    naming_mode: str = Field(default="automatic", pattern="^(automatic|custom)$")
+    is_enabled: bool = True
+    reseller_enabled: bool = True
+    sales_limit: int | None = Field(default=None, gt=0)
+    panel_ids: list[uuid.UUID] = Field(default_factory=list)
+
+
+class UpdateSalesBasket(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=120)
+    selection_mode: str | None = Field(default=None, pattern="^(automatic|manual)$")
+    naming_mode: str | None = Field(default=None, pattern="^(automatic|custom)$")
+    is_enabled: bool | None = None
+    reseller_enabled: bool | None = None
+    sales_limit: int | None = Field(default=None, gt=0)
+    panel_ids: list[uuid.UUID] | None = None
+
+
+class SalesBasketPanelInput(BaseModel):
+    panel_id: uuid.UUID
+    is_enabled: bool = True
+    sales_limit: int | None = Field(default=None, gt=0)
+    sort: int = 0
+
+
 class CreateServer(BaseModel):
     name: str
     panel_id: uuid.UUID
