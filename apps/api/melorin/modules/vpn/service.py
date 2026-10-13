@@ -121,6 +121,9 @@ async def _give_up(session: AsyncSession, order: Order, message: str) -> str:
         {"order_id": order_id, "store_id": store_id,
          "error": message, "auto_refund": True},
         dedup_key=f"prov_fail:{order_id}",
+        # Short delay: the worker reads the order's final state (refunded or
+        # not) to build the Telegram message, so the refund below must be done.
+        delay_seconds=10,
     )
     await session.commit()
 

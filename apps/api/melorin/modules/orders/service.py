@@ -311,11 +311,15 @@ async def _refund(
         {"order_id": order.id, "store_id": order.store_id},
         dedup_key=f"order_refunded:{order.id}",
     )
+    refund_body = (
+        f"ساخت اکانت سفارش {order.number} ناموفق بود و مبلغ آن به کیف پول شما برگشت داده شد."
+        if actor_type == "system"
+        else f"مبلغ سفارش {order.number} به کیف پول شما برگشت داده شد."
+    )
     await events.emit(
         session, events.NOTIFY,
         {"user_id": order.user_id, "store_id": order.store_id, "kind": "refund",
-         "title": "استرداد سفارش",
-         "body": f"مبلغ سفارش {order.number} به کیف پول شما برگشت داده شد."},
+         "title": "استرداد سفارش", "body": refund_body},
     )
     audit.record(
         session, "order.refunded",

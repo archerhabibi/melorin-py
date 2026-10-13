@@ -69,7 +69,7 @@ async def process_event(e: OutboxEvent):
             if e.topic == events.ORDER_PAID:
                 await vpn.provision_order(session, uuid.UUID(str(p["order_id"])))
             elif e.topic == events.PROVISIONING_FAILED:
-                await _notify(session, p, "provisioning_failed", "ساخت اکانت VPN نیازمند بررسی است.")
+                await _notify_admins_provisioning_failed(session, p)
                 await _webhook(session, "order.provisioning_failed", p, f"order.provisioning_failed:{p.get('order_id')}")
             elif e.topic == events.ORDER_COMPLETED:
                 from melorin.modules.referral.service import on_order_completed
@@ -144,6 +144,46 @@ async def _notify(session, p: dict, kind: str, title: str, body: str = ""):
         n.telegram_status = "failed"
         inc("melorin_notifications_total", channel="telegram", result="failed")
         raise
+
+
+async def _notify_admins_provisioning_failed(session, p: dict):
+    """Telegram alert to every active super admin that provisioning failed.
+
+    The outcome line is read from the order at send time (the event is emitted
+    with a short delay so the auto-refund has finished by then). Each admin has
+    their own dedup key, so an outbox retry never re-sends to admins who already
+    received the message.
+    """
+    from melorin.domain.order_state import OrderStatus
+
+    order_id = uuid.UUID(str(p["order_id"]))
+    order = await session.get(Order, order_id)
+    number = order.number if order else str(order_id)[:8]
+    if order and order.status == OrderStatus.REFUNDED:
+        outcome = "✅ مبلغ به‌صورت خودکار به کیف پول مشتری برگشت داده شد."
+    elif order and order.status in (OrderStatus.PROVISIONING_FAILED, OrderStatus.REFUND_PENDING):
+        outcome = "❌ بازگشت خودکار وجه انجام نشد؛ لطفاً سفارش را دستی بررسی کنید."
+    else:
+        outcome = ""
+    error = (p.get("error") or "نامشخص")[:300]
+    title = "⚠️ ساخت اکانت ناموفق بود"
+    body = f"سفارش: {number}\nخطا: {error}"
+    if outcome:
+        body += f"\n{outcome}"
+
+    admin_ids = (await session.scalars(select(User.id).where(User.is_super_admin.is_(True), User.is_active.is_(True)))).all()
+    errors: list[Exception] = []
+    for admin_id in admin_ids:
+        try:
+            await _notify(
+                session,
+                {"user_id": admin_id, "dedup_key": f"prov_fail_admin:{order_id}:{admin_id}"},
+                "provisioning_failed", title, body,
+            )
+        except Exception as ex:  # one unreachable admin must not block the others
+            errors.append(ex)
+    if errors:
+        raise errors[0]  # outbox retries; admins already marked "sent" are skipped via dedup
 
 
 async def _event_center(session, p: dict):
