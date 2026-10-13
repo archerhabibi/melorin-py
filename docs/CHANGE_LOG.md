@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-13 06:23 UTC - archerhabibi - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** Worker: periodic jobs accept the ARQ ctx argument - ARQ passes ctx positionally to every cron job; the zero-argument job functions would raise TypeError. Add `ctx=None` to all periodic jobs and a contract test. Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com> Claude-Session: https://claude…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `apps/api/melorin/worker/jobs.py`, `apps/api/tests/test_worker_cron_ctx_contract.py`
+- **Ref:** `86cc782`
+
+
 ### 2026-10-13 05:58 UTC - archerhabibi - admin-web, api, tests  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
