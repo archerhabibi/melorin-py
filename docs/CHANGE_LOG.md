@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-13 04:23 UTC - archerhabibi - admin-web, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** Admin: redesign products and panel-group views; editable products/groups - - New ProductsView / PanelGroupsView / shared kit in admin-web - PATCH /products: explicit null clears max_devices/description/category; duplicate code guard (PRODUCT_CODE_EXISTS) - PATCH /panel-groups: explicit null sales_l…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (7):** `apps/admin-web/src/AdminExtra.jsx`, `apps/admin-web/src/App.jsx`, `apps/admin-web/src/PanelGroupsView.jsx`, `apps/admin-web/src/ProductsView.jsx`, `apps/admin-web/src/kit.jsx`, `apps/api/melorin/modules/admin/router.py`, `apps/api/tests/test_m08_catalog_admin_edit_contract.py`
+- **Ref:** `e131b11`
+
+
 ### 2026-10-13 03:55 UTC - archerhabibi - admin-web, db, api  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
