@@ -29,7 +29,7 @@ async def _close_adapter(adapter) -> None:
         await result
 
 
-async def backup_job():
+async def backup_job(ctx=None):
     """Always write an encrypted LOCAL backup; also copy it to S3 when enabled in the Admin panel."""
     root = Path(os.getenv("MELORIN_PROJECT_ROOT", "/app"))
     script = root / "scripts" / "backup_secure.sh"
@@ -74,7 +74,7 @@ async def backup_job():
     return status
 
 
-async def panel_health_job():
+async def panel_health_job(ctx=None):
     async with session_factory()() as s:
         from melorin.modules.vpn.adapters.registry import build_adapter
         panels = (await s.scalars(select(Panel).where(Panel.is_enabled.is_(True)))).all()
@@ -96,7 +96,7 @@ async def panel_health_job():
         await s.commit()
 
 
-async def expiry_job():
+async def expiry_job(ctx=None):
     async with session_factory()() as s:
         now = utcnow()
         accounts = (await s.scalars(select(VpnAccount).where(VpnAccount.status == "active", VpnAccount.expires_at.is_not(None), VpnAccount.expires_at <= now))).all()
@@ -106,7 +106,7 @@ async def expiry_job():
         await s.commit()
 
 
-async def near_expiry_job():
+async def near_expiry_job(ctx=None):
     async with session_factory()() as s:
         hours = int(await settings_store.get(s, "vpn.near_expiry_hours") or 48)
         now, end = utcnow(), utcnow() + dt.timedelta(hours=hours)
@@ -117,14 +117,14 @@ async def near_expiry_job():
         await s.commit()
 
 
-async def reconciliation_job():
+async def reconciliation_job(ctx=None):
     async with session_factory()() as s:
         rows = (await s.scalars(select(VpnAccount.id).where(VpnAccount.status.in_(["active", "suspended"])).limit(500))).all()
         for id in rows:
             await service.reconcile(s, id)
 
 
-async def privacy_retention_job():
+async def privacy_retention_job(ctx=None):
     """Remove expired authentication codes while preserving financial/audit data."""
     async with session_factory()() as s:
         days = int(await settings_store.get(s, "privacy.verification_code_retention_days") or 7)
