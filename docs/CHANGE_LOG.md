@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-13 23:16 UTC - archerhabibi - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(worker): Telegram alert to admins when provisioning fails - - PROVISIONING_FAILED now sends a Telegram message to every active super admin (via the main bot) with order number, error and refund outcome. The previous _notify call had no user_id and was a silent no-op. - Per-admin dedup keys: ou…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (4):** `apps/api/melorin/modules/orders/service.py`, `apps/api/melorin/modules/vpn/service.py`, `apps/api/melorin/worker/runner.py`, `apps/api/tests/test_provisioning_failed_telegram.py`
+- **Ref:** `7db5455`
+
+
 ### 2026-10-13 23:05 UTC - archerhabibi - db, api, tests  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
