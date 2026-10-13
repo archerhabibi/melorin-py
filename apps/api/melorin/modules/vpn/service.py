@@ -41,6 +41,107 @@ async def enqueue(session: AsyncSession, order: Order, *, delay: float = 0) -> N
     await events.emit(session, events.ORDER_PAID, {"order_id": order.id}, dedup_key=f"provision:{order.id}:{order.provisioning_attempts}", delay_seconds=delay)
 
 
+
+# ---------------------------------------------------------------------------
+# Provisioning policy: 1 initial attempt + 3 automatic retries (5s, 7s, 10s).
+# On exhaustion -> immediate auto-refund.  Admin is ONLY notified, never
+# asked to intervene manually.
+# ---------------------------------------------------------------------------
+_DEFAULT_MAX_ATTEMPTS = 4        # 1 initial + 3 retries
+_DEFAULT_BACKOFF      = [5, 7, 10]  # seconds before attempt 2, 3, 4
+
+
+async def _fail(
+    session: AsyncSession,
+    order: Order,
+    message: str,
+    *,
+    account: VpnAccount | None = None,
+) -> str:
+    """Handle a provisioning failure for *order*.
+
+    - Retries remain  : mark PROCESSING, schedule a delayed re-enqueue.
+    - Retries exhausted: call _give_up() -> auto-refund + admin notify.
+
+    Returns: 'retry_scheduled' | 'refunded' | 'refund_failed'
+    """
+    max_attempts = int(
+        await settings_store.get(session, "provisioning.max_attempts")
+        or _DEFAULT_MAX_ATTEMPTS
+    )
+    delays = (
+        await settings_store.get(session, "provisioning.backoff_seconds")
+        or _DEFAULT_BACKOFF
+    )
+    order.last_error = message
+
+    # If a stub VpnAccount was created but the panel call failed before
+    # returning a panel_ref, archive it so the next attempt starts fresh.
+    if (
+        account is not None
+        and account.status == VpnStatus.PROVISIONING
+        and account.panel_ref is None
+    ):
+        account.status = VpnStatus.ARCHIVED
+        # Mangle the username so UNIQUE does not block the next attempt.
+        account.username = account.username[:55] + "_r" + str(order.provisioning_attempts)
+
+    if order.provisioning_attempts < max_attempts:
+        delay_idx = min(order.provisioning_attempts - 1, len(delays) - 1)
+        delay     = float(delays[delay_idx])
+        order.status = OrderStatus.PROCESSING
+        await session.commit()
+        await enqueue(session, order, delay=delay)
+        return "retry_scheduled"
+
+    return await _give_up(session, order, message)
+
+
+async def _give_up(session: AsyncSession, order: Order, message: str) -> str:
+    """All retries exhausted: auto-refund immediately and notify admins via outbox.
+
+    Admin is NOT expected to intervene; they receive an informational
+    PROVISIONING_FAILED event. The customer money is returned automatically.
+    """
+    from melorin.modules.orders import service as order_service  # lazy - avoids circular import
+
+    # Capture plain values: after a rollback the ORM instance is expired and
+    # touching it in async code would raise MissingGreenlet.
+    order_id, store_id = order.id, order.store_id
+
+    order.status       = OrderStatus.PROVISIONING_FAILED
+    order.needs_review = True       # kept for audit trail; no human action needed
+    order.last_error   = message
+
+    # Notify admins via outbox (informational only, no action required).
+    # Committed together with the status change, BEFORE the refund attempt,
+    # so a refund failure can never swallow the alert.
+    await events.emit(
+        session, events.PROVISIONING_FAILED,
+        {"order_id": order_id, "store_id": store_id,
+         "error": message, "auto_refund": True},
+        dedup_key=f"prov_fail:{order_id}",
+    )
+    await session.commit()
+
+    # Immediate system refund - no admin required
+    try:
+        await order_service.auto_refund(session, order_id, reason=message)
+    except Exception as exc:  # noqa: BLE001
+        # Refund failed (bad state, ledger error, ...). Drop the partial
+        # refund work, then persist an audit record so it is visible.
+        await session.rollback()
+        audit.record(
+            session, "provisioning.auto_refund_failed",
+            actor_type="system", entity_type="order", entity_id=order_id,
+            store_id=store_id, data={"reason": str(exc)},
+        )
+        await session.commit()
+        return "refund_failed"
+
+    return "refunded"
+
+
 async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
     """Called by worker. Claims order with row lock, calls panel outside DB transaction, reconciles result."""
     order = await session.get(Order, order_id, with_for_update=True, populate_existing=True)
@@ -74,12 +175,10 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
         try:
             server, panel, _group = await resolve_allocation(session, order, product)
         except PanelError as e:
-            order.status = OrderStatus.MANUAL_REVIEW
-            order.needs_review = True
-            order.last_error = e.message
-            await session.commit()
-            await events.emit(session, events.PROVISIONING_FAILED, {"order_id": order.id, "store_id": order.store_id}, dedup_key=f"prov_fail:{order.id}:{order.provisioning_attempts}:alloc")
-            return "manual_review"
+            # Allocation failure (no panel/server available).
+            # Retry like any transient failure; auto-refund when retries exhausted.
+            order.provisioning_attempts += 1
+            return await _fail(session, order, e.message)
     order.provisioning_attempts += 1
     attempt = ProvisioningAttempt(order_id=order.id, vpn_account_id=account.id if account else None, attempt_no=order.provisioning_attempts, action="extend" if account else "create", status="running")
     session.add(attempt)
@@ -112,45 +211,52 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
             await session.flush()
             pa = await adapter.create_account(AccountSpec(account.username, expire, traffic, product.max_devices, order.number))
     except PanelError as e:
-        attempt.status, attempt.error_kind, attempt.error, attempt.finished_at = "failed", e.kind, e.message, utcnow()
-        order.last_error = e.message
+        attempt.status, attempt.error_kind, attempt.error, attempt.finished_at = (
+            "failed", e.kind, e.message, utcnow()
+        )
         if e.kind == ErrorKind.UNKNOWN:
-            # A timeout does not mean the panel rejected the write. Read back
-            # before marking manual review, otherwise retries can duplicate.
+            # A timeout does NOT mean the panel rejected the write. Read back
+            # before giving up to avoid duplicating accounts on retry.
             try:
-                remote = await adapter.get_account(account.username if account else username(order))
+                remote = await adapter.get_account(
+                    account.username if account else username(order)
+                )
             except PanelError:
                 remote = None
             if remote:
+                # The panel actually succeeded despite the timeout - reconcile.
                 if account is None:
-                    account = VpnAccount(username=remote.username, user_id=order.user_id, store_id=order.store_id, order_id=order.id, product_id=order.product_id, server_id=server.id, panel_id=panel.id)
+                    account = VpnAccount(
+                        username=remote.username, user_id=order.user_id,
+                        store_id=order.store_id, order_id=order.id,
+                        product_id=order.product_id, server_id=server.id, panel_id=panel.id,
+                    )
                     session.add(account)
-                account.panel_ref, account.status = remote.ref, VpnStatus.ACTIVE
-                account.expires_at, account.traffic_limit_bytes, account.traffic_used_bytes = remote.expire_at, remote.traffic_limit_bytes, remote.traffic_used_bytes
-                account.subscription_url, account.links = remote.subscription_url, remote.links
-                attempt.vpn_account_id, attempt.status = account.id, "succeeded"
-                order.vpn_account_id, order.status, order.completed_at = account.id, OrderStatus.COMPLETED, utcnow()
-                order.last_error, order.needs_review = None, False
-                await events.emit(session, events.ORDER_COMPLETED, {"order_id": order.id, "vpn_account_id": account.id, "store_id": order.store_id}, dedup_key=f"order_completed:{order.id}")
+                account.panel_ref, account.status          = remote.ref, VpnStatus.ACTIVE
+                account.expires_at                         = remote.expire_at
+                account.traffic_limit_bytes                = remote.traffic_limit_bytes
+                account.traffic_used_bytes                 = remote.traffic_used_bytes
+                account.subscription_url, account.links   = remote.subscription_url, remote.links
+                attempt.vpn_account_id, attempt.status    = account.id, "succeeded"
+                order.vpn_account_id                      = account.id
+                order.status, order.completed_at          = OrderStatus.COMPLETED, utcnow()
+                order.last_error, order.needs_review       = None, False
+                await events.emit(
+                    session, events.ORDER_COMPLETED,
+                    {"order_id": order.id, "vpn_account_id": account.id, "store_id": order.store_id},
+                    dedup_key=f"order_completed:{order.id}",
+                )
                 await session.commit()
                 return "completed_after_reconcile"
-        max_attempts = int(await settings_store.get(session, "provisioning.max_attempts") or 5)
-        if e.kind == ErrorKind.TRANSIENT and order.provisioning_attempts < max_attempts:
-            order.status = OrderStatus.PROCESSING
-            backoff = (await settings_store.get(session, "provisioning.backoff_seconds") or [15, 60, 300, 900, 1800])[min(order.provisioning_attempts - 1, 4)]
-            await session.commit()
-            await enqueue(session, order, delay=float(backoff))
-        else:
-            order.status, order.needs_review = OrderStatus.PROVISIONING_FAILED, True
-            await session.commit()
-            await events.emit(session, events.PROVISIONING_FAILED, {"order_id": order.id, "store_id": order.store_id, "error": e.message}, dedup_key=f"prov_fail:{order.id}")
-        return "failed"
+        # Both TRANSIENT and unreconciled UNKNOWN errors feed the same
+        # retry/give-up logic. _fail() schedules the next attempt or
+        # triggers an immediate auto-refund when retries are exhausted.
+        # Admin is only notified, never asked to intervene manually.
+        return await _fail(session, order, e.message, account=account)
     except Exception as e:
-        attempt.status, attempt.error_kind, attempt.error, attempt.finished_at = "failed", ErrorKind.UNKNOWN, str(e), utcnow()
-        order.status, order.needs_review, order.last_error = OrderStatus.PROVISIONING_FAILED, True, str(e)
-        await session.commit()
-        await events.emit(session, events.PROVISIONING_FAILED, {"order_id": order.id, "store_id": order.store_id}, dedup_key=f"prov_fail:{order.id}")
-        return "failed"
+        attempt.status = "failed"
+        attempt.error_kind, attempt.error, attempt.finished_at = ErrorKind.UNKNOWN, str(e), utcnow()
+        return await _fail(session, order, str(e), account=account)
 
     account.server_id, account.panel_id, account.panel_ref = server.id, panel.id, pa.ref
     account.status = VpnStatus.ACTIVE

@@ -423,7 +423,7 @@ async def stores(_: AdminUser, session: Session):
 async def tickets(_: AdminUser, session: Session):
     from melorin.modules.tickets.models import Ticket
     rows = (await session.scalars(select(Ticket).order_by(Ticket.updated_at.desc()).limit(500))).all()
-    return [{"id": t.id, "user_id": t.user_id, "store_id": t.store_id, "subject": t.subject, "status": t.status, "updated_at": t.updated_at} for t in rows]
+    return [{"id": t.id, "number": t.number, "user_id": t.user_id, "store_id": t.store_id, "subject": t.subject, "status": t.status, "updated_at": t.updated_at} for t in rows]
 
 
 @router.get("/vpn-accounts", response_model=list[dict])

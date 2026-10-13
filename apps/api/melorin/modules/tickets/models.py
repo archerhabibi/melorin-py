@@ -10,6 +10,7 @@ class Ticket(IdMixin, TimestampMixin, Base):
     __tablename__ = "tickets"
     user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"), index=True)
     store_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("stores.id"), index=True)
+    number: Mapped[str] = mapped_column(String(6), unique=True, index=True)
     subject: Mapped[str] = mapped_column(String(200))
     status: Mapped[str] = mapped_column(String(20), default="open", index=True)  # open|answered|closed
     department: Mapped[str | None] = mapped_column(String(50))  # future multi-department

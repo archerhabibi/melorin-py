@@ -1,13 +1,12 @@
 """Order use cases. Financial mutations happen in one DB transaction; Panel calls never do."""
 import datetime as dt
-import secrets
 import uuid
 
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from melorin.core import audit, events, flags, settings_store
+from melorin.core import audit, codes, events, flags, settings_store
 from melorin.core.deps import StoreContext, main_store
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError
@@ -23,10 +22,6 @@ from melorin.modules.vpn.models import VpnAccount
 from melorin.modules.wallet import service as wallet
 
 S = OrderStatus
-
-
-def new_order_number() -> str:
-    return "M" + utcnow().strftime("%y%m%d") + secrets.token_hex(3).upper()
 
 
 async def transition(session: AsyncSession, order: Order, to: OrderStatus, *, reason: str | None = None, actor_id=None) -> None:
@@ -101,7 +96,7 @@ async def create_order(
     if kind == "renewal" and account:
         snapshot["renewal_before"] = {"expires_at": account.expires_at.isoformat() if account.expires_at else None, "traffic_limit_bytes": account.traffic_limit_bytes}
     order = Order(
-        number=new_order_number(), user_id=user.id, store_id=store.id, product_id=product.id, kind=kind,
+        number=await codes.next_code(session, codes.ORDER_SEQ), user_id=user.id, store_id=store.id, product_id=product.id, kind=kind,
         vpn_account_id=account.id if account else None, status=S.PENDING, payment_method="wallet", channel=channel,
         currency=q.currency, unit_price=q.unit_price, discount=q.discount, total=q.total, reseller_cost=q.reseller_cost,
         coupon_code=q.coupon_code, pricing_snapshot=snapshot, product_snapshot=catalog.product_snapshot(product),
@@ -223,7 +218,7 @@ async def create_test_order(session: AsyncSession, ctx: StoreContext, channel: s
     panel_group_id, selected_panel_id = await allocation.resolve_order_group(session, store_id=ctx.store.id, product=product)
     order = Order(
         panel_group_id=panel_group_id, selected_panel_id=selected_panel_id,
-        number=new_order_number(), user_id=ctx.user.id, store_id=ctx.store.id, product_id=product.id, kind="test", status=S.PENDING,
+        number=await codes.next_code(session, codes.ORDER_SEQ), user_id=ctx.user.id, store_id=ctx.store.id, product_id=product.id, kind="test", status=S.PENDING,
         payment_method="free", channel=channel, currency=product.currency, unit_price=0, discount=0, total=0,
         pricing_snapshot={"test": True}, product_snapshot=catalog.product_snapshot(product), idempotency_key=f"test:{uuid.uuid4()}",
     )
@@ -264,36 +259,86 @@ async def admin_mark_review(session: AsyncSession, order: Order, admin: User, no
     await session.commit()
 
 
-async def refund(session: AsyncSession, order: Order, admin: User, reason: str | None) -> None:
-    """Refund = compensating ledger transaction back to the customer's wallet (+ reseller credit restored)."""
-    order = await session.get(Order, order.id, with_for_update=True, populate_existing=True)
-    # The row lock makes refund a single-writer operation. A repeated request
-    # is intentionally a successful no-op, never a second ledger reversal.
+async def _refund(
+    session: AsyncSession,
+    order_id: uuid.UUID,
+    *,
+    actor_id,           # None for system-triggered refunds
+    actor_type: str,    # "admin" | "system"
+    reason: str | None,
+) -> None:
+    """Internal single-writer compensating ledger reversal. Idempotent on repeated calls."""
+    order = await session.get(Order, order_id, with_for_update=True, populate_existing=True)
+    if not order:
+        return
     if order.status == S.REFUNDED:
         return
     if order.status not in REFUNDABLE:
         raise AppError("INVALID_ORDER_STATE", "این سفارش قابل استرداد نیست.", 409)
-    await transition(session, order, S.REFUND_PENDING, reason=reason, actor_id=admin.id)
+    await transition(session, order, S.REFUND_PENDING, reason=reason, actor_id=actor_id)
     tx = await wallet.find_tx(session, f"order:{order.id}:payment")
     if tx:
-        await wallet.reverse(session, tx, key=f"order:{order.id}:refund", kind="refund", actor_id=admin.id, memo=f"استرداد سفارش {order.number}")
+        await wallet.reverse(
+            session, tx,
+            key=f"order:{order.id}:refund", kind="refund",
+            actor_id=actor_id, memo=f"استرداد سفارش {order.number}",
+        )
     cost_tx = await wallet.find_tx(session, f"order:{order.id}:reseller_cost")
     if cost_tx:
-        await wallet.reverse(session, cost_tx, key=f"order:{order.id}:reseller_cost_refund", kind="reseller_cost_refund", actor_id=admin.id, memo=f"برگشت هزینه نمایندگی {order.number}")
+        await wallet.reverse(
+            session, cost_tx,
+            key=f"order:{order.id}:reseller_cost_refund", kind="reseller_cost_refund",
+            actor_id=actor_id, memo=f"برگشت هزینه نمایندگی {order.number}",
+        )
     await catalog.release_redemption(session, order.id)
-    await transition(session, order, S.REFUNDED, reason=reason, actor_id=admin.id)
-    # Renewals keep the original account's order_id, so use the snapshot
-    # pointer on the renewal order instead of searching by order_id.
-    acc = await session.get(VpnAccount, order.vpn_account_id) if order.vpn_account_id else await session.scalar(select(VpnAccount).where(VpnAccount.order_id == order.id))
+    await transition(session, order, S.REFUNDED, reason=reason, actor_id=actor_id)
+    acc = (
+        await session.get(VpnAccount, order.vpn_account_id)
+        if order.vpn_account_id
+        else await session.scalar(select(VpnAccount).where(VpnAccount.order_id == order.id))
+    )
     if acc and acc.status not in (VpnStatus.REVOKED, VpnStatus.ARCHIVED):
         if order.kind == "renewal" and (order.pricing_snapshot or {}).get("renewal_before"):
-            await events.emit(session, events.VPN_RENEWAL_ROLLBACK, {"vpn_account_id": acc.id, "before": order.pricing_snapshot["renewal_before"]}, dedup_key=f"renewal_rollback:{order.id}")
+            await events.emit(
+                session, events.VPN_RENEWAL_ROLLBACK,
+                {"vpn_account_id": acc.id, "before": order.pricing_snapshot["renewal_before"]},
+                dedup_key=f"renewal_rollback:{order.id}",
+            )
         else:
             await events.emit(session, events.VPN_REVOKE, {"vpn_account_id": acc.id})
-    await events.emit(session, events.ORDER_REFUNDED, {"order_id": order.id, "store_id": order.store_id}, dedup_key=f"order_refunded:{order.id}")
-    await events.emit(session, events.NOTIFY, {"user_id": order.user_id, "store_id": order.store_id, "kind": "refund", "title": "استرداد سفارش", "body": f"مبلغ سفارش {order.number} به کیف پول شما برگشت داده شد."})
-    audit.record(session, "order.refunded", actor_id=admin.id, actor_type="admin", entity_type="order", entity_id=order.id, store_id=order.store_id, data={"reason": reason, "total": order.total})
+    await events.emit(
+        session, events.ORDER_REFUNDED,
+        {"order_id": order.id, "store_id": order.store_id},
+        dedup_key=f"order_refunded:{order.id}",
+    )
+    await events.emit(
+        session, events.NOTIFY,
+        {"user_id": order.user_id, "store_id": order.store_id, "kind": "refund",
+         "title": "استرداد سفارش",
+         "body": f"مبلغ سفارش {order.number} به کیف پول شما برگشت داده شد."},
+    )
+    audit.record(
+        session, "order.refunded",
+        actor_id=actor_id, actor_type=actor_type,
+        entity_type="order", entity_id=order.id,
+        store_id=order.store_id,
+        data={"reason": reason, "total": order.total},
+    )
     await session.commit()
+
+
+async def refund(session: AsyncSession, order: Order, admin: User, reason: str | None) -> None:
+    """Admin-triggered refund. Delegates to _refund() with the admin as actor."""
+    await _refund(session, order.id, actor_id=admin.id, actor_type="admin", reason=reason)
+
+
+async def auto_refund(session: AsyncSession, order_id: uuid.UUID, *, reason: str | None) -> None:
+    """System-triggered refund after all provisioning retries are exhausted.
+
+    No admin action is required; the system is the actor. Admin notification
+    is emitted before this call (by vpn.service._give_up) via PROVISIONING_FAILED.
+    """
+    await _refund(session, order_id, actor_id=None, actor_type="system", reason=reason)
 
 
 async def count_by_status(session: AsyncSession, store_id=None) -> dict[str, int]:

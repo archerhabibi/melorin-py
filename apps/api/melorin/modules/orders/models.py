@@ -10,7 +10,7 @@ from melorin.core.db import Base, CreatedMixin, IdMixin, TimestampMixin
 class Order(IdMixin, TimestampMixin, Base):
     __tablename__ = "orders"
     __table_args__ = (UniqueConstraint("user_id", "store_id", "idempotency_key"),)
-    number: Mapped[str] = mapped_column(String(20), unique=True)
+    number: Mapped[str] = mapped_column(String(6), unique=True)
     user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"), index=True)
     store_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("stores.id"), index=True)
     product_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("products.id"), index=True)

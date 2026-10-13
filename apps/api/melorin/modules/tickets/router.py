@@ -3,7 +3,7 @@ import uuid
 from fastapi import APIRouter
 from sqlalchemy import select
 
-from melorin.core import audit, events
+from melorin.core import audit, codes, events
 from melorin.core.deps import CurrentUser, Session, StoreCtx
 from melorin.core.errors import NotFound
 from melorin.modules.tickets.models import Ticket, TicketMessage
@@ -13,12 +13,14 @@ router = APIRouter(tags=["tickets"])
 
 
 def tout(t):
-    return TicketOut(id=t.id, store_id=t.store_id, subject=t.subject, status=t.status, created_at=t.created_at, updated_at=t.updated_at)
+    return TicketOut(id=t.id, store_id=t.store_id, number=t.number, subject=t.subject, status=t.status, created_at=t.created_at, updated_at=t.updated_at)
 
 
 @router.post("/stores/{store_id}/tickets", response_model=TicketOut, status_code=201)
 async def create(body: CreateTicket, ctx: StoreCtx, session: Session):
-    t = Ticket(user_id=ctx.user.id, store_id=ctx.store.id, subject=body.subject, status="open")
+    # number is NOT NULL: generate it before the INSERT is flushed.
+    number = await codes.next_code(session, codes.TICKET_SEQ)
+    t = Ticket(user_id=ctx.user.id, store_id=ctx.store.id, number=number, subject=body.subject, status="open")
     session.add(t)
     await session.flush()
     session.add(TicketMessage(ticket_id=t.id, author_id=ctx.user.id, is_staff=False, body=body.body))

@@ -11,8 +11,8 @@ DEFAULTS: dict[str, object] = {
     "test.product_code": "TEST",
     "test.max_per_user": 1,
     "test.cooldown_hours": 720,
-    "provisioning.max_attempts": 5,
-    "provisioning.backoff_seconds": [15, 60, 300, 900, 1800],
+    "provisioning.max_attempts": 4,   # 1 initial + 3 retries
+    "provisioning.backoff_seconds": [5, 7, 10],             # seconds before retry 2, 3, 4
     "card.info": {"card_number": "", "holder": "", "bank": ""},
     "debt.near_ratio": 0.8,
     "vpn.near_expiry_hours": 48,

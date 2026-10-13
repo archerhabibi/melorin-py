@@ -16,6 +16,7 @@ class AddMessage(BaseModel):
 class TicketOut(BaseModel):
     id: uuid.UUID
     store_id: uuid.UUID
+    number: str | None = None  # 6-char short code; None on pre-migration rows
     subject: str
     status: str
     created_at: dt.datetime
