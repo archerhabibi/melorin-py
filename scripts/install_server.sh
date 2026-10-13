@@ -12,7 +12,7 @@ set -euo pipefail
 
 REPO_URL="${REPO_URL:-https://github.com/archerhabibi/melorin-py.git}"
 # Pin production installs to a reviewed commit; override only during a deliberate release.
-REPO_REF="${REPO_REF:-21ec341}"
+REPO_REF="${REPO_REF:-9d8d4e0}"
 APP_DIR="${APP_DIR:-/opt/melorin}"
 DOMAIN="${DOMAIN:?set DOMAIN, e.g. shop.example.com}"
 ADMIN_DOMAIN="${ADMIN_DOMAIN:?set ADMIN_DOMAIN, e.g. admin.example.com}"
