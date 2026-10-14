@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-14 00:14 UTC - Claude - admin-web, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(admin): redesign panels & servers (servers tab, PATCH/state/list endpoints, tests)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (7):** `apps/admin-web/src/PanelsView.jsx`, `apps/admin-web/src/ServerForm.jsx`, `apps/admin-web/src/ServersView.jsx`, `apps/api/melorin/modules/admin/router.py`, `apps/api/melorin/modules/admin/schemas.py`, `apps/api/tests/test_server_admin_management.py`, `apps/api/tests/test_server_admin_ui_contract.py`
+- **Ref:** `799d551`
+
+
 ### 2026-10-13 23:46 UTC - archerhabibi - tests, bot  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
