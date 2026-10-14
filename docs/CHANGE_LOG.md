@@ -36,6 +36,31 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-14 22:50 UTC - Claude - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(api): GET /admin/products/{id}/availability so the admin form loads stored store state - Matches the request merge4pages.patch's ProductsView already sends; previously only POST existed.
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `apps/api/melorin/modules/admin/router.py`, `apps/api/tests/test_m08_catalog_admin_edit_contract.py`
+- **Ref:** `8c500e7`
+
+### 2026-10-14 22:43 UTC - Claude - admin-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(admin-web): ProductsView — restore declarations swallowed by trailing // comments - 'const { call, idx } = infra' and the filter/layout/drawer/busy useState line were accidentally inside line comments (since 9677157), so 'call', 'idx', 'filter', 'layout', 'drawer', 'busy' were undefined at runt…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `apps/admin-web/src/ProductsView.jsx`
+- **Ref:** `c3aba54`
+
+### 2026-10-14 22:43 UTC - Claude - admin-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(admin-web): merge panels+servers view, shared capTone/ChipList helpers, store-availability load (merge4pages.patch) - Applied merge4pages.patch on current main. Manual conflict resolution: - PanelGroupsView/ServersView: import lines rebased onto the Paginator/RefreshCw imports added in 3dba98c…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (6):** `apps/admin-web/src/App.jsx`, `apps/admin-web/src/PanelGroupsView.jsx`, `apps/admin-web/src/PanelsView.jsx`, `apps/admin-web/src/ProductsView.jsx`, `apps/admin-web/src/ServersView.jsx`, `apps/admin-web/src/kit.jsx`
+- **Ref:** `bef9266`
+
+
 ### 2026-10-14 22:13 UTC - Claude - admin-web  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
