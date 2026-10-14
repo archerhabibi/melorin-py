@@ -5,6 +5,7 @@ import { Badge, confirmDialog, dt, isStatus, promptDialog } from "./ui.jsx";
 import PanelsView from "./PanelsView.jsx";
 import ProductsView from "./ProductsView.jsx";
 import PanelGroupsView from "./PanelGroupsView.jsx";
+import TicketsView from "./TicketsView.jsx";
 const money = (n) => new Intl.NumberFormat("fa-IR").format(n || 0);
 const box = "card";
 const inp = "inp";
@@ -250,14 +251,8 @@ function Payments({ api, toast }) {
 }
 
 function Tickets({ api, toast }) {
-  const { rows, call, reload } = useList(api, "/api/v1/admin/tickets", toast);
-  const [sel, setSel] = useState(null); const [msgs, setMsgs] = useState([]); const [text, setText] = useState("");
-  const open = async (t) => { setSel(t); const r = await call(`/api/v1/tickets/${t.id}/messages`); setMsgs(r.ok ? await r.json() : []); };
-  const send = async () => { const r = await call(`/api/v1/tickets/${sel.id}/messages`, { method: "POST", body: JSON.stringify({ body: text }) }); if (r.ok) { setText(""); open(sel); reload(); } else toast("ارسال پاسخ ناموفق بود"); };
-  if (!sel) return <Table title="تیکت‌ها" cols={["موضوع", "Store", "وضعیت", "آخرین تغییر", ""]} rows={rows.map((t) => [t.subject, String(t.store_id || "").slice(0, 8), t.status, dt(t.updated_at), <button className={ghost} onClick={() => open(t)}>مشاهده و پاسخ</button>])} />;
-  return <section className={`${box} p-5`}><button className="text-sm font-bold text-[var(--ac)]" onClick={() => setSel(null)}>→ بازگشت</button><h3 className="mt-2 font-extrabold">{sel.subject}</h3>
-    <div className="mt-4 space-y-3">{msgs.map((m) => <div key={m.id} className={`max-w-[80%] rounded-2xl p-3 text-sm leading-7 ${m.is_staff ? "mr-auto bg-[var(--okb)] text-[var(--tx)]" : "bg-[var(--mb)]"}`}>{m.body}<div className="mt-1 text-[10px] text-[var(--mu)]">{m.is_staff ? "پشتیبانی" : "مشتری"} · {new Date(m.created_at).toLocaleString("fa-IR")}</div></div>)}</div>
-    <div className="mt-4 flex gap-2"><input className={inp} value={text} onChange={(e) => setText(e.target.value)} placeholder="پاسخ پشتیبانی…" /><button disabled={!text.trim()} className={btn} onClick={send}>ارسال</button></div></section>;
+  const call = (p, o = {}) => authFetch(api.base, p, o);
+  return <TicketsView call={call} toast={toast} />;
 }
 
 export const extraRoutes = { "سفارش‌ها": Orders, "پرداخت‌ها": Payments, "تیکت‌ها": Tickets, "محصولات VPN": ProductsView, "پنل‌ها": PanelsView, "گروه‌های پنل VPN": PanelGroupsView, "کوپن‌ها": Coupons, "تنظیمات": Settings, "ممیزی": Audit, "بررسی هویت": Reviews };

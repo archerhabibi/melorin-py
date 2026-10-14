@@ -72,6 +72,14 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 - **Ref:** `7db5455`
 
 
+### 2026-10-14 UTC - claude - tickets (api, admin-web, store-web, telegram, db)
+- **Before:** Admin ticket screen was a plain table with a one-line reply box; customers could not edit anything; staff replies never reached the customer (the `ticket.updated` outbox event only logged); no priority, no internal notes.
+- **Problem:** Support workflow was slow and one-way: no inbox view, no way to fix a typo in a message or rename a ticket, no triage by priority, and customers were not told when support answered.
+- **Action:** Migration 0015 (`tickets.priority`, `ticket_messages.is_internal`, `ticket_messages.edited_at`). New `tickets/service.py`; customer API gained `GET|PATCH /tickets/{id}` and `PATCH /tickets/{id}/messages/{mid}`; admin API gained filtered list with customer/preview data, detail, `PATCH`, reply/internal note and message edit (all audited). Staff replies now enqueue a `notification.send` (Telegram + in-app). New admin `TicketsView.jsx` (inbox + conversation, quick replies, internal notes, inline edit, polling). Store-web ticket screen redesigned as a chat with edit/close/re-open. Telegram bot: guided new-ticket flow, ticket view with edit-my-message / rename / close / re-open. Tests: `tests/test_n01_ticket_desk.py`.
+- **After:** `pytest` 292 passed, 1 skipped (baseline 278 + 14 new); admin-web and store-web `vite build` OK; jsdom flow test of the admin desk passed.
+- **Ref:** _pending commit_
+
+
 ### 2026-10-13 23:05 UTC - archerhabibi - db, api, tests  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_

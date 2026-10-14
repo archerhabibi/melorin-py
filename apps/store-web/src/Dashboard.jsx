@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Bell, ChevronDown, Copy, Gauge, KeyRound, LifeBuoy, LogOut, Package, Store, Wallet as WalletIcon, ArrowRight, Link2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Bell, ChevronDown, Copy, Gauge, KeyRound, LifeBuoy, LogOut, Package, Store, Wallet as WalletIcon, ArrowRight, Link2, Pencil, Plus, Send, X } from "lucide-react";
 import { Empty, Loading, PageTitle, StatusBadge, fa, fd } from "./ui.jsx";
 const gb = (b) => (b ? (b / 1073741824).toFixed(1) : "0");
 const J = { "Content-Type": "application/json" };
@@ -65,29 +65,122 @@ function Wallet({ coreFetch, storeId, wallet, reload, notify }) {
   </div>;
 }
 
-function Tickets({ coreFetch, storeId, notify }) {
-  const [list, setList] = useState([]);
-  const [sel, setSel] = useState(null);
-  const [msgs, setMsgs] = useState([]);
-  const [form, setForm] = useState({ subject: "", body: "" });
+const PRIO = [["low", "کم"], ["normal", "عادی"], ["high", "مهم"]];
+const PRIO_LABEL = { low: "کم", normal: "عادی", high: "مهم", urgent: "فوری" };
+const timeOnly = (d) => new Date(d).toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit" });
+const dayLabel = (d) => new Date(d).toLocaleDateString("fa-IR", { dateStyle: "full" });
+async function msgOf(r, fallback) { try { const d = await r.json(); return d?.error?.message || (typeof d?.detail === "string" ? d.detail : "") || fallback; } catch { return fallback; } }
+
+function TicketThread({ t, coreFetch, notify, onBack, onChanged }) {
+  const [msgs, setMsgs] = useState(null);
+  const [ticket, setTicket] = useState(t);
   const [reply, setReply] = useState("");
-  const load = () => coreFetch(`/api/v1/stores/${storeId}/tickets`).then((r) => r.json()).then(setList).catch(() => {});
-  useEffect(() => { load(); }, [storeId]);
-  const open = (t) => { setSel(t); coreFetch(`/api/v1/tickets/${t.id}/messages`).then((r) => r.json()).then(setMsgs); };
-  async function create() {
-    const r = await coreFetch(`/api/v1/stores/${storeId}/tickets`, { method: "POST", headers: J, body: JSON.stringify(form) });
-    if (r.ok) { setForm({ subject: "", body: "" }); notify("تیکت ثبت شد"); load(); } else notify("ثبت تیکت ناموفق بود");
+  const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState(null); // message id
+  const [draft, setDraft] = useState("");
+  const [subj, setSubj] = useState(null);
+  const end = useRef(null);
+  const last = useRef(0);
+  const load = () => coreFetch(`/api/v1/tickets/${t.id}/messages`).then((r) => r.json()).then((x) => Array.isArray(x) && setMsgs(x)).catch(() => {});
+  useEffect(() => { load(); const iv = setInterval(() => !document.hidden && load(), 12000); return () => clearInterval(iv); }, [t.id]);
+  useEffect(() => { const n = msgs?.length || 0; if (n !== last.current) { end.current?.scrollIntoView({ behavior: last.current ? "smooth" : "auto", block: "end" }); last.current = n; } }, [msgs]);
+  const me = (m) => !m.is_staff; // customer-side view: only the customer's own messages are editable
+  async function patchTicket(body, ok) {
+    setBusy(true);
+    try { const r = await coreFetch(`/api/v1/tickets/${t.id}`, { method: "PATCH", headers: J, body: JSON.stringify(body) }); if (!r.ok) return notify(await msgOf(r, "ذخیره ناموفق بود")); setTicket(await r.json()); onChanged(); ok && notify(ok); }
+    finally { setBusy(false); }
   }
   async function send() {
-    const r = await coreFetch(`/api/v1/tickets/${sel.id}/messages`, { method: "POST", headers: J, body: JSON.stringify({ body: reply }) });
-    if (r.ok) { setReply(""); open(sel); }
+    setBusy(true);
+    try { const r = await coreFetch(`/api/v1/tickets/${t.id}/messages`, { method: "POST", headers: J, body: JSON.stringify({ body: reply.trim() }) }); if (!r.ok) return notify(await msgOf(r, "ارسال ناموفق بود")); setReply(""); setTicket((x) => ({ ...x, status: "open" })); await load(); onChanged(); }
+    finally { setBusy(false); }
   }
-  if (sel) return <div className={card}><button onClick={() => setSel(null)} className="text-sm font-bold text-coral">→ بازگشت</button><h4 className="mt-2 font-extrabold">{sel.subject}</h4>
-    <div className="mt-4 space-y-3">{msgs.map((m) => <div key={m.id} className={`max-w-[85%] rounded-2xl p-3 text-sm leading-7 ${m.is_staff ? "bg-mint-soft" : "mr-auto bg-surface2"}`}>{m.body}<div className="mt-1 text-[10px] text-muted">{m.is_staff ? "پشتیبانی" : "شما"} · {fd(m.created_at)}</div></div>)}</div>
-    <div className="mt-4 flex gap-2"><input className={inp} value={reply} onChange={(e) => setReply(e.target.value)} placeholder="پیام…" /><button disabled={!reply.trim()} onClick={send} className={btn}>ارسال</button></div></div>;
-  return <div className="grid gap-5 md:grid-cols-2">
-    <div className={card}><h4 className="font-extrabold">تیکت جدید</h4><input className={`${inp} mt-3`} placeholder="موضوع" value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} /><textarea rows={4} className={`${inp} mt-3`} placeholder="توضیحات" value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} /><button disabled={form.subject.length < 2 || !form.body} onClick={create} className={`${btn} mt-3 w-full`}>ثبت تیکت</button></div>
-    <div className="space-y-3">{list.length ? list.map((t) => <button key={t.id} onClick={() => open(t)} className={`${card} flex w-full items-center justify-between text-right`}><div><b>{t.subject}</b><div className="mt-1 text-xs text-muted">{fd(t.updated_at)}</div></div><StatusBadge status={t.status} /></button>) : <Empty text="تیکتی ندارید." />}</div>
+  async function saveEdit(m) {
+    setBusy(true);
+    try { const r = await coreFetch(`/api/v1/tickets/${t.id}/messages/${m.id}`, { method: "PATCH", headers: J, body: JSON.stringify({ body: draft.trim() }) }); if (!r.ok) return notify(await msgOf(r, "ویرایش ناموفق بود")); setEditing(null); await load(); notify("پیام ویرایش شد"); }
+    finally { setBusy(false); }
+  }
+  const closed = ticket.status === "closed";
+  let prev = "";
+  return <div className={`${card} !p-0 flex flex-col overflow-hidden`}>
+    <div className="border-b border-line p-4">
+      <div className="flex items-start gap-3">
+        <button onClick={onBack} aria-label="بازگشت" className="grid h-9 w-9 shrink-0 place-items-center rounded-full ring-1 ring-line hover:bg-surface2"><ArrowRight size={16} /></button>
+        <div className="min-w-0 flex-1">
+          {subj === null ? <div className="flex items-center gap-2"><h4 className="truncate font-extrabold">{ticket.subject}</h4>
+            <button aria-label="ویرایش موضوع" title="ویرایش موضوع" onClick={() => setSubj(ticket.subject)} className="grid h-7 w-7 place-items-center rounded-full text-muted hover:bg-surface2"><Pencil size={13} /></button></div>
+            : <div className="flex gap-2"><input autoFocus aria-label="موضوع تیکت" className={inp} maxLength={200} value={subj} onChange={(e) => setSubj(e.target.value)} onKeyDown={(e) => { if (e.key === "Escape") setSubj(null); if (e.key === "Enter" && subj.trim().length >= 2) { patchTicket({ subject: subj }, "موضوع ویرایش شد"); setSubj(null); } }} />
+              <button disabled={subj.trim().length < 2 || busy} className="btn-primary" onClick={() => { patchTicket({ subject: subj }, "موضوع ویرایش شد"); setSubj(null); }}>ذخیره</button></div>}
+          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted"><span className="latin font-bold">#{ticket.number}</span><StatusBadge status={ticket.status} /><span>اولویت: {PRIO_LABEL[ticket.priority] || "عادی"}</span><span>· {fd(ticket.created_at)}</span></div>
+        </div>
+        <button disabled={busy} onClick={() => patchTicket({ status: closed ? "open" : "closed" }, closed ? "تیکت دوباره باز شد" : "تیکت بسته شد")} className="rounded-xl border border-line px-3 py-2 text-xs font-bold hover:bg-surface2 disabled:opacity-50">{closed ? "بازگشایی" : "بستن تیکت"}</button>
+      </div>
+    </div>
+    <div className="max-h-[55vh] min-h-[16rem] space-y-4 overflow-y-auto bg-surface2/50 p-4" role="log" aria-live="polite">
+      {msgs === null ? <Loading rows={2} /> : msgs.map((m) => {
+        const day = dayLabel(m.created_at); const head = day !== prev; prev = day;
+        return <div key={m.id} className="space-y-3">
+          {head && <div className="flex items-center gap-3 text-[11px] text-muted"><span className="h-px flex-1 bg-line" />{day}<span className="h-px flex-1 bg-line" /></div>}
+          <div className={`group flex ${m.is_staff ? "justify-end" : ""}`}>
+            <div className={`max-w-[88%] rounded-2xl p-3 text-sm leading-7 ${m.is_staff ? "rounded-tl-sm bg-mint-soft" : "rounded-tr-sm bg-surface ring-1 ring-line"}`}>
+              <div className="mb-0.5 text-[11px] font-bold text-muted">{m.is_staff ? "🎧 پشتیبانی" : "شما"}</div>
+              {editing === m.id ? <div className="space-y-2"><textarea autoFocus rows={3} maxLength={10000} dir="auto" className={`${inp} min-w-[min(70vw,24rem)]`} value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Escape") setEditing(null); if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && draft.trim()) saveEdit(m); }} />
+                <div className="flex gap-2"><button disabled={busy || !draft.trim() || draft.trim() === m.body} onClick={() => saveEdit(m)} className="btn-primary !px-4 !py-2 text-xs">ذخیرهٔ ویرایش</button><button onClick={() => setEditing(null)} className="rounded-xl border border-line px-3 text-xs font-bold">انصراف</button></div></div>
+                : <p dir="auto" className="whitespace-pre-wrap break-words">{m.body}</p>}
+              <div className="mt-1 flex items-center gap-2 text-[10px] text-muted"><span>{timeOnly(m.created_at)}</span>{m.edited_at && <span className="italic">· ویرایش‌شده</span>}
+                {me(m) && editing !== m.id && !closed && <button onClick={() => { setEditing(m.id); setDraft(m.body); }} className="mr-auto inline-flex items-center gap-1 font-bold text-coral opacity-0 transition focus-visible:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"><Pencil size={11} />ویرایش</button>}</div>
+            </div></div></div>;
+      })}
+      {ticket.status === "answered" && <p className="text-center text-xs text-muted">پشتیبانی پاسخ داده است. اگر مشکل ادامه دارد همین‌جا پیام بدهید.</p>}
+      <div ref={end} />
+    </div>
+    {closed ? <div className="flex items-center justify-between gap-3 border-t border-line p-4 text-sm"><span className="text-muted">این تیکت بسته شده است.</span><button disabled={busy} onClick={() => patchTicket({ status: "open" }, "تیکت دوباره باز شد")} className="btn-primary">بازگشایی تیکت</button></div>
+      : <div className="flex items-end gap-2 border-t border-line p-3">
+        <textarea rows={1} dir="auto" maxLength={10000} aria-label="پیام شما" className={`${inp} max-h-40 resize-none`} placeholder="پیام خود را بنویسید… (Ctrl+Enter برای ارسال)" value={reply} onChange={(e) => setReply(e.target.value)} onKeyDown={(e) => { if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && reply.trim() && !busy) send(); }} />
+        <button disabled={busy || !reply.trim()} onClick={send} className="btn-primary h-11 shrink-0" aria-label="ارسال"><Send size={16} className="-scale-x-100" /></button></div>}
+  </div>;
+}
+
+function Tickets({ coreFetch, storeId, notify }) {
+  const [list, setList] = useState(null);
+  const [sel, setSel] = useState(null);
+  const [creating, setCreating] = useState(false);
+  const [filter, setFilter] = useState("all");
+  const [form, setForm] = useState({ subject: "", body: "", priority: "normal" });
+  const [busy, setBusy] = useState(false);
+  const load = () => coreFetch(`/api/v1/stores/${storeId}/tickets`).then((r) => r.json()).then((x) => setList(Array.isArray(x) ? x : [])).catch(() => setList((x) => x || []));
+  useEffect(() => { load(); }, [storeId]);
+  async function create() {
+    setBusy(true);
+    try {
+      const r = await coreFetch(`/api/v1/stores/${storeId}/tickets`, { method: "POST", headers: J, body: JSON.stringify({ ...form, subject: form.subject.trim(), body: form.body.trim() }) });
+      if (!r.ok) return notify(await msgOf(r, "ثبت تیکت ناموفق بود"));
+      const t = await r.json(); setForm({ subject: "", body: "", priority: "normal" }); setCreating(false); notify(`تیکت #${t.number} ثبت شد`); await load(); setSel(t);
+    } finally { setBusy(false); }
+  }
+  if (sel) return <TicketThread key={sel.id} t={sel} coreFetch={coreFetch} notify={notify} onBack={() => { setSel(null); load(); }} onChanged={load} />;
+  if (list === null) return <Loading rows={3} />;
+  const shown = list.filter((t) => filter === "all" || (filter === "closed" ? t.status === "closed" : t.status !== "closed"));
+  return <div className="space-y-4">
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div role="radiogroup" aria-label="فیلتر تیکت‌ها" className="inline-flex gap-1 rounded-xl bg-surface2 p-1">{[["all", "همه"], ["active", "فعال"], ["closed", "بسته"]].map(([v, l]) => <button key={v} role="radio" aria-checked={filter === v} onClick={() => setFilter(v)} className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${filter === v ? "bg-surface text-ink shadow-soft" : "text-muted"}`}>{l}</button>)}</div>
+      <button onClick={() => setCreating((x) => !x)} className="btn-primary">{creating ? <><X size={16} />بستن فرم</> : <><Plus size={16} />تیکت جدید</>}</button>
+    </div>
+    {creating && <div className={card}>
+      <h4 className="font-extrabold">تیکت جدید</h4>
+      <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_10rem]">
+        <input className={inp} placeholder="موضوع (مثلاً: اتصال برقرار نمی‌شود)" maxLength={200} value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} />
+        <select aria-label="اولویت" className={inp} value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })}>{PRIO.map(([v, l]) => <option key={v} value={v}>اولویت: {l}</option>)}</select>
+      </div>
+      <textarea rows={5} dir="auto" maxLength={10000} className={`${inp} mt-3`} placeholder="توضیحات کامل مشکل یا درخواست…" value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} />
+      <div className="mt-3 flex items-center justify-between gap-3"><span className="text-xs text-muted">پاسخ پشتیبانی در تلگرام هم به شما اطلاع داده می‌شود.</span>
+        <button disabled={busy || form.subject.trim().length < 2 || !form.body.trim()} onClick={create} className="btn-primary">ثبت تیکت</button></div>
+    </div>}
+    {shown.length ? <div className="space-y-3">{shown.map((t) => <button key={t.id} onClick={() => setSel(t)} className={`${card} flex w-full items-center justify-between gap-3 text-right transition hover:-translate-y-0.5`}>
+      <div className="min-w-0"><div className="flex items-center gap-2"><span className="latin rounded-md bg-surface2 px-1.5 py-0.5 text-[11px] font-bold text-muted">#{t.number}</span><b className="truncate">{t.subject}</b></div>
+        <div className="mt-1 text-xs text-muted">{fd(t.updated_at)}{t.priority && t.priority !== "normal" ? ` · اولویت ${PRIO_LABEL[t.priority]}` : ""}</div></div>
+      <StatusBadge status={t.status} /></button>)}</div>
+      : <Empty icon={LifeBuoy} text={list.length ? "تیکتی با این فیلتر وجود ندارد." : "هنوز تیکتی ثبت نکرده‌اید."}>{!list.length && <button onClick={() => setCreating(true)} className="btn-primary mt-5">ثبت اولین تیکت</button>}</Empty>}
   </div>;
 }
 

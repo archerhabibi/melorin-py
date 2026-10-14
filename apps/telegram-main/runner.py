@@ -67,6 +67,11 @@ TX_KIND = {"purchase": "🛒 خرید", "topup": "💳 شارژ", "refund": "↩
 PAGE_SIZE = 8
 
 
+TICKET_ICON = {"open": "🟡", "answered": "🟢", "closed": "⚫"}
+TICKET_LABEL = {"open": "🟡 باز", "answered": "🟢 پاسخ داده شد", "closed": "⚫ بسته"}
+PRIORITY_LABEL = {"low": "کم", "normal": "عادی", "high": "🟠 مهم", "urgent": "🔴 فوری"}
+
+
 def esc(v) -> str:
     return html.escape(str(v if v is not None else ""), quote=False)
 
@@ -186,6 +191,8 @@ class TelegramRunner:
             "reply": self.cb_reply, "readall": self.cb_readall, "wallet": self.cb_wallet_amount,
             "account": self.cb_account, "plans": self.cb_plans, "cpn": self.cb_coupon, "qr": self.cb_qr,
             "rnw": self.cb_renew, "rnq": self.cb_renew_quote, "rnb": self.cb_renew_buy, "noop": self.cb_noop,
+            "tnew": self.cb_ticket_new, "tedit": self.cb_ticket_edit_msg, "tsubj": self.cb_ticket_edit_subject,
+            "tclose": self.cb_ticket_close, "treopen": self.cb_ticket_reopen,
         }
 
     # ---------- persistence ----------
@@ -374,12 +381,28 @@ class TelegramRunner:
         elif st.get("reply_ticket"):
             await self.api(ctx, "POST", f"/api/v1/tickets/{st['reply_ticket']}/messages", json={"body": text})
             self._set_state(ctx.chat_id, None)
-            await self.send_main_menu(ctx.chat_id, "پیام شما ثبت شد ✅")
+            await self.send(ctx.chat_id, "✅ پیام شما ثبت شد؛ پاسخ پشتیبانی همین‌جا به شما اطلاع داده می‌شود.", [[("📂 مشاهدهٔ تیکت", f"ticket:{st['reply_ticket']}")], [("🎫 همهٔ تیکت‌ها", "menu:tickets")]])
+        elif st.get("edit_msg"):
+            tid, mid = st["edit_ticket"], st["edit_msg"]
+            await self.api(ctx, "PATCH", f"/api/v1/tickets/{tid}/messages/{mid}", json={"body": text})
+            self._set_state(ctx.chat_id, None)
+            await self.send(ctx.chat_id, "✏️ پیام ویرایش شد.", [[("📂 مشاهدهٔ تیکت", f"ticket:{tid}")]])
+        elif st.get("edit_subject"):
+            tid = st["edit_subject"]
+            await self.api(ctx, "PATCH", f"/api/v1/tickets/{tid}", json={"subject": text.strip()[:200]})
+            self._set_state(ctx.chat_id, None)
+            await self.send(ctx.chat_id, "📝 موضوع تیکت ویرایش شد.", [[("📂 مشاهدهٔ تیکت", f"ticket:{tid}")]])
+        elif st.get("new_ticket_ask_subject"):
+            subject = text.strip()
+            if len(subject) < 2:
+                return await self.send(ctx.chat_id, "موضوع خیلی کوتاه است. یک عنوان کوتاه و روشن بفرستید:")
+            self._set_state(ctx.chat_id, {"new_ticket_subject": subject[:200]})
+            await self.send(ctx.chat_id, "حالا توضیحات کامل مشکل یا درخواست خود را بفرستید:")
         elif st.get("new_ticket_subject"):
             store = await self.store_info()
             t = await self.api(ctx, "POST", f"/api/v1/stores/{store['id']}/tickets", json={"subject": st["new_ticket_subject"], "body": text})
             self._set_state(ctx.chat_id, None)
-            await self.send_main_menu(ctx.chat_id, f"✅ تیکت شما با شماره {t.get('id', '-') } ثبت شد.")
+            await self.send(ctx.chat_id, f"✅ تیکت شما با شماره <b>#{esc(t.get('number') or '-')}</b> ثبت شد.\nپاسخ پشتیبانی همین‌جا به شما اطلاع داده می‌شود.", [[("📂 مشاهدهٔ تیکت", f"ticket:{t['id']}")], [("🎫 همهٔ تیکت‌ها", "menu:tickets")]], html=True)
         else:
             await self.send_main_menu(ctx.chat_id, "از منوی زیر انتخاب کنید:")
 
@@ -683,25 +706,64 @@ class TelegramRunner:
     async def cmd_tickets(self, ctx, arg):
         store = await self.store_info()
         ts = await self.api(ctx, "GET", f"/api/v1/stores/{store['id']}/tickets")
-        rows = [[(f"{t['subject'][:40]} · {t['status']}", f"ticket:{t['id']}")] for t in ts[:10]]
-        await self.send(ctx.chat_id, "تیکت‌های شما (برای تیکت جدید: /ticket موضوع | متن):" if rows else "تیکتی ندارید. برای ساخت: /ticket موضوع | متن", rows or None)
+        rows = [[(f"{TICKET_ICON.get(t['status'], '⚪')} #{t.get('number') or '-'} · {t['subject'][:28]}", f"ticket:{t['id']}")] for t in ts[:10]]
+        rows.append([("➕ تیکت جدید", "tnew:1")])
+        head = "🎫 <b>تیکت‌های شما</b>\n🟡 باز   🟢 پاسخ داده شد   ⚫ بسته" if ts else "🎫 هنوز تیکتی ثبت نکرده‌اید."
+        await self.screen(ctx, head, rows)
 
     async def cmd_ticket(self, ctx, arg):
         subject, _, body = arg.partition("|")
         if len(subject.strip()) < 2 or not body.strip():
-            return await self.send(ctx.chat_id, "قالب: /ticket موضوع | متن پیام")
+            return await self.send(ctx.chat_id, "قالب: /ticket موضوع | متن پیام\nیا از /tickets دکمهٔ «تیکت جدید» را بزنید.")
         store = await self.store_info()
         t = await self.api(ctx, "POST", f"/api/v1/stores/{store['id']}/tickets", json={"subject": subject.strip(), "body": body.strip()})
-        await self.send(ctx.chat_id, f"تیکت «{t['subject']}» ثبت شد ✅")
+        await self.send(ctx.chat_id, f"تیکت «{t['subject']}» با شمارهٔ #{t.get('number') or '-'} ثبت شد ✅")
+
+    async def cb_ticket_new(self, ctx, _):
+        self._set_state(ctx.chat_id, {"new_ticket_ask_subject": True})
+        await self.send(ctx.chat_id, "➕ <b>تیکت جدید</b>\nموضوع تیکت را بفرستید (مثلاً: اتصال برقرار نمی‌شود):", html=True)
 
     async def cb_ticket(self, ctx, tid):
+        t = await self.api(ctx, "GET", f"/api/v1/tickets/{tid}")
         ms = await self.api(ctx, "GET", f"/api/v1/tickets/{tid}/messages")
-        txt = "\n\n".join(f"{'پشتیبانی' if m['is_staff'] else 'شما'}: {m['body']}" for m in ms[-6:])
-        await self.send(ctx.chat_id, txt or "پیامی نیست.", [[("✍️ پاسخ", f"reply:{tid}")]])
+        lines = []
+        for m in ms[-5:]:
+            who = "🎧 پشتیبانی" if m["is_staff"] else "👤 شما"
+            edited = "  <i>(ویرایش‌شده)</i>" if m.get("edited_at") else ""
+            lines.append(f"<b>{who}</b>{edited}\n{esc(m['body'][:600])}")
+        hidden = f"<i>… {len(ms) - 5} پیام قبلی</i>\n\n" if len(ms) > 5 else ""
+        head = f"🎫 <b>#{esc(t.get('number') or '-')}</b> · {esc(t['subject'])}\nوضعیت: {TICKET_LABEL.get(t['status'], t['status'])}"
+        if t.get("priority") in ("high", "urgent"):
+            head += f"  ·  اولویت: {PRIORITY_LABEL[t['priority']]}"
+        closed = t["status"] == "closed"
+        rows = [[("🔓 بازگشایی تیکت", f"treopen:{tid}")]] if closed else [[("✍️ پاسخ", f"reply:{tid}"), ("✏️ ویرایش پیام من", f"tedit:{tid}")], [("📝 تغییر موضوع", f"tsubj:{tid}"), ("🔒 بستن تیکت", f"tclose:{tid}")]]
+        rows.append([("◀️ همهٔ تیکت‌ها", "menu:tickets")])
+        await self.screen(ctx, f"{head}\n━━━━━━━━━━\n{hidden}" + "\n\n".join(lines or ["پیامی نیست."]), rows)
 
     async def cb_reply(self, ctx, tid):
         self._set_state(ctx.chat_id, {"reply_ticket": tid})
-        await self.send(ctx.chat_id, "متن پاسخ را بفرستید:")
+        await self.send(ctx.chat_id, "✍️ متن پاسخ را بفرستید:")
+
+    async def cb_ticket_edit_msg(self, ctx, tid):
+        ms = await self.api(ctx, "GET", f"/api/v1/tickets/{tid}/messages")
+        mine = [m for m in ms if not m["is_staff"]]
+        if not mine:
+            return await self.send(ctx.chat_id, "پیامی برای ویرایش وجود ندارد.")
+        last = mine[-1]
+        self._set_state(ctx.chat_id, {"edit_ticket": tid, "edit_msg": last["id"]})
+        await self.send(ctx.chat_id, f"✏️ <b>ویرایش آخرین پیام شما</b>\n\nمتن فعلی:\n<blockquote>{esc(last['body'][:500])}</blockquote>\nمتن جدید را بفرستید:", html=True)
+
+    async def cb_ticket_edit_subject(self, ctx, tid):
+        self._set_state(ctx.chat_id, {"edit_subject": tid})
+        await self.send(ctx.chat_id, "📝 موضوع جدید تیکت را بفرستید:")
+
+    async def cb_ticket_close(self, ctx, tid):
+        await self.api(ctx, "PATCH", f"/api/v1/tickets/{tid}", json={"status": "closed"})
+        await self.send(ctx.chat_id, "🔒 تیکت بسته شد. هر زمان خواستید می‌توانید آن را دوباره باز کنید.", [[("📂 مشاهدهٔ تیکت", f"ticket:{tid}")], [("🎫 همهٔ تیکت‌ها", "menu:tickets")]])
+
+    async def cb_ticket_reopen(self, ctx, tid):
+        await self.api(ctx, "PATCH", f"/api/v1/tickets/{tid}", json={"status": "open"})
+        await self.send(ctx.chat_id, "🔓 تیکت دوباره باز شد.", [[("📂 مشاهدهٔ تیکت", f"ticket:{tid}")]])
 
     async def cmd_notifications(self, ctx, arg):
         d = await self.api(ctx, "GET", "/api/v1/me/notifications?unread_only=true&limit=10")
