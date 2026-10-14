@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-14 14:06 UTC - Claude - apps/admin-web PanelsView  _(auto)_
+- **Before:** PanelsView re-defined num/tint/errText/Dot/Stat/Field/Segmented/Toggle/Switch locally; save did infra.reload() then check() (stale health flash, panels.load() twice); validation errors passed as gray hint=; thead built with index keys.
+- **Problem:** fixes in kit.jsx/infra.jsx were invisible in PanelsView; race on health status after save.
+- **Action:** import shared helpers (kit.jsx/infra.jsx); PanelSwitch wraps kit Switch (label + title, additive title prop in kit Switch); save runs health probe first then a single reload, keeping the "failed" vs "unhealthy" toast; validation strings use Field error=; static thead; useAlive(); Dot keeps ping; fi…
+- **After:** vite build OK, scripts/check_frontend_contracts.py passes (9).
+- **Files (2):** `apps/admin-web/src/PanelsView.jsx`, `apps/admin-web/src/kit.jsx`
+- **Ref:** `6d4888b`
+
+
 ### 2026-10-14 06:03 UTC - archerhabibi - admin-web, tests  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
