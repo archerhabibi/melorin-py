@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-14 22:13 UTC - Claude - admin-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(admin-web): add missing RefreshCw/Paginator imports and reuse shared num helper in Paginator
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (3):** `apps/admin-web/src/PanelGroupsView.jsx`, `apps/admin-web/src/ServersView.jsx`, `apps/admin-web/src/kit.jsx`
+- **Ref:** `3dba98c`
+
+
 ### 2026-10-14 17:38 UTC - archerhabibi - admin-web  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
