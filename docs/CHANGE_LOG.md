@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-14 16:59 UTC - archerhabibi - admin-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(admin-web): apply melorin-combined patch (admin refactor + remaining bugs + advanced features) - Applied on top of 1cbcabd. Fixes needed for the patch to build: - PanelsView: invalid \" escape inside JSX attribute string (hint now a JS expression) - InfraHealthView: toast comes from props (not…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (9):** `apps/admin-web/src/AdminExtra.jsx`, `apps/admin-web/src/App.jsx`, `apps/admin-web/src/InfraHealthView.jsx`, `apps/admin-web/src/PanelGroupsView.jsx`, `apps/admin-web/src/PanelsView.jsx`, `apps/admin-web/src/ProductsView.jsx`, `apps/admin-web/src/ServersView.jsx`, `apps/admin-web/src/infra.jsx` (+1 more)
+- **Ref:** `9677157`
+
+
 ### 2026-10-14 15:33 UTC - hassanhabibi - admin-web  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
