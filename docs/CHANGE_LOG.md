@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-14 06:03 UTC - archerhabibi - admin-web, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(admin): infrastructure redesign — panel → server → group → product chain - - Servers become their own page (#/servers) instead of a tab inside Panels - New shared infra.jsx: useInfra data model, InfraChain header, Rel/RelChip links, serverState/reach helpers mirroring the allocation core - Pan…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (9):** `apps/admin-web/src/AdminExtra.jsx`, `apps/admin-web/src/App.jsx`, `apps/admin-web/src/PanelGroupsView.jsx`, `apps/admin-web/src/PanelsView.jsx`, `apps/admin-web/src/ProductsView.jsx`, `apps/admin-web/src/ServerForm.jsx`, `apps/admin-web/src/ServersView.jsx`, `apps/admin-web/src/infra.jsx` (+1 more)
+- **Ref:** `1cbcabd`
+
+
 ### 2026-10-14 00:36 UTC - Claude - api, tests  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
