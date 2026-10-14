@@ -33,8 +33,8 @@ export function Field({ label, hint, error, children }) {
   return <label className="block text-xs font-bold text-[var(--mu)]">{label}<div className="mt-1.5 font-normal">{children}</div>
     {(error || hint) && <span className={`mt-1 block text-[11px] font-normal leading-5 ${error ? "text-[var(--bd)]" : "text-[var(--mu)]"}`}>{error || hint}</span>}</label>;
 }
-export function Switch({ checked, onChange, disabled, label }) {
-  return <button type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled} onClick={() => onChange(!checked)} className="pv-sw disabled:opacity-50" data-on={checked}><span /></button>;
+export function Switch({ checked, onChange, disabled, label, title }) {
+  return <button type="button" role="switch" aria-checked={checked} aria-label={label} title={title} disabled={disabled} onClick={() => onChange(!checked)} className="pv-sw disabled:opacity-50" data-on={checked}><span /></button>;
 }
 export function Toggle({ checked, onChange, label, hint }) {
   return <div className="flex items-start gap-3"><Switch checked={checked} onChange={onChange} label={label} /><span className="text-xs"><b>{label}</b>{hint && <span className="mt-0.5 block font-normal leading-5 text-[var(--mu)]">{hint}</span>}</span></div>;

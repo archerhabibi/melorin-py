@@ -1,14 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { authFetch } from "./api.js";
 import { Badge, confirmDialog, dt, sid } from "./ui.jsx";
-import { InfraChain, InfraLink, Rel, RelChip, clearParam, infraHref, useHashParams, useInfra } from "./infra.jsx";
+// Dot: imported from infra so the ping-animation and CSS colour tokens
+//       stay consistent across all four infrastructure screens.
+import { Dot, InfraChain, InfraLink, Rel, RelChip, clearParam, infraHref, useHashParams, useInfra } from "./infra.jsx";
+// ↓ Shared kit helpers — NO local duplicates of these in this file.
+import { Field, Segmented, Stat, Switch as KitSwitch, Toggle,
+         errText, num, tint, useAlive } from "./kit.jsx";
 import {
   Activity, AlertTriangle, Check, ChevronDown, Copy, ExternalLink, Eye, EyeOff, FlaskConical, KeyRound,
   Layers, LayoutGrid, List, Pencil, Plus, RefreshCw, Save, Search, Server, ServerCog, ShieldAlert, ShieldCheck, X,
 } from "lucide-react";
 
-// ---------- helpers ----------
-const num = (n) => Number(n || 0).toLocaleString("fa-IR");
+// ---------- helpers (panel-specific only — shared helpers imported from kit.jsx) ----------
 const STALE_MS = 24 * 3600 * 1000;
 const rtf = new Intl.RelativeTimeFormat("fa", { numeric: "auto" });
 function ago(v) {
@@ -21,13 +25,6 @@ function ago(v) {
 }
 const state = (p) => (p.health_status === "healthy" || p.health_status === "unhealthy" ? p.health_status : "unknown");
 const isStale = (p) => !p.last_health_at || Date.now() - new Date(p.last_health_at).getTime() > STALE_MS;
-async function errText(r, fallback) {
-  try {
-    const d = await r.json();
-    const det = d?.detail;
-    return d?.error?.message || (typeof det === "string" ? det : det?.message) || (Array.isArray(det) && det[0]?.msg?.replace(/^Value error, /, "")) || fallback;
-  } catch { return fallback; }
-}
 
 const KINDS = {
   sanaei: { title: "سنایی (3x-ui)", desc: "پنل 3x-ui / Sanaei با Inbound و ساب‌اسکریپشن", Icon: ServerCog, tone: "in" },
@@ -35,29 +32,13 @@ const KINDS = {
   mock: { title: "Mock (آزمایشی)", desc: "فقط برای توسعه و تست؛ در محیط عملیاتی غیرفعال است", Icon: FlaskConical, tone: "wn" },
 };
 const kindOf = (k) => KINDS[k] || { title: k, desc: "", Icon: Server, tone: "mu" };
-const tint = (t) => ({ background: `var(--${t}b, var(--mb))`, color: `var(--${t}, var(--mu))` });
 
 // ---------- small UI parts ----------
 function CopyButton({ text }) {
   const [ok, setOk] = useState(false);
   return <button type="button" className="btn btn-g !px-2" aria-label="کپی آدرس" title="کپی آدرس" onClick={async () => { try { await navigator.clipboard.writeText(text); setOk(true); setTimeout(() => setOk(false), 1400); } catch { /* clipboard unavailable */ } }}>{ok ? <Check size={14} /> : <Copy size={14} />}</button>;
 }
-function Dot({ s }) {
-  const c = { healthy: "var(--ok)", unhealthy: "var(--bd)", unknown: "var(--mu)" }[s];
-  return <span className="relative inline-flex h-2.5 w-2.5"><span className={`absolute inset-0 rounded-full ${s === "healthy" ? "pv-ping" : ""}`} style={{ background: c }} /><span className="relative h-2.5 w-2.5 rounded-full" style={{ background: c }} /></span>;
-}
-function Stat({ label, value, tone, active, onClick, Icon }) {
-  return <button type="button" onClick={onClick} aria-pressed={active} className={`card flex items-center gap-3 p-4 text-right transition ${active ? "!border-[var(--ac)]" : "hover:-translate-y-0.5"}`}>
-    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl" style={tint(tone)}><Icon size={19} /></span>
-    <span><span className="block text-2xl font-extrabold leading-none">{num(value)}</span><span className="mt-1 block text-xs text-[var(--mu)]">{label}</span></span>
-  </button>;
-}
-function Field({ label, hint, children }) {
-  return <label className="block text-xs font-bold text-[var(--mu)]">{label}<div className="mt-1.5 font-normal">{children}</div>{hint && <span className="mt-1 block text-[11px] font-normal leading-5 text-[var(--mu)]">{hint}</span>}</label>;
-}
-function Segmented({ value, onChange, options }) {
-  return <div role="radiogroup" className="pv-seg">{options.map(([v, l]) => <button key={v} type="button" role="radio" aria-checked={value === v} className={value === v ? "on" : ""} onClick={() => onChange(v)}>{l}</button>)}</div>;
-}
+// Dot, Stat, Field, Segmented → imported from infra.jsx / kit.jsx (see imports at top)
 function Secret({ value, onChange, placeholder }) {
   const [show, setShow] = useState(false);
   return <div className="relative"><input dir="ltr" autoComplete="off" spellCheck={false} type={show ? "text" : "password"} className="inp pl-10" value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} /><button type="button" aria-label={show ? "پنهان‌کردن" : "نمایش"} className="absolute left-2 top-1/2 -translate-y-1/2 text-[var(--mu)]" onClick={() => setShow(!show)}>{show ? <EyeOff size={16} /> : <Eye size={16} />}</button></div>;
@@ -70,9 +51,7 @@ function Chips({ values, onChange, placeholder }) {
     <input inputMode="numeric" className="min-w-[6rem] flex-1 bg-transparent py-1 text-sm outline-none" value={t} placeholder={values.length ? "" : placeholder} onChange={(e) => setT(e.target.value.replace(/\D/g, ""))} onBlur={add} onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); add(); } else if (e.key === "Backspace" && !t && values.length) onChange(values.slice(0, -1)); }} />
   </div>;
 }
-function Toggle({ checked, onChange, label, hint }) {
-  return <label className="flex cursor-pointer items-start gap-3"><button type="button" role="switch" aria-checked={checked} onClick={() => onChange(!checked)} className="pv-sw mt-0.5" data-on={checked}><span /></button><span className="text-xs font-bold">{label}{hint && <span className="mt-0.5 block text-[11px] font-normal leading-5 text-[var(--mu)]">{hint}</span>}</span></label>;
-}
+// Toggle → imported from kit.jsx (see imports at top)
 
 // ---------- add / edit drawer ----------
 const EMPTY = { kind: "sanaei", name: "", url: "", auth: "token", token: "", user: "", pass: "", inbounds: [], subUrl: "", apiStyle: "auto", groups: [], tpl: "", scope: "groups", verifyTls: true, extra: "" };
@@ -152,7 +131,7 @@ function PanelDrawer({ panel, onClose, onSubmit, onToggle, toggling }) {
       </header>
       <div className="flex-1 space-y-6 overflow-y-auto p-5">
         {edit && <section className="card space-y-3 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><Dot s={st} /><Badge s={st} /><span className="text-xs text-[var(--mu)]">آخرین بررسی: {panel.last_health_at ? dt(panel.last_health_at) : "هرگز"}</span></div>
+          <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><Dot s={st} ping /><Badge s={st} /><span className="text-xs text-[var(--mu)]">آخرین بررسی: {panel.last_health_at ? dt(panel.last_health_at) : "هرگز"}</span></div>
             <label className="flex cursor-pointer items-center gap-2 text-xs font-bold"><button type="button" role="switch" aria-checked={panel.is_enabled} disabled={toggling} onClick={() => onToggle(panel, !panel.is_enabled)} className="pv-sw" data-on={panel.is_enabled}><span /></button>{panel.is_enabled ? "فعال" : "غیرفعال"}</label></div>
           {st === "unhealthy" && panel.last_health_error && <p dir="auto" className="break-words rounded-lg bg-[var(--bdb)] p-3 text-xs leading-6 text-[var(--bd)]"><b>آخرین خطا: </b>{panel.last_health_error}</p>}
           {!panel.is_enabled && <p className="text-[11px] leading-5 text-[var(--mu)]">پنل غیرفعال برای ساخت اکانت جدید انتخاب نمی‌شود و بررسی سلامت خودکار هم برای آن اجرا نمی‌شود. اکانت‌های موجود حذف نمی‌شوند.</p>}
@@ -165,8 +144,8 @@ function PanelDrawer({ panel, onClose, onSubmit, onToggle, toggling }) {
             <span className="mt-2 block text-sm font-extrabold">{m.title}</span><span className="mt-1 block text-[11px] leading-5 text-[var(--mu)]">{m.desc}</span></button>)}</div></section>}
 
         <section className="card space-y-4 p-4"><h3 className="text-xs font-bold text-[var(--mu)]">{edit ? "اتصال" : "۲ · اتصال"}</h3>
-          <Field label="نام نمایشی" hint={show("name")}><input ref={first} className="inp" value={f.name} maxLength={100} placeholder="مثلاً: آلمان - هتزنر ۱" onChange={(e) => set("name")(e.target.value)} /></Field>
-          <Field label="آدرس پنل (Base URL)" hint={show("url") || "آدرس کامل همراه پورت و web base path"}>
+          <Field label="نام نمایشی" error={show("name") || undefined}><input ref={first} className="inp" value={f.name} maxLength={100} placeholder="مثلاً: آلمان - هتزنر ۱" onChange={(e) => set("name")(e.target.value)} /></Field>
+          <Field label="آدرس پنل (Base URL)" error={show("url") || undefined} hint="آدرس کامل همراه پورت و web base path">
             <input dir="ltr" inputMode="url" spellCheck={false} className="inp" value={f.url} placeholder="https://panel.example.com:2053/secret-path" onChange={(e) => set("url")(e.target.value)} /></Field>
           {insecure && <p className="flex items-start gap-2 rounded-lg bg-[var(--wnb)] p-3 text-xs leading-6 text-[var(--wn)]"><AlertTriangle size={15} className="mt-1 shrink-0" />آدرس HTTP است؛ در محیط staging/production فقط HTTPS پذیرفته می‌شود.</p>}
         </section>
@@ -176,7 +155,7 @@ function PanelDrawer({ panel, onClose, onSubmit, onToggle, toggling }) {
             ? <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-[var(--sf2)] px-3 py-2.5"><span className="flex items-center gap-2 text-xs"><ShieldCheck size={15} className="text-[var(--ok)]" />اعتبارنامه ذخیره شده است و نمایش داده نمی‌شود.</span><button type="button" className="btn btn-g" onClick={() => setChangeCred(true)}>تغییر اعتبارنامه</button></div>
             : <>
               <Segmented value={f.auth} onChange={set("auth")} options={[["token", f.kind === "sanaei" ? "API Token" : "API Key"], ["login", "نام کاربری و رمز"]]} />
-              {f.auth === "token" ? <Field label={f.kind === "sanaei" ? "API Token" : "API Key"} hint={show("auth")}><Secret value={f.token} onChange={set("token")} placeholder="••••••••" /></Field>
+              {f.auth === "token" ? <Field label={f.kind === "sanaei" ? "API Token" : "API Key"} error={show("auth") || undefined}><Secret value={f.token} onChange={set("token")} placeholder="••••••••" /></Field>
                 : <div className="grid gap-3 sm:grid-cols-2"><Field label="نام کاربری"><input dir="ltr" autoComplete="off" className="inp" value={f.user} onChange={(e) => set("user")(e.target.value)} /></Field><Field label="رمز عبور"><Secret value={f.pass} onChange={set("pass")} /></Field>{show("auth") && <p className="text-[11px] text-[var(--bd)] sm:col-span-2">{err.auth}</p>}</div>}
               {f.kind === "sanaei" && f.auth === "login" && <p className="text-[11px] leading-5 text-[var(--mu)]">اگر 2FA روی پنل فعال است، ورود با نام کاربری کار نمی‌کند؛ از API Token استفاده کنید.</p>}
               {edit && panel.has_credentials && <button type="button" className="text-xs font-bold text-[var(--mu)] underline" onClick={() => { setChangeCred(false); setF((x) => ({ ...x, token: "", user: "", pass: "" })); }}>انصراف از تغییر اعتبارنامه</button>}
@@ -185,18 +164,18 @@ function PanelDrawer({ panel, onClose, onSubmit, onToggle, toggling }) {
 
         {f.kind !== "mock" && <section className="card space-y-4 p-4"><h3 className="text-xs font-bold text-[var(--mu)]">{edit ? "" : "۴ · "}تنظیمات {k.title}</h3>
           {f.kind === "sanaei" && <>
-            <Field label="Inbound IDها" hint={show("inbounds") || "شناسه Inboundهایی که کلاینت در آن‌ها ساخته می‌شود؛ بعد از هر عدد Enter بزنید"}><Chips values={f.inbounds} onChange={set("inbounds")} placeholder="مثلاً 1" /></Field>
-            <Field label="آدرس ساب‌اسکریپشن" hint={show("subUrl") || "Sub Port + Sub Path از Settings → Subscription پنل"}><input dir="ltr" spellCheck={false} className="inp" value={f.subUrl} placeholder="https://sub.example.com:2096/sub" onChange={(e) => set("subUrl")(e.target.value)} /></Field>
+            <Field label="Inbound IDها" error={show("inbounds") || undefined} hint="شناسه Inboundهایی که کلاینت در آن‌ها ساخته می‌شود؛ بعد از هر عدد Enter بزنید"><Chips values={f.inbounds} onChange={set("inbounds")} placeholder="مثلاً 1" /></Field>
+            <Field label="آدرس ساب‌اسکریپشن" error={show("subUrl") || undefined} hint="Sub Port + Sub Path از Settings → Subscription پنل"><input dir="ltr" spellCheck={false} className="inp" value={f.subUrl} placeholder="https://sub.example.com:2096/sub" onChange={(e) => set("subUrl")(e.target.value)} /></Field>
             <Field label="سبک API"><Segmented value={f.apiStyle} onChange={set("apiStyle")} options={[["auto", "خودکار"], ["v3", "v3"], ["legacy", "Legacy"]]} /></Field></>}
           {f.kind === "pasarguard" && <>
             <Segmented value={f.scope} onChange={set("scope")} options={[["groups", "Group IDs"], ["template", "قالب کاربر"]]} />
-            {f.scope === "groups" ? <Field label="Group IDها" hint={show("scope")}><Chips values={f.groups} onChange={set("groups")} placeholder="مثلاً 1" /></Field>
-              : <Field label="شناسه قالب کاربر" hint={show("scope")}><input dir="ltr" inputMode="numeric" className="inp" value={f.tpl} onChange={(e) => set("tpl")(e.target.value.replace(/\D/g, ""))} /></Field>}</>}
+            {f.scope === "groups" ? <Field label="Group IDها" error={show("scope") || undefined}><Chips values={f.groups} onChange={set("groups")} placeholder="مثلاً 1" /></Field>
+              : <Field label="شناسه قالب کاربر" error={show("scope") || undefined}><input dir="ltr" inputMode="numeric" className="inp" value={f.tpl} onChange={(e) => set("tpl")(e.target.value.replace(/\D/g, ""))} /></Field>}</>}
           <Toggle checked={f.verifyTls} onChange={set("verifyTls")} label="بررسی گواهی TLS" hint="در محیط عملیاتی خاموش‌کردن آن مجاز نیست؛ فقط برای تست با گواهی self-signed." />
         </section>}
 
         <section><button type="button" className="flex items-center gap-1.5 text-xs font-bold text-[var(--mu)]" aria-expanded={adv} onClick={() => setAdv(!adv)}><ChevronDown size={14} className={adv ? "" : "-rotate-90"} />تنظیمات پیشرفته (JSON)</button>
-          {adv && <div className="mt-2"><Field label="Config اضافه" hint={show("extra") || "روی تنظیمات بالا ادغام می‌شود؛ مثلاً {\"timeout\": 30}"}><textarea rows={4} dir="ltr" spellCheck={false} className="inp font-mono text-xs" value={f.extra} onChange={(e) => set("extra")(e.target.value)} /></Field></div>}</section>
+          {adv && <div className="mt-2"><Field label="Config اضافه" error={show("extra") || undefined} hint={"روی تنظیمات بالا ادغام می‌شود؛ مثلاً {\"timeout\": 30}"}><textarea rows={4} dir="ltr" spellCheck={false} className="inp font-mono text-xs" value={f.extra} onChange={(e) => set("extra")(e.target.value)} /></Field></div>}</section>
         {edit && <p className="flex items-start gap-2 rounded-lg bg-[var(--inb)] p-3 text-[11px] leading-5 text-[var(--in)]"><Activity size={14} className="mt-0.5 shrink-0" />با تغییر آدرس، تنظیمات یا اعتبارنامه، وضعیت سلامت به «بررسی‌نشده» برمی‌گردد؛ برای اطمینان از اتصال از «ذخیره و بررسی سلامت» استفاده کنید.</p>}
         {srvErr && <p role="alert" className="flex items-start gap-2 rounded-lg bg-[var(--bdb)] p-3 text-xs leading-6 text-[var(--bd)]"><ShieldAlert size={15} className="mt-1 shrink-0" />{srvErr}</p>}
       </div>
@@ -210,8 +189,18 @@ function PanelDrawer({ panel, onClose, onSubmit, onToggle, toggling }) {
 }
 
 // ---------- panel card / row ----------
-function Switch({ p, busy, onToggle }) {
-  return <button type="button" role="switch" aria-checked={p.is_enabled} aria-label={`${p.is_enabled ? "غیرفعال‌سازی" : "فعال‌سازی"} ${p.name}`} title={p.is_enabled ? "غیرفعال‌سازی" : "فعال‌سازی"} disabled={busy} onClick={() => onToggle(p, !p.is_enabled)} className="pv-sw" data-on={p.is_enabled}><span /></button>;
+// PanelSwitch: wraps KitSwitch with panel-specific props.
+// Named PanelSwitch (not Switch) to avoid clashing with KitSwitch imported above.
+function PanelSwitch({ p, busy, onToggle }) {
+  return (
+    <KitSwitch
+      checked={p.is_enabled}
+      disabled={busy}
+      onChange={(next) => onToggle(p, next)}
+      label={`${p.is_enabled ? "غیرفعال‌سازی" : "فعال‌سازی"} ${p.name}`}
+      title={p.is_enabled ? "غیرفعال‌سازی" : "فعال‌سازی"}
+    />
+  );
 }
 const capTone = (u) => (u >= 1 ? "bd" : u >= 0.8 ? "wn" : "ok");
 
@@ -234,7 +223,7 @@ function PanelCard({ p, busy, stat, groups, onCheck, onEdit, onToggle }) {
     <div className={`flex items-start gap-3 ${p.is_enabled ? "" : "opacity-55"}`}>
       <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl" style={tint(k.tone)}><k.Icon size={20} /></span>
       <div className="min-w-0 flex-1"><h3 className="truncate font-extrabold" title={p.name}>{p.name}</h3><p className="text-xs text-[var(--mu)]">{k.title}</p></div>
-      <div className="flex flex-col items-end gap-1"><span className="flex items-center gap-2"><Dot s={s} /><Badge s={s} /></span>{!p.is_enabled && <Badge s="disabled" />}</div>
+      <div className="flex flex-col items-end gap-1"><span className="flex items-center gap-2"><Dot s={s} ping /><Badge s={s} /></span>{!p.is_enabled && <Badge s="disabled" />}</div>
     </div>
     <div className={`flex items-center gap-1.5 rounded-lg bg-[var(--sf2)] px-3 py-2 ${p.is_enabled ? "" : "opacity-55"}`}><span dir="ltr" className="min-w-0 flex-1 truncate font-mono text-xs" title={p.base_url}>{p.base_url}</span><CopyButton text={p.base_url} />
       <a className="btn btn-g !px-2" href={p.base_url} target="_blank" rel="noopener noreferrer" aria-label="باز کردن پنل" title="باز کردن پنل"><ExternalLink size={14} /></a></div>
@@ -242,20 +231,32 @@ function PanelCard({ p, busy, stat, groups, onCheck, onEdit, onToggle }) {
     <div className={p.is_enabled ? "" : "opacity-55"}><Downstream p={p} stat={stat} groups={groups} /></div>
     <div className="mt-auto flex items-center justify-between gap-2 border-t border-[var(--ln)] pt-3">
       <span className={`flex items-center gap-1.5 text-xs ${stale ? "text-[var(--wn)]" : "text-[var(--mu)]"}`} title={p.last_health_at ? dt(p.last_health_at) : ""}>{stale && <AlertTriangle size={13} />}{ago(p.last_health_at)}</span>
-      <div className="flex items-center gap-1.5"><Switch p={p} busy={busy} onToggle={onToggle} />
+      <div className="flex items-center gap-1.5"><PanelSwitch p={p} busy={busy} onToggle={onToggle} />
         <button className="btn btn-g" onClick={() => onEdit(p)}><Pencil size={13} />ویرایش</button>
         <button className="btn btn-g !px-2" aria-label="بررسی سلامت" title="بررسی سلامت" disabled={busy} onClick={() => onCheck(p)}><RefreshCw size={13} className={busy ? "animate-spin" : ""} /></button></div>
     </div>
   </article>;
 }
 function PanelTable({ rows, busy, idx, onCheck, onEdit, onToggle }) {
-  return <section className="card rise overflow-hidden"><div className="overflow-auto"><table className="tbl min-w-[920px]"><thead><tr>{["نام", "نوع", "آدرس", "وضعیت", "آخرین بررسی", "سرورها", "گروه‌ها", "فعال", ""].map((c, i) => <th key={i}>{c}</th>)}</tr></thead>
+  return <section className="card rise overflow-hidden"><div className="overflow-auto"><table className="tbl min-w-[920px]"><thead>
+          <tr>
+            <th>نام</th>
+            <th>نوع</th>
+            <th>آدرس</th>
+            <th>وضعیت</th>
+            <th>آخرین بررسی</th>
+            <th>سرورها</th>
+            <th>گروه‌ها</th>
+            <th>فعال</th>
+            <th />
+          </tr>
+        </thead>
     <tbody>{rows.map((p) => { const st = idx.panelStat(p.id), gs = idx.groupsByPanel.get(p.id) || [];
       return <tr key={p.id} className={p.is_enabled ? "" : "opacity-60"}><td className="font-bold">{p.name}</td><td>{kindOf(p.kind).title}</td><td><span dir="ltr" className="block max-w-[240px] truncate font-mono text-xs">{p.base_url}</span></td>
       <td><Badge s={state(p)} /></td><td className={isStale(p) && p.is_enabled ? "text-[var(--wn)]" : "text-[var(--mu)]"}>{ago(p.last_health_at)}</td>
       <td><a className="font-bold hover:text-[var(--ac)]" href={infraHref("servers", { panel: p.id })}>{num(st.n)}</a>{st.n > 0 && <span className="mr-1.5 text-[11px] text-[var(--mu)]">{num(st.active)}/{num(st.capacity)}</span>}</td>
       <td><div className="flex flex-wrap gap-1">{gs.length ? gs.slice(0, 2).map((g) => <RelChip key={g.id} to="panel-groups" params={{ q: g.name }} tone="wn" dim={!g.is_enabled}>{g.name}</RelChip>) : <span className="text-[11px] text-[var(--mu)]">—</span>}{gs.length > 2 && <span className="text-[11px] text-[var(--mu)]">+{num(gs.length - 2)}</span>}</div></td>
-      <td><Switch p={p} busy={busy.has(p.id)} onToggle={onToggle} /></td>
+      <td><PanelSwitch p={p} busy={busy.has(p.id)} onToggle={onToggle} /></td>
       <td><div className="flex gap-1.5"><button className="btn btn-g" onClick={() => onEdit(p)}><Pencil size={13} />ویرایش</button><button className="btn btn-g" disabled={busy.has(p.id)} onClick={() => onCheck(p)}><RefreshCw size={13} className={busy.has(p.id) ? "animate-spin" : ""} />بررسی</button></div></td></tr>; })}</tbody></table></div></section>;
 }
 
@@ -268,19 +269,24 @@ export default function PanelsView({ api, toast }) {
   const [q, setQ] = useState(""); const [filter, setFilter] = useState("all"); const [layout, setLayout] = useState("grid");
   const [only, setOnly] = useState(params.get("id") || "");
   const [drawer, setDrawer] = useState(null); const [busy, setBusy] = useState(new Set()); const [bulk, setBulk] = useState(null);
-  const alive = useRef(true); useEffect(() => () => { alive.current = false; }, []);
+  // useAlive() from kit.jsx — same semantics as manual ref, consistent with other screens
+  const alive = useAlive();
   useEffect(() => { setOnly(params.get("id") || ""); }, [params]);
   const rows = infra.panels.rows, failed = infra.panels.failed, load = infra.panels.load;
 
-  const check = useCallback(async (p, quiet) => {
+  const probe = useCallback(async (p) => {
     setBusy((s) => new Set(s).add(p.id));
     let ok = false, healthy = false;
     try { const r = await authFetch(api.base, `/api/v1/admin/panels/${p.id}/health`, { method: "POST" }); ok = r.ok; healthy = ok && (await r.json()).healthy; } catch { /* network */ }
     if (alive.current) setBusy((s) => { const n = new Set(s); n.delete(p.id); return n; });
-    if (!quiet) toast(!ok ? `بررسی «${p.name}» ناموفق بود` : healthy ? `«${p.name}» سالم است` : `«${p.name}» پاسخ سالم نداد`);
-    if (!quiet) await load();
-    return healthy;
-  }, [api.base, toast, load]);
+    return { ok, healthy };
+  }, [api.base, alive]);
+  const healthToast = useCallback((p, { ok, healthy }) => toast(!ok ? `بررسی «${p.name}» ناموفق بود` : healthy ? `«${p.name}» سالم است` : `«${p.name}» پاسخ سالم نداد`), [toast]);
+  const check = useCallback(async (p, quiet) => {
+    const res = await probe(p);
+    if (!quiet) { healthToast(p, res); await load(); }
+    return res.healthy;
+  }, [probe, healthToast, load]);
 
   const checkAll = async () => {
     const list = (rows || []).filter((p) => p.is_enabled); if (!list.length) return;
@@ -296,8 +302,14 @@ export default function PanelsView({ api, toast }) {
     const editing = drawer !== "add";
     const r = await authFetch(api.base, editing ? `/api/v1/admin/panels/${drawer}` : "/api/v1/admin/panels", { method: editing ? "PATCH" : "POST", body: JSON.stringify(payload) });
     if (!r.ok) return errText(r, editing ? "ذخیره تغییرات ناموفق بود" : "ثبت پنل ناموفق بود");
-    const id = editing ? drawer : (await r.json())?.id; setDrawer(null); toast(editing ? "تغییرات ذخیره شد" : "پنل ثبت شد — مرحله بعد: افزودن سرور");
-    await infra.reload(); if (withCheck && id) await check({ id, name: payload.name }); return "";
+    const id = editing ? drawer : (await r.json())?.id;
+    setDrawer(null);
+    toast(editing ? "تغییرات ذخیره شد" : "پنل ثبت شد — مرحله بعد: افزودن سرور");
+    // Health probe runs BEFORE the single reload so the reloaded list already shows the fresh status
+    // (previously: reload, then check -> stale flash + panels.load() fired twice).
+    if (withCheck && id) healthToast({ id, name: payload.name }, await probe({ id, name: payload.name }));
+    await infra.reload();
+    return "";
   };
 
   const toggle = async (p, next) => {
