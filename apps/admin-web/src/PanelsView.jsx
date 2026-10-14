@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { authFetch } from "./api.js";
+import { ServerForm } from "./ServerForm.jsx";
 import { Badge, confirmDialog, dt, sid } from "./ui.jsx";
 // Dot: imported from infra so the ping-animation and CSS colour tokens
 //       stay consistent across all four infrastructure screens.
-import { Dot, InfraChain, InfraLink, Rel, RelChip, clearParam, infraHref, useHashParams, useInfra } from "./infra.jsx";
+import { Dot, InfraChain, InfraLink, Rel, RelChip, clearParam, infraHref, serverState, usage, useHashParams, useInfra } from "./infra.jsx";
 // ↓ Shared kit helpers — NO local duplicates of these in this file.
 import { Field, Paginator, Segmented, Stat, Switch as KitSwitch, Toggle,
-         errText, num, tint, useAlive } from "./kit.jsx";
+         capTone, errText, num, tint, useAlive } from "./kit.jsx";
 import {
   Activity, AlertTriangle, Check, ChevronDown, Copy, ExternalLink, Eye, EyeOff, FlaskConical, KeyRound,
-  Layers, LayoutGrid, List, Pencil, Plus, RefreshCw, Save, Search, Server, ServerCog, ShieldAlert, ShieldCheck, X,
+  Layers, LayoutGrid, List, Pencil, Plus, RefreshCw, Rows3, Save, Search, Server, ServerCog, ShieldAlert, ShieldCheck, X,
 } from "lucide-react";
 
 // ---------- helpers (panel-specific only — shared helpers imported from kit.jsx) ----------
@@ -56,6 +57,64 @@ function Chips({ values, onChange, placeholder }) {
 }
 // Toggle → imported from kit.jsx (see imports at top)
 
+
+// ── Combined view components (panel + servers on one screen) ──────────────────
+function SrvMeter({ s }) {
+  const u = usage(s), t = capTone(u);
+  return <div>
+    <div className="mb-1.5 flex items-baseline justify-between text-xs"><span className="text-[var(--mu)]">ظرفیت</span><span className="font-bold"><span style={{ color: `var(--${t})` }}>{num(s.active_accounts)}</span> از {num(s.capacity)}</span></div>
+    <div className="h-1.5 overflow-hidden rounded-full bg-[var(--mb)]"><div className="h-full rounded-full transition-[width]" style={{ width: `${Math.min(100, u * 100)}%`, background: `var(--${t})` }} /></div>
+  </div>;
+}
+
+function SrvRow({ s, panel, srvBusy, onSrvEdit, onSrvToggle }) {
+  const st = serverState(s, panel), dim = s.is_enabled ? "" : "opacity-60";
+  return <li className="grid gap-3 px-4 py-3.5 md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1.4fr)_auto] md:items-center">
+    <div className={`min-w-0 ${dim}`}><b className="block truncate">{s.name}</b>
+      <div className="mt-0.5 flex items-center gap-2 text-[11px] text-[var(--mu)]">{s.location && <span>{s.location}</span>}<span className={`badge b-${st.tone}`}>{st.label}</span></div></div>
+    <div className={dim}><SrvMeter s={s} /></div>
+    <div className={`flex min-w-0 flex-wrap items-center gap-1.5 ${dim}`}>
+      {(s.product_codes || []).length ? (s.product_codes || []).slice(0, 2).map((c) => <span key={c} className="badge b-mu">{c}</span>) : <span className="badge b-in">همه محصولات</span>}
+      {(s.product_codes || []).length > 2 && <span className="text-[11px] text-[var(--mu)]">+{num((s.product_codes || []).length - 2)}</span>}
+    </div>
+    <div className="flex items-center justify-end gap-2">
+      <KitSwitch checked={s.is_enabled} disabled={srvBusy} onChange={(v) => onSrvToggle(s, v)} label={`${s.is_enabled ? "غیرفعال‌سازی" : "فعال‌سازی"} ${s.name}`} />
+      <button className="btn btn-g" onClick={() => onSrvEdit(s)}><Pencil size={13} />ویرایش</button>
+    </div>
+  </li>;
+}
+
+function PanelWithServers({ p, servers, stat, groups, panelBusy, srvBusy, onPanelEdit, onPanelToggle, onSrvAdd, onSrvEdit, onSrvToggle }) {
+  const s = state(p), k = kindOf(p.kind), u = stat.capacity ? stat.active / stat.capacity : 0, t = capTone(u);
+  return <section className="card rise overflow-hidden">
+    <header className={`flex flex-wrap items-center gap-3 border-b border-[var(--ln)] bg-[var(--sf2)] px-4 py-3 ${p.is_enabled ? "" : "opacity-70"}`}>
+      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl" style={tint(k.tone)}><k.Icon size={18} /></span>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2"><Dot s={s} ping /><b className="truncate">{p.name}</b>{!p.is_enabled && <span className="badge b-mu">غیرفعال</span>}</div>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+          {groups.length ? groups.slice(0, 3).map((g) => <RelChip key={g.id} to="panel-groups" params={{ q: g.name }} tone="wn" Icon={Layers} dim={!g.is_enabled}>{g.name}</RelChip>) : <span className="text-[11px] text-[var(--wn)]">در هیچ گروهی نیست</span>}
+          {groups.length > 3 && <span className="text-[11px] text-[var(--mu)]">+{num(groups.length - 3)}</span>}
+        </div>
+      </div>
+      {stat.n > 0 && <div className="hidden w-44 sm:block">
+        <div className="mb-1 flex justify-between text-[11px] text-[var(--mu)]"><span>{num(stat.n)} سرور</span><b style={{ color: `var(--${t})` }}>{num(stat.active)} / {num(stat.capacity)}</b></div>
+        <div className="h-1.5 overflow-hidden rounded-full bg-[var(--mb)]"><div className="h-full rounded-full" style={{ width: `${Math.min(100, u * 100)}%`, background: `var(--${t})` }} /></div>
+      </div>}
+      <div className="flex items-center gap-2">
+        <PanelSwitch p={p} busy={panelBusy} onToggle={onPanelToggle} />
+        <button className="btn btn-g" onClick={() => onPanelEdit(p)}><Pencil size={13} />ویرایش</button>
+        <button className="btn btn-g !py-1.5" onClick={() => onSrvAdd(p.id)}><Plus size={14} />سرور جدید</button>
+      </div>
+    </header>
+    {servers.length
+      ? <ul className="divide-y divide-[var(--ln)]">{servers.map((sv) => <SrvRow key={sv.id} s={sv} panel={p} srvBusy={srvBusy.has(sv.id)} onSrvEdit={onSrvEdit} onSrvToggle={onSrvToggle} />)}</ul>
+      : <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-5 text-sm">
+          <span className="flex items-center gap-2 text-[var(--wn)]"><AlertTriangle size={15} />این پنل هنوز سرور ندارد؛ تا سرور اضافه نشود اکانتی ساخته نمی‌شود.</span>
+          <button className="btn" onClick={() => onSrvAdd(p.id)}><Plus size={15} />افزودن اولین سرور</button>
+        </div>}
+  </section>;
+}
+// ─────────────────────────────────────────────────────────────────────────────
 // ---------- add / edit drawer ----------
 const EMPTY = { kind: "sanaei", name: "", url: "", auth: "token", token: "", user: "", pass: "", inbounds: [], subUrl: "", apiStyle: "auto", groups: [], tpl: "", scope: "groups", verifyTls: true, extra: "" };
 const KNOWN = { sanaei: ["inbound_ids", "inbound_id", "sub_base_url", "api_style", "verify_tls"], pasarguard: ["group_ids", "user_template_id", "verify_tls"], mock: [] };
@@ -214,7 +273,6 @@ function PanelSwitch({ p, busy, onToggle }) {
     />
   );
 }
-const capTone = (u) => (u >= 1 ? "bd" : u >= 0.8 ? "wn" : "ok");
 
 // Downstream of a panel: its servers (capacity) and the groups that include it.
 function Downstream({ p, stat, groups }) {
@@ -276,11 +334,13 @@ function PanelTable({ rows, busy, idx, onCheck, onEdit, onToggle }) {
 // Panels are step 1 of the infrastructure chain; servers live on their own page (#/servers).
 // drawer: null | "add" | id of the panel being edited. Deep link: #/panels?id=<panel id>
 export default function PanelsView({ api, toast }) {
-  const infra = useInfra(api, { needs: ["panels", "groups"] }); const { idx } = infra; // #3 lazy
+  const infra = useInfra(api, { needs: ["panels", "groups", "servers"] }); const { idx } = infra; // #3 lazy
   const params = useHashParams();
   const [q, setQ] = useState(""); const [filter, setFilter] = useState("all"); const [layout, setLayout] = useState("grid");
   const [only, setOnly] = useState(params.get("id") || "");
   const [drawer, setDrawer] = useState(null); const [busy, setBusy] = useState(new Set()); const [bulk, setBulk] = useState(null);
+  // Combined view: server drawer state
+  const [srvDrawer, setSrvDrawer] = useState(null); const [srvPreset, setSrvPreset] = useState(""); const [srvBusy, setSrvBusy] = useState(new Set());
   // useAlive() from kit.jsx — same semantics as manual ref, consistent with other screens
   const alive = useAlive();
   useEffect(() => { setOnly(params.get("id") || ""); }, [params]);
@@ -357,6 +417,16 @@ export default function PanelsView({ api, toast }) {
   const editing = drawer && drawer !== "add" ? (rows || []).find((p) => p.id === drawer) : null;
   const showAll = () => { setOnly(""); if (window.location.hash.includes("?")) clearParam("id"); };
 
+
+  const srvToggle = async (s, next) => {
+    if (!next && !(await confirmDialog(`«${s.name}» غیرفعال شود؟`, { title: "غیرفعال‌سازی سرور", danger: true, ok: "غیرفعال کن" }))) return;
+    setSrvBusy((x) => new Set(x).add(s.id));
+    let ok = false;
+    try { ok = (await authFetch(api.base, `/api/v1/admin/servers/${s.id}/state`, { method: "POST", body: JSON.stringify({ is_enabled: next }) })).ok; } catch { /* network */ }
+    if (alive.current) setSrvBusy((x) => { const n = new Set(x); n.delete(s.id); return n; });
+    toast(ok ? (next ? `«${s.name}» فعال شد` : `«${s.name}» غیرفعال شد`) : "تغییر وضعیت ناموفق بود");
+    if (ok) await infra.reload();
+  };
   return <div className="space-y-5">
     <InfraChain current="panels" infra={infra} />
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -368,7 +438,7 @@ export default function PanelsView({ api, toast }) {
 
     <div className="flex flex-wrap items-center gap-2">
       <label className="relative min-w-[12rem] flex-1 sm:max-w-xs"><Search size={15} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--mu)]" /><input aria-label="جستجوی پنل" className="inp pr-9" placeholder="جستجو در نام، نوع یا آدرس…" value={q} onChange={(e) => setQ(e.target.value)} /></label>
-      <div className="pv-seg" role="group" aria-label="نحوه نمایش"><button type="button" className={layout === "grid" ? "on" : ""} aria-label="کارتی" onClick={() => setLayout("grid")}><LayoutGrid size={15} /></button><button type="button" className={layout === "list" ? "on" : ""} aria-label="جدولی" onClick={() => setLayout("list")}><List size={15} /></button></div>
+      <div className="pv-seg" role="group" aria-label="نحوه نمایش"><button type="button" className={layout === "grid" ? "on" : ""} aria-label="کارتی" onClick={() => setLayout("grid")}><LayoutGrid size={15} /></button><button type="button" className={layout === "list" ? "on" : ""} aria-label="جدولی" onClick={() => setLayout("list")}><List size={15} /></button><button type="button" className={layout === "combined" ? "on" : ""} aria-label="پنل + سرورها" title="نمایش ترکیبی پنل‌ها و سرورها" onClick={() => setLayout("combined")}><Rows3 size={15} /></button></div>
       {only && <button className="btn btn-g !py-1.5" onClick={showAll}><X size={13} />نمایش همه پنل‌ها</button>}
       <div className="mr-auto flex items-center gap-2">
         <button className="btn btn-g !py-2 !text-sm" onClick={checkAll} disabled={!!bulk || !counts.all}><RefreshCw size={14} className={bulk ? "animate-spin" : ""} />{bulk ? `${num(bulk.done)} از ${num(bulk.total)}` : "بررسی همه"}</button>
@@ -384,8 +454,17 @@ export default function PanelsView({ api, toast }) {
         <p className="max-w-sm text-sm leading-7 text-[var(--mu)]">{counts.all ? "جستجو یا فیلتر وضعیت را تغییر دهید." : "برای فروش اکانت، ابتدا یک پنل سنایی یا پاسارگارد به Core وصل کنید؛ بعد برای آن سرور بسازید."}</p>
         {!counts.all && <button className="btn" onClick={() => setDrawer("add")}><Plus size={16} />افزودن اولین پنل</button>}</div>
       : layout === "grid" ? <><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{shown.map((p) => <PanelCard key={p.id} p={p} stat={idx.panelStat(p.id)} groups={idx.groupsByPanel.get(p.id) || []} busy={busy.has(p.id)} onCheck={check} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} />)}</div><Paginator page={page} setPage={setPage} total={filtered.length} pageSize={PAGE_SIZE} /></>
+        : layout === "combined" ? <div className="space-y-4">{shown.map((p) => <PanelWithServers key={p.id} p={p}
+              servers={(infra.servers.rows || []).filter((s) => s.panel_id === p.id)}
+              stat={idx.panelStat(p.id)} groups={idx.groupsByPanel.get(p.id) || []}
+              panelBusy={busy.has(p.id)} srvBusy={srvBusy}
+              onPanelEdit={(x) => setDrawer(x.id)} onPanelToggle={toggle}
+              onSrvAdd={(panelId) => { setSrvPreset(panelId); setSrvDrawer("add"); }}
+              onSrvEdit={(s) => setSrvDrawer(s.id)}
+              onSrvToggle={srvToggle} />)}</div>
         : <><PanelTable rows={shown} busy={busy} idx={idx} onCheck={check} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} /><Paginator page={page} setPage={setPage} total={filtered.length} pageSize={PAGE_SIZE} /></>}
 
     {drawer && (drawer === "add" || editing) && <PanelDrawer key={drawer} panel={drawer === "add" ? null : editing} onClose={() => setDrawer(null)} onSubmit={save} onToggle={toggle} toggling={editing ? busy.has(editing.id) : false} groups={infra.groups.rows || []} onGroupToggle={(g, add) => groupToggle(g, add, editing?.id)} />}
+    {srvDrawer && <ServerForm key={srvDrawer} server={srvDrawer !== "add" ? (infra.servers.rows || []).find((s) => s.id === srvDrawer) : null} presetPanel={srvPreset} api={api} toast={toast} onClose={() => { setSrvDrawer(null); setSrvPreset(""); }} onSave={async () => { setSrvDrawer(null); setSrvPreset(""); await infra.reload(); }} />}
   </div>;
 }

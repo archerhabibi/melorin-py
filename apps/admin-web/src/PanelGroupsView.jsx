@@ -2,13 +2,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { authFetch } from "./api.js";
 import { Badge, confirmDialog } from "./ui.jsx";
 import { ArrowDown, ArrowUp, Layers, Pencil, Plus, Search, ServerCog, ShieldAlert, ShoppingBag, Wand2, Hand, X, AlertTriangle, PowerOff, CheckCircle2, Boxes } from "lucide-react";
-import { Drawer, Field, NumInput, Paginator, Section, Segmented, Stat, Switch, Toggle, errText, num, tint, useAlive } from "./kit.jsx";
-import { Dot, InfraChain, Rel, RelChip, Warn, clearParam, health as hs, infraHref, useHashParams, useInfra } from "./infra.jsx";
+import { Drawer, Field, NumInput, Paginator, Section, Segmented, Stat, Switch, Toggle, capTone, errText, num, tint, useAlive } from "./kit.jsx";
+import { Dot, InfraChain, KIND, Rel, RelChip, Warn, clearParam, health as hs, infraHref, useHashParams, useInfra } from "./infra.jsx";
 
 const API = "/api/v1/admin/panel-groups";
 const MODES = { automatic: ["خودکار", "سیستم بهترین پنل را انتخاب می‌کند", Wand2], manual: ["دستی", "فقط پنل‌های انتخاب‌شده، به ترتیب اولویت", Hand] };
 const NAMING = { automatic: "خودکار", custom: "نام دلخواه کاربر" };
-const KIND = { sanaei: "سنایی", pasarguard: "پاسارگارد", mock: "Mock" };
 
 function Quota({ sold, limit }) {
   const pct = limit ? Math.min(100, Math.round((sold / limit) * 100)) : 0;
@@ -21,7 +20,7 @@ function Quota({ sold, limit }) {
 
 function GroupCard({ g, panelById, stat, products, busy, onEdit, onToggle }) {
   const ms = g.panels || [], dim = g.is_enabled ? "" : "opacity-55";
-  const u = stat.capacity ? stat.active / stat.capacity : 0, t = u >= 1 ? "bd" : u >= 0.8 ? "wn" : "ok";
+  const u = stat.capacity ? stat.active / stat.capacity : 0, t = capTone(u);
   return <article className="card rise flex flex-col gap-4 p-4">
     <div className={`flex items-start gap-3 ${dim}`}>
       <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl" style={tint("wn")}><Layers size={20} /></span>
