@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-14 15:33 UTC - hassanhabibi - admin-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(admin-web): apply remaining patch (#6, #8, #9, #11, #12) - - #6 PanelsView: expose the Mock panel kind only in dev builds - #8 infra: reload() reads loaders through a ref, no stale closure - #9 ServersView: default layout is "grid" - #11 PanelGroupsView: skeleton waits only for group rows - #12…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (5):** `apps/admin-web/src/PanelGroupsView.jsx`, `apps/admin-web/src/PanelsView.jsx`, `apps/admin-web/src/ProductsView.jsx`, `apps/admin-web/src/ServersView.jsx`, `apps/admin-web/src/infra.jsx`
+- **Ref:** `67d611a`
+
+
 ### 2026-10-14 14:06 UTC - Claude - apps/admin-web PanelsView  _(auto)_
 - **Before:** PanelsView re-defined num/tint/errText/Dot/Stat/Field/Segmented/Toggle/Switch locally; save did infra.reload() then check() (stale health flash, panels.load() twice); validation errors passed as gray hint=; thead built with index keys.
 - **Problem:** fixes in kit.jsx/infra.jsx were invisible in PanelsView; race on health status after save.
