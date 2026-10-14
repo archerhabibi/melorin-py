@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { authFetch } from "./api.js";
 import { Badge, confirmDialog } from "./ui.jsx";
 import { AlertTriangle, Boxes, Layers, ServerCog, CheckCircle2, Clock, Infinity as Inf, LayoutGrid, List, Pencil, PowerOff, Plus, Save, Search, ShieldAlert, Smartphone, Store, Tag, Wallet, X, Zap } from "lucide-react";
-import { Drawer, Field, NumInput, Section, Segmented, Stat, Switch, Toggle, errText, num, tint, useAlive, useRows } from "./kit.jsx";
+import { Drawer, Field, NumInput, Paginator, Section, Segmented, Stat, Switch, Toggle, errText, num, tint, useAlive, useRows } from "./kit.jsx"; // #4
 import { InfraChain, Rel, RelChip, Warn, infraHref, useHashParams, useInfra } from "./infra.jsx";
 
 const API = "/api/v1/admin/products";
@@ -124,7 +124,13 @@ function ProductDrawer({ product, stores, groups, idx, call, toast, onClose, onS
       <Toggle checked={f.is_active} onChange={set("is_active")} label="محصول فعال باشد" hint="محصول غیرفعال برای خرید جدید نمایش داده نمی‌شود." />
       <Toggle checked={f.is_test} onChange={set("is_test")} label="محصول آزمایشی (تست)" hint="برای تست‌ها و اکانت‌های آزمایشی." />
     </Section>
-    {edit && <StoreAvailability product={product} stores={stores} call={call} toast={toast} />}
+    {edit && (
+      <>
+        {/* Dashed divider: StoreAvailability has its own independent save action */}
+        <div className="mx-4 border-t-2 border-dashed border-[var(--ln)]" aria-hidden="true" />
+        <StoreAvailability product={product} stores={stores} call={call} toast={toast} />
+      </>
+    )}
   </Drawer>;
 }
 
@@ -165,10 +171,14 @@ function ProductTable({ rows, idx, busy, onEdit, onToggle, quick, draft, setDraf
 }
 
 export default function ProductsView({ api, toast }) {
-  const infra = useInfra(api); const { call, idx } = infra;
+  const infra = useInfra(api, { needs: ["products", "servers", "groups"] }); // #3 const { call, idx } = infra;
   const prods = infra.products, storesQ = useRows(call, "/api/v1/admin/stores");
   const params = useHashParams();
-  const [q, setQ] = useState(params.get("q") || ""), [filter, setFilter] = useState("all"), [layout, setLayout] = useState("grid"), [drawer, setDrawer] = useState(null), [busy, setBusy] = useState(new Set());
+  const [q, setQ] = useState(params.get("q") || "")
+  // #4 Pagination
+  const PAGE_SIZE = 20;
+  const [page, setPage] = useState(0);
+  useEffect(() => { setPage(0); }, [q]); // eslint-disable-line react-hooks/exhaustive-deps, [filter, setFilter] = useState("all"), [layout, setLayout] = useState("grid"), [drawer, setDrawer] = useState(null), [busy, setBusy] = useState(new Set());
   const [quick, setQuick] = useState(false), [draft, setDraft] = useState({}), [saving, setSaving] = useState(false);
   const alive = useAlive(); const rows = prods.rows;
   useEffect(() => { setQ(params.get("q") || ""); }, [params]);
@@ -225,7 +235,9 @@ export default function ProductsView({ api, toast }) {
         <p className="max-w-sm text-sm leading-7 text-[var(--mu)]">{counts.all ? "جستجو یا فیلتر را تغییر دهید." : "هر محصول یک پلن قابل فروش با مدت، حجم و قیمت مشخص است."}</p>
         {!counts.all && <button className="btn" onClick={() => setDrawer("add")}><Plus size={16} />ساخت اولین محصول</button>}</div>
       : table ? <ProductTable idx={idx} rows={shown} busy={busy} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} quick={quick} draft={draft} setDraft={setDraft} />
-      : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{shown.map((p) => <ProductCard key={p.id} p={p} idx={idx} busy={busy.has(p.id)} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} />)}</div>}
+      : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{shown.slice(page*PAGE_SIZE,(page+1)*PAGE_SIZE).map((p) => <ProductCard key={p.id} p={p} idx={idx} busy={busy.has(p.id)} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} />)}
+      <Paginator page={page} setPage={setPage} total={shown.length} pageSize={PAGE_SIZE} />
+      </div>}
     {drawer && (drawer === "add" || editing) && <ProductDrawer key={drawer} product={editing} stores={storesQ.rows || []} groups={infra.groups.rows || []} idx={idx} call={call} toast={toast} onClose={() => setDrawer(null)} onSubmit={save} />}
   </div>;
 }

@@ -19,14 +19,38 @@ export async function errText(r, fallback) {
 export function useAlive() { const a = useRef(true); useEffect(() => () => { a.current = false; }, []); return a; }
 
 /** Fetch a list endpoint once (and on reload). rows === null while loading. */
-export function useRows(call, path) {
-  const [rows, setRows] = useState(null); const [failed, setFailed] = useState(false); const alive = useAlive();
+/** Fetch a list; pass `{ skip: true }` on screens that do not need this endpoint (lazy-loading #3). */
+export function useRows(call, path, { skip = false } = {}) {
+  const [rows, setRows] = useState(skip ? [] : null);
+  const [failed, setFailed] = useState(false);
+  const alive = useAlive();
   const load = useCallback(async () => {
-    try { const r = await call(path); if (!r.ok) throw 0; const d = await r.json(); if (alive.current) { setRows(Array.isArray(d) ? d : d.items || []); setFailed(false); } }
-    catch { if (alive.current) { setFailed(true); setRows((x) => x || []); } }
-  }, [path]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { load(); }, [load]);
-  return { rows, failed, load };
+    if (!path || skip) return;
+    try {
+      const r = await call(path);
+      if (!r.ok) throw 0;
+      const d = await r.json();
+      if (alive.current) { setRows(Array.isArray(d) ? d : d.items || []); setFailed(false); }
+    } catch {
+      if (alive.current) { setFailed(true); setRows((x) => x || []); }
+    }
+  }, [path, skip]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!skip) load(); }, [load]); // eslint-disable-line react-hooks/exhaustive-deps
+  return { rows: skip ? [] : rows, failed, load: skip ? () => Promise.resolve() : load };
+}
+
+/** Page navigation strip. Renders nothing when all items fit on one page. */
+export function Paginator({ page, setPage, total, pageSize = 20 }) {
+  const pages = Math.ceil(total / pageSize);
+  if (pages <= 1) return null;
+  const n = (v) => Number(v || 0).toLocaleString("fa-IR");
+  return (
+    <div className="flex items-center justify-center gap-3 pt-3">
+      <button className="btn btn-g !py-1.5 !text-xs" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>«</button>
+      <span className="text-xs text-[var(--mu)]">{n(page + 1)} / {n(pages)}</span>
+      <button className="btn btn-g !py-1.5 !text-xs" disabled={page >= pages - 1} onClick={() => setPage((p) => p + 1)}>»</button>
+    </div>
+  );
 }
 
 export function Field({ label, hint, error, children }) {

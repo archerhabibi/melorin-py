@@ -10,7 +10,7 @@
 //
 // `useInfra` loads all four lists once per screen and derives the relations so every screen can show
 // where an item sits in the chain, what it depends on, and what is broken for sale.
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, ArrowLeft, Boxes, Layers, PanelTop, ServerCog } from "lucide-react";
 import { authFetch } from "./api.js";
 import { num, tint, useRows } from "./kit.jsx";
@@ -113,17 +113,30 @@ export function buildIndex(panels, servers, groups, products) {
   return { panelById, groupById, serversByPanel, groupsByPanel, productsByGroup, panelStat, groupStat, reach, productsForPanel };
 }
 
-/** All four lists, loaded once per screen. Pages reload the whole chain after a change so relations never go stale. */
-export function useInfra(api) {
+/** Load only the endpoints a screen needs. Pass `{ needs: ["panels","groups"] }` for lazy-loading (#3).
+ * Default (no arg) fetches all four — backward-compatible. */
+export function useInfra(api, { needs = ["panels", "servers", "groups", "products"] } = {}) {
+  const has = (k) => needs.includes(k);
   const call = useCallback((p, o) => authFetch(api.base, p, o), [api.base]);
-  const panels = useRows(call, "/api/v1/admin/panels");
-  const servers = useRows(call, "/api/v1/admin/servers");
-  const groups = useRows(call, "/api/v1/admin/panel-groups");
-  const products = useRows(call, "/api/v1/admin/products");
-  const lists = [panels, servers, groups, products];
-  const idx = useMemo(() => buildIndex(panels.rows || [], servers.rows || [], groups.rows || [], products.rows || []), [panels.rows, servers.rows, groups.rows, products.rows]);
-  const reload = useCallback(() => Promise.all([panels.load(), servers.load(), groups.load(), products.load()]), [panels.load, servers.load, groups.load, products.load]); // eslint-disable-line react-hooks/exhaustive-deps
-  return { call, panels, servers, groups, products, idx, reload, loading: lists.some((l) => l.rows === null), failed: lists.some((l) => l.failed) };
+  const panels  = useRows(call, "/api/v1/admin/panels",      { skip: !has("panels")   });
+  const servers  = useRows(call, "/api/v1/admin/servers",      { skip: !has("servers")  });
+  const groups   = useRows(call, "/api/v1/admin/panel-groups", { skip: !has("groups")   });
+  const products = useRows(call, "/api/v1/admin/products",     { skip: !has("products") });
+  // Track loading/failed only for requested endpoints (skip initialises rows to [])
+  const needed = [panels, servers, groups, products]
+    .filter((_, i) => has(["panels", "servers", "groups", "products"][i]));
+  const idx = useMemo(
+    () => buildIndex(panels.rows || [], servers.rows || [], groups.rows || [], products.rows || []),
+    [panels.rows, servers.rows, groups.rows, products.rows], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const _loaderRef = useRef(null);
+  _loaderRef.current = { panels: panels.load, servers: servers.load, groups: groups.load, products: products.load };
+  const reload = useCallback(
+    () => Promise.all(needs.map((k) => _loaderRef.current[k]())),
+    [], // stable; ref updated each render above
+  );
+  return { call, panels, servers, groups, products, idx, reload,
+    loading: needed.some((l) => l.rows === null), failed: needed.some((l) => l.failed) };
 }
 
 /* ---------- UI: links ---------- */

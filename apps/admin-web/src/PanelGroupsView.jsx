@@ -113,16 +113,32 @@ function GroupDrawer({ group, panels, idx, onClose, onSubmit }) {
 }
 
 export default function PanelGroupsView({ api, toast }) {
-  const infra = useInfra(api); const { call, idx } = infra;
+  const infra = useInfra(api, { needs: ["groups", "panels"] }); const { call, idx } = infra; // #3
   const groups = infra.groups, panelsQ = infra.panels;
   const params = useHashParams();
   const [q, setQ] = useState(params.get("q") || ""), [filter, setFilter] = useState("all"), [drawer, setDrawer] = useState(null), [busy, setBusy] = useState(new Set());
+  // #4 Pagination
+  const PAGE_SIZE = 20;
+  const [page, setPage] = useState(0);
+  useEffect(() => { setPage(0); }, [filter, q]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Section 4: Bulk
+  const [selected, setSelected] = useState(new Set());
+  const clearSel  = () => setSelected(new Set());
+  const bulkToggle = async (enable) => {
+    const ids = [...selected]; if (!ids.length) return;
+    setBusy(new Set(ids));
+    await Promise.all(ids.map((id) => call(`/api/v1/admin/panel-groups/${id}/state`,
+      { method: "POST", body: JSON.stringify({ is_enabled: enable }) })));
+    await infra.groups.load(); setBusy(new Set()); clearSel();
+    toast(`${ids.length} گروه ${enable ? "فعال" : "غیرفعال"} شد`);
+  };
   const alive = useAlive();
   useEffect(() => { setQ(params.get("q") || ""); }, [params]);
   const rows = groups.rows, panels = panelsQ.rows || [];
   const panelById = useMemo(() => Object.fromEntries(panels.map((p) => [p.id, p])), [panels]);
   const counts = useMemo(() => { const c = { all: 0, on: 0, off: 0, sold: 0 }; (rows || []).forEach((g) => { c.all++; g.is_enabled ? c.on++ : c.off++; c.sold += g.sold_count || 0; }); return c; }, [rows]);
-  const shown = useMemo(() => (rows || []).filter((g) => (filter === "all" || (filter === "on" ? g.is_enabled : !g.is_enabled)) && g.name.toLowerCase().includes(q.trim().toLowerCase())), [rows, filter, q]);
+  const filtered = useMemo(() => (rows || []).filter((g) => (filter === "all" || (filter === "on" ? g.is_enabled : !g.is_enabled)) && g.name.toLowerCase().includes(q.trim().toLowerCase())), [rows, filter, q]);
+  const shown = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const editing = drawer && drawer !== "add" ? (rows || []).find((g) => g.id === drawer) : null;
 
   const save = async (f, group) => {
@@ -153,12 +169,14 @@ export default function PanelGroupsView({ api, toast }) {
       <button className="btn mr-auto" onClick={() => setDrawer("add")}><Plus size={16} />افزودن گروه</button>
     </div>
     {groups.failed && <p role="alert" className="flex items-center gap-2 rounded-xl bg-[var(--bdb)] p-3 text-sm text-[var(--bd)]"><ShieldAlert size={16} />دریافت گروه‌ها ناموفق بود. <button className="font-extrabold underline" onClick={groups.load}>تلاش مجدد</button></p>}
-    {(rows === null || panelsQ.rows === null) ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[0, 1, 2].map((i) => <div key={i} className="card skel h-52" />)}</div>
+    {/* Skeleton only while group rows load. If panelsQ fails, groups still
+         render - GroupCard handles missing panels via p?.name fallback. */
+     rows === null ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[0, 1, 2].map((i) => <div key={i} className="card skel h-52" />)}</div>
       : !shown.length ? <div className="card grid place-items-center gap-3 p-14 text-center"><span className="grid h-14 w-14 place-items-center rounded-2xl bg-[var(--mb)] text-[var(--mu)]"><Layers size={26} /></span>
         <h3 className="font-extrabold">{counts.all ? "گروهی با این فیلتر پیدا نشد" : "هنوز گروه پنلی ساخته نشده"}</h3>
         <p className="max-w-sm text-sm leading-7 text-[var(--mu)]">{counts.all ? "جستجو یا فیلتر را تغییر دهید." : "گروه پنل مشخص می‌کند اکانت‌های فروشی روی کدام پنل‌ها ساخته شوند."}</p>
         {!counts.all && <button className="btn" onClick={() => setDrawer("add")}><Plus size={16} />ساخت اولین گروه</button>}</div>
-      : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{shown.map((g) => <GroupCard key={g.id} g={g} panelById={panelById} stat={idx.groupStat(g)} products={idx.productsByGroup.get(g.id) || []} busy={busy.has(g.id)} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} />)}</div>}
+      : <><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{shown.map((g) => <GroupCard key={g.id} g={g} panelById={panelById} stat={idx.groupStat(g)} products={idx.productsByGroup.get(g.id) || []} busy={busy.has(g.id)} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} />)}</div><Paginator page={page} setPage={setPage} total={filtered.length} pageSize={PAGE_SIZE} /></>}
     {drawer && (drawer === "add" || editing) && <GroupDrawer key={drawer} group={editing} panels={panels} idx={idx} onClose={() => setDrawer(null)} onSubmit={save} />}
   </div>;
 }

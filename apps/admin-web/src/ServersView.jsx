@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Badge, confirmDialog } from "./ui.jsx";
 import { ServerForm } from "./ServerForm.jsx";
-import { Stat, Switch, num, tint, useAlive } from "./kit.jsx";
+import { Paginator, Stat, Switch, num, tint, useAlive } from "./kit.jsx"; // #4
 import { Dot, InfraChain, InfraLink, Rel, RelChip, Warn, clearParam, free, health, infraHref, serverState, usage, useHashParams, useInfra } from "./infra.jsx";
 import { AlertTriangle, CheckCircle2, FlaskConical, Gauge, Layers, LayoutGrid, List, MapPin, PanelTop, Pencil, Plus, Rows3, Search, ServerCog, ServerOff } from "lucide-react";
 
@@ -56,7 +56,7 @@ function PanelSection({ panel, list, groups, stat, byCode, busy, onAdd, onEdit, 
 }
 
 /* ---------- card + table layouts ---------- */
-function ServerCard({ s, panel, groups, byCode, busy, onEdit, onToggle }) {
+function ServerCard({ s, panel, groups, byCode, busy, onEdit, onToggle, onCheckPanel }) {
   const st = serverState(s, panel), dim = s.is_enabled ? "" : "opacity-55";
   return <article className="card rise flex flex-col gap-4 p-4">
     <div className={`flex items-start gap-3 ${dim}`}>
@@ -72,7 +72,11 @@ function ServerCard({ s, panel, groups, byCode, busy, onEdit, onToggle }) {
     <div className={dim}><Meter s={s} /></div>
     <div className="mt-auto flex items-center justify-between gap-2 border-t border-[var(--ln)] pt-3">
       <label className="flex items-center gap-2 text-xs text-[var(--mu)]"><Switch checked={s.is_enabled} disabled={busy} onChange={(v) => onToggle(s, v)} label={`${s.is_enabled ? "غیرفعال‌سازی" : "فعال‌سازی"} ${s.name}`} />{s.is_enabled ? "فعال" : "غیرفعال"}</label>
-      <button className="btn btn-g" onClick={() => onEdit(s)}><Pencil size={13} />ویرایش</button>
+      <div className="flex gap-1.5">
+        {/* Section 2E: check the panel that owns this server */}
+        {panel && <button className="btn btn-g !px-2" title="بررسی سلامت پنل" onClick={() => onCheckPanel?.(s.panel_id)}><RefreshCw size={13} /></button>}
+        <button className="btn btn-g" onClick={() => onEdit(s)}><Pencil size={13} />ویرایش</button>
+      </div>
     </div>
   </article>;
 }
@@ -100,7 +104,8 @@ export default function ServersView({ api, toast }) {
   const alive = useAlive();
   const [q, setQ] = useState(""); const [filter, setFilter] = useState("all");
   const [panelF, setPanelF] = useState(params.get("panel") || "all"); const [groupF, setGroupF] = useState(params.get("group") || "all"); const [productF, setProductF] = useState(params.get("product") || "all");
-  const [layout, setLayout] = useState("panel"); const [drawer, setDrawer] = useState(null); const [preset, setPreset] = useState(""); const [busy, setBusy] = useState(new Set());
+  // default layout is grid: avoids the confusing panel-duplication view
+  const [layout, setLayout] = useState("grid"); const [drawer, setDrawer] = useState(null); const [preset, setPreset] = useState(""); const [busy, setBusy] = useState(new Set());
 
   useEffect(() => { setPanelF(params.get("panel") || "all"); setGroupF(params.get("group") || "all"); setProductF(params.get("product") || "all"); }, [params]);
   useEffect(() => { if (params.get("add")) { setPreset(params.get("panel") || ""); setDrawer("add"); clearParam("add"); } }, [params]);
@@ -108,6 +113,65 @@ export default function ServersView({ api, toast }) {
   const panelRows = infra.panels.rows, rows = infra.servers.rows, productRows = infra.products.rows, groupRows = infra.groups.rows;
   const byCode = useMemo(() => new Map((productRows || []).map((p) => [p.code, p])), [productRows]);
   const stateOf = (s) => serverState(s, idx.panelById.get(s.panel_id));
+  // Section 2E: trigger health-check for a panel from the server screen
+  const checkPanel = async (panelId) => {
+    const p = (infra.panels.rows || []).find((x) => x.id === panelId);
+    if (!p) return;
+    setBusy((prev) => new Set(prev).add(panelId));
+    try {
+      const r = await infra.call(`/api/v1/admin/panels/${panelId}/health`, { method: "POST" });
+      const d = r.ok ? await r.json() : null;
+      toast(d?.healthy ? `پنل «${p.name}» سالم ✓` : `پنل «${p.name}» ناسالم`);
+      if (r.ok) await infra.reload();
+    } catch { toast("بررسی ناموفق بود"); }
+    setBusy((prev) => { const n = new Set(prev); n.delete(panelId); return n; });
+  };
+
+  // #4 Pagination
+  const PAGE_SIZE = 20;
+  const [page, setPage] = useState(0);
+  useEffect(() => { setPage(0); }, [filter, q, panelF, groupF, productF]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Section 4: Bulk enable/disable
+  const [selected, setSelected] = useState(new Set());
+  const toggleSel = (id) => setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const clearSel  = () => setSelected(new Set());
+  const bulkToggle = async (enable) => {
+    const ids = [...selected]; if (!ids.length) return;
+    if (!enable && !(await confirmDialog(`${num(ids.length)} سرور غیرفعال شود؟`, { danger: true, ok: "غیرفعال کن" }))) return;
+    setBusy(new Set(ids));
+    await Promise.all(ids.map((id) => infra.call(`/api/v1/admin/servers/${id}/state`,
+      { method: "POST", body: JSON.stringify({ is_enabled: enable }) })));
+    await infra.servers.load(); setBusy(new Set()); clearSel();
+    toast(`${num(ids.length)} سرور ${enable ? "فعال" : "غیرفعال"} شد`);
+  };
+
+  // Section 4: CSV import state
+  const [csvOpen, setCsvOpen] = useState(false);
+  const [csvText, setCsvText] = useState("");
+  const [csvRows, setCsvRows] = useState([]);
+  const [csvPanelId, setCsvPanelId] = useState("");
+  const parseCsv = () => {
+    const lines = csvText.trim().split("\n").filter((l) => l.trim() && !l.startsWith("#"));
+    setCsvRows(lines.map((line) => {
+      const [name = "", location = "", capacity = "0", codes = ""] = line.split(",").map((s) => s.trim());
+      return { name, location, capacity: Math.max(0, parseInt(capacity) || 0),
+        product_codes: codes ? codes.split("|").map((s) => s.trim()).filter(Boolean) : [] };
+    }).filter((r) => r.name));
+  };
+  const importCsv = async () => {
+    if (!csvRows.length || !csvPanelId) { toast("پنل و CSV الزامی است"); return; }
+    let ok = 0;
+    for (const row of csvRows) {
+      const r = await infra.call("/api/v1/admin/servers",
+        { method: "POST", body: JSON.stringify({ ...row, panel_id: csvPanelId }) });
+      if (r.ok) ok++;
+    }
+    toast(`${num(ok)} از ${num(csvRows.length)} سرور ایجاد شد`);
+    if (ok) await infra.reload();
+    setCsvOpen(false); setCsvText(""); setCsvRows([]);
+  };
+
   const counts = useMemo(() => {
     const c = { all: 0, ready: 0, near: 0, blocked: 0 };
     (rows || []).forEach((s) => { c.all++; const st = serverState(s, idx.panelById.get(s.panel_id)); if (st.ok) { c.ready++; if (usage(s) >= 0.8) c.near++; } else c.blocked++; });
@@ -170,7 +234,16 @@ export default function ServersView({ api, toast }) {
         <button type="button" className={layout === "grid" ? "on" : ""} aria-label="کارتی" title="کارتی" onClick={() => setLayout("grid")}><LayoutGrid size={15} /></button>
         <button type="button" className={layout === "list" ? "on" : ""} aria-label="جدولی" title="جدولی" onClick={() => setLayout("list")}><List size={15} /></button></div>
       {hasFilter && <button className="text-xs font-bold text-[var(--ac)] underline" onClick={reset}>پاک‌کردن فیلترها</button>}
-      <button className="btn mr-auto" onClick={() => openAdd("")} disabled={emptyNoPanels}><Plus size={16} />افزودن سرور</button>
+      <div className="mr-auto flex items-center gap-2">
+        {selected.size > 0 && <>
+          <span className="text-xs text-[var(--mu)]">{num(selected.size)} انتخاب‌شده</span>
+          <button className="btn btn-g !py-1.5 !text-xs" onClick={() => bulkToggle(true)}>فعال</button>
+          <button className="btn btn-g !py-1.5 !text-xs" onClick={() => bulkToggle(false)}>غیرفعال</button>
+          <button className="btn btn-g !py-1.5 !text-xs" onClick={clearSel}>×</button>
+        </>}
+        <button className="btn btn-g" onClick={() => setCsvOpen(true)} disabled={emptyNoPanels}>ورود CSV</button>
+        <button className="btn" onClick={() => openAdd("")} disabled={emptyNoPanels}><Plus size={16} />افزودن سرور</button>
+      </div>
     </div>
 
     {(productObj || groupF !== "all") && <p className="flex flex-wrap items-center gap-2 rounded-xl bg-[var(--inb)] px-3 py-2 text-xs font-bold text-[var(--in)]">
@@ -184,8 +257,46 @@ export default function ServersView({ api, toast }) {
       : layout === "panel" ? (sections.length ? <div className="space-y-4">{sections.map(([p, list]) => <PanelSection key={p.id} panel={p} list={list} groups={idx.groupsByPanel.get(p.id) || []} stat={idx.panelStat(p.id)} byCode={byCode} busy={busy} filtered={!!hasFilter} onAdd={openAdd} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} />)}</div>
         : <EmptyFiltered total={counts.all} onReset={reset} onAdd={() => openAdd("")} />)
       : !shown.length ? <EmptyFiltered total={counts.all} onReset={reset} onAdd={() => openAdd("")} />
-        : layout === "grid" ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{shown.map((s) => <ServerCard key={s.id} s={s} panel={idx.panelById.get(s.panel_id)} groups={idx.groupsByPanel.get(s.panel_id) || []} byCode={byCode} busy={busy.has(s.id)} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} />)}</div>
+        : layout === "grid" ? <><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{shown.slice(page*PAGE_SIZE,(page+1)*PAGE_SIZE).map((s) => <ServerCard key={s.id} s={s} panel={idx.panelById.get(s.panel_id)} groups={idx.groupsByPanel.get(s.panel_id) || []} byCode={byCode} busy={busy.has(s.id)} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} onCheckPanel={checkPanel} />)}</div><Paginator page={page} setPage={setPage} total={shown.length} pageSize={PAGE_SIZE} /></>
           : <ServerTable rows={shown} idx={idx} byCode={byCode} busy={busy} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} />}
+
+    {/* Section 4: CSV Import Modal */}
+    {csvOpen && <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/55" onClick={() => setCsvOpen(false)} />
+      <aside role="dialog" dir="rtl" className="relative z-10 flex w-full max-w-2xl flex-col rounded-2xl bg-[var(--bg)] shadow-2xl">
+        <header className="flex items-center justify-between border-b border-[var(--ln)] px-5 py-4">
+          <h2 className="font-extrabold">ورود دسته‌جمعی سرور از CSV</h2>
+          <button className="btn btn-g !px-2" onClick={() => setCsvOpen(false)}>×</button>
+        </header>
+        <div className="space-y-4 overflow-y-auto p-5">
+          <label className="block text-xs font-bold">پنل
+            <select className="inp mt-1 w-full" value={csvPanelId} onChange={(e) => setCsvPanelId(e.target.value)}>
+              <option value="">-- انتخاب کنید --</option>
+              {(infra.panels.rows || []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </label>
+          <label className="block text-xs font-bold">
+            داده CSV <span className="font-normal">(هر ردیف: نام, موقعیت, ظرفیت, کدمحصول با |)</span>
+            <textarea dir="ltr" rows={5} className="inp mt-1 w-full font-mono text-xs"
+              placeholder={"server-de1, Frankfurt, 100, plan_1m|plan_3m"}
+              value={csvText} onChange={(e) => setCsvText(e.target.value)} />
+          </label>
+          <button className="btn btn-g" onClick={parseCsv}>پیش‌نمایش ({csvRows.length} ردیف)</button>
+          {csvRows.length > 0 && (
+            <div className="overflow-auto rounded-xl border border-[var(--ln)]">
+              <table className="tbl"><thead><tr><th>نام</th><th>موقعیت</th><th>ظرفیت</th><th>کدمحصول</th></tr></thead>
+              <tbody>{csvRows.map((r, i) => <tr key={i}><td>{r.name}</td><td>{r.location||"—"}</td>
+                <td>{r.capacity}</td><td className="text-xs">{r.product_codes.join(", ")||"—"}</td></tr>)}</tbody>
+              </table>
+            </div>
+          )}
+        </div>
+        <footer className="flex gap-2 border-t border-[var(--ln)] px-5 py-4">
+          <button className="btn" disabled={!csvRows.length||!csvPanelId} onClick={importCsv}>ورود {num(csvRows.length)} سرور</button>
+          <button className="btn btn-g mr-auto" onClick={() => { setCsvOpen(false); setCsvText(""); setCsvRows([]); }}>انصراف</button>
+        </footer>
+      </aside>
+    </div>}
 
     {drawer && (drawer === "add" || editing) && <ServerForm key={`${drawer}:${preset}`} api={api} toast={toast} infra={infra} presetPanel={preset} locations={locations}
       server={drawer === "add" ? null : editing} toggling={editing ? busy.has(editing.id) : false} onToggle={toggle} onSaved={infra.reload} onClose={() => { setDrawer(null); setPreset(""); }} />}

@@ -16,6 +16,7 @@ const groups = [
   ['عملیات', [['سفارش‌ها', Package, 'orders'], ['پرداخت‌ها', CreditCard, 'payments'], ['اکانت‌های VPN', Server, 'vpn'], ['تیکت‌ها', Ticket, 'tickets']]],
   ['فروش و مشتریان', [['کاربران', Users, 'users'], ['فروشگاه‌ها', Store, 'stores'], ['کوپن‌ها', Percent, 'coupons']]],
     ['زیرساخت', [['پنل‌ها', PanelTop, 'panels'], ['سرورها', ServerCog, 'servers'], ['گروه‌های پنل VPN', Layers, 'panel-groups'], ['محصولات VPN', Boxes, 'products']], 'پنل ← سرور ← گروه ← محصول'],
+      ["سلامت زیرساخت", ShieldCheck, "infra-health"],
   ['سیستم', [['تنظیمات', Settings, 'settings'], ['ممیزی', ScrollText, 'audit'], ['بررسی هویت', Fingerprint, 'identity']]],
 ];
 const flat = groups.flatMap(([, items]) => items);

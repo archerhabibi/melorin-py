@@ -3,6 +3,7 @@ import { authFetch } from "./api.js";
 import { Plus, Search, X } from "lucide-react";
 import { Badge, confirmDialog, dt, isStatus, promptDialog } from "./ui.jsx";
 import PanelsView from "./PanelsView.jsx";
+import InfraHealthView from "./InfraHealthView.jsx"; // Section 4
 import ProductsView from "./ProductsView.jsx";
 import PanelGroupsView from "./PanelGroupsView.jsx";
 import ServersView from "./ServersView.jsx";
@@ -256,4 +257,4 @@ function Tickets({ api, toast }) {
   return <TicketsView call={call} toast={toast} />;
 }
 
-export const extraRoutes = { "سفارش‌ها": Orders, "پرداخت‌ها": Payments, "تیکت‌ها": Tickets, "محصولات VPN": ProductsView, "پنل‌ها": PanelsView, "سرورها": ServersView, "گروه‌های پنل VPN": PanelGroupsView, "کوپن‌ها": Coupons, "تنظیمات": Settings, "ممیزی": Audit, "بررسی هویت": Reviews };
+export const extraRoutes = { "سلامت زیرساخت": InfraHealthView, "سفارش‌ها": Orders, "پرداخت‌ها": Payments, "تیکت‌ها": Tickets, "محصولات VPN": ProductsView, "پنل‌ها": PanelsView, "سرورها": ServersView, "گروه‌های پنل VPN": PanelGroupsView, "کوپن‌ها": Coupons, "تنظیمات": Settings, "ممیزی": Audit, "بررسی هویت": Reviews };
