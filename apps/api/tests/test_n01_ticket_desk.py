@@ -93,6 +93,19 @@ async def test_message_edit_is_author_only_and_stamped(world):
     assert fixed["body"] == "درست" and fixed["edited_at"]
 
 
+async def test_admin_reply_and_edit_reject_whitespace_only_text(world):
+    for body in ("   ", "\n\t "):
+        with pytest.raises(AppError) as e:
+            await admin.ticket_reply(world.t.id, AdminAddMessage(body=body), world.staff, world.s)
+        assert e.value.status == 422
+    reply = await admin.ticket_reply(world.t.id, AdminAddMessage(body="پاسخ"), world.staff, world.s)
+    with pytest.raises(AppError) as e:
+        await admin.ticket_edit_message(world.t.id, uuid.UUID(reply["id"]), EditMessage(body="   "), world.staff, world.s)
+    assert e.value.status == 422
+    msgs = await customer.messages(world.t.id, world.staff, world.s)
+    assert [m.body for m in msgs][-1] == "پاسخ" and len(msgs) == 2
+
+
 async def test_customer_can_rename_close_and_reopen_but_not_closed_edit(world):
     out = await customer.update_ticket(world.t.id, UpdateTicket(subject="عنوان تازه", priority="high"), world.cust, world.s)
     assert out.subject == "عنوان تازه" and out.priority == "high"

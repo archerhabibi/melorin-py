@@ -580,7 +580,9 @@ async def ticket_reply(ticket_id: uuid.UUID, body: AdminAddMessage, admin: Admin
 
     t = await session.get(Ticket, ticket_id)
     if not t: raise NotFound("تیکت")
-    m = TicketMessage(ticket_id=t.id, author_id=admin.id, is_staff=True, is_internal=body.internal, body=body.body.strip())
+    text = body.body.strip()
+    if not text: raise AppError("EMPTY_MESSAGE", "متن پیام نمی‌تواند خالی باشد.", 422)
+    m = TicketMessage(ticket_id=t.id, author_id=admin.id, is_staff=True, is_internal=body.internal, body=text)
     session.add(m)
     if not body.internal:
         t.status = body.status or "answered"
@@ -608,6 +610,7 @@ async def ticket_edit_message(ticket_id: uuid.UUID, message_id: uuid.UUID, body:
     if m.author_id != admin.id: raise AppError("FORBIDDEN", "فقط نویسندهٔ پیام می‌تواند آن را ویرایش کند.", 403)
     t = await session.get(Ticket, ticket_id)
     new = body.body.strip()
+    if not new: raise AppError("EMPTY_MESSAGE", "متن پیام نمی‌تواند خالی باشد.", 422)
     if new != m.body:
         m.body, m.edited_at = new, utcnow()
         ticket_service.touch(t)
