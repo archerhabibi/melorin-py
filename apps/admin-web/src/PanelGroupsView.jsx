@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { authFetch } from "./api.js";
 import { Badge, confirmDialog } from "./ui.jsx";
 import { ArrowDown, ArrowUp, Layers, Pencil, Plus, Search, ServerCog, ShieldAlert, ShoppingBag, Wand2, Hand, X, AlertTriangle, PowerOff, CheckCircle2, Boxes } from "lucide-react";
-import { Drawer, Field, NumInput, Section, Segmented, Stat, Switch, Toggle, errText, num, tint, useAlive } from "./kit.jsx";
+import { Drawer, Field, NumInput, Paginator, Section, Segmented, Stat, Switch, Toggle, errText, num, tint, useAlive } from "./kit.jsx";
 import { Dot, InfraChain, Rel, RelChip, Warn, clearParam, health as hs, infraHref, useHashParams, useInfra } from "./infra.jsx";
 
 const API = "/api/v1/admin/panel-groups";

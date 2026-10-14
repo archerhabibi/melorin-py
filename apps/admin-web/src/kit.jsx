@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, X } from "lucide-react";
 import { confirmDialog } from "./ui.jsx";
 
-export const num = (n) => Number(n || 0).toLocaleString("fa-IR");
+export const num = (v) => Number(v || 0).toLocaleString("fa-IR");
 export const tint = (t) => ({ background: `var(--${t}b, var(--mb))`, color: `var(--${t}, var(--mu))` });
 // Accept Persian / Arabic-Indic digits typed by the admin and normalise them to ASCII.
 export const toEn = (s) => String(s ?? "").replace(/[۰-۹]/g, (d) => "۰۱۲۳۴۵۶۷۸۹".indexOf(d)).replace(/[٠-٩]/g, (d) => "٠١٢٣٤٥٦٧٨٩".indexOf(d));
@@ -43,11 +43,10 @@ export function useRows(call, path, { skip = false } = {}) {
 export function Paginator({ page, setPage, total, pageSize = 20 }) {
   const pages = Math.ceil(total / pageSize);
   if (pages <= 1) return null;
-  const n = (v) => Number(v || 0).toLocaleString("fa-IR");
   return (
     <div className="flex items-center justify-center gap-3 pt-3">
       <button className="btn btn-g !py-1.5 !text-xs" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>«</button>
-      <span className="text-xs text-[var(--mu)]">{n(page + 1)} / {n(pages)}</span>
+      <span className="text-xs text-[var(--mu)]">{num(page + 1)} / {num(pages)}</span>
       <button className="btn btn-g !py-1.5 !text-xs" disabled={page >= pages - 1} onClick={() => setPage((p) => p + 1)}>»</button>
     </div>
   );

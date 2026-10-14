@@ -3,7 +3,7 @@ import { Badge, confirmDialog } from "./ui.jsx";
 import { ServerForm } from "./ServerForm.jsx";
 import { Paginator, Stat, Switch, num, tint, useAlive } from "./kit.jsx"; // #4
 import { Dot, InfraChain, InfraLink, Rel, RelChip, Warn, clearParam, free, health, infraHref, serverState, usage, useHashParams, useInfra } from "./infra.jsx";
-import { AlertTriangle, CheckCircle2, FlaskConical, Gauge, Layers, LayoutGrid, List, MapPin, PanelTop, Pencil, Plus, Rows3, Search, ServerCog, ServerOff } from "lucide-react";
+import { AlertTriangle, CheckCircle2, FlaskConical, Gauge, Layers, LayoutGrid, List, MapPin, PanelTop, Pencil, Plus, RefreshCw, Rows3, Search, ServerCog, ServerOff } from "lucide-react";
 
 const usageTone = (u) => (u >= 1 ? "bd" : u >= 0.8 ? "wn" : "ok");
 
