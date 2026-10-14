@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-14 00:36 UTC - Claude - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(tickets): reject whitespace-only admin replies and edits
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `apps/api/melorin/modules/admin/router.py`, `apps/api/tests/test_n01_ticket_desk.py`
+- **Ref:** `ad2a05b`
+
+
 ### 2026-10-14 00:14 UTC - Claude - admin-web, api, tests  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
