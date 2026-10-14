@@ -1,14 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Badge, confirmDialog } from "./ui.jsx";
 import { ServerForm } from "./ServerForm.jsx";
-import { Paginator, Stat, Switch, num, tint, useAlive } from "./kit.jsx"; // #4
+import { Paginator, Stat, Switch, capTone, num, tint, useAlive } from "./kit.jsx"; // #4
 import { Dot, InfraChain, InfraLink, Rel, RelChip, Warn, clearParam, free, health, infraHref, serverState, usage, useHashParams, useInfra } from "./infra.jsx";
-import { AlertTriangle, CheckCircle2, FlaskConical, Gauge, Layers, LayoutGrid, List, MapPin, PanelTop, Pencil, Plus, RefreshCw, Rows3, Search, ServerCog, ServerOff } from "lucide-react";
-
-const usageTone = (u) => (u >= 1 ? "bd" : u >= 0.8 ? "wn" : "ok");
+import { AlertTriangle, CheckCircle2, FlaskConical, Gauge, Layers, List, MapPin, PanelTop, Pencil, Plus, RefreshCw, Rows3, Search, ServerCog, ServerOff } from "lucide-react";
 
 function Meter({ s, slim }) {
-  const u = usage(s), t = usageTone(u);
+  const u = usage(s), t = capTone(u);
   return <div>
     <div className="mb-1.5 flex items-baseline justify-between text-xs"><span className="text-[var(--mu)]">ظرفیت</span><span className="font-bold"><span style={{ color: `var(--${t})` }}>{num(s.active_accounts)}</span> از {num(s.capacity)}<span className="mr-1.5 font-normal text-[var(--mu)]">({num(Math.round(u * 100))}٪)</span></span></div>
     <div className={`${slim ? "h-1.5" : "h-2"} overflow-hidden rounded-full bg-[var(--mb)]`} role="meter" aria-valuemin={0} aria-valuemax={s.capacity} aria-valuenow={s.active_accounts} aria-label="میزان استفاده از ظرفیت"><div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${Math.min(100, u * 100)}%`, background: `var(--${t})` }} /></div>
@@ -39,7 +37,7 @@ function ServerRow({ s, panel, byCode, busy, onEdit, onToggle }) {
 
 /* ---------- panel section (servers are children of their panel) ---------- */
 function PanelSection({ panel, list, groups, stat, byCode, busy, onAdd, onEdit, onToggle, filtered }) {
-  const h = health(panel), u = stat.capacity ? stat.active / stat.capacity : 0, t = usageTone(u);
+  const h = health(panel), u = stat.capacity ? stat.active / stat.capacity : 0, t = capTone(u);
   return <section className="card rise overflow-hidden">
     <header className={`flex flex-wrap items-center gap-3 border-b border-[var(--ln)] bg-[var(--sf2)] px-4 py-3 ${panel.is_enabled ? "" : "opacity-70"}`}>
       <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl" style={tint(h === "healthy" ? "ok" : h === "unhealthy" ? "bd" : "mu")}><PanelTop size={18} /></span>
@@ -82,12 +80,11 @@ function ServerCard({ s, panel, groups, byCode, busy, onEdit, onToggle, onCheckP
 }
 
 function ServerTable({ rows, idx, byCode, busy, onEdit, onToggle }) {
-  return <section className="card rise overflow-hidden"><div className="overflow-auto"><table className="tbl min-w-[980px]"><thead><tr>{["سرور", "پنل", "گروه‌ها", "ظرفیت", "محصولات", "وضعیت", "فعال", ""].map((c, i) => <th key={i}>{c}</th>)}</tr></thead>
+  return <section className="card rise overflow-hidden"><div className="overflow-auto"><table className="tbl min-w-[980px]"><thead><tr>{["سرور", "پنل", "ظرفیت", "محصولات", "وضعیت", "فعال", ""].map((c, i) => <th key={i}>{c}</th>)}</tr></thead>
     <tbody>{rows.map((s) => { const panel = idx.panelById.get(s.panel_id), gs = idx.groupsByPanel.get(s.panel_id) || [];
       return <tr key={s.id} className={s.is_enabled ? "" : "opacity-60"}>
         <td><div className="font-bold">{s.name}</div><div className="text-[11px] text-[var(--mu)]">{s.location || "—"}</div></td>
         <td><span className="flex items-center gap-2"><Dot s={health(panel)} /><InfraLink to="panels" params={{ id: s.panel_id }} className="font-semibold">{s.panel_name}</InfraLink></span></td>
-        <td><div className="flex flex-wrap gap-1">{gs.length ? gs.slice(0, 2).map((g) => <RelChip key={g.id} to="panel-groups" params={{ q: g.name }} tone="wn" dim={!g.is_enabled}>{g.name}</RelChip>) : <span className="text-[11px] text-[var(--wn)]">—</span>}{gs.length > 2 && <span className="text-[11px] text-[var(--mu)]">+{num(gs.length - 2)}</span>}</div></td>
         <td className="min-w-[170px]"><Meter s={s} slim /></td>
         <td><div className="flex flex-wrap gap-1"><Products s={s} byCode={byCode} max={2} /></div></td>
         <td><StatePill st={serverState(s, panel)} /></td>
@@ -105,7 +102,7 @@ export default function ServersView({ api, toast }) {
   const [q, setQ] = useState(""); const [filter, setFilter] = useState("all");
   const [panelF, setPanelF] = useState(params.get("panel") || "all"); const [groupF, setGroupF] = useState(params.get("group") || "all"); const [productF, setProductF] = useState(params.get("product") || "all");
   // Default layout: grid avoids the confusing panel-duplication view.
-  const [layout, setLayout] = useState("grid"); const [drawer, setDrawer] = useState(null); const [preset, setPreset] = useState(""); const [busy, setBusy] = useState(new Set());
+  const [layout, setLayout] = useState("panel"); const [drawer, setDrawer] = useState(null); const [preset, setPreset] = useState(""); const [busy, setBusy] = useState(new Set());
 
   useEffect(() => { setPanelF(params.get("panel") || "all"); setGroupF(params.get("group") || "all"); setProductF(params.get("product") || "all"); }, [params]);
   useEffect(() => { if (params.get("add")) { setPreset(params.get("panel") || ""); setDrawer("add"); clearParam("add"); } }, [params]);
@@ -231,7 +228,6 @@ export default function ServersView({ api, toast }) {
       <select aria-label="فیلتر محصول" className="inp !w-auto" value={productF} onChange={(e) => setProductF(e.target.value)}><option value="all">همه محصولات</option>{(productRows || []).map((p) => <option key={p.id} value={p.code}>{p.name}</option>)}</select>
       <div className="pv-seg" role="group" aria-label="نحوه نمایش">
         <button type="button" className={layout === "panel" ? "on" : ""} aria-label="بر اساس پنل" title="بر اساس پنل" onClick={() => setLayout("panel")}><Rows3 size={15} /></button>
-        <button type="button" className={layout === "grid" ? "on" : ""} aria-label="کارتی" title="کارتی" onClick={() => setLayout("grid")}><LayoutGrid size={15} /></button>
         <button type="button" className={layout === "list" ? "on" : ""} aria-label="جدولی" title="جدولی" onClick={() => setLayout("list")}><List size={15} /></button></div>
       {hasFilter && <button className="text-xs font-bold text-[var(--ac)] underline" onClick={reset}>پاک‌کردن فیلترها</button>}
       <div className="mr-auto flex items-center gap-2">
@@ -257,8 +253,7 @@ export default function ServersView({ api, toast }) {
       : layout === "panel" ? (sections.length ? <div className="space-y-4">{sections.map(([p, list]) => <PanelSection key={p.id} panel={p} list={list} groups={idx.groupsByPanel.get(p.id) || []} stat={idx.panelStat(p.id)} byCode={byCode} busy={busy} filtered={!!hasFilter} onAdd={openAdd} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} />)}</div>
         : <EmptyFiltered total={counts.all} onReset={reset} onAdd={() => openAdd("")} />)
       : !shown.length ? <EmptyFiltered total={counts.all} onReset={reset} onAdd={() => openAdd("")} />
-        : layout === "grid" ? <><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{shown.slice(page*PAGE_SIZE,(page+1)*PAGE_SIZE).map((s) => <ServerCard key={s.id} s={s} panel={idx.panelById.get(s.panel_id)} groups={idx.groupsByPanel.get(s.panel_id) || []} byCode={byCode} busy={busy.has(s.id)} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} onCheckPanel={checkPanel} />)}</div><Paginator page={page} setPage={setPage} total={shown.length} pageSize={PAGE_SIZE} /></>
-          : <ServerTable rows={shown} idx={idx} byCode={byCode} busy={busy} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} />}
+        : <ServerTable rows={shown} idx={idx} byCode={byCode} busy={busy} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} />}
 
     {/* Section 4: CSV Import Modal */}
     {csvOpen && <div className="fixed inset-0 z-50 flex items-center justify-center">

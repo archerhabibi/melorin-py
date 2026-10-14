@@ -52,10 +52,34 @@ function PriceHint({ main, res, cur }) {
 }
 
 function StoreAvailability({ product, stores, call, toast }) {
-  const [storeId, setStoreId] = useState(""); const [enabled, setEnabled] = useState(true), [listed, setListed] = useState(true), [cp, setCp] = useState(""); const [busy, setBusy] = useState(false);
+  const [storeId, setStoreId] = useState(""); const [enabled, setEnabled] = useState(true), [listed, setListed] = useState(true), [cp, setCp] = useState(""); const [busy, setBusy] = useState(false), [loading, setLoading] = useState(false);
   const store = stores.find((s) => s.id === storeId);
   useEffect(() => { const m = stores.find((s) => s.kind === "main") || stores[0]; if (m && !storeId) setStoreId(m.id); }, [stores]); // eslint-disable-line
-  useEffect(() => { setCp(store?.kind === "reseller" ? String(product.reseller_price) : ""); }, [storeId, product.id]); // eslint-disable-line
+  // Load current store availability state when store selection changes — fixes the bug where
+  // the form always showed enabled=true/listed=true regardless of existing settings.
+  useEffect(() => {
+    if (!storeId || !product.id) return;
+    setLoading(true);
+    call(`${API}/${product.id}/availability?store_id=${storeId}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => {
+        const curStore = stores.find((x) => x.id === storeId);
+        if (d && (d.store_id === storeId || d.store_id == null)) {
+          setEnabled(d.enabled ?? true);
+          setListed(d.listed ?? true);
+          setCp(curStore?.kind === "reseller" && d.customer_price != null ? String(d.customer_price) : "");
+        } else {
+          setEnabled(true); setListed(true);
+          setCp(curStore?.kind === "reseller" ? String(product.reseller_price) : "");
+        }
+      })
+      .catch(() => {
+        const curStore = stores.find((x) => x.id === storeId);
+        setEnabled(true); setListed(true);
+        setCp(curStore?.kind === "reseller" ? String(product.reseller_price) : "");
+      })
+      .finally(() => setLoading(false));
+  }, [storeId, product.id]); // eslint-disable-line
   if (!stores.length) return null;
   const publish = async () => {
     setBusy(true);
@@ -67,8 +91,8 @@ function StoreAvailability({ product, stores, call, toast }) {
       <Field label="فروشگاه"><select className="inp" value={storeId} onChange={(e) => setStoreId(e.target.value)}>{stores.map((s) => <option key={s.id} value={s.id}>{s.name} · {s.kind === "main" ? "اصلی" : "نماینده"}</option>)}</select></Field>
       {store?.kind === "reseller" && <Field label="قیمت فروش به مشتری"><NumInput value={cp} onChange={setCp} suffix={CUR[product.currency]} /></Field>}
     </div>
-    <div className="flex flex-wrap gap-6"><Toggle checked={enabled} onChange={setEnabled} label="قابل فروش" /><Toggle checked={listed} onChange={setListed} label="نمایش در کاتالوگ" /></div>
-    <button className="btn btn-g !py-2 !text-sm" disabled={busy || !storeId} onClick={publish}><Store size={14} />{busy ? "در حال ذخیره…" : "ذخیره وضعیت فروشگاه"}</button>
+    <div className="flex flex-wrap gap-6">{loading ? <span className="text-xs text-[var(--mu)]">در حال بارگذاری وضعیت فعلی…</span> : <><Toggle checked={enabled} onChange={setEnabled} label="قابل فروش" /><Toggle checked={listed} onChange={setListed} label="نمایش در کاتالوگ" /></>}</div>
+    <button className="btn btn-g !py-2 !text-sm" disabled={busy || loading || !storeId} onClick={publish}><Store size={14} />{loading ? "در حال بارگذاری…" : busy ? "در حال ذخیره…" : "ذخیره وضعیت فروشگاه"}</button>
   </Section>;
 }
 

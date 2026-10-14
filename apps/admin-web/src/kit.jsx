@@ -5,6 +5,14 @@ import { confirmDialog } from "./ui.jsx";
 
 export const num = (v) => Number(v || 0).toLocaleString("fa-IR");
 export const tint = (t) => ({ background: `var(--${t}b, var(--mb))`, color: `var(--${t}, var(--mu))` });
+/** Tone for a capacity ratio: red ≥100%, amber ≥80%, green otherwise. */
+export const capTone = (u) => (u >= 1 ? "bd" : u >= 0.8 ? "wn" : "ok");
+
+/** Chip list: first `max` items, then "+n" overflow badge. */
+export function ChipList({ items = [], max = 3, renderItem }) {
+  return <>{items.slice(0, max).map(renderItem)}{items.length > max && <span className="text-[11px] text-[var(--mu)]">+{num(items.length - max)}</span>}</>;
+}
+
 // Accept Persian / Arabic-Indic digits typed by the admin and normalise them to ASCII.
 export const toEn = (s) => String(s ?? "").replace(/[۰-۹]/g, (d) => "۰۱۲۳۴۵۶۷۸۹".indexOf(d)).replace(/[٠-٩]/g, (d) => "٠١٢٣٤٥٦٧٨٩".indexOf(d));
 export const digits = (s) => toEn(s).replace(/\D/g, "");
