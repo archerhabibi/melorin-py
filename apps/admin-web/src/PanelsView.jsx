@@ -134,7 +134,7 @@ function PanelDrawer({ panel, onClose, onSubmit, onToggle, toggling, groups = []
       </header>
       <div className="flex-1 space-y-6 overflow-y-auto p-5">
         {edit && <section className="card space-y-3 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><Dot s={st} /><Badge s={st} /><span className="text-xs text-[var(--mu)]">آخرین بررسی: {panel.last_health_at ? dt(panel.last_health_at) : "هرگز"}</span></div>
+          <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><Dot s={st} ping /><Badge s={st} /><span className="text-xs text-[var(--mu)]">آخرین بررسی: {panel.last_health_at ? dt(panel.last_health_at) : "هرگز"}</span></div>
             <label className="flex cursor-pointer items-center gap-2 text-xs font-bold"><button type="button" role="switch" aria-checked={panel.is_enabled} disabled={toggling} onClick={() => onToggle(panel, !panel.is_enabled)} className="pv-sw" data-on={panel.is_enabled}><span /></button>{panel.is_enabled ? "فعال" : "غیرفعال"}</label></div>
           {st === "unhealthy" && panel.last_health_error && <p dir="auto" className="break-words rounded-lg bg-[var(--bdb)] p-3 text-xs leading-6 text-[var(--bd)]"><b>آخرین خطا: </b>{panel.last_health_error}</p>}
           {!panel.is_enabled && <p className="text-[11px] leading-5 text-[var(--mu)]">پنل غیرفعال برای ساخت اکانت جدید انتخاب نمی‌شود و بررسی سلامت خودکار هم برای آن اجرا نمی‌شود. اکانت‌های موجود حذف نمی‌شوند.</p>}
@@ -209,7 +209,7 @@ function PanelSwitch({ p, busy, onToggle }) {
       checked={p.is_enabled}
       disabled={busy}
       onChange={(next) => onToggle(p, next)}
-      aria-label={`${p.is_enabled ? "غیرفعال‌سازی" : "فعال‌سازی"} ${p.name}`}
+      label={`${p.is_enabled ? "غیرفعال‌سازی" : "فعال‌سازی"} ${p.name}`}
       title={p.is_enabled ? "غیرفعال‌سازی" : "فعال‌سازی"}
     />
   );
@@ -235,7 +235,7 @@ function PanelCard({ p, busy, stat, groups, onCheck, onEdit, onToggle }) {
     <div className={`flex items-start gap-3 ${p.is_enabled ? "" : "opacity-55"}`}>
       <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl" style={tint(k.tone)}><k.Icon size={20} /></span>
       <div className="min-w-0 flex-1"><h3 className="truncate font-extrabold" title={p.name}>{p.name}</h3><p className="text-xs text-[var(--mu)]">{k.title}</p></div>
-      <div className="flex flex-col items-end gap-1"><span className="flex items-center gap-2"><Dot s={s} /><Badge s={s} /></span>{!p.is_enabled && <Badge s="disabled" />}</div>
+      <div className="flex flex-col items-end gap-1"><span className="flex items-center gap-2"><Dot s={s} ping /><Badge s={s} /></span>{!p.is_enabled && <Badge s="disabled" />}</div>
     </div>
     <div className={`flex items-center gap-1.5 rounded-lg bg-[var(--sf2)] px-3 py-2 ${p.is_enabled ? "" : "opacity-55"}`}><span dir="ltr" className="min-w-0 flex-1 truncate font-mono text-xs" title={p.base_url}>{p.base_url}</span><CopyButton text={p.base_url} />
       <a className="btn btn-g !px-2" href={p.base_url} target="_blank" rel="noopener noreferrer" aria-label="باز کردن پنل" title="باز کردن پنل"><ExternalLink size={14} /></a></div>
@@ -302,15 +302,19 @@ export default function PanelsView({ api, toast }) {
   };
   const rows = infra.panels.rows, failed = infra.panels.failed, load = infra.panels.load;
 
-  const check = useCallback(async (p, quiet) => {
+  const probe = useCallback(async (p) => {
     setBusy((s) => new Set(s).add(p.id));
     let ok = false, healthy = false;
     try { const r = await authFetch(api.base, `/api/v1/admin/panels/${p.id}/health`, { method: "POST" }); ok = r.ok; healthy = ok && (await r.json()).healthy; } catch { /* network */ }
     if (alive.current) setBusy((s) => { const n = new Set(s); n.delete(p.id); return n; });
-    if (!quiet) toast(!ok ? `بررسی «${p.name}» ناموفق بود` : healthy ? `«${p.name}» سالم است` : `«${p.name}» پاسخ سالم نداد`);
-    if (!quiet) await load();
-    return healthy;
-  }, [api.base, toast, load]);
+    return { ok, healthy };
+  }, [api.base, alive]);
+  const healthToast = useCallback((p, { ok, healthy }) => toast(!ok ? `بررسی «${p.name}» ناموفق بود` : healthy ? `«${p.name}» سالم است` : `«${p.name}» پاسخ سالم نداد`), [toast]);
+  const check = useCallback(async (p, quiet) => {
+    const res = await probe(p);
+    if (!quiet) { healthToast(p, res); await load(); }
+    return res.healthy;
+  }, [probe, healthToast, load]);
 
   const checkAll = async () => {
     const list = (rows || []).filter((p) => p.is_enabled); if (!list.length) return;
@@ -329,19 +333,10 @@ export default function PanelsView({ api, toast }) {
     const id = editing ? drawer : (await r.json())?.id;
     setDrawer(null);
     toast(editing ? "تغییرات ذخیره شد" : "پنل ثبت شد — مرحله بعد: افزودن سرور");
-    // ↓ FIX: health check runs BEFORE infra.reload() so the reloaded panel list
-    //   already reflects the updated health status. The original order caused
-    //   a stale-health flash and triggered panels.load() twice (inside reload
-    //   and again inside check). Now check runs quiet=true so it does not emit
-    //   its own toast; we emit it here after knowing the result.
-    if (withCheck && id) {
-      const healthy = await check({ id, name: payload.name }, /* quiet= */ true);
-      if (alive.current)
-        toast(healthy
-          ? `«${payload.name}» سالم است`
-          : `«${payload.name}» پاسخ سالم نداد`);
-    }
-    await infra.reload(); // single reload — already reflects post-health-check state
+    // Health probe runs BEFORE the single reload so the reloaded list already shows the fresh status
+    // (previously: reload, then check -> stale flash + panels.load() fired twice).
+    if (withCheck && id) healthToast({ id, name: payload.name }, await probe({ id, name: payload.name }));
+    await infra.reload();
     return "";
   };
 

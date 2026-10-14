@@ -104,7 +104,7 @@ export default function ServersView({ api, toast }) {
   const alive = useAlive();
   const [q, setQ] = useState(""); const [filter, setFilter] = useState("all");
   const [panelF, setPanelF] = useState(params.get("panel") || "all"); const [groupF, setGroupF] = useState(params.get("group") || "all"); const [productF, setProductF] = useState(params.get("product") || "all");
-  // default layout is grid: avoids the confusing panel-duplication view
+  // Default layout: grid avoids the confusing panel-duplication view.
   const [layout, setLayout] = useState("grid"); const [drawer, setDrawer] = useState(null); const [preset, setPreset] = useState(""); const [busy, setBusy] = useState(new Set());
 
   useEffect(() => { setPanelF(params.get("panel") || "all"); setGroupF(params.get("group") || "all"); setProductF(params.get("product") || "all"); }, [params]);
