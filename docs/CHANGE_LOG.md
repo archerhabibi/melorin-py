@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-14 17:38 UTC - archerhabibi - admin-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(admin-web): move infra-health into the Infrastructure nav group items - The entry sat outside the group's items array, so it was not a valid nav item. Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `apps/admin-web/src/App.jsx`
+- **Ref:** `9b613e7`
+
+
 ### 2026-10-14 16:59 UTC - archerhabibi - admin-web  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
