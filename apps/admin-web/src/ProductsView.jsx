@@ -195,14 +195,16 @@ function ProductTable({ rows, idx, busy, onEdit, onToggle, quick, draft, setDraf
 }
 
 export default function ProductsView({ api, toast }) {
-  const infra = useInfra(api, { needs: ["products", "servers", "groups"] }); // #3 const { call, idx } = infra;
+  const infra = useInfra(api, { needs: ["products", "servers", "groups"] }); // #3
+  const { call, idx } = infra;
   const prods = infra.products, storesQ = useRows(call, "/api/v1/admin/stores");
   const params = useHashParams();
   const [q, setQ] = useState(params.get("q") || "")
   // #4 Pagination
   const PAGE_SIZE = 20;
   const [page, setPage] = useState(0);
-  useEffect(() => { setPage(0); }, [q]); // eslint-disable-line react-hooks/exhaustive-deps, [filter, setFilter] = useState("all"), [layout, setLayout] = useState("grid"), [drawer, setDrawer] = useState(null), [busy, setBusy] = useState(new Set());
+  useEffect(() => { setPage(0); }, [q]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [filter, setFilter] = useState("all"), [layout, setLayout] = useState("grid"), [drawer, setDrawer] = useState(null), [busy, setBusy] = useState(new Set());
   const [quick, setQuick] = useState(false), [draft, setDraft] = useState({}), [saving, setSaving] = useState(false);
   const alive = useAlive(); const rows = prods.rows;
   useEffect(() => { setQ(params.get("q") || ""); }, [params]);
