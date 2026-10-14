@@ -124,7 +124,13 @@ function ProductDrawer({ product, stores, groups, idx, call, toast, onClose, onS
       <Toggle checked={f.is_active} onChange={set("is_active")} label="محصول فعال باشد" hint="محصول غیرفعال برای خرید جدید نمایش داده نمی‌شود." />
       <Toggle checked={f.is_test} onChange={set("is_test")} label="محصول آزمایشی (تست)" hint="برای تست‌ها و اکانت‌های آزمایشی." />
     </Section>
-    {edit && <StoreAvailability product={product} stores={stores} call={call} toast={toast} />}
+    {edit && (
+      <>
+        {/* Dashed divider: StoreAvailability has its own independent save action */}
+        <div className="mx-4 border-t-2 border-dashed border-[var(--ln)]" aria-hidden="true" />
+        <StoreAvailability product={product} stores={stores} call={call} toast={toast} />
+      </>
+    )}
   </Drawer>;
 }
 

@@ -153,7 +153,9 @@ export default function PanelGroupsView({ api, toast }) {
       <button className="btn mr-auto" onClick={() => setDrawer("add")}><Plus size={16} />افزودن گروه</button>
     </div>
     {groups.failed && <p role="alert" className="flex items-center gap-2 rounded-xl bg-[var(--bdb)] p-3 text-sm text-[var(--bd)]"><ShieldAlert size={16} />دریافت گروه‌ها ناموفق بود. <button className="font-extrabold underline" onClick={groups.load}>تلاش مجدد</button></p>}
-    {(rows === null || panelsQ.rows === null) ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[0, 1, 2].map((i) => <div key={i} className="card skel h-52" />)}</div>
+    {/* Skeleton only while group rows load. If panelsQ fails, groups still
+        render - GroupCard handles missing panels via p?.name fallback. */}
+    {rows === null ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[0, 1, 2].map((i) => <div key={i} className="card skel h-52" />)}</div>
       : !shown.length ? <div className="card grid place-items-center gap-3 p-14 text-center"><span className="grid h-14 w-14 place-items-center rounded-2xl bg-[var(--mb)] text-[var(--mu)]"><Layers size={26} /></span>
         <h3 className="font-extrabold">{counts.all ? "گروهی با این فیلتر پیدا نشد" : "هنوز گروه پنلی ساخته نشده"}</h3>
         <p className="max-w-sm text-sm leading-7 text-[var(--mu)]">{counts.all ? "جستجو یا فیلتر را تغییر دهید." : "گروه پنل مشخص می‌کند اکانت‌های فروشی روی کدام پنل‌ها ساخته شوند."}</p>

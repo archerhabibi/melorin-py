@@ -10,7 +10,7 @@
 //
 // `useInfra` loads all four lists once per screen and derives the relations so every screen can show
 // where an item sits in the chain, what it depends on, and what is broken for sale.
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, ArrowLeft, Boxes, Layers, PanelTop, ServerCog } from "lucide-react";
 import { authFetch } from "./api.js";
 import { num, tint, useRows } from "./kit.jsx";
@@ -122,7 +122,18 @@ export function useInfra(api) {
   const products = useRows(call, "/api/v1/admin/products");
   const lists = [panels, servers, groups, products];
   const idx = useMemo(() => buildIndex(panels.rows || [], servers.rows || [], groups.rows || [], products.rows || []), [panels.rows, servers.rows, groups.rows, products.rows]);
-  const reload = useCallback(() => Promise.all([panels.load(), servers.load(), groups.load(), products.load()]), [panels.load, servers.load, groups.load, products.load]); // eslint-disable-line react-hooks/exhaustive-deps
+  // _loaderRef keeps the latest load fns so reload() never captures a stale closure.
+  const _loaderRef = useRef(null);
+  _loaderRef.current = { panels: panels.load, servers: servers.load, groups: groups.load, products: products.load };
+  const reload = useCallback(
+    () => Promise.all([
+      _loaderRef.current.panels(),
+      _loaderRef.current.servers(),
+      _loaderRef.current.groups(),
+      _loaderRef.current.products(),
+    ]),
+    [], // stable; ref updated each render above
+  );
   return { call, panels, servers, groups, products, idx, reload, loading: lists.some((l) => l.rows === null), failed: lists.some((l) => l.failed) };
 }
 

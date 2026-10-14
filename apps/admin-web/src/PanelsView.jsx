@@ -29,7 +29,10 @@ const isStale = (p) => !p.last_health_at || Date.now() - new Date(p.last_health_
 const KINDS = {
   sanaei: { title: "سنایی (3x-ui)", desc: "پنل 3x-ui / Sanaei با Inbound و ساب‌اسکریپشن", Icon: ServerCog, tone: "in" },
   pasarguard: { title: "پاسارگارد", desc: "PasarGuard با گروه‌ها یا قالب کاربر", Icon: ShieldCheck, tone: "ok" },
-  mock: { title: "Mock (آزمایشی)", desc: "فقط برای توسعه و تست؛ در محیط عملیاتی غیرفعال است", Icon: FlaskConical, tone: "wn" },
+  // Mock is only available in dev builds; backend rejects mock panels in production.
+  ...(import.meta.env.DEV
+    ? { mock: { title: "Mock (آزمایشی)", desc: "فقط برای توسعه و تست؛ در محیط عملیاتی غیرفعال است", Icon: FlaskConical, tone: "wn" } }
+    : {}),
 };
 const kindOf = (k) => KINDS[k] || { title: k, desc: "", Icon: Server, tone: "mu" };
 
