@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { authFetch } from "./api.js";
 import { Badge, confirmDialog } from "./ui.jsx";
-import { AlertTriangle, Boxes, CheckCircle2, Clock, Infinity as Inf, LayoutGrid, List, Pencil, PowerOff, Plus, Save, Search, ShieldAlert, Smartphone, Store, Tag, Wallet, X, Zap } from "lucide-react";
+import { AlertTriangle, Boxes, Layers, ServerCog, CheckCircle2, Clock, Infinity as Inf, LayoutGrid, List, Pencil, PowerOff, Plus, Save, Search, ShieldAlert, Smartphone, Store, Tag, Wallet, X, Zap } from "lucide-react";
 import { Drawer, Field, NumInput, Section, Segmented, Stat, Switch, Toggle, errText, num, tint, useAlive, useRows } from "./kit.jsx";
+import { InfraChain, Rel, RelChip, Warn, infraHref, useHashParams, useInfra } from "./infra.jsx";
 
 const API = "/api/v1/admin/products";
 const CUR = { IRT: "تومان", USD: "دلار", USDT: "تتر", XTR: "ستاره" };
@@ -24,6 +25,23 @@ function validate(f) {
   if (f.main_price === "") e.main_price = "قیمت فروشگاه اصلی را وارد کنید";
   if (f.reseller_price === "") e.reseller_price = "قیمت نماینده را وارد کنید";
   return e;
+}
+
+/** product → group → panels → servers, with the reason when nothing can be allocated. */
+function Route({ p, idx, compact }) {
+  const r = idx.reach(p), g = r.group;
+  const panels = g ? (g.panels || []).filter((m) => m.is_enabled).map((m) => idx.panelById.get(m.panel_id)).filter(Boolean) : [];
+  return <div className="space-y-2">
+    <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+      {g ? <RelChip to="panel-groups" params={{ q: g.name }} tone="wn" Icon={Layers} dim={!g.is_enabled}>{g.name}</RelChip> : <span className="rounded-lg bg-[var(--mb)] px-2 py-1 font-bold text-[var(--mu)]">بدون گروه · انتخاب مستقیم سرور</span>}
+      <span className="text-[var(--mu)]">←</span>
+      {g ? <span className="text-[var(--mu)]">{num(panels.length)} پنل فعال</span> : <span className="text-[var(--mu)]">همه پنل‌ها</span>}
+      <span className="text-[var(--mu)]">←</span>
+      <a href={infraHref("servers", g ? { group: g.id, product: p.code } : { product: p.code })} className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 font-bold hover:ring-1 hover:ring-[var(--ac)]`} style={tint(r.ok ? "ok" : "bd")}><ServerCog size={12} />{num(r.live.length)} سرور آماده{r.ok ? ` · ${num(r.free)} ظرفیت آزاد` : ""}</a>
+    </div>
+    {!r.ok && !compact && <Warn tone="bd">{r.issue}؛ تا رفع این مشکل خرید این محصول با خطا یا بررسی دستی روبه‌رو می‌شود.</Warn>}
+    {!r.ok && compact && <p className="flex items-start gap-1.5 text-[11px] font-bold leading-5 text-[var(--bd)]"><AlertTriangle size={12} className="mt-0.5 shrink-0" />{r.issue}</p>}
+  </div>;
 }
 
 function PriceHint({ main, res, cur }) {
@@ -54,12 +72,10 @@ function StoreAvailability({ product, stores, call, toast }) {
   </Section>;
 }
 
-function ProductDrawer({ product, stores, call, toast, onClose, onSubmit }) {
+function ProductDrawer({ product, stores, groups, idx, call, toast, onClose, onSubmit }) {
   const edit = !!product;
   const [f, setF] = useState(() => (product ? fromProduct(product) : EMPTY)); const base = useRef(JSON.stringify(f));
   const [tried, setTried] = useState(false), [busy, setBusy] = useState(false), [srv, setSrv] = useState("");
-  const [groups, setGroups] = useState([]);
-  useEffect(() => { let on = true; call("/api/v1/admin/panel-groups").then((r) => (r.ok ? r.json() : [])).then((g) => { if (on) setGroups(Array.isArray(g) ? g : []); }).catch(() => {}); return () => { on = false; }; }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const set = (k) => (v) => { setSrv(""); setF((x) => ({ ...x, [k]: v })); };
   const err = useMemo(() => validate(f), [f]); const dirty = JSON.stringify(f) !== base.current;
   const submit = async () => { setTried(true); if (Object.keys(err).length) return; setBusy(true); const m = await onSubmit(payload(f), f.is_active, product); setBusy(false); if (m) setSrv(m); };
@@ -101,6 +117,9 @@ function ProductDrawer({ product, stores, call, toast, onClose, onSubmit }) {
       </div>
       <PriceHint main={f.main_price} res={f.reseller_price} cur={f.currency} />
     </Section>
+    <Section title="مسیر تخصیص" hint="هسته این‌طور اکانت می‌سازد: محصول ← گروه پیش‌فرض ← پنل‌های فعال گروه ← سرور فعال و سالم که این محصول را پوشش دهد.">
+      <Route p={{ code: f.code.trim(), default_panel_group_id: f.default_panel_group_id || null }} idx={idx} />
+    </Section>
     <Section title={edit ? "وضعیت" : "۴ · وضعیت"}>
       <Toggle checked={f.is_active} onChange={set("is_active")} label="محصول فعال باشد" hint="محصول غیرفعال برای خرید جدید نمایش داده نمی‌شود." />
       <Toggle checked={f.is_test} onChange={set("is_test")} label="محصول آزمایشی (تست)" hint="برای تست‌ها و اکانت‌های آزمایشی." />
@@ -109,7 +128,7 @@ function ProductDrawer({ product, stores, call, toast, onClose, onSubmit }) {
   </Drawer>;
 }
 
-function ProductCard({ p, busy, onEdit, onToggle }) {
+function ProductCard({ p, idx, busy, onEdit, onToggle }) {
   const d = pct(p.main_price, p.reseller_price);
   return <article className="card rise flex flex-col gap-4 p-4">
     <div className={`flex items-start gap-3 ${p.is_active ? "" : "opacity-55"}`}>
@@ -122,6 +141,7 @@ function ProductCard({ p, busy, onEdit, onToggle }) {
       <div className="flex items-baseline justify-between"><span className="text-[11px] text-[var(--mu)]">فروشگاه اصلی</span><b className="text-lg font-extrabold">{price(p.main_price, p.currency)}</b></div>
       <div className="mt-1 flex items-baseline justify-between"><span className="text-[11px] text-[var(--mu)]">نماینده{d > 0 ? ` · ${num(d)}٪ ارزان‌تر` : ""}</span><span className="text-sm font-bold">{price(p.reseller_price, p.currency)}</span></div>
     </div>
+    <div className={`rounded-xl bg-[var(--sf2)] p-3 ${p.is_active ? "" : "opacity-55"}`}><div className="mb-2 text-[11px] font-bold text-[var(--mu)]">مسیر تخصیص</div><Route p={p} idx={idx} compact /></div>
     <div className="mt-auto flex items-center justify-between gap-2 border-t border-[var(--ln)] pt-3">
       <label className="flex cursor-pointer items-center gap-2 text-xs font-bold"><Switch checked={p.is_active} disabled={busy} onChange={(v) => onToggle(p, v)} label={`فعال‌سازی ${p.name}`} />{p.is_active ? "فعال" : "غیرفعال"}</label>
       <button className="btn btn-g" onClick={() => onEdit(p)}><Pencil size={13} />ویرایش</button>
@@ -129,28 +149,31 @@ function ProductCard({ p, busy, onEdit, onToggle }) {
   </article>;
 }
 
-function ProductTable({ rows, busy, onEdit, onToggle, quick, draft, setDraft }) {
+function ProductTable({ rows, idx, busy, onEdit, onToggle, quick, draft, setDraft }) {
   const cell = (p, k) => quick
     ? <div className="w-36"><NumInput aria-label={`${k === "main_price" ? "قیمت اصلی" : "قیمت نماینده"} ${p.name}`} value={draft[p.id]?.[k] ?? String(p[k])} onChange={(v) => setDraft((d) => ({ ...d, [p.id]: { ...(d[p.id] || {}), [k]: v } }))} /></div>
     : <span className="font-semibold">{price(p[k], p.currency)}</span>;
-  return <section className="card rise overflow-hidden"><div className="overflow-auto"><table className="tbl min-w-[860px]"><thead><tr>{["محصول", "مدت", "ترافیک", "دستگاه", "قیمت اصلی", "قیمت نماینده", "وضعیت", ""].map((h, i) => <th key={i}>{h}</th>)}</tr></thead>
+  return <section className="card rise overflow-hidden"><div className="overflow-auto"><table className="tbl min-w-[960px]"><thead><tr>{["محصول", "مدت", "ترافیک", "دستگاه", "قیمت اصلی", "قیمت نماینده", "تخصیص", "وضعیت", ""].map((h, i) => <th key={i}>{h}</th>)}</tr></thead>
     <tbody>{rows.map((p) => { const dirty = quick && draft[p.id] && (draft[p.id].main_price !== undefined && draft[p.id].main_price !== String(p.main_price) || draft[p.id].reseller_price !== undefined && draft[p.id].reseller_price !== String(p.reseller_price));
       return <tr key={p.id} className={`${p.is_active ? "" : "opacity-60"} ${dirty ? "!bg-[var(--wnb)]" : ""}`}>
         <td><div className="font-bold">{p.name}{p.is_test && <span className="badge b-wn mr-2">تست</span>}</div><div dir="ltr" className="text-right font-mono text-[11px] text-[var(--mu)]">{p.code}</div></td>
         <td>{dur(p.duration_days)}</td><td>{gb(p.traffic_gb)}</td><td>{p.max_devices ? num(p.max_devices) : "∞"}</td>
         <td>{cell(p, "main_price")}</td><td>{cell(p, "reseller_price")}</td>
+        <td className="min-w-[150px]">{(() => { const r = idx.reach(p); return r.ok ? <span className="badge b-ok" title={r.group?.name || "انتخاب مستقیم سرور"}>{num(r.live.length)} سرور · {num(r.free)} آزاد</span> : <span className="badge b-bd" title={r.issue}>مسیر ندارد</span>; })()}</td>
         <td><div className="flex items-center gap-2"><Switch checked={p.is_active} disabled={busy.has(p.id)} onChange={(v) => onToggle(p, v)} label={`فعال‌سازی ${p.name}`} /></div></td>
         <td><button className="btn btn-g" onClick={() => onEdit(p)}><Pencil size={13} />ویرایش</button></td></tr>; })}</tbody></table></div></section>;
 }
 
 export default function ProductsView({ api, toast }) {
-  const call = (p, o) => authFetch(api.base, p, o);
-  const prods = useRows(call, API), storesQ = useRows(call, "/api/v1/admin/stores");
-  const [q, setQ] = useState(""), [filter, setFilter] = useState("all"), [layout, setLayout] = useState("grid"), [drawer, setDrawer] = useState(null), [busy, setBusy] = useState(new Set());
+  const infra = useInfra(api); const { call, idx } = infra;
+  const prods = infra.products, storesQ = useRows(call, "/api/v1/admin/stores");
+  const params = useHashParams();
+  const [q, setQ] = useState(params.get("q") || ""), [filter, setFilter] = useState("all"), [layout, setLayout] = useState("grid"), [drawer, setDrawer] = useState(null), [busy, setBusy] = useState(new Set());
   const [quick, setQuick] = useState(false), [draft, setDraft] = useState({}), [saving, setSaving] = useState(false);
   const alive = useAlive(); const rows = prods.rows;
-  const counts = useMemo(() => { const c = { all: 0, on: 0, off: 0, test: 0 }; (rows || []).forEach((p) => { c.all++; p.is_active ? c.on++ : c.off++; if (p.is_test) c.test++; }); return c; }, [rows]);
-  const shown = useMemo(() => (rows || []).filter((p) => (filter === "all" || (filter === "on" ? p.is_active : filter === "off" ? !p.is_active : p.is_test)) && `${p.name} ${p.code} ${p.category || ""}`.toLowerCase().includes(q.trim().toLowerCase())), [rows, filter, q]);
+  useEffect(() => { setQ(params.get("q") || ""); }, [params]);
+  const counts = useMemo(() => { const c = { all: 0, on: 0, off: 0, test: 0, broken: 0 }; (rows || []).forEach((p) => { c.all++; p.is_active ? c.on++ : c.off++; if (p.is_test) c.test++; if (p.is_active && !idx.reach(p).ok) c.broken++; }); return c; }, [rows, idx]);
+  const shown = useMemo(() => (rows || []).filter((p) => (filter === "all" || (filter === "on" ? p.is_active : filter === "off" ? !p.is_active : filter === "broken" ? p.is_active && !idx.reach(p).ok : p.is_test)) && `${p.name} ${p.code} ${p.category || ""}`.toLowerCase().includes(q.trim().toLowerCase())), [rows, filter, q, idx]);
   const editing = drawer && drawer !== "add" ? (rows || []).find((p) => p.id === drawer) : null;
   const table = layout === "table" || quick;
 
@@ -158,14 +181,14 @@ export default function ProductsView({ api, toast }) {
     const r = await call(product ? `${API}/${product.id}` : API, { method: product ? "PATCH" : "POST", body: JSON.stringify(product ? { ...body, is_active: active } : body) });
     if (!r.ok) return errText(r, product ? "ذخیره تغییرات ناموفق بود" : "ساخت محصول ناموفق بود");
     if (!product && !active) { const c = await r.json().catch(() => null); if (c?.id) await call(`${API}/${c.id}`, { method: "PATCH", body: JSON.stringify({ is_active: false }) }); }
-    setDrawer(null); toast(product ? "تغییرات محصول ذخیره شد" : "محصول ساخته شد"); await prods.load(); return "";
+    setDrawer(null); toast(product ? "تغییرات محصول ذخیره شد" : "محصول ساخته شد"); await infra.reload(); return "";
   };
   const toggle = async (p, next) => {
     if (!next && !(await confirmDialog(`«${p.name}» غیرفعال شود؟ دیگر برای خرید جدید نمایش داده نمی‌شود.`, { title: "غیرفعال‌سازی محصول", danger: true, ok: "غیرفعال‌سازی" }))) return;
     setBusy((s) => new Set(s).add(p.id));
     let ok = false; try { ok = (await call(`${API}/${p.id}`, { method: "PATCH", body: JSON.stringify({ is_active: next }) })).ok; } catch { /* network */ }
     if (alive.current) setBusy((s) => { const n = new Set(s); n.delete(p.id); return n; });
-    toast(ok ? (next ? `«${p.name}» فعال شد` : `«${p.name}» غیرفعال شد`) : "تغییر وضعیت ناموفق بود"); if (ok) await prods.load();
+    toast(ok ? (next ? `«${p.name}» فعال شد` : `«${p.name}» غیرفعال شد`) : "تغییر وضعیت ناموفق بود"); if (ok) await infra.reload();
   };
   const changes = (rows || []).flatMap((p) => { const d = draft[p.id]; if (!d) return []; const b = {}; if (d.main_price !== undefined && d.main_price !== "" && d.main_price !== String(p.main_price)) b.main_price = +d.main_price; if (d.reseller_price !== undefined && d.reseller_price !== "" && d.reseller_price !== String(p.reseller_price)) b.reseller_price = +d.reseller_price; return Object.keys(b).length ? [[p, b]] : []; });
   const endQuick = async () => { if (changes.length && !(await confirmDialog("تغییرات قیمت ذخیره‌نشده از بین می‌رود. خارج می‌شوید؟", { title: "خروج از ویرایش سریع", danger: true, ok: "خروج" }))) return; setDraft({}); setQuick(false); };
@@ -174,14 +197,16 @@ export default function ProductsView({ api, toast }) {
     setSaving(true); let bad = 0;
     for (const [p, b] of changes) { try { if (!(await call(`${API}/${p.id}`, { method: "PATCH", body: JSON.stringify(b) })).ok) bad++; } catch { bad++; } }
     if (alive.current) setSaving(false);
-    toast(bad ? `${num(bad)} مورد از ${num(changes.length)} ذخیره نشد` : "قیمت‌ها به‌روزرسانی شد"); await prods.load(); if (!bad) { setDraft({}); setQuick(false); }
+    toast(bad ? `${num(bad)} مورد از ${num(changes.length)} ذخیره نشد` : "قیمت‌ها به‌روزرسانی شد"); await infra.reload(); if (!bad) { setDraft({}); setQuick(false); }
   };
 
   return <div className="space-y-5">
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <InfraChain current="products" infra={infra} />
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
       <Stat label="همه محصولات" value={counts.all} tone="in" Icon={Boxes} active={filter === "all"} onClick={() => setFilter("all")} />
       <Stat label="فعال" value={counts.on} tone="ok" Icon={CheckCircle2} active={filter === "on"} onClick={() => setFilter(filter === "on" ? "all" : "on")} />
       <Stat label="غیرفعال" value={counts.off} tone="mu" Icon={PowerOff} active={filter === "off"} onClick={() => setFilter(filter === "off" ? "all" : "off")} />
+      <Stat label="بدون مسیر تخصیص" value={counts.broken} tone="bd" Icon={AlertTriangle} active={filter === "broken"} onClick={() => setFilter(filter === "broken" ? "all" : "broken")} />
       <Stat label="آزمایشی" value={counts.test} tone="wn" Icon={Tag} active={filter === "test"} onClick={() => setFilter(filter === "test" ? "all" : "test")} />
     </div>
     <div className="flex flex-wrap items-center gap-2">
@@ -194,13 +219,13 @@ export default function ProductsView({ api, toast }) {
       </div>
     </div>
     {prods.failed && <p role="alert" className="flex items-center gap-2 rounded-xl bg-[var(--bdb)] p-3 text-sm text-[var(--bd)]"><ShieldAlert size={16} />دریافت محصولات ناموفق بود. <button className="font-extrabold underline" onClick={prods.load}>تلاش مجدد</button></p>}
-    {rows === null ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[0, 1, 2].map((i) => <div key={i} className="card skel h-60" />)}</div>
+    {(rows === null || infra.loading) ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[0, 1, 2].map((i) => <div key={i} className="card skel h-60" />)}</div>
       : !shown.length ? <div className="card grid place-items-center gap-3 p-14 text-center"><span className="grid h-14 w-14 place-items-center rounded-2xl bg-[var(--mb)] text-[var(--mu)]"><Boxes size={26} /></span>
         <h3 className="font-extrabold">{counts.all ? "محصولی با این فیلتر پیدا نشد" : "هنوز محصولی تعریف نشده"}</h3>
         <p className="max-w-sm text-sm leading-7 text-[var(--mu)]">{counts.all ? "جستجو یا فیلتر را تغییر دهید." : "هر محصول یک پلن قابل فروش با مدت، حجم و قیمت مشخص است."}</p>
         {!counts.all && <button className="btn" onClick={() => setDrawer("add")}><Plus size={16} />ساخت اولین محصول</button>}</div>
-      : table ? <ProductTable rows={shown} busy={busy} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} quick={quick} draft={draft} setDraft={setDraft} />
-      : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{shown.map((p) => <ProductCard key={p.id} p={p} busy={busy.has(p.id)} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} />)}</div>}
-    {drawer && (drawer === "add" || editing) && <ProductDrawer key={drawer} product={editing} stores={storesQ.rows || []} call={call} toast={toast} onClose={() => setDrawer(null)} onSubmit={save} />}
+      : table ? <ProductTable idx={idx} rows={shown} busy={busy} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} quick={quick} draft={draft} setDraft={setDraft} />
+      : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{shown.map((p) => <ProductCard key={p.id} p={p} idx={idx} busy={busy.has(p.id)} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} />)}</div>}
+    {drawer && (drawer === "add" || editing) && <ProductDrawer key={drawer} product={editing} stores={storesQ.rows || []} groups={infra.groups.rows || []} idx={idx} call={call} toast={toast} onClose={() => setDrawer(null)} onSubmit={save} />}
   </div>;
 }

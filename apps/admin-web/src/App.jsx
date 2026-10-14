@@ -8,17 +8,19 @@ import Trend from './Trend.jsx';
 import { Badge, DialogHost, ThemeButton, confirmDialog, label, sid, tone } from './ui.jsx';
 import { Palette } from './palette.jsx';
 import { toggleTheme } from './theme.js';
-import { Activity, Bell, CircleAlert, CreditCard, Database, Download, Fingerprint, LayoutDashboard, Menu, Package, PanelTop, Percent, RefreshCw, Server, Settings, ShieldCheck, Ticket, Users, WalletCards, X, Boxes, ScrollText, Store, Search, Moon, LogOut, KeyRound, ChevronDown, UserRound } from 'lucide-react';
+import { Activity, Bell, CircleAlert, CreditCard, Database, Download, Fingerprint, LayoutDashboard, Menu, Package, PanelTop, Percent, RefreshCw, Server, Settings, ShieldCheck, Ticket, Users, WalletCards, X, Boxes, ScrollText, Store, Search, ServerCog, Layers, Moon, LogOut, KeyRound, ChevronDown, UserRound } from 'lucide-react';
 
 // Section keys are Persian labels (AdminSections/AdminExtra route on them); slug drives the URL hash.
 const groups = [
   ['نمای کلی', [['داشبورد', LayoutDashboard, 'home']]],
   ['عملیات', [['سفارش‌ها', Package, 'orders'], ['پرداخت‌ها', CreditCard, 'payments'], ['اکانت‌های VPN', Server, 'vpn'], ['تیکت‌ها', Ticket, 'tickets']]],
   ['فروش و مشتریان', [['کاربران', Users, 'users'], ['فروشگاه‌ها', Store, 'stores'], ['کوپن‌ها', Percent, 'coupons']]],
-    ['زیرساخت و سیستم', [['پنل‌ها', PanelTop, 'panels'], ['محصولات VPN', Boxes, 'products'], ['گروه‌های پنل VPN', Boxes, 'panel-groups'], ['تنظیمات', Settings, 'settings'], ['ممیزی', ScrollText, 'audit'], ['بررسی هویت', Fingerprint, 'identity']]],
+    ['زیرساخت', [['پنل‌ها', PanelTop, 'panels'], ['سرورها', ServerCog, 'servers'], ['گروه‌های پنل VPN', Layers, 'panel-groups'], ['محصولات VPN', Boxes, 'products']], 'پنل ← سرور ← گروه ← محصول'],
+  ['سیستم', [['تنظیمات', Settings, 'settings'], ['ممیزی', ScrollText, 'audit'], ['بررسی هویت', Fingerprint, 'identity']]],
 ];
 const flat = groups.flatMap(([, items]) => items);
-const fromHash = () => (flat.find((x) => `#/${x[2]}` === window.location.hash) || flat[0])[0];
+// The hash may carry deep-link params (#/servers?panel=<id>); only the path picks the section.
+const fromHash = () => (flat.find((x) => `#/${x[2]}` === window.location.hash.split('?')[0]) || flat[0])[0];
 
 const todayLabel = () => new Intl.DateTimeFormat('fa-IR-u-ca-persian', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
 // Live wall-clock shown next to the date (browser timezone, Persian digits).
@@ -67,7 +69,7 @@ async function refundPayment(base, paymentId, reason) {
 }
 
 function Nav({ section, go, openTickets }) {
-  return <nav aria-label="منوی اصلی" className="space-y-5 px-3 pb-6">{groups.map(([g, items]) => <div key={g}><div className="mb-1.5 px-3 text-[11px] font-bold tracking-wide text-white/35">{g}</div>{items.map(([name, Icon]) => <button key={name} onClick={() => go(name)} aria-current={section === name ? 'page' : undefined} className={`navb ${section === name ? 'on' : ''}`}><Icon size={18} /><span>{name}</span>{name === 'تیکت‌ها' && openTickets > 0 && <span className="mr-auto rounded-full bg-[#e8743b] px-2 py-0.5 text-[10px] font-bold text-white">{openTickets}</span>}</button>)}</div>)}</nav>;
+  return <nav aria-label="منوی اصلی" className="space-y-5 px-3 pb-6">{groups.map(([g, items, sub]) => <div key={g}><div className="mb-1.5 px-3 text-[11px] font-bold tracking-wide text-white/35">{g}{sub && <span className="mt-0.5 block text-[10px] font-normal tracking-normal text-white/25">{sub}</span>}</div>{items.map(([name, Icon]) => <button key={name} onClick={() => go(name)} aria-current={section === name ? 'page' : undefined} className={`navb ${section === name ? 'on' : ''}`}><Icon size={18} /><span>{name}</span>{name === 'تیکت‌ها' && openTickets > 0 && <span className="mr-auto rounded-full bg-[#e8743b] px-2 py-0.5 text-[10px] font-bold text-white">{openTickets}</span>}</button>)}</div>)}</nav>;
 }
 
 function Brand() {

@@ -1,14 +1,14 @@
 import { useMemo, useRef, useState } from "react";
-import { AlertTriangle, MapPin, Plus, RefreshCw, Save, Server } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Layers, MapPin, PanelTop, Plus, RefreshCw, Save, Server } from "lucide-react";
 import { authFetch } from "./api.js";
 import { Badge, dt, sid } from "./ui.jsx";
 import { Drawer, Field, NumInput, Section, Segmented, Switch, Toggle, errText, num, tint } from "./kit.jsx";
+import { Dot, RelChip, Warn, health, infraHref, serverState } from "./infra.jsx";
 
 const PRESETS = [50, 100, 250, 500, 1000];
 const EMPTY = (panelId) => ({ name: "", panel_id: panelId || "", location: "", capacity: "500", all: true, codes: [], allow_test: true });
 const fromServer = (s) => ({ name: s.name, panel_id: s.panel_id, location: s.location || "", capacity: String(s.capacity), all: !s.product_codes?.length, codes: s.product_codes || [], allow_test: !!s.allow_test });
 const payload = (f) => ({ name: f.name.trim(), panel_id: f.panel_id, location: f.location.trim() || null, capacity: Number(f.capacity), product_codes: f.all ? null : [...f.codes].sort(), allow_test: f.allow_test });
-const health = (p) => (p?.health_status === "healthy" || p?.health_status === "unhealthy" ? p.health_status : "unknown");
 
 function validate(f) {
   const e = {};
@@ -20,14 +20,15 @@ function validate(f) {
   return e;
 }
 
-function PanelPicker({ panels, value, onChange, disabled }) {
-  return <div role="radiogroup" aria-label="پنل" className="max-h-56 space-y-2 overflow-y-auto">
+function PanelPicker({ panels, value, onChange, disabled, idx }) {
+  return <div role="radiogroup" aria-label="پنل" className="max-h-64 space-y-2 overflow-y-auto">
     {panels.map((p) => {
-      const on = value === p.id, h = health(p);
+      const on = value === p.id, h = health(p), gs = idx.groupsByPanel.get(p.id) || [], st = idx.panelStat(p.id);
       return <button key={p.id} type="button" role="radio" aria-checked={on} disabled={disabled} onClick={() => onChange(p.id)}
         className={`flex w-full items-center gap-3 rounded-xl border p-3 text-right transition disabled:cursor-not-allowed disabled:opacity-60 ${on ? "border-[var(--ac)] bg-[var(--sf)] ring-2 ring-[color-mix(in_srgb,var(--ac)_22%,transparent)]" : "border-[var(--ln)] bg-[var(--sf2)] hover:border-[var(--mu)]"}`}>
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg" style={tint(h === "healthy" ? "ok" : h === "unhealthy" ? "bd" : "mu")}><Server size={17} /></span>
-        <span className="min-w-0 flex-1"><span className="block truncate text-sm font-extrabold">{p.name}</span><span dir="ltr" className="block truncate text-right font-mono text-[11px] text-[var(--mu)]">{p.base_url}</span></span>
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg" style={tint(h === "healthy" ? "ok" : h === "unhealthy" ? "bd" : "mu")}><PanelTop size={17} /></span>
+        <span className="min-w-0 flex-1"><span className="block truncate text-sm font-extrabold">{p.name}</span><span dir="ltr" className="block truncate text-right font-mono text-[11px] text-[var(--mu)]">{p.base_url}</span>
+          <span className="mt-1 block truncate text-[11px] text-[var(--mu)]">{num(st.n)} سرور · {gs.length ? `گروه: ${gs.map((g) => g.name).join("، ")}` : "بدون گروه"}</span></span>
         <span className="flex flex-col items-end gap-1"><Badge s={h} />{!p.is_enabled && <Badge s="disabled" />}</span>
       </button>;
     })}
@@ -52,9 +53,10 @@ function ProductPicker({ products, value, onChange }) {
  * Add / edit a VPN server (POST /admin/servers, PATCH /admin/servers/{id}).
  * `server` null = add. Edit sends only the fields that changed.
  */
-export function ServerForm({ api, panels, products, locations = [], server, toggling, onToggle, toast, onClose, onSaved }) {
+export function ServerForm({ api, infra, presetPanel, locations = [], server, toggling, onToggle, toast, onClose, onSaved }) {
   const edit = !!server;
-  const [f, setF] = useState(() => (server ? fromServer(server) : EMPTY(panels.find((p) => p.is_enabled)?.id || panels[0]?.id)));
+  const panels = infra.panels.rows || [], products = infra.products.failed ? [] : infra.products.rows, idx = infra.idx;
+  const [f, setF] = useState(() => (server ? fromServer(server) : EMPTY(panels.find((p) => p.id === presetPanel)?.id || panels.find((p) => p.is_enabled)?.id || panels[0]?.id)));
   const base = useRef(JSON.stringify(f));
   const [tried, setTried] = useState(false); const [busy, setBusy] = useState(false); const [srvErr, setSrvErr] = useState("");
   const first = useRef();
@@ -91,7 +93,7 @@ export function ServerForm({ api, panels, products, locations = [], server, togg
 
   if (!edit && !panels.length) return <Drawer title="افزودن سرور" onClose={onClose} footer={null}>
     <div className="card grid place-items-center gap-2 p-10 text-center"><span className="grid h-12 w-12 place-items-center rounded-2xl bg-[var(--mb)] text-[var(--mu)]"><Server size={22} /></span>
-      <h3 className="font-extrabold">ابتدا یک پنل اضافه کنید</h3><p className="max-w-xs text-sm leading-7 text-[var(--mu)]">هر سرور زیر یک پنل ثبت می‌شود؛ از تب «پنل‌ها» یک پنل بسازید و بعد برگردید.</p></div>
+      <h3 className="font-extrabold">ابتدا یک پنل اضافه کنید</h3><p className="max-w-xs text-sm leading-7 text-[var(--mu)]">هر سرور زیر یک پنل ثبت می‌شود؛ از صفحه‌ی «پنل‌ها» یک پنل بسازید و بعد برگردید.</p></div>
   </Drawer>;
 
   return <Drawer
@@ -121,9 +123,9 @@ export function ServerForm({ api, panels, products, locations = [], server, togg
     </Section>
 
     <Section title={edit ? "پنل" : "۲ · پنل"} hint={locked ? "این سرور اکانت دارد؛ اکانت‌ها روی همین پنل ساخته شده‌اند و تغییر پنل ممکن نیست. برای انتقال، سرور جدید بسازید و این را غیرفعال کنید." : undefined}>
-      <PanelPicker panels={panels} value={f.panel_id} onChange={set("panel_id")} disabled={locked} />
+      <PanelPicker panels={panels} idx={idx} value={f.panel_id} onChange={set("panel_id")} disabled={locked} />
       {showErr("panel_id") && <p className="text-[11px] text-[var(--bd)]">{err.panel_id}</p>}
-      {panel && (health(panel) !== "healthy" || !panel.is_enabled) && <p className="flex items-start gap-2 rounded-lg bg-[var(--wnb)] p-3 text-xs leading-6 text-[var(--wn)]"><AlertTriangle size={15} className="mt-1 shrink-0" />{!panel.is_enabled ? "این پنل غیرفعال است" : health(panel) === "unhealthy" ? "پنل ناسالم است" : "سلامت این پنل هنوز بررسی نشده"}؛ تا وقتی پنل فعال و سالم نباشد، روی این سرور اکانت جدید ساخته نمی‌شود.</p>}
+      {panel && (health(panel) !== "healthy" || !panel.is_enabled) && <Warn>{!panel.is_enabled ? "این پنل غیرفعال است" : health(panel) === "unhealthy" ? "پنل ناسالم است" : "سلامت این پنل هنوز بررسی نشده"}؛ تا وقتی پنل فعال و سالم نباشد، روی این سرور اکانت جدید ساخته نمی‌شود. <a className="underline" href={infraHref("panels", { id: panel.id })}>بررسی پنل</a></Warn>}
     </Section>
 
     <Section title={edit ? "ظرفیت" : "۳ · ظرفیت"} hint="سقف اکانت‌های فعال روی این سرور؛ با پر شدن، سرور بعدی انتخاب می‌شود">
@@ -137,5 +139,30 @@ export function ServerForm({ api, panels, products, locations = [], server, togg
       {!f.all && <><ProductPicker products={products} value={f.codes} onChange={set("codes")} />{showErr("codes") && <p className="text-[11px] text-[var(--bd)]">{err.codes}</p>}</>}
       <Toggle checked={f.allow_test} onChange={set("allow_test")} label="اکانت تست روی این سرور مجاز باشد" hint="با خاموش‌کردن، اکانت‌های تست روی این سرور ساخته نمی‌شوند." />
     </Section>
+
+    <Section title="مسیر تخصیص" hint="خلاصه‌ی اینکه با تنظیمات فعلی، هسته چه محصولاتی را روی این سرور می‌سازد (پنل ← سرور ← گروه ← محصول).">
+      <Preview f={f} panel={panel} idx={idx} server={server} />
+    </Section>
   </Drawer>;
+}
+
+function Preview({ f, panel, idx, server }) {
+  if (!panel) return <p className="text-xs text-[var(--mu)]">ابتدا پنل را انتخاب کنید.</p>;
+  const gs = idx.groupsByPanel.get(panel.id) || [];
+  const codes = f.all ? null : f.codes;
+  const prods = idx.productsForPanel(panel.id, codes);
+  const st = serverState({ is_enabled: server ? server.is_enabled : true, capacity: Number(f.capacity) || 0, active_accounts: server?.active_accounts || 0 }, panel);
+  const direct = prods.filter((p) => !p.default_panel_group_id).length;
+  return <div className="space-y-3 text-xs">
+    <div className="flex flex-wrap items-center gap-1.5"><RelChip to="panels" params={{ id: panel.id }} tone="in" Icon={PanelTop}>{panel.name}</RelChip><span className="text-[var(--mu)]">←</span><span className="rounded-lg bg-[var(--mb)] px-2 py-1 text-[11px] font-bold">{f.name.trim() || "سرور جدید"}</span><span className="text-[var(--mu)]">←</span>
+      {gs.length ? gs.map((g) => <RelChip key={g.id} to="panel-groups" params={{ q: g.name }} tone="wn" Icon={Layers} dim={!g.is_enabled}>{g.name}</RelChip>) : <span className="text-[11px] text-[var(--wn)]">بدون گروه</span>}</div>
+    {!gs.length && <Warn>این پنل عضو هیچ گروهی نیست؛ فقط محصولاتی که گروه پیش‌فرض ندارند (انتخاب مستقیم سرور) روی این سرور ساخته می‌شوند. <a className="underline" href={infraHref("panel-groups")}>مدیریت گروه‌ها</a></Warn>}
+    <div className="flex items-center gap-2 rounded-lg bg-[var(--sf2)] px-3 py-2"><CheckCircle2 size={14} style={{ color: `var(--${st.tone})` }} /><span>وضعیت فروش: <b>{st.label}</b></span></div>
+    <div>
+      <div className="mb-1.5 font-bold text-[var(--mu)]">محصولات فعال قابل ساخت روی این سرور ({num(prods.length)})</div>
+      {prods.length ? <div className="flex flex-wrap gap-1.5">{prods.slice(0, 12).map((p) => <RelChip key={p.id} to="products" params={{ q: p.code }} tone="mu">{p.name}</RelChip>)}{prods.length > 12 && <span className="text-[11px] text-[var(--mu)]">+{num(prods.length - 12)}</span>}</div>
+        : <Warn>هیچ محصول فعالی از این مسیر به این سرور نمی‌رسد؛ محصول‌ها را با گروه پیش‌فرض متصل به این پنل یا بدون گروه تعریف کنید.</Warn>}
+      {direct > 0 && gs.length > 0 && <p className="mt-1.5 text-[11px] text-[var(--mu)]">{num(direct)} محصول بدون گروه پیش‌فرض است و مستقیم روی هر سرور سالم ساخته می‌شود.</p>}
+    </div>
+  </div>;
 }

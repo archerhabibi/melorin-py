@@ -5,6 +5,7 @@ import { Badge, confirmDialog, dt, isStatus, promptDialog } from "./ui.jsx";
 import PanelsView from "./PanelsView.jsx";
 import ProductsView from "./ProductsView.jsx";
 import PanelGroupsView from "./PanelGroupsView.jsx";
+import ServersView from "./ServersView.jsx";
 import TicketsView from "./TicketsView.jsx";
 const money = (n) => new Intl.NumberFormat("fa-IR").format(n || 0);
 const box = "card";
@@ -255,4 +256,4 @@ function Tickets({ api, toast }) {
   return <TicketsView call={call} toast={toast} />;
 }
 
-export const extraRoutes = { "سفارش‌ها": Orders, "پرداخت‌ها": Payments, "تیکت‌ها": Tickets, "محصولات VPN": ProductsView, "پنل‌ها": PanelsView, "گروه‌های پنل VPN": PanelGroupsView, "کوپن‌ها": Coupons, "تنظیمات": Settings, "ممیزی": Audit, "بررسی هویت": Reviews };
+export const extraRoutes = { "سفارش‌ها": Orders, "پرداخت‌ها": Payments, "تیکت‌ها": Tickets, "محصولات VPN": ProductsView, "پنل‌ها": PanelsView, "سرورها": ServersView, "گروه‌های پنل VPN": PanelGroupsView, "کوپن‌ها": Coupons, "تنظیمات": Settings, "ممیزی": Audit, "بررسی هویت": Reviews };
