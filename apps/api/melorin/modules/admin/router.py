@@ -182,6 +182,16 @@ async def update_product(product_id: uuid.UUID, body: ProductPatch, admin: Admin
     await session.commit(); return p
 
 
+@router.get("/products/{product_id}/availability", response_model=dict)
+async def get_availability(product_id: uuid.UUID, admin: AdminUser, session: Session, store_id: uuid.UUID = Query(...)):
+    """Current per-store availability, so the admin form shows the stored state instead of blind defaults."""
+    p = await session.get(Product, product_id); st = await session.get(Store, store_id)
+    if not p or not st: raise NotFound("محصول یا فروشگاه")
+    row = await session.scalar(select(StoreProduct).where(StoreProduct.product_id == p.id, StoreProduct.store_id == st.id))
+    if not row: return {"store_id": str(st.id), "enabled": True, "listed": True, "customer_price": None}
+    return {"store_id": str(st.id), "enabled": row.is_enabled, "listed": row.is_listed, "customer_price": row.customer_price}
+
+
 @router.post("/products/{product_id}/availability", response_model=dict)
 async def set_availability(product_id: uuid.UUID, body: Availability, admin: AdminUser, session: Session):
     p = await session.get(Product, product_id); st = await session.get(Store, body.store_id)

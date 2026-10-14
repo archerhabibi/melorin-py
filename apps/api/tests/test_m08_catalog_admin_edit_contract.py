@@ -15,3 +15,11 @@ def test_product_patch_can_clear_optional_fields_and_guards_duplicate_code():
     block = ROUTER[ROUTER.index("async def update_product"):ROUTER.index("async def set_availability")]
     assert '"max_devices"' in block and "exclude_unset=True" in block
     assert "PRODUCT_CODE_EXISTS" in block
+
+
+def test_availability_has_get_endpoint_matching_admin_web_contract():
+    block = ROUTER[ROUTER.index("async def get_availability"):ROUTER.index("async def set_availability")]
+    assert '@router.get("/products/{product_id}/availability"' in ROUTER
+    for key in ('"store_id"', '"enabled"', '"listed"', '"customer_price"'):
+        assert key in block
+    assert "NotFound" in block
