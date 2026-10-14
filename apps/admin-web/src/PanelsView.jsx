@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { authFetch } from "./api.js";
 import { Badge, confirmDialog, dt, sid } from "./ui.jsx";
-import { ServerForm } from "./ServerForm.jsx";
+import ServersView from "./ServersView.jsx";
 import {
   Activity, AlertTriangle, Check, ChevronDown, Copy, ExternalLink, Eye, EyeOff, FlaskConical, KeyRound,
   LayoutGrid, List, Pencil, Plus, RefreshCw, Save, Search, Server, ServerCog, ShieldAlert, ShieldCheck, X,
@@ -213,7 +213,7 @@ function PanelDrawer({ panel, onClose, onSubmit, onToggle, toggling }) {
 function Switch({ p, busy, onToggle }) {
   return <button type="button" role="switch" aria-checked={p.is_enabled} aria-label={`${p.is_enabled ? "غیرفعال‌سازی" : "فعال‌سازی"} ${p.name}`} title={p.is_enabled ? "غیرفعال‌سازی" : "فعال‌سازی"} disabled={busy} onClick={() => onToggle(p, !p.is_enabled)} className="pv-sw" data-on={p.is_enabled}><span /></button>;
 }
-function PanelCard({ p, busy, onCheck, onEdit, onToggle }) {
+function PanelCard({ p, busy, srv, onShowServers, onCheck, onEdit, onToggle }) {
   const s = state(p), k = kindOf(p.kind), stale = isStale(p) && p.is_enabled;
   return <article className="card rise flex flex-col gap-4 p-4">
     <div className={`flex items-start gap-3 ${p.is_enabled ? "" : "opacity-55"}`}>
@@ -225,23 +225,26 @@ function PanelCard({ p, busy, onCheck, onEdit, onToggle }) {
       <a className="btn btn-g !px-2" href={p.base_url} target="_blank" rel="noopener noreferrer" aria-label="باز کردن پنل" title="باز کردن پنل"><ExternalLink size={14} /></a></div>
     {s === "unhealthy" && p.last_health_error && <p dir="auto" className="break-words rounded-lg bg-[var(--bdb)] px-3 py-2 text-[11px] leading-5 text-[var(--bd)]">{p.last_health_error}</p>}
     <div className="mt-auto flex items-center justify-between gap-2 border-t border-[var(--ln)] pt-3">
-      <span className={`flex items-center gap-1.5 text-xs ${stale ? "text-[var(--wn)]" : "text-[var(--mu)]"}`} title={p.last_health_at ? dt(p.last_health_at) : ""}>{stale && <AlertTriangle size={13} />}{ago(p.last_health_at)}</span>
+      <div className="flex min-w-0 flex-col gap-1">
+        <span className={`flex items-center gap-1.5 text-xs ${stale ? "text-[var(--wn)]" : "text-[var(--mu)]"}`} title={p.last_health_at ? dt(p.last_health_at) : ""}>{stale && <AlertTriangle size={13} />}{ago(p.last_health_at)}</span>
+        <button type="button" className="flex items-center gap-1 text-right text-[11px] font-bold text-[var(--mu)] hover:text-[var(--ac)]" onClick={() => onShowServers(p.id)}><Server size={12} />{srv?.n ? `${num(srv.n)} سرور · ${num(srv.active)} اکانت فعال` : "بدون سرور — افزودن"}</button>
+      </div>
       <div className="flex items-center gap-1.5"><Switch p={p} busy={busy} onToggle={onToggle} />
         <button className="btn btn-g" onClick={() => onEdit(p)}><Pencil size={13} />ویرایش</button>
         <button className="btn btn-g !px-2" aria-label="بررسی سلامت" title="بررسی سلامت" disabled={busy} onClick={() => onCheck(p)}><RefreshCw size={13} className={busy ? "animate-spin" : ""} /></button></div>
     </div>
   </article>;
 }
-function PanelTable({ rows, busy, onCheck, onEdit, onToggle }) {
-  return <section className="card rise overflow-hidden"><div className="overflow-auto"><table className="tbl min-w-[820px]"><thead><tr>{["نام", "نوع", "آدرس", "وضعیت", "آخرین بررسی", "فعال", ""].map((c, i) => <th key={i}>{c}</th>)}</tr></thead>
+function PanelTable({ rows, busy, srvBy, onShowServers, onCheck, onEdit, onToggle }) {
+  return <section className="card rise overflow-hidden"><div className="overflow-auto"><table className="tbl min-w-[820px]"><thead><tr>{["نام", "نوع", "آدرس", "وضعیت", "آخرین بررسی", "سرورها", "فعال", ""].map((c, i) => <th key={i}>{c}</th>)}</tr></thead>
     <tbody>{rows.map((p) => <tr key={p.id} className={p.is_enabled ? "" : "opacity-60"}><td className="font-bold">{p.name}</td><td>{kindOf(p.kind).title}</td><td><span dir="ltr" className="block max-w-[260px] truncate font-mono text-xs">{p.base_url}</span></td>
-      <td><Badge s={state(p)} /></td><td className={isStale(p) && p.is_enabled ? "text-[var(--wn)]" : "text-[var(--mu)]"}>{ago(p.last_health_at)}</td><td><Switch p={p} busy={busy.has(p.id)} onToggle={onToggle} /></td>
+      <td><Badge s={state(p)} /></td><td className={isStale(p) && p.is_enabled ? "text-[var(--wn)]" : "text-[var(--mu)]"}>{ago(p.last_health_at)}</td><td><button type="button" className="font-bold hover:text-[var(--ac)]" onClick={() => onShowServers(p.id)}>{num(srvBy.get(p.id)?.n)}</button></td><td><Switch p={p} busy={busy.has(p.id)} onToggle={onToggle} /></td>
       <td><div className="flex gap-1.5"><button className="btn btn-g" onClick={() => onEdit(p)}><Pencil size={13} />ویرایش</button><button className="btn btn-g" disabled={busy.has(p.id)} onClick={() => onCheck(p)}><RefreshCw size={13} className={busy.has(p.id) ? "animate-spin" : ""} />بررسی</button></div></td></tr>)}</tbody></table></div></section>;
 }
 
 // ---------- page ----------
 // drawer: null | "add" | id of the panel being edited
-export default function PanelsView({ api, toast }) {
+function PanelsTab({ api, toast, onAddServer, onShowServers }) {
   const [rows, setRows] = useState(null); const [failed, setFailed] = useState(false);
   const [q, setQ] = useState(""); const [filter, setFilter] = useState("all"); const [layout, setLayout] = useState("grid");
   const [drawer, setDrawer] = useState(null); const [busy, setBusy] = useState(new Set()); const [bulk, setBulk] = useState(null);
@@ -291,7 +294,9 @@ export default function PanelsView({ api, toast }) {
     if (ok) await load();
   };
 
-  const [serverOpen, setServerOpen] = useState(false);
+  const servers = useRef([]); const [srvTick, setSrvTick] = useState(0);
+  useEffect(() => { authFetch(api.base, "/api/v1/admin/servers").then((r) => (r.ok ? r.json() : [])).then((d) => { servers.current = Array.isArray(d) ? d : []; if (alive.current) setSrvTick((x) => x + 1); }).catch(() => {}); }, [api.base, rows]);
+  const srvBy = useMemo(() => { const m = new Map(); servers.current.forEach((x) => { const c = m.get(x.panel_id) || { n: 0, active: 0 }; c.n++; c.active += x.active_accounts || 0; m.set(x.panel_id, c); }); return m; }, [srvTick]); // eslint-disable-line react-hooks/exhaustive-deps
   const counts = useMemo(() => { const c = { all: 0, healthy: 0, unhealthy: 0, unknown: 0 }; (rows || []).forEach((p) => { c.all++; c[state(p)]++; }); return c; }, [rows]);
   const shown = useMemo(() => (rows || []).filter((p) => (filter === "all" || state(p) === filter) && `${p.name} ${p.base_url} ${kindOf(p.kind).title}`.toLowerCase().includes(q.trim().toLowerCase())), [rows, filter, q]);
   const loading = rows === null;
@@ -311,7 +316,7 @@ export default function PanelsView({ api, toast }) {
       <div className="mr-auto flex items-center gap-2">
         <button className="btn btn-g !py-2 !text-sm" onClick={checkAll} disabled={!!bulk || !counts.all}><RefreshCw size={14} className={bulk ? "animate-spin" : ""} />{bulk ? `${num(bulk.done)} از ${num(bulk.total)}` : "بررسی همه"}</button>
         <button className="btn" onClick={() => setDrawer("add")}><Plus size={16} />افزودن پنل</button>
-        <button className="btn btn-g !py-2 !text-sm" onClick={() => setServerOpen(true)}><Plus size={16} />افزودن سرور</button>
+        <button className="btn btn-g !py-2 !text-sm" onClick={onAddServer}><Plus size={16} />افزودن سرور</button>
       </div>
     </div>
 
@@ -322,10 +327,22 @@ export default function PanelsView({ api, toast }) {
         <h3 className="font-extrabold">{counts.all ? "پنلی با این فیلتر پیدا نشد" : "هنوز پنلی اضافه نشده"}</h3>
         <p className="max-w-sm text-sm leading-7 text-[var(--mu)]">{counts.all ? "جستجو یا فیلتر وضعیت را تغییر دهید." : "برای فروش اکانت، ابتدا یک پنل سنایی یا پاسارگارد به Core وصل کنید."}</p>
         {!counts.all && <button className="btn" onClick={() => setDrawer("add")}><Plus size={16} />افزودن اولین پنل</button>}</div>
-      : layout === "grid" ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{shown.map((p) => <PanelCard key={p.id} p={p} busy={busy.has(p.id)} onCheck={check} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} />)}</div>
-        : <PanelTable rows={shown} busy={busy} onCheck={check} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} />}
+      : layout === "grid" ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{shown.map((p) => <PanelCard key={p.id} p={p} srv={srvBy.get(p.id)} onShowServers={onShowServers} busy={busy.has(p.id)} onCheck={check} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} />)}</div>
+        : <PanelTable rows={shown} busy={busy} srvBy={srvBy} onShowServers={onShowServers} onCheck={check} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} />}
 
-    {serverOpen && <ServerForm api={api} panels={rows || []} toast={toast} onClose={() => setServerOpen(false)} onSaved={load} />}
     {drawer && (drawer === "add" || editing) && <PanelDrawer key={drawer} panel={drawer === "add" ? null : editing} onClose={() => setDrawer(null)} onSubmit={save} onToggle={toggle} toggling={editing ? busy.has(editing.id) : false} />}
+  </div>;
+}
+
+// Page shell: one "Panels & servers" screen with two tabs. Tab state lives here so a panel card can jump to its servers.
+export default function PanelsView({ api, toast }) {
+  const [tab, setTab] = useState("panels");
+  const [addTick, setAddTick] = useState(0); const [panelFilter, setPanelFilter] = useState(null);
+  const tabs = [["panels", "پنل‌ها"], ["servers", "سرورها"]];
+  return <div className="space-y-5">
+    <div className="pv-seg" role="tablist" aria-label="بخش‌های پنل و سرور">{tabs.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? "on" : ""} onClick={() => { setPanelFilter(null); setTab(k); }}>{k === "panels" ? <Server size={15} /> : <ServerCog size={15} />}{l}</button>)}</div>
+    {tab === "panels"
+      ? <PanelsTab api={api} toast={toast} onAddServer={() => { setPanelFilter(null); setAddTick((x) => x + 1); setTab("servers"); }} onShowServers={(id) => { setPanelFilter(id); setTab("servers"); }} />
+      : <ServersView key={panelFilter || "all"} api={api} toast={toast} startAdd={addTick} initialPanel={panelFilter} onGoPanels={() => setTab("panels")} />}
   </div>;
 }

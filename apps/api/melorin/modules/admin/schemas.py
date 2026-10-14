@@ -143,12 +143,39 @@ class PanelGroupMemberInput(BaseModel):
 
 
 class CreateServer(BaseModel):
-    name: str
+    name: str = Field(min_length=1, max_length=100)
     panel_id: uuid.UUID
-    location: str | None = None
+    location: str | None = Field(default=None, max_length=100)
     capacity: int = Field(gt=0, le=100000)
     product_codes: list[str] | None = None
     allow_test: bool = True
+
+
+class UpdateServer(BaseModel):
+    """Partial update: only the fields present in the request body are changed."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    panel_id: uuid.UUID | None = None
+    location: str | None = Field(default=None, max_length=100)
+    capacity: int | None = Field(default=None, gt=0, le=100000)
+    product_codes: list[str] | None = None
+    allow_test: bool | None = None
+
+
+class ServerOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    panel_id: uuid.UUID
+    panel_name: str
+    location: str | None = None
+    capacity: int
+    product_codes: list[str] | None = None
+    allow_test: bool
+    is_enabled: bool
+    active_accounts: int = 0
+    total_accounts: int = 0
+    created_at: dt.datetime | None = None
+    updated_at: dt.datetime | None = None
 
 
 class FeatureUpdate(BaseModel):

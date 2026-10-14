@@ -253,16 +253,94 @@ async def set_panel_state(panel_id: uuid.UUID, body: PanelState, admin: AdminUse
     return {"ok": True, "is_enabled": p.is_enabled}
 
 
-@router.post("/servers", response_model=dict, status_code=201)
-async def create_server(body: CreateServer, admin: AdminUser, session: Session):
-    if not await session.get(Panel, body.panel_id): raise NotFound("پنل")
-    codes = sorted({c.strip() for c in (body.product_codes or []) if c and c.strip()})
+async def _clean_product_codes(session, raw: list[str] | None) -> list[str] | None:
+    """Normalise a server's product-code allow-list; None means "all products". Unknown codes are rejected."""
+    codes = sorted({c.strip() for c in (raw or []) if c and c.strip()})
     if codes:
         known = set((await session.scalars(select(Product.code).where(Product.code.in_(codes)))).all())
         unknown = [c for c in codes if c not in known]
-        if unknown: raise AppError("UNKNOWN_PRODUCT_CODES", "کد محصول نامعتبر است: " + "، ".join(unknown), 422)
-    body = body.model_copy(update={"product_codes": codes or None})
+        if unknown:
+            raise AppError("UNKNOWN_PRODUCT_CODES", "کد محصول نامعتبر است: " + "، ".join(unknown), 422)
+    return codes or None
+
+
+def _server_out(s: Server, panel_name: str, active: int = 0, total: int = 0) -> ServerOut:
+    return ServerOut(
+        id=s.id, name=s.name, panel_id=s.panel_id, panel_name=panel_name, location=s.location, capacity=s.capacity,
+        product_codes=list(s.product_codes) if s.product_codes else None, allow_test=bool(s.allow_test), is_enabled=bool(s.is_enabled),
+        active_accounts=active, total_accounts=total, created_at=s.created_at, updated_at=s.updated_at,
+    )
+
+
+async def _server_counts(session, server_ids: list[uuid.UUID]) -> dict[uuid.UUID, tuple[int, int]]:
+    """server_id -> (active accounts, all accounts) in one grouped query."""
+    from melorin.domain.order_state import VpnStatus
+    if not server_ids:
+        return {}
+    rows = await session.execute(
+        select(VpnAccount.server_id, func.count(), func.count().filter(VpnAccount.status == VpnStatus.ACTIVE))
+        .where(VpnAccount.server_id.in_(server_ids)).group_by(VpnAccount.server_id))
+    return {sid: (int(active), int(total)) for sid, total, active in rows.all()}
+
+
+@router.get("/servers", response_model=list[ServerOut])
+async def servers(_: AdminUser, session: Session):
+    rows = (await session.execute(select(Server, Panel.name).join(Panel, Panel.id == Server.panel_id).order_by(Server.created_at))).all()
+    counts = await _server_counts(session, [s.id for s, _ in rows])
+    return [_server_out(s, pname, *counts.get(s.id, (0, 0))) for s, pname in rows]
+
+
+@router.post("/servers", response_model=dict, status_code=201)
+async def create_server(body: CreateServer, admin: AdminUser, session: Session):
+    if not await session.get(Panel, body.panel_id): raise NotFound("پنل")
+    body = body.model_copy(update={"product_codes": await _clean_product_codes(session, body.product_codes)})
     s = Server(**body.model_dump()); session.add(s); await session.flush(); audit.record(session, "server.created", actor_id=admin.id, actor_type="admin", entity_type="server", entity_id=s.id); await session.commit(); return {"id": s.id}
+
+
+@router.patch("/servers/{server_id}", response_model=ServerOut)
+async def update_server(server_id: uuid.UUID, body: UpdateServer, admin: AdminUser, session: Session):
+    s = await session.get(Server, server_id)
+    if not s:
+        raise NotFound("سرور")
+    patch = body.model_dump(exclude_unset=True)
+    for required in ("name", "panel_id", "capacity", "allow_test"):
+        if required in patch and patch[required] is None:
+            raise AppError("VALIDATION_ERROR", "این فیلد نمی‌تواند خالی باشد.", 422, {"field": required})
+    if "product_codes" in patch:
+        patch["product_codes"] = await _clean_product_codes(session, patch["product_codes"])
+    if "location" in patch and patch["location"] is not None:
+        patch["location"] = patch["location"].strip() or None
+    if "name" in patch:
+        patch["name"] = patch["name"].strip()
+        if not patch["name"]:
+            raise AppError("VALIDATION_ERROR", "نام سرور نمی‌تواند خالی باشد.", 422, {"field": "name"})
+    if "panel_id" in patch and patch["panel_id"] != s.panel_id:
+        if not await session.get(Panel, patch["panel_id"]):
+            raise NotFound("پنل")
+        # Accounts keep the panel they were created on; moving the server would orphan them.
+        if await session.scalar(select(func.count()).select_from(VpnAccount).where(VpnAccount.server_id == s.id)):
+            raise AppError("SERVER_HAS_ACCOUNTS", "این سرور اکانت دارد و پنل آن قابل تغییر نیست. سرور جدید بسازید و این را غیرفعال کنید.", 409)
+    changed = [k for k, v in patch.items() if getattr(s, k) != v]
+    for k in changed:
+        setattr(s, k, patch[k])
+    if changed:
+        audit.record(session, "server.updated", actor_id=admin.id, actor_type="admin", entity_type="server", entity_id=s.id, data={"changed": changed})
+    await session.commit()
+    await session.refresh(s)
+    pname = await session.scalar(select(Panel.name).where(Panel.id == s.panel_id))
+    return _server_out(s, pname or "", *(await _server_counts(session, [s.id])).get(s.id, (0, 0)))
+
+
+@router.post("/servers/{server_id}/state")
+async def set_server_state(server_id: uuid.UUID, body: PanelState, admin: AdminUser, session: Session):
+    s = await session.get(Server, server_id)
+    if not s:
+        raise NotFound("سرور")
+    if s.is_enabled != body.is_enabled:
+        s.is_enabled = body.is_enabled
+        audit.record(session, "server.enabled" if body.is_enabled else "server.disabled", actor_id=admin.id, actor_type="admin", entity_type="server", entity_id=s.id)
+        await session.commit()
+    return {"ok": True, "is_enabled": s.is_enabled}
 
 
 def _panel_group_out(b, panels):
