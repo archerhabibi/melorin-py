@@ -7,19 +7,22 @@ import { clearTokens } from './auth.js';
 import Trend from './Trend.jsx';
 import { Badge, DialogHost, ThemeButton, confirmDialog, label, sid, tone } from './ui.jsx';
 import { Palette } from './palette.jsx';
+import { legacyHash } from './infra.jsx';
 import { toggleTheme } from './theme.js';
-import { Activity, Bell, CircleAlert, CreditCard, Database, Download, Fingerprint, LayoutDashboard, Menu, Package, PanelTop, Percent, RefreshCw, Server, Settings, ShieldCheck, Ticket, Users, WalletCards, X, Boxes, ScrollText, Store, Search, ServerCog, Layers, Moon, LogOut, KeyRound, ChevronDown, UserRound } from 'lucide-react';
+import { Activity, Bell, CircleAlert, CreditCard, Database, Download, Fingerprint, LayoutDashboard, Menu, Package, PanelTop, Percent, RefreshCw, Server, Settings, ShieldCheck, Ticket, Users, WalletCards, X, Boxes, ScrollText, Store, Search, Layers, Moon, LogOut, KeyRound, ChevronDown, UserRound } from 'lucide-react';
 
 // Section keys are Persian labels (AdminSections/AdminExtra route on them); slug drives the URL hash.
 const groups = [
   ['نمای کلی', [['داشبورد', LayoutDashboard, 'home']]],
   ['عملیات', [['سفارش‌ها', Package, 'orders'], ['پرداخت‌ها', CreditCard, 'payments'], ['اکانت‌های VPN', Server, 'vpn'], ['تیکت‌ها', Ticket, 'tickets']]],
   ['فروش و مشتریان', [['کاربران', Users, 'users'], ['فروشگاه‌ها', Store, 'stores'], ['کوپن‌ها', Percent, 'coupons']]],
-    ['زیرساخت', [['پنل‌ها', PanelTop, 'panels'], ['سرورها', ServerCog, 'servers'], ['گروه‌های پنل VPN', Layers, 'panel-groups'], ['محصولات VPN', Boxes, 'products'], ["سلامت زیرساخت", ShieldCheck, "infra-health"]], 'زنجیر تخصیص: پنل · سرور · گروه · محصول'],
+    ['زیرساخت', [['پنل‌ها و سرورها', PanelTop, 'panels'], ['گروه‌های پنل VPN', Layers, 'panel-groups'], ['محصولات VPN', Boxes, 'products'], ["سلامت زیرساخت", ShieldCheck, "infra-health"]], 'مسیر فروش: پنل و سرور ← گروه ← محصول'],
   ['سیستم', [['تنظیمات', Settings, 'settings'], ['ممیزی', ScrollText, 'audit'], ['بررسی هویت', Fingerprint, 'identity']]],
 ];
 const flat = groups.flatMap(([, items]) => items);
 // The hash may carry deep-link params (#/servers?panel=<id>); only the path picks the section.
+// Old bookmarks of the removed #/servers screen are rewritten to #/panels (servers live inside their panel now).
+if (typeof window !== 'undefined') { const moved = legacyHash(window.location.hash); if (moved) window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${moved}`); }
 const fromHash = () => (flat.find((x) => `#/${x[2]}` === window.location.hash.split('?')[0]) || flat[0])[0];
 
 const todayLabel = () => new Intl.DateTimeFormat('fa-IR-u-ca-persian', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
@@ -160,7 +163,7 @@ export default function App({ onLogout }) {
   const openTickets = api.summary?.open_tickets || 0;
   const toast = (x) => { setNotice(x); setTimeout(() => setNotice(''), 2600); };
   const go = (name) => { window.location.hash = `/${flat.find((x) => x[0] === name)[2]}`; setOpen(false); };
-  useEffect(() => { const f = () => setSection(fromHash()); window.addEventListener('hashchange', f); return () => window.removeEventListener('hashchange', f); }, []);
+  useEffect(() => { const f = () => { const moved = legacyHash(window.location.hash); if (moved) { window.location.replace(moved); return; } setSection(fromHash()); }; window.addEventListener('hashchange', f); return () => window.removeEventListener('hashchange', f); }, []);
   useEffect(() => { const f = (e) => e.key === 'Escape' && setOpen(false); window.addEventListener('keydown', f); return () => window.removeEventListener('keydown', f); }, []);
   useEffect(() => { const f = (e) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setPal((x) => !x); } }; window.addEventListener('keydown', f); return () => window.removeEventListener('keydown', f); }, []);
   useEffect(() => { document.title = `${section} · ملورین`; window.scrollTo(0, 0); }, [section]);
