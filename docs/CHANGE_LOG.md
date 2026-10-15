@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-15 06:54 UTC - Claude - admin-web, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(admin): safe delete for products/panels/servers/panel groups — 409 when history exists (melorin-admin-safe-delete.patch)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (9):** `apps/admin-web/src/PanelGroupsView.jsx`, `apps/admin-web/src/PanelsView.jsx`, `apps/admin-web/src/ProductsView.jsx`, `apps/admin-web/src/ServerForm.jsx`, `apps/admin-web/src/kit.jsx`, `apps/admin-web/src/ui.jsx`, `apps/api/melorin/modules/admin/router.py`, `apps/api/tests/test_admin_safe_delete.py` (+1 more)
+- **Ref:** `d156e5c`
+
+
 ### 2026-10-15 05:30 UTC - Claude - admin-web
 - **Before:** ساخت یک محصول قابل فروش یعنی گذر از ۴ صفحه (پنل، سرور، گروه، محصول) با تنظیمات تکراری؛ صفحه‌ی «سرورها» فقط فرزند پنل بود، «محصولات مجاز» روی سرور با مسیر محصول←گروه←پنل تکراری بود، تغییر گروه از فرم پنل به‌خاطر کلید اشتباه (`panels` به‌جای `panel_ids`) اصلاً ذخیره نمی‌شد، صفحه‌ی گروه آمار سرور نداشت (فقط panels/groups بارگذاری می‌شد) و صفحه‌ی سلامت همه‌ی محصولات را «بدون سرور» نشان می‌داد.
 - **Problem:** طراحی گنگ و چندمرحله‌ای؛ یک رابطه در دو جا با رفتار متفاوت؛ باگ‌های بالا.
