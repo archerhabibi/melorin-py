@@ -1,7 +1,7 @@
 // Shared building blocks for the catalog screens (VPN products, VPN panel groups).
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, X } from "lucide-react";
-import { confirmDialog } from "./ui.jsx";
+import { Check, Trash2, X } from "lucide-react";
+import { confirmDialog, noticeDialog } from "./ui.jsx";
 
 export const num = (v) => Number(v || 0).toLocaleString("fa-IR");
 export const tint = (t) => ({ background: `var(--${t}b, var(--mb))`, color: `var(--${t}, var(--mu))` });
@@ -22,6 +22,25 @@ export async function errText(r, fallback) {
     const d = await r.json(); const det = d?.detail;
     return d?.error?.message || (typeof det === "string" ? det : det?.message) || (Array.isArray(det) && det[0]?.msg?.replace(/^Value error, /, "")) || fallback;
   } catch { return fallback; }
+}
+
+/** Red "delete" control used by cards, rows and drawer footers (same look everywhere). */
+export function DeleteButton({ label = "حذف", compact = false, busy = false, onClick, className = "" }) {
+  return <button type="button" className={`btn btn-g btn-d ${compact ? "!px-2" : ""} ${className}`} disabled={busy} aria-label={label} title={label} onClick={onClick}><Trash2 size={13} />{!compact && label}</button>;
+}
+
+/** Confirm → DELETE → report. The Core answers 409 with a plain reason when the item has history; that reason is shown in a dialog. Resolves true only when deleted. */
+export async function removeEntity(call, path, { title, message, done, toast }) {
+  if (!(await confirmDialog(message, { title, danger: true, ok: "حذف دائمی" }))) return false;
+  try {
+    const r = await call(path, { method: "DELETE" });
+    if (!r.ok) {
+      const why = await errText(r, "حذف ناموفق بود");
+      if (r.status === 409) await noticeDialog(why, { title: "حذف ممکن نیست" }); else toast(why);
+      return false;
+    }
+  } catch { toast("ارتباط با سرور برقرار نشد"); return false; }
+  toast(done); return true;
 }
 
 export function useAlive() { const a = useRef(true); useEffect(() => () => { a.current = false; }, []); return a; }
@@ -89,7 +108,7 @@ export function NumInput({ value, onChange, placeholder, suffix, ...rest }) {
 }
 
 /** Right-side drawer with dirty-guard on close, sticky footer and server-error slot. */
-export function Drawer({ title, subtitle, icon, dirty, busy, onClose, children, footer, error }) {
+export function Drawer({ title, subtitle, icon, dirty, busy, onClose, children, footer, error, danger }) {
   const close = async () => { if (busy) return; if (dirty && !(await confirmDialog("تغییرات ذخیره‌نشده از بین می‌رود. بسته شود؟", { title: "بستن بدون ذخیره", danger: true, ok: "بستن" }))) return; onClose(); };
   return <div className="fixed inset-0 z-50" onKeyDown={(e) => e.key === "Escape" && close()}>
     <div className="pv-fade absolute inset-0 bg-black/55" onClick={close} />
@@ -103,7 +122,7 @@ export function Drawer({ title, subtitle, icon, dirty, busy, onClose, children, 
       <div className="flex-1 space-y-5 overflow-y-auto p-5">{children}</div>
       <footer className="border-t border-[var(--ln)] bg-[var(--sf)] px-5 py-3">
         {error && <p role="alert" className="mb-3 rounded-lg bg-[var(--bdb)] p-3 text-xs leading-6 text-[var(--bd)]">{error}</p>}
-        <div className="flex flex-wrap items-center gap-2">{footer}<button className="btn btn-g !py-2 !text-sm" onClick={close} disabled={busy}>انصراف</button></div>
+        <div className="flex flex-wrap items-center gap-2">{footer}<button className="btn btn-g !py-2 !text-sm" onClick={close} disabled={busy}>انصراف</button>{danger && <span className="mr-auto">{danger}</span>}</div>
       </footer>
     </aside>
   </div>;

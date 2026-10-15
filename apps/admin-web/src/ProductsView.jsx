@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { authFetch } from "./api.js";
 import { Badge, confirmDialog } from "./ui.jsx";
 import { AlertTriangle, Boxes, ChevronDown, Layers, ServerCog, CheckCircle2, Clock, Infinity as Inf, LayoutGrid, List, Pencil, PowerOff, Plus, Save, Search, ShieldAlert, Smartphone, Store, Tag, Wallet, X, Zap } from "lucide-react";
-import { Drawer, Field, NumInput, Paginator, Section, Segmented, Stat, Switch, Toggle, errText, num, tint, useAlive, useRows } from "./kit.jsx"; // #4
+import { Drawer, Field, NumInput, Paginator, Section, Segmented, Stat, Switch, Toggle, DeleteButton, errText, num, removeEntity, tint, useAlive, useRows } from "./kit.jsx"; // #4
 import { Dot, InfraChain, RelChip, Warn, clearParam, health, infraHref, useHashParams, useInfra } from "./infra.jsx";
 
 const API = "/api/v1/admin/products";
@@ -126,7 +126,7 @@ const suggestCode = (f, taken) => {
   return code;
 };
 
-function ProductDrawer({ product, stores, groups, panels, products, idx, call, toast, onClose, onSubmit, onGroupCreated }) {
+function ProductDrawer({ product, stores, groups, panels, products, idx, call, toast, onClose, onSubmit, onGroupCreated, onDelete }) {
   const edit = !!product;
   const taken = useMemo(() => new Set((products || []).filter((x) => x.id !== product?.id).map((x) => x.code)), [products, product]);
   const [f, setF] = useState(() => (product ? fromProduct(product) : { ...EMPTY, code: suggestCode(EMPTY, new Set((products || []).map((x) => x.code))) })); const base = useRef(JSON.stringify(f));
@@ -139,7 +139,7 @@ function ProductDrawer({ product, stores, groups, panels, products, idx, call, t
   const submit = async () => { setTried(true); if (Object.keys(err).length) { if (err.code) setMore(true); return; } setBusy(true); const m = await onSubmit(payload(f), f.is_active, product); setBusy(false); if (m) setSrv(m); };
   const show = (k) => tried && err[k];
   return <Drawer title={edit ? `ویرایش «${product.name}»` : "افزودن محصول VPN"} subtitle={edit ? `کد ${product.code}` : "پلن قابل فروش: مشخصات، قیمت و محل ساخت اکانت"} icon={<span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl" style={tint("ok")}><Boxes size={20} /></span>} dirty={dirty} busy={busy} onClose={onClose} error={srv}
-    footer={<button className="btn !py-2 !text-sm" disabled={busy} onClick={submit}><Save size={15} />{busy ? "در حال ذخیره…" : edit ? "ذخیره تغییرات" : "ساخت محصول"}</button>}>
+    footer={<button className="btn !py-2 !text-sm" disabled={busy} onClick={submit}><Save size={15} />{busy ? "در حال ذخیره…" : edit ? "ذخیره تغییرات" : "ساخت محصول"}</button>} danger={edit && <DeleteButton label="حذف محصول" busy={busy} onClick={() => onDelete(product)} />}>
     <Section title={edit ? "پلن" : "۱ · پلن"}>
       <Field label="نام محصول" error={show("name")}><input autoFocus className="inp" maxLength={200} placeholder="مثلاً: ۳۰ روزه ۵۰ گیگ" value={f.name} onChange={(e) => set("name")(e.target.value)} /></Field>
       <Field label="مدت اعتبار" error={show("duration_days")}>
@@ -187,7 +187,7 @@ function ProductDrawer({ product, stores, groups, panels, products, idx, call, t
   </Drawer>;
 }
 
-function ProductCard({ p, idx, busy, onEdit, onToggle }) {
+function ProductCard({ p, idx, busy, onEdit, onToggle, onDelete }) {
   const d = pct(p.main_price, p.reseller_price);
   return <article className="card rise flex flex-col gap-4 p-4">
     <div className={`flex items-start gap-3 ${p.is_active ? "" : "opacity-55"}`}>
@@ -203,12 +203,12 @@ function ProductCard({ p, idx, busy, onEdit, onToggle }) {
     <div className={`rounded-xl bg-[var(--sf2)] p-3 ${p.is_active ? "" : "opacity-55"}`}><div className="mb-2 text-[11px] font-bold text-[var(--mu)]">مسیر تخصیص</div><Route p={p} idx={idx} compact /></div>
     <div className="mt-auto flex items-center justify-between gap-2 border-t border-[var(--ln)] pt-3">
       <label className="flex cursor-pointer items-center gap-2 text-xs font-bold"><Switch checked={p.is_active} disabled={busy} onChange={(v) => onToggle(p, v)} label={`فعال‌سازی ${p.name}`} />{p.is_active ? "فعال" : "غیرفعال"}</label>
-      <button className="btn btn-g" onClick={() => onEdit(p)}><Pencil size={13} />ویرایش</button>
+      <div className="flex items-center gap-1.5"><DeleteButton compact label={`حذف ${p.name}`} busy={busy} onClick={() => onDelete(p)} /><button className="btn btn-g" onClick={() => onEdit(p)}><Pencil size={13} />ویرایش</button></div>
     </div>
   </article>;
 }
 
-function ProductTable({ rows, idx, busy, onEdit, onToggle, quick, draft, setDraft }) {
+function ProductTable({ rows, idx, busy, onEdit, onToggle, onDelete, quick, draft, setDraft }) {
   const cell = (p, k) => quick
     ? <div className="w-36"><NumInput aria-label={`${k === "main_price" ? "قیمت اصلی" : "قیمت نماینده"} ${p.name}`} value={draft[p.id]?.[k] ?? String(p[k])} onChange={(v) => setDraft((d) => ({ ...d, [p.id]: { ...(d[p.id] || {}), [k]: v } }))} /></div>
     : <span className="font-semibold">{price(p[k], p.currency)}</span>;
@@ -220,7 +220,7 @@ function ProductTable({ rows, idx, busy, onEdit, onToggle, quick, draft, setDraf
         <td>{cell(p, "main_price")}</td><td>{cell(p, "reseller_price")}</td>
         <td className="min-w-[150px]">{(() => { const r = idx.reach(p); return r.ok ? <span className="badge b-ok" title={r.group?.name || "انتخاب مستقیم سرور"}>{num(r.live.length)} سرور · {num(r.free)} آزاد</span> : <span className="badge b-bd" title={r.issue}>مسیر ندارد</span>; })()}</td>
         <td><div className="flex items-center gap-2"><Switch checked={p.is_active} disabled={busy.has(p.id)} onChange={(v) => onToggle(p, v)} label={`فعال‌سازی ${p.name}`} /></div></td>
-        <td><button className="btn btn-g" onClick={() => onEdit(p)}><Pencil size={13} />ویرایش</button></td></tr>; })}</tbody></table></div></section>;
+        <td><div className="flex items-center gap-1.5"><button className="btn btn-g" onClick={() => onEdit(p)}><Pencil size={13} />ویرایش</button>{!quick && <DeleteButton compact label={`حذف ${p.name}`} busy={busy.has(p.id)} onClick={() => onDelete(p)} />}</div></td></tr>; })}</tbody></table></div></section>;
 }
 
 export default function ProductsView({ api, toast }) {
@@ -258,6 +258,13 @@ export default function ProductsView({ api, toast }) {
     if (alive.current) setBusy((s) => { const n = new Set(s); n.delete(p.id); return n; });
     toast(ok ? (next ? `«${p.name}» فعال شد` : `«${p.name}» غیرفعال شد`) : "تغییر وضعیت ناموفق بود"); if (ok) await infra.reload();
   };
+  const remove = async (p) => {
+    setBusy((s) => new Set(s).add(p.id));
+    const ok = await removeEntity(call, `${API}/${p.id}`, { toast, title: "حذف محصول", done: `«${p.name}» حذف شد`,
+      message: `«${p.name}» برای همیشه حذف شود؟ این کار قابل بازگشت نیست. اگر برای این محصول سفارش یا اکانتی ثبت شده باشد حذف انجام نمی‌شود و باید آن را غیرفعال کنید.` });
+    if (alive.current) setBusy((s) => { const n = new Set(s); n.delete(p.id); return n; });
+    if (ok) { setDrawer(null); await infra.reload(); }
+  };
   const changes = (rows || []).flatMap((p) => { const d = draft[p.id]; if (!d) return []; const b = {}; if (d.main_price !== undefined && d.main_price !== "" && d.main_price !== String(p.main_price)) b.main_price = +d.main_price; if (d.reseller_price !== undefined && d.reseller_price !== "" && d.reseller_price !== String(p.reseller_price)) b.reseller_price = +d.reseller_price; return Object.keys(b).length ? [[p, b]] : []; });
   const endQuick = async () => { if (changes.length && !(await confirmDialog("تغییرات قیمت ذخیره‌نشده از بین می‌رود. خارج می‌شوید؟", { title: "خروج از ویرایش سریع", danger: true, ok: "خروج" }))) return; setDraft({}); setQuick(false); };
   const saveQuick = async () => {
@@ -292,10 +299,10 @@ export default function ProductsView({ api, toast }) {
         <h3 className="font-extrabold">{counts.all ? "محصولی با این فیلتر پیدا نشد" : "هنوز محصولی تعریف نشده"}</h3>
         <p className="max-w-sm text-sm leading-7 text-[var(--mu)]">{counts.all ? "جستجو یا فیلتر را تغییر دهید." : "هر محصول یک پلن قابل فروش با مدت، حجم و قیمت مشخص است. ابتدا باید حداقل یک پنل سالم با سرور داشته باشید."}</p>
         {!counts.all && <button className="btn" onClick={() => setDrawer("add")}><Plus size={16} />ساخت اولین محصول</button>}</div>
-      : table ? <ProductTable idx={idx} rows={shown} busy={busy} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} quick={quick} draft={draft} setDraft={setDraft} />
-      : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{shown.slice(page*PAGE_SIZE,(page+1)*PAGE_SIZE).map((p) => <ProductCard key={p.id} p={p} idx={idx} busy={busy.has(p.id)} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} />)}
+      : table ? <ProductTable idx={idx} rows={shown} busy={busy} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} onDelete={remove} quick={quick} draft={draft} setDraft={setDraft} />
+      : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{shown.slice(page*PAGE_SIZE,(page+1)*PAGE_SIZE).map((p) => <ProductCard key={p.id} p={p} idx={idx} busy={busy.has(p.id)} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} onDelete={remove} />)}
       <Paginator page={page} setPage={setPage} total={shown.length} pageSize={PAGE_SIZE} />
       </div>}
-    {drawer && (drawer === "add" || editing) && <ProductDrawer key={drawer} product={editing} stores={storesQ.rows || []} groups={infra.groups.rows || []} panels={infra.panels.rows || []} products={rows || []} idx={idx} call={call} toast={toast} onClose={() => setDrawer(null)} onSubmit={save} onGroupCreated={infra.reload} />}
+    {drawer && (drawer === "add" || editing) && <ProductDrawer key={drawer} product={editing} stores={storesQ.rows || []} groups={infra.groups.rows || []} panels={infra.panels.rows || []} products={rows || []} idx={idx} call={call} toast={toast} onClose={() => setDrawer(null)} onSubmit={save} onGroupCreated={infra.reload} onDelete={remove} />}
   </div>;
 }

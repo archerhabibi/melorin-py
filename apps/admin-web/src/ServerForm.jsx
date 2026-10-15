@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { AlertTriangle, ChevronDown, Layers, MapPin, Plus, RefreshCw, Save, Server, Upload } from "lucide-react";
 import { authFetch } from "./api.js";
 import { Badge, dt, sid } from "./ui.jsx";
-import { Drawer, Field, NumInput, Section, Segmented, Switch, Toggle, errText, num, tint } from "./kit.jsx";
+import { Drawer, Field, NumInput, Section, Segmented, Switch, Toggle, DeleteButton, errText, num, tint } from "./kit.jsx";
 import { RelChip, Warn, serverState } from "./infra.jsx";
 
 // A server is only a capacity slot of ONE panel, so this form never asks "which panel":
@@ -40,7 +40,7 @@ function ProductPicker({ products, value, onChange }) {
  * Add / edit a server of `panel` (POST /admin/servers, PATCH /admin/servers/{id}).
  * `server` null = add. Edit sends only the fields that changed.
  */
-export function ServerForm({ api, infra, panel: panelProp, server, locations = [], toggling, onToggle, toast, onClose, onSaved }) {
+export function ServerForm({ api, infra, panel: panelProp, server, locations = [], toggling, onToggle, onDelete, toast, onClose, onSaved }) {
   const edit = !!server;
   const panels = infra.panels.rows || [], products = infra.products.failed ? [] : infra.products.rows, idx = infra.idx;
   const siblings = panelProp ? (idx.serversByPanel.get(panelProp.id) || []).length : 0;
@@ -88,6 +88,7 @@ export function ServerForm({ api, infra, panel: panelProp, server, locations = [
     subtitle={`روی پنل «${panel?.name || "—"}»${edit ? ` · شناسه ${sid(server.id)}` : ""}`}
     icon={<span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl" style={tint(edit && !server.is_enabled ? "mu" : "in")}><Server size={20} /></span>}
     dirty={dirty} busy={busy} onClose={onClose} error={srvErr}
+    danger={edit && onDelete && <DeleteButton label="حذف سرور" busy={busy} onClick={() => onDelete(server)} />}
     footer={<>
       <button className="btn" disabled={busy || (edit && !dirty)} onClick={() => submit(false)}>{busy ? <RefreshCw size={15} className="animate-spin" /> : <Save size={15} />}{edit ? "ذخیره تغییرات" : "ثبت سرور"}</button>
       {!edit && <button className="btn btn-g !py-2 !text-sm" disabled={busy} onClick={() => submit(true)}><Plus size={14} />ثبت و افزودن دیگری</button>}
