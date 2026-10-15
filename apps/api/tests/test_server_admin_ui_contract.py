@@ -10,7 +10,7 @@ def _ui(name: str) -> str:
 
 
 def test_servers_ui_uses_only_endpoints_that_exist():
-    ui = _ui("ServersView.jsx") + _ui("ServerForm.jsx")
+    ui = _ui("PanelsView.jsx") + _ui("ServerForm.jsx")
     for route, decorator in (
         ("/api/v1/admin/servers", '@router.get("/servers"'),
         ("/api/v1/admin/servers", '@router.post("/servers"'),
@@ -22,23 +22,26 @@ def test_servers_ui_uses_only_endpoints_that_exist():
     assert "/api/v1/admin/products" in infra and "/api/v1/admin/panels" in infra and "useInfra" in ui
 
 
-def test_servers_are_their_own_infrastructure_page_not_a_tab_of_panels():
+def test_servers_live_inside_their_panel_screen():
+    """A server is only a capacity slot of one panel: no separate Servers screen, one merged page."""
+    assert not SRC.joinpath("ServersView.jsx").exists()
     panels = _ui("PanelsView.jsx")
-    assert "ServersView" not in panels and 'role="tablist"' not in panels
+    assert "ServerForm" in panels and "ServerImport" in panels
     extra = _ui("AdminExtra.jsx")
-    assert '"سرورها": ServersView' in extra and '"پنل‌ها": PanelsView' in extra
+    assert '"پنل‌ها و سرورها": PanelsView' in extra and "ServersView" not in extra
     app = _ui("App.jsx")
-    assert "['سرورها', ServerCog, 'servers']" in app
-    # servers sit inside the infrastructure group, between panels and panel groups
+    assert "['پنل‌ها و سرورها', PanelTop, 'panels']" in app and "'servers'" not in app
     infra_group = app[app.index("['زیرساخت'"):app.index("['سیستم'")]
-    assert infra_group.index("'panels'") < infra_group.index("'servers'") < infra_group.index("'panel-groups'") < infra_group.index("'products'")
+    assert infra_group.index("'panels'") < infra_group.index("'panel-groups'") < infra_group.index("'products'")
+    # old bookmarks (#/servers?panel=<id>) still land on the merged screen
+    assert "legacyHash" in app and "legacyHash" in _ui("infra.jsx")
 
 
 def test_infra_screens_share_one_dependency_model():
     infra = _ui("infra.jsx")
     for endpoint in ("/api/v1/admin/panels", "/api/v1/admin/servers", "/api/v1/admin/panel-groups", "/api/v1/admin/products"):
         assert endpoint in infra
-    for page in ("PanelsView.jsx", "ServersView.jsx", "PanelGroupsView.jsx", "ProductsView.jsx"):
+    for page in ("PanelsView.jsx", "PanelGroupsView.jsx", "ProductsView.jsx"):
         ui = _ui(page)
         assert "useInfra" in ui and "InfraChain" in ui, page
     # an unknown panel health blocks allocation in the core, so the UI must treat it as not ready
@@ -48,3 +51,22 @@ def test_infra_screens_share_one_dependency_model():
 def test_server_edit_never_resends_unchanged_fields():
     form = _ui("ServerForm.jsx")
     assert 'method = "PATCH"' in form and "JSON.stringify(v) !== JSON.stringify(was[k])" in form
+
+
+def test_group_membership_is_saved_with_the_field_the_api_reads():
+    """Regression: the panel form used to PATCH {panels: [...]}, which the API ignores (field is panel_ids)."""
+    schemas = Path(__file__).parents[1].joinpath("melorin", "modules", "admin", "schemas.py").read_text()
+    update = schemas[schemas.index("class UpdatePanelGroup"):schemas.index("class PanelGroupMemberInput")]
+    assert "panel_ids" in update
+    infra = _ui("infra.jsx")
+    assert "JSON.stringify({ panel_ids: panelIds })" in infra
+    assert "JSON.stringify({ panels:" not in _ui("PanelsView.jsx")
+
+
+def test_product_group_assignment_obeys_core_rules():
+    """The group screen attaches products through the product PATCH, which enforces automatic+enabled groups."""
+    groups = _ui("PanelGroupsView.jsx")
+    assert "default_panel_group_id" in groups and "/api/v1/admin/products" in groups
+    assert "DEFAULT_GROUP_MANUAL" in ROUTER and "DEFAULT_GROUP_DISABLED" in ROUTER
+    # a product leaves a group BEFORE the group turns manual (DEFAULT_GROUP_IN_USE), joins AFTER it is saved
+    assert "manualNow" in groups

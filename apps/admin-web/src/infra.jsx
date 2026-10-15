@@ -1,26 +1,25 @@
 // Shared model + building blocks for the VPN infrastructure screens.
 //
-// The four screens form ONE dependency chain that mirrors the allocation core (vpn/allocation.py):
+// Three screens form ONE chain that mirrors the allocation core (vpn/allocation.py):
 //
-//     پنل (Panel)  →  سرور (Server)  →  گروه پنل (Panel group)  →  محصول (Product)
+//     پنل و سرورها (Panel + its Servers)  →  گروه پنل (Panel group)  →  محصول (Product)
 //
-// * a server belongs to exactly one panel (and holds capacity / product allow-list);
-// * a panel group collects panels (selection + naming + sales limit);
+// * a server is only a capacity slot of ONE panel, so servers are managed inside the panel screen;
+// * a panel group collects panels (policy + sales limit) and is OPTIONAL for a product;
 // * a product points at a default panel group, and the core resolves product → group → panel → server.
 //
-// `useInfra` loads all four lists once per screen and derives the relations so every screen can show
+// `useInfra` loads the lists once per screen and derives the relations so every screen can show
 // where an item sits in the chain, what it depends on, and what is broken for sale.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, ArrowLeft, Boxes, Layers, PanelTop, ServerCog } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Boxes, Layers, PanelTop, Sparkles } from "lucide-react";
 import { authFetch } from "./api.js";
 import { num, tint, useRows } from "./kit.jsx";
 
 /* ---------- chain definition ---------- */
 export const CHAIN = [
-  { key: "panels", slug: "panels", title: "پنل‌ها", one: "پنل", Icon: PanelTop, tone: "in", hint: "اتصال به سنایی / پاسارگارد" },
-  { key: "servers", slug: "servers", title: "سرورها", one: "سرور", Icon: ServerCog, tone: "ok", hint: "ظرفیت و محدوده فروش روی هر پنل" },
-  { key: "groups", slug: "panel-groups", title: "گروه‌های پنل", one: "گروه", Icon: Layers, tone: "wn", hint: "مجموعه پنل‌ها + سیاست انتخاب" },
-  { key: "products", slug: "products", title: "محصولات VPN", one: "محصول", Icon: Boxes, tone: "mu", hint: "پلن قابل فروش + گروه پیش‌فرض" },
+  { key: "panels", slug: "panels", title: "پنل‌ها و سرورها", one: "پنل", Icon: PanelTop, tone: "in", hint: "اتصال به سنایی / پاسارگارد + ظرفیت" },
+  { key: "groups", slug: "panel-groups", title: "گروه‌های پنل", one: "گروه", Icon: Layers, tone: "wn", hint: "پخش فروش بین چند پنل (اختیاری)" },
+  { key: "products", slug: "products", title: "محصولات VPN", one: "محصول", Icon: Boxes, tone: "mu", hint: "پلن قابل فروش + محل ساخت اکانت" },
 ];
 
 /* ---------- hash routing helpers (#/servers?panel=<id>&add=1) ---------- */
@@ -30,10 +29,20 @@ export function useHashParams() {
   useEffect(() => { const f = () => setP(readParams()); window.addEventListener("hashchange", f); return () => window.removeEventListener("hashchange", f); }, []);
   return p;
 }
+/** "servers" no longer is a screen of its own: servers live inside their panel (#/panels). */
+const LEGACY = { servers: (p) => ["panels", { id: p.panel, group: p.group, product: p.product, add: p.add ? "server" : undefined }] };
 export const infraHref = (slug, params = {}) => {
+  if (LEGACY[slug]) [slug, params] = LEGACY[slug](params);
   const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== "")).toString();
   return `#/${slug}${qs ? `?${qs}` : ""}`;
 };
+/** Old bookmarks (#/servers?panel=…) → new address, or null when the hash needs no rewrite. */
+export function legacyHash(hash) {
+  const [path, q = ""] = hash.split("?");
+  if (path !== "#/servers") return null;
+  const p = Object.fromEntries(new URLSearchParams(q));
+  return infraHref("servers", p);
+}
 /** Drop one-shot params (e.g. add=1) without adding a history entry. */
 export const clearParam = (name) => {
   const [path, q = ""] = window.location.hash.split("?");
@@ -152,37 +161,67 @@ export const Rel = ({ label, children, empty }) => <div className="flex items-st
 
 export const Warn = ({ children, tone = "wn" }) => <p className="flex items-start gap-2 rounded-lg px-3 py-2 text-[11px] font-bold leading-5" style={tint(tone)}><AlertTriangle size={13} className="mt-0.5 shrink-0" />{children}</p>;
 
-/* ---------- UI: the chain header shown on top of all four screens ---------- */
+/* ---------- group membership (one API, used by the panel screen AND the group screen) ---------- */
+/** Panel ids of a group in priority order. */
+export const memberIds = (g) => (g?.panels || []).slice().sort((a, b) => a.sort - b.sort).map((m) => m.panel_id);
+/** PATCH the member list of a group. Returns "" on success or an error text. */
+export async function saveGroupPanels(call, group, panelIds) {
+  const r = await call(`/api/v1/admin/panel-groups/${group.id}`, { method: "PATCH", body: JSON.stringify({ panel_ids: panelIds }) });
+  if (r.ok) return "";
+  try { const d = await r.json(); return d?.error?.message || (typeof d?.detail === "string" ? d.detail : "") || "تغییر پنل‌های گروه ناموفق بود"; } catch { return "تغییر پنل‌های گروه ناموفق بود"; }
+}
+
+/* ---------- guided next step ---------- */
+/** The first thing that still blocks selling, as { text, cta, href } — or null when everything is ready. */
+export function nextStep(infra) {
+  if (infra.loading || infra.failed) return null;
+  const panels = infra.panels.rows || [], products = infra.products.rows || [], idx = infra.idx;
+  if (!panels.length) return { text: "هنوز پنلی وصل نشده. اولین پنل را اضافه کنید؛ سرور (ظرفیت) همان‌جا ساخته می‌شود.", cta: "افزودن پنل", href: infraHref("panels", { add: 1 }) };
+  const noServer = panels.find((p) => p.is_enabled && !(idx.serversByPanel.get(p.id) || []).length);
+  if (noServer) return { text: `پنل «${noServer.name}» سرور ندارد؛ تا ظرفیت تعریف نشود اکانتی روی آن ساخته نمی‌شود.`, cta: "افزودن سرور", href: infraHref("panels", { id: noServer.id, add: "server" }) };
+  const sick = panels.find((p) => p.is_enabled && health(p) !== "healthy");
+  if (sick) return { text: `سلامت پنل «${sick.name}» ${health(sick) === "unhealthy" ? "ناسالم است" : "هنوز بررسی نشده"}؛ تا سالم نشود فروشی روی آن انجام نمی‌شود.`, cta: "بررسی پنل", href: infraHref("panels", { id: sick.id }) };
+  if (!products.length) return { text: "پنل‌ها آماده‌اند. حالا اولین محصول را بسازید؛ همان‌جا می‌توانید گروه هم بسازید.", cta: "افزودن محصول", href: infraHref("products", { add: 1 }) };
+  const broken = products.filter((p) => p.is_active && !idx.reach(p).ok);
+  if (broken.length) return { text: `${num(broken.length)} محصول فعال مسیر تخصیص ندارد و خریدش با خطا روبه‌رو می‌شود.`, cta: "مشاهده", href: infraHref("products", { filter: "broken" }) };
+  return null;
+}
+
+/* ---------- UI: the chain header shown on top of all three screens ---------- */
 function issuesOf(infra) {
   const { idx } = infra;
   const panels = infra.panels.rows || [], servers = infra.servers.rows || [], groups = infra.groups.rows || [], products = infra.products.rows || [];
+  const full = servers.filter((s) => s.is_enabled && usage(s) >= 1).length;
   return {
-    panels: { n: panels.length, bad: panels.filter((p) => p.is_enabled && health(p) !== "healthy").length, badText: "ناسالم/بررسی‌نشده", empty: panels.filter((p) => !(idx.serversByPanel.get(p.id) || []).length).length, emptyText: "بدون سرور" },
-    servers: { n: servers.length, bad: servers.filter((s) => s.is_enabled && usage(s) >= 1).length, badText: "ظرفیت پر", empty: servers.filter((s) => s.is_enabled && !serverState(s, idx.panelById.get(s.panel_id)).ok && usage(s) < 1).length, emptyText: "غیرقابل فروش" },
+    panels: { n: panels.length, bad: panels.filter((p) => p.is_enabled && health(p) !== "healthy").length, badText: "ناسالم/بررسی‌نشده", empty: panels.filter((p) => !(idx.serversByPanel.get(p.id) || []).length).length + full, emptyText: "بدون سرور یا ظرفیت پر" },
     groups: { n: groups.length, bad: groups.filter((g) => g.is_enabled && !(g.panels || []).length).length, badText: "بدون پنل", empty: groups.filter((g) => !(idx.productsByGroup.get(g.id) || []).length).length, emptyText: "بدون محصول" },
-    products: { n: products.length, bad: products.filter((p) => p.is_active && !idx.reach(p).ok).length, badText: "بدون مسیر تخصیص", empty: products.filter((p) => p.is_active && !p.default_panel_group_id).length, emptyText: "بدون گروه" },
+    products: { n: products.length, bad: products.filter((p) => p.is_active && !idx.reach(p).ok).length, badText: "بدون مسیر تخصیص", empty: 0, emptyText: "" },
   };
 }
 
 export function InfraChain({ current, infra }) {
   const st = useMemo(() => issuesOf(infra), [infra.panels.rows, infra.servers.rows, infra.groups.rows, infra.products.rows]); // eslint-disable-line react-hooks/exhaustive-deps
+  const next = useMemo(() => nextStep(infra), [infra.panels.rows, infra.servers.rows, infra.groups.rows, infra.products.rows, infra.loading, infra.failed]); // eslint-disable-line react-hooks/exhaustive-deps
   const loading = infra.loading;
-  return <nav aria-label="زنجیره زیرساخت" className="card rise p-3">
-    <ol className="flex flex-col gap-2 lg:flex-row lg:items-stretch lg:gap-0">
-      {CHAIN.map((c, i) => {
-        const s = st[c.key], on = c.key === current;
-        const warn = s.bad > 0;
-        return <li key={c.key} className="flex min-w-0 flex-1 items-stretch">
-          <a href={infraHref(c.slug)} aria-current={on ? "page" : undefined} className={`flex min-w-0 flex-1 items-center gap-3 rounded-xl border px-3 py-2.5 transition ${on ? "border-[var(--ac)] bg-[var(--sf2)] ring-2 ring-[color-mix(in_srgb,var(--ac)_18%,transparent)]" : "border-transparent hover:bg-[var(--sf2)]"}`}>
-            <span className="relative grid h-10 w-10 shrink-0 place-items-center rounded-xl" style={tint(c.tone)}><c.Icon size={19} /><span className="absolute -right-1.5 -top-1.5 grid h-4 w-4 place-items-center rounded-full bg-[var(--nav)] text-[9px] font-extrabold text-white">{num(i + 1)}</span></span>
-            <span className="min-w-0 flex-1">
-              <span className="flex items-baseline gap-2"><b className="truncate text-sm">{c.title}</b>{loading ? <span className="skel inline-block h-4 w-6" /> : <span className="text-lg font-extrabold leading-none">{num(s.n)}</span>}</span>
-              <span className="mt-0.5 block truncate text-[11px] text-[var(--mu)]">{!loading && warn ? <span className="font-bold text-[var(--bd)]">{num(s.bad)} {s.badText}</span> : !loading && s.empty > 0 ? <span className="text-[var(--wn)]">{num(s.empty)} {s.emptyText}</span> : c.hint}</span>
-            </span>
-          </a>
-          {i < CHAIN.length - 1 && <span aria-hidden="true" className="hidden shrink-0 items-center px-1.5 text-[var(--mu)] lg:flex"><ArrowLeft size={16} /></span>}
-        </li>;
-      })}
-    </ol>
-  </nav>;
+  return <div className="space-y-3">
+    <nav aria-label="زنجیره زیرساخت" className="card rise p-3">
+      <ol className="flex flex-col gap-2 lg:flex-row lg:items-stretch lg:gap-0">
+        {CHAIN.map((c, i) => {
+          const s = st[c.key], on = c.key === current;
+          const warn = s.bad > 0;
+          return <li key={c.key} className="flex min-w-0 flex-1 items-stretch">
+            <a href={infraHref(c.slug)} aria-current={on ? "page" : undefined} className={`flex min-w-0 flex-1 items-center gap-3 rounded-xl border px-3 py-2.5 transition ${on ? "border-[var(--ac)] bg-[var(--sf2)] ring-2 ring-[color-mix(in_srgb,var(--ac)_18%,transparent)]" : "border-transparent hover:bg-[var(--sf2)]"}`}>
+              <span className="relative grid h-10 w-10 shrink-0 place-items-center rounded-xl" style={tint(c.tone)}><c.Icon size={19} /><span className="absolute -right-1.5 -top-1.5 grid h-4 w-4 place-items-center rounded-full bg-[var(--nav)] text-[9px] font-extrabold text-white">{num(i + 1)}</span></span>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-baseline gap-2"><b className="truncate text-sm">{c.title}</b>{loading ? <span className="skel inline-block h-4 w-6" /> : <span className="text-lg font-extrabold leading-none">{num(s.n)}</span>}</span>
+                <span className="mt-0.5 block truncate text-[11px] text-[var(--mu)]">{!loading && warn ? <span className="font-bold text-[var(--bd)]">{num(s.bad)} {s.badText}</span> : !loading && s.empty > 0 ? <span className="text-[var(--wn)]">{num(s.empty)} {s.emptyText}</span> : c.hint}</span>
+              </span>
+            </a>
+            {i < CHAIN.length - 1 && <span aria-hidden="true" className="hidden shrink-0 items-center px-1.5 text-[var(--mu)] lg:flex"><ArrowLeft size={16} /></span>}
+          </li>;
+        })}
+      </ol>
+    </nav>
+    {next && <p className="flex flex-wrap items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold leading-6" style={tint("in")}><Sparkles size={15} className="shrink-0" /><span className="min-w-0 flex-1">قدم بعدی: {next.text}</span><a className="btn !py-1.5 !text-xs" href={next.href}>{next.cta}</a></p>}
+  </div>;
 }

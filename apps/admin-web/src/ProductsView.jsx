@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { authFetch } from "./api.js";
 import { Badge, confirmDialog } from "./ui.jsx";
-import { AlertTriangle, Boxes, Layers, ServerCog, CheckCircle2, Clock, Infinity as Inf, LayoutGrid, List, Pencil, PowerOff, Plus, Save, Search, ShieldAlert, Smartphone, Store, Tag, Wallet, X, Zap } from "lucide-react";
+import { AlertTriangle, Boxes, ChevronDown, Layers, ServerCog, CheckCircle2, Clock, Infinity as Inf, LayoutGrid, List, Pencil, PowerOff, Plus, Save, Search, ShieldAlert, Smartphone, Store, Tag, Wallet, X, Zap } from "lucide-react";
 import { Drawer, Field, NumInput, Paginator, Section, Segmented, Stat, Switch, Toggle, errText, num, tint, useAlive, useRows } from "./kit.jsx"; // #4
-import { InfraChain, Rel, RelChip, Warn, infraHref, useHashParams, useInfra } from "./infra.jsx";
+import { Dot, InfraChain, RelChip, Warn, clearParam, health, infraHref, useHashParams, useInfra } from "./infra.jsx";
 
 const API = "/api/v1/admin/products";
 const CUR = { IRT: "تومان", USD: "دلار", USDT: "تتر", XTR: "ستاره" };
@@ -33,11 +33,11 @@ function Route({ p, idx, compact }) {
   const panels = g ? (g.panels || []).filter((m) => m.is_enabled).map((m) => idx.panelById.get(m.panel_id)).filter(Boolean) : [];
   return <div className="space-y-2">
     <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-      {g ? <RelChip to="panel-groups" params={{ q: g.name }} tone="wn" Icon={Layers} dim={!g.is_enabled}>{g.name}</RelChip> : <span className="rounded-lg bg-[var(--mb)] px-2 py-1 font-bold text-[var(--mu)]">بدون گروه · انتخاب مستقیم سرور</span>}
+      {g ? <RelChip to="panel-groups" params={{ q: g.name }} tone="wn" Icon={Layers} dim={!g.is_enabled}>{g.name}</RelChip> : <span className="rounded-lg bg-[var(--mb)] px-2 py-1 font-bold text-[var(--mu)]">بدون گروه · هر پنل سالم</span>}
       <span className="text-[var(--mu)]">←</span>
       {g ? <span className="text-[var(--mu)]">{num(panels.length)} پنل فعال</span> : <span className="text-[var(--mu)]">همه پنل‌ها</span>}
       <span className="text-[var(--mu)]">←</span>
-      <a href={infraHref("servers", g ? { group: g.id, product: p.code } : { product: p.code })} className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 font-bold hover:ring-1 hover:ring-[var(--ac)]`} style={tint(r.ok ? "ok" : "bd")}><ServerCog size={12} />{num(r.live.length)} سرور آماده{r.ok ? ` · ${num(r.free)} ظرفیت آزاد` : ""}</a>
+      <a href={infraHref("panels", g ? { group: g.id, product: p.code } : { product: p.code })} className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 font-bold hover:ring-1 hover:ring-[var(--ac)]`} style={tint(r.ok ? "ok" : "bd")}><ServerCog size={12} />{num(r.live.length)} سرور آماده{r.ok ? ` · ${num(r.free)} ظرفیت آزاد` : ""}</a>
     </div>
     {!r.ok && !compact && <Warn tone="bd">{r.issue}؛ تا رفع این مشکل خرید این محصول با خطا یا بررسی دستی روبه‌رو می‌شود.</Warn>}
     {!r.ok && compact && <p className="flex items-start gap-1.5 text-[11px] font-bold leading-5 text-[var(--bd)]"><AlertTriangle size={12} className="mt-0.5 shrink-0" />{r.issue}</p>}
@@ -52,7 +52,7 @@ function PriceHint({ main, res, cur }) {
 }
 
 function StoreAvailability({ product, stores, call, toast }) {
-  const [storeId, setStoreId] = useState(""); const [enabled, setEnabled] = useState(true), [listed, setListed] = useState(true), [cp, setCp] = useState(""); const [busy, setBusy] = useState(false), [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false); const [storeId, setStoreId] = useState(""); const [enabled, setEnabled] = useState(true), [listed, setListed] = useState(true), [cp, setCp] = useState(""); const [busy, setBusy] = useState(false), [loading, setLoading] = useState(false);
   const store = stores.find((s) => s.id === storeId);
   useEffect(() => { const m = stores.find((s) => s.kind === "main") || stores[0]; if (m && !storeId) setStoreId(m.id); }, [stores]); // eslint-disable-line
   // Load current store availability state when store selection changes — fixes the bug where
@@ -86,45 +86,62 @@ function StoreAvailability({ product, stores, call, toast }) {
     const r = await call(`${API}/${product.id}/availability`, { method: "POST", body: JSON.stringify({ store_id: storeId, enabled, listed, customer_price: store?.kind === "reseller" && cp !== "" ? Number(cp) : null }) });
     setBusy(false); toast(r.ok ? `«${product.name}» در «${store?.name}» ذخیره شد` : "ذخیره وضعیت در فروشگاه ناموفق بود");
   };
-  return <Section title="انتشار در فروشگاه‌ها" hint="محصول تا زمانی که برای یک فروشگاه فعال نشود در سایت و بات آن دیده نمی‌شود. این بخش جدا از دکمه‌ی ذخیره‌ی محصول عمل می‌کند.">
-    <div className="grid gap-3 sm:grid-cols-2">
-      <Field label="فروشگاه"><select className="inp" value={storeId} onChange={(e) => setStoreId(e.target.value)}>{stores.map((s) => <option key={s.id} value={s.id}>{s.name} · {s.kind === "main" ? "اصلی" : "نماینده"}</option>)}</select></Field>
-      {store?.kind === "reseller" && <Field label="قیمت فروش به مشتری"><NumInput value={cp} onChange={setCp} suffix={CUR[product.currency]} /></Field>}
-    </div>
-    <div className="flex flex-wrap gap-6">{loading ? <span className="text-xs text-[var(--mu)]">در حال بارگذاری وضعیت فعلی…</span> : <><Toggle checked={enabled} onChange={setEnabled} label="قابل فروش" /><Toggle checked={listed} onChange={setListed} label="نمایش در کاتالوگ" /></>}</div>
-    <button className="btn btn-g !py-2 !text-sm" disabled={busy || loading || !storeId} onClick={publish}><Store size={14} />{loading ? "در حال بارگذاری…" : busy ? "در حال ذخیره…" : "ذخیره وضعیت فروشگاه"}</button>
-  </Section>;
+  return <section>
+    <button type="button" className="flex items-center gap-1.5 text-xs font-bold text-[var(--mu)]" aria-expanded={open} onClick={() => setOpen(!open)}><ChevronDown size={14} className={open ? "" : "-rotate-90"} />انتشار در فروشگاه‌ها و نماینده‌ها</button>
+    {open && <div className="mt-3"><Section title="انتشار در فروشگاه‌ها" hint="فروشگاه اصلی خودکار فعال است. برای هر نماینده می‌توانید فروش و قیمت را جدا تنظیم کنید. این بخش جدا از دکمه‌ی ذخیره‌ی محصول و فوراً ذخیره می‌شود.">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="فروشگاه"><select className="inp" value={storeId} onChange={(e) => setStoreId(e.target.value)}>{stores.map((s) => <option key={s.id} value={s.id}>{s.name} · {s.kind === "main" ? "اصلی" : "نماینده"}</option>)}</select></Field>
+        {store?.kind === "reseller" && <Field label="قیمت فروش به مشتری"><NumInput value={cp} onChange={setCp} suffix={CUR[product.currency]} /></Field>}
+      </div>
+      <div className="flex flex-wrap gap-6">{loading ? <span className="text-xs text-[var(--mu)]">در حال بارگذاری وضعیت فعلی…</span> : <><Toggle checked={enabled} onChange={setEnabled} label="قابل فروش" /><Toggle checked={listed} onChange={setListed} label="نمایش در کاتالوگ" /></>}</div>
+      <button className="btn btn-g !py-2 !text-sm" disabled={busy || loading || !storeId} onClick={publish}><Store size={14} />{loading ? "در حال بارگذاری…" : busy ? "در حال ذخیره…" : "ذخیره وضعیت فروشگاه"}</button>
+    </Section></div>}
+  </section>;
 }
 
-function ProductDrawer({ product, stores, groups, idx, call, toast, onClose, onSubmit }) {
+function QuickGroup({ panels, idx, call, onCreated, onCancel }) {
+  const [name, setName] = useState(""), [ids, setIds] = useState([]), [busy, setBusy] = useState(false), [msg, setMsg] = useState("");
+  const toggle = (id) => setIds((x) => (x.includes(id) ? x.filter((y) => y !== id) : [...x, id]));
+  const submit = async () => {
+    if (name.trim().length < 2) { setMsg("نام گروه حداقل ۲ نویسه باشد"); return; }
+    if (!ids.length) { setMsg("حداقل یک پنل انتخاب کنید"); return; }
+    setBusy(true); setMsg("");
+    const r = await call("/api/v1/admin/panel-groups", { method: "POST", body: JSON.stringify({ name: name.trim(), selection_mode: "automatic", naming_mode: "automatic", panel_ids: ids }) });
+    if (!r.ok) { setBusy(false); setMsg(await errText(r, "ساخت گروه ناموفق بود")); return; }
+    const g = await r.json(); await onCreated(g.id); setBusy(false);
+  };
+  return <div className="space-y-3 rounded-xl border border-dashed border-[var(--ac)] bg-[var(--sf2)] p-3">
+    <div className="text-xs font-bold">گروه جدید</div>
+    <input aria-label="نام گروه جدید" className="inp" maxLength={120} value={name} placeholder="مثلاً: آلمان" onChange={(e) => { setMsg(""); setName(e.target.value); }} />
+    {panels.length ? <div className="max-h-40 space-y-1 overflow-y-auto">{panels.map((p) => { const on = ids.includes(p.id); return <button key={p.id} type="button" aria-pressed={on} onClick={() => toggle(p.id)} className={`flex w-full items-center gap-2 rounded-lg border px-3 py-1.5 text-right text-xs transition ${on ? "border-[var(--ac)] bg-[var(--sf)] font-bold" : "border-transparent hover:bg-[var(--mb)]"}`}><Dot s={health(p)} /><span className="min-w-0 flex-1 truncate">{p.name}</span><span className="text-[var(--mu)]">{num(idx.panelStat(p.id).n)} سرور</span></button>; })}</div>
+      : <p className="text-xs text-[var(--mu)]">ابتدا از «پنل‌ها و سرورها» یک پنل اضافه کنید.</p>}
+    {msg && <p role="alert" className="text-[11px] text-[var(--bd)]">{msg}</p>}
+    <div className="flex gap-2"><button type="button" className="btn !py-1.5 !text-xs" disabled={busy} onClick={submit}>{busy ? "در حال ساخت…" : "ساخت و انتخاب"}</button><button type="button" className="btn btn-g" disabled={busy} onClick={onCancel}>انصراف</button></div>
+  </div>;
+}
+
+const suggestCode = (f, taken) => {
+  const base = `vpn-${+f.duration_days || 0}d-${f.unlimited_traffic ? "unl" : `${+f.traffic_gb || 0}g`}`;
+  let code = base, n = 2; while (taken.has(code)) code = `${base}-${n++}`;
+  return code;
+};
+
+function ProductDrawer({ product, stores, groups, panels, products, idx, call, toast, onClose, onSubmit, onGroupCreated }) {
   const edit = !!product;
-  const [f, setF] = useState(() => (product ? fromProduct(product) : EMPTY)); const base = useRef(JSON.stringify(f));
+  const taken = useMemo(() => new Set((products || []).filter((x) => x.id !== product?.id).map((x) => x.code)), [products, product]);
+  const [f, setF] = useState(() => (product ? fromProduct(product) : { ...EMPTY, code: suggestCode(EMPTY, new Set((products || []).map((x) => x.code))) })); const base = useRef(JSON.stringify(f));
   const [tried, setTried] = useState(false), [busy, setBusy] = useState(false), [srv, setSrv] = useState("");
+  const [codeTouched, setCodeTouched] = useState(edit), [more, setMore] = useState(false), [newGroup, setNewGroup] = useState(false);
   const set = (k) => (v) => { setSrv(""); setF((x) => ({ ...x, [k]: v })); };
+  // New product: the code follows the plan (duration + traffic) until the admin edits it by hand.
+  useEffect(() => { if (!edit && !codeTouched) setF((x) => ({ ...x, code: suggestCode(x, taken) })); }, [f.duration_days, f.traffic_gb, f.unlimited_traffic, codeTouched, edit, taken]); // eslint-disable-line react-hooks/exhaustive-deps
   const err = useMemo(() => validate(f), [f]); const dirty = JSON.stringify(f) !== base.current;
-  const submit = async () => { setTried(true); if (Object.keys(err).length) return; setBusy(true); const m = await onSubmit(payload(f), f.is_active, product); setBusy(false); if (m) setSrv(m); };
+  const submit = async () => { setTried(true); if (Object.keys(err).length) { if (err.code) setMore(true); return; } setBusy(true); const m = await onSubmit(payload(f), f.is_active, product); setBusy(false); if (m) setSrv(m); };
   const show = (k) => tried && err[k];
-  return <Drawer title={edit ? `ویرایش «${product.name}»` : "افزودن محصول VPN"} subtitle={edit ? `کد ${product.code}` : "مشخصات و قیمت پلن جدید"} icon={<span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl" style={tint("ok")}><Boxes size={20} /></span>} dirty={dirty} busy={busy} onClose={onClose} error={srv}
+  return <Drawer title={edit ? `ویرایش «${product.name}»` : "افزودن محصول VPN"} subtitle={edit ? `کد ${product.code}` : "پلن قابل فروش: مشخصات، قیمت و محل ساخت اکانت"} icon={<span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl" style={tint("ok")}><Boxes size={20} /></span>} dirty={dirty} busy={busy} onClose={onClose} error={srv}
     footer={<button className="btn !py-2 !text-sm" disabled={busy} onClick={submit}><Save size={15} />{busy ? "در حال ذخیره…" : edit ? "ذخیره تغییرات" : "ساخت محصول"}</button>}>
-    <Section title={edit ? "اطلاعات" : "۱ · اطلاعات"}>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="نام محصول" error={show("name")}><input autoFocus className="inp" maxLength={200} placeholder="مثلاً: ۳۰ روزه ۵۰ گیگ" value={f.name} onChange={(e) => set("name")(e.target.value)} /></Field>
-        <Field label="کد محصول" error={show("code")} hint={edit ? "تغییر کد روی اتصال‌های بیرونی (API/بات) اثر می‌گذارد." : "یکتا و انگلیسی، مثلاً vpn-30d-50g"}><input dir="ltr" spellCheck={false} className="inp font-mono" maxLength={50} value={f.code} onChange={(e) => set("code")(e.target.value)} /></Field>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="دسته‌بندی" hint="اختیاری؛ برای گروه‌بندی در فروشگاه"><input className="inp" maxLength={100} value={f.category} onChange={(e) => set("category")(e.target.value)} /></Field>
-        <Field label="توضیحات" hint="اختیاری"><input className="inp" value={f.description} onChange={(e) => set("description")(e.target.value)} /></Field>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="گروه پنل پیش‌فرض" hint="هسته برای همه‌ی کانال‌ها (ربات و سایت) از همین گروه اکانت می‌سازد؛ فقط گروه‌های فعال با انتخاب خودکار">
-          <select className="inp" value={f.default_panel_group_id} onChange={(e) => set("default_panel_group_id")(e.target.value)}>
-            <option value="">بدون گروه (انتخاب مستقیم سرور)</option>
-            {groups.filter((g) => g.id === f.default_panel_group_id || (g.is_enabled && g.selection_mode === "automatic")).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-          </select>
-        </Field>
-      </div>
-    </Section>
-    <Section title={edit ? "مشخصات پلن" : "۲ · مشخصات پلن"}>
+    <Section title={edit ? "پلن" : "۱ · پلن"}>
+      <Field label="نام محصول" error={show("name")}><input autoFocus className="inp" maxLength={200} placeholder="مثلاً: ۳۰ روزه ۵۰ گیگ" value={f.name} onChange={(e) => set("name")(e.target.value)} /></Field>
       <Field label="مدت اعتبار" error={show("duration_days")}>
         <div className="space-y-2"><div className="flex flex-wrap gap-1.5">{[7, 30, 60, 90, 180, 365].map((d) => <button key={d} type="button" onClick={() => set("duration_days")(String(d))} className={`btn btn-g ${+f.duration_days === d ? "!border-[var(--ac)] !text-[var(--ac)]" : ""}`}>{dur(d)}</button>)}</div>
           <NumInput value={f.duration_days} onChange={set("duration_days")} suffix="روز" /></div></Field>
@@ -133,7 +150,7 @@ function ProductDrawer({ product, stores, groups, idx, call, toast, onClose, onS
         <Field label="تعداد دستگاه هم‌زمان" error={show("max_devices")}><div className="space-y-2"><NumInput value={f.unlimited_devices ? "" : f.max_devices} disabled={f.unlimited_devices} placeholder={f.unlimited_devices ? "بدون محدودیت" : ""} onChange={set("max_devices")} suffix="دستگاه" /><Toggle checked={f.unlimited_devices} onChange={set("unlimited_devices")} label="بدون محدودیت" /></div></Field>
       </div>
     </Section>
-    <Section title={edit ? "قیمت‌گذاری" : "۳ · قیمت‌گذاری"}>
+    <Section title={edit ? "قیمت‌گذاری" : "۲ · قیمت‌گذاری"}>
       <Field label="واحد پول"><Segmented label="واحد پول" value={f.currency} onChange={set("currency")} options={Object.entries(CUR)} /></Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="قیمت فروشگاه اصلی" error={show("main_price")}><NumInput value={f.main_price} onChange={set("main_price")} suffix={CUR[f.currency]} /></Field>
@@ -141,20 +158,32 @@ function ProductDrawer({ product, stores, groups, idx, call, toast, onClose, onS
       </div>
       <PriceHint main={f.main_price} res={f.reseller_price} cur={f.currency} />
     </Section>
-    <Section title="مسیر تخصیص" hint="هسته این‌طور اکانت می‌سازد: محصول ← گروه پیش‌فرض ← پنل‌های فعال گروه ← سرور فعال و سالم که این محصول را پوشش دهد.">
+    <Section title={edit ? "اکانت از کجا ساخته شود؟" : "۳ · اکانت از کجا ساخته شود؟"} hint="ربات و سایت و نماینده‌ها همه از همین انتخاب استفاده می‌کنند؛ خریدار چیزی انتخاب نمی‌کند.">
+      <Field label="گروه پنل" hint="گروه یعنی چند پنل مشخص با سقف فروش؛ «همه پنل‌ها» یعنی هر پنل و سرور سالم.">
+        <select className="inp" value={newGroup ? "__new" : f.default_panel_group_id} onChange={(e) => { if (e.target.value === "__new") setNewGroup(true); else { setNewGroup(false); set("default_panel_group_id")(e.target.value); } }}>
+          <option value="">همه پنل‌ها (بدون گروه)</option>
+          {groups.filter((g) => g.id === f.default_panel_group_id || (g.is_enabled && g.selection_mode === "automatic")).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+          <option value="__new">+ ساخت گروه جدید…</option>
+        </select>
+      </Field>
+      {newGroup && <QuickGroup panels={panels} idx={idx} call={call} onCancel={() => setNewGroup(false)} onCreated={async (id) => { await onGroupCreated(); set("default_panel_group_id")(id); setNewGroup(false); }} />}
       <Route p={{ code: f.code.trim(), default_panel_group_id: f.default_panel_group_id || null }} idx={idx} />
     </Section>
-    <Section title={edit ? "وضعیت" : "۴ · وضعیت"}>
+    <Section title={edit ? "وضعیت" : "۴ · وضعیت"} hint={edit ? undefined : "محصول جدید خودکار در فروشگاه اصلی منتشر می‌شود؛ نمایندگان را بعد از ساخت، از همین پنجره‌ی ویرایش تنظیم کنید."}>
       <Toggle checked={f.is_active} onChange={set("is_active")} label="محصول فعال باشد" hint="محصول غیرفعال برای خرید جدید نمایش داده نمی‌شود." />
-      <Toggle checked={f.is_test} onChange={set("is_test")} label="محصول آزمایشی (تست)" hint="برای تست‌ها و اکانت‌های آزمایشی." />
     </Section>
-    {edit && (
-      <>
-        {/* Dashed divider: StoreAvailability has its own independent save action */}
-        <div className="mx-4 border-t-2 border-dashed border-[var(--ln)]" aria-hidden="true" />
-        <StoreAvailability product={product} stores={stores} call={call} toast={toast} />
-      </>
-    )}
+    <section>
+      <button type="button" className="flex items-center gap-1.5 text-xs font-bold text-[var(--mu)]" aria-expanded={more} onClick={() => setMore(!more)}><ChevronDown size={14} className={more ? "" : "-rotate-90"} />جزئیات بیشتر<span dir="ltr" className="font-mono font-normal">{f.code}</span>{f.is_test && <span className="badge b-wn">تست</span>}</button>
+      {more && <div className="mt-3 space-y-4"><Section title="کد، دسته‌بندی و توضیح">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="کد محصول" error={show("code")} hint={edit ? "تغییر کد روی اتصال‌های بیرونی (API/بات) اثر می‌گذارد." : "خودکار از مدت و حجم ساخته می‌شود؛ در صورت نیاز ویرایش کنید."}><input dir="ltr" spellCheck={false} className="inp font-mono" maxLength={50} value={f.code} onChange={(e) => { setCodeTouched(true); set("code")(e.target.value); }} /></Field>
+          <Field label="دسته‌بندی" hint="اختیاری؛ برای گروه‌بندی در فروشگاه"><input className="inp" maxLength={100} value={f.category} onChange={(e) => set("category")(e.target.value)} /></Field>
+        </div>
+        <Field label="توضیحات" hint="اختیاری"><input className="inp" value={f.description} onChange={(e) => set("description")(e.target.value)} /></Field>
+        <Toggle checked={f.is_test} onChange={set("is_test")} label="محصول آزمایشی (تست)" hint="برای تست‌ها و اکانت‌های آزمایشی؛ برای فروش عادی خاموش بماند." />
+      </Section></div>}
+    </section>
+    {edit && <StoreAvailability product={product} stores={stores} call={call} toast={toast} />}
   </Drawer>;
 }
 
@@ -195,7 +224,7 @@ function ProductTable({ rows, idx, busy, onEdit, onToggle, quick, draft, setDraf
 }
 
 export default function ProductsView({ api, toast }) {
-  const infra = useInfra(api, { needs: ["products", "servers", "groups"] }); // #3
+  const infra = useInfra(api);
   const { call, idx } = infra;
   const prods = infra.products, storesQ = useRows(call, "/api/v1/admin/stores");
   const params = useHashParams();
@@ -204,10 +233,13 @@ export default function ProductsView({ api, toast }) {
   const PAGE_SIZE = 20;
   const [page, setPage] = useState(0);
   useEffect(() => { setPage(0); }, [q]); // eslint-disable-line react-hooks/exhaustive-deps
-  const [filter, setFilter] = useState("all"), [layout, setLayout] = useState("grid"), [drawer, setDrawer] = useState(null), [busy, setBusy] = useState(new Set());
+  const [filter, setFilter] = useState(["on", "off", "broken", "test"].includes(params.get("filter")) ? params.get("filter") : "all"), [layout, setLayout] = useState("grid"), [drawer, setDrawer] = useState(null), [busy, setBusy] = useState(new Set());
   const [quick, setQuick] = useState(false), [draft, setDraft] = useState({}), [saving, setSaving] = useState(false);
   const alive = useAlive(); const rows = prods.rows;
-  useEffect(() => { setQ(params.get("q") || ""); }, [params]);
+  useEffect(() => {
+    setQ(params.get("q") || ""); if (params.get("filter")) setFilter(["on", "off", "broken", "test"].includes(params.get("filter")) ? params.get("filter") : "all");
+    if (params.get("add") === "1") { setDrawer("add"); clearParam("add"); }
+  }, [params]);
   const counts = useMemo(() => { const c = { all: 0, on: 0, off: 0, test: 0, broken: 0 }; (rows || []).forEach((p) => { c.all++; p.is_active ? c.on++ : c.off++; if (p.is_test) c.test++; if (p.is_active && !idx.reach(p).ok) c.broken++; }); return c; }, [rows, idx]);
   const shown = useMemo(() => (rows || []).filter((p) => (filter === "all" || (filter === "on" ? p.is_active : filter === "off" ? !p.is_active : filter === "broken" ? p.is_active && !idx.reach(p).ok : p.is_test)) && `${p.name} ${p.code} ${p.category || ""}`.toLowerCase().includes(q.trim().toLowerCase())), [rows, filter, q, idx]);
   const editing = drawer && drawer !== "add" ? (rows || []).find((p) => p.id === drawer) : null;
@@ -258,12 +290,12 @@ export default function ProductsView({ api, toast }) {
     {(rows === null || infra.loading) ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[0, 1, 2].map((i) => <div key={i} className="card skel h-60" />)}</div>
       : !shown.length ? <div className="card grid place-items-center gap-3 p-14 text-center"><span className="grid h-14 w-14 place-items-center rounded-2xl bg-[var(--mb)] text-[var(--mu)]"><Boxes size={26} /></span>
         <h3 className="font-extrabold">{counts.all ? "محصولی با این فیلتر پیدا نشد" : "هنوز محصولی تعریف نشده"}</h3>
-        <p className="max-w-sm text-sm leading-7 text-[var(--mu)]">{counts.all ? "جستجو یا فیلتر را تغییر دهید." : "هر محصول یک پلن قابل فروش با مدت، حجم و قیمت مشخص است."}</p>
+        <p className="max-w-sm text-sm leading-7 text-[var(--mu)]">{counts.all ? "جستجو یا فیلتر را تغییر دهید." : "هر محصول یک پلن قابل فروش با مدت، حجم و قیمت مشخص است. ابتدا باید حداقل یک پنل سالم با سرور داشته باشید."}</p>
         {!counts.all && <button className="btn" onClick={() => setDrawer("add")}><Plus size={16} />ساخت اولین محصول</button>}</div>
       : table ? <ProductTable idx={idx} rows={shown} busy={busy} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} quick={quick} draft={draft} setDraft={setDraft} />
       : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{shown.slice(page*PAGE_SIZE,(page+1)*PAGE_SIZE).map((p) => <ProductCard key={p.id} p={p} idx={idx} busy={busy.has(p.id)} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} />)}
       <Paginator page={page} setPage={setPage} total={shown.length} pageSize={PAGE_SIZE} />
       </div>}
-    {drawer && (drawer === "add" || editing) && <ProductDrawer key={drawer} product={editing} stores={storesQ.rows || []} groups={infra.groups.rows || []} idx={idx} call={call} toast={toast} onClose={() => setDrawer(null)} onSubmit={save} />}
+    {drawer && (drawer === "add" || editing) && <ProductDrawer key={drawer} product={editing} stores={storesQ.rows || []} groups={infra.groups.rows || []} panels={infra.panels.rows || []} products={rows || []} idx={idx} call={call} toast={toast} onClose={() => setDrawer(null)} onSubmit={save} onGroupCreated={infra.reload} />}
   </div>;
 }

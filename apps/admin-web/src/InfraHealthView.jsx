@@ -63,9 +63,9 @@ export default function InfraHealthView({ api, toast }) {
   const disabledServers = sRows.filter((s) => !s.is_enabled);
   const orphanServers   = sRows.filter((s) => !pRows.some((p) => p.id === s.panel_id));
   const emptyGroups     = gRows.filter((g) => !(g.panels || []).length);
-  const unusedProducts  = prRows.filter((pr) =>
-    !sRows.some((s) => (s.product_codes || []).includes(pr.code))
-  );
+  // A product is "without server" when the allocation core finds no live server for it
+  // (product → group → panels → server, incl. a server's optional product allow-list).
+  const unusedProducts  = prRows.filter((pr) => pr.is_active && !idx.reach(pr).ok);
 
   const totalIssues = [
     disabledPanels, noServerPanels, disabledServers,
@@ -180,8 +180,8 @@ export default function InfraHealthView({ api, toast }) {
           {(g) => <span>{g.name}</span>}
         </IssueSection>
 
-        <IssueSection title="محصولات بدون سرور" items={unusedProducts} color="blue">
-          {(pr) => <span>{pr.name} <span className="text-xs text-[var(--mu)]">— کد: {pr.code}</span></span>}
+        <IssueSection title="محصولات فعال بدون مسیر تخصیص" items={unusedProducts} color="blue">
+          {(pr) => <span>{pr.name} <span className="text-xs text-[var(--mu)]">— {idx.reach(pr).issue}</span></span>}
         </IssueSection>
       </>)}
     </div>
