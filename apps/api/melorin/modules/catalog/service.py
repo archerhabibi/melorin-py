@@ -1,4 +1,3 @@
-import datetime as dt
 import uuid
 
 from sqlalchemy import func, or_, select
@@ -13,6 +12,7 @@ from melorin.modules.stores.models import Store
 
 
 async def store_catalog(session: AsyncSession, store: Store) -> list[tuple[Product, StoreProduct]]:
+    """Products listed for a store, before pools are considered. Customers only ever see ``allocation.sellable_products``."""
     q = (
         select(Product, StoreProduct)
         .join(StoreProduct, (StoreProduct.product_id == Product.id) & (StoreProduct.store_id == store.id))
@@ -113,15 +113,9 @@ async def release_redemption(session: AsyncSession, order_id) -> None:
             c.redemptions -= 1
 
 
-def unit_price_of(store: Store, product: Product, sp: StoreProduct | None) -> int:
-    if store.kind == "reseller":
-        return (sp.customer_price if sp else None) or 0
-    return product.main_price
-
-
 async def build_quote(
     session: AsyncSession, store: Store, product: Product, sp: StoreProduct | None, coupon: Coupon | None, discount: int = 0,
-    *, main_currency: str | None = None,
+    *, main_currency: str | None = None, prices: tuple[int, int] | None = None,
 ) -> Quote:
     if product.is_test:
         return Quote(store.kind, str(product.id), 0, 0, 0, None, store.currency, None)
@@ -130,9 +124,10 @@ async def build_quote(
     if store.kind == "reseller" and main_currency and product.currency != main_currency:
         raise AppError("CURRENCY_MISMATCH", "واحد پول قیمت نمایندگی با فروشگاه اصلی یکسان نیست.", 409)
     d = Discount(coupon.code, 0, discount, None) if coupon and discount else None
+    main_price, reseller_price = prices or (product.main_price, product.reseller_price)  # the core hands over pool prices
     try:
         return quote(
-            store_kind=store.kind, product_id=str(product.id), main_price=product.main_price, reseller_price=product.reseller_price,
+            store_kind=store.kind, product_id=str(product.id), main_price=main_price, reseller_price=reseller_price,
             customer_price=sp.customer_price if sp else None, currency=store.currency, discount=d,
             reseller_currency=product.currency if store.kind == "reseller" else None,
             platform_funded=bool(coupon and coupon.funded_by == "platform"),

@@ -1,7 +1,7 @@
 import uuid
 
 from fastapi import APIRouter
-from sqlalchemy import and_, select
+from sqlalchemy import select
 
 from melorin.core import audit
 from melorin.core.deps import OwnerCtx, Session, StoreCtx, main_store
@@ -9,9 +9,10 @@ from melorin.core.errors import AppError, NotFound
 from melorin.domain import coupon as cdom
 from melorin.modules.catalog import service
 from melorin.modules.catalog.models import Coupon, CouponRedemption
-from melorin.modules.catalog.schemas import CatalogItem, CouponIn, CouponPatch, CouponValidateIn, QuoteRequest, QuoteWalletOut, StoreOut
+from melorin.modules.catalog.schemas import CatalogItem, CouponIn, CouponPatch, CouponValidateIn, PoolOut, PoolPanelOut, QuoteRequest, QuoteWalletOut, StoreOut
 from melorin.modules.stores.models import Store
-from melorin.modules.vpn.panel_groups import PanelGroup, StorePanelGroup, PanelGroupMember
+from melorin.modules.vpn import allocation
+from melorin.modules.vpn.models import VpnAccount
 from melorin.modules.wallet import service as wallet
 
 public = APIRouter(tags=["catalog"])
@@ -47,7 +48,7 @@ async def catalog(store_id: uuid.UUID, session: Session):
     store = await session.get(Store, store_id)
     if not store or store.status != "active":
         raise NotFound("فروشگاه")
-    rows = await service.store_catalog(session, store)
+    rows = await allocation.sellable_products(session, store)
     return [
         CatalogItem(
             product_id=p.id, code=p.code, name=p.name, description=p.description, category=p.category, duration_days=p.duration_days,
@@ -62,31 +63,74 @@ async def catalog(store_id: uuid.UUID, session: Session):
 async def panel_groups(store_id: uuid.UUID, session: Session):
     store = await session.get(Store, store_id)
     if not store or store.status != "active": raise NotFound("فروشگاه")
-    q = select(PanelGroup).where(PanelGroup.is_enabled.is_(True))
-    if store.kind == "reseller":
-        q = q.outerjoin(StorePanelGroup, and_(StorePanelGroup.panel_group_id == PanelGroup.id, StorePanelGroup.store_id == store.id)).where(
-            PanelGroup.reseller_enabled.is_(True), (StorePanelGroup.id.is_(None) | StorePanelGroup.is_enabled.is_(True))
+    return [
+        {"id": v.group.id, "name": v.group.name, "connection_kind": v.group.connection_kind, "selection_mode": v.group.selection_mode,
+         "naming_mode": v.group.naming_mode, "panels": [pid for pid, _ in v.panels], "sales_limit": v.group.sales_limit, "sold_count": v.group.sold_count}
+        for v in await allocation.sellable_pools(session, store)
+    ]
+
+
+def _item(p, price: int, currency: str) -> CatalogItem:
+    return CatalogItem(
+        product_id=p.id, code=p.code, name=p.name, description=p.description, category=p.category, duration_days=p.duration_days,
+        traffic_gb=p.traffic_gb, max_devices=p.max_devices, currency=currency, price=price,
+    )
+
+
+@public.get("/stores/{store_id}/pools", response_model=list[PoolOut])
+async def pools(store_id: uuid.UUID, session: Session):
+    """What a customer chooses first: the sales pools open to this store (each has packages to sell)."""
+    store = await session.get(Store, store_id)
+    if not store or store.status != "active":
+        raise NotFound("فروشگاه")
+    return [
+        PoolOut(
+            id=v.group.id, name=v.group.name, connection_kind=v.group.connection_kind, selection_mode=v.group.selection_mode,
+            naming_mode=v.group.naming_mode, panels=[PoolPanelOut(id=pid, label=label) for pid, label in v.panels],
         )
-    panel_groups = (await session.scalars(q.order_by(PanelGroup.created_at.desc()))).all()
-    result = []
-    for b in panel_groups:
-        panels = (await session.execute(select(PanelGroupMember.panel_id).where(PanelGroupMember.panel_group_id == b.id, PanelGroupMember.is_enabled.is_(True)))).scalars().all()
-        result.append({"id": b.id, "name": b.name, "selection_mode": b.selection_mode, "naming_mode": b.naming_mode, "panels": panels, "sales_limit": b.sales_limit, "sold_count": b.sold_count})
-    return result
+        for v in await allocation.sellable_pools(session, store)
+    ]
 
 
-async def _quote(session, ctx, product_id, code):
+@public.get("/stores/{store_id}/pools/{pool_id}/packages", response_model=list[CatalogItem])
+async def pool_packages(store_id: uuid.UUID, pool_id: uuid.UUID, session: Session):
+    store = await session.get(Store, store_id)
+    if not store or store.status != "active":
+        raise NotFound("فروشگاه")
+    return [_item(p, price, store.currency) for p, _sp, _pp, price in await allocation.packages_for_pool(session, store, pool_id)]
+
+
+async def _owned_account(session, ctx, account_id) -> VpnAccount:
+    account = await session.get(VpnAccount, account_id)
+    if not account or account.user_id != ctx.user.id or account.store_id != ctx.store.id:
+        raise NotFound("اکانت")
+    return account
+
+
+@public.get("/stores/{store_id}/accounts/{account_id}/renewal-packages", response_model=list[CatalogItem])
+async def renewal_packages(account_id: uuid.UUID, ctx: StoreCtx, session: Session):
+    """Renewal offers the packages of the pool the account was sold through, at that pool's prices."""
+    account = await _owned_account(session, ctx, account_id)
+    return [_item(p, price, ctx.store.currency) for p, price in await allocation.renewal_offers(session, ctx.store, account)]
+
+
+async def _quote(session, ctx, product_id, code, *, panel_group_id=None, selected_panel_id=None, vpn_account_id=None, enforce=False):
     product, sp = await service.get_sellable(session, ctx.store, product_id)
-    unit = service.unit_price_of(ctx.store, product, sp)
-    coupon, disc = await service.resolve_coupon(session, ctx.store, ctx.user.id, product, unit, code, lock=False)
+    account = await _owned_account(session, ctx, vpn_account_id) if vpn_account_id else None
+    # Same core rule the order will apply, so a quote never promises what checkout would refuse.
+    plan = await allocation.plan_sale(
+        session, store=ctx.store, product=product, sp=sp, kind="renewal" if account else "purchase", account=account,
+        panel_group_id=panel_group_id, selected_panel_id=selected_panel_id, enforce=enforce,
+    )
+    coupon, disc = await service.resolve_coupon(session, ctx.store, ctx.user.id, product, plan.unit_price, code, lock=False)
     main = await main_store(session)
-    return await service.build_quote(session, ctx.store, product, sp, coupon, disc, main_currency=main.currency), product
+    return await service.build_quote(session, ctx.store, product, sp, coupon, disc, main_currency=main.currency, prices=plan.prices), product
 
 
 @public.post("/stores/{store_id}/checkout/quote", response_model=QuoteWalletOut)
 async def checkout_quote(body: QuoteRequest, ctx: StoreCtx, session: Session):
     """Core-side quote: store, price, coupon and wallet balance. Purchases are wallet-only (v1.1)."""
-    q, product = await _quote(session, ctx, body.product_id, body.coupon_code)
+    q, product = await _quote(session, ctx, body.product_id, body.coupon_code, panel_group_id=body.panel_group_id, selected_panel_id=body.selected_panel_id, vpn_account_id=body.vpn_account_id, enforce=True)
     w = await wallet.get_wallet(session, ctx.user.id, ctx.store.id, currency=ctx.store.currency)
     await session.commit()
     return QuoteWalletOut(product_id=product.id, unit_price=q.unit_price, discount=q.discount, total=q.total, currency=q.currency, coupon_code=q.coupon_code, wallet_balance=w.balance, sufficient_funds=w.balance >= q.total)

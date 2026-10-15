@@ -119,20 +119,24 @@ class CreatePanelGroup(BaseModel):
     name: str = Field(min_length=2, max_length=120)
     selection_mode: str = Field(default="automatic", pattern="^(automatic|manual)$")
     naming_mode: str = Field(default="automatic", pattern="^(automatic|custom)$")
+    connection_kind: str = Field(default="direct", pattern="^(direct|tunnel|softether)$")
     is_enabled: bool = True
     reseller_enabled: bool = True
     sales_limit: int | None = Field(default=None, gt=0)
     panel_ids: list[uuid.UUID] = Field(default_factory=list)
+    member_labels: dict[uuid.UUID, str] = Field(default_factory=dict)  # panel_id -> what the customer sees (manual pools)
 
 
 class UpdatePanelGroup(BaseModel):
     name: str | None = Field(default=None, min_length=2, max_length=120)
     selection_mode: str | None = Field(default=None, pattern="^(automatic|manual)$")
     naming_mode: str | None = Field(default=None, pattern="^(automatic|custom)$")
+    connection_kind: str | None = Field(default=None, pattern="^(direct|tunnel|softether)$")
     is_enabled: bool | None = None
     reseller_enabled: bool | None = None
     sales_limit: int | None = Field(default=None, gt=0)
     panel_ids: list[uuid.UUID] | None = None
+    member_labels: dict[uuid.UUID, str] | None = None
 
 
 class PanelGroupMemberInput(BaseModel):
@@ -210,3 +214,11 @@ class AttachExistingAccount(BaseModel):
     panel_ref: str | None = None
     subscription_url: str | None = None
     reason: str | None = None
+
+
+class PoolProductIn(BaseModel):
+    """A package inside a pool. A null price means "use the product's own price"."""
+    main_price: int | None = Field(default=None, ge=0)
+    reseller_price: int | None = Field(default=None, ge=0)
+    is_listed: bool = True
+    sort: int = 0

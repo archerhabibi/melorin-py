@@ -63,10 +63,9 @@ def test_group_membership_is_saved_with_the_field_the_api_reads():
     assert "JSON.stringify({ panels:" not in _ui("PanelsView.jsx")
 
 
-def test_product_group_assignment_obeys_core_rules():
-    """The group screen attaches products through the product PATCH, which enforces automatic+enabled groups."""
+def test_pool_screen_manages_packages_through_pool_endpoints():
+    """The pool screen edits packages (and per-pool prices) via /panel-groups/{id}/products, never via the product PATCH."""
     groups = _ui("PanelGroupsView.jsx")
-    assert "default_panel_group_id" in groups and "/api/v1/admin/products" in groups
-    assert "DEFAULT_GROUP_MANUAL" in ROUTER and "DEFAULT_GROUP_DISABLED" in ROUTER
-    # a product leaves a group BEFORE the group turns manual (DEFAULT_GROUP_IN_USE), joins AFTER it is saved
-    assert "manualNow" in groups
+    assert "/products/" in groups and "connection_kind" in groups and "member_labels" in groups
+    assert "default_panel_group_id" not in groups
+    assert "PRODUCT_DEFAULT_POOL" in ROUTER and "/panel-groups/{panel_group_id}/products" in ROUTER

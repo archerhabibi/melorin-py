@@ -45,6 +45,10 @@ r = c.post(f"{A}/admin/servers", headers=adm, json={"name": f"srv-{tag}", "panel
 check("create server", r.status_code in (200, 201), r.text)
 r = c.post(f"{A}/admin/products", headers=adm, json={"code": f"P{tag}", "name": "Plan 30d", "duration_days": 30, "traffic_gb": 50, "main_price": 100000, "reseller_price": 70000, "currency": "IRT"})
 check("create product", r.status_code in (200, 201), r.text); prod = r.json()["id"]
+r = c.post(f"{A}/admin/panel-groups", headers=adm, json={"name": f"pool-{tag}", "panel_ids": [pid]})
+check("create sales pool", r.status_code in (200, 201), r.text); gid = r.json()["id"]
+r = c.put(f"{A}/admin/panel-groups/{gid}/products/{prod}", headers=adm, json={})
+check("add package to pool", r.status_code in (200, 201), r.text)
 r = c.post(f"{A}/admin/products/{prod}/availability", headers=adm, json={"store_id": sid, "enabled": True})
 check("enable product for main store", r.status_code in (200, 201), r.text)
 c.put(f"{A}/admin/settings/card.info", headers=adm, json={"value": {"card_number": "6037000000000000", "holder": "Test"}})
@@ -63,9 +67,9 @@ r = c.post(f"{A}/auth/email/verify-code", json={"email": email, "code": code, "a
 check("customer login", r.status_code == 200, r.text)
 cust = H(r.json()["access_token"])
 
-r = c.post(f"{A}/stores/{sid}/orders", headers={**cust, **idem()}, json={"product_id": prod})
+r = c.post(f"{A}/stores/{sid}/orders", headers={**cust, **idem()}, json={"product_id": prod, "panel_group_id": gid})
 check("order with 0 balance -> 402", r.status_code == 402, f"{r.status_code} {r.text}")
-r = c.post(f"{A}/stores/{sid}/orders", json={"product_id": prod})
+r = c.post(f"{A}/stores/{sid}/orders", json={"product_id": prod, "panel_group_id": gid})
 check("order without auth -> 401", r.status_code == 401)
 r = c.post(f"{A}/stores/{sid}/wallet/topups", headers={**cust, **idem()}, json={"amount": 150000, "provider": "manual_card"})
 check("top-up request", r.status_code in (200, 201), r.text); pay = r.json().get("id") or r.json().get("payment", {}).get("id")
@@ -73,7 +77,7 @@ r = c.post(f"{A}/admin/payments/{pay}/review", headers=adm, json={"approve": Tru
 check("admin approves top-up", r.status_code == 200, r.text)
 w = c.get(f"{A}/stores/{sid}/wallet", headers=cust).json()
 check("wallet = 150000", w.get("balance") == 150000, str(w))
-r = c.post(f"{A}/stores/{sid}/orders", headers={**cust, **idem()}, json={"product_id": prod})
+r = c.post(f"{A}/stores/{sid}/orders", headers={**cust, **idem()}, json={"product_id": prod, "panel_group_id": gid})
 check("order created", r.status_code in (200, 201), r.text); oid = r.json()["id"]
 w = c.get(f"{A}/stores/{sid}/wallet", headers=cust).json()
 check("wallet = 50000 after purchase", w.get("balance") == 50000, str(w))
