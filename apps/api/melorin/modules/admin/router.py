@@ -5,6 +5,7 @@ import uuid
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response, StreamingResponse
 from sqlalchemy import delete, func, select
+from sqlalchemy.exc import IntegrityError
 
 from melorin.core import audit, flags, settings_store
 from melorin.core.config import get_settings
@@ -19,6 +20,7 @@ from melorin.modules.catalog.models import Coupon, CouponRedemption, Product, St
 from melorin.modules.identity.models import IdentityLinkReview, User
 from melorin.modules.orders import service as order_service
 from melorin.modules.orders.models import Order
+from melorin.modules.referral.models import CommissionRule
 from melorin.modules.payments import service as payment_service
 from melorin.modules.payments.models import Payment
 from melorin.modules.stores.models import BotStoreBinding, ResellerApplication, ResellerProfile, Store, StoreMembership
@@ -424,6 +426,107 @@ async def set_panel_group_store(panel_group_id: uuid.UUID, store_id: uuid.UUID, 
     row.is_enabled = bool(body.get("is_enabled", True))
     await session.commit()
     return {"ok": True, "is_enabled": row.is_enabled}
+
+
+# ----- Safe deletion (products / panels / servers / panel groups) -----
+# Rule: an entity that already took part in a sale is never erased, because orders and VPN accounts keep
+# pointing at it. Those are refused with 409 + a plain reason; the admin disables them instead.
+# Anything nobody has used yet is removed for real. Nothing here talks to the remote VPN panel.
+async def _count(session, model, *where) -> int:
+    return int(await session.scalar(select(func.count()).select_from(model).where(*where)) or 0)
+
+
+def _names(rows, limit: int = 5) -> str:
+    rows = list(rows)
+    shown = "، ".join(f"«{x}»" for x in rows[:limit])
+    return shown + (f" و {len(rows) - limit} مورد دیگر" if len(rows) > limit else "")
+
+
+async def _commit_or_conflict(session, what: str) -> None:
+    """A concurrent sale can reference the row between our check and the DELETE; the FK then protects it."""
+    try:
+        await session.commit()
+    except IntegrityError as e:
+        await session.rollback()
+        raise AppError("IN_USE", f"{what} هم‌اکنون در حال استفاده است و حذف نشد. غیرفعال کنید.", 409) from e
+
+
+@router.delete("/products/{product_id}")
+async def delete_product(product_id: uuid.UUID, admin: AdminUser, session: Session):
+    p = await session.get(Product, product_id)
+    if not p: raise NotFound("محصول")
+    orders = await _count(session, Order, Order.product_id == p.id)
+    accounts = await _count(session, VpnAccount, VpnAccount.product_id == p.id)
+    if orders or accounts:
+        raise AppError("PRODUCT_HAS_HISTORY", f"این محصول {orders} سفارش و {accounts} اکانت دارد؛ حذف آن تاریخچه فروش را خراب می‌کند. به‌جای حذف، محصول را غیرفعال کنید.", 409, {"orders": orders, "accounts": accounts})
+    servers = [s.name for s in (await session.scalars(select(Server).where(Server.product_codes.is_not(None)))).all() if p.code in (s.product_codes or [])]
+    if servers:
+        raise AppError("PRODUCT_USED_BY_SERVERS", f"این محصول در فهرست محصولاتِ سرورهای {_names(servers)} است. ابتدا آن را از فهرست سرورها بردارید.", 409, {"servers": servers})
+    coupons = [c.code for c in (await session.scalars(select(Coupon).where(Coupon.product_ids.is_not(None)))).all() if str(p.id) in {str(x) for x in (c.product_ids or [])}]
+    if coupons:
+        raise AppError("PRODUCT_USED_BY_COUPONS", f"این محصول در محدوده‌ی کد تخفیف {_names(coupons)} است. ابتدا کد تخفیف را ویرایش یا غیرفعال کنید.", 409, {"coupons": coupons})
+    rules = await _count(session, CommissionRule, CommissionRule.product_id == p.id)
+    if rules:
+        raise AppError("PRODUCT_USED_BY_COMMISSION_RULES", f"برای این محصول {rules} قانون پورسانت/پاداش اختصاصی تعریف شده است. ابتدا آن‌ها را حذف کنید.", 409, {"rules": rules})
+    await session.execute(delete(StoreProduct).where(StoreProduct.product_id == p.id))
+    audit.record(session, "product.deleted", actor_id=admin.id, actor_type="admin", entity_type="product", entity_id=p.id, data={"code": p.code, "name": p.name})
+    await session.delete(p)
+    await _commit_or_conflict(session, "این محصول")
+    return {"ok": True}
+
+
+@router.delete("/panels/{panel_id}")
+async def delete_panel(panel_id: uuid.UUID, admin: AdminUser, session: Session):
+    p = await session.get(Panel, panel_id)
+    if not p: raise NotFound("پنل")
+    servers = (await session.scalars(select(Server).where(Server.panel_id == p.id))).all()
+    server_ids = [s.id for s in servers]
+    accounts = await _count(session, VpnAccount, (VpnAccount.panel_id == p.id) | (VpnAccount.server_id.in_(server_ids)) if server_ids else VpnAccount.panel_id == p.id)
+    orders = await _count(session, Order, Order.selected_panel_id == p.id)
+    if accounts or orders:
+        raise AppError("PANEL_HAS_HISTORY", f"روی این پنل {accounts} اکانت ساخته شده و {orders} سفارش به آن وصل است؛ حذفش اکانت‌ها را بی‌پنل می‌کند. به‌جای حذف، پنل را غیرفعال کنید.", 409, {"accounts": accounts, "orders": orders})
+    members = (await session.scalars(select(PanelGroupMember).where(PanelGroupMember.panel_id == p.id))).all()
+    for m in members:
+        g = await session.get(PanelGroup, m.panel_group_id)
+        if g and g.selection_mode == "manual" and await _count(session, PanelGroupMember, PanelGroupMember.panel_group_id == g.id) <= 1:
+            raise AppError("PANEL_LAST_IN_MANUAL_GROUP", f"این پنل تنها پنل گروه دستی «{g.name}» است. ابتدا پنل دیگری به آن گروه اضافه کنید یا گروه را حذف کنید.", 409, {"group": g.name})
+    for m in members: await session.delete(m)
+    for s in servers: await session.delete(s)
+    audit.record(session, "panel.deleted", actor_id=admin.id, actor_type="admin", entity_type="panel", entity_id=p.id, data={"kind": p.kind, "url": p.base_url, "name": p.name, "servers_deleted": len(servers), "groups_left": len(members)})
+    await session.delete(p)
+    await _commit_or_conflict(session, "این پنل")
+    return {"ok": True, "servers_deleted": len(servers), "groups_left": len(members)}
+
+
+@router.delete("/servers/{server_id}")
+async def delete_server(server_id: uuid.UUID, admin: AdminUser, session: Session):
+    s = await session.get(Server, server_id)
+    if not s: raise NotFound("سرور")
+    accounts = await _count(session, VpnAccount, VpnAccount.server_id == s.id)
+    if accounts:
+        raise AppError("SERVER_HAS_ACCOUNTS", f"روی این سرور {accounts} اکانت ساخته شده؛ حذفش آن‌ها را بی‌سرور می‌کند. به‌جای حذف، سرور را غیرفعال کنید.", 409, {"accounts": accounts})
+    audit.record(session, "server.deleted", actor_id=admin.id, actor_type="admin", entity_type="server", entity_id=s.id, data={"name": s.name, "panel_id": str(s.panel_id)})
+    await session.delete(s)
+    await _commit_or_conflict(session, "این سرور")
+    return {"ok": True}
+
+
+@router.delete("/panel-groups/{panel_group_id}")
+async def delete_panel_group(panel_group_id: uuid.UUID, admin: AdminUser, session: Session):
+    b = await session.get(PanelGroup, panel_group_id)
+    if not b: raise NotFound("گروه پنل")
+    products = [x.name for x in (await session.scalars(select(Product).where(Product.default_panel_group_id == b.id))).all()]
+    if products:
+        raise AppError("PANEL_GROUP_IN_USE", f"این گروه، گروه پیش‌فرض محصول {_names(products)} است. ابتدا گروه آن محصولات را تغییر دهید.", 409, {"products": products})
+    orders = await _count(session, Order, Order.panel_group_id == b.id)
+    if orders:
+        raise AppError("PANEL_GROUP_HAS_HISTORY", f"{orders} سفارش از طریق این گروه ساخته شده است؛ حذف آن تاریخچه را خراب می‌کند. به‌جای حذف، گروه را غیرفعال کنید.", 409, {"orders": orders})
+    await session.execute(delete(PanelGroupMember).where(PanelGroupMember.panel_group_id == b.id))
+    await session.execute(delete(StorePanelGroup).where(StorePanelGroup.panel_group_id == b.id))
+    audit.record(session, "panel_group.deleted", actor_id=admin.id, actor_type="admin", entity_type="panel_group", entity_id=b.id, data={"name": b.name})
+    await session.delete(b)
+    await _commit_or_conflict(session, "این گروه")
+    return {"ok": True}
 
 
 @router.post("/panels/{panel_id}/health")

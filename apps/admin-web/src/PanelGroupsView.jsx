@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge, confirmDialog } from "./ui.jsx";
 import { AlertTriangle, ArrowDown, ArrowUp, Boxes, CheckCircle2, ChevronDown, Layers, Pencil, Plus, Search, ShieldAlert, X } from "lucide-react";
-import { Drawer, Field, NumInput, Paginator, Section, Segmented, Stat, Switch, Toggle, capTone, errText, num, tint, useAlive } from "./kit.jsx";
+import { Drawer, Field, NumInput, Paginator, Section, Segmented, Stat, Switch, Toggle, DeleteButton, capTone, errText, num, removeEntity, tint, useAlive } from "./kit.jsx";
 import { Dot, InfraChain, Rel, RelChip, Warn, clearParam, health as hs, infraHref, memberIds, useHashParams, useInfra } from "./infra.jsx";
 
 // A panel group is a POOL of panels with a sales quota. Which products are sold from the pool is
@@ -26,7 +26,7 @@ function Quota({ sold, limit }) {
 /** Why an enabled group cannot sell right now, or "" when it can. */
 const groupIssue = (g, stat) => (!g.is_enabled ? "" : !(g.panels || []).length ? "پنلی ندارد" : !stat.live ? "هیچ سرور آماده‌ای ندارد" : "");
 
-function GroupCard({ g, panelById, stat, products, busy, onEdit, onToggle }) {
+function GroupCard({ g, panelById, stat, products, busy, onEdit, onToggle, onDelete }) {
   const ms = g.panels || [], dim = g.is_enabled ? "" : "opacity-55", issue = groupIssue(g, stat);
   const u = stat.capacity ? stat.active / stat.capacity : 0, t = capTone(u);
   return <article className="card rise flex flex-col gap-4 p-4">
@@ -50,7 +50,7 @@ function GroupCard({ g, panelById, stat, products, busy, onEdit, onToggle }) {
     </div>
     <div className="mt-auto flex items-center justify-between gap-2 border-t border-[var(--ln)] pt-3">
       <label className="flex cursor-pointer items-center gap-2 text-xs font-bold"><Switch checked={g.is_enabled} disabled={busy} onChange={(v) => onToggle(g, v)} label={`فعال‌سازی ${g.name}`} />{g.is_enabled ? "فعال" : "غیرفعال"}</label>
-      <button className="btn btn-g" onClick={() => onEdit(g)}><Pencil size={13} />ویرایش</button>
+      <div className="flex items-center gap-1.5"><DeleteButton compact label={`حذف ${g.name}`} busy={busy} onClick={() => onDelete(g)} /><button className="btn btn-g" onClick={() => onEdit(g)}><Pencil size={13} />ویرایش</button></div>
     </div>
   </article>;
 }
@@ -58,7 +58,7 @@ function GroupCard({ g, panelById, stat, products, busy, onEdit, onToggle }) {
 const EMPTY = { name: "", selection_mode: "automatic", naming_mode: "automatic", sales_limit: "", is_enabled: true, reseller_enabled: true, panel_ids: [], product_ids: [] };
 const fromGroup = (g, used) => ({ name: g.name, selection_mode: g.selection_mode, naming_mode: g.naming_mode, sales_limit: g.sales_limit ? String(g.sales_limit) : "", is_enabled: g.is_enabled, reseller_enabled: g.reseller_enabled, panel_ids: memberIds(g), product_ids: used.map((p) => p.id) });
 
-function GroupDrawer({ group, panels, products, idx, onClose, onSubmit }) {
+function GroupDrawer({ group, panels, products, idx, onClose, onSubmit, onDelete }) {
   const edit = !!group;
   const used = useMemo(() => (group ? idx.productsByGroup.get(group.id) || [] : []), [group, idx]);
   const [f, setF] = useState(() => (group ? fromGroup(group, used) : EMPTY));
@@ -89,7 +89,7 @@ function GroupDrawer({ group, panels, products, idx, onClose, onSubmit }) {
   };
   const noServer = f.panel_ids.filter((id) => !idx.panelStat(id).n);
   return <Drawer title={edit ? `ویرایش «${group.name}»` : "افزودن گروه پنل VPN"} subtitle={edit ? `${num(group.sold_count || 0)} فروش ثبت‌شده` : "چند پنل که محصولات از بینشان اکانت می‌سازند"} icon={<span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl" style={tint("in")}><Layers size={20} /></span>} dirty={dirty} busy={busy} onClose={onClose} error={srv}
-    footer={<button className="btn !py-2 !text-sm" disabled={busy} onClick={submit}>{busy ? "در حال ذخیره…" : edit ? "ذخیره تغییرات" : "ساخت گروه"}</button>}>
+    footer={<button className="btn !py-2 !text-sm" disabled={busy} onClick={submit}>{busy ? "در حال ذخیره…" : edit ? "ذخیره تغییرات" : "ساخت گروه"}</button>} danger={edit && <DeleteButton label="حذف گروه" busy={busy} onClick={() => onDelete(group)} />}>
     <Section title={edit ? "اطلاعات" : "۱ · اطلاعات"}>
       <Field label="نام گروه" error={tried && err.name}><input autoFocus className="inp" maxLength={120} value={f.name} placeholder="مثلاً: آلمان - پرسرعت" onChange={(e) => set("name")(e.target.value)} /></Field>
       <Field label="سقف فروش گروه" error={tried && err.limit} hint="خالی = نامحدود؛ با رسیدن به سقف، فروش از این گروه متوقف می‌شود"><NumInput value={f.sales_limit} onChange={set("sales_limit")} placeholder="نامحدود" suffix="اکانت" /></Field>
@@ -175,6 +175,13 @@ export default function PanelGroupsView({ api, toast }) {
     for (const id of add) { const pr = await setProductGroup(id, gid); if (!pr.ok) notes.push(await errText(pr, "اتصال محصول ناموفق بود")); }
     setDrawer(null); toast(notes.length ? `گروه ذخیره شد، اما: ${notes[0]}` : group ? "تغییرات گروه ذخیره شد" : "گروه پنل VPN ساخته شد"); await infra.reload(); return "";
   };
+  const remove = async (g) => {
+    setBusy((s) => new Set(s).add(g.id));
+    const ok = await removeEntity(call, `${API}/${g.id}`, { toast, title: "حذف گروه پنل", done: `«${g.name}» حذف شد`,
+      message: `«${g.name}» برای همیشه حذف شود؟ فقط خودِ گروه و اتصالش به فروشگاه‌ها پاک می‌شود؛ پنل‌های عضو دست‌نخورده می‌مانند. اگر گروهِ پیش‌فرضِ یک محصول باشد یا سفارشی از آن ساخته شده باشد، حذف انجام نمی‌شود.` });
+    if (alive.current) setBusy((s) => { const n = new Set(s); n.delete(g.id); return n; });
+    if (ok) { setDrawer(null); await infra.reload(); }
+  };
   const toggle = async (g, next) => {
     if (!next && !(await confirmDialog(`«${g.name}» غیرفعال شود؟ تا فعال‌سازی مجدد برای فروش جدید استفاده نمی‌شود${(idx.productsByGroup.get(g.id) || []).length ? " و محصولات آن قابل خرید نیستند" : ""}.`, { title: "غیرفعال‌سازی گروه", danger: true, ok: "غیرفعال‌سازی" }))) return;
     setBusy((s) => new Set(s).add(g.id));
@@ -202,7 +209,7 @@ export default function PanelGroupsView({ api, toast }) {
         <h3 className="font-extrabold">{counts.all ? "گروهی با این فیلتر پیدا نشد" : "هنوز گروه پنلی ساخته نشده"}</h3>
         <p className="max-w-sm text-sm leading-7 text-[var(--mu)]">{counts.all ? "جستجو یا فیلتر را تغییر دهید." : "گروه لازم نیست؛ فقط اگر می‌خواهید فروش را بین چند پنل مشخص تقسیم یا محدود کنید بسازید."}</p>
         {!counts.all && <button className="btn" onClick={() => setDrawer("add")}><Plus size={16} />ساخت اولین گروه</button>}</div>
-      : <><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{shown.map((g) => <GroupCard key={g.id} g={g} panelById={panelById} stat={idx.groupStat(g)} products={idx.productsByGroup.get(g.id) || []} busy={busy.has(g.id)} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} />)}</div><Paginator page={page} setPage={setPage} total={filtered.length} pageSize={PAGE_SIZE} /></>}
-    {drawer && (drawer === "add" || editing) && <GroupDrawer key={drawer} group={editing} panels={panels} products={products} idx={idx} onClose={() => setDrawer(null)} onSubmit={save} />}
+      : <><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{shown.map((g) => <GroupCard key={g.id} g={g} panelById={panelById} stat={idx.groupStat(g)} products={idx.productsByGroup.get(g.id) || []} busy={busy.has(g.id)} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} onDelete={remove} />)}</div><Paginator page={page} setPage={setPage} total={filtered.length} pageSize={PAGE_SIZE} /></>}
+    {drawer && (drawer === "add" || editing) && <GroupDrawer key={drawer} group={editing} panels={panels} products={products} idx={idx} onClose={() => setDrawer(null)} onSubmit={save} onDelete={remove} />}
   </div>;
 }

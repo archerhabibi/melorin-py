@@ -3,7 +3,7 @@ import { authFetch } from "./api.js";
 import { ServerForm, ServerImport } from "./ServerForm.jsx";
 import { Badge, confirmDialog, dt, sid } from "./ui.jsx";
 import { Dot, InfraChain, RelChip, clearParam, free, health, memberIds, saveGroupPanels, serverState, serves, usage, useHashParams, useInfra } from "./infra.jsx";
-import { Drawer, Field, NumInput, Paginator, Section, Segmented, Stat, Switch, Toggle, capTone, errText, num, tint, useAlive } from "./kit.jsx";
+import { Drawer, Field, NumInput, Paginator, Section, Segmented, Stat, Switch, Toggle, DeleteButton, capTone, errText, num, removeEntity, tint, useAlive } from "./kit.jsx";
 import {
   Activity, AlertTriangle, Check, ChevronDown, Copy, ExternalLink, Eye, EyeOff, FlaskConical, FolderInput,
   Layers, MapPin, Pencil, Plus, RefreshCw, Save, Search, Server, ServerCog, ShieldAlert, ShieldCheck, X,
@@ -109,7 +109,7 @@ function validate(f, withCreds, srv, edit) {
   return e;
 }
 
-function PanelDrawer({ panel, groups, idx, onClose, onSubmit, onToggle, toggling }) {
+function PanelDrawer({ panel, groups, idx, onClose, onSubmit, onToggle, onDelete, toggling }) {
   const edit = !!panel;
   const initial = useMemo(() => ({ f: panel ? fromPanel(panel) : EMPTY, srv: EMPTY_SRV, gids: panel ? groups.filter((g) => memberIds(g).includes(panel.id)).map((g) => g.id).sort() : [] }), []); // eslint-disable-line react-hooks/exhaustive-deps
   const [f, setF] = useState(initial.f); const [srv, setSrv] = useState(initial.srv); const [gids, setGids] = useState(initial.gids);
@@ -137,6 +137,7 @@ function PanelDrawer({ panel, groups, idx, onClose, onSubmit, onToggle, toggling
     subtitle={edit ? `${k.title} · شناسه ${sid(panel.id)}` : "اتصال یک پنل VPN و تعریف ظرفیت آن در یک مرحله"}
     icon={edit ? <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl" style={tint(k.tone)}><k.Icon size={20} /></span> : undefined}
     dirty={dirty} busy={busy} onClose={onClose} error={srvErr}
+    danger={edit && <DeleteButton label="حذف پنل" busy={busy || toggling} onClick={() => onDelete(panel)} />}
     footer={<>
       <button className="btn" disabled={busy || (edit && !dirty)} onClick={() => submit(true)}>{busy ? <RefreshCw size={15} className="animate-spin" /> : <Activity size={15} />}{edit ? "ذخیره و بررسی سلامت" : "ثبت و بررسی سلامت"}</button>
       <button className="btn btn-g !py-2 !text-sm" disabled={busy || (edit && !dirty)} onClick={() => submit(false)}>{edit ? <><Save size={14} />فقط ذخیره</> : "فقط ثبت"}</button>
@@ -209,7 +210,7 @@ function PanelDrawer({ panel, groups, idx, onClose, onSubmit, onToggle, toggling
 }
 
 // ---------- one panel with its servers ----------
-function ServerRow({ s, panel, busy, onEdit, onToggle }) {
+function ServerRow({ s, panel, busy, onEdit, onToggle, onDelete }) {
   const st = serverState(s, panel), dim = s.is_enabled ? "" : "opacity-60";
   const limited = (s.product_codes || []).length;
   return <li className="grid gap-3 px-4 py-3 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto] md:items-center">
@@ -223,11 +224,12 @@ function ServerRow({ s, panel, busy, onEdit, onToggle }) {
     <div className="flex items-center justify-end gap-2">
       <Switch checked={s.is_enabled} disabled={busy} onChange={(v) => onToggle(s, v)} label={`${s.is_enabled ? "غیرفعال‌سازی" : "فعال‌سازی"} ${s.name}`} />
       <button className="btn btn-g" onClick={() => onEdit(s)}><Pencil size={13} />ویرایش</button>
+      <DeleteButton compact label={`حذف ${s.name}`} busy={busy} onClick={() => onDelete(s)} />
     </div>
   </li>;
 }
 
-function PanelSection({ p, servers, stat, groups, busy, srvBusy, filtered, onCheck, onEdit, onToggle, onSrvAdd, onSrvEdit, onSrvToggle, onImport }) {
+function PanelSection({ p, servers, stat, groups, busy, srvBusy, filtered, onCheck, onEdit, onToggle, onDelete, onSrvAdd, onSrvEdit, onSrvToggle, onSrvDelete, onImport }) {
   const h = health(p), k = kindOf(p.kind), u = stat.capacity ? stat.active / stat.capacity : 0, t = capTone(u), stale = isStale(p) && p.is_enabled;
   return <section id={`panel-${p.id}`} className="card rise overflow-hidden">
     <header className={`space-y-3 border-b border-[var(--ln)] bg-[var(--sf2)] px-4 py-3 ${p.is_enabled ? "" : "opacity-80"}`}>
@@ -243,6 +245,7 @@ function PanelSection({ p, servers, stat, groups, busy, srvBusy, filtered, onChe
           <Switch checked={p.is_enabled} disabled={busy} onChange={(v) => onToggle(p, v)} label={`${p.is_enabled ? "غیرفعال‌سازی" : "فعال‌سازی"} ${p.name}`} />
           <button className="btn btn-g" onClick={() => onEdit(p)}><Pencil size={13} />ویرایش</button>
           <button className="btn btn-g !px-2" aria-label="بررسی سلامت" title={`بررسی سلامت · آخرین بررسی ${ago(p.last_health_at)}`} disabled={busy} onClick={() => onCheck(p)}><RefreshCw size={13} className={busy ? "animate-spin" : ""} /></button>
+          <DeleteButton compact label={`حذف پنل ${p.name}`} busy={busy} onClick={() => onDelete(p)} />
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
@@ -254,7 +257,7 @@ function PanelSection({ p, servers, stat, groups, busy, srvBusy, filtered, onChe
       {h === "unhealthy" && p.last_health_error && <p dir="auto" className="break-words rounded-lg bg-[var(--bdb)] px-3 py-2 text-[11px] leading-5 text-[var(--bd)]">{p.last_health_error}</p>}
     </header>
     {servers.length
-      ? <ul className="divide-y divide-[var(--ln)]">{servers.map((sv) => <ServerRow key={sv.id} s={sv} panel={p} busy={srvBusy.has(sv.id)} onEdit={onSrvEdit} onToggle={onSrvToggle} />)}</ul>
+      ? <ul className="divide-y divide-[var(--ln)]">{servers.map((sv) => <ServerRow key={sv.id} s={sv} panel={p} busy={srvBusy.has(sv.id)} onEdit={onSrvEdit} onToggle={onSrvToggle} onDelete={onSrvDelete} />)}</ul>
       : <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-5 text-sm"><span className="flex items-center gap-2 text-[var(--wn)]"><AlertTriangle size={15} />{filtered ? "سروری با این فیلتر روی این پنل نیست" : "این پنل هنوز سرور ندارد؛ تا ظرفیت تعریف نشود اکانتی روی آن ساخته نمی‌شود."}</span>{!filtered && <button className="btn" onClick={() => onSrvAdd(p)}><Plus size={15} />افزودن اولین سرور</button>}</div>}
     {servers.length > 0 && <footer className="flex flex-wrap items-center gap-2 border-t border-[var(--ln)] px-4 py-2.5">
       <button className="btn btn-g" onClick={() => onSrvAdd(p)}><Plus size={13} />سرور جدید</button>
@@ -353,6 +356,22 @@ export default function PanelsView({ api, toast }) {
     if (ok) await infra.servers.load();
   };
 
+  const removePanel = async (p) => {
+    const n = (idx.serversByPanel.get(p.id) || []).length;
+    setBusy((x) => new Set(x).add(p.id));
+    const ok = await removeEntity(infra.call, `/api/v1/admin/panels/${p.id}`, { toast, title: "حذف پنل", done: `«${p.name}» حذف شد`,
+      message: `«${p.name}» برای همیشه حذف شود؟${n ? ` ${num(n)} سرور آن هم حذف می‌شود و` : ""} از گروه‌ها خارج می‌شود. پنل واقعی (سنایی/پاسارگارد) دست‌نخورده می‌ماند. اگر روی این پنل اکانت ساخته شده باشد حذف انجام نمی‌شود و باید آن را غیرفعال کنید.` });
+    if (alive.current) setBusy((x) => { const m = new Set(x); m.delete(p.id); return m; });
+    if (ok) { setDrawer(null); setSrvDrawer(null); await infra.reload(); }
+  };
+  const removeServer = async (s) => {
+    setSrvBusy((x) => new Set(x).add(s.id));
+    const ok = await removeEntity(infra.call, `/api/v1/admin/servers/${s.id}`, { toast, title: "حذف سرور", done: `«${s.name}» حذف شد`,
+      message: `«${s.name}» برای همیشه حذف شود؟ اگر روی این سرور اکانت ساخته شده باشد حذف انجام نمی‌شود و باید آن را غیرفعال کنید.` });
+    if (alive.current) setSrvBusy((x) => { const m = new Set(x); m.delete(s.id); return m; });
+    if (ok) { setSrvDrawer(null); await infra.reload(); }
+  };
+
   const attention = (p) => p.is_enabled && health(p) !== "healthy";
   const counts = useMemo(() => { const c = { all: 0, healthy: 0, attention: 0 }; (rows || []).forEach((p) => { c.all++; if (health(p) === "healthy") c.healthy++; if (attention(p)) c.attention++; }); return c; }, [rows]);
   const cap = useMemo(() => { let freeN = 0, total = 0; allServers.forEach((s) => { total += s.capacity || 0; if (serverState(s, idx.panelById.get(s.panel_id)).ok) freeN += free(s); }); return { free: freeN, total }; }, [allServers, idx]);
@@ -405,13 +424,13 @@ export default function PanelsView({ api, toast }) {
         <p className="max-w-sm text-sm leading-7 text-[var(--mu)]">{counts.all ? "جستجو یا فیلتر را تغییر دهید." : "برای فروش اکانت، ابتدا یک پنل سنایی یا پاسارگارد به Core وصل کنید؛ ظرفیت (سرور) آن هم در همان مرحله تعریف می‌شود."}</p>
         {!counts.all && <button className="btn" onClick={() => setDrawer("add")}><Plus size={16} />افزودن اولین پنل</button>}</div>
       : <><div className="space-y-4">{shown.map((p) => <PanelSection key={p.id} p={p} servers={serversOf(p)} stat={idx.panelStat(p.id)} groups={idx.groupsByPanel.get(p.id) || []} busy={busy.has(p.id)} srvBusy={srvBusy} filtered={!!productF || !!q.trim()}
-          onCheck={check} onEdit={(x) => setDrawer(x.id)} onToggle={toggle}
+          onCheck={check} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} onDelete={removePanel} onSrvDelete={removeServer}
           onSrvAdd={(x) => setSrvDrawer({ panelId: x.id, serverId: null })} onSrvEdit={(s) => setSrvDrawer({ panelId: s.panel_id, serverId: s.id })} onSrvToggle={srvToggle} onImport={setImportFor} />)}</div>
         <Paginator page={page} setPage={setPage} total={filtered.length} pageSize={PAGE_SIZE} /></>}
 
-    {drawer && (drawer === "add" || editing) && <PanelDrawer key={drawer} panel={drawer === "add" ? null : editing} groups={infra.groups.rows || []} idx={idx} onClose={() => setDrawer(null)} onSubmit={save} onToggle={toggle} toggling={editing ? busy.has(editing.id) : false} />}
+    {drawer && (drawer === "add" || editing) && <PanelDrawer key={drawer} panel={drawer === "add" ? null : editing} groups={infra.groups.rows || []} idx={idx} onClose={() => setDrawer(null)} onSubmit={save} onToggle={toggle} onDelete={removePanel} toggling={editing ? busy.has(editing.id) : false} />}
     {srvDrawer && srvPanel && (!srvDrawer.serverId || srvEditing) && <ServerForm key={`${srvDrawer.panelId}:${srvDrawer.serverId || "new"}`} api={api} toast={toast} infra={infra} panel={srvPanel} server={srvEditing || null} locations={locations}
-      toggling={srvEditing ? srvBusy.has(srvEditing.id) : false} onToggle={srvToggle} onSaved={infra.reload} onClose={() => setSrvDrawer(null)} />}
+      toggling={srvEditing ? srvBusy.has(srvEditing.id) : false} onToggle={srvToggle} onDelete={removeServer} onSaved={infra.reload} onClose={() => setSrvDrawer(null)} />}
     {importFor && <ServerImport api={api} toast={toast} panel={importFor} onClose={() => setImportFor(null)} onDone={infra.reload} />}
   </div>;
 }
