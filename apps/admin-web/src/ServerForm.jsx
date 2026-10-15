@@ -122,7 +122,7 @@ export function ServerForm({ api, infra, panel: panelProp, server, locations = [
     <section>
       <button type="button" className="flex items-center gap-1.5 text-xs font-bold text-[var(--mu)]" aria-expanded={adv} onClick={() => setAdv(!adv)}><ChevronDown size={14} className={adv ? "" : "-rotate-90"} />تنظیمات پیشرفته{!f.all && <span className="badge b-wn">محدود به {num(f.codes.length)} محصول</span>}</button>
       {adv && <div className="mt-3 space-y-4">
-        <Section title="محدود کردن محصولات" hint="معمولاً لازم نیست: محصول از طریق «گروه پنل» به پنل می‌رسد. فقط وقتی استفاده کنید که این سرور باید اختصاصاً برای چند محصول مشخص باشد.">
+        <Section title="محدود کردن محصولات" hint="معمولاً لازم نیست: محصول از طریق «استخر فروش» به پنل می‌رسد. فقط وقتی استفاده کنید که این سرور باید اختصاصاً برای چند محصول مشخص باشد.">
           <Segmented label="محدوده محصولات" value={f.all ? "all" : "some"} onChange={(v) => set("all")(v === "all")} options={[["all", "همه محصولات"], ["some", "فقط محصولات انتخابی"]]} />
           {!f.all && <><ProductPicker products={products} value={f.codes} onChange={set("codes")} />{showErr("codes") && <p className="text-[11px] text-[var(--bd)]">{err.codes}</p>}</>}
         </Section>
@@ -134,8 +134,8 @@ export function ServerForm({ api, infra, panel: panelProp, server, locations = [
 
     <div className="space-y-2 rounded-xl bg-[var(--sf2)] p-3 text-xs">
       <div className="flex flex-wrap items-center gap-2"><span className="font-bold text-[var(--mu)]">وضعیت فروش:</span><span className={`badge b-${st.tone}`}>{st.label}</span></div>
-      <div className="flex flex-wrap items-center gap-1.5"><span className="font-bold text-[var(--mu)]">گروه‌های این پنل:</span>
-        {groups.length ? groups.map((g) => <RelChip key={g.id} to="panel-groups" params={{ q: g.name }} tone="wn" Icon={Layers} dim={!g.is_enabled}>{g.name}</RelChip>) : <span className="text-[var(--mu)]">هیچ — محصولات «بدون گروه» روی آن ساخته می‌شوند</span>}</div>
+      <div className="flex flex-wrap items-center gap-1.5"><span className="font-bold text-[var(--mu)]">استخرهای این پنل:</span>
+        {groups.length ? groups.map((g) => <RelChip key={g.id} to="panel-groups" params={{ q: g.name }} tone="wn" Icon={Layers} dim={!g.is_enabled}>{g.name}</RelChip>) : <span className="text-[var(--mu)]">هیچ — تا عضو یک استخر نشود چیزی روی آن ساخته نمی‌شود</span>}</div>
       {panel && panel.health_status !== "healthy" && <Warn>پنل «{panel.name}» {panel.is_enabled ? "سالم نیست یا هنوز بررسی نشده" : "غیرفعال است"}؛ تا آن موقع روی این سرور اکانت جدید ساخته نمی‌شود.</Warn>}
     </div>
   </Drawer>;

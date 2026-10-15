@@ -7,13 +7,20 @@ from sqlalchemy.orm import Mapped, mapped_column
 from melorin.core.db import Base, IdMixin, TimestampMixin
 
 
+CONNECTION_KINDS = ("direct", "tunnel", "softether")  # what the customer is buying: how the account connects
+
+
 class PanelGroup(IdMixin, TimestampMixin, Base):
-    """A sellable pool of panels with routing, naming and quota policy."""
+    """A sales pool (UI name: استخر فروش): panels + connection kind + routing, naming and quota policy.
+
+    The table keeps its historical name ``panel_groups``; only the customer/admin vocabulary changed.
+    """
 
     __tablename__ = "panel_groups"
     name: Mapped[str] = mapped_column(String(120))
     selection_mode: Mapped[str] = mapped_column(String(20), default="automatic")  # automatic | manual
     naming_mode: Mapped[str] = mapped_column(String(20), default="automatic")  # automatic | custom
+    connection_kind: Mapped[str] = mapped_column(String(20), default="direct", server_default="direct")  # direct | tunnel | softether
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     reseller_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     sales_limit: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -29,6 +36,20 @@ class PanelGroupMember(IdMixin, TimestampMixin, Base):
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     sales_limit: Mapped[int | None] = mapped_column(Integer, nullable=True)
     sold_count: Mapped[int] = mapped_column(Integer, default=0)
+    sort: Mapped[int] = mapped_column(Integer, default=0)
+    label: Mapped[str | None] = mapped_column(String(80), nullable=True)  # what a customer sees in a manual pool (never the panel's own name)
+
+
+class PoolProduct(IdMixin, TimestampMixin, Base):
+    """A package sold inside a pool. NULL prices fall back to the product's own prices, so a pool only overrides what differs."""
+
+    __tablename__ = "pool_products"
+    __table_args__ = (UniqueConstraint("panel_group_id", "product_id"),)
+    panel_group_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("panel_groups.id", ondelete="CASCADE"), index=True)
+    product_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("products.id", ondelete="CASCADE"), index=True)
+    main_price: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    reseller_price: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    is_listed: Mapped[bool] = mapped_column(Boolean, default=True)  # False = hidden from customers in this pool
     sort: Mapped[int] = mapped_column(Integer, default=0)
 
 

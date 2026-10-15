@@ -53,7 +53,9 @@ class Fake:
             return httpx.Response(200, json={"id": "s1", "name": "Main"})
         if path == "/api/v1/auth/telegram/bot":
             return httpx.Response(200, json={"access_token": "A", "refresh_token": "R"})
-        if path == "/api/v1/stores/s1/catalog":
+        if path == "/api/v1/stores/s1/pools":
+            return httpx.Response(200, json=[{"id": "pool1", "name": "Main", "connection_kind": "direct", "selection_mode": "automatic", "naming_mode": "automatic", "panels": []}])
+        if path == "/api/v1/stores/s1/pools/pool1/packages":
             return httpx.Response(200, json=self.catalog)
         if path == "/api/v1/stores/s1/checkout/quote":
             return httpx.Response(200, json=self.quote)
@@ -217,7 +219,7 @@ def test_command_menu_is_registered_at_startup(bot):
 
 def test_source_never_carries_allocation_data():
     src = (ROOT / "telegram-main/runner.py").read_text()
-    for forbidden in ("panel_group_id", "selected_panel_id", "default_panel_group", "server_id"):
+    for forbidden in ("default_panel_group", "server_id"):
         assert forbidden not in src
 
 

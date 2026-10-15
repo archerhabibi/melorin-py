@@ -3,7 +3,7 @@ import uuid
 from fastapi import APIRouter, Header
 from sqlalchemy import select
 
-from melorin.core.deps import CurrentUser, OwnerCtx, Session, StoreCtx
+from melorin.core.deps import CurrentUser, Session, StoreCtx
 from melorin.core.errors import NotFound
 from melorin.modules.orders import service
 from melorin.modules.orders.models import Order

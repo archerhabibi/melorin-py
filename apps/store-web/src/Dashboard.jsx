@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Bell, ChevronDown, Copy, Gauge, KeyRound, LifeBuoy, LogOut, Package, Store, Wallet as WalletIcon, ArrowRight, Link2, Pencil, Plus, Send, X } from "lucide-react";
+import { Bell, ChevronDown, Copy, Gauge, KeyRound, LifeBuoy, LogOut, Package, Store, Wallet as WalletIcon, ArrowRight, Link2, Pencil, Plus, RefreshCw, Send, X } from "lucide-react";
 import { Empty, Loading, PageTitle, StatusBadge, fa, fd } from "./ui.jsx";
 const gb = (b) => (b ? (b / 1073741824).toFixed(1) : "0");
 const J = { "Content-Type": "application/json" };
@@ -14,8 +14,32 @@ function Orders({ orders }) {
   return <div className="space-y-3">{orders.map((o) => <div key={o.id} className={`${card} flex flex-wrap items-center justify-between gap-3`}><div><div className="latin font-extrabold">{o.number}</div><div className="mt-1 text-xs text-muted">{fd(o.created_at)}</div></div><div className="font-bold">{fa(o.total)} {o.currency}</div><StatusBadge status={o.status} /></div>)}</div>;
 }
 
-function Vpn({ coreFetch, notify }) {
+function Renew({ account, coreFetch, storeId, notify, reload, onClose }) {
+  const [pk, setPk] = useState(null);
+  const [sel, setSel] = useState(null);
+  const [quote, setQuote] = useState(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { coreFetch(`/api/v1/stores/${storeId}/accounts/${account.id}/renewal-packages`).then((r) => r.ok ? r.json() : Promise.reject(r)).then((d) => setPk(Array.isArray(d) ? d : d.items || [])).catch(async (r) => { setPk([]); notify(r?.json ? await msgOf(r, "پکیج تمدید دریافت نشد") : "پکیج تمدید دریافت نشد"); }); }, [account.id]);
+  async function pick(p) {
+    setSel(p); setQuote(null); setBusy(true);
+    try { const r = await coreFetch(`/api/v1/stores/${storeId}/checkout/quote`, { method: "POST", headers: J, body: JSON.stringify({ product_id: p.product_id, vpn_account_id: account.id }) }); if (!r.ok) { setSel(null); return notify(await msgOf(r, "پیش‌فاکتور دریافت نشد")); } setQuote(await r.json()); }
+    catch { setSel(null); notify("پیش‌فاکتور دریافت نشد"); } finally { setBusy(false); }
+  }
+  async function buy() {
+    setBusy(true);
+    try { const r = await coreFetch(`/api/v1/stores/${storeId}/orders`, { method: "POST", headers: { ...J, "Idempotency-Key": `web-renew-${crypto.randomUUID()}` }, body: JSON.stringify({ product_id: sel.product_id, payment_method: "wallet", kind: "renewal", vpn_account_id: account.id }) }); if (!r.ok) return notify(await msgOf(r, "تمدید ناموفق بود")); notify("تمدید ثبت شد"); reload?.(); onClose(); }
+    finally { setBusy(false); }
+  }
+  return <div className="mt-4 rounded-xl bg-surface2 p-3 text-sm">
+    <div className="flex items-center justify-between"><b>تمدید اکانت</b><button onClick={onClose} aria-label="بستن" className="text-muted"><X size={16} /></button></div>
+    {pk === null ? <Loading rows={1} /> : !pk.length ? <p className="mt-2 text-xs text-muted">پکیجی برای تمدید این اکانت موجود نیست.</p> : <div className="mt-2 space-y-2">{pk.map((p) => <button key={p.product_id} disabled={busy} onClick={() => pick(p)} aria-pressed={sel?.product_id === p.product_id} className={`flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-right ${sel?.product_id === p.product_id ? "border-coral" : "border-line"}`}><span><b>{p.name}</b><span className="mr-2 text-xs text-muted">{p.duration_days ? fa(p.duration_days) : "؟"} روز · {p.traffic_gb ? fa(p.traffic_gb) : "؟"} گیگ</span></span><b>{fa(p.price)} {p.currency}</b></button>)}</div>}
+    {quote && <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-3"><span>مبلغ نهایی: <b>{fa(quote.total)} {quote.currency}</b>{!quote.sufficient_funds && <span className="mr-2 text-xs text-danger">موجودی کافی نیست</span>}</span><button disabled={busy || !quote.sufficient_funds} onClick={buy} className="btn-primary !px-4 !py-2 text-xs">پرداخت از کیف پول و تمدید</button></div>}
+  </div>;
+}
+
+function Vpn({ coreFetch, storeId, notify, reload }) {
   const [rows, setRows] = useState(null);
+  const [renew, setRenew] = useState(null);
   useEffect(() => { coreFetch("/api/v1/vpn-accounts").then((r) => r.json()).then(setRows).catch(() => setRows([])); }, []);
   if (!rows) return <Loading rows={2} />;
   if (!rows.length) return <Empty icon={Gauge} text="اکانتی ندارید. از بخش سرویس‌ها خرید کنید."><a href="#plans" className="btn-primary mt-5">دیدن سرویس‌ها</a></Empty>;
@@ -28,6 +52,8 @@ function Vpn({ coreFetch, notify }) {
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface2"><div className={`h-full rounded-full ${pct > 85 ? "bg-danger" : "bg-coral"}`} style={{ width: `${pct}%` }} /></div>
       <div className="mt-1 text-xs text-muted">{gb(a.traffic_used_bytes)} از {a.traffic_limit_bytes ? gb(a.traffic_limit_bytes) : "∞"} گیگ</div>
       {a.subscription_url && <button onClick={() => copy(a.subscription_url)} className="btn-primary mt-4 w-full"><Copy size={16} />کپی لینک اشتراک</button>}
+      <button onClick={() => setRenew(renew === a.id ? null : a.id)} className="btn-soft mt-2 w-full"><RefreshCw size={16} />تمدید</button>
+      {renew === a.id && <Renew account={a} coreFetch={coreFetch} storeId={storeId} notify={notify} reload={reload} onClose={() => setRenew(null)} />}
     </div>;
   })}</div>;
 }
@@ -237,7 +263,7 @@ export default function Dashboard({ coreFetch, storeId, account, wallet, orders,
       <section aria-live="polite" className="min-w-0">
         {tab === "notifications" && <Notifications coreFetch={coreFetch} notify={notify} onCount={setUnread} />}
         {tab === "orders" && <Orders orders={orders} />}
-        {tab === "vpn" && <Vpn coreFetch={coreFetch} notify={notify} />}
+        {tab === "vpn" && <Vpn coreFetch={coreFetch} storeId={storeId} notify={notify} reload={reload} />}
         {tab === "wallet" && <Wallet coreFetch={coreFetch} storeId={storeId} wallet={wallet} reload={reload} notify={notify} />}
         {tab === "profile" && <Profile coreFetch={coreFetch} account={account} notify={notify} reload={reload} />}
         {tab === "tickets" && <Tickets coreFetch={coreFetch} storeId={storeId} notify={notify} />}

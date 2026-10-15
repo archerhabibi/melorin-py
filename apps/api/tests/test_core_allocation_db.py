@@ -18,7 +18,7 @@ from melorin.modules.system.models import AuditEvent
 from melorin.modules.vpn.adapters.base import PanelError
 from melorin.modules.vpn.allocation import resolve_allocation, resolve_order_group
 from melorin.modules.vpn.models import Panel, Server
-from melorin.modules.vpn.panel_groups import PanelGroup, PanelGroupMember, StorePanelGroup
+from melorin.modules.vpn.panel_groups import PanelGroup, PanelGroupMember, PoolProduct, StorePanelGroup
 
 
 @pytest.fixture
@@ -62,6 +62,16 @@ def make_product(group=None, code="10"):
     )
 
 
+async def sell(s, product, *groups):
+    """Persist the product and make every given pool sell it (what the admin does when filling a pool)."""
+    s.add(product)
+    await s.flush()
+    for g in groups:
+        s.add(PoolProduct(panel_group_id=g.id, product_id=product.id))
+    await s.flush()
+    return product
+
+
 def order_for(group, *, kind="purchase", selected=None, store_id=None):
     return types.SimpleNamespace(panel_group_id=group.id if group else None, selected_panel_id=selected, store_id=store_id, kind=kind)
 
@@ -70,20 +80,31 @@ def order_for(group, *, kind="purchase", selected=None, store_id=None):
 
 async def test_product_default_group_applies_when_order_names_none(session):
     group, _ = await make_group(session)
-    product = make_product(group)
+    product = await sell(session, make_product(group), group)
     assert await resolve_order_group(session, store_id=None, product=product) == (group.id, None)
 
 
 async def test_explicit_group_wins_over_product_default(session):
     default, _ = await make_group(session)
     other, _ = await make_group(session, panels=(("P9", "healthy"),), servers=(("S9", "P9", {}),))
-    product = make_product(default)
+    product = await sell(session, make_product(default), default, other)
     assert (await resolve_order_group(session, store_id=None, product=product, panel_group_id=other.id))[0] == other.id
 
 
-async def test_without_group_order_is_routed_directly_and_selected_panel_is_dropped(session):
-    product = make_product(None)
-    assert await resolve_order_group(session, store_id=None, product=product, selected_panel_id=uuid.uuid4()) == (None, None)
+async def test_there_is_no_pool_less_route(session):
+    product = await sell(session, make_product(None))
+    with pytest.raises(AppError) as e:
+        await resolve_order_group(session, store_id=None, product=product, selected_panel_id=uuid.uuid4())
+    assert e.value.code == "POOL_REQUIRED"
+
+
+async def test_pool_that_does_not_sell_the_package_is_rejected(session):
+    group, _ = await make_group(session)
+    other, _ = await make_group(session, panels=(("P9", "healthy"),), servers=(("S9", "P9", {}),))
+    product = await sell(session, make_product(group), group)  # sold in `group` only
+    with pytest.raises(AppError) as e:
+        await resolve_order_group(session, store_id=None, product=product, panel_group_id=other.id)
+    assert e.value.code == "PRODUCT_NOT_IN_POOL"
 
 
 async def test_manual_default_group_is_rejected_before_payment(session):
@@ -118,7 +139,7 @@ async def test_store_that_lost_access_to_group_is_rejected(session):
 
 async def test_manual_group_requires_a_member_panel(session):
     group, panels = await make_group(session, mode="manual")
-    product = make_product(None)
+    product = await sell(session, make_product(None), group)
     ok = await resolve_order_group(session, store_id=None, product=product, panel_group_id=group.id, selected_panel_id=panels["P1"].id)
     assert ok == (group.id, panels["P1"].id)
     with pytest.raises(AppError) as e:
@@ -166,10 +187,11 @@ async def test_provisioning_rechecks_group_state_changed_after_checkout(session)
         await resolve_allocation(session, order, make_product(group))
 
 
-async def test_direct_routing_without_group(session):
-    await make_group(session, servers=(("S1", "P1", dict(product_codes=["99"])), ("S2", "P1", {})))
-    server, _, group = await resolve_allocation(session, order_for(None), make_product(None))
-    assert server.name == "S2" and group is None
+async def test_provisioning_refuses_an_order_without_a_pool(session):
+    await make_group(session, servers=(("S1", "P1", {}),))
+    with pytest.raises(PanelError) as e:
+        await resolve_allocation(session, order_for(None), make_product(None))
+    assert "استخر" in e.value.message
 
 
 async def test_load_figures_cost_a_constant_number_of_queries(session):
