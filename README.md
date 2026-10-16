@@ -12,7 +12,8 @@ Production-oriented modular monolith for a multi-store VPN platform. The impleme
 
 1. **Store domain** (the sales site, e.g. `shop.example.com`) - an A record pointing at the server IP
 2. **Admin domain** (the admin panel, e.g. `admin.example.com`) - an A record pointing at the server IP
-3. **Telegram bot token** from @BotFather
+3. **Admin e-mail** (the login name of the first admin)
+4. **Telegram bot token** from @BotFather
 
 Ports **80 and 443 must be free** (Caddy obtains the TLS certificates automatically). Nothing else is asked.
 
@@ -23,7 +24,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/archerhabibi/melorin-py/main
 ```
 
 The command downloads the project to `/opt/melorin`, registers the `melorin` command and opens the menu.
-Choose **1) Install**; it asks only for the store domain, the admin domain and the bot token (hidden input), checks
+Choose **1) Install**; it asks only for the store domain, the admin domain, the admin e-mail and the bot token (hidden input), checks
 that both domains point at this server, then installs everything unattended. At the end it prints the one-time
 admin password and TOTP seed - save them immediately.
 
@@ -33,7 +34,7 @@ After installation the same menu opens at any time with `melorin` (or `bash /opt
 
 | Option | Action |
 |---|---|
-| `1` Install | Quiet install -> asks store domain, admin domain, bot token |
+| `1` Install | Quiet install -> asks store domain, admin domain, admin e-mail, bot token |
 | `2` Update | Pull the latest code, rebuild, run migrations, restart (`.env` is kept) |
 | `3` Edit .env | Change bot token / store domain / admin domain, or open `.env` in an editor |
 | `4` Web panel | Store and admin URLs, health check, admin password reset, IP-allowlist break-glass |
@@ -72,7 +73,7 @@ It is safe to run again: an existing `.env` and backup key are never overwritten
 
 After it finishes:
 
-1. Open `https://admin.example.com` and log in with the admin e-mail (menu option 4 shows it; by default `admin@<store domain>`). The installer prints the one-time password and removes it from `.env` immediately after bootstrap; save it securely and change it at first login.
+1. Open `https://admin.example.com` and log in with the admin e-mail you entered. The installer prints the one-time password and removes it from `.env` immediately after bootstrap; save it securely and change it at first login.
 2. **Copy `/opt/melorin/secrets/backup/age-identity.txt` to a safe place off the server.** It is the only key that
    can decrypt the backups; without it they cannot be restored.
 3. Configure panels, payments and other providers as described in `docs/`.
