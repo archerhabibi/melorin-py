@@ -43,3 +43,9 @@ Run `MELORIN_RUN_EXTERNAL_PROVIDERS=1 scripts/integration_smoke.sh` with a real 
 ## Session and backup acceptance
 
 For a live deployment, run `BASE_URL=https://shop.example.com COOKIE_JAR=... python scripts/auth_cookie_smoke.py` to verify refresh-cookie rotation, HttpOnly protection, and same-origin CORS behavior. Run `scripts/backup_restore_verify.sh` for archive verification and `scripts/backup_restore_drill.sh` against an isolated PostgreSQL 16 database for a real restore drill.
+
+## Reseller store domains (Caddy)
+
+A reseller's domain is served by the bundled Caddy as soon as the store exists: the reseller points an `A`/`AAAA` record at this server, and on the first HTTPS visit Caddy asks Core (`GET /api/v1/tls/ask?domain=<host>`) whether the name is an active reseller store domain; only then does it request a certificate (on-demand TLS). Unknown names get no certificate. The domain shows the reseller's storefront (the web app resolves the store from the hostname via `/api/v1/stores/by-domain/<host>`), never the admin panel.
+
+Checks: `docker compose exec caddy caddy validate --config /etc/caddy/Caddyfile`; from inside the network `curl -s -o /dev/null -w '%{http_code}' 'http://api:8000/api/v1/tls/ask?domain=shop.example.com'` (200 registered, 404 otherwise). If a certificate does not appear, check DNS first, then the Caddy log for the ACME error (rate limits, port 80/443 reachability). With `EXTERNAL_PROXY=true` the bundled Caddy is off: route reseller domains to the store port in the host proxy and gate on-demand certificates with the same ask URL.

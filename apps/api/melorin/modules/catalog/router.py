@@ -43,6 +43,16 @@ async def store_by_domain(domain: str, session: Session):
     return _store_out(s)
 
 
+@public.get("/tls/ask", include_in_schema=False)
+async def tls_ask(domain: str, session: Session):
+    """Caddy on-demand TLS gate: 200 only for the hostname of an active reseller store, 404 for everything else,
+    so certificates are never issued for arbitrary names pointed at this server."""
+    host = (domain or "").strip().lower().rstrip(".")
+    if not host or len(host) > 253 or not await session.scalar(select(Store.id).where(Store.domain == host, Store.status == "active")):
+        raise NotFound("فروشگاه")
+    return {"ok": True}
+
+
 @public.get("/stores/{store_id}", response_model=StoreOut)
 async def get_store(store_id: uuid.UUID, session: Session):
     s = await session.get(Store, store_id)
