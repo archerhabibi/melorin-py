@@ -2,11 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { authFetch } from "./api.js";
 import { ServerForm, ServerImport } from "./ServerForm.jsx";
 import { Badge, confirmDialog, dt, sid } from "./ui.jsx";
-import { Dot, InfraChain, RelChip, clearParam, free, health, memberIds, saveGroupPanels, serverState, serves, usage, useHashParams, useInfra } from "./infra.jsx";
-import { Drawer, Field, NumInput, Paginator, Section, Segmented, Stat, Switch, Toggle, DeleteButton, capTone, errText, num, removeEntity, tint, useAlive } from "./kit.jsx";
+import { Dot, HLABEL, InfraChain, RelChip, clearParam, free, health, memberIds, saveGroupPanels, serverState, serves, usage, useHashParams, useInfra } from "./infra.jsx";
+import { Drawer, Empty, ErrorBar, Field, KpiBar, NumInput, Paginator, Pills, Ring, SearchBox, Section, Segmented, SegMeter, SortSelect, Stat, Switch, Toggle, ViewToggle, DeleteButton, capTone, errText, num, removeEntity, tint, useAlive } from "./kit.jsx";
 import {
   Activity, AlertTriangle, Check, ChevronDown, Copy, ExternalLink, Eye, EyeOff, FlaskConical, FolderInput,
-  Layers, MapPin, Pencil, Plus, RefreshCw, Save, Search, Server, ServerCog, ShieldAlert, ShieldCheck, X,
+  ChevronLeft, Layers, MapPin, Pencil, Plus, RefreshCw, Save, Search, Server, ServerCog, ShieldAlert, ShieldCheck, X,
 } from "lucide-react";
 
 // Panels and their servers are ONE screen: a server is only a capacity slot of a single panel,
@@ -54,11 +54,11 @@ function Chips({ values, onChange, placeholder }) {
   </div>;
 }
 
-function Meter({ s, slim = true }) {
+function Meter({ s }) {
   const u = usage(s), t = capTone(u);
   return <div>
-    <div className="mb-1.5 flex items-baseline justify-between text-xs"><span className="text-[var(--mu)]">ظرفیت</span><span className="font-bold"><span style={{ color: `var(--${t})` }}>{num(s.active_accounts)}</span> از {num(s.capacity)}<span className="mr-1.5 font-normal text-[var(--mu)]">({num(Math.round(u * 100))}٪)</span></span></div>
-    <div className={`${slim ? "h-1.5" : "h-2"} overflow-hidden rounded-full bg-[var(--mb)]`} role="meter" aria-valuemin={0} aria-valuemax={s.capacity} aria-valuenow={s.active_accounts} aria-label="میزان استفاده از ظرفیت"><div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${Math.min(100, u * 100)}%`, background: `var(--${t})` }} /></div>
+    <div className="mb-1.5 flex items-baseline justify-between text-xs"><span className="text-[var(--mu)]">ظرفیت</span><span className="num font-bold"><span style={{ color: `var(--${t})` }}>{num(s.active_accounts)}</span> از {num(s.capacity)}<span className="mr-1.5 font-normal text-[var(--mu)]">({num(Math.round(u * 100))}٪)</span></span></div>
+    <SegMeter value={u} tone={t} max={s.capacity} now={s.active_accounts} label="میزان استفاده از ظرفیت" />
   </div>;
 }
 
@@ -213,12 +213,15 @@ function PanelDrawer({ panel, groups, idx, onClose, onSubmit, onToggle, onDelete
 function ServerRow({ s, panel, busy, onEdit, onToggle, onDelete }) {
   const st = serverState(s, panel), dim = s.is_enabled ? "" : "opacity-60";
   const limited = (s.product_codes || []).length;
-  return <li className="grid gap-3 px-4 py-3 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto] md:items-center">
-    <div className={`min-w-0 ${dim}`}>
-      <div className="flex items-center gap-2"><b className="truncate" title={s.name}>{s.name}</b>
-        {!s.allow_test && <span className="badge b-mu" title="اکانت تست روی این سرور ساخته نمی‌شود">بدون تست</span>}
-        {limited > 0 && <span className="badge b-wn" title="این سرور فقط برای محصولات انتخاب‌شده استفاده می‌شود">فقط {num(limited)} محصول</span>}</div>
-      <div className="mt-0.5 flex items-center gap-2 text-[11px] text-[var(--mu)]">{s.location ? <span className="flex items-center gap-1"><MapPin size={11} />{s.location}</span> : null}<span className={`badge b-${st.tone}`}>{st.label}</span></div>
+  return <li className="grid gap-3 px-4 py-3 transition-colors hover:bg-[var(--sf2)] md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto] md:items-center">
+    <div className={`flex min-w-0 items-center gap-3 ${dim}`}>
+      <span className="tile h-9 w-9" style={tint(st.tone)}><ServerCog size={16} /></span>
+      <div className="min-w-0">
+        <div className="flex items-center gap-2"><b className="truncate" title={s.name}>{s.name}</b>
+          {!s.allow_test && <span className="badge b-mu" title="اکانت تست روی این سرور ساخته نمی‌شود">بدون تست</span>}
+          {limited > 0 && <span className="badge b-wn" title="این سرور فقط برای محصولات انتخاب‌شده استفاده می‌شود">فقط {num(limited)} محصول</span>}</div>
+        <div className="mt-1 flex items-center gap-2 text-[11px] text-[var(--mu)]">{s.location ? <span className="flex items-center gap-1"><MapPin size={11} />{s.location}</span> : null}<span className={`badge b-${st.tone}`}>{st.label}</span></div>
+      </div>
     </div>
     <div className={dim}><Meter s={s} /></div>
     <div className="flex items-center justify-end gap-2">
@@ -229,18 +232,25 @@ function ServerRow({ s, panel, busy, onEdit, onToggle, onDelete }) {
   </li>;
 }
 
-function PanelSection({ p, servers, stat, groups, busy, srvBusy, filtered, onCheck, onEdit, onToggle, onDelete, onSrvAdd, onSrvEdit, onSrvToggle, onSrvDelete, onImport }) {
+const STRIPE = { healthy: "var(--ok)", unhealthy: "var(--bd)", unknown: "var(--wn)" };
+function PanelSection({ p, servers, stat, groups, busy, srvBusy, filtered, dense, onCheck, onEdit, onToggle, onDelete, onSrvAdd, onSrvEdit, onSrvToggle, onSrvDelete, onImport }) {
   const h = health(p), k = kindOf(p.kind), u = stat.capacity ? stat.active / stat.capacity : 0, t = capTone(u), stale = isStale(p) && p.is_enabled;
-  return <section id={`panel-${p.id}`} className="card rise overflow-hidden">
-    <header className={`space-y-3 border-b border-[var(--ln)] bg-[var(--sf2)] px-4 py-3 ${p.is_enabled ? "" : "opacity-80"}`}>
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl" style={tint(k.tone)}><k.Icon size={18} /></span>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2"><Dot s={h} ping /><b className="truncate" title={p.name}>{p.name}</b><Badge s={h} />{!p.is_enabled && <Badge s="disabled" />}<span className="text-[11px] text-[var(--mu)]">{k.title}</span></div>
-          <div className="mt-1 flex min-w-0 items-center gap-1.5"><span dir="ltr" className="min-w-0 truncate font-mono text-[11px] text-[var(--mu)]" title={p.base_url}>{p.base_url}</span><CopyButton text={p.base_url} />
+  const [open, setOpen] = useState(true);
+  const showServers = !dense && open;
+  return <section id={`panel-${p.id}`} className={`card card-i rise stripe overflow-hidden ${p.is_enabled ? "" : "off"}`} style={{ "--stripe": p.is_enabled ? STRIPE[h] : "var(--ln)" }}>
+    <header className={`space-y-3 border-b border-[var(--ln)] bg-[linear-gradient(180deg,var(--sf2),var(--sf))] px-5 py-4 ${p.is_enabled ? "" : "opacity-80"}`}>
+      <div className="flex flex-wrap items-center gap-4">
+        <span className="tile h-12 w-12" style={tint(k.tone)}><k.Icon size={22} /></span>
+        <div className="min-w-0 flex-1 basis-60">
+          <div className="flex flex-wrap items-center gap-2"><b className="truncate text-base font-extrabold" title={p.name}>{p.name}</b>
+            <span className="hp" style={tint(h === "healthy" ? "ok" : h === "unhealthy" ? "bd" : "wn")}><Dot s={h} ping />{HLABEL[h]}</span>
+            {!p.is_enabled && <Badge s="disabled" />}</div>
+          <div className="mt-1.5 flex min-w-0 items-center gap-1.5"><span className="shrink-0 text-[11px] font-bold text-[var(--mu)]">{k.title}</span><span className="text-[var(--ln)]">·</span><span dir="ltr" className="min-w-0 truncate font-mono text-[11px] text-[var(--mu)]" title={p.base_url}>{p.base_url}</span><CopyButton text={p.base_url} />
             <a className="btn btn-g !px-2" href={p.base_url} target="_blank" rel="noopener noreferrer" aria-label="باز کردن پنل" title="باز کردن پنل"><ExternalLink size={13} /></a></div>
         </div>
-        {stat.n > 0 && <div className="hidden w-44 sm:block"><div className="mb-1 flex justify-between text-[11px] text-[var(--mu)]"><span>{num(stat.n)} سرور</span><b style={{ color: `var(--${t})` }}>{num(stat.active)} / {num(stat.capacity)}</b></div><div className="h-1.5 overflow-hidden rounded-full bg-[var(--mb)]"><div className="h-full rounded-full" style={{ width: `${Math.min(100, u * 100)}%`, background: `var(--${t})` }} /></div></div>}
+        {stat.n > 0 && <div className="flex items-center gap-3" title={`${num(stat.active)} اکانت فعال از ظرفیت ${num(stat.capacity)}`}>
+          <Ring value={u} size={54} stroke={6} tone={t} label={`ظرفیت پر: ${Math.round(u * 100)} درصد`}><b className="num text-xs font-extrabold">{num(Math.round(u * 100))}٪</b></Ring>
+          <div className="text-[11px] leading-5 text-[var(--mu)]"><b className="num block text-sm text-[var(--tx)]">{num(stat.active)} <span className="font-normal text-[var(--mu)]">/ {num(stat.capacity)}</span></b>{num(stat.n)} سرور</div></div>}
         <div className="flex items-center gap-1.5">
           <Switch checked={p.is_enabled} disabled={busy} onChange={(v) => onToggle(p, v)} label={`${p.is_enabled ? "غیرفعال‌سازی" : "فعال‌سازی"} ${p.name}`} />
           <button className="btn btn-g" onClick={() => onEdit(p)}><Pencil size={13} />ویرایش</button>
@@ -250,19 +260,24 @@ function PanelSection({ p, servers, stat, groups, busy, srvBusy, filtered, onChe
       </div>
       <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
         <span className="text-[var(--mu)]">استخرها:</span>
-        {groups.length ? groups.slice(0, 4).map((g) => <RelChip key={g.id} to="panel-groups" params={{ q: g.name }} tone="wn" Icon={Layers} dim={!g.is_enabled}>{g.name}</RelChip>) : <span className="text-[var(--mu)]">هیچ — این پنل چیزی نمی‌فروشد</span>}
+        {groups.length ? groups.slice(0, 4).map((g) => <RelChip key={g.id} to="panel-groups" params={{ q: g.name }} tone="wn" Icon={Layers} dim={!g.is_enabled}>{g.name}</RelChip>) : <span className="font-bold text-[var(--wn)]">هیچ — این پنل چیزی نمی‌فروشد</span>}
         {groups.length > 4 && <span className="text-[var(--mu)]">+{num(groups.length - 4)}</span>}
         <span className={`mr-auto flex items-center gap-1 ${stale ? "font-bold text-[var(--wn)]" : "text-[var(--mu)]"}`} title={p.last_health_at ? dt(p.last_health_at) : ""}>{stale && <AlertTriangle size={12} />}آخرین بررسی: {ago(p.last_health_at)}</span>
       </div>
       {h === "unhealthy" && p.last_health_error && <p dir="auto" className="break-words rounded-lg bg-[var(--bdb)] px-3 py-2 text-[11px] leading-5 text-[var(--bd)]">{p.last_health_error}</p>}
     </header>
-    {servers.length
-      ? <ul className="divide-y divide-[var(--ln)]">{servers.map((sv) => <ServerRow key={sv.id} s={sv} panel={p} busy={srvBusy.has(sv.id)} onEdit={onSrvEdit} onToggle={onSrvToggle} onDelete={onSrvDelete} />)}</ul>
-      : <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-5 text-sm"><span className="flex items-center gap-2 text-[var(--wn)]"><AlertTriangle size={15} />{filtered ? "سروری با این فیلتر روی این پنل نیست" : "این پنل هنوز سرور ندارد؛ تا ظرفیت تعریف نشود اکانتی روی آن ساخته نمی‌شود."}</span>{!filtered && <button className="btn" onClick={() => onSrvAdd(p)}><Plus size={15} />افزودن اولین سرور</button>}</div>}
-    {servers.length > 0 && <footer className="flex flex-wrap items-center gap-2 border-t border-[var(--ln)] px-4 py-2.5">
-      <button className="btn btn-g" onClick={() => onSrvAdd(p)}><Plus size={13} />سرور جدید</button>
-      <button className="btn btn-g" onClick={() => onImport(p)}><FolderInput size={13} />ورود دسته‌جمعی</button>
-    </footer>}
+    {dense
+      ? <div className="flex flex-wrap items-center gap-1.5 px-5 py-3">{servers.length ? servers.map((sv) => { const st = serverState(sv, p); return <span key={sv.id} className="spec" title={`${st.label} · ${num(sv.active_accounts)} از ${num(sv.capacity)}`}><span className="h-2 w-2 rounded-full" style={{ background: `var(--${st.ok ? capTone(usage(sv)) : st.tone})` }} />{sv.name}<span className="num font-normal text-[var(--mu)]">{num(sv.active_accounts)}/{num(sv.capacity)}</span></span>; }) : <span className="text-xs font-bold text-[var(--wn)]">بدون سرور</span>}</div>
+      : <>
+        <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 border-b border-[var(--hair)] px-5 py-2 text-[11px] font-bold text-[var(--mu)] hover:text-[var(--tx)]"><ChevronDown size={14} className={open ? "" : "-rotate-90"} />سرورها (ظرفیت‌ها)<span className="badge b-mu num">{num(servers.length)}</span></button>
+        {showServers && (servers.length
+          ? <ul className="divide-y divide-[var(--hair)]">{servers.map((sv) => <ServerRow key={sv.id} s={sv} panel={p} busy={srvBusy.has(sv.id)} onEdit={onSrvEdit} onToggle={onSrvToggle} onDelete={onSrvDelete} />)}</ul>
+          : <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-5 text-sm"><span className="flex items-center gap-2 text-[var(--wn)]"><AlertTriangle size={15} />{filtered ? "سروری با این فیلتر روی این پنل نیست" : "این پنل هنوز سرور ندارد؛ تا ظرفیت تعریف نشود اکانتی روی آن ساخته نمی‌شود."}</span>{!filtered && <button className="btn" onClick={() => onSrvAdd(p)}><Plus size={15} />افزودن اولین سرور</button>}</div>)}
+        {showServers && servers.length > 0 && <footer className="flex flex-wrap items-center gap-2 bg-[var(--sf2)] px-5 py-2.5">
+          <button className="btn btn-g" onClick={() => onSrvAdd(p)}><Plus size={13} />سرور جدید</button>
+          <button className="btn btn-g" onClick={() => onImport(p)}><FolderInput size={13} />ورود دسته‌جمعی</button>
+        </footer>}
+      </>}
   </section>;
 }
 
@@ -277,7 +292,7 @@ export default function PanelsView({ api, toast }) {
   const [only, setOnly] = useState(params.get("id") || ""); const [groupF, setGroupF] = useState(params.get("group") || ""); const [productF, setProductF] = useState(params.get("product") || "");
   const [drawer, setDrawer] = useState(null); const [busy, setBusy] = useState(new Set()); const [bulk, setBulk] = useState(null);
   const [srvDrawer, setSrvDrawer] = useState(null); const [srvBusy, setSrvBusy] = useState(new Set()); const [importFor, setImportFor] = useState(null);
-  const [page, setPage] = useState(0);
+  const [page, setPage] = useState(0); const [sort, setSort] = useState("attention"); const [dense, setDense] = useState("full");
   useEffect(() => { setOnly(params.get("id") || ""); setGroupF(params.get("group") || ""); setProductF(params.get("product") || ""); }, [params]);
   useEffect(() => {
     if (params.get("add") === "1") { setDrawer("add"); clearParam("add"); }
@@ -385,7 +400,14 @@ export default function PanelsView({ api, toast }) {
     && (!productF || (idx.serversByPanel.get(p.id) || []).some((s) => serves(s, productF)))
     && `${p.name} ${p.base_url} ${kindOf(p.kind).title} ${(idx.serversByPanel.get(p.id) || []).map((s) => `${s.name} ${s.location || ""}`).join(" ")}`.toLowerCase().includes(q.trim().toLowerCase())),
   [rows, filter, q, only, groupPanels, productF, idx]); // eslint-disable-line react-hooks/exhaustive-deps
-  const shown = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const sorted = useMemo(() => {
+    const rank = (p) => (!p.is_enabled ? 3 : health(p) === "unhealthy" ? 0 : health(p) === "unknown" ? 1 : 2);
+    const by = { attention: (a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name, "fa"), name: (a, b) => a.name.localeCompare(b.name, "fa"),
+      free: (a, b) => idx.panelStat(b.id).capacity - idx.panelStat(b.id).active - (idx.panelStat(a.id).capacity - idx.panelStat(a.id).active),
+      usage: (a, b) => { const f = (p) => { const x = idx.panelStat(p.id); return x.capacity ? x.active / x.capacity : 0; }; return f(b) - f(a); } };
+    return [...filtered].sort(by[sort]);
+  }, [filtered, sort, idx]);
+  const shown = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const loading = rows === null || infra.loading;
   const editing = drawer && drawer !== "add" ? (rows || []).find((p) => p.id === drawer) : null;
   const srvPanel = srvDrawer ? (rows || []).find((p) => p.id === srvDrawer.panelId) : null;
@@ -396,16 +418,18 @@ export default function PanelsView({ api, toast }) {
 
   return <div className="space-y-5">
     <InfraChain current="panels" infra={infra} />
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <KpiBar cols={4}>
       <Stat label="همه پنل‌ها" value={counts.all} tone="in" Icon={Server} active={filter === "all"} onClick={() => setFilter("all")} />
       <Stat label="سالم" value={counts.healthy} tone="ok" Icon={ShieldCheck} active={filter === "healthy"} onClick={() => setFilter(filter === "healthy" ? "all" : "healthy")} />
       <Stat label="نیازمند بررسی (ناسالم / بررسی‌نشده)" value={counts.attention} tone={counts.attention ? "bd" : "mu"} Icon={ShieldAlert} active={filter === "attention"} onClick={() => setFilter(filter === "attention" ? "all" : "attention")} />
-      <div className="card flex items-center gap-3 p-4"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl" style={tint(cap.free ? "ok" : "bd")}><ServerCog size={19} /></span><span><span className="block text-2xl font-extrabold leading-none">{num(cap.free)}</span><span className="mt-1 block text-xs text-[var(--mu)]">ظرفیت آزاد قابل فروش از {num(cap.total)}</span></span></div>
-    </div>
+      <Stat label={`ظرفیت آزاد قابل فروش از ${num(cap.total)}`} value={cap.free} tone={cap.free ? "ok" : "bd"} Icon={ServerCog} ring={cap.total ? cap.free / cap.total : 0} />
+    </KpiBar>
 
-    <div className="flex flex-wrap items-center gap-2">
-      <label className="relative min-w-[12rem] flex-1 sm:max-w-xs"><Search size={15} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--mu)]" /><input aria-label="جستجوی پنل یا سرور" className="inp pr-9" placeholder="جستجو در پنل، سرور، موقعیت یا آدرس…" value={q} onChange={(e) => setQ(e.target.value)} /></label>
-      {!!(infra.groups.rows || []).length && <select aria-label="فیلتر استخر" className="inp !w-auto" value={groupF} onChange={(e) => setGroupF(e.target.value)}><option value="">همه استخرها</option>{(infra.groups.rows || []).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select>}
+    <div className="tool">
+      <SearchBox label="جستجوی پنل یا سرور" placeholder="جستجو در پنل، سرور، موقعیت یا آدرس…" value={q} onChange={setQ} />
+      {!!(infra.groups.rows || []).length && <select aria-label="فیلتر استخر" className="inp !w-auto !py-2 !text-xs font-bold" value={groupF} onChange={(e) => setGroupF(e.target.value)}><option value="">همه استخرها</option>{(infra.groups.rows || []).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select>}
+      <SortSelect value={sort} onChange={setSort} options={[["attention", "مشکل‌دارها اول"], ["name", "نام"], ["free", "بیشترین ظرفیت آزاد"], ["usage", "بیشترین پُری"]]} />
+      <ViewToggle value={dense} onChange={setDense} options={[["full", "کامل"], ["dense", "فشرده"]]} />
       <div className="mr-auto flex items-center gap-2">
         <button className="btn btn-g !py-2 !text-sm" onClick={checkAll} disabled={!!bulk || !counts.all}><RefreshCw size={14} className={bulk ? "animate-spin" : ""} />{bulk ? `${num(bulk.done)} از ${num(bulk.total)}` : "بررسی همه"}</button>
         <button className="btn" onClick={() => setDrawer("add")}><Plus size={16} />افزودن پنل</button>
@@ -416,14 +440,12 @@ export default function PanelsView({ api, toast }) {
       {only && <>فقط یک پنل نمایش داده می‌شود</>}{group && <>پنل‌های استخر «{group.name}»</>}{productObj && <>{group || only ? " · " : ""}پنل‌ها و سرورهایی که «{productObj.name}» را پوشش می‌دهند</>}
       <button className="mr-auto underline" onClick={clearScope}>نمایش همه</button></p>}
 
-    {failed && <p role="alert" className="flex items-center gap-2 rounded-xl bg-[var(--bdb)] p-3 text-sm text-[var(--bd)]"><AlertTriangle size={16} />دریافت پنل‌ها ناموفق بود. <button className="underline" onClick={infra.reload}>تلاش دوباره</button></p>}
+    {failed && <ErrorBar onRetry={infra.reload}><AlertTriangle size={16} />دریافت پنل‌ها ناموفق بود.</ErrorBar>}
 
-    {loading ? <div className="space-y-4">{[0, 1].map((i) => <div key={i} className="card skel h-52" />)}</div>
-      : !filtered.length ? <div className="card grid place-items-center gap-3 p-14 text-center"><span className="grid h-14 w-14 place-items-center rounded-2xl bg-[var(--mb)] text-[var(--mu)]"><Server size={26} /></span>
-        <h3 className="font-extrabold">{counts.all ? "پنلی با این فیلتر پیدا نشد" : "هنوز پنلی اضافه نشده"}</h3>
-        <p className="max-w-sm text-sm leading-7 text-[var(--mu)]">{counts.all ? "جستجو یا فیلتر را تغییر دهید." : "برای فروش اکانت، ابتدا یک پنل سنایی یا پاسارگارد به Core وصل کنید؛ ظرفیت (سرور) آن هم در همان مرحله تعریف می‌شود."}</p>
-        {!counts.all && <button className="btn" onClick={() => setDrawer("add")}><Plus size={16} />افزودن اولین پنل</button>}</div>
-      : <><div className="space-y-4">{shown.map((p) => <PanelSection key={p.id} p={p} servers={serversOf(p)} stat={idx.panelStat(p.id)} groups={idx.groupsByPanel.get(p.id) || []} busy={busy.has(p.id)} srvBusy={srvBusy} filtered={!!productF || !!q.trim()}
+    {loading ? <div className="space-y-4">{[0, 1].map((i) => <div key={i} className="card skel h-56" />)}</div>
+      : !filtered.length ? <Empty Icon={Server} title={counts.all ? "پنلی با این فیلتر پیدا نشد" : "هنوز پنلی اضافه نشده"} text={counts.all ? "جستجو یا فیلتر را تغییر دهید." : "برای فروش اکانت، ابتدا یک پنل سنایی یا پاسارگارد به Core وصل کنید؛ ظرفیت (سرور) آن هم در همان مرحله تعریف می‌شود."}>
+        {!counts.all && <button className="btn" onClick={() => setDrawer("add")}><Plus size={16} />افزودن اولین پنل</button>}</Empty>
+      : <><div className="space-y-4">{shown.map((p) => <PanelSection key={p.id} p={p} servers={serversOf(p)} stat={idx.panelStat(p.id)} groups={idx.groupsByPanel.get(p.id) || []} busy={busy.has(p.id)} srvBusy={srvBusy} filtered={!!productF || !!q.trim()} dense={dense === "dense"}
           onCheck={check} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} onDelete={removePanel} onSrvDelete={removeServer}
           onSrvAdd={(x) => setSrvDrawer({ panelId: x.id, serverId: null })} onSrvEdit={(s) => setSrvDrawer({ panelId: s.panel_id, serverId: s.id })} onSrvToggle={srvToggle} onImport={setImportFor} />)}</div>
         <Paginator page={page} setPage={setPage} total={filtered.length} pageSize={PAGE_SIZE} /></>}

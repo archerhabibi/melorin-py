@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, ArrowLeft, Boxes, Layers, PanelTop, Sparkles } from "lucide-react";
 import { authFetch } from "./api.js";
-import { num, tint, useRows } from "./kit.jsx";
+import { Ring, num, tint, useRows } from "./kit.jsx";
 
 /* ---------- chain definition ---------- */
 export const CHAIN = [
@@ -207,29 +207,47 @@ function issuesOf(infra) {
   };
 }
 
+/** Sellable-readiness of the whole chain: share of active products the core could allocate right now. */
+function readiness(infra) {
+  const { idx } = infra;
+  const prods = (infra.products.rows || []).filter((p) => p.is_active);
+  const ok = prods.filter((p) => idx.reach(p).ok).length;
+  let freeSlots = 0;
+  (infra.servers.rows || []).forEach((s) => { if (serverState(s, idx.panelById.get(s.panel_id)).ok) freeSlots += free(s); });
+  return { total: prods.length, ok, freeSlots, value: prods.length ? ok / prods.length : 0 };
+}
+
 export function InfraChain({ current, infra }) {
   const st = useMemo(() => issuesOf(infra), [infra.panels.rows, infra.servers.rows, infra.groups.rows, infra.products.rows]); // eslint-disable-line react-hooks/exhaustive-deps
   const next = useMemo(() => nextStep(infra), [infra.panels.rows, infra.servers.rows, infra.groups.rows, infra.products.rows, infra.loading, infra.failed]); // eslint-disable-line react-hooks/exhaustive-deps
+  const rd = useMemo(() => readiness(infra), [infra.panels.rows, infra.servers.rows, infra.groups.rows, infra.products.rows]); // eslint-disable-line react-hooks/exhaustive-deps
   const loading = infra.loading;
+  const rtone = !rd.total ? "mu" : rd.value >= 1 ? "ok" : rd.value >= 0.5 ? "wn" : "bd";
   return <div className="space-y-3">
-    <nav aria-label="زنجیره زیرساخت" className="card rise p-3">
-      <ol className="flex flex-col gap-2 lg:flex-row lg:items-stretch lg:gap-0">
+    <nav aria-label="زنجیره زیرساخت" className="card rise pipe gap-2 p-2.5 lg:gap-4">
+      <div className="flex items-center gap-3.5 rounded-xl bg-[var(--sf2)] px-4 py-3 lg:min-w-[15rem]" title="سهم محصولات فعالی که هسته همین الان می‌تواند برایشان اکانت بسازد">
+        <Ring value={loading ? 0 : rd.value} size={58} stroke={6} tone={rtone} label={loading ? undefined : `آمادگی فروش ${Math.round(rd.value * 100)} درصد`}>{loading ? <span className="skel h-4 w-7" /> : <b className="num text-[13px] font-extrabold">{num(Math.round(rd.value * 100))}٪</b>}</Ring>
+        <div className="min-w-0"><div className="text-[11px] font-bold text-[var(--mu)]">آمادگی فروش</div>
+          <div className="mt-0.5 text-sm font-extrabold">{loading ? "…" : !rd.total ? "محصول فعالی نیست" : rd.ok === rd.total ? "همه‌چیز آماده است" : `${num(rd.ok)} از ${num(rd.total)} محصول قابل فروش`}</div>
+          {!loading && <div className="mt-0.5 text-[11px] text-[var(--mu)]"><b className="num text-[var(--tx)]">{num(rd.freeSlots)}</b> ظرفیت آزاد</div>}</div>
+      </div>
+      <ol className="pipe-steps">
         {CHAIN.map((c, i) => {
           const s = st[c.key], on = c.key === current;
           const warn = s.bad > 0;
-          return <li key={c.key} className="flex min-w-0 flex-1 items-stretch">
-            <a href={infraHref(c.slug)} aria-current={on ? "page" : undefined} className={`flex min-w-0 flex-1 items-center gap-3 rounded-xl border px-3 py-2.5 transition ${on ? "border-[var(--ac)] bg-[var(--sf2)] ring-2 ring-[color-mix(in_srgb,var(--ac)_18%,transparent)]" : "border-transparent hover:bg-[var(--sf2)]"}`}>
-              <span className="relative grid h-10 w-10 shrink-0 place-items-center rounded-xl" style={tint(c.tone)}><c.Icon size={19} /><span className="absolute -right-1.5 -top-1.5 grid h-4 w-4 place-items-center rounded-full bg-[var(--nav)] text-[9px] font-extrabold text-white">{num(i + 1)}</span></span>
+          return <li key={c.key} className="flex min-w-0 items-stretch">
+            <a href={infraHref(c.slug)} aria-current={on ? "page" : undefined} className="step min-w-0 flex-1">
+              <span className="tile relative h-11 w-11" style={tint(c.tone)}><c.Icon size={20} /><span className="absolute -right-1.5 -top-1.5 grid h-[18px] w-[18px] place-items-center rounded-full bg-[var(--nav)] text-[10px] font-extrabold text-white ring-2 ring-[var(--sf)]">{num(i + 1)}</span></span>
               <span className="min-w-0 flex-1">
-                <span className="flex items-baseline gap-2"><b className="truncate text-sm">{c.title}</b>{loading ? <span className="skel inline-block h-4 w-6" /> : <span className="text-lg font-extrabold leading-none">{num(s.n)}</span>}</span>
-                <span className="mt-0.5 block truncate text-[11px] text-[var(--mu)]">{!loading && warn ? <span className="font-bold text-[var(--bd)]">{num(s.bad)} {s.badText}</span> : !loading && s.empty > 0 ? <span className="text-[var(--wn)]">{num(s.empty)} {s.emptyText}</span> : c.hint}</span>
+                <span className="flex items-baseline gap-2"><b className="truncate text-sm">{c.title}</b>{loading ? <span className="skel inline-block h-4 w-6" /> : <span className="num text-lg font-extrabold leading-none">{num(s.n)}</span>}</span>
+                <span className="mt-1 block truncate text-[11px] text-[var(--mu)]">{!loading && warn ? <span className="font-bold text-[var(--bd)]">{num(s.bad)} {s.badText}</span> : !loading && s.empty > 0 ? <span className="text-[var(--wn)]">{num(s.empty)} {s.emptyText}</span> : c.hint}</span>
               </span>
             </a>
-            {i < CHAIN.length - 1 && <span aria-hidden="true" className="hidden shrink-0 items-center px-1.5 text-[var(--mu)] lg:flex"><ArrowLeft size={16} /></span>}
+            {i < CHAIN.length - 1 && <span aria-hidden="true" className="link-arrow hidden px-0.5 lg:grid"><ArrowLeft size={16} /></span>}
           </li>;
         })}
       </ol>
     </nav>
-    {next && <p className="flex flex-wrap items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold leading-6" style={tint("in")}><Sparkles size={15} className="shrink-0" /><span className="min-w-0 flex-1">قدم بعدی: {next.text}</span><a className="btn !py-1.5 !text-xs" href={next.href}>{next.cta}</a></p>}
+    {next && <p className="flex flex-wrap items-center gap-3 rounded-xl border border-[color-mix(in_srgb,var(--in)_30%,transparent)] px-4 py-2.5 text-xs font-bold leading-6" style={tint("in")}><Sparkles size={15} className="shrink-0" /><span className="min-w-0 flex-1">قدم بعدی: {next.text}</span><a className="btn !py-1.5 !text-xs" href={next.href}>{next.cta}</a></p>}
   </div>;
 }
