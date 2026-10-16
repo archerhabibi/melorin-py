@@ -81,18 +81,23 @@ async def create_order(
             raise AppError("ACCOUNT_NOT_RENEWABLE", "این اکانت قابل تمدید نیست.", 409)
     elif kind != "purchase":
         raise AppError("BAD_ORDER_KIND", "نوع سفارش نامعتبر است.", 400)
-    else:
-        # Core rule for every channel (bot, website, ...): the product default group applies and an unusable
-        # group is rejected here, before any money moves, instead of becoming a paid order in manual review.
-        panel_group_id, selected_panel_id = await allocation.resolve_order_group(
-            session, store_id=store.id, product=product, panel_group_id=panel_group_id, selected_panel_id=selected_panel_id
-        )
+    # Every channel gets the same answer from the core: pool, package membership, panel choice, account name
+    # and price are decided there, before any money moves. Nothing below chooses or prices a route.
+    plan = await allocation.plan_sale(
+        session, store=store, product=product, sp=sp, kind=kind, account=account,
+        panel_group_id=panel_group_id, selected_panel_id=selected_panel_id, account_name=account_name,
+    )
+    pool = plan.group if kind == "purchase" else None
+    if kind == "purchase":
+        panel_group_id, selected_panel_id, account_name = plan.group_id, plan.selected_panel_id, plan.account_name
 
     main = await main_store(session)
-    unit = catalog.unit_price_of(store, product, sp)
+    unit = plan.unit_price
     coupon, disc = await catalog.resolve_coupon(session, store, user.id, product, unit, coupon_code, lock=True)
-    q = await catalog.build_quote(session, store, product, sp, coupon, disc, main_currency=main.currency)
+    q = await catalog.build_quote(session, store, product, sp, coupon, disc, main_currency=main.currency, prices=plan.prices)
     snapshot = q.snapshot()
+    if pool is not None:
+        snapshot["pool"] = {"id": str(pool.id), "name": pool.name, "kind_label": pool.kind_label}
     if kind == "renewal" and account:
         snapshot["renewal_before"] = {"expires_at": account.expires_at.isoformat() if account.expires_at else None, "traffic_limit_bytes": account.traffic_limit_bytes}
     order = Order(

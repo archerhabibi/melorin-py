@@ -63,3 +63,8 @@ class WebhookEndpointPatch(BaseModel):
     events: list[str] | None = None
     description: str | None = Field(default=None, max_length=200)
     status: str | None = Field(default=None, pattern="^(active|disabled)$")
+
+
+class PriceIn(BaseModel):
+    """Retail price of one product in the reseller's own store. Null or 0 removes the price (product hidden)."""
+    customer_price: int | None = Field(default=None, ge=0)

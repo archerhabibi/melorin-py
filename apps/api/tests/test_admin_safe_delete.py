@@ -14,7 +14,7 @@ from melorin.modules.orders.models import Order
 from melorin.modules.referral.models import CommissionRule
 from melorin.modules.system.models import AuditEvent
 from melorin.modules.vpn.models import Panel, Server, VpnAccount
-from melorin.modules.vpn.panel_groups import PanelGroup, PanelGroupMember, StorePanelGroup
+from melorin.modules.vpn.panel_groups import PanelGroup, PanelGroupMember, PoolProduct, StorePanelGroup
 
 ADMIN = types.SimpleNamespace(id=uuid.uuid4())
 
@@ -23,7 +23,7 @@ ADMIN = types.SimpleNamespace(id=uuid.uuid4())
 async def session(tmp_path):
     db.configure(f"sqlite+aiosqlite:///{tmp_path}/delete.db")
     async with db.engine().begin() as conn:
-        tables = [m.__table__ for m in (Panel, Server, VpnAccount, Product, StoreProduct, Coupon, Order, CommissionRule, AuditEvent, PanelGroup, PanelGroupMember, StorePanelGroup)]
+        tables = [m.__table__ for m in (Panel, Server, VpnAccount, Product, StoreProduct, Coupon, Order, CommissionRule, AuditEvent, PanelGroup, PanelGroupMember, StorePanelGroup, PoolProduct)]
         await conn.run_sync(lambda c: db.Base.metadata.create_all(c, tables=tables))
     async with db.session_factory()() as s:
         yield s
@@ -181,7 +181,7 @@ async def test_unused_group_is_deleted_with_members_and_store_links(session):
     await _add(session, StorePanelGroup(store_id=uuid.uuid4(), panel_group_id=g.id))
     await session.commit()
     assert await r.delete_panel_group(g.id, ADMIN, session) == {"ok": True}
-    assert [await _count(session, m) for m in (PanelGroup, PanelGroupMember, StorePanelGroup)] == [0, 0, 0]
+    assert [await _count(session, m) for m in (PanelGroup, PanelGroupMember, StorePanelGroup, PoolProduct)] == [0, 0, 0, 0]
     assert await _count(session, Panel) == 1  # panels themselves are untouched
     assert len(await _audited(session, "panel_group.deleted")) == 1
 
