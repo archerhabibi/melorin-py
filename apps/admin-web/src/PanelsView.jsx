@@ -197,10 +197,10 @@ function PanelDrawer({ panel, groups, idx, onClose, onSubmit, onToggle, onDelete
       </>}
     </Section>}
 
-    <Section title={edit ? "استخرها" : "۶ · استخرها (اختیاری)"} hint="استخر مشخص می‌کند محصولات کدام پنل‌ها را برای ساخت اکانت بسنجند. محصولاتی که استخر ندارند روی هر پنل سالمی ساخته می‌شوند.">
+    <Section title={edit ? "گروه‌ها" : "۶ · گروه‌ها (اختیاری)"} hint="گروه مشخص می‌کند محصولات کدام پنل‌ها را برای ساخت اکانت بسنجند. محصولاتی که گروه ندارند روی هر پنل سالمی ساخته می‌شوند.">
       {groups.length
         ? <div className="flex flex-wrap gap-2">{groups.map((g) => { const on = gids.includes(g.id); return <button key={g.id} type="button" aria-pressed={on} className={`btn btn-g !py-1 !text-xs ${on ? "!border-[var(--ac)]" : ""}`} onClick={() => toggleG(g.id)}>{on ? <Check size={13} /> : <Plus size={13} />}{g.name}{!g.is_enabled && <span className="text-[var(--mu)]">(غیرفعال)</span>}</button>; })}</div>
-        : <p className="text-xs leading-6 text-[var(--mu)]">هنوز استخری ساخته نشده است. از صفحه‌ی «استخرهای فروش» می‌توانید بسازید.</p>}
+        : <p className="text-xs leading-6 text-[var(--mu)]">هنوز گروهی ساخته نشده است. از صفحه‌ی «گروه‌های پنل» می‌توانید بسازید.</p>}
     </Section>
 
     <section><button type="button" className="flex items-center gap-1.5 text-xs font-bold text-[var(--mu)]" aria-expanded={adv} onClick={() => setAdv(!adv)}><ChevronDown size={14} className={adv ? "" : "-rotate-90"} />تنظیمات پیشرفته (JSON)</button>
@@ -249,8 +249,8 @@ function PanelSection({ p, servers, stat, groups, busy, srvBusy, filtered, onChe
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-        <span className="text-[var(--mu)]">استخرها:</span>
-        {groups.length ? groups.slice(0, 4).map((g) => <RelChip key={g.id} to="panel-groups" params={{ q: g.name }} tone="wn" Icon={Layers} dim={!g.is_enabled}>{g.name}</RelChip>) : <span className="text-[var(--mu)]">هیچ — این پنل چیزی نمی‌فروشد</span>}
+        <span className="text-[var(--mu)]">گروه‌ها:</span>
+        {groups.length ? groups.slice(0, 4).map((g) => <RelChip key={g.id} to="panel-groups" params={{ q: g.name }} tone="wn" Icon={Layers} dim={!g.is_enabled}>{g.name}</RelChip>) : <span className="text-[var(--mu)]">هیچ (فقط محصولات بدون گروه)</span>}
         {groups.length > 4 && <span className="text-[var(--mu)]">+{num(groups.length - 4)}</span>}
         <span className={`mr-auto flex items-center gap-1 ${stale ? "font-bold text-[var(--wn)]" : "text-[var(--mu)]"}`} title={p.last_health_at ? dt(p.last_health_at) : ""}>{stale && <AlertTriangle size={12} />}آخرین بررسی: {ago(p.last_health_at)}</span>
       </div>
@@ -360,7 +360,7 @@ export default function PanelsView({ api, toast }) {
     const n = (idx.serversByPanel.get(p.id) || []).length;
     setBusy((x) => new Set(x).add(p.id));
     const ok = await removeEntity(infra.call, `/api/v1/admin/panels/${p.id}`, { toast, title: "حذف پنل", done: `«${p.name}» حذف شد`,
-      message: `«${p.name}» برای همیشه حذف شود؟${n ? ` ${num(n)} سرور آن هم حذف می‌شود و` : ""} از استخرها خارج می‌شود. پنل واقعی (سنایی/پاسارگارد) دست‌نخورده می‌ماند. اگر روی این پنل اکانت ساخته شده باشد حذف انجام نمی‌شود و باید آن را غیرفعال کنید.` });
+      message: `«${p.name}» برای همیشه حذف شود؟${n ? ` ${num(n)} سرور آن هم حذف می‌شود و` : ""} از گروه‌ها خارج می‌شود. پنل واقعی (سنایی/پاسارگارد) دست‌نخورده می‌ماند. اگر روی این پنل اکانت ساخته شده باشد حذف انجام نمی‌شود و باید آن را غیرفعال کنید.` });
     if (alive.current) setBusy((x) => { const m = new Set(x); m.delete(p.id); return m; });
     if (ok) { setDrawer(null); setSrvDrawer(null); await infra.reload(); }
   };
@@ -405,7 +405,7 @@ export default function PanelsView({ api, toast }) {
 
     <div className="flex flex-wrap items-center gap-2">
       <label className="relative min-w-[12rem] flex-1 sm:max-w-xs"><Search size={15} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--mu)]" /><input aria-label="جستجوی پنل یا سرور" className="inp pr-9" placeholder="جستجو در پنل، سرور، موقعیت یا آدرس…" value={q} onChange={(e) => setQ(e.target.value)} /></label>
-      {!!(infra.groups.rows || []).length && <select aria-label="فیلتر استخر" className="inp !w-auto" value={groupF} onChange={(e) => setGroupF(e.target.value)}><option value="">همه استخرها</option>{(infra.groups.rows || []).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select>}
+      {!!(infra.groups.rows || []).length && <select aria-label="فیلتر گروه" className="inp !w-auto" value={groupF} onChange={(e) => setGroupF(e.target.value)}><option value="">همه گروه‌ها</option>{(infra.groups.rows || []).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select>}
       <div className="mr-auto flex items-center gap-2">
         <button className="btn btn-g !py-2 !text-sm" onClick={checkAll} disabled={!!bulk || !counts.all}><RefreshCw size={14} className={bulk ? "animate-spin" : ""} />{bulk ? `${num(bulk.done)} از ${num(bulk.total)}` : "بررسی همه"}</button>
         <button className="btn" onClick={() => setDrawer("add")}><Plus size={16} />افزودن پنل</button>
@@ -413,7 +413,7 @@ export default function PanelsView({ api, toast }) {
     </div>
 
     {hasScope && <p className="flex flex-wrap items-center gap-2 rounded-xl bg-[var(--inb)] px-3 py-2 text-xs font-bold text-[var(--in)]">
-      {only && <>فقط یک پنل نمایش داده می‌شود</>}{group && <>پنل‌های استخر «{group.name}»</>}{productObj && <>{group || only ? " · " : ""}پنل‌ها و سرورهایی که «{productObj.name}» را پوشش می‌دهند</>}
+      {only && <>فقط یک پنل نمایش داده می‌شود</>}{group && <>پنل‌های گروه «{group.name}»</>}{productObj && <>{group || only ? " · " : ""}پنل‌ها و سرورهایی که «{productObj.name}» را پوشش می‌دهند</>}
       <button className="mr-auto underline" onClick={clearScope}>نمایش همه</button></p>}
 
     {failed && <p role="alert" className="flex items-center gap-2 rounded-xl bg-[var(--bdb)] p-3 text-sm text-[var(--bd)]"><AlertTriangle size={16} />دریافت پنل‌ها ناموفق بود. <button className="underline" onClick={infra.reload}>تلاش دوباره</button></p>}

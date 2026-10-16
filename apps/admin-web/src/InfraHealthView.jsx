@@ -120,7 +120,7 @@ export default function InfraHealthView({ api, toast }) {
           {[
             { label: "پنل",     val: pRows.length,  color: "bg-blue-50  text-blue-700" },
             { label: "سرور",    val: sRows.length,  color: "bg-indigo-50 text-indigo-700" },
-            { label: "استخر",    val: gRows.length,  color: "bg-purple-50 text-purple-700" },
+            { label: "گروه",    val: gRows.length,  color: "bg-purple-50 text-purple-700" },
             { label: "محصول",   val: prRows.length, color: "bg-teal-50   text-teal-700" },
           ].map((c) => (
             <div key={c.label} className={`rounded-xl p-3 text-center ${c.color}`}>
@@ -176,7 +176,7 @@ export default function InfraHealthView({ api, toast }) {
           {(s) => <span>{s.name}</span>}
         </IssueSection>
 
-        <IssueSection title="استخرهای خالی" items={emptyGroups} color="blue">
+        <IssueSection title="گروه‌های خالی" items={emptyGroups} color="blue">
           {(g) => <span>{g.name}</span>}
         </IssueSection>
 

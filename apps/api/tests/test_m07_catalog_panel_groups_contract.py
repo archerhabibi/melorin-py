@@ -21,7 +21,7 @@ def test_existing_products_are_backfilled():
 def test_panel_group_is_reachable_from_public_catalog():
     source = (ROOT / "melorin/modules/catalog/router.py").read_text()
     assert '"/stores/{store_id}/panel-groups"' in source
-    assert "allocation.sellable_pools" in source  # the list itself comes from the core
+    assert "PanelGroup" in source
 
 
 def test_baskets_are_renamed_to_panel_groups_everywhere():

@@ -33,7 +33,7 @@ function Route({ p, idx, compact }) {
   const panels = g ? (g.panels || []).filter((m) => m.is_enabled).map((m) => idx.panelById.get(m.panel_id)).filter(Boolean) : [];
   return <div className="space-y-2">
     <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-      {(r.groups || []).length ? r.groups.map((x) => <RelChip key={x.id} to="panel-groups" params={{ q: x.name }} tone="wn" Icon={Layers} dim={!x.is_enabled}>{x.name}</RelChip>) : <span className="rounded-lg px-2 py-1 font-bold" style={tint("bd")}>بدون استخر · قابل فروش نیست</span>}
+      {g ? <RelChip to="panel-groups" params={{ q: g.name }} tone="wn" Icon={Layers} dim={!g.is_enabled}>{g.name}</RelChip> : <span className="rounded-lg bg-[var(--mb)] px-2 py-1 font-bold text-[var(--mu)]">بدون گروه · هر پنل سالم</span>}
       <span className="text-[var(--mu)]">←</span>
       {g ? <span className="text-[var(--mu)]">{num(panels.length)} پنل فعال</span> : <span className="text-[var(--mu)]">همه پنل‌ها</span>}
       <span className="text-[var(--mu)]">←</span>
@@ -103,16 +103,16 @@ function QuickGroup({ panels, idx, call, onCreated, onCancel }) {
   const [name, setName] = useState(""), [ids, setIds] = useState([]), [busy, setBusy] = useState(false), [msg, setMsg] = useState("");
   const toggle = (id) => setIds((x) => (x.includes(id) ? x.filter((y) => y !== id) : [...x, id]));
   const submit = async () => {
-    if (name.trim().length < 2) { setMsg("نام استخر حداقل ۲ نویسه باشد"); return; }
+    if (name.trim().length < 2) { setMsg("نام گروه حداقل ۲ نویسه باشد"); return; }
     if (!ids.length) { setMsg("حداقل یک پنل انتخاب کنید"); return; }
     setBusy(true); setMsg("");
     const r = await call("/api/v1/admin/panel-groups", { method: "POST", body: JSON.stringify({ name: name.trim(), selection_mode: "automatic", naming_mode: "automatic", panel_ids: ids }) });
-    if (!r.ok) { setBusy(false); setMsg(await errText(r, "ساخت استخر ناموفق بود")); return; }
+    if (!r.ok) { setBusy(false); setMsg(await errText(r, "ساخت گروه ناموفق بود")); return; }
     const g = await r.json(); await onCreated(g.id); setBusy(false);
   };
   return <div className="space-y-3 rounded-xl border border-dashed border-[var(--ac)] bg-[var(--sf2)] p-3">
-    <div className="text-xs font-bold">استخر فروش جدید</div>
-    <input aria-label="نام استخر جدید" className="inp" maxLength={120} value={name} placeholder="مثلاً: آلمان" onChange={(e) => { setMsg(""); setName(e.target.value); }} />
+    <div className="text-xs font-bold">گروه جدید</div>
+    <input aria-label="نام گروه جدید" className="inp" maxLength={120} value={name} placeholder="مثلاً: آلمان" onChange={(e) => { setMsg(""); setName(e.target.value); }} />
     {panels.length ? <div className="max-h-40 space-y-1 overflow-y-auto">{panels.map((p) => { const on = ids.includes(p.id); return <button key={p.id} type="button" aria-pressed={on} onClick={() => toggle(p.id)} className={`flex w-full items-center gap-2 rounded-lg border px-3 py-1.5 text-right text-xs transition ${on ? "border-[var(--ac)] bg-[var(--sf)] font-bold" : "border-transparent hover:bg-[var(--mb)]"}`}><Dot s={health(p)} /><span className="min-w-0 flex-1 truncate">{p.name}</span><span className="text-[var(--mu)]">{num(idx.panelStat(p.id).n)} سرور</span></button>; })}</div>
       : <p className="text-xs text-[var(--mu)]">ابتدا از «پنل‌ها و سرورها» یک پنل اضافه کنید.</p>}
     {msg && <p role="alert" className="text-[11px] text-[var(--bd)]">{msg}</p>}
@@ -159,11 +159,11 @@ function ProductDrawer({ product, stores, groups, panels, products, idx, call, t
       <PriceHint main={f.main_price} res={f.reseller_price} cur={f.currency} />
     </Section>
     <Section title={edit ? "اکانت از کجا ساخته شود؟" : "۳ · اکانت از کجا ساخته شود؟"} hint="ربات و سایت و نماینده‌ها همه از همین انتخاب استفاده می‌کنند؛ خریدار چیزی انتخاب نمی‌کند.">
-      <Field label="استخر پیش‌فرض" hint="هر محصول باید در حداقل یک استخر فروش باشد؛ مسیر بدون استخر وجود ندارد. قیمت و استخرهای بیشتر را از صفحه استخرها تنظیم کنید.">
+      <Field label="گروه پنل" hint="گروه یعنی چند پنل مشخص با سقف فروش؛ «همه پنل‌ها» یعنی هر پنل و سرور سالم.">
         <select className="inp" value={newGroup ? "__new" : f.default_panel_group_id} onChange={(e) => { if (e.target.value === "__new") setNewGroup(true); else { setNewGroup(false); set("default_panel_group_id")(e.target.value); } }}>
-          <option value="">— انتخاب استخر —</option>
+          <option value="">همه پنل‌ها (بدون گروه)</option>
           {groups.filter((g) => g.id === f.default_panel_group_id || (g.is_enabled && g.selection_mode === "automatic")).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-          <option value="__new">+ ساخت استخر جدید…</option>
+          <option value="__new">+ ساخت گروه جدید…</option>
         </select>
       </Field>
       {newGroup && <QuickGroup panels={panels} idx={idx} call={call} onCancel={() => setNewGroup(false)} onCreated={async (id) => { await onGroupCreated(); set("default_panel_group_id")(id); setNewGroup(false); }} />}
@@ -218,7 +218,7 @@ function ProductTable({ rows, idx, busy, onEdit, onToggle, onDelete, quick, draf
         <td><div className="font-bold">{p.name}{p.is_test && <span className="badge b-wn mr-2">تست</span>}</div><div dir="ltr" className="text-right font-mono text-[11px] text-[var(--mu)]">{p.code}</div></td>
         <td>{dur(p.duration_days)}</td><td>{gb(p.traffic_gb)}</td><td>{p.max_devices ? num(p.max_devices) : "∞"}</td>
         <td>{cell(p, "main_price")}</td><td>{cell(p, "reseller_price")}</td>
-        <td className="min-w-[150px]">{(() => { const r = idx.reach(p); return r.ok ? <span className="badge b-ok" title={(r.groups || []).map((x) => x.name).join("، ")}>{num(r.live.length)} سرور · {num(r.free)} آزاد</span> : <span className="badge b-bd" title={r.issue}>مسیر ندارد</span>; })()}</td>
+        <td className="min-w-[150px]">{(() => { const r = idx.reach(p); return r.ok ? <span className="badge b-ok" title={r.group?.name || "انتخاب مستقیم سرور"}>{num(r.live.length)} سرور · {num(r.free)} آزاد</span> : <span className="badge b-bd" title={r.issue}>مسیر ندارد</span>; })()}</td>
         <td><div className="flex items-center gap-2"><Switch checked={p.is_active} disabled={busy.has(p.id)} onChange={(v) => onToggle(p, v)} label={`فعال‌سازی ${p.name}`} /></div></td>
         <td><div className="flex items-center gap-1.5"><button className="btn btn-g" onClick={() => onEdit(p)}><Pencil size={13} />ویرایش</button>{!quick && <DeleteButton compact label={`حذف ${p.name}`} busy={busy.has(p.id)} onClick={() => onDelete(p)} />}</div></td></tr>; })}</tbody></table></div></section>;
 }

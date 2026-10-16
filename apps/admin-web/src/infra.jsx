@@ -2,11 +2,11 @@
 //
 // Three screens form ONE chain that mirrors the allocation core (vpn/allocation.py):
 //
-//     پنل و سرورها (Panel + its Servers)  →  استخر فروش (Pool = PanelGroup)  →  پکیج (PoolProduct)
+//     پنل و سرورها (Panel + its Servers)  →  گروه پنل (Panel group)  →  محصول (Product)
 //
 // * a server is only a capacity slot of ONE panel, so servers are managed inside the panel screen;
-// * a pool collects panels (policy + sales limit) and is REQUIRED: there is no route without a pool;
-// * a product is sold through the pools that list it (group.product_ids); core: pool → panel → server.
+// * a panel group collects panels (policy + sales limit) and is OPTIONAL for a product;
+// * a product points at a default panel group, and the core resolves product → group → panel → server.
 //
 // `useInfra` loads the lists once per screen and derives the relations so every screen can show
 // where an item sits in the chain, what it depends on, and what is broken for sale.
@@ -18,8 +18,8 @@ import { num, tint, useRows } from "./kit.jsx";
 /* ---------- chain definition ---------- */
 export const CHAIN = [
   { key: "panels", slug: "panels", title: "پنل‌ها و سرورها", one: "پنل", Icon: PanelTop, tone: "in", hint: "اتصال به سنایی / پاسارگارد + ظرفیت" },
-  { key: "groups", slug: "panel-groups", title: "استخرهای فروش", one: "استخر", Icon: Layers, tone: "wn", hint: "مسیر فروش: پنل‌ها + پکیج‌ها و قیمت (الزامی)" },
-  { key: "products", slug: "products", title: "محصولات VPN", one: "محصول", Icon: Boxes, tone: "mu", hint: "پلن پایه؛ در استخرها پکیج می‌شود" },
+  { key: "groups", slug: "panel-groups", title: "گروه‌های پنل", one: "گروه", Icon: Layers, tone: "wn", hint: "پخش فروش بین چند پنل (اختیاری)" },
+  { key: "products", slug: "products", title: "محصولات VPN", one: "محصول", Icon: Boxes, tone: "mu", hint: "پلن قابل فروش + محل ساخت اکانت" },
 ];
 
 /* ---------- hash routing helpers (#/servers?panel=<id>&add=1) ---------- */
@@ -84,13 +84,7 @@ export function buildIndex(panels, servers, groups, products) {
   const serversByPanel = new Map(), groupsByPanel = new Map(), productsByGroup = new Map();
   servers.forEach((s) => { (serversByPanel.get(s.panel_id) || serversByPanel.set(s.panel_id, []).get(s.panel_id)).push(s); });
   groups.forEach((g) => (g.panels || []).forEach((m) => { const l = groupsByPanel.get(m.panel_id) || groupsByPanel.set(m.panel_id, []).get(m.panel_id); if (!l.includes(g)) l.push(g); }));
-  const productById = new Map(products.map((p) => [p.id, p]));
-  const groupsByProduct = new Map();
-  groups.forEach((g) => (g.product_ids || []).forEach((pid) => {
-    const p = productById.get(pid); if (!p) return;
-    (productsByGroup.get(g.id) || productsByGroup.set(g.id, []).get(g.id)).push(p);
-    (groupsByProduct.get(pid) || groupsByProduct.set(pid, []).get(pid)).push(g);
-  }));
+  products.forEach((p) => { if (p.default_panel_group_id) (productsByGroup.get(p.default_panel_group_id) || productsByGroup.set(p.default_panel_group_id, []).get(p.default_panel_group_id)).push(p); });
 
   const panelStat = (id) => {
     const l = serversByPanel.get(id) || [];
@@ -102,30 +96,28 @@ export function buildIndex(panels, servers, groups, products) {
     const live = l.filter((s) => serverState(s, panelById.get(s.panel_id)).ok);
     return { panels: ids.length, servers: l.length, live: live.length, capacity: l.reduce((a, s) => a + (s.capacity || 0), 0), active: l.reduce((a, s) => a + (s.active_accounts || 0), 0), free: live.reduce((a, s) => a + free(s), 0) };
   };
-  /** What the core could actually allocate for a product: pools listing it → enabled members → live servers. */
+  /** What the core could actually allocate for a product: product → default group → enabled members → live servers. */
   const reach = (p) => {
-    let gs = groupsByProduct.get(p.id) || [];
-    if (!gs.length && p.default_panel_group_id && groupById.get(p.default_panel_group_id)) gs = [groupById.get(p.default_panel_group_id)];
-    let issue = "";
-    const panelIds = new Set();
-    if (!gs.length) issue = "در هیچ استخر فروشی نیست؛ قابل فروش نیست";
-    else {
-      const on = gs.filter((g) => g.is_enabled);
-      if (!on.length) issue = "همه استخرهای این محصول غیرفعال‌اند";
-      else on.forEach((g) => (g.panels || []).filter((m) => m.is_enabled).forEach((m) => panelIds.add(m.panel_id)));
-      if (!issue && !panelIds.size) issue = "استخرهای این محصول پنل فعالی ندارند";
+    let panelIds = null, group = null, issue = "";
+    if (p.default_panel_group_id) {
+      group = groupById.get(p.default_panel_group_id);
+      if (!group) issue = "گروه پیش‌فرض حذف شده است";
+      else if (!group.is_enabled) issue = "گروه پیش‌فرض غیرفعال است";
+      else { panelIds = new Set((group.panels || []).filter((m) => m.is_enabled).map((m) => m.panel_id)); if (!panelIds.size) issue = "گروه پیش‌فرض پنل فعالی ندارد"; }
     }
-    const pool = issue ? [] : servers.filter((s) => panelIds.has(s.panel_id) && serves(s, p.code));
+    const pool = issue ? [] : servers.filter((s) => (!panelIds || panelIds.has(s.panel_id)) && serves(s, p.code));
     const live = pool.filter((s) => serverState(s, panelById.get(s.panel_id)).ok);
-    if (!issue && !pool.length) issue = "هیچ سروری روی پنل‌های این استخرها این محصول را پوشش نمی‌دهد";
+    if (!issue && !pool.length) issue = group ? "هیچ سروری روی پنل‌های این گروه این محصول را پوشش نمی‌دهد" : "هیچ سروری این محصول را پوشش نمی‌دهد";
     else if (!issue && !live.length) issue = "سرورهای سازگار همه غیرفعال، پر یا روی پنل ناسالم‌اند";
-    return { group: gs[0] || null, groups: gs, direct: false, servers: pool, live, free: live.reduce((a, s) => a + free(s), 0), issue, ok: !issue };
+    return { group, direct: !p.default_panel_group_id, servers: pool, live, free: live.reduce((a, s) => a + free(s), 0), issue, ok: !issue };
   };
   /** Products that can end up on a server of `panelId` whose allow-list is `codes` (null/[] = all). */
   const productsForPanel = (panelId, codes) => products.filter((p) => {
     if (!p.is_active) return false;
     if (codes?.length && !codes.includes(p.code)) return false;
-    return (groupsByProduct.get(p.id) || []).some((g) => g.is_enabled && (g.panels || []).some((m) => m.is_enabled && m.panel_id === panelId));
+    if (!p.default_panel_group_id) return true;
+    const g = groupById.get(p.default_panel_group_id);
+    return !!g && g.is_enabled && (g.panels || []).some((m) => m.is_enabled && m.panel_id === panelId);
   });
   return { panelById, groupById, serversByPanel, groupsByPanel, productsByGroup, panelStat, groupStat, reach, productsForPanel };
 }
@@ -176,7 +168,7 @@ export const memberIds = (g) => (g?.panels || []).slice().sort((a, b) => a.sort 
 export async function saveGroupPanels(call, group, panelIds) {
   const r = await call(`/api/v1/admin/panel-groups/${group.id}`, { method: "PATCH", body: JSON.stringify({ panel_ids: panelIds }) });
   if (r.ok) return "";
-  try { const d = await r.json(); return d?.error?.message || (typeof d?.detail === "string" ? d.detail : "") || "تغییر پنل‌های استخر ناموفق بود"; } catch { return "تغییر پنل‌های استخر ناموفق بود"; }
+  try { const d = await r.json(); return d?.error?.message || (typeof d?.detail === "string" ? d.detail : "") || "تغییر پنل‌های گروه ناموفق بود"; } catch { return "تغییر پنل‌های گروه ناموفق بود"; }
 }
 
 /* ---------- guided next step ---------- */
@@ -189,7 +181,7 @@ export function nextStep(infra) {
   if (noServer) return { text: `پنل «${noServer.name}» سرور ندارد؛ تا ظرفیت تعریف نشود اکانتی روی آن ساخته نمی‌شود.`, cta: "افزودن سرور", href: infraHref("panels", { id: noServer.id, add: "server" }) };
   const sick = panels.find((p) => p.is_enabled && health(p) !== "healthy");
   if (sick) return { text: `سلامت پنل «${sick.name}» ${health(sick) === "unhealthy" ? "ناسالم است" : "هنوز بررسی نشده"}؛ تا سالم نشود فروشی روی آن انجام نمی‌شود.`, cta: "بررسی پنل", href: infraHref("panels", { id: sick.id }) };
-  if (!products.length) return { text: "پنل‌ها آماده‌اند. حالا اولین محصول را بسازید؛ همان‌جا می‌توانید استخر فروش هم بسازید.", cta: "افزودن محصول", href: infraHref("products", { add: 1 }) };
+  if (!products.length) return { text: "پنل‌ها آماده‌اند. حالا اولین محصول را بسازید؛ همان‌جا می‌توانید گروه هم بسازید.", cta: "افزودن محصول", href: infraHref("products", { add: 1 }) };
   const broken = products.filter((p) => p.is_active && !idx.reach(p).ok);
   if (broken.length) return { text: `${num(broken.length)} محصول فعال مسیر تخصیص ندارد و خریدش با خطا روبه‌رو می‌شود.`, cta: "مشاهده", href: infraHref("products", { filter: "broken" }) };
   return null;
@@ -202,7 +194,7 @@ function issuesOf(infra) {
   const full = servers.filter((s) => s.is_enabled && usage(s) >= 1).length;
   return {
     panels: { n: panels.length, bad: panels.filter((p) => p.is_enabled && health(p) !== "healthy").length, badText: "ناسالم/بررسی‌نشده", empty: panels.filter((p) => !(idx.serversByPanel.get(p.id) || []).length).length + full, emptyText: "بدون سرور یا ظرفیت پر" },
-    groups: { n: groups.length, bad: groups.filter((g) => g.is_enabled && !(g.panels || []).length).length, badText: "بدون پنل", empty: groups.filter((g) => !(idx.productsByGroup.get(g.id) || []).length).length, emptyText: "بدون پکیج" },
+    groups: { n: groups.length, bad: groups.filter((g) => g.is_enabled && !(g.panels || []).length).length, badText: "بدون پنل", empty: groups.filter((g) => !(idx.productsByGroup.get(g.id) || []).length).length, emptyText: "بدون محصول" },
     products: { n: products.length, bad: products.filter((p) => p.is_active && !idx.reach(p).ok).length, badText: "بدون مسیر تخصیص", empty: 0, emptyText: "" },
   };
 }
