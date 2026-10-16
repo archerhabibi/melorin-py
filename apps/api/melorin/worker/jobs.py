@@ -138,3 +138,13 @@ async def privacy_retention_job(ctx=None):
         await s.commit()
         log.info("privacy retention removed verification_codes=%s", result.rowcount or 0)
         return int(result.rowcount or 0)
+
+
+async def telegram_login_gc_job(ctx=None):
+    """Drop finished website-login sessions (Telegram bot approval) one day after they expired."""
+    from melorin.modules.identity import telegram_web
+
+    async with session_factory()() as s:
+        removed = await telegram_web.purge_old(s)
+        log.info("telegram web login sessions removed=%s", removed)
+        return removed

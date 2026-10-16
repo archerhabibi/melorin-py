@@ -2,6 +2,7 @@
 
 This file is the executable-alignment companion to the high-level API contract.
 
+- Website login via Telegram bot (`docs/TELEGRAM-WEB-LOGIN.md`): browser `POST /api/v1/auth/telegram/web/sessions`, `POST …/sessions/{id}/poll`, `POST …/sessions/{id}/cancel`; bot runner (`X-Bot-Secret`) `POST …/web/bot/inspect`, `POST …/web/bot/decide`.
 - Catalog: `GET /api/v1/stores/main`, `GET /api/v1/stores/by-slug/{slug}`, `GET /api/v1/stores/{store_id}`, `GET /api/v1/stores/{store_id}/catalog`.
 - Checkout: `POST /api/v1/stores/{store_id}/checkout/quote`, `POST /api/v1/stores/{store_id}/orders`, `GET /api/v1/orders/{order_id}`.
 - Wallet/payment: `GET /api/v1/stores/{store_id}/wallet`, `POST /api/v1/stores/{store_id}/wallet/topups`, `GET /api/v1/payments/{payment_id}`, `GET|POST /api/v1/payments/callbacks/{provider}`.

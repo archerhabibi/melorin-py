@@ -1,16 +1,17 @@
 // Subject + plan: Melorin storefront for VPN customers. A warm Persian service counter meets a precise account console: dusk navy, saffron, and mint; hero catalog, store-scoped quote, wallet, and orders in one calm flow.
 // Design system v2: tokens live in styles.css (light + dark), shared primitives in ui.jsx.
 import { useEffect, useState } from "react";
-import { ArrowLeft, Check, CreditCard, Home, KeyRound, LayoutGrid, LifeBuoy, Link2, Loader2, Lock, Mail, Menu, RefreshCw, ShieldCheck, Sparkles, User, Wallet as WalletIcon, X, Zap } from "lucide-react";
+import { ArrowLeft, Check, CreditCard, Home, KeyRound, LayoutGrid, LifeBuoy, Link2, Loader2, Lock, Mail, Menu, RefreshCw, Send, ShieldCheck, Sparkles, User, Wallet as WalletIcon, X, Zap } from "lucide-react";
 import Dashboard, { Faq } from "./Dashboard.jsx";
 import Reseller from "./Reseller.jsx";
 import { clearTokens, getAccessToken, setTokens } from "./auth.js";
 import { GoogleSignInButton, useGoogleSignIn } from "./GoogleSignIn.jsx";
+import TelegramLogin from "./TelegramLogin.jsx";
 import { Modal, ThemeToggle, Toast, fa } from "./ui.jsx";
 
 const NAV = [["#plans", "سرویس‌ها"], ["#how", "نحوه خرید"], ["#why", "چرا ملورین؟"], ["#faq", "سوالات"]];
 const STEPS = [
-  [Mail, "ورود با ایمیل", "بدون رمز عبور؛ کد ورود به ایمیلت می‌آید."],
+  [Send, "ورود با تلگرام یا ایمیل", "با یک تأیید در ربات تلگرام یا با کد ایمیل؛ بدون رمز عبور."],
   [WalletIcon, "شارژ کیف پول", "کارت‌به‌کارت با رسید یا درگاه آنلاین."],
   [LayoutGrid, "انتخاب سرویس", "پیش‌فاکتور شفاف را ببین و پرداخت کن."],
   [Link2, "دریافت لینک", "لینک اشتراک بلافاصله در حسابت آماده است."],
@@ -20,7 +21,7 @@ async function errOf(r, fallback) { try { const d = await r.json(); return d?.er
 const WHY = [
   [WalletIcon, "کیف پول شفاف", "شارژ، خرید و تمدید را در یک گردش مالی ساده ببین؛ هر تراکنش ردیف مشخصی دارد."],
   [LifeBuoy, "پشتیبانی انسانی", "اگر جایی گیر کردی، از بخش تیکت‌ها پیام بده و پاسخ همان‌جا بیاید."],
-  [ShieldCheck, "امنیت حساب", "ورود با کد ایمیل، امکان ورود دومرحله‌ای و مدیریت رمز عبور."],
+  [ShieldCheck, "امنیت حساب", "ورود با تأیید در تلگرام یا کد ایمیل، امکان ورود دومرحله‌ای و مدیریت رمز عبور."],
   [KeyRound, "بدون قفل شدن", "سرویس و اطلاعاتت مال خودت است، نه یک پنل مبهم."],
 ];
 
@@ -71,6 +72,7 @@ export default function App(){
   const [wallet, setWallet] = useState(null);
   const [orders, setOrders] = useState([]);
   const [storeId, setStoreId] = useState("");
+  const [hasBot, setHasBot] = useState(false);
   const [ticket, setTicket] = useState("");
   const [selectedQuote, setSelectedQuote] = useState(null);
   const [hash, setHash] = useState(window.location.hash);
@@ -84,6 +86,19 @@ export default function App(){
   const onReseller = hash === "#/reseller" && accessToken;
   const base = (import.meta.env?.VITE_MELORIN_API_URL || window.location.origin).replace(/\/$/, "");
   // ─── Google Sign-In ───
+  function completeLogin(pair) {
+    setTokens(pair);
+    setAccessToken(pair.access_token);
+    setModal("");
+    notify("خوش آمدی");
+    if (pair.is_admin) {
+      // Admins sign in on the admin panel (password + TOTP); never keep an admin session in the storefront.
+      clearTokens(); setAccessToken("");
+      notify("ورود ادمین فقط از پنل مدیریت انجام می‌شود.");
+      return;
+    }
+    window.location.hash = "#/dashboard";
+  }
   async function handleGoogleCredential(idToken) {
     setBusy(true);
     try {
@@ -94,18 +109,7 @@ export default function App(){
         body: JSON.stringify({ id_token: idToken }),
       });
       if (!r.ok) throw new Error("google_failed");
-      const pair = await r.json();
-      setTokens(pair);
-      setAccessToken(pair.access_token);
-      setModal("");
-      notify("خوش آمدی");
-      if (pair.is_admin) {
-        // Admins sign in on the admin panel (password + TOTP); never keep an admin session in the storefront.
-        clearTokens(); setAccessToken("");
-        notify("ورود ادمین فقط از پنل مدیریت انجام می‌شود.");
-        return;
-      }
-      window.location.hash = "#/dashboard";
+      completeLogin(await r.json());
     } catch {
       notify("ورود با گوگل ناموفق بود. دوباره تلاش کنید.");
     } finally {
@@ -163,7 +167,7 @@ export default function App(){
     coreFetch(`/api/v1/stores/by-domain/${encodeURIComponent(window.location.hostname.toLowerCase())}`, {headers: {Accept: "application/json"}})
       .then(r => r.ok ? r : coreFetch(`/api/v1/stores/main`, {headers: {Accept: "application/json"}}))
       .then(r => r.ok ? r.json() : Promise.reject(new Error(String(r.status))))
-      .then(store => { setStoreId(store.id); return fetch(`${base}/api/v1/stores/${store.id}/pools`, {headers: {Accept: "application/json"}}); })
+      .then(store => { setStoreId(store.id); setHasBot(Boolean(store.bot_username)); return fetch(`${base}/api/v1/stores/${store.id}/pools`, {headers: {Accept: "application/json"}}); })
       .then(r => r.ok ? r.json() : Promise.reject(new Error(String(r.status))))
       .then(data => { const list = Array.isArray(data) ? data : (data.items || []); setPools(list); setPoolId((cur) => list.some((x) => x.id === cur) ? cur : (list.length === 1 ? list[0].id : "")); setApiState("اتصال Core برقرار است"); })
       .catch(() => { setPools([]); setApiState("Core در دسترس نیست؛ سرویس‌ها موقتاً نمایش داده نمی‌شود"); })
@@ -290,8 +294,9 @@ export default function App(){
       {[[Home, "خانه", () => { window.location.hash = ""; window.scrollTo({ top: 0 }); }, !inApp], [LayoutGrid, "سرویس‌ها", () => { window.location.hash = "#plans"; }, false], [LifeBuoy, "پرسش‌ها", () => { window.location.hash = "#faq"; }, false], [User, "حساب", goAccount, inApp]].map(([Icon, l, fn, on]) => <button key={l} onClick={fn} className={`flex flex-col items-center gap-1 rounded-xl py-1.5 text-[11px] font-bold ${on ? "text-coral" : "text-muted"}`}><Icon size={20} />{l}</button>)}
     </nav>
 
-    {modal && <Modal onClose={() => setModal("")} title={{ login: "ورود به ملورین", code: "کد ورود را وارد کن", checkout: `پیش‌فاکتور ${active}`, account: "حساب من" }[modal]}>
-      {modal==="login"&&<form onSubmit={(e)=>{e.preventDefault(); validEmail && run(requestCode, "ارسال کد ناموفق بود");}}><p className="mt-2 text-sm leading-7 text-muted">رمز عبور لازم نیست؛ کد ورود به ایمیلت ارسال می‌شود. اگر حساب نداشته باشی، خودکار ساخته می‌شود.</p><label className="mt-6 block text-xs font-bold">ایمیل<div className="relative mt-1.5"><Mail size={17} className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-muted" /><input type="email" dir="ltr" autoComplete="email" inputMode="email" value={email} onChange={e=>setEmail(e.target.value)} className="input !pr-10 text-left" placeholder="email@example.com"/></div></label><button type="submit" disabled={!validEmail || busy} className="btn-primary mt-5 w-full">{busy ? <Loader2 size={18} className="animate-spin" /> : <Mail size={18} />}ارسال کد ورود</button><p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-muted"><Lock size={13} />ایمیل تو نزد ما محفوظ می‌ماند.</p><div className="my-4 flex items-center gap-3"><span className="h-px flex-1 bg-line" /><span className="text-xs text-muted">یا</span><span className="h-px flex-1 bg-line" /></div><GoogleSignInButton onCredential={handleGoogleCredential} /></form>}
+    {modal && <Modal onClose={() => setModal("")} title={{ login: "ورود به ملورین", telegram: "ورود با تلگرام", code: "کد ورود را وارد کن", checkout: `پیش‌فاکتور ${active}`, account: "حساب من" }[modal]}>
+      {modal==="login"&&<form onSubmit={(e)=>{e.preventDefault(); validEmail && run(requestCode, "ارسال کد ناموفق بود");}}><p className="mt-2 text-sm leading-7 text-muted">رمز عبور لازم نیست؛ با تأیید در تلگرام یا کدی که به ایمیلت می‌آید وارد شو. اگر حساب نداشته باشی، خودکار ساخته می‌شود.</p>{hasBot&&<><button type="button" onClick={()=>setModal("telegram")} className="btn-primary mt-6 w-full !bg-[#229ED9] !text-white"><Send size={18} />ورود با تلگرام</button><div className="mt-4 flex items-center gap-3"><span className="h-px flex-1 bg-line" /><span className="text-xs text-muted">یا با ایمیل</span><span className="h-px flex-1 bg-line" /></div></>}<label className={`${hasBot ? "mt-4" : "mt-6"} block text-xs font-bold`}>ایمیل<div className="relative mt-1.5"><Mail size={17} className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-muted" /><input type="email" dir="ltr" autoComplete="email" inputMode="email" value={email} onChange={e=>setEmail(e.target.value)} className="input !pr-10 text-left" placeholder="email@example.com"/></div></label><button type="submit" disabled={!validEmail || busy} className="btn-primary mt-5 w-full">{busy ? <Loader2 size={18} className="animate-spin" /> : <Mail size={18} />}ارسال کد ورود</button><p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-muted"><Lock size={13} />ایمیل تو نزد ما محفوظ می‌ماند.</p><div className="my-4 flex items-center gap-3"><span className="h-px flex-1 bg-line" /><span className="text-xs text-muted">یا</span><span className="h-px flex-1 bg-line" /></div><GoogleSignInButton onCredential={handleGoogleCredential} /></form>}
+      {modal==="telegram"&&<TelegramLogin base={base} storeId={storeId} onTokens={completeLogin} onBack={()=>setModal("login")} />}
       {modal==="code"&&<form onSubmit={(e)=>{e.preventDefault(); loginCode && run(verifyCode, "کد نامعتبر است");}}><p className="mt-2 text-sm leading-7 text-muted">کد ارسال‌شده به <b className="latin text-ink">{email}</b> را وارد کن.</p><input autoFocus dir="ltr" inputMode="numeric" autoComplete="one-time-code" value={loginCode} onChange={e=>setLoginCode(e.target.value.trim())} className="input mt-6 !py-4 text-center text-2xl font-black tracking-[.5em]" placeholder="••••••" aria-label="کد ورود"/><button type="submit" disabled={!loginCode || busy} className="btn-primary mt-5 w-full">{busy && <Loader2 size={18} className="animate-spin" />}تأیید و ورود</button><button type="button" onClick={()=>setModal("login")} className="mt-3 w-full text-center text-xs font-bold text-muted hover:text-ink">تغییر ایمیل یا ارسال دوباره</button></form>}
       {modal==="checkout"&&<><p className="mt-2 text-sm text-muted">خلاصه سفارش را بررسی و از کیف پول پرداخت کن.</p><dl className="mt-6 divide-y divide-line rounded-2xl bg-surface2 px-4 text-sm"><div className="flex justify-between py-3.5"><dt className="text-muted">سرویس</dt><dd className="font-bold">{active}</dd></div>{pool && <div className="flex justify-between py-3.5"><dt className="text-muted">استخر</dt><dd className="font-bold">{pool.name}{panelLabel ? ` · ${panelLabel}` : ""}</dd></div>}{customName && <div className="flex justify-between py-3.5"><dt className="text-muted">نام کاربری</dt><dd className="latin font-bold">{accountName.trim()}</dd></div>}<div className="flex justify-between py-3.5"><dt className="text-muted">مبلغ نهایی</dt><dd className="text-lg font-black">{new Intl.NumberFormat("fa-IR").format(selectedQuote?.total||0)} <span className="text-xs font-semibold">{selectedQuote?.currency}</span></dd></div><div className="flex justify-between py-3.5"><dt className="text-muted">موجودی کیف پول</dt><dd className={`font-bold ${selectedQuote?.sufficient_funds ? "text-mint" : "text-danger"}`}>{new Intl.NumberFormat("fa-IR").format(selectedQuote?.wallet_balance||0)}</dd></div></dl>{selectedQuote && !selectedQuote.sufficient_funds && <p className="mt-3 rounded-xl bg-danger-soft px-4 py-3 text-xs font-bold leading-6 text-danger">موجودی کافی نیست. ابتدا از بخش «کیف پول» حساب را شارژ کن.</p>}<button disabled={!selectedQuote?.sufficient_funds || busy} onClick={()=>run(buySelected, "ثبت سفارش ناموفق بود")} className="btn-primary mt-5 w-full">{busy ? <Loader2 size={18} className="animate-spin" /> : <CreditCard size={18} />}پرداخت از کیف پول و ثبت سفارش</button>{selectedQuote && !selectedQuote.sufficient_funds && <button onClick={()=>{setModal(""); window.location.hash="#/dashboard";}} className="btn-soft mt-3 w-full">رفتن به کیف پول</button>}</>}
       {modal==="account"&&<><div className="mt-5 rounded-2xl bg-mint-soft p-4">موجودی: {new Intl.NumberFormat("fa-IR").format(wallet?.balance||0)} {wallet?.currency}</div><p className="mt-4 text-sm">سفارش‌ها: {fa(orders.length)}</p></>}

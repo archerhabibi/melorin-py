@@ -3,6 +3,7 @@
 Deny-by-default، least privilege، Core-enforced authorization و جداسازی StoreContext. پنهان‌کردن UI جایگزین Authorization نیست.
 ## Authentication
 Telegram identity باید معتبرسنجی شود. Website از Google و/یا Email استفاده می‌کند؛ روش دقیق Email باز است. Token/session دارای expiry، refresh/rotation، logout/revoke و محافظت replay باشد. Account linking: پس از تأیید ایمیل، تطبیق ایمیل تأییدشده می‌تواند هویت‌ها را به User مرکزی متصل کند. هر تعارض، چند حساب محتمل یا وضعیت مبهم باید اتصال خودکار را متوقف کرده، رخداد قابل Audit ایجاد و برای بازبینی دستی گزارش شود.
+ورود Website با تأیید در ربات تلگرام (Device Authorization با اتصال به مرورگر، تطبیق عدد و نمایش دستگاه/IP) در `docs/TELEGRAM-WEB-LOGIN.md` توصیف شده است؛ ادمین‌ها از این مسیر وارد نمی‌شوند.
 ## Authorization
 - Admin: تمام Storeها.
 - Reseller: فقط Store، مشتریان، گزارش و عملیات مجاز خودش.
