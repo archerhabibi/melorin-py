@@ -182,9 +182,12 @@ if [ -n "${BOOTSTRAP_TOTP:-}" ]; then
   echo "  Admin TOTP secret (save once in an authenticator): ${BOOTSTRAP_TOTP}"
 fi
 echo "  DNS   : both domains must point to this server (certificates are issued automatically on first visit)."
+echo "          Reseller store domains: the reseller points an A record at this server; the bundled Caddy then issues the certificate on first visit (only for domains registered in Core)."
 if [ "$EXTERNAL_PROXY" = "true" ]; then
   echo "  Proxy : external mode; route the host proxy to 127.0.0.1:18080 (store) and 127.0.0.1:18081 (admin)."
   echo "          Route /api/* and /health/* to 127.0.0.1:18000."
+  echo "          Reseller domains: send them to 127.0.0.1:18080 as well (same as the store) and, if your proxy issues certificates on demand,"
+  echo "          gate them with GET 127.0.0.1:18000/api/v1/tls/ask?domain=<host> (200 = registered reseller domain, 404 = refuse)."
 fi
 echo "  SMTP / S3: not required. Enable them later in Admin -> Settings -> Integrations."
 echo "  Backups: encrypted, daily 02:00 UTC, stored locally in the api_storage volume (/app/var/backups)."

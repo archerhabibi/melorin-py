@@ -1,3 +1,11 @@
+{
+  # Reseller store domains are not known when Caddy starts: certificates are issued on first visit, but only for
+  # hostnames the Core API confirms (active reseller Store.domain). Anything else is refused.
+  on_demand_tls {
+    ask http://api:8000/api/v1/tls/ask
+  }
+}
+
 {$MELORIN_DOMAIN:localhost} {
   encode gzip
   @blocked_ops path /metrics /docs /redoc /openapi.json
@@ -38,4 +46,35 @@
     Content-Security-Policy "default-src 'self'; connect-src 'self' https:; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:"
     Permissions-Policy "camera=(), microphone=(), geolocation=()"
   }
+}
+
+# Reseller store domains (any other hostname that points at this server and is registered in Core).
+# Same storefront + API as the main domain; the admin panel is never served here.
+https:// {
+  tls {
+    on_demand
+  }
+  encode gzip
+  @blocked_ops path /metrics /docs /redoc /openapi.json
+  respond @blocked_ops 404
+  @api path /api/* /health/* /health /healthz
+  handle @api {
+    reverse_proxy api:8000
+  }
+  handle {
+    reverse_proxy store_web:80
+  }
+  header {
+    Strict-Transport-Security "max-age=31536000"
+    X-Content-Type-Options nosniff
+    X-Frame-Options DENY
+    Referrer-Policy strict-origin-when-cross-origin
+    Content-Security-Policy "default-src 'self'; connect-src 'self' https:; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:"
+    Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  }
+}
+
+# Plain HTTP on reseller domains -> HTTPS (the named sites above get this redirect automatically).
+http:// {
+  redir https://{host}{uri} permanent
 }

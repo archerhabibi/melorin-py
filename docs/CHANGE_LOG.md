@@ -36,6 +36,14 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-16 04:47 UTC - Claude - infra, api, store-web
+- **Before:** Caddy served only `MELORIN_DOMAIN` and `MELORIN_ADMIN_DOMAIN`. A reseller store created with its own domain got no certificate and no route, and the storefront always loaded the main store.
+- **Problem:** The reseller domain was stored in Core but never reachable through Caddy.
+- **Action:** Caddy on-demand TLS: global `on_demand_tls` with `ask http://api:8000/api/v1/tls/ask`, a catch-all `https://` site (storefront + `/api`, same blocked ops, no admin) and an `http://` to HTTPS redirect. New public endpoint `GET /api/v1/tls/ask?domain=` (200 only for an active reseller `Store.domain`). Store web resolves the store from `window.location.hostname` (`/stores/by-domain/<host>`) and falls back to the main store. Runbook and installer hints cover DNS and `EXTERNAL_PROXY=true`.
+- **After:** `caddy validate` on the new Caddyfile: valid. API suite 380 passed, 1 skipped (3 new tests). `check_g001_g010.py` still reports G006 and G010 failed, same as before this change. Not run: a real certificate issuance, the frontend build.
+- **Ref:** (commit of this patch)
+
+
 ### 2026-10-16 04:05 UTC - Claude - telegram-main, api, admin-web, store-web, db
 - **Before:** `/reseller` in the main bot only opened a support ticket. A real reseller application (web form) needed the store domain and the bot token up front, and an application without them could only be rejected.
 - **Problem:** Resellers could not apply from Telegram. Owner decision: the bot sends the request first and collects the domain and bot token only after the request is approved (giving the token in Telegram is acceptable).

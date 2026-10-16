@@ -128,7 +128,9 @@ export default function App(){
   useEffect(() => {
     const base = (import.meta.env?.VITE_MELORIN_API_URL || window.location.origin).replace(/\/$/, "");
     setCatalogLoading(true);
-    coreFetch(`/api/v1/stores/main`, {headers: {Accept: "application/json"}})
+    // A reseller's own domain shows that reseller's store; any other host (main domain, localhost) shows the main store.
+    coreFetch(`/api/v1/stores/by-domain/${encodeURIComponent(window.location.hostname.toLowerCase())}`, {headers: {Accept: "application/json"}})
+      .then(r => r.ok ? r : coreFetch(`/api/v1/stores/main`, {headers: {Accept: "application/json"}}))
       .then(r => r.ok ? r.json() : Promise.reject(new Error(String(r.status))))
       .then(store => { setStoreId(store.id); return fetch(`${base}/api/v1/stores/${store.id}/pools`, {headers: {Accept: "application/json"}}); })
       .then(r => r.ok ? r.json() : Promise.reject(new Error(String(r.status))))
