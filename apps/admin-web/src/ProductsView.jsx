@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { authFetch } from "./api.js";
 import { Badge, confirmDialog } from "./ui.jsx";
 import { AlertTriangle, Boxes, ChevronDown, Layers, ServerCog, CheckCircle2, Clock, Infinity as Inf, LayoutGrid, List, Pencil, PowerOff, Plus, Save, Search, ShieldAlert, Smartphone, Store, Tag, Wallet, X, Zap } from "lucide-react";
-import { Drawer, Field, NumInput, Paginator, Section, Segmented, Stat, Switch, Toggle, DeleteButton, errText, num, removeEntity, tint, useAlive, useRows } from "./kit.jsx"; // #4
+import { Drawer, Empty, ErrorBar, Field, KpiBar, NumInput, Paginator, Pills, SearchBox, Section, Segmented, SortSelect, Stat, Switch, Toggle, ViewToggle, DeleteButton, errText, num, removeEntity, tint, useAlive, useRows } from "./kit.jsx"; // #4
 import { Dot, InfraChain, RelChip, Warn, clearParam, health, infraHref, useHashParams, useInfra } from "./infra.jsx";
 
 const API = "/api/v1/admin/products";
@@ -188,19 +188,21 @@ function ProductDrawer({ product, stores, groups, panels, products, idx, call, t
 }
 
 function ProductCard({ p, idx, busy, onEdit, onToggle, onDelete }) {
-  const d = pct(p.main_price, p.reseller_price);
-  return <article className="card rise flex flex-col gap-4 p-4">
-    <div className={`flex items-start gap-3 ${p.is_active ? "" : "opacity-55"}`}>
-      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl" style={tint(p.is_test ? "wn" : "ok")}><Zap size={20} /></span>
-      <div className="min-w-0 flex-1"><h3 className="truncate font-extrabold" title={p.name}>{p.name}</h3><p dir="ltr" className="truncate text-right font-mono text-[11px] text-[var(--mu)]">{p.code}</p></div>
+  const d = pct(p.main_price, p.reseller_price), r = idx.reach(p);
+  const dim = p.is_active ? "" : "opacity-55";
+  const state = !p.is_active ? "off" : r.ok ? "ok" : "bd";
+  return <article className={`card card-i rise stripe flex flex-col gap-4 p-5 ${state === "off" ? "off" : ""}`} style={{ "--stripe": state === "ok" ? "var(--ok)" : state === "bd" ? "var(--bd)" : "var(--ln)" }}>
+    <div className={`flex items-start gap-3 ${dim}`}>
+      <span className="tile h-12 w-12" style={tint(p.is_test ? "wn" : "ok")}><Zap size={22} /></span>
+      <div className="min-w-0 flex-1"><h3 className="truncate text-base font-extrabold" title={p.name}>{p.name}</h3><p dir="ltr" className="mt-0.5 truncate text-right font-mono text-[11px] text-[var(--mu)]">{p.code}</p></div>
       <div className="flex flex-col items-end gap-1"><Badge s={p.is_active ? "active" : "disabled"} />{p.is_test && <span className="badge b-wn">تست</span>}</div>
     </div>
-    <div className={`grid grid-cols-3 gap-2 text-center ${p.is_active ? "" : "opacity-55"}`}>{[[Clock, dur(p.duration_days)], [p.traffic_gb ? Zap : Inf, gb(p.traffic_gb)], [Smartphone, p.max_devices ? `${num(p.max_devices)} دستگاه` : "نامحدود"]].map(([I, t], i) => <div key={i} className="rounded-lg bg-[var(--sf2)] px-1 py-2"><I size={14} className="mx-auto text-[var(--mu)]" /><div className="mt-1 text-[11px] font-bold">{t}</div></div>)}</div>
-    <div className={`rounded-xl border border-[var(--ln)] p-3 ${p.is_active ? "" : "opacity-55"}`}>
-      <div className="flex items-baseline justify-between"><span className="text-[11px] text-[var(--mu)]">فروشگاه اصلی</span><b className="text-lg font-extrabold">{price(p.main_price, p.currency)}</b></div>
-      <div className="mt-1 flex items-baseline justify-between"><span className="text-[11px] text-[var(--mu)]">نماینده{d > 0 ? ` · ${num(d)}٪ ارزان‌تر` : ""}</span><span className="text-sm font-bold">{price(p.reseller_price, p.currency)}</span></div>
+    <div className={`flex flex-wrap gap-1.5 ${dim}`}>{[[Clock, dur(p.duration_days)], [p.traffic_gb ? Zap : Inf, gb(p.traffic_gb)], [Smartphone, p.max_devices ? `${num(p.max_devices)} دستگاه` : "دستگاه نامحدود"]].map(([I, t], i) => <span key={i} className="spec"><I size={13} className="text-[var(--mu)]" />{t}</span>)}{p.category && <span className="spec"><Tag size={13} className="text-[var(--mu)]" />{p.category}</span>}</div>
+    <div className={`grid grid-cols-[1.25fr_1fr] gap-px overflow-hidden rounded-xl border border-[var(--ln)] bg-[var(--ln)] ${dim}`}>
+      <div className="bg-[var(--sf)] p-3.5"><div className="text-[11px] text-[var(--mu)]">فروشگاه اصلی</div><div className="price num mt-2">{num(p.main_price)}<span className="mr-1.5 text-xs font-bold text-[var(--mu)]">{CUR[p.currency] || p.currency}</span></div></div>
+      <div className="bg-[var(--sf2)] p-3.5"><div className="flex items-center justify-between text-[11px] text-[var(--mu)]"><span>نماینده</span>{d > 0 && <span className="badge b-ok num !px-1.5 !py-0 !text-[10px]">{num(d)}٪ ارزان‌تر</span>}</div><div className="num mt-2 text-lg font-extrabold">{num(p.reseller_price)}<span className="mr-1 text-[10px] font-bold text-[var(--mu)]">{CUR[p.currency] || p.currency}</span></div></div>
     </div>
-    <div className={`rounded-xl bg-[var(--sf2)] p-3 ${p.is_active ? "" : "opacity-55"}`}><div className="mb-2 text-[11px] font-bold text-[var(--mu)]">مسیر تخصیص</div><Route p={p} idx={idx} compact /></div>
+    <div className={`rounded-xl bg-[var(--sf2)] p-3 ${dim}`}><div className="mb-2 flex items-center justify-between text-[11px] font-bold text-[var(--mu)]"><span>مسیر تخصیص</span><span className={`badge ${r.ok ? "b-ok" : "b-bd"}`}>{r.ok ? "قابل فروش" : "مسیر ندارد"}</span></div><Route p={p} idx={idx} compact /></div>
     <div className="mt-auto flex items-center justify-between gap-2 border-t border-[var(--ln)] pt-3">
       <label className="flex cursor-pointer items-center gap-2 text-xs font-bold"><Switch checked={p.is_active} disabled={busy} onChange={(v) => onToggle(p, v)} label={`فعال‌سازی ${p.name}`} />{p.is_active ? "فعال" : "غیرفعال"}</label>
       <div className="flex items-center gap-1.5"><DeleteButton compact label={`حذف ${p.name}`} busy={busy} onClick={() => onDelete(p)} /><button className="btn btn-g" onClick={() => onEdit(p)}><Pencil size={13} />ویرایش</button></div>
@@ -212,7 +214,7 @@ function ProductTable({ rows, idx, busy, onEdit, onToggle, onDelete, quick, draf
   const cell = (p, k) => quick
     ? <div className="w-36"><NumInput aria-label={`${k === "main_price" ? "قیمت اصلی" : "قیمت نماینده"} ${p.name}`} value={draft[p.id]?.[k] ?? String(p[k])} onChange={(v) => setDraft((d) => ({ ...d, [p.id]: { ...(d[p.id] || {}), [k]: v } }))} /></div>
     : <span className="font-semibold">{price(p[k], p.currency)}</span>;
-  return <section className="card rise overflow-hidden"><div className="overflow-auto"><table className="tbl min-w-[960px]"><thead><tr>{["محصول", "مدت", "ترافیک", "دستگاه", "قیمت اصلی", "قیمت نماینده", "تخصیص", "وضعیت", ""].map((h, i) => <th key={i}>{h}</th>)}</tr></thead>
+  return <section className="card rise overflow-hidden"><div className="overflow-auto"><table className="tbl2 min-w-[960px]"><thead><tr>{["محصول", "مدت", "ترافیک", "دستگاه", "قیمت اصلی", "قیمت نماینده", "تخصیص", "وضعیت", ""].map((h, i) => <th key={i}>{h}</th>)}</tr></thead>
     <tbody>{rows.map((p) => { const dirty = quick && draft[p.id] && (draft[p.id].main_price !== undefined && draft[p.id].main_price !== String(p.main_price) || draft[p.id].reseller_price !== undefined && draft[p.id].reseller_price !== String(p.reseller_price));
       return <tr key={p.id} className={`${p.is_active ? "" : "opacity-60"} ${dirty ? "!bg-[var(--wnb)]" : ""}`}>
         <td><div className="font-bold">{p.name}{p.is_test && <span className="badge b-wn mr-2">تست</span>}</div><div dir="ltr" className="text-right font-mono text-[11px] text-[var(--mu)]">{p.code}</div></td>
@@ -233,7 +235,7 @@ export default function ProductsView({ api, toast }) {
   const PAGE_SIZE = 20;
   const [page, setPage] = useState(0);
   useEffect(() => { setPage(0); }, [q]); // eslint-disable-line react-hooks/exhaustive-deps
-  const [filter, setFilter] = useState(["on", "off", "broken", "test"].includes(params.get("filter")) ? params.get("filter") : "all"), [layout, setLayout] = useState("grid"), [drawer, setDrawer] = useState(null), [busy, setBusy] = useState(new Set());
+  const [filter, setFilter] = useState(["on", "off", "broken", "test"].includes(params.get("filter")) ? params.get("filter") : "all"), [layout, setLayout] = useState("grid"), [sort, setSort] = useState("attention"), [drawer, setDrawer] = useState(null), [busy, setBusy] = useState(new Set());
   const [quick, setQuick] = useState(false), [draft, setDraft] = useState({}), [saving, setSaving] = useState(false);
   const alive = useAlive(); const rows = prods.rows;
   useEffect(() => {
@@ -242,6 +244,12 @@ export default function ProductsView({ api, toast }) {
   }, [params]);
   const counts = useMemo(() => { const c = { all: 0, on: 0, off: 0, test: 0, broken: 0 }; (rows || []).forEach((p) => { c.all++; p.is_active ? c.on++ : c.off++; if (p.is_test) c.test++; if (p.is_active && !idx.reach(p).ok) c.broken++; }); return c; }, [rows, idx]);
   const shown = useMemo(() => (rows || []).filter((p) => (filter === "all" || (filter === "on" ? p.is_active : filter === "off" ? !p.is_active : filter === "broken" ? p.is_active && !idx.reach(p).ok : p.is_test)) && `${p.name} ${p.code} ${p.category || ""}`.toLowerCase().includes(q.trim().toLowerCase())), [rows, filter, q, idx]);
+  const ordered = useMemo(() => {
+    const by = { attention: (a, b) => Number(b.is_active && !idx.reach(b).ok) - Number(a.is_active && !idx.reach(a).ok) || Number(b.is_active) - Number(a.is_active) || a.duration_days - b.duration_days || a.main_price - b.main_price,
+      price: (a, b) => a.main_price - b.main_price, price_desc: (a, b) => b.main_price - a.main_price, duration: (a, b) => a.duration_days - b.duration_days || a.main_price - b.main_price,
+      traffic: (a, b) => (a.traffic_gb || 1e9) - (b.traffic_gb || 1e9), name: (a, b) => a.name.localeCompare(b.name, "fa") };
+    return [...shown].sort(by[sort]);
+  }, [shown, sort, idx]); // eslint-disable-line react-hooks/exhaustive-deps
   const editing = drawer && drawer !== "add" ? (rows || []).find((p) => p.id === drawer) : null;
   const table = layout === "table" || quick;
 
@@ -277,32 +285,30 @@ export default function ProductsView({ api, toast }) {
 
   return <div className="space-y-5">
     <InfraChain current="products" infra={infra} />
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+    <KpiBar cols={5}>
       <Stat label="همه محصولات" value={counts.all} tone="in" Icon={Boxes} active={filter === "all"} onClick={() => setFilter("all")} />
       <Stat label="فعال" value={counts.on} tone="ok" Icon={CheckCircle2} active={filter === "on"} onClick={() => setFilter(filter === "on" ? "all" : "on")} />
       <Stat label="غیرفعال" value={counts.off} tone="mu" Icon={PowerOff} active={filter === "off"} onClick={() => setFilter(filter === "off" ? "all" : "off")} />
-      <Stat label="بدون مسیر تخصیص" value={counts.broken} tone="bd" Icon={AlertTriangle} active={filter === "broken"} onClick={() => setFilter(filter === "broken" ? "all" : "broken")} />
+      <Stat label="بدون مسیر تخصیص" value={counts.broken} tone={counts.broken ? "bd" : "mu"} Icon={AlertTriangle} active={filter === "broken"} onClick={() => setFilter(filter === "broken" ? "all" : "broken")} />
       <Stat label="آزمایشی" value={counts.test} tone="wn" Icon={Tag} active={filter === "test"} onClick={() => setFilter(filter === "test" ? "all" : "test")} />
-    </div>
-    <div className="flex flex-wrap items-center gap-2">
-      <label className="relative min-w-[12rem] flex-1 sm:max-w-xs"><Search size={15} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--mu)]" /><input aria-label="جستجوی محصول" className="inp !pr-9" placeholder="جستجوی نام، کد یا دسته…" value={q} onChange={(e) => setQ(e.target.value)} /></label>
-      <div className="pv-seg" role="group" aria-label="نحوه نمایش"><button type="button" className={!table ? "on" : ""} aria-label="کارتی" disabled={quick} onClick={() => setLayout("grid")}><LayoutGrid size={14} /></button><button type="button" className={table ? "on" : ""} aria-label="جدولی" onClick={() => setLayout("table")}><List size={14} /></button></div>
+    </KpiBar>
+    <div className="tool">
+      <SearchBox label="جستجوی محصول" placeholder="جستجوی نام، کد یا دسته…" value={q} onChange={setQ} />
+      <SortSelect value={sort} onChange={setSort} options={[["attention", "مشکل‌دارها اول"], ["price", "ارزان‌ترین"], ["price_desc", "گران‌ترین"], ["duration", "کم‌ترین مدت"], ["traffic", "کم‌ترین حجم"], ["name", "نام"]]} />
+      <ViewToggle value={table ? "table" : "grid"} onChange={setLayout} disabled={quick} options={[["grid", "کارتی"], ["table", "جدولی"]]} />
       <div className="mr-auto flex flex-wrap items-center gap-2">
         {quick ? <><span className="text-xs text-[var(--mu)]">{changes.length ? `${num(changes.length)} تغییر` : "قیمت‌ها را مستقیم در جدول ویرایش کنید"}</span>
           <button className="btn !py-2 !text-sm" disabled={!changes.length || saving} onClick={saveQuick}><Save size={14} />{saving ? "در حال ذخیره…" : "ذخیره قیمت‌ها"}</button><button className="btn btn-g !py-2 !text-sm" disabled={saving} onClick={endQuick}><X size={14} />خروج</button></>
           : <><button className="btn btn-g !py-2 !text-sm" disabled={!counts.all} onClick={() => { setLayout("table"); setQuick(true); }}><Wallet size={14} />ویرایش سریع قیمت‌ها</button><button className="btn" onClick={() => setDrawer("add")}><Plus size={16} />افزودن محصول</button></>}
       </div>
     </div>
-    {prods.failed && <p role="alert" className="flex items-center gap-2 rounded-xl bg-[var(--bdb)] p-3 text-sm text-[var(--bd)]"><ShieldAlert size={16} />دریافت محصولات ناموفق بود. <button className="font-extrabold underline" onClick={prods.load}>تلاش مجدد</button></p>}
-    {(rows === null || infra.loading) ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[0, 1, 2].map((i) => <div key={i} className="card skel h-60" />)}</div>
-      : !shown.length ? <div className="card grid place-items-center gap-3 p-14 text-center"><span className="grid h-14 w-14 place-items-center rounded-2xl bg-[var(--mb)] text-[var(--mu)]"><Boxes size={26} /></span>
-        <h3 className="font-extrabold">{counts.all ? "محصولی با این فیلتر پیدا نشد" : "هنوز محصولی تعریف نشده"}</h3>
-        <p className="max-w-sm text-sm leading-7 text-[var(--mu)]">{counts.all ? "جستجو یا فیلتر را تغییر دهید." : "هر محصول یک پلن قابل فروش با مدت، حجم و قیمت مشخص است. ابتدا باید حداقل یک پنل سالم با سرور داشته باشید."}</p>
-        {!counts.all && <button className="btn" onClick={() => setDrawer("add")}><Plus size={16} />ساخت اولین محصول</button>}</div>
-      : table ? <ProductTable idx={idx} rows={shown} busy={busy} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} onDelete={remove} quick={quick} draft={draft} setDraft={setDraft} />
-      : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{shown.slice(page*PAGE_SIZE,(page+1)*PAGE_SIZE).map((p) => <ProductCard key={p.id} p={p} idx={idx} busy={busy.has(p.id)} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} onDelete={remove} />)}
-      <Paginator page={page} setPage={setPage} total={shown.length} pageSize={PAGE_SIZE} />
-      </div>}
+    {prods.failed && <ErrorBar onRetry={prods.load}><ShieldAlert size={16} />دریافت محصولات ناموفق بود.</ErrorBar>}
+    {(rows === null || infra.loading) ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[0, 1, 2].map((i) => <div key={i} className="card skel h-80" />)}</div>
+      : !ordered.length ? <Empty Icon={Boxes} title={counts.all ? "محصولی با این فیلتر پیدا نشد" : "هنوز محصولی تعریف نشده"} text={counts.all ? "جستجو یا فیلتر را تغییر دهید." : "هر محصول یک پلن قابل فروش با مدت، حجم و قیمت مشخص است. ابتدا باید حداقل یک پنل سالم با سرور داشته باشید."}>
+        {!counts.all && <button className="btn" onClick={() => setDrawer("add")}><Plus size={16} />ساخت اولین محصول</button>}</Empty>
+      : table ? <ProductTable idx={idx} rows={ordered} busy={busy} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} onDelete={remove} quick={quick} draft={draft} setDraft={setDraft} />
+      : <><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{ordered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map((p) => <ProductCard key={p.id} p={p} idx={idx} busy={busy.has(p.id)} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} onDelete={remove} />)}</div>
+        <Paginator page={page} setPage={setPage} total={ordered.length} pageSize={PAGE_SIZE} /></>}
     {drawer && (drawer === "add" || editing) && <ProductDrawer key={drawer} product={editing} stores={storesQ.rows || []} groups={infra.groups.rows || []} panels={infra.panels.rows || []} products={rows || []} idx={idx} call={call} toast={toast} onClose={() => setDrawer(null)} onSubmit={save} onGroupCreated={infra.reload} onDelete={remove} />}
   </div>;
 }

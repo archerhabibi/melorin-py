@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge, confirmDialog } from "./ui.jsx";
-import { AlertTriangle, ArrowDown, ArrowUp, Boxes, CheckCircle2, ChevronDown, Layers, Pencil, Plus, Search, ShieldAlert, X } from "lucide-react";
-import { Drawer, Field, NumInput, Paginator, Section, Segmented, Stat, Switch, Toggle, DeleteButton, capTone, errText, num, removeEntity, tint, useAlive } from "./kit.jsx";
+import { AlertTriangle, ArrowDown, ArrowLeft, ArrowUp, Boxes, CheckCircle2, ChevronDown, Layers, PanelTop, Pencil, Plus, Search, ShieldAlert, Tag, X } from "lucide-react";
+import { Bar, Drawer, Empty, ErrorBar, Field, KpiBar, NumInput, Paginator, Ring, SearchBox, Section, Segmented, SortSelect, Stat, Switch, Toggle, ViewToggle, DeleteButton, capTone, errText, num, removeEntity, tint, useAlive } from "./kit.jsx";
 import { Dot, InfraChain, Rel, RelChip, Warn, clearParam, health as hs, infraHref, memberIds, useHashParams, useInfra } from "./infra.jsx";
 
 // A panel group is a SALES POOL (استخر فروش): panels + connection kind + the packages it sells, each with
@@ -18,41 +18,74 @@ function Quota({ sold, limit }) {
   const pct = limit ? Math.min(100, Math.round((sold / limit) * 100)) : 0;
   const full = limit && sold >= limit, warn = limit && pct >= 80;
   return <div>
-    <div className="mb-1.5 flex items-center justify-between text-[11px]"><span className="text-[var(--mu)]">فروش</span><b className={full ? "text-[var(--bd)]" : ""}>{num(sold)} / {limit ? num(limit) : "نامحدود"}{full ? " · پر شده" : ""}</b></div>
-    <div className="h-1.5 overflow-hidden rounded-full bg-[var(--mb)]" role="progressbar" aria-valuenow={limit ? pct : undefined} aria-label="سهمیه فروش"><div className="h-full rounded-full transition-all" style={{ width: limit ? `${Math.max(pct, 3)}%` : "100%", background: limit ? (full ? "var(--bd)" : warn ? "var(--wn)" : "var(--ok)") : "var(--mb)", opacity: limit ? 1 : .6 }} /></div>
+    <div className="mb-1.5 flex items-center justify-between text-[11px]"><span className="text-[var(--mu)]">سقف فروش استخر</span><b className={`num ${full ? "text-[var(--bd)]" : ""}`}>{num(sold)} / {limit ? num(limit) : "نامحدود"}{full ? " · پر شده" : ""}</b></div>
+    {limit ? <Bar value={pct / 100} tone={full ? "bd" : warn ? "wn" : "ok"} label="سهمیه فروش" /> : <div className="bar"><i style={{ width: "100%", background: "repeating-linear-gradient(135deg,var(--mb) 0 6px,transparent 6px 12px)" }} /></div>}
   </div>;
 }
 
 /** Why an enabled group cannot sell right now, or "" when it can. */
 const groupIssue = (g, stat) => (!g.is_enabled ? "" : !(g.panels || []).length ? "پنلی ندارد" : !stat.live ? "هیچ سرور آماده‌ای ندارد" : "");
 
+const fromPrice = (products) => {
+  const cur = [...new Set(products.map((p) => p.currency))];
+  if (cur.length !== 1 || !products.length) return null;
+  return `${num(Math.min(...products.map((p) => p.main_price)))} ${{ IRT: "تومان", USD: "دلار", USDT: "تتر", XTR: "ستاره" }[cur[0]] || cur[0]}`;
+};
+
 function GroupCard({ g, panelById, stat, products, busy, onEdit, onToggle, onDelete }) {
   const ms = g.panels || [], dim = g.is_enabled ? "" : "opacity-55", issue = groupIssue(g, stat);
   const u = stat.capacity ? stat.active / stat.capacity : 0, t = capTone(u);
-  return <article className="card rise flex flex-col gap-4 p-4">
+  const state = !g.is_enabled ? "off" : issue ? "bd" : "ok";
+  const from = fromPrice(products);
+  return <article className={`card card-i rise stripe flex flex-col gap-4 p-5 ${state === "off" ? "off" : ""}`} style={{ "--stripe": state === "ok" ? "var(--ok)" : state === "bd" ? "var(--bd)" : "var(--ln)" }}>
     <div className={`flex items-start gap-3 ${dim}`}>
-      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl" style={tint("wn")}><Layers size={20} /></span>
-      <div className="min-w-0 flex-1"><h3 className="truncate font-extrabold" title={g.name}>{g.name}</h3>
-        <div className="mt-1 flex flex-wrap gap-1.5">{g.kind_label && <span className="badge b-in">{g.kind_label}</span>}{g.selection_mode === "manual" && <span className="badge b-mu" title={MODES.manual[1]}>انتخاب پنل با مشتری</span>}{g.naming_mode === "custom" && <span className="badge b-mu">نام کاربری دلخواه</span>}{!g.reseller_enabled && <span className="badge b-mu">بدون نمایندگی</span>}</div></div>
-      <Badge s={g.is_enabled ? "active" : "disabled"} />
+      <span className="tile h-12 w-12" style={tint("wn")}><Layers size={22} /></span>
+      <div className="min-w-0 flex-1"><h3 className="truncate text-base font-extrabold" title={g.name}>{g.name}</h3>
+        <div className="mt-1.5 flex flex-wrap gap-1.5">{g.kind_label && <span className="badge b-in">{g.kind_label}</span>}{g.selection_mode === "manual" && <span className="badge b-mu" title={MODES.manual[1]}>انتخاب پنل با مشتری</span>}{g.naming_mode === "custom" && <span className="badge b-mu">نام کاربری دلخواه</span>}{!g.reseller_enabled && <span className="badge b-mu">بدون نمایندگی</span>}</div></div>
+      {state === "bd" ? <span className="badge b-bd">نمی‌فروشد</span> : <Badge s={g.is_enabled ? "active" : "disabled"} />}
     </div>
+
+    <div className={`flow ${dim}`} aria-label="مسیر: پنل‌ها به استخر به پکیج‌ها">
+      <a className="fn hover:ring-1 hover:ring-[var(--ac)]" href={infraHref("panels", { group: g.id })} title="پنل‌های این استخر">
+        <div className="fv num">{num(ms.length)}</div><div className="fl">پنل</div>
+        <div className="mt-1.5 flex justify-center gap-1">{ms.slice(0, 5).map((m) => <Dot key={m.id} s={hs(panelById[m.panel_id])} />)}{ms.length > 5 && <span className="text-[10px] text-[var(--mu)]">+{num(ms.length - 5)}</span>}</div></a>
+      <span className="fa" aria-hidden><ArrowLeft size={14} /></span>
+      <div className="fn relative" title={stat.servers ? `${num(stat.live)} سرور آماده از ${num(stat.servers)}` : "سروری نیست"}>
+        <div className="flex justify-center"><Ring value={u} size={44} stroke={5} tone={stat.servers ? t : "mu"} label={`ظرفیت پر: ${Math.round(u * 100)} درصد`}><b className="num text-[11px]">{num(stat.free)}</b></Ring></div><div className="fl">ظرفیت آزاد</div></div>
+      <span className="fa" aria-hidden><ArrowLeft size={14} /></span>
+      <a className="fn hover:ring-1 hover:ring-[var(--ac)]" href={infraHref("products")} title="پکیج‌های این استخر">
+        <div className="fv num">{num(products.length)}</div><div className="fl">پکیج</div>{from && <div className="mt-1.5 truncate text-[10px] font-bold text-[var(--mu)]">از {from}</div>}</a>
+    </div>
+
     <div className={dim}><Quota sold={g.sold_count || 0} limit={g.sales_limit} /></div>
-    <div className={`space-y-2 rounded-xl bg-[var(--sf2)] p-3 ${dim}`}>
+
+    <div className={`space-y-2 ${dim}`}>
       <Rel label="پنل‌ها" empty={<span className="flex items-center gap-1.5 text-[var(--wn)]"><AlertTriangle size={12} />هنوز پنلی به این استخر اضافه نشده</span>}>
-        {ms.length ? <>{ms.slice(0, 4).map((m) => { const p = panelById[m.panel_id]; return <span key={m.id} className={m.is_enabled ? "" : "line-through"}><RelChip to="panels" params={{ id: m.panel_id }} tone="in" dim={!m.is_enabled}><span className="inline-flex items-center gap-1.5"><Dot s={hs(p)} />{p?.name || "پنل حذف‌شده"}</span></RelChip></span>; })}{ms.length > 4 && <span className="text-[11px] text-[var(--mu)]">+{num(ms.length - 4)}</span>}</> : null}</Rel>
-      <Rel label="ظرفیت" empty="روی پنل‌های استخر سروری نیست">
-        {stat.servers ? <a href={infraHref("panels", { group: g.id })} className="flex min-w-0 flex-1 items-center gap-3 hover:text-[var(--ac)]"><span className="shrink-0 font-bold">{num(stat.live)} سرور آماده از {num(stat.servers)}</span>
-          <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--mb)]"><span className="block h-full rounded-full" style={{ width: `${Math.min(100, u * 100)}%`, background: `var(--${t})` }} /></span>
-          <span className="shrink-0 text-[11px] text-[var(--mu)]">{num(stat.free)} آزاد</span></a> : null}</Rel>
-      <Rel label="پکیج‌ها" empty="هنوز پکیجی در این استخر نیست">
+        {ms.length ? <>{ms.slice(0, 3).map((m) => { const p = panelById[m.panel_id]; return <span key={m.id} className={m.is_enabled ? "" : "line-through"}><RelChip to="panels" params={{ id: m.panel_id }} tone="in" dim={!m.is_enabled}><span className="inline-flex items-center gap-1.5"><Dot s={hs(p)} />{p?.name || "پنل حذف‌شده"}</span></RelChip></span>; })}{ms.length > 3 && <span className="text-[11px] text-[var(--mu)]">+{num(ms.length - 3)}</span>}</> : null}</Rel>
+      <Rel label="پکیج‌ها" empty={<span className="flex items-center gap-1.5 text-[var(--wn)]"><AlertTriangle size={12} />هنوز پکیجی در این استخر نیست</span>}>
         {products.length ? <>{products.slice(0, 3).map((p) => <RelChip key={p.id} to="products" params={{ q: p.code }} tone="mu" Icon={Boxes} dim={!p.is_active}>{p.name}</RelChip>)}{products.length > 3 && <span className="text-[11px] text-[var(--mu)]">+{num(products.length - 3)}</span>}</> : null}</Rel>
       {issue && <Warn tone="bd">{issue}؛ تا رفع مشکل، محصولات این استخر فروخته نمی‌شوند.</Warn>}
     </div>
+
     <div className="mt-auto flex items-center justify-between gap-2 border-t border-[var(--ln)] pt-3">
       <label className="flex cursor-pointer items-center gap-2 text-xs font-bold"><Switch checked={g.is_enabled} disabled={busy} onChange={(v) => onToggle(g, v)} label={`فعال‌سازی ${g.name}`} />{g.is_enabled ? "فعال" : "غیرفعال"}</label>
       <div className="flex items-center gap-1.5"><DeleteButton compact label={`حذف ${g.name}`} busy={busy} onClick={() => onDelete(g)} /><button className="btn btn-g" onClick={() => onEdit(g)}><Pencil size={13} />ویرایش</button></div>
     </div>
   </article>;
+}
+
+function GroupTable({ rows, panelById, idx, busy, onEdit, onToggle, onDelete }) {
+  return <section className="card rise overflow-hidden"><div className="overflow-auto"><table className="tbl2 min-w-[900px]"><thead><tr>{["استخر", "پنل‌ها", "سرور آماده", "ظرفیت آزاد", "پکیج‌ها", "فروش / سقف", "وضعیت", ""].map((h, i) => <th key={i}>{h}</th>)}</tr></thead>
+    <tbody>{rows.map((g) => { const st = idx.groupStat(g), ps = idx.productsByGroup.get(g.id) || [], issue = groupIssue(g, st), u = st.capacity ? st.active / st.capacity : 0;
+      return <tr key={g.id} className={g.is_enabled ? "" : "opacity-60"}>
+        <td><div className="flex items-center gap-2.5"><span className="tile h-9 w-9" style={tint("wn")}><Layers size={16} /></span><div className="min-w-0"><div className="font-bold">{g.name}</div>{g.kind_label && <div className="text-[11px] text-[var(--mu)]">{g.kind_label}</div>}</div></div></td>
+        <td><div className="flex items-center gap-1">{(g.panels || []).slice(0, 5).map((m) => <Dot key={m.id} s={hs(panelById[m.panel_id])} />)}<span className="num mr-1 text-xs text-[var(--mu)]">{num((g.panels || []).length)}</span></div></td>
+        <td className="num">{num(st.live)} <span className="text-[var(--mu)]">/ {num(st.servers)}</span></td>
+        <td><div className="flex items-center gap-2"><span className="num w-12 font-bold">{num(st.free)}</span><div className="w-20"><Bar value={u} tone={capTone(u)} label="ظرفیت" /></div></div></td>
+        <td className="num">{num(ps.length)}</td>
+        <td className="num">{num(g.sold_count || 0)} <span className="text-[var(--mu)]">/ {g.sales_limit ? num(g.sales_limit) : "∞"}</span></td>
+        <td>{issue ? <span className="badge b-bd" title={issue}>{issue}</span> : <Badge s={g.is_enabled ? "active" : "disabled"} />}</td>
+        <td><div className="flex items-center justify-end gap-2"><Switch checked={g.is_enabled} disabled={busy.has(g.id)} onChange={(v) => onToggle(g, v)} label={`فعال‌سازی ${g.name}`} /><button className="btn btn-g" onClick={() => onEdit(g)}><Pencil size={13} />ویرایش</button><DeleteButton compact label={`حذف ${g.name}`} busy={busy.has(g.id)} onClick={() => onDelete(g)} /></div></td></tr>; })}</tbody></table></div></section>;
 }
 
 const EMPTY = { name: "", selection_mode: "automatic", naming_mode: "automatic", kind_label: "", sales_limit: "", is_enabled: true, reseller_enabled: true, panel_ids: [], member_labels: {} };
@@ -173,7 +206,7 @@ export default function PanelGroupsView({ api, toast }) {
   const infra = useInfra(api); const { call, idx } = infra;
   const groups = infra.groups, panelsQ = infra.panels;
   const params = useHashParams();
-  const [q, setQ] = useState(params.get("q") || ""), [filter, setFilter] = useState("all"), [drawer, setDrawer] = useState(null), [busy, setBusy] = useState(new Set());
+  const [q, setQ] = useState(params.get("q") || ""), [filter, setFilter] = useState("all"), [drawer, setDrawer] = useState(null), [busy, setBusy] = useState(new Set()), [sort, setSort] = useState("attention"), [layout, setLayout] = useState("cards");
   const PAGE_SIZE = 20;
   const [page, setPage] = useState(0);
   useEffect(() => { setPage(0); }, [filter, q]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -184,7 +217,12 @@ export default function PanelGroupsView({ api, toast }) {
   const attention = (g) => !!groupIssue(g, idx.groupStat(g));
   const counts = useMemo(() => { const c = { all: 0, on: 0, off: 0, bad: 0 }; (rows || []).forEach((g) => { c.all++; g.is_enabled ? c.on++ : c.off++; if (attention(g)) c.bad++; }); return c; }, [rows, idx]); // eslint-disable-line react-hooks/exhaustive-deps
   const filtered = useMemo(() => (rows || []).filter((g) => (filter === "all" || (filter === "on" ? g.is_enabled : filter === "off" ? !g.is_enabled : attention(g))) && g.name.toLowerCase().includes(q.trim().toLowerCase())), [rows, filter, q, idx]); // eslint-disable-line react-hooks/exhaustive-deps
-  const shown = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const sorted = useMemo(() => {
+    const by = { attention: (a, b) => Number(!!groupIssue(b, idx.groupStat(b))) - Number(!!groupIssue(a, idx.groupStat(a))) || Number(b.is_enabled) - Number(a.is_enabled) || a.name.localeCompare(b.name, "fa"),
+      name: (a, b) => a.name.localeCompare(b.name, "fa"), sold: (a, b) => (b.sold_count || 0) - (a.sold_count || 0), free: (a, b) => idx.groupStat(b).free - idx.groupStat(a).free };
+    return [...filtered].sort(by[sort]);
+  }, [filtered, sort, idx]); // eslint-disable-line react-hooks/exhaustive-deps
+  const shown = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const editing = drawer && drawer !== "add" ? (rows || []).find((g) => g.id === drawer) : null;
 
   const pooledIds = useMemo(() => new Set((rows || []).flatMap((g) => g.product_ids || [])), [rows]);
@@ -215,24 +253,27 @@ export default function PanelGroupsView({ api, toast }) {
 
   return <div className="space-y-5">
     <InfraChain current="groups" infra={infra} />
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <KpiBar cols={4}>
       <Stat label="همه استخرها" value={counts.all} tone="in" Icon={Layers} active={filter === "all"} onClick={() => setFilter("all")} />
       <Stat label="فعال" value={counts.on} tone="ok" Icon={CheckCircle2} active={filter === "on"} onClick={() => setFilter(filter === "on" ? "all" : "on")} />
       <Stat label="غیرفعال" value={counts.off} tone="mu" Icon={Layers} active={filter === "off"} onClick={() => setFilter(filter === "off" ? "all" : "off")} />
       <Stat label="نمی‌تواند بفروشد" value={counts.bad} tone={counts.bad ? "bd" : "mu"} Icon={ShieldAlert} active={filter === "bad"} onClick={() => setFilter(filter === "bad" ? "all" : "bad")} />
-    </div>
-    <p className="rounded-xl bg-[var(--sf2)] px-4 py-3 text-xs leading-6 text-[var(--mu)]">هر فروش از یک استخر انجام می‌شود: مشتری استخر را انتخاب می‌کند و پکیج‌های همان استخر را با قیمت همان استخر می‌بیند. <b className="text-[var(--tx)]">مسیر بدون استخر وجود ندارد</b>؛ پنلی که عضو هیچ استخری نباشد و پکیجی که در هیچ استخری نباشد چیزی نمی‌فروشد.</p>
-    <div className="flex flex-wrap items-center gap-2">
-      <label className="relative min-w-[12rem] flex-1 sm:max-w-xs"><Search size={15} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--mu)]" /><input aria-label="جستجوی استخر" className="inp !pr-9" placeholder="جستجوی نام استخر…" value={q} onChange={(e) => setQ(e.target.value)} /></label>
+    </KpiBar>
+    <p className="flex items-start gap-3 rounded-xl border border-[var(--hair)] bg-[var(--sf)] px-4 py-3 text-xs leading-6 text-[var(--mu)]"><span className="tile mt-0.5 h-7 w-7 shrink-0" style={tint("in")}><Layers size={14} /></span><span>هر فروش از یک استخر انجام می‌شود: مشتری استخر را انتخاب می‌کند و پکیج‌های همان استخر را با قیمت همان استخر می‌بیند. <b className="text-[var(--tx)]">مسیر بدون استخر وجود ندارد</b>؛ پنلی که عضو هیچ استخری نباشد و پکیجی که در هیچ استخری نباشد چیزی نمی‌فروشد.</span></p>
+    <div className="tool">
+      <SearchBox label="جستجوی استخر" placeholder="جستجوی نام استخر…" value={q} onChange={setQ} />
+      <SortSelect value={sort} onChange={setSort} options={[["attention", "مشکل‌دارها اول"], ["name", "نام"], ["sold", "بیشترین فروش"], ["free", "بیشترین ظرفیت آزاد"]]} />
+      <ViewToggle value={layout} onChange={setLayout} options={[["cards", "کارتی"], ["table", "جدولی"]]} />
       <button className="btn mr-auto" onClick={() => setDrawer("add")}><Plus size={16} />افزودن استخر</button>
     </div>
-    {groups.failed && <p role="alert" className="flex items-center gap-2 rounded-xl bg-[var(--bdb)] p-3 text-sm text-[var(--bd)]"><ShieldAlert size={16} />دریافت استخرها ناموفق بود. <button className="font-extrabold underline" onClick={groups.load}>تلاش مجدد</button></p>}
-    {rows === null ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[0, 1, 2].map((i) => <div key={i} className="card skel h-52" />)}</div>
-      : !shown.length ? <div className="card grid place-items-center gap-3 p-14 text-center"><span className="grid h-14 w-14 place-items-center rounded-2xl bg-[var(--mb)] text-[var(--mu)]"><Layers size={26} /></span>
-        <h3 className="font-extrabold">{counts.all ? "استخری با این فیلتر پیدا نشد" : "هنوز استخری ساخته نشده"}</h3>
-        <p className="max-w-sm text-sm leading-7 text-[var(--mu)]">{counts.all ? "جستجو یا فیلتر را تغییر دهید." : "بدون استخر هیچ اکانتی فروخته نمی‌شود. اولین استخر را بسازید، پنل‌ها و پکیج‌هایش را اضافه کنید."}</p>
-        {!counts.all && <button className="btn" onClick={() => setDrawer("add")}><Plus size={16} />ساخت اولین استخر</button>}</div>
-      : <><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{shown.map((g) => <GroupCard key={g.id} g={g} panelById={panelById} stat={idx.groupStat(g)} products={idx.productsByGroup.get(g.id) || []} busy={busy.has(g.id)} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} onDelete={remove} />)}</div><Paginator page={page} setPage={setPage} total={filtered.length} pageSize={PAGE_SIZE} /></>}
+    {groups.failed && <ErrorBar onRetry={groups.load}><ShieldAlert size={16} />دریافت استخرها ناموفق بود.</ErrorBar>}
+    {rows === null ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[0, 1, 2].map((i) => <div key={i} className="card skel h-72" />)}</div>
+      : !shown.length ? <Empty Icon={Layers} title={counts.all ? "استخری با این فیلتر پیدا نشد" : "هنوز استخری ساخته نشده"} text={counts.all ? "جستجو یا فیلتر را تغییر دهید." : "بدون استخر هیچ اکانتی فروخته نمی‌شود. اولین استخر را بسازید، پنل‌ها و پکیج‌هایش را اضافه کنید."}>
+        {!counts.all && <button className="btn" onClick={() => setDrawer("add")}><Plus size={16} />ساخت اولین استخر</button>}</Empty>
+      : <>{layout === "table"
+        ? <GroupTable rows={shown} panelById={panelById} idx={idx} busy={busy} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} onDelete={remove} />
+        : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{shown.map((g) => <GroupCard key={g.id} g={g} panelById={panelById} stat={idx.groupStat(g)} products={idx.productsByGroup.get(g.id) || []} busy={busy.has(g.id)} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} onDelete={remove} />)}</div>}
+        <Paginator page={page} setPage={setPage} total={filtered.length} pageSize={PAGE_SIZE} /></>}
     {drawer && (drawer === "add" || editing) && <GroupDrawer key={drawer} group={editing} panels={panels} products={products} idx={idx} pooledIds={pooledIds} call={call} toast={toast} onChanged={infra.reload} onClose={() => setDrawer(null)} onSubmit={save} onDelete={remove} />}
   </div>;
 }
