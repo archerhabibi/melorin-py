@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-16 10:13 UTC - Claude - admin-web, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** Add Google Sign-In to store-web and admin-web - Applies melorin-google-signin.patch, plus fixes found in review: - /auth/google: enforce admin TOTP (no 2FA bypass), set refresh cookie, honour registration flag + referral signup - Caddy CSP allows Google Identity Services; VITE_GOOGLE_CLIENT_ID pass…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (14):** `apps/admin-web/.env.example`, `apps/admin-web/Dockerfile`, `apps/admin-web/src/AdminAuth.jsx`, `apps/admin-web/src/GoogleSignIn.jsx`, `apps/api/melorin/modules/identity/router.py`, `apps/api/melorin/modules/identity/schemas.py`, `apps/api/melorin/modules/identity/service.py`, `apps/api/tests/test_o01_google_signin.py` (+6 more)
+- **Ref:** `0e07401`
+
+
 ### 2026-10-16 08:02 UTC - x - other  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** the first admin e-mail defaulted to admin@<store domain> without asking.
