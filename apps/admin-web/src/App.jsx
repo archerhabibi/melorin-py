@@ -9,13 +9,13 @@ import { Badge, DialogHost, ThemeButton, confirmDialog, label, sid, tone } from 
 import { Palette } from './palette.jsx';
 import { legacyHash } from './infra.jsx';
 import { toggleTheme } from './theme.js';
-import { Activity, Bell, CircleAlert, CreditCard, Database, Download, Fingerprint, LayoutDashboard, Menu, Package, PanelTop, Percent, RefreshCw, Server, Settings, ShieldCheck, Ticket, Users, WalletCards, X, Boxes, ScrollText, Store, Search, Layers, Moon, LogOut, KeyRound, ChevronDown, UserRound } from 'lucide-react';
+import { Activity, Bell, CircleAlert, CreditCard, Database, Download, Fingerprint, LayoutDashboard, Menu, Package, PanelTop, Percent, RefreshCw, Server, Settings, ShieldCheck, Ticket, Users, WalletCards, X, Boxes, ScrollText, Store, Search, Layers, Moon, LogOut, KeyRound, ChevronDown, UserRound, UserPlus } from 'lucide-react';
 
 // Section keys are Persian labels (AdminSections/AdminExtra route on them); slug drives the URL hash.
 const groups = [
   ['نمای کلی', [['داشبورد', LayoutDashboard, 'home']]],
   ['عملیات', [['سفارش‌ها', Package, 'orders'], ['پرداخت‌ها', CreditCard, 'payments'], ['اکانت‌های VPN', Server, 'vpn'], ['تیکت‌ها', Ticket, 'tickets']]],
-  ['فروش و مشتریان', [['کاربران', Users, 'users'], ['فروشگاه‌ها', Store, 'stores'], ['کوپن‌ها', Percent, 'coupons']]],
+  ['فروش و مشتریان', [['کاربران', Users, 'users'], ['فروشگاه‌ها', Store, 'stores'], ['درخواست‌های نمایندگی', UserPlus, 'reseller-applications'], ['کوپن‌ها', Percent, 'coupons']]],
     ['زیرساخت', [['پنل‌ها و سرورها', PanelTop, 'panels'], ['استخرهای فروش', Layers, 'panel-groups'], ['محصولات VPN', Boxes, 'products'], ["سلامت زیرساخت", ShieldCheck, "infra-health"]], 'مسیر فروش: پنل و سرور ← استخر فروش ← پکیج'],
   ['سیستم', [['تنظیمات', Settings, 'settings'], ['ممیزی', ScrollText, 'audit'], ['بررسی هویت', Fingerprint, 'identity']]],
 ];
@@ -38,7 +38,7 @@ const moneyByCurrency = (rows) => (rows || []).map((x) => `${money(x.amount)} ${
 
 function useCore() {
   const base = API_BASE;
-  const [data, setData] = useState({ summary: null, orders: [], users: [], tickets: [], stores: [], health: null, backups: [], loading: true, error: '' });
+  const [data, setData] = useState({ summary: null, orders: [], users: [], tickets: [], stores: [], health: null, backups: [], pendingApps: 0, loading: true, error: '' });
   const [tick, setTick] = useState(0);
   useEffect(() => {
     let live = true;
@@ -48,7 +48,8 @@ function useCore() {
         const [summary, orders, health, backups, users, tickets, stores] = await Promise.all([
           '/api/v1/admin/reports/summary', '/api/v1/admin/orders', '/api/v1/admin/health', '/api/v1/admin/operations/backups', '/api/v1/admin/users', '/api/v1/admin/tickets', '/api/v1/admin/stores',
         ].map((p) => getJson(base, p)));
-        if (live) setData({ summary, orders, health, backups, users, tickets, stores, loading: false, error: '' });
+        const pendingApps = await getJson(base, '/api/v1/admin/reseller-applications?status=pending').then((x) => x.length).catch(() => 0);
+        if (live) setData({ summary, orders, health, backups, users, tickets, stores, pendingApps, loading: false, error: '' });
       } catch (e) {
         if (live) setData((x) => ({ ...x, loading: false, error: 'اتصال به Core API برقرار نشد. وارد شوید یا آدرس API را بررسی کنید.' }));
       }
@@ -71,8 +72,8 @@ async function refundPayment(base, paymentId, reason) {
   return r.json();
 }
 
-function Nav({ section, go, openTickets }) {
-  return <nav aria-label="منوی اصلی" className="space-y-5 px-3 pb-6">{groups.map(([g, items, sub]) => <div key={g}><div className="mb-1.5 px-3 text-[11px] font-bold tracking-wide text-white/35">{g}{sub && <span className="mt-0.5 block text-[10px] font-normal tracking-normal text-white/25">{sub}</span>}</div>{items.map(([name, Icon]) => <button key={name} onClick={() => go(name)} aria-current={section === name ? 'page' : undefined} className={`navb ${section === name ? 'on' : ''}`}><Icon size={18} /><span>{name}</span>{name === 'تیکت‌ها' && openTickets > 0 && <span className="mr-auto rounded-full bg-[#e8743b] px-2 py-0.5 text-[10px] font-bold text-white">{openTickets}</span>}</button>)}</div>)}</nav>;
+function Nav({ section, go, openTickets, pendingApps }) {
+  return <nav aria-label="منوی اصلی" className="space-y-5 px-3 pb-6">{groups.map(([g, items, sub]) => <div key={g}><div className="mb-1.5 px-3 text-[11px] font-bold tracking-wide text-white/35">{g}{sub && <span className="mt-0.5 block text-[10px] font-normal tracking-normal text-white/25">{sub}</span>}</div>{items.map(([name, Icon]) => <button key={name} onClick={() => go(name)} aria-current={section === name ? 'page' : undefined} className={`navb ${section === name ? 'on' : ''}`}><Icon size={18} /><span>{name}</span>{name === 'تیکت‌ها' && openTickets > 0 && <span className="mr-auto rounded-full bg-[#e8743b] px-2 py-0.5 text-[10px] font-bold text-white">{openTickets}</span>}{name === 'درخواست‌های نمایندگی' && pendingApps > 0 && <span className="mr-auto rounded-full bg-[#e8743b] px-2 py-0.5 text-[10px] font-bold text-white">{pendingApps}</span>}</button>)}</div>)}</nav>;
 }
 
 function Brand() {
@@ -174,7 +175,7 @@ export default function App({ onLogout }) {
     { name: 'تغییر پوسته روشن/تاریک', hint: 'عملیات', Icon: Moon, run: toggleTheme },
   ];
   return <div dir="rtl" className="min-h-screen">
-    <aside className="fixed inset-y-0 right-0 z-20 hidden w-64 flex-col bg-[var(--nav)] lg:flex"><Brand /><div className="flex-1 overflow-y-auto pt-3"><Nav section={section} go={go} openTickets={openTickets} /></div>
+    <aside className="fixed inset-y-0 right-0 z-20 hidden w-64 flex-col bg-[var(--nav)] lg:flex"><Brand /><div className="flex-1 overflow-y-auto pt-3"><Nav section={section} go={go} openTickets={openTickets} pendingApps={api.pendingApps} /></div>
       <div className="m-4 rounded-2xl bg-white/[.07] p-4"><div className={`flex items-center gap-2 text-xs ${api.health ? 'text-[#8ce0ba]' : 'text-[#f4c95d]'}`}><span className="h-2 w-2 rounded-full bg-current" />Core API {api.health ? 'پایدار' : 'در انتظار'}</div></div></aside>
     <div className="lg:mr-64">
       <header className="sticky top-0 z-10 flex h-[72px] items-center justify-between border-b border-[var(--ln)] bg-[var(--bg)]/85 px-5 backdrop-blur md:px-9">
@@ -194,7 +195,7 @@ export default function App({ onLogout }) {
         {section === 'داشبورد' && <Dashboard api={api} toast={toast} />}
       </div></main>
     </div>
-    {open && <div className="fixed inset-0 z-30 bg-black/55 lg:hidden" onClick={() => setOpen(false)}><div role="dialog" aria-modal="true" className="absolute right-0 top-0 flex h-full w-72 flex-col bg-[var(--nav)]" onClick={(e) => e.stopPropagation()}><div className="flex items-center justify-between"><Brand /><button aria-label="بستن منو" onClick={() => setOpen(false)} className="ml-4 rounded-lg p-2 text-white"><X size={22} /></button></div><div className="flex-1 overflow-y-auto"><Nav section={section} go={go} openTickets={openTickets} /></div></div></div>}
+    {open && <div className="fixed inset-0 z-30 bg-black/55 lg:hidden" onClick={() => setOpen(false)}><div role="dialog" aria-modal="true" className="absolute right-0 top-0 flex h-full w-72 flex-col bg-[var(--nav)]" onClick={(e) => e.stopPropagation()}><div className="flex items-center justify-between"><Brand /><button aria-label="بستن منو" onClick={() => setOpen(false)} className="ml-4 rounded-lg p-2 text-white"><X size={22} /></button></div><div className="flex-1 overflow-y-auto"><Nav section={section} go={go} openTickets={openTickets} pendingApps={api.pendingApps} /></div></div></div>}
     {pal && <Palette items={palItems} onClose={() => setPal(false)} />}
     <DialogHost />
     <div aria-live="polite" className="pointer-events-none fixed bottom-6 left-1/2 z-40 -translate-x-1/2">{notice && <div className="rise rounded-full bg-[var(--nav)] px-5 py-3 text-sm font-bold text-white shadow-xl ring-1 ring-white/10">{notice}</div>}</div>

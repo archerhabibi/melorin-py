@@ -13,7 +13,7 @@ from melorin.modules.orders.models import Order
 from melorin.modules.payments import service as payments
 from melorin.modules.payments.models import Payment
 from melorin.modules.payments.schemas import payment_out
-from melorin.modules.reseller import api_keys
+from melorin.modules.reseller import api_keys, identity
 from melorin.modules.reseller.schemas import (
     ApiCredentialIn, ApplicationIn, PriceIn, CustomerOut, CustomerWalletAdjustment, PaymentConfigIn, PaymentReview, StoreBrandingUpdate,
     WebhookEndpointIn, WebhookEndpointPatch,
@@ -52,6 +52,15 @@ async def application_target_store(session, user_id, target_store_id):
     return target
 
 
+def application_out(a: ResellerApplication) -> dict:
+    """Applicant-facing view. The bot token is never included."""
+    return {
+        "id": a.id, "target_store_id": a.target_store_id, "store_name": a.store_name, "message": a.message, "status": a.status,
+        "domain": a.domain, "bot_username": a.bot_username, "bot_verified": a.bot_verified,
+        "review_reason": a.review_reason if a.status == "rejected" else None, "store_id": a.store_id, "created_at": a.created_at,
+    }
+
+
 @router.post("/reseller/applications")
 async def apply(body: ApplicationIn, user: CurrentUser, session: Session):
     target = await application_target_store(session, user.id, body.target_store_id)
@@ -67,11 +76,39 @@ async def apply(body: ApplicationIn, user: CurrentUser, session: Session):
         ResellerApplication.status == "pending",
     )):
         raise AppError("APPLICATION_EXISTS", "یک درخواست در حال بررسی دارید.", 409)
-    a = ResellerApplication(user_id=user.id, target_store_id=target.id, store_name=body.store_name, message=body.message)
+    domain = identity.normalize_domain(body.domain)
+    token, bot_key = identity.parse_bot_token(body.bot_token)
+    await identity.ensure_identity_free(session, domain=domain, bot_key=bot_key)
+    username = await identity.verify_bot(token)
+    if username:
+        await identity.ensure_identity_free(session, domain=domain, bot_key=bot_key, bot_username=username)
+    a = ResellerApplication(
+        user_id=user.id, target_store_id=target.id, store_name=body.store_name.strip(), message=body.message,
+        domain=domain, bot_token_enc=encrypt(token), bot_key=bot_key, bot_username=username, bot_verified=username is not None,
+    )
     session.add(a)
-    audit.record(session, "reseller.applied", actor_id=user.id, entity_type="reseller_application", entity_id=a.id)
+    audit.record(session, "reseller.applied", actor_id=user.id, entity_type="reseller_application", entity_id=a.id, data={"domain": domain, "bot_key": bot_key})
     await session.commit()
-    return {"id": a.id, "status": a.status, "target_store_id": target.id}
+    return application_out(a)
+
+
+@router.get("/reseller/applications")
+async def my_applications(user: CurrentUser, session: Session):
+    rows = (await session.scalars(select(ResellerApplication).where(ResellerApplication.user_id == user.id).order_by(ResellerApplication.created_at.desc()).limit(50))).all()
+    return [application_out(a) for a in rows]
+
+
+@router.post("/reseller/applications/{application_id}/cancel")
+async def cancel_application(application_id: uuid.UUID, user: CurrentUser, session: Session):
+    a = await session.get(ResellerApplication, application_id, with_for_update=True)
+    if not a or a.user_id != user.id:
+        raise NotFound("درخواست نمایندگی")
+    if a.status != "pending":
+        raise AppError("APPLICATION_NOT_PENDING", "فقط درخواست در حال بررسی قابل لغو است.", 409)
+    a.status, a.bot_token_enc = "cancelled", None
+    audit.record(session, "reseller.application_cancelled", actor_id=user.id, entity_type="reseller_application", entity_id=a.id)
+    await session.commit()
+    return application_out(a)
 
 
 @router.get("/stores/{store_id}/reseller/profile")

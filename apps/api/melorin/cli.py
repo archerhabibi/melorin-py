@@ -108,7 +108,7 @@ async def outbox_replay(event_id: str) -> None:
 async def rotate_encryption_key(new_key: str) -> None:
     # Rotate only fields known to contain encrypted values. Keep this explicit
     # and transactional rather than attempting a dangerous blind JSON rewrite.
-    from melorin.modules.stores.models import Store
+    from melorin.modules.stores.models import ResellerApplication, Store
     from melorin.modules.vpn.models import Panel
     from melorin.modules.payments.models import StorePaymentConfiguration
     from sqlalchemy import select
@@ -119,7 +119,7 @@ async def rotate_encryption_key(new_key: str) -> None:
             raise SystemExit("current MELORIN_ENCRYPTION_KEY is required")
         new_fernet = Fernet(new_key.encode())
         rows = [
-            (Store, "bot_token_enc"), (Panel, "credentials_enc"), (StorePaymentConfiguration, "secret_enc"),
+            (Store, "bot_token_enc"), (ResellerApplication, "bot_token_enc"), (Panel, "credentials_enc"), (StorePaymentConfiguration, "secret_enc"),
         ]
         for model, field in rows:
             for row in (await session.scalars(select(model))).all():

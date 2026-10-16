@@ -681,7 +681,7 @@ async def users(_: AdminUser, session: Session):
 @router.get("/stores", response_model=list[dict])
 async def stores(_: AdminUser, session: Session):
     rows = (await session.scalars(select(Store).order_by(Store.created_at.desc()).limit(500))).all()
-    return [{"id": s.id, "name": s.name, "slug": s.slug, "kind": s.kind, "status": s.status, "currency": s.currency, "owner_user_id": s.owner_user_id} for s in rows]
+    return [{"id": s.id, "name": s.name, "slug": s.slug, "kind": s.kind, "status": s.status, "currency": s.currency, "owner_user_id": s.owner_user_id, "domain": s.domain, "parent_store_id": s.parent_store_id, "bot_username": s.bot_username} for s in rows]
 
 
 def _ticket_row(t, user, store, count, last):
@@ -847,15 +847,38 @@ async def attach_account(order_id: uuid.UUID, body: AttachExistingAccount, admin
 
 
 # ----- Resellers, flags, audit -----
+def _application_row(x, user, target):
+    """Admin view of an application. The encrypted bot token is never serialised."""
+    return {
+        "id": x.id, "user_id": x.user_id, "user_email": user.email if user else None, "user_name": user.display_name if user else None,
+        "target_store_id": x.target_store_id, "target_store_name": target.name if target else None,
+        "store_name": x.store_name, "message": x.message, "status": x.status, "domain": x.domain,
+        "bot_username": x.bot_username, "bot_verified": x.bot_verified, "has_bot_token": bool(x.bot_token_enc),
+        "review_reason": x.review_reason, "reviewed_at": x.reviewed_at, "store_id": x.store_id, "created_at": x.created_at,
+    }
+
+
 @router.get("/reseller-applications")
-async def applications(_: AdminUser, session: Session):
-    return [{"id": x.id, "user_id": x.user_id, "target_store_id": x.target_store_id, "store_name": x.store_name, "message": x.message, "status": x.status, "created_at": x.created_at} for x in (await session.scalars(select(ResellerApplication).order_by(ResellerApplication.created_at))).all()]
+async def applications(_: AdminUser, session: Session, status: str | None = None):
+    q = select(ResellerApplication, User, Store).join(User, User.id == ResellerApplication.user_id, isouter=True).join(Store, Store.id == ResellerApplication.target_store_id, isouter=True)
+    if status:
+        q = q.where(ResellerApplication.status == status)
+    # Pending first (oldest first, so nobody waits behind newer requests), then history newest first.
+    rows = (await session.execute(q.order_by(ResellerApplication.created_at))).all()
+    rows.sort(key=lambda r: (r[0].status != "pending", r[0].created_at if r[0].status == "pending" else -r[0].created_at.timestamp()))
+    return [_application_row(x, u, t) for x, u, t in rows]
 
 
 @router.post("/reseller-applications/{application_id}/review")
 async def review_application(application_id: uuid.UUID, body: ResellerApproval, admin: AdminUser, session: Session):
+    from melorin.core import events
+    from melorin.modules.reseller import identity
+
     a = await session.get(ResellerApplication, application_id, with_for_update=True)
     if not a or a.status != "pending": raise NotFound("درخواست نمایندگی")
+    reason = (body.reason or "").strip() or None
+    if not body.approve and not reason:
+        raise AppError("REASON_REQUIRED", "برای رد درخواست، دلیل را بنویسید تا متقاضی ببیند.", 400)
     if body.approve:
         target = await session.get(Store, a.target_store_id)
         if not target or target.status != "active":
@@ -866,15 +889,47 @@ async def review_application(application_id: uuid.UUID, body: ResellerApproval, 
         member = await session.scalar(select(StoreMembership).where(StoreMembership.store_id == target.id, StoreMembership.user_id == a.user_id, StoreMembership.status == "active"))
         if not member:
             raise AppError("STORE_MEMBERSHIP_REQUIRED", "متقاضی دیگر عضو فعال فروشگاه مقصد نیست.", 409)
+        if not (a.domain and a.bot_token_enc and a.bot_key):
+            raise AppError("APPLICATION_INCOMPLETE", "این درخواست دامنه یا ربات ندارد؛ آن را رد کنید تا متقاضی دوباره با اطلاعات کامل ثبت کند.", 409)
+        await identity.ensure_identity_free(session, domain=a.domain, bot_key=a.bot_key, bot_username=a.bot_username, exclude_application_id=a.id)
     a.status = "approved" if body.approve else "rejected"; a.reviewed_by, a.reviewed_at = admin.id, __import__("datetime").datetime.now(__import__("datetime").UTC)
+    a.review_reason = reason
+    token_enc, a.bot_token_enc = a.bot_token_enc, None  # the secret moves to the Store (approve) or is dropped (reject)
     if body.approve:
         slug = f"reseller-{str(a.id)[:8]}"
-        st = Store(kind="reseller", name=a.store_name, slug=slug, owner_user_id=a.user_id, parent_store_id=target.id, currency=target.currency)
+        st = Store(kind="reseller", name=a.store_name, slug=slug, owner_user_id=a.user_id, parent_store_id=target.id, currency=target.currency,
+                   domain=a.domain, bot_token_enc=token_enc, bot_username=a.bot_username)
         session.add(st); await session.flush(); a.store_id = st.id
         session.add(ResellerProfile(store_id=st.id, user_id=a.user_id, debt_limit=body.debt_limit, api_enabled=True))
         session.add(StoreMembership(store_id=st.id, user_id=a.user_id, role="owner"))
-    audit.record(session, "reseller.application_reviewed", actor_id=admin.id, actor_type="admin", entity_type="reseller_application", entity_id=a.id, data={"approve": body.approve, "reason": body.reason})
+        session.add(BotStoreBinding(bot_key=a.bot_key, bot_username=a.bot_username, store_id=st.id, owner_user_id=a.user_id, bot_kind="reseller", status="active"))
+    audit.record(session, "reseller.application_reviewed", actor_id=admin.id, actor_type="admin", entity_type="reseller_application", entity_id=a.id, data={"approve": body.approve, "reason": reason, "debt_limit": body.debt_limit if body.approve else None, "domain": a.domain})
+    await events.emit(session, events.NOTIFY, {
+        "user_id": a.user_id, "store_id": a.target_store_id, "kind": "reseller_application",
+        "title": "✅ درخواست نمایندگی شما تأیید شد" if body.approve else "❌ درخواست نمایندگی شما رد شد",
+        "body": (f"فروشگاه «{a.store_name}» ساخته شد. از «پنل نماینده» تنظیمات را ادامه دهید." if body.approve else f"«{a.store_name}»: {reason}"),
+        "dedup_key": f"reseller_application:{a.id}:{a.status}",
+    })
     await session.commit(); return {"ok": True, "status": a.status, "store_id": a.store_id}
+
+
+@router.post("/reseller-applications/{application_id}/verify-bot")
+async def verify_application_bot(application_id: uuid.UUID, admin: AdminUser, session: Session):
+    """Re-ask Telegram about the bot of a pending application (the first check may have failed to reach Telegram)."""
+    from melorin.core.crypto import decrypt
+    from melorin.modules.reseller import identity
+
+    a = await session.get(ResellerApplication, application_id, with_for_update=True)
+    if not a or a.status != "pending" or not a.bot_token_enc:
+        raise NotFound("درخواست نمایندگی")
+    username = await identity.verify_bot(decrypt(a.bot_token_enc))
+    if username is None:
+        raise AppError("TELEGRAM_UNREACHABLE", "ارتباط با تلگرام برقرار نشد؛ کمی بعد دوباره تلاش کنید.", 503)
+    a.bot_username, a.bot_verified = username, True
+    audit.record(session, "reseller.application_bot_verified", actor_id=admin.id, actor_type="admin", entity_type="reseller_application", entity_id=a.id, data={"bot_username": username})
+    await session.commit()
+    user = await session.get(User, a.user_id)
+    return _application_row(a, user, await session.get(Store, a.target_store_id))
 
 
 @router.get("/feature-flags")

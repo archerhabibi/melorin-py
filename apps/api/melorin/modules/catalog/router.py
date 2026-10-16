@@ -35,6 +35,14 @@ async def store_by_slug(slug: str, session: Session):
     return _store_out(s)
 
 
+@public.get("/stores/by-domain/{domain}", response_model=StoreOut)
+async def store_by_domain(domain: str, session: Session):
+    s = await session.scalar(select(Store).where(Store.domain == domain.strip().lower().rstrip("."), Store.status == "active"))
+    if not s:
+        raise NotFound("فروشگاه")
+    return _store_out(s)
+
+
 @public.get("/stores/{store_id}", response_model=StoreOut)
 async def get_store(store_id: uuid.UUID, session: Session):
     s = await session.get(Store, store_id)

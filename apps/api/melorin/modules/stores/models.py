@@ -22,6 +22,9 @@ class Store(IdMixin, TimestampMixin, Base):
     bot_messages: Mapped[dict | None] = mapped_column(JSON)  # customisable bot texts
     bot_token_enc: Mapped[str | None] = mapped_column(String(500))
     bot_username: Mapped[str | None] = mapped_column(String(100))
+    # Public hostname the store is served from (lower-case, no scheme/port). Reseller stores must have one;
+    # Main Store may leave it empty. Unique across all stores.
+    domain: Mapped[str | None] = mapped_column(String(255), unique=True)
 
 
 class BotStoreBinding(IdMixin, TimestampMixin, Base):
@@ -72,6 +75,8 @@ class ResellerApplication(IdMixin, TimestampMixin, Base):
             unique=True,
             postgresql_where=text("status = 'pending'"),
         ),
+        Index("uq_reseller_application_pending_domain", "domain", unique=True, postgresql_where=text("status = 'pending'")),
+        Index("uq_reseller_application_pending_bot", "bot_key", unique=True, postgresql_where=text("status = 'pending'")),
     )
     user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"), index=True)
     store_name: Mapped[str] = mapped_column(String(200))
@@ -81,6 +86,14 @@ class ResellerApplication(IdMixin, TimestampMixin, Base):
     reviewed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     target_store_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("stores.id"), index=True)
     store_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("stores.id"))
+    # Requested store hostname and the reseller's Telegram bot. The token is stored encrypted and is never
+    # returned by any endpoint; bot_key is the stable "tg:<bot id>" identity used for uniqueness checks.
+    domain: Mapped[str | None] = mapped_column(String(255))
+    bot_token_enc: Mapped[str | None] = mapped_column(String(500))
+    bot_key: Mapped[str | None] = mapped_column(String(120))
+    bot_username: Mapped[str | None] = mapped_column(String(100))
+    bot_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    review_reason: Mapped[str | None] = mapped_column(String(500))
 
 
 class ApiCredential(IdMixin, TimestampMixin, Base):

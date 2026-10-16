@@ -8,6 +8,8 @@ class ApplicationIn(BaseModel):
     store_name: str = Field(min_length=2, max_length=200)
     message: str | None = Field(default=None, max_length=2000)
     target_store_id: uuid.UUID | None = None
+    domain: str = Field(min_length=4, max_length=255, description="store hostname, e.g. shop.example.com (scheme/path are stripped)")
+    bot_token: str = Field(min_length=20, max_length=100, repr=False, description="reseller Telegram bot token from BotFather; stored encrypted, never returned")
 
 
 class StoreBrandingUpdate(BaseModel):

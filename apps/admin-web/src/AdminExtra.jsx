@@ -7,6 +7,7 @@ import InfraHealthView from "./InfraHealthView.jsx"; // Section 4
 import ProductsView from "./ProductsView.jsx";
 import PanelGroupsView from "./PanelGroupsView.jsx";
 import TicketsView from "./TicketsView.jsx";
+import ResellerApplicationsView from "./ResellerApplicationsView.jsx";
 const money = (n) => new Intl.NumberFormat("fa-IR").format(n || 0);
 const box = "card";
 const inp = "inp";
@@ -256,4 +257,4 @@ function Tickets({ api, toast }) {
   return <TicketsView call={call} toast={toast} />;
 }
 
-export const extraRoutes = { "سلامت زیرساخت": InfraHealthView, "سفارش‌ها": Orders, "پرداخت‌ها": Payments, "تیکت‌ها": Tickets, "محصولات VPN": ProductsView, "پنل‌ها و سرورها": PanelsView, "استخرهای فروش": PanelGroupsView, "کوپن‌ها": Coupons, "تنظیمات": Settings, "ممیزی": Audit, "بررسی هویت": Reviews };
+export const extraRoutes = { "درخواست‌های نمایندگی": ResellerApplicationsView, "سلامت زیرساخت": InfraHealthView, "سفارش‌ها": Orders, "پرداخت‌ها": Payments, "تیکت‌ها": Tickets, "محصولات VPN": ProductsView, "پنل‌ها و سرورها": PanelsView, "استخرهای فروش": PanelGroupsView, "کوپن‌ها": Coupons, "تنظیمات": Settings, "ممیزی": Audit, "بررسی هویت": Reviews };
