@@ -5,7 +5,7 @@ import { getTheme, onTheme, toggleTheme } from "./theme.js";
 // Real enums from the Core API (order_state.py, ticket/payment/vpn/store models).
 const S = {
   completed: ["b-ok", "تکمیل‌شده"], paid: ["b-ok", "پرداخت‌شده"], succeeded: ["b-ok", "موفق"], active: ["b-ok", "فعال"], healthy: ["b-ok", "سالم"], applied: ["b-ok", "اعمال‌شده"], answered: ["b-ok", "پاسخ داده شد"],
-  pending: ["b-wn", "در انتظار"], payment_pending: ["b-wn", "در انتظار پرداخت"], refund_pending: ["b-wn", "در انتظار استرداد"], manual_review: ["b-wn", "بررسی دستی"], review: ["b-wn", "در بررسی"], receipt_submitted: ["b-wn", "رسید ارسال شد"], awaiting_review: ["b-wn", "در انتظار بررسی"], open: ["b-wn", "باز"], unknown: ["b-mu", "نامشخص"],
+  pending: ["b-wn", "در انتظار"], payment_pending: ["b-wn", "در انتظار پرداخت"], refund_pending: ["b-wn", "در انتظار استرداد"], manual_review: ["b-wn", "بررسی دستی"], review: ["b-wn", "در بررسی"], receipt_submitted: ["b-wn", "رسید ارسال شد"], awaiting_review: ["b-wn", "در انتظار بررسی"], awaiting_details: ["b-in", "منتظر دامنه و توکن"], open: ["b-wn", "باز"], unknown: ["b-mu", "نامشخص"],
   processing: ["b-in", "در حال پردازش"], provisioning: ["b-in", "در حال ساخت"], running: ["b-in", "در حال اجرا"],
   failed: ["b-bd", "ناموفق"], payment_failed: ["b-bd", "پرداخت ناموفق"], provisioning_failed: ["b-bd", "ساخت ناموفق"], unhealthy: ["b-bd", "ناسالم"], expired: ["b-bd", "منقضی"],
   refunded: ["b-mu", "مسترد"], cancelled: ["b-mu", "لغو شده"], disabled: ["b-mu", "غیرفعال"], closed: ["b-mu", "بسته"], archived: ["b-mu", "آرشیو"], reversed: ["b-mu", "برگشت‌خورده"], resolved: ["b-mu", "حل‌شده"], ignored: ["b-mu", "نادیده"],

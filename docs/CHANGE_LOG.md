@@ -36,6 +36,14 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-16 04:05 UTC - Claude - telegram-main, api, admin-web, store-web, db
+- **Before:** `/reseller` in the main bot only opened a support ticket. A real reseller application (web form) needed the store domain and the bot token up front, and an application without them could only be rejected.
+- **Problem:** Resellers could not apply from Telegram. Owner decision: the bot sends the request first and collects the domain and bot token only after the request is approved (giving the token in Telegram is acceptable).
+- **Action:** Two-step application. `POST /reseller/applications` accepts no domain/token (both or neither); admin approval of such a request sets status `awaiting_details` (new column `approved_debt_limit`, migration 0018) and notifies the applicant; new `POST /reseller/applications/{id}/details` validates domain + token (format, uniqueness, Telegram getMe, 424 when Telegram is unreachable) and creates the store via the shared `reseller/provisioning.py`. Main bot: `/reseller` asks name + description, later domain + token, deletes the token message, never echoes/logs/stores the token; `/cancel` added; reseller bots keep the ticket behaviour. Admin web: new status filter, approve-as-request, withdraw approval. Store web: details form for `awaiting_details`. Web one-step form and old applications unchanged.
+- **After:** Full API suite 377 passed, 1 skipped (new: 7 API tests, 9 Telegram flow tests; one old test updated because a request without domain/bot is now approvable instead of `APPLICATION_INCOMPLETE`). Not run: real Telegram sandbox, PostgreSQL migration, frontend build.
+- **Ref:** (commit of this patch)
+
+
 ### 2026-10-16 03:19 UTC - Claude - admin-web, api, store-web  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_

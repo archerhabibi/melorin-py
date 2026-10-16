@@ -120,17 +120,32 @@ const DOMAIN_RE = /^(?!-)([a-z0-9-]{1,63}\.)+[a-z]{2,24}$/i;
 const TOKEN_RE = /^\d{6,15}:[A-Za-z0-9_-]{30,64}$/;
 const cleanDomain = (v) => v.trim().replace(/^[a-z]+:\/\//i, "").split(/[/?#]/)[0].replace(/\.$/, "").toLowerCase();
 
-function ApplicationCard({ a, onCancel, busy }) {
-  const pending = a.status === "pending";
-  return <div className={`${card} ${pending ? "border-accent/40" : ""}`}>
+function DetailsForm({ onSubmit, busy }) {
+  const [f, setF] = useState({ domain: "", bot_token: "" }); const [show, setShow] = useState(false);
+  const domain = cleanDomain(f.domain); const token = f.bot_token.trim();
+  const bad = { domain: f.domain && !DOMAIN_RE.test(domain), token: f.bot_token && !TOKEN_RE.test(token) };
+  return <div className="mt-4 grid gap-4">
+    <p className="rounded-xl bg-accent-soft p-3 text-sm leading-7">درخواست شما تأیید شد. برای ساخت فروشگاه، دامنه و توکن ربات تلگرام را بفرستید (می‌توانید همین کار را در ربات تلگرام با دستور /reseller هم انجام دهید).</p>
+    <label className="text-xs font-bold"><span className="flex items-center gap-1.5"><Globe size={14} />دامنهٔ فروشگاه</span><input dir="ltr" className={`${inp} latin mt-1.5 ${bad.domain ? "!border-danger" : ""}`} placeholder="shop.example.com" value={f.domain} onChange={(e) => setF({ ...f, domain: e.target.value })} aria-invalid={!!bad.domain} /></label>
+    <label className="text-xs font-bold"><span className="flex items-center gap-1.5"><Bot size={14} />توکن ربات تلگرام</span>
+      <span className="relative mt-1.5 block"><input dir="ltr" type={show ? "text" : "password"} autoComplete="off" spellCheck={false} className={`${inp} latin !pl-11 ${bad.token ? "!border-danger" : ""}`} placeholder="123456789:AA…" value={f.bot_token} onChange={(e) => setF({ ...f, bot_token: e.target.value })} aria-invalid={!!bad.token} />
+        <button type="button" onClick={() => setShow((x) => !x)} aria-label={show ? "پنهان‌کردن توکن" : "نمایش توکن"} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted">{show ? <EyeOff size={17} /> : <Eye size={17} />}</button></span></label>
+    <button className={btn} disabled={busy || !DOMAIN_RE.test(domain) || !TOKEN_RE.test(token)} onClick={() => onSubmit(domain, token)}>{busy ? "در حال ساخت…" : "ساخت فروشگاه"}</button>
+  </div>;
+}
+
+function ApplicationCard({ a, onCancel, onDetails, busy }) {
+  const pending = a.status === "pending"; const awaiting = a.status === "awaiting_details";
+  return <div className={`${card} ${pending || awaiting ? "border-accent/40" : ""}`}>
     <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="text-xs text-muted">{fd(a.created_at)}</div><h4 className="mt-1 text-lg font-extrabold">{a.store_name}</h4></div><StatusBadge status={a.status} /></div>
     <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
       <div className="flex items-center gap-2"><Globe size={16} className="text-muted" /><dd dir="ltr" className="latin font-bold">{a.domain || "—"}</dd></div>
       <div className="flex items-center gap-2"><Bot size={16} className="text-muted" /><dd dir="ltr" className="latin font-bold">{a.bot_username ? `@${a.bot_username}` : "—"}</dd></div>
     </dl>
     {pending && <p className="mt-4 rounded-xl bg-accent-soft p-3 text-sm leading-7">درخواست شما در صف بررسی مدیریت است. پس از تأیید، فروشگاه نمایندگی ساخته می‌شود و همین‌جا «پنل نماینده» برایتان باز می‌شود.</p>}
+    {awaiting && <DetailsForm onSubmit={(domain, token) => onDetails(a, domain, token)} busy={busy} />}
     {a.status === "rejected" && <p className="mt-4 rounded-xl bg-danger-soft p-3 text-sm leading-7"><b>دلیل رد:</b> {a.review_reason || "—"}</p>}
-    {pending && <button className={`${ghost} mt-4`} disabled={busy} onClick={() => onCancel(a)}>لغو درخواست</button>}
+    {(pending || awaiting) && <button className={`${ghost} mt-4`} disabled={busy} onClick={() => onCancel(a)}>لغو درخواست</button>}
   </div>;
 }
 
@@ -156,10 +171,19 @@ function Apply({ coreFetch, notify, stores }) {
     setBusy(true); const r = await coreFetch(`/api/v1/reseller/applications/${a.id}/cancel`, { method: "POST" }); setBusy(false);
     notify(r.ok ? "درخواست لغو شد" : "لغو درخواست ناموفق بود"); r.ok && loadApps();
   };
+  const details = async (a, domain, token) => {
+    setBusy(true); setErr("");
+    try {
+      const r = await coreFetch(`/api/v1/reseller/applications/${a.id}/details`, { method: "POST", headers: J, body: JSON.stringify({ domain, bot_token: token }) });
+      if (r.ok) { notify("فروشگاه نمایندگی ساخته شد"); window.location.reload(); }
+      else { const m = await errOf(r, "ثبت اطلاعات ناموفق بود"); setErr(m); notify(m); }
+    } catch { setErr("ارتباط با سرور برقرار نشد"); } finally { setBusy(false); }
+  };
   if (apps === null) return <Loading rows={2} />;
-  const pending = apps.find((a) => a.status === "pending"); const history = apps.filter((a) => a.status !== "pending").slice(0, 3);
+  const open = (a) => a.status === "pending" || a.status === "awaiting_details";
+  const pending = apps.find(open); const history = apps.filter((a) => !open(a)).slice(0, 3);
   return <div className="mx-auto max-w-2xl space-y-5">
-    {pending ? <ApplicationCard a={pending} onCancel={cancel} busy={busy} /> : <div className={card}>
+    {pending ? <><ApplicationCard a={pending} onCancel={cancel} onDetails={details} busy={busy} />{err && <p role="alert" className="rounded-xl bg-danger-soft p-3 text-sm text-danger">{err}</p>}</> : <div className={card}>
       <h3 className="text-xl font-extrabold">درخواست نمایندگی</h3>
       <p className="mt-2 text-sm leading-7 text-muted">فروشگاه و ربات تلگرام اختصاصی خودت را داشته باش. فقط برای فروشگاهی درخواست بده که عضو فعال آن هستی؛ برای چند فروشگاه می‌توانی جداگانه درخواست بدهی.</p>
       <div className="mt-5 grid gap-4">
@@ -176,7 +200,7 @@ function Apply({ coreFetch, notify, stores }) {
       {err && <p role="alert" className="mt-4 rounded-xl bg-danger-soft p-3 text-sm text-danger">{err}</p>}
       <button disabled={!ready || busy} onClick={send} className={`${btn} mt-5`}>{busy ? "در حال ثبت…" : "ارسال درخواست"}</button>
     </div>}
-    {history.map((a) => <ApplicationCard key={a.id} a={a} onCancel={cancel} busy={busy} />)}
+    {history.map((a) => <ApplicationCard key={a.id} a={a} onCancel={cancel} onDetails={details} busy={busy} />)}
   </div>;
 }
 
