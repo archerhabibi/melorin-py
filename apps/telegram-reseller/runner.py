@@ -19,7 +19,7 @@ assert _spec and _spec.loader
 _spec.loader.exec_module(_module)
 money, keyboard = _module.money, _module.keyboard
 
-OWNER_HELP = "\n\nبخش نماینده:\n/report گزارش فروش\n/customers مشتریان\n/payments پرداخت‌های در انتظار تأیید"
+OWNER_HELP = "\n\nبخش نماینده:\n/report گزارش فروش\n/customers مشتریان\n/payments پرداخت‌های در انتظار تأیید\n/prices قیمت فروش محصولات"
 
 
 class ResellerTelegramRunner(_module.TelegramRunner):
@@ -31,8 +31,9 @@ class ResellerTelegramRunner(_module.TelegramRunner):
         if state_suffix:
             os.environ["MELORIN_TELEGRAM_OFFSET_FILE"] = f"/var/lib/melorin/reseller-{state_suffix}-offset.json"
         super().__init__()
-        self.commands.update({"/report": self.cmd_report, "/customers": self.cmd_customers, "/payments": self.cmd_payments})
+        self.commands.update({"/report": self.cmd_report, "/customers": self.cmd_customers, "/payments": self.cmd_payments, "/prices": self.cmd_prices})
         self.callbacks["rv"] = self.cb_review
+        self.callbacks["prc"] = self.cb_price_pick
 
     async def store_info(self) -> dict:
         if self.store is None:
@@ -65,6 +66,39 @@ class ResellerTelegramRunner(_module.TelegramRunner):
         for p in todo:
             await self.send(ctx.chat_id, f"پرداخت {money(p['amount'])} {p['currency']} · {p['provider']}",
                             [[("✅ تأیید", f"rv:{p['id']}:1"), ("❌ رد", f"rv:{p['id']}:0")]])
+
+    # ---- retail prices: the reseller sets them for THIS store only; the core enforces the cost floor ----
+    async def cmd_prices(self, ctx, arg):
+        s = await self.store_info()
+        rows = await self.api(ctx, "GET", f"/api/v1/stores/{s['id']}/reseller/prices")
+        if not rows:
+            return await self.send(ctx.chat_id, "محصولی برای قیمت‌گذاری در دسترس نیست.")
+        mark = {"unset": "⚪️ تعیین نشده", "ok": "✅", "below_cost": "⚠️ زیر قیمت همکاری"}
+        buttons = []
+        for r in rows[:30]:
+            price = money(r["customer_price"]) if r["customer_price"] else mark["unset"]
+            buttons.append([(f"{r['name']} · {price} · حداقل {money(r['cost_floor'])}", f"prc:{r['product_id']}")])
+        await self.send(ctx.chat_id, "💲 قیمت فروش به مشتریان شما. محصولی را انتخاب کنید تا قیمتش را عوض کنید.\nمحصول بدون قیمت یا با قیمت زیر حداقل به مشتری نمایش داده نمی‌شود.", buttons)
+
+    async def cb_price_pick(self, ctx, pid):
+        self._merge_state(ctx.chat_id, price_for=pid)
+        await self.send(ctx.chat_id, "قیمت فروش جدید را به عدد (تومان) بفرستید. برای برداشتن قیمت، 0 بفرستید.")
+
+    async def on_text(self, ctx, text):
+        pid = (self.state.get(str(ctx.chat_id)) or {}).get("price_for")
+        if not pid or text.startswith("/"):
+            return await super().on_text(ctx, text)
+        digits = "".join(ch for ch in text.translate(str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")) if ch.isdigit())
+        if not digits:  # not a number: the reseller moved on (menu button, other text)
+            self._merge_state(ctx.chat_id, price_for=None)
+            return await super().on_text(ctx, text)
+        s = await self.store_info()
+        try:
+            out = await self.api(ctx, "PUT", f"/api/v1/stores/{s['id']}/reseller/prices/{pid}", json={"customer_price": int(digits)})
+        except _module.CoreError as e:  # the state stays, so the reseller can send another number
+            return await self.send(ctx.chat_id, f"{e.message if hasattr(e, 'message') else e}\nعدد دیگری بفرستید:")
+        self._merge_state(ctx.chat_id, price_for=None)
+        await self.send(ctx.chat_id, "قیمت برداشته شد؛ محصول به مشتری نمایش داده نمی‌شود." if not out.get("customer_price") else f"✅ قیمت فروش {money(out['customer_price'])} ثبت شد.")
 
     async def cb_review(self, ctx, rest):
         pid, _, flag = rest.partition(":")

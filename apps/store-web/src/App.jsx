@@ -14,6 +14,8 @@ const STEPS = [
   [LayoutGrid, "انتخاب سرویس", "پیش‌فاکتور شفاف را ببین و پرداخت کن."],
   [Link2, "دریافت لینک", "لینک اشتراک بلافاصله در حسابت آماده است."],
 ];
+const NAME_RE = /^[A-Za-z0-9_-]{3,}$/;
+async function errOf(r, fallback) { try { const d = await r.json(); return d?.error?.message || (typeof d?.detail === "string" ? d.detail : "") || fallback; } catch { return fallback; } }
 const WHY = [
   [WalletIcon, "کیف پول شفاف", "شارژ، خرید و تمدید را در یک گردش مالی ساده ببین؛ هر تراکنش ردیف مشخصی دارد."],
   [LifeBuoy, "پشتیبانی انسانی", "اگر جایی گیر کردی، از بخش تیکت‌ها پیام بده و پاسخ همان‌جا بیاید."],
@@ -54,6 +56,11 @@ export default function App(){
   const [notice, setNotice] = useState("");
   const [catalog, setCatalog] = useState([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
+  const [pools, setPools] = useState([]);
+  const [poolId, setPoolId] = useState("");
+  const [panelId, setPanelId] = useState("");
+  const [accountName, setAccountName] = useState("");
+  const [pkgLoading, setPkgLoading] = useState(false);
   const [apiState, setApiState] = useState("در حال اتصال به Core");
   const [accessToken, setAccessToken] = useState(() => getAccessToken());
   const [modal, setModal] = useState("");
@@ -107,23 +114,41 @@ export default function App(){
     if (!r.ok) throw Error("invalid code");
     const pair = await r.json(); setTokens(pair); setAccessToken(pair.access_token); setModal(""); setNotice("خوش آمدی");
   }
+  const pool = pools.find((x) => x.id === poolId);
+  const manual = pool?.selection_mode === "manual";
+  const customName = pool?.naming_mode === "custom";
+  const panelLabel = pool?.panels?.find((x) => x.id === panelId)?.label;
+  const poolBody = () => ({ panel_group_id: poolId, ...(manual ? { selected_panel_id: panelId } : {}) });
   async function buySelected() {
-    const r = await coreFetch(`/api/v1/stores/${storeId}/orders`, {method:"POST", headers:{"Content-Type":"application/json","Idempotency-Key":`web-${crypto.randomUUID()}`}, body:JSON.stringify({product_id:selectedQuote?.product_id || selectedQuote?.id, payment_method:"wallet", kind:"purchase"})});
-    if (!r.ok) throw Error("order failed");
+    const r = await coreFetch(`/api/v1/stores/${storeId}/orders`, {method:"POST", headers:{"Content-Type":"application/json","Idempotency-Key":`web-${crypto.randomUUID()}`}, body:JSON.stringify({product_id:selectedQuote?.product_id || selectedQuote?.id, payment_method:"wallet", kind:"purchase", ...poolBody(), ...(customName ? { account_name: accountName.trim() } : {})})});
+    if (!r.ok) throw Error(await errOf(r, "order failed"));
     setModal(""); setNotice("سفارش ثبت شد"); loadAccount();
   }
-  const run = async (fn, failMsg) => { setBusy(true); try { await fn(); } catch { setNotice(failMsg); } finally { setBusy(false); } };
+  const run = async (fn, failMsg) => { setBusy(true); try { await fn(); } catch (e) { setNotice(e?.message && !/^(order failed|login request failed|invalid code)$/.test(e.message) ? e.message : failMsg); } finally { setBusy(false); } };
   useEffect(() => {
     const base = (import.meta.env?.VITE_MELORIN_API_URL || window.location.origin).replace(/\/$/, "");
     setCatalogLoading(true);
     coreFetch(`/api/v1/stores/main`, {headers: {Accept: "application/json"}})
       .then(r => r.ok ? r.json() : Promise.reject(new Error(String(r.status))))
-      .then(store => { setStoreId(store.id); return fetch(`${base}/api/v1/stores/${store.id}/catalog`, {headers: {Accept: "application/json"}}); })
+      .then(store => { setStoreId(store.id); return fetch(`${base}/api/v1/stores/${store.id}/pools`, {headers: {Accept: "application/json"}}); })
       .then(r => r.ok ? r.json() : Promise.reject(new Error(String(r.status))))
-      .then(data => { setCatalog(Array.isArray(data) ? data : (data.items || [])); setApiState("اتصال Core برقرار است"); })
-      .catch(() => { setCatalog([]); setApiState("Core در دسترس نیست؛ کاتالوگ موقتاً نمایش داده نمی‌شود"); })
+      .then(data => { const list = Array.isArray(data) ? data : (data.items || []); setPools(list); setPoolId((cur) => list.some((x) => x.id === cur) ? cur : (list.length === 1 ? list[0].id : "")); setApiState("اتصال Core برقرار است"); })
+      .catch(() => { setPools([]); setApiState("Core در دسترس نیست؛ سرویس‌ها موقتاً نمایش داده نمی‌شود"); })
       .finally(() => setCatalogLoading(false));
   }, [reloadKey]);
+  useEffect(() => {
+    setCatalog([]);
+    if (!storeId || !poolId) return;
+    const base = (import.meta.env?.VITE_MELORIN_API_URL || window.location.origin).replace(/\/$/, "");
+    let live = true;
+    setPkgLoading(true);
+    fetch(`${base}/api/v1/stores/${storeId}/pools/${poolId}/packages`, {headers: {Accept: "application/json"}})
+      .then(r => r.ok ? r.json() : Promise.reject(new Error(String(r.status))))
+      .then(data => live && setCatalog(Array.isArray(data) ? data : (data.items || [])))
+      .catch(() => live && setCatalog([]))
+      .finally(() => live && setPkgLoading(false));
+    return () => { live = false; };
+  }, [storeId, poolId, reloadKey]);
   useEffect(() => {
     if (accessToken) return;
     fetch(`${base}/api/v1/auth/refresh`, {method:"POST", credentials:"include", headers:{"Content-Type":"application/json"}, body:"{}"})
@@ -132,13 +157,17 @@ export default function App(){
       .catch(() => {});
   }, []);
   useEffect(() => { if (storeId && accessToken) loadAccount(); }, [storeId, accessToken]);
+  const pickPool = (id) => { setPoolId(id); setPanelId(""); setSelectedQuote(null); setActive(""); };
   const choose = async (product) => {
     const name = product.name || product.title || product.code;
     setActive(name);
     if (!accessToken) { setModal("login"); setNotice("برای خرید وارد شوید"); return; }
+    if (!poolId || (manual && !panelId)) { setNotice("ابتدا استخر فروش و گزینه را انتخاب کنید"); return; }
+    if (customName && !NAME_RE.test(accountName.trim())) { setNotice("نام کاربری حداقل ۳ کاراکتر و فقط شامل حروف انگلیسی، عدد، _ و - باشد"); return; }
     try {
-      const r = await coreFetch(`/api/v1/stores/${storeId}/checkout/quote`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({product_id: product.product_id || product.id})});
-      const q = await r.json(); setSelectedQuote(q); setModal("checkout");
+      const r = await coreFetch(`/api/v1/stores/${storeId}/checkout/quote`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({product_id: product.product_id || product.id, ...poolBody()})});
+      if (!r.ok) { setNotice(await errOf(r, "پیش‌فاکتور از Core دریافت نشد")); return; }
+      const q = await r.json(); setSelectedQuote({ product_id: product.product_id || product.id, ...q }); setModal("checkout");
     } catch { setNotice("پیش‌فاکتور از Core دریافت نشد"); }
   };
   const goAccount = () => accessToken ? (window.location.hash = "#/dashboard") : setModal("login");
@@ -177,10 +206,15 @@ export default function App(){
       </section>
 
       <section id="plans" className="bg-hero px-5 py-24"><div className="mx-auto max-w-6xl">
-        <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end"><div><div className="text-sm font-extrabold text-[#f7c85c]">سرویس‌ها</div><h2 className="mt-3 text-4xl font-black leading-tight">برای ریتم خودت انتخاب کن.</h2></div><p className="flex max-w-sm items-center gap-2 text-sm leading-7 text-white/60"><span className={`h-2 w-2 shrink-0 rounded-full ${catalog.length ? "bg-[#86e0b8]" : "bg-[#f79680]"}`} />{apiState} · قیمت نهایی فقط از Core می‌آید.</p></div>
+        <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end"><div><div className="text-sm font-extrabold text-[#f7c85c]">سرویس‌ها</div><h2 className="mt-3 text-4xl font-black leading-tight">برای ریتم خودت انتخاب کن.</h2></div><p className="flex max-w-sm items-center gap-2 text-sm leading-7 text-white/60"><span className={`h-2 w-2 shrink-0 rounded-full ${pools.length ? "bg-[#86e0b8]" : "bg-[#f79680]"}`} />{apiState} · قیمت نهایی فقط از Core می‌آید.</p></div>
+        {!catalogLoading && pools.length > 1 && <div className="mt-10"><div className="text-sm font-bold text-white/70">استخر فروش را انتخاب کن</div><div className="mt-3 flex flex-wrap gap-3">{pools.map(x => <button key={x.id} onClick={() => pickPool(x.id)} aria-pressed={poolId === x.id} className={`flex items-center gap-3 rounded-2xl px-5 py-3 text-right text-sm font-extrabold transition ${poolId === x.id ? "bg-[#f7c85c] text-[#10233f]" : "bg-white/[.07] text-white ring-1 ring-white/10 hover:bg-white/[.12]"}`}>{x.name}{x.kind_label && <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${poolId === x.id ? "bg-[#10233f] text-[#f7c85c]" : "bg-white/10 text-[#86e0b8]"}`}>{x.kind_label}</span>}</button>)}</div></div>}
+        {!catalogLoading && pool && manual && <div className="mt-8"><div className="text-sm font-bold text-white/70">گزینه / لوکیشن را انتخاب کن</div><div className="mt-3 flex flex-wrap gap-3">{(pool.panels || []).map(x => <button key={x.id} onClick={() => { setPanelId(x.id); setSelectedQuote(null); }} aria-pressed={panelId === x.id} className={`rounded-2xl px-5 py-3 text-sm font-extrabold transition ${panelId === x.id ? "bg-[#f7c85c] text-[#10233f]" : "bg-white/[.07] text-white ring-1 ring-white/10 hover:bg-white/[.12]"}`}>{x.label}</button>)}{!(pool.panels || []).length && <span className="text-sm text-white/60">فعلاً گزینه‌ای در این استخر موجود نیست.</span>}</div></div>}
+        {!catalogLoading && pool && customName && (!manual || panelId) && <div className="mt-8 max-w-sm"><label className="block text-sm font-bold text-white/70">نام کاربری اکانت<input dir="ltr" value={accountName} onChange={e => setAccountName(e.target.value.replace(/[^A-Za-z0-9_-]/g, ""))} maxLength={32} autoComplete="off" placeholder="my_name" className="input latin mt-2 text-left !text-ink" /></label><p className={`mt-1.5 text-xs ${accountName && !NAME_RE.test(accountName) ? "text-[#f79680]" : "text-white/50"}`}>حداقل ۳ کاراکتر؛ فقط حروف انگلیسی، عدد، _ و -</p></div>}
         <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-          {catalogLoading ? Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-72 animate-pulse rounded-3xl bg-white/10" />) :
-          catalog.length ? catalog.map(p=>{const name=p.name || p.title || p.code || "Melorin"; const on = active===name; return <button key={String(p.id||name)} onClick={()=>choose(p)} aria-pressed={on} className={`group relative flex flex-col text-right rounded-3xl p-7 transition duration-300 hover:-translate-y-1.5 ${on?'bg-[#f7c85c] text-[#10233f] shadow-[0_24px_60px_-20px_#f7c85c88]':'bg-white/[.07] text-white ring-1 ring-white/10 hover:bg-white/[.12]'}`}>
+          {catalogLoading || pkgLoading ? Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-72 animate-pulse rounded-3xl bg-white/10" />) :
+          !pools.length ? <div className="rounded-3xl border border-white/15 bg-white/5 p-10 text-center text-white/75 md:col-span-2 lg:col-span-3"><p>سرویس‌ها موقتاً در دسترس نیست. لطفاً بعداً دوباره تلاش کنید.</p><button onClick={() => setReloadKey(k => k + 1)} className="btn mt-5 bg-white/10 text-white hover:bg-white/20"><RefreshCw size={16} />تلاش دوباره</button></div> :
+          !poolId || (manual && !panelId) ? <div className="rounded-3xl border border-white/15 bg-white/5 p-10 text-center text-white/75 md:col-span-2 lg:col-span-3">{!poolId ? "برای دیدن پکیج‌ها، یک استخر فروش را انتخاب کن." : "برای دیدن پکیج‌ها، یک گزینه را انتخاب کن."}</div> :
+          catalog.length ? catalog.map(p=>{const name=p.name || p.title || p.code || "Melorin"; const on = active===name; return <button key={String(p.product_id||p.id||name)} onClick={()=>choose(p)} aria-pressed={on} className={`group relative flex flex-col text-right rounded-3xl p-7 transition duration-300 hover:-translate-y-1.5 ${on?'bg-[#f7c85c] text-[#10233f] shadow-[0_24px_60px_-20px_#f7c85c88]':'bg-white/[.07] text-white ring-1 ring-white/10 hover:bg-white/[.12]'}`}>
             <div className="flex items-center justify-between"><span className="text-2xl font-black">{name}</span><span className={`grid h-9 w-9 place-items-center rounded-full ${on?'bg-[#10233f] text-[#f7c85c]':'bg-white/10 text-[#86e0b8]'}`}><Sparkles size={16} /></span></div>
             <ul className={`mt-7 space-y-3 text-sm ${on?'text-[#33466a]':'text-white/70'}`}>
               <li className="flex items-center gap-2"><Check size={15} className={on?'':'text-[#86e0b8]'} />{p.meta || `${p.duration_days ? fa(p.duration_days) : "؟"} روز · ${p.traffic_gb ? fa(p.traffic_gb) : "؟"} گیگابایت`}</li>
@@ -189,7 +223,7 @@ export default function App(){
             </ul>
             <div className="mt-auto pt-9"><div className="flex items-baseline gap-2"><span className="text-4xl font-black tracking-tight">{p.price ? new Intl.NumberFormat("fa-IR").format(p.price) : (p.display_price || "قیمت در Core")}</span><span className="text-xs opacity-60">تومان</span></div>
             <div className={`mt-5 inline-flex items-center gap-2 text-sm font-extrabold ${on?'text-[#10233f]':'text-[#f7c85c]'}`}>{on?<><Check size={16}/>انتخاب شده</>:<>مشاهده پیش‌فاکتور <ArrowLeft size={16} className="transition group-hover:-translate-x-1" /></>}</div></div>
-          </button>}) : <div className="rounded-3xl border border-white/15 bg-white/5 p-10 text-center text-white/75 md:col-span-2 lg:col-span-3"><p>کاتالوگ موقتاً در دسترس نیست. لطفاً بعداً دوباره تلاش کنید.</p><button onClick={() => setReloadKey(k => k + 1)} className="btn mt-5 bg-white/10 text-white hover:bg-white/20"><RefreshCw size={16} />تلاش دوباره</button></div>}
+          </button>}) : <div className="rounded-3xl border border-white/15 bg-white/5 p-10 text-center text-white/75 md:col-span-2 lg:col-span-3">این استخر فعلاً پکیجی برای فروش ندارد.</div>}
         </div></div></section>
 
       <section id="how" className="mx-auto max-w-6xl px-5 py-24">
@@ -226,7 +260,7 @@ export default function App(){
     {modal && <Modal onClose={() => setModal("")} title={{ login: "ورود به ملورین", code: "کد ورود را وارد کن", checkout: `پیش‌فاکتور ${active}`, account: "حساب من" }[modal]}>
       {modal==="login"&&<form onSubmit={(e)=>{e.preventDefault(); validEmail && run(requestCode, "ارسال کد ناموفق بود");}}><p className="mt-2 text-sm leading-7 text-muted">رمز عبور لازم نیست؛ کد ورود به ایمیلت ارسال می‌شود. اگر حساب نداشته باشی، خودکار ساخته می‌شود.</p><label className="mt-6 block text-xs font-bold">ایمیل<div className="relative mt-1.5"><Mail size={17} className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-muted" /><input type="email" dir="ltr" autoComplete="email" inputMode="email" value={email} onChange={e=>setEmail(e.target.value)} className="input !pr-10 text-left" placeholder="email@example.com"/></div></label><button type="submit" disabled={!validEmail || busy} className="btn-primary mt-5 w-full">{busy ? <Loader2 size={18} className="animate-spin" /> : <Mail size={18} />}ارسال کد ورود</button><p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-muted"><Lock size={13} />ایمیل تو نزد ما محفوظ می‌ماند.</p></form>}
       {modal==="code"&&<form onSubmit={(e)=>{e.preventDefault(); loginCode && run(verifyCode, "کد نامعتبر است");}}><p className="mt-2 text-sm leading-7 text-muted">کد ارسال‌شده به <b className="latin text-ink">{email}</b> را وارد کن.</p><input autoFocus dir="ltr" inputMode="numeric" autoComplete="one-time-code" value={loginCode} onChange={e=>setLoginCode(e.target.value.trim())} className="input mt-6 !py-4 text-center text-2xl font-black tracking-[.5em]" placeholder="••••••" aria-label="کد ورود"/><button type="submit" disabled={!loginCode || busy} className="btn-primary mt-5 w-full">{busy && <Loader2 size={18} className="animate-spin" />}تأیید و ورود</button><button type="button" onClick={()=>setModal("login")} className="mt-3 w-full text-center text-xs font-bold text-muted hover:text-ink">تغییر ایمیل یا ارسال دوباره</button></form>}
-      {modal==="checkout"&&<><p className="mt-2 text-sm text-muted">خلاصه سفارش را بررسی و از کیف پول پرداخت کن.</p><dl className="mt-6 divide-y divide-line rounded-2xl bg-surface2 px-4 text-sm"><div className="flex justify-between py-3.5"><dt className="text-muted">سرویس</dt><dd className="font-bold">{active}</dd></div><div className="flex justify-between py-3.5"><dt className="text-muted">مبلغ نهایی</dt><dd className="text-lg font-black">{new Intl.NumberFormat("fa-IR").format(selectedQuote?.total||0)} <span className="text-xs font-semibold">{selectedQuote?.currency}</span></dd></div><div className="flex justify-between py-3.5"><dt className="text-muted">موجودی کیف پول</dt><dd className={`font-bold ${selectedQuote?.sufficient_funds ? "text-mint" : "text-danger"}`}>{new Intl.NumberFormat("fa-IR").format(selectedQuote?.wallet_balance||0)}</dd></div></dl>{selectedQuote && !selectedQuote.sufficient_funds && <p className="mt-3 rounded-xl bg-danger-soft px-4 py-3 text-xs font-bold leading-6 text-danger">موجودی کافی نیست. ابتدا از بخش «کیف پول» حساب را شارژ کن.</p>}<button disabled={!selectedQuote?.sufficient_funds || busy} onClick={()=>run(buySelected, "ثبت سفارش ناموفق بود")} className="btn-primary mt-5 w-full">{busy ? <Loader2 size={18} className="animate-spin" /> : <CreditCard size={18} />}پرداخت از کیف پول و ثبت سفارش</button>{selectedQuote && !selectedQuote.sufficient_funds && <button onClick={()=>{setModal(""); window.location.hash="#/dashboard";}} className="btn-soft mt-3 w-full">رفتن به کیف پول</button>}</>}
+      {modal==="checkout"&&<><p className="mt-2 text-sm text-muted">خلاصه سفارش را بررسی و از کیف پول پرداخت کن.</p><dl className="mt-6 divide-y divide-line rounded-2xl bg-surface2 px-4 text-sm"><div className="flex justify-between py-3.5"><dt className="text-muted">سرویس</dt><dd className="font-bold">{active}</dd></div>{pool && <div className="flex justify-between py-3.5"><dt className="text-muted">استخر</dt><dd className="font-bold">{pool.name}{panelLabel ? ` · ${panelLabel}` : ""}</dd></div>}{customName && <div className="flex justify-between py-3.5"><dt className="text-muted">نام کاربری</dt><dd className="latin font-bold">{accountName.trim()}</dd></div>}<div className="flex justify-between py-3.5"><dt className="text-muted">مبلغ نهایی</dt><dd className="text-lg font-black">{new Intl.NumberFormat("fa-IR").format(selectedQuote?.total||0)} <span className="text-xs font-semibold">{selectedQuote?.currency}</span></dd></div><div className="flex justify-between py-3.5"><dt className="text-muted">موجودی کیف پول</dt><dd className={`font-bold ${selectedQuote?.sufficient_funds ? "text-mint" : "text-danger"}`}>{new Intl.NumberFormat("fa-IR").format(selectedQuote?.wallet_balance||0)}</dd></div></dl>{selectedQuote && !selectedQuote.sufficient_funds && <p className="mt-3 rounded-xl bg-danger-soft px-4 py-3 text-xs font-bold leading-6 text-danger">موجودی کافی نیست. ابتدا از بخش «کیف پول» حساب را شارژ کن.</p>}<button disabled={!selectedQuote?.sufficient_funds || busy} onClick={()=>run(buySelected, "ثبت سفارش ناموفق بود")} className="btn-primary mt-5 w-full">{busy ? <Loader2 size={18} className="animate-spin" /> : <CreditCard size={18} />}پرداخت از کیف پول و ثبت سفارش</button>{selectedQuote && !selectedQuote.sufficient_funds && <button onClick={()=>{setModal(""); window.location.hash="#/dashboard";}} className="btn-soft mt-3 w-full">رفتن به کیف پول</button>}</>}
       {modal==="account"&&<><div className="mt-5 rounded-2xl bg-mint-soft p-4">موجودی: {new Intl.NumberFormat("fa-IR").format(wallet?.balance||0)} {wallet?.currency}</div><p className="mt-4 text-sm">سفارش‌ها: {fa(orders.length)}</p></>}
     </Modal>}
     <Toast message={notice} />

@@ -15,7 +15,7 @@ from melorin.modules.payments.models import Payment
 from melorin.modules.payments.schemas import payment_out
 from melorin.modules.reseller import api_keys
 from melorin.modules.reseller.schemas import (
-    ApiCredentialIn, ApplicationIn, CustomerOut, CustomerWalletAdjustment, PaymentConfigIn, PaymentReview, StoreBrandingUpdate,
+    ApiCredentialIn, ApplicationIn, PriceIn, CustomerOut, CustomerWalletAdjustment, PaymentConfigIn, PaymentReview, StoreBrandingUpdate,
     WebhookEndpointIn, WebhookEndpointPatch,
 )
 from melorin.modules.stores.models import ApiCredential, ResellerApplication, ResellerProfile, StoreMembership, StorePaymentConfiguration
@@ -23,7 +23,7 @@ from melorin.modules.wallet import service as wallet
 from melorin.modules.webhooks import service as webhooks
 from fastapi import Header
 from types import SimpleNamespace
-from melorin.modules.catalog import service as catalog_service
+from melorin.modules.vpn import allocation
 from melorin.modules.stores.models import Store
 from melorin.modules.vpn.panel_groups import PanelGroup, StorePanelGroup
 
@@ -112,6 +112,21 @@ async def toggle_reseller_panel_group(panel_group_id: uuid.UUID, body: dict, ctx
     audit.record(session, "reseller.panel_group_toggled", actor_id=ctx.user.id, actor_type="reseller", entity_type="panel_group", entity_id=b.id, store_id=ctx.store.id, data={"enabled": row.is_enabled})
     await session.commit()
     return {"ok": True, "is_enabled": row.is_enabled}
+
+
+@router.get("/stores/{store_id}/reseller/prices")
+async def reseller_prices(ctx: OwnerCtx, session: Session):
+    """Products this store may sell, with the cost per pool and the store's own retail price."""
+    return await allocation.reseller_price_table(session, ctx.store)
+
+
+@router.put("/stores/{store_id}/reseller/prices/{product_id}")
+async def set_reseller_price(product_id: uuid.UUID, body: PriceIn, ctx: OwnerCtx, session: Session):
+    """The reseller sets the retail price of one product for THIS store only. The core enforces the cost floor."""
+    sp = await allocation.set_customer_price(session, ctx.store, product_id, body.customer_price)
+    audit.record(session, "reseller.price_set", actor_id=ctx.user.id, actor_type="reseller", entity_type="product", entity_id=product_id, store_id=ctx.store.id, data={"customer_price": sp.customer_price})
+    await session.commit()
+    return {"ok": True, "product_id": product_id, "customer_price": sp.customer_price}
 
 
 @router.patch("/stores/{store_id}/reseller/branding")
@@ -315,7 +330,7 @@ api_router = APIRouter(prefix="/reseller-api/v1", tags=["reseller-api"])
 @api_router.get("/stores/{store_id}/catalog")
 async def api_catalog(store_id: uuid.UUID, session: Session, x_api_key: str = Header(..., alias="X-API-Key")):
     _, ctx = await _api_ctx(session, store_id, x_api_key, "catalog:read")
-    rows = await catalog_service.store_catalog(session, ctx.store)
+    rows = await allocation.sellable_products(session, ctx.store)
     return [{"product_id": p.id, "code": p.code, "name": p.name, "price": sp.customer_price, "currency": ctx.store.currency, "duration_days": p.duration_days, "traffic_gb": p.traffic_gb} for p, sp in rows]
 
 

@@ -30,8 +30,9 @@ from melorin.modules.system.models import AuditEvent, BackupRun, FeatureFlag, Sy
 from melorin.modules.webhooks import service as webhook_service
 from melorin.modules.tickets.models import Ticket
 from melorin.modules.tickets.schemas import AdminAddMessage, AdminUpdateTicket, EditMessage as EditTicketMessage
+from melorin.modules.vpn import allocation
 from melorin.modules.vpn.models import Panel, Server, VpnAccount
-from melorin.modules.vpn.panel_groups import PanelGroup, PanelGroupMember, StorePanelGroup
+from melorin.modules.vpn.panel_groups import PanelGroup, PanelGroupMember, PoolProduct, StorePanelGroup
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 router.include_router(integrations_router)
@@ -150,6 +151,7 @@ async def create_product(body: CreateProduct, admin: AdminUser, session: Session
     if body.default_panel_group_id is not None: await _check_default_group(session, body.default_panel_group_id)
     p = Product(**body.model_dump())
     session.add(p); await session.flush()
+    if p.default_panel_group_id and not p.is_test: await _ensure_pool_product(session, p.default_panel_group_id, p.id)
     main = await session.scalar(select(Store).where(Store.kind == "main", Store.status == "active"))
     if main:
         session.add(StoreProduct(
@@ -180,6 +182,7 @@ async def update_product(product_id: uuid.UUID, body: ProductPatch, admin: Admin
     if "code" in changes and changes["code"] != p.code and await session.scalar(select(Product.id).where(Product.code == changes["code"])):
         raise AppError("PRODUCT_CODE_EXISTS", "کد محصول تکراری است.", 409)
     for k, v in changes.items(): setattr(p, k, v)
+    if changes.get("default_panel_group_id") is not None and not p.is_test: await _ensure_pool_product(session, p.default_panel_group_id, p.id)
     audit.record(session, "product.updated", actor_id=admin.id, actor_type="admin", entity_type="product", entity_id=p.id, data={"before": before, "after": {k: (str(v) if isinstance(v, uuid.UUID) else v) for k, v in changes.items()}})
     await session.commit(); return p
 
@@ -200,7 +203,10 @@ async def set_availability(product_id: uuid.UUID, body: Availability, admin: Adm
     if not p or not st: raise NotFound("محصول یا فروشگاه")
     row = await session.scalar(select(StoreProduct).where(StoreProduct.product_id == p.id, StoreProduct.store_id == st.id))
     if not row: row = StoreProduct(product_id=p.id, store_id=st.id); session.add(row)
-    row.is_enabled, row.customer_price, row.is_listed = body.enabled, body.customer_price, body.listed
+    # customer_price belongs to the reseller (PUT /stores/{id}/reseller/prices/{product_id}); the admin only
+    # decides availability, so a reseller store keeps its own price. Main-store rows never carry one.
+    row.is_enabled, row.is_listed = body.enabled, body.listed
+    if st.kind != "reseller": row.customer_price = None
     audit.record(session, "catalog.availability_updated", actor_id=admin.id, actor_type="admin", entity_type="product", entity_id=p.id, store_id=st.id)
     await session.commit(); return {"ok": True}
 
@@ -356,11 +362,15 @@ async def set_server_state(server_id: uuid.UUID, body: PanelState, admin: AdminU
     return {"ok": True, "is_enabled": s.is_enabled}
 
 
-def _panel_group_out(b, panels):
-    return {"id": b.id, "name": b.name, "selection_mode": b.selection_mode, "naming_mode": b.naming_mode,
+async def _pool_product_ids(session, group_id) -> list[str]:
+    return [str(x) for x in (await session.scalars(select(PoolProduct.product_id).where(PoolProduct.panel_group_id == group_id))).all()]
+
+
+def _panel_group_out(b, panels, product_ids=()):
+    return {"product_ids": list(product_ids), **{"id": b.id, "name": b.name, "selection_mode": b.selection_mode, "naming_mode": b.naming_mode, "kind_label": b.kind_label,
             "is_enabled": b.is_enabled, "reseller_enabled": b.reseller_enabled, "sales_limit": b.sales_limit,
             "sold_count": b.sold_count, "panels": [{"id": p.id, "panel_id": p.panel_id, "is_enabled": p.is_enabled,
-            "sales_limit": p.sales_limit, "sold_count": p.sold_count, "sort": p.sort} for p in panels]}
+            "sales_limit": p.sales_limit, "sold_count": p.sold_count, "sort": p.sort, "label": p.label} for p in panels]}}
 
 
 @router.get("/panel-groups")
@@ -369,7 +379,7 @@ async def list_panel_groups(_: AdminUser, session: Session):
     result = []
     for b in panel_groups:
         rows = (await session.scalars(select(PanelGroupMember).where(PanelGroupMember.panel_group_id == b.id).order_by(PanelGroupMember.sort))).all()
-        result.append(_panel_group_out(b, rows))
+        result.append(_panel_group_out(b, rows, await _pool_product_ids(session, b.id)))
     return result
 
 
@@ -379,14 +389,14 @@ async def create_panel_group(body: CreatePanelGroup, admin: AdminUser, session: 
         raise AppError("PANEL_GROUP_PANELS_REQUIRED", "گروه دستی باید حداقل یک پنل داشته باشد.", 400)
     valid = (await session.scalars(select(Panel.id).where(Panel.id.in_(body.panel_ids)))).all()
     if len(valid) != len(set(body.panel_ids)): raise NotFound("پنل گروه")
-    b = PanelGroup(name=body.name, selection_mode=body.selection_mode, naming_mode=body.naming_mode,
+    b = PanelGroup(name=body.name, selection_mode=body.selection_mode, naming_mode=body.naming_mode, kind_label=body.kind_label,
                     is_enabled=body.is_enabled, reseller_enabled=body.reseller_enabled, sales_limit=body.sales_limit)
     session.add(b); await session.flush()
-    for i, pid in enumerate(body.panel_ids): session.add(PanelGroupMember(panel_group_id=b.id, panel_id=pid, sort=i))
+    for i, pid in enumerate(body.panel_ids): session.add(PanelGroupMember(panel_group_id=b.id, panel_id=pid, sort=i, label=(body.member_labels.get(pid) or "").strip() or None))
     audit.record(session, "panel_group.created", actor_id=admin.id, actor_type="admin", entity_type="panel_group", entity_id=b.id)
     await session.commit()
     rows = (await session.scalars(select(PanelGroupMember).where(PanelGroupMember.panel_group_id == b.id))).all()
-    return _panel_group_out(b, rows)
+    return _panel_group_out(b, rows, await _pool_product_ids(session, b.id))
 
 
 @router.patch("/panel-groups/{panel_group_id}")
@@ -396,7 +406,7 @@ async def update_panel_group(panel_group_id: uuid.UUID, body: UpdatePanelGroup, 
     if body.selection_mode == "manual" and b.selection_mode != "manual" and await session.scalar(select(func.count()).select_from(Product).where(Product.default_panel_group_id == b.id)):
         raise AppError("DEFAULT_GROUP_IN_USE", "این گروه پیش‌فرض یک یا چند محصول است و نمی‌تواند دستی شود؛ ابتدا گروه پیش‌فرض آن محصولات را تغییر دهید.", 409)
     # Explicit null is meaningful only for sales_limit (= unlimited); other fields ignore null.
-    for k, v in body.model_dump(exclude_unset=True, exclude={"panel_ids"}).items():
+    for k, v in body.model_dump(exclude_unset=True, exclude={"panel_ids", "member_labels"}).items():
         if v is not None or k == "sales_limit": setattr(b, k, v)
     if body.panel_ids is not None:
         valid = (await session.scalars(select(Panel.id).where(Panel.id.in_(body.panel_ids)))).all()
@@ -411,10 +421,71 @@ async def update_panel_group(panel_group_id: uuid.UUID, body: UpdatePanelGroup, 
         for i, pid in enumerate(wanted):
             if pid in existing: existing[pid].sort = i
             else: session.add(PanelGroupMember(panel_group_id=b.id, panel_id=pid, sort=i))
+    if body.member_labels is not None:
+        members = (await session.scalars(select(PanelGroupMember).where(PanelGroupMember.panel_group_id == b.id))).all()
+        for m in members:
+            if m.panel_id in body.member_labels: m.label = (body.member_labels[m.panel_id] or "").strip() or None
     audit.record(session, "panel_group.updated", actor_id=admin.id, actor_type="admin", entity_type="panel_group", entity_id=b.id)
     await session.commit()
     rows = (await session.scalars(select(PanelGroupMember).where(PanelGroupMember.panel_group_id == b.id).order_by(PanelGroupMember.sort))).all()
-    return _panel_group_out(b, rows)
+    return _panel_group_out(b, rows, await _pool_product_ids(session, b.id))
+
+
+async def _ensure_pool_product(session, group_id, product_id) -> None:
+    """A product's default pool must also sell it, otherwise the default would be unusable at checkout."""
+    if not await session.scalar(select(PoolProduct.id).where(PoolProduct.panel_group_id == group_id, PoolProduct.product_id == product_id)):
+        session.add(PoolProduct(panel_group_id=group_id, product_id=product_id, is_listed=True, sort=0))
+
+
+def _pool_product_out(pp: PoolProduct, p: Product) -> dict:
+    return {"product_id": p.id, "code": p.code, "name": p.name, "traffic_gb": p.traffic_gb, "duration_days": p.duration_days, "is_active": p.is_active,
+            "base_main_price": p.main_price, "base_reseller_price": p.reseller_price, "main_price": pp.main_price, "reseller_price": pp.reseller_price,
+            "is_listed": pp.is_listed, "sort": pp.sort, "is_default": p.default_panel_group_id == pp.panel_group_id}
+
+
+@router.get("/panel-groups/{panel_group_id}/products")
+async def list_pool_products(panel_group_id: uuid.UUID, _: AdminUser, session: Session):
+    if not await session.get(PanelGroup, panel_group_id): raise NotFound("استخر فروش")
+    rows = (await session.execute(select(PoolProduct, Product).join(Product, Product.id == PoolProduct.product_id)
+                                  .where(PoolProduct.panel_group_id == panel_group_id).order_by(PoolProduct.sort, Product.sort))).all()
+    return [_pool_product_out(pp, p) for pp, p in rows]
+
+
+@router.put("/panel-groups/{panel_group_id}/products/{product_id}")
+async def set_pool_product(panel_group_id: uuid.UUID, product_id: uuid.UUID, body: PoolProductIn, admin: AdminUser, session: Session):
+    group, product = await session.get(PanelGroup, panel_group_id), await session.get(Product, product_id)
+    if not group or not product: raise NotFound("استخر فروش یا پکیج")
+    if product.is_test: raise AppError("TEST_PRODUCT_NOT_SELLABLE", "پکیج تست در استخر فروخته نمی‌شود؛ فقط گروه پیش‌فرض دارد.", 422)
+    pp = await session.scalar(select(PoolProduct).where(PoolProduct.panel_group_id == group.id, PoolProduct.product_id == product.id))
+    if not pp:
+        pp = PoolProduct(panel_group_id=group.id, product_id=product.id); session.add(pp)
+    pp.main_price, pp.reseller_price, pp.is_listed, pp.sort = body.main_price, body.reseller_price, body.is_listed, body.sort
+    audit.record(session, "pool_product.set", actor_id=admin.id, actor_type="admin", entity_type="panel_group", entity_id=group.id,
+                 data={"product_id": str(product.id), "main_price": body.main_price, "reseller_price": body.reseller_price, "is_listed": body.is_listed})
+    hidden = await allocation.stores_below_cost(session, product, allocation.effective_prices(product, pp)[1])
+    await session.commit()
+    return {**_pool_product_out(pp, product), "stores_below_cost": hidden}
+
+
+@router.delete("/panel-groups/{panel_group_id}/products/{product_id}")
+async def remove_pool_product(panel_group_id: uuid.UUID, product_id: uuid.UUID, admin: AdminUser, session: Session):
+    product = await session.get(Product, product_id)
+    pp = await session.scalar(select(PoolProduct).where(PoolProduct.panel_group_id == panel_group_id, PoolProduct.product_id == product_id))
+    if not pp or not product: raise NotFound("پکیج استخر")
+    if product.default_panel_group_id == panel_group_id:
+        raise AppError("PRODUCT_DEFAULT_POOL", "این استخر، استخر پیش‌فرض این پکیج است. ابتدا استخر پیش‌فرض پکیج را عوض کنید.", 409)
+    audit.record(session, "pool_product.removed", actor_id=admin.id, actor_type="admin", entity_type="panel_group", entity_id=panel_group_id, data={"product_id": str(product_id)})
+    await session.delete(pp)
+    await session.commit()
+    return {"ok": True}
+
+
+@router.get("/pool-products/unassigned")
+async def unassigned_products(_: AdminUser, session: Session):
+    """Sellable products that no pool sells: customers cannot buy them until an admin puts them in a pool."""
+    rows = (await session.scalars(select(Product).where(Product.is_test.is_(False), Product.archived_at.is_(None),
+            ~select(PoolProduct.id).where(PoolProduct.product_id == Product.id).exists()).order_by(Product.sort))).all()
+    return [{"product_id": p.id, "code": p.code, "name": p.name, "is_active": p.is_active} for p in rows]
 
 
 @router.put("/panel-groups/{panel_group_id}/stores/{store_id}")
@@ -469,6 +540,7 @@ async def delete_product(product_id: uuid.UUID, admin: AdminUser, session: Sessi
     if rules:
         raise AppError("PRODUCT_USED_BY_COMMISSION_RULES", f"برای این محصول {rules} قانون پورسانت/پاداش اختصاصی تعریف شده است. ابتدا آن‌ها را حذف کنید.", 409, {"rules": rules})
     await session.execute(delete(StoreProduct).where(StoreProduct.product_id == p.id))
+    await session.execute(delete(PoolProduct).where(PoolProduct.product_id == p.id))
     audit.record(session, "product.deleted", actor_id=admin.id, actor_type="admin", entity_type="product", entity_id=p.id, data={"code": p.code, "name": p.name})
     await session.delete(p)
     await _commit_or_conflict(session, "این محصول")
@@ -522,6 +594,7 @@ async def delete_panel_group(panel_group_id: uuid.UUID, admin: AdminUser, sessio
     if orders:
         raise AppError("PANEL_GROUP_HAS_HISTORY", f"{orders} سفارش از طریق این گروه ساخته شده است؛ حذف آن تاریخچه را خراب می‌کند. به‌جای حذف، گروه را غیرفعال کنید.", 409, {"orders": orders})
     await session.execute(delete(PanelGroupMember).where(PanelGroupMember.panel_group_id == b.id))
+    await session.execute(delete(PoolProduct).where(PoolProduct.panel_group_id == b.id))
     await session.execute(delete(StorePanelGroup).where(StorePanelGroup.panel_group_id == b.id))
     audit.record(session, "panel_group.deleted", actor_id=admin.id, actor_type="admin", entity_type="panel_group", entity_id=b.id, data={"name": b.name})
     await session.delete(b)
