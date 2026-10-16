@@ -92,10 +92,27 @@ async def password_login(body: PasswordLogin, session: Session, request: Request
 
 
 @auth.post("/google", response_model=TokenPair)
-async def google_login(body: GoogleLogin, session: Session):
-    user = await service.login_with_google(session, body.id_token)
-    pair = await service.issue_tokens(session, user)
+async def google_login(body: GoogleLogin, session: Session, request: Request, response: Response):
+    user, created = await service.login_with_google(session, body.id_token)
+    if created:
+        await flags.ensure_enabled(session, "registration")
+    if user.is_super_admin:
+        # Google must never bypass the admin second factor that /password/login enforces.
+        if not user.totp_enabled:
+            audit.security_event(session, "admin_2fa_required", user.id, {"via": "google"})
+            await session.commit()
+            raise AppError("ADMIN_2FA_REQUIRED", "ابتدا احراز هویت دومرحله‌ای ادمین را فعال کنید.", 403)
+        counter = totp_counter(decrypt(user.totp_secret_enc) or "", body.totp_code or "")
+        if counter is None or (user.totp_last_counter is not None and counter <= user.totp_last_counter):
+            audit.security_event(session, "totp_failed" if counter is None else "totp_replay", user.id, {"via": "google"})
+            await session.commit()
+            raise AppError("TOTP_REQUIRED", "کد تأیید دومرحله‌ای لازم، نادرست یا تکراری است.", 401)
+        user.totp_last_counter = counter
+        audit.record(session, "admin.login", actor_id=user.id, actor_type="admin")
+    await _after_signup(session, user, created, None, None)
+    pair = await service.issue_tokens(session, user, ua=request.headers.get("user-agent"))
     await session.commit()
+    _set_refresh_cookie(response, pair)
     return pair
 
 

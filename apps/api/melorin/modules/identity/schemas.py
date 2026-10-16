@@ -40,6 +40,7 @@ class AdminPasswordChange(BaseModel):
 
 class GoogleLogin(BaseModel):
     id_token: str
+    totp_code: str | None = None  # required when the matched account is a super admin
 
 
 class TelegramProfile(BaseModel):

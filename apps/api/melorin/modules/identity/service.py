@@ -190,13 +190,14 @@ async def verify_google_token(id_token: str) -> dict:
     return data
 
 
-async def login_with_google(session: AsyncSession, id_token: str) -> User:
+async def login_with_google(session: AsyncSession, id_token: str) -> tuple[User, bool]:
     g = await verify_google_token(id_token)
     sub, email = g["sub"], (g.get("email") or "").lower() or None
     ident = await find_identity(session, "google", sub)
     if ident:
-        return await session.get(User, ident.user_id)
+        return await session.get(User, ident.user_id), False
     user: User | None = None
+    created = False
     email_verified = email and str(g.get("email_verified")).lower() == "true"
     # Verified email may connect to the existing central User. An ambiguous/conflicting
     # match is recorded for Admin review, never guessed or merged.
@@ -206,24 +207,25 @@ async def login_with_google(session: AsyncSession, id_token: str) -> User:
         if len(candidate_ids) == 1:
             user = await session.get(User, next(iter(candidate_ids)))
         elif len(candidate_ids) > 1:
-            user = User(display_name=g.get("name"), is_guest=True)
+            user = User(display_name=g.get("name"), is_guest=True); created = True
             session.add(user); await session.flush()
             session.add(IdentityLinkReview(email=email, source_user_id=user.id, candidate_user_ids=[str(x) for x in candidate_ids], provider="google", reason="multiple_verified_email_users"))
             audit.security_event(session, "identity_link_conflict", user.id, {"email": email, "candidate_user_ids": [str(x) for x in candidate_ids]})
         elif await _email_taken(session, email):
             # User.email can be populated without an Identity in legacy data.
             owner_id = await session.scalar(select(User.id).where(User.email == email))
-            user = User(display_name=g.get("name"), is_guest=True)
+            user = User(display_name=g.get("name"), is_guest=True); created = True
             session.add(user); await session.flush()
             session.add(IdentityLinkReview(email=email, source_user_id=user.id, candidate_user_ids=[str(owner_id)], provider="google", reason="email_field_conflict"))
             audit.security_event(session, "identity_link_conflict", user.id, {"email": email, "candidate_user_id": str(owner_id)})
     if user is None:
         user = User(display_name=g.get("name"), email=email if email_verified else None)
+        created = True
         session.add(user)
         await session.flush()
     session.add(Identity(user_id=user.id, provider="google", subject=sub, verified_at=utcnow(), data={"email": email, "email_verified": bool(email_verified)}))
     audit.record(session, "identity.linked", actor_id=user.id, entity_type="user", entity_id=user.id, data={"provider": "google"})
-    return user
+    return user, created
 
 
 async def _email_taken(session: AsyncSession, email: str) -> bool:

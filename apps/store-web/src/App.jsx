@@ -5,6 +5,7 @@ import { ArrowLeft, Check, CreditCard, Home, KeyRound, LayoutGrid, LifeBuoy, Lin
 import Dashboard, { Faq } from "./Dashboard.jsx";
 import Reseller from "./Reseller.jsx";
 import { clearTokens, getAccessToken, setTokens } from "./auth.js";
+import { GoogleSignInButton, useGoogleSignIn } from "./GoogleSignIn.jsx";
 import { Modal, ThemeToggle, Toast, fa } from "./ui.jsx";
 
 const NAV = [["#plans", "سرویس‌ها"], ["#how", "نحوه خرید"], ["#why", "چرا ملورین؟"], ["#faq", "سوالات"]];
@@ -82,6 +83,36 @@ export default function App(){
   const onDash = hash === "#/dashboard" && accessToken;
   const onReseller = hash === "#/reseller" && accessToken;
   const base = (import.meta.env?.VITE_MELORIN_API_URL || window.location.origin).replace(/\/$/, "");
+  // ─── Google Sign-In ───
+  async function handleGoogleCredential(idToken) {
+    setBusy(true);
+    try {
+      const r = await fetch(`${base}/api/v1/auth/google`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id_token: idToken }),
+      });
+      if (!r.ok) throw new Error("google_failed");
+      const pair = await r.json();
+      setTokens(pair);
+      setAccessToken(pair.access_token);
+      setModal("");
+      notify("خوش آمدی");
+      if (pair.is_admin) {
+        // Admins sign in on the admin panel (password + TOTP); never keep an admin session in the storefront.
+        clearTokens(); setAccessToken("");
+        notify("ورود ادمین فقط از پنل مدیریت انجام می‌شود.");
+        return;
+      }
+      window.location.hash = "#/dashboard";
+    } catch {
+      notify("ورود با گوگل ناموفق بود. دوباره تلاش کنید.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  useGoogleSignIn(handleGoogleCredential);
   async function coreFetch(path, options={}) {
     let token = accessToken;
     let response = await fetch(`${base}${path}`, {...options, credentials:"include", headers: {...(options.headers||{}), ...(token ? {Authorization:`Bearer ${token}`} : {})}});
@@ -260,7 +291,7 @@ export default function App(){
     </nav>
 
     {modal && <Modal onClose={() => setModal("")} title={{ login: "ورود به ملورین", code: "کد ورود را وارد کن", checkout: `پیش‌فاکتور ${active}`, account: "حساب من" }[modal]}>
-      {modal==="login"&&<form onSubmit={(e)=>{e.preventDefault(); validEmail && run(requestCode, "ارسال کد ناموفق بود");}}><p className="mt-2 text-sm leading-7 text-muted">رمز عبور لازم نیست؛ کد ورود به ایمیلت ارسال می‌شود. اگر حساب نداشته باشی، خودکار ساخته می‌شود.</p><label className="mt-6 block text-xs font-bold">ایمیل<div className="relative mt-1.5"><Mail size={17} className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-muted" /><input type="email" dir="ltr" autoComplete="email" inputMode="email" value={email} onChange={e=>setEmail(e.target.value)} className="input !pr-10 text-left" placeholder="email@example.com"/></div></label><button type="submit" disabled={!validEmail || busy} className="btn-primary mt-5 w-full">{busy ? <Loader2 size={18} className="animate-spin" /> : <Mail size={18} />}ارسال کد ورود</button><p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-muted"><Lock size={13} />ایمیل تو نزد ما محفوظ می‌ماند.</p></form>}
+      {modal==="login"&&<form onSubmit={(e)=>{e.preventDefault(); validEmail && run(requestCode, "ارسال کد ناموفق بود");}}><p className="mt-2 text-sm leading-7 text-muted">رمز عبور لازم نیست؛ کد ورود به ایمیلت ارسال می‌شود. اگر حساب نداشته باشی، خودکار ساخته می‌شود.</p><label className="mt-6 block text-xs font-bold">ایمیل<div className="relative mt-1.5"><Mail size={17} className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-muted" /><input type="email" dir="ltr" autoComplete="email" inputMode="email" value={email} onChange={e=>setEmail(e.target.value)} className="input !pr-10 text-left" placeholder="email@example.com"/></div></label><button type="submit" disabled={!validEmail || busy} className="btn-primary mt-5 w-full">{busy ? <Loader2 size={18} className="animate-spin" /> : <Mail size={18} />}ارسال کد ورود</button><p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-muted"><Lock size={13} />ایمیل تو نزد ما محفوظ می‌ماند.</p><div className="my-4 flex items-center gap-3"><span className="h-px flex-1 bg-line" /><span className="text-xs text-muted">یا</span><span className="h-px flex-1 bg-line" /></div><GoogleSignInButton onCredential={handleGoogleCredential} /></form>}
       {modal==="code"&&<form onSubmit={(e)=>{e.preventDefault(); loginCode && run(verifyCode, "کد نامعتبر است");}}><p className="mt-2 text-sm leading-7 text-muted">کد ارسال‌شده به <b className="latin text-ink">{email}</b> را وارد کن.</p><input autoFocus dir="ltr" inputMode="numeric" autoComplete="one-time-code" value={loginCode} onChange={e=>setLoginCode(e.target.value.trim())} className="input mt-6 !py-4 text-center text-2xl font-black tracking-[.5em]" placeholder="••••••" aria-label="کد ورود"/><button type="submit" disabled={!loginCode || busy} className="btn-primary mt-5 w-full">{busy && <Loader2 size={18} className="animate-spin" />}تأیید و ورود</button><button type="button" onClick={()=>setModal("login")} className="mt-3 w-full text-center text-xs font-bold text-muted hover:text-ink">تغییر ایمیل یا ارسال دوباره</button></form>}
       {modal==="checkout"&&<><p className="mt-2 text-sm text-muted">خلاصه سفارش را بررسی و از کیف پول پرداخت کن.</p><dl className="mt-6 divide-y divide-line rounded-2xl bg-surface2 px-4 text-sm"><div className="flex justify-between py-3.5"><dt className="text-muted">سرویس</dt><dd className="font-bold">{active}</dd></div>{pool && <div className="flex justify-between py-3.5"><dt className="text-muted">استخر</dt><dd className="font-bold">{pool.name}{panelLabel ? ` · ${panelLabel}` : ""}</dd></div>}{customName && <div className="flex justify-between py-3.5"><dt className="text-muted">نام کاربری</dt><dd className="latin font-bold">{accountName.trim()}</dd></div>}<div className="flex justify-between py-3.5"><dt className="text-muted">مبلغ نهایی</dt><dd className="text-lg font-black">{new Intl.NumberFormat("fa-IR").format(selectedQuote?.total||0)} <span className="text-xs font-semibold">{selectedQuote?.currency}</span></dd></div><div className="flex justify-between py-3.5"><dt className="text-muted">موجودی کیف پول</dt><dd className={`font-bold ${selectedQuote?.sufficient_funds ? "text-mint" : "text-danger"}`}>{new Intl.NumberFormat("fa-IR").format(selectedQuote?.wallet_balance||0)}</dd></div></dl>{selectedQuote && !selectedQuote.sufficient_funds && <p className="mt-3 rounded-xl bg-danger-soft px-4 py-3 text-xs font-bold leading-6 text-danger">موجودی کافی نیست. ابتدا از بخش «کیف پول» حساب را شارژ کن.</p>}<button disabled={!selectedQuote?.sufficient_funds || busy} onClick={()=>run(buySelected, "ثبت سفارش ناموفق بود")} className="btn-primary mt-5 w-full">{busy ? <Loader2 size={18} className="animate-spin" /> : <CreditCard size={18} />}پرداخت از کیف پول و ثبت سفارش</button>{selectedQuote && !selectedQuote.sufficient_funds && <button onClick={()=>{setModal(""); window.location.hash="#/dashboard";}} className="btn-soft mt-3 w-full">رفتن به کیف پول</button>}</>}
       {modal==="account"&&<><div className="mt-5 rounded-2xl bg-mint-soft p-4">موجودی: {new Intl.NumberFormat("fa-IR").format(wallet?.balance||0)} {wallet?.currency}</div><p className="mt-4 text-sm">سفارش‌ها: {fa(orders.length)}</p></>}
