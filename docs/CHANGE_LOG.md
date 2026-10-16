@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-16 03:19 UTC - Claude - admin-web, db, api  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(reseller): applications carry store domain + reseller bot token (melorin-reseller-applications.patch)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (4):** `apps/admin-web/src/ResellerApplicationsView.jsx`, `apps/api/alembic/versions/0017_reseller_domain_bot.py`, `apps/api/melorin/modules/reseller/identity.py`, `apps/api/tests/test_o01_reseller_applications.py`
+- **Ref:** `49b5970`
+
+
 ### 2026-10-16 01:21 UTC - Claude - docs  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** README did not describe apps/admin-web, store-web or the telegram apps, nor the redesigned infra screens.
