@@ -118,11 +118,26 @@ The initial bootstrap migration is included; review and replace its metadata boo
 ## Layout
 
 - `apps/api/melorin`: FastAPI Core, pure domain, modules, adapters, worker.
+- `apps/admin-web`: React + Vite + Tailwind admin panel (see below).
+- `apps/store-web`: customer-facing store web app.
+- `apps/telegram-main`, `apps/telegram-reseller`: main Telegram bot and reseller bots.
 - `docs`: architecture source, ADR/open decisions, operations runbook.
 - `infra`: reverse proxy and deployment files.
 - `scripts`: server installer, backup/restore scripts, change-log and server-log automation, smoke tests.
 - `.github/workflows`: `ci.yml` (lint, compile, tests, migration and build quality gates), `changelog.yml` (automatic change log) and `deploy.yml` (SSH deploy).
 - `docs/CHANGE_LOG.md`: **change log - every change must be recorded** (see below).
+
+## Admin panel (`apps/admin-web`)
+
+The sales-infrastructure screens (Panels, Panel groups / sales pools, Products) share one visual language
+(`src/kit.jsx` + the "Infra v2" block in `src/styles.css`):
+
+- connected KPI bar that doubles as a filter, and a sales-readiness ring in the infrastructure chain header;
+- ring gauges and segmented capacity meters, status stripes on cards (green = can sell, red = cannot, grey = off);
+- sorting ("problems first" by default) and a cards/table (panels: full/dense) view toggle on every list;
+- pool cards show the panels -> free capacity -> packages flow at a glance.
+
+Local build check: `cd apps/admin-web && npm ci && npm run build`.
 
 ## Scope delivered
 
