@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-16 08:02 UTC - x - other  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** the first admin e-mail defaulted to admin@<store domain> without asking.
+- **Action:** melorin.sh install now prompts for and validates the admin e-mail; READMEs updated.
+- **After:** install asks store domain, admin domain, admin e-mail, bot token.
+- **Files (3):** `README.fa.md`, `README.md`, `melorin.sh`
+- **Ref:** `364e293`
+
+
 ### 2026-10-16 06:51 UTC - x - other, scripts  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** Install required several manual steps and env vars.
