@@ -4,24 +4,66 @@ Production-oriented modular monolith for a multi-store VPN platform. The impleme
 
 > فارسی: [README.fa.md](README.fa.md)
 
-## Install on a server
+## Quick install (one line)
 
-**Requirements:** an Ubuntu server (the installer uses `apt`) with root access, two domain names (store and admin)
-pointing at the server, and **ports 80 and 443 free** (Caddy obtains the TLS certificates automatically).
+**Recommended resources:** 2 GB RAM and 2 vCPU - Ubuntu 22.04+
+
+**Have these ready before you install:**
+
+1. **Store domain** (the sales site, e.g. `shop.example.com`) - an A record pointing at the server IP
+2. **Admin domain** (the admin panel, e.g. `admin.example.com`) - an A record pointing at the server IP
+3. **Telegram bot token** from @BotFather
+
+Ports **80 and 443 must be free** (Caddy obtains the TLS certificates automatically). Nothing else is asked.
+
+Run as root on the server:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/archerhabibi/melorin-py/17f8a35/scripts/install_server.sh -o install.sh
+bash <(curl -fsSL https://raw.githubusercontent.com/archerhabibi/melorin-py/main/get.sh)
+```
+
+The command downloads the project to `/opt/melorin`, registers the `melorin` command and opens the menu.
+Choose **1) Install**; it asks only for the store domain, the admin domain and the bot token (hidden input), checks
+that both domains point at this server, then installs everything unattended. At the end it prints the one-time
+admin password and TOTP seed - save them immediately.
+
+### Script menu (`melorin.sh`)
+
+After installation the same menu opens at any time with `melorin` (or `bash /opt/melorin/melorin.sh` inside the project folder):
+
+| Option | Action |
+|---|---|
+| `1` Install | Quiet install -> asks store domain, admin domain, bot token |
+| `2` Update | Pull the latest code, rebuild, run migrations, restart (`.env` is kept) |
+| `3` Edit .env | Change bot token / store domain / admin domain, or open `.env` in an editor |
+| `4` Web panel | Store and admin URLs, health check, admin password reset, IP-allowlist break-glass |
+| `5` Service | Container status / start / stop / restart / logs |
+| `6` Status | Health summary (version, bot, containers, API readiness, disk, memory, backup key) |
+| `7` Uninstall | Complete removal (type `DELETE` to confirm) |
+| `0` Exit | Leave the menu |
+
+Shortcuts without the menu: `melorin status`, `melorin update`, `melorin restart`, `melorin logs [service]`, `melorin panel`.
+
+Environment overrides for the one-liner (all optional): `REPO_REF` (branch, tag or commit; default `main` = latest;
+pin a reviewed tag/commit for strict production control), `REPO_URL` (e.g. a private fork or read-only deploy-key URL), `APP_DIR` (default `/opt/melorin`).
+
+### Non-interactive / advanced install
+
+The menu calls `scripts/install_server.sh`, which can also be run directly (for automation):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/archerhabibi/melorin-py/main/scripts/install_server.sh -o install.sh
 # Verify the downloaded script against the release checksum before running it.
 sha256sum install.sh
-DOMAIN=shop.example.com ADMIN_DOMAIN=admin.example.com ADMIN_EMAIL=you@example.com REPO_REF=17f8a35 bash install.sh
+DOMAIN=shop.example.com ADMIN_DOMAIN=admin.example.com ADMIN_EMAIL=you@example.com REPO_REF=<reviewed-commit-or-tag> bash install.sh
 ```
 
 If the repository is private, copy `scripts/install_server.sh` to the server and set `REPO_URL` to a read-only
-deploy-key URL. Always set `REPO_REF` to a reviewed commit or release tag, never a moving branch. The installer will:
+deploy-key URL. For strict production control set `REPO_REF` to a reviewed commit or release tag instead of a moving branch. The installer will:
 
 - install Docker and clone the project to `/opt/melorin`;
-- ask for the **main Telegram bot token** (from @BotFather) - the only bot configured at install time
-  (or pass `MAIN_BOT_TOKEN=...`); prefer the interactive prompt so the token is not exposed in shell history or process listings. Reseller bots stay disabled until you enable the compose profile `reseller`;
+- take the **main Telegram bot token** (from @BotFather) - the only bot configured at install time (the menu passes it for you;
+  directly it is read from the interactive prompt or `MAIN_BOT_TOKEN=...`; prefer the prompt so the token is not exposed in shell history or process listings). Reseller bots stay disabled until you enable the compose profile `reseller`;
 - generate every secret (database, JWT, encryption key, service and metrics tokens, admin password) into `.env`;
 - create the key pair for encrypted local backups;
 - run database migrations, start all services, and install the automatic change recorder (cron, see below).
@@ -30,14 +72,14 @@ It is safe to run again: an existing `.env` and backup key are never overwritten
 
 After it finishes:
 
-1. Open `https://admin.example.com` and log in with the admin e-mail. The installer prints the one-time password and removes it from `.env` immediately after bootstrap; save it securely and change it at first login.
+1. Open `https://admin.example.com` and log in with the admin e-mail (menu option 4 shows it; by default `admin@<store domain>`). The installer prints the one-time password and removes it from `.env` immediately after bootstrap; save it securely and change it at first login.
 2. **Copy `/opt/melorin/secrets/backup/age-identity.txt` to a safe place off the server.** It is the only key that
    can decrypt the backups; without it they cannot be restored.
 3. Configure panels, payments and other providers as described in `docs/`.
 
 ### Existing reverse proxy (EXTERNAL_PROXY)
 
-If another service already owns ports 80/443, install with `EXTERNAL_PROXY=true`. The installer then binds only loopback ports: store `127.0.0.1:18080`, admin `127.0.0.1:18081`, and API `127.0.0.1:18000`. Route `/api/*` and `/health/*` to the API, and route each hostname to its matching web port.
+If another service already owns ports 80/443, the menu detects it and offers this mode automatically (or install with `EXTERNAL_PROXY=true`). The installer then binds only loopback ports: store `127.0.0.1:18080`, admin `127.0.0.1:18081`, and API `127.0.0.1:18000`. Route `/api/*` and `/health/*` to the API, and route each hostname to its matching web port.
 The admin IP allowlist is optional and OFF by default; nothing is asked at install time. To restrict the admin API, use Admin panel -> Settings -> Integrations -> "Admin access (IP allowlist)". If you lock yourself out: `docker compose exec -T api python -m melorin.cli disable-admin-ip-allowlist`. During updates, keep using the same compose override: `docker compose -f docker-compose.yml -f docker-compose.external.yml up -d --build`.
 Production secrets are one-time/bootstrap or runtime-only values: keep `.env` root-owned with mode `600`, prefer Docker/host secret files, never pass tokens on the command line, and rotate any bot token that was exposed. The installer removes the bootstrap password and TOTP seed after bootstrap. If the admin password is lost, reset it without putting it in shell history: `docker compose exec -T api python -m melorin.cli reset-admin-password admin@example.com`.
 
@@ -52,7 +94,9 @@ enabled in the Admin panel the encrypted file is also copied there.
 
 ### Updating
 
-Preferred: automatic deployment. Every push to `main` runs `.github/workflows/deploy.yml`, which connects to the
+Simplest: run `melorin` and choose **2) Update** (pulls the latest code, rebuilds, migrates and restarts; `.env` is kept).
+
+Alternative: automatic deployment. Every push to `main` runs `.github/workflows/deploy.yml`, which connects to the
 server over SSH and runs `git pull`, `docker compose build`, migrations and `docker compose up -d`, then writes the
 result to the server's operations log. Set it up once:
 
@@ -71,6 +115,8 @@ cd /opt/melorin && git pull --ff-only && docker compose build && docker compose 
 ```
 
 ### Operating
+
+Use `melorin` (menu 5 and 6) or the commands below:
 
 ```bash
 docker compose ps                         # service state
@@ -123,6 +169,7 @@ The initial bootstrap migration is included; review and replace its metadata boo
 - `apps/telegram-main`, `apps/telegram-reseller`: main Telegram bot and reseller bots.
 - `docs`: architecture source, ADR/open decisions, operations runbook.
 - `infra`: reverse proxy and deployment files.
+- `get.sh`, `melorin.sh`: one-line installer entry point and the server management menu.
 - `scripts`: server installer, backup/restore scripts, change-log and server-log automation, smoke tests.
 - `.github/workflows`: `ci.yml` (lint, compile, tests, migration and build quality gates), `changelog.yml` (automatic change log) and `deploy.yml` (SSH deploy).
 - `docs/CHANGE_LOG.md`: **change log - every change must be recorded** (see below).

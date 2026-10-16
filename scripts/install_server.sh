@@ -3,6 +3,7 @@
 #   DOMAIN=shop.example.com ADMIN_DOMAIN=admin.example.com ADMIN_EMAIL=you@example.com \
 #   bash scripts/install_server.sh
 # Optional: MAIN_BOT_TOKEN (otherwise you are asked for it), REPO_URL, REPO_REF, APP_DIR,
+# SKIP_BOT_PROMPT=1 (never ask for the token; used by the melorin menu, which asks it itself),
 # EXTERNAL_PROXY=true when ports 80/443 are already owned by a host proxy.
 # Idempotent: an existing .env is never overwritten. New environments are
 # assembled in .env.tmp and atomically renamed only after validation succeeds.
@@ -49,7 +50,17 @@ fi
 cd "$APP_DIR"
 # Never deploy an unreviewed moving branch. Fetch and check out the pinned release.
 git fetch --quiet --tags origin main
-git checkout --quiet --detach "$REPO_REF"
+# A branch name (e.g. main) means "latest of that branch"; tags/commits are used as given.
+if git rev-parse --verify --quiet "origin/${REPO_REF}^{commit}" >/dev/null; then
+  git checkout --quiet --detach "origin/${REPO_REF}"
+else
+  git checkout --quiet --detach "$REPO_REF"
+fi
+# Remember how this server was installed so `melorin` (melorin.sh) can update it the same way.
+mkdir -p var
+printf 'EXTERNAL_PROXY=%s\nREPO_REF=%s\n' "$EXTERNAL_PROXY" "$REPO_REF" > var/install-mode
+chmod +x melorin.sh get.sh 2>/dev/null || true
+ln -sf "$APP_DIR/melorin.sh" /usr/local/bin/melorin 2>/dev/null || true
 
 rand() { openssl rand -hex 32; }
 fernet() { head -c 32 /dev/urandom | base64 | tr '+/' '-_'; }
@@ -67,7 +78,7 @@ set_kv() { # set_kv KEY VALUE  (replace line or append)
 if [ ! -f .env ]; then
   # --- main Telegram bot token: the only bot configured at install time ---
   BOT="${MAIN_BOT_TOKEN:-}"
-  if [ -z "$BOT" ] && [ -t 0 ]; then
+  if [ -z "$BOT" ] && [ -t 0 ] && [ -z "${SKIP_BOT_PROMPT:-}" ]; then
     read -r -s -p "Main Telegram bot token (from @BotFather, Enter to skip): " BOT; echo
   fi
   if [ -n "$BOT" ] && ! [[ "$BOT" =~ ^[0-9]+:[A-Za-z0-9_-]{30,}$ ]]; then
