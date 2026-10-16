@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-16 03:19 UTC - Claude - admin-web, api, store-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix: include modified files of melorin-reseller-applications.patch (models, routers, schemas, admin/store UI, cli)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (9):** `apps/admin-web/src/AdminExtra.jsx`, `apps/admin-web/src/App.jsx`, `apps/api/melorin/cli.py`, `apps/api/melorin/modules/admin/router.py`, `apps/api/melorin/modules/catalog/router.py`, `apps/api/melorin/modules/reseller/router.py`, `apps/api/melorin/modules/reseller/schemas.py`, `apps/api/melorin/modules/stores/models.py` (+1 more)
+- **Ref:** `3883ff2`
+
+
 ### 2026-10-16 03:19 UTC - Claude - admin-web, db, api  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
