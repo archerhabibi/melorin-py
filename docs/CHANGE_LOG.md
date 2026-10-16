@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-16 11:03 UTC - archerhabibi - config, db, api  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** Add website login approved in the Telegram bot - Device-authorization style flow with browser binding (poll token), number matching, device/IP context in the bot and a "not me" button. Adds migration 0019_telegram_web_login, Core endpoints, bot runner handlers, store-web TelegramLogin dialog, GC wo…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (18):** `.env.example`, `apps/api/alembic/versions/0019_telegram_web_login.py`, `apps/api/melorin/app.py`, `apps/api/melorin/core/config.py`, `apps/api/melorin/modules/identity/models.py`, `apps/api/melorin/modules/identity/schemas.py`, `apps/api/melorin/modules/identity/telegram_web.py`, `apps/api/melorin/modules/identity/telegram_web_router.py` (+10 more)
+- **Ref:** `e499eda`
+
+
 ### 2026-10-16 10:13 UTC - Claude - admin-web, api, tests  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
