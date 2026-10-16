@@ -1,15 +1,29 @@
 import datetime as dt
 import uuid
 
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl, model_validator
 
 
 class ApplicationIn(BaseModel):
+    """Reseller application. ``domain`` and ``bot_token`` are given together (web form: one-step) or both omitted
+    (Telegram: request first, details are collected after the admin approves)."""
     store_name: str = Field(min_length=2, max_length=200)
     message: str | None = Field(default=None, max_length=2000)
     target_store_id: uuid.UUID | None = None
-    domain: str = Field(min_length=4, max_length=255, description="store hostname, e.g. shop.example.com (scheme/path are stripped)")
-    bot_token: str = Field(min_length=20, max_length=100, repr=False, description="reseller Telegram bot token from BotFather; stored encrypted, never returned")
+    domain: str | None = Field(default=None, min_length=4, max_length=255, description="store hostname, e.g. shop.example.com (scheme/path are stripped)")
+    bot_token: str | None = Field(default=None, min_length=20, max_length=100, repr=False, description="reseller Telegram bot token from BotFather; stored encrypted, never returned")
+
+    @model_validator(mode="after")
+    def _both_or_neither(self):
+        if (self.domain is None) != (self.bot_token is None):
+            raise ValueError("domain and bot_token must be sent together")
+        return self
+
+
+class ApplicationDetailsIn(BaseModel):
+    """Second step of an approved request: the store hostname and the reseller's bot token."""
+    domain: str = Field(min_length=4, max_length=255)
+    bot_token: str = Field(min_length=20, max_length=100, repr=False)
 
 
 class StoreBrandingUpdate(BaseModel):

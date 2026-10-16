@@ -81,7 +81,7 @@ class ResellerApplication(IdMixin, TimestampMixin, Base):
     user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"), index=True)
     store_name: Mapped[str] = mapped_column(String(200))
     message: Mapped[str | None] = mapped_column(Text)
-    status: Mapped[str] = mapped_column(String(20), default="pending")  # pending|approved|rejected
+    status: Mapped[str] = mapped_column(String(20), default="pending")  # pending|awaiting_details|approved|rejected|cancelled
     reviewed_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
     reviewed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     target_store_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("stores.id"), index=True)
@@ -94,6 +94,10 @@ class ResellerApplication(IdMixin, TimestampMixin, Base):
     bot_username: Mapped[str | None] = mapped_column(String(100))
     bot_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     review_reason: Mapped[str | None] = mapped_column(String(500))
+    # Two-step flow (Telegram): an application may be filed without domain/bot. When the admin approves such a
+    # request it moves to ``awaiting_details`` and keeps the approved debt limit here until the applicant
+    # supplies the domain and bot token; only then is the store created.
+    approved_debt_limit: Mapped[int | None] = mapped_column(BigInteger)
 
 
 class ApiCredential(IdMixin, TimestampMixin, Base):

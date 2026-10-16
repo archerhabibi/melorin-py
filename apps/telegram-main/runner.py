@@ -31,15 +31,20 @@ HELP = (
     "فرمان‌ها:\n"
     "/plans خرید اکانت\n/wallet کیف پول و شارژ حساب\n/topup مبلغ — شارژ کیف پول\n"
     "/accounts استعلام و تمدید اکانت\n/orders سفارش‌ها\n/test دریافت اکانت تست\n"
-    "/tickets پشتیبانی و تیکت‌ها\n/me حساب کاربری\n/referral دعوت از دوستان"
+    "/tickets پشتیبانی و تیکت‌ها\n/me حساب کاربری\n/referral دعوت از دوستان\n"
+    "/reseller درخواست نمایندگی\n/cancel انصراف از مرحلهٔ جاری"
 )
 
 # Registered with Telegram (setMyCommands) so the "Menu" button lists them.
 BOT_COMMANDS = [
     ("start", "شروع و منوی اصلی"), ("plans", "🛒 خرید اکانت"), ("accounts", "🔑 اکانت‌های من"),
     ("wallet", "💰 کیف پول و شارژ"), ("orders", "📦 سفارش‌ها"), ("test", "🧪 اکانت تست"),
-    ("tickets", "🎧 پشتیبانی"), ("referral", "🎁 دعوت از دوستان"), ("help", "راهنما"),
+    ("tickets", "🎧 پشتیبانی"), ("referral", "🎁 دعوت از دوستان"), ("reseller", "🤖 درخواست نمایندگی"), ("help", "راهنما"),
 ]
+
+# Core error codes of the reseller details step that mean "send the domain again" / "send the token again".
+RESELLER_DOMAIN_ERRORS = {"INVALID_DOMAIN", "DOMAIN_RESERVED", "DOMAIN_TAKEN", "IDENTITY_TAKEN"}
+RESELLER_TOKEN_ERRORS = {"INVALID_BOT_TOKEN", "BOT_TOKEN_REJECTED", "BOT_TAKEN", "TELEGRAM_UNREACHABLE"}
 
 # Must stay in sync with the public bot's Persian reply keyboard.
 MAIN_MENU = [
@@ -150,16 +155,17 @@ def qr_png(data: str) -> bytes | None:
 
 
 class CoreError(Exception):
-    def __init__(self, status: int, message: str):
+    def __init__(self, status: int, message: str, code: str | None = None):
         super().__init__(message)
-        self.status, self.message = status, message
+        self.status, self.message, self.code = status, message, code
 
 
 class Ctx:
-    def __init__(self, chat_id, user, pair, update_id, callback_id=None, message_id=None):
+    def __init__(self, chat_id, user, pair, update_id, callback_id=None, message_id=None, incoming_id=None):
         self.chat_id, self.user, self.pair = chat_id, user, pair
         self.update_id, self.callback_id = update_id, callback_id
         self.message_id = message_id  # the tapped message (callbacks only) -> edited in place
+        self.incoming_id = incoming_id  # the user's own text message (plain messages only) -> may be deleted (secrets)
 
     @property
     def idem(self) -> str:
@@ -185,6 +191,7 @@ class TelegramRunner:
             "/wallet": self.cmd_wallet, "/topup": self.cmd_topup, "/orders": self.cmd_orders,
             "/accounts": self.cmd_accounts, "/test": self.cmd_test, "/tickets": self.cmd_tickets,
             "/ticket": self.cmd_ticket, "/notifications": self.cmd_notifications, "/link": self.cmd_link, "/referral": self.cmd_referral,
+            "/reseller": self.cmd_reseller, "/cancel": self.cmd_cancel,
         }
         self.callbacks = {
             "menu": self.cb_menu, "plan": self.cb_plan, "buy": self.cb_buy, "ticket": self.cb_ticket,
@@ -192,7 +199,7 @@ class TelegramRunner:
             "account": self.cb_account, "plans": self.cb_plans, "cpn": self.cb_coupon, "qr": self.cb_qr,
             "pool": self.cb_pool, "pnl": self.cb_panel, "qt": self.cb_quote, "rnw": self.cb_renew, "rnq": self.cb_renew_quote, "rnb": self.cb_renew_buy, "noop": self.cb_noop,
             "tnew": self.cb_ticket_new, "tedit": self.cb_ticket_edit_msg, "tsubj": self.cb_ticket_edit_subject,
-            "tclose": self.cb_ticket_close, "treopen": self.cb_ticket_reopen,
+            "tclose": self.cb_ticket_close, "treopen": self.cb_ticket_reopen, "rsc": self.cb_reseller_cancel,
         }
 
     # ---------- persistence ----------
@@ -280,8 +287,18 @@ class TelegramRunner:
         if r.status_code >= 500:
             r.raise_for_status()  # transient: let the runner retry the update
         if r.status_code >= 400:
-            raise CoreError(r.status_code, self._err(r))
+            raise CoreError(r.status_code, self._err(r), self._code(r))
         return r.json()
+
+    @staticmethod
+    def _code(r: httpx.Response) -> str | None:
+        try:
+            d = r.json()
+            e = d.get("error", d) if isinstance(d, dict) else {}
+            code = e.get("code") if isinstance(e, dict) else None
+            return code if isinstance(code, str) else None
+        except Exception:  # noqa: BLE001
+            return None
 
     @staticmethod
     def _err(r: httpx.Response) -> str:
@@ -333,7 +350,7 @@ class TelegramRunner:
         pair = await self.core_login(message, referral)
         user = message.get("_telegram_from") or message.get("from") or {}
         ctx = Ctx(message["chat"]["id"], user, pair, update["update_id"], callback["id"] if callback else None,
-                  message.get("message_id") if callback else None)
+                  message.get("message_id") if callback else None, None if callback else message.get("message_id"))
         try:
             if callback:
                 prefix, _, rest = (callback.get("data") or "").partition(":")
@@ -366,6 +383,8 @@ class TelegramRunner:
         if text in main:
             self._set_state(ctx.chat_id, None)
             await main[text](ctx, "")
+        elif st.get("rs"):
+            await self.reseller_step(ctx, st, text)
         elif st.get("topup_amount"):
             digits = "".join(ch for ch in text.translate(str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")) if ch.isdigit())
             if not digits or int(digits) <= 0:
@@ -790,9 +809,93 @@ class TelegramRunner:
         self._set_state(ctx.chat_id, {"new_ticket_subject": "پشتیبانی تلگرام"})
         await self.send(ctx.chat_id, "🎧 پیام خود را برای پشتیبانی بنویسید:")
 
+    async def cmd_cancel(self, ctx, arg):
+        self._set_state(ctx.chat_id, None)
+        await self.send(ctx.chat_id, "انصراف داده شد.")
+
+    # ----- reseller request (two steps: request -> admin approval -> domain + bot token) -----
     async def cmd_reseller(self, ctx, arg):
-        self._set_state(ctx.chat_id, {"new_ticket_subject": "🤖 درخواست ربات نماینده و همکاری"})
-        await self.send(ctx.chat_id, "📌 توضیحات خود را برای ثبت درخواست نمایندگی ارسال نمایید.")
+        if self.channel != "main":  # reseller bots have no sub-resellers: keep the support-ticket request
+            self._set_state(ctx.chat_id, {"new_ticket_subject": "🤖 درخواست ربات نماینده و همکاری"})
+            return await self.send(ctx.chat_id, "📌 توضیحات خود را برای ثبت درخواست نمایندگی ارسال نمایید.")
+        store = await self.store_info()
+        apps = [a for a in await self.api(ctx, "GET", "/api/v1/reseller/applications") if str(a.get("target_store_id")) == str(store["id"])]
+        last = apps[0] if apps else None  # newest first
+        self._set_state(ctx.chat_id, None)
+        if last and last["status"] == "awaiting_details":
+            self._set_state(ctx.chat_id, {"rs": "domain", "rs_app": last["id"]})
+            return await self.send(
+                ctx.chat_id,
+                f"✅ درخواست نمایندگی «{esc(last['store_name'])}» تأیید شده است.\n\n"
+                "برای ساخت فروشگاه دو اطلاعات لازم است.\n<b>مرحلهٔ ۱ از ۲:</b> دامنهٔ فروشگاه را بفرستید (مثال: <code>shop.example.com</code>)\n\n"
+                "برای انصراف: /cancel", html=True)
+        if last and last["status"] == "pending":
+            return await self.send(
+                ctx.chat_id, f"⏳ درخواست نمایندگی «{esc(last['store_name'])}» در حال بررسی مدیریت است.\nپس از تأیید همین‌جا به شما اطلاع داده می‌شود.",
+                [[("❌ لغو درخواست", f"rsc:{last['id']}")]], html=True)
+        if last and last["status"] == "approved":
+            return await self.send(ctx.chat_id, "✅ فروشگاه نمایندگی شما فعال است. تنظیمات آن را از «پنل نماینده» در وب‌سایت ادامه دهید.")
+        note = f"❌ درخواست قبلی شما رد شد: {esc(last.get('review_reason') or '—')}\n\n" if last and last["status"] == "rejected" else ""
+        self._set_state(ctx.chat_id, {"rs": "name"})
+        await self.send(
+            ctx.chat_id,
+            f"{note}🤖 <b>درخواست نمایندگی</b>\nابتدا درخواست شما برای مدیریت ثبت می‌شود؛ پس از تأیید، دامنه و توکن ربات فروشگاه را از شما می‌گیریم.\n\n"
+            "<b>مرحلهٔ ۱ از ۲:</b> نام فروشگاه نمایندگی خود را بفرستید:\nبرای انصراف: /cancel", html=True)
+
+    async def cb_reseller_cancel(self, ctx, app_id):
+        await self.api(ctx, "POST", f"/api/v1/reseller/applications/{app_id}/cancel")
+        self._set_state(ctx.chat_id, None)
+        await self.screen(ctx, "درخواست نمایندگی لغو شد. هر زمان خواستید با /reseller دوباره ثبت کنید.")
+
+    async def forget_message(self, ctx) -> None:
+        """Best-effort removal of a message holding a secret (the bot token). Bots may delete a user's message in private chats."""
+        if ctx.incoming_id:
+            try:
+                await self.tg("deleteMessage", {"chat_id": ctx.chat_id, "message_id": ctx.incoming_id})
+            except (httpx.HTTPError, RuntimeError):
+                log.warning("could not delete the message that carried the bot token")
+
+    async def reseller_step(self, ctx, st: dict, text: str) -> None:
+        step, text = st["rs"], text.strip()
+        if step == "name":
+            if not 2 <= len(text) <= 200:
+                return await self.send(ctx.chat_id, "نام فروشگاه باید بین ۲ تا ۲۰۰ نویسه باشد. دوباره بفرستید:")
+            self._set_state(ctx.chat_id, {"rs": "msg", "rs_name": text})
+            await self.send(ctx.chat_id, "توضیحات درخواست را بفرستید (سابقهٔ فروش، تعداد مشتری و …).\nاگر توضیحی ندارید یک «-» بفرستید:")
+        elif step == "msg":
+            store = await self.store_info()
+            try:
+                await self.api(ctx, "POST", "/api/v1/reseller/applications", json={
+                    "store_name": st["rs_name"], "message": None if text in {"-", "—"} else text[:2000], "target_store_id": store["id"]})
+            except CoreError:
+                self._set_state(ctx.chat_id, None)
+                raise
+            self._set_state(ctx.chat_id, None)
+            await self.send(ctx.chat_id, "✅ درخواست نمایندگی شما ثبت شد و در صف بررسی مدیریت است.\nپس از تأیید همین‌جا به شما اطلاع می‌دهیم و دامنه و توکن ربات را می‌گیریم.")
+        elif step == "domain":
+            self._set_state(ctx.chat_id, {"rs": "token", "rs_app": st["rs_app"], "rs_domain": text[:255]})
+            await self.send(
+                ctx.chat_id,
+                "<b>مرحلهٔ ۲ از ۲:</b> توکن رباتِ فروشگاه را بفرستید (از @BotFather با /newbot بسازید؛ شکل آن <code>123456789:AA…</code> است).\n"
+                "توکن رمزنگاری ذخیره می‌شود و پیام شما بعد از دریافت از چت پاک می‌شود.\nبرای انصراف: /cancel", html=True)
+        elif step == "token":
+            try:
+                out = await self.api(ctx, "POST", f"/api/v1/reseller/applications/{st['rs_app']}/details", json={"domain": st["rs_domain"], "bot_token": text})
+            except CoreError as exc:
+                await self.forget_message(ctx)
+                if exc.code in RESELLER_DOMAIN_ERRORS:
+                    self._set_state(ctx.chat_id, {"rs": "domain", "rs_app": st["rs_app"]})
+                    return await self.send(ctx.chat_id, f"⚠️ {exc.message}\nدامنه را دوباره بفرستید:")
+                if exc.code in RESELLER_TOKEN_ERRORS:
+                    return await self.send(ctx.chat_id, f"⚠️ {exc.message}\nتوکن را دوباره بفرستید:")
+                self._set_state(ctx.chat_id, None)
+                raise
+            await self.forget_message(ctx)
+            self._set_state(ctx.chat_id, None)
+            await self.send(
+                ctx.chat_id,
+                f"🎉 فروشگاه «{esc(out['store_name'])}» ساخته شد.\nدامنه: <code>{esc(out['domain'])}</code>\nربات: @{esc(out['bot_username'] or '—')}\n\n"
+                "تنظیمات و قیمت‌ها را از «پنل نماینده» در وب‌سایت ادامه دهید.", html=True)
 
     async def cmd_tickets(self, ctx, arg):
         store = await self.store_info()

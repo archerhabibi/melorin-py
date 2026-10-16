@@ -855,6 +855,7 @@ def _application_row(x, user, target):
         "store_name": x.store_name, "message": x.message, "status": x.status, "domain": x.domain,
         "bot_username": x.bot_username, "bot_verified": x.bot_verified, "has_bot_token": bool(x.bot_token_enc),
         "review_reason": x.review_reason, "reviewed_at": x.reviewed_at, "store_id": x.store_id, "created_at": x.created_at,
+        "approved_debt_limit": x.approved_debt_limit,
     }
 
 
@@ -873,12 +874,18 @@ async def applications(_: AdminUser, session: Session, status: str | None = None
 async def review_application(application_id: uuid.UUID, body: ResellerApproval, admin: AdminUser, session: Session):
     from melorin.core import events
     from melorin.modules.reseller import identity
+    from melorin.modules.reseller.provisioning import create_reseller_store
 
     a = await session.get(ResellerApplication, application_id, with_for_update=True)
-    if not a or a.status != "pending": raise NotFound("درخواست نمایندگی")
+    # ``awaiting_details`` (approved, domain/bot not supplied yet) can still be withdrawn by the admin, never approved twice.
+    if not a or a.status not in ("pending", "awaiting_details"): raise NotFound("درخواست نمایندگی")
+    if a.status == "awaiting_details" and body.approve:
+        raise AppError("AWAITING_DETAILS", "این درخواست قبلاً تأیید شده و منتظر دامنه و توکن ربات از متقاضی است.", 409)
     reason = (body.reason or "").strip() or None
     if not body.approve and not reason:
         raise AppError("REASON_REQUIRED", "برای رد درخواست، دلیل را بنویسید تا متقاضی ببیند.", 400)
+    has_details = bool(a.domain and a.bot_token_enc and a.bot_key)
+    target = None
     if body.approve:
         target = await session.get(Store, a.target_store_id)
         if not target or target.status != "active":
@@ -889,25 +896,29 @@ async def review_application(application_id: uuid.UUID, body: ResellerApproval, 
         member = await session.scalar(select(StoreMembership).where(StoreMembership.store_id == target.id, StoreMembership.user_id == a.user_id, StoreMembership.status == "active"))
         if not member:
             raise AppError("STORE_MEMBERSHIP_REQUIRED", "متقاضی دیگر عضو فعال فروشگاه مقصد نیست.", 409)
-        if not (a.domain and a.bot_token_enc and a.bot_key):
-            raise AppError("APPLICATION_INCOMPLETE", "این درخواست دامنه یا ربات ندارد؛ آن را رد کنید تا متقاضی دوباره با اطلاعات کامل ثبت کند.", 409)
-        await identity.ensure_identity_free(session, domain=a.domain, bot_key=a.bot_key, bot_username=a.bot_username, exclude_application_id=a.id)
-    a.status = "approved" if body.approve else "rejected"; a.reviewed_by, a.reviewed_at = admin.id, __import__("datetime").datetime.now(__import__("datetime").UTC)
+        if has_details:
+            await identity.ensure_identity_free(session, domain=a.domain, bot_key=a.bot_key, bot_username=a.bot_username, exclude_application_id=a.id)
+    a.reviewed_by, a.reviewed_at = admin.id, __import__("datetime").datetime.now(__import__("datetime").UTC)
     a.review_reason = reason
-    token_enc, a.bot_token_enc = a.bot_token_enc, None  # the secret moves to the Store (approve) or is dropped (reject)
-    if body.approve:
-        slug = f"reseller-{str(a.id)[:8]}"
-        st = Store(kind="reseller", name=a.store_name, slug=slug, owner_user_id=a.user_id, parent_store_id=target.id, currency=target.currency,
-                   domain=a.domain, bot_token_enc=token_enc, bot_username=a.bot_username)
-        session.add(st); await session.flush(); a.store_id = st.id
-        session.add(ResellerProfile(store_id=st.id, user_id=a.user_id, debt_limit=body.debt_limit, api_enabled=True))
-        session.add(StoreMembership(store_id=st.id, user_id=a.user_id, role="owner"))
-        session.add(BotStoreBinding(bot_key=a.bot_key, bot_username=a.bot_username, store_id=st.id, owner_user_id=a.user_id, bot_kind="reseller", status="active"))
-    audit.record(session, "reseller.application_reviewed", actor_id=admin.id, actor_type="admin", entity_type="reseller_application", entity_id=a.id, data={"approve": body.approve, "reason": reason, "debt_limit": body.debt_limit if body.approve else None, "domain": a.domain})
+    if body.approve and not has_details:
+        # Two-step request (filed from Telegram): approve the request only. The domain and bot token are collected from
+        # the applicant afterwards; the store is created when they arrive (reseller router, ``/details``).
+        a.status, a.approved_debt_limit = "awaiting_details", body.debt_limit
+        token_enc = None
+    else:
+        a.status = "approved" if body.approve else "rejected"
+        token_enc, a.bot_token_enc = a.bot_token_enc, None  # the secret moves to the Store (approve) or is dropped (reject)
+        if body.approve:
+            await create_reseller_store(session, a, target, token_enc=token_enc, debt_limit=body.debt_limit)
+    audit.record(session, "reseller.application_reviewed", actor_id=admin.id, actor_type="admin", entity_type="reseller_application", entity_id=a.id, data={"approve": body.approve, "status": a.status, "reason": reason, "debt_limit": body.debt_limit if body.approve else None, "domain": a.domain})
+    if a.status == "awaiting_details":
+        title, text = "✅ درخواست نمایندگی شما تأیید شد", f"«{a.store_name}»: برای ادامه در ربات دستور /reseller را بزنید و دامنه و توکن رباتِ فروشگاه را بفرستید."
+    elif a.status == "approved":
+        title, text = "✅ درخواست نمایندگی شما تأیید شد", f"فروشگاه «{a.store_name}» ساخته شد. از «پنل نماینده» تنظیمات را ادامه دهید."
+    else:
+        title, text = "❌ درخواست نمایندگی شما رد شد", f"«{a.store_name}»: {reason}"
     await events.emit(session, events.NOTIFY, {
-        "user_id": a.user_id, "store_id": a.target_store_id, "kind": "reseller_application",
-        "title": "✅ درخواست نمایندگی شما تأیید شد" if body.approve else "❌ درخواست نمایندگی شما رد شد",
-        "body": (f"فروشگاه «{a.store_name}» ساخته شد. از «پنل نماینده» تنظیمات را ادامه دهید." if body.approve else f"«{a.store_name}»: {reason}"),
+        "user_id": a.user_id, "store_id": a.target_store_id, "kind": "reseller_application", "title": title, "body": text,
         "dedup_key": f"reseller_application:{a.id}:{a.status}",
     })
     await session.commit(); return {"ok": True, "status": a.status, "store_id": a.store_id}

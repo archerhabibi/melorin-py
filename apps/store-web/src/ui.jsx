@@ -31,7 +31,7 @@ const TONES = {
 const STATUS = {
   completed: ["تکمیل‌شده", "good"], succeeded: ["موفق", "good"], active: ["فعال", "good"], paid: ["پرداخت‌شده", "good"], approved: ["تأییدشده", "good"], answered: ["پاسخ داده شد", "good"],
   pending: ["در انتظار", "warn"], processing: ["در حال پردازش", "warn"], provisioning: ["در حال تحویل", "warn"], open: ["باز", "warn"], pending_review: ["در انتظار بررسی", "warn"], created: ["ایجاد شد", "warn"], near_expiry: ["نزدیک انقضا", "warn"], disabled: ["غیرفعال", "neutral"], closed: ["بسته", "neutral"],
-  failed: ["ناموفق", "bad"], provisioning_failed: ["خطا در تحویل", "bad"], expired: ["منقضی", "bad"], cancelled: ["لغو شد", "neutral"], refunded: ["بازپرداخت شد", "neutral"], rejected: ["ردشده", "bad"], revoked: ["ابطال‌شده", "bad"], suspended: ["تعلیق", "bad"],
+  failed: ["ناموفق", "bad"], provisioning_failed: ["خطا در تحویل", "bad"], expired: ["منقضی", "bad"], cancelled: ["لغو شد", "neutral"], awaiting_details: ["منتظر دامنه و توکن", "warn"], refunded: ["بازپرداخت شد", "neutral"], rejected: ["ردشده", "bad"], revoked: ["ابطال‌شده", "bad"], suspended: ["تعلیق", "bad"],
 };
 export function StatusBadge({ status }) {
   const [label, tone] = STATUS[String(status || "").toLowerCase()] || [status || "—", "neutral"];

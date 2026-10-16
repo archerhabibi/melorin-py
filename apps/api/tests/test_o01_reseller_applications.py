@@ -16,8 +16,8 @@ from melorin.modules.admin.router import applications, review_application, verif
 from melorin.modules.admin.schemas import ResellerApproval
 from melorin.modules.identity.models import User
 from melorin.modules.reseller import identity
-from melorin.modules.reseller.router import apply, cancel_application, my_applications
-from melorin.modules.reseller.schemas import ApplicationIn
+from melorin.modules.reseller.router import apply, cancel_application, my_applications, submit_details
+from melorin.modules.reseller.schemas import ApplicationDetailsIn, ApplicationIn
 from melorin.modules.stores.models import BotStoreBinding, ResellerApplication, ResellerProfile, Store, StoreMembership
 from melorin.modules.system.models import OutboxEvent
 
@@ -200,7 +200,9 @@ async def test_approval_rechecks_uniqueness_and_legacy_applications(session):
     legacy = ResellerApplication(user_id=u.id, target_store_id=main.id, store_name="Old")
     session.add(legacy)
     await session.commit()
-    assert await code_of(review_application(legacy.id, ResellerApproval(approve=True), admin, session)) == "APPLICATION_INCOMPLETE"
+    # A request without domain/bot is approved as a request only (two-step flow); no store is created yet.
+    assert (await review_application(legacy.id, ResellerApproval(approve=True), admin, session))["status"] == "awaiting_details"
+    assert not await session.scalar(select(Store.id).where(Store.kind == "reseller"))
     await review_application(legacy.id, ResellerApproval(approve=False, reason="لطفاً دوباره با دامنه و ربات ثبت کنید"), admin, session)
     a = await apply(body(main), u, session)
     # the domain gets taken by a store created some other way after the application was filed
@@ -250,3 +252,122 @@ async def test_admin_can_reverify_bot_when_first_check_could_not_reach_telegram(
     monkeypatch.setattr(identity, "verify_bot", reachable)
     row = await verify_application_bot(a["id"], admin, session)
     assert row["bot_verified"] is True and row["bot_username"] == "shopbot" and TOKEN not in str(row)
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Two-step flow (Telegram): request first, domain + bot token only after the admin approved the request.
+# ---------------------------------------------------------------------------------------------------------------
+def request_only(main, **kw):
+    return ApplicationIn(**{**dict(store_name="Shop One", target_store_id=main.id, message="می‌خواهم نماینده شوم"), **kw})
+
+
+def details(domain="Shop.Example.com", token=TOKEN):
+    return ApplicationDetailsIn(domain=domain, bot_token=token)
+
+
+def test_application_in_requires_domain_and_token_together():
+    with pytest.raises(ValueError):
+        ApplicationIn(store_name="Shop", domain="shop.example.com")
+    with pytest.raises(ValueError):
+        ApplicationIn(store_name="Shop", bot_token=TOKEN)
+    assert ApplicationIn(store_name="Shop").domain is None
+
+
+async def test_two_step_request_approval_then_details_creates_store(session):
+    main, admin, (u,) = await world(session)
+    a = await apply(request_only(main), u, session)
+    assert a["status"] == "pending" and a["domain"] is None and a["needs_details"] is False
+    row = await session.get(ResellerApplication, a["id"])
+    assert row.bot_token_enc is None and row.bot_key is None
+    # nothing can be submitted before the admin approved the request
+    assert await code_of(submit_details(a["id"], details(), u, session)) == "APPLICATION_NOT_AWAITING_DETAILS"
+    # while a request is open the user cannot file another one
+    assert await code_of(apply(request_only(main), u, session)) == "APPLICATION_EXISTS"
+
+    r = await review_application(a["id"], ResellerApproval(approve=True, debt_limit=500), admin, session)
+    assert r["status"] == "awaiting_details" and r["store_id"] is None
+    assert not await session.scalar(select(Store.id).where(Store.kind == "reseller"))
+    ev = (await session.scalars(select(OutboxEvent))).all()
+    assert any(e.payload.get("kind") == "reseller_application" and "/reseller" in e.payload["body"] for e in ev)
+    mine = (await my_applications(u, session))[0]
+    assert mine["status"] == "awaiting_details" and mine["needs_details"] is True
+    # still counts as an open request
+    assert await code_of(apply(request_only(main), u, session)) == "APPLICATION_EXISTS"
+    assert await code_of(review_application(a["id"], ResellerApproval(approve=True), admin, session)) == "AWAITING_DETAILS"
+
+    out = await submit_details(a["id"], details(), u, session)
+    assert out["status"] == "approved" and out["domain"] == "shop.example.com" and out["bot_username"] == "shopbot" and out["store_id"]
+    assert TOKEN not in str(out) and "bot_token" not in out
+    st = await session.get(Store, out["store_id"])
+    assert st.kind == "reseller" and st.owner_user_id == u.id and st.parent_store_id == main.id and st.domain == "shop.example.com"
+    assert decrypt(st.bot_token_enc) == TOKEN
+    prof = await session.scalar(select(ResellerProfile).where(ResellerProfile.store_id == st.id))
+    assert prof.debt_limit == 500 and prof.user_id == u.id
+    bind = await session.scalar(select(BotStoreBinding).where(BotStoreBinding.store_id == st.id))
+    assert bind.bot_key == "tg:123456789" and bind.bot_kind == "reseller" and bind.owner_user_id == u.id
+    assert (await session.get(ResellerApplication, a["id"])).bot_token_enc is None  # the application never keeps the secret
+    assert await code_of(submit_details(a["id"], details(), u, session)) == "APPLICATION_NOT_AWAITING_DETAILS"
+
+
+async def test_details_validate_domain_token_and_uniqueness_and_keep_state_on_error(session):
+    main, admin, (u1, u2) = await world(session, 2)
+    a = await apply(request_only(main), u1, session)
+    await review_application(a["id"], ResellerApproval(approve=True), admin, session)
+    assert await code_of(submit_details(a["id"], details(domain="not a domain"), u1, session)) == "INVALID_DOMAIN"
+    assert await code_of(submit_details(a["id"], details(token="123456789:short" + "x" * 20 + "!"), u1, session)) == "INVALID_BOT_TOKEN"
+    session.add(Store(kind="reseller", name="Squatter", slug="sq", domain="shop.example.com", parent_store_id=main.id))
+    await session.commit()
+    assert await code_of(submit_details(a["id"], details(), u1, session)) == "DOMAIN_TAKEN"
+    assert (await session.get(ResellerApplication, a["id"])).status == "awaiting_details"  # a failed attempt can be retried
+    assert not await session.scalar(select(Store.id).where(Store.kind == "reseller", Store.owner_user_id == u1.id))
+    assert (await submit_details(a["id"], details(domain="free.example.com"), u1, session))["status"] == "approved"
+    # the bot is now bound: a second approved applicant cannot reuse it
+    b = await apply(request_only(main, store_name="Shop Two"), u2, session)
+    await review_application(b["id"], ResellerApproval(approve=True), admin, session)
+    assert await code_of(submit_details(b["id"], details(domain="other.example.com"), u2, session)) == "BOT_TAKEN"
+
+
+async def test_details_only_for_the_owner_and_never_when_telegram_unreachable(session, monkeypatch):
+    main, admin, (u1, u2) = await world(session, 2)
+    a = await apply(request_only(main), u1, session)
+    await review_application(a["id"], ResellerApproval(approve=True), admin, session)
+    assert await code_of(submit_details(a["id"], details(), u2, session)) == "NOT_FOUND"
+
+    async def down(token, **_):
+        return None
+
+    monkeypatch.setattr(identity, "verify_bot", down)
+    assert await code_of(submit_details(a["id"], details(), u1, session)) == "TELEGRAM_UNREACHABLE"
+    assert not await session.scalar(select(Store.id).where(Store.kind == "reseller"))
+    assert (await session.get(ResellerApplication, a["id"])).status == "awaiting_details"
+
+
+async def test_awaiting_details_can_be_cancelled_by_user_or_withdrawn_by_admin(session):
+    main, admin, (u1, u2) = await world(session, 2)
+    a = await apply(request_only(main), u1, session)
+    await review_application(a["id"], ResellerApproval(approve=True), admin, session)
+    assert (await cancel_application(a["id"], u1, session))["status"] == "cancelled"
+    assert await code_of(submit_details(a["id"], details(), u1, session)) == "APPLICATION_NOT_AWAITING_DETAILS"
+    await apply(request_only(main), u1, session)  # may ask again
+
+    b = await apply(request_only(main, store_name="Shop Two"), u2, session)
+    await review_application(b["id"], ResellerApproval(approve=True), admin, session)
+    assert await code_of(review_application(b["id"], ResellerApproval(approve=False), admin, session)) == "REASON_REQUIRED"
+    await review_application(b["id"], ResellerApproval(approve=False, reason="منصرف شدیم"), admin, session)
+    assert (await my_applications(u2, session))[0]["status"] == "rejected"
+    assert await code_of(submit_details(b["id"], details(), u2, session)) == "APPLICATION_NOT_AWAITING_DETAILS"
+
+
+async def test_admin_list_exposes_two_step_state_without_secrets(session):
+    main, admin, (u,) = await world(session)
+    a = await apply(request_only(main), u, session)
+    await review_application(a["id"], ResellerApproval(approve=True, debt_limit=700), admin, session)
+    row = (await applications(admin, session))[0]
+    assert row["status"] == "awaiting_details" and row["approved_debt_limit"] == 700 and row["has_bot_token"] is False and row["domain"] is None
+
+
+def test_migration_0018_chains_from_0017_and_fits_version_column():
+    spec = importlib.util.spec_from_file_location("m0018", ROOT / "alembic/versions/0018_reseller_two_step.py")
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    assert m.down_revision == "0017_reseller_domain_bot" and len(m.revision) <= 32

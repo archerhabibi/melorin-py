@@ -3,6 +3,7 @@ import uuid
 
 from fastapi import APIRouter
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 
 from melorin.core import audit, settings_store
 from melorin.core.crypto import encrypt
@@ -15,7 +16,7 @@ from melorin.modules.payments.models import Payment
 from melorin.modules.payments.schemas import payment_out
 from melorin.modules.reseller import api_keys, identity
 from melorin.modules.reseller.schemas import (
-    ApiCredentialIn, ApplicationIn, PriceIn, CustomerOut, CustomerWalletAdjustment, PaymentConfigIn, PaymentReview, StoreBrandingUpdate,
+    ApiCredentialIn, ApplicationDetailsIn, ApplicationIn, PriceIn, CustomerOut, CustomerWalletAdjustment, PaymentConfigIn, PaymentReview, StoreBrandingUpdate,
     WebhookEndpointIn, WebhookEndpointPatch,
 )
 from melorin.modules.stores.models import ApiCredential, ResellerApplication, ResellerProfile, StoreMembership, StorePaymentConfiguration
@@ -56,7 +57,7 @@ def application_out(a: ResellerApplication) -> dict:
     """Applicant-facing view. The bot token is never included."""
     return {
         "id": a.id, "target_store_id": a.target_store_id, "store_name": a.store_name, "message": a.message, "status": a.status,
-        "domain": a.domain, "bot_username": a.bot_username, "bot_verified": a.bot_verified,
+        "needs_details": a.status == "awaiting_details", "domain": a.domain, "bot_username": a.bot_username, "bot_verified": a.bot_verified,
         "review_reason": a.review_reason if a.status == "rejected" else None, "store_id": a.store_id, "created_at": a.created_at,
     }
 
@@ -73,21 +74,23 @@ async def apply(body: ApplicationIn, user: CurrentUser, session: Session):
     if await session.scalar(select(ResellerApplication).where(
         ResellerApplication.user_id == user.id,
         ResellerApplication.target_store_id == target.id,
-        ResellerApplication.status == "pending",
+        ResellerApplication.status.in_(("pending", "awaiting_details")),
     )):
         raise AppError("APPLICATION_EXISTS", "یک درخواست در حال بررسی دارید.", 409)
-    domain = identity.normalize_domain(body.domain)
-    token, bot_key = identity.parse_bot_token(body.bot_token)
-    await identity.ensure_identity_free(session, domain=domain, bot_key=bot_key)
-    username = await identity.verify_bot(token)
-    if username:
-        await identity.ensure_identity_free(session, domain=domain, bot_key=bot_key, bot_username=username)
+    domain = bot_key = username = token = None
+    if body.domain is not None:  # one-step (web form): identity is validated now
+        domain = identity.normalize_domain(body.domain)
+        token, bot_key = identity.parse_bot_token(body.bot_token)
+        await identity.ensure_identity_free(session, domain=domain, bot_key=bot_key)
+        username = await identity.verify_bot(token)
+        if username:
+            await identity.ensure_identity_free(session, domain=domain, bot_key=bot_key, bot_username=username)
     a = ResellerApplication(
         user_id=user.id, target_store_id=target.id, store_name=body.store_name.strip(), message=body.message,
-        domain=domain, bot_token_enc=encrypt(token), bot_key=bot_key, bot_username=username, bot_verified=username is not None,
+        domain=domain, bot_token_enc=encrypt(token) if token else None, bot_key=bot_key, bot_username=username, bot_verified=username is not None,
     )
     session.add(a)
-    audit.record(session, "reseller.applied", actor_id=user.id, entity_type="reseller_application", entity_id=a.id, data={"domain": domain, "bot_key": bot_key})
+    audit.record(session, "reseller.applied", actor_id=user.id, entity_type="reseller_application", entity_id=a.id, data={"domain": domain, "bot_key": bot_key, "two_step": domain is None})
     await session.commit()
     return application_out(a)
 
@@ -103,11 +106,45 @@ async def cancel_application(application_id: uuid.UUID, user: CurrentUser, sessi
     a = await session.get(ResellerApplication, application_id, with_for_update=True)
     if not a or a.user_id != user.id:
         raise NotFound("درخواست نمایندگی")
-    if a.status != "pending":
+    if a.status not in ("pending", "awaiting_details"):
         raise AppError("APPLICATION_NOT_PENDING", "فقط درخواست در حال بررسی قابل لغو است.", 409)
     a.status, a.bot_token_enc = "cancelled", None
     audit.record(session, "reseller.application_cancelled", actor_id=user.id, entity_type="reseller_application", entity_id=a.id)
     await session.commit()
+    return application_out(a)
+
+
+@router.post("/reseller/applications/{application_id}/details")
+async def submit_details(application_id: uuid.UUID, body: ApplicationDetailsIn, user: CurrentUser, session: Session):
+    """Second step of a request the admin already approved: the applicant sends the store domain and the bot token,
+    both are validated, and the reseller store is created right away (the admin approval is the authorisation)."""
+    from melorin.modules.reseller.provisioning import create_reseller_store
+
+    a = await session.get(ResellerApplication, application_id, with_for_update=True)
+    if not a or a.user_id != user.id:
+        raise NotFound("درخواست نمایندگی")
+    if a.status != "awaiting_details":
+        raise AppError("APPLICATION_NOT_AWAITING_DETAILS", "این درخواست در مرحلهٔ دریافت اطلاعات نیست.", 409)
+    target = await application_target_store(session, user.id, a.target_store_id)
+    if await session.scalar(select(Store.id).where(Store.owner_user_id == user.id, Store.kind == "reseller", Store.parent_store_id == target.id)):
+        raise AppError("ALREADY_RESELLER", "شما برای این فروشگاه قبلاً نماینده هستید.", 409)
+    domain = identity.normalize_domain(body.domain)
+    token, bot_key = identity.parse_bot_token(body.bot_token)
+    await identity.ensure_identity_free(session, domain=domain, bot_key=bot_key, exclude_application_id=a.id)
+    username = await identity.verify_bot(token)
+    if username is None:  # Telegram unreachable: a store must not be created for a bot nobody has verified
+        # 424 (not 5xx): the bot runner replays an update on 5xx, which would hammer Telegram while it is unreachable.
+        raise AppError("TELEGRAM_UNREACHABLE", "ارتباط با تلگرام برقرار نشد؛ کمی بعد دوباره تلاش کنید.", 424)
+    await identity.ensure_identity_free(session, domain=domain, bot_key=bot_key, bot_username=username, exclude_application_id=a.id)
+    a.domain, a.bot_key, a.bot_username, a.bot_verified = domain, bot_key, username, True
+    a.status = "approved"
+    await create_reseller_store(session, a, target, token_enc=encrypt(token), debt_limit=a.approved_debt_limit or 0)
+    audit.record(session, "reseller.application_details_submitted", actor_id=user.id, entity_type="reseller_application", entity_id=a.id, data={"domain": domain, "bot_key": bot_key, "bot_username": username})
+    try:
+        await session.commit()
+    except IntegrityError:  # another applicant took the same domain/bot between the check and the commit
+        await session.rollback()
+        raise AppError("IDENTITY_TAKEN", "این دامنه یا ربات همین الان برای فروشگاه دیگری ثبت شد؛ مقدار دیگری بفرستید.", 409) from None
     return application_out(a)
 
 
