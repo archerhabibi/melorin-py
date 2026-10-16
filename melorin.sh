@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Melorin management menu.   Open it with:  melorin   (or: bash melorin.sh)
 #
-#   1) Install    quiet install -> asks only: store domain, admin domain, bot token
+#   1) Install    quiet install -> asks only: store domain, admin domain, admin e-mail, bot token
 #   2) Update     pull latest code, rebuild, migrate, restart (.env is kept)
 #   3) Edit .env  bot token / domains / open the file in an editor
 #   4) Web panel  URLs, health check, admin password reset
@@ -96,10 +96,21 @@ ask_domain() { # ask_domain "label" -> sets REPLY_DOMAIN
   done
 }
 
+valid_email() { [[ "$1" =~ ^[A-Za-z0-9._%+-]+@([A-Za-z0-9-]+\.)+[A-Za-z]{2,}$ ]]; }
+ask_email() { # sets REPLY_EMAIL
+  local e
+  while true; do
+    read -r -p "$1: " e || return 1
+    e="${e,,}"; e="${e// /}"
+    if valid_email "$e"; then REPLY_EMAIL="$e"; return 0; fi
+    warn "Not a valid e-mail address (example: you@example.com)."
+  done
+}
+
 ask_token() { # sets REPLY_TOKEN (may be empty = skipped)
   local t
   while true; do
-    read -r -s -p "Telegram bot token from @BotFather (hidden, Enter to skip): " t || t=""; echo
+    read -r -s -p "4) Telegram bot token from @BotFather (hidden, Enter to skip): " t || t=""; echo
     t="${t// /}"
     if [ -z "$t" ]; then REPLY_TOKEN=""; return 0; fi
     if valid_token "$t"; then REPLY_TOKEN="$t"; return 0; fi
@@ -163,7 +174,7 @@ do_install() {
     ADMIN_EMAIL="$(env_get MELORIN_BOOTSTRAP_ADMIN_EMAIL)"; BOT=""
   else
     echo
-    echo "${CB}Three things are needed:${C0} store domain, admin domain, bot token."
+    echo "${CB}Four things are needed:${C0} store domain, admin domain, admin e-mail, bot token."
     echo "Both domains must already point (A record) to this server."
     echo
     ask_domain "1) Store (sales site) domain, e.g. shop.example.com" || return 1; DOMAIN="$REPLY_DOMAIN"
@@ -172,6 +183,7 @@ do_install() {
       [ "$ADMIN_DOMAIN" != "$DOMAIN" ] && break
       warn "The admin domain must be different from the store domain."
     done
+    ask_email "3) Admin e-mail (login name of the first admin)" || return 1; ADMIN_EMAIL="$REPLY_EMAIL"
     ask_token; BOT="$REPLY_TOKEN"
     if [ -n "$BOT" ]; then
       uname="$(bot_username "$BOT")"
@@ -180,7 +192,6 @@ do_install() {
     else
       warn "No token: the Telegram bot will not start until you add it (menu 3)."
     fi
-    ADMIN_EMAIL="${ADMIN_EMAIL:-admin@${DOMAIN}}"
     echo
     info "Checking DNS..."
     check_dns "$DOMAIN" "$ADMIN_DOMAIN" || return 1
@@ -194,7 +205,7 @@ do_install() {
     echo
     echo "  Store domain : $DOMAIN"
     echo "  Admin domain : $ADMIN_DOMAIN"
-    echo "  Admin e-mail : $ADMIN_EMAIL   (login name of the first admin)"
+    echo "  Admin e-mail : $ADMIN_EMAIL"
     echo "  Bot token    : $([ -n "$BOT" ] && echo set || echo not set)"
     echo "  Proxy mode   : $([ "$ext" = true ] && echo 'external (loopback ports 18080/18081/18000)' || echo 'bundled Caddy (automatic TLS)')"
     echo
@@ -414,7 +425,7 @@ main_menu() {
   while true; do
     banner
     cat <<EOF
-   ${CB}1${C0}) Install      first-time setup (domains + bot token)
+   ${CB}1${C0}) Install      first-time setup (domains, e-mail, bot token)
    ${CB}2${C0}) Update       latest code, migrate, restart (.env kept)
    ${CB}3${C0}) Edit .env    bot token / domains / editor
    ${CB}4${C0}) Web panel    URLs, health, admin password reset
