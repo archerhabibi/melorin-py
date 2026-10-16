@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-16 00:02 UTC - archerhabibi - admin-web, db, api  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** Revert "Merge apply/sales-pools-v2: sales pools (pool-based selling, per-pool package prices, connection kind, customer panel labels)" - This reverts commit 9d3ebf472b9c52bef4f2f9dff74f11c1571cbf07, reversing changes made to 47749ee585f1f89752f8b25270921c7f28a42968.
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (30):** `apps/admin-web/src/AdminExtra.jsx`, `apps/admin-web/src/App.jsx`, `apps/admin-web/src/InfraHealthView.jsx`, `apps/admin-web/src/PanelGroupsView.jsx`, `apps/admin-web/src/PanelsView.jsx`, `apps/admin-web/src/ProductsView.jsx`, `apps/admin-web/src/ServerForm.jsx`, `apps/admin-web/src/infra.jsx` (+22 more)
+- **Ref:** `e0fa6c2`
+
+
 ### 2026-10-15 23:35 UTC - archerhabibi - admin-web, db, api  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
