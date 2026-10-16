@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-16 06:51 UTC - x - other, scripts  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** Install required several manual steps and env vars.
+- **Action:** add get.sh one-liner and melorin.sh menu (install/update/env/panel/service/status/uninstall); installer remembers install mode; READMEs updated.
+- **After:** bash <(curl -fsSL .../get.sh) installs with only store domain, admin domain and bot token.
+- **Files (5):** `README.fa.md`, `README.md`, `get.sh`, `melorin.sh`, `scripts/install_server.sh`
+- **Ref:** `c90c45b`
+
+
 ### 2026-10-16 04:47 UTC - Claude - infra, api, store-web
 - **Before:** Caddy served only `MELORIN_DOMAIN` and `MELORIN_ADMIN_DOMAIN`. A reseller store created with its own domain got no certificate and no route, and the storefront always loaded the main store.
 - **Problem:** The reseller domain was stored in Core but never reachable through Caddy.
