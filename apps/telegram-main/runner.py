@@ -200,6 +200,7 @@ class TelegramRunner:
             "pool": self.cb_pool, "pnl": self.cb_panel, "qt": self.cb_quote, "rnw": self.cb_renew, "rnq": self.cb_renew_quote, "rnb": self.cb_renew_buy, "noop": self.cb_noop,
             "tnew": self.cb_ticket_new, "tedit": self.cb_ticket_edit_msg, "tsubj": self.cb_ticket_edit_subject,
             "tclose": self.cb_ticket_close, "treopen": self.cb_ticket_reopen, "rsc": self.cb_reseller_cancel,
+            "wla": self.cb_web_login, "wld": self.cb_web_login_deny,
         }
 
     # ---------- persistence ----------
@@ -453,6 +454,8 @@ class TelegramRunner:
     async def cmd_start(self, ctx, arg):
         if arg.startswith("link_"):
             return await self.cmd_link(ctx, arg[5:])
+        if arg.startswith("wl_"):
+            return await self.cmd_web_login(ctx, arg[3:])
         store = await self.store_info()
         await self.send_main_menu(ctx.chat_id, f"به {store.get('name', 'ملورین')} خوش آمدید 👋\nاز منوی زیر شروع کنید.")
         await self.cmd_home(ctx, "")
@@ -490,6 +493,86 @@ class TelegramRunner:
         if r.status_code >= 500:
             r.raise_for_status()
         await self.send(ctx.chat_id, "حساب تلگرام به حساب وب شما متصل شد ✅" if r.status_code < 400 else f"⚠️ {self._err(r)}")
+
+    # ----- website login approved here (Core: /api/v1/auth/telegram/web/bot/*) -----
+    async def _web_login_call(self, action: str, body: dict) -> tuple[int, dict]:
+        r = await self.client.post(f"{self.core}/api/v1/auth/telegram/web/bot/{action}", headers={"X-Bot-Secret": self.secret, "Accept": "application/json"}, json=body)
+        if r.status_code >= 500:
+            r.raise_for_status()  # transient: let the runner retry the update
+        try:
+            data = r.json()
+        except ValueError:
+            data = {}
+        return r.status_code, data if isinstance(data, dict) else {}
+
+    def _profile(self, ctx: Ctx) -> dict:
+        u = ctx.user
+        return {"telegram_id": u["id"], "first_name": u.get("first_name"), "last_name": u.get("last_name"), "username": u.get("username"), "language_code": u.get("language_code")}
+
+    @staticmethod
+    def _ago(seconds) -> str:
+        n = int(seconds or 0)
+        return f"{n} ثانیه پیش" if n < 60 else f"{n // 60} دقیقه پیش"
+
+    def _web_login_view(self, sid: str, choices: list, number_match: bool, *, info: dict | None = None, note: str = "") -> tuple[str, list]:
+        lines = ["🔐 <b>درخواست ورود به وب‌سایت</b>", ""]
+        if info:
+            lines += [f"🖥 دستگاه: <b>{esc(info.get('device'))}</b>", f"🌐 آی‌پی: <code>{esc(info.get('ip') or '-')}</code>", f"🕒 زمان: {self._ago(info.get('age_seconds'))}", ""]
+        if note:
+            lines += [note, ""]
+        if number_match:
+            lines.append("اگر همین الان خودتان در وب‌سایت «ورود با تلگرام» را زده‌اید، <b>عددی را که روی صفحهٔ وب‌سایت می‌بینید</b> انتخاب کنید:")
+            rows = [[(str(c), f"wla:{sid}:{c}") for c in choices]]
+        else:
+            lines.append("اگر همین الان خودتان در وب‌سایت «ورود با تلگرام» را زده‌اید، تأیید کنید:")
+            rows = [[("✅ بله، خودم هستم", f"wla:{sid}:ok")]]
+        lines += ["", "⚠️ اگر این درخواست را شما نداده‌اید یا کسی از شما خواسته این‌جا چیزی را تأیید کنید، «این من نبودم» را بزنید."]
+        rows.append([("⛔ این من نبودم", f"wld:{sid}")])
+        return "\n".join(lines), rows
+
+    async def cmd_web_login(self, ctx, sid):
+        store = await self.store_info()
+        status, d = await self._web_login_call("inspect", {**self._profile(ctx), "session_id": sid.strip()[:32], "store_id": store["id"]})
+        if status >= 400:
+            return await self.send(ctx.chat_id, f"⚠️ {self._err_of(d)}")
+        text, rows = self._web_login_view(sid.strip()[:32], d.get("choices") or [], bool(d.get("number_match")), info=d)
+        await self.screen(ctx, text, rows)
+
+    async def cb_web_login(self, ctx, rest):
+        sid, _, choice = rest.partition(":")
+        store = await self.store_info()
+        status, d = await self._web_login_call("decide", {**self._profile(ctx), "session_id": sid, "store_id": store["id"], "action": "approve", "choice": choice})
+        if status >= 400:
+            return await self.screen(ctx, f"⚠️ {esc(self._err_of(d))}")
+        result = d.get("result")
+        if result == "approved":
+            return await self.screen(ctx, "✅ <b>ورود تأیید شد</b>\n\nبه مرورگر برگردید؛ چند ثانیهٔ دیگر وارد حساب‌تان می‌شوید.")
+        if result == "retry":
+            note = f"❌ عدد انتخاب‌شده درست نبود. <b>{int(d.get('remaining') or 0)}</b> فرصت دیگر دارید."
+            text, rows = self._web_login_view(sid, d.get("choices") or [], True, note=note)
+            return await self.screen(ctx, text, rows)
+        await self.screen(ctx, self.WEB_LOGIN_DENIED.get(d.get("reason") or "", "⛔ این درخواست ورود بسته شد."))
+
+    async def cb_web_login_deny(self, ctx, sid):
+        store = await self.store_info()
+        status, d = await self._web_login_call("decide", {**self._profile(ctx), "session_id": sid, "store_id": store["id"], "action": "deny"})
+        if status >= 400:
+            return await self.screen(ctx, f"⚠️ {esc(self._err_of(d))}")
+        await self.screen(ctx, self.WEB_LOGIN_DENIED["user_denied"])
+
+    WEB_LOGIN_DENIED = {
+        "user_denied": "⛔ درخواست ورود رد شد.\nاگر شما آن را نداده بودید، کار درستی کردید ✅",
+        "too_many_wrong_choices": "⛔ عدد اشتباه انتخاب شد و برای امنیت شما درخواست بسته شد.\nاگر خودتان وارد می‌شدید، از وب‌سایت دوباره شروع کنید.",
+        "admin_use_panel": "⛔ ورود مدیران فقط از پنل مدیریت انجام می‌شود.",
+        "account_disabled": "⛔ حساب شما غیرفعال است. با پشتیبانی تماس بگیرید.",
+        "registration_closed": "⛔ ثبت‌نام جدید موقتاً بسته است.",
+        "rate_limited": "⛔ تلاش‌های ورود زیاد بود. کمی بعد دوباره امتحان کنید.",
+    }
+
+    @staticmethod
+    def _err_of(d: dict) -> str:
+        e = d.get("error") if isinstance(d.get("error"), dict) else {}
+        return e.get("message") or "درخواست انجام نشد."
 
     async def cb_noop(self, ctx, _):
         return None

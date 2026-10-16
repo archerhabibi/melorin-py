@@ -2,7 +2,7 @@ import datetime as dt
 import secrets
 import uuid
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, String, UniqueConstraint, Uuid
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from melorin.core.db import Base, CreatedMixin, IdMixin, TimestampMixin
@@ -80,3 +80,29 @@ class IdentityLinkReview(IdMixin, TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(20), default="open", index=True)  # open | linked | dismissed
     resolved_by: Mapped[uuid.UUID | None] = mapped_column(Uuid)
     resolution_note: Mapped[str | None] = mapped_column(String(500))
+
+
+class TelegramLoginSession(IdMixin, CreatedMixin, Base):
+    """Website login that is approved inside the Telegram bot (device-authorization flow, see docs/TELEGRAM-WEB-LOGIN.md).
+
+    ``public_id`` travels in the deep link / QR code; ``secret_hash`` is the SHA-256 of the poll token that only the
+    requesting browser holds, so whoever sees the link can never collect the session. Single use, short lived.
+    """
+
+    __tablename__ = "telegram_login_sessions"
+    public_id: Mapped[str] = mapped_column(String(24), unique=True)
+    secret_hash: Mapped[str] = mapped_column(String(64))
+    store_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("stores.id"), index=True)
+    status: Mapped[str] = mapped_column(String(12), default="pending", index=True)  # pending|scanned|approved|denied|expired|consumed
+    match_code: Mapped[str] = mapped_column(String(2))  # number shown on the website, must be picked in the bot
+    decoys: Mapped[list] = mapped_column(JSON, default=list)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    req_ip: Mapped[str | None] = mapped_column(String(64))
+    req_device: Mapped[str | None] = mapped_column(String(120))
+    req_ua: Mapped[str | None] = mapped_column(String(300))
+    scanned_telegram_id: Mapped[int | None] = mapped_column(BigInteger)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
+    deny_reason: Mapped[str | None] = mapped_column(String(40))
+    expires_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), index=True)
+    decided_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    consumed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))

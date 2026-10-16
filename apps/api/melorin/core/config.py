@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     health_token: str = ""
     main_bot_token: str = ""
     google_client_id: str = ""
+    # Website login approved in the Telegram bot (docs/TELEGRAM-WEB-LOGIN.md)
+    telegram_web_login_ttl_seconds: int = 180
+    telegram_web_login_number_match: bool = True
 
     store_web_url: str = "http://localhost:3000"
     public_api_url: str = ""

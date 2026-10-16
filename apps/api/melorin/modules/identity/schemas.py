@@ -1,4 +1,5 @@
 import uuid
+from typing import Literal
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -105,3 +106,59 @@ class TotpSetupOut(BaseModel):
 
 class TotpEnable(BaseModel):
     code: str
+
+
+# ---------------- website login approved in the Telegram bot ----------------
+class TelegramWebStart(BaseModel):
+    store_id: uuid.UUID | None = None
+
+
+class TelegramWebStartOut(BaseModel):
+    session_id: str
+    poll_token: str  # shown once; only its hash is stored
+    deeplink: str
+    qr: str | None = None  # data:image/svg+xml URI of the deep link
+    match_code: str | None = None  # None when number matching is disabled
+    bot_username: str
+    expires_in: int
+    poll_interval: int
+
+
+class TelegramWebPoll(BaseModel):
+    poll_token: str = Field(min_length=20, max_length=128)
+
+
+class TelegramWebPollOut(BaseModel):
+    status: str  # pending | scanned | approved | denied | expired | consumed
+    reason: str | None = None
+    expires_in: int = 0
+    tokens: TokenPair | None = None
+
+
+class TelegramWebInspect(TelegramProfile):
+    session_id: str = Field(min_length=8, max_length=32)
+    store_id: uuid.UUID
+
+
+class TelegramWebInspectOut(BaseModel):
+    status: str
+    device: str
+    ip: str | None
+    age_seconds: int
+    expires_in: int
+    number_match: bool
+    choices: list[str]
+
+
+class TelegramWebDecision(TelegramProfile):
+    session_id: str = Field(min_length=8, max_length=32)
+    store_id: uuid.UUID
+    action: Literal["approve", "deny"]
+    choice: str | None = Field(default=None, max_length=8)
+
+
+class TelegramWebDecisionOut(BaseModel):
+    result: Literal["approved", "denied", "retry"]
+    reason: str | None = None
+    remaining: int | None = None
+    choices: list[str] = []
