@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-16 00:58 UTC - archerhabibi - admin-web, db, api  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat: sales pools v5 — pool-based selling, per-pool package prices, connection kind, panel labels, reseller bot prices (sales-pools-v5.patch)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (34):** `apps/admin-web/src/AdminExtra.jsx`, `apps/admin-web/src/App.jsx`, `apps/admin-web/src/InfraHealthView.jsx`, `apps/admin-web/src/PanelGroupsView.jsx`, `apps/admin-web/src/PanelsView.jsx`, `apps/admin-web/src/ProductsView.jsx`, `apps/admin-web/src/ServerForm.jsx`, `apps/admin-web/src/infra.jsx` (+26 more)
+- **Ref:** `31e0e63`
+
+
 ### 2026-10-16 00:02 UTC - archerhabibi - admin-web, db, api  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
