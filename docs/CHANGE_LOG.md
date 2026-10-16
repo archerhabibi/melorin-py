@@ -36,6 +36,23 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-16 01:21 UTC - Claude - docs  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** README did not describe apps/admin-web, store-web or the telegram apps, nor the redesigned infra screens.
+- **Action:** added the apps to Layout and a short Admin panel section.
+- **After:** README renders the new section; admin-web build verified (vite build OK).
+- **Files (1):** `README.md`
+- **Ref:** `b842e73`
+
+### 2026-10-16 01:19 UTC - Claude - admin-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(admin-web): infra UI redesign — KPI bar, rings/segmented meters, sort + view toggle, pool flow cards (melorin-admin-ui-redesign.patch)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (6):** `apps/admin-web/src/PanelGroupsView.jsx`, `apps/admin-web/src/PanelsView.jsx`, `apps/admin-web/src/ProductsView.jsx`, `apps/admin-web/src/infra.jsx`, `apps/admin-web/src/kit.jsx`, `apps/admin-web/src/styles.css`
+- **Ref:** `f3362a4`
+
+
 ### 2026-10-16 00:58 UTC - archerhabibi - admin-web, db, api  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
