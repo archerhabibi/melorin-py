@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-17 12:21 UTC - Claude - admin-web, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** Telegram login: main bot @username box in admin settings (auto-detect via getMe or manual) (telegram-main-bot-username.patch)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (4):** `apps/admin-web/src/TelegramLoginSettings.jsx`, `apps/api/melorin/modules/admin/integrations.py`, `apps/api/tests/test_r01_telegram_login_settings.py`, `docs/TELEGRAM-WEB-LOGIN.md`
+- **Ref:** `690d3f9`
+
+
 ### 2026-10-17 12:00 UTC - Claude - auth, store-web, admin-web, infra
 - **Before:** admin-web used a hand-made "Google" button driving One Tap (`prompt()`); store-web used `renderButton` but `initialize()` ran twice; ID tokens were checked through the debugging-only `/tokeninfo` endpoint with no nonce, so a leaked token could be replayed; no explicit `exp`/`iat` requirement; admin login page showed API errors as a generic message (it read `payload.code` instead of `payload.error.code`).
 - **Problem:** the sign-in did not follow Google's official "Sign in with Google" guidance (button, theme, initialisation, token verification, COOP).
