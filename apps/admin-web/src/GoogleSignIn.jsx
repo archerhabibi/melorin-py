@@ -2,22 +2,48 @@
 
 import { useEffect, useRef, useState } from "react";
 
-const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+const ENV_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || ""; // legacy build-time fallback
+const API_BASE = (import.meta.env?.VITE_MELORIN_API_URL || window.location.origin).replace(/\/$/, "");
+const SURFACE = "admin"; // which login surface this app is: its toggle lives in Admin > Settings > Google
+
+// The Client ID is configured at runtime in the admin panel (Settings > Google login); no rebuild is needed.
+// One shared request per page load. If Core is unreachable we fall back to the build-time env value.
+let configPromise = null;
+function loadConfig() {
+  if (!configPromise) {
+    configPromise = fetch(`${API_BASE}/api/v1/auth/google/config`, { headers: { Accept: "application/json" } })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("config"))))
+      .catch(() => ({ enabled: !!ENV_CLIENT_ID, client_id: ENV_CLIENT_ID, admin_login: true, store_login: true }));
+  }
+  return configPromise;
+}
+
+/** Returns { client_id } when Google sign-in is on for this app, otherwise null. */
+export function useGoogleConfig() {
+  const [cfg, setCfg] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    loadConfig().then((c) => { if (alive) setCfg(c); });
+    return () => { alive = false; };
+  }, []);
+  return cfg && cfg.enabled && cfg.client_id && cfg[`${SURFACE}_login`] !== false ? cfg : null;
+}
 
 export function useGoogleSignIn(onCredential) {
   const ready = useRef(false);
   // Always call the latest handler (GIS keeps the callback given at initialize() time).
   const latest = useRef(onCredential);
   latest.current = onCredential;
+  const clientId = useGoogleConfig()?.client_id || "";
 
   useEffect(() => {
-    if (!CLIENT_ID) return;
+    if (!clientId) return;
     if (ready.current) return;
 
     function init() {
       ready.current = true;
       window.google.accounts.id.initialize({
-        client_id: CLIENT_ID,
+        client_id: clientId,
         callback: (response) => latest.current(response.credential),
         ux_mode: "popup",
         cancel_on_tap_outside: true,
@@ -38,7 +64,7 @@ export function useGoogleSignIn(onCredential) {
     } else {
       existing.addEventListener("load", init, { once: true });
     }
-  }, []);
+  }, [clientId]);
 }
 
 function GoogleLogo() {
@@ -55,7 +81,8 @@ function GoogleLogo() {
 export function GoogleSignInButton({ onCredential, label = "ورود با گوگل", className = "" }) {
   const [busy, setBusy] = useState(false);
 
-  if (!CLIENT_ID) return null;
+  const cfg = useGoogleConfig();
+  if (!cfg) return null;
 
   function handleClick() {
     if (!window.google?.accounts?.id) return;

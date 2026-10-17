@@ -541,3 +541,10 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 - **Action:** new design system (light/dark tokens in `styles.css`, Tailwind token mapping, shared primitives in `src/ui.jsx`); redesigned home, login/code/checkout dialogs, dashboard and reseller panel; self-hosted Vazirmatn via `@fontsource-variable/vazirmatn`. API calls and state logic unchanged.
 - **After:** `npm run build` passes; `check_frontend_contracts.py` and `check_web_lockfiles.py` pass; visually checked on desktop/mobile in light and dark with a mocked API. Not run against a live Core.
 - **Ref:** this commit
+
+### 2026-10-17 - Claude (with owner) - Google login settings in the admin panel (melorin-google-login-settings.patch)
+- **Before:** Google sign-in needed `MELORIN_GOOGLE_CLIENT_ID` in `.env` plus a rebuild of both web images (`VITE_GOOGLE_CLIENT_ID`).
+- **Problem:** no way to configure, test or switch off Google login from the admin panel; no setup guidance.
+- **Action:** new `integration.google_login` setting (Client ID + admin/store switches, no secret); `GET/PUT /admin/integrations/google`, `POST /admin/integrations/google/test`, public `GET /auth/google/config`; `/auth/google` reads the saved config and enforces the per-surface switches; new admin Settings card with origin copy-boxes and a step-by-step guide; admin-web and store-web read the config at runtime (env value stays as fallback); docs `GOOGLE-LOGIN-SETUP-FA/EN.md`; tests `test_q01_google_settings.py`, `test_o01_google_signin.py` updated.
+- **After:** full API suite 425 passed, 1 skipped, 2 failed (`test_admin_safe_delete`, `test_integration_health` fail identically on the untouched tree); `ruff check` clean on the changed files (2 pre-existing F841 in other tests); admin-web and store-web `vite build` pass; `check_frontend_contracts.py` passes. NOT run: real Google login against a live Client ID, PostgreSQL, Docker build.
+- **Ref:** this commit
