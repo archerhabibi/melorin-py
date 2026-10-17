@@ -36,6 +36,23 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-17 09:08 UTC - Claude - tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** test: align Google sign-in static check with store-web renderButton
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `apps/api/tests/test_o01_google_signin.py`
+- **Ref:** `deb57b0`
+
+### 2026-10-17 09:08 UTC - Claude - store-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** store-web: use Google renderButton so Google errors are visible (google-renderbutton.patch)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `apps/store-web/src/GoogleSignIn.jsx`
+- **Ref:** `11a1e9e`
+
+
 ### 2026-10-16 11:03 UTC - archerhabibi - config, db, api  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
