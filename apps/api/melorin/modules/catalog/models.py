@@ -20,7 +20,8 @@ class Product(IdMixin, TimestampMixin, Base):
     main_price: Mapped[int] = mapped_column(BigInteger)
     reseller_price: Mapped[int] = mapped_column(BigInteger)  # V1: same for all resellers
     currency: Mapped[str] = mapped_column(String(8), default="IRT")
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)  # main store switch; off = off for resellers too
+    reseller_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")  # resellers may sell it (only meaningful while is_active)
     is_test: Mapped[bool] = mapped_column(Boolean, default=False)
     sort: Mapped[int] = mapped_column(Integer, default=0)
     archived_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))

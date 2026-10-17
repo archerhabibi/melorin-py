@@ -19,6 +19,8 @@ async def store_catalog(session: AsyncSession, store: Store) -> list[tuple[Produ
         .where(Product.is_active.is_(True), Product.archived_at.is_(None), Product.is_test.is_(False), StoreProduct.is_enabled.is_(True), StoreProduct.is_listed.is_(True))
         .order_by(Product.sort, Product.main_price)
     )
+    if store.kind == "reseller":
+        q = q.where(Product.reseller_enabled.is_(True))  # switched off for resellers = invisible to them
     rows = (await session.execute(q)).all()
     if store.kind == "reseller":  # priced = a store-wide price, or a price of its own in at least one bundle
         bundled = set((await session.scalars(select(StoreBundlePrice.product_id).where(StoreBundlePrice.store_id == store.id))).all())
@@ -36,6 +38,8 @@ async def enabled_for_store(session: AsyncSession, store: Store) -> list[tuple[P
         .where(Product.is_active.is_(True), Product.archived_at.is_(None), Product.is_test.is_(False), StoreProduct.is_enabled.is_(True))
         .order_by(Product.sort, Product.main_price)
     )
+    if store.kind == "reseller":
+        q = q.where(Product.reseller_enabled.is_(True))
     return list((await session.execute(q)).all())
 
 
@@ -47,6 +51,8 @@ async def get_sellable(session: AsyncSession, store: Store, product_id, *, allow
         if not allow_test:
             raise AppError("PRODUCT_UNAVAILABLE", "این محصول در دسترس نیست.", 404)
         return product, None
+    if store.kind == "reseller" and not product.reseller_enabled:
+        raise AppError("PRODUCT_UNAVAILABLE", "این محصول در دسترس نیست.", 404)
     sp = await session.scalar(select(StoreProduct).where(StoreProduct.store_id == store.id, StoreProduct.product_id == product.id))
     if not sp or not sp.is_enabled:
         raise AppError("PRODUCT_NOT_IN_STORE", "این محصول در این فروشگاه قابل فروش نیست.", 404)

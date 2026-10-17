@@ -15,10 +15,12 @@ class CreateProduct(BaseModel):
     traffic_gb: int = Field(ge=0)
     max_devices: int | None = Field(default=None, gt=0)
     main_price: int = Field(ge=0)
-    reseller_price: int = Field(ge=0)
+    # The cooperation (reseller) price is set per sales bundle; this is only the fallback. Omitted = same as main_price.
+    reseller_price: int | None = Field(default=None, ge=0)
     currency: Literal["IRT", "USD", "USDT", "XTR"] = "IRT"
     is_test: bool = False
-    default_bundle_id: uuid.UUID | None = None
+    reseller_enabled: bool = True
+    default_bundle_id: uuid.UUID | None = None  # only used by test packages; normal packages are sold in every bundle
 
 
 class ProductPatch(BaseModel):
@@ -34,12 +36,14 @@ class ProductPatch(BaseModel):
     currency: Literal["IRT", "USD", "USDT", "XTR"] | None = None
     is_test: bool | None = None
     is_active: bool | None = None
+    reseller_enabled: bool | None = None
     default_bundle_id: uuid.UUID | None = None
 
 
 class ProductOut(CreateProduct):
     id: uuid.UUID
     is_active: bool
+    reseller_price: int
     created_at: dt.datetime
     updated_at: dt.datetime
 

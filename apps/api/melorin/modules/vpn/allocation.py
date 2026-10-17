@@ -150,6 +150,19 @@ async def _store_access_enabled(session: AsyncSession, store_id: uuid.UUID | Non
     return None if row is None else bool(row.is_enabled)
 
 
+async def _only_bundle_for(session: AsyncSession, store_id: uuid.UUID, product) -> uuid.UUID | None:
+    """Packages have no default bundle. When the buyer named none and exactly one bundle can sell the package to
+    this store, that bundle is used; with several the buyer must choose (``BUNDLE_REQUIRED``)."""
+    store = await session.get(Store, store_id)
+    if store is None:
+        return None
+    ids = [v.group.id for v in await sellable_bundles(session, store)]
+    if not ids:
+        return None
+    sold = (await session.scalars(select(BundleProduct.bundle_id).where(BundleProduct.product_id == product.id, BundleProduct.bundle_id.in_(ids), BundleProduct.is_listed.is_(True)))).all()
+    return sold[0] if len(sold) == 1 else None
+
+
 async def resolve_order_group(
     session: AsyncSession,
     *,
@@ -164,6 +177,8 @@ async def resolve_order_group(
     direct route). An unusable bundle, or a bundle that does not sell the package, raises here, BEFORE payment.
     """
     group_id = bundle_id or getattr(product, "default_bundle_id", None)
+    if group_id is None and store_id is not None and not getattr(product, "is_test", False):
+        group_id = await _only_bundle_for(session, store_id, product)  # no default bundle: the single bundle that sells it
     if group_id is None:
         raise AppError("BUNDLE_REQUIRED", "برای خرید باید یک بسته فروش انتخاب شود.", 409)
     group = await session.get(Bundle, group_id)
@@ -412,6 +427,8 @@ async def bundle_packages(session: AsyncSession, store: Store, group_id: uuid.UU
             StoreProduct.is_enabled.is_(True), StoreProduct.is_listed.is_(True), BundleProduct.is_listed.is_(True),
         )
     )
+    if store.kind == "reseller":
+        q = q.where(Product.reseller_enabled.is_(True))
     out = []
     own = await store_bundle_prices(session, store.id, group_id=group_id) if store.kind == "reseller" else {}
     for p, sp, pp in (await session.execute(q)).all():

@@ -145,14 +145,33 @@ async def _check_default_group(session, group_id) -> None:
         raise AppError("DEFAULT_GROUP_MANUAL", "بسته پیش‌فرض محصول باید انتخاب خودکار باشد؛ ربات و سایت پنل را انتخاب نمی‌کنند.", 422)
 
 
+async def _add_product_to_all_bundles(session, product: Product) -> None:
+    """Every sellable package is sold in every sales bundle by default (the admin can hide it per bundle)."""
+    if product.is_test or product.archived_at is not None: return
+    have = set((await session.scalars(select(BundleProduct.bundle_id).where(BundleProduct.product_id == product.id))).all())
+    for bid in (await session.scalars(select(Bundle.id))).all():
+        if bid not in have: session.add(BundleProduct(bundle_id=bid, product_id=product.id, is_listed=True, sort=0))
+
+
+async def _add_all_products_to_bundle(session, bundle: Bundle) -> None:
+    """A new sales bundle starts with every sellable package, listed."""
+    have = set((await session.scalars(select(BundleProduct.product_id).where(BundleProduct.bundle_id == bundle.id))).all())
+    ids = (await session.scalars(select(Product.id).where(Product.is_test.is_(False), Product.archived_at.is_(None)).order_by(Product.sort, Product.created_at))).all()
+    for i, pid in enumerate(ids):
+        if pid not in have: session.add(BundleProduct(bundle_id=bundle.id, product_id=pid, is_listed=True, sort=i))
+
+
 @router.post("/products", response_model=ProductOut, status_code=201)
 async def create_product(body: CreateProduct, admin: AdminUser, session: Session):
     if await session.scalar(select(Product.id).where(Product.code == body.code)):
         raise AppError("PRODUCT_CODE_EXISTS", "کد محصول تکراری است.", 409)
     if body.default_bundle_id is not None: await _check_default_group(session, body.default_bundle_id)
-    p = Product(**body.model_dump())
+    data = body.model_dump()
+    if data.get("reseller_price") is None: data["reseller_price"] = body.main_price  # per-bundle cooperation prices override this
+    p = Product(**data)
     session.add(p); await session.flush()
     if p.default_bundle_id and not p.is_test: await _ensure_bundle_product(session, p.default_bundle_id, p.id)
+    await _add_product_to_all_bundles(session, p)
     main = await session.scalar(select(Store).where(Store.kind == "main", Store.status == "active"))
     if main:
         session.add(StoreProduct(
@@ -177,7 +196,7 @@ async def list_products(_: AdminUser, session: Session):
 async def update_product(product_id: uuid.UUID, body: ProductPatch, admin: AdminUser, session: Session):
     p = await session.get(Product, product_id)
     if not p: raise NotFound("محصول")
-    before = {"main_price": p.main_price, "reseller_price": p.reseller_price, "duration_days": p.duration_days, "traffic_gb": p.traffic_gb, "is_active": p.is_active, "default_bundle_id": str(p.default_bundle_id) if p.default_bundle_id else None}
+    before = {"main_price": p.main_price, "reseller_price": p.reseller_price, "duration_days": p.duration_days, "traffic_gb": p.traffic_gb, "is_active": p.is_active, "reseller_enabled": p.reseller_enabled, "default_bundle_id": str(p.default_bundle_id) if p.default_bundle_id else None}
     # Explicit null clears these optional fields (e.g. "unlimited devices"); other fields ignore null.
     changes = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None or k in {"max_devices", "description", "category", "default_bundle_id"}}
     if changes.get("default_bundle_id") is not None: await _check_default_group(session, changes["default_bundle_id"])
@@ -395,6 +414,7 @@ async def create_bundle(body: CreateBundle, admin: AdminUser, session: Session):
                     is_enabled=body.is_enabled, reseller_enabled=body.reseller_enabled, sales_limit=body.sales_limit)
     session.add(b); await session.flush()
     for i, pid in enumerate(body.panel_ids): session.add(BundleMember(bundle_id=b.id, panel_id=pid, sort=i, label=(body.member_labels.get(pid) or "").strip() or None))
+    await _add_all_products_to_bundle(session, b)  # every package is sold in a new bundle by default
     await link_bundle_to_resellers(session, b)  # reseller stores get the new bundle too
     audit.record(session, "bundle.created", actor_id=admin.id, actor_type="admin", entity_type="bundle", entity_id=b.id)
     await session.commit()
@@ -442,7 +462,7 @@ async def _ensure_bundle_product(session, group_id, product_id) -> None:
 
 
 def _bundle_product_out(pp: BundleProduct, p: Product) -> dict:
-    return {"product_id": p.id, "code": p.code, "name": p.name, "traffic_gb": p.traffic_gb, "duration_days": p.duration_days, "is_active": p.is_active,
+    return {"product_id": p.id, "code": p.code, "name": p.name, "traffic_gb": p.traffic_gb, "duration_days": p.duration_days, "is_active": p.is_active, "reseller_enabled": p.reseller_enabled,
             "base_main_price": p.main_price, "base_reseller_price": p.reseller_price, "main_price": pp.main_price, "reseller_price": pp.reseller_price,
             "is_listed": pp.is_listed, "sort": pp.sort, "is_default": p.default_bundle_id == pp.bundle_id}
 
