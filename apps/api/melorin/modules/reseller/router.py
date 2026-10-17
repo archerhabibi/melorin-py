@@ -190,7 +190,7 @@ async def toggle_reseller_panel_group(panel_group_id: uuid.UUID, body: dict, ctx
 
 @router.get("/stores/{store_id}/reseller/prices")
 async def reseller_prices(ctx: OwnerCtx, session: Session):
-    """Products this store may sell. Per product: the store-wide retail price and, per sales pool, the cost
+    """Products this store may sell. Per product: the store-wide retail price and, per sales bundle, the cost
     (reseller price), the store's own price in that pool, the price actually charged and its state."""
     return await allocation.reseller_price_table(session, ctx.store)
 
@@ -206,7 +206,7 @@ async def set_reseller_price(product_id: uuid.UUID, body: PriceIn, ctx: OwnerCtx
 
 @router.put("/stores/{store_id}/reseller/pools/{pool_id}/prices/{product_id}")
 async def set_reseller_pool_price(pool_id: uuid.UUID, product_id: uuid.UUID, body: PriceIn, ctx: OwnerCtx, session: Session):
-    """The reseller sets the retail price of one package in ONE sales pool of THIS store. Null or 0 removes it and the
+    """The reseller sets the retail price of one package in ONE sales bundle of THIS store. Null or 0 removes it and the
     pool uses the store-wide price again. The core refuses a price below that pool's reseller price (the cost)."""
     price = await allocation.set_pool_price(session, ctx.store, pool_id, product_id, body.customer_price)
     audit.record(session, "reseller.pool_price_set", actor_id=ctx.user.id, actor_type="reseller", entity_type="product", entity_id=product_id, store_id=ctx.store.id, data={"pool_id": str(pool_id), "customer_price": price})

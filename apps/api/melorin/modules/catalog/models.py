@@ -40,7 +40,7 @@ class StoreProduct(IdMixin, TimestampMixin, Base):
 
 
 class StorePoolPrice(IdMixin, TimestampMixin, Base):
-    """A reseller's retail price for ONE package inside ONE sales pool of their own store.
+    """A reseller's retail price for ONE package inside ONE sales bundle of their own store.
 
     It overrides ``StoreProduct.customer_price`` (the store-wide price of the package) for that pool only, so a
     reseller can sell the same package at a different price in a direct pool and in a tunnel pool. The row exists

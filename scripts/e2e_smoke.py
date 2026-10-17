@@ -46,7 +46,7 @@ check("create server", r.status_code in (200, 201), r.text)
 r = c.post(f"{A}/admin/products", headers=adm, json={"code": f"P{tag}", "name": "Plan 30d", "duration_days": 30, "traffic_gb": 50, "main_price": 100000, "reseller_price": 70000, "currency": "IRT"})
 check("create product", r.status_code in (200, 201), r.text); prod = r.json()["id"]
 r = c.post(f"{A}/admin/panel-groups", headers=adm, json={"name": f"pool-{tag}", "panel_ids": [pid]})
-check("create sales pool", r.status_code in (200, 201), r.text); gid = r.json()["id"]
+check("create sales bundle", r.status_code in (200, 201), r.text); gid = r.json()["id"]
 r = c.put(f"{A}/admin/panel-groups/{gid}/products/{prod}", headers=adm, json={})
 check("add package to pool", r.status_code in (200, 201), r.text)
 r = c.post(f"{A}/admin/products/{prod}/availability", headers=adm, json={"store_id": sid, "enabled": True})

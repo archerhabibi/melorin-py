@@ -500,7 +500,7 @@ async def set_panel_group_store(panel_group_id: uuid.UUID, store_id: uuid.UUID, 
     return {"ok": True, "is_enabled": row.is_enabled}
 
 
-# ----- Safe deletion (products / panels / servers / panel groups) -----
+# ----- Safe deletion (products / panels / servers / sales bundles) -----
 # Rule: an entity that already took part in a sale is never erased, because orders and VPN accounts keep
 # pointing at it. Those are refused with 409 + a plain reason; the admin disables them instead.
 # Anything nobody has used yet is removed for real. Nothing here talks to the remote VPN panel.

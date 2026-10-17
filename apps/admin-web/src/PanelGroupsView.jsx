@@ -4,7 +4,7 @@ import { AlertTriangle, ArrowDown, ArrowLeft, ArrowUp, Boxes, CheckCircle2, Chev
 import { Bar, Drawer, Empty, ErrorBar, Field, KpiBar, NumInput, Paginator, Ring, SearchBox, Section, Segmented, SortSelect, Stat, Switch, Toggle, ViewToggle, DeleteButton, capTone, errText, num, removeEntity, tint, useAlive } from "./kit.jsx";
 import { Dot, InfraChain, Rel, RelChip, Warn, clearParam, health as hs, infraHref, memberIds, useHashParams, useInfra } from "./infra.jsx";
 
-// A panel group is a SALES POOL (بسته فروش): panels + connection kind + the packages it sells, each with
+// A sales bundle is a SALES POOL (بسته فروش): panels + connection kind + the packages it sells, each with
 // its own price. Customers pick a pool, so the pool is the only way an account gets sold; there is no
 // pool-less route. Selection / naming / reseller policy are advanced options: most pools never change them.
 const API = "/api/v1/admin/panel-groups";

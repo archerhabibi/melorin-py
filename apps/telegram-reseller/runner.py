@@ -88,7 +88,7 @@ class ResellerTelegramRunner(_module.TelegramRunner):
         return next((r for r in rows if str(r["product_id"]) == str(pid)), None)
 
     async def cb_price_pick(self, ctx, pid):
-        """A package with sales pools is priced per pool (or store-wide), like on the website; the core resolves
+        """A package with sales bundles is priced per pool (or store-wide), like on the website; the core resolves
         and validates everything. A package the core lists without pools keeps the single store-wide price."""
         row = await self._price_row(ctx, pid)
         pools = (row or {}).get("pools") or []

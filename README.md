@@ -177,7 +177,7 @@ The initial bootstrap migration is included; review and replace its metadata boo
 
 ## Admin panel (`apps/admin-web`)
 
-The sales-infrastructure screens (Panels, Panel groups / sales pools, Products) share one visual language
+The sales-infrastructure screens (Panels, Sales bundles, Products) share one visual language
 (`src/kit.jsx` + the "Infra v2" block in `src/styles.css`):
 
 - connected KPI bar that doubles as a filter, and a sales-readiness ring in the infrastructure chain header;

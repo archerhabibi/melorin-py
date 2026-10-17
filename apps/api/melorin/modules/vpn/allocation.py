@@ -126,7 +126,7 @@ def select_allocation(
 
 
 def group_policy_violation(group, *, store_access_enabled: bool | None, selected_panel_id: uuid.UUID | None) -> str | None:
-    """The one place that says whether a panel group may be used for an order. None = allowed.
+    """The one place that says whether a sales bundle may be used for an order. None = allowed.
 
     ``store_access_enabled`` is None when the store has no explicit row for the group (= allowed).
     """

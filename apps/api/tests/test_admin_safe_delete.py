@@ -1,4 +1,4 @@
-"""DELETE for products, panels, servers and panel groups: real delete when unused, 409 + reason once history exists."""
+"""DELETE for products, panels, servers and sales bundles: real delete when unused, 409 + reason once history exists."""
 import types
 import uuid
 
@@ -173,7 +173,7 @@ async def test_panel_that_is_the_last_member_of_a_manual_group_is_refused(sessio
     assert await _count(session, Panel) == 1 and await _count(session, PanelGroupMember) == 1
 
 
-# ---------- panel groups ----------
+# ---------- sales bundles ----------
 async def test_unused_group_is_deleted_with_members_and_store_links(session):
     pan = await _panel(session)
     g = await _add(session, PanelGroup(name="g"))
