@@ -348,3 +348,46 @@ async def test_panel_test_endpoint_reports_without_leaking_secrets(world, monkey
     assert by["discovery"]["status"] == "ok" and by["jwks"]["status"] == "ok" and by["bot"]["status"] == "ok"
     assert by["credentials"]["status"] == "fail" and out["ok"] is False
     assert "AAFakeToken" not in json.dumps(out) and "s3cret" not in json.dumps(out)
+
+
+# ---------------- main bot username ----------------
+async def test_main_bot_username_autodetect_manual_and_guards(world, monkeypatch):
+    # BotStoreBinding declares its owner index twice (column index=True + explicit Index), so create_all fails on SQLite:
+    # a minimal table is enough for this test.
+    async with db.engine().begin() as conn:
+        await conn.exec_driver_sql("CREATE TABLE bot_store_bindings (id CHAR(32), bot_key VARCHAR(120), bot_username VARCHAR(100), store_id CHAR(32), owner_user_id CHAR(32), "
+            "bot_kind VARCHAR(20), status VARCHAR(20), config JSON, created_at DATETIME, updated_at DATETIME)")
+    world.main.bot_username = None
+    await world.s.commit()
+
+    async def fake(real):
+        async def f(token):
+            return True, real
+        return f
+
+    orig = admin_integrations._main_bot
+
+    async def with_token(s):  # pretend a token exists; keep the real stored username
+        return "123:abc", (await orig(s))[1]
+
+    monkeypatch.setattr(admin_integrations, "_main_bot", with_token)
+    monkeypatch.setattr(admin_integrations, "_bot_get_me", await fake("meeloorin_bot"))
+    put = lambda u: admin_integrations.set_main_bot_username(admin_integrations.MainBotIn(username=u), ADMIN, world.s)
+    out = await put(None)  # auto-detect from the token
+    assert out["main_bot_username"] == "meeloorin_bot"
+    out = await put("@Meeloorin_Bot")  # manual, case-insensitive match with the real bot
+    assert out["main_bot_username"] == "Meeloorin_Bot"
+    with pytest.raises(AppError) as e:
+        await put("other_bot")
+    assert e.value.code == "BOT_USERNAME_MISMATCH"
+    with pytest.raises(AppError) as e:
+        await put("a b")
+    assert e.value.code == "BOT_USERNAME_INVALID"
+    world.s.add(Store(kind="reseller", name="R", slug="r", bot_username="meeloorin_bot2"))
+    await world.s.commit()
+    monkeypatch.setattr(admin_integrations, "_bot_get_me", await fake("meeloorin_bot2"))
+    with pytest.raises(AppError) as e:
+        await put("meeloorin_bot2")
+    assert e.value.code == "BOT_USERNAME_TAKEN"
+    cfg = await integrations.get_telegram(world.s)
+    assert integrations.telegram_bot_ready(cfg)
