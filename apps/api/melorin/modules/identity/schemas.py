@@ -44,6 +44,19 @@ class GoogleLogin(BaseModel):
     totp_code: str | None = None  # required when the matched account is a super admin
 
 
+class WebHandoffIn(BaseModel):
+    store_id: uuid.UUID | None = None
+
+
+class WebHandoffOut(BaseModel):
+    url: str
+    google_linked: bool
+
+
+class WebHandoffRedeem(BaseModel):
+    token: str = Field(min_length=20, max_length=200)
+
+
 class GoogleLink(BaseModel):
     id_token: str
 

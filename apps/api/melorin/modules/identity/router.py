@@ -13,6 +13,7 @@ from melorin.modules.identity.models import Identity, User
 from melorin.modules.identity.schemas import (
     AdminPasswordChange, EmailCodeRequest, EmailCodeVerify, GoogleLink, GoogleLogin, IdentityOut, LinkCodeOut, MeOut, MeUpdate, PasswordLogin,
     RefreshRequest, SetPassword, TelegramBotLogin, TelegramLink, TelegramWebAppLogin, TokenPair, TotpEnable, TotpSetupOut,
+    WebHandoffIn, WebHandoffOut, WebHandoffRedeem,
 )
 from melorin.modules.referral import service as referral
 from melorin.modules.stores.models import Store, StoreMembership
@@ -186,6 +187,16 @@ async def telegram_link(body: TelegramLink, session: Session):
     return pair
 
 
+@auth.post("/web-handoff/redeem", response_model=TokenPair)
+async def web_handoff_redeem(body: WebHandoffRedeem, session: Session, request: Request, response: Response):
+    """The store website exchanges the single-use token from the bot's account button for a normal session."""
+    user = await service.redeem_web_handoff(session, body.token)
+    pair = await service.issue_tokens(session, user, ua=request.headers.get("user-agent"))
+    await session.commit()
+    _set_refresh_cookie(response, pair)
+    return pair
+
+
 @auth.post("/refresh", response_model=TokenPair)
 async def refresh(body: RefreshRequest, request: Request, response: Response, session: Session):
     raw = body.refresh_token or request.cookies.get(REFRESH_COOKIE)
@@ -241,6 +252,22 @@ async def create_telegram_link_code(user: CurrentUser, session: Session):
     store = await main_store(session)
     link = f"https://t.me/{store.bot_username}?start=link_{code}" if store.bot_username else None
     return LinkCodeOut(code=code, expires_in=600, telegram_deeplink=link)
+
+
+@me.post("/web-handoff", response_model=WebHandoffOut)
+async def create_web_handoff(body: WebHandoffIn, user: CurrentUser, session: Session):
+    """Called by the Telegram bots (with the user's own bot session): returns the store-website URL that opens this user's
+    account already signed in. The URL is built here, from the store's domain (or the main store web URL)."""
+    if user.is_super_admin:
+        raise AppError("ADMIN_USE_PANEL", "ورود مدیران فقط از پنل مدیریت انجام می‌شود.", 403)
+    if not await hit(f"web-handoff:{user.id}", 10, 60):
+        raise AppError("RATE_LIMITED", "درخواست‌ها زیاد است؛ کمی بعد دوباره امتحان کنید.", 429)
+    store = await session.get(Store, body.store_id) if body.store_id else None
+    domain = ((store.domain if store else None) or "").strip().lower().rstrip(".")
+    base = f"https://{domain}" if domain else get_settings().store_web_url.rstrip("/")
+    token = await service.create_web_handoff(session, user)
+    await session.refresh(user, ["identities"])
+    return WebHandoffOut(url=f"{base}/#/auth/handoff?t={token}", google_linked=any(i.provider == "google" for i in user.identities))
 
 
 @me.post("/identities/google")

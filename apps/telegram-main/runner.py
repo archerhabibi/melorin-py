@@ -490,14 +490,18 @@ class TelegramRunner:
     async def cmd_help(self, ctx, arg):
         await self.send(ctx.chat_id, HELP, MENU)
 
-    async def account_url(self) -> str | None:
-        """Website address of THIS store's account page: the reseller store's own domain, else the main store web URL."""
+    async def account_url(self, ctx: Ctx) -> str | None:
+        """Core builds the one-time sign-in URL of THIS store's website (reseller domain or main store URL)."""
         store = await self.store_info()
-        domain = str(store.get("domain") or "").strip().lower().rstrip(".")
-        base = f"https://{domain}" if domain else os.getenv("MELORIN_STORE_WEB_URL", "").strip().rstrip("/")
-        if not base.startswith(("https://", "http://")) or "localhost" in base or "127.0.0.1" in base:
+        try:
+            out = await self.api(ctx, "POST", "/api/v1/me/web-handoff", json={"store_id": store["id"]})
+        except CoreError:
+            return None
+        url = str(out.get("url") or "")
+        host = url.split("/")[2] if url.count("/") >= 2 else ""
+        if not url.startswith(("https://", "http://")) or host.split(":")[0] in ("localhost", "127.0.0.1"):
             return None  # Telegram rejects such URL buttons; fall back to the in-bot summary only
-        return f"{base}/#/dashboard"
+        return url
 
     async def cmd_me(self, ctx, arg):
         """Account button: opens the user's account on the store website. The site offers Telegram and Google sign-in,
@@ -505,9 +509,9 @@ class TelegramRunner:
         me = await self.api(ctx, "GET", "/api/v1/me")
         who = me.get("display_name") or me.get("email") or me["id"]
         text = (f"🌐 <b>حساب من در سایت</b>\n\nنام: {esc(who)}\nکد دعوت: <code>{esc(me.get('referral_code', '-'))}</code>\n\n"
-                "با دکمهٔ زیر حساب‌تان در سایت فروش باز می‌شود. با «ورود با تلگرام» وارد شوید و در بخش پروفایل، حساب گوگل خود را هم متصل کنید.")
+                "با دکمهٔ زیر حساب‌تان در سایت فروش باز می‌شود و خودکار وارد می‌شوید؛ لینک فقط ۲ دقیقه و یک‌بار معتبر است. اتصال گوگل هم همان‌جا با یک تأیید انجام می‌شود.")
         rows = [[("💰 کیف پول", "menu:wallet"), ("🔑 اکانت‌ها", "menu:accounts")]]
-        url = await self.account_url()
+        url = await self.account_url(ctx)
         if url:
             rows.insert(0, [("🌐 باز کردن حساب در سایت", url)])
         await self.screen(ctx, text, rows)

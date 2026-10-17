@@ -92,6 +92,7 @@ export default function App(){
   const [selectedQuote, setSelectedQuote] = useState(null);
   const [hash, setHash] = useState(window.location.hash);
   const [menu, setMenu] = useState(false);
+  const [askGoogle, setAskGoogle] = useState(false);
   const [busy, setBusy] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   useEffect(() => { const h = () => { setHash(window.location.hash); setMenu(false); }; window.addEventListener("hashchange", h); return () => window.removeEventListener("hashchange", h); }, []);
@@ -211,8 +212,26 @@ export default function App(){
       .finally(() => live && setPkgLoading(false));
     return () => { live = false; };
   }, [storeId, bundleId, reloadKey]);
+  // Bot account button: #/auth/handoff?t=<single-use token> signs the Telegram user in automatically (Core issues the session).
   useEffect(() => {
-    if (accessToken) return;
+    const m = /^#\/auth\/handoff\?t=([\w-]+)$/.exec(window.location.hash);
+    if (!m) return;
+    window.history.replaceState(null, "", window.location.pathname + window.location.search + "#/dashboard"); // never leave the token in the URL/history
+    fetch(`${base}/api/v1/auth/web-handoff/redeem`, {method:"POST", credentials:"include", headers:{"Content-Type":"application/json"}, body: JSON.stringify({token: m[1]})})
+      .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e)))
+      .then(pair => { setTokens(pair); setAccessToken(pair.access_token); setHash("#/dashboard"); setAskGoogle(true); })
+      .catch(() => { setNotice("لینک ورود منقضی شده است؛ دوباره از ربات تلگرام بزنید."); setModal("login"); });
+  }, []);
+  // After an automatic sign-in, offer the one-tap Google link (Google always needs the user's own consent) until it is linked.
+  useEffect(() => {
+    if (askGoogle && account) { setAskGoogle(false); if (!(account.identities || []).some((i) => i.provider === "google")) setModal("googlelink"); }
+  }, [askGoogle, account]);
+  async function linkGoogleNow(idToken) {
+    const r = await coreFetch("/api/v1/me/identities/google", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ id_token: idToken }) });
+    if (r.ok) { setModal(""); notify("حساب گوگل متصل شد"); loadAccount(); } else notify(r.status === 409 ? "این حساب گوگل به حساب دیگری متصل است" : "اتصال گوگل ناموفق بود");
+  }
+  useEffect(() => {
+    if (accessToken || /^#\/auth\/handoff/.test(window.location.hash)) return;
     fetch(`${base}/api/v1/auth/refresh`, {method:"POST", credentials:"include", headers:{"Content-Type":"application/json"}, body:"{}"})
       .then(r => r.ok ? r.json() : Promise.reject())
       .then(pair => { setTokens(pair); setAccessToken(pair.access_token); })
@@ -331,8 +350,9 @@ export default function App(){
       {[[Home, "خانه", () => { window.location.hash = ""; window.scrollTo({ top: 0 }); }, !inApp], [LayoutGrid, "سرویس‌ها", () => { window.location.hash = "#plans"; }, false], [LifeBuoy, "پرسش‌ها", () => { window.location.hash = "#faq"; }, false], [User, "حساب", goAccount, inApp]].map(([Icon, l, fn, on]) => <button key={l} onClick={fn} className={`flex flex-col items-center gap-1 rounded-xl py-1.5 text-[11px] font-bold ${on ? "text-coral" : "text-muted"}`}><Icon size={20} />{l}</button>)}
     </nav>
 
-    {modal && <Modal onClose={() => setModal("")} title={{ login: "ورود به ملورین", telegram: "ورود با تلگرام", code: "کد ورود را وارد کن", checkout: `پیش‌فاکتور ${active}`, account: "حساب من" }[modal]}>
+    {modal && <Modal onClose={() => setModal("")} title={{ login: "ورود به ملورین", telegram: "ورود با تلگرام", code: "کد ورود را وارد کن", checkout: `پیش‌فاکتور ${active}`, account: "حساب من", googlelink: "اتصال حساب گوگل" }[modal]}>
       {modal==="login"&&<form onSubmit={(e)=>{e.preventDefault(); validEmail && run(requestCode, "ارسال کد ناموفق بود");}}><p className="mt-2 text-sm leading-7 text-muted">رمز عبور لازم نیست؛ با تأیید در تلگرام یا کدی که به ایمیلت می‌آید وارد شو. اگر حساب نداشته باشی، خودکار ساخته می‌شود.</p>{showTg&&<><TelegramLoginButtons base={base} storeId={storeId} bot={tgBot} direct={tgOidc} onBot={()=>setModal("telegram")} /><div className="mt-4 flex items-center gap-3"><span className="h-px flex-1 bg-line" /><span className="text-xs text-muted">یا با ایمیل</span><span className="h-px flex-1 bg-line" /></div></>}<label className={`${showTg ? "mt-4" : "mt-6"} block text-xs font-bold`}>ایمیل<div className="relative mt-1.5"><Mail size={17} className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-muted" /><input type="email" dir="ltr" autoComplete="email" inputMode="email" value={email} onChange={e=>setEmail(e.target.value)} className="input !pr-10 text-left" placeholder="email@example.com"/></div></label><button type="submit" disabled={!validEmail || busy} className="btn-primary mt-5 w-full">{busy ? <Loader2 size={18} className="animate-spin" /> : <Mail size={18} />}ارسال کد ورود</button><p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-muted"><Lock size={13} />ایمیل تو نزد ما محفوظ می‌ماند.</p><div className="my-4 flex items-center gap-3"><span className="h-px flex-1 bg-line" /><span className="text-xs text-muted">یا</span><span className="h-px flex-1 bg-line" /></div><GoogleSignInButton onCredential={handleGoogleCredential} text="continue_with" disabled={busy} /></form>}
+      {modal==="googlelink"&&<div><p className="mt-2 text-sm leading-7 text-muted">با ورود شما از تلگرام وارد شدید. برای اینکه با گوگل هم به همین حساب برسید، یک‌بار حساب گوگل‌تان را تأیید کنید.</p><GoogleSignInButton onCredential={linkGoogleNow} text="continue_with" className="mt-4" /><button onClick={()=>setModal("")} className="btn-soft mt-4 w-full">بعداً</button></div>}
       {modal==="telegram"&&<TelegramLogin base={base} storeId={storeId} onTokens={completeLogin} onBack={()=>setModal("login")} />}
       {modal==="code"&&<form onSubmit={(e)=>{e.preventDefault(); loginCode && run(verifyCode, "کد نامعتبر است");}}><p className="mt-2 text-sm leading-7 text-muted">کد ارسال‌شده به <b className="latin text-ink">{email}</b> را وارد کن.</p><input autoFocus dir="ltr" inputMode="numeric" autoComplete="one-time-code" value={loginCode} onChange={e=>setLoginCode(e.target.value.trim())} className="input mt-6 !py-4 text-center text-2xl font-black tracking-[.5em]" placeholder="••••••" aria-label="کد ورود"/><button type="submit" disabled={!loginCode || busy} className="btn-primary mt-5 w-full">{busy && <Loader2 size={18} className="animate-spin" />}تأیید و ورود</button><button type="button" onClick={()=>setModal("login")} className="mt-3 w-full text-center text-xs font-bold text-muted hover:text-ink">تغییر ایمیل یا ارسال دوباره</button></form>}
       {modal==="checkout"&&<><p className="mt-2 text-sm text-muted">خلاصه سفارش را بررسی و از کیف پول پرداخت کن.</p><dl className="mt-6 divide-y divide-line rounded-2xl bg-surface2 px-4 text-sm"><div className="flex justify-between py-3.5"><dt className="text-muted">سرویس</dt><dd className="font-bold">{active}</dd></div>{bundle && <div className="flex justify-between py-3.5"><dt className="text-muted">بسته</dt><dd className="font-bold">{bundle.name}{panelLabel ? ` · ${panelLabel}` : ""}</dd></div>}{customName && <div className="flex justify-between py-3.5"><dt className="text-muted">نام کاربری</dt><dd className="latin font-bold">{accountName.trim()}</dd></div>}<div className="flex justify-between py-3.5"><dt className="text-muted">مبلغ نهایی</dt><dd className="text-lg font-black">{new Intl.NumberFormat("fa-IR").format(selectedQuote?.total||0)} <span className="text-xs font-semibold">{selectedQuote?.currency}</span></dd></div><div className="flex justify-between py-3.5"><dt className="text-muted">موجودی کیف پول</dt><dd className={`font-bold ${selectedQuote?.sufficient_funds ? "text-mint" : "text-danger"}`}>{new Intl.NumberFormat("fa-IR").format(selectedQuote?.wallet_balance||0)}</dd></div></dl>{selectedQuote && !selectedQuote.sufficient_funds && <p className="mt-3 rounded-xl bg-danger-soft px-4 py-3 text-xs font-bold leading-6 text-danger">موجودی کافی نیست. ابتدا از بخش «کیف پول» حساب را شارژ کن.</p>}<button disabled={!selectedQuote?.sufficient_funds || busy} onClick={()=>run(buySelected, "ثبت سفارش ناموفق بود")} className="btn-primary mt-5 w-full">{busy ? <Loader2 size={18} className="animate-spin" /> : <CreditCard size={18} />}پرداخت از کیف پول و ثبت سفارش</button>{selectedQuote && !selectedQuote.sufficient_funds && <button onClick={()=>{setModal(""); window.location.hash="#/dashboard";}} className="btn-soft mt-3 w-full">رفتن به کیف پول</button>}</>}

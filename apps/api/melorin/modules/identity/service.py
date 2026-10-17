@@ -354,6 +354,36 @@ async def create_link_code(session: AsyncSession, user: User) -> str:
     return code
 
 
+HANDOFF_TTL = dt.timedelta(minutes=2)
+
+
+async def create_web_handoff(session: AsyncSession, user: User) -> str:
+    """Single-use, 2-minute token that signs the (already authenticated) Telegram user into the store website."""
+    token = new_opaque_token(32)
+    session.add(VerificationCode(purpose="web_handoff", target=str(user.id), code_hash=token_hash("handoff" + token), user_id=user.id, expires_at=utcnow() + HANDOFF_TTL))
+    audit.record(session, "auth.web_handoff_created", actor_id=user.id, entity_type="user", entity_id=user.id)
+    await session.commit()
+    return token
+
+
+async def redeem_web_handoff(session: AsyncSession, token: str) -> User:
+    vc = await session.scalar(
+        select(VerificationCode)
+        .where(VerificationCode.purpose == "web_handoff", VerificationCode.code_hash == token_hash("handoff" + (token or "")), VerificationCode.used_at.is_(None))
+        .with_for_update()
+    )
+    if not vc or vc.expires_at.replace(tzinfo=vc.expires_at.tzinfo or dt.UTC) < utcnow():
+        raise AppError("HANDOFF_INVALID", "لینک ورود نامعتبر یا منقضی است؛ دوباره از ربات تلگرام بزنید.", 400)
+    vc.used_at = utcnow()  # single use, even if the account turns out to be refused below
+    user = await session.get(User, vc.user_id)
+    if user is None or not user.is_active:
+        raise AppError("UNAUTHORIZED", "حساب کاربری غیرفعال است.", 401)
+    if user.is_super_admin:
+        raise AppError("ADMIN_USE_PANEL", "ورود مدیران فقط از پنل مدیریت انجام می‌شود.", 403)
+    audit.record(session, "auth.web_handoff_redeemed", actor_id=user.id, entity_type="user", entity_id=user.id)
+    return user
+
+
 async def link_telegram(session: AsyncSession, code: str, p: TelegramProfile) -> User:
     vc = await session.scalar(
         select(VerificationCode)
