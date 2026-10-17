@@ -31,7 +31,7 @@ HELP = (
     "فرمان‌ها:\n"
     "/plans خرید اکانت\n/wallet کیف پول و شارژ حساب\n/topup مبلغ — شارژ کیف پول\n"
     "/accounts استعلام و تمدید اکانت\n/orders سفارش‌ها\n/test دریافت اکانت تست\n"
-    "/tickets پشتیبانی و تیکت‌ها\n/me حساب کاربری\n/referral دعوت از دوستان\n"
+    "/tickets پشتیبانی و تیکت‌ها\n/me حساب من در سایت\n/referral دعوت از دوستان\n"
     "/reseller درخواست نمایندگی\n/cancel انصراف از مرحلهٔ جاری"
 )
 
@@ -46,10 +46,14 @@ BOT_COMMANDS = [
 RESELLER_DOMAIN_ERRORS = {"INVALID_DOMAIN", "DOMAIN_RESERVED", "DOMAIN_TAKEN", "IDENTITY_TAKEN"}
 RESELLER_TOKEN_ERRORS = {"INVALID_BOT_TOKEN", "BOT_TOKEN_REJECTED", "BOT_TAKEN", "TELEGRAM_UNREACHABLE"}
 
+# The account button opens the user's account on the store website (Telegram/Google login happens there).
+ACCOUNT_BUTTON = "🌐 حساب من در سایت"
+LEGACY_ACCOUNT_BUTTON = "👤 حساب کاربری"  # cached reply keyboards still send this text
+
 # Must stay in sync with the public bot's Persian reply keyboard.
 MAIN_MENU = [
     ["🛒 خرید اکانت", "🔍 استعلام و تمدید اکانت"],
-    ["💰 کیف پول و شارژ حساب", "👤 حساب کاربری"],
+    ["💰 کیف پول و شارژ حساب", ACCOUNT_BUTTON],
     ["🎁 دعوت از دوستان", "🧪 دریافت اکانت تست"],
     ["📜 قوانین خرید و آموزش", "🎧 پشتیبانی"],
     ["🤖 درخواست ربات نماینده و همکاری"],
@@ -97,8 +101,15 @@ def gb(b) -> str:
     return f"{(b or 0) / 1073741824:.1f}"
 
 
+def _button(text, data):
+    """callback_data button, or a URL button when ``data`` is an absolute http(s) link (opens in the user's browser)."""
+    if str(data).startswith(("https://", "http://")):
+        return {"text": text, "url": data}
+    return {"text": text, "callback_data": data}
+
+
 def keyboard(rows):
-    return {"inline_keyboard": [[{"text": t, "callback_data": d} for t, d in row] for row in rows]}
+    return {"inline_keyboard": [[_button(t, d) for t, d in row] for row in rows]}
 
 
 def reply_keyboard(rows):
@@ -374,7 +385,8 @@ class TelegramRunner:
             "🛒 خرید اکانت": self.cmd_plans,
             "🔍 استعلام و تمدید اکانت": self.cmd_accounts,
             "💰 کیف پول و شارژ حساب": self.cmd_wallet,
-            "👤 حساب کاربری": self.cmd_me,
+            ACCOUNT_BUTTON: self.cmd_me,
+            LEGACY_ACCOUNT_BUTTON: self.cmd_me,
             "🎁 دعوت از دوستان": self.cmd_referral,
             "🧪 دریافت اکانت تست": self.cmd_test,
             "📜 قوانین خرید و آموزش": self.cmd_rules,
@@ -478,11 +490,27 @@ class TelegramRunner:
     async def cmd_help(self, ctx, arg):
         await self.send(ctx.chat_id, HELP, MENU)
 
+    async def account_url(self) -> str | None:
+        """Website address of THIS store's account page: the reseller store's own domain, else the main store web URL."""
+        store = await self.store_info()
+        domain = str(store.get("domain") or "").strip().lower().rstrip(".")
+        base = f"https://{domain}" if domain else os.getenv("MELORIN_STORE_WEB_URL", "").strip().rstrip("/")
+        if not base.startswith(("https://", "http://")) or "localhost" in base or "127.0.0.1" in base:
+            return None  # Telegram rejects such URL buttons; fall back to the in-bot summary only
+        return f"{base}/#/dashboard"
+
     async def cmd_me(self, ctx, arg):
+        """Account button: opens the user's account on the store website. The site offers Telegram and Google sign-in,
+        and the profile page lets a Telegram-created account attach its Google account (one account, both logins)."""
         me = await self.api(ctx, "GET", "/api/v1/me")
         who = me.get("display_name") or me.get("email") or me["id"]
-        await self.screen(ctx, f"👤 <b>حساب کاربری</b>\n\nنام: {esc(who)}\nکد دعوت: <code>{esc(me.get('referral_code', '-'))}</code>",
-                          [[("💰 کیف پول", "menu:wallet"), ("🔑 اکانت‌ها", "menu:accounts")]])
+        text = (f"🌐 <b>حساب من در سایت</b>\n\nنام: {esc(who)}\nکد دعوت: <code>{esc(me.get('referral_code', '-'))}</code>\n\n"
+                "با دکمهٔ زیر حساب‌تان در سایت فروش باز می‌شود. با «ورود با تلگرام» وارد شوید و در بخش پروفایل، حساب گوگل خود را هم متصل کنید.")
+        rows = [[("💰 کیف پول", "menu:wallet"), ("🔑 اکانت‌ها", "menu:accounts")]]
+        url = await self.account_url()
+        if url:
+            rows.insert(0, [("🌐 باز کردن حساب در سایت", url)])
+        await self.screen(ctx, text, rows)
 
     async def cmd_link(self, ctx, arg):
         code = arg.strip()

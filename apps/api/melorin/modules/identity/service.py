@@ -249,15 +249,42 @@ async def verify_google_token(id_token: str, client_id: str) -> dict:
     return claims
 
 
-async def login_with_google(session: AsyncSession, id_token: str, nonce: str | None = None) -> tuple[User, bool]:
-    """``nonce`` is the value of the httpOnly nonce cookie issued by GET /auth/google/nonce; the ID token must carry
-    the same value (it was passed to google.accounts.id.initialize), which binds the token to this browser."""
+async def _google_claims(session: AsyncSession, id_token: str, nonce: str | None) -> dict:
+    """Verified claims of a Google ID token that is bound to this browser's nonce cookie (see GET /auth/google/nonce)."""
     cfg = await integrations.get_google(session)
     if not integrations.google_ready(cfg):
         raise AppError("GOOGLE_DISABLED", "ورود با Google فعال نیست.", 400)
     g = await verify_google_token(id_token, cfg["client_id"])
     if not nonce or not hmac.compare_digest(str(g.get("nonce") or ""), nonce):
         raise AppError("GOOGLE_NONCE_INVALID", "نشست ورود با Google منقضی شده است؛ دوباره تلاش کنید.", 401)
+    return g
+
+
+async def link_google(session: AsyncSession, user: User, id_token: str, nonce: str | None = None) -> None:
+    """Attach a Google account to the signed-in user (e.g. an account created from Telegram), so both logins open the
+    same account. A Google account that already belongs to another user is never merged: it is reported for review."""
+    g = await _google_claims(session, id_token, nonce)
+    sub, email = g["sub"], (g.get("email") or "").lower() or None
+    ident = await find_identity(session, "google", sub)
+    if ident and ident.user_id == user.id:
+        return
+    if ident:
+        session.add(IdentityLinkReview(email=email or "", source_user_id=user.id, candidate_user_ids=[str(ident.user_id)], provider="google", reason="google_account_belongs_to_other_user"))
+        audit.security_event(session, "identity_link_conflict", user.id, {"provider": "google", "candidate_user_id": str(ident.user_id)})
+        await session.commit()
+        raise AppError("IDENTITY_LINK_REVIEW", "این حساب Google به حساب دیگری متصل است و برای بررسی دستی گزارش شد.", 409)
+    email_verified = bool(email) and str(g.get("email_verified")).lower() == "true"
+    session.add(Identity(user_id=user.id, provider="google", subject=sub, verified_at=utcnow(), data={"email": email, "email_verified": email_verified}))
+    if email_verified and not user.email and not await _email_taken(session, email):
+        user.email = email
+    audit.record(session, "identity.linked", actor_id=user.id, entity_type="user", entity_id=user.id, data={"provider": "google"})
+    await session.commit()
+
+
+async def login_with_google(session: AsyncSession, id_token: str, nonce: str | None = None) -> tuple[User, bool]:
+    """``nonce`` is the value of the httpOnly nonce cookie issued by GET /auth/google/nonce; the ID token must carry
+    the same value (it was passed to google.accounts.id.initialize), which binds the token to this browser."""
+    g = await _google_claims(session, id_token, nonce)
     sub, email = g["sub"], (g.get("email") or "").lower() or None
     ident = await find_identity(session, "google", sub)
     if ident:

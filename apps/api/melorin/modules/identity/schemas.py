@@ -44,6 +44,10 @@ class GoogleLogin(BaseModel):
     totp_code: str | None = None  # required when the matched account is a super admin
 
 
+class GoogleLink(BaseModel):
+    id_token: str
+
+
 class TelegramProfile(BaseModel):
     telegram_id: int
     first_name: str | None = None

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Bell, ChevronDown, Copy, Gauge, KeyRound, LifeBuoy, LogOut, Package, Store, Wallet as WalletIcon, ArrowRight, Link2, Pencil, Plus, RefreshCw, Send, X } from "lucide-react";
+import { GoogleSignInButton } from "./GoogleSignIn.jsx";
 import { Empty, Loading, PageTitle, StatusBadge, fa, fd } from "./ui.jsx";
 const gb = (b) => (b ? (b / 1073741824).toFixed(1) : "0");
 const J = { "Content-Type": "application/json" };
@@ -232,6 +233,8 @@ function Profile({ coreFetch, account, notify, reload }) {
   const copy = (t) => navigator.clipboard?.writeText(t).then(() => notify("کپی شد"));
   async function saveName() { const r = await coreFetch("/api/v1/me", { method: "PATCH", headers: J, body: JSON.stringify({ display_name: name }) }); notify(r.ok ? "ذخیره شد" : "ذخیره ناموفق بود"); r.ok && reload(); }
   async function tg() { const r = await post("/api/v1/me/link-codes/telegram"); r.ok ? setLink(await r.json()) : notify("ساخت کد ناموفق بود"); }
+  async function linkGoogle(idToken) { const r = await post("/api/v1/me/identities/google", { id_token: idToken }); if (r.ok) { notify("حساب گوگل متصل شد"); reload(); } else notify(r.status === 409 ? "این حساب گوگل به حساب دیگری متصل است" : "اتصال گوگل ناموفق بود"); }
+  const googleLinked = (account?.identities || []).some((i) => i.provider === "google");
   async function setPass() { const r = await post("/api/v1/me/password", { password: pw }); notify(r.ok ? "رمز عبور تنظیم شد" : "رمز نامعتبر است (حداقل ۸ کاراکتر)"); r.ok && setPw(""); }
   async function setup2fa() { const r = await post("/api/v1/me/2fa/setup"); r.ok ? setTotp(await r.json()) : notify("راه‌اندازی ناموفق بود"); }
   async function enable2fa() { const r = await post("/api/v1/me/2fa/enable", { code }); if (r.ok) { notify("۲FA فعال شد"); setTotp(null); setCode(""); reload(); } else notify("کد نادرست است"); }
@@ -239,6 +242,7 @@ function Profile({ coreFetch, account, notify, reload }) {
     <div className={card}><h4 className="font-extrabold">پروفایل</h4><div className="mt-2 text-xs text-muted">{account?.email || "ایمیل ثبت نشده"}</div><input className={`${inp} mt-3`} value={name} onChange={(e) => setName(e.target.value)} placeholder="نام نمایشی" /><button onClick={saveName} className={`${btn} mt-3`}>ذخیره</button></div>
     <div className={card}><h4 className="font-extrabold">دعوت دوستان (رفرال)</h4><p className="mt-2 text-sm text-muted">کد دعوت شما:</p><div className="mt-2 flex gap-2"><code className="latin flex-1 rounded-xl bg-surface2 p-3 text-center font-bold">{account?.referral_code || "—"}</code><button onClick={() => copy(account?.referral_code)} className={btn}>کپی</button></div></div>
     <div className={card}><h4 className="font-extrabold">اتصال تلگرام</h4>{link ? <div className="mt-3 text-sm leading-7">کد: <b className="latin">{link.code}</b> (تا {Math.round(link.expires_in / 60)} دقیقه معتبر){link.telegram_deeplink && <a href={link.telegram_deeplink} target="_blank" rel="noreferrer" className={`${btn} mt-3 block text-center`}>باز کردن در تلگرام</a>}</div> : <button onClick={tg} className={`${btn} mt-3`}>ساخت کد اتصال</button>}</div>
+    <div className={card}><h4 className="font-extrabold">اتصال گوگل</h4>{googleLinked ? <div className="mt-3 text-sm font-bold text-mint">✓ حساب گوگل به این حساب متصل است</div> : <><p className="mt-2 text-sm leading-7 text-muted">با اتصال گوگل، هم با تلگرام و هم با گوگل وارد همین حساب می‌شوید.</p><GoogleSignInButton onCredential={linkGoogle} text="continue_with" className="mt-3" /></>}</div>
     <div className={card}><h4 className="font-extrabold">امنیت</h4>
       <input type="password" dir="ltr" className={`${inp} mt-3`} value={pw} onChange={(e) => setPw(e.target.value)} placeholder="رمز عبور جدید" /><button disabled={pw.length < 8} onClick={setPass} className={`${btn} mt-3`}>تنظیم رمز</button>
       <div className="mt-5 border-t border-line pt-4 text-sm">{account?.totp_enabled ? <b className="text-mint">✓ ورود دومرحله‌ای فعال است</b> : totp ? <><div>این کلید را در برنامه Authenticator وارد کنید:</div><code dir="ltr" className="latin mt-2 block break-all rounded-xl bg-surface2 p-3 text-xs">{totp.secret}</code><input dir="ltr" className={`${inp} mt-3`} value={code} onChange={(e) => setCode(e.target.value)} placeholder="کد ۶ رقمی" /><button disabled={!code} onClick={enable2fa} className={`${btn} mt-3`}>فعال‌سازی</button></> : <button onClick={setup2fa} className={btn}>راه‌اندازی ورود دومرحله‌ای</button>}</div></div>

@@ -129,3 +129,47 @@ def test_login_pages_use_the_shared_button_and_no_legacy_hook():
 def test_popup_flow_keeps_window_opener_via_coop_header():
     caddy = (PROJECT / "infra/Caddyfile").read_text()
     assert caddy.count("Cross-Origin-Opener-Policy same-origin-allow-popups") == 3
+
+
+# ---- linking Google to the signed-in user (Telegram account <-> Google account) ----
+async def test_link_google_attaches_identity_to_current_user(world):
+    from melorin.modules.identity.schemas import GoogleLink
+
+    tg_user = User(display_name="TG only")
+    world.s.add(tg_user)
+    await world.s.flush()
+    world.verify.sub = "g-new"
+    resp = Response()
+    out = await router.attach_google(GoogleLink(id_token="t"), tg_user, world.s, REQ, resp)
+    assert out == {"ok": True}
+    ident = await service.find_identity(world.s, "google", "g-new")
+    assert ident is not None and ident.user_id == tg_user.id
+    # signing in with that Google account now opens the same user instead of creating a new one
+    user, created = await service.login_with_google(world.s, "t", "n1")
+    assert created is False and user.id == tg_user.id
+
+
+async def test_link_google_owned_by_other_user_is_reported_not_merged(world):
+    from melorin.modules.identity.schemas import GoogleLink
+
+    tg_user = User(display_name="TG only")
+    world.s.add(tg_user)
+    await world.s.flush()
+    world.verify.sub = "g-cust"  # belongs to the "Cust" user
+    with pytest.raises(AppError) as exc:
+        await router.attach_google(GoogleLink(id_token="t"), tg_user, world.s, REQ, Response())
+    assert exc.value.status == 409
+    assert (await service.find_identity(world.s, "google", "g-cust")).user_id != tg_user.id
+
+
+async def test_link_google_requires_matching_nonce(world):
+    from melorin.modules.identity.schemas import GoogleLink
+
+    tg_user = User(display_name="TG only")
+    world.s.add(tg_user)
+    await world.s.flush()
+    world.verify.sub = "g-x"
+    bad = types.SimpleNamespace(headers={}, cookies={router.GOOGLE_NONCE_COOKIE: "other"})
+    with pytest.raises(AppError) as exc:
+        await router.attach_google(GoogleLink(id_token="t"), tg_user, world.s, bad, Response())
+    assert exc.value.status == 401

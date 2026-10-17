@@ -216,7 +216,8 @@ export default function App(){
     fetch(`${base}/api/v1/auth/refresh`, {method:"POST", credentials:"include", headers:{"Content-Type":"application/json"}, body:"{}"})
       .then(r => r.ok ? r.json() : Promise.reject())
       .then(pair => { setTokens(pair); setAccessToken(pair.access_token); })
-      .catch(() => {});
+      // Opened from the bot's account button (#/dashboard) without a session: ask the visitor to sign in (Telegram / Google).
+      .catch(() => { if (window.location.hash === "#/dashboard") setModal("login"); });
   }, []);
   useEffect(() => { if (storeId && accessToken) loadAccount(); }, [storeId, accessToken]);
   // Telegram login settings (Admin > Settings > Telegram login) and the result of a direct-login redirect (?tg_error=...).

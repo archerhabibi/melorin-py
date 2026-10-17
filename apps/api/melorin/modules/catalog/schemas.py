@@ -56,6 +56,7 @@ class StoreOut(BaseModel):
     currency: str
     branding: dict | None
     bot_username: str | None
+    domain: str | None = None  # public hostname of the store website (used by the bots' account button)
 
 
 class QuoteWalletOut(QuoteOut):

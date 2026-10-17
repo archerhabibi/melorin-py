@@ -11,7 +11,7 @@ from melorin.core.security import new_opaque_token, totp_counter, totp_new_secre
 from melorin.modules.identity import service
 from melorin.modules.identity.models import Identity, User
 from melorin.modules.identity.schemas import (
-    AdminPasswordChange, EmailCodeRequest, EmailCodeVerify, GoogleLogin, IdentityOut, LinkCodeOut, MeOut, MeUpdate, PasswordLogin,
+    AdminPasswordChange, EmailCodeRequest, EmailCodeVerify, GoogleLink, GoogleLogin, IdentityOut, LinkCodeOut, MeOut, MeUpdate, PasswordLogin,
     RefreshRequest, SetPassword, TelegramBotLogin, TelegramLink, TelegramWebAppLogin, TokenPair, TotpEnable, TotpSetupOut,
 )
 from melorin.modules.referral import service as referral
@@ -241,6 +241,15 @@ async def create_telegram_link_code(user: CurrentUser, session: Session):
     store = await main_store(session)
     link = f"https://t.me/{store.bot_username}?start=link_{code}" if store.bot_username else None
     return LinkCodeOut(code=code, expires_in=600, telegram_deeplink=link)
+
+
+@me.post("/identities/google")
+async def attach_google(body: GoogleLink, user: CurrentUser, session: Session, request: Request, response: Response):
+    """Link a Google account to the signed-in user (same nonce-cookie binding as Google sign-in)."""
+    cookies = getattr(request, "cookies", None) or {}
+    await service.link_google(session, user, body.id_token, cookies.get(GOOGLE_NONCE_COOKIE))
+    response.delete_cookie(GOOGLE_NONCE_COOKIE, path=GOOGLE_NONCE_PATH)
+    return {"ok": True}
 
 
 @me.post("/identities/email")

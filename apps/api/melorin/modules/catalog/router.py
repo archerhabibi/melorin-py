@@ -19,7 +19,7 @@ public = APIRouter(tags=["catalog"])
 
 
 def _store_out(s: Store) -> StoreOut:
-    return StoreOut(id=s.id, kind=s.kind, name=s.name, slug=s.slug, currency=s.currency, branding=s.branding, bot_username=s.bot_username)
+    return StoreOut(id=s.id, kind=s.kind, name=s.name, slug=s.slug, currency=s.currency, branding=s.branding, bot_username=s.bot_username, domain=s.domain)
 
 
 @public.get("/stores/main", response_model=StoreOut)
