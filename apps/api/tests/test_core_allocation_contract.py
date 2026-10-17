@@ -17,8 +17,8 @@ def test_migration_0013_follows_0012_and_matches_the_model():
 
 
 def test_channels_never_choose_a_server():
-    # Channels say WHAT is bought and, since sales bundles, which pool the customer picked (and the panel in a
-    # manual pool). The core validates every choice; the server is never chosen outside the core.
+    # Channels say WHAT is bought and, since sales bundles, which bundle the customer picked (and the panel in a
+    # manual bundle). The core validates every choice; the server is never chosen outside the core.
     for rel in ("apps/telegram-main/runner.py", "apps/store-web/src/App.jsx"):
         src = read(rel)
         for forbidden in ("server_id", "default_panel_group"):
@@ -30,7 +30,7 @@ def test_every_choice_a_channel_sends_is_validated_by_the_core_before_payment():
     create = _called_names(_function("apps/api/melorin/modules/orders/service.py", "create_order"))
     assert create.index("plan_sale") < create.index("pay_with_wallet")
     plan = _called_names(_function("apps/api/melorin/modules/vpn/allocation.py", "plan_sale"))
-    assert plan.index("resolve_order_group") < plan.index("requested_account_name") < plan.index("pool_product")
+    assert plan.index("resolve_order_group") < plan.index("requested_account_name") < plan.index("bundle_product")
 
 
 def test_bot_and_site_share_one_core_order_endpoint():

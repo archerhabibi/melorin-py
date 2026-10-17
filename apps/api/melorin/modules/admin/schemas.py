@@ -124,7 +124,7 @@ class CreatePanelGroup(BaseModel):
     reseller_enabled: bool = True
     sales_limit: int | None = Field(default=None, gt=0)
     panel_ids: list[uuid.UUID] = Field(default_factory=list)
-    member_labels: dict[uuid.UUID, str] = Field(default_factory=dict)  # panel_id -> what the customer sees (manual pools)
+    member_labels: dict[uuid.UUID, str] = Field(default_factory=dict)  # panel_id -> what the customer sees (manual bundles)
 
 
 class UpdatePanelGroup(BaseModel):
@@ -216,8 +216,8 @@ class AttachExistingAccount(BaseModel):
     reason: str | None = None
 
 
-class PoolProductIn(BaseModel):
-    """A package inside a pool. A null price means "use the product's own price"."""
+class BundleProductIn(BaseModel):
+    """A package inside a bundle. A null price means "use the product's own price"."""
     main_price: int | None = Field(default=None, ge=0)
     reseller_price: int | None = Field(default=None, ge=0)
     is_listed: bool = True

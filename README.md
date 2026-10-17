@@ -183,7 +183,7 @@ The sales-infrastructure screens (Panels, Sales bundles, Products) share one vis
 - connected KPI bar that doubles as a filter, and a sales-readiness ring in the infrastructure chain header;
 - ring gauges and segmented capacity meters, status stripes on cards (green = can sell, red = cannot, grey = off);
 - sorting ("problems first" by default) and a cards/table (panels: full/dense) view toggle on every list;
-- pool cards show the panels -> free capacity -> packages flow at a glance.
+- bundle cards show the panels -> free capacity -> packages flow at a glance.
 
 Local build check: `cd apps/admin-web && npm ci && npm run build`.
 

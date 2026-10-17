@@ -9,7 +9,7 @@ from melorin.core.errors import AppError, NotFound
 from melorin.domain import coupon as cdom
 from melorin.modules.catalog import service
 from melorin.modules.catalog.models import Coupon, CouponRedemption
-from melorin.modules.catalog.schemas import CatalogItem, CouponIn, CouponPatch, CouponValidateIn, PoolOut, PoolPanelOut, QuoteRequest, QuoteWalletOut, StoreOut
+from melorin.modules.catalog.schemas import CatalogItem, CouponIn, CouponPatch, CouponValidateIn, BundleOut, BundlePanelOut, QuoteRequest, QuoteWalletOut, StoreOut
 from melorin.modules.stores.models import Store
 from melorin.modules.vpn import allocation
 from melorin.modules.vpn.models import VpnAccount
@@ -66,7 +66,7 @@ async def catalog(store_id: uuid.UUID, session: Session):
     store = await session.get(Store, store_id)
     if not store or store.status != "active":
         raise NotFound("فروشگاه")
-    rows = await allocation.sellable_products_priced(session, store)  # reseller: the lowest valid pool price ("from")
+    rows = await allocation.sellable_products_priced(session, store)  # reseller: the lowest valid bundle price ("from")
     return [
         CatalogItem(
             product_id=p.id, code=p.code, name=p.name, description=p.description, category=p.category, duration_days=p.duration_days,
@@ -83,7 +83,7 @@ async def panel_groups(store_id: uuid.UUID, session: Session):
     return [
         {"id": v.group.id, "name": v.group.name, "kind_label": v.group.kind_label, "selection_mode": v.group.selection_mode,
          "naming_mode": v.group.naming_mode, "panels": [pid for pid, _ in v.panels], "sales_limit": v.group.sales_limit, "sold_count": v.group.sold_count}
-        for v in await allocation.sellable_pools(session, store)
+        for v in await allocation.sellable_bundles(session, store)
     ]
 
 
@@ -94,27 +94,27 @@ def _item(p, price: int, currency: str) -> CatalogItem:
     )
 
 
-@public.get("/stores/{store_id}/pools", response_model=list[PoolOut])
-async def pools(store_id: uuid.UUID, session: Session):
+@public.get("/stores/{store_id}/bundles", response_model=list[BundleOut])
+async def bundles(store_id: uuid.UUID, session: Session):
     """What a customer chooses first: the sales bundles open to this store (each has packages to sell)."""
     store = await session.get(Store, store_id)
     if not store or store.status != "active":
         raise NotFound("فروشگاه")
     return [
-        PoolOut(
+        BundleOut(
             id=v.group.id, name=v.group.name, kind_label=v.group.kind_label, selection_mode=v.group.selection_mode,
-            naming_mode=v.group.naming_mode, panels=[PoolPanelOut(id=pid, label=label) for pid, label in v.panels],
+            naming_mode=v.group.naming_mode, panels=[BundlePanelOut(id=pid, label=label) for pid, label in v.panels],
         )
-        for v in await allocation.sellable_pools(session, store)
+        for v in await allocation.sellable_bundles(session, store)
     ]
 
 
-@public.get("/stores/{store_id}/pools/{pool_id}/packages", response_model=list[CatalogItem])
-async def pool_packages(store_id: uuid.UUID, pool_id: uuid.UUID, session: Session):
+@public.get("/stores/{store_id}/bundles/{bundle_id}/packages", response_model=list[CatalogItem])
+async def bundle_packages(store_id: uuid.UUID, bundle_id: uuid.UUID, session: Session):
     store = await session.get(Store, store_id)
     if not store or store.status != "active":
         raise NotFound("فروشگاه")
-    return [_item(p, price, store.currency) for p, _sp, _pp, price in await allocation.packages_for_pool(session, store, pool_id)]
+    return [_item(p, price, store.currency) for p, _sp, _pp, price in await allocation.packages_for_bundle(session, store, bundle_id)]
 
 
 async def _owned_account(session, ctx, account_id) -> VpnAccount:
@@ -126,7 +126,7 @@ async def _owned_account(session, ctx, account_id) -> VpnAccount:
 
 @public.get("/stores/{store_id}/accounts/{account_id}/renewal-packages", response_model=list[CatalogItem])
 async def renewal_packages(account_id: uuid.UUID, ctx: StoreCtx, session: Session):
-    """Renewal offers the packages of the pool the account was sold through, at that pool's prices."""
+    """Renewal offers the packages of the bundle the account was sold through, at that bundle's prices."""
     account = await _owned_account(session, ctx, account_id)
     return [_item(p, price, ctx.store.currency) for p, price in await allocation.renewal_offers(session, ctx.store, account)]
 

@@ -53,9 +53,9 @@ class Fake:
             return httpx.Response(200, json={"id": "s1", "name": "Main"})
         if path == "/api/v1/auth/telegram/bot":
             return httpx.Response(200, json={"access_token": "A", "refresh_token": "R"})
-        if path == "/api/v1/stores/s1/pools":
-            return httpx.Response(200, json=[{"id": "pool1", "name": "Main", "kind_label": "direct", "selection_mode": "automatic", "naming_mode": "automatic", "panels": []}])
-        if path == "/api/v1/stores/s1/pools/pool1/packages":
+        if path == "/api/v1/stores/s1/bundles":
+            return httpx.Response(200, json=[{"id": "bundle1", "name": "Main", "kind_label": "direct", "selection_mode": "automatic", "naming_mode": "automatic", "panels": []}])
+        if path == "/api/v1/stores/s1/bundles/bundle1/packages":
             return httpx.Response(200, json=self.catalog)
         if path == "/api/v1/stores/s1/checkout/quote":
             return httpx.Response(200, json=self.quote)

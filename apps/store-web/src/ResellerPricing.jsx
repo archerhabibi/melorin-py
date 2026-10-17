@@ -1,7 +1,7 @@
 // Reseller panel › Pricing. The reseller prices every package per sales bundle (بسته فروش) of their own store.
-// Design: one scope at a time (store-wide base price, or one pool), a table whose rows show cost → price → profit → state,
-// a local draft that is reviewed and saved in ONE request (all or nothing), and quick tools (markup, copy from another pool)
-// that only fill the draft. The core remains the authority: it refuses any price below the pool's cost.
+// Design: one scope at a time (store-wide base price, or one bundle), a table whose rows show cost → price → profit → state,
+// a local draft that is reviewed and saved in ONE request (all or nothing), and quick tools (markup, copy from another bundle)
+// that only fill the draft. The core remains the authority: it refuses any price below the bundle's cost.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, Copy, Info, Layers, Percent, RotateCcw, Save, Tags, X } from "lucide-react";
 import { Empty, Loading, fa } from "./ui.jsx";
@@ -15,7 +15,7 @@ const toNum = (v) => { const d = digitsOf(v); return d ? Number(d) : null; };
 const grouped = (n) => (n == null ? "" : new Intl.NumberFormat("en-US").format(n));
 const unitOf = (c) => ({ IRT: "تومان", IRR: "ریال" }[c] || c || "");
 const stepOf = (c) => (c === "IRR" ? 10000 : 1000);
-const keyOf = (poolId, productId) => `${poolId || BASE}:${productId}`;
+const keyOf = (bundleId, productId) => `${bundleId || BASE}:${productId}`;
 const stateOf = (price, cost) => (!price ? "unset" : price < cost ? "below_cost" : "ok");
 
 const STATE = {
@@ -58,19 +58,19 @@ export default function Pricing({ coreFetch, base, notify, dirtyRef }) {
   const load = () => { setFailed(false); coreFetch(`${base}/prices`).then((r) => (r.ok ? r.json() : Promise.reject())).then(setRows).catch(() => { setRows([]); setFailed(true); }); };
   useEffect(load, [base]);
 
-  const pools = useMemo(() => {
+  const bundles = useMemo(() => {
     const m = new Map();
-    (rows || []).forEach((r) => r.pools.forEach((p) => m.has(p.pool_id) || m.set(p.pool_id, { id: p.pool_id, name: p.pool_name, kind: p.kind_label, open: p.open_for_store })));
+    (rows || []).forEach((r) => r.bundles.forEach((p) => m.has(p.bundle_id) || m.set(p.bundle_id, { id: p.bundle_id, name: p.bundle_name, kind: p.kind_label, open: p.open_for_store })));
     return [...m.values()];
   }, [rows]);
   const currency = rows?.[0]?.currency;
   const unit = unitOf(currency);
 
   // ----- values: saved vs. draft (a draft entry is the digits typed, "" = cleared)
-  const savedOf = (row, sc) => (sc === BASE ? row.customer_price : row.pools.find((p) => p.pool_id === sc)?.price) ?? null;
+  const savedOf = (row, sc) => (sc === BASE ? row.customer_price : row.bundles.find((p) => p.bundle_id === sc)?.price) ?? null;
   const valueOf = (row, sc) => { const k = keyOf(sc, row.product_id); return k in draft ? toNum(draft[k]) : savedOf(row, sc); };
   const baseNow = (row) => valueOf(row, BASE);
-  const effectiveIn = (row, poolId) => valueOf(row, poolId) ?? baseNow(row);
+  const effectiveIn = (row, bundleId) => valueOf(row, bundleId) ?? baseNow(row);
   const dirtyKeys = Object.keys(draft).filter((k) => {
     const [sc, pid] = [k.slice(0, k.indexOf(":")), k.slice(k.indexOf(":") + 1)];
     const row = (rows || []).find((r) => r.product_id === pid);
@@ -93,14 +93,14 @@ export default function Pricing({ coreFetch, base, notify, dirtyRef }) {
   };
 
   // ----- what to show in this scope
-  const scopeRows = useMemo(() => (rows || []).filter((r) => scope === BASE || r.pools.some((p) => p.pool_id === scope)), [rows, scope]);
-  const costOf = (row, sc) => (sc === BASE ? row.cost_floor : row.pools.find((p) => p.pool_id === sc)?.cost ?? 0);
+  const scopeRows = useMemo(() => (rows || []).filter((r) => scope === BASE || r.bundles.some((p) => p.bundle_id === scope)), [rows, scope]);
+  const costOf = (row, sc) => (sc === BASE ? row.cost_floor : row.bundles.find((p) => p.bundle_id === sc)?.cost ?? 0);
   const shownState = (row, sc) => stateOf(sc === BASE ? valueOf(row, BASE) : effectiveIn(row, sc), costOf(row, sc));
   const visible = scopeRows.filter((r) => filter === "all" || shownState(r, scope) !== "ok");
 
-  const tally = (poolId) => {
+  const tally = (bundleId) => {
     const t = { ok: 0, unset: 0, below_cost: 0 };
-    (rows || []).forEach((r) => r.pools.forEach((p) => { if (!poolId || p.pool_id === poolId) t[stateOf(effectiveIn(r, p.pool_id), p.cost)] += 1; }));
+    (rows || []).forEach((r) => r.bundles.forEach((p) => { if (!bundleId || p.bundle_id === bundleId) t[stateOf(effectiveIn(r, p.bundle_id), p.cost)] += 1; }));
     return t;
   };
   const total = tally();
@@ -110,7 +110,7 @@ export default function Pricing({ coreFetch, base, notify, dirtyRef }) {
     const next = {}; let n = 0;
     visible.forEach((row) => {
       const cost = costOf(row, scope);
-      // "only unset" = rows that have no price at all; a pool row that inherits the base price is already sold, never overwrite it silently
+      // "only unset" = rows that have no price at all; a bundle row that inherits the base price is already sold, never overwrite it silently
       if (tool.only === "unset" && (scope === BASE ? valueOf(row, BASE) : effectiveIn(row, scope))) return;
       const price = compute(row, cost);
       if (price == null || price < cost) return;
@@ -136,13 +136,13 @@ export default function Pricing({ coreFetch, base, notify, dirtyRef }) {
   // ----- save everything in one request (all or nothing on the server)
   const save = async () => {
     setSaving(true); setErrors({});
-    const items = dirtyKeys.map((k) => { const i = k.indexOf(":"); const sc = k.slice(0, i); return { pool_id: sc === BASE ? null : sc, product_id: k.slice(i + 1), customer_price: toNum(draft[k]) }; });
+    const items = dirtyKeys.map((k) => { const i = k.indexOf(":"); const sc = k.slice(0, i); return { bundle_id: sc === BASE ? null : sc, product_id: k.slice(i + 1), customer_price: toNum(draft[k]) }; });
     try {
       const r = await coreFetch(`${base}/prices/batch`, { method: "POST", headers: J, body: JSON.stringify({ items }) });
       if (r.ok) { const d = await r.json(); setRows(d.prices); setDraft({}); notify(d.changed ? `${fa(d.changed)} قیمت ذخیره شد` : "تغییری برای ذخیره نبود"); }
       else {
         const e = await readError(r);
-        setErrors(Object.fromEntries(e.items.map((x) => [keyOf(x.pool_id, x.product_id), x.message])));
+        setErrors(Object.fromEntries(e.items.map((x) => [keyOf(x.bundle_id, x.product_id), x.message])));
         notify(e.message);
       }
     } catch { notify("ارتباط با سرور برقرار نشد"); } finally { setSaving(false); }
@@ -153,7 +153,7 @@ export default function Pricing({ coreFetch, base, notify, dirtyRef }) {
   if (!rows.length) return <Empty icon={Tags} text="هنوز پکیجی برای فروش در فروشگاه شما فعال نشده است. وقتی مدیریت پکیج‌ها را برای فروشگاه شما باز کند، همین‌جا قیمت‌گذاری می‌کنید." />;
 
   const inBase = scope === BASE;
-  const activePool = pools.find((p) => p.id === scope);
+  const activeBundle = bundles.find((p) => p.id === scope);
   const errorCount = Object.keys(errors).length;
   const gridCols = inBase ? "md:grid-cols-[minmax(0,1.5fr)_1fr_1.3fr_1fr]" : "md:grid-cols-[minmax(0,1.5fr)_1fr_1.3fr_1fr_1fr]";
 
@@ -172,7 +172,7 @@ export default function Pricing({ coreFetch, base, notify, dirtyRef }) {
     </div>
 
     <div role="tablist" aria-label="دامنهٔ قیمت‌گذاری" className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 md:mx-0 md:flex-wrap md:px-0">
-      {[{ id: BASE, name: "قیمت پایه", kind: "همهٔ بسته‌ها", open: true }, ...pools].map((p) => {
+      {[{ id: BASE, name: "قیمت پایه", kind: "همهٔ بسته‌ها", open: true }, ...bundles].map((p) => {
         const t = p.id === BASE ? null : tally(p.id); const attention = t ? t.unset + t.below_cost : 0; const active = scope === p.id;
         return <button key={p.id} role="tab" aria-selected={active} onClick={() => setScope(p.id)} className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition ${active ? "bg-primary text-onprimary shadow-soft" : "bg-surface text-ink ring-1 ring-line hover:bg-surface2"}`}>
           {p.id === BASE ? <Tags size={16} /> : <Layers size={16} />}{p.name}{p.kind && <span className={`text-[11px] font-semibold ${active ? "opacity-70" : "text-muted"}`}>{p.kind}</span>}
@@ -184,7 +184,7 @@ export default function Pricing({ coreFetch, base, notify, dirtyRef }) {
     <div className="card !p-0" data-grid>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line p-4">
         <p className="text-xs leading-6 text-muted">
-          {inBase ? "قیمت پایه باید از گران‌ترین قیمت همکاری میان بسته‌ها کمتر نباشد؛ بسته‌ای که قیمت اختصاصی دارد از آن استفاده نمی‌کند." : <>قیمت‌های اختصاصی بسته «{activePool?.name}». خالی‌گذاشتن یعنی استفاده از قیمت پایه.{activePool && !activePool.open && <b className="text-danger"> این بسته برای فروشگاه شما غیرفعال است؛ قیمت ثبت می‌شود ولی تا فعال‌شدن فروخته نمی‌شود.</b>}</>}
+          {inBase ? "قیمت پایه باید از گران‌ترین قیمت همکاری میان بسته‌ها کمتر نباشد؛ بسته‌ای که قیمت اختصاصی دارد از آن استفاده نمی‌کند." : <>قیمت‌های اختصاصی بسته «{activeBundle?.name}». خالی‌گذاشتن یعنی استفاده از قیمت پایه.{activeBundle && !activeBundle.open && <b className="text-danger"> این بسته برای فروشگاه شما غیرفعال است؛ قیمت ثبت می‌شود ولی تا فعال‌شدن فروخته نمی‌شود.</b>}</>}
         </p>
         <label className="flex items-center gap-2 text-xs font-bold">نمایش
           <select className="input !w-auto !py-1.5 !text-xs" value={filter} onChange={(e) => setFilter(e.target.value)}><option value="all">همهٔ پکیج‌ها</option><option value="attention">فقط نیازمند اقدام</option></select></label>
@@ -205,7 +205,7 @@ export default function Pricing({ coreFetch, base, notify, dirtyRef }) {
           </div>
           {!inBase && <div className="space-y-2 rounded-xl bg-surface2 p-3">
             <div className="text-xs font-bold">کپی قیمت از بسته دیگر</div>
-            <select className="input !py-2 !text-xs" aria-label="بسته مبدأ" value={tool.from} onChange={(e) => setTool({ ...tool, from: e.target.value })}><option value="">انتخاب بسته…</option>{pools.filter((p) => p.id !== scope).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
+            <select className="input !py-2 !text-xs" aria-label="بسته مبدأ" value={tool.from} onChange={(e) => setTool({ ...tool, from: e.target.value })}><option value="">انتخاب بسته…</option>{bundles.filter((p) => p.id !== scope).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
             <p className="text-[11px] leading-5 text-muted">قیمتی که کمتر از قیمت همکاری همین بسته باشد کپی نمی‌شود.</p>
             <button className="btn-ghost" disabled={!tool.from} onClick={copyFrom}><Copy size={14} />کپی در پیش‌نویس</button>
           </div>}
@@ -223,7 +223,7 @@ export default function Pricing({ coreFetch, base, notify, dirtyRef }) {
           const inherited = !inBase && !own && baseNow(row) ? baseNow(row) : null;
           const edited = dirtyKeys.includes(k);
           return <li key={row.product_id} className={`grid gap-x-3 gap-y-2 border-t border-line px-4 py-3 ${gridCols} md:items-center ${edited ? "bg-accent-soft/50" : ""}`}>
-            <div className="min-w-0"><div className="font-bold">{row.name}</div><div className="text-xs text-muted">{fa(row.duration_days)} روز · {row.traffic_gb ? `${fa(row.traffic_gb)} گیگ` : "نامحدود"}{!inBase && row.pools.find((p) => p.pool_id === scope)?.listed === false && " · در این بسته پنهان است"}</div></div>
+            <div className="min-w-0"><div className="font-bold">{row.name}</div><div className="text-xs text-muted">{fa(row.duration_days)} روز · {row.traffic_gb ? `${fa(row.traffic_gb)} گیگ` : "نامحدود"}{!inBase && row.bundles.find((p) => p.bundle_id === scope)?.listed === false && " · در این بسته پنهان است"}</div></div>
             <div className="flex items-center justify-between text-sm md:block"><span className="text-xs text-muted md:hidden">{inBase ? "حداقل مجاز" : "قیمت همکاری"}</span><span className="font-bold">{fa(cost)}</span></div>
             <div><MoneyInput label={`قیمت ${row.name}`} value={k in draft ? draft[k] : own ?? ""} placeholder={inherited ? `${grouped(inherited)} (قیمت پایه)` : "تعیین نشده"} invalid={typedLow || !!errors[k]} onChange={(d) => setCell(scope, row, d)} />
               {(typedLow || errors[k]) && <p role="alert" className="mt-1 text-[11px] leading-5 text-danger">{errors[k] || `کمتر از قیمت همکاری (${fa(cost)})`}</p>}</div>

@@ -63,9 +63,9 @@ def test_group_membership_is_saved_with_the_field_the_api_reads():
     assert "JSON.stringify({ panels:" not in _ui("PanelsView.jsx")
 
 
-def test_pool_screen_manages_packages_through_pool_endpoints():
-    """The pool screen edits packages (and per-pool prices) via /panel-groups/{id}/products, never via the product PATCH."""
+def test_bundle_screen_manages_packages_through_bundle_endpoints():
+    """The bundle screen edits packages (and per-bundle prices) via /panel-groups/{id}/products, never via the product PATCH."""
     groups = _ui("PanelGroupsView.jsx")
     assert "/products/" in groups and "kind_label" in groups and "member_labels" in groups
     assert "default_panel_group_id" not in groups
-    assert "PRODUCT_DEFAULT_POOL" in ROUTER and "/panel-groups/{panel_group_id}/products" in ROUTER
+    assert "PRODUCT_DEFAULT_BUNDLE" in ROUTER and "/panel-groups/{panel_group_id}/products" in ROUTER

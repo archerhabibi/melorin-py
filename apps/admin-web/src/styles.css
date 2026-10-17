@@ -41,7 +41,7 @@ html,body{font-family:Vazirmatn,Tahoma,system-ui,sans-serif;background:var(--bg)
 .pv-fade{animation:pvfade .2s ease both}@keyframes pvfade{from{opacity:0}}
 .pv-ping{animation:pvping 1.8s cubic-bezier(0,0,.2,1) infinite}@keyframes pvping{75%,100%{transform:scale(2.4);opacity:0}}
 
-/* ===== Infra v2 — sales pipeline screens (panels · pools · products) ===== */
+/* ===== Infra v2 — sales pipeline screens (panels · bundles · products) ===== */
 :root{--r:18px;--acb:color-mix(in srgb,var(--ac) 12%,transparent);--hair:color-mix(in srgb,var(--ln) 70%,transparent)}
 .num{font-variant-numeric:tabular-nums}
 .card{border-radius:var(--r)}
@@ -92,7 +92,7 @@ button.kpi:hover{background:var(--sf2)}
 .step[aria-current=page]{background:var(--sf2);border-color:color-mix(in srgb,var(--ac) 55%,var(--ln));box-shadow:0 0 0 3px var(--acb)}
 .link-arrow{display:grid;place-items:center;color:var(--mu)}
 @media (max-width:1023px){.pipe{grid-template-columns:1fr}.pipe-steps{grid-template-columns:1fr}}
-/* flow mini diagram on pool cards */
+/* flow mini diagram on bundle cards */
 .flow{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;align-items:stretch;gap:.35rem}
 .flow>.fn{min-width:0;border-radius:12px;background:var(--sf2);border:1px solid var(--hair);padding:.55rem .6rem;text-align:center}
 .flow>.fa{display:grid;place-items:center;color:var(--mu)}

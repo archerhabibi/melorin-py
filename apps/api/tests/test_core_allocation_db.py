@@ -18,7 +18,7 @@ from melorin.modules.system.models import AuditEvent
 from melorin.modules.vpn.adapters.base import PanelError
 from melorin.modules.vpn.allocation import resolve_allocation, resolve_order_group
 from melorin.modules.vpn.models import Panel, Server
-from melorin.modules.vpn.panel_groups import PanelGroup, PanelGroupMember, PoolProduct, StorePanelGroup
+from melorin.modules.vpn.panel_groups import PanelGroup, PanelGroupMember, BundleProduct, StorePanelGroup
 
 
 @pytest.fixture
@@ -63,11 +63,11 @@ def make_product(group=None, code="10"):
 
 
 async def sell(s, product, *groups):
-    """Persist the product and make every given pool sell it (what the admin does when filling a pool)."""
+    """Persist the product and make every given bundle sell it (what the admin does when filling a bundle)."""
     s.add(product)
     await s.flush()
     for g in groups:
-        s.add(PoolProduct(panel_group_id=g.id, product_id=product.id))
+        s.add(BundleProduct(panel_group_id=g.id, product_id=product.id))
     await s.flush()
     return product
 
@@ -91,20 +91,20 @@ async def test_explicit_group_wins_over_product_default(session):
     assert (await resolve_order_group(session, store_id=None, product=product, panel_group_id=other.id))[0] == other.id
 
 
-async def test_there_is_no_pool_less_route(session):
+async def test_there_is_no_bundle_less_route(session):
     product = await sell(session, make_product(None))
     with pytest.raises(AppError) as e:
         await resolve_order_group(session, store_id=None, product=product, selected_panel_id=uuid.uuid4())
-    assert e.value.code == "POOL_REQUIRED"
+    assert e.value.code == "BUNDLE_REQUIRED"
 
 
-async def test_pool_that_does_not_sell_the_package_is_rejected(session):
+async def test_bundle_that_does_not_sell_the_package_is_rejected(session):
     group, _ = await make_group(session)
     other, _ = await make_group(session, panels=(("P9", "healthy"),), servers=(("S9", "P9", {}),))
     product = await sell(session, make_product(group), group)  # sold in `group` only
     with pytest.raises(AppError) as e:
         await resolve_order_group(session, store_id=None, product=product, panel_group_id=other.id)
-    assert e.value.code == "PRODUCT_NOT_IN_POOL"
+    assert e.value.code == "PRODUCT_NOT_IN_BUNDLE"
 
 
 async def test_manual_default_group_is_rejected_before_payment(session):
@@ -187,7 +187,7 @@ async def test_provisioning_rechecks_group_state_changed_after_checkout(session)
         await resolve_allocation(session, order, make_product(group))
 
 
-async def test_provisioning_refuses_an_order_without_a_pool(session):
+async def test_provisioning_refuses_an_order_without_a_bundle(session):
     await make_group(session, servers=(("S1", "P1", {}),))
     with pytest.raises(PanelError) as e:
         await resolve_allocation(session, order_for(None), make_product(None))

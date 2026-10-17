@@ -1,4 +1,4 @@
-"""Pool-based purchase flow of the Telegram bot (pool -> location -> packages -> username -> quote -> order). Telegram + Core mocked."""
+"""Bundle-based purchase flow of the Telegram bot (bundle -> location -> packages -> username -> quote -> order). Telegram + Core mocked."""
 import asyncio
 import importlib.util
 import json
@@ -15,14 +15,14 @@ P1, P2, P3 = (str(uuid.uuid4()) for _ in range(3))
 PAN1, PAN2 = str(uuid.uuid4()), str(uuid.uuid4())
 
 
-def pool(pid, name, kind="direct", sel="automatic", naming="automatic", panels=()):
+def bundle(pid, name, kind="direct", sel="automatic", naming="automatic", panels=()):
     return {"id": pid, "name": name, "kind_label": kind, "selection_mode": sel, "naming_mode": naming, "panels": list(panels)}
 
 
 class Fake:
     def __init__(self):
         self.sent, self.edits, self.calls = [], [], []
-        self.pools = [pool(P1, "Alpha")]
+        self.bundles = [bundle(P1, "Alpha")]
         self.pkgs = [{"product_id": PID, "name": "Pkg", "price": 1000, "currency": "IRT"}]
 
     def handler(self, request: httpx.Request) -> httpx.Response:
@@ -41,9 +41,9 @@ class Fake:
             return httpx.Response(200, json={"id": "s1", "name": "Main"})
         if path == "/api/v1/auth/telegram/bot":
             return httpx.Response(200, json={"access_token": "A", "refresh_token": "R"})
-        if path == "/api/v1/stores/s1/pools":
-            return httpx.Response(200, json=self.pools)
-        if path.startswith("/api/v1/stores/s1/pools/") and path.endswith("/packages"):
+        if path == "/api/v1/stores/s1/bundles":
+            return httpx.Response(200, json=self.bundles)
+        if path.startswith("/api/v1/stores/s1/bundles/") and path.endswith("/packages"):
             return httpx.Response(200, json=self.pkgs)
         if path == f"/api/v1/stores/s1/accounts/{ACC}/renewal-packages":
             return httpx.Response(200, json=self.pkgs)
@@ -61,7 +61,7 @@ class Fake:
 def bot(tmp_path, monkeypatch):
     for k, v in {"MELORIN_TELEGRAM_TOKEN": "tok", "MELORIN_CORE_URL": "http://core", "MELORIN_BOT_SERVICE_SECRET": "sek", "MELORIN_TELEGRAM_OFFSET_FILE": str(tmp_path / "o.json")}.items():
         monkeypatch.setenv(k, v)
-    spec = importlib.util.spec_from_file_location("tg_pools", ROOT / "telegram-main/runner.py")
+    spec = importlib.util.spec_from_file_location("tg_bundles", ROOT / "telegram-main/runner.py")
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     r, fake = mod.TelegramRunner(), Fake()
@@ -96,37 +96,37 @@ def datas(p):
     return [b["callback_data"] for b in btns(p)]
 
 
-def test_single_pool_skips_pool_screen(bot):
+def test_single_bundle_skips_bundle_screen(bot):
     _, r, fake = bot
     send(r, "menu:plans")
     assert f"plan:{PID}" in datas(fake.edits[-1])
-    assert not any(d.startswith("pool:") for d in datas(fake.edits[-1]))
-    assert any(c[1].endswith(f"/pools/{P1}/packages") for c in fake.calls)
+    assert not any(d.startswith("bundle:") for d in datas(fake.edits[-1]))
+    assert any(c[1].endswith(f"/bundles/{P1}/packages") for c in fake.calls)
 
 
-def test_no_pools_message(bot):
+def test_no_bundles_message(bot):
     _, r, fake = bot
-    fake.pools = []
+    fake.bundles = []
     send(r, "menu:plans")
     assert "فعلاً سرویسی برای فروش موجود نیست." in fake.edits[-1]["text"]
 
 
-def test_multiple_pools_show_kind_badges_and_pick_loads_packages(bot):
+def test_multiple_bundles_show_kind_badges_and_pick_loads_packages(bot):
     _, r, fake = bot
-    fake.pools = [pool(P1, "Alpha", "برچسب یک"), pool(P2, "Beta", "برچسب دو"), pool(P3, "Gamma", "")]
+    fake.bundles = [bundle(P1, "Alpha", "برچسب یک"), bundle(P2, "Beta", "برچسب دو"), bundle(P3, "Gamma", "")]
     send(r, "menu:plans")
     t = texts(fake.edits[-1])
     assert "برچسب یک · Alpha" in t and "برچسب دو · Beta" in t and "Gamma" in t and "· Gamma" not in t
     assert "manual" not in json.dumps(fake.edits[-1]) and "automatic" not in json.dumps(fake.edits[-1])
-    send(r, f"pool:{P2}")
+    send(r, f"bundle:{P2}")
     assert f"plan:{PID}" in datas(fake.edits[-1])
-    assert any(c[1].endswith(f"/pools/{P2}/packages") for c in fake.calls)
+    assert any(c[1].endswith(f"/bundles/{P2}/packages") for c in fake.calls)
 
 
-def test_manual_pool_shows_labels_never_panel_names(bot):
+def test_manual_bundle_shows_labels_never_panel_names(bot):
     _, r, fake = bot
-    fake.pools = [pool(P1, "Alpha", sel="manual", panels=[{"id": PAN1, "label": "آلمان"}, {"id": PAN2, "label": "هلند"}])]
-    fake.pools[0]["panels"][0]["name"] = "SECRET-PANEL-NAME"
+    fake.bundles = [bundle(P1, "Alpha", sel="manual", panels=[{"id": PAN1, "label": "آلمان"}, {"id": PAN2, "label": "هلند"}])]
+    fake.bundles[0]["panels"][0]["name"] = "SECRET-PANEL-NAME"
     send(r, "menu:plans")
     e = fake.edits[-1]
     assert "📍 یکی از گزینه‌ها را انتخاب کنید:" in e["text"]
@@ -140,9 +140,9 @@ def test_manual_pool_shows_labels_never_panel_names(bot):
     assert fake.last("/quote")["selected_panel_id"] == PAN2
 
 
-def test_custom_pool_asks_and_validates_name_then_sends_account_name(bot):
+def test_custom_bundle_asks_and_validates_name_then_sends_account_name(bot):
     _, r, fake = bot
-    fake.pools = [pool(P1, "Alpha", naming="custom")]
+    fake.bundles = [bundle(P1, "Alpha", naming="custom")]
     send(r, "menu:plans")
     send(r, f"plan:{PID}")
     assert "نام کاربری دلخواه" in fake.edits[-1]["text"]
@@ -159,7 +159,7 @@ def test_custom_pool_asks_and_validates_name_then_sends_account_name(bot):
     assert "selected_panel_id" not in body
 
 
-def test_automatic_pool_sends_no_account_name_and_coupon_keeps_flow(bot):
+def test_automatic_bundle_sends_no_account_name_and_coupon_keeps_flow(bot):
     _, r, fake = bot
     send(r, "menu:plans")
     send(r, f"plan:{PID}")
@@ -173,12 +173,12 @@ def test_automatic_pool_sends_no_account_name_and_coupon_keeps_flow(bot):
 
 def test_new_purchase_resets_flow(bot):
     _, r, fake = bot
-    fake.pools = [pool(P1, "Alpha", naming="custom"), pool(P2, "Beta")]
-    send(r, f"pool:{P1}")
+    fake.bundles = [bundle(P1, "Alpha", naming="custom"), bundle(P2, "Beta")]
+    send(r, f"bundle:{P1}")
     send(r, f"plan:{PID}")
     send(r, text="alice")
     send(r, "menu:plans")
-    send(r, f"pool:{P2}")
+    send(r, f"bundle:{P2}")
     send(r, f"plan:{PID}")
     send(r, f"buy:{PID}")
     assert "account_name" not in fake.last("/orders") and fake.last("/orders")["panel_group_id"] == P2
@@ -186,8 +186,8 @@ def test_new_purchase_resets_flow(bot):
 
 def test_callback_data_fits_telegram_limit(bot):
     _, r, fake = bot
-    fake.pools = [pool(P1, "Alpha", sel="manual", naming="custom", panels=[{"id": PAN1, "label": "x"}]), pool(P2, "Beta")]
-    for step in ("menu:plans", f"pool:{P1}", f"pnl:{PAN1}", f"plan:{PID}"):
+    fake.bundles = [bundle(P1, "Alpha", sel="manual", naming="custom", panels=[{"id": PAN1, "label": "x"}]), bundle(P2, "Beta")]
+    for step in ("menu:plans", f"bundle:{P1}", f"pnl:{PAN1}", f"plan:{PID}"):
         send(r, step)
     send(r, text="alice")
     send(r, f"cpn:{PID}")
@@ -201,7 +201,7 @@ def test_renewal_uses_renewal_packages_and_quote_with_account(bot):
     mod, r, fake = bot
     send(r, f"rnw:{mod.b64(ACC)}")
     assert any(c[1].endswith(f"/accounts/{ACC}/renewal-packages") for c in fake.calls)
-    assert not any(c[1].endswith("/pools") for c in fake.calls)
+    assert not any(c[1].endswith("/bundles") for c in fake.calls)
     d = datas(fake.edits[-1])
     assert f"rnq:{mod.b64(ACC)}:{mod.b64(PID)}" in d
     send(r, d[0])

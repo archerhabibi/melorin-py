@@ -88,19 +88,19 @@ class ResellerTelegramRunner(_module.TelegramRunner):
         return next((r for r in rows if str(r["product_id"]) == str(pid)), None)
 
     async def cb_price_pick(self, ctx, pid):
-        """A package with sales bundles is priced per pool (or store-wide), like on the website; the core resolves
-        and validates everything. A package the core lists without pools keeps the single store-wide price."""
+        """A package with sales bundles is priced per bundle (or store-wide), like on the website; the core resolves
+        and validates everything. A package the core lists without bundles keeps the single store-wide price."""
         row = await self._price_row(ctx, pid)
-        pools = (row or {}).get("pools") or []
-        self._merge_state(ctx.chat_id, price_for=pid, price_pool=None)
-        if not pools:
+        bundles = (row or {}).get("bundles") or []
+        self._merge_state(ctx.chat_id, price_for=pid, price_bundle=None)
+        if not bundles:
             return await self.send(ctx.chat_id, "قیمت فروش جدید را به عدد (تومان) بفرستید. برای برداشتن قیمت، 0 بفرستید.")
         base = money(row["customer_price"]) if row.get("customer_price") else "تعیین نشده"
         buttons = [[(f"🏷 قیمت کلی فروشگاه · {base}", "prs:s")]]
-        for i, pl in enumerate(pools[:20]):
+        for i, pl in enumerate(bundles[:20]):
             eff = money(pl["effective_price"]) if pl.get("effective_price") else "تعیین نشده"
             tag = "" if pl.get("source") != "store" else " (قیمت کلی)"
-            buttons.append([(f"{pl.get('kind_label') or ''} {pl['pool_name']} · {eff}{tag} · هزینه {money(pl['cost'])}".strip(), f"prs:{i}")])
+            buttons.append([(f"{pl.get('kind_label') or ''} {pl['bundle_name']} · {eff}{tag} · هزینه {money(pl['cost'])}".strip(), f"prs:{i}")])
         await self.send(ctx.chat_id, f"{row['name']}\nقیمت را برای کدام بسته تعیین می‌کنید؟ قیمت هر بسته بر قیمت کلی فروشگاه مقدم است.", buttons)
 
     async def cb_price_scope(self, ctx, which):
@@ -108,35 +108,35 @@ class ResellerTelegramRunner(_module.TelegramRunner):
         if not pid:
             return await self.send(ctx.chat_id, "ابتدا /prices را بفرستید.")
         if which == "s":
-            self._merge_state(ctx.chat_id, price_pool=None)
+            self._merge_state(ctx.chat_id, price_bundle=None)
             return await self.send(ctx.chat_id, "قیمت کلی فروشگاه را به عدد (تومان) بفرستید؛ برای بسته‌هایی که قیمت اختصاصی ندارند اعمال می‌شود. برای برداشتن، 0 بفرستید.")
         row = await self._price_row(ctx, pid)
-        pools = (row or {}).get("pools") or []
+        bundles = (row or {}).get("bundles") or []
         try:
-            pool = pools[int(which)]
+            bundle = bundles[int(which)]
         except (ValueError, IndexError):
             return await self.send(ctx.chat_id, "بسته پیدا نشد؛ دوباره /prices را بفرستید.")
-        self._merge_state(ctx.chat_id, price_pool=str(pool["pool_id"]))
-        await self.send(ctx.chat_id, f"قیمت فروش در «{pool['pool_name']}» را به عدد (تومان) بفرستید (حداقل {money(pool['cost'])}). برای برداشتن و استفاده از قیمت کلی، 0 بفرستید.")
+        self._merge_state(ctx.chat_id, price_bundle=str(bundle["bundle_id"]))
+        await self.send(ctx.chat_id, f"قیمت فروش در «{bundle['bundle_name']}» را به عدد (تومان) بفرستید (حداقل {money(bundle['cost'])}). برای برداشتن و استفاده از قیمت کلی، 0 بفرستید.")
 
     async def on_text(self, ctx, text):
         st = self.state.get(str(ctx.chat_id)) or {}
-        pid, pool = st.get("price_for"), st.get("price_pool")
+        pid, bundle = st.get("price_for"), st.get("price_bundle")
         if not pid or text.startswith("/"):
             return await super().on_text(ctx, text)
         digits = "".join(ch for ch in text.translate(str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")) if ch.isdigit())
         if not digits:  # not a number: the reseller moved on (menu button, other text)
-            self._merge_state(ctx.chat_id, price_for=None, price_pool=None)
+            self._merge_state(ctx.chat_id, price_for=None, price_bundle=None)
             return await super().on_text(ctx, text)
         s = await self.store_info()
-        path = f"/api/v1/stores/{s['id']}/reseller/" + (f"pools/{pool}/prices/{pid}" if pool else f"prices/{pid}")
+        path = f"/api/v1/stores/{s['id']}/reseller/" + (f"bundles/{bundle}/prices/{pid}" if bundle else f"prices/{pid}")
         try:
             out = await self.api(ctx, "PUT", path, json={"customer_price": int(digits)})
         except _module.CoreError as e:  # the state stays, so the reseller can send another number
             return await self.send(ctx.chat_id, f"{e.message if hasattr(e, 'message') else e}\nعدد دیگری بفرستید:")
-        self._merge_state(ctx.chat_id, price_for=None, price_pool=None)
+        self._merge_state(ctx.chat_id, price_for=None, price_bundle=None)
         if not out.get("customer_price"):
-            msg = "قیمت اختصاصی این بسته برداشته شد؛ از قیمت کلی فروشگاه استفاده می‌شود." if pool else "قیمت برداشته شد؛ محصول به مشتری نمایش داده نمی‌شود."
+            msg = "قیمت اختصاصی این بسته برداشته شد؛ از قیمت کلی فروشگاه استفاده می‌شود." if bundle else "قیمت برداشته شد؛ محصول به مشتری نمایش داده نمی‌شود."
         else:
             msg = f"✅ قیمت فروش {money(out['customer_price'])} ثبت شد."
         await self.send(ctx.chat_id, msg)
