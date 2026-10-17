@@ -178,7 +178,7 @@ async def reseller_panel_groups(ctx: OwnerCtx, session: Session):
 @router.put("/stores/{store_id}/reseller/panel-groups/{panel_group_id}")
 async def toggle_reseller_panel_group(panel_group_id: uuid.UUID, body: dict, ctx: OwnerCtx, session: Session):
     b = await session.get(PanelGroup, panel_group_id)
-    if not b or not b.is_enabled or not b.reseller_enabled: raise NotFound("گروه پنل")
+    if not b or not b.is_enabled or not b.reseller_enabled: raise NotFound("بسته فروش")
     row = await session.scalar(select(StorePanelGroup).where(StorePanelGroup.store_id == ctx.store.id, StorePanelGroup.panel_group_id == b.id))
     if not row:
         row = StorePanelGroup(store_id=ctx.store.id, panel_group_id=b.id); session.add(row)

@@ -259,4 +259,4 @@ function Tickets({ api, toast }) {
   return <TicketsView call={call} toast={toast} />;
 }
 
-export const extraRoutes = { "درخواست‌های نمایندگی": ResellerApplicationsView, "سلامت زیرساخت": InfraHealthView, "سفارش‌ها": Orders, "پرداخت‌ها": Payments, "تیکت‌ها": Tickets, "محصولات VPN": ProductsView, "پنل‌ها و سرورها": PanelsView, "استخرهای فروش": PanelGroupsView, "کوپن‌ها": Coupons, "تنظیمات": Settings, "ممیزی": Audit, "بررسی هویت": Reviews };
+export const extraRoutes = { "درخواست‌های نمایندگی": ResellerApplicationsView, "سلامت زیرساخت": InfraHealthView, "سفارش‌ها": Orders, "پرداخت‌ها": Payments, "تیکت‌ها": Tickets, "محصولات VPN": ProductsView, "پنل‌ها و سرورها": PanelsView, "بسته‌های فروش": PanelGroupsView, "کوپن‌ها": Coupons, "تنظیمات": Settings, "ممیزی": Audit, "بررسی هویت": Reviews };

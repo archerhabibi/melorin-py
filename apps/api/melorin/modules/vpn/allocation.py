@@ -1,6 +1,6 @@
 """Single allocation core: WHERE a new VPN account is created is decided here and nowhere else.
 
-Vocabulary: a *pool* (UI: استخر فروش) is a ``PanelGroup``. Every account is sold through exactly one
+Vocabulary: a *pool* (UI: بسته فروش) is a ``PanelGroup``. Every account is sold through exactly one
 pool; there is no pool-less route.
 
 The channels (Telegram bot, store website, reseller panel, admin, API) say *what* is bought and, when the
@@ -89,9 +89,9 @@ def _reject_reason(c: Candidate, *, product_code: str, is_test: bool, group_mode
         return f"کد محصول {product_code} در لیست این سرور نیست"
     if group_mode is not None:
         if not c.member_enabled:
-            return "عضویت پنل در گروه غیرفعال است"
+            return "عضویت پنل در بسته غیرفعال است"
         if c.member_sales_limit is not None and c.member_sold >= c.member_sales_limit:
-            return "سقف فروش پنل در گروه تکمیل شده است"
+            return "سقف فروش پنل در بسته تکمیل شده است"
         if selected_panel_id is not None and c.panel_id != selected_panel_id:
             return "پنل انتخاب‌شده نیست"
     if c.active_on_server >= c.capacity:
@@ -131,15 +131,15 @@ def group_policy_violation(group, *, store_access_enabled: bool | None, selected
     ``store_access_enabled`` is None when the store has no explicit row for the group (= allowed).
     """
     if group is None or not group.is_enabled:
-        return "گروه پنل انتخاب‌شده فعال نیست."
+        return "بسته فروش انتخاب‌شده فعال نیست."
     if group.sales_limit is not None and group.sold_count >= group.sales_limit:
-        return "ظرفیت فروش این گروه تکمیل شده است."
+        return "ظرفیت فروش این بسته تکمیل شده است."
     if store_access_enabled is False:
-        return "این گروه برای فروشگاه فعال نیست."
+        return "این بسته برای فروشگاه فعال نیست."
     if group.selection_mode == "manual" and not selected_panel_id:
-        return "برای این گروه باید پنل انتخاب شود."
+        return "برای این بسته باید پنل انتخاب شود."
     if group.selection_mode == "automatic" and selected_panel_id:
-        return "در گروه انتخاب خودکار، انتخاب پنل مجاز نیست."
+        return "در بسته انتخاب خودکار، انتخاب پنل مجاز نیست."
     return None
 
 
@@ -165,7 +165,7 @@ async def resolve_order_group(
     """
     group_id = panel_group_id or getattr(product, "default_panel_group_id", None)
     if group_id is None:
-        raise AppError("POOL_REQUIRED", "برای خرید باید یک استخر فروش انتخاب شود.", 409)
+        raise AppError("POOL_REQUIRED", "برای خرید باید یک بسته فروش انتخاب شود.", 409)
     group = await session.get(PanelGroup, group_id)
     why = group_policy_violation(group, store_access_enabled=await _store_access_enabled(session, store_id, group_id), selected_panel_id=selected_panel_id)
     if why:
@@ -173,7 +173,7 @@ async def resolve_order_group(
     if not getattr(product, "is_test", False):
         sold_here = await session.scalar(select(PoolProduct.id).where(PoolProduct.panel_group_id == group_id, PoolProduct.product_id == product.id))
         if sold_here is None:
-            raise AppError("PRODUCT_NOT_IN_POOL", "این پکیج در استخر انتخاب‌شده فروخته نمی‌شود.", 422)
+            raise AppError("PRODUCT_NOT_IN_POOL", "این پکیج در بسته انتخاب‌شده فروخته نمی‌شود.", 422)
     if selected_panel_id is not None:
         member = await session.scalar(
             select(PanelGroupMember.id).where(
@@ -181,7 +181,7 @@ async def resolve_order_group(
             )
         )
         if member is None:
-            raise AppError("PANEL_NOT_IN_GROUP", "پنل انتخاب‌شده عضو فعال این گروه نیست.", 422)
+            raise AppError("PANEL_NOT_IN_GROUP", "پنل انتخاب‌شده عضو فعال این بسته نیست.", 422)
     return group_id, selected_panel_id
 
 
@@ -246,7 +246,7 @@ async def resolve_allocation(session: AsyncSession, order, product) -> tuple[Ser
     group: PanelGroup | None = None
     group_mode: str | None = None
     if not order.panel_group_id:
-        raise PanelError(ErrorKind.PERMANENT, "سفارش بدون استخر فروش قابل ساخت نیست.")
+        raise PanelError(ErrorKind.PERMANENT, "سفارش بدون بسته فروش قابل ساخت نیست.")
     group = await session.get(PanelGroup, order.panel_group_id, with_for_update=True)
     why = group_policy_violation(
         group,
@@ -264,9 +264,9 @@ async def resolve_allocation(session: AsyncSession, order, product) -> tuple[Ser
         rows = (await session.scalars(select(PanelGroupMember).where(PanelGroupMember.panel_group_id == group.id))).all()
         members = {m.panel_id: m for m in rows}
         if not members:
-            raise PanelError(ErrorKind.PERMANENT, "هیچ پنل قابل فروشی در این گروه وجود ندارد.")
+            raise PanelError(ErrorKind.PERMANENT, "هیچ پنل قابل فروشی در این بسته وجود ندارد.")
         if selected is not None and selected not in members:
-            raise PanelError(ErrorKind.PERMANENT, "پنل انتخاب‌شده عضو این گروه نیست.")
+            raise PanelError(ErrorKind.PERMANENT, "پنل انتخاب‌شده عضو این بسته نیست.")
         query = query.where(Server.panel_id.in_(list(members)))
 
     pairs = (await session.execute(query)).all()
@@ -285,7 +285,7 @@ async def resolve_allocation(session: AsyncSession, order, product) -> tuple[Ser
     return server, panel, group
 
 
-# ---------------------------------------------------------------- sale route (UI: استخر فروش)
+# ---------------------------------------------------------------- sale route (UI: بسته فروش)
 async def pool_product(session: AsyncSession, group_id: uuid.UUID | None, product_id: uuid.UUID) -> PoolProduct | None:
     if group_id is None:
         return None
@@ -391,7 +391,7 @@ async def plan_sale(
         own = (await store_pool_prices(session, store.id, group_id=group_id)).get((group_id, product.id)) if group_id else None
         retail = retail_price(sp, own)
         if _below_cost(retail, reseller):
-            raise AppError("CUSTOMER_PRICE_BELOW_COST", "قیمت فروش نماینده از قیمت همکاری این استخر کمتر است؛ فروش انجام نمی‌شود.", 409)
+            raise AppError("CUSTOMER_PRICE_BELOW_COST", "قیمت فروش نماینده از قیمت همکاری این بسته کمتر است؛ فروش انجام نمی‌شود.", 409)
     return SalePlan(group_id, group, selected, name, pp, _unit_price(store, product, retail, pp), main, reseller)
 
 
@@ -457,7 +457,7 @@ async def sellable_pools(session: AsyncSession, store: Store) -> list[PoolView]:
 
 async def packages_for_pool(session: AsyncSession, store: Store, pool_id: uuid.UUID) -> list[tuple[Product, StoreProduct, PoolProduct, int]]:
     if pool_id not in {v.group.id for v in await sellable_pools(session, store)}:
-        raise NotFound("استخر فروش")
+        raise NotFound("بسته فروش")
     return await pool_packages(session, store, pool_id)
 
 
@@ -511,7 +511,7 @@ async def ensure_customer_price(session: AsyncSession, product: Product, custome
         return
     floor = await reseller_price_floor(session, product)
     if customer_price < floor:
-        raise AppError("CUSTOMER_PRICE_BELOW_COST", f"قیمت فروش نماینده نمی‌تواند از قیمت همکاری استخرها ({floor}) کمتر باشد.", 422)
+        raise AppError("CUSTOMER_PRICE_BELOW_COST", f"قیمت فروش نماینده نمی‌تواند از قیمت همکاری بسته‌ها ({floor}) کمتر باشد.", 422)
 
 
 async def stores_below_cost(session: AsyncSession, product: Product, reseller_price: int, group_id: uuid.UUID | None = None) -> int:
@@ -595,7 +595,7 @@ async def set_customer_price(session: AsyncSession, store: Store, product_id: uu
     price (``set_pool_price``), which wins there."""
     product, sp = await _priced_product(session, store, product_id)
     if await session.scalar(select(PoolProduct.id).where(PoolProduct.product_id == product_id).limit(1)) is None:
-        raise AppError("PRODUCT_NOT_IN_POOL", "این محصول در هیچ استخری نیست و قابل فروش نیست.", 422)
+        raise AppError("PRODUCT_NOT_IN_POOL", "این محصول در هیچ بسته‌ای نیست و قابل فروش نیست.", 422)
     await ensure_customer_price(session, product, customer_price)
     sp.customer_price = customer_price or None
     return sp
@@ -610,10 +610,10 @@ async def set_pool_price(
     product, _sp = await _priced_product(session, store, product_id)
     group = await session.get(PanelGroup, group_id)
     if not group or not group.is_enabled or not group.reseller_enabled:
-        raise NotFound("استخر فروش")
+        raise NotFound("بسته فروش")
     pp = await pool_product(session, group_id, product_id)
     if pp is None:
-        raise AppError("PRODUCT_NOT_IN_POOL", "این پکیج در استخر انتخاب‌شده فروخته نمی‌شود.", 422)
+        raise AppError("PRODUCT_NOT_IN_POOL", "این پکیج در بسته انتخاب‌شده فروخته نمی‌شود.", 422)
     row = await session.scalar(select(StorePoolPrice).where(
         StorePoolPrice.store_id == store.id, StorePoolPrice.panel_group_id == group_id, StorePoolPrice.product_id == product_id))
     if not customer_price:
@@ -622,7 +622,7 @@ async def set_pool_price(
         return None
     cost = effective_prices(product, pp)[1]
     if customer_price < cost:
-        raise AppError("CUSTOMER_PRICE_BELOW_COST", f"قیمت فروش در استخر «{group.name}» نمی‌تواند از قیمت همکاری همین استخر ({cost}) کمتر باشد.", 422)
+        raise AppError("CUSTOMER_PRICE_BELOW_COST", f"قیمت فروش در بسته «{group.name}» نمی‌تواند از قیمت همکاری همین بسته ({cost}) کمتر باشد.", 422)
     if row is None:
         session.add(StorePoolPrice(store_id=store.id, panel_group_id=group_id, product_id=product_id, customer_price=customer_price))
     else:

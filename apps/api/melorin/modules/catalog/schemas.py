@@ -20,7 +20,7 @@ class CatalogItem(BaseModel):
 class QuoteRequest(BaseModel):
     product_id: uuid.UUID
     coupon_code: str | None = Field(default=None, max_length=50)
-    panel_group_id: uuid.UUID | None = None  # the pool the customer picked (UI: استخر فروش)
+    panel_group_id: uuid.UUID | None = None  # the pool the customer picked (UI: بسته فروش)
     selected_panel_id: uuid.UUID | None = None  # manual pools only
     vpn_account_id: uuid.UUID | None = None  # renewal: price comes from the pool the account was sold through
 

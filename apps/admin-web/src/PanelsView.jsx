@@ -197,10 +197,10 @@ function PanelDrawer({ panel, groups, idx, onClose, onSubmit, onToggle, onDelete
       </>}
     </Section>}
 
-    <Section title={edit ? "استخرها" : "۶ · استخرها (اختیاری)"} hint="استخر مشخص می‌کند محصولات کدام پنل‌ها را برای ساخت اکانت بسنجند. محصولاتی که استخر ندارند روی هر پنل سالمی ساخته می‌شوند.">
+    <Section title={edit ? "بسته‌ها" : "۶ · بسته‌ها (اختیاری)"} hint="بسته مشخص می‌کند محصولات کدام پنل‌ها را برای ساخت اکانت بسنجند. محصولاتی که بسته ندارند روی هر پنل سالمی ساخته می‌شوند.">
       {groups.length
         ? <div className="flex flex-wrap gap-2">{groups.map((g) => { const on = gids.includes(g.id); return <button key={g.id} type="button" aria-pressed={on} className={`btn btn-g !py-1 !text-xs ${on ? "!border-[var(--ac)]" : ""}`} onClick={() => toggleG(g.id)}>{on ? <Check size={13} /> : <Plus size={13} />}{g.name}{!g.is_enabled && <span className="text-[var(--mu)]">(غیرفعال)</span>}</button>; })}</div>
-        : <p className="text-xs leading-6 text-[var(--mu)]">هنوز استخری ساخته نشده است. از صفحه‌ی «استخرهای فروش» می‌توانید بسازید.</p>}
+        : <p className="text-xs leading-6 text-[var(--mu)]">هنوز بسته‌ای ساخته نشده است. از صفحه‌ی «بسته‌های فروش» می‌توانید بسازید.</p>}
     </Section>
 
     <section><button type="button" className="flex items-center gap-1.5 text-xs font-bold text-[var(--mu)]" aria-expanded={adv} onClick={() => setAdv(!adv)}><ChevronDown size={14} className={adv ? "" : "-rotate-90"} />تنظیمات پیشرفته (JSON)</button>
@@ -259,7 +259,7 @@ function PanelSection({ p, servers, stat, groups, busy, srvBusy, filtered, dense
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-        <span className="text-[var(--mu)]">استخرها:</span>
+        <span className="text-[var(--mu)]">بسته‌ها:</span>
         {groups.length ? groups.slice(0, 4).map((g) => <RelChip key={g.id} to="panel-groups" params={{ q: g.name }} tone="wn" Icon={Layers} dim={!g.is_enabled}>{g.name}</RelChip>) : <span className="font-bold text-[var(--wn)]">هیچ — این پنل چیزی نمی‌فروشد</span>}
         {groups.length > 4 && <span className="text-[var(--mu)]">+{num(groups.length - 4)}</span>}
         <span className={`mr-auto flex items-center gap-1 ${stale ? "font-bold text-[var(--wn)]" : "text-[var(--mu)]"}`} title={p.last_health_at ? dt(p.last_health_at) : ""}>{stale && <AlertTriangle size={12} />}آخرین بررسی: {ago(p.last_health_at)}</span>
@@ -375,7 +375,7 @@ export default function PanelsView({ api, toast }) {
     const n = (idx.serversByPanel.get(p.id) || []).length;
     setBusy((x) => new Set(x).add(p.id));
     const ok = await removeEntity(infra.call, `/api/v1/admin/panels/${p.id}`, { toast, title: "حذف پنل", done: `«${p.name}» حذف شد`,
-      message: `«${p.name}» برای همیشه حذف شود؟${n ? ` ${num(n)} سرور آن هم حذف می‌شود و` : ""} از استخرها خارج می‌شود. پنل واقعی (سنایی/پاسارگارد) دست‌نخورده می‌ماند. اگر روی این پنل اکانت ساخته شده باشد حذف انجام نمی‌شود و باید آن را غیرفعال کنید.` });
+      message: `«${p.name}» برای همیشه حذف شود؟${n ? ` ${num(n)} سرور آن هم حذف می‌شود و` : ""} از بسته‌ها خارج می‌شود. پنل واقعی (سنایی/پاسارگارد) دست‌نخورده می‌ماند. اگر روی این پنل اکانت ساخته شده باشد حذف انجام نمی‌شود و باید آن را غیرفعال کنید.` });
     if (alive.current) setBusy((x) => { const m = new Set(x); m.delete(p.id); return m; });
     if (ok) { setDrawer(null); setSrvDrawer(null); await infra.reload(); }
   };
@@ -427,7 +427,7 @@ export default function PanelsView({ api, toast }) {
 
     <div className="tool">
       <SearchBox label="جستجوی پنل یا سرور" placeholder="جستجو در پنل، سرور، موقعیت یا آدرس…" value={q} onChange={setQ} />
-      {!!(infra.groups.rows || []).length && <select aria-label="فیلتر استخر" className="inp !w-auto !py-2 !text-xs font-bold" value={groupF} onChange={(e) => setGroupF(e.target.value)}><option value="">همه استخرها</option>{(infra.groups.rows || []).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select>}
+      {!!(infra.groups.rows || []).length && <select aria-label="فیلتر بسته" className="inp !w-auto !py-2 !text-xs font-bold" value={groupF} onChange={(e) => setGroupF(e.target.value)}><option value="">همه بسته‌ها</option>{(infra.groups.rows || []).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select>}
       <SortSelect value={sort} onChange={setSort} options={[["attention", "مشکل‌دارها اول"], ["name", "نام"], ["free", "بیشترین ظرفیت آزاد"], ["usage", "بیشترین پُری"]]} />
       <ViewToggle value={dense} onChange={setDense} options={[["full", "کامل"], ["dense", "فشرده"]]} />
       <div className="mr-auto flex items-center gap-2">
@@ -437,7 +437,7 @@ export default function PanelsView({ api, toast }) {
     </div>
 
     {hasScope && <p className="flex flex-wrap items-center gap-2 rounded-xl bg-[var(--inb)] px-3 py-2 text-xs font-bold text-[var(--in)]">
-      {only && <>فقط یک پنل نمایش داده می‌شود</>}{group && <>پنل‌های استخر «{group.name}»</>}{productObj && <>{group || only ? " · " : ""}پنل‌ها و سرورهایی که «{productObj.name}» را پوشش می‌دهند</>}
+      {only && <>فقط یک پنل نمایش داده می‌شود</>}{group && <>پنل‌های بسته «{group.name}»</>}{productObj && <>{group || only ? " · " : ""}پنل‌ها و سرورهایی که «{productObj.name}» را پوشش می‌دهند</>}
       <button className="mr-auto underline" onClick={clearScope}>نمایش همه</button></p>}
 
     {failed && <ErrorBar onRetry={infra.reload}><AlertTriangle size={16} />دریافت پنل‌ها ناموفق بود.</ErrorBar>}

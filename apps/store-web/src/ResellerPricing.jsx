@@ -1,4 +1,4 @@
-// Reseller panel › Pricing. The reseller prices every package per sales pool (استخر فروش) of their own store.
+// Reseller panel › Pricing. The reseller prices every package per sales pool (بسته فروش) of their own store.
 // Design: one scope at a time (store-wide base price, or one pool), a table whose rows show cost → price → profit → state,
 // a local draft that is reviewed and saved in ONE request (all or nothing), and quick tools (markup, copy from another pool)
 // that only fill the draft. The core remains the authority: it refuses any price below the pool's cost.
@@ -129,7 +129,7 @@ export default function Pricing({ coreFetch, base, notify, dirtyRef }) {
     if (!tool.from) return;
     let skipped = 0;
     const n = fill((row, cost) => { const price = effectiveIn(row, tool.from); if (price && price < cost) skipped += 1; return price || null; });
-    notify(`${fa(n)} قیمت کپی شد${skipped ? ` · ${fa(skipped)} مورد از قیمت همکاری این استخر کمتر بود و رد شد` : ""}`);
+    notify(`${fa(n)} قیمت کپی شد${skipped ? ` · ${fa(skipped)} مورد از قیمت همکاری این بسته کمتر بود و رد شد` : ""}`);
   };
   const discard = () => { setDraft({}); setErrors({}); };
 
@@ -162,7 +162,7 @@ export default function Pricing({ coreFetch, base, notify, dirtyRef }) {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="max-w-2xl">
           <h3 className="text-lg font-extrabold">قیمت‌گذاری فروشگاه شما</h3>
-          <p className="mt-1.5 text-sm leading-7 text-muted">برای هر استخر جداگانه تعیین کنید مشتری‌های شما چه مبلغی بپردازند. اگر برای یک استخر قیمتی نگذارید، <b className="text-ink">قیمت پایه</b> همان پکیج استفاده می‌شود. پکیجی که قیمت ندارد یا ارزان‌تر از قیمت همکاری باشد به مشتری نمایش داده نمی‌شود.</p>
+          <p className="mt-1.5 text-sm leading-7 text-muted">برای هر بسته جداگانه تعیین کنید مشتری‌های شما چه مبلغی بپردازند. اگر برای یک بسته قیمتی نگذارید، <b className="text-ink">قیمت پایه</b> همان پکیج استفاده می‌شود. پکیجی که قیمت ندارد یا ارزان‌تر از قیمت همکاری باشد به مشتری نمایش داده نمی‌شود.</p>
         </div>
         <div className="grid grid-cols-3 gap-2 text-center text-xs" role="group" aria-label="خلاصهٔ وضعیت قیمت‌ها">
           {[["ok", "قابل فروش", total.ok, "text-mint"], ["unset", "بدون قیمت", total.unset, "text-muted"], ["below_cost", "زیر قیمت همکاری", total.below_cost, "text-danger"]].map(([k, l, n, c]) =>
@@ -172,7 +172,7 @@ export default function Pricing({ coreFetch, base, notify, dirtyRef }) {
     </div>
 
     <div role="tablist" aria-label="دامنهٔ قیمت‌گذاری" className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 md:mx-0 md:flex-wrap md:px-0">
-      {[{ id: BASE, name: "قیمت پایه", kind: "همهٔ استخرها", open: true }, ...pools].map((p) => {
+      {[{ id: BASE, name: "قیمت پایه", kind: "همهٔ بسته‌ها", open: true }, ...pools].map((p) => {
         const t = p.id === BASE ? null : tally(p.id); const attention = t ? t.unset + t.below_cost : 0; const active = scope === p.id;
         return <button key={p.id} role="tab" aria-selected={active} onClick={() => setScope(p.id)} className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition ${active ? "bg-primary text-onprimary shadow-soft" : "bg-surface text-ink ring-1 ring-line hover:bg-surface2"}`}>
           {p.id === BASE ? <Tags size={16} /> : <Layers size={16} />}{p.name}{p.kind && <span className={`text-[11px] font-semibold ${active ? "opacity-70" : "text-muted"}`}>{p.kind}</span>}
@@ -184,7 +184,7 @@ export default function Pricing({ coreFetch, base, notify, dirtyRef }) {
     <div className="card !p-0" data-grid>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line p-4">
         <p className="text-xs leading-6 text-muted">
-          {inBase ? "قیمت پایه باید از گران‌ترین قیمت همکاری میان استخرها کمتر نباشد؛ استخری که قیمت اختصاصی دارد از آن استفاده نمی‌کند." : <>قیمت‌های اختصاصی استخر «{activePool?.name}». خالی‌گذاشتن یعنی استفاده از قیمت پایه.{activePool && !activePool.open && <b className="text-danger"> این استخر برای فروشگاه شما غیرفعال است؛ قیمت ثبت می‌شود ولی تا فعال‌شدن فروخته نمی‌شود.</b>}</>}
+          {inBase ? "قیمت پایه باید از گران‌ترین قیمت همکاری میان بسته‌ها کمتر نباشد؛ بسته‌ای که قیمت اختصاصی دارد از آن استفاده نمی‌کند." : <>قیمت‌های اختصاصی بسته «{activePool?.name}». خالی‌گذاشتن یعنی استفاده از قیمت پایه.{activePool && !activePool.open && <b className="text-danger"> این بسته برای فروشگاه شما غیرفعال است؛ قیمت ثبت می‌شود ولی تا فعال‌شدن فروخته نمی‌شود.</b>}</>}
         </p>
         <label className="flex items-center gap-2 text-xs font-bold">نمایش
           <select className="input !w-auto !py-1.5 !text-xs" value={filter} onChange={(e) => setFilter(e.target.value)}><option value="all">همهٔ پکیج‌ها</option><option value="attention">فقط نیازمند اقدام</option></select></label>
@@ -204,9 +204,9 @@ export default function Pricing({ coreFetch, base, notify, dirtyRef }) {
             <button className="btn-ghost" onClick={markup}><Percent size={14} />اعمال روی پیش‌نویس</button>
           </div>
           {!inBase && <div className="space-y-2 rounded-xl bg-surface2 p-3">
-            <div className="text-xs font-bold">کپی قیمت از استخر دیگر</div>
-            <select className="input !py-2 !text-xs" aria-label="استخر مبدأ" value={tool.from} onChange={(e) => setTool({ ...tool, from: e.target.value })}><option value="">انتخاب استخر…</option>{pools.filter((p) => p.id !== scope).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
-            <p className="text-[11px] leading-5 text-muted">قیمتی که کمتر از قیمت همکاری همین استخر باشد کپی نمی‌شود.</p>
+            <div className="text-xs font-bold">کپی قیمت از بسته دیگر</div>
+            <select className="input !py-2 !text-xs" aria-label="بسته مبدأ" value={tool.from} onChange={(e) => setTool({ ...tool, from: e.target.value })}><option value="">انتخاب بسته…</option>{pools.filter((p) => p.id !== scope).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
+            <p className="text-[11px] leading-5 text-muted">قیمتی که کمتر از قیمت همکاری همین بسته باشد کپی نمی‌شود.</p>
             <button className="btn-ghost" disabled={!tool.from} onClick={copyFrom}><Copy size={14} />کپی در پیش‌نویس</button>
           </div>}
         </div>
@@ -223,7 +223,7 @@ export default function Pricing({ coreFetch, base, notify, dirtyRef }) {
           const inherited = !inBase && !own && baseNow(row) ? baseNow(row) : null;
           const edited = dirtyKeys.includes(k);
           return <li key={row.product_id} className={`grid gap-x-3 gap-y-2 border-t border-line px-4 py-3 ${gridCols} md:items-center ${edited ? "bg-accent-soft/50" : ""}`}>
-            <div className="min-w-0"><div className="font-bold">{row.name}</div><div className="text-xs text-muted">{fa(row.duration_days)} روز · {row.traffic_gb ? `${fa(row.traffic_gb)} گیگ` : "نامحدود"}{!inBase && row.pools.find((p) => p.pool_id === scope)?.listed === false && " · در این استخر پنهان است"}</div></div>
+            <div className="min-w-0"><div className="font-bold">{row.name}</div><div className="text-xs text-muted">{fa(row.duration_days)} روز · {row.traffic_gb ? `${fa(row.traffic_gb)} گیگ` : "نامحدود"}{!inBase && row.pools.find((p) => p.pool_id === scope)?.listed === false && " · در این بسته پنهان است"}</div></div>
             <div className="flex items-center justify-between text-sm md:block"><span className="text-xs text-muted md:hidden">{inBase ? "حداقل مجاز" : "قیمت همکاری"}</span><span className="font-bold">{fa(cost)}</span></div>
             <div><MoneyInput label={`قیمت ${row.name}`} value={k in draft ? draft[k] : own ?? ""} placeholder={inherited ? `${grouped(inherited)} (قیمت پایه)` : "تعیین نشده"} invalid={typedLow || !!errors[k]} onChange={(d) => setCell(scope, row, d)} />
               {(typedLow || errors[k]) && <p role="alert" className="mt-1 text-[11px] leading-5 text-danger">{errors[k] || `کمتر از قیمت همکاری (${fa(cost)})`}</p>}</div>
@@ -233,7 +233,7 @@ export default function Pricing({ coreFetch, base, notify, dirtyRef }) {
               {(own != null || k in draft) && <button className="grid h-8 w-8 place-items-center rounded-full text-muted transition hover:bg-surface2 hover:text-ink" aria-label={inBase ? "پاک‌کردن قیمت پایه" : "حذف قیمت اختصاصی"} title={inBase ? "پاک‌کردن قیمت پایه" : "حذف قیمت اختصاصی (استفاده از قیمت پایه)"} onClick={() => setCell(scope, row, "")}><X size={15} /></button>}</div>
           </li>;
         })}
-        {!visible.length && <li className="border-t border-line p-8 text-center text-sm text-muted">{filter === "all" ? "پکیجی در این استخر فروخته نمی‌شود." : "همهٔ پکیج‌های این بخش قیمت معتبر دارند 🎉"}</li>}
+        {!visible.length && <li className="border-t border-line p-8 text-center text-sm text-muted">{filter === "all" ? "پکیجی در این بسته فروخته نمی‌شود." : "همهٔ پکیج‌های این بخش قیمت معتبر دارند 🎉"}</li>}
       </ul>
     </div>
 

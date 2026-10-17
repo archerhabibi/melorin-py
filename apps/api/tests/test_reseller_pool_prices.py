@@ -1,4 +1,4 @@
-"""A reseller prices every package per sales pool (UI: استخر فروش) in their own store.
+"""A reseller prices every package per sales pool (UI: بسته فروش) in their own store.
 
 Two levels, one rule: the pool's own price wins, else the store-wide price of the package; a price below the
 reseller price (cost) of THAT pool is refused when set, hidden from every list and refused again at checkout.
