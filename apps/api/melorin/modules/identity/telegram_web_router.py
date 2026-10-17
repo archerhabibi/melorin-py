@@ -7,6 +7,7 @@ import datetime as dt
 
 from fastapi import APIRouter, Depends, Request, Response
 
+from melorin.core import integrations
 from melorin.core.db import utcnow
 from melorin.core.deps import Session, main_store, require_bot_service
 from melorin.core.errors import AppError
@@ -40,13 +41,14 @@ async def start(body: TelegramWebStart, session: Session, request: Request, resp
         raise AppError("NOT_FOUND", "فروشگاه یافت نشد.", 404)
     started = await web.create_session(session, store, ip=client_ip(request), user_agent=request.headers.get("user-agent"))
     link = f"https://t.me/{started.bot_username}?start=wl_{started.row.public_id}"
+    cfg = await integrations.get_telegram(session)
     response.headers.update(NO_STORE)
     return TelegramWebStartOut(
         session_id=started.row.public_id,
         poll_token=started.poll_token,
         deeplink=link,
         qr=_qr(link),
-        match_code=started.row.match_code if web.number_match_enabled() else None,
+        match_code=started.row.match_code if web.number_match_enabled(cfg) else None,
         bot_username=started.bot_username,
         expires_in=web.seconds_left(started.row),
         poll_interval=web.POLL_INTERVAL_SECONDS,
@@ -73,14 +75,15 @@ async def cancel(session_id: str, body: TelegramWebPoll, session: Session):
 async def bot_inspect(body: TelegramWebInspect, session: Session):
     row = await web.inspect(session, body.session_id, body.store_id, body.telegram_id)
     created = row.created_at.replace(tzinfo=row.created_at.tzinfo or dt.UTC)
+    number_match = web.number_match_enabled(await integrations.get_telegram(session))
     return TelegramWebInspectOut(
         status=row.status,
         device=row.req_device or "دستگاه ناشناس",
         ip=row.req_ip,
         age_seconds=max(0, int((utcnow() - created).total_seconds())),
         expires_in=web.seconds_left(row),
-        number_match=web.number_match_enabled(),
-        choices=web.choices_of(row) if web.number_match_enabled() else [],
+        number_match=number_match,
+        choices=web.choices_of(row) if number_match else [],
     )
 
 

@@ -18,9 +18,9 @@ from melorin.modules.identity.models import Identity, RefreshToken, TelegramLogi
 from melorin.modules.identity.schemas import TelegramProfile
 from melorin.modules.identity.telegram_web_router import tgweb
 from melorin.modules.stores.models import Store
-from melorin.modules.system.models import AuditEvent, FeatureFlag, SecurityEvent
+from melorin.modules.system.models import AuditEvent, FeatureFlag, SecurityEvent, SystemSetting
 
-TABLES = [User.__table__, Identity.__table__, RefreshToken.__table__, Store.__table__, TelegramLoginSession.__table__, AuditEvent.__table__, SecurityEvent.__table__, FeatureFlag.__table__]
+TABLES = [User.__table__, Identity.__table__, RefreshToken.__table__, Store.__table__, TelegramLoginSession.__table__, AuditEvent.__table__, SecurityEvent.__table__, FeatureFlag.__table__, SystemSetting.__table__]
 BOT = {"X-Bot-Secret": get_settings().bot_service_secret}
 CHROME = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
 
