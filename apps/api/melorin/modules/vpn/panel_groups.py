@@ -10,7 +10,7 @@ from melorin.core.db import Base, IdMixin, TimestampMixin
 
 
 class PanelGroup(IdMixin, TimestampMixin, Base):
-    """A sales pool (UI name: استخر فروش): panels + connection kind + routing, naming and quota policy.
+    """A sales pool (UI name: بسته فروش): panels + connection kind + routing, naming and quota policy.
 
     The table keeps its historical name ``panel_groups``; only the customer/admin vocabulary changed.
     """

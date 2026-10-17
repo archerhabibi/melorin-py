@@ -101,7 +101,7 @@ class ResellerTelegramRunner(_module.TelegramRunner):
             eff = money(pl["effective_price"]) if pl.get("effective_price") else "تعیین نشده"
             tag = "" if pl.get("source") != "store" else " (قیمت کلی)"
             buttons.append([(f"{pl.get('kind_label') or ''} {pl['pool_name']} · {eff}{tag} · هزینه {money(pl['cost'])}".strip(), f"prs:{i}")])
-        await self.send(ctx.chat_id, f"{row['name']}\nقیمت را برای کدام استخر تعیین می‌کنید؟ قیمت هر استخر بر قیمت کلی فروشگاه مقدم است.", buttons)
+        await self.send(ctx.chat_id, f"{row['name']}\nقیمت را برای کدام بسته تعیین می‌کنید؟ قیمت هر بسته بر قیمت کلی فروشگاه مقدم است.", buttons)
 
     async def cb_price_scope(self, ctx, which):
         pid = (self.state.get(str(ctx.chat_id)) or {}).get("price_for")
@@ -109,13 +109,13 @@ class ResellerTelegramRunner(_module.TelegramRunner):
             return await self.send(ctx.chat_id, "ابتدا /prices را بفرستید.")
         if which == "s":
             self._merge_state(ctx.chat_id, price_pool=None)
-            return await self.send(ctx.chat_id, "قیمت کلی فروشگاه را به عدد (تومان) بفرستید؛ برای استخرهایی که قیمت اختصاصی ندارند اعمال می‌شود. برای برداشتن، 0 بفرستید.")
+            return await self.send(ctx.chat_id, "قیمت کلی فروشگاه را به عدد (تومان) بفرستید؛ برای بسته‌هایی که قیمت اختصاصی ندارند اعمال می‌شود. برای برداشتن، 0 بفرستید.")
         row = await self._price_row(ctx, pid)
         pools = (row or {}).get("pools") or []
         try:
             pool = pools[int(which)]
         except (ValueError, IndexError):
-            return await self.send(ctx.chat_id, "استخر پیدا نشد؛ دوباره /prices را بفرستید.")
+            return await self.send(ctx.chat_id, "بسته پیدا نشد؛ دوباره /prices را بفرستید.")
         self._merge_state(ctx.chat_id, price_pool=str(pool["pool_id"]))
         await self.send(ctx.chat_id, f"قیمت فروش در «{pool['pool_name']}» را به عدد (تومان) بفرستید (حداقل {money(pool['cost'])}). برای برداشتن و استفاده از قیمت کلی، 0 بفرستید.")
 
@@ -136,7 +136,7 @@ class ResellerTelegramRunner(_module.TelegramRunner):
             return await self.send(ctx.chat_id, f"{e.message if hasattr(e, 'message') else e}\nعدد دیگری بفرستید:")
         self._merge_state(ctx.chat_id, price_for=None, price_pool=None)
         if not out.get("customer_price"):
-            msg = "قیمت اختصاصی این استخر برداشته شد؛ از قیمت کلی فروشگاه استفاده می‌شود." if pool else "قیمت برداشته شد؛ محصول به مشتری نمایش داده نمی‌شود."
+            msg = "قیمت اختصاصی این بسته برداشته شد؛ از قیمت کلی فروشگاه استفاده می‌شود." if pool else "قیمت برداشته شد؛ محصول به مشتری نمایش داده نمی‌شود."
         else:
             msg = f"✅ قیمت فروش {money(out['customer_price'])} ثبت شد."
         await self.send(ctx.chat_id, msg)

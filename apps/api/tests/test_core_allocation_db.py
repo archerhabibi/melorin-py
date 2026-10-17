@@ -191,7 +191,7 @@ async def test_provisioning_refuses_an_order_without_a_pool(session):
     await make_group(session, servers=(("S1", "P1", {}),))
     with pytest.raises(PanelError) as e:
         await resolve_allocation(session, order_for(None), make_product(None))
-    assert "استخر" in e.value.message
+    assert "بسته" in e.value.message
 
 
 async def test_load_figures_cost_a_constant_number_of_queries(session):

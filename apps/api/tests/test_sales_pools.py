@@ -1,4 +1,4 @@
-"""Sales pools (UI: استخر فروش): connection kind, per-pool package prices, customer-facing pool lists,
+"""Sales pools (UI: بسته فروش): connection kind, per-pool package prices, customer-facing pool lists,
 mandatory custom names and the admin rules around a pool's packages. Runs against in-memory SQLite."""
 
 import importlib.util

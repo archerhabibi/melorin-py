@@ -138,10 +138,10 @@ async def backup_status(_: AdminUser, session: Session):
 async def _check_default_group(session, group_id) -> None:
     """A product's default group is applied by the core to every channel, so it must be usable without any choice by the buyer."""
     group = await session.get(PanelGroup, group_id)
-    if not group: raise NotFound("گروه پنل")
-    if not group.is_enabled: raise AppError("DEFAULT_GROUP_DISABLED", "گروه پیش‌فرض محصول باید فعال باشد.", 422)
+    if not group: raise NotFound("بسته فروش")
+    if not group.is_enabled: raise AppError("DEFAULT_GROUP_DISABLED", "بسته پیش‌فرض محصول باید فعال باشد.", 422)
     if group.selection_mode != "automatic":
-        raise AppError("DEFAULT_GROUP_MANUAL", "گروه پیش‌فرض محصول باید انتخاب خودکار باشد؛ ربات و سایت پنل را انتخاب نمی‌کنند.", 422)
+        raise AppError("DEFAULT_GROUP_MANUAL", "بسته پیش‌فرض محصول باید انتخاب خودکار باشد؛ ربات و سایت پنل را انتخاب نمی‌کنند.", 422)
 
 
 @router.post("/products", response_model=ProductOut, status_code=201)
@@ -386,9 +386,9 @@ async def list_panel_groups(_: AdminUser, session: Session):
 @router.post("/panel-groups", status_code=201)
 async def create_panel_group(body: CreatePanelGroup, admin: AdminUser, session: Session):
     if body.selection_mode == "manual" and not body.panel_ids:
-        raise AppError("PANEL_GROUP_PANELS_REQUIRED", "گروه دستی باید حداقل یک پنل داشته باشد.", 400)
+        raise AppError("PANEL_GROUP_PANELS_REQUIRED", "بسته دستی باید حداقل یک پنل داشته باشد.", 400)
     valid = (await session.scalars(select(Panel.id).where(Panel.id.in_(body.panel_ids)))).all()
-    if len(valid) != len(set(body.panel_ids)): raise NotFound("پنل گروه")
+    if len(valid) != len(set(body.panel_ids)): raise NotFound("بسته فروش")
     b = PanelGroup(name=body.name, selection_mode=body.selection_mode, naming_mode=body.naming_mode, kind_label=body.kind_label,
                     is_enabled=body.is_enabled, reseller_enabled=body.reseller_enabled, sales_limit=body.sales_limit)
     session.add(b); await session.flush()
@@ -402,17 +402,17 @@ async def create_panel_group(body: CreatePanelGroup, admin: AdminUser, session: 
 @router.patch("/panel-groups/{panel_group_id}")
 async def update_panel_group(panel_group_id: uuid.UUID, body: UpdatePanelGroup, admin: AdminUser, session: Session):
     b = await session.get(PanelGroup, panel_group_id)
-    if not b: raise NotFound("گروه پنل")
+    if not b: raise NotFound("بسته فروش")
     if body.selection_mode == "manual" and b.selection_mode != "manual" and await session.scalar(select(func.count()).select_from(Product).where(Product.default_panel_group_id == b.id)):
-        raise AppError("DEFAULT_GROUP_IN_USE", "این گروه پیش‌فرض یک یا چند محصول است و نمی‌تواند دستی شود؛ ابتدا گروه پیش‌فرض آن محصولات را تغییر دهید.", 409)
+        raise AppError("DEFAULT_GROUP_IN_USE", "این بسته پیش‌فرض یک یا چند محصول است و نمی‌تواند دستی شود؛ ابتدا بسته پیش‌فرض آن محصولات را تغییر دهید.", 409)
     # Explicit null is meaningful only for sales_limit (= unlimited); other fields ignore null.
     for k, v in body.model_dump(exclude_unset=True, exclude={"panel_ids", "member_labels"}).items():
         if v is not None or k == "sales_limit": setattr(b, k, v)
     if body.panel_ids is not None:
         valid = (await session.scalars(select(Panel.id).where(Panel.id.in_(body.panel_ids)))).all()
-        if len(valid) != len(set(body.panel_ids)): raise NotFound("پنل گروه")
+        if len(valid) != len(set(body.panel_ids)): raise NotFound("بسته فروش")
         if b.selection_mode == "manual" and not body.panel_ids:
-            raise AppError("PANEL_GROUP_PANELS_REQUIRED", "گروه دستی باید حداقل یک پنل داشته باشد.", 400)
+            raise AppError("PANEL_GROUP_PANELS_REQUIRED", "بسته دستی باید حداقل یک پنل داشته باشد.", 400)
         # Sync instead of delete+insert so per-panel sold_count / limits survive edits.
         existing = {m.panel_id: m for m in (await session.scalars(select(PanelGroupMember).where(PanelGroupMember.panel_group_id == b.id))).all()}
         wanted = list(dict.fromkeys(body.panel_ids))
@@ -445,7 +445,7 @@ def _pool_product_out(pp: PoolProduct, p: Product) -> dict:
 
 @router.get("/panel-groups/{panel_group_id}/products")
 async def list_pool_products(panel_group_id: uuid.UUID, _: AdminUser, session: Session):
-    if not await session.get(PanelGroup, panel_group_id): raise NotFound("استخر فروش")
+    if not await session.get(PanelGroup, panel_group_id): raise NotFound("بسته فروش")
     rows = (await session.execute(select(PoolProduct, Product).join(Product, Product.id == PoolProduct.product_id)
                                   .where(PoolProduct.panel_group_id == panel_group_id).order_by(PoolProduct.sort, Product.sort))).all()
     return [_pool_product_out(pp, p) for pp, p in rows]
@@ -454,8 +454,8 @@ async def list_pool_products(panel_group_id: uuid.UUID, _: AdminUser, session: S
 @router.put("/panel-groups/{panel_group_id}/products/{product_id}")
 async def set_pool_product(panel_group_id: uuid.UUID, product_id: uuid.UUID, body: PoolProductIn, admin: AdminUser, session: Session):
     group, product = await session.get(PanelGroup, panel_group_id), await session.get(Product, product_id)
-    if not group or not product: raise NotFound("استخر فروش یا پکیج")
-    if product.is_test: raise AppError("TEST_PRODUCT_NOT_SELLABLE", "پکیج تست در استخر فروخته نمی‌شود؛ فقط گروه پیش‌فرض دارد.", 422)
+    if not group or not product: raise NotFound("بسته فروش یا پکیج")
+    if product.is_test: raise AppError("TEST_PRODUCT_NOT_SELLABLE", "پکیج تست در بسته فروخته نمی‌شود؛ فقط گروه پیش‌فرض دارد.", 422)
     pp = await session.scalar(select(PoolProduct).where(PoolProduct.panel_group_id == group.id, PoolProduct.product_id == product.id))
     if not pp:
         pp = PoolProduct(panel_group_id=group.id, product_id=product.id); session.add(pp)
@@ -471,9 +471,9 @@ async def set_pool_product(panel_group_id: uuid.UUID, product_id: uuid.UUID, bod
 async def remove_pool_product(panel_group_id: uuid.UUID, product_id: uuid.UUID, admin: AdminUser, session: Session):
     product = await session.get(Product, product_id)
     pp = await session.scalar(select(PoolProduct).where(PoolProduct.panel_group_id == panel_group_id, PoolProduct.product_id == product_id))
-    if not pp or not product: raise NotFound("پکیج استخر")
+    if not pp or not product: raise NotFound("پکیج بسته")
     if product.default_panel_group_id == panel_group_id:
-        raise AppError("PRODUCT_DEFAULT_POOL", "این استخر، استخر پیش‌فرض این پکیج است. ابتدا استخر پیش‌فرض پکیج را عوض کنید.", 409)
+        raise AppError("PRODUCT_DEFAULT_POOL", "این بسته، بسته پیش‌فرض این پکیج است. ابتدا بسته پیش‌فرض پکیج را عوض کنید.", 409)
     audit.record(session, "pool_product.removed", actor_id=admin.id, actor_type="admin", entity_type="panel_group", entity_id=panel_group_id, data={"product_id": str(product_id)})
     await session.execute(delete(StorePoolPrice).where(StorePoolPrice.panel_group_id == panel_group_id, StorePoolPrice.product_id == product_id))
     await session.delete(pp)
@@ -563,7 +563,7 @@ async def delete_panel(panel_id: uuid.UUID, admin: AdminUser, session: Session):
     for m in members:
         g = await session.get(PanelGroup, m.panel_group_id)
         if g and g.selection_mode == "manual" and await _count(session, PanelGroupMember, PanelGroupMember.panel_group_id == g.id) <= 1:
-            raise AppError("PANEL_LAST_IN_MANUAL_GROUP", f"این پنل تنها پنل گروه دستی «{g.name}» است. ابتدا پنل دیگری به آن گروه اضافه کنید یا گروه را حذف کنید.", 409, {"group": g.name})
+            raise AppError("PANEL_LAST_IN_MANUAL_GROUP", f"این پنل تنها بسته فروش دستی «{g.name}» است. ابتدا پنل دیگری به آن گروه اضافه کنید یا گروه را حذف کنید.", 409, {"group": g.name})
     for m in members: await session.delete(m)
     for s in servers: await session.delete(s)
     audit.record(session, "panel.deleted", actor_id=admin.id, actor_type="admin", entity_type="panel", entity_id=p.id, data={"kind": p.kind, "url": p.base_url, "name": p.name, "servers_deleted": len(servers), "groups_left": len(members)})
@@ -588,20 +588,20 @@ async def delete_server(server_id: uuid.UUID, admin: AdminUser, session: Session
 @router.delete("/panel-groups/{panel_group_id}")
 async def delete_panel_group(panel_group_id: uuid.UUID, admin: AdminUser, session: Session):
     b = await session.get(PanelGroup, panel_group_id)
-    if not b: raise NotFound("گروه پنل")
+    if not b: raise NotFound("بسته فروش")
     products = [x.name for x in (await session.scalars(select(Product).where(Product.default_panel_group_id == b.id))).all()]
     if products:
-        raise AppError("PANEL_GROUP_IN_USE", f"این گروه، گروه پیش‌فرض محصول {_names(products)} است. ابتدا گروه آن محصولات را تغییر دهید.", 409, {"products": products})
+        raise AppError("PANEL_GROUP_IN_USE", f"این بسته، بسته پیش‌فرض محصول {_names(products)} است. ابتدا گروه آن محصولات را تغییر دهید.", 409, {"products": products})
     orders = await _count(session, Order, Order.panel_group_id == b.id)
     if orders:
-        raise AppError("PANEL_GROUP_HAS_HISTORY", f"{orders} سفارش از طریق این گروه ساخته شده است؛ حذف آن تاریخچه را خراب می‌کند. به‌جای حذف، گروه را غیرفعال کنید.", 409, {"orders": orders})
+        raise AppError("PANEL_GROUP_HAS_HISTORY", f"{orders} سفارش از طریق این بسته ساخته شده است؛ حذف آن تاریخچه را خراب می‌کند. به‌جای حذف، بسته را غیرفعال کنید.", 409, {"orders": orders})
     await session.execute(delete(PanelGroupMember).where(PanelGroupMember.panel_group_id == b.id))
     await session.execute(delete(StorePoolPrice).where(StorePoolPrice.panel_group_id == b.id))
     await session.execute(delete(PoolProduct).where(PoolProduct.panel_group_id == b.id))
     await session.execute(delete(StorePanelGroup).where(StorePanelGroup.panel_group_id == b.id))
     audit.record(session, "panel_group.deleted", actor_id=admin.id, actor_type="admin", entity_type="panel_group", entity_id=b.id, data={"name": b.name})
     await session.delete(b)
-    await _commit_or_conflict(session, "این گروه")
+    await _commit_or_conflict(session, "این بسته")
     return {"ok": True}
 
 
