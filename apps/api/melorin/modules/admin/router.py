@@ -16,7 +16,7 @@ from melorin.core.pagination import Page, PageParams
 from melorin.core.security import new_opaque_token, token_hash
 from melorin.modules.admin.schemas import *  # noqa: F403
 from melorin.modules.catalog.schemas import AdminCouponIn, CouponPatch
-from melorin.modules.catalog.models import Coupon, CouponRedemption, Product, StoreProduct
+from melorin.modules.catalog.models import Coupon, CouponRedemption, Product, StorePoolPrice, StoreProduct
 from melorin.modules.identity.models import IdentityLinkReview, User
 from melorin.modules.orders import service as order_service
 from melorin.modules.orders.models import Order
@@ -462,7 +462,7 @@ async def set_pool_product(panel_group_id: uuid.UUID, product_id: uuid.UUID, bod
     pp.main_price, pp.reseller_price, pp.is_listed, pp.sort = body.main_price, body.reseller_price, body.is_listed, body.sort
     audit.record(session, "pool_product.set", actor_id=admin.id, actor_type="admin", entity_type="panel_group", entity_id=group.id,
                  data={"product_id": str(product.id), "main_price": body.main_price, "reseller_price": body.reseller_price, "is_listed": body.is_listed})
-    hidden = await allocation.stores_below_cost(session, product, allocation.effective_prices(product, pp)[1])
+    hidden = await allocation.stores_below_cost(session, product, allocation.effective_prices(product, pp)[1], group.id)
     await session.commit()
     return {**_pool_product_out(pp, product), "stores_below_cost": hidden}
 
@@ -475,6 +475,7 @@ async def remove_pool_product(panel_group_id: uuid.UUID, product_id: uuid.UUID, 
     if product.default_panel_group_id == panel_group_id:
         raise AppError("PRODUCT_DEFAULT_POOL", "این استخر، استخر پیش‌فرض این پکیج است. ابتدا استخر پیش‌فرض پکیج را عوض کنید.", 409)
     audit.record(session, "pool_product.removed", actor_id=admin.id, actor_type="admin", entity_type="panel_group", entity_id=panel_group_id, data={"product_id": str(product_id)})
+    await session.execute(delete(StorePoolPrice).where(StorePoolPrice.panel_group_id == panel_group_id, StorePoolPrice.product_id == product_id))
     await session.delete(pp)
     await session.commit()
     return {"ok": True}
@@ -539,6 +540,7 @@ async def delete_product(product_id: uuid.UUID, admin: AdminUser, session: Sessi
     rules = await _count(session, CommissionRule, CommissionRule.product_id == p.id)
     if rules:
         raise AppError("PRODUCT_USED_BY_COMMISSION_RULES", f"برای این محصول {rules} قانون پورسانت/پاداش اختصاصی تعریف شده است. ابتدا آن‌ها را حذف کنید.", 409, {"rules": rules})
+    await session.execute(delete(StorePoolPrice).where(StorePoolPrice.product_id == p.id))
     await session.execute(delete(StoreProduct).where(StoreProduct.product_id == p.id))
     await session.execute(delete(PoolProduct).where(PoolProduct.product_id == p.id))
     audit.record(session, "product.deleted", actor_id=admin.id, actor_type="admin", entity_type="product", entity_id=p.id, data={"code": p.code, "name": p.name})
@@ -594,6 +596,7 @@ async def delete_panel_group(panel_group_id: uuid.UUID, admin: AdminUser, sessio
     if orders:
         raise AppError("PANEL_GROUP_HAS_HISTORY", f"{orders} سفارش از طریق این گروه ساخته شده است؛ حذف آن تاریخچه را خراب می‌کند. به‌جای حذف، گروه را غیرفعال کنید.", 409, {"orders": orders})
     await session.execute(delete(PanelGroupMember).where(PanelGroupMember.panel_group_id == b.id))
+    await session.execute(delete(StorePoolPrice).where(StorePoolPrice.panel_group_id == b.id))
     await session.execute(delete(PoolProduct).where(PoolProduct.panel_group_id == b.id))
     await session.execute(delete(StorePanelGroup).where(StorePanelGroup.panel_group_id == b.id))
     audit.record(session, "panel_group.deleted", actor_id=admin.id, actor_type="admin", entity_type="panel_group", entity_id=b.id, data={"name": b.name})

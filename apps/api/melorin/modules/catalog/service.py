@@ -7,7 +7,7 @@ from melorin.core.db import utcnow
 from melorin.core.errors import AppError
 from melorin.domain import coupon as cdom
 from melorin.domain.pricing import Discount, PricingError, Quote, quote
-from melorin.modules.catalog.models import Coupon, CouponRedemption, Product, StoreProduct
+from melorin.modules.catalog.models import Coupon, CouponRedemption, Product, StorePoolPrice, StoreProduct
 from melorin.modules.stores.models import Store
 
 
@@ -20,8 +20,9 @@ async def store_catalog(session: AsyncSession, store: Store) -> list[tuple[Produ
         .order_by(Product.sort, Product.main_price)
     )
     rows = (await session.execute(q)).all()
-    if store.kind == "reseller":
-        rows = [r for r in rows if r[1].customer_price]
+    if store.kind == "reseller":  # priced = a store-wide price, or a price of its own in at least one pool
+        pooled = set((await session.scalars(select(StorePoolPrice.product_id).where(StorePoolPrice.store_id == store.id))).all())
+        rows = [r for r in rows if r[1].customer_price or r[0].id in pooled]
     else:
         rows = [r for r in rows if r[0].currency == store.currency]  # no implicit conversion
     return rows
@@ -126,8 +127,10 @@ async def release_redemption(session: AsyncSession, order_id) -> None:
 
 async def build_quote(
     session: AsyncSession, store: Store, product: Product, sp: StoreProduct | None, coupon: Coupon | None, discount: int = 0,
-    *, main_currency: str | None = None, prices: tuple[int, int] | None = None,
+    *, main_currency: str | None = None, prices: tuple[int, int] | None = None, customer_price: int | None = None,
 ) -> Quote:
+    """``customer_price`` is the retail price the core resolved for the pool being sold (the reseller's pool price,
+    else the store-wide price); without it the store-wide price of ``sp`` is used."""
     if product.is_test:
         return Quote(store.kind, str(product.id), 0, 0, 0, None, store.currency, None)
     if store.kind == "main" and product.currency != store.currency:
@@ -139,7 +142,7 @@ async def build_quote(
     try:
         return quote(
             store_kind=store.kind, product_id=str(product.id), main_price=main_price, reseller_price=reseller_price,
-            customer_price=sp.customer_price if sp else None, currency=store.currency, discount=d,
+            customer_price=customer_price if customer_price is not None else (sp.customer_price if sp else None), currency=store.currency, discount=d,
             reseller_currency=product.currency if store.kind == "reseller" else None,
             platform_funded=bool(coupon and coupon.funded_by == "platform"),
         )
