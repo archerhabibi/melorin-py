@@ -62,3 +62,12 @@ async def test_series_is_currency_separated_and_counts_only_succeeded(sdb):
     assert by["IRT"]["amounts"][-1] == 1500 and by["IRT"]["counts"][-1] == 2 and sum(by["IRT"]["amounts"]) == 1500
     assert by["USD"]["amounts"][-3] == 9 and sum(by["USD"]["amounts"]) == 9
     assert out["orders"][-1] == 1 and out["orders"][-2] == 2 and sum(out["orders"]) == 3
+
+
+def test_postgres_day_bucketing_is_forced_to_utc():
+    """Regression: date(timestamptz) follows the DB session time zone; the chart axis is UTC."""
+    from sqlalchemy.dialects import postgresql
+
+    sql = str(ts.utc_day(Payment.created_at, "postgresql").compile(dialect=postgresql.dialect()))
+    assert "timezone" in sql.lower() and "date(" in sql.lower()
+    assert "timezone" not in str(ts.utc_day(Payment.created_at, "sqlite").compile()).lower()

@@ -22,6 +22,18 @@ def day_axis(days: int, now: dt.datetime | None = None) -> list[str]:
     return [(today - dt.timedelta(days=i)).isoformat() for i in range(days - 1, -1, -1)]
 
 
+def utc_day(column, dialect_name: str):
+    """Calendar day of ``column`` in UTC.
+
+    ``date(timestamptz)`` uses the *database session* time zone on PostgreSQL, so on a server that is not
+    set to UTC a sale made late in the UTC day lands on the next day, outside the UTC axis, and is silently
+    dropped from the chart (M-bug). Convert to UTC explicitly. SQLite stores naive UTC, so plain ``date`` is exact.
+    """
+    if dialect_name == "postgresql":
+        return func.date(func.timezone("UTC", column))
+    return func.date(column)
+
+
 def fill(axis: list[str], rows: list[tuple]) -> list[int]:
     """rows: (day, value) pairs; days outside the axis are ignored, gaps become 0."""
     by_day = {str(d)[:10]: int(v or 0) for d, v in rows}
@@ -33,13 +45,14 @@ async def build_timeseries(session: AsyncSession, days: int = 30, now: dt.dateti
     axis = day_axis(days, now)
     since = dt.datetime.fromisoformat(axis[0]).replace(tzinfo=dt.UTC)
     sale_at = func.coalesce(Payment.reviewed_at, Payment.created_at)
-    sale_day = func.date(sale_at)
+    dialect = session.bind.dialect.name if session.bind is not None else "sqlite"
+    sale_day = utc_day(sale_at, dialect)
     pay_rows = (await session.execute(
         select(Payment.currency, sale_day, func.count(Payment.id), func.sum(Payment.amount))
         .where(Payment.status == "succeeded", sale_at >= since)
         .group_by(Payment.currency, sale_day)
     )).all()
-    order_day = func.date(Order.created_at)
+    order_day = utc_day(Order.created_at, dialect)
     order_rows = (await session.execute(
         select(order_day, func.count(Order.id)).where(Order.created_at >= since).group_by(order_day)
     )).all()

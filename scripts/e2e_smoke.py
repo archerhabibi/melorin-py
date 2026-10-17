@@ -31,7 +31,26 @@ H = lambda t, **k: {"Authorization": f"Bearer {t}", **k}  # noqa: E731
 
 for p in ("/health/live", "/health/ready"):
     check(f"GET {p}", c.get(BASE + p).status_code == 200)
-r = c.post(f"{A}/auth/password/login", json={"email": os.getenv("E2E_ADMIN_EMAIL", "admin@example.com"), "password": os.getenv("E2E_ADMIN_PASSWORD", "Adm1n-Pass-9xQ!")})
+def _admin_totp() -> str | None:
+    """Current RFC 6238 code when E2E_ADMIN_TOTP_SECRET is set (super admins require a second factor)."""
+    secret = os.getenv("E2E_ADMIN_TOTP_SECRET") or os.getenv("MELORIN_BOOTSTRAP_ADMIN_TOTP_SECRET")
+    if not secret:
+        return None
+    import base64
+    import hashlib
+    import hmac
+    import struct
+
+    key = base64.b32decode(secret + "=" * (-len(secret) % 8))
+    digest = hmac.new(key, struct.pack(">Q", int(time.time()) // 30), hashlib.sha1).digest()
+    offset = digest[-1] & 0x0F
+    return f"{(struct.unpack('>I', digest[offset : offset + 4])[0] & 0x7FFFFFFF) % 1_000_000:06d}"
+
+
+_login = {"email": os.getenv("E2E_ADMIN_EMAIL", "admin@example.com"), "password": os.getenv("E2E_ADMIN_PASSWORD", "Strong-admin-password-123456")}
+if _admin_totp():
+    _login["totp_code"] = _admin_totp()
+r = c.post(f"{A}/auth/password/login", json=_login)
 check("admin login", r.status_code == 200, r.text)
 adm = H(r.json()["access_token"])
 store = c.get(f"{A}/stores/main").json()

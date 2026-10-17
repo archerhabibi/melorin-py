@@ -17,7 +17,11 @@ async def main():
     async with engine().begin() as conn:
         result = await conn.execute(text("select version_num from alembic_version"))
         version = result.scalar_one()
-        assert version == "0012_baskets_to_panel_groups", version
+        from alembic.config import Config
+        from alembic.script import ScriptDirectory
+
+        head = ScriptDirectory.from_config(Config("alembic.ini")).get_current_head()
+        assert version == head, (version, head)
         columns = (await conn.execute(text(
             "select column_name from information_schema.columns "
             "where table_name = 'commissions' and column_name = 'referred_user_id'"
