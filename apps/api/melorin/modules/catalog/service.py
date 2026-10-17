@@ -7,12 +7,12 @@ from melorin.core.db import utcnow
 from melorin.core.errors import AppError
 from melorin.domain import coupon as cdom
 from melorin.domain.pricing import Discount, PricingError, Quote, quote
-from melorin.modules.catalog.models import Coupon, CouponRedemption, Product, StorePoolPrice, StoreProduct
+from melorin.modules.catalog.models import Coupon, CouponRedemption, Product, StoreBundlePrice, StoreProduct
 from melorin.modules.stores.models import Store
 
 
 async def store_catalog(session: AsyncSession, store: Store) -> list[tuple[Product, StoreProduct]]:
-    """Products listed for a store, before pools are considered. Customers only ever see ``allocation.sellable_products``."""
+    """Products listed for a store, before bundles are considered. Customers only ever see ``allocation.sellable_products``."""
     q = (
         select(Product, StoreProduct)
         .join(StoreProduct, (StoreProduct.product_id == Product.id) & (StoreProduct.store_id == store.id))
@@ -20,9 +20,9 @@ async def store_catalog(session: AsyncSession, store: Store) -> list[tuple[Produ
         .order_by(Product.sort, Product.main_price)
     )
     rows = (await session.execute(q)).all()
-    if store.kind == "reseller":  # priced = a store-wide price, or a price of its own in at least one pool
-        pooled = set((await session.scalars(select(StorePoolPrice.product_id).where(StorePoolPrice.store_id == store.id))).all())
-        rows = [r for r in rows if r[1].customer_price or r[0].id in pooled]
+    if store.kind == "reseller":  # priced = a store-wide price, or a price of its own in at least one bundle
+        bundled = set((await session.scalars(select(StoreBundlePrice.product_id).where(StoreBundlePrice.store_id == store.id))).all())
+        rows = [r for r in rows if r[1].customer_price or r[0].id in bundled]
     else:
         rows = [r for r in rows if r[0].currency == store.currency]  # no implicit conversion
     return rows
@@ -129,7 +129,7 @@ async def build_quote(
     session: AsyncSession, store: Store, product: Product, sp: StoreProduct | None, coupon: Coupon | None, discount: int = 0,
     *, main_currency: str | None = None, prices: tuple[int, int] | None = None, customer_price: int | None = None,
 ) -> Quote:
-    """``customer_price`` is the retail price the core resolved for the pool being sold (the reseller's pool price,
+    """``customer_price`` is the retail price the core resolved for the bundle being sold (the reseller's bundle price,
     else the store-wide price); without it the store-wide price of ``sp`` is used."""
     if product.is_test:
         return Quote(store.kind, str(product.id), 0, 0, 0, None, store.currency, None)
@@ -138,7 +138,7 @@ async def build_quote(
     if store.kind == "reseller" and main_currency and product.currency != main_currency:
         raise AppError("CURRENCY_MISMATCH", "واحد پول قیمت نمایندگی با فروشگاه اصلی یکسان نیست.", 409)
     d = Discount(coupon.code, 0, discount, None) if coupon and discount else None
-    main_price, reseller_price = prices or (product.main_price, product.reseller_price)  # the core hands over pool prices
+    main_price, reseller_price = prices or (product.main_price, product.reseller_price)  # the core hands over bundle prices
     try:
         return quote(
             store_kind=store.kind, product_id=str(product.id), main_price=main_price, reseller_price=reseller_price,

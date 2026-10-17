@@ -2,11 +2,11 @@
 //
 // Three screens form ONE chain that mirrors the allocation core (vpn/allocation.py):
 //
-//     پنل و سرورها (Panel + its Servers)  →  بسته فروش (Pool = PanelGroup)  →  پکیج (PoolProduct)
+//     پنل و سرورها (Panel + its Servers)  →  بسته فروش (Bundle = PanelGroup)  →  پکیج (BundleProduct)
 //
 // * a server is only a capacity slot of ONE panel, so servers are managed inside the panel screen;
-// * a pool collects panels (policy + sales limit) and is REQUIRED: there is no route without a pool;
-// * a product is sold through the pools that list it (group.product_ids); core: pool → panel → server.
+// * a bundle collects panels (policy + sales limit) and is REQUIRED: there is no route without a bundle;
+// * a product is sold through the bundles that list it (group.product_ids); core: bundle → panel → server.
 //
 // `useInfra` loads the lists once per screen and derives the relations so every screen can show
 // where an item sits in the chain, what it depends on, and what is broken for sale.
@@ -102,7 +102,7 @@ export function buildIndex(panels, servers, groups, products) {
     const live = l.filter((s) => serverState(s, panelById.get(s.panel_id)).ok);
     return { panels: ids.length, servers: l.length, live: live.length, capacity: l.reduce((a, s) => a + (s.capacity || 0), 0), active: l.reduce((a, s) => a + (s.active_accounts || 0), 0), free: live.reduce((a, s) => a + free(s), 0) };
   };
-  /** What the core could actually allocate for a product: pools listing it → enabled members → live servers. */
+  /** What the core could actually allocate for a product: bundles listing it → enabled members → live servers. */
   const reach = (p) => {
     let gs = groupsByProduct.get(p.id) || [];
     if (!gs.length && p.default_panel_group_id && groupById.get(p.default_panel_group_id)) gs = [groupById.get(p.default_panel_group_id)];
@@ -115,11 +115,11 @@ export function buildIndex(panels, servers, groups, products) {
       else on.forEach((g) => (g.panels || []).filter((m) => m.is_enabled).forEach((m) => panelIds.add(m.panel_id)));
       if (!issue && !panelIds.size) issue = "بسته‌های این محصول پنل فعالی ندارند";
     }
-    const pool = issue ? [] : servers.filter((s) => panelIds.has(s.panel_id) && serves(s, p.code));
-    const live = pool.filter((s) => serverState(s, panelById.get(s.panel_id)).ok);
-    if (!issue && !pool.length) issue = "هیچ سروری روی پنل‌های این بسته‌ها این محصول را پوشش نمی‌دهد";
+    const cands = issue ? [] : servers.filter((s) => panelIds.has(s.panel_id) && serves(s, p.code));
+    const live = cands.filter((s) => serverState(s, panelById.get(s.panel_id)).ok);
+    if (!issue && !cands.length) issue = "هیچ سروری روی پنل‌های این بسته‌ها این محصول را پوشش نمی‌دهد";
     else if (!issue && !live.length) issue = "سرورهای سازگار همه غیرفعال، پر یا روی پنل ناسالم‌اند";
-    return { group: gs[0] || null, groups: gs, direct: false, servers: pool, live, free: live.reduce((a, s) => a + free(s), 0), issue, ok: !issue };
+    return { group: gs[0] || null, groups: gs, direct: false, servers: cands, live, free: live.reduce((a, s) => a + free(s), 0), issue, ok: !issue };
   };
   /** Products that can end up on a server of `panelId` whose allow-list is `codes` (null/[] = all). */
   const productsForPanel = (panelId, codes) => products.filter((p) => {

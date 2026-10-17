@@ -39,16 +39,16 @@ class StoreProduct(IdMixin, TimestampMixin, Base):
     is_listed: Mapped[bool] = mapped_column(Boolean, default=True)  # reseller can hide
 
 
-class StorePoolPrice(IdMixin, TimestampMixin, Base):
+class StoreBundlePrice(IdMixin, TimestampMixin, Base):
     """A reseller's retail price for ONE package inside ONE sales bundle of their own store.
 
-    It overrides ``StoreProduct.customer_price`` (the store-wide price of the package) for that pool only, so a
-    reseller can sell the same package at a different price in a direct pool and in a tunnel pool. The row exists
-    only while a price is set: clearing the price deletes the row and the pool falls back to the store-wide price.
-    The price is never below the pool's reseller price (the reseller's cost); the core enforces that.
+    It overrides ``StoreProduct.customer_price`` (the store-wide price of the package) for that bundle only, so a
+    reseller can sell the same package at a different price in a direct bundle and in a tunnel bundle. The row exists
+    only while a price is set: clearing the price deletes the row and the bundle falls back to the store-wide price.
+    The price is never below the bundle's reseller price (the reseller's cost); the core enforces that.
     """
 
-    __tablename__ = "store_pool_prices"
+    __tablename__ = "store_bundle_prices"
     __table_args__ = (UniqueConstraint("store_id", "panel_group_id", "product_id"),)
     store_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("stores.id", ondelete="CASCADE"), index=True)
     panel_group_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("panel_groups.id", ondelete="CASCADE"), index=True)

@@ -20,23 +20,23 @@ class CatalogItem(BaseModel):
 class QuoteRequest(BaseModel):
     product_id: uuid.UUID
     coupon_code: str | None = Field(default=None, max_length=50)
-    panel_group_id: uuid.UUID | None = None  # the pool the customer picked (UI: بسته فروش)
-    selected_panel_id: uuid.UUID | None = None  # manual pools only
-    vpn_account_id: uuid.UUID | None = None  # renewal: price comes from the pool the account was sold through
+    panel_group_id: uuid.UUID | None = None  # the bundle the customer picked (UI: بسته فروش)
+    selected_panel_id: uuid.UUID | None = None  # manual bundles only
+    vpn_account_id: uuid.UUID | None = None  # renewal: price comes from the bundle the account was sold through
 
 
-class PoolPanelOut(BaseModel):
+class BundlePanelOut(BaseModel):
     id: uuid.UUID
     label: str
 
 
-class PoolOut(BaseModel):
+class BundleOut(BaseModel):
     id: uuid.UUID
     name: str
     kind_label: str
     selection_mode: str
     naming_mode: str
-    panels: list[PoolPanelOut]  # filled only for manual pools: what the customer may choose between
+    panels: list[BundlePanelOut]  # filled only for manual bundles: what the customer may choose between
 
 
 class QuoteOut(BaseModel):

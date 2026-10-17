@@ -4,9 +4,9 @@ import { AlertTriangle, ArrowDown, ArrowLeft, ArrowUp, Boxes, CheckCircle2, Chev
 import { Bar, Drawer, Empty, ErrorBar, Field, KpiBar, NumInput, Paginator, Ring, SearchBox, Section, Segmented, SortSelect, Stat, Switch, Toggle, ViewToggle, DeleteButton, capTone, errText, num, removeEntity, tint, useAlive } from "./kit.jsx";
 import { Dot, InfraChain, Rel, RelChip, Warn, clearParam, health as hs, infraHref, memberIds, useHashParams, useInfra } from "./infra.jsx";
 
-// A sales bundle is a SALES POOL (بسته فروش): panels + connection kind + the packages it sells, each with
-// its own price. Customers pick a pool, so the pool is the only way an account gets sold; there is no
-// pool-less route. Selection / naming / reseller policy are advanced options: most pools never change them.
+// A sales bundle is a SALES BUNDLE (بسته فروش): panels + connection kind + the packages it sells, each with
+// its own price. Customers pick a bundle, so the bundle is the only way an account gets sold; there is no
+// bundle-less route. Selection / naming / reseller policy are advanced options: most bundles never change them.
 const API = "/api/v1/admin/panel-groups";
 const PRODUCTS = "/api/v1/admin/products";
 const MODES = {
@@ -91,8 +91,8 @@ function GroupTable({ rows, panelById, idx, busy, onEdit, onToggle, onDelete }) 
 const EMPTY = { name: "", selection_mode: "automatic", naming_mode: "automatic", kind_label: "", sales_limit: "", is_enabled: true, reseller_enabled: true, panel_ids: [], member_labels: {} };
 const fromGroup = (g) => ({ name: g.name, selection_mode: g.selection_mode, naming_mode: g.naming_mode, kind_label: g.kind_label || "", sales_limit: g.sales_limit ? String(g.sales_limit) : "", is_enabled: g.is_enabled, reseller_enabled: g.reseller_enabled, panel_ids: memberIds(g), member_labels: Object.fromEntries((g.panels || []).map((m) => [m.panel_id, m.label || ""])) });
 
-/** The packages a pool sells. Saved row by row (no drawer "save" needed): empty price = the product's own price. */
-function PoolPackages({ group, products, pooledIds, call, toast, onChanged }) {
+/** The packages a bundle sells. Saved row by row (no drawer "save" needed): empty price = the product's own price. */
+function BundlePackages({ group, products, bundledIds, call, toast, onChanged }) {
   const [rows, setRows] = useState(null), [draft, setDraft] = useState({}), [busy, setBusy] = useState(""), [q, setQ] = useState("");
   const load = async () => { try { const r = await call(`${API}/${group.id}/products`); setRows(r.ok ? await r.json() : []); } catch { setRows([]); } };
   useEffect(() => { load(); }, [group.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -127,11 +127,11 @@ function PoolPackages({ group, products, pooledIds, call, toast, onChanged }) {
       </li>; })}</ul>}
     <label className="relative block"><Search size={15} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--mu)]" /><input aria-label="جستجوی پکیج" className="inp !pr-9" placeholder="افزودن پکیج… (جستجو)" value={q} onChange={(e) => setQ(e.target.value)} /></label>
     <div className="max-h-48 space-y-1 overflow-y-auto">{!availProd.length ? <p className="p-3 text-center text-xs text-[var(--mu)]">{q ? "پکیجی پیدا نشد" : "همه‌ی پکیج‌ها در این بسته هستند"}</p>
-      : availProd.map((p) => <button key={p.id} type="button" disabled={!!busy} onClick={() => add(p)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-right text-sm transition hover:bg-[var(--mb)]"><span className="min-w-0 flex-1 truncate font-bold">{p.name}{!p.is_active && <span className="mr-1.5 text-[11px] font-normal text-[var(--mu)]">(غیرفعال)</span>}</span><span className="text-[11px] text-[var(--mu)]">{pooledIds.has(p.id) ? `${num(p.main_price)}` : "بدون بسته"}</span><Plus size={14} className="text-[var(--ac)]" /></button>)}</div>
+      : availProd.map((p) => <button key={p.id} type="button" disabled={!!busy} onClick={() => add(p)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-right text-sm transition hover:bg-[var(--mb)]"><span className="min-w-0 flex-1 truncate font-bold">{p.name}{!p.is_active && <span className="mr-1.5 text-[11px] font-normal text-[var(--mu)]">(غیرفعال)</span>}</span><span className="text-[11px] text-[var(--mu)]">{bundledIds.has(p.id) ? `${num(p.main_price)}` : "بدون بسته"}</span><Plus size={14} className="text-[var(--ac)]" /></button>)}</div>
   </Section>;
 }
 
-function GroupDrawer({ group, panels, products, idx, pooledIds, call, toast, onChanged, onClose, onSubmit, onDelete }) {
+function GroupDrawer({ group, panels, products, idx, bundledIds, call, toast, onChanged, onClose, onSubmit, onDelete }) {
   const edit = !!group;
   const [f, setF] = useState(() => (group ? fromGroup(group) : EMPTY));
   const base = useRef(JSON.stringify(f));
@@ -183,7 +183,7 @@ function GroupDrawer({ group, panels, products, idx, pooledIds, call, toast, onC
       {edit && <p className="text-[11px] leading-5 text-[var(--mu)]">حذف یا تغییر ترتیب پنل‌ها، آمار فروش پنل‌های باقی‌مانده را حفظ می‌کند.</p>}
     </Section>
 
-    {edit ? <PoolPackages group={group} products={products} pooledIds={pooledIds} call={call} toast={toast} onChanged={onChanged} />
+    {edit ? <BundlePackages group={group} products={products} bundledIds={bundledIds} call={call} toast={toast} onChanged={onChanged} />
       : <p className="rounded-xl bg-[var(--sf2)] px-4 py-3 text-xs leading-6 text-[var(--mu)]">بعد از ساخت بسته، همین‌جا پکیج‌های قابل فروش و قیمت هر کدام را اضافه کنید.</p>}
 
     <section>
@@ -225,7 +225,7 @@ export default function PanelGroupsView({ api, toast }) {
   const shown = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const editing = drawer && drawer !== "add" ? (rows || []).find((g) => g.id === drawer) : null;
 
-  const pooledIds = useMemo(() => new Set((rows || []).flatMap((g) => g.product_ids || [])), [rows]);
+  const bundledIds = useMemo(() => new Set((rows || []).flatMap((g) => g.product_ids || [])), [rows]);
   const save = async (f, group) => {
     const labels = Object.fromEntries(f.panel_ids.map((id) => [id, (f.member_labels[id] || "").trim()]));
     const same = group && JSON.stringify(memberIds(group)) === JSON.stringify(f.panel_ids);
@@ -274,6 +274,6 @@ export default function PanelGroupsView({ api, toast }) {
         ? <GroupTable rows={shown} panelById={panelById} idx={idx} busy={busy} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} onDelete={remove} />
         : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{shown.map((g) => <GroupCard key={g.id} g={g} panelById={panelById} stat={idx.groupStat(g)} products={idx.productsByGroup.get(g.id) || []} busy={busy.has(g.id)} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} onDelete={remove} />)}</div>}
         <Paginator page={page} setPage={setPage} total={filtered.length} pageSize={PAGE_SIZE} /></>}
-    {drawer && (drawer === "add" || editing) && <GroupDrawer key={drawer} group={editing} panels={panels} products={products} idx={idx} pooledIds={pooledIds} call={call} toast={toast} onChanged={infra.reload} onClose={() => setDrawer(null)} onSubmit={save} onDelete={remove} />}
+    {drawer && (drawer === "add" || editing) && <GroupDrawer key={drawer} group={editing} panels={panels} products={products} idx={idx} bundledIds={bundledIds} call={call} toast={toast} onChanged={infra.reload} onClose={() => setDrawer(null)} onSubmit={save} onDelete={remove} />}
   </div>;
 }

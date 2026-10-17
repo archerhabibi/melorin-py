@@ -197,7 +197,7 @@ class TelegramRunner:
             "menu": self.cb_menu, "plan": self.cb_plan, "buy": self.cb_buy, "ticket": self.cb_ticket,
             "reply": self.cb_reply, "readall": self.cb_readall, "wallet": self.cb_wallet_amount,
             "account": self.cb_account, "plans": self.cb_plans, "cpn": self.cb_coupon, "qr": self.cb_qr,
-            "pool": self.cb_pool, "pnl": self.cb_panel, "qt": self.cb_quote, "rnw": self.cb_renew, "rnq": self.cb_renew_quote, "rnb": self.cb_renew_buy, "noop": self.cb_noop,
+            "bundle": self.cb_bundle, "pnl": self.cb_panel, "qt": self.cb_quote, "rnw": self.cb_renew, "rnq": self.cb_renew_quote, "rnb": self.cb_renew_buy, "noop": self.cb_noop,
             "tnew": self.cb_ticket_new, "tedit": self.cb_ticket_edit_msg, "tsubj": self.cb_ticket_edit_subject,
             "tclose": self.cb_ticket_close, "treopen": self.cb_ticket_reopen, "rsc": self.cb_reseller_cancel,
             "wla": self.cb_web_login, "wld": self.cb_web_login_deny,
@@ -578,7 +578,7 @@ class TelegramRunner:
     async def cb_noop(self, ctx, _):
         return None
 
-    # ----- shop: pool -> (location) -> packages -> (username) -> quote -> pay -----
+    # ----- shop: bundle -> (location) -> packages -> (username) -> quote -> pay -----
     def _merge_state(self, chat_id, **kw) -> None:
         """Update keys of the per-chat state without wiping the rest (None removes a key)."""
         st = dict(self.state.get(str(chat_id)) or {})
@@ -592,43 +592,43 @@ class TelegramRunner:
     def _flow(self, ctx) -> dict:
         return (self.state.get(str(ctx.chat_id)) or {}).get("flow") or {}
 
-    async def pools(self) -> list:
+    async def bundles(self) -> list:
         store = await self.store_info()
-        r = await self.client.get(f"{self.core}/api/v1/stores/{store['id']}/pools")
+        r = await self.client.get(f"{self.core}/api/v1/stores/{store['id']}/bundles")
         r.raise_for_status()
         return r.json()
 
     async def cmd_plans(self, ctx, arg):
         self._merge_state(ctx.chat_id, flow=None, coupon=None, coupon_for=None)
-        pools = await self.pools()
-        if not pools:
+        bundles = await self.bundles()
+        if not bundles:
             return await self.screen(ctx, "فعلاً سرویسی برای فروش موجود نیست.", [[("↩︎ بازگشت", "menu:home")]])
-        if len(pools) == 1:
-            return await self.choose_pool(ctx, pools[0], multi=False)
-        rows = [[(f"{p.get('kind_label') or ''} · {p['name']}".strip(" ·"), f"pool:{p['id']}")] for p in pools]
+        if len(bundles) == 1:
+            return await self.choose_bundle(ctx, bundles[0], multi=False)
+        rows = [[(f"{p.get('kind_label') or ''} · {p['name']}".strip(" ·"), f"bundle:{p['id']}")] for p in bundles]
         rows.append([("↩︎ بازگشت", "menu:home")])
         await self.screen(ctx, "🛒 <b>خرید اکانت</b>\nنوع سرویس را انتخاب کنید:", rows)
 
-    async def choose_pool(self, ctx, pool, *, multi: bool):
-        flow = {"pool": pool["id"], "pname": pool["name"], "naming": pool.get("naming_mode") or "automatic", "multi": multi}
+    async def choose_bundle(self, ctx, bundle, *, multi: bool):
+        flow = {"bundle": bundle["id"], "pname": bundle["name"], "naming": bundle.get("naming_mode") or "automatic", "multi": multi}
         self._merge_state(ctx.chat_id, flow=flow, coupon=None, coupon_for=None)
-        panels = pool.get("panels") or []
+        panels = bundle.get("panels") or []
         if not panels:
             return await self.show_plans(ctx, 0)
         rows = [[(str(x["label"]), f"pnl:{x['id']}")] for x in panels]
         rows.append([("↩︎ بازگشت", "menu:plans" if multi else "menu:home")])
         await self.screen(ctx, "📍 یکی از گزینه‌ها را انتخاب کنید:", rows)
 
-    async def cb_pool(self, ctx, pool_id):
-        pool = next((p for p in await self.pools() if p["id"] == pool_id), None)
-        if pool is None:
+    async def cb_bundle(self, ctx, bundle_id):
+        bundle = next((p for p in await self.bundles() if p["id"] == bundle_id), None)
+        if bundle is None:
             return await self.cmd_plans(ctx, "")
-        await self.choose_pool(ctx, pool, multi=True)
+        await self.choose_bundle(ctx, bundle, multi=True)
 
     async def cb_panel(self, ctx, panel_id):
         flow = self._flow(ctx)
-        pool = next((p for p in await self.pools() if p["id"] == flow.get("pool")), None)
-        panel = next((x for x in (pool or {}).get("panels") or [] if x["id"] == panel_id), None)
+        bundle = next((p for p in await self.bundles() if p["id"] == flow.get("bundle")), None)
+        panel = next((x for x in (bundle or {}).get("panels") or [] if x["id"] == panel_id), None)
         if panel is None:
             return await self.cmd_plans(ctx, "")
         self._merge_state(ctx.chat_id, flow={**flow, "panel": panel["id"], "plabel": panel["label"]})
@@ -641,11 +641,11 @@ class TelegramRunner:
         flow = self._flow(ctx)
         if renew:
             items = await self.api(ctx, "GET", f"/api/v1/stores/{(await self.store_info())['id']}/accounts/{unb64(renew)}/renewal-packages")
-        elif not flow.get("pool"):
+        elif not flow.get("bundle"):
             return await self.cmd_plans(ctx, "")
         else:
             store = await self.store_info()
-            r = await self.client.get(f"{self.core}/api/v1/stores/{store['id']}/pools/{flow['pool']}/packages")
+            r = await self.client.get(f"{self.core}/api/v1/stores/{store['id']}/bundles/{flow['bundle']}/packages")
             r.raise_for_status()
             items = r.json()
         if not items:
@@ -661,7 +661,7 @@ class TelegramRunner:
         if renew:
             rows.append([("↩︎ بازگشت به اکانت", f"account:{unb64(renew)}")])
         else:
-            rows.append([("↩︎ بازگشت", f"pool:{flow['pool']}" if flow.get("panel") else "menu:plans" if flow.get("multi") else "menu:home")])
+            rows.append([("↩︎ بازگشت", f"bundle:{flow['bundle']}" if flow.get("panel") else "menu:plans" if flow.get("multi") else "menu:home")])
         head = f"\n📦 {esc(flow.get('pname'))}" if flow.get("pname") and not renew else ""
         title = "🔄 <b>تمدید اکانت</b>\nسرویس موردنظر برای تمدید را انتخاب کنید:" if renew else f"🛒 <b>خرید اکانت</b>{head}\nیک سرویس انتخاب کنید:"
         await self.screen(ctx, title, rows)
@@ -686,7 +686,7 @@ class TelegramRunner:
 
     def _alloc(self, ctx) -> dict:
         f = self._flow(ctx)
-        body = {"panel_group_id": f["pool"]} if f.get("pool") else {}
+        body = {"panel_group_id": f["bundle"]} if f.get("bundle") else {}
         if f.get("panel"):
             body["selected_panel_id"] = f["panel"]
         return body

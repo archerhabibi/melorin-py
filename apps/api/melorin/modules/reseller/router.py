@@ -191,7 +191,7 @@ async def toggle_reseller_panel_group(panel_group_id: uuid.UUID, body: dict, ctx
 @router.get("/stores/{store_id}/reseller/prices")
 async def reseller_prices(ctx: OwnerCtx, session: Session):
     """Products this store may sell. Per product: the store-wide retail price and, per sales bundle, the cost
-    (reseller price), the store's own price in that pool, the price actually charged and its state."""
+    (reseller price), the store's own price in that bundle, the price actually charged and its state."""
     return await allocation.reseller_price_table(session, ctx.store)
 
 
@@ -204,24 +204,24 @@ async def set_reseller_price(product_id: uuid.UUID, body: PriceIn, ctx: OwnerCtx
     return {"ok": True, "product_id": product_id, "customer_price": sp.customer_price}
 
 
-@router.put("/stores/{store_id}/reseller/pools/{pool_id}/prices/{product_id}")
-async def set_reseller_pool_price(pool_id: uuid.UUID, product_id: uuid.UUID, body: PriceIn, ctx: OwnerCtx, session: Session):
+@router.put("/stores/{store_id}/reseller/bundles/{bundle_id}/prices/{product_id}")
+async def set_reseller_bundle_price(bundle_id: uuid.UUID, product_id: uuid.UUID, body: PriceIn, ctx: OwnerCtx, session: Session):
     """The reseller sets the retail price of one package in ONE sales bundle of THIS store. Null or 0 removes it and the
-    pool uses the store-wide price again. The core refuses a price below that pool's reseller price (the cost)."""
-    price = await allocation.set_pool_price(session, ctx.store, pool_id, product_id, body.customer_price)
-    audit.record(session, "reseller.pool_price_set", actor_id=ctx.user.id, actor_type="reseller", entity_type="product", entity_id=product_id, store_id=ctx.store.id, data={"pool_id": str(pool_id), "customer_price": price})
+    bundle uses the store-wide price again. The core refuses a price below that bundle's reseller price (the cost)."""
+    price = await allocation.set_bundle_price(session, ctx.store, bundle_id, product_id, body.customer_price)
+    audit.record(session, "reseller.bundle_price_set", actor_id=ctx.user.id, actor_type="reseller", entity_type="product", entity_id=product_id, store_id=ctx.store.id, data={"bundle_id": str(bundle_id), "customer_price": price})
     await session.commit()
-    return {"ok": True, "pool_id": pool_id, "product_id": product_id, "customer_price": price}
+    return {"ok": True, "bundle_id": bundle_id, "product_id": product_id, "customer_price": price}
 
 
 @router.post("/stores/{store_id}/reseller/prices/batch")
 async def set_reseller_prices_batch(body: PriceBatchIn, ctx: OwnerCtx, session: Session):
-    """Save many prices at once (the pricing table of the panel), all or nothing: store-wide and per-pool prices share
+    """Save many prices at once (the pricing table of the panel), all or nothing: store-wide and per-bundle prices share
     one request. Returns the fresh price table. A refused item lists every problem and nothing is saved."""
-    changed = await allocation.set_prices_batch(session, ctx.store, [(i.pool_id, i.product_id, i.customer_price) for i in body.items])
-    for pool_id, product_id, price in changed:
-        action = "reseller.price_set" if pool_id is None else "reseller.pool_price_set"
-        audit.record(session, action, actor_id=ctx.user.id, actor_type="reseller", entity_type="product", entity_id=product_id, store_id=ctx.store.id, data={"pool_id": str(pool_id) if pool_id else None, "customer_price": price, "batch": True})
+    changed = await allocation.set_prices_batch(session, ctx.store, [(i.bundle_id, i.product_id, i.customer_price) for i in body.items])
+    for bundle_id, product_id, price in changed:
+        action = "reseller.price_set" if bundle_id is None else "reseller.bundle_price_set"
+        audit.record(session, action, actor_id=ctx.user.id, actor_type="reseller", entity_type="product", entity_id=product_id, store_id=ctx.store.id, data={"bundle_id": str(bundle_id) if bundle_id else None, "customer_price": price, "batch": True})
     await session.commit()
     return {"ok": True, "changed": len(changed), "prices": await allocation.reseller_price_table(session, ctx.store)}
 
@@ -428,9 +428,9 @@ api_router = APIRouter(prefix="/reseller-api/v1", tags=["reseller-api"])
 async def api_catalog(store_id: uuid.UUID, session: Session, x_api_key: str = Header(..., alias="X-API-Key")):
     _, ctx = await _api_ctx(session, store_id, x_api_key, "catalog:read")
     rows = await allocation.sellable_products_priced(session, ctx.store)
-    own = await allocation.store_pool_prices(session, ctx.store.id)
+    own = await allocation.store_bundle_prices(session, ctx.store.id)
     return [{"product_id": p.id, "code": p.code, "name": p.name, "price": price, "currency": ctx.store.currency, "duration_days": p.duration_days, "traffic_gb": p.traffic_gb,
-             "pool_prices": [{"pool_id": gid, "price": v} for (gid, pid), v in own.items() if pid == p.id]} for p, sp, price in rows]
+             "bundle_prices": [{"bundle_id": gid, "price": v} for (gid, pid), v in own.items() if pid == p.id]} for p, sp, price in rows]
 
 
 @api_router.get("/stores/{store_id}/customers")

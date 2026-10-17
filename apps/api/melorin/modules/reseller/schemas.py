@@ -87,9 +87,9 @@ class PriceIn(BaseModel):
 
 
 class PriceBatchItem(BaseModel):
-    """One price edit: ``pool_id`` = the sales bundle the price is for, or null for the store-wide price of the package.
-    ``customer_price`` null or 0 removes that price (a pool then falls back to the store-wide price)."""
-    pool_id: uuid.UUID | None = None
+    """One price edit: ``bundle_id`` = the sales bundle the price is for, or null for the store-wide price of the package.
+    ``customer_price`` null or 0 removes that price (a bundle then falls back to the store-wide price)."""
+    bundle_id: uuid.UUID | None = None
     product_id: uuid.UUID
     customer_price: int | None = Field(default=None, ge=0, le=10**12)
 

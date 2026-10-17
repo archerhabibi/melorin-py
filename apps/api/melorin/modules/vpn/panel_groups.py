@@ -19,7 +19,7 @@ class PanelGroup(IdMixin, TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(120))
     selection_mode: Mapped[str] = mapped_column(String(20), default="automatic")  # automatic | manual
     naming_mode: Mapped[str] = mapped_column(String(20), default="automatic")  # automatic | custom
-    kind_label: Mapped[str] = mapped_column(String(40), default="", server_default="")  # free-text badge the customer sees next to the pool name (admin decides)
+    kind_label: Mapped[str] = mapped_column(String(40), default="", server_default="")  # free-text badge the customer sees next to the bundle name (admin decides)
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     reseller_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     sales_limit: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -36,19 +36,19 @@ class PanelGroupMember(IdMixin, TimestampMixin, Base):
     sales_limit: Mapped[int | None] = mapped_column(Integer, nullable=True)
     sold_count: Mapped[int] = mapped_column(Integer, default=0)
     sort: Mapped[int] = mapped_column(Integer, default=0)
-    label: Mapped[str | None] = mapped_column(String(80), nullable=True)  # what a customer sees in a manual pool (never the panel's own name)
+    label: Mapped[str | None] = mapped_column(String(80), nullable=True)  # what a customer sees in a manual bundle (never the panel's own name)
 
 
-class PoolProduct(IdMixin, TimestampMixin, Base):
-    """A package sold inside a pool. NULL prices fall back to the product's own prices, so a pool only overrides what differs."""
+class BundleProduct(IdMixin, TimestampMixin, Base):
+    """A package sold inside a bundle. NULL prices fall back to the product's own prices, so a bundle only overrides what differs."""
 
-    __tablename__ = "pool_products"
+    __tablename__ = "bundle_products"
     __table_args__ = (UniqueConstraint("panel_group_id", "product_id"),)
     panel_group_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("panel_groups.id", ondelete="CASCADE"), index=True)
     product_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("products.id", ondelete="CASCADE"), index=True)
     main_price: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     reseller_price: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
-    is_listed: Mapped[bool] = mapped_column(Boolean, default=True)  # False = hidden from customers in this pool
+    is_listed: Mapped[bool] = mapped_column(Boolean, default=True)  # False = hidden from customers in this bundle
     sort: Mapped[int] = mapped_column(Integer, default=0)
 
 

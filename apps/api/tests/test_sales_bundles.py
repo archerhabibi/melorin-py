@@ -1,5 +1,5 @@
-"""Sales bundles (UI: بسته فروش): connection kind, per-pool package prices, customer-facing pool lists,
-mandatory custom names and the admin rules around a pool's packages. Runs against in-memory SQLite."""
+"""Sales bundles (UI: بسته فروش): connection kind, per-bundle package prices, customer-facing bundle lists,
+mandatory custom names and the admin rules around a bundle's packages. Runs against in-memory SQLite."""
 
 import importlib.util
 import types
@@ -17,7 +17,7 @@ import melorin.models  # noqa: F401
 from melorin.core.db import Base
 from melorin.core.errors import AppError
 from melorin.modules.admin import router as admin
-from melorin.modules.admin.schemas import CreateProduct, CreatePanelGroup, PoolProductIn, ProductPatch, UpdatePanelGroup
+from melorin.modules.admin.schemas import CreateProduct, CreatePanelGroup, BundleProductIn, ProductPatch, UpdatePanelGroup
 from melorin.modules.catalog import router as public
 from melorin.modules.catalog import service as catalog
 from melorin.modules.catalog.models import Product, StoreProduct
@@ -25,7 +25,7 @@ from melorin.modules.stores.models import Store
 from melorin.modules.vpn import allocation
 from melorin.modules.vpn.allocation import requested_account_name
 from melorin.modules.vpn.models import Panel, Server
-from melorin.modules.vpn.panel_groups import PanelGroup, PanelGroupMember, PoolProduct
+from melorin.modules.vpn.panel_groups import PanelGroup, PanelGroupMember, BundleProduct
 
 ADMIN = types.SimpleNamespace(id=uuid.uuid4())
 ROOT = Path(__file__).resolve().parents[1]
@@ -60,7 +60,7 @@ async def product(s, code, gb, price, reseller=None, **kw):
     return p
 
 
-async def pool(s, name="Pool", *, kind="direct", mode="automatic", naming="automatic", healthy="healthy", **kw):
+async def bundle(s, name="Bundle", *, kind="direct", mode="automatic", naming="automatic", healthy="healthy", **kw):
     g = await add(s, PanelGroup(name=name, kind_label=kind, selection_mode=mode, naming_mode=naming, **kw))
     panel = await add(s, Panel(name=f"internal-{name}", kind="mock", base_url="http://x", is_enabled=True, health_status=healthy))
     await add(s, PanelGroupMember(panel_group_id=g.id, panel_id=panel.id, sort=0), Server(name=f"srv-{name}", panel_id=panel.id))
@@ -68,37 +68,37 @@ async def pool(s, name="Pool", *, kind="direct", mode="automatic", naming="autom
 
 
 async def sell(s, group, prod, store, *, main=None, reseller=None, listed=True, sort=0, customer_price=None):
-    await add(s, PoolProduct(panel_group_id=group.id, product_id=prod.id, main_price=main, reseller_price=reseller, is_listed=listed, sort=sort))
+    await add(s, BundleProduct(panel_group_id=group.id, product_id=prod.id, main_price=main, reseller_price=reseller, is_listed=listed, sort=sort))
     if not await s.scalar(sa.select(StoreProduct.id).where(StoreProduct.store_id == store.id, StoreProduct.product_id == prod.id)):
         await add(s, StoreProduct(store_id=store.id, product_id=prod.id, is_enabled=True, is_listed=True, customer_price=customer_price))
 
 
-# ---------------------------------------------------------------- pricing per pool
-async def test_pool_price_overrides_only_what_it_sets(session):
+# ---------------------------------------------------------------- pricing per bundle
+async def test_bundle_price_overrides_only_what_it_sets(session):
     p = await product(session, "30", 30, 30000, reseller=20000)
-    g, _ = await pool(session)
+    g, _ = await bundle(session)
     assert allocation.effective_prices(p, None) == (30000, 20000)
-    pp = PoolProduct(panel_group_id=g.id, product_id=p.id, main_price=45000)
+    pp = BundleProduct(panel_group_id=g.id, product_id=p.id, main_price=45000)
     assert allocation.effective_prices(p, pp) == (45000, 20000)  # reseller cost falls back to the product's own
     pp.reseller_price = 31000
     assert allocation.effective_prices(p, pp) == (45000, 31000)
 
 
-async def test_same_package_has_a_different_price_in_each_pool(session):
+async def test_same_package_has_a_different_price_in_each_bundle(session):
     store = await main_store(session)
     p = await product(session, "30", 30, 30000)
-    direct, _ = await pool(session, "Direct")
-    tunnel, _ = await pool(session, "Tunnel", kind="tunnel")
+    direct, _ = await bundle(session, "Direct")
+    tunnel, _ = await bundle(session, "Tunnel", kind="tunnel")
     await sell(session, direct, p, store)
     await sell(session, tunnel, p, store, main=50000)
-    assert [price for *_, price in await allocation.pool_packages(session, store, direct.id)] == [30000]
-    assert [price for *_, price in await allocation.pool_packages(session, store, tunnel.id)] == [50000]
+    assert [price for *_, price in await allocation.bundle_packages(session, store, direct.id)] == [30000]
+    assert [price for *_, price in await allocation.bundle_packages(session, store, tunnel.id)] == [50000]
 
 
-async def test_quote_uses_the_pool_price_and_reseller_cost(session):
+async def test_quote_uses_the_bundle_price_and_reseller_cost(session):
     p = await product(session, "30", 30, 30000, reseller=20000)
-    g, _ = await pool(session)
-    pp = PoolProduct(panel_group_id=g.id, product_id=p.id, main_price=45000, reseller_price=33000)
+    g, _ = await bundle(session)
+    pp = BundleProduct(panel_group_id=g.id, product_id=p.id, main_price=45000, reseller_price=33000)
     main = types.SimpleNamespace(kind="main", currency="IRT")
     q = await catalog.build_quote(None, main, p, None, None, 0, prices=allocation.effective_prices(p, pp))
     assert (q.unit_price, q.total, q.reseller_cost) == (45000, 45000, None)
@@ -109,73 +109,73 @@ async def test_quote_uses_the_pool_price_and_reseller_cost(session):
 
 async def test_hidden_and_foreign_packages_are_not_listed(session):
     store = await main_store(session)
-    g, _ = await pool(session)
+    g, _ = await bundle(session)
     shown, hidden, test_pkg = await product(session, "a", 10, 1000), await product(session, "b", 20, 2000), await product(session, "t", 1, 0, is_test=True)
     await sell(session, g, shown, store)
     await sell(session, g, hidden, store, listed=False)
-    await add(session, PoolProduct(panel_group_id=g.id, product_id=test_pkg.id))
+    await add(session, BundleProduct(panel_group_id=g.id, product_id=test_pkg.id))
     await add(session, StoreProduct(store_id=store.id, product_id=test_pkg.id, is_enabled=True, is_listed=True))
-    assert [p.code for p, *_ in await allocation.pool_packages(session, store, g.id)] == ["a"]
+    assert [p.code for p, *_ in await allocation.bundle_packages(session, store, g.id)] == ["a"]
 
 
 async def test_reseller_store_lists_its_own_customer_price(session):
     store = await main_store(session, "reseller")
-    g, _ = await pool(session)
+    g, _ = await bundle(session)
     p = await product(session, "a", 10, 1000)
     await sell(session, g, p, store, customer_price=1500)
-    assert [price for *_, price in await allocation.pool_packages(session, store, g.id)] == [1500]
+    assert [price for *_, price in await allocation.bundle_packages(session, store, g.id)] == [1500]
 
 
-async def test_flat_catalog_hides_products_no_pool_sells(session):
+async def test_flat_catalog_hides_products_no_bundle_sells(session):
     store = await main_store(session)
-    g, _ = await pool(session)
-    pooled, orphan = await product(session, "a", 10, 1000), await product(session, "b", 20, 2000)
-    await sell(session, g, pooled, store)
+    g, _ = await bundle(session)
+    bundled, orphan = await product(session, "a", 10, 1000), await product(session, "b", 20, 2000)
+    await sell(session, g, bundled, store)
     await add(session, StoreProduct(store_id=store.id, product_id=orphan.id, is_enabled=True, is_listed=True))
     assert {p.code for p, _ in await catalog.store_catalog(session, store)} == {"a", "b"}
     assert {p.code for p, _ in await allocation.sellable_products(session, store)} == {"a"}
 
 
 # ---------------------------------------------------------------- what the customer sees
-async def test_customer_pool_list_skips_disabled_full_and_empty_pools(session):
+async def test_customer_bundle_list_skips_disabled_full_and_empty_bundles(session):
     store = await main_store(session)
     p = await product(session, "a", 10, 1000)
-    ok, _ = await pool(session, "OK", kind="tunnel")
-    off, _ = await pool(session, "Off", is_enabled=False)
-    full, _ = await pool(session, "Full", sales_limit=1, sold_count=1)
-    empty, _ = await pool(session, "Empty")
+    ok, _ = await bundle(session, "OK", kind="tunnel")
+    off, _ = await bundle(session, "Off", is_enabled=False)
+    full, _ = await bundle(session, "Full", sales_limit=1, sold_count=1)
+    empty, _ = await bundle(session, "Empty")
     for g in (ok, off, full):
         await sell(session, g, p, store)
-    out = await public.pools(store.id, session)
+    out = await public.bundles(store.id, session)
     assert [(x.name, x.kind_label, x.panels) for x in out] == [("OK", "tunnel", [])]
 
 
-async def test_manual_pool_shows_labels_never_internal_panel_names(session):
+async def test_manual_bundle_shows_labels_never_internal_panel_names(session):
     store = await main_store(session)
     p = await product(session, "a", 10, 1000)
-    g, panel = await pool(session, "Manual", mode="manual")
+    g, panel = await bundle(session, "Manual", mode="manual")
     sick = await add(session, Panel(name="secret-sick-host", kind="mock", base_url="http://y", is_enabled=True, health_status="down"))
     await add(session, PanelGroupMember(panel_group_id=g.id, panel_id=sick.id, sort=1))
     member = await session.scalar(sa.select(PanelGroupMember).where(PanelGroupMember.panel_id == panel.id))
     member.label = "آلمان"
     await sell(session, g, p, store)
-    (out,) = await public.pools(store.id, session)
+    (out,) = await public.bundles(store.id, session)
     assert [(x.id, x.label) for x in out.panels] == [(panel.id, "آلمان")]  # unhealthy panel not offered
     member.label = None
-    (out,) = await public.pools(store.id, session)
+    (out,) = await public.bundles(store.id, session)
     assert out.panels[0].label == "گزینه 1" and "internal" not in out.panels[0].label
 
 
-async def test_pool_packages_endpoint_refuses_a_pool_the_store_cannot_sell(session):
+async def test_bundle_packages_endpoint_refuses_a_bundle_the_store_cannot_sell(session):
     store = await main_store(session)
-    g, _ = await pool(session, "Empty")
+    g, _ = await bundle(session, "Empty")
     with pytest.raises(AppError) as e:
-        await public.pool_packages(store.id, g.id, session)
+        await public.bundle_packages(store.id, g.id, session)
     assert e.value.code == "NOT_FOUND"
 
 
 # ---------------------------------------------------------------- naming
-def test_custom_pool_requires_a_usable_name_and_cleans_it():
+def test_custom_bundle_requires_a_usable_name_and_cleans_it():
     custom, auto = types.SimpleNamespace(naming_mode="custom"), types.SimpleNamespace(naming_mode="automatic")
     assert requested_account_name(custom, "  ali vpn!! ") == "alivpn"
     assert requested_account_name(custom, "a" * 80) == "a" * 40
@@ -196,49 +196,49 @@ def test_kind_label_is_free_text_chosen_by_the_admin():
     assert UpdatePanelGroup(kind_label="x").kind_label == "x"
 
 
-async def test_admin_creates_a_pool_with_kind_and_customer_labels(session):
+async def test_admin_creates_a_bundle_with_kind_and_customer_labels(session):
     panel = await add(session, Panel(name="p", kind="mock", base_url="http://x"))
-    body = CreatePanelGroup(name="Tunnel pool", kind_label="tunnel", selection_mode="manual", panel_ids=[panel.id], member_labels={panel.id: " ترکیه "})
+    body = CreatePanelGroup(name="Tunnel bundle", kind_label="tunnel", selection_mode="manual", panel_ids=[panel.id], member_labels={panel.id: " ترکیه "})
     out = await admin.create_panel_group(body, ADMIN, session)
     assert out["kind_label"] == "tunnel" and out["panels"][0]["label"] == "ترکیه"
     out = await admin.update_panel_group(out["id"], UpdatePanelGroup(kind_label="softether", member_labels={panel.id: ""}), ADMIN, session)
     assert out["kind_label"] == "softether" and out["panels"][0]["label"] is None
 
 
-async def test_admin_sets_lists_and_removes_pool_packages(session):
-    g, _ = await pool(session)
+async def test_admin_sets_lists_and_removes_bundle_packages(session):
+    g, _ = await bundle(session)
     p = await product(session, "a", 10, 1000, reseller=600)
-    out = await admin.set_pool_product(g.id, p.id, PoolProductIn(main_price=1200), ADMIN, session)
+    out = await admin.set_bundle_product(g.id, p.id, BundleProductIn(main_price=1200), ADMIN, session)
     assert [x["product_ids"] for x in await admin.list_panel_groups(ADMIN, session)] == [[str(p.id)]]
     assert (out["main_price"], out["reseller_price"], out["base_main_price"]) == (1200, None, 1000)
-    out = await admin.set_pool_product(g.id, p.id, PoolProductIn(main_price=None, is_listed=False, sort=3), ADMIN, session)
+    out = await admin.set_bundle_product(g.id, p.id, BundleProductIn(main_price=None, is_listed=False, sort=3), ADMIN, session)
     assert (out["main_price"], out["is_listed"], out["sort"]) == (None, False, 3)
-    assert [r["code"] for r in await admin.list_pool_products(g.id, ADMIN, session)] == ["a"]
+    assert [r["code"] for r in await admin.list_bundle_products(g.id, ADMIN, session)] == ["a"]
     assert [r["code"] for r in await admin.unassigned_products(ADMIN, session)] == []
-    await admin.remove_pool_product(g.id, p.id, ADMIN, session)
+    await admin.remove_bundle_product(g.id, p.id, ADMIN, session)
     assert [r["code"] for r in await admin.unassigned_products(ADMIN, session)] == ["a"]
 
 
-async def test_test_packages_cannot_be_sold_in_a_pool_and_default_pool_cannot_be_removed(session):
-    g, _ = await pool(session)
+async def test_test_packages_cannot_be_sold_in_a_bundle_and_default_bundle_cannot_be_removed(session):
+    g, _ = await bundle(session)
     t = await product(session, "t", 1, 0, is_test=True)
     with pytest.raises(AppError) as e:
-        await admin.set_pool_product(g.id, t.id, PoolProductIn(), ADMIN, session)
+        await admin.set_bundle_product(g.id, t.id, BundleProductIn(), ADMIN, session)
     assert e.value.code == "TEST_PRODUCT_NOT_SELLABLE"
     p = await product(session, "a", 10, 1000, default_panel_group_id=g.id)
-    await admin.set_pool_product(g.id, p.id, PoolProductIn(), ADMIN, session)
+    await admin.set_bundle_product(g.id, p.id, BundleProductIn(), ADMIN, session)
     with pytest.raises(AppError) as e:
-        await admin.remove_pool_product(g.id, p.id, ADMIN, session)
-    assert e.value.code == "PRODUCT_DEFAULT_POOL"
+        await admin.remove_bundle_product(g.id, p.id, ADMIN, session)
+    assert e.value.code == "PRODUCT_DEFAULT_BUNDLE"
 
 
-async def test_choosing_a_default_pool_also_makes_the_pool_sell_the_package(session):
-    g, _ = await pool(session)
+async def test_choosing_a_default_bundle_also_makes_the_bundle_sell_the_package(session):
+    g, _ = await bundle(session)
     out = await admin.create_product(CreateProduct(code="new", name="plan", duration_days=30, traffic_gb=10, main_price=1, reseller_price=1, default_panel_group_id=g.id), ADMIN, session)
-    assert await session.scalar(sa.select(PoolProduct.id).where(PoolProduct.panel_group_id == g.id, PoolProduct.product_id == out.id))
+    assert await session.scalar(sa.select(BundleProduct.id).where(BundleProduct.panel_group_id == g.id, BundleProduct.product_id == out.id))
     p = await product(session, "b", 10, 1000)
     await admin.update_product(p.id, ProductPatch(default_panel_group_id=g.id), ADMIN, session)
-    assert await session.scalar(sa.select(PoolProduct.id).where(PoolProduct.panel_group_id == g.id, PoolProduct.product_id == p.id))
+    assert await session.scalar(sa.select(BundleProduct.id).where(BundleProduct.panel_group_id == g.id, BundleProduct.product_id == p.id))
 
 
 # ---------------------------------------------------------------- migration 0016
@@ -256,7 +256,7 @@ def test_migration_0016_follows_0015_and_fits_alembic_version_column():
     assert 'revision = "0015_ticket_upgrade"' in prev
 
 
-def test_migration_0016_adds_columns_table_and_backfills_default_pools():
+def test_migration_0016_adds_columns_table_and_backfills_default_bundles():
     m = _load_migration()
     eng = sa.create_engine("sqlite://")
     gid, pid, orphan = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
@@ -270,7 +270,7 @@ def test_migration_0016_adds_columns_table_and_backfills_default_pools():
         with Operations.context(MigrationContext.configure(conn)):
             m.upgrade()
         rows = conn.exec_driver_sql("SELECT panel_group_id, product_id, main_price, is_listed FROM pool_products").fetchall()
-        assert [(r[0], r[1], r[2], bool(r[3])) for r in rows] == [(gid.hex, pid.hex, None, True)]  # the pool-less product is left alone
+        assert [(r[0], r[1], r[2], bool(r[3])) for r in rows] == [(gid.hex, pid.hex, None, True)]  # the bundle-less product is left alone
         cols = {c["name"]: c for c in sa.inspect(conn).get_columns("panel_groups")}
         assert "kind_label" in cols and "label" in {c["name"] for c in sa.inspect(conn).get_columns("panel_group_members")}
         with Operations.context(MigrationContext.configure(conn)):
@@ -280,57 +280,57 @@ def test_migration_0016_adds_columns_table_and_backfills_default_pools():
 
 async def test_plan_sale_is_the_single_core_answer_for_route_name_and_price(session):
     p = await product(session, "30", 30, 30000, reseller=20000)
-    g, _ = await pool(session)
-    session.add(PoolProduct(panel_group_id=g.id, product_id=p.id, main_price=45000))
+    g, _ = await bundle(session)
+    session.add(BundleProduct(panel_group_id=g.id, product_id=p.id, main_price=45000))
     await session.flush()
     store = types.SimpleNamespace(id=None, kind="main", currency="IRT")
     plan = await allocation.plan_sale(session, store=store, product=p, sp=None, panel_group_id=g.id)
     assert (plan.group_id, plan.unit_price, plan.prices) == (g.id, 45000, (45000, 20000))
     with pytest.raises(AppError) as e:
         await allocation.plan_sale(session, store=store, product=p, sp=None)
-    assert e.value.code == "POOL_REQUIRED"
+    assert e.value.code == "BUNDLE_REQUIRED"
     other = PanelGroup(name="other", selection_mode="automatic", naming_mode="automatic")
     session.add(other)
     await session.flush()
     with pytest.raises(AppError) as e:
         await allocation.plan_sale(session, store=store, product=p, sp=None, panel_group_id=other.id)
-    assert e.value.code == "PRODUCT_NOT_IN_POOL"
+    assert e.value.code == "PRODUCT_NOT_IN_BUNDLE"
 
 
 def test_channels_and_modules_outside_the_core_hold_no_route_or_price_rule():
     for rel in ("melorin/modules/orders/service.py", "melorin/modules/catalog/router.py", "melorin/modules/catalog/service.py"):
         src = (ROOT / rel).read_text()
-        for banned in ("PoolProduct", "PanelGroupMember", "effective_prices", "unit_price_of"):
+        for banned in ("BundleProduct", "PanelGroupMember", "effective_prices", "unit_price_of"):
             assert banned not in src, f"{rel} must leave {banned} to vpn/allocation.py"
 
 
-async def test_customer_price_can_never_be_below_the_pools_reseller_price(session):
-    """reseller_price differs per pool; customer_price is one per product and must cover the pool being sold."""
+async def test_customer_price_can_never_be_below_the_bundles_reseller_price(session):
+    """reseller_price differs per bundle; customer_price is one per product and must cover the bundle being sold."""
     reseller = await main_store(session, "reseller")
     p = await product(session, "30", 30, 30000, reseller=20000)
-    cheap, _ = await pool(session, "Cheap")
-    dear, _ = await pool(session, "Dear")
+    cheap, _ = await bundle(session, "Cheap")
+    dear, _ = await bundle(session, "Dear")
     await sell(session, cheap, p, reseller, reseller=20000, customer_price=25000)
-    await add(session, PoolProduct(panel_group_id=dear.id, product_id=p.id, reseller_price=40000))
+    await add(session, BundleProduct(panel_group_id=dear.id, product_id=p.id, reseller_price=40000))
     sp = await session.scalar(sa.select(StoreProduct).where(StoreProduct.store_id == reseller.id))
-    # listing: only the pool whose cost the customer price covers
-    assert [pp.panel_group_id for _, _, pp, _ in await allocation.pool_packages(session, reseller, cheap.id)] == [cheap.id]
-    assert await allocation.pool_packages(session, reseller, dear.id) == []
-    assert {v.group.id for v in await allocation.sellable_pools(session, reseller)} == {cheap.id}
+    # listing: only the bundle whose cost the customer price covers
+    assert [pp.panel_group_id for _, _, pp, _ in await allocation.bundle_packages(session, reseller, cheap.id)] == [cheap.id]
+    assert await allocation.bundle_packages(session, reseller, dear.id) == []
+    assert {v.group.id for v in await allocation.sellable_bundles(session, reseller)} == {cheap.id}
     # checkout: same rule, refused by the core
     plan = await allocation.plan_sale(session, store=reseller, product=p, sp=sp, panel_group_id=cheap.id)
     assert plan.unit_price == 25000 and plan.reseller_price == 20000
     with pytest.raises(AppError) as e:
         await allocation.plan_sale(session, store=reseller, product=p, sp=sp, panel_group_id=dear.id)
     assert e.value.code == "CUSTOMER_PRICE_BELOW_COST"
-    # setting: the floor is the highest pool cost
+    # setting: the floor is the highest bundle cost
     assert await allocation.reseller_price_floor(session, p) == 40000
     with pytest.raises(AppError):
         await allocation.ensure_customer_price(session, p, 39999)
     await allocation.ensure_customer_price(session, p, 40000)
     await allocation.ensure_customer_price(session, p, None)
     assert await allocation.stores_below_cost(session, p, 26000) == 1
-    # flat catalog follows the same rule, a product in no pool is never shown
+    # flat catalog follows the same rule, a product in no bundle is never shown
     assert [x.code for x, _ in await allocation.sellable_products(session, reseller)] == ["30"]
     sp.customer_price = 15000
     await session.flush()
@@ -343,7 +343,7 @@ async def test_customer_price_can_never_be_below_the_pools_reseller_price(sessio
 async def test_each_reseller_store_sets_its_own_customer_price_in_the_core(session):
     a, b = await main_store(session, "reseller"), await main_store(session, "reseller")
     p = await product(session, "30", 30, 30000, reseller=20000)
-    g, _ = await pool(session, "G")
+    g, _ = await bundle(session, "G")
     await sell(session, g, p, a, reseller=20000)
     await add(session, StoreProduct(store_id=b.id, product_id=p.id, is_enabled=True, is_listed=True))
     # nothing priced yet: both stores see the product in their price table, neither sells it
@@ -351,7 +351,7 @@ async def test_each_reseller_store_sets_its_own_customer_price_in_the_core(sessi
         rows = await allocation.reseller_price_table(session, st)
         assert [(r["code"], r["state"], r["cost_floor"]) for r in rows] == [("30", "unset", 20000)]
         assert await allocation.sellable_products(session, st) == []
-    # each reseller prices independently; the floor is that of the pools selling the product
+    # each reseller prices independently; the floor is that of the bundles selling the product
     await allocation.set_customer_price(session, a, p.id, 26000)
     await allocation.set_customer_price(session, b, p.id, 31000)
     with pytest.raises(AppError) as e:
@@ -375,7 +375,7 @@ async def test_each_reseller_store_sets_its_own_customer_price_in_the_core(sessi
 async def test_admin_availability_never_writes_a_resellers_customer_price(session):
     reseller = await main_store(session, "reseller")
     p = await product(session, "30", 30, 30000, reseller=20000)
-    g, _ = await pool(session, "G")
+    g, _ = await bundle(session, "G")
     await sell(session, g, p, reseller, reseller=20000, customer_price=26000)
     from melorin.modules.admin.schemas import Availability
     await admin.set_availability(p.id, Availability(store_id=reseller.id, enabled=True, listed=False, customer_price=99), ADMIN, session)
