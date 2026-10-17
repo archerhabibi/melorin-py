@@ -260,7 +260,7 @@ function PanelSection({ p, servers, stat, groups, busy, srvBusy, filtered, dense
       </div>
       <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
         <span className="text-[var(--mu)]">بسته‌ها:</span>
-        {groups.length ? groups.slice(0, 4).map((g) => <RelChip key={g.id} to="panel-groups" params={{ q: g.name }} tone="wn" Icon={Layers} dim={!g.is_enabled}>{g.name}</RelChip>) : <span className="font-bold text-[var(--wn)]">هیچ — این پنل چیزی نمی‌فروشد</span>}
+        {groups.length ? groups.slice(0, 4).map((g) => <RelChip key={g.id} to="bundles" params={{ q: g.name }} tone="wn" Icon={Layers} dim={!g.is_enabled}>{g.name}</RelChip>) : <span className="font-bold text-[var(--wn)]">هیچ — این پنل چیزی نمی‌فروشد</span>}
         {groups.length > 4 && <span className="text-[var(--mu)]">+{num(groups.length - 4)}</span>}
         <span className={`mr-auto flex items-center gap-1 ${stale ? "font-bold text-[var(--wn)]" : "text-[var(--mu)]"}`} title={p.last_health_at ? dt(p.last_health_at) : ""}>{stale && <AlertTriangle size={12} />}آخرین بررسی: {ago(p.last_health_at)}</span>
       </div>

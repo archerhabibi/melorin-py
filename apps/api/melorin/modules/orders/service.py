@@ -49,7 +49,7 @@ async def create_order(
     coupon_code: str | None = None,
     kind: str = "purchase",
     vpn_account_id: uuid.UUID | None = None,
-    panel_group_id: uuid.UUID | None = None,
+    bundle_id: uuid.UUID | None = None,
     selected_panel_id: uuid.UUID | None = None,
     account_name: str | None = None,
     channel: str = "web",
@@ -85,11 +85,11 @@ async def create_order(
     # and price are decided there, before any money moves. Nothing below chooses or prices a route.
     plan = await allocation.plan_sale(
         session, store=store, product=product, sp=sp, kind=kind, account=account,
-        panel_group_id=panel_group_id, selected_panel_id=selected_panel_id, account_name=account_name,
+        bundle_id=bundle_id, selected_panel_id=selected_panel_id, account_name=account_name,
     )
     bundle = plan.group if kind == "purchase" else None
     if kind == "purchase":
-        panel_group_id, selected_panel_id, account_name = plan.group_id, plan.selected_panel_id, plan.account_name
+        bundle_id, selected_panel_id, account_name = plan.group_id, plan.selected_panel_id, plan.account_name
 
     main = await main_store(session)
     unit = plan.unit_price
@@ -105,7 +105,7 @@ async def create_order(
         vpn_account_id=account.id if account else None, status=S.PENDING, payment_method="wallet", channel=channel,
         currency=q.currency, unit_price=q.unit_price, discount=q.discount, total=q.total, reseller_cost=q.reseller_cost,
         coupon_code=q.coupon_code, pricing_snapshot=snapshot, product_snapshot=catalog.product_snapshot(product),
-        panel_group_id=panel_group_id, selected_panel_id=selected_panel_id, requested_account_name=account_name,
+        bundle_id=bundle_id, selected_panel_id=selected_panel_id, requested_account_name=account_name,
         idempotency_key=idempotency_key,
     )
     # The pre-check above is only an optimization. Two requests can pass it
@@ -220,9 +220,9 @@ async def create_test_order(session: AsyncSession, ctx: StoreContext, channel: s
     if grants and grants[0].created_at.replace(tzinfo=dt.UTC) > utcnow() - dt.timedelta(hours=cooldown):
         raise AppError("TEST_COOLDOWN", "هنوز امکان دریافت اکانت تست جدید نیست.", 409)
     # Test accounts are placed by the same core rule as purchases (product default group, same eligibility).
-    panel_group_id, selected_panel_id = await allocation.resolve_order_group(session, store_id=ctx.store.id, product=product)
+    bundle_id, selected_panel_id = await allocation.resolve_order_group(session, store_id=ctx.store.id, product=product)
     order = Order(
-        panel_group_id=panel_group_id, selected_panel_id=selected_panel_id,
+        bundle_id=bundle_id, selected_panel_id=selected_panel_id,
         number=await codes.next_code(session, codes.ORDER_SEQ), user_id=ctx.user.id, store_id=ctx.store.id, product_id=product.id, kind="test", status=S.PENDING,
         payment_method="free", channel=channel, currency=product.currency, unit_price=0, discount=0, total=0,
         pricing_snapshot={"test": True}, product_snapshot=catalog.product_snapshot(product), idempotency_key=f"test:{uuid.uuid4()}",

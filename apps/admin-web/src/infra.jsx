@@ -2,7 +2,7 @@
 //
 // Three screens form ONE chain that mirrors the allocation core (vpn/allocation.py):
 //
-//     پنل و سرورها (Panel + its Servers)  →  بسته فروش (Bundle = PanelGroup)  →  پکیج (BundleProduct)
+//     پنل و سرورها (Panel + its Servers)  →  بسته فروش (Bundle = Bundle)  →  پکیج (BundleProduct)
 //
 // * a server is only a capacity slot of ONE panel, so servers are managed inside the panel screen;
 // * a bundle collects panels (policy + sales limit) and is REQUIRED: there is no route without a bundle;
@@ -18,7 +18,7 @@ import { Ring, num, tint, useRows } from "./kit.jsx";
 /* ---------- chain definition ---------- */
 export const CHAIN = [
   { key: "panels", slug: "panels", title: "پنل‌ها و سرورها", one: "پنل", Icon: PanelTop, tone: "in", hint: "اتصال به سنایی / پاسارگارد + ظرفیت" },
-  { key: "groups", slug: "panel-groups", title: "بسته‌های فروش", one: "بسته", Icon: Layers, tone: "wn", hint: "مسیر فروش: پنل‌ها + پکیج‌ها و قیمت (الزامی)" },
+  { key: "groups", slug: "bundles", title: "بسته‌های فروش", one: "بسته", Icon: Layers, tone: "wn", hint: "مسیر فروش: پنل‌ها + پکیج‌ها و قیمت (الزامی)" },
   { key: "products", slug: "products", title: "محصولات VPN", one: "محصول", Icon: Boxes, tone: "mu", hint: "پلن پایه؛ در بسته‌ها پکیج می‌شود" },
 ];
 
@@ -105,7 +105,7 @@ export function buildIndex(panels, servers, groups, products) {
   /** What the core could actually allocate for a product: bundles listing it → enabled members → live servers. */
   const reach = (p) => {
     let gs = groupsByProduct.get(p.id) || [];
-    if (!gs.length && p.default_panel_group_id && groupById.get(p.default_panel_group_id)) gs = [groupById.get(p.default_panel_group_id)];
+    if (!gs.length && p.default_bundle_id && groupById.get(p.default_bundle_id)) gs = [groupById.get(p.default_bundle_id)];
     let issue = "";
     const panelIds = new Set();
     if (!gs.length) issue = "در هیچ بسته فروشی نیست؛ قابل فروش نیست";
@@ -137,7 +137,7 @@ export function useInfra(api, { needs = ["panels", "servers", "groups", "product
   const call = useCallback((p, o) => authFetch(api.base, p, o), [api.base]);
   const panels  = useRows(call, "/api/v1/admin/panels",      { skip: !has("panels")   });
   const servers  = useRows(call, "/api/v1/admin/servers",      { skip: !has("servers")  });
-  const groups   = useRows(call, "/api/v1/admin/panel-groups", { skip: !has("groups")   });
+  const groups   = useRows(call, "/api/v1/admin/bundles", { skip: !has("groups")   });
   const products = useRows(call, "/api/v1/admin/products",     { skip: !has("products") });
   // Track loading/failed only for requested endpoints (skip initialises rows to [])
   const needed = [panels, servers, groups, products]
@@ -174,7 +174,7 @@ export const Warn = ({ children, tone = "wn" }) => <p className="flex items-star
 export const memberIds = (g) => (g?.panels || []).slice().sort((a, b) => a.sort - b.sort).map((m) => m.panel_id);
 /** PATCH the member list of a group. Returns "" on success or an error text. */
 export async function saveGroupPanels(call, group, panelIds) {
-  const r = await call(`/api/v1/admin/panel-groups/${group.id}`, { method: "PATCH", body: JSON.stringify({ panel_ids: panelIds }) });
+  const r = await call(`/api/v1/admin/bundles/${group.id}`, { method: "PATCH", body: JSON.stringify({ panel_ids: panelIds }) });
   if (r.ok) return "";
   try { const d = await r.json(); return d?.error?.message || (typeof d?.detail === "string" ? d.detail : "") || "تغییر پنل‌های بسته ناموفق بود"; } catch { return "تغییر پنل‌های بسته ناموفق بود"; }
 }

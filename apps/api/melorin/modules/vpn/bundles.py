@@ -9,13 +9,13 @@ from melorin.core.db import Base, IdMixin, TimestampMixin
 
 
 
-class PanelGroup(IdMixin, TimestampMixin, Base):
+class Bundle(IdMixin, TimestampMixin, Base):
     """A sales bundle (UI name: بسته فروش): panels + connection kind + routing, naming and quota policy.
 
-    The table keeps its historical name ``panel_groups``; only the customer/admin vocabulary changed.
+    The table keeps its historical name ``bundles``; only the customer/admin vocabulary changed.
     """
 
-    __tablename__ = "panel_groups"
+    __tablename__ = "bundles"
     name: Mapped[str] = mapped_column(String(120))
     selection_mode: Mapped[str] = mapped_column(String(20), default="automatic")  # automatic | manual
     naming_mode: Mapped[str] = mapped_column(String(20), default="automatic")  # automatic | custom
@@ -27,10 +27,10 @@ class PanelGroup(IdMixin, TimestampMixin, Base):
     config: Mapped[dict | None] = mapped_column(JSON)
 
 
-class PanelGroupMember(IdMixin, TimestampMixin, Base):
-    __tablename__ = "panel_group_members"
-    __table_args__ = (UniqueConstraint("panel_group_id", "panel_id"),)
-    panel_group_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("panel_groups.id", ondelete="CASCADE"), index=True)
+class BundleMember(IdMixin, TimestampMixin, Base):
+    __tablename__ = "bundle_members"
+    __table_args__ = (UniqueConstraint("bundle_id", "panel_id"),)
+    bundle_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("bundles.id", ondelete="CASCADE"), index=True)
     panel_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("panels.id"), index=True)
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     sales_limit: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -43,8 +43,8 @@ class BundleProduct(IdMixin, TimestampMixin, Base):
     """A package sold inside a bundle. NULL prices fall back to the product's own prices, so a bundle only overrides what differs."""
 
     __tablename__ = "bundle_products"
-    __table_args__ = (UniqueConstraint("panel_group_id", "product_id"),)
-    panel_group_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("panel_groups.id", ondelete="CASCADE"), index=True)
+    __table_args__ = (UniqueConstraint("bundle_id", "product_id"),)
+    bundle_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("bundles.id", ondelete="CASCADE"), index=True)
     product_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("products.id", ondelete="CASCADE"), index=True)
     main_price: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     reseller_price: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
@@ -52,11 +52,11 @@ class BundleProduct(IdMixin, TimestampMixin, Base):
     sort: Mapped[int] = mapped_column(Integer, default=0)
 
 
-class StorePanelGroup(IdMixin, TimestampMixin, Base):
-    __tablename__ = "store_panel_groups"
-    __table_args__ = (UniqueConstraint("store_id", "panel_group_id"),)
+class StoreBundle(IdMixin, TimestampMixin, Base):
+    __tablename__ = "store_bundles"
+    __table_args__ = (UniqueConstraint("store_id", "bundle_id"),)
     store_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("stores.id", ondelete="CASCADE"), index=True)
-    panel_group_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("panel_groups.id", ondelete="CASCADE"), index=True)
+    bundle_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("bundles.id", ondelete="CASCADE"), index=True)
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
 
 

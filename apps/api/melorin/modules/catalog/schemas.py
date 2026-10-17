@@ -20,7 +20,7 @@ class CatalogItem(BaseModel):
 class QuoteRequest(BaseModel):
     product_id: uuid.UUID
     coupon_code: str | None = Field(default=None, max_length=50)
-    panel_group_id: uuid.UUID | None = None  # the bundle the customer picked (UI: بسته فروش)
+    bundle_id: uuid.UUID | None = None  # the bundle the customer picked (UI: بسته فروش)
     selected_panel_id: uuid.UUID | None = None  # manual bundles only
     vpn_account_id: uuid.UUID | None = None  # renewal: price comes from the bundle the account was sold through
 

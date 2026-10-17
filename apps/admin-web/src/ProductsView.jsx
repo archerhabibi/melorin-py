@@ -12,9 +12,9 @@ const dur = (d) => (d % 30 === 0 && d >= 30 ? `${num(d / 30)} ماهه` : `${num
 const gb = (n) => (n ? `${num(n)} گیگ` : "نامحدود");
 const pct = (a, b) => (b > 0 ? Math.round(((a - b) / b) * 100) : null);
 
-const EMPTY = { code: "", name: "", description: "", category: "", duration_days: "30", unlimited_traffic: false, traffic_gb: "", unlimited_devices: true, max_devices: "", currency: "IRT", main_price: "", reseller_price: "", is_active: true, is_test: false, default_panel_group_id: "" };
-const fromProduct = (p) => ({ code: p.code, name: p.name, description: p.description || "", category: p.category || "", duration_days: String(p.duration_days), unlimited_traffic: !p.traffic_gb, traffic_gb: p.traffic_gb ? String(p.traffic_gb) : "", unlimited_devices: !p.max_devices, max_devices: p.max_devices ? String(p.max_devices) : "", currency: p.currency, main_price: String(p.main_price), reseller_price: String(p.reseller_price), is_active: p.is_active, is_test: !!p.is_test, default_panel_group_id: p.default_panel_group_id || "" });
-const payload = (f) => ({ code: f.code.trim(), name: f.name.trim(), description: f.description.trim() || null, category: f.category.trim() || null, duration_days: +f.duration_days, traffic_gb: f.unlimited_traffic ? 0 : +f.traffic_gb, max_devices: f.unlimited_devices ? null : +f.max_devices, currency: f.currency, main_price: +f.main_price, reseller_price: +f.reseller_price, is_test: f.is_test, default_panel_group_id: f.default_panel_group_id || null });
+const EMPTY = { code: "", name: "", description: "", category: "", duration_days: "30", unlimited_traffic: false, traffic_gb: "", unlimited_devices: true, max_devices: "", currency: "IRT", main_price: "", reseller_price: "", is_active: true, is_test: false, default_bundle_id: "" };
+const fromProduct = (p) => ({ code: p.code, name: p.name, description: p.description || "", category: p.category || "", duration_days: String(p.duration_days), unlimited_traffic: !p.traffic_gb, traffic_gb: p.traffic_gb ? String(p.traffic_gb) : "", unlimited_devices: !p.max_devices, max_devices: p.max_devices ? String(p.max_devices) : "", currency: p.currency, main_price: String(p.main_price), reseller_price: String(p.reseller_price), is_active: p.is_active, is_test: !!p.is_test, default_bundle_id: p.default_bundle_id || "" });
+const payload = (f) => ({ code: f.code.trim(), name: f.name.trim(), description: f.description.trim() || null, category: f.category.trim() || null, duration_days: +f.duration_days, traffic_gb: f.unlimited_traffic ? 0 : +f.traffic_gb, max_devices: f.unlimited_devices ? null : +f.max_devices, currency: f.currency, main_price: +f.main_price, reseller_price: +f.reseller_price, is_test: f.is_test, default_bundle_id: f.default_bundle_id || null });
 function validate(f) {
   const e = {};
   if (!/^[A-Za-z0-9_-]{2,50}$/.test(f.code.trim())) e.code = "کد ۲ تا ۵۰ نویسه؛ فقط حروف انگلیسی، عدد، - و _";
@@ -33,7 +33,7 @@ function Route({ p, idx, compact }) {
   const panels = g ? (g.panels || []).filter((m) => m.is_enabled).map((m) => idx.panelById.get(m.panel_id)).filter(Boolean) : [];
   return <div className="space-y-2">
     <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-      {(r.groups || []).length ? r.groups.map((x) => <RelChip key={x.id} to="panel-groups" params={{ q: x.name }} tone="wn" Icon={Layers} dim={!x.is_enabled}>{x.name}</RelChip>) : <span className="rounded-lg px-2 py-1 font-bold" style={tint("bd")}>بدون بسته · قابل فروش نیست</span>}
+      {(r.groups || []).length ? r.groups.map((x) => <RelChip key={x.id} to="bundles" params={{ q: x.name }} tone="wn" Icon={Layers} dim={!x.is_enabled}>{x.name}</RelChip>) : <span className="rounded-lg px-2 py-1 font-bold" style={tint("bd")}>بدون بسته · قابل فروش نیست</span>}
       <span className="text-[var(--mu)]">←</span>
       {g ? <span className="text-[var(--mu)]">{num(panels.length)} پنل فعال</span> : <span className="text-[var(--mu)]">همه پنل‌ها</span>}
       <span className="text-[var(--mu)]">←</span>
@@ -106,7 +106,7 @@ function QuickGroup({ panels, idx, call, onCreated, onCancel }) {
     if (name.trim().length < 2) { setMsg("نام بسته حداقل ۲ نویسه باشد"); return; }
     if (!ids.length) { setMsg("حداقل یک پنل انتخاب کنید"); return; }
     setBusy(true); setMsg("");
-    const r = await call("/api/v1/admin/panel-groups", { method: "POST", body: JSON.stringify({ name: name.trim(), selection_mode: "automatic", naming_mode: "automatic", panel_ids: ids }) });
+    const r = await call("/api/v1/admin/bundles", { method: "POST", body: JSON.stringify({ name: name.trim(), selection_mode: "automatic", naming_mode: "automatic", panel_ids: ids }) });
     if (!r.ok) { setBusy(false); setMsg(await errText(r, "ساخت بسته ناموفق بود")); return; }
     const g = await r.json(); await onCreated(g.id); setBusy(false);
   };
@@ -160,14 +160,14 @@ function ProductDrawer({ product, stores, groups, panels, products, idx, call, t
     </Section>
     <Section title={edit ? "اکانت از کجا ساخته شود؟" : "۳ · اکانت از کجا ساخته شود؟"} hint="ربات و سایت و نماینده‌ها همه از همین انتخاب استفاده می‌کنند؛ خریدار چیزی انتخاب نمی‌کند.">
       <Field label="بسته پیش‌فرض" hint="هر محصول باید در حداقل یک بسته فروش باشد؛ مسیر بدون بسته وجود ندارد. قیمت و بسته‌های بیشتر را از صفحه بسته‌ها تنظیم کنید.">
-        <select className="inp" value={newGroup ? "__new" : f.default_panel_group_id} onChange={(e) => { if (e.target.value === "__new") setNewGroup(true); else { setNewGroup(false); set("default_panel_group_id")(e.target.value); } }}>
+        <select className="inp" value={newGroup ? "__new" : f.default_bundle_id} onChange={(e) => { if (e.target.value === "__new") setNewGroup(true); else { setNewGroup(false); set("default_bundle_id")(e.target.value); } }}>
           <option value="">— انتخاب بسته —</option>
-          {groups.filter((g) => g.id === f.default_panel_group_id || (g.is_enabled && g.selection_mode === "automatic")).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+          {groups.filter((g) => g.id === f.default_bundle_id || (g.is_enabled && g.selection_mode === "automatic")).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
           <option value="__new">+ ساخت بسته جدید…</option>
         </select>
       </Field>
-      {newGroup && <QuickGroup panels={panels} idx={idx} call={call} onCancel={() => setNewGroup(false)} onCreated={async (id) => { await onGroupCreated(); set("default_panel_group_id")(id); setNewGroup(false); }} />}
-      <Route p={{ code: f.code.trim(), default_panel_group_id: f.default_panel_group_id || null }} idx={idx} />
+      {newGroup && <QuickGroup panels={panels} idx={idx} call={call} onCancel={() => setNewGroup(false)} onCreated={async (id) => { await onGroupCreated(); set("default_bundle_id")(id); setNewGroup(false); }} />}
+      <Route p={{ code: f.code.trim(), default_bundle_id: f.default_bundle_id || null }} idx={idx} />
     </Section>
     <Section title={edit ? "وضعیت" : "۴ · وضعیت"} hint={edit ? undefined : "محصول جدید خودکار در فروشگاه اصلی منتشر می‌شود؛ نمایندگان را بعد از ساخت، از همین پنجره‌ی ویرایش تنظیم کنید."}>
       <Toggle checked={f.is_active} onChange={set("is_active")} label="محصول فعال باشد" hint="محصول غیرفعال برای خرید جدید نمایش داده نمی‌شود." />

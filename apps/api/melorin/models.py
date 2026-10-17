@@ -9,7 +9,7 @@ from melorin.modules.stores.models import *  # noqa: F401,F403
 from melorin.modules.system.models import *  # noqa: F401,F403
 from melorin.modules.tickets.models import *  # noqa: F401,F403
 from melorin.modules.vpn.models import *  # noqa: F401,F403
-from melorin.modules.vpn.panel_groups import *  # noqa: F401,F403
+from melorin.modules.vpn.bundles import *  # noqa: F401,F403
 from melorin.modules.wallet.models import *  # noqa: F401,F403
 from melorin.modules.webhooks.models import *  # noqa: F401,F403
 from melorin.core.db import Base  # noqa: F401

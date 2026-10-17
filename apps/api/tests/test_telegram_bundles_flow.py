@@ -136,7 +136,7 @@ def test_manual_bundle_shows_labels_never_panel_names(bot):
     send(r, f"plan:{PID}")
     send(r, f"buy:{PID}")
     body = fake.last("/orders")
-    assert body["panel_group_id"] == P1 and body["selected_panel_id"] == PAN2 and "account_name" not in body
+    assert body["bundle_id"] == P1 and body["selected_panel_id"] == PAN2 and "account_name" not in body
     assert fake.last("/quote")["selected_panel_id"] == PAN2
 
 
@@ -151,11 +151,11 @@ def test_custom_bundle_asks_and_validates_name_then_sends_account_name(bot):
     assert "نامعتبر" in fake.sent[-1]["text"]
     assert len([c for c in fake.calls if c[1].endswith("/quote")]) == quotes
     send(r, text="my user!name")
-    assert fake.last("/quote")["panel_group_id"] == P1
+    assert fake.last("/quote")["bundle_id"] == P1
     assert "myusername" in fake.sent[-1]["text"] and "Alpha" in fake.sent[-1]["text"]
     send(r, f"buy:{PID}")
     body = fake.last("/orders")
-    assert body["account_name"] == "myusername" and body["panel_group_id"] == P1 and body["kind"] == "purchase"
+    assert body["account_name"] == "myusername" and body["bundle_id"] == P1 and body["kind"] == "purchase"
     assert "selected_panel_id" not in body
 
 
@@ -165,10 +165,10 @@ def test_automatic_bundle_sends_no_account_name_and_coupon_keeps_flow(bot):
     send(r, f"plan:{PID}")
     send(r, f"cpn:{PID}")
     send(r, text="off10")
-    assert fake.last("/quote")["coupon_code"] == "OFF10" and fake.last("/quote")["panel_group_id"] == P1
+    assert fake.last("/quote")["coupon_code"] == "OFF10" and fake.last("/quote")["bundle_id"] == P1
     send(r, f"buy:{PID}")
     body = fake.last("/orders")
-    assert "account_name" not in body and body["coupon_code"] == "OFF10" and body["panel_group_id"] == P1
+    assert "account_name" not in body and body["coupon_code"] == "OFF10" and body["bundle_id"] == P1
 
 
 def test_new_purchase_resets_flow(bot):
@@ -181,7 +181,7 @@ def test_new_purchase_resets_flow(bot):
     send(r, f"bundle:{P2}")
     send(r, f"plan:{PID}")
     send(r, f"buy:{PID}")
-    assert "account_name" not in fake.last("/orders") and fake.last("/orders")["panel_group_id"] == P2
+    assert "account_name" not in fake.last("/orders") and fake.last("/orders")["bundle_id"] == P2
 
 
 def test_callback_data_fits_telegram_limit(bot):

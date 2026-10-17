@@ -76,17 +76,6 @@ async def catalog(store_id: uuid.UUID, session: Session):
     ]
 
 
-@public.get("/stores/{store_id}/panel-groups")
-async def panel_groups(store_id: uuid.UUID, session: Session):
-    store = await session.get(Store, store_id)
-    if not store or store.status != "active": raise NotFound("فروشگاه")
-    return [
-        {"id": v.group.id, "name": v.group.name, "kind_label": v.group.kind_label, "selection_mode": v.group.selection_mode,
-         "naming_mode": v.group.naming_mode, "panels": [pid for pid, _ in v.panels], "sales_limit": v.group.sales_limit, "sold_count": v.group.sold_count}
-        for v in await allocation.sellable_bundles(session, store)
-    ]
-
-
 def _item(p, price: int, currency: str) -> CatalogItem:
     return CatalogItem(
         product_id=p.id, code=p.code, name=p.name, description=p.description, category=p.category, duration_days=p.duration_days,
@@ -131,13 +120,13 @@ async def renewal_packages(account_id: uuid.UUID, ctx: StoreCtx, session: Sessio
     return [_item(p, price, ctx.store.currency) for p, price in await allocation.renewal_offers(session, ctx.store, account)]
 
 
-async def _quote(session, ctx, product_id, code, *, panel_group_id=None, selected_panel_id=None, vpn_account_id=None, enforce=False):
+async def _quote(session, ctx, product_id, code, *, bundle_id=None, selected_panel_id=None, vpn_account_id=None, enforce=False):
     product, sp = await service.get_sellable(session, ctx.store, product_id)
     account = await _owned_account(session, ctx, vpn_account_id) if vpn_account_id else None
     # Same core rule the order will apply, so a quote never promises what checkout would refuse.
     plan = await allocation.plan_sale(
         session, store=ctx.store, product=product, sp=sp, kind="renewal" if account else "purchase", account=account,
-        panel_group_id=panel_group_id, selected_panel_id=selected_panel_id, enforce=enforce,
+        bundle_id=bundle_id, selected_panel_id=selected_panel_id, enforce=enforce,
     )
     coupon, disc = await service.resolve_coupon(session, ctx.store, ctx.user.id, product, plan.unit_price, code, lock=False)
     main = await main_store(session)
@@ -147,7 +136,7 @@ async def _quote(session, ctx, product_id, code, *, panel_group_id=None, selecte
 @public.post("/stores/{store_id}/checkout/quote", response_model=QuoteWalletOut)
 async def checkout_quote(body: QuoteRequest, ctx: StoreCtx, session: Session):
     """Core-side quote: store, price, coupon and wallet balance. Purchases are wallet-only (v1.1)."""
-    q, product = await _quote(session, ctx, body.product_id, body.coupon_code, panel_group_id=body.panel_group_id, selected_panel_id=body.selected_panel_id, vpn_account_id=body.vpn_account_id, enforce=True)
+    q, product = await _quote(session, ctx, body.product_id, body.coupon_code, bundle_id=body.bundle_id, selected_panel_id=body.selected_panel_id, vpn_account_id=body.vpn_account_id, enforce=True)
     w = await wallet.get_wallet(session, ctx.user.id, ctx.store.id, currency=ctx.store.currency)
     await session.commit()
     return QuoteWalletOut(product_id=product.id, unit_price=q.unit_price, discount=q.discount, total=q.total, currency=q.currency, coupon_code=q.coupon_code, wallet_balance=w.balance, sufficient_funds=w.balance >= q.total)

@@ -32,16 +32,16 @@ def test_servers_live_inside_their_panel_screen():
     app = _ui("App.jsx")
     assert "['پنل‌ها و سرورها', PanelTop, 'panels']" in app and "'servers'" not in app
     infra_group = app[app.index("['زیرساخت'"):app.index("['سیستم'")]
-    assert infra_group.index("'panels'") < infra_group.index("'panel-groups'") < infra_group.index("'products'")
+    assert infra_group.index("'panels'") < infra_group.index("'bundles'") < infra_group.index("'products'")
     # old bookmarks (#/servers?panel=<id>) still land on the merged screen
     assert "legacyHash" in app and "legacyHash" in _ui("infra.jsx")
 
 
 def test_infra_screens_share_one_dependency_model():
     infra = _ui("infra.jsx")
-    for endpoint in ("/api/v1/admin/panels", "/api/v1/admin/servers", "/api/v1/admin/panel-groups", "/api/v1/admin/products"):
+    for endpoint in ("/api/v1/admin/panels", "/api/v1/admin/servers", "/api/v1/admin/bundles", "/api/v1/admin/products"):
         assert endpoint in infra
-    for page in ("PanelsView.jsx", "PanelGroupsView.jsx", "ProductsView.jsx"):
+    for page in ("PanelsView.jsx", "BundlesView.jsx", "ProductsView.jsx"):
         ui = _ui(page)
         assert "useInfra" in ui and "InfraChain" in ui, page
     # an unknown panel health blocks allocation in the core, so the UI must treat it as not ready
@@ -56,7 +56,7 @@ def test_server_edit_never_resends_unchanged_fields():
 def test_group_membership_is_saved_with_the_field_the_api_reads():
     """Regression: the panel form used to PATCH {panels: [...]}, which the API ignores (field is panel_ids)."""
     schemas = Path(__file__).parents[1].joinpath("melorin", "modules", "admin", "schemas.py").read_text()
-    update = schemas[schemas.index("class UpdatePanelGroup"):schemas.index("class PanelGroupMemberInput")]
+    update = schemas[schemas.index("class UpdateBundle"):schemas.index("class BundleMemberInput")]
     assert "panel_ids" in update
     infra = _ui("infra.jsx")
     assert "JSON.stringify({ panel_ids: panelIds })" in infra
@@ -64,8 +64,8 @@ def test_group_membership_is_saved_with_the_field_the_api_reads():
 
 
 def test_bundle_screen_manages_packages_through_bundle_endpoints():
-    """The bundle screen edits packages (and per-bundle prices) via /panel-groups/{id}/products, never via the product PATCH."""
-    groups = _ui("PanelGroupsView.jsx")
+    """The bundle screen edits packages (and per-bundle prices) via /bundles/{id}/products, never via the product PATCH."""
+    groups = _ui("BundlesView.jsx")
     assert "/products/" in groups and "kind_label" in groups and "member_labels" in groups
-    assert "default_panel_group_id" not in groups
-    assert "PRODUCT_DEFAULT_BUNDLE" in ROUTER and "/panel-groups/{panel_group_id}/products" in ROUTER
+    assert "default_bundle_id" not in groups
+    assert "PRODUCT_DEFAULT_BUNDLE" in ROUTER and "/bundles/{bundle_id}/products" in ROUTER

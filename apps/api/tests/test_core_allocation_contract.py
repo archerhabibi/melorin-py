@@ -21,7 +21,7 @@ def test_channels_never_choose_a_server():
     # manual bundle). The core validates every choice; the server is never chosen outside the core.
     for rel in ("apps/telegram-main/runner.py", "apps/store-web/src/App.jsx"):
         src = read(rel)
-        for forbidden in ("server_id", "default_panel_group"):
+        for forbidden in ("server_id", "default_bundle"):
             assert forbidden not in src, f"{rel} must not carry allocation data ({forbidden})"
         assert "/orders" in src
 
@@ -62,7 +62,7 @@ def test_purchase_and_test_orders_use_core_group_rule_before_any_payment():
 def test_provisioning_places_accounts_only_through_the_core():
     svc = read("apps/api/melorin/modules/vpn/service.py")
     assert "resolve_allocation(" in svc
-    assert "def choose_server" not in svc and "def choose_panel_group_panel" not in svc
+    assert "def choose_server" not in svc and "def choose_bundle_panel" not in svc
     assert "select(Server" not in svc
 
 

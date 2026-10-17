@@ -32,7 +32,7 @@ from melorin.modules.tickets.models import Ticket
 from melorin.modules.tickets.schemas import AdminAddMessage, AdminUpdateTicket, EditMessage as EditTicketMessage
 from melorin.modules.vpn import allocation
 from melorin.modules.vpn.models import Panel, Server, VpnAccount
-from melorin.modules.vpn.panel_groups import PanelGroup, PanelGroupMember, BundleProduct, StorePanelGroup
+from melorin.modules.vpn.bundles import Bundle, BundleMember, BundleProduct, StoreBundle
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 router.include_router(integrations_router)
@@ -137,7 +137,7 @@ async def backup_status(_: AdminUser, session: Session):
 # ----- Catalog -----
 async def _check_default_group(session, group_id) -> None:
     """A product's default group is applied by the core to every channel, so it must be usable without any choice by the buyer."""
-    group = await session.get(PanelGroup, group_id)
+    group = await session.get(Bundle, group_id)
     if not group: raise NotFound("بسته فروش")
     if not group.is_enabled: raise AppError("DEFAULT_GROUP_DISABLED", "بسته پیش‌فرض محصول باید فعال باشد.", 422)
     if group.selection_mode != "automatic":
@@ -148,10 +148,10 @@ async def _check_default_group(session, group_id) -> None:
 async def create_product(body: CreateProduct, admin: AdminUser, session: Session):
     if await session.scalar(select(Product.id).where(Product.code == body.code)):
         raise AppError("PRODUCT_CODE_EXISTS", "کد محصول تکراری است.", 409)
-    if body.default_panel_group_id is not None: await _check_default_group(session, body.default_panel_group_id)
+    if body.default_bundle_id is not None: await _check_default_group(session, body.default_bundle_id)
     p = Product(**body.model_dump())
     session.add(p); await session.flush()
-    if p.default_panel_group_id and not p.is_test: await _ensure_bundle_product(session, p.default_panel_group_id, p.id)
+    if p.default_bundle_id and not p.is_test: await _ensure_bundle_product(session, p.default_bundle_id, p.id)
     main = await session.scalar(select(Store).where(Store.kind == "main", Store.status == "active"))
     if main:
         session.add(StoreProduct(
@@ -175,14 +175,14 @@ async def list_products(_: AdminUser, session: Session):
 async def update_product(product_id: uuid.UUID, body: ProductPatch, admin: AdminUser, session: Session):
     p = await session.get(Product, product_id)
     if not p: raise NotFound("محصول")
-    before = {"main_price": p.main_price, "reseller_price": p.reseller_price, "duration_days": p.duration_days, "traffic_gb": p.traffic_gb, "is_active": p.is_active, "default_panel_group_id": str(p.default_panel_group_id) if p.default_panel_group_id else None}
+    before = {"main_price": p.main_price, "reseller_price": p.reseller_price, "duration_days": p.duration_days, "traffic_gb": p.traffic_gb, "is_active": p.is_active, "default_bundle_id": str(p.default_bundle_id) if p.default_bundle_id else None}
     # Explicit null clears these optional fields (e.g. "unlimited devices"); other fields ignore null.
-    changes = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None or k in {"max_devices", "description", "category", "default_panel_group_id"}}
-    if changes.get("default_panel_group_id") is not None: await _check_default_group(session, changes["default_panel_group_id"])
+    changes = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None or k in {"max_devices", "description", "category", "default_bundle_id"}}
+    if changes.get("default_bundle_id") is not None: await _check_default_group(session, changes["default_bundle_id"])
     if "code" in changes and changes["code"] != p.code and await session.scalar(select(Product.id).where(Product.code == changes["code"])):
         raise AppError("PRODUCT_CODE_EXISTS", "کد محصول تکراری است.", 409)
     for k, v in changes.items(): setattr(p, k, v)
-    if changes.get("default_panel_group_id") is not None and not p.is_test: await _ensure_bundle_product(session, p.default_panel_group_id, p.id)
+    if changes.get("default_bundle_id") is not None and not p.is_test: await _ensure_bundle_product(session, p.default_bundle_id, p.id)
     audit.record(session, "product.updated", actor_id=admin.id, actor_type="admin", entity_type="product", entity_id=p.id, data={"before": before, "after": {k: (str(v) if isinstance(v, uuid.UUID) else v) for k, v in changes.items()}})
     await session.commit(); return p
 
@@ -363,47 +363,47 @@ async def set_server_state(server_id: uuid.UUID, body: PanelState, admin: AdminU
 
 
 async def _bundle_product_ids(session, group_id) -> list[str]:
-    return [str(x) for x in (await session.scalars(select(BundleProduct.product_id).where(BundleProduct.panel_group_id == group_id))).all()]
+    return [str(x) for x in (await session.scalars(select(BundleProduct.product_id).where(BundleProduct.bundle_id == group_id))).all()]
 
 
-def _panel_group_out(b, panels, product_ids=()):
+def _bundle_out(b, panels, product_ids=()):
     return {"product_ids": list(product_ids), **{"id": b.id, "name": b.name, "selection_mode": b.selection_mode, "naming_mode": b.naming_mode, "kind_label": b.kind_label,
             "is_enabled": b.is_enabled, "reseller_enabled": b.reseller_enabled, "sales_limit": b.sales_limit,
             "sold_count": b.sold_count, "panels": [{"id": p.id, "panel_id": p.panel_id, "is_enabled": p.is_enabled,
             "sales_limit": p.sales_limit, "sold_count": p.sold_count, "sort": p.sort, "label": p.label} for p in panels]}}
 
 
-@router.get("/panel-groups")
-async def list_panel_groups(_: AdminUser, session: Session):
-    panel_groups = (await session.scalars(select(PanelGroup).order_by(PanelGroup.created_at.desc()))).all()
+@router.get("/bundles")
+async def list_bundles(_: AdminUser, session: Session):
+    bundles = (await session.scalars(select(Bundle).order_by(Bundle.created_at.desc()))).all()
     result = []
-    for b in panel_groups:
-        rows = (await session.scalars(select(PanelGroupMember).where(PanelGroupMember.panel_group_id == b.id).order_by(PanelGroupMember.sort))).all()
-        result.append(_panel_group_out(b, rows, await _bundle_product_ids(session, b.id)))
+    for b in bundles:
+        rows = (await session.scalars(select(BundleMember).where(BundleMember.bundle_id == b.id).order_by(BundleMember.sort))).all()
+        result.append(_bundle_out(b, rows, await _bundle_product_ids(session, b.id)))
     return result
 
 
-@router.post("/panel-groups", status_code=201)
-async def create_panel_group(body: CreatePanelGroup, admin: AdminUser, session: Session):
+@router.post("/bundles", status_code=201)
+async def create_bundle(body: CreateBundle, admin: AdminUser, session: Session):
     if body.selection_mode == "manual" and not body.panel_ids:
-        raise AppError("PANEL_GROUP_PANELS_REQUIRED", "بسته دستی باید حداقل یک پنل داشته باشد.", 400)
+        raise AppError("BUNDLE_PANELS_REQUIRED", "بسته دستی باید حداقل یک پنل داشته باشد.", 400)
     valid = (await session.scalars(select(Panel.id).where(Panel.id.in_(body.panel_ids)))).all()
     if len(valid) != len(set(body.panel_ids)): raise NotFound("بسته فروش")
-    b = PanelGroup(name=body.name, selection_mode=body.selection_mode, naming_mode=body.naming_mode, kind_label=body.kind_label,
+    b = Bundle(name=body.name, selection_mode=body.selection_mode, naming_mode=body.naming_mode, kind_label=body.kind_label,
                     is_enabled=body.is_enabled, reseller_enabled=body.reseller_enabled, sales_limit=body.sales_limit)
     session.add(b); await session.flush()
-    for i, pid in enumerate(body.panel_ids): session.add(PanelGroupMember(panel_group_id=b.id, panel_id=pid, sort=i, label=(body.member_labels.get(pid) or "").strip() or None))
-    audit.record(session, "panel_group.created", actor_id=admin.id, actor_type="admin", entity_type="panel_group", entity_id=b.id)
+    for i, pid in enumerate(body.panel_ids): session.add(BundleMember(bundle_id=b.id, panel_id=pid, sort=i, label=(body.member_labels.get(pid) or "").strip() or None))
+    audit.record(session, "bundle.created", actor_id=admin.id, actor_type="admin", entity_type="bundle", entity_id=b.id)
     await session.commit()
-    rows = (await session.scalars(select(PanelGroupMember).where(PanelGroupMember.panel_group_id == b.id))).all()
-    return _panel_group_out(b, rows, await _bundle_product_ids(session, b.id))
+    rows = (await session.scalars(select(BundleMember).where(BundleMember.bundle_id == b.id))).all()
+    return _bundle_out(b, rows, await _bundle_product_ids(session, b.id))
 
 
-@router.patch("/panel-groups/{panel_group_id}")
-async def update_panel_group(panel_group_id: uuid.UUID, body: UpdatePanelGroup, admin: AdminUser, session: Session):
-    b = await session.get(PanelGroup, panel_group_id)
+@router.patch("/bundles/{bundle_id}")
+async def update_bundle(bundle_id: uuid.UUID, body: UpdateBundle, admin: AdminUser, session: Session):
+    b = await session.get(Bundle, bundle_id)
     if not b: raise NotFound("بسته فروش")
-    if body.selection_mode == "manual" and b.selection_mode != "manual" and await session.scalar(select(func.count()).select_from(Product).where(Product.default_panel_group_id == b.id)):
+    if body.selection_mode == "manual" and b.selection_mode != "manual" and await session.scalar(select(func.count()).select_from(Product).where(Product.default_bundle_id == b.id)):
         raise AppError("DEFAULT_GROUP_IN_USE", "این بسته پیش‌فرض یک یا چند محصول است و نمی‌تواند دستی شود؛ ابتدا بسته پیش‌فرض آن محصولات را تغییر دهید.", 409)
     # Explicit null is meaningful only for sales_limit (= unlimited); other fields ignore null.
     for k, v in body.model_dump(exclude_unset=True, exclude={"panel_ids", "member_labels"}).items():
@@ -412,70 +412,70 @@ async def update_panel_group(panel_group_id: uuid.UUID, body: UpdatePanelGroup, 
         valid = (await session.scalars(select(Panel.id).where(Panel.id.in_(body.panel_ids)))).all()
         if len(valid) != len(set(body.panel_ids)): raise NotFound("بسته فروش")
         if b.selection_mode == "manual" and not body.panel_ids:
-            raise AppError("PANEL_GROUP_PANELS_REQUIRED", "بسته دستی باید حداقل یک پنل داشته باشد.", 400)
+            raise AppError("BUNDLE_PANELS_REQUIRED", "بسته دستی باید حداقل یک پنل داشته باشد.", 400)
         # Sync instead of delete+insert so per-panel sold_count / limits survive edits.
-        existing = {m.panel_id: m for m in (await session.scalars(select(PanelGroupMember).where(PanelGroupMember.panel_group_id == b.id))).all()}
+        existing = {m.panel_id: m for m in (await session.scalars(select(BundleMember).where(BundleMember.bundle_id == b.id))).all()}
         wanted = list(dict.fromkeys(body.panel_ids))
         for pid, m in existing.items():
             if pid not in wanted: await session.delete(m)
         for i, pid in enumerate(wanted):
             if pid in existing: existing[pid].sort = i
-            else: session.add(PanelGroupMember(panel_group_id=b.id, panel_id=pid, sort=i))
+            else: session.add(BundleMember(bundle_id=b.id, panel_id=pid, sort=i))
     if body.member_labels is not None:
-        members = (await session.scalars(select(PanelGroupMember).where(PanelGroupMember.panel_group_id == b.id))).all()
+        members = (await session.scalars(select(BundleMember).where(BundleMember.bundle_id == b.id))).all()
         for m in members:
             if m.panel_id in body.member_labels: m.label = (body.member_labels[m.panel_id] or "").strip() or None
-    audit.record(session, "panel_group.updated", actor_id=admin.id, actor_type="admin", entity_type="panel_group", entity_id=b.id)
+    audit.record(session, "bundle.updated", actor_id=admin.id, actor_type="admin", entity_type="bundle", entity_id=b.id)
     await session.commit()
-    rows = (await session.scalars(select(PanelGroupMember).where(PanelGroupMember.panel_group_id == b.id).order_by(PanelGroupMember.sort))).all()
-    return _panel_group_out(b, rows, await _bundle_product_ids(session, b.id))
+    rows = (await session.scalars(select(BundleMember).where(BundleMember.bundle_id == b.id).order_by(BundleMember.sort))).all()
+    return _bundle_out(b, rows, await _bundle_product_ids(session, b.id))
 
 
 async def _ensure_bundle_product(session, group_id, product_id) -> None:
     """A product's default bundle must also sell it, otherwise the default would be unusable at checkout."""
-    if not await session.scalar(select(BundleProduct.id).where(BundleProduct.panel_group_id == group_id, BundleProduct.product_id == product_id)):
-        session.add(BundleProduct(panel_group_id=group_id, product_id=product_id, is_listed=True, sort=0))
+    if not await session.scalar(select(BundleProduct.id).where(BundleProduct.bundle_id == group_id, BundleProduct.product_id == product_id)):
+        session.add(BundleProduct(bundle_id=group_id, product_id=product_id, is_listed=True, sort=0))
 
 
 def _bundle_product_out(pp: BundleProduct, p: Product) -> dict:
     return {"product_id": p.id, "code": p.code, "name": p.name, "traffic_gb": p.traffic_gb, "duration_days": p.duration_days, "is_active": p.is_active,
             "base_main_price": p.main_price, "base_reseller_price": p.reseller_price, "main_price": pp.main_price, "reseller_price": pp.reseller_price,
-            "is_listed": pp.is_listed, "sort": pp.sort, "is_default": p.default_panel_group_id == pp.panel_group_id}
+            "is_listed": pp.is_listed, "sort": pp.sort, "is_default": p.default_bundle_id == pp.bundle_id}
 
 
-@router.get("/panel-groups/{panel_group_id}/products")
-async def list_bundle_products(panel_group_id: uuid.UUID, _: AdminUser, session: Session):
-    if not await session.get(PanelGroup, panel_group_id): raise NotFound("بسته فروش")
+@router.get("/bundles/{bundle_id}/products")
+async def list_bundle_products(bundle_id: uuid.UUID, _: AdminUser, session: Session):
+    if not await session.get(Bundle, bundle_id): raise NotFound("بسته فروش")
     rows = (await session.execute(select(BundleProduct, Product).join(Product, Product.id == BundleProduct.product_id)
-                                  .where(BundleProduct.panel_group_id == panel_group_id).order_by(BundleProduct.sort, Product.sort))).all()
+                                  .where(BundleProduct.bundle_id == bundle_id).order_by(BundleProduct.sort, Product.sort))).all()
     return [_bundle_product_out(pp, p) for pp, p in rows]
 
 
-@router.put("/panel-groups/{panel_group_id}/products/{product_id}")
-async def set_bundle_product(panel_group_id: uuid.UUID, product_id: uuid.UUID, body: BundleProductIn, admin: AdminUser, session: Session):
-    group, product = await session.get(PanelGroup, panel_group_id), await session.get(Product, product_id)
+@router.put("/bundles/{bundle_id}/products/{product_id}")
+async def set_bundle_product(bundle_id: uuid.UUID, product_id: uuid.UUID, body: BundleProductIn, admin: AdminUser, session: Session):
+    group, product = await session.get(Bundle, bundle_id), await session.get(Product, product_id)
     if not group or not product: raise NotFound("بسته فروش یا پکیج")
     if product.is_test: raise AppError("TEST_PRODUCT_NOT_SELLABLE", "پکیج تست در بسته فروخته نمی‌شود؛ فقط گروه پیش‌فرض دارد.", 422)
-    pp = await session.scalar(select(BundleProduct).where(BundleProduct.panel_group_id == group.id, BundleProduct.product_id == product.id))
+    pp = await session.scalar(select(BundleProduct).where(BundleProduct.bundle_id == group.id, BundleProduct.product_id == product.id))
     if not pp:
-        pp = BundleProduct(panel_group_id=group.id, product_id=product.id); session.add(pp)
+        pp = BundleProduct(bundle_id=group.id, product_id=product.id); session.add(pp)
     pp.main_price, pp.reseller_price, pp.is_listed, pp.sort = body.main_price, body.reseller_price, body.is_listed, body.sort
-    audit.record(session, "bundle_product.set", actor_id=admin.id, actor_type="admin", entity_type="panel_group", entity_id=group.id,
+    audit.record(session, "bundle_product.set", actor_id=admin.id, actor_type="admin", entity_type="bundle", entity_id=group.id,
                  data={"product_id": str(product.id), "main_price": body.main_price, "reseller_price": body.reseller_price, "is_listed": body.is_listed})
     hidden = await allocation.stores_below_cost(session, product, allocation.effective_prices(product, pp)[1], group.id)
     await session.commit()
     return {**_bundle_product_out(pp, product), "stores_below_cost": hidden}
 
 
-@router.delete("/panel-groups/{panel_group_id}/products/{product_id}")
-async def remove_bundle_product(panel_group_id: uuid.UUID, product_id: uuid.UUID, admin: AdminUser, session: Session):
+@router.delete("/bundles/{bundle_id}/products/{product_id}")
+async def remove_bundle_product(bundle_id: uuid.UUID, product_id: uuid.UUID, admin: AdminUser, session: Session):
     product = await session.get(Product, product_id)
-    pp = await session.scalar(select(BundleProduct).where(BundleProduct.panel_group_id == panel_group_id, BundleProduct.product_id == product_id))
+    pp = await session.scalar(select(BundleProduct).where(BundleProduct.bundle_id == bundle_id, BundleProduct.product_id == product_id))
     if not pp or not product: raise NotFound("پکیج بسته")
-    if product.default_panel_group_id == panel_group_id:
+    if product.default_bundle_id == bundle_id:
         raise AppError("PRODUCT_DEFAULT_BUNDLE", "این بسته، بسته پیش‌فرض این پکیج است. ابتدا بسته پیش‌فرض پکیج را عوض کنید.", 409)
-    audit.record(session, "bundle_product.removed", actor_id=admin.id, actor_type="admin", entity_type="panel_group", entity_id=panel_group_id, data={"product_id": str(product_id)})
-    await session.execute(delete(StoreBundlePrice).where(StoreBundlePrice.panel_group_id == panel_group_id, StoreBundlePrice.product_id == product_id))
+    audit.record(session, "bundle_product.removed", actor_id=admin.id, actor_type="admin", entity_type="bundle", entity_id=bundle_id, data={"product_id": str(product_id)})
+    await session.execute(delete(StoreBundlePrice).where(StoreBundlePrice.bundle_id == bundle_id, StoreBundlePrice.product_id == product_id))
     await session.delete(pp)
     await session.commit()
     return {"ok": True}
@@ -489,12 +489,12 @@ async def unassigned_products(_: AdminUser, session: Session):
     return [{"product_id": p.id, "code": p.code, "name": p.name, "is_active": p.is_active} for p in rows]
 
 
-@router.put("/panel-groups/{panel_group_id}/stores/{store_id}")
-async def set_panel_group_store(panel_group_id: uuid.UUID, store_id: uuid.UUID, body: dict, admin: AdminUser, session: Session):
-    if not await session.get(PanelGroup, panel_group_id) or not await session.get(Store, store_id): raise NotFound("گروه یا فروشگاه")
-    row = await session.scalar(select(StorePanelGroup).where(StorePanelGroup.panel_group_id == panel_group_id, StorePanelGroup.store_id == store_id))
+@router.put("/bundles/{bundle_id}/stores/{store_id}")
+async def set_bundle_store(bundle_id: uuid.UUID, store_id: uuid.UUID, body: dict, admin: AdminUser, session: Session):
+    if not await session.get(Bundle, bundle_id) or not await session.get(Store, store_id): raise NotFound("گروه یا فروشگاه")
+    row = await session.scalar(select(StoreBundle).where(StoreBundle.bundle_id == bundle_id, StoreBundle.store_id == store_id))
     if not row:
-        row = StorePanelGroup(panel_group_id=panel_group_id, store_id=store_id); session.add(row)
+        row = StoreBundle(bundle_id=bundle_id, store_id=store_id); session.add(row)
     row.is_enabled = bool(body.get("is_enabled", True))
     await session.commit()
     return {"ok": True, "is_enabled": row.is_enabled}
@@ -559,10 +559,10 @@ async def delete_panel(panel_id: uuid.UUID, admin: AdminUser, session: Session):
     orders = await _count(session, Order, Order.selected_panel_id == p.id)
     if accounts or orders:
         raise AppError("PANEL_HAS_HISTORY", f"روی این پنل {accounts} اکانت ساخته شده و {orders} سفارش به آن وصل است؛ حذفش اکانت‌ها را بی‌پنل می‌کند. به‌جای حذف، پنل را غیرفعال کنید.", 409, {"accounts": accounts, "orders": orders})
-    members = (await session.scalars(select(PanelGroupMember).where(PanelGroupMember.panel_id == p.id))).all()
+    members = (await session.scalars(select(BundleMember).where(BundleMember.panel_id == p.id))).all()
     for m in members:
-        g = await session.get(PanelGroup, m.panel_group_id)
-        if g and g.selection_mode == "manual" and await _count(session, PanelGroupMember, PanelGroupMember.panel_group_id == g.id) <= 1:
+        g = await session.get(Bundle, m.bundle_id)
+        if g and g.selection_mode == "manual" and await _count(session, BundleMember, BundleMember.bundle_id == g.id) <= 1:
             raise AppError("PANEL_LAST_IN_MANUAL_GROUP", f"این پنل تنها بسته فروش دستی «{g.name}» است. ابتدا پنل دیگری به آن گروه اضافه کنید یا گروه را حذف کنید.", 409, {"group": g.name})
     for m in members: await session.delete(m)
     for s in servers: await session.delete(s)
@@ -585,21 +585,21 @@ async def delete_server(server_id: uuid.UUID, admin: AdminUser, session: Session
     return {"ok": True}
 
 
-@router.delete("/panel-groups/{panel_group_id}")
-async def delete_panel_group(panel_group_id: uuid.UUID, admin: AdminUser, session: Session):
-    b = await session.get(PanelGroup, panel_group_id)
+@router.delete("/bundles/{bundle_id}")
+async def delete_bundle(bundle_id: uuid.UUID, admin: AdminUser, session: Session):
+    b = await session.get(Bundle, bundle_id)
     if not b: raise NotFound("بسته فروش")
-    products = [x.name for x in (await session.scalars(select(Product).where(Product.default_panel_group_id == b.id))).all()]
+    products = [x.name for x in (await session.scalars(select(Product).where(Product.default_bundle_id == b.id))).all()]
     if products:
-        raise AppError("PANEL_GROUP_IN_USE", f"این بسته، بسته پیش‌فرض محصول {_names(products)} است. ابتدا گروه آن محصولات را تغییر دهید.", 409, {"products": products})
-    orders = await _count(session, Order, Order.panel_group_id == b.id)
+        raise AppError("BUNDLE_IN_USE", f"این بسته، بسته پیش‌فرض محصول {_names(products)} است. ابتدا گروه آن محصولات را تغییر دهید.", 409, {"products": products})
+    orders = await _count(session, Order, Order.bundle_id == b.id)
     if orders:
-        raise AppError("PANEL_GROUP_HAS_HISTORY", f"{orders} سفارش از طریق این بسته ساخته شده است؛ حذف آن تاریخچه را خراب می‌کند. به‌جای حذف، بسته را غیرفعال کنید.", 409, {"orders": orders})
-    await session.execute(delete(PanelGroupMember).where(PanelGroupMember.panel_group_id == b.id))
-    await session.execute(delete(StoreBundlePrice).where(StoreBundlePrice.panel_group_id == b.id))
-    await session.execute(delete(BundleProduct).where(BundleProduct.panel_group_id == b.id))
-    await session.execute(delete(StorePanelGroup).where(StorePanelGroup.panel_group_id == b.id))
-    audit.record(session, "panel_group.deleted", actor_id=admin.id, actor_type="admin", entity_type="panel_group", entity_id=b.id, data={"name": b.name})
+        raise AppError("BUNDLE_HAS_HISTORY", f"{orders} سفارش از طریق این بسته ساخته شده است؛ حذف آن تاریخچه را خراب می‌کند. به‌جای حذف، بسته را غیرفعال کنید.", 409, {"orders": orders})
+    await session.execute(delete(BundleMember).where(BundleMember.bundle_id == b.id))
+    await session.execute(delete(StoreBundlePrice).where(StoreBundlePrice.bundle_id == b.id))
+    await session.execute(delete(BundleProduct).where(BundleProduct.bundle_id == b.id))
+    await session.execute(delete(StoreBundle).where(StoreBundle.bundle_id == b.id))
+    audit.record(session, "bundle.deleted", actor_id=admin.id, actor_type="admin", entity_type="bundle", entity_id=b.id, data={"name": b.name})
     await session.delete(b)
     await _commit_or_conflict(session, "این بسته")
     return {"ok": True}

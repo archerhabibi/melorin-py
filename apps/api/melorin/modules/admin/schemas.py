@@ -18,7 +18,7 @@ class CreateProduct(BaseModel):
     reseller_price: int = Field(ge=0)
     currency: Literal["IRT", "USD", "USDT", "XTR"] = "IRT"
     is_test: bool = False
-    default_panel_group_id: uuid.UUID | None = None
+    default_bundle_id: uuid.UUID | None = None
 
 
 class ProductPatch(BaseModel):
@@ -34,7 +34,7 @@ class ProductPatch(BaseModel):
     currency: Literal["IRT", "USD", "USDT", "XTR"] | None = None
     is_test: bool | None = None
     is_active: bool | None = None
-    default_panel_group_id: uuid.UUID | None = None
+    default_bundle_id: uuid.UUID | None = None
 
 
 class ProductOut(CreateProduct):
@@ -115,7 +115,7 @@ class PanelState(BaseModel):
     is_enabled: bool
 
 
-class CreatePanelGroup(BaseModel):
+class CreateBundle(BaseModel):
     name: str = Field(min_length=2, max_length=120)
     selection_mode: str = Field(default="automatic", pattern="^(automatic|manual)$")
     naming_mode: str = Field(default="automatic", pattern="^(automatic|custom)$")
@@ -127,7 +127,7 @@ class CreatePanelGroup(BaseModel):
     member_labels: dict[uuid.UUID, str] = Field(default_factory=dict)  # panel_id -> what the customer sees (manual bundles)
 
 
-class UpdatePanelGroup(BaseModel):
+class UpdateBundle(BaseModel):
     name: str | None = Field(default=None, min_length=2, max_length=120)
     selection_mode: str | None = Field(default=None, pattern="^(automatic|manual)$")
     naming_mode: str | None = Field(default=None, pattern="^(automatic|custom)$")
@@ -139,7 +139,7 @@ class UpdatePanelGroup(BaseModel):
     member_labels: dict[uuid.UUID, str] | None = None
 
 
-class PanelGroupMemberInput(BaseModel):
+class BundleMemberInput(BaseModel):
     panel_id: uuid.UUID
     is_enabled: bool = True
     sales_limit: int | None = Field(default=None, gt=0)

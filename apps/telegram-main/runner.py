@@ -686,7 +686,7 @@ class TelegramRunner:
 
     def _alloc(self, ctx) -> dict:
         f = self._flow(ctx)
-        body = {"panel_group_id": f["bundle"]} if f.get("bundle") else {}
+        body = {"bundle_id": f["bundle"]} if f.get("bundle") else {}
         if f.get("panel"):
             body["selected_panel_id"] = f["panel"]
         return body

@@ -219,7 +219,7 @@ def test_command_menu_is_registered_at_startup(bot):
 
 def test_source_never_carries_allocation_data():
     src = (ROOT / "telegram-main/runner.py").read_text()
-    for forbidden in ("default_panel_group", "server_id"):
+    for forbidden in ("default_bundle", "server_id"):
         assert forbidden not in src
 
 

@@ -7,7 +7,7 @@ import { Dot, InfraChain, Rel, RelChip, Warn, clearParam, health as hs, infraHre
 // A sales bundle is a SALES BUNDLE (بسته فروش): panels + connection kind + the packages it sells, each with
 // its own price. Customers pick a bundle, so the bundle is the only way an account gets sold; there is no
 // bundle-less route. Selection / naming / reseller policy are advanced options: most bundles never change them.
-const API = "/api/v1/admin/panel-groups";
+const API = "/api/v1/admin/bundles";
 const PRODUCTS = "/api/v1/admin/products";
 const MODES = {
   automatic: ["خودکار", "سیستم پنلی را انتخاب می‌کند که اکانت فعال کمتری دارد؛ مشتری چیزی نمی‌بیند."],
@@ -202,7 +202,7 @@ function GroupDrawer({ group, panels, products, idx, bundledIds, call, toast, on
   </Drawer>;
 }
 
-export default function PanelGroupsView({ api, toast }) {
+export default function BundlesView({ api, toast }) {
   const infra = useInfra(api); const { call, idx } = infra;
   const groups = infra.groups, panelsQ = infra.panels;
   const params = useHashParams();
