@@ -81,33 +81,43 @@ function GoogleLogo() {
 }
 
 export function GoogleSignInButton({ onCredential, label = "ورود با گوگل", className = "" }) {
-  const [busy, setBusy] = useState(false);
-
+  // Official Google button (renderButton). Unlike prompt(), it shows Google's own errors
+  // (origin_mismatch, access blocked, etc.) instead of failing silently.
+  // Needs useGoogleSignIn() to be mounted on the same page so the GIS script is loaded.
   const cfg = useGoogleConfig();
-  if (!cfg) return null;        // hide button if env var missing
+  const holder = useRef(null);
+  const [error, setError] = useState("");
+  const cb = useRef(onCredential);
+  cb.current = onCredential;
 
-  function handleClick() {
-    if (!window.google?.accounts?.id) return;
-    setBusy(true);
-    window.google.accounts.id.prompt((notification) => {
-      // prompt cancelled or auto-select failed — busy state will be released
-      // by the parent callback or user dismissal
-      if (notification.isNotDisplayed() || notification.isSkippedMoment() || notification.isDismissedMoment()) {
-        setBusy(false);
+  useEffect(() => {
+    if (!cfg || !holder.current) return undefined;
+    let tries = 0;
+    const timer = setInterval(() => {
+      tries += 1;
+      if (window.google?.accounts?.id && holder.current) {
+        clearInterval(timer);
+        window.google.accounts.id.initialize({
+          client_id: cfg.client_id,
+          callback: (response) => cb.current(response.credential),
+          ux_mode: "popup",
+        });
+        window.google.accounts.id.renderButton(holder.current, {
+          type: "standard", theme: "outline", size: "large", text: "continue_with", shape: "pill", width: 320, locale: "fa",
+        });
+      } else if (tries > 50) {
+        clearInterval(timer);
+        setError("بارگذاری گوگل انجام نشد. اتصال یا افزونه‌ی مرورگر را بررسی کنید.");
       }
-    });
-  }
+    }, 200);
+    return () => clearInterval(timer);
+  }, [cfg && cfg.client_id]);
 
+  if (!cfg) return null;
   return (
-    <button
-      type="button"
-      onClick={handleClick}
-      disabled={busy}
-      className={`btn-soft flex w-full items-center justify-center gap-2.5 !py-3 text-sm font-bold ${className}`}
-      aria-label="ورود با گوگل"
-    >
-      <GoogleLogo />
-      {busy ? "در حال اتصال به گوگل…" : label}
-    </button>
+    <div className={className}>
+      <div ref={holder} className="flex justify-center" />
+      {error && <p className="mt-2 text-center text-xs text-red-500">{error}</p>}
+    </div>
   );
 }

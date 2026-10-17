@@ -101,4 +101,8 @@ def test_google_client_id_reaches_both_frontend_builds():
     for app in ("store-web", "admin-web"):
         assert "ARG VITE_GOOGLE_CLIENT_ID" in (PROJECT / f"apps/{app}/Dockerfile").read_text()
         hook = (PROJECT / f"apps/{app}/src/GoogleSignIn.jsx").read_text()
-        assert "latest.current(response.credential)" in hook and "isDismissedMoment" in hook
+        assert "latest.current(response.credential)" in hook  # the shared hook (GIS script + initialize) stays in both apps
+        if app == "store-web":  # store-web renders Google's official button, so Google's own errors are visible
+            assert "renderButton" in hook and "cb.current(response.credential)" in hook
+        else:
+            assert "isDismissedMoment" in hook
