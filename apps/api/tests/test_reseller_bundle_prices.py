@@ -28,7 +28,7 @@ from melorin.modules.stores.models import Store
 from melorin.modules.system.models import AuditEvent
 from melorin.modules.vpn import allocation
 from melorin.modules.vpn.models import Panel, Server
-from melorin.modules.vpn.panel_groups import PanelGroup, PanelGroupMember, BundleProduct
+from melorin.modules.vpn.bundles import Bundle, BundleMember, BundleProduct
 
 ADMIN = types.SimpleNamespace(id=uuid.uuid4())
 
@@ -62,15 +62,15 @@ async def product(s, code, price=30000, reseller=20000, **kw):
 
 
 async def bundle(s, name, **kw):
-    g = await add(s, PanelGroup(name=name, kind_label=name.lower(), **kw))
+    g = await add(s, Bundle(name=name, kind_label=name.lower(), **kw))
     panel = await add(s, Panel(name=f"internal-{name}", kind="mock", base_url="http://x", is_enabled=True, health_status="healthy"))
-    await add(s, PanelGroupMember(panel_group_id=g.id, panel_id=panel.id, sort=0), Server(name=f"srv-{name}", panel_id=panel.id))
+    await add(s, BundleMember(bundle_id=g.id, panel_id=panel.id, sort=0), Server(name=f"srv-{name}", panel_id=panel.id))
     return g
 
 
 async def sell(s, group, prod, st, *, cost=None, customer_price=None):
     """Put ``prod`` in ``group`` (optionally with its own reseller price = cost) and enable it for the store."""
-    await add(s, BundleProduct(panel_group_id=group.id, product_id=prod.id, reseller_price=cost, is_listed=True))
+    await add(s, BundleProduct(bundle_id=group.id, product_id=prod.id, reseller_price=cost, is_listed=True))
     if not await s.scalar(sa.select(StoreProduct.id).where(StoreProduct.store_id == st.id, StoreProduct.product_id == prod.id)):
         await add(s, StoreProduct(store_id=st.id, product_id=prod.id, is_enabled=True, is_listed=True, customer_price=customer_price))
 
@@ -97,8 +97,8 @@ async def test_bundle_price_wins_over_the_store_wide_price_and_falls_back_to_it(
     sp = await sp_of(session, st, p)
     assert [price for *_, price in await allocation.bundle_packages(session, st, cheap.id)] == [27000]  # own price
     assert [price for *_, price in await allocation.bundle_packages(session, st, dear.id)] == [45000]  # store-wide
-    assert (await allocation.plan_sale(session, store=st, product=p, sp=sp, panel_group_id=cheap.id)).unit_price == 27000
-    assert (await allocation.plan_sale(session, store=st, product=p, sp=sp, panel_group_id=dear.id)).unit_price == 45000
+    assert (await allocation.plan_sale(session, store=st, product=p, sp=sp, bundle_id=cheap.id)).unit_price == 27000
+    assert (await allocation.plan_sale(session, store=st, product=p, sp=sp, bundle_id=dear.id)).unit_price == 45000
     # clearing the bundle price returns that bundle to the store-wide price and removes the row
     assert await allocation.set_bundle_price(session, st, cheap.id, p.id, None) is None
     assert [price for *_, price in await allocation.bundle_packages(session, st, cheap.id)] == [45000]
@@ -114,7 +114,7 @@ async def test_a_package_priced_only_per_bundle_is_sold_only_in_those_bundles(se
     assert {v.group.id for v in await allocation.sellable_bundles(session, st)} == {cheap.id}  # dear has no price: not offered
     assert await allocation.bundle_packages(session, st, dear.id) == []
     sp = await sp_of(session, st, p)
-    plan = await allocation.plan_sale(session, store=st, product=p, sp=sp, panel_group_id=dear.id)
+    plan = await allocation.plan_sale(session, store=st, product=p, sp=sp, bundle_id=dear.id)
     assert plan.unit_price == 0  # no price in this bundle ...
     with pytest.raises(AppError) as e:  # ... so the quote (and with it checkout) refuses, before any money moves
         await catalog.build_quote(session, st, p, sp, None, 0, main_currency="IRT", prices=plan.prices, customer_price=plan.unit_price)
@@ -149,7 +149,7 @@ async def test_a_bundle_price_that_became_too_low_is_hidden_and_refused_at_check
     st, p, cheap, dear = await world(session)
     await allocation.set_bundle_price(session, st, dear.id, p.id, 41000)
     sp = await sp_of(session, st, p)
-    pp = await session.scalar(sa.select(BundleProduct).where(BundleProduct.panel_group_id == dear.id))
+    pp = await session.scalar(sa.select(BundleProduct).where(BundleProduct.bundle_id == dear.id))
     assert await allocation.stores_below_cost(session, p, 45000, dear.id) == 1  # admin is warned, per bundle
     assert await allocation.stores_below_cost(session, p, 41000, dear.id) == 0
     pp.reseller_price = 45000  # the admin raised the bundle's cost afterwards
@@ -157,7 +157,7 @@ async def test_a_bundle_price_that_became_too_low_is_hidden_and_refused_at_check
     assert await allocation.bundle_packages(session, st, dear.id) == []
     assert await allocation.sellable_products(session, st) == []
     with pytest.raises(AppError) as e:
-        await allocation.plan_sale(session, store=st, product=p, sp=sp, panel_group_id=dear.id)
+        await allocation.plan_sale(session, store=st, product=p, sp=sp, bundle_id=dear.id)
     assert e.value.code == "CUSTOMER_PRICE_BELOW_COST"
 
 
@@ -166,7 +166,7 @@ async def test_quote_charges_the_bundle_price_and_the_bundles_cost(session):
     st, p, cheap, dear = await world(session)
     await allocation.set_bundle_price(session, st, dear.id, p.id, 52000)
     sp = await sp_of(session, st, p)
-    plan = await allocation.plan_sale(session, store=st, product=p, sp=sp, panel_group_id=dear.id)
+    plan = await allocation.plan_sale(session, store=st, product=p, sp=sp, bundle_id=dear.id)
     q = await catalog.build_quote(session, st, p, sp, None, 0, main_currency="IRT", prices=plan.prices, customer_price=plan.unit_price)
     assert (q.unit_price, q.total, q.reseller_cost) == (52000, 52000, 40000)
     # old callers that pass only the StoreProduct still get its store-wide price
@@ -357,7 +357,7 @@ def test_migration_0021_renames_pool_tables_to_bundles_keeping_data_and_matches_
         names = set(insp.get_table_names())
         assert {"bundle_products", "store_bundle_prices"} <= names and not {"pool_products", "store_pool_prices"} & names
         assert conn.exec_driver_sql("SELECT panel_group_id FROM bundle_products").fetchall() == [("g",)]
-        assert {i["name"] for i in insp.get_indexes("store_bundle_prices")} == {i.name for i in StoreBundlePrice.__table__.indexes}
+        assert {i["name"] for i in insp.get_indexes("store_bundle_prices")} == {"ix_store_bundle_prices_store_id", "ix_store_bundle_prices_panel_group_id", "ix_store_bundle_prices_product_id"}
         assert "ix_bundle_products_panel_group_id" in {i["name"] for i in insp.get_indexes("bundle_products")}
         with Operations.context(MigrationContext.configure(conn)):
             m21.downgrade()

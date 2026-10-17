@@ -1,6 +1,6 @@
 """Single allocation core: WHERE a new VPN account is created is decided here and nowhere else.
 
-Vocabulary: a *bundle* (UI: بسته فروش) is a ``PanelGroup``. Every account is sold through exactly one
+Vocabulary: a *bundle* (UI: بسته فروش) is a ``Bundle``. Every account is sold through exactly one
 bundle; there is no bundle-less route.
 
 The channels (Telegram bot, store website, reseller panel, admin, API) say *what* is bought and, when the
@@ -51,7 +51,7 @@ from melorin.modules.catalog.models import Product, StoreBundlePrice, StoreProdu
 from melorin.modules.stores.models import Store
 from melorin.modules.vpn.adapters.base import ErrorKind, PanelError
 from melorin.modules.vpn.models import Panel, Server, VpnAccount
-from melorin.modules.vpn.panel_groups import PanelGroup, PanelGroupMember, BundleProduct, StorePanelGroup, clean_custom_name
+from melorin.modules.vpn.bundles import Bundle, BundleMember, BundleProduct, StoreBundle, clean_custom_name
 
 
 @dataclasses.dataclass(frozen=True)
@@ -146,7 +146,7 @@ def group_policy_violation(group, *, store_access_enabled: bool | None, selected
 async def _store_access_enabled(session: AsyncSession, store_id: uuid.UUID | None, group_id: uuid.UUID) -> bool | None:
     if not store_id:
         return None
-    row = await session.scalar(select(StorePanelGroup).where(StorePanelGroup.store_id == store_id, StorePanelGroup.panel_group_id == group_id))
+    row = await session.scalar(select(StoreBundle).where(StoreBundle.store_id == store_id, StoreBundle.bundle_id == group_id))
     return None if row is None else bool(row.is_enabled)
 
 
@@ -155,7 +155,7 @@ async def resolve_order_group(
     *,
     store_id: uuid.UUID | None,
     product,
-    panel_group_id: uuid.UUID | None = None,
+    bundle_id: uuid.UUID | None = None,
     selected_panel_id: uuid.UUID | None = None,
 ) -> tuple[uuid.UUID | None, uuid.UUID | None]:
     """Order-creation rule shared by every channel: (bundle id, selected panel id) to store on the order.
@@ -163,21 +163,21 @@ async def resolve_order_group(
     An explicit bundle wins, otherwise the product default applies. No bundle at all is an error (there is no
     direct route). An unusable bundle, or a bundle that does not sell the package, raises here, BEFORE payment.
     """
-    group_id = panel_group_id or getattr(product, "default_panel_group_id", None)
+    group_id = bundle_id or getattr(product, "default_bundle_id", None)
     if group_id is None:
         raise AppError("BUNDLE_REQUIRED", "برای خرید باید یک بسته فروش انتخاب شود.", 409)
-    group = await session.get(PanelGroup, group_id)
+    group = await session.get(Bundle, group_id)
     why = group_policy_violation(group, store_access_enabled=await _store_access_enabled(session, store_id, group_id), selected_panel_id=selected_panel_id)
     if why:
-        raise AppError("PANEL_GROUP_UNAVAILABLE", why, 409)
+        raise AppError("BUNDLE_UNAVAILABLE", why, 409)
     if not getattr(product, "is_test", False):
-        sold_here = await session.scalar(select(BundleProduct.id).where(BundleProduct.panel_group_id == group_id, BundleProduct.product_id == product.id))
+        sold_here = await session.scalar(select(BundleProduct.id).where(BundleProduct.bundle_id == group_id, BundleProduct.product_id == product.id))
         if sold_here is None:
             raise AppError("PRODUCT_NOT_IN_BUNDLE", "این پکیج در بسته انتخاب‌شده فروخته نمی‌شود.", 422)
     if selected_panel_id is not None:
         member = await session.scalar(
-            select(PanelGroupMember.id).where(
-                PanelGroupMember.panel_group_id == group_id, PanelGroupMember.panel_id == selected_panel_id, PanelGroupMember.is_enabled.is_(True)
+            select(BundleMember.id).where(
+                BundleMember.bundle_id == group_id, BundleMember.panel_id == selected_panel_id, BundleMember.is_enabled.is_(True)
             )
         )
         if member is None:
@@ -220,7 +220,7 @@ async def _active_counts(session: AsyncSession, server_ids: list[uuid.UUID], pan
     return by_server, by_panel
 
 
-def _candidate(server: Server, panel: Panel, member: PanelGroupMember | None, active_server: int, active_panel: int) -> Candidate:
+def _candidate(server: Server, panel: Panel, member: BundleMember | None, active_server: int, active_panel: int) -> Candidate:
     return Candidate(
         server_id=server.id,
         server_name=server.name,
@@ -241,27 +241,27 @@ def _candidate(server: Server, panel: Panel, member: PanelGroupMember | None, ac
     )
 
 
-async def resolve_allocation(session: AsyncSession, order, product) -> tuple[Server, Panel, PanelGroup | None]:
+async def resolve_allocation(session: AsyncSession, order, product) -> tuple[Server, Panel, Bundle | None]:
     """Decide (server, panel, group) for a NEW account. Raises PanelError(PERMANENT) with a reason when impossible."""
-    group: PanelGroup | None = None
+    group: Bundle | None = None
     group_mode: str | None = None
-    if not order.panel_group_id:
+    if not order.bundle_id:
         raise PanelError(ErrorKind.PERMANENT, "سفارش بدون بسته فروش قابل ساخت نیست.")
-    group = await session.get(PanelGroup, order.panel_group_id, with_for_update=True)
+    group = await session.get(Bundle, order.bundle_id, with_for_update=True)
     why = group_policy_violation(
         group,
-        store_access_enabled=await _store_access_enabled(session, order.store_id, order.panel_group_id),
+        store_access_enabled=await _store_access_enabled(session, order.store_id, order.bundle_id),
         selected_panel_id=order.selected_panel_id,
     )
     if why:
         raise PanelError(ErrorKind.PERMANENT, why)
     group_mode = group.selection_mode
 
-    members: dict[uuid.UUID, PanelGroupMember] = {}
+    members: dict[uuid.UUID, BundleMember] = {}
     query = select(Server, Panel).join(Panel, Panel.id == Server.panel_id)
     selected = order.selected_panel_id if group_mode else None
     if group is not None:
-        rows = (await session.scalars(select(PanelGroupMember).where(PanelGroupMember.panel_group_id == group.id))).all()
+        rows = (await session.scalars(select(BundleMember).where(BundleMember.bundle_id == group.id))).all()
         members = {m.panel_id: m for m in rows}
         if not members:
             raise PanelError(ErrorKind.PERMANENT, "هیچ پنل قابل فروشی در این بسته وجود ندارد.")
@@ -289,7 +289,7 @@ async def resolve_allocation(session: AsyncSession, order, product) -> tuple[Ser
 async def bundle_product(session: AsyncSession, group_id: uuid.UUID | None, product_id: uuid.UUID) -> BundleProduct | None:
     if group_id is None:
         return None
-    return await session.scalar(select(BundleProduct).where(BundleProduct.panel_group_id == group_id, BundleProduct.product_id == product_id))
+    return await session.scalar(select(BundleProduct).where(BundleProduct.bundle_id == group_id, BundleProduct.product_id == product_id))
 
 
 async def account_bundle_id(session: AsyncSession, account) -> uuid.UUID | None:
@@ -297,7 +297,7 @@ async def account_bundle_id(session: AsyncSession, account) -> uuid.UUID | None:
     from melorin.modules.orders.models import Order
 
     order = await session.get(Order, account.order_id) if getattr(account, "order_id", None) else None
-    return order.panel_group_id if order else None
+    return order.bundle_id if order else None
 
 
 def effective_prices(product: Product, pp: BundleProduct | None) -> tuple[int, int]:
@@ -329,8 +329,8 @@ async def store_bundle_prices(
     """The store's own per-bundle retail prices as ``{(bundle id, product id): price}`` (one query)."""
     q = select(StoreBundlePrice).where(StoreBundlePrice.store_id == store_id)
     if group_id is not None:
-        q = q.where(StoreBundlePrice.panel_group_id == group_id)
-    return {(r.panel_group_id, r.product_id): int(r.customer_price) for r in (await session.scalars(q)).all()}
+        q = q.where(StoreBundlePrice.bundle_id == group_id)
+    return {(r.bundle_id, r.product_id): int(r.customer_price) for r in (await session.scalars(q)).all()}
 
 
 @dataclasses.dataclass(frozen=True)
@@ -338,7 +338,7 @@ class SalePlan:
     """The core's answer for one sale: where it goes, what name it gets and what it costs."""
 
     group_id: uuid.UUID | None
-    group: PanelGroup | None
+    group: Bundle | None
     selected_panel_id: uuid.UUID | None
     account_name: str | None
     bundle_product: BundleProduct | None
@@ -359,7 +359,7 @@ async def plan_sale(
     sp: StoreProduct | None,
     kind: str = "purchase",
     account=None,
-    panel_group_id: uuid.UUID | None = None,
+    bundle_id: uuid.UUID | None = None,
     selected_panel_id: uuid.UUID | None = None,
     account_name: str | None = None,
     enforce: bool = True,
@@ -378,14 +378,14 @@ async def plan_sale(
         selected, name = None, None
     elif enforce:
         group_id, selected = await resolve_order_group(
-            session, store_id=store.id, product=product, panel_group_id=panel_group_id, selected_panel_id=selected_panel_id
+            session, store_id=store.id, product=product, bundle_id=bundle_id, selected_panel_id=selected_panel_id
         )
-        name = requested_account_name(await session.get(PanelGroup, group_id), account_name)
+        name = requested_account_name(await session.get(Bundle, group_id), account_name)
     else:
-        group_id, selected, name = panel_group_id or product.default_panel_group_id, None, None
+        group_id, selected, name = bundle_id or product.default_bundle_id, None, None
     pp = await bundle_product(session, group_id, product.id)
     main, reseller = effective_prices(product, pp)
-    group = await session.get(PanelGroup, group_id) if group_id else None
+    group = await session.get(Bundle, group_id) if group_id else None
     retail = None
     if store.kind == "reseller":
         own = (await store_bundle_prices(session, store.id, group_id=group_id)).get((group_id, product.id)) if group_id else None
@@ -397,7 +397,7 @@ async def plan_sale(
 
 @dataclasses.dataclass(frozen=True)
 class BundleView:
-    group: PanelGroup
+    group: Bundle
     panels: list[tuple[uuid.UUID, str]]  # manual bundles only: (panel id, label the customer sees)
 
 
@@ -405,7 +405,7 @@ async def bundle_packages(session: AsyncSession, store: Store, group_id: uuid.UU
     """Packages a customer of ``store`` can buy in one bundle, each with the price shown to that customer."""
     q = (
         select(Product, StoreProduct, BundleProduct)
-        .join(BundleProduct, (BundleProduct.product_id == Product.id) & (BundleProduct.panel_group_id == group_id))
+        .join(BundleProduct, (BundleProduct.product_id == Product.id) & (BundleProduct.bundle_id == group_id))
         .join(StoreProduct, (StoreProduct.product_id == Product.id) & (StoreProduct.store_id == store.id))
         .where(
             Product.is_active.is_(True), Product.archived_at.is_(None), Product.is_test.is_(False),
@@ -430,13 +430,13 @@ async def bundle_packages(session: AsyncSession, store: Store, group_id: uuid.UU
 async def sellable_bundles(session: AsyncSession, store: Store) -> list[BundleView]:
     """Bundles a customer of ``store`` may see: enabled, not sold out, open to the store, with a sellable package
     and (manual bundles) at least one healthy panel the customer can pick."""
-    q = select(PanelGroup).where(PanelGroup.is_enabled.is_(True))
-    q = q.outerjoin(StorePanelGroup, (StorePanelGroup.panel_group_id == PanelGroup.id) & (StorePanelGroup.store_id == store.id))
+    q = select(Bundle).where(Bundle.is_enabled.is_(True))
+    q = q.outerjoin(StoreBundle, (StoreBundle.bundle_id == Bundle.id) & (StoreBundle.store_id == store.id))
     if store.kind == "reseller":
-        q = q.where(PanelGroup.reseller_enabled.is_(True))
-    q = q.where(StorePanelGroup.id.is_(None) | StorePanelGroup.is_enabled.is_(True))
+        q = q.where(Bundle.reseller_enabled.is_(True))
+    q = q.where(StoreBundle.id.is_(None) | StoreBundle.is_enabled.is_(True))
     out: list[BundleView] = []
-    for g in (await session.scalars(q.order_by(PanelGroup.created_at))).all():
+    for g in (await session.scalars(q.order_by(Bundle.created_at))).all():
         if g.sales_limit is not None and g.sold_count >= g.sales_limit:
             continue
         if not await bundle_packages(session, store, g.id):
@@ -444,9 +444,9 @@ async def sellable_bundles(session: AsyncSession, store: Store) -> list[BundleVi
         panels: list[tuple[uuid.UUID, str]] = []
         if g.selection_mode == "manual":
             rows = (await session.execute(
-                select(PanelGroupMember, Panel).join(Panel, Panel.id == PanelGroupMember.panel_id)
-                .where(PanelGroupMember.panel_group_id == g.id, PanelGroupMember.is_enabled.is_(True), Panel.is_enabled.is_(True), Panel.health_status == "healthy")
-                .order_by(PanelGroupMember.sort)
+                select(BundleMember, Panel).join(Panel, Panel.id == BundleMember.panel_id)
+                .where(BundleMember.bundle_id == g.id, BundleMember.is_enabled.is_(True), Panel.is_enabled.is_(True), Panel.health_status == "healthy")
+                .order_by(BundleMember.sort)
             )).all()
             panels = [(m.panel_id, m.label or f"گزینه {i + 1}") for i, (m, _) in enumerate(rows) if m.sales_limit is None or m.sold_count < m.sales_limit]
             if not panels:
@@ -484,7 +484,7 @@ async def sellable_products_priced(session: AsyncSession, store: Store) -> list[
         if store.kind == "reseller":
             prices = []
             for pp in rows:
-                retail = retail_price(sp, own.get((pp.panel_group_id, p.id)))
+                retail = retail_price(sp, own.get((pp.bundle_id, p.id)))
                 if retail and not _below_cost(retail, effective_prices(p, pp)[1]):
                     prices.append(retail)
             if prices:
@@ -526,7 +526,7 @@ async def stores_below_cost(session: AsyncSession, product: Product, reseller_pr
     own: dict[uuid.UUID, int] = {}
     if group_id is not None:
         own = {r.store_id: int(r.customer_price) for r in (await session.scalars(
-            select(StoreBundlePrice).where(StoreBundlePrice.panel_group_id == group_id, StoreBundlePrice.product_id == product.id))).all()}
+            select(StoreBundlePrice).where(StoreBundlePrice.bundle_id == group_id, StoreBundlePrice.product_id == product.id))).all()}
     hidden = {sid for sid, price in rows if _below_cost(own.get(sid) or price or None, reseller_price)}
     hidden |= {sid for sid, price in own.items() if _below_cost(price, reseller_price)}
     return len(hidden)
@@ -543,13 +543,13 @@ async def reseller_price_table(session: AsyncSession, store: Store) -> list[dict
     ``bundles``, one row per bundle with its cost (reseller price), the store's own price there, the price that is
     actually charged (``effective_price``, ``source`` = bundle | store) and the resulting state.
     The bundle-level ``costs`` list is kept for older clients (Telegram bot)."""
-    bundle_rows = (await session.execute(select(BundleProduct, PanelGroup).join(PanelGroup, PanelGroup.id == BundleProduct.panel_group_id))).all()
-    by_product: dict[uuid.UUID, list[tuple[BundleProduct, PanelGroup]]] = {}
+    bundle_rows = (await session.execute(select(BundleProduct, Bundle).join(Bundle, Bundle.id == BundleProduct.bundle_id))).all()
+    by_product: dict[uuid.UUID, list[tuple[BundleProduct, Bundle]]] = {}
     for pp, g in bundle_rows:
         by_product.setdefault(pp.product_id, []).append((pp, g))
     own = await store_bundle_prices(session, store.id)
-    closed = {r.panel_group_id for r in (await session.scalars(
-        select(StorePanelGroup).where(StorePanelGroup.store_id == store.id, StorePanelGroup.is_enabled.is_(False)))).all()}
+    closed = {r.bundle_id for r in (await session.scalars(
+        select(StoreBundle).where(StoreBundle.store_id == store.id, StoreBundle.is_enabled.is_(False)))).all()}
     out = []
     for p, sp in await catalog_service.enabled_for_store(session, store):
         rows = by_product.get(p.id)
@@ -608,14 +608,14 @@ async def set_bundle_price(
     bundle falls back to the store-wide price. The price must cover THIS bundle's reseller price (the cost).
     Returns the stored price (None when cleared)."""
     product, _sp = await _priced_product(session, store, product_id)
-    group = await session.get(PanelGroup, group_id)
+    group = await session.get(Bundle, group_id)
     if not group or not group.is_enabled or not group.reseller_enabled:
         raise NotFound("بسته فروش")
     pp = await bundle_product(session, group_id, product_id)
     if pp is None:
         raise AppError("PRODUCT_NOT_IN_BUNDLE", "این پکیج در بسته انتخاب‌شده فروخته نمی‌شود.", 422)
     row = await session.scalar(select(StoreBundlePrice).where(
-        StoreBundlePrice.store_id == store.id, StoreBundlePrice.panel_group_id == group_id, StoreBundlePrice.product_id == product_id))
+        StoreBundlePrice.store_id == store.id, StoreBundlePrice.bundle_id == group_id, StoreBundlePrice.product_id == product_id))
     if not customer_price:
         if row is not None:
             await session.delete(row)
@@ -624,7 +624,7 @@ async def set_bundle_price(
     if customer_price < cost:
         raise AppError("CUSTOMER_PRICE_BELOW_COST", f"قیمت فروش در بسته «{group.name}» نمی‌تواند از قیمت همکاری همین بسته ({cost}) کمتر باشد.", 422)
     if row is None:
-        session.add(StoreBundlePrice(store_id=store.id, panel_group_id=group_id, product_id=product_id, customer_price=customer_price))
+        session.add(StoreBundlePrice(store_id=store.id, bundle_id=group_id, product_id=product_id, customer_price=customer_price))
     else:
         row.customer_price = customer_price
     return customer_price

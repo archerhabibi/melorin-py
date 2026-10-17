@@ -178,7 +178,7 @@ export default function App(){
   const manual = bundle?.selection_mode === "manual";
   const customName = bundle?.naming_mode === "custom";
   const panelLabel = bundle?.panels?.find((x) => x.id === panelId)?.label;
-  const bundleBody = () => ({ panel_group_id: bundleId, ...(manual ? { selected_panel_id: panelId } : {}) });
+  const bundleBody = () => ({ bundle_id: bundleId, ...(manual ? { selected_panel_id: panelId } : {}) });
   async function buySelected() {
     const r = await coreFetch(`/api/v1/stores/${storeId}/orders`, {method:"POST", headers:{"Content-Type":"application/json","Idempotency-Key":`web-${crypto.randomUUID()}`}, body:JSON.stringify({product_id:selectedQuote?.product_id || selectedQuote?.id, payment_method:"wallet", kind:"purchase", ...bundleBody(), ...(customName ? { account_name: accountName.trim() } : {})})});
     if (!r.ok) throw Error(await errOf(r, "order failed"));

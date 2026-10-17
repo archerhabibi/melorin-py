@@ -18,13 +18,13 @@ def test_existing_products_are_backfilled():
     assert "0010_sales_baskets" in migration
 
 
-def test_panel_group_is_reachable_from_public_catalog():
+def test_bundle_is_reachable_from_public_catalog():
     source = (ROOT / "melorin/modules/catalog/router.py").read_text()
-    assert '"/stores/{store_id}/panel-groups"' in source
+    assert '"/stores/{store_id}/bundles"' in source
     assert "allocation.sellable_bundles" in source  # the list itself comes from the core
 
 
-def test_baskets_are_renamed_to_panel_groups_everywhere():
+def test_baskets_are_renamed_to_bundles_everywhere():
     migration = (ROOT / "alembic/versions/0012_baskets_to_panel_groups.py").read_text()
     assert 'down_revision = "0011_backfill_main_products"' in migration
     assert len("0012_baskets_to_panel_groups") <= 32  # alembic_version.version_num is VARCHAR(32)

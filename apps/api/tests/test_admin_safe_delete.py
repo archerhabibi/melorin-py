@@ -14,7 +14,7 @@ from melorin.modules.orders.models import Order
 from melorin.modules.referral.models import CommissionRule
 from melorin.modules.system.models import AuditEvent
 from melorin.modules.vpn.models import Panel, Server, VpnAccount
-from melorin.modules.vpn.panel_groups import PanelGroup, PanelGroupMember, BundleProduct, StorePanelGroup
+from melorin.modules.vpn.bundles import Bundle, BundleMember, BundleProduct, StoreBundle
 
 ADMIN = types.SimpleNamespace(id=uuid.uuid4())
 
@@ -23,7 +23,7 @@ ADMIN = types.SimpleNamespace(id=uuid.uuid4())
 async def session(tmp_path):
     db.configure(f"sqlite+aiosqlite:///{tmp_path}/delete.db")
     async with db.engine().begin() as conn:
-        tables = [m.__table__ for m in (Panel, Server, VpnAccount, Product, StoreProduct, Coupon, Order, CommissionRule, AuditEvent, PanelGroup, PanelGroupMember, StorePanelGroup, BundleProduct, StoreBundlePrice)]
+        tables = [m.__table__ for m in (Panel, Server, VpnAccount, Product, StoreProduct, Coupon, Order, CommissionRule, AuditEvent, Bundle, BundleMember, StoreBundle, BundleProduct, StoreBundlePrice)]
         await conn.run_sync(lambda c: db.Base.metadata.create_all(c, tables=tables))
     async with db.session_factory()() as s:
         yield s
@@ -136,15 +136,15 @@ async def test_unused_panel_is_deleted_with_its_empty_servers_and_group_membersh
     pan, keep = await _panel(session), await _panel(session, "P2")
     await _server(session, pan, "a")
     await _server(session, pan, "b")
-    g = await _add(session, PanelGroup(name="auto", selection_mode="automatic"))
-    await _add(session, PanelGroupMember(panel_group_id=g.id, panel_id=pan.id))
-    await _add(session, PanelGroupMember(panel_group_id=g.id, panel_id=keep.id, sort=1))
+    g = await _add(session, Bundle(name="auto", selection_mode="automatic"))
+    await _add(session, BundleMember(bundle_id=g.id, panel_id=pan.id))
+    await _add(session, BundleMember(bundle_id=g.id, panel_id=keep.id, sort=1))
     await session.commit()
     out = await r.delete_panel(pan.id, ADMIN, session)
     assert out == {"ok": True, "servers_deleted": 2, "groups_left": 1}
     assert [x.id for x in (await session.scalars(select(Panel))).all()] == [keep.id]
     assert await _count(session, Server) == 0
-    assert [m.panel_id for m in (await session.scalars(select(PanelGroupMember))).all()] == [keep.id]
+    assert [m.panel_id for m in (await session.scalars(select(BundleMember))).all()] == [keep.id]
     assert len(await _audited(session, "panel.deleted")) == 1
 
 
@@ -165,42 +165,42 @@ async def test_panel_with_accounts_or_orders_is_refused(session):
 
 async def test_panel_that_is_the_last_member_of_a_manual_group_is_refused(session):
     pan = await _panel(session)
-    g = await _add(session, PanelGroup(name="manual-de", selection_mode="manual"))
-    await _add(session, PanelGroupMember(panel_group_id=g.id, panel_id=pan.id))
+    g = await _add(session, Bundle(name="manual-de", selection_mode="manual"))
+    await _add(session, BundleMember(bundle_id=g.id, panel_id=pan.id))
     await session.commit()
     e = await _refused(r.delete_panel(pan.id, ADMIN, session), "PANEL_LAST_IN_MANUAL_GROUP")
     assert e.details == {"group": "manual-de"}
-    assert await _count(session, Panel) == 1 and await _count(session, PanelGroupMember) == 1
+    assert await _count(session, Panel) == 1 and await _count(session, BundleMember) == 1
 
 
 # ---------- sales bundles ----------
 async def test_unused_group_is_deleted_with_members_and_store_links(session):
     pan = await _panel(session)
-    g = await _add(session, PanelGroup(name="g"))
-    await _add(session, PanelGroupMember(panel_group_id=g.id, panel_id=pan.id))
-    await _add(session, StorePanelGroup(store_id=uuid.uuid4(), panel_group_id=g.id))
-    await _add(session, StoreBundlePrice(store_id=uuid.uuid4(), panel_group_id=g.id, product_id=uuid.uuid4(), customer_price=1000))
+    g = await _add(session, Bundle(name="g"))
+    await _add(session, BundleMember(bundle_id=g.id, panel_id=pan.id))
+    await _add(session, StoreBundle(store_id=uuid.uuid4(), bundle_id=g.id))
+    await _add(session, StoreBundlePrice(store_id=uuid.uuid4(), bundle_id=g.id, product_id=uuid.uuid4(), customer_price=1000))
     await session.commit()
-    assert await r.delete_panel_group(g.id, ADMIN, session) == {"ok": True}
-    assert [await _count(session, m) for m in (PanelGroup, PanelGroupMember, StorePanelGroup, BundleProduct, StoreBundlePrice)] == [0, 0, 0, 0, 0]
+    assert await r.delete_bundle(g.id, ADMIN, session) == {"ok": True}
+    assert [await _count(session, m) for m in (Bundle, BundleMember, StoreBundle, BundleProduct, StoreBundlePrice)] == [0, 0, 0, 0, 0]
     assert await _count(session, Panel) == 1  # panels themselves are untouched
-    assert len(await _audited(session, "panel_group.deleted")) == 1
+    assert len(await _audited(session, "bundle.deleted")) == 1
 
 
 async def test_group_that_is_a_products_default_or_has_orders_is_refused(session):
-    g = await _add(session, PanelGroup(name="g"))
-    p = await _add(session, _product(default_panel_group_id=g.id))
+    g = await _add(session, Bundle(name="g"))
+    p = await _add(session, _product(default_bundle_id=g.id))
     await session.commit()
-    e = await _refused(r.delete_panel_group(g.id, ADMIN, session), "PANEL_GROUP_IN_USE")
+    e = await _refused(r.delete_bundle(g.id, ADMIN, session), "BUNDLE_IN_USE")
     assert e.details == {"products": ["plan P30"]}
-    p.default_panel_group_id = None
-    await _order(session, p, panel_group_id=g.id)
+    p.default_bundle_id = None
+    await _order(session, p, bundle_id=g.id)
     await session.commit()
-    await _refused(r.delete_panel_group(g.id, ADMIN, session), "PANEL_GROUP_HAS_HISTORY")
-    assert await _count(session, PanelGroup) == 1
+    await _refused(r.delete_bundle(g.id, ADMIN, session), "BUNDLE_HAS_HISTORY")
+    assert await _count(session, Bundle) == 1
 
 
-PATHS = ("products/{product_id}", "panels/{panel_id}", "servers/{server_id}", "panel-groups/{panel_group_id}")
+PATHS = ("products/{product_id}", "panels/{panel_id}", "servers/{server_id}", "bundles/{bundle_id}")
 
 
 def test_delete_routes_are_registered_on_the_admin_router():

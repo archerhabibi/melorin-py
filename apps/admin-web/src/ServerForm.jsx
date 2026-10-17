@@ -135,7 +135,7 @@ export function ServerForm({ api, infra, panel: panelProp, server, locations = [
     <div className="space-y-2 rounded-xl bg-[var(--sf2)] p-3 text-xs">
       <div className="flex flex-wrap items-center gap-2"><span className="font-bold text-[var(--mu)]">وضعیت فروش:</span><span className={`badge b-${st.tone}`}>{st.label}</span></div>
       <div className="flex flex-wrap items-center gap-1.5"><span className="font-bold text-[var(--mu)]">بسته‌های این پنل:</span>
-        {groups.length ? groups.map((g) => <RelChip key={g.id} to="panel-groups" params={{ q: g.name }} tone="wn" Icon={Layers} dim={!g.is_enabled}>{g.name}</RelChip>) : <span className="text-[var(--mu)]">هیچ — تا عضو یک بسته نشود چیزی روی آن ساخته نمی‌شود</span>}</div>
+        {groups.length ? groups.map((g) => <RelChip key={g.id} to="bundles" params={{ q: g.name }} tone="wn" Icon={Layers} dim={!g.is_enabled}>{g.name}</RelChip>) : <span className="text-[var(--mu)]">هیچ — تا عضو یک بسته نشود چیزی روی آن ساخته نمی‌شود</span>}</div>
       {panel && panel.health_status !== "healthy" && <Warn>پنل «{panel.name}» {panel.is_enabled ? "سالم نیست یا هنوز بررسی نشده" : "غیرفعال است"}؛ تا آن موقع روی این سرور اکانت جدید ساخته نمی‌شود.</Warn>}
     </div>
   </Drawer>;

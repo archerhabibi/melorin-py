@@ -29,7 +29,7 @@ async def main():
         ))).scalars().all()
         assert constraints == ["uq_commissions_referred_user_id_kind"], constraints
         stores = (await conn.execute(text("select count(*) from store_products"))).scalar_one()
-        groups = (await conn.execute(text("select count(*) from panel_groups"))).scalar_one()
+        groups = (await conn.execute(text("select count(*) from bundles"))).scalar_one()
         assert groups >= 0
         assert stores >= 0
         print("migration smoke passed:", version)

@@ -19,16 +19,16 @@ from melorin.modules.vpn.adapters.base import AccountSpec, ErrorKind, PanelError
 from melorin.modules.vpn.adapters.registry import build_adapter
 from melorin.modules.vpn.allocation import resolve_allocation
 from melorin.modules.vpn.models import Panel, ProvisioningAttempt, ReconciliationIssue, Server, VpnAccount
-from melorin.modules.vpn.panel_groups import PanelGroup, PanelGroupMember, StorePanelGroup, clean_custom_name
+from melorin.modules.vpn.bundles import Bundle, BundleMember, StoreBundle, clean_custom_name
 
 
-async def _record_panel_group_sale(session, order, panel_id):
-    if not order.panel_group_id or order.kind in ("renewal", "test"):
+async def _record_bundle_sale(session, order, panel_id):
+    if not order.bundle_id or order.kind in ("renewal", "test"):
         return  # renewals reuse an account; test accounts never consume a group's sales quota
-    panel_group = await session.get(PanelGroup, order.panel_group_id, with_for_update=True)
-    if panel_group:
-        panel_group.sold_count += 1
-    bp = await session.scalar(select(PanelGroupMember).where(PanelGroupMember.panel_group_id == order.panel_group_id, PanelGroupMember.panel_id == panel_id).with_for_update())
+    bundle = await session.get(Bundle, order.bundle_id, with_for_update=True)
+    if bundle:
+        bundle.sold_count += 1
+    bp = await session.scalar(select(BundleMember).where(BundleMember.bundle_id == order.bundle_id, BundleMember.panel_id == panel_id).with_for_update())
     if bp:
         bp.sold_count += 1
 
@@ -200,10 +200,10 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
         else:
             expire = utcnow() + dt.timedelta(days=product.duration_days)
             traffic = product.traffic_gb * 1024**3 if product.traffic_gb else 0
-            panel_group = await session.get(PanelGroup, order.panel_group_id) if order.panel_group_id else None
-            if panel_group and panel_group.naming_mode == "custom":
+            bundle = await session.get(Bundle, order.bundle_id) if order.bundle_id else None
+            if bundle and bundle.naming_mode == "custom":
                 generated_name = f"{clean_custom_name(order.requested_account_name)}_{order.number}"
-            elif panel_group:
+            elif bundle:
                 prefix = re.sub(r"[^A-Za-z0-9]", "", panel.name)[:4] or "Pnl"
                 store = await session.get(Store, order.store_id)
                 generated_name = f"{prefix}_{product.traffic_gb}G{re.sub(r'[^A-Za-z0-9]', '', (store.name if store else 'S'))[:1]}{order.number}"
@@ -271,7 +271,7 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
     attempt.vpn_account_id, attempt.status, attempt.finished_at = account.id, "succeeded", utcnow()
     order.vpn_account_id, order.status, order.completed_at = account.id, OrderStatus.COMPLETED, utcnow()
     order.last_error, order.needs_review = None, False
-    await _record_panel_group_sale(session, order, panel.id)
+    await _record_bundle_sale(session, order, panel.id)
     audit.record(session, "provisioning.completed", actor_type="system", entity_type="vpn_account", entity_id=account.id, store_id=order.store_id, data={"order_id": str(order.id), "panel": panel.kind})
     await events.emit(session, events.ORDER_COMPLETED, {"order_id": order.id, "vpn_account_id": account.id, "store_id": order.store_id}, dedup_key=f"order_completed:{order.id}")
     # One rich Telegram post (QR + subscription link + wallet balance) instead of a generic notice.
