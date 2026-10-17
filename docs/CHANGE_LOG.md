@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-17 18:44 UTC - Claude - reseller-catalog  _(auto)_
+- **Before:** reseller stores had no store_products / store_bundles rows, so their price table was empty and they could not sell
+- **Problem:** nothing linked a reseller store to the main packages and reseller-enabled bundles
+- **Action:** auto-link on reseller store creation and on package / bundle creation or enable; migration 0023 backfills existing stores; existing rows are never overwritten
+- **After:** new tests pass, full suite 516 passed, migration verified on PostgreSQL (backfill, idempotent, existing rows untouched)
+- **Files (5):** `apps/api/alembic/versions/0023_link_resellers_to_main_catalog.py`, `apps/api/melorin/modules/admin/router.py`, `apps/api/melorin/modules/reseller/linking.py`, `apps/api/melorin/modules/reseller/provisioning.py`, `apps/api/tests/test_reseller_catalog_linking.py`
+- **Ref:** `8a2def9`
+
+
 ### 2026-10-17 18:13 UTC - Claude - admin-web, db, api  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
