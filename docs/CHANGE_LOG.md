@@ -36,6 +36,23 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-17 20:14 UTC - Claude - api, tests, store-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(core,bots,store-web): automatic sign-in from the bot account button - - Core: POST /me/web-handoff builds the store-site URL with a single-use 2-minute token; POST /auth/web-handoff/redeem exchanges it for a session - Bots only ask Core for the URL; site signs the user in automatically and off…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (6):** `apps/api/melorin/modules/identity/router.py`, `apps/api/melorin/modules/identity/schemas.py`, `apps/api/melorin/modules/identity/service.py`, `apps/api/tests/test_web_handoff.py`, `apps/store-web/src/App.jsx`, `apps/telegram-main/runner.py`
+- **Ref:** `e9dd979`
+
+### 2026-10-17 20:06 UTC - Claude - api, tests, store-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(bots,store-web): account button opens the store website, link Google to account - - Main and reseller bots: "حساب کاربری" renamed to "حساب من در سایت"; opens the store site via a URL button - API: expose store domain; POST /me/identities/google links a Google account to the signed-in user - st…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (9):** `apps/api/melorin/modules/catalog/router.py`, `apps/api/melorin/modules/catalog/schemas.py`, `apps/api/melorin/modules/identity/router.py`, `apps/api/melorin/modules/identity/schemas.py`, `apps/api/melorin/modules/identity/service.py`, `apps/api/tests/test_o01_google_signin.py`, `apps/store-web/src/App.jsx`, `apps/store-web/src/Dashboard.jsx` (+1 more)
+- **Ref:** `59248d2`
+
+
 ### 2026-10-17 18:44 UTC - Claude - reseller-catalog  _(auto)_
 - **Before:** reseller stores had no store_products / store_bundles rows, so their price table was empty and they could not sell
 - **Problem:** nothing linked a reseller store to the main packages and reseller-enabled bundles
