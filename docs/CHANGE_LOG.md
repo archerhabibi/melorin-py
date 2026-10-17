@@ -36,6 +36,23 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-17 22:16 UTC - Claude - admin-web, api  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(admin): rename cooperation price to reseller price; read-only view of reseller retail prices
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (3):** `apps/admin-web/src/BundlesView.jsx`, `apps/admin-web/src/ProductsView.jsx`, `apps/api/melorin/modules/admin/router.py`
+- **Ref:** `fd60701`
+
+### 2026-10-17 22:03 UTC - Claude - admin-web, db, api  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(admin,core): simplify products/bundles screens; per-package reseller switch; every package in every bundle - - products: no reseller price field; main price only; main/reseller switches (main off => resellers off) - bundles: packages list with per-bundle store price, cooperation price (only wh…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (9):** `apps/admin-web/src/BundlesView.jsx`, `apps/admin-web/src/ProductsView.jsx`, `apps/api/alembic/versions/0024_product_reseller_switch.py`, `apps/api/melorin/modules/admin/router.py`, `apps/api/melorin/modules/admin/schemas.py`, `apps/api/melorin/modules/catalog/models.py`, `apps/api/melorin/modules/catalog/service.py`, `apps/api/melorin/modules/vpn/allocation.py` (+1 more)
+- **Ref:** `359fe88`
+
+
 ### 2026-10-17 20:14 UTC - Claude - api, tests, store-web  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
