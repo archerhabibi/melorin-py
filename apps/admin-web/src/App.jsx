@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { AdminSectionView } from './AdminSections.jsx';
 import { API_BASE, authFetch, getJson } from './api.js';
 import { clearTokens } from './auth.js';
+import { googleSignOut } from './GoogleSignIn.jsx';
 import Trend from './Trend.jsx';
 import { Badge, DialogHost, ThemeButton, confirmDialog, label, sid, tone } from './ui.jsx';
 import { Palette } from './palette.jsx';
@@ -139,6 +140,7 @@ function UserMenu({ base, go, toast, onLogout }) {
     let ok = false;
     try { ok = (await authFetch(base, '/api/v1/auth/logout', { method: 'POST', body: '{}' })).ok; } catch { ok = false; }
     if (!ok) { setBusy(false); toast('خروج از سرور تأیید نشد؛ دوباره تلاش کنید'); return; }
+    googleSignOut();
     clearTokens();
     onLogout?.();
   };

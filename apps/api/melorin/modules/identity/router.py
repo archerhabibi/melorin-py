@@ -7,7 +7,7 @@ from melorin.core.config import get_settings
 from melorin.core.deps import CurrentUser, Session, main_store, require_bot_service
 from melorin.core.errors import AppError
 from melorin.core.ratelimit import RateLimit, hit
-from melorin.core.security import totp_counter, totp_new_secret, totp_verify, verify_password, hash_password
+from melorin.core.security import new_opaque_token, totp_counter, totp_new_secret, totp_verify, verify_password, hash_password
 from melorin.modules.identity import service
 from melorin.modules.identity.models import Identity, User
 from melorin.modules.identity.schemas import (
@@ -20,6 +20,9 @@ from melorin.modules.stores.models import Store, StoreMembership
 auth = APIRouter(prefix="/auth", tags=["auth"], dependencies=[Depends(RateLimit("auth", 30, 60))])
 me = APIRouter(prefix="/me", tags=["me"])
 REFRESH_COOKIE = "melorin_refresh"
+GOOGLE_NONCE_COOKIE = "melorin_gnonce"
+GOOGLE_NONCE_PATH = "/api/v1/auth/google"
+GOOGLE_NONCE_TTL = 600
 
 
 def _set_refresh_cookie(response: Response, pair: TokenPair) -> None:
@@ -98,9 +101,24 @@ async def google_config(session: Session, response: Response):
     return integrations.public_google(await integrations.get_google(session))
 
 
+@auth.get("/google/nonce")
+async def google_nonce(response: Response):
+    """Public: a fresh single-use nonce for one Sign in with Google attempt. The value is returned (the page hands it to
+    google.accounts.id.initialize so Google embeds it in the ID token) and also set as an httpOnly cookie; POST /auth/google
+    accepts a token only when both match, so a leaked or replayed ID token is useless without this browser's cookie."""
+    nonce = new_opaque_token(24)
+    response.headers["Cache-Control"] = "no-store"
+    response.set_cookie(
+        GOOGLE_NONCE_COOKIE, nonce, httponly=True, secure=not get_settings().is_dev, samesite="lax",
+        max_age=GOOGLE_NONCE_TTL, path=GOOGLE_NONCE_PATH,
+    )
+    return {"nonce": nonce}
+
+
 @auth.post("/google", response_model=TokenPair)
 async def google_login(body: GoogleLogin, session: Session, request: Request, response: Response):
-    user, created = await service.login_with_google(session, body.id_token)
+    cookies = getattr(request, "cookies", None) or {}
+    user, created = await service.login_with_google(session, body.id_token, cookies.get(GOOGLE_NONCE_COOKIE))
     cfg = await integrations.get_google(session)
     if user.is_super_admin and not cfg["admin_login"]:
         await session.rollback()
@@ -127,6 +145,7 @@ async def google_login(body: GoogleLogin, session: Session, request: Request, re
     pair = await service.issue_tokens(session, user, ua=request.headers.get("user-agent"))
     await session.commit()
     _set_refresh_cookie(response, pair)
+    response.delete_cookie(GOOGLE_NONCE_COOKIE, path=GOOGLE_NONCE_PATH)  # single use: consumed by a successful sign-in
     return pair
 
 

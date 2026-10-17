@@ -21,7 +21,7 @@
 
 - دامنه‌ی فروشگاه و پنل با **HTTPS** (فقط `localhost` استثناست).
 - یک حساب گوگل برای ساخت پروژه در Google Cloud.
-- سرور API باید به `https://oauth2.googleapis.com` دسترسی خروجی (پورت ۴۴۳) داشته باشد.
+- سرور API باید به `https://www.googleapis.com` دسترسی خروجی (پورت ۴۴۳) داشته باشد تا کلیدهای عمومی امضای گوگل را بگیرد.
 - آدرس‌های فروشگاه و پنل در `MELORIN_STORE_WEB_URL`، `MELORIN_PUBLIC_API_URL` و `MELORIN_CORS_ORIGINS` درست تنظیم شده باشند (پنل از همین‌ها فهرست Origin پیشنهادی را می‌سازد).
 
 ## مراحل در Google Cloud Console
@@ -52,10 +52,17 @@
 4. **ذخیره** ← **تست اتصال سرور به گوگل**.
 5. دکمه‌ی «ورود با گوگل» بدون build مجدد ظاهر می‌شود.
 
+## نحوه‌ی کار
+
+- دکمه، **دکمه‌ی رسمی خودِ گوگل** است (`google.accounts.id.renderButton`)؛ با تم برنامه هماهنگ می‌شود (روشن: outline، تیره: `filled_black`)، فارسی است و خطاهای خودِ گوگل را نشان می‌دهد. ملورین دکمه‌ی تقلیدی نمی‌کشد.
+- هر صفحه از `GET /api/v1/auth/google/nonce` یک nonce تازه می‌گیرد و به گوگل می‌دهد؛ سرور هم همان را در کوکی httpOnly نگه می‌دارد. `POST /api/v1/auth/google` فقط توکنی را می‌پذیرد که `nonce` آن با کوکی برابر باشد؛ پس توکنِ لو رفته یا تکرارشده بی‌فایده است. ورود موفق کوکی را مصرف می‌کند.
+- سرور توکن را **محلی** و با کلیدهای عمومی گوگل (`https://www.googleapis.com/oauth2/v3/certs` با کش طبق `Cache-Control`) راستی‌آزمایی می‌کند: امضای RS256، issuer، audience (= Client ID شما)، انقضا و nonce.
+- پنجره‌ی ورود گوگل به هدر `Cross-Origin-Opener-Policy: same-origin-allow-popups` نیاز دارد (در `infra/Caddyfile` تنظیم شده). اگر پروکسی دیگری جلوی سایت دارید، `same-origin` نفرستید.
+
 ## رفتار ورود
 
 - **مشتری:** حساب جدید خودکار ساخته می‌شود. اگر ایمیل تأییدشده‌ی گوگل با ایمیلِ یک حساب موجود یکی باشد، به همان حساب وصل می‌شود؛ تداخل مبهم برای بررسی ادمین ثبت می‌شود (نه ادغام خودکار).
-- **ادمین:** ایمیل حساب گوگل باید **دقیقاً برابر ایمیل ادمین** باشد و TOTP فعال باشد. ابتدا کد TOTP را در صفحه‌ی ورود وارد کنید، سپس «ورود با گوگل». گوگل هرگز TOTP را دور نمی‌زند.
+- **ادمین:** ایمیل حساب گوگل باید **دقیقاً برابر ایمیل ادمین** باشد و TOTP فعال باشد. ابتدا کد TOTP را در صفحه‌ی ورود وارد کنید (تا وقتی کد وارد نشده دکمه‌ی گوگل کم‌رنگ و غیرفعال است)، سپس «ورود با گوگل». گوگل هرگز TOTP را دور نمی‌زند.
 - خاموش‌کردن «ورود ادمین» یا «ورود مشتریان» فوراً اثر می‌کند و ورود با رمز/تلگرام/ایمیل را تغییر نمی‌دهد.
 
 ## سازگاری با نسخه‌های قبل
@@ -69,11 +76,13 @@
 | مسیر | دسترسی | کار |
 |---|---|---|
 | `GET /api/v1/auth/google/config` | عمومی | `{enabled, client_id, admin_login, store_login}`؛ در حالت غیرفعال `client_id` خالی است |
+| `GET /api/v1/auth/google/nonce` | عمومی | `{nonce}` + کوکی httpOnly با نام `melorin_gnonce` (۱۰ دقیقه، مسیر `/api/v1/auth/google`) |
+| `POST /api/v1/auth/google` | عمومی | `{id_token, totp_code?}`؛ به کوکی nonce نیاز دارد |
 | `GET /api/v1/admin/integrations` | ادمین | فیلد `google` (شامل `source` و `suggested_origins`) |
 | `PUT /api/v1/admin/integrations/google` | ادمین | ذخیره‌ی `{enabled, client_id, admin_login, store_login}` |
 | `POST /api/v1/admin/integrations/google/test` | ادمین | بررسی فرمت و دسترسی سرور به گوگل |
 
-کدهای خطا: `GOOGLE_CLIENT_ID_INVALID`، `GOOGLE_CONFIG_INCOMPLETE`، `GOOGLE_NO_SURFACE`، `GOOGLE_DISABLED`، `GOOGLE_ADMIN_DISABLED`، `GOOGLE_STORE_DISABLED`، `GOOGLE_INVALID`.
+کدهای خطا: `GOOGLE_CLIENT_ID_INVALID`، `GOOGLE_CONFIG_INCOMPLETE`، `GOOGLE_NO_SURFACE`، `GOOGLE_DISABLED`، `GOOGLE_ADMIN_DISABLED`، `GOOGLE_STORE_DISABLED`، `GOOGLE_INVALID`، `GOOGLE_NONCE_INVALID`، `GOOGLE_UNREACHABLE`.
 هر تغییر و تست در لاگ ممیزی (`integration.google.updated` / `integration.google.tested`) ثبت می‌شود.
 
 ## عیب‌یابی
@@ -85,5 +94,6 @@
 | `invalid_client` | Client ID اشتباه یا حذف‌شده |
 | دکمه دیده نمی‌شود | سوئیچ اصلی یا سوئیچ همان بخش خاموش است؛ Client ID خالی است؛ یا مسدودکننده/CSP اسکریپت `accounts.google.com/gsi/client` را بسته است |
 | «توکن Google نامعتبر است» | Client ID ذخیره‌شده با پروژه‌ی صادرکننده‌ی توکن یکی نیست، یا ساعت سرور نادرست است |
-| تست اتصال ناموفق | فایروال/DNS/پروکسی خروجی سرور به `oauth2.googleapis.com:443` |
-| One Tap مدتی نمایش داده نمی‌شود | cooldown خودِ گوگل بعد از چند بار بستن؛ چند دقیقه صبر کنید |
+| «نشست ورود منقضی شد» (`GOOGLE_NONCE_INVALID`) | صفحه بیش از ۱۰ دقیقه باز بوده، کوکی‌ها مسدودند یا پروکسی `Set-Cookie` را حذف می‌کند؛ دوباره روی دکمه بزنید |
+| پنجره باز می‌شود ولی ورود کامل نمی‌شود | پروکسی جلوی سایت هدر `Cross-Origin-Opener-Policy: same-origin` می‌فرستد |
+| تست اتصال ناموفق | فایروال/DNS/پروکسی خروجی سرور به `www.googleapis.com:443` |

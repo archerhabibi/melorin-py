@@ -22,6 +22,8 @@
     X-Content-Type-Options nosniff
     X-Frame-Options DENY
     Referrer-Policy strict-origin-when-cross-origin
+    # Sign in with Google opens a popup; "same-origin" would sever its window.opener link and break sign-in.
+    Cross-Origin-Opener-Policy same-origin-allow-popups
     Content-Security-Policy "default-src 'self'; connect-src 'self' https:; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; script-src 'self' https://accounts.google.com/gsi/client; frame-src https://accounts.google.com/gsi/; font-src 'self' data:"
     Permissions-Policy "camera=(), microphone=(), geolocation=()"
   }
@@ -43,6 +45,8 @@
     X-Content-Type-Options nosniff
     X-Frame-Options DENY
     Referrer-Policy strict-origin-when-cross-origin
+    # Sign in with Google opens a popup; "same-origin" would sever its window.opener link and break sign-in.
+    Cross-Origin-Opener-Policy same-origin-allow-popups
     Content-Security-Policy "default-src 'self'; connect-src 'self' https:; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; script-src 'self' https://accounts.google.com/gsi/client; frame-src https://accounts.google.com/gsi/; font-src 'self' data:"
     Permissions-Policy "camera=(), microphone=(), geolocation=()"
   }
@@ -69,6 +73,8 @@ https:// {
     X-Content-Type-Options nosniff
     X-Frame-Options DENY
     Referrer-Policy strict-origin-when-cross-origin
+    # Sign in with Google opens a popup; "same-origin" would sever its window.opener link and break sign-in.
+    Cross-Origin-Opener-Policy same-origin-allow-popups
     Content-Security-Policy "default-src 'self'; connect-src 'self' https:; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; script-src 'self' https://accounts.google.com/gsi/client; frame-src https://accounts.google.com/gsi/; font-src 'self' data:"
     Permissions-Policy "camera=(), microphone=(), geolocation=()"
   }

@@ -3,10 +3,13 @@ import hashlib
 import hmac
 import json
 import logging
+import re
+import time
 import uuid
 from urllib.parse import parse_qsl
 
 import httpx
+import jwt
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -176,24 +179,85 @@ async def attach_email(session: AsyncSession, user: User, email: str, code: str)
 
 
 # ---------------- Google ----------------
+# Sign in with Google (Google Identity Services). The browser hands us a signed ID token (a JWT). Following Google's
+# guidance we verify it locally against Google's published public keys instead of the debugging-only /tokeninfo
+# endpoint: signature (RS256), issuer, audience (= our Client ID), expiry and - because the page binds every sign-in
+# to a nonce cookie - the nonce claim, which stops a stolen/replayed token from being accepted.
+GOOGLE_CERTS_URL = "https://www.googleapis.com/oauth2/v3/certs"
+GOOGLE_ISSUERS = ("https://accounts.google.com", "accounts.google.com")
+GOOGLE_CLOCK_SKEW = 30  # seconds of leeway for exp/iat
+_GOOGLE_KEYS_MIN_TTL, _GOOGLE_KEYS_MAX_TTL, _GOOGLE_KEYS_MISS_COOLDOWN = 300, 86400, 60
+_google_keys: dict = {"keys": {}, "expires": 0.0, "fetched": 0.0}
+
+
+def _google_invalid() -> AppError:
+    return AppError("GOOGLE_INVALID", "توکن Google نامعتبر است.", 401)
+
+
+async def _load_google_keys(force: bool = False) -> dict:
+    """Google's signing keys by ``kid``, cached for as long as Google's Cache-Control allows (clamped)."""
+    now = time.time()
+    if not force and _google_keys["keys"] and now < _google_keys["expires"]:
+        return _google_keys["keys"]
+    if force and now - _google_keys["fetched"] < _GOOGLE_KEYS_MISS_COOLDOWN and _google_keys["keys"]:
+        return _google_keys["keys"]  # unknown kid: do not let a forged header make us hammer Google
+    try:
+        async with httpx.AsyncClient(timeout=10) as c:
+            r = await c.get(GOOGLE_CERTS_URL)
+        r.raise_for_status()
+        jwks = r.json()
+    except (httpx.HTTPError, ValueError) as exc:
+        log.warning("google certs fetch failed: %s", type(exc).__name__)
+        if _google_keys["keys"]:
+            return _google_keys["keys"]  # keep verifying with the last known keys while Google is unreachable
+        raise AppError("GOOGLE_UNREACHABLE", "اتصال سرور به Google برقرار نشد؛ کمی بعد دوباره تلاش کنید.", 503) from exc
+    keys = {}
+    for jwk in jwks.get("keys", []):
+        if jwk.get("kid") and jwk.get("kty") == "RSA":
+            keys[jwk["kid"]] = jwt.PyJWK(jwk, algorithm="RS256").key
+    if not keys:
+        raise AppError("GOOGLE_UNREACHABLE", "پاسخ کلیدهای Google نامعتبر بود.", 503)
+    m = re.search(r"max-age=(\d+)", r.headers.get("cache-control", ""))
+    ttl = min(max(int(m.group(1)) if m else 3600, _GOOGLE_KEYS_MIN_TTL), _GOOGLE_KEYS_MAX_TTL)
+    _google_keys.update(keys=keys, expires=now + ttl, fetched=now)
+    return keys
+
+
 async def verify_google_token(id_token: str, client_id: str) -> dict:
+    """Verify a Google ID token and return its claims. Raises GOOGLE_INVALID for any token we must not trust."""
     if not client_id:
         raise AppError("GOOGLE_DISABLED", "ورود با Google پیکربندی نشده است.", 400)
-    async with httpx.AsyncClient(timeout=10) as c:
-        r = await c.get("https://oauth2.googleapis.com/tokeninfo", params={"id_token": id_token})
-    if r.status_code != 200:
-        raise AppError("GOOGLE_INVALID", "توکن Google نامعتبر است.", 401)
-    data = r.json()
-    if data.get("aud") != client_id or data.get("iss") not in ("accounts.google.com", "https://accounts.google.com"):
-        raise AppError("GOOGLE_INVALID", "توکن Google نامعتبر است.", 401)
-    return data
+    try:
+        header = jwt.get_unverified_header(id_token)
+    except jwt.PyJWTError as exc:
+        raise _google_invalid() from exc
+    kid = header.get("kid")
+    if header.get("alg") != "RS256" or not kid:
+        raise _google_invalid()
+    keys = await _load_google_keys()
+    if kid not in keys:
+        keys = await _load_google_keys(force=True)  # Google rotates keys; refresh once for an unknown kid
+    if kid not in keys:
+        raise _google_invalid()
+    try:
+        claims = jwt.decode(
+            id_token, keys[kid], algorithms=["RS256"], audience=client_id, issuer=list(GOOGLE_ISSUERS),
+            leeway=GOOGLE_CLOCK_SKEW, options={"require": ["exp", "iat", "iss", "aud", "sub"]},
+        )
+    except jwt.PyJWTError as exc:
+        raise _google_invalid() from exc
+    return claims
 
 
-async def login_with_google(session: AsyncSession, id_token: str) -> tuple[User, bool]:
+async def login_with_google(session: AsyncSession, id_token: str, nonce: str | None = None) -> tuple[User, bool]:
+    """``nonce`` is the value of the httpOnly nonce cookie issued by GET /auth/google/nonce; the ID token must carry
+    the same value (it was passed to google.accounts.id.initialize), which binds the token to this browser."""
     cfg = await integrations.get_google(session)
     if not integrations.google_ready(cfg):
         raise AppError("GOOGLE_DISABLED", "ورود با Google فعال نیست.", 400)
     g = await verify_google_token(id_token, cfg["client_id"])
+    if not nonce or not hmac.compare_digest(str(g.get("nonce") or ""), nonce):
+        raise AppError("GOOGLE_NONCE_INVALID", "نشست ورود با Google منقضی شده است؛ دوباره تلاش کنید.", 401)
     sub, email = g["sub"], (g.get("email") or "").lower() or None
     ident = await find_identity(session, "google", sub)
     if ident:

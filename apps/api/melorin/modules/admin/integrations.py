@@ -127,7 +127,7 @@ async def update_google(body: GoogleIn, admin: AdminUser, session: Session):
 
 @router.post("/google/test")
 async def test_google(admin: AdminUser, session: Session):
-    """Checks the saved Client ID format and that this server can reach Google's token verifier (egress/DNS/firewall)."""
+    """Checks the saved Client ID format and that this server can fetch Google's public signing keys (egress/DNS/firewall)."""
     cfg = await integrations.get_google(session)
     ok, error = False, None
     if not cfg["client_id"]:
@@ -137,12 +137,12 @@ async def test_google(admin: AdminUser, session: Session):
     else:
         try:
             async with httpx.AsyncClient(timeout=10) as c:
-                r = await c.get("https://oauth2.googleapis.com/tokeninfo", params={"id_token": "melorin-connectivity-check"})
-            # Google answers 400 invalid_token for a bogus token: the verifier is reachable, which is all we test here.
-            ok = r.status_code in (200, 400)
+                r = await c.get("https://www.googleapis.com/oauth2/v3/certs")
+            # These are the public keys the server verifies Google ID tokens with: reachable + well-formed is all we test.
+            ok = r.status_code == 200 and bool(r.json().get("keys"))
             error = None if ok else f"پاسخ غیرمنتظره از Google: HTTP {r.status_code}"
-        except httpx.HTTPError as exc:
-            error = f"سرور به Google وصل نشد ({type(exc).__name__}). دسترسی خروجی HTTPS به oauth2.googleapis.com را بررسی کنید."
+        except (httpx.HTTPError, ValueError) as exc:
+            error = f"سرور به Google وصل نشد ({type(exc).__name__}). دسترسی خروجی HTTPS به www.googleapis.com را بررسی کنید."
     audit.record(session, "integration.google.tested", actor_id=admin.id, actor_type="admin", entity_type="integration", entity_id="google", data={"ok": ok})
     await session.commit()
     return {"ok": ok, "error": error}
