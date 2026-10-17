@@ -36,6 +36,14 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-17 13:30 UTC - Claude - api, store-web, tests, docs
+- **Before:** a reseller had ONE retail price per package for the whole store (`store_products.customer_price`); the web reseller panel had no place to set prices at all (only the Telegram bot did), and a package sold in a cheap and a dear pool could not be priced differently.
+- **Problem:** the reseller panel could not price the packages of each sales pool (استخر فروش) in the reseller's own store.
+- **Action:** new table `store_pool_prices` (migration `0020_store_pool_prices`) = the reseller's price of one package in ONE pool; it wins over the store-wide price, which stays as the fallback. `vpn/allocation.py` resolves the charged price in one place (`retail_price`) for listing, quote and checkout, and refuses a pool price below THAT pool's reseller price (`set_pool_price`, `set_prices_batch`, all-or-nothing). New endpoints `PUT /stores/{id}/reseller/pools/{pool_id}/prices/{product_id}` and `POST /stores/{id}/reseller/prices/batch`; `GET …/reseller/prices` gains `pools[]`. Admin: exact "stores below cost" warning per pool; removing a package/pool/product also removes the resellers' prices for it. store-web: new "قیمت‌گذاری" tab (`ResellerPricing.jsx`): scope chips (base price + one per pool), cost → price → profit → state rows, quick tools (markup, copy from another pool) that only fill a draft, one "save all" request, unsaved-changes guard.
+- **Reseller Telegram bot:** `/prices` now prices a package per sales pool exactly like the web panel (pool buttons + "قیمت کلی فروشگاه"), through the same core endpoints (`PUT …/reseller/pools/{pool_id}/prices/{product_id}` and `PUT …/reseller/prices/{product_id}`); the bot holds no price rule, the core validates the cost floor and resolves the charged price.
+- **After:** `pytest` 507 passed (new `test_reseller_pool_prices.py`, 16 tests incl. migration up/down); `vite build` OK; jsdom check of the tab (scope switch, below-cost warning, markup, copy, batch payload, server-error mapping). Existing stores keep selling at the same prices (no row = store-wide price). The Telegram reseller bot still sets the store-wide price.
+- **Files:** `apps/api/melorin/modules/{catalog/{models,service,router},vpn/allocation,reseller/{router,schemas},orders/service,admin/router}.py`, `apps/api/alembic/versions/0020_store_pool_prices.py`, `apps/store-web/src/{ResellerPricing,Reseller}.jsx`, `apps/api/tests/{test_reseller_pool_prices,test_admin_safe_delete}.py`, `docs/API-ROUTES-ACTIVE.md`
+
 ### 2026-10-17 12:21 UTC - Claude - admin-web, api, tests  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_

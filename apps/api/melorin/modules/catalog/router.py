@@ -66,14 +66,13 @@ async def catalog(store_id: uuid.UUID, session: Session):
     store = await session.get(Store, store_id)
     if not store or store.status != "active":
         raise NotFound("فروشگاه")
-    rows = await allocation.sellable_products(session, store)
+    rows = await allocation.sellable_products_priced(session, store)  # reseller: the lowest valid pool price ("from")
     return [
         CatalogItem(
             product_id=p.id, code=p.code, name=p.name, description=p.description, category=p.category, duration_days=p.duration_days,
-            traffic_gb=p.traffic_gb, max_devices=p.max_devices, currency=store.currency,
-            price=sp.customer_price if store.kind == "reseller" else p.main_price,
+            traffic_gb=p.traffic_gb, max_devices=p.max_devices, currency=store.currency, price=price,
         )
-        for p, sp in rows
+        for p, _sp, price in rows
     ]
 
 
@@ -142,7 +141,7 @@ async def _quote(session, ctx, product_id, code, *, panel_group_id=None, selecte
     )
     coupon, disc = await service.resolve_coupon(session, ctx.store, ctx.user.id, product, plan.unit_price, code, lock=False)
     main = await main_store(session)
-    return await service.build_quote(session, ctx.store, product, sp, coupon, disc, main_currency=main.currency, prices=plan.prices), product
+    return await service.build_quote(session, ctx.store, product, sp, coupon, disc, main_currency=main.currency, prices=plan.prices, customer_price=plan.unit_price if ctx.store.kind == "reseller" else None), product
 
 
 @public.post("/stores/{store_id}/checkout/quote", response_model=QuoteWalletOut)

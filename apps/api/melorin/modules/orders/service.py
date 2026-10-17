@@ -94,7 +94,7 @@ async def create_order(
     main = await main_store(session)
     unit = plan.unit_price
     coupon, disc = await catalog.resolve_coupon(session, store, user.id, product, unit, coupon_code, lock=True)
-    q = await catalog.build_quote(session, store, product, sp, coupon, disc, main_currency=main.currency, prices=plan.prices)
+    q = await catalog.build_quote(session, store, product, sp, coupon, disc, main_currency=main.currency, prices=plan.prices, customer_price=plan.unit_price if store.kind == "reseller" else None)
     snapshot = q.snapshot()
     if pool is not None:
         snapshot["pool"] = {"id": str(pool.id), "name": pool.name, "kind_label": pool.kind_label}

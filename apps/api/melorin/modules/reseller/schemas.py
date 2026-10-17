@@ -84,3 +84,15 @@ class WebhookEndpointPatch(BaseModel):
 class PriceIn(BaseModel):
     """Retail price of one product in the reseller's own store. Null or 0 removes the price (product hidden)."""
     customer_price: int | None = Field(default=None, ge=0)
+
+
+class PriceBatchItem(BaseModel):
+    """One price edit: ``pool_id`` = the sales pool the price is for, or null for the store-wide price of the package.
+    ``customer_price`` null or 0 removes that price (a pool then falls back to the store-wide price)."""
+    pool_id: uuid.UUID | None = None
+    product_id: uuid.UUID
+    customer_price: int | None = Field(default=None, ge=0, le=10**12)
+
+
+class PriceBatchIn(BaseModel):
+    items: list[PriceBatchItem] = Field(min_length=1, max_length=500)

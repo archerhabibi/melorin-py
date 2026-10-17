@@ -84,3 +84,48 @@ def test_price_below_the_floor_is_refused_by_core_and_the_reseller_can_retry(bot
     fake.reject = False
     send(r, text="30000")
     assert "ثبت شد" in fake.sent[-1]["text"]
+
+
+POOL = str(uuid.uuid4())
+
+
+def _pooled(fake):
+    orig = fake.handler
+
+    def handler(request):
+        if request.url.path == "/api/v1/stores/s1/reseller/prices" and request.method == "GET":
+            fake.calls.append(("GET", request.url.path, None))
+            return httpx.Response(200, json=[{"product_id": PID, "name": "Pkg", "customer_price": 30000, "cost_floor": 20000, "state": "ok", "pools": [
+                {"pool_id": POOL, "pool_name": "Direct", "kind_label": "مستقیم", "cost": 20000, "price": None, "effective_price": 30000, "source": "store", "state": "ok"}]}])
+        if request.url.path == f"/api/v1/stores/s1/reseller/pools/{POOL}/prices/{PID}":
+            js = json.loads(request.content)
+            fake.calls.append((request.method, request.url.path, js))
+            return httpx.Response(200, json={"ok": True, "customer_price": js["customer_price"] or None})
+        return orig(request)
+    return handler
+
+
+def test_pool_price_is_set_through_the_same_core_endpoint_as_the_web_panel(bot):
+    r, fake = bot
+    r.client = httpx.AsyncClient(transport=httpx.MockTransport(_pooled(fake)))
+    send(r, data=f"prc:{PID}")
+    markup = fake.sent[-1]["reply_markup"]["inline_keyboard"]
+    assert markup[0][0]["callback_data"] == "prs:s" and markup[1][0]["callback_data"] == "prs:0"
+    send(r, data="prs:0")
+    send(r, text="۲۸۰۰۰")
+    put = [c for c in fake.calls if c[0] == "PUT"][-1]
+    assert put[1].endswith(f"/reseller/pools/{POOL}/prices/{PID}") and put[2] == {"customer_price": 28000}
+    send(r, data=f"prc:{PID}")
+    send(r, data="prs:0")
+    send(r, text="0")
+    assert "قیمت کلی" in fake.sent[-1]["text"]
+
+
+def test_store_wide_price_still_goes_to_the_store_endpoint_when_pools_exist(bot):
+    r, fake = bot
+    r.client = httpx.AsyncClient(transport=httpx.MockTransport(_pooled(fake)))
+    send(r, data=f"prc:{PID}")
+    send(r, data="prs:s")
+    send(r, text="31000")
+    put = [c for c in fake.calls if c[0] == "PUT"][-1]
+    assert put[1].endswith(f"/reseller/prices/{PID}") and put[2] == {"customer_price": 31000}

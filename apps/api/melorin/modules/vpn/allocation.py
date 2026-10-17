@@ -24,9 +24,10 @@ Everything about the SALE route lives here too, so no channel and no other modul
 
 * ``plan_sale``           - the one entry point for "what does this purchase/renewal/quote mean": pool,
   panel choice, account name, package membership and the price (a pool may override the product price).
-* the three prices: ``main_price`` (store), ``reseller_price`` (cost, may differ per pool) and
-  ``customer_price`` (the reseller's retail price, one per product). A customer price below the
-  reseller price of the pool being sold is never allowed: it is refused when set, hidden from every
+* the prices: ``main_price`` (store), ``reseller_price`` (cost, may differ per pool) and the reseller's
+  retail price, which has two levels: ``StoreProduct.customer_price`` (the store-wide price of a package)
+  and ``StorePoolPrice`` (the price of that package in ONE pool, which wins when set). A retail price below
+  the reseller price of the pool being sold is never allowed: it is refused when set, hidden from every
   list and refused again at checkout (``CUSTOMER_PRICE_BELOW_COST``).
 * ``sellable_pools`` / ``pool_packages`` / ``renewal_offers`` / ``sellable_products`` - what a customer may
   be shown. ``catalog`` and ``orders`` only call these; they hold no pool, membership or price rule.
@@ -46,7 +47,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from melorin.core.errors import AppError, NotFound
 from melorin.domain.order_state import VpnStatus
 from melorin.modules.catalog import service as catalog_service
-from melorin.modules.catalog.models import Product, StoreProduct
+from melorin.modules.catalog.models import Product, StorePoolPrice, StoreProduct
 from melorin.modules.stores.models import Store
 from melorin.modules.vpn.adapters.base import ErrorKind, PanelError
 from melorin.modules.vpn.models import Panel, Server, VpnAccount
@@ -306,14 +307,30 @@ def effective_prices(product: Product, pp: PoolProduct | None) -> tuple[int, int
     return main, reseller
 
 
-def _below_cost(sp: StoreProduct | None, reseller_price: int) -> bool:
-    return bool(sp and sp.customer_price) and sp.customer_price < reseller_price
+def retail_price(sp: StoreProduct | None, pool_price: int | None) -> int | None:
+    """What a reseller store charges for one package in one pool: the pool's own price when the reseller set
+    one, otherwise the store-wide price of the package. None = no price (the package is not sold there)."""
+    return pool_price or (sp.customer_price if sp else None) or None
 
 
-def _unit_price(store: Store, product: Product, sp: StoreProduct | None, pp: PoolProduct | None) -> int:
+def _below_cost(price: int | None, reseller_price: int) -> bool:
+    return bool(price) and price < reseller_price
+
+
+def _unit_price(store: Store, product: Product, retail: int | None, pp: PoolProduct | None) -> int:
     if store.kind == "reseller":
-        return (sp.customer_price if sp else None) or 0
+        return retail or 0
     return effective_prices(product, pp)[0]
+
+
+async def store_pool_prices(
+    session: AsyncSession, store_id: uuid.UUID, *, group_id: uuid.UUID | None = None
+) -> dict[tuple[uuid.UUID, uuid.UUID], int]:
+    """The store's own per-pool retail prices as ``{(pool id, product id): price}`` (one query)."""
+    q = select(StorePoolPrice).where(StorePoolPrice.store_id == store_id)
+    if group_id is not None:
+        q = q.where(StorePoolPrice.panel_group_id == group_id)
+    return {(r.panel_group_id, r.product_id): int(r.customer_price) for r in (await session.scalars(q)).all()}
 
 
 @dataclasses.dataclass(frozen=True)
@@ -369,9 +386,13 @@ async def plan_sale(
     pp = await pool_product(session, group_id, product.id)
     main, reseller = effective_prices(product, pp)
     group = await session.get(PanelGroup, group_id) if group_id else None
-    if store.kind == "reseller" and _below_cost(sp, reseller):
-        raise AppError("CUSTOMER_PRICE_BELOW_COST", "قیمت فروش نماینده از قیمت همکاری این استخر کمتر است؛ فروش انجام نمی‌شود.", 409)
-    return SalePlan(group_id, group, selected, name, pp, _unit_price(store, product, sp, pp), main, reseller)
+    retail = None
+    if store.kind == "reseller":
+        own = (await store_pool_prices(session, store.id, group_id=group_id)).get((group_id, product.id)) if group_id else None
+        retail = retail_price(sp, own)
+        if _below_cost(retail, reseller):
+            raise AppError("CUSTOMER_PRICE_BELOW_COST", "قیمت فروش نماینده از قیمت همکاری این استخر کمتر است؛ فروش انجام نمی‌شود.", 409)
+    return SalePlan(group_id, group, selected, name, pp, _unit_price(store, product, retail, pp), main, reseller)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -392,13 +413,16 @@ async def pool_packages(session: AsyncSession, store: Store, group_id: uuid.UUID
         )
     )
     out = []
+    own = await store_pool_prices(session, store.id, group_id=group_id) if store.kind == "reseller" else {}
     for p, sp, pp in (await session.execute(q)).all():
+        retail = None
         if store.kind == "reseller":
-            if not sp.customer_price or _below_cost(sp, effective_prices(p, pp)[1]):
+            retail = retail_price(sp, own.get((group_id, p.id)))
+            if not retail or _below_cost(retail, effective_prices(p, pp)[1]):
                 continue
         elif p.currency != store.currency:
             continue
-        out.append((p, sp, pp, _unit_price(store, p, sp, pp)))
+        out.append((p, sp, pp, _unit_price(store, p, retail, pp)))
     out.sort(key=lambda r: (r[2].sort, r[3], r[0].sort))
     return out
 
@@ -442,24 +466,37 @@ async def renewal_offers(session: AsyncSession, store: Store, account) -> list[t
     Accounts that predate pools renew at the product's own price."""
     pool_id = await account_pool_id(session, account)
     if pool_id is None:
-        return [(p, _unit_price(store, p, sp, None)) for p, sp in await sellable_products(session, store)]
+        return [(p, _unit_price(store, p, retail_price(sp, None), None)) for p, sp in await sellable_products(session, store)]
     return [(p, price) for p, _sp, _pp, price in await pool_packages(session, store, pool_id)]
 
 
-async def sellable_products(session: AsyncSession, store: Store) -> list[tuple[Product, StoreProduct]]:
-    """Flat catalog: only products that at least one pool lists and (reseller stores) whose customer price
-    covers that pool's reseller price. A product in no pool is never shown (there is no pool-less route)."""
+async def sellable_products_priced(session: AsyncSession, store: Store) -> list[tuple[Product, StoreProduct, int]]:
+    """Flat catalog with the price to show: only products that at least one pool lists and (reseller stores)
+    whose retail price covers that pool's reseller price. A reseller package that is priced per pool shows its
+    lowest valid pool price. A product in no pool is never shown (there is no pool-less route)."""
     pps: dict[uuid.UUID, list[PoolProduct]] = {}
     for pp in (await session.scalars(select(PoolProduct).where(PoolProduct.is_listed.is_(True)))).all():
         pps.setdefault(pp.product_id, []).append(pp)
+    own = await store_pool_prices(session, store.id) if store.kind == "reseller" else {}
     out = []
     for p, sp in await catalog_service.store_catalog(session, store):
         rows = pps.get(p.id, [])
         if store.kind == "reseller":
-            rows = [pp for pp in rows if not _below_cost(sp, effective_prices(p, pp)[1])]
-        if rows:
-            out.append((p, sp))
+            prices = []
+            for pp in rows:
+                retail = retail_price(sp, own.get((pp.panel_group_id, p.id)))
+                if retail and not _below_cost(retail, effective_prices(p, pp)[1]):
+                    prices.append(retail)
+            if prices:
+                out.append((p, sp, min(prices)))
+        elif rows:
+            out.append((p, sp, p.main_price))
     return out
+
+
+async def sellable_products(session: AsyncSession, store: Store) -> list[tuple[Product, StoreProduct]]:
+    """``sellable_products_priced`` without the price, for callers that only need to know what is sellable."""
+    return [(p, sp) for p, sp, _price in await sellable_products_priced(session, store)]
 
 
 async def reseller_price_floor(session: AsyncSession, product: Product) -> int:
@@ -477,22 +514,42 @@ async def ensure_customer_price(session: AsyncSession, product: Product, custome
         raise AppError("CUSTOMER_PRICE_BELOW_COST", f"قیمت فروش نماینده نمی‌تواند از قیمت همکاری استخرها ({floor}) کمتر باشد.", 422)
 
 
-async def stores_below_cost(session: AsyncSession, product: Product, reseller_price: int) -> int:
-    """How many reseller stores would have this product hidden if a pool's reseller price became ``reseller_price``."""
-    return len((await session.scalars(
-        select(StoreProduct.id).join(Store, Store.id == StoreProduct.store_id).where(
-            StoreProduct.product_id == product.id, Store.kind == "reseller", StoreProduct.customer_price.is_not(None),
-            StoreProduct.customer_price > 0, StoreProduct.customer_price < reseller_price)
-    )).all())
+async def stores_below_cost(session: AsyncSession, product: Product, reseller_price: int, group_id: uuid.UUID | None = None) -> int:
+    """How many reseller stores would have this product hidden if a pool's reseller price became ``reseller_price``.
+
+    With ``group_id`` the check is exact for that pool: a store's own price in the pool wins over its store-wide
+    price. Without it only the store-wide prices are compared (legacy callers)."""
+    rows = (await session.execute(
+        select(StoreProduct.store_id, StoreProduct.customer_price).join(Store, Store.id == StoreProduct.store_id).where(
+            StoreProduct.product_id == product.id, Store.kind == "reseller")
+    )).all()
+    own: dict[uuid.UUID, int] = {}
+    if group_id is not None:
+        own = {r.store_id: int(r.customer_price) for r in (await session.scalars(
+            select(StorePoolPrice).where(StorePoolPrice.panel_group_id == group_id, StorePoolPrice.product_id == product.id))).all()}
+    hidden = {sid for sid, price in rows if _below_cost(own.get(sid) or price or None, reseller_price)}
+    hidden |= {sid for sid, price in own.items() if _below_cost(price, reseller_price)}
+    return len(hidden)
+
+
+# ---------------------------------------------------------------- what a reseller prices (panel + bot)
+def _pool_state(price: int | None, cost: int) -> str:
+    return "unset" if not price else ("below_cost" if price < cost else "ok")
 
 
 async def reseller_price_table(session: AsyncSession, store: Store) -> list[dict]:
     """What a reseller sees when pricing: every product the main store enabled for this store and that some
-    pool sells, with the reseller price per pool (the cost) and the store's own customer price."""
+    pool sells. Per product: the store-wide price (``customer_price``), the cost floor over all pools and, in
+    ``pools``, one row per pool with its cost (reseller price), the store's own price there, the price that is
+    actually charged (``effective_price``, ``source`` = pool | store) and the resulting state.
+    The pool-level ``costs`` list is kept for older clients (Telegram bot)."""
     pool_rows = (await session.execute(select(PoolProduct, PanelGroup).join(PanelGroup, PanelGroup.id == PoolProduct.panel_group_id))).all()
     by_product: dict[uuid.UUID, list[tuple[PoolProduct, PanelGroup]]] = {}
     for pp, g in pool_rows:
         by_product.setdefault(pp.product_id, []).append((pp, g))
+    own = await store_pool_prices(session, store.id)
+    closed = {r.panel_group_id for r in (await session.scalars(
+        select(StorePanelGroup).where(StorePanelGroup.store_id == store.id, StorePanelGroup.is_enabled.is_(False)))).all()}
     out = []
     for p, sp in await catalog_service.enabled_for_store(session, store):
         rows = by_product.get(p.id)
@@ -501,25 +558,105 @@ async def reseller_price_table(session: AsyncSession, store: Store) -> list[dict
         costs = [{"pool_id": g.id, "pool_name": g.name, "cost": effective_prices(p, pp)[1]} for pp, g in rows]
         floor = max(c["cost"] for c in costs)
         price = sp.customer_price or None
+        pools = []
+        for pp, g in sorted(rows, key=lambda r: (r[1].created_at, str(r[1].id))):
+            if not g.is_enabled or not g.reseller_enabled:
+                continue  # a pool the reseller cannot sell through is not worth pricing
+            cost = effective_prices(p, pp)[1]
+            mine = own.get((g.id, p.id))
+            effective = retail_price(sp, mine)
+            pools.append({
+                "pool_id": g.id, "pool_name": g.name, "kind_label": g.kind_label, "cost": cost, "price": mine, "effective_price": effective,
+                "source": "pool" if mine else ("store" if effective else None), "state": _pool_state(effective, cost),
+                "listed": bool(pp.is_listed), "open_for_store": g.id not in closed,
+            })
         out.append({
             "product_id": p.id, "code": p.code, "name": p.name, "duration_days": p.duration_days, "traffic_gb": p.traffic_gb,
-            "currency": p.currency, "customer_price": price, "cost_floor": floor, "costs": costs,
+            "currency": p.currency, "customer_price": price, "cost_floor": floor, "costs": costs, "pools": pools,
             "state": "unset" if price is None else ("below_cost" if price < floor else "ok"),
         })
     return out
 
 
-async def set_customer_price(session: AsyncSession, store: Store, product_id: uuid.UUID, customer_price: int | None) -> StoreProduct:
-    """The reseller sets the retail price of one product in ONE store. None or 0 clears it (product hidden).
-    The price must cover the reseller price of every pool that sells the product."""
+async def _priced_product(session: AsyncSession, store: Store, product_id: uuid.UUID) -> tuple[Product, StoreProduct]:
+    """The product a reseller may price: enabled for the store by the main store, active, not a test package."""
     if store.kind != "reseller":
         raise AppError("NOT_A_RESELLER_STORE", "قیمت فروش فقط برای فروشگاه نماینده تعیین می‌شود.", 403)
     product = await session.get(Product, product_id)
     sp = await session.scalar(select(StoreProduct).where(StoreProduct.store_id == store.id, StoreProduct.product_id == product_id))
     if not product or not sp or not sp.is_enabled or product.is_test or not product.is_active or product.archived_at is not None:
         raise NotFound("محصول")
+    return product, sp
+
+
+async def set_customer_price(session: AsyncSession, store: Store, product_id: uuid.UUID, customer_price: int | None) -> StoreProduct:
+    """The reseller sets the store-wide retail price of one product in ONE store. None or 0 clears it.
+    The price must cover the reseller price of every pool that sells the product; a pool can still have its own
+    price (``set_pool_price``), which wins there."""
+    product, sp = await _priced_product(session, store, product_id)
     if await session.scalar(select(PoolProduct.id).where(PoolProduct.product_id == product_id).limit(1)) is None:
         raise AppError("PRODUCT_NOT_IN_POOL", "این محصول در هیچ استخری نیست و قابل فروش نیست.", 422)
     await ensure_customer_price(session, product, customer_price)
     sp.customer_price = customer_price or None
     return sp
+
+
+async def set_pool_price(
+    session: AsyncSession, store: Store, group_id: uuid.UUID, product_id: uuid.UUID, customer_price: int | None
+) -> int | None:
+    """The reseller sets the retail price of one package in ONE pool of this store. None or 0 removes it and the
+    pool falls back to the store-wide price. The price must cover THIS pool's reseller price (the cost).
+    Returns the stored price (None when cleared)."""
+    product, _sp = await _priced_product(session, store, product_id)
+    group = await session.get(PanelGroup, group_id)
+    if not group or not group.is_enabled or not group.reseller_enabled:
+        raise NotFound("استخر فروش")
+    pp = await pool_product(session, group_id, product_id)
+    if pp is None:
+        raise AppError("PRODUCT_NOT_IN_POOL", "این پکیج در استخر انتخاب‌شده فروخته نمی‌شود.", 422)
+    row = await session.scalar(select(StorePoolPrice).where(
+        StorePoolPrice.store_id == store.id, StorePoolPrice.panel_group_id == group_id, StorePoolPrice.product_id == product_id))
+    if not customer_price:
+        if row is not None:
+            await session.delete(row)
+        return None
+    cost = effective_prices(product, pp)[1]
+    if customer_price < cost:
+        raise AppError("CUSTOMER_PRICE_BELOW_COST", f"قیمت فروش در استخر «{group.name}» نمی‌تواند از قیمت همکاری همین استخر ({cost}) کمتر باشد.", 422)
+    if row is None:
+        session.add(StorePoolPrice(store_id=store.id, panel_group_id=group_id, product_id=product_id, customer_price=customer_price))
+    else:
+        row.customer_price = customer_price
+    return customer_price
+
+
+async def set_prices_batch(session: AsyncSession, store: Store, items: list[tuple[uuid.UUID | None, uuid.UUID, int | None]]) -> list[tuple[uuid.UUID | None, uuid.UUID, int | None]]:
+    """Apply many price edits in one go, all or nothing. ``(pool id or None for the store-wide price, product id, price)``.
+
+    Every item is validated by the same rules as the single edits; if any is refused nothing is written and one
+    error lists every refused item. Returns the items whose stored price actually changed (for the audit log)."""
+    seen: set[tuple[uuid.UUID | None, uuid.UUID]] = set()
+    errors: list[dict] = []
+    changed: list[tuple[uuid.UUID | None, uuid.UUID, int | None]] = []
+    before_pool = await store_pool_prices(session, store.id)
+    for group_id, product_id, price in items:
+        if (group_id, product_id) in seen:
+            errors.append({"pool_id": group_id, "product_id": product_id, "code": "DUPLICATE_ITEM", "message": "این ردیف بیش از یک بار فرستاده شده است."})
+            continue
+        seen.add((group_id, product_id))
+        try:
+            if group_id is None:
+                _p, sp = await _priced_product(session, store, product_id)
+                old = sp.customer_price or None
+                await set_customer_price(session, store, product_id, price)
+            else:
+                old = before_pool.get((group_id, product_id))
+                await set_pool_price(session, store, group_id, product_id, price)
+        except AppError as e:
+            errors.append({"pool_id": group_id, "product_id": product_id, "code": e.code, "message": e.message})
+            continue
+        if (old or None) != (price or None):
+            changed.append((group_id, product_id, price or None))
+    if errors:
+        raise AppError("PRICES_INVALID", f"{len(errors)} قیمت معتبر نیست؛ هیچ تغییری ذخیره نشد.", 422, {"errors": [{**e, "pool_id": str(e["pool_id"]) if e["pool_id"] else None, "product_id": str(e["product_id"])} for e in errors]})
+    return changed
