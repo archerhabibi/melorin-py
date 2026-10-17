@@ -3,6 +3,7 @@
 Resolution order: Admin-panel SMTP (enabled) -> env ``MELORIN_EMAIL_BACKEND=smtp`` -> development console
 -> otherwise e-mail is unavailable and callers get ``EMAIL_DISABLED``.
 """
+
 import asyncio
 import logging
 import smtplib
@@ -21,13 +22,23 @@ async def _resolve() -> dict | None:
         cfg = await integrations.get_email(session)
     if integrations.email_ready(cfg):
         return {
-            "host": cfg["host"], "port": int(cfg["port"]), "username": cfg["username"],
-            "password": integrations.email_password(cfg), "from_addr": cfg["from_addr"], "security": cfg["security"],
+            "host": cfg["host"],
+            "port": int(cfg["port"]),
+            "username": cfg["username"],
+            "password": integrations.email_password(cfg),
+            "from_addr": cfg["from_addr"],
+            "security": cfg["security"],
         }
     s = get_settings()
     if s.email_backend == "smtp" and s.smtp_host:
-        return {"host": s.smtp_host, "port": s.smtp_port, "username": s.smtp_user, "password": s.smtp_password,
-                "from_addr": s.smtp_from, "security": "starttls"}
+        return {
+            "host": s.smtp_host,
+            "port": s.smtp_port,
+            "username": s.smtp_user,
+            "password": s.smtp_password,
+            "from_addr": s.smtp_from,
+            "security": "starttls",
+        }
     return None
 
 

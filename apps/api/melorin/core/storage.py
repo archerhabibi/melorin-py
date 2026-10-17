@@ -1,4 +1,5 @@
 """Storage abstraction (Local now, S3-compatible later). Files are private; served only via authorized endpoints."""
+
 import hashlib
 import os
 import uuid

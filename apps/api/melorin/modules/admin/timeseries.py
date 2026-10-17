@@ -5,6 +5,7 @@ A sale is a *succeeded* payment, dated by its review time when it has one (manua
 card approval) and by its creation time otherwise (gateway). Days are UTC and
 zero-filled so charts get a continuous axis.
 """
+
 import datetime as dt
 
 from sqlalchemy import func, select
@@ -47,15 +48,15 @@ async def build_timeseries(session: AsyncSession, days: int = 30, now: dt.dateti
     sale_at = func.coalesce(Payment.reviewed_at, Payment.created_at)
     dialect = session.bind.dialect.name if session.bind is not None else "sqlite"
     sale_day = utc_day(sale_at, dialect)
-    pay_rows = (await session.execute(
-        select(Payment.currency, sale_day, func.count(Payment.id), func.sum(Payment.amount))
-        .where(Payment.status == "succeeded", sale_at >= since)
-        .group_by(Payment.currency, sale_day)
-    )).all()
+    pay_rows = (
+        await session.execute(
+            select(Payment.currency, sale_day, func.count(Payment.id), func.sum(Payment.amount))
+            .where(Payment.status == "succeeded", sale_at >= since)
+            .group_by(Payment.currency, sale_day)
+        )
+    ).all()
     order_day = utc_day(Order.created_at, dialect)
-    order_rows = (await session.execute(
-        select(order_day, func.count(Order.id)).where(Order.created_at >= since).group_by(order_day)
-    )).all()
+    order_rows = (await session.execute(select(order_day, func.count(Order.id)).where(Order.created_at >= since).group_by(order_day))).all()
     currencies = sorted({r[0] for r in pay_rows})
     return {
         "days": axis,

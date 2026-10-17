@@ -1,4 +1,5 @@
 """Telegram login is configured from the admin panel (Settings > Telegram login) and the OIDC flow it enables."""
+
 import json
 import time
 import types
@@ -26,7 +27,17 @@ from melorin.modules.identity.telegram_oidc_router import tgoidc
 from melorin.modules.stores.models import Store
 from melorin.modules.system.models import AuditEvent, FeatureFlag, SecurityEvent, SystemSetting
 
-TABLES = [User.__table__, Identity.__table__, RefreshToken.__table__, Store.__table__, TelegramLoginSession.__table__, AuditEvent.__table__, SecurityEvent.__table__, FeatureFlag.__table__, SystemSetting.__table__]
+TABLES = [
+    User.__table__,
+    Identity.__table__,
+    RefreshToken.__table__,
+    Store.__table__,
+    TelegramLoginSession.__table__,
+    AuditEvent.__table__,
+    SecurityEvent.__table__,
+    FeatureFlag.__table__,
+    SystemSetting.__table__,
+]
 ADMIN = types.SimpleNamespace(id=None)
 CLIENT_ID = "123456789"
 START, CALLBACK = "/api/v1/auth/telegram/oidc/start", "/api/v1/auth/telegram/oidc/callback"
@@ -80,8 +91,13 @@ async def test_update_validates_input(world):
 
 async def test_secret_is_encrypted_at_rest_and_never_returned(world):
     out = await save(world.s)
-    assert out["client_secret_set"] is True and "client_secret" not in out and "client_secret_enc" not in out and "s3cret" not in json.dumps(out)
-    raw = (await world.s.scalar(select(SystemSetting.value).where(SystemSetting.key == integrations.TELEGRAM_KEY)))
+    assert (
+        out["client_secret_set"] is True
+        and "client_secret" not in out
+        and "client_secret_enc" not in out
+        and "s3cret" not in json.dumps(out)
+    )
+    raw = await world.s.scalar(select(SystemSetting.value).where(SystemSetting.key == integrations.TELEGRAM_KEY))
     assert "s3cret" not in json.dumps(raw) and raw["client_secret_enc"]
     cfg = await integrations.get_telegram(world.s)
     assert integrations.telegram_client_secret(cfg) == "s3cret-from-botfather" and integrations.telegram_oidc_ready(cfg)
@@ -132,8 +148,18 @@ def signer(monkeypatch):
 
     def make(signing_key=key, headers=None, **over):
         now = int(time.time())
-        claims = {"iss": oidc.ISSUER, "aud": CLIENT_ID, "sub": "9990001", "iat": now, "exp": now + 600, "id": 555001, "name": "Ali Rezaei",
-                  "given_name": "Ali", "family_name": "Rezaei", "preferred_username": "ali_r"} | over
+        claims = {
+            "iss": oidc.ISSUER,
+            "aud": CLIENT_ID,
+            "sub": "9990001",
+            "iat": now,
+            "exp": now + 600,
+            "id": 555001,
+            "name": "Ali Rezaei",
+            "given_name": "Ali",
+            "family_name": "Rezaei",
+            "preferred_username": "ali_r",
+        } | over
         claims = {k: v for k, v in claims.items() if v is not None}
         return jwt.encode(claims, signing_key, algorithm="RS256", headers=headers or {"kid": "k1"})
 
@@ -145,9 +171,18 @@ async def test_id_token_validation(signer):
     assert oidc.profile_from_claims(claims) == TelegramProfile(telegram_id=555001, first_name="Ali", last_name="Rezaei", username="ali_r")
     other = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     bad = [
-        signer.make(aud="999"), signer.make(iss="https://evil.example"), signer.make(exp=int(time.time()) - 3600),
-        signer.make(signing_key=other), signer.make(nonce="other"), signer.make(headers={"kid": "unknown"}),
-        jwt.encode({"iss": oidc.ISSUER, "aud": CLIENT_ID, "sub": "1", "iat": 1, "exp": 4102444800}, "x" * 40, algorithm="HS256", headers={"kid": "k1"}),
+        signer.make(aud="999"),
+        signer.make(iss="https://evil.example"),
+        signer.make(exp=int(time.time()) - 3600),
+        signer.make(signing_key=other),
+        signer.make(nonce="other"),
+        signer.make(headers={"kid": "unknown"}),
+        jwt.encode(
+            {"iss": oidc.ISSUER, "aud": CLIENT_ID, "sub": "1", "iat": 1, "exp": 4102444800},
+            "x" * 40,
+            algorithm="HS256",
+            headers={"kid": "k1"},
+        ),
     ]
     for tok in bad:
         with pytest.raises(AppError) as e:
@@ -237,10 +272,20 @@ async def test_successful_login_maps_to_the_same_account_as_the_bot(http, world,
     calls = stub_exchange(monkeypatch, lambda: signer.make(nonce=flow["nonce"]))
     r = await http.get(CALLBACK, params={"code": "abc", "state": q["state"]})
     assert r.status_code == 303 and r.headers["location"] == "http://localhost:3000/#/dashboard"
-    assert calls == [dict(client_id=CLIENT_ID, secret="s3cret-from-botfather", code="abc", redirect="http://localhost:3000" + oidc.CALLBACK_PATH, verifier=flow["cv"])]
+    assert calls == [
+        dict(
+            client_id=CLIENT_ID,
+            secret="s3cret-from-botfather",
+            code="abc",
+            redirect="http://localhost:3000" + oidc.CALLBACK_PATH,
+            verifier=flow["cv"],
+        )
+    ]
     cookies = r.headers.get_list("set-cookie")
     assert any(c.startswith("melorin_refresh=") for c in cookies)
-    assert any(c.startswith(f"{oidc.COOKIE}=") and ("max-age=0" in c.lower() or "expires=" in c.lower()) for c in cookies)  # flow cookie cleared
+    assert any(
+        c.startswith(f"{oidc.COOKIE}=") and ("max-age=0" in c.lower() or "expires=" in c.lower()) for c in cookies
+    )  # flow cookie cleared
     tokens = (await world.s.scalars(select(RefreshToken))).all()
     assert len(tokens) == 1 and tokens[0].user_id == existing.id
     assert len((await world.s.scalars(select(Identity).where(Identity.provider == "telegram"))).all()) == 1
@@ -259,8 +304,11 @@ async def test_new_customer_gets_an_account(http, world, signer, monkeypatch):
 async def test_rejections_end_in_a_safe_redirect_and_issue_nothing(http, world, signer, monkeypatch, tamper):
     await save(world.s)
     _, q, flow = await begin(http)
-    token = {"aud": lambda: signer.make(aud="1", nonce=flow["nonce"]), "expired": lambda: signer.make(exp=int(time.time()) - 900, nonce=flow["nonce"]),
-             "no_id": lambda: signer.make(id=None, nonce=flow["nonce"])}.get(tamper, lambda: signer.make(nonce=flow["nonce"]))
+    token = {
+        "aud": lambda: signer.make(aud="1", nonce=flow["nonce"]),
+        "expired": lambda: signer.make(exp=int(time.time()) - 900, nonce=flow["nonce"]),
+        "no_id": lambda: signer.make(id=None, nonce=flow["nonce"]),
+    }.get(tamper, lambda: signer.make(nonce=flow["nonce"]))
     calls = stub_exchange(monkeypatch, token)
     params = {"code": "abc", "state": q["state"]}
     if tamper == "state":
@@ -274,7 +322,9 @@ async def test_rejections_end_in_a_safe_redirect_and_issue_nothing(http, world, 
     r = await http.get(CALLBACK, params=params)
     reason = {"no_cookie": "session_expired", "denied": "user_denied"}.get(tamper, "failed")
     assert r.status_code == 303 and r.headers["location"] == f"http://localhost:3000/?tg_error={reason}"
-    assert not (await world.s.scalars(select(RefreshToken))).all() and not any(c.startswith("melorin_refresh=") for c in r.headers.get_list("set-cookie"))
+    assert not (await world.s.scalars(select(RefreshToken))).all() and not any(
+        c.startswith("melorin_refresh=") for c in r.headers.get_list("set-cookie")
+    )
     if tamper in ("state", "no_cookie", "denied", "no_code"):
         assert calls == []  # the code is never exchanged unless the browser-bound state matches
     if tamper == "state":
@@ -328,8 +378,11 @@ async def test_panel_test_endpoint_reports_without_leaking_secrets(world, monkey
 
     class Client:
         def __init__(self, *a, **k): ...
-        async def __aenter__(self): return self
-        async def __aexit__(self, *a): return False
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
 
         async def get(self, url, **k):
             if url.endswith("openid-configuration"):
@@ -355,14 +408,17 @@ async def test_main_bot_username_autodetect_manual_and_guards(world, monkeypatch
     # BotStoreBinding declares its owner index twice (column index=True + explicit Index), so create_all fails on SQLite:
     # a minimal table is enough for this test.
     async with db.engine().begin() as conn:
-        await conn.exec_driver_sql("CREATE TABLE bot_store_bindings (id CHAR(32), bot_key VARCHAR(120), bot_username VARCHAR(100), store_id CHAR(32), owner_user_id CHAR(32), "
-            "bot_kind VARCHAR(20), status VARCHAR(20), config JSON, created_at DATETIME, updated_at DATETIME)")
+        await conn.exec_driver_sql(
+            "CREATE TABLE bot_store_bindings (id CHAR(32), bot_key VARCHAR(120), bot_username VARCHAR(100), store_id CHAR(32), owner_user_id CHAR(32), "
+            "bot_kind VARCHAR(20), status VARCHAR(20), config JSON, created_at DATETIME, updated_at DATETIME)"
+        )
     world.main.bot_username = None
     await world.s.commit()
 
     async def fake(real):
         async def f(token):
             return True, real
+
         return f
 
     orig = admin_integrations._main_bot

@@ -11,7 +11,7 @@ def test_refresh_session_uses_httponly_cookie():
     main = (PROJECT / "apps/admin-web/src/main.jsx").read_text()
     assert "httponly=True" in router and "REFRESH_COOKIE" in router
     assert "refreshToken" not in auth
-    assert "credentials: \"include\"" in main
+    assert 'credentials: "include"' in main
 
 
 def test_refresh_body_remains_optional_for_compatibility():

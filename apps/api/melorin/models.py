@@ -1,4 +1,5 @@
 """Import every model so metadata is complete (Alembic, tests)."""
+
 from melorin.modules.catalog.models import *  # noqa: F401,F403
 from melorin.modules.identity.models import *  # noqa: F401,F403
 from melorin.modules.notifications.models import *  # noqa: F401,F403

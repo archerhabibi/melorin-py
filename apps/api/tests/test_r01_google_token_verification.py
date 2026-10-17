@@ -1,4 +1,5 @@
 """Sign in with Google: ID tokens are verified locally against Google's public keys and bound to a nonce cookie."""
+
 import time
 import types
 
@@ -18,14 +19,31 @@ from melorin.modules.identity.schemas import GoogleLogin
 from melorin.modules.system.models import AuditEvent, SecurityEvent, SystemSetting
 
 CLIENT_ID = "123456789012-abc123def456.apps.googleusercontent.com"
-TABLES = [User.__table__, Identity.__table__, RefreshToken.__table__, IdentityLinkReview.__table__, AuditEvent.__table__, SecurityEvent.__table__, SystemSetting.__table__]
+TABLES = [
+    User.__table__,
+    Identity.__table__,
+    RefreshToken.__table__,
+    IdentityLinkReview.__table__,
+    AuditEvent.__table__,
+    SecurityEvent.__table__,
+    SystemSetting.__table__,
+]
 KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 OTHER_KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 
 
 def _token(key=KEY, kid="k1", alg="RS256", **over):
     now = int(time.time())
-    claims = {"iss": "https://accounts.google.com", "aud": CLIENT_ID, "sub": "g-1", "iat": now, "exp": now + 3600, "email": "u@example.com", "email_verified": True, "nonce": "n1"}
+    claims = {
+        "iss": "https://accounts.google.com",
+        "aud": CLIENT_ID,
+        "sub": "g-1",
+        "iat": now,
+        "exp": now + 3600,
+        "email": "u@example.com",
+        "email_verified": True,
+        "nonce": "n1",
+    }
     claims.update(over)
     claims = {k: v for k, v in claims.items() if v is not None}
     return jwt.encode(claims, key, algorithm=alg, headers={"kid": kid})
@@ -49,13 +67,16 @@ async def test_valid_token_is_accepted_and_returns_claims():
     assert claims["sub"] == "g-1" and claims["email"] == "u@example.com"
 
 
-@pytest.mark.parametrize("over,why", [
-    ({"aud": "someone-else"}, "wrong audience"),
-    ({"iss": "https://evil.example"}, "wrong issuer"),
-    ({"exp": int(time.time()) - 600}, "expired"),
-    ({"exp": None}, "missing exp"),
-    ({"sub": None}, "missing sub"),
-])
+@pytest.mark.parametrize(
+    "over,why",
+    [
+        ({"aud": "someone-else"}, "wrong audience"),
+        ({"iss": "https://evil.example"}, "wrong issuer"),
+        ({"exp": int(time.time()) - 600}, "expired"),
+        ({"exp": None}, "missing exp"),
+        ({"sub": None}, "missing sub"),
+    ],
+)
 async def test_invalid_claims_are_rejected(over, why):
     with pytest.raises(AppError) as e:
         await service.verify_google_token(_token(**over), CLIENT_ID)
@@ -66,7 +87,9 @@ async def test_bad_signature_alg_and_kid_are_rejected():
     for tok in (
         _token(key=OTHER_KEY),  # signed by someone else
         _token(kid="unknown"),  # unknown key id
-        jwt.encode({"sub": "x", "aud": CLIENT_ID}, "secret-secret-secret-secret-secret-32", algorithm="HS256", headers={"kid": "k1"}),  # alg confusion
+        jwt.encode(
+            {"sub": "x", "aud": CLIENT_ID}, "secret-secret-secret-secret-secret-32", algorithm="HS256", headers={"kid": "k1"}
+        ),  # alg confusion
         jwt.encode({"sub": "x"}, None, algorithm="none"),  # unsigned
         "not-a-jwt",
     ):
@@ -99,12 +122,20 @@ async def test_real_key_loader_caches_and_survives_an_outage(monkeypatch):
 
     class R:
         headers = {"cache-control": "public, max-age=3600"}
-        def raise_for_status(self): pass
-        def json(self): return {"keys": [jwk]}
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"keys": [jwk]}
 
     class C:
-        async def __aenter__(self): return self
-        async def __aexit__(self, *a): return False
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
         async def get(self, *a, **k):
             state.fetches += 1
             if state.down:
@@ -138,7 +169,9 @@ async def session(tmp_path, monkeypatch):
     async with db.engine().begin() as conn:
         await conn.run_sync(lambda c: db.Base.metadata.create_all(c, tables=TABLES))
     async with db.session_factory()() as s:
-        await settings_store.set_value(s, integrations.GOOGLE_KEY, {"enabled": True, "client_id": CLIENT_ID, "admin_login": True, "store_login": True})
+        await settings_store.set_value(
+            s, integrations.GOOGLE_KEY, {"enabled": True, "client_id": CLIENT_ID, "admin_login": True, "store_login": True}
+        )
         u = User(display_name="C", email="c@example.com")
         s.add(u)
         await s.flush()
@@ -157,7 +190,9 @@ async def test_nonce_endpoint_sets_httponly_cookie_and_returns_same_value():
     resp = Response()
     out = await router.google_nonce(resp)
     cookie = resp.headers["set-cookie"].lower()
-    assert router.GOOGLE_NONCE_COOKIE in cookie and "httponly" in cookie and "samesite=lax" in cookie and "path=/api/v1/auth/google" in cookie
+    assert (
+        router.GOOGLE_NONCE_COOKIE in cookie and "httponly" in cookie and "samesite=lax" in cookie and "path=/api/v1/auth/google" in cookie
+    )
     assert out["nonce"] in resp.headers["set-cookie"] and len(out["nonce"]) >= 24
     assert resp.headers["cache-control"] == "no-store"
     assert (await router.google_nonce(Response()))["nonce"] != out["nonce"]
@@ -168,7 +203,9 @@ async def test_login_succeeds_with_matching_nonce_and_consumes_the_cookie(sessio
     pair = await router.google_login(GoogleLogin(id_token=_token()), session, _req("n1"), resp)
     assert pair.access_token
     cookies = resp.headers.getlist("set-cookie")
-    assert any(c.startswith(f'{router.GOOGLE_NONCE_COOKIE}=""') or (c.startswith(router.GOOGLE_NONCE_COOKIE) and "Max-Age=0" in c) for c in cookies)
+    assert any(
+        c.startswith(f'{router.GOOGLE_NONCE_COOKIE}=""') or (c.startswith(router.GOOGLE_NONCE_COOKIE) and "Max-Age=0" in c) for c in cookies
+    )
 
 
 @pytest.mark.parametrize("cookie_nonce,token_nonce", [(None, "n1"), ("n1", "other"), ("n1", None), ("", "n1")])
@@ -183,11 +220,17 @@ async def test_admin_connectivity_test_uses_the_public_key_endpoint(session, mon
 
     class R:
         status_code = 200
-        def json(self): return {"keys": [{"kid": "k1"}]}
+
+        def json(self):
+            return {"keys": [{"kid": "k1"}]}
 
     class C:
-        async def __aenter__(self): return self
-        async def __aexit__(self, *a): return False
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
         async def get(self, url, **k):
             asked.append(url)
             return R()

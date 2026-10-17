@@ -20,8 +20,8 @@ def test_zarinpal_is_validated_as_a_supported_destination():
 
 def test_telegram_topup_surfaces_core_configuration_errors():
     source = (ROOT.parent / "telegram-main/runner.py").read_text()
-    assert 'except CoreError as exc:' in source
-    assert '⚠️ {exc.message}' in source
+    assert "except CoreError as exc:" in source
+    assert "⚠️ {exc.message}" in source
 
 
 def test_wallet_callback_parses_nested_amount_payload():

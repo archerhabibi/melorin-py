@@ -71,11 +71,13 @@ app.include_router(admin_router, prefix="/api/v1")
 
 
 @app.get("/health/live", tags=["health"])
-async def live(): return {"status": "ok", "service": "core"}
+async def live():
+    return {"status": "ok", "service": "core"}
 
 
 @app.get("/healthz", tags=["health"], include_in_schema=False)
-async def healthz(): return await live()
+async def healthz():
+    return await live()
 
 
 @app.get("/health/ready", tags=["health"])
@@ -86,14 +88,23 @@ async def ready(request: Request):
     from melorin.modules.system.models import OutboxEvent
     from melorin.modules.vpn.models import Panel
     from sqlalchemy import func, select
+
     db_ok = False
     pending = panels = 0
     db_error = None
     try:
         async with session_factory()() as session:
             await session.execute(text("SELECT 1"))
-            pending = await session.scalar(select(func.count()).select_from(OutboxEvent).where(OutboxEvent.status.in_(("pending", "processing")))) or 0
-            panels = await session.scalar(select(func.count()).select_from(Panel).where(Panel.is_enabled.is_(True), Panel.health_status != "healthy")) or 0
+            pending = (
+                await session.scalar(select(func.count()).select_from(OutboxEvent).where(OutboxEvent.status.in_(("pending", "processing"))))
+                or 0
+            )
+            panels = (
+                await session.scalar(
+                    select(func.count()).select_from(Panel).where(Panel.is_enabled.is_(True), Panel.health_status != "healthy")
+                )
+                or 0
+            )
             db_ok = True
     except Exception as exc:
         db_error = str(exc)[:200]
@@ -115,7 +126,13 @@ async def ready(request: Request):
     set_gauge("melorin_panels_unhealthy", float(panels))
     set_alert("MelorinDatabaseUnavailable", not db_ok, summary="Database unavailable", severity="critical", details=db_error or "")
     set_alert("MelorinRedisUnavailable", not redis_ok, summary="Redis unavailable", severity="critical")
-    set_alert("MelorinWorkerStale", not worker_ok, summary="Worker heartbeat stale", severity="critical", details=str(worker_last_tick or "missing"))
+    set_alert(
+        "MelorinWorkerStale",
+        not worker_ok,
+        summary="Worker heartbeat stale",
+        severity="critical",
+        details=str(worker_last_tick or "missing"),
+    )
     set_alert("MelorinPanelsUnhealthy", panels > 0, summary="Enabled VPN panels unhealthy", severity="warning", details=str(panels))
     set_alert("MelorinOutboxBacklog", pending > 100, summary="Outbox backlog above threshold", severity="warning", details=str(pending))
     checks = {
@@ -137,11 +154,13 @@ async def ready(request: Request):
 
 
 @app.get("/health", tags=["health"])
-async def health(request: Request): return await ready(request)
+async def health(request: Request):
+    return await ready(request)
 
 
 @app.get("/openapi-version", include_in_schema=False)
-async def openapi_version(): return {"version": app.version}
+async def openapi_version():
+    return {"version": app.version}
 
 
 @app.get("/metrics", include_in_schema=False, response_class=PlainTextResponse)
@@ -152,6 +171,7 @@ async def metrics(request: Request):
     # worker freshness gauges here instead of waiting for a separate
     # readiness request to happen.
     from melorin.core.redis import get_redis
+
     redis = get_redis()
     redis_ok = worker_ok = False
     worker_last_tick = None
@@ -164,6 +184,12 @@ async def metrics(request: Request):
         except Exception:
             redis_ok = False
     set_alert("MelorinRedisUnavailable", not redis_ok, summary="Redis unavailable", severity="critical")
-    set_alert("MelorinWorkerStale", not worker_ok, summary="Worker heartbeat stale", severity="critical", details=str(worker_last_tick or "missing"))
+    set_alert(
+        "MelorinWorkerStale",
+        not worker_ok,
+        summary="Worker heartbeat stale",
+        severity="critical",
+        details=str(worker_last_tick or "missing"),
+    )
     set_gauge("melorin_worker_last_tick", float(worker_last_tick or 0))
     return PlainTextResponse(render(), media_type="text/plain; version=0.0.4")

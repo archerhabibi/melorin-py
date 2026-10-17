@@ -1,4 +1,5 @@
 """Behavioural checks for the admin-panel IP allowlist (OFF by default)."""
+
 from types import SimpleNamespace
 
 import pytest
@@ -69,7 +70,11 @@ async def _put(monkeypatch, enabled, ips, my_ip):
 
 
 async def test_panel_refuses_self_lockout_empty_and_invalid(monkeypatch):
-    for enabled, ips, code in [(True, ["203.0.113.10"], "ADMIN_IP_LOCKOUT"), (True, [], "ADMIN_IP_EMPTY"), (True, ["nope"], "ADMIN_IP_INVALID")]:
+    for enabled, ips, code in [
+        (True, ["203.0.113.10"], "ADMIN_IP_LOCKOUT"),
+        (True, [], "ADMIN_IP_EMPTY"),
+        (True, ["nope"], "ADMIN_IP_INVALID"),
+    ]:
         with pytest.raises(AppError) as exc:
             await _put(monkeypatch, enabled, ips, "198.51.100.5")
         assert exc.value.code == code

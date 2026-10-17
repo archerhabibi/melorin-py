@@ -1,4 +1,5 @@
 """Regression contracts for the lint gate and the 0009 PostgreSQL migration."""
+
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]

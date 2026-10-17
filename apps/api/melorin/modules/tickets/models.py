@@ -26,7 +26,9 @@ class TicketMessage(IdMixin, CreatedMixin, Base):
     ticket_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("tickets.id"), index=True)
     author_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"))
     is_staff: Mapped[bool] = mapped_column(Boolean, default=False)
-    is_internal: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")  # staff-only note, never shown to the customer
+    is_internal: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )  # staff-only note, never shown to the customer
     body: Mapped[str] = mapped_column(Text)
     edited_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     attachment_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("file_objects.id"))

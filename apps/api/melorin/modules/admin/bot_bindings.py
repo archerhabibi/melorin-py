@@ -42,6 +42,14 @@ async def create_binding(session, body, actor):
         config=body.config,
     )
     session.add(row)
-    audit.record(session, "bot_store_binding.created", actor_id=actor.id, actor_type="admin", entity_type="bot_store_binding", entity_id=row.id, store_id=store.id)
+    audit.record(
+        session,
+        "bot_store_binding.created",
+        actor_id=actor.id,
+        actor_type="admin",
+        entity_type="bot_store_binding",
+        entity_id=row.id,
+        store_id=store.id,
+    )
     await session.commit()
     return row

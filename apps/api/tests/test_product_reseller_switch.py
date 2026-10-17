@@ -35,8 +35,13 @@ async def setup(s):
     b = Bundle(name="B")
     s.add_all([main, res, p, b])
     await s.flush()
-    s.add_all([StoreProduct(store_id=main.id, product_id=p.id, customer_price=None), StoreProduct(store_id=res.id, product_id=p.id, customer_price=25000),
-               BundleProduct(bundle_id=b.id, product_id=p.id)])
+    s.add_all(
+        [
+            StoreProduct(store_id=main.id, product_id=p.id, customer_price=None),
+            StoreProduct(store_id=res.id, product_id=p.id, customer_price=25000),
+            BundleProduct(bundle_id=b.id, product_id=p.id),
+        ]
+    )
     await s.flush()
     return main, res, p, b
 

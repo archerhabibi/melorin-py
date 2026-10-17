@@ -40,8 +40,18 @@ async def _product(session, code):
 
 async def _account(session, server_id, panel_id, status):
     n = str(uuid.uuid4())[:8]
-    session.add(VpnAccount(username=f"u{n}", user_id=uuid.uuid4(), store_id=uuid.uuid4(), order_id=uuid.uuid4(), product_id=uuid.uuid4(),
-                           server_id=server_id, panel_id=panel_id, status=status))
+    session.add(
+        VpnAccount(
+            username=f"u{n}",
+            user_id=uuid.uuid4(),
+            store_id=uuid.uuid4(),
+            order_id=uuid.uuid4(),
+            product_id=uuid.uuid4(),
+            server_id=server_id,
+            panel_id=panel_id,
+            status=status,
+        )
+    )
     await session.flush()
 
 
@@ -57,7 +67,11 @@ async def test_list_includes_panel_name_and_account_counts(session):
     sid = await _server(session, p)
     other = await _server(session, p, name="DE-2")
     listed = {x.id: x for x in await r.servers(ADMIN, session)}
-    assert listed[sid].panel_name == "P1" and (listed[sid].active_accounts, listed[sid].total_accounts, listed[sid].is_enabled) == (0, 0, True)
+    assert listed[sid].panel_name == "P1" and (listed[sid].active_accounts, listed[sid].total_accounts, listed[sid].is_enabled) == (
+        0,
+        0,
+        True,
+    )
     await _account(session, sid, p.id, "active")
     await _account(session, sid, p.id, "active")
     await _account(session, sid, p.id, "expired")
@@ -75,6 +89,7 @@ async def test_update_is_partial_and_audited(session):
     out = await r.update_server(sid, UpdateServer(location=None, allow_test=False), ADMIN, session)
     assert out.location is None and out.allow_test is False
     from sqlalchemy import select
+
     events = (await session.scalars(select(AuditEvent).where(AuditEvent.action == "server.updated"))).all()
     assert len(events) == 2 and events[0].data["changed"] == ["capacity"]
 
@@ -84,6 +99,7 @@ async def test_update_noop_writes_no_audit_event(session):
     sid = await _server(session, p)
     await r.update_server(sid, UpdateServer(name="DE-1"), ADMIN, session)
     from sqlalchemy import select
+
     assert (await session.scalars(select(AuditEvent).where(AuditEvent.action == "server.updated"))).all() == []
 
 
@@ -142,5 +158,6 @@ async def test_server_enable_disable_is_idempotent_and_reflected_in_list(session
     assert (await r.set_server_state(sid, PanelState(is_enabled=False), ADMIN, session))["is_enabled"] is False
     assert [x.is_enabled for x in await r.servers(ADMIN, session)] == [False]
     from sqlalchemy import select
+
     assert len((await session.scalars(select(AuditEvent).where(AuditEvent.action == "server.disabled"))).all()) == 1
     assert (await session.get(Server, sid)).is_enabled is False

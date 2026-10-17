@@ -1,4 +1,5 @@
 """Reseller applications: store domain + reseller bot token, admin review, uniqueness and secrecy of the token."""
+
 import importlib.util
 import uuid
 from pathlib import Path
@@ -39,7 +40,11 @@ async def session():
     # SQLite ignores postgresql_where, so these partial-unique indexes become full-unique there and would
     # block re-using a domain/bot after a cancel or reject. Application code enforces "pending only" itself.
     async with engine.begin() as conn:
-        for ix in ("uq_reseller_application_pending_domain", "uq_reseller_application_pending_bot", "uq_reseller_application_pending_user_store"):
+        for ix in (
+            "uq_reseller_application_pending_domain",
+            "uq_reseller_application_pending_bot",
+            "uq_reseller_application_pending_user_store",
+        ):
             await conn.exec_driver_sql(f"DROP INDEX IF EXISTS {ix}")
     async with async_sessionmaker(engine, expire_on_commit=False)() as s:
         yield s
@@ -218,7 +223,12 @@ async def test_admin_list_is_enriched_pending_first_and_has_no_token(session):
     await apply(body(main, domain="two.example.com", bot_token=TOKEN2), u2, session)
     rows = await applications(admin, session)
     assert [r["status"] for r in rows] == ["pending", "rejected"]
-    assert rows[0]["user_email"] == "u1@x.io" and rows[0]["target_store_name"] == "Main" and rows[0]["domain"] == "two.example.com" and rows[0]["has_bot_token"] is True
+    assert (
+        rows[0]["user_email"] == "u1@x.io"
+        and rows[0]["target_store_name"] == "Main"
+        and rows[0]["domain"] == "two.example.com"
+        and rows[0]["has_bot_token"] is True
+    )
     assert TOKEN not in str(rows) and TOKEN2 not in str(rows) and "bot_token_enc" not in rows[0]
     assert [r["status"] for r in await applications(admin, session, status="rejected")] == ["rejected"]
 
@@ -231,7 +241,7 @@ def test_migration_0017_chains_from_0016_and_fits_version_column():
 
 
 def test_rotation_covers_application_token():
-    assert "(ResellerApplication, \"bot_token_enc\")" in (ROOT / "melorin/cli.py").read_text()
+    assert '(ResellerApplication, "bot_token_enc")' in (ROOT / "melorin/cli.py").read_text()
 
 
 async def test_admin_can_reverify_bot_when_first_check_could_not_reach_telegram(session, monkeypatch):
@@ -363,7 +373,12 @@ async def test_admin_list_exposes_two_step_state_without_secrets(session):
     a = await apply(request_only(main), u, session)
     await review_application(a["id"], ResellerApproval(approve=True, debt_limit=700), admin, session)
     row = (await applications(admin, session))[0]
-    assert row["status"] == "awaiting_details" and row["approved_debt_limit"] == 700 and row["has_bot_token"] is False and row["domain"] is None
+    assert (
+        row["status"] == "awaiting_details"
+        and row["approved_debt_limit"] == 700
+        and row["has_bot_token"] is False
+        and row["domain"] is None
+    )
 
 
 def test_migration_0018_chains_from_0017_and_fits_version_column():

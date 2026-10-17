@@ -1,4 +1,5 @@
 """Async outbox worker. V1 uses PostgreSQL polling and row locks; Redis/ARQ is a swappable boundary."""
+
 import asyncio
 import datetime as dt
 import logging
@@ -35,7 +36,9 @@ async def claim_batch(session, n=20):
     q = (
         select(OutboxEvent)
         .where(OutboxEvent.status == "pending", OutboxEvent.available_at <= utcnow())
-        .order_by(OutboxEvent.created_at).limit(n).with_for_update(skip_locked=True)
+        .order_by(OutboxEvent.created_at)
+        .limit(n)
+        .with_for_update(skip_locked=True)
     )
     rows = (await session.scalars(q)).all()
     for e in rows:
@@ -51,6 +54,7 @@ async def _webhook(session, event_type: str, payload: dict, event_id: str):
         return
     try:
         from melorin.modules.webhooks.service import enqueue_event
+
         await enqueue_event(session, store_id=uuid.UUID(str(store_id)), event_type=event_type, payload=payload, event_id=event_id)
     except Exception:
         log.exception("webhook enqueue failed event=%s", event_id)
@@ -73,13 +77,16 @@ async def process_event(e: OutboxEvent):
                 await _webhook(session, "order.provisioning_failed", p, f"order.provisioning_failed:{p.get('order_id')}")
             elif e.topic == events.ORDER_COMPLETED:
                 from melorin.modules.referral.service import on_order_completed
+
                 await on_order_completed(session, uuid.UUID(str(p["order_id"])))
                 await _webhook(session, "order.completed", p, f"order.completed:{p.get('order_id')}")
             elif e.topic == events.ORDER_DELIVERY:
                 from melorin.modules.orders.delivery import deliver_order
+
                 await deliver_order(session, uuid.UUID(str(p["order_id"])))
             elif e.topic == events.ORDER_REFUNDED:
                 from melorin.modules.referral.service import on_order_refunded
+
                 await on_order_refunded(session, uuid.UUID(str(p["order_id"])))
                 await _webhook(session, "order.refunded", p, f"order.refunded:{p.get('order_id')}")
             elif e.topic == events.VPN_REVOKE:
@@ -89,7 +96,12 @@ async def process_event(e: OutboxEvent):
             elif e.topic == events.NOTIFY:
                 await _notify(session, p, p.get("kind", "general"), p.get("title", "Melorin"), p.get("body", ""))
                 if p.get("store_id") and p.get("kind") in ("vpn_expired", "vpn_near_expiry"):
-                    await _webhook(session, "vpn_account.expired" if p.get("kind") == "vpn_expired" else "vpn_account.near_expiry", p, f"{p.get('kind')}:{p.get('dedup_key') or p.get('user_id')}")
+                    await _webhook(
+                        session,
+                        "vpn_account.expired" if p.get("kind") == "vpn_expired" else "vpn_account.near_expiry",
+                        p,
+                        f"{p.get('kind')}:{p.get('dedup_key') or p.get('user_id')}",
+                    )
             elif e.topic == events.EVENT_CENTER:
                 await _event_center(session, p)
             elif e.topic == events.TICKET_UPDATED:
@@ -124,15 +136,24 @@ async def _notify(session, p: dict, kind: str, title: str, body: str = ""):
     if n and n.telegram_status == "sent":
         return
     if n is None:
-        n = Notification(user_id=user_id, store_id=uuid.UUID(str(p["store_id"])) if p.get("store_id") else None, kind=kind, title=title, body=body, dedup_key=dedup_key)
+        n = Notification(
+            user_id=user_id,
+            store_id=uuid.UUID(str(p["store_id"])) if p.get("store_id") else None,
+            kind=kind,
+            title=title,
+            body=body,
+            dedup_key=dedup_key,
+        )
         session.add(n)
         await session.flush()
     from melorin.modules.identity.models import Identity
+
     identity = await session.scalar(select(Identity).where(Identity.user_id == user_id, Identity.provider == "telegram"))
     if not identity:
         n.telegram_status = "skipped"
         return
     from melorin.modules.stores.models import Store
+
     store = await session.get(Store, n.store_id) if n.store_id else None
     token = decrypt(store.bot_token_enc) if store and store.bot_token_enc else get_settings().main_bot_token
     if not token:
@@ -140,7 +161,10 @@ async def _notify(session, p: dict, kind: str, title: str, body: str = ""):
         return
     try:
         from melorin.channels.telegram import TelegramChannel
-        await TelegramChannel(token, get_settings().store_web_url, "reseller" if store and store.kind == "reseller" else "main").send_message(identity.subject, f"{title}\n{body}")
+
+        await TelegramChannel(
+            token, get_settings().store_web_url, "reseller" if store and store.kind == "reseller" else "main"
+        ).send_message(identity.subject, f"{title}\n{body}")
         n.telegram_status = "sent"
         inc("melorin_notifications_total", channel="telegram", result="sent")
     except Exception:
@@ -181,7 +205,9 @@ async def _notify_admins_provisioning_failed(session, p: dict):
             await _notify(
                 session,
                 {"user_id": admin_id, "dedup_key": f"prov_fail_admin:{order_id}:{admin_id}"},
-                "provisioning_failed", title, body,
+                "provisioning_failed",
+                title,
+                body,
             )
         except Exception as ex:  # one unreachable admin must not block the others
             errors.append(ex)
@@ -221,13 +247,20 @@ async def rollback_renewal(session, payload):
 
 async def claim_webhook_batch(session, n=20):
     from melorin.modules.webhooks.models import WebhookDelivery
+
     lease_cutoff = utcnow() - dt.timedelta(minutes=10)
     await session.execute(
         WebhookDelivery.__table__.update()
         .where(WebhookDelivery.status == "delivering", WebhookDelivery.updated_at < lease_cutoff)
         .values(status="pending", next_attempt_at=utcnow())
     )
-    q = select(WebhookDelivery).where(WebhookDelivery.status == "pending", WebhookDelivery.next_attempt_at <= utcnow()).order_by(WebhookDelivery.created_at).limit(n).with_for_update(skip_locked=True)
+    q = (
+        select(WebhookDelivery)
+        .where(WebhookDelivery.status == "pending", WebhookDelivery.next_attempt_at <= utcnow())
+        .order_by(WebhookDelivery.created_at)
+        .limit(n)
+        .with_for_update(skip_locked=True)
+    )
     rows = (await session.scalars(q)).all()
     for d in rows:
         d.status = "delivering"
@@ -239,8 +272,7 @@ async def process_webhook(d):
     async with session_factory()() as session:
         try:
             from melorin.modules.webhooks.service import deliver_one
+
             await deliver_one(session, d.id)
         except Exception:
             log.exception("webhook delivery failed id=%s", d.id)
-
-

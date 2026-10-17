@@ -9,11 +9,17 @@ class ManualCardAdapter:
 
     async def create_payment_intent(self, payment, *, callback_url: str, settings: dict) -> IntentResult:
         card = settings.get("card.info") or {}
-        return IntentResult(instructions={
-            "type": "manual_card", "amount": payment.amount, "currency": payment.currency,
-            "card_number": card.get("card_number"), "holder": card.get("holder"), "bank": card.get("bank"),
-            "note": "پس از واریز، تصویر رسید را بارگذاری کنید.",
-        })
+        return IntentResult(
+            instructions={
+                "type": "manual_card",
+                "amount": payment.amount,
+                "currency": payment.currency,
+                "card_number": card.get("card_number"),
+                "holder": card.get("holder"),
+                "bank": card.get("bank"),
+                "note": "پس از واریز، تصویر رسید را بارگذاری کنید.",
+            }
+        )
 
     async def verify_callback(self, params, payment, *, settings) -> CallbackResult:
         raise NotImplementedError("manual card has no callback")

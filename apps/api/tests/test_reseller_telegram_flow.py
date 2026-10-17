@@ -1,4 +1,5 @@
 """/reseller in the main bot: request first, domain + bot token only after the admin approved (Telegram and Core mocked)."""
+
 import asyncio
 import importlib.util
 import json
@@ -50,7 +51,12 @@ class Fake:
 
 @pytest.fixture
 def bot(tmp_path, monkeypatch):
-    for k, v in {"MELORIN_TELEGRAM_TOKEN": "tok", "MELORIN_CORE_URL": "http://core", "MELORIN_BOT_SERVICE_SECRET": "sek", "MELORIN_TELEGRAM_OFFSET_FILE": str(tmp_path / "o.json")}.items():
+    for k, v in {
+        "MELORIN_TELEGRAM_TOKEN": "tok",
+        "MELORIN_CORE_URL": "http://core",
+        "MELORIN_BOT_SERVICE_SECRET": "sek",
+        "MELORIN_TELEGRAM_OFFSET_FILE": str(tmp_path / "o.json"),
+    }.items():
         monkeypatch.setenv(k, v)
     mod = load("tg_main_reseller", "telegram-main/runner.py")
     r, fake = mod.TelegramRunner(), Fake()
@@ -62,7 +68,10 @@ _uid = iter(range(1, 1000))
 
 
 def say(r, text, mid=None):
-    update = {"update_id": next(_uid), "message": {"chat": {"id": 9}, "from": {"id": 7, "first_name": "A"}, "text": text, "message_id": mid or next(_uid) + 5000}}
+    update = {
+        "update_id": next(_uid),
+        "message": {"chat": {"id": 9}, "from": {"id": 7, "first_name": "A"}, "text": text, "message_id": mid or next(_uid) + 5000},
+    }
     asyncio.run(r.handle(update))
 
 
@@ -100,7 +109,14 @@ def test_pending_request_shows_status_and_can_be_cancelled(bot):
     say(r, "/reseller")
     assert "در حال بررسی" in last(fake) and "9" not in r.state
     assert fake.sent[-1]["reply_markup"]["inline_keyboard"][0][0]["callback_data"] == "rsc:a1"
-    asyncio.run(r.handle({"update_id": 777, "callback_query": {"id": "c1", "from": {"id": 7}, "data": "rsc:a1", "message": {"chat": {"id": 9}, "message_id": 5}}}))
+    asyncio.run(
+        r.handle(
+            {
+                "update_id": 777,
+                "callback_query": {"id": "c1", "from": {"id": 7}, "data": "rsc:a1", "message": {"chat": {"id": 9}, "message_id": 5}},
+            }
+        )
+    )
     assert fake.posts[-1][0] == "/api/v1/reseller/applications/a1/cancel"
 
 
@@ -147,7 +163,10 @@ def test_unexpected_core_error_ends_the_flow(bot):
     fake.apps = [app("awaiting_details")]
     say(r, "/reseller")
     say(r, "shop.example.com")
-    fake.details_reply = (409, {"error": {"code": "APPLICATION_NOT_AWAITING_DETAILS", "message": "این درخواست در مرحلهٔ دریافت اطلاعات نیست."}})
+    fake.details_reply = (
+        409,
+        {"error": {"code": "APPLICATION_NOT_AWAITING_DETAILS", "message": "این درخواست در مرحلهٔ دریافت اطلاعات نیست."}},
+    )
     say(r, TOKEN, mid=13)
     assert "9" not in r.state and "نیست" in last(fake)
 

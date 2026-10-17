@@ -39,21 +39,51 @@ async def sdb(tmp_path):
 
 
 def _pay(cur, amount, status, when):
-    return Payment(user_id=uuid.uuid4(), store_id=uuid.uuid4(), purpose="order", provider="manual_card", amount=amount, currency=cur, status=status, created_at=when)
+    return Payment(
+        user_id=uuid.uuid4(),
+        store_id=uuid.uuid4(),
+        purpose="order",
+        provider="manual_card",
+        amount=amount,
+        currency=cur,
+        status=status,
+        created_at=when,
+    )
 
 
 def _order(n, when):
-    return Order(number=n, user_id=uuid.uuid4(), store_id=uuid.uuid4(), product_id=uuid.uuid4(), status="paid", payment_method="wallet", currency="IRT", unit_price=1, total=1, pricing_snapshot={}, product_snapshot={}, created_at=when)
+    return Order(
+        number=n,
+        user_id=uuid.uuid4(),
+        store_id=uuid.uuid4(),
+        product_id=uuid.uuid4(),
+        status="paid",
+        payment_method="wallet",
+        currency="IRT",
+        unit_price=1,
+        total=1,
+        pricing_snapshot={},
+        product_snapshot={},
+        created_at=when,
+    )
 
 
 async def test_series_is_currency_separated_and_counts_only_succeeded(sdb):
     d = lambda n: NOW - dt.timedelta(days=n)  # noqa: E731
     async with db.session_factory()() as s:
-        s.add_all([
-            _pay("IRT", 1000, "succeeded", d(0)), _pay("IRT", 500, "succeeded", d(0)), _pay("IRT", 700, "failed", d(0)),
-            _pay("USD", 9, "succeeded", d(2)), _pay("IRT", 300, "succeeded", d(40)),
-            _order("A1", d(0)), _order("A2", d(1)), _order("A3", d(1)), _order("OLD", d(60)),
-        ])
+        s.add_all(
+            [
+                _pay("IRT", 1000, "succeeded", d(0)),
+                _pay("IRT", 500, "succeeded", d(0)),
+                _pay("IRT", 700, "failed", d(0)),
+                _pay("USD", 9, "succeeded", d(2)),
+                _pay("IRT", 300, "succeeded", d(40)),
+                _order("A1", d(0)),
+                _order("A2", d(1)),
+                _order("A3", d(1)),
+                _order("OLD", d(60)),
+            ]
+        )
         await s.commit()
         out = await ts.build_timeseries(s, 7, NOW)
     assert out["days"][-1] == "2026-10-13" and out["currency_safe"] is True

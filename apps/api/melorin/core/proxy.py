@@ -4,6 +4,7 @@ Only a socket peer inside the configured trusted networks may influence the
 client IP. X-Forwarded-For is walked from right to left so chained proxies do
 not let an untrusted hop spoof the address used for rate limits and audit.
 """
+
 from ipaddress import ip_address, ip_network
 
 

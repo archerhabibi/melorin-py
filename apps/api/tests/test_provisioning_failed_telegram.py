@@ -1,4 +1,5 @@
 """Telegram alert to super admins when provisioning fails (worker side), on a real SQLite DB."""
+
 import types
 import uuid
 
@@ -53,17 +54,28 @@ def _user(s, *, admin: bool, active: bool = True, chat_id: str | None = None):
 
 
 def _order(s, *, number: str, status: str):
-    o = Order(number=number, user_id=uuid.uuid4(), store_id=uuid.uuid4(), product_id=uuid.uuid4(), status=status,
-              payment_method="wallet", currency="IRT", unit_price=1, total=1, pricing_snapshot={}, product_snapshot={})
+    o = Order(
+        number=number,
+        user_id=uuid.uuid4(),
+        store_id=uuid.uuid4(),
+        product_id=uuid.uuid4(),
+        status=status,
+        payment_method="wallet",
+        currency="IRT",
+        unit_price=1,
+        total=1,
+        pricing_snapshot={},
+        product_snapshot={},
+    )
     s.add(o)
     return o
 
 
 async def test_only_active_super_admins_with_telegram_get_the_alert(session, sent):
     _user(session, admin=True, chat_id="111")
-    _user(session, admin=True, active=False, chat_id="222")   # inactive admin
-    _user(session, admin=False, chat_id="333")                # customer
-    _user(session, admin=True)                                # admin without telegram -> skipped, no error
+    _user(session, admin=True, active=False, chat_id="222")  # inactive admin
+    _user(session, admin=False, chat_id="333")  # customer
+    _user(session, admin=True)  # admin without telegram -> skipped, no error
     order = _order(session, number="AB23CD", status="refunded")
     await session.commit()
 
@@ -88,6 +100,7 @@ async def test_retry_does_not_resend_to_admins_already_notified(session, sent):
 
     assert len(sent) == 1
     from sqlalchemy import select
+
     rows = (await session.scalars(select(Notification))).all()
     assert len(rows) == 1 and rows[0].telegram_status == "sent"
 

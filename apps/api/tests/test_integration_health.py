@@ -4,6 +4,7 @@ The CI job supplies PostgreSQL/Redis and runs the complete E2E flow separately.
 These checks prove the ASGI boundary itself and remain opt-in with the
 integration marker so local unit runs never pretend to be runtime evidence.
 """
+
 import httpx
 import pytest
 from pathlib import Path

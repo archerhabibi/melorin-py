@@ -1,4 +1,5 @@
 """Website login approved in the Telegram bot: lifecycle, anti-phishing rules and the real HTTP surface."""
+
 import datetime as dt
 import types
 
@@ -20,7 +21,17 @@ from melorin.modules.identity.telegram_web_router import tgweb
 from melorin.modules.stores.models import Store
 from melorin.modules.system.models import AuditEvent, FeatureFlag, SecurityEvent, SystemSetting
 
-TABLES = [User.__table__, Identity.__table__, RefreshToken.__table__, Store.__table__, TelegramLoginSession.__table__, AuditEvent.__table__, SecurityEvent.__table__, FeatureFlag.__table__, SystemSetting.__table__]
+TABLES = [
+    User.__table__,
+    Identity.__table__,
+    RefreshToken.__table__,
+    Store.__table__,
+    TelegramLoginSession.__table__,
+    AuditEvent.__table__,
+    SecurityEvent.__table__,
+    FeatureFlag.__table__,
+    SystemSetting.__table__,
+]
 BOT = {"X-Bot-Secret": get_settings().bot_service_secret}
 CHROME = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
 
@@ -51,7 +62,11 @@ async def _start(w, store=None):
 
 
 async def _row(w, started):
-    return await w.s.scalar(select(TelegramLoginSession).where(TelegramLoginSession.public_id == started.row.public_id).execution_options(populate_existing=True))
+    return await w.s.scalar(
+        select(TelegramLoginSession)
+        .where(TelegramLoginSession.public_id == started.row.public_id)
+        .execution_options(populate_existing=True)
+    )
 
 
 # ---------------- service ----------------
@@ -190,7 +205,9 @@ async def test_registration_flag_blocks_new_accounts_only(world):
     world.s.add(Identity(user_id=known.id, provider="telegram", subject="777", verified_at=utcnow()))
     await world.s.commit()
     new = await _start(world)
-    assert (await web.decide(world.s, new.row.public_id, world.main.id, prof(888), "approve", new.row.match_code))["reason"] == "registration_closed"
+    assert (await web.decide(world.s, new.row.public_id, world.main.id, prof(888), "approve", new.row.match_code))[
+        "reason"
+    ] == "registration_closed"
     assert (await world.s.scalar(select(Identity).where(Identity.subject == "888"))) is None
     old = await _start(world)
     assert (await web.decide(world.s, old.row.public_id, world.main.id, prof(777), "approve", old.row.match_code))["result"] == "approved"

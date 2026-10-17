@@ -17,8 +17,22 @@ router = APIRouter(tags=["payments"])
 
 
 @router.post("/stores/{store_id}/wallet/topups", response_model=PaymentOut)
-async def topup(body: TopupRequest, ctx: StoreCtx, session: Session, idempotency_key: str = Header(..., alias="Idempotency-Key", min_length=8, max_length=100)):
-    p, _ = await service.create_intent(session, user=ctx.user, store=ctx.store, purpose="wallet_topup", amount=body.amount, provider=body.provider, idempotency_key=idempotency_key, callback_base=get_settings().public_api_url.rstrip("/"))
+async def topup(
+    body: TopupRequest,
+    ctx: StoreCtx,
+    session: Session,
+    idempotency_key: str = Header(..., alias="Idempotency-Key", min_length=8, max_length=100),
+):
+    p, _ = await service.create_intent(
+        session,
+        user=ctx.user,
+        store=ctx.store,
+        purpose="wallet_topup",
+        amount=body.amount,
+        provider=body.provider,
+        idempotency_key=idempotency_key,
+        callback_base=get_settings().public_api_url.rstrip("/"),
+    )
     return payment_out(p)
 
 
@@ -50,7 +64,15 @@ async def upload_receipt(payment_id: uuid.UUID, user: CurrentUser, session: Sess
     data = bytes(data)
     digest = validate_upload(data, file.content_type or "")
     key = await get_storage().put(data, file.content_type)
-    fo = FileObject(owner_user_id=user.id, store_id=p.store_id, purpose="receipt", storage_key=key, content_type=file.content_type, size=len(data), sha256=digest)
+    fo = FileObject(
+        owner_user_id=user.id,
+        store_id=p.store_id,
+        purpose="receipt",
+        storage_key=key,
+        content_type=file.content_type,
+        size=len(data),
+        sha256=digest,
+    )
     session.add(fo)
     await session.flush()
     await service.attach_receipt(session, p, fo.id)

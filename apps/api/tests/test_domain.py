@@ -37,7 +37,15 @@ def test_reseller_debt_boundary():
 
 
 def test_quote_snapshot_and_discount():
-    q = quote(store_kind="reseller", product_id="p", main_price=1000, reseller_price=600, customer_price=1000, currency="IRR", discount=Discount("X", percent=10))
+    q = quote(
+        store_kind="reseller",
+        product_id="p",
+        main_price=1000,
+        reseller_price=600,
+        customer_price=1000,
+        currency="IRR",
+        discount=Discount("X", percent=10),
+    )
     assert q.total == 900 and q.reseller_cost == 600 and q.snapshot()["currency"] == "IRR"
 
 
@@ -52,7 +60,11 @@ def test_state_machine_rejects_skip():
 
 
 def test_server_selection_health_capacity_and_fewest():
-    cs = [ServerCandidate("a", True, True, 10, 3, None, "mock"), ServerCandidate("b", True, True, 10, 1, ("p",), "mock"), ServerCandidate("c", False, True, 10, 0, ("p",), "mock")]
+    cs = [
+        ServerCandidate("a", True, True, 10, 3, None, "mock"),
+        ServerCandidate("b", True, True, 10, 1, ("p",), "mock"),
+        ServerCandidate("c", False, True, 10, 0, ("p",), "mock"),
+    ]
     assert select_server(cs, "p").id == "b"
 
 

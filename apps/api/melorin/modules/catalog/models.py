@@ -21,11 +21,15 @@ class Product(IdMixin, TimestampMixin, Base):
     reseller_price: Mapped[int] = mapped_column(BigInteger)  # V1: same for all resellers
     currency: Mapped[str] = mapped_column(String(8), default="IRT")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)  # main store switch; off = off for resellers too
-    reseller_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")  # resellers may sell it (only meaningful while is_active)
+    reseller_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="true"
+    )  # resellers may sell it (only meaningful while is_active)
     is_test: Mapped[bool] = mapped_column(Boolean, default=False)
     sort: Mapped[int] = mapped_column(Integer, default=0)
     archived_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
-    default_bundle_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("bundles.id", ondelete="SET NULL"), index=True, nullable=True)
+    default_bundle_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("bundles.id", ondelete="SET NULL"), index=True, nullable=True
+    )
 
 
 class StoreProduct(IdMixin, TimestampMixin, Base):

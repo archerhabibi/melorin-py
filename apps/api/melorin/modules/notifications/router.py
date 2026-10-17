@@ -12,7 +12,15 @@ router = APIRouter(prefix="/me/notifications", tags=["notifications"])
 
 
 def _out(n: Notification) -> dict:
-    return {"id": n.id, "kind": n.kind, "title": n.title, "body": n.body, "store_id": n.store_id, "read": n.read_at is not None, "created_at": n.created_at}
+    return {
+        "id": n.id,
+        "kind": n.kind,
+        "title": n.title,
+        "body": n.body,
+        "store_id": n.store_id,
+        "read": n.read_at is not None,
+        "created_at": n.created_at,
+    }
 
 
 @router.get("")
@@ -20,13 +28,17 @@ async def list_notifications(user: CurrentUser, session: Session, unread_only: b
     q = select(Notification).where(Notification.user_id == user.id).order_by(Notification.created_at.desc()).limit(min(max(limit, 1), 200))
     if unread_only:
         q = q.where(Notification.read_at.is_(None))
-    unread = await session.scalar(select(func.count()).select_from(Notification).where(Notification.user_id == user.id, Notification.read_at.is_(None)))
+    unread = await session.scalar(
+        select(func.count()).select_from(Notification).where(Notification.user_id == user.id, Notification.read_at.is_(None))
+    )
     return {"unread": unread or 0, "items": [_out(n) for n in (await session.scalars(q)).all()]}
 
 
 @router.post("/read-all")
 async def read_all(user: CurrentUser, session: Session):
-    await session.execute(update(Notification).where(Notification.user_id == user.id, Notification.read_at.is_(None)).values(read_at=utcnow()))
+    await session.execute(
+        update(Notification).where(Notification.user_id == user.id, Notification.read_at.is_(None)).values(read_at=utcnow())
+    )
     await session.commit()
     return {"ok": True}
 

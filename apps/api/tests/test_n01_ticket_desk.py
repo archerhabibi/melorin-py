@@ -1,4 +1,5 @@
 """Ticket desk: priority, internal notes, message editing, staff-reply notifications (migration 0015)."""
+
 import types
 import uuid
 from pathlib import Path
@@ -18,7 +19,15 @@ from melorin.modules.tickets.models import Ticket, TicketMessage
 from melorin.modules.tickets.schemas import AddMessage, AdminAddMessage, AdminUpdateTicket, EditMessage, UpdateTicket
 
 ROOT = Path(__file__).parents[1]
-TABLES = [User.__table__, Identity.__table__, Store.__table__, Ticket.__table__, TicketMessage.__table__, OutboxEvent.__table__, AuditEvent.__table__]
+TABLES = [
+    User.__table__,
+    Identity.__table__,
+    Store.__table__,
+    Ticket.__table__,
+    TicketMessage.__table__,
+    OutboxEvent.__table__,
+    AuditEvent.__table__,
+]
 
 
 @pytest.fixture
@@ -74,7 +83,9 @@ async def test_customer_never_sees_internal_notes(world):
 
 
 async def test_admin_can_edit_subject_priority_status_and_it_is_audited(world):
-    row = await admin.update_ticket(world.t.id, AdminUpdateTicket(subject="موضوع جدید", priority="urgent", status="closed", department="billing"), world.staff, world.s)
+    row = await admin.update_ticket(
+        world.t.id, AdminUpdateTicket(subject="موضوع جدید", priority="urgent", status="closed", department="billing"), world.staff, world.s
+    )
     assert (row["subject"], row["priority"], row["status"], row["department"]) == ("موضوع جدید", "urgent", "closed", "billing")
     log = (await world.s.scalars(select(AuditEvent).where(AuditEvent.action == "ticket.admin_updated"))).one()
     assert log.data["before"]["priority"] == "normal" and log.data["after"]["priority"] == "urgent"
@@ -194,7 +205,12 @@ class _Core:
 
 @pytest.fixture
 def bot(tmp_path, monkeypatch):
-    for k, v in {"MELORIN_TELEGRAM_TOKEN": "tok", "MELORIN_CORE_URL": "http://core", "MELORIN_BOT_SERVICE_SECRET": "sek", "MELORIN_TELEGRAM_OFFSET_FILE": str(tmp_path / "o.json")}.items():
+    for k, v in {
+        "MELORIN_TELEGRAM_TOKEN": "tok",
+        "MELORIN_CORE_URL": "http://core",
+        "MELORIN_BOT_SERVICE_SECRET": "sek",
+        "MELORIN_TELEGRAM_OFFSET_FILE": str(tmp_path / "o.json"),
+    }.items():
         monkeypatch.setenv(k, v)
     mod = _load("tg_main_n01", "telegram-main/runner.py")
     r, core = mod.TelegramRunner(), _Core()
@@ -207,7 +223,10 @@ def _msg(text, uid=1):
 
 
 def _cb(data, uid=2):
-    return {"update_id": uid, "callback_query": {"id": f"cb{uid}", "from": {"id": 7}, "data": data, "message": {"chat": {"id": 9}, "message_id": 5}}}
+    return {
+        "update_id": uid,
+        "callback_query": {"id": f"cb{uid}", "from": {"id": 7}, "data": data, "message": {"chat": {"id": 9}, "message_id": 5}},
+    }
 
 
 def test_bot_ticket_list_shows_number_status_and_new_button(bot):

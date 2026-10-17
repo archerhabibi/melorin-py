@@ -5,6 +5,7 @@
 - several Users, or the incoming identity already belongs to a *different* User with its own data => conflict:
   never auto-merge; open a manual review item and audit it.
 """
+
 from dataclasses import dataclass
 from enum import StrEnum
 

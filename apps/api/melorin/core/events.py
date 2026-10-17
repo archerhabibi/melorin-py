@@ -1,4 +1,5 @@
 """Transactional outbox. emit() writes in the caller's transaction; the worker delivers at-least-once."""
+
 import datetime as dt
 
 from sqlalchemy import select

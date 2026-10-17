@@ -18,11 +18,30 @@ from melorin.modules.webhooks.models import WebhookDelivery, WebhookEndpoint
 
 
 def endpoint_out(e):
-    return {"id": e.id, "url": e.url, "description": e.description, "events": e.events, "status": e.status, "consecutive_failures": e.consecutive_failures, "created_at": e.created_at}
+    return {
+        "id": e.id,
+        "url": e.url,
+        "description": e.description,
+        "events": e.events,
+        "status": e.status,
+        "consecutive_failures": e.consecutive_failures,
+        "created_at": e.created_at,
+    }
 
 
 def delivery_out(d):
-    return {"id": d.id, "event_id": d.event_id, "event_type": d.event_type, "status": d.status, "attempts": d.attempts, "last_status_code": d.last_status_code, "last_error": d.last_error, "last_response_ms": d.last_response_ms, "next_attempt_at": d.next_attempt_at, "delivered_at": d.delivered_at}
+    return {
+        "id": d.id,
+        "event_id": d.event_id,
+        "event_type": d.event_type,
+        "status": d.status,
+        "attempts": d.attempts,
+        "last_status_code": d.last_status_code,
+        "last_error": d.last_error,
+        "last_response_ms": d.last_response_ms,
+        "next_attempt_at": d.next_attempt_at,
+        "delivered_at": d.delivered_at,
+    }
 
 
 async def _safe(url: str):
@@ -42,15 +61,29 @@ async def create_endpoint(session: AsyncSession, store_id, url, events, descript
     if invalid:
         raise AppError("WEBHOOK_EVENT_INVALID", "رویداد وبهوک پشتیبانی نمی‌شود.", 400, {"events": sorted(invalid)})
     secret = secrets.token_urlsafe(32)
-    e = WebhookEndpoint(store_id=store_id, url=url, description=description, events=sorted(set(events)), secret_enc=encrypt(secret), created_by=actor_id)
+    e = WebhookEndpoint(
+        store_id=store_id, url=url, description=description, events=sorted(set(events)), secret_enc=encrypt(secret), created_by=actor_id
+    )
     session.add(e)
-    audit.record(session, "webhook.created", actor_id=actor_id, actor_type="reseller", entity_type="webhook_endpoint", entity_id=e.id, store_id=store_id)
+    audit.record(
+        session,
+        "webhook.created",
+        actor_id=actor_id,
+        actor_type="reseller",
+        entity_type="webhook_endpoint",
+        entity_id=e.id,
+        store_id=store_id,
+    )
     await session.commit()
     return e, secret
 
 
 async def list_endpoints(session, store_id):
-    return (await session.scalars(select(WebhookEndpoint).where(WebhookEndpoint.store_id == store_id).order_by(WebhookEndpoint.created_at.desc()))).all()
+    return (
+        await session.scalars(
+            select(WebhookEndpoint).where(WebhookEndpoint.store_id == store_id).order_by(WebhookEndpoint.created_at.desc())
+        )
+    ).all()
 
 
 async def get_endpoint(session, store_id, endpoint_id):
@@ -75,7 +108,15 @@ async def update_endpoint(session, e, *, url=None, events=None, description=None
         e.status = status
         if status == "active":
             e.consecutive_failures = 0
-    audit.record(session, "webhook.updated", actor_id=actor_id, actor_type="reseller", entity_type="webhook_endpoint", entity_id=e.id, store_id=e.store_id)
+    audit.record(
+        session,
+        "webhook.updated",
+        actor_id=actor_id,
+        actor_type="reseller",
+        entity_type="webhook_endpoint",
+        entity_id=e.id,
+        store_id=e.store_id,
+    )
     await session.commit()
     return e
 
@@ -86,7 +127,15 @@ async def rotate_secret(session, e, actor_id):
     e.previous_secret_enc = encrypt(old)
     e.previous_secret_expires_at = utcnow() + __import__("datetime").timedelta(hours=24)
     e.secret_enc = encrypt(secret)
-    audit.record(session, "webhook.secret_rotated", actor_id=actor_id, actor_type="reseller", entity_type="webhook_endpoint", entity_id=e.id, store_id=e.store_id)
+    audit.record(
+        session,
+        "webhook.secret_rotated",
+        actor_id=actor_id,
+        actor_type="reseller",
+        entity_type="webhook_endpoint",
+        entity_id=e.id,
+        store_id=e.store_id,
+    )
     await session.commit()
     return secret
 
@@ -95,7 +144,9 @@ async def enqueue(session, *, endpoint: WebhookEndpoint, event_type: str, payloa
     if not wh.subscribed(endpoint.events, event_type) or endpoint.status != "active":
         return None
     stable_id = event_id or str(uuid.uuid4())
-    existing = await session.scalar(select(WebhookDelivery).where(WebhookDelivery.endpoint_id == endpoint.id, WebhookDelivery.event_id == stable_id))
+    existing = await session.scalar(
+        select(WebhookDelivery).where(WebhookDelivery.endpoint_id == endpoint.id, WebhookDelivery.event_id == stable_id)
+    )
     if existing:
         return existing
     d = WebhookDelivery(endpoint_id=endpoint.id, store_id=endpoint.store_id, event_id=stable_id, event_type=event_type, payload=payload)
@@ -104,7 +155,9 @@ async def enqueue(session, *, endpoint: WebhookEndpoint, event_type: str, payloa
             session.add(d)
             await session.flush()
     except IntegrityError:
-        return await session.scalar(select(WebhookDelivery).where(WebhookDelivery.endpoint_id == endpoint.id, WebhookDelivery.event_id == stable_id))
+        return await session.scalar(
+            select(WebhookDelivery).where(WebhookDelivery.endpoint_id == endpoint.id, WebhookDelivery.event_id == stable_id)
+        )
     return d
 
 
@@ -119,13 +172,23 @@ async def enqueue_event(session, *, store_id, event_type, payload, event_id=None
 
 
 async def enqueue_test(session, e):
-    d = await enqueue(session, endpoint=e, event_type="order.completed", payload={"type": "test", "store_id": str(e.store_id), "sent_at": utcnow().isoformat()}, event_id=f"test:{uuid.uuid4()}")
+    d = await enqueue(
+        session,
+        endpoint=e,
+        event_type="order.completed",
+        payload={"type": "test", "store_id": str(e.store_id), "sent_at": utcnow().isoformat()},
+        event_id=f"test:{uuid.uuid4()}",
+    )
     await session.commit()
     return d
 
 
 async def list_deliveries(session, endpoint_id):
-    return (await session.scalars(select(WebhookDelivery).where(WebhookDelivery.endpoint_id == endpoint_id).order_by(WebhookDelivery.created_at.desc()).limit(500))).all()
+    return (
+        await session.scalars(
+            select(WebhookDelivery).where(WebhookDelivery.endpoint_id == endpoint_id).order_by(WebhookDelivery.created_at.desc()).limit(500)
+        )
+    ).all()
 
 
 async def redeliver(session, e, delivery_id, actor_id):
@@ -134,7 +197,15 @@ async def redeliver(session, e, delivery_id, actor_id):
         raise NotFound("تحویل وبهوک")
     d.status, d.attempts, d.next_attempt_at, d.last_error = "pending", 0, utcnow(), None
     e.status, e.consecutive_failures = "active", 0
-    audit.record(session, "webhook.redelivery_requested", actor_id=actor_id, actor_type="reseller", entity_type="webhook_delivery", entity_id=d.id, store_id=e.store_id)
+    audit.record(
+        session,
+        "webhook.redelivery_requested",
+        actor_id=actor_id,
+        actor_type="reseller",
+        entity_type="webhook_delivery",
+        entity_id=d.id,
+        store_id=e.store_id,
+    )
     await session.commit()
 
 
@@ -158,7 +229,13 @@ async def deliver_one(session: AsyncSession, delivery_id):
     await session.commit()
     body = wh.canonical_body({"id": d.event_id, "type": d.event_type, "created_at": d.created_at.isoformat(), "data": d.payload})
     ts = int(time.time())
-    headers = {"Content-Type": "application/json", wh.SIGNATURE_HEADER: wh.sign(decrypt(e.secret_enc), ts, body), wh.EVENT_ID_HEADER: d.event_id, wh.EVENT_TYPE_HEADER: d.event_type, wh.TIMESTAMP_HEADER: str(ts)}
+    headers = {
+        "Content-Type": "application/json",
+        wh.SIGNATURE_HEADER: wh.sign(decrypt(e.secret_enc), ts, body),
+        wh.EVENT_ID_HEADER: d.event_id,
+        wh.EVENT_TYPE_HEADER: d.event_type,
+        wh.TIMESTAMP_HEADER: str(ts),
+    }
     started = time.monotonic()
     try:
         async with httpx.AsyncClient(timeout=10, follow_redirects=False) as c:

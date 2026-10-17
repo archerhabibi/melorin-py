@@ -5,9 +5,18 @@ from melorin.modules.vpn.allocation import Candidate, select_allocation
 
 def cand(name, **kw):
     base = dict(
-        server_id=uuid.uuid4(), server_name=name, panel_id=uuid.uuid4(), panel_name=f"P-{name}",
-        server_enabled=True, panel_enabled=True, panel_healthy=True, allow_test=True,
-        product_codes=(), capacity=10, active_on_server=0, active_on_panel=0,
+        server_id=uuid.uuid4(),
+        server_name=name,
+        panel_id=uuid.uuid4(),
+        panel_name=f"P-{name}",
+        server_enabled=True,
+        panel_enabled=True,
+        panel_healthy=True,
+        allow_test=True,
+        product_codes=(),
+        capacity=10,
+        active_on_server=0,
+        active_on_panel=0,
     )
     base.update(kw)
     return Candidate(**base)

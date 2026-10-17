@@ -2,6 +2,7 @@
 
 Pure helpers (no database) so Core, tests and any channel use exactly one set of rules.
 """
+
 import ipaddress
 import re
 from urllib.parse import urlparse
@@ -91,15 +92,17 @@ async def ensure_identity_free(session, *, domain: str, bot_key: str, bot_userna
         q = select(ResellerApplication.id).where(col == value, ResellerApplication.status == "pending")
         return q.where(ResellerApplication.id != exclude_application_id) if exclude_application_id else q
 
-    if await session.scalar(select(Store.id).where(Store.domain == domain)) or await session.scalar(other_pending(ResellerApplication.domain, domain)):
+    if await session.scalar(select(Store.id).where(Store.domain == domain)) or await session.scalar(
+        other_pending(ResellerApplication.domain, domain)
+    ):
         raise AppError("DOMAIN_TAKEN", "این دامنه قبلاً برای فروشگاه یا درخواست دیگری ثبت شده است.", 409)
     taken = await session.scalar(select(BotStoreBinding.id).where(BotStoreBinding.bot_key == bot_key)) or await session.scalar(
         other_pending(ResellerApplication.bot_key, bot_key)
     )
     if not taken and bot_username:
         uname = bot_username.lower()
-        taken = await session.scalar(select(BotStoreBinding.id).where(func.lower(BotStoreBinding.bot_username) == uname)) or await session.scalar(
-            select(Store.id).where(func.lower(Store.bot_username) == uname)
-        )
+        taken = await session.scalar(
+            select(BotStoreBinding.id).where(func.lower(BotStoreBinding.bot_username) == uname)
+        ) or await session.scalar(select(Store.id).where(func.lower(Store.bot_username) == uname))
     if taken:
         raise AppError("BOT_TAKEN", "این ربات قبلاً برای فروشگاه یا درخواست دیگری ثبت شده است.", 409)

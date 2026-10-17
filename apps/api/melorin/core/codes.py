@@ -23,21 +23,22 @@ Uniqueness
   gives only 1/1024 odds of avoiding a clash and the UNIQUE constraint rejects
   duplicates.  No automatic retry is implemented.
 """
+
 import secrets
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-ORDER_SEQ  = "order_number_seq"
+ORDER_SEQ = "order_number_seq"
 TICKET_SEQ = "ticket_number_seq"
 
 # 32 visually unambiguous symbols (no 0/O, 1/I/l)
-ALPHABET   = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
-SEQ_WIDTH  = 4   # carries monotonic ordering
-RAND_WIDTH = 2   # anti-guessing entropy
-CODE_LEN   = SEQ_WIDTH + RAND_WIDTH  # 6
-_BASE      = len(ALPHABET)           # 32
-_MAX_SEQ   = _BASE ** SEQ_WIDTH      # 32^4 = 1 048 576
+ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
+SEQ_WIDTH = 4  # carries monotonic ordering
+RAND_WIDTH = 2  # anti-guessing entropy
+CODE_LEN = SEQ_WIDTH + RAND_WIDTH  # 6
+_BASE = len(ALPHABET)  # 32
+_MAX_SEQ = _BASE**SEQ_WIDTH  # 32^4 = 1 048 576
 
 
 def _encode(n: int, width: int) -> str:
@@ -57,6 +58,6 @@ async def next_code(session: AsyncSession, sequence: str) -> str:
     so a rare collision can be retried without aborting the outer transaction.
     """
     seq_val = await session.scalar(select(func.nextval(sequence)))
-    prefix  = _encode(int(seq_val) % _MAX_SEQ, SEQ_WIDTH)
-    suffix  = "".join(secrets.choice(ALPHABET) for _ in range(RAND_WIDTH))
+    prefix = _encode(int(seq_val) % _MAX_SEQ, SEQ_WIDTH)
+    suffix = "".join(secrets.choice(ALPHABET) for _ in range(RAND_WIDTH))
     return prefix + suffix

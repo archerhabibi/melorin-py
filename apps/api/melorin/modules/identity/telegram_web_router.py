@@ -3,6 +3,7 @@
 Browser endpoints are public but rate limited; bot endpoints require the shared bot secret and are additionally
 scoped to the store the calling bot serves.
 """
+
 import datetime as dt
 
 from fastapi import APIRouter, Depends, Request, Response
@@ -15,8 +16,15 @@ from melorin.core.ratelimit import RateLimit, client_ip
 from melorin.modules.identity import telegram_web as web
 from melorin.modules.identity.router import _set_refresh_cookie
 from melorin.modules.identity.schemas import (
-    TelegramProfile, TelegramWebDecision, TelegramWebDecisionOut, TelegramWebInspect, TelegramWebInspectOut, TelegramWebPoll,
-    TelegramWebPollOut, TelegramWebStart, TelegramWebStartOut,
+    TelegramProfile,
+    TelegramWebDecision,
+    TelegramWebDecisionOut,
+    TelegramWebInspect,
+    TelegramWebInspectOut,
+    TelegramWebPoll,
+    TelegramWebPollOut,
+    TelegramWebStart,
+    TelegramWebStartOut,
 )
 from melorin.modules.stores.models import Store
 

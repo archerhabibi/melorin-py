@@ -16,7 +16,13 @@ async def store_catalog(session: AsyncSession, store: Store) -> list[tuple[Produ
     q = (
         select(Product, StoreProduct)
         .join(StoreProduct, (StoreProduct.product_id == Product.id) & (StoreProduct.store_id == store.id))
-        .where(Product.is_active.is_(True), Product.archived_at.is_(None), Product.is_test.is_(False), StoreProduct.is_enabled.is_(True), StoreProduct.is_listed.is_(True))
+        .where(
+            Product.is_active.is_(True),
+            Product.archived_at.is_(None),
+            Product.is_test.is_(False),
+            StoreProduct.is_enabled.is_(True),
+            StoreProduct.is_listed.is_(True),
+        )
         .order_by(Product.sort, Product.main_price)
     )
     if store.kind == "reseller":
@@ -62,14 +68,25 @@ async def get_sellable(session: AsyncSession, store: Store, product_id, *, allow
 # ---------------------------------------------------------------- coupons
 def to_rule(c: Coupon) -> cdom.CouponRule:
     return cdom.CouponRule(
-        code=c.code, status=c.status, creator_type=c.creator_type, scope=c.scope,
+        code=c.code,
+        status=c.status,
+        creator_type=c.creator_type,
+        scope=c.scope,
         store_id=str(c.store_id) if c.store_id else None,
         allowed_store_ids=tuple(str(x) for x in (c.allowed_store_ids or [])),
         allowed_store_kinds=tuple(c.allowed_store_kinds or []),
         product_ids=tuple(str(x) for x in (c.product_ids or [])),
-        percent_bp=c.percent_bp, fixed=c.fixed, max_discount=c.max_discount, min_amount=c.min_amount or 0,
-        starts_at=c.starts_at, ends_at=c.ends_at, max_redemptions=c.max_redemptions,
-        per_customer_limit=c.per_customer_limit, redemptions=c.redemptions, currency=c.currency, combinable=c.combinable,
+        percent_bp=c.percent_bp,
+        fixed=c.fixed,
+        max_discount=c.max_discount,
+        min_amount=c.min_amount or 0,
+        starts_at=c.starts_at,
+        ends_at=c.ends_at,
+        max_redemptions=c.max_redemptions,
+        per_customer_limit=c.per_customer_limit,
+        redemptions=c.redemptions,
+        currency=c.currency,
+        combinable=c.combinable,
     )
 
 
@@ -88,12 +105,19 @@ async def find_coupon(session: AsyncSession, store: Store, code: str, *, lock: b
 
 
 async def customer_redemptions(session: AsyncSession, coupon_id: uuid.UUID, user_id: uuid.UUID) -> int:
-    return await session.scalar(
-        select(func.count()).select_from(CouponRedemption).where(CouponRedemption.coupon_id == coupon_id, CouponRedemption.user_id == user_id, CouponRedemption.status == "applied")
-    ) or 0
+    return (
+        await session.scalar(
+            select(func.count())
+            .select_from(CouponRedemption)
+            .where(CouponRedemption.coupon_id == coupon_id, CouponRedemption.user_id == user_id, CouponRedemption.status == "applied")
+        )
+        or 0
+    )
 
 
-async def resolve_coupon(session: AsyncSession, store: Store, user_id: uuid.UUID, product: Product, unit_price: int, code: str | None, *, lock: bool) -> tuple[Coupon | None, int]:
+async def resolve_coupon(
+    session: AsyncSession, store: Store, user_id: uuid.UUID, product: Product, unit_price: int, code: str | None, *, lock: bool
+) -> tuple[Coupon | None, int]:
     """Validate a coupon entirely in Core. With lock=True the coupon row is held until commit (quota is atomic)."""
     if not code or not code.strip():
         return None, 0
@@ -105,8 +129,13 @@ async def resolve_coupon(session: AsyncSession, store: Store, user_id: uuid.UUID
     if not c:
         raise AppError("COUPON_INVALID", "کد تخفیف معتبر نیست.", 400)
     use = cdom.CouponUse(
-        store_id=str(store.id), store_kind=store.kind, product_id=str(product.id), amount=unit_price, currency=store.currency,
-        customer_redemptions=await customer_redemptions(session, c.id, user_id), now=utcnow(),
+        store_id=str(store.id),
+        store_kind=store.kind,
+        product_id=str(product.id),
+        amount=unit_price,
+        currency=store.currency,
+        customer_redemptions=await customer_redemptions(session, c.id, user_id),
+        now=utcnow(),
     )
     try:
         amount = cdom.evaluate(to_rule(c), use)
@@ -123,7 +152,9 @@ async def redeem(session: AsyncSession, c: Coupon, *, order_id, user_id, store_i
 
 async def release_redemption(session: AsyncSession, order_id) -> None:
     """Refund: give quota back (redemption kept for history as reversed)."""
-    rows = (await session.scalars(select(CouponRedemption).where(CouponRedemption.order_id == order_id, CouponRedemption.status == "applied"))).all()
+    rows = (
+        await session.scalars(select(CouponRedemption).where(CouponRedemption.order_id == order_id, CouponRedemption.status == "applied"))
+    ).all()
     for r in rows:
         c = await session.get(Coupon, r.coupon_id, with_for_update=True)
         r.status = "reversed"
@@ -132,8 +163,16 @@ async def release_redemption(session: AsyncSession, order_id) -> None:
 
 
 async def build_quote(
-    session: AsyncSession, store: Store, product: Product, sp: StoreProduct | None, coupon: Coupon | None, discount: int = 0,
-    *, main_currency: str | None = None, prices: tuple[int, int] | None = None, customer_price: int | None = None,
+    session: AsyncSession,
+    store: Store,
+    product: Product,
+    sp: StoreProduct | None,
+    coupon: Coupon | None,
+    discount: int = 0,
+    *,
+    main_currency: str | None = None,
+    prices: tuple[int, int] | None = None,
+    customer_price: int | None = None,
 ) -> Quote:
     """``customer_price`` is the retail price the core resolved for the bundle being sold (the reseller's bundle price,
     else the store-wide price); without it the store-wide price of ``sp`` is used."""
@@ -147,8 +186,13 @@ async def build_quote(
     main_price, reseller_price = prices or (product.main_price, product.reseller_price)  # the core hands over bundle prices
     try:
         return quote(
-            store_kind=store.kind, product_id=str(product.id), main_price=main_price, reseller_price=reseller_price,
-            customer_price=customer_price if customer_price is not None else (sp.customer_price if sp else None), currency=store.currency, discount=d,
+            store_kind=store.kind,
+            product_id=str(product.id),
+            main_price=main_price,
+            reseller_price=reseller_price,
+            customer_price=customer_price if customer_price is not None else (sp.customer_price if sp else None),
+            currency=store.currency,
+            discount=d,
             reseller_currency=product.currency if store.kind == "reseller" else None,
             platform_funded=bool(coupon and coupon.funded_by == "platform"),
         )
@@ -157,13 +201,37 @@ async def build_quote(
 
 
 def product_snapshot(p: Product) -> dict:
-    return {"id": str(p.id), "code": p.code, "name": p.name, "duration_days": p.duration_days, "traffic_gb": p.traffic_gb, "max_devices": p.max_devices}
+    return {
+        "id": str(p.id),
+        "code": p.code,
+        "name": p.name,
+        "duration_days": p.duration_days,
+        "traffic_gb": p.traffic_gb,
+        "max_devices": p.max_devices,
+    }
 
 
 def coupon_out(c: Coupon) -> dict:
     return {
-        "id": c.id, "code": c.code, "scope": c.scope, "store_id": c.store_id, "allowed_store_ids": c.allowed_store_ids, "allowed_store_kinds": c.allowed_store_kinds,
-        "product_ids": c.product_ids, "creator_type": c.creator_type, "funded_by": c.funded_by, "percent_bp": c.percent_bp, "fixed": c.fixed,
-        "max_discount": c.max_discount, "min_amount": c.min_amount, "currency": c.currency, "starts_at": c.starts_at, "ends_at": c.ends_at,
-        "max_redemptions": c.max_redemptions, "per_customer_limit": c.per_customer_limit, "redemptions": c.redemptions, "combinable": c.combinable, "status": c.status,
+        "id": c.id,
+        "code": c.code,
+        "scope": c.scope,
+        "store_id": c.store_id,
+        "allowed_store_ids": c.allowed_store_ids,
+        "allowed_store_kinds": c.allowed_store_kinds,
+        "product_ids": c.product_ids,
+        "creator_type": c.creator_type,
+        "funded_by": c.funded_by,
+        "percent_bp": c.percent_bp,
+        "fixed": c.fixed,
+        "max_discount": c.max_discount,
+        "min_amount": c.min_amount,
+        "currency": c.currency,
+        "starts_at": c.starts_at,
+        "ends_at": c.ends_at,
+        "max_redemptions": c.max_redemptions,
+        "per_customer_limit": c.per_customer_limit,
+        "redemptions": c.redemptions,
+        "combinable": c.combinable,
+        "status": c.status,
     }

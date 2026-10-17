@@ -6,6 +6,7 @@ V1 rules:
 - not combinable by default; Core applies exactly one valid coupon;
 - discount <= eligible amount and <= max_discount; start/end validity; global and per-customer quota.
 """
+
 import datetime as dt
 from dataclasses import dataclass, field
 

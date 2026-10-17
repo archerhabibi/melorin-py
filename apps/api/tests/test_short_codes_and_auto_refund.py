@@ -1,4 +1,5 @@
 """Short 6-char codes + provisioning retry/auto-refund policy (migration 0014)."""
+
 import asyncio
 import re
 from pathlib import Path
@@ -25,10 +26,7 @@ def test_code_is_always_six_unambiguous_chars():
 
 
 def test_prefix_is_unique_per_sequence_value_before_wrap():
-    prefixes = {
-        asyncio.run(codes.next_code(_FakeSession(n), codes.ORDER_SEQ))[: codes.SEQ_WIDTH]
-        for n in range(1, 2000)
-    }
+    prefixes = {asyncio.run(codes.next_code(_FakeSession(n), codes.ORDER_SEQ))[: codes.SEQ_WIDTH] for n in range(1, 2000)}
     assert len(prefixes) == 1999
 
 

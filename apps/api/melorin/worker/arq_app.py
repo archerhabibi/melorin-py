@@ -4,6 +4,7 @@ The DB outbox remains the source of truth. ARQ provides distributed scheduling,
 retry isolation and horizontal workers; each claimed outbox/delivery row remains
 idempotent, so a crash is safe.
 """
+
 import asyncio
 import time
 
@@ -13,7 +14,15 @@ from arq.connections import RedisSettings
 from melorin.core.config import get_settings
 from melorin.core.db import session_factory
 from melorin.worker.runner import claim_batch, claim_webhook_batch, process_event, process_webhook
-from melorin.worker.jobs import backup_job, expiry_job, near_expiry_job, panel_health_job, privacy_retention_job, reconciliation_job, telegram_login_gc_job
+from melorin.worker.jobs import (
+    backup_job,
+    expiry_job,
+    near_expiry_job,
+    panel_health_job,
+    privacy_retention_job,
+    reconciliation_job,
+    telegram_login_gc_job,
+)
 from melorin.core.metrics import set_gauge
 
 
@@ -39,7 +48,16 @@ async def shutdown(ctx):
 
 
 class WorkerSettings:
-    functions = [poll_tick, backup_job, panel_health_job, expiry_job, near_expiry_job, reconciliation_job, privacy_retention_job, telegram_login_gc_job]
+    functions = [
+        poll_tick,
+        backup_job,
+        panel_health_job,
+        expiry_job,
+        near_expiry_job,
+        reconciliation_job,
+        privacy_retention_job,
+        telegram_login_gc_job,
+    ]
     cron_jobs = [
         cron(poll_tick, second=set(range(0, 60, 2)), unique=True),
         cron(backup_job, hour=2, minute=0, unique=True, timeout=900),

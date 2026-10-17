@@ -22,6 +22,7 @@ Panel.config:
 Panel credentials (encrypted): {"username": "...", "password": "..."},
 {"access_token": "..."} or {"api_key": "..."}.
 """
+
 import datetime as dt
 import json
 import time
@@ -113,7 +114,9 @@ def build_create_payload(spec: AccountSpec, cfg: dict) -> dict:
     return body
 
 
-def build_modify_payload(*, expire_at: dt.datetime | None = None, traffic_bytes: int | None = None, status: str | None = None, set_expire: bool = False) -> dict:
+def build_modify_payload(
+    *, expire_at: dt.datetime | None = None, traffic_bytes: int | None = None, status: str | None = None, set_expire: bool = False
+) -> dict:
     body: dict = {}
     if set_expire:
         body["expire"] = iso_expire(expire_at)
@@ -127,7 +130,14 @@ def build_modify_payload(*, expire_at: dt.datetime | None = None, traffic_bytes:
 class PasarGuardAdapter:
     kind = "pasarguard"
 
-    def __init__(self, base_url: str, credentials: dict, config: dict | None = None, timeout: float | None = None, transport: httpx.AsyncBaseTransport | None = None):
+    def __init__(
+        self,
+        base_url: str,
+        credentials: dict,
+        config: dict | None = None,
+        timeout: float | None = None,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ):
         base = (base_url or "").strip().rstrip("/")
         parts = urlsplit(base)
         if parts.scheme not in ("http", "https") or not parts.hostname:
@@ -145,7 +155,13 @@ class PasarGuardAdapter:
 
     # ------------------------------------------------------------------ transport
     def _client(self) -> httpx.AsyncClient:
-        return httpx.AsyncClient(base_url=self.base, timeout=self.timeout, follow_redirects=False, verify=self.cfg.get("verify_tls", True), transport=self.transport)
+        return httpx.AsyncClient(
+            base_url=self.base,
+            timeout=self.timeout,
+            follow_redirects=False,
+            verify=self.cfg.get("verify_tls", True),
+            transport=self.transport,
+        )
 
     async def _login(self, c: httpx.AsyncClient) -> str:
         if self.creds.get("access_token") and not self.creds.get("username"):
@@ -293,7 +309,11 @@ class PasarGuardAdapter:
 
     async def extend_account(self, username: str, *, expire_at: dt.datetime | None, traffic_bytes: int) -> PanelAccount:
         d = await self._require(username)
-        out = await self._req("PUT", self._write_path(d), json=build_modify_payload(expire_at=expire_at, traffic_bytes=traffic_bytes, status="active", set_expire=True))
+        out = await self._req(
+            "PUT",
+            self._write_path(d),
+            json=build_modify_payload(expire_at=expire_at, traffic_bytes=traffic_bytes, status="active", set_expire=True),
+        )
         return self._to_account(out if out.get("username") else await self._require(username))
 
     async def revoke_account(self, username: str) -> None:

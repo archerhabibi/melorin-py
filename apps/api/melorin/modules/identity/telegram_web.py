@@ -10,6 +10,7 @@ Design (docs/TELEGRAM-WEB-LOGIN.md): an OAuth device-authorization style flow wi
 
 Everything here is transport independent; routers/bot runners only call these functions.
 """
+
 import datetime as dt
 import hmac
 import re
@@ -54,8 +55,24 @@ def seconds_left(row: TelegramLoginSession) -> int:
 
 
 # ---------------- display helpers ----------------
-_BROWSERS = (("Edg/", "Edge"), ("OPR/", "Opera"), ("Firefox/", "Firefox"), ("SamsungBrowser/", "Samsung Internet"), ("Chrome/", "Chrome"), ("CriOS/", "Chrome"), ("Safari/", "Safari"))
-_SYSTEMS = (("Windows", "Windows"), ("Android", "Android"), ("iPhone", "iOS"), ("iPad", "iOS"), ("Mac OS X", "macOS"), ("CrOS", "ChromeOS"), ("Linux", "Linux"))
+_BROWSERS = (
+    ("Edg/", "Edge"),
+    ("OPR/", "Opera"),
+    ("Firefox/", "Firefox"),
+    ("SamsungBrowser/", "Samsung Internet"),
+    ("Chrome/", "Chrome"),
+    ("CriOS/", "Chrome"),
+    ("Safari/", "Safari"),
+)
+_SYSTEMS = (
+    ("Windows", "Windows"),
+    ("Android", "Android"),
+    ("iPhone", "iOS"),
+    ("iPad", "iOS"),
+    ("Mac OS X", "macOS"),
+    ("CrOS", "ChromeOS"),
+    ("Linux", "Linux"),
+)
 
 
 def device_label(user_agent: str | None) -> str:
@@ -119,7 +136,15 @@ async def create_session(session: AsyncSession, store: Store, *, ip: str | None,
         expires_at=utcnow() + dt.timedelta(seconds=ttl_seconds(cfg)),
     )
     session.add(row)
-    audit.record(session, "tg_web_login.started", actor_type="system", entity_type="telegram_login_session", entity_id=row.id, store_id=store.id, data={"device": row.req_device})
+    audit.record(
+        session,
+        "tg_web_login.started",
+        actor_type="system",
+        entity_type="telegram_login_session",
+        entity_id=row.id,
+        store_id=store.id,
+        data={"device": row.req_device},
+    )
     await session.commit()
     return Started(row=row, poll_token=poll_token, bot_username=bot)
 
@@ -165,13 +190,25 @@ async def inspect(session: AsyncSession, public_id: str, store_id: uuid.UUID, te
 async def _close(session: AsyncSession, row: TelegramLoginSession, reason: str, *, security: str | None = None) -> dict:
     row.status, row.deny_reason, row.decided_at = "denied", reason, utcnow()
     if security:
-        audit.security_event(session, security, row.user_id, {"session": row.public_id, "ip": row.req_ip, "device": row.req_device, "reason": reason})
-    audit.record(session, "tg_web_login.denied", actor_type="system", entity_type="telegram_login_session", entity_id=row.id, store_id=row.store_id, data={"reason": reason})
+        audit.security_event(
+            session, security, row.user_id, {"session": row.public_id, "ip": row.req_ip, "device": row.req_device, "reason": reason}
+        )
+    audit.record(
+        session,
+        "tg_web_login.denied",
+        actor_type="system",
+        entity_type="telegram_login_session",
+        entity_id=row.id,
+        store_id=row.store_id,
+        data={"reason": reason},
+    )
     await session.commit()
     return {"result": "denied", "reason": reason}
 
 
-async def decide(session: AsyncSession, public_id: str, store_id: uuid.UUID, profile: TelegramProfile, action: str, choice: str | None) -> dict:
+async def decide(
+    session: AsyncSession, public_id: str, store_id: uuid.UUID, profile: TelegramProfile, action: str, choice: str | None
+) -> dict:
     """The Telegram user tapped a button. Business outcomes are returned (never raised) so the bot can render them."""
     row = await _open_for_bot(session, public_id, store_id, profile.telegram_id)
     row.scanned_telegram_id = profile.telegram_id
@@ -202,7 +239,15 @@ async def decide(session: AsyncSession, public_id: str, store_id: uuid.UUID, pro
         row.user_id = user.id
         return await _close(session, row, "admin_use_panel", security="tg_web_login_admin_refused")
     row.user_id, row.status, row.decided_at = user.id, "approved", utcnow()
-    audit.record(session, "tg_web_login.approved", actor_id=user.id, entity_type="telegram_login_session", entity_id=row.id, store_id=row.store_id, data={"device": row.req_device})
+    audit.record(
+        session,
+        "tg_web_login.approved",
+        actor_id=user.id,
+        entity_type="telegram_login_session",
+        entity_id=row.id,
+        store_id=row.store_id,
+        data={"device": row.req_device},
+    )
     await session.commit()
     return {"result": "approved"}
 
@@ -232,7 +277,9 @@ async def poll(session: AsyncSession, public_id: str, poll_token: str, *, user_a
         return PollResult("denied", row.deny_reason)
     pair = await service.issue_tokens(session, user, ua=(user_agent or row.req_ua or "web")[:300])
     row.status, row.consumed_at = "consumed", utcnow()
-    audit.record(session, "tg_web_login.consumed", actor_id=user.id, entity_type="telegram_login_session", entity_id=row.id, store_id=row.store_id)
+    audit.record(
+        session, "tg_web_login.consumed", actor_id=user.id, entity_type="telegram_login_session", entity_id=row.id, store_id=row.store_id
+    )
     await session.commit()
     return PollResult("approved", tokens=pair)
 

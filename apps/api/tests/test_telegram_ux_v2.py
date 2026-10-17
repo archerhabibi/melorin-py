@@ -1,4 +1,5 @@
 """Redesigned bot UX (v2): in-place screens, quote card, accounts card/QR/renewal, dashboard. Telegram + Core mocked."""
+
 import asyncio
 import importlib.util
 import json
@@ -24,10 +25,28 @@ class Fake:
     def __init__(self):
         self.sent, self.edits, self.photos, self.calls, self.methods = [], [], [], [], []
         self.edit_status, self.edit_desc = 200, ""
-        self.quote = {"product_id": PID, "unit_price": 100_000, "discount": 0, "total": 100_000, "currency": "IRT",
-                      "coupon_code": None, "wallet_balance": 350_000, "sufficient_funds": True}
-        self.accounts = [{"id": ACC, "username": "m_ab12", "status": "active", "is_test": False, "expires_at": "2099-01-01T00:00:00Z",
-                          "traffic_limit_bytes": 10 * 1024**3, "traffic_used_bytes": 3 * 1024**3, "subscription_url": "https://s.example/sub/xyz"}]
+        self.quote = {
+            "product_id": PID,
+            "unit_price": 100_000,
+            "discount": 0,
+            "total": 100_000,
+            "currency": "IRT",
+            "coupon_code": None,
+            "wallet_balance": 350_000,
+            "sufficient_funds": True,
+        }
+        self.accounts = [
+            {
+                "id": ACC,
+                "username": "m_ab12",
+                "status": "active",
+                "is_test": False,
+                "expires_at": "2099-01-01T00:00:00Z",
+                "traffic_limit_bytes": 10 * 1024**3,
+                "traffic_used_bytes": 3 * 1024**3,
+                "subscription_url": "https://s.example/sub/xyz",
+            }
+        ]
         self.catalog = [{"product_id": str(uuid.uuid4()), "name": f"P{i}", "price": 1000 * (i + 1), "currency": "IRT"} for i in range(10)]
 
     def handler(self, request: httpx.Request) -> httpx.Response:
@@ -54,7 +73,19 @@ class Fake:
         if path == "/api/v1/auth/telegram/bot":
             return httpx.Response(200, json={"access_token": "A", "refresh_token": "R"})
         if path == "/api/v1/stores/s1/bundles":
-            return httpx.Response(200, json=[{"id": "bundle1", "name": "Main", "kind_label": "direct", "selection_mode": "automatic", "naming_mode": "automatic", "panels": []}])
+            return httpx.Response(
+                200,
+                json=[
+                    {
+                        "id": "bundle1",
+                        "name": "Main",
+                        "kind_label": "direct",
+                        "selection_mode": "automatic",
+                        "naming_mode": "automatic",
+                        "panels": [],
+                    }
+                ],
+            )
         if path == "/api/v1/stores/s1/bundles/bundle1/packages":
             return httpx.Response(200, json=self.catalog)
         if path == "/api/v1/stores/s1/checkout/quote":
@@ -72,7 +103,12 @@ class Fake:
 
 @pytest.fixture
 def bot(tmp_path, monkeypatch):
-    for k, v in {"MELORIN_TELEGRAM_TOKEN": "tok", "MELORIN_CORE_URL": "http://core", "MELORIN_BOT_SERVICE_SECRET": "sek", "MELORIN_TELEGRAM_OFFSET_FILE": str(tmp_path / "o.json")}.items():
+    for k, v in {
+        "MELORIN_TELEGRAM_TOKEN": "tok",
+        "MELORIN_CORE_URL": "http://core",
+        "MELORIN_BOT_SERVICE_SECRET": "sek",
+        "MELORIN_TELEGRAM_OFFSET_FILE": str(tmp_path / "o.json"),
+    }.items():
         monkeypatch.setenv(k, v)
     mod = load("tg_v2", "telegram-main/runner.py")
     r, fake = mod.TelegramRunner(), Fake()
@@ -81,7 +117,15 @@ def bot(tmp_path, monkeypatch):
 
 
 def cb(data, uid=1, mid=77, cid=None):
-    return {"update_id": uid, "callback_query": {"id": cid or f"c{uid}", "from": {"id": 7, "first_name": "Ali"}, "data": data, "message": {"chat": {"id": 9}, "message_id": mid}}}
+    return {
+        "update_id": uid,
+        "callback_query": {
+            "id": cid or f"c{uid}",
+            "from": {"id": 7, "first_name": "Ali"},
+            "data": data,
+            "message": {"chat": {"id": 9}, "message_id": mid},
+        },
+    }
 
 
 def msg(text, uid=1):
@@ -110,7 +154,7 @@ def test_quote_card_shows_balance_before_and_after_and_confirm_button(bot):
     _, r, fake = bot
     run(r, cb("plan:" + PID))
     t = fake.edits[0]["text"]
-    assert "350,000" in t and "250,000" in t and "تومان" in t     # before and after (350k - 100k)
+    assert "350,000" in t and "250,000" in t and "تومان" in t  # before and after (350k - 100k)
     assert f"buy:{PID}" in [b["callback_data"] for b in buttons(fake.edits[0])]
 
 

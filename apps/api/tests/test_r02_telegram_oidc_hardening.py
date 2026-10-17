@@ -1,5 +1,6 @@
 # ruff: noqa: F811  (pytest fixtures imported from the R01 module are used as arguments)
 """Hardening of the Telegram login pass (R02): flow-cookie key separation, error classification, panel diagnostics, UI contract."""
+
 import json
 import pathlib
 
@@ -37,18 +38,25 @@ def patch_token_endpoint(monkeypatch, status, body):
     def handler(request):
         return httpx.Response(status, json=body) if isinstance(body, dict) else httpx.Response(status, text=body)
 
-    monkeypatch.setattr(oidc.httpx, "AsyncClient", lambda **kw: real(transport=httpx.MockTransport(handler), **{k: v for k, v in kw.items() if k != "transport"}))
+    monkeypatch.setattr(
+        oidc.httpx,
+        "AsyncClient",
+        lambda **kw: real(transport=httpx.MockTransport(handler), **{k: v for k, v in kw.items() if k != "transport"}),
+    )
 
 
-@pytest.mark.parametrize("status,body,code", [
-    (503, "upstream down", "TELEGRAM_OIDC_UNREACHABLE"),
-    (401, {"error": "invalid_client"}, "TELEGRAM_OIDC_CLIENT_REJECTED"),
-    (400, {"error": "invalid_client"}, "TELEGRAM_OIDC_CLIENT_REJECTED"),
-    (400, {"error": "invalid_grant"}, "TELEGRAM_OIDC_EXCHANGE_FAILED"),
-    (400, "<html>not json</html>", "TELEGRAM_OIDC_EXCHANGE_FAILED"),
-    (200, "not json", "TELEGRAM_OIDC_EXCHANGE_FAILED"),
-    (200, {"access_token": "x"}, "TELEGRAM_OIDC_EXCHANGE_FAILED"),
-])
+@pytest.mark.parametrize(
+    "status,body,code",
+    [
+        (503, "upstream down", "TELEGRAM_OIDC_UNREACHABLE"),
+        (401, {"error": "invalid_client"}, "TELEGRAM_OIDC_CLIENT_REJECTED"),
+        (400, {"error": "invalid_client"}, "TELEGRAM_OIDC_CLIENT_REJECTED"),
+        (400, {"error": "invalid_grant"}, "TELEGRAM_OIDC_EXCHANGE_FAILED"),
+        (400, "<html>not json</html>", "TELEGRAM_OIDC_EXCHANGE_FAILED"),
+        (200, "not json", "TELEGRAM_OIDC_EXCHANGE_FAILED"),
+        (200, {"access_token": "x"}, "TELEGRAM_OIDC_EXCHANGE_FAILED"),
+    ],
+)
 async def test_exchange_code_classifies_failures(monkeypatch, status, body, code):
     patch_token_endpoint(monkeypatch, status, body)
     with pytest.raises(AppError) as e:
@@ -109,8 +117,11 @@ class Resp:
 def fake_client(token_resp, bot="melorin_bot"):
     class Client:
         def __init__(self, *a, **k): ...
-        async def __aenter__(self): return self
-        async def __aexit__(self, *a): return False
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
 
         async def get(self, url, **k):
             if url.endswith("openid-configuration"):

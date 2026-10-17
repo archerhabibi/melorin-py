@@ -1,4 +1,5 @@
 """Bundle-based purchase flow of the Telegram bot (bundle -> location -> packages -> username -> quote -> order). Telegram + Core mocked."""
+
 import asyncio
 import importlib.util
 import json
@@ -48,7 +49,17 @@ class Fake:
         if path == f"/api/v1/stores/s1/accounts/{ACC}/renewal-packages":
             return httpx.Response(200, json=self.pkgs)
         if path == "/api/v1/stores/s1/checkout/quote":
-            return httpx.Response(200, json={"unit_price": 1000, "discount": 0, "total": 1000, "currency": "IRT", "wallet_balance": 5000, "sufficient_funds": True})
+            return httpx.Response(
+                200,
+                json={
+                    "unit_price": 1000,
+                    "discount": 0,
+                    "total": 1000,
+                    "currency": "IRT",
+                    "wallet_balance": 5000,
+                    "sufficient_funds": True,
+                },
+            )
         if path == "/api/v1/stores/s1/orders":
             return httpx.Response(201, json={"number": "ORD-1", "status": "paid", "total": 1000, "currency": "IRT"})
         return httpx.Response(404, json={})
@@ -59,7 +70,12 @@ class Fake:
 
 @pytest.fixture
 def bot(tmp_path, monkeypatch):
-    for k, v in {"MELORIN_TELEGRAM_TOKEN": "tok", "MELORIN_CORE_URL": "http://core", "MELORIN_BOT_SERVICE_SECRET": "sek", "MELORIN_TELEGRAM_OFFSET_FILE": str(tmp_path / "o.json")}.items():
+    for k, v in {
+        "MELORIN_TELEGRAM_TOKEN": "tok",
+        "MELORIN_CORE_URL": "http://core",
+        "MELORIN_BOT_SERVICE_SECRET": "sek",
+        "MELORIN_TELEGRAM_OFFSET_FILE": str(tmp_path / "o.json"),
+    }.items():
         monkeypatch.setenv(k, v)
     spec = importlib.util.spec_from_file_location("tg_bundles", ROOT / "telegram-main/runner.py")
     mod = importlib.util.module_from_spec(spec)
@@ -74,7 +90,15 @@ def send(r, data=None, text=None):
     r.n += 1
     chat = {"id": 9}
     if data:
-        u = {"update_id": r.n, "callback_query": {"id": f"c{r.n}", "from": {"id": 7, "first_name": "A"}, "data": data, "message": {"chat": chat, "message_id": 5}}}
+        u = {
+            "update_id": r.n,
+            "callback_query": {
+                "id": f"c{r.n}",
+                "from": {"id": 7, "first_name": "A"},
+                "data": data,
+                "message": {"chat": chat, "message_id": 5},
+            },
+        }
     else:
         u = {"update_id": r.n, "message": {"chat": chat, "from": {"id": 7, "first_name": "A"}, "text": text}}
     asyncio.run(r.handle(u))

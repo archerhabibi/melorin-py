@@ -1,4 +1,5 @@
 """Deterministic in-memory panel for development, demos and tests."""
+
 import datetime as dt
 import random
 
@@ -26,8 +27,16 @@ class MockPanelAdapter:
 
     async def create_account(self, spec: AccountSpec) -> PanelAccount:
         self._maybe_fail()
-        acc = PanelAccount(ref=spec.username, username=spec.username, status="active", expire_at=spec.expire_at, traffic_limit_bytes=spec.traffic_bytes, traffic_used_bytes=0,
-                           subscription_url=f"{self.base_url}/sub/{spec.username}", links=[f"vless://{spec.username}@mock.panel:443?security=reality#Melorin"])
+        acc = PanelAccount(
+            ref=spec.username,
+            username=spec.username,
+            status="active",
+            expire_at=spec.expire_at,
+            traffic_limit_bytes=spec.traffic_bytes,
+            traffic_used_bytes=0,
+            subscription_url=f"{self.base_url}/sub/{spec.username}",
+            links=[f"vless://{spec.username}@mock.panel:443?security=reality#Melorin"],
+        )
         _STATE[spec.username] = acc
         return acc
 

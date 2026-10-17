@@ -1,4 +1,5 @@
 """DELETE for products, panels, servers and sales bundles: real delete when unused, 409 + reason once history exists."""
+
 import types
 import uuid
 
@@ -23,7 +24,25 @@ ADMIN = types.SimpleNamespace(id=uuid.uuid4())
 async def session(tmp_path):
     db.configure(f"sqlite+aiosqlite:///{tmp_path}/delete.db")
     async with db.engine().begin() as conn:
-        tables = [m.__table__ for m in (Panel, Server, VpnAccount, Product, StoreProduct, Coupon, Order, CommissionRule, AuditEvent, Bundle, BundleMember, StoreBundle, BundleProduct, StoreBundlePrice)]
+        tables = [
+            m.__table__
+            for m in (
+                Panel,
+                Server,
+                VpnAccount,
+                Product,
+                StoreProduct,
+                Coupon,
+                Order,
+                CommissionRule,
+                AuditEvent,
+                Bundle,
+                BundleMember,
+                StoreBundle,
+                BundleProduct,
+                StoreBundlePrice,
+            )
+        ]
         await conn.run_sync(lambda c: db.Base.metadata.create_all(c, tables=tables))
     async with db.session_factory()() as s:
         yield s
@@ -49,13 +68,39 @@ async def _server(session, panel, name="S1", **kw):
 
 
 async def _account(session, product, panel=None, server=None):
-    return await _add(session, VpnAccount(username=f"u{uuid.uuid4().hex[:8]}", user_id=uuid.uuid4(), store_id=uuid.uuid4(), order_id=uuid.uuid4(),
-                                          product_id=product.id, server_id=server.id if server else None, panel_id=panel.id if panel else None, status="active"))
+    return await _add(
+        session,
+        VpnAccount(
+            username=f"u{uuid.uuid4().hex[:8]}",
+            user_id=uuid.uuid4(),
+            store_id=uuid.uuid4(),
+            order_id=uuid.uuid4(),
+            product_id=product.id,
+            server_id=server.id if server else None,
+            panel_id=panel.id if panel else None,
+            status="active",
+        ),
+    )
 
 
 async def _order(session, product, **kw):
-    return await _add(session, Order(number=uuid.uuid4().hex[:6], user_id=uuid.uuid4(), store_id=uuid.uuid4(), product_id=product.id, status="completed",
-                                     payment_method="wallet", currency="IRT", unit_price=1, total=1, pricing_snapshot={}, product_snapshot={}, **kw))
+    return await _add(
+        session,
+        Order(
+            number=uuid.uuid4().hex[:6],
+            user_id=uuid.uuid4(),
+            store_id=uuid.uuid4(),
+            product_id=product.id,
+            status="completed",
+            payment_method="wallet",
+            currency="IRT",
+            unit_price=1,
+            total=1,
+            pricing_snapshot={},
+            product_snapshot={},
+            **kw,
+        ),
+    )
 
 
 async def _count(session, model):
@@ -212,6 +257,7 @@ def test_delete_routes_are_registered_on_the_admin_router():
 async def test_delete_routes_reject_anonymous_callers():
     import httpx
     from melorin.app import app
+
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t") as c:
         for path in PATHS:
             res = await c.delete("/api/v1/admin/" + path.split("/")[0] + f"/{uuid.uuid4()}")

@@ -1,4 +1,5 @@
 """Small dependency-free Prometheus metrics plus alert state."""
+
 import time
 from collections import Counter
 from threading import Lock
@@ -43,12 +44,12 @@ def render() -> str:
         gauges = list(_gauges.items())
     out = []
     for (name, labels), value in rows:
-        label_text = ",".join(f'{k}="{v.replace(chr(92), chr(92)+chr(92)).replace(chr(34), chr(92)+chr(34))}"' for k, v in labels)
+        label_text = ",".join(f'{k}="{v.replace(chr(92), chr(92) + chr(92)).replace(chr(34), chr(92) + chr(34))}"' for k, v in labels)
         out.append(f"{name}{{{label_text}}} {value}" if label_text else f"{name} {value}")
     for (name, labels), value in gauges:
-        label_text = ",".join(f'{k}="{v.replace(chr(92), chr(92)+chr(92)).replace(chr(34), chr(92)+chr(34))}"' for k, v in labels)
+        label_text = ",".join(f'{k}="{v.replace(chr(92), chr(92) + chr(92)).replace(chr(34), chr(92) + chr(34))}"' for k, v in labels)
         out.append(f"{name}{{{label_text}}} {value}" if label_text else f"{name} {value}")
     for name, alert in _alerts.items():
         labels = f'alertname="{name}",severity="{alert["severity"]}",state="{alert["state"]}"'
-        out.append(f'melorin_alert{{{labels}}} 1')
+        out.append(f"melorin_alert{{{labels}}} 1")
     return "\n".join(out) + ("\n" if out else "")

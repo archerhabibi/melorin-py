@@ -30,8 +30,13 @@ async def create(body: CreateTicket, ctx: StoreCtx, session: Session):
     # number is NOT NULL: generate it before the INSERT is flushed.
     number = await codes.next_code(session, codes.TICKET_SEQ)
     t = Ticket(
-        user_id=ctx.user.id, store_id=ctx.store.id, number=number, subject=body.subject.strip(), status="open",
-        priority=body.priority, department=(body.department or "").strip() or None,
+        user_id=ctx.user.id,
+        store_id=ctx.store.id,
+        number=number,
+        subject=body.subject.strip(),
+        status="open",
+        priority=body.priority,
+        department=(body.department or "").strip() or None,
     )
     session.add(t)
     await session.flush()
@@ -44,7 +49,14 @@ async def create(body: CreateTicket, ctx: StoreCtx, session: Session):
 
 @router.get("/stores/{store_id}/tickets", response_model=list[TicketOut])
 async def list_mine(ctx: StoreCtx, session: Session):
-    return [tout(t) for t in (await session.scalars(select(Ticket).where(Ticket.user_id == ctx.user.id, Ticket.store_id == ctx.store.id).order_by(Ticket.updated_at.desc()))).all()]
+    return [
+        tout(t)
+        for t in (
+            await session.scalars(
+                select(Ticket).where(Ticket.user_id == ctx.user.id, Ticket.store_id == ctx.store.id).order_by(Ticket.updated_at.desc())
+            )
+        ).all()
+    ]
 
 
 @router.get("/tickets/{ticket_id}", response_model=TicketOut)
@@ -74,7 +86,15 @@ async def update_ticket(ticket_id: uuid.UUID, body: UpdateTicket, user: CurrentU
             t.status = "closed"
     if changes:
         service.touch(t)
-        audit.record(session, "ticket.updated", actor_id=user.id, entity_type="ticket", entity_id=t.id, store_id=t.store_id, data={k: {"from": a, "to": b} for k, (a, b) in changes.items()})
+        audit.record(
+            session,
+            "ticket.updated",
+            actor_id=user.id,
+            entity_type="ticket",
+            entity_id=t.id,
+            store_id=t.store_id,
+            data={k: {"from": a, "to": b} for k, (a, b) in changes.items()},
+        )
         await events.emit(session, events.TICKET_UPDATED, {"ticket_id": t.id, "store_id": t.store_id})
         await session.commit()
     return tout(t)
@@ -115,7 +135,15 @@ async def edit_message(ticket_id: uuid.UUID, message_id: uuid.UUID, body: EditMe
     if not new:
         raise AppError("EMPTY_MESSAGE", "متن پیام نمی‌تواند خالی باشد.", 422)
     if new != m.body:
-        audit.record(session, "ticket.message_edited", actor_id=user.id, entity_type="ticket", entity_id=t.id, store_id=t.store_id, data={"message_id": str(m.id)})
+        audit.record(
+            session,
+            "ticket.message_edited",
+            actor_id=user.id,
+            entity_type="ticket",
+            entity_id=t.id,
+            store_id=t.store_id,
+            data={"message_id": str(m.id)},
+        )
         m.body, m.edited_at = new, utcnow()
         service.touch(t)
         await session.commit()

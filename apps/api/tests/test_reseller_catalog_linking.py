@@ -48,7 +48,9 @@ async def count(s, model, *where):
 
 
 async def test_new_reseller_store_gets_all_packages_and_bundles(session):
-    p1, p2, test_p, archived = await add(session, mk_product("A"), mk_product("B"), mk_product("T", is_test=True), mk_product("X", is_active=False))
+    p1, p2, test_p, archived = await add(
+        session, mk_product("A"), mk_product("B"), mk_product("T", is_test=True), mk_product("X", is_active=False)
+    )
     on, off = await add(session, Bundle(name="on", reseller_enabled=True), Bundle(name="off", reseller_enabled=False))
     st = await add(session, mk_store())
     assert await link_store_catalog(session, st) == (2, 1)
@@ -80,8 +82,11 @@ async def test_linking_never_overwrites_an_admin_decision_or_a_reseller_price(se
     st = await add(session, mk_store())
     p = await add(session, mk_product("A"))
     b = await add(session, Bundle(name="b"))
-    await add(session, StoreProduct(store_id=st.id, product_id=p.id, is_enabled=False, is_listed=False, customer_price=45000),
-              StoreBundle(store_id=st.id, bundle_id=b.id, is_enabled=False))
+    await add(
+        session,
+        StoreProduct(store_id=st.id, product_id=p.id, is_enabled=False, is_listed=False, customer_price=45000),
+        StoreBundle(store_id=st.id, bundle_id=b.id, is_enabled=False),
+    )
     assert await link_store_catalog(session, st) == (0, 0)
     sp = await session.scalar(sa.select(StoreProduct).where(StoreProduct.store_id == st.id))
     assert (sp.is_enabled, sp.is_listed, sp.customer_price) == (False, False, 45000)

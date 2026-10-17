@@ -4,6 +4,7 @@ Everything the owner can change about the reseller's *business* (prices, brandin
 reseller's own panel; this module is the admin's control surface: identity (name, domain), standing (status, debt
 limit, sales / API switches) and the bot (token, on/off, live connection state reported by the runner).
 """
+
 import datetime as dt
 import uuid
 from typing import Literal
@@ -52,14 +53,29 @@ async def _reseller_store(session, store_id: uuid.UUID, *, lock: bool = False) -
 async def _row(session, st: Store, *, detail: bool = False) -> dict:
     prof = await session.scalar(select(ResellerProfile).where(ResellerProfile.store_id == st.id))
     owner = await session.get(User, st.owner_user_id) if st.owner_user_id else None
-    customers = await session.scalar(select(func.count()).select_from(StoreMembership).where(
-        StoreMembership.store_id == st.id, StoreMembership.role == "customer", StoreMembership.status == "active")) or 0
+    customers = (
+        await session.scalar(
+            select(func.count())
+            .select_from(StoreMembership)
+            .where(StoreMembership.store_id == st.id, StoreMembership.role == "customer", StoreMembership.status == "active")
+        )
+        or 0
+    )
     out = {
-        "id": st.id, "name": st.name, "slug": st.slug, "status": st.status, "domain": st.domain, "currency": st.currency,
-        "parent_store_id": st.parent_store_id, "created_at": st.created_at,
+        "id": st.id,
+        "name": st.name,
+        "slug": st.slug,
+        "status": st.status,
+        "domain": st.domain,
+        "currency": st.currency,
+        "parent_store_id": st.parent_store_id,
+        "created_at": st.created_at,
         "owner": {"id": owner.id, "name": owner.display_name, "email": owner.email} if owner else None,
-        "debt_limit": prof.debt_limit if prof else 0, "sales_enabled": prof.sales_enabled if prof else False,
-        "api_enabled": prof.api_enabled if prof else False, "customers": customers, "bot": status_out(st),
+        "debt_limit": prof.debt_limit if prof else 0,
+        "sales_enabled": prof.sales_enabled if prof else False,
+        "api_enabled": prof.api_enabled if prof else False,
+        "customers": customers,
+        "bot": status_out(st),
     }
     if detail:
         out["bot_messages"] = st.bot_messages or {}
@@ -112,7 +128,8 @@ async def edit_reseller(store_id: uuid.UUID, body: ResellerEdit, admin: AdminUse
         domain = identity.normalize_domain(body.domain)
         if domain != st.domain:
             if await session.scalar(select(Store.id).where(Store.domain == domain, Store.id != st.id)) or await session.scalar(
-                    select(ResellerApplication.id).where(ResellerApplication.domain == domain, ResellerApplication.status == "pending")):
+                select(ResellerApplication.id).where(ResellerApplication.domain == domain, ResellerApplication.status == "pending")
+            ):
                 raise AppError("DOMAIN_TAKEN", "این دامنه قبلاً برای فروشگاه یا درخواست دیگری ثبت شده است.", 409)
             change("domain", st.domain, domain)
             st.domain = domain
@@ -132,15 +149,27 @@ async def edit_reseller(store_id: uuid.UUID, body: ResellerEdit, admin: AdminUse
             if change(field, getattr(prof, field), value):
                 setattr(prof, field, value)
     if after:
-        audit.record(session, "reseller.edited", actor_id=admin.id, actor_type="admin", entity_type="reseller_store", entity_id=st.id, store_id=st.id, data={"before": before, "after": after})
+        audit.record(
+            session,
+            "reseller.edited",
+            actor_id=admin.id,
+            actor_type="admin",
+            entity_type="reseller_store",
+            entity_id=st.id,
+            store_id=st.id,
+            data={"before": before, "after": after},
+        )
     await session.commit()
     return await _row(session, st, detail=True)
 
 
 async def _ensure_bot_free(session, store: Store, bot_key: str, username: str | None) -> None:
     """The bot must not belong to another store, binding or pending application."""
-    taken = await session.scalar(select(BotStoreBinding.id).where(BotStoreBinding.bot_key == bot_key, BotStoreBinding.store_id != store.id)) or await session.scalar(
-        select(ResellerApplication.id).where(ResellerApplication.bot_key == bot_key, ResellerApplication.status == "pending"))
+    taken = await session.scalar(
+        select(BotStoreBinding.id).where(BotStoreBinding.bot_key == bot_key, BotStoreBinding.store_id != store.id)
+    ) or await session.scalar(
+        select(ResellerApplication.id).where(ResellerApplication.bot_key == bot_key, ResellerApplication.status == "pending")
+    )
     if not taken and username:
         taken = await session.scalar(select(Store.id).where(func.lower(Store.bot_username) == username.lower(), Store.id != store.id))
     if taken:
@@ -150,7 +179,11 @@ async def _ensure_bot_free(session, store: Store, bot_key: str, username: str | 
 async def _bind(session, st: Store, bot_key: str, username: str | None) -> None:
     binding = await session.scalar(select(BotStoreBinding).where(BotStoreBinding.store_id == st.id))
     if binding is None:
-        session.add(BotStoreBinding(bot_key=bot_key, bot_username=username, store_id=st.id, owner_user_id=st.owner_user_id, bot_kind="reseller", status="active"))
+        session.add(
+            BotStoreBinding(
+                bot_key=bot_key, bot_username=username, store_id=st.id, owner_user_id=st.owner_user_id, bot_kind="reseller", status="active"
+            )
+        )
     else:
         binding.bot_key, binding.bot_username, binding.status = bot_key, username, "active"
 
@@ -168,7 +201,16 @@ async def set_bot_token(store_id: uuid.UUID, body: BotTokenIn, admin: AdminUser,
     st.bot_token_enc, st.bot_username = encrypt(token), username
     st.bot_status, st.bot_status_detail, st.bot_seen_at = None, None, None
     await _bind(session, st, bot_key, username)
-    audit.record(session, "reseller.bot_token_set", actor_id=admin.id, actor_type="admin", entity_type="reseller_store", entity_id=st.id, store_id=st.id, data={"before": old, "after": username})
+    audit.record(
+        session,
+        "reseller.bot_token_set",
+        actor_id=admin.id,
+        actor_type="admin",
+        entity_type="reseller_store",
+        entity_id=st.id,
+        store_id=st.id,
+        data={"before": old, "after": username},
+    )
     await session.commit()
     return await _row(session, st, detail=True)
 
@@ -182,7 +224,16 @@ async def clear_bot_token(store_id: uuid.UUID, admin: AdminUser, session: Sessio
     binding = await session.scalar(select(BotStoreBinding).where(BotStoreBinding.store_id == st.id))
     if binding is not None:
         await session.delete(binding)
-    audit.record(session, "reseller.bot_token_cleared", actor_id=admin.id, actor_type="admin", entity_type="reseller_store", entity_id=st.id, store_id=st.id, data={"bot": old})
+    audit.record(
+        session,
+        "reseller.bot_token_cleared",
+        actor_id=admin.id,
+        actor_type="admin",
+        entity_type="reseller_store",
+        entity_id=st.id,
+        store_id=st.id,
+        data={"bot": old},
+    )
     await session.commit()
     return await _row(session, st, detail=True)
 
@@ -200,12 +251,25 @@ async def verify_store_bot(store_id: uuid.UUID, admin: AdminUser, session: Sessi
     try:
         username = await identity.verify_bot(token)
     except AppError as exc:
-        st.bot_status, st.bot_status_detail, st.bot_seen_at = "error", "تلگرام توکن را نمی‌پذیرد؛ توکن جدید ثبت کنید.", dt.datetime.now(dt.UTC)
+        st.bot_status, st.bot_status_detail, st.bot_seen_at = (
+            "error",
+            "تلگرام توکن را نمی‌پذیرد؛ توکن جدید ثبت کنید.",
+            dt.datetime.now(dt.UTC),
+        )
         await session.commit()
         raise exc
     if username is None:
         raise AppError("TELEGRAM_UNREACHABLE", "ارتباط با تلگرام برقرار نشد؛ کمی بعد دوباره تلاش کنید.", 503)
     st.bot_username = username
-    audit.record(session, "reseller.bot_verified", actor_id=admin.id, actor_type="admin", entity_type="reseller_store", entity_id=st.id, store_id=st.id, data={"bot_username": username})
+    audit.record(
+        session,
+        "reseller.bot_verified",
+        actor_id=admin.id,
+        actor_type="admin",
+        entity_type="reseller_store",
+        entity_id=st.id,
+        store_id=st.id,
+        data={"bot_username": username},
+    )
     await session.commit()
     return await _row(session, st, detail=True)

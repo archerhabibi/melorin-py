@@ -29,9 +29,15 @@ async def _reseller_store_ids(session: AsyncSession) -> list[uuid.UUID]:
 async def _link_products(session: AsyncSession, store_ids: list[uuid.UUID], product_ids: list[uuid.UUID]) -> int:
     if not store_ids or not product_ids:
         return 0
-    have = set((await session.execute(
-        select(StoreProduct.store_id, StoreProduct.product_id).where(StoreProduct.store_id.in_(store_ids), StoreProduct.product_id.in_(product_ids))
-    )).all())
+    have = set(
+        (
+            await session.execute(
+                select(StoreProduct.store_id, StoreProduct.product_id).where(
+                    StoreProduct.store_id.in_(store_ids), StoreProduct.product_id.in_(product_ids)
+                )
+            )
+        ).all()
+    )
     added = 0
     for sid in store_ids:
         for pid in product_ids:
@@ -44,9 +50,15 @@ async def _link_products(session: AsyncSession, store_ids: list[uuid.UUID], prod
 async def _link_bundles(session: AsyncSession, store_ids: list[uuid.UUID], bundle_ids: list[uuid.UUID]) -> int:
     if not store_ids or not bundle_ids:
         return 0
-    have = set((await session.execute(
-        select(StoreBundle.store_id, StoreBundle.bundle_id).where(StoreBundle.store_id.in_(store_ids), StoreBundle.bundle_id.in_(bundle_ids))
-    )).all())
+    have = set(
+        (
+            await session.execute(
+                select(StoreBundle.store_id, StoreBundle.bundle_id).where(
+                    StoreBundle.store_id.in_(store_ids), StoreBundle.bundle_id.in_(bundle_ids)
+                )
+            )
+        ).all()
+    )
     added = 0
     for sid in store_ids:
         for bid in bundle_ids:
@@ -60,9 +72,13 @@ async def link_store_catalog(session: AsyncSession, store: Store) -> tuple[int, 
     """Connect one reseller store to all current sellable packages and reseller-enabled bundles. Returns (packages, bundles) added."""
     if store.kind != "reseller":
         return 0, 0
-    products = list((await session.scalars(
-        select(Product.id).where(Product.is_active.is_(True), Product.archived_at.is_(None), Product.is_test.is_(False))
-    )).all())
+    products = list(
+        (
+            await session.scalars(
+                select(Product.id).where(Product.is_active.is_(True), Product.archived_at.is_(None), Product.is_test.is_(False))
+            )
+        ).all()
+    )
     bundles = list((await session.scalars(select(Bundle.id).where(Bundle.reseller_enabled.is_(True)))).all())
     return await _link_products(session, [store.id], products), await _link_bundles(session, [store.id], bundles)
 

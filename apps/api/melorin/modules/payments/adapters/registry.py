@@ -5,7 +5,8 @@ from melorin.modules.payments.adapters.destination import DestinationAdapter
 from melorin.modules.payments.gateway_catalog import SUPPORTED_DESTINATIONS
 
 _ADAPTERS = {
-    a.name: a for a in (
+    a.name: a
+    for a in (
         ManualCardAdapter(),
         ZarinpalAdapter(),
         DestinationAdapter("external_gateway", "gateway_link"),

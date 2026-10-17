@@ -23,7 +23,18 @@ def _raw() -> str:
 
 
 def out(c: ApiCredential) -> dict:
-    return {"id": c.id, "name": c.name, "key_prefix": c.key_prefix, "scopes": c.scopes, "status": c.status, "rate_limit_per_minute": c.rate_limit_per_minute, "ip_allowlist": c.ip_allowlist, "expires_at": c.expires_at, "last_used_at": c.last_used_at, "created_at": c.created_at}
+    return {
+        "id": c.id,
+        "name": c.name,
+        "key_prefix": c.key_prefix,
+        "scopes": c.scopes,
+        "status": c.status,
+        "rate_limit_per_minute": c.rate_limit_per_minute,
+        "ip_allowlist": c.ip_allowlist,
+        "expires_at": c.expires_at,
+        "last_used_at": c.last_used_at,
+        "created_at": c.created_at,
+    }
 
 
 def validate_scopes(scopes: list[str]) -> list[str]:
@@ -43,9 +54,29 @@ def validate_ips(values: list[str] | None) -> list[str] | None:
 
 async def create(session, store: Store, actor, body):
     raw = _raw()
-    c = ApiCredential(store_id=store.id, name=body.name, key_prefix=raw[:16], key_hash=_hash(raw), scopes=validate_scopes(body.scopes), status="active" if body.activate else "disabled", rate_limit_per_minute=body.rate_limit_per_minute, ip_allowlist=validate_ips(body.ip_allowlist), created_by=actor.id, expires_at=body.expires_at)
+    c = ApiCredential(
+        store_id=store.id,
+        name=body.name,
+        key_prefix=raw[:16],
+        key_hash=_hash(raw),
+        scopes=validate_scopes(body.scopes),
+        status="active" if body.activate else "disabled",
+        rate_limit_per_minute=body.rate_limit_per_minute,
+        ip_allowlist=validate_ips(body.ip_allowlist),
+        created_by=actor.id,
+        expires_at=body.expires_at,
+    )
     session.add(c)
-    audit.record(session, "api_credential.created", actor_id=actor.id, actor_type="reseller", entity_type="api_credential", entity_id=c.id, store_id=store.id, data={"scopes": c.scopes})
+    audit.record(
+        session,
+        "api_credential.created",
+        actor_id=actor.id,
+        actor_type="reseller",
+        entity_type="api_credential",
+        entity_id=c.id,
+        store_id=store.id,
+        data={"scopes": c.scopes},
+    )
     await session.commit()
     return c, raw
 
@@ -56,9 +87,29 @@ async def rotate(session, c: ApiCredential, actor):
     c.status = "revoked"
     c.revoked_at = utcnow()
     raw = _raw()
-    new = ApiCredential(store_id=c.store_id, name=c.name, key_prefix=raw[:16], key_hash=_hash(raw), scopes=c.scopes, status="active", rate_limit_per_minute=c.rate_limit_per_minute, ip_allowlist=c.ip_allowlist, created_by=actor.id, rotated_from_id=c.id, expires_at=c.expires_at)
+    new = ApiCredential(
+        store_id=c.store_id,
+        name=c.name,
+        key_prefix=raw[:16],
+        key_hash=_hash(raw),
+        scopes=c.scopes,
+        status="active",
+        rate_limit_per_minute=c.rate_limit_per_minute,
+        ip_allowlist=c.ip_allowlist,
+        created_by=actor.id,
+        rotated_from_id=c.id,
+        expires_at=c.expires_at,
+    )
     session.add(new)
-    audit.record(session, "api_credential.rotated", actor_id=actor.id, actor_type="reseller", entity_type="api_credential", entity_id=c.id, store_id=c.store_id)
+    audit.record(
+        session,
+        "api_credential.rotated",
+        actor_id=actor.id,
+        actor_type="reseller",
+        entity_type="api_credential",
+        entity_id=c.id,
+        store_id=c.store_id,
+    )
     await session.commit()
     return new, raw
 
@@ -69,7 +120,16 @@ async def set_status(session, c: ApiCredential, status: str, actor):
     c.status = {"activate": "active", "disable": "disabled", "revoke": "revoked"}[status]
     if status == "revoke":
         c.revoked_at = utcnow()
-    audit.record(session, "api_credential.status_changed", actor_id=actor.id, actor_type="reseller", entity_type="api_credential", entity_id=c.id, store_id=c.store_id, data={"status": c.status})
+    audit.record(
+        session,
+        "api_credential.status_changed",
+        actor_id=actor.id,
+        actor_type="reseller",
+        entity_type="api_credential",
+        entity_id=c.id,
+        store_id=c.store_id,
+        data={"status": c.status},
+    )
     await session.commit()
 
 

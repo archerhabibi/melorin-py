@@ -57,7 +57,12 @@ async def make_group(s, *, mode="automatic", enabled=True, panels=(("P1", "healt
 
 def make_product(group=None, code="10"):
     return Product(
-        code=code, name="plan", duration_days=30, traffic_gb=10, main_price=1, reseller_price=1,
+        code=code,
+        name="plan",
+        duration_days=30,
+        traffic_gb=10,
+        main_price=1,
+        reseller_price=1,
         default_bundle_id=group.id if group else None,
     )
 
@@ -77,6 +82,7 @@ def order_for(group, *, kind="purchase", selected=None, store_id=None):
 
 
 # ---------------------------------------------------------------- order-time rule (every channel)
+
 
 async def test_product_default_group_applies_when_order_names_none(session):
     group, _ = await make_group(session)
@@ -149,6 +155,7 @@ async def test_manual_group_requires_a_member_panel(session):
 
 # ---------------------------------------------------------------- provisioning-time selection
 
+
 @pytest.mark.parametrize(
     "server_kw, kind, fragment",
     [
@@ -210,6 +217,7 @@ async def test_load_figures_cost_a_constant_number_of_queries(session):
 
 # ---------------------------------------------------------------- admin rules for the default group
 
+
 class _Admin:
     id = uuid.uuid4()
 
@@ -250,7 +258,9 @@ async def test_default_group_can_be_cleared_with_explicit_null(session):
 
 async def test_create_product_accepts_and_returns_default_group(session):
     group, _ = await make_group(session)
-    body = CreateProduct(code="new-1", name="plan", duration_days=30, traffic_gb=10, main_price=1, reseller_price=1, default_bundle_id=group.id)
+    body = CreateProduct(
+        code="new-1", name="plan", duration_days=30, traffic_gb=10, main_price=1, reseller_price=1, default_bundle_id=group.id
+    )
     out = await create_product(body, _Admin(), session)
     assert out.default_bundle_id == group.id
 

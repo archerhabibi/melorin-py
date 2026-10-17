@@ -1,4 +1,5 @@
 """Encryption-at-rest for secrets (bot tokens, panel credentials, gateway keys)."""
+
 import base64
 import hashlib
 import logging

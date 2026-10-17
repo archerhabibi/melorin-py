@@ -1,4 +1,5 @@
 """Zarinpal v4 adapter (optional; online gateway for V1 not yet chosen)."""
+
 import httpx
 
 from melorin.core.errors import AppError
@@ -31,7 +32,14 @@ class ZarinpalAdapter:
     async def create_payment_intent(self, payment, *, callback_url: str, settings: dict) -> IntentResult:
         if payment.currency not in {"IRR", "IRT"}:
             raise PanelError(ErrorKind.PERMANENT, "Zarinpal adapter currently supports IRT/IRR only")
-        body = {"merchant_id": self._merchant(settings), "amount": self._gateway_amount(payment), "currency": "IRR", "description": f"Melorin {payment.id}", "callback_url": callback_url, "metadata": {"order_id": str(payment.id), "melorin_currency": payment.currency}}
+        body = {
+            "merchant_id": self._merchant(settings),
+            "amount": self._gateway_amount(payment),
+            "currency": "IRR",
+            "description": f"Melorin {payment.id}",
+            "callback_url": callback_url,
+            "metadata": {"order_id": str(payment.id), "melorin_currency": payment.currency},
+        }
         async with httpx.AsyncClient(timeout=15) as c:
             r = await c.post(f"{self._base(settings)}/request.json", json=body)
         d = r.json().get("data") or {}
@@ -48,7 +56,10 @@ class ZarinpalAdapter:
         if status != "OK" or authority != payment.external_ref:
             return CallbackResult(str(payment.id), authority, False, params)
         async with httpx.AsyncClient(timeout=15) as c:
-            r = await c.post(f"{self._base(settings)}/verify.json", json={"merchant_id": self._merchant(settings), "amount": self._gateway_amount(payment), "authority": authority})
+            r = await c.post(
+                f"{self._base(settings)}/verify.json",
+                json={"merchant_id": self._merchant(settings), "amount": self._gateway_amount(payment), "authority": authority},
+            )
         d = r.json().get("data") or {}
         ok = d.get("code") in (100, 101)  # 101 = already verified (duplicate callback)
         return CallbackResult(str(payment.id), authority, ok, {"verify": d, **params})
@@ -73,8 +84,12 @@ class ZarinpalAdapter:
         payload = data.get("data") or {}
         code = payload.get("code")
         if code not in (100, 101):
-            raise PanelError(ErrorKind.TRANSIENT if r.status_code >= 500 else ErrorKind.PERMANENT, f"Zarinpal refund failed: {payload or data}")
-        return RefundResult(external_ref=str(payload.get("ref_id") or payload.get("session") or payment.external_ref), status="succeeded", raw=data)
+            raise PanelError(
+                ErrorKind.TRANSIENT if r.status_code >= 500 else ErrorKind.PERMANENT, f"Zarinpal refund failed: {payload or data}"
+            )
+        return RefundResult(
+            external_ref=str(payload.get("ref_id") or payload.get("session") or payment.external_ref), status="succeeded", raw=data
+        )
 
     def normalize_status(self, raw: str) -> str:
         return raw

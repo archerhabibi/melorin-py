@@ -1,4 +1,5 @@
 """Migration 0022: panel groups become sales bundles (tables, columns, indexes) and the downgrade restores the old names."""
+
 import importlib.util
 from pathlib import Path
 

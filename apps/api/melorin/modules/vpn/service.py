@@ -1,4 +1,5 @@
 """Provisioning orchestration: DB state machine + outbox. External panel calls run in workers."""
+
 import datetime as dt
 import re
 import secrets
@@ -28,7 +29,9 @@ async def _record_bundle_sale(session, order, panel_id):
     bundle = await session.get(Bundle, order.bundle_id, with_for_update=True)
     if bundle:
         bundle.sold_count += 1
-    bp = await session.scalar(select(BundleMember).where(BundleMember.bundle_id == order.bundle_id, BundleMember.panel_id == panel_id).with_for_update())
+    bp = await session.scalar(
+        select(BundleMember).where(BundleMember.bundle_id == order.bundle_id, BundleMember.panel_id == panel_id).with_for_update()
+    )
     if bp:
         bp.sold_count += 1
 
@@ -38,8 +41,13 @@ def username(order: Order) -> str:
 
 
 async def enqueue(session: AsyncSession, order: Order, *, delay: float = 0) -> None:
-    await events.emit(session, events.ORDER_PAID, {"order_id": order.id}, dedup_key=f"provision:{order.id}:{order.provisioning_attempts}", delay_seconds=delay)
-
+    await events.emit(
+        session,
+        events.ORDER_PAID,
+        {"order_id": order.id},
+        dedup_key=f"provision:{order.id}:{order.provisioning_attempts}",
+        delay_seconds=delay,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -47,8 +55,8 @@ async def enqueue(session: AsyncSession, order: Order, *, delay: float = 0) -> N
 # On exhaustion -> immediate auto-refund.  Admin is ONLY notified, never
 # asked to intervene manually.
 # ---------------------------------------------------------------------------
-_DEFAULT_MAX_ATTEMPTS = 4        # 1 initial + 3 retries
-_DEFAULT_BACKOFF      = [5, 7, 10]  # seconds before attempt 2, 3, 4
+_DEFAULT_MAX_ATTEMPTS = 4  # 1 initial + 3 retries
+_DEFAULT_BACKOFF = [5, 7, 10]  # seconds before attempt 2, 3, 4
 
 
 async def _fail(
@@ -65,30 +73,20 @@ async def _fail(
 
     Returns: 'retry_scheduled' | 'refunded' | 'refund_failed'
     """
-    max_attempts = int(
-        await settings_store.get(session, "provisioning.max_attempts")
-        or _DEFAULT_MAX_ATTEMPTS
-    )
-    delays = (
-        await settings_store.get(session, "provisioning.backoff_seconds")
-        or _DEFAULT_BACKOFF
-    )
+    max_attempts = int(await settings_store.get(session, "provisioning.max_attempts") or _DEFAULT_MAX_ATTEMPTS)
+    delays = await settings_store.get(session, "provisioning.backoff_seconds") or _DEFAULT_BACKOFF
     order.last_error = message
 
     # If a stub VpnAccount was created but the panel call failed before
     # returning a panel_ref, archive it so the next attempt starts fresh.
-    if (
-        account is not None
-        and account.status == VpnStatus.PROVISIONING
-        and account.panel_ref is None
-    ):
+    if account is not None and account.status == VpnStatus.PROVISIONING and account.panel_ref is None:
         account.status = VpnStatus.ARCHIVED
         # Mangle the username so UNIQUE does not block the next attempt.
         account.username = account.username[:55] + "_r" + str(order.provisioning_attempts)
 
     if order.provisioning_attempts < max_attempts:
         delay_idx = min(order.provisioning_attempts - 1, len(delays) - 1)
-        delay     = float(delays[delay_idx])
+        delay = float(delays[delay_idx])
         order.status = OrderStatus.PROCESSING
         await session.commit()
         await enqueue(session, order, delay=delay)
@@ -109,17 +107,17 @@ async def _give_up(session: AsyncSession, order: Order, message: str) -> str:
     # touching it in async code would raise MissingGreenlet.
     order_id, store_id = order.id, order.store_id
 
-    order.status       = OrderStatus.PROVISIONING_FAILED
-    order.needs_review = True       # kept for audit trail; no human action needed
-    order.last_error   = message
+    order.status = OrderStatus.PROVISIONING_FAILED
+    order.needs_review = True  # kept for audit trail; no human action needed
+    order.last_error = message
 
     # Notify admins via outbox (informational only, no action required).
     # Committed together with the status change, BEFORE the refund attempt,
     # so a refund failure can never swallow the alert.
     await events.emit(
-        session, events.PROVISIONING_FAILED,
-        {"order_id": order_id, "store_id": store_id,
-         "error": message, "auto_refund": True},
+        session,
+        events.PROVISIONING_FAILED,
+        {"order_id": order_id, "store_id": store_id, "error": message, "auto_refund": True},
         dedup_key=f"prov_fail:{order_id}",
         # Short delay: the worker reads the order's final state (refunded or
         # not) to build the Telegram message, so the refund below must be done.
@@ -135,9 +133,13 @@ async def _give_up(session: AsyncSession, order: Order, message: str) -> str:
         # refund work, then persist an audit record so it is visible.
         await session.rollback()
         audit.record(
-            session, "provisioning.auto_refund_failed",
-            actor_type="system", entity_type="order", entity_id=order_id,
-            store_id=store_id, data={"reason": str(exc)},
+            session,
+            "provisioning.auto_refund_failed",
+            actor_type="system",
+            entity_type="order",
+            entity_id=order_id,
+            store_id=store_id,
+            data={"reason": str(exc)},
         )
         await session.commit()
         return "refund_failed"
@@ -183,7 +185,13 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
             order.provisioning_attempts += 1
             return await _fail(session, order, e.message)
     order.provisioning_attempts += 1
-    attempt = ProvisioningAttempt(order_id=order.id, vpn_account_id=account.id if account else None, attempt_no=order.provisioning_attempts, action="extend" if account else "create", status="running")
+    attempt = ProvisioningAttempt(
+        order_id=order.id,
+        vpn_account_id=account.id if account else None,
+        attempt_no=order.provisioning_attempts,
+        action="extend" if account else "create",
+        status="running",
+    )
     session.add(attempt)
     order.status = OrderStatus.PROVISIONING
     await session.commit()
@@ -195,7 +203,11 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
             old_exp = account.expires_at or utcnow()
             expire = max(old_exp, utcnow()) + dt.timedelta(days=product.duration_days)
             # 0 is unlimited. Renewal must never convert it to a finite limit.
-            traffic = 0 if account.traffic_limit_bytes == 0 else account.traffic_limit_bytes + (product.traffic_gb * 1024**3 if product.traffic_gb else 0)
+            traffic = (
+                0
+                if account.traffic_limit_bytes == 0
+                else account.traffic_limit_bytes + (product.traffic_gb * 1024**3 if product.traffic_gb else 0)
+            )
             pa = await adapter.extend_account(account.username, expire_at=expire, traffic_bytes=traffic)
         else:
             expire = utcnow() + dt.timedelta(days=product.duration_days)
@@ -206,50 +218,70 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
             elif bundle:
                 prefix = re.sub(r"[^A-Za-z0-9]", "", panel.name)[:4] or "Pnl"
                 store = await session.get(Store, order.store_id)
-                generated_name = f"{prefix}_{product.traffic_gb}G{re.sub(r'[^A-Za-z0-9]', '', (store.name if store else 'S'))[:1]}{order.number}"
+                generated_name = (
+                    f"{prefix}_{product.traffic_gb}G{re.sub(r'[^A-Za-z0-9]', '', (store.name if store else 'S'))[:1]}{order.number}"
+                )
             else:
                 generated_name = username(order)
-            account = VpnAccount(username=generated_name[:64], user_id=order.user_id, store_id=order.store_id, order_id=order.id, product_id=product.id, server_id=server.id, panel_id=panel.id, status=VpnStatus.PROVISIONING, is_test=order.kind == "test", expires_at=expire, traffic_limit_bytes=traffic)
+            account = VpnAccount(
+                username=generated_name[:64],
+                user_id=order.user_id,
+                store_id=order.store_id,
+                order_id=order.id,
+                product_id=product.id,
+                server_id=server.id,
+                panel_id=panel.id,
+                status=VpnStatus.PROVISIONING,
+                is_test=order.kind == "test",
+                expires_at=expire,
+                traffic_limit_bytes=traffic,
+            )
             session.add(account)
             await session.flush()
             pa = await adapter.create_account(AccountSpec(account.username, expire, traffic, product.max_devices, order.number))
     except PanelError as e:
-        attempt.status, attempt.error_kind, attempt.error, attempt.finished_at = (
-            "failed", e.kind, e.message, utcnow()
-        )
+        attempt.status, attempt.error_kind, attempt.error, attempt.finished_at = ("failed", e.kind, e.message, utcnow())
         if e.kind == ErrorKind.UNKNOWN:
             # A timeout does NOT mean the panel rejected the write. Read back
             # before giving up to avoid duplicating accounts on retry.
             try:
-                remote = await adapter.get_account(
-                    account.username if account else username(order)
-                )
+                remote = await adapter.get_account(account.username if account else username(order))
             except PanelError:
                 remote = None
             if remote:
                 # The panel actually succeeded despite the timeout - reconcile.
                 if account is None:
                     account = VpnAccount(
-                        username=remote.username, user_id=order.user_id,
-                        store_id=order.store_id, order_id=order.id,
-                        product_id=order.product_id, server_id=server.id, panel_id=panel.id,
+                        username=remote.username,
+                        user_id=order.user_id,
+                        store_id=order.store_id,
+                        order_id=order.id,
+                        product_id=order.product_id,
+                        server_id=server.id,
+                        panel_id=panel.id,
                     )
                     session.add(account)
-                account.panel_ref, account.status          = remote.ref, VpnStatus.ACTIVE
-                account.expires_at                         = remote.expire_at
-                account.traffic_limit_bytes                = remote.traffic_limit_bytes
-                account.traffic_used_bytes                 = remote.traffic_used_bytes
-                account.subscription_url, account.links   = remote.subscription_url, remote.links
-                attempt.vpn_account_id, attempt.status    = account.id, "succeeded"
-                order.vpn_account_id                      = account.id
-                order.status, order.completed_at          = OrderStatus.COMPLETED, utcnow()
-                order.last_error, order.needs_review       = None, False
+                account.panel_ref, account.status = remote.ref, VpnStatus.ACTIVE
+                account.expires_at = remote.expire_at
+                account.traffic_limit_bytes = remote.traffic_limit_bytes
+                account.traffic_used_bytes = remote.traffic_used_bytes
+                account.subscription_url, account.links = remote.subscription_url, remote.links
+                attempt.vpn_account_id, attempt.status = account.id, "succeeded"
+                order.vpn_account_id = account.id
+                order.status, order.completed_at = OrderStatus.COMPLETED, utcnow()
+                order.last_error, order.needs_review = None, False
                 await events.emit(
-                    session, events.ORDER_COMPLETED,
+                    session,
+                    events.ORDER_COMPLETED,
                     {"order_id": order.id, "vpn_account_id": account.id, "store_id": order.store_id},
                     dedup_key=f"order_completed:{order.id}",
                 )
-                await events.emit(session, events.ORDER_DELIVERY, {"order_id": order.id, "store_id": order.store_id}, dedup_key=f"order_delivery:{order.id}")
+                await events.emit(
+                    session,
+                    events.ORDER_DELIVERY,
+                    {"order_id": order.id, "store_id": order.store_id},
+                    dedup_key=f"order_delivery:{order.id}",
+                )
                 await session.commit()
                 return "completed_after_reconcile"
         # Both TRANSIENT and unreconciled UNKNOWN errors feed the same
@@ -272,10 +304,25 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
     order.vpn_account_id, order.status, order.completed_at = account.id, OrderStatus.COMPLETED, utcnow()
     order.last_error, order.needs_review = None, False
     await _record_bundle_sale(session, order, panel.id)
-    audit.record(session, "provisioning.completed", actor_type="system", entity_type="vpn_account", entity_id=account.id, store_id=order.store_id, data={"order_id": str(order.id), "panel": panel.kind})
-    await events.emit(session, events.ORDER_COMPLETED, {"order_id": order.id, "vpn_account_id": account.id, "store_id": order.store_id}, dedup_key=f"order_completed:{order.id}")
+    audit.record(
+        session,
+        "provisioning.completed",
+        actor_type="system",
+        entity_type="vpn_account",
+        entity_id=account.id,
+        store_id=order.store_id,
+        data={"order_id": str(order.id), "panel": panel.kind},
+    )
+    await events.emit(
+        session,
+        events.ORDER_COMPLETED,
+        {"order_id": order.id, "vpn_account_id": account.id, "store_id": order.store_id},
+        dedup_key=f"order_completed:{order.id}",
+    )
     # One rich Telegram post (QR + subscription link + wallet balance) instead of a generic notice.
-    await events.emit(session, events.ORDER_DELIVERY, {"order_id": order.id, "store_id": order.store_id}, dedup_key=f"order_delivery:{order.id}")
+    await events.emit(
+        session, events.ORDER_DELIVERY, {"order_id": order.id, "store_id": order.store_id}, dedup_key=f"order_delivery:{order.id}"
+    )
     await session.commit()
     return "completed"
 
@@ -298,7 +345,8 @@ async def reconcile(session: AsyncSession, account_id: uuid.UUID) -> str:
         return "issue"
     changed = False
     if account.status == VpnStatus.ACTIVE and remote.status == "disabled":
-        account.status = VpnStatus.SUSPENDED; changed = True
+        account.status = VpnStatus.SUSPENDED
+        changed = True
     account.traffic_used_bytes = remote.traffic_used_bytes
     account.subscription_url, account.links = remote.subscription_url, remote.links
     if remote.expire_at:

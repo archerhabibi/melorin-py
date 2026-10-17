@@ -8,6 +8,7 @@ customer's wallet balance right after the payment.
 Delivery is at-least-once and deduplicated through the Notification row
 (``delivery:<order_id>``): once ``telegram_status == "sent"`` a retry is a no-op.
 """
+
 import html
 import io
 import logging
@@ -67,7 +68,13 @@ def build_caption(*, order: Order, account: VpnAccount, link: str | None, balanc
         lines.append(f"⏳ انقضا: {account.expires_at:%Y-%m-%d}")
     lines.append(f"📊 حجم: {_gb(account.traffic_limit_bytes) + ' GB' if account.traffic_limit_bytes else 'نامحدود'}")
     if link:
-        lines += ["", "🔗 لینک اشتراک (برای کپی لمس کنید):", f"<code>{e(link)}</code>", "", "📷 برای اتصال سریع، QR کد را در برنامه اسکن کنید."]
+        lines += [
+            "",
+            "🔗 لینک اشتراک (برای کپی لمس کنید):",
+            f"<code>{e(link)}</code>",
+            "",
+            "📷 برای اتصال سریع، QR کد را در برنامه اسکن کنید.",
+        ]
     else:
         lines += ["", "🔗 لینک اشتراک در حال آماده‌سازی است؛ از بخش «اکانت‌ها» دریافت کنید."]
     if balance is not None:
@@ -100,7 +107,11 @@ async def balance_after_payment(session: AsyncSession, order: Order) -> int | No
     )
     if after is not None:
         return int(after)
-    w = await session.scalar(select(Wallet).where(Wallet.user_id == order.user_id, Wallet.store_id == order.store_id, Wallet.kind == "customer", Wallet.currency == order.currency))
+    w = await session.scalar(
+        select(Wallet).where(
+            Wallet.user_id == order.user_id, Wallet.store_id == order.store_id, Wallet.kind == "customer", Wallet.currency == order.currency
+        )
+    )
     return int(w.balance) if w else None
 
 
@@ -109,7 +120,11 @@ async def deliver_order(session: AsyncSession, order_id: uuid.UUID) -> str:
     order = await session.get(Order, order_id)
     if order is None:
         return "skipped"
-    account = await session.get(VpnAccount, order.vpn_account_id) if order.vpn_account_id else await session.scalar(select(VpnAccount).where(VpnAccount.order_id == order.id))
+    account = (
+        await session.get(VpnAccount, order.vpn_account_id)
+        if order.vpn_account_id
+        else await session.scalar(select(VpnAccount).where(VpnAccount.order_id == order.id))
+    )
     if account is None:
         return "skipped"
 
@@ -123,8 +138,12 @@ async def deliver_order(session: AsyncSession, order_id: uuid.UUID) -> str:
         return "skipped"
     if n is None:
         n = Notification(
-            user_id=order.user_id, store_id=order.store_id, kind="vpn_account", title="اکانت شما آماده شد",
-            body=build_plain_body(link=link, balance=balance, currency=currency), dedup_key=dedup,
+            user_id=order.user_id,
+            store_id=order.store_id,
+            kind="vpn_account",
+            title="اکانت شما آماده شد",
+            body=build_plain_body(link=link, balance=balance, currency=currency),
+            dedup_key=dedup,
         )
         session.add(n)
         await session.flush()

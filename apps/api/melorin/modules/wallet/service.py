@@ -1,4 +1,5 @@
 """Double-entry, append-only, idempotent ledger. Wallet.balance is a locked projection."""
+
 import uuid
 from dataclasses import dataclass
 
@@ -104,14 +105,23 @@ async def post(
     if any(w.currency != currency for w in wallets):
         raise AppError("CURRENCY_MISMATCH", "واحد پول ناهمخوان است.", 400)
     await lock_wallets(session, wallets)
-    lines = [Line(acc_wallet(p.wallet) if p.wallet else p.account, p.amount, p.wallet.id if p.wallet else None, p.min_balance) for p in postings]
+    lines = [
+        Line(acc_wallet(p.wallet) if p.wallet else p.account, p.amount, p.wallet.id if p.wallet else None, p.min_balance) for p in postings
+    ]
     try:
         validate_balanced(lines)
     except LedgerError as e:
         raise AppError(e.code, e.message, 500) from e
     tx = LedgerTransaction(
-        kind=kind, idempotency_key=key, store_id=store_id, order_id=order_id, payment_id=payment_id,
-        actor_id=actor_id, currency=currency, memo=memo, reverses_id=reverses_id,
+        kind=kind,
+        idempotency_key=key,
+        store_id=store_id,
+        order_id=order_id,
+        payment_id=payment_id,
+        actor_id=actor_id,
+        currency=currency,
+        memo=memo,
+        reverses_id=reverses_id,
     )
     try:
         async with session.begin_nested():
@@ -130,12 +140,27 @@ async def post(
             except LedgerError as e:
                 raise AppError(e.code, e.message, 402) from e
             p.wallet.balance = after
-            await events.emit(session, events.WALLET_CHANGED, {"wallet_id": p.wallet.id, "user_id": p.wallet.user_id, "store_id": p.wallet.store_id, "amount": p.amount, "balance": after, "kind": kind})
-        session.add(LedgerEntry(transaction_id=tx.id, account=line.account, wallet_id=line.wallet_key, amount=line.amount, balance_after=after))
+            await events.emit(
+                session,
+                events.WALLET_CHANGED,
+                {
+                    "wallet_id": p.wallet.id,
+                    "user_id": p.wallet.user_id,
+                    "store_id": p.wallet.store_id,
+                    "amount": p.amount,
+                    "balance": after,
+                    "kind": kind,
+                },
+            )
+        session.add(
+            LedgerEntry(transaction_id=tx.id, account=line.account, wallet_id=line.wallet_key, amount=line.amount, balance_after=after)
+        )
     return tx, True
 
 
-async def reverse(session: AsyncSession, tx: LedgerTransaction, *, key: str, kind: str = "reversal", actor_id=None, memo=None) -> LedgerTransaction:
+async def reverse(
+    session: AsyncSession, tx: LedgerTransaction, *, key: str, kind: str = "reversal", actor_id=None, memo=None
+) -> LedgerTransaction:
     """Compensating transaction: negates every entry; history is never mutated."""
     existing = await find_tx(session, key)
     if existing:
@@ -146,7 +171,16 @@ async def reverse(session: AsyncSession, tx: LedgerTransaction, *, key: str, kin
         w = await session.get(Wallet, e.wallet_id) if e.wallet_id else None
         postings.append(Posting(-e.amount, wallet=w, account=None if w else e.account, min_balance=None))
     new, _ = await post(
-        session, kind=kind, key=key, currency=tx.currency, postings=postings, store_id=tx.store_id,
-        order_id=tx.order_id, payment_id=tx.payment_id, actor_id=actor_id, memo=memo, reverses_id=tx.id,
+        session,
+        kind=kind,
+        key=key,
+        currency=tx.currency,
+        postings=postings,
+        store_id=tx.store_id,
+        order_id=tx.order_id,
+        payment_id=tx.payment_id,
+        actor_id=actor_id,
+        memo=memo,
+        reverses_id=tx.id,
     )
     return new

@@ -1,4 +1,5 @@
 """Executable Telegram flow tests with Telegram and Core both mocked (no network)."""
+
 import asyncio
 import importlib.util
 import json
@@ -36,11 +37,17 @@ class Fake:
             return httpx.Response(200, json={"access_token": "A", "refresh_token": "R"})
         assert request.headers.get("authorization") == "Bearer A"
         if path == "/api/v1/stores/s1/checkout/quote":
-            return httpx.Response(200, json={"unit_price": 100, "discount": 0, "total": 100, "currency": "IRR", "wallet_balance": 500, "sufficient_funds": True})
+            return httpx.Response(
+                200,
+                json={"unit_price": 100, "discount": 0, "total": 100, "currency": "IRR", "wallet_balance": 500, "sufficient_funds": True},
+            )
         if path == "/api/v1/stores/s1/orders" and request.method == "POST":
             return httpx.Response(201, json={"number": "ORD-1", "status": "paid"})
         if path == "/api/v1/stores/s1/wallet/topups":
-            return httpx.Response(200, json={"id": "p1", "amount": 5000, "currency": "IRR", "instructions": {"card_number": "6037", "holder": "X", "bank": "B"}})
+            return httpx.Response(
+                200,
+                json={"id": "p1", "amount": 5000, "currency": "IRR", "instructions": {"card_number": "6037", "holder": "X", "bank": "B"}},
+            )
         if path == "/api/v1/stores/s1/tickets":
             return httpx.Response(403, json={"error": {"message": "ممنوع"}})
         return httpx.Response(404, json={})
@@ -48,7 +55,12 @@ class Fake:
 
 @pytest.fixture
 def runner(tmp_path, monkeypatch):
-    for k, v in {"MELORIN_TELEGRAM_TOKEN": "tok", "MELORIN_CORE_URL": "http://core", "MELORIN_BOT_SERVICE_SECRET": "sek", "MELORIN_TELEGRAM_OFFSET_FILE": str(tmp_path / "o.json")}.items():
+    for k, v in {
+        "MELORIN_TELEGRAM_TOKEN": "tok",
+        "MELORIN_CORE_URL": "http://core",
+        "MELORIN_BOT_SERVICE_SECRET": "sek",
+        "MELORIN_TELEGRAM_OFFSET_FILE": str(tmp_path / "o.json"),
+    }.items():
         monkeypatch.setenv(k, v)
     mod = load("tg_main", "telegram-main/runner.py")
     r, fake = mod.TelegramRunner(), Fake()
@@ -90,7 +102,13 @@ def test_unknown_command_and_plain_text(runner):
 
 
 def test_reseller_runner_binds_store_by_slug(tmp_path, monkeypatch):
-    for k, v in {"MELORIN_TELEGRAM_RESELLER_TOKEN": "rt", "MELORIN_CORE_URL": "http://core", "MELORIN_BOT_SERVICE_SECRET": "sek", "MELORIN_STORE_SLUG": "shop1", "MELORIN_TELEGRAM_OFFSET_FILE": str(tmp_path / "o.json")}.items():
+    for k, v in {
+        "MELORIN_TELEGRAM_RESELLER_TOKEN": "rt",
+        "MELORIN_CORE_URL": "http://core",
+        "MELORIN_BOT_SERVICE_SECRET": "sek",
+        "MELORIN_STORE_SLUG": "shop1",
+        "MELORIN_TELEGRAM_OFFSET_FILE": str(tmp_path / "o.json"),
+    }.items():
         monkeypatch.setenv(k, v)
     mod = load("tg_res", "telegram-reseller/runner.py")
     r = mod.ResellerTelegramRunner()

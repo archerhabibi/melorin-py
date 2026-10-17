@@ -19,9 +19,9 @@ def test_migration_and_worker_blockers_are_fixed():
     assert "from melorin import models" in runner
     assert "from melorin.modules.vpn.adapters.registry import build_adapter" in runner
     assert "register all SQLAlchemy mappers before worker sessions" in runner
-    assert 'session.get(OutboxEvent, event_id, with_for_update=True)' in runner
-    assert 'with_for_update=True' in runner
-    assert 'failed = await session.get(OutboxEvent, event_id' in runner
+    assert "session.get(OutboxEvent, event_id, with_for_update=True)" in runner
+    assert "with_for_update=True" in runner
+    assert "failed = await session.get(OutboxEvent, event_id" in runner
     assert "cron(poll_tick" in arq
     assert "enqueue_job" not in arq
 
@@ -51,7 +51,7 @@ def test_bootstrap_cli_and_ci_use_real_entrypoints():
     cli = (ROOT / "melorin/cli.py").read_text()
     assert "settings_store.DEFAULTS" in cli
     assert "seed_demo_data" in cli
-    assert "where(Product.code == \"TEST\")" in cli
+    assert 'where(Product.code == "TEST")' in cli
     assert "python -m melorin.cli bootstrap" in (ROOT.parent.parent / "scripts/bootstrap.sh").read_text()
     ci = (ROOT.parent.parent / ".github/workflows/ci.yml").read_text()
     assert "run_quality_gate.sh" in ci
@@ -208,7 +208,7 @@ def test_worker_has_one_runtime_entrypoint():
 
 def test_lint_gate_uses_correctness_focused_policy():
     config = (ROOT / "pyproject.toml").read_text()
-    assert '[tool.ruff.lint]' in config
+    assert "[tool.ruff.lint]" in config
     assert 'select = ["E4", "E9", "F"]' in config
     assert 'ignore = ["F401", "F403", "F405"]' in config
 

@@ -1,4 +1,5 @@
 """SMTP and off-site S3 backups are optional production integrations."""
+
 import pytest
 from cryptography.fernet import Fernet
 from sqlalchemy import select
@@ -19,12 +20,21 @@ def _reset_caches():
 
 def _prod(**kw):
     base = dict(
-        env="production", database_url="postgresql+asyncpg://app:strong@localhost/db", jwt_secret="x" * 40, bot_service_secret="y" * 40,
-        bootstrap_admin_password="Strong-admin-password-123456", encryption_key=Fernet.generate_key().decode(),
+        env="production",
+        database_url="postgresql+asyncpg://app:strong@localhost/db",
+        jwt_secret="x" * 40,
+        bot_service_secret="y" * 40,
+        bootstrap_admin_password="Strong-admin-password-123456",
+        encryption_key=Fernet.generate_key().decode(),
         bootstrap_admin_totp_secret="A" * 20,
-        redis_url="redis://localhost", require_redis_rate_limit=True, metrics_token="m" * 40, health_token="h" * 40,
-        public_api_url="https://shop.example.com:9443", cors_origins=["https://shop.example.com:9443"],
-        backup_recipient_file="/run/melorin-backup/recipients.txt", backup_offsite_uri="s3://bucket/melorin",
+        redis_url="redis://localhost",
+        require_redis_rate_limit=True,
+        metrics_token="m" * 40,
+        health_token="h" * 40,
+        public_api_url="https://shop.example.com:9443",
+        cors_origins=["https://shop.example.com:9443"],
+        backup_recipient_file="/run/melorin-backup/recipients.txt",
+        backup_offsite_uri="s3://bucket/melorin",
     )
     base.update(kw)
     return Settings(**base)
@@ -47,8 +57,8 @@ def test_merge_secret_semantics(monkeypatch):
     try:
         enc = integrations.merge_secret(None, "s3cret")
         assert enc and "s3cret" not in enc and crypto.decrypt(enc) == "s3cret"
-        assert integrations.merge_secret(enc, None) == enc      # keep
-        assert integrations.merge_secret(enc, "") is None       # clear
+        assert integrations.merge_secret(enc, None) == enc  # keep
+        assert integrations.merge_secret(enc, "") is None  # clear
     finally:
         _reset_caches()
 
@@ -61,7 +71,13 @@ def test_public_views_never_contain_secrets():
 
 
 def test_rclone_uri_and_env():
-    cfg = {**integrations.BACKUP_S3_DEFAULT, "bucket": "bk", "prefix": "/melorin/", "access_key": "AK", "endpoint": "https://s3.example.com"}
+    cfg = {
+        **integrations.BACKUP_S3_DEFAULT,
+        "bucket": "bk",
+        "prefix": "/melorin/",
+        "access_key": "AK",
+        "endpoint": "https://s3.example.com",
+    }
     assert integrations.rclone_uri(cfg) == "melorins3:bk/melorin"
     env = integrations.rclone_env({**cfg, "secret_key_enc": None})
     assert env["RCLONE_CONFIG_MELORINS3_ENDPOINT"] == "https://s3.example.com" and env["RCLONE_CONFIG_MELORINS3_TYPE"] == "s3"
@@ -95,8 +111,17 @@ async def test_email_unavailable_in_production_until_enabled(prod_db, monkeypatc
     sent = {}
     monkeypatch.setattr(email_mod, "_smtp_send", lambda cfg, to, subj, body: sent.update(cfg=cfg, to=to))
     async with db.session_factory()() as s:
-        await integrations.save(s, integrations.EMAIL_KEY, {**integrations.EMAIL_DEFAULT, "enabled": True, "host": "smtp.x.io",
-                                                           "from_addr": "no-reply@x.io", "password_enc": crypto.encrypt("pw")})
+        await integrations.save(
+            s,
+            integrations.EMAIL_KEY,
+            {
+                **integrations.EMAIL_DEFAULT,
+                "enabled": True,
+                "host": "smtp.x.io",
+                "from_addr": "no-reply@x.io",
+                "password_enc": crypto.encrypt("pw"),
+            },
+        )
         await s.commit()
     assert await email_mod.email_available() is True
     await email_mod.send_email("user@x.io", "s", "b")

@@ -8,7 +8,11 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_order_idempotency_insert_is_savepoint_protected():
     source = (ROOT / "melorin/modules/orders/service.py").read_text()
-    section = source[source.index("    # The pre-check above"):source.index("    session.add(OrderStateTransition", source.index("    # The pre-check above"))]
+    section = source[
+        source.index("    # The pre-check above") : source.index(
+            "    session.add(OrderStateTransition", source.index("    # The pre-check above")
+        )
+    ]
     assert "async with session.begin_nested()" in section
     assert "await session.flush()" in section
     assert "except IntegrityError:" in section

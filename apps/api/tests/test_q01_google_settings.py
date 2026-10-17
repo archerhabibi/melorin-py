@@ -1,4 +1,5 @@
 """Google Sign-In is configured at runtime from the admin panel (Settings > Google login)."""
+
 import types
 from pathlib import Path
 
@@ -16,7 +17,15 @@ from melorin.modules.identity.schemas import GoogleLogin
 from melorin.modules.system.models import AuditEvent, SecurityEvent, SystemSetting
 
 PROJECT = Path(__file__).resolve().parents[3]
-TABLES = [User.__table__, Identity.__table__, RefreshToken.__table__, IdentityLinkReview.__table__, AuditEvent.__table__, SecurityEvent.__table__, SystemSetting.__table__]
+TABLES = [
+    User.__table__,
+    Identity.__table__,
+    RefreshToken.__table__,
+    IdentityLinkReview.__table__,
+    AuditEvent.__table__,
+    SecurityEvent.__table__,
+    SystemSetting.__table__,
+]
 GOOD_ID = "123456789012-abc123def456.apps.googleusercontent.com"
 REQ = types.SimpleNamespace(headers={"user-agent": "pytest"}, cookies={router.GOOGLE_NONCE_COOKIE: "n1"})
 
@@ -43,7 +52,12 @@ def test_client_id_format():
 async def test_default_is_off_and_public_view_hides_the_id_when_disabled(session):
     cfg = await integrations.get_google(session)
     assert cfg["source"] == "none" and not integrations.google_ready(cfg)
-    assert integrations.public_google({**cfg, "client_id": GOOD_ID}) == {"enabled": False, "client_id": "", "admin_login": True, "store_login": True}
+    assert integrations.public_google({**cfg, "client_id": GOOD_ID}) == {
+        "enabled": False,
+        "client_id": "",
+        "admin_login": True,
+        "store_login": True,
+    }
 
 
 async def test_env_value_keeps_working_until_the_panel_saves(session, monkeypatch):
@@ -66,16 +80,22 @@ async def test_admin_update_validates_and_stores(session):
         await admin_integrations.update_google(admin_integrations.GoogleIn(enabled=False, client_id="nope"), admin, session)
     assert e.value.code == "GOOGLE_CLIENT_ID_INVALID"
     with pytest.raises(AppError) as e:
-        await admin_integrations.update_google(admin_integrations.GoogleIn(enabled=True, client_id=GOOD_ID, admin_login=False, store_login=False), admin, session)
+        await admin_integrations.update_google(
+            admin_integrations.GoogleIn(enabled=True, client_id=GOOD_ID, admin_login=False, store_login=False), admin, session
+        )
     assert e.value.code == "GOOGLE_NO_SURFACE"
-    out = await admin_integrations.update_google(admin_integrations.GoogleIn(enabled=True, client_id=f"  {GOOD_ID} ", store_login=False), admin, session)
+    out = await admin_integrations.update_google(
+        admin_integrations.GoogleIn(enabled=True, client_id=f"  {GOOD_ID} ", store_login=False), admin, session
+    )
     assert out["client_id"] == GOOD_ID and out["enabled"] and out["admin_login"] and not out["store_login"] and out["source"] == "panel"
     stored = await integrations.get_google(session)
     assert stored["client_id"] == GOOD_ID and stored["source"] == "panel"
 
 
 async def test_public_config_endpoint(session):
-    await settings_store.set_value(session, integrations.GOOGLE_KEY, {"enabled": True, "client_id": GOOD_ID, "admin_login": True, "store_login": False})
+    await settings_store.set_value(
+        session, integrations.GOOGLE_KEY, {"enabled": True, "client_id": GOOD_ID, "admin_login": True, "store_login": False}
+    )
     await session.commit()
     resp = Response()
     out = await router.google_config(session, resp)
@@ -90,7 +110,9 @@ async def test_login_refused_when_disabled(session):
 
 
 async def _login_as(session, monkeypatch, *, admin: bool, admin_login: bool, store_login: bool):
-    await settings_store.set_value(session, integrations.GOOGLE_KEY, {"enabled": True, "client_id": GOOD_ID, "admin_login": admin_login, "store_login": store_login})
+    await settings_store.set_value(
+        session, integrations.GOOGLE_KEY, {"enabled": True, "client_id": GOOD_ID, "admin_login": admin_login, "store_login": store_login}
+    )
     u = User(display_name="U", email="u@example.com", is_super_admin=admin)
     session.add(u)
     await session.flush()

@@ -4,6 +4,7 @@ Both are OFF by default so a fresh install needs neither. Secrets are stored Fer
 ``SystemSetting`` rows whose keys start with ``integration.``; those rows are never returned by the
 generic ``/admin/settings`` endpoints and secrets are never written to the audit log.
 """
+
 import re
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,12 +21,22 @@ GOOGLE_KEY = PREFIX + "google_login"
 TELEGRAM_KEY = PREFIX + "telegram_login"
 
 EMAIL_DEFAULT: dict = {
-    "enabled": False, "host": "", "port": 587, "username": "", "password_enc": None,
-    "from_addr": "", "security": "starttls",  # starttls | ssl | none
+    "enabled": False,
+    "host": "",
+    "port": 587,
+    "username": "",
+    "password_enc": None,
+    "from_addr": "",
+    "security": "starttls",  # starttls | ssl | none
 }
 BACKUP_S3_DEFAULT: dict = {
-    "enabled": False, "endpoint": "", "region": "", "bucket": "", "prefix": "melorin",
-    "access_key": "", "secret_key_enc": None,
+    "enabled": False,
+    "endpoint": "",
+    "region": "",
+    "bucket": "",
+    "prefix": "melorin",
+    "access_key": "",
+    "secret_key_enc": None,
 }
 ADMIN_ACCESS_DEFAULT: dict = {"enabled": False, "ips": []}  # OFF by default: no IP restriction on the admin API
 # Google Sign-In (ID-token flow). Only the public OAuth Client ID is needed - no client secret is stored.
@@ -37,8 +48,14 @@ GOOGLE_CLIENT_ID_RE = re.compile(r"^[0-9]{6,}-[A-Za-z0-9_-]+\.apps\.googleuserco
 #     that @BotFather shows under "Login Widget". The secret is stored Fernet-encrypted and never returned.
 # Admins never sign in through Telegram (they use password + TOTP), so there is no admin switch.
 TELEGRAM_DEFAULT: dict = {
-    "enabled": True, "store_login": True, "bot_login": True, "number_match": True, "ttl_seconds": 180,
-    "oidc_login": False, "client_id": "", "client_secret_enc": None,
+    "enabled": True,
+    "store_login": True,
+    "bot_login": True,
+    "number_match": True,
+    "ttl_seconds": 180,
+    "oidc_login": False,
+    "client_id": "",
+    "client_secret_enc": None,
 }
 TELEGRAM_CLIENT_ID_RE = re.compile(r"^[0-9]{5,20}$")  # a bot's numeric ID (the part of the bot token before ':')
 TELEGRAM_TTL_MIN, TELEGRAM_TTL_MAX = 60, 600
@@ -82,7 +99,12 @@ async def get_telegram(session: AsyncSession) -> dict:
     if isinstance(stored, dict):
         return {**TELEGRAM_DEFAULT, **stored, "source": "panel"}
     s = get_settings()
-    return {**TELEGRAM_DEFAULT, "number_match": bool(s.telegram_web_login_number_match), "ttl_seconds": int(s.telegram_web_login_ttl_seconds), "source": "default"}
+    return {
+        **TELEGRAM_DEFAULT,
+        "number_match": bool(s.telegram_web_login_number_match),
+        "ttl_seconds": int(s.telegram_web_login_ttl_seconds),
+        "source": "default",
+    }
 
 
 def telegram_ttl(cfg: dict) -> int:
@@ -94,7 +116,9 @@ def telegram_bot_ready(cfg: dict) -> bool:
 
 
 def telegram_oidc_ready(cfg: dict) -> bool:
-    return bool(cfg.get("enabled") and cfg.get("store_login") and cfg.get("oidc_login") and cfg.get("client_id") and cfg.get("client_secret_enc"))
+    return bool(
+        cfg.get("enabled") and cfg.get("store_login") and cfg.get("oidc_login") and cfg.get("client_id") and cfg.get("client_secret_enc")
+    )
 
 
 def telegram_client_secret(cfg: dict) -> str:
@@ -114,8 +138,10 @@ def public_google(cfg: dict) -> dict:
     """What the unauthenticated storefront/admin login pages may see (a Client ID is public by design)."""
     ready = google_ready(cfg)
     return {
-        "enabled": ready, "client_id": cfg["client_id"] if ready else "",
-        "admin_login": bool(cfg["admin_login"]), "store_login": bool(cfg["store_login"]),
+        "enabled": ready,
+        "client_id": cfg["client_id"] if ready else "",
+        "admin_login": bool(cfg["admin_login"]),
+        "store_login": bool(cfg["store_login"]),
     }
 
 
@@ -148,15 +174,25 @@ async def save(session: AsyncSession, key: str, cfg: dict) -> None:
 
 def public_email(cfg: dict) -> dict:
     return {
-        "enabled": bool(cfg["enabled"]), "host": cfg["host"], "port": cfg["port"], "username": cfg["username"],
-        "from_addr": cfg["from_addr"], "security": cfg["security"], "password_set": bool(cfg.get("password_enc")),
+        "enabled": bool(cfg["enabled"]),
+        "host": cfg["host"],
+        "port": cfg["port"],
+        "username": cfg["username"],
+        "from_addr": cfg["from_addr"],
+        "security": cfg["security"],
+        "password_set": bool(cfg.get("password_enc")),
     }
 
 
 def public_backup_s3(cfg: dict) -> dict:
     return {
-        "enabled": bool(cfg["enabled"]), "endpoint": cfg["endpoint"], "region": cfg["region"], "bucket": cfg["bucket"],
-        "prefix": cfg["prefix"], "access_key": cfg["access_key"], "secret_key_set": bool(cfg.get("secret_key_enc")),
+        "enabled": bool(cfg["enabled"]),
+        "endpoint": cfg["endpoint"],
+        "region": cfg["region"],
+        "bucket": cfg["bucket"],
+        "prefix": cfg["prefix"],
+        "access_key": cfg["access_key"],
+        "secret_key_set": bool(cfg.get("secret_key_enc")),
     }
 
 

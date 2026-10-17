@@ -28,7 +28,11 @@ def test_baskets_are_renamed_to_bundles_everywhere():
     migration = (ROOT / "alembic/versions/0012_baskets_to_panel_groups.py").read_text()
     assert 'down_revision = "0011_backfill_main_products"' in migration
     assert len("0012_baskets_to_panel_groups") <= 32  # alembic_version.version_num is VARCHAR(32)
-    for old, new in (("sales_baskets", "panel_groups"), ("sales_basket_panels", "panel_group_members"), ("store_sales_baskets", "store_panel_groups")):
+    for old, new in (
+        ("sales_baskets", "panel_groups"),
+        ("sales_basket_panels", "panel_group_members"),
+        ("store_sales_baskets", "store_panel_groups"),
+    ):
         assert f'"{old}": "{new}"' in migration
     live = [p for p in (ROOT / "melorin").rglob("*.py")]
     assert live and not [p for p in live if "basket" in p.read_text().lower()]

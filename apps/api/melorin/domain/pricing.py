@@ -71,7 +71,14 @@ def quote(
             raise PricingError("CURRENCY_MISMATCH", "کد تخفیف پلتفرم برای فروشگاه با ارز متفاوت قابل استفاده نیست.")
         cost = max(0, cost - disc)
     return Quote(
-        store_kind, product_id, unit, disc, unit - disc, cost, currency, discount.code if discount else None,
+        store_kind,
+        product_id,
+        unit,
+        disc,
+        unit - disc,
+        cost,
+        currency,
+        discount.code if discount else None,
         reseller_currency if cost is not None else None,
         ("platform" if platform_funded else "store") if discount else None,
     )

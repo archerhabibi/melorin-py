@@ -1,4 +1,5 @@
 """Google Sign-In: the endpoint must keep the same guarantees as the other login paths (admin 2FA, refresh cookie, CSP, build args)."""
+
 import time
 import types
 from pathlib import Path
@@ -17,7 +18,15 @@ from melorin.modules.system.models import AuditEvent, SecurityEvent, SystemSetti
 
 ROOT = Path(__file__).resolve().parents[1]
 PROJECT = ROOT.parent.parent
-TABLES = [User.__table__, Identity.__table__, RefreshToken.__table__, IdentityLinkReview.__table__, AuditEvent.__table__, SecurityEvent.__table__, SystemSetting.__table__]
+TABLES = [
+    User.__table__,
+    Identity.__table__,
+    RefreshToken.__table__,
+    IdentityLinkReview.__table__,
+    AuditEvent.__table__,
+    SecurityEvent.__table__,
+    SystemSetting.__table__,
+]
 REQ = types.SimpleNamespace(headers={"user-agent": "pytest"}, cookies={router.GOOGLE_NONCE_COOKIE: "n1"})
 
 
@@ -36,7 +45,11 @@ async def world(tmp_path, monkeypatch):
         await s.flush()
         for u, sub in ((admin, "g-admin"), (plain_admin, "g-nt"), (cust, "g-cust")):
             s.add(Identity(user_id=u.id, provider="google", subject=sub, data={}))
-        await settings_store.set_value(s, integrations.GOOGLE_KEY, {"enabled": True, "client_id": "123456-abc.apps.googleusercontent.com", "admin_login": True, "store_login": True})
+        await settings_store.set_value(
+            s,
+            integrations.GOOGLE_KEY,
+            {"enabled": True, "client_id": "123456-abc.apps.googleusercontent.com", "admin_login": True, "store_login": True},
+        )
         await s.commit()
 
         async def fake_verify(_token, _client_id=None):

@@ -3,9 +3,11 @@
 The adapter is intentionally transport-only: identity, store isolation, authorization,
 order state, pricing, and provisioning remain in Core.
 """
+
 from dataclasses import dataclass
 from typing import Any
 import httpx
+
 
 @dataclass(frozen=True)
 class TelegramChannel:
@@ -39,7 +41,16 @@ class TelegramChannel:
     async def send_message(self, chat_id: int | str, text: str, **kwargs: Any) -> dict[str, Any]:
         return await self.telegram("sendMessage", {"chat_id": chat_id, "text": text, **kwargs})
 
-    async def send_photo(self, chat_id: int | str, photo: bytes, *, caption: str | None = None, parse_mode: str | None = None, reply_markup: dict[str, Any] | None = None, filename: str = "qr.png") -> dict[str, Any]:
+    async def send_photo(
+        self,
+        chat_id: int | str,
+        photo: bytes,
+        *,
+        caption: str | None = None,
+        parse_mode: str | None = None,
+        reply_markup: dict[str, Any] | None = None,
+        filename: str = "qr.png",
+    ) -> dict[str, Any]:
         """Send one photo post (image + caption) in a single Telegram message."""
         import json as _json
 

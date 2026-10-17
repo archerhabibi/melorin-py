@@ -78,6 +78,7 @@ class ReconciliationIssue(IdMixin, CreatedMixin, Base):
 def _forbid_owner_change(target, value, oldvalue, initiator):
     """V1.1: VPN Account ownership transfer is forbidden for customers AND Admin."""
     from sqlalchemy.orm.base import NO_VALUE, NEVER_SET
+
     if oldvalue in (NO_VALUE, NEVER_SET, None) or oldvalue == value:
         return value
     raise ValueError("VPN account ownership transfer is not allowed")

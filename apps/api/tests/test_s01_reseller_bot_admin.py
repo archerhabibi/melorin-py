@@ -1,4 +1,5 @@
 """Admin management of reseller stores + the Core side of the reseller bot runtime (SQLite, Telegram mocked)."""
+
 import datetime as dt
 import types
 import uuid
@@ -41,23 +42,54 @@ async def make_store(session, slug="shop", *, domain="shop.example.com", token=T
     owner = User(email=f"{slug}@example.com", display_name=f"Owner {slug}")
     session.add(owner)
     await session.flush()
-    st = Store(kind="reseller", name=f"Store {slug}", slug=slug, owner_user_id=owner.id, domain=domain, currency="IRT",
-               bot_token_enc=f"enc:{token}" if token else None, bot_username=f"{slug}_bot" if token else None, **over)
+    st = Store(
+        kind="reseller",
+        name=f"Store {slug}",
+        slug=slug,
+        owner_user_id=owner.id,
+        domain=domain,
+        currency="IRT",
+        bot_token_enc=f"enc:{token}" if token else None,
+        bot_username=f"{slug}_bot" if token else None,
+        **over,
+    )
     session.add(st)
     await session.flush()
     session.add(ResellerProfile(store_id=st.id, user_id=owner.id, debt_limit=100, api_enabled=True, sales_enabled=True))
     if token:
-        session.add(BotStoreBinding(bot_key="tg:" + token.split(":")[0], bot_username=f"{slug}_bot", store_id=st.id, owner_user_id=owner.id, bot_kind="reseller", status="active"))
+        session.add(
+            BotStoreBinding(
+                bot_key="tg:" + token.split(":")[0],
+                bot_username=f"{slug}_bot",
+                store_id=st.id,
+                owner_user_id=owner.id,
+                bot_kind="reseller",
+                status="active",
+            )
+        )
     await session.commit()
     return st
 
 
 async def test_admin_can_edit_identity_standing_and_limits_and_it_is_audited(session):
     st = await make_store(session)
-    out = await r.edit_reseller(st.id, r.ResellerEdit(name="New Name", domain=" https://NEW.Example.com/x ", debt_limit=5000, sales_enabled=False, api_enabled=False, status="suspended"), ADMIN, session)
+    out = await r.edit_reseller(
+        st.id,
+        r.ResellerEdit(
+            name="New Name",
+            domain=" https://NEW.Example.com/x ",
+            debt_limit=5000,
+            sales_enabled=False,
+            api_enabled=False,
+            status="suspended",
+        ),
+        ADMIN,
+        session,
+    )
     assert out["name"] == "New Name" and out["domain"] == "new.example.com" and out["status"] == "suspended"
     assert out["debt_limit"] == 5000 and out["sales_enabled"] is False and out["api_enabled"] is False
     from sqlalchemy import select
+
     ev = (await session.scalars(select(AuditEvent).where(AuditEvent.action == "reseller.edited"))).one()
     assert ev.data["before"]["debt_limit"] == 100 and ev.data["after"]["debt_limit"] == 5000
 
@@ -66,11 +98,15 @@ async def test_edit_with_nothing_changed_writes_no_audit_event(session):
     st = await make_store(session)
     await r.edit_reseller(st.id, r.ResellerEdit(name=st.name, debt_limit=100), ADMIN, session)
     from sqlalchemy import select
+
     assert (await session.scalars(select(AuditEvent))).all() == []
 
 
 async def test_domain_must_be_valid_unique_and_not_a_platform_host(session):
-    a, b = await make_store(session, "a", domain="a.example.com", token=None), await make_store(session, "b", domain="b.example.com", token=None)
+    a, b = (
+        await make_store(session, "a", domain="a.example.com", token=None),
+        await make_store(session, "b", domain="b.example.com", token=None),
+    )
     with pytest.raises(AppError) as e:
         await r.edit_reseller(b.id, r.ResellerEdit(domain="a.example.com"), ADMIN, session)
     assert e.value.code == "DOMAIN_TAKEN"
@@ -105,6 +141,7 @@ async def test_set_bot_token_verifies_with_telegram_stores_encrypted_and_rebinds
 
     async def fake_verify(token, **kw):
         return "newbot"
+
     monkeypatch.setattr(identity, "verify_bot", fake_verify)
     out = await r.set_bot_token(st.id, r.BotTokenIn(token=f" {TOKEN} "), ADMIN, session)
     assert out["bot"]["has_token"] and out["bot"]["username"] == "newbot" and out["bot"]["state"] == "pending"
@@ -112,6 +149,7 @@ async def test_set_bot_token_verifies_with_telegram_stores_encrypted_and_rebinds
     await session.refresh(st)
     assert st.bot_token_enc == f"enc:{TOKEN}"
     from sqlalchemy import select
+
     binding = (await session.scalars(select(BotStoreBinding).where(BotStoreBinding.store_id == st.id))).one()
     assert binding.bot_key == "tg:123456789" and binding.bot_username == "newbot"
 
@@ -124,6 +162,7 @@ async def test_set_bot_token_rejects_bad_format_unreachable_telegram_and_a_bot_u
 
     async def unreachable(token, **kw):
         return None
+
     with pytest.raises(AppError) as e:
         await r.set_bot_token(b.id, r.BotTokenIn(token="not-a-token-at-all"), ADMIN, session)
     assert e.value.code == "INVALID_BOT_TOKEN"
@@ -143,6 +182,7 @@ async def test_clearing_the_token_frees_the_bot_and_stops_it(session):
     out = await r.clear_bot_token(st.id, ADMIN, session)
     assert out["bot"]["state"] == "no_token" and out["bot"]["username"] is None
     from sqlalchemy import select
+
     assert (await session.scalars(select(BotStoreBinding))).all() == []
     assert await bots.runnable_bots(session) == []
 
@@ -152,6 +192,7 @@ async def test_verify_bot_marks_error_when_telegram_rejects_the_stored_token(ses
 
     async def rejected(token, **kw):
         raise AppError("BOT_TOKEN_REJECTED", "no", 422)
+
     monkeypatch.setattr(identity, "verify_bot", rejected)
     with pytest.raises(AppError):
         await r.verify_store_bot(st.id, ADMIN, session)
@@ -210,6 +251,7 @@ async def test_admin_list_shows_owner_bot_state_and_never_the_token(session):
 def test_internal_routes_refuse_anything_that_came_through_a_reverse_proxy():
     def req(**headers):
         return types.SimpleNamespace(headers={k.lower(): v for k, v in headers.items()})
+
     bots._internal_only(req())  # direct call on the private network
     for h in ("X-Forwarded-For", "X-Forwarded-Host", "X-Real-IP"):
         with pytest.raises(AppError):
@@ -224,6 +266,7 @@ def test_internal_router_requires_the_bot_secret_and_is_hidden_from_the_docs():
 
 def test_admin_ui_has_a_resellers_screen_and_never_asks_core_for_the_token():
     from pathlib import Path
+
     web = Path(__file__).parents[2] / "admin-web/src"
     assert '"نمایندگان": ResellersView' in (web / "AdminExtra.jsx").read_text()
     assert "'resellers'" in (web / "App.jsx").read_text()

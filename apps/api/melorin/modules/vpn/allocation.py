@@ -76,7 +76,9 @@ class Candidate:
     member_sold: int = 0
 
 
-def _reject_reason(c: Candidate, *, product_code: str, is_test: bool, group_mode: str | None, selected_panel_id: uuid.UUID | None) -> str | None:
+def _reject_reason(
+    c: Candidate, *, product_code: str, is_test: bool, group_mode: str | None, selected_panel_id: uuid.UUID | None
+) -> str | None:
     if not c.server_enabled:
         return "سرور غیرفعال است"
     if not c.panel_enabled:
@@ -159,7 +161,13 @@ async def _only_bundle_for(session: AsyncSession, store_id: uuid.UUID, product) 
     ids = [v.group.id for v in await sellable_bundles(session, store)]
     if not ids:
         return None
-    sold = (await session.scalars(select(BundleProduct.bundle_id).where(BundleProduct.product_id == product.id, BundleProduct.bundle_id.in_(ids), BundleProduct.is_listed.is_(True)))).all()
+    sold = (
+        await session.scalars(
+            select(BundleProduct.bundle_id).where(
+                BundleProduct.product_id == product.id, BundleProduct.bundle_id.in_(ids), BundleProduct.is_listed.is_(True)
+            )
+        )
+    ).all()
     return sold[0] if len(sold) == 1 else None
 
 
@@ -182,11 +190,15 @@ async def resolve_order_group(
     if group_id is None:
         raise AppError("BUNDLE_REQUIRED", "برای خرید باید یک بسته فروش انتخاب شود.", 409)
     group = await session.get(Bundle, group_id)
-    why = group_policy_violation(group, store_access_enabled=await _store_access_enabled(session, store_id, group_id), selected_panel_id=selected_panel_id)
+    why = group_policy_violation(
+        group, store_access_enabled=await _store_access_enabled(session, store_id, group_id), selected_panel_id=selected_panel_id
+    )
     if why:
         raise AppError("BUNDLE_UNAVAILABLE", why, 409)
     if not getattr(product, "is_test", False):
-        sold_here = await session.scalar(select(BundleProduct.id).where(BundleProduct.bundle_id == group_id, BundleProduct.product_id == product.id))
+        sold_here = await session.scalar(
+            select(BundleProduct.id).where(BundleProduct.bundle_id == group_id, BundleProduct.product_id == product.id)
+        )
         if sold_here is None:
             raise AppError("PRODUCT_NOT_IN_BUNDLE", "این پکیج در بسته انتخاب‌شده فروخته نمی‌شود.", 422)
     if selected_panel_id is not None:
@@ -288,10 +300,10 @@ async def resolve_allocation(session: AsyncSession, order, product) -> tuple[Ser
     by_server, by_panel = await _active_counts(
         session, [s.id for s, _ in pairs], list({p.id for _, p in pairs}) if group is not None else None
     )
-    candidates = [
-        _candidate(s, p, members.get(p.id), by_server.get(s.id, 0), by_panel.get(p.id, 0)) for s, p in pairs
-    ]
-    chosen, reasons = select_allocation(candidates, product_code=product.code, is_test=order.kind == "test", group_mode=group_mode, selected_panel_id=selected)
+    candidates = [_candidate(s, p, members.get(p.id), by_server.get(s.id, 0), by_panel.get(p.id, 0)) for s, p in pairs]
+    chosen, reasons = select_allocation(
+        candidates, product_code=product.code, is_test=order.kind == "test", group_mode=group_mode, selected_panel_id=selected
+    )
     if chosen is None:
         detail = "؛ ".join(reasons) if reasons else "هیچ سروری تعریف نشده است"
         raise PanelError(ErrorKind.PERMANENT, f"no healthy compatible server | {detail}")
@@ -416,15 +428,21 @@ class BundleView:
     panels: list[tuple[uuid.UUID, str]]  # manual bundles only: (panel id, label the customer sees)
 
 
-async def bundle_packages(session: AsyncSession, store: Store, group_id: uuid.UUID) -> list[tuple[Product, StoreProduct, BundleProduct, int]]:
+async def bundle_packages(
+    session: AsyncSession, store: Store, group_id: uuid.UUID
+) -> list[tuple[Product, StoreProduct, BundleProduct, int]]:
     """Packages a customer of ``store`` can buy in one bundle, each with the price shown to that customer."""
     q = (
         select(Product, StoreProduct, BundleProduct)
         .join(BundleProduct, (BundleProduct.product_id == Product.id) & (BundleProduct.bundle_id == group_id))
         .join(StoreProduct, (StoreProduct.product_id == Product.id) & (StoreProduct.store_id == store.id))
         .where(
-            Product.is_active.is_(True), Product.archived_at.is_(None), Product.is_test.is_(False),
-            StoreProduct.is_enabled.is_(True), StoreProduct.is_listed.is_(True), BundleProduct.is_listed.is_(True),
+            Product.is_active.is_(True),
+            Product.archived_at.is_(None),
+            Product.is_test.is_(False),
+            StoreProduct.is_enabled.is_(True),
+            StoreProduct.is_listed.is_(True),
+            BundleProduct.is_listed.is_(True),
         )
     )
     if store.kind == "reseller":
@@ -460,19 +478,33 @@ async def sellable_bundles(session: AsyncSession, store: Store) -> list[BundleVi
             continue
         panels: list[tuple[uuid.UUID, str]] = []
         if g.selection_mode == "manual":
-            rows = (await session.execute(
-                select(BundleMember, Panel).join(Panel, Panel.id == BundleMember.panel_id)
-                .where(BundleMember.bundle_id == g.id, BundleMember.is_enabled.is_(True), Panel.is_enabled.is_(True), Panel.health_status == "healthy")
-                .order_by(BundleMember.sort)
-            )).all()
-            panels = [(m.panel_id, m.label or f"گزینه {i + 1}") for i, (m, _) in enumerate(rows) if m.sales_limit is None or m.sold_count < m.sales_limit]
+            rows = (
+                await session.execute(
+                    select(BundleMember, Panel)
+                    .join(Panel, Panel.id == BundleMember.panel_id)
+                    .where(
+                        BundleMember.bundle_id == g.id,
+                        BundleMember.is_enabled.is_(True),
+                        Panel.is_enabled.is_(True),
+                        Panel.health_status == "healthy",
+                    )
+                    .order_by(BundleMember.sort)
+                )
+            ).all()
+            panels = [
+                (m.panel_id, m.label or f"گزینه {i + 1}")
+                for i, (m, _) in enumerate(rows)
+                if m.sales_limit is None or m.sold_count < m.sales_limit
+            ]
             if not panels:
                 continue
         out.append(BundleView(g, panels))
     return out
 
 
-async def packages_for_bundle(session: AsyncSession, store: Store, bundle_id: uuid.UUID) -> list[tuple[Product, StoreProduct, BundleProduct, int]]:
+async def packages_for_bundle(
+    session: AsyncSession, store: Store, bundle_id: uuid.UUID
+) -> list[tuple[Product, StoreProduct, BundleProduct, int]]:
     if bundle_id not in {v.group.id for v in await sellable_bundles(session, store)}:
         raise NotFound("بسته فروش")
     return await bundle_packages(session, store, bundle_id)
@@ -536,14 +568,23 @@ async def stores_below_cost(session: AsyncSession, product: Product, reseller_pr
 
     With ``group_id`` the check is exact for that bundle: a store's own price in the bundle wins over its store-wide
     price. Without it only the store-wide prices are compared (legacy callers)."""
-    rows = (await session.execute(
-        select(StoreProduct.store_id, StoreProduct.customer_price).join(Store, Store.id == StoreProduct.store_id).where(
-            StoreProduct.product_id == product.id, Store.kind == "reseller")
-    )).all()
+    rows = (
+        await session.execute(
+            select(StoreProduct.store_id, StoreProduct.customer_price)
+            .join(Store, Store.id == StoreProduct.store_id)
+            .where(StoreProduct.product_id == product.id, Store.kind == "reseller")
+        )
+    ).all()
     own: dict[uuid.UUID, int] = {}
     if group_id is not None:
-        own = {r.store_id: int(r.customer_price) for r in (await session.scalars(
-            select(StoreBundlePrice).where(StoreBundlePrice.bundle_id == group_id, StoreBundlePrice.product_id == product.id))).all()}
+        own = {
+            r.store_id: int(r.customer_price)
+            for r in (
+                await session.scalars(
+                    select(StoreBundlePrice).where(StoreBundlePrice.bundle_id == group_id, StoreBundlePrice.product_id == product.id)
+                )
+            ).all()
+        }
     hidden = {sid for sid, price in rows if _below_cost(own.get(sid) or price or None, reseller_price)}
     hidden |= {sid for sid, price in own.items() if _below_cost(price, reseller_price)}
     return len(hidden)
@@ -565,8 +606,12 @@ async def reseller_price_table(session: AsyncSession, store: Store) -> list[dict
     for pp, g in bundle_rows:
         by_product.setdefault(pp.product_id, []).append((pp, g))
     own = await store_bundle_prices(session, store.id)
-    closed = {r.bundle_id for r in (await session.scalars(
-        select(StoreBundle).where(StoreBundle.store_id == store.id, StoreBundle.is_enabled.is_(False)))).all()}
+    closed = {
+        r.bundle_id
+        for r in (
+            await session.scalars(select(StoreBundle).where(StoreBundle.store_id == store.id, StoreBundle.is_enabled.is_(False)))
+        ).all()
+    }
     out = []
     for p, sp in await catalog_service.enabled_for_store(session, store):
         rows = by_product.get(p.id)
@@ -582,16 +627,35 @@ async def reseller_price_table(session: AsyncSession, store: Store) -> list[dict
             cost = effective_prices(p, pp)[1]
             mine = own.get((g.id, p.id))
             effective = retail_price(sp, mine)
-            bundles.append({
-                "bundle_id": g.id, "bundle_name": g.name, "kind_label": g.kind_label, "cost": cost, "price": mine, "effective_price": effective,
-                "source": "bundle" if mine else ("store" if effective else None), "state": _bundle_state(effective, cost),
-                "listed": bool(pp.is_listed), "open_for_store": g.id not in closed,
-            })
-        out.append({
-            "product_id": p.id, "code": p.code, "name": p.name, "duration_days": p.duration_days, "traffic_gb": p.traffic_gb,
-            "currency": p.currency, "customer_price": price, "cost_floor": floor, "costs": costs, "bundles": bundles,
-            "state": "unset" if price is None else ("below_cost" if price < floor else "ok"),
-        })
+            bundles.append(
+                {
+                    "bundle_id": g.id,
+                    "bundle_name": g.name,
+                    "kind_label": g.kind_label,
+                    "cost": cost,
+                    "price": mine,
+                    "effective_price": effective,
+                    "source": "bundle" if mine else ("store" if effective else None),
+                    "state": _bundle_state(effective, cost),
+                    "listed": bool(pp.is_listed),
+                    "open_for_store": g.id not in closed,
+                }
+            )
+        out.append(
+            {
+                "product_id": p.id,
+                "code": p.code,
+                "name": p.name,
+                "duration_days": p.duration_days,
+                "traffic_gb": p.traffic_gb,
+                "currency": p.currency,
+                "customer_price": price,
+                "cost_floor": floor,
+                "costs": costs,
+                "bundles": bundles,
+                "state": "unset" if price is None else ("below_cost" if price < floor else "ok"),
+            }
+        )
     return out
 
 
@@ -631,15 +695,20 @@ async def set_bundle_price(
     pp = await bundle_product(session, group_id, product_id)
     if pp is None:
         raise AppError("PRODUCT_NOT_IN_BUNDLE", "این پکیج در بسته انتخاب‌شده فروخته نمی‌شود.", 422)
-    row = await session.scalar(select(StoreBundlePrice).where(
-        StoreBundlePrice.store_id == store.id, StoreBundlePrice.bundle_id == group_id, StoreBundlePrice.product_id == product_id))
+    row = await session.scalar(
+        select(StoreBundlePrice).where(
+            StoreBundlePrice.store_id == store.id, StoreBundlePrice.bundle_id == group_id, StoreBundlePrice.product_id == product_id
+        )
+    )
     if not customer_price:
         if row is not None:
             await session.delete(row)
         return None
     cost = effective_prices(product, pp)[1]
     if customer_price < cost:
-        raise AppError("CUSTOMER_PRICE_BELOW_COST", f"قیمت فروش در بسته «{group.name}» نمی‌تواند از قیمت همکاری همین بسته ({cost}) کمتر باشد.", 422)
+        raise AppError(
+            "CUSTOMER_PRICE_BELOW_COST", f"قیمت فروش در بسته «{group.name}» نمی‌تواند از قیمت همکاری همین بسته ({cost}) کمتر باشد.", 422
+        )
     if row is None:
         session.add(StoreBundlePrice(store_id=store.id, bundle_id=group_id, product_id=product_id, customer_price=customer_price))
     else:
@@ -647,7 +716,9 @@ async def set_bundle_price(
     return customer_price
 
 
-async def set_prices_batch(session: AsyncSession, store: Store, items: list[tuple[uuid.UUID | None, uuid.UUID, int | None]]) -> list[tuple[uuid.UUID | None, uuid.UUID, int | None]]:
+async def set_prices_batch(
+    session: AsyncSession, store: Store, items: list[tuple[uuid.UUID | None, uuid.UUID, int | None]]
+) -> list[tuple[uuid.UUID | None, uuid.UUID, int | None]]:
     """Apply many price edits in one go, all or nothing. ``(bundle id or None for the store-wide price, product id, price)``.
 
     Every item is validated by the same rules as the single edits; if any is refused nothing is written and one
@@ -658,7 +729,14 @@ async def set_prices_batch(session: AsyncSession, store: Store, items: list[tupl
     before_bundle = await store_bundle_prices(session, store.id)
     for group_id, product_id, price in items:
         if (group_id, product_id) in seen:
-            errors.append({"bundle_id": group_id, "product_id": product_id, "code": "DUPLICATE_ITEM", "message": "این ردیف بیش از یک بار فرستاده شده است."})
+            errors.append(
+                {
+                    "bundle_id": group_id,
+                    "product_id": product_id,
+                    "code": "DUPLICATE_ITEM",
+                    "message": "این ردیف بیش از یک بار فرستاده شده است.",
+                }
+            )
             continue
         seen.add((group_id, product_id))
         try:
@@ -675,5 +753,14 @@ async def set_prices_batch(session: AsyncSession, store: Store, items: list[tupl
         if (old or None) != (price or None):
             changed.append((group_id, product_id, price or None))
     if errors:
-        raise AppError("PRICES_INVALID", f"{len(errors)} قیمت معتبر نیست؛ هیچ تغییری ذخیره نشد.", 422, {"errors": [{**e, "bundle_id": str(e["bundle_id"]) if e["bundle_id"] else None, "product_id": str(e["product_id"])} for e in errors]})
+        raise AppError(
+            "PRICES_INVALID",
+            f"{len(errors)} قیمت معتبر نیست؛ هیچ تغییری ذخیره نشد.",
+            422,
+            {
+                "errors": [
+                    {**e, "bundle_id": str(e["bundle_id"]) if e["bundle_id"] else None, "product_id": str(e["product_id"])} for e in errors
+                ]
+            },
+        )
     return changed

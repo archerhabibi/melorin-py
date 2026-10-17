@@ -26,6 +26,16 @@ class PaymentOut(BaseModel):
 
 def payment_out(p) -> PaymentOut:
     return PaymentOut(
-        id=p.id, store_id=p.store_id, user_id=p.user_id, purpose=p.purpose, order_id=p.order_id, provider=p.provider, amount=p.amount,
-        currency=p.currency, status=p.status, has_receipt=p.receipt_file_id is not None, instructions=(p.meta or {}).get("instructions"), created_at=p.created_at,
+        id=p.id,
+        store_id=p.store_id,
+        user_id=p.user_id,
+        purpose=p.purpose,
+        order_id=p.order_id,
+        provider=p.provider,
+        amount=p.amount,
+        currency=p.currency,
+        status=p.status,
+        has_receipt=p.receipt_file_id is not None,
+        instructions=(p.meta or {}).get("instructions"),
+        created_at=p.created_at,
     )

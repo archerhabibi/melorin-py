@@ -12,6 +12,7 @@ Standard Authorization Code flow with PKCE (S256), done entirely on the server:
 
 Admins never get a session here (same rule as the bot-approval flow and the storefront Google flow).
 """
+
 import base64
 import hashlib
 import hmac
@@ -96,10 +97,18 @@ def unseal(token: str | None) -> dict | None:
 
 
 def authorize_url(client_id: str, redirect: str, state: str, challenge: str, nonce: str) -> str:
-    return f"{AUTH_URL}?" + urlencode({
-        "client_id": client_id, "redirect_uri": redirect, "response_type": "code", "scope": SCOPE,
-        "state": state, "nonce": nonce, "code_challenge": challenge, "code_challenge_method": "S256",
-    })
+    return f"{AUTH_URL}?" + urlencode(
+        {
+            "client_id": client_id,
+            "redirect_uri": redirect,
+            "response_type": "code",
+            "scope": SCOPE,
+            "state": state,
+            "nonce": nonce,
+            "code_challenge": challenge,
+            "code_challenge_method": "S256",
+        }
+    )
 
 
 # ---------------- Telegram calls ----------------
@@ -117,8 +126,16 @@ async def exchange_code(client_id: str, client_secret: str, code: str, redirect:
     try:
         async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as c:
             r = await c.post(
-                TOKEN_URL, auth=(client_id, client_secret), headers={"Accept": "application/json"},
-                data={"grant_type": "authorization_code", "code": code, "redirect_uri": redirect, "client_id": client_id, "code_verifier": verifier},
+                TOKEN_URL,
+                auth=(client_id, client_secret),
+                headers={"Accept": "application/json"},
+                data={
+                    "grant_type": "authorization_code",
+                    "code": code,
+                    "redirect_uri": redirect,
+                    "client_id": client_id,
+                    "code_verifier": verifier,
+                },
             )
     except httpx.HTTPError as exc:
         raise AppError("TELEGRAM_OIDC_UNREACHABLE", "اتصال به سرور ورود تلگرام برقرار نشد.", 502) from exc
@@ -163,7 +180,9 @@ async def _key_for(kid: str | None, alg: str):
                 except jwt.PyJWTError:
                     continue
             _jwks_cache.update(at=time.time(), keys=keys)
-        key = _jwks_cache["keys"].get(kid) or (next(iter(_jwks_cache["keys"].values())) if kid is None and len(_jwks_cache["keys"]) == 1 else None)
+        key = _jwks_cache["keys"].get(kid) or (
+            next(iter(_jwks_cache["keys"].values())) if kid is None and len(_jwks_cache["keys"]) == 1 else None
+        )
         if key is not None:
             return key
     raise AppError("TELEGRAM_OIDC_INVALID", "کلید امضای توکن تلگرام شناخته نشد.", 401)
@@ -178,7 +197,12 @@ async def verify_id_token(id_token: str, client_id: str, nonce: str | None = Non
             raise AppError("TELEGRAM_OIDC_INVALID", "الگوریتم امضای توکن تلگرام پذیرفته نیست.", 401)
         key = await _key_for(header.get("kid"), alg)
         claims = jwt.decode(
-            id_token, key.key, algorithms=[alg], audience=str(client_id), issuer=ISSUER, leeway=30,
+            id_token,
+            key.key,
+            algorithms=[alg],
+            audience=str(client_id),
+            issuer=ISSUER,
+            leeway=30,
             options={"require": ["exp", "iat", "iss", "aud", "sub"]},
         )
     except jwt.PyJWTError as exc:
@@ -200,7 +224,8 @@ def profile_from_claims(claims: dict) -> TelegramProfile:
         raise AppError("TELEGRAM_OIDC_NO_ID", "شناسهٔ کاربر تلگرام نامعتبر است.", 401)
     first = claims.get("given_name") or claims.get("name")
     return TelegramProfile(
-        telegram_id=tg_id, first_name=str(first)[:100] if first else None,
+        telegram_id=tg_id,
+        first_name=str(first)[:100] if first else None,
         last_name=str(claims["family_name"])[:100] if claims.get("family_name") else None,
         username=str(claims["preferred_username"])[:64] if claims.get("preferred_username") else None,
     )
@@ -211,4 +236,6 @@ def new_flow(client_id: str, store_id: uuid.UUID, origin: str) -> tuple[str, str
     state, nonce = secrets.token_urlsafe(24), secrets.token_urlsafe(24)
     verifier, challenge = pkce_pair()
     ru = redirect_uri(origin)
-    return authorize_url(client_id, ru, state, challenge, nonce), seal(state=state, nonce=nonce, cv=verifier, sid=str(store_id), org=origin, ru=ru)
+    return authorize_url(client_id, ru, state, challenge, nonce), seal(
+        state=state, nonce=nonce, cv=verifier, sid=str(store_id), org=origin, ru=ru
+    )

@@ -1,4 +1,5 @@
 """Standard Panel Adapter interface (doc 03). Every panel gets its own adapter + contract tests."""
+
 import datetime as dt
 from dataclasses import dataclass, field
 from enum import StrEnum

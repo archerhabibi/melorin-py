@@ -56,7 +56,19 @@ async def main_store(s, kind="main"):
 
 
 async def product(s, code, gb, price, reseller=None, **kw):
-    p = await add(s, Product(code=code, name=f"{gb}G", duration_days=30, traffic_gb=gb, main_price=price, reseller_price=reseller or price // 2, currency="IRT", **kw))
+    p = await add(
+        s,
+        Product(
+            code=code,
+            name=f"{gb}G",
+            duration_days=30,
+            traffic_gb=gb,
+            main_price=price,
+            reseller_price=reseller or price // 2,
+            currency="IRT",
+            **kw,
+        ),
+    )
     return p
 
 
@@ -68,7 +80,9 @@ async def bundle(s, name="Bundle", *, kind="direct", mode="automatic", naming="a
 
 
 async def sell(s, group, prod, store, *, main=None, reseller=None, listed=True, sort=0, customer_price=None):
-    await add(s, BundleProduct(bundle_id=group.id, product_id=prod.id, main_price=main, reseller_price=reseller, is_listed=listed, sort=sort))
+    await add(
+        s, BundleProduct(bundle_id=group.id, product_id=prod.id, main_price=main, reseller_price=reseller, is_listed=listed, sort=sort)
+    )
     if not await s.scalar(sa.select(StoreProduct.id).where(StoreProduct.store_id == store.id, StoreProduct.product_id == prod.id)):
         await add(s, StoreProduct(store_id=store.id, product_id=prod.id, is_enabled=True, is_listed=True, customer_price=customer_price))
 
@@ -103,14 +117,27 @@ async def test_quote_uses_the_bundle_price_and_reseller_cost(session):
     q = await catalog.build_quote(None, main, p, None, None, 0, prices=allocation.effective_prices(p, pp))
     assert (q.unit_price, q.total, q.reseller_cost) == (45000, 45000, None)
     reseller = types.SimpleNamespace(kind="reseller", currency="IRT")
-    q = await catalog.build_quote(None, reseller, p, types.SimpleNamespace(customer_price=60000), None, 0, main_currency="IRT", prices=allocation.effective_prices(p, pp))
+    q = await catalog.build_quote(
+        None,
+        reseller,
+        p,
+        types.SimpleNamespace(customer_price=60000),
+        None,
+        0,
+        main_currency="IRT",
+        prices=allocation.effective_prices(p, pp),
+    )
     assert (q.unit_price, q.reseller_cost) == (60000, 33000)
 
 
 async def test_hidden_and_foreign_packages_are_not_listed(session):
     store = await main_store(session)
     g, _ = await bundle(session)
-    shown, hidden, test_pkg = await product(session, "a", 10, 1000), await product(session, "b", 20, 2000), await product(session, "t", 1, 0, is_test=True)
+    shown, hidden, test_pkg = (
+        await product(session, "a", 10, 1000),
+        await product(session, "b", 20, 2000),
+        await product(session, "t", 1, 0, is_test=True),
+    )
     await sell(session, g, shown, store)
     await sell(session, g, hidden, store, listed=False)
     await add(session, BundleProduct(bundle_id=g.id, product_id=test_pkg.id))
@@ -198,7 +225,9 @@ def test_kind_label_is_free_text_chosen_by_the_admin():
 
 async def test_admin_creates_a_bundle_with_kind_and_customer_labels(session):
     panel = await add(session, Panel(name="p", kind="mock", base_url="http://x"))
-    body = CreateBundle(name="Tunnel bundle", kind_label="tunnel", selection_mode="manual", panel_ids=[panel.id], member_labels={panel.id: " ترکیه "})
+    body = CreateBundle(
+        name="Tunnel bundle", kind_label="tunnel", selection_mode="manual", panel_ids=[panel.id], member_labels={panel.id: " ترکیه "}
+    )
     out = await admin.create_bundle(body, ADMIN, session)
     assert out["kind_label"] == "tunnel" and out["panels"][0]["label"] == "ترکیه"
     out = await admin.update_bundle(out["id"], UpdateBundle(kind_label="softether", member_labels={panel.id: ""}), ADMIN, session)
@@ -234,7 +263,11 @@ async def test_test_packages_cannot_be_sold_in_a_bundle_and_default_bundle_canno
 
 async def test_choosing_a_default_bundle_also_makes_the_bundle_sell_the_package(session):
     g, _ = await bundle(session)
-    out = await admin.create_product(CreateProduct(code="new", name="plan", duration_days=30, traffic_gb=10, main_price=1, reseller_price=1, default_bundle_id=g.id), ADMIN, session)
+    out = await admin.create_product(
+        CreateProduct(code="new", name="plan", duration_days=30, traffic_gb=10, main_price=1, reseller_price=1, default_bundle_id=g.id),
+        ADMIN,
+        session,
+    )
     assert await session.scalar(sa.select(BundleProduct.id).where(BundleProduct.bundle_id == g.id, BundleProduct.product_id == out.id))
     p = await product(session, "b", 10, 1000)
     await admin.update_product(p.id, ProductPatch(default_bundle_id=g.id), ADMIN, session)
@@ -378,6 +411,7 @@ async def test_admin_availability_never_writes_a_resellers_customer_price(sessio
     g, _ = await bundle(session, "G")
     await sell(session, g, p, reseller, reseller=20000, customer_price=26000)
     from melorin.modules.admin.schemas import Availability
+
     await admin.set_availability(p.id, Availability(store_id=reseller.id, enabled=True, listed=False, customer_price=99), ADMIN, session)
     sp = await session.scalar(sa.select(StoreProduct).where(StoreProduct.store_id == reseller.id))
     assert sp.customer_price == 26000 and sp.is_listed is False

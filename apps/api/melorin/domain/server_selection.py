@@ -17,10 +17,7 @@ def select_server(cands: list[ServerCandidate], product_code: str) -> ServerCand
     ok = [
         c
         for c in cands
-        if c.enabled
-        and c.healthy
-        and c.active_accounts < c.capacity
-        and (c.product_codes is None or product_code in c.product_codes)
+        if c.enabled and c.healthy and c.active_accounts < c.capacity and (c.product_codes is None or product_code in c.product_codes)
     ]
     if not ok:
         return None

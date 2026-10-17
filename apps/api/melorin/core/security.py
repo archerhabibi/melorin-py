@@ -1,4 +1,5 @@
 """Password hashing (scrypt), JWT access tokens, opaque token hashing, TOTP."""
+
 import base64
 import datetime as dt
 import hashlib

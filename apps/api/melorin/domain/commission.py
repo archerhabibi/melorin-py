@@ -4,6 +4,7 @@ Spent-commission recovery (open decision #8, default proposal implemented): a re
 reversal. What the referrer wallet can cover is taken now; the remainder becomes an outstanding clawback
 offset from future commissions. The referrer wallet never goes negative because of a reversal.
 """
+
 from dataclasses import dataclass
 
 

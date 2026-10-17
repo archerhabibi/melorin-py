@@ -3,6 +3,7 @@
 Convention (doc 07 technical proposal): debt_limit is the positive maximum absolute debt.
 Sales stop when balance <= -debt_limit. A sale is allowed only if balance - cost >= -debt_limit.
 """
+
 from enum import StrEnum
 
 

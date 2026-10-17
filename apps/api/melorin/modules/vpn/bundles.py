@@ -7,8 +7,6 @@ from sqlalchemy.orm import Mapped, mapped_column
 from melorin.core.db import Base, IdMixin, TimestampMixin
 
 
-
-
 class Bundle(IdMixin, TimestampMixin, Base):
     """A sales bundle (UI name: بسته فروش): panels + connection kind + routing, naming and quota policy.
 
@@ -19,7 +17,9 @@ class Bundle(IdMixin, TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(120))
     selection_mode: Mapped[str] = mapped_column(String(20), default="automatic")  # automatic | manual
     naming_mode: Mapped[str] = mapped_column(String(20), default="automatic")  # automatic | custom
-    kind_label: Mapped[str] = mapped_column(String(40), default="", server_default="")  # free-text badge the customer sees next to the bundle name (admin decides)
+    kind_label: Mapped[str] = mapped_column(
+        String(40), default="", server_default=""
+    )  # free-text badge the customer sees next to the bundle name (admin decides)
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     reseller_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     sales_limit: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -36,7 +36,9 @@ class BundleMember(IdMixin, TimestampMixin, Base):
     sales_limit: Mapped[int | None] = mapped_column(Integer, nullable=True)
     sold_count: Mapped[int] = mapped_column(Integer, default=0)
     sort: Mapped[int] = mapped_column(Integer, default=0)
-    label: Mapped[str | None] = mapped_column(String(80), nullable=True)  # what a customer sees in a manual bundle (never the panel's own name)
+    label: Mapped[str | None] = mapped_column(
+        String(80), nullable=True
+    )  # what a customer sees in a manual bundle (never the panel's own name)
 
 
 class BundleProduct(IdMixin, TimestampMixin, Base):

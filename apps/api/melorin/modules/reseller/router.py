@@ -16,8 +16,18 @@ from melorin.modules.payments.models import Payment
 from melorin.modules.payments.schemas import payment_out
 from melorin.modules.reseller import api_keys, identity
 from melorin.modules.reseller.schemas import (
-    ApiCredentialIn, ApplicationDetailsIn, ApplicationIn, PriceBatchIn, PriceIn, CustomerOut, CustomerWalletAdjustment, PaymentConfigIn, PaymentReview, StoreBrandingUpdate,
-    WebhookEndpointIn, WebhookEndpointPatch,
+    ApiCredentialIn,
+    ApplicationDetailsIn,
+    ApplicationIn,
+    PriceBatchIn,
+    PriceIn,
+    CustomerOut,
+    CustomerWalletAdjustment,
+    PaymentConfigIn,
+    PaymentReview,
+    StoreBrandingUpdate,
+    WebhookEndpointIn,
+    WebhookEndpointPatch,
 )
 from melorin.modules.stores.models import ApiCredential, ResellerApplication, ResellerProfile, StoreMembership, StorePaymentConfiguration
 from melorin.modules.wallet import service as wallet
@@ -56,9 +66,18 @@ async def application_target_store(session, user_id, target_store_id):
 def application_out(a: ResellerApplication) -> dict:
     """Applicant-facing view. The bot token is never included."""
     return {
-        "id": a.id, "target_store_id": a.target_store_id, "store_name": a.store_name, "message": a.message, "status": a.status,
-        "needs_details": a.status == "awaiting_details", "domain": a.domain, "bot_username": a.bot_username, "bot_verified": a.bot_verified,
-        "review_reason": a.review_reason if a.status == "rejected" else None, "store_id": a.store_id, "created_at": a.created_at,
+        "id": a.id,
+        "target_store_id": a.target_store_id,
+        "store_name": a.store_name,
+        "message": a.message,
+        "status": a.status,
+        "needs_details": a.status == "awaiting_details",
+        "domain": a.domain,
+        "bot_username": a.bot_username,
+        "bot_verified": a.bot_verified,
+        "review_reason": a.review_reason if a.status == "rejected" else None,
+        "store_id": a.store_id,
+        "created_at": a.created_at,
     }
 
 
@@ -66,16 +85,18 @@ def application_out(a: ResellerApplication) -> dict:
 async def apply(body: ApplicationIn, user: CurrentUser, session: Session):
     target = await application_target_store(session, user.id, body.target_store_id)
     if await session.scalar(
-        select(ResellerProfile.id).where(ResellerProfile.user_id == user.id, ResellerProfile.store_id.in_(
-            select(Store.id).where(Store.parent_store_id == target.id)
-        ))
+        select(ResellerProfile.id).where(
+            ResellerProfile.user_id == user.id, ResellerProfile.store_id.in_(select(Store.id).where(Store.parent_store_id == target.id))
+        )
     ):
         raise AppError("ALREADY_RESELLER", "شما برای این فروشگاه قبلاً نماینده هستید.", 409)
-    if await session.scalar(select(ResellerApplication).where(
-        ResellerApplication.user_id == user.id,
-        ResellerApplication.target_store_id == target.id,
-        ResellerApplication.status.in_(("pending", "awaiting_details")),
-    )):
+    if await session.scalar(
+        select(ResellerApplication).where(
+            ResellerApplication.user_id == user.id,
+            ResellerApplication.target_store_id == target.id,
+            ResellerApplication.status.in_(("pending", "awaiting_details")),
+        )
+    ):
         raise AppError("APPLICATION_EXISTS", "یک درخواست در حال بررسی دارید.", 409)
     domain = bot_key = username = token = None
     if body.domain is not None:  # one-step (web form): identity is validated now
@@ -86,18 +107,39 @@ async def apply(body: ApplicationIn, user: CurrentUser, session: Session):
         if username:
             await identity.ensure_identity_free(session, domain=domain, bot_key=bot_key, bot_username=username)
     a = ResellerApplication(
-        user_id=user.id, target_store_id=target.id, store_name=body.store_name.strip(), message=body.message,
-        domain=domain, bot_token_enc=encrypt(token) if token else None, bot_key=bot_key, bot_username=username, bot_verified=username is not None,
+        user_id=user.id,
+        target_store_id=target.id,
+        store_name=body.store_name.strip(),
+        message=body.message,
+        domain=domain,
+        bot_token_enc=encrypt(token) if token else None,
+        bot_key=bot_key,
+        bot_username=username,
+        bot_verified=username is not None,
     )
     session.add(a)
-    audit.record(session, "reseller.applied", actor_id=user.id, entity_type="reseller_application", entity_id=a.id, data={"domain": domain, "bot_key": bot_key, "two_step": domain is None})
+    audit.record(
+        session,
+        "reseller.applied",
+        actor_id=user.id,
+        entity_type="reseller_application",
+        entity_id=a.id,
+        data={"domain": domain, "bot_key": bot_key, "two_step": domain is None},
+    )
     await session.commit()
     return application_out(a)
 
 
 @router.get("/reseller/applications")
 async def my_applications(user: CurrentUser, session: Session):
-    rows = (await session.scalars(select(ResellerApplication).where(ResellerApplication.user_id == user.id).order_by(ResellerApplication.created_at.desc()).limit(50))).all()
+    rows = (
+        await session.scalars(
+            select(ResellerApplication)
+            .where(ResellerApplication.user_id == user.id)
+            .order_by(ResellerApplication.created_at.desc())
+            .limit(50)
+        )
+    ).all()
     return [application_out(a) for a in rows]
 
 
@@ -126,7 +168,9 @@ async def submit_details(application_id: uuid.UUID, body: ApplicationDetailsIn, 
     if a.status != "awaiting_details":
         raise AppError("APPLICATION_NOT_AWAITING_DETAILS", "این درخواست در مرحلهٔ دریافت اطلاعات نیست.", 409)
     target = await application_target_store(session, user.id, a.target_store_id)
-    if await session.scalar(select(Store.id).where(Store.owner_user_id == user.id, Store.kind == "reseller", Store.parent_store_id == target.id)):
+    if await session.scalar(
+        select(Store.id).where(Store.owner_user_id == user.id, Store.kind == "reseller", Store.parent_store_id == target.id)
+    ):
         raise AppError("ALREADY_RESELLER", "شما برای این فروشگاه قبلاً نماینده هستید.", 409)
     domain = identity.normalize_domain(body.domain)
     token, bot_key = identity.parse_bot_token(body.bot_token)
@@ -139,7 +183,14 @@ async def submit_details(application_id: uuid.UUID, body: ApplicationDetailsIn, 
     a.domain, a.bot_key, a.bot_username, a.bot_verified = domain, bot_key, username, True
     a.status = "approved"
     await create_reseller_store(session, a, target, token_enc=encrypt(token), debt_limit=a.approved_debt_limit or 0)
-    audit.record(session, "reseller.application_details_submitted", actor_id=user.id, entity_type="reseller_application", entity_id=a.id, data={"domain": domain, "bot_key": bot_key, "bot_username": username})
+    audit.record(
+        session,
+        "reseller.application_details_submitted",
+        actor_id=user.id,
+        entity_type="reseller_application",
+        entity_id=a.id,
+        data={"domain": domain, "bot_key": bot_key, "bot_username": username},
+    )
     try:
         await session.commit()
     except IntegrityError:  # another applicant took the same domain/bot between the check and the commit
@@ -156,34 +207,62 @@ async def profile(ctx: OwnerCtx, session: Session):
     await session.commit()
     near = float(await settings_store.get(session, "debt.near_ratio") or 0.8)
     from melorin.domain import debt
+
     return {
-        "store_id": ctx.store.id, "store_name": ctx.store.name, "store_currency": ctx.store.currency,
-        "debt_limit": p.debt_limit if p else 0, "sales_enabled": p.sales_enabled if p else False, "api_enabled": p.api_enabled if p else False,
+        "store_id": ctx.store.id,
+        "store_name": ctx.store.name,
+        "store_currency": ctx.store.currency,
+        "debt_limit": p.debt_limit if p else 0,
+        "sales_enabled": p.sales_enabled if p else False,
+        "api_enabled": p.api_enabled if p else False,
         "main_wallet": {"balance": w.balance, "currency": w.currency, "debt_state": debt.state(w.balance, p.debt_limit if p else 0, near)},
     }
 
 
 @router.get("/stores/{store_id}/reseller/bundles")
 async def reseller_bundles(ctx: OwnerCtx, session: Session):
-    rows = (await session.execute(
-        select(Bundle, StoreBundle).join(StoreBundle, StoreBundle.bundle_id == Bundle.id, isouter=True)
-        .where(Bundle.is_enabled.is_(True), Bundle.reseller_enabled.is_(True))
-        .order_by(Bundle.created_at.desc())
-    )).all()
-    return [{"id": b.id, "name": b.name, "selection_mode": b.selection_mode, "naming_mode": b.naming_mode,
-             "is_enabled": access.is_enabled if access else True, "sales_limit": b.sales_limit, "sold_count": b.sold_count}
-            for b, access in rows]
+    rows = (
+        await session.execute(
+            select(Bundle, StoreBundle)
+            .join(StoreBundle, StoreBundle.bundle_id == Bundle.id, isouter=True)
+            .where(Bundle.is_enabled.is_(True), Bundle.reseller_enabled.is_(True))
+            .order_by(Bundle.created_at.desc())
+        )
+    ).all()
+    return [
+        {
+            "id": b.id,
+            "name": b.name,
+            "selection_mode": b.selection_mode,
+            "naming_mode": b.naming_mode,
+            "is_enabled": access.is_enabled if access else True,
+            "sales_limit": b.sales_limit,
+            "sold_count": b.sold_count,
+        }
+        for b, access in rows
+    ]
 
 
 @router.put("/stores/{store_id}/reseller/bundles/{bundle_id}")
 async def toggle_reseller_bundle(bundle_id: uuid.UUID, body: dict, ctx: OwnerCtx, session: Session):
     b = await session.get(Bundle, bundle_id)
-    if not b or not b.is_enabled or not b.reseller_enabled: raise NotFound("بسته فروش")
+    if not b or not b.is_enabled or not b.reseller_enabled:
+        raise NotFound("بسته فروش")
     row = await session.scalar(select(StoreBundle).where(StoreBundle.store_id == ctx.store.id, StoreBundle.bundle_id == b.id))
     if not row:
-        row = StoreBundle(store_id=ctx.store.id, bundle_id=b.id); session.add(row)
+        row = StoreBundle(store_id=ctx.store.id, bundle_id=b.id)
+        session.add(row)
     row.is_enabled = bool(body.get("is_enabled", True))
-    audit.record(session, "reseller.bundle_toggled", actor_id=ctx.user.id, actor_type="reseller", entity_type="bundle", entity_id=b.id, store_id=ctx.store.id, data={"enabled": row.is_enabled})
+    audit.record(
+        session,
+        "reseller.bundle_toggled",
+        actor_id=ctx.user.id,
+        actor_type="reseller",
+        entity_type="bundle",
+        entity_id=b.id,
+        store_id=ctx.store.id,
+        data={"enabled": row.is_enabled},
+    )
     await session.commit()
     return {"ok": True, "is_enabled": row.is_enabled}
 
@@ -199,7 +278,16 @@ async def reseller_prices(ctx: OwnerCtx, session: Session):
 async def set_reseller_price(product_id: uuid.UUID, body: PriceIn, ctx: OwnerCtx, session: Session):
     """The reseller sets the retail price of one product for THIS store only. The core enforces the cost floor."""
     sp = await allocation.set_customer_price(session, ctx.store, product_id, body.customer_price)
-    audit.record(session, "reseller.price_set", actor_id=ctx.user.id, actor_type="reseller", entity_type="product", entity_id=product_id, store_id=ctx.store.id, data={"customer_price": sp.customer_price})
+    audit.record(
+        session,
+        "reseller.price_set",
+        actor_id=ctx.user.id,
+        actor_type="reseller",
+        entity_type="product",
+        entity_id=product_id,
+        store_id=ctx.store.id,
+        data={"customer_price": sp.customer_price},
+    )
     await session.commit()
     return {"ok": True, "product_id": product_id, "customer_price": sp.customer_price}
 
@@ -209,7 +297,16 @@ async def set_reseller_bundle_price(bundle_id: uuid.UUID, product_id: uuid.UUID,
     """The reseller sets the retail price of one package in ONE sales bundle of THIS store. Null or 0 removes it and the
     bundle uses the store-wide price again. The core refuses a price below that bundle's reseller price (the cost)."""
     price = await allocation.set_bundle_price(session, ctx.store, bundle_id, product_id, body.customer_price)
-    audit.record(session, "reseller.bundle_price_set", actor_id=ctx.user.id, actor_type="reseller", entity_type="product", entity_id=product_id, store_id=ctx.store.id, data={"bundle_id": str(bundle_id), "customer_price": price})
+    audit.record(
+        session,
+        "reseller.bundle_price_set",
+        actor_id=ctx.user.id,
+        actor_type="reseller",
+        entity_type="product",
+        entity_id=product_id,
+        store_id=ctx.store.id,
+        data={"bundle_id": str(bundle_id), "customer_price": price},
+    )
     await session.commit()
     return {"ok": True, "bundle_id": bundle_id, "product_id": product_id, "customer_price": price}
 
@@ -221,7 +318,16 @@ async def set_reseller_prices_batch(body: PriceBatchIn, ctx: OwnerCtx, session: 
     changed = await allocation.set_prices_batch(session, ctx.store, [(i.bundle_id, i.product_id, i.customer_price) for i in body.items])
     for bundle_id, product_id, price in changed:
         action = "reseller.price_set" if bundle_id is None else "reseller.bundle_price_set"
-        audit.record(session, action, actor_id=ctx.user.id, actor_type="reseller", entity_type="product", entity_id=product_id, store_id=ctx.store.id, data={"bundle_id": str(bundle_id) if bundle_id else None, "customer_price": price, "batch": True})
+        audit.record(
+            session,
+            action,
+            actor_id=ctx.user.id,
+            actor_type="reseller",
+            entity_type="product",
+            entity_id=product_id,
+            store_id=ctx.store.id,
+            data={"bundle_id": str(bundle_id) if bundle_id else None, "customer_price": price, "batch": True},
+        )
     await session.commit()
     return {"ok": True, "changed": len(changed), "prices": await allocation.reseller_price_table(session, ctx.store)}
 
@@ -232,21 +338,37 @@ async def branding(body: StoreBrandingUpdate, ctx: OwnerCtx, session: Session):
         ctx.store.branding = body.branding
     if body.bot_messages is not None:
         ctx.store.bot_messages = body.bot_messages
-    audit.record(session, "reseller.branding_updated", actor_id=ctx.user.id, entity_type="store", entity_id=ctx.store.id, store_id=ctx.store.id)
+    audit.record(
+        session, "reseller.branding_updated", actor_id=ctx.user.id, entity_type="store", entity_id=ctx.store.id, store_id=ctx.store.id
+    )
     await session.commit()
     return {"ok": True}
 
 
 @router.get("/stores/{store_id}/reseller/customers", response_model=list[CustomerOut])
 async def customers(ctx: OwnerCtx, session: Session):
-    q = select(User, StoreMembership).join(StoreMembership, StoreMembership.user_id == User.id).where(StoreMembership.store_id == ctx.store.id, StoreMembership.role == "customer").order_by(StoreMembership.created_at.desc())
-    return [CustomerOut(user_id=u.id, display_name=u.display_name, email=u.email, status=m.status, joined_at=m.created_at) for u, m in (await session.execute(q)).all()]
+    q = (
+        select(User, StoreMembership)
+        .join(StoreMembership, StoreMembership.user_id == User.id)
+        .where(StoreMembership.store_id == ctx.store.id, StoreMembership.role == "customer")
+        .order_by(StoreMembership.created_at.desc())
+    )
+    return [
+        CustomerOut(user_id=u.id, display_name=u.display_name, email=u.email, status=m.status, joined_at=m.created_at)
+        for u, m in (await session.execute(q)).all()
+    ]
 
 
-async def adjust_customer_wallet_core(session, ctx, customer_id: uuid.UUID, body: CustomerWalletAdjustment, actor_type: str = "reseller") -> dict:
+async def adjust_customer_wallet_core(
+    session, ctx, customer_id: uuid.UUID, body: CustomerWalletAdjustment, actor_type: str = "reseller"
+) -> dict:
     """Reseller tops up its own customer's wallet in its own store. The cash went to the reseller, so the
     contra account is the store's reseller_cash account (never Main Store, never another store)."""
-    membership = await session.scalar(select(StoreMembership).where(StoreMembership.store_id == ctx.store.id, StoreMembership.user_id == customer_id, StoreMembership.role == "customer"))
+    membership = await session.scalar(
+        select(StoreMembership).where(
+            StoreMembership.store_id == ctx.store.id, StoreMembership.user_id == customer_id, StoreMembership.role == "customer"
+        )
+    )
     if not membership or membership.status != "active":
         raise NotFound("مشتری")
     if body.amount == 0:
@@ -265,12 +387,32 @@ async def adjust_customer_wallet_core(session, ctx, customer_id: uuid.UUID, body
         wallet.Posting(-body.amount, account=wallet.acc_reseller_cash(ctx.store.id)),
     ]
     tx, created = await wallet.post(
-        session, kind="reseller_manual_topup" if body.amount > 0 else "reseller_manual_correction",
-        key=f"reseller-adjust:{ctx.store.id}:{body.idempotency_key}", currency=ctx.store.currency, store_id=ctx.store.id,
-        postings=postings, actor_id=ctx.user.id, memo=(body.reason + (f" | ref: {body.reference}" if body.reference else ""))[:500],
+        session,
+        kind="reseller_manual_topup" if body.amount > 0 else "reseller_manual_correction",
+        key=f"reseller-adjust:{ctx.store.id}:{body.idempotency_key}",
+        currency=ctx.store.currency,
+        store_id=ctx.store.id,
+        postings=postings,
+        actor_id=ctx.user.id,
+        memo=(body.reason + (f" | ref: {body.reference}" if body.reference else ""))[:500],
     )
     if created:
-        audit.record(session, "reseller.customer_wallet_adjusted", actor_id=ctx.user.id, actor_type=actor_type, entity_type="wallet", entity_id=w.id, store_id=ctx.store.id, data={"customer_id": str(customer_id), "amount": body.amount, "reason": body.reason, "reference": body.reference, "tx": str(tx.id)})
+        audit.record(
+            session,
+            "reseller.customer_wallet_adjusted",
+            actor_id=ctx.user.id,
+            actor_type=actor_type,
+            entity_type="wallet",
+            entity_id=w.id,
+            store_id=ctx.store.id,
+            data={
+                "customer_id": str(customer_id),
+                "amount": body.amount,
+                "reason": body.reason,
+                "reference": body.reference,
+                "tx": str(tx.id),
+            },
+        )
     await session.commit()
     return {"ok": True, "balance": w.balance, "transaction_id": tx.id}
 
@@ -282,29 +424,56 @@ async def adjust_customer_wallet(customer_id: uuid.UUID, body: CustomerWalletAdj
 
 @router.get("/stores/{store_id}/reseller/reports")
 async def report(ctx: OwnerCtx, session: Session):
-    rows = (await session.execute(select(Order.status, func.count(), func.coalesce(func.sum(Order.total), 0), func.coalesce(func.sum(Order.reseller_cost), 0)).where(Order.store_id == ctx.store.id).group_by(Order.status))).all()
-    return {"store_id": ctx.store.id, "currency": ctx.store.currency, "orders": [{"status": s, "count": n, "total": total, "reseller_cost": cost} for s, n, total, cost in rows]}
+    rows = (
+        await session.execute(
+            select(Order.status, func.count(), func.coalesce(func.sum(Order.total), 0), func.coalesce(func.sum(Order.reseller_cost), 0))
+            .where(Order.store_id == ctx.store.id)
+            .group_by(Order.status)
+        )
+    ).all()
+    return {
+        "store_id": ctx.store.id,
+        "currency": ctx.store.currency,
+        "orders": [{"status": s, "count": n, "total": total, "reseller_cost": cost} for s, n, total, cost in rows],
+    }
 
 
 # ---------------- store-owned payment destination ----------------
 @router.get("/stores/{store_id}/reseller/payment-config")
 async def get_payment_config(ctx: OwnerCtx, session: Session):
     rows = (await session.scalars(select(StorePaymentConfiguration).where(StorePaymentConfiguration.store_id == ctx.store.id))).all()
-    return [{"provider": r.provider, "is_enabled": r.is_enabled, "public_config": r.public_config, "has_secret": bool(r.secret_enc)} for r in rows]
+    return [
+        {"provider": r.provider, "is_enabled": r.is_enabled, "public_config": r.public_config, "has_secret": bool(r.secret_enc)}
+        for r in rows
+    ]
 
 
 @router.put("/stores/{store_id}/reseller/payment-config/{provider}")
 async def put_payment_config(provider: str, body: PaymentConfigIn, ctx: OwnerCtx, session: Session):
     from melorin.modules.payments.adapters.registry import get_adapter
+
     get_adapter(provider)
-    row = await session.scalar(select(StorePaymentConfiguration).where(StorePaymentConfiguration.store_id == ctx.store.id, StorePaymentConfiguration.provider == provider))
+    row = await session.scalar(
+        select(StorePaymentConfiguration).where(
+            StorePaymentConfiguration.store_id == ctx.store.id, StorePaymentConfiguration.provider == provider
+        )
+    )
     if not row:
         row = StorePaymentConfiguration(store_id=ctx.store.id, provider=provider)
         session.add(row)
     row.is_enabled, row.public_config, row.updated_by = body.is_enabled, body.public_config, ctx.user.id
     if body.secret is not None:
         row.secret_enc = encrypt(json.dumps(body.secret))
-    audit.record(session, "store.payment_config_updated", actor_id=ctx.user.id, actor_type="reseller", entity_type="store", entity_id=ctx.store.id, store_id=ctx.store.id, data={"provider": provider, "enabled": body.is_enabled, "secret_changed": body.secret is not None})
+    audit.record(
+        session,
+        "store.payment_config_updated",
+        actor_id=ctx.user.id,
+        actor_type="reseller",
+        entity_type="store",
+        entity_id=ctx.store.id,
+        store_id=ctx.store.id,
+        data={"provider": provider, "enabled": body.is_enabled, "secret_changed": body.secret is not None},
+    )
     await session.commit()
     return {"ok": True}
 
@@ -334,7 +503,9 @@ async def review_store_payment(payment_id: uuid.UUID, body: PaymentReview, ctx: 
 # ---------------- Reseller API credentials ----------------
 @router.get("/stores/{store_id}/reseller/api-credentials")
 async def list_credentials(ctx: OwnerCtx, session: Session):
-    rows = (await session.scalars(select(ApiCredential).where(ApiCredential.store_id == ctx.store.id).order_by(ApiCredential.created_at.desc()))).all()
+    rows = (
+        await session.scalars(select(ApiCredential).where(ApiCredential.store_id == ctx.store.id).order_by(ApiCredential.created_at.desc()))
+    ).all()
     return [api_keys.out(c) for c in rows]
 
 
@@ -371,7 +542,15 @@ async def create_webhook(body: WebhookEndpointIn, ctx: OwnerCtx, session: Sessio
 @router.patch("/stores/{store_id}/reseller/webhooks/{endpoint_id}")
 async def patch_webhook(endpoint_id: uuid.UUID, body: WebhookEndpointPatch, ctx: OwnerCtx, session: Session):
     ep = await webhooks.get_endpoint(session, ctx.store.id, endpoint_id)
-    ep = await webhooks.update_endpoint(session, ep, url=str(body.url) if body.url else None, events=body.events, description=body.description, status=body.status, actor_id=ctx.user.id)
+    ep = await webhooks.update_endpoint(
+        session,
+        ep,
+        url=str(body.url) if body.url else None,
+        events=body.events,
+        description=body.description,
+        status=body.status,
+        actor_id=ctx.user.id,
+    )
     return webhooks.endpoint_out(ep)
 
 
@@ -408,6 +587,7 @@ async def test_webhook(endpoint_id: uuid.UUID, ctx: OwnerCtx, session: Session):
     d = await webhooks.enqueue_test(session, ep)
     return {"ok": True, "delivery_id": d.id}
 
+
 # ---------------- Versioned reseller API ----------------
 
 
@@ -429,26 +609,62 @@ async def api_catalog(store_id: uuid.UUID, session: Session, x_api_key: str = He
     _, ctx = await _api_ctx(session, store_id, x_api_key, "catalog:read")
     rows = await allocation.sellable_products_priced(session, ctx.store)
     own = await allocation.store_bundle_prices(session, ctx.store.id)
-    return [{"product_id": p.id, "code": p.code, "name": p.name, "price": price, "currency": ctx.store.currency, "duration_days": p.duration_days, "traffic_gb": p.traffic_gb,
-             "bundle_prices": [{"bundle_id": gid, "price": v} for (gid, pid), v in own.items() if pid == p.id]} for p, sp, price in rows]
+    return [
+        {
+            "product_id": p.id,
+            "code": p.code,
+            "name": p.name,
+            "price": price,
+            "currency": ctx.store.currency,
+            "duration_days": p.duration_days,
+            "traffic_gb": p.traffic_gb,
+            "bundle_prices": [{"bundle_id": gid, "price": v} for (gid, pid), v in own.items() if pid == p.id],
+        }
+        for p, sp, price in rows
+    ]
 
 
 @api_router.get("/stores/{store_id}/customers")
 async def api_customers(store_id: uuid.UUID, session: Session, x_api_key: str = Header(..., alias="X-API-Key")):
     _, ctx = await _api_ctx(session, store_id, x_api_key, "customers:read")
-    q = select(User, StoreMembership).join(StoreMembership, StoreMembership.user_id == User.id).where(StoreMembership.store_id == ctx.store.id, StoreMembership.role == "customer")
-    return [CustomerOut(user_id=u.id, display_name=u.display_name, email=u.email, status=m.status, joined_at=m.created_at) for u, m in (await session.execute(q)).all()]
+    q = (
+        select(User, StoreMembership)
+        .join(StoreMembership, StoreMembership.user_id == User.id)
+        .where(StoreMembership.store_id == ctx.store.id, StoreMembership.role == "customer")
+    )
+    return [
+        CustomerOut(user_id=u.id, display_name=u.display_name, email=u.email, status=m.status, joined_at=m.created_at)
+        for u, m in (await session.execute(q)).all()
+    ]
 
 
 @api_router.get("/stores/{store_id}/orders")
 async def api_orders(store_id: uuid.UUID, session: Session, x_api_key: str = Header(..., alias="X-API-Key")):
     _, ctx = await _api_ctx(session, store_id, x_api_key, "orders:read")
     rows = (await session.scalars(select(Order).where(Order.store_id == ctx.store.id).order_by(Order.created_at.desc()).limit(200))).all()
-    return [{"id": o.id, "number": o.number, "user_id": o.user_id, "product_id": o.product_id, "status": o.status, "total": o.total, "currency": o.currency, "created_at": o.created_at} for o in rows]
+    return [
+        {
+            "id": o.id,
+            "number": o.number,
+            "user_id": o.user_id,
+            "product_id": o.product_id,
+            "status": o.status,
+            "total": o.total,
+            "currency": o.currency,
+            "created_at": o.created_at,
+        }
+        for o in rows
+    ]
 
 
 @api_router.post("/stores/{store_id}/customers/{customer_id}/wallet")
-async def api_customer_wallet(store_id: uuid.UUID, customer_id: uuid.UUID, body: CustomerWalletAdjustment, session: Session, x_api_key: str = Header(..., alias="X-API-Key")):
+async def api_customer_wallet(
+    store_id: uuid.UUID,
+    customer_id: uuid.UUID,
+    body: CustomerWalletAdjustment,
+    session: Session,
+    x_api_key: str = Header(..., alias="X-API-Key"),
+):
     _, ctx = await _api_ctx(session, store_id, x_api_key, "customers:wallet:write")
     return await adjust_customer_wallet_core(session, ctx, customer_id, body, actor_type="api")
 
@@ -456,5 +672,15 @@ async def api_customer_wallet(store_id: uuid.UUID, customer_id: uuid.UUID, body:
 @api_router.get("/stores/{store_id}/reports")
 async def api_reports(store_id: uuid.UUID, session: Session, x_api_key: str = Header(..., alias="X-API-Key")):
     _, ctx = await _api_ctx(session, store_id, x_api_key, "reports:read")
-    rows = (await session.execute(select(Order.status, func.count(), func.coalesce(func.sum(Order.total), 0)).where(Order.store_id == ctx.store.id).group_by(Order.status))).all()
-    return {"store_id": ctx.store.id, "currency": ctx.store.currency, "orders": [{"status": s, "count": n, "total": total} for s, n, total in rows]}
+    rows = (
+        await session.execute(
+            select(Order.status, func.count(), func.coalesce(func.sum(Order.total), 0))
+            .where(Order.store_id == ctx.store.id)
+            .group_by(Order.status)
+        )
+    ).all()
+    return {
+        "store_id": ctx.store.id,
+        "currency": ctx.store.currency,
+        "orders": [{"status": s, "count": n, "total": total} for s, n, total in rows],
+    }

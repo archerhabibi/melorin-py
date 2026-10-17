@@ -1,4 +1,5 @@
 """The reseller sets its own retail prices from its Telegram bot; the core enforces the cost floor. Telegram + Core mocked."""
+
 import asyncio
 import importlib.util
 import json
@@ -31,7 +32,9 @@ class Fake:
         if path == "/api/v1/auth/telegram/bot":
             return httpx.Response(200, json={"access_token": "A", "refresh_token": "R"})
         if path == "/api/v1/stores/s1/reseller/prices" and request.method == "GET":
-            return httpx.Response(200, json=[{"product_id": PID, "name": "Pkg", "customer_price": None, "cost_floor": 20000, "state": "unset"}])
+            return httpx.Response(
+                200, json=[{"product_id": PID, "name": "Pkg", "customer_price": None, "cost_floor": 20000, "state": "unset"}]
+            )
         if path == f"/api/v1/stores/s1/reseller/prices/{PID}":
             if self.reject:
                 return httpx.Response(422, json={"error": {"code": "CUSTOMER_PRICE_BELOW_COST", "message": "کمتر از قیمت همکاری است"}})
@@ -41,8 +44,14 @@ class Fake:
 
 @pytest.fixture
 def bot(tmp_path, monkeypatch):
-    for k, v in {"MELORIN_TELEGRAM_TOKEN": "tok", "MELORIN_TELEGRAM_RESELLER_TOKEN": "tok", "MELORIN_CORE_URL": "http://core", "MELORIN_BOT_SERVICE_SECRET": "sek", "MELORIN_STORE_SLUG": "shop",
-                 "MELORIN_TELEGRAM_OFFSET_FILE": str(tmp_path / "off.json")}.items():
+    for k, v in {
+        "MELORIN_TELEGRAM_TOKEN": "tok",
+        "MELORIN_TELEGRAM_RESELLER_TOKEN": "tok",
+        "MELORIN_CORE_URL": "http://core",
+        "MELORIN_BOT_SERVICE_SECRET": "sek",
+        "MELORIN_STORE_SLUG": "shop",
+        "MELORIN_TELEGRAM_OFFSET_FILE": str(tmp_path / "off.json"),
+    }.items():
         monkeypatch.setenv(k, v)
     spec = importlib.util.spec_from_file_location("tg_reseller", ROOT / "telegram-reseller/runner.py")
     mod = importlib.util.module_from_spec(spec)
@@ -57,7 +66,15 @@ def send(r, data=None, text=None):
     r.n += 1
     chat = {"id": 9}
     if data:
-        u = {"update_id": r.n, "callback_query": {"id": f"c{r.n}", "from": {"id": 7, "first_name": "A"}, "data": data, "message": {"chat": chat, "message_id": 5}}}
+        u = {
+            "update_id": r.n,
+            "callback_query": {
+                "id": f"c{r.n}",
+                "from": {"id": 7, "first_name": "A"},
+                "data": data,
+                "message": {"chat": chat, "message_id": 5},
+            },
+        }
     else:
         u = {"update_id": r.n, "message": {"chat": chat, "from": {"id": 7, "first_name": "A"}, "text": text}}
     asyncio.run(r.handle(u))
@@ -95,13 +112,36 @@ def _bundled(fake):
     def handler(request):
         if request.url.path == "/api/v1/stores/s1/reseller/prices" and request.method == "GET":
             fake.calls.append(("GET", request.url.path, None))
-            return httpx.Response(200, json=[{"product_id": PID, "name": "Pkg", "customer_price": 30000, "cost_floor": 20000, "state": "ok", "bundles": [
-                {"bundle_id": BUNDLE, "bundle_name": "Direct", "kind_label": "مستقیم", "cost": 20000, "price": None, "effective_price": 30000, "source": "store", "state": "ok"}]}])
+            return httpx.Response(
+                200,
+                json=[
+                    {
+                        "product_id": PID,
+                        "name": "Pkg",
+                        "customer_price": 30000,
+                        "cost_floor": 20000,
+                        "state": "ok",
+                        "bundles": [
+                            {
+                                "bundle_id": BUNDLE,
+                                "bundle_name": "Direct",
+                                "kind_label": "مستقیم",
+                                "cost": 20000,
+                                "price": None,
+                                "effective_price": 30000,
+                                "source": "store",
+                                "state": "ok",
+                            }
+                        ],
+                    }
+                ],
+            )
         if request.url.path == f"/api/v1/stores/s1/reseller/bundles/{BUNDLE}/prices/{PID}":
             js = json.loads(request.content)
             fake.calls.append((request.method, request.url.path, js))
             return httpx.Response(200, json={"ok": True, "customer_price": js["customer_price"] or None})
         return orig(request)
+
     return handler
 
 

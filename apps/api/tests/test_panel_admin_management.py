@@ -26,8 +26,13 @@ async def session(tmp_path, monkeypatch):
 
 
 def _sanaei(**over):
-    body = dict(name="DE-1", kind="sanaei", base_url="https://p.example.com:2053/x", credentials={"api_token": "t0k"},
-                config={"inbound_ids": [1], "sub_base_url": "https://sub.example.com:2096/sub"})
+    body = dict(
+        name="DE-1",
+        kind="sanaei",
+        base_url="https://p.example.com:2053/x",
+        credentials={"api_token": "t0k"},
+        config={"inbound_ids": [1], "sub_base_url": "https://sub.example.com:2096/sub"},
+    )
     body.update(over)
     return CreatePanel(**body)
 
@@ -36,7 +41,11 @@ async def test_pasarguard_create_requires_credentials_but_edit_may_omit_them(ses
     cfg = {"group_ids": [1]}
     with pytest.raises(AppError):
         await r.create_panel(CreatePanel(name="PG", kind="pasarguard", base_url="https://pg.example.com", config=cfg), ADMIN, session)
-    out = await r.create_panel(CreatePanel(name="PG", kind="pasarguard", base_url="https://pg.example.com", credentials={"api_key": "k"}, config=cfg), ADMIN, session)
+    out = await r.create_panel(
+        CreatePanel(name="PG", kind="pasarguard", base_url="https://pg.example.com", credentials={"api_key": "k"}, config=cfg),
+        ADMIN,
+        session,
+    )
     assert out.has_credentials is True and out.config == cfg
     # editing without re-sending the secret must validate and keep the stored one
     await r.update_panel(out.id, CreatePanel(name="PG2", kind="pasarguard", base_url="https://pg.example.com", config=cfg), ADMIN, session)
@@ -74,4 +83,5 @@ async def test_enable_disable_is_idempotent_and_listed(session):
 
 def test_panel_out_never_exposes_secrets():
     from melorin.modules.admin.schemas import PanelOut
+
     assert "credentials" not in PanelOut.model_fields and "credentials_enc" not in PanelOut.model_fields

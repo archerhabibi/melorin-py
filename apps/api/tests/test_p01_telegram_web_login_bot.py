@@ -1,4 +1,5 @@
 """Telegram side of the website login (bot runner, Telegram and Core mocked) plus frontend/doc contracts."""
+
 import asyncio
 import importlib.util
 import json
@@ -44,8 +45,21 @@ class Fake:
             assert request.headers["x-bot-secret"] == "sek"
         if path.endswith("/web/bot/inspect"):
             if self.inspect_status != 200:
-                return httpx.Response(self.inspect_status, json={"error": {"code": "SESSION_CLOSED", "message": "این درخواست ورود دیگر معتبر نیست."}})
-            return httpx.Response(200, json={"status": "scanned", "device": "Chrome · Windows", "ip": "203.0.113.7", "age_seconds": 12, "expires_in": 150, "number_match": True, "choices": ["47", "12", "83"]})
+                return httpx.Response(
+                    self.inspect_status, json={"error": {"code": "SESSION_CLOSED", "message": "این درخواست ورود دیگر معتبر نیست."}}
+                )
+            return httpx.Response(
+                200,
+                json={
+                    "status": "scanned",
+                    "device": "Chrome · Windows",
+                    "ip": "203.0.113.7",
+                    "age_seconds": 12,
+                    "expires_in": 150,
+                    "number_match": True,
+                    "choices": ["47", "12", "83"],
+                },
+            )
         if path.endswith("/web/bot/decide"):
             return httpx.Response(200, json=self.decide_reply)
         return httpx.Response(404, json={})
@@ -53,7 +67,12 @@ class Fake:
 
 @pytest.fixture
 def bot(tmp_path, monkeypatch):
-    for k, v in {"MELORIN_TELEGRAM_TOKEN": "tok", "MELORIN_CORE_URL": "http://core", "MELORIN_BOT_SERVICE_SECRET": "sek", "MELORIN_TELEGRAM_OFFSET_FILE": str(tmp_path / "o.json")}.items():
+    for k, v in {
+        "MELORIN_TELEGRAM_TOKEN": "tok",
+        "MELORIN_CORE_URL": "http://core",
+        "MELORIN_BOT_SERVICE_SECRET": "sek",
+        "MELORIN_TELEGRAM_OFFSET_FILE": str(tmp_path / "o.json"),
+    }.items():
         monkeypatch.setenv(k, v)
     r, fake = load("tg_main_p01", "telegram-main/runner.py").TelegramRunner(), Fake()
     r.client = httpx.AsyncClient(transport=httpx.MockTransport(fake.handler))
@@ -61,11 +80,22 @@ def bot(tmp_path, monkeypatch):
 
 
 def start_msg(arg):
-    return {"update_id": 1, "message": {"chat": {"id": 9}, "from": {"id": 7, "first_name": "Ali", "username": "ali"}, "text": f"/start {arg}"}}
+    return {
+        "update_id": 1,
+        "message": {"chat": {"id": 9}, "from": {"id": 7, "first_name": "Ali", "username": "ali"}, "text": f"/start {arg}"},
+    }
 
 
 def tap(data, uid=2):
-    return {"update_id": uid, "callback_query": {"id": f"cb{uid}", "from": {"id": 7, "first_name": "Ali"}, "data": data, "message": {"chat": {"id": 9}, "message_id": 55}}}
+    return {
+        "update_id": uid,
+        "callback_query": {
+            "id": f"cb{uid}",
+            "from": {"id": 7, "first_name": "Ali"},
+            "data": data,
+            "message": {"chat": {"id": 9}, "message_id": 55},
+        },
+    }
 
 
 def last(fake, method):
@@ -140,7 +170,13 @@ def test_normal_start_and_link_flows_are_unchanged(bot):
 
 
 def test_reseller_bot_inherits_the_flow_and_binds_its_own_store(tmp_path, monkeypatch):
-    for k, v in {"MELORIN_TELEGRAM_RESELLER_TOKEN": "rt", "MELORIN_CORE_URL": "http://core", "MELORIN_BOT_SERVICE_SECRET": "sek", "MELORIN_STORE_SLUG": "shop1", "MELORIN_TELEGRAM_OFFSET_FILE": str(tmp_path / "o.json")}.items():
+    for k, v in {
+        "MELORIN_TELEGRAM_RESELLER_TOKEN": "rt",
+        "MELORIN_CORE_URL": "http://core",
+        "MELORIN_BOT_SERVICE_SECRET": "sek",
+        "MELORIN_STORE_SLUG": "shop1",
+        "MELORIN_TELEGRAM_OFFSET_FILE": str(tmp_path / "o.json"),
+    }.items():
         monkeypatch.setenv(k, v)
     r = load("tg_res_p01", "telegram-reseller/runner.py").ResellerTelegramRunner()
     seen = []
@@ -149,7 +185,18 @@ def test_reseller_bot_inherits_the_flow_and_binds_its_own_store(tmp_path, monkey
         seen.append((request.url.path, json.loads(request.content) if request.content else {}))
         if request.url.path.startswith("/api/v1/stores/by-slug/"):
             return httpx.Response(200, json={"id": "reseller-store", "name": "Shop"})
-        return httpx.Response(200, json={"status": "scanned", "device": "d", "ip": "1.1.1.1", "age_seconds": 1, "expires_in": 100, "number_match": True, "choices": ["10", "20", "30"]})
+        return httpx.Response(
+            200,
+            json={
+                "status": "scanned",
+                "device": "d",
+                "ip": "1.1.1.1",
+                "age_seconds": 1,
+                "expires_in": 100,
+                "number_match": True,
+                "choices": ["10", "20", "30"],
+            },
+        )
 
     r.client = httpx.AsyncClient(transport=httpx.MockTransport(h))
     r.tg = lambda method, payload: asyncio.sleep(0)  # no Telegram network
@@ -180,5 +227,5 @@ def test_migration_and_model_agree_and_worker_cleans_up():
 
     assert {c.name for c in TelegramLoginSession.__table__.columns} <= {c for c in __import__("re").findall(r'sa\.Column\("(\w+)"', mig)}
     arq = (API / "melorin/worker/arq_app.py").read_text()
-    assert "cron(telegram_login_gc_job" in arq and "telegram_login_gc_job]" in arq
+    assert "cron(telegram_login_gc_job" in arq and "telegram_login_gc_job,\n    ]" in arq  # formatter-stable (trailing comma)
     assert "telegram_web_router" in (API / "melorin/app.py").read_text()

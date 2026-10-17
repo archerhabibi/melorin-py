@@ -17,7 +17,7 @@ def test_reseller_application_is_store_scoped():
 
 def test_reseller_purchase_keeps_customer_and_credit_wallets_separate():
     source = (ROOT / "melorin/modules/orders/service.py").read_text()
-    assert 'wallet.get_wallet(session, order.user_id, store.id' in source
+    assert "wallet.get_wallet(session, order.user_id, store.id" in source
     assert 'kind="reseller_credit"' in source
     assert "await wallet.lock_wallets(session, to_lock)" in source
     assert "order.reseller_cost" in source

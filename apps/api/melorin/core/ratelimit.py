@@ -4,6 +4,7 @@ Redis is the coordination store, but a short Redis outage must not turn the
 login endpoint into a global 429. The fallback is process-local, bounded and
 observable; production can disable it explicitly with fail_closed.
 """
+
 import time
 from collections import defaultdict
 
@@ -35,7 +36,7 @@ async def hit(key: str, limit: int, window: int) -> bool:
             # Redis-py pipelines execute INCR and EXPIRE as one Redis
             # transaction, so a crash cannot leave an immortal rate-limit key.
             async with r.pipeline(transaction=True) as pipe:
-                n, _ = await (pipe.incr(k).expire(k, window).execute())
+                n, _ = await pipe.incr(k).expire(k, window).execute()
             _redis_degraded = False
             return n <= limit
         except Exception:  # Redis down must not take auth down

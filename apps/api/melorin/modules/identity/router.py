@@ -11,9 +11,27 @@ from melorin.core.security import new_opaque_token, totp_counter, totp_new_secre
 from melorin.modules.identity import service
 from melorin.modules.identity.models import Identity, User
 from melorin.modules.identity.schemas import (
-    AdminPasswordChange, EmailCodeRequest, EmailCodeVerify, GoogleLink, GoogleLogin, IdentityOut, LinkCodeOut, MeOut, MeUpdate, PasswordLogin,
-    RefreshRequest, SetPassword, TelegramBotLogin, TelegramLink, TelegramWebAppLogin, TokenPair, TotpEnable, TotpSetupOut,
-    WebHandoffIn, WebHandoffOut, WebHandoffRedeem,
+    AdminPasswordChange,
+    EmailCodeRequest,
+    EmailCodeVerify,
+    GoogleLink,
+    GoogleLogin,
+    IdentityOut,
+    LinkCodeOut,
+    MeOut,
+    MeUpdate,
+    PasswordLogin,
+    RefreshRequest,
+    SetPassword,
+    TelegramBotLogin,
+    TelegramLink,
+    TelegramWebAppLogin,
+    TokenPair,
+    TotpEnable,
+    TotpSetupOut,
+    WebHandoffIn,
+    WebHandoffOut,
+    WebHandoffRedeem,
 )
 from melorin.modules.referral import service as referral
 from melorin.modules.stores.models import Store, StoreMembership
@@ -110,8 +128,13 @@ async def google_nonce(response: Response):
     nonce = new_opaque_token(24)
     response.headers["Cache-Control"] = "no-store"
     response.set_cookie(
-        GOOGLE_NONCE_COOKIE, nonce, httponly=True, secure=not get_settings().is_dev, samesite="lax",
-        max_age=GOOGLE_NONCE_TTL, path=GOOGLE_NONCE_PATH,
+        GOOGLE_NONCE_COOKIE,
+        nonce,
+        httponly=True,
+        secure=not get_settings().is_dev,
+        samesite="lax",
+        max_age=GOOGLE_NONCE_TTL,
+        path=GOOGLE_NONCE_PATH,
     )
     return {"nonce": nonce}
 
@@ -162,7 +185,10 @@ async def telegram_webapp(body: TelegramWebAppLogin, session: Session):
     tg = service.verify_telegram_webapp(body.init_data, token)
     from melorin.modules.identity.schemas import TelegramProfile
 
-    user, created = await service.login_with_telegram(session, TelegramProfile(telegram_id=tg["id"], first_name=tg.get("first_name"), last_name=tg.get("last_name"), username=tg.get("username")))
+    user, created = await service.login_with_telegram(
+        session,
+        TelegramProfile(telegram_id=tg["id"], first_name=tg.get("first_name"), last_name=tg.get("last_name"), username=tg.get("username")),
+    )
     await _after_signup(session, user, created, body.store_id, None)
     pair = await service.issue_tokens(session, user)
     await session.commit()
@@ -219,9 +245,22 @@ async def logout(body: RefreshRequest, request: Request, response: Response, ses
 # ---------------- /me ----------------
 def _me_out(u: User) -> MeOut:
     return MeOut(
-        id=u.id, display_name=u.display_name, email=u.email, is_admin=u.is_super_admin, is_guest=u.is_guest,
-        totp_enabled=u.totp_enabled, referral_code=u.referral_code,
-        identities=[IdentityOut(id=i.id, provider=i.provider, subject=i.subject if i.provider != "telegram" else i.subject, verified=i.verified_at is not None) for i in u.identities],
+        id=u.id,
+        display_name=u.display_name,
+        email=u.email,
+        is_admin=u.is_super_admin,
+        is_guest=u.is_guest,
+        totp_enabled=u.totp_enabled,
+        referral_code=u.referral_code,
+        identities=[
+            IdentityOut(
+                id=i.id,
+                provider=i.provider,
+                subject=i.subject if i.provider != "telegram" else i.subject,
+                verified=i.verified_at is not None,
+            )
+            for i in u.identities
+        ],
     )
 
 
@@ -242,7 +281,13 @@ async def update_me(body: MeUpdate, user: CurrentUser, session: Session):
 
 @me.get("/stores")
 async def my_stores(user: CurrentUser, session: Session):
-    rows = (await session.execute(select(Store, StoreMembership).join(StoreMembership, StoreMembership.store_id == Store.id).where(StoreMembership.user_id == user.id))).all()
+    rows = (
+        await session.execute(
+            select(Store, StoreMembership)
+            .join(StoreMembership, StoreMembership.store_id == Store.id)
+            .where(StoreMembership.user_id == user.id)
+        )
+    ).all()
     return [{"id": s.id, "name": s.name, "kind": s.kind, "slug": s.slug, "role": m.role} for s, m in rows]
 
 

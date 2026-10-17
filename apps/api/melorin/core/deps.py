@@ -1,4 +1,5 @@
 """Authentication, authorization and StoreContext resolution. Enforced in Core, never trusted from UI."""
+
 import hmac
 import ipaddress
 import uuid
@@ -24,9 +25,7 @@ bearer = HTTPBearer(auto_error=False)
 Session = Annotated[AsyncSession, Depends(get_session)]
 
 
-async def optional_user(
-    session: Session, creds: HTTPAuthorizationCredentials | None = Depends(bearer)
-) -> User | None:
+async def optional_user(session: Session, creds: HTTPAuthorizationCredentials | None = Depends(bearer)) -> User | None:
     if not creds:
         return None
     try:
@@ -105,9 +104,7 @@ async def resolve_store_context(session: AsyncSession, store_id: uuid.UUID, user
         raise AppError("NOT_FOUND", "فروشگاه یافت نشد.", 404)
     if store.status != "active" and not user.is_super_admin and store.owner_user_id != user.id:
         raise AppError("STORE_SUSPENDED", "این فروشگاه موقتاً غیرفعال است.", 403)
-    m = await session.scalar(
-        select(StoreMembership).where(StoreMembership.store_id == store.id, StoreMembership.user_id == user.id)
-    )
+    m = await session.scalar(select(StoreMembership).where(StoreMembership.store_id == store.id, StoreMembership.user_id == user.id))
     if m is None:
         # Joining a store is implicit on first use (customer). Identity stays central.
         m = StoreMembership(store_id=store.id, user_id=user.id, role="owner" if store.owner_user_id == user.id else "customer")

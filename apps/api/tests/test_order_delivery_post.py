@@ -1,4 +1,5 @@
 """One delivery post after a wallet purchase: QR photo + subscription link + wallet balance."""
+
 import types
 import uuid
 
@@ -57,21 +58,44 @@ async def _seed(s, *, link=SUB, total=100_000, balance_after=400_000, kind="purc
     if with_telegram:
         s.add(Identity(user_id=user.id, provider="telegram", subject="555"))
     store_id = uuid.uuid4()
-    order = Order(number="AB23CD", user_id=user.id, store_id=store_id, product_id=uuid.uuid4(), kind=kind, status="completed",
-                  payment_method="wallet", currency="IRT", unit_price=total, total=total, pricing_snapshot={},
-                  product_snapshot={"name": "۳۰ روزه ۵۰ گیگ"})
+    order = Order(
+        number="AB23CD",
+        user_id=user.id,
+        store_id=store_id,
+        product_id=uuid.uuid4(),
+        kind=kind,
+        status="completed",
+        payment_method="wallet",
+        currency="IRT",
+        unit_price=total,
+        total=total,
+        pricing_snapshot={},
+        product_snapshot={"name": "۳۰ روزه ۵۰ گیگ"},
+    )
     s.add(order)
     await s.flush()
-    acc = VpnAccount(username="m_ab23cd", user_id=user.id, store_id=store_id, order_id=order.id, product_id=order.product_id,
-                     status="active", subscription_url=link, traffic_limit_bytes=50 * 1024**3)
+    acc = VpnAccount(
+        username="m_ab23cd",
+        user_id=user.id,
+        store_id=store_id,
+        order_id=order.id,
+        product_id=order.product_id,
+        status="active",
+        subscription_url=link,
+        traffic_limit_bytes=50 * 1024**3,
+    )
     s.add(acc)
     await s.flush()
     order.vpn_account_id = acc.id
     if total:
-        w = Wallet(user_id=user.id, store_id=store_id, kind="customer", currency="IRT", balance=balance_after + 5)  # current != after-payment
+        w = Wallet(
+            user_id=user.id, store_id=store_id, kind="customer", currency="IRT", balance=balance_after + 5
+        )  # current != after-payment
         s.add(w)
         await s.flush()
-        tx = LedgerTransaction(kind="purchase", idempotency_key=f"order:{order.id}:payment", store_id=store_id, order_id=order.id, currency="IRT")
+        tx = LedgerTransaction(
+            kind="purchase", idempotency_key=f"order:{order.id}:payment", store_id=store_id, order_id=order.id, currency="IRT"
+        )
         s.add(tx)
         await s.flush()
         s.add(LedgerEntry(transaction_id=tx.id, account=f"wallet:{w.id}", wallet_id=w.id, amount=-total, balance_after=balance_after))
@@ -83,12 +107,12 @@ async def test_single_photo_post_has_qr_link_and_balance(session, tg):
     order = await _seed(session)
     assert await delivery.deliver_order(session, order.id) == "sent"
 
-    assert len(tg["photo"]) == 1 and tg["message"] == []          # ONE post, no extra message
+    assert len(tg["photo"]) == 1 and tg["message"] == []  # ONE post, no extra message
     post = tg["photo"][0]
     assert post["chat_id"] == "555" and post["photo"][:4] == b"\x89PNG"
     cap = post["caption"]
-    assert SUB in cap                                              # subscription link
-    assert "400,000" in cap and "موجودی کیف پول" in cap            # balance right after the purchase (ledger), not the later one
+    assert SUB in cap  # subscription link
+    assert "400,000" in cap and "موجودی کیف پول" in cap  # balance right after the purchase (ledger), not the later one
     assert "AB23CD" in cap and len(cap) <= delivery.CAPTION_LIMIT
     assert post["parse_mode"] == "HTML"
 
@@ -152,6 +176,7 @@ async def test_overlong_link_never_exceeds_caption_limit(session, tg):
 async def test_provisioning_emits_delivery_event_not_generic_notice():
     import inspect
     from melorin.modules.vpn import service
+
     src = inspect.getsource(service.provision_order)
-    assert src.count("events.ORDER_DELIVERY") == 2          # normal path + reconcile path
+    assert src.count("events.ORDER_DELIVERY") == 2  # normal path + reconcile path
     assert "notify:account" not in src

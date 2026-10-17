@@ -58,7 +58,9 @@ async def store(s, kind="reseller"):
 
 
 async def product(s, code, price=30000, reseller=20000, **kw):
-    return await add(s, Product(code=code, name=code, duration_days=30, traffic_gb=30, main_price=price, reseller_price=reseller, currency="IRT", **kw))
+    return await add(
+        s, Product(code=code, name=code, duration_days=30, traffic_gb=30, main_price=price, reseller_price=reseller, currency="IRT", **kw)
+    )
 
 
 async def bundle(s, name, **kw):
@@ -189,15 +191,30 @@ async def test_price_table_lists_every_bundle_with_cost_price_source_and_state(s
     assert len(row["costs"]) == 4  # the legacy per-bundle cost list still names every bundle
     bundles = {x["bundle_name"]: x for x in row["bundles"]}
     assert set(bundles) == {"Cheap", "Dear"}  # disabled / not-for-resellers bundles are not worth pricing
-    assert (bundles["Cheap"]["cost"], bundles["Cheap"]["price"], bundles["Cheap"]["effective_price"], bundles["Cheap"]["source"], bundles["Cheap"]["state"]) == (20000, 25000, 25000, "bundle", "ok")
-    assert (bundles["Dear"]["cost"], bundles["Dear"]["price"], bundles["Dear"]["effective_price"], bundles["Dear"]["source"], bundles["Dear"]["state"]) == (40000, None, 45000, "store", "ok")
+    assert (
+        bundles["Cheap"]["cost"],
+        bundles["Cheap"]["price"],
+        bundles["Cheap"]["effective_price"],
+        bundles["Cheap"]["source"],
+        bundles["Cheap"]["state"],
+    ) == (20000, 25000, 25000, "bundle", "ok")
+    assert (
+        bundles["Dear"]["cost"],
+        bundles["Dear"]["price"],
+        bundles["Dear"]["effective_price"],
+        bundles["Dear"]["source"],
+        bundles["Dear"]["state"],
+    ) == (40000, None, 45000, "store", "ok")
     assert bundles["Dear"]["open_for_store"] is True
 
 
 async def test_price_table_marks_unset_and_below_cost_bundles(session):
     st, p, cheap, dear = await world(session)
     (row,) = await allocation.reseller_price_table(session, st)
-    assert {x["bundle_name"]: (x["state"], x["effective_price"], x["source"]) for x in row["bundles"]} == {"Cheap": ("unset", None, None), "Dear": ("unset", None, None)}
+    assert {x["bundle_name"]: (x["state"], x["effective_price"], x["source"]) for x in row["bundles"]} == {
+        "Cheap": ("unset", None, None),
+        "Dear": ("unset", None, None),
+    }
     sp = await sp_of(session, st, p)
     sp.customer_price = 30000  # loose store-wide price (e.g. set before the admin raised a cost)
     await session.flush()
@@ -260,7 +277,9 @@ async def test_batch_saves_store_wide_and_bundle_prices_together_and_reports_wha
 async def test_batch_is_all_or_nothing_and_lists_every_refused_item(session):
     st, p, cheap, dear = await world(session)
     with pytest.raises(AppError) as e:
-        await allocation.set_prices_batch(session, st, [(cheap.id, p.id, 27000), (dear.id, p.id, 30000), (cheap.id, p.id, 28000), (dear.id, uuid.uuid4(), 9)])
+        await allocation.set_prices_batch(
+            session, st, [(cheap.id, p.id, 27000), (dear.id, p.id, 30000), (cheap.id, p.id, 28000), (dear.id, uuid.uuid4(), 9)]
+        )
     err = e.value
     assert err.code == "PRICES_INVALID" and err.status == 422
     assert sorted(x["code"] for x in err.details["errors"]) == ["CUSTOMER_PRICE_BELOW_COST", "DUPLICATE_ITEM", "NOT_FOUND"]
@@ -279,12 +298,19 @@ async def test_endpoints_set_batch_and_audit_prices(session):
     ctx = ctx_of(st)
     out = await reseller_router.set_reseller_bundle_price(cheap.id, p.id, PriceIn(customer_price=28000), ctx, session)
     assert out == {"ok": True, "bundle_id": cheap.id, "product_id": p.id, "customer_price": 28000}
-    body = PriceBatchIn(items=[PriceBatchItem(bundle_id=dear.id, product_id=p.id, customer_price=44000), PriceBatchItem(bundle_id=None, product_id=p.id, customer_price=60000)])
+    body = PriceBatchIn(
+        items=[
+            PriceBatchItem(bundle_id=dear.id, product_id=p.id, customer_price=44000),
+            PriceBatchItem(bundle_id=None, product_id=p.id, customer_price=60000),
+        ]
+    )
     res = await reseller_router.set_reseller_prices_batch(body, ctx, session)
     assert res["ok"] and res["changed"] == 2
     (row,) = res["prices"]
     assert row["customer_price"] == 60000 and {x["bundle_name"]: x["price"] for x in row["bundles"]} == {"Cheap": 28000, "Dear": 44000}
-    events = (await session.scalars(sa.select(AuditEvent).where(AuditEvent.action.in_(("reseller.bundle_price_set", "reseller.price_set"))))).all()
+    events = (
+        await session.scalars(sa.select(AuditEvent).where(AuditEvent.action.in_(("reseller.bundle_price_set", "reseller.price_set"))))
+    ).all()
     assert sorted(e.action for e in events) == ["reseller.bundle_price_set", "reseller.bundle_price_set", "reseller.price_set"]
 
 
@@ -328,8 +354,14 @@ def test_migration_0020_follows_0019_and_matches_the_model():
         cols = {c["name"]: c for c in insp.get_columns("store_pool_prices")}
         assert set(cols) == {"id", "created_at", "updated_at", "store_id", "panel_group_id", "product_id", "customer_price"}
         assert not cols["customer_price"]["nullable"]
-        assert {i["name"] for i in insp.get_indexes("store_pool_prices")} == {"ix_store_pool_prices_store_id", "ix_store_pool_prices_panel_group_id", "ix_store_pool_prices_product_id"}
-        assert any(set(u["column_names"]) == {"store_id", "panel_group_id", "product_id"} for u in insp.get_unique_constraints("store_pool_prices"))
+        assert {i["name"] for i in insp.get_indexes("store_pool_prices")} == {
+            "ix_store_pool_prices_store_id",
+            "ix_store_pool_prices_panel_group_id",
+            "ix_store_pool_prices_product_id",
+        }
+        assert any(
+            set(u["column_names"]) == {"store_id", "panel_group_id", "product_id"} for u in insp.get_unique_constraints("store_pool_prices")
+        )
         with Operations.context(MigrationContext.configure(conn)):
             m.downgrade()
         assert "store_pool_prices" not in sa.inspect(conn).get_table_names()
@@ -357,7 +389,11 @@ def test_migration_0021_renames_pool_tables_to_bundles_keeping_data_and_matches_
         names = set(insp.get_table_names())
         assert {"bundle_products", "store_bundle_prices"} <= names and not {"pool_products", "store_pool_prices"} & names
         assert conn.exec_driver_sql("SELECT panel_group_id FROM bundle_products").fetchall() == [("g",)]
-        assert {i["name"] for i in insp.get_indexes("store_bundle_prices")} == {"ix_store_bundle_prices_store_id", "ix_store_bundle_prices_panel_group_id", "ix_store_bundle_prices_product_id"}
+        assert {i["name"] for i in insp.get_indexes("store_bundle_prices")} == {
+            "ix_store_bundle_prices_store_id",
+            "ix_store_bundle_prices_panel_group_id",
+            "ix_store_bundle_prices_product_id",
+        }
         assert "ix_bundle_products_panel_group_id" in {i["name"] for i in insp.get_indexes("bundle_products")}
         with Operations.context(MigrationContext.configure(conn)):
             m21.downgrade()

@@ -1,4 +1,5 @@
 """Shared ticket helpers used by the customer router and the admin router."""
+
 import uuid
 
 from sqlalchemy import func, select
@@ -14,15 +15,27 @@ EDIT_BODY_MAX = 10_000
 
 def ticket_out(t: Ticket) -> TicketOut:
     return TicketOut(
-        id=t.id, store_id=t.store_id, number=t.number, subject=t.subject, status=t.status,
-        priority=t.priority or "normal", department=t.department, created_at=t.created_at, updated_at=t.updated_at,
+        id=t.id,
+        store_id=t.store_id,
+        number=t.number,
+        subject=t.subject,
+        status=t.status,
+        priority=t.priority or "normal",
+        department=t.department,
+        created_at=t.created_at,
+        updated_at=t.updated_at,
     )
 
 
 def message_out(m: TicketMessage) -> TicketMessageOut:
     return TicketMessageOut(
-        id=m.id, author_id=m.author_id, is_staff=m.is_staff, is_internal=bool(m.is_internal),
-        body=m.body, created_at=m.created_at, edited_at=m.edited_at,
+        id=m.id,
+        author_id=m.author_id,
+        is_staff=m.is_staff,
+        is_internal=bool(m.is_internal),
+        body=m.body,
+        created_at=m.created_at,
+        edited_at=m.edited_at,
     )
 
 
@@ -37,7 +50,9 @@ async def message_counts(session: AsyncSession, ticket_ids: list[uuid.UUID]) -> 
     if not ticket_ids:
         return {}
     rows = await session.execute(
-        select(TicketMessage.ticket_id, func.count()).where(TicketMessage.ticket_id.in_(ticket_ids), TicketMessage.is_internal.is_(False)).group_by(TicketMessage.ticket_id)
+        select(TicketMessage.ticket_id, func.count())
+        .where(TicketMessage.ticket_id.in_(ticket_ids), TicketMessage.is_internal.is_(False))
+        .group_by(TicketMessage.ticket_id)
     )
     return {tid: n for tid, n in rows.all()}
 
@@ -53,7 +68,9 @@ async def last_messages(session: AsyncSession, ticket_ids: list[uuid.UUID]) -> d
         .subquery()
     )
     rows = await session.scalars(
-        select(TicketMessage).join(latest, (TicketMessage.ticket_id == latest.c.ticket_id) & (TicketMessage.created_at == latest.c.at)).where(TicketMessage.is_internal.is_(False))
+        select(TicketMessage)
+        .join(latest, (TicketMessage.ticket_id == latest.c.ticket_id) & (TicketMessage.created_at == latest.c.at))
+        .where(TicketMessage.is_internal.is_(False))
     )
     return {m.ticket_id: m for m in rows.all()}
 

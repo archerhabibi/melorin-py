@@ -1,4 +1,5 @@
 """Periodic jobs. Run from cron/scheduler: health, expiry, reconciliation, backup status."""
+
 import asyncio
 import datetime as dt
 import inspect
@@ -77,6 +78,7 @@ async def backup_job(ctx=None):
 async def panel_health_job(ctx=None):
     async with session_factory()() as s:
         from melorin.modules.vpn.adapters.registry import build_adapter
+
         panels = (await s.scalars(select(Panel).where(Panel.is_enabled.is_(True)))).all()
         for p in panels:
             adapter = None
@@ -99,10 +101,26 @@ async def panel_health_job(ctx=None):
 async def expiry_job(ctx=None):
     async with session_factory()() as s:
         now = utcnow()
-        accounts = (await s.scalars(select(VpnAccount).where(VpnAccount.status == "active", VpnAccount.expires_at.is_not(None), VpnAccount.expires_at <= now))).all()
+        accounts = (
+            await s.scalars(
+                select(VpnAccount).where(VpnAccount.status == "active", VpnAccount.expires_at.is_not(None), VpnAccount.expires_at <= now)
+            )
+        ).all()
         for a in accounts:
             a.status = "expired"
-            await events.emit(s, events.NOTIFY, {"user_id": a.user_id, "store_id": a.store_id, "kind": "vpn_expired", "title": "اکانت منقضی شد", "body": "اکانت VPN شما منقضی شده است.", "dedup_key": f"notify:expired:{a.id}"}, dedup_key=f"notify:expired:{a.id}")
+            await events.emit(
+                s,
+                events.NOTIFY,
+                {
+                    "user_id": a.user_id,
+                    "store_id": a.store_id,
+                    "kind": "vpn_expired",
+                    "title": "اکانت منقضی شد",
+                    "body": "اکانت VPN شما منقضی شده است.",
+                    "dedup_key": f"notify:expired:{a.id}",
+                },
+                dedup_key=f"notify:expired:{a.id}",
+            )
         await s.commit()
 
 
@@ -110,10 +128,31 @@ async def near_expiry_job(ctx=None):
     async with session_factory()() as s:
         hours = int(await settings_store.get(s, "vpn.near_expiry_hours") or 48)
         now, end = utcnow(), utcnow() + dt.timedelta(hours=hours)
-        accounts = (await s.scalars(select(VpnAccount).where(VpnAccount.status == "active", VpnAccount.near_expiry_notified.is_(False), VpnAccount.expires_at > now, VpnAccount.expires_at <= end))).all()
+        accounts = (
+            await s.scalars(
+                select(VpnAccount).where(
+                    VpnAccount.status == "active",
+                    VpnAccount.near_expiry_notified.is_(False),
+                    VpnAccount.expires_at > now,
+                    VpnAccount.expires_at <= end,
+                )
+            )
+        ).all()
         for a in accounts:
             a.near_expiry_notified = True
-            await events.emit(s, events.NOTIFY, {"user_id": a.user_id, "store_id": a.store_id, "kind": "vpn_near_expiry", "title": "انقضای اکانت نزدیک است", "body": "اکانت VPN شما به‌زودی منقضی می‌شود.", "dedup_key": f"notify:near-expiry:{a.id}"}, dedup_key=f"notify:near-expiry:{a.id}")
+            await events.emit(
+                s,
+                events.NOTIFY,
+                {
+                    "user_id": a.user_id,
+                    "store_id": a.store_id,
+                    "kind": "vpn_near_expiry",
+                    "title": "انقضای اکانت نزدیک است",
+                    "body": "اکانت VPN شما به‌زودی منقضی می‌شود.",
+                    "dedup_key": f"notify:near-expiry:{a.id}",
+                },
+                dedup_key=f"notify:near-expiry:{a.id}",
+            )
         await s.commit()
 
 

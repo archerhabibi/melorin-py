@@ -1,4 +1,5 @@
 """Referral and commission visibility/configuration endpoints."""
+
 import uuid
 
 from fastapi import APIRouter
@@ -25,18 +26,29 @@ class CommissionRuleIn(BaseModel):
 @router.get("/me/referrals")
 async def my_referrals(user: CurrentUser, session: Session):
     relationship = await session.scalar(select(ReferralRelationship).where(ReferralRelationship.referrer_user_id == user.id))
-    commissions = (await session.scalars(
-        select(Commission).where(Commission.referrer_user_id == user.id).order_by(Commission.created_at.desc()).limit(200)
-    )).all()
+    commissions = (
+        await session.scalars(
+            select(Commission).where(Commission.referrer_user_id == user.id).order_by(Commission.created_at.desc()).limit(200)
+        )
+    ).all()
     return {
         "referral_code": user.referral_code,
-        "referred_count": len((await session.scalars(
-            select(ReferralRelationship).where(ReferralRelationship.referrer_user_id == user.id)
-        )).all()),
+        "referred_count": len(
+            (await session.scalars(select(ReferralRelationship).where(ReferralRelationship.referrer_user_id == user.id))).all()
+        ),
         "first_relationship_store_id": relationship.store_id if relationship else None,
         "commissions": [
-            {"id": c.id, "store_id": c.store_id, "order_id": c.order_id, "kind": c.kind, "amount": c.amount,
-             "offset_amount": c.offset_amount, "reversed_amount": c.reversed_amount, "status": c.status, "currency": c.currency}
+            {
+                "id": c.id,
+                "store_id": c.store_id,
+                "order_id": c.order_id,
+                "kind": c.kind,
+                "amount": c.amount,
+                "offset_amount": c.offset_amount,
+                "reversed_amount": c.reversed_amount,
+                "status": c.status,
+                "currency": c.currency,
+            }
             for c in commissions
         ],
     }
@@ -50,11 +62,13 @@ async def list_rules(_: AdminUser, session: Session):
 
 @router.put("/admin/referral-rules")
 async def upsert_rule(body: CommissionRuleIn, admin: AdminUser, session: Session):
-    row = await session.scalar(select(CommissionRule).where(
-        CommissionRule.store_id == body.store_id,
-        CommissionRule.product_id == body.product_id,
-        CommissionRule.kind == body.kind,
-    ))
+    row = await session.scalar(
+        select(CommissionRule).where(
+            CommissionRule.store_id == body.store_id,
+            CommissionRule.product_id == body.product_id,
+            CommissionRule.kind == body.kind,
+        )
+    )
     if not row:
         row = CommissionRule(store_id=body.store_id, product_id=body.product_id, kind=body.kind)
         session.add(row)
@@ -64,4 +78,13 @@ async def upsert_rule(body: CommissionRuleIn, admin: AdminUser, session: Session
 
 
 def rule_out(r: CommissionRule) -> dict:
-    return {"id": r.id, "store_id": r.store_id, "product_id": r.product_id, "kind": r.kind, "model": r.model, "value": r.value, "max_amount": r.max_amount, "is_active": r.is_active}
+    return {
+        "id": r.id,
+        "store_id": r.store_id,
+        "product_id": r.product_id,
+        "kind": r.kind,
+        "model": r.model,
+        "value": r.value,
+        "max_amount": r.max_amount,
+        "is_active": r.is_active,
+    }

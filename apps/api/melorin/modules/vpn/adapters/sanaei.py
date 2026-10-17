@@ -39,6 +39,7 @@ Panel.config:
    "fetch_links": true, "verify_tls": true, "timeout": 15}
 Panel credentials (encrypted): {"api_token": "..."} or {"username": "...", "password": "..."}
 """
+
 import datetime as dt
 import json
 import secrets
@@ -54,8 +55,26 @@ _NOT_FOUND_MARKERS = ("record not found", "not found", "client not found", "no s
 _TEMPLATE_TTL = 300
 # Fields of 3x-ui's model.Client. /clients/update binds into this struct, so anything else
 # (numeric record id, createdAt, inboundIds, traffic, ...) must not be sent back.
-_CLIENT_FIELDS = ("id", "password", "auth", "security", "flow", "email", "limitIp", "limitHwid", "totalGB", "expiryTime",
-                  "enable", "tgId", "subId", "comment", "reset", "reverse", "group", "groupId")
+_CLIENT_FIELDS = (
+    "id",
+    "password",
+    "auth",
+    "security",
+    "flow",
+    "email",
+    "limitIp",
+    "limitHwid",
+    "totalGB",
+    "expiryTime",
+    "enable",
+    "tgId",
+    "subId",
+    "comment",
+    "reset",
+    "reverse",
+    "group",
+    "groupId",
+)
 
 
 def _classify(status: int) -> ErrorKind:
@@ -119,8 +138,14 @@ def clean_client(rec: dict) -> dict:
 class SanaeiAdapter:
     kind = "sanaei"
 
-    def __init__(self, base_url: str, credentials: dict, config: dict | None = None, timeout: float | None = None,
-                 transport: httpx.AsyncBaseTransport | None = None):
+    def __init__(
+        self,
+        base_url: str,
+        credentials: dict,
+        config: dict | None = None,
+        timeout: float | None = None,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ):
         base = (base_url or "").strip().rstrip("/")
         parts = urlsplit(base)
         if parts.scheme not in ("http", "https") or not parts.hostname:
@@ -168,8 +193,11 @@ class SanaeiAdapter:
         # Fail before writing: otherwise the client is created on the panel but the order rolls back
         # with no deliverable link, leaving an orphan on 3x-ui.
         if not (self.cfg.get("sub_base_url") or "").strip():
-            raise PanelError(ErrorKind.PERMANENT, "sanaei: config.sub_base_url is required (Settings -> Subscription: Sub Port + Sub Path, "
-                                                  "e.g. https://sub.example.com:2096/sub)")
+            raise PanelError(
+                ErrorKind.PERMANENT,
+                "sanaei: config.sub_base_url is required (Settings -> Subscription: Sub Port + Sub Path, "
+                "e.g. https://sub.example.com:2096/sub)",
+            )
 
     @staticmethod
     def _q(v: str) -> str:
@@ -181,8 +209,14 @@ class SanaeiAdapter:
             headers = {"Accept": "application/json", "X-Requested-With": "XMLHttpRequest"}
             if self.token:
                 headers["Authorization"] = f"Bearer {self.token}"
-            self._client = httpx.AsyncClient(base_url=self.base, timeout=self.timeout, follow_redirects=False, headers=headers,
-                                             verify=self.cfg.get("verify_tls", True), transport=self.transport)
+            self._client = httpx.AsyncClient(
+                base_url=self.base,
+                timeout=self.timeout,
+                follow_redirects=False,
+                headers=headers,
+                verify=self.cfg.get("verify_tls", True),
+                transport=self.transport,
+            )
         if not self.token and not self._logged_in:
             await self._login()
         return self._client
@@ -275,8 +309,16 @@ class SanaeiAdapter:
         else:
             status = "active"
         sub_id = c.get("subId") or traffic.get("subId")
-        return PanelAccount(ref=ref, username=c.get("email") or traffic.get("email") or "", status=status, expire_at=expire_at,
-                            traffic_limit_bytes=total, traffic_used_bytes=used, subscription_url=self._sub(sub_id), links=links or [])
+        return PanelAccount(
+            ref=ref,
+            username=c.get("email") or traffic.get("email") or "",
+            status=status,
+            expire_at=expire_at,
+            traffic_limit_bytes=total,
+            traffic_used_bytes=used,
+            subscription_url=self._sub(sub_id),
+            links=links or [],
+        )
 
     async def _links(self, email: str) -> list[str]:
         if not self.cfg.get("fetch_links", True):
@@ -321,8 +363,11 @@ class SanaeiAdapter:
         if not found:  # never cache a miss
             raise PanelError(ErrorKind.PERMANENT, f"sanaei: template client '{name}' not found on panel")
         rec, ids = found
-        tpl = {"inboundIds": self.inbound_ids or ids, "flow": self.cfg.get("flow", rec.get("flow") or ""),
-               "limitIp": _int(self.cfg.get("limit_ip", rec.get("limitIp")), 0)}
+        tpl = {
+            "inboundIds": self.inbound_ids or ids,
+            "flow": self.cfg.get("flow", rec.get("flow") or ""),
+            "limitIp": _int(self.cfg.get("limit_ip", rec.get("limitIp")), 0),
+        }
         self._template = (tpl, time.monotonic() + _TEMPLATE_TTL)
         return tpl
 
@@ -338,9 +383,20 @@ class SanaeiAdapter:
 
     # ------------------------------------------------------------------ legacy helpers
     def _legacy_client_obj(self, spec: AccountSpec, tpl: dict) -> dict:
-        return {"id": str(uuid.uuid4()), "password": secrets.token_urlsafe(12), "email": spec.username, "enable": True,
-                "flow": tpl.get("flow", ""), "limitIp": _int(spec.max_devices or tpl.get("limitIp"), 0), "totalGB": int(spec.traffic_bytes or 0),
-                "expiryTime": to_ms(spec.expire_at), "subId": secrets.token_hex(8), "tgId": 0, "reset": 0, "comment": (spec.note or "")[:200]}
+        return {
+            "id": str(uuid.uuid4()),
+            "password": secrets.token_urlsafe(12),
+            "email": spec.username,
+            "enable": True,
+            "flow": tpl.get("flow", ""),
+            "limitIp": _int(spec.max_devices or tpl.get("limitIp"), 0),
+            "totalGB": int(spec.traffic_bytes or 0),
+            "expiryTime": to_ms(spec.expire_at),
+            "subId": secrets.token_hex(8),
+            "tgId": 0,
+            "reset": 0,
+            "comment": (spec.note or "")[:200],
+        }
 
     async def _legacy_find(self, email: str) -> tuple[int, dict, dict] | None:
         for iid in self.inbound_ids or [1]:
@@ -366,8 +422,11 @@ class SanaeiAdapter:
         iid, c, _ = found
         c.update(changes)
         c["tgId"] = _int(c.get("tgId"), 0)
-        await self._req("POST", f"/panel/api/inbounds/updateClient/{self._q(self._legacy_cid(c))}",
-                        json={"id": iid, "settings": json.dumps({"clients": [c]})})
+        await self._req(
+            "POST",
+            f"/panel/api/inbounds/updateClient/{self._q(self._legacy_cid(c))}",
+            json={"id": iid, "settings": json.dumps({"clients": [c]})},
+        )
 
     # ------------------------------------------------------------------ PanelAdapter
     async def health_check(self) -> bool:
@@ -401,9 +460,17 @@ class SanaeiAdapter:
             if not tpl["inboundIds"]:
                 raise PanelError(ErrorKind.PERMANENT, "sanaei: no inbound configured (config.inbound_ids or template_username)")
             sub_id = secrets.token_hex(8)
-            client = {"email": spec.username, "enable": True, "totalGB": int(spec.traffic_bytes or 0), "expiryTime": to_ms(spec.expire_at),
-                      "limitIp": _int(spec.max_devices or tpl.get("limitIp"), 0), "tgId": 0, "subId": sub_id, "reset": 0,
-                      "comment": (spec.note or "")[:200]}
+            client = {
+                "email": spec.username,
+                "enable": True,
+                "totalGB": int(spec.traffic_bytes or 0),
+                "expiryTime": to_ms(spec.expire_at),
+                "limitIp": _int(spec.max_devices or tpl.get("limitIp"), 0),
+                "tgId": 0,
+                "subId": sub_id,
+                "reset": 0,
+                "comment": (spec.note or "")[:200],
+            }
             if tpl.get("flow"):
                 client["flow"] = tpl["flow"]
             await self._req("POST", "/panel/api/clients/add", json={"client": client, "inboundIds": tpl["inboundIds"]})

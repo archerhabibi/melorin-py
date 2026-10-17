@@ -222,6 +222,7 @@ class AttachExistingAccount(BaseModel):
 
 class BundleProductIn(BaseModel):
     """A package inside a bundle. A null price means "use the product's own price"."""
+
     main_price: int | None = Field(default=None, ge=0)
     reseller_price: int | None = Field(default=None, ge=0)
     is_listed: bool = True

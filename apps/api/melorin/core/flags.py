@@ -1,4 +1,5 @@
 """Emergency controls / maintenance. Nothing is hard-coded: flags live in DB and are audited."""
+
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,9 +15,7 @@ async def is_enabled(session: AsyncSession, key: str, *, store_id=None, channel:
         scopes.append((FeatureFlag.scope_type == "store") & (FeatureFlag.scope_id == str(store_id)))
     if channel:
         scopes.append((FeatureFlag.scope_type == "channel") & (FeatureFlag.scope_id == channel))
-    q = select(FeatureFlag.id).where(
-        FeatureFlag.key.in_([key, "system"]), FeatureFlag.enabled.is_(False), or_(*scopes)
-    )
+    q = select(FeatureFlag.id).where(FeatureFlag.key.in_([key, "system"]), FeatureFlag.enabled.is_(False), or_(*scopes))
     return (await session.scalar(q.limit(1))) is None
 
 

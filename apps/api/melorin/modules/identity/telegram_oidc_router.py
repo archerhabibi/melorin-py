@@ -3,6 +3,7 @@
 ``start`` and ``callback`` are top-level browser navigations, so every outcome - success or failure - ends in a redirect
 back to the storefront (``/#/dashboard`` or ``/?tg_error=<reason>``) instead of a JSON page.
 """
+
 import secrets
 import uuid
 from urllib.parse import urlencode
@@ -56,7 +57,15 @@ async def start(session: Session, request: Request, store_id: uuid.UUID | None =
         return _back(origin, "unavailable")
     url, sealed = oidc.new_flow(cfg["client_id"], store.id, origin)
     resp = RedirectResponse(url, status_code=303, headers=NO_STORE)
-    resp.set_cookie(oidc.COOKIE, sealed, max_age=oidc.FLOW_TTL_SECONDS, httponly=True, secure=not get_settings().is_dev, samesite="lax", path=oidc.COOKIE_PATH)
+    resp.set_cookie(
+        oidc.COOKIE,
+        sealed,
+        max_age=oidc.FLOW_TTL_SECONDS,
+        httponly=True,
+        secure=not get_settings().is_dev,
+        samesite="lax",
+        path=oidc.COOKIE_PATH,
+    )
     return resp
 
 

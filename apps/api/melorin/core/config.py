@@ -1,4 +1,5 @@
 """Application settings. All tunables come from env (prefix MELORIN_) or DB SystemSetting."""
+
 from functools import lru_cache
 from typing import Literal
 from urllib.parse import urlparse
@@ -79,7 +80,12 @@ class Settings(BaseSettings):
                 raise ValueError("MELORIN_CORS_ORIGINS must contain only absolute http(s) origins")
             if "*" in self.cors_origins or "*" in self.cors_allow_methods or "*" in self.cors_allow_headers:
                 raise ValueError("CORS wildcard origins, methods, and headers are not allowed outside development")
-            if not self.public_api_url or not (parsed_api := urlparse(self.public_api_url)).scheme or not parsed_api.netloc or parsed_api.scheme != "https":
+            if (
+                not self.public_api_url
+                or not (parsed_api := urlparse(self.public_api_url)).scheme
+                or not parsed_api.netloc
+                or parsed_api.scheme != "https"
+            ):
                 raise ValueError("MELORIN_PUBLIC_API_URL must be an absolute HTTPS URL outside development")
         if self.env in {"staging", "production"}:
             if "change-me" in self.database_url or "melorin:melorin@" in self.database_url:

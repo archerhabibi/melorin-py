@@ -1,4 +1,5 @@
 """Outgoing webhook primitives (doc 05/06 v1.1): HMAC signing, replay window, SSRF guard, backoff."""
+
 import hashlib
 import hmac
 import ipaddress
@@ -14,9 +15,15 @@ DEFAULT_TOLERANCE = 300  # seconds
 BACKOFF = (30, 120, 600, 1800, 3600, 7200, 21600, 43200)
 MAX_ATTEMPTS = len(BACKOFF) + 1
 SUPPORTED_EVENTS = (
-    "order.completed", "order.refunded", "order.provisioning_failed",
-    "payment.succeeded", "payment.failed", "wallet.changed",
-    "vpn_account.expired", "vpn_account.near_expiry", "reseller.debt",
+    "order.completed",
+    "order.refunded",
+    "order.provisioning_failed",
+    "payment.succeeded",
+    "payment.failed",
+    "wallet.changed",
+    "vpn_account.expired",
+    "vpn_account.near_expiry",
+    "reseller.debt",
 )
 
 
@@ -56,7 +63,17 @@ def next_delay(attempt: int) -> int | None:
 
 
 def _blocked_ip(ip: ipaddress._BaseAddress) -> bool:
-    return any((ip.is_private, ip.is_loopback, ip.is_link_local, ip.is_multicast, ip.is_reserved, ip.is_unspecified, getattr(ip, "is_site_local", False)))
+    return any(
+        (
+            ip.is_private,
+            ip.is_loopback,
+            ip.is_link_local,
+            ip.is_multicast,
+            ip.is_reserved,
+            ip.is_unspecified,
+            getattr(ip, "is_site_local", False),
+        )
+    )
 
 
 def check_url(url: str, *, allow_http: bool = False, resolved_ips: list[str] | None = None) -> str:

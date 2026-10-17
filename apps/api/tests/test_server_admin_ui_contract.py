@@ -31,7 +31,7 @@ def test_servers_live_inside_their_panel_screen():
     assert '"پنل‌ها و سرورها": PanelsView' in extra and "ServersView" not in extra
     app = _ui("App.jsx")
     assert "['پنل‌ها و سرورها', PanelTop, 'panels']" in app and "'servers'" not in app
-    infra_group = app[app.index("['زیرساخت'"):app.index("['سیستم'")]
+    infra_group = app[app.index("['زیرساخت'") : app.index("['سیستم'")]
     assert infra_group.index("'panels'") < infra_group.index("'bundles'") < infra_group.index("'products'")
     # old bookmarks (#/servers?panel=<id>) still land on the merged screen
     assert "legacyHash" in app and "legacyHash" in _ui("infra.jsx")
@@ -56,7 +56,7 @@ def test_server_edit_never_resends_unchanged_fields():
 def test_group_membership_is_saved_with_the_field_the_api_reads():
     """Regression: the panel form used to PATCH {panels: [...]}, which the API ignores (field is panel_ids)."""
     schemas = Path(__file__).parents[1].joinpath("melorin", "modules", "admin", "schemas.py").read_text()
-    update = schemas[schemas.index("class UpdateBundle"):schemas.index("class BundleMemberInput")]
+    update = schemas[schemas.index("class UpdateBundle") : schemas.index("class BundleMemberInput")]
     assert "panel_ids" in update
     infra = _ui("infra.jsx")
     assert "JSON.stringify({ panel_ids: panelIds })" in infra

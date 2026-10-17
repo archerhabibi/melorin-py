@@ -1,4 +1,5 @@
 """Core-driven reseller bots: supervisor reconciliation, connection health, owner experience (Telegram + Core mocked)."""
+
 import asyncio
 import importlib.util
 import io
@@ -23,7 +24,11 @@ def load(name, rel):
 
 @pytest.fixture
 def mod(tmp_path, monkeypatch):
-    for k, v in {"MELORIN_CORE_URL": "http://core", "MELORIN_BOT_SERVICE_SECRET": "sek", "MELORIN_TELEGRAM_OFFSET_FILE": str(tmp_path / "o.json")}.items():
+    for k, v in {
+        "MELORIN_CORE_URL": "http://core",
+        "MELORIN_BOT_SERVICE_SECRET": "sek",
+        "MELORIN_TELEGRAM_OFFSET_FILE": str(tmp_path / "o.json"),
+    }.items():
         monkeypatch.setenv(k, v)
     for k in ("MELORIN_RESELLER_BOTS_JSON", "MELORIN_TELEGRAM_RESELLER_TOKEN", "MELORIN_STORE_SLUG", "MELORIN_HEARTBEAT_FILE"):
         monkeypatch.delenv(k, raising=False)
@@ -62,7 +67,14 @@ class FakeCore:
 
 
 def bot(i, fp="fp1"):
-    return {"store_id": f"store-{i}", "slug": f"shop{i}", "name": f"S{i}", "bot_username": f"b{i}", "token": TOKEN, "fingerprint": f"{fp}-{i}"}
+    return {
+        "store_id": f"store-{i}",
+        "slug": f"shop{i}",
+        "name": f"S{i}",
+        "bot_username": f"b{i}",
+        "token": TOKEN,
+        "fingerprint": f"{fp}-{i}",
+    }
 
 
 @pytest.fixture
@@ -74,6 +86,7 @@ def sup(mod):
         r = FakeRunner(cfg)
         made.append(r)
         return r
+
     s = mod.Supervisor(client=httpx.AsyncClient(transport=httpx.MockTransport(core.handler)), make_runner=make)
     return s, core, made
 
@@ -150,6 +163,7 @@ async def test_a_store_whose_runner_cannot_be_built_does_not_stop_the_others(mod
         if cfg["slug"] == "shop1":
             raise ValueError("bad")
         return FakeRunner(cfg)
+
     s = mod.Supervisor(client=httpx.AsyncClient(transport=httpx.MockTransport(core.handler)), make_runner=make)
     await s.sync()
     assert set(s.slots) == {"store-2"}
@@ -174,15 +188,29 @@ class TgCore:
                 self.commands.append(body)
             return httpx.Response(200, json={"ok": True, "result": {}})
         if path == "/api/v1/stores/by-slug/shop":
-            return httpx.Response(200, json={"id": "s1", "name": "Shop", "bot_messages": {"welcome": "به فروشگاه ما خوش آمدید", "support": "ساعت کاری ۹ تا ۱۸"}})
+            return httpx.Response(
+                200,
+                json={"id": "s1", "name": "Shop", "bot_messages": {"welcome": "به فروشگاه ما خوش آمدید", "support": "ساعت کاری ۹ تا ۱۸"}},
+            )
         if path == "/api/v1/auth/telegram/bot":
             return httpx.Response(200, json={"access_token": "A", "refresh_token": "R"})
         if path == "/api/v1/stores/s1/reseller/profile":
             if not self.owner:
                 return httpx.Response(403, json={"error": {"code": "FORBIDDEN", "message": "no"}})
-            return httpx.Response(200, json={"store_name": "Shop", "debt_limit": 1000, "sales_enabled": True, "main_wallet": {"balance": -200, "currency": "IRT", "debt_state": "near"}})
+            return httpx.Response(
+                200,
+                json={
+                    "store_name": "Shop",
+                    "debt_limit": 1000,
+                    "sales_enabled": True,
+                    "main_wallet": {"balance": -200, "currency": "IRT", "debt_state": "near"},
+                },
+            )
         if path == "/api/v1/stores/s1/reseller/payments":
-            return httpx.Response(200, json=[{"id": "p1", "status": "pending", "has_receipt": True, "amount": 5, "currency": "IRT", "provider": "manual_card"}])
+            return httpx.Response(
+                200,
+                json=[{"id": "p1", "status": "pending", "has_receipt": True, "amount": 5, "currency": "IRT", "provider": "manual_card"}],
+            )
         return httpx.Response(404, json={})
 
 

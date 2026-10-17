@@ -1,4 +1,5 @@
 """Small operational CLI for first-install administration."""
+
 import argparse
 import datetime as dt
 import asyncio
@@ -79,9 +80,19 @@ async def bootstrap() -> None:
             product = await session.scalar(select(Product).where(Product.code == "TEST"))
             if product is None:
                 product = Product(
-                    code="TEST", name="Test VPN", description="Development-only test plan",
-                    category="test", duration_days=1, traffic_gb=1, max_devices=1,
-                    main_price=0, reseller_price=0, currency=store.currency, is_active=True, is_test=True, sort=999,
+                    code="TEST",
+                    name="Test VPN",
+                    description="Development-only test plan",
+                    category="test",
+                    duration_days=1,
+                    traffic_gb=1,
+                    max_devices=1,
+                    main_price=0,
+                    reseller_price=0,
+                    currency=store.currency,
+                    is_active=True,
+                    is_test=True,
+                    sort=999,
                 )
                 session.add(product)
                 await session.flush()
@@ -114,12 +125,16 @@ async def rotate_encryption_key(new_key: str) -> None:
     from sqlalchemy import select
     from melorin.core.crypto import decrypt
     from cryptography.fernet import Fernet
+
     async with session_factory()() as session:
         if not get_settings().encryption_key:
             raise SystemExit("current MELORIN_ENCRYPTION_KEY is required")
         new_fernet = Fernet(new_key.encode())
         rows = [
-            (Store, "bot_token_enc"), (ResellerApplication, "bot_token_enc"), (Panel, "credentials_enc"), (StorePaymentConfiguration, "secret_enc"),
+            (Store, "bot_token_enc"),
+            (ResellerApplication, "bot_token_enc"),
+            (Panel, "credentials_enc"),
+            (StorePaymentConfiguration, "secret_enc"),
         ]
         for model, field in rows:
             for row in (await session.scalars(select(model))).all():
@@ -148,6 +163,7 @@ async def reset_admin_password(email: str) -> None:
 async def disable_admin_ip_allowlist() -> None:
     """Break-glass: turn the admin IP allowlist off if an admin locked themselves out."""
     from melorin.core import integrations
+
     async with session_factory()() as session:
         await integrations.save(session, integrations.ADMIN_ACCESS_KEY, {"enabled": False, "ips": []})
         await session.commit()
@@ -156,7 +172,9 @@ async def disable_admin_ip_allowlist() -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m melorin.cli")
-    parser.add_argument("command", choices=("bootstrap", "outbox-replay", "rotate-encryption-key", "reset-admin-password", "disable-admin-ip-allowlist"))
+    parser.add_argument(
+        "command", choices=("bootstrap", "outbox-replay", "rotate-encryption-key", "reset-admin-password", "disable-admin-ip-allowlist")
+    )
     parser.add_argument("value", nargs="?")
     args = parser.parse_args()
     if args.command == "bootstrap":

@@ -1,4 +1,5 @@
 """Bot account button: Core issues a single-use token that signs the Telegram user into the store website."""
+
 import types
 
 import pytest
@@ -13,7 +14,15 @@ from melorin.modules.identity.schemas import WebHandoffIn, WebHandoffRedeem
 from melorin.modules.stores.models import Store
 from melorin.modules.system.models import AuditEvent, SecurityEvent
 
-TABLES = [User.__table__, Identity.__table__, RefreshToken.__table__, VerificationCode.__table__, Store.__table__, AuditEvent.__table__, SecurityEvent.__table__]
+TABLES = [
+    User.__table__,
+    Identity.__table__,
+    RefreshToken.__table__,
+    VerificationCode.__table__,
+    Store.__table__,
+    AuditEvent.__table__,
+    SecurityEvent.__table__,
+]
 REQ = types.SimpleNamespace(headers={"user-agent": "pytest"}, cookies={})
 
 

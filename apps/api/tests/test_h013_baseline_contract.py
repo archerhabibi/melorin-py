@@ -1,5 +1,6 @@
 from pathlib import Path
 
+
 def test_initial_migration_is_non_destructive_and_contract_marked():
     source = (Path(__file__).parents[1] / "alembic" / "versions" / "0001_initial.py").read_text()
     # 0001 is a frozen static DDL snapshot (no runtime model fingerprinting).

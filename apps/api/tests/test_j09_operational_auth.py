@@ -14,7 +14,7 @@ def test_metrics_requires_bearer_token_outside_development():
 
 def test_health_details_require_separate_operator_token():
     source = (ROOT / "melorin/app.py").read_text()
-    assert 'X-Melorin-Health-Token' in source
+    assert "X-Melorin-Health-Token" in source
     assert 'payload = {"status": "ready" if ready_ok else "not_ready"}' in source
 
 

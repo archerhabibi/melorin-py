@@ -1,4 +1,5 @@
 """Regression coverage for the eight failures reported by review L-03."""
+
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -22,7 +23,7 @@ def test_l03_operational_controls_are_wired():
 
 def test_l03_lint_policy_is_correctness_focused():
     config = (API / "pyproject.toml").read_text()
-    assert '[tool.ruff.lint]' in config
+    assert "[tool.ruff.lint]" in config
     assert 'select = ["E4", "E9", "F"]' in config
     assert 'ignore = ["F401", "F403", "F405"]' in config
 

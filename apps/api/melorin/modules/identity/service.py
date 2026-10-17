@@ -46,7 +46,9 @@ async def issue_tokens(session: AsyncSession, user: User, family: uuid.UUID | No
     access, ttl = create_access_token(user.id, user.is_super_admin)
     raw = new_opaque_token()
     session.add(
-        RefreshToken(user_id=user.id, token_hash=token_hash(raw), family_id=family or uuid.uuid4(), expires_at=refresh_expiry(), user_agent=ua)
+        RefreshToken(
+            user_id=user.id, token_hash=token_hash(raw), family_id=family or uuid.uuid4(), expires_at=refresh_expiry(), user_agent=ua
+        )
     )
     return TokenPair(access_token=access, refresh_token=raw, expires_in=ttl, user_id=user.id, is_admin=user.is_super_admin)
 
@@ -153,7 +155,9 @@ async def login_with_email_code(session: AsyncSession, email: str, code: str) ->
     existing = await session.scalar(select(User).where(User.email == email))
     if existing is not None:
         session.add(Identity(user_id=existing.id, provider="email", subject=email, data=None, verified_at=utcnow()))
-        audit.record(session, "identity.linked", actor_id=existing.id, entity_type="user", entity_id=existing.id, data={"provider": "email"})
+        audit.record(
+            session, "identity.linked", actor_id=existing.id, entity_type="user", entity_id=existing.id, data={"provider": "email"}
+        )
         await session.flush()
         return existing, False
     user, created = await get_or_create_user_for_identity(session, "email", email, display_name=email.split("@")[0], data=None)
@@ -166,7 +170,15 @@ async def attach_email(session: AsyncSession, user: User, email: str, code: str)
     ident = await find_identity(session, "email", email)
     if ident and ident.user_id != user.id:
         # Verified match, but two non-identical users already exist. Never merge automatically.
-        session.add(IdentityLinkReview(email=email, source_user_id=user.id, candidate_user_ids=[str(ident.user_id)], provider="email", reason="verified_email_matches_other_user"))
+        session.add(
+            IdentityLinkReview(
+                email=email,
+                source_user_id=user.id,
+                candidate_user_ids=[str(ident.user_id)],
+                provider="email",
+                reason="verified_email_matches_other_user",
+            )
+        )
         audit.security_event(session, "identity_link_conflict", user.id, {"email": email, "candidate_user_id": str(ident.user_id)})
         await session.commit()
         raise AppError("IDENTITY_LINK_REVIEW", "این ایمیل به حساب دیگری متصل است و برای بررسی دستی گزارش شد.", 409)
@@ -241,8 +253,13 @@ async def verify_google_token(id_token: str, client_id: str) -> dict:
         raise _google_invalid()
     try:
         claims = jwt.decode(
-            id_token, keys[kid], algorithms=["RS256"], audience=client_id, issuer=list(GOOGLE_ISSUERS),
-            leeway=GOOGLE_CLOCK_SKEW, options={"require": ["exp", "iat", "iss", "aud", "sub"]},
+            id_token,
+            keys[kid],
+            algorithms=["RS256"],
+            audience=client_id,
+            issuer=list(GOOGLE_ISSUERS),
+            leeway=GOOGLE_CLOCK_SKEW,
+            options={"require": ["exp", "iat", "iss", "aud", "sub"]},
         )
     except jwt.PyJWTError as exc:
         raise _google_invalid() from exc
@@ -269,12 +286,24 @@ async def link_google(session: AsyncSession, user: User, id_token: str, nonce: s
     if ident and ident.user_id == user.id:
         return
     if ident:
-        session.add(IdentityLinkReview(email=email or "", source_user_id=user.id, candidate_user_ids=[str(ident.user_id)], provider="google", reason="google_account_belongs_to_other_user"))
+        session.add(
+            IdentityLinkReview(
+                email=email or "",
+                source_user_id=user.id,
+                candidate_user_ids=[str(ident.user_id)],
+                provider="google",
+                reason="google_account_belongs_to_other_user",
+            )
+        )
         audit.security_event(session, "identity_link_conflict", user.id, {"provider": "google", "candidate_user_id": str(ident.user_id)})
         await session.commit()
         raise AppError("IDENTITY_LINK_REVIEW", "این حساب Google به حساب دیگری متصل است و برای بررسی دستی گزارش شد.", 409)
     email_verified = bool(email) and str(g.get("email_verified")).lower() == "true"
-    session.add(Identity(user_id=user.id, provider="google", subject=sub, verified_at=utcnow(), data={"email": email, "email_verified": email_verified}))
+    session.add(
+        Identity(
+            user_id=user.id, provider="google", subject=sub, verified_at=utcnow(), data={"email": email, "email_verified": email_verified}
+        )
+    )
     if email_verified and not user.email and not await _email_taken(session, email):
         user.email = email
     audit.record(session, "identity.linked", actor_id=user.id, entity_type="user", entity_id=user.id, data={"provider": "google"})
@@ -295,28 +324,62 @@ async def login_with_google(session: AsyncSession, id_token: str, nonce: str | N
     # Verified email may connect to the existing central User. An ambiguous/conflicting
     # match is recorded for Admin review, never guessed or merged.
     if email_verified:
-        e_idents = (await session.scalars(select(Identity).where(Identity.provider == "email", Identity.subject == email, Identity.verified_at.is_not(None)))).all()
+        e_idents = (
+            await session.scalars(
+                select(Identity).where(Identity.provider == "email", Identity.subject == email, Identity.verified_at.is_not(None))
+            )
+        ).all()
         candidate_ids = {i.user_id for i in e_idents}
         if len(candidate_ids) == 1:
             user = await session.get(User, next(iter(candidate_ids)))
         elif len(candidate_ids) > 1:
-            user = User(display_name=g.get("name"), is_guest=True); created = True
-            session.add(user); await session.flush()
-            session.add(IdentityLinkReview(email=email, source_user_id=user.id, candidate_user_ids=[str(x) for x in candidate_ids], provider="google", reason="multiple_verified_email_users"))
-            audit.security_event(session, "identity_link_conflict", user.id, {"email": email, "candidate_user_ids": [str(x) for x in candidate_ids]})
+            user = User(display_name=g.get("name"), is_guest=True)
+            created = True
+            session.add(user)
+            await session.flush()
+            session.add(
+                IdentityLinkReview(
+                    email=email,
+                    source_user_id=user.id,
+                    candidate_user_ids=[str(x) for x in candidate_ids],
+                    provider="google",
+                    reason="multiple_verified_email_users",
+                )
+            )
+            audit.security_event(
+                session, "identity_link_conflict", user.id, {"email": email, "candidate_user_ids": [str(x) for x in candidate_ids]}
+            )
         elif await _email_taken(session, email):
             # User.email can be populated without an Identity in legacy data.
             owner_id = await session.scalar(select(User.id).where(User.email == email))
-            user = User(display_name=g.get("name"), is_guest=True); created = True
-            session.add(user); await session.flush()
-            session.add(IdentityLinkReview(email=email, source_user_id=user.id, candidate_user_ids=[str(owner_id)], provider="google", reason="email_field_conflict"))
+            user = User(display_name=g.get("name"), is_guest=True)
+            created = True
+            session.add(user)
+            await session.flush()
+            session.add(
+                IdentityLinkReview(
+                    email=email,
+                    source_user_id=user.id,
+                    candidate_user_ids=[str(owner_id)],
+                    provider="google",
+                    reason="email_field_conflict",
+                )
+            )
             audit.security_event(session, "identity_link_conflict", user.id, {"email": email, "candidate_user_id": str(owner_id)})
     if user is None:
         user = User(display_name=g.get("name"), email=email if email_verified else None)
         created = True
         session.add(user)
         await session.flush()
-    session.add(Identity(user_id=user.id, provider="google", subject=sub, verified_at=utcnow(), data={"email": email, "email_verified": bool(email_verified)}))
+    session.add(
+        Identity(
+            user_id=user.id,
+            provider="google",
+            subject=sub,
+            verified_at=utcnow(),
+            data={"email": email, "email_verified": bool(email_verified)},
+        )
+    )
     audit.record(session, "identity.linked", actor_id=user.id, entity_type="user", entity_id=user.id, data={"provider": "google"})
     return user, created
 
@@ -349,7 +412,11 @@ async def login_with_telegram(session: AsyncSession, p: TelegramProfile) -> tupl
 
 async def create_link_code(session: AsyncSession, user: User) -> str:
     code = new_opaque_token(9)
-    session.add(VerificationCode(purpose="telegram_link", target="link", code_hash=token_hash("link" + code), user_id=user.id, expires_at=utcnow() + CODE_TTL))
+    session.add(
+        VerificationCode(
+            purpose="telegram_link", target="link", code_hash=token_hash("link" + code), user_id=user.id, expires_at=utcnow() + CODE_TTL
+        )
+    )
     await session.commit()
     return code
 
@@ -360,7 +427,15 @@ HANDOFF_TTL = dt.timedelta(minutes=2)
 async def create_web_handoff(session: AsyncSession, user: User) -> str:
     """Single-use, 2-minute token that signs the (already authenticated) Telegram user into the store website."""
     token = new_opaque_token(32)
-    session.add(VerificationCode(purpose="web_handoff", target=str(user.id), code_hash=token_hash("handoff" + token), user_id=user.id, expires_at=utcnow() + HANDOFF_TTL))
+    session.add(
+        VerificationCode(
+            purpose="web_handoff",
+            target=str(user.id),
+            code_hash=token_hash("handoff" + token),
+            user_id=user.id,
+            expires_at=utcnow() + HANDOFF_TTL,
+        )
+    )
     audit.record(session, "auth.web_handoff_created", actor_id=user.id, entity_type="user", entity_id=user.id)
     await session.commit()
     return token
@@ -369,7 +444,11 @@ async def create_web_handoff(session: AsyncSession, user: User) -> str:
 async def redeem_web_handoff(session: AsyncSession, token: str) -> User:
     vc = await session.scalar(
         select(VerificationCode)
-        .where(VerificationCode.purpose == "web_handoff", VerificationCode.code_hash == token_hash("handoff" + (token or "")), VerificationCode.used_at.is_(None))
+        .where(
+            VerificationCode.purpose == "web_handoff",
+            VerificationCode.code_hash == token_hash("handoff" + (token or "")),
+            VerificationCode.used_at.is_(None),
+        )
         .with_for_update()
     )
     if not vc or vc.expires_at.replace(tzinfo=vc.expires_at.tzinfo or dt.UTC) < utcnow():
@@ -387,7 +466,11 @@ async def redeem_web_handoff(session: AsyncSession, token: str) -> User:
 async def link_telegram(session: AsyncSession, code: str, p: TelegramProfile) -> User:
     vc = await session.scalar(
         select(VerificationCode)
-        .where(VerificationCode.purpose == "telegram_link", VerificationCode.code_hash == token_hash("link" + code), VerificationCode.used_at.is_(None))
+        .where(
+            VerificationCode.purpose == "telegram_link",
+            VerificationCode.code_hash == token_hash("link" + code),
+            VerificationCode.used_at.is_(None),
+        )
         .with_for_update()
     )
     if not vc or vc.expires_at.replace(tzinfo=vc.expires_at.tzinfo or dt.UTC) < utcnow():
@@ -399,7 +482,9 @@ async def link_telegram(session: AsyncSession, code: str, p: TelegramProfile) ->
         await session.commit()
         raise AppError("IDENTITY_IN_USE", "این حساب Telegram به کاربر دیگری متصل است. برای ادغام با پشتیبانی تماس بگیرید.", 409)
     if not ident:
-        session.add(Identity(user_id=user.id, provider="telegram", subject=str(p.telegram_id), verified_at=utcnow(), data={"username": p.username}))
+        session.add(
+            Identity(user_id=user.id, provider="telegram", subject=str(p.telegram_id), verified_at=utcnow(), data={"username": p.username})
+        )
     vc.used_at = utcnow()
     user.is_guest = False
     audit.record(session, "identity.linked", actor_id=user.id, entity_type="user", entity_id=user.id, data={"provider": "telegram"})

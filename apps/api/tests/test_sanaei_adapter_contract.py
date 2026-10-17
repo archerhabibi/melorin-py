@@ -2,6 +2,7 @@
 
 Shapes follow https://docs.sanaei.dev/docs/reference/api/ and web/controller/client.go in MHSanaei/3x-ui.
 """
+
 import datetime as dt
 import json
 from urllib.parse import parse_qs, unquote
@@ -173,8 +174,12 @@ async def test_v3_requires_sub_base_url_before_writing():
 async def test_v3_template_client_supplies_inbounds_and_flow():
     fake = FakeV3()
     fake.clients["template"] = {"email": "template", "id": 9, "uuid": "u9", "flow": "xtls-rprx-vision", "limitIp": 1, "_inbounds": [11]}
-    a = SanaeiAdapter("https://p.example.com", {"api_token": "tok"}, {"template_username": "template", "sub_base_url": SUB},
-                      transport=httpx.MockTransport(fake))
+    a = SanaeiAdapter(
+        "https://p.example.com",
+        {"api_token": "tok"},
+        {"template_username": "template", "sub_base_url": SUB},
+        transport=httpx.MockTransport(fake),
+    )
     await a.create_account(AccountSpec("u1", None, 0))
     c = fake.clients["u1"]
     assert c["_inbounds"] == [11] and c["flow"] == "xtls-rprx-vision" and c["limitIp"] == 1 and c["expiryTime"] == 0
@@ -182,16 +187,21 @@ async def test_v3_template_client_supplies_inbounds_and_flow():
 
 async def test_v3_missing_template_is_permanent_and_not_cached():
     fake = FakeV3()
-    a = SanaeiAdapter("https://p.example.com", {"api_token": "tok"}, {"template_username": "nope", "sub_base_url": SUB},
-                      transport=httpx.MockTransport(fake))
+    a = SanaeiAdapter(
+        "https://p.example.com",
+        {"api_token": "tok"},
+        {"template_username": "nope", "sub_base_url": SUB},
+        transport=httpx.MockTransport(fake),
+    )
     with pytest.raises(PanelError):
         await a.create_account(spec())
     assert a._template is None
 
 
 async def test_bad_token_is_permanent_and_health_false():
-    a = SanaeiAdapter("https://p.example.com", {"api_token": "wrong"}, {"inbound_ids": [1], "sub_base_url": SUB},
-                      transport=httpx.MockTransport(FakeV3()))
+    a = SanaeiAdapter(
+        "https://p.example.com", {"api_token": "wrong"}, {"inbound_ids": [1], "sub_base_url": SUB}, transport=httpx.MockTransport(FakeV3())
+    )
     assert await a.health_check() is False
     with pytest.raises(PanelError) as e:
         await a.get_account("x")
@@ -202,22 +212,34 @@ async def test_timeout_is_unknown_and_5xx_transient():
     def timeout(req):
         raise httpx.ReadTimeout("slow", request=req)
 
-    a = SanaeiAdapter("https://p.example.com", {"api_token": "t"}, {"api_style": "v3", "inbound_ids": [1], "sub_base_url": SUB},
-                      transport=httpx.MockTransport(timeout))
+    a = SanaeiAdapter(
+        "https://p.example.com",
+        {"api_token": "t"},
+        {"api_style": "v3", "inbound_ids": [1], "sub_base_url": SUB},
+        transport=httpx.MockTransport(timeout),
+    )
     with pytest.raises(PanelError) as e:
         await a.get_account("x")
     assert e.value.kind == ErrorKind.UNKNOWN
 
-    b = SanaeiAdapter("https://p.example.com", {"api_token": "t"}, {"api_style": "v3", "inbound_ids": [1], "sub_base_url": SUB},
-                      transport=httpx.MockTransport(lambda r: httpx.Response(502)))
+    b = SanaeiAdapter(
+        "https://p.example.com",
+        {"api_token": "t"},
+        {"api_style": "v3", "inbound_ids": [1], "sub_base_url": SUB},
+        transport=httpx.MockTransport(lambda r: httpx.Response(502)),
+    )
     with pytest.raises(PanelError) as e:
         await b.get_account("x")
     assert e.value.kind == ErrorKind.TRANSIENT
 
 
 async def test_redirect_is_not_followed():
-    a = SanaeiAdapter("https://p.example.com", {"api_token": "t"}, {"api_style": "v3", "inbound_ids": [1], "sub_base_url": SUB},
-                      transport=httpx.MockTransport(lambda r: httpx.Response(302, headers={"Location": "http://169.254.169.254/"})))
+    a = SanaeiAdapter(
+        "https://p.example.com",
+        {"api_token": "t"},
+        {"api_style": "v3", "inbound_ids": [1], "sub_base_url": SUB},
+        transport=httpx.MockTransport(lambda r: httpx.Response(302, headers={"Location": "http://169.254.169.254/"})),
+    )
     with pytest.raises(PanelError) as e:
         await a.get_account("x")
     assert e.value.kind == ErrorKind.PERMANENT
@@ -225,8 +247,12 @@ async def test_redirect_is_not_followed():
 
 async def test_legacy_cookie_flow_with_string_settings_and_relogin():
     fake = FakeLegacy()
-    a = SanaeiAdapter("https://p.example.com/xui/panel", {"username": "admin", "password": "pw"},
-                      {"inbound_id": 7, "sub_base_url": SUB}, transport=httpx.MockTransport(fake))
+    a = SanaeiAdapter(
+        "https://p.example.com/xui/panel",
+        {"username": "admin", "password": "pw"},
+        {"inbound_id": 7, "sub_base_url": SUB},
+        transport=httpx.MockTransport(fake),
+    )
     acc = await a.create_account(spec("legacy1"))
     assert acc.ref.startswith("7:") and acc.traffic_used_bytes == 3 and acc.subscription_url.startswith(SUB)
     stored = json.loads(fake.inbound["settings"])["clients"][0]
@@ -243,9 +269,15 @@ async def test_legacy_cookie_flow_with_string_settings_and_relogin():
 async def test_legacy_nested_settings_object_is_accepted():
     fake = FakeLegacy()
     fake.logged_in = True
-    a = SanaeiAdapter("https://p.example.com/xui", {"username": "admin", "password": "pw"},
-                      {"api_style": "legacy", "inbound_ids": [7], "sub_base_url": SUB}, transport=httpx.MockTransport(fake))
-    fake.inbound["settings"] = json.dumps({"clients": [{"id": "c1", "email": "n1", "enable": True, "totalGB": 0, "expiryTime": 0, "subId": "s1"}]})
+    a = SanaeiAdapter(
+        "https://p.example.com/xui",
+        {"username": "admin", "password": "pw"},
+        {"api_style": "legacy", "inbound_ids": [7], "sub_base_url": SUB},
+        transport=httpx.MockTransport(fake),
+    )
+    fake.inbound["settings"] = json.dumps(
+        {"clients": [{"id": "c1", "email": "n1", "enable": True, "totalGB": 0, "expiryTime": 0, "subId": "s1"}]}
+    )
     orig = fake.__call__
 
     def nested(req):
