@@ -7,17 +7,17 @@ import pytest
 from fastapi import Response
 
 import melorin.models  # noqa: F401  (registers every table so FKs resolve)
-from melorin.core import db
+from melorin.core import db, integrations, settings_store
 from melorin.core.errors import AppError
 from melorin.core.security import _totp, totp_new_secret
 from melorin.modules.identity import router, service
 from melorin.modules.identity.models import Identity, IdentityLinkReview, RefreshToken, User
 from melorin.modules.identity.schemas import GoogleLogin
-from melorin.modules.system.models import AuditEvent, SecurityEvent
+from melorin.modules.system.models import AuditEvent, SecurityEvent, SystemSetting
 
 ROOT = Path(__file__).resolve().parents[1]
 PROJECT = ROOT.parent.parent
-TABLES = [User.__table__, Identity.__table__, RefreshToken.__table__, IdentityLinkReview.__table__, AuditEvent.__table__, SecurityEvent.__table__]
+TABLES = [User.__table__, Identity.__table__, RefreshToken.__table__, IdentityLinkReview.__table__, AuditEvent.__table__, SecurityEvent.__table__, SystemSetting.__table__]
 REQ = types.SimpleNamespace(headers={"user-agent": "pytest"})
 
 
@@ -36,9 +36,10 @@ async def world(tmp_path, monkeypatch):
         await s.flush()
         for u, sub in ((admin, "g-admin"), (plain_admin, "g-nt"), (cust, "g-cust")):
             s.add(Identity(user_id=u.id, provider="google", subject=sub, data={}))
+        await settings_store.set_value(s, integrations.GOOGLE_KEY, {"enabled": True, "client_id": "123456-abc.apps.googleusercontent.com", "admin_login": True, "store_login": True})
         await s.commit()
 
-        async def fake_verify(_token):
+        async def fake_verify(_token, _client_id=None):
             return {"sub": fake_verify.sub, "email": "x@example.com", "email_verified": "true"}
 
         monkeypatch.setattr(service, "verify_google_token", fake_verify)

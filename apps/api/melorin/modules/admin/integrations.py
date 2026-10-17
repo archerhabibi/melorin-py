@@ -3,7 +3,9 @@ import asyncio
 import ipaddress
 import os
 from typing import Literal
+from urllib.parse import urlparse
 
+import httpx
 from fastapi import APIRouter
 from pydantic import BaseModel, EmailStr, Field
 
@@ -32,6 +34,13 @@ class AdminAccessIn(BaseModel):
     ips: list[str] = Field(default_factory=list, max_length=50)
 
 
+class GoogleIn(BaseModel):
+    enabled: bool
+    client_id: str = Field("", max_length=200)
+    admin_login: bool = True
+    store_login: bool = True
+
+
 class EmailTestIn(BaseModel):
     to: EmailStr
 
@@ -46,10 +55,26 @@ class BackupS3In(BaseModel):
     secret_key: str | None = Field(None, max_length=500)  # None keeps, "" clears
 
 
+def _origin(url: str) -> str | None:
+    """Reduce a URL to ``scheme://host[:port]`` - the only form Google accepts as an Authorized JavaScript origin."""
+    p = urlparse((url or "").strip())
+    return f"{p.scheme}://{p.netloc}" if p.scheme in ("http", "https") and p.netloc else None
+
+
+def _google_public(cfg: dict) -> dict:
+    s = get_settings()
+    origins = list(dict.fromkeys(o for u in [s.store_web_url, s.public_api_url, *s.cors_origins] if (o := _origin(u))))
+    return {
+        "enabled": bool(cfg["enabled"]), "client_id": cfg["client_id"], "admin_login": bool(cfg["admin_login"]),
+        "store_login": bool(cfg["store_login"]), "source": cfg["source"], "suggested_origins": origins,
+    }
+
+
 @router.get("")
 async def get_integrations(_: AdminUser, session: Session):
     s = get_settings()
     return {
+        "google": _google_public(await integrations.get_google(session)),
         "admin_access": {**await integrations.get_admin_access(session), "your_ip": client_ip.get()},
         "email": integrations.public_email(await integrations.get_email(session)),
         "backup": {
@@ -82,6 +107,45 @@ async def update_admin_access(body: AdminAccessIn, admin: AdminUser, session: Se
                  entity_id="admin_access", data=new)
     await session.commit()
     return {**new, "your_ip": client_ip.get()}
+
+
+@router.put("/google")
+async def update_google(body: GoogleIn, admin: AdminUser, session: Session):
+    client_id = body.client_id.strip()
+    if client_id and not integrations.GOOGLE_CLIENT_ID_RE.match(client_id):
+        raise AppError("GOOGLE_CLIENT_ID_INVALID", "فرمت Client ID درست نیست؛ باید مانند 123456789-abc.apps.googleusercontent.com باشد.", 400)
+    if body.enabled and not client_id:
+        raise AppError("GOOGLE_CONFIG_INCOMPLETE", "برای فعال‌سازی، Client ID الزامی است.", 400)
+    if body.enabled and not (body.admin_login or body.store_login):
+        raise AppError("GOOGLE_NO_SURFACE", "حداقل یکی از ورود ادمین یا ورود مشتریان باید فعال باشد.", 400)
+    new = {"enabled": body.enabled, "client_id": client_id, "admin_login": body.admin_login, "store_login": body.store_login}
+    await integrations.save(session, integrations.GOOGLE_KEY, new)
+    audit.record(session, "integration.google.updated", actor_id=admin.id, actor_type="admin", entity_type="integration", entity_id="google", data=new)
+    await session.commit()
+    return _google_public({**new, "source": "panel"})
+
+
+@router.post("/google/test")
+async def test_google(admin: AdminUser, session: Session):
+    """Checks the saved Client ID format and that this server can reach Google's token verifier (egress/DNS/firewall)."""
+    cfg = await integrations.get_google(session)
+    ok, error = False, None
+    if not cfg["client_id"]:
+        error = "ابتدا Client ID را ذخیره کنید."
+    elif not integrations.GOOGLE_CLIENT_ID_RE.match(cfg["client_id"]):
+        error = "فرمت Client ID نامعتبر است."
+    else:
+        try:
+            async with httpx.AsyncClient(timeout=10) as c:
+                r = await c.get("https://oauth2.googleapis.com/tokeninfo", params={"id_token": "melorin-connectivity-check"})
+            # Google answers 400 invalid_token for a bogus token: the verifier is reachable, which is all we test here.
+            ok = r.status_code in (200, 400)
+            error = None if ok else f"پاسخ غیرمنتظره از Google: HTTP {r.status_code}"
+        except httpx.HTTPError as exc:
+            error = f"سرور به Google وصل نشد ({type(exc).__name__}). دسترسی خروجی HTTPS به oauth2.googleapis.com را بررسی کنید."
+    audit.record(session, "integration.google.tested", actor_id=admin.id, actor_type="admin", entity_type="integration", entity_id="google", data={"ok": ok})
+    await session.commit()
+    return {"ok": ok, "error": error}
 
 
 @router.put("/email")

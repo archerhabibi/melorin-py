@@ -4,15 +4,19 @@ Both are OFF by default so a fresh install needs neither. Secrets are stored Fer
 ``SystemSetting`` rows whose keys start with ``integration.``; those rows are never returned by the
 generic ``/admin/settings`` endpoints and secrets are never written to the audit log.
 """
+import re
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from melorin.core import settings_store
+from melorin.core.config import get_settings
 from melorin.core.crypto import decrypt, encrypt
 
 PREFIX = "integration."
 EMAIL_KEY = PREFIX + "email"
 BACKUP_S3_KEY = PREFIX + "backup_s3"
 ADMIN_ACCESS_KEY = PREFIX + "admin_access"
+GOOGLE_KEY = PREFIX + "google_login"
 
 EMAIL_DEFAULT: dict = {
     "enabled": False, "host": "", "port": 587, "username": "", "password_enc": None,
@@ -23,6 +27,9 @@ BACKUP_S3_DEFAULT: dict = {
     "access_key": "", "secret_key_enc": None,
 }
 ADMIN_ACCESS_DEFAULT: dict = {"enabled": False, "ips": []}  # OFF by default: no IP restriction on the admin API
+# Google Sign-In (ID-token flow). Only the public OAuth Client ID is needed - no client secret is stored.
+GOOGLE_DEFAULT: dict = {"enabled": False, "client_id": "", "admin_login": True, "store_login": True}
+GOOGLE_CLIENT_ID_RE = re.compile(r"^[0-9]{6,}-[A-Za-z0-9_-]+\.apps\.googleusercontent\.com$")
 
 
 def is_integration_key(key: str) -> bool:
@@ -44,6 +51,29 @@ async def get_admin_access(session: AsyncSession) -> dict:
 
 async def get_backup_s3(session: AsyncSession) -> dict:
     return await _load(session, BACKUP_S3_KEY, BACKUP_S3_DEFAULT)
+
+
+async def get_google(session: AsyncSession) -> dict:
+    """Effective Google Sign-In config. A panel-saved config always wins; until the admin saves one, the legacy
+    ``MELORIN_GOOGLE_CLIENT_ID`` environment value keeps working so existing installs do not break on upgrade."""
+    stored = await settings_store.get(session, GOOGLE_KEY)
+    if isinstance(stored, dict):
+        return {**GOOGLE_DEFAULT, **stored, "source": "panel"}
+    env_id = (get_settings().google_client_id or "").strip()
+    return {**GOOGLE_DEFAULT, "enabled": bool(env_id), "client_id": env_id, "source": "env" if env_id else "none"}
+
+
+def google_ready(cfg: dict) -> bool:
+    return bool(cfg.get("enabled") and cfg.get("client_id"))
+
+
+def public_google(cfg: dict) -> dict:
+    """What the unauthenticated storefront/admin login pages may see (a Client ID is public by design)."""
+    ready = google_ready(cfg)
+    return {
+        "enabled": ready, "client_id": cfg["client_id"] if ready else "",
+        "admin_login": bool(cfg["admin_login"]), "store_login": bool(cfg["store_login"]),
+    }
 
 
 def email_ready(cfg: dict) -> bool:

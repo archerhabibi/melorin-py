@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy import select
 
-from melorin.core import audit, flags
+from melorin.core import audit, flags, integrations
 from melorin.core.crypto import decrypt, encrypt
 from melorin.core.config import get_settings
 from melorin.core.deps import CurrentUser, Session, main_store, require_bot_service
@@ -91,9 +91,23 @@ async def password_login(body: PasswordLogin, session: Session, request: Request
     return pair
 
 
+@auth.get("/google/config")
+async def google_config(session: Session, response: Response):
+    """Public: lets the login pages learn at runtime whether Google Sign-In is on and which Client ID to use."""
+    response.headers["Cache-Control"] = "no-store"
+    return integrations.public_google(await integrations.get_google(session))
+
+
 @auth.post("/google", response_model=TokenPair)
 async def google_login(body: GoogleLogin, session: Session, request: Request, response: Response):
     user, created = await service.login_with_google(session, body.id_token)
+    cfg = await integrations.get_google(session)
+    if user.is_super_admin and not cfg["admin_login"]:
+        await session.rollback()
+        raise AppError("GOOGLE_ADMIN_DISABLED", "ورود ادمین با Google غیرفعال است.", 403)
+    if not user.is_super_admin and not cfg["store_login"]:
+        await session.rollback()
+        raise AppError("GOOGLE_STORE_DISABLED", "ورود مشتریان با Google غیرفعال است.", 403)
     if created:
         await flags.ensure_enabled(session, "registration")
     if user.is_super_admin:

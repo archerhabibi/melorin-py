@@ -10,7 +10,7 @@ import httpx
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from melorin.core import audit
+from melorin.core import audit, integrations
 from melorin.core.config import get_settings
 from melorin.core.db import utcnow
 from melorin.core.email import email_available, send_email
@@ -176,22 +176,24 @@ async def attach_email(session: AsyncSession, user: User, email: str, code: str)
 
 
 # ---------------- Google ----------------
-async def verify_google_token(id_token: str) -> dict:
-    s = get_settings()
-    if not s.google_client_id:
+async def verify_google_token(id_token: str, client_id: str) -> dict:
+    if not client_id:
         raise AppError("GOOGLE_DISABLED", "ورود با Google پیکربندی نشده است.", 400)
     async with httpx.AsyncClient(timeout=10) as c:
         r = await c.get("https://oauth2.googleapis.com/tokeninfo", params={"id_token": id_token})
     if r.status_code != 200:
         raise AppError("GOOGLE_INVALID", "توکن Google نامعتبر است.", 401)
     data = r.json()
-    if data.get("aud") != s.google_client_id or data.get("iss") not in ("accounts.google.com", "https://accounts.google.com"):
+    if data.get("aud") != client_id or data.get("iss") not in ("accounts.google.com", "https://accounts.google.com"):
         raise AppError("GOOGLE_INVALID", "توکن Google نامعتبر است.", 401)
     return data
 
 
 async def login_with_google(session: AsyncSession, id_token: str) -> tuple[User, bool]:
-    g = await verify_google_token(id_token)
+    cfg = await integrations.get_google(session)
+    if not integrations.google_ready(cfg):
+        raise AppError("GOOGLE_DISABLED", "ورود با Google فعال نیست.", 400)
+    g = await verify_google_token(id_token, cfg["client_id"])
     sub, email = g["sub"], (g.get("email") or "").lower() or None
     ident = await find_identity(session, "google", sub)
     if ident:
