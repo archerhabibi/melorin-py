@@ -1,4 +1,4 @@
-// Shared building blocks for the catalog screens (VPN products, VPN panel groups).
+// Shared building blocks for the catalog screens (VPN products, VPN sales bundles).
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, LayoutGrid, List, Search, Trash2, X } from "lucide-react";
 import { confirmDialog, noticeDialog } from "./ui.jsx";

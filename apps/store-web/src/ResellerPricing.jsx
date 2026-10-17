@@ -1,4 +1,4 @@
-// Reseller panel › Pricing. The reseller prices every package per sales pool (بسته فروش) of their own store.
+// Reseller panel › Pricing. The reseller prices every package per sales bundle (بسته فروش) of their own store.
 // Design: one scope at a time (store-wide base price, or one pool), a table whose rows show cost → price → profit → state,
 // a local draft that is reviewed and saved in ONE request (all or nothing), and quick tools (markup, copy from another pool)
 // that only fill the draft. The core remains the authority: it refuses any price below the pool's cost.

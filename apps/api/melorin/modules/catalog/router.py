@@ -96,7 +96,7 @@ def _item(p, price: int, currency: str) -> CatalogItem:
 
 @public.get("/stores/{store_id}/pools", response_model=list[PoolOut])
 async def pools(store_id: uuid.UUID, session: Session):
-    """What a customer chooses first: the sales pools open to this store (each has packages to sell)."""
+    """What a customer chooses first: the sales bundles open to this store (each has packages to sell)."""
     store = await session.get(Store, store_id)
     if not store or store.status != "active":
         raise NotFound("فروشگاه")
