@@ -9,7 +9,7 @@ import httpx
 from fastapi import APIRouter
 from pydantic import BaseModel, EmailStr, Field
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from melorin.core import audit, integrations
 from melorin.core.config import get_settings
@@ -19,7 +19,8 @@ from melorin.core.deps import AdminUser, Session, ip_allowed
 from melorin.core.email import send_with_config
 from melorin.core.errors import AppError
 from melorin.modules.identity import telegram_oidc
-from melorin.modules.stores.models import Store
+from melorin.modules.identity.telegram_web import normalise_bot_username
+from melorin.modules.stores.models import BotStoreBinding, Store
 
 router = APIRouter(prefix="/integrations", tags=["admin-integrations"])
 
@@ -55,6 +56,10 @@ class TelegramIn(BaseModel):
     oidc_login: bool = False
     client_id: str = Field("", max_length=30)
     client_secret: str | None = Field(None, max_length=200)  # None keeps the stored secret, "" clears it
+
+
+class MainBotIn(BaseModel):
+    username: str | None = Field(None, max_length=100)  # None / "" -> detect it from the bot token via getMe
 
 
 class EmailTestIn(BaseModel):
@@ -209,6 +214,56 @@ async def update_telegram(body: TelegramIn, admin: AdminUser, session: Session):
     return await _telegram_public(session, {**new, "source": "panel"})
 
 
+async def _bot_get_me(token: str) -> tuple[bool, str | None]:
+    """(reachable, username). ``reachable`` is False only on network failure; a rejected token gives (True, None)."""
+    try:
+        async with httpx.AsyncClient(timeout=10) as c:
+            r = await c.get(f"https://api.telegram.org/bot{token}/getMe")
+        me = (r.json() or {}).get("result") or {}
+        return True, (me.get("username") or None) if r.status_code == 200 else None
+    except (httpx.HTTPError, ValueError):
+        return False, None
+
+
+@router.put("/telegram/main-bot-username")
+async def set_main_bot_username(body: MainBotIn, admin: AdminUser, session: Session):
+    """Stores the main store's bot @username (needed to build the login deep link). Empty body = detect it from the token."""
+    main = await session.scalar(select(Store).where(Store.kind == "main"))
+    if not main:
+        raise AppError("MAIN_STORE_NOT_FOUND", "فروشگاه اصلی پیدا نشد.", 404)
+    token, _ = await _main_bot(session)
+    raw = (body.username or "").strip()
+    reachable, real = (await _bot_get_me(token)) if token else (False, None)
+    if raw:
+        name = normalise_bot_username(raw)
+        if not name:
+            raise AppError("BOT_USERNAME_INVALID", "نام کاربری ربات فقط شامل حروف انگلیسی، عدد و _ است (۳ تا ۶۴ نویسه)، مثلاً @meeloorin_bot.", 400)
+        if token and reachable and not real:
+            raise AppError("BOT_TOKEN_REJECTED", "تلگرام توکن ربات اصلی را نپذیرفت؛ ابتدا توکن را اصلاح کنید.", 400)
+        if real and real.lower() != name.lower():
+            raise AppError("BOT_USERNAME_MISMATCH", f"این نام کاربری با ربات واقعیِ توکن (@{real}) یکی نیست.", 400)
+    else:
+        if not token:
+            raise AppError("BOT_TOKEN_MISSING", "توکن ربات اصلی تنظیم نشده است؛ نام کاربری را دستی وارد کنید.", 400)
+        if not reachable:
+            raise AppError("TELEGRAM_UNREACHABLE", "سرور به api.telegram.org وصل نشد؛ نام کاربری را دستی وارد کنید یا دسترسی خروجی را بررسی کنید.", 502)
+        name = normalise_bot_username(real)
+        if not name:
+            raise AppError("BOT_TOKEN_REJECTED", "تلگرام توکن ربات اصلی را نپذیرفت (ابطال یا اشتباه است).", 400)
+    taken = await session.scalar(select(Store.id).where(func.lower(Store.bot_username) == name.lower(), Store.id != main.id))
+    if taken:
+        raise AppError("BOT_USERNAME_TAKEN", "این نام کاربری برای فروشگاه دیگری ثبت شده است.", 409)
+    old = main.bot_username
+    main.bot_username = name
+    binding = await session.scalar(select(BotStoreBinding).where(BotStoreBinding.store_id == main.id))
+    if binding:
+        binding.bot_username = name
+    audit.record(session, "integration.telegram.main_bot_username", actor_id=admin.id, actor_type="admin", entity_type="store", entity_id=main.id,
+                 store_id=main.id, data={"old": old, "new": name, "verified": bool(real)})
+    await session.commit()
+    return await _telegram_public(session, await integrations.get_telegram(session))
+
+
 def _check(key: str, status: str, message: str) -> dict:
     return {"key": key, "status": status, "message": message}  # status: ok | warn | fail
 
@@ -279,7 +334,7 @@ async def test_telegram(admin: AdminUser, session: Session):
                     if r.status_code != 200 or not me:
                         checks.append(_check("bot", "fail", "تلگرام توکن ربات اصلی را نپذیرفت (توکن ابطال یا اشتباه است)."))
                     elif not username:
-                        checks.append(_check("bot", "fail", f"نام کاربری ربات روی فروشگاه ثبت نشده است (ربات واقعی: @{me.get('username')}). بدون آن لینک ورود ساخته نمی‌شود؛ آن را در تنظیمات فروشگاه وارد کنید."))
+                        checks.append(_check("bot", "fail", f"نام کاربری ربات روی فروشگاه ثبت نشده است (ربات واقعی: @{me.get('username')}). بدون آن لینک ورود ساخته نمی‌شود؛ در همین صفحه، بخش «ربات اصلی فروشگاه»، دکمهٔ «تشخیص خودکار» را بزنید."))
                     elif (me.get("username") or "").lower() != username.lower():
                         checks.append(_check("bot", "warn", f"نام کاربری ربات در فروشگاه (@{username}) با ربات واقعی (@{me.get('username')}) یکی نیست."))
                     else:

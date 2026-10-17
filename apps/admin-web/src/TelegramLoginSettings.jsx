@@ -26,6 +26,46 @@ function CopyAll({ lines }) {
   return <button type="button" className="btn btn-g !px-2 !py-1 text-xs" onClick={copy}>{done ? <Check size={13} /> : <Copy size={13} />}{done ? "کپی شد" : "کپی همهٔ آدرس‌ها"}</button>;
 }
 
+const USERNAME_RE = /^@?[A-Za-z0-9_]{3,64}$/;
+
+// Main store's bot @username: the deep link t.me/<bot>?start=wl_… cannot be built without it.
+function MainBotBox({ saved, call, toast, reload }) {
+  const [name, setName] = useState(saved.main_bot_username || "");
+  const [busy, setBusy] = useState("");
+  const current = saved.main_bot_username || "";
+  const typed = name.trim();
+  const invalid = typed && !USERNAME_RE.test(typed) ? "فقط حروف انگلیسی، عدد و _ (۳ تا ۶۴ نویسه)." : "";
+  const run = async (username, ok) => {
+    setBusy(username === null ? "auto" : "save");
+    const r = await call("/api/v1/admin/integrations/telegram/main-bot-username", { method: "PUT", body: JSON.stringify({ username }) });
+    const d = await r.json().catch(() => ({}));
+    setBusy("");
+    if (!r.ok) return toast(d?.error?.message || d?.detail?.message || "ذخیرهٔ نام کاربری ربات ناموفق بود");
+    toast(ok);
+    setName(d.main_bot_username || "");
+    reload(d);
+  };
+  return (
+    <div className="space-y-2 rounded-xl border border-[var(--ln)] p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="text-sm font-bold">ربات اصلی فروشگاه</div>
+        {current ? <Chip ok><span dir="ltr">@{current}</span></Chip> : <Chip ok="warn">نام کاربری ثبت نشده</Chip>}
+      </div>
+      {!current && <p className="text-xs leading-6 text-[var(--bd)]">بدون نام کاربری ربات، لینک ورود ساخته نمی‌شود و دکمهٔ «ورود با تلگرام» نمایش داده نمی‌شود.</p>}
+      <div className="flex flex-wrap items-start gap-2">
+        <button type="button" disabled={!!busy} className="btn" onClick={() => run(null, "نام کاربری ربات از روی توکن تشخیص داده و ذخیره شد")}>{busy === "auto" ? "در حال تشخیص..." : "تشخیص خودکار از توکن"}</button>
+        <span className="py-2 text-xs text-[var(--mu)]">یا دستی:</span>
+        <div className="min-w-[12rem] flex-1">
+          <input dir="ltr" spellCheck={false} autoComplete="off" className="inp font-mono text-xs" value={name} onChange={(e) => setName(e.target.value)} placeholder="@meeloorin_bot" />
+          {invalid && <div className="mt-1 text-xs text-[var(--bd)]">{invalid}</div>}
+        </div>
+        <button type="button" disabled={!!busy || !typed || !!invalid || typed.replace(/^@/, "") === current} className="btn btn-g" onClick={() => run(typed.replace(/^@/, ""), "نام کاربری ربات ذخیره شد")}>{busy === "save" ? "در حال ذخیره..." : "ذخیره نام کاربری"}</button>
+      </div>
+      <p className="text-xs text-[var(--mu)]">نام کاربری با ربات واقعیِ توکن (getMe) تطبیق داده می‌شود و بلافاصله، بدون build مجدد، اعمال می‌شود. این بخش جدا از دکمهٔ «ذخیره» بالا ذخیره می‌شود.</p>
+    </div>
+  );
+}
+
 function Guide({ cfg }) {
   const ext = (href, text) => <a className="inline-flex items-center gap-1 text-[var(--ac)] underline" href={href} target="_blank" rel="noreferrer noopener">{text} <ExternalLink size={11} /></a>;
   return (
@@ -111,6 +151,8 @@ export default function TelegramLoginSettings({ api, toast }) {
     .then((d) => { setCfg(d.telegram); setSaved(d.telegram); setSecret(""); setClearSecret(false); })
     .catch(() => toast("دریافت تنظیمات تلگرام ناموفق بود"));
   useEffect(() => { load(); }, []);
+  // After the bot username changes keep the admin's unsaved form edits: only refresh the server copy.
+  const reloadBot = (t) => { setSaved(t); setCfg((c) => ({ ...c, main_bot_username: t.main_bot_username })); setResult(null); };
 
   if (!cfg || !saved) return null;
 
@@ -182,7 +224,7 @@ export default function TelegramLoginSettings({ api, toast }) {
               <input dir="ltr" type="number" min={cfg.ttl_min} max={cfg.ttl_max} className="inp font-mono text-xs" value={cfg.ttl_seconds} onChange={(e) => set("ttl_seconds")(e.target.value)} />
             </Field>
           </div>
-          <p className="text-xs text-[var(--mu)]">ربات اصلی فروشگاه: {cfg.main_bot_username ? <code dir="ltr">@{cfg.main_bot_username}</code> : <b className="text-[var(--bd)]">تنظیم نشده</b>}</p>
+          <MainBotBox key={saved.main_bot_username || "none"} saved={saved} call={call} toast={toast} reload={reloadBot} />
         </div>
       )}
 
