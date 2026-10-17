@@ -186,11 +186,12 @@ class Ctx:
 class TelegramRunner:
     channel = "main"
 
-    def __init__(self):
-        self.token = os.environ["MELORIN_TELEGRAM_TOKEN"]
+    def __init__(self, *, token: str | None = None, offset_file: str | Path | None = None):
+        # ``token`` / ``offset_file`` let one process host several bots (the reseller supervisor) without touching os.environ.
+        self.token = token or os.environ["MELORIN_TELEGRAM_TOKEN"]
         self.core = os.environ["MELORIN_CORE_URL"].rstrip("/")
         self.secret = os.environ["MELORIN_BOT_SERVICE_SECRET"]
-        self.offset_file = Path(os.getenv("MELORIN_TELEGRAM_OFFSET_FILE", "/var/lib/melorin/offset.json"))
+        self.offset_file = Path(offset_file or os.getenv("MELORIN_TELEGRAM_OFFSET_FILE", "/var/lib/melorin/offset.json"))
         self.offset_file.parent.mkdir(parents=True, exist_ok=True)
         self.state_file = self.offset_file.with_name(self.offset_file.stem + "-state.json")
         self.offset = self._load_offset()
@@ -290,8 +291,12 @@ class TelegramRunner:
         r = await self.client.post(f"https://api.telegram.org/bot{self.token}/sendPhoto", data=data, files={"photo": ("qr.png", png, "image/png")})
         r.raise_for_status()
 
+    def main_menu_rows(self, chat_id) -> list:
+        """Reply-keyboard rows for this chat (reseller bots tailor them: owners get a management button)."""
+        return MAIN_MENU
+
     async def send_main_menu(self, chat_id, text: str) -> None:
-        await self.send(chat_id, text, MAIN_MENU, reply=True)
+        await self.send(chat_id, text, self.main_menu_rows(chat_id), reply=True)
 
     async def api(self, ctx: Ctx, method: str, path: str, **kw) -> dict | list:
         headers = {"Authorization": f"Bearer {ctx.pair['access_token']}", "Accept": "application/json", **kw.pop("headers", {})}

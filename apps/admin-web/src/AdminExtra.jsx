@@ -8,6 +8,7 @@ import ProductsView from "./ProductsView.jsx";
 import BundlesView from "./BundlesView.jsx";
 import TicketsView from "./TicketsView.jsx";
 import ResellerApplicationsView from "./ResellerApplicationsView.jsx";
+import ResellersView from "./ResellersView.jsx";
 import GoogleLoginSettings from "./GoogleLoginSettings.jsx";
 import TelegramLoginSettings from "./TelegramLoginSettings.jsx";
 const money = (n) => new Intl.NumberFormat("fa-IR").format(n || 0);
@@ -259,4 +260,4 @@ function Tickets({ api, toast }) {
   return <TicketsView call={call} toast={toast} />;
 }
 
-export const extraRoutes = { "درخواست‌های نمایندگی": ResellerApplicationsView, "سلامت زیرساخت": InfraHealthView, "سفارش‌ها": Orders, "پرداخت‌ها": Payments, "تیکت‌ها": Tickets, "محصولات VPN": ProductsView, "پنل‌ها و سرورها": PanelsView, "بسته‌های فروش": BundlesView, "کوپن‌ها": Coupons, "تنظیمات": Settings, "ممیزی": Audit, "بررسی هویت": Reviews };
+export const extraRoutes = { "نمایندگان": ResellersView, "درخواست‌های نمایندگی": ResellerApplicationsView, "سلامت زیرساخت": InfraHealthView, "سفارش‌ها": Orders, "پرداخت‌ها": Payments, "تیکت‌ها": Tickets, "محصولات VPN": ProductsView, "پنل‌ها و سرورها": PanelsView, "بسته‌های فروش": BundlesView, "کوپن‌ها": Coupons, "تنظیمات": Settings, "ممیزی": Audit, "بررسی هویت": Reviews };

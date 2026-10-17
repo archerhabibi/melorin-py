@@ -1,15 +1,30 @@
 """Container healthcheck for Telegram runners.
 
-A configured token is not enough: ask Telegram getMe with a short timeout.
+* Main runner: a configured token is not enough, ask Telegram getMe with a short timeout.
+* Reseller supervisor (``MELORIN_HEARTBEAT_FILE``): it may legitimately host zero bots, so there is no single token to
+  ask about. It touches a heartbeat file every few seconds; a stale file means the process is stuck or dead.
 """
 import json
 import os
 import sys
+import time
 import urllib.error
 import urllib.request
 
+HEARTBEAT_MAX_AGE = 90
+
+
+def heartbeat_ok(path: str) -> bool:
+    try:
+        return time.time() - float(open(path).read().strip()) < HEARTBEAT_MAX_AGE
+    except (OSError, ValueError):
+        return False
+
 
 def main() -> int:
+    heartbeat = os.environ.get("MELORIN_HEARTBEAT_FILE", "").strip()
+    if heartbeat:
+        return 0 if heartbeat_ok(heartbeat) else 1
     token = os.environ.get("MELORIN_TELEGRAM_TOKEN", "").strip()
     if not token:
         return 1

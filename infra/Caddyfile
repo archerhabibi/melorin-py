@@ -8,7 +8,7 @@
 
 {$MELORIN_DOMAIN:localhost} {
   encode gzip
-  @blocked_ops path /metrics /docs /redoc /openapi.json
+  @blocked_ops path /metrics /docs /redoc /openapi.json /api/v1/internal/*
   respond @blocked_ops 404
   @api path /api/* /health/* /health /healthz
   handle @api {
@@ -31,7 +31,7 @@
 
 {$MELORIN_ADMIN_DOMAIN:admin.localhost} {
   encode gzip
-  @blocked_ops path /metrics /docs /redoc /openapi.json
+  @blocked_ops path /metrics /docs /redoc /openapi.json /api/v1/internal/*
   respond @blocked_ops 404
   @api path /api/* /health/* /health /healthz
   handle @api {
@@ -59,7 +59,7 @@ https:// {
     on_demand
   }
   encode gzip
-  @blocked_ops path /metrics /docs /redoc /openapi.json
+  @blocked_ops path /metrics /docs /redoc /openapi.json /api/v1/internal/*
   respond @blocked_ops 404
   @api path /api/* /health/* /health /healthz
   handle @api {

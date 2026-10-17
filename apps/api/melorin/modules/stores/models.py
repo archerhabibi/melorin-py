@@ -25,6 +25,13 @@ class Store(IdMixin, TimestampMixin, Base):
     # Public hostname the store is served from (lower-case, no scheme/port). Reseller stores must have one;
     # Main Store may leave it empty. Unique across all stores.
     domain: Mapped[str | None] = mapped_column(String(255), unique=True)
+    # Telegram bot runtime (reseller stores). ``bot_enabled`` lets the admin switch the bot off without suspending the
+    # store; the reseller runner reports ``bot_status`` (connecting|running|error|stopped|disabled) and the last error
+    # through Core, so the admin panel shows whether the bot is really connected.
+    bot_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+    bot_status: Mapped[str | None] = mapped_column(String(20))
+    bot_status_detail: Mapped[str | None] = mapped_column(String(300))
+    bot_seen_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class BotStoreBinding(IdMixin, TimestampMixin, Base):

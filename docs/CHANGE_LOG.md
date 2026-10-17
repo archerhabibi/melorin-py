@@ -36,6 +36,22 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-18 UTC - Claude - reseller bot, admin-web, api
+- **Before:** the reseller Telegram bot was never connected. `telegram_reseller` was off by default (compose profile) and could only
+  start from `MELORIN_TELEGRAM_RESELLER_TOKEN`/`MELORIN_RESELLER_BOTS_JSON`; the bot token of an approved reseller was stored encrypted in
+  `stores.bot_token_enc` but nothing ever read it. Admin could list stores (read-only) but not edit a reseller.
+- **Problem:** approving a reseller created a store + bot binding with no running bot; no way to see whether a bot works; no admin editing of
+  name/domain/limits/token; tokens could leak into logs through httpx error text.
+- **Action:** Core is now the source of truth. `modules/reseller/bots.py` (+ migration 0025: `stores.bot_enabled/bot_status/bot_status_detail/bot_seen_at`)
+  serves `GET /internal/reseller-bots` and receives `POST /internal/reseller-bots/{id}/status` (private network only; blocked in Caddy/nginx and
+  refused when forwarding headers are present). `telegram-reseller/runner.py` is a supervisor: one isolated runner per store, restart on token change,
+  stop on suspend/disable, health reported back, 401 = revoked (no retry loop), token redaction in logs, heartbeat healthcheck; compose now always runs it.
+  Reseller bot UX: store welcome/support/rules texts, owner-only `🏪 مدیریت فروشگاه` (/manage) with debt state and pending receipts, no "become a reseller".
+  Admin: `modules/admin/resellers.py` (`GET/PATCH /admin/resellers`, `PUT/DELETE /admin/resellers/{id}/bot-token`, `POST .../verify-bot`) and the
+  "نمایندگان" screen (live bot state, edit identity/status/debt limit/switches/token/texts). Everything audited; token is write-only.
+- **After:** `pytest` 528 → 560 passed (+32 new in `test_s01_*`); `vite build` OK; migration chain 0024 → 0025.
+- **Ref:** patch `melorin-reseller-bot.patch` on top of 49218ac.
+
 ### 2026-10-17 22:16 UTC - Claude - admin-web, api  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_

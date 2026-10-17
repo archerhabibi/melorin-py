@@ -80,17 +80,17 @@ services:
     healthcheck: {test: [CMD, python, scripts/telegram_healthcheck.py], interval: 30s, timeout: 8s, retries: 3, start_period: 15s}
     networks: [backend]
   telegram_reseller:
-    profiles: [reseller]   # off by default; enable with COMPOSE_PROFILES=reseller once reseller bots are configured
+    # Always on: it asks Core which reseller bots to run (admin → نمایندگان) and idles when there are none.
     build:
       context: .
       dockerfile: apps/telegram-reseller/Dockerfile
     env_file: [.env]
     environment:
       MELORIN_CORE_URL: http://api:8000
-      MELORIN_TELEGRAM_OFFSET_FILE: /var/lib/melorin/reseller-offset.json
+      MELORIN_HEARTBEAT_FILE: /var/lib/melorin/supervisor-heartbeat
     volumes: [telegram_reseller_state:/var/lib/melorin]
     depends_on: {api: {condition: service_healthy}}
-    healthcheck: {test: [CMD-SHELL, 'MELORIN_TELEGRAM_TOKEN="$${MELORIN_TELEGRAM_RESELLER_TOKEN}" python scripts/telegram_healthcheck.py'], interval: 30s, timeout: 8s, retries: 3, start_period: 15s}
+    healthcheck: {test: [CMD, python, scripts/telegram_healthcheck.py], interval: 30s, timeout: 8s, retries: 3, start_period: 20s}
     networks: [backend]
   caddy:
     profiles: [local-proxy]

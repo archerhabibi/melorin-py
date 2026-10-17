@@ -21,6 +21,7 @@ from melorin.modules.identity.telegram_web_router import tgweb as telegram_web_r
 from melorin.modules.notifications.router import router as notifications_router
 from melorin.modules.orders.router import router as orders_router
 from melorin.modules.payments.router import router as payments_router
+from melorin.modules.reseller.bots import internal as internal_router
 from melorin.modules.reseller.router import api_router as reseller_api_router, router as reseller_router
 from melorin.modules.reports.router import router as reports_router
 from melorin.modules.referral.router import router as referral_router
@@ -61,6 +62,7 @@ app.include_router(payments_router, prefix="/api/v1")
 app.include_router(orders_router, prefix="/api/v1")
 app.include_router(vpn_router, prefix="/api/v1")
 app.include_router(reseller_router, prefix="/api/v1")
+app.include_router(internal_router, prefix="/api/v1")
 app.include_router(reseller_api_router, prefix="/api/v1")
 app.include_router(reports_router, prefix="/api/v1")
 app.include_router(referral_router, prefix="/api/v1")

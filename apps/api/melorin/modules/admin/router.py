@@ -27,6 +27,7 @@ from melorin.modules.stores.models import BotStoreBinding, ResellerApplication, 
 from melorin.modules.admin import bot_bindings
 from melorin.modules.reseller.linking import link_bundle_to_resellers, link_product_to_resellers
 from melorin.modules.admin.integrations import router as integrations_router
+from melorin.modules.admin.resellers import router as resellers_router
 from melorin.modules.system.models import AuditEvent, BackupRun, FeatureFlag, SystemSetting
 from melorin.modules.webhooks import service as webhook_service
 from melorin.modules.tickets.models import Ticket
@@ -37,6 +38,7 @@ from melorin.modules.vpn.bundles import Bundle, BundleMember, BundleProduct, Sto
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 router.include_router(integrations_router)
+router.include_router(resellers_router)
 
 
 @router.get("/bot-store-bindings")

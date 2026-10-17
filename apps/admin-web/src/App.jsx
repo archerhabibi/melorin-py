@@ -10,13 +10,13 @@ import { Badge, DialogHost, ThemeButton, confirmDialog, label, sid, tone } from 
 import { Palette } from './palette.jsx';
 import { legacyHash } from './infra.jsx';
 import { toggleTheme } from './theme.js';
-import { Activity, Bell, CircleAlert, CreditCard, Database, Download, Fingerprint, LayoutDashboard, Menu, Package, PanelTop, Percent, RefreshCw, Server, Settings, ShieldCheck, Ticket, Users, WalletCards, X, Boxes, ScrollText, Store, Search, Layers, Moon, LogOut, KeyRound, ChevronDown, UserRound, UserPlus } from 'lucide-react';
+import { Activity, Bell, CircleAlert, CreditCard, Database, Download, Fingerprint, LayoutDashboard, Menu, Package, PanelTop, Percent, RefreshCw, Server, Settings, ShieldCheck, Ticket, Users, WalletCards, X, Boxes, ScrollText, Store, Search, Layers, Moon, LogOut, KeyRound, ChevronDown, UserRound, UserPlus, Bot } from 'lucide-react';
 
 // Section keys are Persian labels (AdminSections/AdminExtra route on them); slug drives the URL hash.
 const groups = [
   ['نمای کلی', [['داشبورد', LayoutDashboard, 'home']]],
   ['عملیات', [['سفارش‌ها', Package, 'orders'], ['پرداخت‌ها', CreditCard, 'payments'], ['اکانت‌های VPN', Server, 'vpn'], ['تیکت‌ها', Ticket, 'tickets']]],
-  ['فروش و مشتریان', [['کاربران', Users, 'users'], ['فروشگاه‌ها', Store, 'stores'], ['درخواست‌های نمایندگی', UserPlus, 'reseller-applications'], ['کوپن‌ها', Percent, 'coupons']]],
+  ['فروش و مشتریان', [['کاربران', Users, 'users'], ['فروشگاه‌ها', Store, 'stores'], ['نمایندگان', Bot, 'resellers'], ['درخواست‌های نمایندگی', UserPlus, 'reseller-applications'], ['کوپن‌ها', Percent, 'coupons']]],
     ['زیرساخت', [['پنل‌ها و سرورها', PanelTop, 'panels'], ['بسته‌های فروش', Layers, 'bundles'], ['محصولات VPN', Boxes, 'products'], ["سلامت زیرساخت", ShieldCheck, "infra-health"]], 'مسیر فروش: پنل و سرور ← بسته فروش ← پکیج'],
   ['سیستم', [['تنظیمات', Settings, 'settings'], ['ممیزی', ScrollText, 'audit'], ['بررسی هویت', Fingerprint, 'identity']]],
 ];

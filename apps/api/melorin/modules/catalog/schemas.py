@@ -57,6 +57,7 @@ class StoreOut(BaseModel):
     branding: dict | None
     bot_username: str | None
     domain: str | None = None  # public hostname of the store website (used by the bots' account button)
+    bot_messages: dict | None = None  # public bot texts (welcome / support / rules) a reseller store customises
 
 
 class QuoteWalletOut(QuoteOut):
