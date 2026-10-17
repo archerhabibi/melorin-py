@@ -36,6 +36,13 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-17 12:00 UTC - Claude - auth, store-web, admin-web, infra
+- **Before:** admin-web used a hand-made "Google" button driving One Tap (`prompt()`); store-web used `renderButton` but `initialize()` ran twice; ID tokens were checked through the debugging-only `/tokeninfo` endpoint with no nonce, so a leaked token could be replayed; no explicit `exp`/`iat` requirement; admin login page showed API errors as a generic message (it read `payload.code` instead of `payload.error.code`).
+- **Problem:** the sign-in did not follow Google's official "Sign in with Google" guidance (button, theme, initialisation, token verification, COOP).
+- **Action:** both apps now share one `GoogleSignIn.jsx` using Google's official button (theme-aware outline/filled_black, 200-400px, `locale: fa`, loading skeleton, retry, `disableAutoSelect` on sign-out), a single `initialize()` with a server nonce; new `GET /auth/google/nonce` (httpOnly cookie) enforced by `POST /auth/google`; tokens verified locally against Google's JWKS (RS256, iss, aud, exp, nonce; cached, survives a Google outage); admin Google button unlocks after the TOTP code is typed; Caddy sends `Cross-Origin-Opener-Policy: same-origin-allow-popups`; connectivity test and docs use `www.googleapis.com/oauth2/v3/certs`.
+- **After:** `pytest` 446+ passed (new `test_r01_google_token_verification.py`), `vite build` OK for both apps, jsdom check: one `initialize()` per page load, theme switch re-renders without re-initialising.
+- **Files:** `apps/api/melorin/modules/identity/{service,router}.py`, `apps/api/melorin/modules/admin/integrations.py`, `apps/{store,admin}-web/src/{GoogleSignIn,App,AdminAuth}.jsx`, `infra/Caddyfile`, `docs/GOOGLE-LOGIN-SETUP-{EN,FA}.md`, tests.
+
 ### 2026-10-17 09:08 UTC - Claude - tests  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_

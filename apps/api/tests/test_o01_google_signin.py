@@ -18,7 +18,7 @@ from melorin.modules.system.models import AuditEvent, SecurityEvent, SystemSetti
 ROOT = Path(__file__).resolve().parents[1]
 PROJECT = ROOT.parent.parent
 TABLES = [User.__table__, Identity.__table__, RefreshToken.__table__, IdentityLinkReview.__table__, AuditEvent.__table__, SecurityEvent.__table__, SystemSetting.__table__]
-REQ = types.SimpleNamespace(headers={"user-agent": "pytest"})
+REQ = types.SimpleNamespace(headers={"user-agent": "pytest"}, cookies={router.GOOGLE_NONCE_COOKIE: "n1"})
 
 
 @pytest.fixture
@@ -40,7 +40,7 @@ async def world(tmp_path, monkeypatch):
         await s.commit()
 
         async def fake_verify(_token, _client_id=None):
-            return {"sub": fake_verify.sub, "email": "x@example.com", "email_verified": "true"}
+            return {"sub": fake_verify.sub, "email": "x@example.com", "email_verified": "true", "nonce": "n1"}
 
         monkeypatch.setattr(service, "verify_google_token", fake_verify)
         yield types.SimpleNamespace(s=s, secret=secret, verify=fake_verify, admin=admin)
@@ -100,9 +100,32 @@ def test_google_client_id_reaches_both_frontend_builds():
     assert compose.count("VITE_GOOGLE_CLIENT_ID: ${MELORIN_GOOGLE_CLIENT_ID:-}") == 2
     for app in ("store-web", "admin-web"):
         assert "ARG VITE_GOOGLE_CLIENT_ID" in (PROJECT / f"apps/{app}/Dockerfile").read_text()
-        hook = (PROJECT / f"apps/{app}/src/GoogleSignIn.jsx").read_text()
-        assert "latest.current(response.credential)" in hook  # the shared hook (GIS script + initialize) stays in both apps
-        if app == "store-web":  # store-web renders Google's official button, so Google's own errors are visible
-            assert "renderButton" in hook and "cb.current(response.credential)" in hook
-        else:
-            assert "isDismissedMoment" in hook
+
+
+def test_both_apps_use_googles_official_button_with_one_shared_initialisation():
+    store = (PROJECT / "apps/store-web/src/GoogleSignIn.jsx").read_text()
+    admin = (PROJECT / "apps/admin-web/src/GoogleSignIn.jsx").read_text()
+    # the two copies differ only by the surface constant and the header comment
+    norm = lambda t: t.replace('"store"', '"X"').replace('"admin"', '"X"').replace("store-web", "APP").replace("admin-web", "APP")  # noqa: E731
+    assert norm(store) == norm(admin)
+    for src in (store, admin):
+        assert "renderButton" in src and "accounts.google.com/gsi/client" in src
+        assert src.count("initialize({") == 1  # GIS is initialised once, in one place
+        assert "nonce" in src and "/api/v1/auth/google/nonce" in src
+        assert "filled_black" in src and "outline" in src  # follows the dark/light theme
+        assert "locale" in src and "disableAutoSelect" in src
+        assert ".prompt(" not in src  # no hand-made button driving One Tap
+    assert 'SURFACE = "store"' in store and 'SURFACE = "admin"' in admin
+
+
+def test_login_pages_use_the_shared_button_and_no_legacy_hook():
+    for path in ("apps/store-web/src/App.jsx", "apps/admin-web/src/AdminAuth.jsx"):
+        src = (PROJECT / path).read_text()
+        assert "<GoogleSignInButton" in src and "useGoogleSignIn" not in src
+    admin = (PROJECT / "apps/admin-web/src/AdminAuth.jsx").read_text()
+    assert "payload?.error?.code" in admin  # API errors are {error: {code}}
+
+
+def test_popup_flow_keeps_window_opener_via_coop_header():
+    caddy = (PROJECT / "infra/Caddyfile").read_text()
+    assert caddy.count("Cross-Origin-Opener-Policy same-origin-allow-popups") == 3

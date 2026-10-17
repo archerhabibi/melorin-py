@@ -18,7 +18,7 @@ from melorin.modules.system.models import AuditEvent, SecurityEvent, SystemSetti
 PROJECT = Path(__file__).resolve().parents[3]
 TABLES = [User.__table__, Identity.__table__, RefreshToken.__table__, IdentityLinkReview.__table__, AuditEvent.__table__, SecurityEvent.__table__, SystemSetting.__table__]
 GOOD_ID = "123456789012-abc123def456.apps.googleusercontent.com"
-REQ = types.SimpleNamespace(headers={"user-agent": "pytest"})
+REQ = types.SimpleNamespace(headers={"user-agent": "pytest"}, cookies={router.GOOGLE_NONCE_COOKIE: "n1"})
 
 
 @pytest.fixture
@@ -89,20 +89,6 @@ async def test_login_refused_when_disabled(session):
     assert e.value.code == "GOOGLE_DISABLED"
 
 
-async def test_token_audience_must_match_the_saved_client_id(session, monkeypatch):
-    class R:
-        status_code = 200
-        def json(self): return {"aud": "someone-else", "iss": "accounts.google.com", "sub": "1"}
-    class C:
-        async def __aenter__(self): return self
-        async def __aexit__(self, *a): return False
-        async def get(self, *a, **k): return R()
-    monkeypatch.setattr(service.httpx, "AsyncClient", lambda **k: C())
-    with pytest.raises(AppError) as e:
-        await service.verify_google_token("t", GOOD_ID)
-    assert e.value.code == "GOOGLE_INVALID"
-
-
 async def _login_as(session, monkeypatch, *, admin: bool, admin_login: bool, store_login: bool):
     await settings_store.set_value(session, integrations.GOOGLE_KEY, {"enabled": True, "client_id": GOOD_ID, "admin_login": admin_login, "store_login": store_login})
     u = User(display_name="U", email="u@example.com", is_super_admin=admin)
@@ -112,7 +98,7 @@ async def _login_as(session, monkeypatch, *, admin: bool, admin_login: bool, sto
     await session.commit()
 
     async def fake_verify(_t, _c):
-        return {"sub": "sub-1", "email": "u@example.com", "email_verified": "true"}
+        return {"sub": "sub-1", "email": "u@example.com", "email_verified": "true", "nonce": "n1"}
 
     monkeypatch.setattr(service, "verify_google_token", fake_verify)
     return await router.google_login(GoogleLogin(id_token="t"), session, REQ, Response())
