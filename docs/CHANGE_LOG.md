@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-17 18:05 UTC - Claude - other, admin-web, api  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** Rename sales pool / panel group wording to sales bundle in comments, docstrings, README and docs (step 1/3)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (18):** `README.md`, `apps/admin-web/src/PanelGroupsView.jsx`, `apps/admin-web/src/kit.jsx`, `apps/api/melorin/modules/admin/router.py`, `apps/api/melorin/modules/catalog/models.py`, `apps/api/melorin/modules/catalog/router.py`, `apps/api/melorin/modules/reseller/router.py`, `apps/api/melorin/modules/reseller/schemas.py` (+10 more)
+- **Ref:** `6390a52`
+
+
 ### 2026-10-17 13:30 UTC - Claude - api, store-web, tests, docs
 - **Before:** a reseller had ONE retail price per package for the whole store (`store_products.customer_price`); the web reseller panel had no place to set prices at all (only the Telegram bot did), and a package sold in a cheap and a dear pool could not be priced differently.
 - **Problem:** the reseller panel could not price the packages of each sales pool (بسته فروش) in the reseller's own store.
