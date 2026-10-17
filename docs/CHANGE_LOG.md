@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-17 18:13 UTC - Claude - admin-web, db, api  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** Rename panel groups to bundles: models, API routes, DB tables/columns (migration 0022), admin/store UI, bots, tests (step 3/3)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (38):** `apps/admin-web/src/AdminExtra.jsx`, `apps/admin-web/src/App.jsx`, `apps/admin-web/src/BundlesView.jsx`, `apps/admin-web/src/PanelsView.jsx`, `apps/admin-web/src/ProductsView.jsx`, `apps/admin-web/src/ServerForm.jsx`, `apps/admin-web/src/infra.jsx`, `apps/api/alembic/versions/0022_panel_group_to_bundle.py` (+30 more)
+- **Ref:** `f1a1264`
+
+
 ### 2026-10-17 18:09 UTC - Claude - other, admin-web, db  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
