@@ -8,7 +8,7 @@ import { Check, ChevronDown, Copy, ExternalLink, ShieldCheck } from "lucide-reac
 
 const CLIENT_ID_RE = /^[0-9]{6,}-[A-Za-z0-9_-]+\.apps\.googleusercontent\.com$/;
 
-const Field = ({ label, hint, error, children }) => (
+export const Field = ({ label, hint, error, children }) => (
   <label className="block text-xs font-bold text-[var(--mu)]">
     {label}
     <div className="mt-1">{children}</div>
@@ -16,14 +16,14 @@ const Field = ({ label, hint, error, children }) => (
   </label>
 );
 
-const Switch = ({ on, set, label, hint }) => (
+export const Switch = ({ on, set, label, hint }) => (
   <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--ln)] p-3">
     <input type="checkbox" className="mt-1" checked={on} onChange={(e) => set(e.target.checked)} />
     <span><span className="block text-sm font-bold">{label}</span>{hint && <span className="mt-0.5 block text-xs text-[var(--mu)]">{hint}</span>}</span>
   </label>
 );
 
-function CopyBox({ text }) {
+export function CopyBox({ text }) {
   const [done, setDone] = useState(false);
   const copy = async () => {
     try { await navigator.clipboard.writeText(text); setDone(true); setTimeout(() => setDone(false), 1500); } catch { /* clipboard blocked: user can select the text */ }
@@ -36,7 +36,7 @@ function CopyBox({ text }) {
   );
 }
 
-const Step = ({ n, title, children }) => (
+export const Step = ({ n, title, children }) => (
   <li className="flex gap-3">
     <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[var(--btn)] text-xs font-extrabold text-[var(--btntx)]">{n}</span>
     <div className="min-w-0 flex-1 space-y-1.5"><div className="font-bold">{title}</div><div className="space-y-1.5 text-xs leading-7 text-[var(--mu)]">{children}</div></div>

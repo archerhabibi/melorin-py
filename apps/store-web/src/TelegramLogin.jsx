@@ -13,6 +13,7 @@ const REASONS = {
   account_disabled: "حساب شما غیرفعال است. با پشتیبانی تماس بگیرید.",
   registration_closed: "ثبت‌نام جدید موقتاً بسته است.",
   rate_limited: "تلاش‌ها زیاد بود؛ کمی بعد دوباره امتحان کنید.",
+  login_disabled: "ورود با تلگرام موقتاً غیرفعال شده است.",
 };
 const mmss = (s) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 

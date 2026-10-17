@@ -16,6 +16,7 @@ from melorin.core.metrics import render, set_alert, set_gauge
 from melorin.modules.admin.router import router as admin_router
 from melorin.modules.catalog.router import public as catalog_router
 from melorin.modules.identity.router import auth as auth_router, me as me_router
+from melorin.modules.identity.telegram_oidc_router import tgoidc as telegram_oidc_router
 from melorin.modules.identity.telegram_web_router import tgweb as telegram_web_router
 from melorin.modules.notifications.router import router as notifications_router
 from melorin.modules.orders.router import router as orders_router
@@ -51,6 +52,7 @@ install(app)
 
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(telegram_web_router, prefix="/api/v1")
+app.include_router(telegram_oidc_router, prefix="/api/v1")
 app.include_router(me_router, prefix="/api/v1")
 app.include_router(notifications_router, prefix="/api/v1")
 app.include_router(catalog_router, prefix="/api/v1")

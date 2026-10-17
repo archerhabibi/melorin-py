@@ -9,6 +9,7 @@ import PanelGroupsView from "./PanelGroupsView.jsx";
 import TicketsView from "./TicketsView.jsx";
 import ResellerApplicationsView from "./ResellerApplicationsView.jsx";
 import GoogleLoginSettings from "./GoogleLoginSettings.jsx";
+import TelegramLoginSettings from "./TelegramLoginSettings.jsx";
 const money = (n) => new Intl.NumberFormat("fa-IR").format(n || 0);
 const box = "card";
 const inp = "inp";
@@ -202,7 +203,7 @@ function Settings({ api, toast }) {
     if (r.ok) { toast("تنظیم ذخیره شد"); setTick((x) => x + 1); } else toast("ذخیره ناموفق بود");
   };
   const rawSettings = Object.entries(obj).filter(([k]) => !["card.info", "gateway.zarinpal"].includes(k));
-  return <div className="space-y-5"><ChangeAdminPassword api={api} toast={toast} /><GoogleLoginSettings api={api} toast={toast} /><Integrations api={api} toast={toast} /><Table title="Feature Flags" cols={["کلید", "محدوده", "فعال", ""]} rows={flags.rows.map((f) => [f.key, `${f.scope_type}:${f.scope_id}`, f.enabled ? "بله" : "خیر", <button className={ghost} onClick={() => setFlag(f)}>{f.enabled ? "خاموش" : "روشن"}</button>])} />
+  return <div className="space-y-5"><ChangeAdminPassword api={api} toast={toast} /><GoogleLoginSettings api={api} toast={toast} /><TelegramLoginSettings api={api} toast={toast} /><Integrations api={api} toast={toast} /><Table title="Feature Flags" cols={["کلید", "محدوده", "فعال", ""]} rows={flags.rows.map((f) => [f.key, `${f.scope_type}:${f.scope_id}`, f.enabled ? "بله" : "خیر", <button className={ghost} onClick={() => setFlag(f)}>{f.enabled ? "خاموش" : "روشن"}</button>])} />
     <section className={`${box} overflow-hidden`}><h3 className="px-5 py-4 font-extrabold">تنظیمات پیشرفته سیستم <span className="text-xs font-normal text-[var(--mu)]">(مقدار به‌صورت JSON)</span></h3>{rawSettings.map(([k, v]) => <SettingRow key={k} k={k} v={v} save={save} />)}</section></div>;
 }
 

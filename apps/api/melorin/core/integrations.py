@@ -17,6 +17,7 @@ EMAIL_KEY = PREFIX + "email"
 BACKUP_S3_KEY = PREFIX + "backup_s3"
 ADMIN_ACCESS_KEY = PREFIX + "admin_access"
 GOOGLE_KEY = PREFIX + "google_login"
+TELEGRAM_KEY = PREFIX + "telegram_login"
 
 EMAIL_DEFAULT: dict = {
     "enabled": False, "host": "", "port": 587, "username": "", "password_enc": None,
@@ -30,6 +31,17 @@ ADMIN_ACCESS_DEFAULT: dict = {"enabled": False, "ips": []}  # OFF by default: no
 # Google Sign-In (ID-token flow). Only the public OAuth Client ID is needed - no client secret is stored.
 GOOGLE_DEFAULT: dict = {"enabled": False, "client_id": "", "admin_login": True, "store_login": True}
 GOOGLE_CLIENT_ID_RE = re.compile(r"^[0-9]{6,}-[A-Za-z0-9_-]+\.apps\.googleusercontent\.com$")
+# Login with Telegram. Two independent methods share one master switch:
+#   * bot approval  (device-authorization flow, docs/TELEGRAM-WEB-LOGIN.md) - needs only the store's bot;
+#   * OIDC redirect (https://core.telegram.org/bots/telegram-login)       - needs the bot's Client ID + Client Secret
+#     that @BotFather shows under "Login Widget". The secret is stored Fernet-encrypted and never returned.
+# Admins never sign in through Telegram (they use password + TOTP), so there is no admin switch.
+TELEGRAM_DEFAULT: dict = {
+    "enabled": True, "store_login": True, "bot_login": True, "number_match": True, "ttl_seconds": 180,
+    "oidc_login": False, "client_id": "", "client_secret_enc": None,
+}
+TELEGRAM_CLIENT_ID_RE = re.compile(r"^[0-9]{5,20}$")  # a bot's numeric ID (the part of the bot token before ':')
+TELEGRAM_TTL_MIN, TELEGRAM_TTL_MAX = 60, 600
 
 
 def is_integration_key(key: str) -> bool:
@@ -61,6 +73,37 @@ async def get_google(session: AsyncSession) -> dict:
         return {**GOOGLE_DEFAULT, **stored, "source": "panel"}
     env_id = (get_settings().google_client_id or "").strip()
     return {**GOOGLE_DEFAULT, "enabled": bool(env_id), "client_id": env_id, "source": "env" if env_id else "none"}
+
+
+async def get_telegram(session: AsyncSession) -> dict:
+    """Effective Telegram login config. Until the admin saves one, behaviour is exactly what earlier versions did:
+    bot-approval login on (timing/number-matching from the ``MELORIN_TELEGRAM_WEB_LOGIN_*`` env values), OIDC off."""
+    stored = await settings_store.get(session, TELEGRAM_KEY)
+    if isinstance(stored, dict):
+        return {**TELEGRAM_DEFAULT, **stored, "source": "panel"}
+    s = get_settings()
+    return {**TELEGRAM_DEFAULT, "number_match": bool(s.telegram_web_login_number_match), "ttl_seconds": int(s.telegram_web_login_ttl_seconds), "source": "default"}
+
+
+def telegram_ttl(cfg: dict) -> int:
+    return max(TELEGRAM_TTL_MIN, min(TELEGRAM_TTL_MAX, int(cfg.get("ttl_seconds") or TELEGRAM_DEFAULT["ttl_seconds"])))
+
+
+def telegram_bot_ready(cfg: dict) -> bool:
+    return bool(cfg.get("enabled") and cfg.get("store_login") and cfg.get("bot_login"))
+
+
+def telegram_oidc_ready(cfg: dict) -> bool:
+    return bool(cfg.get("enabled") and cfg.get("store_login") and cfg.get("oidc_login") and cfg.get("client_id") and cfg.get("client_secret_enc"))
+
+
+def telegram_client_secret(cfg: dict) -> str:
+    return decrypt(cfg.get("client_secret_enc")) or ""
+
+
+def public_telegram(cfg: dict) -> dict:
+    """What the unauthenticated storefront may see: which buttons to draw. Never the Client ID or the secret."""
+    return {"bot_login": telegram_bot_ready(cfg), "oidc_login": telegram_oidc_ready(cfg)}
 
 
 def google_ready(cfg: dict) -> bool:

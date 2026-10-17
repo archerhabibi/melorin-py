@@ -6,13 +6,13 @@
 :root {
   --bg: 246 243 234; --surface: 255 255 255; --surface2: 239 235 224; --ink: 16 35 63; --muted: 91 104 119; --line: 221 223 214;
   --primary: 16 35 63; --onprimary: 255 255 255; --accent: 247 200 92; --accent-soft: 250 238 204;
-  --coral: 184 83 42; --mint: 23 99 76; --mint-soft: 218 238 227; --danger: 181 62 40; --danger-soft: 252 233 227; --navy: 16 35 63; --shadow: 16 35 63;
+  --tg: 24 122 168; --tg-text: 24 122 168; --coral: 184 83 42; --mint: 23 99 76; --mint-soft: 218 238 227; --danger: 181 62 40; --danger-soft: 252 233 227; --navy: 16 35 63; --shadow: 16 35 63;
   color-scheme: light;
 }
 :root[data-theme='dark'] {
   --bg: 8 17 31; --surface: 16 30 51; --surface2: 24 42 70; --ink: 237 241 247; --muted: 156 171 190; --line: 36 55 85;
   --primary: 247 200 92; --onprimary: 16 35 63; --accent: 247 200 92; --accent-soft: 67 56 30;
-  --coral: 240 154 118; --mint: 134 224 184; --mint-soft: 20 58 52; --danger: 247 150 128; --danger-soft: 70 30 28; --navy: 16 35 63; --shadow: 0 0 0;
+  --tg-text: 108 196 238; --coral: 240 154 118; --mint: 134 224 184; --mint-soft: 20 58 52; --danger: 247 150 128; --danger-soft: 70 30 28; --navy: 16 35 63; --shadow: 0 0 0;
   color-scheme: dark;
 }
 
@@ -27,6 +27,8 @@
 @layer components {
   .btn { @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl px-5 py-3 text-sm font-bold transition duration-200 active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100; }
   .btn-primary { @apply btn bg-primary text-onprimary shadow-soft hover:brightness-110; }
+  .btn-tg { @apply btn bg-tg text-white shadow-soft hover:brightness-110; }
+  .btn-tg-outline { @apply btn bg-surface text-tgtext ring-1 ring-tg hover:bg-surface2; }
   .btn-soft { @apply btn bg-surface text-ink ring-1 ring-line hover:bg-surface2; }
   .btn-ghost { @apply inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-bold text-ink transition hover:bg-surface2 disabled:opacity-40; }
   .btn-pill { border-radius: 999px; }

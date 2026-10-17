@@ -567,6 +567,7 @@ class TelegramRunner:
         "account_disabled": "⛔ حساب شما غیرفعال است. با پشتیبانی تماس بگیرید.",
         "registration_closed": "⛔ ثبت‌نام جدید موقتاً بسته است.",
         "rate_limited": "⛔ تلاش‌های ورود زیاد بود. کمی بعد دوباره امتحان کنید.",
+        "login_disabled": "⛔ ورود با تلگرام موقتاً غیرفعال شده است.",
     }
 
     @staticmethod

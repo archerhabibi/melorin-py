@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from melorin.core import audit, flags
+from melorin.core import audit, flags, integrations
 from melorin.core.config import get_settings
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError
@@ -38,7 +38,10 @@ OPEN_STATES = ("pending", "scanned")
 _DUMMY_HASH = token_hash("telegram-web-login-dummy")
 
 
-def ttl_seconds() -> int:
+def ttl_seconds(cfg: dict | None = None) -> int:
+    """Request lifetime. ``cfg`` is the panel config (Admin > Settings > Telegram); without it the env default applies."""
+    if cfg is not None:
+        return integrations.telegram_ttl(cfg)
     return max(60, min(600, int(get_settings().telegram_web_login_ttl_seconds)))
 
 
@@ -77,7 +80,9 @@ def choices_of(row: TelegramLoginSession) -> list[str]:
     return out
 
 
-def number_match_enabled() -> bool:
+def number_match_enabled(cfg: dict | None = None) -> bool:
+    if cfg is not None:
+        return bool(cfg.get("number_match"))
     return bool(get_settings().telegram_web_login_number_match)
 
 
@@ -96,7 +101,8 @@ class Started:
 
 async def create_session(session: AsyncSession, store: Store, *, ip: str | None, user_agent: str | None) -> Started:
     bot = normalise_bot_username(store.bot_username)
-    if store.status != "active" or not bot:
+    cfg = await integrations.get_telegram(session)
+    if store.status != "active" or not bot or not integrations.telegram_bot_ready(cfg):
         raise AppError("TELEGRAM_LOGIN_UNAVAILABLE", "ورود با تلگرام برای این فروشگاه فعال نیست.", 503)
     await flags.ensure_enabled(session, "bot", store_id=store.id, channel="telegram")
     code, decoys = _codes()
@@ -110,7 +116,7 @@ async def create_session(session: AsyncSession, store: Store, *, ip: str | None,
         req_ip=(ip or "")[:64] or None,
         req_ua=(user_agent or "")[:300] or None,
         req_device=device_label(user_agent),
-        expires_at=utcnow() + dt.timedelta(seconds=ttl_seconds()),
+        expires_at=utcnow() + dt.timedelta(seconds=ttl_seconds(cfg)),
     )
     session.add(row)
     audit.record(session, "tg_web_login.started", actor_type="system", entity_type="telegram_login_session", entity_id=row.id, store_id=store.id, data={"device": row.req_device})
@@ -169,12 +175,16 @@ async def decide(session: AsyncSession, public_id: str, store_id: uuid.UUID, pro
     """The Telegram user tapped a button. Business outcomes are returned (never raised) so the bot can render them."""
     row = await _open_for_bot(session, public_id, store_id, profile.telegram_id)
     row.scanned_telegram_id = profile.telegram_id
+    cfg = await integrations.get_telegram(session)
+    if action != "deny" and not integrations.telegram_bot_ready(cfg):
+        # The admin switched Telegram login off while this request was open.
+        return await _close(session, row, "login_disabled")
     if action == "deny":
         # "That was not me" is the most valuable phishing signal we get: record it as a security event.
         return await _close(session, row, "user_denied", security="tg_web_login_denied_by_user")
     if not await hit(f"tgweb-approve:{profile.telegram_id}", APPROVALS_PER_HOUR, 3600):
         return await _close(session, row, "rate_limited", security="tg_web_login_rate_limited")
-    if number_match_enabled() and not hmac.compare_digest(str(choice or ""), row.match_code):
+    if number_match_enabled(cfg) and not hmac.compare_digest(str(choice or ""), row.match_code):
         row.attempts += 1
         remaining = MAX_WRONG_CHOICES - row.attempts
         if remaining <= 0:
