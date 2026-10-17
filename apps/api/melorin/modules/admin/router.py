@@ -25,6 +25,7 @@ from melorin.modules.payments import service as payment_service
 from melorin.modules.payments.models import Payment
 from melorin.modules.stores.models import BotStoreBinding, ResellerApplication, ResellerProfile, Store, StoreMembership
 from melorin.modules.admin import bot_bindings
+from melorin.modules.reseller.linking import link_bundle_to_resellers, link_product_to_resellers
 from melorin.modules.admin.integrations import router as integrations_router
 from melorin.modules.system.models import AuditEvent, BackupRun, FeatureFlag, SystemSetting
 from melorin.modules.webhooks import service as webhook_service
@@ -161,6 +162,7 @@ async def create_product(body: CreateProduct, admin: AdminUser, session: Session
             is_listed=True,
             customer_price=None,
         ))
+    await link_product_to_resellers(session, p)  # reseller stores get the new package too
     audit.record(session, "product.created", actor_id=admin.id, actor_type="admin", entity_type="product", entity_id=p.id, data=body.model_dump(mode="json"))
     await session.commit()
     return p
@@ -393,6 +395,7 @@ async def create_bundle(body: CreateBundle, admin: AdminUser, session: Session):
                     is_enabled=body.is_enabled, reseller_enabled=body.reseller_enabled, sales_limit=body.sales_limit)
     session.add(b); await session.flush()
     for i, pid in enumerate(body.panel_ids): session.add(BundleMember(bundle_id=b.id, panel_id=pid, sort=i, label=(body.member_labels.get(pid) or "").strip() or None))
+    await link_bundle_to_resellers(session, b)  # reseller stores get the new bundle too
     audit.record(session, "bundle.created", actor_id=admin.id, actor_type="admin", entity_type="bundle", entity_id=b.id)
     await session.commit()
     rows = (await session.scalars(select(BundleMember).where(BundleMember.bundle_id == b.id))).all()
@@ -425,6 +428,7 @@ async def update_bundle(bundle_id: uuid.UUID, body: UpdateBundle, admin: AdminUs
         members = (await session.scalars(select(BundleMember).where(BundleMember.bundle_id == b.id))).all()
         for m in members:
             if m.panel_id in body.member_labels: m.label = (body.member_labels[m.panel_id] or "").strip() or None
+    await link_bundle_to_resellers(session, b)  # turning "reseller sales" on opens the bundle for every reseller store
     audit.record(session, "bundle.updated", actor_id=admin.id, actor_type="admin", entity_type="bundle", entity_id=b.id)
     await session.commit()
     rows = (await session.scalars(select(BundleMember).where(BundleMember.bundle_id == b.id).order_by(BundleMember.sort))).all()
