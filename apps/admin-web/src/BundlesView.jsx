@@ -95,7 +95,7 @@ function BundlePackages({ group, products, hasResellers, call, toast, onChanged 
   const put = async (row, patch, quiet) => {
     const r = await call(`${API}/${group.id}/products/${row.product_id}`, { method: "PUT", body: JSON.stringify(body(row, patch)) });
     if (!r.ok) { if (!quiet) toast(await errText(r, "ذخیره پکیج ناموفق بود")); return false; }
-    try { const out = await r.clone().json(); if (out?.stores_below_cost > 0) toast(`${out.stores_below_cost} فروشگاه نماینده قیمت فروششان از این قیمت همکاری کمتر است و این پکیج برایشان نمایش داده نمی‌شود تا قیمتشان را بالا ببرند.`); } catch { /* no warning */ }
+    try { const out = await r.clone().json(); if (out?.stores_below_cost > 0) toast(`${out.stores_below_cost} فروشگاه نماینده قیمت فروششان از این قیمت نماینده کمتر است و این پکیج برایشان نمایش داده نمی‌شود تا قیمتشان را بالا ببرند.`); } catch { /* no warning */ }
     return true;
   };
   const toggleListed = async (row, v) => { setBusy(row.product_id); const ok = await put(row, { is_listed: v }); setBusy(""); if (ok) { await load(); onChanged?.(); } };
@@ -109,8 +109,8 @@ function BundlePackages({ group, products, hasResellers, call, toast, onChanged 
   const add = async (p) => { setBusy(p.id); const ok = await put({ product_id: p.id, main_price: null, reseller_price: null, sort: (rows || []).length }, { is_listed: true }); setBusy(""); if (ok) { await load(); onChanged?.(); } };
   const have = new Set((rows || []).map((x) => x.product_id));
   const missing = products.filter((p) => !p.is_test && !have.has(p.id) && `${p.name} ${p.code}`.toLowerCase().includes(q.trim().toLowerCase()));
-  const field = (r, k, ph) => <NumInput aria-label={`${k === "main" ? "قیمت فروشگاه" : "قیمت همکاری"} ${r.name}`} value={draft[r.product_id]?.[k] ?? (k === "main" ? r.main_price : r.reseller_price) ?? ""} placeholder={String(ph)} onChange={(v) => setDraft((x) => ({ ...x, [r.product_id]: { ...x[r.product_id], [k]: v } }))} />;
-  return <Section title="پکیج‌ها و قیمت" hint={hasResellers ? "همه‌ی پکیج‌ها به‌صورت پیش‌فرض در این بسته فعال‌اند. خالی‌گذاشتن قیمت یعنی قیمت خود محصول. قیمت همکاری برای همه‌ی نماینده‌ها یکسان است." : "همه‌ی پکیج‌ها به‌صورت پیش‌فرض در این بسته فعال‌اند. خالی‌گذاشتن قیمت یعنی قیمت خود محصول."}>
+  const field = (r, k, ph) => <NumInput aria-label={`${k === "main" ? "قیمت فروشگاه" : "قیمت نماینده"} ${r.name}`} value={draft[r.product_id]?.[k] ?? (k === "main" ? r.main_price : r.reseller_price) ?? ""} placeholder={String(ph)} onChange={(v) => setDraft((x) => ({ ...x, [r.product_id]: { ...x[r.product_id], [k]: v } }))} />;
+  return <Section title="پکیج‌ها و قیمت" hint={hasResellers ? "همه‌ی پکیج‌ها به‌صورت پیش‌فرض در این بسته فعال‌اند. خالی‌گذاشتن قیمت یعنی قیمت خود محصول. قیمت نماینده برای همه‌ی نماینده‌ها یکسان است." : "همه‌ی پکیج‌ها به‌صورت پیش‌فرض در این بسته فعال‌اند. خالی‌گذاشتن قیمت یعنی قیمت خود محصول."}>
     {rows === null ? <div className="skel h-16 rounded-xl" /> : !rows.length ? <p className="rounded-xl bg-[var(--sf2)] p-3 text-xs text-[var(--wn)]">هنوز پکیجی در این بسته نیست؛ ابتدا از صفحه‌ی «محصولات» یک پکیج بسازید.</p>
       : <ul className="space-y-2">{rows.map((r) => { const d = draft[r.product_id] || {}; const dirty = d.main !== undefined || d.res !== undefined;
         return <li key={r.product_id} className={`rounded-xl border bg-[var(--sf2)] p-3 ${dirty ? "border-[var(--wn)]" : "border-[var(--ln)]"}`}>
@@ -120,7 +120,7 @@ function BundlePackages({ group, products, hasResellers, call, toast, onChanged 
           </div>
           {r.is_listed && <div className={`mt-2 grid gap-2 ${hasResellers ? "sm:grid-cols-2" : ""}`}>
             <Field label="قیمت فروشگاه در این بسته">{field(r, "main", r.base_main_price)}</Field>
-            {hasResellers && <Field label="قیمت همکاری (نمایندگان)">{field(r, "res", r.base_reseller_price)}</Field>}
+            {hasResellers && <Field label="قیمت نماینده">{field(r, "res", r.base_reseller_price)}</Field>}
           </div>}
         </li>; })}</ul>}
     {dirtyRows.length > 0 && <div className="flex gap-2"><button type="button" className="btn !py-1.5 !text-xs" disabled={saving} onClick={saveAll}>{saving ? "در حال ذخیره…" : `ذخیره‌ی قیمت‌ها (${num(dirtyRows.length)})`}</button><button type="button" className="btn btn-g !py-1.5 !text-xs" disabled={saving} onClick={() => setDraft({})}>لغو تغییرات</button></div>}
@@ -130,7 +130,24 @@ function BundlePackages({ group, products, hasResellers, call, toast, onChanged 
   </Section>;
 }
 
-function GroupDrawer({ group, panels, products, idx, hasResellers, call, toast, onChanged, onClose, onSubmit, onDelete }) {
+/** READ-ONLY: what each reseller store charges in this bundle. The admin cannot change these; resellers set them. */
+function ResellerPrices({ group, stores, call }) {
+  const [sid, setSid] = useState(stores[0]?.id || ""), [rows, setRows] = useState(null);
+  useEffect(() => {
+    if (!sid) return; setRows(null);
+    call(`/api/v1/admin/stores/${sid}/reseller-prices`).then((r) => (r.ok ? r.json() : [])).then(setRows).catch(() => setRows([]));
+  }, [sid]); // eslint-disable-line react-hooks/exhaustive-deps
+  const list = (rows || []).map((r) => ({ r, b: (r.bundles || []).find((x) => x.bundle_id === group.id) })).filter((x) => x.b);
+  const ST = { ok: ["ok", "قابل فروش"], unset: ["mu", "قیمت ندارد"], below_cost: ["bd", "زیر قیمت نماینده"] };
+  return <Section title="قیمت فروش نمایندگان (فقط نمایش)" hint="این قیمت‌ها را خود نماینده تعیین می‌کند و ادمین نمی‌تواند تغییرشان دهد.">
+    <select aria-label="نماینده" className="inp" value={sid} onChange={(e) => setSid(e.target.value)}>{stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
+    {rows === null ? <div className="skel h-12 rounded-xl" /> : !list.length ? <p className="text-xs text-[var(--mu)]">پکیجی برای نمایش نیست.</p>
+      : <div className="overflow-auto"><table className="tbl2 min-w-[420px]"><thead><tr>{["پکیج", "قیمت نماینده", "قیمت فروش او", "وضعیت"].map((h) => <th key={h}>{h}</th>)}</tr></thead>
+        <tbody>{list.map(({ r, b }) => { const [t, l] = ST[b.state] || ST.unset; return <tr key={r.product_id}><td className="font-bold">{r.name}</td><td className="num">{num(b.cost)}</td><td className="num">{b.effective_price ? num(b.effective_price) : "—"}</td><td><span className={`badge b-${t}`}>{l}</span></td></tr>; })}</tbody></table></div>}
+  </Section>;
+}
+
+function GroupDrawer({ group, panels, products, idx, hasResellers, resellerStores, call, toast, onChanged, onClose, onSubmit, onDelete }) {
   const edit = !!group;
   const [f, setF] = useState(() => (group ? fromGroup(group) : EMPTY));
   const base = useRef(JSON.stringify(f));
@@ -183,6 +200,8 @@ function GroupDrawer({ group, panels, products, idx, hasResellers, call, toast, 
 
     {edit ? <BundlePackages group={group} products={products} hasResellers={hasResellers} call={call} toast={toast} onChanged={onChanged} />
       : <p className="rounded-xl bg-[var(--sf2)] px-4 py-3 text-xs leading-6 text-[var(--mu)]">همه‌ی پکیج‌ها به‌صورت پیش‌فرض در بسته‌ی جدید فعال‌اند؛ بعد از ساخت، قیمت هر پکیج را همین‌جا تنظیم کنید.</p>}
+
+    {edit && resellerStores.length > 0 && <ResellerPrices group={group} stores={resellerStores} call={call} />}
 
     <section>
       <button type="button" className="flex items-center gap-1.5 text-xs font-bold text-[var(--mu)]" aria-expanded={adv} onClick={() => setAdv(!adv)}><ChevronDown size={14} className={adv ? "" : "-rotate-90"} />تنظیمات بیشتر{f.selection_mode === "manual" && <span className="badge b-in">انتخاب دستی</span>}</button>
@@ -280,6 +299,6 @@ export default function BundlesView({ api, toast }) {
         ? <GroupTable rows={shown} panelById={panelById} idx={idx} busy={busy} hasResellers={hasResellers} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} onToggleReseller={toggleReseller} onDelete={remove} />
         : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{shown.map((g) => <GroupCard key={g.id} g={g} stat={idx.groupStat(g)} products={idx.productsByGroup.get(g.id) || []} busy={busy.has(g.id)} hasResellers={hasResellers} onEdit={(x) => setDrawer(x.id)} onToggle={toggle} onToggleReseller={toggleReseller} onDelete={remove} />)}</div>}
         <Paginator page={page} setPage={setPage} total={filtered.length} pageSize={PAGE_SIZE} /></>}
-    {drawer && (drawer === "add" || editing) && <GroupDrawer key={drawer} group={editing} panels={panels} products={products} idx={idx} hasResellers={hasResellers} call={call} toast={toast} onChanged={infra.reload} onClose={() => setDrawer(null)} onSubmit={save} onDelete={remove} />}
+    {drawer && (drawer === "add" || editing) && <GroupDrawer key={drawer} group={editing} panels={panels} products={products} idx={idx} hasResellers={hasResellers} resellerStores={(storesQ.rows || []).filter((x) => x.kind === "reseller")} call={call} toast={toast} onChanged={infra.reload} onClose={() => setDrawer(null)} onSubmit={save} onDelete={remove} />}
   </div>;
 }

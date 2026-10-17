@@ -705,6 +705,14 @@ async def users(_: AdminUser, session: Session):
     return [{"id": u.id, "email": u.email, "display_name": u.display_name, "is_active": u.is_active, "is_super_admin": u.is_super_admin, "created_at": u.created_at} for u in rows]
 
 
+@router.get("/stores/{store_id}/reseller-prices")
+async def reseller_store_prices(store_id: uuid.UUID, _: AdminUser, session: Session):
+    """READ-ONLY: the retail prices a reseller store charges. Only the reseller sets them (reseller panel / bot)."""
+    st = await session.get(Store, store_id)
+    if not st or st.kind != "reseller": raise NotFound("فروشگاه نماینده")
+    return await allocation.reseller_price_table(session, st)
+
+
 @router.get("/stores", response_model=list[dict])
 async def stores(_: AdminUser, session: Session):
     rows = (await session.scalars(select(Store).order_by(Store.created_at.desc()).limit(500))).all()

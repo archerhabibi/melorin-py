@@ -67,7 +67,7 @@ function ProductDrawer({ product, products, hasResellers, onClose, onSubmit, onD
         <Field label="تعداد دستگاه هم‌زمان" error={show("max_devices")}><div className="space-y-2"><NumInput value={f.unlimited_devices ? "" : f.max_devices} disabled={f.unlimited_devices} placeholder={f.unlimited_devices ? "بدون محدودیت" : ""} onChange={set("max_devices")} suffix="دستگاه" /><Toggle checked={f.unlimited_devices} onChange={set("unlimited_devices")} label="بدون محدودیت" /></div></Field>
       </div>
     </Section>
-    <Section title="قیمت فروشگاه" hint={hasResellers ? "قیمت همکاری نمایندگان و قیمت هر بسته از صفحه‌ی «بسته‌های فروش» تنظیم می‌شود؛ قیمت فروش هر نماینده را خودش تعیین می‌کند." : "قیمت هر بسته را هم می‌توانید از صفحه‌ی «بسته‌های فروش» جدا تنظیم کنید."}>
+    <Section title="قیمت فروشگاه" hint={hasResellers ? "قیمت نماینده و قیمت هر بسته از صفحه‌ی «بسته‌های فروش» تنظیم می‌شود؛ قیمت فروش هر نماینده را خودش تعیین می‌کند." : "قیمت هر بسته را هم می‌توانید از صفحه‌ی «بسته‌های فروش» جدا تنظیم کنید."}>
       <div className="grid gap-4 sm:grid-cols-[auto_1fr]">
         <Field label="واحد پول"><Segmented label="واحد پول" value={f.currency} onChange={set("currency")} options={Object.entries(CUR)} /></Field>
         <Field label="قیمت فروشگاه" error={show("main_price")}><NumInput value={f.main_price} onChange={set("main_price")} suffix={CUR[f.currency]} /></Field>
