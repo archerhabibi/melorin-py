@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-17 18:09 UTC - Claude - other, admin-web, db  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** Rename sales pool identifiers to bundle: API routes, schemas, DB tables (migration 0021), admin/store UI, bots, tests (step 2/3)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (32):** `README.md`, `apps/admin-web/src/PanelGroupsView.jsx`, `apps/admin-web/src/infra.jsx`, `apps/admin-web/src/styles.css`, `apps/api/alembic/versions/0021_pool_to_bundle.py`, `apps/api/melorin/modules/admin/router.py`, `apps/api/melorin/modules/admin/schemas.py`, `apps/api/melorin/modules/catalog/models.py` (+24 more)
+- **Ref:** `044e678`
+
+
 ### 2026-10-17 18:05 UTC - Claude - other, admin-web, api  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
