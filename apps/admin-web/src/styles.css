@@ -118,3 +118,10 @@ button.kpi:hover{background:var(--sf2)}
 .pulse{animation:pvpulse 1.6s ease-in-out infinite}
 .rise{animation-duration:.4s}
 @media (prefers-reduced-motion:reduce){.card-i:hover{transform:none}.seg>i,.bar>i,.gauge .fg{transition:none!important}}
+
+/* ===== Payments page ===== */
+.pay-queue{border:1px solid color-mix(in srgb,var(--wn) 35%,var(--ln));background:linear-gradient(180deg,color-mix(in srgb,var(--wnb) 55%,var(--sf)),var(--sf));border-radius:var(--r,16px)}
+.pay-queue-row{display:flex;gap:.75rem;overflow-x:auto;padding:1rem 1.25rem 1.25rem;scroll-snap-type:x proximity}
+.pay-qcard{flex:0 0 17rem;scroll-snap-align:start;background:var(--sf);border:1px solid var(--ln);border-radius:14px;padding:1rem;box-shadow:var(--sh)}
+.pay-row{cursor:pointer}.pay-row:focus-visible{outline-offset:-2px}
+.pay-ok{color:var(--ok)}
