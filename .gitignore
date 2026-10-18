@@ -14,3 +14,6 @@ secrets/backup/
 
 # frontend build output
 apps/*/dist/
+
+.coverage
+coverage.xml

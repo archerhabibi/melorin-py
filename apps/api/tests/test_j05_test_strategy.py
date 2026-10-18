@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 from _source import read_source
@@ -8,7 +9,9 @@ PROJECT = ROOT.parent.parent
 
 def test_ci_has_non_regressing_coverage_gate_and_integration_job():
     ci = (PROJECT / ".github/workflows/ci.yml").read_text()
-    assert "--cov-fail-under=20" in ci
+    # M7.1: the gate only ratchets upwards (was 20 before the money-path tests landed).
+    match = re.search(r"--cov-fail-under=(\d+)", ci)
+    assert match and int(match.group(1)) >= 60
     assert "--cov-report=xml" in ci
     assert "pytest -q -m integration" in ci
     assert "postgresql+asyncpg://" in ci and "redis://localhost:6379/0" in ci
