@@ -551,28 +551,43 @@ class TelegramRunner:
         n = int(seconds or 0)
         return f"{n} ثانیه پیش" if n < 60 else f"{n // 60} دقیقه پیش"
 
-    def _web_login_view(self, sid: str, choices: list, number_match: bool, *, info: dict | None = None, note: str = "") -> tuple[str, list]:
-        lines = ["🔐 <b>درخواست ورود به وب‌سایت</b>", ""]
+    LINE = "┄┄┄┄┄┄┄┄┄┄┄┄┄┄"
+
+    def _web_login_view(self, sid: str, choices: list, number_match: bool, *, info: dict | None = None, note: str = "", store_name: str | None = None) -> tuple[str, list]:
+        """Identity-confirmation card: who asks (device / IP / age), how long it stays valid, what to do, and an
+        always-visible «not me» exit. Callback data is unchanged (wla:<sid>:<choice>, wld:<sid>)."""
+        lines = ["🔐 <b>تأیید هویت برای ورود به وب‌سایت</b>"]
+        if store_name:
+            lines.append(f"🏬 {esc(store_name)}")
+        lines += [self.LINE]
         if info:
-            lines += [f"🖥 دستگاه: <b>{esc(info.get('device'))}</b>", f"🌐 آی‌پی: <code>{esc(info.get('ip') or '-')}</code>", f"🕒 زمان: {self._ago(info.get('age_seconds'))}", ""]
+            lines += [f"🖥 دستگاه: <b>{esc(info.get('device'))}</b>", f"🌐 آی‌پی: <code>{esc(info.get('ip') or '-')}</code>", f"🕒 درخواست: {self._ago(info.get('age_seconds'))}"]
+            if info.get("expires_in") is not None:
+                lines.append(f"⏳ اعتبار: {self._left(info.get('expires_in'))}")
+            lines.append(self.LINE)
         if note:
             lines += [note, ""]
         if number_match:
-            lines.append("اگر همین الان خودتان در وب‌سایت «ورود با تلگرام» را زده‌اید، <b>عددی را که روی صفحهٔ وب‌سایت می‌بینید</b> انتخاب کنید:")
+            lines += ["اگر همین الان خودتان در وب‌سایت «ورود با تلگرام» را زده‌اید:", "", "1️⃣ عددی را که <b>روی صفحهٔ وب‌سایت</b> می‌بینید پیدا کنید", "2️⃣ همان عدد را از دکمه‌های زیر بزنید"]
             rows = [[(str(c), f"wla:{sid}:{c}") for c in choices]]
         else:
-            lines.append("اگر همین الان خودتان در وب‌سایت «ورود با تلگرام» را زده‌اید، تأیید کنید:")
+            lines += ["اگر همین الان خودتان در وب‌سایت «ورود با تلگرام» را زده‌اید، تأیید کنید:"]
             rows = [[("✅ بله، خودم هستم", f"wla:{sid}:ok")]]
-        lines += ["", "⚠️ اگر این درخواست را شما نداده‌اید یا کسی از شما خواسته این‌جا چیزی را تأیید کنید، «این من نبودم» را بزنید."]
+        lines += ["", "🛡 این عدد را برای هیچ‌کس نفرستید. اگر این درخواست را شما نداده‌اید یا کسی از شما خواسته این‌جا چیزی را تأیید کنید، «این من نبودم» را بزنید."]
         rows.append([("⛔ این من نبودم", f"wld:{sid}")])
         return "\n".join(lines), rows
+
+    @staticmethod
+    def _left(seconds) -> str:
+        n = max(0, int(seconds or 0))
+        return f"{n} ثانیه دیگر" if n < 60 else f"{n // 60} دقیقه دیگر"
 
     async def cmd_web_login(self, ctx, sid):
         store = await self.store_info()
         status, d = await self._web_login_call("inspect", {**self._profile(ctx), "session_id": sid.strip()[:32], "store_id": store["id"]})
         if status >= 400:
             return await self.send(ctx.chat_id, f"⚠️ {self._err_of(d)}")
-        text, rows = self._web_login_view(sid.strip()[:32], d.get("choices") or [], bool(d.get("number_match")), info=d)
+        text, rows = self._web_login_view(sid.strip()[:32], d.get("choices") or [], bool(d.get("number_match")), info=d, store_name=store.get("name"))
         await self.screen(ctx, text, rows)
 
     async def cb_web_login(self, ctx, rest):
@@ -583,10 +598,10 @@ class TelegramRunner:
             return await self.screen(ctx, f"⚠️ {esc(self._err_of(d))}")
         result = d.get("result")
         if result == "approved":
-            return await self.screen(ctx, "✅ <b>ورود تأیید شد</b>\n\nبه مرورگر برگردید؛ چند ثانیهٔ دیگر وارد حساب‌تان می‌شوید.")
+            return await self.screen(ctx, "✅ <b>ورود تأیید شد</b>\n" + self.LINE + "\nبه مرورگر برگردید؛ چند ثانیهٔ دیگر وارد حساب‌تان می‌شوید.\n\n🛡 اگر خودتان این ورود را شروع نکرده بودید، بلافاصله با پشتیبانی تماس بگیرید.")
         if result == "retry":
             note = f"❌ عدد انتخاب‌شده درست نبود. <b>{int(d.get('remaining') or 0)}</b> فرصت دیگر دارید."
-            text, rows = self._web_login_view(sid, d.get("choices") or [], True, note=note)
+            text, rows = self._web_login_view(sid, d.get("choices") or [], True, note=note, store_name=store.get("name"))
             return await self.screen(ctx, text, rows)
         await self.screen(ctx, self.WEB_LOGIN_DENIED.get(d.get("reason") or "", "⛔ این درخواست ورود بسته شد."))
 

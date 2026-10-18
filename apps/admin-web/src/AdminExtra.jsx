@@ -12,6 +12,7 @@ import ResellerApplicationsView from "./ResellerApplicationsView.jsx";
 import ResellersView from "./ResellersView.jsx";
 import GoogleLoginSettings from "./GoogleLoginSettings.jsx";
 import TelegramLoginSettings from "./TelegramLoginSettings.jsx";
+import IdentityReviewsView from "./IdentityReviewsView.jsx";
 const money = (n) => new Intl.NumberFormat("fa-IR").format(n || 0);
 const box = "card";
 const inp = "inp";
@@ -181,13 +182,6 @@ function Audit({ api, toast }) {
   return <Table title="لاگ ممیزی" cols={["زمان", "عملیات", "نقش", "موجودیت", "Correlation"]} rows={rows.map((a) => [dt(a.created_at), a.action, a.actor_type, `${a.entity_type || ""} ${String(a.entity_id || "").slice(0, 8)}`, <span className="text-xs">{String(a.correlation_id || "").slice(0, 8)}</span>])} />;
 }
 
-function Reviews({ api, toast }) {
-  const { rows, call, reload } = useList(api, "/api/v1/admin/identity-link-reviews", toast);
-  const dismiss = async (id) => { const r = await call(`/api/v1/admin/identity-link-reviews/${id}/dismiss`, { method: "POST" }); r.ok ? (toast("رد شد"), reload()) : toast("ناموفق"); };
-  return <Table title="بررسی لینک هویت" cols={["ایمیل", "ارائه‌دهنده", "دلیل", "وضعیت", ""]} rows={rows.map((r) => [r.email, r.provider, r.reason, r.status, <button className={ghost} onClick={() => dismiss(r.id)}>رد کردن</button>])} />;
-}
-
-
 const ask = (m) => promptDialog(m, { title: "ثبت دلیل" });
 function Orders({ api, toast }) {
   const { rows, call, reload } = useList(api, "/api/v1/admin/orders", toast);
@@ -206,4 +200,4 @@ function Tickets({ api, toast }) {
   return <TicketsView call={call} toast={toast} />;
 }
 
-export const extraRoutes = { "نمایندگان": ResellersView, "درخواست‌های نمایندگی": ResellerApplicationsView, "سلامت زیرساخت": InfraHealthView, "سفارش‌ها": Orders, "پرداخت‌ها": PaymentsView, "تیکت‌ها": Tickets, "محصولات VPN": ProductsView, "پنل‌ها و سرورها": PanelsView, "بسته‌های فروش": BundlesView, "کوپن‌ها": Coupons, "تنظیمات": Settings, "ممیزی": Audit, "بررسی هویت": Reviews };
+export const extraRoutes = { "نمایندگان": ResellersView, "درخواست‌های نمایندگی": ResellerApplicationsView, "سلامت زیرساخت": InfraHealthView, "سفارش‌ها": Orders, "پرداخت‌ها": PaymentsView, "تیکت‌ها": Tickets, "محصولات VPN": ProductsView, "پنل‌ها و سرورها": PanelsView, "بسته‌های فروش": BundlesView, "کوپن‌ها": Coupons, "تنظیمات": Settings, "ممیزی": Audit, "بررسی هویت": IdentityReviewsView };
