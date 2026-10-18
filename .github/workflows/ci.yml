@@ -25,6 +25,8 @@ jobs:
       - run: bash ../../scripts/check_secrets.sh
       - run: python ../../scripts/check_frontend_contracts.py
       - run: python ../../scripts/check_release_matrix.py
+      - run: python ../../scripts/check_g001_g010.py
+      - run: python ../../scripts/check_quality_config.py
       - run: bash ../../scripts/run_quality_gate.sh
       - run: ruff check melorin --config pyproject.toml
       - run: ruff format --check melorin tests --config pyproject.toml

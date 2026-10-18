@@ -1,6 +1,8 @@
-.PHONY: up down logs migrate migration-smoke integration-smoke restore-drill test-matrix revision test lint api worker install-verify quality-gate
+.PHONY: guards up down logs migrate migration-smoke integration-smoke restore-drill test-matrix revision test lint api worker install-verify quality-gate
 install-verify:
 	@bash scripts/install_verify.sh
+guards:
+	@python scripts/check_g001_g010.py && python scripts/check_quality_config.py
 quality-gate:
 	@bash scripts/run_quality_gate.sh
 migration-smoke:
