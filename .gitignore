@@ -11,3 +11,6 @@ var/
 coverage.xml
 htmlcov/
 secrets/backup/
+
+# frontend build output
+apps/*/dist/
