@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-18 13:43 UTC - Claude - admin-web, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(admin-web): redesign Payments screen (review queue, KPIs, filters, detail drawer, gateway settings); update contract test for new location
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (4):** `apps/admin-web/src/AdminExtra.jsx`, `apps/admin-web/src/PaymentsView.jsx`, `apps/admin-web/src/styles.css`, `apps/api/tests/test_wallet_payment_regressions.py`
+- **Ref:** `570316b`
+
+
 ### 2026-10-18 11:13 UTC - Claude - api, tests, docs  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
