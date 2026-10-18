@@ -23,6 +23,8 @@ line-ending = "lf"
 pythonpath = ["."]
 asyncio_mode = "auto"
 markers = ["integration: requires PostgreSQL/Redis or another external service", "concurrency: requires concurrent database sessions"]
+# M6.10: a too-short HMAC key in a test must fail loudly instead of drowning the warning signal.
+filterwarnings = ["error::jwt.warnings.InsecureKeyLengthWarning"]
 [tool.coverage.run]
 branch = true
 source = ["melorin"]

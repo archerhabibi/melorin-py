@@ -19,9 +19,16 @@ _PREFIX = "MELORIN_"
 _AMBIENT = {k: v for k, v in os.environ.items() if k.startswith(_PREFIX)}
 
 
+# M6.10: the application default (22 bytes) is below the 32-byte HMAC minimum and
+# makes PyJWT emit InsecureKeyLengthWarning in every login test. The hermetic
+# environment therefore ships a deliberately long, test-only signing key.
+TEST_JWT_SECRET = "test-only-jwt-signing-key-0123456789-abcdefghij"
+
+
 def _scrub() -> None:
     for key in [k for k in os.environ if k.startswith(_PREFIX)]:
         del os.environ[key]
+    os.environ["MELORIN_JWT_SECRET"] = TEST_JWT_SECRET
 
 
 def _restore() -> None:
