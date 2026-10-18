@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-18 17:08 UTC - archerhabibi - admin-web, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(identity): redesign identity review screen in admin panel and Telegram bot - - admin-web: new IdentityReviewsView (KPI bar, filters, side-by-side account cards, detail drawer with note, reopen) - api: enriched /identity-link-reviews (status=all, source_user, candidates), optional note on dismi…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (5):** `apps/admin-web/src/AdminExtra.jsx`, `apps/admin-web/src/IdentityReviewsView.jsx`, `apps/api/melorin/modules/admin/router.py`, `apps/api/tests/test_s01_identity_reviews.py`, `apps/telegram-main/runner.py`
+- **Ref:** `233005c`
+
+
 ### 2026-10-18 13:43 UTC - Claude - admin-web, tests  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
