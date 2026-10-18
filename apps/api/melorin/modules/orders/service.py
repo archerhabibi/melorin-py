@@ -61,8 +61,11 @@ async def create_order(
     coupon redemption, order and ledger entries are committed in ONE transaction; provisioning follows via outbox.
     """
     store, user = ctx.store, ctx.user
+    # Plain values on purpose: ``session.rollback()`` expires every ORM instance and async code cannot lazy-load them
+    # afterwards (MissingGreenlet -> HTTP 500). Every recovery path below must use these, never ``store.id``/``user.id``.
+    store_id, user_id = store.id, user.id
     existing = await session.scalar(
-        select(Order).where(Order.user_id == user.id, Order.store_id == store.id, Order.idempotency_key == idempotency_key)
+        select(Order).where(Order.user_id == user_id, Order.store_id == store_id, Order.idempotency_key == idempotency_key)
     )
     if existing:
         if existing.product_id != product_id or existing.kind != kind or existing.vpn_account_id != vpn_account_id:
@@ -163,8 +166,8 @@ async def create_order(
     except IntegrityError:
         existing = await session.scalar(
             select(Order).where(
-                Order.user_id == user.id,
-                Order.store_id == store.id,
+                Order.user_id == user_id,
+                Order.store_id == store_id,
                 Order.idempotency_key == idempotency_key,
             )
         )
@@ -188,8 +191,9 @@ async def create_order(
     try:
         await pay_with_wallet(session, order, store, main=main)
     except ResellerDebtLimitReached:
+        # The sale is refused (a clean 409 for the bot / website); only the owner alert is kept.
         await session.rollback()
-        await notify_debt_reached(session, store)
+        await notify_debt_reached(session, store_id)
         await session.commit()
         raise
     try:
@@ -197,7 +201,7 @@ async def create_order(
     except IntegrityError:
         await session.rollback()
         existing = await session.scalar(
-            select(Order).where(Order.user_id == user.id, Order.store_id == store.id, Order.idempotency_key == idempotency_key)
+            select(Order).where(Order.user_id == user_id, Order.store_id == store_id, Order.idempotency_key == idempotency_key)
         )
         if existing:
             return existing
@@ -273,9 +277,11 @@ async def pay_with_wallet(session: AsyncSession, order: Order, store: Store | No
             )
 
 
-async def notify_debt_reached(session: AsyncSession, store: Store) -> None:
+async def notify_debt_reached(session: AsyncSession, store: Store | uuid.UUID) -> None:
+    """Alert the owner that sales stopped. Takes the store id so it is safe right after a ``rollback()``."""
+    store_id = store.id if isinstance(store, Store) else store
     await events.emit(
-        session, events.RESELLER_DEBT, {"store_id": store.id, "state": "reached"}, dedup_key=f"debt_reached:{store.id}:{utcnow():%Y%m%d%H}"
+        session, events.RESELLER_DEBT, {"store_id": store_id, "state": "reached"}, dedup_key=f"debt_reached:{store_id}:{utcnow():%Y%m%d%H}"
     )
 
 
