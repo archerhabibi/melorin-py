@@ -180,11 +180,11 @@ export default function App({ onLogout }) {
     <aside className="fixed inset-y-0 right-0 z-20 hidden w-64 flex-col bg-[var(--nav)] lg:flex"><Brand /><div className="flex-1 overflow-y-auto pt-3"><Nav section={section} go={go} openTickets={openTickets} pendingApps={api.pendingApps} /></div>
       <div className="m-4 rounded-2xl bg-white/[.07] p-4"><div className={`flex items-center gap-2 text-xs ${api.health ? 'text-[#8ce0ba]' : 'text-[#f4c95d]'}`}><span className="h-2 w-2 rounded-full bg-current" />Core API {api.health ? 'پایدار' : 'در انتظار'}</div></div></aside>
     <div className="lg:mr-64">
-      <header className="sticky top-0 z-10 flex h-[72px] items-center justify-between border-b border-[var(--ln)] bg-[var(--bg)]/85 px-5 backdrop-blur md:px-9">
+      <header className="sticky top-0 z-10 flex h-[72px] items-center justify-between border-b border-[var(--ln)] bg-[var(--bg)]/85 px-5 backdrop-blur-sm md:px-9">
         <div className="flex min-w-0 items-center gap-3"><button aria-label="باز کردن منو" className="btn btn-g lg:hidden" onClick={() => setOpen(true)}><Menu size={20} /></button><div className="min-w-0"><div className="hidden truncate text-xs text-[var(--mu)] sm:block">{todayLabel()} <span aria-hidden="true">·</span> <Clock /></div><h1 className="truncate text-lg font-extrabold">{section}</h1></div></div>
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           <button aria-label="به‌روزرسانی داده‌ها" title="به‌روزرسانی" onClick={() => { api.refresh(); toast('داده‌ها از Core دوباره دریافت شد'); }} className="btn btn-g max-sm:!hidden"><RefreshCw size={17} className={api.loading ? 'animate-spin' : ''} /></button>
-          <button onClick={() => setPal(true)} aria-label="جستجوی سریع" className="btn btn-g gap-2 text-[var(--mu)] max-md:!hidden"><Search size={15} />جستجو<kbd className="rounded bg-[var(--mb)] px-1.5 text-[10px]" dir="ltr">Ctrl K</kbd></button>
+          <button onClick={() => setPal(true)} aria-label="جستجوی سریع" className="btn btn-g gap-2 text-[var(--mu)] max-md:!hidden"><Search size={15} />جستجو<kbd className="rounded-sm bg-[var(--mb)] px-1.5 text-[10px]" dir="ltr">Ctrl K</kbd></button>
           <ThemeButton />
           <button aria-label="تیکت‌های باز" title="تیکت‌های باز" onClick={() => go('تیکت‌ها')} className="btn btn-g relative"><Bell size={17} />{openTickets > 0 && <span className="absolute -left-1 -top-1 h-2.5 w-2.5 rounded-full bg-[#e8743b]" />}</button>
           <button onClick={() => downloadOrders(api.base || '').catch(() => toast('دریافت خروجی ناموفق بود'))} className="btn max-sm:!hidden"><Download size={16} />خروجی سفارش‌ها</button>

@@ -50,7 +50,7 @@ function Chips({ values, onChange, placeholder }) {
   const add = () => { const n = parseInt(t, 10); if (Number.isInteger(n) && n > 0 && !values.includes(n)) onChange([...values, n]); setT(""); };
   return <div className="inp flex flex-wrap items-center gap-1.5 !py-1.5" dir="ltr">
     {values.map((n) => <span key={n} className="inline-flex items-center gap-1 rounded-md bg-[var(--mb)] px-2 py-0.5 text-xs font-bold">{n}<button type="button" aria-label={`حذف ${n}`} onClick={() => onChange(values.filter((x) => x !== n))}><X size={12} /></button></span>)}
-    <input inputMode="numeric" className="min-w-[6rem] flex-1 bg-transparent py-1 text-sm outline-none" value={t} placeholder={values.length ? "" : placeholder} onChange={(e) => setT(e.target.value.replace(/\D/g, ""))} onBlur={add} onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); add(); } else if (e.key === "Backspace" && !t && values.length) onChange(values.slice(0, -1)); }} />
+    <input inputMode="numeric" className="min-w-[6rem] flex-1 bg-transparent py-1 text-sm outline-hidden" value={t} placeholder={values.length ? "" : placeholder} onChange={(e) => setT(e.target.value.replace(/\D/g, ""))} onBlur={add} onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); add(); } else if (e.key === "Backspace" && !t && values.length) onChange(values.slice(0, -1)); }} />
   </div>;
 }
 

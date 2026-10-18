@@ -35,7 +35,7 @@ export function AdminSectionView({ section, api, toast }) {
   if (section === "کاربران") return <DataTable title="کاربران" loading={loading} columns={["ایمیل", "نام", "فعال", "ادمین"]} rows={items.map((x) => [x.email || "-", x.display_name || "-", x.is_active ? "بله" : "خیر", x.is_super_admin ? "بله" : "خیر"])} />;
   if (section === "تیکت‌ها") return <DataTable title="تیکت‌ها" loading={loading} columns={["موضوع", "Store", "وضعیت", "آخرین تغییر"]} rows={items.map((x) => [x.subject, String(x.store_id || "").slice(0, 8), x.status, x.updated_at])} />;
   if (section === "فروشگاه‌ها") return <DataTable title="فروشگاه‌ها" loading={loading} columns={["نام", "Slug", "نوع", "ارز", "وضعیت"]} rows={items.map((x) => [x.name, x.slug, x.kind, x.currency, x.status])} />;
-  return <div className="rounded-2xl border border-[var(--ln)] bg-[var(--sf)] p-6 shadow-sm"><h3 className="font-extrabold">داده‌ای برای این بخش تعریف نشده</h3><p className="mt-2 text-sm text-[var(--mu)]">از داشبورد یا API مرتبط استفاده کنید.</p></div>;
+  return <div className="rounded-2xl border border-[var(--ln)] bg-[var(--sf)] p-6 shadow-xs"><h3 className="font-extrabold">داده‌ای برای این بخش تعریف نشده</h3><p className="mt-2 text-sm text-[var(--mu)]">از داشبورد یا API مرتبط استفاده کنید.</p></div>;
 }
 
 function DataTable({ title, columns, rows, loading }) {

@@ -85,7 +85,7 @@ function Bubble({ m, mine, onEdit, editing, onSaveEdit, onCancelEdit, busy }) {
         : <p dir="auto" className="whitespace-pre-wrap break-words">{m.body}</p>}
       <div className="mt-1.5 flex items-center gap-2 text-[10px] text-[var(--mu)]"><time dateTime={m.created_at}>{timeOnly(m.created_at)}</time>
         {m.edited_at && <span title={dt(m.edited_at)} className="italic">· ویرایش‌شده</span>}
-        {mine && !editing && <button onClick={onEdit} className="mr-auto inline-flex items-center gap-1 rounded px-1 font-bold text-[var(--ac)] opacity-0 transition focus-visible:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"><Pencil size={11} />ویرایش</button>}</div>
+        {mine && !editing && <button onClick={onEdit} className="mr-auto inline-flex items-center gap-1 rounded-sm px-1 font-bold text-[var(--ac)] opacity-0 transition focus-visible:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"><Pencil size={11} />ویرایش</button>}</div>
     </div></div>;
 }
 

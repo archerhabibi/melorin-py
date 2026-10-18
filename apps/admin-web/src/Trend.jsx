@@ -6,7 +6,7 @@ const full = new Intl.NumberFormat("fa-IR");
 const RANGES = [7, 30, 90];
 // Days are bucketed in the admin's own time zone (M6.9); the API falls back to UTC for unknown zones.
 const browserZone = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch { return "UTC"; } };
-const Seg = ({ items, value, set, label }) => <div role="tablist" aria-label={label} className="inline-flex rounded-lg bg-[var(--mb)] p-0.5">{items.map(([k, t]) => <button key={k} role="tab" aria-selected={value === k} onClick={() => set(k)} className={`rounded-md px-3 py-1 text-xs font-bold transition ${value === k ? "bg-[var(--sf)] text-[var(--tx)] shadow-sm" : "text-[var(--mu)]"}`}>{t}</button>)}</div>;
+const Seg = ({ items, value, set, label }) => <div role="tablist" aria-label={label} className="inline-flex rounded-lg bg-[var(--mb)] p-0.5">{items.map(([k, t]) => <button key={k} role="tab" aria-selected={value === k} onClick={() => set(k)} className={`rounded-md px-3 py-1 text-xs font-bold transition ${value === k ? "bg-[var(--sf)] text-[var(--tx)] shadow-xs" : "text-[var(--mu)]"}`}>{t}</button>)}</div>;
 
 // Sales / orders trend from GET /api/v1/admin/reports/timeseries (currency-safe: one series per currency).
 export default function Trend({ tick }) {
