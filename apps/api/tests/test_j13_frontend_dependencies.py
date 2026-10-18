@@ -9,7 +9,7 @@ def test_frontend_runtime_and_build_dependencies_are_separated():
         package = json.loads((PROJECT / name).read_text())
         assert set(package["dependencies"]) <= {"react", "react-dom", "lucide-react", "@fontsource-variable/vazirmatn"}
         assert "vite" in package["devDependencies"]
-        assert "postcss" in package["devDependencies"]
+        assert "@tailwindcss/vite" in package["devDependencies"]
         assert "tailwindcss" in package["devDependencies"]
 
 
