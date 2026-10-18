@@ -36,6 +36,47 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-18 11:13 UTC - Claude - api, tests, docs  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(M7.6): observability - HTTP latency histogram, bounded route labels, DB-derived payment/provisioning/reseller-bot/backup gauges, 6 new alert rules, tests
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (9):** `apps/api/melorin/app.py`, `apps/api/melorin/core/business_metrics.py`, `apps/api/melorin/core/metrics.py`, `apps/api/melorin/core/middleware.py`, `apps/api/tests/test_m71_payments_service_db.py`, `apps/api/tests/test_m76_observability.py`, `apps/api/tests/test_m77_postgres_concurrency.py`, `docs/08-Operations-DR.md` (+1 more)
+- **Ref:** `0b3a0d8`
+
+### 2026-10-18 11:10 UTC - Claude - ci-deploy, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** test(M7.7): PostgreSQL-backed test lane (TEST_PG_URL, schema per test), PG concurrency tests, CI job postgres-lane; fix duplicate bot_store_bindings index declaration
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (7):** `.github/workflows/ci.yml`, `apps/api/melorin/modules/stores/models.py`, `apps/api/tests/_db.py`, `apps/api/tests/test_m71_payments_service_db.py`, `apps/api/tests/test_m71_provisioning_db.py`, `apps/api/tests/test_m77_postgres_concurrency.py`, `docs/09-Testing.md`
+- **Ref:** `41db3eb`
+
+### 2026-10-18 07:07 UTC - archerhabibi - other, tests, docs  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(M7.3): fail-closed runtime evidence collector (Telegram, Zarinpal sandbox, panels, Docker, Caddy TLS gate, Prometheus/Alertmanager) + runbook; matrix points at it
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (6):** `Makefile`, `apps/api/tests/test_m73_runtime_evidence.py`, `docs/RELEASE-EVIDENCE-MATRIX.md`, `docs/RUNTIME-EVIDENCE.md`, `scripts/check_release_matrix.py`, `scripts/runtime_evidence.py`
+- **Ref:** `160b0e8`
+
+### 2026-10-18 07:04 UTC - archerhabibi - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** test(M7.2): PasarGuard + Zarinpal adapter contract tests; fix PasarGuard create_account (_req called without HTTP method) and fail closed on missing Zarinpal Authority
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (4):** `apps/api/melorin/modules/payments/adapters/zarinpal.py`, `apps/api/melorin/modules/vpn/adapters/pasarguard.py`, `apps/api/tests/test_m72_pasarguard_adapter_contract.py`, `apps/api/tests/test_m72_zarinpal_adapter_contract.py`
+- **Ref:** `3796a17`
+
+### 2026-10-18 07:01 UTC - archerhabibi - ci-deploy, other, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** test(M7.1): money-path tests (payments, wallet ledger, orders/refund, provisioning, coupon/commission); coverage gate 20 -> 60
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (9):** `.github/workflows/ci.yml`, `.gitignore`, `apps/api/tests/_db.py`, `apps/api/tests/test_j05_test_strategy.py`, `apps/api/tests/test_m71_domain_money_rules.py`, `apps/api/tests/test_m71_order_money_db.py`, `apps/api/tests/test_m71_payments_service_db.py`, `apps/api/tests/test_m71_provisioning_db.py` (+1 more)
+- **Ref:** `494f1de`
+
+
 ### 2026-10-18 06:39 UTC - Melorin M6 - other  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
