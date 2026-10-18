@@ -13,7 +13,7 @@ from melorin.modules.payments.adapters import registry
 from melorin.modules.payments.adapters.base import CallbackResult, IntentResult, RefundResult
 from melorin.modules.payments.models import Payment, PaymentAttempt
 from melorin.modules.stores.models import StorePaymentConfiguration
-from melorin.modules.system.models import FeatureFlag
+from melorin.modules.system.models import FeatureFlag, FileObject
 from melorin.modules.wallet import service as wallet
 from melorin.modules.wallet.models import LedgerTransaction
 
@@ -328,7 +328,12 @@ async def test_receipt_upload_moves_manual_payment_to_review_and_rejects_other_p
             await payments.attach_receipt(s, p, uuid.uuid4())
         assert exc.value.code == "INVALID_PAYMENT_STATE"
         p.provider = "manual_card"
-        await payments.attach_receipt(s, p, uuid.uuid4())
+        receipt = FileObject(
+            owner_user_id=user.id, store_id=store.id, purpose="receipt", storage_key="r/1", content_type="image/png", size=1, sha256="0" * 64
+        )
+        s.add(receipt)
+        await s.flush()  # a real file row: PostgreSQL enforces the receipt_file_id foreign key
+        await payments.attach_receipt(s, p, receipt.id)
         assert p.status == "awaiting_review"
 
 

@@ -41,7 +41,6 @@ class BotStoreBinding(IdMixin, TimestampMixin, Base):
     __table_args__ = (
         UniqueConstraint("bot_key"),
         UniqueConstraint("store_id"),
-        Index("ix_bot_store_bindings_owner_user_id", "owner_user_id"),
     )
     bot_key: Mapped[str] = mapped_column(String(120))  # stable identity/fingerprint, never the token
     bot_username: Mapped[str | None] = mapped_column(String(100))

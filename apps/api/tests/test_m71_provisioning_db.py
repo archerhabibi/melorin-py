@@ -137,8 +137,6 @@ async def test_second_run_after_completion_is_ignored_and_never_creates_a_second
 
 
 async def test_missing_order_is_reported_not_raised(panel_factory):
-    import uuid
-
     async with open_session() as s:
         await _world(s)
         assert await vpn.provision_order(s, uuid.uuid4()) == "missing"
@@ -261,13 +259,21 @@ async def test_provisioning_kill_switch_leaves_the_order_untouched(panel_factory
         assert order.status == "processing" and panel.created == []
 
 
-async def test_missing_product_marks_the_order_failed_for_review(panel_factory):
+async def test_missing_product_marks_the_order_failed_for_review(panel_factory, monkeypatch):
     async with open_session() as s:
         w = await _world(s)
         panel_factory(ScriptedPanel())
         order = await s.get(Order, w["order"].id)
-        order.product_id = uuid.uuid4()
-        await s.commit()
+        # PostgreSQL's foreign key forbids a dangling product_id, so the product is made to vanish at lookup
+        # time instead (e.g. hard-deleted between payment and provisioning); identical on SQLite and PostgreSQL.
+        original_get = type(s).get
+
+        async def get_without_product(self, entity, ident, *a, **kw):
+            if entity is vpn.Product:
+                return None
+            return await original_get(self, entity, ident, *a, **kw)
+
+        monkeypatch.setattr(type(s), "get", get_without_product)
         assert await vpn.provision_order(s, order.id) == "failed"
         assert order.status == "provisioning_failed" and order.needs_review is True
 

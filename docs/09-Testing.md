@@ -9,3 +9,11 @@ Registration/Login/Linking؛ Guest Checkout؛ callback پرداخت تکراری
 Lint/type checks، Unit/Integration tests، OpenAPI diff، migration test، dependency/security scan و build. Contract tests برای هر Adapter اجرا شوند.
 ## Definition of Done
 وضعیت هر قابلیت: SPECIFIED → IMPLEMENTED → TESTED → PRODUCTION VERIFIED. عملیات مالی، Identity، Store authorization و Provisioning به E2E و Security test نیاز دارند.
+
+## M7.7 — مسیر تست PostgreSQL / PostgreSQL test lane
+
+- پیش‌فرض: تست‌های واحد روی SQLite درون‌حافظه (سریع و hermetic).
+- با تنظیم `TEST_PG_URL=postgresql+asyncpg://melorin:test@localhost:5432/melorin` همان تست‌ها روی PostgreSQL اجرا می‌شوند؛ هر تست یک schema موقت و جدا می‌گیرد (`apps/api/tests/_db.py`).
+- `tests/test_m77_postgres_concurrency.py` فقط در این مسیر اجرا می‌شود: برداشت موازی بدون اضافه‌برداشت، و کلید idempotency یکسان که فقط یک‌بار ثبت می‌شود (`FOR UPDATE` در SQLite بی‌اثر است).
+- در CI جاب `postgres-lane` این مسیر را اجرا می‌کند.
+- Run locally: `cd apps/api && TEST_PG_URL=... pytest -q -m "not integration"`.

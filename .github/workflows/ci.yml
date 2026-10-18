@@ -68,3 +68,22 @@ jobs:
           for i in $(seq 1 30); do curl -sf localhost:8000/health/live && break; sleep 1; done
           python ../../scripts/e2e_smoke.py
         env: {MELORIN_DATABASE_URL: 'postgresql+asyncpg://melorin:test@localhost:5432/melorin', MELORIN_REDIS_URL: 'redis://localhost:6379/0', MELORIN_ALLOW_MOCK_PROVIDERS: 'true', MELORIN_BOOTSTRAP_ADMIN_EMAIL: admin@example.com, MELORIN_BOOTSTRAP_ADMIN_PASSWORD: 'Strong-admin-password-123456', MELORIN_BOOTSTRAP_ADMIN_TOTP_SECRET: JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP, E2E_ADMIN_PASSWORD: 'Strong-admin-password-123456', MELORIN_JWT_SECRET: ci-secret-ci-secret-ci-secret-1234}
+
+  # M7.7: the unit/money-path suite again, but on a real PostgreSQL (private schema per test), plus the
+  # concurrency tests that SQLite cannot prove. Catches dialect-specific bugs such as M6.1.
+  postgres-lane:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: {POSTGRES_PASSWORD: test, POSTGRES_USER: melorin, POSTGRES_DB: melorin}
+        ports: [5432:5432]
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    defaults: {run: {working-directory: apps/api}}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: pip install -r requirements.txt
+      - run: pytest -q -m "not integration"
+        env: {TEST_PG_URL: 'postgresql+asyncpg://melorin:test@localhost:5432/melorin'}
