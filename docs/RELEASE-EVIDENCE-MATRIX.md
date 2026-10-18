@@ -26,6 +26,7 @@ This is the authoritative release-status document. Older phase/F finding reports
 
 - 2026-10-10 (local, PostgreSQL 16, Redis 7, Python 3.13, Node 22): `alembic upgrade head` on an empty database, `alembic check`, `python -m melorin.cli bootstrap` (twice, idempotent), API + ARQ worker, `scripts/e2e_smoke.py` (top-up, approval, wallet purchase, mock provisioning, one VPN account, outbox drained, worker heartbeat, XFF-rotation brute force throttled), outbox replay without duplicate accounts, `npm ci` + build of both web apps, headless-browser login and dashboard, encrypted backup + `backup_restore_drill.sh` (47 tables restored).
 - Not run: Docker image builds/Compose (no daemon), Telegram bots against the Bot API, Zarinpal sandbox, real Sanaei/PasarGuard panels, Prometheus.
+- 2026-10-18 (M7.3): `scripts/runtime_evidence.py` added (see [RUNTIME-EVIDENCE.md](RUNTIME-EVIDENCE.md)). It is fail-closed and was **not run against real systems** in that change; the items above are still not run and no matrix cell was changed.
 
 ## J01-J19 remediation status
 
@@ -67,4 +68,5 @@ This table tracks implementation and evidence separately. A completed code chang
 4. Start Compose with PostgreSQL, Redis/ARQ, API, Web, Telegram and Prometheus.
 5. Execute payment/provider/Telegram/finance-concurrency smoke suites.
 6. Execute encrypted backup, off-host copy, decrypt, restore and integrity checks.
-7. Attach timestamped logs and update only the evidence columns that actually passed.
+7. Run `python scripts/runtime_evidence.py --allow-mutation` (Telegram, Zarinpal sandbox, panels, Docker, Caddy, Prometheus/Alertmanager); attach `var/evidence/m73-*/summary.json`.
+8. Attach timestamped logs and update only the evidence columns that actually passed.

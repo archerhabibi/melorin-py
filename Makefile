@@ -1,4 +1,4 @@
-.PHONY: guards up down logs migrate migration-smoke integration-smoke restore-drill test-matrix revision test lint api worker install-verify quality-gate
+.PHONY: evidence guards up down logs migrate migration-smoke integration-smoke restore-drill test-matrix revision test lint api worker install-verify quality-gate
 install-verify:
 	@bash scripts/install_verify.sh
 guards:
@@ -9,6 +9,8 @@ migration-smoke:
 	@bash scripts/migration_smoke.sh
 integration-smoke:
 	@bash scripts/integration_smoke.sh
+evidence:
+	@python scripts/runtime_evidence.py --allow-mutation
 restore-drill:
 	@bash scripts/backup_restore_drill.sh
 test-matrix:
