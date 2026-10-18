@@ -2,11 +2,15 @@
 
 from pathlib import Path
 
+from _source import normalize_source
+
 ROOT = Path(__file__).resolve().parents[3]
 
 
 def read(path):
-    return (ROOT / path).read_text()
+    """Read a repo file; Python sources are layout-normalised (M6.7)."""
+    text = (ROOT / path).read_text()
+    return normalize_source(text) if str(path).endswith(".py") else text
 
 
 def test_installation_is_external_proxy_aware_and_atomic():

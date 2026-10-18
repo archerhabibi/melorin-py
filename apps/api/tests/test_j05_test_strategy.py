@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from _source import read_source
 
 ROOT = Path(__file__).resolve().parents[1]
 PROJECT = ROOT.parent.parent
@@ -14,7 +15,7 @@ def test_ci_has_non_regressing_coverage_gate_and_integration_job():
 
 
 def test_test_matrix_exposes_unit_integration_and_concurrency_boundaries():
-    matrix = (PROJECT / "scripts/test_matrix.py").read_text()
+    matrix = read_source(PROJECT / "scripts/test_matrix.py")
     assert '"unit"' in matrix
     assert '"integration"' in matrix
     assert '"concurrency"' in matrix

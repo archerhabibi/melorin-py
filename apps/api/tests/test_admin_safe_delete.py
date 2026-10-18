@@ -14,8 +14,8 @@ from melorin.modules.catalog.models import Coupon, Product, StoreBundlePrice, St
 from melorin.modules.orders.models import Order
 from melorin.modules.referral.models import CommissionRule
 from melorin.modules.system.models import AuditEvent
-from melorin.modules.vpn.models import Panel, Server, VpnAccount
 from melorin.modules.vpn.bundles import Bundle, BundleMember, BundleProduct, StoreBundle
+from melorin.modules.vpn.models import Panel, Server, VpnAccount
 
 ADMIN = types.SimpleNamespace(id=uuid.uuid4())
 
@@ -256,6 +256,7 @@ def test_delete_routes_are_registered_on_the_admin_router():
 
 async def test_delete_routes_reject_anonymous_callers():
     import httpx
+
     from melorin.app import app
 
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t") as c:

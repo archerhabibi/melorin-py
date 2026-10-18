@@ -1,12 +1,13 @@
 from pathlib import Path
 
+from _source import read_source
 
 ROOT = Path(__file__).resolve().parents[1]
 PROJECT = ROOT.parent.parent
 
 
 def test_readiness_is_dependency_based_and_returns_503_when_not_ready():
-    source = (ROOT / "melorin/app.py").read_text()
+    source = read_source(ROOT / "melorin/app.py")
     assert "ready_ok = db_ok and redis_ok and worker_ok" in source
     assert "status_code=200 if ready_ok else 503" in source
     assert "worker_age" in source

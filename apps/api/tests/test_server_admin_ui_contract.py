@@ -1,8 +1,10 @@
 from pathlib import Path
 
+from _source import read_source
+
 SRC = Path(__file__).parents[3].joinpath("apps", "admin-web", "src")
-ALLOCATION = Path(__file__).parents[1].joinpath("melorin", "modules", "vpn", "allocation.py").read_text()
-ROUTER = Path(__file__).parents[1].joinpath("melorin", "modules", "admin", "router.py").read_text()
+ALLOCATION = read_source(Path(__file__).parents[1].joinpath("melorin", "modules", "vpn", "allocation.py"))
+ROUTER = read_source(Path(__file__).parents[1].joinpath("melorin", "modules", "admin", "router.py"))
 
 
 def _ui(name: str) -> str:
@@ -55,7 +57,7 @@ def test_server_edit_never_resends_unchanged_fields():
 
 def test_group_membership_is_saved_with_the_field_the_api_reads():
     """Regression: the panel form used to PATCH {panels: [...]}, which the API ignores (field is panel_ids)."""
-    schemas = Path(__file__).parents[1].joinpath("melorin", "modules", "admin", "schemas.py").read_text()
+    schemas = read_source(Path(__file__).parents[1].joinpath("melorin", "modules", "admin", "schemas.py"))
     update = schemas[schemas.index("class UpdateBundle") : schemas.index("class BundleMemberInput")]
     assert "panel_ids" in update
     infra = _ui("infra.jsx")

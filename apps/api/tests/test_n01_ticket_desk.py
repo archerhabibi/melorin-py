@@ -5,6 +5,7 @@ import uuid
 from pathlib import Path
 
 import pytest
+from _source import read_source
 from sqlalchemy import select
 
 import melorin.models  # noqa: F401  (registers every table so FKs resolve)
@@ -140,7 +141,7 @@ async def test_customer_reply_reopens_and_staff_reply_via_legacy_endpoint_notifi
 
 
 def test_migration_0015_chains_from_0014_and_models_match():
-    src = (ROOT / "alembic" / "versions" / "0015_ticket_upgrade.py").read_text()
+    src = read_source(ROOT / "alembic" / "versions" / "0015_ticket_upgrade.py")
     assert 'revision = "0015_ticket_upgrade"' in src and 'down_revision = "0014_short_codes"' in src
     assert len("0015_ticket_upgrade") <= 32  # alembic_version.version_num is VARCHAR(32)
     for col in ("priority", "is_internal", "edited_at"):

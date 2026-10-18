@@ -4,6 +4,7 @@ import importlib.util
 from pathlib import Path
 
 import sqlalchemy as sa
+
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
 

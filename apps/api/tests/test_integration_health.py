@@ -5,9 +5,10 @@ These checks prove the ASGI boundary itself and remain opt-in with the
 integration marker so local unit runs never pretend to be runtime evidence.
 """
 
+from pathlib import Path
+
 import httpx
 import pytest
-from pathlib import Path
 
 
 @pytest.mark.integration

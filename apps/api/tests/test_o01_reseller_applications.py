@@ -6,6 +6,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+from _source import read_source
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
@@ -241,7 +242,7 @@ def test_migration_0017_chains_from_0016_and_fits_version_column():
 
 
 def test_rotation_covers_application_token():
-    assert '(ResellerApplication, "bot_token_enc")' in (ROOT / "melorin/cli.py").read_text()
+    assert '(ResellerApplication, "bot_token_enc")' in read_source(ROOT / "melorin/cli.py")
 
 
 async def test_admin_can_reverify_bot_when_first_check_could_not_reach_telegram(session, monkeypatch):

@@ -3,11 +3,15 @@
 import ast
 from pathlib import Path
 
+from _source import normalize_source
+
 ROOT = Path(__file__).resolve().parents[3]
 
 
 def read(rel):
-    return (ROOT / rel).read_text(encoding="utf-8")
+    """Read a repo file; Python sources are layout-normalised (M6.7)."""
+    text = (ROOT / rel).read_text(encoding="utf-8")
+    return normalize_source(text) if str(rel).endswith(".py") else text
 
 
 def test_migration_0013_follows_0012_and_matches_the_model():
@@ -48,7 +52,7 @@ def _called_names(func: ast.AsyncFunctionDef) -> list[str]:
 
 
 def _function(rel, name):
-    tree = ast.parse(read(rel))
+    tree = ast.parse((ROOT / rel).read_text(encoding="utf-8"))  # AST needs raw source
     return next(n for n in ast.walk(tree) if isinstance(n, ast.AsyncFunctionDef) and n.name == name)
 
 

@@ -1,5 +1,5 @@
-from melorin.core.storage import validate_upload
 from melorin.core.errors import AppError
+from melorin.core.storage import validate_upload
 
 
 def test_upload_signatures_reject_empty_and_fake_webp():

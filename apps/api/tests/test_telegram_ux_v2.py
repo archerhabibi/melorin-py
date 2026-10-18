@@ -8,6 +8,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+from _source import read_source
 
 ROOT = Path(__file__).parents[2]
 ACC = str(uuid.uuid4())
@@ -262,7 +263,7 @@ def test_command_menu_is_registered_at_startup(bot):
 
 
 def test_source_never_carries_allocation_data():
-    src = (ROOT / "telegram-main/runner.py").read_text()
+    src = read_source(ROOT / "telegram-main/runner.py")
     for forbidden in ("default_bundle", "server_id"):
         assert forbidden not in src
 

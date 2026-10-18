@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from _source import read_source
+
 
 def test_initial_migration_is_non_destructive_and_contract_marked():
     source = (Path(__file__).parents[1] / "alembic" / "versions" / "0001_initial.py").read_text()
@@ -15,8 +17,8 @@ def test_initial_migration_is_non_destructive_and_contract_marked():
 
 def test_bot_binding_table_has_one_migration_owner():
     root = Path(__file__).parents[1] / "alembic" / "versions"
-    baseline = (root / "0001_initial.py").read_text()
-    binding = (root / "0008_bot_store_bindings.py").read_text()
+    baseline = read_source(root / "0001_initial.py")
+    binding = read_source(root / "0008_bot_store_bindings.py")
     assert "bot_store_bindings" not in baseline
     assert binding.count('"bot_store_bindings"') >= 1
     assert "sole owner" in binding

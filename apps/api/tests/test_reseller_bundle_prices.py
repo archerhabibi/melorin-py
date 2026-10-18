@@ -12,11 +12,12 @@ from pathlib import Path
 
 import pytest
 import sqlalchemy as sa
-from alembic.migration import MigrationContext
-from alembic.operations import Operations
+from _source import read_source
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 import melorin.models  # noqa: F401
+from alembic.migration import MigrationContext
+from alembic.operations import Operations
 from melorin.core.db import Base
 from melorin.core.errors import AppError
 from melorin.modules.admin import router as admin
@@ -27,8 +28,8 @@ from melorin.modules.reseller.schemas import PriceBatchIn, PriceBatchItem, Price
 from melorin.modules.stores.models import Store
 from melorin.modules.system.models import AuditEvent
 from melorin.modules.vpn import allocation
-from melorin.modules.vpn.models import Panel, Server
 from melorin.modules.vpn.bundles import Bundle, BundleMember, BundleProduct
+from melorin.modules.vpn.models import Panel, Server
 
 ADMIN = types.SimpleNamespace(id=uuid.uuid4())
 
@@ -345,7 +346,7 @@ def _migration():
 def test_migration_0020_follows_0019_and_matches_the_model():
     m = _migration()
     assert m.down_revision == "0019_telegram_web_login" and len(m.revision) <= 32
-    assert 'revision = "0019_telegram_web_login"' in (ROOT / "alembic/versions/0019_telegram_web_login.py").read_text()
+    assert 'revision = "0019_telegram_web_login"' in read_source(ROOT / "alembic/versions/0019_telegram_web_login.py")
     eng = sa.create_engine("sqlite://")
     with eng.begin() as conn:
         with Operations.context(MigrationContext.configure(conn)):

@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+from _source import read_source
+
 ROOT = Path(__file__).resolve().parents[3]
 API = ROOT / "apps/api"
 
@@ -17,7 +19,7 @@ def test_quality_gate_uses_the_correctness_policy_and_ci_runs_it():
 
 def test_migration_smoke_checks_0009_and_schema_contract():
     smoke = (ROOT / "scripts/migration_smoke.sh").read_text()
-    migration = (API / "alembic/versions/0009_referral_first_reward_guard.py").read_text()
+    migration = read_source(API / "alembic/versions/0009_referral_first_reward_guard.py")
     assert "version == head" in smoke and "get_current_head" in smoke
     assert "information_schema.columns" in smoke
     assert "uq_commissions_referred_user_id_kind" in smoke

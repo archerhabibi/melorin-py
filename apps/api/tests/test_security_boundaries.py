@@ -1,6 +1,7 @@
 import pytest
-from melorin.core.config import Settings
+
 from melorin.channels.telegram import TelegramChannel
+from melorin.core.config import Settings
 
 
 def test_production_rejects_default_secrets():

@@ -8,24 +8,25 @@ from pathlib import Path
 
 import pytest
 import sqlalchemy as sa
-from alembic.migration import MigrationContext
-from alembic.operations import Operations
+from _source import read_source
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 import melorin.models  # noqa: F401
+from alembic.migration import MigrationContext
+from alembic.operations import Operations
 from melorin.core.db import Base
 from melorin.core.errors import AppError
 from melorin.modules.admin import router as admin
-from melorin.modules.admin.schemas import CreateProduct, CreateBundle, BundleProductIn, ProductPatch, UpdateBundle
+from melorin.modules.admin.schemas import BundleProductIn, CreateBundle, CreateProduct, ProductPatch, UpdateBundle
 from melorin.modules.catalog import router as public
 from melorin.modules.catalog import service as catalog
 from melorin.modules.catalog.models import Product, StoreProduct
 from melorin.modules.stores.models import Store
 from melorin.modules.vpn import allocation
 from melorin.modules.vpn.allocation import requested_account_name
-from melorin.modules.vpn.models import Panel, Server
 from melorin.modules.vpn.bundles import Bundle, BundleMember, BundleProduct
+from melorin.modules.vpn.models import Panel, Server
 
 ADMIN = types.SimpleNamespace(id=uuid.uuid4())
 ROOT = Path(__file__).resolve().parents[1]
@@ -285,7 +286,7 @@ def _load_migration():
 def test_migration_0016_follows_0015_and_fits_alembic_version_column():
     m = _load_migration()
     assert m.down_revision == "0015_ticket_upgrade" and len(m.revision) <= 32
-    prev = (ROOT / "alembic/versions/0015_ticket_upgrade.py").read_text()
+    prev = read_source(ROOT / "alembic/versions/0015_ticket_upgrade.py")
     assert 'revision = "0015_ticket_upgrade"' in prev
 
 

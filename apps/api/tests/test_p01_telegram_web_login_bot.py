@@ -7,6 +7,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+from _source import read_source
 
 ROOT = Path(__file__).parents[2]
 PROJECT = ROOT.parent
@@ -221,11 +222,11 @@ def test_frontend_polls_with_post_body_and_keeps_nothing_in_storage():
 
 
 def test_migration_and_model_agree_and_worker_cleans_up():
-    mig = (API / "alembic/versions/0019_telegram_web_login.py").read_text()
+    mig = read_source(API / "alembic/versions/0019_telegram_web_login.py")
     assert 'down_revision = "0018_reseller_two_step"' in mig and "telegram_login_sessions" in mig
     from melorin.modules.identity.models import TelegramLoginSession
 
     assert {c.name for c in TelegramLoginSession.__table__.columns} <= {c for c in __import__("re").findall(r'sa\.Column\("(\w+)"', mig)}
-    arq = (API / "melorin/worker/arq_app.py").read_text()
-    assert "cron(telegram_login_gc_job" in arq and "telegram_login_gc_job,\n    ]" in arq  # formatter-stable (trailing comma)
-    assert "telegram_web_router" in (API / "melorin/app.py").read_text()
+    arq = read_source(API / "melorin/worker/arq_app.py")
+    assert "cron(telegram_login_gc_job" in arq and "telegram_login_gc_job]" in arq
+    assert "telegram_web_router" in read_source(API / "melorin/app.py")

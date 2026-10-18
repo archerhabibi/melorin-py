@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from _source import read_source
+
 SRC = Path(__file__).resolve().parents[2] / "admin-web" / "src"
 
 
@@ -18,7 +20,7 @@ def test_admin_dashboard_has_no_hardcoded_date_and_uses_shared_client():
 
 
 def test_email_code_login_links_existing_user_instead_of_duplicating():
-    service = (SRC.parents[1] / "api/melorin/modules/identity/service.py").read_text()
+    service = read_source(SRC.parents[1] / "api/melorin/modules/identity/service.py")
     assert "select(User).where(User.email == email)" in service
-    cli = (SRC.parents[1] / "api/melorin/cli.py").read_text()
+    cli = read_source(SRC.parents[1] / "api/melorin/cli.py")
     assert 'Identity.provider == "email"' in cli

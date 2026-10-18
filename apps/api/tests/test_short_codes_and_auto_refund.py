@@ -4,6 +4,8 @@ import asyncio
 import re
 from pathlib import Path
 
+from _source import read_source
+
 from melorin.core import codes, settings_store
 
 ROOT = Path(__file__).parents[1]
@@ -41,9 +43,9 @@ def test_provisioning_defaults_are_one_initial_plus_three_retries():
 
 
 def test_migration_0014_chains_from_0013_and_models_match():
-    src = (ROOT / "alembic" / "versions" / "0014_short_codes_and_auto_refund.py").read_text()
+    src = read_source(ROOT / "alembic" / "versions" / "0014_short_codes_and_auto_refund.py")
     assert 'down_revision = "0013_product_default_panel_group"' in src
-    assert 'revision      = "0014_short_codes"' in src
+    assert 'revision = "0014_short_codes"' in src
     # system_settings.id has no server default, the INSERT must provide it
     assert "gen_random_uuid()" in src
 

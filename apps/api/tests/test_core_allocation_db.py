@@ -17,8 +17,8 @@ from melorin.modules.catalog.models import Product
 from melorin.modules.system.models import AuditEvent
 from melorin.modules.vpn.adapters.base import PanelError
 from melorin.modules.vpn.allocation import resolve_allocation, resolve_order_group
-from melorin.modules.vpn.models import Panel, Server
 from melorin.modules.vpn.bundles import Bundle, BundleMember, BundleProduct, StoreBundle
+from melorin.modules.vpn.models import Panel, Server
 
 
 @pytest.fixture

@@ -1,19 +1,20 @@
 from pathlib import Path
 
+from _source import read_source
 
 ROOT = Path(__file__).resolve().parents[1]
 PROJECT = ROOT.parent.parent
 
 
 def test_metrics_requires_bearer_token_outside_development():
-    source = (ROOT / "melorin/app.py").read_text()
+    source = read_source(ROOT / "melorin/app.py")
     assert 'request.headers.get("Authorization"' in source
     assert 'f"Bearer {s.metrics_token}"' in source
     assert "unauthorized" in source
 
 
 def test_health_details_require_separate_operator_token():
-    source = (ROOT / "melorin/app.py").read_text()
+    source = read_source(ROOT / "melorin/app.py")
     assert "X-Melorin-Health-Token" in source
     assert 'payload = {"status": "ready" if ready_ok else "not_ready"}' in source
 

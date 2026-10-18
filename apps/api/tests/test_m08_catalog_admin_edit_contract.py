@@ -1,7 +1,9 @@
 from pathlib import Path
 
+from _source import read_source
+
 ROOT = Path(__file__).parents[1]
-ROUTER = (ROOT / "melorin/modules/admin/router.py").read_text()
+ROUTER = read_source(ROOT / "melorin/modules/admin/router.py")
 
 
 def test_bundle_edit_keeps_member_stats_and_can_clear_limit():

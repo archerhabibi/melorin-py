@@ -1,14 +1,15 @@
 from pathlib import Path
 
+from _source import read_source
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_migration_and_worker_blockers_are_fixed():
-    env = (ROOT / "alembic/env.py").read_text()
-    baseline = (ROOT / "alembic/versions/0001_initial.py").read_text()
-    runner = (ROOT / "melorin/worker/runner.py").read_text()
-    arq = (ROOT / "melorin/worker/arq_app.py").read_text()
+    env = read_source(ROOT / "alembic/env.py")
+    baseline = read_source(ROOT / "alembic/versions/0001_initial.py")
+    runner = read_source(ROOT / "melorin/worker/runner.py")
+    arq = read_source(ROOT / "melorin/worker/arq_app.py")
     assert "await c.commit()" in env
     assert "async with connectable.begin()" not in env
     assert "await c.run_sync(lambda conn: context.run_migrations())" in env
@@ -17,7 +18,7 @@ def test_migration_and_worker_blockers_are_fixed():
     assert "CreateTable" not in baseline
     assert "MODEL_SOURCE_FINGERPRINT" in baseline
     assert "from melorin import models" in runner
-    assert "from melorin.modules.vpn.adapters.registry import build_adapter" in runner
+    assert "melorin.modules.vpn.adapters.registry import" in runner and "build_adapter" in runner
     assert "register all SQLAlchemy mappers before worker sessions" in runner
     assert "session.get(OutboxEvent, event_id, with_for_update=True)" in runner
     assert "with_for_update=True" in runner
@@ -27,7 +28,7 @@ def test_migration_and_worker_blockers_are_fixed():
 
 
 def test_store_scoped_reseller_migration_skips_legacy_index_on_current_schema():
-    migration = (ROOT / "alembic/versions/0004_f027_f030.py").read_text()
+    migration = read_source(ROOT / "alembic/versions/0004_f027_f030.py")
     assert 'if "target_store_id" in app_columns:' in migration
     assert "uq_reseller_application_pending_user" in migration
 
@@ -48,7 +49,7 @@ def test_installer_supports_external_proxy_and_bootstraps_admin():
 
 def test_bootstrap_cli_and_ci_use_real_entrypoints():
     assert (ROOT / "melorin/cli.py").exists()
-    cli = (ROOT / "melorin/cli.py").read_text()
+    cli = read_source(ROOT / "melorin/cli.py")
     assert "settings_store.DEFAULTS" in cli
     assert "seed_demo_data" in cli
     assert 'where(Product.code == "TEST")' in cli
@@ -58,7 +59,7 @@ def test_bootstrap_cli_and_ci_use_real_entrypoints():
 
 
 def test_web_lockfile_gate_rejects_missing_or_hollow_graphs():
-    checker = (ROOT.parent.parent / "scripts/check_web_lockfiles.py").read_text()
+    checker = read_source(ROOT.parent.parent / "scripts/check_web_lockfiles.py")
     assert "assert lock_path.exists()" in checker
     assert "resolved" in checker and "integrity" in checker
 
@@ -66,7 +67,7 @@ def test_web_lockfile_gate_rejects_missing_or_hollow_graphs():
 def test_quality_gate_has_no_broken_script_reference_and_ssrf_guard_is_live():
     ci = (ROOT.parent.parent / ".github/workflows/ci.yml").read_text()
     gate = (ROOT.parent.parent / "scripts/run_quality_gate.sh").read_text()
-    webhook = (ROOT / "melorin/domain/webhook.py").read_text()
+    webhook = read_source(ROOT / "melorin/domain/webhook.py")
     assert "run_quality_gate.py" not in ci
     assert "run_quality_gate.sh" in ci
     assert "check_web_lockfiles.py" not in gate
@@ -75,9 +76,9 @@ def test_quality_gate_has_no_broken_script_reference_and_ssrf_guard_is_live():
 
 
 def test_rate_limit_does_not_trust_untrusted_forwarded_headers():
-    ratelimit = (ROOT / "melorin/core/ratelimit.py").read_text()
-    middleware = (ROOT / "melorin/core/middleware.py").read_text()
-    identity = (ROOT / "melorin/modules/identity/router.py").read_text()
+    ratelimit = read_source(ROOT / "melorin/core/ratelimit.py")
+    middleware = read_source(ROOT / "melorin/core/middleware.py")
+    identity = read_source(ROOT / "melorin/modules/identity/router.py")
     assert "trusted_proxy_ips" in ratelimit
     assert "resolve_client_ip" in ratelimit
     assert "auth-account:" in identity
@@ -85,7 +86,7 @@ def test_rate_limit_does_not_trust_untrusted_forwarded_headers():
 
 
 def test_operational_endpoints_are_not_public():
-    app = (ROOT / "melorin/app.py").read_text()
+    app = read_source(ROOT / "melorin/app.py")
     caddy = (ROOT.parent.parent / "infra/Caddyfile").read_text()
     assert 'docs_url="/docs" if s.is_dev else None' in app
     assert 'openapi_url="/openapi.json" if s.is_dev else None' in app
@@ -121,8 +122,8 @@ def test_web_tokens_are_not_persisted_in_local_storage():
 
 
 def test_readiness_checks_dependencies_and_worker_signals():
-    app = (ROOT / "melorin/app.py").read_text()
-    worker = (ROOT / "melorin/worker/arq_app.py").read_text()
+    app = read_source(ROOT / "melorin/app.py")
+    worker = read_source(ROOT / "melorin/worker/arq_app.py")
     assert "redis.ping()" in app
     assert "OutboxEvent" in app and "Panel" in app
     assert "melorin_outbox_pending" in app
@@ -132,10 +133,10 @@ def test_readiness_checks_dependencies_and_worker_signals():
 
 
 def test_redis_and_bootstrap_admin_have_bounded_operational_paths():
-    redis = (ROOT / "melorin/core/redis.py").read_text()
-    app = (ROOT / "melorin/app.py").read_text()
-    config = (ROOT / "melorin/core/config.py").read_text()
-    cli = (ROOT / "melorin/cli.py").read_text()
+    redis = read_source(ROOT / "melorin/core/redis.py")
+    app = read_source(ROOT / "melorin/app.py")
+    config = read_source(ROOT / "melorin/core/config.py")
+    cli = read_source(ROOT / "melorin/cli.py")
     installer = (ROOT.parent.parent / "scripts/install_server.sh").read_text()
     assert "socket_connect_timeout=1.5" in redis
     assert "socket_timeout=2.0" in redis
@@ -149,11 +150,11 @@ def test_k11_to_k20_operational_controls_are_present():
     root = ROOT.parent.parent
     compose = (root / "docker-compose.yml").read_text()
     installer = (root / "scripts/install_server.sh").read_text()
-    arq = (ROOT / "melorin/worker/arq_app.py").read_text()
+    arq = read_source(ROOT / "melorin/worker/arq_app.py")
     alerts = (root / "infra/alerts.yml").read_text()
-    registry = (ROOT / "melorin/modules/vpn/adapters/registry.py").read_text()
-    orders = (ROOT / "melorin/modules/orders/service.py").read_text()
-    vpn = (ROOT / "melorin/modules/vpn/service.py").read_text()
+    registry = read_source(ROOT / "melorin/modules/vpn/adapters/registry.py")
+    orders = read_source(ROOT / "melorin/modules/orders/service.py")
+    vpn = read_source(ROOT / "melorin/modules/vpn/service.py")
     assert "secrets/metrics-token" in compose and "tmp_metrics" in installer
     assert "recipients.txt:/run/melorin-backup/recipients.txt:ro" in compose
     for marker in ("panel_health_job", "expiry_job", "near_expiry_job", "reconciliation_job"):
@@ -166,9 +167,9 @@ def test_k11_to_k20_operational_controls_are_present():
 
 def test_k21_to_k27_hardening_is_wired():
     root = ROOT.parent.parent
-    limiter = (ROOT / "melorin/core/ratelimit.py").read_text()
-    identity = (ROOT / "melorin/modules/identity/service.py").read_text()
-    config = (ROOT / "melorin/core/config.py").read_text()
+    limiter = read_source(ROOT / "melorin/core/ratelimit.py")
+    identity = read_source(ROOT / "melorin/modules/identity/service.py")
+    config = read_source(ROOT / "melorin/core/config.py")
     compose = (root / "docker-compose.yml").read_text()
     store_auth = (root / "apps/store-web/src/App.jsx").read_text()
     quality = (root / "scripts/run_quality_gate.sh").read_text()
@@ -181,23 +182,23 @@ def test_k21_to_k27_hardening_is_wired():
 
 def test_full_project_regressions_are_wired():
     root = ROOT.parent.parent
-    product_schema = (ROOT / "melorin/modules/admin/schemas.py").read_text()
-    product_router = (ROOT / "melorin/modules/admin/router.py").read_text()
-    payment_router = (ROOT / "melorin/modules/reseller/router.py").read_text()
-    referral_model = (ROOT / "melorin/modules/referral/models.py").read_text()
-    migration = (ROOT / "alembic/versions/0009_referral_first_reward_guard.py").read_text()
+    product_schema = read_source(ROOT / "melorin/modules/admin/schemas.py")
+    product_router = read_source(ROOT / "melorin/modules/admin/router.py")
+    payment_router = read_source(ROOT / "melorin/modules/reseller/router.py")
+    referral_model = read_source(ROOT / "melorin/modules/referral/models.py")
+    migration = read_source(ROOT / "alembic/versions/0009_referral_first_reward_guard.py")
     dockerfile = (ROOT / "Dockerfile").read_text()
     assert "class ProductPatch" in product_schema and "body: ProductPatch" in product_router
     assert "PAYMENT_REVIEW_FORBIDDEN" in payment_router
     assert "referred_user_id" in referral_model and "0009_referral_first_reward_guard" in migration
     assert "postgresql-client-16" in dockerfile and "apt.postgresql.org" in dockerfile
-    telegram = (root / "apps/telegram-main/runner.py").read_text()
+    telegram = read_source(root / "apps/telegram-main/runner.py")
     assert "MELORIN_MAX_UPLOAD_BYTES" in telegram and "file_size" in telegram
 
 
 def test_worker_has_one_runtime_entrypoint():
-    runner = (ROOT / "melorin/worker/runner.py").read_text()
-    arq = (ROOT / "melorin/worker/arq_app.py").read_text()
+    runner = read_source(ROOT / "melorin/worker/runner.py")
+    arq = read_source(ROOT / "melorin/worker/arq_app.py")
     makefile = (ROOT.parent.parent / "Makefile").read_text()
     compose = (ROOT.parent.parent / "docker-compose.yml").read_text()
     assert "def worker_loop" not in runner
@@ -215,14 +216,14 @@ def test_lint_gate_uses_correctness_focused_policy():
 
 def test_release_matrix_is_the_single_current_status_source():
     matrix = (ROOT.parent.parent / "docs/RELEASE-EVIDENCE-MATRIX.md").read_text()
-    checker = (ROOT.parent.parent / "scripts/check_release_matrix.py").read_text()
+    checker = read_source(ROOT.parent.parent / "scripts/check_release_matrix.py")
     policy = (ROOT.parent.parent / "docs/history/I33_DOCUMENTATION_STATUS.md").read_text()
     assert "I33" in checker
     assert "historical" in matrix.lower() and "historical" in policy.lower()
 
 
 def test_i34_smoke_gate_is_explicit_and_preflight_matches_current_repo():
-    preflight = (ROOT.parent.parent / "scripts/preflight.py").read_text()
+    preflight = read_source(ROOT.parent.parent / "scripts/preflight.py")
     smoke = (ROOT.parent.parent / "scripts/integration_smoke.sh").read_text()
     assert "apps/store-web/package.json" in preflight
     assert "package-lock.json" not in preflight
@@ -232,14 +233,14 @@ def test_i34_smoke_gate_is_explicit_and_preflight_matches_current_repo():
 
 
 def test_i35_test_matrix_exposes_integration_boundary():
-    matrix = (ROOT.parent.parent / "scripts/test_matrix.py").read_text()
+    matrix = read_source(ROOT.parent.parent / "scripts/test_matrix.py")
     assert '"unit"' in matrix and '"integration"' in matrix and '"all"' in matrix
     assert "pytest" in matrix
     assert "MELORIN_COVERAGE" in matrix
 
 
 def test_i36_cli_has_explicit_operational_commands():
-    cli = (ROOT / "melorin/cli.py").read_text()
+    cli = read_source(ROOT / "melorin/cli.py")
     assert '"outbox-replay"' in cli
     assert '"rotate-encryption-key"' in cli
     assert "OutboxEvent" in cli
@@ -247,9 +248,9 @@ def test_i36_cli_has_explicit_operational_commands():
 
 
 def test_i37_privacy_retention_preserves_financial_and_audit_tables():
-    jobs = (ROOT / "melorin/worker/jobs.py").read_text()
-    arq = (ROOT / "melorin/worker/arq_app.py").read_text()
-    settings = (ROOT / "melorin/core/settings_store.py").read_text()
+    jobs = read_source(ROOT / "melorin/worker/jobs.py")
+    arq = read_source(ROOT / "melorin/worker/arq_app.py")
+    settings = read_source(ROOT / "melorin/core/settings_store.py")
     assert "privacy_retention_job" in jobs
     assert "VerificationCode" in jobs
     assert "privacy.verification_code_retention_days" in settings
@@ -258,22 +259,22 @@ def test_i37_privacy_retention_preserves_financial_and_audit_tables():
 
 
 def test_i38_pgclock_destinations_and_irt_default():
-    config = (ROOT / "melorin/core/config.py").read_text()
-    catalog = (ROOT / "melorin/modules/payments/gateway_catalog.py").read_text()
-    currency = (ROOT / "melorin/domain/currency.py").read_text()
+    config = read_source(ROOT / "melorin/core/config.py")
+    catalog = read_source(ROOT / "melorin/modules/payments/gateway_catalog.py")
+    currency = read_source(ROOT / "melorin/domain/currency.py")
     assert 'default_currency: str = "IRT"' in config
     for provider in ("manual_card", "external_gateway", "crypto", "telegram_stars"):
         assert f'"{provider}"' in catalog
     assert '"XTR"' in currency
-    registry = (ROOT / "melorin/modules/payments/adapters/registry.py").read_text()
+    registry = read_source(ROOT / "melorin/modules/payments/adapters/registry.py")
     assert "DestinationAdapter" in registry
     assert '"crypto"' in registry and '"telegram_stars"' in registry
 
 
 def test_i39_irt_irr_boundaries_are_explicit():
-    migration = (ROOT / "alembic/versions/0002_v11.py").read_text()
-    smoke = (ROOT.parent.parent / "scripts/postgres_concurrency_smoke.py").read_text()
-    zarinpal = (ROOT / "melorin/modules/payments/adapters/zarinpal.py").read_text()
+    migration = read_source(ROOT / "alembic/versions/0002_v11.py")
+    smoke = read_source(ROOT.parent.parent / "scripts/postgres_concurrency_smoke.py")
+    zarinpal = read_source(ROOT / "melorin/modules/payments/adapters/zarinpal.py")
     audit = (ROOT.parent.parent / "docs/history/I39_IRT_IRR_AUDIT.md").read_text()
     assert "default=\"'IRT'\"" in migration
     assert 'currency="IRT"' in smoke
@@ -283,7 +284,7 @@ def test_i39_irt_irr_boundaries_are_explicit():
 
 
 def test_i40_currency_payment_contract_exists():
-    test = (ROOT / "tests/test_i40_currency_payment_contract.py").read_text()
+    test = read_source(ROOT / "tests/test_i40_currency_payment_contract.py")
     doc = (ROOT.parent.parent / "docs/history/I40_CURRENCY_PAYMENT_CONTRACT.md").read_text()
     assert "_gateway_amount" in test
     assert "destination/currency mismatch" in doc
