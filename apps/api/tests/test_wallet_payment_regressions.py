@@ -6,10 +6,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_main_payment_settings_have_first_class_forms():
-    source = (ROOT.parent / "admin-web/src/AdminExtra.jsx").read_text()
-    assert "PaymentSettings" in source
-    assert "card.info" in source and "gateway.zarinpal" in source
-    assert "تنظیمات پیشرفته سیستم" in source
+    extra = (ROOT.parent / "admin-web/src/AdminExtra.jsx").read_text()
+    payments = (ROOT.parent / "admin-web/src/PaymentsView.jsx").read_text()
+    # Payment gateway settings now live inside the redesigned Payments screen.
+    assert '"پرداخت‌ها": PaymentsView' in extra
+    assert "GatewaySettings" in payments
+    assert "card.info" in payments and "gateway.zarinpal" in payments
+    assert "تنظیمات پیشرفته سیستم" in extra
 
 
 def test_zarinpal_is_validated_as_a_supported_destination():

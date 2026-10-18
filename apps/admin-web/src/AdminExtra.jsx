@@ -7,6 +7,7 @@ import InfraHealthView from "./InfraHealthView.jsx"; // Section 4
 import ProductsView from "./ProductsView.jsx";
 import BundlesView from "./BundlesView.jsx";
 import TicketsView from "./TicketsView.jsx";
+import PaymentsView from "./PaymentsView.jsx";
 import ResellerApplicationsView from "./ResellerApplicationsView.jsx";
 import ResellersView from "./ResellersView.jsx";
 import GoogleLoginSettings from "./GoogleLoginSettings.jsx";
@@ -65,39 +66,6 @@ function SettingRow({ k, v, save }) {
 
 const Field = ({ label, children }) => <label className="block text-xs font-bold text-[var(--mu)]">{label}<div className="mt-1">{children}</div></label>;
 const Toggle = ({ on, set, label }) => <label className="flex cursor-pointer items-center gap-2 text-sm font-bold"><input type="checkbox" checked={on} onChange={(e) => set(e.target.checked)} />{label}</label>;
-
-function PaymentSettings({ obj, save, toast }) {
-  const card = obj["card.info"] || {};
-  const zp = obj["gateway.zarinpal"] || {};
-  const [cardForm, setCardForm] = useState({ card_number: "", holder: "", bank: "", ...card });
-  const [zpForm, setZpForm] = useState({ merchant_id: "", sandbox: false, ...zp });
-  useEffect(() => setCardForm({ card_number: "", holder: "", bank: "", ...(obj["card.info"] || {}) }), [obj]);
-  useEffect(() => setZpForm({ merchant_id: "", sandbox: false, ...(obj["gateway.zarinpal"] || {}) }), [obj]);
-  const store = async (key, value) => { await save(key, JSON.stringify(value)); };
-  return <section className={`${box} p-5`}>
-    <h3 className="font-extrabold">تنظیمات پرداخت</h3>
-    <p className="mt-1 text-xs text-[var(--mu)]">از این فرم‌ها استفاده کن؛ دیگر لازم نیست ساختار JSON را حدس بزنی.</p>
-    <div className="mt-4 grid gap-4 md:grid-cols-2">
-      <div className="rounded-2xl border border-[var(--ln)] p-4">
-        <h4 className="font-bold">کارت‌به‌کارت فروشگاه اصلی</h4>
-        <div className="mt-3 grid gap-3">
-          <Field label="شماره کارت"><input dir="ltr" className={inp} value={cardForm.card_number} onChange={(e) => setCardForm({ ...cardForm, card_number: e.target.value })} /></Field>
-          <Field label="نام صاحب کارت"><input className={inp} value={cardForm.holder} onChange={(e) => setCardForm({ ...cardForm, holder: e.target.value })} /></Field>
-          <Field label="بانک"><input className={inp} value={cardForm.bank} onChange={(e) => setCardForm({ ...cardForm, bank: e.target.value })} /></Field>
-        </div>
-        <button className={`${btn} mt-4`} disabled={!cardForm.card_number.trim() || !cardForm.holder.trim()} onClick={() => store("card.info", cardForm)}>ذخیره اطلاعات کارت</button>
-      </div>
-      <div className="rounded-2xl border border-[var(--ln)] p-4">
-        <h4 className="font-bold">زرین‌پال فروشگاه اصلی</h4>
-        <div className="mt-3 grid gap-3">
-          <Field label="Merchant ID"><input dir="ltr" className={inp} value={zpForm.merchant_id} onChange={(e) => setZpForm({ ...zpForm, merchant_id: e.target.value })} /></Field>
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!zpForm.sandbox} onChange={(e) => setZpForm({ ...zpForm, sandbox: e.target.checked })} />حالت Sandbox</label>
-        </div>
-        <button className={`${btn} mt-4`} disabled={!zpForm.merchant_id.trim()} onClick={() => store("gateway.zarinpal", zpForm)}>ذخیره تنظیمات زرین‌پال</button>
-      </div>
-    </div>
-  </section>;
-}
 
 function Integrations({ api, toast }) {
   const call = (p, o = {}) => authFetch(api.base, p, o);
@@ -233,31 +201,9 @@ function Orders({ api, toast }) {
     <div className="flex gap-1.5"><button className={ghost} onClick={() => act(o, "retry", "تلاش مجدد")}>تلاش مجدد</button><button className={ghost} onClick={() => act(o, "manual-review", "بررسی دستی")}>بررسی دستی</button><button className={`${ghost} btn-d`} onClick={() => act(o, "refund", "استرداد")}>استرداد</button></div>])} />;
 }
 
-function Payments({ api, toast }) {
-  const { rows, call, reload } = useList(api, "/api/v1/admin/payments", toast);
-  const [obj, setObj] = useState({});
-  useEffect(() => { authFetch(api.base, "/api/v1/admin/settings").then((r) => r.ok ? r.json() : {}).then(setObj).catch(() => {}); }, []);
-  const saveSetting = async (key, value) => {
-    let parsed;
-    try { parsed = JSON.parse(value); } catch { return toast("مقدار باید JSON معتبر باشد"); }
-    const r = await call(`/api/v1/admin/settings/${key}`, { method: "PUT", body: JSON.stringify({ value: parsed }) });
-    if (r.ok) { toast("تنظیم پرداخت ذخیره شد"); setObj((x) => ({ ...x, [key]: parsed })); } else toast("ذخیره تنظیم پرداخت ناموفق بود");
-  };
-  const review = async (p, approve) => {
-    const reason = approve ? "" : await ask("دلیل رد پرداخت را وارد کنید."); if (reason === null) return;
-    const r = await call(`/api/v1/admin/payments/${p.id}/review`, { method: "POST", body: JSON.stringify({ approve, reason }) });
-    if (r.ok) { toast(approve ? "پرداخت تأیید شد" : "پرداخت رد شد"); reload(); } else toast("بررسی ناموفق بود");
-  };
-  const view = async (p) => { const r = await call(`/api/v1/admin/payments/${p.id}/receipt`); if (!r.ok) return toast("نمایش رسید ناموفق بود"); const url = URL.createObjectURL(await r.blob()); window.open(url, "_blank", "noopener"); setTimeout(() => URL.revokeObjectURL(url), 60000); };
-  const pending = (p) => ["pending", "review", "receipt_submitted", "awaiting_review"].includes(p.status) && p.has_receipt;
-  return <><PaymentSettings obj={obj} save={saveSetting} toast={toast} /><Table title="پرداخت‌ها" cols={["مبلغ", "درگاه", "وضعیت", "رسید", "اقدام"]} rows={rows.map((p) => [`${money(p.amount)} ${p.currency}`, p.provider, p.status, p.has_receipt ? <button className={ghost} onClick={() => view(p)}>مشاهده رسید</button> : "ندارد",
-    pending(p) ? <div className="flex gap-1.5"><button className={ghost} onClick={() => review(p, true)}>تأیید</button><button className={`${ghost} btn-d`} onClick={() => review(p, false)}>رد</button></div> : "-"])} />;
-  </>;
-}
-
 function Tickets({ api, toast }) {
   const call = (p, o = {}) => authFetch(api.base, p, o);
   return <TicketsView call={call} toast={toast} />;
 }
 
-export const extraRoutes = { "نمایندگان": ResellersView, "درخواست‌های نمایندگی": ResellerApplicationsView, "سلامت زیرساخت": InfraHealthView, "سفارش‌ها": Orders, "پرداخت‌ها": Payments, "تیکت‌ها": Tickets, "محصولات VPN": ProductsView, "پنل‌ها و سرورها": PanelsView, "بسته‌های فروش": BundlesView, "کوپن‌ها": Coupons, "تنظیمات": Settings, "ممیزی": Audit, "بررسی هویت": Reviews };
+export const extraRoutes = { "نمایندگان": ResellersView, "درخواست‌های نمایندگی": ResellerApplicationsView, "سلامت زیرساخت": InfraHealthView, "سفارش‌ها": Orders, "پرداخت‌ها": PaymentsView, "تیکت‌ها": Tickets, "محصولات VPN": ProductsView, "پنل‌ها و سرورها": PanelsView, "بسته‌های فروش": BundlesView, "کوپن‌ها": Coupons, "تنظیمات": Settings, "ممیزی": Audit, "بررسی هویت": Reviews };
