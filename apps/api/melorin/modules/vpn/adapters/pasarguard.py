@@ -288,7 +288,7 @@ class PasarGuardAdapter:
         if existing:  # idempotent retry after an UNKNOWN outcome
             return self._to_account(existing)
         endpoint = "/api/user/from_template" if self.cfg.get("user_template_id") is not None else "/api/user"
-        d = await self._req(endpoint, json=build_create_payload(spec, self.cfg), ok409=True)
+        d = await self._req("POST", endpoint, json=build_create_payload(spec, self.cfg), ok409=True)
         if d.get("__conflict__"):
             d = await self._require(spec.username)
         elif not d.get("username"):

@@ -53,7 +53,8 @@ class ZarinpalAdapter:
         if payment.currency not in {"IRR", "IRT"}:
             return CallbackResult(str(payment.id), None, False, {"error": "unsupported_currency"})
         authority, status = params.get("Authority"), params.get("Status")
-        if status != "OK" or authority != payment.external_ref:
+        # Fail closed: a callback without an Authority must never reach verify.json (None == None would pass the equality).
+        if status != "OK" or not authority or authority != payment.external_ref:
             return CallbackResult(str(payment.id), authority, False, params)
         async with httpx.AsyncClient(timeout=15) as c:
             r = await c.post(
