@@ -26,3 +26,41 @@ groups:
         for: 5m
         labels: {severity: warning}
         annotations: {summary: "Melorin outbox backlog is growing"}
+  # M7.6: traffic, business and housekeeping signals (HTTP, payments, provisioning, reseller bots, backups).
+  - name: melorin-traffic
+    rules:
+      - alert: MelorinHttpErrorRateHigh
+        expr: |
+          sum(rate(melorin_http_requests_total{status=~"5.."}[5m]))
+            / clamp_min(sum(rate(melorin_http_requests_total[5m])), 0.001) > 0.05
+        for: 5m
+        labels: {severity: critical}
+        annotations: {summary: "More than 5% of HTTP responses are 5xx"}
+      - alert: MelorinHttpLatencyHigh
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(melorin_http_request_duration_seconds_bucket[5m]))) > 2.5
+        for: 10m
+        labels: {severity: warning}
+        annotations: {summary: "HTTP p95 latency above 2.5s"}
+  - name: melorin-business
+    rules:
+      - alert: MelorinPaymentFailureRateHigh
+        expr: melorin_payments_recent_failure_ratio > 0.5 and melorin_payments_recent_total >= 5
+        for: 5m
+        labels: {severity: critical}
+        annotations: {summary: "More than half of recent payments failed"}
+      - alert: MelorinProvisioningFailures
+        expr: melorin_orders_provisioning_failed_recent > 0
+        for: 2m
+        labels: {severity: critical}
+        annotations: {summary: "Orders failed to provision in the last hour"}
+      - alert: MelorinResellerBotUnhealthy
+        expr: melorin_reseller_bots_unhealthy > 0
+        for: 5m
+        labels: {severity: warning}
+        annotations: {summary: "One or more reseller Telegram bots are offline or in error"}
+      - alert: MelorinBackupStale
+        expr: melorin_backup_age_seconds > 129600
+        for: 10m
+        labels: {severity: critical}
+        annotations: {summary: "No successful backup within 36 hours"}

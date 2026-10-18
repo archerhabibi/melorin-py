@@ -13,3 +13,18 @@ Runbook برای خرابی VPS، PostgreSQL، Redis، Panel، Gateway، deploy 
 Admin بتواند خرید، پرداخت، Reseller، Product، Panel، API، Bot و Provisioning را متوقف کند. Maintenance در سطح سیستم، Channel، Store یا Feature. همه تغییرات Audit شوند.
 ## Storage/Retention
 Storage abstraction برای Local یا S3-compatible. فایل Ticket/Receipt خصوصی و فقط از مسیر Authorization قابل دسترسی. Cleanup نباید سوابق مالی/Audit را حذف کند.
+
+## M7.6 — Alerts and metrics
+
+`/metrics` (bearer token) now exposes, besides the existing counters: `melorin_http_request_duration_seconds` (histogram, bounded `path` label), and database-derived gauges refreshed on every scrape: `melorin_payments_recent_{total,failed,failure_ratio}` (15 min), `melorin_orders_provisioning_failed_recent` (1 h), `melorin_orders_needs_review`, `melorin_reseller_bots_unhealthy`, `melorin_backup_age_seconds`.
+
+| Alert | Fires when |
+|---|---|
+| MelorinHttpErrorRateHigh | 5xx ratio > 5% for 5 min |
+| MelorinHttpLatencyHigh | p95 latency > 2.5 s for 10 min |
+| MelorinPaymentFailureRateHigh | > 50% of ≥ 5 recent payments failed |
+| MelorinProvisioningFailures | any order failed provisioning in the last hour |
+| MelorinResellerBotUnhealthy | a reseller bot is offline (stale heartbeat) or in error |
+| MelorinBackupStale | no successful backup for 36 h (or ever) |
+
+`tests/test_m76_observability.py` checks that every alert expression only references metrics the code really emits.

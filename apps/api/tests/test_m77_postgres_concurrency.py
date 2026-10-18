@@ -76,5 +76,7 @@ async def test_same_idempotency_key_in_parallel_posts_exactly_once():
         assert results.count(True) == 1 and results.count(False) == 3
         async with factory() as s:
             assert (await s.get(Wallet, wallet_id)).balance == 900
-            count = await s.scalar(select(func.count()).select_from(LedgerTransaction).where(LedgerTransaction.idempotency_key == "same-key"))
+            count = await s.scalar(
+                select(func.count()).select_from(LedgerTransaction).where(LedgerTransaction.idempotency_key == "same-key")
+            )
             assert count == 1

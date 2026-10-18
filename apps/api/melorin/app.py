@@ -192,4 +192,14 @@ async def metrics(request: Request):
         details=str(worker_last_tick or "missing"),
     )
     set_gauge("melorin_worker_last_tick", float(worker_last_tick or 0))
+    # M7.6: payment / provisioning / reseller-bot / backup signals come from the database. A database outage must
+    # not break the scrape (the MelorinDatabaseUnavailable alert covers it), so failures are swallowed here.
+    try:
+        from melorin.core.business_metrics import collect
+        from melorin.core.db import session_factory
+
+        async with session_factory()() as session:
+            await collect(session)
+    except Exception:
+        logging.getLogger("melorin.metrics").warning("business metrics unavailable", exc_info=True)
     return PlainTextResponse(render(), media_type="text/plain; version=0.0.4")

@@ -329,7 +329,13 @@ async def test_receipt_upload_moves_manual_payment_to_review_and_rejects_other_p
         assert exc.value.code == "INVALID_PAYMENT_STATE"
         p.provider = "manual_card"
         receipt = FileObject(
-            owner_user_id=user.id, store_id=store.id, purpose="receipt", storage_key="r/1", content_type="image/png", size=1, sha256="0" * 64
+            owner_user_id=user.id,
+            store_id=store.id,
+            purpose="receipt",
+            storage_key="r/1",
+            content_type="image/png",
+            size=1,
+            sha256="0" * 64,
         )
         s.add(receipt)
         await s.flush()  # a real file row: PostgreSQL enforces the receipt_file_id foreign key

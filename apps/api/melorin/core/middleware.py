@@ -6,10 +6,22 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from melorin.core.context import client_ip, correlation_id
 from melorin.core.config import get_settings
-from melorin.core.metrics import inc
+from melorin.core.metrics import inc, observe
 from melorin.core.proxy import resolve_client_ip
 
 log = logging.getLogger("melorin.http")
+
+# M7.6: label values stay bounded (a scanner hitting random URLs must not create unbounded series).
+_KNOWN_ROUTES = frozenset({"/health", "/health/live", "/health/ready", "/metrics", "/openapi-version"})
+
+
+def route_label(path: str) -> str:
+    route = path
+    if route.startswith("/api/v1/"):
+        route = "/api/v1/*"
+    elif route not in _KNOWN_ROUTES:
+        route = "other"
+    return route
 
 
 class CorrelationMiddleware:
@@ -40,11 +52,11 @@ class CorrelationMiddleware:
         try:
             await self.app(scope, receive, _send)
         finally:
-            route = scope["path"]
-            if route.startswith("/api/v1/"):
-                route = "/api/v1/*"
+            route = route_label(scope["path"])
             inc("melorin_http_requests_total", method=scope["method"], path=route, status=status["code"])
-            ms = (time.perf_counter() - start) * 1000
+            seconds = time.perf_counter() - start
+            observe("melorin_http_request_duration_seconds", seconds, path=route)
+            ms = seconds * 1000
             log.info("%s %s %s %.1fms", scope["method"], scope["path"], status["code"], ms)
             correlation_id.reset(t1)
             client_ip.reset(t2)
