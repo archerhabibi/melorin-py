@@ -36,6 +36,87 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-18 06:39 UTC - Melorin M6 - other  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** chore(M6.8): ignore frontend build output (apps/*/dist)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `.gitignore`
+- **Ref:** `f80820b`
+
+### 2026-10-18 06:38 UTC - Melorin M6 - tests, store-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** test(M6.8): frontend dependency contract follows Tailwind 4 (@tailwindcss/vite); README
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `apps/api/tests/test_j13_frontend_dependencies.py`, `apps/store-web/README.md`
+- **Ref:** `e4ff1b8`
+
+### 2026-10-18 06:37 UTC - Melorin M6 - store-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** build(M6.8b): store-web -> Vite 7 + Tailwind 4 (npm audit clean) - - vite 7.3.7, @vitejs/plugin-react 5.2.0, tailwindcss 4.3.3 via @tailwindcss/vite - tailwind.config.js moved to CSS @theme (colors, font, shadows, radius); derived .btn-* classes no longer @apply a component class (unsupported in v4…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (7):** `apps/store-web/Dockerfile`, `apps/store-web/package-lock.json`, `apps/store-web/package.json`, `apps/store-web/postcss.config.js`, `apps/store-web/src/styles.css`, `apps/store-web/tailwind.config.js`, `apps/store-web/vite.config.js`
+- **Ref:** `2a0661a`
+
+### 2026-10-18 06:36 UTC - Melorin M6 - admin-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(M6.8a): Tailwind 4 renamed utilities and pointer cursor parity in admin-web
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (7):** `apps/admin-web/src/AdminSections.jsx`, `apps/admin-web/src/App.jsx`, `apps/admin-web/src/PanelsView.jsx`, `apps/admin-web/src/TicketsView.jsx`, `apps/admin-web/src/Trend.jsx`, `apps/admin-web/src/palette.jsx`, `apps/admin-web/src/styles.css`
+- **Ref:** `b700312`
+
+### 2026-10-18 06:35 UTC - Melorin M6 - admin-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** build(M6.8a): admin-web -> Vite 7 + Tailwind 4 (npm audit clean) - - vite 5.4.21 -> 7.3.7, @vitejs/plugin-react 4.3.1 -> 5.2.0 - tailwindcss 3.4.14 -> 4.3.3 via @tailwindcss/vite; CSS-first config (dark variant on [data-theme=dark]); drop tailwind/postcss configs - Dockerfile node 20 -> 22 (Vite 7 …
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (7):** `apps/admin-web/Dockerfile`, `apps/admin-web/package-lock.json`, `apps/admin-web/package.json`, `apps/admin-web/postcss.config.js`, `apps/admin-web/src/styles.css`, `apps/admin-web/tailwind.config.js`, `apps/admin-web/vite.config.js`
+- **Ref:** `0511851`
+
+### 2026-10-18 06:26 UTC - Melorin M6 - admin-web, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(M6.9): reports API consistency (404, typed id, date filter, pagination, sold-orders series, tz-aware days)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (6):** `apps/admin-web/src/Trend.jsx`, `apps/api/melorin/modules/admin/router.py`, `apps/api/melorin/modules/admin/timeseries.py`, `apps/api/melorin/modules/reports/router.py`, `apps/api/requirements.txt`, `apps/api/tests/test_m06_reports_consistency.py`
+- **Ref:** `d205a2e`
+
+### 2026-10-18 06:17 UTC - Melorin M6 - ci-deploy, other, scripts  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** ci(M6.11): wire guard scripts into quality gate, CI and Makefile; guard checks the wiring
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (4):** `.github/workflows/ci.yml`, `Makefile`, `scripts/check_quality_config.py`, `scripts/run_quality_gate.sh`
+- **Ref:** `9535eb7`
+
+### 2026-10-18 06:17 UTC - Melorin M6 - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** test(M6.10): use >=32-byte JWT key in tests and fail on InsecureKeyLengthWarning
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `apps/api/pyproject.toml`, `apps/api/tests/conftest.py`
+- **Ref:** `a33850a`
+
+### 2026-10-18 06:15 UTC - Melorin M6 - tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** test(M6.7): formatter-stable source-contract tests via read_source/normalize_source
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (60):** `apps/api/tests/_source.py`, `apps/api/tests/test_admin_safe_delete.py`, `apps/api/tests/test_admin_sections_contract.py`, `apps/api/tests/test_bot_store_binding.py`, `apps/api/tests/test_core_allocation_contract.py`, `apps/api/tests/test_core_allocation_db.py`, `apps/api/tests/test_f007_f010_hardening.py`, `apps/api/tests/test_f026_f032_hardening.py` (+52 more)
+- **Ref:** `776cba3`
+
+### 2026-10-18 06:10 UTC - Melorin M6 - tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(M6.6): make unit tests hermetic against ambient MELORIN_* env and .env
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `apps/api/tests/conftest.py`
+- **Ref:** `67637a7`
+
+
 ### 2026-10-18 05:17 UTC - Claude (M report) - api, tests  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
