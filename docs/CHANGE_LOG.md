@@ -36,6 +36,23 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-18 05:17 UTC - Claude (M report) - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** style(M): apply ruff format (mechanical, no behaviour change) - Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com> Claude-Session: https://claude.ai/code/session_011qiu7fzG4c5KLG6BK9aEBh
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (136):** `apps/api/melorin/app.py`, `apps/api/melorin/channels/telegram.py`, `apps/api/melorin/cli.py`, `apps/api/melorin/core/codes.py`, `apps/api/melorin/core/config.py`, `apps/api/melorin/core/crypto.py`, `apps/api/melorin/core/db.py`, `apps/api/melorin/core/deps.py` (+128 more)
+- **Ref:** `d7bd299`
+
+### 2026-10-18 05:17 UTC - Claude (M report) - ci-deploy, admin-web, api  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(M): UTC day bucketing, CI bootstrap/e2e credentials, stale quality checks, web tooling - - admin timeseries: force UTC day on PostgreSQL (date(timestamptz) used DB session tz and dropped sales off the UTC axis) - CI/e2e: bootstrap needs a 24+ char password and a TOTP secret; e2e_smoke now sends…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (12):** `.github/workflows/ci.yml`, `apps/admin-web/package-lock.json`, `apps/admin-web/package.json`, `apps/api/melorin/modules/admin/timeseries.py`, `apps/api/tests/test_l04_l05_quality_migration.py`, `apps/api/tests/test_m01_admin_timeseries.py`, `apps/store-web/package-lock.json`, `apps/store-web/package.json` (+4 more)
+- **Ref:** `28eedae`
+
+
 ### 2026-10-18 UTC - Claude - reseller bot, admin-web, api
 - **Before:** the reseller Telegram bot was never connected. `telegram_reseller` was off by default (compose profile) and could only
   start from `MELORIN_TELEGRAM_RESELLER_TOKEN`/`MELORIN_RESELLER_BOTS_JSON`; the bot token of an approved reseller was stored encrypted in
