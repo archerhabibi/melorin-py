@@ -99,11 +99,19 @@ async def report_summary(_: AdminUser, session: Session):
 
 
 @router.get("/reports/timeseries")
-async def report_timeseries(_: AdminUser, session: Session, days: int = Query(default=30, ge=7, le=90)):
+async def report_timeseries(
+    _: AdminUser,
+    session: Session,
+    days: int = Query(default=30, ge=7, le=90),
+    tz: str = Query(default="UTC", max_length=64, description="IANA time zone used to bucket days, e.g. Asia/Tehran"),
+):
     """Zero-filled daily orders + per-currency sales for the dashboard chart."""
     from melorin.modules.admin.timeseries import build_timeseries
 
-    return await build_timeseries(session, days)
+    try:
+        return await build_timeseries(session, days, tz=tz)
+    except ValueError as exc:
+        raise AppError("INVALID_TIMEZONE", "منطقه زمانی نامعتبر است.", 422) from exc
 
 
 @router.get("/reports/orders.csv")
