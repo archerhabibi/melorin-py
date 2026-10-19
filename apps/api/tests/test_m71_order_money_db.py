@@ -94,7 +94,7 @@ async def test_reseller_sale_charges_customer_and_books_reseller_cost_as_debt():
         main, owner, customer, product, reseller, cust = await _reseller_setup(s)
         order = await make_order(s, user=customer, store=reseller, product=product, total=5_000, status="pending", reseller_cost=3_000)
         await orders.pay_with_wallet(s, order, reseller, main=main)
-        credit = await wallet.get_wallet(s, owner.id, main.id, kind="reseller_credit")
+        credit = await wallet.get_wallet(s, owner.id, main.id)
         assert cust.balance == 15_000 and credit.balance == -3_000 and order.status == "paid"
 
 
@@ -104,7 +104,7 @@ async def test_reseller_sale_beyond_debt_limit_is_blocked_before_any_debit():
         order = await make_order(s, user=customer, store=reseller, product=product, total=5_000, status="pending", reseller_cost=3_000)
         with pytest.raises(orders.ResellerDebtLimitReached):
             await orders.pay_with_wallet(s, order, reseller, main=main)
-        credit = await wallet.get_wallet(s, owner.id, main.id, kind="reseller_credit")
+        credit = await wallet.get_wallet(s, owner.id, main.id)
         assert cust.balance == 20_000 and credit.balance == 0 and order.status == "pending"
 
 
@@ -185,7 +185,7 @@ async def test_reseller_refund_reverses_both_customer_payment_and_reseller_cost(
         await s.commit()
         admin = await make_user(s, super_admin=True)
         await orders.refund(s, order, admin, None)
-        credit = await wallet.get_wallet(s, owner.id, main.id, kind="reseller_credit")
+        credit = await wallet.get_wallet(s, owner.id, main.id)
         assert cust.balance == 20_000 and credit.balance == 0
         assert await wallet.find_tx(s, f"order:{order.id}:reseller_cost_refund") is not None
 

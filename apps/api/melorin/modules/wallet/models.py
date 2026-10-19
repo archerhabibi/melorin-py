@@ -9,16 +9,17 @@ from melorin.core.db import Base, CreatedMixin, IdMixin, TimestampMixin
 class Wallet(IdMixin, TimestampMixin, Base):
     """Per (user, store, kind, currency). balance is a projection of ledger entries, never the source of truth.
 
-    A customer wallet belongs to the store where the customer buys. A reseller
-    also has a separate reseller_credit account in Main Store that may go down
-    to -debt_limit.
+    A customer wallet belongs to the store where the customer buys. When a customer becomes a
+    reseller, the SAME wallet they already hold in Main Store is used for reseller costs; the
+    only addition is ResellerProfile.debt_limit, which lets reseller costs (not the owner's own
+    purchases) take that wallet down to -debt_limit. Wallets of different stores never interact.
     """
 
     __tablename__ = "wallets"
     __table_args__ = (UniqueConstraint("user_id", "store_id", "kind", "currency"),)
     user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"), index=True)
     store_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("stores.id"), index=True)
-    kind: Mapped[str] = mapped_column(String(20), default="customer")  # customer | reseller_credit
+    kind: Mapped[str] = mapped_column(String(20), default="customer")  # customer (reseller_credit is legacy: merged into customer by migration 0026)
     currency: Mapped[str] = mapped_column(String(8), default="IRT")
     balance: Mapped[int] = mapped_column(BigInteger, default=0)
 

@@ -16,9 +16,10 @@ def test_reseller_application_is_store_scoped():
     assert "parent_store_id == target.id" in admin
 
 
-def test_reseller_purchase_keeps_customer_and_credit_wallets_separate():
+def test_reseller_cost_uses_the_owner_main_store_customer_wallet():
     source = read_source(ROOT / "melorin/modules/orders/service.py")
     assert "wallet.get_wallet(session, order.user_id, store.id" in source
-    assert 'kind="reseller_credit"' in source
+    assert "reseller_credit" not in source
+    assert "store.owner_user_id, main.id" in source
     assert "await wallet.lock_wallets(session, to_lock)" in source
     assert "order.reseller_cost" in source

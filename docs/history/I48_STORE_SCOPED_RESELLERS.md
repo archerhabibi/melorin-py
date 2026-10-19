@@ -9,7 +9,11 @@ user and target store.
 Every approved reseller store records `parent_store_id` and inherits the
 parent currency. The financial invariant is explicit: customer purchases
 debit `(customer, reseller_store, customer wallet)` and atomically post the
-reseller cost against `(reseller owner, Main Store, reseller_credit wallet)`.
+reseller cost against `(reseller owner, Main Store, customer wallet)`: the owner's
+existing ordinary wallet in the Main Store is reused (the separate
+`reseller_credit` kind was removed; migration 0026 merges legacy balances), and
+the only addition is `debt_limit`, which lets reseller costs take that wallet
+down to `-debt_limit`.
 Both wallets are locked in stable order. Insufficient customer funds or an
 exceeded debt limit abort the transaction before any ledger posting; an
 unknown database failure rolls back the complete transaction and is eligible
