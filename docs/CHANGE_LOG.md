@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-19 03:39 UTC - Claude - api  _(auto)_
+- **Before:** when a reseller store could not cover its cost (debt_limit 0 with no credit, or limit reached), POST /stores/{id}/orders crashed with MissingGreenlet (HTTP 500). The Telegram bot treats 5xx as transient and keeps retrying the update, the store website only showed a generic "order failed", so resell…
+- **Problem:** create_order called session.rollback() and then read store.id; rollback expires every ORM instance and async code cannot lazy-load them. The idempotency-recovery queries after a rollback had the same pattern (store.id / user.id).
+- **Action:** capture store_id/user_id as plain values at the top of create_order and use them in every recovery path; notify_debt_reached now accepts a store id.
+- **After:** new tests/test_reseller_purchase_flow.py (happy path, debt_limit 0, limit reached, credit covers cost) - the two debt-limit tests fail with MissingGreenlet on the old code; full suite 818 passed, ruff clean.
+- **Files (2):** `apps/api/melorin/modules/orders/service.py`, `apps/api/tests/test_reseller_purchase_flow.py`
+- **Ref:** `8ce9134`
+
+
 ### 2026-10-18 17:08 UTC - archerhabibi - admin-web, api, tests  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
