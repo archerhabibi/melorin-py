@@ -12,6 +12,7 @@ Delivery is at-least-once and deduplicated through the Notification row
 import html
 import io
 import logging
+import datetime as dt
 import uuid
 
 from sqlalchemy import select
@@ -30,6 +31,11 @@ from melorin.modules.wallet.models import LedgerEntry, LedgerTransaction, Wallet
 log = logging.getLogger("melorin.delivery")
 
 CAPTION_LIMIT = 1024  # Telegram hard limit for a photo caption
+LINK_WAIT = dt.timedelta(hours=1)  # how long a missing link is retried before delivering without it
+
+
+class LinkNotReady(RuntimeError):
+    """The subscription link is not stored yet; raised so the outbox retries instead of sending a post without QR."""
 
 
 def render_qr_png(data: str) -> bytes:
@@ -115,6 +121,15 @@ async def balance_after_payment(session: AsyncSession, order: Order) -> int | No
     return int(w.balance) if w else None
 
 
+def _link_wait_expired(order: Order) -> bool:
+    done = order.completed_at or order.created_at
+    if done is None:
+        return True  # no timestamp to wait on: never block delivery forever
+    if done.tzinfo is None:
+        done = done.replace(tzinfo=dt.timezone.utc)
+    return dt.datetime.now(dt.timezone.utc) - done > LINK_WAIT
+
+
 async def deliver_order(session: AsyncSession, order_id: uuid.UUID) -> str:
     """Send the delivery post. Returns sent | skipped. Raises on transport failure so the outbox retries."""
     order = await session.get(Order, order_id)
@@ -129,13 +144,15 @@ async def deliver_order(session: AsyncSession, order_id: uuid.UUID) -> str:
         return "skipped"
 
     link = account.subscription_url or ((account.links or [None])[0] if isinstance(account.links, list) else None)
-    balance = await balance_after_payment(session, order)
-    currency = order.currency
-
     dedup = f"delivery:{order.id}"
     n = await session.scalar(select(Notification).where(Notification.dedup_key == dedup))
     if n and n.telegram_status == "sent":
         return "skipped"
+    if not link and not _link_wait_expired(order):
+        raise LinkNotReady(f"order {order.id}: subscription link not ready")
+    balance = await balance_after_payment(session, order)
+    currency = order.currency
+
     if n is None:
         n = Notification(
             user_id=order.user_id,
