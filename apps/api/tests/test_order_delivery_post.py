@@ -181,3 +181,26 @@ async def test_provisioning_emits_delivery_event_not_generic_notice():
     src = inspect.getsource(service.provision_order)
     assert src.count("events.ORDER_DELIVERY") == 2  # normal path + reconcile path
     assert "notify:account" not in src
+
+
+async def test_missing_link_is_retried_not_sent_without_qr(session, tg):
+    """Fresh order without a stored link: raise (outbox retry) instead of posting text without QR."""
+    order = await _seed(session, link=None)
+    with pytest.raises(delivery.LinkNotReady):
+        await delivery.deliver_order(session, order.id)
+    assert tg["photo"] == [] and tg["message"] == []
+    acc = await session.scalar(select(VpnAccount).where(VpnAccount.order_id == order.id))
+    acc.subscription_url = SUB
+    await session.commit()
+    assert await delivery.deliver_order(session, order.id) == "sent"
+    assert len(tg["photo"]) == 1 and SUB in tg["photo"][0]["caption"]
+
+
+async def test_stale_order_without_link_is_still_delivered_as_text(session, tg):
+    import datetime as dt
+
+    order = await _seed(session, link=None)
+    order.completed_at = dt.datetime.now(dt.timezone.utc) - delivery.LINK_WAIT - dt.timedelta(minutes=1)
+    await session.commit()
+    assert await delivery.deliver_order(session, order.id) == "sent"
+    assert len(tg["message"]) == 1 and tg["photo"] == []
