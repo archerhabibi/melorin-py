@@ -77,14 +77,22 @@ jobs:
       - run: bash ../../scripts/migration_smoke.sh
         env: {MELORIN_DATABASE_URL: postgresql+asyncpg://melorin:test@localhost:5432/melorin, MELORIN_JWT_SECRET: ci-secret}
       - run: |
-          alembic upgrade head
-          python -m melorin.cli bootstrap
-          python ../../scripts/postgres_concurrency_smoke.py
+          alembic upgrade head > /tmp/d_upgrade.log 2>&1
+          python -m melorin.cli bootstrap > /tmp/d_bootstrap.log 2>&1
+          python ../../scripts/postgres_concurrency_smoke.py > /tmp/d_conc.log 2>&1
           nohup uvicorn melorin.app:app --port 8000 > /tmp/api.log 2>&1 &
           nohup arq melorin.worker.arq_app.WorkerSettings > /tmp/worker.log 2>&1 &
           for i in $(seq 1 30); do curl -sf localhost:8000/health/live && break; sleep 1; done
-          python ../../scripts/e2e_smoke.py
+          python ../../scripts/e2e_smoke.py > /tmp/d_e2e.log 2>&1
         env: {MELORIN_DATABASE_URL: 'postgresql+asyncpg://melorin:test@localhost:5432/melorin', MELORIN_REDIS_URL: 'redis://localhost:6379/0', MELORIN_ALLOW_MOCK_PROVIDERS: 'true', MELORIN_BOOTSTRAP_ADMIN_EMAIL: admin@example.com, MELORIN_BOOTSTRAP_ADMIN_PASSWORD: 'Strong-admin-password-123456', MELORIN_BOOTSTRAP_ADMIN_TOTP_SECRET: JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP, E2E_ADMIN_PASSWORD: 'Strong-admin-password-123456', MELORIN_JWT_SECRET: ci-secret-ci-secret-ci-secret-1234}
+      - name: diag
+        if: failure()
+        run: |
+          for f in d_upgrade d_bootstrap d_conc d_e2e api worker; do
+            [ -f /tmp/$f.log ] || continue
+            body=$(tail -c 1200 /tmp/$f.log | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error title=diag-$f::$body"
+          done
 
   # M7.7: the unit/money-path suite again, but on a real PostgreSQL (private schema per test), plus the
   # concurrency tests that SQLite cannot prove. Catches dialect-specific bugs such as M6.1.
