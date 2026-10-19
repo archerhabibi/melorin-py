@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-19 05:11 UTC - archerhabibi - admin-web, db, api  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(reseller): use the owner's ordinary Main Store wallet for reseller costs (#21) - A reseller now uses the very same wallet they already had as a customer in Main Store; the only addition is ResellerProfile.debt_limit, which lets reseller costs (not the owner's own purchases) take that wallet do…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (12):** `apps/admin-web/src/ResellerApplicationsView.jsx`, `apps/admin-web/src/ResellersView.jsx`, `apps/api/alembic/versions/0026_merge_reseller_credit_wallets.py`, `apps/api/melorin/modules/orders/service.py`, `apps/api/melorin/modules/reseller/router.py`, `apps/api/melorin/modules/wallet/models.py`, `apps/api/tests/test_m71_order_money_db.py`, `apps/api/tests/test_reseller_purchase_flow.py` (+4 more)
+- **Ref:** `451421f`
+
+
 ### 2026-10-19 03:39 UTC - Claude - api  _(auto)_
 - **Before:** when a reseller store could not cover its cost (debt_limit 0 with no credit, or limit reached), POST /stores/{id}/orders crashed with MissingGreenlet (HTTP 500). The Telegram bot treats 5xx as transient and keeps retrying the update, the store website only showed a generic "order failed", so resell…
 - **Problem:** create_order called session.rollback() and then read store.id; rollback expires every ORM instance and async code cannot lazy-load them. The idempotency-recovery queries after a rollback had the same pattern (store.id / user.id).
