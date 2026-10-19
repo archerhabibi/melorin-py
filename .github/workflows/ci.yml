@@ -79,7 +79,7 @@ jobs:
       - run: |
           alembic upgrade head
           python -m melorin.cli bootstrap
-          python scripts/postgres_concurrency_smoke.py
+          python ../../scripts/postgres_concurrency_smoke.py
           nohup uvicorn melorin.app:app --port 8000 > /tmp/api.log 2>&1 &
           nohup arq melorin.worker.arq_app.WorkerSettings > /tmp/worker.log 2>&1 &
           for i in $(seq 1 30); do curl -sf localhost:8000/health/live && break; sleep 1; done
