@@ -6,7 +6,7 @@ import { Copy, Loader2 } from "lucide-react";
 const toDataUrl = (blob) => new Promise((ok, fail) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = fail; r.readAsDataURL(blob); });
 export const linkOf = (a) => a?.subscription_url || (Array.isArray(a?.links) ? a.links[0] : null) || null;
 
-export function SubscriptionCard({ account, coreFetch, notify }) {
+export function SubscriptionCard({ account, coreFetch, notify, qrPath }) {
   const link = linkOf(account);
   const [qr, setQr] = useState(null);
   const [failed, setFailed] = useState(false);
@@ -14,13 +14,13 @@ export function SubscriptionCard({ account, coreFetch, notify }) {
     let live = true;
     setQr(null); setFailed(false);
     if (!account?.id || !link) return undefined;
-    coreFetch(`/api/v1/vpn-accounts/${account.id}/qr.png`)
+    coreFetch(qrPath || `/api/v1/vpn-accounts/${account.id}/qr.png`)
       .then((r) => (r.ok ? r.blob() : Promise.reject(new Error(String(r.status)))))
       .then(toDataUrl)
       .then((u) => live && setQr(u))
       .catch(() => live && setFailed(true));
     return () => { live = false; };
-  }, [account?.id, link]);
+  }, [account?.id, link, qrPath]);
   if (!link) return <p className="mt-4 text-xs text-muted">لینک اشتراک در حال آماده‌سازی است.</p>;
   const copy = () => navigator.clipboard?.writeText(link).then(() => notify?.("کپی شد"));
   return <div className="mt-4 space-y-3">

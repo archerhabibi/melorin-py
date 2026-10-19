@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Bell, ChevronDown, Gauge, KeyRound, LifeBuoy, LogOut, Package, Store, Wallet as WalletIcon, ArrowRight, Link2, Pencil, Plus, RefreshCw, Send, X } from "lucide-react";
 import { GoogleSignInButton } from "./GoogleSignIn.jsx";
-import { SubscriptionCard } from "./Subscription.jsx";
+import AccountInquiry from "./AccountInquiry.jsx";
 import { Empty, Loading, PageTitle, StatusBadge, fa, fd } from "./ui.jsx";
 const gb = (b) => (b ? (b / 1073741824).toFixed(1) : "0");
 const J = { "Content-Type": "application/json" };
@@ -56,23 +56,13 @@ function Renew({ account, coreFetch, storeId, notify, reload, onClose }) {
 }
 
 function Vpn({ coreFetch, storeId, notify, reload }) {
-  const [rows, setRows] = useState(null);
   const [renew, setRenew] = useState(null);
-  useEffect(() => { coreFetch("/api/v1/vpn-accounts").then((r) => r.json()).then(setRows).catch(() => setRows([])); }, []);
-  if (!rows) return <Loading rows={2} />;
-  if (!rows.length) return <Empty icon={Gauge} text="اکانتی ندارید. از بخش سرویس‌ها خرید کنید."><a href="#plans" className="btn-primary mt-5">دیدن سرویس‌ها</a></Empty>;
-  return <div className="grid gap-4 md:grid-cols-2">{rows.map((a) => {
-    const pct = a.traffic_limit_bytes ? Math.min(100, (a.traffic_used_bytes / a.traffic_limit_bytes) * 100) : 0;
-    return <div key={a.id} className={card}>
-      <div className="flex items-center justify-between"><b className="latin">{a.username}</b><StatusBadge status={a.status} /></div>
-      <div className="mt-4 text-xs text-muted">انقضا: {fd(a.expires_at)}</div>
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface2"><div className={`h-full rounded-full ${pct > 85 ? "bg-danger" : "bg-coral"}`} style={{ width: `${pct}%` }} /></div>
-      <div className="mt-1 text-xs text-muted">{gb(a.traffic_used_bytes)} از {a.traffic_limit_bytes ? gb(a.traffic_limit_bytes) : "∞"} گیگ</div>
-      <SubscriptionCard account={a} coreFetch={coreFetch} notify={notify} />
+  const [tick, setTick] = useState(0);
+  return <AccountInquiry coreFetch={coreFetch} base="/api/v1/vpn-accounts" notify={notify} reloadKey={tick} emptyText="اکانتی ندارید. از بخش سرویس‌ها خرید کنید." emptyAction={<a href="#plans" className="btn-primary mt-5">دیدن سرویس‌ها</a>}
+    renderExtra={(a) => <>
       {a.can_renew ? <button onClick={() => setRenew(renew === a.id ? null : a.id)} className="btn-soft mt-2 w-full"><RefreshCw size={16} />تمدید</button> : !a.is_test && a.expires_at && <p className="mt-2 text-xs text-muted">مهلت تمدید این اکانت (۱۰ روز پس از انقضا) تمام شده است.</p>}
-      {renew === a.id && <Renew account={a} coreFetch={coreFetch} storeId={storeId} notify={notify} reload={reload} onClose={() => setRenew(null)} />}
-    </div>;
-  })}</div>;
+      {renew === a.id && <Renew account={a} coreFetch={coreFetch} storeId={storeId} notify={notify} reload={() => { reload?.(); setTick((t) => t + 1); }} onClose={() => setRenew(null)} />}
+    </>} />;
 }
 
 function Wallet({ coreFetch, storeId, wallet, reload, notify }) {

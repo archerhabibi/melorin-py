@@ -74,6 +74,10 @@ ORDER_STATUS = {"pending": "⏳ در انتظار پرداخت", "paid": "💳 �
 TX_KIND = {"purchase": "🛒 خرید", "topup": "💳 شارژ", "refund": "↩️ بازگشت وجه", "topup_refund": "↩️ برگشت شارژ",
            "referral_first": "🎁 پاداش دعوت", "referral_recurring": "🎁 پاداش دعوت", "manual_adjustment": "✏️ اصلاح دستی"}
 PAGE_SIZE = 8
+# Account inquiry: filter chips (code -> Core `state` value, label) and the badge of each account's `health`.
+ACC_FILTERS = [("-", None, "همه"), ("a", "active", "🟢 فعال"), ("x", "expiring", "🟡 رو‌به‌اتمام"), ("e", "expired", "🔴 منقضی")]
+HEALTH_BADGE = {"active": "🟢", "expiring": "🟡", "expired": "🔴", "depleted": "🟠", "disabled": "⚫"}
+HEALTH_LABEL = {"active": "فعال", "expiring": "رو‌به‌اتمام", "expired": "منقضی", "depleted": "حجم تمام‌شده", "disabled": "غیرفعال"}
 
 
 TICKET_ICON = {"open": "🟡", "answered": "🟢", "closed": "⚫"}
@@ -208,7 +212,7 @@ class TelegramRunner:
         self.callbacks = {
             "menu": self.cb_menu, "plan": self.cb_plan, "buy": self.cb_buy, "ticket": self.cb_ticket,
             "reply": self.cb_reply, "readall": self.cb_readall, "wallet": self.cb_wallet_amount,
-            "account": self.cb_account, "plans": self.cb_plans, "cpn": self.cb_coupon, "qr": self.cb_qr,
+            "account": self.cb_account, "acl": self.cb_acc_list, "acs": self.cb_acc_search, "acq": self.cb_acc_clear, "plans": self.cb_plans, "cpn": self.cb_coupon, "qr": self.cb_qr,
             "bundle": self.cb_bundle, "pnl": self.cb_panel, "qt": self.cb_quote, "rnw": self.cb_renew, "rnq": self.cb_renew_quote, "rnb": self.cb_renew_buy, "noop": self.cb_noop,
             "tnew": self.cb_ticket_new, "tedit": self.cb_ticket_edit_msg, "tsubj": self.cb_ticket_edit_subject,
             "tclose": self.cb_ticket_close, "treopen": self.cb_ticket_reopen, "rsc": self.cb_reseller_cancel,
@@ -401,6 +405,8 @@ class TelegramRunner:
         if text in main:
             self._set_state(ctx.chat_id, None)
             await main[text](ctx, "")
+        elif st.get("acc_search"):
+            await self.acc_apply_search(ctx, st["acc_search"], text)
         elif st.get("rs"):
             await self.reseller_step(ctx, st, text)
         elif st.get("topup_amount"):
@@ -864,40 +870,144 @@ class TelegramRunner:
             return await self.send(ctx.chat_id, "مبلغ را وارد کنید. مثال: /topup 100000")
         await self.create_topup(ctx, int(digits))
 
-    # ----- accounts: list -> card (usage bar, link) -> QR / renew -----
+    # ----- accounts (استعلام): list (chips + search + paging) -> live card -> QR / renew -----
+    # One implementation for two audiences. scope "me": the customer's OWN accounts. scope "ow": the reseller-store owner's
+    # view of every account sold in his store (Core enforces both; the reseller runner only adds the entry points).
+    # All numbers come from Core, which reads them from the VPN panel; the bot never computes expiry/usage itself.
+    ACC_SCOPES = {
+        "me": {"list": "/api/v1/vpn-accounts", "title": "🔑 <b>اکانت‌های من</b>", "key": "accv", "owner": False},
+        "ow": {"list": "reseller/accounts", "title": "🗂 <b>اکانت‌های مشتریان</b>", "key": "oaccv", "owner": True},
+    }
+
+    async def _acc_base(self, scope: str) -> str:
+        cfg = self.ACC_SCOPES[scope]
+        if not cfg["owner"]:
+            return cfg["list"]
+        return f"/api/v1/stores/{(await self.store_info())['id']}/{cfg['list']}"
+
+    def _acc_view(self, ctx, scope: str) -> dict:
+        return dict((self.state.get(str(ctx.chat_id)) or {}).get(self.ACC_SCOPES[scope]["key"]) or {})
+
+    def _acc_set_view(self, ctx, scope: str, **kw) -> dict:
+        view = {**self._acc_view(ctx, scope), **kw}
+        self._merge_state(ctx.chat_id, **{self.ACC_SCOPES[scope]["key"]: {k: v for k, v in view.items() if v not in (None, "")} or None})
+        return view
+
     async def cmd_accounts(self, ctx, arg):
-        rows = await self.api(ctx, "GET", "/api/v1/vpn-accounts")
+        self._merge_state(ctx.chat_id, acc_search=None)
+        self._acc_set_view(ctx, "me", f=None, q=None, p=None)
+        await self.show_accounts(ctx, "me")
+
+    async def show_accounts(self, ctx, scope: str):
+        cfg, view = self.ACC_SCOPES[scope], self._acc_view(ctx, scope)
+        code = view.get("f") or "-"
+        state = next((st for c, st, _ in ACC_FILTERS if c == code), None)
+        page, q = max(0, int(view.get("p") or 0)), view.get("q")
+        base = await self._acc_base(scope)
+        params = {"limit": PAGE_SIZE + 1, "offset": page * PAGE_SIZE}
+        if state:
+            params["state"] = state
+        if q:
+            params["q"] = q
+        counts = await self.api(ctx, "GET", f"{base}/summary")
+        rows = await self.api(ctx, "GET", base, params=params)
+        more, rows = len(rows) > PAGE_SIZE, rows[:PAGE_SIZE]
+        if not counts.get("total") and not q:
+            empty = "🗂 هنوز اکانتی در فروشگاه شما ساخته نشده است." if cfg["owner"] else "🔑 هنوز اکانتی ندارید."
+            return await self.screen(ctx, empty, [] if cfg["owner"] else [[("🛒 خرید اکانت", "menu:plans")], [("🧪 دریافت اکانت تست", "menu:test")]])
+        head = [f"{cfg['title']} · {counts.get('total', 0)} اکانت",
+                f"🟢 {counts.get('active', 0)} فعال · 🟡 {counts.get('expiring', 0)} رو‌به‌اتمام · 🔴 {counts.get('expired', 0)} منقضی"]
+        if q:
+            head.append(f"🔎 جستجو: «{esc(q)}»")
         if not rows:
-            return await self.screen(ctx, "🔑 هنوز اکانتی ندارید.", [[("🛒 خرید اکانت", "menu:plans")], [("🧪 دریافت اکانت تست", "menu:test")]])
-        buttons = []
-        for a in rows[:20]:
-            d = parse_dt(a.get("expires_at"))
-            left = f" · {(d - dt.datetime.now(dt.UTC)).days}ر" if d else ""
-            buttons.append([(f"{ACCOUNT_STATUS.get(a['status'], '•').split()[0]} {a['username']}{left}", f"account:{a['id']}")])
-        await self.screen(ctx, "🔑 <b>اکانت‌های من</b>\nبرای مشاهده، تمدید یا QR کد یکی را انتخاب کنید:", buttons)
+            head += ["", "نتیجه‌ای پیدا نشد."]
+        elif cfg["owner"]:
+            head += ["", "برای دیدن جزئیات، تمدید یا QR یکی را انتخاب کنید:"]
+        else:
+            head += ["", "برای مشاهده، تمدید یا QR کد یکی را انتخاب کنید:"]
+        pre = "o" if cfg["owner"] else ""
+        chips = [(f"{'✓ ' if c == code else ''}{label} ({counts.get(st or 'total', 0)})", f"{pre}acl:{c}:0") for c, st, label in ACC_FILTERS]
+        buttons = [chips[:2], chips[2:]]
+        for a in rows:
+            left = a.get("days_left")
+            tail = f" · {left}ر" if left is not None else " · ♾"
+            who = f" · {a['customer_name'][:14]}" if cfg["owner"] and a.get("customer_name") else ""
+            buttons.append([(f"{HEALTH_BADGE.get(a.get('health'), '•')} {a['username']}{tail}{who}", f"{'o' if cfg['owner'] else ''}account:{a['id']}")])
+        nav = []
+        if page > 0:
+            nav.append(("◀️ قبلی", f"{pre}acl:{code}:{page - 1}"))
+        if more:
+            nav.append(("بعدی ▶️", f"{pre}acl:{code}:{page + 1}"))
+        if nav:
+            buttons.append(nav)
+        buttons.append([("🔎 جستجو" + (" (تغییر)" if q else ""), f"{pre}acs:1")] + ([("✖️ پاک‌کردن جستجو", f"{pre}acq:1")] if q else []))
+        if not cfg["owner"]:
+            buttons.append([("🏠 بازگشت به منو", "menu:home")])
+        await self.screen(ctx, "\n".join(head + (["", f"صفحه {page + 1}"] if page or more else [])), buttons)
 
-    async def _find_account(self, ctx, account_id):
-        rows = await self.api(ctx, "GET", "/api/v1/vpn-accounts")
-        return next((a for a in rows if str(a.get("id")) == str(account_id)), None)
+    async def cb_acc_list(self, ctx, value, scope: str = "me"):
+        code, _, page = value.partition(":")
+        if code not in {c for c, _, _ in ACC_FILTERS}:
+            code = "-"
+        self._merge_state(ctx.chat_id, acc_search=None)
+        self._acc_set_view(ctx, scope, f=None if code == "-" else code, p=int(page) if page.isdigit() else 0)
+        await self.show_accounts(ctx, scope)
 
-    async def cb_account(self, ctx, value):
-        account = await self._find_account(ctx, value)
-        if not account:
-            return await self.screen(ctx, "این اکانت دیگر در دسترس نیست.", [[("↩︎ بازگشت", "menu:accounts")]])
+    async def cb_acc_search(self, ctx, _, scope: str = "me"):
+        self._merge_state(ctx.chat_id, acc_search=scope)
+        who = "نام اکانت، نام یا ایمیل مشتری" if self.ACC_SCOPES[scope]["owner"] else "نام اکانت"
+        await self.send(ctx.chat_id, f"🔎 {who} (یا بخشی از آن) را بفرستید:\nبرای انصراف /cancel")
+
+    async def cb_acc_clear(self, ctx, _, scope: str = "me"):
+        self._merge_state(ctx.chat_id, acc_search=None)
+        self._acc_set_view(ctx, scope, q=None, p=None)
+        await self.show_accounts(ctx, scope)
+
+    async def acc_apply_search(self, ctx, scope: str, text: str):
+        self._merge_state(ctx.chat_id, acc_search=None)  # one-shot: the next message is never read as a search again
+        term = text.strip()[:64]
+        self._acc_set_view(ctx, scope, q=term or None, p=None, f=None)
+        await self.show_accounts(ctx, scope)
+
+    async def show_account_card(self, ctx, account_id: str, scope: str = "me"):
+        owner = self.ACC_SCOPES[scope]["owner"]
+        base = await self._acc_base(scope)
+        back = f"{'o' if owner else ''}acl:{(self._acc_view(ctx, scope).get('f') or '-')}:{int(self._acc_view(ctx, scope).get('p') or 0)}"
+        try:  # live numbers straight from the VPN panel (Core rate-limits it per account and keeps the last values if the panel is down)
+            account = await self.api(ctx, "POST", f"{base}/{account_id}/refresh")
+        except CoreError as exc:
+            if exc.status != 404:
+                raise
+            return await self.screen(ctx, "این اکانت دیگر در دسترس نیست.", [[("↩︎ بازگشت", back)]])
         link = account.get("subscription_url")
-        lines = [f"👤 <b>{esc(account.get('username', '-'))}</b>", f"وضعیت: {ACCOUNT_STATUS.get(account['status'], esc(account['status']))}",
-                 expiry_line(account.get("expires_at")), "", f"📊 {usage_bar(account.get('traffic_used_bytes'), account.get('traffic_limit_bytes'))}"]
+        health = account.get("health")
+        lines = [f"👤 <b>{esc(account.get('username', '-'))}</b>", f"وضعیت: {HEALTH_BADGE.get(health, '•')} {HEALTH_LABEL.get(health, esc(account.get('status')))}"]
+        if owner:
+            lines.append(f"🙋 مشتری: {esc(account.get('customer_name') or '-')}")
+        lines += [expiry_line(account.get("expires_at")), "", f"📊 {usage_bar(account.get('traffic_used_bytes'), account.get('traffic_limit_bytes'))}"]
         lines += ["", "🔗 لینک اشتراک (برای کپی لمس کنید):", f"<code>{esc(link)}</code>"] if link else ["", "🔗 لینک در حال آماده‌سازی است."]
+        pre = "o" if owner else ""
         action = []
         if link:
-            action.append(("📷 QR کد", f"qr:{b64(account['id'])}"))
-        if account.get("can_renew"):  # Core decides (up to 10 days after expiry); the bot never re-implements the rule
+            action.append(("📷 QR کد", f"{pre}qr:{b64(account['id'])}"))
+        if account.get("can_renew") and not owner:  # Core decides (up to 10 days after expiry); the bot never re-implements the rule
             action.append(("🔄 تمدید", f"rnw:{b64(account['id'])}"))
-        rows = ([action] if action else []) + [[("↩︎ بازگشت", "menu:accounts")]]
+        rows = ([action] if action else []) + [[("🔃 بروزرسانی از پنل", f"{pre}account:{account['id']}")], [("↩︎ بازگشت به لیست", back)]]
         await self.screen(ctx, "\n".join(lines), rows)
 
-    async def cb_qr(self, ctx, token):
-        account = await self._find_account(ctx, unb64(token))
+    async def cb_account(self, ctx, value):
+        await self.show_account_card(ctx, value, "me")
+
+    async def _find_account(self, ctx, account_id, scope: str = "me"):
+        try:
+            return await self.api(ctx, "GET", f"{await self._acc_base(scope)}/{account_id}")
+        except CoreError as exc:
+            if exc.status == 404:
+                return None
+            raise
+
+    async def cb_qr(self, ctx, token, scope: str = "me"):
+        account = await self._find_account(ctx, unb64(token), scope)
         link = (account or {}).get("subscription_url")
         if not link:
             raise CoreError(404, "لینک اشتراک این اکانت هنوز آماده نیست.")

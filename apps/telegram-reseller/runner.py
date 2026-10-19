@@ -40,7 +40,7 @@ log = logging.getLogger("melorin.telegram.reseller")
 OWNER_BUTTON = "🏪 مدیریت فروشگاه"
 OWNER_HELP = "\n\nبخش نماینده:\n/manage مدیریت فروشگاه\n/report گزارش فروش\n/customers مشتریان\n/payments پرداخت‌های در انتظار تأیید\n/prices قیمت فروش محصولات"
 CUSTOMER_COMMANDS = [(c, d) for c, d in _module.BOT_COMMANDS if c != "reseller"]
-OWNER_COMMANDS = [("manage", OWNER_BUTTON), ("report", "📊 گزارش فروش"), ("customers", "👥 مشتریان"), ("payments", "💳 پرداخت‌های در انتظار"), ("prices", "💲 قیمت فروش")]
+OWNER_COMMANDS = [("manage", OWNER_BUTTON), ("report", "📊 گزارش فروش"), ("customers", "👥 مشتریان"), ("payments", "💳 پرداخت‌های در انتظار"), ("prices", "💲 قیمت فروش"), ("allaccounts", "🗂 اکانت‌های مشتریان")]
 DEBT_LABEL = {"ok": "🟢 عادی", "near": "🟠 نزدیک به سقف بدهی", "reached": "🔴 به سقف بدهی رسیده"}
 OWNER_CACHE_SECONDS = 600
 STORE_CACHE_SECONDS = 60  # welcome / support texts edited by the admin or the owner apply within a minute, no restart
@@ -74,7 +74,10 @@ class ResellerTelegramRunner(_module.TelegramRunner):
         self.health, self.health_detail = "connecting", None  # what the supervisor reports to Core
         self._store_at = 0.0
         self._owners: dict[str, tuple[bool, float]] = {}
-        self.commands.update({"/manage": self.cmd_manage, "/report": self.cmd_report, "/customers": self.cmd_customers, "/payments": self.cmd_payments, "/prices": self.cmd_prices})
+        self.commands.update({"/manage": self.cmd_manage, "/report": self.cmd_report, "/customers": self.cmd_customers, "/payments": self.cmd_payments, "/prices": self.cmd_prices, "/allaccounts": self.cmd_owner_accounts})
+        # the store owner's account inquiry (every account sold in THIS store); Core answers 403 for anyone else
+        self.callbacks.update({"oacl": self.cb_owner_acc_list, "oacs": self.cb_owner_acc_search, "oacq": self.cb_owner_acc_clear,
+                               "oaccount": self.cb_owner_account, "oqr": self.cb_owner_qr})
         self.commands.pop("/reseller", None)  # reseller bots have no sub-resellers
         self.callbacks.update({"rv": self.cb_review, "prc": self.cb_price_pick, "prs": self.cb_price_scope, "mg": self.cb_manage})
 
@@ -196,14 +199,14 @@ class ResellerTelegramRunner(_module.TelegramRunner):
         except _module.CoreError:
             pending = []
         pay_label = f"💳 پرداخت‌های در انتظار ({len(pending)})" if pending else "💳 پرداخت‌ها"
-        rows = [[("📊 گزارش فروش", "mg:report"), ("👥 مشتریان", "mg:customers")], [(pay_label, "mg:payments"), ("💲 قیمت فروش", "mg:prices")]]
+        rows = [[("📊 گزارش فروش", "mg:report"), ("👥 مشتریان", "mg:customers")], [("🗂 اکانت‌های مشتریان", "mg:accounts")], [(pay_label, "mg:payments"), ("💲 قیمت فروش", "mg:prices")]]
         site = await self.account_url(ctx)
         if site:
             rows.append([("🌐 ورود به فروشگاه در وب", site)])
         await self.screen(ctx, "\n".join(lines), rows)
 
     async def cb_manage(self, ctx, which):
-        fn = {"report": self.cmd_report, "customers": self.cmd_customers, "payments": self.cmd_payments, "prices": self.cmd_prices}.get(which)
+        fn = {"report": self.cmd_report, "customers": self.cmd_customers, "accounts": self.cmd_owner_accounts, "payments": self.cmd_payments, "prices": self.cmd_prices}.get(which)
         if fn is None:
             return await self.send(ctx.chat_id, "گزینه نامعتبر است.")
         await fn(ctx, "")
@@ -280,6 +283,35 @@ class ResellerTelegramRunner(_module.TelegramRunner):
             return await self.send(ctx.chat_id, "بسته پیدا نشد؛ دوباره /prices را بفرستید.")
         self._merge_state(ctx.chat_id, price_bundle=str(bundle["bundle_id"]))
         await self.send(ctx.chat_id, f"قیمت فروش در «{bundle['bundle_name']}» را به عدد (تومان) بفرستید (حداقل {money(bundle['cost'])}). برای برداشتن و استفاده از قیمت کلی، 0 بفرستید.")
+
+    # ---------- owner: account inquiry ----------
+    async def _owner_only(self, ctx) -> bool:
+        if await self.is_owner(ctx):
+            return True
+        await self.send(ctx.chat_id, "شما به این بخش دسترسی ندارید.")
+        return False
+
+    async def cmd_owner_accounts(self, ctx, arg):
+        if not await self._owner_only(ctx):
+            return
+        self._merge_state(ctx.chat_id, acc_search=None)
+        self._acc_set_view(ctx, "ow", f=None, q=None, p=None)
+        await self.show_accounts(ctx, "ow")
+
+    async def cb_owner_acc_list(self, ctx, v):
+        await self.cb_acc_list(ctx, v, "ow")
+
+    async def cb_owner_acc_search(self, ctx, v):
+        await self.cb_acc_search(ctx, v, "ow")
+
+    async def cb_owner_acc_clear(self, ctx, v):
+        await self.cb_acc_clear(ctx, v, "ow")
+
+    async def cb_owner_account(self, ctx, v):
+        await self.show_account_card(ctx, v, "ow")
+
+    async def cb_owner_qr(self, ctx, v):
+        await self.cb_qr(ctx, v, "ow")
 
     async def on_text(self, ctx, text):
         if text == OWNER_BUTTON:

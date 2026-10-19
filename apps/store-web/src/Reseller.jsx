@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, BarChart3, Bot, CreditCard, Eye, EyeOff, Globe, Settings, Tags, Users, Webhook, KeyRound } from "lucide-react";
+import { ArrowRight, BarChart3, Gauge, Bot, CreditCard, Eye, EyeOff, Globe, Settings, Tags, Users, Webhook, KeyRound } from "lucide-react";
 import { Loading, PageTitle, StatusBadge, fa, fd } from "./ui.jsx";
 import Pricing from "./ResellerPricing.jsx";
+import AccountInquiry from "./AccountInquiry.jsx";
 const J = { "Content-Type": "application/json" };
 const card = "card";
 const btn = "btn-primary !py-2.5";
@@ -205,7 +206,7 @@ function Apply({ coreFetch, notify, stores }) {
   </div>;
 }
 
-const tabs = [["overview", "نمای کلی", BarChart3], ["pricing", "قیمت‌گذاری", Tags], ["customers", "مشتریان", Users], ["payments", "پرداخت‌ها", CreditCard], ["keys", "کلیدهای API", KeyRound], ["hooks", "وبهوک‌ها", Webhook], ["settings", "تنظیمات فروشگاه", Settings]];
+const tabs = [["overview", "نمای کلی", BarChart3], ["pricing", "قیمت‌گذاری", Tags], ["customers", "مشتریان", Users], ["accounts", "اکانت‌های مشتریان", Gauge], ["payments", "پرداخت‌ها", CreditCard], ["keys", "کلیدهای API", KeyRound], ["hooks", "وبهوک‌ها", Webhook], ["settings", "تنظیمات فروشگاه", Settings]];
 export default function Reseller({ coreFetch, notify }) {
   const [stores, setStores] = useState(null); const [tab, setTab] = useState("overview");
   const pricingDirty = useRef(false);  // unsaved price edits: leaving the tab would silently drop them
@@ -217,6 +218,6 @@ export default function Reseller({ coreFetch, notify }) {
     {stores === null ? <Loading rows={2} /> : !mine ? <Apply coreFetch={coreFetch} notify={notify} stores={stores} /> : <div className="grid gap-8 md:grid-cols-[220px_1fr]">
       <nav aria-label="بخش‌های پنل نماینده" className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 md:sticky md:top-24 md:mx-0 md:h-fit md:flex-col md:gap-1 md:overflow-visible md:px-0">{tabs.map(([k, l, Icon]) => <button key={k} onClick={() => go(k)} aria-current={tab === k} className={`flex shrink-0 items-center gap-2.5 whitespace-nowrap rounded-xl px-4 py-3 text-sm font-bold transition ${tab === k ? "bg-primary text-onprimary shadow-soft" : "text-muted hover:bg-surface2 hover:text-ink"}`}><Icon size={18} />{l}</button>)}</nav>
       <section className="min-w-0">
-      {tab === "overview" && <Overview coreFetch={coreFetch} base={base} />}{tab === "pricing" && <Pricing coreFetch={coreFetch} base={base} notify={notify} dirtyRef={pricingDirty} />}{tab === "customers" && <Customers coreFetch={coreFetch} base={base} notify={notify} />}{tab === "payments" && <Payments coreFetch={coreFetch} base={base} notify={notify} />}{tab === "keys" && <Keys coreFetch={coreFetch} base={base} notify={notify} />}{tab === "hooks" && <Hooks coreFetch={coreFetch} base={base} notify={notify} />}{tab === "settings" && <div className="space-y-4"><Branding coreFetch={coreFetch} base={base} storeId={mine.id} notify={notify} /><PayConfig coreFetch={coreFetch} base={base} notify={notify} /></div>}
+      {tab === "overview" && <Overview coreFetch={coreFetch} base={base} />}{tab === "pricing" && <Pricing coreFetch={coreFetch} base={base} notify={notify} dirtyRef={pricingDirty} />}{tab === "customers" && <Customers coreFetch={coreFetch} base={base} notify={notify} />}{tab === "accounts" && <AccountInquiry coreFetch={coreFetch} base={`${base}/accounts`} owner notify={notify} emptyText="هنوز اکانتی در فروشگاه شما ساخته نشده است." />}{tab === "payments" && <Payments coreFetch={coreFetch} base={base} notify={notify} />}{tab === "keys" && <Keys coreFetch={coreFetch} base={base} notify={notify} />}{tab === "hooks" && <Hooks coreFetch={coreFetch} base={base} notify={notify} />}{tab === "settings" && <div className="space-y-4"><Branding coreFetch={coreFetch} base={base} storeId={mine.id} notify={notify} /><PayConfig coreFetch={coreFetch} base={base} notify={notify} /></div>}
       </section></div>}</div>;
 }
