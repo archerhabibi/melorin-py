@@ -2,7 +2,7 @@ name: CI
 on: [push, pull_request]
 jobs:
   quality:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:16
@@ -89,7 +89,7 @@ jobs:
   # M7.7: the unit/money-path suite again, but on a real PostgreSQL (private schema per test), plus the
   # concurrency tests that SQLite cannot prove. Catches dialect-specific bugs such as M6.1.
   postgres-lane:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:16
