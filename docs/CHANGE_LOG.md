@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-19 11:11 UTC - Claude - api, tests, store-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(renewal): core-owned renewal (10-day window, package reset, current bundle price) - - new vpn/renewal.py: eligibility window, target, apply_to_panel (reset usage), landed() - orders.create_order: renewal via core rules, product must equal account's, no parallel renewals - allocation: renewal o…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (19):** `apps/api/melorin/modules/catalog/router.py`, `apps/api/melorin/modules/catalog/schemas.py`, `apps/api/melorin/modules/orders/service.py`, `apps/api/melorin/modules/vpn/adapters/base.py`, `apps/api/melorin/modules/vpn/adapters/mock.py`, `apps/api/melorin/modules/vpn/allocation.py`, `apps/api/melorin/modules/vpn/renewal.py`, `apps/api/melorin/modules/vpn/router.py` (+11 more)
+- **Ref:** `5c29782`
+
+
 ### 2026-10-19 10:02 UTC - archerhabibi - ci, scripts  _(auto)_
 - **Before:** CI red on main for several runs
 - **Problem:** secrets guard false positives, cwd-relative guard scripts, alembic check on an unmigrated DB, wrong smoke script path/imports/FK rows, format drift
