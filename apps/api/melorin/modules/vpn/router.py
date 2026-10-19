@@ -5,6 +5,7 @@ from sqlalchemy import select
 
 from melorin.core.deps import CurrentUser, Session
 from melorin.core.errors import NotFound
+from melorin.modules.vpn import renewal
 from melorin.modules.vpn.models import VpnAccount
 from melorin.modules.vpn.schemas import VpnAccountOut
 
@@ -12,7 +13,10 @@ router = APIRouter(prefix="/vpn-accounts", tags=["vpn-accounts"])
 
 
 def out(a: VpnAccount) -> VpnAccountOut:
+    state = renewal.eligibility(a)
     return VpnAccountOut(
+        can_renew=state.ok,
+        renew_until=state.renew_until,
         id=a.id,
         username=a.username,
         status=a.status,

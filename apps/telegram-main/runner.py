@@ -759,6 +759,12 @@ class TelegramRunner:
             lines.append(f"📍 {esc(flow['plabel'])}")
         if flow.get("name"):
             lines.append(f"👤 نام کاربری: <code>{esc(flow['name'])}</code>")
+        if renew and q.get("renewal"):
+            r = q["renewal"]
+            vol = f"{r['traffic_gb']} GB" if r.get("traffic_gb") else "نامحدود"
+            lines.append(f"⏳ پس از تمدید: {r['duration_days']} روز · {vol} (مثل یک اکانت جدید همین پکیج)")
+            if r.get("remaining_days_replaced"):
+                lines.append(f"ℹ️ {r['remaining_days_replaced']} روز باقی‌مانده فعلی جایگزین می‌شود و به آن اضافه نمی‌شود.")
         lines.append(f"💵 قیمت: {esc(fmt(q['unit_price'], c))}")
         if q.get("discount"):
             tag = f" ({esc(q.get('coupon_code'))})" if q.get("coupon_code") else ""
@@ -778,7 +784,7 @@ class TelegramRunner:
             rows = [[(f"💳 شارژ {fmt(short, c)}", f"wallet:amount:{short}")]]
         if not renew:
             rows.append([("🎟 کد تخفیف", f"cpn:{pid}")])
-        rows.append([("↩︎ بازگشت", f"rnw:{renew}" if renew else "plans:0")])
+        rows.append([("↩︎ بازگشت", f"account:{unb64(renew)}" if renew else "plans:0")])
         await self.screen(ctx, "\n".join(lines), rows)
 
     async def cb_coupon(self, ctx, pid):
@@ -885,7 +891,7 @@ class TelegramRunner:
         action = []
         if link:
             action.append(("📷 QR کد", f"qr:{b64(account['id'])}"))
-        if not account.get("is_test") and account["status"] in ("active", "expired", "suspended"):
+        if account.get("can_renew"):  # Core decides (up to 10 days after expiry); the bot never re-implements the rule
             action.append(("🔄 تمدید", f"rnw:{b64(account['id'])}"))
         rows = ([action] if action else []) + [[("↩︎ بازگشت", "menu:accounts")]]
         await self.screen(ctx, "\n".join(lines), rows)
@@ -903,8 +909,13 @@ class TelegramRunner:
             await self.send(ctx.chat_id, f"🔗 <code>{esc(link)}</code>", html=True)
 
     async def cb_renew(self, ctx, token):
-        unb64(token)  # validate early
-        await self.show_plans(ctx, 0, renew=token)
+        """A renewal is the account's own package at its current price: Core says whether it may be renewed and with what."""
+        acc = unb64(token)  # validate early
+        store = await self.store_info()
+        info = await self.api(ctx, "GET", f"/api/v1/stores/{store['id']}/accounts/{acc}/renewal")
+        if not info.get("renewable"):
+            return await self.screen(ctx, f"⚠️ {esc(info.get('message') or 'این اکانت قابل تمدید نیست.')}", [[("🛒 خرید اکانت جدید", "menu:plans")], [("↩︎ بازگشت به اکانت", f"account:{acc}")]])
+        await self.show_quote(ctx, info["package"]["product_id"], renew=token)
 
     async def cb_renew_quote(self, ctx, rest):
         acc, _, pid = rest.partition(":")

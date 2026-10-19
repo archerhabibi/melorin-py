@@ -25,6 +25,7 @@ class Fake:
         self.sent, self.edits, self.calls = [], [], []
         self.bundles = [bundle(P1, "Alpha")]
         self.pkgs = [{"product_id": PID, "name": "Pkg", "price": 1000, "currency": "IRT"}]
+        self.renewal = {"renewable": True, "package": self.pkgs[0], "after": {"duration_days": 30, "traffic_gb": 10}}
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         url, body = str(request.url), request.content or b""
@@ -46,8 +47,8 @@ class Fake:
             return httpx.Response(200, json=self.bundles)
         if path.startswith("/api/v1/stores/s1/bundles/") and path.endswith("/packages"):
             return httpx.Response(200, json=self.pkgs)
-        if path == f"/api/v1/stores/s1/accounts/{ACC}/renewal-packages":
-            return httpx.Response(200, json=self.pkgs)
+        if path == f"/api/v1/stores/s1/accounts/{ACC}/renewal":
+            return httpx.Response(200, json=self.renewal)
         if path == "/api/v1/stores/s1/checkout/quote":
             return httpx.Response(
                 200,
@@ -221,13 +222,19 @@ def test_callback_data_fits_telegram_limit(bot):
     assert len(fake.edits) >= 5
 
 
-def test_renewal_uses_renewal_packages_and_quote_with_account(bot):
+def test_renewal_goes_straight_to_the_quote_of_the_accounts_own_package(bot):
     mod, r, fake = bot
     send(r, f"rnw:{mod.b64(ACC)}")
-    assert any(c[1].endswith(f"/accounts/{ACC}/renewal-packages") for c in fake.calls)
+    assert any(c[1].endswith(f"/accounts/{ACC}/renewal") for c in fake.calls)  # Core decides what is renewable and with what
     assert not any(c[1].endswith("/bundles") for c in fake.calls)
-    d = datas(fake.edits[-1])
-    assert f"rnq:{mod.b64(ACC)}:{mod.b64(PID)}" in d
-    send(r, d[0])
-    assert fake.last("/quote") == {"product_id": PID, "vpn_account_id": ACC}
+    assert fake.last("/quote") == {"product_id": PID, "vpn_account_id": ACC}  # no package picking step
+    assert f"rnb:{mod.b64(ACC)}:{mod.b64(PID)}" in datas(fake.edits[-1])
     assert all(len(x.encode()) <= 64 for x in datas(fake.edits[-1]))
+
+
+def test_renewal_refused_by_core_shows_its_reason_and_offers_a_new_purchase(bot):
+    mod, r, fake = bot
+    fake.renewal = {"renewable": False, "code": "RENEWAL_WINDOW_PASSED", "message": "مهلت تمدید تمام شده است"}
+    send(r, f"rnw:{mod.b64(ACC)}")
+    assert "مهلت تمدید تمام شده است" in fake.edits[-1]["text"]
+    assert "menu:plans" in datas(fake.edits[-1]) and not any(c[1].endswith("/quote") for c in fake.calls)

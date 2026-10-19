@@ -17,3 +17,5 @@ class VpnAccountOut(BaseModel):
     server_id: uuid.UUID | None
     created_at: dt.datetime
     updated_at: dt.datetime
+    can_renew: bool = False  # inside the renewal window (up to 10 days after expiry) and not a test/revoked account
+    renew_until: dt.datetime | None = None

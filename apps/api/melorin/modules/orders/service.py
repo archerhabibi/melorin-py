@@ -18,7 +18,7 @@ from melorin.modules.identity.models import User
 from melorin.modules.orders.models import Order, OrderStateTransition
 from melorin.modules.stores.models import ResellerProfile, Store
 from melorin.modules.system.models import TestAccountGrant
-from melorin.modules.vpn import allocation
+from melorin.modules.vpn import allocation, renewal
 from melorin.modules.vpn.models import VpnAccount
 from melorin.modules.wallet import service as wallet
 
@@ -79,19 +79,21 @@ async def create_order(
     if store.kind == "reseller":
         await flags.ensure_enabled(session, "reseller_sales", store_id=store.id)
 
-    product, sp = await catalog.get_sellable(session, store, product_id)
     account = None
     if kind == "renewal":
-        account = await session.get(VpnAccount, vpn_account_id) if vpn_account_id else None
-        if (
-            not account
-            or account.user_id != user.id
-            or account.store_id != store.id
-            or account.status in (VpnStatus.REVOKED, VpnStatus.ARCHIVED, VpnStatus.PENDING, VpnStatus.PROVISIONING)
-            or account.is_test
-        ):
-            raise AppError("ACCOUNT_NOT_RENEWABLE", "این اکانت قابل تمدید نیست.", 409)
-    elif kind != "purchase":
+        # Renewal rules live in the core (vpn.renewal) and are identical for the website and the bots. The account row is
+        # locked so two parallel requests cannot both pass the "no renewal in progress" check and charge twice.
+        account = await session.get(VpnAccount, vpn_account_id, with_for_update=True) if vpn_account_id else None
+        await renewal.check_renewable(session, account, user_id=user_id, store_id=store_id)
+        if product_id != account.product_id:
+            raise AppError("RENEWAL_PRODUCT_MISMATCH", "تمدید فقط با همان پکیجی انجام می‌شود که اکانت با آن ساخته شده است.", 409)
+        try:
+            product, sp = await catalog.get_sellable(session, store, product_id)
+        except AppError as e:
+            raise AppError("RENEWAL_PRODUCT_UNAVAILABLE", "پکیج این اکانت دیگر فروخته نمی‌شود؛ تمدید ممکن نیست و باید اکانت جدید تهیه کنید.", 409) from e
+    elif kind == "purchase":
+        product, sp = await catalog.get_sellable(session, store, product_id)
+    else:
         raise AppError("BAD_ORDER_KIND", "نوع سفارش نامعتبر است.", 400)
     # Every channel gets the same answer from the core: bundle, package membership, panel choice, account name
     # and price are decided there, before any money moves. Nothing below chooses or prices a route.
@@ -131,6 +133,11 @@ async def create_order(
         snapshot["renewal_before"] = {
             "expires_at": account.expires_at.isoformat() if account.expires_at else None,
             "traffic_limit_bytes": account.traffic_limit_bytes,
+        }
+        snapshot["renewal"] = {
+            "package": {"id": str(product.id), "name": product.name, "duration_days": product.duration_days, "traffic_gb": product.traffic_gb},
+            "bundle_id": str(plan.group_id) if plan.group_id else None,
+            "unit_price": plan.unit_price,  # the package's current price in the original bundle, charged now
         }
     order = Order(
         number=await codes.next_code(session, codes.ORDER_SEQ),

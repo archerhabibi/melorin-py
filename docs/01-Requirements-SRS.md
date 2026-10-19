@@ -50,7 +50,7 @@ Channelها فقط رابط و مصرف‌کننده API هستند. Business Lo
 
 ## 9. VPN Account و پنل‌ها
 پنل‌های V1: Sanaei و PasarGuard. هر پنل Adapter مستقل با Interface استاندارد دارد. انتخاب سرور در V1 بر اساس کمترین اکانت فعال، پس از بررسی health، ظرفیت و سازگاری Product است. Health Check، Retry، Suspend/Resume، Reconciliation و Manual Review لازم‌اند. Advanced Load Balancing برای آینده.
-VPN Account موجودیت مستقل است و به User، Store، Order، Product، Server و Panel مرتبط می‌شود. Lifecycle پیشنهادی: Pending, Provisioning, Active, Suspended, Expired, Revoked, Archived. انتقال توسط مشتری و Admin در V1 غیرمجاز است. Soft Delete/Archive برای داده عملیاتی؛ سوابق مالی و Audit حذف نمی‌شوند. تمدید با افزایش هم‌زمان زمان و حجم انجام می‌شود.
+VPN Account موجودیت مستقل است و به User، Store، Order، Product، Server و Panel مرتبط می‌شود. Lifecycle پیشنهادی: Pending, Provisioning, Active, Suspended, Expired, Revoked, Archived. انتقال توسط مشتری و Admin در V1 غیرمجاز است. Soft Delete/Archive برای داده عملیاتی؛ سوابق مالی و Audit حذف نمی‌شوند. تمدید تا ۱۰ روز پس از انقضا ممکن است و اکانت را دقیقاً به مقدار زمان و حجم پکیج خودش برمی‌گرداند (جایگزین، نه افزودن)؛ قیمت آن قیمت فعلی همان پکیج در بسته فروش اولیه است.
 
 ## 10. سفارش و Provisioning
 چرخه اصلی: Pending → Payment Pending → Paid → Processing → Provisioning → Completed.

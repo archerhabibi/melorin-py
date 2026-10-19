@@ -56,6 +56,11 @@ class MockPanelAdapter:
         acc.expire_at, acc.traffic_limit_bytes, acc.status = expire_at, traffic_bytes, "active"
         return acc
 
+    async def reset_traffic(self, username: str) -> PanelAccount:
+        acc = _STATE[username]
+        acc.traffic_used_bytes = 0
+        return acc
+
     async def revoke_account(self, username: str) -> None:
         _STATE.pop(username, None)
 

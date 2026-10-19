@@ -42,12 +42,14 @@ class Fake:
                 "username": "m_ab12",
                 "status": "active",
                 "is_test": False,
+                "can_renew": True,
                 "expires_at": "2099-01-01T00:00:00Z",
                 "traffic_limit_bytes": 10 * 1024**3,
                 "traffic_used_bytes": 3 * 1024**3,
                 "subscription_url": "https://s.example/sub/xyz",
             }
         ]
+        self.renewal = {"renewable": True, "package": {"product_id": PID, "name": "P", "price": 100_000, "currency": "IRT"}}
         self.catalog = [{"product_id": str(uuid.uuid4()), "name": f"P{i}", "price": 1000 * (i + 1), "currency": "IRT"} for i in range(10)]
 
     def handler(self, request: httpx.Request) -> httpx.Response:
@@ -89,6 +91,8 @@ class Fake:
             )
         if path == "/api/v1/stores/s1/bundles/bundle1/packages":
             return httpx.Response(200, json=self.catalog)
+        if path == f"/api/v1/stores/s1/accounts/{ACC}/renewal":
+            return httpx.Response(200, json=self.renewal)
         if path == "/api/v1/stores/s1/checkout/quote":
             return httpx.Response(200, json=self.quote)
         if path == "/api/v1/stores/s1/orders" and request.method == "POST":
@@ -189,6 +193,7 @@ def test_account_card_has_usage_bar_link_qr_and_renew(bot):
 def test_test_account_cannot_be_renewed(bot):
     _, r, fake = bot
     fake.accounts[0]["is_test"] = True
+    fake.accounts[0]["can_renew"] = False  # Core says so; the bot never re-implements the rule
     run(r, cb(f"account:{ACC}"))
     assert not any(b["callback_data"].startswith("rnw:") for b in buttons(fake.edits[0]))
 
@@ -196,7 +201,6 @@ def test_test_account_cannot_be_renewed(bot):
 def test_callback_data_always_fits_telegram_limit(bot):
     mod, r, fake = bot
     run(r, cb(f"rnw:{mod.b64(ACC)}"))
-    run(r, cb(f"rnq:{mod.b64(ACC)}:{mod.b64(PID)}", uid=2))
     for e in fake.edits:
         for b in buttons(e):
             assert len(b["callback_data"].encode()) <= 64, b
@@ -276,3 +280,13 @@ def test_coupon_prompt_is_one_shot_even_when_funds_are_insufficient(bot):
     quotes_before = len([c for c in fake.calls if c[1].endswith("/quote")])
     run(r, msg("سلام", uid=3))  # ordinary text afterwards must NOT be treated as another coupon
     assert len([c for c in fake.calls if c[1].endswith("/quote")]) == quotes_before
+
+
+def test_renewal_quote_card_states_the_package_result_and_the_replaced_days(bot):
+    mod, r, fake = bot
+    fake.quote["renewal"] = {"duration_days": 30, "traffic_gb": 10, "remaining_days_replaced": 7}
+    run(r, cb(f"rnw:{mod.b64(ACC)}"))
+    text = fake.edits[-1]["text"]
+    assert "30 روز" in text and "10 GB" in text and "7 روز باقی‌مانده" in text
+    back = [b["callback_data"] for b in buttons(fake.edits[-1])]
+    assert f"account:{ACC}" in back  # back goes to the account card, not into a renewal loop

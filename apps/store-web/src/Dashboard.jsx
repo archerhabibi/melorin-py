@@ -17,24 +17,40 @@ function Orders({ orders }) {
 }
 
 function Renew({ account, coreFetch, storeId, notify, reload, onClose }) {
-  const [pk, setPk] = useState(null);
-  const [sel, setSel] = useState(null);
+  // The core decides everything (10-day window, package, current price); this card only shows its answer and pays.
+  const [info, setInfo] = useState(null);
   const [quote, setQuote] = useState(null);
   const [busy, setBusy] = useState(false);
-  useEffect(() => { coreFetch(`/api/v1/stores/${storeId}/accounts/${account.id}/renewal-packages`).then((r) => r.ok ? r.json() : Promise.reject(r)).then((d) => setPk(Array.isArray(d) ? d : d.items || [])).catch(async (r) => { setPk([]); notify(r?.json ? await msgOf(r, "پکیج تمدید دریافت نشد") : "پکیج تمدید دریافت نشد"); }); }, [account.id]);
-  async function pick(p) {
-    setSel(p); setQuote(null); setBusy(true);
-    try { const r = await coreFetch(`/api/v1/stores/${storeId}/checkout/quote`, { method: "POST", headers: J, body: JSON.stringify({ product_id: p.product_id, vpn_account_id: account.id }) }); if (!r.ok) { setSel(null); return notify(await msgOf(r, "پیش‌فاکتور دریافت نشد")); } setQuote(await r.json()); }
-    catch { setSel(null); notify("پیش‌فاکتور دریافت نشد"); } finally { setBusy(false); }
-  }
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      try {
+        const r = await coreFetch(`/api/v1/stores/${storeId}/accounts/${account.id}/renewal`);
+        if (!r.ok) throw r;
+        const d = await r.json();
+        if (!live) return;
+        setInfo(d);
+        if (!d.renewable) return;
+        const q = await coreFetch(`/api/v1/stores/${storeId}/checkout/quote`, { method: "POST", headers: J, body: JSON.stringify({ product_id: d.package.product_id, vpn_account_id: account.id }) });
+        if (!q.ok) return notify(await msgOf(q, "پیش‌فاکتور دریافت نشد"));
+        if (live) setQuote(await q.json());
+      } catch (r) { if (live) { setInfo({ renewable: false, message: r?.json ? await msgOf(r, "اطلاعات تمدید دریافت نشد") : "اطلاعات تمدید دریافت نشد" }); } }
+    })();
+    return () => { live = false; };
+  }, [account.id]);
   async function buy() {
     setBusy(true);
-    try { const r = await coreFetch(`/api/v1/stores/${storeId}/orders`, { method: "POST", headers: { ...J, "Idempotency-Key": `web-renew-${crypto.randomUUID()}` }, body: JSON.stringify({ product_id: sel.product_id, payment_method: "wallet", kind: "renewal", vpn_account_id: account.id }) }); if (!r.ok) return notify(await msgOf(r, "تمدید ناموفق بود")); notify("تمدید ثبت شد"); reload?.(); onClose(); }
+    try { const r = await coreFetch(`/api/v1/stores/${storeId}/orders`, { method: "POST", headers: { ...J, "Idempotency-Key": `web-renew-${crypto.randomUUID()}` }, body: JSON.stringify({ product_id: info.package.product_id, payment_method: "wallet", kind: "renewal", vpn_account_id: account.id }) }); if (!r.ok) return notify(await msgOf(r, "تمدید ناموفق بود")); notify("تمدید ثبت شد"); reload?.(); onClose(); }
     finally { setBusy(false); }
   }
+  const after = quote?.renewal || info?.after;
   return <div className="mt-4 rounded-xl bg-surface2 p-3 text-sm">
     <div className="flex items-center justify-between"><b>تمدید اکانت</b><button onClick={onClose} aria-label="بستن" className="text-muted"><X size={16} /></button></div>
-    {pk === null ? <Loading rows={1} /> : !pk.length ? <p className="mt-2 text-xs text-muted">پکیجی برای تمدید این اکانت موجود نیست.</p> : <div className="mt-2 space-y-2">{pk.map((p) => <button key={p.product_id} disabled={busy} onClick={() => pick(p)} aria-pressed={sel?.product_id === p.product_id} className={`flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-right ${sel?.product_id === p.product_id ? "border-coral" : "border-line"}`}><span><b>{p.name}</b><span className="mr-2 text-xs text-muted">{p.duration_days ? fa(p.duration_days) : "؟"} روز · {p.traffic_gb ? fa(p.traffic_gb) : "؟"} گیگ</span></span><b>{fa(p.price)} {p.currency}</b></button>)}</div>}
+    {info === null ? <Loading rows={1} /> : !info.renewable ? <p className="mt-2 text-xs text-muted">{info.message || "این اکانت قابل تمدید نیست."}</p> : <div className="mt-2 space-y-1">
+      <div><b>{info.package.name}</b></div>
+      {after && <div className="text-xs text-muted">پس از تمدید: {fa(after.duration_days)} روز · {after.traffic_gb ? `${fa(after.traffic_gb)} گیگ` : "نامحدود"} (مثل یک اکانت جدید همین پکیج)</div>}
+      {after?.remaining_days_replaced > 0 && <div className="text-xs text-muted">{fa(after.remaining_days_replaced)} روز باقی‌مانده فعلی جایگزین می‌شود و به آن اضافه نمی‌شود.</div>}
+    </div>}
     {quote && <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-3"><span>مبلغ نهایی: <b>{fa(quote.total)} {quote.currency}</b>{!quote.sufficient_funds && <span className="mr-2 text-xs text-danger">موجودی کافی نیست</span>}</span><button disabled={busy || !quote.sufficient_funds} onClick={buy} className="btn-primary !px-4 !py-2 text-xs">پرداخت از کیف پول و تمدید</button></div>}
   </div>;
 }
@@ -53,7 +69,7 @@ function Vpn({ coreFetch, storeId, notify, reload }) {
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface2"><div className={`h-full rounded-full ${pct > 85 ? "bg-danger" : "bg-coral"}`} style={{ width: `${pct}%` }} /></div>
       <div className="mt-1 text-xs text-muted">{gb(a.traffic_used_bytes)} از {a.traffic_limit_bytes ? gb(a.traffic_limit_bytes) : "∞"} گیگ</div>
       <SubscriptionCard account={a} coreFetch={coreFetch} notify={notify} />
-      <button onClick={() => setRenew(renew === a.id ? null : a.id)} className="btn-soft mt-2 w-full"><RefreshCw size={16} />تمدید</button>
+      {a.can_renew ? <button onClick={() => setRenew(renew === a.id ? null : a.id)} className="btn-soft mt-2 w-full"><RefreshCw size={16} />تمدید</button> : !a.is_test && a.expires_at && <p className="mt-2 text-xs text-muted">مهلت تمدید این اکانت (۱۰ روز پس از انقضا) تمام شده است.</p>}
       {renew === a.id && <Renew account={a} coreFetch={coreFetch} storeId={storeId} notify={notify} reload={reload} onClose={() => setRenew(null)} />}
     </div>;
   })}</div>;

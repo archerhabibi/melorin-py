@@ -24,7 +24,7 @@ Payment Request/Callback، Wallet Charge/Debit، Order، Provisioning/Retry، Re
 ## State Machines
 Order: Pending → Payment Pending → Paid → Processing → Provisioning → Completed؛ حالات جانبی Payment Failed، Provisioning Failed، Cancelled، Refund Pending، Refunded، Manual Review. Payment و VPN Account Lifecycle مستقل‌اند.
 ## Provisioning
-انتخاب Server با سازگاری Product، health، capacity و سپس کمترین اکانت فعال. Retry با backoff و سقف تنظیم‌پذیر. پس از شکست: Manual Review. Reconciliation اختلاف DB/Panel را ثبت کند و وضعیت مالی را خودکار تغییر ندهد. تمدید با افزایش زمان و حجم از Product تمدید.
+انتخاب Server با سازگاری Product، health، capacity و سپس کمترین اکانت فعال. Retry با backoff و سقف تنظیم‌پذیر. پس از شکست: Manual Review. Reconciliation اختلاف DB/Panel را ثبت کند و وضعیت مالی را خودکار تغییر ندهد. تمدید یک قانون Core است (`vpn/renewal.py`، جزئیات در `docs/13-Renewal-Core-Design.md`): فقط تا ۱۰ روز پس از انقضا، فقط با همان پکیج اکانت، با قیمت فعلی پکیج در بسته فروش اولیه، و نتیجه دقیقاً برابر یک اکانت جدید همان پکیج است (زمان و حجم جایگزین می‌شود، اضافه نمی‌شود).
 ## Coupon
 Admin یا Reseller مجاز می‌تواند Coupon بسازد. Coupon به یک Store یا دامنه‌ای که Admin صریحاً مجاز کرده محدود است؛ Reseller فقط در Store خودش Coupon می‌سازد. V1 به‌صورت پیش‌فرض Couponها را ترکیب نمی‌کند و Core یک Coupon معتبر را طبق قاعده مرکزی انتخاب/اعمال می‌کند. تخفیف از مبلغ واجد شرایط و سقف تنظیم‌شده تجاوز نمی‌کند. شروع/پایان، سقف مصرف کل و سقف هر مشتری قابل تنظیم است. Redemption و quota باید اتمیک باشند تا خرید هم‌زمان سقف را دور نزند.
 ## Referral

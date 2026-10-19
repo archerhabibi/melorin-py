@@ -39,6 +39,26 @@ class BundleOut(BaseModel):
     panels: list[BundlePanelOut]  # filled only for manual bundles: what the customer may choose between
 
 
+class RenewalAfter(BaseModel):
+    """What the account will be once the renewal is done (the same as a new account of the package)."""
+
+    new_expires_at: dt.datetime
+    duration_days: int
+    traffic_gb: int  # 0 = unlimited
+    current_expires_at: dt.datetime | None
+    remaining_days_replaced: int  # days still left today: the renewal restarts the package, it does not add to them
+    renew_until: dt.datetime | None
+
+
+class RenewalOut(BaseModel):
+    renewable: bool
+    code: str | None = None  # why not (ACCOUNT_NOT_RENEWABLE, RENEWAL_WINDOW_PASSED, RENEWAL_IN_PROGRESS, ...)
+    message: str | None = None
+    renew_until: dt.datetime | None = None
+    package: CatalogItem | None = None  # the account's own package at its current price in the original bundle
+    after: RenewalAfter | None = None
+
+
 class QuoteOut(BaseModel):
     product_id: uuid.UUID
     unit_price: int
@@ -46,6 +66,7 @@ class QuoteOut(BaseModel):
     total: int
     currency: str
     coupon_code: str | None
+    renewal: RenewalAfter | None = None  # filled for a renewal quote
 
 
 class StoreOut(BaseModel):

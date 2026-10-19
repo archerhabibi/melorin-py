@@ -18,6 +18,7 @@ from melorin.modules.stores.models import Store
 from melorin.modules.system.models import OutboxEvent
 from melorin.modules.vpn.adapters.base import AccountSpec, ErrorKind, PanelError
 from melorin.modules.vpn.adapters.registry import build_adapter
+from melorin.modules.vpn import renewal
 from melorin.modules.vpn.allocation import resolve_allocation
 from melorin.modules.vpn.models import Panel, ProvisioningAttempt, ReconciliationIssue, Server, VpnAccount
 from melorin.modules.vpn.bundles import Bundle, BundleMember, StoreBundle, clean_custom_name
@@ -197,18 +198,13 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
     await session.commit()
 
     adapter = build_adapter(panel)
+    now = utcnow()
     try:
         if account:
-            # Renewal increases time and volume from the product snapshot, independently of current panel values.
-            old_exp = account.expires_at or utcnow()
-            expire = max(old_exp, utcnow()) + dt.timedelta(days=product.duration_days)
-            # 0 is unlimited. Renewal must never convert it to a finite limit.
-            traffic = (
-                0
-                if account.traffic_limit_bytes == 0
-                else account.traffic_limit_bytes + (product.traffic_gb * 1024**3 if product.traffic_gb else 0)
-            )
-            pa = await adapter.extend_account(account.username, expire_at=expire, traffic_bytes=traffic)
+            # Renewal = the account becomes exactly what a new account of its package is (core rule: vpn.renewal):
+            # package time from now, package volume, usage back to zero. Absolute values, so a retry is harmless.
+            pa = await renewal.apply_to_panel(adapter, account, product, now=now)
+            expire = renewal.target(product, now=now).expires_at
         else:
             expire = utcnow() + dt.timedelta(days=product.duration_days)
             traffic = product.traffic_gb * 1024**3 if product.traffic_gb else 0
@@ -248,7 +244,9 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
                 remote = await adapter.get_account(account.username if account else username(order))
             except PanelError:
                 remote = None
-            if remote:
+            # For a renewal the account already exists on the panel, so "it exists" proves nothing: only a panel that
+            # already shows the renewed time/volume counts as success, otherwise the (idempotent) renewal is retried.
+            if remote and (order.kind != "renewal" or renewal.landed(remote, product, now=now)):
                 # The panel actually succeeded despite the timeout - reconcile.
                 if account is None:
                     account = VpnAccount(

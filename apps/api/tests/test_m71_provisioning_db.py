@@ -278,24 +278,26 @@ async def test_missing_product_marks_the_order_failed_for_review(panel_factory, 
         assert order.status == "provisioning_failed" and order.needs_review is True
 
 
-async def test_renewal_extends_the_existing_account_on_its_own_panel_and_never_reduces_unlimited_traffic(panel_factory):
+async def test_renewal_restarts_the_existing_account_on_its_own_panel_with_the_package_time_and_volume(panel_factory):
+    """Renewal is not additive: the account ends up exactly like a new account of its package (also when it was unlimited)."""
     async with open_session() as s:
         w = await _world(s)
         panel = panel_factory(ScriptedPanel())
         await vpn.provision_order(s, w["order"].id)
         first = await s.get(Order, w["order"].id)
         acc = await s.get(VpnAccount, first.vpn_account_id)
-        acc.traffic_limit_bytes = 0  # unlimited account
+        acc.traffic_limit_bytes = 0  # was an unlimited account; the package has a volume, so that is what it shows now
         # SQLite hands back naive datetimes; PostgreSQL (timestamptz) returns aware ones, so pin an aware value.
-        acc.expires_at = old_expiry = dt.datetime.now(dt.UTC) + dt.timedelta(days=10)
+        acc.expires_at = dt.datetime.now(dt.UTC) + dt.timedelta(days=10)
         renewal = await make_order(s, user=w["user"], store=w["store"], product=w["product"], total=2_000, status="paid", number="RENEW1")
         renewal.kind, renewal.vpn_account_id = "renewal", acc.id
         await s.commit()
         result = await vpn.provision_order(s, renewal.id)
         assert result == "completed", renewal.last_error
         username, expire, traffic = panel.extended[-1]
-        assert username == acc.username and traffic == 0
-        assert expire >= old_expiry + dt.timedelta(days=w["product"].duration_days) - dt.timedelta(seconds=5)
+        assert username == acc.username and traffic == w["product"].traffic_gb * 1024**3
+        expected = dt.datetime.now(dt.UTC) + dt.timedelta(days=w["product"].duration_days)  # from now, not old expiry + package
+        assert abs(expire - expected) < dt.timedelta(minutes=2)
         attempt = (await s.scalars(select(ProvisioningAttempt).order_by(ProvisioningAttempt.created_at))).all()[-1]
         assert attempt.action == "extend"
 

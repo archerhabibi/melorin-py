@@ -417,6 +417,8 @@ async def plan_sale(
     if store.kind == "reseller":
         own = (await store_bundle_prices(session, store.id, group_id=group_id)).get((group_id, product.id)) if group_id else None
         retail = retail_price(sp, own)
+        if kind == "renewal" and not retail:
+            raise AppError("RENEWAL_NOT_PRICED", "برای این بسته در این فروشگاه قیمتی تعیین نشده است؛ تمدید فعلاً ممکن نیست.", 409)
         if _below_cost(retail, reseller):
             raise AppError("CUSTOMER_PRICE_BELOW_COST", "قیمت فروش نماینده از قیمت همکاری این بسته کمتر است؛ فروش انجام نمی‌شود.", 409)
     return SalePlan(group_id, group, selected, name, pp, _unit_price(store, product, retail, pp), main, reseller)
@@ -511,12 +513,15 @@ async def packages_for_bundle(
 
 
 async def renewal_offers(session: AsyncSession, store: Store, account) -> list[tuple[Product, int]]:
-    """(package, price) a customer may renew ``account`` with: the original bundle's packages and prices.
-    Accounts that predate bundles renew at the product's own price."""
-    bundle_id = await account_bundle_id(session, account)
-    if bundle_id is None:
-        return [(p, _unit_price(store, p, retail_price(sp, None), None)) for p, sp in await sellable_products(session, store)]
-    return [(p, price) for p, _sp, _pp, price in await bundle_packages(session, store, bundle_id)]
+    """(package, price) a customer may renew ``account`` with: ONLY the package the account was created from, at that
+    package's current price inside the bundle the account was originally sold through. Empty when that package is no
+    longer sold to this store (the customer then buys a new account)."""
+    try:
+        product, sp = await catalog_service.get_sellable(session, store, account.product_id)
+        plan = await plan_sale(session, store=store, product=product, sp=sp, kind="renewal", account=account)
+    except AppError:
+        return []
+    return [(product, plan.unit_price)]
 
 
 async def sellable_products_priced(session: AsyncSession, store: Store) -> list[tuple[Product, StoreProduct, int]]:
