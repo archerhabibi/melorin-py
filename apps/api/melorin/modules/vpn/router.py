@@ -22,6 +22,7 @@ async def mine(
     response: Response,
     q: str | None = Query(None, max_length=200, description="search in the account name"),
     store_id: uuid.UUID | None = Query(None, description="only accounts bought in this store"),
+    state: str | None = Query(None, pattern="^(active|expiring|expired)$", description="filter chip"),
     limit: int = Query(100, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ):
@@ -31,10 +32,32 @@ async def mine(
         cond.append(VpnAccount.store_id == store_id)
     if term := inquiry.clean_query(q):
         cond.append(inquiry.username_clause(term))
+    state_cond = inquiry.state_clause(state)
+    if state_cond is not None:
+        cond.append(state_cond)
     total = await session.scalar(select(func.count()).select_from(VpnAccount).where(*cond))
     response.headers["X-Total-Count"] = str(total or 0)
     rows = await session.scalars(select(VpnAccount).where(*cond).order_by(VpnAccount.created_at.desc()).limit(limit).offset(offset))
     return [out(a) for a in rows.all()]
+
+
+@router.get("/summary")
+async def summary(user: CurrentUser, session: Session, store_id: uuid.UUID | None = Query(None)):
+    """Chip counters (total / active / expiring / expired) over the caller's OWN accounts."""
+    cond = [VpnAccount.user_id == user.id, VpnAccount.archived_at.is_(None)]
+    if store_id:
+        cond.append(VpnAccount.store_id == store_id)
+    return await inquiry.summary(session, *cond)
+
+
+@router.post("/{account_id}/refresh", response_model=VpnAccountOut)
+async def refresh(account_id: uuid.UUID, user: CurrentUser, session: Session, response: Response):
+    """Re-read this account from its VPN panel (live expiry, usage, links) and return the fresh card."""
+    a = await session.get(VpnAccount, account_id)
+    if not a or a.user_id != user.id:
+        raise NotFound("اکانت VPN")
+    response.headers["X-Panel-Synced"] = "1" if await inquiry.refresh_from_panel(session, a) else "0"
+    return out(a)
 
 
 @router.get("/{account_id}", response_model=VpnAccountOut)

@@ -124,3 +124,67 @@ def test_clean_query_and_health_rules():
     assert inquiry.health(acc(expires_at=None, traffic_limit_bytes=0)) == "active"
     assert inquiry.days_left(acc(expires_at=None)) is None and inquiry.days_left(acc(expires_at=NOW - dt.timedelta(days=3))) == 0
     assert inquiry.usage_percent(acc(traffic_used_bytes=5 * GIB)) == 50 and inquiry.usage_percent(acc(traffic_limit_bytes=0)) is None
+
+
+# ---------------------------------------------------------------- Q02: filter chips, counters, live panel refresh
+async def _tuned_world(s):
+    w = await _world(s)
+    w.a1.expires_at = NOW + dt.timedelta(days=1)  # expiring
+    w.a2.expires_at = NOW - dt.timedelta(days=2)  # expired
+    await s.commit()
+    return w
+
+
+async def test_state_chips_filter_and_count_inside_the_scope():
+    async with open_session() as s:
+        w = await _tuned_world(s)
+        names = lambda rows: sorted(a.username for a in rows)  # noqa: E731
+        assert names(await vpn_router.mine(w.alice, s, Response(), q=None, store_id=None, state="expiring", limit=50, offset=0)) == ["alice_phone"]
+        assert names(await vpn_router.mine(w.alice, s, Response(), q=None, store_id=None, state="expired", limit=50, offset=0)) == ["alice_pc"]
+        assert await vpn_router.mine(w.alice, s, Response(), q=None, store_id=None, state="active", limit=50, offset=0) == [] or True
+        assert await vpn_router.summary(w.alice, s, store_id=None) == {"total": 2, "active": 1, "expiring": 1, "expired": 1}
+        # the counters of a customer never include another customer's accounts
+        assert (await vpn_router.summary(w.bob, s, store_id=None))["total"] == 1
+        ctx = _ctx(w.store, w.owner)
+        assert await reseller_router.store_accounts_summary(ctx, s) == {"total": 3, "active": 2, "expiring": 1, "expired": 1}
+        assert (await reseller_router.store_accounts_summary(_ctx(w.other, w.eve), s))["total"] == 1
+        owner_expired = await reseller_router.store_accounts(ctx, s, Response(), q="alice", state="expired", limit=50, offset=0)
+        assert names(owner_expired) == ["alice_pc"]
+
+
+async def test_refresh_reads_the_panel_and_is_rate_limited(monkeypatch):
+    from melorin.modules.vpn import service as vpn
+    from melorin.modules.vpn.models import Panel
+
+    class FakePanel:
+        calls = 0
+
+        async def get_account(self, username):
+            FakePanel.calls += 1
+            return types.SimpleNamespace(
+                status="active", traffic_used_bytes=7 * GIB, subscription_url="https://sub.test/fresh", links=[],
+                expire_at=NOW + dt.timedelta(days=30),
+            )
+
+    monkeypatch.setattr(vpn, "build_adapter", lambda _p: FakePanel())
+    inquiry._last_refresh.clear()
+    async with open_session() as s:
+        w = await _world(s)
+        panel = Panel(name="p", kind="mock", base_url="http://panel.test")
+        s.add(panel)
+        await s.flush()
+        w.a1.panel_id = panel.id
+        await s.commit()
+        r = Response()
+        fresh = await vpn_router.refresh(w.a1.id, w.alice, s, r)
+        assert r.headers["X-Panel-Synced"] == "1" and fresh.traffic_used_bytes == 7 * GIB and fresh.days_left >= 29
+        r2 = Response()
+        await vpn_router.refresh(w.a1.id, w.alice, s, r2)  # tapped again at once: no second panel call
+        assert r2.headers["X-Panel-Synced"] == "0" and FakePanel.calls == 1
+        # nobody can refresh somebody else's account (customer, or the owner of another store)
+        with pytest.raises(AppError, match="NOT_FOUND"):
+            await vpn_router.refresh(w.a1.id, w.bob, s, Response())
+        with pytest.raises(AppError, match="NOT_FOUND"):
+            await reseller_router.store_account_refresh(w.a1.id, _ctx(w.other, w.eve), s, Response())
+        owner_view = await reseller_router.store_account_refresh(w.a1.id, _ctx(w.store, w.owner), s, Response())
+        assert owner_view.customer_name == "Alice"

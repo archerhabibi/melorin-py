@@ -367,6 +367,7 @@ async def store_accounts(
     session: Session,
     response: Response,
     q: str | None = Query(None, max_length=200, description="account name, customer name or e-mail"),
+    state: str | None = Query(None, pattern="^(active|expiring|expired)$", description="filter chip"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ):
@@ -374,11 +375,20 @@ async def store_accounts(
     cond = [VpnAccount.store_id == ctx.store.id, VpnAccount.archived_at.is_(None)]
     if term := inquiry.clean_query(q):
         cond.append(inquiry.owner_clause(term, User))
+    state_cond = inquiry.state_clause(state)
+    if state_cond is not None:
+        cond.append(state_cond)
     base = select(VpnAccount, User).join(User, User.id == VpnAccount.user_id).where(*cond)
     total = await session.scalar(select(func.count()).select_from(base.subquery()))
     response.headers["X-Total-Count"] = str(total or 0)
     rows = (await session.execute(base.order_by(VpnAccount.created_at.desc()).limit(limit).offset(offset))).all()
     return [inquiry.owner_account_out(a, u) for a, u in rows]
+
+
+@router.get("/stores/{store_id}/reseller/accounts/summary")
+async def store_accounts_summary(ctx: OwnerCtx, session: Session):
+    """Chip counters over every account sold in THIS store (never another store's)."""
+    return await inquiry.summary(session, VpnAccount.store_id == ctx.store.id, VpnAccount.archived_at.is_(None))
 
 
 async def _store_account(session, ctx, account_id: uuid.UUID):
@@ -397,6 +407,14 @@ async def _store_account(session, ctx, account_id: uuid.UUID):
 @router.get("/stores/{store_id}/reseller/accounts/{account_id}", response_model=OwnerAccountOut)
 async def store_account(account_id: uuid.UUID, ctx: OwnerCtx, session: Session):
     a, u = await _store_account(session, ctx, account_id)
+    return inquiry.owner_account_out(a, u)
+
+
+@router.post("/stores/{store_id}/reseller/accounts/{account_id}/refresh", response_model=OwnerAccountOut)
+async def store_account_refresh(account_id: uuid.UUID, ctx: OwnerCtx, session: Session, response: Response):
+    """Owner's live view: re-read one of the store's accounts from its VPN panel."""
+    a, u = await _store_account(session, ctx, account_id)
+    response.headers["X-Panel-Synced"] = "1" if await inquiry.refresh_from_panel(session, a) else "0"
     return inquiry.owner_account_out(a, u)
 
 
