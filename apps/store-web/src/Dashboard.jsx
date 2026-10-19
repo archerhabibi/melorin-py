@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Bell, ChevronDown, Copy, Gauge, KeyRound, LifeBuoy, LogOut, Package, Store, Wallet as WalletIcon, ArrowRight, Link2, Pencil, Plus, RefreshCw, Send, X } from "lucide-react";
+import { Bell, ChevronDown, Gauge, KeyRound, LifeBuoy, LogOut, Package, Store, Wallet as WalletIcon, ArrowRight, Link2, Pencil, Plus, RefreshCw, Send, X } from "lucide-react";
 import { GoogleSignInButton } from "./GoogleSignIn.jsx";
 import { SubscriptionCard } from "./Subscription.jsx";
 import { Empty, Loading, PageTitle, StatusBadge, fa, fd } from "./ui.jsx";

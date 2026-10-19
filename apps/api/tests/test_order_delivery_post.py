@@ -204,3 +204,12 @@ async def test_stale_order_without_link_is_still_delivered_as_text(session, tg):
     await session.commit()
     assert await delivery.deliver_order(session, order.id) == "sent"
     assert len(tg["message"]) == 1 and tg["photo"] == []
+
+
+async def test_already_sent_order_is_skipped_even_if_link_disappears(session, tg):
+    order = await _seed(session, link=SUB)
+    assert await delivery.deliver_order(session, order.id) == "sent"
+    acc = await session.scalar(select(VpnAccount).where(VpnAccount.order_id == order.id))
+    acc.subscription_url = None
+    await session.commit()
+    assert await delivery.deliver_order(session, order.id) == "skipped"

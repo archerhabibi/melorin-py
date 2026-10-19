@@ -30,7 +30,15 @@ async def session():
 
 
 async def _account(s, owner, link=SUB):
-    a = VpnAccount(username=f"m_{uuid.uuid4().hex[:8]}", user_id=owner, store_id=uuid.uuid4(), order_id=uuid.uuid4(), product_id=uuid.uuid4(), status="active", subscription_url=link)
+    a = VpnAccount(
+        username=f"m_{uuid.uuid4().hex[:8]}",
+        user_id=owner,
+        store_id=uuid.uuid4(),
+        order_id=uuid.uuid4(),
+        product_id=uuid.uuid4(),
+        status="active",
+        subscription_url=link,
+    )
     s.add(a)
     await s.commit()
     return a

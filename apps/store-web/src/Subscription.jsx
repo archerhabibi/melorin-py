@@ -48,7 +48,7 @@ export function PurchaseResult({ orderId, coreFetch, notify }) {
           const account = r.ok ? await r.json() : null;
           if (!live) return;
           if (account && linkOf(account)) return setState({ phase: "done", account, order: o });
-        } else if (["provisioning_failed", "payment_failed", "cancelled", "refund_pending", "refunded", "manual_review"].includes(o.status)) {
+        } else if (["provisioning_failed", "payment_failed", "cancelled", "refund_pending", "refunded"].includes(o.status)) {
           return setState({ phase: "failed", order: o });
         }
       } catch { /* transient: keep polling */ }

@@ -122,9 +122,9 @@ async def balance_after_payment(session: AsyncSession, order: Order) -> int | No
 
 
 def _link_wait_expired(order: Order) -> bool:
-    done = order.completed_at
+    done = order.completed_at or order.created_at
     if done is None:
-        return False
+        return True  # no timestamp to wait on: never block delivery forever
     if done.tzinfo is None:
         done = done.replace(tzinfo=dt.timezone.utc)
     return dt.datetime.now(dt.timezone.utc) - done > LINK_WAIT
@@ -144,15 +144,15 @@ async def deliver_order(session: AsyncSession, order_id: uuid.UUID) -> str:
         return "skipped"
 
     link = account.subscription_url or ((account.links or [None])[0] if isinstance(account.links, list) else None)
+    dedup = f"delivery:{order.id}"
+    n = await session.scalar(select(Notification).where(Notification.dedup_key == dedup))
+    if n and n.telegram_status == "sent":
+        return "skipped"
     if not link and not _link_wait_expired(order):
         raise LinkNotReady(f"order {order.id}: subscription link not ready")
     balance = await balance_after_payment(session, order)
     currency = order.currency
 
-    dedup = f"delivery:{order.id}"
-    n = await session.scalar(select(Notification).where(Notification.dedup_key == dedup))
-    if n and n.telegram_status == "sent":
-        return "skipped"
     if n is None:
         n = Notification(
             user_id=order.user_id,
