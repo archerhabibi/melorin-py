@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-19 07:06 UTC - archerhabibi - orders/delivery, vpn API, store-web  _(auto)_
+- **Before:** purchase result had no link/QR in web; Telegram post could go out without link/QR
+- **Problem:** customers did not reliably receive link and QR together
+- **Action:** QR endpoint, LinkNotReady retry (1h fallback to text), PurchaseResult/SubscriptionCard UI, review fixes
+- **After:** 826 unit tests pass, ruff check clean, store-web build OK
+- **Files (7):** `apps/api/melorin/modules/orders/delivery.py`, `apps/api/melorin/modules/vpn/router.py`, `apps/api/tests/test_order_delivery_post.py`, `apps/api/tests/test_vpn_qr_endpoint.py`, `apps/store-web/src/App.jsx`, `apps/store-web/src/Dashboard.jsx`, `apps/store-web/src/Subscription.jsx`
+- **Ref:** `ab29b1c`
+
+
 ### 2026-10-19 05:11 UTC - archerhabibi - admin-web, db, api  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
