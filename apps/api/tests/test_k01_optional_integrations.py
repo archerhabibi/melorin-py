@@ -24,7 +24,7 @@ def _prod(**kw):
         database_url="postgresql+asyncpg://app:strong@localhost/db",
         jwt_secret="x" * 40,
         bot_service_secret="y" * 40,
-        bootstrap_admin_password="Strong-admin-password-123456",
+        bootstrap_admin_password="Strong-admin-password-123456",  # pragma: allowlist secret
         encryption_key=Fernet.generate_key().decode(),
         bootstrap_admin_totp_secret="A" * 20,
         redis_url="redis://localhost",

@@ -6,11 +6,18 @@ idempotency key and verifies one transaction.
 """
 import asyncio
 import os
+import sys
 import uuid
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "apps" / "api"))  # work from any cwd
 
 from sqlalchemy import func, select
 
+import melorin.models  # noqa: F401,E402  (register every table so foreign keys resolve)
 from melorin.core.db import configure, session_factory
+from melorin.modules.identity.models import User
+from melorin.modules.stores.models import Store
 from melorin.modules.wallet.models import LedgerTransaction, Wallet
 from melorin.modules.wallet import service as wallet
 
@@ -21,6 +28,10 @@ async def main():
     configure(os.environ["MELORIN_DATABASE_URL"])
     user_id, store_id = uuid.uuid4(), uuid.uuid4()
     async with session_factory()() as session:
+        tag = uuid.uuid4().hex[:10]
+        session.add(User(id=user_id, display_name="h009-smoke"))
+        session.add(Store(id=store_id, kind="main", name="h009-smoke", slug="h009-" + tag))
+        await session.flush()  # wallets reference users/stores through foreign keys
         w = Wallet(user_id=user_id, store_id=store_id, currency="IRT", balance=1000)
         session.add(w)
         await session.commit()

@@ -55,14 +55,31 @@ jobs:
         working-directory: .
       - run: docker build -f apps/admin-web/Dockerfile -t melorin-admin-web .
         working-directory: .
-      - run: alembic check
+      - run: |
+          # earlier test steps leave tables created without alembic_version; start from an empty schema
+          python - <<'PY'
+          import asyncio, os
+          from sqlalchemy import text
+          from sqlalchemy.ext.asyncio import create_async_engine
+
+          async def main():
+              e = create_async_engine(os.environ["MELORIN_DATABASE_URL"])
+              async with e.begin() as c:
+                  await c.execute(text("drop schema public cascade"))
+                  await c.execute(text("create schema public"))
+              await e.dispose()
+
+          asyncio.run(main())
+          PY
+          alembic upgrade head
+          alembic check
         env: {MELORIN_DATABASE_URL: postgresql+asyncpg://melorin:test@localhost:5432/melorin, MELORIN_JWT_SECRET: ci-secret}
       - run: bash ../../scripts/migration_smoke.sh
         env: {MELORIN_DATABASE_URL: postgresql+asyncpg://melorin:test@localhost:5432/melorin, MELORIN_JWT_SECRET: ci-secret}
       - run: |
           alembic upgrade head
           python -m melorin.cli bootstrap
-          python scripts/postgres_concurrency_smoke.py
+          python ../../scripts/postgres_concurrency_smoke.py
           nohup uvicorn melorin.app:app --port 8000 > /tmp/api.log 2>&1 &
           nohup arq melorin.worker.arq_app.WorkerSettings > /tmp/worker.log 2>&1 &
           for i in $(seq 1 30); do curl -sf localhost:8000/health/live && break; sleep 1; done
