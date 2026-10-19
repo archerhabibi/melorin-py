@@ -67,7 +67,7 @@ async def _setup(s, *, debt_limit, customer_funds=100_000, credit=0):
     await s.flush()
     cust_w = await _fund(s, customer, reseller, customer_funds)
     if credit:
-        await _fund(s, owner, main, credit, kind="reseller_credit")
+        await _fund(s, owner, main, credit)
     await s.commit()
     ctx = StoreContext(store=reseller, user=customer, membership=membership)
     return types.SimpleNamespace(
@@ -81,7 +81,7 @@ async def test_reseller_purchase_completes_and_books_cost_as_debt():
         order = await orders.create_order(s, t.ctx, product_id=t.product.id, idempotency_key="key-reseller-1", channel="telegram")
         assert order.status == "paid" and order.total == 25_000 and order.reseller_cost == 20_000
         assert t.cust_w.balance == 75_000
-        credit = await wallet.get_wallet(s, t.owner.id, t.main.id, kind="reseller_credit")
+        credit = await wallet.get_wallet(s, t.owner.id, t.main.id)
         assert credit.balance == -20_000
         topics = (await s.scalars(select(OutboxEvent.topic))).all()
         assert "order.paid" in topics
@@ -122,5 +122,40 @@ async def test_reseller_purchase_is_allowed_once_credit_covers_the_cost():
         t = await _setup(s, debt_limit=0, credit=20_000)
         order = await orders.create_order(s, t.ctx, product_id=t.product.id, idempotency_key="key-reseller-4", channel="telegram")
         assert order.status == "paid"
-        credit = await wallet.get_wallet(s, t.owner.id, t.main.id, kind="reseller_credit")
+        credit = await wallet.get_wallet(s, t.owner.id, t.main.id)
         assert credit.balance == 0
+
+
+async def test_reseller_reuses_the_existing_main_wallet_and_only_adds_the_debt_limit():
+    """A customer with 100k in Main becomes a reseller: the SAME wallet pays the reseller cost (20k) and is untouched by
+    the stores' own customer wallets; the owner's own Main purchases still cannot overdraw it."""
+    async with open_session() as s:
+        t = await _setup(s, debt_limit=150_000, customer_funds=100_000, credit=100_000)
+        main_w = await wallet.get_wallet(s, t.owner.id, t.main.id)
+        before_ids = set((await s.scalars(select(Wallet.id))).all())
+        order = await orders.create_order(s, t.ctx, product_id=t.product.id, idempotency_key="key-reseller-reuse", channel="telegram")
+        assert order.status == "paid"
+        again = await wallet.get_wallet(s, t.owner.id, t.main.id)
+        assert again.id == main_w.id and again.balance == 80_000
+        assert set((await s.scalars(select(Wallet.id))).all()) == before_ids  # no extra wallet was created
+        # the owner's wallet inside his own store is a different, independent customer wallet
+        own_store_w = await wallet.get_wallet(s, t.owner.id, t.reseller.id)
+        assert own_store_w.id != main_w.id and own_store_w.balance == 0
+
+
+async def test_reseller_cost_may_take_the_main_wallet_into_debt_but_not_the_owners_own_purchases():
+    async with open_session() as s:
+        t = await _setup(s, debt_limit=30_000, customer_funds=100_000, credit=5_000)
+        order = await orders.create_order(s, t.ctx, product_id=t.product.id, idempotency_key="key-reseller-debt", channel="telegram")
+        assert order.status == "paid"
+        main_w = await wallet.get_wallet(s, t.owner.id, t.main.id)
+        assert main_w.balance == -15_000  # 5k - 20k, inside the 30k limit
+        # an ordinary debit of the same wallet (owner shopping in Main) keeps the strict min_balance=0 rule
+        with pytest.raises(AppError):
+            await wallet.post(
+                s,
+                kind="purchase",
+                key="owner-own-purchase",
+                currency="IRT",
+                postings=[wallet.Posting(-1_000, wallet=main_w, min_balance=0), wallet.Posting(1_000, account="store:x:revenue")],
+            )

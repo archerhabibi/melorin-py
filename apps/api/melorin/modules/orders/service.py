@@ -210,7 +210,7 @@ async def create_order(
 
 
 async def pay_with_wallet(session: AsyncSession, order: Order, store: Store | None = None, *, main: Store | None = None) -> None:
-    """Customer debit (+ reseller credit-account debit in Main Store) + order PAID + outbox, atomically.
+    """Customer debit (+ owner's Main Store wallet debit for the reseller cost) + order PAID + outbox, atomically.
 
     Both the customer balance and the reseller debt limit are checked under row locks BEFORE any debit.
     """
@@ -225,7 +225,8 @@ async def pay_with_wallet(session: AsyncSession, order: Order, store: Store | No
         if not profile or not profile.sales_enabled:
             raise AppError("RESELLER_SALES_DISABLED", "فروش این فروشگاه غیرفعال است.", 403)
         main = main or await main_store(session)
-        res_w = await wallet.get_wallet(session, store.owner_user_id, main.id, currency=res_currency, kind="reseller_credit")
+        # The owner's ordinary Main Store wallet doubles as the reseller account: it may dip to -debt_limit.
+        res_w = await wallet.get_wallet(session, store.owner_user_id, main.id, currency=res_currency)
         to_lock.append(res_w)
     await wallet.lock_wallets(session, to_lock)
     if res_w is not None and not debt.can_afford(res_w.balance, order.reseller_cost, profile.debt_limit):

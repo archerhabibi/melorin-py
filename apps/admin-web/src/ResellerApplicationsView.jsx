@@ -76,7 +76,7 @@ function ReviewDrawer({ a, call, toast, onClose, onDone }) {
     {pending && !twoStep && !bot.bot_verified && <p className="flex items-start gap-2 rounded-xl bg-[var(--wnb)] p-3 text-xs leading-6 text-[var(--wn)]"><AlertTriangle size={15} className="mt-0.5 shrink-0" />ربات هنوز توسط تلگرام تأیید نشده؛ قبل از تأیید «بررسی دوباره» را بزنید.</p>}
     {pending || awaiting ? <section className="card space-y-4 p-4">
       <h4 className="text-[13px] font-extrabold">تصمیم</h4>
-      {pending && <Field label="سقف بدهی نماینده" hint="تا چه مبلغی می‌تواند بدون شارژ کیف پول اعتباری بفروشد؛ پیش‌فرض صفر است."><NumInput value={debt} onChange={setDebt} suffix="IRT" /></Field>}
+      {pending && <Field label="سقف بدهی نماینده" hint="تا چه مبلغی می‌تواند بدون شارژ کیف پول اصلی خود بفروشد؛ پیش‌فرض صفر است."><NumInput value={debt} onChange={setDebt} suffix="IRT" /></Field>}
       <Field label="دلیل / توضیح" hint="برای رد الزامی است و به متقاضی نمایش داده می‌شود."><textarea rows={3} className="inp" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} /></Field>
     </section> : <section className="card p-4">
       <h4 className="mb-1 text-[13px] font-extrabold">نتیجه</h4>

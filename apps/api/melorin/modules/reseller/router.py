@@ -203,7 +203,7 @@ async def submit_details(application_id: uuid.UUID, body: ApplicationDetailsIn, 
 async def profile(ctx: OwnerCtx, session: Session):
     p = await session.scalar(select(ResellerProfile).where(ResellerProfile.store_id == ctx.store.id))
     main = await main_store(session)
-    w = await wallet.get_wallet(session, ctx.store.owner_user_id, main.id, currency=main.currency, kind="reseller_credit")
+    w = await wallet.get_wallet(session, ctx.store.owner_user_id, main.id, currency=main.currency)
     await session.commit()
     near = float(await settings_store.get(session, "debt.near_ratio") or 0.8)
     from melorin.domain import debt

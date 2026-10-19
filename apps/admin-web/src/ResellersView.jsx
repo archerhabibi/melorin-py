@@ -109,7 +109,7 @@ function Editor({ initial, call, toast, onClose, onDone }) {
     <section className="card space-y-4 p-4">
       <h4 className="text-[13px] font-extrabold">وضعیت و محدودیت‌ها</h4>
       <Field label="وضعیت فروشگاه" hint="تعلیق: وب‌سایت و ربات فروشگاه برای مشتریان از دسترس خارج می‌شود."><Segmented label="وضعیت" value={f.status} onChange={set("status")} options={[["active", "فعال"], ["suspended", "تعلیق"]]} /></Field>
-      <Field label="سقف بدهی نماینده" hint="تا چه مبلغی می‌تواند بدون شارژ کیف پول اعتباری بفروشد."><NumInput value={f.debt} onChange={set("debt")} suffix={r.currency} /></Field>
+      <Field label="سقف بدهی نماینده" hint="تا چه مبلغی می‌تواند بدون شارژ کیف پول اصلی خود بفروشد."><NumInput value={f.debt} onChange={set("debt")} suffix={r.currency} /></Field>
       <Toggle checked={f.sales} onChange={set("sales")} label="فروش فعال" hint="خاموش: مشتریان نمی‌توانند خرید کنند، ولی فروشگاه دیده می‌شود." />
       <Toggle checked={f.api} onChange={set("api")} label="دسترسی API" hint="اجازهٔ ساخت و استفاده از کلید API برای اتصال سایت خود نماینده." />
     </section>
