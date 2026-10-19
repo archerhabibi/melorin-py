@@ -1805,7 +1805,9 @@ async def identity_link_reviews(_: AdminUser, session: Session, status: str = "o
     orders: dict = {}
     if wanted:
         users = {u.id: u for u in (await session.scalars(select(User).where(User.id.in_(wanted)))).all()}
-        orders = dict((await session.execute(select(Order.user_id, func.count()).where(Order.user_id.in_(wanted)).group_by(Order.user_id))).all())
+        orders = dict(
+            (await session.execute(select(Order.user_id, func.count()).where(Order.user_id.in_(wanted)).group_by(Order.user_id))).all()
+        )
     out = []
     for r in rows:
         cand_ids = [x for x in (_uuid(c) for c in (r.candidate_user_ids or [])) if x]

@@ -40,9 +40,7 @@ def _seed(conn):
         wid = uuid.uuid4()
         ids[name] = wid
         conn.execute(
-            sa.text(
-                "INSERT INTO wallets (id, user_id, store_id, kind, currency, balance) VALUES (:id, :u, :s, :k, :c, :b)"
-            ),
+            sa.text("INSERT INTO wallets (id, user_id, store_id, kind, currency, balance) VALUES (:id, :u, :s, :k, :c, :b)"),
             {"id": wid.hex, "u": user.hex, "s": store.hex, "k": kind, "c": currency, "b": balance},
         )
 
@@ -87,11 +85,16 @@ def test_merge_moves_legacy_balances_into_the_customer_wallet_with_balanced_ledg
         txs = conn.execute(sa.text("SELECT id, kind FROM ledger_transactions")).all()
         assert len(txs) == 5 and {t[1] for t in txs} == {"wallet_merge"}
         assert conn.execute(sa.text("SELECT COALESCE(SUM(amount), 0) FROM ledger_entries")).scalar() == 0
-        for (txid, _) in txs:
-            assert conn.execute(sa.text("SELECT COALESCE(SUM(amount), 0) FROM ledger_entries WHERE transaction_id=:t"), {"t": txid}).scalar() == 0
+        for txid, _ in txs:
+            assert (
+                conn.execute(sa.text("SELECT COALESCE(SUM(amount), 0) FROM ledger_entries WHERE transaction_id=:t"), {"t": txid}).scalar()
+                == 0
+            )
         # balance_after of the credited side matches the resulting customer balance
         after = conn.execute(
-            sa.text("SELECT e.balance_after FROM ledger_entries e JOIN wallets w ON w.id = e.wallet_id WHERE w.user_id=:u AND w.kind='customer' AND e.amount > 0"),
+            sa.text(
+                "SELECT e.balance_after FROM ledger_entries e JOIN wallets w ON w.id = e.wallet_id WHERE w.user_id=:u AND w.kind='customer' AND e.amount > 0"
+            ),
             {"u": users[0].hex},
         ).scalar()
         assert after == 60_000

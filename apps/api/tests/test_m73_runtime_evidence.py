@@ -15,7 +15,7 @@ ev = importlib.util.module_from_spec(spec)
 sys.modules["runtime_evidence"] = ev
 spec.loader.exec_module(ev)
 
-TOKEN = "123456789:AAH-secret_token_value_0123456789abc"
+TOKEN = "123456789:AAH-secret_token_value_0123456789abc"  # pragma: allowlist secret
 
 
 def make_ctx(tmp_path, env=None, handler=None, **kw):

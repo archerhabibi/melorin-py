@@ -275,7 +275,7 @@ async def test_successful_login_maps_to_the_same_account_as_the_bot(http, world,
     assert calls == [
         dict(
             client_id=CLIENT_ID,
-            secret="s3cret-from-botfather",
+            secret="s3cret-from-botfather",  # pragma: allowlist secret
             code="abc",
             redirect="http://localhost:3000" + oidc.CALLBACK_PATH,
             verifier=flow["cv"],

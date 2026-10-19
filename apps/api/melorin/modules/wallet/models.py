@@ -19,7 +19,9 @@ class Wallet(IdMixin, TimestampMixin, Base):
     __table_args__ = (UniqueConstraint("user_id", "store_id", "kind", "currency"),)
     user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"), index=True)
     store_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("stores.id"), index=True)
-    kind: Mapped[str] = mapped_column(String(20), default="customer")  # customer (reseller_credit is legacy: merged into customer by migration 0026)
+    kind: Mapped[str] = mapped_column(
+        String(20), default="customer"
+    )  # customer (reseller_credit is legacy: merged into customer by migration 0026)
     currency: Mapped[str] = mapped_column(String(8), default="IRT")
     balance: Mapped[int] = mapped_column(BigInteger, default=0)
 

@@ -31,7 +31,9 @@ async def seed(s):
     s.add_all([a, b])
     await s.flush()
     s.add(Identity(user_id=a.id, provider="email", subject="ali@x.io"))
-    r = IdentityLinkReview(email="ali@x.io", source_user_id=b.id, candidate_user_ids=[str(a.id)], provider="google", reason="verified_email_matches_other_user")
+    r = IdentityLinkReview(
+        email="ali@x.io", source_user_id=b.id, candidate_user_ids=[str(a.id)], provider="google", reason="verified_email_matches_other_user"
+    )
     s.add(r)
     await s.commit()
     return a, b, r
@@ -56,7 +58,12 @@ async def test_dismiss_with_note_then_reopen(session):
     await session.commit()
     await admin.dismiss_identity_review(r.id, admin_user, session, admin.ReviewNoteIn(note="  دو نفر متفاوت  "))
     row = (await admin.identity_link_reviews(None, session, status="dismissed"))[0]
-    assert row["status"] == "dismissed" and row["resolution_note"] == "دو نفر متفاوت" and row["resolved_by"] == admin_user.id and row["resolved_at"]
+    assert (
+        row["status"] == "dismissed"
+        and row["resolution_note"] == "دو نفر متفاوت"
+        and row["resolved_by"] == admin_user.id
+        and row["resolved_at"]
+    )
     with pytest.raises(AppError):  # already closed
         await admin.dismiss_identity_review(r.id, admin_user, session, None)
     await admin.reopen_identity_review(r.id, admin_user, session)
