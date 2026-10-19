@@ -135,9 +135,7 @@ async def summary(session, *conds) -> dict[str, int]:
     The caller passes the scope (``user_id`` for a customer, ``store_id`` for the owner): this function never widens it.
     """
     now = utcnow()
-    cols = [func.count(VpnAccount.id)] + [
-        func.coalesce(func.sum(case((state_clause(st, now), 1), else_=0)), 0) for st in STATES
-    ]
+    cols = [func.count(VpnAccount.id)] + [func.coalesce(func.sum(case((state_clause(st, now), 1), else_=0)), 0) for st in STATES]
     row = (await session.execute(select(*cols).where(*conds))).one()
     return {"total": int(row[0]), **{st: int(v) for st, v in zip(STATES, row[1:], strict=True)}}
 

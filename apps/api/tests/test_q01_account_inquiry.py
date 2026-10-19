@@ -22,9 +22,17 @@ NOW = dt.datetime.now(dt.UTC)
 async def _account(s, *, user, store, product, name, days=20, used=0, limit=10 * GIB, status="active"):
     order = await make_order(s, user=user, store=store, product=product)
     a = VpnAccount(
-        username=name, user_id=user.id, store_id=store.id, order_id=order.id, product_id=product.id, status=status,
-        expires_at=NOW + dt.timedelta(days=days), traffic_limit_bytes=limit, traffic_used_bytes=used,
-        subscription_url=f"https://sub.test/{name}", links=[],
+        username=name,
+        user_id=user.id,
+        store_id=store.id,
+        order_id=order.id,
+        product_id=product.id,
+        status=status,
+        expires_at=NOW + dt.timedelta(days=days),
+        traffic_limit_bytes=limit,
+        traffic_used_bytes=used,
+        subscription_url=f"https://sub.test/{name}",
+        links=[],
     )
     s.add(a)
     await s.flush()
@@ -59,14 +67,18 @@ async def test_customer_sees_and_searches_only_own_accounts():
         for q in ("bob", "BOB_main", "eve", "%", "_", "alice_phone' OR 1=1 --"):
             found = await vpn_router.mine(w.alice, s, Response(), q=q, store_id=None, limit=100, offset=0)
             assert all(a.username.startswith("alice") for a in found), q
-        assert [a.username for a in await vpn_router.mine(w.alice, s, Response(), q="PC", store_id=None, limit=100, offset=0)] == ["alice_pc"]
+        assert [a.username for a in await vpn_router.mine(w.alice, s, Response(), q="PC", store_id=None, limit=100, offset=0)] == [
+            "alice_pc"
+        ]
 
 
 async def test_wildcards_are_literal_and_paging_works():
     async with open_session() as s:
         w = await _world(s)
         assert await vpn_router.mine(w.alice, s, Response(), q="%", store_id=None, limit=100, offset=0) == []
-        assert await vpn_router.mine(w.alice, s, Response(), q="_", store_id=None, limit=100, offset=0) != []  # "_" really occurs in the names
+        assert (
+            await vpn_router.mine(w.alice, s, Response(), q="_", store_id=None, limit=100, offset=0) != []
+        )  # "_" really occurs in the names
         r = Response()
         page = await vpn_router.mine(w.alice, s, r, q=None, store_id=None, limit=1, offset=1)
         assert len(page) == 1 and r.headers["X-Total-Count"] == "2"
@@ -88,7 +100,9 @@ async def test_owner_sees_all_store_accounts_and_searches_by_name_or_customer():
         assert {a.username for a in rows} == {"alice_phone", "alice_pc", "bob_main"} and r.headers["X-Total-Count"] == "3"
         assert {a.customer_name for a in rows} == {"Alice", "Bob"}
         assert [a.username for a in await reseller_router.store_accounts(ctx, s, Response(), q="bob", limit=50, offset=0)] == ["bob_main"]
-        assert len(await reseller_router.store_accounts(ctx, s, Response(), q="alice", limit=50, offset=0)) == 2  # customer name AND username
+        assert (
+            len(await reseller_router.store_accounts(ctx, s, Response(), q="alice", limit=50, offset=0)) == 2
+        )  # customer name AND username
         assert await reseller_router.store_accounts(ctx, s, Response(), q="eve_main", limit=50, offset=0) == []  # other store: invisible
 
 
@@ -139,8 +153,12 @@ async def test_state_chips_filter_and_count_inside_the_scope():
     async with open_session() as s:
         w = await _tuned_world(s)
         names = lambda rows: sorted(a.username for a in rows)  # noqa: E731
-        assert names(await vpn_router.mine(w.alice, s, Response(), q=None, store_id=None, state="expiring", limit=50, offset=0)) == ["alice_phone"]
-        assert names(await vpn_router.mine(w.alice, s, Response(), q=None, store_id=None, state="expired", limit=50, offset=0)) == ["alice_pc"]
+        assert names(await vpn_router.mine(w.alice, s, Response(), q=None, store_id=None, state="expiring", limit=50, offset=0)) == [
+            "alice_phone"
+        ]
+        assert names(await vpn_router.mine(w.alice, s, Response(), q=None, store_id=None, state="expired", limit=50, offset=0)) == [
+            "alice_pc"
+        ]
         assert await vpn_router.mine(w.alice, s, Response(), q=None, store_id=None, state="active", limit=50, offset=0) == [] or True
         assert await vpn_router.summary(w.alice, s, store_id=None) == {"total": 2, "active": 1, "expiring": 1, "expired": 1}
         # the counters of a customer never include another customer's accounts
@@ -162,7 +180,10 @@ async def test_refresh_reads_the_panel_and_is_rate_limited(monkeypatch):
         async def get_account(self, username):
             FakePanel.calls += 1
             return types.SimpleNamespace(
-                status="active", traffic_used_bytes=7 * GIB, subscription_url="https://sub.test/fresh", links=[],
+                status="active",
+                traffic_used_bytes=7 * GIB,
+                subscription_url="https://sub.test/fresh",
+                links=[],
                 expire_at=NOW + dt.timedelta(days=30),
             )
 
@@ -188,3 +209,20 @@ async def test_refresh_reads_the_panel_and_is_rate_limited(monkeypatch):
             await reseller_router.store_account_refresh(w.a1.id, _ctx(w.other, w.eve), s, Response())
         owner_view = await reseller_router.store_account_refresh(w.a1.id, _ctx(w.store, w.owner), s, Response())
         assert owner_view.customer_name == "Alice"
+
+
+async def test_admin_inquiry_searches_every_store_and_pages():
+    from melorin.modules.admin import router as admin_router
+
+    async with open_session() as s:
+        w = await _world(s)
+        r = Response()
+        everything = await admin_router.vpn_accounts(w.owner, s, r, q=None, store_id=None, state=None, limit=100, offset=0)
+        assert {x["username"] for x in everything} == {"alice_phone", "alice_pc", "bob_main", "eve_main"}
+        assert r.headers["X-Total-Count"] == "4"
+        by_customer = await admin_router.vpn_accounts(w.owner, s, Response(), q="alice", store_id=None, state=None, limit=100, offset=0)
+        assert {x["username"] for x in by_customer} == {"alice_phone", "alice_pc"}
+        one_store = await admin_router.vpn_accounts(w.owner, s, Response(), q=None, store_id=w.other.id, state=None, limit=100, offset=0)
+        assert [x["username"] for x in one_store] == ["eve_main"]
+        page = await admin_router.vpn_accounts(w.owner, s, Response(), q=None, store_id=None, state=None, limit=1, offset=3)
+        assert len(page) == 1

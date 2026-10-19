@@ -20,8 +20,19 @@ def load(name, rel):
 
 
 def acc(i, **kw):
-    return {"id": str(uuid.uuid4()), "username": f"u{i}", "status": "active", "health": "active", "days_left": 20, "can_renew": True,
-            "subscription_url": f"https://s/x{i}", "expires_at": "2099-01-01T00:00:00Z", "traffic_limit_bytes": 0, "traffic_used_bytes": 0, **kw}
+    return {
+        "id": str(uuid.uuid4()),
+        "username": f"u{i}",
+        "status": "active",
+        "health": "active",
+        "days_left": 20,
+        "can_renew": True,
+        "subscription_url": f"https://s/x{i}",
+        "expires_at": "2099-01-01T00:00:00Z",
+        "traffic_limit_bytes": 0,
+        "traffic_used_bytes": 0,
+        **kw,
+    }
 
 
 class Core:
@@ -67,8 +78,12 @@ class Core:
 
 @pytest.fixture
 def bots(tmp_path, monkeypatch):
-    for k, v in {"MELORIN_TELEGRAM_TOKEN": "tok", "MELORIN_CORE_URL": "http://core", "MELORIN_BOT_SERVICE_SECRET": "sek",
-                 "MELORIN_TELEGRAM_OFFSET_FILE": str(tmp_path / "o.json")}.items():
+    for k, v in {
+        "MELORIN_TELEGRAM_TOKEN": "tok",
+        "MELORIN_CORE_URL": "http://core",
+        "MELORIN_BOT_SERVICE_SECRET": "sek",
+        "MELORIN_TELEGRAM_OFFSET_FILE": str(tmp_path / "o.json"),
+    }.items():
         monkeypatch.setenv(k, v)
     core = Core()
     main = load("q02_main", "telegram-main/runner.py").TelegramRunner()
@@ -80,7 +95,15 @@ def bots(tmp_path, monkeypatch):
 
 
 def cb(data, uid=1):
-    return {"update_id": uid, "callback_query": {"id": f"c{uid}", "from": {"id": 7, "first_name": "Ali"}, "data": data, "message": {"chat": {"id": 9}, "message_id": 5}}}
+    return {
+        "update_id": uid,
+        "callback_query": {
+            "id": f"c{uid}",
+            "from": {"id": 7, "first_name": "Ali"},
+            "data": data,
+            "message": {"chat": {"id": 9}, "message_id": 5},
+        },
+    }
 
 
 def msg(text, uid=1):

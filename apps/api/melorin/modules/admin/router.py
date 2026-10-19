@@ -33,7 +33,7 @@ from melorin.modules.system.models import AuditEvent, BackupRun, FeatureFlag, Sy
 from melorin.modules.webhooks import service as webhook_service
 from melorin.modules.tickets.models import Ticket
 from melorin.modules.tickets.schemas import AdminAddMessage, AdminUpdateTicket, EditMessage as EditTicketMessage
-from melorin.modules.vpn import allocation
+from melorin.modules.vpn import allocation, inquiry
 from melorin.modules.vpn.models import Panel, Server, VpnAccount
 from melorin.modules.vpn.bundles import Bundle, BundleMember, BundleProduct, StoreBundle
 
@@ -1339,20 +1339,42 @@ async def ticket_edit_message(ticket_id: uuid.UUID, message_id: uuid.UUID, body:
 
 
 @router.get("/vpn-accounts", response_model=list[dict])
-async def vpn_accounts(_: AdminUser, session: Session):
-    rows = (await session.scalars(select(VpnAccount).order_by(VpnAccount.updated_at.desc()).limit(500))).all()
+async def vpn_accounts(
+    _: AdminUser,
+    session: Session,
+    response: Response,
+    q: str | None = Query(None, max_length=200, description="account name, customer name or e-mail"),
+    store_id: uuid.UUID | None = Query(None),
+    state: str | None = Query(None, pattern="^(active|expiring|expired)$"),
+    limit: int = Query(100, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+):
+    """The platform owner's inquiry: every account of every store, searchable and paged (same rules as the store owner's)."""
+    cond = [VpnAccount.archived_at.is_(None)]
+    if store_id:
+        cond.append(VpnAccount.store_id == store_id)
+    if term := inquiry.clean_query(q):
+        cond.append(inquiry.owner_clause(term, User))
+    if (state_cond := inquiry.state_clause(state)) is not None:
+        cond.append(state_cond)
+    base = select(VpnAccount, User).join(User, User.id == VpnAccount.user_id).where(*cond)
+    response.headers["X-Total-Count"] = str(await session.scalar(select(func.count()).select_from(base.subquery())) or 0)
+    rows = (await session.execute(base.order_by(VpnAccount.updated_at.desc()).limit(limit).offset(offset))).all()
     return [
         {
             "id": a.id,
             "user_id": a.user_id,
+            "customer_name": u.display_name or u.email,
             "store_id": a.store_id,
             "username": a.username,
             "status": a.status,
+            "health": inquiry.health(a),
+            "days_left": inquiry.days_left(a),
             "expires_at": a.expires_at,
             "traffic_limit_bytes": a.traffic_limit_bytes,
             "traffic_used_bytes": a.traffic_used_bytes,
         }
-        for a in rows
+        for a, u in rows
     ]
 
 
