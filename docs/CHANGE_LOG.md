@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-19 10:02 UTC - archerhabibi - ci, scripts  _(auto)_
+- **Before:** CI red on main for several runs
+- **Problem:** secrets guard false positives, cwd-relative guard scripts, alembic check on an unmigrated DB, wrong smoke script path/imports/FK rows, format drift
+- **Action:** see PR description
+- **After:** quality + postgres-lane green
+- **Files (11):** `.github/workflows/ci.yml`, `apps/api/melorin/modules/admin/router.py`, `apps/api/melorin/modules/wallet/models.py`, `apps/api/tests/test_k01_optional_integrations.py`, `apps/api/tests/test_m73_runtime_evidence.py`, `apps/api/tests/test_r01_telegram_login_settings.py`, `apps/api/tests/test_reseller_wallet_merge_migration.py`, `apps/api/tests/test_s01_identity_reviews.py` (+3 more)
+- **Ref:** `95cd9d9`
+
+
 ### 2026-10-19 07:06 UTC - archerhabibi - orders/delivery, vpn API, store-web  _(auto)_
 - **Before:** purchase result had no link/QR in web; Telegram post could go out without link/QR
 - **Problem:** customers did not reliably receive link and QR together
