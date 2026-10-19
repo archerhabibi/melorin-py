@@ -19,3 +19,14 @@ class VpnAccountOut(BaseModel):
     updated_at: dt.datetime
     can_renew: bool = False  # inside the renewal window (up to 10 days after expiry) and not a test/revoked account
     renew_until: dt.datetime | None = None
+    store_id: uuid.UUID | None = None
+    days_left: int | None = None  # None = no expiry
+    usage_percent: int | None = None  # None = unlimited volume
+    health: str = "active"  # active | expiring | expired | depleted | disabled
+
+
+class OwnerAccountOut(VpnAccountOut):
+    """What a store owner sees for one of the store's customer accounts (read-only; renewal stays the customer's)."""
+
+    customer_id: uuid.UUID
+    customer_name: str | None = None

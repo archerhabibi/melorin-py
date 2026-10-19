@@ -48,6 +48,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=s.cors_allow_methods,
     allow_headers=s.cors_allow_headers,
+    expose_headers=["X-Total-Count"],
 )
 install(app)
 

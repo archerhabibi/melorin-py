@@ -1,7 +1,7 @@
 import json
 import uuid
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query, Response
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
@@ -34,7 +34,9 @@ from melorin.modules.wallet import service as wallet
 from melorin.modules.webhooks import service as webhooks
 from fastapi import Header
 from types import SimpleNamespace
-from melorin.modules.vpn import allocation
+from melorin.modules.vpn import allocation, inquiry
+from melorin.modules.vpn.models import VpnAccount
+from melorin.modules.vpn.schemas import OwnerAccountOut
 from melorin.modules.stores.models import Store
 from melorin.modules.vpn.bundles import Bundle, StoreBundle
 
@@ -357,6 +359,56 @@ async def customers(ctx: OwnerCtx, session: Session):
         CustomerOut(user_id=u.id, display_name=u.display_name, email=u.email, status=m.status, joined_at=m.created_at)
         for u, m in (await session.execute(q)).all()
     ]
+
+
+@router.get("/stores/{store_id}/reseller/accounts", response_model=list[OwnerAccountOut])
+async def store_accounts(
+    ctx: OwnerCtx,
+    session: Session,
+    response: Response,
+    q: str | None = Query(None, max_length=200, description="account name, customer name or e-mail"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+):
+    """The store owner's inquiry: every account sold in THIS store (never another store's), searchable."""
+    cond = [VpnAccount.store_id == ctx.store.id, VpnAccount.archived_at.is_(None)]
+    if term := inquiry.clean_query(q):
+        cond.append(inquiry.owner_clause(term, User))
+    base = select(VpnAccount, User).join(User, User.id == VpnAccount.user_id).where(*cond)
+    total = await session.scalar(select(func.count()).select_from(base.subquery()))
+    response.headers["X-Total-Count"] = str(total or 0)
+    rows = (await session.execute(base.order_by(VpnAccount.created_at.desc()).limit(limit).offset(offset))).all()
+    return [inquiry.owner_account_out(a, u) for a, u in rows]
+
+
+async def _store_account(session, ctx, account_id: uuid.UUID):
+    row = (
+        await session.execute(
+            select(VpnAccount, User)
+            .join(User, User.id == VpnAccount.user_id)
+            .where(VpnAccount.id == account_id, VpnAccount.store_id == ctx.store.id)
+        )
+    ).first()
+    if not row:
+        raise NotFound("اکانت VPN")
+    return row
+
+
+@router.get("/stores/{store_id}/reseller/accounts/{account_id}", response_model=OwnerAccountOut)
+async def store_account(account_id: uuid.UUID, ctx: OwnerCtx, session: Session):
+    a, u = await _store_account(session, ctx, account_id)
+    return inquiry.owner_account_out(a, u)
+
+
+@router.get("/stores/{store_id}/reseller/accounts/{account_id}/qr.png", response_class=Response, responses={200: {"content": {"image/png": {}}}})
+async def store_account_qr(account_id: uuid.UUID, ctx: OwnerCtx, session: Session):
+    a, _ = await _store_account(session, ctx, account_id)
+    link = a.subscription_url or (a.links[0] if isinstance(a.links, list) and a.links else None)
+    if not link:
+        raise NotFound("لینک اشتراک")
+    from melorin.modules.orders.delivery import render_qr_png  # lazy: avoids a vpn <-> orders import cycle
+
+    return Response(render_qr_png(link), media_type="image/png", headers={"Cache-Control": "private, no-store"})
 
 
 async def adjust_customer_wallet_core(
