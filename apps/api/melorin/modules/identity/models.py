@@ -46,6 +46,10 @@ class RefreshToken(IdMixin, CreatedMixin, Base):
     expires_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
     revoked_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     user_agent: Mapped[str | None] = mapped_column(String(300))
+    # Channel binding (docs/16): the channel/store this session family was opened for. Rotation re-issues exactly this,
+    # so a refresh token can never move a session to another store. NULL = legacy row: refused at rotation (re-login).
+    channel: Mapped[str | None] = mapped_column(String(10))
+    store_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("stores.id"))
 
 
 class VerificationCode(IdMixin, CreatedMixin, Base):
@@ -56,6 +60,7 @@ class VerificationCode(IdMixin, CreatedMixin, Base):
     target: Mapped[str] = mapped_column(String(320), index=True)  # email address or user id
     code_hash: Mapped[str] = mapped_column(String(64), index=True)
     user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
+    store_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("stores.id"))  # handoff: the store it was minted for
     attempts: Mapped[int] = mapped_column(default=0)
     expires_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
     used_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))

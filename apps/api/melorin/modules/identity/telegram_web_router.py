@@ -8,9 +8,9 @@ import datetime as dt
 
 from fastapi import APIRouter, Depends, Request, Response
 
-from melorin.core import integrations
+from melorin.core import channel, integrations
 from melorin.core.db import utcnow
-from melorin.core.deps import Session, main_store, require_bot_service
+from melorin.core.deps import BotAuth, Session, main_store, require_bot_service
 from melorin.core.errors import AppError
 from melorin.core.ratelimit import RateLimit, client_ip
 from melorin.modules.identity import telegram_web as web
@@ -44,7 +44,8 @@ def _qr(link: str) -> str | None:
 # ---------------- browser ----------------
 @tgweb.post("/sessions", response_model=TelegramWebStartOut, dependencies=[Depends(RateLimit("tgweb-start", 10, 60))])
 async def start(body: TelegramWebStart, session: Session, request: Request, response: Response):
-    store = await session.get(Store, body.store_id) if body.store_id else await main_store(session)
+    site = await channel.site_channel(session, request, hint=body.store_id)  # Host decides; the id can only agree with it
+    store = await session.get(Store, site.store_id)
     if store is None:
         raise AppError("NOT_FOUND", "فروشگاه یافت نشد.", 404)
     started = await web.create_session(session, store, ip=client_ip(request), user_agent=request.headers.get("user-agent"))
@@ -65,7 +66,7 @@ async def start(body: TelegramWebStart, session: Session, request: Request, resp
 
 @tgweb.post("/sessions/{session_id}/poll", response_model=TelegramWebPollOut, dependencies=[Depends(RateLimit("tgweb-poll", 120, 60))])
 async def poll(session_id: str, body: TelegramWebPoll, session: Session, request: Request, response: Response):
-    result = await web.poll(session, session_id, body.poll_token, user_agent=request.headers.get("user-agent"))
+    result = await web.poll(session, session_id, body.poll_token, request, user_agent=request.headers.get("user-agent"))
     response.headers.update(NO_STORE)
     if result.tokens:
         _set_refresh_cookie(response, result.tokens)
@@ -79,8 +80,9 @@ async def cancel(session_id: str, body: TelegramWebPoll, session: Session):
 
 
 # ---------------- bot runner (X-Bot-Secret) ----------------
-@tgweb.post("/bot/inspect", response_model=TelegramWebInspectOut, dependencies=[Depends(require_bot_service)])
-async def bot_inspect(body: TelegramWebInspect, session: Session):
+@tgweb.post("/bot/inspect", response_model=TelegramWebInspectOut)
+async def bot_inspect(body: TelegramWebInspect, session: Session, bot: BotAuth):
+    await channel.bot_channel(session, bot, body.store_id)  # this runner may serve that store
     row = await web.inspect(session, body.session_id, body.store_id, body.telegram_id)
     created = row.created_at.replace(tzinfo=row.created_at.tzinfo or dt.UTC)
     number_match = web.number_match_enabled(await integrations.get_telegram(session))
@@ -95,7 +97,8 @@ async def bot_inspect(body: TelegramWebInspect, session: Session):
     )
 
 
-@tgweb.post("/bot/decide", response_model=TelegramWebDecisionOut, dependencies=[Depends(require_bot_service)])
-async def bot_decide(body: TelegramWebDecision, session: Session):
+@tgweb.post("/bot/decide", response_model=TelegramWebDecisionOut)
+async def bot_decide(body: TelegramWebDecision, session: Session, bot: BotAuth):
+    await channel.bot_channel(session, bot, body.store_id)
     profile = TelegramProfile(**body.model_dump(include=set(TelegramProfile.model_fields)))
     return TelegramWebDecisionOut(**await web.decide(session, body.session_id, body.store_id, profile, body.action, body.choice))

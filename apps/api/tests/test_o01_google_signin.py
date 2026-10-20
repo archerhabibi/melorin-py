@@ -14,6 +14,7 @@ from melorin.core.security import _totp, totp_new_secret
 from melorin.modules.identity import router, service
 from melorin.modules.identity.models import Identity, IdentityLinkReview, RefreshToken, User
 from melorin.modules.identity.schemas import GoogleLogin
+from melorin.modules.stores.models import Store
 from melorin.modules.system.models import AuditEvent, SecurityEvent, SystemSetting
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -26,8 +27,9 @@ TABLES = [
     AuditEvent.__table__,
     SecurityEvent.__table__,
     SystemSetting.__table__,
+    Store.__table__,
 ]
-REQ = types.SimpleNamespace(headers={"user-agent": "pytest"}, cookies={router.GOOGLE_NONCE_COOKIE: "n1"})
+REQ = types.SimpleNamespace(headers={"user-agent": "pytest", "host": "localhost"}, client=types.SimpleNamespace(host="203.0.113.9"), cookies={router.GOOGLE_NONCE_COOKIE: "n1"})
 
 
 @pytest.fixture
@@ -38,6 +40,8 @@ async def world(tmp_path, monkeypatch):
     secret = totp_new_secret()
     monkeypatch.setattr(router, "decrypt", lambda v: v)  # keep the TOTP secret readable without a Fernet key
     async with db.session_factory()() as s:
+        s.add(Store(kind="main", name="Main", slug="main"))
+        await s.flush()
         admin = User(display_name="Admin", email="admin@example.com", is_super_admin=True, totp_enabled=True, totp_secret_enc=secret)
         plain_admin = User(display_name="NoTotp", email="nt@example.com", is_super_admin=True)
         cust = User(display_name="Cust", email="c@example.com")
@@ -182,7 +186,7 @@ async def test_link_google_requires_matching_nonce(world):
     world.s.add(tg_user)
     await world.s.flush()
     world.verify.sub = "g-x"
-    bad = types.SimpleNamespace(headers={}, cookies={router.GOOGLE_NONCE_COOKIE: "other"})
+    bad = types.SimpleNamespace(headers={"host": "localhost"}, client=types.SimpleNamespace(host="203.0.113.9"), cookies={router.GOOGLE_NONCE_COOKIE: "other"})
     with pytest.raises(AppError) as exc:
         await router.attach_google(GoogleLink(id_token="t"), tg_user, world.s, bad, Response())
     assert exc.value.status == 401

@@ -53,10 +53,22 @@ def new_numeric_code(digits: int = 6) -> str:
     return "".join(secrets.choice("0123456789") for _ in range(digits))
 
 
-def create_access_token(user_id: uuid.UUID, is_admin: bool) -> tuple[str, int]:
+def create_access_token(
+    user_id: uuid.UUID, is_admin: bool, *, store_id: uuid.UUID | None = None, channel: str | None = None
+) -> tuple[str, int]:
+    """Short-lived JWT. Besides the user it carries WHERE the session was opened (docs/16-Channel-Binding-Design.md):
+
+    * ``chn``: ``site`` | ``bot`` | ``admin``  (the channel Core verified at login, never what the client claimed);
+    * ``sid``: the store that channel belongs to (absent only for ``admin`` sessions, which are platform-wide).
+
+    ``adm`` is kept for old readers; Core itself trusts ``chn == "admin"`` (see ``core.channel.SessionClaims``).
+    """
     s = get_settings()
     now = int(time.time())
-    payload = {"sub": str(user_id), "adm": is_admin, "iat": now, "exp": now + s.jwt_access_ttl_seconds, "typ": "access"}
+    chn = channel or ("admin" if is_admin else "site")
+    payload = {"sub": str(user_id), "adm": is_admin, "iat": now, "exp": now + s.jwt_access_ttl_seconds, "typ": "access", "chn": chn}
+    if store_id is not None:
+        payload["sid"] = str(store_id)
     return jwt.encode(payload, s.jwt_secret, algorithm="HS256"), s.jwt_access_ttl_seconds
 
 

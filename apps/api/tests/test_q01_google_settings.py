@@ -14,6 +14,7 @@ from melorin.modules.admin import integrations as admin_integrations
 from melorin.modules.identity import router, service
 from melorin.modules.identity.models import Identity, IdentityLinkReview, RefreshToken, User
 from melorin.modules.identity.schemas import GoogleLogin
+from melorin.modules.stores.models import Store
 from melorin.modules.system.models import AuditEvent, SecurityEvent, SystemSetting
 
 PROJECT = Path(__file__).resolve().parents[3]
@@ -25,9 +26,10 @@ TABLES = [
     AuditEvent.__table__,
     SecurityEvent.__table__,
     SystemSetting.__table__,
+    Store.__table__,
 ]
 GOOD_ID = "123456789012-abc123def456.apps.googleusercontent.com"
-REQ = types.SimpleNamespace(headers={"user-agent": "pytest"}, cookies={router.GOOGLE_NONCE_COOKIE: "n1"})
+REQ = types.SimpleNamespace(headers={"user-agent": "pytest", "host": "localhost"}, client=types.SimpleNamespace(host="203.0.113.9"), cookies={router.GOOGLE_NONCE_COOKIE: "n1"})
 
 
 @pytest.fixture
@@ -38,6 +40,8 @@ async def session(tmp_path, monkeypatch):
     async with db.engine().begin() as conn:
         await conn.run_sync(lambda c: db.Base.metadata.create_all(c, tables=TABLES))
     async with db.session_factory()() as s:
+        s.add(Store(kind="main", name="Main", slug="main"))
+        await s.flush()
         yield s
     await db.engine().dispose()
     config_mod.get_settings.cache_clear()

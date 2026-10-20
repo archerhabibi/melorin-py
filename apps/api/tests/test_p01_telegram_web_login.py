@@ -21,6 +21,9 @@ from melorin.modules.identity.telegram_web_router import tgweb
 from melorin.modules.stores.models import Store
 from melorin.modules.system.models import AuditEvent, FeatureFlag, SecurityEvent, SystemSetting
 
+from _chan import fake_request  # noqa: E402
+
+_REQ = fake_request("localhost")  # development: an unknown host falls back to the main store
 TABLES = [
     User.__table__,
     Identity.__table__,
@@ -98,12 +101,12 @@ async def test_happy_path_issues_tokens_once_to_the_poll_token_holder(world):
     st = await _start(world)
     info = await web.inspect(world.s, st.row.public_id, world.main.id, 111)
     assert info.status == "scanned" and st.row.match_code in web.choices_of(info) and len(web.choices_of(info)) == 3
-    assert (await web.poll(world.s, st.row.public_id, st.poll_token)).status == "scanned"
+    assert (await web.poll(world.s, st.row.public_id, st.poll_token, _REQ)).status == "scanned"
     out = await web.decide(world.s, st.row.public_id, world.main.id, prof(), "approve", st.row.match_code)
     assert out == {"result": "approved"}
-    res = await web.poll(world.s, st.row.public_id, st.poll_token, user_agent="pytest")
+    res = await web.poll(world.s, st.row.public_id, st.poll_token, _REQ, user_agent="pytest")
     assert res.status == "approved" and res.tokens and res.tokens.access_token and not res.tokens.is_admin
-    again = await web.poll(world.s, st.row.public_id, st.poll_token)
+    again = await web.poll(world.s, st.row.public_id, st.poll_token, _REQ)
     assert again.status == "consumed" and again.tokens is None  # single use
     user = await world.s.scalar(select(User).join(Identity).where(Identity.provider == "telegram", Identity.subject == "111"))
     assert user is not None and (await world.s.scalar(select(RefreshToken).where(RefreshToken.user_id == user.id))) is not None
@@ -117,11 +120,11 @@ async def test_poll_requires_the_secret_not_just_the_public_id(world):
     await web.decide(world.s, st.row.public_id, world.main.id, prof(), "approve", st.row.match_code)
     for bad in ("x" * 43, st.row.public_id, "telegram-web-login-dummy"):
         with pytest.raises(AppError) as e:
-            await web.poll(world.s, st.row.public_id, bad)
+            await web.poll(world.s, st.row.public_id, bad, _REQ)
         assert e.value.code == "SESSION_NOT_FOUND"
     with pytest.raises(AppError):
-        await web.poll(world.s, "does-not-exist-123", st.poll_token)
-    assert (await web.poll(world.s, st.row.public_id, st.poll_token)).tokens is not None  # the real owner still gets in
+        await web.poll(world.s, "does-not-exist-123", st.poll_token, _REQ)
+    assert (await web.poll(world.s, st.row.public_id, st.poll_token, _REQ)).tokens is not None  # the real owner still gets in
 
 
 async def test_wrong_number_twice_closes_the_session_and_alerts(world):
@@ -137,7 +140,7 @@ async def test_wrong_number_twice_closes_the_session_and_alerts(world):
     assert e.value.code == "SESSION_CLOSED" and e.value.status == 410
     assert "tg_web_login_wrong_code" in (await world.s.scalars(select(SecurityEvent.kind))).all()
     assert (await world.s.scalar(select(User))) is None  # nothing was created for a failed attempt
-    assert (await web.poll(world.s, row.public_id, st.poll_token)).status == "denied"
+    assert (await web.poll(world.s, row.public_id, st.poll_token, _REQ)).status == "denied"
 
 
 async def test_not_me_denies_and_records_a_security_event(world):
@@ -146,7 +149,7 @@ async def test_not_me_denies_and_records_a_security_event(world):
     assert out == {"result": "denied", "reason": "user_denied"}
     ev = await world.s.scalar(select(SecurityEvent).where(SecurityEvent.kind == "tg_web_login_denied_by_user"))
     assert ev and ev.data["ip"] == "203.0.113.7"
-    res = await web.poll(world.s, st.row.public_id, st.poll_token)
+    res = await web.poll(world.s, st.row.public_id, st.poll_token, _REQ)
     assert (res.status, res.reason) == ("denied", "user_denied")
 
 
@@ -158,7 +161,7 @@ async def test_expired_session_is_rejected_everywhere(world):
     with pytest.raises(AppError) as e:
         await web.inspect(world.s, row.public_id, world.main.id, 111)
     assert e.value.code == "SESSION_CLOSED"
-    assert (await web.poll(world.s, row.public_id, st.poll_token)).status == "expired"
+    assert (await web.poll(world.s, row.public_id, st.poll_token, _REQ)).status == "expired"
 
 
 async def test_session_is_bound_to_its_store_and_to_the_first_telegram_account(world):
@@ -183,7 +186,7 @@ async def test_super_admin_is_refused_like_the_other_storefront_logins(world):
     st = await _start(world)
     out = await web.decide(world.s, st.row.public_id, world.main.id, prof(999), "approve", st.row.match_code)
     assert out == {"result": "denied", "reason": "admin_use_panel"}
-    assert (await web.poll(world.s, st.row.public_id, st.poll_token)).tokens is None
+    assert (await web.poll(world.s, st.row.public_id, st.poll_token, _REQ)).tokens is None
     assert "tg_web_login_admin_refused" in (await world.s.scalars(select(SecurityEvent.kind))).all()
 
 

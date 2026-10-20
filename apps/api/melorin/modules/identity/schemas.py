@@ -11,6 +11,9 @@ class TokenPair(BaseModel):
     expires_in: int
     user_id: uuid.UUID
     is_admin: bool
+    # Where Core bound this session (informational: Core never trusts the client to say it, see core/channel.py).
+    channel: str | None = None
+    store_id: uuid.UUID | None = None
 
 
 class EmailCodeRequest(BaseModel):
@@ -81,6 +84,7 @@ class TelegramWebAppLogin(BaseModel):
 
 class TelegramLink(TelegramProfile):
     code: str
+    store_id: uuid.UUID | None = None  # the store of the bot that sends it (omitted = main bot)
 
 
 class RefreshRequest(BaseModel):

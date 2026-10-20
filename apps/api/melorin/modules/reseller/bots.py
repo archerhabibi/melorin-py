@@ -15,6 +15,7 @@ from sqlalchemy import select
 
 from melorin.core import audit
 from melorin.core.crypto import decrypt
+from melorin.core.channel import BotService
 from melorin.core.deps import Session, require_bot_service
 from melorin.core.errors import AppError, NotFound
 from melorin.modules.stores.models import Store
@@ -133,8 +134,14 @@ def _internal_only(request: Request) -> None:
         raise NotFound("صفحه")
 
 
+def _reseller_runner_only(bot: BotService = Depends(require_bot_service)) -> None:
+    """Reseller bot tokens go to the reseller runner only; the main runner's secret (when per-runner secrets are set) cannot read them."""
+    if not bot.may_serve("reseller"):
+        raise AppError("CHANNEL_FORBIDDEN", "این ربات اجازه‌ی کار با این فروشگاه را ندارد.", 403)
+
+
 internal = APIRouter(
-    prefix="/internal", tags=["internal"], dependencies=[Depends(_internal_only), Depends(require_bot_service)], include_in_schema=False
+    prefix="/internal", tags=["internal"], dependencies=[Depends(_internal_only), Depends(_reseller_runner_only)], include_in_schema=False
 )
 
 

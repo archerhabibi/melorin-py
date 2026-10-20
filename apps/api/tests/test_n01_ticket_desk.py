@@ -5,6 +5,7 @@ import uuid
 from pathlib import Path
 
 import pytest
+from _chan import admin_auth, auth_for
 from _source import read_source
 from sqlalchemy import select
 
@@ -48,7 +49,9 @@ async def world(tmp_path):
         await s.flush()
         s.add(TicketMessage(ticket_id=t.id, author_id=cust.id, is_staff=False, body="کمک می‌خواهم"))
         await s.commit()
-        yield types.SimpleNamespace(s=s, cust=cust, staff=staff, other=other, t=t)
+        yield types.SimpleNamespace(
+            s=s, cust=cust, staff=staff, other=other, t=t, cust_auth=auth_for(cust, store), staff_auth=admin_auth(staff), other_auth=auth_for(other, store)
+        )
     await db.engine().dispose()
 
 
@@ -75,7 +78,7 @@ async def test_staff_reply_notifies_customer_and_internal_note_does_not(world):
 async def test_customer_never_sees_internal_notes(world):
     await admin.ticket_reply(world.t.id, AdminAddMessage(body="فقط ادمین", internal=True), world.staff, world.s)
     await admin.ticket_reply(world.t.id, AdminAddMessage(body="برای مشتری"), world.staff, world.s)
-    mine = await customer.messages(world.t.id, world.cust, world.s)
+    mine = await customer.messages(world.t.id, world.cust_auth, world.s)
     assert [m.body for m in mine] == ["کمک می‌خواهم", "برای مشتری"]
     detail = await admin.ticket_detail(world.t.id, world.staff, world.s)
     assert [m["is_internal"] for m in detail["messages"]] == [False, True, False]
@@ -93,11 +96,11 @@ async def test_admin_can_edit_subject_priority_status_and_it_is_audited(world):
 
 
 async def test_message_edit_is_author_only_and_stamped(world):
-    first = (await customer.messages(world.t.id, world.cust, world.s))[0]
-    edited = await customer.edit_message(world.t.id, first.id, EditMessage(body="متن اصلاح‌شده"), world.cust, world.s)
+    first = (await customer.messages(world.t.id, world.cust_auth, world.s))[0]
+    edited = await customer.edit_message(world.t.id, first.id, EditMessage(body="متن اصلاح‌شده"), world.cust_auth, world.s)
     assert edited.body == "متن اصلاح‌شده" and edited.edited_at is not None
     with pytest.raises(AppError):  # someone else's ticket is a 404, not a leak
-        await customer.edit_message(world.t.id, first.id, EditMessage(body="x"), world.other, world.s)
+        await customer.edit_message(world.t.id, first.id, EditMessage(body="x"), world.other_auth, world.s)
     with pytest.raises(AppError):  # staff cannot rewrite the customer's words
         await admin.ticket_edit_message(world.t.id, first.id, EditMessage(body="x"), world.staff, world.s)
     reply = await admin.ticket_reply(world.t.id, AdminAddMessage(body="غلط"), world.staff, world.s)
@@ -114,29 +117,29 @@ async def test_admin_reply_and_edit_reject_whitespace_only_text(world):
     with pytest.raises(AppError) as e:
         await admin.ticket_edit_message(world.t.id, uuid.UUID(reply["id"]), EditMessage(body="   "), world.staff, world.s)
     assert e.value.status == 422
-    msgs = await customer.messages(world.t.id, world.staff, world.s)
+    msgs = await customer.messages(world.t.id, world.staff_auth, world.s)
     assert [m.body for m in msgs][-1] == "پاسخ" and len(msgs) == 2
 
 
 async def test_customer_can_rename_close_and_reopen_but_not_closed_edit(world):
-    out = await customer.update_ticket(world.t.id, UpdateTicket(subject="عنوان تازه", priority="high"), world.cust, world.s)
+    out = await customer.update_ticket(world.t.id, UpdateTicket(subject="عنوان تازه", priority="high"), world.cust_auth, world.s)
     assert out.subject == "عنوان تازه" and out.priority == "high"
-    out = await customer.update_ticket(world.t.id, UpdateTicket(status="closed"), world.cust, world.s)
+    out = await customer.update_ticket(world.t.id, UpdateTicket(status="closed"), world.cust_auth, world.s)
     assert out.status == "closed"
-    first = (await customer.messages(world.t.id, world.cust, world.s))[0]
+    first = (await customer.messages(world.t.id, world.cust_auth, world.s))[0]
     with pytest.raises(AppError):
-        await customer.edit_message(world.t.id, first.id, EditMessage(body="بعد از بستن"), world.cust, world.s)
-    assert (await customer.update_ticket(world.t.id, UpdateTicket(status="open"), world.cust, world.s)).status == "open"
+        await customer.edit_message(world.t.id, first.id, EditMessage(body="بعد از بستن"), world.cust_auth, world.s)
+    assert (await customer.update_ticket(world.t.id, UpdateTicket(status="open"), world.cust_auth, world.s)).status == "open"
     with pytest.raises(AppError):
-        await customer.update_ticket(world.t.id, UpdateTicket(subject="x" * 5), world.other, world.s)
+        await customer.update_ticket(world.t.id, UpdateTicket(subject="x" * 5), world.other_auth, world.s)
 
 
 async def test_customer_reply_reopens_and_staff_reply_via_legacy_endpoint_notifies(world):
     await admin.update_ticket(world.t.id, AdminUpdateTicket(status="answered"), world.staff, world.s)
-    await customer.add_message(world.t.id, AddMessage(body="ممنون، یک سؤال دیگر"), world.cust, world.s)
+    await customer.add_message(world.t.id, AddMessage(body="ممنون، یک سؤال دیگر"), world.cust_auth, world.s)
     await world.s.refresh(world.t)
     assert world.t.status == "open"
-    await customer.add_message(world.t.id, AddMessage(body="جواب"), world.staff, world.s)
+    await customer.add_message(world.t.id, AddMessage(body="جواب"), world.staff_auth, world.s)
     assert (await world.s.scalars(select(OutboxEvent).where(OutboxEvent.topic == events.NOTIFY))).first() is not None
 
 

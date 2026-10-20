@@ -1,14 +1,17 @@
 import json
 import uuid
 
-from fastapi import APIRouter, Query, Response
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Query, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from melorin.core import audit, settings_store
 from melorin.core.crypto import encrypt
-from melorin.core.deps import CurrentUser, OwnerCtx, Session, main_store
+from melorin.core import channel
+from melorin.core.deps import CurrentAuth, CurrentUser, OwnerCtx, Session, main_store
 from melorin.core.errors import AppError, NotFound
 from melorin.modules.identity.models import User
 from melorin.modules.orders.models import Order
@@ -41,6 +44,14 @@ from melorin.modules.reseller.schemas import OwnerRenewalOut
 from melorin.modules.vpn.schemas import OwnerAccountOut
 from melorin.modules.stores.models import Store
 from melorin.modules.vpn.bundles import Bundle, StoreBundle
+
+async def main_session_user(auth: CurrentAuth, session: Session):
+    """Reseller applications are made to the MAIN store: only a session opened through the main site/bot may file or read them."""
+    main = await main_store(session)
+    if not auth.claims.is_admin and auth.claims.store_id != main.id:
+        raise channel.mismatch()
+    return auth.user
+
 
 router = APIRouter(tags=["reseller"])
 
@@ -86,7 +97,7 @@ def application_out(a: ResellerApplication) -> dict:
 
 
 @router.post("/reseller/applications")
-async def apply(body: ApplicationIn, user: CurrentUser, session: Session):
+async def apply(body: ApplicationIn, user: Annotated[User, Depends(main_session_user)], session: Session):
     target = await application_target_store(session, user.id, body.target_store_id)
     if await session.scalar(
         select(ResellerProfile.id).where(
@@ -135,7 +146,7 @@ async def apply(body: ApplicationIn, user: CurrentUser, session: Session):
 
 
 @router.get("/reseller/applications")
-async def my_applications(user: CurrentUser, session: Session):
+async def my_applications(user: Annotated[User, Depends(main_session_user)], session: Session):
     rows = (
         await session.scalars(
             select(ResellerApplication)
@@ -148,7 +159,7 @@ async def my_applications(user: CurrentUser, session: Session):
 
 
 @router.post("/reseller/applications/{application_id}/cancel")
-async def cancel_application(application_id: uuid.UUID, user: CurrentUser, session: Session):
+async def cancel_application(application_id: uuid.UUID, user: Annotated[User, Depends(main_session_user)], session: Session):
     a = await session.get(ResellerApplication, application_id, with_for_update=True)
     if not a or a.user_id != user.id:
         raise NotFound("درخواست نمایندگی")
@@ -161,7 +172,7 @@ async def cancel_application(application_id: uuid.UUID, user: CurrentUser, sessi
 
 
 @router.post("/reseller/applications/{application_id}/details")
-async def submit_details(application_id: uuid.UUID, body: ApplicationDetailsIn, user: CurrentUser, session: Session):
+async def submit_details(application_id: uuid.UUID, body: ApplicationDetailsIn, user: Annotated[User, Depends(main_session_user)], session: Session):
     """Second step of a request the admin already approved: the applicant sends the store domain and the bot token,
     both are validated, and the reseller store is created right away (the admin approval is the authorisation)."""
     from melorin.modules.reseller.provisioning import create_reseller_store
