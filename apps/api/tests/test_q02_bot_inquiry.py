@@ -106,7 +106,10 @@ def bots(tmp_path, monkeypatch):
     main = load("q02_main", "telegram-main/runner.py").TelegramRunner()
     main.client = httpx.AsyncClient(transport=httpx.MockTransport(core.handler))
     res_mod = load("q02_res", "telegram-reseller/runner.py")
-    res = res_mod.ResellerTelegramRunner(token="rtok", slug="shop", state_suffix="s1")
+    # No ``state_suffix``: with it the reseller runner hardcodes /var/lib/melorin/..., which a non-root CI user cannot create.
+    # Its own offset/state file in tmp keeps it apart from the main bot's.
+    monkeypatch.setenv("MELORIN_TELEGRAM_OFFSET_FILE", str(tmp_path / "r.json"))
+    res = res_mod.ResellerTelegramRunner(token="rtok", slug="shop")
     res.client = httpx.AsyncClient(transport=httpx.MockTransport(core.handler))
     return main, res, core
 

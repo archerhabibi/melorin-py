@@ -72,9 +72,9 @@ async def _take(factory, user_id, store_id):
 async def _count(factory, user_id, store_id):
     async with factory() as s:
         return await s.scalar(
-            select(func.count()).select_from(system_models.TestAccountGrant).where(
-                system_models.TestAccountGrant.user_id == user_id, system_models.TestAccountGrant.store_id == store_id
-            )
+            select(func.count())
+            .select_from(system_models.TestAccountGrant)
+            .where(system_models.TestAccountGrant.user_id == user_id, system_models.TestAccountGrant.store_id == store_id)
         )
 
 

@@ -242,7 +242,6 @@ async def checkout_quote(body: QuoteRequest, ctx: StoreCtx, session: Session):
     await session.commit()
     return QuoteWalletOut(
         renewal=after,
-
         product_id=product.id,
         unit_price=q.unit_price,
         discount=q.discount,

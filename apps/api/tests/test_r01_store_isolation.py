@@ -55,12 +55,17 @@ async def _account(s, *, user, store, product, name):
 async def _world(s):
     """alice shops in BOTH stores with one login; bob only in store A."""
     alice, bob = await make_user(s), await make_user(s)
-    store_a, store_b = await make_store(s, kind="reseller", owner=await make_user(s)), await make_store(s, kind="reseller", owner=await make_user(s))
+    store_a, store_b = (
+        await make_store(s, kind="reseller", owner=await make_user(s)),
+        await make_store(s, kind="reseller", owner=await make_user(s)),
+    )
     p = await make_product(s)
     a_in_a, o_in_a = await _account(s, user=alice, store=store_a, product=p, name="alice_in_a")
     a_in_b, o_in_b = await _account(s, user=alice, store=store_b, product=p, name="alice_in_b")
     b_in_a, o_bob = await _account(s, user=bob, store=store_a, product=p, name="bob_in_a")
-    pay = lambda u, st: Payment(user_id=u.id, store_id=st.id, purpose="wallet_topup", provider="manual_card", amount=1000, currency="IRT", status="pending")  # noqa: E731
+    pay = lambda u, st: Payment(
+        user_id=u.id, store_id=st.id, purpose="wallet_topup", provider="manual_card", amount=1000, currency="IRT", status="pending"
+    )  # noqa: E731
     pay_a, pay_b, pay_bob = pay(alice, store_a), pay(alice, store_b), pay(bob, store_a)
     note = lambda u, st, t: Notification(user_id=u.id, store_id=st.id, kind="vpn_account", title=t, body="x")  # noqa: E731
     s.add_all([pay_a, pay_b, pay_bob, note(alice, store_a, "in-a"), note(alice, store_b, "in-b"), note(bob, store_a, "bob-a")])

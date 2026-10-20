@@ -31,8 +31,17 @@ NOW = dt.datetime.now(dt.UTC)
 async def _account(s, *, user, store, product, name):
     order = await make_order(s, user=user, store=store, product=product)
     a = VpnAccount(
-        username=name, user_id=user.id, store_id=store.id, order_id=order.id, product_id=product.id, status="active",
-        expires_at=NOW + dt.timedelta(days=5), traffic_limit_bytes=10 * 1024**3, traffic_used_bytes=0, subscription_url=f"https://sub.test/{name}", links=[],
+        username=name,
+        user_id=user.id,
+        store_id=store.id,
+        order_id=order.id,
+        product_id=product.id,
+        status="active",
+        expires_at=NOW + dt.timedelta(days=5),
+        traffic_limit_bytes=10 * 1024**3,
+        traffic_used_bytes=0,
+        subscription_url=f"https://sub.test/{name}",
+        links=[],
     )
     s.add(a)
     await s.flush()
@@ -117,7 +126,9 @@ async def test_a_missing_account_id_answers_exactly_like_a_foreign_one():
         answers = set()
         for n, acct_id in enumerate((uuid.uuid4(), w.a_in_b.id, w.b_in_a.id)):
             with pytest.raises(AppError) as e:
-                await orders.create_order(s, ctx, product_id=w.product.id, idempotency_key=f"p{n}", kind="renewal", vpn_account_id=acct_id, channel="web")
+                await orders.create_order(
+                    s, ctx, product_id=w.product.id, idempotency_key=f"p{n}", kind="renewal", vpn_account_id=acct_id, channel="web"
+                )
             answers.add((e.value.code, e.value.status, e.value.message))
         assert len(answers) == 1
 

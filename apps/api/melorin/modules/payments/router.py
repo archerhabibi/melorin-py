@@ -40,7 +40,9 @@ async def topup(
 @router.get("/stores/{store_id}/payments", response_model=list[PaymentOut])
 async def my_payments(ctx: StoreCtx, session: Session):
     """Only the caller's own payments / top-ups of THIS store."""
-    rows = (await session.scalars(select(Payment).where(*StoreScope.of(ctx).where(Payment)).order_by(Payment.created_at.desc()).limit(100))).all()
+    rows = (
+        await session.scalars(select(Payment).where(*StoreScope.of(ctx).where(Payment)).order_by(Payment.created_at.desc()).limit(100))
+    ).all()
     return [payment_out(p) for p in rows]
 
 

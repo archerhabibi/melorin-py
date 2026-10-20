@@ -45,8 +45,14 @@ class Panel_:
 
     def __init__(self, *, used=0, limit=10 * GIB, expire=None, can_reset=True, script=()):
         self.state = PanelAccount(
-            ref="r", username="x", status="disabled", expire_at=expire, traffic_limit_bytes=limit, traffic_used_bytes=used,
-            subscription_url="https://sub.test/x", links=[],
+            ref="r",
+            username="x",
+            status="disabled",
+            expire_at=expire,
+            traffic_limit_bytes=limit,
+            traffic_used_bytes=used,
+            subscription_url="https://sub.test/x",
+            links=[],
         )
         self.calls: list[tuple] = []
         self.script = list(script)
@@ -75,7 +81,10 @@ class Panel_:
 async def _fund(s, user, store, amount):
     w = await wallet.get_wallet(s, user.id, store.id, currency="IRT", kind="customer")
     await wallet.post(
-        s, kind="topup", key=f"fund:{w.id}:{amount}", currency="IRT",
+        s,
+        kind="topup",
+        key=f"fund:{w.id}:{amount}",
+        currency="IRT",
         postings=[wallet.Posting(-amount, account="gateway:test:clearing"), wallet.Posting(amount, wallet=w)],
     )
     return w
@@ -97,7 +106,15 @@ async def _world(s, *, expired_days_ago=3, status="expired", funds=50_000, store
     bp = BundleProduct(bundle_id=bundle.id, product_id=product.id, is_listed=True, sort=0)
     s.add_all([BundleMember(bundle_id=bundle.id, panel_id=panel.id, sort=0), server, bp])
     for p in (product, other):
-        s.add(StoreProduct(store_id=store.id, product_id=p.id, is_enabled=True, is_listed=True, customer_price=3_000 if store_kind == "reseller" else None))
+        s.add(
+            StoreProduct(
+                store_id=store.id,
+                product_id=p.id,
+                is_enabled=True,
+                is_listed=True,
+                customer_price=3_000 if store_kind == "reseller" else None,
+            )
+        )
     membership = StoreMembership(store_id=store.id, user_id=user.id, role="customer", status="active")
     s.add(membership)
     await s.flush()
@@ -105,16 +122,37 @@ async def _world(s, *, expired_days_ago=3, status="expired", funds=50_000, store
     first.bundle_id = bundle.id
     expires = NOW - dt.timedelta(days=expired_days_ago)
     account = VpnAccount(
-        username="acc_1", user_id=user.id, store_id=store.id, order_id=first.id, product_id=product.id, server_id=server.id,
-        panel_id=panel.id, panel_ref="r", status=status, expires_at=expires, traffic_limit_bytes=10 * GIB, traffic_used_bytes=4 * GIB,
-        subscription_url="https://sub.test/x", links=[],
+        username="acc_1",
+        user_id=user.id,
+        store_id=store.id,
+        order_id=first.id,
+        product_id=product.id,
+        server_id=server.id,
+        panel_id=panel.id,
+        panel_ref="r",
+        status=status,
+        expires_at=expires,
+        traffic_limit_bytes=10 * GIB,
+        traffic_used_bytes=4 * GIB,
+        subscription_url="https://sub.test/x",
+        links=[],
     )
     s.add(account)
     w = await _fund(s, user, store, funds)
     await s.commit()
     ctx = StoreContext(store=store, user=user, membership=membership)
     return types.SimpleNamespace(
-        ctx=ctx, store=store, user=user, product=product, other=other, bundle=bundle, bp=bp, account=account, wallet_id=w.id, owner=owner, panel=panel
+        ctx=ctx,
+        store=store,
+        user=user,
+        product=product,
+        other=other,
+        bundle=bundle,
+        bp=bp,
+        account=account,
+        wallet_id=w.id,
+        owner=owner,
+        panel=panel,
     )
 
 
@@ -145,7 +183,9 @@ def test_active_account_and_account_without_expiry_are_renewable():
     assert renewal.eligibility(_acc(expires_at=None), now=NOW).ok
 
 
-@pytest.mark.parametrize("kw", [dict(is_test=True), dict(status="revoked"), dict(status="archived"), dict(status="pending"), dict(status="provisioning")])
+@pytest.mark.parametrize(
+    "kw", [dict(is_test=True), dict(status="revoked"), dict(status="archived"), dict(status="pending"), dict(status="provisioning")]
+)
 def test_test_revoked_archived_and_unfinished_accounts_are_not_renewable(kw):
     st = renewal.eligibility(_acc(**kw), now=NOW)
     assert not st.ok and st.code == "ACCOUNT_NOT_RENEWABLE"
@@ -200,7 +240,9 @@ async def test_someone_elses_account_is_not_renewable():
         s.add(StoreMembership(store_id=t.store.id, user_id=stranger.id, role="customer", status="active"))
         await _fund(s, stranger, t.store, 9_000)
         await s.commit()
-        ctx = StoreContext(store=t.store, user=stranger, membership=await s.scalar(select(StoreMembership).where(StoreMembership.user_id == stranger.id)))
+        ctx = StoreContext(
+            store=t.store, user=stranger, membership=await s.scalar(select(StoreMembership).where(StoreMembership.user_id == stranger.id))
+        )
         with pytest.raises(AppError) as e:
             await orders.create_order(s, ctx, product_id=t.product.id, idempotency_key="x", kind="renewal", vpn_account_id=t.account.id)
         assert e.value.code == "ACCOUNT_NOT_RENEWABLE"
@@ -361,9 +403,19 @@ def test_account_list_tells_the_clients_whether_renewal_is_open():
 
     now = dt.datetime.now(dt.UTC)
     a = VpnAccount(
-        id=__import__("uuid").uuid4(), username="u", user_id=__import__("uuid").uuid4(), status="expired", is_test=False,
-        expires_at=now - dt.timedelta(days=11), traffic_limit_bytes=0, traffic_used_bytes=0, subscription_url=None, links=None,
-        server_id=None, created_at=now, updated_at=now,
+        id=__import__("uuid").uuid4(),
+        username="u",
+        user_id=__import__("uuid").uuid4(),
+        status="expired",
+        is_test=False,
+        expires_at=now - dt.timedelta(days=11),
+        traffic_limit_bytes=0,
+        traffic_used_bytes=0,
+        subscription_url=None,
+        links=None,
+        server_id=None,
+        created_at=now,
+        updated_at=now,
     )
     assert out(a).can_renew is False
     assert "۱۰" in out(a).renew_note or "10" in out(a).renew_note  # Core words the reason; no channel hardcodes the window
@@ -418,9 +470,20 @@ async def test_reseller_renews_his_own_account_without_an_owner_audit_entry():
         first = await make_order(s, user=t.owner, store=t.store, product=t.product, total=2_000, status="completed")
         first.bundle_id = t.bundle.id
         own = VpnAccount(
-            username="acc_owner", user_id=t.owner.id, store_id=t.store.id, order_id=first.id, product_id=t.product.id,
-            server_id=t.account.server_id, panel_id=t.panel.id, panel_ref="r2", status="expired",
-            expires_at=NOW - dt.timedelta(days=3), traffic_limit_bytes=10 * GIB, traffic_used_bytes=0, subscription_url="https://sub.test/o", links=[],
+            username="acc_owner",
+            user_id=t.owner.id,
+            store_id=t.store.id,
+            order_id=first.id,
+            product_id=t.product.id,
+            server_id=t.account.server_id,
+            panel_id=t.panel.id,
+            panel_ref="r2",
+            status="expired",
+            expires_at=NOW - dt.timedelta(days=3),
+            traffic_limit_bytes=10 * GIB,
+            traffic_used_bytes=0,
+            subscription_url="https://sub.test/o",
+            links=[],
         )
         s.add_all([own, StoreMembership(store_id=t.store.id, user_id=t.owner.id, role="owner", status="active")])
         await _fund(s, t.owner, t.store, 50_000)

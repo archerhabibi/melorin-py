@@ -95,7 +95,9 @@ async def create_order(
         try:
             product, sp = await catalog.get_sellable(session, store, product_id)
         except AppError as e:
-            raise AppError("RENEWAL_PRODUCT_UNAVAILABLE", "پکیج این اکانت دیگر فروخته نمی‌شود؛ تمدید ممکن نیست و باید اکانت جدید تهیه کنید.", 409) from e
+            raise AppError(
+                "RENEWAL_PRODUCT_UNAVAILABLE", "پکیج این اکانت دیگر فروخته نمی‌شود؛ تمدید ممکن نیست و باید اکانت جدید تهیه کنید.", 409
+            ) from e
     elif kind == "purchase":
         product, sp = await catalog.get_sellable(session, store, product_id)
     else:
@@ -140,7 +142,12 @@ async def create_order(
             "traffic_limit_bytes": account.traffic_limit_bytes,
         }
         snapshot["renewal"] = {
-            "package": {"id": str(product.id), "name": product.name, "duration_days": product.duration_days, "traffic_gb": product.traffic_gb},
+            "package": {
+                "id": str(product.id),
+                "name": product.name,
+                "duration_days": product.duration_days,
+                "traffic_gb": product.traffic_gb,
+            },
             "bundle_id": str(plan.group_id) if plan.group_id else None,
             "unit_price": plan.unit_price,  # the package's current price in the original bundle, charged now
         }
