@@ -36,6 +36,23 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-20 20:48 UTC - archerhabibi - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(channel-binding): review fixes on top of the patch - - ruff format the 9 files the patch left unformatted (ruff format --check is a CI gate; pinned ruff 0.9.2) - tickets router: move 'user = auth.user' below the docstring in update_ticket/edit_message (it had turned the docstring into a dead ex…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (11):** `apps/api/melorin/modules/identity/router.py`, `apps/api/melorin/modules/identity/service.py`, `apps/api/melorin/modules/referral/router.py`, `apps/api/melorin/modules/reseller/router.py`, `apps/api/melorin/modules/tickets/router.py`, `apps/api/tests/test_n01_ticket_desk.py`, `apps/api/tests/test_o01_google_signin.py`, `apps/api/tests/test_q01_google_settings.py` (+3 more)
+- **Ref:** `bc2c6fb`
+
+### 2026-10-20 20:43 UTC - Claude - db, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(auth): channel binding - every session is bound to one store, decided in Core - Sessions are opened through a verified channel (site by Host, bot by runner secret + store, admin by password+TOTP) and carry chn/sid in the access token and refresh family. Every /stores/{id}/... dependency refuse…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (29):** `apps/api/alembic/versions/0027_channel_binding.py`, `apps/api/melorin/core/channel.py`, `apps/api/melorin/core/config.py`, `apps/api/melorin/core/deps.py`, `apps/api/melorin/core/security.py`, `apps/api/melorin/modules/identity/models.py`, `apps/api/melorin/modules/identity/router.py`, `apps/api/melorin/modules/identity/schemas.py` (+21 more)
+- **Ref:** `07953d3`
+
+
 ### 2026-10-20 09:08 UTC - Claude - ci-deploy  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
