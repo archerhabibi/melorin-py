@@ -12,6 +12,15 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      - name: Require deploy secrets
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER_NAME: ${{ secrets.DEPLOY_USER }}
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          for v in HOST USER_NAME SSH_KEY; do
+            [ -n "${!v}" ] || { echo "::error::missing GitHub secret for $v (DEPLOY_HOST / DEPLOY_USER / DEPLOY_SSH_KEY)"; exit 1; }
+          done
       - name: Prepare SSH
         env:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
@@ -30,7 +39,10 @@ jobs:
           ssh -i ~/.ssh/id_deploy -p "${PORT:-22}" -o IdentitiesOnly=yes "$USER_NAME@$HOST" \
             'set -euo pipefail
              cd /opt/melorin
-             git pull --ff-only
+             # the server checkout may be on a detached HEAD (git pull fails there): always move to main, fast-forward only
+             git fetch --prune origin
+             git checkout -q main
+             git merge --ff-only origin/main
              REF=$(git rev-parse --short HEAD)
              trap '"'"'scripts/ops_log.sh -w github-actions -a deploy -b "previous deploy" -p "deploy FAILED at $REF" -c "see Actions run" -r "failed" -f "$REF"'"'"' ERR
              docker compose build
