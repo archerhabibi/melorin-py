@@ -366,8 +366,9 @@ def test_account_list_tells_the_clients_whether_renewal_is_open():
         server_id=None, created_at=now, updated_at=now,
     )
     assert out(a).can_renew is False
+    assert "۱۰" in out(a).renew_note or "10" in out(a).renew_note  # Core words the reason; no channel hardcodes the window
     a.expires_at = now - dt.timedelta(days=9)
-    assert out(a).can_renew is True and out(a).renew_until is not None
+    assert out(a).can_renew is True and out(a).renew_until is not None and out(a).renew_note is None
 
 
 # ------------------------------------------------------------------ the reseller renews: own accounts + own customers only
@@ -382,6 +383,7 @@ async def test_reseller_renews_a_customers_account_in_his_own_store():
         t = await _world(s, store_kind="reseller")
         info = await rr.store_account_renewal(t.account.id, _owner_ctx(t), s)
         assert info.renewable and info.package.product_id == t.product.id  # the same promise the customer would get
+        assert "کیف پول" in info.payer_note  # Core says who pays; the channels only show it
         o = await rr.store_account_renew(t.account.id, rr.OwnerRenewIn(), _owner_ctx(t), s, idempotency_key="owner-renew-1")
         assert o.kind == "renewal" and o.vpn_account_id == t.account.id and o.user_id == t.user.id  # the order is the customer's
         assert await _balance(s, t) < 50_000  # paid from the customer's wallet in this store; the rules stay the core's

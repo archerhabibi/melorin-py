@@ -3,6 +3,8 @@ import uuid
 
 from pydantic import BaseModel, Field, HttpUrl, model_validator
 
+from melorin.modules.catalog.schemas import RenewalOut
+
 
 class ApplicationIn(BaseModel):
     """Reseller application. ``domain`` and ``bot_token`` are given together (web form: one-step) or both omitted
@@ -108,3 +110,9 @@ class PriceBatchItem(BaseModel):
 
 class PriceBatchIn(BaseModel):
     items: list[PriceBatchItem] = Field(min_length=1, max_length=500)
+
+
+class OwnerRenewalOut(RenewalOut):
+    """A reseller's renewal offer: the same promise the account's holder would get, plus who pays (Core's words)."""
+
+    payer_note: str | None = None

@@ -25,7 +25,7 @@ function Card({ a, owner, base, coreFetch, notify, extra, onChange }) {
   };
   return <div className="card">
     <div className="flex items-center justify-between gap-2"><b className="latin break-all">{a.username}</b><HealthBadge health={a.health} /></div>
-    {owner && (a.is_own ? <div className="mt-1 text-xs text-muted">اکانت خودتان</div> : <div className="mt-1 text-xs text-muted">مشتری: <b className="text-ink">{a.customer_name || "—"}</b></div>)}
+    {owner && a.holder_label && <div className="mt-1 text-xs text-muted">{a.holder_label}</div>}
     <div className="mt-4 flex items-center justify-between text-xs text-muted"><span>انقضا: {a.expires_at ? fd(a.expires_at) : "نامحدود"}</span>{a.days_left != null && <b className="text-ink">{fa(a.days_left)} روز مانده</b>}</div>
     <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface2"><div className={`h-full rounded-full ${pct > 85 ? "bg-danger" : "bg-coral"}`} style={{ width: `${pct}%` }} /></div>
     <div className="mt-1 text-xs text-muted">{gb(a.traffic_used_bytes)} از {a.traffic_limit_bytes ? gb(a.traffic_limit_bytes) : "∞"} گیگ</div>
@@ -71,7 +71,7 @@ export default function AccountInquiry({ coreFetch, base, owner = false, notify,
     <div className="relative"><Search size={16} className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-muted" />
       <input value={input} onChange={(e) => setInput(e.target.value)} className="input !pr-10 !pl-10" placeholder={owner ? "جستجوی اکانت مشتریان: نام اکانت، نام یا ایمیل مشتری" : "جستجو در نام اکانت"} aria-label="جستجوی اکانت" maxLength={64} />
       {input && <button onClick={() => setInput("")} aria-label="پاک‌کردن جستجو" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"><X size={16} /></button>}</div>
-    {owner && !q && <p className="text-xs text-muted">این فهرست فقط اکانت‌هایی است که خودتان ساخته‌اید. برای پیدا کردن اکانت مشتریان‌تان، نام اکانت یا نام/ایمیل مشتری را جستجو کنید.</p>}
+    {owner && !q && counts?.note && <p className="text-xs text-muted">{counts.note}</p>}
     {rows === null ? <Loading rows={2} /> : !rows.length ? <Empty icon={Search} text={owner && !q && !state ? (emptyText || "اکانتی ندارید.") : "نتیجه‌ای پیدا نشد."} /> :
       <div className="grid gap-4 md:grid-cols-2">{rows.map((a) => <Card key={a.id} a={a} owner={owner} base={base} coreFetch={coreFetch} notify={notify} onChange={replace} extra={renderExtra?.(a, replace)} />)}</div>}
     {(page > 0 || more) && <div className="flex items-center justify-center gap-3 pt-2">

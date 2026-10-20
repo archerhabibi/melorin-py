@@ -31,7 +31,7 @@ function OwnerRenew({ account, base, coreFetch, notify, onDone, onClose }) {
     {info === null ? <Loading rows={1} /> : !info.renewable ? <p className="mt-2 text-xs text-muted">{info.message || "این اکانت قابل تمدید نیست."}</p> : <div className="mt-2 space-y-1">
       <div><b>{info.package.name}</b></div>
       {after && <div className="text-xs text-muted">پس از تمدید: {fa(after.duration_days)} روز · {after.traffic_gb ? `${fa(after.traffic_gb)} گیگ` : "نامحدود"}؛ روزهای باقی‌مانده فعلی جایگزین می‌شود، اضافه نمی‌شود.</div>}
-      <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-3"><span>مبلغ: <b>{fa(info.package.price)} {info.package.currency}</b>{!account.is_own && <span className="block text-xs text-muted">از کیف پول مشتری در این فروشگاه کسر می‌شود.</span>}</span>
+      <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-3"><span>مبلغ: <b>{fa(info.package.price)} {info.package.currency}</b>{info.payer_note && <span className="block text-xs text-muted">{info.payer_note}</span>}</span>
         <button disabled={busy} onClick={go} className="btn-primary !px-4 !py-2 text-xs">تمدید</button></div>
     </div>}
   </div>;
@@ -42,7 +42,7 @@ function OwnerAccounts({ coreFetch, base, notify }) {
   const [tick, setTick] = useState(0);
   return <AccountInquiry coreFetch={coreFetch} base={`${base}/accounts`} owner notify={notify} reloadKey={tick} emptyText="هنوز اکانتی نساخته‌اید. اکانت مشتریان را با جستجو پیدا کنید."
     renderExtra={(a) => <>
-      {a.can_renew ? <button onClick={() => setRenew(renew === a.id ? null : a.id)} className="btn-soft mt-2 w-full"><RefreshCw size={16} />تمدید</button> : !a.is_test && a.expires_at && <p className="mt-2 text-xs text-muted">مهلت تمدید این اکانت (۱۰ روز پس از انقضا) تمام شده است.</p>}
+      {a.can_renew ? <button onClick={() => setRenew(renew === a.id ? null : a.id)} className="btn-soft mt-2 w-full"><RefreshCw size={16} />تمدید</button> : a.renew_note && !a.is_test && <p className="mt-2 text-xs text-muted">{a.renew_note}</p>}
       {renew === a.id && <OwnerRenew account={a} base={base} coreFetch={coreFetch} notify={notify} onDone={() => setTick((t) => t + 1)} onClose={() => setRenew(null)} />}
     </>} />;
 }

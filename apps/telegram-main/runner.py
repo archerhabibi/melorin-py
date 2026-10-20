@@ -919,8 +919,8 @@ class TelegramRunner:
                 f"🟢 {counts.get('active', 0)} فعال · 🟡 {counts.get('expiring', 0)} رو‌به‌اتمام · 🔴 {counts.get('expired', 0)} منقضی"]
         if q:
             head.append(f"🔎 جستجو: «{esc(q)}»")
-        if cfg["owner"] and not q:
-            head.append("ℹ️ این فهرست فقط اکانت‌هایی است که خودتان ساخته‌اید. اکانت مشتریان‌تان را با 🔎 جستجو (نام اکانت، نام یا ایمیل مشتری) پیدا کنید.")
+        if cfg["owner"] and not q and counts.get("note"):  # Core's own words about what this list is
+            head.append(f"ℹ️ {esc(counts['note'])}")
         if not rows:
             head += ["", "نتیجه‌ای پیدا نشد." if (q or state) else "هنوز اکانتی نساخته‌اید."]
         elif cfg["owner"]:
@@ -985,7 +985,7 @@ class TelegramRunner:
         health = account.get("health")
         lines = [f"👤 <b>{esc(account.get('username', '-'))}</b>", f"وضعیت: {HEALTH_BADGE.get(health, '•')} {HEALTH_LABEL.get(health, esc(account.get('status')))}"]
         if owner:
-            lines.append("🙋 اکانت خودتان" if account.get("is_own") else f"🙋 مشتری: {esc(account.get('customer_name') or '-')}")
+            lines.append(f"🙋 {esc(account.get('holder_label') or account.get('customer_name') or '-')}")
         lines += [expiry_line(account.get("expires_at")), "", f"📊 {usage_bar(account.get('traffic_used_bytes'), account.get('traffic_limit_bytes'))}"]
         lines += ["", "🔗 لینک اشتراک (برای کپی لمس کنید):", f"<code>{esc(link)}</code>"] if link else ["", "🔗 لینک در حال آماده‌سازی است."]
         pre = "o" if owner else ""
@@ -1054,7 +1054,8 @@ class TelegramRunner:
         if after:
             volume = f"{after['traffic_gb']} گیگ" if after.get("traffic_gb") else "نامحدود"
             lines.append(f"پس از تمدید: {after.get('duration_days')} روز · {volume} (روزهای باقی‌مانده فعلی جایگزین می‌شود، اضافه نمی‌شود)")
-        lines.append("از کیف پول صاحب اکانت در این فروشگاه کسر می‌شود.")
+        if info.get("payer_note"):
+            lines.append(esc(info["payer_note"]))
         await self.screen(ctx, "\n".join(lines), [[("✅ تأیید و تمدید", f"orb:{token}")], back])
 
     async def cb_owner_renew_buy(self, ctx, token):

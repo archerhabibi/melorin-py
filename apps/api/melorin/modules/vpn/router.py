@@ -26,28 +26,16 @@ async def mine(
     limit: int = Query(100, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ):
-    """Always the caller's OWN accounts: ``user_id`` is part of every query, whatever the filters are."""
-    cond = [VpnAccount.user_id == user.id, VpnAccount.archived_at.is_(None)]
-    if store_id:
-        cond.append(VpnAccount.store_id == store_id)
-    if term := inquiry.clean_query(q):
-        cond.append(inquiry.username_clause(term))
-    state_cond = inquiry.state_clause(state)
-    if state_cond is not None:
-        cond.append(state_cond)
-    total = await session.scalar(select(func.count()).select_from(VpnAccount).where(*cond))
-    response.headers["X-Total-Count"] = str(total or 0)
-    rows = await session.scalars(select(VpnAccount).where(*cond).order_by(VpnAccount.created_at.desc()).limit(limit).offset(offset))
-    return [out(a) for a in rows.all()]
+    """Always the caller's OWN accounts (list and search): the scope lives in ``inquiry.customer_accounts``."""
+    rows, total = await inquiry.customer_accounts(session, user.id, store_id=store_id, q=q, state=state, limit=limit, offset=offset)
+    response.headers["X-Total-Count"] = str(total)
+    return [out(a) for a in rows]
 
 
 @router.get("/summary")
 async def summary(user: CurrentUser, session: Session, store_id: uuid.UUID | None = Query(None)):
     """Chip counters (total / active / expiring / expired) over the caller's OWN accounts."""
-    cond = [VpnAccount.user_id == user.id, VpnAccount.archived_at.is_(None)]
-    if store_id:
-        cond.append(VpnAccount.store_id == store_id)
-    return await inquiry.summary(session, *cond)
+    return await inquiry.customer_summary(session, user.id, store_id=store_id)
 
 
 @router.post("/{account_id}/refresh", response_model=VpnAccountOut)

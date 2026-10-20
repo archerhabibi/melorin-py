@@ -63,16 +63,27 @@ class Core:
         if "/reseller/" in path and not self.owner:
             return httpx.Response(403, json={})
         if path.endswith("/summary"):
-            return httpx.Response(200, json={"total": len(self.rows), "active": len(self.rows), "expiring": 0, "expired": 0})
+            note = (
+                {"note": "این فهرست فقط اکانت‌هایی است که خودتان ساخته‌اید؛ مشتریان را با جستجو پیدا کنید."} if "/reseller/" in path else {}
+            )
+            return httpx.Response(200, json={"total": len(self.rows), "active": len(self.rows), "expiring": 0, "expired": 0, **note})
         if path.endswith("/renewal"):
             pkg = {"product_id": "p1", "name": "پکیج ۳۰ روزه", "price": 90000, "currency": "IRT"}
-            return httpx.Response(200, json={"renewable": True, "package": pkg, "after": {"duration_days": 30, "traffic_gb": 50}})
+            return httpx.Response(
+                200,
+                json={
+                    "renewable": True,
+                    "package": pkg,
+                    "after": {"duration_days": 30, "traffic_gb": 50},
+                    "payer_note": "مبلغ از کیف پول صاحب اکانت کسر می‌شود.",
+                },
+            )
         if request.method == "POST" and path.endswith("/renew"):
             self.renewals = [*getattr(self, "renewals", []), (path, request.headers.get("idempotency-key"), json.loads(body))]
             return httpx.Response(201, json={"id": "o1"})
         if path.endswith("/refresh"):
             row = next(a for a in self.rows if a["id"] in path)
-            return httpx.Response(200, json={**row, "customer_name": "Sara"})
+            return httpx.Response(200, json={**row, "customer_name": "Sara", "holder_label": "مشتری: Sara"})
         if path in ("/api/v1/vpn-accounts", "/api/v1/stores/s1/reseller/accounts"):
             rows = self.rows
             if params.get("q"):

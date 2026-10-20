@@ -1349,17 +1349,9 @@ async def vpn_accounts(
     limit: int = Query(100, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ):
-    """The platform owner's inquiry: every account of every store, searchable and paged (same rules as the store owner's)."""
-    cond = [VpnAccount.archived_at.is_(None)]
-    if store_id:
-        cond.append(VpnAccount.store_id == store_id)
-    if term := inquiry.clean_query(q):
-        cond.append(inquiry.owner_clause(term, User))
-    if (state_cond := inquiry.state_clause(state)) is not None:
-        cond.append(state_cond)
-    base = select(VpnAccount, User).join(User, User.id == VpnAccount.user_id).where(*cond)
-    response.headers["X-Total-Count"] = str(await session.scalar(select(func.count()).select_from(base.subquery())) or 0)
-    rows = (await session.execute(base.order_by(VpnAccount.updated_at.desc()).limit(limit).offset(offset))).all()
+    """The platform owner's inquiry: every account of every store, searchable and paged (``inquiry.admin_accounts``)."""
+    rows, total = await inquiry.admin_accounts(session, q=q, store_id=store_id, state=state, limit=limit, offset=offset)
+    response.headers["X-Total-Count"] = str(total)
     return [
         {
             "id": a.id,

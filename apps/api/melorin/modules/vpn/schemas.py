@@ -19,6 +19,7 @@ class VpnAccountOut(BaseModel):
     updated_at: dt.datetime
     can_renew: bool = False  # inside the renewal window (up to 10 days after expiry) and not a test/revoked account
     renew_until: dt.datetime | None = None
+    renew_note: str | None = None  # Core's own words for "why not renewable" (shown as is by every channel; None when renewable)
     store_id: uuid.UUID | None = None
     days_left: int | None = None  # None = no expiry
     usage_percent: int | None = None  # None = unlimited volume
@@ -31,3 +32,4 @@ class OwnerAccountOut(VpnAccountOut):
     customer_id: uuid.UUID
     customer_name: str | None = None
     is_own: bool = False  # True: the owner's own account; False: an account of one of the store's customers
+    holder_label: str | None = None  # Core's words for whose account this is ("اکانت خودتان" / "مشتری: ...")

@@ -37,6 +37,7 @@ from fastapi import Header
 from types import SimpleNamespace
 from melorin.modules.vpn import allocation, inquiry
 from melorin.modules.vpn.models import VpnAccount
+from melorin.modules.reseller.schemas import OwnerRenewalOut
 from melorin.modules.vpn.schemas import OwnerAccountOut
 from melorin.modules.stores.models import Store
 from melorin.modules.vpn.bundles import Bundle, StoreBundle
@@ -372,50 +373,20 @@ async def store_accounts(
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ):
-    """The reseller's inquiry. The LIST (no search) is only the accounts they made themselves; a SEARCH also finds the
-    accounts of THEIR OWN store's customers (never another store's)."""
-    term = inquiry.clean_query(q)
-    cond = [VpnAccount.archived_at.is_(None)]
-    if term:
-        cond += [inquiry.reseller_visible(ctx.user.id, ctx.store.id), inquiry.owner_clause(term, User)]
-    else:
-        cond.append(VpnAccount.user_id == ctx.user.id)
-    state_cond = inquiry.state_clause(state)
-    if state_cond is not None:
-        cond.append(state_cond)
-    base = select(VpnAccount, User).join(User, User.id == VpnAccount.user_id).where(*cond)
-    total = await session.scalar(select(func.count()).select_from(base.subquery()))
-    response.headers["X-Total-Count"] = str(total or 0)
-    rows = (await session.execute(base.order_by(VpnAccount.created_at.desc()).limit(limit).offset(offset))).all()
+    """The reseller's inquiry: the LIST is only his own accounts, a SEARCH also finds his own customers' (``inquiry``)."""
+    rows, total = await inquiry.reseller_accounts(session, ctx.user.id, ctx.store.id, q=q, state=state, limit=limit, offset=offset)
+    response.headers["X-Total-Count"] = str(total)
     return [inquiry.owner_account_out(a, u, owner_id=ctx.user.id) for a, u in rows]
 
 
 @router.get("/stores/{store_id}/reseller/accounts/summary")
 async def store_accounts_summary(ctx: OwnerCtx, session: Session):
-    """Chip counters over the list scope: the reseller's OWN accounts."""
-    return await inquiry.summary(session, VpnAccount.user_id == ctx.user.id, VpnAccount.archived_at.is_(None))
+    """Chip counters over the list scope (the reseller's OWN accounts) + Core's note explaining that scope."""
+    return await inquiry.reseller_summary(session, ctx.user.id)
 
 
 async def _store_account(session, ctx, account_id: uuid.UUID):
-    """One account the reseller may act on: their own, or one of THEIR OWN store's customers' (never another store's)."""
-    row = (
-        await session.execute(
-            select(VpnAccount, User)
-            .join(User, User.id == VpnAccount.user_id)
-            .where(VpnAccount.id == account_id, inquiry.reseller_visible(ctx.user.id, ctx.store.id))
-        )
-    ).first()
-    if not row:
-        raise NotFound("اکانت VPN")
-    return row
-
-
-async def _account_context(session, a: VpnAccount, holder: User):
-    """The account holder's own context in the store the account lives in: the renewal then runs through exactly the
-    same core rules as a renewal started by the holder (ownership, window, package, price, wallet)."""
-    from melorin.core.deps import resolve_store_context  # lazy: deps imports this package's models
-
-    return await resolve_store_context(session, a.store_id, holder)
+    return await inquiry.reseller_find(session, ctx.user.id, ctx.store.id, account_id)
 
 
 @router.get("/stores/{store_id}/reseller/accounts/{account_id}", response_model=OwnerAccountOut)
@@ -432,13 +403,10 @@ async def store_account_refresh(account_id: uuid.UUID, ctx: OwnerCtx, session: S
     return inquiry.owner_account_out(a, u, owner_id=ctx.user.id)
 
 
-@router.get("/stores/{store_id}/reseller/accounts/{account_id}/renewal")
+@router.get("/stores/{store_id}/reseller/accounts/{account_id}/renewal", response_model=OwnerRenewalOut)
 async def store_account_renewal(account_id: uuid.UUID, ctx: OwnerCtx, session: Session):
-    """What a renewal of this account would be (package, price, new expiry) — the same answer the account's holder gets."""
-    from melorin.modules.catalog.router import renewal_info  # lazy: catalog imports reseller-side models
-
-    a, u = await _store_account(session, ctx, account_id)
-    return await renewal_info(a.id, await _account_context(session, a, u), session)
+    """What a renewal of this account would be (package, price, new expiry, who pays): Core's answer, shown as is."""
+    return await inquiry.reseller_renewal_offer(session, ctx.user.id, ctx.store.id, account_id)
 
 
 class OwnerRenewIn(BaseModel):
@@ -453,34 +421,10 @@ async def store_account_renew(
     session: Session,
     idempotency_key: str = Header(..., alias="Idempotency-Key", min_length=8, max_length=100),
 ):
-    """Renew one of the reseller's OWN accounts, or one of THEIR OWN store's customers' accounts, with the account's own
-    package at its current price. The order belongs to the account's holder and is paid from that holder's wallet in the
-    store (the reseller can top it up); every renewal rule stays in the core. Customers of other stores: 404."""
-    from melorin.modules.orders import service as orders  # lazy: orders imports the vpn package
-    from melorin.modules.orders.router import out as order_out
+    """Renew the reseller's own account or one of his own customers' accounts (everything else: 404); see ``inquiry``."""
+    from melorin.modules.orders.router import out as order_out  # lazy: orders imports the vpn package
 
-    a, u = await _store_account(session, ctx, account_id)
-    product_id, actor_id, is_own = a.product_id, ctx.user.id, a.user_id == ctx.user.id
-    order = await orders.create_order(
-        session,
-        await _account_context(session, a, u),
-        product_id=product_id,
-        idempotency_key=idempotency_key,
-        kind="renewal",
-        vpn_account_id=account_id,
-        channel=body.channel,
-    )
-    if not is_own:
-        audit.record(
-            session,
-            "order.renewed_by_owner",
-            actor_id=actor_id,
-            entity_type="order",
-            entity_id=order.id,
-            store_id=order.store_id,
-            data={"vpn_account_id": str(account_id), "customer_id": str(order.user_id)},
-        )
-        await session.commit()
+    order = await inquiry.reseller_renew(session, ctx.user.id, ctx.store.id, account_id, idempotency_key=idempotency_key, channel=body.channel)
     return order_out(order)
 
 

@@ -60,7 +60,7 @@ function Vpn({ coreFetch, storeId, notify, reload }) {
   const [tick, setTick] = useState(0);
   return <AccountInquiry coreFetch={coreFetch} base="/api/v1/vpn-accounts" notify={notify} reloadKey={tick} emptyText="اکانتی ندارید. از بخش سرویس‌ها خرید کنید." emptyAction={<a href="#plans" className="btn-primary mt-5">دیدن سرویس‌ها</a>}
     renderExtra={(a) => <>
-      {a.can_renew ? <button onClick={() => setRenew(renew === a.id ? null : a.id)} className="btn-soft mt-2 w-full"><RefreshCw size={16} />تمدید</button> : !a.is_test && a.expires_at && <p className="mt-2 text-xs text-muted">مهلت تمدید این اکانت (۱۰ روز پس از انقضا) تمام شده است.</p>}
+      {a.can_renew ? <button onClick={() => setRenew(renew === a.id ? null : a.id)} className="btn-soft mt-2 w-full"><RefreshCw size={16} />تمدید</button> : a.renew_note && !a.is_test && <p className="mt-2 text-xs text-muted">{a.renew_note}</p>}
       {renew === a.id && <Renew account={a} coreFetch={coreFetch} storeId={storeId} notify={notify} reload={() => { reload?.(); setTick((t) => t + 1); }} onClose={() => setRenew(null)} />}
     </>} />;
 }

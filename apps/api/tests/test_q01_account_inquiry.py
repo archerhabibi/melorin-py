@@ -102,9 +102,10 @@ async def test_reseller_list_is_only_own_accounts_but_search_reaches_own_custome
         rows = await reseller_router.store_accounts(ctx, s, r, q=None, state=None, limit=50, offset=0)
         # the LIST: what the reseller made himself, never the customers' accounts
         assert [a.username for a in rows] == ["owner_own"] and r.headers["X-Total-Count"] == "1" and rows[0].is_own
+        assert rows[0].holder_label == "اکانت خودتان"
         # the SEARCH: also the accounts of THEIR OWN store's customers (by account name or by customer name)
         found = await reseller_router.store_accounts(ctx, s, Response(), q="bob", state=None, limit=50, offset=0)
-        assert [a.username for a in found] == ["bob_main"] and not found[0].is_own
+        assert [a.username for a in found] == ["bob_main"] and not found[0].is_own and found[0].holder_label == "مشتری: Bob"
         found = await reseller_router.store_accounts(ctx, s, Response(), q="alice", state=None, limit=50, offset=0)
         assert {a.username for a in found} == {"alice_phone", "alice_pc"} and {a.customer_name for a in found} == {"Alice"}
         assert [
@@ -181,7 +182,9 @@ async def test_state_chips_filter_and_count_inside_the_scope():
         assert (await vpn_router.summary(w.bob, s, store_id=None))["total"] == 1
         ctx = _ctx(w.store, w.owner)
         # the owner's list scope is his OWN accounts: he has none here, the customers' accounts are not counted
-        assert await reseller_router.store_accounts_summary(ctx, s) == {"total": 0, "active": 0, "expiring": 0, "expired": 0}
+        own_summary = await reseller_router.store_accounts_summary(ctx, s)
+        assert {k: v for k, v in own_summary.items() if k != "note"} == {"total": 0, "active": 0, "expiring": 0, "expired": 0}
+        assert "فقط اکانت" in own_summary["note"]  # Core says what the list is; the channels only show it
         assert (await reseller_router.store_accounts_summary(_ctx(w.other, w.eve), s))["total"] == 1  # eve owns e1 herself
         owner_expired = await reseller_router.store_accounts(
             ctx, s, Response(), q="alice", state="expired", limit=50, offset=0
