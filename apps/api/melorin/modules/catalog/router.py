@@ -4,6 +4,7 @@ from fastapi import APIRouter
 from sqlalchemy import select
 
 from melorin.core import audit
+from melorin.core.scope import StoreScope
 from melorin.core.deps import OwnerCtx, Session, StoreCtx, main_store
 from melorin.core.errors import AppError, NotFound
 from melorin.domain import coupon as cdom
@@ -149,10 +150,7 @@ async def bundle_packages(store_id: uuid.UUID, bundle_id: uuid.UUID, session: Se
 
 
 async def _owned_account(session, ctx, account_id) -> VpnAccount:
-    account = await session.get(VpnAccount, account_id)
-    if not account or account.user_id != ctx.user.id or account.store_id != ctx.store.id:
-        raise NotFound("اکانت")
-    return account
+    return await StoreScope.of(ctx).get(session, VpnAccount, account_id, "اکانت")
 
 
 @public.get("/stores/{store_id}/accounts/{account_id}/renewal", response_model=RenewalOut)
@@ -244,7 +242,6 @@ async def checkout_quote(body: QuoteRequest, ctx: StoreCtx, session: Session):
     await session.commit()
     return QuoteWalletOut(
         renewal=after,
-
         product_id=product.id,
         unit_price=q.unit_price,
         discount=q.discount,

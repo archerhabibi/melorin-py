@@ -11,12 +11,13 @@ from melorin.core import audit, codes, events, flags, settings_store
 from melorin.core.deps import StoreContext, main_store
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError
+from melorin.core.scope import StoreScope
 from melorin.domain import debt
 from melorin.domain.order_state import REFUNDABLE, RETRYABLE, InvalidTransition, OrderStatus, VpnStatus, assert_transition
 from melorin.modules.catalog import service as catalog
 from melorin.modules.identity.models import User
 from melorin.modules.orders.models import Order, OrderStateTransition
-from melorin.modules.stores.models import ResellerProfile, Store
+from melorin.modules.stores.models import ResellerProfile, Store, StoreMembership
 from melorin.modules.system.models import TestAccountGrant
 from melorin.modules.vpn import allocation, renewal
 from melorin.modules.vpn.models import VpnAccount
@@ -83,14 +84,20 @@ async def create_order(
     if kind == "renewal":
         # Renewal rules live in the core (vpn.renewal) and are identical for the website and the bots. The account row is
         # locked so two parallel requests cannot both pass the "no renewal in progress" check and charge twice.
-        account = await session.get(VpnAccount, vpn_account_id, with_for_update=True) if vpn_account_id else None
+        # The lock is taken THROUGH the buyer's StoreScope (this user, this store): an id that belongs to another customer
+        # or to another store is never locked, so it cannot stall its owner's renewal and cannot be probed through lock waits.
+        # It then reads as "not found" and check_renewable answers it like any non-renewable account (409). Built from the
+        # plain ids above on purpose (see the note on rollback), not from ORM instances.
+        account = await StoreScope(store_id=store_id, user_id=user_id).lock(session, VpnAccount, vpn_account_id) if vpn_account_id else None
         await renewal.check_renewable(session, account, user_id=user_id, store_id=store_id)
         if product_id != account.product_id:
             raise AppError("RENEWAL_PRODUCT_MISMATCH", "تمدید فقط با همان پکیجی انجام می‌شود که اکانت با آن ساخته شده است.", 409)
         try:
             product, sp = await catalog.get_sellable(session, store, product_id)
         except AppError as e:
-            raise AppError("RENEWAL_PRODUCT_UNAVAILABLE", "پکیج این اکانت دیگر فروخته نمی‌شود؛ تمدید ممکن نیست و باید اکانت جدید تهیه کنید.", 409) from e
+            raise AppError(
+                "RENEWAL_PRODUCT_UNAVAILABLE", "پکیج این اکانت دیگر فروخته نمی‌شود؛ تمدید ممکن نیست و باید اکانت جدید تهیه کنید.", 409
+            ) from e
     elif kind == "purchase":
         product, sp = await catalog.get_sellable(session, store, product_id)
     else:
@@ -135,7 +142,12 @@ async def create_order(
             "traffic_limit_bytes": account.traffic_limit_bytes,
         }
         snapshot["renewal"] = {
-            "package": {"id": str(product.id), "name": product.name, "duration_days": product.duration_days, "traffic_gb": product.traffic_gb},
+            "package": {
+                "id": str(product.id),
+                "name": product.name,
+                "duration_days": product.duration_days,
+                "traffic_gb": product.traffic_gb,
+            },
             "bundle_id": str(plan.group_id) if plan.group_id else None,
             "unit_price": plan.unit_price,  # the package's current price in the original bundle, charged now
         }
@@ -303,19 +315,24 @@ async def create_test_order(session: AsyncSession, ctx: StoreContext, channel: s
     product = await session.scalar(select(Product).where(Product.code == code, Product.is_test.is_(True), Product.is_active.is_(True)))
     if not product:
         raise AppError("TEST_DISABLED", "اکانت تست فعلاً ارائه نمی‌شود.", 403)
-    # Serialise per user (row lock) so parallel requests cannot bypass limits.
-    await session.execute(select(User.id).where(User.id == ctx.user.id).with_for_update())
+    # The test quota is per customer PER STORE (same rule as wallets, orders and accounts: what he did in another store or bot
+    # does not count here). Plain ids first: see the note in create_order about rollback and ORM instances.
+    scope = StoreScope(store_id=ctx.store.id, user_id=ctx.user.id)
+    # Serialise this customer's requests IN THIS STORE (row lock on his membership, taken through the scope) so parallel taps
+    # cannot both pass the limit below. A request in another store takes a different lock and never waits for this one.
+    # The lock also re-reads the membership, so a member blocked a moment ago cannot still claim a test account.
+    member = await scope.lock(session, StoreMembership, ctx.membership.id) if ctx.membership is not None else None
+    if member is None or member.status != "active":
+        raise AppError("NOT_A_MEMBER", "برای دریافت اکانت تست باید عضو این فروشگاه باشید.", 403)
     max_n = int(await settings_store.get(session, "test.max_per_user") or 1)
     cooldown = int(await settings_store.get(session, "test.cooldown_hours") or 0)
     grants = (
-        await session.scalars(
-            select(TestAccountGrant).where(TestAccountGrant.user_id == ctx.user.id).order_by(TestAccountGrant.created_at.desc())
-        )
+        await session.scalars(select(TestAccountGrant).where(*scope.where(TestAccountGrant)).order_by(TestAccountGrant.created_at.desc()))
     ).all()
     if len(grants) >= max_n:
-        raise AppError("TEST_LIMIT", "سقف دریافت اکانت تست شما پر شده است.", 409)
+        raise AppError("TEST_LIMIT", "سقف دریافت اکانت تست شما در این فروشگاه پر شده است.", 409)
     if grants and grants[0].created_at.replace(tzinfo=dt.UTC) > utcnow() - dt.timedelta(hours=cooldown):
-        raise AppError("TEST_COOLDOWN", "هنوز امکان دریافت اکانت تست جدید نیست.", 409)
+        raise AppError("TEST_COOLDOWN", "هنوز امکان دریافت اکانت تست جدید در این فروشگاه نیست.", 409)
     # Test accounts are placed by the same core rule as purchases (product default group, same eligibility).
     bundle_id, selected_panel_id = await allocation.resolve_order_group(session, store_id=ctx.store.id, product=product)
     order = Order(

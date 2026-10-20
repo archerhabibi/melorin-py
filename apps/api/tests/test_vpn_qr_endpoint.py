@@ -1,4 +1,4 @@
-"""GET /vpn-accounts/{id}/qr.png: PNG of the subscription link, owner (or super admin) only."""
+"""GET /stores/{store_id}/vpn-accounts/{id}/qr.png: PNG of the subscription link, only for its owner IN THAT STORE."""
 
 import types
 import uuid
@@ -29,11 +29,18 @@ async def session():
     await engine.dispose()
 
 
+STORE = uuid.uuid4()
+
+
+def _ctx(user_id, store_id=STORE):
+    return types.SimpleNamespace(user=types.SimpleNamespace(id=user_id), store=types.SimpleNamespace(id=store_id))
+
+
 async def _account(s, owner, link=SUB):
     a = VpnAccount(
         username=f"m_{uuid.uuid4().hex[:8]}",
         user_id=owner,
-        store_id=uuid.uuid4(),
+        store_id=STORE,
         order_id=uuid.uuid4(),
         product_id=uuid.uuid4(),
         status="active",
@@ -47,7 +54,7 @@ async def _account(s, owner, link=SUB):
 async def test_owner_gets_png(session):
     uid = uuid.uuid4()
     a = await _account(session, uid)
-    r = await vpn_router.qr(a.id, types.SimpleNamespace(id=uid, is_super_admin=False), session)
+    r = await vpn_router.qr(a.id, _ctx(uid), session)
     assert r.media_type == "image/png" and r.body[:4] == b"\x89PNG"
     assert r.headers["cache-control"] == "private, no-store"
 
@@ -56,7 +63,14 @@ async def test_other_user_and_missing_link_are_404(session):
     uid = uuid.uuid4()
     a = await _account(session, uid)
     with pytest.raises(AppError):
-        await vpn_router.qr(a.id, types.SimpleNamespace(id=uuid.uuid4(), is_super_admin=False), session)
+        await vpn_router.qr(a.id, _ctx(uuid.uuid4()), session)
     b = await _account(session, uid, link=None)
     with pytest.raises(AppError):
-        await vpn_router.qr(b.id, types.SimpleNamespace(id=uid, is_super_admin=False), session)
+        await vpn_router.qr(b.id, _ctx(uid), session)
+
+
+async def test_same_owner_in_another_store_gets_404(session):
+    uid = uuid.uuid4()
+    a = await _account(session, uid)
+    with pytest.raises(AppError):
+        await vpn_router.qr(a.id, _ctx(uid, store_id=uuid.uuid4()), session)

@@ -382,7 +382,7 @@ async def store_accounts(
 @router.get("/stores/{store_id}/reseller/accounts/summary")
 async def store_accounts_summary(ctx: OwnerCtx, session: Session):
     """Chip counters over the list scope (the reseller's OWN accounts) + Core's note explaining that scope."""
-    return await inquiry.reseller_summary(session, ctx.user.id)
+    return await inquiry.reseller_summary(session, ctx.user.id, ctx.store.id)
 
 
 async def _store_account(session, ctx, account_id: uuid.UUID):
@@ -424,11 +424,15 @@ async def store_account_renew(
     """Renew the reseller's own account or one of his own customers' accounts (everything else: 404); see ``inquiry``."""
     from melorin.modules.orders.router import out as order_out  # lazy: orders imports the vpn package
 
-    order = await inquiry.reseller_renew(session, ctx.user.id, ctx.store.id, account_id, idempotency_key=idempotency_key, channel=body.channel)
+    order = await inquiry.reseller_renew(
+        session, ctx.user.id, ctx.store.id, account_id, idempotency_key=idempotency_key, channel=body.channel
+    )
     return order_out(order)
 
 
-@router.get("/stores/{store_id}/reseller/accounts/{account_id}/qr.png", response_class=Response, responses={200: {"content": {"image/png": {}}}})
+@router.get(
+    "/stores/{store_id}/reseller/accounts/{account_id}/qr.png", response_class=Response, responses={200: {"content": {"image/png": {}}}}
+)
 async def store_account_qr(account_id: uuid.UUID, ctx: OwnerCtx, session: Session):
     a, _ = await _store_account(session, ctx, account_id)
     link = a.subscription_url or (a.links[0] if isinstance(a.links, list) and a.links else None)

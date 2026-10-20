@@ -99,12 +99,12 @@ class Fake:
             return httpx.Response(201, json={"number": "ORD-9", "status": "paid", "total": 100_000, "currency": "IRT"})
         if path == "/api/v1/stores/s1/wallet":
             return httpx.Response(200, json={"balance": 250_000, "currency": "IRT"})
-        if path == "/api/v1/vpn-accounts":
+        if path == "/api/v1/stores/s1/vpn-accounts":
             return httpx.Response(200, json=self.accounts)
-        if path == "/api/v1/vpn-accounts/summary":
+        if path == "/api/v1/stores/s1/vpn-accounts/summary":
             return httpx.Response(200, json={"total": len(self.accounts), "active": len(self.accounts), "expiring": 0, "expired": 0})
-        if path.startswith("/api/v1/vpn-accounts/"):
-            row = next((a for a in self.accounts if path.split("/")[4] == a["id"]), None)
+        if path.startswith("/api/v1/stores/s1/vpn-accounts/"):
+            row = next((a for a in self.accounts if path.split("/")[6] == a["id"]), None)
             if row is None:
                 return httpx.Response(404, json={})
             return httpx.Response(200, json={"health": "active", "days_left": 30, **row})

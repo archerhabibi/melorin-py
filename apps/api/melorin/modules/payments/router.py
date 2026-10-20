@@ -5,8 +5,9 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 
 from melorin.core.config import get_settings
-from melorin.core.deps import CurrentUser, Session, StoreCtx
-from melorin.core.errors import AppError, NotFound
+from melorin.core.deps import Session, StoreCtx
+from melorin.core.errors import AppError
+from melorin.core.scope import StoreScope
 from melorin.core.storage import get_storage, validate_upload
 from melorin.modules.payments import service
 from melorin.modules.payments.models import Payment
@@ -36,25 +37,24 @@ async def topup(
     return payment_out(p)
 
 
-@router.get("/payments", response_model=list[PaymentOut])
-async def my_payments(user: CurrentUser, session: Session):
-    rows = (await session.scalars(select(Payment).where(Payment.user_id == user.id).order_by(Payment.created_at.desc()).limit(100))).all()
+@router.get("/stores/{store_id}/payments", response_model=list[PaymentOut])
+async def my_payments(ctx: StoreCtx, session: Session):
+    """Only the caller's own payments / top-ups of THIS store."""
+    rows = (
+        await session.scalars(select(Payment).where(*StoreScope.of(ctx).where(Payment)).order_by(Payment.created_at.desc()).limit(100))
+    ).all()
     return [payment_out(p) for p in rows]
 
 
-@router.get("/payments/{payment_id}", response_model=PaymentOut)
-async def get_payment(payment_id: uuid.UUID, user: CurrentUser, session: Session):
-    p = await session.get(Payment, payment_id)
-    if not p or (p.user_id != user.id and not user.is_super_admin):
-        raise NotFound("پرداخت")
-    return payment_out(p)
+@router.get("/stores/{store_id}/payments/{payment_id}", response_model=PaymentOut)
+async def get_payment(payment_id: uuid.UUID, ctx: StoreCtx, session: Session):
+    return payment_out(await StoreScope.of(ctx).get(session, Payment, payment_id, "پرداخت"))
 
 
-@router.post("/payments/{payment_id}/receipt", response_model=PaymentOut)
-async def upload_receipt(payment_id: uuid.UUID, user: CurrentUser, session: Session, file: UploadFile = File(...)):
-    p = await session.get(Payment, payment_id)
-    if not p or p.user_id != user.id:
-        raise NotFound("پرداخت")
+@router.post("/stores/{store_id}/payments/{payment_id}/receipt", response_model=PaymentOut)
+async def upload_receipt(payment_id: uuid.UUID, ctx: StoreCtx, session: Session, file: UploadFile = File(...)):
+    user = ctx.user
+    p = await StoreScope.of(ctx).get(session, Payment, payment_id, "پرداخت")
     limit = get_settings().max_upload_bytes
     data = bytearray()
     while chunk := await file.read(1024 * 1024):

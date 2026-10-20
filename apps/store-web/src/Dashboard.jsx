@@ -58,7 +58,7 @@ function Renew({ account, coreFetch, storeId, notify, reload, onClose }) {
 function Vpn({ coreFetch, storeId, notify, reload }) {
   const [renew, setRenew] = useState(null);
   const [tick, setTick] = useState(0);
-  return <AccountInquiry coreFetch={coreFetch} base="/api/v1/vpn-accounts" notify={notify} reloadKey={tick} emptyText="اکانتی ندارید. از بخش سرویس‌ها خرید کنید." emptyAction={<a href="#plans" className="btn-primary mt-5">دیدن سرویس‌ها</a>}
+  return <AccountInquiry coreFetch={coreFetch} base={`/api/v1/stores/${storeId}/vpn-accounts`} notify={notify} reloadKey={tick} emptyText="اکانتی ندارید. از بخش سرویس‌ها خرید کنید." emptyAction={<a href="#plans" className="btn-primary mt-5">دیدن سرویس‌ها</a>}
     renderExtra={(a) => <>
       {a.can_renew ? <button onClick={() => setRenew(renew === a.id ? null : a.id)} className="btn-soft mt-2 w-full"><RefreshCw size={16} />تمدید</button> : a.renew_note && !a.is_test && <p className="mt-2 text-xs text-muted">{a.renew_note}</p>}
       {renew === a.id && <Renew account={a} coreFetch={coreFetch} storeId={storeId} notify={notify} reload={() => { reload?.(); setTick((t) => t + 1); }} onClose={() => setRenew(null)} />}
@@ -83,7 +83,7 @@ function Wallet({ coreFetch, storeId, wallet, reload, notify }) {
   }
   async function receipt(file) {
     const fd_ = new FormData(); fd_.append("file", file);
-    const r = await coreFetch(`/api/v1/payments/${pay.id}/receipt`, { method: "POST", body: fd_ });
+    const r = await coreFetch(`/api/v1/stores/${storeId}/payments/${pay.id}/receipt`, { method: "POST", body: fd_ });
     if (r.ok) { notify("رسید ارسال شد؛ پس از تأیید شارژ می‌شود"); setPay(null); setAmount(""); reload(); load(); } else notify("ارسال رسید ناموفق بود");
   }
   return <div className="grid gap-5 md:grid-cols-[.8fr_1.2fr]">
@@ -218,12 +218,12 @@ function Tickets({ coreFetch, storeId, notify }) {
 }
 
 
-function Notifications({ coreFetch, notify, onCount }) {
+function Notifications({ coreFetch, storeId, notify, onCount }) {
   const [d, setD] = useState(null);
-  const load = () => coreFetch("/api/v1/me/notifications").then((r) => r.json()).then((x) => { setD(x); onCount?.(x.unread); }).catch(() => setD({ items: [], unread: 0 }));
+  const load = () => coreFetch(`/api/v1/stores/${storeId}/notifications`).then((r) => r.json()).then((x) => { setD(x); onCount?.(x.unread); }).catch(() => setD({ items: [], unread: 0 }));
   useEffect(() => { load(); }, []);
-  const read = async (n) => { if (!n.read) { await coreFetch(`/api/v1/me/notifications/${n.id}/read`, { method: "POST" }); load(); } };
-  const all = async () => { const r = await coreFetch("/api/v1/me/notifications/read-all", { method: "POST" }); r.ok ? load() : notify("ناموفق بود"); };
+  const read = async (n) => { if (!n.read) { await coreFetch(`/api/v1/stores/${storeId}/notifications/${n.id}/read`, { method: "POST" }); load(); } };
+  const all = async () => { const r = await coreFetch(`/api/v1/stores/${storeId}/notifications/read-all`, { method: "POST" }); r.ok ? load() : notify("ناموفق بود"); };
   if (!d) return <Loading rows={3} />;
   return <div><div className="mb-3 flex items-center justify-between"><span className="text-sm text-muted">{fa(d.unread)} اعلان خوانده‌نشده</span><button disabled={!d.unread} onClick={all} className="rounded-lg border border-line px-3 py-1.5 text-xs font-bold disabled:opacity-40">علامت‌گذاری همه</button></div>
     {d.items.length ? <div className="space-y-2">{d.items.map((n) => <button key={n.id} onClick={() => read(n)} className={`${card} block w-full text-right ${n.read ? "opacity-60" : "border-coral"}`}><div className="flex justify-between"><b>{n.title}</b>{!n.read && <span className="h-2 w-2 rounded-full bg-coral" />}</div><p className="mt-1 text-sm leading-7 text-muted">{n.body}</p><div className="mt-1 text-[10px] text-muted">{fd(n.created_at)}</div></button>)}</div> : <Empty text="اعلانی ندارید." />}</div>;
@@ -258,7 +258,7 @@ function Profile({ coreFetch, account, notify, reload }) {
 export default function Dashboard({ coreFetch, storeId, account, wallet, orders, reload, notify, onLogout }) {
   const [tab, setTab] = useState("orders");
   const [unread, setUnread] = useState(0);
-  useEffect(() => { coreFetch("/api/v1/me/notifications?unread_only=true&limit=1").then((r) => r.ok ? r.json() : null).then((d) => d && setUnread(d.unread)).catch(() => {}); }, []);
+  useEffect(() => { coreFetch(`/api/v1/stores/${storeId}/notifications?unread_only=true&limit=1`).then((r) => r.ok ? r.json() : null).then((d) => d && setUnread(d.unread)).catch(() => {}); }, []);
   const name = account?.display_name || account?.email || "کاربر";
   const stats = [["موجودی کیف پول", wallet ? `${fa(wallet.balance)} ${wallet.currency || ""}` : "—", WalletIcon, "tab:wallet"], ["سفارش‌ها", fa(orders.length), Package, "tab:orders"], ["اعلان خوانده‌نشده", fa(unread), Bell, "tab:notifications"]];
   return <div className="mx-auto max-w-6xl px-5 py-10">
@@ -271,7 +271,7 @@ export default function Dashboard({ coreFetch, storeId, account, wallet, orders,
     <div className="grid gap-8 md:grid-cols-[220px_1fr]">
       <nav aria-label="بخش‌های حساب" className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 md:sticky md:top-24 md:mx-0 md:h-fit md:flex-col md:gap-1 md:overflow-visible md:px-0">{tabs.map(([k, l, Icon]) => <button key={k} onClick={() => setTab(k)} aria-current={tab === k} className={`flex shrink-0 items-center gap-2.5 whitespace-nowrap rounded-xl px-4 py-3 text-sm font-bold transition ${tab === k ? "bg-primary text-onprimary shadow-soft" : "text-muted hover:bg-surface2 hover:text-ink"}`}><Icon size={18} />{l}{k === "notifications" && unread > 0 && <span className="mr-auto rounded-full bg-coral px-2 py-0.5 text-[10px] text-onprimary">{fa(unread)}</span>}</button>)}</nav>
       <section aria-live="polite" className="min-w-0">
-        {tab === "notifications" && <Notifications coreFetch={coreFetch} notify={notify} onCount={setUnread} />}
+        {tab === "notifications" && <Notifications coreFetch={coreFetch} storeId={storeId} notify={notify} onCount={setUnread} />}
         {tab === "orders" && <Orders orders={orders} />}
         {tab === "vpn" && <Vpn coreFetch={coreFetch} storeId={storeId} notify={notify} reload={reload} />}
         {tab === "wallet" && <Wallet coreFetch={coreFetch} storeId={storeId} wallet={wallet} reload={reload} notify={notify} />}

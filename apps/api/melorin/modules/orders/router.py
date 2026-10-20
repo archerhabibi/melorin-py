@@ -3,8 +3,8 @@ import uuid
 from fastapi import APIRouter, Header
 from sqlalchemy import select
 
-from melorin.core.deps import CurrentUser, Session, StoreCtx
-from melorin.core.errors import NotFound
+from melorin.core.deps import Session, StoreCtx
+from melorin.core.scope import StoreScope
 from melorin.modules.orders import service
 from melorin.modules.orders.models import Order
 from melorin.modules.orders.schemas import CreateOrder, OrderOut
@@ -71,17 +71,12 @@ async def test_account(ctx: StoreCtx, session: Session):
 
 @router.get("/stores/{store_id}/orders", response_model=list[OrderOut])
 async def list_orders(ctx: StoreCtx, session: Session):
-    rows = (
-        await session.scalars(
-            select(Order).where(Order.user_id == ctx.user.id, Order.store_id == ctx.store.id).order_by(Order.created_at.desc()).limit(100)
-        )
-    ).all()
+    """Only the caller's own orders of THIS store."""
+    rows = (await session.scalars(select(Order).where(*StoreScope.of(ctx).where(Order)).order_by(Order.created_at.desc()).limit(100))).all()
     return [out(o) for o in rows]
 
 
-@router.get("/orders/{order_id}", response_model=OrderOut)
-async def get_order(order_id: uuid.UUID, user: CurrentUser, session: Session):
-    o = await session.get(Order, order_id)
-    if not o or (o.user_id != user.id and not user.is_super_admin):
-        raise NotFound("سفارش")
-    return out(o)
+@router.get("/stores/{store_id}/orders/{order_id}", response_model=OrderOut)
+async def get_order(order_id: uuid.UUID, ctx: StoreCtx, session: Session):
+    """One of the caller's own orders of THIS store (another user's or another store's order: 404). Admins use /admin/orders."""
+    return out(await StoreScope.of(ctx).get(session, Order, order_id, "سفارش"))

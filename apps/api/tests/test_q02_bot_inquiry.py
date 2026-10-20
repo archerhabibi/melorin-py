@@ -84,7 +84,7 @@ class Core:
         if path.endswith("/refresh"):
             row = next(a for a in self.rows if a["id"] in path)
             return httpx.Response(200, json={**row, "customer_name": "Sara", "holder_label": "مشتری: Sara"})
-        if path in ("/api/v1/vpn-accounts", "/api/v1/stores/s1/reseller/accounts"):
+        if path in ("/api/v1/stores/s1/vpn-accounts", "/api/v1/stores/s1/reseller/accounts"):
             rows = self.rows
             if params.get("q"):
                 rows = [a for a in rows if params["q"] in a["username"]]
@@ -106,7 +106,10 @@ def bots(tmp_path, monkeypatch):
     main = load("q02_main", "telegram-main/runner.py").TelegramRunner()
     main.client = httpx.AsyncClient(transport=httpx.MockTransport(core.handler))
     res_mod = load("q02_res", "telegram-reseller/runner.py")
-    res = res_mod.ResellerTelegramRunner(token="rtok", slug="shop", state_suffix="s1")
+    # No ``state_suffix``: with it the reseller runner hardcodes /var/lib/melorin/..., which a non-root CI user cannot create.
+    # Its own offset/state file in tmp keeps it apart from the main bot's.
+    monkeypatch.setenv("MELORIN_TELEGRAM_OFFSET_FILE", str(tmp_path / "r.json"))
+    res = res_mod.ResellerTelegramRunner(token="rtok", slug="shop")
     res.client = httpx.AsyncClient(transport=httpx.MockTransport(core.handler))
     return main, res, core
 
@@ -170,7 +173,7 @@ def test_card_reads_live_from_panel_via_refresh(bots):
     run(main, msg("/accounts"))
     target = core.rows[0]["id"]
     run(main, cb(f"account:{target}", 2))
-    assert core.calls[-1][1] == f"/api/v1/vpn-accounts/{target}/refresh" and core.calls[-1][0] == "POST"
+    assert core.calls[-1][1] == f"/api/v1/stores/s1/vpn-accounts/{target}/refresh" and core.calls[-1][0] == "POST"
     assert any(x.startswith("rnw:") for x in data_of(core.edits[-1]))
 
 

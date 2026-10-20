@@ -13,8 +13,8 @@ export function SubscriptionCard({ account, coreFetch, notify, qrPath }) {
   useEffect(() => {
     let live = true;
     setQr(null); setFailed(false);
-    if (!account?.id || !link) return undefined;
-    coreFetch(qrPath || `/api/v1/vpn-accounts/${account.id}/qr.png`)
+    if (!account?.id || !link || !qrPath) return undefined;
+    coreFetch(qrPath)
       .then((r) => (r.ok ? r.blob() : Promise.reject(new Error(String(r.status)))))
       .then(toDataUrl)
       .then((u) => live && setQr(u))
@@ -34,17 +34,17 @@ export function SubscriptionCard({ account, coreFetch, notify, qrPath }) {
 }
 
 // Shown right after a successful purchase: waits for provisioning, then shows link + QR at the same time.
-export function PurchaseResult({ orderId, coreFetch, notify }) {
+export function PurchaseResult({ orderId, storeId, coreFetch, notify }) {
   const [state, setState] = useState({ phase: "wait" });
   useEffect(() => {
     let live = true, timer;
     const t0 = Date.now();
     const tick = async () => {
       try {
-        const o = await (await coreFetch(`/api/v1/orders/${orderId}`)).json();
+        const o = await (await coreFetch(`/api/v1/stores/${storeId}/orders/${orderId}`)).json();
         if (!live) return;
         if (o.status === "completed" && o.vpn_account_id) {
-          const r = await coreFetch(`/api/v1/vpn-accounts/${o.vpn_account_id}`);
+          const r = await coreFetch(`/api/v1/stores/${storeId}/vpn-accounts/${o.vpn_account_id}`);
           const account = r.ok ? await r.json() : null;
           if (!live) return;
           if (account && linkOf(account)) return setState({ phase: "done", account, order: o });
@@ -57,11 +57,11 @@ export function PurchaseResult({ orderId, coreFetch, notify }) {
     };
     tick();
     return () => { live = false; clearTimeout(timer); };
-  }, [orderId]);
+  }, [orderId, storeId]);
   if (state.phase === "done") return <div>
     <p className="mt-2 text-sm font-bold text-mint">✓ خرید شما با موفقیت انجام شد</p>
     <div className="mt-1 text-xs text-muted">اکانت: <b className="latin">{state.account.username}</b> · سفارش: <b className="latin">{state.order.number}</b></div>
-    <SubscriptionCard account={state.account} coreFetch={coreFetch} notify={notify} />
+    <SubscriptionCard account={state.account} coreFetch={coreFetch} notify={notify} qrPath={`/api/v1/stores/${storeId}/vpn-accounts/${state.account.id}/qr.png`} />
   </div>;
   if (state.phase === "failed") return <p className="mt-4 text-sm leading-7 text-danger">ساخت اکانت انجام نشد. اگر مبلغی کسر شده باشد، به‌صورت خودکار به کیف پول برگردانده می‌شود.</p>;
   if (state.phase === "late") return <p className="mt-4 text-sm leading-7 text-muted">ساخت اکانت کمی طول کشیده است. لینک و QR کد به‌محض آماده‌شدن در بخش «اکانت‌های VPN» نمایش داده می‌شود.</p>;
