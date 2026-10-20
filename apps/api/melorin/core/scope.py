@@ -19,6 +19,8 @@ import dataclasses
 import uuid
 from typing import TYPE_CHECKING, Any
 
+from sqlalchemy import select
+
 from melorin.core.errors import NotFound
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -53,6 +55,20 @@ class StoreScope:
 
     async def get(self, session, model: Any, row_id: uuid.UUID, what: str, **kw) -> Any:
         return self.require(await session.get(model, row_id, **kw), what)
+
+    async def lock(self, session, model: Any, row_id: uuid.UUID) -> Any | None:
+        """``SELECT ... FOR UPDATE`` of ONE row, but only if it is inside this scope; otherwise ``None`` (and nothing is locked).
+
+        The scope conditions are part of the locking statement itself, so a request that names somebody else's id (another
+        customer, or the same customer in another store) never takes that row's lock: it can neither wait for it nor make
+        its real owner wait. ``populate_existing`` refreshes an instance already in the session, so the checks that follow
+        the lock always see the committed state a concurrent request has just left, not a stale copy.
+
+        Callers treat ``None`` exactly like a missing row (the caller decides the error), so ids cannot be probed.
+        """
+        return await session.scalar(
+            select(model).where(model.id == row_id, *self.where(model)).with_for_update().execution_options(populate_existing=True)
+        )
 
 
 @dataclasses.dataclass(frozen=True)
