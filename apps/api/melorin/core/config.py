@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     encryption_key: str = ""  # Fernet key (urlsafe base64, 32 bytes). REQUIRED outside development.
 
     bot_service_secret: str = "dev-bot-secret"  # shared secret between Core and bot runners
+    # Optional least-privilege secrets (docs/16-Channel-Binding-Design.md): with these set, the main runner can only open
+    # sessions in the main store and the reseller runner only in reseller stores. The shared secret above keeps working
+    # for both ("any"); a hardened install gives each runner its own secret and stops handing out the shared one.
+    main_bot_secret: str = ""
+    reseller_bot_secret: str = ""
     metrics_token: str = ""
     health_token: str = ""
     main_bot_token: str = ""
@@ -98,6 +103,12 @@ class Settings(BaseSettings):
                 raise ValueError("MELORIN_JWT_SECRET must be a unique secret of at least 32 characters outside development")
             if self.bot_service_secret in {"dev-bot-secret", ""} or len(self.bot_service_secret) < 32:
                 raise ValueError("MELORIN_BOT_SERVICE_SECRET must be configured outside development")
+            per_runner = [v for v in (self.main_bot_secret, self.reseller_bot_secret) if v]
+            if any(len(v) < 32 for v in per_runner) or len({*per_runner, self.bot_service_secret}) != len(per_runner) + 1:
+                raise ValueError(
+                    "MELORIN_MAIN_BOT_SECRET / MELORIN_RESELLER_BOT_SECRET must be at least 32 characters and differ from each other"
+                    " and from MELORIN_BOT_SERVICE_SECRET"
+                )
             if len(self.metrics_token) < 32 or len(self.health_token) < 32:
                 raise ValueError("MELORIN_METRICS_TOKEN and MELORIN_HEALTH_TOKEN must be configured outside development")
             if not self.encryption_key:

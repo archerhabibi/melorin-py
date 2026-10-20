@@ -260,7 +260,8 @@ def test_internal_routes_refuse_anything_that_came_through_a_reverse_proxy():
 
 def test_internal_router_requires_the_bot_secret_and_is_hidden_from_the_docs():
     deps = [d.dependency.__name__ for d in bots.internal.dependencies]
-    assert "require_bot_service" in deps and "_internal_only" in deps
+    assert "_reseller_runner_only" in deps and "_internal_only" in deps  # the former wraps require_bot_service (secret check)
+    assert "require_bot_service" in __import__("inspect").getsource(bots)
     assert bots.internal.include_in_schema is False
 
 

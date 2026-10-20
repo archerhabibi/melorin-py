@@ -260,7 +260,7 @@ class PollResult:
     tokens: TokenPair | None = None
 
 
-async def poll(session: AsyncSession, public_id: str, poll_token: str, *, user_agent: str | None = None) -> PollResult:
+async def poll(session: AsyncSession, public_id: str, poll_token: str, request, *, user_agent: str | None = None) -> PollResult:
     """Called by the browser. Issues the Core session exactly once to the holder of the poll token."""
     row = await _locked(session, public_id)
     expected = row.secret_hash if row is not None else _DUMMY_HASH
@@ -275,7 +275,12 @@ async def poll(session: AsyncSession, public_id: str, poll_token: str, *, user_a
         row.status, row.deny_reason = "denied", "account_disabled" if user is None or not user.is_active else "admin_use_panel"
         await session.commit()
         return PollResult("denied", row.deny_reason)
-    pair = await service.issue_tokens(session, user, ua=(user_agent or row.req_ua or "web")[:300])
+    from melorin.core import channel as ch
+
+    site = await ch.site_channel(session, request, hint=row.store_id)  # the approval is redeemed on the SAME store's site
+    if site.store_id != row.store_id:
+        raise ch.mismatch()
+    pair = await service.issue_tokens(session, user, site, ua=(user_agent or row.req_ua or "web")[:300])
     row.status, row.consumed_at = "consumed", utcnow()
     audit.record(
         session, "tg_web_login.consumed", actor_id=user.id, entity_type="telegram_login_session", entity_id=row.id, store_id=row.store_id

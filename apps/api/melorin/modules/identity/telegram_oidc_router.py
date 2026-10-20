@@ -11,7 +11,7 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import RedirectResponse
 
-from melorin.core import audit, flags, integrations
+from melorin.core import audit, channel, flags, integrations
 from melorin.core.config import get_settings
 from melorin.core.deps import Session, main_store
 from melorin.core.errors import AppError
@@ -46,7 +46,11 @@ async def start(session: Session, request: Request, store_id: uuid.UUID | None =
     fallback = oidc.callback_origin(None)
     if not integrations.telegram_oidc_ready(cfg):
         return _back(fallback, "unavailable")
-    store = await session.get(Store, store_id) if store_id else await main_store(session)
+    try:
+        site = await channel.site_channel(session, request, hint=store_id)  # Host decides; ``store_id`` can only agree
+    except AppError:
+        return _back(fallback, "unavailable")
+    store = await session.get(Store, site.store_id)
     if store is None or store.status != "active":
         return _back(fallback, "unavailable")
     origin = oidc.callback_origin(store)
@@ -110,7 +114,11 @@ async def callback(session: Session, request: Request, code: str | None = None, 
         audit.security_event(session, "tg_oidc_admin_refused", user.id, {})
         await session.commit()
         return _back(origin, "admin_use_panel")
-    pair = await service.issue_tokens(session, user, ua=request.headers.get("user-agent"))
+    try:
+        site = await channel.site_channel(session, request, hint=store.id)  # the callback lands on the store's own host
+    except AppError:
+        return _back(origin, "origin_mismatch")
+    pair = await service.issue_tokens(session, user, site, ua=request.headers.get("user-agent"))
     audit.record(session, "tg_oidc_login.approved", actor_id=user.id, entity_type="user", entity_id=user.id, store_id=store.id)
     await session.commit()
     resp = _back(origin)

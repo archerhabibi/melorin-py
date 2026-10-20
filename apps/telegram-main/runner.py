@@ -532,7 +532,8 @@ class TelegramRunner:
         if not code:
             return await self.send(ctx.chat_id, "کد اتصال را از بخش «پروفایل» وبسایت بگیرید و به‌صورت /link کد بفرستید.")
         r = await self.client.post(f"{self.core}/api/v1/auth/telegram/link", headers={"X-Bot-Secret": self.secret, "Accept": "application/json"},
-                                   json={"code": code, "telegram_id": ctx.user["id"], "first_name": ctx.user.get("first_name"), "last_name": ctx.user.get("last_name"), "username": ctx.user.get("username")})
+                                   json={"code": code, "telegram_id": ctx.user["id"], "first_name": ctx.user.get("first_name"), "last_name": ctx.user.get("last_name"), "username": ctx.user.get("username"),
+                                         "store_id": (await self.store_info())["id"]})  # Core binds the session to THIS bot's store
         if r.status_code >= 500:
             r.raise_for_status()
         await self.send(ctx.chat_id, "حساب تلگرام به حساب وب شما متصل شد ✅" if r.status_code < 400 else f"⚠️ {self._err(r)}")
