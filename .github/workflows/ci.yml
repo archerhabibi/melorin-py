@@ -82,7 +82,9 @@ jobs:
           python ../../scripts/postgres_concurrency_smoke.py
           nohup uvicorn melorin.app:app --port 8000 > /tmp/api.log 2>&1 &
           nohup arq melorin.worker.arq_app.WorkerSettings > /tmp/worker.log 2>&1 &
-          for i in $(seq 1 30); do curl -sf localhost:8000/health/live && break; sleep 1; done
+          # /health/ready also needs the worker heartbeat; waiting only for /health/live raced with worker start-up
+          for i in $(seq 1 60); do curl -sf localhost:8000/health/ready && break; sleep 1; done
+          curl -sf localhost:8000/health/ready || { echo "API/worker not ready"; tail -n 30 /tmp/api.log /tmp/worker.log; exit 1; }
           python ../../scripts/e2e_smoke.py
         env: {MELORIN_DATABASE_URL: 'postgresql+asyncpg://melorin:test@localhost:5432/melorin', MELORIN_REDIS_URL: 'redis://localhost:6379/0', MELORIN_ALLOW_MOCK_PROVIDERS: 'true', MELORIN_BOOTSTRAP_ADMIN_EMAIL: admin@example.com, MELORIN_BOOTSTRAP_ADMIN_PASSWORD: 'Strong-admin-password-123456', MELORIN_BOOTSTRAP_ADMIN_TOTP_SECRET: JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP, E2E_ADMIN_PASSWORD: 'Strong-admin-password-123456', MELORIN_JWT_SECRET: ci-secret-ci-secret-ci-secret-1234}
 
