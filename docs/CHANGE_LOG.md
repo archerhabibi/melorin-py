@@ -36,6 +36,55 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-20 03:00 UTC - Claude - api, tests, store-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** refactor(inquiry): all scoping, search and reseller renewal live in Core (vpn/inquiry service layer); Core supplies rule texts, channels only display
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (14):** `apps/api/melorin/modules/admin/router.py`, `apps/api/melorin/modules/reseller/router.py`, `apps/api/melorin/modules/reseller/schemas.py`, `apps/api/melorin/modules/vpn/inquiry.py`, `apps/api/melorin/modules/vpn/router.py`, `apps/api/melorin/modules/vpn/schemas.py`, `apps/api/tests/test_q01_account_inquiry.py`, `apps/api/tests/test_q02_bot_inquiry.py` (+6 more)
+- **Ref:** `e649e6b`
+
+### 2026-10-20 02:52 UTC - Claude - api, tests, store-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(inquiry): reseller list = own accounts only, search reaches own customers; reseller renews own + own customers' accounts (Core + bots + site)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (11):** `apps/api/melorin/modules/reseller/router.py`, `apps/api/melorin/modules/vpn/inquiry.py`, `apps/api/melorin/modules/vpn/schemas.py`, `apps/api/tests/test_q01_account_inquiry.py`, `apps/api/tests/test_q02_bot_inquiry.py`, `apps/api/tests/test_renewal_core.py`, `apps/store-web/src/AccountInquiry.jsx`, `apps/store-web/src/Reseller.jsx` (+3 more)
+- **Ref:** `3cccd95`
+
+### 2026-10-19 21:15 UTC - Claude - admin-web, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(inquiry): searchable, paged admin account inquiry (platform owner) + search box in admin-web
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (6):** `apps/admin-web/src/AdminSections.jsx`, `apps/api/melorin/modules/admin/router.py`, `apps/api/melorin/modules/vpn/inquiry.py`, `apps/api/tests/test_q01_account_inquiry.py`, `apps/api/tests/test_q02_bot_inquiry.py`, `docs/13-Renewal-Core-Design.md`
+- **Ref:** `0443bae`
+
+### 2026-10-19 21:11 UTC - renewal-design - tests, store-web, bot  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(inquiry): redesigned account inquiry/renewal UI in main+reseller bots and store website (customer + store owner)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (9):** `apps/api/tests/test_q02_bot_inquiry.py`, `apps/api/tests/test_telegram_ux_v2.py`, `apps/store-web/src/AccountInquiry.jsx`, `apps/store-web/src/Dashboard.jsx`, `apps/store-web/src/Reseller.jsx`, `apps/store-web/src/Subscription.jsx`, `apps/telegram-main/runner.py`, `apps/telegram-reseller/runner.py` (+1 more)
+- **Ref:** `e4052cd`
+
+### 2026-10-19 21:11 UTC - Claude - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(inquiry): filter chips, counters and live panel refresh (customer + store owner)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (4):** `apps/api/melorin/modules/reseller/router.py`, `apps/api/melorin/modules/vpn/inquiry.py`, `apps/api/melorin/modules/vpn/router.py`, `apps/api/tests/test_q01_account_inquiry.py`
+- **Ref:** `39d9598`
+
+### 2026-10-19 21:11 UTC - Claude - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(inquiry): searchable, paged account inquiry; owner-scoped store accounts API
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (6):** `apps/api/melorin/app.py`, `apps/api/melorin/modules/reseller/router.py`, `apps/api/melorin/modules/vpn/inquiry.py`, `apps/api/melorin/modules/vpn/router.py`, `apps/api/melorin/modules/vpn/schemas.py`, `apps/api/tests/test_q01_account_inquiry.py`
+- **Ref:** `fe6427e`
+
+
 ### 2026-10-19 11:11 UTC - Claude - api, tests, store-web  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
