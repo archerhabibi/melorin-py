@@ -7,7 +7,8 @@ ROOT = Path(__file__).parents[1] / "melorin"
 
 def test_notification_endpoints_are_user_scoped_and_wired():
     r = read_source(ROOT / "modules/notifications/router.py")
-    assert r.count("Notification.user_id == user.id") >= 3 and "n.user_id != user.id" in r
+    # R01: scoped by user AND store through the one StoreScope (no hand-written user checks in the router)
+    assert r.count("StoreScope.of(ctx)") >= 3 and "StoreCtx" in r and "CurrentUser" not in r
     assert "notifications_router" in read_source(ROOT / "app.py")
 
 

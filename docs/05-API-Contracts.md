@@ -4,12 +4,12 @@ REST/JSON، `/api/v1`، OpenAPI، Authorization در Core، StoreContext سمت 
 ## Endpoint groups
 - `/auth/*`, `/me`, `/me/identities`, `/me/stores`
 - `/stores/{store_id}/catalog`, `/products`, `/pricing`
-- `/checkout/quote`, `/orders`, `/orders/{id}`
+- `/checkout/quote`, `/orders`, `/orders/{id}` (همه زیر `/stores/{store_id}/`)
 - `/payments/intents`, `/payments/{id}`, `/payments/callbacks/{provider}` (store-scoped wallet top-up only)
 - `/stores/{store_id}/wallet`, `/stores/{store_id}/wallet/topups`, `/stores/{store_id}/wallet/transactions`
 - `/stores/{store_id}/coupons`, `/stores/{store_id}/coupons/validate`, `/stores/{store_id}/coupons/redemptions`
 - `/wallet`, `/wallet/transactions`, `/wallet/topups`
-- `/vpn-accounts`, `/vpn-accounts/{id}/suspend`, `/resume`, `/renew`
+- `/stores/{store_id}/vpn-accounts`, `/vpn-accounts/{id}/suspend`, `/resume`, `/renew`
 - `/reseller/applications` (domain + bot token optional at filing), `/reseller/applications/{id}/details` (domain + bot token after approval, status `awaiting_details`), `/reseller/applications/{id}/cancel`, `/reseller/customers`, `/reseller/reports`
 - `/tickets`, `/tickets/{id}/messages`, `/attachments`
 - `/admin/stores`, `/admin/resellers`, `/admin/products`, `/admin/servers`, `/admin/panels`

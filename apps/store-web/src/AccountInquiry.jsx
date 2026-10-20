@@ -29,14 +29,14 @@ function Card({ a, owner, base, coreFetch, notify, extra, onChange }) {
     <div className="mt-4 flex items-center justify-between text-xs text-muted"><span>انقضا: {a.expires_at ? fd(a.expires_at) : "نامحدود"}</span>{a.days_left != null && <b className="text-ink">{fa(a.days_left)} روز مانده</b>}</div>
     <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface2"><div className={`h-full rounded-full ${pct > 85 ? "bg-danger" : "bg-coral"}`} style={{ width: `${pct}%` }} /></div>
     <div className="mt-1 text-xs text-muted">{gb(a.traffic_used_bytes)} از {a.traffic_limit_bytes ? gb(a.traffic_limit_bytes) : "∞"} گیگ</div>
-    <SubscriptionCard account={a} coreFetch={coreFetch} notify={notify} qrPath={owner ? `${base}/${a.id}/qr.png` : undefined} />
+    <SubscriptionCard account={a} coreFetch={coreFetch} notify={notify} qrPath={`${base}/${a.id}/qr.png`} />
     <button onClick={refresh} disabled={busy} className="btn-soft mt-2 w-full !py-2 text-xs">{busy ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}بروزرسانی از پنل</button>
     {extra}
   </div>;
 }
 
 /**
- * props: base  = "/api/v1/vpn-accounts" (customer) | "/api/v1/stores/{id}/reseller/accounts" (owner)
+ * props: base  = "/api/v1/stores/{id}/vpn-accounts" (customer: own accounts of THIS store only) | "/api/v1/stores/{id}/reseller/accounts" (owner)
  *        owner = show customer names + search by customer
  *        renderExtra(account, replace) = per-card actions (the customer's renew button)
  *        reloadKey = bump to refetch after a renewal

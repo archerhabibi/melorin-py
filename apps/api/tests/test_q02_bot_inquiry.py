@@ -84,7 +84,7 @@ class Core:
         if path.endswith("/refresh"):
             row = next(a for a in self.rows if a["id"] in path)
             return httpx.Response(200, json={**row, "customer_name": "Sara", "holder_label": "مشتری: Sara"})
-        if path in ("/api/v1/vpn-accounts", "/api/v1/stores/s1/reseller/accounts"):
+        if path in ("/api/v1/stores/s1/vpn-accounts", "/api/v1/stores/s1/reseller/accounts"):
             rows = self.rows
             if params.get("q"):
                 rows = [a for a in rows if params["q"] in a["username"]]
@@ -170,7 +170,7 @@ def test_card_reads_live_from_panel_via_refresh(bots):
     run(main, msg("/accounts"))
     target = core.rows[0]["id"]
     run(main, cb(f"account:{target}", 2))
-    assert core.calls[-1][1] == f"/api/v1/vpn-accounts/{target}/refresh" and core.calls[-1][0] == "POST"
+    assert core.calls[-1][1] == f"/api/v1/stores/s1/vpn-accounts/{target}/refresh" and core.calls[-1][0] == "POST"
     assert any(x.startswith("rnw:") for x in data_of(core.edits[-1]))
 
 

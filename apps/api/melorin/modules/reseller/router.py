@@ -382,7 +382,7 @@ async def store_accounts(
 @router.get("/stores/{store_id}/reseller/accounts/summary")
 async def store_accounts_summary(ctx: OwnerCtx, session: Session):
     """Chip counters over the list scope (the reseller's OWN accounts) + Core's note explaining that scope."""
-    return await inquiry.reseller_summary(session, ctx.user.id)
+    return await inquiry.reseller_summary(session, ctx.user.id, ctx.store.id)
 
 
 async def _store_account(session, ctx, account_id: uuid.UUID):

@@ -2,9 +2,10 @@
 
 Bot, website and the store owner's views all go through it, so the privacy rule is written once:
 
-* a customer only ever sees and searches HIS OWN accounts (``user_id`` is always part of the query);
-* a reseller's LIST shows only the accounts they made themselves; their SEARCH also finds the accounts of THEIR OWN
-  store's customers (``store_id`` is always part of the query) and never another store's accounts;
+* a customer only ever sees and searches HIS OWN accounts IN THE STORE HE IS USING (``core.scope.StoreScope`` puts both
+  ``user_id`` and ``store_id`` into every query; what he bought in another store or bot is invisible and not renewable here);
+* a reseller's LIST shows only the accounts they made themselves in their store; their SEARCH also finds the accounts of
+  THEIR OWN store's customers and never another store's accounts (not even their own personal ones from another store);
 * the numbers shown (remaining days, usage) come from the panel-synced account row; the bot and website never
   compute their own version of them.
 """
@@ -20,6 +21,7 @@ from sqlalchemy import and_, case, func, or_, select
 from melorin.core import audit
 from melorin.core.db import utcnow
 from melorin.core.errors import NotFound
+from melorin.core.scope import OwnerScope, StoreScope
 from melorin.modules.vpn import renewal
 from melorin.modules.vpn.models import VpnAccount
 from melorin.modules.vpn.schemas import OwnerAccountOut, VpnAccountOut
@@ -60,9 +62,9 @@ def owner_clause(q: str, user_model):
     )
 
 
-def reseller_visible(owner_id: uuid.UUID, store_id: uuid.UUID):
-    """Search scope of a reseller: the accounts they made themselves + every account of THEIR OWN store's customers."""
-    return or_(VpnAccount.user_id == owner_id, VpnAccount.store_id == store_id)
+def reseller_visible(store_id: uuid.UUID):
+    """Search scope of a reseller: every account of THEIR OWN store (his own and his customers'), and nothing outside it."""
+    return VpnAccount.store_id == store_id
 
 
 def days_left(a: VpnAccount, now: dt.datetime | None = None) -> int | None:
@@ -191,30 +193,35 @@ def _apply(cond: list, *, term: str | None, state: str | None, term_clause) -> N
         cond.append(state_cond)
 
 
-async def customer_accounts(session, user_id: uuid.UUID, *, store_id=None, q=None, state=None, limit=100, offset=0):
-    """A customer's list AND search: only HIS OWN accounts, whatever the filters are. Returns ``(accounts, total)``."""
-    cond = [VpnAccount.user_id == user_id, VpnAccount.archived_at.is_(None)]
-    if store_id:
-        cond.append(VpnAccount.store_id == store_id)
+def _customer_conds(scope: StoreScope) -> list:
+    return [*scope.where(VpnAccount), VpnAccount.archived_at.is_(None)]
+
+
+async def customer_accounts(session, scope: StoreScope, *, q=None, state=None, limit=100, offset=0):
+    """A customer's list AND search: only HIS OWN accounts IN THIS STORE, whatever the filters are. Returns ``(accounts, total)``."""
+    cond = _customer_conds(scope)
     _apply(cond, term=clean_query(q), state=state, term_clause=username_clause)
     total = await session.scalar(select(func.count()).select_from(VpnAccount).where(*cond))
     rows = await session.scalars(select(VpnAccount).where(*cond).order_by(VpnAccount.created_at.desc()).limit(limit).offset(offset))
     return rows.all(), int(total or 0)
 
 
-async def customer_summary(session, user_id: uuid.UUID, *, store_id=None) -> dict:
-    cond = [VpnAccount.user_id == user_id, VpnAccount.archived_at.is_(None)]
-    if store_id:
-        cond.append(VpnAccount.store_id == store_id)
-    return await summary(session, *cond)
+async def customer_summary(session, scope: StoreScope) -> dict:
+    return await summary(session, *_customer_conds(scope))
+
+
+async def customer_account(session, scope: StoreScope, account_id: uuid.UUID) -> VpnAccount:
+    """One account of this customer in this store (another user's or another store's: 404, like a missing id)."""
+    return scope.require(await session.get(VpnAccount, account_id), "اکانت VPN")
 
 
 async def reseller_accounts(session, owner_id: uuid.UUID, store_id: uuid.UUID, *, q=None, state=None, limit=50, offset=0):
-    """A reseller's inquiry. The LIST (no search term) is only the accounts he made himself; a SEARCH also finds the accounts
-    of THIS store's customers (never another store's). Returns ``([(account, holder)], total)``."""
+    """A reseller's inquiry. The LIST (no search term) is only the accounts he made himself in his store; a SEARCH also finds
+    the accounts of THIS store's customers (never another store's). Returns ``([(account, holder)], total)``."""
     term = clean_query(q)
+    scope = OwnerScope(store_id=store_id, owner_id=owner_id)
     cond = [VpnAccount.archived_at.is_(None)]
-    cond += [reseller_visible(owner_id, store_id)] if term else [VpnAccount.user_id == owner_id]
+    cond += [*scope.where(VpnAccount)] if term else [*scope.own(VpnAccount)]
     _apply(cond, term=term, state=state, term_clause=lambda t: owner_clause(t, _user_model()))
     base = select(VpnAccount, _user_model()).join(_user_model(), _user_model().id == VpnAccount.user_id).where(*cond)
     total = await session.scalar(select(func.count()).select_from(base.subquery()))
@@ -222,19 +229,20 @@ async def reseller_accounts(session, owner_id: uuid.UUID, store_id: uuid.UUID, *
     return rows, int(total or 0)
 
 
-async def reseller_summary(session, owner_id: uuid.UUID) -> dict:
-    """Chip counters over the reseller's list scope (his OWN accounts) + Core's note explaining that scope."""
-    return {**await summary(session, VpnAccount.user_id == owner_id, VpnAccount.archived_at.is_(None)), "note": RESELLER_LIST_NOTE}
+async def reseller_summary(session, owner_id: uuid.UUID, store_id: uuid.UUID) -> dict:
+    """Chip counters over the reseller's list scope (his OWN accounts in his store) + Core's note explaining that scope."""
+    own = OwnerScope(store_id=store_id, owner_id=owner_id).own(VpnAccount)
+    return {**await summary(session, *own, VpnAccount.archived_at.is_(None)), "note": RESELLER_LIST_NOTE}
 
 
 async def reseller_find(session, owner_id: uuid.UUID, store_id: uuid.UUID, account_id: uuid.UUID):
-    """One account the reseller may act on: his own, or one of THIS store's customers' (anything else: 404)."""
+    """One account the reseller may act on: one of THIS store's accounts, his own or a customer's (anything else: 404)."""
     user = _user_model()
     row = (
         await session.execute(
             select(VpnAccount, user)
             .join(user, user.id == VpnAccount.user_id)
-            .where(VpnAccount.id == account_id, reseller_visible(owner_id, store_id))
+            .where(VpnAccount.id == account_id, reseller_visible(store_id))
         )
     ).first()
     if not row:

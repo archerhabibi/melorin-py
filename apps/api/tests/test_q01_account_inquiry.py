@@ -61,13 +61,13 @@ async def test_customer_sees_and_searches_only_own_accounts():
     async with open_session() as s:
         w = await _world(s)
         r = Response()
-        mine = await vpn_router.mine(w.alice, s, r, q=None, store_id=None, limit=100, offset=0)
+        mine = await vpn_router.mine(_ctx(w.store, w.alice), s, r, q=None, limit=100, offset=0)
         assert {a.username for a in mine} == {"alice_phone", "alice_pc"} and r.headers["X-Total-Count"] == "2"
         # a search can never reach somebody else's account, however it is spelled
         for q in ("bob", "BOB_main", "eve", "%", "_", "alice_phone' OR 1=1 --"):
-            found = await vpn_router.mine(w.alice, s, Response(), q=q, store_id=None, limit=100, offset=0)
+            found = await vpn_router.mine(_ctx(w.store, w.alice), s, Response(), q=q, limit=100, offset=0)
             assert all(a.username.startswith("alice") for a in found), q
-        assert [a.username for a in await vpn_router.mine(w.alice, s, Response(), q="PC", store_id=None, limit=100, offset=0)] == [
+        assert [a.username for a in await vpn_router.mine(_ctx(w.store, w.alice), s, Response(), q="PC", limit=100, offset=0)] == [
             "alice_pc"
         ]
 
@@ -75,20 +75,29 @@ async def test_customer_sees_and_searches_only_own_accounts():
 async def test_wildcards_are_literal_and_paging_works():
     async with open_session() as s:
         w = await _world(s)
-        assert await vpn_router.mine(w.alice, s, Response(), q="%", store_id=None, limit=100, offset=0) == []
+        assert await vpn_router.mine(_ctx(w.store, w.alice), s, Response(), q="%", limit=100, offset=0) == []
         assert (
-            await vpn_router.mine(w.alice, s, Response(), q="_", store_id=None, limit=100, offset=0) != []
+            await vpn_router.mine(_ctx(w.store, w.alice), s, Response(), q="_", limit=100, offset=0) != []
         )  # "_" really occurs in the names
         r = Response()
-        page = await vpn_router.mine(w.alice, s, r, q=None, store_id=None, limit=1, offset=1)
+        page = await vpn_router.mine(_ctx(w.store, w.alice), s, r, q=None, limit=1, offset=1)
         assert len(page) == 1 and r.headers["X-Total-Count"] == "2"
 
 
-async def test_store_filter_keeps_the_customer_inside_one_store():
+async def test_customer_never_sees_accounts_of_another_store_even_his_own():
+    """Alice owns accounts in `store`; in `other` (another shop / bot) she sees and renews none of them, and a store id can
+    no longer be left out to widen the view: the scope is mandatory (store + user), there is no "all stores" call."""
     async with open_session() as s:
         w = await _world(s)
-        assert await vpn_router.mine(w.alice, s, Response(), q=None, store_id=w.other.id, limit=100, offset=0) == []
-        assert len(await vpn_router.mine(w.alice, s, Response(), q=None, store_id=w.store.id, limit=100, offset=0)) == 2
+        assert await vpn_router.mine(_ctx(w.other, w.alice), s, Response(), q=None, limit=100, offset=0) == []
+        assert await vpn_router.mine(_ctx(w.other, w.alice), s, Response(), q="alice", limit=100, offset=0) == []
+        assert (await vpn_router.summary(_ctx(w.other, w.alice), s))["total"] == 0
+        assert len(await vpn_router.mine(_ctx(w.store, w.alice), s, Response(), q=None, limit=100, offset=0)) == 2
+        # a single account of another store answers like a missing id (card, refresh, QR)
+        for call in (vpn_router.get, vpn_router.refresh, vpn_router.qr):
+            kw = {"response": Response()} if call is vpn_router.refresh else {}
+            with pytest.raises(AppError, match="NOT_FOUND"):
+                await call(w.a1.id, _ctx(w.other, w.alice), s, **kw)
 
 
 async def test_reseller_list_is_only_own_accounts_but_search_reaches_own_customers():
@@ -96,6 +105,7 @@ async def test_reseller_list_is_only_own_accounts_but_search_reaches_own_custome
         w = await _world(s)
         p = await make_product(s)
         own = await _account(s, user=w.owner, store=w.store, product=p, name="owner_own")
+        elsewhere = await _account(s, user=w.owner, store=w.other, product=p, name="owner_elsewhere")
         await s.commit()
         ctx = _ctx(w.store, w.owner)
         r = Response()
@@ -114,11 +124,15 @@ async def test_reseller_list_is_only_own_accounts_but_search_reaches_own_custome
         # another store's customers stay invisible, searched by name or by account name
         assert await reseller_router.store_accounts(ctx, s, Response(), q="eve_main", state=None, limit=50, offset=0) == []
         assert await reseller_router.store_accounts(ctx, s, Response(), q="eve", state=None, limit=50, offset=0) == []
+        # not even his OWN account bought in another store shows up (or can be opened/renewed) from this store
+        assert await reseller_router.store_accounts(ctx, s, Response(), q="owner_elsewhere", state=None, limit=50, offset=0) == []
+        with pytest.raises(AppError, match="NOT_FOUND"):
+            await reseller_router.store_account(elsewhere.id, ctx, s)
         # a customer of the store never sees the owner's or other customers' accounts, list or search
         assert [
-            a.username for a in await vpn_router.mine(w.bob, s, Response(), q="alice", store_id=None, state=None, limit=50, offset=0)
+            a.username for a in await vpn_router.mine(_ctx(w.store, w.bob), s, Response(), q="alice", state=None, limit=50, offset=0)
         ] == []
-        assert [a.username for a in await vpn_router.mine(w.bob, s, Response(), q=None, store_id=None, state=None, limit=50, offset=0)] == [
+        assert [a.username for a in await vpn_router.mine(_ctx(w.store, w.bob), s, Response(), q=None, state=None, limit=50, offset=0)] == [
             "bob_main"
         ]
 
@@ -170,16 +184,16 @@ async def test_state_chips_filter_and_count_inside_the_scope():
     async with open_session() as s:
         w = await _tuned_world(s)
         names = lambda rows: sorted(a.username for a in rows)  # noqa: E731
-        assert names(await vpn_router.mine(w.alice, s, Response(), q=None, store_id=None, state="expiring", limit=50, offset=0)) == [
+        assert names(await vpn_router.mine(_ctx(w.store, w.alice), s, Response(), q=None, state="expiring", limit=50, offset=0)) == [
             "alice_phone"
         ]
-        assert names(await vpn_router.mine(w.alice, s, Response(), q=None, store_id=None, state="expired", limit=50, offset=0)) == [
+        assert names(await vpn_router.mine(_ctx(w.store, w.alice), s, Response(), q=None, state="expired", limit=50, offset=0)) == [
             "alice_pc"
         ]
-        assert await vpn_router.mine(w.alice, s, Response(), q=None, store_id=None, state="active", limit=50, offset=0) == [] or True
-        assert await vpn_router.summary(w.alice, s, store_id=None) == {"total": 2, "active": 1, "expiring": 1, "expired": 1}
+        assert await vpn_router.mine(_ctx(w.store, w.alice), s, Response(), q=None, state="active", limit=50, offset=0) == [] or True
+        assert await vpn_router.summary(_ctx(w.store, w.alice), s) == {"total": 2, "active": 1, "expiring": 1, "expired": 1}
         # the counters of a customer never include another customer's accounts
-        assert (await vpn_router.summary(w.bob, s, store_id=None))["total"] == 1
+        assert (await vpn_router.summary(_ctx(w.store, w.bob), s))["total"] == 1
         ctx = _ctx(w.store, w.owner)
         # the owner's list scope is his OWN accounts: he has none here, the customers' accounts are not counted
         own_summary = await reseller_router.store_accounts_summary(ctx, s)
@@ -219,14 +233,14 @@ async def test_refresh_reads_the_panel_and_is_rate_limited(monkeypatch):
         w.a1.panel_id = panel.id
         await s.commit()
         r = Response()
-        fresh = await vpn_router.refresh(w.a1.id, w.alice, s, r)
+        fresh = await vpn_router.refresh(w.a1.id, _ctx(w.store, w.alice), s, r)
         assert r.headers["X-Panel-Synced"] == "1" and fresh.traffic_used_bytes == 7 * GIB and fresh.days_left >= 29
         r2 = Response()
-        await vpn_router.refresh(w.a1.id, w.alice, s, r2)  # tapped again at once: no second panel call
+        await vpn_router.refresh(w.a1.id, _ctx(w.store, w.alice), s, r2)  # tapped again at once: no second panel call
         assert r2.headers["X-Panel-Synced"] == "0" and FakePanel.calls == 1
         # nobody can refresh somebody else's account (customer, or the owner of another store)
         with pytest.raises(AppError, match="NOT_FOUND"):
-            await vpn_router.refresh(w.a1.id, w.bob, s, Response())
+            await vpn_router.refresh(w.a1.id, _ctx(w.store, w.bob), s, Response())
         with pytest.raises(AppError, match="NOT_FOUND"):
             await reseller_router.store_account_refresh(w.a1.id, _ctx(w.other, w.eve), s, Response())
         owner_view = await reseller_router.store_account_refresh(w.a1.id, _ctx(w.store, w.owner), s, Response())

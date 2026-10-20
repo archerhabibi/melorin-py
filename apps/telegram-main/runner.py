@@ -469,7 +469,7 @@ class TelegramRunner:
         dl.raise_for_status()
         if len(dl.content) > max_bytes:
             return await self.send(ctx.chat_id, "حجم فایل بیشتر از حد مجاز است.")
-        await self.api(ctx, "POST", f"/api/v1/payments/{pid}/receipt", files={"file": ("receipt", dl.content, ctype)})
+        await self.api(ctx, "POST", f"/api/v1/stores/{(await self.store_info())['id']}/payments/{pid}/receipt", files={"file": ("receipt", dl.content, ctype)})
         self._set_state(ctx.chat_id, None)
         await self.send(ctx.chat_id, "رسید دریافت شد ✅ پس از تأیید، کیف پول شما شارژ می‌شود.")
 
@@ -488,7 +488,7 @@ class TelegramRunner:
         try:
             store = await self.store_info()
             w = await self.api(ctx, "GET", f"/api/v1/stores/{store['id']}/wallet")
-            accounts = await self.api(ctx, "GET", "/api/v1/vpn-accounts")
+            accounts = await self.api(ctx, "GET", f"/api/v1/stores/{store['id']}/vpn-accounts")
         except CoreError:
             return
         active = sum(1 for a in accounts if a.get("status") == "active")
@@ -876,15 +876,13 @@ class TelegramRunner:
     # (Core enforces all of it; the reseller runner only adds the entry points).
     # All numbers come from Core, which reads them from the VPN panel; the bot never computes expiry/usage itself.
     ACC_SCOPES = {
-        "me": {"list": "/api/v1/vpn-accounts", "title": "🔑 <b>اکانت‌های من</b>", "key": "accv", "owner": False},
+        "me": {"list": "vpn-accounts", "title": "🔑 <b>اکانت‌های من</b>", "key": "accv", "owner": False},
         "ow": {"list": "reseller/accounts", "title": "🗂 <b>اکانت‌های نماینده</b>", "key": "oaccv", "owner": True},
     }
 
     async def _acc_base(self, scope: str) -> str:
-        cfg = self.ACC_SCOPES[scope]
-        if not cfg["owner"]:
-            return cfg["list"]
-        return f"/api/v1/stores/{(await self.store_info())['id']}/{cfg['list']}"
+        # Both audiences are store-scoped in Core: the customer's own accounts of THIS bot's store, or the owner's store view.
+        return f"/api/v1/stores/{(await self.store_info())['id']}/{self.ACC_SCOPES[scope]['list']}"
 
     def _acc_view(self, ctx, scope: str) -> dict:
         return dict((self.state.get(str(ctx.chat_id)) or {}).get(self.ACC_SCOPES[scope]["key"]) or {})
@@ -1243,14 +1241,14 @@ class TelegramRunner:
         await self.send(ctx.chat_id, "🔓 تیکت دوباره باز شد.", [[("📂 مشاهدهٔ تیکت", f"ticket:{tid}")]])
 
     async def cmd_notifications(self, ctx, arg):
-        d = await self.api(ctx, "GET", "/api/v1/me/notifications?unread_only=true&limit=10")
+        d = await self.api(ctx, "GET", f"/api/v1/stores/{(await self.store_info())['id']}/notifications?unread_only=true&limit=10")
         items = d.get("items", [])
         if not items:
             return await self.send(ctx.chat_id, "اعلان جدیدی ندارید.")
         await self.send(ctx.chat_id, "\n\n".join(f"🔔 {n['title']}\n{n['body']}" for n in items), [[("علامت‌گذاری همه", "readall:1")]])
 
     async def cb_readall(self, ctx, _):
-        await self.api(ctx, "POST", "/api/v1/me/notifications/read-all")
+        await self.api(ctx, "POST", f"/api/v1/stores/{(await self.store_info())['id']}/notifications/read-all")
         await self.send(ctx.chat_id, "همه اعلان‌ها خوانده شد ✅")
 
     async def cb_menu(self, ctx, name):

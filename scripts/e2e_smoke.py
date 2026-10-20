@@ -103,19 +103,19 @@ check("wallet = 50000 after purchase", w.get("balance") == 50000, str(w))
 
 status = None
 for _ in range(40):
-    status = c.get(f"{A}/orders/{oid}", headers=cust).json().get("status")
+    status = c.get(f"{A}/stores/{sid}/orders/{oid}", headers=cust).json().get("status")
     if status in ("completed", "manual_review", "failed"):
         break
     time.sleep(1)
 if status == "manual_review":
     c.post(f"{A}/admin/orders/{oid}/retry", headers=adm)
     for _ in range(40):
-        status = c.get(f"{A}/orders/{oid}", headers=cust).json().get("status")
+        status = c.get(f"{A}/stores/{sid}/orders/{oid}", headers=cust).json().get("status")
         if status in ("completed", "failed"):
             break
         time.sleep(1)
 check("order completed via worker", status == "completed", str(status))
-accts = c.get(f"{A}/vpn-accounts", headers=cust).json()
+accts = c.get(f"{A}/stores/{sid}/vpn-accounts", headers=cust).json()
 accts = accts if isinstance(accts, list) else accts.get("items", [])
 check("exactly one VPN account for the order", len(accts) == 1, str(len(accts)))
 check("customer -> admin endpoint 403", c.get(f"{A}/admin/users", headers=cust).status_code == 403)

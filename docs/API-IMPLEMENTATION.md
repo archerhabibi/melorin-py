@@ -9,7 +9,7 @@ Core routes are under `/api/v1` and emit `X-Request-ID` plus JSON errors with `c
 | catalog | `/stores/{store_id}`, `/stores/{store_id}/catalog`, `/stores/{store_id}/checkout/quote` |
 | finance | `/stores/{store_id}/wallet`, `/wallet/transactions`, `/stores/{store_id}/wallet/topups`, `/payments/*` |
 | commerce | `/stores/{store_id}/orders`, `/stores/{store_id}/test-account`, `/orders/{id}` |
-| vpn | `/vpn-accounts` |
+| vpn | `/stores/{store_id}/vpn-accounts` |
 | support | `/stores/{store_id}/tickets`, `/tickets/{id}/messages` |
 | reseller | `/reseller/applications`, `/stores/{store_id}/reseller/*` |
 | admin | `/admin/products`, `/admin/panels`, `/admin/servers`, `/admin/payments`, `/admin/orders`, `/admin/reseller-applications`, `/admin/feature-flags`, `/admin/settings`, `/admin/audit` |
