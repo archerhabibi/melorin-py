@@ -3,8 +3,8 @@
 Bot, website and the store owner's views all go through it, so the privacy rule is written once:
 
 * a customer only ever sees and searches HIS OWN accounts (``user_id`` is always part of the query);
-* the owner of a reseller store sees and searches every account sold in THAT store (``store_id`` is always part of
-  the query) and never another store's accounts;
+* a reseller's LIST shows only the accounts they made themselves; their SEARCH also finds the accounts of THEIR OWN
+  store's customers (``store_id`` is always part of the query) and never another store's accounts;
 * the numbers shown (remaining days, usage) come from the panel-synced account row; the bot and website never
   compute their own version of them.
 """
@@ -51,6 +51,11 @@ def owner_clause(q: str, user_model):
         user_model.display_name.ilike(like, escape="\\"),
         user_model.email.ilike(like, escape="\\"),
     )
+
+
+def reseller_visible(owner_id: uuid.UUID, store_id: uuid.UUID):
+    """Search scope of a reseller: the accounts they made themselves + every account of THEIR OWN store's customers."""
+    return or_(VpnAccount.user_id == owner_id, VpnAccount.store_id == store_id)
 
 
 def days_left(a: VpnAccount, now: dt.datetime | None = None) -> int | None:
@@ -106,9 +111,11 @@ def account_out(a: VpnAccount, now: dt.datetime | None = None) -> VpnAccountOut:
     )
 
 
-def owner_account_out(a: VpnAccount, user, now: dt.datetime | None = None) -> OwnerAccountOut:
+def owner_account_out(a: VpnAccount, user, now: dt.datetime | None = None, *, owner_id: uuid.UUID | None = None) -> OwnerAccountOut:
     base = account_out(a, now).model_dump()
-    return OwnerAccountOut(**base, customer_id=a.user_id, customer_name=user.display_name or user.email)
+    return OwnerAccountOut(
+        **base, customer_id=a.user_id, customer_name=user.display_name or user.email, is_own=owner_id is not None and a.user_id == owner_id
+    )
 
 
 # ---------------------------------------------------------------- list filters + counters

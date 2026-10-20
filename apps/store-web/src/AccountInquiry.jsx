@@ -1,6 +1,6 @@
 // Account inquiry (استعلام): ONE component for the customer ("my accounts") and the reseller-store owner ("all my customers' accounts").
-// The scope is decided by Core from the login (customer: own accounts only; owner: only this store); this file only renders
-// what Core returns. Expiry/usage are read live from the VPN panel through Core's /refresh endpoint.
+// The scope is decided by Core from the login (customer: own accounts only; reseller: the LIST is only his own accounts, a
+// SEARCH also finds his own store's customers' accounts); this file only renders what Core returns. Expiry/usage are read live from the VPN panel through Core's /refresh endpoint.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw, Search, X, ChevronLeft, ChevronRight, Gauge, Loader2 } from "lucide-react";
 import { SubscriptionCard } from "./Subscription.jsx";
@@ -25,7 +25,7 @@ function Card({ a, owner, base, coreFetch, notify, extra, onChange }) {
   };
   return <div className="card">
     <div className="flex items-center justify-between gap-2"><b className="latin break-all">{a.username}</b><HealthBadge health={a.health} /></div>
-    {owner && <div className="mt-1 text-xs text-muted">مشتری: <b className="text-ink">{a.customer_name || "—"}</b></div>}
+    {owner && (a.is_own ? <div className="mt-1 text-xs text-muted">اکانت خودتان</div> : <div className="mt-1 text-xs text-muted">مشتری: <b className="text-ink">{a.customer_name || "—"}</b></div>)}
     <div className="mt-4 flex items-center justify-between text-xs text-muted"><span>انقضا: {a.expires_at ? fd(a.expires_at) : "نامحدود"}</span>{a.days_left != null && <b className="text-ink">{fa(a.days_left)} روز مانده</b>}</div>
     <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface2"><div className={`h-full rounded-full ${pct > 85 ? "bg-danger" : "bg-coral"}`} style={{ width: `${pct}%` }} /></div>
     <div className="mt-1 text-xs text-muted">{gb(a.traffic_used_bytes)} از {a.traffic_limit_bytes ? gb(a.traffic_limit_bytes) : "∞"} گیگ</div>
@@ -63,15 +63,16 @@ export default function AccountInquiry({ coreFetch, base, owner = false, notify,
   }, [base, state, q, page, reloadKey]);
   const replace = (n) => setRows((cur) => (cur || []).map((x) => (x.id === n.id ? { ...x, ...n } : x)));
   const filtered = useMemo(() => Boolean(state || q), [state, q]);
-  if (counts && !counts.total && !filtered && rows && !rows.length) return <Empty icon={Gauge} text={emptyText || "اکانتی وجود ندارد."}>{emptyAction}</Empty>;
+  if (!owner && counts && !counts.total && !filtered && rows && !rows.length) return <Empty icon={Gauge} text={emptyText || "اکانتی وجود ندارد."}>{emptyAction}</Empty>;
   return <div className="space-y-4">
     <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="فیلتر وضعیت">
       {CHIPS.map(([k, label, ck]) => <button key={k || "all"} role="tab" aria-selected={state === k} onClick={() => { setState(k); setPage(0); }} className={`rounded-full px-4 py-2 text-xs font-bold transition ${state === k ? "bg-primary text-onprimary shadow-soft" : "bg-surface text-muted ring-1 ring-line hover:bg-surface2 hover:text-ink"}`}>{label}{counts ? ` (${fa(counts[ck])})` : ""}</button>)}
     </div>
     <div className="relative"><Search size={16} className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-muted" />
-      <input value={input} onChange={(e) => setInput(e.target.value)} className="input !pr-10 !pl-10" placeholder={owner ? "جستجو: نام اکانت، نام یا ایمیل مشتری" : "جستجو در نام اکانت"} aria-label="جستجوی اکانت" maxLength={64} />
+      <input value={input} onChange={(e) => setInput(e.target.value)} className="input !pr-10 !pl-10" placeholder={owner ? "جستجوی اکانت مشتریان: نام اکانت، نام یا ایمیل مشتری" : "جستجو در نام اکانت"} aria-label="جستجوی اکانت" maxLength={64} />
       {input && <button onClick={() => setInput("")} aria-label="پاک‌کردن جستجو" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"><X size={16} /></button>}</div>
-    {rows === null ? <Loading rows={2} /> : !rows.length ? <Empty icon={Search} text="نتیجه‌ای پیدا نشد." /> :
+    {owner && !q && <p className="text-xs text-muted">این فهرست فقط اکانت‌هایی است که خودتان ساخته‌اید. برای پیدا کردن اکانت مشتریان‌تان، نام اکانت یا نام/ایمیل مشتری را جستجو کنید.</p>}
+    {rows === null ? <Loading rows={2} /> : !rows.length ? <Empty icon={Search} text={owner && !q && !state ? (emptyText || "اکانتی ندارید.") : "نتیجه‌ای پیدا نشد."} /> :
       <div className="grid gap-4 md:grid-cols-2">{rows.map((a) => <Card key={a.id} a={a} owner={owner} base={base} coreFetch={coreFetch} notify={notify} onChange={replace} extra={renderExtra?.(a, replace)} />)}</div>}
     {(page > 0 || more) && <div className="flex items-center justify-center gap-3 pt-2">
       <button disabled={page === 0} onClick={() => setPage(page - 1)} className="btn-ghost"><ChevronRight size={14} />قبلی</button>

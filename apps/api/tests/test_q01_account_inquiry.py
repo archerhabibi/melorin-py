@@ -1,5 +1,5 @@
-"""Account inquiry (استعلام): a customer only ever sees/searches his own accounts, the owner of a reseller store sees and
-searches every account of THAT store only, and the numbers on every card come from one place (``vpn.inquiry``)."""
+"""Account inquiry (استعلام): a customer only ever sees/searches his own accounts, a reseller lists only his own accounts and
+searches his own store's customers' accounts too (never another store's), and the numbers on every card come from one place (``vpn.inquiry``)."""
 
 import datetime as dt
 import types
@@ -91,26 +91,42 @@ async def test_store_filter_keeps_the_customer_inside_one_store():
         assert len(await vpn_router.mine(w.alice, s, Response(), q=None, store_id=w.store.id, limit=100, offset=0)) == 2
 
 
-async def test_owner_sees_all_store_accounts_and_searches_by_name_or_customer():
+async def test_reseller_list_is_only_own_accounts_but_search_reaches_own_customers():
     async with open_session() as s:
         w = await _world(s)
+        p = await make_product(s)
+        own = await _account(s, user=w.owner, store=w.store, product=p, name="owner_own")
+        await s.commit()
         ctx = _ctx(w.store, w.owner)
         r = Response()
-        rows = await reseller_router.store_accounts(ctx, s, r, q=None, limit=50, offset=0)
-        assert {a.username for a in rows} == {"alice_phone", "alice_pc", "bob_main"} and r.headers["X-Total-Count"] == "3"
-        assert {a.customer_name for a in rows} == {"Alice", "Bob"}
-        assert [a.username for a in await reseller_router.store_accounts(ctx, s, Response(), q="bob", limit=50, offset=0)] == ["bob_main"]
-        assert (
-            len(await reseller_router.store_accounts(ctx, s, Response(), q="alice", limit=50, offset=0)) == 2
-        )  # customer name AND username
-        assert await reseller_router.store_accounts(ctx, s, Response(), q="eve_main", limit=50, offset=0) == []  # other store: invisible
+        rows = await reseller_router.store_accounts(ctx, s, r, q=None, state=None, limit=50, offset=0)
+        # the LIST: what the reseller made himself, never the customers' accounts
+        assert [a.username for a in rows] == ["owner_own"] and r.headers["X-Total-Count"] == "1" and rows[0].is_own
+        # the SEARCH: also the accounts of THEIR OWN store's customers (by account name or by customer name)
+        found = await reseller_router.store_accounts(ctx, s, Response(), q="bob", state=None, limit=50, offset=0)
+        assert [a.username for a in found] == ["bob_main"] and not found[0].is_own
+        found = await reseller_router.store_accounts(ctx, s, Response(), q="alice", state=None, limit=50, offset=0)
+        assert {a.username for a in found} == {"alice_phone", "alice_pc"} and {a.customer_name for a in found} == {"Alice"}
+        assert [
+            a.username for a in await reseller_router.store_accounts(ctx, s, Response(), q="owner_own", state=None, limit=50, offset=0)
+        ] == [own.username]
+        # another store's customers stay invisible, searched by name or by account name
+        assert await reseller_router.store_accounts(ctx, s, Response(), q="eve_main", state=None, limit=50, offset=0) == []
+        assert await reseller_router.store_accounts(ctx, s, Response(), q="eve", state=None, limit=50, offset=0) == []
+        # a customer of the store never sees the owner's or other customers' accounts, list or search
+        assert [
+            a.username for a in await vpn_router.mine(w.bob, s, Response(), q="alice", store_id=None, state=None, limit=50, offset=0)
+        ] == []
+        assert [a.username for a in await vpn_router.mine(w.bob, s, Response(), q=None, store_id=None, state=None, limit=50, offset=0)] == [
+            "bob_main"
+        ]
 
 
 async def test_owner_cannot_open_another_stores_account_and_customers_have_no_owner_view():
     async with open_session() as s:
         w = await _world(s)
         ctx = _ctx(w.store, w.owner)
-        assert (await reseller_router.store_account(w.a1.id, ctx, s)).customer_id == w.alice.id
+        assert (await reseller_router.store_account(w.a1.id, ctx, s)).customer_id == w.alice.id  # own store's customer
         with pytest.raises(AppError, match="NOT_FOUND"):
             await reseller_router.store_account(w.e1.id, ctx, s)
         with pytest.raises(AppError, match="NOT_FOUND"):
@@ -164,9 +180,12 @@ async def test_state_chips_filter_and_count_inside_the_scope():
         # the counters of a customer never include another customer's accounts
         assert (await vpn_router.summary(w.bob, s, store_id=None))["total"] == 1
         ctx = _ctx(w.store, w.owner)
-        assert await reseller_router.store_accounts_summary(ctx, s) == {"total": 3, "active": 2, "expiring": 1, "expired": 1}
-        assert (await reseller_router.store_accounts_summary(_ctx(w.other, w.eve), s))["total"] == 1
-        owner_expired = await reseller_router.store_accounts(ctx, s, Response(), q="alice", state="expired", limit=50, offset=0)
+        # the owner's list scope is his OWN accounts: he has none here, the customers' accounts are not counted
+        assert await reseller_router.store_accounts_summary(ctx, s) == {"total": 0, "active": 0, "expiring": 0, "expired": 0}
+        assert (await reseller_router.store_accounts_summary(_ctx(w.other, w.eve), s))["total"] == 1  # eve owns e1 herself
+        owner_expired = await reseller_router.store_accounts(
+            ctx, s, Response(), q="alice", state="expired", limit=50, offset=0
+        )  # search reaches customers
         assert names(owner_expired) == ["alice_pc"]
 
 

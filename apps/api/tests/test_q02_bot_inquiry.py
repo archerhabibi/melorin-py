@@ -64,6 +64,12 @@ class Core:
             return httpx.Response(403, json={})
         if path.endswith("/summary"):
             return httpx.Response(200, json={"total": len(self.rows), "active": len(self.rows), "expiring": 0, "expired": 0})
+        if path.endswith("/renewal"):
+            pkg = {"product_id": "p1", "name": "پکیج ۳۰ روزه", "price": 90000, "currency": "IRT"}
+            return httpx.Response(200, json={"renewable": True, "package": pkg, "after": {"duration_days": 30, "traffic_gb": 50}})
+        if request.method == "POST" and path.endswith("/renew"):
+            self.renewals = [*getattr(self, "renewals", []), (path, request.headers.get("idempotency-key"), json.loads(body))]
+            return httpx.Response(201, json={"id": "o1"})
         if path.endswith("/refresh"):
             row = next(a for a in self.rows if a["id"] in path)
             return httpx.Response(200, json={**row, "customer_name": "Sara"})
@@ -165,7 +171,34 @@ def test_owner_sees_store_accounts_with_customer_names(bots):
     target = core.rows[0]["id"]
     run(res, cb(f"oaccount:{target}", 2))
     e = core.edits[-1]
-    assert "Sara" in e["text"] and not any(x.startswith("rnw:") for x in data_of(e)) and any(x.startswith("oqr:") for x in data_of(e))
+    # a reseller renews through the OWNER route (Core checks the account is his own / his own customer's), never the customer's
+    assert "Sara" in e["text"] and not any(x.startswith("rnw:") for x in data_of(e)) and any(x.startswith("orn:") for x in data_of(e))
+    assert any(x.startswith("oqr:") for x in data_of(e))
+
+
+def test_owner_list_explains_it_is_only_his_own_accounts_and_keeps_search(bots):
+    _, res, core = bots
+    core.rows = []  # the reseller made no account himself: the screen must still offer the search for his customers
+    run(res, msg("/allaccounts"))
+    first = core.sent[-1]
+    assert "جستجو" in first["text"] and "فقط اکانت" in first["text"]
+    assert "oacs:1" in data_of(first)
+
+
+def test_owner_renews_through_core_with_confirmation(bots):
+    _, res, core = bots
+    target = core.rows[0]["id"]
+    run(res, cb(f"oaccount:{target}", 2))
+    orn = next(x for x in data_of(core.edits[-1]) if x.startswith("orn:"))
+    run(res, cb(orn, 3))
+    confirm = core.edits[-1]
+    assert core.calls[-1][1] == f"/api/v1/stores/s1/reseller/accounts/{target}/renewal"
+    assert "90" in confirm["text"] and "کیف پول" in confirm["text"]  # price and who pays are stated before anything is charged
+    assert not hasattr(core, "renewals")  # asking is not buying
+    orb = next(x for x in data_of(confirm) if x.startswith("orb:"))
+    run(res, cb(orb, 4))
+    path, key, body = core.renewals[-1]
+    assert path == f"/api/v1/stores/s1/reseller/accounts/{target}/renew" and key and body == {"channel": "telegram"}
 
 
 def test_non_owner_is_refused_by_core(bots):

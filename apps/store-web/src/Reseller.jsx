@@ -1,9 +1,51 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, BarChart3, Gauge, Bot, CreditCard, Eye, EyeOff, Globe, Settings, Tags, Users, Webhook, KeyRound } from "lucide-react";
+import { ArrowRight, BarChart3, RefreshCw, X, Gauge, Bot, CreditCard, Eye, EyeOff, Globe, Settings, Tags, Users, Webhook, KeyRound } from "lucide-react";
 import { Loading, PageTitle, StatusBadge, fa, fd } from "./ui.jsx";
 import Pricing from "./ResellerPricing.jsx";
 import AccountInquiry from "./AccountInquiry.jsx";
 const J = { "Content-Type": "application/json" };
+
+
+// The reseller renews his own accounts and HIS OWN store's customers' accounts. Core decides everything (window, package,
+// price, wallet); this card shows Core's answer and asks Core to renew. The charge goes to the account holder's wallet.
+function OwnerRenew({ account, base, coreFetch, notify, onDone, onClose }) {
+  const [info, setInfo] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const key = useRef(`web-owner-renew-${crypto.randomUUID()}`);
+  useEffect(() => {
+    let live = true;
+    coreFetch(`${base}/accounts/${account.id}/renewal`).then((r) => (r.ok ? r.json() : Promise.reject())).then((d) => live && setInfo(d)).catch(() => live && setInfo({ renewable: false, message: "اطلاعات تمدید دریافت نشد." }));
+    return () => { live = false; };
+  }, [account.id]);
+  async function go() {
+    setBusy(true);
+    try {
+      const r = await coreFetch(`${base}/accounts/${account.id}/renew`, { method: "POST", headers: { ...J, "Idempotency-Key": key.current }, body: JSON.stringify({ channel: "web" }) });
+      if (!r.ok) return notify(await errOf(r, "تمدید ناموفق بود"));
+      notify("تمدید ثبت شد"); onDone(); onClose();
+    } finally { setBusy(false); }
+  }
+  const after = info?.after;
+  return <div className="mt-4 rounded-xl bg-surface2 p-3 text-sm">
+    <div className="flex items-center justify-between"><b>تمدید اکانت{account.is_own ? "" : " مشتری"}</b><button onClick={onClose} aria-label="بستن" className="text-muted"><X size={16} /></button></div>
+    {info === null ? <Loading rows={1} /> : !info.renewable ? <p className="mt-2 text-xs text-muted">{info.message || "این اکانت قابل تمدید نیست."}</p> : <div className="mt-2 space-y-1">
+      <div><b>{info.package.name}</b></div>
+      {after && <div className="text-xs text-muted">پس از تمدید: {fa(after.duration_days)} روز · {after.traffic_gb ? `${fa(after.traffic_gb)} گیگ` : "نامحدود"}؛ روزهای باقی‌مانده فعلی جایگزین می‌شود، اضافه نمی‌شود.</div>}
+      <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-3"><span>مبلغ: <b>{fa(info.package.price)} {info.package.currency}</b>{!account.is_own && <span className="block text-xs text-muted">از کیف پول مشتری در این فروشگاه کسر می‌شود.</span>}</span>
+        <button disabled={busy} onClick={go} className="btn-primary !px-4 !py-2 text-xs">تمدید</button></div>
+    </div>}
+  </div>;
+}
+
+function OwnerAccounts({ coreFetch, base, notify }) {
+  const [renew, setRenew] = useState(null);
+  const [tick, setTick] = useState(0);
+  return <AccountInquiry coreFetch={coreFetch} base={`${base}/accounts`} owner notify={notify} reloadKey={tick} emptyText="هنوز اکانتی نساخته‌اید. اکانت مشتریان را با جستجو پیدا کنید."
+    renderExtra={(a) => <>
+      {a.can_renew ? <button onClick={() => setRenew(renew === a.id ? null : a.id)} className="btn-soft mt-2 w-full"><RefreshCw size={16} />تمدید</button> : !a.is_test && a.expires_at && <p className="mt-2 text-xs text-muted">مهلت تمدید این اکانت (۱۰ روز پس از انقضا) تمام شده است.</p>}
+      {renew === a.id && <OwnerRenew account={a} base={base} coreFetch={coreFetch} notify={notify} onDone={() => setTick((t) => t + 1)} onClose={() => setRenew(null)} />}
+    </>} />;
+}
 const card = "card";
 const btn = "btn-primary !py-2.5";
 const ghost = "btn-ghost";
@@ -218,6 +260,6 @@ export default function Reseller({ coreFetch, notify }) {
     {stores === null ? <Loading rows={2} /> : !mine ? <Apply coreFetch={coreFetch} notify={notify} stores={stores} /> : <div className="grid gap-8 md:grid-cols-[220px_1fr]">
       <nav aria-label="بخش‌های پنل نماینده" className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 md:sticky md:top-24 md:mx-0 md:h-fit md:flex-col md:gap-1 md:overflow-visible md:px-0">{tabs.map(([k, l, Icon]) => <button key={k} onClick={() => go(k)} aria-current={tab === k} className={`flex shrink-0 items-center gap-2.5 whitespace-nowrap rounded-xl px-4 py-3 text-sm font-bold transition ${tab === k ? "bg-primary text-onprimary shadow-soft" : "text-muted hover:bg-surface2 hover:text-ink"}`}><Icon size={18} />{l}</button>)}</nav>
       <section className="min-w-0">
-      {tab === "overview" && <Overview coreFetch={coreFetch} base={base} />}{tab === "pricing" && <Pricing coreFetch={coreFetch} base={base} notify={notify} dirtyRef={pricingDirty} />}{tab === "customers" && <Customers coreFetch={coreFetch} base={base} notify={notify} />}{tab === "accounts" && <AccountInquiry coreFetch={coreFetch} base={`${base}/accounts`} owner notify={notify} emptyText="هنوز اکانتی در فروشگاه شما ساخته نشده است." />}{tab === "payments" && <Payments coreFetch={coreFetch} base={base} notify={notify} />}{tab === "keys" && <Keys coreFetch={coreFetch} base={base} notify={notify} />}{tab === "hooks" && <Hooks coreFetch={coreFetch} base={base} notify={notify} />}{tab === "settings" && <div className="space-y-4"><Branding coreFetch={coreFetch} base={base} storeId={mine.id} notify={notify} /><PayConfig coreFetch={coreFetch} base={base} notify={notify} /></div>}
+      {tab === "overview" && <Overview coreFetch={coreFetch} base={base} />}{tab === "pricing" && <Pricing coreFetch={coreFetch} base={base} notify={notify} dirtyRef={pricingDirty} />}{tab === "customers" && <Customers coreFetch={coreFetch} base={base} notify={notify} />}{tab === "accounts" && <OwnerAccounts coreFetch={coreFetch} base={base} notify={notify} />}{tab === "payments" && <Payments coreFetch={coreFetch} base={base} notify={notify} />}{tab === "keys" && <Keys coreFetch={coreFetch} base={base} notify={notify} />}{tab === "hooks" && <Hooks coreFetch={coreFetch} base={base} notify={notify} />}{tab === "settings" && <div className="space-y-4"><Branding coreFetch={coreFetch} base={base} storeId={mine.id} notify={notify} /><PayConfig coreFetch={coreFetch} base={base} notify={notify} /></div>}
       </section></div>}</div>;
 }

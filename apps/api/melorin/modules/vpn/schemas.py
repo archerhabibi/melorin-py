@@ -26,7 +26,8 @@ class VpnAccountOut(BaseModel):
 
 
 class OwnerAccountOut(VpnAccountOut):
-    """What a store owner sees for one of the store's customer accounts (read-only; renewal stays the customer's)."""
+    """What a store owner sees for one of the store's customer accounts (the owner may renew them for the customer)."""
 
     customer_id: uuid.UUID
     customer_name: str | None = None
+    is_own: bool = False  # True: the owner's own account; False: an account of one of the store's customers

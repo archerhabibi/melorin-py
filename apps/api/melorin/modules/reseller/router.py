@@ -2,6 +2,7 @@ import json
 import uuid
 
 from fastapi import APIRouter, Query, Response
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
@@ -371,10 +372,14 @@ async def store_accounts(
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ):
-    """The store owner's inquiry: every account sold in THIS store (never another store's), searchable."""
-    cond = [VpnAccount.store_id == ctx.store.id, VpnAccount.archived_at.is_(None)]
-    if term := inquiry.clean_query(q):
-        cond.append(inquiry.owner_clause(term, User))
+    """The reseller's inquiry. The LIST (no search) is only the accounts they made themselves; a SEARCH also finds the
+    accounts of THEIR OWN store's customers (never another store's)."""
+    term = inquiry.clean_query(q)
+    cond = [VpnAccount.archived_at.is_(None)]
+    if term:
+        cond += [inquiry.reseller_visible(ctx.user.id, ctx.store.id), inquiry.owner_clause(term, User)]
+    else:
+        cond.append(VpnAccount.user_id == ctx.user.id)
     state_cond = inquiry.state_clause(state)
     if state_cond is not None:
         cond.append(state_cond)
@@ -382,21 +387,22 @@ async def store_accounts(
     total = await session.scalar(select(func.count()).select_from(base.subquery()))
     response.headers["X-Total-Count"] = str(total or 0)
     rows = (await session.execute(base.order_by(VpnAccount.created_at.desc()).limit(limit).offset(offset))).all()
-    return [inquiry.owner_account_out(a, u) for a, u in rows]
+    return [inquiry.owner_account_out(a, u, owner_id=ctx.user.id) for a, u in rows]
 
 
 @router.get("/stores/{store_id}/reseller/accounts/summary")
 async def store_accounts_summary(ctx: OwnerCtx, session: Session):
-    """Chip counters over every account sold in THIS store (never another store's)."""
-    return await inquiry.summary(session, VpnAccount.store_id == ctx.store.id, VpnAccount.archived_at.is_(None))
+    """Chip counters over the list scope: the reseller's OWN accounts."""
+    return await inquiry.summary(session, VpnAccount.user_id == ctx.user.id, VpnAccount.archived_at.is_(None))
 
 
 async def _store_account(session, ctx, account_id: uuid.UUID):
+    """One account the reseller may act on: their own, or one of THEIR OWN store's customers' (never another store's)."""
     row = (
         await session.execute(
             select(VpnAccount, User)
             .join(User, User.id == VpnAccount.user_id)
-            .where(VpnAccount.id == account_id, VpnAccount.store_id == ctx.store.id)
+            .where(VpnAccount.id == account_id, inquiry.reseller_visible(ctx.user.id, ctx.store.id))
         )
     ).first()
     if not row:
@@ -404,10 +410,18 @@ async def _store_account(session, ctx, account_id: uuid.UUID):
     return row
 
 
+async def _account_context(session, a: VpnAccount, holder: User):
+    """The account holder's own context in the store the account lives in: the renewal then runs through exactly the
+    same core rules as a renewal started by the holder (ownership, window, package, price, wallet)."""
+    from melorin.core.deps import resolve_store_context  # lazy: deps imports this package's models
+
+    return await resolve_store_context(session, a.store_id, holder)
+
+
 @router.get("/stores/{store_id}/reseller/accounts/{account_id}", response_model=OwnerAccountOut)
 async def store_account(account_id: uuid.UUID, ctx: OwnerCtx, session: Session):
     a, u = await _store_account(session, ctx, account_id)
-    return inquiry.owner_account_out(a, u)
+    return inquiry.owner_account_out(a, u, owner_id=ctx.user.id)
 
 
 @router.post("/stores/{store_id}/reseller/accounts/{account_id}/refresh", response_model=OwnerAccountOut)
@@ -415,7 +429,59 @@ async def store_account_refresh(account_id: uuid.UUID, ctx: OwnerCtx, session: S
     """Owner's live view: re-read one of the store's accounts from its VPN panel."""
     a, u = await _store_account(session, ctx, account_id)
     response.headers["X-Panel-Synced"] = "1" if await inquiry.refresh_from_panel(session, a) else "0"
-    return inquiry.owner_account_out(a, u)
+    return inquiry.owner_account_out(a, u, owner_id=ctx.user.id)
+
+
+@router.get("/stores/{store_id}/reseller/accounts/{account_id}/renewal")
+async def store_account_renewal(account_id: uuid.UUID, ctx: OwnerCtx, session: Session):
+    """What a renewal of this account would be (package, price, new expiry) — the same answer the account's holder gets."""
+    from melorin.modules.catalog.router import renewal_info  # lazy: catalog imports reseller-side models
+
+    a, u = await _store_account(session, ctx, account_id)
+    return await renewal_info(a.id, await _account_context(session, a, u), session)
+
+
+class OwnerRenewIn(BaseModel):
+    channel: str = Field(default="web", pattern="^(web|telegram)$")
+
+
+@router.post("/stores/{store_id}/reseller/accounts/{account_id}/renew", status_code=201)
+async def store_account_renew(
+    account_id: uuid.UUID,
+    body: OwnerRenewIn,
+    ctx: OwnerCtx,
+    session: Session,
+    idempotency_key: str = Header(..., alias="Idempotency-Key", min_length=8, max_length=100),
+):
+    """Renew one of the reseller's OWN accounts, or one of THEIR OWN store's customers' accounts, with the account's own
+    package at its current price. The order belongs to the account's holder and is paid from that holder's wallet in the
+    store (the reseller can top it up); every renewal rule stays in the core. Customers of other stores: 404."""
+    from melorin.modules.orders import service as orders  # lazy: orders imports the vpn package
+    from melorin.modules.orders.router import out as order_out
+
+    a, u = await _store_account(session, ctx, account_id)
+    product_id, actor_id, is_own = a.product_id, ctx.user.id, a.user_id == ctx.user.id
+    order = await orders.create_order(
+        session,
+        await _account_context(session, a, u),
+        product_id=product_id,
+        idempotency_key=idempotency_key,
+        kind="renewal",
+        vpn_account_id=account_id,
+        channel=body.channel,
+    )
+    if not is_own:
+        audit.record(
+            session,
+            "order.renewed_by_owner",
+            actor_id=actor_id,
+            entity_type="order",
+            entity_id=order.id,
+            store_id=order.store_id,
+            data={"vpn_account_id": str(account_id), "customer_id": str(order.user_id)},
+        )
+        await session.commit()
+    return order_out(order)
 
 
 @router.get("/stores/{store_id}/reseller/accounts/{account_id}/qr.png", response_class=Response, responses={200: {"content": {"image/png": {}}}})

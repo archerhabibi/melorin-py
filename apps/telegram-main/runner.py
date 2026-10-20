@@ -871,12 +871,13 @@ class TelegramRunner:
         await self.create_topup(ctx, int(digits))
 
     # ----- accounts (استعلام): list (chips + search + paging) -> live card -> QR / renew -----
-    # One implementation for two audiences. scope "me": the customer's OWN accounts. scope "ow": the reseller-store owner's
-    # view of every account sold in his store (Core enforces both; the reseller runner only adds the entry points).
+    # One implementation for two audiences. scope "me": the customer's OWN accounts. scope "ow": the reseller's view: the LIST
+    # is only the accounts he made himself, a SEARCH also finds his own store's customers' accounts, and he may renew both
+    # (Core enforces all of it; the reseller runner only adds the entry points).
     # All numbers come from Core, which reads them from the VPN panel; the bot never computes expiry/usage itself.
     ACC_SCOPES = {
         "me": {"list": "/api/v1/vpn-accounts", "title": "🔑 <b>اکانت‌های من</b>", "key": "accv", "owner": False},
-        "ow": {"list": "reseller/accounts", "title": "🗂 <b>اکانت‌های مشتریان</b>", "key": "oaccv", "owner": True},
+        "ow": {"list": "reseller/accounts", "title": "🗂 <b>اکانت‌های نماینده</b>", "key": "oaccv", "owner": True},
     }
 
     async def _acc_base(self, scope: str) -> str:
@@ -912,15 +913,16 @@ class TelegramRunner:
         counts = await self.api(ctx, "GET", f"{base}/summary")
         rows = await self.api(ctx, "GET", base, params=params)
         more, rows = len(rows) > PAGE_SIZE, rows[:PAGE_SIZE]
-        if not counts.get("total") and not q:
-            empty = "🗂 هنوز اکانتی در فروشگاه شما ساخته نشده است." if cfg["owner"] else "🔑 هنوز اکانتی ندارید."
-            return await self.screen(ctx, empty, [] if cfg["owner"] else [[("🛒 خرید اکانت", "menu:plans")], [("🧪 دریافت اکانت تست", "menu:test")]])
+        if not counts.get("total") and not q and not cfg["owner"]:
+            return await self.screen(ctx, "🔑 هنوز اکانتی ندارید.", [[("🛒 خرید اکانت", "menu:plans")], [("🧪 دریافت اکانت تست", "menu:test")]])
         head = [f"{cfg['title']} · {counts.get('total', 0)} اکانت",
                 f"🟢 {counts.get('active', 0)} فعال · 🟡 {counts.get('expiring', 0)} رو‌به‌اتمام · 🔴 {counts.get('expired', 0)} منقضی"]
         if q:
             head.append(f"🔎 جستجو: «{esc(q)}»")
+        if cfg["owner"] and not q:
+            head.append("ℹ️ این فهرست فقط اکانت‌هایی است که خودتان ساخته‌اید. اکانت مشتریان‌تان را با 🔎 جستجو (نام اکانت، نام یا ایمیل مشتری) پیدا کنید.")
         if not rows:
-            head += ["", "نتیجه‌ای پیدا نشد."]
+            head += ["", "نتیجه‌ای پیدا نشد." if (q or state) else "هنوز اکانتی نساخته‌اید."]
         elif cfg["owner"]:
             head += ["", "برای دیدن جزئیات، تمدید یا QR یکی را انتخاب کنید:"]
         else:
@@ -931,7 +933,7 @@ class TelegramRunner:
         for a in rows:
             left = a.get("days_left")
             tail = f" · {left}ر" if left is not None else " · ♾"
-            who = f" · {a['customer_name'][:14]}" if cfg["owner"] and a.get("customer_name") else ""
+            who = f" · {a['customer_name'][:14]}" if cfg["owner"] and not a.get("is_own") and a.get("customer_name") else ""
             buttons.append([(f"{HEALTH_BADGE.get(a.get('health'), '•')} {a['username']}{tail}{who}", f"{'o' if cfg['owner'] else ''}account:{a['id']}")])
         nav = []
         if page > 0:
@@ -983,15 +985,15 @@ class TelegramRunner:
         health = account.get("health")
         lines = [f"👤 <b>{esc(account.get('username', '-'))}</b>", f"وضعیت: {HEALTH_BADGE.get(health, '•')} {HEALTH_LABEL.get(health, esc(account.get('status')))}"]
         if owner:
-            lines.append(f"🙋 مشتری: {esc(account.get('customer_name') or '-')}")
+            lines.append("🙋 اکانت خودتان" if account.get("is_own") else f"🙋 مشتری: {esc(account.get('customer_name') or '-')}")
         lines += [expiry_line(account.get("expires_at")), "", f"📊 {usage_bar(account.get('traffic_used_bytes'), account.get('traffic_limit_bytes'))}"]
         lines += ["", "🔗 لینک اشتراک (برای کپی لمس کنید):", f"<code>{esc(link)}</code>"] if link else ["", "🔗 لینک در حال آماده‌سازی است."]
         pre = "o" if owner else ""
         action = []
         if link:
             action.append(("📷 QR کد", f"{pre}qr:{b64(account['id'])}"))
-        if account.get("can_renew") and not owner:  # Core decides (up to 10 days after expiry); the bot never re-implements the rule
-            action.append(("🔄 تمدید", f"rnw:{b64(account['id'])}"))
+        if account.get("can_renew"):  # Core decides (up to 10 days after expiry); the bot never re-implements the rule
+            action.append(("🔄 تمدید", f"{'orn' if owner else 'rnw'}:{b64(account['id'])}"))
         rows = ([action] if action else []) + [[("🔃 بروزرسانی از پنل", f"{pre}account:{account['id']}")], [("↩︎ بازگشت به لیست", back)]]
         await self.screen(ctx, "\n".join(lines), rows)
 
@@ -1038,6 +1040,29 @@ class TelegramRunner:
         o = await self.api(ctx, "POST", f"/api/v1/stores/{store['id']}/orders", headers={"Idempotency-Key": ctx.idem},
                            json={"product_id": unb64(pid), "payment_method": "wallet", "kind": "renewal", "vpn_account_id": unb64(acc)})
         await self.order_done(ctx, o, "✅ <b>تمدید با کیف پول پرداخت شد</b>")
+
+    # ----- the reseller renews his own accounts and HIS OWN store's customers' accounts (Core: anyone else -> 404) -----
+    async def cb_owner_renew(self, ctx, token):
+        acc = unb64(token)
+        base = await self._acc_base("ow")
+        info = await self.api(ctx, "GET", f"{base}/{acc}/renewal")
+        back = [("↩︎ بازگشت به اکانت", f"oaccount:{acc}")]
+        if not info.get("renewable"):
+            return await self.screen(ctx, f"⚠️ {esc(info.get('message') or 'این اکانت قابل تمدید نیست.')}", [back])
+        pkg, after = info["package"], info.get("after") or {}
+        lines = ["🔄 <b>تمدید اکانت</b>", "", f"📦 {esc(pkg.get('name'))}", f"💰 مبلغ: <b>{esc(fmt(pkg['price'], pkg['currency']))}</b>"]
+        if after:
+            volume = f"{after['traffic_gb']} گیگ" if after.get("traffic_gb") else "نامحدود"
+            lines.append(f"پس از تمدید: {after.get('duration_days')} روز · {volume} (روزهای باقی‌مانده فعلی جایگزین می‌شود، اضافه نمی‌شود)")
+        lines.append("از کیف پول صاحب اکانت در این فروشگاه کسر می‌شود.")
+        await self.screen(ctx, "\n".join(lines), [[("✅ تأیید و تمدید", f"orb:{token}")], back])
+
+    async def cb_owner_renew_buy(self, ctx, token):
+        acc = unb64(token)
+        base = await self._acc_base("ow")
+        await self.api(ctx, "POST", f"{base}/{acc}/renew", headers={"Idempotency-Key": ctx.idem}, json={"channel": "telegram"})
+        await self.send(ctx.chat_id, "✅ تمدید ثبت شد؛ به‌محض اعمال روی پنل، اکانت بروزرسانی می‌شود.")
+        await self.show_account_card(ctx, acc, "ow")
 
     async def cmd_test(self, ctx, arg):
         store = await self.store_info()

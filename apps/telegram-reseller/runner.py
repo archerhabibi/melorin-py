@@ -40,7 +40,7 @@ log = logging.getLogger("melorin.telegram.reseller")
 OWNER_BUTTON = "🏪 مدیریت فروشگاه"
 OWNER_HELP = "\n\nبخش نماینده:\n/manage مدیریت فروشگاه\n/report گزارش فروش\n/customers مشتریان\n/payments پرداخت‌های در انتظار تأیید\n/prices قیمت فروش محصولات"
 CUSTOMER_COMMANDS = [(c, d) for c, d in _module.BOT_COMMANDS if c != "reseller"]
-OWNER_COMMANDS = [("manage", OWNER_BUTTON), ("report", "📊 گزارش فروش"), ("customers", "👥 مشتریان"), ("payments", "💳 پرداخت‌های در انتظار"), ("prices", "💲 قیمت فروش"), ("allaccounts", "🗂 اکانت‌های مشتریان")]
+OWNER_COMMANDS = [("manage", OWNER_BUTTON), ("report", "📊 گزارش فروش"), ("customers", "👥 مشتریان"), ("payments", "💳 پرداخت‌های در انتظار"), ("prices", "💲 قیمت فروش"), ("allaccounts", "🗂 اکانت‌های من و مشتریان")]
 DEBT_LABEL = {"ok": "🟢 عادی", "near": "🟠 نزدیک به سقف بدهی", "reached": "🔴 به سقف بدهی رسیده"}
 OWNER_CACHE_SECONDS = 600
 STORE_CACHE_SECONDS = 60  # welcome / support texts edited by the admin or the owner apply within a minute, no restart
@@ -77,7 +77,8 @@ class ResellerTelegramRunner(_module.TelegramRunner):
         self.commands.update({"/manage": self.cmd_manage, "/report": self.cmd_report, "/customers": self.cmd_customers, "/payments": self.cmd_payments, "/prices": self.cmd_prices, "/allaccounts": self.cmd_owner_accounts})
         # the store owner's account inquiry (every account sold in THIS store); Core answers 403 for anyone else
         self.callbacks.update({"oacl": self.cb_owner_acc_list, "oacs": self.cb_owner_acc_search, "oacq": self.cb_owner_acc_clear,
-                               "oaccount": self.cb_owner_account, "oqr": self.cb_owner_qr})
+                               "oaccount": self.cb_owner_account, "oqr": self.cb_owner_qr,
+                               "orn": self.cb_owner_renew, "orb": self.cb_owner_renew_buy})
         self.commands.pop("/reseller", None)  # reseller bots have no sub-resellers
         self.callbacks.update({"rv": self.cb_review, "prc": self.cb_price_pick, "prs": self.cb_price_scope, "mg": self.cb_manage})
 

@@ -368,3 +368,60 @@ def test_account_list_tells_the_clients_whether_renewal_is_open():
     assert out(a).can_renew is False
     a.expires_at = now - dt.timedelta(days=9)
     assert out(a).can_renew is True and out(a).renew_until is not None
+
+
+# ------------------------------------------------------------------ the reseller renews: own accounts + own customers only
+def _owner_ctx(t, store=None, user=None):
+    return StoreContext(store=store or t.store, user=user or t.owner, membership=None)
+
+
+async def test_reseller_renews_a_customers_account_in_his_own_store():
+    from melorin.modules.reseller import router as rr
+
+    async with open_session() as s:
+        t = await _world(s, store_kind="reseller")
+        info = await rr.store_account_renewal(t.account.id, _owner_ctx(t), s)
+        assert info.renewable and info.package.product_id == t.product.id  # the same promise the customer would get
+        o = await rr.store_account_renew(t.account.id, rr.OwnerRenewIn(), _owner_ctx(t), s, idempotency_key="owner-renew-1")
+        assert o.kind == "renewal" and o.vpn_account_id == t.account.id and o.user_id == t.user.id  # the order is the customer's
+        assert await _balance(s, t) < 50_000  # paid from the customer's wallet in this store; the rules stay the core's
+        with pytest.raises(AppError) as e:  # the core's one-open-renewal rule holds for the reseller too
+            await rr.store_account_renew(t.account.id, rr.OwnerRenewIn(), _owner_ctx(t), s, idempotency_key="owner-renew-2")
+        assert e.value.code == "RENEWAL_IN_PROGRESS"
+
+
+async def test_reseller_cannot_renew_another_resellers_customer():
+    from melorin.modules.reseller import router as rr
+
+    async with open_session() as s:
+        t = await _world(s, store_kind="reseller")
+        eve = await make_user(s)
+        other = await make_store(s, kind="reseller", owner=eve)
+        await s.commit()
+        for call in (
+            rr.store_account_renewal(t.account.id, _owner_ctx(t, other, eve), s),
+            rr.store_account_renew(t.account.id, rr.OwnerRenewIn(), _owner_ctx(t, other, eve), s, idempotency_key="evil-key-1"),
+        ):
+            with pytest.raises(AppError) as e:
+                await call
+            assert e.value.code == "NOT_FOUND"
+        assert await _balance(s, t) == 50_000  # nothing was charged
+
+
+async def test_reseller_renews_his_own_account_without_an_owner_audit_entry():
+    from melorin.modules.reseller import router as rr
+
+    async with open_session() as s:
+        t = await _world(s, store_kind="reseller")
+        first = await make_order(s, user=t.owner, store=t.store, product=t.product, total=2_000, status="completed")
+        first.bundle_id = t.bundle.id
+        own = VpnAccount(
+            username="acc_owner", user_id=t.owner.id, store_id=t.store.id, order_id=first.id, product_id=t.product.id,
+            server_id=t.account.server_id, panel_id=t.panel.id, panel_ref="r2", status="expired",
+            expires_at=NOW - dt.timedelta(days=3), traffic_limit_bytes=10 * GIB, traffic_used_bytes=0, subscription_url="https://sub.test/o", links=[],
+        )
+        s.add_all([own, StoreMembership(store_id=t.store.id, user_id=t.owner.id, role="owner", status="active")])
+        await _fund(s, t.owner, t.store, 50_000)
+        await s.commit()
+        o = await rr.store_account_renew(own.id, rr.OwnerRenewIn(), _owner_ctx(t), s, idempotency_key="own-renew-1")
+        assert o.user_id == t.owner.id and o.kind == "renewal" and o.vpn_account_id == own.id
