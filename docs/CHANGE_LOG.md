@@ -36,6 +36,55 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-20 09:08 UTC - Claude - ci-deploy  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(ci): wait for /health/ready (worker heartbeat) before the e2e smoke - The PR run of b50392e failed only because e2e_smoke hit /health/ready before the worker's first heartbeat (same SHA passed on push). Take just this hunk from fix/ci-wait-ready; that branch is stale against main and must not b…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `.github/workflows/ci.yml`
+- **Ref:** `f650b63`
+
+### 2026-10-20 06:19 UTC - Claude - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(ci): ruff-format the files this change touched; make q02 bot test hermetic (no /var/lib/melorin for non-root CI)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (10):** `apps/api/melorin/modules/catalog/router.py`, `apps/api/melorin/modules/orders/service.py`, `apps/api/melorin/modules/payments/router.py`, `apps/api/melorin/modules/reseller/router.py`, `apps/api/tests/test_q02_bot_inquiry.py`, `apps/api/tests/test_r01_store_isolation.py`, `apps/api/tests/test_r02_scoped_renewal_lock.py`, `apps/api/tests/test_r02_scoped_renewal_lock_postgres.py` (+2 more)
+- **Ref:** `b50392e`
+
+### 2026-10-20 06:01 UTC - Claude - docs  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** docs: store-isolation rollout design; fix API-ROUTES-ACTIVE for store-scoped order/payment routes
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `docs/15-Store-Isolation-Rollout.md`, `docs/API-ROUTES-ACTIVE.md`
+- **Ref:** `2c340a3`
+
+### 2026-10-20 05:44 UTC - Claude - api, tests, docs  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(orders): free test-account quota and cooldown are per customer per store - create_test_order counted every TestAccountGrant of the user across the whole platform, so a test taken in one reseller bot used up the quota in all others, against "every store is separate". The serialising lock was a p…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (4):** `apps/api/melorin/modules/orders/service.py`, `apps/api/tests/test_r03_test_account_per_store.py`, `apps/api/tests/test_r03_test_account_per_store_postgres.py`, `docs/14-Store-Isolation-Design.md`
+- **Ref:** `1c41a18`
+
+### 2026-10-20 05:32 UTC - Claude - api, tests, docs  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(orders): renewal locks the account through the buyer's StoreScope - create_order used session.get(VpnAccount, id, with_for_update=True) and checked ownership only afterwards, so naming another customer's (or another store's) account id briefly locked that row: it could stall its real owner and …
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (5):** `apps/api/melorin/core/scope.py`, `apps/api/melorin/modules/orders/service.py`, `apps/api/tests/test_r02_scoped_renewal_lock.py`, `apps/api/tests/test_r02_scoped_renewal_lock_postgres.py`, `docs/14-Store-Isolation-Design.md`
+- **Ref:** `95fe000`
+
+### 2026-10-20 05:08 UTC - Claude - api, tests, store-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(isolation): customers see and manage only their own data in the store they use (Core StoreScope) - A customer's accounts, orders, payments and notifications are now scoped by user AND store in one place (core/scope.py). Whatever he bought in another store or bot is invisible there and cannot b…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (24):** `apps/api/melorin/core/scope.py`, `apps/api/melorin/modules/catalog/router.py`, `apps/api/melorin/modules/notifications/router.py`, `apps/api/melorin/modules/orders/router.py`, `apps/api/melorin/modules/payments/router.py`, `apps/api/melorin/modules/reseller/router.py`, `apps/api/melorin/modules/vpn/inquiry.py`, `apps/api/melorin/modules/vpn/router.py` (+16 more)
+- **Ref:** `a54392f`
+
+
 ### 2026-10-20 03:00 UTC - Claude - api, tests, store-web  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
