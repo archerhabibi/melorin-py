@@ -190,10 +190,7 @@ async def google_login(body: GoogleLogin, session: Session, request: Request, re
 async def telegram_webapp(body: TelegramWebAppLogin, session: Session, request: Request):
     """Telegram Mini App sign-in. The ``initData`` signature is made with ONE bot's token, so it proves the bot (= store)
     the user is in: the store is the one that owns that very token, never an id the client names."""
-    from melorin.core.config import get_settings
-    from melorin.modules.stores.models import Store as _Store
-
-    store = await session.get(_Store, body.store_id) if body.store_id else await main_store(session)
+    store = await session.get(Store, body.store_id) if body.store_id else await main_store(session)
     if store is None or store.status != "active":
         raise AppError("TELEGRAM_DISABLED", "Telegram پیکربندی نشده است.", 400)
     token = get_settings().main_bot_token if store.kind == "main" else (decrypt(store.bot_token_enc) if store.bot_token_enc else "")

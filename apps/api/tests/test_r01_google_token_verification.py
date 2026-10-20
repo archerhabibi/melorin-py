@@ -187,7 +187,11 @@ async def session(tmp_path, monkeypatch):
 
 
 def _req(nonce):
-    return types.SimpleNamespace(headers={"user-agent": "pytest", "host": "localhost"}, client=types.SimpleNamespace(host="203.0.113.9"), cookies={router.GOOGLE_NONCE_COOKIE: nonce} if nonce else {})
+    return types.SimpleNamespace(
+        headers={"user-agent": "pytest", "host": "localhost"},
+        client=types.SimpleNamespace(host="203.0.113.9"),
+        cookies={router.GOOGLE_NONCE_COOKIE: nonce} if nonce else {},
+    )
 
 
 async def test_nonce_endpoint_sets_httponly_cookie_and_returns_same_value():

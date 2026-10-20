@@ -198,7 +198,11 @@ def _customer_routes():
 
     for r in walk(app.routes):
         path = getattr(r, "path", "")
-        if any(seg in path for seg in ("/vpn-accounts", "/orders", "/payments", "/notifications")) and "/admin" not in path and not path.startswith("/reports"):  # /reports/* are admin-only (t01 guard)
+        if (
+            any(seg in path for seg in ("/vpn-accounts", "/orders", "/payments", "/notifications"))
+            and "/admin" not in path
+            and not path.startswith("/reports")
+        ):  # /reports/* are admin-only (t01 guard)
             yield path
 
 

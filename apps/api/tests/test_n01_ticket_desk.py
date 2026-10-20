@@ -50,7 +50,14 @@ async def world(tmp_path):
         s.add(TicketMessage(ticket_id=t.id, author_id=cust.id, is_staff=False, body="کمک می‌خواهم"))
         await s.commit()
         yield types.SimpleNamespace(
-            s=s, cust=cust, staff=staff, other=other, t=t, cust_auth=auth_for(cust, store), staff_auth=admin_auth(staff), other_auth=auth_for(other, store)
+            s=s,
+            cust=cust,
+            staff=staff,
+            other=other,
+            t=t,
+            cust_auth=auth_for(cust, store),
+            staff_auth=admin_auth(staff),
+            other_auth=auth_for(other, store),
         )
     await db.engine().dispose()
 

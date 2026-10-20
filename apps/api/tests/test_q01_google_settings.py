@@ -29,7 +29,11 @@ TABLES = [
     Store.__table__,
 ]
 GOOD_ID = "123456789012-abc123def456.apps.googleusercontent.com"
-REQ = types.SimpleNamespace(headers={"user-agent": "pytest", "host": "localhost"}, client=types.SimpleNamespace(host="203.0.113.9"), cookies={router.GOOGLE_NONCE_COOKIE: "n1"})
+REQ = types.SimpleNamespace(
+    headers={"user-agent": "pytest", "host": "localhost"},
+    client=types.SimpleNamespace(host="203.0.113.9"),
+    cookies={router.GOOGLE_NONCE_COOKIE: "n1"},
+)
 
 
 @pytest.fixture

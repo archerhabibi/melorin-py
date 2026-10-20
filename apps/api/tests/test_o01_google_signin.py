@@ -29,7 +29,11 @@ TABLES = [
     SystemSetting.__table__,
     Store.__table__,
 ]
-REQ = types.SimpleNamespace(headers={"user-agent": "pytest", "host": "localhost"}, client=types.SimpleNamespace(host="203.0.113.9"), cookies={router.GOOGLE_NONCE_COOKIE: "n1"})
+REQ = types.SimpleNamespace(
+    headers={"user-agent": "pytest", "host": "localhost"},
+    client=types.SimpleNamespace(host="203.0.113.9"),
+    cookies={router.GOOGLE_NONCE_COOKIE: "n1"},
+)
 
 
 @pytest.fixture
@@ -186,7 +190,9 @@ async def test_link_google_requires_matching_nonce(world):
     world.s.add(tg_user)
     await world.s.flush()
     world.verify.sub = "g-x"
-    bad = types.SimpleNamespace(headers={"host": "localhost"}, client=types.SimpleNamespace(host="203.0.113.9"), cookies={router.GOOGLE_NONCE_COOKIE: "other"})
+    bad = types.SimpleNamespace(
+        headers={"host": "localhost"}, client=types.SimpleNamespace(host="203.0.113.9"), cookies={router.GOOGLE_NONCE_COOKIE: "other"}
+    )
     with pytest.raises(AppError) as exc:
         await router.attach_google(GoogleLink(id_token="t"), tg_user, world.s, bad, Response())
     assert exc.value.status == 401

@@ -45,6 +45,7 @@ from melorin.modules.vpn.schemas import OwnerAccountOut
 from melorin.modules.stores.models import Store
 from melorin.modules.vpn.bundles import Bundle, StoreBundle
 
+
 async def main_session_user(auth: CurrentAuth, session: Session):
     """Reseller applications are made to the MAIN store: only a session opened through the main site/bot may file or read them."""
     main = await main_store(session)
@@ -172,7 +173,9 @@ async def cancel_application(application_id: uuid.UUID, user: Annotated[User, De
 
 
 @router.post("/reseller/applications/{application_id}/details")
-async def submit_details(application_id: uuid.UUID, body: ApplicationDetailsIn, user: Annotated[User, Depends(main_session_user)], session: Session):
+async def submit_details(
+    application_id: uuid.UUID, body: ApplicationDetailsIn, user: Annotated[User, Depends(main_session_user)], session: Session
+):
     """Second step of a request the admin already approved: the applicant sends the store domain and the bot token,
     both are validated, and the reseller store is created right away (the admin approval is the authorisation)."""
     from melorin.modules.reseller.provisioning import create_reseller_store

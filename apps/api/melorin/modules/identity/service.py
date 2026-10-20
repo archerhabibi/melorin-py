@@ -41,7 +41,9 @@ async def user_by_referral_code(session: AsyncSession, code: str | None) -> User
 
 
 # ---------------- tokens ----------------
-async def issue_tokens(session: AsyncSession, user: User, chan: Channel, family: uuid.UUID | None = None, ua: str | None = None) -> TokenPair:
+async def issue_tokens(
+    session: AsyncSession, user: User, chan: Channel, family: uuid.UUID | None = None, ua: str | None = None
+) -> TokenPair:
     """Open (or rotate) a session. ``chan`` is the channel Core itself verified (``core.channel``): it is written into the
     access token and into the refresh-token family, so the session can never be used for, or moved to, another store."""
     if not user.is_active:

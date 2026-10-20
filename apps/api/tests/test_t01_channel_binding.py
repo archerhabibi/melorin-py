@@ -91,7 +91,11 @@ async def test_a_legacy_token_without_channel_is_refused_by_the_auth_dependency(
     async with open_session() as s:
         u = await make_user(s)
         await s.commit()
-        legacy = jwt.encode({"sub": str(u.id), "adm": False, "exp": 4102444800, "typ": "access"}, "test-only-jwt-signing-key-0123456789-abcdefghij", algorithm="HS256")
+        legacy = jwt.encode(
+            {"sub": str(u.id), "adm": False, "exp": 4102444800, "typ": "access"},
+            "test-only-jwt-signing-key-0123456789-abcdefghij",
+            algorithm="HS256",
+        )
         creds = types.SimpleNamespace(credentials=legacy)
         assert await _codes(deps.auth_session(s, creds)) == "SESSION_UNBOUND"
 
@@ -241,7 +245,10 @@ async def test_issue_tokens_binds_the_session_and_never_crosses_admin_and_custom
         admin_pair = await service.issue_tokens(s, w.admin, ch.ADMIN_CHANNEL)
         assert admin_pair.is_admin and ch.SessionClaims.from_payload(decode_access_token(admin_pair.access_token)).store_id is None
         w.a.status = "suspended"
-        assert await _codes(service.issue_tokens(s, w.alice, ch.Channel("site", w.a.id, None, "reseller", "suspended", w.owner_a.id))) == "STORE_SUSPENDED"
+        assert (
+            await _codes(service.issue_tokens(s, w.alice, ch.Channel("site", w.a.id, None, "reseller", "suspended", w.owner_a.id)))
+            == "STORE_SUSPENDED"
+        )
         owner = await service.issue_tokens(s, w.owner_a, ch.Channel("site", w.a.id, None, "reseller", "suspended", w.owner_a.id))
         assert owner.store_id == w.a.id  # the owner can still reach his own (suspended) panel
 
@@ -259,7 +266,9 @@ async def test_refresh_rotation_keeps_the_same_store_and_refuses_unbound_or_move
         await s.commit()
         assert await _codes(service.rotate_refresh(s, third.refresh_token, fake_request("b.example.ir"))) == "CHANNEL_MISMATCH"
         # a legacy family (no binding) must sign in again
-        legacy = RefreshToken(user_id=w.alice.id, token_hash=service.token_hash("legacy"), family_id=uuid.uuid4(), expires_at=utcnow() + dt.timedelta(days=7))
+        legacy = RefreshToken(
+            user_id=w.alice.id, token_hash=service.token_hash("legacy"), family_id=uuid.uuid4(), expires_at=utcnow() + dt.timedelta(days=7)
+        )
         s.add(legacy)
         await s.commit()
         assert await _codes(service.rotate_refresh(s, "legacy")) == "INVALID_REFRESH"
@@ -274,7 +283,9 @@ async def test_handoff_and_login_attempts_are_store_bound(prod):
     async with open_session() as s:
         w = await _world(s)
         token = await service.create_web_handoff(s, w.alice, w.a.id)
-        assert await _codes(service.redeem_web_handoff(s, token, await ch.site_channel(s, fake_request("b.example.ir")))) == "HANDOFF_INVALID"
+        assert (
+            await _codes(service.redeem_web_handoff(s, token, await ch.site_channel(s, fake_request("b.example.ir")))) == "HANDOFF_INVALID"
+        )
         token = await service.create_web_handoff(s, w.alice, w.a.id)
         user = await service.redeem_web_handoff(s, token, await ch.site_channel(s, fake_request("a.example.ir")))
         assert user.id == w.alice.id
@@ -303,26 +314,64 @@ def _dependency_names(route):
     return set(flat(route.dependant))
 
 
-SESSION_DEPS = {"store_context", "owner_store_context", "require_admin_session", "current_auth", "auth_session", "current_user", "optional_user", "main_session_user"}
+SESSION_DEPS = {
+    "store_context",
+    "owner_store_context",
+    "require_admin_session",
+    "current_auth",
+    "auth_session",
+    "current_user",
+    "optional_user",
+    "main_session_user",
+}
 # Every route that needs no session. A NEW unauthenticated route must be added here on purpose (and reviewed).
 PUBLIC_ROUTES = {
     # login / session lifecycle (they open sessions; each derives its channel itself)
-    "/auth/email/request-code", "/auth/email/verify-code", "/auth/password/login", "/auth/google/config", "/auth/google/nonce",
-    "/auth/google", "/auth/telegram/webapp", "/auth/web-handoff/redeem", "/auth/refresh", "/auth/logout",
-    "/auth/telegram/web/sessions", "/auth/telegram/web/sessions/{session_id}/poll", "/auth/telegram/web/sessions/{session_id}/cancel",
-    "/auth/telegram/config", "/auth/telegram/oidc/start", "/auth/telegram/oidc/callback",
+    "/auth/email/request-code",
+    "/auth/email/verify-code",
+    "/auth/password/login",
+    "/auth/google/config",
+    "/auth/google/nonce",
+    "/auth/google",
+    "/auth/telegram/webapp",
+    "/auth/web-handoff/redeem",
+    "/auth/refresh",
+    "/auth/logout",
+    "/auth/telegram/web/sessions",
+    "/auth/telegram/web/sessions/{session_id}/poll",
+    "/auth/telegram/web/sessions/{session_id}/cancel",
+    "/auth/telegram/config",
+    "/auth/telegram/oidc/start",
+    "/auth/telegram/oidc/callback",
     # runner endpoints (X-Bot-Secret + the channel rules of core.channel)
-    "/auth/telegram/bot", "/auth/telegram/link", "/auth/telegram/web/bot/inspect", "/auth/telegram/web/bot/decide",
-    "/internal/reseller-bots", "/internal/reseller-bots/{store_id}/status",
+    "/auth/telegram/bot",
+    "/auth/telegram/link",
+    "/auth/telegram/web/bot/inspect",
+    "/auth/telegram/web/bot/decide",
+    "/internal/reseller-bots",
+    "/internal/reseller-bots/{store_id}/status",
     # public storefront data
-    "/stores/main", "/stores/by-slug/{slug}", "/stores/by-domain/{domain}", "/tls/ask", "/stores/{store_id}",
-    "/stores/{store_id}/catalog", "/stores/{store_id}/bundles", "/stores/{store_id}/bundles/{bundle_id}/packages",
+    "/stores/main",
+    "/stores/by-slug/{slug}",
+    "/stores/by-domain/{domain}",
+    "/tls/ask",
+    "/stores/{store_id}",
+    "/stores/{store_id}/catalog",
+    "/stores/{store_id}/bundles",
+    "/stores/{store_id}/bundles/{bundle_id}/packages",
     # gateway server-to-server callback, reseller API (X-API-Key), probes
     "/payments/callbacks/{provider}",
-    "/reseller-api/v1/stores/{store_id}/catalog", "/reseller-api/v1/stores/{store_id}/customers",
-    "/reseller-api/v1/stores/{store_id}/orders", "/reseller-api/v1/stores/{store_id}/customers/{customer_id}/wallet",
+    "/reseller-api/v1/stores/{store_id}/catalog",
+    "/reseller-api/v1/stores/{store_id}/customers",
+    "/reseller-api/v1/stores/{store_id}/orders",
+    "/reseller-api/v1/stores/{store_id}/customers/{customer_id}/wallet",
     "/reseller-api/v1/stores/{store_id}/reports",
-    "/health/live", "/healthz", "/health/ready", "/health", "/openapi-version", "/metrics",
+    "/health/live",
+    "/healthz",
+    "/health/ready",
+    "/health",
+    "/openapi-version",
+    "/metrics",
 }
 
 
@@ -335,7 +384,9 @@ def test_every_store_scoped_route_uses_the_channel_checked_dependency():
     for r in _api_routes():
         if "{store_id}" in r.path and r.path not in PUBLIC_ROUTES:
             names = _dependency_names(r)
-            assert names & {"store_context", "owner_store_context", "require_admin_session"}, f"{r.path} must resolve store_context/owner_store_context"
+            assert names & {"store_context", "owner_store_context", "require_admin_session"}, (
+                f"{r.path} must resolve store_context/owner_store_context"
+            )
 
 
 def test_every_admin_route_needs_an_admin_panel_session():
@@ -353,7 +404,9 @@ def test_sessions_are_only_opened_through_a_channel_and_admin_is_only_built_afte
         src = p.read_text()
         for line in src.splitlines():
             if "issue_tokens(" in line and "def issue_tokens" not in line:
-                assert "chan" in line or "site" in line or "ADMIN_CHANNEL" in line, f"{p.name}: issue_tokens without a verified channel: {line.strip()}"
+                assert "chan" in line or "site" in line or "ADMIN_CHANNEL" in line, (
+                    f"{p.name}: issue_tokens without a verified channel: {line.strip()}"
+                )
     # the admin channel is constructed in exactly the password+TOTP and Google+TOTP admin handlers
     users = [p.name for p in root.rglob("*.py") if "ADMIN_CHANNEL" in p.read_text() and p.name not in {"channel.py"}]
     assert sorted(set(users)) == ["router.py", "service.py"]

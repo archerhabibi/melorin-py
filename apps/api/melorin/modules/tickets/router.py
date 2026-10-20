@@ -71,8 +71,8 @@ async def get_ticket(ticket_id: uuid.UUID, auth: CurrentAuth, session: Session):
 
 @router.patch("/tickets/{ticket_id}", response_model=TicketOut)
 async def update_ticket(ticket_id: uuid.UUID, body: UpdateTicket, auth: CurrentAuth, session: Session):
-    user = auth.user
     """Customer-side edit: rename, change priority, close or re-open the ticket."""
+    user = auth.user
     t = await _own_ticket(session, ticket_id, auth)
     changes: dict = {}
     if body.subject is not None and body.subject.strip() != t.subject:
@@ -131,8 +131,8 @@ async def add_message(ticket_id: uuid.UUID, body: AddMessage, auth: CurrentAuth,
 
 @router.patch("/tickets/{ticket_id}/messages/{message_id}", response_model=TicketMessageOut)
 async def edit_message(ticket_id: uuid.UUID, message_id: uuid.UUID, body: EditMessage, auth: CurrentAuth, session: Session):
-    user = auth.user
     """Authors may edit their own messages; the edit is flagged with ``edited_at`` so nothing changes silently."""
+    user = auth.user
     t = await _own_ticket(session, ticket_id, auth)
     m = await session.get(TicketMessage, message_id)
     if not m or m.ticket_id != t.id or m.author_id != user.id or (m.is_internal and not auth.is_admin_session):

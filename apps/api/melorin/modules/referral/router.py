@@ -36,9 +36,7 @@ async def my_referrals(auth: CurrentAuth, session: Session):
     commissions = (await session.scalars(select(Commission).where(*com_scope).order_by(Commission.created_at.desc()).limit(200))).all()
     return {
         "referral_code": user.referral_code,
-        "referred_count": len(
-            (await session.scalars(select(ReferralRelationship).where(*rel_scope))).all()
-        ),
+        "referred_count": len((await session.scalars(select(ReferralRelationship).where(*rel_scope))).all()),
         "first_relationship_store_id": relationship.store_id if relationship else None,
         "commissions": [
             {
