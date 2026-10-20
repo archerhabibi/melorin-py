@@ -6,7 +6,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from melorin.core.deps import AdminUser, CurrentUser, Session
+from melorin.core.deps import AdminUser, CurrentAuth, Session
 from melorin.core.errors import AppError
 from melorin.modules.referral.models import Commission, CommissionRule, ReferralRelationship
 
@@ -24,18 +24,19 @@ class CommissionRuleIn(BaseModel):
 
 
 @router.get("/me/referrals")
-async def my_referrals(user: CurrentUser, session: Session):
-    relationship = await session.scalar(select(ReferralRelationship).where(ReferralRelationship.referrer_user_id == user.id))
-    commissions = (
-        await session.scalars(
-            select(Commission).where(Commission.referrer_user_id == user.id).order_by(Commission.created_at.desc()).limit(200)
-        )
-    ).all()
+async def my_referrals(auth: CurrentAuth, session: Session):
+    """Referral standing in the store this session belongs to (a customer's invites/commissions of another store stay there)."""
+    user = auth.user
+    rel_scope = [ReferralRelationship.referrer_user_id == user.id]
+    com_scope = [Commission.referrer_user_id == user.id]
+    if not auth.claims.is_admin:
+        rel_scope.append(ReferralRelationship.store_id == auth.claims.store_id)
+        com_scope.append(Commission.store_id == auth.claims.store_id)
+    relationship = await session.scalar(select(ReferralRelationship).where(*rel_scope))
+    commissions = (await session.scalars(select(Commission).where(*com_scope).order_by(Commission.created_at.desc()).limit(200))).all()
     return {
         "referral_code": user.referral_code,
-        "referred_count": len(
-            (await session.scalars(select(ReferralRelationship).where(ReferralRelationship.referrer_user_id == user.id))).all()
-        ),
+        "referred_count": len((await session.scalars(select(ReferralRelationship).where(*rel_scope))).all()),
         "first_relationship_store_id": relationship.store_id if relationship else None,
         "commissions": [
             {

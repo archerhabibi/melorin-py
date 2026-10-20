@@ -189,16 +189,29 @@ def test_scope_builds_both_conditions_and_rejects_foreign_rows():
 def _customer_routes():
     from melorin.app import app
 
-    for r in app.routes:
+    def walk(routes):  # include_router() wraps routers in current FastAPI; walk into them or the guard sees nothing
+        for r in routes:
+            if hasattr(r, "original_router"):
+                yield from walk(r.original_router.routes)
+            else:
+                yield r
+
+    for r in walk(app.routes):
         path = getattr(r, "path", "")
-        if any(seg in path for seg in ("/vpn-accounts", "/orders", "/payments", "/notifications")) and "/admin" not in path:
+        if (
+            any(seg in path for seg in ("/vpn-accounts", "/orders", "/payments", "/notifications"))
+            and "/admin" not in path
+            and not path.startswith("/reports")
+        ):  # /reports/* are admin-only (t01 guard)
             yield path
 
 
 def test_no_customer_route_exists_outside_a_store():
     """Every customer-facing accounts/orders/payments/notifications route is under /stores/{store_id}/ (the only global
     one is the payment gateway's server-to-server callback)."""
-    loose = [p for p in _customer_routes() if "/stores/{store_id}/" not in p and not p.endswith("/payments/callbacks/{provider}")]
+    seen = list(_customer_routes())
+    assert len(seen) > 10, "the guard must actually see the customer routes"
+    loose = [p for p in seen if "/stores/{store_id}/" not in p and not p.endswith("/payments/callbacks/{provider}")]
     assert loose == [], f"customer routes without a store scope: {loose}"
 
 

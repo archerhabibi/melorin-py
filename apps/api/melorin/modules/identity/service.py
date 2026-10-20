@@ -14,6 +14,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from melorin.core import audit, integrations
+from melorin.core.channel import Channel
 from melorin.core.config import get_settings
 from melorin.core.db import utcnow
 from melorin.core.email import email_available, send_email
@@ -40,20 +41,45 @@ async def user_by_referral_code(session: AsyncSession, code: str | None) -> User
 
 
 # ---------------- tokens ----------------
-async def issue_tokens(session: AsyncSession, user: User, family: uuid.UUID | None = None, ua: str | None = None) -> TokenPair:
+async def issue_tokens(
+    session: AsyncSession, user: User, chan: Channel, family: uuid.UUID | None = None, ua: str | None = None
+) -> TokenPair:
+    """Open (or rotate) a session. ``chan`` is the channel Core itself verified (``core.channel``): it is written into the
+    access token and into the refresh-token family, so the session can never be used for, or moved to, another store."""
     if not user.is_active:
         raise AppError("UNAUTHORIZED", "حساب کاربری غیرفعال است.", 401)
-    access, ttl = create_access_token(user.id, user.is_super_admin)
+    if chan.is_admin != bool(user.is_super_admin):
+        # An admin account never gets a customer session through a store channel, and nobody else gets an admin one.
+        raise AppError("ADMIN_USE_PANEL", "ورود مدیران فقط از پنل مدیریت انجام می‌شود.", 403)
+    chan.ensure_open_for(user)
+    access, ttl = create_access_token(user.id, chan.is_admin, store_id=chan.store_id, channel=chan.kind)
     raw = new_opaque_token()
     session.add(
         RefreshToken(
-            user_id=user.id, token_hash=token_hash(raw), family_id=family or uuid.uuid4(), expires_at=refresh_expiry(), user_agent=ua
+            user_id=user.id,
+            token_hash=token_hash(raw),
+            family_id=family or uuid.uuid4(),
+            expires_at=refresh_expiry(),
+            user_agent=ua,
+            channel=chan.kind,
+            store_id=chan.store_id,
         )
     )
-    return TokenPair(access_token=access, refresh_token=raw, expires_in=ttl, user_id=user.id, is_admin=user.is_super_admin)
+    return TokenPair(
+        access_token=access,
+        refresh_token=raw,
+        expires_in=ttl,
+        user_id=user.id,
+        is_admin=chan.is_admin,
+        channel=chan.kind,
+        store_id=chan.store_id,
+    )
 
 
-async def rotate_refresh(session: AsyncSession, raw: str) -> TokenPair:
+async def rotate_refresh(session: AsyncSession, raw: str, request=None) -> TokenPair:
+    from melorin.core import channel as ch
+    from melorin.modules.stores.models import Store
+
     rt = await session.scalar(select(RefreshToken).where(RefreshToken.token_hash == token_hash(raw)).with_for_update())
     if not rt:
         raise AppError("INVALID_REFRESH", "نشست نامعتبر است.", 401)
@@ -65,13 +91,27 @@ async def rotate_refresh(session: AsyncSession, raw: str) -> TokenPair:
         raise AppError("INVALID_REFRESH", "نشست نامعتبر است.", 401)
     if rt.expires_at.replace(tzinfo=rt.expires_at.tzinfo or dt.UTC) < utcnow():
         raise AppError("INVALID_REFRESH", "نشست منقضی شده است.", 401)
-    rt.revoked_at = utcnow()
-    # Rotation is atomic: the old token is revoked before the replacement is
-    # issued, and reuse of the old token revokes its whole family.
+    if rt.channel not in ch.CHANNELS or (rt.channel == ch.ADMIN) != (rt.store_id is None):
+        raise AppError("INVALID_REFRESH", "نشست قدیمی است؛ دوباره وارد شوید.", 401)  # legacy / unbound family
     user = await session.get(User, rt.user_id)
     if not user or not user.is_active:
         raise AppError("UNAUTHORIZED", "حساب غیرفعال است.", 401)
-    pair = await issue_tokens(session, user, family=rt.family_id)
+    if rt.channel == ch.ADMIN:
+        chan = ch.ADMIN_CHANNEL
+    else:
+        store = await session.get(Store, rt.store_id)
+        if store is None:
+            raise AppError("INVALID_REFRESH", "نشست نامعتبر است.", 401)
+        if rt.channel == ch.SITE and request is not None:
+            # A browser refresh must still come through the store's own domain (cookies are per host, this is defence in depth).
+            live = await ch.site_channel(session, request, hint=rt.store_id)
+            if live.store_id != rt.store_id:
+                raise ch.mismatch()
+        chan = ch.Channel(rt.channel, store.id, None, store.kind, store.status, store.owner_user_id)
+    rt.revoked_at = utcnow()
+    # Rotation is atomic: the old token is revoked before the replacement is issued (same channel, same store), and
+    # reuse of the old token revokes its whole family.
+    pair = await issue_tokens(session, user, chan, family=rt.family_id)
     await session.commit()
     return pair
 
@@ -424,8 +464,8 @@ async def create_link_code(session: AsyncSession, user: User) -> str:
 HANDOFF_TTL = dt.timedelta(minutes=2)
 
 
-async def create_web_handoff(session: AsyncSession, user: User) -> str:
-    """Single-use, 2-minute token that signs the (already authenticated) Telegram user into the store website."""
+async def create_web_handoff(session: AsyncSession, user: User, store_id: uuid.UUID) -> str:
+    """Single-use, 2-minute token that signs the (already authenticated) Telegram user into the SAME store's website."""
     token = new_opaque_token(32)
     session.add(
         VerificationCode(
@@ -433,6 +473,7 @@ async def create_web_handoff(session: AsyncSession, user: User) -> str:
             target=str(user.id),
             code_hash=token_hash("handoff" + token),
             user_id=user.id,
+            store_id=store_id,
             expires_at=utcnow() + HANDOFF_TTL,
         )
     )
@@ -441,7 +482,8 @@ async def create_web_handoff(session: AsyncSession, user: User) -> str:
     return token
 
 
-async def redeem_web_handoff(session: AsyncSession, token: str) -> User:
+async def redeem_web_handoff(session: AsyncSession, token: str, site: Channel) -> User:
+    """``site`` is the channel of the website that is redeeming (from its Host): the token only works where it was minted."""
     vc = await session.scalar(
         select(VerificationCode)
         .where(
@@ -454,6 +496,10 @@ async def redeem_web_handoff(session: AsyncSession, token: str) -> User:
     if not vc or vc.expires_at.replace(tzinfo=vc.expires_at.tzinfo or dt.UTC) < utcnow():
         raise AppError("HANDOFF_INVALID", "لینک ورود نامعتبر یا منقضی است؛ دوباره از ربات تلگرام بزنید.", 400)
     vc.used_at = utcnow()  # single use, even if the account turns out to be refused below
+    if vc.store_id is None or vc.store_id != site.store_id:
+        audit.security_event(session, "handoff_store_mismatch", vc.user_id, {"minted_for": str(vc.store_id), "used_on": str(site.store_id)})
+        await session.commit()
+        raise AppError("HANDOFF_INVALID", "لینک ورود نامعتبر یا منقضی است؛ دوباره از ربات تلگرام بزنید.", 400)
     user = await session.get(User, vc.user_id)
     if user is None or not user.is_active:
         raise AppError("UNAUTHORIZED", "حساب کاربری غیرفعال است.", 401)

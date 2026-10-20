@@ -16,6 +16,7 @@ from melorin.modules.admin import integrations as admin_integrations
 from melorin.modules.identity import router, service
 from melorin.modules.identity.models import Identity, IdentityLinkReview, RefreshToken, User
 from melorin.modules.identity.schemas import GoogleLogin
+from melorin.modules.stores.models import Store
 from melorin.modules.system.models import AuditEvent, SecurityEvent, SystemSetting
 
 CLIENT_ID = "123456789012-abc123def456.apps.googleusercontent.com"
@@ -27,6 +28,7 @@ TABLES = [
     AuditEvent.__table__,
     SecurityEvent.__table__,
     SystemSetting.__table__,
+    Store.__table__,
 ]
 KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 OTHER_KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
@@ -169,6 +171,8 @@ async def session(tmp_path, monkeypatch):
     async with db.engine().begin() as conn:
         await conn.run_sync(lambda c: db.Base.metadata.create_all(c, tables=TABLES))
     async with db.session_factory()() as s:
+        s.add(Store(kind="main", name="Main", slug="main"))
+        await s.flush()
         await settings_store.set_value(
             s, integrations.GOOGLE_KEY, {"enabled": True, "client_id": CLIENT_ID, "admin_login": True, "store_login": True}
         )
@@ -183,7 +187,11 @@ async def session(tmp_path, monkeypatch):
 
 
 def _req(nonce):
-    return types.SimpleNamespace(headers={"user-agent": "pytest"}, cookies={router.GOOGLE_NONCE_COOKIE: nonce} if nonce else {})
+    return types.SimpleNamespace(
+        headers={"user-agent": "pytest", "host": "localhost"},
+        client=types.SimpleNamespace(host="203.0.113.9"),
+        cookies={router.GOOGLE_NONCE_COOKIE: nonce} if nonce else {},
+    )
 
 
 async def test_nonce_endpoint_sets_httponly_cookie_and_returns_same_value():

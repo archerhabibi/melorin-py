@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy import select
 
-from melorin.core import audit, flags, integrations
+from melorin.core import audit, channel, flags, integrations
 from melorin.core.crypto import decrypt, encrypt
 from melorin.core.config import get_settings
-from melorin.core.deps import CurrentUser, Session, main_store, require_bot_service
+from melorin.core.deps import AdminUser, BotAuth, CurrentAuth, CurrentUser, Session, main_store, require_bot_service
 from melorin.core.errors import AppError
 from melorin.core.ratelimit import RateLimit, hit
 from melorin.core.security import new_opaque_token, totp_counter, totp_new_secret, totp_verify, verify_password, hash_password
@@ -57,11 +57,18 @@ def _set_refresh_cookie(response: Response, pair: TokenPair) -> None:
 
 
 async def _after_signup(session, user: User, created: bool, store_id, ref_code: str | None):
+    """Attach the sign-up (and its referral) to the store of the CHANNEL the user came through, never to a client-sent id."""
     if created:
         store = await session.get(Store, store_id) if store_id else await main_store(session)
         referrer = await service.user_by_referral_code(session, ref_code)
         if store:
             await referral.attach(session, store.id, user, referrer)
+
+
+def _refuse_admin_on_customer_channel(user: User) -> None:
+    """Admins sign in only at the admin panel (password + TOTP): email codes, store sites and bots never mint admin sessions."""
+    if user.is_super_admin:
+        raise AppError("ADMIN_USE_PANEL", "ورود مدیران فقط از پنل مدیریت انجام می‌شود.", 403)
 
 
 @auth.post("/email/request-code")
@@ -72,12 +79,14 @@ async def email_request_code(body: EmailCodeRequest, session: Session):
 
 @auth.post("/email/verify-code", response_model=TokenPair)
 async def email_verify_code(body: EmailCodeVerify, session: Session, request: Request, response: Response):
+    site = await channel.site_channel(session, request)  # which store's website is this? (Host, verified by Core)
     user, created = await service.login_with_email_code(session, body.email, body.code)
+    _refuse_admin_on_customer_channel(user)
     if created:
         await flags.ensure_enabled(session, "registration")
-    await _after_signup(session, user, created, None, body.referral_code)
+    await _after_signup(session, user, created, site.store_id, body.referral_code)
     await service.accept_terms(session, user, body.accept_terms_version)
-    pair = await service.issue_tokens(session, user, ua=request.headers.get("user-agent"))
+    pair = await service.issue_tokens(session, user, site, ua=request.headers.get("user-agent"))
     await session.commit()
     _set_refresh_cookie(response, pair)
     return pair
@@ -107,7 +116,10 @@ async def password_login(body: PasswordLogin, session: Session, request: Request
         user.totp_last_counter = counter
     if user.is_super_admin:
         audit.record(session, "admin.login", actor_id=user.id, actor_type="admin")
-    pair = await service.issue_tokens(session, user, ua=request.headers.get("user-agent"))
+        chan = channel.ADMIN_CHANNEL  # password + TOTP just succeeded: the one way to get an admin session
+    else:
+        chan = await channel.site_channel(session, request)
+    pair = await service.issue_tokens(session, user, chan, ua=request.headers.get("user-agent"))
     await session.commit()
     _set_refresh_cookie(response, pair)
     return pair
@@ -165,8 +177,9 @@ async def google_login(body: GoogleLogin, session: Session, request: Request, re
             raise AppError("TOTP_REQUIRED", "کد تأیید دومرحله‌ای لازم، نادرست یا تکراری است.", 401)
         user.totp_last_counter = counter
         audit.record(session, "admin.login", actor_id=user.id, actor_type="admin")
-    await _after_signup(session, user, created, None, None)
-    pair = await service.issue_tokens(session, user, ua=request.headers.get("user-agent"))
+    chan = channel.ADMIN_CHANNEL if user.is_super_admin else await channel.site_channel(session, request)
+    await _after_signup(session, user, created, chan.store_id, None)
+    pair = await service.issue_tokens(session, user, chan, ua=request.headers.get("user-agent"))
     await session.commit()
     _set_refresh_cookie(response, pair)
     response.delete_cookie(GOOGLE_NONCE_COOKIE, path=GOOGLE_NONCE_PATH)  # single use: consumed by a successful sign-in
@@ -174,41 +187,48 @@ async def google_login(body: GoogleLogin, session: Session, request: Request, re
 
 
 @auth.post("/telegram/webapp", response_model=TokenPair)
-async def telegram_webapp(body: TelegramWebAppLogin, session: Session):
-    token = get_settings().main_bot_token
-    if body.store_id:
-        st = await session.get(Store, body.store_id)
-        if st and st.bot_token_enc:
-            token = decrypt(st.bot_token_enc)
-    if not token:
+async def telegram_webapp(body: TelegramWebAppLogin, session: Session, request: Request):
+    """Telegram Mini App sign-in. The ``initData`` signature is made with ONE bot's token, so it proves the bot (= store)
+    the user is in: the store is the one that owns that very token, never an id the client names."""
+    store = await session.get(Store, body.store_id) if body.store_id else await main_store(session)
+    if store is None or store.status != "active":
+        raise AppError("TELEGRAM_DISABLED", "Telegram پیکربندی نشده است.", 400)
+    token = get_settings().main_bot_token if store.kind == "main" else (decrypt(store.bot_token_enc) if store.bot_token_enc else "")
+    if not token:  # no fall-back to the main bot's token for a reseller store (its signature would prove the wrong store)
         raise AppError("TELEGRAM_DISABLED", "Telegram پیکربندی نشده است.", 400)
     tg = service.verify_telegram_webapp(body.init_data, token)
     from melorin.modules.identity.schemas import TelegramProfile
 
+    chan = channel.Channel(channel.BOT, store.id, store.bot_username, store.kind, store.status, store.owner_user_id)
     user, created = await service.login_with_telegram(
         session,
         TelegramProfile(telegram_id=tg["id"], first_name=tg.get("first_name"), last_name=tg.get("last_name"), username=tg.get("username")),
     )
-    await _after_signup(session, user, created, body.store_id, None)
-    pair = await service.issue_tokens(session, user)
+    _refuse_admin_on_customer_channel(user)
+    await _after_signup(session, user, created, chan.store_id, None)
+    pair = await service.issue_tokens(session, user, chan, ua=request.headers.get("user-agent"))
     await session.commit()
     return pair
 
 
-@auth.post("/telegram/bot", response_model=TokenPair, dependencies=[Depends(require_bot_service)])
-async def telegram_bot_login(body: TelegramBotLogin, session: Session):
-    """Trusted bot runner exchanges a Telegram user (validated by Telegram itself) for a Core session."""
+@auth.post("/telegram/bot", response_model=TokenPair)
+async def telegram_bot_login(body: TelegramBotLogin, session: Session, bot: BotAuth):
+    """Trusted bot runner exchanges a Telegram user (validated by Telegram itself) for a Core session of ITS store."""
+    chan = await channel.bot_channel(session, bot, body.store_id)
     user, created = await service.login_with_telegram(session, body)
-    await _after_signup(session, user, created, body.store_id, body.referral_code)
-    pair = await service.issue_tokens(session, user, ua="telegram-bot")
+    _refuse_admin_on_customer_channel(user)
+    await _after_signup(session, user, created, chan.store_id, body.referral_code)
+    pair = await service.issue_tokens(session, user, chan, ua="telegram-bot")
     await session.commit()
     return pair
 
 
-@auth.post("/telegram/link", response_model=TokenPair, dependencies=[Depends(require_bot_service)])
-async def telegram_link(body: TelegramLink, session: Session):
+@auth.post("/telegram/link", response_model=TokenPair)
+async def telegram_link(body: TelegramLink, session: Session, bot: BotAuth):
+    chan = await channel.bot_channel(session, bot, body.store_id)
     user = await service.link_telegram(session, body.code, body)
-    pair = await service.issue_tokens(session, user, ua="telegram-bot")
+    _refuse_admin_on_customer_channel(user)
+    pair = await service.issue_tokens(session, user, chan, ua="telegram-bot")
     await session.commit()
     return pair
 
@@ -216,8 +236,9 @@ async def telegram_link(body: TelegramLink, session: Session):
 @auth.post("/web-handoff/redeem", response_model=TokenPair)
 async def web_handoff_redeem(body: WebHandoffRedeem, session: Session, request: Request, response: Response):
     """The store website exchanges the single-use token from the bot's account button for a normal session."""
-    user = await service.redeem_web_handoff(session, body.token)
-    pair = await service.issue_tokens(session, user, ua=request.headers.get("user-agent"))
+    site = await channel.site_channel(session, request)
+    user = await service.redeem_web_handoff(session, body.token, site)
+    pair = await service.issue_tokens(session, user, site, ua=request.headers.get("user-agent"))
     await session.commit()
     _set_refresh_cookie(response, pair)
     return pair
@@ -228,7 +249,7 @@ async def refresh(body: RefreshRequest, request: Request, response: Response, se
     raw = body.refresh_token or request.cookies.get(REFRESH_COOKIE)
     if not raw:
         raise AppError("INVALID_REFRESH", "نشست نامعتبر است.", 401)
-    pair = await service.rotate_refresh(session, raw)
+    pair = await service.rotate_refresh(session, raw, request)
     _set_refresh_cookie(response, pair)
     return pair
 
@@ -280,14 +301,18 @@ async def update_me(body: MeUpdate, user: CurrentUser, session: Session):
 
 
 @me.get("/stores")
-async def my_stores(user: CurrentUser, session: Session):
-    rows = (
-        await session.execute(
-            select(Store, StoreMembership)
-            .join(StoreMembership, StoreMembership.store_id == Store.id)
-            .where(StoreMembership.user_id == user.id)
-        )
-    ).all()
+async def my_stores(auth: CurrentAuth, session: Session):
+    """The stores this SESSION may see. A store's own site/bot sees only that store; the main store (account hub) also lists
+    the stores the user owns (the reseller panel needs them); the admin panel sees every membership."""
+    user, claims = auth.user, auth.claims
+    q = select(Store, StoreMembership).join(StoreMembership, StoreMembership.store_id == Store.id).where(StoreMembership.user_id == user.id)
+    if not claims.is_admin:
+        main = await main_store(session)
+        if claims.store_id == main.id:
+            q = q.where((Store.id == main.id) | (Store.owner_user_id == user.id))
+        else:
+            q = q.where(Store.id == claims.store_id)
+    rows = (await session.execute(q)).all()
     return [{"id": s.id, "name": s.name, "kind": s.kind, "slug": s.slug, "role": m.role} for s, m in rows]
 
 
@@ -300,17 +325,20 @@ async def create_telegram_link_code(user: CurrentUser, session: Session):
 
 
 @me.post("/web-handoff", response_model=WebHandoffOut)
-async def create_web_handoff(body: WebHandoffIn, user: CurrentUser, session: Session):
+async def create_web_handoff(body: WebHandoffIn, auth: CurrentAuth, session: Session):
     """Called by the Telegram bots (with the user's own bot session): returns the store-website URL that opens this user's
     account already signed in. The URL is built here, from the store's domain (or the main store web URL)."""
-    if user.is_super_admin:
+    user, claims = auth.user, auth.claims
+    if user.is_super_admin or claims.is_admin or claims.channel != channel.BOT:
         raise AppError("ADMIN_USE_PANEL", "ورود مدیران فقط از پنل مدیریت انجام می‌شود.", 403)
     if not await hit(f"web-handoff:{user.id}", 10, 60):
         raise AppError("RATE_LIMITED", "درخواست‌ها زیاد است؛ کمی بعد دوباره امتحان کنید.", 429)
-    store = await session.get(Store, body.store_id) if body.store_id else None
+    if body.store_id is not None and body.store_id != claims.store_id:
+        raise channel.mismatch()  # a bot session can only hand off to its own store's website
+    store = await session.get(Store, claims.store_id)
     domain = ((store.domain if store else None) or "").strip().lower().rstrip(".")
     base = f"https://{domain}" if domain else get_settings().store_web_url.rstrip("/")
-    token = await service.create_web_handoff(session, user)
+    token = await service.create_web_handoff(session, user, claims.store_id)
     await session.refresh(user, ["identities"])
     return WebHandoffOut(url=f"{base}/#/auth/handoff?t={token}", google_linked=any(i.provider == "google" for i in user.identities))
 
@@ -331,9 +359,7 @@ async def attach_email(body: EmailCodeVerify, user: CurrentUser, session: Sessio
 
 
 @auth.post("/admin/password")
-async def change_admin_password(body: AdminPasswordChange, admin: CurrentUser, session: Session):
-    if not admin.is_super_admin:
-        raise AppError("FORBIDDEN", "فقط ادمین می‌تواند رمز این حساب را تغییر دهد.", 403)
+async def change_admin_password(body: AdminPasswordChange, admin: AdminUser, session: Session):
     if not await verify_password(body.current_password, admin.password_hash):
         audit.security_event(session, "admin.password_change_failed", admin.id)
         await session.commit()
