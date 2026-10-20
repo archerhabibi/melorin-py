@@ -17,7 +17,7 @@ from melorin.domain.order_state import REFUNDABLE, RETRYABLE, InvalidTransition,
 from melorin.modules.catalog import service as catalog
 from melorin.modules.identity.models import User
 from melorin.modules.orders.models import Order, OrderStateTransition
-from melorin.modules.stores.models import ResellerProfile, Store
+from melorin.modules.stores.models import ResellerProfile, Store, StoreMembership
 from melorin.modules.system.models import TestAccountGrant
 from melorin.modules.vpn import allocation, renewal
 from melorin.modules.vpn.models import VpnAccount
@@ -308,19 +308,24 @@ async def create_test_order(session: AsyncSession, ctx: StoreContext, channel: s
     product = await session.scalar(select(Product).where(Product.code == code, Product.is_test.is_(True), Product.is_active.is_(True)))
     if not product:
         raise AppError("TEST_DISABLED", "اکانت تست فعلاً ارائه نمی‌شود.", 403)
-    # Serialise per user (row lock) so parallel requests cannot bypass limits.
-    await session.execute(select(User.id).where(User.id == ctx.user.id).with_for_update())
+    # The test quota is per customer PER STORE (same rule as wallets, orders and accounts: what he did in another store or bot
+    # does not count here). Plain ids first: see the note in create_order about rollback and ORM instances.
+    scope = StoreScope(store_id=ctx.store.id, user_id=ctx.user.id)
+    # Serialise this customer's requests IN THIS STORE (row lock on his membership, taken through the scope) so parallel taps
+    # cannot both pass the limit below. A request in another store takes a different lock and never waits for this one.
+    # The lock also re-reads the membership, so a member blocked a moment ago cannot still claim a test account.
+    member = await scope.lock(session, StoreMembership, ctx.membership.id) if ctx.membership is not None else None
+    if member is None or member.status != "active":
+        raise AppError("NOT_A_MEMBER", "برای دریافت اکانت تست باید عضو این فروشگاه باشید.", 403)
     max_n = int(await settings_store.get(session, "test.max_per_user") or 1)
     cooldown = int(await settings_store.get(session, "test.cooldown_hours") or 0)
     grants = (
-        await session.scalars(
-            select(TestAccountGrant).where(TestAccountGrant.user_id == ctx.user.id).order_by(TestAccountGrant.created_at.desc())
-        )
+        await session.scalars(select(TestAccountGrant).where(*scope.where(TestAccountGrant)).order_by(TestAccountGrant.created_at.desc()))
     ).all()
     if len(grants) >= max_n:
-        raise AppError("TEST_LIMIT", "سقف دریافت اکانت تست شما پر شده است.", 409)
+        raise AppError("TEST_LIMIT", "سقف دریافت اکانت تست شما در این فروشگاه پر شده است.", 409)
     if grants and grants[0].created_at.replace(tzinfo=dt.UTC) > utcnow() - dt.timedelta(hours=cooldown):
-        raise AppError("TEST_COOLDOWN", "هنوز امکان دریافت اکانت تست جدید نیست.", 409)
+        raise AppError("TEST_COOLDOWN", "هنوز امکان دریافت اکانت تست جدید در این فروشگاه نیست.", 409)
     # Test accounts are placed by the same core rule as purchases (product default group, same eligibility).
     bundle_id, selected_panel_id = await allocation.resolve_order_group(session, store_id=ctx.store.id, product=product)
     order = Order(
