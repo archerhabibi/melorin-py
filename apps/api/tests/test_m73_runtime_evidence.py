@@ -142,7 +142,6 @@ def zarinpal_gateway(monkeypatch):
 
     def install(*, verify_code=-54, forged_ok=False):
         def handler(req):
-            body = json.loads(req.content)
             if req.url.path.endswith("request.json"):
                 return httpx.Response(200, json={"data": {"code": 100, "authority": "S" + "0" * 34 + "1"}})
             return httpx.Response(200, json={"data": {"code": 100 if forged_ok else verify_code}})

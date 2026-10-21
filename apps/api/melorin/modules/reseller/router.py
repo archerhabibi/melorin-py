@@ -11,7 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from melorin.core import audit, settings_store
 from melorin.core.crypto import encrypt
 from melorin.core import channel
-from melorin.core.deps import CurrentAuth, CurrentUser, OwnerCtx, Session, StoreContext, api_access, main_store
+from melorin.core.deps import CurrentAuth, OwnerCtx, Session, StoreContext, api_access, main_store
 from melorin.core.errors import AppError, NotFound
 from melorin.modules.identity.models import User
 from melorin.modules.orders.models import Order
@@ -38,7 +38,6 @@ from melorin.modules.wallet import service as wallet
 from melorin.modules.webhooks import service as webhooks
 from fastapi import Header
 from melorin.modules.vpn import allocation, inquiry
-from melorin.modules.vpn.models import VpnAccount
 from melorin.modules.reseller.schemas import OwnerRenewalOut
 from melorin.modules.vpn.schemas import OwnerAccountOut
 from melorin.modules.stores.models import Store

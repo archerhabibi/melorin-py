@@ -13,7 +13,7 @@ from fastapi.responses import RedirectResponse
 
 from melorin.core import audit, channel, flags, integrations
 from melorin.core.config import get_settings
-from melorin.core.deps import Session, main_store
+from melorin.core.deps import Session
 from melorin.core.errors import AppError
 from melorin.core.ratelimit import RateLimit
 from melorin.modules.identity import service

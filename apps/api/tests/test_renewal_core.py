@@ -19,7 +19,7 @@ from melorin.modules.orders.models import Order
 from melorin.modules.stores.models import ResellerProfile, StoreMembership
 from melorin.modules.vpn import allocation, renewal
 from melorin.modules.vpn import service as vpn
-from melorin.modules.vpn.adapters.base import AccountSpec, ErrorKind, PanelAccount, PanelError
+from melorin.modules.vpn.adapters.base import ErrorKind, PanelAccount, PanelError
 from melorin.modules.vpn.bundles import Bundle, BundleMember, BundleProduct
 from melorin.modules.vpn.models import Panel, Server, VpnAccount
 from melorin.modules.wallet import service as wallet

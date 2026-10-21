@@ -1,7 +1,5 @@
 """Bot account button: Core issues a single-use token that signs the Telegram user into the store website."""
 
-import types
-
 import pytest
 from fastapi import Response
 

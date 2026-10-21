@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, Request, Response
 
 from melorin.core import channel, integrations
 from melorin.core.db import utcnow
-from melorin.core.deps import BotAuth, Session, main_store, require_bot_service
+from melorin.core.deps import BotAuth, Session
 from melorin.core.errors import AppError
 from melorin.core.ratelimit import RateLimit, client_ip
 from melorin.modules.identity import telegram_web as web

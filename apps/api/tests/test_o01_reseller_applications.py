@@ -1,7 +1,6 @@
 """Reseller applications: store domain + reseller bot token, admin review, uniqueness and secrecy of the token."""
 
 import importlib.util
-import uuid
 from pathlib import Path
 
 import httpx

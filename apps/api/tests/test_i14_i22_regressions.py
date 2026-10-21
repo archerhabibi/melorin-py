@@ -198,7 +198,7 @@ def test_full_project_regressions_are_wired():
 
 def test_worker_has_one_runtime_entrypoint():
     runner = read_source(ROOT / "melorin/worker/runner.py")
-    arq = read_source(ROOT / "melorin/worker/arq_app.py")
+    read_source(ROOT / "melorin/worker/arq_app.py")  # must exist and be readable
     makefile = (ROOT.parent.parent / "Makefile").read_text()
     compose = (ROOT.parent.parent / "docker-compose.yml").read_text()
     assert "def worker_loop" not in runner
@@ -211,7 +211,7 @@ def test_lint_gate_uses_correctness_focused_policy():
     config = (ROOT / "pyproject.toml").read_text()
     assert "[tool.ruff.lint]" in config
     assert 'select = ["E4", "E9", "F"]' in config
-    assert 'ignore = ["F401", "F403", "F405"]' in config
+    assert 'ignore = ["F403", "F405"]' in config
 
 
 def test_release_matrix_is_the_single_current_status_source():
