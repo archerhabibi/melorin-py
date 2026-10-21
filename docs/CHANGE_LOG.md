@@ -36,6 +36,23 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-21 04:15 UTC - Claude - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(referral): count 'first purchase' inside the referral's own store; tidy t02 tests - Review follow-up to R04: an earlier completed order in another store no longer downgrades signup_reward to commission in the referral's store. Adds a test and removes a meaningless assertion/unused variable.
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `apps/api/melorin/modules/referral/service.py`, `apps/api/tests/test_t02_referral_coupon_store_scope.py`
+- **Ref:** `3d85767`
+
+### 2026-10-21 04:05 UTC - Claude - config, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(isolation): referral pays only in its own store; lock only the winning coupon; per-runner bot secrets - - on_order_completed: a referral belongs to the store it was made in (no cross-store payout/expense) - find_coupon(lock=True): lock only the winning coupon row - runners read MELORIN_MAIN_BOT…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (8):** `.env.example`, `apps/api/melorin/modules/catalog/service.py`, `apps/api/melorin/modules/referral/service.py`, `apps/api/tests/test_t02_referral_coupon_store_scope.py`, `apps/telegram-main/runner.py`, `apps/telegram-reseller/runner.py`, `docs/17-Referral-Coupon-Store-Scope.md`, `scripts/install_server.sh`
+- **Ref:** `ae88114`
+
+
 ### 2026-10-20 20:48 UTC - archerhabibi - api, tests  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
