@@ -1,0 +1,93 @@
+"""T02: referrals and coupons never mix stores (docs/17-Referral-Coupon-Store-Scope.md)."""
+
+import datetime as dt
+
+from sqlalchemy import select
+
+from _db import make_order, make_product, make_store, make_user, open_session
+from melorin.core.db import utcnow
+from melorin.modules.catalog import service as catalog
+from melorin.modules.catalog.models import Coupon
+from melorin.modules.referral import service as referral
+from melorin.modules.referral.models import Commission, CommissionRule, ReferralRelationship
+
+
+async def _world(s):
+    referrer, referred = await make_user(s), await make_user(s)
+    main = await make_store(s, kind="main")
+    reseller = await make_store(s, kind="reseller", owner=await make_user(s))
+    product = await make_product(s)
+    s.add(ReferralRelationship(store_id=main.id, referrer_user_id=referrer.id, referred_user_id=referred.id))
+    s.add(CommissionRule(store_id=main.id, kind="signup_reward", model="fixed", value=500, is_active=True))
+    s.add(CommissionRule(store_id=reseller.id, kind="signup_reward", model="fixed", value=500, is_active=True))
+    await s.commit()
+    return referrer, referred, main, reseller, product
+
+
+async def _complete(s, user, store, product):
+    o = await make_order(s, user=user, store=store, product=product, status="completed")
+    o.completed_at = utcnow()
+    await s.commit()
+    return o
+
+
+async def test_a_purchase_in_another_store_never_pays_the_main_store_referrer():
+    async with open_session() as s:
+        referrer, referred, main, reseller, product = await _world(s)
+        other = await _complete(s, referred, reseller, product)
+        await referral.on_order_completed(s, other.id)
+        await s.commit()
+        assert (await s.scalars(select(Commission))).all() == []  # nothing paid, reseller's expense account untouched
+
+
+async def test_a_purchase_in_the_store_the_referral_was_made_in_still_pays():
+    async with open_session() as s:
+        referrer, referred, main, reseller, product = await _world(s)
+        order = await _complete(s, referred, main, product)
+        await referral.on_order_completed(s, order.id)
+        await s.commit()
+        rows = (await s.scalars(select(Commission))).all()
+        assert len(rows) == 1 and rows[0].store_id == main.id and rows[0].referrer_user_id == referrer.id and rows[0].amount == 500
+
+
+async def _coupon(s, *, owner_key, store_id, code="SAVE", scope="store"):
+    c = Coupon(code=code, owner_key=owner_key, store_id=store_id, scope=scope, creator_type="admin", percent_bp=1000, per_customer_limit=1)
+    s.add(c)
+    await s.flush()
+    return c
+
+
+async def test_store_coupon_wins_and_only_the_winner_is_looked_up_for_locking(monkeypatch):
+    async with open_session() as s:
+        _, _, main, reseller, _ = await _world(s)
+        own = await _coupon(s, owner_key=str(reseller.id), store_id=reseller.id)
+        platform = await _coupon(s, owner_key="admin", store_id=None, scope="domain")
+        other_store = await _coupon(s, owner_key=str(main.id), store_id=main.id)  # same code, another store: invisible here
+        await s.commit()
+        assert (await catalog.find_coupon(s, reseller, "save", lock=False)).id == own.id
+        assert (await catalog.find_coupon(s, reseller, "save", lock=True)).id == own.id
+        assert (await catalog.find_coupon(s, main, "save", lock=True)).id == other_store.id
+        assert platform.id not in {own.id, other_store.id}
+        assert await catalog.find_coupon(s, reseller, "nope", lock=True) is None
+
+
+def test_source_guard_the_locking_statement_names_one_coupon():
+    import inspect
+
+    src = inspect.getsource(catalog.find_coupon)
+    assert "Coupon.id == rows[0].id" in src and "with_for_update" in src
+    assert src.index("with_for_update") > src.index("rows.sort")  # the lock comes after the winner is chosen, never on the broad query
+
+
+def test_runner_secrets_are_wired_end_to_end():
+    """Core knows the per-runner secrets, the installer generates them, each runner reads its own (shared one is the fallback)."""
+    from pathlib import Path
+
+    root = Path(__file__).parents[3]
+    assert "MELORIN_MAIN_BOT_SECRET" in (root / "scripts/install_server.sh").read_text()
+    assert "MELORIN_RESELLER_BOT_SECRET" in (root / "scripts/install_server.sh").read_text()
+    env = (root / ".env.example").read_text()
+    assert "MELORIN_MAIN_BOT_SECRET=" in env and "MELORIN_RESELLER_BOT_SECRET=" in env
+    main, reseller = (root / "apps/telegram-main/runner.py").read_text(), (root / "apps/telegram-reseller/runner.py").read_text()
+    assert 'secret_env = "MELORIN_MAIN_BOT_SECRET"' in main and "os.environ.get(self.secret_env)" in main
+    assert 'secret_env = "MELORIN_RESELLER_BOT_SECRET"' in reseller and 'os.environ.get("MELORIN_RESELLER_BOT_SECRET")' in reseller

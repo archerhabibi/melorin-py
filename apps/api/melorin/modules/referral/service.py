@@ -57,9 +57,13 @@ async def on_order_completed(session: AsyncSession, order_id: uuid.UUID) -> None
     order = await session.get(Order, order_id)
     if not order or order.kind == "test" or order.total <= 0:
         return
-    # Relationship is platform-wide first-touch, while the commission posts in the order's Store currency.
+    # The relationship is first-touch (one per referred user) and bound to the store it was made in; the commission posts in that store.
     rel = await session.scalar(select(ReferralRelationship).where(ReferralRelationship.referred_user_id == order.user_id))
     if not rel:
+        return
+    if rel.store_id != order.store_id:
+        # Store isolation (docs/17): a referral belongs to the store it was made in. Purchases the referred customer makes in
+        # ANOTHER store never pay the referrer, and never charge that other store's referral-expense account.
         return
     prior = (
         await session.scalar(
