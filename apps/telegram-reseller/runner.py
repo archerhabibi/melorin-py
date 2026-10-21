@@ -65,6 +65,7 @@ class BotRevoked(Exception):
 
 class ResellerTelegramRunner(_module.TelegramRunner):
     channel = "reseller"
+    secret_env = "MELORIN_RESELLER_BOT_SECRET"
 
     def __init__(self, *, token: str | None = None, slug: str | None = None, state_suffix: str | None = None):
         token = token or os.environ["MELORIN_TELEGRAM_RESELLER_TOKEN"]
@@ -373,7 +374,7 @@ class Supervisor:
 
     def __init__(self, *, core: str | None = None, secret: str | None = None, client: httpx.AsyncClient | None = None, make_runner=None):
         self.core = (core or os.environ["MELORIN_CORE_URL"]).rstrip("/")
-        self.secret = secret or os.environ["MELORIN_BOT_SERVICE_SECRET"]
+        self.secret = secret or os.environ.get("MELORIN_RESELLER_BOT_SECRET") or os.environ["MELORIN_BOT_SERVICE_SECRET"]
         self.client = client or httpx.AsyncClient(timeout=httpx.Timeout(15.0, connect=5.0))
         self.make_runner = make_runner or (lambda cfg: ResellerTelegramRunner(token=cfg["token"], slug=cfg["slug"], state_suffix=str(cfg["store_id"])))
         self.slots: dict[str, Slot] = {}

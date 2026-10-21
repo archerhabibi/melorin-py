@@ -189,12 +189,14 @@ class Ctx:
 
 class TelegramRunner:
     channel = "main"
+    # Least-privilege secret for this kind of runner (Core accepts it only for stores of that kind); falls back to the shared one.
+    secret_env = "MELORIN_MAIN_BOT_SECRET"
 
     def __init__(self, *, token: str | None = None, offset_file: str | Path | None = None):
         # ``token`` / ``offset_file`` let one process host several bots (the reseller supervisor) without touching os.environ.
         self.token = token or os.environ["MELORIN_TELEGRAM_TOKEN"]
         self.core = os.environ["MELORIN_CORE_URL"].rstrip("/")
-        self.secret = os.environ["MELORIN_BOT_SERVICE_SECRET"]
+        self.secret = os.environ.get(self.secret_env) or os.environ["MELORIN_BOT_SERVICE_SECRET"]
         self.offset_file = Path(offset_file or os.getenv("MELORIN_TELEGRAM_OFFSET_FILE", "/var/lib/melorin/offset.json"))
         self.offset_file.parent.mkdir(parents=True, exist_ok=True)
         self.state_file = self.offset_file.with_name(self.offset_file.stem + "-state.json")
