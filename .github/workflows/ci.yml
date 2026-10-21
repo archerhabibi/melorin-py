@@ -28,6 +28,7 @@ jobs:
       - run: python ../../scripts/check_g001_g010.py
       - run: python ../../scripts/check_quality_config.py
       - run: python ../../scripts/check_ops_p0.py
+      - run: python ../../scripts/gen_docs.py --check
       - run: bash ../../scripts/test_deploy.sh
       - run: bash ../../scripts/test_restore_drill.sh
       - run: bash ../../scripts/run_quality_gate.sh
