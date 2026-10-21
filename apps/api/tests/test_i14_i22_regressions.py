@@ -140,7 +140,7 @@ def test_redis_and_bootstrap_admin_have_bounded_operational_paths():
     installer = (ROOT.parent.parent / "scripts/install_server.sh").read_text()
     assert "socket_connect_timeout=1.5" in redis
     assert "socket_timeout=2.0" in redis
-    assert "asyncio.wait_for(redis.ping(), timeout=2.5)" in app
+    assert "asyncio.wait_for(redis.ping(), timeout=REDIS_TIMEOUT_SECONDS)" in app
     assert "bootstrap_admin_totp_secret" in config
     assert "user.totp_enabled = True" in cli
     assert "MELORIN_BOOTSTRAP_ADMIN_TOTP_SECRET" in installer

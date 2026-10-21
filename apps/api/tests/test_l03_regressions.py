@@ -11,7 +11,7 @@ API = ROOT / "apps/api"
 def test_l03_readiness_and_worker_signals_are_wired():
     app = read_source(API / "melorin/app.py")
     worker = read_source(API / "melorin/worker/arq_app.py")
-    assert "ready_ok = db_ok and redis_ok and worker_ok" in app
+    assert "ready_ok = db.ok and worker.redis_ok and worker.worker_ok" in app
     assert "melorin:worker:last_tick" in app and "melorin_worker_last_tick" in app
     assert "melorin:worker:last_tick" in worker
 

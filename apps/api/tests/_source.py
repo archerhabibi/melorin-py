@@ -76,6 +76,10 @@ def _is_identity_router(path: Path) -> bool:
     return path.name == "router.py" and path.parent.name == "identity" and path.parent.parent.name == "modules"
 
 
+def _is_app_entry(path: Path) -> bool:
+    return path.name == "app.py" and path.parent.name == "melorin"
+
+
 def _is_main_bot_runner(path: Path) -> bool:
     return path.name == "runner.py" and path.parent.name == "telegram-main"
 
@@ -93,6 +97,8 @@ def _raw_text(path: Path) -> str:
         parts = [path.read_text(encoding="utf-8")]
         parts += [(path.parent / "routes" / f"{name}.py").read_text(encoding="utf-8") for name in RESELLER_ROUTE_MODULES]
         return "\n".join(parts)
+    if _is_app_entry(path):  # Phase 3.17: app.py + core/health.py (readiness probes)
+        return "\n".join(f.read_text(encoding="utf-8") for f in (path, path.parent / "core" / "health.py"))
     if _is_main_bot_runner(path):
         parts = [path.read_text(encoding="utf-8")]
         parts += [f.read_text(encoding="utf-8") for f in sorted((path.parent / "tgmain").rglob("*.py"))]
