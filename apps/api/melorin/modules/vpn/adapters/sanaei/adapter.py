@@ -1,141 +1,19 @@
-"""Sanaei 3x-ui adapter (https://github.com/MHSanaei/3x-ui, API reference: https://docs.sanaei.dev/docs/reference/api/).
-
-Two API generations are supported:
-
-* ``v3`` (3x-ui 3.x): clients are first-class rows under ``/panel/api/clients/*`` and can be attached
-  to several inbounds at once.
-    - read:    GET  /panel/api/clients/get/{email}      -> obj = {"client": {...}, "inboundIds": [...]}
-                    (not found = HTTP 200 + success=false + msg "record not found")
-    - traffic: GET  /panel/api/clients/traffic/{email}  -> obj = {up, down, total, expiryTime, enable, ...}
-    - links:   GET  /panel/api/clients/links/{email}    -> obj = ["vless://...", ...]
-    - create:  POST /panel/api/clients/add              {"client": {...}, "inboundIds": [...]}
-               (per-protocol secrets are generated server-side when omitted)
-    - update:  POST /panel/api/clients/update/{email}   full row replace (NOT a patch): read -> merge -> write
-    - delete:  POST /panel/api/clients/del/{email}
-    - reset:   POST /panel/api/clients/resetTraffic/{email}
-    - health:  GET  /panel/api/server/status
-* ``legacy`` (3x-ui 1.x/2.x): clients live inside ``inbound.settings.clients``.
-    - GET /panel/api/inbounds/get/{id}, POST /panel/api/inbounds/addClient,
-      POST /panel/api/inbounds/updateClient/{clientId}, POST /panel/api/inbounds/{id}/delClient/{clientId},
-      POST /panel/api/inbounds/{id}/resetClientTraffic/{email}, POST /server/status
-
-``api_style="auto"`` (default) probes ``/panel/api/clients/*`` once and falls back to legacy on 404.
-
-Auth: ``Authorization: Bearer <api_token>`` (Settings -> Security -> API Token; preferred, no session,
-no CSRF) or cookie session from ``POST {base}/login``. The panel answers unauthenticated requests with
-404 (401 when ``X-Requested-With: XMLHttpRequest`` is sent, which we always send), so a 401 means
-"session expired" and a 404 means "route does not exist".
-
-base_url must include the panel web base path (e.g. ``https://panel.example.com:2053/kharej``).
-Redirects are never followed with credentials (credential forwarding / SSRF).
-
-Panel.config:
-  {"api_style": "auto" | "v3" | "legacy",
-   "inbound_ids": [1, 2],                 # or legacy "inbound_id": 1
-   "template_username": "template",       # optional: copy inboundIds/flow/limitIp from a manually-made client
-   "sub_base_url": "https://sub.example.com:2096/sub",   # REQUIRED: Sub Port + Sub Path, subId is appended
-   "flow": "",                            # e.g. "xtls-rprx-vision"
-   "limit_ip": 0,                         # default device/IP limit when AccountSpec.max_devices is empty
-   "fetch_links": true, "verify_tls": true, "timeout": 15}
-Panel credentials (encrypted): {"api_token": "..."} or {"username": "...", "password": "..."}
-"""
+"""Sanaei adapter: transport (login/request), API-style detection and the PanelAdapter port."""
 
 import datetime as dt
 import json
 import secrets
-import time
-import uuid
 from urllib.parse import quote, urlsplit
 
 import httpx
 
 from melorin.modules.vpn.adapters.base import AccountSpec, Capabilities, ErrorKind, PanelAccount, PanelError
-
-_NOT_FOUND_MARKERS = ("record not found", "not found", "client not found", "no such client")
-_TEMPLATE_TTL = 300
-# Fields of 3x-ui's model.Client. /clients/update binds into this struct, so anything else
-# (numeric record id, createdAt, inboundIds, traffic, ...) must not be sent back.
-_CLIENT_FIELDS = (
-    "id",
-    "password",
-    "auth",
-    "security",
-    "flow",
-    "email",
-    "limitIp",
-    "limitHwid",
-    "totalGB",
-    "expiryTime",
-    "enable",
-    "tgId",
-    "subId",
-    "comment",
-    "reset",
-    "reverse",
-    "group",
-    "groupId",
-)
+from melorin.modules.vpn.adapters.sanaei.wire import as_int, classify, from_ms, is_not_found, to_ms
+from melorin.modules.vpn.adapters.sanaei.legacy import LegacyMixin
+from melorin.modules.vpn.adapters.sanaei.v3 import V3Mixin
 
 
-def _classify(status: int) -> ErrorKind:
-    if status >= 500 or status in (408, 425, 429):
-        return ErrorKind.TRANSIENT
-    return ErrorKind.PERMANENT
-
-
-def _is_not_found(data: dict) -> bool:
-    msg = str(data.get("msg") or "").lower()
-    return data.get("success") is False and not data.get("obj") and any(m in msg for m in _NOT_FOUND_MARKERS)
-
-
-def to_ms(at: dt.datetime | None) -> int:
-    if not at:
-        return 0
-    at = at if at.tzinfo else at.replace(tzinfo=dt.UTC)
-    return int(at.timestamp() * 1000)
-
-
-def from_ms(v) -> dt.datetime | None:
-    try:
-        v = int(v or 0)
-    except (TypeError, ValueError):
-        return None
-    # Negative expiryTime = "starts on first use" (delayed start); no absolute date yet.
-    return dt.datetime.fromtimestamp(v / 1000, dt.UTC) if v > 0 else None
-
-
-def _int(v, default: int = 0) -> int:
-    try:
-        return int(v)
-    except (TypeError, ValueError):
-        return default
-
-
-def _settings(inbound: dict) -> dict:
-    """3x-ui 3.x returns settings as a nested object, 2.x as a JSON-encoded string."""
-    raw = inbound.get("settings")
-    if isinstance(raw, dict):
-        return raw
-    if isinstance(raw, str) and raw.strip():
-        try:
-            return json.loads(raw)
-        except ValueError as e:
-            raise PanelError(ErrorKind.PERMANENT, f"sanaei: inbound settings is not valid JSON: {e}") from e
-    return {}
-
-
-def clean_client(rec: dict) -> dict:
-    """Turn a v3 ClientRecord (numeric id + uuid) into a model.Client payload (id = uuid string)."""
-    out = {k: rec[k] for k in _CLIENT_FIELDS if k in rec and k != "id"}
-    rid = rec.get("uuid") or (rec.get("id") if isinstance(rec.get("id"), str) else None)
-    if rid:
-        out["id"] = rid
-    # model.Client.tgId is int64: sending "" fails with "cannot unmarshal string ... tgId of type int64".
-    out["tgId"] = _int(rec.get("tgId"), 0)
-    return out
-
-
-class SanaeiAdapter:
+class SanaeiAdapter(V3Mixin, LegacyMixin):
     kind = "sanaei"
 
     def __init__(
@@ -168,7 +46,6 @@ class SanaeiAdapter:
         self._logged_in = False
         self._template: tuple[dict, float] | None = None
 
-    # ------------------------------------------------------------------ config helpers
     @property
     def token(self) -> str | None:
         t = (self.creds.get("api_token") or self.creds.get("token") or "").strip()
@@ -203,7 +80,6 @@ class SanaeiAdapter:
     def _q(v: str) -> str:
         return quote(str(v), safe="")
 
-    # ------------------------------------------------------------------ transport
     async def _c(self) -> httpx.AsyncClient:
         if self._client is None:
             headers = {"Accept": "application/json", "X-Requested-With": "XMLHttpRequest"}
@@ -236,7 +112,7 @@ class SanaeiAdapter:
         if r.status_code == 404:
             raise PanelError(ErrorKind.PERMANENT, "sanaei: /login not found; base_url must include the panel web base path")
         if r.status_code != 200:
-            raise PanelError(_classify(r.status_code), f"sanaei: login http {r.status_code}")
+            raise PanelError(classify(r.status_code), f"sanaei: login http {r.status_code}")
         try:
             ok = bool(r.json().get("success"))
         except ValueError:
@@ -267,7 +143,7 @@ class SanaeiAdapter:
         if r.status_code == 401:
             raise PanelError(ErrorKind.PERMANENT, "sanaei: unauthorized (invalid API token or credentials)")
         if r.status_code != 200:
-            raise PanelError(_classify(r.status_code), f"sanaei: http {r.status_code} on {path}")
+            raise PanelError(classify(r.status_code), f"sanaei: http {r.status_code} on {path}")
         try:
             data = r.json()
         except ValueError as e:
@@ -275,7 +151,7 @@ class SanaeiAdapter:
         if not isinstance(data, dict):
             raise PanelError(ErrorKind.PERMANENT, f"sanaei: unexpected response on {path}")
         if data.get("success") is False:
-            if ok_missing and _is_not_found(data):
+            if ok_missing and is_not_found(data):
                 return None
             raise PanelError(ErrorKind.PERMANENT, f"sanaei: {str(data.get('msg') or 'panel error')[:300]}")
         return data
@@ -291,14 +167,13 @@ class SanaeiAdapter:
         elif r.status_code == 401:
             raise PanelError(ErrorKind.PERMANENT, "sanaei: unauthorized (invalid API token or credentials)")
         else:
-            raise PanelError(_classify(r.status_code), f"sanaei: api probe http {r.status_code}")
+            raise PanelError(classify(r.status_code), f"sanaei: api probe http {r.status_code}")
         return self._style
 
-    # ------------------------------------------------------------------ status helpers
     def _to_account(self, c: dict, traffic: dict, ref: str, links: list[str] | None = None) -> PanelAccount:
         expire_at = from_ms(c.get("expiryTime", traffic.get("expiryTime")))
-        total = _int(c.get("totalGB", traffic.get("total")), 0)
-        used = max(0, _int(traffic.get("up")) + _int(traffic.get("down")))
+        total = as_int(c.get("totalGB", traffic.get("total")), 0)
+        used = max(0, as_int(traffic.get("up")) + as_int(traffic.get("down")))
         enabled = bool(c.get("enable", True)) and traffic.get("enable", True) is not False
         if expire_at and expire_at <= dt.datetime.now(dt.UTC):
             status = "expired"
@@ -320,115 +195,6 @@ class SanaeiAdapter:
             links=links or [],
         )
 
-    async def _links(self, email: str) -> list[str]:
-        if not self.cfg.get("fetch_links", True):
-            return []
-        try:
-            d = await self._req("GET", f"/panel/api/clients/links/{self._q(email)}", ok_missing=True)
-        except PanelError:
-            return []  # links are cosmetic; subscription URL is the deliverable
-        obj = (d or {}).get("obj")
-        return [x for x in obj if isinstance(x, str)] if isinstance(obj, list) else []
-
-    # ------------------------------------------------------------------ v3 helpers
-    async def _v3_get(self, email: str) -> tuple[dict, list[int]] | None:
-        d = await self._req("GET", f"/panel/api/clients/get/{self._q(email)}", ok_missing=True)
-        obj = (d or {}).get("obj")
-        if not obj:
-            return None
-        if isinstance(obj, dict) and isinstance(obj.get("client"), dict):
-            return obj["client"], [int(i) for i in obj.get("inboundIds") or []]
-        if isinstance(obj, dict) and obj.get("email"):  # flat shape (some 3.0.x builds)
-            return obj, [int(i) for i in obj.get("inboundIds") or []]
-        raise PanelError(ErrorKind.PERMANENT, "sanaei: unexpected client payload")
-
-    async def _v3_traffic(self, email: str, rec: dict) -> dict:
-        try:
-            d = await self._req("GET", f"/panel/api/clients/traffic/{self._q(email)}", ok_missing=True)
-        except PanelError:
-            d = None
-        obj = (d or {}).get("obj")
-        if isinstance(obj, dict):
-            return obj
-        return rec.get("traffic") if isinstance(rec.get("traffic"), dict) else {}
-
-    async def _template_defaults(self) -> dict:
-        """inboundIds/flow/limitIp from config, optionally copied from a manually created template client."""
-        name = (self.cfg.get("template_username") or "").strip()
-        if not name:
-            return {"inboundIds": self.inbound_ids, "flow": self.cfg.get("flow", ""), "limitIp": _int(self.cfg.get("limit_ip"), 0)}
-        if self._template and self._template[1] > time.monotonic():
-            return self._template[0]
-        found = await self._v3_get(name)
-        if not found:  # never cache a miss
-            raise PanelError(ErrorKind.PERMANENT, f"sanaei: template client '{name}' not found on panel")
-        rec, ids = found
-        tpl = {
-            "inboundIds": self.inbound_ids or ids,
-            "flow": self.cfg.get("flow", rec.get("flow") or ""),
-            "limitIp": _int(self.cfg.get("limit_ip", rec.get("limitIp")), 0),
-        }
-        self._template = (tpl, time.monotonic() + _TEMPLATE_TTL)
-        return tpl
-
-    async def _v3_update(self, email: str, **changes) -> dict:
-        found = await self._v3_get(email)
-        if not found:
-            raise PanelError(ErrorKind.PERMANENT, "sanaei: client not found on panel")
-        body = clean_client(found[0])
-        body.update(changes)
-        body["email"] = email
-        await self._req("POST", f"/panel/api/clients/update/{self._q(email)}", json=body)
-        return body
-
-    # ------------------------------------------------------------------ legacy helpers
-    def _legacy_client_obj(self, spec: AccountSpec, tpl: dict) -> dict:
-        return {
-            "id": str(uuid.uuid4()),
-            "password": secrets.token_urlsafe(12),
-            "email": spec.username,
-            "enable": True,
-            "flow": tpl.get("flow", ""),
-            "limitIp": _int(spec.max_devices or tpl.get("limitIp"), 0),
-            "totalGB": int(spec.traffic_bytes or 0),
-            "expiryTime": to_ms(spec.expire_at),
-            "subId": secrets.token_hex(8),
-            "tgId": 0,
-            "reset": 0,
-            "comment": (spec.note or "")[:200],
-        }
-
-    async def _legacy_find(self, email: str) -> tuple[int, dict, dict] | None:
-        for iid in self.inbound_ids or [1]:
-            d = await self._req("GET", f"/panel/api/inbounds/get/{iid}", ok_missing=True)
-            inbound = (d or {}).get("obj") or {}
-            if not inbound:
-                continue
-            stats = {s.get("email"): s for s in inbound.get("clientStats") or []}
-            for c in _settings(inbound).get("clients", []) or []:
-                if c.get("email") == email:
-                    return iid, c, stats.get(email, {})
-        return None
-
-    @staticmethod
-    def _legacy_cid(c: dict) -> str:
-        # vless/vmess key on "id", trojan on "password", shadowsocks on "email".
-        return str(c.get("id") or c.get("password") or c.get("email"))
-
-    async def _legacy_update(self, email: str, **changes) -> None:
-        found = await self._legacy_find(email)
-        if not found:
-            raise PanelError(ErrorKind.PERMANENT, "sanaei: client not found on panel")
-        iid, c, _ = found
-        c.update(changes)
-        c["tgId"] = _int(c.get("tgId"), 0)
-        await self._req(
-            "POST",
-            f"/panel/api/inbounds/updateClient/{self._q(self._legacy_cid(c))}",
-            json={"id": iid, "settings": json.dumps({"clients": [c]})},
-        )
-
-    # ------------------------------------------------------------------ PanelAdapter
     async def health_check(self) -> bool:
         try:
             style = await self._api_style()
@@ -465,7 +231,7 @@ class SanaeiAdapter:
                 "enable": True,
                 "totalGB": int(spec.traffic_bytes or 0),
                 "expiryTime": to_ms(spec.expire_at),
-                "limitIp": _int(spec.max_devices or tpl.get("limitIp"), 0),
+                "limitIp": as_int(spec.max_devices or tpl.get("limitIp"), 0),
                 "tgId": 0,
                 "subId": sub_id,
                 "reset": 0,
@@ -475,7 +241,7 @@ class SanaeiAdapter:
                 client["flow"] = tpl["flow"]
             await self._req("POST", "/panel/api/clients/add", json={"client": client, "inboundIds": tpl["inboundIds"]})
         else:
-            tpl = {"flow": self.cfg.get("flow", ""), "limitIp": _int(self.cfg.get("limit_ip"), 0)}
+            tpl = {"flow": self.cfg.get("flow", ""), "limitIp": as_int(self.cfg.get("limit_ip"), 0)}
             c = self._legacy_client_obj(spec, tpl)
             await self._req("POST", "/panel/api/inbounds/addClient", json={"id": self.inbound_id, "settings": json.dumps({"clients": [c]})})
         created = await self.get_account(spec.username)
