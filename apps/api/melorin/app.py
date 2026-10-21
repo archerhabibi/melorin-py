@@ -16,8 +16,8 @@ from melorin.core.metrics import render, set_alert, set_gauge
 from melorin.modules.admin.router import router as admin_router
 from melorin.modules.catalog.router import public as catalog_router
 from melorin.modules.identity.router import auth as auth_router, me as me_router
-from melorin.modules.identity.telegram_oidc_router import tgoidc as telegram_oidc_router
-from melorin.modules.identity.telegram_web_router import tgweb as telegram_web_router
+from melorin.channels.telegram.oidc_router import tgoidc as telegram_oidc_router
+from melorin.channels.telegram.web_router import tgweb as telegram_web_router
 from melorin.modules.notifications.router import router as notifications_router
 from melorin.modules.orders.router import router as orders_router
 from melorin.modules.payments.router import router as payments_router

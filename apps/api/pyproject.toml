@@ -67,3 +67,9 @@ layers = [
   "melorin.modules.catalog | melorin.modules.referral | melorin.modules.tickets",
   "melorin.modules.vpn | melorin.modules.wallet | melorin.modules.webhooks | melorin.modules.notifications | melorin.modules.stores | melorin.modules.system",
 ]
+
+[[tool.importlinter.contracts]]
+name = "channels are adapters: they never import admin, reseller, reports, the worker or the entry points"
+type = "forbidden"
+source_modules = ["melorin.channels"]
+forbidden_modules = ["melorin.modules.admin", "melorin.modules.reseller", "melorin.modules.reports", "melorin.worker", "melorin.app", "melorin.cli"]

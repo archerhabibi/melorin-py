@@ -13,7 +13,7 @@ from melorin.core.db import utcnow
 from melorin.core.deps import BotAuth, Session
 from melorin.core.errors import AppError
 from melorin.core.ratelimit import RateLimit, client_ip
-from melorin.modules.identity import telegram_web as web
+from melorin.channels.telegram import web
 from melorin.modules.identity.router import _set_refresh_cookie
 from melorin.modules.identity.schemas import (
     TelegramProfile,

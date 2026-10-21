@@ -19,11 +19,11 @@ from melorin.core.deps import get_session
 from melorin.core.errors import AppError, install
 from melorin.modules.admin import integrations as admin_integrations
 from melorin.modules.identity import service
-from melorin.modules.identity import telegram_oidc as oidc
-from melorin.modules.identity import telegram_web as web
+from melorin.channels.telegram import oidc
+from melorin.channels.telegram import web
 from melorin.kernel.models.identity import Identity, RefreshToken, TelegramLoginSession, User
 from melorin.modules.identity.schemas import TelegramProfile
-from melorin.modules.identity.telegram_oidc_router import tgoidc
+from melorin.channels.telegram.oidc_router import tgoidc
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.system import AuditEvent, FeatureFlag, SecurityEvent, SystemSetting
 

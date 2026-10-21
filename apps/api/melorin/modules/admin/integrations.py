@@ -19,8 +19,8 @@ from melorin.core.crypto import decrypt
 from melorin.core.deps import AdminUser, Session, ip_allowed
 from melorin.core.email import send_with_config
 from melorin.core.errors import AppError
-from melorin.modules.identity import telegram_oidc
-from melorin.modules.identity.telegram_web import normalise_bot_username
+from melorin.channels.telegram import oidc as telegram_oidc
+from melorin.channels.telegram.web import normalise_bot_username
 from melorin.kernel.models.stores import BotStoreBinding, Store
 
 router = APIRouter(prefix="/integrations", tags=["admin-integrations"])
