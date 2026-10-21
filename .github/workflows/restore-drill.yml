@@ -1,0 +1,45 @@
+name: Restore drill
+# Weekly proof that the newest off-site backup can be decrypted and restored (audit P0-5). Runs on GitHub, i.e. OFF the
+# production host, so the age private key never has to live on the server. Without the secrets it is skipped (green) with a notice.
+#   Secrets: BACKUP_OFFSITE_URI  (rclone remote:path where backup_secure.sh uploads, e.g. s3backup:melorin-backups)
+#            RCLONE_CONFIG       (complete rclone.conf content for that remote)
+#            BACKUP_AGE_IDENTITY (the age private key file content - keep a copy in a password manager too)
+on:
+  schedule:
+    - cron: '23 4 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  drill:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env: {POSTGRES_PASSWORD: drill, POSTGRES_USER: drill, POSTGRES_DB: postgres}
+        ports: ['5432:5432']
+        options: --health-cmd "pg_isready -U drill" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      BACKUP_OFFSITE_URI: ${{ secrets.BACKUP_OFFSITE_URI }}
+      RCLONE_CONFIG_CONTENT: ${{ secrets.RCLONE_CONFIG }}
+      AGE_IDENTITY: ${{ secrets.BACKUP_AGE_IDENTITY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check configuration
+        id: cfg
+        run: |
+          if [ -n "$BACKUP_OFFSITE_URI" ] && [ -n "$RCLONE_CONFIG_CONTENT" ] && [ -n "$AGE_IDENTITY" ]; then echo "ready=true" >> "$GITHUB_OUTPUT"
+          else echo "::notice::restore drill skipped - set BACKUP_OFFSITE_URI, RCLONE_CONFIG and BACKUP_AGE_IDENTITY secrets to enable it"; echo "ready=false" >> "$GITHUB_OUTPUT"; fi
+      - name: Install tools
+        if: steps.cfg.outputs.ready == 'true'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq age rclone postgresql-client
+      - name: Restore the newest off-site backup into a scratch database
+        if: steps.cfg.outputs.ready == 'true'
+        env:
+          MELORIN_DATABASE_URL: postgresql+asyncpg://drill:drill@localhost:5432/postgres
+          MELORIN_RPO_HOURS: '30'
+        run: |
+          install -m 600 /dev/null "$RUNNER_TEMP/rclone.conf"; printf '%s\n' "$RCLONE_CONFIG_CONTENT" > "$RUNNER_TEMP/rclone.conf"
+          install -m 600 /dev/null "$RUNNER_TEMP/age-identity.txt"; printf '%s\n' "$AGE_IDENTITY" > "$RUNNER_TEMP/age-identity.txt"
+          export RCLONE_CONFIG="$RUNNER_TEMP/rclone.conf" PGPASSWORD=drill
+          BACKUP_SOURCE="$BACKUP_OFFSITE_URI" BACKUP_IDENTITY_FILE="$RUNNER_TEMP/age-identity.txt" scripts/restore_drill_latest.sh
