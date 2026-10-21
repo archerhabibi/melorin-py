@@ -333,7 +333,7 @@ async def test_plan_sale_is_the_single_core_answer_for_route_name_and_price(sess
 
 def test_channels_and_modules_outside_the_core_hold_no_route_or_price_rule():
     for rel in ("melorin/modules/orders/service.py", "melorin/modules/catalog/router.py", "melorin/modules/catalog/service.py"):
-        src = (ROOT / rel).read_text()
+        src = read_source(ROOT / rel)
         for banned in ("BundleProduct", "BundleMember", "effective_prices", "unit_price_of"):
             assert banned not in src, f"{rel} must leave {banned} to catalog/allocation"
 
