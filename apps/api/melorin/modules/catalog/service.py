@@ -97,11 +97,15 @@ def norm_code(code: str) -> str:
 async def find_coupon(session: AsyncSession, store: Store, code: str, *, lock: bool) -> Coupon | None:
     """Store-owned coupon wins over an Admin domain coupon with the same code (central selection rule)."""
     q = select(Coupon).where(Coupon.code == norm_code(code), or_(Coupon.owner_key == str(store.id), Coupon.owner_key == "admin"))
-    if lock:
-        q = q.with_for_update()
     rows = (await session.scalars(q)).all()
     rows.sort(key=lambda c: 0 if c.owner_key == str(store.id) else 1)
-    return rows[0] if rows else None
+    if not rows:
+        return None
+    if not lock:
+        return rows[0]
+    # Lock ONLY the coupon that wins: the losing same-code coupon (e.g. an Admin one while the store has its own) is never
+    # held, so it can neither be made to wait nor make other stores' checkouts wait.
+    return await session.scalar(select(Coupon).where(Coupon.id == rows[0].id).with_for_update().execution_options(populate_existing=True))
 
 
 async def customer_redemptions(session: AsyncSession, coupon_id: uuid.UUID, user_id: uuid.UUID) -> int:

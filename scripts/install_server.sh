@@ -98,6 +98,10 @@ if [ ! -f .env ]; then
   set_kv MELORIN_JWT_SECRET "$(rand)"
   set_kv MELORIN_ENCRYPTION_KEY "$(fernet)"
   set_kv MELORIN_BOT_SERVICE_SECRET "$(rand)"
+  # Least-privilege runner secrets (docs/16): the main runner can only open sessions in the main store, the reseller runner
+  # only in reseller stores (and only it may read the reseller bots list). The shared secret above stays as a fallback.
+  set_kv MELORIN_MAIN_BOT_SECRET "$(rand)"
+  set_kv MELORIN_RESELLER_BOT_SECRET "$(rand)"
   set_kv MELORIN_METRICS_TOKEN "$(rand)"
   set_kv MELORIN_HEALTH_TOKEN "$(rand)"
   set_kv MELORIN_BOOTSTRAP_ADMIN_EMAIL "$ADMIN_EMAIL"
