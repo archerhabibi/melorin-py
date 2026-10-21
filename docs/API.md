@@ -224,8 +224,8 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 
 | Method | Path | Operation |
 |---|---|---|
-| GET | `/api/v1/payments/callbacks/{provider}` | Payment Callback |
-| POST | `/api/v1/payments/callbacks/{provider}` | Payment Callback |
+| GET | `/api/v1/payments/callbacks/{provider}` | Payment Callback Get |
+| POST | `/api/v1/payments/callbacks/{provider}` | Payment Callback Post |
 | GET | `/api/v1/stores/{store_id}/payments` | My Payments |
 | GET | `/api/v1/stores/{store_id}/payments/{payment_id}` | Get Payment |
 | POST | `/api/v1/stores/{store_id}/payments/{payment_id}/receipt` | Upload Receipt |

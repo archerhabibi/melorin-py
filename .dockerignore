@@ -1,0 +1,35 @@
+# Build context is the repository root for every image (see docker-compose.yml). Keep secrets and bulk out of it.
+# Phase 2 (code hygiene): audit S01 Phase 2 item 6.
+
+# VCS and CI metadata
+.git
+.github
+
+# Secrets and local environment - never part of an image layer
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+*.key
+age-identity*.txt
+
+# Runtime data and caches
+var/
+**/__pycache__
+**/*.py[cod]
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.venv
+.coverage
+coverage.xml
+htmlcov
+
+# Frontend: images install and build inside the container
+**/node_modules
+**/dist
+
+# Not used by any Dockerfile
+docs/
+apps/api/tests/

@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from fastapi import APIRouter, File, Header, Request, UploadFile
@@ -15,6 +16,7 @@ from melorin.modules.payments.schemas import PaymentOut, TopupRequest, payment_o
 from melorin.modules.system.models import FileObject
 
 router = APIRouter(tags=["payments"])
+log = logging.getLogger("melorin.payments")
 
 
 @router.post("/stores/{store_id}/wallet/topups", response_model=PaymentOut)
@@ -79,13 +81,26 @@ async def upload_receipt(payment_id: uuid.UUID, ctx: StoreCtx, session: Session,
     return payment_out(p)
 
 
-@router.api_route("/payments/callbacks/{provider}", methods=["GET", "POST"])
-async def payment_callback(provider: str, request: Request, session: Session):
+async def _handle_payment_callback(provider: str, request: Request, session: Session):
     params = dict(request.query_params)
     if request.method == "POST":
         try:
             params.update(dict(await request.form()))
         except Exception:
-            pass
+            # A gateway may POST an empty or non-form body; the query string still carries the callback fields.
+            # Never log the body: it can contain payment authority/token values.
+            log.warning("payment callback body is not a parsable form provider=%s", provider)
     p = await service.handle_callback(session, provider, params)
     return RedirectResponse(f"{get_settings().store_web_url}/account/payments/{p.id}?status={p.status}", status_code=303)
+
+
+# One route per method with an explicit operation_id: a single api_route(methods=[GET, POST]) produced the same
+# OpenAPI operationId twice, which breaks client generators.
+@router.get("/payments/callbacks/{provider}", operation_id="payment_callback_get")
+async def payment_callback_get(provider: str, request: Request, session: Session):
+    return await _handle_payment_callback(provider, request, session)
+
+
+@router.post("/payments/callbacks/{provider}", operation_id="payment_callback_post")
+async def payment_callback_post(provider: str, request: Request, session: Session):
+    return await _handle_payment_callback(provider, request, session)

@@ -5,6 +5,7 @@ login endpoint into a global 429. The fallback is process-local, bounded and
 observable; production can disable it explicitly with fail_closed.
 """
 
+import logging
 import time
 from collections import defaultdict
 
@@ -15,6 +16,7 @@ from melorin.core.config import get_settings
 from melorin.core.proxy import resolve_client_ip
 
 _mem: dict[str, list] = defaultdict(lambda: [0, 0.0])
+log = logging.getLogger("melorin.ratelimit")
 _redis_degraded = False
 
 
@@ -39,7 +41,10 @@ async def hit(key: str, limit: int, window: int) -> bool:
                 n, _ = await pipe.incr(k).expire(k, window).execute()
             _redis_degraded = False
             return n <= limit
-        except Exception:  # Redis down must not take auth down
+        except Exception as exc:
+            # Redis unavailable: fall back below (process-local counter, or fail closed in staging/production).
+            if not _redis_degraded:  # log the transition once, not on every request
+                log.warning("rate-limit redis unavailable, using fallback policy: %s", type(exc).__name__)
             _redis_degraded = True
     settings = get_settings()
     if settings.env in {"staging", "production"} and settings.require_redis_rate_limit:

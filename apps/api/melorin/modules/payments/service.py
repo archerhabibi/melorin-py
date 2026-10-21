@@ -1,4 +1,5 @@
 import json
+import logging
 import uuid
 
 from sqlalchemy import select
@@ -18,6 +19,7 @@ from melorin.modules.stores.models import Store, StorePaymentConfiguration
 from melorin.modules.wallet import service as wallet
 
 P = PaymentStatus
+log = logging.getLogger("melorin.payments")
 
 
 async def store_payment_settings(session: AsyncSession, store: Store, provider: str) -> dict:
@@ -116,6 +118,7 @@ async def create_intent(
             p, callback_url=f"{callback_base}/api/v1/payments/callbacks/{provider}?pid={p.id}", settings=cfg
         )
     except Exception as exc:
+        log.warning("payment create failed payment=%s provider=%s", p.id, p.provider, exc_info=True)
         p.meta = {"external_operation": "create_failed", "error": str(exc)[:300]}
         session.add(PaymentAttempt(payment_id=p.id, action="create", result="failed", data={"error": str(exc)[:500]}))
         await session.commit()
@@ -239,6 +242,7 @@ async def refund_payment(session: AsyncSession, payment_id: uuid.UUID, *, actor_
     try:
         result = await get_adapter(p.provider).refund(p, settings=cfg)
     except Exception as exc:
+        log.warning("payment refund failed payment=%s provider=%s", p.id, p.provider, exc_info=True)
         p.meta = {**(p.meta or {}), "refund_operation": "failed", "refund_error": str(exc)[:300]}
         session.add(PaymentAttempt(payment_id=p.id, action="refund", result="failed", data={"error": str(exc)[:500]}))
         await session.commit()

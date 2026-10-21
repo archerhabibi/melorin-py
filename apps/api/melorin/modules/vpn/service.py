@@ -1,6 +1,7 @@
 """Provisioning orchestration: DB state machine + outbox. External panel calls run in workers."""
 
 import datetime as dt
+import logging
 import re
 import secrets
 import uuid
@@ -20,6 +21,8 @@ from melorin.modules.vpn import renewal
 from melorin.modules.vpn.allocation import resolve_allocation
 from melorin.modules.vpn.models import Panel, ProvisioningAttempt, ReconciliationIssue, Server, VpnAccount
 from melorin.modules.vpn.bundles import Bundle, BundleMember, clean_custom_name
+
+log = logging.getLogger("melorin.provisioning")
 
 
 async def _record_bundle_sale(session, order, panel_id):
@@ -286,6 +289,7 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
         # Admin is only notified, never asked to intervene manually.
         return await _fail(session, order, e.message, account=account)
     except Exception as e:
+        log.warning("provisioning failed unexpectedly order=%s", order.id, exc_info=True)
         attempt.status = "failed"
         attempt.error_kind, attempt.error, attempt.finished_at = ErrorKind.UNKNOWN, str(e), utcnow()
         return await _fail(session, order, str(e), account=account)

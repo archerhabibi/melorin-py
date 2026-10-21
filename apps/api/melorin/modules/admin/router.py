@@ -1,5 +1,6 @@
 import csv
 import io
+import logging
 import uuid
 
 from fastapi import APIRouter, Query
@@ -35,6 +36,7 @@ from melorin.modules.vpn.models import Panel, Server, VpnAccount
 from melorin.modules.vpn.bundles import Bundle, BundleMember, BundleProduct, StoreBundle
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+log = logging.getLogger("melorin.admin")
 router.include_router(integrations_router)
 router.include_router(resellers_router)
 
@@ -62,8 +64,9 @@ async def health(_: AdminUser, session: Session):
         try:
             await redis.ping()
             worker = bool(await redis.get("melorin:worker:last_tick"))
-        except Exception:
-            pass
+        except Exception as exc:
+            # Reported below as redis/worker "unavailable"; keep the reason in the log instead of dropping it.
+            log.warning("admin health: redis check failed: %s", type(exc).__name__)
     return {"api": "ok", "database": "ok", "redis": "ok" if redis else "unavailable", "worker": "ok" if worker else "unavailable"}
 
 
@@ -1001,7 +1004,7 @@ async def panel_health(panel_id: uuid.UUID, _: AdminUser, session: Session):
             try:
                 await adapter.close()
             except Exception:
-                pass
+                log.warning("panel adapter close failed panel=%s", p.id, exc_info=True)
     p.health_status, p.last_health_at, p.last_health_error = "healthy" if ok else "unhealthy", utcnow(), (None if ok else error)
     await session.commit()
     return {"healthy": ok, "error": None if ok else error}
