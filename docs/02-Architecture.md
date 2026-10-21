@@ -30,6 +30,22 @@ Website / Admin / Main Bot / Reseller Bots / Reseller API / WebApp
 - API تا حد امکان stateless؛ worker و scheduler جدا.
 ## ماژول‌ها
 Identity & Linking; Stores/Resellers; Authorization; Catalog; Pricing/Discount; Wallet/Ledger; Payment; Order; VPN Account; Server/Panel Registry; Provisioning/Reconciliation; Referral/Commission; Test Account; Ticket; Notification/Outbox; Audit/Security; Reporting/Search; Storage; Configuration/Feature Flags; Operations/Health.
+## لایه‌بندی کد (Phase 3 — با import-linter اجباری می‌شود)
+جهت وابستگی همیشه رو به پایین است؛ هر قرارداد در `apps/api/pyproject.toml` تعریف شده و با `make lint` و CI اجرا می‌شود.
+
+| لایه | مسیر | مجاز به import |
+|---|---|---|
+| Domain (خالص) | `melorin/domain` | هیچ‌چیز از پروژه |
+| Kernel | `melorin/kernel` (مدل‌های ORM، `Base`) | فقط `domain` |
+| Core (زیرساخت) | `melorin/core` | فقط `kernel` و `domain` |
+| ماژول‌ها (پشتهٔ بدون دور) | `melorin/modules/*` | لایهٔ پایین‌تر از خودش: `admin` › `reports` › `reseller` › `orders/payments/identity` › `catalog/referral/tickets` › `vpn/wallet/webhooks/notifications/stores/system` |
+| Channelها (Adapter) | `melorin/channels/*` (Telegram OIDC/web-login، Bot API) | هیچ‌گاه `admin`، `reseller`، `reports`، worker و نقاط ورودی |
+| نقاط ورودی | `app`، `cli`، `worker` | همه |
+
+- نیاز جدید بین دو ماژول از طریق لایهٔ پایین‌تر یا رویداد Outbox برآورده می‌شود، نه import معکوس.
+- مسیر مدل‌ها `melorin.kernel.models.<context>` است؛ `melorin.models` فقط برای ثبت کامل metadata (Alembic و تست‌ها) نگه داشته شده است.
+- فایل‌های بزرگ بر اساس خانوادهٔ مسیر یا مسئولیت تقسیم می‌شوند (مثلاً `modules/admin/<family>.py`، `modules/reseller/routes/`، `modules/catalog/allocation/`، `modules/identity/google.py`، `telegram-main/tgmain/handlers/`) و `router.py` فقط ریشهٔ ترکیب است.
+- ترتیب هر تغییر ساختاری: رفتار ثابت، OpenAPI بدون تغییر (مقایسهٔ بایت‌به‌بایت با `main`) و همهٔ تست‌ها سبز.
 ## Events
 `OrderCreated`, `PaymentSucceeded`, `WalletCredited`, `WalletDebited`, `ProvisioningStarted`, `ProvisioningCompleted`, `ProvisioningFailed`, `RefundCompleted`, `CustomerLinked`, `ResellerDebtLimitReached`.
 V1 از Event Dispatcher داخلی و Outbox table استفاده کند؛ Broker مستقل فقط در صورت نیاز واقعی.
