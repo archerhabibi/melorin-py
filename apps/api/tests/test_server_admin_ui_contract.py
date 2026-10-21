@@ -3,7 +3,7 @@ from pathlib import Path
 from _source import read_source
 
 SRC = Path(__file__).parents[3].joinpath("apps", "admin-web", "src")
-ALLOCATION = read_source(Path(__file__).parents[1].joinpath("melorin", "modules", "vpn", "allocation.py"))
+ALLOCATION = read_source(Path(__file__).parents[1].joinpath("melorin", "modules", "catalog", "allocation.py"))
 ROUTER = read_source(Path(__file__).parents[1].joinpath("melorin", "modules", "admin", "router.py"))
 
 

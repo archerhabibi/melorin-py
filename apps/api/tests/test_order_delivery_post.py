@@ -176,7 +176,7 @@ async def test_overlong_link_never_exceeds_caption_limit(session, tg):
 async def test_provisioning_emits_delivery_event_not_generic_notice():
     import inspect
 
-    from melorin.modules.vpn import service
+    from melorin.modules.orders import provisioning as service
 
     src = inspect.getsource(service.provision_order)
     assert src.count("events.ORDER_DELIVERY") == 2  # normal path + reconcile path

@@ -23,8 +23,8 @@ from melorin.modules.catalog import router as public
 from melorin.modules.catalog import service as catalog
 from melorin.kernel.models.catalog import Product, StoreProduct
 from melorin.kernel.models.stores import Store
-from melorin.modules.vpn import allocation
-from melorin.modules.vpn.allocation import requested_account_name
+from melorin.modules.catalog import allocation
+from melorin.modules.catalog.allocation import requested_account_name
 from melorin.kernel.models.bundles import Bundle, BundleMember, BundleProduct
 from melorin.kernel.models.vpn import Panel, Server
 
@@ -335,7 +335,7 @@ def test_channels_and_modules_outside_the_core_hold_no_route_or_price_rule():
     for rel in ("melorin/modules/orders/service.py", "melorin/modules/catalog/router.py", "melorin/modules/catalog/service.py"):
         src = (ROOT / rel).read_text()
         for banned in ("BundleProduct", "BundleMember", "effective_prices", "unit_price_of"):
-            assert banned not in src, f"{rel} must leave {banned} to vpn/allocation.py"
+            assert banned not in src, f"{rel} must leave {banned} to catalog/allocation.py"
 
 
 async def test_customer_price_can_never_be_below_the_bundles_reseller_price(session):

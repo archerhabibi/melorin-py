@@ -16,7 +16,7 @@ from melorin.kernel.models.identity import User
 from melorin.kernel.models.notifications import Notification
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.system import OutboxEvent
-from melorin.modules.vpn import service as vpn
+from melorin.modules.orders import provisioning as vpn
 from melorin.modules.vpn.adapters.registry import build_adapter
 from melorin.kernel.models.vpn import Panel, VpnAccount
 

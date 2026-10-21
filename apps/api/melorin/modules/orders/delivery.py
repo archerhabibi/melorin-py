@@ -10,7 +10,6 @@ Delivery is at-least-once and deduplicated through the Notification row
 """
 
 import html
-import io
 import logging
 import datetime as dt
 import uuid
@@ -18,6 +17,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from melorin.modules.vpn.qr import render_qr_png  # noqa: F401  (also the delivery module's public name)
 from melorin.core.config import get_settings
 from melorin.core.crypto import decrypt
 from melorin.core.metrics import inc
@@ -36,15 +36,6 @@ LINK_WAIT = dt.timedelta(hours=1)  # how long a missing link is retried before d
 
 class LinkNotReady(RuntimeError):
     """The subscription link is not stored yet; raised so the outbox retries instead of sending a post without QR."""
-
-
-def render_qr_png(data: str) -> bytes:
-    """PNG QR code for ``data`` (pure-python, no Pillow needed)."""
-    import segno
-
-    buf = io.BytesIO()
-    segno.make(data, error="m").save(buf, kind="png", scale=8, border=4)
-    return buf.getvalue()
 
 
 def _money(n) -> str:

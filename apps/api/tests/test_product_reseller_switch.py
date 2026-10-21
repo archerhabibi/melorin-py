@@ -10,7 +10,7 @@ from melorin.core.db import Base
 from melorin.modules.catalog import service as catalog
 from melorin.kernel.models.catalog import Product, StoreProduct
 from melorin.kernel.models.stores import Store
-from melorin.modules.vpn import allocation
+from melorin.modules.catalog import allocation
 from melorin.kernel.models.bundles import Bundle, BundleProduct
 
 

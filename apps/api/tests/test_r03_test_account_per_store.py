@@ -23,7 +23,7 @@ from melorin.modules.orders import service as orders
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.stores import StoreMembership
 from melorin.kernel.models import system as system_models
-from melorin.modules.vpn import allocation
+from melorin.modules.catalog import allocation
 
 
 @pytest.fixture(autouse=True)

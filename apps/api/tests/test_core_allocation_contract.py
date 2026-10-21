@@ -33,7 +33,7 @@ def test_channels_never_choose_a_server():
 def test_every_choice_a_channel_sends_is_validated_by_the_core_before_payment():
     create = _called_names(_function("apps/api/melorin/modules/orders/service.py", "create_order"))
     assert create.index("plan_sale") < create.index("pay_with_wallet")
-    plan = _called_names(_function("apps/api/melorin/modules/vpn/allocation.py", "plan_sale"))
+    plan = _called_names(_function("apps/api/melorin/modules/catalog/allocation.py", "plan_sale"))
     assert plan.index("resolve_order_group") < plan.index("requested_account_name") < plan.index("bundle_product")
 
 
@@ -64,7 +64,7 @@ def test_purchase_and_test_orders_use_core_group_rule_before_any_payment():
 
 
 def test_provisioning_places_accounts_only_through_the_core():
-    svc = read("apps/api/melorin/modules/vpn/service.py")
+    svc = read("apps/api/melorin/modules/orders/provisioning.py")
     assert "resolve_allocation(" in svc
     assert "def choose_server" not in svc and "def choose_bundle_panel" not in svc
     assert "select(Server" not in svc

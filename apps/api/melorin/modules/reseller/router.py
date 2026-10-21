@@ -37,7 +37,9 @@ from melorin.kernel.models.stores import ApiCredential, ResellerApplication, Res
 from melorin.modules.wallet import service as wallet
 from melorin.modules.webhooks import service as webhooks
 from fastapi import Header
-from melorin.modules.vpn import allocation, inquiry
+from melorin.modules.catalog import allocation
+from melorin.modules.reseller import renewal as reseller_renewal
+from melorin.modules.vpn import inquiry
 from melorin.modules.reseller.schemas import OwnerRenewalOut
 from melorin.modules.vpn.schemas import OwnerAccountOut
 from melorin.kernel.models.stores import Store
@@ -418,7 +420,7 @@ async def store_account_refresh(account_id: uuid.UUID, ctx: OwnerCtx, session: S
 @router.get("/stores/{store_id}/reseller/accounts/{account_id}/renewal", response_model=OwnerRenewalOut)
 async def store_account_renewal(account_id: uuid.UUID, ctx: OwnerCtx, session: Session):
     """What a renewal of this account would be (package, price, new expiry, who pays): Core's answer, shown as is."""
-    return await inquiry.reseller_renewal_offer(session, ctx.user.id, ctx.store.id, account_id)
+    return await reseller_renewal.reseller_renewal_offer(session, ctx.user.id, ctx.store.id, account_id)
 
 
 class OwnerRenewIn(BaseModel):
@@ -436,7 +438,7 @@ async def store_account_renew(
     """Renew the reseller's own account or one of his own customers' accounts (everything else: 404); see ``inquiry``."""
     from melorin.modules.orders.router import out as order_out  # lazy: orders imports the vpn package
 
-    order = await inquiry.reseller_renew(
+    order = await reseller_renewal.reseller_renew(
         session, ctx.user.id, ctx.store.id, account_id, idempotency_key=idempotency_key, channel=body.channel
     )
     return order_out(order)

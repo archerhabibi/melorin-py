@@ -22,7 +22,7 @@ from melorin.modules.orders import service as orders
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.stores import Store, StoreMembership
 from melorin.kernel.models import system as system_models
-from melorin.modules.vpn import allocation
+from melorin.modules.catalog import allocation
 
 pytestmark = [
     pytest.mark.concurrency,

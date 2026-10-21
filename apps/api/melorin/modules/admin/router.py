@@ -31,7 +31,8 @@ from melorin.modules.admin.resellers import router as resellers_router
 from melorin.kernel.models.system import AuditEvent, BackupRun, FeatureFlag
 from melorin.kernel.models.tickets import Ticket
 from melorin.modules.tickets.schemas import AdminAddMessage, AdminUpdateTicket, EditMessage as EditTicketMessage
-from melorin.modules.vpn import allocation, inquiry
+from melorin.modules.catalog import allocation
+from melorin.modules.vpn import inquiry
 from melorin.kernel.models.vpn import Panel, Server, VpnAccount
 from melorin.kernel.models.bundles import Bundle, BundleMember, BundleProduct, StoreBundle
 

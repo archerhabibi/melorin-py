@@ -27,7 +27,7 @@ from melorin.modules.reseller import router as reseller_router
 from melorin.modules.reseller.schemas import PriceBatchIn, PriceBatchItem, PriceIn
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.system import AuditEvent
-from melorin.modules.vpn import allocation
+from melorin.modules.catalog import allocation
 from melorin.kernel.models.bundles import Bundle, BundleMember, BundleProduct
 from melorin.kernel.models.vpn import Panel, Server
 

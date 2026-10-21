@@ -19,7 +19,8 @@ from melorin.kernel.models.identity import User
 from melorin.kernel.models.orders import Order, OrderStateTransition
 from melorin.kernel.models.stores import ResellerProfile, Store, StoreMembership
 from melorin.kernel.models.system import TestAccountGrant
-from melorin.modules.vpn import allocation, renewal
+from melorin.modules.catalog import allocation
+from melorin.modules.vpn import renewal
 from melorin.kernel.models.vpn import VpnAccount
 from melorin.modules.wallet import service as wallet
 
@@ -496,7 +497,7 @@ async def auto_refund(session: AsyncSession, order_id: uuid.UUID, *, reason: str
     """System-triggered refund after all provisioning retries are exhausted.
 
     No admin action is required; the system is the actor. Admin notification
-    is emitted before this call (by vpn.service._give_up) via PROVISIONING_FAILED.
+    is emitted before this call (by orders.provisioning._give_up) via PROVISIONING_FAILED.
     """
     await _refund(session, order_id, actor_id=None, actor_type="system", reason=reason)
 

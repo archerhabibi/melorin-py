@@ -16,7 +16,7 @@ from melorin.modules.admin.schemas import CreateProduct, ProductPatch, UpdateBun
 from melorin.kernel.models.catalog import Product
 from melorin.kernel.models.system import AuditEvent
 from melorin.modules.vpn.adapters.base import PanelError
-from melorin.modules.vpn.allocation import resolve_allocation, resolve_order_group
+from melorin.modules.catalog.allocation import resolve_allocation, resolve_order_group
 from melorin.kernel.models.bundles import Bundle, BundleMember, BundleProduct, StoreBundle
 from melorin.kernel.models.vpn import Panel, Server
 

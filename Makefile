@@ -27,7 +27,7 @@ logs:; docker compose logs -f api worker
 migrate:; docker compose run --rm api alembic upgrade head
 revision:; docker compose run --rm api alembic revision --autogenerate -m "schema"
 test:; cd apps/api && pytest -q
-lint:; cd apps/api && ruff check melorin --config pyproject.toml && ruff format --check melorin tests --config pyproject.toml
+lint:; cd apps/api && lint-imports && ruff check melorin --config pyproject.toml && ruff format --check melorin tests --config pyproject.toml
 api:; cd apps/api && uvicorn melorin.app:app --reload
 worker:; cd apps/api && arq melorin.worker.arq_app.WorkerSettings
 

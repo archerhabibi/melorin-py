@@ -12,7 +12,7 @@ from sqlalchemy import select
 from _db import make_order, make_product, make_store, make_user, open_session
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.system import AuditEvent, OutboxEvent
-from melorin.modules.vpn import service as vpn
+from melorin.modules.orders import provisioning as vpn
 from melorin.modules.vpn.adapters.base import AccountSpec, ErrorKind, PanelAccount, PanelError
 from melorin.kernel.models.bundles import Bundle, BundleMember, BundleProduct
 from melorin.kernel.models.vpn import Panel, ProvisioningAttempt, Server, VpnAccount

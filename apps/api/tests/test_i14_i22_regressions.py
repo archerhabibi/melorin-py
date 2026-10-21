@@ -154,7 +154,7 @@ def test_k11_to_k20_operational_controls_are_present():
     alerts = (root / "infra/alerts.yml").read_text()
     registry = read_source(ROOT / "melorin/modules/vpn/adapters/registry.py")
     orders = read_source(ROOT / "melorin/modules/orders/service.py")
-    vpn = read_source(ROOT / "melorin/modules/vpn/service.py")
+    vpn = read_source(ROOT / "melorin/modules/orders/provisioning.py")
     assert "secrets/metrics-token" in compose and "tmp_metrics" in installer
     assert "recipients.txt:/run/melorin-backup/recipients.txt:ro" in compose
     for marker in ("panel_health_job", "expiry_job", "near_expiry_job", "reconciliation_job"):

@@ -32,3 +32,38 @@ omit = ["*/tests/*", "*/alembic/*"]
 
 [tool.coverage.report]
 exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError"]
+
+# Phase 3 - architecture contracts (run: `cd apps/api && lint-imports`). They fail CI when a dependency points the wrong way.
+[tool.importlinter]
+root_package = "melorin"
+include_external_packages = false
+
+[[tool.importlinter.contracts]]
+name = "domain is pure (imports nothing of ours)"
+type = "forbidden"
+source_modules = ["melorin.domain"]
+forbidden_modules = ["melorin.core", "melorin.kernel", "melorin.modules", "melorin.worker", "melorin.channels", "melorin.app", "melorin.cli"]
+
+[[tool.importlinter.contracts]]
+name = "kernel is the bottom layer"
+type = "forbidden"
+source_modules = ["melorin.kernel"]
+forbidden_modules = ["melorin.core", "melorin.modules", "melorin.worker", "melorin.channels", "melorin.app", "melorin.cli"]
+
+[[tool.importlinter.contracts]]
+name = "core imports only kernel and domain"
+type = "forbidden"
+source_modules = ["melorin.core"]
+forbidden_modules = ["melorin.modules", "melorin.worker", "melorin.channels", "melorin.app", "melorin.cli"]
+
+[[tool.importlinter.contracts]]
+name = "feature modules form an acyclic stack (a layer may import only layers below it)"
+type = "layers"
+layers = [
+  "melorin.modules.admin",
+  "melorin.modules.reports",
+  "melorin.modules.reseller",
+  "melorin.modules.orders | melorin.modules.payments | melorin.modules.identity",
+  "melorin.modules.catalog | melorin.modules.referral | melorin.modules.tickets",
+  "melorin.modules.vpn | melorin.modules.wallet | melorin.modules.webhooks | melorin.modules.notifications | melorin.modules.stores | melorin.modules.system",
+]
