@@ -50,6 +50,24 @@ ADMIN_ROUTE_MODULES = (
 )
 
 
+# Phase 3.8: the reseller API router is split the same way (``modules/reseller/routes/<family>.py``).
+RESELLER_ROUTE_MODULES = (
+    "applications",
+    "store_profile",
+    "pricing",
+    "customers",
+    "accounts",
+    "store_payments",
+    "credentials",
+    "webhook_endpoints",
+    "public_api",
+)
+
+
+def _is_reseller_router(path: Path) -> bool:
+    return path.name == "router.py" and path.parent.name == "reseller" and path.parent.parent.name == "modules"
+
+
 def _is_admin_router(path: Path) -> bool:
     return path.name == "router.py" and path.parent.name == "admin" and path.parent.parent.name == "modules"
 
@@ -63,6 +81,10 @@ def _raw_text(path: Path) -> str:
     path = Path(path)
     if _is_admin_router(path):
         return "\n".join((path.parent / f"{name}.py").read_text(encoding="utf-8") for name in ADMIN_ROUTE_MODULES)
+    if _is_reseller_router(path):
+        parts = [path.read_text(encoding="utf-8")]
+        parts += [(path.parent / "routes" / f"{name}.py").read_text(encoding="utf-8") for name in RESELLER_ROUTE_MODULES]
+        return "\n".join(parts)
     if _is_main_bot_runner(path):
         parts = [path.read_text(encoding="utf-8")]
         parts += [f.read_text(encoding="utf-8") for f in sorted((path.parent / "tgmain").rglob("*.py"))]
