@@ -19,7 +19,8 @@ def test_zarinpal_is_validated_as_a_supported_destination():
     source = read_source(ROOT / "melorin/modules/payments/gateway_catalog.py")
     service = read_source(ROOT / "melorin/modules/payments/service.py")
     assert '"zarinpal"' in source
-    assert 'provider in {"zarinpal", "external_gateway", "crypto", "telegram_stars"}' in service
+    assert '_CURRENCY_CHECKED = frozenset({"zarinpal", "external_gateway", "crypto", "telegram_stars"})' in service
+    assert "validate_destination(provider, currency)" in service
 
 
 def test_telegram_topup_surfaces_core_configuration_errors():
