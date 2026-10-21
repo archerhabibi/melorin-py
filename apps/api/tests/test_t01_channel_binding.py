@@ -11,7 +11,6 @@ import uuid
 
 import jwt
 import pytest
-from fastapi import Response
 from fastapi.routing import APIRoute
 from sqlalchemy import select
 

@@ -1,9 +1,7 @@
 import hashlib
 import ipaddress
 import secrets
-import uuid
 
-from sqlalchemy import select
 
 from melorin.core import audit
 from melorin.core.db import utcnow

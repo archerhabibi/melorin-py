@@ -1,5 +1,3 @@
-import uuid
-
 from sqlalchemy import select
 
 from melorin.core import audit

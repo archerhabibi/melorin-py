@@ -1,36 +1,34 @@
 import csv
 import io
+import logging
 import uuid
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Query
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 
-from melorin.core import audit, flags, settings_store
+from melorin.core import audit, settings_store
 from melorin.core.config import get_settings
 from melorin.core.crypto import encrypt
 from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import AppError, NotFound
-from melorin.core.pagination import Page, PageParams
-from melorin.core.security import new_opaque_token, token_hash
 from melorin.modules.admin.schemas import *  # noqa: F403
 from melorin.modules.catalog.schemas import AdminCouponIn, CouponPatch
-from melorin.modules.catalog.models import Coupon, CouponRedemption, Product, StoreBundlePrice, StoreProduct
+from melorin.modules.catalog.models import Coupon, Product, StoreBundlePrice, StoreProduct
 from melorin.modules.identity.models import IdentityLinkReview, User
 from melorin.modules.orders import service as order_service
 from melorin.modules.orders.models import Order
 from melorin.modules.referral.models import CommissionRule
 from melorin.modules.payments import service as payment_service
 from melorin.modules.payments.models import Payment
-from melorin.modules.stores.models import BotStoreBinding, ResellerApplication, ResellerProfile, Store, StoreMembership
+from melorin.modules.stores.models import ResellerApplication, ResellerProfile, Store, StoreMembership
 from melorin.modules.admin import bot_bindings
 from melorin.modules.reseller.linking import link_bundle_to_resellers, link_product_to_resellers
 from melorin.modules.admin.integrations import router as integrations_router
 from melorin.modules.admin.resellers import router as resellers_router
-from melorin.modules.system.models import AuditEvent, BackupRun, FeatureFlag, SystemSetting
-from melorin.modules.webhooks import service as webhook_service
+from melorin.modules.system.models import AuditEvent, BackupRun, FeatureFlag
 from melorin.modules.tickets.models import Ticket
 from melorin.modules.tickets.schemas import AdminAddMessage, AdminUpdateTicket, EditMessage as EditTicketMessage
 from melorin.modules.vpn import allocation, inquiry
@@ -38,6 +36,7 @@ from melorin.modules.vpn.models import Panel, Server, VpnAccount
 from melorin.modules.vpn.bundles import Bundle, BundleMember, BundleProduct, StoreBundle
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+log = logging.getLogger("melorin.admin")
 router.include_router(integrations_router)
 router.include_router(resellers_router)
 
@@ -65,8 +64,9 @@ async def health(_: AdminUser, session: Session):
         try:
             await redis.ping()
             worker = bool(await redis.get("melorin:worker:last_tick"))
-        except Exception:
-            pass
+        except Exception as exc:
+            # Reported below as redis/worker "unavailable"; keep the reason in the log instead of dropping it.
+            log.warning("admin health: redis check failed: %s", type(exc).__name__)
     return {"api": "ok", "database": "ok", "redis": "ok" if redis else "unavailable", "worker": "ok" if worker else "unavailable"}
 
 
@@ -1004,7 +1004,7 @@ async def panel_health(panel_id: uuid.UUID, _: AdminUser, session: Session):
             try:
                 await adapter.close()
             except Exception:
-                pass
+                log.warning("panel adapter close failed panel=%s", p.id, exc_info=True)
     p.health_status, p.last_health_at, p.last_health_error = "healthy" if ok else "unhealthy", utcnow(), (None if ok else error)
     await session.commit()
     return {"healthy": ok, "error": None if ok else error}

@@ -5,7 +5,6 @@ from sqlalchemy import select
 
 from melorin.core import audit, codes, events
 from melorin.core.db import utcnow
-from melorin.core import channel
 from melorin.core.deps import AuthSession, CurrentAuth, Session, StoreCtx
 from melorin.core.errors import AppError, NotFound
 from melorin.modules.tickets import service

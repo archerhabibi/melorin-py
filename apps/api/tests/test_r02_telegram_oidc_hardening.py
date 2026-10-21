@@ -1,7 +1,6 @@
 # ruff: noqa: F811  (pytest fixtures imported from the R01 module are used as arguments)
 """Hardening of the Telegram login pass (R02): flow-cookie key separation, error classification, panel diagnostics, UI contract."""
 
-import json
 import pathlib
 
 import httpx

@@ -1,4 +1,4 @@
-import json
+import logging
 import secrets
 import socket
 import time
@@ -15,6 +15,8 @@ from melorin.core.db import utcnow
 from melorin.core.errors import AppError, NotFound
 from melorin.domain import webhook as wh
 from melorin.modules.webhooks.models import WebhookDelivery, WebhookEndpoint
+
+log = logging.getLogger("melorin.webhooks")
 
 
 def endpoint_out(e):
@@ -247,6 +249,7 @@ async def deliver_one(session: AsyncSession, delivery_id):
         else:
             raise RuntimeError(f"HTTP {r.status_code}")
     except Exception as exc:
+        log.warning("webhook delivery failed delivery=%s error=%s", d.id, type(exc).__name__)
         d.last_error = str(exc)[:500]
         delay = wh.next_delay(d.attempts)
         e.consecutive_failures += 1

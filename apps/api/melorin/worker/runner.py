@@ -1,6 +1,5 @@
 """Async outbox worker. V1 uses PostgreSQL polling and row locks; Redis/ARQ is a swappable boundary."""
 
-import asyncio
 import datetime as dt
 import logging
 import uuid
@@ -10,7 +9,6 @@ from sqlalchemy import select
 from melorin.core import events
 from melorin.core.config import get_settings
 from melorin.core.db import session_factory, utcnow
-from melorin.core.logging import setup_logging
 from melorin.core.metrics import inc
 from melorin.core.crypto import decrypt
 from melorin import models  # noqa: F401, register all SQLAlchemy mappers before worker sessions

@@ -4,12 +4,12 @@ from sqlalchemy import select
 from melorin.core import audit, channel, flags, integrations
 from melorin.core.crypto import decrypt, encrypt
 from melorin.core.config import get_settings
-from melorin.core.deps import AdminUser, BotAuth, CurrentAuth, CurrentUser, Session, main_store, require_bot_service
+from melorin.core.deps import AdminUser, BotAuth, CurrentAuth, CurrentUser, Session, main_store
 from melorin.core.errors import AppError
 from melorin.core.ratelimit import RateLimit, hit
-from melorin.core.security import new_opaque_token, totp_counter, totp_new_secret, totp_verify, verify_password, hash_password
+from melorin.core.security import new_opaque_token, totp_counter, totp_new_secret, verify_password, hash_password
 from melorin.modules.identity import service
-from melorin.modules.identity.models import Identity, User
+from melorin.modules.identity.models import User
 from melorin.modules.identity.schemas import (
     AdminPasswordChange,
     EmailCodeRequest,

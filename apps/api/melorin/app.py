@@ -3,7 +3,7 @@ import logging
 import time
 import asyncio
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 
@@ -31,6 +31,7 @@ from melorin.modules.wallet.router import router as wallet_router
 
 setup_logging()
 s = get_settings()
+health_log = logging.getLogger("melorin.health")
 configure()
 
 app = FastAPI(
@@ -76,9 +77,20 @@ async def live():
     return {"status": "ok", "service": "core"}
 
 
+# Many uptime monitors probe with HEAD. A separate hidden route keeps one OpenAPI operation per method (no duplicate operationId).
+@app.head("/health/live", include_in_schema=False)
+async def live_head():
+    return Response(status_code=200)
+
+
 @app.get("/healthz", tags=["health"], include_in_schema=False)
 async def healthz():
     return await live()
+
+
+@app.head("/healthz", include_in_schema=False)
+async def healthz_head():
+    return Response(status_code=200)
 
 
 @app.get("/health/ready", tags=["health"])
@@ -120,8 +132,9 @@ async def ready(request: Request):
             worker_last_tick = await asyncio.wait_for(redis.get("melorin:worker:last_tick"), timeout=2.5)
             worker_age = time.time() - float(worker_last_tick) if worker_last_tick else None
             worker_ok = worker_age is not None and 0 <= worker_age <= 15
-        except Exception:
+        except Exception as exc:
             redis_ok = False
+            health_log.warning("redis health check failed: %s", type(exc).__name__)
     ready_ok = db_ok and redis_ok and worker_ok
     set_gauge("melorin_outbox_pending", float(pending))
     set_gauge("melorin_panels_unhealthy", float(panels))
@@ -182,8 +195,9 @@ async def metrics(request: Request):
             worker_last_tick = await asyncio.wait_for(redis.get("melorin:worker:last_tick"), timeout=2.5)
             worker_age = time.time() - float(worker_last_tick) if worker_last_tick else None
             worker_ok = worker_age is not None and 0 <= worker_age <= 15
-        except Exception:
+        except Exception as exc:
             redis_ok = False
+            health_log.warning("redis health check failed: %s", type(exc).__name__)
     set_alert("MelorinRedisUnavailable", not redis_ok, summary="Redis unavailable", severity="critical")
     set_alert(
         "MelorinWorkerStale",

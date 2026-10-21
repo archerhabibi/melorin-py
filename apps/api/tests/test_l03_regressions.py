@@ -27,7 +27,7 @@ def test_l03_lint_policy_is_correctness_focused():
     config = (API / "pyproject.toml").read_text()
     assert "[tool.ruff.lint]" in config
     assert 'select = ["E4", "E9", "F"]' in config
-    assert 'ignore = ["F401", "F403", "F405"]' in config
+    assert 'ignore = ["F403", "F405"]' in config
 
 
 def test_l03_redis_fallback_is_bounded_and_concurrency_smoke_is_declared():
@@ -39,7 +39,7 @@ def test_l03_redis_fallback_is_bounded_and_concurrency_smoke_is_declared():
 
 def test_l03_production_security_and_multistore_bot_contracts():
     config = read_source(API / "melorin/core/config.py")
-    main = read_source(ROOT / "apps/telegram-main/runner.py")
+    read_source(ROOT / "apps/telegram-main/runner.py")  # must exist and be readable
     reseller = read_source(ROOT / "apps/telegram-reseller/runner.py")
     assert "Fernet(self.encryption_key.encode())" in config
     assert 'parsed_api.scheme != "https"' in config

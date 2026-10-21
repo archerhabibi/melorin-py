@@ -9,11 +9,10 @@ from pathlib import Path
 
 from sqlalchemy import select
 
-from melorin.core import events, flags, integrations, settings_store
+from melorin.core import events, integrations, settings_store
 from melorin.core.db import session_factory, utcnow
 from melorin.modules.identity.models import VerificationCode
-from melorin.modules.notifications.models import Notification
-from melorin.modules.system.models import BackupRun, OutboxEvent
+from melorin.modules.system.models import BackupRun
 from melorin.modules.vpn import service
 from melorin.modules.vpn.models import Panel, VpnAccount
 

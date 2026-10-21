@@ -1,4 +1,3 @@
-import ast
 from pathlib import Path
 
 from _source import parse_source, read_source

@@ -12,6 +12,10 @@ required = ('"E4"', '"E9"', '"F"')
 missing = [rule for rule in required if rule not in pyproject]
 if missing:
     raise SystemExit(f"quality policy missing rules: {missing}")
+# Phase 2 (code hygiene): unused imports (F401) are enforced; do not silence them again in the ruff ignore list.
+ignore_line = next((line for line in pyproject.splitlines() if line.startswith("ignore =")), "")
+if '"F401"' in ignore_line:
+    raise SystemExit("ruff must not ignore F401 (unused imports)")
 for text in (gate, ci):
     if "ruff check" not in text or "ruff format --check" not in text:
         raise SystemExit("quality gate is missing ruff check or format check")

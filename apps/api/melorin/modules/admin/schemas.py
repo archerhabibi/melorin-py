@@ -3,7 +3,7 @@ import uuid
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, HttpUrl, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 
 class CreateProduct(BaseModel):

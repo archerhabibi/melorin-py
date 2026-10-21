@@ -4,7 +4,7 @@ import uuid
 from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
-from melorin.core.db import Base, CreatedMixin, IdMixin, TimestampMixin, utcnow
+from melorin.core.db import Base, IdMixin, TimestampMixin, utcnow
 
 
 class WebhookEndpoint(IdMixin, TimestampMixin, Base):
