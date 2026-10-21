@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-21 04:20 UTC - Claude - api, tests, docs  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(coupons): per-customer coupon limit is counted per store - customer_redemptions(coupon, user, store): a use in one store no longer consumes the customer's allowance in another, also for platform (admin) coupons. max_redemptions stays global. No migration. Co-Authored-By: Claude Sonnet 5.5 <nore…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (3):** `apps/api/melorin/modules/catalog/service.py`, `apps/api/tests/test_t02_referral_coupon_store_scope.py`, `docs/17-Referral-Coupon-Store-Scope.md`
+- **Ref:** `ba4c989`
+
+
 ### 2026-10-21 04:15 UTC - Claude - api, tests  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
