@@ -335,6 +335,7 @@ SESSION_DEPS = {
     "current_user",
     "optional_user",
     "main_session_user",
+    "api_store_context",  # reseller API key: the ``api`` channel (core.channel.api_channel)
 }
 # Every route that needs no session. A NEW unauthenticated route must be added here on purpose (and reviewed).
 PUBLIC_ROUTES = {
@@ -371,13 +372,8 @@ PUBLIC_ROUTES = {
     "/stores/{store_id}/catalog",
     "/stores/{store_id}/bundles",
     "/stores/{store_id}/bundles/{bundle_id}/packages",
-    # gateway server-to-server callback, reseller API (X-API-Key), probes
+    # gateway server-to-server callback, probes (the reseller API is NOT here: its routes carry api_store_context)
     "/payments/callbacks/{provider}",
-    "/reseller-api/v1/stores/{store_id}/catalog",
-    "/reseller-api/v1/stores/{store_id}/customers",
-    "/reseller-api/v1/stores/{store_id}/orders",
-    "/reseller-api/v1/stores/{store_id}/customers/{customer_id}/wallet",
-    "/reseller-api/v1/stores/{store_id}/reports",
     "/health/live",
     "/healthz",
     "/health/ready",
@@ -396,8 +392,8 @@ def test_every_store_scoped_route_uses_the_channel_checked_dependency():
     for r in _api_routes():
         if "{store_id}" in r.path and r.path not in PUBLIC_ROUTES:
             names = _dependency_names(r)
-            assert names & {"store_context", "owner_store_context", "require_admin_session"}, (
-                f"{r.path} must resolve store_context/owner_store_context"
+            assert names & {"store_context", "owner_store_context", "require_admin_session", "api_store_context"}, (
+                f"{r.path} must resolve store_context/owner_store_context/api_store_context"
             )
 
 

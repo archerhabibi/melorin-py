@@ -21,6 +21,6 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 - `POST /stores/{store_id}/checkout/quote` returns the Core quote plus current wallet balance. `POST /stores/{store_id}/orders` accepts `payment_method=wallet` only.
 - `POST /stores/{store_id}/wallet/topups` is the only external payment flow. Payment destination and gateway configuration are owned by that Store, including reseller Stores.
 - Coupon endpoints: `GET/POST /stores/{store_id}/coupons`, `PATCH /stores/{store_id}/coupons/{coupon_id}`, `POST /stores/{store_id}/coupons/validate`, and redemption reporting. Admin endpoints are under `/admin/coupons`.
-- Reseller API: `/reseller-api/v1/stores/{store_id}/catalog`, `customers`, `orders`, `reports`, and customer wallet adjustments. Authentication uses a Store-isolated `X-API-Key` with scopes.
+- Reseller API: `/reseller-api/v1/stores/{store_id}/catalog`, `customers`, `orders`, `reports`, and customer wallet adjustments. Authentication uses a Store-isolated `X-API-Key` with scopes; the key is bound to its store by Core (`core.channel.api_channel`, docs/16 §3-ب), which also enforces the key's IP allowlist and refuses suspended stores.
 - Outgoing webhook management is under `/stores/{store_id}/reseller/webhooks`. Events are HMAC-signed with a timestamp and event ID, replay-safe, retried with backoff, and recorded in delivery logs.
 - Worker entrypoint is `arq melorin.worker.arq_app.WorkerSettings`; the legacy `python -m melorin.worker.runner` loop remains available for local recovery.

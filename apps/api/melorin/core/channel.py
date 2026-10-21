@@ -7,6 +7,9 @@ came from the path, so a token minted on site A worked on ``/stores/B/...`` (a t
 channel). Now:
 
 * every session is opened **through a channel** (``site`` | ``bot`` | ``admin``) and is **bound to one store**;
+* a reseller's server-to-server API key is the fourth channel, ``api``: no session and no token, but the very same rule -
+  the key is bound to ONE store when it is created, Core derives the channel from the key (never from the URL) and the
+  ``store_id`` in the path may only AGREE with it (``api_channel``);
 * Core derives that pair itself (the client never chooses it):
     - ``site``: the effective Host of the request (``X-Forwarded-Host`` only from a trusted proxy) must be the registered
       ``Store.domain`` of a store, or one of the main store's hosts;
@@ -23,6 +26,7 @@ A session token without a valid binding does not exist any more (it is refused w
 from __future__ import annotations
 
 import dataclasses
+import datetime as dt
 import hmac
 import logging
 import uuid
@@ -32,14 +36,16 @@ from urllib.parse import urlparse
 from sqlalchemy import select
 
 from melorin.core.config import get_settings
+from melorin.core.db import utcnow
 from melorin.core.errors import AppError
 from melorin.core.metrics import inc
-from melorin.core.proxy import is_trusted_proxy
+from melorin.core.proxy import ip_in_networks, is_trusted_proxy
 
 log = logging.getLogger("melorin.channel")
 
 SITE, BOT, ADMIN = "site", "bot", "admin"
-CHANNELS = (SITE, BOT, ADMIN)
+CHANNELS = (SITE, BOT, ADMIN)  # the channels a *session token* can carry (SessionClaims refuses anything else)
+API = "api"  # a reseller API key: authenticates every request on its own, never travels in a token
 
 
 # ---------------------------------------------------------------------------------------------- errors
@@ -69,6 +75,7 @@ class Channel:
     store_kind: str | None = None  # main | reseller
     store_status: str | None = None
     owner_user_id: uuid.UUID | None = None
+    credential_id: uuid.UUID | None = None  # the API key behind an ``api`` channel (audit and logs only)
 
     @property
     def is_admin(self) -> bool:
@@ -237,6 +244,83 @@ async def bot_channel(session, bot: BotService, store_id: uuid.UUID | None = Non
     if store.kind == "reseller" and not store.bot_enabled:
         raise AppError("CHANNEL_DISABLED", "ربات این فروشگاه غیرفعال است.", 403)
     return _snapshot(BOT, store, store.bot_username)
+
+
+def _expired(at: Any) -> bool:
+    """``expires_at`` has passed (a value read back without a zone, e.g. from SQLite, is taken as UTC)."""
+    if not at:
+        return False
+    return (at if at.tzinfo else at.replace(tzinfo=dt.timezone.utc)) <= utcnow()
+
+
+API_LAST_USED_RESOLUTION = dt.timedelta(seconds=60)
+
+
+async def _touch(session, cred) -> None:
+    """Persist ``last_used_at`` (at most once per minute per key, so a busy integration does not write on every call).
+
+    The request session rolls back anything uncommitted, and most ``/reseller-api`` routes only read, so without this commit the
+    column was never saved. Only a fully accepted request gets here: refusals above never touch the key.
+    """
+    last = cred.last_used_at
+    if last is not None:
+        last = last if last.tzinfo else last.replace(tzinfo=dt.timezone.utc)
+        if utcnow() - last < API_LAST_USED_RESOLUTION:
+            return
+    cred.last_used_at = utcnow()
+    await session.commit()
+
+
+@dataclasses.dataclass(frozen=True)
+class ApiAccess:
+    """What a verified reseller API key opens: the ``api`` channel plus the rows the endpoint will work with."""
+
+    channel: Channel
+    credential: Any  # stores.models.ApiCredential
+    store: Any  # stores.models.Store (always an active reseller store with the API switched on)
+
+
+async def api_channel(session, raw_key: str | None, *, store_id: uuid.UUID, scope: str, ip: str | None) -> ApiAccess:
+    """The store a reseller API key belongs to - the same binding rule as sessions, for server-to-server calls.
+
+    The key, not the URL, decides the store: ``store_id`` in the path may only AGREE with it, and that comparison runs
+    before any store row is read, so a foreign id gets the same answer whether such a store exists or not (exactly like
+    ``ensure_store``). Order of checks (every refusal bumps ``melorin_channel_rejected_total{reason}``):
+    key exists/active/not expired (401) -> store matches the key -> caller IP in the key's allowlist -> scope ->
+    the store is an active reseller store with the API enabled. Error codes are the public contract of ``/reseller-api``.
+    """
+    from melorin.modules.reseller.api_keys import PREFIX, hash_key
+    from melorin.modules.stores.models import ApiCredential, ResellerProfile, Store
+
+    raw = (raw_key or "").strip()
+    cred = await session.scalar(select(ApiCredential).where(ApiCredential.key_hash == hash_key(raw))) if raw.startswith(PREFIX) else None
+    if cred is None:
+        inc("melorin_channel_rejected_total", reason="api_key_unknown")
+        raise AppError("API_UNAUTHORIZED", "کلید API نامعتبر است.", 401)
+    if cred.status != "active" or _expired(cred.expires_at):
+        inc("melorin_channel_rejected_total", reason="api_key_inactive")
+        raise AppError("API_UNAUTHORIZED", "کلید API غیرفعال یا منقضی است.", 401)
+    if cred.store_id != store_id:
+        inc("melorin_channel_rejected_total", reason="api_store_mismatch")
+        log.warning("channel mismatch: api key %s of store %s used on %s", cred.key_prefix, cred.store_id, store_id)
+        raise AppError("API_STORE_ISOLATION", "کلید API به این فروشگاه دسترسی ندارد.", 403)
+    if cred.ip_allowlist and not ip_in_networks(ip, cred.ip_allowlist):
+        inc("melorin_channel_rejected_total", reason="api_ip")
+        raise AppError("API_IP_FORBIDDEN", "دسترسی از این IP مجاز نیست.", 403)
+    if scope not in (cred.scopes or []):
+        inc("melorin_channel_rejected_total", reason="api_scope")
+        raise AppError("API_SCOPE_FORBIDDEN", "این کلید API چنین دسترسی‌ای ندارد.", 403)
+
+    store = await session.get(Store, cred.store_id)
+    profile = await session.scalar(select(ResellerProfile).where(ResellerProfile.store_id == cred.store_id))
+    if store is None or store.kind != "reseller" or profile is None or not profile.api_enabled:
+        inc("melorin_channel_rejected_total", reason="api_disabled")
+        raise AppError("API_DISABLED", "Reseller API برای این فروشگاه فعال نیست.", 403)
+    if store.status != "active":  # a suspended store takes no API traffic either (its owner can still use the panel)
+        inc("melorin_channel_rejected_total", reason="api_store_suspended")
+        raise AppError("STORE_SUSPENDED", "این فروشگاه موقتاً غیرفعال است.", 403)
+    await _touch(session, cred)
+    return ApiAccess(Channel(API, store.id, cred.key_prefix, store.kind, store.status, store.owner_user_id, cred.id), cred, store)
 
 
 def of_refresh_row(row: Any) -> Channel:

@@ -11,7 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from melorin.core import audit, settings_store
 from melorin.core.crypto import encrypt
 from melorin.core import channel
-from melorin.core.deps import CurrentAuth, CurrentUser, OwnerCtx, Session, main_store
+from melorin.core.deps import CurrentAuth, CurrentUser, OwnerCtx, Session, StoreContext, api_access, main_store
 from melorin.core.errors import AppError, NotFound
 from melorin.modules.identity.models import User
 from melorin.modules.orders.models import Order
@@ -37,7 +37,6 @@ from melorin.modules.stores.models import ApiCredential, ResellerApplication, Re
 from melorin.modules.wallet import service as wallet
 from melorin.modules.webhooks import service as webhooks
 from fastapi import Header
-from types import SimpleNamespace
 from melorin.modules.vpn import allocation, inquiry
 from melorin.modules.vpn.models import VpnAccount
 from melorin.modules.reseller.schemas import OwnerRenewalOut
@@ -689,22 +688,11 @@ async def test_webhook(endpoint_id: uuid.UUID, ctx: OwnerCtx, session: Session):
 # ---------------- Versioned reseller API ----------------
 
 
-async def _api_ctx(session, store_id, raw_key, scope):
-    cred = await api_keys.authenticate(session, raw_key, store_id=store_id, scope=scope)
-    store = await session.get(Store, store_id)
-    profile = await session.scalar(select(ResellerProfile).where(ResellerProfile.store_id == store_id))
-    if not store or store.kind != "reseller" or not profile or not profile.api_enabled:
-        raise AppError("API_DISABLED", "Reseller API برای این فروشگاه فعال نیست.", 403)
-    owner = await session.get(User, store.owner_user_id)
-    return cred, SimpleNamespace(store=store, user=owner)
-
-
 api_router = APIRouter(prefix="/reseller-api/v1", tags=["reseller-api"])
 
 
 @api_router.get("/stores/{store_id}/catalog")
-async def api_catalog(store_id: uuid.UUID, session: Session, x_api_key: str = Header(..., alias="X-API-Key")):
-    _, ctx = await _api_ctx(session, store_id, x_api_key, "catalog:read")
+async def api_catalog(session: Session, ctx: StoreContext = Depends(api_access("catalog:read"))):
     rows = await allocation.sellable_products_priced(session, ctx.store)
     own = await allocation.store_bundle_prices(session, ctx.store.id)
     return [
@@ -723,8 +711,7 @@ async def api_catalog(store_id: uuid.UUID, session: Session, x_api_key: str = He
 
 
 @api_router.get("/stores/{store_id}/customers")
-async def api_customers(store_id: uuid.UUID, session: Session, x_api_key: str = Header(..., alias="X-API-Key")):
-    _, ctx = await _api_ctx(session, store_id, x_api_key, "customers:read")
+async def api_customers(session: Session, ctx: StoreContext = Depends(api_access("customers:read"))):
     q = (
         select(User, StoreMembership)
         .join(StoreMembership, StoreMembership.user_id == User.id)
@@ -737,8 +724,7 @@ async def api_customers(store_id: uuid.UUID, session: Session, x_api_key: str = 
 
 
 @api_router.get("/stores/{store_id}/orders")
-async def api_orders(store_id: uuid.UUID, session: Session, x_api_key: str = Header(..., alias="X-API-Key")):
-    _, ctx = await _api_ctx(session, store_id, x_api_key, "orders:read")
+async def api_orders(session: Session, ctx: StoreContext = Depends(api_access("orders:read"))):
     rows = (await session.scalars(select(Order).where(Order.store_id == ctx.store.id).order_by(Order.created_at.desc()).limit(200))).all()
     return [
         {
@@ -757,19 +743,16 @@ async def api_orders(store_id: uuid.UUID, session: Session, x_api_key: str = Hea
 
 @api_router.post("/stores/{store_id}/customers/{customer_id}/wallet")
 async def api_customer_wallet(
-    store_id: uuid.UUID,
     customer_id: uuid.UUID,
     body: CustomerWalletAdjustment,
     session: Session,
-    x_api_key: str = Header(..., alias="X-API-Key"),
+    ctx: StoreContext = Depends(api_access("customers:wallet:write")),
 ):
-    _, ctx = await _api_ctx(session, store_id, x_api_key, "customers:wallet:write")
     return await adjust_customer_wallet_core(session, ctx, customer_id, body, actor_type="api")
 
 
 @api_router.get("/stores/{store_id}/reports")
-async def api_reports(store_id: uuid.UUID, session: Session, x_api_key: str = Header(..., alias="X-API-Key")):
-    _, ctx = await _api_ctx(session, store_id, x_api_key, "reports:read")
+async def api_reports(session: Session, ctx: StoreContext = Depends(api_access("reports:read"))):
     rows = (
         await session.execute(
             select(Order.status, func.count(), func.coalesce(func.sum(Order.total), 0))

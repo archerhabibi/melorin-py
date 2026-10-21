@@ -180,3 +180,25 @@ async def owned_store_context(ctx: Annotated[StoreContext, Depends(owner_store_c
 
 StoreCtx = Annotated[StoreContext, Depends(store_context)]
 OwnerCtx = Annotated[StoreContext, Depends(owned_store_context)]
+
+
+def api_access(scope: str):
+    """Reseller API plane (``/reseller-api/v1/stores/{store_id}/...``): the ``api`` channel, resolved by Core from the key.
+
+    One dependency per scope, so a route cannot forget the key check, the store binding, or its scope (the guard in
+    ``test_t01_channel_binding`` refuses a ``{store_id}`` route that has neither this nor a session dependency).
+    The yielded context acts as the store's owner, exactly like the reseller panel does.
+    """
+
+    async def api_store_context(
+        session: Session,
+        store_id: uuid.UUID = Path(...),
+        x_api_key: str = Header(default="", alias="X-API-Key"),
+    ) -> StoreContext:
+        access = await channel.api_channel(session, x_api_key, store_id=store_id, scope=scope, ip=client_ip.get())
+        owner = await session.get(User, access.store.owner_user_id) if access.store.owner_user_id else None
+        if owner is None or not owner.is_active:  # a deactivated owner's key opens nothing
+            raise AppError("API_DISABLED", "Reseller API برای این فروشگاه فعال نیست.", 403)
+        return StoreContext(store=access.store, user=owner, membership=None)
+
+    return api_store_context
