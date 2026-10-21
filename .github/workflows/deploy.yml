@@ -1,8 +1,21 @@
 name: Deploy
+# Production deploys are gated by CI (audit W1): the only automatic trigger is a SUCCESSFUL "CI" run on a push to main,
+# and the commit that was tested is exactly the commit that is deployed. A manual run re-checks that CI passed for the ref.
 on:
-  workflow_dispatch:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Commit/tag to deploy (must be on main and have a green CI run)
+        required: false
+        default: main
+
+permissions:
+  contents: read
+  actions: read
 
 concurrency:
   group: deploy-production
@@ -10,8 +23,55 @@ concurrency:
 
 jobs:
   deploy:
+    # workflow_run fires for every CI completion; only a green push-triggered run on main may deploy.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Resolve the commit to deploy
+        id: sha
+        env:
+          EVENT: ${{ github.event_name }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          INPUT_REF: ${{ github.event.inputs.ref }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            sha="$(git rev-parse "origin/${INPUT_REF:-main}^{commit}" 2>/dev/null || git rev-parse "${INPUT_REF:-main}^{commit}")"
+          else
+            sha="$RUN_SHA"
+          fi
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "bad sha: $sha" >&2; exit 1; }
+          git merge-base --is-ancestor "$sha" origin/main || { echo "$sha is not on main" >&2; exit 1; }
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+      - name: Require a green CI run for this exact commit
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.sha.outputs.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          ci_ok() { [ "$(gh api "repos/${REPO}/actions/workflows/ci.yml/runs?head_sha=$1&status=success&per_page=1" --jq '.total_count')" -ge 1 ]; }
+          if ci_ok "$SHA"; then exit 0; fi
+          # The Changelog workflow pushes docs/CHANGE_LOG.md to main with GITHUB_TOKEN, and such pushes never start CI. Accept a
+          # commit whose only difference from the nearest CI-green ancestor is that file (same code, same tests).
+          for c in $(git rev-list --first-parent -n 10 "$SHA" | tail -n +2); do
+            if ci_ok "$c"; then
+              changed="$(git diff --name-only "$c" "$SHA")"
+              if [ "$changed" = "docs/CHANGE_LOG.md" ]; then
+                echo "CI is green for $c; $SHA only adds change-log entries"; exit 0
+              fi
+              break
+            fi
+          done
+          echo "no successful CI run for $SHA; refusing to deploy" >&2; exit 1
       - name: Prepare SSH
         env:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
@@ -21,20 +81,14 @@ jobs:
           printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
-      - name: Deploy over SSH
+      - name: Deploy (backup, migrate, health-check, automatic rollback)
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
           USER_NAME: ${{ secrets.DEPLOY_USER }}
           PORT: ${{ secrets.DEPLOY_PORT }}
+          SHA: ${{ steps.sha.outputs.sha }}
         run: |
+          # The deploy script of the commit being deployed is streamed to the server (no copy to keep in sync, and the very
+          # first deploy works before the server has scripts/deploy.sh). All logic, rollback included, lives in that script.
           ssh -i ~/.ssh/id_deploy -p "${PORT:-22}" -o IdentitiesOnly=yes "$USER_NAME@$HOST" \
-            'set -euo pipefail
-             cd /opt/melorin
-             git pull --ff-only
-             REF=$(git rev-parse --short HEAD)
-             trap '"'"'scripts/ops_log.sh -w github-actions -a deploy -b "previous deploy" -p "deploy FAILED at $REF" -c "see Actions run" -r "failed" -f "$REF"'"'"' ERR
-             docker compose build
-             docker compose run --rm api alembic upgrade head
-             docker compose up -d
-             docker image prune -f
-             scripts/ops_log.sh -w github-actions -a deploy -b "previous deploy" -p "-" -c "git pull, build, migrate, up -d" -r "success" -f "$REF"'
+            "set -euo pipefail; cd /opt/melorin; git fetch --quiet --tags origin; git show ${SHA}:scripts/deploy.sh | APP_DIR=/opt/melorin bash -s -- --ref ${SHA}"

@@ -1,6 +1,8 @@
 name: melorin
 services:
   postgres:
+    restart: unless-stopped
+    stop_grace_period: 30s
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: melorin
@@ -12,6 +14,7 @@ services:
     mem_limit: 768m
     cpus: 1.0
   redis:
+    restart: unless-stopped
     image: redis:7-alpine
     command: redis-server --appendonly yes
     volumes: [redis_data:/data]
@@ -20,6 +23,8 @@ services:
     mem_limit: 256m
     cpus: 0.5
   api:
+    restart: unless-stopped
+    stop_grace_period: 30s
     build:
       context: .
       dockerfile: apps/api/Dockerfile
@@ -32,6 +37,8 @@ services:
     mem_limit: 768m
     cpus: 1.0
   worker:
+    restart: unless-stopped
+    stop_grace_period: 60s
     build:
       context: .
       dockerfile: apps/api/Dockerfile
@@ -46,6 +53,7 @@ services:
     mem_limit: 768m
     cpus: 1.0
   store_web:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: apps/store-web/Dockerfile
@@ -57,6 +65,7 @@ services:
     mem_limit: 128m
     cpus: 0.25
   admin_web:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: apps/admin-web/Dockerfile
@@ -68,6 +77,8 @@ services:
     mem_limit: 128m
     cpus: 0.25
   telegram_main:
+    restart: unless-stopped
+    stop_grace_period: 30s
     build:
       context: .
       dockerfile: apps/telegram-main/Dockerfile
@@ -88,6 +99,8 @@ services:
     healthcheck: {test: [CMD, python, scripts/telegram_healthcheck.py], interval: 30s, timeout: 8s, retries: 3, start_period: 15s}
     networks: [backend]
   telegram_reseller:
+    restart: unless-stopped
+    stop_grace_period: 30s
     # Always on: it asks Core which reseller bots to run (admin → نمایندگان) and idles when there are none.
     build:
       context: .
@@ -110,6 +123,7 @@ services:
     healthcheck: {test: [CMD, python, scripts/telegram_healthcheck.py], interval: 30s, timeout: 8s, retries: 3, start_period: 20s}
     networks: [backend]
   caddy:
+    restart: unless-stopped
     profiles: [local-proxy]
     image: caddy:2-alpine
     ports: ["80:80", "443:443"]
@@ -123,14 +137,35 @@ services:
       admin_web: {condition: service_healthy}
     healthcheck: {test: [CMD, wget, --spider, --quiet, http://127.0.0.1/health/live], interval: 15s, timeout: 5s, retries: 8}
     networks: [backend]
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    restart: unless-stopped
+    # Receivers come from .env (ALERT_TELEGRAM_* and/or ALERT_SMTP_*/ALERT_EMAIL_TO); see infra/alertmanager-entrypoint.sh
+    environment:
+      ALERT_TELEGRAM_BOT_TOKEN: ${ALERT_TELEGRAM_BOT_TOKEN:-}
+      ALERT_TELEGRAM_CHAT_ID: ${ALERT_TELEGRAM_CHAT_ID:-}
+      ALERT_SMTP_HOST: ${ALERT_SMTP_HOST:-}
+      ALERT_SMTP_FROM: ${ALERT_SMTP_FROM:-}
+      ALERT_SMTP_USER: ${ALERT_SMTP_USER:-}
+      ALERT_SMTP_PASSWORD: ${ALERT_SMTP_PASSWORD:-}
+      ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-}
+    entrypoint: ["/bin/sh", "/etc/alertmanager/entrypoint.sh"]
+    volumes:
+      - ./infra/alertmanager-entrypoint.sh:/etc/alertmanager/entrypoint.sh:ro
+      - alertmanager_data:/alertmanager
+    healthcheck: {test: [CMD, wget, --spider, --quiet, http://127.0.0.1:9093/-/ready], interval: 15s, timeout: 5s, retries: 8}
+    networks: [backend]
+    mem_limit: 64m
+    cpus: 0.25
   prometheus:
+    restart: unless-stopped
     image: prom/prometheus:v2.55.1
     volumes:
       - ./infra/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./infra/alerts.yml:/etc/prometheus/alerts.yml:ro
       - ./secrets/metrics-token:/etc/prometheus/metrics-token:ro
       - prometheus_data:/prometheus
-    depends_on: {api: {condition: service_healthy}}
+    depends_on: {api: {condition: service_healthy}, alertmanager: {condition: service_healthy}}
     healthcheck: {test: [CMD, wget, --spider, --quiet, http://127.0.0.1:9090/-/ready], interval: 15s, timeout: 5s, retries: 8}
     networks: [backend]
 volumes:
@@ -142,6 +177,7 @@ volumes:
   telegram_main_state: {}
   telegram_reseller_state: {}
   prometheus_data: {}
+  alertmanager_data: {}
 networks:
   backend:
     driver: bridge

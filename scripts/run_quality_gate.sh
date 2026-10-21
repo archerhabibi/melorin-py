@@ -11,6 +11,9 @@ python scripts/check_release_matrix.py
 # M6.11: static guards must run in the same gate that CI runs.
 python scripts/check_g001_g010.py
 python scripts/check_quality_config.py
+python scripts/check_ops_p0.py
+bash scripts/test_deploy.sh
+bash scripts/test_restore_drill.sh
 python -m compileall -q apps/api/melorin apps/api/tests apps/telegram-main apps/telegram-reseller
 ruff check apps/api/melorin --config apps/api/pyproject.toml
 ruff format --check apps/api/melorin apps/api/tests --config apps/api/pyproject.toml

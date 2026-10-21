@@ -1,8 +1,8 @@
-.PHONY: evidence guards up down logs migrate migration-smoke integration-smoke restore-drill test-matrix revision test lint api worker install-verify quality-gate
+.PHONY: restore-drill-latest deploy-test evidence guards up down logs migrate migration-smoke integration-smoke restore-drill test-matrix revision test lint api worker install-verify quality-gate
 install-verify:
 	@bash scripts/install_verify.sh
 guards:
-	@python scripts/check_g001_g010.py && python scripts/check_quality_config.py
+	@python scripts/check_g001_g010.py && python scripts/check_quality_config.py && python scripts/check_ops_p0.py
 quality-gate:
 	@bash scripts/run_quality_gate.sh
 migration-smoke:
@@ -13,6 +13,10 @@ evidence:
 	@python scripts/runtime_evidence.py --allow-mutation
 restore-drill:
 	@bash scripts/backup_restore_drill.sh
+restore-drill-latest:
+	@bash scripts/restore_drill_latest.sh
+deploy-test:
+	@bash scripts/test_deploy.sh && bash scripts/test_restore_drill.sh
 test-matrix:
 	@python scripts/test_matrix.py all
 up:; cp -n .env.example .env || true; docker compose up -d --build
