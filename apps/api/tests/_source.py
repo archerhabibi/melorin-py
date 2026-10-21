@@ -76,8 +76,12 @@ def _is_main_bot_runner(path: Path) -> bool:
     return path.name == "runner.py" and path.parent.name == "telegram-main"
 
 
+def _is_reseller_bot_runner(path: Path) -> bool:
+    return path.name == "runner.py" and path.parent.name == "telegram-reseller"
+
+
 def _raw_text(path: Path) -> str:
-    """Raw text of ``path``; split entry points resolve to the whole family (Phase 3.3 admin router, Phase 3.4 main bot)."""
+    """Raw text of ``path``; split entry points resolve to the whole family (Phase 3.3 admin router, Phase 3.4 main bot, Phase 3.15 reseller bot)."""
     path = Path(path)
     if _is_admin_router(path):
         return "\n".join((path.parent / f"{name}.py").read_text(encoding="utf-8") for name in ADMIN_ROUTE_MODULES)
@@ -88,6 +92,10 @@ def _raw_text(path: Path) -> str:
     if _is_main_bot_runner(path):
         parts = [path.read_text(encoding="utf-8")]
         parts += [f.read_text(encoding="utf-8") for f in sorted((path.parent / "tgmain").rglob("*.py"))]
+        return "\n".join(parts)
+    if _is_reseller_bot_runner(path):  # Phase 3.15: runner.py + tgreseller/{bot,hosting}.py
+        parts = [path.read_text(encoding="utf-8")]
+        parts += [f.read_text(encoding="utf-8") for f in sorted((path.parent / "tgreseller").rglob("*.py"))]
         return "\n".join(parts)
     if not path.exists() and path.suffix == ".py" and path.with_suffix("").is_dir():  # a module that became a package
         return "\n".join(f.read_text(encoding="utf-8") for f in sorted(path.with_suffix("").rglob("*.py")))

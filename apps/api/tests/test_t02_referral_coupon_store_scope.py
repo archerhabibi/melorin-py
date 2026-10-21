@@ -100,7 +100,10 @@ def test_runner_secrets_are_wired_end_to_end():
     assert "MELORIN_RESELLER_BOT_SECRET" in (root / "scripts/install_server.sh").read_text()
     env = (root / ".env.example").read_text()
     assert "MELORIN_MAIN_BOT_SECRET=" in env and "MELORIN_RESELLER_BOT_SECRET=" in env
-    main, reseller = (root / "apps/telegram-main/runner.py").read_text(), (root / "apps/telegram-reseller/runner.py").read_text()
+    main, reseller = (
+        (root / "apps/telegram-main/runner.py").read_text(),
+        "".join(f.read_text() for f in sorted((root / "apps/telegram-reseller").rglob("*.py"))),
+    )
     assert 'secret_env = "MELORIN_MAIN_BOT_SECRET"' in main and "os.environ.get(self.secret_env)" in main
     assert 'secret_env = "MELORIN_RESELLER_BOT_SECRET"' in reseller and 'os.environ.get("MELORIN_RESELLER_BOT_SECRET")' in reseller
 
