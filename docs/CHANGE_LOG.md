@@ -36,6 +36,31 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-21 05:10 UTC - archerhabibi - tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** style: ruff format test_t02 (make lint was red on main)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `apps/api/tests/test_t02_referral_coupon_store_scope.py`
+- **Ref:** `74ace62`
+
+### 2026-10-21 05:10 UTC - archerhabibi - api  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** last_used_at never persisted on read-only API routes (also true before T03)
+- **Action:** fix(channel): persist API key last_used_at (throttled to once a minute) - The request session rolls back anything uncommitted and most /reseller-api routes only read, so the stamp set by api_channel was never saved. Commit it after an accepted request, at most once per minute per key. Mutation chec…
+- **After:** full API suite 962 passed, 6 skipped
+- **Files (3):** `apps/api/melorin/core/channel.py`, `apps/api/tests/test_t03_api_key_channel.py`, `docs/16-Channel-Binding-Design.md`
+- **Ref:** `bfbd4a3`
+
+### 2026-10-21 05:02 UTC - archerhabibi - api  _(auto)_
+- **Before:** key checked in reseller.api_keys.authenticate/_api_ctx; ip_allowlist was never passed in, a suspended store or deactivated owner kept working
+- **Problem:** store binding for API keys lived outside Core, unlike every other channel (docs/16 section 8 open item)
+- **Action:** core.channel.api_channel + core.deps.api_access(scope) decide key/store/ip/scope/store-state; authenticate and _api_ctx removed; guards in test_t01 now require api_store_context on every /reseller-api route
+- **After:** full API suite 960+ passed; new tests/test_t03_api_key_channel.py (22 incl. real-HTTP test); mutation check (store lock, IP check removed) turns tests red; make lint clean
+- **Files (9):** `apps/api/melorin/core/channel.py`, `apps/api/melorin/core/deps.py`, `apps/api/melorin/core/proxy.py`, `apps/api/melorin/modules/reseller/api_keys.py`, `apps/api/melorin/modules/reseller/router.py`, `apps/api/tests/test_t01_channel_binding.py`, `apps/api/tests/test_t03_api_key_channel.py`, `docs/16-Channel-Binding-Design.md` (+1 more)
+- **Ref:** `25d9571`
+
+
 ### 2026-10-21 04:40 UTC - archerhabibi - config, api, tests  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
