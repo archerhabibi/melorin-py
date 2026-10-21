@@ -416,7 +416,7 @@ def test_sessions_are_only_opened_through_a_channel_and_admin_is_only_built_afte
                 )
     # the admin channel is constructed in exactly the password+TOTP and Google+TOTP admin handlers
     users = [p.name for p in root.rglob("*.py") if "ADMIN_CHANNEL" in p.read_text() and p.name not in {"channel.py"}]
-    assert sorted(set(users)) == ["router.py", "service.py"]
-    router_src = (root / "modules/identity/router.py").read_text()
+    assert sorted(set(users)) == ["service.py", "sign_in.py"]
+    router_src = (root / "modules/identity/routes/sign_in.py").read_text()
     assert router_src.count("channel.ADMIN_CHANNEL") == 2
     assert "decode_access_token" not in "".join(p.read_text() for p in (root / "modules").rglob("*.py"))  # only core.deps reads tokens

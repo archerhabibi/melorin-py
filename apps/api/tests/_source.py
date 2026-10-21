@@ -72,6 +72,10 @@ def _is_admin_router(path: Path) -> bool:
     return path.name == "router.py" and path.parent.name == "admin" and path.parent.parent.name == "modules"
 
 
+def _is_identity_router(path: Path) -> bool:
+    return path.name == "router.py" and path.parent.name == "identity" and path.parent.parent.name == "modules"
+
+
 def _is_main_bot_runner(path: Path) -> bool:
     return path.name == "runner.py" and path.parent.name == "telegram-main"
 
@@ -92,6 +96,10 @@ def _raw_text(path: Path) -> str:
     if _is_main_bot_runner(path):
         parts = [path.read_text(encoding="utf-8")]
         parts += [f.read_text(encoding="utf-8") for f in sorted((path.parent / "tgmain").rglob("*.py"))]
+        return "\n".join(parts)
+    if _is_identity_router(path):  # Phase 3.16: router.py + routes/{_common,sign_in,account}.py
+        parts = [path.read_text(encoding="utf-8")]
+        parts += [f.read_text(encoding="utf-8") for f in sorted((path.parent / "routes").rglob("*.py"))]
         return "\n".join(parts)
     if _is_reseller_bot_runner(path):  # Phase 3.15: runner.py + tgreseller/{bot,hosting}.py
         parts = [path.read_text(encoding="utf-8")]

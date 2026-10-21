@@ -12,6 +12,7 @@ from melorin.core import db, integrations, settings_store
 from melorin.core.errors import AppError
 from melorin.core.security import _totp, totp_new_secret
 from melorin.modules.identity import google as google_signin, router, service
+from melorin.modules.identity.routes import sign_in
 from melorin.kernel.models.identity import Identity, IdentityLinkReview, RefreshToken, User
 from melorin.modules.identity.schemas import GoogleLogin
 from melorin.kernel.models.stores import Store
@@ -42,7 +43,7 @@ async def world(tmp_path, monkeypatch):
     async with db.engine().begin() as conn:
         await conn.run_sync(lambda c: db.Base.metadata.create_all(c, tables=TABLES))
     secret = totp_new_secret()
-    monkeypatch.setattr(router, "decrypt", lambda v: v)  # keep the TOTP secret readable without a Fernet key
+    monkeypatch.setattr(sign_in, "decrypt", lambda v: v)  # keep the TOTP secret readable without a Fernet key
     async with db.session_factory()() as s:
         s.add(Store(kind="main", name="Main", slug="main"))
         await s.flush()
