@@ -19,7 +19,8 @@ def _trusted_networks(values: list[str]) -> list:
     return networks
 
 
-def is_trusted_proxy(address: str | None, configured: list[str]) -> bool:
+def ip_in_networks(address: str | None, configured: list[str]) -> bool:
+    """Is ``address`` inside any of the CIDR entries? Fail closed: an unresolvable address ("?", None) is never inside."""
     if not address:
         return False
     try:
@@ -27,6 +28,10 @@ def is_trusted_proxy(address: str | None, configured: list[str]) -> bool:
     except ValueError:
         return False
     return any(candidate in network for network in _trusted_networks(configured))
+
+
+def is_trusted_proxy(address: str | None, configured: list[str]) -> bool:
+    return ip_in_networks(address, configured)
 
 
 def resolve_client_ip(direct: str | None, forwarded: str, configured: list[str]) -> str:

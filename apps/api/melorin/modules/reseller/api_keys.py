@@ -14,7 +14,7 @@ ALLOWED_SCOPES = {"catalog:read", "customers:read", "customers:wallet:write", "o
 PREFIX = "mln_live_"
 
 
-def _hash(raw: str) -> str:
+def hash_key(raw: str) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
@@ -58,7 +58,7 @@ async def create(session, store: Store, actor, body):
         store_id=store.id,
         name=body.name,
         key_prefix=raw[:16],
-        key_hash=_hash(raw),
+        key_hash=hash_key(raw),
         scopes=validate_scopes(body.scopes),
         status="active" if body.activate else "disabled",
         rate_limit_per_minute=body.rate_limit_per_minute,
@@ -91,7 +91,7 @@ async def rotate(session, c: ApiCredential, actor):
         store_id=c.store_id,
         name=c.name,
         key_prefix=raw[:16],
-        key_hash=_hash(raw),
+        key_hash=hash_key(raw),
         scopes=c.scopes,
         status="active",
         rate_limit_per_minute=c.rate_limit_per_minute,
@@ -133,17 +133,4 @@ async def set_status(session, c: ApiCredential, status: str, actor):
     await session.commit()
 
 
-async def authenticate(session, raw: str, *, store_id=None, scope: str | None = None, ip: str | None = None):
-    if not raw or not raw.startswith(PREFIX):
-        raise AppError("API_UNAUTHORIZED", "کلید API نامعتبر است.", 401)
-    c = await session.scalar(select(ApiCredential).where(ApiCredential.key_hash == _hash(raw)))
-    if not c or c.status != "active" or (c.expires_at and c.expires_at <= utcnow()):
-        raise AppError("API_UNAUTHORIZED", "کلید API غیرفعال یا منقضی است.", 401)
-    if store_id and c.store_id != store_id:
-        raise AppError("API_STORE_ISOLATION", "کلید API به این فروشگاه دسترسی ندارد.", 403)
-    if scope and scope not in (c.scopes or []):
-        raise AppError("API_SCOPE_FORBIDDEN", "این کلید API چنین دسترسی‌ای ندارد.", 403)
-    if ip and c.ip_allowlist and not any(ipaddress.ip_address(ip) in ipaddress.ip_network(x, strict=False) for x in c.ip_allowlist):
-        raise AppError("API_IP_FORBIDDEN", "دسترسی از این IP مجاز نیست.", 403)
-    c.last_used_at = utcnow()
-    return c
+# Authenticating a key (and binding it to its store) is Core's job: see ``melorin.core.channel.api_channel``.
