@@ -421,13 +421,13 @@ async def test_main_bot_username_autodetect_manual_and_guards(world, monkeypatch
 
         return f
 
-    orig = admin_integrations._main_bot
+    orig = admin_integrations.telegram_login._main_bot
 
     async def with_token(s):  # pretend a token exists; keep the real stored username
         return "123:abc", (await orig(s))[1]
 
-    monkeypatch.setattr(admin_integrations, "_main_bot", with_token)
-    monkeypatch.setattr(admin_integrations, "_bot_get_me", await fake("meeloorin_bot"))
+    monkeypatch.setattr(admin_integrations.telegram_login, "_main_bot", with_token)
+    monkeypatch.setattr(admin_integrations.telegram_login, "_bot_get_me", await fake("meeloorin_bot"))
     put = lambda u: admin_integrations.set_main_bot_username(admin_integrations.MainBotIn(username=u), ADMIN, world.s)
     out = await put(None)  # auto-detect from the token
     assert out["main_bot_username"] == "meeloorin_bot"
@@ -441,7 +441,7 @@ async def test_main_bot_username_autodetect_manual_and_guards(world, monkeypatch
     assert e.value.code == "BOT_USERNAME_INVALID"
     world.s.add(Store(kind="reseller", name="R", slug="r", bot_username="meeloorin_bot2"))
     await world.s.commit()
-    monkeypatch.setattr(admin_integrations, "_bot_get_me", await fake("meeloorin_bot2"))
+    monkeypatch.setattr(admin_integrations.telegram_login, "_bot_get_me", await fake("meeloorin_bot2"))
     with pytest.raises(AppError) as e:
         await put("meeloorin_bot2")
     assert e.value.code == "BOT_USERNAME_TAKEN"

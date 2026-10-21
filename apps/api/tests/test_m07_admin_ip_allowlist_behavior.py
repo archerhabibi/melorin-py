@@ -48,6 +48,7 @@ async def test_enabled_blocks_others_with_403_not_500(monkeypatch, ip):
 
 
 async def _put(monkeypatch, enabled, ips, my_ip):
+    from melorin.core import audit
     from melorin.modules.admin import integrations as router
 
     saved = {}
@@ -60,7 +61,7 @@ async def _put(monkeypatch, enabled, ips, my_ip):
             pass
 
     monkeypatch.setattr(router.integrations, "save", fake_save)
-    monkeypatch.setattr(router.audit, "record", lambda *a, **k: None)
+    monkeypatch.setattr(audit, "record", lambda *a, **k: None)
     token = client_ip.set(my_ip)
     try:
         out = await router.update_admin_access(router.AdminAccessIn(enabled=enabled, ips=ips), SimpleNamespace(id=1), S())
