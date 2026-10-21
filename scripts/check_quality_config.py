@@ -17,7 +17,7 @@ for text in (gate, ci):
         raise SystemExit("quality gate is missing ruff check or format check")
 # M6.11: the guard scripts themselves must stay wired into the gate, CI and the Makefile.
 makefile = (ROOT / "Makefile").read_text()
-for name in ("check_g001_g010.py", "check_quality_config.py"):
+for name in ("check_g001_g010.py", "check_quality_config.py", "gen_docs.py"):
     for label, text in (("run_quality_gate.sh", gate), ("ci.yml", ci), ("Makefile", makefile)):
         if name not in text:
             raise SystemExit(f"guard {name} is not wired into {label}")

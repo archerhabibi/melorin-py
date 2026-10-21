@@ -12,6 +12,7 @@ python scripts/check_release_matrix.py
 python scripts/check_g001_g010.py
 python scripts/check_quality_config.py
 python scripts/check_ops_p0.py
+python scripts/gen_docs.py --check
 bash scripts/test_deploy.sh
 bash scripts/test_restore_drill.sh
 python -m compileall -q apps/api/melorin apps/api/tests apps/telegram-main apps/telegram-reseller

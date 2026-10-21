@@ -1,8 +1,10 @@
-.PHONY: restore-drill-latest deploy-test evidence guards up down logs migrate migration-smoke integration-smoke restore-drill test-matrix revision test lint api worker install-verify quality-gate
+.PHONY: docs restore-drill-latest deploy-test evidence guards up down logs migrate migration-smoke integration-smoke restore-drill test-matrix revision test lint api worker install-verify quality-gate
 install-verify:
 	@bash scripts/install_verify.sh
 guards:
-	@python scripts/check_g001_g010.py && python scripts/check_quality_config.py && python scripts/check_ops_p0.py
+	@python scripts/check_g001_g010.py && python scripts/check_quality_config.py && python scripts/check_ops_p0.py && python scripts/gen_docs.py --check
+docs:
+	@python scripts/gen_docs.py
 quality-gate:
 	@bash scripts/run_quality_gate.sh
 migration-smoke:

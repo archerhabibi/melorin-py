@@ -219,7 +219,7 @@ curl http://localhost/health/ready
 The remaining deployment inputs are intentionally environment-specific: real secrets, domain/TLS, PasarGuard credentials and group IDs, payment credentials/destinations, and a tested backup/restore target. The supplied PGClockBot repository is MIT-licensed beta code and was used as an adapter/API reference, not copied wholesale into Core.
 
 Release status is authoritative in `docs/RELEASE-EVIDENCE-MATRIX.md`. Historical
-phase and finding reports describe changes, not approval; the matrix remains
-fail-closed until runtime and production evidence is attached. The current API
-map is `docs/API-IMPLEMENTATION.md`, and the migration head is
-`0009_referral_first_reward_guard`. Do not mark a phase report as current status.
+phase and finding reports (`docs/history/`) describe changes, not approval; the matrix
+remains fail-closed until runtime and production evidence is attached. Current measurements
+(migration head, API surface, test and coverage numbers) are in the generated
+`docs/STATUS.md`; the route list is `docs/API.md`. Do not mark a phase report as current status.
