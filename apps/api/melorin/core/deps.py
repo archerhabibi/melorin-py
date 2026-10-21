@@ -17,8 +17,8 @@ from melorin.core.context import client_ip
 from melorin.core.db import get_session
 from melorin.core.errors import AppError, Forbidden
 from melorin.core.security import decode_access_token
-from melorin.modules.identity.models import User
-from melorin.modules.stores.models import Store, StoreMembership
+from melorin.kernel.models.identity import User
+from melorin.kernel.models.stores import Store, StoreMembership
 
 bearer = HTTPBearer(auto_error=False)
 Session = Annotated[AsyncSession, Depends(get_session)]

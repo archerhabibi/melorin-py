@@ -15,12 +15,12 @@ from melorin.core.db import Base
 from melorin.core.errors import AppError
 from melorin.modules.admin.router import applications, review_application, verify_application_bot
 from melorin.modules.admin.schemas import ResellerApproval
-from melorin.modules.identity.models import User
+from melorin.kernel.models.identity import User
 from melorin.modules.reseller import identity
 from melorin.modules.reseller.router import apply, cancel_application, my_applications, submit_details
 from melorin.modules.reseller.schemas import ApplicationDetailsIn, ApplicationIn
-from melorin.modules.stores.models import BotStoreBinding, ResellerApplication, ResellerProfile, Store, StoreMembership
-from melorin.modules.system.models import OutboxEvent
+from melorin.kernel.models.stores import BotStoreBinding, ResellerApplication, ResellerProfile, Store, StoreMembership
+from melorin.kernel.models.system import OutboxEvent
 
 ROOT = Path(__file__).resolve().parents[1]
 TOKEN = "123456789:" + "A" * 35

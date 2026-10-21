@@ -87,7 +87,7 @@ def target(product, *, now: dt.datetime | None = None) -> Target:
 
 
 async def has_open_renewal(session: AsyncSession, account_id: uuid.UUID) -> bool:
-    from melorin.modules.orders.models import Order
+    from melorin.kernel.models.orders import Order
 
     return (
         await session.scalar(

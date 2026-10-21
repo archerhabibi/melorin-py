@@ -4,7 +4,7 @@ from sqlalchemy import func, select
 from melorin.core.deps import Session, StoreCtx
 from melorin.core.pagination import Page, PageParams
 from melorin.modules.wallet import service
-from melorin.modules.wallet.models import LedgerEntry, LedgerTransaction
+from melorin.kernel.models.wallet import LedgerEntry, LedgerTransaction
 from melorin.modules.wallet.schemas import LedgerEntryOut, WalletOut
 
 router = APIRouter(prefix="/stores/{store_id}/wallet", tags=["wallet"])

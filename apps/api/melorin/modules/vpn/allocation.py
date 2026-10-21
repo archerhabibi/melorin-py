@@ -47,11 +47,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from melorin.core.errors import AppError, NotFound
 from melorin.domain.order_state import VpnStatus
 from melorin.modules.catalog import service as catalog_service
-from melorin.modules.catalog.models import Product, StoreBundlePrice, StoreProduct
-from melorin.modules.stores.models import Store
+from melorin.kernel.models.catalog import Product, StoreBundlePrice, StoreProduct
+from melorin.kernel.models.stores import Store
 from melorin.modules.vpn.adapters.base import ErrorKind, PanelError
-from melorin.modules.vpn.models import Panel, Server, VpnAccount
-from melorin.modules.vpn.bundles import Bundle, BundleMember, BundleProduct, StoreBundle, clean_custom_name
+from melorin.kernel.models.vpn import Panel, Server, VpnAccount
+from melorin.kernel.models.bundles import Bundle, BundleMember, BundleProduct, StoreBundle
+from melorin.modules.vpn.bundles import clean_custom_name
 
 
 @dataclasses.dataclass(frozen=True)
@@ -321,7 +322,7 @@ async def bundle_product(session: AsyncSession, group_id: uuid.UUID | None, prod
 
 async def account_bundle_id(session: AsyncSession, account) -> uuid.UUID | None:
     """The bundle an account was originally sold through (renewals are priced and listed from the same bundle)."""
-    from melorin.modules.orders.models import Order
+    from melorin.kernel.models.orders import Order
 
     order = await session.get(Order, account.order_id) if getattr(account, "order_id", None) else None
     return order.bundle_id if order else None

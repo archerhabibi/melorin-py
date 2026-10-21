@@ -98,8 +98,8 @@ async def ready(request: Request):
     from sqlalchemy import text
     from melorin.core.db import session_factory
     from melorin.core.redis import get_redis
-    from melorin.modules.system.models import OutboxEvent
-    from melorin.modules.vpn.models import Panel
+    from melorin.kernel.models.system import OutboxEvent
+    from melorin.kernel.models.vpn import Panel
     from sqlalchemy import func, select
 
     db_ok = False
@@ -210,7 +210,7 @@ async def metrics(request: Request):
     # M7.6: payment / provisioning / reseller-bot / backup signals come from the database. A database outage must
     # not break the scrape (the MelorinDatabaseUnavailable alert covers it), so failures are swallowed here.
     try:
-        from melorin.core.business_metrics import collect
+        from melorin.modules.reports.business_metrics import collect
         from melorin.core.db import session_factory
 
         async with session_factory()() as session:

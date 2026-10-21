@@ -9,7 +9,7 @@ from melorin.core.errors import AppError
 from melorin.core.ratelimit import RateLimit, hit
 from melorin.core.security import new_opaque_token, totp_counter, totp_new_secret, verify_password, hash_password
 from melorin.modules.identity import service
-from melorin.modules.identity.models import User
+from melorin.kernel.models.identity import User
 from melorin.modules.identity.schemas import (
     AdminPasswordChange,
     EmailCodeRequest,
@@ -34,7 +34,7 @@ from melorin.modules.identity.schemas import (
     WebHandoffRedeem,
 )
 from melorin.modules.referral import service as referral
-from melorin.modules.stores.models import Store, StoreMembership
+from melorin.kernel.models.stores import Store, StoreMembership
 
 auth = APIRouter(prefix="/auth", tags=["auth"], dependencies=[Depends(RateLimit("auth", 30, 60))])
 me = APIRouter(prefix="/me", tags=["me"])

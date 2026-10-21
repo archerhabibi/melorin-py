@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_reseller_application_is_store_scoped():
-    model = read_source(ROOT / "melorin/modules/stores/models.py")
+    model = read_source(ROOT / "melorin/kernel/models/stores.py")
     router = read_source(ROOT / "melorin/modules/reseller/router.py")
     admin = read_source(ROOT / "melorin/modules/admin/router.py")
     assert "parent_store_id" in model

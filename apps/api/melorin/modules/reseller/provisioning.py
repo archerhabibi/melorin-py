@@ -1,7 +1,7 @@
 """Creation of the reseller Store from an approved application (shared by admin review and the applicant's details step)."""
 
 from melorin.modules.reseller.linking import link_store_catalog
-from melorin.modules.stores.models import BotStoreBinding, ResellerApplication, ResellerProfile, Store, StoreMembership
+from melorin.kernel.models.stores import BotStoreBinding, ResellerApplication, ResellerProfile, Store, StoreMembership
 
 
 async def create_reseller_store(session, a: ResellerApplication, target: Store, *, token_enc: str, debt_limit: int) -> Store:

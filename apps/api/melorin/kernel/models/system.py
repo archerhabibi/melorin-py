@@ -4,7 +4,7 @@ import uuid
 from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
-from melorin.core.db import Base, CreatedMixin, IdMixin, TimestampMixin, utcnow
+from melorin.kernel.base import Base, CreatedMixin, IdMixin, TimestampMixin, utcnow
 
 
 class AuditEvent(IdMixin, CreatedMixin, Base):

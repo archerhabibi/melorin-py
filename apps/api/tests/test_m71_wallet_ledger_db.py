@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 from _db import make_store, make_user, open_session
 from melorin.core.errors import AppError
 from melorin.modules.wallet import service as wallet
-from melorin.modules.wallet.models import LedgerEntry, LedgerTransaction
+from melorin.kernel.models.wallet import LedgerEntry, LedgerTransaction
 
 
 async def _setup(s):
@@ -129,7 +129,7 @@ async def test_get_wallet_is_get_or_create_per_user_store_kind_and_currency():
 
 
 async def test_wallet_changed_event_is_queued_for_each_wallet_posting():
-    from melorin.modules.system.models import OutboxEvent
+    from melorin.kernel.models.system import OutboxEvent
 
     async with open_session() as s:
         store, _, w = await _setup(s)

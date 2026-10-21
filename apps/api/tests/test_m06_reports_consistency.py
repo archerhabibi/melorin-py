@@ -9,10 +9,10 @@ import melorin.models  # noqa: F401  (registers every table so FKs resolve)
 from melorin.core import db
 from melorin.core.errors import AppError
 from melorin.modules.admin import timeseries as ts
-from melorin.modules.orders.models import Order
-from melorin.modules.payments.models import Payment
+from melorin.kernel.models.orders import Order
+from melorin.kernel.models.payments import Payment
 from melorin.modules.reports import router as reports
-from melorin.modules.stores.models import Store
+from melorin.kernel.models.stores import Store
 
 NOW = dt.datetime(2026, 10, 13, 15, 0, tzinfo=dt.UTC)
 

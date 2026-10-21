@@ -20,9 +20,9 @@ from melorin.core import codes, settings_store
 from melorin.core.deps import StoreContext
 from melorin.core.errors import AppError
 from melorin.modules.orders import service as orders
-from melorin.modules.orders.models import Order
-from melorin.modules.stores.models import StoreMembership
-from melorin.modules.system import models as system_models
+from melorin.kernel.models.orders import Order
+from melorin.kernel.models.stores import StoreMembership
+from melorin.kernel.models import system as system_models
 from melorin.modules.vpn import allocation
 
 

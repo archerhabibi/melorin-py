@@ -5,7 +5,7 @@ from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, Integer,
 from sqlalchemy import event
 from sqlalchemy.orm import Mapped, mapped_column
 
-from melorin.core.db import Base, CreatedMixin, IdMixin, TimestampMixin
+from melorin.kernel.base import Base, CreatedMixin, IdMixin, TimestampMixin
 
 
 class Panel(IdMixin, TimestampMixin, Base):

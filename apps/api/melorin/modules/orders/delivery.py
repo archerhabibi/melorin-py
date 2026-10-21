@@ -21,12 +21,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from melorin.core.config import get_settings
 from melorin.core.crypto import decrypt
 from melorin.core.metrics import inc
-from melorin.modules.identity.models import Identity
-from melorin.modules.notifications.models import Notification
-from melorin.modules.orders.models import Order
-from melorin.modules.stores.models import Store
-from melorin.modules.vpn.models import VpnAccount
-from melorin.modules.wallet.models import LedgerEntry, LedgerTransaction, Wallet
+from melorin.kernel.models.identity import Identity
+from melorin.kernel.models.notifications import Notification
+from melorin.kernel.models.orders import Order
+from melorin.kernel.models.stores import Store
+from melorin.kernel.models.vpn import VpnAccount
+from melorin.kernel.models.wallet import LedgerEntry, LedgerTransaction, Wallet
 
 log = logging.getLogger("melorin.delivery")
 

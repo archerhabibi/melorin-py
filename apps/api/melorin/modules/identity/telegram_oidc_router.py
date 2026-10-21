@@ -19,7 +19,7 @@ from melorin.core.ratelimit import RateLimit
 from melorin.modules.identity import service
 from melorin.modules.identity import telegram_oidc as oidc
 from melorin.modules.identity.router import _set_refresh_cookie
-from melorin.modules.stores.models import Store
+from melorin.kernel.models.stores import Store
 
 tgoidc = APIRouter(prefix="/auth/telegram", tags=["auth"])
 NO_STORE = {"Cache-Control": "no-store"}

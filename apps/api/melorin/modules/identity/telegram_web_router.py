@@ -26,7 +26,7 @@ from melorin.modules.identity.schemas import (
     TelegramWebStart,
     TelegramWebStartOut,
 )
-from melorin.modules.stores.models import Store
+from melorin.kernel.models.stores import Store
 
 tgweb = APIRouter(prefix="/auth/telegram/web", tags=["auth"])
 NO_STORE = {"Cache-Control": "no-store"}

@@ -17,11 +17,11 @@ from _db import make_product, make_store, make_user, open_schema_engine, pg_url
 from melorin.core import codes
 from melorin.core.deps import StoreContext
 from melorin.core.errors import AppError
-from melorin.modules.identity.models import User
+from melorin.kernel.models.identity import User
 from melorin.modules.orders import service as orders
-from melorin.modules.orders.models import Order
-from melorin.modules.stores.models import Store, StoreMembership
-from melorin.modules.system import models as system_models
+from melorin.kernel.models.orders import Order
+from melorin.kernel.models.stores import Store, StoreMembership
+from melorin.kernel.models import system as system_models
 from melorin.modules.vpn import allocation
 
 pytestmark = [

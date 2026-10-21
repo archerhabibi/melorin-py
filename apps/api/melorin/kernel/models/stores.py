@@ -4,7 +4,7 @@ import uuid
 from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, Uuid, text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from melorin.core.db import Base, CreatedMixin, IdMixin, TimestampMixin
+from melorin.kernel.base import Base, CreatedMixin, IdMixin, TimestampMixin
 
 
 class Store(IdMixin, TimestampMixin, Base):

@@ -8,8 +8,8 @@ from melorin.core import db
 from melorin.core.errors import AppError
 from melorin.modules.admin import router as r
 from melorin.modules.admin.schemas import CreatePanel, PanelState
-from melorin.modules.system.models import AuditEvent
-from melorin.modules.vpn.models import Panel
+from melorin.kernel.models.system import AuditEvent
+from melorin.kernel.models.vpn import Panel
 
 ADMIN = types.SimpleNamespace(id=uuid.uuid4())
 

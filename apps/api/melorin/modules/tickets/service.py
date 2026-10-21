@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from melorin.core import events
 from melorin.core.db import utcnow
-from melorin.modules.tickets.models import Ticket, TicketMessage
+from melorin.kernel.models.tickets import Ticket, TicketMessage
 from melorin.modules.tickets.schemas import TicketMessageOut, TicketOut
 
 EDIT_BODY_MAX = 10_000

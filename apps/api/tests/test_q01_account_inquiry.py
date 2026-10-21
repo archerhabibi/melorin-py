@@ -13,7 +13,7 @@ from melorin.core.errors import AppError
 from melorin.modules.reseller import router as reseller_router
 from melorin.modules.vpn import inquiry
 from melorin.modules.vpn import router as vpn_router
-from melorin.modules.vpn.models import VpnAccount
+from melorin.kernel.models.vpn import VpnAccount
 
 GIB = 1024**3
 NOW = dt.datetime.now(dt.UTC)
@@ -208,7 +208,7 @@ async def test_state_chips_filter_and_count_inside_the_scope():
 
 async def test_refresh_reads_the_panel_and_is_rate_limited(monkeypatch):
     from melorin.modules.vpn import service as vpn
-    from melorin.modules.vpn.models import Panel
+    from melorin.kernel.models.vpn import Panel
 
     class FakePanel:
         calls = 0

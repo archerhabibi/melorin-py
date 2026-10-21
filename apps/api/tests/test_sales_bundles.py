@@ -21,12 +21,12 @@ from melorin.modules.admin import router as admin
 from melorin.modules.admin.schemas import BundleProductIn, CreateBundle, CreateProduct, ProductPatch, UpdateBundle
 from melorin.modules.catalog import router as public
 from melorin.modules.catalog import service as catalog
-from melorin.modules.catalog.models import Product, StoreProduct
-from melorin.modules.stores.models import Store
+from melorin.kernel.models.catalog import Product, StoreProduct
+from melorin.kernel.models.stores import Store
 from melorin.modules.vpn import allocation
 from melorin.modules.vpn.allocation import requested_account_name
-from melorin.modules.vpn.bundles import Bundle, BundleMember, BundleProduct
-from melorin.modules.vpn.models import Panel, Server
+from melorin.kernel.models.bundles import Bundle, BundleMember, BundleProduct
+from melorin.kernel.models.vpn import Panel, Server
 
 ADMIN = types.SimpleNamespace(id=uuid.uuid4())
 ROOT = Path(__file__).resolve().parents[1]

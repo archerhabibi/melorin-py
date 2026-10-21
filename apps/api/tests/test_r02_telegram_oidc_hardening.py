@@ -12,8 +12,8 @@ from melorin.core import config as config_mod
 from melorin.core.errors import AppError
 from melorin.modules.admin import integrations as admin_integrations
 from melorin.modules.identity import telegram_oidc as oidc
-from melorin.modules.stores.models import Store
-from melorin.modules.system.models import SecurityEvent
+from melorin.kernel.models.stores import Store
+from melorin.kernel.models.system import SecurityEvent
 from tests.test_r01_telegram_login_settings import ADMIN, CALLBACK, CLIENT_ID, begin, http, save, signer, stub_exchange, world  # noqa: F401
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]

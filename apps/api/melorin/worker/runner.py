@@ -12,13 +12,13 @@ from melorin.core.db import session_factory, utcnow
 from melorin.core.metrics import inc
 from melorin.core.crypto import decrypt
 from melorin import models  # noqa: F401, register all SQLAlchemy mappers before worker sessions
-from melorin.modules.identity.models import User
-from melorin.modules.notifications.models import Notification
-from melorin.modules.orders.models import Order
-from melorin.modules.system.models import OutboxEvent
+from melorin.kernel.models.identity import User
+from melorin.kernel.models.notifications import Notification
+from melorin.kernel.models.orders import Order
+from melorin.kernel.models.system import OutboxEvent
 from melorin.modules.vpn import service as vpn
 from melorin.modules.vpn.adapters.registry import build_adapter
-from melorin.modules.vpn.models import Panel, VpnAccount
+from melorin.kernel.models.vpn import Panel, VpnAccount
 
 log = logging.getLogger("melorin.worker")
 
@@ -144,13 +144,13 @@ async def _notify(session, p: dict, kind: str, title: str, body: str = ""):
         )
         session.add(n)
         await session.flush()
-    from melorin.modules.identity.models import Identity
+    from melorin.kernel.models.identity import Identity
 
     identity = await session.scalar(select(Identity).where(Identity.user_id == user_id, Identity.provider == "telegram"))
     if not identity:
         n.telegram_status = "skipped"
         return
-    from melorin.modules.stores.models import Store
+    from melorin.kernel.models.stores import Store
 
     store = await session.get(Store, n.store_id) if n.store_id else None
     token = decrypt(store.bot_token_enc) if store and store.bot_token_enc else get_settings().main_bot_token
@@ -244,7 +244,7 @@ async def rollback_renewal(session, payload):
 
 
 async def claim_webhook_batch(session, n=20):
-    from melorin.modules.webhooks.models import WebhookDelivery
+    from melorin.kernel.models.webhooks import WebhookDelivery
 
     lease_cutoff = utcnow() - dt.timedelta(minutes=10)
     await session.execute(

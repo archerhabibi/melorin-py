@@ -8,7 +8,7 @@ from melorin.core.db import utcnow
 from melorin.core.deps import AuthSession, CurrentAuth, Session, StoreCtx
 from melorin.core.errors import AppError, NotFound
 from melorin.modules.tickets import service
-from melorin.modules.tickets.models import Ticket, TicketMessage
+from melorin.kernel.models.tickets import Ticket, TicketMessage
 from melorin.modules.tickets.schemas import AddMessage, CreateTicket, EditMessage, TicketMessageOut, TicketOut, UpdateTicket
 
 router = APIRouter(tags=["tickets"])

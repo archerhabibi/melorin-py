@@ -23,7 +23,7 @@ from melorin.core.db import utcnow
 from melorin.core.errors import NotFound
 from melorin.core.scope import OwnerScope, StoreScope
 from melorin.modules.vpn import renewal
-from melorin.modules.vpn.models import VpnAccount
+from melorin.kernel.models.vpn import VpnAccount
 from melorin.modules.vpn.schemas import OwnerAccountOut, VpnAccountOut
 
 OWN_LABEL = "اکانت خودتان"
@@ -264,7 +264,7 @@ async def admin_accounts(session, *, q=None, store_id=None, state=None, limit=10
 
 
 def _user_model():
-    from melorin.modules.identity.models import User  # lazy: identity imports the vpn package
+    from melorin.kernel.models.identity import User  # lazy: identity imports the vpn package
 
     return User
 

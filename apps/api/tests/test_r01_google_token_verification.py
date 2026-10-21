@@ -14,10 +14,10 @@ from melorin.core import db, integrations, settings_store
 from melorin.core.errors import AppError
 from melorin.modules.admin import integrations as admin_integrations
 from melorin.modules.identity import router, service
-from melorin.modules.identity.models import Identity, IdentityLinkReview, RefreshToken, User
+from melorin.kernel.models.identity import Identity, IdentityLinkReview, RefreshToken, User
 from melorin.modules.identity.schemas import GoogleLogin
-from melorin.modules.stores.models import Store
-from melorin.modules.system.models import AuditEvent, SecurityEvent, SystemSetting
+from melorin.kernel.models.stores import Store
+from melorin.kernel.models.system import AuditEvent, SecurityEvent, SystemSetting
 
 CLIENT_ID = "123456789012-abc123def456.apps.googleusercontent.com"
 TABLES = [

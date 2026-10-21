@@ -5,7 +5,7 @@ import uuid
 from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from melorin.core.db import Base, CreatedMixin, IdMixin, TimestampMixin
+from melorin.kernel.base import Base, CreatedMixin, IdMixin, TimestampMixin
 
 
 class User(IdMixin, TimestampMixin, Base):

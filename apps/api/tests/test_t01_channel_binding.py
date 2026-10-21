@@ -22,7 +22,7 @@ from melorin.core.db import utcnow
 from melorin.core.errors import AppError
 from melorin.core.security import create_access_token, decode_access_token
 from melorin.modules.identity import service
-from melorin.modules.identity.models import RefreshToken
+from melorin.kernel.models.identity import RefreshToken
 
 PROD = types.SimpleNamespace(
     is_dev=False,
@@ -201,7 +201,7 @@ async def test_a_session_of_store_a_is_refused_on_store_b_before_any_query():
         # an id that does not exist answers exactly like a real foreign store: no probing
         assert await _codes(deps.store_context(s, in_a, uuid.uuid4())) == "CHANNEL_MISMATCH"
         # and no membership was created in the foreign store by the failed attempts
-        from melorin.modules.stores.models import StoreMembership
+        from melorin.kernel.models.stores import StoreMembership
 
         rows = (await s.scalars(select(StoreMembership.store_id).where(StoreMembership.user_id == w.alice.id))).all()
         assert set(rows) == {w.a.id}

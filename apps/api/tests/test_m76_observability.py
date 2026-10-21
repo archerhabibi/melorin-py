@@ -8,11 +8,12 @@ import pytest
 import yaml
 
 from _db import make_order, make_product, make_store, make_user, open_session
-from melorin.core import business_metrics, metrics
+from melorin.core import metrics
+from melorin.modules.reports import business_metrics
 from melorin.core.middleware import route_label
-from melorin.modules.payments.models import Payment
-from melorin.modules.stores.models import Store
-from melorin.modules.system.models import BackupRun
+from melorin.kernel.models.payments import Payment
+from melorin.kernel.models.stores import Store
+from melorin.kernel.models.system import BackupRun
 
 ROOT = Path(__file__).resolve().parents[3]
 NOW = dt.datetime(2026, 10, 18, 12, 0, tzinfo=dt.UTC)

@@ -21,7 +21,7 @@ from melorin.core.email import send_with_config
 from melorin.core.errors import AppError
 from melorin.modules.identity import telegram_oidc
 from melorin.modules.identity.telegram_web import normalise_bot_username
-from melorin.modules.stores.models import BotStoreBinding, Store
+from melorin.kernel.models.stores import BotStoreBinding, Store
 
 router = APIRouter(prefix="/integrations", tags=["admin-integrations"])
 

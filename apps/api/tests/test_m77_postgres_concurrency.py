@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from _db import make_store, make_user, open_schema_engine, pg_url
 from melorin.core.errors import AppError
 from melorin.modules.wallet import service as wallet
-from melorin.modules.wallet.models import LedgerEntry, LedgerTransaction, Wallet
+from melorin.kernel.models.wallet import LedgerEntry, LedgerTransaction, Wallet
 
 pytestmark = [
     pytest.mark.concurrency,

@@ -86,7 +86,7 @@ async def ensure_identity_free(session, *, domain: str, bot_key: str, bot_userna
     """Domain and bot must be unique across stores, bot bindings and other pending applications."""
     from sqlalchemy import func, select
 
-    from melorin.modules.stores.models import BotStoreBinding, ResellerApplication, Store
+    from melorin.kernel.models.stores import BotStoreBinding, ResellerApplication, Store
 
     def other_pending(col, value):
         q = select(ResellerApplication.id).where(col == value, ResellerApplication.status == "pending")

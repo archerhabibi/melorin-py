@@ -16,24 +16,24 @@ from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import AppError, NotFound
 from melorin.modules.admin.schemas import *  # noqa: F403
 from melorin.modules.catalog.schemas import AdminCouponIn, CouponPatch
-from melorin.modules.catalog.models import Coupon, Product, StoreBundlePrice, StoreProduct
-from melorin.modules.identity.models import IdentityLinkReview, User
+from melorin.kernel.models.catalog import Coupon, Product, StoreBundlePrice, StoreProduct
+from melorin.kernel.models.identity import IdentityLinkReview, User
 from melorin.modules.orders import service as order_service
-from melorin.modules.orders.models import Order
-from melorin.modules.referral.models import CommissionRule
+from melorin.kernel.models.orders import Order
+from melorin.kernel.models.referral import CommissionRule
 from melorin.modules.payments import service as payment_service
-from melorin.modules.payments.models import Payment
-from melorin.modules.stores.models import ResellerApplication, ResellerProfile, Store, StoreMembership
+from melorin.kernel.models.payments import Payment
+from melorin.kernel.models.stores import ResellerApplication, ResellerProfile, Store, StoreMembership
 from melorin.modules.admin import bot_bindings
 from melorin.modules.reseller.linking import link_bundle_to_resellers, link_product_to_resellers
 from melorin.modules.admin.integrations import router as integrations_router
 from melorin.modules.admin.resellers import router as resellers_router
-from melorin.modules.system.models import AuditEvent, BackupRun, FeatureFlag
-from melorin.modules.tickets.models import Ticket
+from melorin.kernel.models.system import AuditEvent, BackupRun, FeatureFlag
+from melorin.kernel.models.tickets import Ticket
 from melorin.modules.tickets.schemas import AdminAddMessage, AdminUpdateTicket, EditMessage as EditTicketMessage
 from melorin.modules.vpn import allocation, inquiry
-from melorin.modules.vpn.models import Panel, Server, VpnAccount
-from melorin.modules.vpn.bundles import Bundle, BundleMember, BundleProduct, StoreBundle
+from melorin.kernel.models.vpn import Panel, Server, VpnAccount
+from melorin.kernel.models.bundles import Bundle, BundleMember, BundleProduct, StoreBundle
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 log = logging.getLogger("melorin.admin")
@@ -1036,7 +1036,7 @@ async def payments(_: AdminUser, session: Session, status: str | None = Query(de
 async def payment_receipt(payment_id: uuid.UUID, admin: AdminUser, session: Session):
     """Admin-only receipt download. Files stay private; every view is audited."""
     from melorin.core.storage import get_storage
-    from melorin.modules.system.models import FileObject
+    from melorin.kernel.models.system import FileObject
 
     p = await session.get(Payment, payment_id)
     if not p or not p.receipt_file_id:
@@ -1273,7 +1273,7 @@ async def ticket_reply(ticket_id: uuid.UUID, body: AdminAddMessage, admin: Admin
     """Staff reply or internal note. Replies notify the customer; internal notes never leave the admin panel."""
     from melorin.core import events
     from melorin.modules.tickets import service as ticket_service
-    from melorin.modules.tickets.models import TicketMessage
+    from melorin.kernel.models.tickets import TicketMessage
 
     t = await session.get(Ticket, ticket_id)
     if not t:
@@ -1310,7 +1310,7 @@ async def ticket_edit_message(ticket_id: uuid.UUID, message_id: uuid.UUID, body:
     """Staff may correct their own replies/notes; edits are stamped and audited."""
     from melorin.core.db import utcnow
     from melorin.modules.tickets import service as ticket_service
-    from melorin.modules.tickets.models import TicketMessage
+    from melorin.kernel.models.tickets import TicketMessage
 
     m = await session.get(TicketMessage, message_id)
     if not m or m.ticket_id != ticket_id:

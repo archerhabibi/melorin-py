@@ -10,12 +10,12 @@ import melorin.models  # noqa: F401  (registers every table so FKs resolve)
 from melorin.core import db
 from melorin.core.errors import AppError
 from melorin.modules.admin import router as r
-from melorin.modules.catalog.models import Coupon, Product, StoreBundlePrice, StoreProduct
-from melorin.modules.orders.models import Order
-from melorin.modules.referral.models import CommissionRule
-from melorin.modules.system.models import AuditEvent
-from melorin.modules.vpn.bundles import Bundle, BundleMember, BundleProduct, StoreBundle
-from melorin.modules.vpn.models import Panel, Server, VpnAccount
+from melorin.kernel.models.catalog import Coupon, Product, StoreBundlePrice, StoreProduct
+from melorin.kernel.models.orders import Order
+from melorin.kernel.models.referral import CommissionRule
+from melorin.kernel.models.system import AuditEvent
+from melorin.kernel.models.bundles import Bundle, BundleMember, BundleProduct, StoreBundle
+from melorin.kernel.models.vpn import Panel, Server, VpnAccount
 
 ADMIN = types.SimpleNamespace(id=uuid.uuid4())
 

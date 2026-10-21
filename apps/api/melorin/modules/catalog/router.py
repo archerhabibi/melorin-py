@@ -9,7 +9,7 @@ from melorin.core.deps import OwnerCtx, Session, StoreCtx, main_store
 from melorin.core.errors import AppError, NotFound
 from melorin.domain import coupon as cdom
 from melorin.modules.catalog import service
-from melorin.modules.catalog.models import Coupon, CouponRedemption
+from melorin.kernel.models.catalog import Coupon, CouponRedemption
 from melorin.modules.catalog.schemas import (
     CatalogItem,
     CouponIn,
@@ -23,9 +23,9 @@ from melorin.modules.catalog.schemas import (
     RenewalOut,
     StoreOut,
 )
-from melorin.modules.stores.models import Store
+from melorin.kernel.models.stores import Store
 from melorin.modules.vpn import allocation, renewal
-from melorin.modules.vpn.models import VpnAccount
+from melorin.kernel.models.vpn import VpnAccount
 from melorin.modules.wallet import service as wallet
 
 public = APIRouter(tags=["catalog"])

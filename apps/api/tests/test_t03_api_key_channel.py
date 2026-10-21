@@ -18,7 +18,7 @@ from melorin.core import deps, metrics
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError
 from melorin.modules.reseller import api_keys
-from melorin.modules.stores.models import ApiCredential, ResellerProfile
+from melorin.kernel.models.stores import ApiCredential, ResellerProfile
 
 ALL_SCOPES = sorted(api_keys.ALLOWED_SCOPES)
 

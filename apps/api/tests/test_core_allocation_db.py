@@ -13,12 +13,12 @@ from melorin.core.db import Base
 from melorin.core.errors import AppError
 from melorin.modules.admin.router import create_product, update_bundle, update_product
 from melorin.modules.admin.schemas import CreateProduct, ProductPatch, UpdateBundle
-from melorin.modules.catalog.models import Product
-from melorin.modules.system.models import AuditEvent
+from melorin.kernel.models.catalog import Product
+from melorin.kernel.models.system import AuditEvent
 from melorin.modules.vpn.adapters.base import PanelError
 from melorin.modules.vpn.allocation import resolve_allocation, resolve_order_group
-from melorin.modules.vpn.bundles import Bundle, BundleMember, BundleProduct, StoreBundle
-from melorin.modules.vpn.models import Panel, Server
+from melorin.kernel.models.bundles import Bundle, BundleMember, BundleProduct, StoreBundle
+from melorin.kernel.models.vpn import Panel, Server
 
 
 @pytest.fixture

@@ -26,7 +26,7 @@ from melorin.core.security import (
     refresh_expiry,
     token_hash,
 )
-from melorin.modules.identity.models import Identity, IdentityLinkReview, RefreshToken, TermsAcceptance, User, VerificationCode
+from melorin.kernel.models.identity import Identity, IdentityLinkReview, RefreshToken, TermsAcceptance, User, VerificationCode
 from melorin.modules.identity.schemas import TelegramProfile, TokenPair
 
 log = logging.getLogger(__name__)
@@ -78,7 +78,7 @@ async def issue_tokens(
 
 async def rotate_refresh(session: AsyncSession, raw: str, request=None) -> TokenPair:
     from melorin.core import channel as ch
-    from melorin.modules.stores.models import Store
+    from melorin.kernel.models.stores import Store
 
     rt = await session.scalar(select(RefreshToken).where(RefreshToken.token_hash == token_hash(raw)).with_for_update())
     if not rt:

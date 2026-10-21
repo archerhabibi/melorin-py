@@ -13,10 +13,10 @@ from melorin.core.crypto import encrypt
 from melorin.core import channel
 from melorin.core.deps import CurrentAuth, OwnerCtx, Session, StoreContext, api_access, main_store
 from melorin.core.errors import AppError, NotFound
-from melorin.modules.identity.models import User
-from melorin.modules.orders.models import Order
+from melorin.kernel.models.identity import User
+from melorin.kernel.models.orders import Order
 from melorin.modules.payments import service as payments
-from melorin.modules.payments.models import Payment
+from melorin.kernel.models.payments import Payment
 from melorin.modules.payments.schemas import payment_out
 from melorin.modules.reseller import api_keys, identity
 from melorin.modules.reseller.schemas import (
@@ -33,15 +33,15 @@ from melorin.modules.reseller.schemas import (
     WebhookEndpointIn,
     WebhookEndpointPatch,
 )
-from melorin.modules.stores.models import ApiCredential, ResellerApplication, ResellerProfile, StoreMembership, StorePaymentConfiguration
+from melorin.kernel.models.stores import ApiCredential, ResellerApplication, ResellerProfile, StoreMembership, StorePaymentConfiguration
 from melorin.modules.wallet import service as wallet
 from melorin.modules.webhooks import service as webhooks
 from fastapi import Header
 from melorin.modules.vpn import allocation, inquiry
 from melorin.modules.reseller.schemas import OwnerRenewalOut
 from melorin.modules.vpn.schemas import OwnerAccountOut
-from melorin.modules.stores.models import Store
-from melorin.modules.vpn.bundles import Bundle, StoreBundle
+from melorin.kernel.models.stores import Store
+from melorin.kernel.models.bundles import Bundle, StoreBundle
 
 
 async def main_session_user(auth: CurrentAuth, session: Session):

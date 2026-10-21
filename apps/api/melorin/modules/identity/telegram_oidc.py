@@ -27,7 +27,7 @@ import jwt
 from melorin.core.config import get_settings
 from melorin.core.errors import AppError
 from melorin.modules.identity.schemas import TelegramProfile
-from melorin.modules.stores.models import Store
+from melorin.kernel.models.stores import Store
 
 ISSUER = "https://oauth.telegram.org"
 AUTH_URL = f"{ISSUER}/auth"

@@ -4,7 +4,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from melorin.core.errors import AppError
-from melorin.modules.system.models import FeatureFlag
+from melorin.kernel.models.system import FeatureFlag
 
 KEYS = ["system", "purchase", "payment", "provisioning", "reseller_sales", "api", "bot", "test_account", "registration"]
 

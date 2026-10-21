@@ -13,11 +13,11 @@ import melorin.models  # noqa: F401  (registers every table so FKs resolve)
 from melorin.core import db, events
 from melorin.core.errors import AppError
 from melorin.modules.admin import router as admin
-from melorin.modules.identity.models import Identity, User
-from melorin.modules.stores.models import Store
-from melorin.modules.system.models import AuditEvent, OutboxEvent
+from melorin.kernel.models.identity import Identity, User
+from melorin.kernel.models.stores import Store
+from melorin.kernel.models.system import AuditEvent, OutboxEvent
 from melorin.modules.tickets import router as customer
-from melorin.modules.tickets.models import Ticket, TicketMessage
+from melorin.kernel.models.tickets import Ticket, TicketMessage
 from melorin.modules.tickets.schemas import AddMessage, AdminAddMessage, AdminUpdateTicket, EditMessage, UpdateTicket
 
 ROOT = Path(__file__).parents[1]

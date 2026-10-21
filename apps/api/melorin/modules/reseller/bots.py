@@ -18,7 +18,7 @@ from melorin.core.crypto import decrypt
 from melorin.core.channel import BotService
 from melorin.core.deps import Session, require_bot_service
 from melorin.core.errors import AppError, NotFound
-from melorin.modules.stores.models import Store
+from melorin.kernel.models.stores import Store
 
 POLL_SECONDS = 30  # how often the runner re-reads the list
 STALE_AFTER = dt.timedelta(seconds=POLL_SECONDS * 4)  # a "running" bot that stopped reporting is shown as offline

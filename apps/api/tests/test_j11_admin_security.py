@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_admin_requires_2fa_and_totp_replay_state_is_persisted():
     deps = read_source(ROOT / "melorin/core/deps.py")
-    model = read_source(ROOT / "melorin/modules/identity/models.py")
+    model = read_source(ROOT / "melorin/kernel/models/identity.py")
     security = read_source(ROOT / "melorin/core/security.py")
     router = read_source(ROOT / "melorin/modules/identity/router.py")
     assert "ADMIN_2FA_REQUIRED" in deps

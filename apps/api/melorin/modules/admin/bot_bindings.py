@@ -2,7 +2,7 @@ from sqlalchemy import select
 
 from melorin.core import audit
 from melorin.core.errors import AppError
-from melorin.modules.stores.models import BotStoreBinding, Store
+from melorin.kernel.models.stores import BotStoreBinding, Store
 
 
 def out(row: BotStoreBinding) -> dict:

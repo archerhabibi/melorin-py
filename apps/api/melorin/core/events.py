@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from melorin.core.context import correlation_id
 from melorin.core.db import utcnow
-from melorin.modules.system.models import OutboxEvent
+from melorin.kernel.models.system import OutboxEvent
 
 # Topics
 ORDER_PAID = "order.paid"

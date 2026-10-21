@@ -11,11 +11,11 @@ from melorin.core.db import utcnow
 from melorin.core.errors import AppError
 from melorin.core.crypto import decrypt
 from melorin.domain.order_state import PaymentStatus
-from melorin.modules.identity.models import User
+from melorin.kernel.models.identity import User
 from melorin.modules.payments.adapters.registry import get_adapter
 from melorin.modules.payments.gateway_catalog import validate_destination
-from melorin.modules.payments.models import Payment, PaymentAttempt
-from melorin.modules.stores.models import Store, StorePaymentConfiguration
+from melorin.kernel.models.payments import Payment, PaymentAttempt
+from melorin.kernel.models.stores import Store, StorePaymentConfiguration
 from melorin.modules.wallet import service as wallet
 
 P = PaymentStatus

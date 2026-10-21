@@ -11,10 +11,10 @@ from sqlalchemy import select
 
 from melorin.core import events, integrations, settings_store
 from melorin.core.db import session_factory, utcnow
-from melorin.modules.identity.models import VerificationCode
-from melorin.modules.system.models import BackupRun
+from melorin.kernel.models.identity import VerificationCode
+from melorin.kernel.models.system import BackupRun
 from melorin.modules.vpn import service
-from melorin.modules.vpn.models import Panel, VpnAccount
+from melorin.kernel.models.vpn import Panel, VpnAccount
 
 log = logging.getLogger("melorin.jobs")
 

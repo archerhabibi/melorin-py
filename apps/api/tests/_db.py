@@ -20,10 +20,10 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 import melorin.models  # noqa: F401  (registers every table)
 from melorin.core.db import Base
-from melorin.modules.catalog.models import Product
-from melorin.modules.identity.models import User
-from melorin.modules.orders.models import Order
-from melorin.modules.stores.models import Store
+from melorin.kernel.models.catalog import Product
+from melorin.kernel.models.identity import User
+from melorin.kernel.models.orders import Order
+from melorin.kernel.models.stores import Store
 
 
 def pg_url() -> str | None:

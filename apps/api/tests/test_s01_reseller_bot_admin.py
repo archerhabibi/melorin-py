@@ -10,10 +10,10 @@ import melorin.models  # noqa: F401  (registers every table so FKs resolve)
 from melorin.core import db
 from melorin.core.errors import AppError
 from melorin.modules.admin import resellers as r
-from melorin.modules.identity.models import User
+from melorin.kernel.models.identity import User
 from melorin.modules.reseller import bots, identity
-from melorin.modules.stores.models import BotStoreBinding, ResellerProfile, Store
-from melorin.modules.system.models import AuditEvent
+from melorin.kernel.models.stores import BotStoreBinding, ResellerProfile, Store
+from melorin.kernel.models.system import AuditEvent
 
 ADMIN = types.SimpleNamespace(id=uuid.uuid4())
 TOKEN = "123456789:" + "A" * 35

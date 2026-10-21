@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from melorin.core import events
 from melorin.core.errors import AppError
 from melorin.domain.ledger import LedgerError, Line, apply_to_balance, validate_balanced
-from melorin.modules.wallet.models import LedgerEntry, LedgerTransaction, Wallet
+from melorin.kernel.models.wallet import LedgerEntry, LedgerTransaction, Wallet
 
 
 def acc_wallet(w: Wallet) -> str:

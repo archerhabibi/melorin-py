@@ -28,9 +28,9 @@ from melorin.core.errors import AppError
 from melorin.core.ratelimit import hit
 from melorin.core.security import new_opaque_token, token_hash
 from melorin.modules.identity import service
-from melorin.modules.identity.models import TelegramLoginSession, User
+from melorin.kernel.models.identity import TelegramLoginSession, User
 from melorin.modules.identity.schemas import TelegramProfile, TokenPair
-from melorin.modules.stores.models import Store
+from melorin.kernel.models.stores import Store
 
 POLL_INTERVAL_SECONDS = 2
 MAX_WRONG_CHOICES = 2

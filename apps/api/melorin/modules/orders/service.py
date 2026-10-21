@@ -15,12 +15,12 @@ from melorin.core.scope import StoreScope
 from melorin.domain import debt
 from melorin.domain.order_state import REFUNDABLE, RETRYABLE, InvalidTransition, OrderStatus, VpnStatus, assert_transition
 from melorin.modules.catalog import service as catalog
-from melorin.modules.identity.models import User
-from melorin.modules.orders.models import Order, OrderStateTransition
-from melorin.modules.stores.models import ResellerProfile, Store, StoreMembership
-from melorin.modules.system.models import TestAccountGrant
+from melorin.kernel.models.identity import User
+from melorin.kernel.models.orders import Order, OrderStateTransition
+from melorin.kernel.models.stores import ResellerProfile, Store, StoreMembership
+from melorin.kernel.models.system import TestAccountGrant
 from melorin.modules.vpn import allocation, renewal
-from melorin.modules.vpn.models import VpnAccount
+from melorin.kernel.models.vpn import VpnAccount
 from melorin.modules.wallet import service as wallet
 
 S = OrderStatus
@@ -309,7 +309,7 @@ async def create_test_order(session: AsyncSession, ctx: StoreContext, channel: s
     await flags.ensure_enabled(session, "test_account", store_id=ctx.store.id, channel=channel)
     if not await settings_store.get(session, "test.enabled"):
         raise AppError("TEST_DISABLED", "اکانت تست فعلاً ارائه نمی‌شود.", 403)
-    from melorin.modules.catalog.models import Product
+    from melorin.kernel.models.catalog import Product
 
     code = await settings_store.get(session, "test.product_code")
     product = await session.scalar(select(Product).where(Product.code == code, Product.is_test.is_(True), Product.is_active.is_(True)))

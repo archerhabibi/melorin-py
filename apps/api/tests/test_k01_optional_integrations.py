@@ -10,7 +10,7 @@ from melorin.core import email as email_mod
 from melorin.core.config import Settings
 from melorin.core.errors import AppError
 from melorin.modules import system  # noqa: F401  (registers models)
-from melorin.modules.system.models import SystemSetting
+from melorin.kernel.models.system import SystemSetting
 
 
 def _reset_caches():

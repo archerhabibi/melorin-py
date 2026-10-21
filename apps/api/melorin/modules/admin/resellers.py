@@ -17,10 +17,10 @@ from melorin.core import audit
 from melorin.core.crypto import decrypt, encrypt
 from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import AppError, NotFound
-from melorin.modules.identity.models import User
+from melorin.kernel.models.identity import User
 from melorin.modules.reseller import identity
 from melorin.modules.reseller.bots import status_out
-from melorin.modules.stores.models import BotStoreBinding, ResellerApplication, ResellerProfile, Store, StoreMembership
+from melorin.kernel.models.stores import BotStoreBinding, ResellerApplication, ResellerProfile, Store, StoreMembership
 
 router = APIRouter(tags=["admin-resellers"])
 

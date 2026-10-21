@@ -13,11 +13,11 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from melorin.core.metrics import set_alert, set_gauge
-from melorin.modules.orders.models import Order
-from melorin.modules.payments.models import Payment
+from melorin.kernel.models.orders import Order
+from melorin.kernel.models.payments import Payment
 from melorin.modules.reseller.bots import effective_state
-from melorin.modules.stores.models import Store
-from melorin.modules.system.models import BackupRun
+from melorin.kernel.models.stores import Store
+from melorin.kernel.models.system import BackupRun
 
 WINDOW = dt.timedelta(minutes=15)
 PROVISIONING_WINDOW = dt.timedelta(hours=1)

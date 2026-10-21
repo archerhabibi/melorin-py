@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from _db import make_order, make_product, make_store, make_user, open_schema_engine, pg_url
 from melorin.core.scope import StoreScope
-from melorin.modules.vpn.models import VpnAccount
+from melorin.kernel.models.vpn import VpnAccount
 
 pytestmark = [
     pytest.mark.concurrency,

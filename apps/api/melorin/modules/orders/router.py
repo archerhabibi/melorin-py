@@ -6,7 +6,7 @@ from sqlalchemy import select
 from melorin.core.deps import Session, StoreCtx
 from melorin.core.scope import StoreScope
 from melorin.modules.orders import service
-from melorin.modules.orders.models import Order
+from melorin.kernel.models.orders import Order
 from melorin.modules.orders.schemas import CreateOrder, OrderOut
 
 router = APIRouter(tags=["orders"])

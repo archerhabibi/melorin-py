@@ -7,8 +7,8 @@ from melorin.core.db import utcnow
 from melorin.core.errors import AppError
 from melorin.domain import coupon as cdom
 from melorin.domain.pricing import Discount, PricingError, Quote, quote
-from melorin.modules.catalog.models import Coupon, CouponRedemption, Product, StoreBundlePrice, StoreProduct
-from melorin.modules.stores.models import Store
+from melorin.kernel.models.catalog import Coupon, CouponRedemption, Product, StoreBundlePrice, StoreProduct
+from melorin.kernel.models.stores import Store
 
 
 async def store_catalog(session: AsyncSession, store: Store) -> list[tuple[Product, StoreProduct]]:

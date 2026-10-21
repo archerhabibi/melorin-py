@@ -49,8 +49,8 @@ def test_migration_0014_chains_from_0013_and_models_match():
     # system_settings.id has no server default, the INSERT must provide it
     assert "gen_random_uuid()" in src
 
-    from melorin.modules.orders.models import Order
-    from melorin.modules.tickets.models import Ticket
+    from melorin.kernel.models.orders import Order
+    from melorin.kernel.models.tickets import Ticket
 
     assert Order.__table__.c.number.type.length == 6
     assert Ticket.__table__.c.number.type.length == 6

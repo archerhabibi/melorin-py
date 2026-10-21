@@ -4,7 +4,7 @@ import uuid
 from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
-from melorin.core.db import Base, CreatedMixin, IdMixin, TimestampMixin
+from melorin.kernel.base import Base, CreatedMixin, IdMixin, TimestampMixin
 
 TICKET_STATUSES = ("open", "answered", "closed")
 TICKET_PRIORITIES = ("low", "normal", "high", "urgent")

@@ -185,7 +185,7 @@ def test_full_project_regressions_are_wired():
     product_schema = read_source(ROOT / "melorin/modules/admin/schemas.py")
     product_router = read_source(ROOT / "melorin/modules/admin/router.py")
     payment_router = read_source(ROOT / "melorin/modules/reseller/router.py")
-    referral_model = read_source(ROOT / "melorin/modules/referral/models.py")
+    referral_model = read_source(ROOT / "melorin/kernel/models/referral.py")
     migration = read_source(ROOT / "alembic/versions/0009_referral_first_reward_guard.py")
     dockerfile = (ROOT / "Dockerfile").read_text()
     assert "class ProductPatch" in product_schema and "body: ProductPatch" in product_router

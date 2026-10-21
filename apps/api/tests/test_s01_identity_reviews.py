@@ -8,9 +8,9 @@ import melorin.models  # noqa: F401  (registers every table so FKs resolve)
 from melorin.core import db
 from melorin.core.errors import AppError
 from melorin.modules.admin import router as admin
-from melorin.modules.identity.models import Identity, IdentityLinkReview, User
-from melorin.modules.orders.models import Order
-from melorin.modules.system.models import AuditEvent
+from melorin.kernel.models.identity import Identity, IdentityLinkReview, User
+from melorin.kernel.models.orders import Order
+from melorin.kernel.models.system import AuditEvent
 
 PROJECT = Path(__file__).resolve().parents[3]
 TABLES = [User.__table__, Identity.__table__, IdentityLinkReview.__table__, Order.__table__, AuditEvent.__table__]

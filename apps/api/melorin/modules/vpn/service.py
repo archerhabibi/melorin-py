@@ -12,15 +12,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from melorin.core import audit, events, flags, settings_store
 from melorin.core.db import utcnow
 from melorin.domain.order_state import OrderStatus, VpnStatus
-from melorin.modules.catalog.models import Product
-from melorin.modules.orders.models import Order
-from melorin.modules.stores.models import Store
+from melorin.kernel.models.catalog import Product
+from melorin.kernel.models.orders import Order
+from melorin.kernel.models.stores import Store
 from melorin.modules.vpn.adapters.base import AccountSpec, ErrorKind, PanelError
 from melorin.modules.vpn.adapters.registry import build_adapter
 from melorin.modules.vpn import renewal
 from melorin.modules.vpn.allocation import resolve_allocation
-from melorin.modules.vpn.models import Panel, ProvisioningAttempt, ReconciliationIssue, Server, VpnAccount
-from melorin.modules.vpn.bundles import Bundle, BundleMember, clean_custom_name
+from melorin.kernel.models.vpn import Panel, ProvisioningAttempt, ReconciliationIssue, Server, VpnAccount
+from melorin.kernel.models.bundles import Bundle, BundleMember
+from melorin.modules.vpn.bundles import clean_custom_name
 
 log = logging.getLogger("melorin.provisioning")
 

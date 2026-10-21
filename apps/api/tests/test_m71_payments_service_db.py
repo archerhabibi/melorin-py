@@ -11,11 +11,11 @@ from melorin.core.errors import AppError
 from melorin.modules.payments import service as payments
 from melorin.modules.payments.adapters import registry
 from melorin.modules.payments.adapters.base import CallbackResult, IntentResult, RefundResult
-from melorin.modules.payments.models import Payment, PaymentAttempt
-from melorin.modules.stores.models import StorePaymentConfiguration
-from melorin.modules.system.models import FeatureFlag, FileObject
+from melorin.kernel.models.payments import Payment, PaymentAttempt
+from melorin.kernel.models.stores import StorePaymentConfiguration
+from melorin.kernel.models.system import FeatureFlag, FileObject
 from melorin.modules.wallet import service as wallet
-from melorin.modules.wallet.models import LedgerTransaction
+from melorin.kernel.models.wallet import LedgerTransaction
 
 
 class FakeGateway:
