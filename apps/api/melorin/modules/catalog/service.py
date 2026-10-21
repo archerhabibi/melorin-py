@@ -108,12 +108,18 @@ async def find_coupon(session: AsyncSession, store: Store, code: str, *, lock: b
     return await session.scalar(select(Coupon).where(Coupon.id == rows[0].id).with_for_update().execution_options(populate_existing=True))
 
 
-async def customer_redemptions(session: AsyncSession, coupon_id: uuid.UUID, user_id: uuid.UUID) -> int:
+async def customer_redemptions(session: AsyncSession, coupon_id: uuid.UUID, user_id: uuid.UUID, store_id: uuid.UUID) -> int:
+    """How often THIS customer used this coupon IN THIS STORE (the per-customer limit is per store, like wallet and test quota)."""
     return (
         await session.scalar(
             select(func.count())
             .select_from(CouponRedemption)
-            .where(CouponRedemption.coupon_id == coupon_id, CouponRedemption.user_id == user_id, CouponRedemption.status == "applied")
+            .where(
+                CouponRedemption.coupon_id == coupon_id,
+                CouponRedemption.user_id == user_id,
+                CouponRedemption.store_id == store_id,
+                CouponRedemption.status == "applied",
+            )
         )
         or 0
     )
@@ -138,7 +144,7 @@ async def resolve_coupon(
         product_id=str(product.id),
         amount=unit_price,
         currency=store.currency,
-        customer_redemptions=await customer_redemptions(session, c.id, user_id),
+        customer_redemptions=await customer_redemptions(session, c.id, user_id, store.id),
         now=utcnow(),
     )
     try:
