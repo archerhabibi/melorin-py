@@ -34,7 +34,7 @@
 4. scope لازمِ مسیر در کلید هست ← وگرنه `403 API_SCOPE_FORBIDDEN`
 5. فروشگاه از نوع `reseller`، `api_enabled` روشن و `active` است ← وگرنه `403 API_DISABLED` / `403 STORE_SUSPENDED`
 
-مسیرها فقط scope می‌خواهند: `Depends(api_access("catalog:read"))` (در `core/deps.py`) که `StoreContext` مالک را می‌دهد (مالکِ غیرفعال ← `API_DISABLED`). `SessionClaims` همچنان `chn=api` را رد می‌کند؛ کانال `api` هرگز در توکن نمی‌نشیند. نگهبان‌های `test_t01` حالا مسیرهای `/reseller-api` را «عمومی» نمی‌شمارند و وجود `api_store_context` روی هرکدام را اجبار می‌کنند. متریک: `melorin_channel_rejected_total{reason=api_key_unknown|api_key_inactive|api_store_mismatch|api_ip|api_scope|api_disabled|api_store_suspended}`.
+مسیرها فقط scope می‌خواهند: `Depends(api_access("catalog:read"))` (در `core/deps.py`) که `StoreContext` مالک را می‌دهد (مالکِ غیرفعال ← `API_DISABLED`). `SessionClaims` همچنان `chn=api` را رد می‌کند؛ کانال `api` هرگز در توکن نمی‌نشیند. نگهبان‌های `test_t01` حالا مسیرهای `/reseller-api` را «عمومی» نمی‌شمارند و وجود `api_store_context` روی هرکدام را اجبار می‌کنند. پس از پذیرفته‌شدن درخواست، `last_used_at` کلید ذخیره (commit) می‌شود، حداکثر یک‌بار در دقیقه برای هر کلید (نشست درخواست هر چیز commit‌نشده را rollback می‌کند و بیشتر مسیرهای API فقط می‌خوانند). متریک: `melorin_channel_rejected_total{reason=api_key_unknown|api_key_inactive|api_store_mismatch|api_ip|api_scope|api_disabled|api_store_suspended}`.
 
 توکن دسترسی: `chn` و `sid` (`adm` برای سازگاری می‌ماند). توکن بدون اتصال معتبر ← `401 SESSION_UNBOUND`. refresh-token: ستون‌های `channel`/`store_id` (migration `0027`)؛ خانواده‌ی قدیمی (NULL) در rotate رد می‌شود و کاربر یک بار دوباره وارد می‌شود (پروژه هنوز release نشده).
 

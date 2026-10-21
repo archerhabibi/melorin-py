@@ -53,6 +53,32 @@ def _open(s, raw, store, scope="catalog:read", ip="203.0.113.9"):
 
 
 # ------------------------------------------------------------------ the binding
+async def test_last_used_at_is_really_saved_and_throttled_to_once_a_minute():
+    """The request session rolls back anything uncommitted and most API routes only read: the stamp must be committed."""
+    async with open_session() as s:
+        w = await _world(s)
+        raw = await _key(s, w.a, w.owner_a)
+        sid = w.a.id  # plain value: ORM rows are expired by the rollbacks below
+        cred = (await ch.api_channel(s, raw, store_id=sid, scope="catalog:read", ip=None)).credential
+        await s.rollback()  # what get_session does to an uncommitted read-only request
+        await s.refresh(cred)
+        first = cred.last_used_at
+        assert first is not None  # survived the rollback = it was committed
+        await ch.api_channel(s, raw, store_id=sid, scope="catalog:read", ip=None)
+        await s.rollback()
+        await s.refresh(cred)
+        assert cred.last_used_at == first  # inside the minute: no new write
+        cred.last_used_at = utcnow() - ch.API_LAST_USED_RESOLUTION - dt.timedelta(seconds=1)
+        await s.commit()
+        await ch.api_channel(s, raw, store_id=sid, scope="catalog:read", ip=None)
+        await s.rollback()
+        await s.refresh(cred)
+        stamp = (
+            cred.last_used_at if cred.last_used_at.tzinfo else cred.last_used_at.replace(tzinfo=dt.timezone.utc)
+        )  # SQLite drops the zone
+        assert utcnow() - stamp < dt.timedelta(seconds=30)  # a fresh stamp, not the artificially aged one
+
+
 async def test_the_key_opens_the_api_channel_of_its_own_store():
     async with open_session() as s:
         w = await _world(s)

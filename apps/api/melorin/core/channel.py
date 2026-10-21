@@ -253,6 +253,24 @@ def _expired(at: Any) -> bool:
     return (at if at.tzinfo else at.replace(tzinfo=dt.timezone.utc)) <= utcnow()
 
 
+API_LAST_USED_RESOLUTION = dt.timedelta(seconds=60)
+
+
+async def _touch(session, cred) -> None:
+    """Persist ``last_used_at`` (at most once per minute per key, so a busy integration does not write on every call).
+
+    The request session rolls back anything uncommitted, and most ``/reseller-api`` routes only read, so without this commit the
+    column was never saved. Only a fully accepted request gets here: refusals above never touch the key.
+    """
+    last = cred.last_used_at
+    if last is not None:
+        last = last if last.tzinfo else last.replace(tzinfo=dt.timezone.utc)
+        if utcnow() - last < API_LAST_USED_RESOLUTION:
+            return
+    cred.last_used_at = utcnow()
+    await session.commit()
+
+
 @dataclasses.dataclass(frozen=True)
 class ApiAccess:
     """What a verified reseller API key opens: the ``api`` channel plus the rows the endpoint will work with."""
@@ -301,7 +319,7 @@ async def api_channel(session, raw_key: str | None, *, store_id: uuid.UUID, scop
     if store.status != "active":  # a suspended store takes no API traffic either (its owner can still use the panel)
         inc("melorin_channel_rejected_total", reason="api_store_suspended")
         raise AppError("STORE_SUSPENDED", "این فروشگاه موقتاً غیرفعال است.", 403)
-    cred.last_used_at = utcnow()
+    await _touch(session, cred)
     return ApiAccess(Channel(API, store.id, cred.key_prefix, store.kind, store.status, store.owner_user_id, cred.id), cred, store)
 
 
