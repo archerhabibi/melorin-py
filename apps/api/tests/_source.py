@@ -30,9 +30,27 @@ def normalize_source(text: str) -> str:
     return text.strip()
 
 
+# Phase 3.3: the admin API router is split into one module per route family. Contract tests that ask for
+# ``modules/admin/router.py`` get the text of the whole family (composition root + route modules).
+ADMIN_ROUTE_MODULES = (
+    "router", "overview", "products", "panels", "bundles", "payments", "orders", "directory",
+    "tickets", "reseller_applications", "settings", "coupons", "identity_reviews", "_common",
+)
+
+
+def _is_admin_router(path: Path) -> bool:
+    return path.name == "router.py" and path.parent.name == "admin" and path.parent.parent.name == "modules"
+
+
+def _raw_text(path: Path) -> str:
+    if _is_admin_router(path):
+        return "\n".join((path.parent / f"{name}.py").read_text(encoding="utf-8") for name in ADMIN_ROUTE_MODULES)
+    return path.read_text(encoding="utf-8")
+
+
 def read_source(path: str | Path) -> str:
-    """Return the normalised text of a Python source file."""
-    return normalize_source(Path(path).read_text(encoding="utf-8"))
+    """Return the normalised text of a Python source file (the admin router resolves to all its route modules)."""
+    return normalize_source(_raw_text(Path(path)))
 
 
 def parse_source(path: str | Path) -> ast.Module:

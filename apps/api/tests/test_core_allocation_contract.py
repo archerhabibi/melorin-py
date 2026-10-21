@@ -3,14 +3,14 @@
 import ast
 from pathlib import Path
 
-from _source import normalize_source
+from _source import _raw_text, normalize_source
 
 ROOT = Path(__file__).resolve().parents[3]
 
 
 def read(rel):
     """Read a repo file; Python sources are layout-normalised (M6.7)."""
-    text = (ROOT / rel).read_text(encoding="utf-8")
+    text = _raw_text(ROOT / rel)
     return normalize_source(text) if str(rel).endswith(".py") else text
 
 

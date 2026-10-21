@@ -15,7 +15,7 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E4", "E9", "F"]
 ignore = ["F403", "F405"]
-per-file-ignores = { "melorin/models.py" = ["F403", "F405"], "melorin/modules/admin/router.py" = ["F403", "F405"] }
+per-file-ignores = { "melorin/models.py" = ["F403", "F405"] }
 [tool.ruff.format]
 quote-style = "double"
 line-ending = "lf"

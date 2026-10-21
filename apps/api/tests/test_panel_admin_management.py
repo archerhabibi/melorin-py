@@ -16,7 +16,7 @@ ADMIN = types.SimpleNamespace(id=uuid.uuid4())
 
 @pytest.fixture
 async def session(tmp_path, monkeypatch):
-    monkeypatch.setattr(r, "encrypt", lambda raw: f"enc:{raw}")
+    monkeypatch.setattr("melorin.modules.admin.panels.encrypt", lambda raw: f"enc:{raw}")
     db.configure(f"sqlite+aiosqlite:///{tmp_path}/panels.db")
     async with db.engine().begin() as conn:
         await conn.run_sync(lambda c: db.Base.metadata.create_all(c, tables=[Panel.__table__, AuditEvent.__table__]))

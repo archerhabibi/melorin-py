@@ -6,6 +6,7 @@ import pytest
 
 import melorin.models  # noqa: F401  (registers every table so FKs resolve)
 from melorin.core import db
+from _source import _raw_text
 from melorin.modules.admin import timeseries as ts
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.payments import Payment
@@ -24,7 +25,7 @@ def test_fill_zero_fills_and_ignores_out_of_range_days():
 
 
 def test_route_is_admin_only_and_bounded():
-    src = (Path(__file__).parents[1] / "melorin/modules/admin/router.py").read_text()
+    src = _raw_text(Path(__file__).parents[1] / "melorin/modules/admin/router.py")
     assert '@router.get("/reports/timeseries")' in src and "_: AdminUser" in src.split("reports/timeseries")[1][:200]
     assert "ge=7, le=90" in src
 
