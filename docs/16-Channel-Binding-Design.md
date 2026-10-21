@@ -40,7 +40,7 @@
 | ورود با تلگرام از وب (device flow / OIDC) | `site_channel(hint)` | شروع و poll/callback هر دو روی هاست همان فروشگاه |
 
 ### رانرها (حداقل دسترسی)
-`MELORIN_BOT_SERVICE_SECRET` برای هر دو رانر کار می‌کند (سازگار). اختیاری: `MELORIN_MAIN_BOT_SECRET` و `MELORIN_RESELLER_BOT_SECRET` (≥۳۲ نویسه، متفاوت از هم و از secret مشترک). رانر `main` فقط در فروشگاه اصلی نشست می‌سازد؛ رانر `reseller` فقط در نمایندگی‌ها و فقط او `GET /internal/reseller-bots` (توکن رمزگشایی‌شده‌ی ربات‌ها) را می‌خواند. با تنظیم secretهای جدا و برداشتن secret مشترک، لو رفتن یک رانر دیگری را باز نمی‌کند.
+`MELORIN_BOT_SERVICE_SECRET` برای هر دو رانر کار می‌کند (سازگار). اختیاری: `MELORIN_MAIN_BOT_SECRET` و `MELORIN_RESELLER_BOT_SECRET` (≥۳۲ نویسه، متفاوت از هم و از secret مشترک). رانر `main` فقط در فروشگاه اصلی نشست می‌سازد؛ رانر `reseller` فقط در نمایندگی‌ها و فقط او `GET /internal/reseller-bots` (توکن رمزگشایی‌شده‌ی ربات‌ها) را می‌خواند. وقتی هر دو تنظیم باشند Core secret مشترک را بازنشسته می‌کند و کانتینر هر رانر فقط secret خودش را دارد (docs/17، R06).
 
 ## ۵. تغییرات
 * **Core:** `core/channel.py` (جدید)، `core/deps.py` (`AuthSession`، `store_context`، `owner_store_context`، `require_admin_session`، `BotAuth`)، `core/security.py`، `identity/{router,service,models,schemas,telegram_web*,telegram_oidc_router}`، `tickets/router`، `referral/router`، `reseller/{router,bots}`، migration `0027_channel_binding`.
@@ -62,5 +62,5 @@
 
 ## ۸. باقی‌مانده
 * بررسی کوپن (سقف استفاده‌ی هر کاربر) و ثبت رفرال (`attach`) از نظر هم‌پوشانی فروشگاه‌ها (تیکت و `/me/referrals` در این پچ بسته شد).
-* اعمال secretهای جدا برای هر رانر در `docker-compose`/`install_server.sh`.
+* (انجام شد در R06 - docs/17) secretهای جدای رانرها در compose/installer/update.
 * اتصال کانال به کلید API نماینده (فعلاً `store_id` مسیر با کلید سنجیده می‌شود و مشکلی ندارد).
