@@ -6,6 +6,8 @@
 # With no receiver configured it still starts (so the stack boots) but logs a loud warning; scripts/deploy.sh warns too.
 set -eu
 OUT=/tmp/alertmanager.yml
+# YAML single-quoted scalar: a literal ' is written as '' (SMTP passwords may contain quotes).
+yq() { printf '%s' "$1" | sed "s/'/''/g"; }
 tg=0; mail=0
 [ -n "${ALERT_TELEGRAM_BOT_TOKEN:-}" ] && [ -n "${ALERT_TELEGRAM_CHAT_ID:-}" ] && tg=1
 [ -n "${ALERT_SMTP_HOST:-}" ] && [ -n "${ALERT_SMTP_FROM:-}" ] && [ -n "${ALERT_EMAIL_TO:-}" ] && mail=1
@@ -14,10 +16,10 @@ tg=0; mail=0
   echo "global:"
   echo "  resolve_timeout: 5m"
   if [ "$mail" = 1 ]; then
-    echo "  smtp_smarthost: '${ALERT_SMTP_HOST}'"
-    echo "  smtp_from: '${ALERT_SMTP_FROM}'"
-    [ -n "${ALERT_SMTP_USER:-}" ] && echo "  smtp_auth_username: '${ALERT_SMTP_USER}'"
-    [ -n "${ALERT_SMTP_PASSWORD:-}" ] && echo "  smtp_auth_password: '${ALERT_SMTP_PASSWORD}'"
+    echo "  smtp_smarthost: '$(yq "${ALERT_SMTP_HOST}")'"
+    echo "  smtp_from: '$(yq "${ALERT_SMTP_FROM}")'"
+    [ -n "${ALERT_SMTP_USER:-}" ] && echo "  smtp_auth_username: '$(yq "${ALERT_SMTP_USER}")'"
+    [ -n "${ALERT_SMTP_PASSWORD:-}" ] && echo "  smtp_auth_password: '$(yq "${ALERT_SMTP_PASSWORD}")'"
   fi
   echo "route:"
   echo "  receiver: melorin"
@@ -29,14 +31,14 @@ tg=0; mail=0
   echo "  - name: melorin"
   if [ "$tg" = 1 ]; then
     echo "    telegram_configs:"
-    echo "      - bot_token: '${ALERT_TELEGRAM_BOT_TOKEN}'"
+    echo "      - bot_token: '$(yq "${ALERT_TELEGRAM_BOT_TOKEN}")'"
     echo "        chat_id: ${ALERT_TELEGRAM_CHAT_ID}"
     echo "        send_resolved: true"
     echo "        parse_mode: ''"
   fi
   if [ "$mail" = 1 ]; then
     echo "    email_configs:"
-    echo "      - to: '${ALERT_EMAIL_TO}'"
+    echo "      - to: '$(yq "${ALERT_EMAIL_TO}")'"
     echo "        send_resolved: true"
   fi
 } > "$OUT"

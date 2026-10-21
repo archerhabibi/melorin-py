@@ -14,6 +14,7 @@ cat > "$T/bin/docker" <<'FAKE'
 [ "$1" = compose ] || exit 0
 shift; while [ "${1:-}" = -f ]; do shift 2; done
 echo "docker compose $*" >> "$APP_DIR/var/fake-docker.log"
+[ "${FAKE_READ_STDIN:-}" = 1 ] && cat >/dev/null || true   # a real docker client attaches stdin
 case "$1" in
   build) [ "${FAKE_FAIL:-}" = build ] && exit 1; exit 0 ;;
   up) exit 0 ;;
@@ -41,15 +42,21 @@ chmod +x "$T/bin/docker"
 
 new_env() { new_env_inner "$@" >/dev/null 2>&1; echo "$T/$1-srv"; }
 new_env_inner() { # new_env <name> -> prepares origin + server clone, leaves server at commit 1, origin/main at commit 2 (bad when $2=bad)
-  local n="$1" kind="${2:-good}"
+  local n="$1" kind="${2:-good}" mutate="${3:-}"
   git init -q --bare -b main "$T/$n-origin.git"
   git clone -q "$T/$n-origin.git" "$T/$n-work" 2>/dev/null
   ( cd "$T/$n-work"
     mkdir -p scripts; cp "$SRC/scripts/deploy.sh" scripts/; printf '#!/usr/bin/env bash\nexit 0\n' > scripts/ops_log.sh; chmod +x scripts/*.sh
+    printf '#!/usr/bin/env bash\nexit 0\n' > scripts/plain.sh; chmod 644 scripts/plain.sh   # tracked as 100644, like j06_staging_evidence.sh
     echo good > version.txt; echo "services: {}" > docker-compose.yml; echo "ALERT_TELEGRAM_BOT_TOKEN=x" > .env.tracked-not
     printf 'var/\n.env\n' > .gitignore
     git add -A; git commit -qm one; git branch -M main; git push -q origin main
-    echo "$kind-v2" > version.txt; git commit -qam two; git push -q origin main )
+    echo "$kind-v2" > version.txt
+    if [ -n "$mutate" ]; then   # the release ships a different deploy.sh (bash must not read the replaced file mid-run)
+      { head -n1 scripts/deploy.sh; for i in $(seq 1 400); do echo "# padding $i xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"; done; tail -n +2 scripts/deploy.sh; } > scripts/deploy.new
+      mv scripts/deploy.new scripts/deploy.sh; chmod +x scripts/deploy.sh
+    fi
+    git commit -qam two; git push -q origin main )
   git clone -q "$T/$n-origin.git" "$T/$n-srv" 2>/dev/null
   ( cd "$T/$n-srv"; git checkout -q --detach "$(git rev-parse HEAD~1)"; echo "ALERT_TELEGRAM_BOT_TOKEN=x" > .env; mkdir -p var )
 }
@@ -63,6 +70,7 @@ git -C "$S" log -1 --format=%s | grep -q two || fail "success: not on commit two
 grep -q "deploy OK" <<<"$out" || fail "success: no OK line ($out)"
 grep -q "melorin-TEST.dump.age" <<<"$out" || fail "success: backup path not reported"
 grep -q "bot not healthy: telegram_main" <<<"$out" || fail "success: unhealthy bot should only warn"
+[ -z "$(git -C "$S" status --porcelain --untracked-files=no)" ] || fail "success: deploy left tracked files modified (next deploy would refuse)"
 echo "ok  1 success"
 
 # 2) health failure -> rollback to commit one
@@ -89,4 +97,16 @@ echo "ok  4 backup failure aborts"
 S="$(new_env dirty good)"; echo x >> "$S/version.txt"; set +e; out="$(run "$S" FAKE_FAIL=none)"; rc=$?; set -e
 [ "$rc" = 1 ] && grep -q "edited by hand" <<<"$out" || fail "dirty tree not refused ($out)"
 echo "ok  5 dirty tree refused"
+# 6) streamed through `ssh host bash -s` (how deploy.yml runs it) while docker reads stdin: the script must not be swallowed
+S="$(new_env pipe good)"
+out="$( cd "$S"; git show origin/main:scripts/deploy.sh | env PATH="$T/bin:$PATH" APP_DIR="$S" FAKE_READ_STDIN=1 DEPLOY_HEALTH_TIMEOUT=6 bash -s -- --ref origin/main 2>&1 )" || true
+grep -q "deploy OK" <<<"$out" || fail "piped: script was truncated or failed ($out)"
+git -C "$S" log -1 --format=%s | grep -q two || fail "piped: not on commit two"
+echo "ok  6 streamed via bash -s survives docker reading stdin"
+
+# 7) the release replaces scripts/deploy.sh itself (git swaps the file, bash keeps reading the old one): the deploy must still finish
+S="$(new_env mut good mutate)"; out="$(run "$S" FAKE_FAIL=none || true)"
+grep -q "deploy OK" <<<"$out" || fail "self-update: deploy did not finish ($out)"
+git -C "$S" log -1 --format=%s | grep -q two || fail "self-update: not on commit two"
+echo "ok  7 deploy.sh replaced by the release itself is safe"
 echo "deploy.sh tests passed"

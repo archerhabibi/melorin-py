@@ -59,7 +59,8 @@ compose() {
     prof="${prof:+${prof},}local-proxy"
   fi
   [ -n "$prof" ] && export COMPOSE_PROFILES="$prof"
-  docker compose "${files[@]}" "$@"
+  # </dev/null: when this script is streamed through `ssh ... bash -s`, a docker command reading stdin would swallow the rest of it
+  docker compose "${files[@]}" "$@" </dev/null
 }
 
 ops_log() { # ops_log <result> <ref> <note>
@@ -158,7 +159,6 @@ rollback() {
 }
 
 git -c advice.detachedHead=false checkout --quiet --detach "$TARGET"
-chmod +x melorin.sh scripts/*.sh 2>/dev/null || true
 
 # ------------------------------------------------------------------ 4-6) build, migrate, up
 say "building images"

@@ -23,7 +23,7 @@ if [[ "${MELORIN_RUN_COMPOSE:-0}" == "1" ]]; then
   docker compose config >/dev/null
   docker compose up -d --build
   trap 'docker compose down' EXIT
-  for service in api worker store_web admin_web caddy prometheus; do
+  for service in api worker store_web admin_web caddy alertmanager prometheus; do
     docker compose ps --status running "$service" | grep -q "$service" || { echo "$service is not running" >&2; exit 1; }
   done
   curl --fail --silent --show-error http://localhost/health/live >/dev/null

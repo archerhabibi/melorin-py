@@ -42,6 +42,12 @@ iso="${ts:0:4}-${ts:4:2}-${ts:6:2}T${ts:9:2}:${ts:11:2}:${ts:13:2}Z"
 age_h=$(( ( $(date -u +%s) - $(date -u -d "$iso" +%s) ) / 3600 ))
 [ "$age_h" -le "$MELORIN_RPO_HOURS" ] || die "newest backup $base is ${age_h}h old (RPO ${MELORIN_RPO_HOURS}h) - are backups still running?"
 
+# backup_secure.sh records the checksum against the path the file had on the production host (e.g. /app/var/backups/...),
+# which does not exist here: keep the hash, point it at the local copy (the hash is still verified against the file's bytes).
+read -r sum _ < "$archive.sha256" || die "cannot read the checksum file of $base"
+[[ "$sum" =~ ^[0-9a-f]{64}$ ]] || die "malformed checksum file for $base"
+printf '%s  %s\n' "$sum" "$archive" > "$archive.sha256"
+
 BACKUP_ARCHIVE="$archive" BACKUP_CHECKSUM_FILE="$archive.sha256" RESTORE_DRILL_DIR="$work/drill" \
   bash "$HERE/backup_restore_drill.sh" >"$work/drill.out" 2>&1 || { tail -n 20 "$work/drill.out" >&2; die "restore of $base failed"; }
 log "RESTORE DRILL OK: $base (${age_h}h old) $(tail -n1 "$work/drill.out")"

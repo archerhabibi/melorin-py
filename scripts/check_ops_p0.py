@@ -34,8 +34,9 @@ for needle in ("rollback()", "backup_secure.sh", "alembic upgrade head", "health
         errors.append(f"scripts/deploy.sh: missing '{needle}'")
 
 ci = (ROOT / ".github/workflows/ci.yml").read_text()
-if "test_deploy.sh" not in ci or "check_ops_p0.py" not in ci:
-    errors.append("ci.yml: test_deploy.sh and check_ops_p0.py must run in CI")
+for needle in ("test_deploy.sh", "test_restore_drill.sh", "check_ops_p0.py"):
+    if needle not in ci:
+        errors.append(f"ci.yml: {needle} must run in CI")
 
 if errors:
     raise SystemExit("ops baseline violations:\n - " + "\n - ".join(errors))
