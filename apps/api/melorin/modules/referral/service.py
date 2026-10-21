@@ -71,6 +71,9 @@ async def on_order_completed(session: AsyncSession, order_id: uuid.UUID) -> None
             .select_from(Order)
             .where(
                 Order.user_id == order.user_id,
+                # "First purchase" is counted inside the referral's own store: a purchase made earlier in another store must not
+                # downgrade the signup reward of this store to a plain commission.
+                Order.store_id == order.store_id,
                 Order.status == OrderStatus.COMPLETED,
                 Order.kind != "test",
                 Order.total > 0,

@@ -50,6 +50,19 @@ async def test_a_purchase_in_the_store_the_referral_was_made_in_still_pays():
         assert len(rows) == 1 and rows[0].store_id == main.id and rows[0].referrer_user_id == referrer.id and rows[0].amount == 500
 
 
+async def test_first_purchase_is_counted_in_the_referral_store_only():
+    async with open_session() as s:
+        referrer, referred, main, reseller, product = await _world(s)
+        other = await _complete(s, referred, reseller, product)  # earlier purchase in another store: pays nothing
+        other.completed_at = utcnow() - dt.timedelta(days=1)
+        await s.commit()
+        order = await _complete(s, referred, main, product)
+        await referral.on_order_completed(s, order.id)
+        await s.commit()
+        rows = (await s.scalars(select(Commission))).all()
+        assert len(rows) == 1 and rows[0].kind == "signup_reward" and rows[0].store_id == main.id
+
+
 async def _coupon(s, *, owner_key, store_id, code="SAVE", scope="store"):
     c = Coupon(code=code, owner_key=owner_key, store_id=store_id, scope=scope, creator_type="admin", percent_bp=1000, per_customer_limit=1)
     s.add(c)
@@ -61,13 +74,12 @@ async def test_store_coupon_wins_and_only_the_winner_is_looked_up_for_locking(mo
     async with open_session() as s:
         _, _, main, reseller, _ = await _world(s)
         own = await _coupon(s, owner_key=str(reseller.id), store_id=reseller.id)
-        platform = await _coupon(s, owner_key="admin", store_id=None, scope="domain")
+        await _coupon(s, owner_key="admin", store_id=None, scope="domain")
         other_store = await _coupon(s, owner_key=str(main.id), store_id=main.id)  # same code, another store: invisible here
         await s.commit()
         assert (await catalog.find_coupon(s, reseller, "save", lock=False)).id == own.id
         assert (await catalog.find_coupon(s, reseller, "save", lock=True)).id == own.id
         assert (await catalog.find_coupon(s, main, "save", lock=True)).id == other_store.id
-        assert platform.id not in {own.id, other_store.id}
         assert await catalog.find_coupon(s, reseller, "nope", lock=True) is None
 
 
