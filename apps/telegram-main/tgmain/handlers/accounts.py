@@ -20,6 +20,51 @@ from tgmain.errors import CoreError
 log = logging.getLogger("melorin.telegram.main")
 
 
+def _list_head(cfg: dict, counts: dict, q, filtered: bool, rows: list) -> list[str]:
+    """Header lines of the account list: totals, active search, Core's own note, and the hint (or empty-state text)."""
+    head = [
+        f"{cfg['title']} · {counts.get('total', 0)} اکانت",
+        f"🟢 {counts.get('active', 0)} فعال · 🟡 {counts.get('expiring', 0)} رو‌به‌اتمام · 🔴 {counts.get('expired', 0)} منقضی",
+    ]
+    if q:
+        head.append(f"🔎 جستجو: «{esc(q)}»")
+    if cfg["owner"] and not q and counts.get("note"):  # Core's own words about what this list is
+        head.append(f"ℹ️ {esc(counts['note'])}")
+    if not rows:
+        head += ["", "نتیجه‌ای پیدا نشد." if (q or filtered) else "هنوز اکانتی نساخته‌اید."]
+    elif cfg["owner"]:
+        head += ["", "برای دیدن جزئیات، تمدید یا QR یکی را انتخاب کنید:"]
+    else:
+        head += ["", "برای مشاهده، تمدید یا QR کد یکی را انتخاب کنید:"]
+    return head
+
+
+def _account_button(cfg: dict, a: dict) -> list[tuple[str, str]]:
+    left = a.get("days_left")
+    tail = f" · {left}ر" if left is not None else " · ♾"
+    who = f" · {a['customer_name'][:14]}" if cfg["owner"] and not a.get("is_own") and a.get("customer_name") else ""
+    return [(f"{HEALTH_BADGE.get(a.get('health'), '•')} {a['username']}{tail}{who}", f"{'o' if cfg['owner'] else ''}account:{a['id']}")]
+
+
+def _list_buttons(cfg: dict, counts: dict, code: str, q, rows: list, page: int, more: bool) -> list:
+    """Filter chips, one button per account, paging, search controls and (customers only) the way back to the menu."""
+    pre = "o" if cfg["owner"] else ""
+    chips = [(f"{'✓ ' if c == code else ''}{label} ({counts.get(st or 'total', 0)})", f"{pre}acl:{c}:0") for c, st, label in ACC_FILTERS]
+    buttons = [chips[:2], chips[2:]]
+    buttons += [_account_button(cfg, a) for a in rows]
+    nav = []
+    if page > 0:
+        nav.append(("◀️ قبلی", f"{pre}acl:{code}:{page - 1}"))
+    if more:
+        nav.append(("بعدی ▶️", f"{pre}acl:{code}:{page + 1}"))
+    if nav:
+        buttons.append(nav)
+    buttons.append([("🔎 جستجو" + (" (تغییر)" if q else ""), f"{pre}acs:1")] + ([("✖️ پاک‌کردن جستجو", f"{pre}acq:1")] if q else []))
+    if not cfg["owner"]:
+        buttons.append([("🏠 بازگشت به منو", "menu:home")])
+    return buttons
+
+
 class AccountsMixin:
     """Account inquiry (list/search/card/QR), renewal and test accounts - own accounts only; reseller owners see their customers'."""
 
@@ -64,47 +109,8 @@ class AccountsMixin:
             return await self.screen(
                 ctx, "🔑 هنوز اکانتی ندارید.", [[("🛒 خرید اکانت", "menu:plans")], [("🧪 دریافت اکانت تست", "menu:test")]]
             )
-        head = [
-            f"{cfg['title']} · {counts.get('total', 0)} اکانت",
-            f"🟢 {counts.get('active', 0)} فعال · 🟡 {counts.get('expiring', 0)} رو‌به‌اتمام · 🔴 {counts.get('expired', 0)} منقضی",
-        ]
-        if q:
-            head.append(f"🔎 جستجو: «{esc(q)}»")
-        if cfg["owner"] and not q and counts.get("note"):  # Core's own words about what this list is
-            head.append(f"ℹ️ {esc(counts['note'])}")
-        if not rows:
-            head += ["", "نتیجه‌ای پیدا نشد." if (q or state) else "هنوز اکانتی نساخته‌اید."]
-        elif cfg["owner"]:
-            head += ["", "برای دیدن جزئیات، تمدید یا QR یکی را انتخاب کنید:"]
-        else:
-            head += ["", "برای مشاهده، تمدید یا QR کد یکی را انتخاب کنید:"]
-        pre = "o" if cfg["owner"] else ""
-        chips = [
-            (f"{'✓ ' if c == code else ''}{label} ({counts.get(st or 'total', 0)})", f"{pre}acl:{c}:0") for c, st, label in ACC_FILTERS
-        ]
-        buttons = [chips[:2], chips[2:]]
-        for a in rows:
-            left = a.get("days_left")
-            tail = f" · {left}ر" if left is not None else " · ♾"
-            who = f" · {a['customer_name'][:14]}" if cfg["owner"] and not a.get("is_own") and a.get("customer_name") else ""
-            buttons.append(
-                [
-                    (
-                        f"{HEALTH_BADGE.get(a.get('health'), '•')} {a['username']}{tail}{who}",
-                        f"{'o' if cfg['owner'] else ''}account:{a['id']}",
-                    )
-                ]
-            )
-        nav = []
-        if page > 0:
-            nav.append(("◀️ قبلی", f"{pre}acl:{code}:{page - 1}"))
-        if more:
-            nav.append(("بعدی ▶️", f"{pre}acl:{code}:{page + 1}"))
-        if nav:
-            buttons.append(nav)
-        buttons.append([("🔎 جستجو" + (" (تغییر)" if q else ""), f"{pre}acs:1")] + ([("✖️ پاک‌کردن جستجو", f"{pre}acq:1")] if q else []))
-        if not cfg["owner"]:
-            buttons.append([("🏠 بازگشت به منو", "menu:home")])
+        head = _list_head(cfg, counts, q, bool(state), rows)
+        buttons = _list_buttons(cfg, counts, code, q, rows, page, more)
         await self.screen(ctx, "\n".join(head + (["", f"صفحه {page + 1}"] if page or more else [])), buttons)
 
     async def cb_acc_list(self, ctx, value, scope: str = "me"):
