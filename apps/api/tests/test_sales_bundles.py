@@ -335,7 +335,7 @@ def test_channels_and_modules_outside_the_core_hold_no_route_or_price_rule():
     for rel in ("melorin/modules/orders/service.py", "melorin/modules/catalog/router.py", "melorin/modules/catalog/service.py"):
         src = (ROOT / rel).read_text()
         for banned in ("BundleProduct", "BundleMember", "effective_prices", "unit_price_of"):
-            assert banned not in src, f"{rel} must leave {banned} to catalog/allocation.py"
+            assert banned not in src, f"{rel} must leave {banned} to catalog/allocation"
 
 
 async def test_customer_price_can_never_be_below_the_bundles_reseller_price(session):

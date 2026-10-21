@@ -33,7 +33,7 @@ def test_channels_never_choose_a_server():
 def test_every_choice_a_channel_sends_is_validated_by_the_core_before_payment():
     create = _called_names(_function("apps/api/melorin/modules/orders/service.py", "create_order"))
     assert create.index("plan_sale") < create.index("pay_with_wallet")
-    plan = _called_names(_function("apps/api/melorin/modules/catalog/allocation.py", "plan_sale"))
+    plan = _called_names(_function("apps/api/melorin/modules/catalog/allocation/sale.py", "plan_sale"))
     assert plan.index("resolve_order_group") < plan.index("requested_account_name") < plan.index("bundle_product")
 
 

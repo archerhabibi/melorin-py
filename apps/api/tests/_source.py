@@ -89,6 +89,8 @@ def _raw_text(path: Path) -> str:
         parts = [path.read_text(encoding="utf-8")]
         parts += [f.read_text(encoding="utf-8") for f in sorted((path.parent / "tgmain").rglob("*.py"))]
         return "\n".join(parts)
+    if not path.exists() and path.suffix == ".py" and path.with_suffix("").is_dir():  # a module that became a package
+        return "\n".join(f.read_text(encoding="utf-8") for f in sorted(path.with_suffix("").rglob("*.py")))
     return path.read_text(encoding="utf-8")
 
 

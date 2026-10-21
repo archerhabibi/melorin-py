@@ -69,6 +69,15 @@ layers = [
 ]
 
 [[tool.importlinter.contracts]]
+name = "catalog.allocation is a one-way stack: offers <- routing <- sale (reseller_prices only needs offers)"
+type = "layers"
+layers = [
+  "melorin.modules.catalog.allocation.sale | melorin.modules.catalog.allocation.reseller_prices",
+  "melorin.modules.catalog.allocation.routing",
+  "melorin.modules.catalog.allocation.offers",
+]
+
+[[tool.importlinter.contracts]]
 name = "channels are adapters: they never import admin, reseller, reports, the worker or the entry points"
 type = "forbidden"
 source_modules = ["melorin.channels"]
