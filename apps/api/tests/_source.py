@@ -33,8 +33,20 @@ def normalize_source(text: str) -> str:
 # Phase 3.3: the admin API router is split into one module per route family. Contract tests that ask for
 # ``modules/admin/router.py`` get the text of the whole family (composition root + route modules).
 ADMIN_ROUTE_MODULES = (
-    "router", "overview", "products", "panels", "bundles", "payments", "orders", "directory",
-    "tickets", "reseller_applications", "settings", "coupons", "identity_reviews", "_common",
+    "router",
+    "overview",
+    "products",
+    "panels",
+    "bundles",
+    "payments",
+    "orders",
+    "directory",
+    "tickets",
+    "reseller_applications",
+    "settings",
+    "coupons",
+    "identity_reviews",
+    "_common",
 )
 
 
@@ -42,9 +54,19 @@ def _is_admin_router(path: Path) -> bool:
     return path.name == "router.py" and path.parent.name == "admin" and path.parent.parent.name == "modules"
 
 
+def _is_main_bot_runner(path: Path) -> bool:
+    return path.name == "runner.py" and path.parent.name == "telegram-main"
+
+
 def _raw_text(path: Path) -> str:
+    """Raw text of ``path``; split entry points resolve to the whole family (Phase 3.3 admin router, Phase 3.4 main bot)."""
+    path = Path(path)
     if _is_admin_router(path):
         return "\n".join((path.parent / f"{name}.py").read_text(encoding="utf-8") for name in ADMIN_ROUTE_MODULES)
+    if _is_main_bot_runner(path):
+        parts = [path.read_text(encoding="utf-8")]
+        parts += [f.read_text(encoding="utf-8") for f in sorted((path.parent / "tgmain").rglob("*.py"))]
+        return "\n".join(parts)
     return path.read_text(encoding="utf-8")
 
 

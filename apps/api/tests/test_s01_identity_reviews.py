@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+from _source import _raw_text
+
 import pytest
 
 import melorin.models  # noqa: F401  (registers every table so FKs resolve)
@@ -86,5 +88,5 @@ def test_screen_is_wired_into_the_admin_panel_and_bot_keeps_its_contract():
     assert '"بررسی هویت": IdentityReviewsView' in extra and "function Reviews(" not in extra
     view = (PROJECT / "apps/admin-web/src/IdentityReviewsView.jsx").read_text()
     assert "identity-link-reviews?status=all" in view and "reopen" in view and "dismiss" in view
-    bot = (PROJECT / "apps/telegram-main/runner.py").read_text()
+    bot = _raw_text(PROJECT / "apps/telegram-main/runner.py")
     assert 'f"wla:{sid}:{c}"' in bot and 'f"wld:{sid}"' in bot  # callback data format is part of the Core contract
