@@ -37,6 +37,13 @@ Never put secrets (tokens, passwords, keys, `.env` values) in the change log, co
 - Do not edit tracked files directly on the server; change them in git and deploy. Server-side edits block
   `git pull --ff-only`.
 - Run `make lint` and `make test` before pushing. Database changes need an Alembic migration.
+- Respect the layering enforced by `lint-imports` (contracts in `apps/api/pyproject.toml`, run by `make lint` and CI):
+  `domain` (pure) <- `kernel` (ORM models, `Base`) <- `core` (infrastructure) <- feature `modules` (an acyclic stack:
+  admin > reports > reseller > orders/payments/identity > catalog/referral/tickets > vpn/wallet/webhooks/...) .
+  `channels/*` are adapters and never import admin, reseller, reports, the worker or the entry points.
+  New cross-module needs go through a lower layer or an outbox event, never a back-import.
+- Validation with many independent checks (settings, coupon definitions) is written as an ordered rule table, not a long
+  `if` chain; pin new rules with a test that asserts the code/message and the order.
 - `github-actions[bot]` adds a commit with the change log after your push; run `git pull --rebase` before pushing again.
 
 ## 3. Pull requests
