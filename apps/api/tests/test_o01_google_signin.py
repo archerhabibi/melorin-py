@@ -11,7 +11,7 @@ import melorin.models  # noqa: F401  (registers every table so FKs resolve)
 from melorin.core import db, integrations, settings_store
 from melorin.core.errors import AppError
 from melorin.core.security import _totp, totp_new_secret
-from melorin.modules.identity import router, service
+from melorin.modules.identity import google as google_signin, router, service
 from melorin.kernel.models.identity import Identity, IdentityLinkReview, RefreshToken, User
 from melorin.modules.identity.schemas import GoogleLogin
 from melorin.kernel.models.stores import Store
@@ -63,7 +63,7 @@ async def world(tmp_path, monkeypatch):
         async def fake_verify(_token, _client_id=None):
             return {"sub": fake_verify.sub, "email": "x@example.com", "email_verified": "true", "nonce": "n1"}
 
-        monkeypatch.setattr(service, "verify_google_token", fake_verify)
+        monkeypatch.setattr(google_signin, "verify_google_token", fake_verify)
         yield types.SimpleNamespace(s=s, secret=secret, verify=fake_verify, admin=admin)
     await db.engine().dispose()
 
@@ -166,7 +166,7 @@ async def test_link_google_attaches_identity_to_current_user(world):
     ident = await service.find_identity(world.s, "google", "g-new")
     assert ident is not None and ident.user_id == tg_user.id
     # signing in with that Google account now opens the same user instead of creating a new one
-    user, created = await service.login_with_google(world.s, "t", "n1")
+    user, created = await google_signin.login_with_google(world.s, "t", "n1")
     assert created is False and user.id == tg_user.id
 
 

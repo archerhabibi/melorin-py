@@ -8,7 +8,7 @@ from melorin.core.deps import AdminUser, BotAuth, CurrentAuth, CurrentUser, Sess
 from melorin.core.errors import AppError
 from melorin.core.ratelimit import RateLimit, hit
 from melorin.core.security import new_opaque_token, totp_counter, totp_new_secret, verify_password, hash_password
-from melorin.modules.identity import service
+from melorin.modules.identity import google as google_signin, service
 from melorin.kernel.models.identity import User
 from melorin.modules.identity.schemas import (
     AdminPasswordChange,
@@ -154,7 +154,7 @@ async def google_nonce(response: Response):
 @auth.post("/google", response_model=TokenPair)
 async def google_login(body: GoogleLogin, session: Session, request: Request, response: Response):
     cookies = getattr(request, "cookies", None) or {}
-    user, created = await service.login_with_google(session, body.id_token, cookies.get(GOOGLE_NONCE_COOKIE))
+    user, created = await google_signin.login_with_google(session, body.id_token, cookies.get(GOOGLE_NONCE_COOKIE))
     cfg = await integrations.get_google(session)
     if user.is_super_admin and not cfg["admin_login"]:
         await session.rollback()
@@ -347,7 +347,7 @@ async def create_web_handoff(body: WebHandoffIn, auth: CurrentAuth, session: Ses
 async def attach_google(body: GoogleLink, user: CurrentUser, session: Session, request: Request, response: Response):
     """Link a Google account to the signed-in user (same nonce-cookie binding as Google sign-in)."""
     cookies = getattr(request, "cookies", None) or {}
-    await service.link_google(session, user, body.id_token, cookies.get(GOOGLE_NONCE_COOKIE))
+    await google_signin.link_google(session, user, body.id_token, cookies.get(GOOGLE_NONCE_COOKIE))
     response.delete_cookie(GOOGLE_NONCE_COOKIE, path=GOOGLE_NONCE_PATH)
     return {"ok": True}
 
