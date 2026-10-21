@@ -103,3 +103,25 @@ def test_runner_secrets_are_wired_end_to_end():
     main, reseller = (root / "apps/telegram-main/runner.py").read_text(), (root / "apps/telegram-reseller/runner.py").read_text()
     assert 'secret_env = "MELORIN_MAIN_BOT_SECRET"' in main and "os.environ.get(self.secret_env)" in main
     assert 'secret_env = "MELORIN_RESELLER_BOT_SECRET"' in reseller and 'os.environ.get("MELORIN_RESELLER_BOT_SECRET")' in reseller
+
+
+async def test_per_customer_limit_counts_each_store_separately_even_for_a_platform_coupon():
+    from melorin.modules.catalog.models import CouponRedemption
+
+    async with open_session() as s:
+        referrer, customer, main, reseller, product = await _world(s)
+        platform = await _coupon(s, owner_key="admin", store_id=None, scope="domain")
+        o1 = await make_order(s, user=customer, store=main, product=product)
+        o2 = await make_order(s, user=customer, store=reseller, product=product)
+        s.add(CouponRedemption(coupon_id=platform.id, order_id=o1.id, user_id=customer.id, store_id=main.id, amount=100, currency="IRT"))
+        await s.commit()
+        assert await catalog.customer_redemptions(s, platform.id, customer.id, main.id) == 1  # used in main ...
+        assert (
+            await catalog.customer_redemptions(s, platform.id, customer.id, reseller.id) == 0
+        )  # ... still available in the reseller store
+        s.add(
+            CouponRedemption(coupon_id=platform.id, order_id=o2.id, user_id=customer.id, store_id=reseller.id, amount=100, currency="IRT")
+        )
+        await s.commit()
+        assert await catalog.customer_redemptions(s, platform.id, customer.id, reseller.id) == 1
+        assert await catalog.customer_redemptions(s, platform.id, referrer.id, main.id) == 0  # other customers unaffected
