@@ -36,6 +36,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-21 04:40 UTC - archerhabibi - config, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(bots): runners get a minimal env and their own secret; shared secret retires in strict mode - telegram_main/telegram_reseller no longer use env_file; each gets only its own secret, Core URL and (main) bot token. identify_bot drops the shared secret once both per-runner secrets exist. melorin.s…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (8):** `.env.example`, `apps/api/melorin/core/channel.py`, `apps/api/tests/test_t01_channel_binding.py`, `apps/api/tests/test_t02_referral_coupon_store_scope.py`, `docker-compose.yml`, `docs/16-Channel-Binding-Design.md`, `docs/17-Referral-Coupon-Store-Scope.md`, `melorin.sh`
+- **Ref:** `052e6ee`
+
+
 ### 2026-10-21 04:20 UTC - Claude - api, tests, docs  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
