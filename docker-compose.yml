@@ -71,10 +71,17 @@ services:
     build:
       context: .
       dockerfile: apps/telegram-main/Dockerfile
-    env_file: [.env]
+    # Least privilege: NO env_file. A bot runner gets only what it needs (never the DB password, JWT/encryption keys, the other
+    # runner's secret or the shared secret when its own is set). Core accepts MELORIN_MAIN_BOT_SECRET for the main store only.
     environment:
       MELORIN_CORE_URL: http://api:8000
       MELORIN_TELEGRAM_OFFSET_FILE: /var/lib/melorin/main-offset.json
+      MELORIN_TELEGRAM_TOKEN: ${MELORIN_TELEGRAM_TOKEN:-}
+      MELORIN_MAIN_BOT_SECRET: ${MELORIN_MAIN_BOT_SECRET:-}
+      # fallback for installs that have not generated the per-runner secret yet; empty when the main secret is set
+      MELORIN_BOT_SERVICE_SECRET: ${MELORIN_MAIN_BOT_SECRET:-${MELORIN_BOT_SERVICE_SECRET:-}}
+      MELORIN_MAX_UPLOAD_BYTES: ${MELORIN_MAX_UPLOAD_BYTES:-5242880}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
     volumes: [telegram_main_state:/var/lib/melorin]
     depends_on: {api: {condition: service_healthy}}
     healthcheck: {test: [CMD, python, scripts/telegram_healthcheck.py], interval: 30s, timeout: 8s, retries: 3, start_period: 15s}
@@ -84,10 +91,14 @@ services:
     build:
       context: .
       dockerfile: apps/telegram-reseller/Dockerfile
-    env_file: [.env]
+    # Least privilege: NO env_file (see telegram_main). The reseller supervisor needs only its own secret; bot tokens come from Core.
     environment:
       MELORIN_CORE_URL: http://api:8000
       MELORIN_HEARTBEAT_FILE: /var/lib/melorin/supervisor-heartbeat
+      MELORIN_RESELLER_BOT_SECRET: ${MELORIN_RESELLER_BOT_SECRET:-}
+      MELORIN_BOT_SERVICE_SECRET: ${MELORIN_RESELLER_BOT_SECRET:-${MELORIN_BOT_SERVICE_SECRET:-}}
+      MELORIN_MAX_UPLOAD_BYTES: ${MELORIN_MAX_UPLOAD_BYTES:-5242880}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
     volumes: [telegram_reseller_state:/var/lib/melorin]
     depends_on: {api: {condition: service_healthy}}
     healthcheck: {test: [CMD, python, scripts/telegram_healthcheck.py], interval: 30s, timeout: 8s, retries: 3, start_period: 20s}

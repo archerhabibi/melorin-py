@@ -129,8 +129,13 @@ def identify_bot(presented: str) -> BotService | None:
     """Constant-time match of a presented runner secret against every configured one (no early exit on the first hit)."""
     s = get_settings()
     given = (presented or "").encode()
+    # Strict mode: once BOTH per-runner secrets exist, the shared secret is retired (a leaked copy of it, e.g. in an old .env
+    # backup, opens nothing). With only one (or none) configured it keeps working, so existing installs upgrade gradually.
+    candidates = [("reseller", s.reseller_bot_secret), ("main", s.main_bot_secret)]
+    if not (s.main_bot_secret and s.reseller_bot_secret):
+        candidates.append(("any", s.bot_service_secret))
     found: BotService | None = None
-    for kind, secret in (("reseller", s.reseller_bot_secret), ("main", s.main_bot_secret), ("any", s.bot_service_secret)):
+    for kind, secret in candidates:
         if secret and hmac.compare_digest(given, secret.encode()) and found is None:
             found = BotService(kind)
     return found

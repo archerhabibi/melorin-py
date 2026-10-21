@@ -109,3 +109,21 @@ async def test_per_customer_limit_counts_each_store_separately_even_for_a_platfo
         await s.commit()
         assert await catalog.customer_redemptions(s, platform.id, customer.id, reseller.id) == 1
         assert await catalog.customer_redemptions(s, platform.id, referrer.id, main.id) == 0  # other customers unaffected
+
+
+def test_compose_runners_get_a_minimal_environment_without_env_file():
+    """A bot runner container holds only what it needs: no .env (DB password, JWT/encryption keys, other runner's secret)."""
+    import re
+    from pathlib import Path
+
+    text = (Path(__file__).parents[3] / "docker-compose.yml").read_text()
+    services = text.split("\nvolumes:")[0].split("\nservices:\n")[1]
+    blocks = {m.group(1): m.group(0) for m in re.finditer(r"^  (\w+):\n(?:(?:    .*|)\n?)*", services, re.M)}
+    assert {"api", "worker", "telegram_main", "telegram_reseller"} <= set(blocks)
+    for name, own, other in (("telegram_main", "MELORIN_MAIN_BOT_SECRET", "MELORIN_RESELLER_BOT_SECRET"), ("telegram_reseller", "MELORIN_RESELLER_BOT_SECRET", "MELORIN_MAIN_BOT_SECRET")):
+        code = "\n".join(line for line in blocks[name].splitlines() if not line.lstrip().startswith("#"))
+        assert "env_file" not in code, f"{name} must not load the whole .env"
+        assert own in code and other not in code, f"{name} gets its own secret only"
+        assert not any(k in code for k in ("JWT", "ENCRYPTION", "POSTGRES", "DATABASE", "METRICS", "HEALTH_TOKEN")), name
+    for name in ("api", "worker"):  # Core itself keeps the full environment
+        assert "env_file: [.env]" in blocks[name]

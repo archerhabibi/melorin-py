@@ -146,10 +146,22 @@ def test_host_normalisation_rejects_garbage():
 # ------------------------------------------------------------------ bot channel (runner secret + store)
 def test_runner_secrets_identify_the_runner_in_constant_time(prod):
     assert ch.identify_bot("m" * 40).kind == "main" and ch.identify_bot("r" * 40).kind == "reseller"
-    assert ch.identify_bot("s" * 40).kind == "any"
+    assert ch.identify_bot("s" * 40) is None  # strict mode: with BOTH per-runner secrets set the shared one is retired
     assert ch.identify_bot("") is None and ch.identify_bot("wrong") is None
     assert ch.BotService("main").may_serve("main") and not ch.BotService("main").may_serve("reseller")
     assert ch.BotService("any").may_serve("main") and ch.BotService("any").may_serve("reseller")
+
+
+def test_shared_secret_keeps_working_until_both_runner_secrets_exist(monkeypatch):
+    def cfg(**kw):
+        monkeypatch.setattr(ch, "get_settings", lambda: types.SimpleNamespace(**{**vars(PROD), **kw}))
+
+    cfg(main_bot_secret="", reseller_bot_secret="")  # legacy install: the shared secret serves everything
+    assert ch.identify_bot("s" * 40).kind == "any"
+    cfg(reseller_bot_secret="")  # half-migrated: main has its own, the reseller runner still uses the shared one
+    assert ch.identify_bot("s" * 40).kind == "any" and ch.identify_bot("m" * 40).kind == "main"
+    cfg()  # fully migrated
+    assert ch.identify_bot("s" * 40) is None and ch.identify_bot("r" * 40).kind == "reseller"
 
 
 async def test_a_runner_can_only_open_sessions_in_stores_of_its_kind(prod):

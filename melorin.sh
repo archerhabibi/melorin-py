@@ -243,6 +243,10 @@ do_update() {
   chmod +x melorin.sh scripts/*.sh 2>/dev/null || true
   if [ "$before" = "$after" ]; then info "Already at $after; rebuilding anyway."; else info "Updating $before -> $after"; fi
   ( umask 077; mkdir -p var; cp -p .env var/env.before-update )
+  # Least-privilege bot-runner secrets (docs/16): older installs get them on update; Core then retires the shared secret.
+  for k in MELORIN_MAIN_BOT_SECRET MELORIN_RESELLER_BOT_SECRET; do
+    [ -n "$(env_get "$k")" ] || { env_set "$k" "$(openssl rand -hex 32)" && info "Generated $k."; }
+  done
   compose build                          || { err "Build failed."; return 1; }
   compose run --rm api alembic upgrade head || { err "Migration failed - services were NOT restarted."; return 1; }
   compose up -d --remove-orphans         || { err "Could not start the services."; return 1; }
