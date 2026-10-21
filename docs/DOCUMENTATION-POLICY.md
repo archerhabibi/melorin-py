@@ -8,10 +8,12 @@ the only release-status source).
 `python scripts/gen_docs.py` and verified by `python scripts/gen_docs.py --check` (part of `make guards`,
 the quality gate and CI). Never hard-code the Alembic head, test counts, coverage or route lists anywhere else.
 
-**History**: phase reports, completion notes and audits belong in `docs/history/` (indexed in
-`docs/history/INDEX.md`). They are evidence of what changed, not active instructions. Use `git mv` so history is kept.
-Do not file `Melorin_*.md`-style reports in `docs/` root and do not keep self-declared "audit"/"status" files at
-the repository root - the guard rejects both.
+**History**: phase reports, completion notes and audits are *not* kept in the working tree. They are preserved in the
+git tag `docs-history-2026-10-22` and indexed in `docs/HISTORY.md` (how to read them is described there). `docs/history/`
+holds only the four files that tests and guards read (`I33`, `I39`, `I40`, `I41`); the guard rejects any other file there
+and any phase report in `docs/` root. A new report belongs in the commit message / `docs/CHANGE_LOG.md`, not in a new file.
+Reports are evidence of what changed, not active instructions. Keep one document per subject: bilingual guides are one file
+with an English and a Persian section.
 
 When a setting, route, install step or security rule changes, update the English and Persian README plus the runbook
 in the same change, then run `python scripts/gen_docs.py`. Do not store tokens, passwords, TOTP seeds, age identities,

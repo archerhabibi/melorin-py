@@ -14,5 +14,5 @@
 
 مرجع نیازمندی‌ها: سند 01. قوانین مالی و چرخه سفارش: سند 07. معماری: سند 02. تصمیم‌های قطعی و موارد باز در سند 10 تفکیک شده‌اند. همه خریدها Wallet-first هستند؛ کیف پول، ارز و مقصد پرداخت Store-scoped است. Reseller باید پیش از فعال‌سازی مشتری Main Store باشد. ARQ + Redis، Reseller API و Outgoing Webhook در V1 مصوب‌اند.
 
-اسناد تکمیلی: 12-Change-Log-v1.1 · 13-Renewal-Core-Design · 14-Store-Isolation-Design · 15-Store-Isolation-Rollout · 16-Channel-Binding-Design · 17-Referral-Coupon-Store-Scope.
-وضعیت اندازه‌گیری‌شدهٔ پروژه (هد مایگریشن، تعداد API/تست) فقط در `docs/STATUS.md` (تولید خودکار) و فهرست مسیرها در `docs/API.md` است. گزارش‌های فازهای قبلی در `docs/history/` نگهداری می‌شوند و وضعیت جاری نیستند. سیاست: `docs/DOCUMENTATION-POLICY.md`.
+اسناد تکمیلی: 13-Renewal-Core-Design · 14-Store-Isolation-Design (شامل Rollout) · 16-Channel-Binding-Design · 17-Referral-Coupon-Store-Scope. تصمیم‌های اعمال‌شدهٔ v1.1 در `DECISIONS.md`؛ راه‌اندازی ورود با گوگل/تلگرام در `GOOGLE-LOGIN-SETUP.md` و `TELEGRAM-LOGIN-SETUP.md`؛ پشتیبان‌گیری در 08؛ دامنهٔ تلگرام و طراحی ربات نماینده در 11؛ بازطراحی صفحه‌های زیرساخت در 03؛ جمع‌آوری شواهد اجرا در `RELEASE-EVIDENCE-MATRIX.md`.
+وضعیت اندازه‌گیری‌شدهٔ پروژه (هد مایگریشن، تعداد API/تست) فقط در `docs/STATUS.md` (تولید خودکار) و فهرست مسیرها در `docs/API.md` است. گزارش‌های فازهای قبلی در `docs/HISTORY.md` نگهداری می‌شوند و وضعیت جاری نیستند. سیاست: `docs/DOCUMENTATION-POLICY.md`.

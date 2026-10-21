@@ -13,8 +13,8 @@
 | API paths | 180 |
 | Test files / test functions (static count) | 119 / 861 |
 | Coverage | not measured here (CI writes `apps/api/coverage.xml`; run `pytest --cov=melorin --cov-report=xml`) |
-| Documents: repo root / `docs/` / `docs/history/` | 3 / 35 / 89 |
+| Documents: repo root / `docs/` / `docs/history/` (tests only) | 3 / 27 / 4 |
 
-Where things live: requirements and design `docs/01`-`docs/17`; route list `docs/API.md`;
+Where things live: requirements and design `docs/01`-`docs/17` (13-17 are design records; 12 and 15 were merged into `DECISIONS.md` and `14`); route list `docs/API.md`;
 operations `docs/RUNBOOK.md`; decisions `docs/DECISIONS.md`; change log `docs/CHANGE_LOG.md`;
-historical phase reports (evidence, never current status) `docs/history/`.
+historical phase reports (evidence, never current status) in git tag `docs-history-2026-10-22`, indexed in `docs/HISTORY.md`.

@@ -12,7 +12,7 @@ Machine-owned content (never edit by hand):
   1. the generated route block in docs/API.md differs from the code,
   2. the migration head / API operation count in docs/STATUS.md differs from the code,
   3. a status carrier (README*, CONTRIBUTING, active docs) hard-codes an Alembic head,
-  4. a phase report (Melorin_*.md and similar) is filed in docs/ root instead of docs/history/,
+  4. a phase report (Melorin_*.md and similar) is filed in docs/ root, or docs/history/ holds a file outside RETAINED_HISTORY,
   5. an active document points at a docs/*.md file that does not exist.
 
 Volatile numbers (test count, coverage) are written but deliberately NOT checked, so that adding a
@@ -154,11 +154,11 @@ def render_status(head: str, n_mig: int, schema: dict, n_tables: int, rows: list
 | API paths | {n_paths} |
 | Test files / test functions (static count) | {t_files} / {t_funcs} |
 | Coverage | {coverage()} |
-| Documents: repo root / `docs/` / `docs/history/` | {inv["root"]} / {inv["docs"]} / {inv["history"]} |
+| Documents: repo root / `docs/` / `docs/history/` (tests only) | {inv["root"]} / {inv["docs"]} / {inv["history"]} |
 
-Where things live: requirements and design `docs/01`-`docs/17`; route list `docs/API.md`;
+Where things live: requirements and design `docs/01`-`docs/17` (13-17 are design records; 12 and 15 were merged into `DECISIONS.md` and `14`); route list `docs/API.md`;
 operations `docs/RUNBOOK.md`; decisions `docs/DECISIONS.md`; change log `docs/CHANGE_LOG.md`;
-historical phase reports (evidence, never current status) `docs/history/`.
+historical phase reports (evidence, never current status) in git tag `docs-history-2026-10-22`, indexed in `docs/HISTORY.md`.
 """
 
 
@@ -179,6 +179,12 @@ ACTIVE_DOCS = lambda: [ROOT / n for n in ("README.md", "README.fa.md", "CONTRIBU
     p for p in sorted(DOCS.glob("*.md")) if p.name not in ("CHANGE_LOG.md", "STATUS.md")
 ]
 HEAD_LITERAL = re.compile(r"(?i)\bhead\b[^.\n]{0,60}\b00\d\d(?:_[a-z0-9_]+)?\b|\b00\d\d_[a-z0-9_]+\b[^.\n]{0,30}\bhead\b")
+RETAINED_HISTORY = {
+    "I33_DOCUMENTATION_STATUS.md",
+    "I39_IRT_IRR_AUDIT.md",
+    "I40_CURRENCY_PAYMENT_CONTRACT.md",
+    "I41_BACKUP_RESTORE_DRILL.md",
+}  # read by tests/guards; everything else lives in the history tag (docs/HISTORY.md)
 PHASE_REPORT = re.compile(r"^(Melorin_.*|FINAL_.*REPORT.*|REVIEW_CHANGES_.*|FULL_PROJECT_AUDIT.*)\.md$")
 DOC_REF = re.compile(r"`(docs/[A-Za-z0-9_./-]+\.md)`")
 
@@ -206,7 +212,10 @@ def check(block: str, status_expected: str) -> list[str]:
                 problems.append(f"{rel}: references missing file {ref}")
     for p in DOCS.glob("*.md"):
         if PHASE_REPORT.match(p.name):
-            problems.append(f"docs/{p.name}: phase reports belong in docs/history/")
+            problems.append(f"docs/{p.name}: phase reports are not kept in docs/ (history tag, see docs/HISTORY.md)")
+    for p in (DOCS / "history").glob("*"):
+        if p.name not in RETAINED_HISTORY:
+            problems.append(f"docs/history/{p.name}: not allowed; history lives in the tag (docs/HISTORY.md)")
     for stale in ("FULL_PROJECT_AUDIT.md", "DOCUMENTATION-STATUS.md"):
         if (ROOT / stale).exists():
             problems.append(f"{stale}: superseded by docs/STATUS.md and must not return")

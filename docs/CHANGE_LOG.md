@@ -1009,7 +1009,7 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 - **After:** scripts syntax-checked and the watcher was tested earlier on a scratch copy (baseline, new commit,
   hand edit, `.env` change, no secret values written). Deploy workflow needs the DEPLOY_* secrets before its first
   run; cron and workflow NOT yet run on the real server.
-- **Ref:** this commit; details in `docs/history/REVIEW_CHANGES_2026-10-12.md`
+- **Ref:** this commit; details in `docs/history/REVIEW_CHANGES_2026-10-12.md` (git tag `docs-history-2026-10-22`)
 
 ### 2026-10-11 - Claude (with owner) - reset to 27b7ee5 and re-applied the agreed changes
 - **Before:** `main` carried extra commits (custom ports, TLS-from-files, SMTP/backup installer, server-side logging).
@@ -1023,14 +1023,14 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 - **After:** patch applies cleanly on 27b7ee5; test suite: 122 passed / 6 failed - the same 6 fail on plain
   27b7ee5 (not caused by the patch); the 7 new tests pass. Installer dry-run (stub docker): token prompt, invalid
   token handling and idempotent re-run OK. Real-server install and the GitHub workflows not yet run.
-- **Ref:** this commit; details in `docs/history/REVIEW_CHANGES_2026-10-12.md`
+- **Ref:** this commit; details in `docs/history/REVIEW_CHANGES_2026-10-12.md` (git tag `docs-history-2026-10-22`)
 
 ### 2026-10-12 - Claude (with owner) - comprehensive review changes applied (melorin-complete-changes.patch)
 - **Before:** `main` at 3b2262a (admin login by e-mail code, no referral first-reward guard, installer/compose without the review fixes).
 - **Problem:** the comprehensive project review found issues across auth, referral, rate limiting/Redis, VPN adapter registry, worker, Dockerfile, compose and the installer.
 - **Action:** applied the review patch (33 files): admin login via password + TOTP, migration `0009_referral_first_reward_guard`, changes in app/cli/config/ratelimit/redis, admin/identity/orders/referral/reseller/vpn modules, arq worker, Dockerfile, `docker-compose.yml` + new `docker-compose.external.yml`, `infra/alerts.yml`, `install_server.sh`, `run_quality_gate.sh`, store-web/admin-web auth, and tests.
 - **After:** tree is byte-identical to the review zip; Python compile and shell syntax checks pass. Full test suite, migration on a real DB and the web builds NOT yet run.
-- **Ref:** this commit; details in `docs/history/REVIEW_CHANGES_2026-10-12.md`
+- **Ref:** this commit; details in `docs/history/REVIEW_CHANGES_2026-10-12.md` (git tag `docs-history-2026-10-22`)
 
 ### 2026-10-12 - Claude (with owner) - L01-L22 patch applied (melorin-L01-L22.patch)
 - **Before:** `main` at 3ffadfb; 21 tests failing (L-series contracts and stale review assertions), off-site backup mandatory in production, historical `I*.md` notes in the repo root.
