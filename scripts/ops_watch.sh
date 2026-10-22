@@ -5,7 +5,7 @@
 #   * tracked files edited by hand         * container recreated / restarted / became unhealthy / stopped
 # It cannot know WHY something changed: entries say so, and people add the reason with scripts/ops_log.sh.
 set -uo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/.." || exit 1
 APP="$(pwd)"
 mkdir -p var
 LOG="var/ops-log.md"; ST="var/.ops-watch"; mkdir -p "$ST"; chmod 700 "$ST" 2>/dev/null || true
