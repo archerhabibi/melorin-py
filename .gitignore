@@ -17,3 +17,6 @@ apps/*/dist/
 
 .coverage
 coverage.xml
+
+# Redis local dumps (accidentally committed once in phase 4.5)
+*.rdb
