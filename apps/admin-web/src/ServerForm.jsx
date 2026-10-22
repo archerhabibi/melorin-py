@@ -264,7 +264,7 @@ export function ServerForm({
           <Field label="نام سرور" error={showErr('name')}>
             <input
               ref={first}
-              autoFocus
+              data-autofocus
               className="inp"
               value={f.name}
               maxLength={100}

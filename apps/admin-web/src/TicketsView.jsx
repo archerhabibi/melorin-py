@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Badge, confirmDialog, dt } from './ui.jsx';
 import { Field, Segmented, Stat, errText, num, useAlive } from './kit.jsx';
+import { focusOnMount } from './useDialog.js';
 
 const PRIORITY = { low: ['کم', 'mu'], normal: ['عادی', 'in'], high: ['بالا', 'wn'], urgent: ['فوری', 'bd'] };
 const DEPARTMENTS = [
@@ -216,7 +217,7 @@ function Bubble({ m, mine, onEdit, editing, onSaveEdit, onCancelEdit, busy }) {
         {editing ? (
           <div className="space-y-2">
             <textarea
-              autoFocus
+              ref={focusOnMount}
               dir="auto"
               rows={Math.min(10, Math.max(3, v.split('\n').length + 1))}
               maxLength={MAX}
@@ -514,7 +515,7 @@ function Conversation({ call, id, toast, onChanged, onBack }) {
             ) : (
               <div className="flex gap-2">
                 <input
-                  autoFocus
+                  ref={focusOnMount}
                   className="inp"
                   maxLength={200}
                   value={editSubject}

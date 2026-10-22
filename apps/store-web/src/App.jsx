@@ -31,6 +31,7 @@ import TelegramLogin from './TelegramLogin.jsx';
 import { PurchaseResult } from './Subscription.jsx';
 import TelegramLoginButtons from './TelegramLoginButtons.jsx';
 import { Modal, ThemeToggle, Toast, fa } from './ui.jsx';
+import { focusOnMount } from './useDialog.js';
 
 const NAV = [
   ['#plans', 'سرویس‌ها'],
@@ -62,7 +63,7 @@ const WHY = [
 
 function Logo() {
   return (
-    <a href="#" className="flex items-center gap-3" aria-label="ملورین؛ صفحه اصلی">
+    <a href="#/" className="flex items-center gap-3" aria-label="ملورین؛ صفحه اصلی">
       <span className="grid h-10 w-10 place-items-center rounded-2xl bg-hero text-xl font-extrabold text-[#f7c85c] shadow-soft">
         م
       </span>
@@ -1063,7 +1064,7 @@ export default function App() {
                 کد ارسال‌شده به <b className="latin text-ink">{email}</b> را وارد کن.
               </p>
               <input
-                autoFocus
+                ref={focusOnMount}
                 dir="ltr"
                 inputMode="numeric"
                 autoComplete="one-time-code"

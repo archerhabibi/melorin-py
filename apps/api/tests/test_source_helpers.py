@@ -1,5 +1,7 @@
 """M6.7: contract tests that read source must survive re-formatting."""
 
+from pathlib import Path
+
 from _source import normalize_source
 
 
@@ -21,3 +23,11 @@ def test_web_source_is_stable_under_prettier_layout():
     after = 'const x = {"a b": f("x", {k: 1})};'
     assert normalize_web_source(before) == normalize_web_source(after)
     assert normalize_web_source("f('a')") != normalize_web_source("f('b')")
+
+
+def test_dialog_hook_is_identical_in_both_web_apps():
+    """Phase 6.4: one overlay behaviour (focus trap, Esc on the topmost dialog) shared byte-for-byte."""
+    apps = Path(__file__).resolve().parents[2]
+    admin = (apps / "admin-web/src/useDialog.js").read_bytes()
+    store = (apps / "store-web/src/useDialog.js").read_bytes()
+    assert admin == store

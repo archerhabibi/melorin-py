@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CornerDownLeft, Search } from 'lucide-react';
+import { backdropProps, useDialog } from './useDialog.js';
 
 // Ctrl/⌘+K command palette: items = [{ name, hint, Icon, run }]
 export function Palette({ items, onClose }) {
   const [q, setQ] = useState('');
   const [i, setI] = useState(0);
   const ref = useRef();
+  const dialogRef = useDialog(onClose);
   const list = useMemo(
     () => items.filter((x) => `${x.name} ${x.hint || ''}`.toLowerCase().includes(q.trim().toLowerCase())),
     [items, q],
@@ -13,8 +15,7 @@ export function Palette({ items, onClose }) {
   useEffect(() => setI(0), [q]);
   useEffect(() => ref.current?.querySelector('[data-on]')?.scrollIntoView({ block: 'nearest' }), [i]);
   const key = (e) => {
-    if (e.key === 'Escape') onClose();
-    else if (e.key === 'ArrowDown') {
+    if (e.key === 'ArrowDown') {
       e.preventDefault();
       setI((x) => Math.min(x + 1, list.length - 1));
     } else if (e.key === 'ArrowUp') {
@@ -26,23 +27,21 @@ export function Palette({ items, onClose }) {
     }
   };
   return (
-    <div
-      className="fixed inset-0 z-50 grid place-items-start bg-black/55 p-4 pt-[12vh]"
-      onClick={onClose}
-      onKeyDown={key}
-    >
+    <div className="fixed inset-0 z-50 grid place-items-start bg-black/55 p-4 pt-[12vh]" {...backdropProps(onClose)}>
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="جستجوی سریع"
         dir="rtl"
         className="card rise mx-auto w-full max-w-lg overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
       >
         <label className="flex items-center gap-3 border-b border-[var(--ln)] px-4">
           <Search size={18} className="text-[var(--mu)]" />
           <input
-            autoFocus
+            data-autofocus
+            onKeyDown={key}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="برو به بخش یا اجرای عملیات…"

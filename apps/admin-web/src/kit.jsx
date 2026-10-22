@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, LayoutGrid, List, Search, Trash2, X } from 'lucide-react';
 import { confirmDialog, noticeDialog } from './ui.jsx';
+import { backdropProps, useDialog } from './useDialog.js';
 
 export const num = (v) => Number(v || 0).toLocaleString('fa-IR');
 export const tint = (t) => ({ background: `var(--${t}b, var(--mb))`, color: `var(--${t}, var(--mu))` });
@@ -446,10 +447,13 @@ export function Drawer({ title, subtitle, icon, dirty, busy, onClose, children, 
       return;
     onClose();
   };
+  const ref = useDialog(close);
   return (
-    <div className="fixed inset-0 z-50" onKeyDown={(e) => e.key === 'Escape' && close()}>
-      <div className="pv-fade absolute inset-0 bg-black/55" onClick={close} />
+    <div className="fixed inset-0 z-50">
+      <div className="pv-fade absolute inset-0 bg-black/55" {...backdropProps(close)} />
       <aside
+        ref={ref}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={title}

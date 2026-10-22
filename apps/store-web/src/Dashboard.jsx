@@ -19,6 +19,7 @@ import {
 import { GoogleSignInButton } from './GoogleSignIn.jsx';
 import AccountInquiry from './AccountInquiry.jsx';
 import { Empty, Loading, PageTitle, StatusBadge, fa, fd } from './ui.jsx';
+import { focusOnMount } from './useDialog.js';
 const J = { 'Content-Type': 'application/json' };
 const tabs = [
   ['orders', 'سفارش‌ها', Package],
@@ -441,7 +442,7 @@ function TicketThread({ t, coreFetch, notify, onBack, onChanged }) {
             ) : (
               <div className="flex gap-2">
                 <input
-                  autoFocus
+                  ref={focusOnMount}
                   aria-label="موضوع تیکت"
                   className={inp}
                   maxLength={200}
@@ -514,7 +515,7 @@ function TicketThread({ t, coreFetch, notify, onBack, onChanged }) {
                     {editing === m.id ? (
                       <div className="space-y-2">
                         <textarea
-                          autoFocus
+                          ref={focusOnMount}
                           rows={3}
                           maxLength={10000}
                           dir="auto"
@@ -1019,7 +1020,7 @@ export default function Dashboard({ coreFetch, storeId, account, wallet, orders,
           <Store size={16} />
           پنل نماینده
         </a>
-        <a href="#" className="btn-soft btn-pill !py-2.5">
+        <a href="#/" className="btn-soft btn-pill !py-2.5">
           <ArrowRight size={16} />
           صفحه اصلی
         </a>

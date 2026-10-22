@@ -67,6 +67,7 @@ import {
   ShieldCheck,
   X,
 } from 'lucide-react';
+import { focusOnMount } from './useDialog.js';
 
 // Panels and their servers are ONE screen: a server is only a capacity slot of a single panel,
 // so it is created, edited and enabled right under the panel it belongs to. Group membership of a
@@ -475,7 +476,7 @@ function PanelDrawer({ panel, groups, idx, onClose, onSubmit, onToggle, onDelete
       <Section title={edit ? 'اتصال' : '۲ · اتصال'}>
         <Field label="نام نمایشی" error={show('name') || undefined}>
           <input
-            autoFocus
+            ref={focusOnMount}
             className="inp"
             value={f.name}
             maxLength={100}

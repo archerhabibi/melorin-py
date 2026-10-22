@@ -45,6 +45,7 @@ import {
   useRows,
 } from './kit.jsx'; // #4
 import { InfraChain, clearParam, infraHref, useHashParams, useInfra } from './infra.jsx';
+import { focusOnMount } from './useDialog.js';
 
 const API = '/api/v1/admin/products';
 const CUR = { IRT: 'تومان', USD: 'دلار', USDT: 'تتر', XTR: 'ستاره' };
@@ -203,7 +204,7 @@ function ProductDrawer({ product, products, hasResellers, onClose, onSubmit, onD
       <Section title="مشخصات">
         <Field label="نام محصول" error={show('name')}>
           <input
-            autoFocus
+            ref={focusOnMount}
             className="inp"
             maxLength={200}
             placeholder="مثلاً: ۳۰ روزه ۵۰ گیگ"

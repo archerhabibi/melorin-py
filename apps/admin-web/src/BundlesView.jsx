@@ -49,6 +49,7 @@ import {
   useHashParams,
   useInfra,
 } from './infra.jsx';
+import { focusOnMount } from './useDialog.js';
 
 // A sales bundle is a SALES BUNDLE (بسته فروش): panels + connection kind + the packages it sells, each with
 // its own price. Customers pick a bundle, so the bundle is the only way an account gets sold; there is no
@@ -700,7 +701,7 @@ function GroupDrawer({
       <Section title="اطلاعات">
         <Field label="نام بسته" error={tried && err.name}>
           <input
-            autoFocus
+            ref={focusOnMount}
             className="inp"
             maxLength={120}
             value={f.name}

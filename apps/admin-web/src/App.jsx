@@ -8,6 +8,7 @@ import { googleSignOut } from './GoogleSignIn.jsx';
 import Trend from './Trend.jsx';
 import { Badge, DialogHost, ThemeButton, confirmDialog, label, sid, tone } from './ui.jsx';
 import { Palette } from './palette.jsx';
+import { backdropProps, useDialog } from './useDialog.js';
 import { legacyHash } from './infra.jsx';
 import { toggleTheme } from './theme.js';
 import {
@@ -728,24 +729,17 @@ export default function App({ onLogout }) {
         </main>
       </div>
       {open && (
-        <div className="fixed inset-0 z-30 bg-black/55 lg:hidden" onClick={() => setOpen(false)}>
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="absolute right-0 top-0 flex h-full w-72 flex-col bg-[var(--nav)]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between">
-              <Brand />
-              <button aria-label="بستن منو" onClick={() => setOpen(false)} className="ml-4 rounded-lg p-2 text-white">
-                <X size={22} />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              <Nav section={section} go={go} openTickets={openTickets} pendingApps={api.pendingApps} />
-            </div>
+        <MobileNav onClose={() => setOpen(false)}>
+          <div className="flex items-center justify-between">
+            <Brand />
+            <button aria-label="بستن منو" onClick={() => setOpen(false)} className="ml-4 rounded-lg p-2 text-white">
+              <X size={22} />
+            </button>
           </div>
-        </div>
+          <div className="flex-1 overflow-y-auto">
+            <Nav section={section} go={go} openTickets={openTickets} pendingApps={api.pendingApps} />
+          </div>
+        </MobileNav>
       )}
       {pal && <Palette items={palItems} onClose={() => setPal(false)} />}
       <DialogHost />
@@ -755,6 +749,24 @@ export default function App({ onLogout }) {
             {notice}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function MobileNav({ onClose, children }) {
+  const ref = useDialog(onClose);
+  return (
+    <div className="fixed inset-0 z-30 bg-black/55 lg:hidden" {...backdropProps(onClose)}>
+      <div
+        ref={ref}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-label="منوی اصلی"
+        className="absolute right-0 top-0 flex h-full w-72 flex-col bg-[var(--nav)]"
+      >
+        {children}
       </div>
     </div>
   );

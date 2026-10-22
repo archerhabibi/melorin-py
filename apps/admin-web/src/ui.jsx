@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Moon, Sun } from 'lucide-react';
 import { getTheme, onTheme, toggleTheme } from './theme.js';
+import { backdropProps, useDialog } from './useDialog.js';
 
 // Real enums from the Core API (order_state.py, ticket/payment/vpn/store models).
 const S = {
@@ -67,55 +68,53 @@ export const noticeDialog = (message, { title = 'توجه', ok = 'متوجه ش�
   new Promise((res) => (open_ ? open_({ kind: 'n', title, message, ok, res }) : res()));
 export const promptDialog = (message, { title = 'ثبت توضیحات', ok = 'ثبت' } = {}) =>
   new Promise((res) => (open_ ? open_({ kind: 'p', title, message, ok, res }) : res(null)));
+let seq_ = 0;
 export function DialogHost() {
   const [d, setD] = useState(null);
-  const [v, setV] = useState('');
   useEffect(() => {
-    open_ = (x) => {
-      setV('');
-      setD(x);
-    };
+    open_ = (x) => setD({ ...x, id: ++seq_ });
     return () => {
       open_ = null;
     };
   }, []);
   if (!d) return null;
+  return <DialogBody key={d.id} d={d} close={() => setD(null)} />;
+}
+
+function DialogBody({ d, close }) {
+  const [v, setV] = useState('');
   const done = (r) => {
     d.res(r);
-    setD(null);
+    close();
   };
   const cancel = () => done(d.kind === 'p' ? null : d.kind === 'n' ? undefined : false);
+  const ref = useDialog(cancel);
   return (
-    <div
-      className="fixed inset-0 z-50 grid place-items-center bg-black/55 p-4"
-      onClick={cancel}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') cancel();
-        if (e.key === 'Enter' && e.target.tagName === 'INPUT') done(v);
-      }}
-    >
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/55 p-4" {...backdropProps(cancel)}>
       <div
+        ref={ref}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={d.title}
         className="card rise w-full max-w-md p-6"
         dir="rtl"
-        onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-lg font-extrabold">{d.title}</h3>
         <p className="mt-2 whitespace-pre-line text-sm leading-7 text-[var(--mu)]">{d.message}</p>
         {d.kind === 'p' && (
           <input
-            autoFocus
+            data-autofocus
             className="inp mt-4"
             value={v}
             onChange={(e) => setV(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && done(v)}
             placeholder="دلیل یا توضیح (اختیاری)"
           />
         )}
         <div className="mt-6 flex justify-start gap-2">
           <button
-            autoFocus={d.kind !== 'p'}
+            data-autofocus={d.kind !== 'p' ? '' : undefined}
             className={`btn ${d.danger ? '!bg-[var(--bd)] !text-white' : ''}`}
             onClick={() => done(d.kind === 'p' ? v : d.kind === 'n' ? undefined : true)}
           >

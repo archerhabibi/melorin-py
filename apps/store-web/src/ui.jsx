@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { X, CheckCircle2, AlertCircle, Info, Moon, Sun, Inbox } from 'lucide-react';
+import { backdropProps, useDialog } from './useDialog.js';
 
 export const fa = (n) => new Intl.NumberFormat('fa-IR').format(Number(n) || 0);
 // Date + time, e.g. ۱۴۰۵/۰۷/۲۱، ۱۴:۳۰
@@ -118,32 +119,18 @@ export function PageTitle({ eyebrow, title, children }) {
 }
 
 export function Modal({ onClose, title, children, label }) {
-  const ref = useRef(null);
-  useEffect(() => {
-    const prev = document.activeElement;
-    const onKey = (e) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
-    ref.current?.querySelector('input,button')?.focus();
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
-      prev?.focus?.();
-    };
-  }, []);
+  const ref = useDialog(onClose);
   return (
     <div
       className="fixed inset-0 z-50 grid place-items-end bg-navy/60 p-0 backdrop-blur-sm sm:place-items-center sm:p-4"
-      onClick={onClose}
+      {...backdropProps(onClose)}
     >
       <div
         ref={ref}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={label || title}
-        onClick={(e) => e.stopPropagation()}
         className="anim-pop relative w-full max-w-md rounded-t-4xl bg-surface p-7 shadow-lift sm:rounded-4xl"
       >
         <button
