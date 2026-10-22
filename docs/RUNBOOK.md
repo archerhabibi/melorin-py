@@ -13,7 +13,14 @@ The normal path is automatic and CI-gated; see **Release, rollback and alerting*
 Stop writes at Caddy or disable the `purchase` and `payment` feature flags. Restore the latest encrypted backup to a new instance. Run migrations and integrity checks, then re-enable in staging first.
 
 ## Redis failure
-The database remains the financial source of truth. In staging/production, rate limiting fails closed while Redis is unavailable; this prevents a multi-worker bypass. Restore Redis and verify `/health/ready` before reopening login traffic or scaling workers.
+The database remains the financial source of truth (orders, ledger, outbox). Redis only holds queues, rate-limit counters and the worker heartbeat.
+
+**Customer impact while Redis is down in staging/production: nobody can sign in.** Rate limiting fails closed, so every rate-limited endpoint (e-mail code, password, refresh, Telegram/Google sign-in, order and top-up creation, ...) answers `429 RATE_LIMITED`. This is intentional: a per-process fallback would multiply each limit by the number of API workers, so an attacker could brute-force logins exactly when the platform is degraded. Sessions that already exist keep working for reads; `/health/ready` reports 503 (worker heartbeat lives in Redis) and alert `MelorinRedisUnavailable` fires.
+
+Operating rules:
+* Treat a planned Redis restart as a short login outage; do it off-peak. `docker compose up -d` in `deploy.sh` recreates Redis only when its image or config changed.
+* After Redis returns, verify `/health/ready` is 200 before announcing recovery. No data repair is needed; queued work is replayed from the PostgreSQL outbox.
+* There is deliberately no switch to relax this in staging/production: the config validator refuses `MELORIN_REQUIRE_REDIS_RATE_LIMIT=false` there (only development may use the per-process fallback). Keep Redis healthy instead: it is capped (`--maxmemory 160mb`, `noeviction`) and restarts automatically (`restart: unless-stopped`).
 
 ## Panel failure
 Panel health becomes unhealthy; provisioning selects no server and sends orders to manual review. Do not refund until Panel state is reconciled. Use admin retry or attach an existing account.

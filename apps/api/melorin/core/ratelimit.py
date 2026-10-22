@@ -1,8 +1,16 @@
 """Fixed-window rate limiting with an explicit Redis outage policy.
 
-Redis is the coordination store, but a short Redis outage must not turn the
-login endpoint into a global 429. The fallback is process-local, bounded and
-observable; production can disable it explicitly with fail_closed.
+Redis is the coordination store for the counters. What happens while it is unreachable depends on the environment
+(documented in docs/RUNBOOK.md, "Redis failure"):
+
+* development/test: a process-local, bounded counter is used (logged once), so a laptop without Redis still works.
+* staging/production (``require_redis_rate_limit=true``, the default): FAIL CLOSED. Every rate-limited endpoint
+  answers 429 RATE_LIMITED, and that includes every login/code/refresh endpoint, so NOBODY CAN SIGN IN until Redis is
+  back. This is deliberate: a per-process fallback would multiply every limit by the number of API workers and let a
+  brute-force attacker through exactly when the platform is degraded. Already-issued sessions keep working.
+
+Plan Redis restarts like a short login outage (alert ``MelorinRedisUnavailable`` fires). There is no switch to relax
+this outside development: Settings refuses ``require_redis_rate_limit=false`` in staging/production (see core/config.py).
 """
 
 import logging

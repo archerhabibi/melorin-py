@@ -160,6 +160,10 @@ class Settings(BaseSettings):
     worker_poll_interval: float = 2.0
     allow_mock_providers: bool = False
     require_redis_rate_limit: bool = True
+    # Phase 5.6: the API sends baseline security headers itself so an EXTERNAL_PROXY install (no Caddy/nginx of ours in front)
+    # is protected too. Headers a proxy already set are never overwritten. HSTS is only sent on requests that arrived over HTTPS.
+    security_headers_enabled: bool = True
+    hsts_max_age: int = 31536000
     # Compose pins the reverse-proxy network to 172.28.0.0/16. Override this
     # with the exact proxy CIDR(s) in any external deployment.
     trusted_proxy_ips: list[str] = ["127.0.0.1", "::1", "172.28.0.0/16"]
