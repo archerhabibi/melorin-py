@@ -29,6 +29,9 @@ filterwarnings = ["error::jwt.warnings.InsecureKeyLengthWarning"]
 branch = true
 source = ["melorin"]
 omit = ["*/tests/*", "*/alembic/*"]
+# Phase 4: SQLAlchemy's async layer runs on greenlets. Without this, coverage stops tracing the lines that follow an
+# awaited DB call and under-reports every route/service module (e.g. identity/routes/sign_in.py read 58 % instead of 92 %).
+concurrency = ["greenlet", "thread"]
 
 [tool.coverage.report]
 exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError"]
