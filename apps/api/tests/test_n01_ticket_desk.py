@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 from _chan import admin_auth, auth_for
-from _source import read_source
+from _source import read_source, read_web_source
 from sqlalchemy import select
 
 import melorin.models  # noqa: F401  (registers every table so FKs resolve)
@@ -289,10 +289,10 @@ def test_bot_rename_and_close_and_reopen(bot):
 
 # ---------------------------------------------------------------- web front-ends
 def test_web_ticket_screens_use_the_new_edit_endpoints():
-    admin_ui = (APPS / "admin-web" / "src" / "TicketsView.jsx").read_text()
+    admin_ui = read_web_source(APPS / "admin-web" / "src" / "TicketsView.jsx")
     for needle in ("/api/v1/admin/tickets", "/messages/${m.id}", 'method: "PATCH"', "internal", "ویرایش‌شده"):
         assert needle in admin_ui
-    assert "TicketsView" in (APPS / "admin-web" / "src" / "AdminExtra.jsx").read_text()
-    store_ui = (APPS / "store-web" / "src" / "Dashboard.jsx").read_text()
+    assert "TicketsView" in read_web_source(APPS / "admin-web" / "src" / "AdminExtra.jsx")
+    store_ui = read_web_source(APPS / "store-web" / "src" / "Dashboard.jsx")
     for needle in ("/api/v1/tickets/${t.id}/messages/${m.id}", "ویرایش موضوع", "بستن تیکت"):
         assert needle in store_ui

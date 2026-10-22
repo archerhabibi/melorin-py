@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from _source import read_source
+from _source import read_source, read_web_source
 
 SRC = Path(__file__).parents[3].joinpath("apps", "admin-web", "src")
 ALLOCATION = read_source(Path(__file__).parents[1].joinpath("melorin", "modules", "catalog", "allocation.py"))
@@ -8,7 +8,7 @@ ROUTER = read_source(Path(__file__).parents[1].joinpath("melorin", "modules", "a
 
 
 def _ui(name: str) -> str:
-    return SRC.joinpath(name).read_text()
+    return read_web_source(SRC.joinpath(name))
 
 
 def test_servers_ui_uses_only_endpoints_that_exist():
@@ -32,9 +32,9 @@ def test_servers_live_inside_their_panel_screen():
     extra = _ui("AdminExtra.jsx")
     assert '"پنل‌ها و سرورها": PanelsView' in extra and "ServersView" not in extra
     app = _ui("App.jsx")
-    assert "['پنل‌ها و سرورها', PanelTop, 'panels']" in app and "'servers'" not in app
-    infra_group = app[app.index("['زیرساخت'") : app.index("['سیستم'")]
-    assert infra_group.index("'panels'") < infra_group.index("'bundles'") < infra_group.index("'products'")
+    assert '["پنل‌ها و سرورها", PanelTop, "panels"]' in app and '"servers"' not in app
+    infra_group = app[app.index('["زیرساخت"') : app.index('["سیستم"')]
+    assert infra_group.index('"panels"') < infra_group.index('"bundles"') < infra_group.index('"products"')
     # old bookmarks (#/servers?panel=<id>) still land on the merged screen
     assert "legacyHash" in app and "legacyHash" in _ui("infra.jsx")
 
@@ -61,7 +61,7 @@ def test_group_membership_is_saved_with_the_field_the_api_reads():
     update = schemas[schemas.index("class UpdateBundle") : schemas.index("class BundleMemberInput")]
     assert "panel_ids" in update
     infra = _ui("infra.jsx")
-    assert "JSON.stringify({ panel_ids: panelIds })" in infra
+    assert "JSON.stringify({panel_ids: panelIds})" in infra
     assert "JSON.stringify({ panels:" not in _ui("PanelsView.jsx")
 
 

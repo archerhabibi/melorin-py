@@ -1,5 +1,6 @@
 """Google Sign-In: the endpoint must keep the same guarantees as the other login paths (admin 2FA, refresh cookie, CSP, build args)."""
 
+from _source import read_web_source
 import time
 import types
 from pathlib import Path
@@ -125,8 +126,8 @@ def test_google_client_id_reaches_both_frontend_builds():
 
 
 def test_both_apps_use_googles_official_button_with_one_shared_initialisation():
-    store = (PROJECT / "apps/store-web/src/GoogleSignIn.jsx").read_text()
-    admin = (PROJECT / "apps/admin-web/src/GoogleSignIn.jsx").read_text()
+    store = read_web_source(PROJECT / "apps/store-web/src/GoogleSignIn.jsx")
+    admin = read_web_source(PROJECT / "apps/admin-web/src/GoogleSignIn.jsx")
     # the two copies differ only by the surface constant and the header comment
     norm = lambda t: t.replace('"store"', '"X"').replace('"admin"', '"X"').replace("store-web", "APP").replace("admin-web", "APP")  # noqa: E731
     assert norm(store) == norm(admin)
@@ -144,7 +145,7 @@ def test_login_pages_use_the_shared_button_and_no_legacy_hook():
     for path in ("apps/store-web/src/App.jsx", "apps/admin-web/src/AdminAuth.jsx"):
         src = (PROJECT / path).read_text()
         assert "<GoogleSignInButton" in src and "useGoogleSignIn" not in src
-    admin = (PROJECT / "apps/admin-web/src/AdminAuth.jsx").read_text()
+    admin = read_web_source(PROJECT / "apps/admin-web/src/AdminAuth.jsx")
     assert "payload?.error?.code" in admin  # API errors are {error: {code}}
 
 
