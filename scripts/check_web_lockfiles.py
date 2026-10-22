@@ -4,7 +4,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-for directory in (ROOT / "apps/store-web", ROOT / "apps/admin-web"):
+for directory in (ROOT / "apps/store-web", ROOT / "apps/admin-web", ROOT / "packages/api-client"):
     package = json.loads((directory / "package.json").read_text())
     lock_path = directory / "package-lock.json"
     assert lock_path.exists(), f"{directory}: package-lock.json is missing; run npm install and commit the generated lockfile"

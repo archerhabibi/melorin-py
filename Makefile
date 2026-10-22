@@ -1,4 +1,4 @@
-.PHONY: docs restore-drill-latest deploy-test evidence guards up down logs migrate migration-smoke integration-smoke restore-drill test-matrix revision test lint api worker install-verify quality-gate
+.PHONY: docs restore-drill-latest deploy-test evidence guards up down logs migrate migration-smoke integration-smoke restore-drill test-matrix revision test lint api worker install-verify quality-gate web-lint web-format api-client
 install-verify:
 	@bash scripts/install_verify.sh
 guards:
@@ -32,3 +32,8 @@ api:; cd apps/api && uvicorn melorin.app:app --reload
 worker:; cd apps/api && arq melorin.worker.arq_app.WorkerSettings
 
 setup-git:; git config commit.template .gitmessage && echo 'commit template enabled (optional trailers fill docs/CHANGE_LOG.md)'
+
+# Phase 6 — frontend polish
+web-lint:; for a in apps/store-web apps/admin-web; do (cd $$a && npm run lint) || exit 1; done
+web-format:; for a in apps/store-web apps/admin-web; do (cd $$a && npm run format) || exit 1; done
+api-client:; python scripts/gen_api_client.py --write && cd packages/api-client && npm run generate && npm run typecheck && npm test

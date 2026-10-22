@@ -12,6 +12,7 @@ python scripts/check_release_matrix.py
 python scripts/check_g001_g010.py
 python scripts/check_quality_config.py
 python scripts/check_ops_p0.py
+python scripts/gen_api_client.py --check
 python scripts/gen_docs.py --check
 bash scripts/test_deploy.sh
 bash scripts/test_restore_drill.sh
@@ -21,6 +22,10 @@ ruff check apps/api/melorin --config apps/api/pyproject.toml
 ruff format --check apps/api/melorin apps/api/tests --config apps/api/pyproject.toml
 for web in apps/store-web apps/admin-web; do
   (cd "$web" && npm audit --include=dev --audit-level=high)
+  # Phase 6: lint + formatting are part of the gate when dependencies are installed (CI always installs them).
+  if [ -d "$web/node_modules/eslint" ]; then
+    (cd "$web" && npm run lint && npm run format:check)
+  fi
 done
 python scripts/test_matrix.py unit
 echo "Melorin quality gate passed"
