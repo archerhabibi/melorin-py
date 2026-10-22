@@ -41,7 +41,10 @@ export default [
       'react/jsx-key': 'warn',
       // `role` is a plain prop on our own components (UserCard), not an ARIA role.
       'jsx-a11y/aria-role': ['error', { ignoreNonDOM: true }],
-      'no-unused-vars': ['error', { args: 'none', ignoreRestSiblings: true, caughtErrors: 'none', varsIgnorePattern: '^_' }],
+      'no-unused-vars': [
+        'error',
+        { args: 'none', ignoreRestSiblings: true, caughtErrors: 'none', varsIgnorePattern: '^_' },
+      ],
       'no-empty': ['error', { allowEmptyCatch: true }],
     },
   },

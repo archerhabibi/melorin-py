@@ -2,12 +2,32 @@ import { act } from 'react';
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Badge, DialogHost, ThemeButton, confirmDialog, dt, isStatus, label, noticeDialog, promptDialog, sid, tone } from '../src/ui.jsx';
+import {
+  Badge,
+  DialogHost,
+  ThemeButton,
+  confirmDialog,
+  dt,
+  isStatus,
+  label,
+  noticeDialog,
+  promptDialog,
+  sid,
+  tone,
+} from '../src/ui.jsx';
 import { getTheme } from '../src/theme.js';
 
 describe('status helpers', () => {
   it('maps known statuses to a Persian label and tone class, unknown ones to a muted raw value', () => {
-    render(<><Badge s="completed" /><Badge s="failed" /><Badge s="processing" /><Badge s="mystery" /><Badge /></>);
+    render(
+      <>
+        <Badge s="completed" />
+        <Badge s="failed" />
+        <Badge s="processing" />
+        <Badge s="mystery" />
+        <Badge />
+      </>,
+    );
     expect(screen.getByText('تکمیل‌شده')).toHaveClass('b-ok');
     expect(screen.getByText('ناموفق')).toHaveClass('b-bd');
     expect(screen.getByText('در حال پردازش')).toHaveClass('b-in');
@@ -59,18 +79,24 @@ describe('promise dialogs', () => {
     const user = userEvent.setup();
     render(<DialogHost />);
     let p;
-    act(() => { p = confirmDialog('حذف شود؟', { title: 'تأیید', danger: true, ok: 'حذف' }); });
+    act(() => {
+      p = confirmDialog('حذف شود؟', { title: 'تأیید', danger: true, ok: 'حذف' });
+    });
     expect(screen.getByRole('dialog', { name: 'تأیید' })).toBeInTheDocument();
     expect(screen.getByText('حذف شود؟')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'حذف' }));
     await expect(p).resolves.toBe(true);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
-    act(() => { p = confirmDialog('دوباره؟'); });
+    act(() => {
+      p = confirmDialog('دوباره؟');
+    });
     await user.click(screen.getByRole('button', { name: 'انصراف' }));
     await expect(p).resolves.toBe(false);
 
-    act(() => { p = confirmDialog('باز هم؟'); });
+    act(() => {
+      p = confirmDialog('باز هم؟');
+    });
     await user.keyboard('{Escape}');
     await expect(p).resolves.toBe(false);
   });
@@ -79,7 +105,9 @@ describe('promise dialogs', () => {
     const user = userEvent.setup();
     render(<DialogHost />);
     let p;
-    act(() => { p = confirmDialog('x'); });
+    act(() => {
+      p = confirmDialog('x');
+    });
     await user.click(screen.getByRole('dialog'));
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     await user.click(screen.getByRole('dialog').parentElement);
@@ -90,16 +118,22 @@ describe('promise dialogs', () => {
     const user = userEvent.setup();
     render(<DialogHost />);
     let p;
-    act(() => { p = promptDialog('دلیل؟'); });
+    act(() => {
+      p = promptDialog('دلیل؟');
+    });
     await user.type(screen.getByPlaceholderText(/دلیل یا توضیح/), 'تست');
     await user.click(screen.getByRole('button', { name: 'ثبت' }));
     await expect(p).resolves.toBe('تست');
 
-    act(() => { p = promptDialog('دلیل؟'); });
+    act(() => {
+      p = promptDialog('دلیل؟');
+    });
     await user.type(screen.getByPlaceholderText(/دلیل یا توضیح/), 'با اینتر{Enter}');
     await expect(p).resolves.toBe('با اینتر');
 
-    act(() => { p = promptDialog('دلیل؟'); });
+    act(() => {
+      p = promptDialog('دلیل؟');
+    });
     await user.click(screen.getByRole('button', { name: 'انصراف' }));
     await expect(p).resolves.toBeNull();
   });
@@ -108,7 +142,9 @@ describe('promise dialogs', () => {
     const user = userEvent.setup();
     render(<DialogHost />);
     let p;
-    act(() => { p = noticeDialog('این مورد سابقه دارد', { title: 'حذف ممکن نیست' }); });
+    act(() => {
+      p = noticeDialog('این مورد سابقه دارد', { title: 'حذف ممکن نیست' });
+    });
     expect(screen.queryByRole('button', { name: 'انصراف' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'متوجه شدم' }));
     await expect(p).resolves.toBeUndefined();

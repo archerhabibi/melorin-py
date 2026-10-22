@@ -49,7 +49,9 @@ describe('theme', () => {
     vi.stubGlobal('matchMedia', () => ({ matches: true }));
     initTheme();
     expect(document.documentElement.dataset.theme).toBe('dark');
-    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked'); });
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
     vi.stubGlobal('matchMedia', () => ({ matches: false }));
     expect(() => initTheme()).not.toThrow();
     expect(document.documentElement.dataset.theme).toBe('light');
@@ -64,7 +66,9 @@ describe('theme', () => {
     expect(document.documentElement.dataset.theme).toBe('dark');
     expect(localStorage.getItem('melorin-theme')).toBe('dark');
     expect(document.querySelector('meta[name="theme-color"]')).toHaveAttribute('content', '#08111f');
-    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota'); });
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('quota');
+    });
     await user.click(screen.getByRole('button', { name: 'تم روشن' }));
     expect(document.documentElement.dataset.theme).toBe('light');
     localStorage.clear();
@@ -73,7 +77,11 @@ describe('theme', () => {
 
 describe('Modal', () => {
   const open = (onClose = vi.fn()) => {
-    render(<Modal onClose={onClose} title="عنوان"><input aria-label="field" /></Modal>);
+    render(
+      <Modal onClose={onClose} title="عنوان">
+        <input aria-label="field" />
+      </Modal>,
+    );
     return onClose;
   };
 
@@ -111,7 +119,12 @@ describe('Modal', () => {
 
 describe('placeholders', () => {
   it('Empty shows its message and Loading announces progress with the requested rows', () => {
-    render(<><Empty text="چیزی نیست" /><Loading rows={4} /></>);
+    render(
+      <>
+        <Empty text="چیزی نیست" />
+        <Loading rows={4} />
+      </>,
+    );
     expect(screen.getByText('چیزی نیست')).toBeInTheDocument();
     const status = screen.getByRole('status', { name: 'در حال دریافت' });
     expect(status.children).toHaveLength(4);
