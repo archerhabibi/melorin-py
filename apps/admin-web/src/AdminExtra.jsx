@@ -161,7 +161,6 @@ function ChangeAdminPassword({ api, toast }) {
 
 function Settings({ api, toast }) {
   const flags = useList(api, "/api/v1/admin/feature-flags", toast);
-  const settings = useList(api, "/api/v1/admin/settings", toast);
   const [obj, setObj] = useState({});
   const [tick, setTick] = useState(0);
   useEffect(() => { flags.call("/api/v1/admin/settings").then((r) => r.ok ? r.json() : {}).then(setObj); }, [tick]);

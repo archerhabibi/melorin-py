@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { setTokens } from "./auth.js";
 import { ThemeButton } from "./ui.jsx";
 import { GoogleSignInButton, useGoogleConfig } from "./GoogleSignIn.jsx";

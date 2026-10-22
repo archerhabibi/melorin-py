@@ -90,7 +90,6 @@ export default function App(){
   const [storeId, setStoreId] = useState("");
   const [hasBot, setHasBot] = useState(false);
   const [tgCfg, setTgCfg] = useState(null); // which Telegram login buttons the admin enabled (null = unknown -> legacy behaviour)
-  const [ticket, setTicket] = useState("");
   const [selectedQuote, setSelectedQuote] = useState(null);
   const [hash, setHash] = useState(window.location.hash);
   const [menu, setMenu] = useState(false);

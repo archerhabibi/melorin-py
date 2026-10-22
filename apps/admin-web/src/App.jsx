@@ -10,7 +10,7 @@ import { Badge, DialogHost, ThemeButton, confirmDialog, label, sid, tone } from 
 import { Palette } from './palette.jsx';
 import { legacyHash } from './infra.jsx';
 import { toggleTheme } from './theme.js';
-import { Activity, Bell, CircleAlert, CreditCard, Database, Download, Fingerprint, LayoutDashboard, Menu, Package, PanelTop, Percent, RefreshCw, Server, Settings, ShieldCheck, Ticket, Users, WalletCards, X, Boxes, ScrollText, Store, Search, Layers, Moon, LogOut, KeyRound, ChevronDown, UserRound, UserPlus, Bot } from 'lucide-react';
+import { Bell, CircleAlert, CreditCard, Database, Download, Fingerprint, LayoutDashboard, Menu, Package, PanelTop, Percent, RefreshCw, Server, Settings, ShieldCheck, Ticket, Users, WalletCards, X, Boxes, ScrollText, Store, Search, Layers, Moon, LogOut, KeyRound, ChevronDown, UserRound, UserPlus, Bot } from 'lucide-react';
 
 // Section keys are Persian labels (AdminSections/AdminExtra route on them); slug drives the URL hash.
 const groups = [

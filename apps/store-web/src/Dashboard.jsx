@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { Bell, ChevronDown, Gauge, KeyRound, LifeBuoy, LogOut, Package, Store, Wallet as WalletIcon, ArrowRight, Link2, Pencil, Plus, RefreshCw, Send, X } from "lucide-react";
+import { Bell, ChevronDown, Gauge, KeyRound, LifeBuoy, LogOut, Package, Store, Wallet as WalletIcon, ArrowRight, Pencil, Plus, RefreshCw, Send, X } from "lucide-react";
 import { GoogleSignInButton } from "./GoogleSignIn.jsx";
 import AccountInquiry from "./AccountInquiry.jsx";
 import { Empty, Loading, PageTitle, StatusBadge, fa, fd } from "./ui.jsx";
-const gb = (b) => (b ? (b / 1073741824).toFixed(1) : "0");
 const J = { "Content-Type": "application/json" };
 const tabs = [["orders", "سفارش‌ها", Package], ["vpn", "اکانت‌های VPN", Gauge], ["wallet", "کیف پول", WalletIcon], ["tickets", "تیکت‌ها", LifeBuoy], ["notifications", "اعلان‌ها", Bell], ["profile", "پروفایل و امنیت", KeyRound]];
 const card = "card";

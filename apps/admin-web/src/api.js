@@ -1,4 +1,4 @@
-import { getAccessToken, getRefreshToken, setTokens, clearTokens } from "./auth.js";
+import { getAccessToken, setTokens, clearTokens } from "./auth.js";
 
 export const API_BASE = (import.meta.env?.VITE_MELORIN_API_URL || window.location.origin).replace(/\/$/, "");
 

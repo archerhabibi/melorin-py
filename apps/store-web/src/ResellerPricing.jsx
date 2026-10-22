@@ -2,7 +2,7 @@
 // Design: one scope at a time (store-wide base price, or one bundle), a table whose rows show cost → price → profit → state,
 // a local draft that is reviewed and saved in ONE request (all or nothing), and quick tools (markup, copy from another bundle)
 // that only fill the draft. The core remains the authority: it refuses any price below the bundle's cost.
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, CheckCircle2, Copy, Info, Layers, Percent, RotateCcw, Save, Tags, X } from "lucide-react";
 import { Empty, Loading, fa } from "./ui.jsx";
 

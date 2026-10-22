@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Badge, confirmDialog } from "./ui.jsx";
-import { AlertTriangle, ArrowDown, ArrowUp, Boxes, CheckCircle2, ChevronDown, Layers, Pencil, Plus, Search, ShieldAlert, X } from "lucide-react";
+import { confirmDialog } from "./ui.jsx";
+import { ArrowDown, ArrowUp, CheckCircle2, ChevronDown, Layers, Pencil, Plus, Search, ShieldAlert, X } from "lucide-react";
 import { Bar, Drawer, Empty, ErrorBar, Field, KpiBar, NumInput, Paginator, SearchBox, Section, Segmented, SortSelect, Stat, Switch, Toggle, ViewToggle, DeleteButton, capTone, errText, num, removeEntity, tint, useAlive, useRows } from "./kit.jsx";
 import { Dot, InfraChain, Warn, clearParam, health as hs, infraHref, memberIds, useHashParams, useInfra } from "./infra.jsx";
 
@@ -8,7 +8,6 @@ import { Dot, InfraChain, Warn, clearParam, health as hs, infraHref, memberIds, 
 // its own price. Customers pick a bundle, so the bundle is the only way an account gets sold; there is no
 // bundle-less route. Selection / naming / reseller policy are advanced options: most bundles never change them.
 const API = "/api/v1/admin/bundles";
-const PRODUCTS = "/api/v1/admin/products";
 const MODES = {
   automatic: ["خودکار", "سیستم پنلی را انتخاب می‌کند که اکانت فعال کمتری دارد؛ مشتری چیزی نمی‌بیند."],
   manual: ["انتخاب مشتری", "مشتری هنگام خرید یکی از پنل‌های بسته را با «نام نمایشی» که شما می‌دهید انتخاب می‌کند."],

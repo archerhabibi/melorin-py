@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { authFetch } from "./api.js";
-import { Badge, confirmDialog } from "./ui.jsx";
-import { AlertTriangle, Boxes, ChevronDown, Layers, ServerCog, CheckCircle2, Clock, Infinity as Inf, LayoutGrid, List, Pencil, PowerOff, Plus, Save, Search, ShieldAlert, Smartphone, Store, Tag, Wallet, X, Zap } from "lucide-react";
-import { Drawer, Empty, ErrorBar, Field, KpiBar, NumInput, Paginator, Pills, SearchBox, Section, Segmented, SortSelect, Stat, Switch, Toggle, ViewToggle, DeleteButton, errText, num, removeEntity, tint, useAlive, useRows } from "./kit.jsx"; // #4
-import { Dot, InfraChain, RelChip, Warn, clearParam, health, infraHref, useHashParams, useInfra } from "./infra.jsx";
+import { confirmDialog } from "./ui.jsx";
+import { AlertTriangle, Boxes, ChevronDown, Layers, ServerCog, CheckCircle2, Clock, Infinity as Inf, Pencil, PowerOff, Plus, Save, ShieldAlert, Smartphone, Tag, Wallet, X, Zap } from "lucide-react";
+import { Drawer, Empty, ErrorBar, Field, KpiBar, NumInput, Paginator, SearchBox, Section, Segmented, SortSelect, Stat, Switch, Toggle, ViewToggle, DeleteButton, errText, num, removeEntity, tint, useAlive, useRows } from "./kit.jsx"; // #4
+import { InfraChain, clearParam, infraHref, useHashParams, useInfra } from "./infra.jsx";
 
 const API = "/api/v1/admin/products";
 const CUR = { IRT: "تومان", USD: "دلار", USDT: "تتر", XTR: "ستاره" };

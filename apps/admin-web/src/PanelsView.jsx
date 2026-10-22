@@ -3,10 +3,10 @@ import { authFetch } from "./api.js";
 import { ServerForm, ServerImport } from "./ServerForm.jsx";
 import { Badge, confirmDialog, dt, sid } from "./ui.jsx";
 import { Dot, HLABEL, InfraChain, RelChip, clearParam, free, health, memberIds, saveGroupPanels, serverState, serves, usage, useHashParams, useInfra } from "./infra.jsx";
-import { Drawer, Empty, ErrorBar, Field, KpiBar, NumInput, Paginator, Pills, Ring, SearchBox, Section, Segmented, SegMeter, SortSelect, Stat, Switch, Toggle, ViewToggle, DeleteButton, capTone, errText, num, removeEntity, tint, useAlive } from "./kit.jsx";
+import { Drawer, Empty, ErrorBar, Field, KpiBar, NumInput, Paginator, Ring, SearchBox, Section, Segmented, SegMeter, SortSelect, Stat, Switch, Toggle, ViewToggle, DeleteButton, capTone, errText, num, removeEntity, tint, useAlive } from "./kit.jsx";
 import {
   Activity, AlertTriangle, Check, ChevronDown, Copy, ExternalLink, Eye, EyeOff, FlaskConical, FolderInput,
-  ChevronLeft, Layers, MapPin, Pencil, Plus, RefreshCw, Save, Search, Server, ServerCog, ShieldAlert, ShieldCheck, X,
+  Layers, MapPin, Pencil, Plus, RefreshCw, Save, Server, ServerCog, ShieldAlert, ShieldCheck, X,
 } from "lucide-react";
 
 // Panels and their servers are ONE screen: a server is only a capacity slot of a single panel,
