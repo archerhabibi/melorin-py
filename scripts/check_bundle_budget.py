@@ -12,7 +12,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 # bytes (Vite reports kB = 1000 bytes). Admin target from the S01 audit: first chunk < 300 kB.
-BUDGETS = {"apps/admin-web": 300_000, "apps/store-web": 320_000}
+BUDGETS = {"apps/admin-web": 300_000, "apps/store-web": 270_000}
 
 
 def first_load_bytes(app: Path) -> tuple[int, list[str]]:

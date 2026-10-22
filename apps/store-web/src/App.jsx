@@ -1,6 +1,6 @@
 // Subject + plan: Melorin storefront for VPN customers. A warm Persian service counter meets a precise account console: dusk navy, saffron, and mint; hero catalog, store-scoped quote, wallet, and orders in one calm flow.
 // Design system v2: tokens live in styles.css (light + dark), shared primitives in ui.jsx.
-import { useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import {
   ArrowLeft,
   Check,
@@ -24,7 +24,6 @@ import {
   Zap,
 } from 'lucide-react';
 import Dashboard, { Faq } from './Dashboard.jsx';
-import Reseller from './Reseller.jsx';
 import { clearTokens, getAccessToken, setTokens } from './auth.js';
 import { GoogleSignInButton, googleSignOut } from './GoogleSignIn.jsx';
 import TelegramLogin from './TelegramLogin.jsx';
@@ -32,6 +31,9 @@ import { PurchaseResult } from './Subscription.jsx';
 import TelegramLoginButtons from './TelegramLoginButtons.jsx';
 import { Modal, ThemeToggle, Toast, fa } from './ui.jsx';
 import { focusOnMount } from './useDialog.js';
+
+// Reseller console is only needed by resellers: keep it out of the first-load bundle.
+const Reseller = lazy(() => import('./Reseller.jsx'));
 
 const NAV = [
   ['#plans', 'سرویس‌ها'],
@@ -557,7 +559,15 @@ export default function App() {
 
       <main id="main" className="pb-24 md:pb-0">
         {onReseller ? (
-          <Reseller coreFetch={coreFetch} notify={notify} />
+          <Suspense
+            fallback={
+              <div className="py-24 text-center text-sm opacity-70" role="status" aria-live="polite">
+                در حال بارگذاری…
+              </div>
+            }
+          >
+            <Reseller coreFetch={coreFetch} notify={notify} />
+          </Suspense>
         ) : onDash ? (
           <Dashboard
             coreFetch={coreFetch}
