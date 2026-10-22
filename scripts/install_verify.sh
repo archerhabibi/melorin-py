@@ -9,7 +9,7 @@ VENV="${VENV:-$ROOT/.venv}"
 
 "$PYTHON" -m venv "$VENV"
 "$VENV/bin/python" -m pip install --upgrade pip
-"$VENV/bin/python" -m pip install -r "$ROOT/apps/api/requirements.txt"
+"$VENV/bin/python" -m pip install --require-hashes -r "$ROOT/apps/api/requirements-dev.txt"
 "$VENV/bin/python" "$ROOT/scripts/verify_runtime.py"
 "$VENV/bin/python" -m compileall -q "$ROOT/apps/api/melorin" "$ROOT/apps/api/tests"
 "$VENV/bin/python" "$ROOT/scripts/check_release_matrix.py"

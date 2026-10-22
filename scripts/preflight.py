@@ -11,6 +11,7 @@ def main():
     missing = [tool for tool in tools if shutil.which(tool) is None]
     files = [
         ROOT/"apps/api/requirements.txt",
+        ROOT/"apps/api/requirements-dev.txt",
         ROOT/"apps/store-web/package.json",
         ROOT/"apps/admin-web/package.json",
         ROOT/"docker-compose.yml",

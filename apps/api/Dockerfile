@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
     && rm -rf /var/lib/apt/lists/*
 RUN useradd --create-home --uid 10001 appuser
 COPY apps/api/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --require-hashes -r requirements.txt
 COPY apps/api/melorin ./melorin
 COPY apps/api/alembic ./alembic
 COPY apps/api/alembic.ini apps/api/pyproject.toml ./
