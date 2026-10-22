@@ -29,7 +29,7 @@ export function SubscriptionCard({ account, coreFetch, notify, qrPath }) {
     return () => {
       live = false;
     };
-  }, [account?.id, link, qrPath]);
+  }, [account?.id, link, qrPath, coreFetch]);
   if (!link) return <p className="mt-4 text-xs text-muted">لینک اشتراک در حال آماده‌سازی است.</p>;
   const copy = () => navigator.clipboard?.writeText(link).then(() => notify?.('کپی شد'));
   return (
@@ -92,7 +92,7 @@ export function PurchaseResult({ orderId, storeId, coreFetch, notify }) {
       live = false;
       clearTimeout(timer);
     };
-  }, [orderId, storeId]);
+  }, [orderId, storeId, coreFetch]);
   if (state.phase === 'done')
     return (
       <div>

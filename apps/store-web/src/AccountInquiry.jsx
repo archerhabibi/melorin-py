@@ -127,7 +127,7 @@ export default function AccountInquiry({
           setMore(false);
         }
       });
-  }, [base, state, q, page, reloadKey]);
+  }, [base, state, q, page, reloadKey, coreFetch]);
   const replace = (n) => setRows((cur) => (cur || []).map((x) => (x.id === n.id ? { ...x, ...n } : x)));
   const filtered = useMemo(() => Boolean(state || q), [state, q]);
   if (!owner && counts && !counts.total && !filtered && rows && !rows.length)

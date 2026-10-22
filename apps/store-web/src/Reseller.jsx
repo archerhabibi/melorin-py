@@ -36,7 +36,7 @@ function OwnerRenew({ account, base, coreFetch, notify, onDone, onClose }) {
     return () => {
       live = false;
     };
-  }, [account.id]);
+  }, [account.id, base, coreFetch]);
   async function go() {
     setBusy(true);
     try {
@@ -165,7 +165,7 @@ function useGet(coreFetch, path, deps = []) {
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then(setD)
       .catch(() => setD([]));
-  }, [path, t, ...deps]);
+  }, [path, t, coreFetch, ...deps]);
   return [d, () => setT((x) => x + 1)];
 }
 
@@ -625,7 +625,7 @@ function Branding({ coreFetch, base, storeId, notify }) {
     coreFetch(`/api/v1/stores/${storeId}`)
       .then((r) => (r.ok ? r.json() : {}))
       .then((s) => s.branding && setB((x) => ({ ...x, ...s.branding })));
-  }, [storeId]);
+  }, [storeId, coreFetch]);
   const save = async () => {
     let bot_messages;
     try {
@@ -1142,7 +1142,7 @@ export default function Reseller({ coreFetch, notify }) {
       .then((r) => (r.ok ? r.json() : []))
       .then(setStores)
       .catch(() => setStores([]));
-  }, []);
+  }, [coreFetch]);
   const mine = (stores || []).find((s) => s.kind === 'reseller' && s.role === 'owner');
   const base = mine ? `/api/v1/stores/${mine.id}/reseller` : '';
   return (

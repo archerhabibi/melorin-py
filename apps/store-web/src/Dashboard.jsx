@@ -87,7 +87,7 @@ function Renew({ account, coreFetch, storeId, notify, reload, onClose }) {
     return () => {
       live = false;
     };
-  }, [account.id]);
+  }, [account.id, coreFetch, notify, storeId]);
   async function buy() {
     setBusy(true);
     try {
@@ -1006,7 +1006,7 @@ export default function Dashboard({ coreFetch, storeId, account, wallet, orders,
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => d && setUnread(d.unread))
       .catch(() => {});
-  }, []);
+  }, [coreFetch, storeId]);
   const name = account?.display_name || account?.email || 'کاربر';
   const stats = [
     ['موجودی کیف پول', wallet ? `${fa(wallet.balance)} ${wallet.currency || ''}` : '—', WalletIcon, 'tab:wallet'],

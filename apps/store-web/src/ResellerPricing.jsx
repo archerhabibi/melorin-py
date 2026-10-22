@@ -97,7 +97,7 @@ export default function Pricing({ coreFetch, base, notify, dirtyRef }) {
         setFailed(true);
       });
   };
-  useEffect(load, [base]);
+  useEffect(load, [base, coreFetch]);
 
   const bundles = useMemo(() => {
     const m = new Map();

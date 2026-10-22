@@ -1,6 +1,6 @@
 // Subject + plan: Melorin storefront for VPN customers. A warm Persian service counter meets a precise account console: dusk navy, saffron, and mint; hero catalog, store-scoped quote, wallet, and orders in one calm flow.
 // Design system v2: tokens live in styles.css (light + dark), shared primitives in ui.jsx.
-import { Suspense, lazy, useEffect, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
   Check,
@@ -165,10 +165,10 @@ export default function App() {
     window.addEventListener('hashchange', h);
     return () => window.removeEventListener('hashchange', h);
   }, []);
-  const notify = (m) => {
+  const notify = useCallback((m) => {
     setNotice(m);
     setTimeout(() => setNotice(''), 2800);
-  };
+  }, []);
   const logout = () => {
     googleSignOut();
     clearTokens();
@@ -227,34 +227,41 @@ export default function App() {
       setBusy(false);
     }
   }
-  async function coreFetch(path, options = {}) {
-    let token = accessToken;
-    let response = await fetch(`${base}${path}`, {
-      ...options,
-      credentials: 'include',
-      headers: { ...(options.headers || {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-    });
-    if (response.status === 401) {
-      {
-        const rr = await fetch(`${base}/api/v1/auth/refresh`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: '{}',
-        });
-        if (rr.ok) {
-          const pair = await rr.json();
-          setTokens(pair);
-          setAccessToken(pair.access_token);
-          response = await fetch(`${base}${path}`, {
-            ...options,
-            headers: { ...(options.headers || {}), Authorization: `Bearer ${pair.access_token}` },
+  // Stable identity (so effects can list it as a dependency without re-running every render); the token is
+  // read from a ref at call time, which also means callers never send a stale token.
+  const accessTokenRef = useRef(accessToken);
+  accessTokenRef.current = accessToken;
+  const coreFetch = useCallback(
+    async (path, options = {}) => {
+      let token = accessTokenRef.current;
+      let response = await fetch(`${base}${path}`, {
+        ...options,
+        credentials: 'include',
+        headers: { ...(options.headers || {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      });
+      if (response.status === 401) {
+        {
+          const rr = await fetch(`${base}/api/v1/auth/refresh`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}',
           });
+          if (rr.ok) {
+            const pair = await rr.json();
+            setTokens(pair);
+            setAccessToken(pair.access_token);
+            response = await fetch(`${base}${path}`, {
+              ...options,
+              headers: { ...(options.headers || {}), Authorization: `Bearer ${pair.access_token}` },
+            });
+          }
         }
       }
-    }
-    return response;
-  }
+      return response;
+    },
+    [base],
+  );
   async function loadAccount() {
     if (!accessToken || !storeId) return;
     try {
@@ -356,7 +363,7 @@ export default function App() {
         setApiState('Core در دسترس نیست؛ سرویس‌ها موقتاً نمایش داده نمی‌شود');
       })
       .finally(() => setCatalogLoading(false));
-  }, [reloadKey]);
+  }, [reloadKey, coreFetch]);
   useEffect(() => {
     setCatalog([]);
     if (!storeId || !bundleId) return;
