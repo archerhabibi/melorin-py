@@ -157,7 +157,7 @@ services:
     mem_limit: 128m
     cpus: 0.5
   alertmanager:
-    image: prom/alertmanager:v0.27.0
+    image: prom/alertmanager:v0.34.1
     restart: unless-stopped
     # Receivers come from .env (ALERT_TELEGRAM_* and/or ALERT_SMTP_*/ALERT_EMAIL_TO); see infra/alertmanager-entrypoint.sh
     environment:
