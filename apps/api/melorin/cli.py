@@ -119,9 +119,9 @@ async def outbox_replay(event_id: str) -> None:
 async def rotate_encryption_key(new_key: str) -> None:
     # Rotate only fields known to contain encrypted values. Keep this explicit
     # and transactional rather than attempting a dangerous blind JSON rewrite.
-    from melorin.kernel.models.stores import ResellerApplication, Store
+    from melorin.kernel.models.stores import ResellerApplication, Store, StorePaymentConfiguration
     from melorin.kernel.models.vpn import Panel
-    from melorin.kernel.models.payments import StorePaymentConfiguration
+    from melorin.kernel.models.webhooks import WebhookEndpoint
     from sqlalchemy import select
     from melorin.core.crypto import decrypt
     from cryptography.fernet import Fernet
@@ -135,6 +135,9 @@ async def rotate_encryption_key(new_key: str) -> None:
             (ResellerApplication, "bot_token_enc"),
             (Panel, "credentials_enc"),
             (StorePaymentConfiguration, "secret_enc"),
+            (User, "totp_secret_enc"),  # admin 2FA seeds: unreadable after rotation if left on the old key
+            (WebhookEndpoint, "secret_enc"),
+            (WebhookEndpoint, "previous_secret_enc"),
         ]
         for model, field in rows:
             for row in (await session.scalars(select(model))).all():

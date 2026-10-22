@@ -11,7 +11,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from _db import make_order, make_product, make_store, make_user, open_schema_engine
-from melorin.core import events
 from melorin.core.crypto import encrypt
 from melorin.core.db import utcnow
 from melorin.kernel.models.identity import Identity
