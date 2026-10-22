@@ -150,10 +150,14 @@ function Advice({ r }) {
 function ReviewCard({ r, onOpen, onQuick }) {
   const [title] = reasonOf(r.reason);
   return (
+    // Whole-card click is a pointer shortcut; keyboard users get tabIndex + Enter below.
+    // role="button" is not an option because the card contains real buttons.
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
     <article
       className="card card-i stripe rise cursor-pointer p-4 sm:p-5"
       style={{ '--stripe': STRIPE[r.status] || 'var(--ln)' }}
       onClick={() => onOpen(r)}
+      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
       tabIndex={0}
       onKeyDown={(e) => e.key === 'Enter' && onOpen(r)}
       aria-label={`بررسی ${r.email || 'حساب'}`}
@@ -191,7 +195,11 @@ function ReviewCard({ r, onOpen, onQuick }) {
         </div>
       </div>
       {r.status === 'open' && (
-        <div className="mt-4 flex flex-wrap items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+        <div
+          role="presentation"
+          className="mt-4 flex flex-wrap items-center justify-end gap-2"
+          onClick={(e) => e.stopPropagation()}
+        >
           <button className="btn btn-g" onClick={() => onQuick(r)}>
             رد سریع
           </button>

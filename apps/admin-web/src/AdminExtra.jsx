@@ -223,7 +223,7 @@ function Coupons({ api, toast }) {
           money(c.fixed),
           `${c.redeemed ?? c.redemptions ?? 0}/${c.max_redemptions ?? '∞'}`,
           c.status,
-          <button className={ghost} onClick={() => toggle(c)}>
+          <button key="toggle" className={ghost} onClick={() => toggle(c)}>
             {c.status === 'active' ? 'غیرفعال' : 'فعال'}
           </button>,
         ])}
@@ -634,7 +634,7 @@ function Settings({ api, toast }) {
           f.key,
           `${f.scope_type}:${f.scope_id}`,
           f.enabled ? 'بله' : 'خیر',
-          <button className={ghost} onClick={() => setFlag(f)}>
+          <button key="flag" className={ghost} onClick={() => setFlag(f)}>
             {f.enabled ? 'خاموش' : 'روشن'}
           </button>,
         ])}
@@ -662,7 +662,9 @@ function Audit({ api, toast }) {
         a.action,
         a.actor_type,
         `${a.entity_type || ''} ${String(a.entity_id || '').slice(0, 8)}`,
-        <span className="text-xs">{String(a.correlation_id || '').slice(0, 8)}</span>,
+        <span key="cid" className="text-xs">
+          {String(a.correlation_id || '').slice(0, 8)}
+        </span>,
       ])}
     />
   );
@@ -699,7 +701,7 @@ function Orders({ api, toast }) {
         `${money(o.total)} ${o.currency || ''}`,
         o.status,
         o.needs_review ? 'بله' : 'خیر',
-        <div className="flex gap-1.5">
+        <div key="actions" className="flex gap-1.5">
           <button className={ghost} onClick={() => act(o, 'retry', 'تلاش مجدد')}>
             تلاش مجدد
           </button>

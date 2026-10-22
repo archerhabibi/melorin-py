@@ -117,7 +117,7 @@ export default function AdminAuth({ base, onSuccess }) {
         <ThemeButton />
       </div>
 
-      <section className="card rise w-full max-w-md p-8 shadow-2xl" onKeyDown={onKey}>
+      <section role="presentation" className="card rise w-full max-w-md p-8 shadow-2xl" onKeyDown={onKey}>
         {/* Brand */}
         <div className="mb-8 flex items-center gap-3">
           <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#f4c95d] text-xl font-extrabold text-[#0f1f38]">

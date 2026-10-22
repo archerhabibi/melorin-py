@@ -133,7 +133,7 @@ function Amount({ p, big = false }) {
 function RowActions({ p, busy, on, compact = false }) {
   const b = compact ? '!px-2' : '';
   return (
-    <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+    <div role="presentation" className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
       {p.has_receipt && (
         <button className={`btn btn-g ${b}`} title="مشاهده رسید" aria-label="مشاهده رسید" onClick={() => on.receipt(p)}>
           <Receipt size={14} />
@@ -810,7 +810,17 @@ export default function PaymentsView({ api, toast }) {
           {/* mobile cards */}
           <ul className="divide-y divide-[var(--ln)] md:hidden">
             {pageRows.map((p) => (
-              <li key={p.id} className="space-y-3 p-4" onClick={() => setSel(p.id)}>
+              // Pointer shortcut for the whole card; keyboard users get tabIndex + Enter. role="button" would
+              // nest interactive controls, so the list item keeps its native semantics.
+              // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
+              <li
+                key={p.id}
+                className="space-y-3 p-4"
+                // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+                tabIndex={0}
+                onClick={() => setSel(p.id)}
+                onKeyDown={(e) => e.target === e.currentTarget && e.key === 'Enter' && setSel(p.id)}
+              >
                 <div className="flex items-center justify-between gap-2">
                   <ProviderChip k={p.provider} />
                   <Badge s={p.status} />

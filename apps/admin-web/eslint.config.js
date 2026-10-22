@@ -34,7 +34,7 @@ export default [
       'jsx-a11y/no-static-element-interactions': 'warn',
       'jsx-a11y/no-noninteractive-element-interactions': 'warn',
       'jsx-a11y/no-noninteractive-tabindex': 'warn',
-      'jsx-a11y/label-has-associated-control': 'warn',
+      'jsx-a11y/label-has-associated-control': ['warn', { controlComponents: ['Switch'], assert: 'either', depth: 3 }],
       'jsx-a11y/anchor-is-valid': 'warn',
       'react/prop-types': 'off',
       // Table cells are rendered one-by-one (<td key>{cell}</td>), so JSX inside the row arrays needs no key.
