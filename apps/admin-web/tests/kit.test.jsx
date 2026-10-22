@@ -27,7 +27,14 @@ describe('digit normalisation', () => {
 
 describe('small helpers', () => {
   it('capTone: red at 100%+, amber from 80%, green below', () => {
-    expect([capTone(0.2), capTone(0.79), capTone(0.8), capTone(0.99), capTone(1), capTone(1.4)]).toEqual(['ok', 'ok', 'wn', 'wn', 'bd', 'bd']);
+    expect([capTone(0.2), capTone(0.79), capTone(0.8), capTone(0.99), capTone(1), capTone(1.4)]).toEqual([
+      'ok',
+      'ok',
+      'wn',
+      'wn',
+      'bd',
+      'bd',
+    ]);
   });
 
   it('tint builds CSS variable fallbacks for a tone', () => {
@@ -72,14 +79,17 @@ describe('removeEntity', () => {
     const user = userEvent.setup();
     render(<DialogHost />);
     let p;
-    act(() => { p = removeEntity(call, '/items/1', opts(toast)); });
+    act(() => {
+      p = removeEntity(call, '/items/1', opts(toast));
+    });
     if (answer === 'cancel') await user.click(await screen.findByRole('button', { name: 'انصراف' }));
     else await user.click(await screen.findByRole('button', { name: 'حذف دائمی' }));
     return { p, user };
   }
 
   it('does nothing when the admin cancels the confirmation', async () => {
-    const call = vi.fn(); const toast = vi.fn();
+    const call = vi.fn();
+    const toast = vi.fn();
     const { p } = await run(call, toast, 'cancel');
     await expect(p).resolves.toBe(false);
     expect(call).not.toHaveBeenCalled();
@@ -87,7 +97,8 @@ describe('removeEntity', () => {
   });
 
   it('DELETEs, reports success and resolves true', async () => {
-    const call = vi.fn().mockResolvedValue(res({}, 204)); const toast = vi.fn();
+    const call = vi.fn().mockResolvedValue(res({}, 204));
+    const toast = vi.fn();
     const { p } = await run(call, toast, 'ok');
     await expect(p).resolves.toBe(true);
     expect(call).toHaveBeenCalledWith('/items/1', { method: 'DELETE' });
@@ -95,7 +106,8 @@ describe('removeEntity', () => {
   });
 
   it('shows the Core reason in a dialog on 409 (item has history) and resolves false', async () => {
-    const call = vi.fn().mockResolvedValue(res({ error: { message: 'این محصول سفارش دارد.' } }, 409)); const toast = vi.fn();
+    const call = vi.fn().mockResolvedValue(res({ error: { message: 'این محصول سفارش دارد.' } }, 409));
+    const toast = vi.fn();
     const { p, user } = await run(call, toast, 'ok');
     expect(await screen.findByText('این محصول سفارش دارد.')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'متوجه شدم' }));

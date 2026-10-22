@@ -1,6 +1,7 @@
 # ruff: noqa: F811  (pytest fixtures imported from the R01 module are used as arguments)
 """Hardening of the Telegram login pass (R02): flow-cookie key separation, error classification, panel diagnostics, UI contract."""
 
+from _source import read_web_source
 import pathlib
 
 import httpx
@@ -184,14 +185,14 @@ async def test_panel_test_explains_switched_off_states(world, monkeypatch):
 
 # ---------------- UI contract ----------------
 def test_storefront_uses_the_shared_buttons_and_retries_after_a_failed_redirect():
-    app = (ROOT / "apps/store-web/src/App.jsx").read_text(encoding="utf-8")
+    app = read_web_source(ROOT / "apps/store-web/src/App.jsx")
     assert 'import TelegramLoginButtons from "./TelegramLoginButtons.jsx"' in app and "<TelegramLoginButtons" in app
     assert "TG_RETRY" in app and 'setModal("login")' in app and "origin_mismatch" in app
-    btn = (ROOT / "apps/store-web/src/TelegramLoginButtons.jsx").read_text(encoding="utf-8")
+    btn = read_web_source(ROOT / "apps/store-web/src/TelegramLoginButtons.jsx")
     assert "/api/v1/auth/telegram/oidc/start?store_id=" in btn and "pageshow" in btn and "btn-tg" in btn
 
 
 def test_admin_panel_describes_saved_state_and_guards_unsaved_edits():
-    src = (ROOT / "apps/admin-web/src/TelegramLoginSettings.jsx").read_text(encoding="utf-8")
+    src = read_web_source(ROOT / "apps/admin-web/src/TelegramLoginSettings.jsx")
     assert "const dirty" in src and "تغییرات ذخیره‌نشده" in src and "botReady" in src and "oidcReady" in src and "ttlError" in src
     assert "saved.store_login" in src  # the badge honours the storefront switch, like the server's public_telegram()

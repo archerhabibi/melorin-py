@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from _source import read_source
+from _source import read_source, read_web_source
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -102,7 +102,7 @@ def test_async_test_tooling_is_pinned():
 
 
 def test_store_frontend_does_not_fallback_to_demo_plans():
-    source = (ROOT.parent.parent / "apps/store-web/src/App.jsx").read_text()
+    source = read_web_source(ROOT.parent.parent / "apps/store-web/src/App.jsx")
     assert "const demoPlans" not in source
     assert "catalog.length ?" in source
     assert "catalog.length ? catalog : demoPlans" not in source
@@ -171,12 +171,12 @@ def test_k21_to_k27_hardening_is_wired():
     identity = read_source(ROOT / "melorin/modules/identity/service.py")
     config = read_source(ROOT / "melorin/core/config.py")
     compose = (root / "docker-compose.yml").read_text()
-    store_auth = (root / "apps/store-web/src/App.jsx").read_text()
+    store_auth = read_web_source(root / "apps/store-web/src/App.jsx")
     quality = (root / "scripts/run_quality_gate.sh").read_text()
     assert "return False" in limiter and "if not user.is_active" in identity
     assert "backup_offsite_uri" in config
     assert "mem_limit:" in compose and "cpus:" in compose
-    assert 'credentials:"include"' in store_auth and "/api/v1/auth/refresh" in store_auth
+    assert 'credentials: "include"' in store_auth and "/api/v1/auth/refresh" in store_auth
     assert "npm audit --include=dev" in quality
 
 

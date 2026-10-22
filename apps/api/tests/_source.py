@@ -124,3 +124,18 @@ def read_source(path: str | Path) -> str:
 def parse_source(path: str | Path) -> ast.Module:
     """Parse a Python file from its *raw* text (normalised text is not valid Python)."""
     return ast.parse(Path(path).read_text(encoding="utf-8"))
+
+
+# Phase 6.3: Prettier owns the layout of the web apps (single quotes, unquoted object keys, wrapped JSX). Contract
+# tests that grep JS/JSX must not depend on that layout, so they read through ``read_web_source``.
+_SIMPLE_SQ_STRING = re.compile(r"'([^'\"\\\n]*)'")
+
+
+def normalize_web_source(text: str) -> str:
+    """Layout-insensitive JS/JSX text: simple '...' strings become "...", plus the ``normalize_source`` collapsing."""
+    return normalize_source(_SIMPLE_SQ_STRING.sub(r'"\1"', text))
+
+
+def read_web_source(path: str | Path) -> str:
+    """Return the normalised text of a JS/JSX file (needles must be written with double quotes)."""
+    return normalize_web_source(Path(path).read_text(encoding="utf-8"))

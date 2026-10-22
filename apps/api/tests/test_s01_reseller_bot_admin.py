@@ -1,5 +1,6 @@
 """Admin management of reseller stores + the Core side of the reseller bot runtime (SQLite, Telegram mocked)."""
 
+from _source import read_web_source
 import datetime as dt
 import types
 import uuid
@@ -269,8 +270,8 @@ def test_admin_ui_has_a_resellers_screen_and_never_asks_core_for_the_token():
     from pathlib import Path
 
     web = Path(__file__).parents[2] / "admin-web/src"
-    assert '"نمایندگان": ResellersView' in (web / "AdminExtra.jsx").read_text()
-    assert "'resellers'" in (web / "App.jsx").read_text()
-    view = (web / "ResellersView.jsx").read_text()
+    assert "نمایندگان: ResellersView" in read_web_source(web / "AdminExtra.jsx")
+    assert '"resellers"' in read_web_source(web / "App.jsx")
+    view = read_web_source(web / "ResellersView.jsx")
     assert "/api/v1/admin/resellers" in view and "/bot-token" in view and "/verify-bot" in view
     assert "bot_token" not in view  # the token is write-only: the screen only ever sends it

@@ -21,8 +21,16 @@ for text in (gate, ci):
         raise SystemExit("quality gate is missing ruff check or format check")
 # M6.11: the guard scripts themselves must stay wired into the gate, CI and the Makefile.
 makefile = (ROOT / "Makefile").read_text()
-for name in ("check_g001_g010.py", "check_quality_config.py", "gen_docs.py"):
+for name in ("check_g001_g010.py", "check_quality_config.py", "gen_docs.py", "gen_api_client.py"):
     for label, text in (("run_quality_gate.sh", gate), ("ci.yml", ci), ("Makefile", makefile)):
         if name not in text:
             raise SystemExit(f"guard {name} is not wired into {label}")
+# Phase 6: frontend lint/format/budget must stay wired into CI, and each web app must ship its configs.
+for needle in ("npm run lint", "npm run format:check", "check_bundle_budget.py"):
+    if needle not in ci:
+        raise SystemExit(f"CI is missing the frontend step: {needle}")
+for web in ("apps/store-web", "apps/admin-web"):
+    for cfg in ("eslint.config.js", ".prettierrc.json"):
+        if not (ROOT / web / cfg).exists():
+            raise SystemExit(f"{web}/{cfg} is missing")
 print("Quality configuration is explicit and wired into local gate and CI")

@@ -7,7 +7,7 @@ from pathlib import Path
 
 import httpx
 import pytest
-from _source import read_source
+from _source import read_source, read_web_source
 
 ROOT = Path(__file__).parents[2]
 PROJECT = ROOT.parent
@@ -209,14 +209,14 @@ def test_reseller_bot_inherits_the_flow_and_binds_its_own_store(tmp_path, monkey
 
 # ---------------- contracts of the other pieces ----------------
 def test_frontend_polls_with_post_body_and_keeps_nothing_in_storage():
-    src = (PROJECT / "apps/store-web/src/TelegramLogin.jsx").read_text()
+    src = read_web_source(PROJECT / "apps/store-web/src/TelegramLogin.jsx")
     assert 'method: "POST"' in src and "poll_token: s.poll_token" in src
     assert "poll_token=" not in src and "?token" not in src  # secrets never travel in a URL
     assert "localStorage" not in src and "sessionStorage" not in src
     assert "/cancel" in src and "keepalive: true" in src  # closing the dialog invalidates the Telegram link
     assert 'rel="noopener noreferrer"' in src and "visibilitychange" in src
-    app = (PROJECT / "apps/store-web/src/App.jsx").read_text()
-    assert 'import TelegramLogin from "./TelegramLogin.jsx"' in app and 'modal==="telegram"' in app
+    app = read_web_source(PROJECT / "apps/store-web/src/App.jsx")
+    assert 'import TelegramLogin from "./TelegramLogin.jsx"' in app and 'modal === "telegram"' in app
     assert "hasBot" in app and "store.bot_username" in app
     assert "pair.is_admin" in app  # admins still cannot keep a storefront session
 

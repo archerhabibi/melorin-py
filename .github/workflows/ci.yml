@@ -36,6 +36,7 @@ jobs:
       - run: python ../../scripts/check_release_matrix.py
       - run: python ../../scripts/check_g001_g010.py
       - run: python ../../scripts/check_quality_config.py
+      - run: python ../../scripts/gen_api_client.py --check
       - run: python ../../scripts/check_ops_p0.py
       - run: python ../../scripts/gen_docs.py --check
       - run: bash ../../scripts/test_deploy.sh
@@ -67,6 +68,10 @@ jobs:
         working-directory: apps/store-web
       - run: npm audit --audit-level=high
         working-directory: apps/store-web
+      - run: npm run lint
+        working-directory: apps/store-web
+      - run: npm run format:check
+        working-directory: apps/store-web
       - run: npm test
         working-directory: apps/store-web
       - run: npm run build
@@ -75,10 +80,25 @@ jobs:
         working-directory: apps/admin-web
       - run: npm audit --audit-level=high
         working-directory: apps/admin-web
+      - run: npm run lint
+        working-directory: apps/admin-web
+      - run: npm run format:check
+        working-directory: apps/admin-web
       - run: npm test
         working-directory: apps/admin-web
       - run: npm run build
         working-directory: apps/admin-web
+      - run: python scripts/check_bundle_budget.py
+        working-directory: .
+      # Generated API client: types must match the committed OpenAPI snapshot, compile, and pass unit tests.
+      - run: npm ci --include=dev --ignore-scripts --no-audit --no-fund
+        working-directory: packages/api-client
+      - run: npm run generate && git diff --exit-code -- packages/api-client
+        working-directory: packages/api-client
+      - run: npm run typecheck
+        working-directory: packages/api-client
+      - run: npm test
+        working-directory: packages/api-client
       - run: docker build -f apps/store-web/Dockerfile -t melorin-store-web .
         working-directory: .
       - run: docker build -f apps/admin-web/Dockerfile -t melorin-admin-web .

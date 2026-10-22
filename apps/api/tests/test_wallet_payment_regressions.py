@@ -1,15 +1,15 @@
 from pathlib import Path
 
-from _source import read_source
+from _source import read_source, read_web_source
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_main_payment_settings_have_first_class_forms():
-    extra = (ROOT.parent / "admin-web/src/AdminExtra.jsx").read_text()
-    payments = (ROOT.parent / "admin-web/src/PaymentsView.jsx").read_text()
+    extra = read_web_source(ROOT.parent / "admin-web/src/AdminExtra.jsx")
+    payments = read_web_source(ROOT.parent / "admin-web/src/PaymentsView.jsx")
     # Payment gateway settings now live inside the redesigned Payments screen.
-    assert '"پرداخت‌ها": PaymentsView' in extra
+    assert "پرداخت‌ها: PaymentsView" in extra
     assert "GatewaySettings" in payments
     assert "card.info" in payments and "gateway.zarinpal" in payments
     assert "تنظیمات پیشرفته سیستم" in extra

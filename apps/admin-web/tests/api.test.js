@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearTokens, getAccessToken, setTokens } from '../src/auth.js';
 import { authFetch, getJson } from '../src/api.js';
 
-const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+const json = (body, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 const BASE = 'https://api.test';
 
 describe('authFetch', () => {
@@ -75,7 +76,10 @@ describe('authFetch', () => {
     setTokens({ access_token: 'old' });
     let refreshCalls = 0;
     fetchMock.mockImplementation(async (url, init) => {
-      if (String(url).endsWith('/auth/refresh')) { refreshCalls += 1; return json({ access_token: 'fresh' }); }
+      if (String(url).endsWith('/auth/refresh')) {
+        refreshCalls += 1;
+        return json({ access_token: 'fresh' });
+      }
       return init.headers.Authorization === 'Bearer fresh' ? json({ ok: 1 }) : json({}, 401);
     });
     const results = await Promise.all([authFetch(BASE, '/a'), authFetch(BASE, '/b'), authFetch(BASE, '/c')]);
@@ -91,7 +95,10 @@ describe('authFetch', () => {
 });
 
 describe('getJson', () => {
-  beforeEach(() => { clearTokens(); vi.stubGlobal('fetch', vi.fn()); });
+  beforeEach(() => {
+    clearTokens();
+    vi.stubGlobal('fetch', vi.fn());
+  });
 
   it('returns the parsed body on success', async () => {
     fetch.mockResolvedValueOnce(json({ items: [1] }));
