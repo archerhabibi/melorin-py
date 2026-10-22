@@ -186,7 +186,7 @@ def api_access(scope: str):
     """Reseller API plane (``/reseller-api/v1/stores/{store_id}/...``): the ``api`` channel, resolved by Core from the key.
 
     One dependency per scope, so a route cannot forget the key check, the store binding, or its scope (the guard in
-    ``test_t01_channel_binding`` refuses a ``{store_id}`` route that has neither this nor a session dependency).
+    ``test_channel_binding`` refuses a ``{store_id}`` route that has neither this nor a session dependency).
     The yielded context acts as the store's owner, exactly like the reseller panel does.
     """
 

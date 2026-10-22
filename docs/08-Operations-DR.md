@@ -27,7 +27,7 @@ Storage abstraction برای Local یا S3-compatible. فایل Ticket/Receipt �
 | MelorinResellerBotUnhealthy | a reseller bot is offline (stale heartbeat) or in error |
 | MelorinBackupStale | no successful backup for 36 h (or ever) |
 
-`tests/test_m76_observability.py` checks that every alert expression only references metrics the code really emits.
+`tests/test_observability_metrics.py` checks that every alert expression only references metrics the code really emits.
 
 ## Backup implementation
 

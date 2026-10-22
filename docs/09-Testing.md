@@ -14,6 +14,6 @@ Lint/type checks، Unit/Integration tests، OpenAPI diff، migration test، depe
 
 - پیش‌فرض: تست‌های واحد روی SQLite درون‌حافظه (سریع و hermetic).
 - با تنظیم `TEST_PG_URL=postgresql+asyncpg://melorin:test@localhost:5432/melorin` همان تست‌ها روی PostgreSQL اجرا می‌شوند؛ هر تست یک schema موقت و جدا می‌گیرد (`apps/api/tests/_db.py`).
-- `tests/test_m77_postgres_concurrency.py` فقط در این مسیر اجرا می‌شود: برداشت موازی بدون اضافه‌برداشت، و کلید idempotency یکسان که فقط یک‌بار ثبت می‌شود (`FOR UPDATE` در SQLite بی‌اثر است).
+- `tests/test_postgres_concurrency.py` فقط در این مسیر اجرا می‌شود: برداشت موازی بدون اضافه‌برداشت، و کلید idempotency یکسان که فقط یک‌بار ثبت می‌شود (`FOR UPDATE` در SQLite بی‌اثر است).
 - در CI جاب `postgres-lane` این مسیر را اجرا می‌کند.
 - Run locally: `cd apps/api && TEST_PG_URL=... pytest -q -m "not integration"`.
