@@ -31,8 +31,26 @@ def upgrade() -> None:
     _swap_idempotency_constraint("orders", "uq_orders_user_store_idempotency_key")
 
 
+def _restore_legacy_idempotency_constraint(table: str, legacy_name: str) -> None:
+    """Inverse of the swap: drop the (user, store, key) unique constraint under whatever name it has.
+
+    A fresh install gets the three-column constraint from the baseline under a generated name
+    (``uq_<table>_user_id_store_id_idempotency_key``), so dropping a hard-coded name fails there.
+    """
+    inspector = sa.inspect(op.get_bind())
+    wanted = ["idempotency_key", "store_id", "user_id"]
+    legacy = ["idempotency_key", "user_id"]
+    already_legacy = False
+    for uc in inspector.get_unique_constraints(table):
+        cols = sorted(uc["column_names"])
+        if cols == wanted:
+            op.drop_constraint(uc["name"], table, type_="unique")
+        elif cols == legacy:
+            already_legacy = True
+    if not already_legacy:
+        op.create_unique_constraint(legacy_name, table, ["user_id", "idempotency_key"])
+
+
 def downgrade() -> None:
-    op.drop_constraint("uq_payments_user_store_idempotency_key", "payments", type_="unique")
-    op.create_unique_constraint("uq_payments_user_id_idempotency_key", "payments", ["user_id", "idempotency_key"])
-    op.drop_constraint("uq_orders_user_store_idempotency_key", "orders", type_="unique")
-    op.create_unique_constraint("uq_orders_user_id_idempotency_key", "orders", ["user_id", "idempotency_key"])
+    _restore_legacy_idempotency_constraint("payments", "uq_payments_user_id_idempotency_key")
+    _restore_legacy_idempotency_constraint("orders", "uq_orders_user_id_idempotency_key")
