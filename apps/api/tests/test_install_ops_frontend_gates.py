@@ -41,8 +41,10 @@ def test_acceptance_smoke_covers_real_provider_boundaries():
 
 def test_telegram_retries_transient_core_errors_without_advancing_offset():
     bot = read("apps/telegram-main/runner.py")
-    assert "offset is deliberately NOT advanced" in bot
-    assert 'self._save_offset(update["update_id"] + 1)' in bot
+    # Transient errors propagate (offset not advanced) only up to a bounded cap, then the update is dropped (no head-of-line blocking).
+    assert "Transient errors propagate (offset not advanced)" in bot
+    assert "MAX_UPDATE_ATTEMPTS" in bot
+    assert "self._save_offset(uid + 1)" in bot
 
 
 def test_production_redis_policy_and_frontend_audit_gate_are_explicit():
