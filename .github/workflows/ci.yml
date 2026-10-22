@@ -48,11 +48,15 @@ jobs:
         working-directory: apps/store-web
       - run: npm audit --audit-level=high
         working-directory: apps/store-web
+      - run: npm test
+        working-directory: apps/store-web
       - run: npm run build
         working-directory: apps/store-web
       - run: npm ci --include=dev --ignore-scripts --no-audit --no-fund
         working-directory: apps/admin-web
       - run: npm audit --audit-level=high
+        working-directory: apps/admin-web
+      - run: npm test
         working-directory: apps/admin-web
       - run: npm run build
         working-directory: apps/admin-web
