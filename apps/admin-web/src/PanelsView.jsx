@@ -325,7 +325,7 @@ function PanelDrawer({ panel, groups, idx, onClose, onSubmit, onToggle, onDelete
         : [],
     }),
     [],
-  );  
+  );
   const [f, setF] = useState(initial.f);
   const [srv, setSrv] = useState(initial.srv);
   const [gids, setGids] = useState(initial.gids);
@@ -1118,7 +1118,7 @@ export default function PanelsView({ api, toast }) {
       return res.healthy;
     },
     [probe, healthToast],
-  );  
+  );
 
   const checkAll = async () => {
     const list = (rows || []).filter((p) => p.is_enabled);
@@ -1333,7 +1333,7 @@ export default function PanelsView({ api, toast }) {
             .includes(q.trim().toLowerCase()),
       ),
     [rows, filter, q, only, groupPanels, productF, idx],
-  );  
+  );
   const sorted = useMemo(() => {
     const rank = (p) => (!p.is_enabled ? 3 : health(p) === 'unhealthy' ? 0 : health(p) === 'unknown' ? 1 : 2);
     const by = {

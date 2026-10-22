@@ -440,7 +440,7 @@ export default function ResellersView({ api, toast }) {
             (v || '').toLowerCase().includes(t),
           )),
     );
-  }, [all, filter, q]);  
+  }, [all, filter, q]);
 
   return (
     <div className="space-y-5">

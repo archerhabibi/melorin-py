@@ -238,7 +238,7 @@ export function useInfra(api, { needs = ['panels', 'servers', 'groups', 'product
   );
   const idx = useMemo(
     () => buildIndex(panels.rows || [], servers.rows || [], groups.rows || [], products.rows || []),
-    [panels.rows, servers.rows, groups.rows, products.rows],  
+    [panels.rows, servers.rows, groups.rows, products.rows],
   );
   const _loaderRef = useRef(null);
   _loaderRef.current = { panels: panels.load, servers: servers.load, groups: groups.load, products: products.load };
@@ -412,15 +412,15 @@ export function InfraChain({ current, infra }) {
   const st = useMemo(
     () => issuesOf(infra),
     [infra.panels.rows, infra.servers.rows, infra.groups.rows, infra.products.rows],
-  );  
+  );
   const next = useMemo(
     () => nextStep(infra),
     [infra.panels.rows, infra.servers.rows, infra.groups.rows, infra.products.rows, infra.loading, infra.failed],
-  );  
+  );
   const rd = useMemo(
     () => readiness(infra),
     [infra.panels.rows, infra.servers.rows, infra.groups.rows, infra.products.rows],
-  );  
+  );
   const loading = infra.loading;
   const rtone = !rd.total ? 'mu' : rd.value >= 1 ? 'ok' : rd.value >= 0.5 ? 'wn' : 'bd';
   return (

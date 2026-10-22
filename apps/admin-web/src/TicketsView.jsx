@@ -392,7 +392,7 @@ function Conversation({ call, id, toast, onChanged, onBack }) {
       }
     },
     [id],
-  );  
+  );
   useEffect(() => {
     setD(null);
     setEditing(null);

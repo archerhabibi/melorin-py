@@ -964,7 +964,7 @@ export default function BundlesView({ api, toast }) {
   const [page, setPage] = useState(0);
   useEffect(() => {
     setPage(0);
-  }, [filter, q]);  
+  }, [filter, q]);
   const alive = useAlive();
   useEffect(() => {
     setQ(params.get('q') || '');
@@ -995,7 +995,7 @@ export default function BundlesView({ api, toast }) {
           g.name.toLowerCase().includes(q.trim().toLowerCase()),
       ),
     [rows, filter, q, idx],
-  );  
+  );
   const sorted = useMemo(() => {
     const by = {
       attention: (a, b) =>
@@ -1007,7 +1007,7 @@ export default function BundlesView({ api, toast }) {
       free: (a, b) => idx.groupStat(b).free - idx.groupStat(a).free,
     };
     return [...filtered].sort(by[sort]);
-  }, [filtered, sort, idx]);  
+  }, [filtered, sort, idx]);
   const shown = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const editing = drawer && drawer !== 'add' ? (rows || []).find((g) => g.id === drawer) : null;
 

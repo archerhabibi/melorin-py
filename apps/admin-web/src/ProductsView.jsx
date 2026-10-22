@@ -593,7 +593,7 @@ export default function ProductsView({ api, toast }) {
   const [page, setPage] = useState(0);
   useEffect(() => {
     setPage(0);
-  }, [q]);  
+  }, [q]);
   const [filter, setFilter] = useState(
       ['on', 'off', 'broken', 'test'].includes(params.get('filter')) ? params.get('filter') : 'all',
     ),
@@ -656,7 +656,7 @@ export default function ProductsView({ api, toast }) {
       name: (a, b) => a.name.localeCompare(b.name, 'fa'),
     };
     return [...shown].sort(by[sort]);
-  }, [shown, sort, idx]);  
+  }, [shown, sort, idx]);
   const editing = drawer && drawer !== 'add' ? (rows || []).find((p) => p.id === drawer) : null;
   const table = layout === 'table' || quick;
 
