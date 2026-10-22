@@ -6,6 +6,6 @@ COPY apps/store-web/ ./
 ARG VITE_GOOGLE_CLIENT_ID=
 ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
 RUN npm run build
-FROM nginx:1.27-alpine
+FROM nginx:1.29-alpine
 COPY apps/store-web/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
