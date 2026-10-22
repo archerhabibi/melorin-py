@@ -23,8 +23,16 @@ PUBLIC_IP = "93.184.216.34"
 URL = "https://hooks.example.com/melorin"
 
 
+_real_getaddrinfo = socket.getaddrinfo
+
+
 def _dns(ips):
+    """Fake resolver for webhook hosts only. ``svc.socket`` is the global module, so every other host (e.g. the
+    PostgreSQL lane's ``localhost``) must keep resolving for real."""
+
     def fake(host, port, *a, **k):
+        if not str(host).endswith("example.com"):
+            return _real_getaddrinfo(host, port, *a, **k)
         return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (ip, 443)) for ip in ips]
 
     return fake
@@ -99,7 +107,9 @@ async def test_create_endpoint_rejects_unknown_event_and_unsafe_urls(monkeypatch
 
 
 async def test_unresolvable_host_is_reported_as_invalid(monkeypatch):
-    def boom(*a, **k):
+    def boom(host, *a, **k):
+        if not str(host).endswith("example.com"):
+            return _real_getaddrinfo(host, *a, **k)
         raise socket.gaierror("no such host")
 
     monkeypatch.setattr(svc.socket, "getaddrinfo", boom)
@@ -269,7 +279,9 @@ async def test_dns_rebinding_between_checks_aborts_delivery_before_any_request(h
         _, d, _ = await _pending(s)
         # 1st/2nd lookups (validation) see the public IP, the 3rd/4th (pre/post) disagree -> the answer changed mid-delivery
         answers = iter([[PUBLIC_IP], [PUBLIC_IP], [PUBLIC_IP], ["93.184.216.35"]])
-        monkeypatch.setattr(svc.socket, "getaddrinfo", lambda *a, **k: _dns(next(answers))(*a, **k))
+        monkeypatch.setattr(
+            svc.socket, "getaddrinfo", lambda host, *a, **k: _dns(next(answers) if str(host).endswith("example.com") else [])(host, *a, **k)
+        )
         with pytest.raises(AppError) as err:
             await svc.deliver_one(s, d.id)
         assert err.value.code == "WEBHOOK_DNS_CHANGED" and http.calls == []
