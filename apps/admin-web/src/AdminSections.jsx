@@ -1,7 +1,11 @@
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { extraRoutes } from "./AdminExtra.jsx";
 import { authFetch } from "./api.js";
 import { Badge, isStatus } from "./ui.jsx";
+
+function SectionFallback() {
+  return <div className="card p-6" role="status" aria-live="polite" aria-label="در حال بارگذاری بخش"><div className="skel h-5 w-full" /><div className="skel mt-3 h-5 w-2/3" /></div>;
+}
 
 const money = (n) => new Intl.NumberFormat("fa-IR").format(n || 0);
 
@@ -31,7 +35,7 @@ export function AdminSectionView({ section, api, toast }) {
     return () => clearTimeout(timer);
   }, [section, api.base, term]);
 
-  if (Extra) return <Extra api={api} toast={toast} />;
+  if (Extra) return <Suspense fallback={<SectionFallback />}><Extra api={api} toast={toast} /></Suspense>;
   if (section === "پرداخت‌ها") return <DataTable title="پرداخت‌ها" loading={loading} columns={["مبلغ", "ارز", "درگاه", "وضعیت", "رسید"]} rows={items.map((x) => [money(x.amount), x.currency, x.provider, x.status, x.has_receipt ? "دارد" : "ندارد"])} />;
   if (section === "سفارش‌ها") return <DataTable title="سفارش‌ها" loading={loading} columns={["شماره", "Store", "مبلغ", "وضعیت", "نیازمند بررسی"]} rows={items.map((x) => [x.number, String(x.store_id || "").slice(0, 8), `${money(x.total)} ${x.currency || ""}`, x.status, x.needs_review ? "بله" : "خیر"])} />;
   if (section === "اکانت‌های VPN") return <div className="space-y-3"><input className="field w-full" type="search" dir="auto" value={term} onChange={(e) => setTerm(e.target.value)} placeholder="جستجو: نام اکانت، نام یا ایمیل مشتری" aria-label="جستجوی اکانت" /><DataTable title="اکانت‌های VPN" loading={loading} columns={["کاربر", "نام کاربری", "وضعیت", "انقضا", "ترافیک"]} rows={items.map((x) => [String(x.user_id || "").slice(0, 8), x.username, x.status, x.expires_at || "نامحدود", `${money(x.traffic_used_bytes)} / ${money(x.traffic_limit_bytes)}`])} /></div>;
