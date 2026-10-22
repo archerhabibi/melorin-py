@@ -1,0 +1,8 @@
+# Developer and CI tooling on top of the runtime set (never installed in the production image). Re-lock with
+#   scripts/lock_requirements.sh
+-r requirements.in
+pytest==9.1.1
+pytest-asyncio==1.4.0
+pytest-cov==7.1.0
+ruff==0.9.2
+import-linter==2.15

@@ -7,7 +7,8 @@
 #   1. lock           one deploy at a time (flock on var/deploy.lock)
 #   2. fetch/checkout the requested ref (default origin/main) as a detached HEAD; remember the previous commit
 #   3. backup         encrypted pre-deploy DB backup through the running worker (scripts/backup_secure.sh); aborts if it fails
-#   4. build          docker compose build
+#   4. images         build on the host (default) or, when MELORIN_IMAGE_REGISTRY is set in .env, pull the images CI built and
+#                     pushed for exactly this commit (tag = full commit sha); a failed pull falls back to a local build
 #   5. migrate        alembic upgrade head (Postgres DDL is transactional: a failed migration leaves the schema untouched)
 #   6. up             docker compose up -d --remove-orphans
 #   7. verify         wait for /health/ready (DB + Redis + worker heartbeat) and for every service to be healthy
@@ -16,6 +17,10 @@
 # Database note: rollback restores the previous CODE. The schema stays at the new revision unless --db-downgrade is given
 # (migrations 0002/0011/0023/0026 have no-op downgrades, so downgrade is opt-in). The pre-deploy backup path is printed
 # on every failure so the data can be restored by hand if a migration was destructive.
+#
+# Registry mode (audit W6): set MELORIN_IMAGE_REGISTRY=ghcr.io/<owner>/melorin in .env. The deploy workflow builds and pushes
+# <registry>/{api,store-web,admin-web,telegram-main,telegram-reseller}:<sha> after CI is green, so the production host never
+# builds. The deployed tag is recorded as MELORIN_IMAGE_TAG in .env so a later plain `docker compose up` uses the same images.
 #
 # Environment: APP_DIR (default: repo root of this script), DEPLOY_HEALTH_TIMEOUT (default 180s), DEPLOY_SKIP_BACKUP=1,
 # DEPLOY_REMOTE (default origin). Compose file selection mirrors melorin.sh (external proxy / local-proxy profile).
@@ -61,6 +66,33 @@ compose() {
   [ -n "$prof" ] && export COMPOSE_PROFILES="$prof"
   # </dev/null: when this script is streamed through `ssh ... bash -s`, a docker command reading stdin would swallow the rest of it
   docker compose "${files[@]}" "$@" </dev/null
+}
+
+# Write KEY=VALUE into .env (replace or append), keeping the file mode.
+env_set() {
+  local key="$1" value="$2" tmp
+  tmp="$(mktemp .env.XXXXXX)"
+  { grep -v "^${key}=" .env || true; printf '%s=%s\n' "$key" "$value"; } > "$tmp"
+  chmod --reference=.env "$tmp" 2>/dev/null || chmod 600 "$tmp"
+  mv "$tmp" .env
+}
+
+# Make the images for <sha> available: pull from the registry when configured, else (or when the pull fails) build locally.
+IMAGE_SERVICES="api worker store_web admin_web telegram_main telegram_reseller"
+provide_images() { # provide_images <full-sha>
+  local sha="$1"
+  if [ -z "$(env_get MELORIN_IMAGE_REGISTRY)" ]; then
+    compose build
+    return
+  fi
+  env_set MELORIN_IMAGE_TAG "$sha"
+  say "pulling images $(env_get MELORIN_IMAGE_REGISTRY)/*:${sha:0:12}"
+  # shellcheck disable=SC2086
+  if compose pull --quiet $IMAGE_SERVICES; then
+    return 0
+  fi
+  warn "image pull failed (missing image or registry login?); building on this host instead"
+  compose build
 }
 
 ops_log() { # ops_log <result> <ref> <note>
@@ -146,7 +178,7 @@ rollback() {
     compose run --rm -T api alembic downgrade "$PREV_REV" || warn "database downgrade failed; schema stays at the new revision"
   fi
   git -c advice.detachedHead=false checkout --quiet --detach "$PREV"
-  if compose build && compose up -d --remove-orphans && wait_healthy; then
+  if provide_images "$PREV" && compose up -d --remove-orphans && wait_healthy; then
     say "rollback complete: serving $PREV_SHORT again"
     ops_log "rolled back to $PREV_SHORT" "$TARGET_SHORT" "$why"
   else
@@ -161,8 +193,11 @@ rollback() {
 git -c advice.detachedHead=false checkout --quiet --detach "$TARGET"
 
 # ------------------------------------------------------------------ 4-6) build, migrate, up
-say "building images"
-compose build || rollback "image build failed"
+# Local builds happen on the production host while the old stack is still serving: build two images at a time, not all at once,
+# so a 4 GB host keeps headroom (override with COMPOSE_PARALLEL_LIMIT). Registry mode skips the build entirely.
+export COMPOSE_PARALLEL_LIMIT="${COMPOSE_PARALLEL_LIMIT:-2}"
+say "preparing images"
+provide_images "$TARGET" || rollback "image build/pull failed"
 say "running migrations"
 compose run --rm -T api alembic upgrade head || rollback "migration failed (schema untouched: Postgres DDL is transactional)"
 say "starting services"

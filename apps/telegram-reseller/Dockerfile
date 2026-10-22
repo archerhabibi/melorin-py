@@ -1,7 +1,7 @@
-FROM python:3.12-slim
+FROM python:3.12-slim-bookworm
 WORKDIR /app
 COPY apps/telegram-reseller/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --require-hashes -r requirements.txt
 COPY apps/telegram-reseller/runner.py .
 COPY apps/telegram-reseller/tgreseller ./tgreseller
 COPY apps/telegram-main/runner.py /app/telegram-main/runner.py

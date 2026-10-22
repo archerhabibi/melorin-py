@@ -69,3 +69,13 @@ async def test_redis_outage_uses_bounded_local_limiter(monkeypatch):
     monkeypatch.setattr(ratelimit, "_mem", defaultdict(lambda: [0, 0.0]))
     assert await ratelimit.hit("auth:203.0.113.20", 1, 60)
     assert not await ratelimit.hit("auth:203.0.113.20", 1, 60)
+
+
+def test_redis_outage_policy_is_documented():
+    """Phase 5.7 (audit W4): fail-closed login during a Redis outage is documented in the module and the runbook.
+    That production cannot relax it is pinned in test_config_runtime_rules.py."""
+    from pathlib import Path
+
+    assert "NOBODY CAN SIGN IN" in ratelimit.__doc__
+    runbook = (Path(__file__).resolve().parents[3] / "docs/RUNBOOK.md").read_text()
+    assert "nobody can sign in" in runbook.lower()

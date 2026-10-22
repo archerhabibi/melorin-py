@@ -1,5 +1,8 @@
 name: CI
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+  workflow_dispatch:   # lets the Pin images workflow start CI for the pull request it opens
 jobs:
   quality:
     runs-on: ubuntu-latest
@@ -17,9 +20,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
-      - run: pip install -r requirements.txt
+      - run: pip install --require-hashes -r requirements-dev.txt
       - run: python -m pip install --disable-pip-version-check pip-audit==2.10.1
+      # runtime lock = what the image ships; dev lock = what CI runs
       - run: pip-audit -r requirements.txt
+      - run: pip-audit -r requirements-dev.txt
+      # a *.in file edited without re-locking would silently ship unpinned/unhashed dependencies
+      - run: python -m pip install --disable-pip-version-check uv==0.11.32
+      - run: bash scripts/lock_requirements.sh --check
+        working-directory: .
       - run: python ../../scripts/preflight.py --runtime
       - run: python ../../scripts/verify_runtime.py
       - run: bash ../../scripts/check_secrets.sh
@@ -42,6 +51,14 @@ jobs:
         env: {MELORIN_DATABASE_URL: postgresql+asyncpg://melorin:test@localhost:5432/melorin, MELORIN_REDIS_URL: redis://localhost:6379/0, MELORIN_JWT_SECRET: ci-secret-ci-secret-ci-secret-1234, MELORIN_ALLOW_MOCK_PROVIDERS: 'true'}
       - run: pytest -q ../telegram-main/tests
         env: {MELORIN_CORE_URL: 'http://core.invalid'}
+      - name: Compose files are valid (full stack and external-proxy variant)
+        working-directory: .
+        env: {POSTGRES_PASSWORD: ci-only}
+        run: |
+          cp .env.example .env
+          docker compose --profile local-proxy -f docker-compose.yml config -q
+          docker compose -f docker-compose.yml -f docker-compose.external.yml config -q
+          rm -f .env
       - run: docker build -f apps/api/Dockerfile -t melorin-api .
         working-directory: .
       - run: python scripts/check_web_lockfiles.py
@@ -114,6 +131,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
-      - run: pip install -r requirements.txt
+      - run: pip install --require-hashes -r requirements-dev.txt
       - run: pytest -q -m "not integration"
         env: {TEST_PG_URL: 'postgresql+asyncpg://melorin:test@localhost:5432/melorin'}

@@ -96,7 +96,7 @@ def test_operational_endpoints_are_not_public():
 
 
 def test_async_test_tooling_is_pinned():
-    requirements = (ROOT / "requirements.txt").read_text()
+    requirements = (ROOT / "requirements-dev.txt").read_text()
     assert "pytest-asyncio==" in requirements
     assert "pytest-cov==" in requirements
 

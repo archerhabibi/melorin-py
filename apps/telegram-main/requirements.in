@@ -1,0 +1,3 @@
+# Direct dependencies of the telegram-main image. Re-lock with scripts/lock_requirements.sh
+httpx==0.28.1
+segno==1.6.6

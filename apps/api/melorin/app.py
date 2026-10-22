@@ -12,7 +12,7 @@ from melorin.core.db import configure
 from melorin.core.errors import install
 from melorin.core.health import build_checks, probe_database, probe_worker, publish_signals
 from melorin.core.logging import setup_logging
-from melorin.core.middleware import CorrelationMiddleware
+from melorin.core.middleware import CorrelationMiddleware, SecurityHeadersMiddleware
 from melorin.core.metrics import render, set_alert, set_gauge
 from melorin.modules.admin.router import router as admin_router
 from melorin.modules.catalog.router import public as catalog_router
@@ -52,6 +52,8 @@ app.add_middleware(
     allow_headers=s.cors_allow_headers,
     expose_headers=["X-Total-Count"],
 )
+# Outermost (added last) so CORS preflights and error responses carry the security headers too.
+app.add_middleware(SecurityHeadersMiddleware)
 install(app)
 
 app.include_router(auth_router, prefix="/api/v1")
