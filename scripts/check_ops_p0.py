@@ -13,6 +13,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 
 DEV_ONLY_PACKAGES = {"pytest", "pytest-asyncio", "pytest-cov", "ruff", "import-linter", "coverage"}
+MEMORY_BUDGET_MIB = 3584  # sum of every mem_limit in docker-compose.yml; README recommends 4 GB RAM for it
 LOCK_FILES = [
     "apps/api/requirements.txt",
     "apps/api/requirements-dev.txt",
@@ -80,6 +81,39 @@ def image_pin_problems() -> list[str]:
     return []
 
 
+def _mib(value: object) -> int | None:
+    m = re.fullmatch(r"(\d+)\s*([kmg])b?", str(value).strip().lower())
+    if not m:
+        return None
+    return int(int(m.group(1)) * {"k": 1 / 1024, "m": 1, "g": 1024}[m.group(2)])
+
+
+def memory_problems(compose: dict) -> list[str]:
+    """Every service is capped, the caps fit the documented budget, and Redis stops itself before its container cap (W6)."""
+    problems: list[str] = []
+    total = 0
+    services = compose["services"]
+    for name, svc in services.items():
+        cap = _mib(svc.get("mem_limit", ""))
+        if cap is None:
+            problems.append(f"docker-compose.yml: service '{name}' has no mem_limit (W6)")
+        else:
+            total += cap
+    if total > MEMORY_BUDGET_MIB:
+        problems.append(f"docker-compose.yml: mem_limit total {total} MiB exceeds the {MEMORY_BUDGET_MIB} MiB budget (update README + MEMORY_BUDGET_MIB together)")
+    cmd = services.get("redis", {}).get("command", "")
+    cmd = " ".join(cmd) if isinstance(cmd, list) else str(cmd)
+    m = re.search(r"--maxmemory\s+(\d+\s*[kmg]b?)", cmd, re.IGNORECASE)
+    redis_cap = _mib(services.get("redis", {}).get("mem_limit", ""))
+    if not m:
+        problems.append("docker-compose.yml: redis needs --maxmemory below its container cap")
+    elif redis_cap is not None and (_mib(m.group(1)) or 0) >= redis_cap:
+        problems.append("docker-compose.yml: redis --maxmemory must be lower than its mem_limit")
+    if "noeviction" not in cmd:
+        problems.append("docker-compose.yml: redis must use --maxmemory-policy noeviction (queue and rate-limit keys are never dropped silently)")
+    return problems
+
+
 def main() -> int:
     errors: list[str] = []
     run_checks(errors)
@@ -137,6 +171,10 @@ def run_checks(errors: list[str]) -> None:
     for rel in ("apps/api/Dockerfile", "apps/telegram-main/Dockerfile", "apps/telegram-reseller/Dockerfile"):
         if "--require-hashes" not in (ROOT / rel).read_text():
             errors.append(f"{rel}: pip install must use --require-hashes (W17)")
+    errors.extend(memory_problems(compose))
+    for readme in ("README.md", "README.fa.md"):
+        if not re.search(r"\b4 GB|۴ گیگ", (ROOT / readme).read_text()):
+            errors.append(f"{readme}: the recommended RAM must match the {MEMORY_BUDGET_MIB} MiB memory budget (4 GB)")
     errors.extend(api_dockerfile_problems((ROOT / "apps/api/Dockerfile").read_text()))
     errors.extend(image_pin_problems())
 

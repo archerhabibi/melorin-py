@@ -6,7 +6,7 @@ Production-oriented modular monolith for a multi-store VPN platform. The impleme
 
 ## Quick install (one line)
 
-**Recommended resources:** 2 GB RAM and 2 vCPU - Ubuntu 22.04+
+**Recommended resources:** 4 GB RAM and 2 vCPU - Ubuntu 22.04+ (the container memory caps add up to 3.5 GiB; see the runbook)
 
 **Have these ready before you install:**
 

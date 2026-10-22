@@ -51,6 +51,14 @@ jobs:
         env: {MELORIN_DATABASE_URL: postgresql+asyncpg://melorin:test@localhost:5432/melorin, MELORIN_REDIS_URL: redis://localhost:6379/0, MELORIN_JWT_SECRET: ci-secret-ci-secret-ci-secret-1234, MELORIN_ALLOW_MOCK_PROVIDERS: 'true'}
       - run: pytest -q ../telegram-main/tests
         env: {MELORIN_CORE_URL: 'http://core.invalid'}
+      - name: Compose files are valid (full stack and external-proxy variant)
+        working-directory: .
+        env: {POSTGRES_PASSWORD: ci-only}
+        run: |
+          cp .env.example .env
+          docker compose --profile local-proxy -f docker-compose.yml config -q
+          docker compose -f docker-compose.yml -f docker-compose.external.yml config -q
+          rm -f .env
       - run: docker build -f apps/api/Dockerfile -t melorin-api .
         working-directory: .
       - run: python scripts/check_web_lockfiles.py

@@ -99,3 +99,40 @@ def test_pin_images_rewrite_is_idempotent_and_refresh_moves_pins(tmp_path):
 def test_image_pins_are_all_or_nothing():
     pins = _load_guard().image_pin_problems()
     assert pins == [], pins
+
+
+def test_every_compose_service_is_memory_capped_within_budget():
+    import yaml
+
+    guard = _load_guard()
+    compose = yaml.safe_load((ROOT / "docker-compose.yml").read_text())
+    assert guard.memory_problems(compose) == []
+    total = sum(guard._mib(s["mem_limit"]) for s in compose["services"].values())
+    assert total == guard.MEMORY_BUDGET_MIB == 3584
+    assert "3584 MiB" in (ROOT / "docs/RUNBOOK.md").read_text()
+
+
+def test_memory_guard_flags_uncapped_service_overbudget_and_unbounded_redis():
+    guard = _load_guard()
+    compose = {
+        "services": {
+            "redis": {"mem_limit": "256m", "command": "redis-server --appendonly yes"},
+            "bot": {"image": "x"},
+            "big": {"mem_limit": "4g"},
+        }
+    }
+    problems = " | ".join(guard.memory_problems(compose))
+    assert "'bot' has no mem_limit" in problems
+    assert "exceeds the" in problems
+    assert "redis needs --maxmemory" in problems and "noeviction" in problems
+
+
+def test_redis_maxmemory_is_below_its_container_cap():
+    import yaml
+
+    compose = yaml.safe_load((ROOT / "docker-compose.yml").read_text())["services"]["redis"]
+    assert "--maxmemory 160mb" in compose["command"] and compose["mem_limit"] == "256m"
+
+
+def test_deploy_script_limits_parallel_image_builds():
+    assert "COMPOSE_PARALLEL_LIMIT" in (ROOT / "scripts/deploy.sh").read_text()

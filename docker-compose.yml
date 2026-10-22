@@ -1,4 +1,7 @@
 name: melorin
+# MEMORY BUDGET (audit W6): every service has a mem_limit; the caps add up to 3584 MiB (3.5 GiB). That is the ceiling the host must be
+# able to honour, hence the 4 GB RAM recommendation in the README. scripts/check_ops_p0.py fails CI when a service has no cap or the
+# sum goes over MEMORY_BUDGET_MIB; raise the README recommendation together with that constant.
 services:
   postgres:
     restart: unless-stopped
@@ -16,7 +19,9 @@ services:
   redis:
     restart: unless-stopped
     image: redis:7-alpine
-    command: redis-server --appendonly yes
+    # Bounded below the container cap so a runaway dataset gives Redis errors (rate limits fail closed, the DB outbox stays the
+    # source of truth) instead of an OOM kill. noeviction: never silently drop queue or rate-limit keys.
+    command: redis-server --appendonly yes --maxmemory 160mb --maxmemory-policy noeviction
     volumes: [redis_data:/data]
     healthcheck: {test: [CMD, redis-cli, ping], interval: 5s, timeout: 3s, retries: 10}
     networks: [backend]
@@ -62,7 +67,7 @@ services:
     depends_on: {api: {condition: service_healthy}}
     healthcheck: {test: [CMD, wget, --spider, --quiet, http://127.0.0.1/], interval: 15s, timeout: 5s, retries: 8}
     networks: [backend]
-    mem_limit: 128m
+    mem_limit: 64m
     cpus: 0.25
   admin_web:
     restart: unless-stopped
@@ -74,7 +79,7 @@ services:
     depends_on: {api: {condition: service_healthy}}
     healthcheck: {test: [CMD, wget, --spider, --quiet, http://127.0.0.1/], interval: 15s, timeout: 5s, retries: 8}
     networks: [backend]
-    mem_limit: 128m
+    mem_limit: 64m
     cpus: 0.25
   telegram_main:
     restart: unless-stopped
@@ -98,6 +103,8 @@ services:
     depends_on: {api: {condition: service_healthy}}
     healthcheck: {test: [CMD, python, scripts/telegram_healthcheck.py], interval: 30s, timeout: 8s, retries: 3, start_period: 15s}
     networks: [backend]
+    mem_limit: 192m
+    cpus: 0.5
   telegram_reseller:
     restart: unless-stopped
     stop_grace_period: 30s
@@ -122,6 +129,8 @@ services:
     depends_on: {api: {condition: service_healthy}}
     healthcheck: {test: [CMD, python, scripts/telegram_healthcheck.py], interval: 30s, timeout: 8s, retries: 3, start_period: 20s}
     networks: [backend]
+    mem_limit: 256m   # one process, one long-poll loop per reseller bot
+    cpus: 0.5
   caddy:
     restart: unless-stopped
     profiles: [local-proxy]
@@ -137,6 +146,8 @@ services:
       admin_web: {condition: service_healthy}
     healthcheck: {test: [CMD, wget, --spider, --quiet, http://127.0.0.1/health/live], interval: 15s, timeout: 5s, retries: 8}
     networks: [backend]
+    mem_limit: 128m
+    cpus: 0.5
   alertmanager:
     image: prom/alertmanager:v0.27.0
     restart: unless-stopped
@@ -168,6 +179,8 @@ services:
     depends_on: {api: {condition: service_healthy}, alertmanager: {condition: service_healthy}}
     healthcheck: {test: [CMD, wget, --spider, --quiet, http://127.0.0.1:9090/-/ready], interval: 15s, timeout: 5s, retries: 8}
     networks: [backend]
+    mem_limit: 256m
+    cpus: 0.5
 volumes:
   postgres_data: {}
   redis_data: {}

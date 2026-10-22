@@ -161,6 +161,9 @@ rollback() {
 git -c advice.detachedHead=false checkout --quiet --detach "$TARGET"
 
 # ------------------------------------------------------------------ 4-6) build, migrate, up
+# Building happens on the production host while the old stack is still serving: build two images at a time, not all at once,
+# so a 4 GB host keeps headroom (override with COMPOSE_PARALLEL_LIMIT).
+export COMPOSE_PARALLEL_LIMIT="${COMPOSE_PARALLEL_LIMIT:-2}"
 say "building images"
 compose build || rollback "image build failed"
 say "running migrations"
