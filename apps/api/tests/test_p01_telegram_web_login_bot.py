@@ -224,7 +224,7 @@ def test_frontend_polls_with_post_body_and_keeps_nothing_in_storage():
 def test_migration_and_model_agree_and_worker_cleans_up():
     mig = read_source(API / "alembic/versions/0019_telegram_web_login.py")
     assert 'down_revision = "0018_reseller_two_step"' in mig and "telegram_login_sessions" in mig
-    from melorin.modules.identity.models import TelegramLoginSession
+    from melorin.kernel.models.identity import TelegramLoginSession
 
     assert {c.name for c in TelegramLoginSession.__table__.columns} <= {c for c in __import__("re").findall(r'sa\.Column\("(\w+)"', mig)}
     arq = read_source(API / "melorin/worker/arq_app.py")

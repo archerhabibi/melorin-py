@@ -13,15 +13,15 @@ import itertools
 from melorin.core import codes
 from melorin.core.deps import StoreContext
 from melorin.core.errors import AppError
-from melorin.modules.catalog.models import StoreProduct
+from melorin.kernel.models.catalog import StoreProduct
 from melorin.modules.orders import service as orders
-from melorin.modules.orders.models import Order
-from melorin.modules.stores.models import ResellerProfile, StoreMembership
-from melorin.modules.system.models import OutboxEvent
-from melorin.modules.vpn.bundles import Bundle, BundleMember, BundleProduct
-from melorin.modules.vpn.models import Panel, Server
+from melorin.kernel.models.orders import Order
+from melorin.kernel.models.stores import ResellerProfile, StoreMembership
+from melorin.kernel.models.system import OutboxEvent
+from melorin.kernel.models.bundles import Bundle, BundleMember, BundleProduct
+from melorin.kernel.models.vpn import Panel, Server
 from melorin.modules.wallet import service as wallet
-from melorin.modules.wallet.models import LedgerTransaction, Wallet
+from melorin.kernel.models.wallet import LedgerTransaction, Wallet
 
 
 @pytest.fixture(autouse=True)

@@ -10,14 +10,15 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from melorin.core.config import get_settings
 from melorin.core.db import configure
 from melorin.core.errors import install
+from melorin.core.health import build_checks, probe_database, probe_worker, publish_signals
 from melorin.core.logging import setup_logging
 from melorin.core.middleware import CorrelationMiddleware
 from melorin.core.metrics import render, set_alert, set_gauge
 from melorin.modules.admin.router import router as admin_router
 from melorin.modules.catalog.router import public as catalog_router
 from melorin.modules.identity.router import auth as auth_router, me as me_router
-from melorin.modules.identity.telegram_oidc_router import tgoidc as telegram_oidc_router
-from melorin.modules.identity.telegram_web_router import tgweb as telegram_web_router
+from melorin.channels.telegram.oidc_router import tgoidc as telegram_oidc_router
+from melorin.channels.telegram.web_router import tgweb as telegram_web_router
 from melorin.modules.notifications.router import router as notifications_router
 from melorin.modules.orders.router import router as orders_router
 from melorin.modules.payments.router import router as payments_router
@@ -95,75 +96,14 @@ async def healthz_head():
 
 @app.get("/health/ready", tags=["health"])
 async def ready(request: Request):
-    from sqlalchemy import text
-    from melorin.core.db import session_factory
-    from melorin.core.redis import get_redis
-    from melorin.modules.system.models import OutboxEvent
-    from melorin.modules.vpn.models import Panel
-    from sqlalchemy import func, select
-
-    db_ok = False
-    pending = panels = 0
-    db_error = None
-    try:
-        async with session_factory()() as session:
-            await session.execute(text("SELECT 1"))
-            pending = (
-                await session.scalar(select(func.count()).select_from(OutboxEvent).where(OutboxEvent.status.in_(("pending", "processing"))))
-                or 0
-            )
-            panels = (
-                await session.scalar(
-                    select(func.count()).select_from(Panel).where(Panel.is_enabled.is_(True), Panel.health_status != "healthy")
-                )
-                or 0
-            )
-            db_ok = True
-    except Exception as exc:
-        db_error = str(exc)[:200]
-    redis_ok = False
-    worker_ok = False
-    worker_last_tick = None
-    redis = get_redis()
-    if redis is not None:
-        try:
-            await asyncio.wait_for(redis.ping(), timeout=2.5)
-            redis_ok = True
-            worker_last_tick = await asyncio.wait_for(redis.get("melorin:worker:last_tick"), timeout=2.5)
-            worker_age = time.time() - float(worker_last_tick) if worker_last_tick else None
-            worker_ok = worker_age is not None and 0 <= worker_age <= 15
-        except Exception as exc:
-            redis_ok = False
-            health_log.warning("redis health check failed: %s", type(exc).__name__)
-    ready_ok = db_ok and redis_ok and worker_ok
-    set_gauge("melorin_outbox_pending", float(pending))
-    set_gauge("melorin_panels_unhealthy", float(panels))
-    set_alert("MelorinDatabaseUnavailable", not db_ok, summary="Database unavailable", severity="critical", details=db_error or "")
-    set_alert("MelorinRedisUnavailable", not redis_ok, summary="Redis unavailable", severity="critical")
-    set_alert(
-        "MelorinWorkerStale",
-        not worker_ok,
-        summary="Worker heartbeat stale",
-        severity="critical",
-        details=str(worker_last_tick or "missing"),
-    )
-    set_alert("MelorinPanelsUnhealthy", panels > 0, summary="Enabled VPN panels unhealthy", severity="warning", details=str(panels))
-    set_alert("MelorinOutboxBacklog", pending > 100, summary="Outbox backlog above threshold", severity="warning", details=str(pending))
-    checks = {
-        "database": "ok" if db_ok else "unavailable",
-        "redis": "ok" if redis_ok else "unavailable",
-        "rate_limit": "coordinated" if redis_ok else "local_degraded",
-        "worker": "ok" if worker_ok else "unavailable",
-        "worker_last_tick": worker_last_tick,
-        "outbox_pending": pending,
-        "unhealthy_panels": panels,
-    }
-    if db_error:
-        checks["database_error"] = db_error
+    db = await probe_database()
+    worker = await probe_worker()
+    publish_signals(db, worker)
+    ready_ok = db.ok and worker.redis_ok and worker.worker_ok
     detailed = s.is_dev or hmac.compare_digest(request.headers.get("X-Melorin-Health-Token", ""), s.health_token)
     payload = {"status": "ready" if ready_ok else "not_ready"}
     if detailed:
-        payload.update(checks)
+        payload.update(build_checks(db, worker))
     return JSONResponse(payload, status_code=200 if ready_ok else 503)
 
 
@@ -210,7 +150,7 @@ async def metrics(request: Request):
     # M7.6: payment / provisioning / reseller-bot / backup signals come from the database. A database outage must
     # not break the scrape (the MelorinDatabaseUnavailable alert covers it), so failures are swallowed here.
     try:
-        from melorin.core.business_metrics import collect
+        from melorin.modules.reports.business_metrics import collect
         from melorin.core.db import session_factory
 
         async with session_factory()() as session:

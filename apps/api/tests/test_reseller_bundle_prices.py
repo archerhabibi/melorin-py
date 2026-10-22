@@ -22,14 +22,14 @@ from melorin.core.db import Base
 from melorin.core.errors import AppError
 from melorin.modules.admin import router as admin
 from melorin.modules.catalog import service as catalog
-from melorin.modules.catalog.models import Product, StoreBundlePrice, StoreProduct
+from melorin.kernel.models.catalog import Product, StoreBundlePrice, StoreProduct
 from melorin.modules.reseller import router as reseller_router
 from melorin.modules.reseller.schemas import PriceBatchIn, PriceBatchItem, PriceIn
-from melorin.modules.stores.models import Store
-from melorin.modules.system.models import AuditEvent
-from melorin.modules.vpn import allocation
-from melorin.modules.vpn.bundles import Bundle, BundleMember, BundleProduct
-from melorin.modules.vpn.models import Panel, Server
+from melorin.kernel.models.stores import Store
+from melorin.kernel.models.system import AuditEvent
+from melorin.modules.catalog import allocation
+from melorin.kernel.models.bundles import Bundle, BundleMember, BundleProduct
+from melorin.kernel.models.vpn import Panel, Server
 
 ADMIN = types.SimpleNamespace(id=uuid.uuid4())
 

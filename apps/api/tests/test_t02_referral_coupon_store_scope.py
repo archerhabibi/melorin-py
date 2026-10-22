@@ -7,9 +7,9 @@ from sqlalchemy import select
 from _db import make_order, make_product, make_store, make_user, open_session
 from melorin.core.db import utcnow
 from melorin.modules.catalog import service as catalog
-from melorin.modules.catalog.models import Coupon
+from melorin.kernel.models.catalog import Coupon
 from melorin.modules.referral import service as referral
-from melorin.modules.referral.models import Commission, CommissionRule, ReferralRelationship
+from melorin.kernel.models.referral import Commission, CommissionRule, ReferralRelationship
 
 
 async def _world(s):
@@ -100,13 +100,16 @@ def test_runner_secrets_are_wired_end_to_end():
     assert "MELORIN_RESELLER_BOT_SECRET" in (root / "scripts/install_server.sh").read_text()
     env = (root / ".env.example").read_text()
     assert "MELORIN_MAIN_BOT_SECRET=" in env and "MELORIN_RESELLER_BOT_SECRET=" in env
-    main, reseller = (root / "apps/telegram-main/runner.py").read_text(), (root / "apps/telegram-reseller/runner.py").read_text()
+    main, reseller = (
+        (root / "apps/telegram-main/runner.py").read_text(),
+        "".join(f.read_text() for f in sorted((root / "apps/telegram-reseller").rglob("*.py"))),
+    )
     assert 'secret_env = "MELORIN_MAIN_BOT_SECRET"' in main and "os.environ.get(self.secret_env)" in main
     assert 'secret_env = "MELORIN_RESELLER_BOT_SECRET"' in reseller and 'os.environ.get("MELORIN_RESELLER_BOT_SECRET")' in reseller
 
 
 async def test_per_customer_limit_counts_each_store_separately_even_for_a_platform_coupon():
-    from melorin.modules.catalog.models import CouponRedemption
+    from melorin.kernel.models.catalog import CouponRedemption
 
     async with open_session() as s:
         referrer, customer, main, reseller, product = await _world(s)

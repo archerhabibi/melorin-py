@@ -14,7 +14,7 @@ from melorin.core.crypto import decrypt, encrypt
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError, NotFound
 from melorin.domain import webhook as wh
-from melorin.modules.webhooks.models import WebhookDelivery, WebhookEndpoint
+from melorin.kernel.models.webhooks import WebhookDelivery, WebhookEndpoint
 
 log = logging.getLogger("melorin.webhooks")
 

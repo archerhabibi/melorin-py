@@ -11,15 +11,55 @@ from melorin.core.db import utcnow
 from melorin.core.errors import AppError
 from melorin.core.crypto import decrypt
 from melorin.domain.order_state import PaymentStatus
-from melorin.modules.identity.models import User
+from melorin.kernel.models.identity import User
 from melorin.modules.payments.adapters.registry import get_adapter
 from melorin.modules.payments.gateway_catalog import validate_destination
-from melorin.modules.payments.models import Payment, PaymentAttempt
-from melorin.modules.stores.models import Store, StorePaymentConfiguration
+from melorin.kernel.models.payments import Payment, PaymentAttempt
+from melorin.kernel.models.stores import Store, StorePaymentConfiguration
 from melorin.modules.wallet import service as wallet
 
 P = PaymentStatus
 log = logging.getLogger("melorin.payments")
+
+
+_CURRENCY_CHECKED = frozenset({"zarinpal", "external_gateway", "crypto", "telegram_stars"})
+
+
+def _check_currency(provider: str, currency: str) -> None:
+    if provider not in _CURRENCY_CHECKED:
+        return
+    try:
+        validate_destination(provider, currency)
+    except ValueError as exc:
+        raise AppError("PAYMENT_CURRENCY_UNSUPPORTED", "این درگاه با ارز فروشگاه سازگار نیست.", 400) from exc
+
+
+def _store_configured_settings(cfg: StorePaymentConfiguration, provider: str) -> dict:
+    """Settings from the store's own configuration row; raises when it is disabled or its destination is incomplete."""
+    if not cfg.is_enabled:
+        raise AppError("PAYMENT_METHOD_DISABLED", "این روش شارژ در این فروشگاه فعال نیست.", 400)
+    public = dict(cfg.public_config or {})
+    secret = json.loads(decrypt(cfg.secret_enc) or "{}") if cfg.secret_enc else {}
+    if provider == "manual_card" and not all(public.get(k) for k in ("card_number", "holder")):
+        raise AppError("PAYMENT_DESTINATION_MISSING", "مقصد پرداخت کارت‌به‌کارت برای این فروشگاه کامل نیست.", 409)
+    if provider == "zarinpal" and not secret.get("merchant_id") and not secret.get("api_key"):
+        raise AppError("PAYMENT_DESTINATION_MISSING", "مقصد پرداخت این درگاه پیکربندی نشده است.", 409)
+    return {
+        "card.info": public,
+        f"gateway.{provider}": {**public, **secret},
+        f"destination.{provider}": {**public, **secret},
+        "limits": public,
+    }
+
+
+async def _main_store_legacy_settings(session: AsyncSession, provider: str) -> dict:
+    """The main store may still use the legacy global settings; its destination must be complete."""
+    legacy = await settings_store.all_settings(session)
+    if provider == "manual_card" and not all((legacy.get("card.info") or {}).get(k) for k in ("card_number", "holder")):
+        raise AppError("PAYMENT_DESTINATION_MISSING", "مقصد پرداخت کارت‌به‌کارت فروشگاه اصلی کامل نیست.", 409)
+    if provider == "zarinpal" and not (legacy.get(f"gateway.{provider}") or {}).get("merchant_id"):
+        raise AppError("PAYMENT_DESTINATION_MISSING", "مقصد پرداخت درگاه فروشگاه اصلی پیکربندی نشده است.", 409)
+    return {**legacy, "limits": {}}
 
 
 async def store_payment_settings(session: AsyncSession, store: Store, provider: str) -> dict:
@@ -29,33 +69,11 @@ async def store_payment_settings(session: AsyncSession, store: Store, provider: 
             StorePaymentConfiguration.store_id == store.id, StorePaymentConfiguration.provider == provider
         )
     )
-    if provider in {"zarinpal", "external_gateway", "crypto", "telegram_stars"}:
-        try:
-            validate_destination(provider, store.currency)
-        except ValueError as exc:
-            raise AppError("PAYMENT_CURRENCY_UNSUPPORTED", "این درگاه با ارز فروشگاه سازگار نیست.", 400) from exc
+    _check_currency(provider, store.currency)
     if cfg is not None:
-        if not cfg.is_enabled:
-            raise AppError("PAYMENT_METHOD_DISABLED", "این روش شارژ در این فروشگاه فعال نیست.", 400)
-        public = dict(cfg.public_config or {})
-        secret = json.loads(decrypt(cfg.secret_enc) or "{}") if cfg.secret_enc else {}
-        if provider == "manual_card" and not all(public.get(k) for k in ("card_number", "holder")):
-            raise AppError("PAYMENT_DESTINATION_MISSING", "مقصد پرداخت کارت‌به‌کارت برای این فروشگاه کامل نیست.", 409)
-        if provider in {"zarinpal"} and not secret.get("merchant_id") and not secret.get("api_key"):
-            raise AppError("PAYMENT_DESTINATION_MISSING", "مقصد پرداخت این درگاه پیکربندی نشده است.", 409)
-        return {
-            "card.info": public,
-            f"gateway.{provider}": {**public, **secret},
-            f"destination.{provider}": {**public, **secret},
-            "limits": public,
-        }
+        return _store_configured_settings(cfg, provider)
     if store.kind == "main":
-        legacy = await settings_store.all_settings(session)
-        if provider == "manual_card" and not all((legacy.get("card.info") or {}).get(k) for k in ("card_number", "holder")):
-            raise AppError("PAYMENT_DESTINATION_MISSING", "مقصد پرداخت کارت‌به‌کارت فروشگاه اصلی کامل نیست.", 409)
-        if provider == "zarinpal" and not (legacy.get(f"gateway.{provider}") or {}).get("merchant_id"):
-            raise AppError("PAYMENT_DESTINATION_MISSING", "مقصد پرداخت درگاه فروشگاه اصلی پیکربندی نشده است.", 409)
-        return {**legacy, "limits": {}}
+        return await _main_store_legacy_settings(session, provider)
     raise AppError("PAYMENT_METHOD_DISABLED", "روش شارژ برای این فروشگاه پیکربندی نشده است.", 400)
 
 

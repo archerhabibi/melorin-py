@@ -17,9 +17,9 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from melorin.modules.catalog.models import Product, StoreProduct
-from melorin.modules.stores.models import Store
-from melorin.modules.vpn.bundles import Bundle, StoreBundle
+from melorin.kernel.models.catalog import Product, StoreProduct
+from melorin.kernel.models.stores import Store
+from melorin.kernel.models.bundles import Bundle, StoreBundle
 
 
 async def _reseller_store_ids(session: AsyncSession) -> list[uuid.UUID]:

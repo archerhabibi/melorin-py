@@ -30,9 +30,95 @@ def normalize_source(text: str) -> str:
     return text.strip()
 
 
+# Phase 3.3: the admin API router is split into one module per route family. Contract tests that ask for
+# ``modules/admin/router.py`` get the text of the whole family (composition root + route modules).
+ADMIN_ROUTE_MODULES = (
+    "router",
+    "overview",
+    "products",
+    "panels",
+    "bundles",
+    "payments",
+    "orders",
+    "directory",
+    "tickets",
+    "reseller_applications",
+    "settings",
+    "coupons",
+    "identity_reviews",
+    "_common",
+)
+
+
+# Phase 3.8: the reseller API router is split the same way (``modules/reseller/routes/<family>.py``).
+RESELLER_ROUTE_MODULES = (
+    "applications",
+    "store_profile",
+    "pricing",
+    "customers",
+    "accounts",
+    "store_payments",
+    "credentials",
+    "webhook_endpoints",
+    "public_api",
+)
+
+
+def _is_reseller_router(path: Path) -> bool:
+    return path.name == "router.py" and path.parent.name == "reseller" and path.parent.parent.name == "modules"
+
+
+def _is_admin_router(path: Path) -> bool:
+    return path.name == "router.py" and path.parent.name == "admin" and path.parent.parent.name == "modules"
+
+
+def _is_identity_router(path: Path) -> bool:
+    return path.name == "router.py" and path.parent.name == "identity" and path.parent.parent.name == "modules"
+
+
+def _is_app_entry(path: Path) -> bool:
+    return path.name == "app.py" and path.parent.name == "melorin"
+
+
+def _is_main_bot_runner(path: Path) -> bool:
+    return path.name == "runner.py" and path.parent.name == "telegram-main"
+
+
+def _is_reseller_bot_runner(path: Path) -> bool:
+    return path.name == "runner.py" and path.parent.name == "telegram-reseller"
+
+
+def _raw_text(path: Path) -> str:
+    """Raw text of ``path``; split entry points resolve to the whole family (Phase 3.3 admin router, Phase 3.4 main bot, Phase 3.15 reseller bot)."""
+    path = Path(path)
+    if _is_admin_router(path):
+        return "\n".join((path.parent / f"{name}.py").read_text(encoding="utf-8") for name in ADMIN_ROUTE_MODULES)
+    if _is_reseller_router(path):
+        parts = [path.read_text(encoding="utf-8")]
+        parts += [(path.parent / "routes" / f"{name}.py").read_text(encoding="utf-8") for name in RESELLER_ROUTE_MODULES]
+        return "\n".join(parts)
+    if _is_app_entry(path):  # Phase 3.17: app.py + core/health.py (readiness probes)
+        return "\n".join(f.read_text(encoding="utf-8") for f in (path, path.parent / "core" / "health.py"))
+    if _is_main_bot_runner(path):
+        parts = [path.read_text(encoding="utf-8")]
+        parts += [f.read_text(encoding="utf-8") for f in sorted((path.parent / "tgmain").rglob("*.py"))]
+        return "\n".join(parts)
+    if _is_identity_router(path):  # Phase 3.16: router.py + routes/{_common,sign_in,account}.py
+        parts = [path.read_text(encoding="utf-8")]
+        parts += [f.read_text(encoding="utf-8") for f in sorted((path.parent / "routes").rglob("*.py"))]
+        return "\n".join(parts)
+    if _is_reseller_bot_runner(path):  # Phase 3.15: runner.py + tgreseller/{bot,hosting}.py
+        parts = [path.read_text(encoding="utf-8")]
+        parts += [f.read_text(encoding="utf-8") for f in sorted((path.parent / "tgreseller").rglob("*.py"))]
+        return "\n".join(parts)
+    if not path.exists() and path.suffix == ".py" and path.with_suffix("").is_dir():  # a module that became a package
+        return "\n".join(f.read_text(encoding="utf-8") for f in sorted(path.with_suffix("").rglob("*.py")))
+    return path.read_text(encoding="utf-8")
+
+
 def read_source(path: str | Path) -> str:
-    """Return the normalised text of a Python source file."""
-    return normalize_source(Path(path).read_text(encoding="utf-8"))
+    """Return the normalised text of a Python source file (the admin router resolves to all its route modules)."""
+    return normalize_source(_raw_text(Path(path)))
 
 
 def parse_source(path: str | Path) -> ast.Module:

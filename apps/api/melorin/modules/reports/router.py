@@ -8,9 +8,9 @@ from sqlalchemy import func, select
 
 from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import AppError, NotFound
-from melorin.modules.orders.models import Order
-from melorin.modules.payments.models import Payment
-from melorin.modules.stores.models import Store
+from melorin.kernel.models.orders import Order
+from melorin.kernel.models.payments import Payment
+from melorin.kernel.models.stores import Store
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 

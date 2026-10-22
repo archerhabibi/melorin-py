@@ -4,7 +4,7 @@ Two sections: **English** first, then **فارسی** (same content).
 
 ## English — Telegram login setup (Admin panel → Settings → Telegram login)
 
-Status: implemented · no new migration · code: `apps/api/melorin/modules/identity/telegram_oidc*.py`, `apps/api/melorin/modules/admin/integrations.py`, `apps/admin-web/src/TelegramLoginSettings.jsx`
+Status: implemented · no new migration · code: `apps/api/melorin/channels/telegram/oidc*.py`, `apps/api/melorin/modules/admin/integrations.py`, `apps/admin-web/src/TelegramLoginSettings.jsx`
 
 ### Two methods, one account
 
@@ -102,7 +102,7 @@ Storage: `SystemSetting` key `integration.telegram_login` (like Google/SMTP/S3; 
 
 ## فارسی — راه‌اندازی ورود با تلگرام (پنل ادمین ← تنظیمات ← ورود با تلگرام)
 
-وضعیت: پیاده‌سازی‌شده · بدون migration جدید · کد: `apps/api/melorin/modules/identity/telegram_oidc*.py`، `apps/api/melorin/modules/admin/integrations.py`، `apps/admin-web/src/TelegramLoginSettings.jsx`
+وضعیت: پیاده‌سازی‌شده · بدون migration جدید · کد: `apps/api/melorin/channels/telegram/oidc*.py`، `apps/api/melorin/modules/admin/integrations.py`، `apps/admin-web/src/TelegramLoginSettings.jsx`
 
 ### دو روش، یک حساب
 

@@ -11,10 +11,10 @@ from sqlalchemy import select
 
 from melorin.core import events, integrations, settings_store
 from melorin.core.db import session_factory, utcnow
-from melorin.modules.identity.models import VerificationCode
-from melorin.modules.system.models import BackupRun
+from melorin.kernel.models.identity import VerificationCode
+from melorin.kernel.models.system import BackupRun
 from melorin.modules.vpn import service
-from melorin.modules.vpn.models import Panel, VpnAccount
+from melorin.kernel.models.vpn import Panel, VpnAccount
 
 log = logging.getLogger("melorin.jobs")
 
@@ -180,7 +180,7 @@ async def privacy_retention_job(ctx=None):
 
 async def telegram_login_gc_job(ctx=None):
     """Drop finished website-login sessions (Telegram bot approval) one day after they expired."""
-    from melorin.modules.identity import telegram_web
+    from melorin.channels.telegram import web as telegram_web
 
     async with session_factory()() as s:
         removed = await telegram_web.purge_old(s)

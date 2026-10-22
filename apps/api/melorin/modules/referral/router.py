@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from melorin.core.deps import AdminUser, CurrentAuth, Session
-from melorin.modules.referral.models import Commission, CommissionRule, ReferralRelationship
+from melorin.kernel.models.referral import Commission, CommissionRule, ReferralRelationship
 
 router = APIRouter(tags=["referrals"])
 

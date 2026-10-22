@@ -8,6 +8,7 @@ V1 rules:
 """
 
 import datetime as dt
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 
@@ -61,31 +62,54 @@ def in_scope(rule: CouponRule, store_id: str, store_kind: str) -> bool:
     return False
 
 
+# Definition rules, checked in order; the first violated rule wins. Each entry is
+# ``(is_violated(rule, creator_store_id), error_code, message)``.
+_DefinitionRule = tuple[Callable[[CouponRule, str | None], bool], str, str]
+
+_DEFINITION_RULES: tuple[_DefinitionRule, ...] = (
+    (lambda r, _c: not r.code or len(r.code) > 50, "COUPON_BAD_CODE", "کد تخفیف نامعتبر است."),
+    (lambda r, _c: not 0 <= r.percent_bp <= 10_000 or r.fixed < 0, "COUPON_BAD_VALUE", "مقدار تخفیف نامعتبر است."),
+    (
+        lambda r, _c: r.percent_bp == 0 and r.fixed == 0,
+        "COUPON_BAD_VALUE",
+        "تخفیف باید درصدی یا مبلغ ثابت داشته باشد.",
+    ),
+    (lambda r, _c: r.max_discount is not None and r.max_discount <= 0, "COUPON_BAD_VALUE", "سقف تخفیف نامعتبر است."),
+    (
+        lambda r, _c: bool(r.starts_at and r.ends_at and r.ends_at <= r.starts_at),
+        "COUPON_BAD_WINDOW",
+        "بازه اعتبار نامعتبر است.",
+    ),
+    (lambda r, _c: r.max_redemptions is not None and r.max_redemptions <= 0, "COUPON_BAD_QUOTA", "سقف مصرف نامعتبر است."),
+    (
+        lambda r, _c: r.per_customer_limit is not None and r.per_customer_limit <= 0,
+        "COUPON_BAD_QUOTA",
+        "سقف مصرف هر مشتری نامعتبر است.",
+    ),
+    (lambda r, _c: r.combinable, "COUPON_COMBINABLE_UNSUPPORTED", "ترکیب کدهای تخفیف در V1 مجاز نیست."),
+    (
+        lambda r, c: r.creator_type == "reseller" and (r.scope != "store" or not c or r.store_id != c),
+        "COUPON_SCOPE_FORBIDDEN",
+        "نماینده فقط برای فروشگاه خودش کد تخفیف می‌سازد.",
+    ),
+    (
+        lambda r, _c: r.scope == "store" and not r.store_id,
+        "COUPON_SCOPE_FORBIDDEN",
+        "فروشگاه کد تخفیف مشخص نیست.",
+    ),
+    (
+        lambda r, _c: r.scope == "domain" and not (r.allowed_store_ids or r.allowed_store_kinds),
+        "COUPON_SCOPE_FORBIDDEN",
+        "دامنه مجاز کد تخفیف خالی است.",
+    ),
+)
+
+
 def validate_definition(rule: CouponRule, *, creator_store_id: str | None = None) -> None:
     """Checked when a coupon is created/updated."""
-    if not rule.code or len(rule.code) > 50:
-        raise CouponError("COUPON_BAD_CODE", "کد تخفیف نامعتبر است.")
-    if not 0 <= rule.percent_bp <= 10_000 or rule.fixed < 0:
-        raise CouponError("COUPON_BAD_VALUE", "مقدار تخفیف نامعتبر است.")
-    if rule.percent_bp == 0 and rule.fixed == 0:
-        raise CouponError("COUPON_BAD_VALUE", "تخفیف باید درصدی یا مبلغ ثابت داشته باشد.")
-    if rule.max_discount is not None and rule.max_discount <= 0:
-        raise CouponError("COUPON_BAD_VALUE", "سقف تخفیف نامعتبر است.")
-    if rule.starts_at and rule.ends_at and rule.ends_at <= rule.starts_at:
-        raise CouponError("COUPON_BAD_WINDOW", "بازه اعتبار نامعتبر است.")
-    if rule.max_redemptions is not None and rule.max_redemptions <= 0:
-        raise CouponError("COUPON_BAD_QUOTA", "سقف مصرف نامعتبر است.")
-    if rule.per_customer_limit is not None and rule.per_customer_limit <= 0:
-        raise CouponError("COUPON_BAD_QUOTA", "سقف مصرف هر مشتری نامعتبر است.")
-    if rule.combinable:
-        raise CouponError("COUPON_COMBINABLE_UNSUPPORTED", "ترکیب کدهای تخفیف در V1 مجاز نیست.")
-    if rule.creator_type == "reseller":
-        if rule.scope != "store" or not creator_store_id or rule.store_id != creator_store_id:
-            raise CouponError("COUPON_SCOPE_FORBIDDEN", "نماینده فقط برای فروشگاه خودش کد تخفیف می‌سازد.")
-    if rule.scope == "store" and not rule.store_id:
-        raise CouponError("COUPON_SCOPE_FORBIDDEN", "فروشگاه کد تخفیف مشخص نیست.")
-    if rule.scope == "domain" and not (rule.allowed_store_ids or rule.allowed_store_kinds):
-        raise CouponError("COUPON_SCOPE_FORBIDDEN", "دامنه مجاز کد تخفیف خالی است.")
+    for is_violated, code, message in _DEFINITION_RULES:
+        if is_violated(rule, creator_store_id):
+            raise CouponError(code, message)
 
 
 def _aware(d: dt.datetime | None) -> dt.datetime | None:

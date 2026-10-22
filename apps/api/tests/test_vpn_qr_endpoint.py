@@ -10,7 +10,7 @@ import melorin.models  # noqa: F401  (registers every table)
 from melorin.core.db import Base
 from melorin.core.errors import AppError
 from melorin.modules.vpn import router as vpn_router
-from melorin.modules.vpn.models import VpnAccount
+from melorin.kernel.models.vpn import VpnAccount
 
 SUB = "https://sub.example.com/sub/AbCdEf123"
 

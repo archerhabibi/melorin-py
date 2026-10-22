@@ -3,7 +3,7 @@ import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from melorin.core.context import client_ip, correlation_id
-from melorin.modules.system.models import AuditEvent, SecurityEvent
+from melorin.kernel.models.system import AuditEvent, SecurityEvent
 
 
 def record(

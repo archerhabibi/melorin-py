@@ -11,7 +11,7 @@ API = ROOT / "apps/api"
 def test_l03_readiness_and_worker_signals_are_wired():
     app = read_source(API / "melorin/app.py")
     worker = read_source(API / "melorin/worker/arq_app.py")
-    assert "ready_ok = db_ok and redis_ok and worker_ok" in app
+    assert "ready_ok = db.ok and worker.redis_ok and worker.worker_ok" in app
     assert "melorin:worker:last_tick" in app and "melorin_worker_last_tick" in app
     assert "melorin:worker:last_tick" in worker
 
@@ -41,8 +41,8 @@ def test_l03_production_security_and_multistore_bot_contracts():
     config = read_source(API / "melorin/core/config.py")
     read_source(ROOT / "apps/telegram-main/runner.py")  # must exist and be readable
     reseller = read_source(ROOT / "apps/telegram-reseller/runner.py")
-    assert "Fernet(self.encryption_key.encode())" in config
-    assert 'parsed_api.scheme != "https"' in config
+    assert "Fernet(s.encryption_key.encode())" in config  # Phase 3.6: rule table, `s` = Settings
+    assert 'parsed.scheme == "https"' in config  # _is_https_url rule for MELORIN_PUBLIC_API_URL
     assert "MELORIN_RESELLER_BOTS_JSON" in reseller and "asyncio.gather" in reseller
     assert "self.api(ctx" in reseller and "panel" not in reseller.lower()
     assert "/api/v1/stores/by-slug/" in reseller

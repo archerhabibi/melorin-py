@@ -1,19 +1,13 @@
-import hashlib
 import ipaddress
 import secrets
 
-
 from melorin.core import audit
+from melorin.core.api_key_format import PREFIX, hash_key  # noqa: F401  (hash_key is part of this module's public surface)
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError
-from melorin.modules.stores.models import ApiCredential, Store
+from melorin.kernel.models.stores import ApiCredential, Store
 
 ALLOWED_SCOPES = {"catalog:read", "customers:read", "customers:wallet:write", "orders:read", "wallet:read", "reports:read"}
-PREFIX = "mln_live_"
-
-
-def hash_key(raw: str) -> str:
-    return hashlib.sha256(raw.encode()).hexdigest()
 
 
 def _raw() -> str:

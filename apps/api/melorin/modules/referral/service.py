@@ -13,10 +13,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from melorin.core import audit, events, settings_store
 from melorin.domain.commission import Plan, amount_for, offset_with_outstanding, split_reversal
 from melorin.domain.order_state import OrderStatus
-from melorin.modules.identity.models import User
-from melorin.modules.orders.models import Order
-from melorin.modules.referral.models import Commission, CommissionClawback, CommissionRule, ReferralRelationship
-from melorin.modules.stores.models import Store
+from melorin.kernel.models.identity import User
+from melorin.kernel.models.orders import Order
+from melorin.kernel.models.referral import Commission, CommissionClawback, CommissionRule, ReferralRelationship
+from melorin.kernel.models.stores import Store
 from melorin.modules.wallet import service as wallet
 
 

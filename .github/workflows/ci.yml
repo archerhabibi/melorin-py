@@ -32,6 +32,7 @@ jobs:
       - run: bash ../../scripts/test_deploy.sh
       - run: bash ../../scripts/test_restore_drill.sh
       - run: bash ../../scripts/run_quality_gate.sh
+      - run: lint-imports
       - run: ruff check melorin --config pyproject.toml
       - run: ruff format --check melorin tests --config pyproject.toml
       - run: python -m compileall -q melorin

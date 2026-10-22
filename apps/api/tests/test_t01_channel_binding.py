@@ -22,7 +22,7 @@ from melorin.core.db import utcnow
 from melorin.core.errors import AppError
 from melorin.core.security import create_access_token, decode_access_token
 from melorin.modules.identity import service
-from melorin.modules.identity.models import RefreshToken
+from melorin.kernel.models.identity import RefreshToken
 
 PROD = types.SimpleNamespace(
     is_dev=False,
@@ -201,7 +201,7 @@ async def test_a_session_of_store_a_is_refused_on_store_b_before_any_query():
         # an id that does not exist answers exactly like a real foreign store: no probing
         assert await _codes(deps.store_context(s, in_a, uuid.uuid4())) == "CHANNEL_MISMATCH"
         # and no membership was created in the foreign store by the failed attempts
-        from melorin.modules.stores.models import StoreMembership
+        from melorin.kernel.models.stores import StoreMembership
 
         rows = (await s.scalars(select(StoreMembership.store_id).where(StoreMembership.user_id == w.alice.id))).all()
         assert set(rows) == {w.a.id}
@@ -416,7 +416,7 @@ def test_sessions_are_only_opened_through_a_channel_and_admin_is_only_built_afte
                 )
     # the admin channel is constructed in exactly the password+TOTP and Google+TOTP admin handlers
     users = [p.name for p in root.rglob("*.py") if "ADMIN_CHANNEL" in p.read_text() and p.name not in {"channel.py"}]
-    assert sorted(set(users)) == ["router.py", "service.py"]
-    router_src = (root / "modules/identity/router.py").read_text()
+    assert sorted(set(users)) == ["service.py", "sign_in.py"]
+    router_src = (root / "modules/identity/routes/sign_in.py").read_text()
     assert router_src.count("channel.ADMIN_CHANNEL") == 2
     assert "decode_access_token" not in "".join(p.read_text() for p in (root / "modules").rglob("*.py"))  # only core.deps reads tokens

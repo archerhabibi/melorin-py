@@ -13,11 +13,11 @@ from melorin.core import config as config_mod
 from melorin.core import db, integrations, settings_store
 from melorin.core.errors import AppError
 from melorin.modules.admin import integrations as admin_integrations
-from melorin.modules.identity import router, service
-from melorin.modules.identity.models import Identity, IdentityLinkReview, RefreshToken, User
+from melorin.modules.identity import google as google_signin, router
+from melorin.kernel.models.identity import Identity, IdentityLinkReview, RefreshToken, User
 from melorin.modules.identity.schemas import GoogleLogin
-from melorin.modules.stores.models import Store
-from melorin.modules.system.models import AuditEvent, SecurityEvent, SystemSetting
+from melorin.kernel.models.stores import Store
+from melorin.kernel.models.system import AuditEvent, SecurityEvent, SystemSetting
 
 CLIENT_ID = "123456789012-abc123def456.apps.googleusercontent.com"
 TABLES = [
@@ -60,12 +60,12 @@ def google_keys(monkeypatch):
         calls.n += 1
         return calls.keys
 
-    monkeypatch.setattr(service, "_load_google_keys", fake_load)
+    monkeypatch.setattr(google_signin, "_load_google_keys", fake_load)
     return calls
 
 
 async def test_valid_token_is_accepted_and_returns_claims():
-    claims = await service.verify_google_token(_token(), CLIENT_ID)
+    claims = await google_signin.verify_google_token(_token(), CLIENT_ID)
     assert claims["sub"] == "g-1" and claims["email"] == "u@example.com"
 
 
@@ -81,7 +81,7 @@ async def test_valid_token_is_accepted_and_returns_claims():
 )
 async def test_invalid_claims_are_rejected(over, why):
     with pytest.raises(AppError) as e:
-        await service.verify_google_token(_token(**over), CLIENT_ID)
+        await google_signin.verify_google_token(_token(**over), CLIENT_ID)
     assert e.value.code == "GOOGLE_INVALID", why
 
 
@@ -96,13 +96,13 @@ async def test_bad_signature_alg_and_kid_are_rejected():
         "not-a-jwt",
     ):
         with pytest.raises(AppError) as e:
-            await service.verify_google_token(tok, CLIENT_ID)
+            await google_signin.verify_google_token(tok, CLIENT_ID)
         assert e.value.code == "GOOGLE_INVALID"
 
 
 async def test_empty_client_id_is_refused():
     with pytest.raises(AppError) as e:
-        await service.verify_google_token(_token(), "")
+        await google_signin.verify_google_token(_token(), "")
     assert e.value.code == "GOOGLE_DISABLED"
 
 
@@ -113,8 +113,8 @@ async def test_unknown_kid_triggers_one_forced_key_refresh(monkeypatch):
         seen.append(force)
         return {"k1": KEY.public_key()} if force else {}
 
-    monkeypatch.setattr(service, "_load_google_keys", load)
-    assert (await service.verify_google_token(_token(), CLIENT_ID))["sub"] == "g-1"
+    monkeypatch.setattr(google_signin, "_load_google_keys", load)
+    assert (await google_signin.verify_google_token(_token(), CLIENT_ID))["sub"] == "g-1"
     assert seen == [False, True]
 
 
@@ -141,24 +141,24 @@ async def test_real_key_loader_caches_and_survives_an_outage(monkeypatch):
         async def get(self, *a, **k):
             state.fetches += 1
             if state.down:
-                raise service.httpx.ConnectError("down")
+                raise google_signin.httpx.ConnectError("down")
             return R()
 
     monkeypatch.undo()  # use the real loader for this test
-    monkeypatch.setattr(service.httpx, "AsyncClient", lambda **k: C())
-    monkeypatch.setitem(service._google_keys, "keys", {})
-    monkeypatch.setitem(service._google_keys, "expires", 0.0)
-    monkeypatch.setitem(service._google_keys, "fetched", 0.0)
-    assert "k1" in await service._load_google_keys()
-    await service._load_google_keys()
+    monkeypatch.setattr(google_signin.httpx, "AsyncClient", lambda **k: C())
+    monkeypatch.setitem(google_signin._google_keys, "keys", {})
+    monkeypatch.setitem(google_signin._google_keys, "expires", 0.0)
+    monkeypatch.setitem(google_signin._google_keys, "fetched", 0.0)
+    assert "k1" in await google_signin._load_google_keys()
+    await google_signin._load_google_keys()
     assert state.fetches == 1  # second call served from cache
     state.down = True
-    service._google_keys["expires"] = 0.0  # cache expired while Google is unreachable: keep the last known keys
-    assert "k1" in await service._load_google_keys()
-    monkeypatch.setitem(service._google_keys, "keys", {})
-    service._google_keys["expires"] = 0.0
+    google_signin._google_keys["expires"] = 0.0  # cache expired while Google is unreachable: keep the last known keys
+    assert "k1" in await google_signin._load_google_keys()
+    monkeypatch.setitem(google_signin._google_keys, "keys", {})
+    google_signin._google_keys["expires"] = 0.0
     with pytest.raises(AppError) as e:
-        await service._load_google_keys()
+        await google_signin._load_google_keys()
     assert e.value.code == "GOOGLE_UNREACHABLE"
 
 

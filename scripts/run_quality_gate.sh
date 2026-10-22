@@ -16,6 +16,7 @@ python scripts/gen_docs.py --check
 bash scripts/test_deploy.sh
 bash scripts/test_restore_drill.sh
 python -m compileall -q apps/api/melorin apps/api/tests apps/telegram-main apps/telegram-reseller
+(cd apps/api && lint-imports)
 ruff check apps/api/melorin --config apps/api/pyproject.toml
 ruff format --check apps/api/melorin apps/api/tests --config apps/api/pyproject.toml
 for web in apps/store-web apps/admin-web; do

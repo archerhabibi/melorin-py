@@ -1,6 +1,6 @@
 import uuid
 
-from melorin.modules.vpn.allocation import Candidate, select_allocation
+from melorin.modules.catalog.allocation import Candidate, select_allocation
 
 
 def cand(name, **kw):
@@ -91,7 +91,7 @@ def test_product_default_group_is_the_bot_and_web_rule():
 def test_group_policy_is_one_shared_rule():
     from types import SimpleNamespace
 
-    from melorin.modules.vpn.allocation import group_policy_violation
+    from melorin.modules.catalog.allocation import group_policy_violation
 
     g = SimpleNamespace(is_enabled=True, sales_limit=None, sold_count=0, selection_mode="automatic")
     assert group_policy_violation(g, store_access_enabled=None, selected_panel_id=None) is None

@@ -12,13 +12,13 @@ from melorin.core.db import session_factory, utcnow
 from melorin.core.metrics import inc
 from melorin.core.crypto import decrypt
 from melorin import models  # noqa: F401, register all SQLAlchemy mappers before worker sessions
-from melorin.modules.identity.models import User
-from melorin.modules.notifications.models import Notification
-from melorin.modules.orders.models import Order
-from melorin.modules.system.models import OutboxEvent
-from melorin.modules.vpn import service as vpn
+from melorin.kernel.models.identity import User
+from melorin.kernel.models.notifications import Notification
+from melorin.kernel.models.orders import Order
+from melorin.kernel.models.system import OutboxEvent
+from melorin.modules.orders import provisioning as vpn
 from melorin.modules.vpn.adapters.registry import build_adapter
-from melorin.modules.vpn.models import Panel, VpnAccount
+from melorin.kernel.models.vpn import Panel, VpnAccount
 
 log = logging.getLogger("melorin.worker")
 
@@ -58,6 +58,93 @@ async def _webhook(session, event_type: str, payload: dict, event_id: str):
         log.exception("webhook enqueue failed event=%s", event_id)
 
 
+def _oid(p: dict, key: str = "order_id") -> uuid.UUID:
+    return uuid.UUID(str(p[key]))
+
+
+# One small handler per outbox topic. Handlers resolve their collaborators (``vpn``, ``_webhook``, ``_notify`` ...) from
+# this module's globals at call time, so tests can still patch them. Behaviour per topic is unchanged from the former
+# ``elif`` chain: same calls, same order, same webhook event names and idempotency keys.
+async def _on_order_paid(session, p: dict):
+    await vpn.provision_order(session, _oid(p))
+
+
+async def _on_provisioning_failed(session, p: dict):
+    await _notify_admins_provisioning_failed(session, p)
+    await _webhook(session, "order.provisioning_failed", p, f"order.provisioning_failed:{p.get('order_id')}")
+
+
+async def _on_order_completed(session, p: dict):
+    from melorin.modules.referral.service import on_order_completed
+
+    await on_order_completed(session, _oid(p))
+    await _webhook(session, "order.completed", p, f"order.completed:{p.get('order_id')}")
+
+
+async def _on_order_delivery(session, p: dict):
+    from melorin.modules.orders.delivery import deliver_order
+
+    await deliver_order(session, _oid(p))
+
+
+async def _on_order_refunded(session, p: dict):
+    from melorin.modules.referral.service import on_order_refunded
+
+    await on_order_refunded(session, _oid(p))
+    await _webhook(session, "order.refunded", p, f"order.refunded:{p.get('order_id')}")
+
+
+async def _on_vpn_revoke(session, p: dict):
+    await revoke_account(session, _oid(p, "vpn_account_id"))
+
+
+async def _on_vpn_renewal_rollback(session, p: dict):
+    await rollback_renewal(session, p)
+
+
+async def _on_notify(session, p: dict):
+    kind = p.get("kind")
+    await _notify(session, p, p.get("kind", "general"), p.get("title", "Melorin"), p.get("body", ""))
+    if p.get("store_id") and kind in ("vpn_expired", "vpn_near_expiry"):
+        await _webhook(
+            session,
+            "vpn_account.expired" if kind == "vpn_expired" else "vpn_account.near_expiry",
+            p,
+            f"{kind}:{p.get('dedup_key') or p.get('user_id')}",
+        )
+
+
+async def _on_event_center(session, p: dict):
+    await _event_center(session, p)
+
+
+def _webhook_only(event_name: str, key):
+    """Handler for topics that only fan out to reseller webhooks; ``key(p)`` builds the idempotent event id."""
+
+    async def handler(session, p: dict):
+        await _webhook(session, event_name, p, f"{event_name}:{key(p)}")
+
+    return handler
+
+
+_TOPIC_HANDLERS = {
+    events.ORDER_PAID: _on_order_paid,
+    events.PROVISIONING_FAILED: _on_provisioning_failed,
+    events.ORDER_COMPLETED: _on_order_completed,
+    events.ORDER_DELIVERY: _on_order_delivery,
+    events.ORDER_REFUNDED: _on_order_refunded,
+    events.VPN_REVOKE: _on_vpn_revoke,
+    events.VPN_RENEWAL_ROLLBACK: _on_vpn_renewal_rollback,
+    events.NOTIFY: _on_notify,
+    events.EVENT_CENTER: _on_event_center,
+    events.TICKET_UPDATED: _on_event_center,
+    events.PAYMENT_SUCCEEDED: _webhook_only("payment.succeeded", lambda p: p.get("payment_id")),
+    events.PAYMENT_FAILED: _webhook_only("payment.failed", lambda p: p.get("payment_id")),
+    events.WALLET_CHANGED: _webhook_only("wallet.changed", lambda p: f"{p.get('wallet_id')}:{p.get('amount')}:{p.get('balance')}"),
+    events.RESELLER_DEBT: _webhook_only("reseller.debt", lambda p: f"{p.get('store_id')}:{p.get('state')}:{p.get('balance')}"),
+}
+
+
 async def process_event(e: OutboxEvent):
     event_id = e.id
     async with session_factory()() as session:
@@ -67,51 +154,9 @@ async def process_event(e: OutboxEvent):
             e = await session.get(OutboxEvent, event_id, with_for_update=True)
             if e is None or e.status != "processing":
                 return
-            p = e.payload or {}
-            if e.topic == events.ORDER_PAID:
-                await vpn.provision_order(session, uuid.UUID(str(p["order_id"])))
-            elif e.topic == events.PROVISIONING_FAILED:
-                await _notify_admins_provisioning_failed(session, p)
-                await _webhook(session, "order.provisioning_failed", p, f"order.provisioning_failed:{p.get('order_id')}")
-            elif e.topic == events.ORDER_COMPLETED:
-                from melorin.modules.referral.service import on_order_completed
-
-                await on_order_completed(session, uuid.UUID(str(p["order_id"])))
-                await _webhook(session, "order.completed", p, f"order.completed:{p.get('order_id')}")
-            elif e.topic == events.ORDER_DELIVERY:
-                from melorin.modules.orders.delivery import deliver_order
-
-                await deliver_order(session, uuid.UUID(str(p["order_id"])))
-            elif e.topic == events.ORDER_REFUNDED:
-                from melorin.modules.referral.service import on_order_refunded
-
-                await on_order_refunded(session, uuid.UUID(str(p["order_id"])))
-                await _webhook(session, "order.refunded", p, f"order.refunded:{p.get('order_id')}")
-            elif e.topic == events.VPN_REVOKE:
-                await revoke_account(session, uuid.UUID(str(p["vpn_account_id"])))
-            elif e.topic == events.VPN_RENEWAL_ROLLBACK:
-                await rollback_renewal(session, p)
-            elif e.topic == events.NOTIFY:
-                await _notify(session, p, p.get("kind", "general"), p.get("title", "Melorin"), p.get("body", ""))
-                if p.get("store_id") and p.get("kind") in ("vpn_expired", "vpn_near_expiry"):
-                    await _webhook(
-                        session,
-                        "vpn_account.expired" if p.get("kind") == "vpn_expired" else "vpn_account.near_expiry",
-                        p,
-                        f"{p.get('kind')}:{p.get('dedup_key') or p.get('user_id')}",
-                    )
-            elif e.topic == events.EVENT_CENTER:
-                await _event_center(session, p)
-            elif e.topic == events.TICKET_UPDATED:
-                await _event_center(session, p)
-            elif e.topic == events.PAYMENT_SUCCEEDED:
-                await _webhook(session, "payment.succeeded", p, f"payment.succeeded:{p.get('payment_id')}")
-            elif e.topic == events.PAYMENT_FAILED:
-                await _webhook(session, "payment.failed", p, f"payment.failed:{p.get('payment_id')}")
-            elif e.topic == events.WALLET_CHANGED:
-                await _webhook(session, "wallet.changed", p, f"wallet.changed:{p.get('wallet_id')}:{p.get('amount')}:{p.get('balance')}")
-            elif e.topic == events.RESELLER_DEBT:
-                await _webhook(session, "reseller.debt", p, f"reseller.debt:{p.get('store_id')}:{p.get('state')}:{p.get('balance')}")
+            handler = _TOPIC_HANDLERS.get(e.topic)
+            if handler is not None:  # unknown topics are acknowledged without work, as before
+                await handler(session, e.payload or {})
             e.status, e.processed_at, e.last_error = "processed", utcnow(), None
             await session.commit()
             inc("melorin_outbox_events_total", topic=e.topic, result="processed")
@@ -144,13 +189,13 @@ async def _notify(session, p: dict, kind: str, title: str, body: str = ""):
         )
         session.add(n)
         await session.flush()
-    from melorin.modules.identity.models import Identity
+    from melorin.kernel.models.identity import Identity
 
     identity = await session.scalar(select(Identity).where(Identity.user_id == user_id, Identity.provider == "telegram"))
     if not identity:
         n.telegram_status = "skipped"
         return
-    from melorin.modules.stores.models import Store
+    from melorin.kernel.models.stores import Store
 
     store = await session.get(Store, n.store_id) if n.store_id else None
     token = decrypt(store.bot_token_enc) if store and store.bot_token_enc else get_settings().main_bot_token
@@ -244,7 +289,7 @@ async def rollback_renewal(session, payload):
 
 
 async def claim_webhook_batch(session, n=20):
-    from melorin.modules.webhooks.models import WebhookDelivery
+    from melorin.kernel.models.webhooks import WebhookDelivery
 
     lease_cutoff = utcnow() - dt.timedelta(minutes=10)
     await session.execute(

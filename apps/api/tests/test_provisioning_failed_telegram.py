@@ -8,9 +8,9 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 import melorin.models  # noqa: F401  (registers every table)
 from melorin.core.db import Base
-from melorin.modules.identity.models import Identity, User
-from melorin.modules.notifications.models import Notification
-from melorin.modules.orders.models import Order
+from melorin.kernel.models.identity import Identity, User
+from melorin.kernel.models.notifications import Notification
+from melorin.kernel.models.orders import Order
 from melorin.worker import runner
 
 

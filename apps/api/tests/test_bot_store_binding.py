@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_bot_store_owner_mapping_has_database_and_core_admin_surface():
-    model = read_source(ROOT / "melorin/modules/stores/models.py")
+    model = read_source(ROOT / "melorin/kernel/models/stores.py")
     migration = read_source(ROOT / "alembic/versions/0008_bot_store_bindings.py")
     router = read_source(ROOT / "melorin/modules/admin/router.py")
     runner = read_source(ROOT.parent.parent / "apps/telegram-reseller/runner.py")

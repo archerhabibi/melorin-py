@@ -11,9 +11,9 @@ from melorin.core.errors import AppError
 from melorin.core.scope import StoreScope
 from melorin.core.storage import get_storage, validate_upload
 from melorin.modules.payments import service
-from melorin.modules.payments.models import Payment
+from melorin.kernel.models.payments import Payment
 from melorin.modules.payments.schemas import PaymentOut, TopupRequest, payment_out
-from melorin.modules.system.models import FileObject
+from melorin.kernel.models.system import FileObject
 
 router = APIRouter(tags=["payments"])
 log = logging.getLogger("melorin.payments")

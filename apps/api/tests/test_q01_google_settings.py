@@ -11,11 +11,11 @@ from melorin.core import config as config_mod
 from melorin.core import db, integrations, settings_store
 from melorin.core.errors import AppError
 from melorin.modules.admin import integrations as admin_integrations
-from melorin.modules.identity import router, service
-from melorin.modules.identity.models import Identity, IdentityLinkReview, RefreshToken, User
+from melorin.modules.identity import google as google_signin, router
+from melorin.kernel.models.identity import Identity, IdentityLinkReview, RefreshToken, User
 from melorin.modules.identity.schemas import GoogleLogin
-from melorin.modules.stores.models import Store
-from melorin.modules.system.models import AuditEvent, SecurityEvent, SystemSetting
+from melorin.kernel.models.stores import Store
+from melorin.kernel.models.system import AuditEvent, SecurityEvent, SystemSetting
 
 PROJECT = Path(__file__).resolve().parents[3]
 TABLES = [
@@ -130,7 +130,7 @@ async def _login_as(session, monkeypatch, *, admin: bool, admin_login: bool, sto
     async def fake_verify(_t, _c):
         return {"sub": "sub-1", "email": "u@example.com", "email_verified": "true", "nonce": "n1"}
 
-    monkeypatch.setattr(service, "verify_google_token", fake_verify)
+    monkeypatch.setattr(google_signin, "verify_google_token", fake_verify)
     return await router.google_login(GoogleLogin(id_token="t"), session, REQ, Response())
 
 

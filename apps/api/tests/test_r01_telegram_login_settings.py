@@ -19,13 +19,13 @@ from melorin.core.deps import get_session
 from melorin.core.errors import AppError, install
 from melorin.modules.admin import integrations as admin_integrations
 from melorin.modules.identity import service
-from melorin.modules.identity import telegram_oidc as oidc
-from melorin.modules.identity import telegram_web as web
-from melorin.modules.identity.models import Identity, RefreshToken, TelegramLoginSession, User
+from melorin.channels.telegram import oidc
+from melorin.channels.telegram import web
+from melorin.kernel.models.identity import Identity, RefreshToken, TelegramLoginSession, User
 from melorin.modules.identity.schemas import TelegramProfile
-from melorin.modules.identity.telegram_oidc_router import tgoidc
-from melorin.modules.stores.models import Store
-from melorin.modules.system.models import AuditEvent, FeatureFlag, SecurityEvent, SystemSetting
+from melorin.channels.telegram.oidc_router import tgoidc
+from melorin.kernel.models.stores import Store
+from melorin.kernel.models.system import AuditEvent, FeatureFlag, SecurityEvent, SystemSetting
 
 TABLES = [
     User.__table__,
@@ -421,13 +421,13 @@ async def test_main_bot_username_autodetect_manual_and_guards(world, monkeypatch
 
         return f
 
-    orig = admin_integrations._main_bot
+    orig = admin_integrations.telegram_login._main_bot
 
     async def with_token(s):  # pretend a token exists; keep the real stored username
         return "123:abc", (await orig(s))[1]
 
-    monkeypatch.setattr(admin_integrations, "_main_bot", with_token)
-    monkeypatch.setattr(admin_integrations, "_bot_get_me", await fake("meeloorin_bot"))
+    monkeypatch.setattr(admin_integrations.telegram_login, "_main_bot", with_token)
+    monkeypatch.setattr(admin_integrations.telegram_login, "_bot_get_me", await fake("meeloorin_bot"))
     put = lambda u: admin_integrations.set_main_bot_username(admin_integrations.MainBotIn(username=u), ADMIN, world.s)
     out = await put(None)  # auto-detect from the token
     assert out["main_bot_username"] == "meeloorin_bot"
@@ -441,7 +441,7 @@ async def test_main_bot_username_autodetect_manual_and_guards(world, monkeypatch
     assert e.value.code == "BOT_USERNAME_INVALID"
     world.s.add(Store(kind="reseller", name="R", slug="r", bot_username="meeloorin_bot2"))
     await world.s.commit()
-    monkeypatch.setattr(admin_integrations, "_bot_get_me", await fake("meeloorin_bot2"))
+    monkeypatch.setattr(admin_integrations.telegram_login, "_bot_get_me", await fake("meeloorin_bot2"))
     with pytest.raises(AppError) as e:
         await put("meeloorin_bot2")
     assert e.value.code == "BOT_USERNAME_TAKEN"

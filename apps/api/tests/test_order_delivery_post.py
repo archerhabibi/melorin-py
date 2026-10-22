@@ -9,12 +9,12 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 import melorin.models  # noqa: F401  (registers every table)
 from melorin.core.db import Base
-from melorin.modules.identity.models import Identity, User
-from melorin.modules.notifications.models import Notification
+from melorin.kernel.models.identity import Identity, User
+from melorin.kernel.models.notifications import Notification
 from melorin.modules.orders import delivery
-from melorin.modules.orders.models import Order
-from melorin.modules.vpn.models import VpnAccount
-from melorin.modules.wallet.models import LedgerEntry, LedgerTransaction, Wallet
+from melorin.kernel.models.orders import Order
+from melorin.kernel.models.vpn import VpnAccount
+from melorin.kernel.models.wallet import LedgerEntry, LedgerTransaction, Wallet
 
 SUB = "https://sub.example.com/sub/AbCdEf123"
 
@@ -176,7 +176,7 @@ async def test_overlong_link_never_exceeds_caption_limit(session, tg):
 async def test_provisioning_emits_delivery_event_not_generic_notice():
     import inspect
 
-    from melorin.modules.vpn import service
+    from melorin.modules.orders import provisioning as service
 
     src = inspect.getsource(service.provision_order)
     assert src.count("events.ORDER_DELIVERY") == 2  # normal path + reconcile path

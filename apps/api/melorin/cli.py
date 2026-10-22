@@ -16,10 +16,10 @@ from melorin.core.security import hash_password
 from melorin.core.crypto import encrypt
 from melorin.core import settings_store
 from melorin import models  # noqa: F401
-from melorin.modules.catalog.models import Product, StoreProduct
-from melorin.modules.identity.models import Identity, User
-from melorin.modules.stores.models import Store, StoreMembership
-from melorin.modules.system.models import OutboxEvent
+from melorin.kernel.models.catalog import Product, StoreProduct
+from melorin.kernel.models.identity import Identity, User
+from melorin.kernel.models.stores import Store, StoreMembership
+from melorin.kernel.models.system import OutboxEvent
 
 
 async def bootstrap() -> None:
@@ -119,9 +119,9 @@ async def outbox_replay(event_id: str) -> None:
 async def rotate_encryption_key(new_key: str) -> None:
     # Rotate only fields known to contain encrypted values. Keep this explicit
     # and transactional rather than attempting a dangerous blind JSON rewrite.
-    from melorin.modules.stores.models import ResellerApplication, Store
-    from melorin.modules.vpn.models import Panel
-    from melorin.modules.payments.models import StorePaymentConfiguration
+    from melorin.kernel.models.stores import ResellerApplication, Store
+    from melorin.kernel.models.vpn import Panel
+    from melorin.kernel.models.payments import StorePaymentConfiguration
     from sqlalchemy import select
     from melorin.core.crypto import decrypt
     from cryptography.fernet import Fernet

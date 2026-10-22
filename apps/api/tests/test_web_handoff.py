@@ -9,10 +9,10 @@ import melorin.models  # noqa: F401
 from melorin.core import db
 from melorin.core.errors import AppError
 from melorin.modules.identity import router, service
-from melorin.modules.identity.models import Identity, RefreshToken, User, VerificationCode
+from melorin.kernel.models.identity import Identity, RefreshToken, User, VerificationCode
 from melorin.modules.identity.schemas import WebHandoffIn, WebHandoffRedeem
-from melorin.modules.stores.models import Store
-from melorin.modules.system.models import AuditEvent, SecurityEvent
+from melorin.kernel.models.stores import Store
+from melorin.kernel.models.system import AuditEvent, SecurityEvent
 
 TABLES = [
     User.__table__,

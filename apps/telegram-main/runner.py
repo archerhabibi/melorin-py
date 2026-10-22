@@ -8,186 +8,35 @@ from the Telegram update/callback id so a replay can never double-charge.
 
 UX model (v2): inline navigation edits the tapped message in place (one "window" instead of
 a growing chat), every screen has a back button, purchase screens show the wallet balance
-before and after the payment, and accounts open as cards with usage bar, QR and renewal.
-"""
+before and after the payment, and accounts open as cards with usage bar, QR and renewal."""
+
 import asyncio
-import base64
-import datetime as dt
-import html
-import io
-import json
 import logging
 import mimetypes
 import os
-import re
-import uuid
+import sys
 from pathlib import Path
-
 import httpx
+
+# ``tgmain`` lives next to this file (the reseller supervisor loads this module by path, so make the sibling package importable).
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from tgmain.client import Ctx, TransportMixin  # noqa: E402,F401
+from tgmain.errors import CoreError  # noqa: E402,F401
+from tgmain.handlers.identity import IdentityMixin
+from tgmain.handlers.plans import PlansMixin
+from tgmain.handlers.wallet import WalletMixin
+from tgmain.handlers.accounts import AccountsMixin
+from tgmain.handlers.reseller import ResellerMixin
+from tgmain.handlers.tickets import TicketsMixin
+from tgmain.ui import *  # noqa: E402,F401,F403  (re-exported: the reseller runner uses money/keyboard/esc/BOT_COMMANDS)
 
 log = logging.getLogger("melorin.telegram.main")
 
-HELP = (
-    "فرمان‌ها:\n"
-    "/plans خرید اکانت\n/wallet کیف پول و شارژ حساب\n/topup مبلغ — شارژ کیف پول\n"
-    "/accounts استعلام و تمدید اکانت\n/orders سفارش‌ها\n/test دریافت اکانت تست\n"
-    "/tickets پشتیبانی و تیکت‌ها\n/me حساب من در سایت\n/referral دعوت از دوستان\n"
-    "/reseller درخواست نمایندگی\n/cancel انصراف از مرحلهٔ جاری"
-)
 
-# Registered with Telegram (setMyCommands) so the "Menu" button lists them.
-BOT_COMMANDS = [
-    ("start", "شروع و منوی اصلی"), ("plans", "🛒 خرید اکانت"), ("accounts", "🔑 اکانت‌های من"),
-    ("wallet", "💰 کیف پول و شارژ"), ("orders", "📦 سفارش‌ها"), ("test", "🧪 اکانت تست"),
-    ("tickets", "🎧 پشتیبانی"), ("referral", "🎁 دعوت از دوستان"), ("reseller", "🤖 درخواست نمایندگی"), ("help", "راهنما"),
-]
+class TelegramRunner(TransportMixin, IdentityMixin, PlansMixin, WalletMixin, AccountsMixin, ResellerMixin, TicketsMixin):
+    """Composition root: wiring (commands/callbacks), update dispatch and the long-poll loop. Feature handlers live in ``tgmain.handlers``."""
 
-# Core error codes of the reseller details step that mean "send the domain again" / "send the token again".
-RESELLER_DOMAIN_ERRORS = {"INVALID_DOMAIN", "DOMAIN_RESERVED", "DOMAIN_TAKEN", "IDENTITY_TAKEN"}
-RESELLER_TOKEN_ERRORS = {"INVALID_BOT_TOKEN", "BOT_TOKEN_REJECTED", "BOT_TAKEN", "TELEGRAM_UNREACHABLE"}
-
-# The account button opens the user's account on the store website (Telegram/Google login happens there).
-ACCOUNT_BUTTON = "🌐 حساب من در سایت"
-LEGACY_ACCOUNT_BUTTON = "👤 حساب کاربری"  # cached reply keyboards still send this text
-
-# Must stay in sync with the public bot's Persian reply keyboard.
-MAIN_MENU = [
-    ["🛒 خرید اکانت", "🔍 استعلام و تمدید اکانت"],
-    ["💰 کیف پول و شارژ حساب", ACCOUNT_BUTTON],
-    ["🎁 دعوت از دوستان", "🧪 دریافت اکانت تست"],
-    ["📜 قوانین خرید و آموزش", "🎧 پشتیبانی"],
-    ["🤖 درخواست ربات نماینده و همکاری"],
-]
-
-# Inline actions used inside the flows behind the reply keyboard.
-MENU = [[("🛒 خرید اکانت", "menu:plans"), ("💰 کیف پول", "menu:wallet")],
-        [("📦 سفارش‌ها", "menu:orders"), ("🔑 اکانت‌ها", "menu:accounts")],
-        [("🎫 تیکت‌ها", "menu:tickets"), ("🔔 اعلان‌ها", "menu:notifications")]]
-
-CURRENCY_LABEL = {"IRT": "تومان", "IRR": "ریال"}
-ACCOUNT_STATUS = {"active": "🟢 فعال", "pending": "⏳ در انتظار", "provisioning": "⏳ در حال ساخت", "suspended": "🟠 مسدود",
-                  "expired": "🔴 منقضی", "revoked": "⛔ لغوشده", "archived": "📁 بایگانی"}
-ORDER_STATUS = {"pending": "⏳ در انتظار پرداخت", "paid": "💳 پرداخت‌شده", "processing": "⚙️ در حال پردازش",
-                "provisioning": "⚙️ در حال ساخت اکانت", "completed": "✅ تکمیل‌شده", "provisioning_failed": "❌ ناموفق",
-                "refund_pending": "↩️ در حال بازگشت وجه", "refunded": "↩️ بازگشت داده شد", "cancelled": "🚫 لغوشده",
-                "manual_review": "🔎 در حال بررسی"}
-TX_KIND = {"purchase": "🛒 خرید", "topup": "💳 شارژ", "refund": "↩️ بازگشت وجه", "topup_refund": "↩️ برگشت شارژ",
-           "referral_first": "🎁 پاداش دعوت", "referral_recurring": "🎁 پاداش دعوت", "manual_adjustment": "✏️ اصلاح دستی"}
-PAGE_SIZE = 8
-# Account inquiry: filter chips (code -> Core `state` value, label) and the badge of each account's `health`.
-ACC_FILTERS = [("-", None, "همه"), ("a", "active", "🟢 فعال"), ("x", "expiring", "🟡 رو‌به‌اتمام"), ("e", "expired", "🔴 منقضی")]
-HEALTH_BADGE = {"active": "🟢", "expiring": "🟡", "expired": "🔴", "depleted": "🟠", "disabled": "⚫"}
-HEALTH_LABEL = {"active": "فعال", "expiring": "رو‌به‌اتمام", "expired": "منقضی", "depleted": "حجم تمام‌شده", "disabled": "غیرفعال"}
-
-
-TICKET_ICON = {"open": "🟡", "answered": "🟢", "closed": "⚫"}
-TICKET_LABEL = {"open": "🟡 باز", "answered": "🟢 پاسخ داده شد", "closed": "⚫ بسته"}
-PRIORITY_LABEL = {"low": "کم", "normal": "عادی", "high": "🟠 مهم", "urgent": "🔴 فوری"}
-
-
-def esc(v) -> str:
-    return html.escape(str(v if v is not None else ""), quote=False)
-
-
-def money(n) -> str:
-    return f"{int(n or 0):,}"
-
-
-def cur(code) -> str:
-    return CURRENCY_LABEL.get(str(code or "").upper(), str(code or ""))
-
-
-def fmt(n, code) -> str:
-    return f"{money(n)} {cur(code)}"
-
-
-def gb(b) -> str:
-    return f"{(b or 0) / 1073741824:.1f}"
-
-
-def _button(text, data):
-    """callback_data button, or a URL button when ``data`` is an absolute http(s) link (opens in the user's browser)."""
-    if str(data).startswith(("https://", "http://")):
-        return {"text": text, "url": data}
-    return {"text": text, "callback_data": data}
-
-
-def keyboard(rows):
-    return {"inline_keyboard": [[_button(t, d) for t, d in row] for row in rows]}
-
-
-def reply_keyboard(rows):
-    return {"keyboard": [[{"text": text} for text in row] for row in rows], "resize_keyboard": True}
-
-
-def b64(value) -> str:
-    """UUID -> 22 chars so two ids still fit in Telegram's 64-byte callback_data limit."""
-    return base64.urlsafe_b64encode(uuid.UUID(str(value)).bytes).decode().rstrip("=")
-
-
-def unb64(token: str) -> str:
-    try:
-        return str(uuid.UUID(bytes=base64.urlsafe_b64decode(token + "==")))
-    except (ValueError, TypeError) as exc:
-        raise CoreError(400, "گزینه نامعتبر است. دوباره از منو انتخاب کنید.") from exc
-
-
-def usage_bar(used, limit, width: int = 10) -> str:
-    if not limit:
-        return f"♾ نامحدود · مصرف {gb(used)} GB"
-    pct = min(1.0, (used or 0) / limit)
-    filled = round(pct * width)
-    return f"{'▰' * filled}{'▱' * (width - filled)} {int(pct * 100)}٪\n{gb(used)} / {gb(limit)} GB"
-
-
-def parse_dt(value) -> dt.datetime | None:
-    if not value:
-        return None
-    try:
-        d = dt.datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    return d if d.tzinfo else d.replace(tzinfo=dt.UTC)
-
-
-def expiry_line(value) -> str:
-    d = parse_dt(value)
-    if d is None:
-        return "⏳ انقضا: نامحدود"
-    left = (d - dt.datetime.now(dt.UTC)).days
-    tail = f"{left} روز مانده" if left >= 0 else "منقضی شده"
-    return f"⏳ انقضا: {d:%Y-%m-%d} ({tail})"
-
-
-def qr_png(data: str) -> bytes | None:
-    try:
-        import segno
-    except ImportError:  # optional dependency: the bot still works, just without the QR image
-        return None
-    buf = io.BytesIO()
-    segno.make(data, error="m").save(buf, kind="png", scale=8, border=4)
-    return buf.getvalue()
-
-
-class CoreError(Exception):
-    def __init__(self, status: int, message: str, code: str | None = None):
-        super().__init__(message)
-        self.status, self.message, self.code = status, message, code
-
-
-class Ctx:
-    def __init__(self, chat_id, user, pair, update_id, callback_id=None, message_id=None, incoming_id=None):
-        self.chat_id, self.user, self.pair = chat_id, user, pair
-        self.update_id, self.callback_id = update_id, callback_id
-        self.message_id = message_id  # the tapped message (callbacks only) -> edited in place
-        self.incoming_id = incoming_id  # the user's own text message (plain messages only) -> may be deleted (secrets)
-
-    @property
-    def idem(self) -> str:
-        return f"tg-{self.callback_id or self.update_id}"
-
-
-class TelegramRunner:
     channel = "main"
     # Least-privilege secret for this kind of runner (Core accepts it only for stores of that kind); falls back to the shared one.
     secret_env = "MELORIN_MAIN_BOT_SECRET"
@@ -205,156 +54,54 @@ class TelegramRunner:
         self.store: dict | None = None
         self.client = httpx.AsyncClient(timeout=httpx.Timeout(35.0, connect=10.0))
         self.commands = {
-            "/start": self.cmd_start, "/help": self.cmd_help, "/me": self.cmd_me, "/plans": self.cmd_plans,
-            "/wallet": self.cmd_wallet, "/topup": self.cmd_topup, "/orders": self.cmd_orders,
-            "/accounts": self.cmd_accounts, "/test": self.cmd_test, "/tickets": self.cmd_tickets,
-            "/ticket": self.cmd_ticket, "/notifications": self.cmd_notifications, "/link": self.cmd_link, "/referral": self.cmd_referral,
-            "/reseller": self.cmd_reseller, "/cancel": self.cmd_cancel,
+            "/start": self.cmd_start,
+            "/help": self.cmd_help,
+            "/me": self.cmd_me,
+            "/plans": self.cmd_plans,
+            "/wallet": self.cmd_wallet,
+            "/topup": self.cmd_topup,
+            "/orders": self.cmd_orders,
+            "/accounts": self.cmd_accounts,
+            "/test": self.cmd_test,
+            "/tickets": self.cmd_tickets,
+            "/ticket": self.cmd_ticket,
+            "/notifications": self.cmd_notifications,
+            "/link": self.cmd_link,
+            "/referral": self.cmd_referral,
+            "/reseller": self.cmd_reseller,
+            "/cancel": self.cmd_cancel,
         }
         self.callbacks = {
-            "menu": self.cb_menu, "plan": self.cb_plan, "buy": self.cb_buy, "ticket": self.cb_ticket,
-            "reply": self.cb_reply, "readall": self.cb_readall, "wallet": self.cb_wallet_amount,
-            "account": self.cb_account, "acl": self.cb_acc_list, "acs": self.cb_acc_search, "acq": self.cb_acc_clear, "plans": self.cb_plans, "cpn": self.cb_coupon, "qr": self.cb_qr,
-            "bundle": self.cb_bundle, "pnl": self.cb_panel, "qt": self.cb_quote, "rnw": self.cb_renew, "rnq": self.cb_renew_quote, "rnb": self.cb_renew_buy, "noop": self.cb_noop,
-            "tnew": self.cb_ticket_new, "tedit": self.cb_ticket_edit_msg, "tsubj": self.cb_ticket_edit_subject,
-            "tclose": self.cb_ticket_close, "treopen": self.cb_ticket_reopen, "rsc": self.cb_reseller_cancel,
-            "wla": self.cb_web_login, "wld": self.cb_web_login_deny,
+            "menu": self.cb_menu,
+            "plan": self.cb_plan,
+            "buy": self.cb_buy,
+            "ticket": self.cb_ticket,
+            "reply": self.cb_reply,
+            "readall": self.cb_readall,
+            "wallet": self.cb_wallet_amount,
+            "account": self.cb_account,
+            "acl": self.cb_acc_list,
+            "acs": self.cb_acc_search,
+            "acq": self.cb_acc_clear,
+            "plans": self.cb_plans,
+            "cpn": self.cb_coupon,
+            "qr": self.cb_qr,
+            "bundle": self.cb_bundle,
+            "pnl": self.cb_panel,
+            "qt": self.cb_quote,
+            "rnw": self.cb_renew,
+            "rnq": self.cb_renew_quote,
+            "rnb": self.cb_renew_buy,
+            "noop": self.cb_noop,
+            "tnew": self.cb_ticket_new,
+            "tedit": self.cb_ticket_edit_msg,
+            "tsubj": self.cb_ticket_edit_subject,
+            "tclose": self.cb_ticket_close,
+            "treopen": self.cb_ticket_reopen,
+            "rsc": self.cb_reseller_cancel,
+            "wla": self.cb_web_login,
+            "wld": self.cb_web_login_deny,
         }
-
-    # ---------- persistence ----------
-    def _load_offset(self) -> int | None:
-        try:
-            return int(json.loads(self.offset_file.read_text())["offset"])
-        except (FileNotFoundError, KeyError, ValueError, json.JSONDecodeError):
-            return None
-
-    def _save_offset(self, offset: int) -> None:
-        tmp = self.offset_file.with_suffix(".tmp")
-        tmp.write_text(json.dumps({"offset": offset}))
-        tmp.replace(self.offset_file)
-        self.offset = offset
-
-    def _load_state(self) -> dict:
-        try:
-            return json.loads(self.state_file.read_text())
-        except (FileNotFoundError, json.JSONDecodeError):
-            return {}
-
-    def _set_state(self, chat_id, value: dict | None) -> None:
-        if value is None:
-            self.state.pop(str(chat_id), None)
-        else:
-            self.state[str(chat_id)] = value
-        tmp = self.state_file.with_suffix(".tmp")
-        tmp.write_text(json.dumps(self.state))
-        tmp.replace(self.state_file)
-
-    # ---------- transport ----------
-    async def tg(self, method: str, payload: dict) -> dict:
-        r = await self.client.post(f"https://api.telegram.org/bot{self.token}/{method}", json=payload)
-        r.raise_for_status()
-        data = r.json()
-        if not data.get("ok"):
-            raise RuntimeError(data.get("description", method))
-        return data["result"]
-
-    async def send(self, chat_id, text: str, rows=None, *, reply=False, html: bool = False) -> None:
-        payload = {"chat_id": chat_id, "text": text[:4000]}
-        if html:
-            payload["parse_mode"] = "HTML"
-            payload["link_preview_options"] = {"is_disabled": True}
-        if rows:
-            payload["reply_markup"] = reply_keyboard(rows) if reply else keyboard(rows)
-        await self.tg("sendMessage", payload)
-
-    async def screen(self, ctx: Ctx, text: str, rows=None) -> None:
-        """Show an HTML screen. From an inline button the tapped message is edited in place
-        (single-window navigation); otherwise, or when Telegram refuses the edit, a new message is sent."""
-        if ctx.message_id and ctx.callback_id:
-            payload = {"chat_id": ctx.chat_id, "message_id": ctx.message_id, "text": text[:4000], "parse_mode": "HTML",
-                       "link_preview_options": {"is_disabled": True}}
-            if rows:
-                payload["reply_markup"] = keyboard(rows)
-            try:
-                await self.tg("editMessageText", payload)
-                return
-            except httpx.HTTPStatusError as exc:
-                if exc.response.status_code != 400:
-                    raise  # transient: let the runner retry the update
-                try:
-                    reason = str(exc.response.json().get("description", ""))
-                except ValueError:
-                    reason = ""
-                if "not modified" in reason:
-                    return  # same content: nothing to do
-                # message is a photo / too old to edit -> fall through to a fresh message
-        await self.send(ctx.chat_id, text, rows, html=True)
-
-    async def send_photo(self, chat_id, png: bytes, caption: str, rows=None) -> None:
-        data = {"chat_id": str(chat_id), "caption": caption[:1024], "parse_mode": "HTML"}
-        if rows:
-            data["reply_markup"] = json.dumps(keyboard(rows))
-        r = await self.client.post(f"https://api.telegram.org/bot{self.token}/sendPhoto", data=data, files={"photo": ("qr.png", png, "image/png")})
-        r.raise_for_status()
-
-    def main_menu_rows(self, chat_id) -> list:
-        """Reply-keyboard rows for this chat (reseller bots tailor them: owners get a management button)."""
-        return MAIN_MENU
-
-    async def send_main_menu(self, chat_id, text: str) -> None:
-        await self.send(chat_id, text, self.main_menu_rows(chat_id), reply=True)
-
-    async def api(self, ctx: Ctx, method: str, path: str, **kw) -> dict | list:
-        headers = {"Authorization": f"Bearer {ctx.pair['access_token']}", "Accept": "application/json", **kw.pop("headers", {})}
-        r = await self.client.request(method, f"{self.core}{path}", headers=headers, **kw)
-        if r.status_code >= 500:
-            r.raise_for_status()  # transient: let the runner retry the update
-        if r.status_code >= 400:
-            raise CoreError(r.status_code, self._err(r), self._code(r))
-        return r.json()
-
-    @staticmethod
-    def _code(r: httpx.Response) -> str | None:
-        try:
-            d = r.json()
-            e = d.get("error", d) if isinstance(d, dict) else {}
-            code = e.get("code") if isinstance(e, dict) else None
-            return code if isinstance(code, str) else None
-        except Exception:  # noqa: BLE001
-            return None
-
-    @staticmethod
-    def _err(r: httpx.Response) -> str:
-        try:
-            d = r.json()
-            e = d.get("error", d) if isinstance(d, dict) else {}
-            m = e.get("message") or d.get("detail")
-            if isinstance(m, str):
-                return m
-        except Exception:  # noqa: BLE001
-            pass
-        return "درخواست انجام نشد." if r.status_code != 403 else "شما به این بخش دسترسی ندارید."
-
-    # ---------- identity ----------
-    async def store_info(self) -> dict:
-        if self.store is None:
-            r = await self.client.get(f"{self.core}/api/v1/stores/main")
-            r.raise_for_status()
-            self.store = r.json()
-        return self.store
-
-    async def core_login(self, message: dict, referral: str | None = None) -> dict:
-        user = message.get("_telegram_from") or message.get("from") or {}
-        store = await self.store_info()
-        body = {
-            "telegram_id": user["id"], "first_name": user.get("first_name"), "last_name": user.get("last_name"),
-            "username": user.get("username"), "language_code": user.get("language_code"), "store_id": store["id"],
-        }
-        if referral:
-            body["referral_code"] = referral
-        r = await self.client.post(f"{self.core}/api/v1/auth/telegram/bot", headers={"X-Bot-Secret": self.secret, "Accept": "application/json"}, json=body)
-        r.raise_for_status()
-        return r.json()
 
     # ---------- dispatch ----------
     async def handle(self, update: dict) -> None:
@@ -372,8 +119,15 @@ class TelegramRunner:
         referral = arg[4:] if text.lower().startswith("/start") and arg.startswith("ref_") else None
         pair = await self.core_login(message, referral)
         user = message.get("_telegram_from") or message.get("from") or {}
-        ctx = Ctx(message["chat"]["id"], user, pair, update["update_id"], callback["id"] if callback else None,
-                  message.get("message_id") if callback else None, None if callback else message.get("message_id"))
+        ctx = Ctx(
+            message["chat"]["id"],
+            user,
+            pair,
+            update["update_id"],
+            callback["id"] if callback else None,
+            message.get("message_id") if callback else None,
+            None if callback else message.get("message_id"),
+        )
         try:
             if callback:
                 prefix, _, rest = (callback.get("data") or "").partition(":")
@@ -428,7 +182,11 @@ class TelegramRunner:
         elif st.get("reply_ticket"):
             await self.api(ctx, "POST", f"/api/v1/tickets/{st['reply_ticket']}/messages", json={"body": text})
             self._set_state(ctx.chat_id, None)
-            await self.send(ctx.chat_id, "✅ پیام شما ثبت شد؛ پاسخ پشتیبانی همین‌جا به شما اطلاع داده می‌شود.", [[("📂 مشاهدهٔ تیکت", f"ticket:{st['reply_ticket']}")], [("🎫 همهٔ تیکت‌ها", "menu:tickets")]])
+            await self.send(
+                ctx.chat_id,
+                "✅ پیام شما ثبت شد؛ پاسخ پشتیبانی همین‌جا به شما اطلاع داده می‌شود.",
+                [[("📂 مشاهدهٔ تیکت", f"ticket:{st['reply_ticket']}")], [("🎫 همهٔ تیکت‌ها", "menu:tickets")]],
+            )
         elif st.get("edit_msg"):
             tid, mid = st["edit_ticket"], st["edit_msg"]
             await self.api(ctx, "PATCH", f"/api/v1/tickets/{tid}/messages/{mid}", json={"body": text})
@@ -447,9 +205,16 @@ class TelegramRunner:
             await self.send(ctx.chat_id, "حالا توضیحات کامل مشکل یا درخواست خود را بفرستید:")
         elif st.get("new_ticket_subject"):
             store = await self.store_info()
-            t = await self.api(ctx, "POST", f"/api/v1/stores/{store['id']}/tickets", json={"subject": st["new_ticket_subject"], "body": text})
+            t = await self.api(
+                ctx, "POST", f"/api/v1/stores/{store['id']}/tickets", json={"subject": st["new_ticket_subject"], "body": text}
+            )
             self._set_state(ctx.chat_id, None)
-            await self.send(ctx.chat_id, f"✅ تیکت شما با شماره <b>#{esc(t.get('number') or '-')}</b> ثبت شد.\nپاسخ پشتیبانی همین‌جا به شما اطلاع داده می‌شود.", [[("📂 مشاهدهٔ تیکت", f"ticket:{t['id']}")], [("🎫 همهٔ تیکت‌ها", "menu:tickets")]], html=True)
+            await self.send(
+                ctx.chat_id,
+                f"✅ تیکت شما با شماره <b>#{esc(t.get('number') or '-')}</b> ثبت شد.\nپاسخ پشتیبانی همین‌جا به شما اطلاع داده می‌شود.",
+                [[("📂 مشاهدهٔ تیکت", f"ticket:{t['id']}")], [("🎫 همهٔ تیکت‌ها", "menu:tickets")]],
+                html=True,
+            )
         else:
             await self.send_main_menu(ctx.chat_id, "از منوی زیر انتخاب کنید:")
 
@@ -462,7 +227,10 @@ class TelegramRunner:
             file_id, ctype = message["photo"][-1]["file_id"], "image/jpeg"
         else:
             doc = message["document"]
-            file_id, ctype = doc["file_id"], doc.get("mime_type") or mimetypes.guess_type(doc.get("file_name", ""))[0] or "application/octet-stream"
+            file_id, ctype = (
+                doc["file_id"],
+                doc.get("mime_type") or mimetypes.guess_type(doc.get("file_name", ""))[0] or "application/octet-stream",
+            )
         info = await self.tg("getFile", {"file_id": file_id})
         max_bytes = int(os.getenv("MELORIN_MAX_UPLOAD_BYTES", str(5 * 1024 * 1024)))
         if int(info.get("file_size") or 0) > max_bytes:
@@ -471,7 +239,12 @@ class TelegramRunner:
         dl.raise_for_status()
         if len(dl.content) > max_bytes:
             return await self.send(ctx.chat_id, "حجم فایل بیشتر از حد مجاز است.")
-        await self.api(ctx, "POST", f"/api/v1/stores/{(await self.store_info())['id']}/payments/{pid}/receipt", files={"file": ("receipt", dl.content, ctype)})
+        await self.api(
+            ctx,
+            "POST",
+            f"/api/v1/stores/{(await self.store_info())['id']}/payments/{pid}/receipt",
+            files={"file": ("receipt", dl.content, ctype)},
+        )
         self._set_state(ctx.chat_id, None)
         await self.send(ctx.chat_id, "رسید دریافت شد ✅ پس از تأیید، کیف پول شما شارژ می‌شود.")
 
@@ -495,599 +268,30 @@ class TelegramRunner:
             return
         active = sum(1 for a in accounts if a.get("status") == "active")
         name = ctx.user.get("first_name") or "دوست عزیز"
-        text = (f"سلام {esc(name)} 👋\n\n💰 موجودی کیف پول: <b>{esc(fmt(w['balance'], w['currency']))}</b>\n"
-                f"🔑 اکانت‌های فعال: <b>{active}</b> از {len(accounts)}")
-        await self.screen(ctx, text, [[("🛒 خرید اکانت", "menu:plans"), ("🔑 اکانت‌های من", "menu:accounts")],
-                                      [("💰 کیف پول", "menu:wallet"), ("📦 سفارش‌ها", "menu:orders")]])
+        text = (
+            f"سلام {esc(name)} 👋\n\n💰 موجودی کیف پول: <b>{esc(fmt(w['balance'], w['currency']))}</b>\n"
+            f"🔑 اکانت‌های فعال: <b>{active}</b> از {len(accounts)}"
+        )
+        await self.screen(
+            ctx,
+            text,
+            [
+                [("🛒 خرید اکانت", "menu:plans"), ("🔑 اکانت‌های من", "menu:accounts")],
+                [("💰 کیف پول", "menu:wallet"), ("📦 سفارش‌ها", "menu:orders")],
+            ],
+        )
 
     async def cmd_help(self, ctx, arg):
         await self.send(ctx.chat_id, HELP, MENU)
 
-    async def account_url(self, ctx: Ctx) -> str | None:
-        """Core builds the one-time sign-in URL of THIS store's website (reseller domain or main store URL)."""
-        store = await self.store_info()
-        try:
-            out = await self.api(ctx, "POST", "/api/v1/me/web-handoff", json={"store_id": store["id"]})
-        except CoreError:
-            return None
-        url = str(out.get("url") or "")
-        host = url.split("/")[2] if url.count("/") >= 2 else ""
-        if not url.startswith(("https://", "http://")) or host.split(":")[0] in ("localhost", "127.0.0.1"):
-            return None  # Telegram rejects such URL buttons; fall back to the in-bot summary only
-        return url
-
-    async def cmd_me(self, ctx, arg):
-        """Account button: opens the user's account on the store website. The site offers Telegram and Google sign-in,
-        and the profile page lets a Telegram-created account attach its Google account (one account, both logins)."""
-        me = await self.api(ctx, "GET", "/api/v1/me")
-        who = me.get("display_name") or me.get("email") or me["id"]
-        text = (f"🌐 <b>حساب من در سایت</b>\n\nنام: {esc(who)}\nکد دعوت: <code>{esc(me.get('referral_code', '-'))}</code>\n\n"
-                "با دکمهٔ زیر حساب‌تان در سایت فروش باز می‌شود و خودکار وارد می‌شوید؛ لینک فقط ۲ دقیقه و یک‌بار معتبر است. اتصال گوگل هم همان‌جا با یک تأیید انجام می‌شود.")
-        rows = [[("💰 کیف پول", "menu:wallet"), ("🔑 اکانت‌ها", "menu:accounts")]]
-        url = await self.account_url(ctx)
-        if url:
-            rows.insert(0, [("🌐 باز کردن حساب در سایت", url)])
-        await self.screen(ctx, text, rows)
-
-    async def cmd_link(self, ctx, arg):
-        code = arg.strip()
-        if not code:
-            return await self.send(ctx.chat_id, "کد اتصال را از بخش «پروفایل» وبسایت بگیرید و به‌صورت /link کد بفرستید.")
-        r = await self.client.post(f"{self.core}/api/v1/auth/telegram/link", headers={"X-Bot-Secret": self.secret, "Accept": "application/json"},
-                                   json={"code": code, "telegram_id": ctx.user["id"], "first_name": ctx.user.get("first_name"), "last_name": ctx.user.get("last_name"), "username": ctx.user.get("username"),
-                                         "store_id": (await self.store_info())["id"]})  # Core binds the session to THIS bot's store
-        if r.status_code >= 500:
-            r.raise_for_status()
-        await self.send(ctx.chat_id, "حساب تلگرام به حساب وب شما متصل شد ✅" if r.status_code < 400 else f"⚠️ {self._err(r)}")
-
-    # ----- website login approved here (Core: /api/v1/auth/telegram/web/bot/*) -----
-    async def _web_login_call(self, action: str, body: dict) -> tuple[int, dict]:
-        r = await self.client.post(f"{self.core}/api/v1/auth/telegram/web/bot/{action}", headers={"X-Bot-Secret": self.secret, "Accept": "application/json"}, json=body)
-        if r.status_code >= 500:
-            r.raise_for_status()  # transient: let the runner retry the update
-        try:
-            data = r.json()
-        except ValueError:
-            data = {}
-        return r.status_code, data if isinstance(data, dict) else {}
-
-    def _profile(self, ctx: Ctx) -> dict:
-        u = ctx.user
-        return {"telegram_id": u["id"], "first_name": u.get("first_name"), "last_name": u.get("last_name"), "username": u.get("username"), "language_code": u.get("language_code")}
-
-    @staticmethod
-    def _ago(seconds) -> str:
-        n = int(seconds or 0)
-        return f"{n} ثانیه پیش" if n < 60 else f"{n // 60} دقیقه پیش"
-
-    LINE = "┄┄┄┄┄┄┄┄┄┄┄┄┄┄"
-
-    def _web_login_view(self, sid: str, choices: list, number_match: bool, *, info: dict | None = None, note: str = "", store_name: str | None = None) -> tuple[str, list]:
-        """Identity-confirmation card: who asks (device / IP / age), how long it stays valid, what to do, and an
-        always-visible «not me» exit. Callback data is unchanged (wla:<sid>:<choice>, wld:<sid>)."""
-        lines = ["🔐 <b>تأیید هویت برای ورود به وب‌سایت</b>"]
-        if store_name:
-            lines.append(f"🏬 {esc(store_name)}")
-        lines += [self.LINE]
-        if info:
-            lines += [f"🖥 دستگاه: <b>{esc(info.get('device'))}</b>", f"🌐 آی‌پی: <code>{esc(info.get('ip') or '-')}</code>", f"🕒 درخواست: {self._ago(info.get('age_seconds'))}"]
-            if info.get("expires_in") is not None:
-                lines.append(f"⏳ اعتبار: {self._left(info.get('expires_in'))}")
-            lines.append(self.LINE)
-        if note:
-            lines += [note, ""]
-        if number_match:
-            lines += ["اگر همین الان خودتان در وب‌سایت «ورود با تلگرام» را زده‌اید:", "", "1️⃣ عددی را که <b>روی صفحهٔ وب‌سایت</b> می‌بینید پیدا کنید", "2️⃣ همان عدد را از دکمه‌های زیر بزنید"]
-            rows = [[(str(c), f"wla:{sid}:{c}") for c in choices]]
-        else:
-            lines += ["اگر همین الان خودتان در وب‌سایت «ورود با تلگرام» را زده‌اید، تأیید کنید:"]
-            rows = [[("✅ بله، خودم هستم", f"wla:{sid}:ok")]]
-        lines += ["", "🛡 این عدد را برای هیچ‌کس نفرستید. اگر این درخواست را شما نداده‌اید یا کسی از شما خواسته این‌جا چیزی را تأیید کنید، «این من نبودم» را بزنید."]
-        rows.append([("⛔ این من نبودم", f"wld:{sid}")])
-        return "\n".join(lines), rows
-
-    @staticmethod
-    def _left(seconds) -> str:
-        n = max(0, int(seconds or 0))
-        return f"{n} ثانیه دیگر" if n < 60 else f"{n // 60} دقیقه دیگر"
-
-    async def cmd_web_login(self, ctx, sid):
-        store = await self.store_info()
-        status, d = await self._web_login_call("inspect", {**self._profile(ctx), "session_id": sid.strip()[:32], "store_id": store["id"]})
-        if status >= 400:
-            return await self.send(ctx.chat_id, f"⚠️ {self._err_of(d)}")
-        text, rows = self._web_login_view(sid.strip()[:32], d.get("choices") or [], bool(d.get("number_match")), info=d, store_name=store.get("name"))
-        await self.screen(ctx, text, rows)
-
-    async def cb_web_login(self, ctx, rest):
-        sid, _, choice = rest.partition(":")
-        store = await self.store_info()
-        status, d = await self._web_login_call("decide", {**self._profile(ctx), "session_id": sid, "store_id": store["id"], "action": "approve", "choice": choice})
-        if status >= 400:
-            return await self.screen(ctx, f"⚠️ {esc(self._err_of(d))}")
-        result = d.get("result")
-        if result == "approved":
-            return await self.screen(ctx, "✅ <b>ورود تأیید شد</b>\n" + self.LINE + "\nبه مرورگر برگردید؛ چند ثانیهٔ دیگر وارد حساب‌تان می‌شوید.\n\n🛡 اگر خودتان این ورود را شروع نکرده بودید، بلافاصله با پشتیبانی تماس بگیرید.")
-        if result == "retry":
-            note = f"❌ عدد انتخاب‌شده درست نبود. <b>{int(d.get('remaining') or 0)}</b> فرصت دیگر دارید."
-            text, rows = self._web_login_view(sid, d.get("choices") or [], True, note=note, store_name=store.get("name"))
-            return await self.screen(ctx, text, rows)
-        await self.screen(ctx, self.WEB_LOGIN_DENIED.get(d.get("reason") or "", "⛔ این درخواست ورود بسته شد."))
-
-    async def cb_web_login_deny(self, ctx, sid):
-        store = await self.store_info()
-        status, d = await self._web_login_call("decide", {**self._profile(ctx), "session_id": sid, "store_id": store["id"], "action": "deny"})
-        if status >= 400:
-            return await self.screen(ctx, f"⚠️ {esc(self._err_of(d))}")
-        await self.screen(ctx, self.WEB_LOGIN_DENIED["user_denied"])
-
-    WEB_LOGIN_DENIED = {
-        "user_denied": "⛔ درخواست ورود رد شد.\nاگر شما آن را نداده بودید، کار درستی کردید ✅",
-        "too_many_wrong_choices": "⛔ عدد اشتباه انتخاب شد و برای امنیت شما درخواست بسته شد.\nاگر خودتان وارد می‌شدید، از وب‌سایت دوباره شروع کنید.",
-        "admin_use_panel": "⛔ ورود مدیران فقط از پنل مدیریت انجام می‌شود.",
-        "account_disabled": "⛔ حساب شما غیرفعال است. با پشتیبانی تماس بگیرید.",
-        "registration_closed": "⛔ ثبت‌نام جدید موقتاً بسته است.",
-        "rate_limited": "⛔ تلاش‌های ورود زیاد بود. کمی بعد دوباره امتحان کنید.",
-        "login_disabled": "⛔ ورود با تلگرام موقتاً غیرفعال شده است.",
-    }
-
-    @staticmethod
-    def _err_of(d: dict) -> str:
-        e = d.get("error") if isinstance(d.get("error"), dict) else {}
-        return e.get("message") or "درخواست انجام نشد."
-
     async def cb_noop(self, ctx, _):
         return None
 
-    # ----- shop: bundle -> (location) -> packages -> (username) -> quote -> pay -----
-    def _merge_state(self, chat_id, **kw) -> None:
-        """Update keys of the per-chat state without wiping the rest (None removes a key)."""
-        st = dict(self.state.get(str(chat_id)) or {})
-        for k, v in kw.items():
-            if v is None:
-                st.pop(k, None)
-            else:
-                st[k] = v
-        self._set_state(chat_id, st or None)
-
-    def _flow(self, ctx) -> dict:
-        return (self.state.get(str(ctx.chat_id)) or {}).get("flow") or {}
-
-    async def bundles(self) -> list:
-        store = await self.store_info()
-        r = await self.client.get(f"{self.core}/api/v1/stores/{store['id']}/bundles")
-        r.raise_for_status()
-        return r.json()
-
-    async def cmd_plans(self, ctx, arg):
-        self._merge_state(ctx.chat_id, flow=None, coupon=None, coupon_for=None)
-        bundles = await self.bundles()
-        if not bundles:
-            return await self.screen(ctx, "فعلاً سرویسی برای فروش موجود نیست.", [[("↩︎ بازگشت", "menu:home")]])
-        if len(bundles) == 1:
-            return await self.choose_bundle(ctx, bundles[0], multi=False)
-        rows = [[(f"{p.get('kind_label') or ''} · {p['name']}".strip(" ·"), f"bundle:{p['id']}")] for p in bundles]
-        rows.append([("↩︎ بازگشت", "menu:home")])
-        await self.screen(ctx, "🛒 <b>خرید اکانت</b>\nنوع سرویس را انتخاب کنید:", rows)
-
-    async def choose_bundle(self, ctx, bundle, *, multi: bool):
-        flow = {"bundle": bundle["id"], "pname": bundle["name"], "naming": bundle.get("naming_mode") or "automatic", "multi": multi}
-        self._merge_state(ctx.chat_id, flow=flow, coupon=None, coupon_for=None)
-        panels = bundle.get("panels") or []
-        if not panels:
-            return await self.show_plans(ctx, 0)
-        rows = [[(str(x["label"]), f"pnl:{x['id']}")] for x in panels]
-        rows.append([("↩︎ بازگشت", "menu:plans" if multi else "menu:home")])
-        await self.screen(ctx, "📍 یکی از گزینه‌ها را انتخاب کنید:", rows)
-
-    async def cb_bundle(self, ctx, bundle_id):
-        bundle = next((p for p in await self.bundles() if p["id"] == bundle_id), None)
-        if bundle is None:
-            return await self.cmd_plans(ctx, "")
-        await self.choose_bundle(ctx, bundle, multi=True)
-
-    async def cb_panel(self, ctx, panel_id):
-        flow = self._flow(ctx)
-        bundle = next((p for p in await self.bundles() if p["id"] == flow.get("bundle")), None)
-        panel = next((x for x in (bundle or {}).get("panels") or [] if x["id"] == panel_id), None)
-        if panel is None:
-            return await self.cmd_plans(ctx, "")
-        self._merge_state(ctx.chat_id, flow={**flow, "panel": panel["id"], "plabel": panel["label"]})
-        await self.show_plans(ctx, 0)
-
-    async def cb_plans(self, ctx, page):
-        await self.show_plans(ctx, int(page) if page.isdigit() else 0)
-
-    async def show_plans(self, ctx, page: int, *, renew: str | None = None):
-        flow = self._flow(ctx)
-        if renew:
-            items = await self.api(ctx, "GET", f"/api/v1/stores/{(await self.store_info())['id']}/accounts/{unb64(renew)}/renewal-packages")
-        elif not flow.get("bundle"):
-            return await self.cmd_plans(ctx, "")
-        else:
-            store = await self.store_info()
-            r = await self.client.get(f"{self.core}/api/v1/stores/{store['id']}/bundles/{flow['bundle']}/packages")
-            r.raise_for_status()
-            items = r.json()
-        if not items:
-            return await self.screen(ctx, "فعلاً سرویسی برای فروش موجود نیست.", [[("↩︎ بازگشت", f"account:{unb64(renew)}" if renew else "menu:home")]])
-        pages = max(1, -(-len(items) // PAGE_SIZE))
-        page = min(max(page, 0), pages - 1)
-        chunk = items[page * PAGE_SIZE:(page + 1) * PAGE_SIZE]
-        pick = (lambda pid: f"rnq:{renew}:{b64(pid)}") if renew else (lambda pid: f"plan:{pid}")
-        rows = [[(f"{p['name']} · {fmt(p['price'], p['currency'])}", pick(p["product_id"]))] for p in chunk]
-        if pages > 1 and not renew:
-            rows.append([("‹ قبلی", f"plans:{page - 1}") if page else ("·", "noop"), (f"{page + 1}/{pages}", "noop"),
-                         ("بعدی ›", f"plans:{page + 1}") if page < pages - 1 else ("·", "noop")])
-        if renew:
-            rows.append([("↩︎ بازگشت به اکانت", f"account:{unb64(renew)}")])
-        else:
-            rows.append([("↩︎ بازگشت", f"bundle:{flow['bundle']}" if flow.get("panel") else "menu:plans" if flow.get("multi") else "menu:home")])
-        head = f"\n📦 {esc(flow.get('pname'))}" if flow.get("pname") and not renew else ""
-        title = "🔄 <b>تمدید اکانت</b>\nسرویس موردنظر برای تمدید را انتخاب کنید:" if renew else f"🛒 <b>خرید اکانت</b>{head}\nیک سرویس انتخاب کنید:"
-        await self.screen(ctx, title, rows)
-
-    async def cb_plan(self, ctx, pid):
-        flow = self._flow(ctx)
-        self._merge_state(ctx.chat_id, coupon=None, coupon_for=None)
-        if flow.get("naming") == "custom":
-            self._merge_state(ctx.chat_id, flow={**flow, "name": None, "ask": pid})
-            return await self.screen(ctx, "✍️ نام کاربری دلخواه اکانت را بفرستید (حداقل ۳ حرف انگلیسی/عدد/_/-):", [[("↩︎ بازگشت", "plans:0")]])
-        await self.show_quote(ctx, pid)
-
-    async def set_account_name(self, ctx, pid, text: str):
-        name = re.sub(r"[^A-Za-z0-9_-]", "", text)[:40]
-        if len(name) < 3:
-            return await self.send(ctx.chat_id, "نام نامعتبر است. حداقل ۳ حرف انگلیسی/عدد/_/- بفرستید:")
-        self._merge_state(ctx.chat_id, flow={**self._flow(ctx), "name": name, "ask": None})
-        await self.show_quote(ctx, pid)
-
-    async def cb_quote(self, ctx, pid):
-        await self.show_quote(ctx, pid)
-
-    def _alloc(self, ctx) -> dict:
-        f = self._flow(ctx)
-        body = {"bundle_id": f["bundle"]} if f.get("bundle") else {}
-        if f.get("panel"):
-            body["selected_panel_id"] = f["panel"]
-        return body
-
-    async def show_quote(self, ctx, pid, *, coupon: str | None = None, renew: str | None = None):
-        """One card: what you buy, price, discount, wallet balance BEFORE and AFTER, and the right next button."""
-        store = await self.store_info()
-        flow = {} if renew else self._flow(ctx)
-        body = {"product_id": pid, "vpn_account_id": unb64(renew)} if renew else {"product_id": pid, **self._alloc(ctx)}
-        if coupon:
-            body["coupon_code"] = coupon
-        q = await self.api(ctx, "POST", f"/api/v1/stores/{store['id']}/checkout/quote", json=body)
-        c = q["currency"]
-        lines = ["🔄 <b>تمدید اکانت</b>" if renew else "🧾 <b>پیش‌فاکتور</b>", ""]
-        if flow.get("pname"):
-            lines.append(f"📦 سرویس: {esc(flow['pname'])}")
-        if flow.get("plabel"):
-            lines.append(f"📍 {esc(flow['plabel'])}")
-        if flow.get("name"):
-            lines.append(f"👤 نام کاربری: <code>{esc(flow['name'])}</code>")
-        if renew and q.get("renewal"):
-            r = q["renewal"]
-            vol = f"{r['traffic_gb']} GB" if r.get("traffic_gb") else "نامحدود"
-            lines.append(f"⏳ پس از تمدید: {r['duration_days']} روز · {vol} (مثل یک اکانت جدید همین پکیج)")
-            if r.get("remaining_days_replaced"):
-                lines.append(f"ℹ️ {r['remaining_days_replaced']} روز باقی‌مانده فعلی جایگزین می‌شود و به آن اضافه نمی‌شود.")
-        lines.append(f"💵 قیمت: {esc(fmt(q['unit_price'], c))}")
-        if q.get("discount"):
-            tag = f" ({esc(q.get('coupon_code'))})" if q.get("coupon_code") else ""
-            lines.append(f"🏷 تخفیف{tag}: {esc(fmt(q['discount'], c))}")
-        lines.append(f"💰 مبلغ نهایی: <b>{esc(fmt(q['total'], c))}</b>")
-        balance = int(q.get("wallet_balance") or 0)
-        lines += ["", f"👛 موجودی کیف پول: {esc(fmt(balance, c))}"]
-        if q.get("sufficient_funds"):
-            lines.append(f"📉 موجودی پس از پرداخت: <b>{esc(fmt(balance - int(q['total']), c))}</b>")
-            if coupon:
-                self._merge_state(ctx.chat_id, coupon={"pid": str(pid), "code": coupon})
-            go = f"rnb:{renew}:{b64(pid)}" if renew else f"buy:{pid}"
-            rows = [[("✅ تأیید و پرداخت از کیف پول", go)]]
-        else:
-            short = int(q["total"]) - balance
-            lines.append(f"⚠️ موجودی کافی نیست؛ <b>{esc(fmt(short, c))}</b> کم دارید.")
-            rows = [[(f"💳 شارژ {fmt(short, c)}", f"wallet:amount:{short}")]]
-        if not renew:
-            rows.append([("🎟 کد تخفیف", f"cpn:{pid}")])
-        rows.append([("↩︎ بازگشت", f"account:{unb64(renew)}" if renew else "plans:0")])
-        await self.screen(ctx, "\n".join(lines), rows)
-
-    async def cb_coupon(self, ctx, pid):
-        self._merge_state(ctx.chat_id, coupon_for=pid)
-        await self.screen(ctx, "🎟 کد تخفیف را بفرستید:", [[("↩︎ بازگشت", f"qt:{pid}")]])
-
-    def _coupon_for(self, ctx, pid) -> str | None:
-        c = (self.state.get(str(ctx.chat_id)) or {}).get("coupon") or {}
-        return c.get("code") if c.get("pid") == str(pid) else None
-
-    async def cb_buy(self, ctx, pid):
-        store = await self.store_info()
-        flow = self._flow(ctx)
-        body = {"product_id": pid, "payment_method": "wallet", "kind": "purchase", **self._alloc(ctx)}
-        if flow.get("naming") == "custom" and flow.get("name"):
-            body["account_name"] = flow["name"]
-        if self._coupon_for(ctx, pid):
-            body["coupon_code"] = self._coupon_for(ctx, pid)
-        o = await self.api(ctx, "POST", f"/api/v1/stores/{store['id']}/orders", headers={"Idempotency-Key": ctx.idem}, json=body)
-        self._set_state(ctx.chat_id, None)
-        await self.order_done(ctx, o, "✅ <b>پرداخت از کیف پول انجام شد</b>")
-
-    async def order_done(self, ctx, o, title: str):
-        paid = f"\n💰 مبلغ پرداختی: {esc(fmt(o['total'], o.get('currency')))}" if o.get("total") is not None else ""
-        await self.screen(ctx, f"{title}\n\n📦 سفارش: <code>{esc(o['number'])}</code>{paid}\n"
-                               "⚙️ اکانت شما در چند لحظه ساخته و همین‌جا ارسال می‌شود "
-                               "(لینک اشتراک، QR کد و موجودی کیف پول).", [[("🔑 اکانت‌های من", "menu:accounts")]])
-
-    # ----- wallet -----
-    async def cmd_wallet(self, ctx, arg):
-        store = await self.store_info()
-        w = await self.api(ctx, "GET", f"/api/v1/stores/{store['id']}/wallet")
-        tx = await self.api(ctx, "GET", f"/api/v1/stores/{store['id']}/wallet/transactions")
-        items = tx if isinstance(tx, list) else tx.get("items", [])
-        lines = [f"💰 <b>کیف پول</b>\n\nموجودی: <b>{esc(fmt(w['balance'], w['currency']))}</b>"]
-        if items:
-            lines.append("\n🕘 آخرین تراکنش‌ها:")
-            for t in items[:5]:
-                amt = int(t["amount"])
-                lines.append(f"{TX_KIND.get(t['kind'], esc(t['kind']))}  {'➕' if amt > 0 else '➖'} {money(abs(amt))}")
-        lines.append("\nبرای شارژ، مبلغ را انتخاب کنید:")
-        amounts = [[("۲۰۰,۰۰۰ تومان", "wallet:amount:200000"), ("۵۰۰,۰۰۰ تومان", "wallet:amount:500000")],
-                   [("۱,۰۰۰,۰۰۰ تومان", "wallet:amount:1000000"), ("✏️ مبلغ دلخواه", "wallet:amount:custom")]]
-        await self.screen(ctx, "\n".join(lines), amounts)
-
-    async def cb_wallet_amount(self, ctx, value):
-        # Callback data is split once in handle(), so this receives
-        # "amount:200000" or "amount:custom", not just the suffix.
-        prefix, _, raw = value.partition(":")
-        if prefix != "amount":
-            raise CoreError(400, "گزینه شارژ نامعتبر است. دوباره از منوی کیف پول انتخاب کنید.")
-        if raw == "custom":
-            self._set_state(ctx.chat_id, {"topup_amount": True})
-            return await self.send(ctx.chat_id, "مبلغ دلخواه را به تومان وارد کنید (فقط عدد):")
-        if not re.fullmatch(r"\d+", raw) or int(raw) <= 0:
-            raise CoreError(400, "مبلغ شارژ نامعتبر است.")
-        await self.create_topup(ctx, int(raw))
-
-    async def create_topup(self, ctx, amount):
-        store = await self.store_info()
-        p = await self.api(ctx, "POST", f"/api/v1/stores/{store['id']}/wallet/topups", headers={"Idempotency-Key": f"{ctx.idem}-topup"}, json={"amount": amount, "provider": "manual_card"})
-        ins = p.get("instructions") or {}
-        lines = [f"💳 <b>درخواست شارژ {esc(fmt(p['amount'], p['currency']))} ثبت شد</b>", ""]
-        if ins.get("card_number"):
-            lines += ["شماره کارت (برای کپی لمس کنید):", f"<code>{esc(ins['card_number'])}</code>",
-                      f"به نام: {esc(ins.get('holder', '-'))}", f"بانک: {esc(ins.get('bank', '-'))}"]
-        if ins.get("redirect_url"):
-            lines.append(f"🌐 پرداخت آنلاین: {esc(ins['redirect_url'])}")
-        else:
-            lines += ["", "📸 پس از واریز، عکس رسید را همین‌جا بفرستید."]
-            self._set_state(ctx.chat_id, {"receipt_payment": p["id"]})
-        await self.send(ctx.chat_id, "\n".join(lines), html=True)
-
-    async def cmd_topup(self, ctx, arg):
-        digits = "".join(ch for ch in arg.translate(str.maketrans("۰۱۲۳۴۵۶۷۸۹", "0123456789")) if ch.isdigit())
-        if not digits or int(digits) <= 0:
-            return await self.send(ctx.chat_id, "مبلغ را وارد کنید. مثال: /topup 100000")
-        await self.create_topup(ctx, int(digits))
-
-    # ----- accounts (استعلام): list (chips + search + paging) -> live card -> QR / renew -----
-    # One implementation for two audiences. scope "me": the customer's OWN accounts. scope "ow": the reseller's view: the LIST
-    # is only the accounts he made himself, a SEARCH also finds his own store's customers' accounts, and he may renew both
-    # (Core enforces all of it; the reseller runner only adds the entry points).
-    # All numbers come from Core, which reads them from the VPN panel; the bot never computes expiry/usage itself.
-    ACC_SCOPES = {
-        "me": {"list": "vpn-accounts", "title": "🔑 <b>اکانت‌های من</b>", "key": "accv", "owner": False},
-        "ow": {"list": "reseller/accounts", "title": "🗂 <b>اکانت‌های نماینده</b>", "key": "oaccv", "owner": True},
-    }
-
-    async def _acc_base(self, scope: str) -> str:
-        # Both audiences are store-scoped in Core: the customer's own accounts of THIS bot's store, or the owner's store view.
-        return f"/api/v1/stores/{(await self.store_info())['id']}/{self.ACC_SCOPES[scope]['list']}"
-
-    def _acc_view(self, ctx, scope: str) -> dict:
-        return dict((self.state.get(str(ctx.chat_id)) or {}).get(self.ACC_SCOPES[scope]["key"]) or {})
-
-    def _acc_set_view(self, ctx, scope: str, **kw) -> dict:
-        view = {**self._acc_view(ctx, scope), **kw}
-        self._merge_state(ctx.chat_id, **{self.ACC_SCOPES[scope]["key"]: {k: v for k, v in view.items() if v not in (None, "")} or None})
-        return view
-
-    async def cmd_accounts(self, ctx, arg):
-        self._merge_state(ctx.chat_id, acc_search=None)
-        self._acc_set_view(ctx, "me", f=None, q=None, p=None)
-        await self.show_accounts(ctx, "me")
-
-    async def show_accounts(self, ctx, scope: str):
-        cfg, view = self.ACC_SCOPES[scope], self._acc_view(ctx, scope)
-        code = view.get("f") or "-"
-        state = next((st for c, st, _ in ACC_FILTERS if c == code), None)
-        page, q = max(0, int(view.get("p") or 0)), view.get("q")
-        base = await self._acc_base(scope)
-        params = {"limit": PAGE_SIZE + 1, "offset": page * PAGE_SIZE}
-        if state:
-            params["state"] = state
-        if q:
-            params["q"] = q
-        counts = await self.api(ctx, "GET", f"{base}/summary")
-        rows = await self.api(ctx, "GET", base, params=params)
-        more, rows = len(rows) > PAGE_SIZE, rows[:PAGE_SIZE]
-        if not counts.get("total") and not q and not cfg["owner"]:
-            return await self.screen(ctx, "🔑 هنوز اکانتی ندارید.", [[("🛒 خرید اکانت", "menu:plans")], [("🧪 دریافت اکانت تست", "menu:test")]])
-        head = [f"{cfg['title']} · {counts.get('total', 0)} اکانت",
-                f"🟢 {counts.get('active', 0)} فعال · 🟡 {counts.get('expiring', 0)} رو‌به‌اتمام · 🔴 {counts.get('expired', 0)} منقضی"]
-        if q:
-            head.append(f"🔎 جستجو: «{esc(q)}»")
-        if cfg["owner"] and not q and counts.get("note"):  # Core's own words about what this list is
-            head.append(f"ℹ️ {esc(counts['note'])}")
-        if not rows:
-            head += ["", "نتیجه‌ای پیدا نشد." if (q or state) else "هنوز اکانتی نساخته‌اید."]
-        elif cfg["owner"]:
-            head += ["", "برای دیدن جزئیات، تمدید یا QR یکی را انتخاب کنید:"]
-        else:
-            head += ["", "برای مشاهده، تمدید یا QR کد یکی را انتخاب کنید:"]
-        pre = "o" if cfg["owner"] else ""
-        chips = [(f"{'✓ ' if c == code else ''}{label} ({counts.get(st or 'total', 0)})", f"{pre}acl:{c}:0") for c, st, label in ACC_FILTERS]
-        buttons = [chips[:2], chips[2:]]
-        for a in rows:
-            left = a.get("days_left")
-            tail = f" · {left}ر" if left is not None else " · ♾"
-            who = f" · {a['customer_name'][:14]}" if cfg["owner"] and not a.get("is_own") and a.get("customer_name") else ""
-            buttons.append([(f"{HEALTH_BADGE.get(a.get('health'), '•')} {a['username']}{tail}{who}", f"{'o' if cfg['owner'] else ''}account:{a['id']}")])
-        nav = []
-        if page > 0:
-            nav.append(("◀️ قبلی", f"{pre}acl:{code}:{page - 1}"))
-        if more:
-            nav.append(("بعدی ▶️", f"{pre}acl:{code}:{page + 1}"))
-        if nav:
-            buttons.append(nav)
-        buttons.append([("🔎 جستجو" + (" (تغییر)" if q else ""), f"{pre}acs:1")] + ([("✖️ پاک‌کردن جستجو", f"{pre}acq:1")] if q else []))
-        if not cfg["owner"]:
-            buttons.append([("🏠 بازگشت به منو", "menu:home")])
-        await self.screen(ctx, "\n".join(head + (["", f"صفحه {page + 1}"] if page or more else [])), buttons)
-
-    async def cb_acc_list(self, ctx, value, scope: str = "me"):
-        code, _, page = value.partition(":")
-        if code not in {c for c, _, _ in ACC_FILTERS}:
-            code = "-"
-        self._merge_state(ctx.chat_id, acc_search=None)
-        self._acc_set_view(ctx, scope, f=None if code == "-" else code, p=int(page) if page.isdigit() else 0)
-        await self.show_accounts(ctx, scope)
-
-    async def cb_acc_search(self, ctx, _, scope: str = "me"):
-        self._merge_state(ctx.chat_id, acc_search=scope)
-        who = "نام اکانت، نام یا ایمیل مشتری" if self.ACC_SCOPES[scope]["owner"] else "نام اکانت"
-        await self.send(ctx.chat_id, f"🔎 {who} (یا بخشی از آن) را بفرستید:\nبرای انصراف /cancel")
-
-    async def cb_acc_clear(self, ctx, _, scope: str = "me"):
-        self._merge_state(ctx.chat_id, acc_search=None)
-        self._acc_set_view(ctx, scope, q=None, p=None)
-        await self.show_accounts(ctx, scope)
-
-    async def acc_apply_search(self, ctx, scope: str, text: str):
-        self._merge_state(ctx.chat_id, acc_search=None)  # one-shot: the next message is never read as a search again
-        term = text.strip()[:64]
-        self._acc_set_view(ctx, scope, q=term or None, p=None, f=None)
-        await self.show_accounts(ctx, scope)
-
-    async def show_account_card(self, ctx, account_id: str, scope: str = "me"):
-        owner = self.ACC_SCOPES[scope]["owner"]
-        base = await self._acc_base(scope)
-        back = f"{'o' if owner else ''}acl:{(self._acc_view(ctx, scope).get('f') or '-')}:{int(self._acc_view(ctx, scope).get('p') or 0)}"
-        try:  # live numbers straight from the VPN panel (Core rate-limits it per account and keeps the last values if the panel is down)
-            account = await self.api(ctx, "POST", f"{base}/{account_id}/refresh")
-        except CoreError as exc:
-            if exc.status != 404:
-                raise
-            return await self.screen(ctx, "این اکانت دیگر در دسترس نیست.", [[("↩︎ بازگشت", back)]])
-        link = account.get("subscription_url")
-        health = account.get("health")
-        lines = [f"👤 <b>{esc(account.get('username', '-'))}</b>", f"وضعیت: {HEALTH_BADGE.get(health, '•')} {HEALTH_LABEL.get(health, esc(account.get('status')))}"]
-        if owner:
-            lines.append(f"🙋 {esc(account.get('holder_label') or account.get('customer_name') or '-')}")
-        lines += [expiry_line(account.get("expires_at")), "", f"📊 {usage_bar(account.get('traffic_used_bytes'), account.get('traffic_limit_bytes'))}"]
-        lines += ["", "🔗 لینک اشتراک (برای کپی لمس کنید):", f"<code>{esc(link)}</code>"] if link else ["", "🔗 لینک در حال آماده‌سازی است."]
-        pre = "o" if owner else ""
-        action = []
-        if link:
-            action.append(("📷 QR کد", f"{pre}qr:{b64(account['id'])}"))
-        if account.get("can_renew"):  # Core decides (up to 10 days after expiry); the bot never re-implements the rule
-            action.append(("🔄 تمدید", f"{'orn' if owner else 'rnw'}:{b64(account['id'])}"))
-        rows = ([action] if action else []) + [[("🔃 بروزرسانی از پنل", f"{pre}account:{account['id']}")], [("↩︎ بازگشت به لیست", back)]]
-        await self.screen(ctx, "\n".join(lines), rows)
-
-    async def cb_account(self, ctx, value):
-        await self.show_account_card(ctx, value, "me")
-
-    async def _find_account(self, ctx, account_id, scope: str = "me"):
-        try:
-            return await self.api(ctx, "GET", f"{await self._acc_base(scope)}/{account_id}")
-        except CoreError as exc:
-            if exc.status == 404:
-                return None
-            raise
-
-    async def cb_qr(self, ctx, token, scope: str = "me"):
-        account = await self._find_account(ctx, unb64(token), scope)
-        link = (account or {}).get("subscription_url")
-        if not link:
-            raise CoreError(404, "لینک اشتراک این اکانت هنوز آماده نیست.")
-        png = qr_png(link)
-        caption = f"📷 QR کد اشتراک <b>{esc(account['username'])}</b>\n\n<code>{esc(link)}</code>"
-        if png:
-            await self.send_photo(ctx.chat_id, png, caption)
-        else:
-            await self.send(ctx.chat_id, f"🔗 <code>{esc(link)}</code>", html=True)
-
-    async def cb_renew(self, ctx, token):
-        """A renewal is the account's own package at its current price: Core says whether it may be renewed and with what."""
-        acc = unb64(token)  # validate early
-        store = await self.store_info()
-        info = await self.api(ctx, "GET", f"/api/v1/stores/{store['id']}/accounts/{acc}/renewal")
-        if not info.get("renewable"):
-            return await self.screen(ctx, f"⚠️ {esc(info.get('message') or 'این اکانت قابل تمدید نیست.')}", [[("🛒 خرید اکانت جدید", "menu:plans")], [("↩︎ بازگشت به اکانت", f"account:{acc}")]])
-        await self.show_quote(ctx, info["package"]["product_id"], renew=token)
-
-    async def cb_renew_quote(self, ctx, rest):
-        acc, _, pid = rest.partition(":")
-        unb64(acc)
-        await self.show_quote(ctx, unb64(pid), renew=acc)
-
-    async def cb_renew_buy(self, ctx, rest):
-        acc, _, pid = rest.partition(":")
-        store = await self.store_info()
-        o = await self.api(ctx, "POST", f"/api/v1/stores/{store['id']}/orders", headers={"Idempotency-Key": ctx.idem},
-                           json={"product_id": unb64(pid), "payment_method": "wallet", "kind": "renewal", "vpn_account_id": unb64(acc)})
-        await self.order_done(ctx, o, "✅ <b>تمدید با کیف پول پرداخت شد</b>")
-
-    # ----- the reseller renews his own accounts and HIS OWN store's customers' accounts (Core: anyone else -> 404) -----
-    async def cb_owner_renew(self, ctx, token):
-        acc = unb64(token)
-        base = await self._acc_base("ow")
-        info = await self.api(ctx, "GET", f"{base}/{acc}/renewal")
-        back = [("↩︎ بازگشت به اکانت", f"oaccount:{acc}")]
-        if not info.get("renewable"):
-            return await self.screen(ctx, f"⚠️ {esc(info.get('message') or 'این اکانت قابل تمدید نیست.')}", [back])
-        pkg, after = info["package"], info.get("after") or {}
-        lines = ["🔄 <b>تمدید اکانت</b>", "", f"📦 {esc(pkg.get('name'))}", f"💰 مبلغ: <b>{esc(fmt(pkg['price'], pkg['currency']))}</b>"]
-        if after:
-            volume = f"{after['traffic_gb']} گیگ" if after.get("traffic_gb") else "نامحدود"
-            lines.append(f"پس از تمدید: {after.get('duration_days')} روز · {volume} (روزهای باقی‌مانده فعلی جایگزین می‌شود، اضافه نمی‌شود)")
-        if info.get("payer_note"):
-            lines.append(esc(info["payer_note"]))
-        await self.screen(ctx, "\n".join(lines), [[("✅ تأیید و تمدید", f"orb:{token}")], back])
-
-    async def cb_owner_renew_buy(self, ctx, token):
-        acc = unb64(token)
-        base = await self._acc_base("ow")
-        await self.api(ctx, "POST", f"{base}/{acc}/renew", headers={"Idempotency-Key": ctx.idem}, json={"channel": "telegram"})
-        await self.send(ctx.chat_id, "✅ تمدید ثبت شد؛ به‌محض اعمال روی پنل، اکانت بروزرسانی می‌شود.")
-        await self.show_account_card(ctx, acc, "ow")
-
-    async def cmd_test(self, ctx, arg):
-        store = await self.store_info()
-        o = await self.api(ctx, "POST", f"/api/v1/stores/{store['id']}/test-account")
-        await self.send(ctx.chat_id, f"🧪 اکانت تست ساخته شد ({o['number']}). لینک و QR کد همین‌جا ارسال می‌شود.")
-
-    async def cmd_orders(self, ctx, arg):
-        store = await self.store_info()
-        os_ = await self.api(ctx, "GET", f"/api/v1/stores/{store['id']}/orders")
-        lines = [f"🧾 <code>{esc(o['number'])}</code> · {esc(fmt(o['total'], o['currency']))} · {ORDER_STATUS.get(o['status'], esc(o['status']))}" for o in os_[:10]]
-        await self.screen(ctx, "📦 <b>سفارش‌ها</b>\n\n" + ("\n".join(lines) or "هنوز سفارشی ندارید."), [[("🛒 خرید اکانت", "menu:plans")]])
-
-    # ----- engagement / support -----
-    async def cmd_referral(self, ctx, arg):
-        data = await self.api(ctx, "GET", "/api/v1/me/referrals")
-        bot = await self.tg("getMe", {})
-        username = bot.get("username", "MelorinBot")
-        count = data.get("referred_count", data.get("count", data.get("total", 0)))
-        code = data.get("referral_code") or ctx.user["id"]
-        await self.send(ctx.chat_id, f"🎁 <b>دعوت از دوستان</b>\n\nلینک اختصاصی شما:\nhttps://t.me/{esc(username)}?start=ref_{esc(code)}\n\nتعداد زیرمجموعه‌ها: <b>{count}</b>", html=True)
-
     async def cmd_rules(self, ctx, arg):
-        await self.send(ctx.chat_id, "📜 قوانین خرید:\n\n۱. پس از خرید امکان بازگشت وجه وجود ندارد مگر در صورت خرابی سرویس.\n۲. اکانت‌ها فقط برای استفاده‌ی شخصی هستند.\n۳. برای هرگونه مشکل با پشتیبانی در تماس باشید.")
+        await self.send(
+            ctx.chat_id,
+            "📜 قوانین خرید:\n\n۱. پس از خرید امکان بازگشت وجه وجود ندارد مگر در صورت خرابی سرویس.\n۲. اکانت‌ها فقط برای استفاده‌ی شخصی هستند.\n۳. برای هرگونه مشکل با پشتیبانی در تماس باشید.",
+        )
 
     async def cmd_support(self, ctx, arg):
         self._set_state(ctx.chat_id, {"new_ticket_subject": "پشتیبانی تلگرام"})
@@ -1097,166 +301,17 @@ class TelegramRunner:
         self._set_state(ctx.chat_id, None)
         await self.send(ctx.chat_id, "انصراف داده شد.")
 
-    # ----- reseller request (two steps: request -> admin approval -> domain + bot token) -----
-    async def cmd_reseller(self, ctx, arg):
-        if self.channel != "main":  # reseller bots have no sub-resellers: keep the support-ticket request
-            self._set_state(ctx.chat_id, {"new_ticket_subject": "🤖 درخواست ربات نماینده و همکاری"})
-            return await self.send(ctx.chat_id, "📌 توضیحات خود را برای ثبت درخواست نمایندگی ارسال نمایید.")
-        store = await self.store_info()
-        apps = [a for a in await self.api(ctx, "GET", "/api/v1/reseller/applications") if str(a.get("target_store_id")) == str(store["id"])]
-        last = apps[0] if apps else None  # newest first
-        self._set_state(ctx.chat_id, None)
-        if last and last["status"] == "awaiting_details":
-            self._set_state(ctx.chat_id, {"rs": "domain", "rs_app": last["id"]})
-            return await self.send(
-                ctx.chat_id,
-                f"✅ درخواست نمایندگی «{esc(last['store_name'])}» تأیید شده است.\n\n"
-                "برای ساخت فروشگاه دو اطلاعات لازم است.\n<b>مرحلهٔ ۱ از ۲:</b> دامنهٔ فروشگاه را بفرستید (مثال: <code>shop.example.com</code>)\n\n"
-                "برای انصراف: /cancel", html=True)
-        if last and last["status"] == "pending":
-            return await self.send(
-                ctx.chat_id, f"⏳ درخواست نمایندگی «{esc(last['store_name'])}» در حال بررسی مدیریت است.\nپس از تأیید همین‌جا به شما اطلاع داده می‌شود.",
-                [[("❌ لغو درخواست", f"rsc:{last['id']}")]], html=True)
-        if last and last["status"] == "approved":
-            return await self.send(ctx.chat_id, "✅ فروشگاه نمایندگی شما فعال است. تنظیمات آن را از «پنل نماینده» در وب‌سایت ادامه دهید.")
-        note = f"❌ درخواست قبلی شما رد شد: {esc(last.get('review_reason') or '—')}\n\n" if last and last["status"] == "rejected" else ""
-        self._set_state(ctx.chat_id, {"rs": "name"})
-        await self.send(
-            ctx.chat_id,
-            f"{note}🤖 <b>درخواست نمایندگی</b>\nابتدا درخواست شما برای مدیریت ثبت می‌شود؛ پس از تأیید، دامنه و توکن ربات فروشگاه را از شما می‌گیریم.\n\n"
-            "<b>مرحلهٔ ۱ از ۲:</b> نام فروشگاه نمایندگی خود را بفرستید:\nبرای انصراف: /cancel", html=True)
-
-    async def cb_reseller_cancel(self, ctx, app_id):
-        await self.api(ctx, "POST", f"/api/v1/reseller/applications/{app_id}/cancel")
-        self._set_state(ctx.chat_id, None)
-        await self.screen(ctx, "درخواست نمایندگی لغو شد. هر زمان خواستید با /reseller دوباره ثبت کنید.")
-
-    async def forget_message(self, ctx) -> None:
-        """Best-effort removal of a message holding a secret (the bot token). Bots may delete a user's message in private chats."""
-        if ctx.incoming_id:
-            try:
-                await self.tg("deleteMessage", {"chat_id": ctx.chat_id, "message_id": ctx.incoming_id})
-            except (httpx.HTTPError, RuntimeError):
-                log.warning("could not delete the message that carried the bot token")
-
-    async def reseller_step(self, ctx, st: dict, text: str) -> None:
-        step, text = st["rs"], text.strip()
-        if step == "name":
-            if not 2 <= len(text) <= 200:
-                return await self.send(ctx.chat_id, "نام فروشگاه باید بین ۲ تا ۲۰۰ نویسه باشد. دوباره بفرستید:")
-            self._set_state(ctx.chat_id, {"rs": "msg", "rs_name": text})
-            await self.send(ctx.chat_id, "توضیحات درخواست را بفرستید (سابقهٔ فروش، تعداد مشتری و …).\nاگر توضیحی ندارید یک «-» بفرستید:")
-        elif step == "msg":
-            store = await self.store_info()
-            try:
-                await self.api(ctx, "POST", "/api/v1/reseller/applications", json={
-                    "store_name": st["rs_name"], "message": None if text in {"-", "—"} else text[:2000], "target_store_id": store["id"]})
-            except CoreError:
-                self._set_state(ctx.chat_id, None)
-                raise
-            self._set_state(ctx.chat_id, None)
-            await self.send(ctx.chat_id, "✅ درخواست نمایندگی شما ثبت شد و در صف بررسی مدیریت است.\nپس از تأیید همین‌جا به شما اطلاع می‌دهیم و دامنه و توکن ربات را می‌گیریم.")
-        elif step == "domain":
-            self._set_state(ctx.chat_id, {"rs": "token", "rs_app": st["rs_app"], "rs_domain": text[:255]})
-            await self.send(
-                ctx.chat_id,
-                "<b>مرحلهٔ ۲ از ۲:</b> توکن رباتِ فروشگاه را بفرستید (از @BotFather با /newbot بسازید؛ شکل آن <code>123456789:AA…</code> است).\n"
-                "توکن رمزنگاری ذخیره می‌شود و پیام شما بعد از دریافت از چت پاک می‌شود.\nبرای انصراف: /cancel", html=True)
-        elif step == "token":
-            try:
-                out = await self.api(ctx, "POST", f"/api/v1/reseller/applications/{st['rs_app']}/details", json={"domain": st["rs_domain"], "bot_token": text})
-            except CoreError as exc:
-                await self.forget_message(ctx)
-                if exc.code in RESELLER_DOMAIN_ERRORS:
-                    self._set_state(ctx.chat_id, {"rs": "domain", "rs_app": st["rs_app"]})
-                    return await self.send(ctx.chat_id, f"⚠️ {exc.message}\nدامنه را دوباره بفرستید:")
-                if exc.code in RESELLER_TOKEN_ERRORS:
-                    return await self.send(ctx.chat_id, f"⚠️ {exc.message}\nتوکن را دوباره بفرستید:")
-                self._set_state(ctx.chat_id, None)
-                raise
-            await self.forget_message(ctx)
-            self._set_state(ctx.chat_id, None)
-            await self.send(
-                ctx.chat_id,
-                f"🎉 فروشگاه «{esc(out['store_name'])}» ساخته شد.\nدامنه: <code>{esc(out['domain'])}</code>\nربات: @{esc(out['bot_username'] or '—')}\n\n"
-                "تنظیمات و قیمت‌ها را از «پنل نماینده» در وب‌سایت ادامه دهید.", html=True)
-
-    async def cmd_tickets(self, ctx, arg):
-        store = await self.store_info()
-        ts = await self.api(ctx, "GET", f"/api/v1/stores/{store['id']}/tickets")
-        rows = [[(f"{TICKET_ICON.get(t['status'], '⚪')} #{t.get('number') or '-'} · {t['subject'][:28]}", f"ticket:{t['id']}")] for t in ts[:10]]
-        rows.append([("➕ تیکت جدید", "tnew:1")])
-        head = "🎫 <b>تیکت‌های شما</b>\n🟡 باز   🟢 پاسخ داده شد   ⚫ بسته" if ts else "🎫 هنوز تیکتی ثبت نکرده‌اید."
-        await self.screen(ctx, head, rows)
-
-    async def cmd_ticket(self, ctx, arg):
-        subject, _, body = arg.partition("|")
-        if len(subject.strip()) < 2 or not body.strip():
-            return await self.send(ctx.chat_id, "قالب: /ticket موضوع | متن پیام\nیا از /tickets دکمهٔ «تیکت جدید» را بزنید.")
-        store = await self.store_info()
-        t = await self.api(ctx, "POST", f"/api/v1/stores/{store['id']}/tickets", json={"subject": subject.strip(), "body": body.strip()})
-        await self.send(ctx.chat_id, f"تیکت «{t['subject']}» با شمارهٔ #{t.get('number') or '-'} ثبت شد ✅")
-
-    async def cb_ticket_new(self, ctx, _):
-        self._set_state(ctx.chat_id, {"new_ticket_ask_subject": True})
-        await self.send(ctx.chat_id, "➕ <b>تیکت جدید</b>\nموضوع تیکت را بفرستید (مثلاً: اتصال برقرار نمی‌شود):", html=True)
-
-    async def cb_ticket(self, ctx, tid):
-        t = await self.api(ctx, "GET", f"/api/v1/tickets/{tid}")
-        ms = await self.api(ctx, "GET", f"/api/v1/tickets/{tid}/messages")
-        lines = []
-        for m in ms[-5:]:
-            who = "🎧 پشتیبانی" if m["is_staff"] else "👤 شما"
-            edited = "  <i>(ویرایش‌شده)</i>" if m.get("edited_at") else ""
-            lines.append(f"<b>{who}</b>{edited}\n{esc(m['body'][:600])}")
-        hidden = f"<i>… {len(ms) - 5} پیام قبلی</i>\n\n" if len(ms) > 5 else ""
-        head = f"🎫 <b>#{esc(t.get('number') or '-')}</b> · {esc(t['subject'])}\nوضعیت: {TICKET_LABEL.get(t['status'], t['status'])}"
-        if t.get("priority") in ("high", "urgent"):
-            head += f"  ·  اولویت: {PRIORITY_LABEL[t['priority']]}"
-        closed = t["status"] == "closed"
-        rows = [[("🔓 بازگشایی تیکت", f"treopen:{tid}")]] if closed else [[("✍️ پاسخ", f"reply:{tid}"), ("✏️ ویرایش پیام من", f"tedit:{tid}")], [("📝 تغییر موضوع", f"tsubj:{tid}"), ("🔒 بستن تیکت", f"tclose:{tid}")]]
-        rows.append([("◀️ همهٔ تیکت‌ها", "menu:tickets")])
-        await self.screen(ctx, f"{head}\n━━━━━━━━━━\n{hidden}" + "\n\n".join(lines or ["پیامی نیست."]), rows)
-
-    async def cb_reply(self, ctx, tid):
-        self._set_state(ctx.chat_id, {"reply_ticket": tid})
-        await self.send(ctx.chat_id, "✍️ متن پاسخ را بفرستید:")
-
-    async def cb_ticket_edit_msg(self, ctx, tid):
-        ms = await self.api(ctx, "GET", f"/api/v1/tickets/{tid}/messages")
-        mine = [m for m in ms if not m["is_staff"]]
-        if not mine:
-            return await self.send(ctx.chat_id, "پیامی برای ویرایش وجود ندارد.")
-        last = mine[-1]
-        self._set_state(ctx.chat_id, {"edit_ticket": tid, "edit_msg": last["id"]})
-        await self.send(ctx.chat_id, f"✏️ <b>ویرایش آخرین پیام شما</b>\n\nمتن فعلی:\n<blockquote>{esc(last['body'][:500])}</blockquote>\nمتن جدید را بفرستید:", html=True)
-
-    async def cb_ticket_edit_subject(self, ctx, tid):
-        self._set_state(ctx.chat_id, {"edit_subject": tid})
-        await self.send(ctx.chat_id, "📝 موضوع جدید تیکت را بفرستید:")
-
-    async def cb_ticket_close(self, ctx, tid):
-        await self.api(ctx, "PATCH", f"/api/v1/tickets/{tid}", json={"status": "closed"})
-        await self.send(ctx.chat_id, "🔒 تیکت بسته شد. هر زمان خواستید می‌توانید آن را دوباره باز کنید.", [[("📂 مشاهدهٔ تیکت", f"ticket:{tid}")], [("🎫 همهٔ تیکت‌ها", "menu:tickets")]])
-
-    async def cb_ticket_reopen(self, ctx, tid):
-        await self.api(ctx, "PATCH", f"/api/v1/tickets/{tid}", json={"status": "open"})
-        await self.send(ctx.chat_id, "🔓 تیکت دوباره باز شد.", [[("📂 مشاهدهٔ تیکت", f"ticket:{tid}")]])
-
-    async def cmd_notifications(self, ctx, arg):
-        d = await self.api(ctx, "GET", f"/api/v1/stores/{(await self.store_info())['id']}/notifications?unread_only=true&limit=10")
-        items = d.get("items", [])
-        if not items:
-            return await self.send(ctx.chat_id, "اعلان جدیدی ندارید.")
-        await self.send(ctx.chat_id, "\n\n".join(f"🔔 {n['title']}\n{n['body']}" for n in items), [[("علامت‌گذاری همه", "readall:1")]])
-
-    async def cb_readall(self, ctx, _):
-        await self.api(ctx, "POST", f"/api/v1/stores/{(await self.store_info())['id']}/notifications/read-all")
-        await self.send(ctx.chat_id, "همه اعلان‌ها خوانده شد ✅")
-
     async def cb_menu(self, ctx, name):
-        fn = {"plans": self.cmd_plans, "wallet": self.cmd_wallet, "orders": self.cmd_orders, "accounts": self.cmd_accounts,
-              "tickets": self.cmd_tickets, "notifications": self.cmd_notifications, "test": self.cmd_test, "home": self.cmd_home}.get(name)
+        fn = {
+            "plans": self.cmd_plans,
+            "wallet": self.cmd_wallet,
+            "orders": self.cmd_orders,
+            "accounts": self.cmd_accounts,
+            "tickets": self.cmd_tickets,
+            "notifications": self.cmd_notifications,
+            "test": self.cmd_test,
+            "home": self.cmd_home,
+        }.get(name)
         await (fn(ctx, "") if fn else self.cmd_help(ctx, ""))
 
     # ---------- loop ----------

@@ -37,6 +37,7 @@ from sqlalchemy import select
 
 from melorin.core.config import get_settings
 from melorin.core.db import utcnow
+from melorin.core.api_key_format import PREFIX, hash_key
 from melorin.core.errors import AppError
 from melorin.core.metrics import inc
 from melorin.core.proxy import ip_in_networks, is_trusted_proxy
@@ -194,7 +195,7 @@ def _snapshot(kind: str, store: Any, ref: str | None) -> Channel:
 
 
 async def _main(session) -> Any:
-    from melorin.modules.stores.models import Store
+    from melorin.kernel.models.stores import Store
 
     main = await session.scalar(select(Store).where(Store.kind == "main"))
     if main is None:
@@ -209,7 +210,7 @@ async def site_channel(session, request: Any, *, hint: uuid.UUID | None = None) 
     ``hint`` is a store id the client mentioned (an old body field, a stored login attempt, a handoff). It can only AGREE with
     what the Host says; it never selects the store, except in development where a localhost front end has no store domain.
     """
-    from melorin.modules.stores.models import Store
+    from melorin.kernel.models.stores import Store
 
     host = request_host(request)
     store = await session.scalar(select(Store).where(Store.domain == host)) if host else None
@@ -231,7 +232,7 @@ async def site_channel(session, request: Any, *, hint: uuid.UUID | None = None) 
 
 async def bot_channel(session, bot: BotService, store_id: uuid.UUID | None = None) -> Channel:
     """The store a trusted runner serves. ``store_id`` omitted means the main store (the main bot)."""
-    from melorin.modules.stores.models import Store
+    from melorin.kernel.models.stores import Store
 
     store = await session.get(Store, store_id) if store_id else await _main(session)
     if store is None:
@@ -289,8 +290,7 @@ async def api_channel(session, raw_key: str | None, *, store_id: uuid.UUID, scop
     key exists/active/not expired (401) -> store matches the key -> caller IP in the key's allowlist -> scope ->
     the store is an active reseller store with the API enabled. Error codes are the public contract of ``/reseller-api``.
     """
-    from melorin.modules.reseller.api_keys import PREFIX, hash_key
-    from melorin.modules.stores.models import ApiCredential, ResellerProfile, Store
+    from melorin.kernel.models.stores import ApiCredential, ResellerProfile, Store
 
     raw = (raw_key or "").strip()
     cred = await session.scalar(select(ApiCredential).where(ApiCredential.key_hash == hash_key(raw))) if raw.startswith(PREFIX) else None
@@ -344,7 +344,7 @@ def ensure_store(claims: SessionClaims, store_id: uuid.UUID) -> None:
 async def ensure_owner_store(session, claims: SessionClaims, user_id: uuid.UUID, store_id: uuid.UUID) -> None:
     """Owner plane (reseller panel): the store's own channels, OR the main store acting as the account hub - but then only
     for a store the user really owns, so a main-store session can neither reach nor even join somebody else's store."""
-    from melorin.modules.stores.models import Store
+    from melorin.kernel.models.stores import Store
 
     if claims.is_admin or claims.store_id == store_id:
         return

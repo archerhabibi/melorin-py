@@ -9,7 +9,7 @@ import melorin.models  # noqa: F401
 from melorin.core.db import Base
 from melorin.core.errors import AppError
 from melorin.modules.catalog.router import tls_ask
-from melorin.modules.stores.models import Store
+from melorin.kernel.models.stores import Store
 
 REPO = Path(__file__).resolve().parents[3]
 

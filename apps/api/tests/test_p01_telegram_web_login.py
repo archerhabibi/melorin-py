@@ -14,12 +14,12 @@ from melorin.core.config import get_settings
 from melorin.core.db import utcnow
 from melorin.core.deps import get_session
 from melorin.core.errors import AppError, install
-from melorin.modules.identity import telegram_web as web
-from melorin.modules.identity.models import Identity, RefreshToken, TelegramLoginSession, User
+from melorin.channels.telegram import web
+from melorin.kernel.models.identity import Identity, RefreshToken, TelegramLoginSession, User
 from melorin.modules.identity.schemas import TelegramProfile
-from melorin.modules.identity.telegram_web_router import tgweb
-from melorin.modules.stores.models import Store
-from melorin.modules.system.models import AuditEvent, FeatureFlag, SecurityEvent, SystemSetting
+from melorin.channels.telegram.web_router import tgweb
+from melorin.kernel.models.stores import Store
+from melorin.kernel.models.system import AuditEvent, FeatureFlag, SecurityEvent, SystemSetting
 
 from _chan import fake_request  # noqa: E402
 

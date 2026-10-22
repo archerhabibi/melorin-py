@@ -10,6 +10,7 @@ from melorin.core.deps import Session, StoreCtx
 from melorin.core.errors import NotFound
 from melorin.core.scope import StoreScope
 from melorin.modules.vpn import inquiry
+from melorin.modules.vpn.qr import render_qr_png
 from melorin.modules.vpn.schemas import VpnAccountOut
 
 router = APIRouter(prefix="/stores/{store_id}/vpn-accounts", tags=["vpn-accounts"])
@@ -60,6 +61,4 @@ async def qr(account_id: uuid.UUID, ctx: StoreCtx, session: Session):
     link = a.subscription_url or (a.links[0] if isinstance(a.links, list) and a.links else None)
     if not link:
         raise NotFound("لینک اشتراک")
-    from melorin.modules.orders.delivery import render_qr_png  # lazy: avoids a vpn <-> orders import cycle
-
     return Response(render_qr_png(link), media_type="image/png", headers={"Cache-Control": "private, no-store"})

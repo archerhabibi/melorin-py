@@ -8,15 +8,15 @@ from melorin.core import db
 from melorin.core.errors import AppError
 from melorin.modules.admin import router as r
 from melorin.modules.admin.schemas import CreatePanel, PanelState
-from melorin.modules.system.models import AuditEvent
-from melorin.modules.vpn.models import Panel
+from melorin.kernel.models.system import AuditEvent
+from melorin.kernel.models.vpn import Panel
 
 ADMIN = types.SimpleNamespace(id=uuid.uuid4())
 
 
 @pytest.fixture
 async def session(tmp_path, monkeypatch):
-    monkeypatch.setattr(r, "encrypt", lambda raw: f"enc:{raw}")
+    monkeypatch.setattr("melorin.modules.admin.panels.encrypt", lambda raw: f"enc:{raw}")
     db.configure(f"sqlite+aiosqlite:///{tmp_path}/panels.db")
     async with db.engine().begin() as conn:
         await conn.run_sync(lambda c: db.Base.metadata.create_all(c, tables=[Panel.__table__, AuditEvent.__table__]))

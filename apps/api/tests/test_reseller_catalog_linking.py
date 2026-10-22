@@ -9,10 +9,10 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 import melorin.models  # noqa: F401
 from melorin.core.db import Base
 from melorin.modules.catalog import service as catalog
-from melorin.modules.catalog.models import Product, StoreProduct
+from melorin.kernel.models.catalog import Product, StoreProduct
 from melorin.modules.reseller.linking import link_bundle_to_resellers, link_product_to_resellers, link_store_catalog
-from melorin.modules.stores.models import Store
-from melorin.modules.vpn.bundles import Bundle, BundleProduct, StoreBundle
+from melorin.kernel.models.stores import Store
+from melorin.kernel.models.bundles import Bundle, BundleProduct, StoreBundle
 
 
 @pytest.fixture
@@ -95,7 +95,7 @@ async def test_linking_never_overwrites_an_admin_decision_or_a_reseller_price(se
 
 async def test_linked_store_can_be_priced_by_the_reseller(session):
     """The visible symptom: before linking, the reseller's price table was empty."""
-    from melorin.modules.vpn import allocation
+    from melorin.modules.catalog import allocation
 
     st = await add(session, mk_store())
     p = await add(session, mk_product("A"))

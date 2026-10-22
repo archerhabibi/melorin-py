@@ -37,5 +37,5 @@ def test_metrics_secret_and_resource_limits_are_hardened():
 def test_documentation_and_cookie_auth_gates_exist():
     policy = read("docs/DOCUMENTATION-POLICY.md")
     smoke = read("scripts/auth_cookie_smoke.py")
-    api = read("apps/api/melorin/modules/identity/router.py")
+    api = read("apps/api/melorin/modules/identity/routes/_common.py")
     assert "docs/history/" in policy and "HttpOnly" in smoke and "httponly=True" in api

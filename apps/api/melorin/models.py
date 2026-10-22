@@ -1,16 +1,16 @@
-"""Import every model so metadata is complete (Alembic, tests)."""
+"""Import every model so metadata is complete (Alembic, tests). The tables live in :mod:`melorin.kernel.models`."""
 
-from melorin.modules.catalog.models import *  # noqa: F401,F403
-from melorin.modules.identity.models import *  # noqa: F401,F403
-from melorin.modules.notifications.models import *  # noqa: F401,F403
-from melorin.modules.orders.models import *  # noqa: F401,F403
-from melorin.modules.payments.models import *  # noqa: F401,F403
-from melorin.modules.referral.models import *  # noqa: F401,F403
-from melorin.modules.stores.models import *  # noqa: F401,F403
-from melorin.modules.system.models import *  # noqa: F401,F403
-from melorin.modules.tickets.models import *  # noqa: F401,F403
-from melorin.modules.vpn.models import *  # noqa: F401,F403
-from melorin.modules.vpn.bundles import *  # noqa: F401,F403
-from melorin.modules.wallet.models import *  # noqa: F401,F403
-from melorin.modules.webhooks.models import *  # noqa: F401,F403
+from melorin.kernel.models.bundles import *  # noqa: F401,F403
+from melorin.kernel.models.catalog import *  # noqa: F401,F403
+from melorin.kernel.models.identity import *  # noqa: F401,F403
+from melorin.kernel.models.notifications import *  # noqa: F401,F403
+from melorin.kernel.models.orders import *  # noqa: F401,F403
+from melorin.kernel.models.payments import *  # noqa: F401,F403
+from melorin.kernel.models.referral import *  # noqa: F401,F403
+from melorin.kernel.models.stores import *  # noqa: F401,F403
+from melorin.kernel.models.system import *  # noqa: F401,F403
+from melorin.kernel.models.tickets import *  # noqa: F401,F403
+from melorin.kernel.models.vpn import *  # noqa: F401,F403
+from melorin.kernel.models.wallet import *  # noqa: F401,F403
+from melorin.kernel.models.webhooks import *  # noqa: F401,F403
 from melorin.core.db import Base  # noqa: F401

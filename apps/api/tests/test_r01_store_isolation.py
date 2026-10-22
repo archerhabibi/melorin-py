@@ -17,13 +17,13 @@ from melorin.core.deps import StoreContext
 from melorin.core.errors import AppError
 from melorin.core.scope import OwnerScope, StoreScope
 from melorin.modules.notifications import router as notif_router
-from melorin.modules.notifications.models import Notification
+from melorin.kernel.models.notifications import Notification
 from melorin.modules.orders import router as orders_router
 from melorin.modules.payments import router as pay_router
-from melorin.modules.payments.models import Payment
+from melorin.kernel.models.payments import Payment
 from melorin.modules.vpn import renewal
 from melorin.modules.vpn import router as vpn_router
-from melorin.modules.vpn.models import VpnAccount
+from melorin.kernel.models.vpn import VpnAccount
 
 NOW = dt.datetime.now(dt.UTC)
 

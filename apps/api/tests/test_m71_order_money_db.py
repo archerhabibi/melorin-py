@@ -7,10 +7,10 @@ from sqlalchemy import select
 from _db import make_order, make_product, make_store, make_user, open_session
 from melorin.core.errors import AppError
 from melorin.modules.orders import service as orders
-from melorin.modules.orders.models import OrderStateTransition
-from melorin.modules.stores.models import ResellerProfile
-from melorin.modules.system.models import OutboxEvent
-from melorin.modules.vpn.models import VpnAccount
+from melorin.kernel.models.orders import OrderStateTransition
+from melorin.kernel.models.stores import ResellerProfile
+from melorin.kernel.models.system import OutboxEvent
+from melorin.kernel.models.vpn import VpnAccount
 from melorin.modules.wallet import service as wallet
 
 

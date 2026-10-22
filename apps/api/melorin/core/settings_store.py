@@ -3,7 +3,7 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from melorin.modules.system.models import SystemSetting
+from melorin.kernel.models.system import SystemSetting
 
 DEFAULTS: dict[str, object] = {
     "referral.signup_reward": 0,

@@ -1,6 +1,6 @@
 # ورود به وب‌سایت با تأیید هویت در ربات تلگرام
 
-وضعیت: پیاده‌سازی‌شده (migration `0019_telegram_web_login`) · کد: `apps/api/melorin/modules/identity/telegram_web*.py`، `apps/telegram-main/runner.py`، `apps/store-web/src/TelegramLogin.jsx`
+وضعیت: پیاده‌سازی‌شده (migration `0019_telegram_web_login`) · کد: `apps/api/melorin/channels/telegram/web*.py`، `apps/telegram-main/runner.py`، `apps/store-web/src/TelegramLogin.jsx`
 
 ## چرا این طراحی؟
 

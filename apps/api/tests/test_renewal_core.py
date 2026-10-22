@@ -13,15 +13,16 @@ from _db import make_order, make_product, make_store, make_user, open_session
 from melorin.core import codes
 from melorin.core.deps import StoreContext
 from melorin.core.errors import AppError
-from melorin.modules.catalog.models import StoreBundlePrice, StoreProduct
+from melorin.kernel.models.catalog import StoreBundlePrice, StoreProduct
 from melorin.modules.orders import service as orders
-from melorin.modules.orders.models import Order
-from melorin.modules.stores.models import ResellerProfile, StoreMembership
-from melorin.modules.vpn import allocation, renewal
-from melorin.modules.vpn import service as vpn
+from melorin.kernel.models.orders import Order
+from melorin.kernel.models.stores import ResellerProfile, StoreMembership
+from melorin.modules.catalog import allocation
+from melorin.modules.vpn import renewal
+from melorin.modules.orders import provisioning as vpn
 from melorin.modules.vpn.adapters.base import ErrorKind, PanelAccount, PanelError
-from melorin.modules.vpn.bundles import Bundle, BundleMember, BundleProduct
-from melorin.modules.vpn.models import Panel, Server, VpnAccount
+from melorin.kernel.models.bundles import Bundle, BundleMember, BundleProduct
+from melorin.kernel.models.vpn import Panel, Server, VpnAccount
 from melorin.modules.wallet import service as wallet
 
 GIB = 1024**3

@@ -26,3 +26,13 @@ Bot tokens are redacted from logs. The container healthcheck reads a heartbeat f
 
 `MELORIN_RESELLER_BOTS_JSON='[{"token":"123:abc","store_slug":"store-a"}]'` (several bots) or
 `MELORIN_TELEGRAM_RESELLER_TOKEN` + `MELORIN_STORE_SLUG` (one bot) bypass Core-driven mode; leave them empty in production.
+
+## Layout
+
+| File | Responsibility |
+|---|---|
+| `runner.py` | composition root: makes `tgreseller` importable, re-exports the public names, `main()` |
+| `tgreseller/bot.py` | one store bot (`ResellerTelegramRunner`: owner menu, store texts), token redaction |
+| `tgreseller/hosting.py` | Core-driven `Supervisor`, static development modes, heartbeat file |
+
+The image copies `runner.py`, `tgreseller/` and the main bot (`telegram-main/runner.py` + `tgmain/`) side by side.

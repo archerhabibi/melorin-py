@@ -9,7 +9,7 @@ from sqlalchemy import func, select, update
 from melorin.core.db import utcnow
 from melorin.core.deps import Session, StoreCtx
 from melorin.core.scope import StoreScope
-from melorin.modules.notifications.models import Notification
+from melorin.kernel.models.notifications import Notification
 
 router = APIRouter(prefix="/stores/{store_id}/notifications", tags=["notifications"])
 

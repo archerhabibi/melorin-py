@@ -19,8 +19,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from melorin.core.db import utcnow
 from melorin.domain.order_state import OrderStatus
-from melorin.modules.orders.models import Order
-from melorin.modules.payments.models import Payment
+from melorin.kernel.models.orders import Order
+from melorin.kernel.models.payments import Payment
 
 MIN_DAYS, MAX_DAYS = 7, 90
 

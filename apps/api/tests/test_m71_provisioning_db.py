@@ -10,12 +10,12 @@ import pytest
 from sqlalchemy import select
 
 from _db import make_order, make_product, make_store, make_user, open_session
-from melorin.modules.orders.models import Order
-from melorin.modules.system.models import AuditEvent, OutboxEvent
-from melorin.modules.vpn import service as vpn
+from melorin.kernel.models.orders import Order
+from melorin.kernel.models.system import AuditEvent, OutboxEvent
+from melorin.modules.orders import provisioning as vpn
 from melorin.modules.vpn.adapters.base import AccountSpec, ErrorKind, PanelAccount, PanelError
-from melorin.modules.vpn.bundles import Bundle, BundleMember, BundleProduct
-from melorin.modules.vpn.models import Panel, ProvisioningAttempt, Server, VpnAccount
+from melorin.kernel.models.bundles import Bundle, BundleMember, BundleProduct
+from melorin.kernel.models.vpn import Panel, ProvisioningAttempt, Server, VpnAccount
 from melorin.modules.wallet import service as wallet
 
 
@@ -247,7 +247,7 @@ async def test_unknown_error_without_a_remote_account_falls_back_to_the_retry_pa
 
 
 async def test_provisioning_kill_switch_leaves_the_order_untouched(panel_factory):
-    from melorin.modules.system.models import FeatureFlag
+    from melorin.kernel.models.system import FeatureFlag
 
     async with open_session() as s:
         w = await _world(s)

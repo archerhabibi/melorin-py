@@ -140,7 +140,7 @@ def test_redis_and_bootstrap_admin_have_bounded_operational_paths():
     installer = (ROOT.parent.parent / "scripts/install_server.sh").read_text()
     assert "socket_connect_timeout=1.5" in redis
     assert "socket_timeout=2.0" in redis
-    assert "asyncio.wait_for(redis.ping(), timeout=2.5)" in app
+    assert "asyncio.wait_for(redis.ping(), timeout=REDIS_TIMEOUT_SECONDS)" in app
     assert "bootstrap_admin_totp_secret" in config
     assert "user.totp_enabled = True" in cli
     assert "MELORIN_BOOTSTRAP_ADMIN_TOTP_SECRET" in installer
@@ -154,7 +154,7 @@ def test_k11_to_k20_operational_controls_are_present():
     alerts = (root / "infra/alerts.yml").read_text()
     registry = read_source(ROOT / "melorin/modules/vpn/adapters/registry.py")
     orders = read_source(ROOT / "melorin/modules/orders/service.py")
-    vpn = read_source(ROOT / "melorin/modules/vpn/service.py")
+    vpn = read_source(ROOT / "melorin/modules/orders/provisioning.py")
     assert "secrets/metrics-token" in compose and "tmp_metrics" in installer
     assert "recipients.txt:/run/melorin-backup/recipients.txt:ro" in compose
     for marker in ("panel_health_job", "expiry_job", "near_expiry_job", "reconciliation_job"):
@@ -185,7 +185,7 @@ def test_full_project_regressions_are_wired():
     product_schema = read_source(ROOT / "melorin/modules/admin/schemas.py")
     product_router = read_source(ROOT / "melorin/modules/admin/router.py")
     payment_router = read_source(ROOT / "melorin/modules/reseller/router.py")
-    referral_model = read_source(ROOT / "melorin/modules/referral/models.py")
+    referral_model = read_source(ROOT / "melorin/kernel/models/referral.py")
     migration = read_source(ROOT / "alembic/versions/0009_referral_first_reward_guard.py")
     dockerfile = (ROOT / "Dockerfile").read_text()
     assert "class ProductPatch" in product_schema and "body: ProductPatch" in product_router

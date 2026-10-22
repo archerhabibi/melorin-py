@@ -16,9 +16,9 @@ from sqlalchemy import func, select
 
 import melorin.models  # noqa: F401,E402  (register every table so foreign keys resolve)
 from melorin.core.db import configure, session_factory
-from melorin.modules.identity.models import User
-from melorin.modules.stores.models import Store
-from melorin.modules.wallet.models import LedgerTransaction, Wallet
+from melorin.kernel.models.identity import User
+from melorin.kernel.models.stores import Store
+from melorin.kernel.models.wallet import LedgerTransaction, Wallet
 from melorin.modules.wallet import service as wallet
 
 
