@@ -23,7 +23,7 @@ The following are deliberately not described as complete without runtime bot dep
 
 ### Update (bot handlers)
 
-Both runners now implement the command/callback set listed in their READMEs (plain Telegram Bot API over httpx, no aiogram). Covered by offline tests in `apps/api/tests/test_i002_telegram_flows.py` (mocked Telegram + Core): idempotent purchase callback, top-up + receipt state, Core error reporting, reseller Store binding.
+Both runners now implement the command/callback set listed in their READMEs (plain Telegram Bot API over httpx, no aiogram). Covered by offline tests in `apps/api/tests/test_telegram_bot_flows.py` (mocked Telegram + Core): idempotent purchase callback, top-up + receipt state, Core error reporting, reseller Store binding.
 
 Still open (needs sandbox evidence): live Telegram duplicate-update/restart replay, Event Center topic provisioning, reseller write operations beyond payment review, and the test-account order is recorded with channel `web` by Core.
 

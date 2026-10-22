@@ -9,9 +9,9 @@ PROJECT = ROOT.parent.parent
 
 def test_ci_has_non_regressing_coverage_gate_and_integration_job():
     ci = (PROJECT / ".github/workflows/ci.yml").read_text()
-    # M7.1: the gate only ratchets upwards (was 20 before the money-path tests landed).
+    # The gate only ratchets upwards (20 -> 60 with the money-path tests, 75 in Phase 4).
     match = re.search(r"--cov-fail-under=(\d+)", ci)
-    assert match and int(match.group(1)) >= 60
+    assert match and int(match.group(1)) >= 75
     assert "--cov-report=xml" in ci
     assert "pytest -q -m integration" in ci
     assert "postgresql+asyncpg://" in ci and "redis://localhost:6379/0" in ci

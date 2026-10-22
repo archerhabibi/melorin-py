@@ -23,7 +23,7 @@ async def reseller_bundles(ctx: OwnerCtx, session: Session):
     rows = (
         await session.execute(
             select(Bundle, StoreBundle)
-            .join(StoreBundle, StoreBundle.bundle_id == Bundle.id, isouter=True)
+            .join(StoreBundle, (StoreBundle.bundle_id == Bundle.id) & (StoreBundle.store_id == ctx.store.id), isouter=True)
             .where(Bundle.is_enabled.is_(True), Bundle.reseller_enabled.is_(True))
             .order_by(Bundle.created_at.desc())
         )

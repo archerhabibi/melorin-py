@@ -36,7 +36,7 @@ jobs:
       - run: ruff check melorin --config pyproject.toml
       - run: ruff format --check melorin tests --config pyproject.toml
       - run: python -m compileall -q melorin
-      - run: pytest -q -m "not integration" --cov=melorin --cov-report=term-missing --cov-report=xml --cov-fail-under=60
+      - run: pytest -q -m "not integration" --cov=melorin --cov-report=term-missing --cov-report=xml --cov-fail-under=75
         env: {MELORIN_DATABASE_URL: postgresql+asyncpg://melorin:test@localhost:5432/melorin, MELORIN_JWT_SECRET: ci-secret}
       - run: pytest -q -m integration
         env: {MELORIN_DATABASE_URL: postgresql+asyncpg://melorin:test@localhost:5432/melorin, MELORIN_REDIS_URL: redis://localhost:6379/0, MELORIN_JWT_SECRET: ci-secret-ci-secret-ci-secret-1234, MELORIN_ALLOW_MOCK_PROVIDERS: 'true'}
@@ -48,11 +48,15 @@ jobs:
         working-directory: apps/store-web
       - run: npm audit --audit-level=high
         working-directory: apps/store-web
+      - run: npm test
+        working-directory: apps/store-web
       - run: npm run build
         working-directory: apps/store-web
       - run: npm ci --include=dev --ignore-scripts --no-audit --no-fund
         working-directory: apps/admin-web
       - run: npm audit --audit-level=high
+        working-directory: apps/admin-web
+      - run: npm test
         working-directory: apps/admin-web
       - run: npm run build
         working-directory: apps/admin-web

@@ -284,7 +284,7 @@ def test_i39_irt_irr_boundaries_are_explicit():
 
 
 def test_i40_currency_payment_contract_exists():
-    test = read_source(ROOT / "tests/test_i40_currency_payment_contract.py")
+    test = read_source(ROOT / "tests/test_payment_currency_contract.py")
     doc = (ROOT.parent.parent / "docs/history/I40_CURRENCY_PAYMENT_CONTRACT.md").read_text()
     assert "_gateway_amount" in test
     assert "destination/currency mismatch" in doc
