@@ -13,6 +13,9 @@ on:
         required: false
         default: main
 
+# Images (audit W6, opt-in): when the repository variable DEPLOY_IMAGE_REGISTRY is set (e.g. ghcr.io/<owner>/melorin), the "images"
+# job builds the five images ONCE on a GitHub runner, tags them with the full commit sha and pushes them; the server then pulls
+# exactly those images and never builds. Set MELORIN_IMAGE_REGISTRY to the same value in the server's .env to switch it on.
 permissions:
   contents: read
   actions: read
@@ -22,7 +25,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  prepare:
     # workflow_run fires for every CI completion; only a green push-triggered run on main may deploy.
     if: >-
       github.event_name == 'workflow_dispatch' ||
@@ -30,6 +33,8 @@ jobs:
        github.event.workflow_run.event == 'push' &&
        github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -72,6 +77,53 @@ jobs:
             fi
           done
           echo "no successful CI run for $SHA; refusing to deploy" >&2; exit 1
+
+  images:
+    needs: prepare
+    if: ${{ vars.DEPLOY_IMAGE_REGISTRY != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - {name: api, dockerfile: apps/api/Dockerfile}
+          - {name: store-web, dockerfile: apps/store-web/Dockerfile}
+          - {name: admin-web, dockerfile: apps/admin-web/Dockerfile}
+          - {name: telegram-main, dockerfile: apps/telegram-main/Dockerfile}
+          - {name: telegram-reseller, dockerfile: apps/telegram-reseller/Dockerfile}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+      - name: Log in to the registry
+        env:
+          REGISTRY: ${{ vars.DEPLOY_IMAGE_REGISTRY }}
+          ACTOR: ${{ github.actor }}
+          TOKEN: ${{ github.token }}
+        run: printf '%s' "$TOKEN" | docker login "${REGISTRY%%/*}" -u "$ACTOR" --password-stdin
+      - name: Build and push ${{ matrix.name }}
+        env:
+          REGISTRY: ${{ vars.DEPLOY_IMAGE_REGISTRY }}
+          SHA: ${{ needs.prepare.outputs.sha }}
+          NAME: ${{ matrix.name }}
+          DOCKERFILE: ${{ matrix.dockerfile }}
+        run: |
+          set -euo pipefail
+          docker build -f "$DOCKERFILE" -t "$REGISTRY/$NAME:$SHA" .
+          docker push "$REGISTRY/$NAME:$SHA"
+
+  deploy:
+    needs: [prepare, images]
+    # images is skipped (registry mode off) or must have succeeded; a failed image build blocks the deploy.
+    if: ${{ !cancelled() && needs.prepare.result == 'success' && (needs.images.result == 'success' || needs.images.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Prepare SSH
         env:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
@@ -81,12 +133,26 @@ jobs:
           printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+      - name: Let the server pull from the registry (registry mode only)
+        if: ${{ vars.DEPLOY_IMAGE_REGISTRY != '' }}
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER_NAME: ${{ secrets.DEPLOY_USER }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          REGISTRY: ${{ vars.DEPLOY_IMAGE_REGISTRY }}
+          ACTOR: ${{ github.actor }}
+          TOKEN: ${{ github.token }}
+        run: |
+          # The run's own short-lived token (read access to this repo's packages) is sent over the SSH channel on stdin: it is
+          # never written to the runner log or a file, and it stops working when this workflow run ends.
+          printf '%s' "$TOKEN" | ssh -i ~/.ssh/id_deploy -p "${PORT:-22}" -o IdentitiesOnly=yes "$USER_NAME@$HOST" \
+            "docker login '${REGISTRY%%/*}' -u '$ACTOR' --password-stdin >/dev/null"
       - name: Deploy (backup, migrate, health-check, automatic rollback)
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
           USER_NAME: ${{ secrets.DEPLOY_USER }}
           PORT: ${{ secrets.DEPLOY_PORT }}
-          SHA: ${{ steps.sha.outputs.sha }}
+          SHA: ${{ needs.prepare.outputs.sha }}
         run: |
           # The deploy script of the commit being deployed is streamed to the server (no copy to keep in sync, and the very
           # first deploy works before the server has scripts/deploy.sh). All logic, rollback included, lives in that script.

@@ -96,3 +96,13 @@ Every container has a `mem_limit` in `docker-compose.yml`, and the caps add up t
 * **Base images are pinned by digest** (`name:tag@sha256:...`). Digests come from the registries, so run the **Pin images** workflow (Actions tab, *Run workflow*) once: it opens a pull request and starts CI for it. Run it again with *refresh* to move every pin to the tags' current digests; Dependabot does the same one image at a time. Until the first run `scripts/check_ops_p0.py` only warns; once any image is pinned it requires all of them to be.
 * Check locally: `python3 scripts/pin_images.py` (list), `python3 scripts/pin_images.py --check` (fail if unpinned).
 
+
+## Build in CI, pull on the host (registry mode)
+By default `scripts/deploy.sh` builds the images on the production host (two at a time, `COMPOSE_PARALLEL_LIMIT=2`). To stop building on production:
+
+1. In GitHub: *Settings -> Secrets and variables -> Actions -> Variables*: add `DEPLOY_IMAGE_REGISTRY` = `ghcr.io/<owner>/melorin` (lower-case owner). The `Deploy` workflow then runs an `images` job after CI is green: it builds the five images once, tags them with the full commit sha and pushes them. A failed image build blocks the deploy.
+2. On the server add `MELORIN_IMAGE_REGISTRY=ghcr.io/<owner>/melorin` to `.env`.
+3. From then on `deploy.sh` pulls `<registry>/<name>:<sha>` for the exact commit and records `MELORIN_IMAGE_TAG=<sha>` in `.env` (a later plain `docker compose up -d` uses the same images). The workflow logs the server in to the registry with the run's own short-lived token; no long-lived registry credential is stored.
+4. Fallbacks: if a pull fails (image missing, no login) the deploy builds on the host instead and says so; a rollback re-points the tag at the previous commit (pulled, or rebuilt if it is not available). `melorin update` (manual) resets the tag to `local` and builds on the host.
+
+Packages pushed by a workflow are private by default; keep them private. To go back to host builds, remove `MELORIN_IMAGE_REGISTRY` from `.env`.

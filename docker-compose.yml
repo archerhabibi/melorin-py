@@ -1,3 +1,5 @@
+# Image names: by default the images are built on this host and tagged melorin/<name>:local. When MELORIN_IMAGE_REGISTRY is set in .env
+# (e.g. ghcr.io/<owner>/melorin) scripts/deploy.sh pulls the images CI built for the exact commit (MELORIN_IMAGE_TAG=<sha>) instead of building.
 name: melorin
 # MEMORY BUDGET (audit W6): every service has a mem_limit; the caps add up to 3584 MiB (3.5 GiB). That is the ceiling the host must be
 # able to honour, hence the 4 GB RAM recommendation in the README. scripts/check_ops_p0.py fails CI when a service has no cap or the
@@ -30,6 +32,7 @@ services:
   api:
     restart: unless-stopped
     stop_grace_period: 30s
+    image: ${MELORIN_IMAGE_REGISTRY:-melorin}/api:${MELORIN_IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: apps/api/Dockerfile
@@ -44,6 +47,7 @@ services:
   worker:
     restart: unless-stopped
     stop_grace_period: 60s
+    image: ${MELORIN_IMAGE_REGISTRY:-melorin}/api:${MELORIN_IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: apps/api/Dockerfile
@@ -59,6 +63,7 @@ services:
     cpus: 1.0
   store_web:
     restart: unless-stopped
+    image: ${MELORIN_IMAGE_REGISTRY:-melorin}/store-web:${MELORIN_IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: apps/store-web/Dockerfile
@@ -71,6 +76,7 @@ services:
     cpus: 0.25
   admin_web:
     restart: unless-stopped
+    image: ${MELORIN_IMAGE_REGISTRY:-melorin}/admin-web:${MELORIN_IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: apps/admin-web/Dockerfile
@@ -84,6 +90,7 @@ services:
   telegram_main:
     restart: unless-stopped
     stop_grace_period: 30s
+    image: ${MELORIN_IMAGE_REGISTRY:-melorin}/telegram-main:${MELORIN_IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: apps/telegram-main/Dockerfile
@@ -109,6 +116,7 @@ services:
     restart: unless-stopped
     stop_grace_period: 30s
     # Always on: it asks Core which reseller bots to run (admin → نمایندگان) and idles when there are none.
+    image: ${MELORIN_IMAGE_REGISTRY:-melorin}/telegram-reseller:${MELORIN_IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: apps/telegram-reseller/Dockerfile

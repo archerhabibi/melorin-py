@@ -17,6 +17,7 @@ echo "docker compose $*" >> "$APP_DIR/var/fake-docker.log"
 [ "${FAKE_READ_STDIN:-}" = 1 ] && cat >/dev/null || true   # a real docker client attaches stdin
 case "$1" in
   build) [ "${FAKE_FAIL:-}" = build ] && exit 1; exit 0 ;;
+  pull) [ "${FAKE_FAIL:-}" = pull ] && exit 1; exit 0 ;;
   up) exit 0 ;;
   ps)
     case "$*" in
@@ -109,4 +110,29 @@ S="$(new_env mut good mutate)"; out="$(run "$S" FAKE_FAIL=none || true)"
 grep -q "deploy OK" <<<"$out" || fail "self-update: deploy did not finish ($out)"
 git -C "$S" log -1 --format=%s | grep -q two || fail "self-update: not on commit two"
 echo "ok  7 deploy.sh replaced by the release itself is safe"
+
+# 8) registry mode: pull the images for the exact commit, never build, record the tag in .env
+S="$(new_env reg good)"; echo "MELORIN_IMAGE_REGISTRY=ghcr.io/o/melorin" >> "$S/.env"; mkdir -p "$S/var"; : > "$S/var/fake-docker.log"
+out="$(run "$S" FAKE_FAIL=none || true)"; sha="$(git -C "$S" rev-parse HEAD)"
+grep -q "deploy OK" <<<"$out" || fail "registry: deploy failed ($out)"
+grep -q "^docker compose pull" "$S/var/fake-docker.log" || fail "registry: no pull"
+! grep -q "^docker compose build" "$S/var/fake-docker.log" || fail "registry: built on the host despite registry mode"
+grep -qx "MELORIN_IMAGE_TAG=$sha" "$S/.env" || fail "registry: tag not recorded in .env"
+grep -q "ALERT_TELEGRAM_BOT_TOKEN=x" "$S/.env" || fail "registry: .env content lost"
+echo "ok  8 registry mode pulls, does not build, records the tag"
+
+# 9) registry pull fails (image missing / not logged in): fall back to a local build instead of failing the deploy
+S="$(new_env regfb good)"; echo "MELORIN_IMAGE_REGISTRY=ghcr.io/o/melorin" >> "$S/.env"; mkdir -p "$S/var"; : > "$S/var/fake-docker.log"
+out="$(run "$S" FAKE_FAIL=pull || true)"
+grep -q "deploy OK" <<<"$out" || fail "registry fallback: deploy failed ($out)"
+grep -q "building on this host instead" <<<"$out" || fail "registry fallback: no warning"
+grep -q "^docker compose build" "$S/var/fake-docker.log" || fail "registry fallback: no local build"
+echo "ok  9 failed pull falls back to a local build"
+
+# 10) registry mode + failed health check: rollback re-points the tag at the previous commit
+S="$(new_env regrb bad)"; echo "MELORIN_IMAGE_REGISTRY=ghcr.io/o/melorin" >> "$S/.env"; prev="$(git -C "$S" rev-parse HEAD)"
+set +e; out="$(run "$S" FAKE_FAIL=none)"; rc=$?; set -e
+[ "$rc" = 1 ] || fail "registry rollback: expected exit 1 ($rc: $out)"
+grep -qx "MELORIN_IMAGE_TAG=$prev" "$S/.env" || fail "registry rollback: tag not restored to previous commit ($(grep MELORIN_IMAGE_TAG "$S/.env"))"
+echo "ok 10 registry rollback restores the previous tag"
 echo "deploy.sh tests passed"

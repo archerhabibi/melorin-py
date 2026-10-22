@@ -136,3 +136,40 @@ def test_redis_maxmemory_is_below_its_container_cap():
 
 def test_deploy_script_limits_parallel_image_builds():
     assert "COMPOSE_PARALLEL_LIMIT" in (ROOT / "scripts/deploy.sh").read_text()
+
+
+# ---- registry mode (build in CI, pull on the host) ----------------------------------------------------------------
+
+
+def test_built_services_use_registry_aware_image_names():
+    import re
+
+    compose = (ROOT / "docker-compose.yml").read_text()
+    for name in ("api", "store-web", "admin-web", "telegram-main", "telegram-reseller"):
+        assert f"${{MELORIN_IMAGE_REGISTRY:-melorin}}/{name}:${{MELORIN_IMAGE_TAG:-local}}" in compose, name
+    # api and worker share one image; every service that has a build: also has the image: line right above it
+    assert len(re.findall(r"image: \$\{MELORIN_IMAGE_REGISTRY", compose)) == len(re.findall(r"^    build:$", compose, re.M)) == 6
+
+
+def test_deploy_workflow_builds_images_before_deploying_and_deploys_the_prepared_sha():
+    import yaml
+
+    wf = yaml.safe_load((ROOT / ".github/workflows/deploy.yml").read_text())
+    jobs = wf["jobs"]
+    assert set(jobs) == {"prepare", "images", "deploy"}
+    assert "images" in jobs["deploy"]["needs"] and "prepare" in jobs["deploy"]["needs"]
+    assert jobs["images"]["if"].strip() == "${{ vars.DEPLOY_IMAGE_REGISTRY != '' }}"  # opt-in
+    assert jobs["images"]["permissions"]["packages"] == "write"
+    assert "write" not in str(jobs["deploy"].get("permissions", ""))  # the job that holds SSH never gets package write
+    # a failed image build must block the deploy; a skipped one (registry mode off) must not
+    cond = jobs["deploy"]["if"]
+    assert "needs.images.result == 'success'" in cond and "needs.images.result == 'skipped'" in cond
+    text = (ROOT / ".github/workflows/deploy.yml").read_text()
+    assert "steps.sha.outputs.sha" not in text.split("  deploy:\n", 1)[1]  # deploy uses the sha from prepare
+
+
+def test_deploy_script_supports_registry_mode_with_fallback_and_rollback():
+    script = (ROOT / "scripts/deploy.sh").read_text()
+    assert "MELORIN_IMAGE_REGISTRY" in script and "provide_images" in script
+    assert 'provide_images "$PREV"' in script  # rollback re-points the tag at the previous commit
+    assert "building on this host instead" in script  # failed pull falls back, never strands a deploy

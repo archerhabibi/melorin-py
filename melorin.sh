@@ -250,6 +250,8 @@ do_update() {
     [ "${#sec}" -ge 32 ] || { err "Could not generate $k (is openssl installed?). Nothing was changed."; return 1; }
     env_set "$k" "$sec" && info "Generated $k."
   done
+  # A manual update builds on this host: stop pointing the stack at registry images of an older commit (see scripts/deploy.sh).
+  if [ -n "$(env_get MELORIN_IMAGE_TAG)" ]; then env_set MELORIN_IMAGE_TAG local; fi
   compose build                          || { err "Build failed."; return 1; }
   compose run --rm api alembic upgrade head || { err "Migration failed - services were NOT restarted."; return 1; }
   compose up -d --remove-orphans         || { err "Could not start the services."; return 1; }

@@ -142,9 +142,14 @@ def run_checks(errors: list[str]) -> None:
         errors.append("deploy.yml: must not trigger on push; deploy only after CI succeeded (W1)")
     if "workflow_run" not in triggers:
         errors.append("deploy.yml: missing workflow_run trigger on CI (W1)")
-    job_if = str(wf["jobs"]["deploy"].get("if", ""))
-    if "conclusion == 'success'" not in job_if:
-        errors.append("deploy.yml: deploy job must require workflow_run.conclusion == 'success' (W1)")
+    # The CI gate lives in the first job ("prepare"); build/deploy jobs hang off it through needs, so they can never run without it.
+    jobs = wf["jobs"]
+    if "conclusion == 'success'" not in str(jobs["prepare"].get("if", "")):
+        errors.append("deploy.yml: prepare job must require workflow_run.conclusion == 'success' (W1)")
+    if "prepare" not in (jobs["deploy"].get("needs") or []):
+        errors.append("deploy.yml: deploy job must depend on the CI-gated prepare job (W1)")
+    if "needs.prepare.result == 'success'" not in str(jobs["deploy"].get("if", "")):
+        errors.append("deploy.yml: deploy job must require the prepare job to have succeeded (W1)")
     if "deploy.sh" not in (ROOT / ".github/workflows/deploy.yml").read_text():
         errors.append("deploy.yml: must call scripts/deploy.sh (rollback logic) (W3)")
 
