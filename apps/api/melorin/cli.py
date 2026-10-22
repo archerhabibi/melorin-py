@@ -33,8 +33,8 @@ async def bootstrap() -> None:
         if len(totp_secret) < 16:
             raise ValueError
         base64.b32decode(totp_secret + "=" * (-len(totp_secret) % 8), casefold=True)
-    except (binascii.Error, ValueError):
-        raise SystemExit("MELORIN_BOOTSTRAP_ADMIN_TOTP_SECRET is required for the first admin bootstrap")
+    except (binascii.Error, ValueError) as exc:
+        raise SystemExit("MELORIN_BOOTSTRAP_ADMIN_TOTP_SECRET is required for the first admin bootstrap") from exc
     async with session_factory()() as session:
         email = settings.bootstrap_admin_email.strip().lower()
         user = await session.scalar(select(User).where(User.email == email))

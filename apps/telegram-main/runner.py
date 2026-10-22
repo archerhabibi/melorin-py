@@ -321,6 +321,42 @@ class TelegramRunner(TransportMixin, IdentityMixin, PlansMixin, WalletMixin, Acc
         except (httpx.HTTPError, RuntimeError):  # cosmetic: never block startup on it
             log.warning("setMyCommands failed", exc_info=True)
 
+    # A transient failure (network, Core 5xx, 429) replays the update; after this many attempts it is dropped so one
+    # poisoned update can never freeze the whole bot for every user (head-of-line blocking).
+    MAX_UPDATE_ATTEMPTS = 5
+
+    async def _process_update(self, update: dict) -> None:
+        """Handle one update and acknowledge it. Transient errors propagate (offset not advanced) until the attempt cap."""
+        uid = update["update_id"]
+        attempts = getattr(self, "_attempts", None)
+        if attempts is None:
+            attempts = self._attempts = {}
+        try:
+            await self.handle(update)
+        except (KeyError, ValueError, CoreError):
+            # Malformed/user-level errors are terminal for this update.
+            log.exception("dropping malformed update %s", uid)
+        except httpx.HTTPStatusError as exc:
+            status = exc.response.status_code
+            if status < 500 and status != 429:
+                # A definitive 4xx (blocked user, bad payload, expired callback) can never succeed on replay.
+                log.exception("dropping update %s after HTTP %s", uid, status)
+            else:
+                self._count_or_drop(attempts, uid)
+        except (httpx.HTTPError, RuntimeError):
+            # Transport trouble, or Telegram answered ok=false (e.g. "query is too old"): retry a bounded number of times.
+            self._count_or_drop(attempts, uid)
+        except Exception:  # noqa: BLE001 - a handler bug must neither crash the runner nor be replayed forever
+            log.exception("handler bug, dropping update %s", uid)
+        attempts.pop(uid, None)
+        self._save_offset(uid + 1)
+
+    def _count_or_drop(self, attempts: dict, uid: int) -> None:
+        attempts[uid] = attempts.get(uid, 0) + 1
+        if attempts[uid] < self.MAX_UPDATE_ATTEMPTS:
+            raise  # re-raised inside the caller's ``except``: the outer loop backs off and the update is replayed
+        log.error("update %s failed %s times, dropping it", uid, attempts[uid])
+
     async def run(self) -> None:
         await self.setup_menu()
         try:
@@ -331,14 +367,7 @@ class TelegramRunner(TransportMixin, IdentityMixin, PlansMixin, WalletMixin, Acc
                 try:
                     updates = await self.tg("getUpdates", payload)
                     for update in updates:
-                        try:
-                            await self.handle(update)
-                        except (KeyError, ValueError, CoreError):
-                            # Malformed/user-level errors are terminal for this update.
-                            # Transport/5xx errors escape to the outer retry path, so the
-                            # offset is deliberately NOT advanced and the update is replayed.
-                            log.exception("dropping malformed update %s", update.get("update_id"))
-                        self._save_offset(update["update_id"] + 1)
+                        await self._process_update(update)
                 except (httpx.HTTPError, RuntimeError) as exc:
                     log.exception("telegram cycle failed: %s", exc)
                     await asyncio.sleep(min(30, 2 ** min(getattr(self, "_failures", 0), 4)))
