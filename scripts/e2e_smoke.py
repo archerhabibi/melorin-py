@@ -51,7 +51,8 @@ _login = {"email": os.getenv("E2E_ADMIN_EMAIL", "admin@example.com"), "password"
 if _admin_totp():
     _login["totp_code"] = _admin_totp()
 r = c.post(f"{A}/auth/password/login", json=_login)
-check("admin login", r.status_code == 200, r.text)
+if not check("admin login", r.status_code == 200, r.text):
+    sys.exit("RESULT: FAILED - cannot continue without an admin session")
 adm = H(r.json()["access_token"])
 store = c.get(f"{A}/stores/main").json()
 sid = store["id"]
