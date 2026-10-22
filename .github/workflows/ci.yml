@@ -1,5 +1,8 @@
 name: CI
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+  workflow_dispatch:   # lets the Pin images workflow start CI for the pull request it opens
 jobs:
   quality:
     runs-on: ubuntu-latest

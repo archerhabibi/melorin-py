@@ -45,3 +45,57 @@ def test_runtime_lock_has_no_dev_tooling_but_dev_lock_does():
 def test_runtime_lock_keeps_tzdata_for_zoneinfo():
     # slim images ship no /usr/share/zoneinfo; admin timeseries resolves user time zones with zoneinfo
     assert "\ntzdata==" in (ROOT / "apps/api/requirements.txt").read_text()
+
+
+def _load_script(name: str):
+    spec = importlib.util.spec_from_file_location(name, ROOT / f"scripts/{name}.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_api_dockerfile_is_multi_stage_without_build_tooling_in_runtime():
+    guard = _load_guard()
+    text = (ROOT / "apps/api/Dockerfile").read_text()
+    assert guard.api_dockerfile_problems(text) == []
+    runtime = text.split("FROM base AS runtime", 1)[1]
+    assert "curl" not in runtime and "gnupg" not in runtime
+    assert "COPY --from=venv /opt/venv /opt/venv" in runtime
+    assert "--require-hashes" in text
+
+
+def test_dockerfile_guard_flags_tooling_in_runtime_stage():
+    guard = _load_guard()
+    bad = "FROM python:3.12 AS a\nRUN x\nFROM a AS b\nRUN y\nFROM a AS runtime\nRUN apt-get install -y curl gnupg\nRUN pip install x\n"
+    problems = guard.api_dockerfile_problems(bad)
+    assert any("curl" in p for p in problems) and any("pip install" in p for p in problems)
+    assert guard.api_dockerfile_problems("FROM python:3.12\n")  # single stage is rejected
+
+
+def test_pin_images_finds_every_image_and_skips_stage_aliases(tmp_path):
+    pin = _load_script("pin_images")
+    (tmp_path / "apps/x").mkdir(parents=True)
+    (tmp_path / "apps/x/Dockerfile").write_text("FROM python:3.12-slim AS base\nFROM base AS build\nFROM scratch\nFROM nginx:1.27-alpine\n")
+    (tmp_path / "docker-compose.yml").write_text("services:\n  a:\n    image: redis:7-alpine\n  b:\n    image: ${X:-y}\n    build: .\n")
+    names = sorted(r.ref for r in pin.find_refs(tmp_path))
+    assert names == ["nginx:1.27-alpine", "python:3.12-slim", "redis:7-alpine"]
+
+
+def test_pin_images_rewrite_is_idempotent_and_refresh_moves_pins(tmp_path):
+    pin = _load_script("pin_images")
+    old, new = "sha256:" + "a" * 64, "sha256:" + "b" * 64
+    compose = tmp_path / "docker-compose.yml"
+    compose.write_text(f"services:\n  a:\n    image: redis:7-alpine\n  b:\n    image: caddy:2-alpine@{old}  # keep\n")
+    digests = {"redis:7-alpine": "sha256:" + "c" * 64, "caddy:2-alpine": new}
+    refs = pin.find_refs(tmp_path)
+    assert pin.rewrite(tmp_path, refs, digests, refresh=False) == 1  # only the unpinned one
+    text = compose.read_text()
+    assert "redis:7-alpine@sha256:" + "c" * 64 in text and f"caddy:2-alpine@{old}  # keep" in text
+    assert pin.rewrite(tmp_path, pin.find_refs(tmp_path), digests, refresh=False) == 0  # idempotent
+    assert pin.rewrite(tmp_path, pin.find_refs(tmp_path), digests, refresh=True) == 1  # refresh moves caddy
+    assert f"caddy:2-alpine@{new}  # keep" in compose.read_text()
+
+
+def test_image_pins_are_all_or_nothing():
+    pins = _load_guard().image_pin_problems()
+    assert pins == [], pins

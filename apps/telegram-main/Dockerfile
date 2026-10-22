@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.12-slim-bookworm
 WORKDIR /app
 COPY apps/telegram-main/requirements.txt .
 RUN pip install --no-cache-dir --require-hashes -r requirements.txt

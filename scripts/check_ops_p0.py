@@ -3,6 +3,7 @@ and the Phase 5 release hardening (hash-locked requirements, runtime image witho
 
 Importable: the check helpers have no side effects; the checks run only when executed as a script.
 """
+import importlib.util
 import re
 import sys
 from pathlib import Path
@@ -42,6 +43,41 @@ def lock_problems(path: Path) -> list[str]:
 def runtime_lock_dev_leaks(path: Path) -> list[str]:
     names = {m.group(1).lower().replace("_", "-") for m in re.finditer(r"(?m)^([A-Za-z0-9_.-]+)(?:\[[^\]]*\])?==", path.read_text())}
     return sorted(names & DEV_ONLY_PACKAGES)
+
+
+def api_dockerfile_problems(text: str) -> list[str]:
+    """The API image is multi-stage and its final (runtime) stage carries no fetch/build tooling (W17)."""
+    problems: list[str] = []
+    stages = re.split(r"(?im)^FROM\s+", text)[1:]
+    if len(stages) < 3:
+        return ["apps/api/Dockerfile: expected a multi-stage build (key fetch, venv, runtime)"]
+    runtime = stages[-1]
+    logical = re.sub(r"\\\n\s*", " ", runtime)  # join RUN continuations so a package list split over lines is still seen
+    for line in logical.splitlines():
+        if re.search(r"apt-get\s+install", line):
+            for tool in ("curl", "gnupg", "build-essential", "gcc"):
+                if re.search(rf"(?<![\w-]){tool}(?![\w-])", line):
+                    problems.append(f"apps/api/Dockerfile: runtime stage installs '{tool}'; keep it in a throw-away stage")
+    if "pip install" in runtime:
+        problems.append("apps/api/Dockerfile: runtime stage must copy the venv, not run pip install")
+    if "USER appuser" not in runtime:
+        problems.append("apps/api/Dockerfile: runtime stage must drop to a non-root user")
+    return problems
+
+
+def image_pin_problems() -> list[str]:
+    """Images are pinned by digest as a set: once one is, all must be. Unpinned everywhere only warns (pin needs registry access)."""
+    spec = importlib.util.spec_from_file_location("pin_images", ROOT / "scripts/pin_images.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    refs = module.find_refs(ROOT)
+    pinned = [r for r in refs if r.pinned]
+    unpinned = [r for r in refs if not r.pinned]
+    if pinned and unpinned:
+        return [f"{r.file.relative_to(ROOT)}:{r.line}: image '{r.ref}' is not pinned by digest (others are)" for r in unpinned]
+    if unpinned:
+        print(f"note: {len(unpinned)} image references are not pinned by digest yet - run the 'Pin images' workflow", file=sys.stderr)
+    return []
 
 
 def main() -> int:
@@ -101,6 +137,8 @@ def run_checks(errors: list[str]) -> None:
     for rel in ("apps/api/Dockerfile", "apps/telegram-main/Dockerfile", "apps/telegram-reseller/Dockerfile"):
         if "--require-hashes" not in (ROOT / rel).read_text():
             errors.append(f"{rel}: pip install must use --require-hashes (W17)")
+    errors.extend(api_dockerfile_problems((ROOT / "apps/api/Dockerfile").read_text()))
+    errors.extend(image_pin_problems())
 
 
 if __name__ == "__main__":
