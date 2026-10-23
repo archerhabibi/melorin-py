@@ -118,6 +118,12 @@ async def _on_event_center(session, p: dict):
     await _event_center(session, p)
 
 
+async def _on_event_center_deliver(session, p: dict):
+    from melorin.modules.eventcenter import service as event_center
+
+    await event_center.deliver(session, p)
+
+
 def _webhook_only(event_name: str, key):
     """Handler for topics that only fan out to reseller webhooks; ``key(p)`` builds the idempotent event id."""
 
@@ -137,6 +143,7 @@ _TOPIC_HANDLERS = {
     events.VPN_RENEWAL_ROLLBACK: _on_vpn_renewal_rollback,
     events.NOTIFY: _on_notify,
     events.EVENT_CENTER: _on_event_center,
+    events.EVENT_CENTER_DELIVER: _on_event_center_deliver,
     events.TICKET_UPDATED: _on_event_center,
     events.PAYMENT_SUCCEEDED: _webhook_only("payment.succeeded", lambda p: p.get("payment_id")),
     events.PAYMENT_FAILED: _webhook_only("payment.failed", lambda p: p.get("payment_id")),
@@ -157,6 +164,10 @@ async def process_event(e: OutboxEvent):
             handler = _TOPIC_HANDLERS.get(e.topic)
             if handler is not None:  # unknown topics are acknowledged without work, as before
                 await handler(session, e.payload or {})
+            if e.topic != events.EVENT_CENTER_DELIVER:  # Telegram fan-out: best-effort, inside a SAVEPOINT, never fails the event
+                from melorin.modules.eventcenter import rules as event_center_rules
+
+                await event_center_rules.tap(session, e)
             e.status, e.processed_at, e.last_error = "processed", utcnow(), None
             await session.commit()
             inc("melorin_outbox_events_total", topic=e.topic, result="processed")
@@ -166,6 +177,9 @@ async def process_event(e: OutboxEvent):
             if failed is not None and failed.status == "processing":
                 failed.status, failed.attempts, failed.last_error = "pending", failed.attempts + 1, str(ex)
                 failed.available_at = utcnow() + dt.timedelta(seconds=min(1800, 2 ** min(failed.attempts, 8)))
+                from melorin.modules.eventcenter import rules as event_center_rules
+
+                await event_center_rules.report_outbox_failure(session, failed)
                 await session.commit()
                 inc("melorin_outbox_events_total", topic=failed.topic, result="retry")
 
@@ -259,7 +273,7 @@ async def _notify_admins_provisioning_failed(session, p: dict):
 
 
 async def _event_center(session, p: dict):
-    # Implemented as an outbox consumer boundary; Telegram group/topic adapter plugs in here.
+    # Telegram delivery is queued by eventcenter.rules.tap() right after this handler; here we only keep the log line.
     log.info("event-center store=%s topic=%s text=%s", p.get("store_id"), p.get("topic"), p.get("text"))
 
 
