@@ -9,7 +9,7 @@ from fastapi import APIRouter, Query, Response
 from melorin.core.deps import Session, StoreCtx
 from melorin.core.errors import NotFound
 from melorin.core.scope import StoreScope
-from melorin.modules.vpn import inquiry
+from melorin.modules.vpn import inquiry, returns
 from melorin.modules.vpn.qr import render_qr_png
 from melorin.modules.vpn.schemas import VpnAccountOut
 
@@ -17,6 +17,11 @@ router = APIRouter(prefix="/stores/{store_id}/vpn-accounts", tags=["vpn-accounts
 
 
 out = inquiry.account_out
+
+
+async def _with_returns(session, scope, accounts):
+    elig = await returns.eligibility_for(session, scope, accounts)
+    return [returns.account_view(a, elig.get(a.id)) for a in accounts]
 
 
 @router.get("", response_model=list[VpnAccountOut])
@@ -32,7 +37,7 @@ async def mine(
     """The caller's OWN accounts in THIS store (list and search): the scope lives in ``inquiry.customer_accounts``."""
     rows, total = await inquiry.customer_accounts(session, StoreScope.of(ctx), q=q, state=state, limit=limit, offset=offset)
     response.headers["X-Total-Count"] = str(total)
-    return [out(a) for a in rows]
+    return await _with_returns(session, StoreScope.of(ctx), rows)
 
 
 @router.get("/summary")
@@ -41,17 +46,36 @@ async def summary(ctx: StoreCtx, session: Session):
     return await inquiry.customer_summary(session, StoreScope.of(ctx))
 
 
+@router.get("/return-rules")
+async def return_rules(ctx: StoreCtx):
+    """The rules as text and numbers, so every channel shows the same words."""
+    return {
+        "text": returns.RULES_TEXT,
+        "max_days": returns.RETURN_MAX_DAYS,
+        "max_usage_percent": returns.RETURN_MAX_USAGE_PERCENT,
+        "daily_limit": returns.RETURN_DAILY_LIMIT,
+    }
+
+
 @router.post("/{account_id}/refresh", response_model=VpnAccountOut)
 async def refresh(account_id: uuid.UUID, ctx: StoreCtx, session: Session, response: Response):
     """Re-read this account from its VPN panel (live expiry, usage, links) and return the fresh card."""
     a = await inquiry.customer_account(session, StoreScope.of(ctx), account_id)
     response.headers["X-Panel-Synced"] = "1" if await inquiry.refresh_from_panel(session, a) else "0"
-    return out(a)
+    return (await _with_returns(session, StoreScope.of(ctx), [a]))[0]
 
 
 @router.get("/{account_id}", response_model=VpnAccountOut)
 async def get(account_id: uuid.UUID, ctx: StoreCtx, session: Session):
-    return out(await inquiry.customer_account(session, StoreScope.of(ctx), account_id))
+    scope = StoreScope.of(ctx)
+    return (await _with_returns(session, scope, [await inquiry.customer_account(session, scope, account_id)]))[0]
+
+
+@router.post("/{account_id}/return")
+async def return_account(account_id: uuid.UUID, ctx: StoreCtx, session: Session):
+    """مرجوعی: give this account back (volume accounts only, <= 3 days, <= 5 % used, 3 per day). The money goes to the
+    caller's wallet of THIS store. Core decides; the answer for a refused return is a 409 with the reason in Persian."""
+    return await returns.return_account(session, StoreScope.of(ctx), account_id)
 
 
 @router.get("/{account_id}/qr.png", response_class=Response, responses={200: {"content": {"image/png": {}}}})
