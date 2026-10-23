@@ -13,6 +13,7 @@ from melorin.core.errors import AppError
 from melorin.kernel.models.notifications import TelegramEventDestination
 from melorin.kernel.models.system import OutboxEvent
 from melorin.kernel.models.tickets import Ticket, TicketMessage
+from melorin.kernel.models.vpn import Panel
 from melorin.modules.eventcenter import rules, service
 
 GROUP = "-1001234567890"
@@ -271,3 +272,26 @@ async def test_ticket_status_change_does_not_repeat_the_last_customer_reply():
             s.add(e)
             await s.flush()
             assert await rules.tap(s, e) == 0
+
+
+async def test_panel_health_notice_only_on_state_change():
+    async with open_session() as s:
+        await _world(s)
+        panel = Panel(name="Panel-A", kind="mock", base_url="https://p.invalid")
+        s.add(panel)
+        await s.flush()
+
+        async def queued():
+            rows = (await s.scalars(select(OutboxEvent).where(OutboxEvent.topic == events.EVENT_CENTER))).all()
+            return [r.payload["text"] for r in rows]
+
+        panel.health_status, panel.last_health_error = "unhealthy", "timeout"
+        await rules.notify_panel_health(s, panel, "healthy")
+        await rules.notify_panel_health(s, panel, "unhealthy")  # still unhealthy: silent
+        panel.health_status, panel.last_health_error = "healthy", None
+        await rules.notify_panel_health(s, panel, "unknown")  # first check ok: silent
+        await rules.notify_panel_health(s, panel, "unhealthy")  # recovered
+        texts = await queued()
+        assert len(texts) == 2 and "Panel-A" in texts[0] and "timeout" in texts[0] and "دوباره سالم" in texts[1]
+        e = (await s.scalars(select(OutboxEvent).where(OutboxEvent.topic == events.EVENT_CENTER))).first()
+        assert e.payload["topic"] == "errors" and e.payload["store_id"] is None

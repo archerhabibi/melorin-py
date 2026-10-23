@@ -29,4 +29,6 @@ Reseller: `GET/PUT/DELETE /stores/{store_id}/reseller/event-center`، `POST …/
 - Backend: `modules/eventcenter/{service,rules,routes,schemas,topics}.py`، migration `0031`، handler `eventcenter.deliver` در worker، tap مرکزی پس از هر handler.
 - UI: صفحهٔ «مرکز رویداد» در پنل ادمین و تب «مرکز رویداد» در پنل نماینده (ذخیره، تست واقعی هر Topic، وضعیت سلامت، حذف).
 - تست: `apps/api/tests/test_event_center.py` (۱۴ تست) و `apps/admin-web/tests/event-center.test.jsx`.
-- باقی‌مانده: رویداد «پنل unhealthy» و «خطای ساخت اکانت» به‌صورت قانون جدا؛ فعلاً شکست ساخت اکانت (`provisioning.failed`) و شکست مکرر Outbox در Topic «خطاها» می‌آید.
+- «پنل unhealthy» اکنون قانون جدا دارد: `rules.notify_panel_health` در job سلامت پنل (هر ۵ دقیقه) و بررسی دستی ادمین فراخوانی می‌شود و **فقط هنگام تغییر وضعیت** (سالم به ناسالم، و بازگشت به سالم) به Topic «خطاها»ی گروه ادمین پیام می‌دهد؛ پنلی که ناسالم می‌ماند پیام تکراری نمی‌فرستد.
+- تیکت: فقط پیام خود مشتری اعلام می‌شود (رویداد `ticket.updated` شناسهٔ `message_id` را دارد)؛ تغییر وضعیت/اولویت، پاسخ پشتیبان و یادداشت داخلی ساکت‌اند.
+- باقی‌مانده: خطای ساخت اکانت (`provisioning.failed`) و شکست مکرر Outbox از قبل در Topic «خطاها» می‌آید؛ مورد دیگری باز نیست.

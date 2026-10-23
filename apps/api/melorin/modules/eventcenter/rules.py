@@ -164,3 +164,26 @@ async def report_outbox_failure(session, e: OutboxEvent) -> None:
             await service.publish(session, store_id=None, topic=topics.ERRORS, text=text, source_key=f"fail:{e.id}")
     except Exception:
         log.exception("event-center failure report failed event=%s", e.id)
+
+
+async def notify_panel_health(session, panel, previous: str | None) -> None:
+    """Tell the admin's errors topic when a panel turns unhealthy (and when it recovers).
+
+    Called by the health job and the manual health check with the status the panel had *before* this check, so a panel
+    that stays unhealthy does not repeat the message every 5 minutes. Best-effort: it can never fail the health check.
+    """
+    now = panel.health_status
+    if now == previous:
+        return
+    if now == "unhealthy":
+        error = str(panel.last_health_error or "نامشخص")[:250]
+        text = f"🔴 پنل «{panel.name}» ناسالم شد\nخطا: {error}"
+    elif now == "healthy" and previous == "unhealthy":
+        text = f"🟢 پنل «{panel.name}» دوباره سالم شد"
+    else:
+        return
+    try:
+        async with session.begin_nested():
+            await events.emit(session, events.EVENT_CENTER, {"store_id": None, "topic": topics.ERRORS, "text": text})
+    except Exception:
+        log.exception("event-center panel health notice failed panel=%s", panel.id)

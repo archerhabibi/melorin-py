@@ -13,6 +13,7 @@ from melorin.core import events, integrations, settings_store
 from melorin.core.db import session_factory, utcnow
 from melorin.kernel.models.identity import VerificationCode
 from melorin.kernel.models.system import BackupRun
+from melorin.modules.eventcenter import rules as event_center_rules
 from melorin.modules.vpn import service
 from melorin.kernel.models.vpn import Panel, VpnAccount
 
@@ -81,6 +82,7 @@ async def panel_health_job(ctx=None):
         panels = (await s.scalars(select(Panel).where(Panel.is_enabled.is_(True)))).all()
         for p in panels:
             adapter = None
+            previous = p.health_status
             try:
                 adapter = build_adapter(p)
                 ok = await adapter.health_check()
@@ -94,6 +96,7 @@ async def panel_health_job(ctx=None):
                         await _close_adapter(adapter)
                     except Exception:
                         log.exception("panel adapter close failed panel=%s", p.id)
+            await event_center_rules.notify_panel_health(s, p, previous)
         await s.commit()
 
 

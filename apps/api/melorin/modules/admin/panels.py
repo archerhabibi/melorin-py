@@ -13,6 +13,7 @@ from melorin.kernel.models.catalog import Product
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.vpn import Panel, Server, VpnAccount
 from melorin.kernel.models.bundles import Bundle, BundleMember
+from melorin.modules.eventcenter import rules as event_center_rules
 from melorin.modules.admin.schemas import (
     CreatePanel,
     CreateServer,
@@ -357,6 +358,8 @@ async def panel_health(panel_id: uuid.UUID, _: AdminUser, session: Session):
                 await adapter.close()
             except Exception:
                 log.warning("panel adapter close failed panel=%s", p.id, exc_info=True)
+    previous = p.health_status
     p.health_status, p.last_health_at, p.last_health_error = "healthy" if ok else "unhealthy", utcnow(), (None if ok else error)
+    await event_center_rules.notify_panel_health(session, p, previous)
     await session.commit()
     return {"healthy": ok, "error": None if ok else error}
