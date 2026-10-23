@@ -9,6 +9,19 @@ from typing import Any
 import httpx
 
 
+class TelegramApiError(RuntimeError):
+    """A Telegram Bot API answer with ``ok=false`` (or a non-2xx status), with the parts callers need to decide a retry."""
+
+    def __init__(self, code: int, description: str, retry_after: int | None = None):
+        super().__init__(f"telegram {code}: {description}")
+        self.code, self.description, self.retry_after = code, description, retry_after
+
+    @property
+    def permanent(self) -> bool:
+        """400/401/403/404 mean the bot, group or topic is wrong; retrying cannot fix it. 429 and 5xx are transient."""
+        return self.code in (400, 401, 403, 404)
+
+
 @dataclass(frozen=True)
 class TelegramChannel:
     token: str
@@ -37,6 +50,29 @@ class TelegramChannel:
             if not data.get("ok"):
                 raise RuntimeError(data.get("description", "Telegram API request failed"))
             return data
+
+    async def send_to_topic(self, chat_id: int | str, text: str, *, thread_id: int | None = None) -> dict[str, Any]:
+        """Plain-text message into a group, optionally into one forum topic. Raises :class:`TelegramApiError`."""
+        payload: dict[str, Any] = {"chat_id": chat_id, "text": text, "disable_web_page_preview": True}
+        if thread_id:
+            payload["message_thread_id"] = int(thread_id)
+        try:
+            async with httpx.AsyncClient(base_url=f"https://api.telegram.org/bot{self.token}", timeout=self.timeout) as client:
+                response = await client.post("/sendMessage", json=payload)
+        except httpx.HTTPError as exc:  # network / timeout: transient
+            raise TelegramApiError(599, type(exc).__name__) from exc
+        try:
+            data = response.json()
+        except ValueError:
+            data = {}
+        if response.status_code >= 400 or not data.get("ok"):
+            params = data.get("parameters") or {}
+            raise TelegramApiError(
+                int(data.get("error_code") or response.status_code),
+                str(data.get("description") or "Telegram API request failed"),
+                params.get("retry_after"),
+            )
+        return data
 
     async def send_message(self, chat_id: int | str, text: str, **kwargs: Any) -> dict[str, Any]:
         return await self.telegram("sendMessage", {"chat_id": chat_id, "text": text, **kwargs})
