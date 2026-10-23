@@ -1,7 +1,7 @@
 // مرکز رویداد تلگرام (reseller): the owner connects a Telegram supergroup (with Topics) for HIS store's events only. Messages
 // are sent with the store's OWN bot, never the main bot. Core validates and sends; this tab edits settings and shows health.
 import { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, BellRing, CheckCircle2, Send, Trash2 } from 'lucide-react';
+import { AlertTriangle, BellRing, CheckCircle2, ListPlus, ScanSearch, Send, Trash2 } from 'lucide-react';
 import { Loading, fd } from './ui.jsx';
 
 const J = { 'Content-Type': 'application/json' };
@@ -27,6 +27,8 @@ export default function ResellerEventCenter({ coreFetch, base, notify }) {
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [results, setResults] = useState(null);
+  const [check, setCheck] = useState(null);
+  const [made, setMade] = useState(null);
 
   const apply = (d) => {
     setData(d);
@@ -82,6 +84,24 @@ export default function ResellerEventCenter({ coreFetch, base, notify }) {
       await load();
     });
 
+  const inspect = () =>
+    act('check', async () => {
+      const r = await coreFetch(`${url}/check`, { method: 'POST', headers: J, body: '{}' });
+      if (!r.ok) return setError(await message(r, 'بررسی گروه ناموفق بود'));
+      setCheck(await r.json());
+    });
+
+  const provision = () =>
+    act('provision', async () => {
+      const r = await coreFetch(`${url}/provision`, { method: 'POST', headers: J, body: '{}' });
+      if (!r.ok) return setError(await message(r, 'ساخت Topicها ناموفق بود'));
+      const d = await r.json();
+      setMade(d.results || []);
+      setCheck(null);
+      await load();
+      if (d.created) notify(`${d.created} Topic ساخته شد`);
+    });
+
   const remove = () => {
     if (!window.confirm('اتصال گروه حذف شود؟ از این پس رویدادی به تلگرام ارسال نمی‌شود.')) return;
     return act('delete', async () => {
@@ -135,7 +155,10 @@ export default function ResellerEventCenter({ coreFetch, base, notify }) {
 
       <section className="card space-y-4">
         <h3 className="text-base font-extrabold">Topicها</h3>
-        <p className="text-sm text-muted">شناسهٔ هر Topic را وارد کنید؛ اگر خالی بماند پیام در General گروه می‌آید.</p>
+        <p className="text-sm text-muted">
+          شناسهٔ هر Topic را وارد کنید، یا بعد از ذخیرهٔ گروه «ساخت خودکار Topicها» را بزنید (ربات فروشگاه باید ادمین با
+          دسترسی Manage Topics باشد). اگر خالی بماند پیام در General می‌آید.
+        </p>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {topics.map((t) => (
             <label key={t.key} className="block text-xs font-bold text-muted">
@@ -159,6 +182,12 @@ export default function ResellerEventCenter({ coreFetch, base, notify }) {
           <button className="btn btn-ghost" disabled={!data.configured || busy !== ''} onClick={test}>
             <Send size={15} /> {busy === 'test' ? 'در حال ارسال…' : 'ارسال پیام تست'}
           </button>
+          <button className="btn btn-ghost" disabled={!data.configured || busy !== ''} onClick={inspect}>
+            <ScanSearch size={15} /> {busy === 'check' ? 'در حال بررسی…' : 'بررسی گروه'}
+          </button>
+          <button className="btn btn-ghost" disabled={!data.configured || busy !== ''} onClick={provision}>
+            <ListPlus size={15} /> {busy === 'provision' ? 'در حال ساخت…' : 'ساخت خودکار Topicها'}
+          </button>
           {data.configured && (
             <button className="btn btn-ghost" disabled={busy !== ''} onClick={remove}>
               <Trash2 size={15} /> حذف اتصال
@@ -180,6 +209,33 @@ export default function ResellerEventCenter({ coreFetch, base, notify }) {
             </span>
           ) : (
             <span className={`${chip} bg-surface2 text-muted`}>هنوز پیامی ارسال نشده</span>
+          )}
+          {check && (
+            <div className="space-y-1 text-sm">
+              <div className="font-bold">
+                {check.ok ? '✅' : '⚠️'} {check.title || 'گروه'} {check.bot_username ? `· @${check.bot_username}` : ''}
+              </div>
+              <ul className="list-disc ps-5">
+                {check.problems.map((m) => (
+                  <li key={m}>{m}</li>
+                ))}
+              </ul>
+              {check.ok && check.missing_topics.length > 0 && (
+                <div className="text-muted">
+                  برای {check.missing_topics.length} Topic شناسه ثبت نشده؛ «ساخت خودکار Topicها» را بزنید.
+                </div>
+              )}
+            </div>
+          )}
+          {made && (
+            <ul className="space-y-1 text-sm">
+              {made.map((x) => (
+                <li key={x.topic}>
+                  {x.status === 'failed' ? '❌' : x.status === 'created' ? '🆕' : '✔️'} {x.label}
+                  {x.status === 'failed' && x.error ? ` — ${x.error}` : ''}
+                </li>
+              ))}
+            </ul>
           )}
           {results && (
             <ul className="space-y-1 text-sm">

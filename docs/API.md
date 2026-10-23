@@ -35,7 +35,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 
 <!-- BEGIN GENERATED ROUTES (scripts/gen_docs.py) -->
 
-### `admin` (77)
+### `admin` (79)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -61,6 +61,8 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/api/v1/admin/event-center` | Admin Get |
 | PUT | `/api/v1/admin/event-center` | Admin Put |
 | DELETE | `/api/v1/admin/event-center` | Admin Delete |
+| POST | `/api/v1/admin/event-center/check` | Admin Check |
+| POST | `/api/v1/admin/event-center/provision` | Admin Provision |
 | POST | `/api/v1/admin/event-center/test` | Admin Test |
 | GET | `/api/v1/admin/feature-flags` | List Flags |
 | PUT | `/api/v1/admin/feature-flags/{key}` | Update Flag |
@@ -256,7 +258,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/api/v1/reports/payments` | Payment Totals |
 | GET | `/api/v1/reports/stores/{store_id}/sales` | Store Sales |
 
-### `reseller` (43)
+### `reseller` (45)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -285,6 +287,8 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/api/v1/stores/{store_id}/reseller/event-center` | Reseller Get |
 | PUT | `/api/v1/stores/{store_id}/reseller/event-center` | Reseller Put |
 | DELETE | `/api/v1/stores/{store_id}/reseller/event-center` | Reseller Delete |
+| POST | `/api/v1/stores/{store_id}/reseller/event-center/check` | Reseller Check |
+| POST | `/api/v1/stores/{store_id}/reseller/event-center/provision` | Reseller Provision |
 | POST | `/api/v1/stores/{store_id}/reseller/event-center/test` | Reseller Test |
 | GET | `/api/v1/stores/{store_id}/reseller/payment-config` | Get Payment Config |
 | PUT | `/api/v1/stores/{store_id}/reseller/payment-config/{provider}` | Put Payment Config |

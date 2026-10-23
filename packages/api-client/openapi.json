@@ -6621,6 +6621,54 @@
         ]
       }
     },
+    "/api/v1/admin/event-center/check": {
+      "post": {
+        "operationId": "admin_check_api_v1_admin_event_center_check_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Check",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/event-center/provision": {
+      "post": {
+        "operationId": "admin_provision_api_v1_admin_event_center_provision_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Provision",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/admin/event-center/test": {
       "post": {
         "operationId": "admin_test_api_v1_admin_event_center_test_post",
@@ -14631,6 +14679,98 @@
           }
         ],
         "summary": "Reseller Put",
+        "tags": [
+          "reseller"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/reseller/event-center/check": {
+      "post": {
+        "operationId": "reseller_check_api_v1_stores__store_id__reseller_event_center_check_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reseller Check",
+        "tags": [
+          "reseller"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/reseller/event-center/provision": {
+      "post": {
+        "operationId": "reseller_provision_api_v1_stores__store_id__reseller_event_center_provision_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reseller Provision",
         "tags": [
           "reseller"
         ]

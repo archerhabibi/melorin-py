@@ -9,9 +9,9 @@
 | Alembic head | `0031_event_center_health` |
 | Migrations | 31 |
 | ORM tables | 56 |
-| API operations | 225 |
-| API paths | 192 |
-| Test files / test functions (static count) | 143 / 1181 |
+| API operations | 229 |
+| API paths | 196 |
+| Test files / test functions (static count) | 143 / 1190 |
 | Coverage | not measured here (CI writes `apps/api/coverage.xml`; run `pytest --cov=melorin --cov-report=xml`) |
 | Documents: repo root / `docs/` / `docs/history/` (tests only) | 3 / 28 / 4 |
 

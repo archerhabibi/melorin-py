@@ -13,8 +13,8 @@
 7. **خطای دائمی** (400/403/404 تلگرام: ربات حذف شده، گروه نامعتبر) ثبت در `last_error` و بدون retry؛ خطای موقت (429/5xx/شبکه) با backoff Outbox دوباره تلاش می‌شود.
 
 ## API
-Admin: `GET/PUT/DELETE /admin/event-center`، `POST /admin/event-center/test`
-Reseller: `GET/PUT/DELETE /stores/{store_id}/reseller/event-center`، `POST …/test`
+Admin: `GET/PUT/DELETE /admin/event-center`، `POST /admin/event-center/test`، `POST …/check`، `POST …/provision`
+Reseller: `GET/PUT/DELETE /stores/{store_id}/reseller/event-center`، `POST …/test`، `POST …/check`، `POST …/provision`
 
 ## رویدادها
 | Topic | منبع |
@@ -32,3 +32,9 @@ Reseller: `GET/PUT/DELETE /stores/{store_id}/reseller/event-center`، `POST …/
 - «پنل unhealthy» اکنون قانون جدا دارد: `rules.notify_panel_health` در job سلامت پنل (هر ۵ دقیقه) و بررسی دستی ادمین فراخوانی می‌شود و **فقط هنگام تغییر وضعیت** (سالم به ناسالم، و بازگشت به سالم) به Topic «خطاها»ی گروه ادمین پیام می‌دهد؛ پنلی که ناسالم می‌ماند پیام تکراری نمی‌فرستد.
 - تیکت: فقط پیام خود مشتری اعلام می‌شود (رویداد `ticket.updated` شناسهٔ `message_id` را دارد)؛ تغییر وضعیت/اولویت، پاسخ پشتیبان و یادداشت داخلی ساکت‌اند.
 - باقی‌مانده: خطای ساخت اکانت (`provisioning.failed`) و شکست مکرر Outbox از قبل در Topic «خطاها» می‌آید؛ مورد دیگری باز نیست.
+
+## بررسی گروه و ساخت خودکار Topic (الهام از `syncReportTopics` در mirzabot)
+- **`check`** (فقط‌خواندنی): با `getMe` + `getChat` + `getChatMember` بررسی می‌کند گروه سوپرگروه باشد، ربات عضو/مجاز به ارسال باشد، Topics روشن باشد و ربات برای ساخت Topic دسترسی Manage Topics داشته باشد. خروجی: `problems` به فارسی + `missing_topics`.
+- **`provision`**: برای هر Topic که شناسه ندارد `createForumTopic` (با نام فارسی همان Topic) می‌زند و `message_thread_id` را ذخیره می‌کند. شناسه‌های موجود هرگز تغییر نمی‌کنند؛ اجرای دوباره Topic تکراری نمی‌سازد. بعد از ساخت هر Topic commit می‌شود، پس خطای وسط کار (دسترسی/۴۲۹) شناسه‌های ساخته‌شده را از دست نمی‌دهد و ردیف مقصد قفل (`FOR UPDATE`) است تا دوبار کلیک Topic دوبل نسازد. هر Topic ساخته‌شده در Audit (`event_center.topic_created`) ثبت می‌شود.
+- خطاهای تلگرام به پیام عملی تبدیل می‌شوند (`EVENT_CENTER_NOT_FORUM`، `…_NO_RIGHTS`، `…_CHAT_NOT_FOUND`، `…_BOT_REMOVED`، `…_BAD_TOKEN`، `…_TELEGRAM_UNAVAILABLE`).
+- ایزولیشن مثل ارسال: ادمین با ربات اصلی، نماینده فقط با ربات خودش.

@@ -256,6 +256,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/event-center/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin Check */
+        post: operations["admin_check_api_v1_admin_event_center_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/event-center/provision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin Provision */
+        post: operations["admin_provision_api_v1_admin_event_center_provision_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/event-center/test": {
         parameters: {
             query?: never;
@@ -2862,6 +2896,40 @@ export interface paths {
         post?: never;
         /** Reseller Delete */
         delete: operations["reseller_delete_api_v1_stores__store_id__reseller_event_center_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/reseller/event-center/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reseller Check */
+        post: operations["reseller_check_api_v1_stores__store_id__reseller_event_center_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/reseller/event-center/provision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reseller Provision */
+        post: operations["reseller_provision_api_v1_stores__store_id__reseller_event_center_provision_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -6082,6 +6150,46 @@ export interface operations {
         };
     };
     admin_delete_api_v1_admin_event_center_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    admin_check_api_v1_admin_event_center_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    admin_provision_api_v1_admin_event_center_provision_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -11149,6 +11257,68 @@ export interface operations {
         };
     };
     reseller_delete_api_v1_stores__store_id__reseller_event_center_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reseller_check_api_v1_stores__store_id__reseller_event_center_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reseller_provision_api_v1_stores__store_id__reseller_event_center_provision_post: {
         parameters: {
             query?: never;
             header?: never;

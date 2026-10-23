@@ -2,7 +2,7 @@
 // Core validates everything and does the sending; this screen only edits the settings, shows the connection health and
 // sends a real test message to every configured Topic.
 import { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, BellRing, CheckCircle2, Send, Trash2 } from 'lucide-react';
+import { AlertTriangle, BellRing, CheckCircle2, ListPlus, ScanSearch, Send, Trash2 } from 'lucide-react';
 import { authFetch } from './api.js';
 import { confirmDialog, dt } from './ui.jsx';
 import { ErrorBar, Field, Section, digits, errText } from './kit.jsx';
@@ -20,6 +20,8 @@ export default function EventCenterView({ api, toast }) {
   const [error, setError] = useState('');
   const [failed, setFailed] = useState(false);
   const [results, setResults] = useState(null);
+  const [check, setCheck] = useState(null);
+  const [made, setMade] = useState(null);
 
   const apply = (d) => {
     setData(d);
@@ -76,6 +78,24 @@ export default function EventCenterView({ api, toast }) {
       await load();
     });
 
+  const inspect = () =>
+    act('check', async () => {
+      const r = await call('/api/v1/admin/event-center/check', { method: 'POST', body: '{}' });
+      if (!r.ok) return setError(await errText(r, 'بررسی گروه ناموفق بود'));
+      setCheck(await r.json());
+    });
+
+  const provision = () =>
+    act('provision', async () => {
+      const r = await call('/api/v1/admin/event-center/provision', { method: 'POST', body: '{}' });
+      if (!r.ok) return setError(await errText(r, 'ساخت Topicها ناموفق بود'));
+      const d = await r.json();
+      setMade(d.results || []);
+      setCheck(null);
+      await load();
+      if (d.created) toast(`${d.created} Topic ساخته شد`);
+    });
+
   const remove = async () => {
     const ok = await confirmDialog('اتصال گروه حذف شود؟ از این پس هیچ رویدادی به تلگرام ارسال نمی‌شود.', {
       title: 'حذف گروه رویدادها',
@@ -125,7 +145,7 @@ export default function EventCenterView({ api, toast }) {
 
       <Section
         title="Topicها"
-        hint="شناسهٔ هر Topic را وارد کنید (عدد آخر لینک پیام داخل Topic). اگر خالی بماند، پیام در General گروه می‌آید."
+        hint="شناسهٔ هر Topic را وارد کنید (عدد آخر لینک پیام داخل Topic) یا بعد از ذخیرهٔ گروه، «ساخت خودکار Topicها» را بزنید (ربات باید ادمین با دسترسی Manage Topics باشد). اگر خالی بماند، پیام در General می‌آید."
       >
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {topics.map((t) => (
@@ -148,6 +168,12 @@ export default function EventCenterView({ api, toast }) {
           </button>
           <button className="btn btn-g" disabled={!data.configured || busy !== ''} onClick={test}>
             <Send size={15} /> {busy === 'test' ? 'در حال ارسال…' : 'ارسال پیام تست'}
+          </button>
+          <button className="btn btn-g" disabled={!data.configured || busy !== ''} onClick={inspect}>
+            <ScanSearch size={15} /> {busy === 'check' ? 'در حال بررسی…' : 'بررسی گروه'}
+          </button>
+          <button className="btn btn-g" disabled={!data.configured || busy !== ''} onClick={provision}>
+            <ListPlus size={15} /> {busy === 'provision' ? 'در حال ساخت…' : 'ساخت خودکار Topicها'}
           </button>
           {data.configured && (
             <button className="btn btn-g" disabled={busy !== ''} onClick={remove}>
@@ -172,6 +198,33 @@ export default function EventCenterView({ api, toast }) {
               <span className="badge b-mu">هنوز پیامی ارسال نشده</span>
             )}
           </div>
+          {check && (
+            <div className="space-y-1 text-sm">
+              <div className="font-bold">
+                {check.ok ? '✅' : '⚠️'} {check.title || 'گروه'} {check.bot_username ? `· @${check.bot_username}` : ''}
+              </div>
+              <ul className="list-disc ps-5">
+                {check.problems.map((m) => (
+                  <li key={m}>{m}</li>
+                ))}
+              </ul>
+              {check.ok && check.missing_topics.length > 0 && (
+                <div className="text-[var(--mu)]">
+                  برای {check.missing_topics.length} Topic شناسه ثبت نشده؛ «ساخت خودکار Topicها» را بزنید.
+                </div>
+              )}
+            </div>
+          )}
+          {made && (
+            <ul className="space-y-1 text-sm">
+              {made.map((x) => (
+                <li key={x.topic}>
+                  {x.status === 'failed' ? '❌' : x.status === 'created' ? '🆕' : '✔️'} {x.label}
+                  {x.status === 'failed' && x.error ? ` — ${x.error}` : ''}
+                </li>
+              ))}
+            </ul>
+          )}
           {results && (
             <ul className="space-y-1 text-sm">
               {results.map((x) => (
