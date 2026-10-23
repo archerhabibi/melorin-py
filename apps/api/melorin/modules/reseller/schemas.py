@@ -1,7 +1,9 @@
 import datetime as dt
 import uuid
 
-from pydantic import BaseModel, Field, HttpUrl, model_validator
+from typing import Annotated
+
+from pydantic import BaseModel, Field, HttpUrl, StringConstraints, model_validator
 
 from melorin.modules.catalog.schemas import RenewalOut
 
@@ -11,7 +13,9 @@ class ApplicationIn(BaseModel):
     (Telegram: request first, details are collected after the admin approves)."""
 
     store_name: str = Field(min_length=2, max_length=200)
-    message: str | None = Field(default=None, max_length=2000)
+    message: Annotated[str, StringConstraints(strip_whitespace=True, min_length=20, max_length=2000)] = Field(
+        description="required: why the applicant wants a reseller store (min 20 characters)"
+    )
     target_store_id: uuid.UUID | None = None
     domain: str | None = Field(
         default=None, min_length=4, max_length=255, description="store hostname, e.g. shop.example.com (scheme/path are stripped)"

@@ -106,6 +106,11 @@ async def review_application(application_id: uuid.UUID, body: ResellerApproval, 
         token_enc, a.bot_token_enc = a.bot_token_enc, None  # the secret moves to the Store (approve) or is dropped (reject)
         if body.approve:
             await create_reseller_store(session, a, target, token_enc=token_enc, debt_limit=body.debt_limit)
+    from melorin.modules.reseller import onboarding
+
+    await onboarding.complete_review_task(session, a, admin.id)
+    if a.store_id:  # store exists now: the domain-dependent manual tasks (DNS, Google, Telegram) start here
+        await onboarding.ensure_admin_tasks(session, a)
     audit.record(
         session,
         "reseller.application_reviewed",
@@ -124,10 +129,10 @@ async def review_application(application_id: uuid.UUID, body: ResellerApproval, 
     if a.status == "awaiting_details":
         title, text = (
             "✅ درخواست نمایندگی شما تأیید شد",
-            f"«{a.store_name}»: برای ادامه در ربات دستور /reseller را بزنید و دامنه و توکن رباتِ فروشگاه را بفرستید.",
+            f"«{a.store_name}»: برای ادامه در ربات دستور /reseller را بزنید و دامنه و توکن رباتِ فروشگاه را بفرستید.\n\nکارهای شما:\n{onboarding.steps_text('awaiting_details')}",
         )
     elif a.status == "approved":
-        title, text = "✅ درخواست نمایندگی شما تأیید شد", f"فروشگاه «{a.store_name}» ساخته شد. از «پنل نماینده» تنظیمات را ادامه دهید."
+        title, text = "✅ درخواست نمایندگی شما تأیید شد", f"فروشگاه «{a.store_name}» ساخته شد. از «پنل نماینده» تنظیمات را ادامه دهید.\n\nکارهای بعدی شما:\n{onboarding.steps_text('approved', domain=a.domain)}"
     else:
         title, text = "❌ درخواست نمایندگی شما رد شد", f"«{a.store_name}»: {reason}"
     await events.emit(

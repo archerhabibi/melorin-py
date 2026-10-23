@@ -18,6 +18,7 @@ from melorin.modules.admin.payments import router as payments_router
 from melorin.modules.admin.orders import router as orders_router
 from melorin.modules.admin.directory import router as directory_router
 from melorin.modules.admin.tickets import router as tickets_router
+from melorin.modules.admin.manual_tasks import router as manual_tasks_router
 from melorin.modules.admin.reseller_applications import router as reseller_applications_router
 from melorin.modules.admin.settings import router as settings_router
 from melorin.modules.admin.coupons import router as coupons_router
@@ -38,6 +39,7 @@ for _family in (
     directory_router,
     tickets_router,
     reseller_applications_router,
+    manual_tasks_router,
     settings_router,
     coupons_router,
     identity_reviews_router,
@@ -57,6 +59,7 @@ _FAMILIES = (
     "directory",
     "tickets",
     "reseller_applications",
+    "manual_tasks",
     "settings",
     "coupons",
     "identity_reviews",
