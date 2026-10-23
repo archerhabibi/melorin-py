@@ -51,14 +51,11 @@ class TelegramChannel:
                 raise RuntimeError(data.get("description", "Telegram API request failed"))
             return data
 
-    async def send_to_topic(self, chat_id: int | str, text: str, *, thread_id: int | None = None) -> dict[str, Any]:
-        """Plain-text message into a group, optionally into one forum topic. Raises :class:`TelegramApiError`."""
-        payload: dict[str, Any] = {"chat_id": chat_id, "text": text, "disable_web_page_preview": True}
-        if thread_id:
-            payload["message_thread_id"] = int(thread_id)
+    async def call(self, method: str, payload: dict[str, Any]) -> dict[str, Any]:
+        """One Bot API call that raises :class:`TelegramApiError` (with ``retry_after``) instead of a bare RuntimeError."""
         try:
             async with httpx.AsyncClient(base_url=f"https://api.telegram.org/bot{self.token}", timeout=self.timeout) as client:
-                response = await client.post("/sendMessage", json=payload)
+                response = await client.post(f"/{method}", json=payload)
         except httpx.HTTPError as exc:  # network / timeout: transient
             raise TelegramApiError(599, type(exc).__name__) from exc
         try:
@@ -73,6 +70,27 @@ class TelegramChannel:
                 params.get("retry_after"),
             )
         return data
+
+    async def send_to_topic(self, chat_id: int | str, text: str, *, thread_id: int | None = None) -> dict[str, Any]:
+        """Plain-text message into a group, optionally into one forum topic. Raises :class:`TelegramApiError`."""
+        payload: dict[str, Any] = {"chat_id": chat_id, "text": text, "disable_web_page_preview": True}
+        if thread_id:
+            payload["message_thread_id"] = int(thread_id)
+        return await self.call("sendMessage", payload)
+
+    async def get_me(self) -> dict[str, Any]:
+        return (await self.call("getMe", {})).get("result") or {}
+
+    async def get_chat(self, chat_id: int | str) -> dict[str, Any]:
+        return (await self.call("getChat", {"chat_id": chat_id})).get("result") or {}
+
+    async def get_chat_member(self, chat_id: int | str, user_id: int) -> dict[str, Any]:
+        return (await self.call("getChatMember", {"chat_id": chat_id, "user_id": user_id})).get("result") or {}
+
+    async def create_forum_topic(self, chat_id: int | str, name: str) -> int:
+        """Create a forum topic and return its ``message_thread_id``."""
+        result = (await self.call("createForumTopic", {"chat_id": chat_id, "name": name[:128]})).get("result") or {}
+        return int(result["message_thread_id"])
 
     async def send_message(self, chat_id: int | str, text: str, **kwargs: Any) -> dict[str, Any]:
         return await self.telegram("sendMessage", {"chat_id": chat_id, "text": text, **kwargs})
