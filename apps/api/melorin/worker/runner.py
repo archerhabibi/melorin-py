@@ -152,6 +152,22 @@ _TOPIC_HANDLERS = {
 }
 
 
+OUTBOX_MAX_BACKOFF = 1800  # seconds
+OUTBOX_MAX_RETRY_AFTER = 3600  # a Telegram flood-wait longer than this is not waited out in one step
+
+
+def _retry_delay(attempts: int, exc: Exception) -> int:
+    """Seconds before the next outbox attempt: exponential backoff, but never sooner than Telegram's ``retry_after``.
+
+    A 429 answer tells exactly how long the bot must wait; retrying earlier only extends the flood-wait.
+    """
+    delay = min(OUTBOX_MAX_BACKOFF, 2 ** min(attempts, 8))
+    retry_after = getattr(exc, "retry_after", None)
+    if isinstance(retry_after, int) and retry_after > 0:
+        delay = max(delay, min(OUTBOX_MAX_RETRY_AFTER, retry_after + 1))
+    return delay
+
+
 async def process_event(e: OutboxEvent):
     event_id = e.id
     async with session_factory()() as session:
@@ -176,7 +192,7 @@ async def process_event(e: OutboxEvent):
             failed = await session.get(OutboxEvent, event_id, with_for_update=True)
             if failed is not None and failed.status == "processing":
                 failed.status, failed.attempts, failed.last_error = "pending", failed.attempts + 1, str(ex)
-                failed.available_at = utcnow() + dt.timedelta(seconds=min(1800, 2 ** min(failed.attempts, 8)))
+                failed.available_at = utcnow() + dt.timedelta(seconds=_retry_delay(failed.attempts, ex))
                 from melorin.modules.eventcenter import rules as event_center_rules
 
                 await event_center_rules.report_outbox_failure(session, failed)

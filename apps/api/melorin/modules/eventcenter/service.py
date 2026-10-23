@@ -160,15 +160,21 @@ def _clip(text: str) -> str:
     return text if len(text) <= TEXT_MAX else text[: TEXT_MAX - 1] + "…"
 
 
+def _plain(text: str) -> str:
+    """Customer-written text (ticket subject, error detail) must not ping people in the group: ``@name`` is broken with a
+    zero-width space so Telegram no longer treats it as a mention."""
+    return text.replace("@", "@\u200b")
+
+
 async def _send(token: str, dest: TelegramEventDestination, topic: str, text: str) -> None:
     """One send into the topic. A topic deleted in Telegram falls back once to the group's General."""
     channel = TelegramChannel(token, get_settings().store_web_url or "https://core.invalid", "main")
     thread = (dest.topics or {}).get(topic)
     try:
-        await channel.send_to_topic(dest.chat_id, _clip(text), thread_id=thread)
+        await channel.send_to_topic(dest.chat_id, _clip(_plain(text)), thread_id=thread)
     except TelegramApiError as exc:
         if thread and exc.code == 400 and "thread" in exc.description.lower():
-            await channel.send_to_topic(dest.chat_id, _clip(text), thread_id=None)
+            await channel.send_to_topic(dest.chat_id, _clip(_plain(text)), thread_id=None)
             return
         raise
 

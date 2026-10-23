@@ -295,3 +295,32 @@ async def test_panel_health_notice_only_on_state_change():
         assert len(texts) == 2 and "Panel-A" in texts[0] and "timeout" in texts[0] and "دوباره سالم" in texts[1]
         e = (await s.scalars(select(OutboxEvent).where(OutboxEvent.topic == events.EVENT_CENTER))).first()
         assert e.payload["topic"] == "errors" and e.payload["store_id"] is None
+
+
+async def test_customer_text_cannot_ping_people_in_the_group(monkeypatch):
+    seen = []
+
+    async def fake_send_to_topic(self, chat_id, text, *, thread_id=None):
+        seen.append(text)
+        return {"ok": True}
+
+    monkeypatch.setattr(service.TelegramChannel, "send_to_topic", fake_send_to_topic)
+    async with open_session() as s:
+        _, _, reseller = await _world(s)
+        dest = await service.get_destination(s, reseller.id)
+        await service._send("tok-r", dest, "tickets", "🎫 تیکت جدید\nموضوع: سلام @admin_boss و @everyone")
+    assert len(seen) == 1
+    assert "@admin_boss" not in seen[0] and "@everyone" not in seen[0]
+    assert seen[0].count("@\u200b") == 2
+
+
+def test_outbox_backoff_never_retries_before_telegram_retry_after():
+    from melorin.worker.runner import OUTBOX_MAX_RETRY_AFTER, _retry_delay
+
+    assert _retry_delay(1, RuntimeError("x")) == 2  # plain exponential backoff is unchanged
+    assert _retry_delay(20, RuntimeError("x")) == 256  # same cap as before: 2**8
+    flood = TelegramApiError(429, "Too Many Requests", 90)
+    assert _retry_delay(1, flood) == 91  # waits out the flood-wait, not the short backoff
+    assert _retry_delay(8, TelegramApiError(429, "Too Many Requests", 5)) == 256  # a longer backoff still wins
+    assert _retry_delay(1, TelegramApiError(429, "Too Many Requests", 999999)) == OUTBOX_MAX_RETRY_AFTER
+    assert _retry_delay(1, TelegramApiError(500, "oops")) == 2  # no retry_after -> normal backoff
