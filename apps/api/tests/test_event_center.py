@@ -15,6 +15,7 @@ from melorin.kernel.models.system import OutboxEvent
 from melorin.kernel.models.tickets import Ticket, TicketMessage
 from melorin.kernel.models.vpn import Panel
 from melorin.modules.eventcenter import rules, service
+from melorin.modules.eventcenter.topics import topics_for
 
 GROUP = "-1001234567890"
 
@@ -380,7 +381,13 @@ async def test_check_reports_ok_and_missing_topics(fake_channel):
         _, _, reseller = await _world(s)
         res = await service.inspect(s, store=reseller)
         assert res["ok"] and res["is_forum"] and res["can_manage_topics"] and res["bot_username"] == "shop_bot"
-        assert set(res["missing_topics"]) == {"debt", "tickets", "errors"}
+        assert set(res["missing_topics"]) == {
+            "debt",
+            "tickets",
+            "errors",
+            "daily",
+            "tests",
+        }  # platform-only topics are not asked of a reseller
         assert ch.created == []  # check never changes anything
 
 
@@ -402,12 +409,12 @@ async def test_provision_creates_only_missing_topics_and_keeps_existing_ids(fake
     async with open_session() as s:
         _, _, reseller = await _world(s)
         res = await service.provision_topics(s, store=reseller, actor_id=uuid.uuid4())
-        assert res["created"] == 3 and len(ch.created) == 3
+        assert res["created"] == 5 and len(ch.created) == 5
         dest = await service.get_destination(s, reseller.id)
         assert dest.topics["payments"] == 11 and dest.topics["orders"] == 12  # untouched
-        assert set(dest.topics) == set(service.TOPICS) and all(isinstance(v, int) for v in dest.topics.values())
+        assert set(dest.topics) == set(topics_for(False)) and all(isinstance(v, int) for v in dest.topics.values())
         again = await service.provision_topics(s, store=reseller, actor_id=uuid.uuid4())
-        assert again["created"] == 0 and len(ch.created) == 3  # idempotent: no duplicate topics
+        assert again["created"] == 0 and len(ch.created) == 5  # idempotent: no duplicate topics
 
 
 async def test_provision_recreates_a_topic_that_was_deleted_in_the_group(fake_channel):
@@ -465,7 +472,7 @@ async def test_provision_keeps_progress_when_a_topic_fails_midway(fake_channel):
         assert "debt" in dest.topics and "tickets" not in dest.topics and dest.last_error.startswith("400")
         ch.fail_on = None  # the owner fixes the right and retries: only the rest is created
         res2 = await service.provision_topics(s, store=reseller, actor_id=uuid.uuid4())
-        assert res2["created"] == 2 and ch.created.count(service.TOPICS["debt"]) == 1
+        assert res2["created"] == 4 and ch.created.count(service.TOPICS["debt"]) == 1  # tickets, errors, daily, tests
 
 
 async def test_check_and_provision_need_a_configured_group(fake_channel):

@@ -20,7 +20,7 @@ async def _main_store(session) -> Store | None:
 async def _read(session, store: Store | None) -> dict:
     owner = store if store is not None and store.kind == "reseller" else None
     dest = await service.get_destination(session, owner.id if owner else None)
-    return service.view(dest, bot_ready=await service.bot_ready(session, owner))
+    return service.view(dest, bot_ready=await service.bot_ready(session, owner), admin=owner is None)
 
 
 async def _save(session, store: Store | None, actor_id, body: EventCenterIn) -> dict:

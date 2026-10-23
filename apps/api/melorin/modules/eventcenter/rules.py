@@ -43,10 +43,14 @@ async def _order(session, p: dict) -> Order | None:
     return await session.get(Order, oid) if oid else None
 
 
-async def _order_rule(session, label: str, p: dict) -> tuple[uuid.UUID | None, str, str] | None:
+async def _order_rule(session, label: str, p: dict, *, test_text: str | None = None) -> tuple[uuid.UUID | None, str, str] | None:
+    """A test order is free and has no sale to report: it is announced only when it completes, in the test-accounts topic
+    (``test_text``); every other test-order event stays silent. Real orders go to the orders topic."""
     order = await _order(session, p)
     if order is None:
         return None
+    if order.kind == "test":
+        return (order.store_id, topics.TESTS, f"{test_text}\nسفارش: {order.number}") if test_text else None
     return order.store_id, topics.ORDERS, f"{label}\nسفارش: {order.number}\nمبلغ: {_money(order.total, order.currency)}"
 
 
@@ -55,7 +59,7 @@ async def _paid(session, e, p):
 
 
 async def _completed(session, e, p):
-    return await _order_rule(session, "✅ سفارش تکمیل شد", p)
+    return await _order_rule(session, "✅ سفارش تکمیل شد", p, test_text="🧪 اکانت تست ساخته شد")
 
 
 async def _refunded(session, e, p):
@@ -187,3 +191,33 @@ async def notify_panel_health(session, panel, previous: str | None) -> None:
             await events.emit(session, events.EVENT_CENTER, {"store_id": None, "topic": topics.ERRORS, "text": text})
     except Exception:
         log.exception("event-center panel health notice failed panel=%s", panel.id)
+
+
+def _size(n: int | None) -> str:
+    if not n:
+        return "نامشخص"
+    return f"{n / 1024 / 1024:.1f} MB" if n >= 1024 * 1024 else f"{max(1, n // 1024)} KB"
+
+
+def backup_text(status: str, size: int | None, details: str | None) -> str:
+    """The admin-facing text of one backup run. The server path is never included; error detail is clipped."""
+    if status == "succeeded":
+        where = "کپی روی S3 هم انجام شد" if "copied to S3" in (details or "") else "فقط روی سرور (ارسال به S3 غیرفعال است)"
+        return f"💾 پشتیبان‌گیری موفق بود\nحجم: {_size(size)}\n{where}"
+    if status == "partial":
+        return f"🟠 پشتیبان محلی ساخته شد ولی ارسال به S3 ناموفق بود\nحجم: {_size(size)}\nخطا: {str(details or '')[-250:]}"
+    return f"🔴 پشتیبان‌گیری ناموفق بود\nخطا: {str(details or 'نامشخص')[:250]}"
+
+
+async def notify_backup(session, run) -> None:
+    """Tell the admin's backup topic how a backup run ended (once per run). Best-effort: a failed notice never fails the backup."""
+    try:
+        async with session.begin_nested():
+            await events.emit(
+                session,
+                events.EVENT_CENTER,
+                {"store_id": None, "topic": topics.BACKUP, "text": backup_text(run.status, run.size, run.details)},
+                dedup_key=f"ec:backup:{run.id}",
+            )
+    except Exception:
+        log.exception("event-center backup notice failed run=%s", getattr(run, "id", None))

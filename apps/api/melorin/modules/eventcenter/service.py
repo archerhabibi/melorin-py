@@ -26,7 +26,7 @@ from melorin.core.db import utcnow
 from melorin.core.errors import AppError
 from melorin.kernel.models.notifications import TelegramEventDestination
 from melorin.kernel.models.stores import Store
-from melorin.modules.eventcenter.topics import ADMIN_COPY_TOPICS, TOPICS
+from melorin.modules.eventcenter.topics import ADMIN_COPY_TOPICS, ADMIN_ONLY_TOPICS, TOPICS, topics_for
 
 CHAT_ID = re.compile(r"^-100[0-9]{5,15}$")
 MAX_THREAD_ID = 2**31 - 1
@@ -45,24 +45,27 @@ def parse_chat_id(raw: object) -> str:
     return value
 
 
-def parse_topics(raw: object) -> dict[str, int]:
-    """Keep only known topics with a positive integer thread id; an empty value means 'use General'."""
+def parse_topics(raw: object, allowed: dict[str, str] | None = None) -> dict[str, int]:
+    """Keep only known topics with a positive integer thread id; an empty value means 'use General'.
+
+    ``allowed`` is the topic set of this kind of destination (a reseller has no platform-only topics such as the backup)."""
+    allowed = TOPICS if allowed is None else allowed
     if raw in (None, ""):
         return {}
     if not isinstance(raw, dict):
         raise AppError("INVALID_TOPICS", "قالب Topicها نامعتبر است.", 422)
     out: dict[str, int] = {}
     for key, value in raw.items():
-        if key not in TOPICS:
+        if key not in allowed:
             raise AppError("INVALID_TOPICS", f"Topic ناشناخته: {key}", 422)
         if value in (None, ""):
             continue
         try:
             n = int(value)
         except (TypeError, ValueError):
-            raise AppError("INVALID_TOPICS", f"شناسهٔ Topic «{TOPICS[key]}» باید عدد باشد.", 422) from None
+            raise AppError("INVALID_TOPICS", f"شناسهٔ Topic «{allowed[key]}» باید عدد باشد.", 422) from None
         if not 1 <= n <= MAX_THREAD_ID:
-            raise AppError("INVALID_TOPICS", f"شناسهٔ Topic «{TOPICS[key]}» نامعتبر است.", 422)
+            raise AppError("INVALID_TOPICS", f"شناسهٔ Topic «{allowed[key]}» نامعتبر است.", 422)
         out[key] = n
     return out
 
@@ -72,8 +75,10 @@ async def get_destination(session: AsyncSession, store_id: uuid.UUID | None) -> 
     return await session.scalar(select(TelegramEventDestination).where(cond))
 
 
-def view(dest: TelegramEventDestination | None, *, bot_ready: bool) -> dict:
-    topics = [{"key": k, "label": label, "thread_id": ((dest.topics or {}).get(k) if dest else None)} for k, label in TOPICS.items()]
+def view(dest: TelegramEventDestination | None, *, bot_ready: bool, admin: bool = True) -> dict:
+    topics = [
+        {"key": k, "label": label, "thread_id": ((dest.topics or {}).get(k) if dest else None)} for k, label in topics_for(admin).items()
+    ]
     return {
         "configured": dest is not None,
         "bot_ready": bot_ready,
@@ -111,7 +116,7 @@ async def save(
     """Create or replace the destination. The caller commits."""
     if store is not None and store.kind == "reseller" and not store.bot_token_enc:
         raise AppError("EVENT_CENTER_NO_BOT", "ابتدا ربات فروشگاه را متصل کنید؛ پیام‌ها فقط با ربات خود نماینده ارسال می‌شود.", 409)
-    cid, tps = parse_chat_id(chat_id), parse_topics(topics)
+    cid, tps = parse_chat_id(chat_id), parse_topics(topics, topics_for(not (store is not None and store.kind == "reseller")))
     dest = await get_destination(session, store.id if store is not None and store.kind == "reseller" else None)
     owner_id = store.id if store is not None and store.kind == "reseller" else None
     before = None
@@ -198,10 +203,11 @@ async def send_test(session: AsyncSession, *, store: Store | None) -> list[dict]
     token = _store_token(store)
     if not token:
         raise AppError("EVENT_CENTER_NO_BOT", "ربات این گروه متصل نیست.", 409)
-    topics = [k for k in TOPICS if (dest.topics or {}).get(k)] or [""]
+    mine = topics_for(owner_id is None)
+    topics = [k for k in mine if (dest.topics or {}).get(k)] or [""]
     results: list[dict] = []
     for key in topics:
-        label = TOPICS.get(key, "General")
+        label = mine.get(key, "General")
         try:
             await _send(token, dest, key, f"✅ تست مرکز رویداد ملورین\nتاپیک: {label}")
             _record_ok(dest)
@@ -285,7 +291,7 @@ async def inspect(session: AsyncSession, *, store: Store | None) -> dict:
         info = await _probe(token, dest.chat_id)
     except TelegramApiError as exc:
         raise tg_error(exc) from exc
-    configured = {k: bool((dest.topics or {}).get(k)) for k in TOPICS}
+    configured = {k: bool((dest.topics or {}).get(k)) for k in topics_for(dest.store_id is None)}
     problems = _problems(info)
     return {
         **info,
@@ -335,7 +341,7 @@ async def provision_topics(session: AsyncSession, *, store: Store | None, actor_
         raise AppError("EVENT_CENTER_NO_RIGHTS", "ربات باید ادمین گروه با دسترسی «Manage Topics» باشد.", 409)
     channel = _channel(token)
     results: list[dict] = []
-    for key, label in TOPICS.items():
+    for key, label in topics_for(owner_id is None).items():
         old = (dest.topics or {}).get(key)
         try:
             if old and await _topic_exists(channel, dest.chat_id, int(old)):
@@ -388,7 +394,8 @@ async def publish(
     queued = 0
     targets: list[tuple[uuid.UUID | None, str]] = []
     if store is not None and store.kind == "reseller":
-        targets.append((store.id, text))
+        if topic not in ADMIN_ONLY_TOPICS:  # a platform-level topic (backup) never reaches a reseller's group
+            targets.append((store.id, text))
         if topic in ADMIN_COPY_TOPICS:
             targets.append((None, f"[{store.name}] {text}"))
     else:

@@ -17,6 +17,7 @@ from melorin.kernel.models.identity import User
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.referral import Commission, CommissionClawback, CommissionRule, ReferralRelationship
 from melorin.kernel.models.stores import Store
+from melorin.modules.eventcenter import topics as ec_topics
 from melorin.modules.wallet import service as wallet
 
 
@@ -31,6 +32,12 @@ async def attach(session: AsyncSession, store_id: uuid.UUID, referred: User, ref
     if exists:
         return
     session.add(ReferralRelationship(store_id=store_id, referrer_user_id=referrer.id, referred_user_id=referred.id))
+    await events.emit(
+        session,
+        events.EVENT_CENTER,
+        {"store_id": store_id, "topic": ec_topics.AFFILIATE, "text": "👥 معرف جدید ثبت شد\nیک کاربر با لینک معرفی ثبت‌نام کرد."},
+        dedup_key=f"ec:affiliate:attach:{referred.id}",
+    )
 
 
 async def _plan(session: AsyncSession, order: Order, kind: str) -> Plan | None:
@@ -147,6 +154,16 @@ async def on_order_completed(session: AsyncSession, order_id: uuid.UUID) -> None
         },
         dedup_key=f"notify:referral:{order.id}:{kind}",
     )
+    head = "🎁 پاداش اولین خرید معرف" if kind == "signup_reward" else "🤝 کمیسیون معرف"
+    text = f"{head}\nسفارش: {order.number}\nمبلغ: {gross:,} {order.currency}"
+    if recovered:
+        text += f"\nکسر بدهی قبلی معرف: {recovered:,}"
+    await events.emit(
+        session,
+        events.EVENT_CENTER,
+        {"store_id": order.store_id, "topic": ec_topics.AFFILIATE, "text": text},
+        dedup_key=f"ec:affiliate:{order.id}:{kind}",
+    )
 
 
 async def on_order_refunded(session: AsyncSession, order_id: uuid.UUID) -> None:
@@ -188,3 +205,13 @@ async def on_order_refunded(session: AsyncSession, order_id: uuid.UUID) -> None:
                 claw.outstanding += outstanding
             c.reversed_amount = take + outstanding
             c.status = "reversed"
+            order = await session.get(Order, order_id)
+            text = f"↩️ کمیسیون معرف به‌دلیل استرداد برگشت خورد\nسفارش: {order.number if order else '-'}\nبرگشت‌شده: {take:,} {c.currency or ''}".rstrip()
+            if outstanding:
+                text += f"\nبدهی باقی‌مانده معرف: {outstanding:,}"
+            await events.emit(
+                session,
+                events.EVENT_CENTER,
+                {"store_id": c.store_id, "topic": ec_topics.AFFILIATE, "text": text},
+                dedup_key=f"ec:affiliate:reversal:{c.id}",
+            )

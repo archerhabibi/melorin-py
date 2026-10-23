@@ -13,6 +13,7 @@ from melorin.core import events, integrations, settings_store
 from melorin.core.db import session_factory, utcnow
 from melorin.kernel.models.identity import VerificationCode
 from melorin.kernel.models.system import BackupRun
+from melorin.modules.eventcenter import report as event_center_report
 from melorin.modules.eventcenter import rules as event_center_rules
 from melorin.modules.vpn import service
 from melorin.kernel.models.vpn import Panel, VpnAccount
@@ -68,11 +69,22 @@ async def backup_job(ctx=None):
     except Exception as exc:
         details = str(exc)[:2000]
     async with session_factory()() as session:
-        session.add(BackupRun(status=status, location=location, size=size, details=details, created_at=started))
+        run = BackupRun(status=status, location=location, size=size, details=details, created_at=started)
+        session.add(run)
+        await session.flush()  # the run id is the dedup key of its Event Center notice
+        await event_center_rules.notify_backup(session, run)
         await session.commit()
     if status != "succeeded":
         log.error("backup %s: %s", status, details)
     return status
+
+
+async def daily_report_job(ctx=None):
+    """Queue the Event Center nightly summary (one per group). Safe to run twice: the report is deduplicated per Tehran day."""
+    async with session_factory()() as session:
+        queued = await event_center_report.run(session)
+        await session.commit()
+    return queued
 
 
 async def panel_health_job(ctx=None):

@@ -130,7 +130,8 @@ export default function ResellerEventCenter({ coreFetch, base, notify }) {
         </h3>
         <p className="text-sm leading-7 text-muted">
           یک سوپرگروه با قابلیت Topics بسازید و ربات فروشگاه خودتان را ادمین گروه کنید. پرداخت‌ها، سفارش‌ها، بدهی،
-          تیکت‌ها و خطاهای فروشگاه شما در Topic مربوطه می‌آید. فقط رویدادهای فروشگاه شما ارسال می‌شود.
+          تیکت‌ها، خطاها و اکانت‌های تست فروشگاه شما در Topic مربوطه می‌آید و هر شب ساعت ۰۰:۰۰ (وقت تهران) یک «گزارش
+          شبانه» از ۲۴ ساعت گذشته می‌رسد. فقط رویدادهای فروشگاه شما ارسال می‌شود.
         </p>
         {!data.bot_ready && (
           <p className={`${chip} bg-danger-soft text-danger`}>

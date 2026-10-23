@@ -16,6 +16,7 @@ from melorin.core.db import session_factory
 from melorin.worker.runner import claim_batch, claim_webhook_batch, process_event, process_webhook
 from melorin.worker.jobs import (
     backup_job,
+    daily_report_job,
     expiry_job,
     near_expiry_job,
     panel_health_job,
@@ -51,6 +52,7 @@ class WorkerSettings:
     functions = [
         poll_tick,
         backup_job,
+        daily_report_job,
         panel_health_job,
         expiry_job,
         near_expiry_job,
@@ -61,6 +63,8 @@ class WorkerSettings:
     cron_jobs = [
         cron(poll_tick, second=set(range(0, 60, 2)), unique=True),
         cron(backup_job, hour=2, minute=0, unique=True, timeout=900),
+        # 20:30 UTC = 00:00 Tehran: the nightly Event Center report of the day that just ended.
+        cron(daily_report_job, hour=20, minute=30, unique=True),
         cron(panel_health_job, minute=set(range(0, 60, 5)), unique=True),
         cron(expiry_job, minute=set(range(0, 60, 5)), unique=True),
         cron(near_expiry_job, minute=set(range(0, 60, 15)), unique=True),
