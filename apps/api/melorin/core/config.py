@@ -155,6 +155,8 @@ class Settings(BaseSettings):
     bootstrap_admin_email: str | None = None
     bootstrap_admin_password: str | None = None
     bootstrap_admin_totp_secret: str | None = None
+    # Numeric Telegram ID of the main admin (asked by the installer): admin alerts are delivered to it by the main bot.
+    bootstrap_admin_telegram_id: str | None = None
     seed_demo_data: bool = False
 
     worker_poll_interval: float = 2.0

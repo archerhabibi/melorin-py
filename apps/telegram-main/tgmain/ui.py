@@ -35,6 +35,13 @@ BOT_COMMANDS = [
     ("help", "راهنما"),
 ]
 
+# Shown when the main admin's own Telegram account opens the bot: it is the address of the admin alerts, not a customer account.
+ADMIN_NOTICE = (
+    "👋 سلام مدیر عزیز\n"
+    "✅ اعلان‌های مدیریتی (خطای ساخت اکانت، درخواست نمایندگی جدید، کارهای دستیِ نماینده‌ها و …) از همین ربات به همین چت ارسال می‌شود.\n\n"
+    "مدیریت فروشگاه فقط از پنل مدیریت انجام می‌شود؛ این ربات مخصوص مشتریان است."
+)
+
 # Core error codes of the reseller details step that mean "send the domain again" / "send the token again".
 RESELLER_DOMAIN_ERRORS = {"INVALID_DOMAIN", "DOMAIN_RESERVED", "DOMAIN_TAKEN", "IDENTITY_TAKEN"}
 

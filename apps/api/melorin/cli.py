@@ -14,7 +14,8 @@ from melorin.core.config import get_settings
 from melorin.core.db import session_factory
 from melorin.core.security import hash_password
 from melorin.core.crypto import encrypt
-from melorin.core import settings_store
+from melorin.core import admin_telegram, settings_store
+from melorin.core.errors import AppError
 from melorin import models  # noqa: F401
 from melorin.kernel.models.catalog import Product, StoreProduct
 from melorin.kernel.models.identity import Identity, User
@@ -61,6 +62,15 @@ async def bootstrap() -> None:
         if await session.scalar(select(Identity).where(Identity.provider == "email", Identity.subject == email)) is None:
             session.add(Identity(user_id=user.id, provider="email", subject=email, verified_at=dt.datetime.now(dt.timezone.utc)))
 
+        tg_note = ""
+        tg_raw = (getattr(settings, "bootstrap_admin_telegram_id", None) or "").strip()
+        if tg_raw:
+            try:
+                tg_note = f" telegram_id={await admin_telegram.link(session, user, tg_raw)}"
+            except AppError as exc:
+                # A wrong or already-used ID must not stop the first install: the admin can set it later (Admin panel or CLI).
+                print(f"warning: the admin Telegram ID was not linked: {exc.message}")
+
         store = await session.scalar(select(Store).where(Store.kind == "main"))
         if store is None:
             store = Store(kind="main", name="Melorin Main Store", slug="main", currency=settings.default_currency, status="active")
@@ -102,7 +112,7 @@ async def bootstrap() -> None:
             if link is None:
                 session.add(StoreProduct(store_id=store.id, product_id=product.id, is_enabled=True, is_listed=False))
         await session.commit()
-        print(f"bootstrap complete: admin={email} main_store={store.slug} demo_seeded={settings.seed_demo_data}")
+        print(f"bootstrap complete: admin={email} main_store={store.slug} demo_seeded={settings.seed_demo_data}{tg_note}")
 
 
 async def outbox_replay(event_id: str) -> None:
@@ -163,6 +173,20 @@ async def reset_admin_password(email: str) -> None:
         print(f"admin password reset for {user.email}; existing TOTP remains unchanged")
 
 
+async def set_admin_telegram(email: str, telegram_id: str) -> None:
+    """Menu / break-glass: (re)link the numeric Telegram ID that receives the admin alerts."""
+    async with session_factory()() as session:
+        user = await session.scalar(select(User).where(User.email == email.strip().lower(), User.is_super_admin.is_(True)))
+        if not user:
+            raise SystemExit("super-admin not found")
+        try:
+            tg = await admin_telegram.link(session, user, telegram_id)
+        except AppError as exc:
+            raise SystemExit(exc.message) from exc
+        await session.commit()
+        print(f"admin Telegram ID set for {user.email}: {tg}")
+
+
 async def disable_admin_ip_allowlist() -> None:
     """Break-glass: turn the admin IP allowlist off if an admin locked themselves out."""
     from melorin.core import integrations
@@ -176,9 +200,18 @@ async def disable_admin_ip_allowlist() -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m melorin.cli")
     parser.add_argument(
-        "command", choices=("bootstrap", "outbox-replay", "rotate-encryption-key", "reset-admin-password", "disable-admin-ip-allowlist")
+        "command",
+        choices=(
+            "bootstrap",
+            "outbox-replay",
+            "rotate-encryption-key",
+            "reset-admin-password",
+            "disable-admin-ip-allowlist",
+            "set-admin-telegram",
+        ),
     )
     parser.add_argument("value", nargs="?")
+    parser.add_argument("extra", nargs="?")
     args = parser.parse_args()
     if args.command == "bootstrap":
         asyncio.run(bootstrap())
@@ -192,6 +225,10 @@ def main() -> None:
         asyncio.run(rotate_encryption_key(args.value))
     elif args.command == "disable-admin-ip-allowlist":
         asyncio.run(disable_admin_ip_allowlist())
+    elif args.command == "set-admin-telegram":
+        if not args.value or not args.extra:
+            parser.error("set-admin-telegram requires the admin email and the numeric Telegram ID")
+        asyncio.run(set_admin_telegram(args.value, args.extra))
     else:
         if not args.value:
             parser.error("reset-admin-password requires the admin email")
