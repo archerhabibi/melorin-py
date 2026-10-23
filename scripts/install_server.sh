@@ -2,8 +2,9 @@
 # Melorin server installer (Ubuntu/Debian). Run as root on the target server:
 #   DOMAIN=shop.example.com ADMIN_DOMAIN=admin.example.com ADMIN_EMAIL=you@example.com \
 #   bash scripts/install_server.sh
-# Optional: MAIN_BOT_TOKEN (otherwise you are asked for it), REPO_URL, REPO_REF, APP_DIR,
-# SKIP_BOT_PROMPT=1 (never ask for the token; used by the melorin menu, which asks it itself),
+# Optional: MAIN_BOT_TOKEN (otherwise you are asked for it), ADMIN_TELEGRAM_ID (numeric Telegram ID of the main admin:
+# admin alerts are delivered to it by the main bot), REPO_URL, REPO_REF, APP_DIR,
+# SKIP_BOT_PROMPT=1 (never ask for the token / Telegram ID; used by the melorin menu, which asks them itself),
 # EXTERNAL_PROXY=true when ports 80/443 are already owned by a host proxy.
 # Idempotent: an existing .env is never overwritten. New environments are
 # assembled in .env.tmp and atomically renamed only after validation succeeds.
@@ -75,7 +76,25 @@ set_kv() { # set_kv KEY VALUE  (replace line or append)
   fi
 }
 
+# Numeric Telegram ID of the main admin (not the @username). Digits only, 5-15 long; Persian and Arabic-Indic digits are folded.
+normalize_tg_id() { # normalize_tg_id VALUE -> prints ASCII digits or nothing
+  local v="$1"
+  v="$(printf '%s' "$v" | sed 's/۰/0/g;s/۱/1/g;s/۲/2/g;s/۳/3/g;s/۴/4/g;s/۵/5/g;s/۶/6/g;s/۷/7/g;s/۸/8/g;s/۹/9/g;s/٠/0/g;s/١/1/g;s/٢/2/g;s/٣/3/g;s/٤/4/g;s/٥/5/g;s/٦/6/g;s/٧/7/g;s/٨/8/g;s/٩/9/g' | tr -d '[:space:]')"
+  [[ "$v" =~ ^[1-9][0-9]{4,14}$ ]] && printf '%s' "$v"
+  return 0
+}
+
 if [ ! -f .env ]; then
+  # --- numeric Telegram ID of the main admin: where the admin alerts are delivered ---
+  ADMIN_TG="$(normalize_tg_id "${ADMIN_TELEGRAM_ID:-}")"
+  if [ -z "$ADMIN_TG" ] && [ -t 0 ] && [ -z "${SKIP_BOT_PROMPT:-}" ]; then
+    read -r -p "Numeric Telegram ID of the main admin (from @userinfobot, Enter to skip): " RAW_TG || RAW_TG=""
+    ADMIN_TG="$(normalize_tg_id "$RAW_TG")"
+    [ -n "$RAW_TG" ] && [ -z "$ADMIN_TG" ] && echo "That is not a numeric Telegram ID; skipping it (set it later in Admin or with: melorin -> Edit .env)." >&2
+  elif [ -n "${ADMIN_TELEGRAM_ID:-}" ] && [ -z "$ADMIN_TG" ]; then
+    echo "ADMIN_TELEGRAM_ID is not a numeric Telegram ID; skipping it (set it later in Admin or with: melorin -> Edit .env)." >&2
+  fi
+
   # --- main Telegram bot token: the only bot configured at install time ---
   BOT="${MAIN_BOT_TOKEN:-}"
   if [ -z "$BOT" ] && [ -t 0 ] && [ -z "${SKIP_BOT_PROMPT:-}" ]; then
@@ -110,6 +129,8 @@ if [ ! -f .env ]; then
   # 20 random bytes = 160 bits = exactly 32 base32 characters (no padding, no filler).
   BOOTSTRAP_TOTP="$(head -c 20 /dev/urandom | base32 | tr -d '=\n')"
   set_kv MELORIN_BOOTSTRAP_ADMIN_TOTP_SECRET "$BOOTSTRAP_TOTP"
+  # Not a secret: kept in .env so a repair run of the installer re-links it. Empty = the admin sets it later in the panel.
+  set_kv MELORIN_BOOTSTRAP_ADMIN_TELEGRAM_ID "$ADMIN_TG"
   set_kv MELORIN_DOMAIN "$DOMAIN"
   set_kv MELORIN_ADMIN_DOMAIN "$ADMIN_DOMAIN"
   set_kv MELORIN_STORE_WEB_URL "https://${DOMAIN}"
@@ -190,6 +211,12 @@ echo
 echo "Done."
 echo "  Store : https://${DOMAIN}"
 echo "  Admin : https://${ADMIN_DOMAIN}   (login: ${ADMIN_EMAIL})"
+ADMIN_TG_DONE="$(sed -n 's/^MELORIN_BOOTSTRAP_ADMIN_TELEGRAM_ID=//p' .env | head -1)"
+if [ -n "$ADMIN_TG_DONE" ]; then
+  echo "  Alerts: Telegram ID ${ADMIN_TG_DONE} receives the admin alerts. Open the main bot once and press Start, otherwise Telegram cannot deliver them."
+else
+  echo "  Alerts: no admin Telegram ID set, so admin alerts stay in the panel only. Add it in Admin -> Manual tasks, or: melorin -> Edit .env."
+fi
 if [ -n "${BOOTSTRAP_PASSWORD:-}" ]; then
   echo "  Admin password (save now, then it is removed from .env): ${BOOTSTRAP_PASSWORD}"
 fi

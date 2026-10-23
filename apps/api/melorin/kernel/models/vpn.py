@@ -53,6 +53,19 @@ class VpnAccount(IdMixin, TimestampMixin, Base):
     archived_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class AccountReturn(IdMixin, CreatedMixin, Base):
+    """A customer's return (مرجوعی) of one purchased account. One row per order (unique), also the daily-limit ledger."""
+
+    __tablename__ = "account_returns"
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"), index=True)
+    store_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("stores.id"), index=True)
+    order_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("orders.id"), unique=True)
+    vpn_account_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("vpn_accounts.id"), index=True)
+    used_bytes: Mapped[int] = mapped_column(BigInteger, default=0)  # usage at the moment of the return
+    limit_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
+    amount: Mapped[int] = mapped_column(BigInteger, default=0)  # refunded to the customer's wallet of this store
+
+
 class ProvisioningAttempt(IdMixin, CreatedMixin, Base):
     __tablename__ = "provisioning_attempts"
     __table_args__ = (UniqueConstraint("order_id", "attempt_no"),)

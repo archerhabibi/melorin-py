@@ -15,10 +15,12 @@ import {
   Users,
   Webhook,
   KeyRound,
+  Megaphone,
 } from 'lucide-react';
 import { Loading, PageTitle, StatusBadge, fa, fd } from './ui.jsx';
 import Pricing from './ResellerPricing.jsx';
 import AccountInquiry from './AccountInquiry.jsx';
+import Broadcast from './ResellerBroadcast.jsx';
 const J = { 'Content-Type': 'application/json' };
 
 // The reseller renews his own accounts and HIS OWN store's customers' accounts. Core decides everything (window, package,
@@ -889,6 +891,21 @@ function ApplicationCard({ a, onCancel, onDetails, busy }) {
           باز می‌شود.
         </p>
       )}
+      {(pending || awaiting || a.status === 'approved') && a.next_steps?.length > 0 && (
+        <div className="mt-4 rounded-xl border border-line p-4">
+          <h5 className="text-sm font-extrabold">کارهایی که باید انجام دهید</h5>
+          <ol className="mt-3 space-y-2.5 text-sm leading-7">
+            {a.next_steps.map((st, i) => (
+              <li key={i} className={`flex gap-2 ${st.done ? 'text-muted line-through' : ''}`}>
+                <span className="font-bold">{i + 1}.</span>
+                <span>
+                  <b>{st.title}</b> — {st.detail}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
       {awaiting && <DetailsForm onSubmit={(domain, token) => onDetails(a, domain, token)} busy={busy} />}
       {a.status === 'rejected' && (
         <p className="mt-4 rounded-xl bg-danger-soft p-3 text-sm leading-7">
@@ -928,7 +945,9 @@ function Apply({ coreFetch, notify, stores }) {
   const domain = cleanDomain(f.domain);
   const token = f.bot_token.trim();
   const bad = { domain: f.domain && !DOMAIN_RE.test(domain), token: f.bot_token && !TOKEN_RE.test(token) };
-  const ready = f.store_name.trim().length >= 2 && f.target_store_id && DOMAIN_RE.test(domain) && TOKEN_RE.test(token);
+  const reasonOk = f.message.trim().length >= 20;
+  const ready =
+    f.store_name.trim().length >= 2 && f.target_store_id && DOMAIN_RE.test(domain) && TOKEN_RE.test(token) && reasonOk;
   const send = async () => {
     setBusy(true);
     setErr('');
@@ -941,7 +960,7 @@ function Apply({ coreFetch, notify, stores }) {
           store_name: f.store_name.trim(),
           domain,
           bot_token: token,
-          message: f.message.trim() || null,
+          message: f.message.trim(),
         }),
       });
       if (r.ok) {
@@ -1086,14 +1105,20 @@ function Apply({ coreFetch, notify, stores }) {
               </span>
             </label>
             <label className="text-xs font-bold">
-              توضیحات (اختیاری)
+              توضیحات و دلیل درخواست نمایندگی (الزامی)
               <textarea
-                rows={3}
+                rows={4}
                 maxLength={2000}
+                required
                 className={`${inp} mt-1.5`}
                 value={f.message}
                 onChange={(e) => setF({ ...f, message: e.target.value })}
               />
+              <span
+                className={`mt-1 block text-[11px] font-normal leading-6 ${f.message && !reasonOk ? 'text-danger' : 'text-muted'}`}
+              >
+                چرا می‌خواهید نماینده شوید؟ سابقهٔ فروش، تعداد مشتری و برنامهٔ خود را بنویسید (حداقل ۲۰ نویسه).
+              </span>
             </label>
           </div>
           {err && (
@@ -1118,6 +1143,7 @@ const tabs = [
   ['pricing', 'قیمت‌گذاری', Tags],
   ['customers', 'مشتریان', Users],
   ['accounts', 'اکانت‌های مشتریان', Gauge],
+  ['broadcast', 'پیام همگانی', Megaphone],
   ['payments', 'پرداخت‌ها', CreditCard],
   ['keys', 'کلیدهای API', KeyRound],
   ['hooks', 'وبهوک‌ها', Webhook],
@@ -1180,6 +1206,7 @@ export default function Reseller({ coreFetch, notify }) {
             {tab === 'pricing' && <Pricing coreFetch={coreFetch} base={base} notify={notify} dirtyRef={pricingDirty} />}
             {tab === 'customers' && <Customers coreFetch={coreFetch} base={base} notify={notify} />}
             {tab === 'accounts' && <OwnerAccounts coreFetch={coreFetch} base={base} notify={notify} />}
+            {tab === 'broadcast' && <Broadcast coreFetch={coreFetch} base={base} notify={notify} />}
             {tab === 'payments' && <Payments coreFetch={coreFetch} base={base} notify={notify} />}
             {tab === 'keys' && <Keys coreFetch={coreFetch} base={base} notify={notify} />}
             {tab === 'hooks' && <Hooks coreFetch={coreFetch} base={base} notify={notify} />}

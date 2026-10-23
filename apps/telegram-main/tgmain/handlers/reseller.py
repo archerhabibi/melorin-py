@@ -62,8 +62,13 @@ class ResellerMixin:
             if not 2 <= len(text) <= 200:
                 return await self.send(ctx.chat_id, "نام فروشگاه باید بین ۲ تا ۲۰۰ نویسه باشد. دوباره بفرستید:")
             self._set_state(ctx.chat_id, {"rs": "msg", "rs_name": text})
-            await self.send(ctx.chat_id, "توضیحات درخواست را بفرستید (سابقهٔ فروش، تعداد مشتری و …).\nاگر توضیحی ندارید یک «-» بفرستید:")
+            await self.send(
+                ctx.chat_id,
+                "توضیحات درخواست الزامی است: چرا می‌خواهید نماینده شوید؟ (سابقهٔ فروش، تعداد مشتری، برنامهٔ شما و …)\nحداقل ۲۰ نویسه بنویسید:",
+            )
         elif step == "msg":
+            if len(text) < 20:  # the reason is mandatory: ask again, state unchanged
+                return await self.send(ctx.chat_id, "توضیحات باید حداقل ۲۰ نویسه باشد؛ دلیل و برنامهٔ خود را کامل‌تر بنویسید:")
             store = await self.store_info()
             try:
                 await self.api(
@@ -72,7 +77,7 @@ class ResellerMixin:
                     "/api/v1/reseller/applications",
                     json={
                         "store_name": st["rs_name"],
-                        "message": None if text in {"-", "—"} else text[:2000],
+                        "message": text[:2000],
                         "target_store_id": store["id"],
                     },
                 )
@@ -82,7 +87,13 @@ class ResellerMixin:
             self._set_state(ctx.chat_id, None)
             await self.send(
                 ctx.chat_id,
-                "✅ درخواست نمایندگی شما ثبت شد و در صف بررسی مدیریت است.\nپس از تأیید همین‌جا به شما اطلاع می‌دهیم و دامنه و توکن ربات را می‌گیریم.",
+                "✅ درخواست نمایندگی شما ثبت شد و در صف بررسی مدیریت است.\nپس از تأیید همین‌جا به شما اطلاع می‌دهیم و دامنه و توکن ربات را می‌گیریم.\n\n"
+                "<b>کارهایی که از حالا باید انجام دهید:</b>\n"
+                "۱. در @BotFather با /newbot یک ربات برای فروشگاه بسازید و توکن را نگه دارید.\n"
+                "۲. یک دامنه یا زیردامنه تهیه کنید و رکورد A آن را به IP سرور اشاره دهید (IP را از مدیریت بپرسید).\n"
+                "۳. منتظر تأیید بمانید؛ بعد با /reseller دامنه و توکن را بفرستید تا فروشگاه ساخته شود.\n"
+                "۴. سپس در «پنل نماینده» قیمت‌ها را تنظیم کنید؛ مدیریت ورود گوگل/تلگرام دامنهٔ شما را هم دستی فعال می‌کند.",
+                html=True,
             )
         elif step == "domain":
             self._set_state(ctx.chat_id, {"rs": "token", "rs_app": st["rs_app"], "rs_domain": text[:255]})

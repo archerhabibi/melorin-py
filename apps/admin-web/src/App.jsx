@@ -41,6 +41,8 @@ import {
   KeyRound,
   ChevronDown,
   UserRound,
+  ListChecks,
+  Megaphone,
   UserPlus,
   Bot,
 } from 'lucide-react';
@@ -64,6 +66,8 @@ const groups = [
       ['فروشگاه‌ها', Store, 'stores'],
       ['نمایندگان', Bot, 'resellers'],
       ['درخواست‌های نمایندگی', UserPlus, 'reseller-applications'],
+      ['کارهای دستی', ListChecks, 'manual-tasks'],
+      ['پیام همگانی', Megaphone, 'broadcasts'],
       ['کوپن‌ها', Percent, 'coupons'],
     ],
   ],
@@ -135,6 +139,7 @@ function useCore() {
     health: null,
     backups: [],
     pendingApps: 0,
+    manualTasks: 0,
     loading: true,
     error: '',
   });
@@ -158,8 +163,23 @@ function useCore() {
         const pendingApps = await getJson(base, '/api/v1/admin/reseller-applications?status=pending')
           .then((x) => x.length)
           .catch(() => 0);
+        const manualTasks = await getJson(base, '/api/v1/admin/manual-tasks?status=open')
+          .then((x) => x.open || 0)
+          .catch(() => 0);
         if (live)
-          setData({ summary, orders, health, backups, users, tickets, stores, pendingApps, loading: false, error: '' });
+          setData({
+            summary,
+            orders,
+            health,
+            backups,
+            users,
+            tickets,
+            stores,
+            pendingApps,
+            manualTasks,
+            loading: false,
+            error: '',
+          });
       } catch (e) {
         if (live)
           setData((x) => ({
@@ -197,7 +217,7 @@ async function refundPayment(base, paymentId, reason) {
   return r.json();
 }
 
-function Nav({ section, go, openTickets, pendingApps }) {
+function Nav({ section, go, openTickets, pendingApps, manualTasks }) {
   return (
     <nav aria-label="منوی اصلی" className="space-y-5 px-3 pb-6">
       {groups.map(([g, items, sub]) => (
@@ -223,6 +243,11 @@ function Nav({ section, go, openTickets, pendingApps }) {
               {name === 'درخواست‌های نمایندگی' && pendingApps > 0 && (
                 <span className="mr-auto rounded-full bg-[#e8743b] px-2 py-0.5 text-[10px] font-bold text-white">
                   {pendingApps}
+                </span>
+              )}
+              {name === 'کارهای دستی' && manualTasks > 0 && (
+                <span className="mr-auto rounded-full bg-[#e8743b] px-2 py-0.5 text-[10px] font-bold text-white">
+                  {manualTasks}
                 </span>
               )}
             </button>
@@ -643,7 +668,13 @@ export default function App({ onLogout }) {
       <aside className="fixed inset-y-0 right-0 z-20 hidden w-64 flex-col bg-[var(--nav)] lg:flex">
         <Brand />
         <div className="flex-1 overflow-y-auto pt-3">
-          <Nav section={section} go={go} openTickets={openTickets} pendingApps={api.pendingApps} />
+          <Nav
+            section={section}
+            go={go}
+            openTickets={openTickets}
+            pendingApps={api.pendingApps}
+            manualTasks={api.manualTasks}
+          />
         </div>
         <div className="m-4 rounded-2xl bg-white/[.07] p-4">
           <div className={`flex items-center gap-2 text-xs ${api.health ? 'text-[#8ce0ba]' : 'text-[#f4c95d]'}`}>
@@ -737,7 +768,13 @@ export default function App({ onLogout }) {
             </button>
           </div>
           <div className="flex-1 overflow-y-auto">
-            <Nav section={section} go={go} openTickets={openTickets} pendingApps={api.pendingApps} />
+            <Nav
+              section={section}
+              go={go}
+              openTickets={openTickets}
+              pendingApps={api.pendingApps}
+              manualTasks={api.manualTasks}
+            />
           </div>
         </MobileNav>
       )}

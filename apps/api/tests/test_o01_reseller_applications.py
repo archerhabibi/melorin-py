@@ -72,7 +72,13 @@ async def world(s, n=1):
 
 
 def body(main, **kw):
-    d = dict(store_name="Shop One", target_store_id=main.id, domain="Shop.Example.com", bot_token=TOKEN)
+    d = dict(
+        store_name="Shop One",
+        target_store_id=main.id,
+        domain="Shop.Example.com",
+        bot_token=TOKEN,
+        message="می‌خواهم نماینده شوم چون مشتری زیادی در شهر خودم دارم",
+    )
     return ApplicationIn(**{**d, **kw})
 
 
@@ -268,7 +274,9 @@ async def test_admin_can_reverify_bot_when_first_check_could_not_reach_telegram(
 # Two-step flow (Telegram): request first, domain + bot token only after the admin approved the request.
 # ---------------------------------------------------------------------------------------------------------------
 def request_only(main, **kw):
-    return ApplicationIn(**{**dict(store_name="Shop One", target_store_id=main.id, message="می‌خواهم نماینده شوم"), **kw})
+    return ApplicationIn(
+        **{**dict(store_name="Shop One", target_store_id=main.id, message="می‌خواهم نماینده شوم چون مشتری زیادی در شهر خودم دارم"), **kw}
+    )
 
 
 def details(domain="Shop.Example.com", token=TOKEN):
@@ -277,10 +285,10 @@ def details(domain="Shop.Example.com", token=TOKEN):
 
 def test_application_in_requires_domain_and_token_together():
     with pytest.raises(ValueError):
-        ApplicationIn(store_name="Shop", domain="shop.example.com")
+        ApplicationIn(store_name="Shop", domain="shop.example.com", message="x" * 25)
     with pytest.raises(ValueError):
-        ApplicationIn(store_name="Shop", bot_token=TOKEN)
-    assert ApplicationIn(store_name="Shop").domain is None
+        ApplicationIn(store_name="Shop", bot_token=TOKEN, message="x" * 25)
+    assert ApplicationIn(store_name="Shop", message="x" * 25).domain is None
 
 
 async def test_two_step_request_approval_then_details_creates_store(session):
@@ -386,3 +394,70 @@ def test_migration_0018_chains_from_0017_and_fits_version_column():
     m = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(m)
     assert m.down_revision == "0017_reseller_domain_bot" and len(m.revision) <= 32
+
+
+# ------------------------------------------------------------ A1: the reason is mandatory
+def test_message_is_required_and_needs_a_real_reason():
+    for bad in (None, "", "   ", "کوتاه"):
+        with pytest.raises(ValueError):
+            ApplicationIn(store_name="Shop", **({} if bad is None else {"message": bad}))
+    assert ApplicationIn(store_name="Shop", message="  " + "دلیل کافی برای نمایندگی " * 2).message
+
+
+async def _tasks(session):
+    from melorin.kernel.models.stores import AdminTask
+
+    return (await session.scalars(select(AdminTask).order_by(AdminTask.kind))).all()
+
+
+async def _alerts(session):
+    return [e for e in (await session.scalars(select(OutboxEvent))).all() if e.topic == "notification.send"]
+
+
+async def test_one_step_application_gives_the_admin_the_manual_checklist_and_an_alert(session):
+    main, admin, (u1,) = await world(session)
+    a = await apply(body(main), u1, session)
+    assert {t.kind for t in await _tasks(session)} == {"review_application", "google_origin", "telegram_login", "dns_tls"}
+    tasks = {t.kind: t for t in await _tasks(session)}
+    assert "shop.example.com" in tasks["google_origin"].detail and "oidc/callback" in tasks["telegram_login"].detail
+    alerts = await _alerts(session)
+    assert alerts and all(e.payload["user_id"] == str(admin.id) for e in alerts)
+    assert "دلیل متقاضی" in alerts[0].payload["body"]
+    assert a["next_steps"] and a["next_steps"][0]["done"] is False
+
+
+async def test_two_step_application_adds_domain_tasks_only_once_the_domain_arrives(session):
+    main, admin, (u1,) = await world(session)
+    a = await apply(request_only(main), u1, session)
+    assert [t.kind for t in await _tasks(session)] == ["review_application"]
+    await review_application(a["id"], ResellerApproval(approve=True), admin, session)
+    assert [(t.kind, t.status) for t in await _tasks(session)] == [("review_application", "done")]  # the decision closes it
+    await submit_details(a["id"], details(), u1, session)
+    assert {t.kind for t in await _tasks(session)} == {"review_application", "google_origin", "telegram_login", "dns_tls"}
+    n = len(await _alerts(session))
+    from melorin.modules.reseller import onboarding
+
+    await onboarding.ensure_admin_tasks(session, await session.get(ResellerApplication, a["id"]))  # idempotent
+    assert len(await _tasks(session)) == 4 and len(await _alerts(session)) == n
+
+
+async def test_admin_can_tick_and_reopen_a_manual_task(session):
+    from melorin.modules.admin.manual_tasks import list_tasks, mark_done, reopen
+
+    main, admin, (u1,) = await world(session)
+    await apply(body(main), u1, session)
+    listing = await list_tasks(admin, session)
+    assert listing["open"] == 4
+    tid = next(i["id"] for i in listing["items"] if i["kind"] == "dns_tls")
+    assert (await mark_done(tid, admin, session))["status"] == "done"
+    assert (await list_tasks(admin, session))["open"] == 3
+    assert (await reopen(tid, admin, session))["status"] == "open"
+
+
+async def test_applicant_steps_follow_the_status():
+    from melorin.modules.reseller import onboarding
+
+    pending = onboarding.applicant_steps("pending", domain="shop.example.com")
+    approved = onboarding.applicant_steps("approved", domain="shop.example.com")
+    assert len(pending) >= 5 and not pending[0]["done"] and approved[0]["done"]
+    assert "shop.example.com" in onboarding.steps_text("approved", domain="shop.example.com")

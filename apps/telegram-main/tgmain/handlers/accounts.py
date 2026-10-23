@@ -167,6 +167,8 @@ class AccountsMixin:
             action.append(("📷 QR کد", f"{pre}qr:{b64(account['id'])}"))
         if account.get("can_renew"):  # Core decides (up to 10 days after expiry); the bot never re-implements the rule
             action.append(("🔄 تمدید", f"{'orn' if owner else 'rnw'}:{b64(account['id'])}"))
+        if not owner and not account.get("is_test"):  # مرجوعی: Core decides (volume only, 3 days, 5 % used, 3 per day)
+            action.append(("↩️ مرجوعی اکانت", f"rtn:{b64(account['id'])}"))
         rows = ([action] if action else []) + [[("🔃 بروزرسانی از پنل", f"{pre}account:{account['id']}")], [("↩︎ بازگشت به لیست", back)]]
         await self.screen(ctx, "\n".join(lines), rows)
 
@@ -192,6 +194,36 @@ class AccountsMixin:
             await self.send_photo(ctx.chat_id, png, caption)
         else:
             await self.send(ctx.chat_id, f"🔗 <code>{esc(link)}</code>", html=True)
+
+    async def cb_return(self, ctx, token):
+        """مرجوعی, step 1: show Core's verdict and the rules; only an eligible account gets the confirm button."""
+        acc = unb64(token)
+        account = await self._find_account(ctx, acc)
+        if account is None:
+            return await self.screen(ctx, "این اکانت دیگر در دسترس نیست.", [[("↩︎ بازگشت", "menu:accounts")]])
+        back = [("↩︎ بازگشت به اکانت", f"account:{acc}")]
+        if not account.get("can_return"):
+            return await self.screen(ctx, f"⚠️ {esc(account.get('return_note') or 'این اکانت قابل مرجوع نیست.')}", [back])
+        store = await self.store_info()
+        rules = await self.api(ctx, "GET", f"/api/v1/stores/{store['id']}/vpn-accounts/return-rules")
+        text = (
+            f"↩️ <b>مرجوعی اکانت {esc(account['username'])}</b>\n\n"
+            "اکانت بلافاصله غیرفعال می‌شود و مبلغ پرداختی به کیف پول همین فروشگاه برمی‌گردد. این کار قابل بازگشت نیست.\n\n"
+            f"{esc(rules.get('text', ''))}"
+        )
+        await self.screen(ctx, text, [[("✅ بله، مرجوع کن", f"rtc:{token}")], back])
+
+    async def cb_return_confirm(self, ctx, token):
+        """مرجوعی, step 2: Core re-checks every rule (usage is re-read from the panel) and refunds; refusals are shown as Core words."""
+        acc = unb64(token)
+        store = await self.store_info()
+        try:
+            res = await self.api(ctx, "POST", f"/api/v1/stores/{store['id']}/vpn-accounts/{acc}/return")
+        except CoreError as exc:
+            if exc.status not in (404, 409):
+                raise
+            return await self.screen(ctx, f"⚠️ {esc(str(exc))}", [[("↩︎ بازگشت به لیست", "acl:-:0")]])
+        await self.screen(ctx, f"✅ <b>{esc(res.get('message', 'اکانت مرجوع شد.'))}</b>", [[("💰 کیف پول", "menu:wallet")], [("↩︎ اکانت‌های من", "acl:-:0")]])
 
     async def cb_renew(self, ctx, token):
         """A renewal is the account's own package at its current price: Core says whether it may be renewed and with what."""

@@ -39,6 +39,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/broadcasts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** History */
+        get: operations["history_api_v1_admin_broadcasts_get"];
+        put?: never;
+        /** Send */
+        post: operations["send_api_v1_admin_broadcasts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/broadcasts/audiences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Audiences
+         * @description The groups the admin can pick, with how many people each one reaches right now.
+         */
+        get: operations["audiences_api_v1_admin_broadcasts_audiences_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/bundle-products/unassigned": {
         parameters: {
             query?: never;
@@ -498,6 +536,57 @@ export interface paths {
          * @description Read-only diagnostics on the SAVED config: Telegram OIDC reachability, key set, Client ID vs. the main bot, bot username.
          */
         post: operations["test_telegram_api_v1_admin_integrations_telegram_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/manual-tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Tasks */
+        get: operations["list_tasks_api_v1_admin_manual_tasks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/manual-tasks/{task_id}/done": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark Done */
+        post: operations["mark_done_api_v1_admin_manual_tasks__task_id__done_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/manual-tasks/{task_id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reopen */
+        post: operations["reopen_api_v1_admin_manual_tasks__task_id__reopen_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2616,6 +2705,24 @@ export interface paths {
         patch: operations["branding_api_v1_stores__store_id__reseller_branding_patch"];
         trace?: never;
     };
+    "/api/v1/stores/{store_id}/reseller/broadcasts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Broadcasts */
+        get: operations["broadcasts_api_v1_stores__store_id__reseller_broadcasts_get"];
+        put?: never;
+        /** Send Broadcast */
+        post: operations["send_broadcast_api_v1_stores__store_id__reseller_broadcasts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/stores/{store_id}/reseller/bundles": {
         parameters: {
             query?: never;
@@ -3028,6 +3135,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/stores/{store_id}/vpn-accounts/return-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Return Rules
+         * @description The rules as text and numbers, so every channel shows the same words.
+         */
+        get: operations["return_rules_api_v1_stores__store_id__vpn_accounts_return_rules_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/stores/{store_id}/vpn-accounts/summary": {
         parameters: {
             query?: never;
@@ -3099,6 +3226,28 @@ export interface paths {
          * @description Re-read this account from its VPN panel (live expiry, usage, links) and return the fresh card.
          */
         post: operations["refresh_api_v1_stores__store_id__vpn_accounts__account_id__refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/vpn-accounts/{account_id}/return": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Return Vpn Account
+         * @description مرجوعی: give this account back (volume accounts only, <= 3 days, <= 5 % used, 3 per day). The money goes to the
+         *     caller's wallet of THIS store. Core decides; the answer for a refused return is a 409 with the reason in Persian.
+         *     Lives in the orders layer because the return is an order refund (the rules are in ``vpn.returns``).
+         */
+        post: operations["return_vpn_account_api_v1_stores__store_id__vpn_accounts__account_id__return_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3417,8 +3566,11 @@ export interface components {
              * @description store hostname, e.g. shop.example.com (scheme/path are stripped)
              */
             domain?: string | null;
-            /** Message */
-            message?: string | null;
+            /**
+             * Message
+             * @description required: why the applicant wants a reseller store (min 20 characters)
+             */
+            message: string;
             /** Store Name */
             store_name: string;
             /** Target Store Id */
@@ -4166,6 +4318,11 @@ export interface components {
              */
             can_renew: boolean;
             /**
+             * Can Return
+             * @default false
+             */
+            can_return: boolean;
+            /**
              * Created At
              * Format: date-time
              */
@@ -4206,6 +4363,8 @@ export interface components {
             renew_note?: string | null;
             /** Renew Until */
             renew_until?: string | null;
+            /** Return Note */
+            return_note?: string | null;
             /** Server Id */
             server_id: string | null;
             /** Status */
@@ -5092,6 +5251,11 @@ export interface components {
              */
             can_renew: boolean;
             /**
+             * Can Return
+             * @default false
+             */
+            can_return: boolean;
+            /**
              * Created At
              * Format: date-time
              */
@@ -5118,6 +5282,8 @@ export interface components {
             renew_note?: string | null;
             /** Renew Until */
             renew_until?: string | null;
+            /** Return Note */
+            return_note?: string | null;
             /** Server Id */
             server_id: string | null;
             /** Status */
@@ -5198,6 +5364,22 @@ export interface components {
             status?: string | null;
             /** Url */
             url?: string | null;
+        };
+        /** BroadcastIn */
+        melorin__modules__admin__broadcasts__BroadcastIn: {
+            /** Audience */
+            audience: string;
+            /** Body */
+            body: string;
+            /** Title */
+            title: string;
+        };
+        /** BroadcastIn */
+        melorin__modules__reseller__routes__broadcasts__BroadcastIn: {
+            /** Body */
+            body: string;
+            /** Title */
+            title: string;
         };
     };
     responses: never;
@@ -5288,6 +5470,79 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    history_api_v1_admin_broadcasts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    send_api_v1_admin_broadcasts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["melorin__modules__admin__broadcasts__BroadcastIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    audiences_api_v1_admin_broadcasts_audiences_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };
@@ -6164,6 +6419,99 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    list_tasks_api_v1_admin_manual_tasks_get: {
+        parameters: {
+            query?: {
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_done_api_v1_admin_manual_tasks__task_id__done_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reopen_api_v1_admin_manual_tasks__task_id__reopen_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -10316,6 +10664,72 @@ export interface operations {
             };
         };
     };
+    broadcasts_api_v1_stores__store_id__reseller_broadcasts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_broadcast_api_v1_stores__store_id__reseller_broadcasts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["melorin__modules__reseller__routes__broadcasts__BroadcastIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     reseller_bundles_api_v1_stores__store_id__reseller_bundles_get: {
         parameters: {
             query?: never;
@@ -11185,6 +11599,37 @@ export interface operations {
             };
         };
     };
+    return_rules_api_v1_stores__store_id__vpn_accounts_return_rules_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     summary_api_v1_stores__store_id__vpn_accounts_summary_get: {
         parameters: {
             query?: never;
@@ -11299,6 +11744,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VpnAccountOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    return_vpn_account_api_v1_stores__store_id__vpn_accounts__account_id__return_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

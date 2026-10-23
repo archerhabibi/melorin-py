@@ -24,6 +24,8 @@ class VpnAccountOut(BaseModel):
     days_left: int | None = None  # None = no expiry
     usage_percent: int | None = None  # None = unlimited volume
     health: str = "active"  # active | expiring | expired | depleted | disabled
+    can_return: bool = False  # مرجوعی: volume account, <= 3 days old, <= 5% used, not renewed, daily limit not reached
+    return_note: str | None = None  # Core's own words for "why not returnable" (None when returnable)
 
 
 class OwnerAccountOut(VpnAccountOut):

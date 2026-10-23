@@ -80,7 +80,7 @@ function MoneyInput({ value, placeholder, onChange, invalid, label, disabled }) 
 export default function Pricing({ coreFetch, base, notify, dirtyRef }) {
   const [rows, setRows] = useState(null);
   const [failed, setFailed] = useState(false);
-  const [scope, setScope] = useState(BASE);
+  const [pick, setScope] = useState(null);
   const [draft, setDraft] = useState({});
   const [errors, setErrors] = useState({});
   const [filter, setFilter] = useState('all');
@@ -110,6 +110,9 @@ export default function Pricing({ coreFetch, base, notify, dirtyRef }) {
     );
     return [...m.values()];
   }, [rows]);
+  // The store-wide "base price" tab is not shown: the reseller prices each sales bundle. The base column stays in the data
+  // (it is the fallback for a bundle cell left empty) and is only editable when the store has no bundle at all.
+  const scope = pick && bundles.some((b) => b.id === pick) ? pick : (bundles[0]?.id ?? BASE);
   const currency = rows?.[0]?.currency;
   const unit = unitOf(currency);
 
@@ -281,9 +284,8 @@ export default function Pricing({ coreFetch, base, notify, dirtyRef }) {
           <div className="max-w-2xl">
             <h3 className="text-lg font-extrabold">قیمت‌گذاری فروشگاه شما</h3>
             <p className="mt-1.5 text-sm leading-7 text-muted">
-              برای هر بسته جداگانه تعیین کنید مشتری‌های شما چه مبلغی بپردازند. اگر برای یک بسته قیمتی نگذارید،{' '}
-              <b className="text-ink">قیمت پایه</b> همان پکیج استفاده می‌شود. پکیجی که قیمت ندارد یا ارزان‌تر از قیمت
-              همکاری باشد به مشتری نمایش داده نمی‌شود.
+              برای هر بسته فروش جداگانه تعیین کنید مشتری‌های شما چه مبلغی بپردازند. پکیجی که قیمت ندارد یا ارزان‌تر از
+              قیمت همکاری باشد به مشتری نمایش داده نمی‌شود.
             </p>
           </div>
           <div className="grid grid-cols-3 gap-2 text-center text-xs" role="group" aria-label="خلاصهٔ وضعیت قیمت‌ها">
@@ -312,7 +314,7 @@ export default function Pricing({ coreFetch, base, notify, dirtyRef }) {
         aria-label="دامنهٔ قیمت‌گذاری"
         className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 md:mx-0 md:flex-wrap md:px-0"
       >
-        {[{ id: BASE, name: 'قیمت پایه', kind: 'همهٔ بسته‌ها', open: true }, ...bundles].map((p) => {
+        {(bundles.length ? bundles : [{ id: BASE, name: 'قیمت‌گذاری', kind: '', open: true }]).map((p) => {
           const t = p.id === BASE ? null : tally(p.id);
           const attention = t ? t.unset + t.below_cost : 0;
           const active = scope === p.id;
@@ -349,7 +351,8 @@ export default function Pricing({ coreFetch, base, notify, dirtyRef }) {
               'قیمت پایه باید از گران‌ترین قیمت همکاری میان بسته‌ها کمتر نباشد؛ بسته‌ای که قیمت اختصاصی دارد از آن استفاده نمی‌کند.'
             ) : (
               <>
-                قیمت‌های اختصاصی بسته «{activeBundle?.name}». خالی‌گذاشتن یعنی استفاده از قیمت پایه.
+                قیمت‌های اختصاصی بسته «{activeBundle?.name}». خالی‌گذاشتن یعنی استفاده از قیمت پیش‌فرض فروشگاه (اگر
+                قبلاً ثبت شده باشد).
                 {activeBundle && !activeBundle.open && (
                   <b className="text-danger">
                     {' '}
@@ -493,7 +496,7 @@ export default function Pricing({ coreFetch, base, notify, dirtyRef }) {
                   <MoneyInput
                     label={`قیمت ${row.name}`}
                     value={k in draft ? draft[k] : (own ?? '')}
-                    placeholder={inherited ? `${grouped(inherited)} (قیمت پایه)` : 'تعیین نشده'}
+                    placeholder={inherited ? `${grouped(inherited)} (قیمت پیش‌فرض)` : 'تعیین نشده'}
                     invalid={typedLow || !!errors[k]}
                     onChange={(d) => setCell(scope, row, d)}
                   />
@@ -528,7 +531,7 @@ export default function Pricing({ coreFetch, base, notify, dirtyRef }) {
                     <button
                       className="grid h-8 w-8 place-items-center rounded-full text-muted transition hover:bg-surface2 hover:text-ink"
                       aria-label={inBase ? 'پاک‌کردن قیمت پایه' : 'حذف قیمت اختصاصی'}
-                      title={inBase ? 'پاک‌کردن قیمت پایه' : 'حذف قیمت اختصاصی (استفاده از قیمت پایه)'}
+                      title={inBase ? 'پاک‌کردن قیمت پایه' : 'حذف قیمت اختصاصی'}
                       onClick={() => setCell(scope, row, '')}
                     >
                       <X size={15} />

@@ -13,7 +13,7 @@ from melorin.core.deps import CurrentAuth, Session, main_store
 from melorin.core.errors import AppError, NotFound
 from melorin.kernel.models.identity import User
 from melorin.kernel.models.stores import ResellerApplication, ResellerProfile, Store, StoreMembership
-from melorin.modules.reseller import identity
+from melorin.modules.reseller import identity, onboarding
 from melorin.modules.reseller.schemas import (
     ApplicationDetailsIn,
     ApplicationIn,
@@ -67,6 +67,9 @@ def application_out(a: ResellerApplication) -> dict:
         "review_reason": a.review_reason if a.status == "rejected" else None,
         "store_id": a.store_id,
         "created_at": a.created_at,
+        "next_steps": onboarding.applicant_steps(a.status, domain=a.domain)
+        if a.status in ("pending", "awaiting_details", "approved")
+        else [],
     }
 
 
@@ -99,7 +102,7 @@ async def apply(body: ApplicationIn, user: Annotated[User, Depends(main_session_
         user_id=user.id,
         target_store_id=target.id,
         store_name=body.store_name.strip(),
-        message=body.message,
+        message=body.message,  # required (validated in ApplicationIn): why the applicant wants a reseller store
         domain=domain,
         bot_token_enc=encrypt(token) if token else None,
         bot_key=bot_key,
@@ -107,6 +110,8 @@ async def apply(body: ApplicationIn, user: Annotated[User, Depends(main_session_
         bot_verified=username is not None,
     )
     session.add(a)
+    await session.flush()
+    await onboarding.ensure_admin_tasks(session, a)
     audit.record(
         session,
         "reseller.applied",
@@ -174,6 +179,7 @@ async def submit_details(
     a.domain, a.bot_key, a.bot_username, a.bot_verified = domain, bot_key, username, True
     a.status = "approved"
     await create_reseller_store(session, a, target, token_enc=encrypt(token), debt_limit=a.approved_debt_limit or 0)
+    await onboarding.ensure_admin_tasks(session, a)  # the domain is known now: Google / Telegram / DNS tasks for the admin
     audit.record(
         session,
         "reseller.application_details_submitted",

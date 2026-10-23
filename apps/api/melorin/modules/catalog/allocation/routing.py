@@ -175,16 +175,23 @@ async def resolve_order_group(
 
 
 def requested_account_name(group, account_name: str | None) -> str | None:
-    """The customer-chosen username part for a bundle. Only "custom" bundles take one, and then it is mandatory.
+    """The customer-chosen username part for a bundle. Only \"custom\" bundles take one, and it is optional.
 
-    Returns the cleaned name (``[A-Za-z0-9_-]``, at most 40 chars) or None for automatic bundles; raises when a
-    custom bundle got no usable name, BEFORE any money moves.
+    Returns the cleaned name (``[A-Za-z0-9_-]``, at most 40 chars), or None when the bundle is automatic OR the customer left
+    the name empty (provisioning then falls back to the automatic naming). A name that was typed but is unusable (fewer than
+    3 valid characters) is still refused, BEFORE any money moves, so a typo never silently becomes a different name.
     """
     if group.naming_mode != "custom":
         return None
-    name = clean_custom_name(account_name or "")
+    if not (account_name or "").strip():
+        return None
+    name = clean_custom_name(account_name)
     if len(name) < 3:
-        raise AppError("ACCOUNT_NAME_REQUIRED", "نام کاربری اکانت را وارد کنید (حداقل ۳ نویسه: حروف انگلیسی، عدد، _ یا -).", 422)
+        raise AppError(
+            "ACCOUNT_NAME_INVALID",
+            "نام کاربری معتبر نیست (حداقل ۳ نویسه: حروف انگلیسی، عدد، _ یا -). یا آن را خالی بگذارید تا نام‌گذاری خودکار انجام شود.",
+            422,
+        )
     return name
 
 

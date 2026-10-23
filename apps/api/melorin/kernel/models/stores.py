@@ -139,3 +139,22 @@ class StorePaymentConfiguration(IdMixin, TimestampMixin, Base):
     public_config: Mapped[dict | None] = mapped_column(JSON)  # card_number, holder, bank, min/max amount
     secret_enc: Mapped[str | None] = mapped_column(Text)  # encrypted JSON (merchant_id, api keys)
     updated_by: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+
+
+class AdminTask(IdMixin, TimestampMixin, Base):
+    """A manual step only a human admin can do outside Melorin (a Google console or BotFather setting, DNS ...).
+
+    Created when a reseller applies / their domain is known; the admin ticks it done in the panel. One row per
+    (kind, application): re-running the onboarding never duplicates a task.
+    """
+
+    __tablename__ = "admin_tasks"
+    __table_args__ = (UniqueConstraint("kind", "application_id", name="uq_admin_tasks_kind_application"),)
+    kind: Mapped[str] = mapped_column(String(40), index=True)  # review_application | google_origin | telegram_login | dns_tls
+    application_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("reseller_applications.id"), index=True)
+    store_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("stores.id"))
+    title: Mapped[str] = mapped_column(String(200))
+    detail: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(10), default="open", index=True)  # open | done
+    done_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
+    done_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))

@@ -91,9 +91,12 @@ def test_new_request_collects_name_and_message_then_files_application(bot):
     assert r.state["9"] == {"rs": "name"}
     say(r, "فروشگاه من")
     assert r.state["9"] == {"rs": "msg", "rs_name": "فروشگاه من"}
-    say(r, "-")
-    assert fake.posts == [("/api/v1/reseller/applications", {"store_name": "فروشگاه من", "message": None, "target_store_id": "s1"})]
-    assert "ثبت شد" in last(fake) and "9" not in r.state
+    say(r, "-")  # the reason is mandatory now: too short, asked again, nothing filed
+    assert fake.posts == [] and r.state["9"]["rs"] == "msg"
+    reason = "چند سال فروش وی‌پی‌ان دارم و حدود ۵۰ مشتری فعال"
+    say(r, reason)
+    assert fake.posts == [("/api/v1/reseller/applications", {"store_name": "فروشگاه من", "message": reason, "target_store_id": "s1"})]
+    assert "ثبت شد" in last(fake) and "BotFather" in last(fake) and "9" not in r.state
     assert not any("domain" in (b or {}) or "bot_token" in (b or {}) for _, b in fake.posts)  # nothing sensitive asked yet
 
 

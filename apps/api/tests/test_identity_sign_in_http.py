@@ -120,10 +120,11 @@ async def test_admin_login_needs_a_valid_totp_and_gets_an_unbound_admin_session(
         missing = await c.post(f"{API}/password/login", json=body)
         wrong = await c.post(f"{API}/password/login", json={**body, "totp_code": "12345a"})
         assert (missing.status_code, _err(missing)) == (401, "TOTP_REQUIRED") and wrong.status_code == 401
-        ok = await c.post(f"{API}/password/login", json={**body, "totp_code": totp_now()})
+        code = totp_now()  # ONE code for both attempts: two totp_now() calls can straddle a 30 s step boundary and flake
+        ok = await c.post(f"{API}/password/login", json={**body, "totp_code": code})
         assert ok.status_code == 200, ok.text
         assert (ok.json()["is_admin"], ok.json()["channel"], ok.json()["store_id"]) == (True, "admin", None)
-        replay = await c.post(f"{API}/password/login", json={**body, "totp_code": totp_now()})
+        replay = await c.post(f"{API}/password/login", json={**body, "totp_code": code})
         assert replay.status_code == 401 and _err(replay) == "TOTP_REQUIRED"  # the same 30 s step cannot be used twice
 
 
@@ -246,9 +247,10 @@ async def test_google_never_bypasses_the_admin_second_factor(google):
         google["user"] = await add_user(maker, admin=True, totp=True)
         no_code = await c.post(f"{API}/google", json={"id_token": "tok"})
         assert no_code.status_code == 401 and _err(no_code) == "TOTP_REQUIRED"
-        ok = await c.post(f"{API}/google", json={"id_token": "tok", "totp_code": totp_now()})
+        code = totp_now()  # same code twice (see the password-login replay test)
+        ok = await c.post(f"{API}/google", json={"id_token": "tok", "totp_code": code})
         assert ok.status_code == 200 and ok.json()["channel"] == "admin" and ok.json()["is_admin"] is True
-        replay = await c.post(f"{API}/google", json={"id_token": "tok", "totp_code": totp_now()})
+        replay = await c.post(f"{API}/google", json={"id_token": "tok", "totp_code": code})
         assert replay.status_code == 401
 
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Melorin management menu.   Open it with:  melorin   (or: bash melorin.sh)
 #
-#   1) Install    quiet install -> asks only: store domain, admin domain, admin e-mail, bot token
+#   1) Install    quiet install -> asks only: store domain, admin domain, admin e-mail, bot token, admin Telegram ID
 #   2) Update     pull latest code, rebuild, migrate, restart (.env is kept)
 #   3) Edit .env  bot token / domains / open the file in an editor
 #   4) Web panel  URLs, health check, admin password reset
@@ -118,6 +118,19 @@ ask_token() { # sets REPLY_TOKEN (may be empty = skipped)
   done
 }
 
+valid_tg_id() { [[ "$1" =~ ^[1-9][0-9]{4,14}$ ]]; }
+fold_digits() { printf '%s' "$1" | sed 's/۰/0/g;s/۱/1/g;s/۲/2/g;s/۳/3/g;s/۴/4/g;s/۵/5/g;s/۶/6/g;s/۷/7/g;s/۸/8/g;s/۹/9/g;s/٠/0/g;s/١/1/g;s/٢/2/g;s/٣/3/g;s/٤/4/g;s/٥/5/g;s/٦/6/g;s/٧/7/g;s/٨/8/g;s/٩/9/g' | tr -d '[:space:]'; }
+ask_admin_tg() { # sets REPLY_TG (may be empty = skipped). $1 = prompt number/label
+  local t
+  while true; do
+    read -r -p "${1:-5)} Numeric Telegram ID of the main admin (get it from @userinfobot; Enter to skip): " t || t=""
+    t="$(fold_digits "$t")"
+    if [ -z "$t" ]; then REPLY_TG=""; return 0; fi
+    if valid_tg_id "$t"; then REPLY_TG="$t"; return 0; fi
+    warn "That is not a numeric Telegram ID (5-15 digits, e.g. 123456789; not the @username)."
+  done
+}
+
 bot_username() { # bot_username TOKEN -> prints @username or nothing (token never on the command line)
   printf 'url = "https://api.telegram.org/bot%s/getMe"\n' "$1" \
     | curl -fsS -m 10 -K - 2>/dev/null | sed -n 's/.*"username":"\([^"]*\)".*/@\1/p'
@@ -165,16 +178,16 @@ EOF
 
 # ---------------------------------------------------------------- 1) Install
 do_install() {
-  local DOMAIN ADMIN_DOMAIN BOT ADMIN_EMAIL ext="$EXTERNAL_PROXY" uname
+  local DOMAIN ADMIN_DOMAIN BOT ADMIN_EMAIL ADMIN_TG="" ext="$EXTERNAL_PROXY" uname
 
   if installed; then
     warn "Melorin is already installed (.env exists); it will never be overwritten."
     confirm "Re-run the installer to repair/re-apply the stack with the existing settings?" n || return 0
     DOMAIN="$(env_get MELORIN_DOMAIN)"; ADMIN_DOMAIN="$(env_get MELORIN_ADMIN_DOMAIN)"
-    ADMIN_EMAIL="$(env_get MELORIN_BOOTSTRAP_ADMIN_EMAIL)"; BOT=""
+    ADMIN_EMAIL="$(env_get MELORIN_BOOTSTRAP_ADMIN_EMAIL)"; BOT=""; ADMIN_TG="$(env_get MELORIN_BOOTSTRAP_ADMIN_TELEGRAM_ID)"
   else
     echo
-    echo "${CB}Four things are needed:${C0} store domain, admin domain, admin e-mail, bot token."
+    echo "${CB}Five things are needed:${C0} store domain, admin domain, admin e-mail, bot token, admin Telegram ID."
     echo "Both domains must already point (A record) to this server."
     echo
     ask_domain "1) Store (sales site) domain, e.g. shop.example.com" || return 1; DOMAIN="$REPLY_DOMAIN"
@@ -192,6 +205,12 @@ do_install() {
     else
       warn "No token: the Telegram bot will not start until you add it (menu 3)."
     fi
+    ask_admin_tg "5)"; ADMIN_TG="$REPLY_TG"
+    if [ -n "$ADMIN_TG" ]; then
+      ok "Admin alerts will go to Telegram ID $ADMIN_TG (open the bot once and press Start so Telegram can deliver them)."
+    else
+      warn "No Telegram ID: admin alerts stay in the panel only (set it later: menu 3 -> Admin Telegram ID, or in the Admin panel)."
+    fi
     echo
     info "Checking DNS..."
     check_dns "$DOMAIN" "$ADMIN_DOMAIN" || return 1
@@ -207,13 +226,14 @@ do_install() {
     echo "  Admin domain : $ADMIN_DOMAIN"
     echo "  Admin e-mail : $ADMIN_EMAIL"
     echo "  Bot token    : $([ -n "$BOT" ] && echo set || echo not set)"
+    echo "  Admin TG ID  : ${ADMIN_TG:-not set}"
     echo "  Proxy mode   : $([ "$ext" = true ] && echo 'external (loopback ports 18080/18081/18000)' || echo 'bundled Caddy (automatic TLS)')"
     echo
     confirm "Start the installation?" y || return 0
   fi
 
   [ -x "$APP_DIR/scripts/install_server.sh" ] || chmod +x "$APP_DIR/scripts/install_server.sh"
-  MAIN_BOT_TOKEN="$BOT" SKIP_BOT_PROMPT=1 \
+  MAIN_BOT_TOKEN="$BOT" ADMIN_TELEGRAM_ID="$ADMIN_TG" SKIP_BOT_PROMPT=1 \
   DOMAIN="$DOMAIN" ADMIN_DOMAIN="$ADMIN_DOMAIN" ADMIN_EMAIL="$ADMIN_EMAIL" \
   EXTERNAL_PROXY="$ext" REPO_URL="$REPO_URL" REPO_REF="$REPO_REF" APP_DIR="$APP_DIR" \
     bash "$APP_DIR/scripts/install_server.sh"
@@ -279,6 +299,7 @@ edit_env() {
    2) Store domain   ($(env_get MELORIN_DOMAIN))
    3) Admin domain   ($(env_get MELORIN_ADMIN_DOMAIN))
    4) Open .env in an editor
+   5) Admin Telegram ID   ($(env_get MELORIN_BOOTSTRAP_ADMIN_TELEGRAM_ID))
    0) Back
 EOF
     read -r -p "Select: " c || return 0
@@ -300,6 +321,13 @@ EOF
          set_cors; check_dns "$REPLY_DOMAIN"; apply_env; pause ;;
       4) local ed="${EDITOR:-}"; [ -z "$ed" ] && for ed in nano vi; do command -v "$ed" >/dev/null && break; done
          "$ed" "$ENV_FILE_PATH"; chmod 600 "$ENV_FILE_PATH"; apply_env; pause ;;
+      5) ask_admin_tg "New"
+         if [ -z "$REPLY_TG" ]; then warn "Nothing changed."; else
+           # Linked in the database (the running API is used: no restart needed) and remembered in .env for repair runs.
+           if compose exec -T api python -m melorin.cli set-admin-telegram "$(env_get MELORIN_BOOTSTRAP_ADMIN_EMAIL)" "$REPLY_TG"; then
+             env_set MELORIN_BOOTSTRAP_ADMIN_TELEGRAM_ID "$REPLY_TG"; ok "Saved. Open the main bot once and press Start."
+           else err "Could not link the Telegram ID (is the stack running? see the message above)."; fi
+         fi; pause ;;
       0|"") return 0 ;;
       *) warn "Invalid choice." ;;
     esac

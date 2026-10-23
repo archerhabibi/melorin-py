@@ -26,7 +26,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/archerhabibi/melorin-py/main
 ```
 
 That is the whole installation. The command downloads the project to `/opt/melorin`, registers the `melorin` command and opens the menu.
-Choose **1) Install**: it asks only four things, checks that both domains point at this server, then installs everything unattended.
+Choose **1) Install**: it asks only five things, checks that both domains point at this server, then installs everything unattended.
 
 | Have ready | Example |
 |---|---|
@@ -34,6 +34,7 @@ Choose **1) Install**: it asks only four things, checks that both domains point 
 | **Admin domain** (admin panel), A record → server IP | `admin.example.com` |
 | **Admin e-mail** (login of the first admin) | `you@example.com` |
 | **Telegram bot token** from @BotFather (hidden input) | `123456:ABC...` |
+| **Numeric Telegram ID of the main admin** (from @userinfobot, not the @username): admin alerts are delivered to it | `123456789` |
 
 **Server:** 4 GB RAM and 2 vCPU, Ubuntu 22.04+ (container memory caps add up to 3.5 GiB). Ports **80 and 443 must be free**; Caddy obtains TLS certificates automatically.
 Port 80/443 already used by another proxy? The menu detects it and switches to [external proxy mode](#existing-reverse-proxy-external_proxy).

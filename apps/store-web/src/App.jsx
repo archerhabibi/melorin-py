@@ -316,7 +316,7 @@ export default function App() {
         payment_method: 'wallet',
         kind: 'purchase',
         ...bundleBody(),
-        ...(customName ? { account_name: accountName.trim() } : {}),
+        ...(customName && accountName.trim() ? { account_name: accountName.trim() } : {}),
       }),
     });
     if (!r.ok) throw Error(await errOf(r, 'order failed'));
@@ -478,7 +478,7 @@ export default function App() {
       setNotice('ابتدا بسته فروش و گزینه را انتخاب کنید');
       return;
     }
-    if (customName && !NAME_RE.test(accountName.trim())) {
+    if (customName && accountName.trim() && !NAME_RE.test(accountName.trim())) {
       setNotice('نام کاربری حداقل ۳ کاراکتر و فقط شامل حروف انگلیسی، عدد، _ و - باشد');
       return;
     }
@@ -713,7 +713,7 @@ export default function App() {
                 {!catalogLoading && bundle && customName && (!manual || panelId) && (
                   <div className="mt-8 max-w-sm">
                     <label className="block text-sm font-bold text-white/70">
-                      نام کاربری اکانت
+                      نام کاربری اکانت (اختیاری)
                       <input
                         dir="ltr"
                         value={accountName}
@@ -727,7 +727,7 @@ export default function App() {
                     <p
                       className={`mt-1.5 text-xs ${accountName && !NAME_RE.test(accountName) ? 'text-[#f79680]' : 'text-white/50'}`}
                     >
-                      حداقل ۳ کاراکتر؛ فقط حروف انگلیسی، عدد، _ و -
+                      حداقل ۳ کاراکتر؛ فقط حروف انگلیسی، عدد، _ و - — اگر خالی بگذارید، نام به‌صورت خودکار ساخته می‌شود
                     </p>
                   </div>
                 )}
@@ -1123,7 +1123,7 @@ export default function App() {
                 {customName && (
                   <div className="flex justify-between py-3.5">
                     <dt className="text-muted">نام کاربری</dt>
-                    <dd className="latin font-bold">{accountName.trim()}</dd>
+                    <dd className="latin font-bold">{accountName.trim() || 'خودکار'}</dd>
                   </div>
                 )}
                 <div className="flex justify-between py-3.5">

@@ -35,13 +35,16 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 
 <!-- BEGIN GENERATED ROUTES (scripts/gen_docs.py) -->
 
-### `admin` (67)
+### `admin` (73)
 
 | Method | Path | Operation |
 |---|---|---|
 | GET | `/api/v1/admin/audit` | Audit Log |
 | GET | `/api/v1/admin/bot-store-bindings` | List Bot Store Bindings |
 | POST | `/api/v1/admin/bot-store-bindings` | Create Bot Store Binding |
+| GET | `/api/v1/admin/broadcasts` | History |
+| POST | `/api/v1/admin/broadcasts` | Send |
+| GET | `/api/v1/admin/broadcasts/audiences` | Audiences |
 | GET | `/api/v1/admin/bundle-products/unassigned` | Unassigned Products |
 | GET | `/api/v1/admin/bundles` | List Bundles |
 | POST | `/api/v1/admin/bundles` | Create Bundle |
@@ -61,6 +64,9 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/api/v1/admin/identity-link-reviews` | Identity Link Reviews |
 | POST | `/api/v1/admin/identity-link-reviews/{review_id}/dismiss` | Dismiss Identity Review |
 | POST | `/api/v1/admin/identity-link-reviews/{review_id}/reopen` | Reopen Identity Review |
+| GET | `/api/v1/admin/manual-tasks` | List Tasks |
+| POST | `/api/v1/admin/manual-tasks/{task_id}/done` | Mark Done |
+| POST | `/api/v1/admin/manual-tasks/{task_id}/reopen` | Reopen |
 | GET | `/api/v1/admin/operations/backups` | Backup Status |
 | GET | `/api/v1/admin/orders` | Orders |
 | POST | `/api/v1/admin/orders/{order_id}/attach-account` | Attach Account |
@@ -246,7 +252,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/api/v1/reports/payments` | Payment Totals |
 | GET | `/api/v1/reports/stores/{store_id}/sales` | Store Sales |
 
-### `reseller` (37)
+### `reseller` (39)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -265,6 +271,8 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | POST | `/api/v1/stores/{store_id}/reseller/api-credentials` | Create Credential |
 | POST | `/api/v1/stores/{store_id}/reseller/api-credentials/{cred_id}/{action}` | Credential Action |
 | PATCH | `/api/v1/stores/{store_id}/reseller/branding` | Branding |
+| GET | `/api/v1/stores/{store_id}/reseller/broadcasts` | Broadcasts |
+| POST | `/api/v1/stores/{store_id}/reseller/broadcasts` | Send Broadcast |
 | GET | `/api/v1/stores/{store_id}/reseller/bundles` | Reseller Bundles |
 | PUT | `/api/v1/stores/{store_id}/reseller/bundles/{bundle_id}` | Toggle Reseller Bundle |
 | PUT | `/api/v1/stores/{store_id}/reseller/bundles/{bundle_id}/prices/{product_id}` | Set Reseller Bundle Price |
@@ -310,15 +318,17 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | POST | `/api/v1/tickets/{ticket_id}/messages` | Add Message |
 | PATCH | `/api/v1/tickets/{ticket_id}/messages/{message_id}` | Edit Message |
 
-### `vpn-accounts` (5)
+### `vpn-accounts` (7)
 
 | Method | Path | Operation |
 |---|---|---|
 | GET | `/api/v1/stores/{store_id}/vpn-accounts` | Mine |
+| GET | `/api/v1/stores/{store_id}/vpn-accounts/return-rules` | Return Rules |
 | GET | `/api/v1/stores/{store_id}/vpn-accounts/summary` | Summary |
 | GET | `/api/v1/stores/{store_id}/vpn-accounts/{account_id}` | Get |
 | GET | `/api/v1/stores/{store_id}/vpn-accounts/{account_id}/qr.png` | Qr |
 | POST | `/api/v1/stores/{store_id}/vpn-accounts/{account_id}/refresh` | Refresh |
+| POST | `/api/v1/stores/{store_id}/vpn-accounts/{account_id}/return` | Return Vpn Account |
 
 ### `wallet` (2)
 

@@ -89,6 +89,9 @@ class TelegramRunner(TransportMixin, IdentityMixin, PlansMixin, WalletMixin, Acc
             "bundle": self.cb_bundle,
             "pnl": self.cb_panel,
             "qt": self.cb_quote,
+            "an": self.cb_autoname,
+            "rtn": self.cb_return,
+            "rtc": self.cb_return_confirm,
             "rnw": self.cb_renew,
             "rnq": self.cb_renew_quote,
             "rnb": self.cb_renew_buy,
@@ -117,7 +120,12 @@ class TelegramRunner(TransportMixin, IdentityMixin, PlansMixin, WalletMixin, Acc
         text = (message.get("text") or "").strip()
         arg = text.split(maxsplit=1)[1].strip() if len(text.split(maxsplit=1)) > 1 else ""
         referral = arg[4:] if text.lower().startswith("/start") and arg.startswith("ref_") else None
-        pair = await self.core_login(message, referral)
+        try:
+            pair = await self.core_login(message, referral)
+        except CoreError as exc:
+            if exc.code != "ADMIN_USE_PANEL":
+                raise
+            return await self.send(message["chat"]["id"], ADMIN_NOTICE)  # the admin's alert address: say so instead of staying silent
         user = message.get("_telegram_from") or message.get("from") or {}
         ctx = Ctx(
             message["chat"]["id"],

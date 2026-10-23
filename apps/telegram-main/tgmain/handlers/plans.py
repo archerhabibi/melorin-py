@@ -110,8 +110,14 @@ class PlansMixin:
         if flow.get("naming") == "custom":
             self._merge_state(ctx.chat_id, flow={**flow, "name": None, "ask": pid})
             return await self.screen(
-                ctx, "✍️ نام کاربری دلخواه اکانت را بفرستید (حداقل ۳ حرف انگلیسی/عدد/_/-):", [[("↩︎ بازگشت", "plans:0")]]
+                ctx, "✍️ نام کاربری دلخواه اکانت را بفرستید (حداقل ۳ حرف انگلیسی/عدد/_/-).\nیا برای نام‌گذاری خودکار دکمهٔ زیر را بزنید:",
+                [[("🔄 نام خودکار", f"an:{pid}")], [("↩︎ بازگشت", "plans:0")]],
             )
+        await self.show_quote(ctx, pid)
+
+    async def cb_autoname(self, ctx, pid):
+        """The customer skips the custom name: the account is named automatically, exactly like an automatic bundle."""
+        self._merge_state(ctx.chat_id, flow={**self._flow(ctx), "name": None, "ask": None})
         await self.show_quote(ctx, pid)
 
     async def set_account_name(self, ctx, pid, text: str):
