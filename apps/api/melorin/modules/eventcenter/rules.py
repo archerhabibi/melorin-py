@@ -104,7 +104,10 @@ async def _ticket(session, e, p):
     if ticket is None:
         return None
     last = await session.scalar(
-        select(TicketMessage).where(TicketMessage.ticket_id == ticket.id, TicketMessage.is_internal.is_(False)).order_by(TicketMessage.created_at.desc()).limit(1)
+        select(TicketMessage)
+        .where(TicketMessage.ticket_id == ticket.id, TicketMessage.is_internal.is_(False))
+        .order_by(TicketMessage.created_at.desc())
+        .limit(1)
     )
     if last is None or last.is_staff:  # only the customer's own words matter here; staff replies and status changes stay silent
         return None

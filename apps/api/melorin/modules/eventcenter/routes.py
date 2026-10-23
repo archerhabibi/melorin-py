@@ -25,7 +25,9 @@ async def _read(session, store: Store | None) -> dict:
 
 async def _save(session, store: Store | None, actor_id, body: EventCenterIn) -> dict:
     owner = store if store is not None and store.kind == "reseller" else None
-    await service.save(session, store=owner, actor_id=actor_id, chat_id=body.chat_id, topics=body.topics, is_enabled=body.is_enabled, note=body.note)
+    await service.save(
+        session, store=owner, actor_id=actor_id, chat_id=body.chat_id, topics=body.topics, is_enabled=body.is_enabled, note=body.note
+    )
     await session.commit()
     return await _read(session, owner)
 

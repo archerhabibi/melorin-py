@@ -39,7 +39,9 @@ async def _world(s):
     owner = await make_user(s)
     reseller = await make_store(s, kind="reseller", owner=owner)
     reseller.bot_token_enc = encrypt("123:abc")
-    s.add(TelegramEventDestination(store_id=None, chat_id="-1001111111111", topics={"debt": 5, "errors": 6, "payments": 7}, is_enabled=True))
+    s.add(
+        TelegramEventDestination(store_id=None, chat_id="-1001111111111", topics={"debt": 5, "errors": 6, "payments": 7}, is_enabled=True)
+    )
     s.add(TelegramEventDestination(store_id=reseller.id, chat_id="-1002222222222", topics={"payments": 11, "orders": 12}, is_enabled=True))
     await s.commit()
     return admin, main, reseller
