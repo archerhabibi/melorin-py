@@ -14,6 +14,7 @@ from melorin.core.health import build_checks, probe_database, probe_worker, publ
 from melorin.core.logging import setup_logging
 from melorin.core.middleware import CorrelationMiddleware, SecurityHeadersMiddleware
 from melorin.core.metrics import render, set_alert, set_gauge
+from melorin.modules.eventcenter.routes import admin_router as event_center_admin_router, reseller_router as event_center_reseller_router
 from melorin.modules.admin.router import router as admin_router
 from melorin.modules.catalog.router import public as catalog_router
 from melorin.modules.identity.router import auth as auth_router, me as me_router
@@ -73,6 +74,8 @@ app.include_router(reports_router, prefix="/api/v1")
 app.include_router(referral_router, prefix="/api/v1")
 app.include_router(tickets_router, prefix="/api/v1")
 app.include_router(admin_router, prefix="/api/v1")
+app.include_router(event_center_admin_router, prefix="/api/v1")
+app.include_router(event_center_reseller_router, prefix="/api/v1")
 
 
 @app.get("/health/live", tags=["health"])
