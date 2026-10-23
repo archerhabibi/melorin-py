@@ -179,3 +179,15 @@ def test_the_return_route_is_store_scoped_and_rules_route_precedes_the_id_route(
     paths = [r.path for r in vpn_router.router.routes]
     assert "/stores/{store_id}/vpn-accounts/{account_id}/return" in paths
     assert paths.index("/stores/{store_id}/vpn-accounts/return-rules") < paths.index("/stores/{store_id}/vpn-accounts/{account_id}")
+
+
+def test_bot_registers_the_return_callbacks_and_the_card_button():
+    from pathlib import Path
+
+    root = Path(__file__).parents[2] / "telegram-main"
+    runner = (root / "runner.py").read_text(encoding="utf-8")
+    handler = (root / "tgmain/handlers/accounts.py").read_text(encoding="utf-8")
+    assert '"rtn": self.cb_return' in runner and '"rtc": self.cb_return_confirm' in runner
+    assert "async def cb_return(" in handler and "async def cb_return_confirm(" in handler
+    assert 'f"rtn:{b64(account[\'id\'])}"' in handler  # the button on the account card
+    assert "/return" in handler and "return-rules" in handler  # the bot only asks Core; no rule is re-implemented there

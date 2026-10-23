@@ -90,6 +90,8 @@ class TelegramRunner(TransportMixin, IdentityMixin, PlansMixin, WalletMixin, Acc
             "pnl": self.cb_panel,
             "qt": self.cb_quote,
             "an": self.cb_autoname,
+            "rtn": self.cb_return,
+            "rtc": self.cb_return_confirm,
             "rnw": self.cb_renew,
             "rnq": self.cb_renew_quote,
             "rnb": self.cb_renew_buy,

@@ -13,6 +13,8 @@ import {
   Pencil,
   Plus,
   RefreshCw,
+  Undo2,
+  Loader2,
   Send,
   X,
 } from 'lucide-react';
@@ -158,8 +160,53 @@ function Renew({ account, coreFetch, storeId, notify, reload, onClose }) {
   );
 }
 
+
+// مرجوعی: Core decides (volume account, <= 3 days, <= 5 % used, 3 per day); the card only asks, confirms and shows Core's words.
+function ReturnAccount({ account, coreFetch, storeId, notify, reload, onClose }) {
+  const [busy, setBusy] = useState(false);
+  const [rules, setRules] = useState('');
+  useEffect(() => {
+    coreFetch(`/api/v1/stores/${storeId}/vpn-accounts/return-rules`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setRules(d.text))
+      .catch(() => {});
+  }, [coreFetch, storeId]);
+  const go = async () => {
+    setBusy(true);
+    try {
+      const r = await coreFetch(`/api/v1/stores/${storeId}/vpn-accounts/${account.id}/return`, { method: 'POST' });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d?.error?.message || 'مرجوعی انجام نشد');
+      notify?.(d.message || 'اکانت مرجوع شد');
+      onClose();
+      reload?.();
+    } catch (e) {
+      notify?.(e.message || 'مرجوعی انجام نشد');
+    }
+    setBusy(false);
+  };
+  return (
+    <div className="mt-2 rounded-xl bg-surface2 p-3 text-xs leading-6" role="alertdialog" aria-label="مرجوعی اکانت">
+      <p className="font-bold text-ink">اکانت «{account.username}» مرجوع شود؟</p>
+      <p className="mt-1 text-muted">
+        اکانت بلافاصله غیرفعال می‌شود و مبلغ پرداختی به کیف پول همین فروشگاه برمی‌گردد. این کار قابل بازگشت نیست.
+      </p>
+      {rules && <p className="mt-1 text-muted">{rules}</p>}
+      <div className="mt-3 flex gap-2">
+        <button onClick={go} disabled={busy} className="btn-primary flex-1 !py-2 text-xs">
+          {busy ? <Loader2 size={14} className="animate-spin" /> : <Undo2 size={14} />}بله، مرجوع کن
+        </button>
+        <button onClick={onClose} disabled={busy} className="btn-soft flex-1 !py-2 text-xs">
+          انصراف
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function Vpn({ coreFetch, storeId, notify, reload }) {
   const [renew, setRenew] = useState(null);
+  const [giveBack, setGiveBack] = useState(null);
   const [tick, setTick] = useState(0);
   return (
     <AccountInquiry
@@ -182,6 +229,32 @@ function Vpn({ coreFetch, storeId, notify, reload }) {
             </button>
           ) : (
             a.renew_note && !a.is_test && <p className="mt-2 text-xs text-muted">{a.renew_note}</p>
+          )}
+          {!a.is_test && (
+            <>
+              <button
+                onClick={() => (a.can_return ? setGiveBack(giveBack === a.id ? null : a.id) : notify?.(a.return_note || 'این اکانت قابل مرجوع نیست.'))}
+                aria-disabled={!a.can_return || undefined}
+                className={`btn-soft mt-2 w-full ${a.can_return ? '' : 'opacity-60'}`}
+              >
+                <Undo2 size={16} />
+                مرجوعی اکانت
+              </button>
+              {!a.can_return && a.return_note && <p className="mt-1 text-xs text-muted">{a.return_note}</p>}
+            </>
+          )}
+          {giveBack === a.id && (
+            <ReturnAccount
+              account={a}
+              coreFetch={coreFetch}
+              storeId={storeId}
+              notify={notify}
+              reload={() => {
+                reload?.();
+                setTick((t) => t + 1);
+              }}
+              onClose={() => setGiveBack(null)}
+            />
           )}
           {renew === a.id && (
             <Renew
