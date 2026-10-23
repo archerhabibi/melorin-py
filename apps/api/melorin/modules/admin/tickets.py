@@ -162,7 +162,7 @@ async def ticket_reply(ticket_id: uuid.UUID, body: AdminAddMessage, admin: Admin
         entity_id=t.id,
         store_id=t.store_id,
     )
-    await events.emit(session, events.TICKET_UPDATED, {"ticket_id": t.id, "store_id": t.store_id})
+    await events.emit(session, events.TICKET_UPDATED, {"ticket_id": t.id, "store_id": t.store_id, "message_id": m.id})
     if not body.internal and t.user_id != admin.id:
         await ticket_service.notify_customer(session, t, body.body)
     await session.commit()

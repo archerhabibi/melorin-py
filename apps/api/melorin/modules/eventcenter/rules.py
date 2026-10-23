@@ -99,17 +99,17 @@ async def _provisioning_failed(session, e, p):
 
 
 async def _ticket(session, e, p):
-    tid = _uuid(p.get("ticket_id"))
-    ticket = await session.get(Ticket, tid) if tid else None
-    if ticket is None:
+    """Announce only a customer's own message (new ticket / new reply).
+
+    The event names the message (``message_id``). Status or priority changes, staff replies and internal notes carry no
+    customer message, so they stay silent - otherwise every status change would repeat the last customer reply.
+    """
+    mid = _uuid(p.get("message_id"))
+    message = await session.get(TicketMessage, mid) if mid else None
+    if message is None or message.is_staff or message.is_internal:
         return None
-    last = await session.scalar(
-        select(TicketMessage)
-        .where(TicketMessage.ticket_id == ticket.id, TicketMessage.is_internal.is_(False))
-        .order_by(TicketMessage.created_at.desc())
-        .limit(1)
-    )
-    if last is None or last.is_staff:  # only the customer's own words matter here; staff replies and status changes stay silent
+    ticket = await session.get(Ticket, message.ticket_id)
+    if ticket is None:
         return None
     count = await session.scalar(select(func.count()).select_from(TicketMessage).where(TicketMessage.ticket_id == ticket.id)) or 0
     head = "🎫 تیکت جدید" if count <= 1 else "💬 پاسخ جدید مشتری در تیکت"

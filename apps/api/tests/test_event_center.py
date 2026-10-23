@@ -12,6 +12,7 @@ from melorin.core.crypto import encrypt
 from melorin.core.errors import AppError
 from melorin.kernel.models.notifications import TelegramEventDestination
 from melorin.kernel.models.system import OutboxEvent
+from melorin.kernel.models.tickets import Ticket, TicketMessage
 from melorin.modules.eventcenter import rules, service
 
 GROUP = "-1001234567890"
@@ -224,3 +225,49 @@ async def test_repeated_outbox_failure_is_reported_once_to_admin_errors_topic():
         assert len(rows) == 1 and rows[0].payload["topic"] == "errors"
         e.attempts = 2
         await rules.report_outbox_failure(s, e)  # below the threshold: silent
+
+
+async def _ticket(s, reseller, customer, number="100001"):
+    t = Ticket(user_id=customer.id, store_id=reseller.id, number=number, subject="مشکل اتصال", status="open")
+    s.add(t)
+    await s.flush()
+    return t
+
+
+async def _msg(s, ticket, author, *, staff=False, internal=False):
+    m = TicketMessage(ticket_id=ticket.id, author_id=author.id, is_staff=staff, is_internal=internal, body="متن")
+    s.add(m)
+    await s.flush()
+    return m
+
+
+async def test_ticket_rule_announces_only_the_customers_own_message():
+    async with open_session() as s:
+        admin, _, reseller = await _world(s)
+        customer = await make_user(s)
+        t = await _ticket(s, reseller, customer)
+        first = await _msg(s, t, customer)
+        hit = await rules._ticket(s, None, {"ticket_id": t.id, "message_id": first.id})
+        assert hit[0] == reseller.id and hit[1] == "tickets" and "تیکت جدید" in hit[2] and t.number in hit[2]
+        reply = await _msg(s, t, customer)
+        hit = await rules._ticket(s, None, {"ticket_id": t.id, "message_id": reply.id})
+        assert "پاسخ جدید مشتری" in hit[2]
+        staff = await _msg(s, t, admin, staff=True)
+        note = await _msg(s, t, admin, staff=True, internal=True)
+        assert await rules._ticket(s, None, {"message_id": staff.id}) is None
+        assert await rules._ticket(s, None, {"message_id": note.id}) is None
+
+
+async def test_ticket_status_change_does_not_repeat_the_last_customer_reply():
+    """Regression: a status/priority change (no message_id) used to re-announce the last customer message every time."""
+    async with open_session() as s:
+        _, _, reseller = await _world(s)
+        customer = await make_user(s)
+        t = await _ticket(s, reseller, customer)
+        await _msg(s, t, customer)
+        await s.commit()
+        for payload in ({"ticket_id": str(t.id), "store_id": str(reseller.id)}, {"ticket_id": str(t.id), "message_id": str(uuid.uuid4())}):
+            e = OutboxEvent(topic=events.TICKET_UPDATED, payload=payload)
+            s.add(e)
+            await s.flush()
+            assert await rules.tap(s, e) == 0
