@@ -92,6 +92,11 @@ class TelegramChannel:
         result = (await self.call("createForumTopic", {"chat_id": chat_id, "name": name[:128]})).get("result") or {}
         return int(result["message_thread_id"])
 
+    async def reopen_forum_topic(self, chat_id: int | str, thread_id: int) -> None:
+        """Existence probe that never renames: Telegram answers ``TOPIC_NOT_MODIFIED`` for an open topic, succeeds (and
+        reopens) a closed one and fails with "message thread not found" for a deleted one. Raises :class:`TelegramApiError`."""
+        await self.call("reopenForumTopic", {"chat_id": chat_id, "message_thread_id": int(thread_id)})
+
     async def send_message(self, chat_id: int | str, text: str, **kwargs: Any) -> dict[str, Any]:
         return await self.telegram("sendMessage", {"chat_id": chat_id, "text": text, **kwargs})
 

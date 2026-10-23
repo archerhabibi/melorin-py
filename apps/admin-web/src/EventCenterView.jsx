@@ -93,7 +93,13 @@ export default function EventCenterView({ api, toast }) {
       setMade(d.results || []);
       setCheck(null);
       await load();
-      if (d.created) toast(`${d.created} Topic ساخته شد`);
+      if (d.created || d.recreated) {
+        toast(
+          [d.created && `${d.created} Topic ساخته شد`, d.recreated && `${d.recreated} Topic حذف‌شده دوباره ساخته شد`]
+            .filter(Boolean)
+            .join('، '),
+        );
+      }
     });
 
   const remove = async () => {
@@ -219,7 +225,14 @@ export default function EventCenterView({ api, toast }) {
             <ul className="space-y-1 text-sm">
               {made.map((x) => (
                 <li key={x.topic}>
-                  {x.status === 'failed' ? '❌' : x.status === 'created' ? '🆕' : '✔️'} {x.label}
+                  {x.status === 'failed'
+                    ? '❌'
+                    : x.status === 'created'
+                      ? '🆕'
+                      : x.status === 'recreated'
+                        ? '♻️'
+                        : '✔️'}{' '}
+                  {x.label}
                   {x.status === 'failed' && x.error ? ` — ${x.error}` : ''}
                 </li>
               ))}

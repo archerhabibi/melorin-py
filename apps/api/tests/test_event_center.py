@@ -333,6 +333,17 @@ class FakeChannel:
     def __init__(self, *, is_forum=True, status="administrator", manage=True, chat_type="supergroup", fail_on=None):
         self.is_forum, self.status, self.manage, self.chat_type, self.fail_on = is_forum, status, manage, chat_type, fail_on
         self.created: list[str] = []
+        self.gone: set[int] = set()  # thread ids deleted in the group
+        self.probe_error: TelegramApiError | None = None  # a failure that says nothing about the topic (rights, flood)
+        self.probed: list[int] = []
+
+    async def reopen_forum_topic(self, chat_id, thread_id):
+        self.probed.append(thread_id)
+        if self.probe_error is not None:
+            raise self.probe_error
+        if thread_id in self.gone:
+            raise TelegramApiError(400, "Bad Request: message thread not found")
+        raise TelegramApiError(400, "Bad Request: TOPIC_NOT_MODIFIED")  # what Telegram says about an open topic
 
     async def get_me(self):
         return {"id": 42, "username": "shop_bot"}
@@ -397,6 +408,37 @@ async def test_provision_creates_only_missing_topics_and_keeps_existing_ids(fake
         assert set(dest.topics) == set(service.TOPICS) and all(isinstance(v, int) for v in dest.topics.values())
         again = await service.provision_topics(s, store=reseller, actor_id=uuid.uuid4())
         assert again["created"] == 0 and len(ch.created) == 3  # idempotent: no duplicate topics
+
+
+async def test_provision_recreates_a_topic_that_was_deleted_in_the_group(fake_channel):
+    ch = fake_channel()
+    async with open_session() as s:
+        _, _, reseller = await _world(s)
+        await service.provision_topics(s, store=reseller, actor_id=uuid.uuid4())  # fills debt / tickets / errors
+        saved = set((await service.get_destination(s, reseller.id)).topics.values())
+        ch.gone, ch.probed, before = {11}, [], len(ch.created)  # the owner deletes the "payments" topic (thread 11) in Telegram
+        res = await service.provision_topics(s, store=reseller, actor_id=uuid.uuid4())
+        statuses = {r["topic"]: r["status"] for r in res["results"]}
+        assert statuses["payments"] == "recreated" and statuses["orders"] == "kept"
+        assert res["recreated"] == 1 and res["created"] == 0 and ch.created[before:] == [service.TOPICS["payments"]]
+        dest = await service.get_destination(s, reseller.id)
+        assert dest.topics["payments"] not in saved and dest.topics["orders"] == 12  # only the dead id is replaced
+        assert set(ch.probed) == saved  # every saved id was checked against Telegram
+        again = await service.provision_topics(s, store=reseller, actor_id=uuid.uuid4())
+        assert again["recreated"] == 0 and again["created"] == 0  # stable afterwards
+
+
+async def test_provision_does_not_recreate_when_the_probe_fails_for_another_reason(fake_channel):
+    ch = fake_channel()
+    async with open_session() as s:
+        _, _, reseller = await _world(s)
+        ch.probe_error = TelegramApiError(429, "Too Many Requests: retry after 5", 5)
+        res = await service.provision_topics(s, store=reseller, actor_id=uuid.uuid4())
+        assert [r["status"] for r in res["results"]] == ["failed"]  # stops at the first problem, nothing duplicated
+        assert ch.created == [] and res["recreated"] == 0
+        dest = await service.get_destination(s, reseller.id)
+        assert dest.topics["payments"] == 11 and dest.topics["orders"] == 12  # ids untouched, error recorded
+        assert dest.last_error.startswith("429")
 
 
 async def test_provision_refuses_without_forum_or_rights(fake_channel):

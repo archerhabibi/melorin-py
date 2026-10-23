@@ -295,11 +295,32 @@ async def inspect(session: AsyncSession, *, store: Store | None) -> dict:
     }
 
 
+async def _topic_exists(channel: TelegramChannel, chat_id: str, thread_id: int) -> bool:
+    """Is this thread still a topic of the group? (Mirza's ``syncReportTopics`` asks Telegram the same way.)
+
+    ``reopenForumTopic`` is used as the probe because it never renames a topic the owner named himself: an open topic
+    answers ``TOPIC_NOT_MODIFIED`` (alive), a closed one is simply reopened (alive), a deleted one is "thread not found".
+    Any other failure (rights, flood, network) is not an answer about the topic, so it is raised to the caller.
+    """
+    try:
+        await channel.reopen_forum_topic(chat_id, thread_id)
+    except TelegramApiError as exc:
+        d = exc.description.lower()
+        if "topic_not_modified" in d:
+            return True
+        if "thread not found" in d or "topic_id_invalid" in d or "topic_deleted" in d or "topic not found" in d:
+            return False
+        raise
+    return True
+
+
 async def provision_topics(session: AsyncSession, *, store: Store | None, actor_id: uuid.UUID) -> dict:
     """Create the forum topics that have no thread id yet (Mirza-style "sync topics") and save their ids.
 
-    Existing thread ids are never touched. Each created topic is committed at once, so a failure half-way (or a double
-    click) can never create the same topic twice or lose ids that Telegram already handed out.
+    A saved thread id is first checked against Telegram: a topic that still exists is kept untouched, one that was deleted
+    in the group is created again and its new id saved (otherwise its events would silently fall back to General forever).
+    Each created topic is committed at once, so a failure half-way (or a double click) can never create the same topic
+    twice or lose ids that Telegram already handed out.
     """
     dest, token = await _require_ready(session, store)
     owner_id = store.id if store is not None and store.kind == "reseller" else None
@@ -315,31 +336,37 @@ async def provision_topics(session: AsyncSession, *, store: Store | None, actor_
     channel = _channel(token)
     results: list[dict] = []
     for key, label in TOPICS.items():
-        if (dest.topics or {}).get(key):
-            results.append({"topic": key, "label": label, "status": "kept", "thread_id": dest.topics[key]})
-            continue
+        old = (dest.topics or {}).get(key)
         try:
+            if old and await _topic_exists(channel, dest.chat_id, int(old)):
+                results.append({"topic": key, "label": label, "status": "kept", "thread_id": old})
+                continue
             thread_id = await channel.create_forum_topic(dest.chat_id, label)
         except TelegramApiError as exc:
             _record_error(dest, exc)
             results.append({"topic": key, "label": label, "status": "failed", "error": dest.last_error})
             await session.commit()
             break  # rights / rate limit problems hit every remaining topic too
+        status = "recreated" if old else "created"
         dest.topics = {**(dest.topics or {}), key: thread_id}
-        results.append({"topic": key, "label": label, "status": "created", "thread_id": thread_id})
+        results.append({"topic": key, "label": label, "status": status, "thread_id": thread_id})
         audit.record(
             session,
-            "event_center.topic_created",
+            f"event_center.topic_{status}",
             actor_id=actor_id,
             actor_type="admin" if owner_id is None else "reseller",
             entity_type="telegram_event_destination",
             entity_id=dest.id,
             store_id=owner_id,
-            data={"topic": key, "thread_id": thread_id},
+            data={"topic": key, "thread_id": thread_id, **({"old_thread_id": old} if old else {})},
         )
         await session.commit()
     await session.commit()
-    return {"results": results, "created": sum(r["status"] == "created" for r in results)}
+    return {
+        "results": results,
+        "created": sum(r["status"] == "created" for r in results),
+        "recreated": sum(r["status"] == "recreated" for r in results),
+    }
 
 
 async def publish(
