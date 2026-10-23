@@ -35,7 +35,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 
 <!-- BEGIN GENERATED ROUTES (scripts/gen_docs.py) -->
 
-### `admin` (73)
+### `admin` (77)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -58,6 +58,10 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | POST | `/api/v1/admin/coupons` | Create Admin Coupon |
 | PATCH | `/api/v1/admin/coupons/{coupon_id}` | Patch Admin Coupon |
 | GET | `/api/v1/admin/dashboard` | Dashboard |
+| GET | `/api/v1/admin/event-center` | Admin Get |
+| PUT | `/api/v1/admin/event-center` | Admin Put |
+| DELETE | `/api/v1/admin/event-center` | Admin Delete |
+| POST | `/api/v1/admin/event-center/test` | Admin Test |
 | GET | `/api/v1/admin/feature-flags` | List Flags |
 | PUT | `/api/v1/admin/feature-flags/{key}` | Update Flag |
 | GET | `/api/v1/admin/health` | Health |
@@ -252,7 +256,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/api/v1/reports/payments` | Payment Totals |
 | GET | `/api/v1/reports/stores/{store_id}/sales` | Store Sales |
 
-### `reseller` (39)
+### `reseller` (43)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -278,6 +282,10 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | PUT | `/api/v1/stores/{store_id}/reseller/bundles/{bundle_id}/prices/{product_id}` | Set Reseller Bundle Price |
 | GET | `/api/v1/stores/{store_id}/reseller/customers` | Customers |
 | POST | `/api/v1/stores/{store_id}/reseller/customers/{customer_id}/wallet` | Adjust Customer Wallet |
+| GET | `/api/v1/stores/{store_id}/reseller/event-center` | Reseller Get |
+| PUT | `/api/v1/stores/{store_id}/reseller/event-center` | Reseller Put |
+| DELETE | `/api/v1/stores/{store_id}/reseller/event-center` | Reseller Delete |
+| POST | `/api/v1/stores/{store_id}/reseller/event-center/test` | Reseller Test |
 | GET | `/api/v1/stores/{store_id}/reseller/payment-config` | Get Payment Config |
 | PUT | `/api/v1/stores/{store_id}/reseller/payment-config/{provider}` | Put Payment Config |
 | GET | `/api/v1/stores/{store_id}/reseller/payments` | Store Payments |
