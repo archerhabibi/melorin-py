@@ -203,14 +203,17 @@ async def test_bundle_packages_endpoint_refuses_a_bundle_the_store_cannot_sell(s
 
 
 # ---------------------------------------------------------------- naming
-def test_custom_bundle_requires_a_usable_name_and_cleans_it():
+def test_custom_bundle_name_is_optional_but_a_typed_name_must_be_usable():
     custom, auto = types.SimpleNamespace(naming_mode="custom"), types.SimpleNamespace(naming_mode="automatic")
     assert requested_account_name(custom, "  ali vpn!! ") == "alivpn"
     assert requested_account_name(custom, "a" * 80) == "a" * 40
-    for bad in (None, "", "  ", "ab", "فارسی", "!!"):
+    # left empty -> None: provisioning falls back to the automatic naming
+    for empty in (None, "", "  "):
+        assert requested_account_name(custom, empty) is None
+    for bad in ("ab", "فارسی", "!!"):
         with pytest.raises(AppError) as e:
             requested_account_name(custom, bad)
-        assert e.value.code == "ACCOUNT_NAME_REQUIRED"
+        assert e.value.code == "ACCOUNT_NAME_INVALID"
     assert requested_account_name(auto, "anything") is None
 
 

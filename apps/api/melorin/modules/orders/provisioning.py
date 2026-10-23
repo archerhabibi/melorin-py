@@ -211,7 +211,7 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
             expire = utcnow() + dt.timedelta(days=product.duration_days)
             traffic = product.traffic_gb * 1024**3 if product.traffic_gb else 0
             bundle = await session.get(Bundle, order.bundle_id) if order.bundle_id else None
-            if bundle and bundle.naming_mode == "custom":
+            if bundle and bundle.naming_mode == "custom" and order.requested_account_name:
                 generated_name = f"{clean_custom_name(order.requested_account_name)}_{order.number}"
             elif bundle:
                 prefix = re.sub(r"[^A-Za-z0-9]", "", panel.name)[:4] or "Pnl"
