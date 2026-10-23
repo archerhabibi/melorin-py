@@ -42,6 +42,7 @@ import {
   ChevronDown,
   UserRound,
   ListChecks,
+  Megaphone,
   UserPlus,
   Bot,
 } from 'lucide-react';
@@ -66,6 +67,7 @@ const groups = [
       ['نمایندگان', Bot, 'resellers'],
       ['درخواست‌های نمایندگی', UserPlus, 'reseller-applications'],
       ['کارهای دستی', ListChecks, 'manual-tasks'],
+      ['پیام همگانی', Megaphone, 'broadcasts'],
       ['کوپن‌ها', Percent, 'coupons'],
     ],
   ],
@@ -165,7 +167,19 @@ function useCore() {
           .then((x) => x.open || 0)
           .catch(() => 0);
         if (live)
-          setData({ summary, orders, health, backups, users, tickets, stores, pendingApps, manualTasks, loading: false, error: '' });
+          setData({
+            summary,
+            orders,
+            health,
+            backups,
+            users,
+            tickets,
+            stores,
+            pendingApps,
+            manualTasks,
+            loading: false,
+            error: '',
+          });
       } catch (e) {
         if (live)
           setData((x) => ({
@@ -654,7 +668,13 @@ export default function App({ onLogout }) {
       <aside className="fixed inset-y-0 right-0 z-20 hidden w-64 flex-col bg-[var(--nav)] lg:flex">
         <Brand />
         <div className="flex-1 overflow-y-auto pt-3">
-          <Nav section={section} go={go} openTickets={openTickets} pendingApps={api.pendingApps} manualTasks={api.manualTasks} />
+          <Nav
+            section={section}
+            go={go}
+            openTickets={openTickets}
+            pendingApps={api.pendingApps}
+            manualTasks={api.manualTasks}
+          />
         </div>
         <div className="m-4 rounded-2xl bg-white/[.07] p-4">
           <div className={`flex items-center gap-2 text-xs ${api.health ? 'text-[#8ce0ba]' : 'text-[#f4c95d]'}`}>
@@ -748,7 +768,13 @@ export default function App({ onLogout }) {
             </button>
           </div>
           <div className="flex-1 overflow-y-auto">
-            <Nav section={section} go={go} openTickets={openTickets} pendingApps={api.pendingApps} manualTasks={api.manualTasks} />
+            <Nav
+              section={section}
+              go={go}
+              openTickets={openTickets}
+              pendingApps={api.pendingApps}
+              manualTasks={api.manualTasks}
+            />
           </div>
         </MobileNav>
       )}

@@ -15,10 +15,12 @@ import {
   Users,
   Webhook,
   KeyRound,
+  Megaphone,
 } from 'lucide-react';
 import { Loading, PageTitle, StatusBadge, fa, fd } from './ui.jsx';
 import Pricing from './ResellerPricing.jsx';
 import AccountInquiry from './AccountInquiry.jsx';
+import Broadcast from './ResellerBroadcast.jsx';
 const J = { 'Content-Type': 'application/json' };
 
 // The reseller renews his own accounts and HIS OWN store's customers' accounts. Core decides everything (window, package,
@@ -1112,7 +1114,9 @@ function Apply({ coreFetch, notify, stores }) {
                 value={f.message}
                 onChange={(e) => setF({ ...f, message: e.target.value })}
               />
-              <span className={`mt-1 block text-[11px] font-normal leading-6 ${f.message && !reasonOk ? 'text-danger' : 'text-muted'}`}>
+              <span
+                className={`mt-1 block text-[11px] font-normal leading-6 ${f.message && !reasonOk ? 'text-danger' : 'text-muted'}`}
+              >
                 چرا می‌خواهید نماینده شوید؟ سابقهٔ فروش، تعداد مشتری و برنامهٔ خود را بنویسید (حداقل ۲۰ نویسه).
               </span>
             </label>
@@ -1139,6 +1143,7 @@ const tabs = [
   ['pricing', 'قیمت‌گذاری', Tags],
   ['customers', 'مشتریان', Users],
   ['accounts', 'اکانت‌های مشتریان', Gauge],
+  ['broadcast', 'پیام همگانی', Megaphone],
   ['payments', 'پرداخت‌ها', CreditCard],
   ['keys', 'کلیدهای API', KeyRound],
   ['hooks', 'وبهوک‌ها', Webhook],
@@ -1201,6 +1206,7 @@ export default function Reseller({ coreFetch, notify }) {
             {tab === 'pricing' && <Pricing coreFetch={coreFetch} base={base} notify={notify} dirtyRef={pricingDirty} />}
             {tab === 'customers' && <Customers coreFetch={coreFetch} base={base} notify={notify} />}
             {tab === 'accounts' && <OwnerAccounts coreFetch={coreFetch} base={base} notify={notify} />}
+            {tab === 'broadcast' && <Broadcast coreFetch={coreFetch} base={base} notify={notify} />}
             {tab === 'payments' && <Payments coreFetch={coreFetch} base={base} notify={notify} />}
             {tab === 'keys' && <Keys coreFetch={coreFetch} base={base} notify={notify} />}
             {tab === 'hooks' && <Hooks coreFetch={coreFetch} base={base} notify={notify} />}

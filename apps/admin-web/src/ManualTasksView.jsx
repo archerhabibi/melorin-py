@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { CheckCircle2, ClipboardCopy, Clock, ListChecks, RotateCcw } from 'lucide-react';
 import { authFetch } from './api.js';
-import { Badge, dt } from './ui.jsx';
+import { dt } from './ui.jsx';
 import { Empty, ErrorBar, KpiBar, Pills, Stat, errText, useRows } from './kit.jsx';
 
 const FILTERS = [
@@ -32,12 +32,12 @@ function TaskCard({ t, busy, onDone, onReopen, toast }) {
           </div>
           <h4 className="mt-1 text-base font-extrabold">{t.title}</h4>
         </div>
-        <Badge tone={done ? 'ok' : 'wn'}>{done ? 'انجام شد' : 'در انتظار'}</Badge>
+        <span className={`badge ${done ? 'b-ok' : 'b-wn'}`}>{done ? 'انجام شد' : 'در انتظار'}</span>
       </div>
       <p className="mt-3 text-sm leading-7">{t.detail}</p>
       <div className="mt-4 flex flex-wrap gap-2">
         {done ? (
-          <button className="btn ghost" disabled={busy} onClick={() => onReopen(t)}>
+          <button className="btn btn-g" disabled={busy} onClick={() => onReopen(t)}>
             <RotateCcw size={15} /> باز کردن دوباره
           </button>
         ) : (
@@ -45,7 +45,7 @@ function TaskCard({ t, busy, onDone, onReopen, toast }) {
             <CheckCircle2 size={15} /> انجام دادم
           </button>
         )}
-        <button className="btn ghost" onClick={copy}>
+        <button className="btn btn-g" onClick={copy}>
           <ClipboardCopy size={15} /> کپی
         </button>
       </div>
@@ -83,7 +83,14 @@ export default function ManualTasksView({ api, toast }) {
   return (
     <div className="space-y-5">
       <KpiBar cols={2}>
-        <Stat label="در انتظار انجام" value={open} tone="wn" Icon={Clock} active={filter === 'open'} onClick={() => setFilter('open')} />
+        <Stat
+          label="در انتظار انجام"
+          value={open}
+          tone="wn"
+          Icon={Clock}
+          active={filter === 'open'}
+          onClick={() => setFilter('open')}
+        />
         <Stat
           label="انجام‌شده"
           value={all.length - open}
@@ -101,7 +108,11 @@ export default function ManualTasksView({ api, toast }) {
       {failed && <ErrorBar onRetry={load}>دریافت فهرست کارهای دستی ناموفق بود.</ErrorBar>}
       {error && <ErrorBar>{error}</ErrorBar>}
       {rows && !shown.length ? (
-        <Empty Icon={ListChecks} title="کار دستی‌ای نیست" text="با ثبت‌نام هر نماینده، کارهای دستی گوگل، تلگرام و دامنه اینجا و در تلگرام به شما اطلاع داده می‌شود." />
+        <Empty
+          Icon={ListChecks}
+          title="کار دستی‌ای نیست"
+          text="با ثبت‌نام هر نماینده، کارهای دستی گوگل، تلگرام و دامنه اینجا و در تلگرام به شما اطلاع داده می‌شود."
+        />
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           {shown.map((t) => (
