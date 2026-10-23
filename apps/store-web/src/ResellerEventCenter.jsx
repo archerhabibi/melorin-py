@@ -103,8 +103,8 @@ export default function ResellerEventCenter({ coreFetch, base, notify }) {
           <BellRing size={18} /> مرکز رویداد تلگرام
         </h3>
         <p className="text-sm leading-7 text-muted">
-          یک سوپرگروه با قابلیت Topics بسازید و ربات فروشگاه خودتان را ادمین گروه کنید. پرداخت‌ها، سفارش‌ها، بدهی، تیکت‌ها و
-          خطاهای فروشگاه شما در Topic مربوطه می‌آید. فقط رویدادهای فروشگاه شما ارسال می‌شود.
+          یک سوپرگروه با قابلیت Topics بسازید و ربات فروشگاه خودتان را ادمین گروه کنید. پرداخت‌ها، سفارش‌ها، بدهی،
+          تیکت‌ها و خطاهای فروشگاه شما در Topic مربوطه می‌آید. فقط رویدادهای فروشگاه شما ارسال می‌شود.
         </p>
         {!data.bot_ready && (
           <p className={`${chip} bg-danger-soft text-danger`}>
@@ -114,7 +114,13 @@ export default function ResellerEventCenter({ coreFetch, base, notify }) {
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block text-xs font-bold text-muted">
             شناسهٔ گروه (Chat ID)
-            <input className="inp mt-1.5" dir="ltr" value={chat} onChange={(e) => setChat(e.target.value)} placeholder="-1001234567890" />
+            <input
+              className="inp mt-1.5"
+              dir="ltr"
+              value={chat}
+              onChange={(e) => setChat(e.target.value)}
+              placeholder="-1001234567890"
+            />
           </label>
           <label className="block text-xs font-bold text-muted">
             توضیح (اختیاری)
@@ -122,7 +128,8 @@ export default function ResellerEventCenter({ coreFetch, base, notify }) {
           </label>
         </div>
         <label className="flex items-center gap-2 text-sm font-bold">
-          <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} /> ارسال رویدادها فعال باشد
+          <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} /> ارسال رویدادها فعال
+          باشد
         </label>
       </section>
 

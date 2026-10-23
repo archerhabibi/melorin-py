@@ -15,7 +15,14 @@ describe('EventCenterView', () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, o = {}) => {
       const path = String(url).replace(/^https?:\/\/[^/]+/, '');
       calls.push([o.method || 'GET', path, o.body]);
-      const view = { configured: true, bot_ready: true, chat_id: '-1001234567890', is_enabled: true, note: null, topics };
+      const view = {
+        configured: true,
+        bot_ready: true,
+        chat_id: '-1001234567890',
+        is_enabled: true,
+        note: null,
+        topics,
+      };
       return json(view);
     });
     const toast = vi.fn();

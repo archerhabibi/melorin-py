@@ -105,14 +105,21 @@ export default function EventCenterView({ api, toast }) {
         {!data.bot_ready && <ErrorBar>ربات اصلی تنظیم نشده است؛ ارسال به گروه ممکن نیست.</ErrorBar>}
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="شناسهٔ گروه (Chat ID)" hint="مثال: -1001234567890">
-            <input className="inp" dir="ltr" value={chat} onChange={(e) => setChat(e.target.value)} placeholder="-100…" />
+            <input
+              className="inp"
+              dir="ltr"
+              value={chat}
+              onChange={(e) => setChat(e.target.value)}
+              placeholder="-100…"
+            />
           </Field>
           <Field label="توضیح (اختیاری)">
             <input className="inp" maxLength={300} value={note} onChange={(e) => setNote(e.target.value)} />
           </Field>
         </div>
         <label className="flex items-center gap-2 text-sm font-bold">
-          <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} /> ارسال رویدادها فعال باشد
+          <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} /> ارسال رویدادها فعال
+          باشد
         </label>
       </Section>
 
