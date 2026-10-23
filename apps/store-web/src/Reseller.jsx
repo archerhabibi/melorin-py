@@ -15,12 +15,14 @@ import {
   Users,
   Webhook,
   KeyRound,
+  BellRing,
   Megaphone,
 } from 'lucide-react';
 import { Loading, PageTitle, StatusBadge, fa, fd } from './ui.jsx';
 import Pricing from './ResellerPricing.jsx';
 import AccountInquiry from './AccountInquiry.jsx';
 import Broadcast from './ResellerBroadcast.jsx';
+import EventCenter from './ResellerEventCenter.jsx';
 const J = { 'Content-Type': 'application/json' };
 
 // The reseller renews his own accounts and HIS OWN store's customers' accounts. Core decides everything (window, package,
@@ -1144,6 +1146,7 @@ const tabs = [
   ['customers', 'مشتریان', Users],
   ['accounts', 'اکانت‌های مشتریان', Gauge],
   ['broadcast', 'پیام همگانی', Megaphone],
+  ['events', 'مرکز رویداد', BellRing],
   ['payments', 'پرداخت‌ها', CreditCard],
   ['keys', 'کلیدهای API', KeyRound],
   ['hooks', 'وبهوک‌ها', Webhook],
@@ -1207,6 +1210,7 @@ export default function Reseller({ coreFetch, notify }) {
             {tab === 'customers' && <Customers coreFetch={coreFetch} base={base} notify={notify} />}
             {tab === 'accounts' && <OwnerAccounts coreFetch={coreFetch} base={base} notify={notify} />}
             {tab === 'broadcast' && <Broadcast coreFetch={coreFetch} base={base} notify={notify} />}
+            {tab === 'events' && <EventCenter coreFetch={coreFetch} base={base} notify={notify} />}
             {tab === 'payments' && <Payments coreFetch={coreFetch} base={base} notify={notify} />}
             {tab === 'keys' && <Keys coreFetch={coreFetch} base={base} notify={notify} />}
             {tab === 'hooks' && <Hooks coreFetch={coreFetch} base={base} notify={notify} />}

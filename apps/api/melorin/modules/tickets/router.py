@@ -44,9 +44,12 @@ async def create(body: CreateTicket, ctx: StoreCtx, session: Session):
     )
     session.add(t)
     await session.flush()
-    session.add(TicketMessage(ticket_id=t.id, author_id=ctx.user.id, is_staff=False, body=body.body))
+    first = TicketMessage(ticket_id=t.id, author_id=ctx.user.id, is_staff=False, body=body.body)
+    session.add(first)
+    await session.flush()
     audit.record(session, "ticket.created", actor_id=ctx.user.id, entity_type="ticket", entity_id=t.id, store_id=ctx.store.id)
-    await events.emit(session, events.TICKET_UPDATED, {"ticket_id": t.id, "store_id": ctx.store.id})
+    # message_id tells the Event Center which message to announce; status/priority changes carry none and stay silent.
+    await events.emit(session, events.TICKET_UPDATED, {"ticket_id": t.id, "store_id": ctx.store.id, "message_id": first.id})
     await session.commit()
     return tout(t)
 
@@ -121,7 +124,7 @@ async def add_message(ticket_id: uuid.UUID, body: AddMessage, auth: CurrentAuth,
     t.status = "answered" if auth.is_admin_session else "open"
     service.touch(t)
     await session.flush()
-    await events.emit(session, events.TICKET_UPDATED, {"ticket_id": t.id, "store_id": t.store_id})
+    await events.emit(session, events.TICKET_UPDATED, {"ticket_id": t.id, "store_id": t.store_id, "message_id": m.id})
     if auth.is_admin_session and t.user_id != user.id:
         await service.notify_customer(session, t, body.body)
     await session.commit()

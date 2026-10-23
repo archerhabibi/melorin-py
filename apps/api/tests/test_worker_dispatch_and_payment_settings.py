@@ -20,6 +20,7 @@ HANDLED_TOPICS = {
     events.VPN_RENEWAL_ROLLBACK,
     events.NOTIFY,
     events.EVENT_CENTER,
+    events.EVENT_CENTER_DELIVER,  # Telegram Event Center delivery (one queued message per destination)
     events.TICKET_UPDATED,
     events.PAYMENT_SUCCEEDED,
     events.PAYMENT_FAILED,

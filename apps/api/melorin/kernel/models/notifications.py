@@ -28,6 +28,10 @@ class TelegramEventDestination(IdMixin, TimestampMixin, Base):
     topics: Mapped[dict | None] = mapped_column(JSON)  # {"payments": thread_id, "orders": ..., ...}
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     note: Mapped[str | None] = mapped_column(Text)
+    # Connection health shown in the panels (migration 0031). ``last_error`` is cleared by the next successful send.
+    last_sent_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error: Mapped[str | None] = mapped_column(String(300))
+    last_error_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Broadcast(IdMixin, CreatedMixin, Base):

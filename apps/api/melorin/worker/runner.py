@@ -118,6 +118,12 @@ async def _on_event_center(session, p: dict):
     await _event_center(session, p)
 
 
+async def _on_event_center_deliver(session, p: dict):
+    from melorin.modules.eventcenter import service as event_center
+
+    await event_center.deliver(session, p)
+
+
 def _webhook_only(event_name: str, key):
     """Handler for topics that only fan out to reseller webhooks; ``key(p)`` builds the idempotent event id."""
 
@@ -137,12 +143,29 @@ _TOPIC_HANDLERS = {
     events.VPN_RENEWAL_ROLLBACK: _on_vpn_renewal_rollback,
     events.NOTIFY: _on_notify,
     events.EVENT_CENTER: _on_event_center,
+    events.EVENT_CENTER_DELIVER: _on_event_center_deliver,
     events.TICKET_UPDATED: _on_event_center,
     events.PAYMENT_SUCCEEDED: _webhook_only("payment.succeeded", lambda p: p.get("payment_id")),
     events.PAYMENT_FAILED: _webhook_only("payment.failed", lambda p: p.get("payment_id")),
     events.WALLET_CHANGED: _webhook_only("wallet.changed", lambda p: f"{p.get('wallet_id')}:{p.get('amount')}:{p.get('balance')}"),
     events.RESELLER_DEBT: _webhook_only("reseller.debt", lambda p: f"{p.get('store_id')}:{p.get('state')}:{p.get('balance')}"),
 }
+
+
+OUTBOX_MAX_BACKOFF = 1800  # seconds
+OUTBOX_MAX_RETRY_AFTER = 3600  # a Telegram flood-wait longer than this is not waited out in one step
+
+
+def _retry_delay(attempts: int, exc: Exception) -> int:
+    """Seconds before the next outbox attempt: exponential backoff, but never sooner than Telegram's ``retry_after``.
+
+    A 429 answer tells exactly how long the bot must wait; retrying earlier only extends the flood-wait.
+    """
+    delay = min(OUTBOX_MAX_BACKOFF, 2 ** min(attempts, 8))
+    retry_after = getattr(exc, "retry_after", None)
+    if isinstance(retry_after, int) and retry_after > 0:
+        delay = max(delay, min(OUTBOX_MAX_RETRY_AFTER, retry_after + 1))
+    return delay
 
 
 async def process_event(e: OutboxEvent):
@@ -157,6 +180,10 @@ async def process_event(e: OutboxEvent):
             handler = _TOPIC_HANDLERS.get(e.topic)
             if handler is not None:  # unknown topics are acknowledged without work, as before
                 await handler(session, e.payload or {})
+            if e.topic != events.EVENT_CENTER_DELIVER:  # Telegram fan-out: best-effort, inside a SAVEPOINT, never fails the event
+                from melorin.modules.eventcenter import rules as event_center_rules
+
+                await event_center_rules.tap(session, e)
             e.status, e.processed_at, e.last_error = "processed", utcnow(), None
             await session.commit()
             inc("melorin_outbox_events_total", topic=e.topic, result="processed")
@@ -165,7 +192,10 @@ async def process_event(e: OutboxEvent):
             failed = await session.get(OutboxEvent, event_id, with_for_update=True)
             if failed is not None and failed.status == "processing":
                 failed.status, failed.attempts, failed.last_error = "pending", failed.attempts + 1, str(ex)
-                failed.available_at = utcnow() + dt.timedelta(seconds=min(1800, 2 ** min(failed.attempts, 8)))
+                failed.available_at = utcnow() + dt.timedelta(seconds=_retry_delay(failed.attempts, ex))
+                from melorin.modules.eventcenter import rules as event_center_rules
+
+                await event_center_rules.report_outbox_failure(session, failed)
                 await session.commit()
                 inc("melorin_outbox_events_total", topic=failed.topic, result="retry")
 
@@ -259,7 +289,7 @@ async def _notify_admins_provisioning_failed(session, p: dict):
 
 
 async def _event_center(session, p: dict):
-    # Implemented as an outbox consumer boundary; Telegram group/topic adapter plugs in here.
+    # Telegram delivery is queued by eventcenter.rules.tap() right after this handler; here we only keep the log line.
     log.info("event-center store=%s topic=%s text=%s", p.get("store_id"), p.get("topic"), p.get("text"))
 
 
