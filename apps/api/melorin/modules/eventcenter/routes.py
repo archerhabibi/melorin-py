@@ -55,6 +55,16 @@ async def admin_test(_: AdminUser, session: Session):
     return {"results": await service.send_test(session, store=None)}
 
 
+@admin_router.post("/event-center/check")
+async def admin_check(_: AdminUser, session: Session):
+    return await service.inspect(session, store=None)
+
+
+@admin_router.post("/event-center/provision")
+async def admin_provision(admin: AdminUser, session: Session):
+    return await service.provision_topics(session, store=None, actor_id=admin.id)
+
+
 # ----- Reseller (owner of the store only) -----
 @reseller_router.get("/stores/{store_id}/reseller/event-center")
 async def reseller_get(ctx: OwnerCtx, session: Session):
@@ -76,3 +86,13 @@ async def reseller_delete(ctx: OwnerCtx, session: Session):
 @reseller_router.post("/stores/{store_id}/reseller/event-center/test")
 async def reseller_test(ctx: OwnerCtx, session: Session):
     return {"results": await service.send_test(session, store=ctx.store)}
+
+
+@reseller_router.post("/stores/{store_id}/reseller/event-center/check")
+async def reseller_check(ctx: OwnerCtx, session: Session):
+    return await service.inspect(session, store=ctx.store)
+
+
+@reseller_router.post("/stores/{store_id}/reseller/event-center/provision")
+async def reseller_provision(ctx: OwnerCtx, session: Session):
+    return await service.provision_topics(session, store=ctx.store, actor_id=ctx.user.id)

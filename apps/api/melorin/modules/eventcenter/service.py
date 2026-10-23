@@ -213,6 +213,135 @@ async def send_test(session: AsyncSession, *, store: Store | None) -> list[dict]
     return results
 
 
+def _channel(token: str) -> TelegramChannel:
+    return TelegramChannel(token, get_settings().store_web_url or "https://core.invalid", "main")
+
+
+def tg_error(exc: TelegramApiError) -> AppError:
+    """Translate a Telegram failure into a message the panel owner can act on."""
+    d = exc.description.lower()
+    if exc.code == 401:
+        return AppError("EVENT_CENTER_BAD_TOKEN", "توکن ربات نامعتبر است.", 409)
+    if "not a forum" in d or ("forum" in d and "not" in d):
+        return AppError("EVENT_CENTER_NOT_FORUM", "قابلیت Topics در گروه فعال نیست؛ از تنظیمات گروه «Topics» را روشن کنید.", 409)
+    if "not enough rights" in d or "manage topics" in d or "can_manage_topics" in d:
+        return AppError("EVENT_CENTER_NO_RIGHTS", "ربات باید ادمین گروه با دسترسی «Manage Topics» باشد.", 409)
+    if "chat not found" in d:
+        return AppError("EVENT_CENTER_CHAT_NOT_FOUND", "گروه پیدا نشد؛ شناسه را بررسی کنید و ربات را به گروه اضافه کنید.", 409)
+    if exc.code in (403, 404) or "kicked" in d:
+        return AppError("EVENT_CENTER_BOT_REMOVED", "ربات از گروه حذف شده یا اجازهٔ ارسال ندارد.", 409)
+    if exc.permanent:
+        return AppError("EVENT_CENTER_TELEGRAM_REJECTED", f"تلگرام درخواست را رد کرد: {exc.description[:150]}", 409)
+    return AppError("EVENT_CENTER_TELEGRAM_UNAVAILABLE", "تلگرام موقتاً در دسترس نیست؛ کمی بعد دوباره تلاش کنید.", 503)
+
+
+async def _require_ready(session: AsyncSession, store: Store | None) -> tuple[TelegramEventDestination, str]:
+    owner_id = store.id if store is not None and store.kind == "reseller" else None
+    dest = await get_destination(session, owner_id)
+    if dest is None:
+        raise AppError("EVENT_CENTER_NOT_SET", "ابتدا گروه رویدادها را تنظیم کنید.", 404)
+    token = _store_token(store)
+    if not token:
+        raise AppError("EVENT_CENTER_NO_BOT", "ربات این گروه متصل نیست.", 409)
+    return dest, token
+
+
+async def _probe(token: str, chat_id: str) -> dict:
+    """Ask Telegram who the bot is and what it may do in the group. Raises :class:`TelegramApiError`."""
+    ch = _channel(token)
+    me = await ch.get_me()
+    chat = await ch.get_chat(chat_id)
+    member = await ch.get_chat_member(chat_id, int(me["id"]))
+    status = str(member.get("status") or "")
+    admin = status in ("administrator", "creator")
+    return {
+        "title": chat.get("title"),
+        "type": chat.get("type"),
+        "is_forum": bool(chat.get("is_forum")),
+        "bot_username": me.get("username"),
+        "bot_status": status,
+        "can_post": status in ("administrator", "creator", "member") or (status == "restricted" and bool(member.get("can_send_messages"))),
+        "can_manage_topics": status == "creator" or (admin and bool(member.get("can_manage_topics"))),
+    }
+
+
+def _problems(info: dict) -> list[str]:
+    out: list[str] = []
+    if info["type"] != "supergroup":
+        out.append("گروه باید سوپرگروه باشد (در تنظیمات گروه آن را به سوپرگروه تبدیل کنید).")
+    if not info["can_post"]:
+        out.append("ربات عضو گروه نیست یا اجازهٔ ارسال پیام ندارد.")
+    if not info["is_forum"]:
+        out.append("قابلیت Topics گروه خاموش است؛ پیام‌ها فقط در General می‌آید.")
+    elif not info["can_manage_topics"]:
+        out.append("برای ساخت خودکار Topic، ربات باید ادمین با دسترسی «Manage Topics» باشد.")
+    return out
+
+
+async def inspect(session: AsyncSession, *, store: Store | None) -> dict:
+    """Read-only health check of the configured group: bot membership, Topics switch and rights."""
+    dest, token = await _require_ready(session, store)
+    try:
+        info = await _probe(token, dest.chat_id)
+    except TelegramApiError as exc:
+        raise tg_error(exc) from exc
+    configured = {k: bool((dest.topics or {}).get(k)) for k in TOPICS}
+    problems = _problems(info)
+    return {
+        **info,
+        "problems": problems,
+        "ok": not problems,
+        "missing_topics": [k for k, has in configured.items() if not has],
+    }
+
+
+async def provision_topics(session: AsyncSession, *, store: Store | None, actor_id: uuid.UUID) -> dict:
+    """Create the forum topics that have no thread id yet (Mirza-style "sync topics") and save their ids.
+
+    Existing thread ids are never touched. Each created topic is committed at once, so a failure half-way (or a double
+    click) can never create the same topic twice or lose ids that Telegram already handed out.
+    """
+    dest, token = await _require_ready(session, store)
+    owner_id = store.id if store is not None and store.kind == "reseller" else None
+    dest = await session.get(TelegramEventDestination, dest.id, with_for_update=True) or dest
+    try:
+        info = await _probe(token, dest.chat_id)
+    except TelegramApiError as exc:
+        raise tg_error(exc) from exc
+    if not info["is_forum"]:
+        raise AppError("EVENT_CENTER_NOT_FORUM", "قابلیت Topics در گروه فعال نیست؛ از تنظیمات گروه «Topics» را روشن کنید.", 409)
+    if not info["can_manage_topics"]:
+        raise AppError("EVENT_CENTER_NO_RIGHTS", "ربات باید ادمین گروه با دسترسی «Manage Topics» باشد.", 409)
+    channel = _channel(token)
+    results: list[dict] = []
+    for key, label in TOPICS.items():
+        if (dest.topics or {}).get(key):
+            results.append({"topic": key, "label": label, "status": "kept", "thread_id": dest.topics[key]})
+            continue
+        try:
+            thread_id = await channel.create_forum_topic(dest.chat_id, label)
+        except TelegramApiError as exc:
+            _record_error(dest, exc)
+            results.append({"topic": key, "label": label, "status": "failed", "error": dest.last_error})
+            await session.commit()
+            break  # rights / rate limit problems hit every remaining topic too
+        dest.topics = {**(dest.topics or {}), key: thread_id}
+        results.append({"topic": key, "label": label, "status": "created", "thread_id": thread_id})
+        audit.record(
+            session,
+            "event_center.topic_created",
+            actor_id=actor_id,
+            actor_type="admin" if owner_id is None else "reseller",
+            entity_type="telegram_event_destination",
+            entity_id=dest.id,
+            store_id=owner_id,
+            data={"topic": key, "thread_id": thread_id},
+        )
+        await session.commit()
+    await session.commit()
+    return {"results": results, "created": sum(r["status"] == "created" for r in results)}
+
+
 async def publish(
     session: AsyncSession,
     *,

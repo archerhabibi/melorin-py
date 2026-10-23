@@ -324,3 +324,127 @@ def test_outbox_backoff_never_retries_before_telegram_retry_after():
     assert _retry_delay(8, TelegramApiError(429, "Too Many Requests", 5)) == 256  # a longer backoff still wins
     assert _retry_delay(1, TelegramApiError(429, "Too Many Requests", 999999)) == OUTBOX_MAX_RETRY_AFTER
     assert _retry_delay(1, TelegramApiError(500, "oops")) == 2  # no retry_after -> normal backoff
+
+
+# ----- check + auto-provisioning of topics (Mirza-style "sync topics") -----
+class FakeChannel:
+    """Stands in for TelegramChannel; records which topics were created and can simulate rights / forum state."""
+
+    def __init__(self, *, is_forum=True, status="administrator", manage=True, chat_type="supergroup", fail_on=None):
+        self.is_forum, self.status, self.manage, self.chat_type, self.fail_on = is_forum, status, manage, chat_type, fail_on
+        self.created: list[str] = []
+
+    async def get_me(self):
+        return {"id": 42, "username": "shop_bot"}
+
+    async def get_chat(self, chat_id):
+        return {"title": "Ops", "type": self.chat_type, "is_forum": self.is_forum}
+
+    async def get_chat_member(self, chat_id, user_id):
+        assert user_id == 42
+        return {"status": self.status, "can_manage_topics": self.manage}
+
+    async def create_forum_topic(self, chat_id, name):
+        if self.fail_on == name:
+            raise TelegramApiError(400, "Bad Request: not enough rights to create a topic")
+        self.created.append(name)
+        return 100 + len(self.created)
+
+
+@pytest.fixture
+def fake_channel(monkeypatch):
+    holder = {}
+
+    def install(**kw):
+        holder["ch"] = FakeChannel(**kw)
+        monkeypatch.setattr(service, "_channel", lambda token: holder["ch"])
+        return holder["ch"]
+
+    return install
+
+
+async def test_check_reports_ok_and_missing_topics(fake_channel):
+    ch = fake_channel()
+    async with open_session() as s:
+        _, _, reseller = await _world(s)
+        res = await service.inspect(s, store=reseller)
+        assert res["ok"] and res["is_forum"] and res["can_manage_topics"] and res["bot_username"] == "shop_bot"
+        assert set(res["missing_topics"]) == {"debt", "tickets", "errors"}
+        assert ch.created == []  # check never changes anything
+
+
+async def test_check_explains_every_problem(fake_channel):
+    fake_channel(is_forum=False, status="member", manage=False, chat_type="group")
+    async with open_session() as s:
+        _, _, reseller = await _world(s)
+        res = await service.inspect(s, store=reseller)
+        assert not res["ok"] and len(res["problems"]) == 2  # not a supergroup + Topics off (member can still post)
+    fake_channel(status="left")
+    async with open_session() as s:
+        _, _, reseller = await _world(s)
+        res = await service.inspect(s, store=reseller)
+        assert any("عضو" in p for p in res["problems"])
+
+
+async def test_provision_creates_only_missing_topics_and_keeps_existing_ids(fake_channel):
+    ch = fake_channel()
+    async with open_session() as s:
+        _, _, reseller = await _world(s)
+        res = await service.provision_topics(s, store=reseller, actor_id=uuid.uuid4())
+        assert res["created"] == 3 and len(ch.created) == 3
+        dest = await service.get_destination(s, reseller.id)
+        assert dest.topics["payments"] == 11 and dest.topics["orders"] == 12  # untouched
+        assert set(dest.topics) == set(service.TOPICS) and all(isinstance(v, int) for v in dest.topics.values())
+        again = await service.provision_topics(s, store=reseller, actor_id=uuid.uuid4())
+        assert again["created"] == 0 and len(ch.created) == 3  # idempotent: no duplicate topics
+
+
+async def test_provision_refuses_without_forum_or_rights(fake_channel):
+    async with open_session() as s:
+        _, _, reseller = await _world(s)
+        fake_channel(is_forum=False)
+        with pytest.raises(AppError) as e:
+            await service.provision_topics(s, store=reseller, actor_id=uuid.uuid4())
+        assert e.value.code == "EVENT_CENTER_NOT_FORUM"
+        fake_channel(manage=False)
+        with pytest.raises(AppError) as e:
+            await service.provision_topics(s, store=reseller, actor_id=uuid.uuid4())
+        assert e.value.code == "EVENT_CENTER_NO_RIGHTS"
+
+
+async def test_provision_keeps_progress_when_a_topic_fails_midway(fake_channel):
+    ch = fake_channel(fail_on=service.TOPICS["tickets"])
+    async with open_session() as s:
+        _, _, reseller = await _world(s)
+        res = await service.provision_topics(s, store=reseller, actor_id=uuid.uuid4())
+        statuses = {r["topic"]: r["status"] for r in res["results"]}
+        assert statuses["debt"] == "created" and statuses["tickets"] == "failed" and "errors" not in statuses
+        dest = await service.get_destination(s, reseller.id)
+        assert "debt" in dest.topics and "tickets" not in dest.topics and dest.last_error.startswith("400")
+        ch.fail_on = None  # the owner fixes the right and retries: only the rest is created
+        res2 = await service.provision_topics(s, store=reseller, actor_id=uuid.uuid4())
+        assert res2["created"] == 2 and ch.created.count(service.TOPICS["debt"]) == 1
+
+
+async def test_check_and_provision_need_a_configured_group(fake_channel):
+    fake_channel()
+    async with open_session() as s:
+        await make_store(s, kind="main")
+        await s.commit()
+        for fn in (service.inspect,):
+            with pytest.raises(AppError) as e:
+                await fn(s, store=None)
+            assert e.value.code == "EVENT_CENTER_NOT_SET"
+
+
+def test_telegram_errors_become_actionable_messages():
+    cases = {
+        (401, "Unauthorized"): "EVENT_CENTER_BAD_TOKEN",
+        (400, "Bad Request: chat not found"): "EVENT_CENTER_CHAT_NOT_FOUND",
+        (400, "Bad Request: the chat is not a forum"): "EVENT_CENTER_NOT_FORUM",
+        (400, "Bad Request: not enough rights to manage topics"): "EVENT_CENTER_NO_RIGHTS",
+        (403, "Forbidden: bot was kicked from the supergroup chat"): "EVENT_CENTER_BOT_REMOVED",
+        (429, "Too Many Requests"): "EVENT_CENTER_TELEGRAM_UNAVAILABLE",
+    }
+    for (code, desc), expected in cases.items():
+        assert service.tg_error(TelegramApiError(code, desc)).code == expected
