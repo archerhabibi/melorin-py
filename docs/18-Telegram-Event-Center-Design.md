@@ -24,3 +24,9 @@ Reseller: `GET/PUT/DELETE /stores/{store_id}/reseller/event-center`، `POST …/
 | debt | `reseller.debt` (نزدیک سقف / رسیدن به سقف) |
 | tickets | تیکت جدید و پاسخ مشتری |
 | errors | خطای ساخت اکانت، پنل unhealthy، رویداد Outbox با شکست مکرر |
+
+## وضعیت پیاده‌سازی
+- Backend: `modules/eventcenter/{service,rules,routes,schemas,topics}.py`، migration `0031`، handler `eventcenter.deliver` در worker، tap مرکزی پس از هر handler.
+- UI: صفحهٔ «مرکز رویداد» در پنل ادمین و تب «مرکز رویداد» در پنل نماینده (ذخیره، تست واقعی هر Topic، وضعیت سلامت، حذف).
+- تست: `apps/api/tests/test_event_center.py` (۱۴ تست) و `apps/admin-web/tests/event-center.test.jsx`.
+- باقی‌مانده: رویداد «پنل unhealthy» و «خطای ساخت اکانت» به‌صورت قانون جدا؛ فعلاً شکست ساخت اکانت (`provisioning.failed`) و شکست مکرر Outbox در Topic «خطاها» می‌آید.

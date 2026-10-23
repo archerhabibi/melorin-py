@@ -11,6 +11,7 @@ const PaymentsView = lazy(() => import('./PaymentsView.jsx'));
 const ResellerApplicationsView = lazy(() => import('./ResellerApplicationsView.jsx'));
 const ManualTasksView = lazy(() => import('./ManualTasksView.jsx'));
 const BroadcastView = lazy(() => import('./BroadcastView.jsx'));
+const EventCenterView = lazy(() => import('./EventCenterView.jsx'));
 const ResellersView = lazy(() => import('./ResellersView.jsx'));
 const GoogleLoginSettings = lazy(() => import('./GoogleLoginSettings.jsx'));
 const TelegramLoginSettings = lazy(() => import('./TelegramLoginSettings.jsx'));
@@ -729,6 +730,7 @@ export const extraRoutes = {
   'درخواست‌های نمایندگی': ResellerApplicationsView,
   'کارهای دستی': ManualTasksView,
   'پیام همگانی': BroadcastView,
+  'مرکز رویداد': EventCenterView,
   'سلامت زیرساخت': InfraHealthView,
   سفارش‌ها: Orders,
   پرداخت‌ها: PaymentsView,
