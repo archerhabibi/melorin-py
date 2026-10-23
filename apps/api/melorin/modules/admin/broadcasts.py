@@ -28,5 +28,7 @@ async def history(_: AdminUser, session: Session):
 
 @router.post("/broadcasts", status_code=201)
 async def send(body: BroadcastIn, admin: AdminUser, session: Session):
-    bc = await service.send(session, sender=admin, store=await main_store(session), audience=body.audience, title=body.title, body=body.body)
+    bc = await service.send(
+        session, sender=admin, store=await main_store(session), audience=body.audience, title=body.title, body=body.body
+    )
     return {"ok": True, "id": bc.id, "recipients": bc.recipients}

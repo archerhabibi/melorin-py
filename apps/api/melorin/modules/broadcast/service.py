@@ -60,7 +60,9 @@ async def _customers_of(session, *store_ids: uuid.UUID) -> list[Recipient]:
     rows = await session.execute(
         select(StoreMembership.user_id, StoreMembership.store_id)
         .join(User, User.id == StoreMembership.user_id)
-        .where(StoreMembership.store_id.in_(store_ids), StoreMembership.role == "customer", StoreMembership.status == "active", *_live_user())
+        .where(
+            StoreMembership.store_id.in_(store_ids), StoreMembership.role == "customer", StoreMembership.status == "active", *_live_user()
+        )
     )
     return [Recipient(u, st) for u, st in rows.all()]
 
@@ -121,7 +123,12 @@ async def send(session, *, sender: User, store: Store, audience: str, title: str
     since = utcnow() - dt.timedelta(days=1)
     # serialise the senders of one store so the daily limit cannot be jumped by parallel requests
     await session.scalar(select(Store.id).where(Store.id == store.id).with_for_update())
-    sent_today = int(await session.scalar(select(func.count()).select_from(Broadcast).where(Broadcast.store_id == store.id, Broadcast.created_at >= since)) or 0)
+    sent_today = int(
+        await session.scalar(
+            select(func.count()).select_from(Broadcast).where(Broadcast.store_id == store.id, Broadcast.created_at >= since)
+        )
+        or 0
+    )
     if sent_today >= DAILY_LIMIT:
         raise AppError("BROADCAST_LIMIT", f"سقف ارسال پیام همگانی ({DAILY_LIMIT} بار در روز) پر شده است.", 429)
     people = await recipients(session, store, audience)
@@ -158,11 +165,19 @@ def key(broadcast_id: uuid.UUID, r: Recipient) -> str:
 
 async def history(session, store: Store, *, limit: int = 30) -> list[dict]:
     """The latest broadcasts of ``store`` with delivery numbers (queued = events not yet turned into notifications)."""
-    rows = (await session.scalars(select(Broadcast).where(Broadcast.store_id == store.id).order_by(Broadcast.created_at.desc()).limit(limit))).all()
+    rows = (
+        await session.scalars(select(Broadcast).where(Broadcast.store_id == store.id).order_by(Broadcast.created_at.desc()).limit(limit))
+    ).all()
     out = []
     for b in rows:
         counts = dict(
-            (await session.execute(select(Notification.telegram_status, func.count()).where(Notification.dedup_key.like(f"bc:{b.id.hex}:%")).group_by(Notification.telegram_status))).all()
+            (
+                await session.execute(
+                    select(Notification.telegram_status, func.count())
+                    .where(Notification.dedup_key.like(f"bc:{b.id.hex}:%"))
+                    .group_by(Notification.telegram_status)
+                )
+            ).all()
         )
         made = sum(counts.values())
         out.append(

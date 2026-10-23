@@ -119,7 +119,7 @@ ask_token() { # sets REPLY_TOKEN (may be empty = skipped)
 }
 
 valid_tg_id() { [[ "$1" =~ ^[1-9][0-9]{4,14}$ ]]; }
-fold_digits() { printf '%s' "$1" | sed 's/۰/0/g;s/۱/1/g;s/۲/2/g;s/۳/3/g;s/۴/4/g;s/۵/5/g;s/۶/6/g;s/۷/7/g;s/۸/8/g;s/۹/9/g' | tr -d '[:space:]'; }
+fold_digits() { printf '%s' "$1" | sed 's/۰/0/g;s/۱/1/g;s/۲/2/g;s/۳/3/g;s/۴/4/g;s/۵/5/g;s/۶/6/g;s/۷/7/g;s/۸/8/g;s/۹/9/g;s/٠/0/g;s/١/1/g;s/٢/2/g;s/٣/3/g;s/٤/4/g;s/٥/5/g;s/٦/6/g;s/٧/7/g;s/٨/8/g;s/٩/9/g' | tr -d '[:space:]'; }
 ask_admin_tg() { # sets REPLY_TG (may be empty = skipped). $1 = prompt number/label
   local t
   while true; do

@@ -136,7 +136,11 @@ def applicant_steps(status: str, *, domain: str | None = None) -> list[dict]:
     approved = status in ("approved",)
     awaiting = status == "awaiting_details"
     return [
-        {"title": "منتظر تأیید مدیریت بمانید", "detail": "درخواست شما و دلیلتان را مدیریت بررسی می‌کند؛ نتیجه همین‌جا و در ربات اطلاع داده می‌شود.", "done": awaiting or approved},
+        {
+            "title": "منتظر تأیید مدیریت بمانید",
+            "detail": "درخواست شما و دلیلتان را مدیریت بررسی می‌کند؛ نتیجه همین‌جا و در ربات اطلاع داده می‌شود.",
+            "done": awaiting or approved,
+        },
         {
             "title": "ساخت ربات تلگرام فروشگاه",
             "detail": "در @BotFather دستور /newbot را بزنید، نام و یوزرنیم ربات را انتخاب کنید و توکن را نگه دارید (آن را به کسی ندهید جز در همین فرم/ربات).",
@@ -164,7 +168,11 @@ def applicant_steps(status: str, *, domain: str | None = None) -> list[dict]:
             ),
             "done": False,
         },
-        {"title": "معرفی ربات و سایت به مشتریان", "detail": "لینک ربات و سایت را برای مشتریان بفرستید؛ با «پیام همگانی» هم می‌توانید به آن‌ها خبر بدهید.", "done": False},
+        {
+            "title": "معرفی ربات و سایت به مشتریان",
+            "detail": "لینک ربات و سایت را برای مشتریان بفرستید؛ با «پیام همگانی» هم می‌توانید به آن‌ها خبر بدهید.",
+            "done": False,
+        },
     ]
 
 

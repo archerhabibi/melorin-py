@@ -13,6 +13,9 @@ Business rules (owner's words, enforced here and nowhere else; bot and website o
 A return is a normal order refund (money back to the customer's wallet of this store, the reseller's cost reversed, the
 referral reward reversed, the account revoked in the panel) plus one ``account_returns`` row for the audit trail and the
 daily counter.
+
+Layering: this module sits in the ``vpn`` layer, which may not import ``orders``. It therefore only DECIDES (``prepare_return``
+validates and stages the audit row); the refund itself is executed by ``melorin.modules.orders.service.account_return``.
 """
 
 from __future__ import annotations
@@ -30,7 +33,6 @@ from melorin.domain.order_state import OrderStatus, VpnStatus
 from melorin.kernel.models.identity import User
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.vpn import AccountReturn, VpnAccount
-from melorin.modules.orders.service.refund import _refund
 from melorin.modules.vpn import inquiry
 from melorin.modules.vpn.renewal import _aware
 
@@ -93,7 +95,12 @@ def evaluate(
 
 async def _returns_last_day(session, user_id: uuid.UUID, now: dt.datetime) -> int:
     since = now - dt.timedelta(days=1)
-    return int(await session.scalar(select(func.count()).select_from(AccountReturn).where(AccountReturn.user_id == user_id, AccountReturn.created_at >= since)) or 0)
+    return int(
+        await session.scalar(
+            select(func.count()).select_from(AccountReturn).where(AccountReturn.user_id == user_id, AccountReturn.created_at >= since)
+        )
+        or 0
+    )
 
 
 async def eligibility_for(session, scope: StoreScope, accounts: list[VpnAccount]) -> dict[uuid.UUID, Eligibility]:
@@ -120,8 +127,12 @@ def account_view(account: VpnAccount, elig: Eligibility | None):
     return out
 
 
-async def return_account(session, scope: StoreScope, account_id: uuid.UUID) -> dict:
-    """Return the customer's own account of THIS store; raises a 409 ``AppError`` with Core's words when it is not allowed."""
+async def prepare_return(session, scope: StoreScope, account_id: uuid.UUID) -> tuple[VpnAccount, Order]:
+    """Lock and validate the customer's own account of THIS store and stage its ``AccountReturn`` audit row.
+
+    Raises a 409 ``AppError`` with Core's words when the return is not allowed. The caller (orders layer) performs the refund,
+    which commits the staged row together with the money movement.
+    """
     account = await scope.lock(session, VpnAccount, account_id)  # row lock; other users'/stores' ids are never touched
     if account is None:
         raise NotFound("اکانت VPN")
@@ -135,10 +146,15 @@ async def return_account(session, scope: StoreScope, account_id: uuid.UUID) -> d
         order = None
     renewed = bool(
         await session.scalar(
-            select(func.count()).select_from(Order).where(Order.vpn_account_id == account.id, Order.kind == "renewal", Order.status.not_in(_DEAD_ORDER))
+            select(func.count())
+            .select_from(Order)
+            .where(Order.vpn_account_id == account.id, Order.kind == "renewal", Order.status.not_in(_DEAD_ORDER))
         )
     )
-    evaluate(account, order, renewed=renewed, returns_last_day=await _returns_last_day(session, scope.user_id, now), now=now).raise_if_not_ok()
+    evaluate(
+        account, order, renewed=renewed, returns_last_day=await _returns_last_day(session, scope.user_id, now), now=now
+    ).raise_if_not_ok()
+    assert order is not None  # evaluate() refuses a missing order
     session.add(
         AccountReturn(
             user_id=scope.user_id,
@@ -150,5 +166,4 @@ async def return_account(session, scope: StoreScope, account_id: uuid.UUID) -> d
             amount=int(order.total),
         )
     )
-    await _refund(session, order.id, actor_id=scope.user_id, actor_type="customer", reason="مرجوعی اکانت توسط مشتری")  # commits
-    return {"ok": True, "order_id": order.id, "refunded": int(order.total), "currency": order.currency, "message": "اکانت مرجوع شد و مبلغ آن به کیف پول شما برگشت داده شد."}
+    return account, order

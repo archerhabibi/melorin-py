@@ -174,7 +174,15 @@ def test_installer_scripts_are_valid_bash():
 
 @pytest.mark.parametrize(
     "raw, expected",
-    [("123456789", "123456789"), (" ۱۲۳۴۵۶۷۸۹ ", "123456789"), ("@name", ""), ("1234", ""), ("0123456789", ""), ("", "")],
+    [
+        ("123456789", "123456789"),
+        (" ۱۲۳۴۵۶۷۸۹ ", "123456789"),
+        ("٥٤٣٢١", "54321"),  # Arabic-Indic digits: Core accepts them, so the installer must too
+        ("@name", ""),
+        ("1234", ""),
+        ("0123456789", ""),
+        ("", ""),
+    ],
 )
 def test_installer_normalises_the_id_like_core(raw, expected):
     fn = _function("scripts/install_server.sh", "normalize_tg_id")
@@ -194,6 +202,7 @@ def test_menu_asks_for_the_id_and_passes_it_to_the_installer():
     assert "set-admin-telegram" in menu  # menu 3 -> "Admin Telegram ID" works on a running install
     fold = _function("melorin.sh", "fold_digits")
     assert _bash(f"{fold}\nfold_digits ' ۱۲۳۴۵ '") == "12345"
+    assert _bash(f"{fold}\nfold_digits ' ٥٤٣٢١ '") == "54321"
 
 
 # ---------------------------------------------------------------- the bot answers the admin instead of staying silent

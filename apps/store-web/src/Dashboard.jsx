@@ -160,7 +160,6 @@ function Renew({ account, coreFetch, storeId, notify, reload, onClose }) {
   );
 }
 
-
 // مرجوعی: Core decides (volume account, <= 3 days, <= 5 % used, 3 per day); the card only asks, confirms and shows Core's words.
 function ReturnAccount({ account, coreFetch, storeId, notify, reload, onClose }) {
   const [busy, setBusy] = useState(false);
@@ -233,7 +232,11 @@ function Vpn({ coreFetch, storeId, notify, reload }) {
           {!a.is_test && (
             <>
               <button
-                onClick={() => (a.can_return ? setGiveBack(giveBack === a.id ? null : a.id) : notify?.(a.return_note || 'این اکانت قابل مرجوع نیست.'))}
+                onClick={() =>
+                  a.can_return
+                    ? setGiveBack(giveBack === a.id ? null : a.id)
+                    : notify?.(a.return_note || 'این اکانت قابل مرجوع نیست.')
+                }
                 aria-disabled={!a.can_return || undefined}
                 className={`btn-soft mt-2 w-full ${a.can_return ? '' : 'opacity-60'}`}
               >

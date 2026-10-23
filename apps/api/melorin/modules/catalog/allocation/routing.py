@@ -187,7 +187,11 @@ def requested_account_name(group, account_name: str | None) -> str | None:
         return None
     name = clean_custom_name(account_name)
     if len(name) < 3:
-        raise AppError("ACCOUNT_NAME_INVALID", "نام کاربری معتبر نیست (حداقل ۳ نویسه: حروف انگلیسی، عدد، _ یا -). یا آن را خالی بگذارید تا نام‌گذاری خودکار انجام شود.", 422)
+        raise AppError(
+            "ACCOUNT_NAME_INVALID",
+            "نام کاربری معتبر نیست (حداقل ۳ نویسه: حروف انگلیسی، عدد، _ یا -). یا آن را خالی بگذارید تا نام‌گذاری خودکار انجام شود.",
+            422,
+        )
     return name
 
 

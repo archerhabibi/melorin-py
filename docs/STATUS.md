@@ -6,12 +6,12 @@
 
 | Measurement | Value |
 |---|---|
-| Alembic head | `0027_channel_binding` |
-| Migrations | 27 |
-| ORM tables | 53 |
-| API operations | 207 |
-| API paths | 180 |
-| Test files / test functions (static count) | 125 / 896 |
+| Alembic head | `0030_broadcasts` |
+| Migrations | 30 |
+| ORM tables | 56 |
+| API operations | 217 |
+| API paths | 188 |
+| Test files / test functions (static count) | 142 / 1164 |
 | Coverage | not measured here (CI writes `apps/api/coverage.xml`; run `pytest --cov=melorin --cov-report=xml`) |
 | Documents: repo root / `docs/` / `docs/history/` (tests only) | 3 / 27 / 4 |
 

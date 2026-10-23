@@ -76,10 +76,10 @@ set_kv() { # set_kv KEY VALUE  (replace line or append)
   fi
 }
 
-# Numeric Telegram ID of the main admin (not the @username). Digits only, 5-15 long; Persian/Arabic digits are folded.
+# Numeric Telegram ID of the main admin (not the @username). Digits only, 5-15 long; Persian and Arabic-Indic digits are folded.
 normalize_tg_id() { # normalize_tg_id VALUE -> prints ASCII digits or nothing
   local v="$1"
-  v="$(printf '%s' "$v" | sed 's/۰/0/g;s/۱/1/g;s/۲/2/g;s/۳/3/g;s/۴/4/g;s/۵/5/g;s/۶/6/g;s/۷/7/g;s/۸/8/g;s/۹/9/g' | tr -d '[:space:]')"
+  v="$(printf '%s' "$v" | sed 's/۰/0/g;s/۱/1/g;s/۲/2/g;s/۳/3/g;s/۴/4/g;s/۵/5/g;s/۶/6/g;s/۷/7/g;s/۸/8/g;s/۹/9/g;s/٠/0/g;s/١/1/g;s/٢/2/g;s/٣/3/g;s/٤/4/g;s/٥/5/g;s/٦/6/g;s/٧/7/g;s/٨/8/g;s/٩/9/g' | tr -d '[:space:]')"
   [[ "$v" =~ ^[1-9][0-9]{4,14}$ ]] && printf '%s' "$v"
   return 0
 }

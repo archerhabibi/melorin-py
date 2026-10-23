@@ -132,7 +132,10 @@ async def review_application(application_id: uuid.UUID, body: ResellerApproval, 
             f"«{a.store_name}»: برای ادامه در ربات دستور /reseller را بزنید و دامنه و توکن رباتِ فروشگاه را بفرستید.\n\nکارهای شما:\n{onboarding.steps_text('awaiting_details')}",
         )
     elif a.status == "approved":
-        title, text = "✅ درخواست نمایندگی شما تأیید شد", f"فروشگاه «{a.store_name}» ساخته شد. از «پنل نماینده» تنظیمات را ادامه دهید.\n\nکارهای بعدی شما:\n{onboarding.steps_text('approved', domain=a.domain)}"
+        title, text = (
+            "✅ درخواست نمایندگی شما تأیید شد",
+            f"فروشگاه «{a.store_name}» ساخته شد. از «پنل نماینده» تنظیمات را ادامه دهید.\n\nکارهای بعدی شما:\n{onboarding.steps_text('approved', domain=a.domain)}",
+        )
     else:
         title, text = "❌ درخواست نمایندگی شما رد شد", f"«{a.store_name}»: {reason}"
     await events.emit(

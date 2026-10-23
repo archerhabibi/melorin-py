@@ -71,13 +71,6 @@ async def get(account_id: uuid.UUID, ctx: StoreCtx, session: Session):
     return (await _with_returns(session, scope, [await inquiry.customer_account(session, scope, account_id)]))[0]
 
 
-@router.post("/{account_id}/return")
-async def return_account(account_id: uuid.UUID, ctx: StoreCtx, session: Session):
-    """مرجوعی: give this account back (volume accounts only, <= 3 days, <= 5 % used, 3 per day). The money goes to the
-    caller's wallet of THIS store. Core decides; the answer for a refused return is a 409 with the reason in Persian."""
-    return await returns.return_account(session, StoreScope.of(ctx), account_id)
-
-
 @router.get("/{account_id}/qr.png", response_class=Response, responses={200: {"content": {"image/png": {}}}})
 async def qr(account_id: uuid.UUID, ctx: StoreCtx, session: Session):
     """PNG QR code of the account's subscription link (same image the Telegram delivery post uses)."""

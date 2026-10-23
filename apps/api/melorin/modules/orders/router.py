@@ -8,6 +8,7 @@ from melorin.core.scope import StoreScope
 from melorin.modules.orders import service
 from melorin.kernel.models.orders import Order
 from melorin.modules.orders.schemas import CreateOrder, OrderOut
+from melorin.modules.orders.service import account_return
 
 router = APIRouter(tags=["orders"])
 
@@ -80,3 +81,11 @@ async def list_orders(ctx: StoreCtx, session: Session):
 async def get_order(order_id: uuid.UUID, ctx: StoreCtx, session: Session):
     """One of the caller's own orders of THIS store (another user's or another store's order: 404). Admins use /admin/orders."""
     return out(await StoreScope.of(ctx).get(session, Order, order_id, "سفارش"))
+
+
+@router.post("/stores/{store_id}/vpn-accounts/{account_id}/return", tags=["vpn-accounts"])
+async def return_vpn_account(account_id: uuid.UUID, ctx: StoreCtx, session: Session):
+    """مرجوعی: give this account back (volume accounts only, <= 3 days, <= 5 % used, 3 per day). The money goes to the
+    caller's wallet of THIS store. Core decides; the answer for a refused return is a 409 with the reason in Persian.
+    Lives in the orders layer because the return is an order refund (the rules are in ``vpn.returns``)."""
+    return await account_return.return_account(session, StoreScope.of(ctx), account_id)

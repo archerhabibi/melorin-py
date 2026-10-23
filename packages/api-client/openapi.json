@@ -455,16 +455,11 @@
             "title": "Domain"
           },
           "message": {
-            "anyOf": [
-              {
-                "maxLength": 2000,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Message"
+            "description": "required: why the applicant wants a reseller store (min 20 characters)",
+            "maxLength": 2000,
+            "minLength": 20,
+            "title": "Message",
+            "type": "string"
           },
           "store_name": {
             "maxLength": 200,
@@ -486,7 +481,8 @@
           }
         },
         "required": [
-          "store_name"
+          "store_name",
+          "message"
         ],
         "title": "ApplicationIn",
         "type": "object"
@@ -2386,6 +2382,11 @@
             "title": "Can Renew",
             "type": "boolean"
           },
+          "can_return": {
+            "default": false,
+            "title": "Can Return",
+            "type": "boolean"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -2494,6 +2495,17 @@
               }
             ],
             "title": "Renew Until"
+          },
+          "return_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Return Note"
           },
           "server_id": {
             "anyOf": [
@@ -5236,6 +5248,11 @@
             "title": "Can Renew",
             "type": "boolean"
           },
+          "can_return": {
+            "default": false,
+            "title": "Can Return",
+            "type": "boolean"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -5312,6 +5329,17 @@
               }
             ],
             "title": "Renew Until"
+          },
+          "return_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Return Note"
           },
           "server_id": {
             "anyOf": [
@@ -5576,6 +5604,56 @@
         },
         "title": "WebhookEndpointPatch",
         "type": "object"
+      },
+      "melorin__modules__admin__broadcasts__BroadcastIn": {
+        "properties": {
+          "audience": {
+            "maxLength": 30,
+            "title": "Audience",
+            "type": "string"
+          },
+          "body": {
+            "maxLength": 3500,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "audience",
+          "title",
+          "body"
+        ],
+        "title": "BroadcastIn",
+        "type": "object"
+      },
+      "melorin__modules__reseller__routes__broadcasts__BroadcastIn": {
+        "properties": {
+          "body": {
+            "maxLength": 3500,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "body"
+        ],
+        "title": "BroadcastIn",
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -5711,6 +5789,97 @@
           }
         ],
         "summary": "Create Bot Store Binding",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/broadcasts": {
+      "get": {
+        "operationId": "history_api_v1_admin_broadcasts_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "History",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "operationId": "send_api_v1_admin_broadcasts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/melorin__modules__admin__broadcasts__BroadcastIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Send",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/broadcasts/audiences": {
+      "get": {
+        "description": "The groups the admin can pick, with how many people each one reaches right now.",
+        "operationId": "audiences_api_v1_admin_broadcasts_audiences_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Audiences",
         "tags": [
           "admin"
         ]
@@ -6990,6 +7159,144 @@
         "tags": [
           "admin",
           "admin-integrations"
+        ]
+      }
+    },
+    "/api/v1/admin/manual-tasks": {
+      "get": {
+        "operationId": "list_tasks_api_v1_admin_manual_tasks_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "open",
+              "title": "Status",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Tasks",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/manual-tasks/{task_id}/done": {
+      "post": {
+        "operationId": "mark_done_api_v1_admin_manual_tasks__task_id__done_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Mark Done",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/manual-tasks/{task_id}/reopen": {
+      "post": {
+        "operationId": "reopen_api_v1_admin_manual_tasks__task_id__reopen_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reopen",
+        "tags": [
+          "admin"
         ]
       }
     },
@@ -13616,6 +13923,106 @@
         ]
       }
     },
+    "/api/v1/stores/{store_id}/reseller/broadcasts": {
+      "get": {
+        "operationId": "broadcasts_api_v1_stores__store_id__reseller_broadcasts_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Broadcasts",
+        "tags": [
+          "reseller"
+        ]
+      },
+      "post": {
+        "operationId": "send_broadcast_api_v1_stores__store_id__reseller_broadcasts_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/melorin__modules__reseller__routes__broadcasts__BroadcastIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Send Broadcast",
+        "tags": [
+          "reseller"
+        ]
+      }
+    },
     "/api/v1/stores/{store_id}/reseller/bundles": {
       "get": {
         "operationId": "reseller_bundles_api_v1_stores__store_id__reseller_bundles_get",
@@ -15150,6 +15557,53 @@
         ]
       }
     },
+    "/api/v1/stores/{store_id}/vpn-accounts/return-rules": {
+      "get": {
+        "description": "The rules as text and numbers, so every channel shows the same words.",
+        "operationId": "return_rules_api_v1_stores__store_id__vpn_accounts_return_rules_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Return Rules",
+        "tags": [
+          "vpn-accounts"
+        ]
+      }
+    },
     "/api/v1/stores/{store_id}/vpn-accounts/summary": {
       "get": {
         "description": "Chip counters (total / active / expiring / expired) over the caller's OWN accounts in THIS store.",
@@ -15365,6 +15819,64 @@
         ],
         "summary": "Refresh",
         "tags": [
+          "vpn-accounts"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/vpn-accounts/{account_id}/return": {
+      "post": {
+        "description": "مرجوعی: give this account back (volume accounts only, <= 3 days, <= 5 % used, 3 per day). The money goes to the\ncaller's wallet of THIS store. Core decides; the answer for a refused return is a 409 with the reason in Persian.\nLives in the orders layer because the return is an order refund (the rules are in ``vpn.returns``).",
+        "operationId": "return_vpn_account_api_v1_stores__store_id__vpn_accounts__account_id__return_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Return Vpn Account",
+        "tags": [
+          "orders",
           "vpn-accounts"
         ]
       }

@@ -72,7 +72,13 @@ async def world(s, n=1):
 
 
 def body(main, **kw):
-    d = dict(store_name="Shop One", target_store_id=main.id, domain="Shop.Example.com", bot_token=TOKEN, message="می‌خواهم نماینده شوم چون مشتری زیادی در شهر خودم دارم")
+    d = dict(
+        store_name="Shop One",
+        target_store_id=main.id,
+        domain="Shop.Example.com",
+        bot_token=TOKEN,
+        message="می‌خواهم نماینده شوم چون مشتری زیادی در شهر خودم دارم",
+    )
     return ApplicationIn(**{**d, **kw})
 
 
@@ -268,7 +274,9 @@ async def test_admin_can_reverify_bot_when_first_check_could_not_reach_telegram(
 # Two-step flow (Telegram): request first, domain + bot token only after the admin approved the request.
 # ---------------------------------------------------------------------------------------------------------------
 def request_only(main, **kw):
-    return ApplicationIn(**{**dict(store_name="Shop One", target_store_id=main.id, message="می‌خواهم نماینده شوم چون مشتری زیادی در شهر خودم دارم"), **kw})
+    return ApplicationIn(
+        **{**dict(store_name="Shop One", target_store_id=main.id, message="می‌خواهم نماینده شوم چون مشتری زیادی در شهر خودم دارم"), **kw}
+    )
 
 
 def details(domain="Shop.Example.com", token=TOKEN):

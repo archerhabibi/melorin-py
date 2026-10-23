@@ -67,7 +67,9 @@ def application_out(a: ResellerApplication) -> dict:
         "review_reason": a.review_reason if a.status == "rejected" else None,
         "store_id": a.store_id,
         "created_at": a.created_at,
-        "next_steps": onboarding.applicant_steps(a.status, domain=a.domain) if a.status in ("pending", "awaiting_details", "approved") else [],
+        "next_steps": onboarding.applicant_steps(a.status, domain=a.domain)
+        if a.status in ("pending", "awaiting_details", "approved")
+        else [],
     }
 
 
