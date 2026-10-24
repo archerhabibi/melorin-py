@@ -1,4 +1,5 @@
 import datetime as dt
+import math
 import uuid
 
 from typing import Literal
@@ -107,14 +108,22 @@ class CreatePanel(BaseModel):
                 raise ValueError("upstream_bot: config.max_price must be a number (toman)") from exc
             if max_price <= 0:
                 raise ValueError("upstream_bot: config.max_price (toman, safety cap per purchase) is required")
-            if "plans" in cfg and not (isinstance(cfg["plans"], list) and all(isinstance(p, dict) for p in cfg["plans"])):
-                raise ValueError("upstream_bot: config.plans must be a list of {traffic_gb, months, label}")
+            if "plans" in cfg:
+                if not (isinstance(cfg["plans"], list) and all(isinstance(p, dict) for p in cfg["plans"])):
+                    raise ValueError("upstream_bot: config.plans must be a list of {traffic_gb, months, label}")
+                for plan in cfg["plans"]:
+                    try:
+                        gb, months = float(plan["traffic_gb"]), int(plan.get("months", 1))
+                        if not (math.isfinite(gb) and gb > 0 and months >= 1):
+                            raise ValueError
+                    except (KeyError, TypeError, ValueError) as exc:
+                        raise ValueError("upstream_bot: each plan needs traffic_gb > 0 and an integer months >= 1") from exc
             if "renew" in cfg and not isinstance(cfg["renew"], dict):
                 raise ValueError("upstream_bot: config.renew must be an object")
             for key in ("status_ttl", "step_timeout", "delivery_timeout", "poll_interval", "lock_ttl"):
                 if key in cfg:
                     try:
-                        if float(cfg[key]) <= 0:
+                        if not (math.isfinite(float(cfg[key])) and float(cfg[key]) > 0):
                             raise ValueError
                     except (TypeError, ValueError) as exc:
                         raise ValueError(f"upstream_bot: config.{key} must be a positive number") from exc
