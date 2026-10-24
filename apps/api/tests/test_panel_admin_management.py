@@ -85,3 +85,47 @@ def test_panel_out_never_exposes_secrets():
     from melorin.modules.admin.schemas import PanelOut
 
     assert "credentials" not in PanelOut.model_fields and "credentials_enc" not in PanelOut.model_fields
+
+
+def _upstream(**over):
+    body = dict(
+        name="Parent",
+        kind="upstream_bot",
+        base_url="https://t.me/parent_bot",
+        credentials={"api_id": 123456, "api_hash": "h", "session": "s"},
+        config={"max_price": 100000},
+    )
+    body.update(over)
+    return CreatePanel(**body)
+
+
+async def test_upstream_bot_create_needs_credentials_but_edit_may_omit_them(session):
+    with pytest.raises(AppError):
+        await r.create_panel(_upstream(credentials={}), ADMIN, session)
+    out = await r.create_panel(_upstream(), ADMIN, session)
+    assert out.has_credentials is True and out.config == {"max_price": 100000}
+    # the admin form edits settings without re-sending the Telethon session: the stored secret must survive
+    await r.update_panel(out.id, _upstream(credentials={}, config={"max_price": 90000, "renew": {"enabled": False}}), ADMIN, session)
+    p = await session.get(Panel, out.id)
+    assert p.config == {"max_price": 90000, "renew": {"enabled": False}} and '"session": "s"' in p.credentials_enc
+
+
+@pytest.mark.parametrize(
+    "over",
+    [
+        {"config": {}},
+        {"config": {"max_price": "abc"}},
+        {"config": {"max_price": 1000, "plans": "10gb"}},
+        {"config": {"max_price": 1000, "renew": []}},
+        {"config": {"max_price": 1000, "status_ttl": 0}},
+        {"config": {"max_price": 1000, "status_ttl": float("nan")}},
+        {"config": {"max_price": 1000, "plans": [{"traffic_gb": "abc", "months": 1}]}},
+        {"config": {"max_price": 1000, "plans": [{"traffic_gb": 10, "months": 0}]}},
+        {"config": {"max_price": 1000, "plans": [{"months": 1}]}},
+        {"credentials": {"api_id": "x", "api_hash": "h", "session": "s"}},
+        {"credentials": {"api_id": 1, "api_hash": "h"}},
+    ],
+)
+def test_upstream_bot_schema_rejects_unsafe_settings(over):
+    with pytest.raises(ValueError):
+        _upstream(**over)

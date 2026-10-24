@@ -1,6 +1,6 @@
 // Shared building blocks for the catalog screens (VPN products, VPN sales bundles).
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, LayoutGrid, List, Search, Trash2, X } from 'lucide-react';
+import { Check, Copy, Eye, EyeOff, LayoutGrid, List, Search, Trash2, X } from 'lucide-react';
 import { confirmDialog, noticeDialog } from './ui.jsx';
 import { backdropProps, useDialog } from './useDialog.js';
 
@@ -497,3 +497,52 @@ export const Saved = ({ on }) =>
       ذخیره شد
     </span>
   ) : null;
+
+// ---------- copy / secret inputs (shared by the panel forms) ----------
+export function CopyButton({ text, label = 'کپی آدرس' }) {
+  const [ok, setOk] = useState(false);
+  return (
+    <button
+      type="button"
+      className="btn btn-g !px-2"
+      aria-label={label}
+      title={label}
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+          setOk(true);
+          setTimeout(() => setOk(false), 1400);
+        } catch {
+          /* clipboard unavailable */
+        }
+      }}
+    >
+      {ok ? <Check size={14} /> : <Copy size={14} />}
+    </button>
+  );
+}
+export function Secret({ value, onChange, placeholder }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative">
+      <input
+        dir="ltr"
+        autoComplete="off"
+        spellCheck={false}
+        type={show ? 'text' : 'password'}
+        className="inp !pl-10"
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      <button
+        type="button"
+        aria-label={show ? 'پنهان‌کردن' : 'نمایش'}
+        className="absolute left-2 top-1/2 -translate-y-1/2 text-[var(--mu)]"
+        onClick={() => setShow(!show)}
+      >
+        {show ? <EyeOff size={16} /> : <Eye size={16} />}
+      </button>
+    </div>
+  );
+}

@@ -20,11 +20,31 @@ re-seeded by `seed_adapter` together with the stored subscription URL).
 ## Setup
 1. Use a **separate** Telegram account and fund the parent bot wallet from it.
 2. `python scripts/upstream_bot_login.py` -> StringSession.
-3. Admin -> Panels -> add: `kind=upstream_bot`, `base_url=https://t.me/<parent_bot>`,
-   credentials `{"api_id":..., "api_hash":"...", "session":"..."}`, config `{"max_price": 100000}`.
+3. Admin -> Panels -> **Add panel -> "Upstream Bot"** (see "Admin screen" below). Or via the API: `kind=upstream_bot`,
+   `base_url=https://t.me/<parent_bot>`, credentials `{"api_id":..., "api_hash":"...", "session":"..."}`, config `{"max_price": 100000}`.
    Optional config: `service_button`, `menu_buy`, `menu_purchases`, `search_button`, `refund_button`, `refund_confirm_button`,
-   `confirm_button`, `plans`, `status_ttl`, `delivery_timeout`, `renew {enabled, renew_button, confirm_button, cancel_button, success_words, settle_window}`.
+   `confirm_button`, `cancel_button`, `link_button`, `start_command`, `plans`, `status_ttl`, `step_timeout`, `delivery_timeout`,
+   `renew {enabled, renew_button, confirm_button, cancel_button, success_words, settle_window}`.
 4. Map bundles/servers to this panel as for any other panel.
+
+## Admin screen (Admin -> Panels)
+The "Upstream Bot" kind has its own form instead of the generic URL / token fields:
+- **Parent bot**: paste `@name`, `name` or any `t.me` link; the panel `base_url` is stored as `https://t.me/<name>`.
+- **Credentials** (`api_id`, `api_hash`, `session`) are encrypted and never shown again. All three are replaced together; an edit that
+  does not touch them ("Cancel credential change") keeps the stored session. A built-in guide explains how to get them.
+- **Safety cap** (`max_price`, toman) is mandatory, with one-click presets.
+- **Automatic renewal** switch (`renew.enabled`, always saved explicitly) plus its button texts, success words and `settle_window`.
+- **Button texts**, **manual plans** and **timing** are optional: an empty field means the adapter default (shown as placeholder),
+  so only real overrides are stored in `config`. Config keys the form does not know stay in "Advanced (JSON)" and are never dropped.
+- A **live preview** shows the exact path the userbot walks in the parent bot for buy / status / refund / renew with the configured texts.
+- The panel card shows the bot, the cap, renewal on/off and the number of manual plans. "Save and check health" only connects with the
+  session and reads the chat; it never buys anything.
+
+### راهنمای فارسی صفحه‌ی ادمین
+در «پنل‌ها ← افزودن پنل» نوع **ربات واسط (Upstream Bot)** را انتخاب کنید: نام کاربری یا لینک ربات والد، سه مقدار `api_id`/`api_hash`/`session`
+(رمزنگاری‌شده ذخیره می‌شود و دوباره نمایش داده نمی‌شود)، و **سقف مبلغ هر خرید/تمدید** (اجباری). تمدید خودکار، متن دکمه‌ها، پلن دستی و زمان‌بندی
+اختیاری‌اند؛ فیلد خالی یعنی پیش‌فرض. در ویرایش، اگر «تغییر اعتبارنامه» را نزنید session قبلی حفظ می‌شود. «پیش‌نمایش مسیر» نشان می‌دهد
+اکانت تلگرام اختصاصی در ربات والد دقیقاً چه دکمه‌هایی را می‌زند. «ذخیره و بررسی سلامت» فقط اتصال را می‌سنجد و هیچ خریدی انجام نمی‌دهد.
 
 ## Safety rules built in
 - `max_price` (toman) is mandatory; the confirm prompt amount must equal the chosen plan price and be <= `max_price`, otherwise the purchase is cancelled.
