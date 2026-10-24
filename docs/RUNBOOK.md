@@ -28,6 +28,12 @@ Panel health becomes unhealthy; provisioning selects no server and sends orders 
 ## Gateway / callback incident
 Payment callback is idempotent. Inspect `payment_attempts`, never manually edit payment status without audit and ledger compensation.
 
+## Card-to-card auto verification (bank SMS)
+Design and setup: `docs/20-Card-Receipt-Auto-Verification.md`. If receipts stop being paid automatically: check the store's
+`last_received_at` (phone/forwarder offline?), `GET /admin/stores/{id}/bank-sms?status=unparsed|ambiguous`, a *balance gap*
+flag (a missed SMS), then run "بررسی دوباره" (`POST .../bank-sms/reconcile`). Turn "شارژ خودکار" off to fall back to
+suggest-only; never edit a payment by hand without audit and ledger compensation. Rotate the webhook token if it leaks.
+
 ## Data corruption
 Disable affected feature, preserve DB and audit logs, export evidence, restore to isolated DB, run reconciliation and migration tests. Never delete ledger/audit rows.
 

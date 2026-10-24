@@ -36,6 +36,13 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-25 UTC - claude - payments/card-receipt-auto-verification
+- **Before:** card-to-card top-ups waited for a human to look at the receipt image; the image itself was trusted by nobody and checked by hand.
+- **Problem:** manual review delays wallet charging (often at night) and a screenshot proves nothing; the store owner's bank already sends an authoritative deposit SMS.
+- **Action:** `domain/bank_sms.py` (Mehr Iran SMS parser, Jalali time, matching rules), `modules/payments/bank_sms.py` (token-protected webhook ingest, idempotent fingerprints, auto match + wallet credit through `mark_succeeded`, balance-gap detection, manual pairing), migration `0032`, receipt upload now takes `paid_at` / `source_card_last4` / `reference`, `bank_sms_reconcile` worker job, admin and reseller APIs; UI: customer receipt form (store-web), reseller tab and admin payments panel; `docs/20-Card-Receipt-Auto-Verification.md`.
+- **After:** API suite 1505 passed (+35 new SMS tests), store-web 32 and admin-web 88 frontend tests pass, ESLint 0 errors, Prettier clean, both production builds ok; live run on PostgreSQL 16 + Redis: migrations to 0032, the real bank SMS posted to the webhook is stored once (retry = duplicate, wrong token = 401).
+- **Ref:** branch `feat/auto-card-receipt-verification`
+
 ### 2026-10-24 UTC - claude - admin-web/upstream_bot-settings-ui
 - **Before:** an `upstream_bot` panel could only be created by sending raw credentials/config JSON; the generic panel form had no fields for it, and the API rejected any edit that did not re-send the Telethon session.
 - **Problem:** no guided way to set the parent bot, the mandatory `max_price` safety cap, renewal and button texts; secret inputs also hid their first characters under the eye icon.
