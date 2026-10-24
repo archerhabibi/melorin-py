@@ -16,7 +16,7 @@ from melorin.kernel.models.catalog import Product
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.stores import Store
 from melorin.modules.vpn.adapters.base import AccountSpec, ErrorKind, PanelError
-from melorin.modules.vpn.adapters.registry import build_adapter
+from melorin.modules.vpn.adapters.registry import build_adapter, build_adapter_for
 from melorin.modules.catalog.allocation import resolve_allocation
 from melorin.modules.vpn import renewal
 from melorin.kernel.models.vpn import Panel, ProvisioningAttempt, Server, VpnAccount
@@ -199,7 +199,7 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
     order.status = OrderStatus.PROVISIONING
     await session.commit()
 
-    adapter = build_adapter(panel)
+    adapter = build_adapter_for(panel, account) if account else build_adapter(panel)
     now = utcnow()
     try:
         if account:
