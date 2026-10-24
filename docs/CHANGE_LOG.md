@@ -39,7 +39,7 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 ### 2026-10-24 UTC - god-ping - vpn/upstream_bot
 - **Before:** products could only be provisioned on Sanaei / PasarGuard / mock panels.
 - **Problem:** the parent bot (AjdarNetPlusbot) has no API or panel access, so its accounts could not be sold from Melorin.
-- **Action:** new `upstream_bot` panel adapter (Telethon user session drives the parent bot; parsers, price guard, lock, double-purchase protection), `build_adapter_for` re-seeds the name mapping from `panel_ref`, admin schema accepts the kind, `telethon==1.45.0` locked, login script and docs/19.
+- **Action:** new `upstream_bot` panel adapter (Telethon user session drives the parent bot; parsers, price guard, lock, double-purchase protection), `seed_adapter` re-seeds the name mapping from `panel_ref`, admin schema accepts the kind, `telethon==1.45.0` locked, login script and docs/19.
 - **After:** `tests/test_upstream_bot_adapter.py` (10 tests, fake parent bot) pass; ruff and lint-imports clean.
 - **Ref:** branch god-ping
 

@@ -95,7 +95,7 @@ class _Store:
             try:
                 await r.delete(self._k(username))
             except Exception:
-                pass
+                log.warning("upstream_bot: redis delete failed", exc_info=True)
 
 
 class _ChatLock:
@@ -128,7 +128,7 @@ class _ChatLock:
                 if await r.get(self.key) == self.token:
                     await r.delete(self.key)
             except Exception:
-                pass
+                log.warning("upstream_bot: redis delete failed", exc_info=True)
         self._local.release()
 
 

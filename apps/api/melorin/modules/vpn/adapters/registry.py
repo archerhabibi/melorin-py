@@ -57,9 +57,8 @@ def register(kind: str, cls: type) -> None:
     ADAPTERS[kind] = cls
 
 
-def build_adapter_for(panel, account) -> PanelAdapter:
-    """Adapter for an existing account: lets name-mapping adapters (upstream_bot) re-learn the upstream name from panel_ref."""
-    adapter = build_adapter(panel)
+def seed_adapter(adapter, account):
+    """Name-mapping adapters (upstream_bot) re-learn the upstream account name from VpnAccount.panel_ref. No-op for others."""
     remember = getattr(adapter, "remember", None)
     if callable(remember):
         remember(account.username, getattr(account, "panel_ref", None))
