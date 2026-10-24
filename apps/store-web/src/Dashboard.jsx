@@ -309,17 +309,44 @@ function Wallet({ coreFetch, storeId, wallet, reload, notify }) {
       setBusy(false);
     }
   }
-  async function receipt(file) {
-    const fd_ = new FormData();
-    fd_.append('file', file);
-    const r = await coreFetch(`/api/v1/stores/${storeId}/payments/${pay.id}/receipt`, { method: 'POST', body: fd_ });
-    if (r.ok) {
-      notify('رسید ارسال شد؛ پس از تأیید شارژ می‌شود');
+  // The facts printed on the receipt (time, last 4 card digits, reference) are what the bank deposit SMS is matched
+  // against; the image itself is only kept for a human reviewer. Digits may be typed in any script: Core normalizes.
+  const [rc, setRc] = useState({ file: null, paid_at: '', last4: '', reference: '' });
+  const [sending, setSending] = useState(false);
+  async function receipt() {
+    if (!rc.file || sending) return;
+    setSending(true);
+    try {
+      const fd_ = new FormData();
+      fd_.append('file', rc.file);
+      if (rc.paid_at.trim()) fd_.append('paid_at', rc.paid_at.trim());
+      if (rc.last4.trim()) fd_.append('source_card_last4', rc.last4.trim());
+      if (rc.reference.trim()) fd_.append('reference', rc.reference.trim());
+      const r = await coreFetch(`/api/v1/stores/${storeId}/payments/${pay.id}/receipt`, { method: 'POST', body: fd_ });
+      if (!r.ok) {
+        let msg = 'ارسال رسید ناموفق بود';
+        try {
+          msg = (await r.json())?.error?.message || msg;
+        } catch {
+          /* non-JSON error body */
+        }
+        notify(msg);
+        return;
+      }
+      const done = await r.json().catch(() => ({}));
+      notify(
+        done.status === 'succeeded'
+          ? 'پرداخت با پیامک بانک تأیید شد و کیف پول شما شارژ شد ✅'
+          : 'رسید ثبت شد؛ به محض رسیدن تأییدیه‌ی بانک خودکار شارژ می‌شود، وگرنه پس از بررسی.',
+      );
       setPay(null);
       setAmount('');
+      setRc({ file: null, paid_at: '', last4: '', reference: '' });
       reload();
       load();
-    } else notify('ارسال رسید ناموفق بود');
+    } finally {
+      setSending(false);
+    }
   }
   return (
     <div className="grid gap-5 md:grid-cols-[.8fr_1.2fr]">
@@ -361,14 +388,55 @@ function Wallet({ coreFetch, storeId, wallet, reload, notify }) {
                 مبلغ: {fa(pay.amount)} {pay.currency}
               </div>
               <label className="mt-3 block cursor-pointer rounded-xl border border-dashed border-line p-4 text-center text-sm font-bold">
-                آپلود رسید
+                {rc.file ? rc.file.name : 'انتخاب تصویر رسید'}
                 <input
                   type="file"
                   accept="image/*,.pdf"
                   className="hidden"
-                  onChange={(e) => e.target.files[0] && receipt(e.target.files[0])}
+                  onChange={(e) => setRc({ ...rc, file: e.target.files[0] || null })}
                 />
               </label>
+              <label className="mt-3 block text-xs font-bold">
+                زمان درج‌شده روی رسید
+                <input
+                  dir="ltr"
+                  className={`${inp} mt-1 latin`}
+                  inputMode="numeric"
+                  placeholder="1405/08/02 22:50"
+                  value={rc.paid_at}
+                  onChange={(e) => setRc({ ...rc, paid_at: e.target.value })}
+                />
+              </label>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <label className="text-xs font-bold">
+                  ۴ رقم آخر کارت مبدأ
+                  <input
+                    dir="ltr"
+                    className={`${inp} mt-1 latin`}
+                    inputMode="numeric"
+                    maxLength={4}
+                    placeholder="6219"
+                    value={rc.last4}
+                    onChange={(e) => setRc({ ...rc, last4: e.target.value })}
+                  />
+                </label>
+                <label className="text-xs font-bold">
+                  شماره مرجع (اختیاری)
+                  <input
+                    dir="ltr"
+                    className={`${inp} mt-1 latin`}
+                    inputMode="numeric"
+                    value={rc.reference}
+                    onChange={(e) => setRc({ ...rc, reference: e.target.value })}
+                  />
+                </label>
+              </div>
+              <p className="mt-2 text-xs leading-6 text-muted">
+                با ثبت دقیق زمان رسید، شارژ شما بلافاصله پس از تأیید بانک و بدون انتظار برای بررسی دستی انجام می‌شود.
+              </p>
+              <button disabled={!rc.file || sending} onClick={receipt} className={`${btn} mt-3 w-full`}>
+                {sending ? 'در حال ارسال…' : 'ارسال رسید'}
+              </button>
             </>
           )}
         </div>
