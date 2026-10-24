@@ -49,6 +49,8 @@ async def create_panel(body: CreatePanel, admin: AdminUser, session: Session):
         raise AppError("PANEL_TLS_VERIFY_REQUIRED", "TLS verification در محیط عملیاتی قابل خاموش‌کردن نیست.", 400)
     if body.kind == "pasarguard" and not body.credentials:
         raise AppError("PANEL_CREDENTIALS_REQUIRED", "اعتبارنامه پنل پاسارگارد لازم است.", 400)
+    if body.kind == "upstream_bot" and not body.credentials:
+        raise AppError("PANEL_CREDENTIALS_REQUIRED", "اعتبارنامه ربات واسط (api_id، api_hash و session) لازم است.", 400)
     p = Panel(
         name=body.name,
         kind=body.kind,
