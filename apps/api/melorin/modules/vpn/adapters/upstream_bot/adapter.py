@@ -14,7 +14,9 @@ Honest limits
   * Refund (مرجوعی) is real: revoke_account presses "مرجوعی اکانت" and the parent bot credits its wallet back (its rules:
     volume accounts only, <= 3 days, <= 5 % used, 3 per day - the same numbers as Melorin's own return policy).
   * Usage / expiry / status are read live from the parent bot's account screen ("خریدهای من" -> "جستجوی اکانت").
-  * suspend/resume are not exposed by the parent bot. Renewal is OFF until ``config.renew.enabled`` is set (unverified flow).
+  * suspend/resume are not exposed by the parent bot. Renewal ("تمدید اکانت") is real and ON by default
+    (``config.renew.enabled=false`` switches it off): account screen -> renew -> "تمدید با حجم اولیه" -> "تایید تمدید اکانت".
+    The parent bot restarts the package from now (new expiry, usage back to 0), exactly what Core's renewal promises.
   * Money safety: the confirm prompt amount must equal the chosen plan price and be <= ``max_price`` or the purchase is cancelled.
   * Calls are serialised by a distributed lock: one chat, one flow at a time.
 """
@@ -51,8 +53,15 @@ DEFAULTS = {
     "poll_interval": 1.2,
     "lock_ttl": 180,
     "plans": [],  # optional explicit [{"traffic_gb": 10, "months": 1, "label": "10 گیگ یک ماهه"}]
-    # Renewal flow after pressing "تمدید اکانت" was not in the supplied screenshots: disabled until enabled and tested by hand.
-    "renew": {"enabled": False, "renew_button": "تمدید اکانت", "confirm_button": "تایید", "success_words": ["تمدید شد", "با موفقیت"]},
+    # Renewal (verified on the real screens, 24 Oct 2026). Set {"enabled": false} to turn automatic renewals off.
+    "renew": {
+        "enabled": True,
+        "renew_button": "تمدید اکانت",
+        "confirm_button": "تایید تمدید",
+        "cancel_button": "برگشت",
+        "success_words": ["با موفقیت تمدید"],
+        "settle_window": 600,  # seconds a confirmed-but-unanswered renewal blocks a second payment (retry reads the account instead)
+    },
 }
 
 _MEM: dict[str, str] = {}
@@ -450,7 +459,14 @@ class UpstreamBotAdapter:
         raise PanelError(ErrorKind.PERMANENT, "upstream_bot: the parent bot cannot resume accounts")
 
     async def extend_account(self, username: str, *, expire_at: dt.datetime | None, traffic_bytes: int) -> PanelAccount:
-        """Renew through the parent bot's "تمدید اکانت" button. Disabled unless config.renew.enabled; flow after the button is unverified."""
+        """Renew through the parent bot ("تمدید اکانت" -> "تمدید با حجم اولیه" -> "تایید تمدید اکانت").
+
+        The parent bot restarts the package from now: new expiry, usage back to zero. Only the original volume is renewed
+        automatically; a different volume ("تمدید و افزایش N گیگ") needs manual handling (PERMANENT, nothing is paid).
+        Money safety: price comes from the chosen button and must be <= max_price; the confirm prompt must name this account;
+        its printed amount is 0 in the real bot, so only 0 / the option price are accepted. After the confirm click every failure
+        is UNKNOWN and a retry first reads the account screen: it never pays twice for one renewal.
+        """
         r = {**DEFAULTS["renew"], **(self.cfg.get("renew") or {})}
         if not r.get("enabled"):
             raise PanelError(ErrorKind.PERMANENT, "upstream_bot: renewal is not enabled (config.renew.enabled); needs manual handling")
@@ -460,41 +476,133 @@ class UpstreamBotAdapter:
         cap = int(self.cfg["max_price"] or 0)
         if cap <= 0:
             raise PanelError(ErrorKind.PERMANENT, "upstream_bot: config.max_price must be set before automatic renewals")
+        ref = d["ref"]
         async with self._lock():
             c = self._client()
-            before_expire = d.get("expire_at")
-            _, det_msg, _ = await self._open_detail(d["ref"])
+            _, det_msg, before = await self._open_detail(ref)
+            if d.get("renew_started"):
+                # an earlier attempt pressed confirm: decide from the account screen, never by paying again
+                if self._renew_landed(d, before):
+                    return await self._renew_done(username, d, before)
+                if time.time() - float(d["renew_started"]) < float(r["settle_window"]):
+                    raise PanelError(
+                        ErrorKind.UNKNOWN, "upstream_bot: a renewal was confirmed moments ago and has not shown up yet; not paying twice"
+                    )
+                for k in ("renew_started", "renew_before_expire", "renew_before_renewed", "renew_price"):
+                    d.pop(k, None)  # window over and nothing changed upstream: that confirm never took effect
             btn = self._find_button(det_msg, r["renew_button"])
             if not btn:
                 raise PanelError(ErrorKind.PERMANENT, f"upstream_bot: button '{r['renew_button']}' not on the account screen")
             mark = await self._top_id()
             await c.click(det_msg, btn)
-            plans = await self._wait(lambda x: any(parsing.parse_plan_label(b.text) for b in x.buttons), after_id=mark, watch={det_msg.id})
-            if not plans:
-                raise PanelError(ErrorKind.PERMANENT, "upstream_bot: renewal plan list did not appear (flow not recognised)")
-            pbtn, plan = self._pick_plan(plans, AccountSpec(username, expire_at, traffic_bytes))
-            if plan.price > cap:
-                raise PanelError(ErrorKind.PERMANENT, f"upstream_bot: renewal price {plan.price} exceeds max_price {cap}")
-            await c.click(plans, pbtn)
-            conf = await self._wait(lambda x: self._find_button(x, r["confirm_button"]) is not None, after_id=mark, watch={plans.id})
-            amount = parsing.confirm_amount(conf.text) if conf else None
-            if not conf or (amount is not None and (amount != plan.price or amount > cap)):
+            opts = await self._wait(lambda x: parsing.parse_renew_screen(x.text) is not None, after_id=mark, watch={det_msg.id})
+            if not opts:
+                await self._raise_unrecognised(mark, "renewal options did not appear")
+            screen = parsing.parse_renew_screen(opts.text)
+            if screen.name != ref:
+                raise PanelError(ErrorKind.PERMANENT, f"upstream_bot: renewal screen is for {screen.name}, expected {ref}")
+            want_gb = round(traffic_bytes / GB, 2) if traffic_bytes else 0
+            if abs(want_gb - screen.initial_gb) > 0.01:
+                await self._cancel_flow(opts)
                 raise PanelError(
-                    ErrorKind.PERMANENT, f"upstream_bot: renewal confirmation missing or price mismatch ({amount} vs {plan.price})"
+                    ErrorKind.PERMANENT,
+                    f"upstream_bot: parent bot renews {screen.initial_gb:g} GB (initial volume) but {want_gb:g} GB was requested; needs manual handling",
                 )
-            d["renew_pending"] = True  # point of no return: get_account must now read fresh, never from cache
-            await self.store.set(username, d)
-            await c.click(conf, self._find_button(conf, r["confirm_button"]))
-            ok = await self._wait(
-                lambda x: any(w in x.text for w in r["success_words"]), after_id=mark, timeout=float(self.cfg["delivery_timeout"])
+            option = next(((b, o) for b in opts.buttons if (o := parsing.parse_renew_option(b.text)) and o.kind == "initial"), None)
+            if not option:
+                raise PanelError(ErrorKind.PERMANENT, "upstream_bot: 'renew with the initial volume' button not found")
+            obtn, opt = option
+            if opt.price > cap:
+                await self._cancel_flow(opts)
+                raise PanelError(ErrorKind.PERMANENT, f"upstream_bot: renewal price {opt.price} exceeds max_price {cap}")
+            balance = await self._balance_after(mark)
+            if balance is not None and balance < opt.price:
+                await self._cancel_flow(opts)
+                raise PanelError(
+                    ErrorKind.PERMANENT,
+                    f"upstream_bot: parent bot wallet balance {balance} is below the renewal price {opt.price}, top it up",
+                )
+            mark2 = await self._top_id()
+            await c.click(opts, obtn)
+            conf = await self._wait(
+                lambda x: parsing.is_renew_confirm_prompt(x.text, ref) and bool(x.buttons), after_id=mark2, watch={opts.id}
             )
+            if not conf:
+                await self._raise_unrecognised(mark2, "renewal confirmation did not appear")
+            amount = parsing.renew_confirm_amount(conf.text)
+            ok = self._find_button(conf, r["confirm_button"])
+            if amount not in (None, 0, opt.price) or amount is not None and amount > cap:
+                await self._cancel_flow(conf, r["cancel_button"])
+                raise PanelError(ErrorKind.PERMANENT, f"upstream_bot: renewal confirmation shows {amount}, expected {opt.price}; cancelled")
             if not ok:
-                raise PanelError(ErrorKind.UNKNOWN, "upstream_bot: renewal confirmed but no success message; read-back decides")
-            _, _, det = await self._open_detail(d["ref"])  # trust the account screen, not our own arithmetic
-            d = await self._apply_detail(username, d, det)
-            if det.expire_at is None or (before_expire and det.expire_at.isoformat() == before_expire):
-                raise PanelError(ErrorKind.UNKNOWN, "upstream_bot: success message seen but the expiry did not change")
-            return self._account(username, d)
+                raise PanelError(ErrorKind.PERMANENT, f"upstream_bot: confirm button '{r['confirm_button']}' not found")
+            d.update(
+                renew_pending=True,  # get_account must now read fresh, never from cache
+                renew_started=time.time(),
+                renew_before_expire=before.expire_at.isoformat() if before.expire_at else None,
+                renew_before_renewed=before.renewed_at.isoformat() if before.renewed_at else None,
+                renew_price=opt.price,
+            )
+            await self.store.set(username, d)
+            mark3 = await self._top_id()
+            await c.click(conf, ok)  # --- point of no return: from here a failure is UNKNOWN, never TRANSIENT ---
+            done = await self._wait(
+                lambda x: any(w in x.text for w in r["success_words"]) and parsing.parse_renew_success(x.text, ref),
+                after_id=mark3,
+                watch={conf.id},
+                timeout=float(self.cfg["delivery_timeout"]),
+            )
+            if not done:
+                raise PanelError(
+                    ErrorKind.UNKNOWN, "upstream_bot: renewal confirmed but no success message yet; the account screen decides on retry"
+                )
+            charged = await self._wait(lambda x: parsing.parse_charged_amount(x.text) is not None, after_id=mark3, timeout=5)
+            if charged:
+                d["renew_charged"] = parsing.parse_charged_amount(charged.text)
+                if d["renew_charged"] != opt.price:  # money already moved: keep the renewal, make the anomaly loud
+                    log.error("upstream_bot: %s renewed but the parent bot charged %s instead of %s", ref, d["renew_charged"], opt.price)
+            _, _, after = await self._open_detail(ref)  # trust the account screen, not our own arithmetic
+            if not self._renew_landed(d, after):
+                raise PanelError(ErrorKind.UNKNOWN, "upstream_bot: success message seen but the account screen did not change")
+            return await self._renew_done(username, d, after)
+
+    @staticmethod
+    def _renew_landed(d: dict, det: parsing.AccountDetail) -> bool:
+        """Did the account screen change since the confirm click (new expiry or a new renewal date)?"""
+        be, br = d.get("renew_before_expire"), d.get("renew_before_renewed")
+        if det.expire_at is not None and det.expire_at.isoformat() != be:
+            return True
+        return det.renewed_at is not None and det.renewed_at.isoformat() != br
+
+    async def _renew_done(self, username: str, d: dict, det: parsing.AccountDetail) -> PanelAccount:
+        d = await self._apply_detail(username, d, det)
+        for k in ("renew_started", "renew_before_expire", "renew_before_renewed"):
+            d.pop(k, None)
+        d["renewed_at_ts"] = time.time()
+        await self.store.set(username, d)
+        return self._account(username, d)
+
+    async def _balance_after(self, mark: int) -> int | None:
+        """The parent bot prints 'موجودی حساب شما: N تومان' right after the renew button. None when it did not."""
+        m = await self._wait(lambda x: parsing.parse_balance(x.text) is not None, after_id=mark, timeout=3)
+        return parsing.parse_balance(m.text) if m else None
+
+    async def _cancel_flow(self, msg: Msg, label: str | None = None) -> None:
+        """Best effort: press the cancel/back button of a half-finished flow so nothing stays armed. Never raises."""
+        try:
+            for needle in (label, "انصراف", "برگشت"):
+                b = self._find_button(msg, needle) if needle else None
+                if b:
+                    await self._client().click(msg, b)
+                    return
+        except PanelError:
+            log.warning("upstream_bot: could not press cancel on a half-finished flow", exc_info=True)
+
+    async def _raise_unrecognised(self, mark: int, what: str) -> None:
+        latest = await self._latest_text(mark)
+        if parsing.is_operation_expired(latest):
+            raise PanelError(ErrorKind.TRANSIENT, f"upstream_bot: {what}: the parent bot said the operation expired (stale buttons); retry")
+        raise PanelError(ErrorKind.PERMANENT, f"upstream_bot: {what} (flow not recognised): {latest}")
 
     async def revoke_account(self, username: str) -> None:
         """Real refund (مرجوعی) through the parent bot; its wallet is credited back. Idempotent across outbox retries."""
