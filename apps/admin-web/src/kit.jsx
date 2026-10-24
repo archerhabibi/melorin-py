@@ -530,7 +530,7 @@ export function Secret({ value, onChange, placeholder }) {
         autoComplete="off"
         spellCheck={false}
         type={show ? 'text' : 'password'}
-        className="inp pl-10"
+        className="inp !pl-10"
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}

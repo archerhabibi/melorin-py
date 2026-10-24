@@ -96,8 +96,8 @@ describe('PanelsView · upstream_bot', () => {
     await userEvent.type(screen.getByPlaceholderText(/ربات والد - سرویس اقتصادی/), 'والد اقتصادی');
     await userEvent.type(screen.getByLabelText('نام کاربری ربات والد'), 'https://t.me/Parent_Bot/');
     await userEvent.type(screen.getByPlaceholderText('1234567'), '123456');
-    await userEvent.type(screen.getByPlaceholderText('32 کاراکتر هگز'), 'a'.repeat(32));
-    await userEvent.type(screen.getByPlaceholderText('1BVts...'), SESSION);
+    await userEvent.type(screen.getByPlaceholderText('0123456789abcdef0123456789abcdef'), 'a'.repeat(32));
+    await userEvent.type(screen.getByPlaceholderText('1BVtsOKEBu7...'), SESSION);
     await userEvent.click(screen.getByRole('button', { name: /100,000|۱۰۰٬۰۰۰/ }));
     await userEvent.click(screen.getByRole('button', { name: 'فقط ثبت' }));
 

@@ -101,7 +101,7 @@ function Cmd({ text }) {
     <span className="mt-1 flex items-center gap-1.5">
       <code
         dir="ltr"
-        className="min-w-0 flex-1 truncate rounded-lg bg-[var(--sf2)] px-2.5 py-1.5 font-mono text-[11px]"
+        className="min-w-0 flex-1 break-all rounded-lg bg-[var(--sf2)] px-2.5 py-1.5 font-mono text-[11px]"
         title={text}
       >
         {text}
@@ -181,11 +181,11 @@ export function UpstreamCredentials({ ub, setUb, show, edit }) {
           />
         </Field>
         <Field label="api_hash" error={show('apiHash') || undefined}>
-          <Secret value={ub.apiHash} onChange={set('apiHash')} placeholder="32 کاراکتر هگز" />
+          <Secret value={ub.apiHash} onChange={set('apiHash')} placeholder="0123456789abcdef0123456789abcdef" />
         </Field>
       </div>
       <Field label="Session (Telethon StringSession)" error={show('session') || undefined}>
-        <Secret value={ub.session} onChange={set('session')} placeholder="1BVts..." />
+        <Secret value={ub.session} onChange={set('session')} placeholder="1BVtsOKEBu7..." />
       </Field>
       {edit && (
         <p className="flex items-start gap-2 text-[11px] leading-5 text-[var(--mu)]">
@@ -617,13 +617,15 @@ export function UpstreamFlowPreview({ ub }) {
           const m = STEP[s.k];
           return (
             <li key={i} className="flex items-center">
-              {i > 0 && <ChevronLeft size={14} className="mx-1 shrink-0 text-[var(--mu)]" aria-hidden />}
               <span className="spec" style={tint(m.tone)}>
                 <m.Icon size={12} className="shrink-0" />
                 <span dir={m.mono ? 'ltr' : 'auto'} className={m.mono ? 'font-mono' : ''}>
                   {s.l}
                 </span>
               </span>
+              {i < flow.steps.length - 1 && (
+                <ChevronLeft size={14} className="mx-1 shrink-0 text-[var(--mu)]" aria-hidden />
+              )}
             </li>
           );
         })}
