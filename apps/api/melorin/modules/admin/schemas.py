@@ -57,7 +57,7 @@ class Availability(BaseModel):
 
 class CreatePanel(BaseModel):
     name: str
-    kind: str = Field(pattern="^(sanaei|pasarguard|mock)$")
+    kind: str = Field(pattern="^(sanaei|pasarguard|upstream_bot|mock)$")
     base_url: str
     credentials: dict = {}
     config: dict = {}
@@ -89,6 +89,12 @@ class CreatePanel(BaseModel):
                         raise ValueError
                 except (TypeError, ValueError) as exc:
                     raise ValueError("pasarguard: config.user_template_id must be a positive integer") from exc
+        if self.kind == "upstream_bot":
+            cfg, cred = self.config or {}, self.credentials or {}
+            if not (cred.get("api_id") and cred.get("api_hash") and cred.get("session")):
+                raise ValueError("upstream_bot: credentials need api_id, api_hash and session (Telethon StringSession)")
+            if int(cfg.get("max_price") or 0) <= 0:
+                raise ValueError("upstream_bot: config.max_price (toman, safety cap per purchase) is required")
         return self
 
 

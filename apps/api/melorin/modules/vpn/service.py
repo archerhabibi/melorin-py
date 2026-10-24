@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from melorin.domain.order_state import VpnStatus
 from melorin.kernel.models.vpn import Panel, ReconciliationIssue, VpnAccount
 from melorin.modules.vpn.adapters.base import PanelError
-from melorin.modules.vpn.adapters.registry import build_adapter
+from melorin.modules.vpn.adapters.registry import build_adapter, seed_adapter
 
 
 async def reconcile(session: AsyncSession, account_id: uuid.UUID) -> str:
@@ -17,7 +17,7 @@ async def reconcile(session: AsyncSession, account_id: uuid.UUID) -> str:
     if not account or not account.panel_id:
         return "missing"
     panel = await session.get(Panel, account.panel_id)
-    adapter = build_adapter(panel)
+    adapter = seed_adapter(build_adapter(panel), account)
     try:
         remote = await adapter.get_account(account.username)
     except PanelError as e:

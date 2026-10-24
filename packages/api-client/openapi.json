@@ -1325,7 +1325,7 @@
             "type": "object"
           },
           "kind": {
-            "pattern": "^(sanaei|pasarguard|mock)$",
+            "pattern": "^(sanaei|pasarguard|upstream_bot|mock)$",
             "title": "Kind",
             "type": "string"
           },

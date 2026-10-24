@@ -17,7 +17,7 @@ from melorin.kernel.models.notifications import Notification
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.system import OutboxEvent
 from melorin.modules.orders import provisioning as vpn
-from melorin.modules.vpn.adapters.registry import build_adapter
+from melorin.modules.vpn.adapters.registry import build_adapter, seed_adapter
 from melorin.kernel.models.vpn import Panel, VpnAccount
 
 log = logging.getLogger("melorin.worker")
@@ -298,7 +298,7 @@ async def revoke_account(session, account_id):
     if not a or not a.panel_id:
         return
     panel = await session.get(Panel, a.panel_id)
-    await build_adapter(panel).revoke_account(a.username)
+    await seed_adapter(build_adapter(panel), a).revoke_account(a.username)
     a.status = "revoked"
     await session.commit()
 
@@ -309,7 +309,7 @@ async def rollback_renewal(session, payload):
         return
     before = payload.get("before") or {}
     panel = await session.get(Panel, account.panel_id)
-    pa = await build_adapter(panel).extend_account(
+    pa = await seed_adapter(build_adapter(panel), account).extend_account(
         account.username,
         expire_at=dt.datetime.fromisoformat(before["expires_at"]) if before.get("expires_at") else None,
         traffic_bytes=int(before.get("traffic_limit_bytes") or 0),

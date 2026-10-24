@@ -10,8 +10,14 @@ from melorin.modules.vpn.adapters.base import PanelAdapter
 from melorin.modules.vpn.adapters.mock import MockPanelAdapter
 from melorin.modules.vpn.adapters.pasarguard import PasarGuardAdapter
 from melorin.modules.vpn.adapters.sanaei import SanaeiAdapter
+from melorin.modules.vpn.adapters.upstream_bot import UpstreamBotAdapter
 
-ADAPTERS: dict[str, type] = {"sanaei": SanaeiAdapter, "pasarguard": PasarGuardAdapter, "mock": MockPanelAdapter}
+ADAPTERS: dict[str, type] = {
+    "sanaei": SanaeiAdapter,
+    "pasarguard": PasarGuardAdapter,
+    "mock": MockPanelAdapter,
+    "upstream_bot": UpstreamBotAdapter,
+}
 
 
 def _public_panel_url(url: str) -> bool:
@@ -35,7 +41,7 @@ def _public_panel_url(url: str) -> bool:
 def build_adapter(panel) -> PanelAdapter:
     if panel.kind == "mock" and not get_settings().allow_mock_providers:
         raise AppError("MOCK_PROVIDER_DISABLED", "Mock provisioning is disabled in this environment.", 503)
-    if get_settings().env in {"staging", "production"}:
+    if panel.kind != "upstream_bot" and get_settings().env in {"staging", "production"}:  # upstream_bot talks Telegram, not HTTP
         if not _public_panel_url(panel.base_url) or (panel.config or {}).get("verify_tls") is False:
             raise AppError("PANEL_TLS_VERIFY_REQUIRED", "Panel connections require HTTPS and certificate verification.", 503)
     try:
@@ -49,3 +55,11 @@ def build_adapter(panel) -> PanelAdapter:
 def register(kind: str, cls: type) -> None:
     """Extension point for new panels (Marzban, Hiddify, ...)."""
     ADAPTERS[kind] = cls
+
+
+def seed_adapter(adapter, account):
+    """Name-mapping adapters (upstream_bot) re-learn the upstream account name from VpnAccount.panel_ref. No-op for others."""
+    remember = getattr(adapter, "remember", None)
+    if callable(remember):
+        remember(account.username, getattr(account, "panel_ref", None), getattr(account, "subscription_url", None))
+    return adapter

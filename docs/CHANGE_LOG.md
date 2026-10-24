@@ -36,6 +36,13 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-24 UTC - god-ping - vpn/upstream_bot
+- **Before:** products could only be provisioned on Sanaei / PasarGuard / mock panels.
+- **Problem:** the parent bot (AjdarNetPlusbot) has no API or panel access, so its accounts could not be sold from Melorin.
+- **Action:** new `upstream_bot` panel adapter (Telethon user session drives the parent bot: buy, live status from the account screen, real refund via "مرجوعی اکانت", renewal behind a flag; Jalali date parser, price guard, lock, double-purchase and double-refund protection), `seed_adapter` re-seeds the name mapping from `panel_ref`, admin schema accepts the kind, `telethon==1.45.0` locked, login script and docs/19.
+- **After:** `tests/test_upstream_bot_adapter.py` (10 tests, fake parent bot) pass; ruff and lint-imports clean.
+- **Ref:** branch god-ping
+
 ### 2026-10-21 05:10 UTC - archerhabibi - tests  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
@@ -1066,3 +1073,11 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 - **Action:** flow cookie now uses its own HMAC-derived key; token-endpoint failures are classified (5xx = unreachable, invalid_client = credentials rejected, logged as `tg_oidc_rejected` with Telegram's error code and shown to customers only as "unavailable"); `/telegram/test` adds site-URL (https, not localhost) and enabled/store_login checks, fails on a missing bot username, tolerates non-JSON/5xx replies; admin card shows per-method readiness from the SAVED config, "unsaved changes" state, disables test while dirty, validates the lifetime range, can copy all Allowed URLs; storefront: new `TelegramLoginButtons.jsx` (primary direct button, outlined bot fallback, busy state, bfcache-safe, AA-contrast `btn-tg`), login dialog reopens after a failed/denied redirect; `origin_mismatch` message added.
 - **After:** new `tests/test_r02_telegram_oidc_hardening.py` (20 tests); full API suite and `vite build` for both apps pass; screenshots checked (light/dark, phone/desktop). Not run against live Telegram.
 - **Ref:** this commit
+
+### 2026-10-24 - Claude (with owner) - upstream_bot: real renewal flow (branch god-ping)
+- **Before:** `extend_account` of the upstream_bot adapter was off by default; the screens after "تمدید اکانت" were never seen, so the flow, the plan buttons and the success message were guesses.
+- **Problem:** customers of a parent-bot panel could not be renewed automatically; the confirm screen of the parent bot prints "0 تومان" while it really charges 60,000, which a naive amount check would have refused (or, worse, trusted).
+- **Action:** parsers for the renewal screens (options with unseparated price, confirm, success, real charge, stale buttons, "تاریخ تمدید"); renewal in `adapter.extend_account` on the verified flow: only "تمدید با حجم اولیه", price from the button <= `max_price`, wallet balance check, confirm must name the same account and show 0 or the price, `renew_started` marker so a retry reads the account screen instead of paying twice, charge read-back; `renew.enabled` now defaults to true; fake parent bot and 11 new tests; docs/19 updated.
+- **After:** `tests/test_upstream_bot_adapter.py` 29 passed (18 before). NOT run against the real parent bot (no Telegram session here): the first live renewal should be done on a cheap account and compared with `renew_charged`.
+- **Ref:** branch god-ping
+
