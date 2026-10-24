@@ -41,6 +41,7 @@ import {
   tint,
 } from './kit.jsx';
 import { Badge, confirmDialog, dt, promptDialog, sid } from './ui.jsx';
+import BankSmsPanel from './BankSmsPanel.jsx';
 
 const PAGE = 15;
 const REVIEWABLE = ['pending', 'review', 'receipt_submitted', 'awaiting_review'];
@@ -837,6 +838,7 @@ export default function PaymentsView({ api, toast }) {
       )}
       <Paginator page={page} setPage={setPage} total={filtered.length} pageSize={PAGE} />
 
+      <BankSmsPanel call={call} toast={toast} payments={all} />
       <GatewaySettings obj={settings} save={saveSetting} />
       {open && (
         <PaymentDrawer
