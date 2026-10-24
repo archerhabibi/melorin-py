@@ -11,8 +11,10 @@ Panel fields
 
 Honest limits
   * The parent bot names accounts itself, so Melorin's username is mapped to the upstream name (Redis + VpnAccount.panel_ref).
-  * Purchases are non-refundable upstream: revoke_account only releases the mapping; Melorin refunds its own customer.
-  * suspend/resume/usage are not exposed by the parent bot. Renewal works only when ``config.renew`` is configured.
+  * Refund (مرجوعی) is real: revoke_account presses "مرجوعی اکانت" and the parent bot credits its wallet back (its rules:
+    volume accounts only, <= 3 days, <= 5 % used, 3 per day - the same numbers as Melorin's own return policy).
+  * Usage / expiry / status are read live from the parent bot's account screen ("خریدهای من" -> "جستجوی اکانت").
+  * suspend/resume are not exposed by the parent bot. Renewal is OFF until ``config.renew.enabled`` is set (unverified flow).
   * Money safety: the confirm prompt amount must equal the chosen plan price and be <= ``max_price`` or the purchase is cancelled.
   * Calls are serialised by a distributed lock: one chat, one flow at a time.
 """
@@ -36,13 +38,21 @@ DEFAULTS = {
     "service_button": "سرویس اقتصادی",
     "confirm_button": "تایید خرید",
     "cancel_button": "انصراف",
+    "start_command": "/start",
+    "menu_purchases": "خریدهای من",
+    "search_button": "جستجوی اکانت",
+    "refund_button": "مرجوعی اکانت",
+    "refund_confirm_button": "تایید میکنم",
+    "link_button": "لینک",
+    "status_ttl": 60,  # seconds a live read of the account screen is reused
     "max_price": 0,  # toman; 0 = refuse to buy (forces the admin to set a safety cap)
     "step_timeout": 25,
     "delivery_timeout": 60,
     "poll_interval": 1.2,
     "lock_ttl": 180,
     "plans": [],  # optional explicit [{"traffic_gb": 10, "months": 1, "label": "10 گیگ یک ماهه"}]
-    "renew": {},  # {"menu": "خریدهای من", "renew_button": "تمدید", "confirm_button": "تایید"}  (unverified flow)
+    # Renewal flow after pressing "تمدید اکانت" was not in the supplied screenshots: disabled until enabled and tested by hand.
+    "renew": {"enabled": False, "renew_button": "تمدید اکانت", "confirm_button": "تایید", "success_words": ["تمدید شد", "با موفقیت"]},
 }
 
 _MEM: dict[str, str] = {}
@@ -190,6 +200,41 @@ class UpstreamBotAdapter:
                 return b
         return None
 
+    async def _menu(self, label: str) -> tuple[int, Msg]:
+        """Reset the chat with /start, then press the main-menu button whose text contains ``label``.
+
+        The reply keyboard is taken from the parent bot itself, so the exact button text (emoji included) is sent as-is.
+        Returns (id of the newest message before pressing, the message that carried the button).
+        """
+        c = self._client()
+        after = await self._top_id()
+        await c.send_text(self.cfg["start_command"])
+        m = await self._wait(lambda x: self._find_button(x, label) is not None, after_id=after)
+        if not m:
+            raise PanelError(ErrorKind.TRANSIENT, f"upstream_bot: main menu button '{label}' did not appear after /start")
+        mark = await self._top_id()
+        await c.click(m, self._find_button(m, label))
+        return mark, m
+
+    async def _open_detail(self, ref: str) -> tuple[int, Msg, parsing.AccountDetail]:
+        """Main menu -> my purchases -> search -> send the upstream name -> the account screen (with its buttons)."""
+        c = self._client()
+        mark, _ = await self._menu(self.cfg["menu_purchases"])
+        sm = await self._wait(lambda x: self._find_button(x, self.cfg["search_button"]) is not None, after_id=mark)
+        if not sm:
+            raise PanelError(ErrorKind.TRANSIENT, "upstream_bot: purchases screen / search button did not appear")
+        mark2 = await self._top_id()
+        await c.click(sm, self._find_button(sm, self.cfg["search_button"]))
+        ask = await self._wait(lambda x: "اسم اکانت" in x.text or "نام اکانت" in x.text, after_id=mark2)
+        if not ask:
+            raise PanelError(ErrorKind.TRANSIENT, "upstream_bot: search prompt did not appear")
+        mark3 = await self._top_id()
+        await c.send_text(ref)
+        det = await self._wait(lambda x: (d := parsing.parse_account_detail(x.text)) is not None and d.name == ref, after_id=mark3)
+        if not det:
+            raise PanelError(ErrorKind.PERMANENT, f"upstream_bot: account {ref} was not found in the parent bot")
+        return mark3, det, parsing.parse_account_detail(det.text)
+
     def _pick_plan(self, msg: Msg, spec: AccountSpec) -> tuple[Button, parsing.PlanButton]:
         gb = round(spec.traffic_bytes / GB, 2) if spec.traffic_bytes else 0
         months = _months_between(dt.datetime.now(dt.UTC), spec.expire_at)
@@ -214,7 +259,9 @@ class UpstreamBotAdapter:
             return False
 
     def capabilities(self) -> Capabilities:
-        return Capabilities(suspend=False, extend=bool(self.cfg.get("renew")), subscription_url=True, traffic_reset=False)
+        return Capabilities(
+            suspend=False, extend=bool((self.cfg.get("renew") or {}).get("enabled")), subscription_url=True, traffic_reset=False
+        )
 
     async def create_account(self, spec: AccountSpec) -> PanelAccount:
         cap = int(self.cfg["max_price"] or 0)
@@ -230,8 +277,8 @@ class UpstreamBotAdapter:
                 return recovered
             c = self._client()
             after = await self._top_id()
-            await c.send_text(self.cfg["menu_buy"])
-            m = await self._wait(lambda x: bool(x.buttons), after_id=after)
+            after, _ = await self._menu(self.cfg["menu_buy"])
+            m = await self._wait(lambda x: self._find_button(x, self.cfg["service_button"]) is not None, after_id=after)
             if not m:
                 raise PanelError(ErrorKind.TRANSIENT, "upstream_bot: no response to the buy menu")
             svc = self._find_button(m, self.cfg["service_button"])
@@ -329,18 +376,19 @@ class UpstreamBotAdapter:
         return PanelAccount(
             ref=d.get("ref") or username,
             username=username,
-            status="active" if d.get("status") == "active" else "unknown",
+            status=(d.get("upstream_status") or "active") if d.get("status") == "active" else "unknown",
             expire_at=exp,
             traffic_limit_bytes=int(d.get("traffic_limit_bytes") or 0),
-            traffic_used_bytes=0,
+            traffic_used_bytes=int(d.get("traffic_used_bytes") or 0),
             subscription_url=url,
             links=[url] if url else [],
         )
 
-    def remember(self, username: str, ref: str | None) -> None:
-        """Re-seed the mapping from VpnAccount.panel_ref (Redis may have been flushed)."""
-        if ref and f"upstream_bot:{self.store.ns}:acc:{username}" not in _MEM:
-            _MEM[self.store._k(username)] = json.dumps({"status": "active", "ref": ref}, ensure_ascii=False)
+    def remember(self, username: str, ref: str | None, subscription_url: str | None = None) -> None:
+        """Re-seed the mapping from VpnAccount.panel_ref / subscription_url (Redis may have been flushed)."""
+        key = self.store._k(username)
+        if ref and key not in _MEM:
+            _MEM[key] = json.dumps({"status": "active", "ref": ref, "subscription_url": subscription_url}, ensure_ascii=False)
 
     async def get_account(self, username: str) -> PanelAccount | None:
         d = await self.store.get(username)
@@ -349,7 +397,51 @@ class UpstreamBotAdapter:
                 return await self._recover(username)
         if not d or d.get("status") != "active":
             return None
+        fresh_needed = bool(d.get("renew_pending"))
+        ttl = float(self.cfg["status_ttl"])
+        if not fresh_needed and time.time() - float(d.get("checked_at", 0)) < ttl:
+            return self._account(username, d)
+        try:
+            async with self._lock():
+                _, _, det = await self._open_detail(d["ref"])
+                d = await self._apply_detail(username, d, det)
+                if not d.get("subscription_url"):
+                    d["subscription_url"] = await self._fetch_link(d["ref"])
+                    await self.store.set(username, d)
+        except PanelError as e:
+            if e.kind == ErrorKind.PERMANENT and "not found" in e.message:
+                return None  # the parent bot no longer knows it (e.g. refunded): Core records missing_on_panel
+            log.warning("upstream_bot: live read failed for %s: %s - serving last known data", username, e.message)
         return self._account(username, d)
+
+    async def _apply_detail(self, username: str, d: dict, det: parsing.AccountDetail) -> dict:
+        d = {**d}
+        limit = det.used_bytes + det.remaining_bytes if det.remaining_bytes is not None else d.get("traffic_limit_bytes", 0)
+        d.update(
+            expire_at=det.expire_at.isoformat() if det.expire_at else d.get("expire_at"),
+            traffic_limit_bytes=int(limit),
+            traffic_used_bytes=int(det.used_bytes),
+            upstream_status=det.status,
+            checked_at=time.time(),
+        )
+        d.pop("renew_pending", None)
+        await self.store.set(username, d)
+        return d
+
+    async def _fetch_link(self, ref: str) -> str | None:
+        """Best effort: press 'دریافت لینک و QR' and read the first /sub/ link. Never raises."""
+        try:
+            _, msg, _ = await self._open_detail(ref)
+            btn = self._find_button(msg, self.cfg["link_button"])
+            if not btn:
+                return None
+            mark = await self._top_id()
+            await self._client().click(msg, btn)
+            got = await self._wait(lambda x: bool(re.search(r"https?://\S+/sub/", x.text)), after_id=mark, watch={msg.id}, timeout=10)
+            m = re.search(r"https?://\S+/sub/\S+", got.text) if got else None
+            return m.group(0).rstrip(".,)") if m else None
+        except PanelError:
+            return None
 
     async def suspend_account(self, username: str) -> None:
         raise PanelError(ErrorKind.PERMANENT, "upstream_bot: the parent bot cannot suspend accounts")
@@ -358,10 +450,11 @@ class UpstreamBotAdapter:
         raise PanelError(ErrorKind.PERMANENT, "upstream_bot: the parent bot cannot resume accounts")
 
     async def extend_account(self, username: str, *, expire_at: dt.datetime | None, traffic_bytes: int) -> PanelAccount:
-        rcfg = self.cfg.get("renew") or {}
+        """Renew through the parent bot's "تمدید اکانت" button. Disabled unless config.renew.enabled; flow after the button is unverified."""
+        r = {**DEFAULTS["renew"], **(self.cfg.get("renew") or {})}
+        if not r.get("enabled"):
+            raise PanelError(ErrorKind.PERMANENT, "upstream_bot: renewal is not enabled (config.renew.enabled); needs manual handling")
         d = await self.store.get(username)
-        if not rcfg:
-            raise PanelError(ErrorKind.PERMANENT, "upstream_bot: renewal flow is not configured (config.renew); needs manual handling")
         if not d or not d.get("ref"):
             raise PanelError(ErrorKind.PERMANENT, "upstream_bot: unknown upstream account for renewal")
         cap = int(self.cfg["max_price"] or 0)
@@ -369,50 +462,91 @@ class UpstreamBotAdapter:
             raise PanelError(ErrorKind.PERMANENT, "upstream_bot: config.max_price must be set before automatic renewals")
         async with self._lock():
             c = self._client()
-            after = await self._top_id()
-            await c.send_text(rcfg.get("menu", "خریدهای من"))
-            lst = await self._wait(lambda x: bool(x.buttons), after_id=after)
-            acc = self._find_button(lst, d["ref"]) if lst else None
-            if not acc:
-                raise PanelError(ErrorKind.PERMANENT, f"upstream_bot: account {d['ref']} not found in the purchases list")
-            await c.click(lst, acc)
-            det = await self._wait(
-                lambda x: any(rcfg.get("renew_button", "تمدید") in b.text for b in x.buttons), after_id=after, watch={lst.id}
-            )
-            if not det:
-                raise PanelError(ErrorKind.PERMANENT, "upstream_bot: renew button not found")
-            await c.click(det, self._find_button(det, rcfg.get("renew_button", "تمدید")))
-            plans = await self._wait(lambda x: any(parsing.parse_plan_label(b.text) for b in x.buttons), after_id=after, watch={det.id})
+            before_expire = d.get("expire_at")
+            _, det_msg, _ = await self._open_detail(d["ref"])
+            btn = self._find_button(det_msg, r["renew_button"])
+            if not btn:
+                raise PanelError(ErrorKind.PERMANENT, f"upstream_bot: button '{r['renew_button']}' not on the account screen")
+            mark = await self._top_id()
+            await c.click(det_msg, btn)
+            plans = await self._wait(lambda x: any(parsing.parse_plan_label(b.text) for b in x.buttons), after_id=mark, watch={det_msg.id})
             if not plans:
-                raise PanelError(ErrorKind.PERMANENT, "upstream_bot: renewal plan list did not appear")
-            btn, plan = self._pick_plan(plans, AccountSpec(username, expire_at, traffic_bytes))
+                raise PanelError(ErrorKind.PERMANENT, "upstream_bot: renewal plan list did not appear (flow not recognised)")
+            pbtn, plan = self._pick_plan(plans, AccountSpec(username, expire_at, traffic_bytes))
             if plan.price > cap:
                 raise PanelError(ErrorKind.PERMANENT, f"upstream_bot: renewal price {plan.price} exceeds max_price {cap}")
-            await c.click(plans, btn)
-            conf = await self._wait(
-                lambda x: any(rcfg.get("confirm_button", "تایید") in b.text for b in x.buttons), after_id=after, watch={plans.id}
-            )
+            await c.click(plans, pbtn)
+            conf = await self._wait(lambda x: self._find_button(x, r["confirm_button"]) is not None, after_id=mark, watch={plans.id})
             amount = parsing.confirm_amount(conf.text) if conf else None
-            if not conf or (amount is not None and amount != plan.price):
-                raise PanelError(ErrorKind.PERMANENT, "upstream_bot: renewal confirmation missing or price mismatch")
-            await c.click(conf, self._find_button(conf, rcfg.get("confirm_button", "تایید")))
+            if not conf or (amount is not None and (amount != plan.price or amount > cap)):
+                raise PanelError(
+                    ErrorKind.PERMANENT, f"upstream_bot: renewal confirmation missing or price mismatch ({amount} vs {plan.price})"
+                )
+            d["renew_pending"] = True  # point of no return: get_account must now read fresh, never from cache
+            await self.store.set(username, d)
+            await c.click(conf, self._find_button(conf, r["confirm_button"]))
             ok = await self._wait(
-                lambda x: any(w in x.text for w in rcfg.get("success_words", ["تمدید شد", "با موفقیت"])),
-                after_id=after,
-                timeout=float(self.cfg["delivery_timeout"]),
+                lambda x: any(w in x.text for w in r["success_words"]), after_id=mark, timeout=float(self.cfg["delivery_timeout"])
             )
             if not ok:
-                raise PanelError(ErrorKind.UNKNOWN, "upstream_bot: renewal confirmed but no success message")
-            d.update(expire_at=expire_at.isoformat() if expire_at else None, traffic_limit_bytes=int(plan.traffic_gb * GB))
-            await self.store.set(username, d)
+                raise PanelError(ErrorKind.UNKNOWN, "upstream_bot: renewal confirmed but no success message; read-back decides")
+            _, _, det = await self._open_detail(d["ref"])  # trust the account screen, not our own arithmetic
+            d = await self._apply_detail(username, d, det)
+            if det.expire_at is None or (before_expire and det.expire_at.isoformat() == before_expire):
+                raise PanelError(ErrorKind.UNKNOWN, "upstream_bot: success message seen but the expiry did not change")
             return self._account(username, d)
 
     async def revoke_account(self, username: str) -> None:
-        """Upstream purchases are non-refundable and cannot be deleted; only release the local mapping."""
+        """Real refund (مرجوعی) through the parent bot; its wallet is credited back. Idempotent across outbox retries."""
         d = await self.store.get(username)
-        if d:
+        if not d or not d.get("ref") or d.get("status") in ("revoked", "pending"):
+            return
+        if d.get("upstream_refunded"):
             d["status"] = "revoked"
             await self.store.set(username, d)
+            return
+        async with self._lock():
+            c = self._client()
+            try:
+                _, det_msg, _ = await self._open_detail(d["ref"])
+            except PanelError as e:
+                if e.kind == ErrorKind.PERMANENT and "not found" in e.message and d.get("refund_started"):
+                    # we already pressed confirm earlier and the account is gone upstream: the refund went through
+                    d.update(upstream_refunded=True, status="revoked")
+                    await self.store.set(username, d)
+                    return
+                raise
+            btn = self._find_button(det_msg, self.cfg["refund_button"])
+            if not btn:
+                raise PanelError(ErrorKind.PERMANENT, f"upstream_bot: button '{self.cfg['refund_button']}' not on the account screen")
+            mark = await self._top_id()
+            await c.click(det_msg, btn)
+            conf = await self._wait(lambda x: parsing.is_refund_confirm_prompt(x.text), after_id=mark, watch={det_msg.id})
+            if not conf:
+                reason = await self._latest_text(mark)
+                raise PanelError(ErrorKind.PERMANENT, f"upstream_bot: parent bot did not offer a refund: {reason}")
+            ok = self._find_button(conf, self.cfg["refund_confirm_button"])
+            if not ok:
+                raise PanelError(ErrorKind.PERMANENT, f"upstream_bot: button '{self.cfg['refund_confirm_button']}' not found")
+            d["refund_started"] = time.time()
+            await self.store.set(username, d)
+            await c.click(conf, ok)
+            done = await self._wait(
+                lambda x: parsing.parse_refund_success(x.text), after_id=mark, watch={conf.id}, timeout=float(self.cfg["delivery_timeout"])
+            )
+            if not done:
+                raise PanelError(ErrorKind.UNKNOWN, "upstream_bot: refund confirmed but no success message yet; will be re-checked")
+            amount_msg = await self._wait(lambda x: parsing.parse_refund_amount(x.text) is not None, after_id=mark, timeout=5)
+            d.update(
+                upstream_refunded=True,
+                status="revoked",
+                refund_amount=parsing.parse_refund_amount(amount_msg.text) if amount_msg else None,
+            )
+            await self.store.set(username, d)
+
+    async def _latest_text(self, after_id: int) -> str:
+        msgs = [m for m in await self._client().recent(6) if m.id > after_id and m.text]
+        return (msgs[0].text if msgs else "no answer").strip().replace("\n", " ")[:200]
 
     async def close(self) -> None:
         if self._chat is not None:

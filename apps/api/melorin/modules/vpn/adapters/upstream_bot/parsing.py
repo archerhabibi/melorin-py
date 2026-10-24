@@ -7,8 +7,10 @@ Verified against the real flow of a parent bot (purchase screens):
   balance     : "موجودی حساب شما: 505,000 تومان"
 """
 
+import datetime as dt
 import re
 from dataclasses import dataclass
+from zoneinfo import ZoneInfo
 
 _FA = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩٬٫", "01234567890123456789,.")
 _NAME = re.compile(r"نام\s*اکانت\s*[:：]\s*([A-Za-z0-9_.\-]+)")
@@ -56,14 +58,16 @@ def parse_plan_label(label: str) -> PlanButton | None:
 
 
 def parse_purchase_result(text: str) -> PurchaseResult | None:
-    """Return the account only when the message really is the delivery message (has a name AND a link)."""
+    """Return the account only when the message really is the delivery message (name AND link, no status line)."""
     t = digits(text)
     name = _NAME.search(t)
-    if not name:
+    if not name or "وضعیت" in t:  # the account detail screen also has a name, but a status line and no link
         return None
     after = t[name.end() :]
     link = _LINK.search(after[after.find("لینک") :] if "لینک" in after else after)
-    return PurchaseResult(name.group(1), link.group(1).rstrip(".,)") if link else None, text)
+    if not link:
+        return None
+    return PurchaseResult(name.group(1), link.group(1).rstrip(".,)"), text)
 
 
 def is_confirm_prompt(text: str) -> bool:
@@ -77,3 +81,111 @@ def confirm_amount(text: str) -> int | None:
 
 def is_insufficient_balance(text: str) -> bool:
     return any(k in text for k in ("موجودی کافی نیست", "موجودی شما کافی", "موجودی ناکافی", "شارژ کنید"))
+
+
+# ----------------------------------------------------------------------------- account detail screen
+_TEHRAN = ZoneInfo("Asia/Tehran")
+_UNITS = {"ترابایت": 1024**4, "تراببایت": 1024**4, "گیگابایت": 1024**3, "گیگ": 1024**3, "مگابایت": 1024**2, "مگ": 1024**2, "کیلوبایت": 1024}
+_VOL = re.compile(r"([\d.,]+)\s*(ترابایت|تراببایت|گیگابایت|گیگ|مگابایت|مگ|کیلوبایت)?")
+
+
+def jalali_to_gregorian(jy: int, jm: int, jd: int) -> tuple[int, int, int]:
+    jy += 1595
+    days = -355668 + (365 * jy) + (jy // 33) * 8 + ((jy % 33) + 3) // 4 + jd + ((jm - 1) * 31 if jm < 7 else ((jm - 7) * 30) + 186)
+    gy = 400 * (days // 146097)
+    days %= 146097
+    if days > 36524:
+        days -= 1
+        gy += 100 * (days // 36524)
+        days %= 36524
+        if days >= 365:
+            days += 1
+    gy += 4 * (days // 1461)
+    days %= 1461
+    if days > 365:
+        gy += (days - 1) // 365
+        days = (days - 1) % 365
+    gd = days + 1
+    leap = (gy % 4 == 0 and gy % 100 != 0) or gy % 400 == 0
+    months = [0, 31, 29 if leap else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    gm = 0
+    while gm < 13 and gd > months[gm]:
+        gd -= months[gm]
+        gm += 1
+    return gy, gm, gd
+
+
+def parse_jalali(text: str) -> dt.datetime | None:
+    """'1405/09/02 03:51' (Tehran wall clock) -> aware UTC datetime."""
+    m = re.search(r"(\d{4})/(\d{1,2})/(\d{1,2})(?:\s+(\d{1,2}):(\d{2}))?", digits(text))
+    if not m:
+        return None
+    jy, jm, jd = int(m.group(1)), int(m.group(2)), int(m.group(3))
+    hh, mm = int(m.group(4) or 0), int(m.group(5) or 0)
+    gy, gm, gd = jalali_to_gregorian(jy, jm, jd)
+    return dt.datetime(gy, gm, gd, hh, mm, tzinfo=_TEHRAN).astimezone(dt.UTC)
+
+
+def _volume_bytes(raw: str) -> int | None:
+    m = _VOL.search(digits(raw))
+    if not m or not m.group(1).strip(".,"):
+        return None
+    num = float(m.group(1).replace(",", ""))
+    return int(num * _UNITS.get(m.group(2) or "گیگ", 1024**3))
+
+
+@dataclass(frozen=True)
+class AccountDetail:
+    name: str
+    status: str  # normalized: active | disabled | expired | limited | unknown
+    used_bytes: int
+    remaining_bytes: int | None
+    expire_at: dt.datetime | None
+    description: str
+
+
+def _status(raw: str) -> str:
+    r = raw.strip()
+    if any(w in r for w in ("غیرفعال", "غیر فعال", "مسدود", "disabled")):
+        return "disabled"
+    if "منقضی" in r or ("تمام شد" in r and "زمان" in r):
+        return "expired"
+    if "اتمام حجم" in r or "حجم تمام" in r or "محدود شد" in r:
+        return "limited"
+    if "فعال" in r:
+        return "active"
+    return "unknown"
+
+
+def _field(t: str, label: str) -> str | None:
+    m = re.search(rf"{label}\s*[:：]\s*([^\n]+)", t)
+    return m.group(1).strip() if m else None
+
+
+def parse_account_detail(text: str) -> AccountDetail | None:
+    """The 'my purchase' screen: name, type, description, status, used, remaining, end date, time left. None if not that screen."""
+    t = digits(text)
+    name = _NAME.search(t)
+    st = _field(t, "وضعیت")
+    if not name or st is None:
+        return None
+    used = _volume_bytes(_field(t, "حجم مصرف\\s*شده") or "") or 0
+    rem_raw = _field(t, "حجم باقی\\s*مانده")
+    remaining = _volume_bytes(rem_raw) if rem_raw else None
+    return AccountDetail(
+        name.group(1), _status(st), used, remaining, parse_jalali(_field(t, "تاریخ اتمام") or ""), _field(t, "توضیحات") or ""
+    )
+
+
+# ----------------------------------------------------------------------------- refund (مرجوعی)
+def is_refund_confirm_prompt(text: str) -> bool:
+    return ("قابل مرجوع میباشد" in text or "قابل مرجوع می‌باشد" in text) and "تایید" in text
+
+
+def parse_refund_success(text: str) -> bool:
+    return "با موفقیت مرجوع" in text
+
+
+def parse_refund_amount(text: str) -> int | None:
+    m = re.search(r"مبلغ\s*([\d,]+)\s*تومان[^\n]*مرجوعی", digits(text))
+    return int(m.group(1).replace(",", "")) if m else None

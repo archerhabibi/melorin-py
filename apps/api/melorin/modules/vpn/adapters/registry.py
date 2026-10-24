@@ -61,5 +61,5 @@ def seed_adapter(adapter, account):
     """Name-mapping adapters (upstream_bot) re-learn the upstream account name from VpnAccount.panel_ref. No-op for others."""
     remember = getattr(adapter, "remember", None)
     if callable(remember):
-        remember(account.username, getattr(account, "panel_ref", None))
+        remember(account.username, getattr(account, "panel_ref", None), getattr(account, "subscription_url", None))
     return adapter
