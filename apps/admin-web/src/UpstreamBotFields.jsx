@@ -463,6 +463,7 @@ export function UpstreamSettings({ ub, setUb, err, show }) {
       <Fold
         title="متن دکمه‌های ربات والد"
         Icon={MousePointerClick}
+        defaultOpen={overrides > 0}
         badge={overrides ? <span className="badge b-wn mr-1">{num(overrides)} تغییر</span> : null}
         hint="خالی = پیش‌فرض. اگر ربات والد منوها را تغییر داد، همین‌جا اصلاح کنید؛ دکمه‌ها با «شامل این متن بودن» پیدا می‌شوند، پس ایموجی لازم نیست."
       >
