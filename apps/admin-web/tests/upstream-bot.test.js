@@ -53,7 +53,9 @@ describe('config round trip', () => {
   });
 
   it('accepts Persian digits and builds plans', () => {
-    const cfg = ubBuildConfig(ok({ maxPrice: '۱۵۰۰۰۰', plans: [{ traffic_gb: '۱۰', months: '۱', label: '10 گیگ یک ماهه' }] }));
+    const cfg = ubBuildConfig(
+      ok({ maxPrice: '۱۵۰۰۰۰', plans: [{ traffic_gb: '۱۰', months: '۱', label: '10 گیگ یک ماهه' }] }),
+    );
     expect(cfg.max_price).toBe(150000);
     expect(cfg.plans).toEqual([{ traffic_gb: 10, months: 1, label: '10 گیگ یک ماهه' }]);
   });
@@ -81,7 +83,9 @@ describe('config round trip', () => {
   });
 
   it('treats a renew block without `enabled` as enabled (adapter default)', () => {
-    expect(ubFromPanel({ base_url: 'https://t.me/parent_bot', config: { max_price: 1, renew: {} } }).renewOn).toBe(true);
+    expect(ubFromPanel({ base_url: 'https://t.me/parent_bot', config: { max_price: 1, renew: {} } }).renewOn).toBe(
+      true,
+    );
   });
 
   it('normalises credentials', () => {
@@ -107,7 +111,11 @@ describe('ubValidate', () => {
   });
   it('validates numbers, start command and plans', () => {
     const e = ubValidate(
-      ok({ n: { status_ttl: '0', delivery_timeout: '5000' }, t: { start_command: 'start' }, plans: [{ traffic_gb: '0', months: '1', label: '' }] }),
+      ok({
+        n: { status_ttl: '0', delivery_timeout: '5000' },
+        t: { start_command: 'start' },
+        plans: [{ traffic_gb: '0', months: '1', label: '' }],
+      }),
       false,
     );
     expect(Object.keys(e).sort()).toEqual(['delivery_timeout', 'plans', 'start_command', 'status_ttl']);
@@ -127,7 +135,12 @@ describe('flows and summary', () => {
     expect(f[3].steps.map((s) => s.l)).toContain('تمدید سریع');
   });
   it('summarises a stored panel for the card header', () => {
-    expect(ubSummary({ base_url: 'https://t.me/parent_bot', config: { max_price: 100000, renew: { enabled: false }, plans: [{}] } })).toEqual({
+    expect(
+      ubSummary({
+        base_url: 'https://t.me/parent_bot',
+        config: { max_price: 100000, renew: { enabled: false }, plans: [{}] },
+      }),
+    ).toEqual({
       bot: 'parent_bot',
       maxPrice: 100000,
       renewOn: false,

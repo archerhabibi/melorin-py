@@ -22,7 +22,14 @@ export const UB_RENEW = {
   success_words: ['با موفقیت تمدید'],
   settle_window: 600,
 };
-export const UB_RENEW_KEYS = ['enabled', 'renew_button', 'confirm_button', 'cancel_button', 'success_words', 'settle_window'];
+export const UB_RENEW_KEYS = [
+  'enabled',
+  'renew_button',
+  'confirm_button',
+  'cancel_button',
+  'success_words',
+  'settle_window',
+];
 // Config keys the form owns. Everything else stays in the advanced JSON box so a save never drops it.
 export const UB_KEYS = [...Object.keys(UB_TEXT), ...Object.keys(UB_NUM), 'max_price', 'plans', 'renew', 'verify_tls'];
 
@@ -61,6 +68,8 @@ export function parseBot(raw) {
   return m ? m[1] : '';
 }
 export const botUrl = (bot) => `https://t.me/${bot}`;
+/** The form keeps what the admin typed; this is the normalised username (or ''). */
+export const ubBot = (ub) => parseBot(ub.bot);
 export const botLooksLikeBot = (bot) => /bot$/i.test(bot);
 
 const isObj = (x) => x && typeof x === 'object' && !Array.isArray(x);
@@ -84,8 +93,13 @@ export function ubFromPanel(p) {
   ub.renewOn = r.enabled !== false;
   for (const k of ['renew_button', 'confirm_button', 'cancel_button'])
     if (typeof r[k] === 'string' && r[k] && r[k] !== UB_RENEW[k]) ub.r[k] = r[k];
-  if (r.settle_window != null && Number(r.settle_window) !== UB_RENEW.settle_window) ub.r.settle_window = String(r.settle_window);
-  if (Array.isArray(r.success_words) && r.success_words.length && r.success_words.join('\u0000') !== UB_RENEW.success_words.join('\u0000'))
+  if (r.settle_window != null && Number(r.settle_window) !== UB_RENEW.settle_window)
+    ub.r.settle_window = String(r.settle_window);
+  if (
+    Array.isArray(r.success_words) &&
+    r.success_words.length &&
+    r.success_words.join('\u0000') !== UB_RENEW.success_words.join('\u0000')
+  )
     ub.rWords = r.success_words.map(String);
   ub.rRest = Object.fromEntries(Object.entries(r).filter(([k]) => !UB_RENEW_KEYS.includes(k)));
   return ub;
@@ -130,8 +144,10 @@ export const ubCredentials = (ub) => ({
 /** Field errors by key (Persian messages). */
 export function ubValidate(ub, withCreds) {
   const e = {};
-  if (!ub.bot) e.bot = 'نام کاربری ربات والد را وارد کنید (مثال: @parent_bot)';
-  else if (!/^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(ub.bot)) e.bot = 'نام کاربری تلگرام باید ۵ تا ۳۲ حرف انگلیسی، عدد یا _ باشد';
+  const bot = ubBot(ub);
+  if (!String(ub.bot ?? '').trim()) e.bot = 'نام کاربری ربات والد را وارد کنید (مثال: @parent_bot)';
+  else if (!/^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(bot))
+    e.bot = 'نام کاربری تلگرام باید ۵ تا ۳۲ حرف انگلیسی، عدد یا _ باشد (یا لینک t.me/...)';
   if (withCreds) {
     if (!/^\d{3,12}$/.test(latin(ub.apiId).trim())) e.apiId = 'api_id یک عدد است (از my.telegram.org)';
     if (!/^[0-9a-fA-F]{32}$/.test(latin(ub.apiHash).trim())) e.apiHash = 'api_hash باید ۳۲ کاراکتر هگزادسیمال باشد';
@@ -142,14 +158,16 @@ export function ubValidate(ub, withCreds) {
   }
   const price = parseInt(latin(ub.maxPrice), 10);
   if (!(price > 0)) e.maxPrice = 'سقف قیمت اجباری است؛ خرید/تمدید گران‌تر از آن لغو می‌شود';
-  if (ub.t.start_command && !ub.t.start_command.trim().startsWith('/')) e.start_command = 'دستور شروع باید با / شروع شود';
+  if (ub.t.start_command && !ub.t.start_command.trim().startsWith('/'))
+    e.start_command = 'دستور شروع باید با / شروع شود';
   const range = { status_ttl: [1, 3600], step_timeout: [1, 300], delivery_timeout: [1, 900] };
   for (const [k, [lo, hi]] of Object.entries(range)) {
     const v = latin(ub.n[k] ?? '').trim();
     if (v !== '' && !(Number(v) >= lo && Number(v) <= hi)) e[k] = `عددی بین ${lo} و ${hi} ثانیه`;
   }
   const sw = latin(ub.r.settle_window ?? '').trim();
-  if (ub.renewOn && sw !== '' && !(Number(sw) >= 1 && Number(sw) <= 86400)) e.settle_window = 'عددی بین ۱ و ۸۶۴۰۰ ثانیه';
+  if (ub.renewOn && sw !== '' && !(Number(sw) >= 1 && Number(sw) <= 86400))
+    e.settle_window = 'عددی بین ۱ و ۸۶۴۰۰ ثانیه';
   const bad = ub.plans.findIndex((p) => {
     const gb = Number(latin(p.traffic_gb)),
       mo = Number(latin(p.months));

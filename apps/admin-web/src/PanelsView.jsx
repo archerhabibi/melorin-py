@@ -29,6 +29,8 @@ import {
   Ring,
   SearchBox,
   Section,
+  Secret,
+  CopyButton,
   Segmented,
   SegMeter,
   SortSelect,
@@ -47,12 +49,10 @@ import {
 import {
   Activity,
   AlertTriangle,
+  Bot,
   Check,
   ChevronDown,
-  Copy,
   ExternalLink,
-  Eye,
-  EyeOff,
   FlaskConical,
   FolderInput,
   Layers,
@@ -68,6 +68,24 @@ import {
   X,
 } from 'lucide-react';
 import { focusOnMount } from './useDialog.js';
+import {
+  UpstreamBotLink,
+  UpstreamCredentials,
+  UpstreamFlowSection,
+  UpstreamSettings,
+  UpstreamSpecs,
+} from './UpstreamBotFields.jsx';
+import {
+  UB_KEYS,
+  botUrl,
+  emptyUb,
+  ubBot,
+  ubBuildConfig,
+  ubCredentials,
+  ubFromPanel,
+  ubSummary,
+  ubValidate,
+} from './upstreamBot.js';
 
 // Panels and their servers are ONE screen: a server is only a capacity slot of a single panel,
 // so it is created, edited and enabled right under the panel it belongs to. Group membership of a
@@ -90,6 +108,12 @@ const isStale = (p) => !p.last_health_at || Date.now() - new Date(p.last_health_
 const KINDS = {
   sanaei: { title: 'سنایی (3x-ui)', desc: 'پنل 3x-ui / Sanaei با Inbound و ساب‌اسکریپشن', Icon: ServerCog, tone: 'in' },
   pasarguard: { title: 'پاسارگارد', desc: 'PasarGuard با گروه‌ها یا قالب کاربر', Icon: ShieldCheck, tone: 'ok' },
+  upstream_bot: {
+    title: 'ربات واسط (Upstream Bot)',
+    desc: 'خرید، تمدید و مرجوعی از یک ربات تلگرامی والد که API ندارد',
+    Icon: Bot,
+    tone: 'ac',
+  },
   // Mock is only available in dev builds; backend rejects mock panels in production.
   ...(import.meta.env.DEV
     ? {
@@ -105,53 +129,6 @@ const KINDS = {
 const kindOf = (k) => KINDS[k] || { title: k, desc: '', Icon: Server, tone: 'mu' };
 
 // ---------- small UI parts ----------
-function CopyButton({ text }) {
-  const [ok, setOk] = useState(false);
-  return (
-    <button
-      type="button"
-      className="btn btn-g !px-2"
-      aria-label="کپی آدرس"
-      title="کپی آدرس"
-      onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(text);
-          setOk(true);
-          setTimeout(() => setOk(false), 1400);
-        } catch {
-          /* clipboard unavailable */
-        }
-      }}
-    >
-      {ok ? <Check size={14} /> : <Copy size={14} />}
-    </button>
-  );
-}
-function Secret({ value, onChange, placeholder }) {
-  const [show, setShow] = useState(false);
-  return (
-    <div className="relative">
-      <input
-        dir="ltr"
-        autoComplete="off"
-        spellCheck={false}
-        type={show ? 'text' : 'password'}
-        className="inp pl-10"
-        value={value}
-        placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-      />
-      <button
-        type="button"
-        aria-label={show ? 'پنهان‌کردن' : 'نمایش'}
-        className="absolute left-2 top-1/2 -translate-y-1/2 text-[var(--mu)]"
-        onClick={() => setShow(!show)}
-      >
-        {show ? <EyeOff size={16} /> : <Eye size={16} />}
-      </button>
-    </div>
-  );
-}
 function Chips({ values, onChange, placeholder }) {
   const [t, setT] = useState('');
   const add = () => {
@@ -224,11 +201,13 @@ const EMPTY = {
   scope: 'groups',
   verifyTls: true,
   extra: '',
+  ub: emptyUb(),
 };
 const EMPTY_SRV = { on: true, name: '', location: '', capacity: '500' };
 const KNOWN = {
   sanaei: ['inbound_ids', 'inbound_id', 'sub_base_url', 'api_style', 'verify_tls'],
   pasarguard: ['group_ids', 'user_template_id', 'verify_tls'],
+  upstream_bot: UB_KEYS,
   mock: [],
 };
 const ints = (a) => (Array.isArray(a) ? a : []).map(Number).filter((n) => Number.isInteger(n) && n > 0);
@@ -248,6 +227,7 @@ function fromPanel(p) {
       f.tpl = String(c.user_template_id);
     } else f.groups = ints(c.group_ids);
   }
+  if (p.kind === 'upstream_bot') f.ub = ubFromPanel(p);
   const rest = Object.fromEntries(Object.entries(c).filter(([k]) => !(KNOWN[p.kind] || []).includes(k)));
   f.extra = Object.keys(rest).length ? JSON.stringify(rest, null, 2) : '';
   return f;
@@ -260,6 +240,14 @@ const parseExtra = (t) => {
 };
 
 function buildPayload(f, withCreds) {
+  if (f.kind === 'upstream_bot')
+    return {
+      name: f.name.trim(),
+      kind: f.kind,
+      base_url: botUrl(ubBot(f.ub)),
+      credentials: withCreds ? ubCredentials(f.ub) : {},
+      config: { ...ubBuildConfig(f.ub), ...parseExtra(f.extra) },
+    };
   const credentials = {};
   let config = {};
   if (withCreds && f.kind !== 'mock') {
@@ -290,13 +278,21 @@ function validate(f, withCreds, srv, edit) {
     }
   }
   if (!f.name.trim()) e.name = 'نام پنل را وارد کنید';
-  try {
-    const u = new URL(f.url.trim());
-    if (!/^https?:$/.test(u.protocol)) throw 0;
-  } catch {
-    e.url = 'آدرس معتبر نیست (مثال: https://panel.example.com:2053/path)';
+  if (f.kind === 'upstream_bot') Object.assign(e, ubValidate(f.ub, withCreds));
+  else {
+    try {
+      const u = new URL(f.url.trim());
+      if (!/^https?:$/.test(u.protocol)) throw 0;
+    } catch {
+      e.url = 'آدرس معتبر نیست (مثال: https://panel.example.com:2053/path)';
+    }
   }
-  if (withCreds && f.kind !== 'mock' && (f.auth === 'token' ? !f.token.trim() : !(f.user.trim() && f.pass)))
+  if (
+    withCreds &&
+    f.kind !== 'mock' &&
+    f.kind !== 'upstream_bot' &&
+    (f.auth === 'token' ? !f.token.trim() : !(f.user.trim() && f.pass))
+  )
     e.auth = f.auth === 'token' ? 'توکن را وارد کنید' : 'نام کاربری و رمز عبور هر دو لازم است';
   if (f.kind === 'sanaei') {
     if (!/^https?:\/\//.test(f.subUrl.trim()))
@@ -345,12 +341,17 @@ function PanelDrawer({ panel, groups, idx, onClose, onSubmit, onToggle, onDelete
     setSrvErr('');
     setSrv((x) => ({ ...x, [k]: v }));
   };
+  const setUb = (fn) => {
+    setSrvErr('');
+    setF((x) => ({ ...x, ub: fn(x.ub) }));
+  };
+  const isUb = f.kind === 'upstream_bot';
   const err = useMemo(() => validate(f, withCreds, srv, edit), [f, withCreds, srv, edit]);
   const show = (k) => tried && err[k];
   const dirty =
     JSON.stringify({ f, srv, gids: [...gids].sort() }) !== base.current ||
     (edit && changeCred && !!panel.has_credentials);
-  const insecure = /^http:\/\//i.test(f.url.trim());
+  const insecure = !isUb && /^http:\/\//i.test(f.url.trim());
   const toggleG = (id) => setGids((x) => (x.includes(id) ? x.filter((y) => y !== id) : [...x, id]));
   const submit = async (check) => {
     setTried(true);
@@ -480,21 +481,29 @@ function PanelDrawer({ panel, groups, idx, onClose, onSubmit, onToggle, onDelete
             className="inp"
             value={f.name}
             maxLength={100}
-            placeholder="مثلاً: آلمان - هتزنر ۱"
+            placeholder={isUb ? 'مثلاً: ربات والد - سرویس اقتصادی' : 'مثلاً: آلمان - هتزنر ۱'}
             onChange={(e) => set('name')(e.target.value)}
           />
         </Field>
-        <Field label="آدرس پنل (Base URL)" error={show('url') || undefined} hint="آدرس کامل همراه پورت و web base path">
-          <input
-            dir="ltr"
-            inputMode="url"
-            spellCheck={false}
-            className="inp"
-            value={f.url}
-            placeholder="https://panel.example.com:2053/secret-path"
-            onChange={(e) => set('url')(e.target.value)}
-          />
-        </Field>
+        {isUb ? (
+          <UpstreamBotLink ub={f.ub} setUb={setUb} error={show('bot') || undefined} />
+        ) : (
+          <Field
+            label="آدرس پنل (Base URL)"
+            error={show('url') || undefined}
+            hint="آدرس کامل همراه پورت و web base path"
+          >
+            <input
+              dir="ltr"
+              inputMode="url"
+              spellCheck={false}
+              className="inp"
+              value={f.url}
+              placeholder="https://panel.example.com:2053/secret-path"
+              onChange={(e) => set('url')(e.target.value)}
+            />
+          </Field>
+        )}
         {insecure && (
           <p className="flex items-start gap-2 rounded-lg bg-[var(--wnb)] p-3 text-xs leading-6 text-[var(--wn)]">
             <AlertTriangle size={15} className="mt-1 shrink-0" />
@@ -517,40 +526,46 @@ function PanelDrawer({ panel, groups, idx, onClose, onSubmit, onToggle, onDelete
             </div>
           ) : (
             <>
-              <Segmented
-                label="روش ورود"
-                value={f.auth}
-                onChange={set('auth')}
-                options={[
-                  ['token', f.kind === 'sanaei' ? 'API Token' : 'API Key'],
-                  ['login', 'نام کاربری و رمز'],
-                ]}
-              />
-              {f.auth === 'token' ? (
-                <Field label={f.kind === 'sanaei' ? 'API Token' : 'API Key'} error={show('auth') || undefined}>
-                  <Secret value={f.token} onChange={set('token')} placeholder="••••••••" />
-                </Field>
+              {isUb ? (
+                <UpstreamCredentials ub={f.ub} setUb={setUb} show={show} edit={edit} />
               ) : (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="نام کاربری">
-                    <input
-                      dir="ltr"
-                      autoComplete="off"
-                      className="inp"
-                      value={f.user}
-                      onChange={(e) => set('user')(e.target.value)}
-                    />
-                  </Field>
-                  <Field label="رمز عبور">
-                    <Secret value={f.pass} onChange={set('pass')} />
-                  </Field>
-                  {show('auth') && <p className="text-[11px] text-[var(--bd)] sm:col-span-2">{err.auth}</p>}
-                </div>
-              )}
-              {f.kind === 'sanaei' && f.auth === 'login' && (
-                <p className="text-[11px] leading-5 text-[var(--mu)]">
-                  اگر 2FA روی پنل فعال است، ورود با نام کاربری کار نمی‌کند؛ از API Token استفاده کنید.
-                </p>
+                <>
+                  <Segmented
+                    label="روش ورود"
+                    value={f.auth}
+                    onChange={set('auth')}
+                    options={[
+                      ['token', f.kind === 'sanaei' ? 'API Token' : 'API Key'],
+                      ['login', 'نام کاربری و رمز'],
+                    ]}
+                  />
+                  {f.auth === 'token' ? (
+                    <Field label={f.kind === 'sanaei' ? 'API Token' : 'API Key'} error={show('auth') || undefined}>
+                      <Secret value={f.token} onChange={set('token')} placeholder="••••••••" />
+                    </Field>
+                  ) : (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field label="نام کاربری">
+                        <input
+                          dir="ltr"
+                          autoComplete="off"
+                          className="inp"
+                          value={f.user}
+                          onChange={(e) => set('user')(e.target.value)}
+                        />
+                      </Field>
+                      <Field label="رمز عبور">
+                        <Secret value={f.pass} onChange={set('pass')} />
+                      </Field>
+                      {show('auth') && <p className="text-[11px] text-[var(--bd)] sm:col-span-2">{err.auth}</p>}
+                    </div>
+                  )}
+                  {f.kind === 'sanaei' && f.auth === 'login' && (
+                    <p className="text-[11px] leading-5 text-[var(--mu)]">
+                      اگر 2FA روی پنل فعال است، ورود با نام کاربری کار نمی‌کند؛ از API Token استفاده کنید.
+                    </p>
+                  )}
+                </>
               )}
               {edit && panel.has_credentials && (
                 <button
@@ -558,7 +573,13 @@ function PanelDrawer({ panel, groups, idx, onClose, onSubmit, onToggle, onDelete
                   className="text-xs font-bold text-[var(--mu)] underline"
                   onClick={() => {
                     setChangeCred(false);
-                    setF((x) => ({ ...x, token: '', user: '', pass: '' }));
+                    setF((x) => ({
+                      ...x,
+                      token: '',
+                      user: '',
+                      pass: '',
+                      ub: { ...x.ub, apiId: '', apiHash: '', session: '' },
+                    }));
                   }}
                 >
                   انصراف از تغییر اعتبارنامه
@@ -608,6 +629,7 @@ function PanelDrawer({ panel, groups, idx, onClose, onSubmit, onToggle, onDelete
               </Field>
             </>
           )}
+          {isUb && <UpstreamSettings ub={f.ub} setUb={setUb} err={err} show={show} />}
           {f.kind === 'pasarguard' && (
             <>
               <Segmented
@@ -636,14 +658,17 @@ function PanelDrawer({ panel, groups, idx, onClose, onSubmit, onToggle, onDelete
               )}
             </>
           )}
-          <Toggle
-            checked={f.verifyTls}
-            onChange={set('verifyTls')}
-            label="بررسی گواهی TLS"
-            hint="در محیط عملیاتی خاموش‌کردن آن مجاز نیست؛ فقط برای تست با گواهی self-signed."
-          />
+          {!isUb && (
+            <Toggle
+              checked={f.verifyTls}
+              onChange={set('verifyTls')}
+              label="بررسی گواهی TLS"
+              hint="در محیط عملیاتی خاموش‌کردن آن مجاز نیست؛ فقط برای تست با گواهی self-signed."
+            />
+          )}
         </Section>
       )}
+      {isUb && <UpstreamFlowSection ub={f.ub} />}
 
       {!edit && (
         <Section
@@ -750,6 +775,7 @@ function PanelDrawer({ panel, groups, idx, onClose, onSubmit, onToggle, onDelete
           <Activity size={14} className="mt-0.5 shrink-0" />
           با تغییر آدرس، تنظیمات یا اعتبارنامه، وضعیت سلامت به «بررسی‌نشده» برمی‌گردد؛ برای اطمینان از اتصال از «ذخیره و
           بررسی سلامت» استفاده کنید.
+          {isUb && ' بررسی سلامت این پنل فقط ورود session و دسترسی به ربات را می‌سنجد و هیچ خریدی انجام نمی‌دهد.'}
         </p>
       )}
     </Drawer>
@@ -923,6 +949,7 @@ function PanelSection({
             <DeleteButton compact label={`حذف پنل ${p.name}`} busy={busy} onClick={() => onDelete(p)} />
           </div>
         </div>
+        {p.kind === 'upstream_bot' && <UpstreamSpecs summary={ubSummary(p)} />}
         <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
           <span className="text-[var(--mu)]">بسته‌ها:</span>
           {groups.length ? (
