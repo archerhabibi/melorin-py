@@ -1,7 +1,7 @@
 import datetime as dt
 import uuid
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class TopupRequest(BaseModel):
@@ -39,3 +39,22 @@ def payment_out(p) -> PaymentOut:
         instructions=(p.meta or {}).get("instructions"),
         created_at=p.created_at,
     )
+
+
+class BankSmsSourceIn(BaseModel):
+    """Everything is optional: only the sent fields change. The token is created with the source and shown once."""
+
+    model_config = ConfigDict(extra="forbid")
+    bank: str | None = None
+    is_enabled: bool | None = None
+    auto_verify: bool | None = None
+    senders: list[str] | None = None
+    settings: dict | None = None
+
+
+class BankSmsLinkIn(BaseModel):
+    payment_id: uuid.UUID
+
+
+class BankSmsIgnoreIn(BaseModel):
+    ignored: bool = True

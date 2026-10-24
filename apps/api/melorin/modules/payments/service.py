@@ -148,10 +148,13 @@ async def create_intent(
     return p, res.instructions
 
 
-async def attach_receipt(session: AsyncSession, payment: Payment, file_id: uuid.UUID) -> None:
+async def attach_receipt(session: AsyncSession, payment: Payment, file_id: uuid.UUID, claim: dict | None = None) -> None:
+    """``claim`` = what the customer read off the receipt (time, reference, source card tail); used by bank-SMS matching."""
     if payment.provider != "manual_card" or payment.status not in (P.PENDING, P.AWAITING_REVIEW):
         raise AppError("INVALID_PAYMENT_STATE", "برای این پرداخت امکان ارسال رسید نیست.", 409)
     payment.receipt_file_id = file_id
+    if claim:
+        payment.meta = {**(payment.meta or {}), "receipt_claim": claim}
     payment.status = P.AWAITING_REVIEW
     await events.emit(
         session,

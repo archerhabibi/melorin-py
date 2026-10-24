@@ -35,7 +35,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 
 <!-- BEGIN GENERATED ROUTES (scripts/gen_docs.py) -->
 
-### `admin` (79)
+### `admin` (85)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -110,6 +110,12 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/api/v1/admin/settings` | Settings |
 | PUT | `/api/v1/admin/settings/{key}` | Update Setting |
 | GET | `/api/v1/admin/stores` | Stores |
+| GET | `/api/v1/admin/stores/{store_id}/bank-sms` | Bank Sms Overview |
+| POST | `/api/v1/admin/stores/{store_id}/bank-sms/reconcile` | Bank Sms Reconcile |
+| PUT | `/api/v1/admin/stores/{store_id}/bank-sms/source` | Bank Sms Save Source |
+| POST | `/api/v1/admin/stores/{store_id}/bank-sms/token` | Bank Sms Rotate Token |
+| POST | `/api/v1/admin/stores/{store_id}/bank-sms/{sms_id}/ignore` | Bank Sms Ignore |
+| POST | `/api/v1/admin/stores/{store_id}/bank-sms/{sms_id}/link` | Bank Sms Link |
 | GET | `/api/v1/admin/stores/{store_id}/reseller-prices` | Reseller Store Prices |
 | GET | `/api/v1/admin/tickets` | Tickets |
 | GET | `/api/v1/admin/tickets/{ticket_id}` | Ticket Detail |
@@ -232,10 +238,11 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/api/v1/stores/{store_id}/orders/{order_id}` | Get Order |
 | POST | `/api/v1/stores/{store_id}/test-account` | Test Account |
 
-### `payments` (6)
+### `payments` (7)
 
 | Method | Path | Operation |
 |---|---|---|
+| POST | `/api/v1/payments/bank-sms/{store_id}` | Bank Sms Webhook |
 | GET | `/api/v1/payments/callbacks/{provider}` | Payment Callback Get |
 | POST | `/api/v1/payments/callbacks/{provider}` | Payment Callback Post |
 | GET | `/api/v1/stores/{store_id}/payments` | My Payments |
@@ -258,7 +265,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/api/v1/reports/payments` | Payment Totals |
 | GET | `/api/v1/reports/stores/{store_id}/sales` | Store Sales |
 
-### `reseller` (45)
+### `reseller` (51)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -276,6 +283,12 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/api/v1/stores/{store_id}/reseller/api-credentials` | List Credentials |
 | POST | `/api/v1/stores/{store_id}/reseller/api-credentials` | Create Credential |
 | POST | `/api/v1/stores/{store_id}/reseller/api-credentials/{cred_id}/{action}` | Credential Action |
+| GET | `/api/v1/stores/{store_id}/reseller/bank-sms` | Reseller Bank Sms Overview |
+| POST | `/api/v1/stores/{store_id}/reseller/bank-sms/reconcile` | Reseller Bank Sms Reconcile |
+| PUT | `/api/v1/stores/{store_id}/reseller/bank-sms/source` | Reseller Bank Sms Save Source |
+| POST | `/api/v1/stores/{store_id}/reseller/bank-sms/token` | Reseller Bank Sms Rotate Token |
+| POST | `/api/v1/stores/{store_id}/reseller/bank-sms/{sms_id}/ignore` | Reseller Bank Sms Ignore |
+| POST | `/api/v1/stores/{store_id}/reseller/bank-sms/{sms_id}/link` | Reseller Bank Sms Link |
 | PATCH | `/api/v1/stores/{store_id}/reseller/branding` | Branding |
 | GET | `/api/v1/stores/{store_id}/reseller/broadcasts` | Broadcasts |
 | POST | `/api/v1/stores/{store_id}/reseller/broadcasts` | Send Broadcast |

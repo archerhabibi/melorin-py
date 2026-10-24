@@ -107,3 +107,15 @@ def test_withdrawals_and_large_amounts_are_never_auto_matched():
     assert b.decide(out, [_cand("p1", claimed=_t(19, 20))]).reason == "not_a_deposit"
     sms = b.parse_sms(SAMPLE)
     assert b.decide(sms, [_cand("p1", claimed=_t(19, 20))], b.MatchSettings(max_auto_amount_rial=1_000_000)).reason == "above_auto_limit"
+
+
+def test_gregorian_to_jalali_round_trips_every_day_of_a_decade():
+    day = dt.date(2020, 3, 1)
+    while day < dt.date(2031, 3, 1):
+        assert b.jalali_to_gregorian(*b.gregorian_to_jalali(day)) == day
+        day += dt.timedelta(days=1)
+
+
+def test_utc_to_jalali_text_matches_the_sample_receipt():
+    assert b.utc_to_jalali_text(_t(19, 20)) == "1405/08/02 22:50"
+    assert b.parse_datetime_text(b.utc_to_jalali_text(_t(19, 20))) == _t(19, 20)

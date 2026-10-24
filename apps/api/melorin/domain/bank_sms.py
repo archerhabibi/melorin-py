@@ -77,6 +77,30 @@ def jalali_to_gregorian(jy: int, jm: int, jd: int) -> dt.date:
     return dt.date(gy, gm + 1, gd)
 
 
+def gregorian_to_jalali(day: dt.date) -> tuple[int, int, int]:
+    """Gregorian ``date`` -> ``(jy, jm, jd)``; the inverse of :func:`jalali_to_gregorian`."""
+    jy = day.year - 621
+    # Nowruz of jy (first day of Farvardin) tells which side of the new year the date falls on.
+    start = jalali_to_gregorian(jy, 1, 1)
+    if day < start:
+        jy -= 1
+        start = jalali_to_gregorian(jy, 1, 1)
+    offset = (day - start).days
+    for month, base in enumerate(_JALALI_MONTH_DAYS, start=1):
+        length = base + (1 if month == 12 and is_jalali_leap(jy) else 0)
+        if offset < length:
+            return jy, month, offset + 1
+        offset -= length
+    raise ValueError("date outside the supported calendar range")  # pragma: no cover
+
+
+def utc_to_jalali_text(moment: dt.datetime) -> str:
+    """Aware/naive-UTC datetime -> ``1405/08/02 22:50`` in Tehran time (what the receipt and the SMS show)."""
+    local = (moment if moment.tzinfo else moment.replace(tzinfo=dt.timezone.utc)).astimezone(TEHRAN)
+    jy, jm, jd = gregorian_to_jalali(local.date())
+    return f"{jy:04d}/{jm:02d}/{jd:02d} {local:%H:%M}"
+
+
 def jalali_datetime_to_utc(jy: int, jm: int, jd: int, hour: int = 0, minute: int = 0, second: int = 0) -> dt.datetime:
     """A Tehran wall-clock Jalali date-time as a timezone-aware UTC datetime."""
     g = jalali_to_gregorian(jy, jm, jd)

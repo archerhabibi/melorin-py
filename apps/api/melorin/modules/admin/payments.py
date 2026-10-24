@@ -8,7 +8,9 @@ from sqlalchemy import select
 from melorin.core import audit
 from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import NotFound
-from melorin.modules.payments import service as payment_service
+from melorin.kernel.models.stores import Store
+from melorin.modules.payments import bank_sms, service as payment_service
+from melorin.modules.payments.schemas import BankSmsIgnoreIn, BankSmsLinkIn, BankSmsSourceIn
 from melorin.kernel.models.payments import Payment
 from melorin.modules.admin.schemas import (
     OrderAction,
@@ -89,3 +91,53 @@ async def review_payment(payment_id: uuid.UUID, body: ReviewPayment, admin: Admi
 async def refund_payment(payment_id: uuid.UUID, body: OrderAction, admin: AdminUser, session: Session):
     p = await payment_service.refund_payment(session, payment_id, actor_id=admin.id, reason=body.reason)
     return {"ok": True, "status": p.status, "payment_id": p.id}
+
+
+# ----- Card-to-card auto verification (bank SMS) -----
+async def _store(session, store_id: uuid.UUID) -> Store:
+    store = await session.get(Store, store_id)
+    if not store:
+        raise NotFound("فروشگاه")
+    return store
+
+
+@router.get("/stores/{store_id}/bank-sms")
+async def bank_sms_overview(store_id: uuid.UUID, _: AdminUser, session: Session, status: str | None = Query(default=None)):
+    store = await _store(session, store_id)
+    src = await bank_sms.get_source(session, store.id)
+    return {
+        "source": bank_sms.source_out(src, store_id=store.id),
+        "messages": [bank_sms.message_out(m) for m in await bank_sms.list_messages(session, store.id, status=status)],
+    }
+
+
+@router.put("/stores/{store_id}/bank-sms/source")
+async def bank_sms_save_source(store_id: uuid.UUID, body: BankSmsSourceIn, admin: AdminUser, session: Session):
+    store = await _store(session, store_id)
+    src, token = await bank_sms.save_source(session, store, actor_id=admin.id, actor_type="admin", **body.model_dump(exclude_unset=True))
+    return {"source": bank_sms.source_out(src), "token": token}
+
+
+@router.post("/stores/{store_id}/bank-sms/token")
+async def bank_sms_rotate_token(store_id: uuid.UUID, admin: AdminUser, session: Session):
+    store = await _store(session, store_id)
+    return {"token": await bank_sms.rotate_token(session, store, actor_id=admin.id, actor_type="admin")}
+
+
+@router.post("/stores/{store_id}/bank-sms/reconcile")
+async def bank_sms_reconcile(store_id: uuid.UUID, _: AdminUser, session: Session):
+    return await bank_sms.reconcile_store(session, await _store(session, store_id))
+
+
+@router.post("/stores/{store_id}/bank-sms/{sms_id}/link")
+async def bank_sms_link(store_id: uuid.UUID, sms_id: uuid.UUID, body: BankSmsLinkIn, admin: AdminUser, session: Session):
+    store = await _store(session, store_id)
+    m = await bank_sms.manual_link(session, store, sms_id, body.payment_id, actor_id=admin.id, actor_type="admin")
+    return bank_sms.message_out(m)
+
+
+@router.post("/stores/{store_id}/bank-sms/{sms_id}/ignore")
+async def bank_sms_ignore(store_id: uuid.UUID, sms_id: uuid.UUID, body: BankSmsIgnoreIn, admin: AdminUser, session: Session):
+    store = await _store(session, store_id)
+    m = await bank_sms.set_ignored(session, store, sms_id, ignored=body.ignored, actor_id=admin.id, actor_type="admin")
+    return bank_sms.message_out(m)
