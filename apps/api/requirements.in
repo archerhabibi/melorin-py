@@ -2,7 +2,7 @@
 #   scripts/lock_requirements.sh
 # requirements.txt is the hash-locked result (every transitive dependency pinned, installed with --require-hashes).
 fastapi==0.143.0
-uvicorn[standard]==0.34.0
+uvicorn[standard]==0.54.0
 sqlalchemy[asyncio]==2.0.36
 asyncpg==0.30.0
 aiosqlite==0.20.0
