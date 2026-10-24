@@ -36,6 +36,13 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-24 UTC - claude - admin-web/upstream_bot-settings-ui
+- **Before:** an `upstream_bot` panel could only be created by sending raw credentials/config JSON; the generic panel form had no fields for it, and the API rejected any edit that did not re-send the Telethon session.
+- **Problem:** no guided way to set the parent bot, the mandatory `max_price` safety cap, renewal and button texts; secret inputs also hid their first characters under the eye icon.
+- **Action:** `apps/api/melorin/modules/admin/schemas.py` + `panels.py` (credentials validated only when sent, create still requires them, stricter config checks); new `apps/admin-web/src/upstreamBot.js` (defaults, parsing, validation, payload, flow preview) and `UpstreamBotFields.jsx`; `PanelsView.jsx` wired (kind card, bot link, credentials guide, settings, live flow preview, card chips); `CopyButton`/`Secret` moved to `kit.jsx` with the padding fix; docs/19 updated.
+- **After:** backend tests (`test_panel_admin_management.py`, `test_upstream_bot_adapter.py`) and 84 frontend tests pass; ESLint 0 errors (warning budget unchanged), Prettier clean, production build ok, layout checked in headless Chromium on desktop and mobile widths.
+- **Ref:** branch `upstream_bot`
+
 ### 2026-10-24 UTC - god-ping - vpn/upstream_bot
 - **Before:** products could only be provisioned on Sanaei / PasarGuard / mock panels.
 - **Problem:** the parent bot (AjdarNetPlusbot) has no API or panel access, so its accounts could not be sold from Melorin.
