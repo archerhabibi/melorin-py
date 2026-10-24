@@ -5,6 +5,15 @@ Verified against the real flow of a parent bot (purchase screens):
   confirm     : "... مبلغ 60,000 تومان از حسابت کم خواهم کرد ..." + [تایید خرید] [انصراف]
   result      : "نام اکانت: eg1_1068 / نوع اکانت / توضیحات / تاریخ خرید / لینک اکانت: https://.../sub/...?name=eg1_1068"
   balance     : "موجودی حساب شما: 505,000 تومان"
+
+Verified against the real renewal flow (screenshots + recording of 24 Oct 2026):
+  account screen -> [تمدید اکانت] -> "موجودی حساب شما: 445,000 تومان" + options message
+  options     : "تمدید اکانت eg2_1052 / حجم اولیه: 10 گیگ / لطفا حجم تمدید مورد نظرت رو انتخاب کن" with buttons
+                "تمدید با حجم اولیه 60000 تومان" (no thousands separator!), "تمدید و افزایش 10 گیگ 110,000 تومان", ..., "انصراف"
+  confirm     : "تمدید اکانت eg2_1052 با حجم اولیه 10 گیگ / ... مبلغ 0 تومان از حسابت کم خواهم کرد ..." + [تایید تمدید اکانت] [برگشت]
+                NOTE: the parent bot prints "0 تومان" here although it really charges the option price; never trust this amount.
+  result      : "اکانت eg2_1052 رو با موفقیت تمدید کردم" + "مبلغ 60,000 تومان از حسابت کم کردم" + the account screen with "تاریخ تمدید"
+  stale button: "زمان عملیات منقضی شده از اول باید بری" + [عملیات منقضی شده]
 """
 
 import datetime as dt
@@ -142,6 +151,7 @@ class AccountDetail:
     remaining_bytes: int | None
     expire_at: dt.datetime | None
     description: str
+    renewed_at: dt.datetime | None = None  # "تاریخ تمدید": only present once the account was renewed
 
 
 def _status(raw: str) -> str:
@@ -173,7 +183,13 @@ def parse_account_detail(text: str) -> AccountDetail | None:
     rem_raw = _field(t, "حجم باقی\\s*مانده")
     remaining = _volume_bytes(rem_raw) if rem_raw else None
     return AccountDetail(
-        name.group(1), _status(st), used, remaining, parse_jalali(_field(t, "تاریخ اتمام") or ""), _field(t, "توضیحات") or ""
+        name.group(1),
+        _status(st),
+        used,
+        remaining,
+        parse_jalali(_field(t, "تاریخ اتمام") or ""),
+        _field(t, "توضیحات") or "",
+        parse_jalali(_field(t, "تاریخ تمدید") or ""),
     )
 
 
@@ -189,3 +205,76 @@ def parse_refund_success(text: str) -> bool:
 def parse_refund_amount(text: str) -> int | None:
     m = re.search(r"مبلغ\s*([\d,]+)\s*تومان[^\n]*مرجوعی", digits(text))
     return int(m.group(1).replace(",", "")) if m else None
+
+
+# ----------------------------------------------------------------------------- renewal (تمدید)
+_RENEW_NAME = re.compile(r"تمدید\s*اکانت\s+([A-Za-z0-9_.\-]+)")
+_RENEW_INITIAL = re.compile(r"حجم\s*اولیه\s*[:：]?\s*([\d.,]+)\s*گیگ")
+_RENEW_PRICE = re.compile(r"([\d,]+)\s*تومان")
+_RENEW_INCREASE = re.compile(r"افزایش\s*([\d.]+)\s*گیگ")
+
+
+@dataclass(frozen=True)
+class RenewOption:
+    label: str
+    kind: str  # "initial" (renew with the original volume) | "increase" (renew and add ``extra_gb``)
+    extra_gb: float
+    price: int
+
+
+@dataclass(frozen=True)
+class RenewScreen:
+    name: str
+    initial_gb: float
+
+
+def parse_renew_option(label: str) -> RenewOption | None:
+    """'تمدید با حجم اولیه 60000 تومان' / 'تمدید و افزایش 10 گیگ 110,000 تومان'. Cancel / back buttons -> None."""
+    t = digits(label)
+    price = _RENEW_PRICE.search(t)
+    if not price or "تمدید" not in t:
+        return None
+    amount = int(price.group(1).replace(",", "") or 0)
+    inc = _RENEW_INCREASE.search(t)
+    if inc:
+        return RenewOption(label.strip(), "increase", float(inc.group(1)), amount)
+    if "حجم اولیه" in t:
+        return RenewOption(label.strip(), "initial", 0.0, amount)
+    return None
+
+
+def parse_renew_screen(text: str) -> RenewScreen | None:
+    """The options message: account name + the original volume. None for any other message."""
+    t = digits(text)
+    name, initial = _RENEW_NAME.search(t), _RENEW_INITIAL.search(t)
+    if not name or not initial or "حجم تمدید" not in t:
+        return None
+    return RenewScreen(name.group(1), float(initial.group(1).replace(",", "")))
+
+
+def is_renew_confirm_prompt(text: str, name: str) -> bool:
+    """The confirmation message for THIS account (the name must match, so a stale prompt of another account is never confirmed)."""
+    t = digits(text)
+    m = _RENEW_NAME.search(t)
+    return bool(m and m.group(1) == name and "تایید تمدید" in t and "حجم تمدید" not in t)
+
+
+def renew_confirm_amount(text: str) -> int | None:
+    """Amount printed in the renew confirmation. The parent bot prints 0 here (display quirk), so callers accept 0."""
+    return confirm_amount(text)
+
+
+def parse_renew_success(text: str, name: str) -> bool:
+    t = digits(text)
+    return "با موفقیت تمدید" in t and name in t
+
+
+def parse_charged_amount(text: str) -> int | None:
+    """'مبلغ 60,000 تومان از حسابت کم کردم' (past tense = money really taken; the confirm prompt says 'کم خواهم کرد')."""
+    m = re.search(r"مبلغ\s*([\d,]+)\s*تومان\s*از\s*حسابت\s*کم\s*کردم", digits(text))
+    return int(m.group(1).replace(",", "")) if m else None
+
+
+def is_operation_expired(text: str) -> bool:
+    """Stale inline buttons: 'زمان عملیات منقضی شده از اول باید بری'."""
+    return "عملیات منقضی شده" in text
