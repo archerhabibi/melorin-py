@@ -2,6 +2,7 @@ import { lazy, useEffect, useState } from 'react';
 import { authFetch } from './api.js';
 import { Plus, Search, X } from 'lucide-react';
 import { Badge, confirmDialog, dt, isStatus, promptDialog } from './ui.jsx';
+const ReportsView = lazy(() => import('./ReportsView.jsx'));
 const PanelsView = lazy(() => import('./PanelsView.jsx'));
 const InfraHealthView = lazy(() => import('./InfraHealthView.jsx'));
 const ProductsView = lazy(() => import('./ProductsView.jsx'));
@@ -728,6 +729,7 @@ function Tickets({ api, toast }) {
 }
 
 export const extraRoutes = {
+  'گزارشات و نمودارها': ReportsView,
   نمایندگان: ResellersView,
   'درخواست‌های نمایندگی': ResellerApplicationsView,
   'کارهای دستی': ManualTasksView,

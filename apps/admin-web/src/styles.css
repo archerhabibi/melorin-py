@@ -782,3 +782,47 @@ button.kpi:hover {
 .pay-ok {
   color: var(--ok);
 }
+
+/* ---- Reports & charts: validated categorical palette (dataviz default), selected per theme ---- */
+.rpt {
+  --rc1: #2a78d6;
+  --rc2: #eb6834;
+  --rc3: #1baf7a;
+  --rc4: #eda100;
+  --rc5: #e87ba4;
+  --rc6: #008300;
+  --rc7: #6250d6;
+  --rc8: #e34948;
+  --rseq: #2a78d6;
+}
+:root[data-theme='dark'] .rpt {
+  --rc1: #3987e5;
+  --rc2: #d95926;
+  --rc3: #199e70;
+  --rc4: #c98500;
+  --rc5: #d55181;
+  --rc6: #008300;
+  --rc7: #9085e9;
+  --rc8: #e66767;
+  --rseq: #3987e5;
+}
+.rpt .rcell {
+  transition: transform 0.12s ease;
+}
+.rpt .rcell:hover,
+.rpt .rcell:focus-visible {
+  transform: scale(1.25);
+  outline: 2px solid var(--tx);
+  outline-offset: 1px;
+  z-index: 2;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rpt .rcell {
+    transition: none;
+  }
+}
+@media print {
+  .rpt .no-print {
+    display: none !important;
+  }
+}
