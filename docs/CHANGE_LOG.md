@@ -19,6 +19,13 @@ A commit that edits this file itself is considered already documented and is ski
 Commits containing `[skip changelog]` and the bot's own commits are skipped.
 If `main` is protected, allow `github-actions[bot]` to bypass so the bot can push the log.
 
+
+## 2026-10-25 - Receipt OCR settings in the panel; time-boxed manual review with provisional credit
+- **Area:** payments / admin-web / store-web
+- **Before:** OCR engine and key were env-only (no UI); an unclear receipt waited for a human indefinitely.
+- **Action:** OCR config in the panel (encrypted key, test); after N minutes (default 5) an unreviewed receipt is credited provisionally with caps and guards and joins a fast-review queue (confirm / revoke); late bank SMS confirms it automatically; admin and reseller UIs with live countdown.
+- **After:** feature is off by default per store; see docs/20-Card-Receipt-Auto-Verification.md.
+
 ## Entry template
 
 ```

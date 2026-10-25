@@ -35,7 +35,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 
 <!-- BEGIN GENERATED ROUTES (scripts/gen_docs.py) -->
 
-### `admin` (85)
+### `admin` (88)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -116,6 +116,9 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | POST | `/api/v1/admin/stores/{store_id}/bank-sms/token` | Bank Sms Rotate Token |
 | POST | `/api/v1/admin/stores/{store_id}/bank-sms/{sms_id}/ignore` | Bank Sms Ignore |
 | POST | `/api/v1/admin/stores/{store_id}/bank-sms/{sms_id}/link` | Bank Sms Link |
+| GET | `/api/v1/admin/stores/{store_id}/receipt-review` | Receipt Review Queue |
+| PUT | `/api/v1/admin/stores/{store_id}/receipt-review/settings` | Receipt Review Settings |
+| POST | `/api/v1/admin/stores/{store_id}/receipt-review/{payment_id}` | Receipt Review Resolve |
 | GET | `/api/v1/admin/stores/{store_id}/reseller-prices` | Reseller Store Prices |
 | GET | `/api/v1/admin/tickets` | Tickets |
 | GET | `/api/v1/admin/tickets/{ticket_id}` | Ticket Detail |
@@ -125,7 +128,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/api/v1/admin/users` | Users |
 | GET | `/api/v1/admin/vpn-accounts` | Vpn Accounts |
 
-### `admin-integrations` (11)
+### `admin-integrations` (13)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -137,6 +140,8 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | POST | `/api/v1/admin/integrations/email/test` | Test Email |
 | PUT | `/api/v1/admin/integrations/google` | Update Google |
 | POST | `/api/v1/admin/integrations/google/test` | Test Google |
+| PUT | `/api/v1/admin/integrations/receipt-ocr` | Update Receipt Ocr |
+| POST | `/api/v1/admin/integrations/receipt-ocr/test` | Test Receipt Ocr |
 | PUT | `/api/v1/admin/integrations/telegram` | Update Telegram |
 | PUT | `/api/v1/admin/integrations/telegram/main-bot-username` | Set Main Bot Username |
 | POST | `/api/v1/admin/integrations/telegram/test` | Test Telegram |
@@ -265,7 +270,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/api/v1/reports/payments` | Payment Totals |
 | GET | `/api/v1/reports/stores/{store_id}/sales` | Store Sales |
 
-### `reseller` (51)
+### `reseller` (54)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -311,6 +316,9 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | POST | `/api/v1/stores/{store_id}/reseller/prices/batch` | Set Reseller Prices Batch |
 | PUT | `/api/v1/stores/{store_id}/reseller/prices/{product_id}` | Set Reseller Price |
 | GET | `/api/v1/stores/{store_id}/reseller/profile` | Profile |
+| GET | `/api/v1/stores/{store_id}/reseller/receipt-review` | Reseller Receipt Review Queue |
+| PUT | `/api/v1/stores/{store_id}/reseller/receipt-review/settings` | Reseller Receipt Review Settings |
+| POST | `/api/v1/stores/{store_id}/reseller/receipt-review/{payment_id}` | Reseller Receipt Review Resolve |
 | GET | `/api/v1/stores/{store_id}/reseller/reports` | Report |
 | GET | `/api/v1/stores/{store_id}/reseller/webhooks` | List Webhooks |
 | POST | `/api/v1/stores/{store_id}/reseller/webhooks` | Create Webhook |

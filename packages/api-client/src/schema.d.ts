@@ -555,6 +555,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/integrations/receipt-ocr": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Receipt Ocr */
+        put: operations["update_receipt_ocr_api_v1_admin_integrations_receipt_ocr_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/integrations/receipt-ocr/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Receipt Ocr
+         * @description Checks the saved setup end to end without any customer data. Vision: one tiny blank image to the provider.
+         */
+        post: operations["test_receipt_ocr_api_v1_admin_integrations_receipt_ocr_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/integrations/telegram": {
         parameters: {
             query?: never;
@@ -1391,6 +1428,57 @@ export interface paths {
         put?: never;
         /** Bank Sms Link */
         post: operations["bank_sms_link_api_v1_admin_stores__store_id__bank_sms__sms_id__link_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/stores/{store_id}/receipt-review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Receipt Review Queue */
+        get: operations["receipt_review_queue_api_v1_admin_stores__store_id__receipt_review_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/stores/{store_id}/receipt-review/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Receipt Review Settings */
+        put: operations["receipt_review_settings_api_v1_admin_stores__store_id__receipt_review_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/stores/{store_id}/receipt-review/{payment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Receipt Review Resolve */
+        post: operations["receipt_review_resolve_api_v1_admin_stores__store_id__receipt_review__payment_id__post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3326,6 +3414,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/stores/{store_id}/reseller/receipt-review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reseller Receipt Review Queue */
+        get: operations["reseller_receipt_review_queue_api_v1_stores__store_id__reseller_receipt_review_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/reseller/receipt-review/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Reseller Receipt Review Settings */
+        put: operations["reseller_receipt_review_settings_api_v1_stores__store_id__reseller_receipt_review_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/reseller/receipt-review/{payment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reseller Receipt Review Resolve */
+        post: operations["reseller_receipt_review_resolve_api_v1_stores__store_id__reseller_receipt_review__payment_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/stores/{store_id}/reseller/reports": {
         parameters: {
             query?: never;
@@ -4570,6 +4709,29 @@ export interface components {
             /** Totp Code */
             totp_code?: string | null;
         };
+        /** GraceResolveIn */
+        GraceResolveIn: {
+            /** Approve */
+            approve: boolean;
+            /** Note */
+            note?: string | null;
+        };
+        /**
+         * GraceSettingsIn
+         * @description Time-boxed manual review settings (all optional: only the sent fields change).
+         */
+        GraceSettingsIn: {
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Max Amount Rial */
+            max_amount_rial?: number | null;
+            /** Max Exposure Rial */
+            max_exposure_rial?: number | null;
+            /** Max Open Per User */
+            max_open_per_user?: number | null;
+            /** Minutes */
+            minutes?: number | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -5120,6 +5282,39 @@ export interface components {
             unit_price: number;
             /** Wallet Balance */
             wallet_balance: number;
+        };
+        /**
+         * ReceiptOcrIn
+         * @description ``api_key``: ``None`` keeps the stored key, ``""`` clears it, anything else replaces it (never echoed back).
+         */
+        ReceiptOcrIn: {
+            /** Api Key */
+            api_key?: string | null;
+            /**
+             * Base Url
+             * @default https://api.anthropic.com
+             */
+            base_url: string;
+            /**
+             * Engine
+             * @default auto
+             */
+            engine: string;
+            /**
+             * Model
+             * @default claude-haiku-5-5
+             */
+            model: string;
+            /**
+             * Tesseract Lang
+             * @default fas+eng
+             */
+            tesseract_lang: string;
+            /**
+             * Timeout Seconds
+             * @default 25
+             */
+            timeout_seconds: number;
         };
         /** RefreshRequest */
         RefreshRequest: {
@@ -6893,6 +7088,59 @@ export interface operations {
             };
         };
     };
+    update_receipt_ocr_api_v1_admin_integrations_receipt_ocr_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReceiptOcrIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_receipt_ocr_api_v1_admin_integrations_receipt_ocr_test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
     update_telegram_api_v1_admin_integrations_telegram_put: {
         parameters: {
             query?: never;
@@ -8622,6 +8870,108 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["BankSmsLinkIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    receipt_review_queue_api_v1_admin_stores__store_id__receipt_review_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    receipt_review_settings_api_v1_admin_stores__store_id__receipt_review_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GraceSettingsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    receipt_review_resolve_api_v1_admin_stores__store_id__receipt_review__payment_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+                payment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GraceResolveIn"];
             };
         };
         responses: {
@@ -12333,6 +12683,108 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reseller_receipt_review_queue_api_v1_stores__store_id__reseller_receipt_review_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reseller_receipt_review_settings_api_v1_stores__store_id__reseller_receipt_review_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GraceSettingsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reseller_receipt_review_resolve_api_v1_stores__store_id__reseller_receipt_review__payment_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payment_id: string;
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GraceResolveIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

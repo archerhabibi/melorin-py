@@ -75,6 +75,27 @@ All eleven receipt/SMS pairs of the owner (Blu bank x3, Bank Melli x2, Bank Mell
   resolved only by the claimed time; if only one of them uploaded a receipt, that receipt is paid. Keep
   `require_claimed_time` on, set `max_auto_amount_rial`, and use unique amounts or small windows for high-value stores.
 
+### OCR settings in the panel
+Admin -> Settings -> "خواندن خودکار رسید (OCR)" chooses the engine (vision / tesseract / auto / off), the vision API key (stored Fernet-encrypted,
+write-only, never returned or audited), model, service URL (https only), timeout and tesseract languages, and has a live connection test
+(`PUT /admin/integrations/receipt-ocr`, `POST .../test`). A panel-saved config wins; until then the `MELORIN_RECEIPT_OCR_*` env values apply.
+The OCR config is platform-wide: reseller stores use the same engine.
+
+### Time-boxed manual review (provisional credit)
+Anything ambiguous goes to manual review. The customer must not wait for an offline human: when a receipt has waited `minutes` (default 5)
+without a decision, `receipt_grace_job` (every minute) credits the wallet **provisionally** and the payment moves to a fast-review queue
+(`payment.meta.provisional.state = open`). A human then **confirms** (credit stays) or **revokes** (ledger reversal `payment:<id>:provisional_revoke`,
+payment -> failed, customer notified; the wallet can go negative if the credit was already spent and the shortfall is shown). A bank SMS that
+arrives later and matches the payment confirms it automatically.
+
+* Per store, **off by default** (`payments.grace.<store_id>`): `enabled`, `minutes` (1-60), `max_amount_rial` (5,000,000), `max_exposure_rial` (20,000,000),
+  `max_open_per_user` (1). Admin: Payments -> "بازبینی سریع و تأیید موقت"; reseller: bank-SMS tab.
+* Never provisional: read amount != request, same receipt image (sha256) or reference already used, amount/exposure/per-customer cap reached,
+  customer with a previously revoked provisional credit. The reason is shown in the queue and notified once.
+* API: `GET/PUT /admin/stores/{id}/receipt-review[/settings]`, `POST .../receipt-review/{payment_id}` `{approve, note}` (same under `/stores/{id}/reseller/`).
+  The plain payment-review route also resolves a provisional payment.
+* Residual risk: a forged receipt can hold a provisional credit for up to the review time and the cap; keep the caps low.
+
 ## فارسی
 
 ### ایده
@@ -121,3 +142,15 @@ Core می‌فرستد؛ Core آن را تحلیل و فقط یک بار ذخی�
 (حساب + مبلغ + زمان + مانده‌ی بعد از واریز) دارد و ارسال مجدد اثری ندارد؛ همه‌ی تصمیم‌ها در audit ثبت می‌شود. **محدودیت:** پیامک بانک نام واریزکننده را ندارد؛ اگر دو نفر در یک
 دقیقه مبلغ یکسان بپردازند فقط «زمان اعلامی» تفکیک می‌کند و اگر فقط یکی رسید بفرستد همان شارژ می‌شود. گزینه‌ی «زمان رسید الزامی»
 را روشن نگه دارید و برای فروشگاه‌های پرمبلغ سقف شارژ خودکار بگذارید.
+
+### تنظیمات OCR در پنل
+ادمین ← تنظیمات ← «خواندن خودکار رسید (OCR)»: انتخاب موتور (بینایی / Tesseract / خودکار / خاموش)، کلید API (رمزنگاری‌شده، فقط‌نوشتنی، هرگز
+برگردانده یا audit نمی‌شود)، مدل، آدرس سرویس (فقط https)، مهلت و زبان Tesseract، و آزمایش زنده‌ی اتصال. تنظیم پنل بر env برتری دارد. این تنظیم
+برای کل پلتفرم است و فروشگاه نمایندگان هم از همین موتور استفاده می‌کنند.
+
+### بازبینی دستی زمان‌دار (تأیید موقت)
+هر حالت مبهم به بررسی دستی می‌رود. اگر تا `minutes` (پیش‌فرض ۵) دقیقه کسی تصمیم نگیرد، job دقیقه‌ای `receipt_grace_job` کیف پول را **موقت**
+شارژ می‌کند و رسید در صف بازبینی فوری می‌ماند. ادمین/نماینده **تأیید نهایی** می‌کند یا **لغو** (برگشت اعتبار از دفتر کل؛ اگر مشتری خرج کرده باشد
+کیف پول منفی و «کسری» نمایش داده می‌شود). پیامک بانکی که بعداً برسد و مطابق باشد، شارژ موقت را خودکار نهایی می‌کند.
+برای هر فروشگاه **پیش‌فرض خاموش** است؛ سقف هر رسید، سقف کل اعتبار موقت باز و حداکثر باز برای هر مشتری قابل تنظیم است. موقت تأیید نمی‌شود:
+مبلغ رسید با درخواست فرق دارد، تصویر یا مرجع تکراری است، سقف‌ها پر است، یا مشتری قبلاً شارژ موقت لغوشده داشته است.
