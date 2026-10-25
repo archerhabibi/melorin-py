@@ -307,6 +307,69 @@ async def _link(
     return True
 
 
+async def _confirm_provisional(
+    session: AsyncSession, sms: BankSmsMessage, source: BankSmsSource, store: Store, parsed: dom.ParsedSms
+) -> bool:
+    """A deposit SMS that arrives *after* a receipt was credited provisionally is the proof that was missing: when it
+    matches exactly one provisional credit under the usual rules, that credit becomes final without a human."""
+    rows = (
+        await session.scalars(
+            select(Payment)
+            .where(Payment.store_id == store.id, Payment.provider == "manual_card", Payment.status == P.SUCCEEDED)
+            .order_by(Payment.created_at.desc())
+            .limit(200)
+        )
+    ).all()
+    cands, by_id = [], {}
+    for p in rows:
+        if ((p.meta or {}).get("provisional") or {}).get("state") != "open":
+            continue
+        rial = dom.to_rial(p.amount, p.currency)
+        claim = (p.meta or {}).get("receipt_claim") or {}
+        try:
+            claimed = _aware(dt.datetime.fromisoformat(claim["paid_at"])) if claim.get("paid_at") else None
+        except ValueError:
+            claimed = None
+        seen = claim.get("amount_rial")
+        if rial is not None:
+            blocked = "receipt_amount_mismatch" if isinstance(seen, int) and seen != rial else None
+            cands.append(dom.Candidate(str(p.id), rial, _aware(p.created_at), claimed, blocked))
+            by_id[str(p.id)] = p
+    if not cands:
+        return False
+    decision = dom.decide(parsed, cands, match_settings(source))
+    if decision.kind != "matched":
+        return False
+    p = await session.get(Payment, uuid.UUID(decision.payment_id), with_for_update=True, populate_existing=True)
+    sms = await session.get(BankSmsMessage, sms.id, with_for_update=True, populate_existing=True)
+    prov = ((p.meta or {}).get("provisional") or {}) if p else {}
+    if p is None or sms.status == "matched" or prov.get("state") != "open":
+        return False
+    sms.status, sms.payment_id, sms.matched_by, sms.note = "matched", p.id, "auto", "confirmed_provisional"
+    p.meta = {
+        **p.meta,
+        "bank_sms": {"sms_id": str(sms.id), "serial": sms.serial, "by": "auto"},
+        "provisional": {**prov, "state": "confirmed", "resolved_at": utcnow().isoformat(), "resolved_by": "bank_sms"},
+    }
+    try:
+        await session.flush()
+    except IntegrityError:
+        await session.rollback()
+        return False
+    audit.record(
+        session,
+        "payment.provisional_confirmed",
+        actor_type="system",
+        entity_type="payment",
+        entity_id=p.id,
+        store_id=p.store_id,
+        data={"sms_id": str(sms.id), "by": "bank_sms"},
+    )
+    await _notify(session, p.store_id, f"✅ تأیید موقت با پیامک بانک نهایی شد\nمبلغ: {p.amount:,}\nشناسه: {p.id}")
+    await session.commit()
+    return True
+
+
 async def match_message(session: AsyncSession, sms: BankSmsMessage, source: BankSmsSource, store: Store) -> str:
     """Try to pay one stored SMS. Returns the resulting status."""
     if sms.status not in ("unmatched", "ambiguous") or sms.direction != "deposit" or sms.amount_rial is None:
@@ -322,6 +385,13 @@ async def match_message(session: AsyncSession, sms: BankSmsMessage, source: Bank
     )
     candidates, _ = await _candidates(session, store)
     decision = dom.decide(parsed, candidates, match_settings(source))
+    if (
+        decision.kind != "matched"
+        and source.is_enabled
+        and source.auto_verify
+        and await _confirm_provisional(session, sms, source, store, parsed)
+    ):
+        return "matched"
     if decision.kind == "matched":
         if not (source.is_enabled and source.auto_verify):
             sms.status, sms.note = "unmatched", f"suggested:{decision.payment_id}"

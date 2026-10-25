@@ -9,8 +9,8 @@ from melorin.core import audit
 from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import NotFound
 from melorin.kernel.models.stores import Store
-from melorin.modules.payments import bank_sms, service as payment_service
-from melorin.modules.payments.schemas import BankSmsIgnoreIn, BankSmsLinkIn, BankSmsSourceIn
+from melorin.modules.payments import bank_sms, provisional, service as payment_service
+from melorin.modules.payments.schemas import BankSmsIgnoreIn, BankSmsLinkIn, BankSmsSourceIn, GraceResolveIn, GraceSettingsIn
 from melorin.kernel.models.payments import Payment
 from melorin.modules.admin.schemas import (
     OrderAction,
@@ -70,6 +70,10 @@ async def review_payment(payment_id: uuid.UUID, body: ReviewPayment, admin: Admi
     p = await session.get(Payment, payment_id)
     if not p:
         raise NotFound("پرداخت")
+    if provisional.state(p):  # a provisional credit: confirm keeps it, reject reverses it through the ledger
+        await provisional.resolve(session, p.store_id, p.id, approve=body.approve, actor_id=admin.id, actor_type="admin", note=body.reason)
+        await session.refresh(p)
+        return {"ok": True, "status": p.status}
     if body.approve:
         await payment_service.mark_succeeded(session, p.id, actor_id=admin.id, actor_type="admin", note=body.reason)
     else:
@@ -141,3 +145,25 @@ async def bank_sms_ignore(store_id: uuid.UUID, sms_id: uuid.UUID, body: BankSmsI
     store = await _store(session, store_id)
     m = await bank_sms.set_ignored(session, store, sms_id, ignored=body.ignored, actor_id=admin.id, actor_type="admin")
     return bank_sms.message_out(m)
+
+
+# ----- Time-boxed manual review (provisional approval after N minutes) -----
+@router.get("/stores/{store_id}/receipt-review")
+async def receipt_review_queue(store_id: uuid.UUID, _: AdminUser, session: Session):
+    store = await _store(session, store_id)
+    return await provisional.queue(session, store.id)
+
+
+@router.put("/stores/{store_id}/receipt-review/settings")
+async def receipt_review_settings(store_id: uuid.UUID, body: GraceSettingsIn, admin: AdminUser, session: Session):
+    store = await _store(session, store_id)
+    return await provisional.save_config(session, store, body.model_dump(exclude_unset=True), actor_id=admin.id, actor_type="admin")
+
+
+@router.post("/stores/{store_id}/receipt-review/{payment_id}")
+async def receipt_review_resolve(store_id: uuid.UUID, payment_id: uuid.UUID, body: GraceResolveIn, admin: AdminUser, session: Session):
+    store = await _store(session, store_id)
+    p = await provisional.resolve(
+        session, store.id, payment_id, approve=body.approve, actor_id=admin.id, actor_type="admin", note=body.note
+    )
+    return {"ok": True, "status": p.status, "provisional": provisional.state(p)}

@@ -17,6 +17,7 @@ from melorin.worker.runner import claim_batch, claim_webhook_batch, process_even
 from melorin.worker.jobs import (
     backup_job,
     bank_sms_reconcile_job,
+    receipt_grace_job,
     daily_report_job,
     expiry_job,
     near_expiry_job,
@@ -60,6 +61,7 @@ class WorkerSettings:
         reconciliation_job,
         privacy_retention_job,
         bank_sms_reconcile_job,
+        receipt_grace_job,
         telegram_login_gc_job,
     ]
     cron_jobs = [
@@ -74,6 +76,7 @@ class WorkerSettings:
         cron(privacy_retention_job, hour=3, minute=0, unique=True),
         cron(telegram_login_gc_job, minute=set(range(5, 60, 30)), unique=True),
         cron(bank_sms_reconcile_job, second={30}, unique=True),
+        cron(receipt_grace_job, second={10}, unique=True),
     ]
     on_startup = startup
     on_shutdown = shutdown

@@ -224,3 +224,20 @@ async def bank_sms_reconcile_job(ctx=None):
                 await s.rollback()
                 log.warning("bank sms reconcile failed store=%s", store_id, exc_info=True)
     return total
+
+
+async def receipt_grace_job(ctx=None):
+    """Time-boxed manual review: credit provisionally (and flag for fast review) every card-to-card receipt that
+    waited longer than the store's grace minutes. Runs every minute; idempotent."""
+    from melorin.modules.payments import provisional
+
+    async with session_factory()() as s:
+        try:
+            n = await provisional.sweep(s)
+        except Exception:
+            await s.rollback()
+            log.warning("receipt grace sweep failed", exc_info=True)
+            return 0
+        if n:
+            log.info("receipt grace: provisional credits=%s", n)
+        return n

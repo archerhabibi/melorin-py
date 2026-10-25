@@ -12,8 +12,15 @@ from melorin.core.deps import OwnerCtx, Session
 from melorin.core.errors import AppError, NotFound
 from melorin.kernel.models.payments import Payment
 from melorin.kernel.models.stores import StorePaymentConfiguration
-from melorin.modules.payments import bank_sms, service as payments
-from melorin.modules.payments.schemas import BankSmsIgnoreIn, BankSmsLinkIn, BankSmsSourceIn, payment_out
+from melorin.modules.payments import bank_sms, provisional, service as payments
+from melorin.modules.payments.schemas import (
+    BankSmsIgnoreIn,
+    BankSmsLinkIn,
+    BankSmsSourceIn,
+    GraceResolveIn,
+    GraceSettingsIn,
+    payment_out,
+)
 from melorin.modules.reseller.schemas import (
     PaymentConfigIn,
     PaymentReview,
@@ -76,6 +83,11 @@ async def review_store_payment(payment_id: uuid.UUID, body: PaymentReview, ctx: 
         raise NotFound("پرداخت")
     if p.provider != "manual_card":
         raise AppError("PAYMENT_REVIEW_FORBIDDEN", "تأیید پرداخت‌های درگاه فقط پس از callback معتبر انجام می‌شود.", 403)
+    if provisional.state(p):
+        p = await provisional.resolve(
+            session, ctx.store.id, p.id, approve=body.approve, actor_id=ctx.user.id, actor_type="reseller", note=body.note
+        )
+        return payment_out(p)
     if body.approve:
         p = await payments.mark_succeeded(session, p.id, actor_id=ctx.user.id, actor_type="reseller", note=body.note)
     else:
@@ -121,3 +133,24 @@ async def reseller_bank_sms_link(sms_id: uuid.UUID, body: BankSmsLinkIn, ctx: Ow
 async def reseller_bank_sms_ignore(sms_id: uuid.UUID, body: BankSmsIgnoreIn, ctx: OwnerCtx, session: Session):
     m = await bank_sms.set_ignored(session, ctx.store, sms_id, ignored=body.ignored, actor_id=ctx.user.id, actor_type="reseller")
     return bank_sms.message_out(m)
+
+
+# ----- Time-boxed manual review for the reseller's own store -----
+@router.get("/stores/{store_id}/reseller/receipt-review")
+async def reseller_receipt_review_queue(ctx: OwnerCtx, session: Session):
+    return await provisional.queue(session, ctx.store.id)
+
+
+@router.put("/stores/{store_id}/reseller/receipt-review/settings")
+async def reseller_receipt_review_settings(body: GraceSettingsIn, ctx: OwnerCtx, session: Session):
+    return await provisional.save_config(
+        session, ctx.store, body.model_dump(exclude_unset=True), actor_id=ctx.user.id, actor_type="reseller"
+    )
+
+
+@router.post("/stores/{store_id}/reseller/receipt-review/{payment_id}")
+async def reseller_receipt_review_resolve(payment_id: uuid.UUID, body: GraceResolveIn, ctx: OwnerCtx, session: Session):
+    p = await provisional.resolve(
+        session, ctx.store.id, payment_id, approve=body.approve, actor_id=ctx.user.id, actor_type="reseller", note=body.note
+    )
+    return {"ok": True, "status": p.status, "provisional": provisional.state(p)}

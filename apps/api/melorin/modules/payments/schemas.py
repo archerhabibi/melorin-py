@@ -1,7 +1,7 @@
 import datetime as dt
 import uuid
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
 
 
 class TopupRequest(BaseModel):
@@ -68,3 +68,19 @@ class BankSmsLinkIn(BaseModel):
 
 class BankSmsIgnoreIn(BaseModel):
     ignored: bool = True
+
+
+class GraceSettingsIn(BaseModel):
+    """Time-boxed manual review settings (all optional: only the sent fields change)."""
+
+    model_config = ConfigDict(extra="forbid")
+    enabled: StrictBool | None = None
+    minutes: StrictInt | None = None
+    max_amount_rial: StrictInt | None = None
+    max_exposure_rial: StrictInt | None = None
+    max_open_per_user: StrictInt | None = None
+
+
+class GraceResolveIn(BaseModel):
+    approve: bool
+    note: str | None = Field(default=None, max_length=300)
