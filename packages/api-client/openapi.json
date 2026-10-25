@@ -9028,6 +9028,214 @@
         ]
       }
     },
+    "/api/v1/admin/reports/analytics": {
+      "get": {
+        "description": "Everything the Reports & charts screen needs in one currency-safe payload (KPIs vs previous period, series, breakdowns).",
+        "operationId": "report_analytics_api_v1_admin_reports_analytics_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 90,
+              "minimum": 7,
+              "title": "Days",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "IANA time zone used to bucket days, e.g. Asia/Tehran",
+            "in": "query",
+            "name": "tz",
+            "required": false,
+            "schema": {
+              "default": "UTC",
+              "description": "IANA time zone used to bucket days, e.g. Asia/Tehran",
+              "maxLength": 64,
+              "title": "Tz",
+              "type": "string"
+            }
+          },
+          {
+            "description": "report currency (default: top-selling one)",
+            "in": "query",
+            "name": "currency",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 8,
+                  "minLength": 2,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "report currency (default: top-selling one)",
+              "title": "Currency"
+            }
+          },
+          {
+            "description": "limit orders and payments to one store",
+            "in": "query",
+            "name": "store_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "limit orders and payments to one store",
+              "title": "Store Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Report Analytics",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/reports/analytics.csv": {
+      "get": {
+        "description": "CSV of one analytics section (UTF-8 with BOM so Excel opens Persian names correctly).",
+        "operationId": "export_analytics_api_v1_admin_reports_analytics_csv_get",
+        "parameters": [
+          {
+            "description": "daily | products | stores | methods",
+            "in": "query",
+            "name": "section",
+            "required": false,
+            "schema": {
+              "default": "daily",
+              "description": "daily | products | stores | methods",
+              "title": "Section",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 90,
+              "minimum": 7,
+              "title": "Days",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tz",
+            "required": false,
+            "schema": {
+              "default": "UTC",
+              "maxLength": 64,
+              "title": "Tz",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "currency",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 8,
+                  "minLength": 2,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Currency"
+            }
+          },
+          {
+            "in": "query",
+            "name": "store_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Store Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Export Analytics",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/admin/reports/orders.csv": {
       "get": {
         "operationId": "export_orders_api_v1_admin_reports_orders_csv_get",
