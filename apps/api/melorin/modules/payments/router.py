@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, File, Form, Header, Request, UploadFile
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 
+from melorin.core import integrations
 from melorin.core.config import get_settings
 from melorin.core.deps import Session, StoreCtx
 from melorin.core.errors import AppError
@@ -77,7 +78,8 @@ async def upload_receipt(
             raise AppError("FILE_TOO_LARGE", "حجم فایل زیاد است.", 413)
     data = bytes(data)
     digest = validate_upload(data, file.content_type or "")
-    facts, engine = await receipt_ocr.read_receipt(data, file.content_type or "")
+    ocr_cfg = receipt_ocr.resolve(await integrations.get_receipt_ocr(session))
+    facts, engine = await receipt_ocr.read_receipt(data, file.content_type or "", ocr_cfg)
     claim = bank_sms.build_claim(typed, facts, engine)
     key = await get_storage().put(data, file.content_type)
     fo = FileObject(

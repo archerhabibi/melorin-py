@@ -23,7 +23,6 @@ import shutil
 
 import httpx
 
-from melorin.core.config import get_settings
 from melorin.domain.receipt_text import ReceiptFacts, facts_from_mapping, parse_receipt_text
 
 log = logging.getLogger("melorin.payments.receipt_ocr")
@@ -46,22 +45,47 @@ VISION_PROMPT = (
 )
 
 
-def configured_engine() -> str | None:
-    s = get_settings()
-    mode = (s.receipt_ocr_engine or "auto").lower()
-    if mode == "off":
+class OcrConfig:
+    """Resolved settings of one OCR run (panel config or environment); plain values, no secrets in ``repr``."""
+
+    __slots__ = ("engine", "api_key", "base_url", "model", "timeout", "lang")
+
+    def __init__(self, engine: str, api_key: str, base_url: str, model: str, timeout: int, lang: str):
+        self.engine, self.api_key, self.base_url, self.model, self.timeout, self.lang = engine, api_key, base_url, model, timeout, lang
+
+    def __repr__(self) -> str:
+        return f"OcrConfig(engine={self.engine!r}, model={self.model!r}, key_set={bool(self.api_key)})"
+
+
+def resolve(cfg: dict | None = None) -> OcrConfig:
+    """``cfg`` is ``integrations.get_receipt_ocr`` output; without it the environment values are used."""
+    from melorin.core import integrations
+
+    cfg = cfg or integrations.receipt_ocr_from_env()
+    return OcrConfig(
+        str(cfg.get("engine") or "auto").lower(),
+        integrations.receipt_ocr_key(cfg),
+        str(cfg.get("base_url") or integrations.RECEIPT_OCR_DEFAULT["base_url"]),
+        str(cfg.get("model") or integrations.RECEIPT_OCR_DEFAULT["model"]),
+        int(cfg.get("timeout_seconds") or integrations.RECEIPT_OCR_DEFAULT["timeout_seconds"]),
+        str(cfg.get("tesseract_lang") or integrations.RECEIPT_OCR_DEFAULT["tesseract_lang"]),
+    )
+
+
+def configured_engine(cfg: OcrConfig | None = None) -> str | None:
+    c = cfg or resolve()
+    if c.engine == "off":
         return None
-    if mode == "vision":
-        return "vision" if s.receipt_ocr_api_key else None
-    if mode == "tesseract":
+    if c.engine == "vision":
+        return "vision" if c.api_key else None
+    if c.engine == "tesseract":
         return "tesseract" if shutil.which("tesseract") else None
-    if s.receipt_ocr_api_key:
+    if c.api_key:
         return "vision"
     return "tesseract" if shutil.which("tesseract") else None
 
 
-async def _tesseract(data: bytes) -> ReceiptFacts:
-    s = get_settings()
+async def _tesseract(data: bytes, c: OcrConfig) -> ReceiptFacts:
     texts: list[str] = []
     for psm in ("6", "4"):  # two page-segmentation modes: receipts mix big amounts and small label rows
         proc = await asyncio.create_subprocess_exec(
@@ -69,7 +93,7 @@ async def _tesseract(data: bytes) -> ReceiptFacts:
             "stdin",
             "stdout",
             "-l",
-            s.receipt_ocr_tesseract_lang,
+            c.lang,
             "--psm",
             psm,
             stdin=asyncio.subprocess.PIPE,
@@ -77,7 +101,7 @@ async def _tesseract(data: bytes) -> ReceiptFacts:
             stderr=asyncio.subprocess.DEVNULL,
         )
         try:
-            out, _ = await asyncio.wait_for(proc.communicate(data), timeout=s.receipt_ocr_timeout_seconds)
+            out, _ = await asyncio.wait_for(proc.communicate(data), timeout=c.timeout)
         except TimeoutError:
             proc.kill()
             raise
@@ -96,10 +120,9 @@ def _json_object(text: str) -> dict:
     return obj if isinstance(obj, dict) else {}
 
 
-async def _vision(data: bytes, content_type: str) -> ReceiptFacts:
-    s = get_settings()
+async def _vision(data: bytes, content_type: str, c: OcrConfig) -> ReceiptFacts:
     body = {
-        "model": s.receipt_ocr_model,
+        "model": c.model,
         "max_tokens": 300,
         "temperature": 0,
         "system": VISION_SYSTEM,
@@ -113,22 +136,23 @@ async def _vision(data: bytes, content_type: str) -> ReceiptFacts:
             }
         ],
     }
-    headers = {"x-api-key": s.receipt_ocr_api_key, "anthropic-version": "2023-06-01", "content-type": "application/json"}
-    async with httpx.AsyncClient(timeout=s.receipt_ocr_timeout_seconds) as client:
-        r = await client.post(f"{s.receipt_ocr_base_url.rstrip('/')}/v1/messages", json=body, headers=headers)
+    headers = {"x-api-key": c.api_key, "anthropic-version": "2023-06-01", "content-type": "application/json"}
+    async with httpx.AsyncClient(timeout=c.timeout) as client:
+        r = await client.post(f"{c.base_url.rstrip('/')}/v1/messages", json=body, headers=headers)
     r.raise_for_status()
     parts = [b.get("text", "") for b in r.json().get("content", []) if b.get("type") == "text"]
     return facts_from_mapping(_json_object("".join(parts)))
 
 
-async def read_receipt(data: bytes, content_type: str) -> tuple[ReceiptFacts | None, str | None]:
+async def read_receipt(data: bytes, content_type: str, cfg: OcrConfig | None = None) -> tuple[ReceiptFacts | None, str | None]:
     """``(facts, engine)``. ``facts`` is ``None`` when no engine ran or it failed; this function never raises."""
-    engine = configured_engine()
+    c = cfg or resolve()
+    engine = configured_engine(c)
     if engine is None or content_type not in IMAGE_TYPES:
         return None, None
     try:
         async with _LIMIT:
-            facts = await (_vision(data, content_type) if engine == "vision" else _tesseract(data))
+            facts = await (_vision(data, content_type, c) if engine == "vision" else _tesseract(data, c))
         return facts, engine
     except Exception as exc:  # network, timeout, bad JSON, missing binary ...: the receipt still goes to a human
         log.warning("receipt ocr failed engine=%s error=%s", engine, type(exc).__name__)

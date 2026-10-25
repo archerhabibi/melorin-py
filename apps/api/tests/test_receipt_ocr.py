@@ -122,7 +122,7 @@ async def test_engine_failure_never_raises_and_pdf_is_skipped(monkeypatch):
 
 # ------------------------------------------------------------------------------------------------ end to end
 def _engine(monkeypatch, facts, name="vision"):
-    async def fake(data, content_type):
+    async def fake(data, content_type, cfg=None):
         return facts, name
 
     monkeypatch.setattr(receipt_ocr, "read_receipt", fake)
