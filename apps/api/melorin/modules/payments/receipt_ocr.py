@@ -72,6 +72,10 @@ def resolve(cfg: dict | None = None) -> OcrConfig:
     )
 
 
+def tesseract_available() -> bool:
+    return shutil.which("tesseract") is not None
+
+
 def configured_engine(cfg: OcrConfig | None = None) -> str | None:
     c = cfg or resolve()
     if c.engine == "off":

@@ -12,7 +12,7 @@ from melorin.core import integrations
 from melorin.core.config import get_settings
 from melorin.core.context import client_ip
 from melorin.core.deps import AdminUser, Session
-from melorin.modules.admin.integrations import admin_access, backup_s3, email_smtp, google_login, telegram_login
+from melorin.modules.admin.integrations import admin_access, backup_s3, email_smtp, google_login, receipt_ocr, telegram_login
 from melorin.modules.admin.integrations.admin_access import update_admin_access
 from melorin.modules.admin.integrations.backup_s3 import test_backup_s3, update_backup_s3
 from melorin.modules.admin.integrations.email_smtp import test_email, update_email
@@ -24,6 +24,7 @@ from melorin.modules.admin.integrations.schemas import (  # noqa: F401
     EmailTestIn,
     GoogleIn,
     MainBotIn,
+    ReceiptOcrIn,
     TelegramIn,
 )
 from melorin.modules.admin.integrations.telegram_login import set_main_bot_username, telegram_public, test_telegram, update_telegram
@@ -38,6 +39,7 @@ async def get_integrations(_: AdminUser, session: Session):
         "google": google_public(await integrations.get_google(session)),
         "telegram": await telegram_public(session, await integrations.get_telegram(session)),
         "admin_access": {**await integrations.get_admin_access(session), "your_ip": client_ip.get()},
+        "receipt_ocr": receipt_ocr.receipt_ocr_public(await integrations.get_receipt_ocr(session)),
         "email": integrations.public_email(await integrations.get_email(session)),
         "backup": {
             "local": {"enabled": True, "dir": s.backup_dir, "retention_days": s.backup_retention_days},
@@ -47,7 +49,15 @@ async def get_integrations(_: AdminUser, session: Session):
 
 
 router = APIRouter()
-for _family in (overview, admin_access.router, google_login.router, telegram_login.router, email_smtp.router, backup_s3.router):
+for _family in (
+    overview,
+    admin_access.router,
+    google_login.router,
+    telegram_login.router,
+    receipt_ocr.router,
+    email_smtp.router,
+    backup_s3.router,
+):
     router.routes.extend(_family.routes)
 
 __all__ = [

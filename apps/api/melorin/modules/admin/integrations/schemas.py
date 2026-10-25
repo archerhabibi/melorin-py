@@ -56,3 +56,14 @@ class BackupS3In(BaseModel):
     prefix: str = Field("melorin", max_length=200)
     access_key: str = Field("", max_length=200)
     secret_key: str | None = Field(None, max_length=500)  # None keeps, "" clears
+
+
+class ReceiptOcrIn(BaseModel):
+    """``api_key``: ``None`` keeps the stored key, ``""`` clears it, anything else replaces it (never echoed back)."""
+
+    engine: str = Field("auto", max_length=12)
+    api_key: str | None = Field(None, max_length=400)
+    base_url: str = Field("https://api.anthropic.com", max_length=200)
+    model: str = Field("claude-haiku-5-5", max_length=100)
+    timeout_seconds: int = Field(25, ge=5, le=90)
+    tesseract_lang: str = Field("fas+eng", max_length=30)
