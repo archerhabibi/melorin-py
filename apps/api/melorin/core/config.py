@@ -139,6 +139,13 @@ class Settings(BaseSettings):
     cors_allow_headers: list[str] = ["Accept", "Authorization", "Content-Type", "Idempotency-Key", "X-Bot-Secret", "X-Request-ID"]
     storage_dir: str = "./var/storage"
     max_upload_bytes: int = 5 * 1024 * 1024
+    # Automatic reading of card-to-card receipts (docs/20-Card-Receipt-Auto-Verification.md): auto | vision | tesseract | off
+    receipt_ocr_engine: Literal["auto", "vision", "tesseract", "off"] = "auto"
+    receipt_ocr_api_key: str = ""  # vision engine only; the receipt image is sent to receipt_ocr_base_url
+    receipt_ocr_base_url: str = "https://api.anthropic.com"
+    receipt_ocr_model: str = "claude-haiku-5-5"
+    receipt_ocr_timeout_seconds: int = 25
+    receipt_ocr_tesseract_lang: str = "fas+eng"
     backup_dir: str = "./var/backups"
     backup_recipient_file: str = ""
     backup_offsite_uri: str = ""

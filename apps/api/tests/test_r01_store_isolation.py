@@ -208,10 +208,11 @@ def _customer_routes():
 
 def test_no_customer_route_exists_outside_a_store():
     """Every customer-facing accounts/orders/payments/notifications route is under /stores/{store_id}/ (the only global
-    one is the payment gateway's server-to-server callback)."""
+    ones are server-to-server: the payment gateway callback and the store's bank-SMS webhook)."""
     seen = list(_customer_routes())
     assert len(seen) > 10, "the guard must actually see the customer routes"
-    loose = [p for p in seen if "/stores/{store_id}/" not in p and not p.endswith("/payments/callbacks/{provider}")]
+    server_to_server = ("/payments/callbacks/{provider}", "/payments/bank-sms/{store_id}")  # token-authenticated, no user
+    loose = [p for p in seen if "/stores/{store_id}/" not in p and not p.endswith(server_to_server)]
     assert loose == [], f"customer routes without a store scope: {loose}"
 
 

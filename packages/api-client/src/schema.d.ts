@@ -555,6 +555,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/integrations/receipt-ocr": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Receipt Ocr */
+        put: operations["update_receipt_ocr_api_v1_admin_integrations_receipt_ocr_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/integrations/receipt-ocr/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Receipt Ocr
+         * @description Checks the saved setup end to end without any customer data. Vision: one tiny blank image to the provider.
+         */
+        post: operations["test_receipt_ocr_api_v1_admin_integrations_receipt_ocr_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/integrations/telegram": {
         parameters: {
             query?: never;
@@ -1295,6 +1332,159 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/stores/{store_id}/bank-sms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Bank Sms Overview */
+        get: operations["bank_sms_overview_api_v1_admin_stores__store_id__bank_sms_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/stores/{store_id}/bank-sms/reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Bank Sms Reconcile */
+        post: operations["bank_sms_reconcile_api_v1_admin_stores__store_id__bank_sms_reconcile_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/stores/{store_id}/bank-sms/source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Bank Sms Save Source */
+        put: operations["bank_sms_save_source_api_v1_admin_stores__store_id__bank_sms_source_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/stores/{store_id}/bank-sms/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Bank Sms Rotate Token */
+        post: operations["bank_sms_rotate_token_api_v1_admin_stores__store_id__bank_sms_token_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/stores/{store_id}/bank-sms/{sms_id}/ignore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Bank Sms Ignore */
+        post: operations["bank_sms_ignore_api_v1_admin_stores__store_id__bank_sms__sms_id__ignore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/stores/{store_id}/bank-sms/{sms_id}/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Bank Sms Link */
+        post: operations["bank_sms_link_api_v1_admin_stores__store_id__bank_sms__sms_id__link_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/stores/{store_id}/receipt-review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Receipt Review Queue */
+        get: operations["receipt_review_queue_api_v1_admin_stores__store_id__receipt_review_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/stores/{store_id}/receipt-review/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Receipt Review Settings */
+        put: operations["receipt_review_settings_api_v1_admin_stores__store_id__receipt_review_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/stores/{store_id}/receipt-review/{payment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Receipt Review Resolve */
+        post: operations["receipt_review_resolve_api_v1_admin_stores__store_id__receipt_review__payment_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/stores/{store_id}/reseller-prices": {
         parameters: {
             query?: never;
@@ -1990,6 +2180,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/payments/bank-sms/{store_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bank Sms Webhook
+         * @description Endpoint for an SMS-forwarder app on the store owner's phone. JSON or form body with ``text`` (+ ``sender``).
+         */
+        post: operations["bank_sms_webhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/payments/callbacks/{provider}": {
         parameters: {
             query?: never;
@@ -2581,7 +2791,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Upload Receipt */
+        /**
+         * Upload Receipt
+         * @description Receipt image + the facts printed on it. With bank-SMS auto verification the SMS (not the image) is the proof.
+         */
         post: operations["upload_receipt_api_v1_stores__store_id__payments__payment_id__receipt_post"];
         delete?: never;
         options?: never;
@@ -2752,6 +2965,108 @@ export interface paths {
         put?: never;
         /** Credential Action */
         post: operations["credential_action_api_v1_stores__store_id__reseller_api_credentials__cred_id___action__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/reseller/bank-sms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reseller Bank Sms Overview */
+        get: operations["reseller_bank_sms_overview_api_v1_stores__store_id__reseller_bank_sms_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/reseller/bank-sms/reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reseller Bank Sms Reconcile */
+        post: operations["reseller_bank_sms_reconcile_api_v1_stores__store_id__reseller_bank_sms_reconcile_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/reseller/bank-sms/source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Reseller Bank Sms Save Source */
+        put: operations["reseller_bank_sms_save_source_api_v1_stores__store_id__reseller_bank_sms_source_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/reseller/bank-sms/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reseller Bank Sms Rotate Token */
+        post: operations["reseller_bank_sms_rotate_token_api_v1_stores__store_id__reseller_bank_sms_token_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/reseller/bank-sms/{sms_id}/ignore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reseller Bank Sms Ignore */
+        post: operations["reseller_bank_sms_ignore_api_v1_stores__store_id__reseller_bank_sms__sms_id__ignore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/reseller/bank-sms/{sms_id}/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reseller Bank Sms Link */
+        post: operations["reseller_bank_sms_link_api_v1_stores__store_id__reseller_bank_sms__sms_id__link_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3093,6 +3408,57 @@ export interface paths {
         get: operations["profile_api_v1_stores__store_id__reseller_profile_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/reseller/receipt-review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reseller Receipt Review Queue */
+        get: operations["reseller_receipt_review_queue_api_v1_stores__store_id__reseller_receipt_review_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/reseller/receipt-review/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Reseller Receipt Review Settings */
+        put: operations["reseller_receipt_review_settings_api_v1_stores__store_id__reseller_receipt_review_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/reseller/receipt-review/{payment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reseller Receipt Review Resolve */
+        post: operations["reseller_receipt_review_resolve_api_v1_stores__store_id__reseller_receipt_review__payment_id__post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3784,10 +4150,48 @@ export interface components {
             /** Secret Key */
             secret_key?: string | null;
         };
+        /** BankSmsIgnoreIn */
+        BankSmsIgnoreIn: {
+            /**
+             * Ignored
+             * @default true
+             */
+            ignored: boolean;
+        };
+        /** BankSmsLinkIn */
+        BankSmsLinkIn: {
+            /**
+             * Payment Id
+             * Format: uuid
+             */
+            payment_id: string;
+        };
+        /**
+         * BankSmsSourceIn
+         * @description Everything is optional: only the sent fields change. The token is created with the source and shown once.
+         */
+        BankSmsSourceIn: {
+            /** Auto Verify */
+            auto_verify?: boolean | null;
+            /** Bank */
+            bank?: string | null;
+            /** Is Enabled */
+            is_enabled?: boolean | null;
+            /** Senders */
+            senders?: string[] | null;
+            /** Settings */
+            settings?: Record<string, never> | null;
+        };
         /** Body_upload_receipt_api_v1_stores__store_id__payments__payment_id__receipt_post */
         Body_upload_receipt_api_v1_stores__store_id__payments__payment_id__receipt_post: {
             /** File */
             file: string;
+            /** Paid At */
+            paid_at?: string | null;
+            /** Reference */
+            reference?: string | null;
+            /** Source Card Last4 */
+            source_card_last4?: string | null;
         };
         /** BotTokenIn */
         BotTokenIn: {
@@ -4305,6 +4709,29 @@ export interface components {
             /** Totp Code */
             totp_code?: string | null;
         };
+        /** GraceResolveIn */
+        GraceResolveIn: {
+            /** Approve */
+            approve: boolean;
+            /** Note */
+            note?: string | null;
+        };
+        /**
+         * GraceSettingsIn
+         * @description Time-boxed manual review settings (all optional: only the sent fields change).
+         */
+        GraceSettingsIn: {
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Max Amount Rial */
+            max_amount_rial?: number | null;
+            /** Max Exposure Rial */
+            max_exposure_rial?: number | null;
+            /** Max Open Per User */
+            max_open_per_user?: number | null;
+            /** Minutes */
+            minutes?: number | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -4674,6 +5101,8 @@ export interface components {
             provider: string;
             /** Purpose */
             purpose: string;
+            /** Receipt Read */
+            receipt_read?: Record<string, never> | null;
             /** Status */
             status: string;
             /**
@@ -4853,6 +5282,39 @@ export interface components {
             unit_price: number;
             /** Wallet Balance */
             wallet_balance: number;
+        };
+        /**
+         * ReceiptOcrIn
+         * @description ``api_key``: ``None`` keeps the stored key, ``""`` clears it, anything else replaces it (never echoed back).
+         */
+        ReceiptOcrIn: {
+            /** Api Key */
+            api_key?: string | null;
+            /**
+             * Base Url
+             * @default https://api.anthropic.com
+             */
+            base_url: string;
+            /**
+             * Engine
+             * @default auto
+             */
+            engine: string;
+            /**
+             * Model
+             * @default claude-haiku-5-5
+             */
+            model: string;
+            /**
+             * Tesseract Lang
+             * @default fas+eng
+             */
+            tesseract_lang: string;
+            /**
+             * Timeout Seconds
+             * @default 25
+             */
+            timeout_seconds: number;
         };
         /** RefreshRequest */
         RefreshRequest: {
@@ -6626,6 +7088,59 @@ export interface operations {
             };
         };
     };
+    update_receipt_ocr_api_v1_admin_integrations_receipt_ocr_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReceiptOcrIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_receipt_ocr_api_v1_admin_integrations_receipt_ocr_test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
     update_telegram_api_v1_admin_integrations_telegram_put: {
         parameters: {
             query?: never;
@@ -8176,6 +8691,310 @@ export interface operations {
             };
         };
     };
+    bank_sms_overview_api_v1_admin_stores__store_id__bank_sms_get: {
+        parameters: {
+            query?: {
+                status?: string | null;
+            };
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bank_sms_reconcile_api_v1_admin_stores__store_id__bank_sms_reconcile_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bank_sms_save_source_api_v1_admin_stores__store_id__bank_sms_source_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BankSmsSourceIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bank_sms_rotate_token_api_v1_admin_stores__store_id__bank_sms_token_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bank_sms_ignore_api_v1_admin_stores__store_id__bank_sms__sms_id__ignore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+                sms_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BankSmsIgnoreIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bank_sms_link_api_v1_admin_stores__store_id__bank_sms__sms_id__link_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+                sms_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BankSmsLinkIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    receipt_review_queue_api_v1_admin_stores__store_id__receipt_review_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    receipt_review_settings_api_v1_admin_stores__store_id__receipt_review_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GraceSettingsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    receipt_review_resolve_api_v1_admin_stores__store_id__receipt_review__payment_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+                payment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GraceResolveIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     reseller_store_prices_api_v1_admin_stores__store_id__reseller_prices_get: {
         parameters: {
             query?: never;
@@ -9383,6 +10202,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WebHandoffOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bank_sms_webhook: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Webhook-Token"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -10918,6 +11771,208 @@ export interface operations {
             };
         };
     };
+    reseller_bank_sms_overview_api_v1_stores__store_id__reseller_bank_sms_get: {
+        parameters: {
+            query?: {
+                status?: string | null;
+            };
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reseller_bank_sms_reconcile_api_v1_stores__store_id__reseller_bank_sms_reconcile_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reseller_bank_sms_save_source_api_v1_stores__store_id__reseller_bank_sms_source_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BankSmsSourceIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reseller_bank_sms_rotate_token_api_v1_stores__store_id__reseller_bank_sms_token_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reseller_bank_sms_ignore_api_v1_stores__store_id__reseller_bank_sms__sms_id__ignore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sms_id: string;
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BankSmsIgnoreIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reseller_bank_sms_link_api_v1_stores__store_id__reseller_bank_sms__sms_id__link_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sms_id: string;
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BankSmsLinkIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     branding_api_v1_stores__store_id__reseller_branding_patch: {
         parameters: {
             query?: never;
@@ -11628,6 +12683,108 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reseller_receipt_review_queue_api_v1_stores__store_id__reseller_receipt_review_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reseller_receipt_review_settings_api_v1_stores__store_id__reseller_receipt_review_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GraceSettingsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reseller_receipt_review_resolve_api_v1_stores__store_id__reseller_receipt_review__payment_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payment_id: string;
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GraceResolveIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

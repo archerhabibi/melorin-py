@@ -66,7 +66,7 @@ Port 80/443 already used by another proxy? The menu detects it and switches to [
 | Area | What you get |
 |---|---|
 | **Stores** | One main store plus reseller stores, each with its own currency, wallets, payment destinations, domain (on-demand TLS) and Telegram bot; strict store isolation |
-| **Checkout** | Wallet-first purchase; manual card receipts and Zarinpal only top up the current store wallet; double-entry ledger |
+| **Checkout** | Wallet-first purchase; manual card receipts (auto-verified against the bank deposit SMS, see `docs/20-Card-Receipt-Auto-Verification.md`) and Zarinpal only top up the current store wallet; double-entry ledger |
 | **Catalog** | Sales bundles over several panels, per-store pricing, coupons (scope, quotas, per-customer limits, time windows, maximum discount) |
 | **Provisioning** | Automatic account creation on Sanaei, PasarGuard (and a Mock adapter); retry, manual review, reconciliation, renewal and inquiry |
 | **Resellers** | Two-step applications (web or bot), debt limit, scoped Reseller API with signed outgoing webhooks, per-reseller pricing |

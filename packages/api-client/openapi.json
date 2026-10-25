@@ -630,12 +630,139 @@
         "title": "BackupS3In",
         "type": "object"
       },
+      "BankSmsIgnoreIn": {
+        "properties": {
+          "ignored": {
+            "default": true,
+            "title": "Ignored",
+            "type": "boolean"
+          }
+        },
+        "title": "BankSmsIgnoreIn",
+        "type": "object"
+      },
+      "BankSmsLinkIn": {
+        "properties": {
+          "payment_id": {
+            "format": "uuid",
+            "title": "Payment Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "payment_id"
+        ],
+        "title": "BankSmsLinkIn",
+        "type": "object"
+      },
+      "BankSmsSourceIn": {
+        "additionalProperties": false,
+        "description": "Everything is optional: only the sent fields change. The token is created with the source and shown once.",
+        "properties": {
+          "auto_verify": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auto Verify"
+          },
+          "bank": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bank"
+          },
+          "is_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Enabled"
+          },
+          "senders": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Senders"
+          },
+          "settings": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Settings"
+          }
+        },
+        "title": "BankSmsSourceIn",
+        "type": "object"
+      },
       "Body_upload_receipt_api_v1_stores__store_id__payments__payment_id__receipt_post": {
         "properties": {
           "file": {
             "contentMediaType": "application/octet-stream",
             "title": "File",
             "type": "string"
+          },
+          "paid_at": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paid At"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference"
+          },
+          "source_card_last4": {
+            "anyOf": [
+              {
+                "maxLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Card Last4"
           }
         },
         "required": [
@@ -1951,6 +2078,94 @@
         "title": "GoogleLogin",
         "type": "object"
       },
+      "GraceResolveIn": {
+        "properties": {
+          "approve": {
+            "title": "Approve",
+            "type": "boolean"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "required": [
+          "approve"
+        ],
+        "title": "GraceResolveIn",
+        "type": "object"
+      },
+      "GraceSettingsIn": {
+        "additionalProperties": false,
+        "description": "Time-boxed manual review settings (all optional: only the sent fields change).",
+        "properties": {
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "max_amount_rial": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Amount Rial"
+          },
+          "max_exposure_rial": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Exposure Rial"
+          },
+          "max_open_per_user": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Open Per User"
+          },
+          "minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minutes"
+          }
+        },
+        "title": "GraceSettingsIn",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -2995,6 +3210,17 @@
             "title": "Purpose",
             "type": "string"
           },
+          "receipt_read": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Receipt Read"
+          },
           "status": {
             "title": "Status",
             "type": "string"
@@ -3573,6 +3799,56 @@
           "sufficient_funds"
         ],
         "title": "QuoteWalletOut",
+        "type": "object"
+      },
+      "ReceiptOcrIn": {
+        "description": "``api_key``: ``None`` keeps the stored key, ``\"\"`` clears it, anything else replaces it (never echoed back).",
+        "properties": {
+          "api_key": {
+            "anyOf": [
+              {
+                "maxLength": 400,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key"
+          },
+          "base_url": {
+            "default": "https://api.anthropic.com",
+            "maxLength": 200,
+            "title": "Base Url",
+            "type": "string"
+          },
+          "engine": {
+            "default": "auto",
+            "maxLength": 12,
+            "title": "Engine",
+            "type": "string"
+          },
+          "model": {
+            "default": "claude-haiku-5-5",
+            "maxLength": 100,
+            "title": "Model",
+            "type": "string"
+          },
+          "tesseract_lang": {
+            "default": "fas+eng",
+            "maxLength": 30,
+            "title": "Tesseract Lang",
+            "type": "string"
+          },
+          "timeout_seconds": {
+            "default": 25,
+            "maximum": 90.0,
+            "minimum": 5.0,
+            "title": "Timeout Seconds",
+            "type": "integer"
+          }
+        },
+        "title": "ReceiptOcrIn",
         "type": "object"
       },
       "RefreshRequest": {
@@ -7254,6 +7530,77 @@
         ]
       }
     },
+    "/api/v1/admin/integrations/receipt-ocr": {
+      "put": {
+        "operationId": "update_receipt_ocr_api_v1_admin_integrations_receipt_ocr_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReceiptOcrIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Receipt Ocr",
+        "tags": [
+          "admin",
+          "admin-integrations"
+        ]
+      }
+    },
+    "/api/v1/admin/integrations/receipt-ocr/test": {
+      "post": {
+        "description": "Checks the saved setup end to end without any customer data. Vision: one tiny blank image to the provider.",
+        "operationId": "test_receipt_ocr_api_v1_admin_integrations_receipt_ocr_test_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Test Receipt Ocr",
+        "tags": [
+          "admin",
+          "admin-integrations"
+        ]
+      }
+    },
     "/api/v1/admin/integrations/telegram": {
       "put": {
         "operationId": "update_telegram_api_v1_admin_integrations_telegram_put",
@@ -9651,6 +9998,516 @@
         ]
       }
     },
+    "/api/v1/admin/stores/{store_id}/bank-sms": {
+      "get": {
+        "operationId": "bank_sms_overview_api_v1_admin_stores__store_id__bank_sms_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Bank Sms Overview",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/stores/{store_id}/bank-sms/reconcile": {
+      "post": {
+        "operationId": "bank_sms_reconcile_api_v1_admin_stores__store_id__bank_sms_reconcile_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Bank Sms Reconcile",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/stores/{store_id}/bank-sms/source": {
+      "put": {
+        "operationId": "bank_sms_save_source_api_v1_admin_stores__store_id__bank_sms_source_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BankSmsSourceIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Bank Sms Save Source",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/stores/{store_id}/bank-sms/token": {
+      "post": {
+        "operationId": "bank_sms_rotate_token_api_v1_admin_stores__store_id__bank_sms_token_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Bank Sms Rotate Token",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/stores/{store_id}/bank-sms/{sms_id}/ignore": {
+      "post": {
+        "operationId": "bank_sms_ignore_api_v1_admin_stores__store_id__bank_sms__sms_id__ignore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sms_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Sms Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BankSmsIgnoreIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Bank Sms Ignore",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/stores/{store_id}/bank-sms/{sms_id}/link": {
+      "post": {
+        "operationId": "bank_sms_link_api_v1_admin_stores__store_id__bank_sms__sms_id__link_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sms_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Sms Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BankSmsLinkIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Bank Sms Link",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/stores/{store_id}/receipt-review": {
+      "get": {
+        "operationId": "receipt_review_queue_api_v1_admin_stores__store_id__receipt_review_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Receipt Review Queue",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/stores/{store_id}/receipt-review/settings": {
+      "put": {
+        "operationId": "receipt_review_settings_api_v1_admin_stores__store_id__receipt_review_settings_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GraceSettingsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Receipt Review Settings",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/stores/{store_id}/receipt-review/{payment_id}": {
+      "post": {
+        "operationId": "receipt_review_resolve_api_v1_admin_stores__store_id__receipt_review__payment_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "payment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Payment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GraceResolveIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Receipt Review Resolve",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/admin/stores/{store_id}/reseller-prices": {
       "get": {
         "description": "READ-ONLY: the retail prices a reseller store charges. Only the reseller sets them (reseller panel / bot).",
@@ -11497,6 +12354,80 @@
         "summary": "Create Web Handoff",
         "tags": [
           "me"
+        ]
+      }
+    },
+    "/api/v1/payments/bank-sms/{store_id}": {
+      "post": {
+        "description": "Endpoint for an SMS-forwarder app on the store owner's phone. JSON or form body with ``text`` (+ ``sender``).",
+        "operationId": "bank_sms_webhook",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Webhook-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Webhook-Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bank Sms Webhook",
+        "tags": [
+          "payments"
         ]
       }
     },
@@ -13376,6 +14307,7 @@
     },
     "/api/v1/stores/{store_id}/payments/{payment_id}/receipt": {
       "post": {
+        "description": "Receipt image + the facts printed on it. With bank-SMS auto verification the SMS (not the image) is the proof.",
         "operationId": "upload_receipt_api_v1_stores__store_id__payments__payment_id__receipt_post",
         "parameters": [
           {
@@ -14071,6 +15003,348 @@
           }
         ],
         "summary": "Credential Action",
+        "tags": [
+          "reseller"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/reseller/bank-sms": {
+      "get": {
+        "operationId": "reseller_bank_sms_overview_api_v1_stores__store_id__reseller_bank_sms_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reseller Bank Sms Overview",
+        "tags": [
+          "reseller"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/reseller/bank-sms/reconcile": {
+      "post": {
+        "operationId": "reseller_bank_sms_reconcile_api_v1_stores__store_id__reseller_bank_sms_reconcile_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reseller Bank Sms Reconcile",
+        "tags": [
+          "reseller"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/reseller/bank-sms/source": {
+      "put": {
+        "operationId": "reseller_bank_sms_save_source_api_v1_stores__store_id__reseller_bank_sms_source_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BankSmsSourceIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reseller Bank Sms Save Source",
+        "tags": [
+          "reseller"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/reseller/bank-sms/token": {
+      "post": {
+        "operationId": "reseller_bank_sms_rotate_token_api_v1_stores__store_id__reseller_bank_sms_token_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reseller Bank Sms Rotate Token",
+        "tags": [
+          "reseller"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/reseller/bank-sms/{sms_id}/ignore": {
+      "post": {
+        "operationId": "reseller_bank_sms_ignore_api_v1_stores__store_id__reseller_bank_sms__sms_id__ignore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sms_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Sms Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BankSmsIgnoreIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reseller Bank Sms Ignore",
+        "tags": [
+          "reseller"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/reseller/bank-sms/{sms_id}/link": {
+      "post": {
+        "operationId": "reseller_bank_sms_link_api_v1_stores__store_id__reseller_bank_sms__sms_id__link_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sms_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Sms Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BankSmsLinkIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reseller Bank Sms Link",
         "tags": [
           "reseller"
         ]
@@ -15273,6 +16547,174 @@
           }
         ],
         "summary": "Profile",
+        "tags": [
+          "reseller"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/reseller/receipt-review": {
+      "get": {
+        "operationId": "reseller_receipt_review_queue_api_v1_stores__store_id__reseller_receipt_review_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reseller Receipt Review Queue",
+        "tags": [
+          "reseller"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/reseller/receipt-review/settings": {
+      "put": {
+        "operationId": "reseller_receipt_review_settings_api_v1_stores__store_id__reseller_receipt_review_settings_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GraceSettingsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reseller Receipt Review Settings",
+        "tags": [
+          "reseller"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/reseller/receipt-review/{payment_id}": {
+      "post": {
+        "operationId": "reseller_receipt_review_resolve_api_v1_stores__store_id__reseller_receipt_review__payment_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "payment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Payment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GraceResolveIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reseller Receipt Review Resolve",
         "tags": [
           "reseller"
         ]

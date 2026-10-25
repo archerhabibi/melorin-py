@@ -19,6 +19,7 @@ BACKUP_S3_KEY = PREFIX + "backup_s3"
 ADMIN_ACCESS_KEY = PREFIX + "admin_access"
 GOOGLE_KEY = PREFIX + "google_login"
 TELEGRAM_KEY = PREFIX + "telegram_login"
+RECEIPT_OCR_KEY = PREFIX + "receipt_ocr"
 
 EMAIL_DEFAULT: dict = {
     "enabled": False,
@@ -59,6 +60,18 @@ TELEGRAM_DEFAULT: dict = {
 }
 TELEGRAM_CLIENT_ID_RE = re.compile(r"^[0-9]{5,20}$")  # a bot's numeric ID (the part of the bot token before ':')
 TELEGRAM_TTL_MIN, TELEGRAM_TTL_MAX = 60, 600
+# Automatic reading of card-to-card receipt images. A panel-saved config wins; until the admin saves one the legacy
+# ``MELORIN_RECEIPT_OCR_*`` environment values keep working. The API key is Fernet-encrypted and never returned.
+RECEIPT_OCR_ENGINES = ("auto", "vision", "tesseract", "off")
+RECEIPT_OCR_DEFAULT: dict = {
+    "engine": "auto",
+    "api_key_enc": None,
+    "base_url": "https://api.anthropic.com",
+    "model": "claude-haiku-5-5",
+    "timeout_seconds": 25,
+    "tesseract_lang": "fas+eng",
+}
+RECEIPT_OCR_TIMEOUT_MIN, RECEIPT_OCR_TIMEOUT_MAX = 5, 90
 
 
 def is_integration_key(key: str) -> bool:
@@ -104,6 +117,42 @@ async def get_telegram(session: AsyncSession) -> dict:
         "number_match": bool(s.telegram_web_login_number_match),
         "ttl_seconds": int(s.telegram_web_login_ttl_seconds),
         "source": "default",
+    }
+
+
+async def get_receipt_ocr(session: AsyncSession) -> dict:
+    """Effective receipt-OCR config: the panel-saved one, else the environment values (``source`` says which)."""
+    stored = await settings_store.get(session, RECEIPT_OCR_KEY)
+    if isinstance(stored, dict):
+        return {**RECEIPT_OCR_DEFAULT, **stored, "source": "panel"}
+    return {**receipt_ocr_from_env(), "source": "env"}
+
+
+def receipt_ocr_from_env() -> dict:
+    s = get_settings()
+    return {
+        "engine": s.receipt_ocr_engine,
+        "api_key_enc": encrypt(s.receipt_ocr_api_key) if s.receipt_ocr_api_key else None,
+        "base_url": s.receipt_ocr_base_url,
+        "model": s.receipt_ocr_model,
+        "timeout_seconds": s.receipt_ocr_timeout_seconds,
+        "tesseract_lang": s.receipt_ocr_tesseract_lang,
+    }
+
+
+def receipt_ocr_key(cfg: dict) -> str:
+    return decrypt(cfg.get("api_key_enc")) or ""
+
+
+def public_receipt_ocr(cfg: dict) -> dict:
+    return {
+        "engine": cfg["engine"],
+        "base_url": cfg["base_url"],
+        "model": cfg["model"],
+        "timeout_seconds": cfg["timeout_seconds"],
+        "tesseract_lang": cfg["tesseract_lang"],
+        "api_key_set": bool(cfg.get("api_key_enc")),
+        "source": cfg.get("source", "panel"),
     }
 
 
