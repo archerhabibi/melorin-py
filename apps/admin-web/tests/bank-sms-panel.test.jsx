@@ -45,6 +45,7 @@ function setup({ src = source(), messages = [deposit()], put } = {}) {
   const call = vi.fn(async (path, o = {}) => {
     calls.push([o.method || 'GET', path, o.body]);
     if (path === '/api/v1/me/stores') return json([{ id: STORE, kind: 'main' }]);
+    if (path.endsWith('/receipt-review')) return json({ error: 'n/a' }, 404);
     if (o.method === 'PUT') return put ? put() : json({ source: src, token: null });
     if (o.method === 'POST') return json({ ok: true, matched: 0 });
     return json({ source: src, messages });

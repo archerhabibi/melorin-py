@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Copy, KeyRound, RefreshCw, ShieldCheck, Smartphone } from 'lucide-react';
 import { Empty, Field, Section, Switch, errText, num } from './kit.jsx';
 import { confirmDialog, dt } from './ui.jsx';
+import ReceiptReviewPanel from './ReceiptReviewPanel.jsx';
 
 const STATUS = {
   matched: ['شارژ شد', 'b-ok'],
@@ -166,234 +167,243 @@ export default function BankSmsPanel({ call, toast, payments }) {
   const webhook = `${window.location.origin}/api/v1/payments/bank-sms/${s.store_id}`;
 
   return (
-    <Section
-      title="تأیید خودکار کارت‌به‌کارت با پیامک بانک"
-      hint="پیامک واریز بانک مبنای تأیید است، نه عکس رسید. فقط وقتی مبلغ، زمان رسید و پیامک بدون ابهام یکی باشند، کیف پول خودکار شارژ می‌شود."
-    >
-      {token && (
-        <div className="rounded-xl border border-[var(--bd)] p-3 text-xs" role="alert">
-          <b>توکن وبهوک پیامک</b> — فقط همین یک‌بار نمایش داده می‌شود:
-          <code dir="ltr" className="mt-2 block break-all rounded-lg bg-[var(--bg2)] p-2 font-mono">
-            {token}
-          </code>
-          <div className="mt-2 flex gap-2">
-            <button className="btn btn-g !py-1.5" onClick={() => navigator.clipboard?.writeText(token)}>
-              <Copy size={13} /> کپی
-            </button>
-            <button className="btn btn-g !py-1.5" onClick={() => setToken(null)}>
-              بستن
-            </button>
+    <>
+      <ReceiptReviewPanel
+        call={call}
+        toast={toast}
+        base={`/api/v1/admin/stores/${store}`}
+        receiptPath={(id) => `/api/v1/admin/payments/${id}/receipt`}
+        onChanged={load}
+      />
+      <Section
+        title="تأیید خودکار کارت‌به‌کارت با پیامک بانک"
+        hint="پیامک واریز بانک مبنای تأیید است، نه عکس رسید. فقط وقتی مبلغ، زمان رسید و پیامک بدون ابهام یکی باشند، کیف پول خودکار شارژ می‌شود."
+      >
+        {token && (
+          <div className="rounded-xl border border-[var(--bd)] p-3 text-xs" role="alert">
+            <b>توکن وبهوک پیامک</b> — فقط همین یک‌بار نمایش داده می‌شود:
+            <code dir="ltr" className="mt-2 block break-all rounded-lg bg-[var(--bg2)] p-2 font-mono">
+              {token}
+            </code>
+            <div className="mt-2 flex gap-2">
+              <button className="btn btn-g !py-1.5" onClick={() => navigator.clipboard?.writeText(token)}>
+                <Copy size={13} /> کپی
+              </button>
+              <button className="btn btn-g !py-1.5" onClick={() => setToken(null)}>
+                بستن
+              </button>
+            </div>
           </div>
+        )}
+        <div className="flex flex-wrap items-center gap-4">
+          <span className={`badge ${live ? 'b-ok' : 'b-mu'}`}>
+            <ShieldCheck size={13} /> {live ? 'شارژ خودکار فعال' : 'شارژ خودکار غیرفعال'}
+          </span>
+          <label className="flex items-center gap-2 text-xs font-bold">
+            <Switch
+              checked={form.auto_verify}
+              onChange={(v) => setForm({ ...form, auto_verify: v })}
+              label="شارژ خودکار"
+            />
+            شارژ خودکار پس از تطبیق
+          </label>
+          <label className="flex items-center gap-2 text-xs font-bold">
+            <Switch
+              checked={form.is_enabled}
+              onChange={(v) => setForm({ ...form, is_enabled: v })}
+              label="دریافت پیامک"
+            />
+            دریافت پیامک فعال
+          </label>
+          <label className="flex items-center gap-2 text-xs font-bold">
+            <Switch
+              checked={form.require_claimed_time}
+              onChange={(v) => setForm({ ...form, require_claimed_time: v })}
+              label="زمان رسید الزامی"
+            />
+            زمان رسید الزامی (توصیه‌شده)
+          </label>
         </div>
-      )}
-      <div className="flex flex-wrap items-center gap-4">
-        <span className={`badge ${live ? 'b-ok' : 'b-mu'}`}>
-          <ShieldCheck size={13} /> {live ? 'شارژ خودکار فعال' : 'شارژ خودکار غیرفعال'}
-        </span>
-        <label className="flex items-center gap-2 text-xs font-bold">
-          <Switch
-            checked={form.auto_verify}
-            onChange={(v) => setForm({ ...form, auto_verify: v })}
-            label="شارژ خودکار"
-          />
-          شارژ خودکار پس از تطبیق
-        </label>
-        <label className="flex items-center gap-2 text-xs font-bold">
-          <Switch
-            checked={form.is_enabled}
-            onChange={(v) => setForm({ ...form, is_enabled: v })}
-            label="دریافت پیامک"
-          />
-          دریافت پیامک فعال
-        </label>
-        <label className="flex items-center gap-2 text-xs font-bold">
-          <Switch
-            checked={form.require_claimed_time}
-            onChange={(v) => setForm({ ...form, require_claimed_time: v })}
-            label="زمان رسید الزامی"
-          />
-          زمان رسید الزامی (توصیه‌شده)
-        </label>
-      </div>
-      <div className="grid gap-3 md:grid-cols-2">
-        <Field label="بازه‌ی پذیرش (دقیقه)" hint="پیامک تا این مدت بعد از درخواست شارژ پذیرفته می‌شود">
-          <input
-            dir="ltr"
-            inputMode="numeric"
-            className="inp"
-            value={form.window_minutes}
-            onChange={set('window_minutes')}
-          />
-        </Field>
-        <Field label="اختلاف مجاز زمان (دقیقه)" hint="اختلاف زمان رسید و پیامک">
-          <input
-            dir="ltr"
-            inputMode="numeric"
-            className="inp"
-            value={form.time_tolerance_minutes}
-            onChange={set('time_tolerance_minutes')}
-          />
-        </Field>
-        <Field label="سقف شارژ خودکار (ریال)" hint="خالی = بدون سقف؛ مبلغ بیشتر همیشه دستی بررسی می‌شود">
-          <input
-            dir="ltr"
-            inputMode="numeric"
-            className="inp"
-            value={form.max_auto_amount_rial}
-            onChange={set('max_auto_amount_rial')}
-          />
-        </Field>
-        <Field label="شماره حساب (خط اول پیامک)" hint="اگر پر شود، پیامک حساب‌های دیگر نادیده گرفته می‌شود">
-          <input
-            dir="ltr"
-            inputMode="numeric"
-            className="inp"
-            value={form.account_number}
-            onChange={set('account_number')}
-          />
-        </Field>
-        <Field label="فرستنده‌های مجاز (هر خط یکی)" hint="خالی = هر فرستنده">
-          <textarea dir="ltr" rows={2} className="inp font-mono" value={form.senders} onChange={set('senders')} />
-        </Field>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <button className="btn btn-p" disabled={busy === 'save'} onClick={save}>
-          {s.configured ? 'ذخیره' : 'فعال‌سازی و ساخت توکن'}
-        </button>
+        <div className="grid gap-3 md:grid-cols-2">
+          <Field label="بازه‌ی پذیرش (دقیقه)" hint="پیامک تا این مدت بعد از درخواست شارژ پذیرفته می‌شود">
+            <input
+              dir="ltr"
+              inputMode="numeric"
+              className="inp"
+              value={form.window_minutes}
+              onChange={set('window_minutes')}
+            />
+          </Field>
+          <Field label="اختلاف مجاز زمان (دقیقه)" hint="اختلاف زمان رسید و پیامک">
+            <input
+              dir="ltr"
+              inputMode="numeric"
+              className="inp"
+              value={form.time_tolerance_minutes}
+              onChange={set('time_tolerance_minutes')}
+            />
+          </Field>
+          <Field label="سقف شارژ خودکار (ریال)" hint="خالی = بدون سقف؛ مبلغ بیشتر همیشه دستی بررسی می‌شود">
+            <input
+              dir="ltr"
+              inputMode="numeric"
+              className="inp"
+              value={form.max_auto_amount_rial}
+              onChange={set('max_auto_amount_rial')}
+            />
+          </Field>
+          <Field label="شماره حساب (خط اول پیامک)" hint="اگر پر شود، پیامک حساب‌های دیگر نادیده گرفته می‌شود">
+            <input
+              dir="ltr"
+              inputMode="numeric"
+              className="inp"
+              value={form.account_number}
+              onChange={set('account_number')}
+            />
+          </Field>
+          <Field label="فرستنده‌های مجاز (هر خط یکی)" hint="خالی = هر فرستنده">
+            <textarea dir="ltr" rows={2} className="inp font-mono" value={form.senders} onChange={set('senders')} />
+          </Field>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button className="btn btn-p" disabled={busy === 'save'} onClick={save}>
+            {s.configured ? 'ذخیره' : 'فعال‌سازی و ساخت توکن'}
+          </button>
+          {s.configured && (
+            <>
+              <button className="btn btn-g" disabled={busy === 'rotate'} onClick={rotate}>
+                <KeyRound size={14} /> توکن جدید{s.token_hint ? ` (…${s.token_hint})` : ''}
+              </button>
+              <button className="btn btn-g" disabled={busy === 'reconcile'} onClick={reconcile}>
+                <RefreshCw size={14} /> بررسی دوباره
+              </button>
+            </>
+          )}
+        </div>
+        {s.configured && (
+          <div className="rounded-xl bg-[var(--bg2)] p-3 text-xs leading-6">
+            <b className="flex items-center gap-1.5">
+              <Smartphone size={14} /> اتصال گوشی
+            </b>
+            در برنامه‌ی SMS Forwarder یک وبهوک POST (JSON) بسازید:
+            <code dir="ltr" className="mt-1 block break-all font-mono">
+              POST {webhook}
+              <br />
+              X-Webhook-Token: &lt;token&gt;
+              <br />
+              {'{"text": "<متن پیامک>", "sender": "<فرستنده>"}'}
+            </code>
+            <span className="text-[var(--mu)]">
+              آخرین پیامک دریافتی: {s.last_received_at ? dt(s.last_received_at) : 'هنوز دریافت نشده'}
+            </span>
+          </div>
+        )}
         {s.configured && (
           <>
-            <button className="btn btn-g" disabled={busy === 'rotate'} onClick={rotate}>
-              <KeyRound size={14} /> توکن جدید{s.token_hint ? ` (…${s.token_hint})` : ''}
-            </button>
-            <button className="btn btn-g" disabled={busy === 'reconcile'} onClick={reconcile}>
-              <RefreshCw size={14} /> بررسی دوباره
-            </button>
-          </>
-        )}
-      </div>
-      {s.configured && (
-        <div className="rounded-xl bg-[var(--bg2)] p-3 text-xs leading-6">
-          <b className="flex items-center gap-1.5">
-            <Smartphone size={14} /> اتصال گوشی
-          </b>
-          در برنامه‌ی SMS Forwarder یک وبهوک POST (JSON) بسازید:
-          <code dir="ltr" className="mt-1 block break-all font-mono">
-            POST {webhook}
-            <br />
-            X-Webhook-Token: &lt;token&gt;
-            <br />
-            {'{"text": "<متن پیامک>", "sender": "<فرستنده>"}'}
-          </code>
-          <span className="text-[var(--mu)]">
-            آخرین پیامک دریافتی: {s.last_received_at ? dt(s.last_received_at) : 'هنوز دریافت نشده'}
-          </span>
-        </div>
-      )}
-      {s.configured && (
-        <>
-          <div className="flex items-center justify-between gap-3">
-            <h4 className="text-xs font-extrabold">پیامک‌های دریافتی</h4>
-            <select
-              aria-label="فیلتر وضعیت پیامک"
-              className="inp !w-auto !py-1.5 !text-xs"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-            >
-              <option value="">همه</option>
-              {Object.entries(STATUS).map(([k, [l]]) => (
-                <option key={k} value={k}>
-                  {l}
-                </option>
-              ))}
-            </select>
-          </div>
-          {!data.messages.length ? (
-            <Empty
-              Icon={Smartphone}
-              title="پیامکی دریافت نشده است"
-              text="پس از اتصال گوشی، پیامک‌های واریز بانک اینجا نمایش داده می‌شوند."
-            />
-          ) : (
-            <div className="overflow-auto">
-              <table className="tbl2 min-w-[640px]">
-                <thead>
-                  <tr>
-                    <th>مبلغ (ریال)</th>
-                    <th>زمان پیامک</th>
-                    <th>شماره حساب</th>
-                    <th>وضعیت</th>
-                    <th className="!text-left">اقدام</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.messages.map((m) => {
-                    const [label, tone] = STATUS[m.status] || [m.status, 'b-mu'];
-                    const same = waiting.filter(
-                      (p) => m.amount_rial && (p.currency === 'IRR' ? p.amount : p.amount * 10) === m.amount_rial,
-                    );
-                    return (
-                      <tr key={m.id}>
-                        <td dir="ltr" className="font-bold">
-                          {m.direction === 'withdrawal' ? '−' : ''}
-                          {m.amount_rial ? num(m.amount_rial) : '—'}
-                        </td>
-                        <td className="text-xs">{m.occurred_at ? dt(m.occurred_at) : '—'}</td>
-                        <td dir="ltr" className="font-mono text-[11px]">
-                          {m.serial || '—'}
-                        </td>
-                        <td>
-                          <span className={`badge ${tone}`}>{label}</span>
-                          {m.balance_gap && (
-                            <div className="mt-1 text-[11px] text-[var(--bd)]">مانده با پیامک قبلی نمی‌خواند</div>
-                          )}
-                        </td>
-                        <td>
-                          {(m.status === 'unmatched' || m.status === 'ambiguous') && (
-                            <span className="flex flex-wrap justify-end gap-1.5">
-                              {same.length > 0 && (
-                                <select
-                                  className="inp !w-auto !py-1.5 !text-xs"
-                                  aria-label="اتصال به پرداخت"
+            <div className="flex items-center justify-between gap-3">
+              <h4 className="text-xs font-extrabold">پیامک‌های دریافتی</h4>
+              <select
+                aria-label="فیلتر وضعیت پیامک"
+                className="inp !w-auto !py-1.5 !text-xs"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+              >
+                <option value="">همه</option>
+                {Object.entries(STATUS).map(([k, [l]]) => (
+                  <option key={k} value={k}>
+                    {l}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {!data.messages.length ? (
+              <Empty
+                Icon={Smartphone}
+                title="پیامکی دریافت نشده است"
+                text="پس از اتصال گوشی، پیامک‌های واریز بانک اینجا نمایش داده می‌شوند."
+              />
+            ) : (
+              <div className="overflow-auto">
+                <table className="tbl2 min-w-[640px]">
+                  <thead>
+                    <tr>
+                      <th>مبلغ (ریال)</th>
+                      <th>زمان پیامک</th>
+                      <th>شماره حساب</th>
+                      <th>وضعیت</th>
+                      <th className="!text-left">اقدام</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.messages.map((m) => {
+                      const [label, tone] = STATUS[m.status] || [m.status, 'b-mu'];
+                      const same = waiting.filter(
+                        (p) => m.amount_rial && (p.currency === 'IRR' ? p.amount : p.amount * 10) === m.amount_rial,
+                      );
+                      return (
+                        <tr key={m.id}>
+                          <td dir="ltr" className="font-bold">
+                            {m.direction === 'withdrawal' ? '−' : ''}
+                            {m.amount_rial ? num(m.amount_rial) : '—'}
+                          </td>
+                          <td className="text-xs">{m.occurred_at ? dt(m.occurred_at) : '—'}</td>
+                          <td dir="ltr" className="font-mono text-[11px]">
+                            {m.serial || '—'}
+                          </td>
+                          <td>
+                            <span className={`badge ${tone}`}>{label}</span>
+                            {m.balance_gap && (
+                              <div className="mt-1 text-[11px] text-[var(--bd)]">مانده با پیامک قبلی نمی‌خواند</div>
+                            )}
+                          </td>
+                          <td>
+                            {(m.status === 'unmatched' || m.status === 'ambiguous') && (
+                              <span className="flex flex-wrap justify-end gap-1.5">
+                                {same.length > 0 && (
+                                  <select
+                                    className="inp !w-auto !py-1.5 !text-xs"
+                                    aria-label="اتصال به پرداخت"
+                                    disabled={busy === m.id}
+                                    value=""
+                                    onChange={(e) => link(m, e.target.value)}
+                                  >
+                                    <option value="">اتصال به پرداخت…</option>
+                                    {same.map((p) => (
+                                      <option key={p.id} value={p.id}>
+                                        {num(p.amount)} · {dt(p.created_at)}
+                                      </option>
+                                    ))}
+                                  </select>
+                                )}
+                                <button
+                                  className="btn btn-g !py-1.5"
                                   disabled={busy === m.id}
-                                  value=""
-                                  onChange={(e) => link(m, e.target.value)}
+                                  onClick={() => ignore(m, true)}
                                 >
-                                  <option value="">اتصال به پرداخت…</option>
-                                  {same.map((p) => (
-                                    <option key={p.id} value={p.id}>
-                                      {num(p.amount)} · {dt(p.created_at)}
-                                    </option>
-                                  ))}
-                                </select>
-                              )}
+                                  نادیده
+                                </button>
+                              </span>
+                            )}
+                            {m.status === 'ignored' && m.direction === 'deposit' && (
                               <button
                                 className="btn btn-g !py-1.5"
                                 disabled={busy === m.id}
-                                onClick={() => ignore(m, true)}
+                                onClick={() => ignore(m, false)}
                               >
-                                نادیده
+                                بازگردانی
                               </button>
-                            </span>
-                          )}
-                          {m.status === 'ignored' && m.direction === 'deposit' && (
-                            <button
-                              className="btn btn-g !py-1.5"
-                              disabled={busy === m.id}
-                              onClick={() => ignore(m, false)}
-                            >
-                              بازگردانی
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </>
-      )}
-    </Section>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        )}
+      </Section>
+    </>
   );
 }

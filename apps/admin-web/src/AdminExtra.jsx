@@ -14,6 +14,7 @@ const BroadcastView = lazy(() => import('./BroadcastView.jsx'));
 const EventCenterView = lazy(() => import('./EventCenterView.jsx'));
 const ResellersView = lazy(() => import('./ResellersView.jsx'));
 const GoogleLoginSettings = lazy(() => import('./GoogleLoginSettings.jsx'));
+const ReceiptOcrSettings = lazy(() => import('./ReceiptOcrSettings.jsx'));
 const TelegramLoginSettings = lazy(() => import('./TelegramLoginSettings.jsx'));
 const IdentityReviewsView = lazy(() => import('./IdentityReviewsView.jsx'));
 const money = (n) => new Intl.NumberFormat('fa-IR').format(n || 0);
@@ -629,6 +630,7 @@ function Settings({ api, toast }) {
       <ChangeAdminPassword api={api} toast={toast} />
       <GoogleLoginSettings api={api} toast={toast} />
       <TelegramLoginSettings api={api} toast={toast} />
+      <ReceiptOcrSettings api={api} toast={toast} />
       <Integrations api={api} toast={toast} />
       <Table
         title="Feature Flags"
