@@ -48,6 +48,7 @@ export default function ResellerBankSms({ coreFetch, base, notify }) {
       time_tolerance_minutes: String(s.settings.time_tolerance_minutes),
       require_claimed_time: !!s.settings.require_claimed_time,
       max_auto_amount_rial: s.settings.max_auto_amount_rial ? String(s.settings.max_auto_amount_rial) : '',
+      account_number: s.settings.account_number || '',
     });
   };
   const load = useCallback(async () => {
@@ -83,6 +84,7 @@ export default function ResellerBankSms({ coreFetch, base, notify }) {
           time_tolerance_minutes: toInt(form.time_tolerance_minutes),
           require_claimed_time: form.require_claimed_time,
           max_auto_amount_rial: toInt(form.max_auto_amount_rial),
+          account_number: String(form.account_number).replace(/\s/g, '') || null,
         },
       };
       const r = await coreFetch(`${url}/source`, { method: 'PUT', headers: J, body: JSON.stringify(body) });
@@ -188,6 +190,19 @@ export default function ResellerBankSms({ coreFetch, base, notify }) {
           {num('time_tolerance_minutes', 'اختلاف مجاز زمان (دقیقه)', 'اختلاف زمان رسید و پیامک')}
           {num('max_auto_amount_rial', 'سقف شارژ خودکار (ریال)', 'خالی = بدون سقف؛ مبلغ بیشتر همیشه دستی بررسی می‌شود')}
           <label className="text-xs font-bold">
+            شماره حساب (خط اول پیامک)
+            <input
+              dir="ltr"
+              inputMode="numeric"
+              className="input latin mt-1 !py-2.5"
+              value={form.account_number}
+              onChange={set('account_number')}
+            />
+            <span className="mt-1 block font-normal text-muted">
+              اگر پر شود، پیامک حساب‌های دیگر نادیده گرفته می‌شود
+            </span>
+          </label>
+          <label className="text-xs font-bold">
             فرستنده‌های مجاز (هر خط یکی)
             <textarea
               rows={2}
@@ -262,7 +277,7 @@ export default function ResellerBankSms({ coreFetch, base, notify }) {
               <tr>
                 <th>مبلغ (ریال)</th>
                 <th>زمان پیامک</th>
-                <th>سریال</th>
+                <th>شماره حساب</th>
                 <th>وضعیت</th>
                 <th></th>
               </tr>

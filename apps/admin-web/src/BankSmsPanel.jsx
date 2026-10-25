@@ -39,6 +39,7 @@ export default function BankSmsPanel({ call, toast, payments }) {
       time_tolerance_minutes: String(s.settings.time_tolerance_minutes),
       require_claimed_time: !!s.settings.require_claimed_time,
       max_auto_amount_rial: s.settings.max_auto_amount_rial ? String(s.settings.max_auto_amount_rial) : '',
+      account_number: s.settings.account_number || '',
     });
   };
 
@@ -88,6 +89,7 @@ export default function BankSmsPanel({ call, toast, payments }) {
           time_tolerance_minutes: toInt(form.time_tolerance_minutes),
           require_claimed_time: form.require_claimed_time,
           max_auto_amount_rial: toInt(form.max_auto_amount_rial),
+          account_number: String(form.account_number).replace(/\s/g, '') || null,
         },
       };
       const r = await call(`${base}/source`, { method: 'PUT', headers: JSON_H, body: JSON.stringify(body) });
@@ -241,6 +243,15 @@ export default function BankSmsPanel({ call, toast, payments }) {
             onChange={set('max_auto_amount_rial')}
           />
         </Field>
+        <Field label="شماره حساب (خط اول پیامک)" hint="اگر پر شود، پیامک حساب‌های دیگر نادیده گرفته می‌شود">
+          <input
+            dir="ltr"
+            inputMode="numeric"
+            className="inp"
+            value={form.account_number}
+            onChange={set('account_number')}
+          />
+        </Field>
         <Field label="فرستنده‌های مجاز (هر خط یکی)" hint="خالی = هر فرستنده">
           <textarea dir="ltr" rows={2} className="inp font-mono" value={form.senders} onChange={set('senders')} />
         </Field>
@@ -309,7 +320,7 @@ export default function BankSmsPanel({ call, toast, payments }) {
                   <tr>
                     <th>مبلغ (ریال)</th>
                     <th>زمان پیامک</th>
-                    <th>سریال</th>
+                    <th>شماره حساب</th>
                     <th>وضعیت</th>
                     <th className="!text-left">اقدام</th>
                   </tr>

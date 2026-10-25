@@ -309,10 +309,17 @@ function Wallet({ coreFetch, storeId, wallet, reload, notify }) {
       setBusy(false);
     }
   }
-  // The facts printed on the receipt (time, last 4 card digits, reference) are what the bank deposit SMS is matched
-  // against; the image itself is only kept for a human reviewer. Digits may be typed in any script: Core normalizes.
-  const [rc, setRc] = useState({ file: null, paid_at: '', last4: '', reference: '' });
+  // Core reads the time, amount, card tail and reference from the image by itself (OCR / vision); the customer only picks the
+  // photo. If Core could not read the time, a one-field fallback appears: the bank SMS stays the proof either way.
+  const [rc, setRc] = useState({ file: null, paid_at: '' });
+  const [read, setRead] = useState(null);
   const [sending, setSending] = useState(false);
+  const resetReceipt = () => {
+    setPay(null);
+    setAmount('');
+    setRc({ file: null, paid_at: '' });
+    setRead(null);
+  };
   async function receipt() {
     if (!rc.file || sending) return;
     setSending(true);
@@ -320,8 +327,6 @@ function Wallet({ coreFetch, storeId, wallet, reload, notify }) {
       const fd_ = new FormData();
       fd_.append('file', rc.file);
       if (rc.paid_at.trim()) fd_.append('paid_at', rc.paid_at.trim());
-      if (rc.last4.trim()) fd_.append('source_card_last4', rc.last4.trim());
-      if (rc.reference.trim()) fd_.append('reference', rc.reference.trim());
       const r = await coreFetch(`/api/v1/stores/${storeId}/payments/${pay.id}/receipt`, { method: 'POST', body: fd_ });
       if (!r.ok) {
         let msg = 'ارسال رسید ناموفق بود';
@@ -334,16 +339,20 @@ function Wallet({ coreFetch, storeId, wallet, reload, notify }) {
         return;
       }
       const done = await r.json().catch(() => ({}));
-      notify(
-        done.status === 'succeeded'
-          ? 'پرداخت با پیامک بانک تأیید شد و کیف پول شما شارژ شد ✅'
-          : 'رسید ثبت شد؛ به محض رسیدن تأییدیه‌ی بانک خودکار شارژ می‌شود، وگرنه پس از بررسی.',
-      );
-      setPay(null);
-      setAmount('');
-      setRc({ file: null, paid_at: '', last4: '', reference: '' });
-      reload();
-      load();
+      if (done.status === 'succeeded') {
+        notify('پرداخت با پیامک بانک تأیید شد و کیف پول شما شارژ شد ✅');
+        resetReceipt();
+        reload();
+        load();
+      } else if (!done.receipt_read?.paid_at) {
+        setRead({ unread: true });
+        notify('زمان رسید خوانده نشد؛ لطفاً آن را وارد کنید.');
+      } else {
+        setRead({ unread: false, at: done.receipt_read.paid_at });
+        notify('رسید خوانده شد؛ به محض رسیدن تأییدیه‌ی بانک، کیف پول خودکار شارژ می‌شود.');
+        reload();
+        load();
+      }
     } finally {
       setSending(false);
     }
@@ -396,47 +405,38 @@ function Wallet({ coreFetch, storeId, wallet, reload, notify }) {
                   onChange={(e) => setRc({ ...rc, file: e.target.files[0] || null })}
                 />
               </label>
-              <label className="mt-3 block text-xs font-bold">
-                زمان درج‌شده روی رسید
-                <input
-                  dir="ltr"
-                  className={`${inp} mt-1 latin`}
-                  inputMode="numeric"
-                  placeholder="1405/08/02 22:50"
-                  value={rc.paid_at}
-                  onChange={(e) => setRc({ ...rc, paid_at: e.target.value })}
-                />
-              </label>
-              <div className="mt-3 grid grid-cols-2 gap-3">
-                <label className="text-xs font-bold">
-                  ۴ رقم آخر کارت مبدأ
+              {read?.unread && (
+                <label className="mt-3 block text-xs font-bold">
+                  زمان درج‌شده روی رسید (خوانده نشد)
                   <input
                     dir="ltr"
                     className={`${inp} mt-1 latin`}
                     inputMode="numeric"
-                    maxLength={4}
-                    placeholder="6219"
-                    value={rc.last4}
-                    onChange={(e) => setRc({ ...rc, last4: e.target.value })}
+                    placeholder="1405/08/02 22:50"
+                    value={rc.paid_at}
+                    onChange={(e) => setRc({ ...rc, paid_at: e.target.value })}
                   />
                 </label>
-                <label className="text-xs font-bold">
-                  شماره مرجع (اختیاری)
-                  <input
-                    dir="ltr"
-                    className={`${inp} mt-1 latin`}
-                    inputMode="numeric"
-                    value={rc.reference}
-                    onChange={(e) => setRc({ ...rc, reference: e.target.value })}
-                  />
-                </label>
-              </div>
-              <p className="mt-2 text-xs leading-6 text-muted">
-                با ثبت دقیق زمان رسید، شارژ شما بلافاصله پس از تأیید بانک و بدون انتظار برای بررسی دستی انجام می‌شود.
-              </p>
-              <button disabled={!rc.file || sending} onClick={receipt} className={`${btn} mt-3 w-full`}>
-                {sending ? 'در حال ارسال…' : 'ارسال رسید'}
-              </button>
+              )}
+              {read && !read.unread && (
+                <p className="mt-3 rounded-xl bg-accent-soft p-3 text-xs leading-6">
+                  رسید ثبت شد و زمان آن خوانده شد ({fd(read.at)}). منتظر تأییدیه‌ی بانک هستیم؛ نیازی به کار دیگری نیست.
+                </p>
+              )}
+              {!read || read.unread ? (
+                <>
+                  <p className="mt-2 text-xs leading-6 text-muted">
+                    فقط تصویر رسید را بفرستید؛ زمان و مبلغ به‌صورت خودکار از روی آن خوانده می‌شود.
+                  </p>
+                  <button disabled={!rc.file || sending} onClick={receipt} className={`${btn} mt-3 w-full`}>
+                    {sending ? 'در حال خواندن رسید…' : read?.unread ? 'ثبت زمان و بررسی دوباره' : 'ارسال رسید'}
+                  </button>
+                </>
+              ) : (
+                <button onClick={resetReceipt} className={`${btn} mt-3 w-full`}>
+                  بستن
+                </button>
+              )}
             </>
           )}
         </div>

@@ -36,6 +36,13 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-25 UTC - claude - payments/receipt-ocr
+- **Before:** the customer had to type the receipt time, card tail and reference; the SMS "serial" was treated as a transaction id.
+- **Problem:** typing is friction and error-prone; the first SMS line is really the *account number*, so two same-amount deposits in one minute would have collapsed into one SMS.
+- **Action:** `domain/receipt_text.py` (receipt text/JSON -> facts, Luhn/mask-aware card tail), `modules/payments/receipt_ocr.py` (vision LLM or local tesseract engine, never raises), receipt upload now reads the image (typed values only override), receipt amount mismatch blocks auto-pay, `PaymentOut.receipt_read`, SMS fingerprint includes the balance, optional `account_number` pin, settings `MELORIN_RECEIPT_OCR_*`, tesseract-fas in the API image; store-web receipt form reduced to the photo (+ one fallback field), panels show the account number.
+- **After:** new tests (`test_receipt_ocr.py`) and the whole suite pass; measured limitation: local Persian tesseract misreads the Blu bank receipt font (amount 1,000,000 instead of 1,500,000), so the vision engine is the recommended production setting.
+- **Ref:** branch `feat/auto-card-receipt-verification`
+
 ### 2026-10-25 UTC - claude - payments/card-receipt-auto-verification
 - **Before:** card-to-card top-ups waited for a human to look at the receipt image; the image itself was trusted by nobody and checked by hand.
 - **Problem:** manual review delays wallet charging (often at night) and a screenshot proves nothing; the store owner's bank already sends an authoritative deposit SMS.

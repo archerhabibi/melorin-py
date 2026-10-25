@@ -27,7 +27,7 @@ WORKDIR /app
 COPY --from=pgdg-key /out/apt.postgresql.org.gpg /usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg
 RUN echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg] http://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
     && apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates age rclone postgresql-client-16 \
+    && apt-get install -y --no-install-recommends ca-certificates age rclone postgresql-client-16 tesseract-ocr tesseract-ocr-fas tesseract-ocr-eng \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=venv /opt/venv /opt/venv
 RUN useradd --create-home --uid 10001 appuser

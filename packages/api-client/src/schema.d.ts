@@ -4939,6 +4939,8 @@ export interface components {
             provider: string;
             /** Purpose */
             purpose: string;
+            /** Receipt Read */
+            receipt_read?: Record<string, never> | null;
             /** Status */
             status: string;
             /**

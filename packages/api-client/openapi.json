@@ -3122,6 +3122,17 @@
             "title": "Purpose",
             "type": "string"
           },
+          "receipt_read": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Receipt Read"
+          },
           "status": {
             "title": "Status",
             "type": "string"
