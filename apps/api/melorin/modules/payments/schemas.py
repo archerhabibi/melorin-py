@@ -22,6 +22,15 @@ class PaymentOut(BaseModel):
     has_receipt: bool
     instructions: dict | None
     created_at: dt.datetime
+    receipt_read: dict | None = None  # facts read off the receipt image (time, amount, card tail, reference)
+
+
+def _receipt_read(p) -> dict | None:
+    claim = (p.meta or {}).get("receipt_claim")
+    if not claim:
+        return None
+    keys = ("paid_at", "amount_rial", "source_card_last4", "reference", "source", "ocr_engine")
+    return {k: claim.get(k) for k in keys}
 
 
 def payment_out(p) -> PaymentOut:
@@ -38,6 +47,7 @@ def payment_out(p) -> PaymentOut:
         has_receipt=p.receipt_file_id is not None,
         instructions=(p.meta or {}).get("instructions"),
         created_at=p.created_at,
+        receipt_read=_receipt_read(p),
     )
 
 

@@ -41,6 +41,7 @@ _SETTING_RULES = (
     ("time_tolerance_minutes", int, 0, 30, 2),
     ("require_claimed_time", bool, None, None, True),
     ("max_auto_amount_rial", int, 1, 10**13, None),
+    ("account_number", str, 8, 26, None),
 )
 
 
@@ -65,6 +66,10 @@ def clean_settings(raw: dict | None) -> dict:
         if kind is bool:
             if not isinstance(value, bool):
                 raise AppError("BANK_SMS_SETTING_INVALID", f"مقدار «{key}» باید درست/نادرست باشد.", 422)
+        elif kind is str:
+            value = dom.digits_only(value) if isinstance(value, str) else ""
+            if not (lo <= len(value) <= hi):
+                raise AppError("BANK_SMS_SETTING_INVALID", "شماره حساب باید فقط عدد و بین ۸ تا ۲۶ رقم باشد.", 422)
         else:
             if isinstance(value, bool) or not isinstance(value, int) or not (lo <= value <= hi):
                 raise AppError("BANK_SMS_SETTING_INVALID", f"مقدار «{key}» باید عددی بین {lo} و {hi} باشد.", 422)
@@ -106,6 +111,7 @@ def source_out(src: BankSmsSource | None, *, store_id: uuid.UUID | None = None) 
             "time_tolerance_minutes": (s or {}).get("time_tolerance_minutes", 2),
             "require_claimed_time": (s or {}).get("require_claimed_time", True),
             "max_auto_amount_rial": (s or {}).get("max_auto_amount_rial"),
+            "account_number": (s or {}).get("account_number"),
         },
         "last_received_at": src.last_received_at if src else None,
     }
@@ -247,7 +253,9 @@ async def _candidates(session: AsyncSession, store: Store) -> tuple[list[dom.Can
                 claimed = _aware(dt.datetime.fromisoformat(claim["paid_at"]))
             except ValueError:
                 claimed = None
-        out.append(dom.Candidate(str(p.id), rial, _aware(p.created_at), claimed))
+        seen = claim.get("amount_rial")
+        blocked = "receipt_amount_mismatch" if isinstance(seen, int) and seen != rial else None
+        out.append(dom.Candidate(str(p.id), rial, _aware(p.created_at), claimed, blocked))
         by_id[str(p.id)] = p
     return out, by_id
 
@@ -417,6 +425,26 @@ async def ingest(session: AsyncSession, src: BankSmsSource, text: str, *, sender
     if existing:
         await session.commit()
         return existing, False
+    account = (src.settings or {}).get("account_number")
+    if account and parsed.serial != account:
+        # The phone forwards every SMS; one that belongs to another account must never pay this store's receipts.
+        m = BankSmsMessage(
+            store_id=src.store_id,
+            source_id=src.id,
+            fingerprint=parsed.fingerprint,
+            serial=parsed.serial,
+            direction=parsed.direction,
+            amount_rial=parsed.amount_rial,
+            balance_rial=parsed.balance_rial,
+            occurred_at=parsed.occurred_at,
+            sender=sender,
+            raw_text=text,
+            status="ignored",
+            note="other_account",
+        )
+        session.add(m)
+        await session.commit()
+        return m, True
     gap = False
     if parsed.balance_rial is not None and parsed.direction in ("deposit", "withdrawal"):
         prev = await session.scalar(
@@ -521,6 +549,20 @@ async def set_ignored(
     )
     await session.commit()
     return sms
+
+
+def build_claim(customer: dict, facts, engine: str | None) -> dict:
+    """What we know about the receipt: the OCR/vision reading, overridden by anything the customer typed explicitly."""
+    claim: dict = dict(facts.to_claim()) if facts is not None else {}
+    paid = claim.get("paid_at")
+    if paid and _aware(dt.datetime.fromisoformat(paid)) > utcnow() + dt.timedelta(minutes=10):
+        claim.pop("paid_at")  # a time in the future is a misread, never a fact
+    claim.update(customer)
+    claim["source"] = "customer" if customer.get("paid_at") else ("ocr" if claim.get("paid_at") else "none")
+    if engine:
+        claim["ocr_engine"] = engine
+        claim["ocr_ok"] = bool(facts is not None and facts.found)
+    return claim
 
 
 def parse_claim(paid_at: str | None, reference: str | None, card_last4: str | None) -> dict:

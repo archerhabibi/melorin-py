@@ -11,7 +11,7 @@ from melorin.core.errors import AppError
 from melorin.core.scope import StoreScope
 from melorin.core.storage import get_storage, validate_upload
 from melorin.core.ratelimit import RateLimit
-from melorin.modules.payments import bank_sms, service
+from melorin.modules.payments import bank_sms, receipt_ocr, service
 from melorin.kernel.models.payments import Payment
 from melorin.modules.payments.schemas import PaymentOut, TopupRequest, payment_out
 from melorin.kernel.models.system import FileObject
@@ -60,6 +60,7 @@ async def upload_receipt(
     ctx: StoreCtx,
     session: Session,
     file: UploadFile = File(...),
+    # Optional: the facts are read from the image automatically; typed values only override / fill what could not be read.
     paid_at: str | None = Form(default=None, max_length=40),
     reference: str | None = Form(default=None, max_length=40),
     source_card_last4: str | None = Form(default=None, max_length=8),
@@ -67,7 +68,7 @@ async def upload_receipt(
     """Receipt image + the facts printed on it. With bank-SMS auto verification the SMS (not the image) is the proof."""
     user = ctx.user
     p = await StoreScope.of(ctx).get(session, Payment, payment_id, "پرداخت")
-    claim = bank_sms.parse_claim(paid_at, reference, source_card_last4)
+    typed = bank_sms.parse_claim(paid_at, reference, source_card_last4)
     limit = get_settings().max_upload_bytes
     data = bytearray()
     while chunk := await file.read(1024 * 1024):
@@ -76,6 +77,8 @@ async def upload_receipt(
             raise AppError("FILE_TOO_LARGE", "حجم فایل زیاد است.", 413)
     data = bytes(data)
     digest = validate_upload(data, file.content_type or "")
+    facts, engine = await receipt_ocr.read_receipt(data, file.content_type or "")
+    claim = bank_sms.build_claim(typed, facts, engine)
     key = await get_storage().put(data, file.content_type)
     fo = FileObject(
         owner_user_id=user.id,

@@ -154,10 +154,15 @@ _BALANCE_RE = re.compile(r"(?:مانده|موجودی|balance)\s*[:：]?\s*(-?\d
 _SERIAL_RE = re.compile(r"(?<![\d,])(\d{8,})(?![\d,])")
 
 
-def fingerprint_of(serial: str | None, amount: int, occurred_at: dt.datetime, text: str) -> str:
-    """Stable identity of one SMS so a forwarder retry never creates a second row (and never a second credit)."""
+def fingerprint_of(serial: str | None, amount: int, occurred_at: dt.datetime, text: str, balance: int | None = None) -> str:
+    """Stable identity of one SMS so a forwarder retry never creates a second row (and never a second credit).
+
+    The first line of the SMS is the *account number* (the same for every deposit), not a per-transaction id. What tells two
+    deposits of the same amount in the same minute apart is the balance printed after each of them, so it is part of the
+    identity; a retry of one SMS carries the same balance and still collapses into one row.
+    """
     base = f"serial:{serial}" if serial else f"text:{re.sub(r'\s+', ' ', normalize_text(text)).strip()}"
-    return hashlib.sha256(f"{base}|{amount}|{occurred_at.isoformat()}".encode()).hexdigest()
+    return hashlib.sha256(f"{base}|{amount}|{occurred_at.isoformat()}|{balance if balance is not None else ''}".encode()).hexdigest()
 
 
 def parse_deposit_sms(text: str, *, bank: str = "mehr_iran") -> ParsedSms:
@@ -203,7 +208,7 @@ def parse_deposit_sms(text: str, *, bank: str = "mehr_iran") -> ParsedSms:
         occurred_at=occurred_at,
         serial=serial,
         balance_rial=balance,
-        fingerprint=fingerprint_of(serial, amount, occurred_at, raw),
+        fingerprint=fingerprint_of(serial, amount, occurred_at, raw, balance),
         warnings=tuple(warnings),
     )
 
@@ -246,7 +251,8 @@ class Candidate:
     payment_id: str
     amount_rial: int
     created_at: dt.datetime  # aware UTC
-    claimed_paid_at: dt.datetime | None = None  # time the customer read off the receipt, aware UTC
+    claimed_paid_at: dt.datetime | None = None  # time read off the receipt (OCR or customer), aware UTC
+    blocked: str | None = None  # reason this receipt must never be paid automatically (e.g. receipt amount != request)
 
 
 @dataclass(frozen=True)
@@ -265,6 +271,8 @@ def eligible(sms: ParsedSms, c: Candidate, s: MatchSettings) -> tuple[bool, str]
     """Hard rules; every one must hold for a receipt to be paid by this SMS."""
     if sms.direction != "deposit":
         return False, "not_a_deposit"
+    if c.blocked:
+        return False, c.blocked
     if c.amount_rial != sms.amount_rial:
         return False, "amount_mismatch"
     created = _aware(c.created_at)
