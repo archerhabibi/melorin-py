@@ -171,3 +171,44 @@ async def test_settings_are_validated():
         for bad in ({"minutes": 0}, {"minutes": 61}, {"max_amount_rial": -1}, {"enabled": "yes"}):
             r = await c.put(f"{ADMIN}/stores/{main.id}/receipt-review/settings", json=bad, headers=admin)
             assert r.status_code == 422, (bad, r.text)
+
+
+async def test_a_candidate_decided_by_a_human_meanwhile_is_not_credited_provisionally():
+    async with api_client() as (c, maker, main):
+        h, sid = await _login(c, maker)
+        await _card(maker, main)
+        admin = await _admin(c, maker)
+        await _enable(c, admin, main.id)
+        pid = await _topup(c, h, sid, key="grace-key-s1")
+        async with maker() as stale:
+            cfg = await provisional.get_config(stale, main.id)
+            candidate = await stale.get(Payment, uuid.UUID(pid))  # read by the sweep before the human decided
+            r = await c.post(f"{ADMIN}/payments/{pid}/review", json={"approve": False, "reason": "fake receipt"}, headers=admin)
+            assert r.status_code == 200 and r.json()["status"] == "failed"
+            assert await provisional._approve(stale, candidate, cfg) is False  # no false credit, no false notification
+        assert await _balance(maker, sid) == 0
+        async with maker() as s:
+            p = await s.get(Payment, uuid.UUID(pid))
+            assert (p.meta.get("provisional") or {}).get("state") != "open"
+
+
+async def test_one_failing_payment_does_not_stop_the_rest_of_the_sweep(monkeypatch):
+    async with api_client() as (c, maker, main):
+        h, sid = await _login(c, maker)
+        await _card(maker, main)
+        admin = await _admin(c, maker)
+        await _enable(c, admin, main.id, max_open_per_user=5)
+        first = await _topup_unique(c, h, sid, key="grace-key-f1", n=1)
+        await _topup_unique(c, h, sid, key="grace-key-f2", n=2)
+        real = provisional._approve
+
+        async def flaky(session, p, cfg):
+            if str(p.id) == first:
+                raise RuntimeError("boom")
+            return await real(session, p, cfg)
+
+        monkeypatch.setattr(provisional, "_approve", flaky)
+        async with maker() as s:
+            out = await provisional.run_store(s, await s.get(Store, main.id), now=utcnow() + dt.timedelta(minutes=10))
+        assert out["credited"] == 1 and out["failed"] == 1
+        assert await _balance(maker, sid) == 150_000

@@ -16,6 +16,7 @@ given to anything that looks wrong:
 from __future__ import annotations
 
 import datetime as dt
+import logging
 import uuid
 
 from sqlalchemy import select
@@ -32,6 +33,7 @@ from melorin.kernel.models.system import FileObject
 from melorin.modules.payments import service as payments
 from melorin.modules.wallet import service as wallet
 
+log = logging.getLogger(__name__)
 P = PaymentStatus
 KEY = "payments.grace.{}"
 DEFAULT: dict = {"enabled": False, "minutes": 5, "max_amount_rial": 5_000_000, "max_exposure_rial": 20_000_000, "max_open_per_user": 1}
@@ -167,7 +169,18 @@ async def _notify(session: AsyncSession, store_id: uuid.UUID, text: str) -> None
     await events.emit(session, events.EVENT_CENTER, {"store_id": store_id, "topic": "payments", "text": text})
 
 
-async def _approve(session: AsyncSession, p: Payment, cfg: dict) -> None:
+async def _approve(session: AsyncSession, p: Payment, cfg: dict) -> bool:
+    """Credit one waiting receipt provisionally. Returns False (and writes nothing) if a human or an SMS got there first.
+
+    The row is locked and re-read *before* the decision: the candidate list was read earlier, so an admin may have
+    confirmed/rejected the payment since. Without this a stale candidate produced a false "provisional credit" audit
+    record and notification (or a 409 that aborted the whole sweep).
+    """
+    locked = await session.get(Payment, p.id, with_for_update=True, populate_existing=True)
+    if locked is None or locked.status != P.AWAITING_REVIEW or (state(locked) or {}).get("state") in ("open", "confirmed", "revoked"):
+        await session.commit()  # nothing changed: just release the row lock (a rollback would expire every loaded row)
+        return False
+    p = locked
     p.meta = {
         **(p.meta or {}),
         "provisional": {
@@ -194,19 +207,24 @@ async def _approve(session: AsyncSession, p: Payment, cfg: dict) -> None:
         f"⏳ تأیید موقت پس از {int(cfg['minutes'])} دقیقه بدون بررسی\nمبلغ: {p.amount:,}\nلطفاً هرچه زودتر بررسی کنید.\nشناسه: {p.id}",
     )
     await session.commit()
+    return True
 
 
 async def run_store(session: AsyncSession, store: Store, *, now: dt.datetime | None = None) -> dict:
     """Credit provisionally every receipt of this store that waited long enough and passes every guard."""
-    cfg = await get_config(session, store.id)
+    store_id = store.id  # keep the plain id: a rollback below expires every ORM object, `store` included
+    cfg = await get_config(session, store_id)
     out = {"credited": 0, "blocked": {}}
     if not cfg["enabled"]:
         return out
     now = now or utcnow()
-    history = await _store_payments(session, store.id)
-    waiting = sorted((x for x in history if x.status == P.AWAITING_REVIEW and x.receipt_file_id), key=lambda x: x.created_at)
-    for p in waiting:
-        if now < auto_approve_at(p, cfg) or (state(p) or {}).get("state") in ("blocked",):
+    history = await _store_payments(session, store_id)
+    waiting_ids = [
+        x.id for x in sorted((x for x in history if x.status == P.AWAITING_REVIEW and x.receipt_file_id), key=lambda x: x.created_at)
+    ]
+    for pid in waiting_ids:
+        p = next((x for x in history if x.id == pid), None)
+        if p is None or now < auto_approve_at(p, cfg) or (state(p) or {}).get("state") in ("blocked",):
             continue
         reason = await _block_reason(session, p, cfg, history)
         if reason:
@@ -219,11 +237,13 @@ async def run_store(session: AsyncSession, store: Store, *, now: dt.datetime | N
             out["blocked"][reason] = out["blocked"].get(reason, 0) + 1
             continue
         try:
-            await _approve(session, p, cfg)
-            out["credited"] += 1
-        except Exception:
-            await session.rollback()
-            raise
+            if await _approve(session, p, cfg):
+                out["credited"] += 1
+        except Exception:  # one bad payment must not stop the others from being reviewed on time
+            await session.rollback()  # expires every loaded row, so re-read the history before the next receipt
+            log.warning("provisional credit failed for payment %s", pid, exc_info=True)
+            out["failed"] = out.get("failed", 0) + 1
+            history = await _store_payments(session, store_id)
     return out
 
 

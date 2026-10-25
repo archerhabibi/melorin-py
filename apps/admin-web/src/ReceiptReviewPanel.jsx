@@ -124,6 +124,7 @@ export default function ReceiptReviewPanel({ call, toast, base, receiptPath, onC
   const apply = useCallback((d) => {
     setData(d);
     skew.current = d.now ? new Date(d.now).getTime() - Date.now() : 0;
+    setNow(Date.now() + skew.current); // sync the clock immediately, not on the next 1s tick
     setForm(
       (f) =>
         f || {
