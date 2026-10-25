@@ -35,6 +35,7 @@ function setup({ src = source(), messages = [sms()], payments = [], put } = {}) 
   const coreFetch = vi.fn(async (path, o = {}) => {
     calls.push([o.method || 'GET', path, o.body]);
     if (path.startsWith(`${BASE}/payments`)) return res(payments);
+    if (path.endsWith('/receipt-review')) return res({ error: 'n/a' }, 404);
     if (o.method === 'PUT') return put ? put() : res({ source: src, token: null });
     if (o.method === 'POST') return res({ ok: true, matched: 1 });
     return res({ source: src, messages });

@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { CheckCircle2, Copy, KeyRound, RefreshCw, ShieldCheck, Smartphone } from 'lucide-react';
 import { Loading, fa, fd } from './ui.jsx';
+import ResellerReceiptReview from './ResellerReceiptReview.jsx';
 
 const J = { 'Content-Type': 'application/json' };
 const chip = 'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold';
@@ -146,6 +147,7 @@ export default function ResellerBankSms({ coreFetch, base, notify }) {
   );
   return (
     <div className="space-y-4">
+      <ResellerReceiptReview coreFetch={coreFetch} base={base} notify={notify} />
       {token && (
         <div className="rounded-2xl border border-danger/30 bg-danger-soft p-4 text-sm" role="alert">
           <b>توکن وبهوک پیامک</b> — فقط همین یک‌بار نمایش داده می‌شود:
