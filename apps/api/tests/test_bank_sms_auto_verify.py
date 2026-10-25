@@ -116,6 +116,31 @@ async def test_receipt_then_sms_credits_the_wallet_automatically():
         assert await _balance(maker, sid) == 150_000
 
 
+async def test_sms_stamped_three_minutes_after_the_receipt_still_credits():
+    """Real case: a Mellat receipt said 21:07, the bank SMS said 21:10."""
+    async with api_client() as (c, maker, main):
+        h, sid = await _login(c, maker)
+        token = await _setup_source(maker, main.id)
+        when = _minute()
+        pid = await _topup(c, h, sid, paid_at=dom.utc_to_jalali_text(when - dt.timedelta(minutes=3)))
+        assert (await _sms(c, main.id, token, sms_text(when=when))).json()["status"] == "matched"
+        assert await _balance(maker, sid) == 150_000
+        assert (await c.get(f"/api/v1/stores/{sid}/payments/{pid}", headers=h)).json()["status"] == "succeeded"
+
+
+async def test_receipt_printed_with_a_twelve_hour_clock_credits_once():
+    """Real case: Asan Pardakht printed 03:44 for a 15:44 transfer."""
+    async with api_client() as (c, maker, main):
+        h, sid = await _login(c, maker)
+        token = await _setup_source(maker, main.id)
+        when = _minute()
+        await _topup(c, h, sid, paid_at=dom.utc_to_jalali_text(when - dt.timedelta(hours=12)))
+        text = sms_text(when=when)
+        assert (await _sms(c, main.id, token, text)).json()["status"] == "matched"
+        assert (await _sms(c, main.id, token, text)).json()["duplicate"] is True
+        assert await _balance(maker, sid) == 150_000
+
+
 async def test_sms_then_receipt_credits_when_the_receipt_arrives():
     async with api_client() as (c, maker, main):
         h, sid = await _login(c, maker)
