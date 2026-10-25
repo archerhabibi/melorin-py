@@ -238,10 +238,11 @@ def to_rial(amount: int, currency: str) -> int | None:
 @dataclass(frozen=True)
 class MatchSettings:
     window_minutes: int = 720  # how long a deposit SMS may lag behind / precede the payment request
-    time_tolerance_minutes: int = 2  # |receipt time - SMS time| (both have minute resolution)
+    time_tolerance_minutes: int = 5  # |receipt time - SMS time|; minute resolution, and real SMS lag was measured at 3 min
     require_claimed_time: bool = True  # the customer must state the time printed on the receipt
     max_auto_amount_rial: int | None = None  # larger deposits are always reviewed by a human
     clock_skew_seconds: int = 120  # an SMS may be stamped slightly before the payment row was created
+    accept_12h_clock: bool = True  # some bank apps print 03:44 for 15:44 (12-hour clock, no AM/PM); see claimed_distance
 
 
 @dataclass(frozen=True)
@@ -267,6 +268,28 @@ def _aware(value: dt.datetime) -> dt.datetime:
     return value if value.tzinfo else value.replace(tzinfo=dt.timezone.utc)
 
 
+_HALF_DAY = dt.timedelta(hours=12)
+
+
+def claimed_distance(claimed: dt.datetime, sms_time: dt.datetime, s: MatchSettings) -> tuple[dt.timedelta, bool]:
+    """``(distance, shifted)`` between the time printed on a receipt and the SMS time.
+
+    Some bank apps show a 12-hour clock without AM/PM (a 15:44 transfer printed as 03:44). When enabled, a claimed time that
+    is a whole half-day away is also tried, and the closest reading wins; ``shifted`` tells the caller it was needed. This
+    cannot pay a receipt by itself: amount, the request window, candidate uniqueness and the SMS itself are all still required.
+    """
+    claimed, sms_time = _aware(claimed), _aware(sms_time)
+    direct = abs(claimed - sms_time)
+    if not s.accept_12h_clock:
+        return direct, False
+    best, shifted = direct, False
+    for delta in (_HALF_DAY, -_HALF_DAY):
+        d = abs(claimed + delta - sms_time)
+        if d < best:
+            best, shifted = d, True
+    return best, shifted
+
+
 def eligible(sms: ParsedSms, c: Candidate, s: MatchSettings) -> tuple[bool, str]:
     """Hard rules; every one must hold for a receipt to be paid by this SMS."""
     if sms.direction != "deposit":
@@ -284,8 +307,12 @@ def eligible(sms: ParsedSms, c: Candidate, s: MatchSettings) -> tuple[bool, str]
     if c.claimed_paid_at is None:
         if s.require_claimed_time:
             return False, "claimed_time_required"
-    elif abs(_aware(c.claimed_paid_at) - occurred) > dt.timedelta(minutes=s.time_tolerance_minutes, seconds=59):
-        return False, "claimed_time_mismatch"
+    else:
+        distance, shifted = claimed_distance(c.claimed_paid_at, occurred, s)
+        if distance > dt.timedelta(minutes=s.time_tolerance_minutes, seconds=59):
+            return False, "claimed_time_mismatch"
+        if shifted:
+            return True, "ok_clock12h"
     return True, "ok"
 
 
@@ -303,9 +330,11 @@ def decide(sms: ParsedSms, candidates: list[Candidate], s: MatchSettings | None 
         # The claimed time (minute precision) is the only tie-breaker we trust; closest must be strictly unique.
         timed = [c for c in ok if c.claimed_paid_at is not None]
         if timed:
-            best = min(abs(_aware(c.claimed_paid_at) - _aware(sms.occurred_at)) for c in timed)
-            nearest = [c for c in timed if abs(_aware(c.claimed_paid_at) - _aware(sms.occurred_at)) == best]
+            dist = {c.payment_id: claimed_distance(c.claimed_paid_at, sms.occurred_at, s)[0] for c in timed}
+            best = min(dist.values())
+            nearest = [c for c in timed if dist[c.payment_id] == best]
             if len(nearest) == 1 and len(timed) == len(ok):
                 return Decision("matched", nearest[0].payment_id, "unique_closest_time", tuple(c.payment_id for c in ok))
         return Decision("ambiguous", reason="several_candidates", candidate_ids=tuple(c.payment_id for c in ok))
-    return Decision("matched", ok[0].payment_id, "unique_candidate", (ok[0].payment_id,))
+    reason = "unique_candidate_clock12h" if eligible(sms, ok[0], s)[1] == "ok_clock12h" else "unique_candidate"
+    return Decision("matched", ok[0].payment_id, reason, (ok[0].payment_id,))

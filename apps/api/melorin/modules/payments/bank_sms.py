@@ -38,7 +38,7 @@ TOKEN_PREFIX = "mlr_sms_"
 # (key, kind, minimum, maximum, default) - the single place that defines which tuning knobs exist.
 _SETTING_RULES = (
     ("window_minutes", int, 5, 7 * 24 * 60, 720),
-    ("time_tolerance_minutes", int, 0, 30, 2),
+    ("time_tolerance_minutes", int, 0, 30, 5),
     ("require_claimed_time", bool, None, None, True),
     ("max_auto_amount_rial", int, 1, 10**13, None),
     ("account_number", str, 8, 26, None),
@@ -83,7 +83,7 @@ def match_settings(source: BankSmsSource) -> dom.MatchSettings:
     s = source.settings or {}
     return dom.MatchSettings(
         window_minutes=int(s.get("window_minutes", 720)),
-        time_tolerance_minutes=int(s.get("time_tolerance_minutes", 2)),
+        time_tolerance_minutes=int(s.get("time_tolerance_minutes", 5)),
         require_claimed_time=bool(s.get("require_claimed_time", True)),
         max_auto_amount_rial=s.get("max_auto_amount_rial"),
     )
@@ -108,7 +108,7 @@ def source_out(src: BankSmsSource | None, *, store_id: uuid.UUID | None = None) 
         "senders": list(src.senders or []) if src else [],
         "settings": {
             "window_minutes": (s or {}).get("window_minutes", 720),
-            "time_tolerance_minutes": (s or {}).get("time_tolerance_minutes", 2),
+            "time_tolerance_minutes": (s or {}).get("time_tolerance_minutes", 5),
             "require_claimed_time": (s or {}).get("require_claimed_time", True),
             "max_auto_amount_rial": (s or {}).get("max_auto_amount_rial"),
             "account_number": (s or {}).get("account_number"),

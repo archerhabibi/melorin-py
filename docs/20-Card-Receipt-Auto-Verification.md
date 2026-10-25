@@ -16,7 +16,7 @@ with money.
    Core reads the facts off the image itself (see "Reading the receipt"): time, amount, source-card tail, reference.
 2. The bank SMS arrives at `POST /api/v1/payments/bank-sms/{store_id}` (header `X-Webhook-Token` or `Authorization: Bearer`).
 3. Core matches by: same amount (Rial; IRT x 10) · SMS time not before the request and inside `window_minutes` ·
-   receipt time equals SMS time within `time_tolerance_minutes` (+59 s, minute resolution) · exactly one candidate
+   receipt time equals SMS time within `time_tolerance_minutes` (default 5, +59 s, minute resolution; a real Mellat receipt/SMS pair differed by 3 min) · exactly one candidate
    (or a strictly closest claimed time). Otherwise: `ambiguous` (admin/reseller is notified) or `unmatched`.
 4. Order of arrival does not matter: receipt-then-SMS is matched on ingest, SMS-then-receipt is matched when the receipt is
    uploaded, and the worker job `bank_sms_reconcile` re-checks open deposits periodically.
@@ -57,6 +57,15 @@ texts are stored but never matched. A balance that does not follow from the prev
    JSON body `{"text": "<sms body>", "sender": "<sender>"}` (form-encoded `text=`/`message=`/`body=` also works).
 3. Enter the account number (first SMS line), optionally restrict `senders`, set `max_auto_amount_rial`, tune the window. Switch "شارژ خودکار" on.
    With it off, Core only *suggests* matches and a human confirms.
+
+### Verified against 11 real receipts
+All eleven receipt/SMS pairs of the owner (Blu bank x3, Bank Melli x2, Bank Mellat x2, Wepod x2, Asan Pardakht, Refah) are pinned in
+`tests/test_bank_sms_real_samples.py` and are paid automatically. Two real-world quirks drove the rules:
+- **SMS lag:** the bank SMS can be stamped minutes after the receipt (3 min measured) -> default tolerance 5 min.
+- **12-hour clock:** Asan Pardakht printed `03:44` for a 15:44 transfer. A claimed time exactly half a day away is also tried
+  (`accept_12h_clock`, decision reason `unique_candidate_clock12h`). It never overrides amount, request window or uniqueness; two
+  receipts that fit only because of this stay `ambiguous`.
+- Wepod prints Toman: the reader converts to Rial (x10) before comparing.
 
 ### Security notes and known limit
 - Webhook: token compared in constant time, one generic 401 for every failure, rate limited (120/min), body capped.
@@ -100,6 +109,12 @@ Core می‌فرستد؛ Core آن را تحلیل و فقط یک بار ذخی�
 ۲. در گوشی‌ای که پیامک بانک را می‌گیرد، یک برنامه‌ی SMS Forwarder نصب و وبهوک POST بسازید:
    آدرس `https://دامنه‌ی-شما/api/v1/payments/bank-sms/<store_id>` · هدر `X-Webhook-Token` · بدنه‌ی JSON با کلیدهای `text` و `sender`.
 ۳. شماره حساب (خط اول پیامک) را وارد کنید تا پیامک حساب‌های دیگر نادیده گرفته شود، در صورت نیاز فرستنده‌ی مجاز، سقف مبلغ خودکار و بازه را تنظیم و «شارژ خودکار» را روشن کنید (خاموش = فقط پیشنهاد).
+
+### راستی‌آزمایی با ۱۱ رسید واقعی
+هر ۱۱ جفت رسید/پیامک نمونه (بلوبانک، ملی، ملت، ویپاد، آپ، رفاه) در `tests/test_bank_sms_real_samples.py` ثبت شده و خودکار پرداخت می‌شود. دو نکته‌ی واقعی
+قوانین را شکل داد: ۱) پیامک بانک ممکن است چند دقیقه دیرتر از رسید مهر شود (۳ دقیقه در ملت) ← تلورانس پیش‌فرض ۵ دقیقه؛ ۲) آپ ساعت ۱۵:۴۴ را
+`03:44` چاپ کرده (ساعت ۱۲ساعته)؛ زمان اعلامیِ دقیقاً ۱۲ ساعت دورتر هم بررسی می‌شود (`accept_12h_clock`) و هرگز جای مبلغ، بازه‌ی درخواست یا یکتا بودن را نمی‌گیرد؛
+اگر دو رسید فقط به‌خاطر همین قاعده جور شوند، «نیاز به بررسی» می‌ماند. ویپاد تومان چاپ می‌کند و قبل از مقایسه ×۱۰ می‌شود.
 
 ### نکات امنیتی و محدودیت
 توکن با مقایسه‌ی زمان‌ثابت بررسی می‌شود و برای هر خطا یک پاسخ ۴۰۱ یکسان برمی‌گردد؛ نرخ درخواست محدود است؛ هر پیامک اثر انگشت
