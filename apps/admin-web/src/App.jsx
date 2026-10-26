@@ -12,6 +12,7 @@ import { backdropProps, useDialog } from './useDialog.js';
 import { legacyHash } from './infra.jsx';
 import { toggleTheme } from './theme.js';
 import {
+  BarChart3,
   Bell,
   CircleAlert,
   CreditCard,
@@ -50,7 +51,13 @@ import {
 
 // Section keys are Persian labels (AdminSections/AdminExtra route on them); slug drives the URL hash.
 const groups = [
-  ['نمای کلی', [['داشبورد', LayoutDashboard, 'home']]],
+  [
+    'نمای کلی',
+    [
+      ['داشبورد', LayoutDashboard, 'home'],
+      ['گزارشات و نمودارها', BarChart3, 'reports'],
+    ],
+  ],
   [
     'عملیات',
     [

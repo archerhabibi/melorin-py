@@ -1021,6 +1021,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/reports/analytics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Report Analytics
+         * @description Everything the Reports & charts screen needs in one currency-safe payload (KPIs vs previous period, series, breakdowns).
+         */
+        get: operations["report_analytics_api_v1_admin_reports_analytics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/reports/analytics.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Analytics
+         * @description CSV of one analytics section (UTF-8 with BOM so Excel opens Persian names correctly).
+         */
+        get: operations["export_analytics_api_v1_admin_reports_analytics_csv_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/reports/orders.csv": {
         parameters: {
             query?: never;
@@ -8044,6 +8084,79 @@ export interface operations {
                 "application/json": components["schemas"]["CommissionRuleIn"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    report_analytics_api_v1_admin_reports_analytics_get: {
+        parameters: {
+            query?: {
+                days?: number;
+                /** @description IANA time zone used to bucket days, e.g. Asia/Tehran */
+                tz?: string;
+                /** @description report currency (default: top-selling one) */
+                currency?: string | null;
+                /** @description limit orders and payments to one store */
+                store_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_analytics_api_v1_admin_reports_analytics_csv_get: {
+        parameters: {
+            query?: {
+                /** @description daily | products | stores | methods */
+                section?: string;
+                days?: number;
+                tz?: string;
+                currency?: string | null;
+                store_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
