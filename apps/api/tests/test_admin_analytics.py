@@ -198,6 +198,10 @@ async def test_analytics_end_to_end_with_store_filter_csv_and_validation():
         assert csv.status_code == 200 and csv.headers["content-type"].startswith("text/csv")
         assert csv.content.startswith(b"\xef\xbb\xbf") and "'=HYPERLINK(1)" in csv.text and "\n=HYPERLINK" not in csv.text
         assert (await c.get(f"{ADMIN}/reports/analytics.csv?section=daily", headers=h)).text.count("\n") >= 31
+        # the file name never carries characters from a hostile ``currency`` query
+        hostile = await c.get(f"{ADMIN}/reports/analytics.csv?section=daily&currency=a%22b%3Bc", headers=h)
+        disposition = hostile.headers["content-disposition"]
+        assert hostile.status_code == 200 and '"' not in disposition and ";" not in disposition.split("filename=", 1)[1]
 
         assert (await c.get(f"{ADMIN}/reports/analytics?tz=Mars/Base", headers=h)).status_code == 422
         assert (await c.get(f"{ADMIN}/reports/analytics?days=3", headers=h)).status_code == 422

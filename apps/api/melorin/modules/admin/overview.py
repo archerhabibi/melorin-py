@@ -3,6 +3,7 @@
 import csv
 import io
 import logging
+import re
 import uuid
 from fastapi import APIRouter, Query
 from fastapi.responses import StreamingResponse
@@ -136,16 +137,18 @@ async def export_analytics(
     except ValueError as exc:
         raise AppError("INVALID_TIMEZONE", "منطقه زمانی نامعتبر است.", 422) from exc
     head, rows = to_csv_rows(payload, section)
+    # the currency echoes the query when no data matched it: keep header-unsafe characters out of the file name
+    safe_currency = re.sub(r"[^A-Za-z0-9]", "", str(payload["currency"]))[:8] or "XXX"
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow(head)
     for row in rows:
         # Spreadsheet formula injection: names come from admins/resellers, so neutralise leading = + - @ in text cells.
-        writer.writerow([f"'{c}" if isinstance(c, str) and c[:1] in ("=", "+", "-", "@") else c for c in row])
+        writer.writerow([f"'{c}" if isinstance(c, str) and c[:1] in ("=", "+", "-", "@", "\t", "\r") else c for c in row])
     return StreamingResponse(
         iter([buf.getvalue().encode("utf-8-sig")]),
         media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename=melorin-{section}-{payload['currency']}-{days}d.csv"},
+        headers={"Content-Disposition": f"attachment; filename=melorin-{section}-{safe_currency}-{days}d.csv"},
     )
 
 

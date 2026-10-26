@@ -50,14 +50,14 @@ export function donutSegments(items, gap = 1.2) {
   const total = items.reduce((a, x) => a + Math.max(0, x.value), 0);
   if (!total) return [];
   let acc = 0;
-  return items
-    .filter((x) => x.value > 0)
-    .map((x) => {
-      const pct = (x.value / total) * 100;
-      const seg = { ...x, pct, dash: Math.max(0.4, pct - (items.length > 1 ? gap : 0)), offset: -acc };
-      acc += pct;
-      return seg;
-    });
+  const visible = items.filter((x) => x.value > 0);
+  return visible.map((x) => {
+    const pct = (x.value / total) * 100;
+    // a lone segment is a full ring: no gap to leave (judge by what is drawn, not by how many rows came in)
+    const seg = { ...x, pct, dash: Math.max(0.4, pct - (visible.length > 1 ? gap : 0)), offset: -acc };
+    acc += pct;
+    return seg;
+  });
 }
 
 /** Share of ``part`` in ``whole`` as 0..100 (0 when empty). */

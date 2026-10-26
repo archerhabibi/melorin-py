@@ -52,6 +52,14 @@ describe('reportsLogic', () => {
     expect(donutSegments([{ key: 'a', value: 0 }])).toEqual([]);
   });
 
+  it('draws a lone positive segment as a full ring even when other rows are zero', () => {
+    const [seg] = donutSegments([
+      { key: 'a', value: 7 },
+      { key: 'b', value: 0 },
+    ]);
+    expect(seg.dash).toBeCloseTo(100);
+  });
+
   it('folds a long tail into one "other" row and keeps the total', () => {
     const rows = Array.from({ length: 8 }, (_, i) => ({ key: `k${i}`, label: `k${i}`, value: 10 }));
     const out = foldTail(rows, 5);
