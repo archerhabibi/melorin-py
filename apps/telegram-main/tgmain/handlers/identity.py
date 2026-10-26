@@ -24,6 +24,7 @@ class IdentityMixin:
         "registration_closed": "⛔ ثبت‌نام جدید موقتاً بسته است.",
         "rate_limited": "⛔ تلاش‌های ورود زیاد بود. کمی بعد دوباره امتحان کنید.",
         "login_disabled": "⛔ ورود با تلگرام موقتاً غیرفعال شده است.",
+        "device_account_mismatch": "⛔ این مرورگر برای حساب دیگری تأیید شده بود؛ درخواست بسته شد.",
     }
 
     async def account_url(self, ctx: Ctx) -> str | None:
@@ -152,6 +153,19 @@ class IdentityMixin:
         status, d = await self._web_login_call("inspect", {**self._profile(ctx), "session_id": sid.strip()[:32], "store_id": store["id"]})
         if status >= 400:
             return await self.send(ctx.chat_id, f"⚠️ {self._err_of(d)}")
+        if d.get("auto_approved"):
+            # Trusted browser: opening the link was the whole approval. No number to match, nothing to tap.
+            return await self.screen(
+                ctx,
+                "✅ <b>ورود تأیید شد</b>\n"
+                + self.LINE
+                + f"\n🖥 {esc(d.get('device'))}\n🌐 <code>{esc(d.get('ip') or '-')}</code>\n"
+                "این مرورگر قبلاً تأیید شده بود، پس نیازی به تأیید دستی نبود. به مرورگر برگردید.\n\n"
+                "🛡 اگر این ورود از طرف شما نبود: /devices",
+                [[("⛔ این من نبودم", "wdr:all")]],
+            )
+        if d.get("auto_reason"):
+            return await self.screen(ctx, self.WEB_LOGIN_DENIED.get(d["auto_reason"], "⛔ این درخواست ورود بسته شد."))
         text, rows = self._web_login_view(
             sid.strip()[:32], d.get("choices") or [], bool(d.get("number_match")), info=d, store_name=store.get("name")
         )
@@ -187,6 +201,58 @@ class IdentityMixin:
         if status >= 400:
             return await self.screen(ctx, f"⚠️ {esc(self._err_of(d))}")
         await self.screen(ctx, self.WEB_LOGIN_DENIED["user_denied"])
+
+    # ----- trusted browsers (/devices): list and "this was not me" -----
+    @staticmethod
+    def _span(seconds) -> str:
+        n = max(0, int(seconds or 0))
+        if n < 3600:
+            return f"{max(1, n // 60)} دقیقه"
+        if n < 86400:
+            return f"{n // 3600} ساعت"
+        return f"{n // 86400} روز"
+
+    async def cmd_devices(self, ctx, arg):
+        store = await self.store_info()
+        status, d = await self._web_login_call("devices", {"telegram_id": ctx.user["id"], "store_id": store["id"]})
+        if status >= 400:
+            return await self.screen(ctx, f"⚠️ {esc(self._err_of(d))}")
+        devices = d.get("devices") or []
+        if not devices:
+            return await self.screen(
+                ctx,
+                "🔐 <b>مرورگرهای مطمئن</b>\n" + self.LINE + "\nهیچ مرورگر مطمئنی ثبت نشده است. ورود بعدی شما با تأیید دستی انجام می‌شود.",
+            )
+        lines = ["🔐 <b>مرورگرهای مطمئن</b>", self.LINE]
+        rows = []
+        for i, dev in enumerate(devices, 1):
+            lines.append(
+                f"{i}. 🖥 <b>{esc(dev.get('label') or 'دستگاه ناشناس')}</b>\n"
+                f"   🌐 <code>{esc(dev.get('last_ip') or '-')}</code> · آخرین ورود: {self._span(dev.get('last_seen_ago_seconds'))} پیش\n"
+                f"   ⏳ اعتبار: {self._span(dev.get('expires_in_seconds'))} دیگر"
+            )
+            rows.append([(f"🗑 حذف مورد {i}", f"wdr:{dev['id']}")])
+        lines += [
+            "",
+            "ورود از این مرورگرها بدون عدد (و در شبکهٔ آشنا بدون هیچ مرحله‌ای) انجام می‌شود. اگر موردی را نمی‌شناسید، حذف کنید.",
+        ]
+        rows.append([("⛔ همه را حذف کن و از همه‌جا خارج شو", "wdr:all")])
+        await self.screen(ctx, "\n".join(lines), rows)
+
+    async def cb_device_revoke(self, ctx, rest):
+        store = await self.store_info()
+        target = rest.strip()
+        body = {"telegram_id": ctx.user["id"], "store_id": store["id"], "device_id": None if target in ("", "all") else target[:32]}
+        status, d = await self._web_login_call("revoke", body)
+        if status >= 400:
+            return await self.screen(ctx, f"⚠️ {esc(self._err_of(d))}")
+        n = int(d.get("revoked") or 0)
+        text = (
+            f"✅ همهٔ مرورگرهای مطمئن ({n}) حذف شد و نشست‌های وب شما بسته شد."
+            if body["device_id"] is None
+            else ("✅ مرورگر حذف شد؛ ورود بعدی از آن با تأیید دستی است." if n else "ℹ️ این مرورگر قبلاً حذف شده بود.")
+        )
+        await self.screen(ctx, text, [[("🔐 مرورگرهای مطمئن", "menu:devices")]])
 
     @staticmethod
     def _err_of(d: dict) -> str:
