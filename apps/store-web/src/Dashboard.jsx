@@ -15,6 +15,7 @@ import {
   RefreshCw,
   Undo2,
   Loader2,
+  Paperclip,
   Send,
   X,
 } from 'lucide-react';
@@ -278,7 +279,7 @@ function Vpn({ coreFetch, storeId, notify, reload }) {
   );
 }
 
-function Wallet({ coreFetch, storeId, wallet, reload, notify }) {
+export function Wallet({ coreFetch, storeId, wallet, reload, notify }) {
   const [tx, setTx] = useState([]);
   const [amount, setAmount] = useState('');
   const [pay, setPay] = useState(null);
@@ -372,7 +373,12 @@ function Wallet({ coreFetch, storeId, wallet, reload, notify }) {
                 type="button"
                 title="کپی"
                 className="latin font-bold"
-                onClick={() => navigator.clipboard?.writeText(String(wallet.telegram_id)).then(() => notify('کپی شد'), () => {})}
+                onClick={() =>
+                  navigator.clipboard?.writeText(String(wallet.telegram_id)).then(
+                    () => notify('کپی شد'),
+                    () => {},
+                  )
+                }
               >
                 {wallet.telegram_id}
               </button>
@@ -499,10 +505,115 @@ async function msgOf(r, fallback) {
   }
 }
 
-function TicketThread({ t, coreFetch, notify, onBack, onChanged }) {
+const TICKET_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+// Quick check before uploading; the server validates type, size and file signature again and has the last word.
+function imageProblem(file) {
+  return TICKET_IMAGE_TYPES.includes(file?.type) ? '' : 'فقط تصویر (JPG، PNG یا WebP) مجاز است.';
+}
+
+// Step 1 of sending a picture: upload it, get its id back; the id then goes along with the message.
+async function uploadTicketImage(coreFetch, path, file) {
+  const form = new FormData();
+  form.append('file', file);
+  const r = await coreFetch(path, { method: 'POST', body: form });
+  if (!r.ok) throw new Error(await msgOf(r, 'ارسال تصویر ناموفق بود'));
+  return (await r.json()).id;
+}
+
+/** Paperclip button that opens the image chooser. */
+function AttachButton({ onPick, notify, disabled }) {
+  const input = useRef(null);
+  return (
+    <>
+      <input
+        ref={input}
+        type="file"
+        accept={TICKET_IMAGE_TYPES.join(',')}
+        className="hidden"
+        aria-label="انتخاب تصویر"
+        data-testid="ticket-image-input"
+        onChange={(e) => {
+          const f = e.target.files?.[0] || null;
+          e.target.value = '';
+          if (!f) return;
+          const problem = imageProblem(f);
+          if (problem) return notify(problem);
+          onPick(f);
+        }}
+      />
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => input.current?.click()}
+        aria-label="پیوست تصویر"
+        title="پیوست تصویر"
+        className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-line text-muted hover:bg-surface2 disabled:opacity-50"
+      >
+        <Paperclip size={16} />
+      </button>
+    </>
+  );
+}
+
+/** The chosen picture, shown as a removable chip next to the message box. */
+function PickedImage({ file, onClear, disabled }) {
+  if (!file) return null;
+  return (
+    <div className="flex items-center gap-2 rounded-xl bg-surface2 px-3 py-2 text-xs">
+      <Paperclip size={13} className="shrink-0 text-muted" />
+      <span className="latin min-w-0 flex-1 truncate" dir="ltr">
+        {file.name}
+      </span>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={onClear}
+        aria-label="حذف تصویر"
+        className="grid h-6 w-6 place-items-center rounded-full text-muted hover:bg-surface"
+      >
+        <X size={13} />
+      </button>
+    </div>
+  );
+}
+
+/** A ticket picture. It needs the login token, so it is fetched and shown from a blob instead of a plain <img src>. */
+function TicketImage({ coreFetch, path }) {
+  const [src, setSrc] = useState(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let url = null;
+    let dead = false;
+    setSrc(null);
+    setFailed(false);
+    coreFetch(path)
+      .then((r) => (r.ok ? r.blob() : Promise.reject(new Error('image'))))
+      .then((b) => {
+        if (dead) return;
+        url = URL.createObjectURL(b);
+        setSrc(url);
+      })
+      .catch(() => !dead && setFailed(true));
+    return () => {
+      dead = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [coreFetch, path]);
+  if (failed) return <span className="text-xs text-muted">تصویر بارگذاری نشد</span>;
+  if (!src) return <div className="h-32 w-48 animate-pulse rounded-xl bg-surface2" aria-hidden="true" />;
+  return (
+    <a href={src} target="_blank" rel="noreferrer" aria-label="مشاهدهٔ تصویر در اندازهٔ کامل" className="block">
+      <img src={src} alt="تصویر پیوست" className="max-h-64 max-w-full rounded-xl object-contain ring-1 ring-line" />
+    </a>
+  );
+}
+
+function TicketThread({ t, storeId, coreFetch, notify, onBack, onChanged }) {
   const [msgs, setMsgs] = useState(null);
   const [ticket, setTicket] = useState(t);
   const [reply, setReply] = useState('');
+  const [pic, setPic] = useState(null); // { file, id } - id is kept once uploaded, so a failed send never uploads twice
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(null); // message id
   const [draft, setDraft] = useState('');
@@ -542,20 +653,33 @@ function TicketThread({ t, coreFetch, notify, onBack, onChanged }) {
   async function send() {
     setBusy(true);
     try {
+      const payload = { body: reply.trim() };
+      if (pic) {
+        let id = pic.id;
+        if (!id) {
+          id = await uploadTicketImage(coreFetch, `/api/v1/stores/${storeId}/tickets/attachments`, pic.file);
+          setPic({ file: pic.file, id });
+        }
+        payload.attachment_id = id;
+      }
       const r = await coreFetch(`/api/v1/tickets/${t.id}/messages`, {
         method: 'POST',
         headers: J,
-        body: JSON.stringify({ body: reply.trim() }),
+        body: JSON.stringify(payload),
       });
       if (!r.ok) return notify(await msgOf(r, 'ارسال ناموفق بود'));
       setReply('');
+      setPic(null);
       setTicket((x) => ({ ...x, status: 'open' }));
       await load();
       onChanged();
+    } catch (e) {
+      notify(e?.message || 'ارسال ناموفق بود');
     } finally {
       setBusy(false);
     }
   }
+  const canSend = !busy && (reply.trim() || pic);
   async function saveEdit(m) {
     setBusy(true);
     try {
@@ -703,9 +827,21 @@ function TicketThread({ t, coreFetch, notify, onBack, onChanged }) {
                         </div>
                       </div>
                     ) : (
-                      <p dir="auto" className="whitespace-pre-wrap break-words">
-                        {m.body}
-                      </p>
+                      <>
+                        {m.attachment_id && (
+                          <div className={m.body ? 'mb-2' : ''}>
+                            <TicketImage
+                              coreFetch={coreFetch}
+                              path={`/api/v1/tickets/${t.id}/messages/${m.id}/attachment`}
+                            />
+                          </div>
+                        )}
+                        {m.body && (
+                          <p dir="auto" className="whitespace-pre-wrap break-words">
+                            {m.body}
+                          </p>
+                        )}
+                      </>
                     )}
                     <div className="mt-1 flex items-center gap-2 text-[10px] text-muted">
                       <span>{timeOnly(m.created_at)}</span>
@@ -748,40 +884,40 @@ function TicketThread({ t, coreFetch, notify, onBack, onChanged }) {
           </button>
         </div>
       ) : (
-        <div className="flex items-end gap-2 border-t border-line p-3">
-          <textarea
-            rows={1}
-            dir="auto"
-            maxLength={10000}
-            aria-label="پیام شما"
-            className={`${inp} max-h-40 resize-none`}
-            placeholder="پیام خود را بنویسید… (Ctrl+Enter برای ارسال)"
-            value={reply}
-            onChange={(e) => setReply(e.target.value)}
-            onKeyDown={(e) => {
-              if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && reply.trim() && !busy) send();
-            }}
-          />
-          <button
-            disabled={busy || !reply.trim()}
-            onClick={send}
-            className="btn-primary h-11 shrink-0"
-            aria-label="ارسال"
-          >
-            <Send size={16} className="-scale-x-100" />
-          </button>
+        <div className="space-y-2 border-t border-line p-3">
+          <PickedImage file={pic?.file} disabled={busy} onClear={() => setPic(null)} />
+          <div className="flex items-end gap-2">
+            <AttachButton disabled={busy} notify={notify} onPick={(file) => setPic({ file, id: null })} />
+            <textarea
+              rows={1}
+              dir="auto"
+              maxLength={10000}
+              aria-label="پیام شما"
+              className={`${inp} max-h-40 resize-none`}
+              placeholder="پیام خود را بنویسید… (Ctrl+Enter برای ارسال)"
+              value={reply}
+              onChange={(e) => setReply(e.target.value)}
+              onKeyDown={(e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && canSend) send();
+              }}
+            />
+            <button disabled={!canSend} onClick={send} className="btn-primary h-11 shrink-0" aria-label="ارسال">
+              <Send size={16} className="-scale-x-100" />
+            </button>
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-function Tickets({ coreFetch, storeId, notify }) {
+export function Tickets({ coreFetch, storeId, notify }) {
   const [list, setList] = useState(null);
   const [sel, setSel] = useState(null);
   const [creating, setCreating] = useState(false);
   const [filter, setFilter] = useState('all');
   const [form, setForm] = useState({ subject: '', body: '', priority: 'normal' });
+  const [pic, setPic] = useState(null); // { file, id } - see TicketThread
   const [busy, setBusy] = useState(false);
   const load = () =>
     coreFetch(`/api/v1/stores/${storeId}/tickets`)
@@ -794,18 +930,30 @@ function Tickets({ coreFetch, storeId, notify }) {
   async function create() {
     setBusy(true);
     try {
+      const payload = { ...form, subject: form.subject.trim(), body: form.body.trim() };
+      if (pic) {
+        let id = pic.id;
+        if (!id) {
+          id = await uploadTicketImage(coreFetch, `/api/v1/stores/${storeId}/tickets/attachments`, pic.file);
+          setPic({ file: pic.file, id });
+        }
+        payload.attachment_id = id;
+      }
       const r = await coreFetch(`/api/v1/stores/${storeId}/tickets`, {
         method: 'POST',
         headers: J,
-        body: JSON.stringify({ ...form, subject: form.subject.trim(), body: form.body.trim() }),
+        body: JSON.stringify(payload),
       });
       if (!r.ok) return notify(await msgOf(r, 'ثبت تیکت ناموفق بود'));
       const t = await r.json();
       setForm({ subject: '', body: '', priority: 'normal' });
+      setPic(null);
       setCreating(false);
       notify(`تیکت #${t.number} ثبت شد`);
       await load();
       setSel(t);
+    } catch (e) {
+      notify(e?.message || 'ثبت تیکت ناموفق بود');
     } finally {
       setBusy(false);
     }
@@ -815,6 +963,7 @@ function Tickets({ coreFetch, storeId, notify }) {
       <TicketThread
         key={sel.id}
         t={sel}
+        storeId={storeId}
         coreFetch={coreFetch}
         notify={notify}
         onBack={() => {
@@ -895,15 +1044,21 @@ function Tickets({ coreFetch, storeId, notify }) {
             value={form.body}
             onChange={(e) => setForm({ ...form, body: e.target.value })}
           />
-          <div className="mt-3 flex items-center justify-between gap-3">
-            <span className="text-xs text-muted">پاسخ پشتیبانی در تلگرام هم به شما اطلاع داده می‌شود.</span>
-            <button
-              disabled={busy || form.subject.trim().length < 2 || !form.body.trim()}
-              onClick={create}
-              className="btn-primary"
-            >
-              ثبت تیکت
-            </button>
+          <div className="mt-3 space-y-2">
+            <PickedImage file={pic?.file} disabled={busy} onClear={() => setPic(null)} />
+            <div className="flex items-center gap-3">
+              <AttachButton disabled={busy} notify={notify} onPick={(file) => setPic({ file, id: null })} />
+              <span className="min-w-0 flex-1 text-xs text-muted">
+                می‌توانید تصویر (اسکرین‌شات یا عکس) هم پیوست کنید. پاسخ پشتیبانی در تلگرام هم به شما اطلاع داده می‌شود.
+              </span>
+              <button
+                disabled={busy || form.subject.trim().length < 2 || !(form.body.trim() || pic)}
+                onClick={create}
+                className="btn-primary"
+              >
+                ثبت تیکت
+              </button>
+            </div>
           </div>
         </div>
       )}
