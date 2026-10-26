@@ -215,6 +215,155 @@ body {
 .tbl tbody tr:hover {
   background: var(--sf2);
 }
+/* The empty-state / skeleton row of DataGrid: no extra padding or rule around the inner block. */
+.tbl td.tbl-empty {
+  padding: 0;
+  border-top: 0;
+}
+.tbl tr.tbl-flat:hover {
+  background: transparent;
+}
+.tbl tbody tr:focus-visible {
+  outline: 2px solid var(--ac);
+  outline-offset: -2px;
+}
+/* DataGrid below 768px: each row is a card — first cell is the title, the rest are label / value pairs. */
+@media (max-width: 767px) {
+  .tbl-cards {
+    min-width: 0 !important;
+    white-space: normal;
+  }
+  .tbl-cards thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .tbl-cards,
+  .tbl-cards tbody {
+    display: block;
+  }
+  .tbl-cards tbody tr {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem 1rem;
+    padding: 1rem 1rem 1rem 2.5rem;
+    border-top: 1px solid var(--ln);
+  }
+  .tbl-cards tbody tr:first-child {
+    border-top: 0;
+  }
+  .tbl-cards tbody tr:active {
+    background: var(--sf2);
+  }
+  .tbl-cards td {
+    display: block;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+  }
+  .tbl-cards td.m-title,
+  .tbl-cards td.m-full {
+    grid-column: 1 / -1;
+  }
+  .tbl-cards td.m-title {
+    order: -1;
+  }
+  .tbl-cards tr.has-head td.m-title {
+    grid-column: 1;
+  }
+  .tbl-cards td.m-head {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    align-self: start;
+  }
+  .tbl-cards td.m-hide {
+    display: none;
+  }
+  .tbl-cards td[data-label]:not(.m-title):not(.m-head)::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 0.2rem;
+    font-size: 0.68rem;
+    font-weight: 500;
+    color: var(--mu);
+  }
+  .tbl-cards td.chev {
+    position: absolute;
+    left: 0.9rem;
+    top: 1.1rem;
+  }
+  .tbl-cards tbody tr.tbl-flat {
+    display: block;
+    padding: 0.55rem 1rem;
+  }
+  .tbl-cards td.tbl-empty {
+    margin: -0.55rem -1rem;
+  }
+}
+/* order lifecycle tracker (RTL: first step on the right, the connector runs leftwards to the next) */
+.ostep {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ostep li {
+  position: relative;
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--mu);
+}
+.ostep li:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  top: 0.85rem;
+  right: 50%;
+  width: 100%;
+  height: 2px;
+  background: var(--ln);
+}
+.ostep li.done:not(:last-child)::before {
+  background: var(--ok);
+}
+.ostep .dot {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 999px;
+  border: 2px solid var(--ln);
+  background: var(--sf);
+}
+.ostep li.done .dot {
+  background: var(--ok);
+  border-color: var(--ok);
+  color: #fff;
+}
+[data-theme='dark'] .ostep li.done .dot {
+  color: var(--bg);
+}
+.ostep li.cur {
+  color: var(--tx);
+}
+.ostep li.cur .dot {
+  color: var(--t);
+  border-color: var(--t);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--t) 18%, transparent);
+}
 .skel {
   background: linear-gradient(90deg, var(--mb), var(--sf2), var(--mb));
   background-size: 200% 100%;
@@ -463,6 +612,44 @@ body {
 }
 .tool .inp {
   background: var(--sf2);
+}
+/* Phones: search on its own full-width line, selects / view toggle share the next line; not sticky
+   (a three-line sticky bar would eat the screen while scrolling the card list). */
+@media (max-width: 639px) {
+  .tool {
+    position: static;
+  }
+  .tool > label {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  .tool > select,
+  .tool > .pv-seg {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+  }
+  .tool > .pv-seg > button {
+    flex: 1;
+    justify-content: center;
+  }
+  .tool > .btn {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+}
+/* A long filter row (audit event groups) becomes one swipeable line on phones instead of wrapping. */
+@media (max-width: 767px) {
+  .pills.pills-scroll {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 0.4rem;
+    scroll-snap-type: x proximity;
+  }
+  .pills-scroll .pill {
+    flex: none;
+    scroll-snap-align: start;
+  }
 }
 /* KPI bar: one connected card instead of loose tiles */
 .kpis {

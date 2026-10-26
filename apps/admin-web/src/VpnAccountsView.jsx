@@ -182,7 +182,7 @@ export default function VpnAccountsView({ api, toast }) {
         </span>
       ),
     },
-    { key: 'health', label: 'وضعیت', render: (a) => <Badge s={a.health || a.status} /> },
+    { key: 'health', label: 'وضعیت', m: 'head', render: (a) => <Badge s={a.health || a.status} /> },
     {
       key: 'exp',
       label: 'اعتبار',
@@ -193,7 +193,7 @@ export default function VpnAccountsView({ api, toast }) {
         />
       ),
     },
-    { key: 'traffic', label: 'ترافیک', render: (a) => <Traffic a={a} /> },
+    { key: 'traffic', label: 'ترافیک', m: 'full', render: (a) => <Traffic a={a} /> },
   ];
 
   return (
@@ -243,7 +243,13 @@ export default function VpnAccountsView({ api, toast }) {
         />
       </KpiBar>
       <Toolbar>
-        <SearchBox value={q} onChange={reset(setQ)} label="جستجوی اکانت" placeholder="نام اکانت، نام یا ایمیل مشتری…" />
+        <SearchBox
+          value={q}
+          onChange={reset(setQ)}
+          hotkey
+          label="جستجوی اکانت"
+          placeholder="نام اکانت، نام یا ایمیل مشتری…"
+        />
         <select
           aria-label="فیلتر فروشگاه"
           className="inp !w-auto !py-2 !text-xs font-bold"

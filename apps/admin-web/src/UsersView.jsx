@@ -110,7 +110,7 @@ export default function UsersView({ api }) {
       ),
     },
     { key: 'role', label: 'نقش', render: (u) => <Role u={u} /> },
-    { key: 'status', label: 'وضعیت', render: (u) => <Badge s={u.is_active ? 'active' : 'disabled'} /> },
+    { key: 'status', label: 'وضعیت', m: 'head', render: (u) => <Badge s={u.is_active ? 'active' : 'disabled'} /> },
     {
       key: 'stores',
       label: 'فروشگاه‌ها',
@@ -175,7 +175,7 @@ export default function UsersView({ api }) {
         />
       </KpiBar>
       <Toolbar>
-        <SearchBox value={q} onChange={reset(setQ)} label="جستجوی کاربر" placeholder="نام یا ایمیل…" />
+        <SearchBox value={q} onChange={reset(setQ)} hotkey label="جستجوی کاربر" placeholder="نام یا ایمیل…" />
         <SortSelect
           value={sort}
           onChange={reset(setSort)}

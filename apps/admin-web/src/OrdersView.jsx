@@ -4,12 +4,16 @@
 import { useMemo, useState } from 'react';
 import {
   AlertTriangle,
+  Check,
   CheckCircle2,
   ClipboardCheck,
+  Clock,
   Hourglass,
+  Minus,
   Package,
   RotateCcw,
   Undo2,
+  X,
   XCircle,
 } from 'lucide-react';
 import {
@@ -50,6 +54,65 @@ const RETRYABLE = ['provisioning_failed', 'manual_review'];
 const REVIEWABLE = ['provisioning_failed', 'refund_pending'];
 const REFUNDABLE = ['paid', 'provisioning_failed', 'manual_review', 'completed'];
 const CAP = 200; // the endpoint returns the latest 200 orders
+
+// Where an order is on its way: register → pay → build the account → done. `done` = steps fully completed;
+// the next step is the active one (tone = how it is going). `as` swaps in a label when the step went off the happy path.
+const STEPS = ['ثبت سفارش', 'پرداخت', 'ساخت اکانت', 'تکمیل'];
+const PROGRESS = {
+  pending: { done: 1, tone: 'wn' },
+  payment_pending: { done: 1, tone: 'wn' },
+  payment_failed: { done: 1, tone: 'bd', as: 'پرداخت ناموفق' },
+  paid: { done: 2, tone: 'in' },
+  processing: { done: 2, tone: 'in' },
+  provisioning: { done: 2, tone: 'in' },
+  manual_review: { done: 2, tone: 'wn', as: 'بررسی دستی' },
+  provisioning_failed: { done: 2, tone: 'bd', as: 'ساخت ناموفق' },
+  completed: { done: 4, tone: 'ok' },
+  refund_pending: { done: 3, tone: 'wn', as: 'در انتظار استرداد' },
+  refunded: { done: 3, tone: 'mu', as: 'مسترد شد' },
+  cancelled: { done: 1, tone: 'mu', as: 'لغو شد' },
+};
+const NodeIcon = ({ tone, status }) =>
+  tone === 'bd' ? (
+    <X size={14} />
+  ) : tone === 'wn' ? (
+    <Clock size={14} />
+  ) : tone === 'mu' ? (
+    status === 'refunded' ? (
+      <Undo2 size={13} />
+    ) : (
+      <Minus size={14} />
+    )
+  ) : (
+    <i className="block h-2 w-2 rounded-full bg-current" />
+  );
+
+/** Order lifecycle tracker shown in the drawer. Renders nothing for a status it does not know. */
+export function OrderFlow({ status }) {
+  const p = PROGRESS[status];
+  if (!p) return null;
+  const cur = p.done < STEPS.length ? p.done : -1;
+  const label = (i) => (i === cur && p.as ? p.as : STEPS[i]);
+  return (
+    <ol className="ostep" aria-label="مراحل سفارش" style={{ '--t': `var(--${p.tone})` }}>
+      {STEPS.map((_, i) => {
+        const state = i < p.done ? 'done' : i === cur ? 'cur' : 'todo';
+        return (
+          <li key={i} className={state} aria-current={state === 'cur' ? 'step' : undefined}>
+            <span className="dot" aria-hidden="true">
+              {state === 'done' ? (
+                <Check size={14} strokeWidth={3} />
+              ) : state === 'cur' ? (
+                <NodeIcon tone={p.tone} status={status} />
+              ) : null}
+            </span>
+            <span>{label(i)}</span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
 
 const needsAttention = (o) => !!o.needs_review || ATTENTION.includes(o.status);
 const GROUPS = {
@@ -192,7 +255,7 @@ export default function OrdersView({ api, toast }) {
     { key: 'user', label: 'مشتری', render: (o) => <Cell2 main={who(o.user_id)} sub={mail(o.user_id)} /> },
     { key: 'store', label: 'فروشگاه', render: (o) => <span className="text-[13px]">{storeName(o.store_id)}</span> },
     { key: 'total', label: 'مبلغ', render: (o) => <span className="num font-bold">{money(o.total, o.currency)}</span> },
-    { key: 'status', label: 'وضعیت', render: (o) => <Badge s={o.status} /> },
+    { key: 'status', label: 'وضعیت', m: 'head', render: (o) => <Badge s={o.status} /> },
     { key: 'at', label: 'ثبت', render: (o) => <When v={o.created_at} /> },
   ];
 
@@ -247,6 +310,7 @@ export default function OrdersView({ api, toast }) {
         <SearchBox
           value={q}
           onChange={reset(setQ)}
+          hotkey
           label="جستجوی سفارش"
           placeholder="شماره سفارش، نام یا ایمیل مشتری، فروشگاه…"
         />
@@ -381,6 +445,12 @@ function OrderDrawer({ o, busy, customer, email, store, onClose, act }) {
         </div>
         <Badge s={o.status} />
       </div>
+      {PROGRESS[o.status] && (
+        <section className="card p-4">
+          <h3 className="mb-3 text-[13px] font-extrabold">مسیر سفارش</h3>
+          <OrderFlow status={o.status} />
+        </section>
+      )}
       {needsAttention(o) && (
         <p className="flex items-start gap-2 rounded-xl bg-[var(--wnb)] p-3 text-xs leading-6 text-[var(--wn)]">
           <AlertTriangle size={15} className="mt-0.5 shrink-0" />

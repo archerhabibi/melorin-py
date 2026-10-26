@@ -138,7 +138,7 @@ export default function StoresView({ api }) {
       ),
     },
     { key: 'cur', label: 'ارز', render: (s) => <span className="text-[13px]">{curLabel(s.currency)}</span> },
-    { key: 'status', label: 'وضعیت', render: (s) => <Badge s={s.status} /> },
+    { key: 'status', label: 'وضعیت', m: 'head', render: (s) => <Badge s={s.status} /> },
   ];
 
   return (
@@ -190,6 +190,7 @@ export default function StoresView({ api }) {
         <SearchBox
           value={q}
           onChange={reset(setQ)}
+          hotkey
           label="جستجوی فروشگاه"
           placeholder="نام، slug، دامنه، ربات یا مالک…"
         />

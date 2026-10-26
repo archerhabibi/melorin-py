@@ -134,32 +134,59 @@ export function ScreenHead({ title, hint, count, onRefresh, busy, onExport, expo
 /** Sticky toolbar wrapper shared by every screen. */
 export const Toolbar = ({ children }) => <div className="tool rise">{children}</div>;
 
+// Explicit ARIA roles: below 768px the CSS turns table parts into blocks/grids (card layout), which some
+// screen readers treat as "no longer a table". Spread (not literal attributes) to keep the roles deliberate.
+const ROLE = {
+  table: { role: 'table' },
+  rowgroup: { role: 'rowgroup' },
+  row: { role: 'row' },
+  head: { role: 'columnheader' },
+  cell: { role: 'cell' },
+};
+
 /**
- * Responsive table. columns: [{ key, label, render(row), className }]; rows are plain objects.
+ * Responsive table. columns: [{ key, label, render(row), className, m }]; rows are plain objects.
+ * ≥768px it is a sticky-header table; below that every row becomes a card whose cells are label / value
+ * pairs (labels come from `data-label`, see `.tbl-cards`). `m` places a cell inside the card:
+ *   'title' — the card heading (default: the first column), 'head' — a badge on the heading line,
+ *   'full'  — spans the whole card width (bars, long text), 'hide' — not shown on phones.
  * Rows are keyboard-activatable when onRowClick is set; skeleton rows while `loading`.
  */
 export function DataGrid({ columns, rows, rowKey = 'id', onRowClick, loading, emptyNode, caption, minWidth = 760 }) {
   const open = (r) => onRowClick && onRowClick(r);
+  const span = columns.length + (onRowClick ? 1 : 0);
+  const titleKey = (columns.find((c) => c.m === 'title') || columns[0] || {}).key;
+  const hasHead = columns.some((c) => c.m === 'head');
+  const cellClass = (c) =>
+    [
+      c.className,
+      c.key === titleKey && 'm-title',
+      c.m === 'head' && 'm-head',
+      c.m === 'full' && 'm-full',
+      c.m === 'hide' && 'm-hide',
+    ]
+      .filter(Boolean)
+      .join(' ') || undefined;
   return (
     <section className="card rise overflow-hidden">
-      <div className="max-h-[68vh] overflow-auto">
-        <table className="tbl whitespace-nowrap" style={{ minWidth }}>
+      <div className="overflow-auto md:max-h-[68vh]">
+        <table className="tbl tbl-cards whitespace-nowrap" style={{ minWidth }} {...ROLE.table}>
           {caption && <caption className="sr-only">{caption}</caption>}
-          <thead>
-            <tr>
+          <thead {...ROLE.rowgroup}>
+            <tr {...ROLE.row}>
               {columns.map((c) => (
-                <th key={c.key} scope="col" className={c.className}>
+                <th key={c.key} scope="col" className={c.className} {...ROLE.head}>
                   {c.label}
                 </th>
               ))}
-              {onRowClick && <th scope="col" className="w-10" aria-label="جزئیات" />}
+              {onRowClick && <th scope="col" className="w-10" aria-label="جزئیات" {...ROLE.head} />}
             </tr>
           </thead>
-          <tbody>
+          <tbody {...ROLE.rowgroup}>
             {loading ? (
               Array.from({ length: 6 }, (_, i) => (
-                <tr key={i}>
-                  <td colSpan={columns.length + (onRowClick ? 1 : 0)}>
+                <tr key={i} className="tbl-flat" {...ROLE.row}>
+                  <td colSpan={span} {...ROLE.cell}>
                     <div className="skel h-5 w-full" />
                   </td>
                 </tr>
@@ -168,7 +195,7 @@ export function DataGrid({ columns, rows, rowKey = 'id', onRowClick, loading, em
               rows.map((r) => (
                 <tr
                   key={r[rowKey]}
-                  className={onRowClick ? 'cursor-pointer' : ''}
+                  className={`${onRowClick ? 'cursor-pointer' : ''} ${hasHead ? 'has-head' : ''}`}
                   tabIndex={onRowClick ? 0 : undefined}
                   onClick={() => open(r)}
                   onKeyDown={(e) => {
@@ -177,22 +204,23 @@ export function DataGrid({ columns, rows, rowKey = 'id', onRowClick, loading, em
                       open(r);
                     }
                   }}
+                  {...ROLE.row}
                 >
                   {columns.map((c) => (
-                    <td key={c.key} className={c.className}>
+                    <td key={c.key} className={cellClass(c)} data-label={c.label} {...ROLE.cell}>
                       {c.render(r)}
                     </td>
                   ))}
                   {onRowClick && (
-                    <td className="text-[var(--mu)]">
+                    <td className="chev text-[var(--mu)]" {...ROLE.cell}>
                       <ChevronLeft size={16} aria-hidden="true" />
                     </td>
                   )}
                 </tr>
               ))
             ) : (
-              <tr>
-                <td colSpan={columns.length + (onRowClick ? 1 : 0)} className="p-0">
+              <tr className="tbl-flat" {...ROLE.row}>
+                <td colSpan={span} className="tbl-empty" {...ROLE.cell}>
                   {emptyNode}
                 </td>
               </tr>

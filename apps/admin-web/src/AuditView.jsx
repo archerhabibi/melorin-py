@@ -191,6 +191,7 @@ export default function AuditView({ api }) {
     {
       key: 'action',
       label: 'عملیات',
+      m: 'title',
       render: (e) => (
         <span className="flex items-center gap-2">
           {isSensitive(e) && <ShieldAlert size={14} className="shrink-0 text-[var(--wn)]" aria-label="عملیات حساس" />}
@@ -230,7 +231,7 @@ export default function AuditView({ api }) {
         <Stat
           Icon={ScrollText}
           tone="in"
-          label="رویدادهای ثبت‌شده"
+          label="کل رویدادها"
           value={all.length}
           active={!filtersOn}
           onClick={() => {
@@ -260,7 +261,13 @@ export default function AuditView({ api }) {
         <Stat Icon={UserCog} tone="in" label="عامل‌های فعال" value={stats.actors} />
       </KpiBar>
       <Toolbar>
-        <SearchBox value={q} onChange={reset(setQ)} label="جستجوی ممیزی" placeholder="عملیات، عامل، شناسه یا IP…" />
+        <SearchBox
+          value={q}
+          onChange={reset(setQ)}
+          hotkey
+          label="جستجوی ممیزی"
+          placeholder="عملیات، عامل، شناسه یا IP…"
+        />
         <select
           aria-label="بازه زمانی"
           className="inp !w-auto !py-2 !text-xs font-bold"
@@ -290,6 +297,7 @@ export default function AuditView({ api }) {
       </Toolbar>
       {domainCounts.length > 1 && (
         <Pills
+          scroll
           label="گروه رویداد"
           value={domain}
           onChange={reset(setDomain)}
