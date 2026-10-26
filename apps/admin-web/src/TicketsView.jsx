@@ -9,6 +9,7 @@ import {
   Inbox,
   Lock,
   MessageSquareText,
+  Paperclip,
   Pencil,
   RefreshCw,
   Search,
@@ -183,8 +184,50 @@ function TicketList({ rows, loading, sel, onPick, q, setQ, sort, setSort }) {
   );
 }
 
+const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+// Quick check before uploading; the server validates type, size and file signature again and has the last word.
+const imageProblem = (file) => (IMAGE_TYPES.includes(file?.type) ? '' : 'فقط تصویر (JPG، PNG یا WebP) مجاز است.');
+
+/** A ticket picture. It needs the login token, so it is fetched and shown from a blob instead of a plain <img src>. */
+function TicketImage({ call, path }) {
+  const [src, setSrc] = useState(null);
+  const [failed, setFailed] = useState(false);
+  const callRef = useRef(call); // `call` is a new function on every render of the page: keep the latest one without refetching
+  callRef.current = call;
+  useEffect(() => {
+    let url = null;
+    let dead = false;
+    setSrc(null);
+    setFailed(false);
+    callRef
+      .current(path)
+      .then((r) => (r.ok ? r.blob() : Promise.reject(new Error('image'))))
+      .then((b) => {
+        if (dead) return;
+        url = URL.createObjectURL(b);
+        setSrc(url);
+      })
+      .catch(() => !dead && setFailed(true));
+    return () => {
+      dead = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [path]);
+  if (failed) return <span className="text-xs text-[var(--mu)]">تصویر بارگذاری نشد</span>;
+  if (!src) return <div className="skel h-32 w-48 rounded-xl" aria-hidden="true" />;
+  return (
+    <a href={src} target="_blank" rel="noreferrer" aria-label="مشاهدهٔ تصویر در اندازهٔ کامل" className="block">
+      <img
+        src={src}
+        alt="تصویر پیوست"
+        className="max-h-64 max-w-full rounded-xl object-contain ring-1 ring-[var(--ln)]"
+      />
+    </a>
+  );
+}
+
 /* ───────────────────────────── conversation ───────────────────────────── */
-function Bubble({ m, mine, onEdit, editing, onSaveEdit, onCancelEdit, busy }) {
+function Bubble({ m, ticketId, call, mine, onEdit, editing, onSaveEdit, onCancelEdit, busy }) {
   const [v, setV] = useState(m.body);
   useEffect(() => setV(m.body), [m.body, editing]);
   const staff = m.is_staff;
@@ -243,9 +286,18 @@ function Bubble({ m, mine, onEdit, editing, onSaveEdit, onCancelEdit, busy }) {
             </div>
           </div>
         ) : (
-          <p dir="auto" className="whitespace-pre-wrap break-words">
-            {m.body}
-          </p>
+          <>
+            {m.attachment_id && (
+              <div className={m.body ? 'mb-2' : ''}>
+                <TicketImage call={call} path={`/api/v1/admin/tickets/${ticketId}/messages/${m.id}/attachment`} />
+              </div>
+            )}
+            {m.body && (
+              <p dir="auto" className="whitespace-pre-wrap break-words">
+                {m.body}
+              </p>
+            )}
+          </>
         )}
         <div className="mt-1.5 flex items-center gap-2 text-[10px] text-[var(--mu)]">
           <time dateTime={m.created_at}>{timeOnly(m.created_at)}</time>
@@ -269,11 +321,13 @@ function Bubble({ m, mine, onEdit, editing, onSaveEdit, onCancelEdit, busy }) {
   );
 }
 
-function Composer({ onSend, busy, ticketStatus }) {
+function Composer({ onSend, onUpload, busy, ticketStatus, toast }) {
   const [mode, setMode] = useState('reply');
   const [text, setText] = useState('');
+  const [pic, setPic] = useState(null); // { file, id } - id is kept once uploaded, so a failed send never uploads twice
   const [quick, setQuick] = useState(false);
   const ta = useRef(null);
+  const picker = useRef(null);
   const note = mode === 'note';
   const left = MAX - text.length;
   useEffect(() => {
@@ -282,10 +336,22 @@ function Composer({ onSend, busy, ticketStatus }) {
     el.style.height = 'auto';
     el.style.height = `${Math.min(220, el.scrollHeight)}px`;
   }, [text]);
+  const ready = !!(text.trim() || pic);
   const send = async (status) => {
-    const ok = await onSend({ body: text.trim(), internal: note, status });
+    const payload = { body: text.trim(), internal: note, status };
+    if (pic) {
+      let id = pic.id;
+      if (!id) {
+        id = await onUpload(pic.file);
+        if (!id) return; // the upload failed and was reported
+        setPic({ file: pic.file, id });
+      }
+      payload.attachment_id = id;
+    }
+    const ok = await onSend(payload);
     if (ok) {
       setText('');
+      setPic(null);
       setQuick(false);
     }
   };
@@ -326,6 +392,23 @@ function Composer({ onSend, busy, ticketStatus }) {
           )}
         </div>
       </div>
+      {pic && (
+        <div className="mb-2 flex items-center gap-2 rounded-xl bg-[var(--mb)] px-3 py-2 text-xs">
+          <Paperclip size={13} className="shrink-0 text-[var(--mu)]" />
+          <span dir="ltr" className="min-w-0 flex-1 truncate font-mono">
+            {pic.file.name}
+          </span>
+          <button
+            type="button"
+            disabled={busy}
+            aria-label="حذف تصویر"
+            className="btn btn-g !px-1.5 !py-1"
+            onClick={() => setPic(null)}
+          >
+            <X size={12} />
+          </button>
+        </div>
+      )}
       <textarea
         ref={ta}
         dir="auto"
@@ -337,11 +420,37 @@ function Composer({ onSend, busy, ticketStatus }) {
         placeholder={note ? 'فقط برای تیم پشتیبانی دیده می‌شود…' : 'پاسخ خود را بنویسید… (Ctrl+Enter برای ارسال)'}
         className="inp resize-none"
         onKeyDown={(e) => {
-          if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && text.trim() && !busy) send();
+          if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && ready && !busy) send();
         }}
       />
       <div className="mt-2 flex flex-wrap items-center gap-2">
-        <button disabled={busy || !text.trim()} onClick={() => send()} className="btn">
+        <input
+          ref={picker}
+          type="file"
+          accept={IMAGE_TYPES.join(',')}
+          className="hidden"
+          aria-label="انتخاب تصویر"
+          data-testid="ticket-image-input"
+          onChange={(e) => {
+            const f = e.target.files?.[0] || null;
+            e.target.value = '';
+            if (!f) return;
+            const problem = imageProblem(f);
+            if (problem) return toast(problem);
+            setPic({ file: f, id: null });
+          }}
+        />
+        <button
+          type="button"
+          disabled={busy}
+          className="btn btn-g"
+          aria-label="پیوست تصویر"
+          title="پیوست تصویر"
+          onClick={() => picker.current?.click()}
+        >
+          <Paperclip size={14} />
+        </button>
+        <button disabled={busy || !ready} onClick={() => send()} className="btn">
           {note ? (
             <>
               <Lock size={14} />
@@ -355,7 +464,7 @@ function Composer({ onSend, busy, ticketStatus }) {
           )}
         </button>
         {!note && ticketStatus !== 'closed' && (
-          <button disabled={busy || !text.trim()} onClick={() => send('closed')} className="btn btn-g">
+          <button disabled={busy || !ready} onClick={() => send('closed')} className="btn btn-g">
             <CheckCheck size={14} />
             ارسال و بستن
           </button>
@@ -419,6 +528,24 @@ function Conversation({ call, id, toast, onChanged, onBack }) {
       await load(true);
       onChanged();
       okMsg && toast(okMsg);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const upload = async (file) => {
+    setBusy(true);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const r = await call('/api/v1/admin/tickets/attachments', { method: 'POST', body: form });
+      if (!r.ok) {
+        toast(await errText(r, 'ارسال تصویر ناموفق بود'));
+        return null;
+      }
+      return (await r.json()).id;
+    } catch {
+      toast('ارسال تصویر ناموفق بود');
+      return null;
     } finally {
       setBusy(false);
     }
@@ -650,6 +777,8 @@ function Conversation({ call, id, toast, onChanged, onBack }) {
               )}
               <Bubble
                 m={m}
+                ticketId={id}
+                call={call}
                 mine={!!m.mine}
                 busy={busy}
                 editing={editing === m.id}
@@ -667,7 +796,7 @@ function Conversation({ call, id, toast, onChanged, onBack }) {
         )}
         <div ref={end} />
       </div>
-      <Composer onSend={send} busy={busy} ticketStatus={d.status} />
+      <Composer onSend={send} onUpload={upload} busy={busy} ticketStatus={d.status} toast={toast} />
     </div>
   );
 }

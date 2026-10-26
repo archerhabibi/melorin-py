@@ -15,7 +15,7 @@ import {
   Unplug,
 } from 'lucide-react';
 import { authFetch } from './api.js';
-import { confirmDialog, dt } from './ui.jsx';
+import { PasswordInput, confirmDialog, dt } from './ui.jsx';
 import {
   Drawer,
   Empty,
@@ -368,9 +368,8 @@ function Editor({ initial, call, toast, onClose, onDone }) {
           hint="از BotFather بگیرید. تلگرام همین حالا آن را تأیید می‌کند؛ توکن رمزنگاری ذخیره می‌شود و هرگز نمایش داده نمی‌شود."
         >
           <div className="flex items-center gap-2">
-            <input
-              dir="ltr"
-              type="password"
+            <PasswordInput
+              wrapClassName="flex-1"
               autoComplete="off"
               spellCheck={false}
               className="inp latin"

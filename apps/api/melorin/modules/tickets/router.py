@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter
+from fastapi import APIRouter, File, UploadFile
 from sqlalchemy import select
 
 from melorin.core import audit, codes, events
@@ -9,7 +9,15 @@ from melorin.core.deps import AuthSession, CurrentAuth, Session, StoreCtx
 from melorin.core.errors import AppError, NotFound
 from melorin.modules.tickets import service
 from melorin.kernel.models.tickets import Ticket, TicketMessage
-from melorin.modules.tickets.schemas import AddMessage, CreateTicket, EditMessage, TicketMessageOut, TicketOut, UpdateTicket
+from melorin.modules.tickets.schemas import (
+    AddMessage,
+    AttachmentOut,
+    CreateTicket,
+    EditMessage,
+    TicketMessageOut,
+    TicketOut,
+    UpdateTicket,
+)
 
 router = APIRouter(tags=["tickets"])
 
@@ -29,8 +37,16 @@ async def _own_ticket(session, ticket_id: uuid.UUID, auth: AuthSession) -> Ticke
     return t
 
 
+@router.post("/stores/{store_id}/tickets/attachments", response_model=AttachmentOut, status_code=201)
+async def upload_attachment(ctx: StoreCtx, session: Session, file: UploadFile = File(...)):
+    """Step 1 of sending a picture: upload it, then pass the returned id as ``attachment_id`` when sending the message."""
+    return await service.save_image(session, user_id=ctx.user.id, store_id=ctx.store.id, file=file)
+
+
 @router.post("/stores/{store_id}/tickets", response_model=TicketOut, status_code=201)
 async def create(body: CreateTicket, ctx: StoreCtx, session: Session):
+    if not body.body.strip() and not body.attachment_id:
+        raise AppError("EMPTY_MESSAGE", "متن یا تصویر پیوست لازم است.", 422)
     # number is NOT NULL: generate it before the INSERT is flushed.
     number = await codes.next_code(session, codes.TICKET_SEQ)
     t = Ticket(
@@ -44,7 +60,8 @@ async def create(body: CreateTicket, ctx: StoreCtx, session: Session):
     )
     session.add(t)
     await session.flush()
-    first = TicketMessage(ticket_id=t.id, author_id=ctx.user.id, is_staff=False, body=body.body)
+    attachment_id = await service.claim_attachment(session, body.attachment_id, user_id=ctx.user.id)
+    first = TicketMessage(ticket_id=t.id, author_id=ctx.user.id, is_staff=False, body=body.body.strip(), attachment_id=attachment_id)
     session.add(first)
     await session.flush()
     audit.record(session, "ticket.created", actor_id=ctx.user.id, entity_type="ticket", entity_id=t.id, store_id=ctx.store.id)
@@ -118,8 +135,13 @@ async def messages(ticket_id: uuid.UUID, auth: CurrentAuth, session: Session):
 @router.post("/tickets/{ticket_id}/messages", response_model=TicketMessageOut)
 async def add_message(ticket_id: uuid.UUID, body: AddMessage, auth: CurrentAuth, session: Session):
     user = auth.user
+    if not body.body.strip() and not body.attachment_id:
+        raise AppError("EMPTY_MESSAGE", "متن یا تصویر پیوست لازم است.", 422)
     t = await _own_ticket(session, ticket_id, auth)
-    m = TicketMessage(ticket_id=t.id, author_id=user.id, is_staff=auth.is_admin_session, body=body.body)
+    attachment_id = await service.claim_attachment(session, body.attachment_id, user_id=user.id)
+    m = TicketMessage(
+        ticket_id=t.id, author_id=user.id, is_staff=auth.is_admin_session, body=body.body.strip(), attachment_id=attachment_id
+    )
     session.add(m)
     t.status = "answered" if auth.is_admin_session else "open"
     service.touch(t)
@@ -129,6 +151,16 @@ async def add_message(ticket_id: uuid.UUID, body: AddMessage, auth: CurrentAuth,
         await service.notify_customer(session, t, body.body)
     await session.commit()
     return service.message_out(m)
+
+
+@router.get("/tickets/{ticket_id}/messages/{message_id}/attachment")
+async def message_attachment(ticket_id: uuid.UUID, message_id: uuid.UUID, auth: CurrentAuth, session: Session):
+    """The picture of one message. Customers reach only their own tickets and never staff-only notes."""
+    t = await _own_ticket(session, ticket_id, auth)
+    m = await session.get(TicketMessage, message_id)
+    if not m or m.ticket_id != t.id or not m.attachment_id or (m.is_internal and not auth.is_admin_session):
+        raise NotFound("تصویر")
+    return await service.attachment_response(session, m)
 
 
 @router.patch("/tickets/{ticket_id}/messages/{message_id}", response_model=TicketMessageOut)

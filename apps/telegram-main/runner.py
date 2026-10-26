@@ -188,13 +188,7 @@ class TelegramRunner(TransportMixin, IdentityMixin, PlansMixin, WalletMixin, Acc
         elif self._flow(ctx).get("ask"):
             await self.set_account_name(ctx, self._flow(ctx)["ask"], text.strip())
         elif st.get("reply_ticket"):
-            await self.api(ctx, "POST", f"/api/v1/tickets/{st['reply_ticket']}/messages", json={"body": text})
-            self._set_state(ctx.chat_id, None)
-            await self.send(
-                ctx.chat_id,
-                "✅ پیام شما ثبت شد؛ پاسخ پشتیبانی همین‌جا به شما اطلاع داده می‌شود.",
-                [[("📂 مشاهدهٔ تیکت", f"ticket:{st['reply_ticket']}")], [("🎫 همهٔ تیکت‌ها", "menu:tickets")]],
-            )
+            await self.send_ticket_reply(ctx, st["reply_ticket"], text)
         elif st.get("edit_msg"):
             tid, mid = st["edit_ticket"], st["edit_msg"]
             await self.api(ctx, "PATCH", f"/api/v1/tickets/{tid}/messages/{mid}", json={"body": text})
@@ -210,24 +204,16 @@ class TelegramRunner(TransportMixin, IdentityMixin, PlansMixin, WalletMixin, Acc
             if len(subject) < 2:
                 return await self.send(ctx.chat_id, "موضوع خیلی کوتاه است. یک عنوان کوتاه و روشن بفرستید:")
             self._set_state(ctx.chat_id, {"new_ticket_subject": subject[:200]})
-            await self.send(ctx.chat_id, "حالا توضیحات کامل مشکل یا درخواست خود را بفرستید:")
+            await self.send(ctx.chat_id, "حالا توضیحات کامل مشکل یا درخواست خود را بفرستید (می‌توانید یک عکس هم بفرستید):")
         elif st.get("new_ticket_subject"):
-            store = await self.store_info()
-            t = await self.api(
-                ctx, "POST", f"/api/v1/stores/{store['id']}/tickets", json={"subject": st["new_ticket_subject"], "body": text}
-            )
-            self._set_state(ctx.chat_id, None)
-            await self.send(
-                ctx.chat_id,
-                f"✅ تیکت شما با شماره <b>#{esc(t.get('number') or '-')}</b> ثبت شد.\nپاسخ پشتیبانی همین‌جا به شما اطلاع داده می‌شود.",
-                [[("📂 مشاهدهٔ تیکت", f"ticket:{t['id']}")], [("🎫 همهٔ تیکت‌ها", "menu:tickets")]],
-                html=True,
-            )
+            await self.create_ticket(ctx, st["new_ticket_subject"], text)
         else:
             await self.send_main_menu(ctx.chat_id, "از منوی زیر انتخاب کنید:")
 
     async def on_file(self, ctx: Ctx, message: dict) -> None:
         st = self.state.get(str(ctx.chat_id)) or {}
+        if st.get("reply_ticket") or st.get("new_ticket_subject"):
+            return await self.ticket_picture(ctx, st, message)  # a picture for the ticket being written
         pid = st.get("receipt_payment")
         if not pid:
             return await self.send(ctx.chat_id, "ابتدا با /topup مبلغ یک درخواست شارژ بسازید، سپس رسید را بفرستید.")

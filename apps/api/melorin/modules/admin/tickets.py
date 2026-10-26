@@ -2,7 +2,7 @@
 
 import logging
 import uuid
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, File, Query, UploadFile
 from sqlalchemy import select
 from melorin.core import audit
 from melorin.core.deps import AdminUser, Session
@@ -10,7 +10,7 @@ from melorin.core.errors import AppError, NotFound
 from melorin.kernel.models.identity import User
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.tickets import Ticket
-from melorin.modules.tickets.schemas import AdminAddMessage, AdminUpdateTicket, EditMessage as EditTicketMessage
+from melorin.modules.tickets.schemas import AdminAddMessage, AdminUpdateTicket, AttachmentOut, EditMessage as EditTicketMessage
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 log = logging.getLogger("melorin.admin")
@@ -31,7 +31,7 @@ def _ticket_row(t, user, store, count, last):
         "customer": {"id": user.id, "name": user.display_name, "email": user.email} if user else None,
         "store_name": store.name if store else None,
         "message_count": count,
-        "last_message": (last.body[:140] if last else None),
+        "last_message": ((last.body[:140] or ("📎 تصویر" if last.attachment_id else "")) if last else None),
         "last_from_staff": bool(last.is_staff) if last else None,
     }
 
@@ -132,6 +132,25 @@ async def update_ticket(ticket_id: uuid.UUID, body: AdminUpdateTicket, admin: Ad
     return (await _ticket_rows(session, [t]))[0]
 
 
+@router.post("/tickets/attachments", response_model=AttachmentOut, status_code=201)
+async def ticket_upload_attachment(admin: AdminUser, session: Session, file: UploadFile = File(...)):
+    """Staff picture for a reply: upload first, then send the reply with the returned ``attachment_id``."""
+    from melorin.modules.tickets import service as ticket_service
+
+    return await ticket_service.save_image(session, user_id=admin.id, store_id=None, file=file)
+
+
+@router.get("/tickets/{ticket_id}/messages/{message_id}/attachment")
+async def ticket_message_attachment(ticket_id: uuid.UUID, message_id: uuid.UUID, _: AdminUser, session: Session):
+    from melorin.modules.tickets import service as ticket_service
+    from melorin.kernel.models.tickets import TicketMessage
+
+    m = await session.get(TicketMessage, message_id)
+    if not m or m.ticket_id != ticket_id or not m.attachment_id:
+        raise NotFound("تصویر")
+    return await ticket_service.attachment_response(session, m)
+
+
 @router.post("/tickets/{ticket_id}/messages", response_model=dict)
 async def ticket_reply(ticket_id: uuid.UUID, body: AdminAddMessage, admin: AdminUser, session: Session):
     """Staff reply or internal note. Replies notify the customer; internal notes never leave the admin panel."""
@@ -143,9 +162,10 @@ async def ticket_reply(ticket_id: uuid.UUID, body: AdminAddMessage, admin: Admin
     if not t:
         raise NotFound("تیکت")
     text = body.body.strip()
-    if not text:
-        raise AppError("EMPTY_MESSAGE", "متن پیام نمی‌تواند خالی باشد.", 422)
-    m = TicketMessage(ticket_id=t.id, author_id=admin.id, is_staff=True, is_internal=body.internal, body=text)
+    if not text and not body.attachment_id:
+        raise AppError("EMPTY_MESSAGE", "متن یا تصویر پیوست لازم است.", 422)
+    attachment_id = await ticket_service.claim_attachment(session, body.attachment_id, user_id=admin.id)
+    m = TicketMessage(ticket_id=t.id, author_id=admin.id, is_staff=True, is_internal=body.internal, body=text, attachment_id=attachment_id)
     session.add(m)
     if not body.internal:
         t.status = body.status or "answered"

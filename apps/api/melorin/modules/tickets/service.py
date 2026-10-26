@@ -2,13 +2,23 @@
 
 import uuid
 
+from fastapi import UploadFile
+from fastapi.responses import Response
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from melorin.core import events
+from melorin.core.config import get_settings
 from melorin.core.db import utcnow
+from melorin.core.errors import AppError, NotFound
+from melorin.core.storage import get_storage, validate_upload
+from melorin.kernel.models.system import FileObject
 from melorin.kernel.models.tickets import Ticket, TicketMessage
-from melorin.modules.tickets.schemas import TicketMessageOut, TicketOut
+from melorin.modules.tickets.schemas import AttachmentOut, TicketMessageOut, TicketOut
+
+# Tickets take pictures only (screenshots, photos of a receipt or an error); PDFs stay a payment-receipt thing.
+TICKET_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
+IMAGE_PLACEHOLDER = "📎 تصویر"
 
 EDIT_BODY_MAX = 10_000
 
@@ -36,6 +46,65 @@ def message_out(m: TicketMessage) -> TicketMessageOut:
         body=m.body,
         created_at=m.created_at,
         edited_at=m.edited_at,
+        attachment_id=m.attachment_id,
+    )
+
+
+async def save_image(session: AsyncSession, *, user_id: uuid.UUID, store_id: uuid.UUID | None, file: UploadFile) -> AttachmentOut:
+    """Validate (type, size, magic bytes) and store one image for a ticket message. Not attached to anything yet."""
+    content_type = (file.content_type or "").lower()
+    if content_type not in TICKET_IMAGE_TYPES:
+        raise AppError("UNSUPPORTED_FILE", "فقط تصویر (JPG، PNG یا WebP) مجاز است.", 415)
+    limit = get_settings().max_upload_bytes
+    data = bytearray()
+    while chunk := await file.read(1024 * 1024):
+        data.extend(chunk)
+        if len(data) > limit:
+            raise AppError("FILE_TOO_LARGE", "حجم تصویر زیاد است.", 413)
+    data = bytes(data)
+    if not data:
+        raise AppError("EMPTY_FILE", "فایل خالی است.", 422)
+    digest = validate_upload(data, content_type)
+    key = await get_storage().put(data, content_type)
+    fo = FileObject(
+        owner_user_id=user_id,
+        store_id=store_id,
+        purpose="ticket",
+        storage_key=key,
+        content_type=content_type,
+        size=len(data),
+        sha256=digest,
+    )
+    session.add(fo)
+    await session.flush()
+    out = AttachmentOut(id=fo.id, content_type=fo.content_type, size=fo.size)
+    await session.commit()
+    return out
+
+
+async def claim_attachment(session: AsyncSession, attachment_id: uuid.UUID | None, *, user_id: uuid.UUID) -> uuid.UUID | None:
+    """The uploader may attach his own unused ticket image to exactly one message."""
+    if attachment_id is None:
+        return None
+    fo = await session.get(FileObject, attachment_id)
+    if fo is None or fo.purpose != "ticket" or fo.owner_user_id != user_id:
+        raise NotFound("تصویر")
+    used = await session.scalar(select(func.count()).select_from(TicketMessage).where(TicketMessage.attachment_id == fo.id))
+    if used:
+        raise AppError("ATTACHMENT_USED", "این تصویر قبلاً به پیام دیگری پیوست شده است.", 409)
+    return fo.id
+
+
+async def attachment_response(session: AsyncSession, m: TicketMessage) -> Response:
+    """Serve a message's image. Callers have already checked that the viewer may see this ticket and message."""
+    fo = await session.get(FileObject, m.attachment_id) if m.attachment_id else None
+    if fo is None:
+        raise NotFound("تصویر")
+    data = await get_storage().get(fo.storage_key)
+    return Response(
+        content=data,
+        media_type=fo.content_type,
+        headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff", "Content-Disposition": "inline"},
     )
 
 
@@ -77,7 +146,7 @@ async def last_messages(session: AsyncSession, ticket_ids: list[uuid.UUID]) -> d
 
 async def notify_customer(session: AsyncSession, t: Ticket, text: str) -> None:
     """Queue a Telegram/in-app notification for the ticket owner (delivered by the outbox worker)."""
-    preview = text.strip().replace("\n", " ")
+    preview = text.strip().replace("\n", " ") or IMAGE_PLACEHOLDER
     if len(preview) > 280:
         preview = preview[:277] + "…"
     await events.emit(

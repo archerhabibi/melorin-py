@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { setTokens } from './auth.js';
-import { ThemeButton } from './ui.jsx';
+import { PasswordInput, ThemeButton } from './ui.jsx';
 import { GoogleSignInButton, useGoogleConfig } from './GoogleSignIn.jsx';
 
 // API errors arrive as { error: { code, message } }.
@@ -150,14 +150,13 @@ export default function AdminAuth({ base, onSuccess }) {
         <label htmlFor="pw" className="mt-4 block text-sm font-bold">
           رمز عبور
         </label>
-        <input
+        <PasswordInput
           id="pw"
-          dir="ltr"
-          type="password"
           autoComplete="current-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="inp mt-2"
+          className="inp"
+          wrapClassName="mt-2"
         />
 
         <label htmlFor="tp" className="mt-4 block text-sm font-bold">

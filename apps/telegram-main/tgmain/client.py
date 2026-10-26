@@ -103,12 +103,14 @@ class TransportMixin:
                 # message is a photo / too old to edit -> fall through to a fresh message
         await self.send(ctx.chat_id, text, rows, html=True)
 
-    async def send_photo(self, chat_id, png: bytes, caption: str, rows=None) -> None:
+    async def send_photo(
+        self, chat_id, png: bytes, caption: str, rows=None, *, filename: str = "qr.png", mime: str = "image/png"
+    ) -> None:
         data = {"chat_id": str(chat_id), "caption": caption[:1024], "parse_mode": "HTML"}
         if rows:
             data["reply_markup"] = json.dumps(keyboard(rows))
         r = await self.client.post(
-            f"https://api.telegram.org/bot{self.token}/sendPhoto", data=data, files={"photo": ("qr.png", png, "image/png")}
+            f"https://api.telegram.org/bot{self.token}/sendPhoto", data=data, files={"photo": (filename, png, mime)}
         )
         r.raise_for_status()
 
@@ -127,6 +129,16 @@ class TransportMixin:
         if r.status_code >= 400:
             raise CoreError(r.status_code, self._err(r), self._code(r))
         return r.json()
+
+    async def api_file(self, ctx: Ctx, path: str) -> tuple[bytes, str]:
+        """GET a binary Core resource (a ticket picture): (content, content type)."""
+        headers = {"Authorization": f"Bearer {ctx.pair['access_token']}"}
+        r = await self.client.get(f"{self.core}{path}", headers=headers)
+        if r.status_code >= 500:
+            r.raise_for_status()  # transient: let the runner retry the update
+        if r.status_code >= 400:
+            raise CoreError(r.status_code, self._err(r), self._code(r))
+        return r.content, r.headers.get("content-type", "image/jpeg").split(";")[0].strip()
 
     @staticmethod
     def _code(r: httpx.Response) -> str | None:

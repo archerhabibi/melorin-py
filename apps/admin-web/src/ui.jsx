@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Moon, Sun } from 'lucide-react';
+import { Eye, EyeOff, Moon, Sun } from 'lucide-react';
 import { getTheme, onTheme, toggleTheme } from './theme.js';
 import { backdropProps, useDialog } from './useDialog.js';
 
@@ -30,6 +30,9 @@ const S = {
   provisioning_failed: ['b-bd', 'ساخت ناموفق'],
   unhealthy: ['b-bd', 'ناسالم'],
   expired: ['b-bd', 'منقضی'],
+  expiring: ['b-wn', 'در آستانه انقضا'],
+  depleted: ['b-bd', 'ترافیک تمام‌شده'],
+  suspended: ['b-bd', 'معلق'],
   refunded: ['b-mu', 'مسترد'],
   cancelled: ['b-mu', 'لغو شده'],
   disabled: ['b-mu', 'غیرفعال'],
@@ -127,6 +130,25 @@ function DialogBody({ d, close }) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Password field with an eye toggle (show / hide). Extra props go to the <input>. */
+export function PasswordInput({ className = '', wrapClassName = '', ...props }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className={`relative ${wrapClassName}`}>
+      <input {...props} dir="ltr" type={show ? 'text' : 'password'} className={`${className} !pl-10`} />
+      <button
+        type="button"
+        aria-label={show ? 'پنهان‌کردن رمز' : 'نمایش رمز'}
+        title={show ? 'پنهان‌کردن' : 'نمایش'}
+        className="absolute left-2 top-1/2 -translate-y-1/2 text-[var(--mu)]"
+        onClick={() => setShow((v) => !v)}
+      >
+        {show ? <EyeOff size={16} /> : <Eye size={16} />}
+      </button>
     </div>
   );
 }

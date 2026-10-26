@@ -25,6 +25,8 @@ class WalletMixin:
         tx = await self.api(ctx, "GET", f"/api/v1/stores/{store['id']}/wallet/transactions")
         items = tx if isinstance(tx, list) else tx.get("items", [])
         lines = [f"💰 <b>کیف پول</b>\n\nموجودی: <b>{esc(fmt(w['balance'], w['currency']))}</b>"]
+        tg_id = w.get("telegram_id") or ctx.user["id"]
+        lines.append(f"🆔 آیدی عددی تلگرام: <code>{esc(str(tg_id))}</code>")
         if items:
             lines.append("\n🕘 آخرین تراکنش‌ها:")
             for t in items[:5]:
