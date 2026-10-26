@@ -9,7 +9,13 @@ import { num } from './kit.jsx';
 export const PAGE_SIZE = 20;
 
 /** Stable authFetch bound to the API base. */
-export const useCall = (api) => useMemo(() => (p, o = {}) => authFetch(api.base, p, o), [api.base]);
+export const useCall = (api) =>
+  useMemo(
+    () =>
+      (p, o = {}) =>
+        authFetch(api.base, p, o),
+    [api.base],
+  );
 
 /** Debounced copy of a fast-changing value (search boxes). */
 export function useDebounced(value, ms = 300) {
@@ -93,8 +99,8 @@ export function downloadCsv(name, head, rows) {
 /** Screen title + subtitle + actions (refresh, CSV, …). */
 export function ScreenHead({ title, hint, count, onRefresh, busy, onExport, exportDisabled, children }) {
   return (
-    <div className="flex flex-wrap items-end justify-between gap-3">
-      <div className="min-w-0">
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="min-w-0 flex-1 basis-72">
         <h2 className="flex items-center gap-2 text-xl font-extrabold">
           {title}
           {count != null && <span className="badge b-mu num">{num(count)}</span>}
@@ -110,7 +116,13 @@ export function ScreenHead({ title, hint, count, onRefresh, busy, onExport, expo
           </button>
         )}
         {onRefresh && (
-          <button className="btn btn-g !px-3 !py-2" aria-label="به‌روزرسانی" title="به‌روزرسانی" onClick={onRefresh} disabled={busy}>
+          <button
+            className="btn btn-g !px-3 !py-2"
+            aria-label="به‌روزرسانی"
+            title="به‌روزرسانی"
+            onClick={onRefresh}
+            disabled={busy}
+          >
             <RefreshCw size={15} className={busy ? 'animate-spin' : ''} />
           </button>
         )}
@@ -131,7 +143,7 @@ export function DataGrid({ columns, rows, rowKey = 'id', onRowClick, loading, em
   return (
     <section className="card rise overflow-hidden">
       <div className="max-h-[68vh] overflow-auto">
-        <table className="tbl" style={{ minWidth }}>
+        <table className="tbl whitespace-nowrap" style={{ minWidth }}>
           {caption && <caption className="sr-only">{caption}</caption>}
           <thead>
             <tr>
@@ -194,12 +206,23 @@ export function DataGrid({ columns, rows, rowKey = 'id', onRowClick, loading, em
 
 /** Circular initial badge used for people and stores. */
 export function Avatar({ name, tone = 'in', size = 36 }) {
-  const ch = String(name || '?').trim().charAt(0).toUpperCase() || '?';
+  const ch =
+    String(name || '?')
+      .trim()
+      .charAt(0)
+      .toUpperCase() || '?';
   return (
     <span
       aria-hidden="true"
       className="tile font-extrabold"
-      style={{ width: size, height: size, borderRadius: 999, fontSize: size * 0.4, background: `var(--${tone}b)`, color: `var(--${tone})` }}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: 999,
+        fontSize: size * 0.4,
+        background: `var(--${tone}b)`,
+        color: `var(--${tone})`,
+      }}
     >
       {ch}
     </span>
@@ -209,12 +232,20 @@ export function Avatar({ name, tone = 'in', size = 36 }) {
 /** Two-line cell: main text + muted sub text (truncates, never wraps the row). */
 export function Cell2({ main, sub, dir, mono }) {
   return (
-    <span className="block min-w-0 leading-5">
-      <span className={`block truncate font-bold ${mono ? 'num' : ''}`} dir={dir} title={typeof main === 'string' ? main : undefined}>
+    <span className="block min-w-0 max-w-[15rem] leading-5">
+      <span
+        className={`block truncate font-bold ${mono ? 'num' : ''}`}
+        dir={dir}
+        title={typeof main === 'string' ? main : undefined}
+      >
         {main || '—'}
       </span>
       {sub ? (
-        <span className="block truncate text-[11px] text-[var(--mu)]" dir={dir} title={typeof sub === 'string' ? sub : undefined}>
+        <span
+          className="block truncate text-[11px] text-[var(--mu)]"
+          dir={dir}
+          title={typeof sub === 'string' ? sub : undefined}
+        >
           {sub}
         </span>
       ) : null}
