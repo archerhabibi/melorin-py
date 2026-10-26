@@ -3,16 +3,25 @@
     "schemas": {
       "AddMessage": {
         "properties": {
+          "attachment_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attachment Id"
+          },
           "body": {
+            "default": "",
             "maxLength": 10000,
-            "minLength": 1,
             "title": "Body",
             "type": "string"
           }
         },
-        "required": [
-          "body"
-        ],
         "title": "AddMessage",
         "type": "object"
       },
@@ -39,9 +48,21 @@
       },
       "AdminAddMessage": {
         "properties": {
+          "attachment_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attachment Id"
+          },
           "body": {
+            "default": "",
             "maxLength": 10000,
-            "minLength": 1,
             "title": "Body",
             "type": "string"
           },
@@ -67,9 +88,6 @@
             "title": "Status"
           }
         },
-        "required": [
-          "body"
-        ],
         "title": "AdminAddMessage",
         "type": "object"
       },
@@ -539,6 +557,30 @@
         "title": "AttachExistingAccount",
         "type": "object"
       },
+      "AttachmentOut": {
+        "properties": {
+          "content_type": {
+            "title": "Content Type",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "content_type",
+          "size"
+        ],
+        "title": "AttachmentOut",
+        "type": "object"
+      },
       "Availability": {
         "properties": {
           "customer_price": {
@@ -719,6 +761,34 @@
           }
         },
         "title": "BankSmsSourceIn",
+        "type": "object"
+      },
+      "Body_ticket_upload_attachment_api_v1_admin_tickets_attachments_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_ticket_upload_attachment_api_v1_admin_tickets_attachments_post",
+        "type": "object"
+      },
+      "Body_upload_attachment_api_v1_stores__store_id__tickets_attachments_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_attachment_api_v1_stores__store_id__tickets_attachments_post",
         "type": "object"
       },
       "Body_upload_receipt_api_v1_stores__store_id__payments__payment_id__receipt_post": {
@@ -1650,9 +1720,21 @@
       },
       "CreateTicket": {
         "properties": {
+          "attachment_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attachment Id"
+          },
           "body": {
+            "default": "",
             "maxLength": 10000,
-            "minLength": 1,
             "title": "Body",
             "type": "string"
           },
@@ -1686,8 +1768,7 @@
           }
         },
         "required": [
-          "subject",
-          "body"
+          "subject"
         ],
         "title": "CreateTicket",
         "type": "object"
@@ -1724,6 +1805,17 @@
           "status": {
             "title": "Status",
             "type": "string"
+          },
+          "telegram_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Telegram Id"
           },
           "user_id": {
             "format": "uuid",
@@ -5040,6 +5132,18 @@
       },
       "TicketMessageOut": {
         "properties": {
+          "attachment_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attachment Id"
+          },
           "author_id": {
             "format": "uuid",
             "title": "Author Id",
@@ -5774,6 +5878,17 @@
             "format": "uuid",
             "title": "Store Id",
             "type": "string"
+          },
+          "telegram_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Telegram Id"
           }
         },
         "required": [
@@ -10871,6 +10986,53 @@
         ]
       }
     },
+    "/api/v1/admin/tickets/attachments": {
+      "post": {
+        "description": "Staff picture for a reply: upload first, then send the reply with the returned ``attachment_id``.",
+        "operationId": "ticket_upload_attachment_api_v1_admin_tickets_attachments_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_ticket_upload_attachment_api_v1_admin_tickets_attachments_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttachmentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Ticket Upload Attachment",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/admin/tickets/{ticket_id}": {
       "get": {
         "operationId": "ticket_detail_api_v1_admin_tickets__ticket_id__get",
@@ -11102,6 +11264,62 @@
           }
         ],
         "summary": "Ticket Edit Message",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/tickets/{ticket_id}/messages/{message_id}/attachment": {
+      "get": {
+        "operationId": "ticket_message_attachment_api_v1_admin_tickets__ticket_id__messages__message_id__attachment_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticket_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Ticket Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "message_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Message Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Ticket Message Attachment",
         "tags": [
           "admin"
         ]
@@ -17584,6 +17802,65 @@
         ]
       }
     },
+    "/api/v1/stores/{store_id}/tickets/attachments": {
+      "post": {
+        "description": "Step 1 of sending a picture: upload it, then pass the returned id as ``attachment_id`` when sending the message.",
+        "operationId": "upload_attachment_api_v1_stores__store_id__tickets_attachments_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_attachment_api_v1_stores__store_id__tickets_attachments_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttachmentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Upload Attachment",
+        "tags": [
+          "tickets"
+        ]
+      }
+    },
     "/api/v1/stores/{store_id}/vpn-accounts": {
       "get": {
         "description": "The caller's OWN accounts in THIS store (list and search): the scope lives in ``inquiry.customer_accounts``.",
@@ -18487,6 +18764,63 @@
           }
         ],
         "summary": "Edit Message",
+        "tags": [
+          "tickets"
+        ]
+      }
+    },
+    "/api/v1/tickets/{ticket_id}/messages/{message_id}/attachment": {
+      "get": {
+        "description": "The picture of one message. Customers reach only their own tickets and never staff-only notes.",
+        "operationId": "message_attachment_api_v1_tickets__ticket_id__messages__message_id__attachment_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticket_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Ticket Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "message_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Message Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Message Attachment",
         "tags": [
           "tickets"
         ]

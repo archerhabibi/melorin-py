@@ -1562,6 +1562,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/tickets/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ticket Upload Attachment
+         * @description Staff picture for a reply: upload first, then send the reply with the returned ``attachment_id``.
+         */
+        post: operations["ticket_upload_attachment_api_v1_admin_tickets_attachments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/tickets/{ticket_id}": {
         parameters: {
             query?: never;
@@ -1618,6 +1638,23 @@ export interface paths {
          * @description Staff may correct their own replies/notes; edits are stamped and audited.
          */
         patch: operations["ticket_edit_message_api_v1_admin_tickets__ticket_id__messages__message_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/admin/tickets/{ticket_id}/messages/{message_id}/attachment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ticket Message Attachment */
+        get: operations["ticket_message_attachment_api_v1_admin_tickets__ticket_id__messages__message_id__attachment_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/admin/users": {
@@ -3661,6 +3698,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/stores/{store_id}/tickets/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Attachment
+         * @description Step 1 of sending a picture: upload it, then pass the returned id as ``attachment_id`` when sending the message.
+         */
+        post: operations["upload_attachment_api_v1_stores__store_id__tickets_attachments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/stores/{store_id}/vpn-accounts": {
         parameters: {
             query?: never;
@@ -3910,6 +3967,26 @@ export interface paths {
         patch: operations["edit_message_api_v1_tickets__ticket_id__messages__message_id__patch"];
         trace?: never;
     };
+    "/api/v1/tickets/{ticket_id}/messages/{message_id}/attachment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Message Attachment
+         * @description The picture of one message. Customers reach only their own tickets and never staff-only notes.
+         */
+        get: operations["message_attachment_api_v1_tickets__ticket_id__messages__message_id__attachment_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -3967,7 +4044,12 @@ export interface components {
     schemas: {
         /** AddMessage */
         AddMessage: {
-            /** Body */
+            /** Attachment Id */
+            attachment_id?: string | null;
+            /**
+             * Body
+             * @default
+             */
             body: string;
         };
         /** AdminAccessIn */
@@ -3979,7 +4061,12 @@ export interface components {
         };
         /** AdminAddMessage */
         AdminAddMessage: {
-            /** Body */
+            /** Attachment Id */
+            attachment_id?: string | null;
+            /**
+             * Body
+             * @default
+             */
             body: string;
             /**
              * Internal
@@ -4138,6 +4225,18 @@ export interface components {
             /** Username */
             username: string;
         };
+        /** AttachmentOut */
+        AttachmentOut: {
+            /** Content Type */
+            content_type: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Size */
+            size: number;
+        };
         /** Availability */
         Availability: {
             /** Customer Price */
@@ -4221,6 +4320,16 @@ export interface components {
             senders?: string[] | null;
             /** Settings */
             settings?: Record<string, never> | null;
+        };
+        /** Body_ticket_upload_attachment_api_v1_admin_tickets_attachments_post */
+        Body_ticket_upload_attachment_api_v1_admin_tickets_attachments_post: {
+            /** File */
+            file: string;
+        };
+        /** Body_upload_attachment_api_v1_stores__store_id__tickets_attachments_post */
+        Body_upload_attachment_api_v1_stores__store_id__tickets_attachments_post: {
+            /** File */
+            file: string;
         };
         /** Body_upload_receipt_api_v1_stores__store_id__payments__payment_id__receipt_post */
         Body_upload_receipt_api_v1_stores__store_id__payments__payment_id__receipt_post: {
@@ -4564,7 +4673,12 @@ export interface components {
         };
         /** CreateTicket */
         CreateTicket: {
-            /** Body */
+            /** Attachment Id */
+            attachment_id?: string | null;
+            /**
+             * Body
+             * @default
+             */
             body: string;
             /** Department */
             department?: string | null;
@@ -4590,6 +4704,8 @@ export interface components {
             joined_at: string;
             /** Status */
             status: string;
+            /** Telegram Id */
+            telegram_id?: string | null;
             /**
              * User Id
              * Format: uuid
@@ -5725,6 +5841,8 @@ export interface components {
         };
         /** TicketMessageOut */
         TicketMessageOut: {
+            /** Attachment Id */
+            attachment_id?: string | null;
             /**
              * Author Id
              * Format: uuid
@@ -5982,6 +6100,8 @@ export interface components {
              * Format: uuid
              */
             store_id: string;
+            /** Telegram Id */
+            telegram_id?: string | null;
         };
         /** WebHandoffIn */
         WebHandoffIn: {
@@ -9173,6 +9293,39 @@ export interface operations {
             };
         };
     };
+    ticket_upload_attachment_api_v1_admin_tickets_attachments_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_ticket_upload_attachment_api_v1_admin_tickets_attachments_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttachmentOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     ticket_detail_api_v1_admin_tickets__ticket_id__get: {
         parameters: {
             query?: never;
@@ -9297,6 +9450,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": Record<string, never>;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ticket_message_attachment_api_v1_admin_tickets__ticket_id__messages__message_id__attachment_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ticket_id: string;
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -13310,6 +13495,41 @@ export interface operations {
             };
         };
     };
+    upload_attachment_api_v1_stores__store_id__tickets_attachments_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_attachment_api_v1_stores__store_id__tickets_attachments_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttachmentOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     mine_api_v1_stores__store_id__vpn_accounts_get: {
         parameters: {
             query?: {
@@ -13795,6 +14015,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TicketMessageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    message_attachment_api_v1_tickets__ticket_id__messages__message_id__attachment_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ticket_id: string;
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
