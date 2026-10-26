@@ -131,6 +131,10 @@ class Settings(BaseSettings):
     # Website login approved in the Telegram bot (docs/TELEGRAM-WEB-LOGIN.md)
     telegram_web_login_ttl_seconds: int = 180
     telegram_web_login_number_match: bool = True
+    # Automatic verification: a browser that was approved once is trusted for this many days (0 = off); inside the
+    # silent window and on the same network it signs in with no bot step at all (the owner is notified in Telegram).
+    telegram_web_login_trust_days: int = 60
+    telegram_web_login_silent_days: int = 14
 
     store_web_url: str = "http://localhost:3000"
     public_api_url: str = ""
