@@ -132,6 +132,8 @@ class TotpEnable(BaseModel):
 # ---------------- website login approved in the Telegram bot ----------------
 class TelegramWebStart(BaseModel):
     store_id: uuid.UUID | None = None
+    device_key: str | None = Field(default=None, max_length=128)  # random key kept by the browser (trusted-device check)
+    remember: bool = True  # the visitor lets this browser be trusted after a manual approval
 
 
 class TelegramWebStartOut(BaseModel):
@@ -139,10 +141,11 @@ class TelegramWebStartOut(BaseModel):
     poll_token: str  # shown once; only its hash is stored
     deeplink: str
     qr: str | None = None  # data:image/svg+xml URI of the deep link
-    match_code: str | None = None  # None when number matching is disabled
+    match_code: str | None = None  # None when number matching is disabled or the browser is already trusted
     bot_username: str
     expires_in: int
     poll_interval: int
+    level: Literal["silent", "auto", "manual"] = "manual"  # automatic verification level decided for this browser
 
 
 class TelegramWebPoll(BaseModel):
@@ -154,6 +157,9 @@ class TelegramWebPollOut(BaseModel):
     reason: str | None = None
     expires_in: int = 0
     tokens: TokenPair | None = None
+    # Present only when an ``auto`` request had to fall back to the manual number match (the browser shows the number then).
+    level: Literal["silent", "auto", "manual"] | None = None
+    match_code: str | None = None
 
 
 class TelegramWebInspect(TelegramProfile):
@@ -169,6 +175,8 @@ class TelegramWebInspectOut(BaseModel):
     expires_in: int
     number_match: bool
     choices: list[str]
+    auto_approved: bool = False  # trusted browser: opening the link was the whole approval, nothing to tap
+    auto_reason: str | None = None  # when auto_approved is False for a trusted-device attempt: why it fell back / was refused
 
 
 class TelegramWebDecision(TelegramProfile):
@@ -183,3 +191,33 @@ class TelegramWebDecisionOut(BaseModel):
     reason: str | None = None
     remaining: int | None = None
     choices: list[str] = []
+
+
+class TelegramWebForget(BaseModel):
+    device_key: str = Field(min_length=32, max_length=128)
+
+
+class TelegramWebDeviceOut(BaseModel):
+    id: str
+    label: str | None = None
+    last_ip: str | None = None
+    uses: int = 0
+    last_seen_ago_seconds: int = 0
+    expires_in_seconds: int = 0
+
+
+class TelegramWebDevices(TelegramProfile):
+    store_id: uuid.UUID
+
+
+class TelegramWebDevicesOut(BaseModel):
+    devices: list[TelegramWebDeviceOut]
+
+
+class TelegramWebRevoke(TelegramProfile):
+    store_id: uuid.UUID
+    device_id: str | None = Field(default=None, max_length=36)  # None = every device of this Telegram account ("not me")
+
+
+class TelegramWebRevokeOut(BaseModel):
+    revoked: int

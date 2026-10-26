@@ -111,7 +111,7 @@ class TelegramLoginSession(IdMixin, CreatedMixin, Base):
     expires_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), index=True)
     decided_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     consumed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
-    # Automatic verification (docs/18-Automatic-Identity-Verification.md)
+    # Automatic verification (docs/21-Automatic-Identity-Verification.md)
     device_key_hash: Mapped[str | None] = mapped_column(String(64), index=True)  # SHA-256 of the browser's device key
     remember: Mapped[bool] = mapped_column(Boolean, default=True)  # visitor allows this browser to be trusted
     auto_level: Mapped[str | None] = mapped_column(String(12))  # silent | auto | None (manual number match)

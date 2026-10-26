@@ -1,6 +1,6 @@
 """Trusted devices: the engine behind automatic identity verification of the Telegram website login.
 
-Policy (docs/18-Automatic-Identity-Verification.md)
+Policy (docs/21-Automatic-Identity-Verification.md)
 
 * ``silent``  known browser + same network + seen recently  -> signed in with no bot step at all.
 * ``auto``    known browser (any network)                   -> opening the bot link is the whole approval, no number match.
@@ -127,7 +127,9 @@ def touch(device: TrustedDevice, ip: str | None) -> None:
 
 async def revoke_for_user(session: AsyncSession, user_id, store_id, *, key_hash: str | None = None) -> int:
     """Revoke one trusted device (by key) or, without a key, every device of that account in that store."""
-    q = update(TrustedDevice).where(TrustedDevice.user_id == user_id, TrustedDevice.store_id == store_id, TrustedDevice.revoked_at.is_(None))
+    q = update(TrustedDevice).where(
+        TrustedDevice.user_id == user_id, TrustedDevice.store_id == store_id, TrustedDevice.revoked_at.is_(None)
+    )
     if key_hash:
         q = q.where(TrustedDevice.key_hash == key_hash)
     res = await session.execute(q.values(revoked_at=utcnow()))

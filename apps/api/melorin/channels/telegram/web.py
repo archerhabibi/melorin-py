@@ -8,6 +8,10 @@ Design (docs/TELEGRAM-WEB-LOGIN.md): an OAuth device-authorization style flow wi
   the website (phishing resistance: a link relayed to a victim is useless without the code on the attacker's screen).
 * Tokens are issued only to the holder of the poll token, exactly once, atomically (row lock + status transition).
 
+* Automatic verification (docs/21-Automatic-Identity-Verification.md): a browser approved once becomes a *trusted
+  device* (``trust.py``). Its next login skips the number match (``auto``: opening the bot link is the approval) or the
+  bot altogether (``silent``: same network, seen recently). An unknown browser always gets the manual number match.
+
 Everything here is transport independent; routers/bot runners only call these functions.
 """
 
@@ -18,17 +22,18 @@ import secrets
 import uuid
 from dataclasses import dataclass
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from melorin.core import audit, flags, integrations
+from melorin.channels.telegram import trust
+from melorin.core import audit, events, flags, integrations
 from melorin.core.config import get_settings
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError
 from melorin.core.ratelimit import hit
 from melorin.core.security import new_opaque_token, token_hash
 from melorin.modules.identity import service
-from melorin.kernel.models.identity import TelegramLoginSession, User
+from melorin.kernel.models.identity import RefreshToken, TelegramLoginSession, TrustedDevice, User
 from melorin.modules.identity.schemas import TelegramProfile, TokenPair
 from melorin.kernel.models.stores import Store
 
@@ -114,9 +119,18 @@ class Started:
     row: TelegramLoginSession
     poll_token: str
     bot_username: str
+    level: str = "manual"  # silent | auto | manual
 
 
-async def create_session(session: AsyncSession, store: Store, *, ip: str | None, user_agent: str | None) -> Started:
+async def create_session(
+    session: AsyncSession,
+    store: Store,
+    *,
+    ip: str | None,
+    user_agent: str | None,
+    device_key: str | None = None,
+    remember: bool = True,
+) -> Started:
     bot = normalise_bot_username(store.bot_username)
     cfg = await integrations.get_telegram(session)
     if store.status != "active" or not bot or not integrations.telegram_bot_ready(cfg):
@@ -124,6 +138,9 @@ async def create_session(session: AsyncSession, store: Store, *, ip: str | None,
     await flags.ensure_enabled(session, "bot", store_id=store.id, channel="telegram")
     code, decoys = _codes()
     poll_token = new_opaque_token(32)
+    key_hash = trust.key_hash_of(device_key)
+    device = await trust.find_valid(session, key_hash, store.id)
+    level = trust.level_for(device, ip)
     row = TelegramLoginSession(
         public_id=secrets.token_urlsafe(12),
         secret_hash=token_hash(poll_token),
@@ -134,8 +151,14 @@ async def create_session(session: AsyncSession, store: Store, *, ip: str | None,
         req_ua=(user_agent or "")[:300] or None,
         req_device=device_label(user_agent),
         expires_at=utcnow() + dt.timedelta(seconds=ttl_seconds(cfg)),
+        device_key_hash=key_hash,
+        remember=bool(remember),
     )
     session.add(row)
+    if device is not None and level == "silent":
+        if not await _silent_signin(session, row, device, ip):
+            level = "manual"  # account no longer eligible: nothing silent, the manual flow decides (and explains)
+    row.auto_level = level if level != "manual" else None
     audit.record(
         session,
         "tg_web_login.started",
@@ -143,10 +166,47 @@ async def create_session(session: AsyncSession, store: Store, *, ip: str | None,
         entity_type="telegram_login_session",
         entity_id=row.id,
         store_id=store.id,
-        data={"device": row.req_device},
+        data={"device": row.req_device, "level": level},
     )
     await session.commit()
-    return Started(row=row, poll_token=poll_token, bot_username=bot)
+    return Started(row=row, poll_token=poll_token, bot_username=bot, level=level)
+
+
+async def _silent_signin(session: AsyncSession, row: TelegramLoginSession, device, ip: str | None) -> bool:
+    """Trusted browser, same network, seen recently: the session is approved on creation, with no bot step.
+
+    The owner is told in Telegram (once per device and day) and can revoke with /devices. Returns False (and nothing is
+    approved) when the account is gone, disabled or an admin; a device of such an account is revoked on the spot.
+    """
+    user = await session.get(User, device.user_id)
+    if user is None or not user.is_active or user.is_super_admin:
+        device.revoked_at = utcnow()
+        return False
+    trust.touch(device, ip)
+    row.user_id, row.scanned_telegram_id = user.id, device.telegram_id
+    row.status, row.decided_at = "approved", utcnow()
+    await _notify_owner(session, row, device, "silent")
+    return True
+
+
+async def _notify_owner(session: AsyncSession, row: TelegramLoginSession, device, level: str) -> None:
+    """Tell the account owner about a login that needed no tap. Deduplicated per device per day so it never spams."""
+    how = "بدون نیاز به تأیید (مرورگر و شبکهٔ آشنا)" if level == "silent" else "با باز کردن لینک ربات (مرورگر آشنا)"
+    await events.emit(
+        session,
+        events.NOTIFY,
+        {
+            "user_id": device.user_id,
+            "store_id": device.store_id,
+            "kind": f"web_login_{level}",
+            "title": "🔐 ورود به وب‌سایت با مرورگر مطمئن",
+            "body": (
+                f"🖥 {row.req_device or 'دستگاه ناشناس'}\n🌐 {row.req_ip or '-'}\n{how}\n\n"
+                "اگر این ورود از طرف شما نبود، دستور /devices را بفرستید و «این من نبودم» را بزنید."
+            ),
+            "dedup_key": f"tg_web_{level}:{device.id}:{utcnow():%Y%m%d}",
+        },
+    )
 
 
 async def _locked(session: AsyncSession, public_id: str) -> TelegramLoginSession | None:
@@ -178,11 +238,34 @@ async def _open_for_bot(session: AsyncSession, public_id: str, store_id: uuid.UU
     return row
 
 
-async def inspect(session: AsyncSession, public_id: str, store_id: uuid.UUID, telegram_id: int) -> TelegramLoginSession:
-    """The user opened the deep link in the bot: bind the session to this Telegram account and show the context."""
+async def inspect(
+    session: AsyncSession, public_id: str, store_id: uuid.UUID, telegram_id: int, *, profile: TelegramProfile | None = None
+) -> TelegramLoginSession:
+    """The user opened the deep link in the bot: bind the session to this Telegram account and show the context.
+
+    For an ``auto`` request (trusted browser) this is also the approval: when the device key behind the session is a live
+    trusted device *of this very Telegram account*, the session is approved right here. Anything else (key unknown,
+    expired, revoked or belonging to another account) falls back to the manual number match; nothing is ever refused
+    just because trust is missing. ``row.auto_level`` tells the caller which way it went.
+    """
     row = await _open_for_bot(session, public_id, store_id, telegram_id)
     row.scanned_telegram_id = telegram_id
     row.status = "scanned"
+    if row.auto_level == "auto" and profile is not None:
+        device = await trust.find_valid(session, row.device_key_hash, row.store_id, telegram_id=telegram_id)
+        if device is None:
+            row.auto_level = None  # fallback to the number match; the browser learns it from the next poll
+            audit.security_event(session, "tg_web_login_auto_fallback", None, {"session": row.public_id, "ip": row.req_ip})
+        else:
+            cfg = await integrations.get_telegram(session)
+            if not integrations.telegram_bot_ready(cfg):
+                await _close(session, row, "login_disabled")
+                return row
+            if not await hit(f"tgweb-approve:{telegram_id}", APPROVALS_PER_HOUR, 3600):
+                await _close(session, row, "rate_limited", security="tg_web_login_rate_limited")
+                return row
+            await _complete(session, row, profile, device=device, via="auto")
+            return row
     await session.commit()
     return row
 
@@ -228,6 +311,12 @@ async def decide(
             return await _close(session, row, "too_many_wrong_choices", security="tg_web_login_wrong_code")
         await session.commit()
         return {"result": "retry", "remaining": remaining, "choices": choices_of(row)}
+    return await _complete(session, row, profile, device=None, via="manual")
+
+
+async def _complete(session: AsyncSession, row: TelegramLoginSession, profile: TelegramProfile, *, device, via: str) -> dict:
+    """The single place where a login attempt is approved. Manual (number match) and automatic (trusted device)
+    verification both end here, so every account rule applies to both with no exception."""
     known = await service.find_identity(session, "telegram", str(profile.telegram_id))
     if known is None and not await flags.is_enabled(session, "registration"):
         return await _close(session, row, "registration_closed")
@@ -239,6 +328,23 @@ async def decide(
         row.user_id = user.id
         return await _close(session, row, "admin_use_panel", security="tg_web_login_admin_refused")
     row.user_id, row.status, row.decided_at = user.id, "approved", utcnow()
+    if device is not None:
+        if device.user_id != user.id:  # the key was approved for another account: never mix them up
+            row.status, row.user_id = "denied", None
+            return await _close(session, row, "device_account_mismatch", security="tg_web_login_device_mismatch")
+        trust.touch(device, row.req_ip)
+        await _notify_owner(session, row, device, "auto")
+    elif row.remember:
+        # A manual approval is what earns trust: remember this browser for the next time.
+        await trust.remember(
+            session,
+            key_hash=row.device_key_hash,
+            user_id=user.id,
+            store_id=row.store_id,
+            telegram_id=profile.telegram_id,
+            label=row.req_device,
+            ip=row.req_ip,
+        )
     audit.record(
         session,
         "tg_web_login.approved",
@@ -246,7 +352,7 @@ async def decide(
         entity_type="telegram_login_session",
         entity_id=row.id,
         store_id=row.store_id,
-        data={"device": row.req_device},
+        data={"device": row.req_device, "via": via},
     )
     await session.commit()
     return {"result": "approved"}
@@ -258,6 +364,8 @@ class PollResult:
     reason: str | None = None
     expires_in: int = 0
     tokens: TokenPair | None = None
+    level: str | None = None
+    match_code: str | None = None
 
 
 async def poll(session: AsyncSession, public_id: str, poll_token: str, request, *, user_agent: str | None = None) -> PollResult:
@@ -269,7 +377,12 @@ async def poll(session: AsyncSession, public_id: str, poll_token: str, request, 
     if _refresh_expiry(row):
         await session.commit()
     if row.status != "approved":
-        return PollResult(row.status, row.deny_reason, seconds_left(row) if row.status in OPEN_STATES else 0)
+        out = PollResult(row.status, row.deny_reason, seconds_left(row) if row.status in OPEN_STATES else 0)
+        if row.status in OPEN_STATES and row.auto_level is None and row.device_key_hash:
+            # An ``auto`` attempt fell back to manual: hand the browser (and only it) the number to show.
+            out.level = "manual"
+            out.match_code = row.match_code if number_match_enabled(await integrations.get_telegram(session)) else None
+        return out
     user = await session.get(User, row.user_id)
     if user is None or not user.is_active or user.is_super_admin:
         row.status, row.deny_reason = "denied", "account_disabled" if user is None or not user.is_active else "admin_use_panel"
@@ -297,6 +410,78 @@ async def cancel(session: AsyncSession, public_id: str, poll_token: str) -> None
     if row.status in OPEN_STATES:
         row.status, row.deny_reason, row.decided_at = "denied", "cancelled", utcnow()
         await session.commit()
+
+
+async def forget_device(session: AsyncSession, device_key: str) -> int:
+    """Browser side "forget this device" (logout everywhere on this browser): holding the key is the proof."""
+    key_hash = trust.key_hash_of(device_key)
+    if key_hash is None:
+        return 0
+    res = await session.execute(
+        update(TrustedDevice).where(TrustedDevice.key_hash == key_hash, TrustedDevice.revoked_at.is_(None)).values(revoked_at=utcnow())
+    )
+    await session.commit()
+    return int(res.rowcount or 0)
+
+
+async def list_devices(session: AsyncSession, store_id: uuid.UUID, telegram_id: int) -> list[dict]:
+    """Live trusted devices of one Telegram account in one store, newest first (shown by the bot's /devices)."""
+    now = utcnow()
+    rows = (
+        await session.scalars(
+            select(TrustedDevice)
+            .where(
+                TrustedDevice.store_id == store_id,
+                TrustedDevice.telegram_id == telegram_id,
+                TrustedDevice.revoked_at.is_(None),
+                TrustedDevice.expires_at > now,
+            )
+            .order_by(TrustedDevice.last_seen_at.desc())
+        )
+    ).all()
+    return [
+        {
+            "id": d.id.hex,
+            "label": d.label,
+            "last_ip": d.last_ip,
+            "uses": d.uses or 0,
+            "last_seen_ago_seconds": max(0, int((now - _aware(d.last_seen_at)).total_seconds())),
+            "expires_in_seconds": max(0, int((_aware(d.expires_at) - now).total_seconds())),
+        }
+        for d in rows
+    ]
+
+
+async def revoke_devices(session: AsyncSession, store_id: uuid.UUID, telegram_id: int, device_id: str | None) -> int:
+    """ "This was not me": revoke one device (or all) of this Telegram account. Revoking *all* also ends the web sessions
+    of that account in this store, so a stolen browser is out immediately, not at the next token refresh."""
+    q = update(TrustedDevice).where(
+        TrustedDevice.store_id == store_id, TrustedDevice.telegram_id == telegram_id, TrustedDevice.revoked_at.is_(None)
+    )
+    owner_ids = set()
+    if device_id:
+        try:
+            q = q.where(TrustedDevice.id == uuid.UUID(device_id))
+        except ValueError:
+            return 0
+    else:
+        owner_ids = set(
+            (
+                await session.scalars(
+                    select(TrustedDevice.user_id).where(TrustedDevice.store_id == store_id, TrustedDevice.telegram_id == telegram_id)
+                )
+            ).all()
+        )
+    count = int((await session.execute(q.values(revoked_at=utcnow()))).rowcount or 0)
+    if owner_ids:
+        await session.execute(
+            update(RefreshToken)
+            .where(RefreshToken.user_id.in_(owner_ids), RefreshToken.store_id == store_id, RefreshToken.revoked_at.is_(None))
+            .values(revoked_at=utcnow())
+        )
+    audit.security_event(session, "tg_web_login_devices_revoked", None, {"store": str(store_id), "all": device_id is None, "count": count})
+    await session.commit()
+    return count
 
 
 async def purge_old(session: AsyncSession, older_than: dt.timedelta = dt.timedelta(days=1)) -> int:
