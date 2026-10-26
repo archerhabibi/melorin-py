@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
 
+from melorin.core import admin_telegram
 from melorin.core.deps import Session, StoreCtx
 from melorin.core.pagination import Page, PageParams
 from melorin.modules.wallet import service
@@ -14,7 +15,9 @@ router = APIRouter(prefix="/stores/{store_id}/wallet", tags=["wallet"])
 async def my_wallet(ctx: StoreCtx, session: Session):
     w = await service.get_wallet(session, ctx.user.id, ctx.store.id, currency=ctx.store.currency)
     await session.commit()
-    return WalletOut.model_validate(w, from_attributes=True)
+    out = WalletOut.model_validate(w, from_attributes=True)
+    out.telegram_id = await admin_telegram.current(session, ctx.user.id)
+    return out
 
 
 @router.get("/transactions", response_model=Page[LedgerEntryOut])

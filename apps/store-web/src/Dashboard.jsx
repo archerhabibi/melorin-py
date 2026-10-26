@@ -365,6 +365,21 @@ function Wallet({ coreFetch, storeId, wallet, reload, notify }) {
           <div className="mt-2 text-3xl font-extrabold">
             {fa(wallet?.balance)} <span className="text-sm font-normal">{wallet?.currency}</span>
           </div>
+          <div className="mt-4 flex items-center justify-between gap-2 border-t border-white/15 pt-3 text-sm">
+            <span className="text-white/60">آیدی عددی تلگرام</span>
+            {wallet?.telegram_id ? (
+              <button
+                type="button"
+                title="کپی"
+                className="latin font-bold"
+                onClick={() => navigator.clipboard?.writeText(String(wallet.telegram_id)).then(() => notify('کپی شد'), () => {})}
+              >
+                {wallet.telegram_id}
+              </button>
+            ) : (
+              <span className="text-white/60">متصل نیست</span>
+            )}
+          </div>
         </div>
         <div className={card}>
           <h4 className="font-extrabold">شارژ کیف پول</h4>

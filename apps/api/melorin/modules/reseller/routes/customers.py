@@ -5,7 +5,7 @@ import uuid
 from fastapi import APIRouter
 from sqlalchemy import select
 
-from melorin.core import audit, settings_store
+from melorin.core import admin_telegram, audit, settings_store
 from melorin.core.deps import OwnerCtx, Session
 from melorin.core.errors import AppError, NotFound
 from melorin.kernel.models.identity import User
@@ -28,7 +28,14 @@ async def customers(ctx: OwnerCtx, session: Session):
         .order_by(StoreMembership.created_at.desc())
     )
     return [
-        CustomerOut(user_id=u.id, display_name=u.display_name, email=u.email, status=m.status, joined_at=m.created_at)
+        CustomerOut(
+            user_id=u.id,
+            display_name=u.display_name,
+            email=u.email,
+            status=m.status,
+            joined_at=m.created_at,
+            telegram_id=admin_telegram.admin_telegram_id(u.identities),
+        )
         for u, m in (await session.execute(q)).all()
     ]
 
