@@ -9,11 +9,13 @@ import datetime as dt
 from fastapi import APIRouter, Depends, Request, Response
 
 from melorin.core import channel, integrations
+from melorin.core.config import get_settings
 from melorin.core.db import utcnow
 from melorin.core.deps import BotAuth, Session
 from melorin.core.errors import AppError
 from melorin.core.ratelimit import RateLimit, client_ip
-from melorin.channels.telegram import web
+from melorin.core.security import new_opaque_token
+from melorin.channels.telegram import trust, web
 from melorin.modules.identity.router import _set_refresh_cookie
 from melorin.modules.identity.schemas import (
     TelegramProfile,
@@ -46,6 +48,33 @@ def _qr(link: str) -> str | None:
     return segno.make(link, error="m").svg_data_uri(scale=6, border=2, dark="#10233f", light="#ffffff")
 
 
+# ---------------- trusted-device cookie ----------------
+# The device key lives in an HttpOnly cookie minted by the server: page scripts (and so any XSS) can never read it, and the
+# storefront code keeps nothing in browser storage. Only the SHA-256 of the key is stored in the database.
+DEVICE_COOKIE = "melorin_dk"
+DEVICE_COOKIE_PATH = "/api/v1/auth/telegram/web"
+
+
+def _device_key(request: Request, body_key: str | None = None) -> str | None:
+    """The browser's key: the cookie wins; a well-formed body key is accepted for non-browser clients."""
+    for candidate in (request.cookies.get(DEVICE_COOKIE), body_key):
+        if trust.key_hash_of(candidate):
+            return candidate
+    return None
+
+
+def _set_device_cookie(response: Response, key: str) -> None:
+    response.set_cookie(
+        DEVICE_COOKIE,
+        key,
+        httponly=True,
+        secure=not get_settings().is_dev,
+        samesite="lax",
+        max_age=max(1, trust.trust_days()) * 86400,
+        path=DEVICE_COOKIE_PATH,
+    )
+
+
 # ---------------- browser ----------------
 @tgweb.post("/sessions", response_model=TelegramWebStartOut, dependencies=[Depends(RateLimit("tgweb-start", 10, 60))])
 async def start(body: TelegramWebStart, session: Session, request: Request, response: Response):
@@ -53,12 +82,15 @@ async def start(body: TelegramWebStart, session: Session, request: Request, resp
     store = await session.get(Store, site.store_id)
     if store is None:
         raise AppError("NOT_FOUND", "فروشگاه یافت نشد.", 404)
+    key = _device_key(request, body.device_key) or new_opaque_token(32)
+    if trust.trust_days() > 0 and body.remember:
+        _set_device_cookie(response, key)  # refreshed on every visit; trust itself is only granted after an approval
     started = await web.create_session(
         session,
         store,
         ip=client_ip(request),
         user_agent=request.headers.get("user-agent"),
-        device_key=body.device_key,
+        device_key=key,
         remember=body.remember,
     )
     link = f"https://t.me/{started.bot_username}?start=wl_{started.row.public_id}"
@@ -101,10 +133,12 @@ async def cancel(session_id: str, body: TelegramWebPoll, session: Session):
 
 
 @tgweb.post("/devices/forget", dependencies=[Depends(RateLimit("tgweb-forget", 30, 60))])
-async def forget_device(body: TelegramWebForget, session: Session, response: Response):
+async def forget_device(request: Request, session: Session, response: Response, body: TelegramWebForget | None = None):
     """The browser drops its own trust (sign-out on a shared computer). Holding the device key is the proof."""
     response.headers.update(NO_STORE)
-    return {"revoked": await web.forget_device(session, body.device_key)}
+    key = _device_key(request, body.device_key if body else None)
+    response.delete_cookie(DEVICE_COOKIE, path=DEVICE_COOKIE_PATH)
+    return {"revoked": await web.forget_device(session, key) if key else 0}
 
 
 # ---------------- bot runner (X-Bot-Secret) ----------------

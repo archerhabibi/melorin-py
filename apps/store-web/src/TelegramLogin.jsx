@@ -15,42 +15,17 @@ const REASONS = {
   rate_limited: 'تلاش‌ها زیاد بود؛ کمی بعد دوباره امتحان کنید.',
   login_disabled: 'ورود با تلگرام موقتاً غیرفعال شده است.',
 };
-// Trusted-device key (docs/21-Automatic-Identity-Verification.md): a random value that never leaves this browser except
-// toward our own API, which stores only its SHA-256. It lets the next login skip the number match, or the bot entirely.
-const KEY_NAME = 'melorin.device_key';
-const KEY_OK = /^[A-Za-z0-9_-]{32,128}$/;
-export function getDeviceKey(create = true) {
-  try {
-    const have = localStorage.getItem(KEY_NAME);
-    if (have && KEY_OK.test(have)) return have;
-    if (!create) return null;
-    const bytes = crypto.getRandomValues(new Uint8Array(32));
-    const key = btoa(String.fromCharCode(...bytes))
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=+$/, '');
-    localStorage.setItem(KEY_NAME, key);
-    return key;
-  } catch {
-    return null; // private mode / storage blocked: the login simply stays on the manual path
-  }
-}
-// Sign-out on a shared computer: drop trust on the server and forget the key here.
+// Trusted browser (docs/21-Automatic-Identity-Verification.md): the server remembers this browser through an HttpOnly
+// cookie, so this component keeps nothing in browser storage and page scripts can never read the device key.
+// Sign-out on a shared computer: ask the server to drop this browser's trust.
 export async function forgetDevice(base) {
-  const key = getDeviceKey(false);
-  if (!key) return;
-  try {
-    localStorage.removeItem(KEY_NAME);
-  } catch {
-    /* storage blocked */
-  }
   try {
     await fetch(`${base}/api/v1/auth/telegram/web/devices/forget`, {
       method: 'POST',
       credentials: 'include',
       keepalive: true,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ device_key: key }),
+      body: '{}',
     });
   } catch {
     /* best effort: the trust also expires on its own */
@@ -161,7 +136,7 @@ export default function TelegramLogin({ base, storeId, onTokens, onBack }) {
         credentials: 'include',
         cache: 'no-store',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ store_id: storeId || null, device_key: getDeviceKey(), remember: true }),
+        body: JSON.stringify({ store_id: storeId || null, remember: true }),
       });
       if (g !== gen.current) return;
       if (!r.ok) {

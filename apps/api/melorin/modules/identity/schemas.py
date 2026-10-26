@@ -132,7 +132,7 @@ class TotpEnable(BaseModel):
 # ---------------- website login approved in the Telegram bot ----------------
 class TelegramWebStart(BaseModel):
     store_id: uuid.UUID | None = None
-    device_key: str | None = Field(default=None, max_length=128)  # random key kept by the browser (trusted-device check)
+    device_key: str | None = Field(default=None, max_length=128)  # non-browser clients only; browsers use the HttpOnly cookie
     remember: bool = True  # the visitor lets this browser be trusted after a manual approval
 
 
@@ -194,7 +194,7 @@ class TelegramWebDecisionOut(BaseModel):
 
 
 class TelegramWebForget(BaseModel):
-    device_key: str = Field(min_length=32, max_length=128)
+    device_key: str | None = Field(default=None, max_length=128)  # normally the HttpOnly cookie is used instead
 
 
 class TelegramWebDeviceOut(BaseModel):

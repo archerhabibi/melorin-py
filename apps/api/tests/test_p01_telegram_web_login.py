@@ -15,7 +15,7 @@ from melorin.core.db import utcnow
 from melorin.core.deps import get_session
 from melorin.core.errors import AppError, install
 from melorin.channels.telegram import web
-from melorin.kernel.models.identity import Identity, RefreshToken, TelegramLoginSession, User
+from melorin.kernel.models.identity import Identity, RefreshToken, TelegramLoginSession, TrustedDevice, User
 from melorin.modules.identity.schemas import TelegramProfile
 from melorin.channels.telegram.web_router import tgweb
 from melorin.kernel.models.stores import Store
@@ -30,6 +30,7 @@ TABLES = [
     RefreshToken.__table__,
     Store.__table__,
     TelegramLoginSession.__table__,
+    TrustedDevice.__table__,
     AuditEvent.__table__,
     SecurityEvent.__table__,
     FeatureFlag.__table__,

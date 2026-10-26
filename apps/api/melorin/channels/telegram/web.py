@@ -485,6 +485,15 @@ async def revoke_devices(session: AsyncSession, store_id: uuid.UUID, telegram_id
 
 
 async def purge_old(session: AsyncSession, older_than: dt.timedelta = dt.timedelta(days=1)) -> int:
-    result = await session.execute(TelegramLoginSession.__table__.delete().where(TelegramLoginSession.expires_at < utcnow() - older_than))
+    """Housekeeping: finished login sessions one day after expiry; trusted devices a month after they expired or were
+    revoked (kept that long so an investigation still sees which browser was removed and when)."""
+    cutoff = utcnow() - older_than
+    result = await session.execute(TelegramLoginSession.__table__.delete().where(TelegramLoginSession.expires_at < cutoff))
+    stale = utcnow() - dt.timedelta(days=30)
+    devices = await session.execute(
+        TrustedDevice.__table__.delete().where(
+            (TrustedDevice.expires_at < stale) | (TrustedDevice.revoked_at.is_not(None) & (TrustedDevice.revoked_at < stale))
+        )
+    )
     await session.commit()
-    return int(result.rowcount or 0)
+    return int((result.rowcount or 0) + (devices.rowcount or 0))
