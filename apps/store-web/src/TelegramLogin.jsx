@@ -15,6 +15,47 @@ const REASONS = {
   rate_limited: 'تلاش‌ها زیاد بود؛ کمی بعد دوباره امتحان کنید.',
   login_disabled: 'ورود با تلگرام موقتاً غیرفعال شده است.',
 };
+// Trusted-device key (docs/21-Automatic-Identity-Verification.md): a random value that never leaves this browser except
+// toward our own API, which stores only its SHA-256. It lets the next login skip the number match, or the bot entirely.
+const KEY_NAME = 'melorin.device_key';
+const KEY_OK = /^[A-Za-z0-9_-]{32,128}$/;
+export function getDeviceKey(create = true) {
+  try {
+    const have = localStorage.getItem(KEY_NAME);
+    if (have && KEY_OK.test(have)) return have;
+    if (!create) return null;
+    const bytes = crypto.getRandomValues(new Uint8Array(32));
+    const key = btoa(String.fromCharCode(...bytes))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+    localStorage.setItem(KEY_NAME, key);
+    return key;
+  } catch {
+    return null; // private mode / storage blocked: the login simply stays on the manual path
+  }
+}
+// Sign-out on a shared computer: drop trust on the server and forget the key here.
+export async function forgetDevice(base) {
+  const key = getDeviceKey(false);
+  if (!key) return;
+  try {
+    localStorage.removeItem(KEY_NAME);
+  } catch {
+    /* storage blocked */
+  }
+  try {
+    await fetch(`${base}/api/v1/auth/telegram/web/devices/forget`, {
+      method: 'POST',
+      credentials: 'include',
+      keepalive: true,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_key: key }),
+    });
+  } catch {
+    /* best effort: the trust also expires on its own */
+  }
+}
 const mmss = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
 export default function TelegramLogin({ base, storeId, onTokens, onBack }) {
@@ -80,6 +121,17 @@ export default function TelegramLogin({ base, storeId, onTokens, onBack }) {
           return;
         }
         if (d.expires_in) deadline.current = Date.now() + d.expires_in * 1000;
+        if (d.match_code || d.level) {
+          // A trusted-browser attempt fell back to the manual number match: show the number now.
+          const next = {
+            ...live.current,
+            level: d.level || live.current.level,
+            match_code: d.match_code || live.current.match_code,
+          };
+          live.current = next;
+          setSession(next);
+          s = next;
+        }
         again(Math.max(1, s.poll_interval || 2) * 1000);
       } catch (e) {
         if (e?.name === 'AbortError' || !alive.current) return;
@@ -109,7 +161,7 @@ export default function TelegramLogin({ base, storeId, onTokens, onBack }) {
         credentials: 'include',
         cache: 'no-store',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ store_id: storeId || null }),
+        body: JSON.stringify({ store_id: storeId || null, device_key: getDeviceKey(), remember: true }),
       });
       if (g !== gen.current) return;
       if (!r.ok) {
@@ -206,17 +258,23 @@ export default function TelegramLogin({ base, storeId, onTokens, onBack }) {
     return (
       <div>
         <p className="mt-2 text-sm leading-7 text-muted">
-          ربات تلگرام را باز کن و ورود را تأیید کن؛ نه رمز لازم است، نه کد پیامکی.
+          {session.level === 'silent'
+            ? 'این دستگاه را می‌شناسیم؛ در حال ورود خودکار… نیازی به هیچ کاری نیست.'
+            : session.level === 'auto'
+              ? 'این دستگاه قبلاً تأیید شده؛ فقط ربات را باز کن، همان لحظه وارد می‌شوی و عدد یا دکمه‌ای لازم نیست.'
+              : 'ربات تلگرام را باز کن و ورود را تأیید کن؛ نه رمز لازم است، نه کد پیامکی.'}
         </p>
-        <a
-          href={session.deeplink}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="btn-primary mt-5 w-full !bg-[#229ED9] !text-white"
-        >
-          <Send size={18} />
-          باز کردن ربات تلگرام
-        </a>
+        {session.level !== 'silent' && (
+          <a
+            href={session.deeplink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-primary mt-5 w-full !bg-[#229ED9] !text-white"
+          >
+            <Send size={18} />
+            باز کردن ربات تلگرام
+          </a>
+        )}
         {session.match_code && (
           <div className="mt-5 rounded-2xl bg-surface2 p-4 text-center">
             <div className="text-xs font-bold text-muted">در ربات، همین عدد را انتخاب کن</div>
