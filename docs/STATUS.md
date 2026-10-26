@@ -6,14 +6,14 @@
 
 | Measurement | Value |
 |---|---|
-| Alembic head | `0032_bank_sms_auto_verify` |
-| Migrations | 32 |
-| ORM tables | 58 |
-| API operations | 256 |
-| API paths | 223 |
-| Test files / test functions (static count) | 154 / 1325 |
+| Alembic head | `0033_trusted_devices` |
+| Migrations | 33 |
+| ORM tables | 59 |
+| API operations | 259 |
+| API paths | 226 |
+| Test files / test functions (static count) | 155 / 1345 |
 | Coverage | not measured here (CI writes `apps/api/coverage.xml`; run `pytest --cov=melorin --cov-report=xml`) |
-| Documents: repo root / `docs/` / `docs/history/` (tests only) | 3 / 30 / 4 |
+| Documents: repo root / `docs/` / `docs/history/` (tests only) | 3 / 31 / 4 |
 
 Where things live: requirements and design `docs/01`-`docs/17` (13-17 are design records; 12 and 15 were merged into `DECISIONS.md` and `14`); route list `docs/API.md`;
 operations `docs/RUNBOOK.md`; decisions `docs/DECISIONS.md`; change log `docs/CHANGE_LOG.md`;

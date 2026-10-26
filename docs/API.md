@@ -161,7 +161,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | DELETE | `/api/v1/admin/resellers/{store_id}/bot-token` | Clear Bot Token |
 | POST | `/api/v1/admin/resellers/{store_id}/verify-bot` | Verify Store Bot |
 
-### `auth` (21)
+### `auth` (24)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -180,7 +180,10 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/api/v1/auth/telegram/oidc/callback` | Callback |
 | GET | `/api/v1/auth/telegram/oidc/start` | Start |
 | POST | `/api/v1/auth/telegram/web/bot/decide` | Bot Decide |
+| POST | `/api/v1/auth/telegram/web/bot/devices` | Bot Devices |
 | POST | `/api/v1/auth/telegram/web/bot/inspect` | Bot Inspect |
+| POST | `/api/v1/auth/telegram/web/bot/revoke` | Bot Revoke |
+| POST | `/api/v1/auth/telegram/web/devices/forget` | Forget Device |
 | POST | `/api/v1/auth/telegram/web/sessions` | Start |
 | POST | `/api/v1/auth/telegram/web/sessions/{session_id}/cancel` | Cancel |
 | POST | `/api/v1/auth/telegram/web/sessions/{session_id}/poll` | Poll |
