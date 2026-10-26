@@ -121,6 +121,12 @@ describe('SearchBox "/" hotkey', () => {
     expect(screen.getByLabelText('جستجو')).toHaveFocus();
   });
 
+  it('ignores Shift+Slash ("?") so the help key is not hijacked', () => {
+    render(<SearchBox value="" onChange={() => {}} label="جستجو" hotkey />);
+    fireEvent.keyDown(window, { key: '?', code: 'Slash', shiftKey: true });
+    expect(screen.getByLabelText('جستجو')).not.toHaveFocus();
+  });
+
   it('does nothing while typing in another field, with a modifier, or when a dialog is open', () => {
     render(
       <>

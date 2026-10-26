@@ -347,7 +347,8 @@ export function SearchBox({ value, onChange, placeholder, label, hotkey = false 
   useEffect(() => {
     if (!hotkey) return undefined;
     const f = (e) => {
-      if (e.key !== '/' && e.code !== 'Slash') return; // e.code: the key stays "/" on the Persian layout too
+      // e.code: the physical key stays "Slash" on the Persian layout too; Shift+Slash is "?" and must not trigger it.
+      if (e.key !== '/' && !(e.code === 'Slash' && !e.shiftKey)) return;
       if (e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
       const t = document.activeElement;
       if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
