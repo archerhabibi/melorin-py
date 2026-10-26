@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { GoogleSignInButton } from './GoogleSignIn.jsx';
 import AccountInquiry from './AccountInquiry.jsx';
-import { Empty, Loading, PageTitle, StatusBadge, fa, fd } from './ui.jsx';
+import { Empty, Loading, PageTitle, PasswordInput, StatusBadge, fa, fd } from './ui.jsx';
 import { focusOnMount } from './useDialog.js';
 const J = { 'Content-Type': 'application/json' };
 const tabs = [
@@ -1100,10 +1100,10 @@ function Profile({ coreFetch, account, notify, reload }) {
       </div>
       <div className={card}>
         <h4 className="font-extrabold">امنیت</h4>
-        <input
-          type="password"
-          dir="ltr"
-          className={`${inp} mt-3`}
+        <PasswordInput
+          autoComplete="new-password"
+          wrapClassName="mt-3"
+          className={inp}
           value={pw}
           onChange={(e) => setPw(e.target.value)}
           placeholder="رمز عبور جدید"
