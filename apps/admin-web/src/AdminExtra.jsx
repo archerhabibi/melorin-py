@@ -1,7 +1,7 @@
 import { lazy, useEffect, useState } from 'react';
 import { authFetch } from './api.js';
 import { Plus, Search, X } from 'lucide-react';
-import { Badge, confirmDialog, dt, isStatus, promptDialog } from './ui.jsx';
+import { Badge, confirmDialog, isStatus } from './ui.jsx';
 const ReportsView = lazy(() => import('./ReportsView.jsx'));
 const PanelsView = lazy(() => import('./PanelsView.jsx'));
 const InfraHealthView = lazy(() => import('./InfraHealthView.jsx'));
@@ -18,6 +18,11 @@ const GoogleLoginSettings = lazy(() => import('./GoogleLoginSettings.jsx'));
 const ReceiptOcrSettings = lazy(() => import('./ReceiptOcrSettings.jsx'));
 const TelegramLoginSettings = lazy(() => import('./TelegramLoginSettings.jsx'));
 const IdentityReviewsView = lazy(() => import('./IdentityReviewsView.jsx'));
+const OrdersView = lazy(() => import('./OrdersView.jsx'));
+const VpnAccountsView = lazy(() => import('./VpnAccountsView.jsx'));
+const UsersView = lazy(() => import('./UsersView.jsx'));
+const StoresView = lazy(() => import('./StoresView.jsx'));
+const AuditView = lazy(() => import('./AuditView.jsx'));
 const money = (n) => new Intl.NumberFormat('fa-IR').format(n || 0);
 const box = 'card';
 const inp = 'inp';
@@ -657,72 +662,6 @@ function Settings({ api, toast }) {
   );
 }
 
-function Audit({ api, toast }) {
-  const { rows } = useList(api, '/api/v1/admin/audit', toast);
-  return (
-    <Table
-      title="لاگ ممیزی"
-      cols={['زمان', 'عملیات', 'نقش', 'موجودیت', 'Correlation']}
-      rows={rows.map((a) => [
-        dt(a.created_at),
-        a.action,
-        a.actor_type,
-        `${a.entity_type || ''} ${String(a.entity_id || '').slice(0, 8)}`,
-        <span key="cid" className="text-xs">
-          {String(a.correlation_id || '').slice(0, 8)}
-        </span>,
-      ])}
-    />
-  );
-}
-
-const ask = (m) => promptDialog(m, { title: 'ثبت دلیل' });
-function Orders({ api, toast }) {
-  const { rows, call, reload } = useList(api, '/api/v1/admin/orders', toast);
-  const act = async (o, kind, label) => {
-    const reason = kind === 'retry' ? '' : await ask(`دلیل ${label} را وارد کنید.`);
-    if (reason === null) return;
-    if (
-      kind === 'refund' &&
-      !(await confirmDialog('استرداد این سفارش انجام شود؟ این عملیات مالی است.', {
-        title: 'استرداد سفارش',
-        danger: true,
-        ok: 'استرداد',
-      }))
-    )
-      return;
-    const r = await call(`/api/v1/admin/orders/${o.id}/${kind}`, { method: 'POST', body: JSON.stringify({ reason }) });
-    if (r.ok) {
-      toast(`${label} ثبت شد`);
-      reload();
-    } else toast(`${label} ناموفق بود`);
-  };
-  return (
-    <Table
-      title="سفارش‌ها"
-      cols={['شماره', 'Store', 'مبلغ', 'وضعیت', 'بررسی', 'اقدام']}
-      rows={rows.map((o) => [
-        o.number,
-        String(o.store_id || '').slice(0, 8),
-        `${money(o.total)} ${o.currency || ''}`,
-        o.status,
-        o.needs_review ? 'بله' : 'خیر',
-        <div key="actions" className="flex gap-1.5">
-          <button className={ghost} onClick={() => act(o, 'retry', 'تلاش مجدد')}>
-            تلاش مجدد
-          </button>
-          <button className={ghost} onClick={() => act(o, 'manual-review', 'بررسی دستی')}>
-            بررسی دستی
-          </button>
-          <button className={`${ghost} btn-d`} onClick={() => act(o, 'refund', 'استرداد')}>
-            استرداد
-          </button>
-        </div>,
-      ])}
-    />
-  );
-}
-
 function Tickets({ api, toast }) {
   const call = (p, o = {}) => authFetch(api.base, p, o);
   return <TicketsView call={call} toast={toast} />;
@@ -736,7 +675,10 @@ export const extraRoutes = {
   'پیام همگانی': BroadcastView,
   'مرکز رویداد': EventCenterView,
   'سلامت زیرساخت': InfraHealthView,
-  سفارش‌ها: Orders,
+  سفارش‌ها: OrdersView,
+  'اکانت‌های VPN': VpnAccountsView,
+  کاربران: UsersView,
+  فروشگاه‌ها: StoresView,
   پرداخت‌ها: PaymentsView,
   تیکت‌ها: Tickets,
   'محصولات VPN': ProductsView,
@@ -744,6 +686,6 @@ export const extraRoutes = {
   'بسته‌های فروش': BundlesView,
   کوپن‌ها: Coupons,
   تنظیمات: Settings,
-  ممیزی: Audit,
+  ممیزی: AuditView,
   'بررسی هویت': IdentityReviewsView,
 };
