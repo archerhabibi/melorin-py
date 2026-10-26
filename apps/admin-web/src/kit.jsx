@@ -121,18 +121,35 @@ export function useRows(call, path, { skip = false } = {}) {
 export function Paginator({ page, setPage, total, pageSize = 20 }) {
   const pages = Math.ceil(total / pageSize);
   if (pages <= 1) return null;
+  const from = page * pageSize + 1;
+  const to = Math.min(total, (page + 1) * pageSize);
   return (
-    <div className="flex items-center justify-center gap-3 pt-3">
-      <button className="btn btn-g !py-1.5 !text-xs" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
-        «
-      </button>
-      <span className="text-xs text-[var(--mu)]">
-        {num(page + 1)} / {num(pages)}
-      </span>
-      <button className="btn btn-g !py-1.5 !text-xs" disabled={page >= pages - 1} onClick={() => setPage((p) => p + 1)}>
-        »
-      </button>
-    </div>
+    <nav aria-label="صفحه‌بندی" className="flex flex-col items-center gap-1.5 pt-3">
+      <div className="flex items-center gap-3">
+        <button
+          className="btn btn-g !py-1.5 !text-xs"
+          aria-label="صفحه قبل"
+          disabled={page === 0}
+          onClick={() => setPage((p) => p - 1)}
+        >
+          «
+        </button>
+        <span className="text-xs text-[var(--mu)]" aria-current="page">
+          {num(page + 1)} / {num(pages)}
+        </span>
+        <button
+          className="btn btn-g !py-1.5 !text-xs"
+          aria-label="صفحه بعد"
+          disabled={page >= pages - 1}
+          onClick={() => setPage((p) => p + 1)}
+        >
+          »
+        </button>
+      </div>
+      <p className="text-[11px] text-[var(--mu)]">
+        نمایش {num(from)} تا {num(to)} از {num(total)}
+      </p>
+    </nav>
   );
 }
 
@@ -211,7 +228,11 @@ export function Stat({ label, value, tone, active, onClick, Icon, sub, ring }) {
         </span>
       )}
       <span className="min-w-0">
-        <span className="num block text-2xl font-extrabold leading-none">{num(value)}</span>
+        {value == null ? (
+          <span className="skel block h-6 w-12" role="status" aria-label="در حال بارگذاری" />
+        ) : (
+          <span className="num block text-2xl font-extrabold leading-none">{num(value)}</span>
+        )}
         <span className="mt-1.5 block truncate text-xs text-[var(--mu)]">{label}</span>
         {sub && <span className="mt-0.5 block truncate text-[11px] text-[var(--mu)]">{sub}</span>}
       </span>
@@ -303,9 +324,9 @@ export const Bar = ({ value = 0, tone = 'ok', label }) => (
 );
 
 /** Filter pills with live counts: options = [[key, label, count, { warn }]]. */
-export function Pills({ value, onChange, options, label }) {
+export function Pills({ value, onChange, options, label, scroll = false }) {
   return (
-    <div className="pills" role="group" aria-label={label}>
+    <div className={`pills ${scroll ? 'pills-scroll' : ''}`} role="group" aria-label={label}>
       {options.map(([k, l, n, o]) => (
         <button
           key={k}
@@ -321,17 +342,42 @@ export function Pills({ value, onChange, options, label }) {
     </div>
   );
 }
-export function SearchBox({ value, onChange, placeholder, label }) {
+export function SearchBox({ value, onChange, placeholder, label, hotkey = false }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!hotkey) return undefined;
+    const f = (e) => {
+      // e.code: the physical key stays "Slash" on the Persian layout too; Shift+Slash is "?" and must not trigger it.
+      if (e.key !== '/' && !(e.code === 'Slash' && !e.shiftKey)) return;
+      if (e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
+      const t = document.activeElement;
+      if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
+      if (document.querySelector('[role="dialog"]')) return; // a drawer / dialog owns the keyboard
+      e.preventDefault();
+      ref.current?.focus();
+    };
+    window.addEventListener('keydown', f);
+    return () => window.removeEventListener('keydown', f);
+  }, [hotkey]);
   return (
     <label className="relative min-w-[12rem] flex-1 sm:max-w-sm">
       <Search size={15} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--mu)]" />
       <input
+        ref={ref}
         aria-label={label}
         className="inp !pr-9"
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />
+      {hotkey && !value && (
+        <kbd
+          aria-hidden="true"
+          className="pointer-events-none absolute left-2.5 top-1/2 hidden -translate-y-1/2 rounded-md border border-[var(--ln)] bg-[var(--sf)] px-1.5 text-[11px] font-bold leading-5 text-[var(--mu)] md:block"
+        >
+          /
+        </kbd>
+      )}
       {value && (
         <button
           type="button"
