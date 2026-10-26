@@ -246,11 +246,12 @@ function Customers({ coreFetch, base, notify }) {
   };
   return (
     <div className={`${card} overflow-x-auto`}>
-      <table className="w-full min-w-[520px] text-right text-sm">
+      <table className="w-full min-w-[620px] text-right text-sm">
         <thead className="text-xs text-muted [&_th]:pb-3 [&_th]:font-bold">
           <tr>
             <th>نام</th>
             <th>ایمیل</th>
+            <th>آیدی تلگرام</th>
             <th>وضعیت</th>
             <th></th>
           </tr>
@@ -260,6 +261,7 @@ function Customers({ coreFetch, base, notify }) {
             <tr key={c.user_id} className="border-t border-line">
               <td className="py-3">{c.display_name || '-'}</td>
               <td className="latin">{c.email || '-'}</td>
+              <td className="latin">{c.telegram_id || '-'}</td>
               <td>
                 <StatusBadge status={c.status} />
               </td>
@@ -272,7 +274,7 @@ function Customers({ coreFetch, base, notify }) {
           ))}
           {rows && !rows.length && (
             <tr>
-              <td colSpan={4} className="p-8 text-center text-muted">
+              <td colSpan={5} className="p-8 text-center text-muted">
                 مشتری‌ای وجود ندارد
               </td>
             </tr>

@@ -9,9 +9,9 @@
 | Alembic head | `0032_bank_sms_auto_verify` |
 | Migrations | 32 |
 | ORM tables | 58 |
-| API operations | 252 |
-| API paths | 219 |
-| Test files / test functions (static count) | 152 / 1315 |
+| API operations | 256 |
+| API paths | 223 |
+| Test files / test functions (static count) | 154 / 1325 |
 | Coverage | not measured here (CI writes `apps/api/coverage.xml`; run `pytest --cov=melorin --cov-report=xml`) |
 | Documents: repo root / `docs/` / `docs/history/` (tests only) | 3 / 30 / 4 |
 

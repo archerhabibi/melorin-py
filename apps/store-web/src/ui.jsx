@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, CheckCircle2, AlertCircle, Info, Moon, Sun, Inbox } from 'lucide-react';
+import { X, CheckCircle2, AlertCircle, Info, Moon, Sun, Inbox, Eye, EyeOff } from 'lucide-react';
 import { backdropProps, useDialog } from './useDialog.js';
 
 export const fa = (n) => new Intl.NumberFormat('fa-IR').format(Number(n) || 0);
@@ -159,6 +159,25 @@ export function Toast({ message }) {
     >
       <Icon size={18} className={bad ? 'text-[#f79680]' : 'text-[#86e0b8]'} />
       {message}
+    </div>
+  );
+}
+
+/** Password field with an eye toggle (show / hide). Extra props go to the <input>. */
+export function PasswordInput({ className = '', wrapClassName = '', ...props }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className={`relative ${wrapClassName}`}>
+      <input {...props} dir="ltr" type={show ? 'text' : 'password'} className={`${className} !pl-10`} />
+      <button
+        type="button"
+        aria-label={show ? 'پنهان‌کردن رمز' : 'نمایش رمز'}
+        title={show ? 'پنهان‌کردن' : 'نمایش'}
+        className="absolute left-2 top-1/2 -translate-y-1/2 text-[var(--mu)]"
+        onClick={() => setShow((v) => !v)}
+      >
+        {show ? <EyeOff size={16} /> : <Eye size={16} />}
+      </button>
     </div>
   );
 }

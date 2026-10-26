@@ -5,6 +5,7 @@ import uuid
 from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
 
+from melorin.core import admin_telegram
 from melorin.core.deps import Session, StoreContext, api_access
 from melorin.kernel.models.identity import User
 from melorin.kernel.models.orders import Order
@@ -46,7 +47,14 @@ async def api_customers(session: Session, ctx: StoreContext = Depends(api_access
         .where(StoreMembership.store_id == ctx.store.id, StoreMembership.role == "customer")
     )
     return [
-        CustomerOut(user_id=u.id, display_name=u.display_name, email=u.email, status=m.status, joined_at=m.created_at)
+        CustomerOut(
+            user_id=u.id,
+            display_name=u.display_name,
+            email=u.email,
+            status=m.status,
+            joined_at=m.created_at,
+            telegram_id=admin_telegram.admin_telegram_id(u.identities),
+        )
         for u, m in (await session.execute(q)).all()
     ]
 

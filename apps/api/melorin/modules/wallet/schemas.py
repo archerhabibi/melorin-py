@@ -10,6 +10,8 @@ class WalletOut(BaseModel):
     kind: str
     currency: str
     balance: int
+    # The owner's numeric Telegram ID (identities.subject of provider "telegram"); None when no Telegram is linked.
+    telegram_id: str | None = None
 
 
 class LedgerEntryOut(BaseModel):

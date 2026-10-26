@@ -1,7 +1,7 @@
 import { lazy, useEffect, useState } from 'react';
 import { authFetch } from './api.js';
 import { Plus, Search, X } from 'lucide-react';
-import { Badge, confirmDialog, isStatus } from './ui.jsx';
+import { Badge, PasswordInput, confirmDialog, isStatus } from './ui.jsx';
 const ReportsView = lazy(() => import('./ReportsView.jsx'));
 const PanelsView = lazy(() => import('./PanelsView.jsx'));
 const InfraHealthView = lazy(() => import('./InfraHealthView.jsx'));
@@ -382,9 +382,7 @@ function Integrations({ api, toast }) {
               <input dir="ltr" className={inp} value={em.username} onChange={(e) => sm('username')(e.target.value)} />
             </Field>
             <Field label={`رمز عبور${em.password_set ? ' (ذخیره شده؛ برای تغییر بنویسید)' : ''}`}>
-              <input
-                dir="ltr"
-                type="password"
+              <PasswordInput
                 autoComplete="new-password"
                 className={inp}
                 value={pw}
@@ -490,9 +488,7 @@ function Integrations({ api, toast }) {
               />
             </Field>
             <Field label={`Secret Key${s3.secret_key_set ? ' (ذخیره شده؛ برای تغییر بنویسید)' : ''}`}>
-              <input
-                dir="ltr"
-                type="password"
+              <PasswordInput
                 autoComplete="new-password"
                 className={inp}
                 value={sk}
@@ -562,9 +558,7 @@ function ChangeAdminPassword({ api, toast }) {
       </div>
       <div className="grid gap-3 md:grid-cols-3">
         <Field label="رمز فعلی">
-          <input
-            dir="ltr"
-            type="password"
+          <PasswordInput
             autoComplete="current-password"
             className={inp}
             value={v.current}
@@ -572,9 +566,7 @@ function ChangeAdminPassword({ api, toast }) {
           />
         </Field>
         <Field label="رمز جدید">
-          <input
-            dir="ltr"
-            type="password"
+          <PasswordInput
             autoComplete="new-password"
             className={inp}
             value={v.next}
@@ -582,9 +574,7 @@ function ChangeAdminPassword({ api, toast }) {
           />
         </Field>
         <Field label="تکرار رمز جدید">
-          <input
-            dir="ltr"
-            type="password"
+          <PasswordInput
             autoComplete="new-password"
             className={inp}
             value={v.confirm}

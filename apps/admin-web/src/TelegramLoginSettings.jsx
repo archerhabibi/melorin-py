@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { authFetch } from './api.js';
 import { Check, ChevronDown, Copy, ExternalLink, Send, ShieldCheck } from 'lucide-react';
 import { CopyBox, Field, Step, Switch } from './GoogleLoginSettings.jsx';
+import { PasswordInput } from './ui.jsx';
 
 const CLIENT_ID_RE = /^[0-9]{5,20}$/;
 const FIELDS = ['enabled', 'store_login', 'bot_login', 'number_match', 'ttl_seconds', 'oidc_login', 'client_id'];
@@ -507,9 +508,7 @@ export default function TelegramLoginSettings({ api, toast }) {
                 : 'از همان صفحهٔ BotFather کپی کنید. رمزنگاری‌شده ذخیره می‌شود.'
             }
           >
-            <input
-              dir="ltr"
-              type="password"
+            <PasswordInput
               spellCheck={false}
               autoComplete="new-password"
               className="inp font-mono text-xs"

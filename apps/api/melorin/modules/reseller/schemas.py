@@ -53,6 +53,7 @@ class CustomerOut(BaseModel):
     email: str | None
     status: str
     joined_at: dt.datetime
+    telegram_id: str | None = None
 
 
 class CustomerWalletAdjustment(BaseModel):
