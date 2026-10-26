@@ -35,7 +35,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 
 <!-- BEGIN GENERATED ROUTES (scripts/gen_docs.py) -->
 
-### `admin` (90)
+### `admin` (92)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -123,10 +123,12 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | POST | `/api/v1/admin/stores/{store_id}/receipt-review/{payment_id}` | Receipt Review Resolve |
 | GET | `/api/v1/admin/stores/{store_id}/reseller-prices` | Reseller Store Prices |
 | GET | `/api/v1/admin/tickets` | Tickets |
+| POST | `/api/v1/admin/tickets/attachments` | Ticket Upload Attachment |
 | GET | `/api/v1/admin/tickets/{ticket_id}` | Ticket Detail |
 | PATCH | `/api/v1/admin/tickets/{ticket_id}` | Update Ticket |
 | POST | `/api/v1/admin/tickets/{ticket_id}/messages` | Ticket Reply |
 | PATCH | `/api/v1/admin/tickets/{ticket_id}/messages/{message_id}` | Ticket Edit Message |
+| GET | `/api/v1/admin/tickets/{ticket_id}/messages/{message_id}/attachment` | Ticket Message Attachment |
 | GET | `/api/v1/admin/users` | Users |
 | GET | `/api/v1/admin/vpn-accounts` | Vpn Accounts |
 
@@ -341,17 +343,19 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/api/v1/reseller-api/v1/stores/{store_id}/orders` | Api Orders |
 | GET | `/api/v1/reseller-api/v1/stores/{store_id}/reports` | Api Reports |
 
-### `tickets` (7)
+### `tickets` (9)
 
 | Method | Path | Operation |
 |---|---|---|
 | GET | `/api/v1/stores/{store_id}/tickets` | List Mine |
 | POST | `/api/v1/stores/{store_id}/tickets` | Create |
+| POST | `/api/v1/stores/{store_id}/tickets/attachments` | Upload Attachment |
 | GET | `/api/v1/tickets/{ticket_id}` | Get Ticket |
 | PATCH | `/api/v1/tickets/{ticket_id}` | Update Ticket |
 | GET | `/api/v1/tickets/{ticket_id}/messages` | Messages |
 | POST | `/api/v1/tickets/{ticket_id}/messages` | Add Message |
 | PATCH | `/api/v1/tickets/{ticket_id}/messages/{message_id}` | Edit Message |
+| GET | `/api/v1/tickets/{ticket_id}/messages/{message_id}/attachment` | Message Attachment |
 
 ### `vpn-accounts` (7)
 
