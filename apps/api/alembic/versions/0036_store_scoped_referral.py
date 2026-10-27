@@ -1,4 +1,5 @@
 """Referral programs are per store: first-touch attribution and the signup-reward guard become unique per (store, customer)."""
+
 import sqlalchemy as sa
 from alembic import op
 
@@ -17,7 +18,6 @@ def upgrade() -> None:
     )
     op.drop_constraint("uq_commissions_referred_user_id_kind", "commissions", type_="unique")
     op.create_unique_constraint("uq_commissions_store_id_referred_user_id_kind", "commissions", ["store_id", "referred_user_id", "kind"])
-
 
     # One default plan (product_id IS NULL) per store and kind: the old unique constraint never caught NULL duplicates.
     op.execute(
