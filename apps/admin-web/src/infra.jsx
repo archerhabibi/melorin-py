@@ -71,6 +71,7 @@ export const infraHref = (slug, params = {}) => {
 /** Old bookmarks (#/servers?panel=…) → new address, or null when the hash needs no rewrite. */
 export function legacyHash(hash) {
   const [path, q = ''] = hash.split('?');
+  if (path === '#/identity-auto') return '#/identity?tab=devices'; // the two identity screens became one hub
   if (path !== '#/servers') return null;
   const p = Object.fromEntries(new URLSearchParams(q));
   return infraHref('servers', p);

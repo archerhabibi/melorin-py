@@ -170,7 +170,7 @@ function MergesTab({ call }) {
       </div>
       <p className="px-1 text-xs leading-6 text-[var(--mu)]">
         فقط حساب «خالی» (بدون سفارش، پرداخت، اکانت، تیکت، کیف پول، رمز و ادمین) در حساب دیگر ادغام می‌شود؛ حساب خالی
-        بایگانی می‌شود و حذف نمی‌شود. اگر هر دو سابقه داشته باشند، مورد در «بررسی هویت» می‌ماند.
+        بایگانی می‌شود و حذف نمی‌شود. اگر هر دو سابقه داشته باشند، مورد در تب «نیاز به بررسی» می‌ماند.
       </p>
       {failed && <ErrorBar onRetry={load}>دریافت فهرست ناموفق بود.</ErrorBar>}
       {rows && rows.length === 0 && !failed && (
@@ -206,9 +206,11 @@ function MergesTab({ call }) {
   );
 }
 
-export default function IdentityAutoView({ api, toast }) {
+// `section` ('devices' | 'merges') pins the view to one tab when the screen is hosted inside the identity hub.
+export default function IdentityAutoView({ api, toast, section }) {
   const call = (p, o = {}) => authFetch(api.base, p, o);
-  const [tab, setTab] = useState('devices');
+  const [tab, setTabState] = useState(section || 'devices');
+  const setTab = (v) => !section && setTabState(v);
   const [tick, setTick] = useState(0);
   const [s, setS] = useState({});
   useEffect(() => {
@@ -243,15 +245,17 @@ export default function IdentityAutoView({ api, toast }) {
           onClick={() => setTab('merges')}
         />
       </KpiBar>
-      <Segmented
-        label="بخش"
-        value={tab}
-        onChange={setTab}
-        options={[
-          ['devices', 'دستگاه‌های مورداعتماد'],
-          ['merges', 'ادغام‌های خودکار'],
-        ]}
-      />
+      {!section && (
+        <Segmented
+          label="بخش"
+          value={tab}
+          onChange={setTab}
+          options={[
+            ['devices', 'دستگاه‌های مورداعتماد'],
+            ['merges', 'ادغام‌های خودکار'],
+          ]}
+        />
+      )}
       {tab === 'devices' ? (
         <DevicesTab call={call} toast={toast} onChanged={() => setTick((t) => t + 1)} />
       ) : (

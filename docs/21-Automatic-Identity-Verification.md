@@ -108,8 +108,20 @@ Admin list fields: `auto_approved`, `recheck_failures`, `recheck_error`, `rechec
 Switches: `RESELLER_AUTO_APPROVE`, `RESELLER_AUTO_APPROVE_DEBT_LIMIT`, `RESELLER_AUTO_APPROVE_MIN_ACCOUNT_DAYS`, `RESELLER_RECHECK`,
 `RESELLER_RECHECK_HOURS`, `RESELLER_RECHECK_FAIL_LIMIT`, `RESELLER_RECHECK_SUSPEND`. Tests: `apps/api/tests/test_identify_reseller_lifecycle.py`.
 
-## Admin page «هویت خودکار»
-Panel → سیستم → «هویت خودکار» (`apps/admin-web/src/IdentityAutoView.jsx`), backed by `modules/admin/identity_auto.py`:
+## Admin screen «هویت» (one screen, three tabs)
+Panel → سیستم → «هویت» (`apps/admin-web/src/IdentityHubView.jsx`; deep link `#/identity?tab=review|auto|devices`, the old
+`#/identity-auto` bookmark opens the devices tab). It replaces the two former menu entries «بررسی هویت» and «هویت خودکار», which
+overlapped: conflicts Core settled itself were visible in both.
+
+| tab | content | who acts |
+|---|---|---|
+| **نیاز به بررسی** | the manual queue (`IdentityReviewsView`, `/admin/identity-link-reviews`): conflicts Core could not settle. The tab shows the number of open ones | an admin decides |
+| **انجام‌شده خودکار** | automatic merges (read-only report, see below) | nobody |
+| **دستگاه‌های مورداعتماد** | trusted browsers, revoke one / the whole account (see below) | an admin may revoke |
+
+Rows settled by Core (`resolution_note` starting with `auto:`) carry `auto: true` in `GET /admin/identity-link-reviews` and are
+hidden from the manual queue (also from its «متصل شده» / «همه» counters); they appear only in «انجام‌شده خودکار».
+`IdentityAutoView` is reused by the hub with `section="merges"` / `section="devices"`. Backing code: `modules/admin/identity_auto.py`:
 
 * **Trusted devices** (`GET /admin/trusted-devices?status=active|expired|revoked|all&q=&store_id=`): owner, store, browser label,
   Telegram id, last network, uses, last seen, expiry. Search by name, e-mail, label or Telegram id. The device key and its hash

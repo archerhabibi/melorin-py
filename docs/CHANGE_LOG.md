@@ -1131,3 +1131,10 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 - **After:** 18 new tests (`test_identify_reseller_lifecycle.py`). DNS-over-HTTPS, HTTP proof and Telegram were mocked only, NOT run against a live domain/bot.
 - **Ref:** branch identify
 
+### 2026-10-27 - Claude (with owner) - identify: one «هویت» screen instead of two overlapping admin pages
+- **Before:** the panel had «بررسی هویت» (conflict queue) and «هویت خودکار» (trusted devices + automatic merges). Conflicts settled by Core showed in both (the review row stays `linked` with note `auto:`), and the queue text still claimed that accounts are never merged automatically.
+- **Problem:** two menu entries for one subject; the manual queue mixed work for a human with things Core had already done.
+- **Action:** new `IdentityHubView.jsx` with three tabs (نیاز به بررسی / انجام‌شده خودکار / دستگاه‌های مورداعتماد, open-count badge, deep link `#/identity?tab=…`, old `#/identity-auto` bookmark redirected). `GET /admin/identity-link-reviews` rows gain `auto`; the manual queue hides them; queue text corrected. `IdentityAutoView` takes a `section` prop. No route, table or permission changed.
+- **After:** 5 new panel tests + 1 new API test; panel 161 passed, `vite build` ok. Not looked at in a real browser.
+- **Ref:** branch identify
+

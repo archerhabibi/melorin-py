@@ -1,5 +1,6 @@
 // «بررسی هویت» — queue of identity-link conflicts (verified email / Google / Telegram account that already belongs
-// to another user). Core never merges such accounts automatically; the admin reads both sides and decides here.
+// to another user) that Core could NOT settle by itself. Conflicts it settled automatically (resolution note `auto:`) are
+// not queued here; they live in the hub's «انجام‌شده خودکار» tab. The admin reads both sides and decides here.
 import { useMemo, useState } from 'react';
 import {
   ArrowLeftRight,
@@ -315,7 +316,7 @@ export default function IdentityReviewsView({ api, toast }) {
   const [sort, setSort] = useState('new');
   const [sel, setSel] = useState(null);
 
-  const all = rows || [];
+  const all = (rows || []).filter((r) => !r.auto);
   const count = (f) => all.filter(f).length;
   const shown = useMemo(() => {
     const t = q.trim().toLowerCase();
@@ -411,8 +412,8 @@ export default function IdentityReviewsView({ api, toast }) {
         />
       </div>
       <p className="px-1 text-xs leading-6 text-[var(--mu)]">
-        وقتی ایمیل یا حساب تأییدشده‌ای با حساب دیگری هم‌پوشانی دارد، سیستم هرگز حساب‌ها را خودکار ادغام نمی‌کند و مورد
-        را اینجا برای تصمیم شما نگه می‌دارد.
+        اگر یکی از دو حساب خالی باشد، سیستم خودش ادغام می‌کند (تب «انجام‌شده خودکار»). وقتی هر دو حساب سابقه دارند، هرگز
+        ادغام خودکار انجام نمی‌شود و مورد اینجا برای تصمیم شما می‌ماند.
       </p>
       {failed && <ErrorBar onRetry={load}>دریافت فهرست ناموفق بود.</ErrorBar>}
       {rows === null ? (

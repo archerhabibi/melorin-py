@@ -53,6 +53,18 @@ async def test_list_carries_both_sides_and_filters_by_status(session):
         await admin.identity_link_reviews(None, session, status="bogus")
 
 
+async def test_rows_settled_by_core_are_flagged_auto_so_the_panel_keeps_them_out_of_the_manual_queue(session):
+    a, b, r = await seed(session)
+    assert (await admin.identity_link_reviews(None, session))[0]["auto"] is False
+    r.status, r.resolution_note = "linked", "auto:shell_into_other"
+    await session.commit()
+    (row,) = await admin.identity_link_reviews(None, session, status="linked")
+    assert row["auto"] is True
+    r.resolution_note = "merged by hand"  # an admin's own link is NOT automatic
+    await session.commit()
+    assert (await admin.identity_link_reviews(None, session, status="linked"))[0]["auto"] is False
+
+
 async def test_dismiss_with_note_then_reopen(session):
     a, b, r = await seed(session)
     admin_user = User(display_name="adm")
@@ -85,7 +97,9 @@ async def test_dismiss_without_body_still_works_for_old_clients(session):
 
 def test_screen_is_wired_into_the_admin_panel_and_bot_keeps_its_contract():
     extra = read_web_source(PROJECT / "apps/admin-web/src/AdminExtra.jsx")
-    assert '"بررسی هویت": IdentityReviewsView' in extra and "function Reviews(" not in extra
+    assert "IdentityHubView" in extra and "function Reviews(" not in extra  # one «هویت» screen: review queue + auto report + devices
+    hub = read_web_source(PROJECT / "apps/admin-web/src/IdentityHubView.jsx")
+    assert "IdentityReviewsView" in hub and 'section="merges"' in hub and 'section="devices"' in hub
     view = read_web_source(PROJECT / "apps/admin-web/src/IdentityReviewsView.jsx")
     assert "identity-link-reviews?status=all" in view and "reopen" in view and "dismiss" in view
     bot = _raw_text(PROJECT / "apps/telegram-main/runner.py")

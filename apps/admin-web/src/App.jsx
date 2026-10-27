@@ -19,7 +19,6 @@ import {
   Database,
   Download,
   Fingerprint,
-  MonitorSmartphone,
   LayoutDashboard,
   Menu,
   Package,
@@ -96,8 +95,7 @@ const groups = [
     [
       ['تنظیمات', Settings, 'settings'],
       ['ممیزی', ScrollText, 'audit'],
-      ['بررسی هویت', Fingerprint, 'identity'],
-      ['هویت خودکار', MonitorSmartphone, 'identity-auto'],
+      ['هویت', Fingerprint, 'identity'],
     ],
   ],
 ];
