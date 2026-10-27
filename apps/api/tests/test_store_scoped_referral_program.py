@@ -580,3 +580,29 @@ async def test_admin_can_manage_and_inspect_any_store_and_unknown_stores_are_404
         assert (await c.put(f"{V1}/admin/referral-rules", headers=h, json={**body, "store_id": missing})).status_code == 404
         assert (await c.get(f"{V1}/admin/stores/{missing}/referrals/summary", headers=h)).status_code == 404
         assert (await c.put(f"{V1}/admin/referral-rules", headers=h, json={**body, "value": 10_001})).status_code == 400
+
+
+# ------------------------------------------------------------------ refund of the first order must not break the next one
+async def test_after_the_first_order_is_refunded_the_next_order_earns_a_plain_commission_and_never_a_second_signup_reward():
+    """The signup reward is one per customer per store (unique key). When that first order is refunded, the customer is still
+    not 'new' for the programme: the next completed order pays the commission plan, it must not try to pay the reward again."""
+    async with open_session() as s:
+        main, store_a, _, referrer, friend, product = await _world(s)
+        await _rule(s, store_a, "signup_reward", "fixed", 300)
+        await _rule(s, store_a, "commission", "percent", 1000)
+        await referral.attach(s, store_a.id, friend, referrer)
+        await s.commit()
+        t0 = utcnow()
+        first = await _complete(s, friend, store_a, product, when=t0 - dt.timedelta(days=2))
+        await referral.on_order_completed(s, first.id)
+        await s.commit()
+        await referral.on_order_refunded(s, first.id)
+        first.status = "refunded"
+        await s.commit()
+        second = await _complete(s, friend, store_a, product, total=2000, when=t0)
+        await referral.on_order_completed(s, second.id)  # must not raise
+        await s.commit()
+        rows = {(c.order_id, c.kind): c for c in (await s.scalars(select(Commission))).all()}
+        assert rows[(first.id, "signup_reward")].status == "reversed"
+        assert rows[(second.id, "commission")].amount == 200  # 10 % of 2000
+        assert (second.id, "signup_reward") not in rows

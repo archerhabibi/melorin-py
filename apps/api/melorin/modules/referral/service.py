@@ -135,7 +135,14 @@ async def on_order_completed(session: AsyncSession, order_id: uuid.UUID) -> None
         )
         or 0
     )
-    kind = "signup_reward" if prior == 0 else "commission"
+    # The reward is one per customer per store (unique key). If it was already granted - even when that first order was later
+    # refunded and so no longer counts as "completed" - every further order pays the commission plan, never a second reward.
+    reward_granted = await session.scalar(
+        select(Commission.id).where(
+            Commission.store_id == order.store_id, Commission.referred_user_id == order.user_id, Commission.kind == "signup_reward"
+        )
+    )
+    kind = "signup_reward" if prior == 0 and not reward_granted else "commission"
     plan = await _plan(session, order, kind)
     gross = amount_for(plan, order.total)
     if gross <= 0 or await session.scalar(select(Commission.id).where(Commission.order_id == order.id, Commission.kind == kind)):
