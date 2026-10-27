@@ -48,3 +48,8 @@
 ## باقی‌مانده‌ی صادقانه
 * تست همروندی قفل‌ها فقط در مسیر PostgreSQL (`TEST_PG_URL`) معنا دارد؛ در SQLite قفل سطری بی‌اثر است.
 * ربات‌های نماینده از runner اصلی ارث می‌برند: `/referral` مشتری و ثبت `start=ref_…` در همان ربات کار می‌کند (فروشگاه از کانال می‌آید). ویرایش طرح‌ها از ربات نیست؛ فقط از سایت فروشگاه.
+
+## ممیزی نهایی / Final audit
+* ممیزی انجام‌شده روی شاخه: `attach` (عضویت معرف در همان فروشگاه، بدون خودمعرفی/حلقه‌ی معکوس/ربایش مشتری قدیمی)، `on_order_completed`، clawback، `find_coupon` (فقط کوپن همان فروشگاه یا کوپن چندفروشگاهیِ تأییدشده‌ی ادمین)، مسیر ثبت سفارش و مصرف کوپن.
+* نتیجه: API ‏1711 تست، admin-web ‏164 تست، store-web ‏49 تست، ربات اصلی ‏17 و ربات نماینده ‏2 تست همگی سبز؛ تنها اصلاح لازم، قالب‌بندی migration `0036` برای دروازه‌ی `ruff format` بود.
+* Audit result (EN): referral rewards, commissions and discount codes are enforced per store in Core only; a code, reward or commission never crosses stores, except admin-approved multi-store (domain) coupons, which the platform funds.
