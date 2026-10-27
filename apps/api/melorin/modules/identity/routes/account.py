@@ -83,7 +83,7 @@ async def my_stores(auth: CurrentAuth, session: Session):
         else:
             q = q.where(Store.id == claims.store_id)
     rows = (await session.execute(q)).all()
-    return [{"id": s.id, "name": s.name, "kind": s.kind, "slug": s.slug, "role": m.role} for s, m in rows]
+    return [{"id": s.id, "name": s.name, "kind": s.kind, "slug": s.slug, "currency": s.currency, "role": m.role} for s, m in rows]
 
 
 @me.post("/link-codes/telegram", response_model=LinkCodeOut)
