@@ -47,6 +47,7 @@ import {
   Megaphone,
   UserPlus,
   Bot,
+  Gift,
 } from 'lucide-react';
 
 // Section keys are Persian labels (AdminSections/AdminExtra route on them); slug drives the URL hash.
@@ -78,6 +79,7 @@ const groups = [
       ['پیام همگانی', Megaphone, 'broadcasts'],
       ['مرکز رویداد', BellRing, 'event-center'],
       ['کوپن‌ها', Percent, 'coupons'],
+      ['برنامه‌های معرفی', Gift, 'referral-programs'],
     ],
   ],
   [
