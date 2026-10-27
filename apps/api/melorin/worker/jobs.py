@@ -227,6 +227,18 @@ async def reseller_auto_verify_job(ctx=None):
         return done
 
 
+async def reseller_identity_recheck_job(ctx=None):
+    """Approved resellers keep proving who they are (docs/21): re-check domain proof and bot token of every store whose
+    check is due; repeated failure alerts admins (and suspends the store when RESELLER_RECHECK_SUSPEND is on)."""
+    from melorin.modules.reseller import recheck
+
+    async with session_factory()() as s:
+        done = await recheck.sweep(s)
+        if done:
+            log.info("reseller identities re-checked=%s", done)
+        return done
+
+
 async def bank_sms_reconcile_job(ctx=None):
     """Safety net for card-to-card auto verification: pair open deposit SMS with receipts uploaded later or whose
     inline match failed. Idempotent; the wallet credit is protected by the ledger idempotency key."""

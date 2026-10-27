@@ -143,6 +143,15 @@ class Settings(BaseSettings):
     reseller_auto_verify: bool = True
     reseller_require_domain_proof: bool = False
     reseller_verify_window_days: int = 7
+    # Fully proven applications (bot + domain) may approve themselves; OFF by default because it grants a store.
+    reseller_auto_approve: bool = False
+    reseller_auto_approve_debt_limit: int = 0
+    reseller_auto_approve_min_account_days: int = 7
+    # Approved stores keep proving their identity: domain proof and bot are re-checked on a schedule.
+    reseller_recheck: bool = True
+    reseller_recheck_hours: int = 24
+    reseller_recheck_fail_limit: int = 3
+    reseller_recheck_suspend: bool = False
 
     store_web_url: str = "http://localhost:3000"
     public_api_url: str = ""

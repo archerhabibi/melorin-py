@@ -74,6 +74,40 @@ A reseller application brings two identifiers (store domain, Telegram bot). Both
 * Worker job `reseller_auto_verify_job` (every 2 minutes); migration `0034`.
 * Tests: `apps/api/tests/test_identify_reseller_auto_verify.py`.
 
+## Reseller approval can be automatic (opt-in)
+`modules/reseller/auto_approve.py`. When bot **and** domain are proven, the only open question left for an admin is "do we want
+this reseller at all". An operator who has decided that in advance sets `RESELLER_AUTO_APPROVE=true` (**default `false`**: it grants a store)
+and the application approves itself through the same `create_reseller_store` code as the manual path.
+
+| guard rail (any miss = stays for an admin, nothing is ever rejected automatically) | |
+|---|---|
+| status `pending`, details present, bot **and** domain verified | |
+| applicant active, not guest, not admin, account older than `RESELLER_AUTO_APPROVE_MIN_ACCOUNT_DAYS` (7) | |
+| target store active, applicant still an active member, no reseller store for that pair yet | |
+| domain and bot still free (`ensure_identity_free`, same as manual) | |
+| debt limit is the fixed `RESELLER_AUTO_APPROVE_DEBT_LIMIT` (default 0: the reseller pays before it sells) | |
+
+All-or-nothing (savepoint). Audit `reseller.application_auto_approved` (actor `system`), `review_reason = auto:fully_proven`,
+`auto_approved = true` in the admin list; the owner gets the usual approval notice and admins get "approved automatically".
+
+## Approved resellers keep proving who they are
+`modules/reseller/recheck.py`, worker `reseller_identity_recheck_job` (every 30 min; each store is due every `RESELLER_RECHECK_HOURS`, 24).
+Re-checks (only reads): the DNS/well-known domain proof is still there (when it was proven), and the store's bot token is still accepted by
+Telegram **and** is still the same bot.
+
+| round result | effect |
+|---|---|
+| all good | failures reset; if the identity was lost, admins are told it recovered |
+| failed round 1 | owner gets a warning; retry in 6 h (one DNS hiccup proves nothing) |
+| `RESELLER_RECHECK_FAIL_LIMIT` (3) consecutive failed rounds | `identity_lost_at` set, audit `reseller.identity_lost`, admins and owner notified; store suspended **only if** `RESELLER_RECHECK_SUSPEND=true` (default `false`) |
+| Telegram unreachable | neutral: no failure, retry in 1 h |
+
+Recovery never un-suspends a store by itself; that stays an admin decision. Suspended stores are not re-checked. Migration `0035`
+also schedules the first re-check of already-approved stores that proved their domain.
+Admin list fields: `auto_approved`, `recheck_failures`, `recheck_error`, `recheck_next_at`, `identity_lost`.
+Switches: `RESELLER_AUTO_APPROVE`, `RESELLER_AUTO_APPROVE_DEBT_LIMIT`, `RESELLER_AUTO_APPROVE_MIN_ACCOUNT_DAYS`, `RESELLER_RECHECK`,
+`RESELLER_RECHECK_HOURS`, `RESELLER_RECHECK_FAIL_LIMIT`, `RESELLER_RECHECK_SUSPEND`. Tests: `apps/api/tests/test_identify_reseller_lifecycle.py`.
+
 ## Admin page «هویت خودکار»
 Panel → سیستم → «هویت خودکار» (`apps/admin-web/src/IdentityAutoView.jsx`), backed by `modules/admin/identity_auto.py`:
 

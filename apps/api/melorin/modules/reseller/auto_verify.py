@@ -189,9 +189,11 @@ async def verify(
 
 
 async def _announce_ready(session: AsyncSession, a: ResellerApplication) -> None:
-    from melorin.modules.reseller import onboarding
+    from melorin.modules.reseller import auto_approve, onboarding
 
     audit.record(session, "reseller.application_auto_verified", entity_type="reseller_application", entity_id=a.id, data={"domain": a.domain})
+    if await auto_approve.try_approve(session, a):  # policy says fully proven applications approve themselves
+        return
     await onboarding.alert_admins(
         session,
         kind="admin_reseller_verified",

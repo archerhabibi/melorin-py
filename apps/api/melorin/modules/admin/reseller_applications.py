@@ -44,6 +44,11 @@ def _application_row(x, user, target):
         "domain_method": x.domain_method,
         "verify_error": x.verify_error,
         "verify_next_at": x.verify_next_at,
+        "auto_approved": bool(x.auto_approved),
+        "recheck_failures": x.recheck_failures or 0,
+        "recheck_error": x.recheck_error,
+        "recheck_next_at": x.recheck_next_at,
+        "identity_lost": x.identity_lost_at is not None,
         "auto_verified": bool((x.bot_verified or not x.bot_token_enc) and (x.domain_verified_at or not x.domain)),
     }
 

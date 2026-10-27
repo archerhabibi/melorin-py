@@ -110,6 +110,12 @@ class ResellerApplication(IdMixin, TimestampMixin, Base):
     verify_attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     verify_next_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     verify_error: Mapped[str | None] = mapped_column(String(200))
+    # Automatic approval and continuous re-verification of the approved store (docs/21).
+    auto_approved: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    recheck_next_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    recheck_failures: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    recheck_error: Mapped[str | None] = mapped_column(String(200))
+    identity_lost_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class ApiCredential(IdMixin, TimestampMixin, Base):

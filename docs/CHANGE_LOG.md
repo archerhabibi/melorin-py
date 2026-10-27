@@ -1123,3 +1123,11 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 - **Action:** `modules/admin/identity_auto.py` (list/search trusted devices, summary, revoke one device, revoke all devices of an account, list automatic merges; device keys never returned; revokes audited) and the panel screen `IdentityAutoView.jsx` under «سیستم» with two tabs, counters and confirmation before revoking. docs/21, API.md, STATUS.md, OpenAPI snapshot and generated client types refreshed.
 - **After:** 10 new API tests + 4 new panel tests; full API suite 1646 passed / 7 skipped, panel 156 passed, `vite build` and api-client typecheck pass. Not looked at in a real browser with live data.
 - **Ref:** branch identify
+
+### 2026-10-27 - Claude (with owner) - identify: automatic approval and continuous re-verification of resellers
+- **Before:** after Core proved a reseller's bot and domain, an admin still had to click approve; and once approved, nothing checked that the domain proof or the bot token stayed valid (a lapsed domain or revoked token went unnoticed).
+- **Problem:** the last manual identity steps of the reseller path, and no detection of identity loss after approval.
+- **Action:** `modules/reseller/auto_approve.py` (opt-in `RESELLER_AUTO_APPROVE`, default off; guard rails on account age/role/membership/identity; fixed debt limit; atomic) and `modules/reseller/recheck.py` + worker job `reseller_identity_recheck_job` (domain proof and bot re-checked every 24 h; owner warning, retry in 6 h, admins alerted after 3 failed rounds; suspension only with `RESELLER_RECHECK_SUSPEND`; Telegram outage is neutral). Migration 0035, admin list fields, `.env.example`, docs/21.
+- **After:** 18 new tests (`test_identify_reseller_lifecycle.py`). DNS-over-HTTPS, HTTP proof and Telegram were mocked only, NOT run against a live domain/bot.
+- **Ref:** branch identify
+
