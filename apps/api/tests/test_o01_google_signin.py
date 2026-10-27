@@ -42,7 +42,7 @@ REQ = types.SimpleNamespace(
 async def world(tmp_path, monkeypatch):
     db.configure(f"sqlite+aiosqlite:///{tmp_path}/google.db")
     async with db.engine().begin() as conn:
-        await conn.run_sync(lambda c: db.Base.metadata.create_all(c, tables=TABLES))
+        await conn.run_sync(lambda c: db.Base.metadata.create_all(c))
     secret = totp_new_secret()
     monkeypatch.setattr(sign_in, "decrypt", lambda v: v)  # keep the TOTP secret readable without a Fernet key
     async with db.session_factory()() as s:
@@ -172,17 +172,46 @@ async def test_link_google_attaches_identity_to_current_user(world):
     assert created is False and user.id == tg_user.id
 
 
-async def test_link_google_owned_by_other_user_is_reported_not_merged(world):
-    from melorin.modules.identity.schemas import GoogleLink
-
-    tg_user = User(display_name="TG only")
+async def _link_conflict_world(world, *, tg_has_records, cust_has_records):
+    tg_user = User(display_name="TG only", password_hash="x" if tg_has_records else None)
     world.s.add(tg_user)
+    cust = await service.find_identity(world.s, "google", "g-cust")
+    owner = await world.s.get(User, cust.user_id)
+    owner.password_hash = "x" if cust_has_records else None
     await world.s.flush()
     world.verify.sub = "g-cust"  # belongs to the "Cust" user
+    return tg_user, owner
+
+
+async def test_link_google_owned_by_other_user_is_reported_not_merged(world):
+    """Both accounts hold something (credentials/records): never merged automatically, queued for an admin."""
+    from melorin.modules.identity.schemas import GoogleLink
+
+    tg_user, owner = await _link_conflict_world(world, tg_has_records=True, cust_has_records=True)
     with pytest.raises(AppError) as exc:
         await router.attach_google(GoogleLink(id_token="t"), tg_user, world.s, REQ, Response())
-    assert exc.value.status == 409
-    assert (await service.find_identity(world.s, "google", "g-cust")).user_id != tg_user.id
+    assert exc.value.status == 409 and exc.value.code == "IDENTITY_LINK_REVIEW"
+    assert (await service.find_identity(world.s, "google", "g-cust")).user_id == owner.id
+
+
+async def test_link_google_owned_by_an_empty_shell_moves_to_the_signed_in_account_by_itself(world):
+    from melorin.modules.identity.schemas import GoogleLink
+
+    tg_user, owner = await _link_conflict_world(world, tg_has_records=True, cust_has_records=False)
+    assert (await router.attach_google(GoogleLink(id_token="t"), tg_user, world.s, REQ, Response())) == {"ok": True}
+    assert (await service.find_identity(world.s, "google", "g-cust")).user_id == tg_user.id
+    assert owner.is_active is False and owner.archived_at is not None
+
+
+async def test_link_google_from_an_empty_shell_session_folds_it_into_the_real_account(world):
+    from melorin.modules.identity.schemas import GoogleLink
+
+    tg_user, owner = await _link_conflict_world(world, tg_has_records=False, cust_has_records=True)
+    with pytest.raises(AppError) as exc:
+        await router.attach_google(GoogleLink(id_token="t"), tg_user, world.s, REQ, Response())
+    assert exc.value.code == "IDENTITY_MERGED"
+    assert (await service.find_identity(world.s, "google", "g-cust")).user_id == owner.id
+    assert tg_user.is_active is False
 
 
 async def test_link_google_requires_matching_nonce(world):

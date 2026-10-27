@@ -33,6 +33,25 @@ no longer eligible revokes the device and falls back to the manual path (which e
 * The browser can drop its own trust with `POST /auth/telegram/web/devices/forget` (cookie is the proof).
 * Limits: at most 10 live devices per account (oldest make room), sliding expiry, rate-limited endpoints, audit events on every step.
 
+## Identity-link conflicts settle themselves
+The same verified identity (e-mail, Google, Telegram) on two accounts used to wait in the admin review queue. Now
+`modules/identity/auto_link.py` decides with the pure rule in `domain/identity_auto_link.py`:
+
+| situation | result |
+|---|---|
+| one account is an **empty shell** (no orders, payments, VPN accounts, tickets, referral, store, non-zero wallet or ledger history, no password, no 2FA, not admin) | the shell is folded into the other account: identities, e-mail, trusted devices and store memberships move, its sessions end, it is deactivated and archived (never deleted) |
+| both are shells | the older account lives on |
+| **both hold records**, either is inactive or an admin, or several candidates | never merged: stays in the admin queue (`/admin/identity-link-reviews`) |
+
+* "Empty shell" is decided from the **schema itself** (every foreign key to `users.id` outside a short disposable list), so a
+  table added later protects its rows without anyone updating a list.
+* Proof of ownership comes from the flow that raised the conflict (e-mail code, verified Google token, bot link code).
+* From a shell's own session the merge ends that session and the API answers `IDENTITY_MERGED` (409): sign in again.
+* Audit: `identity.auto_merged` (audit log) and `identity_auto_merged` (security event); the review row stays with status
+  `linked`, no resolver and note `auto:<rule>`.
+* `identity_auto_link_job` (worker, every 10 minutes) settles reviews that became safe after they were queued.
+* Switch: `IDENTITY_AUTO_LINK` (default `true`; `false` = every conflict waits for an admin).
+
 ## Settings
 `TELEGRAM_WEB_LOGIN_TRUST_DAYS` (default 60, `0` turns automatic verification off) and `TELEGRAM_WEB_LOGIN_SILENT_DAYS`
 (default 14, `0` disables only the silent level).
@@ -43,4 +62,4 @@ they expired or were revoked.
 
 ## Tests
 `apps/api/tests/test_identify_trusted_devices.py` (levels, per-store isolation, anti-phishing, revocation, cap, purge, cookie over HTTP),
-`test_p01_telegram_web_login*.py` (flow and bot side).
+`test_identify_auto_link.py` (merge rule, shell detection, flows, sweep, worker job), `test_p01_telegram_web_login*.py` (flow and bot side).

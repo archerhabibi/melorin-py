@@ -203,6 +203,18 @@ async def telegram_login_gc_job(ctx=None):
         return removed
 
 
+async def identity_auto_link_job(ctx=None):
+    """Safety net for identity-link conflicts (docs/21): settle every open review that became safe to merge by itself
+    (an empty shell stayed empty). Two accounts that both hold records are left for an admin."""
+    from melorin.modules.identity import auto_link
+
+    async with session_factory()() as s:
+        settled = await auto_link.sweep(s)
+        if settled:
+            log.info("identity conflicts settled automatically=%s", settled)
+        return settled
+
+
 async def bank_sms_reconcile_job(ctx=None):
     """Safety net for card-to-card auto verification: pair open deposit SMS with receipts uploaded later or whose
     inline match failed. Idempotent; the wallet credit is protected by the ledger idempotency key."""

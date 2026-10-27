@@ -11,7 +11,7 @@
 | ORM tables | 59 |
 | API operations | 259 |
 | API paths | 226 |
-| Test files / test functions (static count) | 155 / 1345 |
+| Test files / test functions (static count) | 156 / 1363 |
 | Coverage | not measured here (CI writes `apps/api/coverage.xml`; run `pytest --cov=melorin --cov-report=xml`) |
 | Documents: repo root / `docs/` / `docs/history/` (tests only) | 3 / 31 / 4 |
 

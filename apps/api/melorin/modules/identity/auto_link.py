@@ -79,11 +79,7 @@ async def shell_blockers(session: AsyncSession, user: User) -> list[str]:
     if await session.scalar(select(1).select_from(Wallet).where(Wallet.user_id == user.id, Wallet.balance != 0).limit(1)):
         blockers.append("wallets.balance")
     if await session.scalar(
-        select(1)
-        .select_from(LedgerEntry)
-        .join(Wallet, Wallet.id == LedgerEntry.wallet_id)
-        .where(Wallet.user_id == user.id)
-        .limit(1)
+        select(1).select_from(LedgerEntry).join(Wallet, Wallet.id == LedgerEntry.wallet_id).where(Wallet.user_id == user.id).limit(1)
     ):
         blockers.append("ledger_entries")
     return blockers
@@ -151,6 +147,14 @@ async def try_auto_resolve(session: AsyncSession, review: IdentityLinkReview) ->
         return None
     a, b = await session.get(User, review.source_user_id), await session.get(User, other_id)
     if a is None or b is None:
+        return None
+    return await try_auto_merge(session, a, b, review=review)
+
+
+async def try_auto_merge(session: AsyncSession, a: User, b: User, *, review: IdentityLinkReview | None = None) -> Resolution | None:
+    """Merge two accounts that provably belong to the same person when the rule allows it. ``None`` = leave it to an admin.
+    The caller is responsible for the proof of ownership (e-mail code, Google token, bot link code) and for committing."""
+    if not enabled():
         return None
     res = resolve(await _account(session, a), await _account(session, b))
     if res.outcome is not Outcome.MERGE:

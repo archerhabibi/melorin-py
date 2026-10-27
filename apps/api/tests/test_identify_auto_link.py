@@ -85,7 +85,11 @@ async def test_google_conflict_is_settled_by_folding_the_shell_into_the_real_acc
         shell = await make_user(s)
         s.add(Identity(user_id=shell.id, provider="telegram", subject="42", verified_at=utcnow()))
         s.add(RefreshToken(user_id=shell.id, token_hash="h" * 64, family_id=uuid.uuid4(), expires_at=utcnow()))
-        s.add(TrustedDevice(user_id=shell.id, store_id=store.id, telegram_id=42, key_hash="k" * 64, last_seen_at=utcnow(), expires_at=utcnow()))
+        s.add(
+            TrustedDevice(
+                user_id=shell.id, store_id=store.id, telegram_id=42, key_hash="k" * 64, last_seen_at=utcnow(), expires_at=utcnow()
+            )
+        )
         s.add(StoreMembership(store_id=store.id, user_id=shell.id))
         await s.flush()
         review = await _review(s, shell, keeper)
@@ -160,3 +164,104 @@ async def test_sweep_settles_what_became_safe_and_reports_the_count():
         assert await auto_link.sweep(s) == 3
         assert await auto_link.open_count(s) == 0
         assert await auto_link.sweep(s) == 0
+
+
+# --- wired into the flows ----------------------------------------------------------------------------------------------
+async def _email_code(s, email, code="123456"):
+    from melorin.core.security import token_hash
+    from melorin.kernel.models.identity import VerificationCode
+    from datetime import timedelta
+
+    s.add(
+        VerificationCode(
+            purpose="email_login", target=email, code_hash=token_hash(email + code), expires_at=utcnow() + timedelta(minutes=5)
+        )
+    )
+    await s.flush()
+    return code
+
+
+async def test_attach_email_owned_by_an_empty_shell_moves_to_the_signed_in_account():
+    from melorin.modules.identity import service
+
+    async with open_session() as s:
+        me, ghost = await make_user(s), await make_user(s)
+        me.password_hash = "x"
+        s.add(Identity(user_id=ghost.id, provider="email", subject="a@example.com", verified_at=utcnow()))
+        await s.flush()
+        await service.attach_email(s, me, "a@example.com", await _email_code(s, "a@example.com"))
+        assert (await service.find_identity(s, "email", "a@example.com")).user_id == me.id
+        assert ghost.is_active is False and await auto_link.open_count(s) == 0
+
+
+async def test_attach_email_between_two_real_accounts_is_still_reported():
+    from melorin.core.errors import AppError
+    from melorin.modules.identity import service
+
+    async with open_session() as s:
+        me, other = await make_user(s), await make_user(s)
+        me.password_hash = other.password_hash = "x"
+        s.add(Identity(user_id=other.id, provider="email", subject="a@example.com", verified_at=utcnow()))
+        await s.flush()
+        with pytest.raises(AppError) as exc:
+            await service.attach_email(s, me, "a@example.com", await _email_code(s, "a@example.com"))
+        assert exc.value.code == "IDENTITY_LINK_REVIEW" and await auto_link.open_count(s) == 1
+
+
+async def test_attach_email_from_an_empty_shell_session_ends_that_session_and_keeps_the_real_account():
+    from melorin.core.errors import AppError
+    from melorin.modules.identity import service
+
+    async with open_session() as s:
+        shell, real = await make_user(s), await make_user(s)
+        real.password_hash = "x"
+        s.add(Identity(user_id=real.id, provider="email", subject="a@example.com", verified_at=utcnow()))
+        await s.flush()
+        with pytest.raises(AppError) as exc:
+            await service.attach_email(s, shell, "a@example.com", await _email_code(s, "a@example.com"))
+        assert exc.value.code == "IDENTITY_MERGED" and shell.is_active is False and real.is_active is True
+
+
+async def test_telegram_link_code_of_an_empty_shell_site_account_folds_into_the_telegram_account():
+    from melorin.modules.identity import service
+    from melorin.modules.identity.schemas import TelegramProfile
+
+    async with open_session() as s:
+        site, tg = await make_user(s), await make_user(s)
+        tg.password_hash = "x"
+        s.add(Identity(user_id=tg.id, provider="telegram", subject="77", verified_at=utcnow()))
+        await s.flush()
+        code = await service.create_link_code(s, site)
+        user = await service.link_telegram(s, code, TelegramProfile(telegram_id=77, first_name="T"))
+        assert user.id == tg.id and site.is_active is False
+
+
+async def test_telegram_link_between_two_real_accounts_is_refused():
+    from melorin.core.errors import AppError
+    from melorin.modules.identity import service
+    from melorin.modules.identity.schemas import TelegramProfile
+
+    async with open_session() as s:
+        site, tg = await make_user(s), await make_user(s)
+        site.password_hash = tg.password_hash = "x"
+        s.add(Identity(user_id=tg.id, provider="telegram", subject="77", verified_at=utcnow()))
+        await s.flush()
+        code = await service.create_link_code(s, site)
+        with pytest.raises(AppError) as exc:
+            await service.link_telegram(s, code, TelegramProfile(telegram_id=77, first_name="T"))
+        assert exc.value.code == "IDENTITY_IN_USE"
+
+
+async def test_worker_job_is_registered_and_delegates_to_the_sweep(monkeypatch):
+    from pathlib import Path
+
+    from melorin.worker import jobs
+
+    arq = (Path(jobs.__file__).parent / "arq_app.py").read_text()
+    assert "cron(identity_auto_link_job" in arq and "identity_auto_link_job," in arq
+
+    async def fake(_s, limit=200):
+        return 3
+
+    monkeypatch.setattr(auto_link, "sweep", fake)
+    assert await jobs.identity_auto_link_job() == 3

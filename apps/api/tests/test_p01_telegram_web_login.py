@@ -48,7 +48,7 @@ def prof(tid=111, **kw):
 async def world(tmp_path, monkeypatch):
     db.configure(f"sqlite+aiosqlite:///{tmp_path}/tgweb.db")
     async with db.engine().begin() as conn:
-        await conn.run_sync(lambda c: db.Base.metadata.create_all(c, tables=TABLES))
+        await conn.run_sync(lambda c: db.Base.metadata.create_all(c))
     monkeypatch.setattr(ratelimit, "get_redis", lambda: None)  # deterministic in-process limiter
     ratelimit._mem.clear()
     async with db.session_factory()() as s:

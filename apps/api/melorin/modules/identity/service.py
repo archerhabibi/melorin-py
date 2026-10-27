@@ -23,6 +23,7 @@ from melorin.core.security import (
     token_hash,
 )
 from melorin.kernel.models.identity import Identity, IdentityLinkReview, RefreshToken, TermsAcceptance, User, VerificationCode
+from melorin.modules.identity import auto_link
 from melorin.modules.identity.lookup import find_identity
 from melorin.modules.identity.schemas import TelegramProfile, TokenPair
 
@@ -202,19 +203,26 @@ async def attach_email(session: AsyncSession, user: User, email: str, code: str)
     await consume_code(session, "email_login", email, code)  # proves ownership
     ident = await find_identity(session, "email", email)
     if ident and ident.user_id != user.id:
-        # Verified match, but two non-identical users already exist. Never merge automatically.
-        session.add(
-            IdentityLinkReview(
-                email=email,
-                source_user_id=user.id,
-                candidate_user_ids=[str(ident.user_id)],
-                provider="email",
-                reason="verified_email_matches_other_user",
-            )
+        # Verified match on another account. Settled by itself when one of the two is an empty shell (docs/21);
+        # two accounts that both hold records are never merged automatically: queued for an admin.
+        review = IdentityLinkReview(
+            email=email,
+            source_user_id=user.id,
+            candidate_user_ids=[str(ident.user_id)],
+            provider="email",
+            reason="verified_email_matches_other_user",
         )
+        session.add(review)
         audit.security_event(session, "identity_link_conflict", user.id, {"email": email, "candidate_user_id": str(ident.user_id)})
-        await session.commit()
-        raise AppError("IDENTITY_LINK_REVIEW", "این ایمیل به حساب دیگری متصل است و برای بررسی دستی گزارش شد.", 409)
+        await session.flush()
+        res = await auto_link.try_auto_resolve(session, review)
+        if res is None:
+            await session.commit()
+            raise AppError("IDENTITY_LINK_REVIEW", "این ایمیل به حساب دیگری متصل است و برای بررسی دستی گزارش شد.", 409)
+        if res.keeper != str(user.id):  # the signed-in account was the empty shell: its session ended with the merge
+            await session.commit()
+            raise AppError("IDENTITY_MERGED", "حساب‌ها به‌طور خودکار یکی شدند؛ دوباره وارد شوید.", 409)
+        ident = await find_identity(session, "email", email)  # now owned by this user
     if not ident:
         session.add(Identity(user_id=user.id, provider="email", subject=email, verified_at=utcnow()))
     if not user.email:
@@ -319,9 +327,19 @@ async def link_telegram(session: AsyncSession, code: str, p: TelegramProfile) ->
     user = await session.get(User, vc.user_id)
     ident = await find_identity(session, "telegram", str(p.telegram_id))
     if ident and ident.user_id != user.id:
-        audit.security_event(session, "link_conflict", user.id, {"telegram_id": p.telegram_id})
-        await session.commit()
-        raise AppError("IDENTITY_IN_USE", "این حساب Telegram به کاربر دیگری متصل است. برای ادغام با پشتیبانی تماس بگیرید.", 409)
+        # The link code (signed-in website user) and the bot (Telegram's own identity) prove both sides: fold an empty shell.
+        other = await session.get(User, ident.user_id)
+        res = await auto_link.try_auto_merge(session, user, other) if other is not None else None
+        if res is not None and res.keeper == str(user.id):
+            ident = await find_identity(session, "telegram", str(p.telegram_id))
+        elif res is not None:  # the link-code account was the shell: the Telegram account keeps living
+            vc.used_at = utcnow()
+            await session.commit()
+            return other
+        else:
+            audit.security_event(session, "link_conflict", user.id, {"telegram_id": p.telegram_id})
+            await session.commit()
+            raise AppError("IDENTITY_IN_USE", "این حساب Telegram به کاربر دیگری متصل است. برای ادغام با پشتیبانی تماس بگیرید.", 409)
     if not ident:
         session.add(
             Identity(user_id=user.id, provider="telegram", subject=str(p.telegram_id), verified_at=utcnow(), data={"username": p.username})
