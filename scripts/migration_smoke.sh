@@ -27,11 +27,18 @@ async def main():
             "where table_name = 'commissions' and column_name = 'referred_user_id'"
         ))).scalars().all()
         assert columns == ["referred_user_id"], columns
-        constraints = (await conn.execute(text(
-            "select constraint_name from information_schema.table_constraints "
-            "where table_name = 'commissions' and constraint_name = 'uq_commissions_referred_user_id_kind'"
+        # 0037: only the sign-up reward is unique per (store, referred customer); the purchase commission is paid on every order.
+        indexes = (await conn.execute(text(
+            "select indexname from pg_indexes "
+            "where tablename = 'commissions' and indexname = 'uq_commissions_store_referred_signup_reward'"
         ))).scalars().all()
-        assert constraints == ["uq_commissions_referred_user_id_kind"], constraints
+        assert indexes == ["uq_commissions_store_referred_signup_reward"], indexes
+        stale = (await conn.execute(text(
+            "select constraint_name from information_schema.table_constraints "
+            "where table_name = 'commissions' and constraint_name in "
+            "('uq_commissions_referred_user_id_kind', 'uq_commissions_store_id_referred_user_id_kind')"
+        ))).scalars().all()
+        assert stale == [], stale
         stores = (await conn.execute(text("select count(*) from store_products"))).scalar_one()
         groups = (await conn.execute(text("select count(*) from bundles"))).scalar_one()
         assert groups >= 0
