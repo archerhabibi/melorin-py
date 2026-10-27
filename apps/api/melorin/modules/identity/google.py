@@ -4,6 +4,7 @@ Split out of ``identity/service.py`` in Phase 3.11 (behaviour unchanged). Tests 
 """
 
 import hmac
+import uuid
 import logging
 import re
 import time
@@ -17,6 +18,7 @@ from melorin.core import audit, integrations
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError
 from melorin.kernel.models.identity import Identity, IdentityLinkReview, User
+from melorin.modules.identity import auto_link
 from melorin.modules.identity.lookup import email_taken as _email_taken
 from melorin.modules.identity.lookup import find_identity
 
@@ -117,18 +119,23 @@ async def link_google(session: AsyncSession, user: User, id_token: str, nonce: s
     if ident and ident.user_id == user.id:
         return
     if ident:
-        session.add(
-            IdentityLinkReview(
-                email=email or "",
-                source_user_id=user.id,
-                candidate_user_ids=[str(ident.user_id)],
-                provider="google",
-                reason="google_account_belongs_to_other_user",
-            )
+        review = IdentityLinkReview(
+            email=email or "",
+            source_user_id=user.id,
+            candidate_user_ids=[str(ident.user_id)],
+            provider="google",
+            reason="google_account_belongs_to_other_user",
         )
+        session.add(review)
         audit.security_event(session, "identity_link_conflict", user.id, {"provider": "google", "candidate_user_id": str(ident.user_id)})
+        await session.flush()
+        res = await auto_link.try_auto_resolve(session, review)  # empty shell on either side: settled by itself (docs/21)
         await session.commit()
-        raise AppError("IDENTITY_LINK_REVIEW", "این حساب Google به حساب دیگری متصل است و برای بررسی دستی گزارش شد.", 409)
+        if res is None:
+            raise AppError("IDENTITY_LINK_REVIEW", "این حساب Google به حساب دیگری متصل است و برای بررسی دستی گزارش شد.", 409)
+        if res.keeper != str(user.id):  # the signed-in account was the empty shell: its session ended with the merge
+            raise AppError("IDENTITY_MERGED", "حساب‌ها به‌طور خودکار یکی شدند؛ دوباره وارد شوید.", 409)
+        return
     email_verified = bool(email) and str(g.get("email_verified")).lower() == "true"
     session.add(
         Identity(
@@ -168,7 +175,7 @@ async def login_with_google(session: AsyncSession, id_token: str, nonce: str | N
             created = True
             session.add(user)
             await session.flush()
-            session.add(
+            session.add(  # several candidates: ambiguous by definition, always an admin decision
                 IdentityLinkReview(
                     email=email,
                     source_user_id=user.id,
@@ -187,16 +194,20 @@ async def login_with_google(session: AsyncSession, id_token: str, nonce: str | N
             created = True
             session.add(user)
             await session.flush()
-            session.add(
-                IdentityLinkReview(
-                    email=email,
-                    source_user_id=user.id,
-                    candidate_user_ids=[str(owner_id)],
-                    provider="google",
-                    reason="email_field_conflict",
-                )
+            review = IdentityLinkReview(
+                email=email,
+                source_user_id=user.id,
+                candidate_user_ids=[str(owner_id)],
+                provider="google",
+                reason="email_field_conflict",
             )
+            session.add(review)
             audit.security_event(session, "identity_link_conflict", user.id, {"email": email, "candidate_user_id": str(owner_id)})
+            await session.flush()
+            res = await auto_link.try_auto_resolve(session, review)  # the verified Google e-mail proves ownership (docs/21)
+            if res is not None:
+                user = await session.get(User, uuid.UUID(res.keeper))
+                created = user is not None and user.id == review.source_user_id
     if user is None:
         user = User(display_name=g.get("name"), email=email if email_verified else None)
         created = True

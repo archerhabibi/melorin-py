@@ -358,6 +358,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/identity-auto-merges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Identity Auto Merges
+         * @description Accounts that were folded together automatically (newest first): who was kept, which empty shell was archived, which rule applied.
+         */
+        get: operations["identity_auto_merges_api_v1_admin_identity_auto_merges_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/identity-link-reviews": {
         parameters: {
             query?: never;
@@ -1657,6 +1677,80 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/trusted-devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Trusted Devices
+         * @description Trusted browsers. ``status`` = active | expired | revoked | all; ``q`` matches name, e-mail, label or Telegram id.
+         */
+        get: operations["trusted_devices_api_v1_admin_trusted_devices_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/trusted-devices/revoke-account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke Account Devices
+         * @description Revoke every live device of one account (optionally only in one store). The account's web sessions are untouched.
+         */
+        post: operations["revoke_account_devices_api_v1_admin_trusted_devices_revoke_account_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/trusted-devices/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Trusted Devices Summary */
+        get: operations["trusted_devices_summary_api_v1_admin_trusted_devices_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/trusted-devices/{device_id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revoke Trusted Device */
+        post: operations["revoke_trusted_device_api_v1_admin_trusted_devices__device_id__revoke_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/users": {
         parameters: {
             query?: never;
@@ -1963,6 +2057,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/telegram/web/bot/devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bot Devices
+         * @description Trusted browsers of the calling Telegram account in this store (the bot's /devices screen).
+         */
+        post: operations["bot_devices_api_v1_auth_telegram_web_bot_devices_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/telegram/web/bot/inspect": {
         parameters: {
             query?: never;
@@ -1974,6 +2088,46 @@ export interface paths {
         put?: never;
         /** Bot Inspect */
         post: operations["bot_inspect_api_v1_auth_telegram_web_bot_inspect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/telegram/web/bot/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bot Revoke
+         * @description "This was not me" / remove one device. A Telegram account can only ever revoke its own devices.
+         */
+        post: operations["bot_revoke_api_v1_auth_telegram_web_bot_revoke_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/telegram/web/devices/forget": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Forget Device
+         * @description The browser drops its own trust (sign-out on a shared computer). Holding the device key is the proof.
+         */
+        post: operations["forget_device_api_v1_auth_telegram_web_devices_forget_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2472,6 +2626,46 @@ export interface paths {
          *     both are validated, and the reseller store is created right away (the admin approval is the authorisation).
          */
         post: operations["submit_details_api_v1_reseller_applications__application_id__details_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reseller/applications/{application_id}/verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Verification Status
+         * @description What to publish to prove the domain, and where the automatic checks stand (no token, no secret in the answer).
+         */
+        get: operations["verification_status_api_v1_reseller_applications__application_id__verification_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reseller/applications/{application_id}/verify-now": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify Now
+         * @description The applicant just published the proof: check right away instead of waiting for the next scheduled round.
+         */
+        post: operations["verify_now_api_v1_reseller_applications__application_id__verify_now_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5556,6 +5750,16 @@ export interface components {
             /** Reason */
             reason?: string | null;
         };
+        /** RevokeIn */
+        RevokeIn: {
+            /** Store Id */
+            store_id?: string | null;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+        };
         /** ServerOut */
         ServerOut: {
             /**
@@ -5760,6 +5964,58 @@ export interface components {
              */
             result: "approved" | "denied" | "retry";
         };
+        /** TelegramWebDeviceOut */
+        TelegramWebDeviceOut: {
+            /**
+             * Expires In Seconds
+             * @default 0
+             */
+            expires_in_seconds: number;
+            /** Id */
+            id: string;
+            /** Label */
+            label?: string | null;
+            /** Last Ip */
+            last_ip?: string | null;
+            /**
+             * Last Seen Ago Seconds
+             * @default 0
+             */
+            last_seen_ago_seconds: number;
+            /**
+             * Uses
+             * @default 0
+             */
+            uses: number;
+        };
+        /** TelegramWebDevices */
+        TelegramWebDevices: {
+            /** First Name */
+            first_name?: string | null;
+            /** Language Code */
+            language_code?: string | null;
+            /** Last Name */
+            last_name?: string | null;
+            /**
+             * Store Id
+             * Format: uuid
+             */
+            store_id: string;
+            /** Telegram Id */
+            telegram_id: number;
+            /** Username */
+            username?: string | null;
+        };
+        /** TelegramWebDevicesOut */
+        TelegramWebDevicesOut: {
+            /** Devices */
+            devices: components["schemas"]["TelegramWebDeviceOut"][];
+        };
+        /** TelegramWebForget */
+        TelegramWebForget: {
+            /** Device Key */
+            device_key?: string | null;
+        };
         /** TelegramWebInspect */
         TelegramWebInspect: {
             /** First Name */
@@ -5784,6 +6040,13 @@ export interface components {
         TelegramWebInspectOut: {
             /** Age Seconds */
             age_seconds: number;
+            /**
+             * Auto Approved
+             * @default false
+             */
+            auto_approved: boolean;
+            /** Auto Reason */
+            auto_reason?: string | null;
             /** Choices */
             choices: string[];
             /** Device */
@@ -5809,14 +6072,50 @@ export interface components {
              * @default 0
              */
             expires_in: number;
+            /** Level */
+            level?: ("silent" | "auto" | "manual") | null;
+            /** Match Code */
+            match_code?: string | null;
             /** Reason */
             reason?: string | null;
             /** Status */
             status: string;
             tokens?: components["schemas"]["TokenPair"] | null;
         };
+        /** TelegramWebRevoke */
+        TelegramWebRevoke: {
+            /** Device Id */
+            device_id?: string | null;
+            /** First Name */
+            first_name?: string | null;
+            /** Language Code */
+            language_code?: string | null;
+            /** Last Name */
+            last_name?: string | null;
+            /**
+             * Store Id
+             * Format: uuid
+             */
+            store_id: string;
+            /** Telegram Id */
+            telegram_id: number;
+            /** Username */
+            username?: string | null;
+        };
+        /** TelegramWebRevokeOut */
+        TelegramWebRevokeOut: {
+            /** Revoked */
+            revoked: number;
+        };
         /** TelegramWebStart */
         TelegramWebStart: {
+            /** Device Key */
+            device_key?: string | null;
+            /**
+             * Remember
+             * @default true
+             */
+            remember: boolean;
             /** Store Id */
             store_id?: string | null;
         };
@@ -5828,6 +6127,12 @@ export interface components {
             deeplink: string;
             /** Expires In */
             expires_in: number;
+            /**
+             * Level
+             * @default manual
+             * @enum {string}
+             */
+            level: "silent" | "auto" | "manual";
             /** Match Code */
             match_code?: string | null;
             /** Poll Interval */
@@ -6922,6 +7227,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    identity_auto_merges_api_v1_admin_identity_auto_merges_get: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -9495,6 +9831,123 @@ export interface operations {
             };
         };
     };
+    trusted_devices_api_v1_admin_trusted_devices_get: {
+        parameters: {
+            query?: {
+                status?: string;
+                q?: string | null;
+                store_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_account_devices_api_v1_admin_trusted_devices_revoke_account_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevokeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    trusted_devices_summary_api_v1_admin_trusted_devices_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    revoke_trusted_device_api_v1_admin_trusted_devices__device_id__revoke_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                device_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     users_api_v1_admin_users_get: {
         parameters: {
             query?: never;
@@ -10011,6 +10464,41 @@ export interface operations {
             };
         };
     };
+    bot_devices_api_v1_auth_telegram_web_bot_devices_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-bot-secret"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TelegramWebDevices"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TelegramWebDevicesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     bot_inspect_api_v1_auth_telegram_web_bot_inspect_post: {
         parameters: {
             query?: never;
@@ -10033,6 +10521,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TelegramWebInspectOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bot_revoke_api_v1_auth_telegram_web_bot_revoke_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-bot-secret"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TelegramWebRevoke"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TelegramWebRevokeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    forget_device_api_v1_auth_telegram_web_devices_forget_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TelegramWebForget"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -10944,6 +11500,68 @@ export interface operations {
                 "application/json": components["schemas"]["ApplicationDetailsIn"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verification_status_api_v1_reseller_applications__application_id__verification_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_now_api_v1_reseller_applications__application_id__verify_now_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

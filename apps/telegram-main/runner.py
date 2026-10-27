@@ -69,6 +69,7 @@ class TelegramRunner(TransportMixin, IdentityMixin, PlansMixin, WalletMixin, Acc
             "/link": self.cmd_link,
             "/referral": self.cmd_referral,
             "/reseller": self.cmd_reseller,
+            "/devices": self.cmd_devices,
             "/cancel": self.cmd_cancel,
         }
         self.callbacks = {
@@ -104,6 +105,7 @@ class TelegramRunner(TransportMixin, IdentityMixin, PlansMixin, WalletMixin, Acc
             "rsc": self.cb_reseller_cancel,
             "wla": self.cb_web_login,
             "wld": self.cb_web_login_deny,
+            "wdr": self.cb_device_revoke,
         }
 
     # ---------- dispatch ----------
@@ -305,6 +307,7 @@ class TelegramRunner(TransportMixin, IdentityMixin, PlansMixin, WalletMixin, Acc
             "notifications": self.cmd_notifications,
             "test": self.cmd_test,
             "home": self.cmd_home,
+            "devices": self.cmd_devices,
         }.get(name)
         await (fn(ctx, "") if fn else self.cmd_help(ctx, ""))
 

@@ -111,3 +111,28 @@ class TelegramLoginSession(IdMixin, CreatedMixin, Base):
     expires_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), index=True)
     decided_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     consumed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    # Automatic verification (docs/21-Automatic-Identity-Verification.md)
+    device_key_hash: Mapped[str | None] = mapped_column(String(64), index=True)  # SHA-256 of the browser's device key
+    remember: Mapped[bool] = mapped_column(Boolean, default=True)  # visitor allows this browser to be trusted
+    auto_level: Mapped[str | None] = mapped_column(String(12))  # silent | auto | None (manual number match)
+
+
+class TrustedDevice(IdMixin, CreatedMixin, Base):
+    """A browser that already proved, through the Telegram bot, that it belongs to one Telegram account of one store.
+
+    The browser keeps a random *device key* (never sent anywhere except to this API); only its SHA-256 is stored here.
+    A trusted device is what lets the next login skip the manual number match (``auto``) or the bot altogether
+    (``silent``). Trust is per store, expires, and is revoked by the owner with one tap ("this was not me").
+    """
+
+    __tablename__ = "trusted_devices"
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"), index=True)
+    store_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("stores.id"), index=True)
+    telegram_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    key_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    label: Mapped[str | None] = mapped_column(String(120))
+    last_ip: Mapped[str | None] = mapped_column(String(64))
+    uses: Mapped[int] = mapped_column(Integer, default=1)
+    last_seen_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), index=True)
+    revoked_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))

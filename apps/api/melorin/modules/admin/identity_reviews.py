@@ -82,6 +82,8 @@ async def identity_link_reviews(_: AdminUser, session: Session, status: str = "o
                 "resolved_at": r.updated_at if r.status != "open" else None,
                 "resolved_by": r.resolved_by,
                 "resolution_note": r.resolution_note,
+                # settled by Core itself (docs/21): shown in the hub's «انجام‌شده خودکار» tab, not in the manual queue
+                "auto": (r.resolution_note or "").startswith("auto:"),
                 "source_user": _review_user_card(users.get(r.source_user_id), orders),
                 "candidates": [c for c in (_review_user_card(users.get(i), orders) for i in cand_ids) if c],
             }

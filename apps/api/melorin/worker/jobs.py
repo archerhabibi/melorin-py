@@ -203,6 +203,42 @@ async def telegram_login_gc_job(ctx=None):
         return removed
 
 
+async def identity_auto_link_job(ctx=None):
+    """Safety net for identity-link conflicts (docs/21): settle every open review that became safe to merge by itself
+    (an empty shell stayed empty). Two accounts that both hold records are left for an admin."""
+    from melorin.modules.identity import auto_link
+
+    async with session_factory()() as s:
+        settled = await auto_link.sweep(s)
+        if settled:
+            log.info("identity conflicts settled automatically=%s", settled)
+        return settled
+
+
+async def reseller_auto_verify_job(ctx=None):
+    """Reseller applications verify themselves (docs/21): re-check the bot and the domain proof of every pending
+    application whose retry is due. Back-off lives on the row, so a restart or a second worker never double-runs it."""
+    from melorin.modules.reseller import auto_verify
+
+    async with session_factory()() as s:
+        done = await auto_verify.sweep(s)
+        if done:
+            log.info("reseller applications auto-verified rounds=%s", done)
+        return done
+
+
+async def reseller_identity_recheck_job(ctx=None):
+    """Approved resellers keep proving who they are (docs/21): re-check domain proof and bot token of every store whose
+    check is due; repeated failure alerts admins (and suspends the store when RESELLER_RECHECK_SUSPEND is on)."""
+    from melorin.modules.reseller import recheck
+
+    async with session_factory()() as s:
+        done = await recheck.sweep(s)
+        if done:
+            log.info("reseller identities re-checked=%s", done)
+        return done
+
+
 async def bank_sms_reconcile_job(ctx=None):
     """Safety net for card-to-card auto verification: pair open deposit SMS with receipts uploaded later or whose
     inline match failed. Idempotent; the wallet credit is protected by the ledger idempotency key."""

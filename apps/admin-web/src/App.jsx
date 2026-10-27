@@ -95,7 +95,7 @@ const groups = [
     [
       ['تنظیمات', Settings, 'settings'],
       ['ممیزی', ScrollText, 'audit'],
-      ['بررسی هویت', Fingerprint, 'identity'],
+      ['هویت', Fingerprint, 'identity'],
     ],
   ],
 ];
