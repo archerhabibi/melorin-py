@@ -6,12 +6,12 @@
 
 | Measurement | Value |
 |---|---|
-| Alembic head | `0032_bank_sms_auto_verify` |
-| Migrations | 32 |
+| Alembic head | `0033_store_scoped_referral` |
+| Migrations | 33 |
 | ORM tables | 58 |
-| API operations | 256 |
-| API paths | 223 |
-| Test files / test functions (static count) | 154 / 1325 |
+| API operations | 261 |
+| API paths | 227 |
+| Test files / test functions (static count) | 157 / 1364 |
 | Coverage | not measured here (CI writes `apps/api/coverage.xml`; run `pytest --cov=melorin --cov-report=xml`) |
 | Documents: repo root / `docs/` / `docs/history/` (tests only) | 3 / 30 / 4 |
 

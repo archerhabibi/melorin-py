@@ -259,13 +259,18 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | POST | `/api/v1/stores/{store_id}/payments/{payment_id}/receipt` | Upload Receipt |
 | POST | `/api/v1/stores/{store_id}/wallet/topups` | Topup |
 
-### `referrals` (3)
+### `referrals` (8)
 
 | Method | Path | Operation |
 |---|---|---|
 | GET | `/api/v1/admin/referral-rules` | List Rules |
 | PUT | `/api/v1/admin/referral-rules` | Upsert Rule |
+| GET | `/api/v1/admin/stores/{store_id}/referrals/summary` | Admin Summary |
 | GET | `/api/v1/me/referrals` | My Referrals |
+| GET | `/api/v1/stores/{store_id}/referral` | Store Referral |
+| GET | `/api/v1/stores/{store_id}/referral-rules` | Owner List Rules |
+| PUT | `/api/v1/stores/{store_id}/referral-rules` | Owner Upsert Rule |
+| GET | `/api/v1/stores/{store_id}/referrals/summary` | Owner Summary |
 
 ### `reports` (2)
 
