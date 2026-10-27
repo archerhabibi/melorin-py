@@ -295,6 +295,7 @@ async def create_coupon(body: CouponIn, ctx: OwnerCtx, session: Session):
         cdom.validate_definition(rule, creator_store_id=str(ctx.store.id))
     except cdom.CouponError as e:
         raise AppError(e.code, e.message, 400) from e
+    await service.check_coupon_products(session, ctx.store, body.product_ids)
     if await session.scalar(select(Coupon.id).where(Coupon.owner_key == str(ctx.store.id), Coupon.code == rule.code)):
         raise AppError("COUPON_EXISTS", "این کد تخفیف قبلاً ساخته شده است.", 409)
     c = Coupon(

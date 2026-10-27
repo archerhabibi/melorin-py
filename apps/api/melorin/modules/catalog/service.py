@@ -221,6 +221,28 @@ def product_snapshot(p: Product) -> dict:
     }
 
 
+async def check_coupon_products(session: AsyncSession, store: Store | None, product_ids) -> None:
+    """A coupon may name only products that exist and, for a reseller store, that the store really sells (enabled for it)."""
+    ids = {uuid.UUID(str(x)) for x in product_ids or []}
+    if not ids:
+        return
+    found = set((await session.scalars(select(Product.id).where(Product.id.in_(ids)))).all())
+    if found != ids:
+        raise AppError("COUPON_PRODUCT_NOT_FOUND", "محصول انتخاب‌شده وجود ندارد.", 400)
+    if store is not None and store.kind == "reseller":
+        offered = set(
+            (
+                await session.scalars(
+                    select(StoreProduct.product_id).where(
+                        StoreProduct.store_id == store.id, StoreProduct.product_id.in_(ids), StoreProduct.is_enabled.is_(True)
+                    )
+                )
+            ).all()
+        )
+        if offered != ids:
+            raise AppError("COUPON_PRODUCT_NOT_IN_STORE", "کد تخفیف فقط برای محصولاتی است که این فروشگاه می‌فروشد.", 400)
+
+
 def coupon_out(c: Coupon) -> dict:
     return {
         "id": c.id,

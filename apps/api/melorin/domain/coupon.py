@@ -102,6 +102,12 @@ _DEFINITION_RULES: tuple[_DefinitionRule, ...] = (
         "COUPON_SCOPE_FORBIDDEN",
         "دامنه مجاز کد تخفیف خالی است.",
     ),
+    (
+        # a fixed amount is a number of ONE currency; across several stores it must say which, or it would be applied as-is
+        lambda r, _c: r.scope == "domain" and r.fixed > 0 and not r.currency,
+        "COUPON_CURRENCY_REQUIRED",
+        "برای کد تخفیف دامنه‌ای با مبلغ ثابت، واحد پول باید مشخص شود.",
+    ),
 )
 
 
