@@ -20,13 +20,41 @@ money, keyboard, esc = _module.money, _module.keyboard, _module.esc
 log = logging.getLogger("melorin.telegram.reseller")
 
 OWNER_BUTTON = "🏪 مدیریت فروشگاه"
-OWNER_HELP = "\n\nبخش نماینده:\n/manage مدیریت فروشگاه\n/report گزارش فروش\n/customers مشتریان\n/payments پرداخت‌های در انتظار تأیید\n/prices قیمت فروش محصولات"
+OWNER_HELP = "\n\nبخش نماینده:\n/manage مدیریت فروشگاه\n/report گزارش فروش\n/customers مشتریان\n/payments پرداخت‌های در انتظار تأیید\n/prices قیمت فروش محصولات\n/myreferral برنامه‌ی رفرال و کمیسیون فروشگاه"
 CUSTOMER_COMMANDS = [(c, d) for c, d in _module.BOT_COMMANDS if c != "reseller"]
-OWNER_COMMANDS = [("manage", OWNER_BUTTON), ("report", "📊 گزارش فروش"), ("customers", "👥 مشتریان"), ("payments", "💳 پرداخت‌های در انتظار"), ("prices", "💲 قیمت فروش"), ("allaccounts", "🗂 اکانت‌های من و مشتریان")]
+OWNER_COMMANDS = [("manage", OWNER_BUTTON), ("report", "📊 گزارش فروش"), ("customers", "👥 مشتریان"), ("payments", "💳 پرداخت‌های در انتظار"), ("prices", "💲 قیمت فروش"), ("allaccounts", "🗂 اکانت‌های من و مشتریان"), ("myreferral", "🎁 رفرال و کمیسیون فروشگاه")]
 DEBT_LABEL = {"ok": "🟢 عادی", "near": "🟠 نزدیک به سقف بدهی", "reached": "🔴 به سقف بدهی رسیده"}
 OWNER_CACHE_SECONDS = 600
 STORE_CACHE_SECONDS = 60  # welcome / support texts edited by the admin or the owner apply within a minute, no restart
 TOKEN_RE = re.compile(r"bot\d{6,15}:[A-Za-z0-9_-]{20,}")
+
+
+def owner_referral_text(rules: list, summary: dict, currency: str | None) -> str:
+    """The owner's view of HIS store's referral programme, built only from Core (rules + summary of this store)."""
+    cur = currency or ""
+    def reward(r: dict) -> str:
+        v = r.get("value") or 0
+        if r.get("model") == "percent":
+            out = f"{v / 100:g}٪"
+            if r.get("max_amount"):
+                out += f" (حداکثر {money(r['max_amount'])} {cur})"
+            return out
+        return f"{money(v)} {cur}"
+    labels = {"signup_reward": "پاداش ثبت‌نام دوست", "commission": "کمیسیون هر خرید دوست"}
+    default = [r for r in rules if r.get("is_active") and not r.get("product_id")]
+    per_product = [r for r in rules if r.get("is_active") and r.get("product_id")]
+    lines = ["🎁 <b>برنامه‌ی رفرال فروشگاه شما</b>", "پاداش‌ها فقط برای مشتریان همین فروشگاه و از حساب هزینه‌ی همین فروشگاه پرداخت می‌شود.", ""]
+    shown = [f"• {labels.get(r.get('kind'), esc(str(r.get('kind'))))}: <b>{esc(reward(r))}</b>" for r in default if (r.get("value") or 0) > 0]
+    lines += shown or ["فعلاً طرح پیش‌فرضی فعال نیست (برنامه را از بخش رفرال سایت فروشگاه تنظیم کنید)."]
+    if per_product:
+        lines.append(f"طرح‌های اختصاصی محصول: <b>{len(per_product)}</b>")
+    lines += ["", f"دعوت‌شده‌ها: <b>{int(summary.get('invited') or 0)}</b> · معرف‌های فعال: <b>{int(summary.get('referrers') or 0)}</b>",
+              f"پرداخت‌شده تا امروز: <b>{esc(money(summary.get('paid_out') or 0))} {esc(cur)}</b>"]
+    if summary.get("reversed"):
+        lines.append(f"برگشت‌خورده: {esc(money(summary['reversed']))} {esc(cur)}")
+    if summary.get("outstanding_clawback"):
+        lines.append(f"بدهی استرداد از معرف‌ها: {esc(money(summary['outstanding_clawback']))} {esc(cur)}")
+    return "\n".join(lines)
 
 
 class RedactTokens(logging.Filter):
@@ -57,7 +85,7 @@ class ResellerTelegramRunner(_module.TelegramRunner):
         self.health, self.health_detail = "connecting", None  # what the supervisor reports to Core
         self._store_at = 0.0
         self._owners: dict[str, tuple[bool, float]] = {}
-        self.commands.update({"/manage": self.cmd_manage, "/report": self.cmd_report, "/customers": self.cmd_customers, "/payments": self.cmd_payments, "/prices": self.cmd_prices, "/allaccounts": self.cmd_owner_accounts})
+        self.commands.update({"/manage": self.cmd_manage, "/report": self.cmd_report, "/customers": self.cmd_customers, "/payments": self.cmd_payments, "/prices": self.cmd_prices, "/allaccounts": self.cmd_owner_accounts, "/myreferral": self.cmd_owner_referral})
         # the store owner's account inquiry (every account sold in THIS store); Core answers 403 for anyone else
         self.callbacks.update({"oacl": self.cb_owner_acc_list, "oacs": self.cb_owner_acc_search, "oacq": self.cb_owner_acc_clear,
                                "oaccount": self.cb_owner_account, "oqr": self.cb_owner_qr,
@@ -183,17 +211,27 @@ class ResellerTelegramRunner(_module.TelegramRunner):
         except _module.CoreError:
             pending = []
         pay_label = f"💳 پرداخت‌های در انتظار ({len(pending)})" if pending else "💳 پرداخت‌ها"
-        rows = [[("📊 گزارش فروش", "mg:report"), ("👥 مشتریان", "mg:customers")], [("🗂 اکانت‌های مشتریان", "mg:accounts")], [(pay_label, "mg:payments"), ("💲 قیمت فروش", "mg:prices")]]
+        rows = [[("📊 گزارش فروش", "mg:report"), ("👥 مشتریان", "mg:customers")], [("🗂 اکانت‌های مشتریان", "mg:accounts")], [(pay_label, "mg:payments"), ("💲 قیمت فروش", "mg:prices")], [("🎁 رفرال و کمیسیون", "mg:referral")]]
         site = await self.account_url(ctx)
         if site:
             rows.append([("🌐 ورود به فروشگاه در وب", site)])
         await self.screen(ctx, "\n".join(lines), rows)
 
     async def cb_manage(self, ctx, which):
-        fn = {"report": self.cmd_report, "customers": self.cmd_customers, "accounts": self.cmd_owner_accounts, "payments": self.cmd_payments, "prices": self.cmd_prices}.get(which)
+        fn = {"report": self.cmd_report, "customers": self.cmd_customers, "accounts": self.cmd_owner_accounts, "payments": self.cmd_payments, "prices": self.cmd_prices, "referral": self.cmd_owner_referral}.get(which)
         if fn is None:
             return await self.send(ctx.chat_id, "گزینه نامعتبر است.")
         await fn(ctx, "")
+
+    async def cmd_owner_referral(self, ctx, arg):
+        s = await self.store_info()
+        if not await self.is_owner(ctx):
+            return await self.send(ctx.chat_id, "این بخش فقط برای مالک فروشگاه است.")
+        rules = await self.api(ctx, "GET", f"/api/v1/stores/{s['id']}/referral-rules")
+        summary = await self.api(ctx, "GET", f"/api/v1/stores/{s['id']}/referrals/summary")
+        text = owner_referral_text(rules, summary, s.get("currency"))
+        site = await self.account_url(ctx)
+        await self.screen(ctx, text, [[("🌐 تنظیم طرح‌ها در وب", site)]] if site else None)
 
     async def cmd_report(self, ctx, arg):
         s = await self.store_info()

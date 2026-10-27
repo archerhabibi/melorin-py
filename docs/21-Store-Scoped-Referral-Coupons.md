@@ -40,9 +40,11 @@
 * **admin-web**: صفحه‌ی «برنامه‌های رفرال فروشگاه‌ها»؛ صفحه‌ی کوپن نام فروشگاه صاحب را نشان می‌دهد.
 * **ربات اصلی** (`/referral`): برنامه‌ی همین فروشگاه (مقدار پاداش ثبت‌نام و کمیسیون)، لینک ربات همین فروشگاه، تعداد دعوت‌ها و درآمد؛ همه از `/me/referrals`، بدون محاسبه در ربات.
 
+* **ربات نماینده (مالک)**: `/myreferral` یا «🎁 رفرال و کمیسیون» در `/manage` طرح‌های فعال، تعداد دعوت‌شده‌ها، پرداخت‌شده، برگشتی و بدهی استرداد **همین فروشگاه** را از `referral-rules` و `referrals/summary` نشان می‌دهد؛ ربات چیزی محاسبه نمی‌کند.
+
 ## تست‌ها
-`test_store_scoped_referral_program.py`، `test_store_scoped_coupons.py`، `test_coupon_patch_and_funding.py`، `test_coupon_definition_rules.py` (API)؛ `referral-coupons.test.jsx` و `store-referral-coupons.test.jsx` (وب)؛ `test_referral_screen.py` (ربات).
+`test_store_scoped_referral_program.py`، `test_store_scoped_coupons.py`، `test_coupon_patch_and_funding.py`، `test_coupon_definition_rules.py` (API)؛ `referral-coupons.test.jsx` و `store-referral-coupons.test.jsx` (وب)؛ `test_referral_screen.py` (ربات اصلی)، `telegram-reseller/tests/test_owner_referral_screen.py` (ربات نماینده).
 
 ## باقی‌مانده‌ی صادقانه
 * تست همروندی قفل‌ها فقط در مسیر PostgreSQL (`TEST_PG_URL`) معنا دارد؛ در SQLite قفل سطری بی‌اثر است.
-* ربات‌های نماینده (supervisor) هنوز صفحه‌ی رفرال مشتری ندارند؛ مشتریان آن فروشگاه از سایت یا ربات اصلیِ همان کانال استفاده می‌کنند.
+* ربات‌های نماینده از runner اصلی ارث می‌برند: `/referral` مشتری و ثبت `start=ref_…` در همان ربات کار می‌کند (فروشگاه از کانال می‌آید). ویرایش طرح‌ها از ربات نیست؛ فقط از سایت فروشگاه.
