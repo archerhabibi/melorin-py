@@ -2,8 +2,8 @@
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0033_store_scoped_referral"
-down_revision = "0032_bank_sms_auto_verify"
+revision = "0036_store_scoped_referral"
+down_revision = "0035_reseller_identity_lifecycle"
 branch_labels = None
 depends_on = None
 
