@@ -52,4 +52,6 @@
 ## ممیزی نهایی / Final audit
 * ممیزی انجام‌شده روی شاخه: `attach` (عضویت معرف در همان فروشگاه، بدون خودمعرفی/حلقه‌ی معکوس/ربایش مشتری قدیمی)، `on_order_completed`، clawback، `find_coupon` (فقط کوپن همان فروشگاه یا کوپن چندفروشگاهیِ تأییدشده‌ی ادمین)، مسیر ثبت سفارش و مصرف کوپن.
 * نتیجه: API ‏1711 تست، admin-web ‏164 تست، store-web ‏49 تست، ربات اصلی ‏17 و ربات نماینده ‏2 تست همگی سبز؛ تنها اصلاح لازم، قالب‌بندی migration `0036` برای دروازه‌ی `ruff format` بود.
+* ممیزی دوم (کد): دو خطای واقعی پیدا و با تست رفع شد. (۱) اگر اولین سفارشِ پاداش‌گرفته مسترد می‌شد، سفارش بعدی دوباره «پاداش ثبت‌نام» حساب می‌شد و به کلید یکتای `(store_id, referred_user_id, kind)` می‌خورد؛ اکنون وقتی پاداش ثبت‌نام قبلاً در همان فروشگاه داده شده، سفارش‌های بعدی کمیسیون عادی می‌گیرند. (۲) `attach` در رقابت هم‌زمان دو ثبت‌نام خطای ۵۰۰ می‌داد؛ اکنون با savepoint، اولین رابطه برنده است و دومی بی‌صدا نادیده گرفته می‌شود.
+* Second audit (EN): fixed a refunded-first-order crash (a second signup reward hit the per-store unique key) and a race in `attach` (now savepoint-guarded, first touch wins).
 * Audit result (EN): referral rewards, commissions and discount codes are enforced per store in Core only; a code, reward or commission never crosses stores, except admin-approved multi-store (domain) coupons, which the platform funds.
