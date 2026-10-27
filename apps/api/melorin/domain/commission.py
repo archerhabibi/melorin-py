@@ -37,6 +37,7 @@ def amount_for(plan: Plan | None, net_paid: int) -> int:
         amt = net_paid * plan.value // 10_000
     else:
         return 0
+    amt = min(amt, net_paid)  # a reward is never larger than what the customer actually paid for the order
     if plan.max_amount is not None:
         amt = min(amt, plan.max_amount)
     return max(0, amt)
