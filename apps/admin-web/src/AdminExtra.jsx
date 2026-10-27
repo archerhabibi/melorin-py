@@ -18,6 +18,7 @@ const GoogleLoginSettings = lazy(() => import('./GoogleLoginSettings.jsx'));
 const ReceiptOcrSettings = lazy(() => import('./ReceiptOcrSettings.jsx'));
 const TelegramLoginSettings = lazy(() => import('./TelegramLoginSettings.jsx'));
 const IdentityReviewsView = lazy(() => import('./IdentityReviewsView.jsx'));
+const IdentityAutoView = lazy(() => import('./IdentityAutoView.jsx'));
 const OrdersView = lazy(() => import('./OrdersView.jsx'));
 const VpnAccountsView = lazy(() => import('./VpnAccountsView.jsx'));
 const UsersView = lazy(() => import('./UsersView.jsx'));
@@ -678,4 +679,5 @@ export const extraRoutes = {
   تنظیمات: Settings,
   ممیزی: AuditView,
   'بررسی هویت': IdentityReviewsView,
+  'هویت خودکار': IdentityAutoView,
 };

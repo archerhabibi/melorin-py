@@ -35,7 +35,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 
 <!-- BEGIN GENERATED ROUTES (scripts/gen_docs.py) -->
 
-### `admin` (92)
+### `admin` (97)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -67,6 +67,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/api/v1/admin/feature-flags` | List Flags |
 | PUT | `/api/v1/admin/feature-flags/{key}` | Update Flag |
 | GET | `/api/v1/admin/health` | Health |
+| GET | `/api/v1/admin/identity-auto-merges` | Identity Auto Merges |
 | GET | `/api/v1/admin/identity-link-reviews` | Identity Link Reviews |
 | POST | `/api/v1/admin/identity-link-reviews/{review_id}/dismiss` | Dismiss Identity Review |
 | POST | `/api/v1/admin/identity-link-reviews/{review_id}/reopen` | Reopen Identity Review |
@@ -129,6 +130,10 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | POST | `/api/v1/admin/tickets/{ticket_id}/messages` | Ticket Reply |
 | PATCH | `/api/v1/admin/tickets/{ticket_id}/messages/{message_id}` | Ticket Edit Message |
 | GET | `/api/v1/admin/tickets/{ticket_id}/messages/{message_id}/attachment` | Ticket Message Attachment |
+| GET | `/api/v1/admin/trusted-devices` | Trusted Devices |
+| POST | `/api/v1/admin/trusted-devices/revoke-account` | Revoke Account Devices |
+| GET | `/api/v1/admin/trusted-devices/summary` | Trusted Devices Summary |
+| POST | `/api/v1/admin/trusted-devices/{device_id}/revoke` | Revoke Trusted Device |
 | GET | `/api/v1/admin/users` | Users |
 | GET | `/api/v1/admin/vpn-accounts` | Vpn Accounts |
 

@@ -9,9 +9,9 @@
 | Alembic head | `0034_reseller_auto_verify` |
 | Migrations | 34 |
 | ORM tables | 59 |
-| API operations | 261 |
-| API paths | 228 |
-| Test files / test functions (static count) | 157 / 1377 |
+| API operations | 266 |
+| API paths | 233 |
+| Test files / test functions (static count) | 158 / 1385 |
 | Coverage | not measured here (CI writes `apps/api/coverage.xml`; run `pytest --cov=melorin --cov-report=xml`) |
 | Documents: repo root / `docs/` / `docs/history/` (tests only) | 3 / 31 / 4 |
 

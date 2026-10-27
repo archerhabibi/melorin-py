@@ -1116,3 +1116,10 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 - **Action:** `modules/reseller/auto_verify.py` + worker job `reseller_auto_verify_job` (every 2 min, back-off on the row): bot re-checked until Telegram answers; domain control proven by DNS TXT (`_melorin-verify.<domain>`, via DoH) or `/.well-known/melorin-verify.txt` (SSRF-guarded, no redirects); code = HMAC(application id + domain). New endpoints `GET /reseller/applications/{id}/verification` and `POST .../verify-now`; admin list shows `domain_verified` / `auto_verified` / `verify_error`; admins are notified once when everything is proven. Settings `RESELLER_AUTO_VERIFY`, `RESELLER_REQUIRE_DOMAIN_PROOF` (default off), `RESELLER_VERIFY_WINDOW_DAYS`. Migration 0034.
 - **After:** 18 new tests; full API suite 1636 passed / 7 skipped; docs/21, API.md, STATUS.md and the OpenAPI snapshot regenerated. DNS-over-HTTPS and the HTTP proof were tested with mock transports only, NOT against a live domain.
 - **Ref:** branch identify
+
+### 2026-10-27 - Claude (with owner) - identify: admin page «هویت خودکار»
+- **Before:** trusted devices and automatic account merges were visible only in the security log and the audit log; an admin could not see which browsers were trusted nor revoke one.
+- **Problem:** no overview of what automatic verification is doing, and no admin-side way to cut trust (e.g. for a stolen laptop reported through support).
+- **Action:** `modules/admin/identity_auto.py` (list/search trusted devices, summary, revoke one device, revoke all devices of an account, list automatic merges; device keys never returned; revokes audited) and the panel screen `IdentityAutoView.jsx` under «سیستم» with two tabs, counters and confirmation before revoking. docs/21, API.md, STATUS.md, OpenAPI snapshot and generated client types refreshed.
+- **After:** 10 new API tests + 4 new panel tests; full API suite 1646 passed / 7 skipped, panel 156 passed, `vite build` and api-client typecheck pass. Not looked at in a real browser with live data.
+- **Ref:** branch identify

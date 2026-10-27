@@ -4260,6 +4260,32 @@
         "title": "ReviewPayment",
         "type": "object"
       },
+      "RevokeIn": {
+        "properties": {
+          "store_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Store Id"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id"
+        ],
+        "title": "RevokeIn",
+        "type": "object"
+      },
       "ServerOut": {
         "properties": {
           "active_accounts": {
@@ -7487,6 +7513,53 @@
           }
         ],
         "summary": "Health",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/identity-auto-merges": {
+      "get": {
+        "description": "Accounts that were folded together automatically (newest first): who was kept, which empty shell was archived, which rule applied.",
+        "operationId": "identity_auto_merges_api_v1_admin_identity_auto_merges_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 90,
+              "title": "Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Identity Auto Merges",
         "tags": [
           "admin"
         ]
@@ -11625,6 +11698,201 @@
           }
         ],
         "summary": "Ticket Message Attachment",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/trusted-devices": {
+      "get": {
+        "description": "Trusted browsers. ``status`` = active | expired | revoked | all; ``q`` matches name, e-mail, label or Telegram id.",
+        "operationId": "trusted_devices_api_v1_admin_trusted_devices_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "active",
+              "title": "Status",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "store_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Store Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Trusted Devices",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/trusted-devices/revoke-account": {
+      "post": {
+        "description": "Revoke every live device of one account (optionally only in one store). The account's web sessions are untouched.",
+        "operationId": "revoke_account_devices_api_v1_admin_trusted_devices_revoke_account_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevokeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Revoke Account Devices",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/trusted-devices/summary": {
+      "get": {
+        "operationId": "trusted_devices_summary_api_v1_admin_trusted_devices_summary_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Trusted Devices Summary",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/trusted-devices/{device_id}/revoke": {
+      "post": {
+        "operationId": "revoke_trusted_device_api_v1_admin_trusted_devices__device_id__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Device Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Revoke Trusted Device",
         "tags": [
           "admin"
         ]

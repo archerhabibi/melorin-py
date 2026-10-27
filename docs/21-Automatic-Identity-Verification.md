@@ -74,6 +74,21 @@ A reseller application brings two identifiers (store domain, Telegram bot). Both
 * Worker job `reseller_auto_verify_job` (every 2 minutes); migration `0034`.
 * Tests: `apps/api/tests/test_identify_reseller_auto_verify.py`.
 
+## Admin page «هویت خودکار»
+Panel → سیستم → «هویت خودکار» (`apps/admin-web/src/IdentityAutoView.jsx`), backed by `modules/admin/identity_auto.py`:
+
+* **Trusted devices** (`GET /admin/trusted-devices?status=active|expired|revoked|all&q=&store_id=`): owner, store, browser label,
+  Telegram id, last network, uses, last seen, expiry. Search by name, e-mail, label or Telegram id. The device key and its hash
+  are never returned.
+* **Revoke**: one device (`POST /admin/trusted-devices/{id}/revoke`) or every live device of one account
+  (`POST /admin/trusted-devices/revoke-account`). The next login from those browsers needs the manual number match again.
+  The account's web sessions are not touched (the owner's own "this was not me" in the bot also ends them). Both are audited
+  (`trusted_device.revoked_by_admin`, `trusted_device.account_revoked_by_admin`).
+* **Automatic merges** (`GET /admin/identity-auto-merges?days=`): read from `identity.auto_merged` audit events, with a card of the
+  kept account and of the archived empty shell, the rule and the providers moved.
+* **Summary** (`GET /admin/trusted-devices/summary`): live devices, accounts with devices, revoked devices, merges in 30 days.
+* Tests: `apps/api/tests/test_identify_admin_overview.py`, `apps/admin-web/tests/identity-auto.test.jsx`.
+
 ## Settings
 `TELEGRAM_WEB_LOGIN_TRUST_DAYS` (default 60, `0` turns automatic verification off) and `TELEGRAM_WEB_LOGIN_SILENT_DAYS`
 (default 14, `0` disables only the silent level).
