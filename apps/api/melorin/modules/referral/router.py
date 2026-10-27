@@ -86,7 +86,10 @@ async def my_referrals(auth: CurrentAuth, session: Session):
     user = auth.user
     rel_scope = [ReferralRelationship.referrer_user_id == user.id]
     com_scope = [Commission.referrer_user_id == user.id]
-    if not auth.claims.is_admin:
+    if auth.claims.store_id or not auth.claims.is_admin:
+        # A session bound to a store sees that store only - an admin flag does not widen it (a platform admin who opens a
+        # reseller's bot must not see every store's invites and mixed-currency commissions). Only a store-less admin hub
+        # session keeps the unscoped view of the user's own standing.
         rel_scope.append(ReferralRelationship.store_id == auth.claims.store_id)
         com_scope.append(Commission.store_id == auth.claims.store_id)
     relationship = await session.scalar(select(ReferralRelationship).where(*rel_scope))

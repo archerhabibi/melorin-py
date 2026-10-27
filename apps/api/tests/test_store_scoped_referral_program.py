@@ -7,6 +7,7 @@ expense account and its own wallets. Nothing a customer does in one store change
 from __future__ import annotations
 
 import datetime as dt
+from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import func, select
@@ -425,6 +426,52 @@ async def test_customer_sees_the_programme_links_and_standing_of_the_store_he_is
         other = await referral_router.store_referral(await deps.resolve_store_context(s, store_b.id, referrer), s)
         assert other["invited"] == 1 and other["earned"] == 0 and other["links"] == {"web": None, "telegram": None}
         assert other["program"]["enabled"] is False
+
+
+# ------------------------------------------------------------------ /me/referrals: what the bots show, strictly the session's store
+def _session_of(user, store, *, admin=False):
+    """The slice of ``AuthSession`` the handler reads: who, and which store (and role) the token is bound to."""
+    return SimpleNamespace(user=user, claims=SimpleNamespace(is_admin=admin, store_id=store.id))
+
+
+async def _two_store_standing(s):
+    """The referrer invited a friend in BOTH reseller stores and earned a different reward in each."""
+    main, store_a, store_b, referrer, friend, product = await _world(s)
+    store_a.domain, store_a.bot_username, store_a.currency = "shop-a.example.com", "shop_a_bot", "IRT"
+    store_b.domain, store_b.bot_username, store_b.currency = "shop-b.example.com", "shop_b_bot", "USDT"
+    await _rule(s, store_a, "signup_reward", "fixed", 300)
+    await _rule(s, store_b, "signup_reward", "fixed", 7)
+    for st in (store_a, store_b):
+        await referral.attach(s, st.id, friend, referrer)
+    await s.commit()
+    for st in (store_a, store_b):
+        o = await _complete(s, friend, st, product)
+        await referral.on_order_completed(s, o.id)
+        await s.commit()
+    return store_a, store_b, referrer
+
+
+async def test_the_bots_referral_view_is_the_programme_link_and_earnings_of_the_session_store_only():
+    async with open_session() as s:
+        store_a, store_b, referrer = await _two_store_standing(s)
+        a = await referral_router.my_referrals(_session_of(referrer, store_a), s)
+        assert a["referred_count"] == 1 and a["links"]["telegram"] == f"https://t.me/shop_a_bot?start=ref_{referrer.referral_code}"
+        assert {c["store_id"] for c in a["commissions"]} == {store_a.id} and [c["amount"] for c in a["commissions"]] == [300]
+        assert a["program"]["enabled"] and a["program"]["signup_reward"]["value"] == 300
+        b = await referral_router.my_referrals(_session_of(referrer, store_b), s)
+        assert b["links"]["telegram"] == f"https://t.me/shop_b_bot?start=ref_{referrer.referral_code}"
+        assert {c["store_id"] for c in b["commissions"]} == {store_b.id} and [c["amount"] for c in b["commissions"]] == [7]
+        assert b["program"]["signup_reward"]["value"] == 7
+
+
+async def test_an_admin_flagged_session_bound_to_a_store_still_sees_only_that_store():
+    """A platform admin who opens a reseller's bot must not get every store's invites and commissions mixed into its screen."""
+    async with open_session() as s:
+        store_a, store_b, referrer = await _two_store_standing(s)
+        out = await referral_router.my_referrals(_session_of(referrer, store_a, admin=True), s)
+        assert out["referred_count"] == 1
+        assert {c["store_id"] for c in out["commissions"]} == {store_a.id}
+        assert {c["currency"] for c in out["commissions"]} == {"IRT"}
 
 
 # ------------------------------------------------------------------ HTTP: a reseller manages only his own store's programme
