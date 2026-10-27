@@ -4,6 +4,7 @@ import logging
 
 from tgmain.ui import (
     esc,
+    referral_text,
 )
 from tgmain.errors import CoreError
 from tgmain.client import Ctx
@@ -30,12 +31,17 @@ class IdentityMixin:
         """Core builds the one-time sign-in URL of THIS store's website (reseller domain or main store URL)."""
         store = await self.store_info()
         try:
-            out = await self.api(ctx, "POST", "/api/v1/me/web-handoff", json={"store_id": store["id"]})
+            out = await self.api(
+                ctx, "POST", "/api/v1/me/web-handoff", json={"store_id": store["id"]}
+            )
         except CoreError:
             return None
         url = str(out.get("url") or "")
         host = url.split("/")[2] if url.count("/") >= 2 else ""
-        if not url.startswith(("https://", "http://")) or host.split(":")[0] in ("localhost", "127.0.0.1"):
+        if not url.startswith(("https://", "http://")) or host.split(":")[0] in (
+            "localhost",
+            "127.0.0.1",
+        ):
             return None  # Telegram rejects such URL buttons; fall back to the in-bot summary only
         return url
 
@@ -57,7 +63,10 @@ class IdentityMixin:
     async def cmd_link(self, ctx, arg):
         code = arg.strip()
         if not code:
-            return await self.send(ctx.chat_id, "کد اتصال را از بخش «پروفایل» وبسایت بگیرید و به‌صورت /link کد بفرستید.")
+            return await self.send(
+                ctx.chat_id,
+                "کد اتصال را از بخش «پروفایل» وبسایت بگیرید و به‌صورت /link کد بفرستید.",
+            )
         r = await self.client.post(
             f"{self.core}/api/v1/auth/telegram/link",
             headers={"X-Bot-Secret": self.secret, "Accept": "application/json"},
@@ -72,7 +81,12 @@ class IdentityMixin:
         )  # Core binds the session to THIS bot's store
         if r.status_code >= 500:
             r.raise_for_status()
-        await self.send(ctx.chat_id, "حساب تلگرام به حساب وب شما متصل شد ✅" if r.status_code < 400 else f"⚠️ {self._err(r)}")
+        await self.send(
+            ctx.chat_id,
+            "حساب تلگرام به حساب وب شما متصل شد ✅"
+            if r.status_code < 400
+            else f"⚠️ {self._err(r)}",
+        )
 
     # ----- website login approved here (Core: /api/v1/auth/telegram/web/bot/*) -----
     async def _web_login_call(self, action: str, body: dict) -> tuple[int, dict]:
@@ -105,7 +119,14 @@ class IdentityMixin:
         return f"{n} ثانیه پیش" if n < 60 else f"{n // 60} دقیقه پیش"
 
     def _web_login_view(
-        self, sid: str, choices: list, number_match: bool, *, info: dict | None = None, note: str = "", store_name: str | None = None
+        self,
+        sid: str,
+        choices: list,
+        number_match: bool,
+        *,
+        info: dict | None = None,
+        note: str = "",
+        store_name: str | None = None,
     ) -> tuple[str, list]:
         """Identity-confirmation card: who asks (device / IP / age), how long it stays valid, what to do, and an
         always-visible «not me» exit. Callback data is unchanged (wla:<sid>:<choice>, wld:<sid>)."""
@@ -133,7 +154,9 @@ class IdentityMixin:
             ]
             rows = [[(str(c), f"wla:{sid}:{c}") for c in choices]]
         else:
-            lines += ["اگر همین الان خودتان در وب‌سایت «ورود با تلگرام» را زده‌اید، تأیید کنید:"]
+            lines += [
+                "اگر همین الان خودتان در وب‌سایت «ورود با تلگرام» را زده‌اید، تأیید کنید:"
+            ]
             rows = [[("✅ بله، خودم هستم", f"wla:{sid}:ok")]]
         lines += [
             "",
@@ -149,11 +172,22 @@ class IdentityMixin:
 
     async def cmd_web_login(self, ctx, sid):
         store = await self.store_info()
-        status, d = await self._web_login_call("inspect", {**self._profile(ctx), "session_id": sid.strip()[:32], "store_id": store["id"]})
+        status, d = await self._web_login_call(
+            "inspect",
+            {
+                **self._profile(ctx),
+                "session_id": sid.strip()[:32],
+                "store_id": store["id"],
+            },
+        )
         if status >= 400:
             return await self.send(ctx.chat_id, f"⚠️ {self._err_of(d)}")
         text, rows = self._web_login_view(
-            sid.strip()[:32], d.get("choices") or [], bool(d.get("number_match")), info=d, store_name=store.get("name")
+            sid.strip()[:32],
+            d.get("choices") or [],
+            bool(d.get("number_match")),
+            info=d,
+            store_name=store.get("name"),
         )
         await self.screen(ctx, text, rows)
 
@@ -161,7 +195,14 @@ class IdentityMixin:
         sid, _, choice = rest.partition(":")
         store = await self.store_info()
         status, d = await self._web_login_call(
-            "decide", {**self._profile(ctx), "session_id": sid, "store_id": store["id"], "action": "approve", "choice": choice}
+            "decide",
+            {
+                **self._profile(ctx),
+                "session_id": sid,
+                "store_id": store["id"],
+                "action": "approve",
+                "choice": choice,
+            },
         )
         if status >= 400:
             return await self.screen(ctx, f"⚠️ {esc(self._err_of(d))}")
@@ -175,14 +216,31 @@ class IdentityMixin:
             )
         if result == "retry":
             note = f"❌ عدد انتخاب‌شده درست نبود. <b>{int(d.get('remaining') or 0)}</b> فرصت دیگر دارید."
-            text, rows = self._web_login_view(sid, d.get("choices") or [], True, note=note, store_name=store.get("name"))
+            text, rows = self._web_login_view(
+                sid,
+                d.get("choices") or [],
+                True,
+                note=note,
+                store_name=store.get("name"),
+            )
             return await self.screen(ctx, text, rows)
-        await self.screen(ctx, self.WEB_LOGIN_DENIED.get(d.get("reason") or "", "⛔ این درخواست ورود بسته شد."))
+        await self.screen(
+            ctx,
+            self.WEB_LOGIN_DENIED.get(
+                d.get("reason") or "", "⛔ این درخواست ورود بسته شد."
+            ),
+        )
 
     async def cb_web_login_deny(self, ctx, sid):
         store = await self.store_info()
         status, d = await self._web_login_call(
-            "decide", {**self._profile(ctx), "session_id": sid, "store_id": store["id"], "action": "deny"}
+            "decide",
+            {
+                **self._profile(ctx),
+                "session_id": sid,
+                "store_id": store["id"],
+                "action": "deny",
+            },
         )
         if status >= 400:
             return await self.screen(ctx, f"⚠️ {esc(self._err_of(d))}")
@@ -198,10 +256,6 @@ class IdentityMixin:
         data = await self.api(ctx, "GET", "/api/v1/me/referrals")
         bot = await self.tg("getMe", {})
         username = bot.get("username", "MelorinBot")
-        count = data.get("referred_count", data.get("count", data.get("total", 0)))
         code = data.get("referral_code") or ctx.user["id"]
-        await self.send(
-            ctx.chat_id,
-            f"🎁 <b>دعوت از دوستان</b>\n\nلینک اختصاصی شما:\nhttps://t.me/{esc(username)}?start=ref_{esc(code)}\n\nتعداد زیرمجموعه‌ها: <b>{count}</b>",
-            html=True,
-        )
+        text = referral_text(data, f"https://t.me/{username}?start=ref_{code}")
+        await self.send(ctx.chat_id, text, html=True)

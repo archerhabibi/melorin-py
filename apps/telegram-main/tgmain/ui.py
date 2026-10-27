@@ -43,9 +43,19 @@ ADMIN_NOTICE = (
 )
 
 # Core error codes of the reseller details step that mean "send the domain again" / "send the token again".
-RESELLER_DOMAIN_ERRORS = {"INVALID_DOMAIN", "DOMAIN_RESERVED", "DOMAIN_TAKEN", "IDENTITY_TAKEN"}
+RESELLER_DOMAIN_ERRORS = {
+    "INVALID_DOMAIN",
+    "DOMAIN_RESERVED",
+    "DOMAIN_TAKEN",
+    "IDENTITY_TAKEN",
+}
 
-RESELLER_TOKEN_ERRORS = {"INVALID_BOT_TOKEN", "BOT_TOKEN_REJECTED", "BOT_TAKEN", "TELEGRAM_UNREACHABLE"}
+RESELLER_TOKEN_ERRORS = {
+    "INVALID_BOT_TOKEN",
+    "BOT_TOKEN_REJECTED",
+    "BOT_TAKEN",
+    "TELEGRAM_UNREACHABLE",
+}
 
 # The account button opens the user's account on the store website (Telegram/Google login happens there).
 ACCOUNT_BUTTON = "🌐 حساب من در سایت"
@@ -106,11 +116,28 @@ TX_KIND = {
 PAGE_SIZE = 8
 
 # Account inquiry: filter chips (code -> Core `state` value, label) and the badge of each account's `health`.
-ACC_FILTERS = [("-", None, "همه"), ("a", "active", "🟢 فعال"), ("x", "expiring", "🟡 رو‌به‌اتمام"), ("e", "expired", "🔴 منقضی")]
+ACC_FILTERS = [
+    ("-", None, "همه"),
+    ("a", "active", "🟢 فعال"),
+    ("x", "expiring", "🟡 رو‌به‌اتمام"),
+    ("e", "expired", "🔴 منقضی"),
+]
 
-HEALTH_BADGE = {"active": "🟢", "expiring": "🟡", "expired": "🔴", "depleted": "🟠", "disabled": "⚫"}
+HEALTH_BADGE = {
+    "active": "🟢",
+    "expiring": "🟡",
+    "expired": "🔴",
+    "depleted": "🟠",
+    "disabled": "⚫",
+}
 
-HEALTH_LABEL = {"active": "فعال", "expiring": "رو‌به‌اتمام", "expired": "منقضی", "depleted": "حجم تمام‌شده", "disabled": "غیرفعال"}
+HEALTH_LABEL = {
+    "active": "فعال",
+    "expiring": "رو‌به‌اتمام",
+    "expired": "منقضی",
+    "depleted": "حجم تمام‌شده",
+    "disabled": "غیرفعال",
+}
 
 TICKET_ICON = {"open": "🟡", "answered": "🟢", "closed": "⚫"}
 
@@ -135,6 +162,53 @@ def fmt(n, code) -> str:
     return f"{money(n)} {cur(code)}"
 
 
+def _reward_line(label: str, plan: dict | None, currency) -> str | None:
+    """One line of the store's referral programme, exactly as Core reports it (the bot computes nothing)."""
+    if not plan:
+        return None
+    value = plan.get("value") or 0
+    if plan.get("model") == "percent":
+        amount = f"{value / 100:g}٪"
+        cap = plan.get("max_amount")
+        if cap:
+            amount += f" (حداکثر {fmt(cap, currency)})"
+    else:
+        amount = fmt(value, currency)
+    return f"• {label}: <b>{amount}</b>"
+
+
+def referral_text(data: dict, fallback_link: str) -> str:
+    """Referral screen of THIS store, built only from ``/me/referrals`` (programme, link, invited count, earnings)."""
+    link = ((data.get("links") or {}).get("telegram")) or fallback_link
+    program = data.get("program") or {}
+    currency = program.get("currency")
+    lines = ["🎁 <b>دعوت از دوستان</b>", ""]
+    rewards = [
+        _reward_line("پاداش ثبت‌نام دوست شما", program.get("signup_reward"), currency),
+        _reward_line("کمیسیون هر خرید دوست شما", program.get("commission"), currency),
+    ]
+    rewards = [r for r in rewards if r]
+    if program.get("enabled") and rewards:
+        lines += ["این فروشگاه برای دعوت دوستان به شما پاداش می‌دهد:", *rewards, ""]
+    else:
+        lines += ["فعلاً برنامه‌ی پاداش دعوت در این فروشگاه فعال نیست.", ""]
+    lines += [f"لینک اختصاصی شما:\n{esc(link)}", ""]
+    count = data.get("referred_count", data.get("count", data.get("total", 0)))
+    lines.append(f"تعداد زیرمجموعه‌ها: <b>{count}</b>")
+    credited = [
+        c for c in data.get("commissions") or [] if c.get("status") == "credited"
+    ]
+    if credited:
+        earned = sum(
+            int(c.get("amount") or 0) - int(c.get("offset_amount") or 0)
+            for c in credited
+        )
+        lines.append(
+            f"درآمد ثبت‌شده از دعوت‌ها: <b>{fmt(max(0, earned), credited[0].get('currency') or currency)}</b>"
+        )
+    return "\n".join(lines)
+
+
 def gb(b) -> str:
     return f"{(b or 0) / 1073741824:.1f}"
 
@@ -151,7 +225,10 @@ def keyboard(rows):
 
 
 def reply_keyboard(rows):
-    return {"keyboard": [[{"text": text} for text in row] for row in rows], "resize_keyboard": True}
+    return {
+        "keyboard": [[{"text": text} for text in row] for row in rows],
+        "resize_keyboard": True,
+    }
 
 
 def b64(value) -> str:
@@ -196,7 +273,9 @@ def expiry_line(value) -> str:
 def qr_png(data: str) -> bytes | None:
     try:
         import segno
-    except ImportError:  # optional dependency: the bot still works, just without the QR image
+    except (
+        ImportError
+    ):  # optional dependency: the bot still works, just without the QR image
         return None
     buf = io.BytesIO()
     segno.make(data, error="m").save(buf, kind="png", scale=8, border=4)
