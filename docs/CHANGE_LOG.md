@@ -1115,3 +1115,32 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 - **After:** `tests/test_upstream_bot_adapter.py` 29 passed (18 before). NOT run against the real parent bot (no Telegram session here): the first live renewal should be done on a cheap account and compared with `renew_charged`.
 - **Ref:** branch god-ping
 
+
+### 2026-10-27 - Claude (with owner) - identify: reseller applications verify themselves
+- **Before:** the store domain of a reseller application was never proven (anyone could file somebody else's domain) and a bot that could not be checked at filing time (Telegram unreachable) stayed "unverified" until an admin clicked "verify bot".
+- **Problem:** admins had to judge identity by hand: is the domain really the applicant's, is the bot real. The one-step web form therefore depended on trust in the applicant.
+- **Action:** `modules/reseller/auto_verify.py` + worker job `reseller_auto_verify_job` (every 2 min, back-off on the row): bot re-checked until Telegram answers; domain control proven by DNS TXT (`_melorin-verify.<domain>`, via DoH) or `/.well-known/melorin-verify.txt` (SSRF-guarded, no redirects); code = HMAC(application id + domain). New endpoints `GET /reseller/applications/{id}/verification` and `POST .../verify-now`; admin list shows `domain_verified` / `auto_verified` / `verify_error`; admins are notified once when everything is proven. Settings `RESELLER_AUTO_VERIFY`, `RESELLER_REQUIRE_DOMAIN_PROOF` (default off), `RESELLER_VERIFY_WINDOW_DAYS`. Migration 0034.
+- **After:** 18 new tests; full API suite 1636 passed / 7 skipped; docs/21, API.md, STATUS.md and the OpenAPI snapshot regenerated. DNS-over-HTTPS and the HTTP proof were tested with mock transports only, NOT against a live domain.
+- **Ref:** branch identify
+
+### 2026-10-27 - Claude (with owner) - identify: admin page «هویت خودکار»
+- **Before:** trusted devices and automatic account merges were visible only in the security log and the audit log; an admin could not see which browsers were trusted nor revoke one.
+- **Problem:** no overview of what automatic verification is doing, and no admin-side way to cut trust (e.g. for a stolen laptop reported through support).
+- **Action:** `modules/admin/identity_auto.py` (list/search trusted devices, summary, revoke one device, revoke all devices of an account, list automatic merges; device keys never returned; revokes audited) and the panel screen `IdentityAutoView.jsx` under «سیستم» with two tabs, counters and confirmation before revoking. docs/21, API.md, STATUS.md, OpenAPI snapshot and generated client types refreshed.
+- **After:** 10 new API tests + 4 new panel tests; full API suite 1646 passed / 7 skipped, panel 156 passed, `vite build` and api-client typecheck pass. Not looked at in a real browser with live data.
+- **Ref:** branch identify
+
+### 2026-10-27 - Claude (with owner) - identify: automatic approval and continuous re-verification of resellers
+- **Before:** after Core proved a reseller's bot and domain, an admin still had to click approve; and once approved, nothing checked that the domain proof or the bot token stayed valid (a lapsed domain or revoked token went unnoticed).
+- **Problem:** the last manual identity steps of the reseller path, and no detection of identity loss after approval.
+- **Action:** `modules/reseller/auto_approve.py` (opt-in `RESELLER_AUTO_APPROVE`, default off; guard rails on account age/role/membership/identity; fixed debt limit; atomic) and `modules/reseller/recheck.py` + worker job `reseller_identity_recheck_job` (domain proof and bot re-checked every 24 h; owner warning, retry in 6 h, admins alerted after 3 failed rounds; suspension only with `RESELLER_RECHECK_SUSPEND`; Telegram outage is neutral). Migration 0035, admin list fields, `.env.example`, docs/21.
+- **After:** 18 new tests (`test_identify_reseller_lifecycle.py`). DNS-over-HTTPS, HTTP proof and Telegram were mocked only, NOT run against a live domain/bot.
+- **Ref:** branch identify
+
+### 2026-10-27 - Claude (with owner) - identify: one «هویت» screen instead of two overlapping admin pages
+- **Before:** the panel had «بررسی هویت» (conflict queue) and «هویت خودکار» (trusted devices + automatic merges). Conflicts settled by Core showed in both (the review row stays `linked` with note `auto:`), and the queue text still claimed that accounts are never merged automatically.
+- **Problem:** two menu entries for one subject; the manual queue mixed work for a human with things Core had already done.
+- **Action:** new `IdentityHubView.jsx` with three tabs (نیاز به بررسی / انجام‌شده خودکار / دستگاه‌های مورداعتماد, open-count badge, deep link `#/identity?tab=…`, old `#/identity-auto` bookmark redirected). `GET /admin/identity-link-reviews` rows gain `auto`; the manual queue hides them; queue text corrected. `IdentityAutoView` takes a `section` prop. No route, table or permission changed.
+- **After:** 5 new panel tests + 1 new API test; panel 161 passed, `vite build` ok. Not looked at in a real browser.
+- **Ref:** branch identify
+

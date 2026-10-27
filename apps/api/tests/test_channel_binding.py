@@ -352,6 +352,7 @@ PUBLIC_ROUTES = {
     "/auth/telegram/web/sessions",
     "/auth/telegram/web/sessions/{session_id}/poll",
     "/auth/telegram/web/sessions/{session_id}/cancel",
+    "/auth/telegram/web/devices/forget",  # the browser drops its own trust; holding the device key is the proof
     "/auth/telegram/config",
     "/auth/telegram/oidc/start",
     "/auth/telegram/oidc/callback",
@@ -360,6 +361,8 @@ PUBLIC_ROUTES = {
     "/auth/telegram/link",
     "/auth/telegram/web/bot/inspect",
     "/auth/telegram/web/bot/decide",
+    "/auth/telegram/web/bot/devices",
+    "/auth/telegram/web/bot/revoke",
     "/internal/reseller-bots",
     "/internal/reseller-bots/{store_id}/status",
     # public storefront data

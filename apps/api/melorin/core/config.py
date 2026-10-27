@@ -131,6 +131,27 @@ class Settings(BaseSettings):
     # Website login approved in the Telegram bot (docs/TELEGRAM-WEB-LOGIN.md)
     telegram_web_login_ttl_seconds: int = 180
     telegram_web_login_number_match: bool = True
+    # Automatic verification: a browser that was approved once is trusted for this many days (0 = off); inside the
+    # silent window and on the same network it signs in with no bot step at all (the owner is notified in Telegram).
+    telegram_web_login_trust_days: int = 60
+    telegram_web_login_silent_days: int = 14
+    # Identity-link conflicts (same verified identity on two accounts) are settled automatically when one account is an
+    # empty shell (docs/21). False = every conflict waits for an admin, as before.
+    identity_auto_link: bool = True
+    # Reseller applications verify themselves (docs/21): bot re-checked and domain control proven (DNS TXT or a file on the
+    # domain) by a worker job. ``reseller_require_domain_proof`` makes the proof mandatory before an admin can approve.
+    reseller_auto_verify: bool = True
+    reseller_require_domain_proof: bool = False
+    reseller_verify_window_days: int = 7
+    # Fully proven applications (bot + domain) may approve themselves; OFF by default because it grants a store.
+    reseller_auto_approve: bool = False
+    reseller_auto_approve_debt_limit: int = 0
+    reseller_auto_approve_min_account_days: int = 7
+    # Approved stores keep proving their identity: domain proof and bot are re-checked on a schedule.
+    reseller_recheck: bool = True
+    reseller_recheck_hours: int = 24
+    reseller_recheck_fail_limit: int = 3
+    reseller_recheck_suspend: bool = False
 
     store_web_url: str = "http://localhost:3000"
     public_api_url: str = ""

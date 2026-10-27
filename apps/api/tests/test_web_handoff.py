@@ -30,7 +30,7 @@ REQ = fake_request("localhost")  # development: an unknown host falls back to th
 async def s(tmp_path):
     db.configure(f"sqlite+aiosqlite:///{tmp_path}/h.db")
     async with db.engine().begin() as conn:
-        await conn.run_sync(lambda c: db.Base.metadata.create_all(c, tables=TABLES))
+        await conn.run_sync(lambda c: db.Base.metadata.create_all(c))
     async with db.session_factory()() as session:
         yield session
     await db.engine().dispose()

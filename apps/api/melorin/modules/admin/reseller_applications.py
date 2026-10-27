@@ -39,6 +39,17 @@ def _application_row(x, user, target):
         "store_id": x.store_id,
         "created_at": x.created_at,
         "approved_debt_limit": x.approved_debt_limit,
+        "domain_verified": x.domain_verified_at is not None,
+        "domain_verified_at": x.domain_verified_at,
+        "domain_method": x.domain_method,
+        "verify_error": x.verify_error,
+        "verify_next_at": x.verify_next_at,
+        "auto_approved": bool(x.auto_approved),
+        "recheck_failures": x.recheck_failures or 0,
+        "recheck_error": x.recheck_error,
+        "recheck_next_at": x.recheck_next_at,
+        "identity_lost": x.identity_lost_at is not None,
+        "auto_verified": bool((x.bot_verified or not x.bot_token_enc) and (x.domain_verified_at or not x.domain)),
     }
 
 
@@ -78,6 +89,12 @@ async def review_application(application_id: uuid.UUID, body: ResellerApproval, 
         target = await session.get(Store, a.target_store_id)
         if not target or target.status != "active":
             raise AppError("TARGET_STORE_INVALID", "فروشگاه مقصد نمایندگی فعال نیست.", 409)
+        from melorin.modules.reseller import auto_verify
+
+        if auto_verify.proof_required_blocks(a):
+            raise AppError(
+                "DOMAIN_PROOF_REQUIRED", "مالکیت دامنه هنوز به‌صورت خودکار تأیید نشده است؛ متقاضی باید رکورد یا فایل تأیید را بگذارد.", 409
+            )
         existing_store = await session.scalar(
             select(Store).where(Store.owner_user_id == a.user_id, Store.kind == "reseller", Store.parent_store_id == target.id)
         )

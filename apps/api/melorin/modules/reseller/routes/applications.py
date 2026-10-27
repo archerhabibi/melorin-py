@@ -13,7 +13,9 @@ from melorin.core.deps import CurrentAuth, Session, main_store
 from melorin.core.errors import AppError, NotFound
 from melorin.kernel.models.identity import User
 from melorin.kernel.models.stores import ResellerApplication, ResellerProfile, Store, StoreMembership
-from melorin.modules.reseller import identity, onboarding
+from melorin.modules.reseller import auto_verify, identity, onboarding
+from melorin.core.db import utcnow
+from melorin.core.ratelimit import hit
 from melorin.modules.reseller.schemas import (
     ApplicationDetailsIn,
     ApplicationIn,
@@ -64,6 +66,7 @@ def application_out(a: ResellerApplication) -> dict:
         "domain": a.domain,
         "bot_username": a.bot_username,
         "bot_verified": a.bot_verified,
+        "domain_verified": a.domain_verified_at is not None,
         "review_reason": a.review_reason if a.status == "rejected" else None,
         "store_id": a.store_id,
         "created_at": a.created_at,
@@ -108,6 +111,7 @@ async def apply(body: ApplicationIn, user: Annotated[User, Depends(main_session_
         bot_key=bot_key,
         bot_username=username,
         bot_verified=username is not None,
+        verify_next_at=utcnow() if domain else None,
     )
     session.add(a)
     await session.flush()
@@ -194,3 +198,35 @@ async def submit_details(
         await session.rollback()
         raise AppError("IDENTITY_TAKEN", "این دامنه یا ربات همین الان برای فروشگاه دیگری ثبت شد؛ مقدار دیگری بفرستید.", 409) from None
     return application_out(a)
+
+
+@router.get("/reseller/applications/{application_id}/verification")
+async def verification_status(application_id: uuid.UUID, user: Annotated[User, Depends(main_session_user)], session: Session):
+    """What to publish to prove the domain, and where the automatic checks stand (no token, no secret in the answer)."""
+    a = await session.get(ResellerApplication, application_id)
+    if not a or a.user_id != user.id:
+        raise NotFound("درخواست نمایندگی")
+    return {
+        "status": a.status,
+        "bot_verified": a.bot_verified,
+        "bot_username": a.bot_username,
+        "domain": auto_verify.instructions(a),
+        "attempts": a.verify_attempts,
+        "complete": bool((a.bot_verified or not a.bot_token_enc) and (a.domain_verified_at or not a.domain)),
+    }
+
+
+@router.post("/reseller/applications/{application_id}/verify-now")
+async def verify_now(application_id: uuid.UUID, user: Annotated[User, Depends(main_session_user)], session: Session):
+    """The applicant just published the proof: check right away instead of waiting for the next scheduled round."""
+    if not await hit(f"reseller-verify:{user.id}", 6, 300):
+        raise AppError("TOO_MANY_REQUESTS", "درخواست‌های بررسی زیاد است؛ چند دقیقه بعد دوباره تلاش کنید.", 429)
+    a = await session.get(ResellerApplication, application_id, with_for_update=True)
+    if not a or a.user_id != user.id:
+        raise NotFound("درخواست نمایندگی")
+    if a.status != "pending":
+        raise AppError("APPLICATION_NOT_PENDING", "فقط درخواست در حال بررسی قابل بررسی خودکار است.", 409)
+    auto_verify.restart(a)
+    await auto_verify.verify(session, a, actor_id=user.id)
+    await session.commit()
+    return await verification_status(application_id, user, session)

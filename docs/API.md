@@ -35,7 +35,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 
 <!-- BEGIN GENERATED ROUTES (scripts/gen_docs.py) -->
 
-### `admin` (92)
+### `admin` (97)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -67,6 +67,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/api/v1/admin/feature-flags` | List Flags |
 | PUT | `/api/v1/admin/feature-flags/{key}` | Update Flag |
 | GET | `/api/v1/admin/health` | Health |
+| GET | `/api/v1/admin/identity-auto-merges` | Identity Auto Merges |
 | GET | `/api/v1/admin/identity-link-reviews` | Identity Link Reviews |
 | POST | `/api/v1/admin/identity-link-reviews/{review_id}/dismiss` | Dismiss Identity Review |
 | POST | `/api/v1/admin/identity-link-reviews/{review_id}/reopen` | Reopen Identity Review |
@@ -129,6 +130,10 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | POST | `/api/v1/admin/tickets/{ticket_id}/messages` | Ticket Reply |
 | PATCH | `/api/v1/admin/tickets/{ticket_id}/messages/{message_id}` | Ticket Edit Message |
 | GET | `/api/v1/admin/tickets/{ticket_id}/messages/{message_id}/attachment` | Ticket Message Attachment |
+| GET | `/api/v1/admin/trusted-devices` | Trusted Devices |
+| POST | `/api/v1/admin/trusted-devices/revoke-account` | Revoke Account Devices |
+| GET | `/api/v1/admin/trusted-devices/summary` | Trusted Devices Summary |
+| POST | `/api/v1/admin/trusted-devices/{device_id}/revoke` | Revoke Trusted Device |
 | GET | `/api/v1/admin/users` | Users |
 | GET | `/api/v1/admin/vpn-accounts` | Vpn Accounts |
 
@@ -161,7 +166,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | DELETE | `/api/v1/admin/resellers/{store_id}/bot-token` | Clear Bot Token |
 | POST | `/api/v1/admin/resellers/{store_id}/verify-bot` | Verify Store Bot |
 
-### `auth` (21)
+### `auth` (24)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -180,7 +185,10 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/api/v1/auth/telegram/oidc/callback` | Callback |
 | GET | `/api/v1/auth/telegram/oidc/start` | Start |
 | POST | `/api/v1/auth/telegram/web/bot/decide` | Bot Decide |
+| POST | `/api/v1/auth/telegram/web/bot/devices` | Bot Devices |
 | POST | `/api/v1/auth/telegram/web/bot/inspect` | Bot Inspect |
+| POST | `/api/v1/auth/telegram/web/bot/revoke` | Bot Revoke |
+| POST | `/api/v1/auth/telegram/web/devices/forget` | Forget Device |
 | POST | `/api/v1/auth/telegram/web/sessions` | Start |
 | POST | `/api/v1/auth/telegram/web/sessions/{session_id}/cancel` | Cancel |
 | POST | `/api/v1/auth/telegram/web/sessions/{session_id}/poll` | Poll |
@@ -279,7 +287,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/api/v1/reports/payments` | Payment Totals |
 | GET | `/api/v1/reports/stores/{store_id}/sales` | Store Sales |
 
-### `reseller` (54)
+### `reseller` (56)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -287,6 +295,8 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | POST | `/api/v1/reseller/applications` | Apply |
 | POST | `/api/v1/reseller/applications/{application_id}/cancel` | Cancel Application |
 | POST | `/api/v1/reseller/applications/{application_id}/details` | Submit Details |
+| GET | `/api/v1/reseller/applications/{application_id}/verification` | Verification Status |
+| POST | `/api/v1/reseller/applications/{application_id}/verify-now` | Verify Now |
 | GET | `/api/v1/stores/{store_id}/reseller/accounts` | Store Accounts |
 | GET | `/api/v1/stores/{store_id}/reseller/accounts/summary` | Store Accounts Summary |
 | GET | `/api/v1/stores/{store_id}/reseller/accounts/{account_id}` | Store Account |

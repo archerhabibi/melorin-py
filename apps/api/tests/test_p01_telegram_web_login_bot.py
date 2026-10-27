@@ -226,7 +226,10 @@ def test_migration_and_model_agree_and_worker_cleans_up():
     assert 'down_revision = "0018_reseller_two_step"' in mig and "telegram_login_sessions" in mig
     from melorin.kernel.models.identity import TelegramLoginSession
 
-    assert {c.name for c in TelegramLoginSession.__table__.columns} <= {c for c in __import__("re").findall(r'sa\.Column\("(\w+)"', mig)}
+    # The table is created by 0019 and extended by 0033 (automatic identity verification): together they cover the model.
+    mig_trust = read_source(API / "alembic/versions/0033_trusted_devices.py")
+    declared = set(__import__("re").findall(r'sa\.Column\("(\w+)"', mig + mig_trust))
+    assert {c.name for c in TelegramLoginSession.__table__.columns} <= declared
     arq = read_source(API / "melorin/worker/arq_app.py")
     assert "cron(telegram_login_gc_job" in arq and "telegram_login_gc_job]" in arq
     assert "telegram_web_router" in read_source(API / "melorin/app.py")

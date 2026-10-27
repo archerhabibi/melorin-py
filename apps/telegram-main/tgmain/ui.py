@@ -18,7 +18,7 @@ HELP = (
     "/plans خرید اکانت\n/wallet کیف پول و شارژ حساب\n/topup مبلغ — شارژ کیف پول\n"
     "/accounts استعلام و تمدید اکانت\n/orders سفارش‌ها\n/test دریافت اکانت تست\n"
     "/tickets پشتیبانی و تیکت‌ها\n/me حساب من در سایت\n/referral دعوت از دوستان\n"
-    "/reseller درخواست نمایندگی\n/cancel انصراف از مرحلهٔ جاری"
+    "/reseller درخواست نمایندگی\n/devices مرورگرهای مطمئن (ورود خودکار)\n/cancel انصراف از مرحلهٔ جاری"
 )
 
 # Registered with Telegram (setMyCommands) so the "Menu" button lists them.
@@ -32,6 +32,7 @@ BOT_COMMANDS = [
     ("tickets", "🎧 پشتیبانی"),
     ("referral", "🎁 دعوت از دوستان"),
     ("reseller", "🤖 درخواست نمایندگی"),
+    ("devices", "🔐 مرورگرهای مطمئن"),
     ("help", "راهنما"),
 ]
 

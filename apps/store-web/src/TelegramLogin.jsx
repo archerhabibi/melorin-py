@@ -15,6 +15,22 @@ const REASONS = {
   rate_limited: 'تلاش‌ها زیاد بود؛ کمی بعد دوباره امتحان کنید.',
   login_disabled: 'ورود با تلگرام موقتاً غیرفعال شده است.',
 };
+// Trusted browser (docs/21-Automatic-Identity-Verification.md): the server remembers this browser through an HttpOnly
+// cookie, so this component keeps nothing in browser storage and page scripts can never read the device key.
+// Sign-out on a shared computer: ask the server to drop this browser's trust.
+export async function forgetDevice(base) {
+  try {
+    await fetch(`${base}/api/v1/auth/telegram/web/devices/forget`, {
+      method: 'POST',
+      credentials: 'include',
+      keepalive: true,
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+  } catch {
+    /* best effort: the trust also expires on its own */
+  }
+}
 const mmss = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
 export default function TelegramLogin({ base, storeId, onTokens, onBack }) {
@@ -80,6 +96,17 @@ export default function TelegramLogin({ base, storeId, onTokens, onBack }) {
           return;
         }
         if (d.expires_in) deadline.current = Date.now() + d.expires_in * 1000;
+        if (d.match_code || d.level) {
+          // A trusted-browser attempt fell back to the manual number match: show the number now.
+          const next = {
+            ...live.current,
+            level: d.level || live.current.level,
+            match_code: d.match_code || live.current.match_code,
+          };
+          live.current = next;
+          setSession(next);
+          s = next;
+        }
         again(Math.max(1, s.poll_interval || 2) * 1000);
       } catch (e) {
         if (e?.name === 'AbortError' || !alive.current) return;
@@ -109,7 +136,7 @@ export default function TelegramLogin({ base, storeId, onTokens, onBack }) {
         credentials: 'include',
         cache: 'no-store',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ store_id: storeId || null }),
+        body: JSON.stringify({ store_id: storeId || null, remember: true }),
       });
       if (g !== gen.current) return;
       if (!r.ok) {
@@ -206,17 +233,23 @@ export default function TelegramLogin({ base, storeId, onTokens, onBack }) {
     return (
       <div>
         <p className="mt-2 text-sm leading-7 text-muted">
-          ربات تلگرام را باز کن و ورود را تأیید کن؛ نه رمز لازم است، نه کد پیامکی.
+          {session.level === 'silent'
+            ? 'این دستگاه را می‌شناسیم؛ در حال ورود خودکار… نیازی به هیچ کاری نیست.'
+            : session.level === 'auto'
+              ? 'این دستگاه قبلاً تأیید شده؛ فقط ربات را باز کن، همان لحظه وارد می‌شوی و عدد یا دکمه‌ای لازم نیست.'
+              : 'ربات تلگرام را باز کن و ورود را تأیید کن؛ نه رمز لازم است، نه کد پیامکی.'}
         </p>
-        <a
-          href={session.deeplink}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="btn-primary mt-5 w-full !bg-[#229ED9] !text-white"
-        >
-          <Send size={18} />
-          باز کردن ربات تلگرام
-        </a>
+        {session.level !== 'silent' && (
+          <a
+            href={session.deeplink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-primary mt-5 w-full !bg-[#229ED9] !text-white"
+          >
+            <Send size={18} />
+            باز کردن ربات تلگرام
+          </a>
+        )}
         {session.match_code && (
           <div className="mt-5 rounded-2xl bg-surface2 p-4 text-center">
             <div className="text-xs font-bold text-muted">در ربات، همین عدد را انتخاب کن</div>

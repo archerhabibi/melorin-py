@@ -17,7 +17,7 @@ const ResellersView = lazy(() => import('./ResellersView.jsx'));
 const GoogleLoginSettings = lazy(() => import('./GoogleLoginSettings.jsx'));
 const ReceiptOcrSettings = lazy(() => import('./ReceiptOcrSettings.jsx'));
 const TelegramLoginSettings = lazy(() => import('./TelegramLoginSettings.jsx'));
-const IdentityReviewsView = lazy(() => import('./IdentityReviewsView.jsx'));
+const IdentityHubView = lazy(() => import('./IdentityHubView.jsx'));
 const OrdersView = lazy(() => import('./OrdersView.jsx'));
 const VpnAccountsView = lazy(() => import('./VpnAccountsView.jsx'));
 const UsersView = lazy(() => import('./UsersView.jsx'));
@@ -703,5 +703,5 @@ export const extraRoutes = {
   'برنامه‌های معرفی': ReferralProgramsView,
   تنظیمات: Settings,
   ممیزی: AuditView,
-  'بررسی هویت': IdentityReviewsView,
+  هویت: IdentityHubView,
 };

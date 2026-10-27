@@ -15,7 +15,7 @@ from melorin.core.db import utcnow
 from melorin.core.deps import get_session
 from melorin.core.errors import AppError, install
 from melorin.channels.telegram import web
-from melorin.kernel.models.identity import Identity, RefreshToken, TelegramLoginSession, User
+from melorin.kernel.models.identity import Identity, RefreshToken, TelegramLoginSession, TrustedDevice, User
 from melorin.modules.identity.schemas import TelegramProfile
 from melorin.channels.telegram.web_router import tgweb
 from melorin.kernel.models.stores import Store
@@ -30,6 +30,7 @@ TABLES = [
     RefreshToken.__table__,
     Store.__table__,
     TelegramLoginSession.__table__,
+    TrustedDevice.__table__,
     AuditEvent.__table__,
     SecurityEvent.__table__,
     FeatureFlag.__table__,
@@ -47,7 +48,7 @@ def prof(tid=111, **kw):
 async def world(tmp_path, monkeypatch):
     db.configure(f"sqlite+aiosqlite:///{tmp_path}/tgweb.db")
     async with db.engine().begin() as conn:
-        await conn.run_sync(lambda c: db.Base.metadata.create_all(c, tables=TABLES))
+        await conn.run_sync(lambda c: db.Base.metadata.create_all(c))
     monkeypatch.setattr(ratelimit, "get_redis", lambda: None)  # deterministic in-process limiter
     ratelimit._mem.clear()
     async with db.session_factory()() as s:

@@ -169,7 +169,7 @@ async def session(tmp_path, monkeypatch):
     config_mod.get_settings.cache_clear()
     db.configure(f"sqlite+aiosqlite:///{tmp_path}/g.db")
     async with db.engine().begin() as conn:
-        await conn.run_sync(lambda c: db.Base.metadata.create_all(c, tables=TABLES))
+        await conn.run_sync(lambda c: db.Base.metadata.create_all(c))
     async with db.session_factory()() as s:
         s.add(Store(kind="main", name="Main", slug="main"))
         await s.flush()
