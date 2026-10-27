@@ -135,6 +135,9 @@ class Settings(BaseSettings):
     # silent window and on the same network it signs in with no bot step at all (the owner is notified in Telegram).
     telegram_web_login_trust_days: int = 60
     telegram_web_login_silent_days: int = 14
+    # Identity-link conflicts (same verified identity on two accounts) are settled automatically when one account is an
+    # empty shell (docs/21). False = every conflict waits for an admin, as before.
+    identity_auto_link: bool = True
 
     store_web_url: str = "http://localhost:3000"
     public_api_url: str = ""
