@@ -70,6 +70,7 @@ async def create_admin_coupon(body: AdminCouponIn, admin: AdminUser, session: Se
         per_customer_limit=body.per_customer_limit,
         currency=body.currency,
         status=body.status,
+        funded_by=body.funded_by,
     )
     try:
         cdom.validate_definition(rule)
@@ -122,8 +123,9 @@ async def patch_admin_coupon(coupon_id: uuid.UUID, body: CouponPatch, admin: Adm
     c = await session.get(Coupon, coupon_id, with_for_update=True)
     if not c:
         raise NotFound("کد تخفیف")
-    for k, v in body.model_dump(exclude_none=True).items():
-        setattr(c, k, v)
+    from melorin.modules.catalog.service import apply_coupon_patch
+
+    await apply_coupon_patch(c, body.model_dump(exclude_none=True))
     audit.record(
         session, "admin.coupon.updated", actor_id=admin.id, actor_type="admin", entity_type="coupon", entity_id=c.id, store_id=c.store_id
     )

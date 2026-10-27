@@ -339,8 +339,7 @@ async def patch_coupon(coupon_id: uuid.UUID, body: CouponPatch, ctx: OwnerCtx, s
     c = await session.get(Coupon, coupon_id, with_for_update=True)
     if not c or c.owner_key != str(ctx.store.id):
         raise NotFound("کد تخفیف")
-    for k, v in body.model_dump(exclude_none=True).items():
-        setattr(c, k, v)
+    await service.apply_coupon_patch(c, body.model_dump(exclude_none=True))
     audit.record(
         session,
         "coupon.updated",

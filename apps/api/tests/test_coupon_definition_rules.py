@@ -20,7 +20,7 @@ def _rule(**over) -> CouponRule:
 def test_valid_definitions_pass():
     validate_definition(_rule())
     validate_definition(_rule(percent_bp=0, fixed=500))
-    validate_definition(_rule(scope="domain", store_id=None, allowed_store_kinds=("reseller",)))
+    validate_definition(_rule(scope="domain", store_id=None, allowed_store_kinds=("reseller",), funded_by="platform"))
     validate_definition(_rule(creator_type="reseller"), creator_store_id="s1")
 
 
@@ -43,6 +43,8 @@ def test_valid_definitions_pass():
         ({"creator_type": "reseller", "scope": "domain", "allowed_store_ids": ("s1",)}, "s1", "COUPON_SCOPE_FORBIDDEN"),
         ({"store_id": None}, None, "COUPON_SCOPE_FORBIDDEN"),
         ({"scope": "domain", "store_id": None}, None, "COUPON_SCOPE_FORBIDDEN"),
+        # a multi-store coupon is the platform's promotion: it may never be charged to one reseller's margin
+        ({"scope": "domain", "store_id": None, "allowed_store_kinds": ("reseller",), "funded_by": "store"}, None, "COUPON_FUNDING_INVALID"),
     ],
 )
 def test_each_rule_rejects_with_its_code(over, creator, code):
