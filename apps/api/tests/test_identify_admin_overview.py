@@ -125,7 +125,9 @@ async def test_summary_counts():
         await device(maker, u, main)
         await device(maker, u, main, revoked=True)
         async with maker() as s:
-            audit.record(s, "identity.auto_merged", actor_type="system", data={"keeper": str(u.id), "shell": str(u.id), "rule": "x", "providers": []})
+            audit.record(
+                s, "identity.auto_merged", actor_type="system", data={"keeper": str(u.id), "shell": str(u.id), "rule": "x", "providers": []}
+            )
             await s.commit()
         assert (await c.get(f"{ADMIN}/trusted-devices/summary", headers=h)).json() == {
             "active_devices": 1,
@@ -140,9 +142,16 @@ async def test_merges_list_shows_both_sides_and_ignores_old_or_other_events():
         h = await admin_headers(c, maker)
         keeper, shell = await add_user(maker, email="keep@example.com"), await add_user(maker, email="shell@example.com")
         async with maker() as s:
-            audit.record(s, "identity.auto_merged", actor_type="system", data={"keeper": str(keeper.id), "shell": str(shell.id), "rule": "shell_into_other", "providers": ["google"]})
+            audit.record(
+                s,
+                "identity.auto_merged",
+                actor_type="system",
+                data={"keeper": str(keeper.id), "shell": str(shell.id), "rule": "shell_into_other", "providers": ["google"]},
+            )
             audit.record(s, "identity.linked", data={"provider": "email"})
-            old = AuditEvent(actor_type="system", action="identity.auto_merged", data={"keeper": str(keeper.id), "shell": str(shell.id), "rule": "old"})
+            old = AuditEvent(
+                actor_type="system", action="identity.auto_merged", data={"keeper": str(keeper.id), "shell": str(shell.id), "rule": "old"}
+            )
             old.created_at = utcnow() - dt.timedelta(days=200)
             s.add(old)
             await s.commit()

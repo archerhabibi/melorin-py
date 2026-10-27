@@ -92,7 +92,9 @@ async def review_application(application_id: uuid.UUID, body: ResellerApproval, 
         from melorin.modules.reseller import auto_verify
 
         if auto_verify.proof_required_blocks(a):
-            raise AppError("DOMAIN_PROOF_REQUIRED", "مالکیت دامنه هنوز به‌صورت خودکار تأیید نشده است؛ متقاضی باید رکورد یا فایل تأیید را بگذارد.", 409)
+            raise AppError(
+                "DOMAIN_PROOF_REQUIRED", "مالکیت دامنه هنوز به‌صورت خودکار تأیید نشده است؛ متقاضی باید رکورد یا فایل تأیید را بگذارد.", 409
+            )
         existing_store = await session.scalar(
             select(Store).where(Store.owner_user_id == a.user_id, Store.kind == "reseller", Store.parent_store_id == target.id)
         )

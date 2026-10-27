@@ -128,7 +128,11 @@ async def test_silent_window_expires_into_auto(world):
 async def test_replayed_key_from_a_different_browser_family_is_never_silent(world):
     await _manual_login(world)
     st = await web.create_session(
-        world.s, world.main, ip="203.0.113.50", user_agent="Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0", device_key=KEY
+        world.s,
+        world.main,
+        ip="203.0.113.50",
+        user_agent="Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0",
+        device_key=KEY,
     )
     assert st.level == "auto" and st.row.status == "pending"  # same network, same key, other browser: the owner must tap the link
     info = await web.inspect(world.s, st.row.public_id, world.main.id, 111, profile=prof())

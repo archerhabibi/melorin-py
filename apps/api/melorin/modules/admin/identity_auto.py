@@ -135,8 +135,18 @@ async def revoke_account_devices(body: RevokeIn, admin: AdminUser, session: Sess
     """Revoke every live device of one account (optionally only in one store). The account's web sessions are untouched."""
     from melorin.channels.telegram import trust
 
-    store_ids = [body.store_id] if body.store_id else list(
-        (await session.scalars(select(TrustedDevice.store_id).where(TrustedDevice.user_id == body.user_id, TrustedDevice.revoked_at.is_(None)).distinct())).all()
+    store_ids = (
+        [body.store_id]
+        if body.store_id
+        else list(
+            (
+                await session.scalars(
+                    select(TrustedDevice.store_id)
+                    .where(TrustedDevice.user_id == body.user_id, TrustedDevice.revoked_at.is_(None))
+                    .distinct()
+                )
+            ).all()
+        )
     )
     count = 0
     for sid in store_ids:
