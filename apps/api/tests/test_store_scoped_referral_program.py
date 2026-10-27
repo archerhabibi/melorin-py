@@ -11,6 +11,7 @@ from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from _db import make_order, make_product, make_store, make_user, open_session
 from _http import PASSWORD, add_user, api_client, totp_now
@@ -606,3 +607,26 @@ async def test_after_the_first_order_is_refunded_the_next_order_earns_a_plain_co
         assert rows[(first.id, "signup_reward")].status == "reversed"
         assert rows[(second.id, "commission")].amount == 200  # 10 % of 2000
         assert (second.id, "signup_reward") not in rows
+
+
+async def test_two_racing_attachments_leave_exactly_one_relationship_and_no_error(monkeypatch):
+    """A rival request commits the same (store, customer) relationship between our checks and our insert."""
+    async with open_session() as s:
+        main, store_a, _, referrer, friend, _ = await _world(s)
+        rival = await make_user(s)
+        s.add(StoreMembership(store_id=store_a.id, user_id=rival.id, role="customer"))
+        await s.commit()
+        real = referral.has_store_history
+
+        async def racing(session, store_id, user_id):
+            # the rival wins the race: its own session on the SAME database commits the relationship first
+            async with async_sessionmaker(s.bind, expire_on_commit=False)() as other:
+                other.add(ReferralRelationship(store_id=store_id, referrer_user_id=rival.id, referred_user_id=friend.id))
+                await other.commit()
+            return await real(session, store_id, user_id)
+
+        monkeypatch.setattr(referral, "has_store_history", racing)
+        assert await referral.attach(s, store_a.id, friend, referrer) is False
+        await s.commit()
+        rows = (await s.scalars(select(ReferralRelationship).where(ReferralRelationship.store_id == store_a.id))).all()
+        assert [r.referrer_user_id for r in rows] == [rival.id]  # first touch wins; ours is dropped quietly

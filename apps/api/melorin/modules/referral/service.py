@@ -10,6 +10,7 @@ spent the reward, the uncovered amount becomes a clawback offset against future 
 import uuid
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from melorin.core import audit, events, settings_store
@@ -74,7 +75,12 @@ async def attach(session: AsyncSession, store_id: uuid.UUID, referred: User, ref
     )
     if reverse:
         return False
-    session.add(ReferralRelationship(store_id=store_id, referrer_user_id=referrer.id, referred_user_id=referred.id))
+    try:  # two sign-ups of the same person racing each other: the unique key lets one win, the other is simply "not attached"
+        async with session.begin_nested():
+            session.add(ReferralRelationship(store_id=store_id, referrer_user_id=referrer.id, referred_user_id=referred.id))
+            await session.flush()
+    except IntegrityError:
+        return False
     await events.emit(
         session,
         events.EVENT_CENTER,
