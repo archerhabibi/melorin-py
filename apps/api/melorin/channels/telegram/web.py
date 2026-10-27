@@ -140,7 +140,7 @@ async def create_session(
     poll_token = new_opaque_token(32)
     key_hash = trust.key_hash_of(device_key)
     device = await trust.find_valid(session, key_hash, store.id)
-    level = trust.level_for(device, ip)
+    level = trust.level_for(device, ip, device_label(user_agent))
     row = TelegramLoginSession(
         public_id=secrets.token_urlsafe(12),
         secret_hash=token_hash(poll_token),
@@ -332,7 +332,7 @@ async def _complete(session: AsyncSession, row: TelegramLoginSession, profile: T
         if device.user_id != user.id:  # the key was approved for another account: never mix them up
             row.status, row.user_id = "denied", None
             return await _close(session, row, "device_account_mismatch", security="tg_web_login_device_mismatch")
-        trust.touch(device, row.req_ip)
+        trust.touch(device, row.req_ip, row.req_device)
         await _notify_owner(session, row, device, "auto")
     elif row.remember:
         # A manual approval is what earns trust: remember this browser for the next time.

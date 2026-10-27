@@ -7,7 +7,7 @@ manual step that remains is exactly the number-match confirmation of `TELEGRAM-W
 
 | level    | when                                                                                   | what the visitor does                         |
 |----------|----------------------------------------------------------------------------------------|-----------------------------------------------|
-| `silent` | known browser **and** same network (/24 IPv4, /48 IPv6) **and** seen within the silent window | nothing: signed in when the page opens        |
+| `silent` | known browser **and** same network (/24 IPv4, /48 IPv6) **and** same browser/OS family **and** seen within the silent window | nothing: signed in when the page opens        |
 | `auto`   | known browser, any network, inside the trust window                                    | opens the bot link; that is the whole approval |
 | `manual` | unknown / expired / revoked browser                                                    | number match in the bot (unchanged)           |
 
@@ -19,6 +19,7 @@ A manual approval is what *earns* trust (`remember`, default on). Trust is per s
   and the storefront stores nothing in `localStorage`/`sessionStorage`.
 * The database stores only `SHA-256("trusted-device:" + key)` (`trusted_devices.key_hash`, unique).
 * A relayed phishing link cannot reach `auto`/`silent`: the attacker's browser does not hold a key the victim approved.
+* A device key replayed from a different browser/OS family (e.g. Chrome key used by Firefox) never gets `silent`; it gets `auto`, and the owner's approval refreshes the stored label.
 * A key approved for one account is never re-bound to another (`device_account_mismatch`).
 
 ## Account rules are shared

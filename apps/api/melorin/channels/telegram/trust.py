@@ -72,12 +72,22 @@ async def find_valid(session: AsyncSession, key_hash: str | None, store_id, *, t
     return row
 
 
-def level_for(device: TrustedDevice | None, ip: str | None) -> str:
-    """``silent`` | ``auto`` | ``manual`` for a login attempt coming from ``ip`` with this (possibly absent) device."""
+def same_client(device: TrustedDevice, label: str | None) -> bool:
+    """Same "Browser · OS" family as when the device was approved. An unknown label on either side is not a match."""
+    known = (device.label or "").strip().casefold()
+    return bool(known) and known == (label or "").strip().casefold()
+
+
+def level_for(device: TrustedDevice | None, ip: str | None, label: str | None = None) -> str:
+    """``silent`` | ``auto`` | ``manual`` for a login attempt coming from ``ip`` with this (possibly absent) device.
+
+    ``silent`` needs the whole picture to match: fresh, same network **and** same browser/OS family. A device key replayed
+    from a different kind of browser is still good enough for ``auto`` (the owner taps the bot link) but never for silence.
+    """
     if device is None:
         return "manual"
     fresh = _aware(device.last_seen_at) > utcnow() - dt.timedelta(days=silent_days())
-    if silent_days() > 0 and fresh and same_network(device.last_ip, ip):
+    if silent_days() > 0 and fresh and same_network(device.last_ip, ip) and same_client(device, label):
         return "silent"
     return "auto"
 
@@ -120,7 +130,9 @@ async def remember(
     return row
 
 
-def touch(device: TrustedDevice, ip: str | None) -> None:
+def touch(device: TrustedDevice, ip: str | None, label: str | None = None) -> None:
+    if label and label != "دستگاه ناشناس":  # an owner-approved login from a new browser version / OS keeps the label current
+        device.label = label[:120]
     device.last_seen_at, device.last_ip, device.uses = utcnow(), (ip or "")[:64] or device.last_ip, (device.uses or 0) + 1
     device.expires_at = utcnow() + dt.timedelta(days=trust_days())  # sliding window
 
