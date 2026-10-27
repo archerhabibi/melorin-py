@@ -53,6 +53,27 @@ The same verified identity (e-mail, Google, Telegram) on two accounts used to wa
 * `identity_auto_link_job` (worker, every 10 minutes) settles reviews that became safe after they were queued.
 * Switch: `IDENTITY_AUTO_LINK` (default `true`; `false` = every conflict waits for an admin).
 
+## Reseller applications verify themselves
+A reseller application brings two identifiers (store domain, Telegram bot). Both are now proven by Core on a schedule
+(`modules/reseller/auto_verify.py`), so the admin only decides *whether* to approve, never *whether the data is real*.
+
+| check | how | retry |
+|---|---|---|
+| bot | `getMe` with the stored token; a Telegram outage no longer leaves the bot "unverified" for an admin to click | back-off 2 min, 5 min, 15 min, 1 h, then every 6 h |
+| domain control | DNS TXT `_melorin-verify.<domain>` = `melorin-verify=<code>` **or** file `https://<domain>/.well-known/melorin-verify.txt` with the same content | same schedule; applicant can press "verify now" (6 per 5 min) |
+
+* `<code>` is `HMAC(jwt_secret, application id + domain)`: nothing extra is stored, a code from another application or
+  another domain never matches, and the applicant reads it from `GET /reseller/applications/{id}/verification`.
+* DNS is read through DNS-over-HTTPS (no new dependency); the HTTP proof refuses hosts that resolve to private/loopback
+  addresses (SSRF) and never follows redirects. Both only read.
+* When bot **and** domain are proven, admins get one notification ("ready to decide") and the audit log records
+  `reseller.application_auto_verified`. The admin list shows `domain_verified`, `auto_verified`, `verify_error`, `verify_next_at`.
+* Retry window: `RESELLER_VERIFY_WINDOW_DAYS` (default 7) after filing; "verify now" opens a fresh window.
+* Switches: `RESELLER_AUTO_VERIFY` (default `true`), `RESELLER_REQUIRE_DOMAIN_PROOF` (default `false`; `true` = approval of an
+  application whose domain is not proven is refused with `DOMAIN_PROOF_REQUIRED`).
+* Worker job `reseller_auto_verify_job` (every 2 minutes); migration `0034`.
+* Tests: `apps/api/tests/test_identify_reseller_auto_verify.py`.
+
 ## Settings
 `TELEGRAM_WEB_LOGIN_TRUST_DAYS` (default 60, `0` turns automatic verification off) and `TELEGRAM_WEB_LOGIN_SILENT_DAYS`
 (default 14, `0` disables only the silent level).

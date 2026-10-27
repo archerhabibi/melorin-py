@@ -4875,6 +4875,153 @@
         "title": "TelegramWebDecisionOut",
         "type": "object"
       },
+      "TelegramWebDeviceOut": {
+        "properties": {
+          "expires_in_seconds": {
+            "default": 0,
+            "title": "Expires In Seconds",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "last_ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Ip"
+          },
+          "last_seen_ago_seconds": {
+            "default": 0,
+            "title": "Last Seen Ago Seconds",
+            "type": "integer"
+          },
+          "uses": {
+            "default": 0,
+            "title": "Uses",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "TelegramWebDeviceOut",
+        "type": "object"
+      },
+      "TelegramWebDevices": {
+        "properties": {
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
+          },
+          "language_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language Code"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
+          },
+          "store_id": {
+            "format": "uuid",
+            "title": "Store Id",
+            "type": "string"
+          },
+          "telegram_id": {
+            "title": "Telegram Id",
+            "type": "integer"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "required": [
+          "telegram_id",
+          "store_id"
+        ],
+        "title": "TelegramWebDevices",
+        "type": "object"
+      },
+      "TelegramWebDevicesOut": {
+        "properties": {
+          "devices": {
+            "items": {
+              "$ref": "#/components/schemas/TelegramWebDeviceOut"
+            },
+            "title": "Devices",
+            "type": "array"
+          }
+        },
+        "required": [
+          "devices"
+        ],
+        "title": "TelegramWebDevicesOut",
+        "type": "object"
+      },
+      "TelegramWebForget": {
+        "properties": {
+          "device_key": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Key"
+          }
+        },
+        "title": "TelegramWebForget",
+        "type": "object"
+      },
       "TelegramWebInspect": {
         "properties": {
           "first_name": {
@@ -4951,6 +5098,22 @@
             "title": "Age Seconds",
             "type": "integer"
           },
+          "auto_approved": {
+            "default": false,
+            "title": "Auto Approved",
+            "type": "boolean"
+          },
+          "auto_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auto Reason"
+          },
           "choices": {
             "items": {
               "type": "string"
@@ -5020,6 +5183,33 @@
             "title": "Expires In",
             "type": "integer"
           },
+          "level": {
+            "anyOf": [
+              {
+                "enum": [
+                  "silent",
+                  "auto",
+                  "manual"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Level"
+          },
+          "match_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Match Code"
+          },
           "reason": {
             "anyOf": [
               {
@@ -5052,8 +5242,113 @@
         "title": "TelegramWebPollOut",
         "type": "object"
       },
+      "TelegramWebRevoke": {
+        "properties": {
+          "device_id": {
+            "anyOf": [
+              {
+                "maxLength": 36,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Id"
+          },
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
+          },
+          "language_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language Code"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
+          },
+          "store_id": {
+            "format": "uuid",
+            "title": "Store Id",
+            "type": "string"
+          },
+          "telegram_id": {
+            "title": "Telegram Id",
+            "type": "integer"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "required": [
+          "telegram_id",
+          "store_id"
+        ],
+        "title": "TelegramWebRevoke",
+        "type": "object"
+      },
+      "TelegramWebRevokeOut": {
+        "properties": {
+          "revoked": {
+            "title": "Revoked",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "revoked"
+        ],
+        "title": "TelegramWebRevokeOut",
+        "type": "object"
+      },
       "TelegramWebStart": {
         "properties": {
+          "device_key": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Key"
+          },
+          "remember": {
+            "default": true,
+            "title": "Remember",
+            "type": "boolean"
+          },
           "store_id": {
             "anyOf": [
               {
@@ -5083,6 +5378,16 @@
           "expires_in": {
             "title": "Expires In",
             "type": "integer"
+          },
+          "level": {
+            "default": "manual",
+            "enum": [
+              "silent",
+              "auto",
+              "manual"
+            ],
+            "title": "Level",
+            "type": "string"
           },
           "match_code": {
             "anyOf": [
@@ -12107,6 +12412,60 @@
         ]
       }
     },
+    "/api/v1/auth/telegram/web/bot/devices": {
+      "post": {
+        "description": "Trusted browsers of the calling Telegram account in this store (the bot's /devices screen).",
+        "operationId": "bot_devices_api_v1_auth_telegram_web_bot_devices_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-bot-secret",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "X-Bot-Secret",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TelegramWebDevices"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelegramWebDevicesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bot Devices",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/auth/telegram/web/bot/inspect": {
       "post": {
         "operationId": "bot_inspect_api_v1_auth_telegram_web_bot_inspect_post",
@@ -12155,6 +12514,107 @@
           }
         },
         "summary": "Bot Inspect",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/telegram/web/bot/revoke": {
+      "post": {
+        "description": "\"This was not me\" / remove one device. A Telegram account can only ever revoke its own devices.",
+        "operationId": "bot_revoke_api_v1_auth_telegram_web_bot_revoke_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-bot-secret",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "X-Bot-Secret",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TelegramWebRevoke"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelegramWebRevokeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bot Revoke",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/telegram/web/devices/forget": {
+      "post": {
+        "description": "The browser drops its own trust (sign-out on a shared computer). Holding the device key is the proof.",
+        "operationId": "forget_device_api_v1_auth_telegram_web_devices_forget_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/TelegramWebForget"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Forget Device",
         "tags": [
           "auth"
         ]
@@ -13519,6 +13979,100 @@
           }
         ],
         "summary": "Submit Details",
+        "tags": [
+          "reseller"
+        ]
+      }
+    },
+    "/api/v1/reseller/applications/{application_id}/verification": {
+      "get": {
+        "description": "What to publish to prove the domain, and where the automatic checks stand (no token, no secret in the answer).",
+        "operationId": "verification_status_api_v1_reseller_applications__application_id__verification_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Application Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Verification Status",
+        "tags": [
+          "reseller"
+        ]
+      }
+    },
+    "/api/v1/reseller/applications/{application_id}/verify-now": {
+      "post": {
+        "description": "The applicant just published the proof: check right away instead of waiting for the next scheduled round.",
+        "operationId": "verify_now_api_v1_reseller_applications__application_id__verify_now_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Application Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Verify Now",
         "tags": [
           "reseller"
         ]

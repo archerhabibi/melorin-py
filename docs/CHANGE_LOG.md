@@ -1109,3 +1109,10 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 - **After:** `tests/test_upstream_bot_adapter.py` 29 passed (18 before). NOT run against the real parent bot (no Telegram session here): the first live renewal should be done on a cheap account and compared with `renew_charged`.
 - **Ref:** branch god-ping
 
+
+### 2026-10-27 - Claude (with owner) - identify: reseller applications verify themselves
+- **Before:** the store domain of a reseller application was never proven (anyone could file somebody else's domain) and a bot that could not be checked at filing time (Telegram unreachable) stayed "unverified" until an admin clicked "verify bot".
+- **Problem:** admins had to judge identity by hand: is the domain really the applicant's, is the bot real. The one-step web form therefore depended on trust in the applicant.
+- **Action:** `modules/reseller/auto_verify.py` + worker job `reseller_auto_verify_job` (every 2 min, back-off on the row): bot re-checked until Telegram answers; domain control proven by DNS TXT (`_melorin-verify.<domain>`, via DoH) or `/.well-known/melorin-verify.txt` (SSRF-guarded, no redirects); code = HMAC(application id + domain). New endpoints `GET /reseller/applications/{id}/verification` and `POST .../verify-now`; admin list shows `domain_verified` / `auto_verified` / `verify_error`; admins are notified once when everything is proven. Settings `RESELLER_AUTO_VERIFY`, `RESELLER_REQUIRE_DOMAIN_PROOF` (default off), `RESELLER_VERIFY_WINDOW_DAYS`. Migration 0034.
+- **After:** 18 new tests; full API suite 1636 passed / 7 skipped; docs/21, API.md, STATUS.md and the OpenAPI snapshot regenerated. DNS-over-HTTPS and the HTTP proof were tested with mock transports only, NOT against a live domain.
+- **Ref:** branch identify

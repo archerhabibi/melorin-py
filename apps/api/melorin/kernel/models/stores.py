@@ -104,6 +104,12 @@ class ResellerApplication(IdMixin, TimestampMixin, Base):
     # request it moves to ``awaiting_details`` and keeps the approved debt limit here until the applicant
     # supplies the domain and bot token; only then is the store created.
     approved_debt_limit: Mapped[int | None] = mapped_column(BigInteger)
+    # Automatic identity verification (docs/21): proof that the applicant controls the domain, retried by a worker job.
+    domain_verified_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    domain_method: Mapped[str | None] = mapped_column(String(10))  # dns | http
+    verify_attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    verify_next_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    verify_error: Mapped[str | None] = mapped_column(String(200))
 
 
 class ApiCredential(IdMixin, TimestampMixin, Base):

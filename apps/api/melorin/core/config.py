@@ -138,6 +138,11 @@ class Settings(BaseSettings):
     # Identity-link conflicts (same verified identity on two accounts) are settled automatically when one account is an
     # empty shell (docs/21). False = every conflict waits for an admin, as before.
     identity_auto_link: bool = True
+    # Reseller applications verify themselves (docs/21): bot re-checked and domain control proven (DNS TXT or a file on the
+    # domain) by a worker job. ``reseller_require_domain_proof`` makes the proof mandatory before an admin can approve.
+    reseller_auto_verify: bool = True
+    reseller_require_domain_proof: bool = False
+    reseller_verify_window_days: int = 7
 
     store_web_url: str = "http://localhost:3000"
     public_api_url: str = ""

@@ -26,6 +26,7 @@ from melorin.worker.jobs import (
     reconciliation_job,
     telegram_login_gc_job,
     identity_auto_link_job,
+    reseller_auto_verify_job,
 )
 from melorin.core.metrics import set_gauge
 
@@ -64,6 +65,7 @@ class WorkerSettings:
         bank_sms_reconcile_job,
         receipt_grace_job,
         identity_auto_link_job,
+        reseller_auto_verify_job,
         telegram_login_gc_job,
     ]
     cron_jobs = [
@@ -78,6 +80,7 @@ class WorkerSettings:
         cron(privacy_retention_job, hour=3, minute=0, unique=True),
         cron(telegram_login_gc_job, minute=set(range(5, 60, 30)), unique=True),
         cron(identity_auto_link_job, minute=set(range(2, 60, 10)), unique=True),
+        cron(reseller_auto_verify_job, minute=set(range(0, 60, 2)), unique=True),
         cron(bank_sms_reconcile_job, second={30}, unique=True),
         cron(receipt_grace_job, second={10}, unique=True),
     ]

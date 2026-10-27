@@ -215,6 +215,18 @@ async def identity_auto_link_job(ctx=None):
         return settled
 
 
+async def reseller_auto_verify_job(ctx=None):
+    """Reseller applications verify themselves (docs/21): re-check the bot and the domain proof of every pending
+    application whose retry is due. Back-off lives on the row, so a restart or a second worker never double-runs it."""
+    from melorin.modules.reseller import auto_verify
+
+    async with session_factory()() as s:
+        done = await auto_verify.sweep(s)
+        if done:
+            log.info("reseller applications auto-verified rounds=%s", done)
+        return done
+
+
 async def bank_sms_reconcile_job(ctx=None):
     """Safety net for card-to-card auto verification: pair open deposit SMS with receipts uploaded later or whose
     inline match failed. Idempotent; the wallet credit is protected by the ledger idempotency key."""

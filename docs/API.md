@@ -277,7 +277,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/api/v1/reports/payments` | Payment Totals |
 | GET | `/api/v1/reports/stores/{store_id}/sales` | Store Sales |
 
-### `reseller` (54)
+### `reseller` (56)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -285,6 +285,8 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | POST | `/api/v1/reseller/applications` | Apply |
 | POST | `/api/v1/reseller/applications/{application_id}/cancel` | Cancel Application |
 | POST | `/api/v1/reseller/applications/{application_id}/details` | Submit Details |
+| GET | `/api/v1/reseller/applications/{application_id}/verification` | Verification Status |
+| POST | `/api/v1/reseller/applications/{application_id}/verify-now` | Verify Now |
 | GET | `/api/v1/stores/{store_id}/reseller/accounts` | Store Accounts |
 | GET | `/api/v1/stores/{store_id}/reseller/accounts/summary` | Store Accounts Summary |
 | GET | `/api/v1/stores/{store_id}/reseller/accounts/{account_id}` | Store Account |
