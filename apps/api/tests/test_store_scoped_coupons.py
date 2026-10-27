@@ -45,7 +45,9 @@ def test_a_reseller_can_never_widen_a_coupon_beyond_his_store():
 
     for over in ({"scope": "domain", "allowed_store_kinds": ("reseller",)}, {"store_id": "other"}):
         with pytest.raises(CouponError) as exc:
-            validate_definition(CouponRule(code="X", creator_type="reseller", percent_bp=500, **{"store_id": "a", **over}), creator_store_id="a")
+            validate_definition(
+                CouponRule(code="X", creator_type="reseller", percent_bp=500, **{"store_id": "a", **over}), creator_store_id="a"
+            )
         assert exc.value.code == "COUPON_SCOPE_FORBIDDEN"
 
 
@@ -114,9 +116,13 @@ async def _world(c, maker):
 async def test_owner_coupon_may_name_only_products_his_store_sells():
     async with api_client() as (c, maker, main):
         store_a, store_b, sold, unsold, h = await _world(c, maker)
-        bad = await c.post(f"{V1}/stores/{store_a.id}/coupons", headers=h["a"], json={"code": "BAD10", "percent_bp": 1000, "product_ids": [str(unsold.id)]})
+        bad = await c.post(
+            f"{V1}/stores/{store_a.id}/coupons", headers=h["a"], json={"code": "BAD10", "percent_bp": 1000, "product_ids": [str(unsold.id)]}
+        )
         assert bad.status_code == 400 and _code(bad) == "COUPON_PRODUCT_NOT_IN_STORE"
-        ok = await c.post(f"{V1}/stores/{store_a.id}/coupons", headers=h["a"], json={"code": "OK10", "percent_bp": 1000, "product_ids": [str(sold.id)]})
+        ok = await c.post(
+            f"{V1}/stores/{store_a.id}/coupons", headers=h["a"], json={"code": "OK10", "percent_bp": 1000, "product_ids": [str(sold.id)]}
+        )
         assert ok.status_code == 201 and ok.json()["store_id"] == str(store_a.id) and ok.json()["currency"] == "IRT"
         assert ok.json()["funded_by"] == "store"  # a reseller's coupon is never funded by the platform
 
@@ -128,9 +134,13 @@ async def test_owner_b_cannot_see_change_or_use_store_a_coupons():
         coupon_id = made.json()["id"]
         # B cannot reach A's coupon routes at all ...
         assert (await c.get(f"{V1}/stores/{store_a.id}/coupons", headers=h["b"])).status_code == 403
-        assert (await c.patch(f"{V1}/stores/{store_a.id}/coupons/{coupon_id}", headers=h["b"], json={"status": "disabled"})).status_code == 403
+        assert (
+            await c.patch(f"{V1}/stores/{store_a.id}/coupons/{coupon_id}", headers=h["b"], json={"status": "disabled"})
+        ).status_code == 403
         # ... and cannot reach it through his OWN store's route either (404, indistinguishable from a missing id)
-        assert (await c.patch(f"{V1}/stores/{store_b.id}/coupons/{coupon_id}", headers=h["b"], json={"status": "disabled"})).status_code == 404
+        assert (
+            await c.patch(f"{V1}/stores/{store_b.id}/coupons/{coupon_id}", headers=h["b"], json={"status": "disabled"})
+        ).status_code == 404
         assert (await c.get(f"{V1}/stores/{store_b.id}/coupons", headers=h["b"])).json() == []
         # the same code is free to exist in store B with its own life
         same = await c.post(f"{V1}/stores/{store_b.id}/coupons", headers=h["b"], json={"code": "ONLYA", "percent_bp": 500})
@@ -147,10 +157,14 @@ async def test_admin_store_coupon_is_pinned_to_an_existing_store_and_its_currenc
         assert pinned.status_code == 201 and pinned.json()["currency"] == "IRR"  # the store's currency, even though none was sent
         wrong = await c.post(f"{V1}/admin/coupons", headers=h["root"], json={**body, "code": "ADM11", "currency": "USD"})
         assert wrong.status_code == 400 and _code(wrong) == "COUPON_CURRENCY_MISMATCH"
-        ghost = await c.post(f"{V1}/admin/coupons", headers=h["root"], json={**body, "code": "ADM12", "store_id": "00000000-0000-0000-0000-000000000001"})
+        ghost = await c.post(
+            f"{V1}/admin/coupons", headers=h["root"], json={**body, "code": "ADM12", "store_id": "00000000-0000-0000-0000-000000000001"}
+        )
         assert ghost.status_code == 404
         foreign = await c.post(
-            f"{V1}/admin/coupons", headers=h["root"], json={**body, "code": "ADM13", "store_id": str(store_a.id), "product_ids": [str(unsold.id)]}
+            f"{V1}/admin/coupons",
+            headers=h["root"],
+            json={**body, "code": "ADM13", "store_id": str(store_a.id), "product_ids": [str(unsold.id)]},
         )
         assert foreign.status_code == 400 and _code(foreign) == "COUPON_PRODUCT_NOT_IN_STORE"
 
@@ -159,7 +173,9 @@ async def test_admin_domain_coupon_validates_its_allowed_stores_and_kinds():
     async with api_client() as (c, maker, main):
         store_a, store_b, sold, unsold, h = await _world(c, maker)
         base = {"code": "DOM10", "percent_bp": 1000, "scope": "domain"}
-        ghost = await c.post(f"{V1}/admin/coupons", headers=h["root"], json={**base, "allowed_store_ids": ["00000000-0000-0000-0000-000000000001"]})
+        ghost = await c.post(
+            f"{V1}/admin/coupons", headers=h["root"], json={**base, "allowed_store_ids": ["00000000-0000-0000-0000-000000000001"]}
+        )
         assert ghost.status_code == 400 and _code(ghost) == "COUPON_SCOPE_FORBIDDEN"
         kind = await c.post(f"{V1}/admin/coupons", headers=h["root"], json={**base, "allowed_store_kinds": ["galaxy"]})
         assert kind.status_code == 400 and _code(kind) == "COUPON_SCOPE_FORBIDDEN"

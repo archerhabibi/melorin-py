@@ -29,16 +29,16 @@ async def is_store_member(session: AsyncSession, store: Store, user_id: uuid.UUI
     """A person belongs to a store when he has an ACTIVE membership there (or owns it). Blocked members do not count."""
     if store.owner_user_id == user_id:
         return True
-    status = await session.scalar(select(StoreMembership.status).where(StoreMembership.store_id == store.id, StoreMembership.user_id == user_id))
+    status = await session.scalar(
+        select(StoreMembership.status).where(StoreMembership.store_id == store.id, StoreMembership.user_id == user_id)
+    )
     return status == "active"
 
 
 async def has_store_history(session: AsyncSession, store_id: uuid.UUID, user_id: uuid.UUID) -> bool:
     """True when the customer already bought (a real, non-test order) in THIS store: he is no longer 'new here'."""
     return bool(
-        await session.scalar(
-            select(Order.id).where(Order.user_id == user_id, Order.store_id == store_id, Order.kind != "test").limit(1)
-        )
+        await session.scalar(select(Order.id).where(Order.user_id == user_id, Order.store_id == store_id, Order.kind != "test").limit(1))
     )
 
 
@@ -57,7 +57,9 @@ async def attach(session: AsyncSession, store_id: uuid.UUID, referred: User, ref
     if not await is_store_member(session, store, referrer.id):
         return False
     exists = await session.scalar(
-        select(ReferralRelationship.id).where(ReferralRelationship.store_id == store_id, ReferralRelationship.referred_user_id == referred.id)
+        select(ReferralRelationship.id).where(
+            ReferralRelationship.store_id == store_id, ReferralRelationship.referred_user_id == referred.id
+        )
     )
     if exists:
         return False
@@ -372,7 +374,9 @@ async def program_for(session: AsyncSession, store: Store) -> dict:
 
 async def store_summary(session: AsyncSession, store_id: uuid.UUID, *, top: int = 5) -> dict:
     """Numbers of ONE store's programme: members invited, what was paid, reversed and is still owed back."""
-    invited = await session.scalar(select(func.count()).select_from(ReferralRelationship).where(ReferralRelationship.store_id == store_id)) or 0
+    invited = (
+        await session.scalar(select(func.count()).select_from(ReferralRelationship).where(ReferralRelationship.store_id == store_id)) or 0
+    )
     referrers = (
         await session.scalar(
             select(func.count(func.distinct(ReferralRelationship.referrer_user_id))).where(ReferralRelationship.store_id == store_id)
@@ -402,7 +406,9 @@ async def store_summary(session: AsyncSession, store_id: uuid.UUID, *, top: int 
         k["reversed"] += int(reversed_) if status == "reversed" else 0
         total_paid += int(amount) - int(offset)
         total_reversed += int(reversed_) if status == "reversed" else 0
-    outstanding = await session.scalar(select(func.coalesce(func.sum(CommissionClawback.outstanding), 0)).where(CommissionClawback.store_id == store_id))
+    outstanding = await session.scalar(
+        select(func.coalesce(func.sum(CommissionClawback.outstanding), 0)).where(CommissionClawback.store_id == store_id)
+    )
     leaders = (
         await session.execute(
             select(Commission.referrer_user_id, func.count(), func.coalesce(func.sum(Commission.amount - Commission.offset_amount), 0))

@@ -50,7 +50,9 @@ async def _after_signup(session, user: User, created: bool, store_id, ref_code: 
     if not store:
         return
     if not created:
-        member = await session.scalar(select(StoreMembership.id).where(StoreMembership.store_id == store.id, StoreMembership.user_id == user.id))
+        member = await session.scalar(
+            select(StoreMembership.id).where(StoreMembership.store_id == store.id, StoreMembership.user_id == user.id)
+        )
         if member:
             return
     referrer = await service.user_by_referral_code(session, ref_code)

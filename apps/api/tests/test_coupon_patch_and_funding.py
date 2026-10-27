@@ -87,7 +87,9 @@ async def test_a_legacy_store_funded_domain_coupon_still_costs_the_reseller_noth
         product = await make_product(s, price=10_000)
         sp = StoreProduct(store_id=store.id, product_id=product.id, is_enabled=True, customer_price=12_000)
         s.add(sp)
-        domain = Coupon(code="OLD", owner_key="admin", scope="domain", funded_by="store", fixed=1000, currency="IRT", allowed_store_kinds=["reseller"])
+        domain = Coupon(
+            code="OLD", owner_key="admin", scope="domain", funded_by="store", fixed=1000, currency="IRT", allowed_store_kinds=["reseller"]
+        )
         own = Coupon(code="OWN", owner_key=str(store.id), store_id=store.id, scope="store", funded_by="store", fixed=1000, currency="IRT")
         s.add_all([domain, own])
         await s.commit()

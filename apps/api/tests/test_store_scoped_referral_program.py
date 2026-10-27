@@ -59,7 +59,17 @@ async def _complete(s, user, store, product, *, total=1000, when=None):
 
 
 async def _rule(s, store, kind, model, value, *, product=None, active=True, max_amount=None):
-    s.add(CommissionRule(store_id=store.id, product_id=product.id if product else None, kind=kind, model=model, value=value, is_active=active, max_amount=max_amount))
+    s.add(
+        CommissionRule(
+            store_id=store.id,
+            product_id=product.id if product else None,
+            kind=kind,
+            model=model,
+            value=value,
+            is_active=active,
+            max_amount=max_amount,
+        )
+    )
     await s.commit()
 
 
@@ -271,7 +281,16 @@ async def test_upsert_rule_updates_the_one_default_plan_instead_of_duplicating_i
         actor = await make_user(s)
         for value in (100, 250):
             await referral.upsert_rule(
-                s, store_a, product_id=None, kind="signup_reward", model="fixed", value=value, max_amount=None, is_active=True, actor_id=actor.id, actor_type="reseller"
+                s,
+                store_a,
+                product_id=None,
+                kind="signup_reward",
+                model="fixed",
+                value=value,
+                max_amount=None,
+                is_active=True,
+                actor_id=actor.id,
+                actor_type="reseller",
             )
             await s.commit()
         rows = (await s.scalars(select(CommissionRule).where(CommissionRule.store_id == store_a.id))).all()
@@ -286,18 +305,45 @@ async def test_upsert_rule_refuses_a_product_the_reseller_store_does_not_sell_an
         actor = await make_user(s)
         with pytest.raises(AppError) as exc:
             await referral.upsert_rule(
-                s, store_a, product_id=product.id, kind="commission", model="percent", value=500, max_amount=None, is_active=True, actor_id=actor.id, actor_type="reseller"
+                s,
+                store_a,
+                product_id=product.id,
+                kind="commission",
+                model="percent",
+                value=500,
+                max_amount=None,
+                is_active=True,
+                actor_id=actor.id,
+                actor_type="reseller",
             )
         assert exc.value.code == "REFERRAL_PRODUCT_NOT_IN_STORE"
         s.add(StoreProduct(store_id=store_a.id, product_id=product.id, is_enabled=True))
         await s.commit()
         row = await referral.upsert_rule(
-            s, store_a, product_id=product.id, kind="commission", model="percent", value=500, max_amount=None, is_active=True, actor_id=actor.id, actor_type="reseller"
+            s,
+            store_a,
+            product_id=product.id,
+            kind="commission",
+            model="percent",
+            value=500,
+            max_amount=None,
+            is_active=True,
+            actor_id=actor.id,
+            actor_type="reseller",
         )
         assert row.product_id == product.id
         with pytest.raises(AppError) as exc:
             await referral.upsert_rule(
-                s, store_a, product_id=None, kind="commission", model="percent", value=20_000, max_amount=None, is_active=True, actor_id=actor.id, actor_type="reseller"
+                s,
+                store_a,
+                product_id=None,
+                kind="commission",
+                model="percent",
+                value=20_000,
+                max_amount=None,
+                is_active=True,
+                actor_id=actor.id,
+                actor_type="reseller",
             )
         assert exc.value.code == "REFERRAL_BAD_VALUE"
 
@@ -439,7 +485,9 @@ async def test_owner_cannot_name_another_store_or_an_unsafe_plan():
             json={"kind": "commission", "model": "percent", "value": 500, "store_id": str(store_b.id)},
         )
         assert r.status_code == 200 and r.json()["store_id"] == str(store_a.id)
-        too_much = await c.put(f"{V1}/stores/{store_a.id}/referral-rules", headers=h["a"], json={"kind": "commission", "model": "percent", "value": 10_001})
+        too_much = await c.put(
+            f"{V1}/stores/{store_a.id}/referral-rules", headers=h["a"], json={"kind": "commission", "model": "percent", "value": 10_001}
+        )
         assert too_much.status_code == 400 and _code(too_much) == "REFERRAL_BAD_VALUE"
         foreign_product = await make_foreign_product(maker)
         bad = await c.put(
