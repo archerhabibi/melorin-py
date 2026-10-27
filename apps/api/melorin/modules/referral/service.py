@@ -277,6 +277,11 @@ def rule_out(r: CommissionRule) -> dict:
     }
 
 
+def _audit_view(r: CommissionRule) -> dict:
+    """``rule_out`` with JSON-safe ids (the audit log stores JSON)."""
+    return {k: str(v) if isinstance(v, uuid.UUID) else v for k, v in rule_out(r).items()}
+
+
 async def list_rules(session: AsyncSession, store_id: uuid.UUID) -> list[CommissionRule]:
     q = select(CommissionRule).where(CommissionRule.store_id == store_id).order_by(CommissionRule.kind, CommissionRule.created_at)
     return list((await session.scalars(q)).all())
@@ -324,7 +329,7 @@ async def upsert_rule(
             CommissionRule.kind == kind,
         )
     )
-    before = rule_out(row) if row else None
+    before = _audit_view(row) if row else None
     if not row:
         row = CommissionRule(store_id=store.id, product_id=product_id, kind=kind)
         session.add(row)
@@ -338,7 +343,7 @@ async def upsert_rule(
         entity_type="commission_rule",
         entity_id=row.id,
         store_id=store.id,
-        data={"before": before, "after": rule_out(row)},
+        data={"before": before, "after": _audit_view(row)},
     )
     return row
 
