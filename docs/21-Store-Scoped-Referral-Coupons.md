@@ -1,6 +1,6 @@
 # رفرال، کمیسیون و کد تخفیف: هر فروشگاه / نمایندگی برنامه‌ی خودش را دارد
 
-> شاخه: `feat/store-scoped-referral-coupons` · migration: `0036_store_scoped_referral` · جایگزین بخش «رفرال» در `17-Referral-Coupon-Store-Scope.md` (که فقط «خرید در فروشگاه دیگر پاداش نمی‌دهد» را می‌گفت).
+> شاخه: `feat/store-scoped-referral-coupons` · migration: `0036_store_scoped_referral` و `0037_commission_reward_unique` · جایگزین بخش «رفرال» در `17-Referral-Coupon-Store-Scope.md` (که فقط «خرید در فروشگاه دیگر پاداش نمی‌دهد» را می‌گفت).
 
 ## قاعده‌ی اصلی
 هیچ کد تخفیف، پاداش معرفی یا کمیسیونی از فروشگاهی به فروشگاه دیگر نمی‌رود. هر نماینده برنامه‌ی خودش را تعریف می‌کند، از **حساب هزینه‌ی خودش** پرداخت می‌شود و فقط برای مشتریان **خودش** کار می‌کند. منطق فقط در Core است؛ سایت و ربات فقط نمایش می‌دهند.
@@ -55,3 +55,10 @@
 * ممیزی دوم (کد): دو خطای واقعی پیدا و با تست رفع شد. (۱) اگر اولین سفارشِ پاداش‌گرفته مسترد می‌شد، سفارش بعدی دوباره «پاداش ثبت‌نام» حساب می‌شد و به کلید یکتای `(store_id, referred_user_id, kind)` می‌خورد؛ اکنون وقتی پاداش ثبت‌نام قبلاً در همان فروشگاه داده شده، سفارش‌های بعدی کمیسیون عادی می‌گیرند. (۲) `attach` در رقابت هم‌زمان دو ثبت‌نام خطای ۵۰۰ می‌داد؛ اکنون با savepoint، اولین رابطه برنده است و دومی بی‌صدا نادیده گرفته می‌شود.
 * Second audit (EN): fixed a refunded-first-order crash (a second signup reward hit the per-store unique key) and a race in `attach` (now savepoint-guarded, first touch wins).
 * Audit result (EN): referral rewards, commissions and discount codes are enforced per store in Core only; a code, reward or commission never crosses stores, except admin-approved multi-store (domain) coupons, which the platform funds.
+
+## ممیزی سوم (مستقل، روی PostgreSQL واقعی)
+* **باگ ۱ - کمیسیون فقط برای اولین خرید پرداخت می‌شد.** قید یکتای `(store_id, referred_user_id, kind)` برای هر دو نوع اعمال می‌شد (و قبل از آن `(referred_user_id, kind)` در `main`)؛ پس هر مشتری در هر فروشگاه فقط یک ردیف `commission` می‌توانست داشته باشد و از سفارش دوم job کارگر با خطای یکتایی شکست می‌خورد و معرف دیگر پولی نمی‌گرفت. اکنون فقط **پاداش ثبت‌نام** یکتاست (ایندکس جزئی `WHERE kind='signup_reward'`)، migration `0037` (بالا و پایین روی PostgreSQL آزموده شد)؛ `(order_id, kind)` همچنان یکتاست. downgrade ردیف مالی را پاک نمی‌کند و اگر چند کمیسیون وجود داشته باشد صریح شکست می‌خورد.
+* **باگ ۲ - «درآمد» کمتر از واقعیت نمایش داده می‌شد.** `earned` از ۵۰ کمیسیون آخر (سایت) یا ۲۰۰ تای آخر (ربات) جمع می‌شد. اکنون `service.earnings` در دیتابیس روی همه‌ی کمیسیون‌های همان فروشگاه جمع می‌زند و `earned` و `commissions_total` را هم در `/stores/{id}/referral` و هم در `/me/referrals` می‌دهد؛ ربات از همین عدد استفاده می‌کند.
+* تست‌ها: ۶۰ کمیسیون پیاپی برای یک مشتری، قید دیتابیس (چند کمیسیون مجاز، پاداش ثبت‌نام دوم رد)، و صفحه‌ی ربات. API ‏1715 تست و ۱۳۶ تست مرتبط روی PostgreSQL سبز.
+* باقی‌مانده: حلقه‌ی سه‌نفره‌ی معرفی (A→B→C→A) مسدود نیست (فقط حلقه‌ی دوطرفه)؛ با ساخت حساب دوم هم قابل‌دور‌زدن است و فقط تخفیف شخصی از حاشیه‌ی همان فروشگاه است، نه ریسک برای پلتفرم.
+

@@ -24,8 +24,16 @@ class Commission(IdMixin, CreatedMixin, Base):
     __tablename__ = "commissions"
     __table_args__ = (
         UniqueConstraint("order_id", "kind"),
-        # one signup reward per referred customer PER STORE (a customer may legitimately earn one in each store he joined)
-        UniqueConstraint("store_id", "referred_user_id", "kind"),
+        # ONE signup reward per referred customer PER STORE (a customer may legitimately earn one in each store he joined). Only the
+        # reward is unique: the ordinary commission is paid again on every later order, so it must never share this guard.
+        Index(
+            "uq_commissions_store_referred_signup_reward",
+            "store_id",
+            "referred_user_id",
+            unique=True,
+            postgresql_where=text("kind = 'signup_reward'"),
+            sqlite_where=text("kind = 'signup_reward'"),
+        ),
     )
     store_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("stores.id"), index=True)
     order_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("orders.id"))

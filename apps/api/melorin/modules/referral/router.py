@@ -67,14 +67,14 @@ async def store_referral(ctx: StoreCtx, session: Session):
     com_scope = (Commission.referrer_user_id == user.id, Commission.store_id == store.id)
     invited = len((await session.scalars(select(ReferralRelationship.id).where(*rel_scope))).all())
     commissions = (await session.scalars(select(Commission).where(*com_scope).order_by(Commission.created_at.desc()).limit(50))).all()
-    earned = sum(c.amount - c.offset_amount - (c.reversed_amount if c.status == "reversed" else 0) for c in commissions)
+    standing = await service.earnings(session, user.id, store.id)  # all commissions, not just the 50 listed below
     return {
         "store_id": store.id,
         "referral_code": user.referral_code,
         "links": _links(store, user.referral_code),
         "program": await service.program_for(session, store),
         "invited": invited,
-        "earned": max(0, earned),
+        **standing,
         "currency": store.currency,
         "commissions": [_commission_out(c) for c in commissions],
     }
@@ -95,7 +95,9 @@ async def my_referrals(auth: CurrentAuth, session: Session):
     relationship = await session.scalar(select(ReferralRelationship).where(*rel_scope))
     commissions = (await session.scalars(select(Commission).where(*com_scope).order_by(Commission.created_at.desc()).limit(200))).all()
     store = await session.get(Store, auth.claims.store_id) if auth.claims.store_id else None
+    standing = await service.earnings(session, user.id, store.id) if store else {}
     return {
+        **standing,
         "referral_code": user.referral_code,
         "referred_count": len((await session.scalars(select(ReferralRelationship).where(*rel_scope))).all()),
         "first_relationship_store_id": relationship.store_id if relationship else None,

@@ -630,3 +630,50 @@ async def test_two_racing_attachments_leave_exactly_one_relationship_and_no_erro
         await s.commit()
         rows = (await s.scalars(select(ReferralRelationship).where(ReferralRelationship.store_id == store_a.id))).all()
         assert [r.referrer_user_id for r in rows] == [rival.id]  # first touch wins; ours is dropped quietly
+
+
+async def test_earned_counts_every_commission_of_the_store_not_only_the_latest_page_the_screens_list():
+    """An active referrer has more commissions than the screens list (50 on the site, 200 for the bots): the total is a database sum."""
+    async with open_session() as s:
+        main, store_a, store_b, referrer, friend, product = await _world(s)
+        await _rule(s, store_a, "commission", "fixed", 10)
+        await referral.attach(s, store_a.id, friend, referrer)
+        await s.commit()
+        base = utcnow() - dt.timedelta(days=90)
+        for i in range(61):  # the 1st order is the (unpaid, no plan) sign-up reward; the other 60 each pay a 10 commission
+            o = await _complete(s, friend, store_a, product, when=base + dt.timedelta(hours=i))
+            await referral.on_order_completed(s, o.id)
+            await s.commit()
+        site = await referral_router.store_referral(await deps.resolve_store_context(s, store_a.id, referrer), s)
+        assert len(site["commissions"]) == 50  # the list stays short ...
+        assert site["earned"] == 600 and site["commissions_total"] == 60  # ... the number does not
+        bot = await referral_router.my_referrals(_session_of(referrer, store_a), s)
+        assert bot["earned"] == 600 and bot["commissions_total"] == 60
+        assert (await referral_router.my_referrals(_session_of(referrer, store_b), s))["earned"] == 0  # never another store's money
+
+
+async def test_the_database_allows_many_commissions_but_only_one_signup_reward_per_customer_per_store():
+    from sqlalchemy.exc import IntegrityError
+
+    async with open_session() as s:
+        main, store_a, store_b, referrer, friend, product = await _world(s)
+        orders = [await _complete(s, friend, store_a, product, when=utcnow() - dt.timedelta(hours=h)) for h in (3, 2, 1)]
+
+        def row(order, kind, store=store_a):
+            return Commission(
+                store_id=store.id,
+                order_id=order.id,
+                referrer_user_id=referrer.id,
+                referred_user_id=friend.id,
+                kind=kind,
+                amount=5,
+                currency="IRT",
+            )
+
+        s.add_all([row(orders[0], "commission"), row(orders[1], "commission"), row(orders[2], "signup_reward")])
+        await s.commit()  # a customer's later orders each pay a commission
+        with pytest.raises(IntegrityError):  # ... but the sign-up reward is still once per customer per store
+            async with s.begin_nested():
+                s.add(row(orders[0], "signup_reward"))
+                await s.flush()
+        await s.rollback()

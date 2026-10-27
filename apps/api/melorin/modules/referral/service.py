@@ -9,7 +9,7 @@ spent the reward, the uncovered amount becomes a clawback offset against future 
 
 import uuid
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -276,6 +276,22 @@ async def on_order_refunded(session: AsyncSession, order_id: uuid.UUID) -> None:
                 {"store_id": c.store_id, "topic": ec_topics.AFFILIATE, "text": text},
                 dedup_key=f"ec:affiliate:reversal:{c.id}",
             )
+
+
+async def earnings(session: AsyncSession, referrer_id: uuid.UUID, store_id: uuid.UUID) -> dict:
+    """What ``referrer_id`` really earned in ONE store: summed in the database over ALL his commissions there.
+
+    The customer screens list only the latest commissions, so adding up that list under-reports an active referrer; this is
+    the single source of the number. A reversed commission keeps only what was not taken back (normally nothing)."""
+    net = Commission.amount - Commission.offset_amount - case((Commission.status == "reversed", Commission.reversed_amount), else_=0)
+    total, count = (
+        await session.execute(
+            select(func.coalesce(func.sum(net), 0), func.count()).where(
+                Commission.referrer_user_id == referrer_id, Commission.store_id == store_id
+            )
+        )
+    ).one()
+    return {"earned": max(0, int(total)), "commissions_total": int(count)}
 
 
 # ---------------------------------------------------------------- plan management (one store at a time)

@@ -51,3 +51,17 @@ def test_store_without_programme_says_so_and_falls_back_to_bot_link():
     assert "فعال نیست" in text
     assert FALLBACK in text
     assert "درآمد" not in text
+
+
+def test_earnings_come_from_cores_total_not_from_the_short_commission_list():
+    data = {
+        "links": {"telegram": "https://t.me/shop_bot?start=ref_AB12"},
+        "referred_count": 80,
+        "earned": 123456,
+        "program": {"enabled": True, "currency": "IRT"},
+        "commissions": [{"status": "credited", "amount": 10, "offset_amount": 0, "currency": "IRT"}],
+    }
+    text = referral_text(data, FALLBACK)
+    assert "123" in text.replace(",", "").replace("٬", "") or "۱۲۳" in text
+    assert "10</b>" not in text
+

@@ -196,10 +196,14 @@ def referral_text(data: dict, fallback_link: str) -> str:
     lines += [f"لینک اختصاصی شما:\n{esc(link)}", ""]
     count = data.get("referred_count", data.get("count", data.get("total", 0)))
     lines.append(f"تعداد زیرمجموعه‌ها: <b>{count}</b>")
+    if data.get("earned") is not None:  # Core sums every commission of this store; the list below is only the latest ones
+        if int(data["earned"]) > 0:
+            lines.append(f"درآمد ثبت‌شده از دعوت‌ها: <b>{fmt(int(data['earned']), currency)}</b>")
+        return "\n".join(lines)
     credited = [
         c for c in data.get("commissions") or [] if c.get("status") == "credited"
     ]
-    if credited:
+    if credited:  # older Core without ``earned``: best effort from the listed commissions
         earned = sum(
             int(c.get("amount") or 0) - int(c.get("offset_amount") or 0)
             for c in credited

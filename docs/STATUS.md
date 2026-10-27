@@ -6,12 +6,12 @@
 
 | Measurement | Value |
 |---|---|
-| Alembic head | `0036_store_scoped_referral` |
-| Migrations | 36 |
+| Alembic head | `0037_commission_reward_unique` |
+| Migrations | 37 |
 | ORM tables | 59 |
 | API operations | 271 |
 | API paths | 237 |
-| Test files / test functions (static count) | 162 / 1443 |
+| Test files / test functions (static count) | 162 / 1447 |
 | Coverage | not measured here (CI writes `apps/api/coverage.xml`; run `pytest --cov=melorin --cov-report=xml`) |
 | Documents: repo root / `docs/` / `docs/history/` (tests only) | 3 / 32 / 4 |
 
