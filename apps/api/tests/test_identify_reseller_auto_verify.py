@@ -77,7 +77,9 @@ def test_challenge_is_stable_per_application_and_domain_but_never_shared():
     assert len(auto_verify.challenge_code(a, "x.com")) == 32
 
 
-@pytest.mark.parametrize("ip,ok", [("8.8.8.8", True), ("10.0.0.5", False), ("127.0.0.1", False), ("169.254.169.254", False), ("::1", False), ("nope", False)])
+@pytest.mark.parametrize(
+    "ip,ok", [("8.8.8.8", True), ("10.0.0.5", False), ("127.0.0.1", False), ("169.254.169.254", False), ("::1", False), ("nope", False)]
+)
 def test_only_public_addresses_pass(ip, ok):
     assert auto_verify.is_public_ip(ip) is ok
 
@@ -91,10 +93,18 @@ async def test_dns_proof_verifies_domain_and_bot_and_alerts_admin():
         value = auto_verify.challenge_value(a.id, a.domain)
         await auto_verify.verify(s, a, dns_transport=doh(value))
         await s.commit()
-        assert (a.domain_verified_at is not None, a.domain_method, a.bot_verified, a.verify_next_at, a.verify_error) == (True, "dns", True, None, None)
+        assert (a.domain_verified_at is not None, a.domain_method, a.bot_verified, a.verify_next_at, a.verify_error) == (
+            True,
+            "dns",
+            True,
+            None,
+            None,
+        )
         actions = set((await s.scalars(select(AuditEvent.action))).all())
         assert {"reseller.application_domain_verified", "reseller.application_auto_verified"} <= actions
-        assert await s.scalar(select(OutboxEvent.id).where(OutboxEvent.payload["kind"].as_string() == "admin_reseller_verified")) is not None
+        assert (
+            await s.scalar(select(OutboxEvent.id).where(OutboxEvent.payload["kind"].as_string() == "admin_reseller_verified")) is not None
+        )
 
 
 async def test_http_file_is_the_fallback():
@@ -133,6 +143,16 @@ async def test_private_hosts_are_refused_without_a_request(monkeypatch):
     monkeypatch.setattr(httpx.AsyncClient, "get", lambda *a, **k: called.append(1))
     assert await auto_verify.check_http("evil.example.com", "v") is False
     assert not called
+
+
+async def test_http_proof_body_is_capped_and_matched_exactly():
+    value = "melorin-verify=" + "a" * 32
+    assert await auto_verify.check_http("shop.example.com", value, transport=site(value + "\n")) is True
+    # an endless / oversized body is never buffered and never counts, even if it starts with the right value
+    big = value + " " + "x" * (auto_verify.MAX_PROOF_BYTES * 8)
+    assert await auto_verify.check_http("shop.example.com", value, transport=site(big)) is False
+    assert await auto_verify.check_http("shop.example.com", value, transport=site("nope")) is False
+    assert await auto_verify.check_http("shop.example.com", value, transport=site(value, status=301)) is False
 
 
 # --- bot --------------------------------------------------------------------------------------------------------------

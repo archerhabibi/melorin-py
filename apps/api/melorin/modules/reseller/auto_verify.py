@@ -44,6 +44,7 @@ DOH_URL = "https://cloudflare-dns.com/dns-query"
 # After attempt n the next one is due BACKOFF[min(n-1, last)] later: quick at first, then every few hours.
 BACKOFF = (dt.timedelta(minutes=2), dt.timedelta(minutes=5), dt.timedelta(minutes=15), dt.timedelta(hours=1), dt.timedelta(hours=6))
 BATCH = 50
+MAX_PROOF_BYTES = 512  # the proof file is one short line; anything bigger is not it
 
 
 def _aware(value: dt.datetime) -> dt.datetime:
@@ -105,7 +106,9 @@ async def host_is_public(domain: str) -> bool:
 async def check_dns(domain: str, value: str, *, transport: httpx.AsyncBaseTransport | None = None) -> bool:
     try:
         async with httpx.AsyncClient(timeout=8, transport=transport) as client:
-            r = await client.get(DOH_URL, params={"name": f"{TXT_PREFIX}.{domain}", "type": "TXT"}, headers={"accept": "application/dns-json"})
+            r = await client.get(
+                DOH_URL, params={"name": f"{TXT_PREFIX}.{domain}", "type": "TXT"}, headers={"accept": "application/dns-json"}
+            )
         return r.status_code == 200 and _txt_matches((r.json() or {}).get("Answer"), value)
     except (httpx.HTTPError, ValueError):
         return False
@@ -116,8 +119,16 @@ async def check_http(domain: str, value: str, *, transport: httpx.AsyncBaseTrans
         return False
     try:
         async with httpx.AsyncClient(timeout=8, transport=transport, follow_redirects=False) as client:
-            r = await client.get(f"https://{domain}{HTTP_PATH}")
-        return r.status_code == 200 and r.text[:512].strip() == value
+            # Streamed and capped: a hostile domain must not be able to make the worker buffer an endless body.
+            async with client.stream("GET", f"https://{domain}{HTTP_PATH}") as r:
+                if r.status_code != 200:
+                    return False
+                body = b""
+                async for chunk in r.aiter_bytes():
+                    body += chunk
+                    if len(body) > MAX_PROOF_BYTES:
+                        return False
+        return body.decode("utf-8", errors="replace").strip() == value
     except httpx.HTTPError:
         return False
 
@@ -163,7 +174,11 @@ async def verify(
             else:
                 a.bot_username, a.bot_verified = username, True
                 audit.record(
-                    session, "reseller.application_bot_auto_verified", actor_id=actor_id, entity_type="reseller_application", entity_id=a.id,
+                    session,
+                    "reseller.application_bot_auto_verified",
+                    actor_id=actor_id,
+                    entity_type="reseller_application",
+                    entity_id=a.id,
                     data={"bot_username": username},
                 )
 
@@ -175,7 +190,11 @@ async def verify(
         if method:
             a.domain_verified_at, a.domain_method = now, method
             audit.record(
-                session, "reseller.application_domain_verified", actor_id=actor_id, entity_type="reseller_application", entity_id=a.id,
+                session,
+                "reseller.application_domain_verified",
+                actor_id=actor_id,
+                entity_type="reseller_application",
+                entity_id=a.id,
                 data={"domain": a.domain, "method": method},
             )
         else:
@@ -191,7 +210,9 @@ async def verify(
 async def _announce_ready(session: AsyncSession, a: ResellerApplication) -> None:
     from melorin.modules.reseller import auto_approve, onboarding
 
-    audit.record(session, "reseller.application_auto_verified", entity_type="reseller_application", entity_id=a.id, data={"domain": a.domain})
+    audit.record(
+        session, "reseller.application_auto_verified", entity_type="reseller_application", entity_id=a.id, data={"domain": a.domain}
+    )
     if await auto_approve.try_approve(session, a):  # policy says fully proven applications approve themselves
         return
     await onboarding.alert_admins(
