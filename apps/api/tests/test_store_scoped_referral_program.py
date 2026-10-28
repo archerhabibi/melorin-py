@@ -169,6 +169,29 @@ async def test_mutual_referral_loops_and_self_referral_are_refused():
         assert await referral.attach(s, store_a.id, referrer, friend) is False  # B cannot become A's referrer in the same store
 
 
+async def test_longer_referral_loops_are_refused_inside_the_store_but_each_store_keeps_its_own_graph():
+    """a -> b -> c -> d is a chain; letting d (or c) become a's referrer would close a ring that pays rewards in circles."""
+    async with open_session() as s:
+        _, store_a, store_b, a, b, _ = await _world(s)
+        c, d = await make_user(s), await make_user(s)
+        await _join(s, store_a, b, c, d)
+        await _join(s, store_b, b, c, d)
+        assert await referral.attach(s, store_a.id, b, a) is True  # a invited b
+        assert await referral.attach(s, store_a.id, c, b) is True  # b invited c
+        assert await referral.attach(s, store_a.id, d, c) is True  # c invited d
+        assert await referral.attach(s, store_a.id, a, c) is False  # would close a -> b -> c -> a
+        assert await referral.attach(s, store_a.id, a, d) is False  # would close a -> b -> c -> d -> a
+        # the refused links left nothing behind, and a is still free to be invited by someone outside the chain
+        assert (
+            await s.scalar(select(func.count()).select_from(ReferralRelationship).where(ReferralRelationship.store_id == store_a.id)) == 3
+        )
+        outsider = await make_user(s)
+        await _join(s, store_a, outsider)
+        assert await referral.attach(s, store_a.id, a, outsider) is True
+        # another store has its own, independent graph: the same pair is a fresh, legitimate link there
+        assert await referral.attach(s, store_b.id, a, d) is True
+
+
 # ------------------------------------------------------------------ rewards are paid inside the store, from its own plan
 async def test_each_store_pays_only_its_own_plan_into_its_own_wallet():
     async with open_session() as s:
