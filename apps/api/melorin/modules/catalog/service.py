@@ -1,3 +1,4 @@
+import dataclasses
 import uuid
 
 from sqlalchemy import func, or_, select
@@ -87,6 +88,7 @@ def to_rule(c: Coupon) -> cdom.CouponRule:
         redemptions=c.redemptions,
         currency=c.currency,
         combinable=c.combinable,
+        funded_by=c.funded_by,
     )
 
 
@@ -204,7 +206,8 @@ async def build_quote(
             currency=store.currency,
             discount=d,
             reseller_currency=product.currency if store.kind == "reseller" else None,
-            platform_funded=bool(coupon and coupon.funded_by == "platform"),
+            # a multi-store (domain) coupon is always the platform's promotion, whatever an old row says
+            platform_funded=bool(coupon and (coupon.funded_by == "platform" or coupon.scope == "domain")),
         )
     except PricingError as e:
         raise AppError(e.code, e.message, 409) from e
@@ -219,6 +222,42 @@ def product_snapshot(p: Product) -> dict:
         "traffic_gb": p.traffic_gb,
         "max_devices": p.max_devices,
     }
+
+
+async def check_coupon_products(session: AsyncSession, store: Store | None, product_ids) -> None:
+    """A coupon may name only products that exist and, for a reseller store, that the store really sells (enabled for it)."""
+    ids = {uuid.UUID(str(x)) for x in product_ids or []}
+    if not ids:
+        return
+    found = set((await session.scalars(select(Product.id).where(Product.id.in_(ids)))).all())
+    if found != ids:
+        raise AppError("COUPON_PRODUCT_NOT_FOUND", "محصول انتخاب‌شده وجود ندارد.", 400)
+    if store is not None and store.kind == "reseller":
+        offered = set(
+            (
+                await session.scalars(
+                    select(StoreProduct.product_id).where(
+                        StoreProduct.store_id == store.id, StoreProduct.product_id.in_(ids), StoreProduct.is_enabled.is_(True)
+                    )
+                )
+            ).all()
+        )
+        if offered != ids:
+            raise AppError("COUPON_PRODUCT_NOT_IN_STORE", "کد تخفیف فقط برای محصولاتی است که این فروشگاه می‌فروشد.", 400)
+
+
+async def apply_coupon_patch(c: Coupon, changes: dict) -> None:
+    """Edit a coupon through the SAME definition rules as creation (window, quota, value, owner scope), then store the change.
+
+    The edit can only touch the fields CouponPatch exposes; the owning store, scope and funding never move through here.
+    """
+    rule = dataclasses.replace(to_rule(c), **changes)
+    try:
+        cdom.validate_definition(rule, creator_store_id=str(c.store_id) if c.store_id else None)
+    except cdom.CouponError as e:
+        raise AppError(e.code, e.message, 400) from e
+    for k, v in changes.items():
+        setattr(c, k, v)
 
 
 def coupon_out(c: Coupon) -> dict:

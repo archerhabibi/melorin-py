@@ -295,6 +295,7 @@ async def create_coupon(body: CouponIn, ctx: OwnerCtx, session: Session):
         cdom.validate_definition(rule, creator_store_id=str(ctx.store.id))
     except cdom.CouponError as e:
         raise AppError(e.code, e.message, 400) from e
+    await service.check_coupon_products(session, ctx.store, body.product_ids)
     if await session.scalar(select(Coupon.id).where(Coupon.owner_key == str(ctx.store.id), Coupon.code == rule.code)):
         raise AppError("COUPON_EXISTS", "این کد تخفیف قبلاً ساخته شده است.", 409)
     c = Coupon(
@@ -338,8 +339,7 @@ async def patch_coupon(coupon_id: uuid.UUID, body: CouponPatch, ctx: OwnerCtx, s
     c = await session.get(Coupon, coupon_id, with_for_update=True)
     if not c or c.owner_key != str(ctx.store.id):
         raise NotFound("کد تخفیف")
-    for k, v in body.model_dump(exclude_none=True).items():
-        setattr(c, k, v)
+    await service.apply_coupon_patch(c, body.model_dump(exclude_none=True))
     audit.record(
         session,
         "coupon.updated",

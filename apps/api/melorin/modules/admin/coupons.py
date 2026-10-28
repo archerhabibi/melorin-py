@@ -30,11 +30,29 @@ async def create_admin_coupon(body: AdminCouponIn, admin: AdminUser, session: Se
     from melorin.domain import coupon as cdom
     from melorin.modules.catalog.service import norm_code
 
+    from melorin.kernel.models.stores import Store
+    from melorin.modules.catalog.service import check_coupon_products
+
     code = norm_code(body.code)
     if body.scope == "store" and not body.store_id:
         raise AppError("COUPON_SCOPE_FORBIDDEN", "برای Coupon فروشگاه باید store_id مشخص شود.", 400)
     if body.scope == "domain" and not (body.allowed_store_ids or body.allowed_store_kinds):
         raise AppError("COUPON_SCOPE_FORBIDDEN", "دامنه Coupon خالی است.", 400)
+    store = None
+    if body.scope == "store":
+        store = await session.get(Store, body.store_id)
+        if not store:
+            raise NotFound("فروشگاه")
+        if body.currency and body.currency != store.currency:
+            raise AppError("COUPON_CURRENCY_MISMATCH", "واحد پول کد تخفیف با فروشگاه یکسان نیست.", 400)
+        body.currency = store.currency  # a store coupon is pinned to its store's currency
+    else:
+        if any(k not in ("main", "reseller") for k in body.allowed_store_kinds or []):
+            raise AppError("COUPON_SCOPE_FORBIDDEN", "نوع فروشگاه نامعتبر است.", 400)
+        wanted = {uuid.UUID(str(x)) for x in body.allowed_store_ids or []}
+        if wanted and len(set((await session.scalars(select(Store.id).where(Store.id.in_(wanted)))).all())) != len(wanted):
+            raise AppError("COUPON_SCOPE_FORBIDDEN", "یکی از فروشگاه‌های مجاز وجود ندارد.", 400)
+    await check_coupon_products(session, store, body.product_ids)
     rule = cdom.CouponRule(
         code=code,
         creator_type="admin",
@@ -52,6 +70,7 @@ async def create_admin_coupon(body: AdminCouponIn, admin: AdminUser, session: Se
         per_customer_limit=body.per_customer_limit,
         currency=body.currency,
         status=body.status,
+        funded_by=body.funded_by,
     )
     try:
         cdom.validate_definition(rule)
@@ -104,8 +123,9 @@ async def patch_admin_coupon(coupon_id: uuid.UUID, body: CouponPatch, admin: Adm
     c = await session.get(Coupon, coupon_id, with_for_update=True)
     if not c:
         raise NotFound("کد تخفیف")
-    for k, v in body.model_dump(exclude_none=True).items():
-        setattr(c, k, v)
+    from melorin.modules.catalog.service import apply_coupon_patch
+
+    await apply_coupon_patch(c, body.model_dump(exclude_none=True))
     audit.record(
         session, "admin.coupon.updated", actor_id=admin.id, actor_type="admin", entity_type="coupon", entity_id=c.id, store_id=c.store_id
     )

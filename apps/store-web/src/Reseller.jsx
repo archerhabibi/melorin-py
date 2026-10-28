@@ -18,12 +18,16 @@ import {
   BellRing,
   Megaphone,
   ShieldCheck,
+  Gift,
+  Percent,
 } from 'lucide-react';
 import { Loading, PageTitle, StatusBadge, fa, fd } from './ui.jsx';
 import Pricing from './ResellerPricing.jsx';
 import AccountInquiry from './AccountInquiry.jsx';
 import Broadcast from './ResellerBroadcast.jsx';
 import EventCenter from './ResellerEventCenter.jsx';
+import ResellerReferral from './ResellerReferral.jsx';
+import ResellerCoupons from './ResellerCoupons.jsx';
 import BankSms from './ResellerBankSms.jsx';
 const J = { 'Content-Type': 'application/json' };
 
@@ -1147,6 +1151,8 @@ function Apply({ coreFetch, notify, stores }) {
 const tabs = [
   ['overview', 'نمای کلی', BarChart3],
   ['pricing', 'قیمت‌گذاری', Tags],
+  ['coupons', 'کدهای تخفیف', Percent],
+  ['referral', 'برنامهٔ معرفی', Gift],
   ['customers', 'مشتریان', Users],
   ['accounts', 'اکانت‌های مشتریان', Gauge],
   ['broadcast', 'پیام همگانی', Megaphone],
@@ -1212,6 +1218,12 @@ export default function Reseller({ coreFetch, notify }) {
           <section className="min-w-0">
             {tab === 'overview' && <Overview coreFetch={coreFetch} base={base} />}
             {tab === 'pricing' && <Pricing coreFetch={coreFetch} base={base} notify={notify} dirtyRef={pricingDirty} />}
+            {tab === 'coupons' && (
+              <ResellerCoupons coreFetch={coreFetch} storeId={mine.id} notify={notify} currency={mine.currency} />
+            )}
+            {tab === 'referral' && (
+              <ResellerReferral coreFetch={coreFetch} storeId={mine.id} notify={notify} currency={mine.currency} />
+            )}
             {tab === 'customers' && <Customers coreFetch={coreFetch} base={base} notify={notify} />}
             {tab === 'accounts' && <OwnerAccounts coreFetch={coreFetch} base={base} notify={notify} />}
             {tab === 'broadcast' && <Broadcast coreFetch={coreFetch} base={base} notify={notify} />}

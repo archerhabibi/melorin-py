@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { GoogleSignInButton } from './GoogleSignIn.jsx';
 import AccountInquiry from './AccountInquiry.jsx';
+import Referral from './Referral.jsx';
 import { Empty, Loading, PageTitle, PasswordInput, StatusBadge, fa, fd } from './ui.jsx';
 import { focusOnMount } from './useDialog.js';
 const J = { 'Content-Type': 'application/json' };
@@ -1159,14 +1160,13 @@ function Notifications({ coreFetch, storeId, notify, onCount }) {
   );
 }
 
-function Profile({ coreFetch, account, notify, reload }) {
+function Profile({ coreFetch, storeId, account, notify, reload }) {
   const [name, setName] = useState(account?.display_name || '');
   const [link, setLink] = useState(null);
   const [pw, setPw] = useState('');
   const [totp, setTotp] = useState(null);
   const [code, setCode] = useState('');
   const post = (p, body) => coreFetch(p, { method: 'POST', headers: J, body: body ? JSON.stringify(body) : undefined });
-  const copy = (t) => navigator.clipboard?.writeText(t).then(() => notify('کپی شد'));
   async function saveName() {
     const r = await coreFetch('/api/v1/me', {
       method: 'PATCH',
@@ -1221,18 +1221,7 @@ function Profile({ coreFetch, account, notify, reload }) {
           ذخیره
         </button>
       </div>
-      <div className={card}>
-        <h4 className="font-extrabold">دعوت دوستان (رفرال)</h4>
-        <p className="mt-2 text-sm text-muted">کد دعوت شما:</p>
-        <div className="mt-2 flex gap-2">
-          <code className="latin flex-1 rounded-xl bg-surface2 p-3 text-center font-bold">
-            {account?.referral_code || '—'}
-          </code>
-          <button onClick={() => copy(account?.referral_code)} className={btn}>
-            کپی
-          </button>
-        </div>
-      </div>
+      <Referral coreFetch={coreFetch} storeId={storeId} notify={notify} />
       <div className={card}>
         <h4 className="font-extrabold">اتصال تلگرام</h4>
         {link ? (
@@ -1389,7 +1378,9 @@ export default function Dashboard({ coreFetch, storeId, account, wallet, orders,
           {tab === 'wallet' && (
             <Wallet coreFetch={coreFetch} storeId={storeId} wallet={wallet} reload={reload} notify={notify} />
           )}
-          {tab === 'profile' && <Profile coreFetch={coreFetch} account={account} notify={notify} reload={reload} />}
+          {tab === 'profile' && (
+            <Profile coreFetch={coreFetch} storeId={storeId} account={account} notify={notify} reload={reload} />
+          )}
           {tab === 'tickets' && <Tickets coreFetch={coreFetch} storeId={storeId} notify={notify} />}
         </section>
       </div>

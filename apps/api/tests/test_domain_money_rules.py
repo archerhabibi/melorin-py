@@ -114,6 +114,8 @@ def test_commission_fixed_percent_and_cap():
     assert commission.amount_for(commission.Plan("commission", "fixed", 500), 10_000) == 500
     assert commission.amount_for(commission.Plan("commission", "percent", 1500), 10_000) == 1_500
     assert commission.amount_for(commission.Plan("commission", "percent", 5000, max_amount=1_000), 10_000) == 1_000
+    # a fixed reward on a cheap order is cut to what was paid (a ring of fake sign-ups cannot mint money)
+    assert commission.amount_for(commission.Plan("signup_reward", "fixed", 50_000), 8_000) == 8_000
 
 
 @pytest.mark.parametrize("net", [0, -1])

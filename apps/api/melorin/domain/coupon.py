@@ -39,6 +39,7 @@ class CouponRule:
     redemptions: int = 0
     currency: str | None = None
     combinable: bool = False
+    funded_by: str = "store"  # store | platform: who pays the discount (a reseller's cost shrinks only when the platform does)
 
 
 @dataclass(frozen=True)
@@ -76,7 +77,7 @@ _DEFINITION_RULES: tuple[_DefinitionRule, ...] = (
     ),
     (lambda r, _c: r.max_discount is not None and r.max_discount <= 0, "COUPON_BAD_VALUE", "سقف تخفیف نامعتبر است."),
     (
-        lambda r, _c: bool(r.starts_at and r.ends_at and r.ends_at <= r.starts_at),
+        lambda r, _c: bool(r.starts_at and r.ends_at and _aware(r.ends_at) <= _aware(r.starts_at)),  # a stored value may come back naive
         "COUPON_BAD_WINDOW",
         "بازه اعتبار نامعتبر است.",
     ),
@@ -101,6 +102,18 @@ _DEFINITION_RULES: tuple[_DefinitionRule, ...] = (
         lambda r, _c: r.scope == "domain" and not (r.allowed_store_ids or r.allowed_store_kinds),
         "COUPON_SCOPE_FORBIDDEN",
         "دامنه مجاز کد تخفیف خالی است.",
+    ),
+    (
+        # a fixed amount is a number of ONE currency; across several stores it must say which, or it would be applied as-is
+        lambda r, _c: r.scope == "domain" and r.fixed > 0 and not r.currency,
+        "COUPON_CURRENCY_REQUIRED",
+        "برای کد تخفیف دامنه‌ای با مبلغ ثابت، واحد پول باید مشخص شود.",
+    ),
+    (
+        # a coupon that reaches several stores is the platform's promotion: it must never eat into one reseller's margin
+        lambda r, _c: r.scope == "domain" and r.funded_by != "platform",
+        "COUPON_FUNDING_INVALID",
+        "کد تخفیف دامنه‌ای باید از طرف پلتفرم تأمین شود، نه از حاشیه سود نماینده.",
     ),
 )
 

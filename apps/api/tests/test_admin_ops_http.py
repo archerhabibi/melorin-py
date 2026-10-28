@@ -495,10 +495,16 @@ async def test_admin_coupon_scope_rules_duplicates_and_patching():
         coupon_id = created.json()["id"]
         duplicate = await c.post(f"{ADMIN}/coupons", headers=h, json={**body, "code": "SAVE10"})
         assert duplicate.status_code == 409 and _err(duplicate) == "COUPON_EXISTS"  # codes are case-insensitive per owner
-        domain = await c.post(
+        no_currency = await c.post(
             f"{ADMIN}/coupons",
             headers=h,
             json={"code": "ALLSHOPS", "fixed": 50, "scope": "domain", "allowed_store_kinds": ["main", "reseller"]},
+        )
+        assert no_currency.status_code == 400 and _err(no_currency) == "COUPON_CURRENCY_REQUIRED"  # a fixed amount names its currency
+        domain = await c.post(
+            f"{ADMIN}/coupons",
+            headers=h,
+            json={"code": "ALLSHOPS", "fixed": 50, "currency": "IRT", "scope": "domain", "allowed_store_kinds": ["main", "reseller"]},
         )
         assert domain.status_code == 201
         invalid = await c.post(f"{ADMIN}/coupons", headers=h, json={"code": "BADONE", "scope": "store", "store_id": str(main.id)})

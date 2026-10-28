@@ -20,6 +20,13 @@ Commits containing `[skip changelog]` and the bot's own commits are skipped.
 If `main` is protected, allow `github-actions[bot]` to bypass so the bot can push the log.
 
 
+## 2026-10-27 - Referral, commission and discount codes are scoped to their own store / reseller
+- **Area:** referral / coupons / api / store-web / admin-web / telegram-main
+- **Before:** one referrer and one signup reward per user for the whole platform; a purchase in another store could pay out of the wrong store's referral account; coupon limits and funding mixed stores.
+- **Action:** per-store referral relationships, commission rules, wallets, clawbacks and coupon limits (migration 0033); reseller manages only its own plans and codes; multi-store coupons are platform-funded; panels and the bot show the store's own programme.
+- **After:** nothing crosses stores; see docs/21-Store-Scoped-Referral-Coupons.md.
+- **Update 2026-10-28:** referral rings of any length (A→B→C→A) are refused inside a store, not only the two-person loop; each store keeps an independent graph.
+
 ## 2026-10-25 - Receipt OCR settings in the panel; time-boxed manual review with provisional credit
 - **Area:** payments / admin-web / store-web
 - **Before:** OCR engine and key were env-only (no UI); an unclear receipt waited for a human indefinitely.

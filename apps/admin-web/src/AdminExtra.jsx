@@ -23,6 +23,7 @@ const VpnAccountsView = lazy(() => import('./VpnAccountsView.jsx'));
 const UsersView = lazy(() => import('./UsersView.jsx'));
 const StoresView = lazy(() => import('./StoresView.jsx'));
 const AuditView = lazy(() => import('./AuditView.jsx'));
+const ReferralProgramsView = lazy(() => import('./ReferralProgramsView.jsx'));
 const money = (n) => new Intl.NumberFormat('fa-IR').format(n || 0);
 const box = 'card';
 const inp = 'inp';
@@ -184,10 +185,16 @@ const Form = ({ fields, onSubmit, label }) => {
 };
 
 function Coupons({ api, toast }) {
-  const { rows, call, reload } = useList(api, '/api/v1/admin/coupons', toast);
   const stores = useList(api, '/api/v1/admin/stores', toast).rows;
+  const [storeId, setStoreId] = useState(null); // null = not chosen yet, '' = every store (also multi-store codes)
+  useEffect(() => {
+    if (storeId === null && stores.length) setStoreId((stores.find((s) => s.kind === 'main') || stores[0]).id);
+  }, [stores, storeId]);
+  // a discount code belongs to ONE store: the form below always creates for the store picked here
+  const { rows, call, reload } = useList(api, `/api/v1/admin/coupons${storeId ? `?store_id=${storeId}` : ''}`, toast);
+  const store = stores.find((s) => s.id === storeId);
   const create = async (v, done) => {
-    const main = stores.find((s) => s.kind === 'main') || stores[0];
+    if (!storeId) return toast('ابتدا یک فروشگاه مشخص را انتخاب کنید');
     const r = await call('/api/v1/admin/coupons', {
       method: 'POST',
       body: JSON.stringify({
@@ -196,7 +203,7 @@ function Coupons({ api, toast }) {
         fixed: +v.fixed || 0,
         max_redemptions: v.max ? +v.max : null,
         scope: 'store',
-        store_id: main?.id,
+        store_id: storeId,
       }),
     });
     if (r.ok) {
@@ -214,8 +221,26 @@ function Coupons({ api, toast }) {
   };
   return (
     <>
+      <section className={`${box} rise p-4`}>
+        <label className="block text-xs font-bold text-[var(--mu)]">
+          فروشگاه (کد تخفیف فقط در همین فروشگاه کار می‌کند)
+          <select
+            className={`${inp} mt-1.5`}
+            aria-label="فروشگاه"
+            value={storeId ?? ''}
+            onChange={(e) => setStoreId(e.target.value)}
+          >
+            <option value="">همه (شامل کدهای چندفروشگاهی)</option>
+            {stores.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name} {s.kind === 'main' ? '(اصلی)' : '(نمایندگی)'} · {s.currency}
+              </option>
+            ))}
+          </select>
+        </label>
+      </section>
       <Form
-        label="افزودن کوپن"
+        label={`افزودن کوپن${store ? ` برای «${store.name}»` : ''}`}
         onSubmit={create}
         fields={[
           ['code', 'کد'],
@@ -675,6 +700,7 @@ export const extraRoutes = {
   'پنل‌ها و سرورها': PanelsView,
   'بسته‌های فروش': BundlesView,
   کوپن‌ها: Coupons,
+  'برنامه‌های معرفی': ReferralProgramsView,
   تنظیمات: Settings,
   ممیزی: AuditView,
   هویت: IdentityHubView,

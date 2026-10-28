@@ -14,6 +14,7 @@ from melorin.core.errors import AppError
 from melorin.kernel.models.notifications import TelegramEventDestination
 from melorin.kernel.models.payments import Payment
 from melorin.kernel.models.referral import CommissionRule, ReferralRelationship
+from melorin.kernel.models.stores import StoreMembership
 from melorin.kernel.models.system import BackupRun, OutboxEvent
 from melorin.kernel.models.tickets import Ticket
 from melorin.modules.eventcenter import report, rules, service
@@ -147,6 +148,7 @@ async def _referral_world(s):
     referrer, referred = await make_user(s), await make_user(s)
     main, reseller = await _world(s)
     product = await make_product(s)
+    s.add(StoreMembership(store_id=main.id, user_id=referrer.id))  # a referrer must belong to the store (docs/17)
     s.add(ReferralRelationship(store_id=main.id, referrer_user_id=referrer.id, referred_user_id=referred.id))
     s.add(CommissionRule(store_id=main.id, kind="signup_reward", model="fixed", value=500, is_active=True))
     await s.commit()

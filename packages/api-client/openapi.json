@@ -1091,10 +1091,10 @@
           }
         },
         "required": [
-          "store_id",
           "kind",
           "model",
-          "value"
+          "value",
+          "store_id"
         ],
         "title": "CommissionRuleIn",
         "type": "object"
@@ -4523,6 +4523,62 @@
           "bot_username"
         ],
         "title": "StoreOut",
+        "type": "object"
+      },
+      "StoreRuleIn": {
+        "description": "A plan of the store named in the URL (the store is never part of the body, so it cannot be spoofed).",
+        "properties": {
+          "is_active": {
+            "default": true,
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "kind": {
+            "pattern": "^(signup_reward|commission)$",
+            "title": "Kind",
+            "type": "string"
+          },
+          "max_amount": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Amount"
+          },
+          "model": {
+            "pattern": "^(fixed|percent)$",
+            "title": "Model",
+            "type": "string"
+          },
+          "product_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Id"
+          },
+          "value": {
+            "minimum": 0.0,
+            "title": "Value",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "model",
+          "value"
+        ],
+        "title": "StoreRuleIn",
         "type": "object"
       },
       "TelegramBotLogin": {
@@ -9458,6 +9514,25 @@
     "/api/v1/admin/referral-rules": {
       "get": {
         "operationId": "list_rules_api_v1_admin_referral_rules_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "store_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Store Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -9466,6 +9541,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "security": [
@@ -11206,6 +11291,52 @@
         "summary": "Receipt Review Resolve",
         "tags": [
           "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/stores/{store_id}/referrals/summary": {
+      "get": {
+        "operationId": "admin_summary_api_v1_admin_stores__store_id__referrals_summary_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Summary",
+        "tags": [
+          "referrals"
         ]
       }
     },
@@ -15619,6 +15750,199 @@
         "summary": "Upload Receipt",
         "tags": [
           "payments"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/referral": {
+      "get": {
+        "description": "The programme of the store the customer is in: how to invite, what it pays, and his own standing in THIS store only.",
+        "operationId": "store_referral_api_v1_stores__store_id__referral_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Store Referral",
+        "tags": [
+          "referrals"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/referral-rules": {
+      "get": {
+        "operationId": "owner_list_rules_api_v1_stores__store_id__referral_rules_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Owner List Rules",
+        "tags": [
+          "referrals"
+        ]
+      },
+      "put": {
+        "operationId": "owner_upsert_rule_api_v1_stores__store_id__referral_rules_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StoreRuleIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Owner Upsert Rule",
+        "tags": [
+          "referrals"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/referrals/summary": {
+      "get": {
+        "operationId": "owner_summary_api_v1_stores__store_id__referrals_summary_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Owner Summary",
+        "tags": [
+          "referrals"
         ]
       }
     },
