@@ -49,6 +49,103 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-27 10:50 UTC - Claude - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** style(identify): ruff format the six files that failed the CI format gate (identity_auto, reseller_applications, auto_verify and three identify tests)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (4):** `apps/api/melorin/modules/admin/identity_auto.py`, `apps/api/melorin/modules/admin/reseller_applications.py`, `apps/api/tests/test_identify_admin_overview.py`, `apps/api/tests/test_identify_trusted_devices.py`
+- **Ref:** `a14b46c`
+
+### 2026-10-27 10:50 UTC - Claude - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(identify): cap the domain-proof download (streamed, 512 bytes, exact match) so a hostile domain cannot make the worker buffer an endless body; test
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `apps/api/melorin/modules/reseller/auto_verify.py`, `apps/api/tests/test_identify_reseller_auto_verify.py`
+- **Ref:** `0d29bed`
+
+### 2026-10-27 03:12 UTC - Claude - api, tests, docs  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(identify): silent level also requires the same browser/OS family; owner-approved auto login refreshes the device label
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (4):** `apps/api/melorin/channels/telegram/trust.py`, `apps/api/melorin/channels/telegram/web.py`, `apps/api/tests/test_identify_trusted_devices.py`, `docs/21-Automatic-Identity-Verification.md`
+- **Ref:** `9f98acc`
+
+### 2026-10-27 03:07 UTC - Claude - api / identity / worker  _(auto)_
+- **Before:** linking an identity that belonged to another account always ended in IDENTITY_LINK_REVIEW / IDENTITY_IN_USE and an admin had to resolve it
+- **Problem:** manual intervention even when one account was an empty shell with nothing to lose
+- **Action:** attach_email, link_google, login_with_google (email_field_conflict) and link_telegram call auto_link; IDENTITY_MERGED when the signed-in shell is folded away; identity_auto_link_job cron; two accounts with records, inactive/admin accounts and multi-candidate cases still go to the admin queue; docs/…
+- **After:** full API suite 1617 passed, lint/import contracts/docs guards pass
+- **Files (13):** `apps/api/melorin/modules/identity/auto_link.py`, `apps/api/melorin/modules/identity/google.py`, `apps/api/melorin/modules/identity/service.py`, `apps/api/melorin/worker/arq_app.py`, `apps/api/melorin/worker/jobs.py`, `apps/api/tests/test_identify_auto_link.py`, `apps/api/tests/test_o01_google_signin.py`, `apps/api/tests/test_p01_telegram_web_login.py` (+5 more)
+- **Ref:** `6dcfc5d`
+
+### 2026-10-27 03:01 UTC - Claude - api / identity  _(auto)_
+- **Before:** every verified-email/Google conflict waited for an admin in the review queue
+- **Problem:** manual step even when one account was an empty shell with nothing to lose
+- **Action:** domain rule (merge only when one account is an empty shell, both active non-admin, never two accounts with records); schema-introspecting shell check; merge of identities/email/devices/memberships with audit; sweep; identity_auto_link switch
+- **After:** tests/test_identify_auto_link.py (10 tests) pass
+- **Files (4):** `apps/api/melorin/core/config.py`, `apps/api/melorin/domain/identity_auto_link.py`, `apps/api/melorin/modules/identity/auto_link.py`, `apps/api/tests/test_identify_auto_link.py`
+- **Ref:** `a352b7a`
+
+### 2026-10-26 15:04 UTC - Claude - docs  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** docs(identify): design record 21 and regenerated API/STATUS (259 operations)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (3):** `docs/21-Automatic-Identity-Verification.md`, `docs/API.md`, `docs/STATUS.md`
+- **Ref:** `23b7498`
+
+### 2026-10-26 15:03 UTC - Claude - api, tests, store-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(identify): device key moves to an HttpOnly cookie (nothing in browser storage); trusted-device tests; purge of dead devices; reviewed route list
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (7):** `apps/api/melorin/channels/telegram/web.py`, `apps/api/melorin/channels/telegram/web_router.py`, `apps/api/melorin/modules/identity/schemas.py`, `apps/api/tests/test_channel_binding.py`, `apps/api/tests/test_identify_trusted_devices.py`, `apps/api/tests/test_p01_telegram_web_login.py`, `apps/store-web/src/TelegramLogin.jsx`
+- **Ref:** `9136568`
+
+### 2026-10-26 14:57 UTC - Claude - store-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(identify): storefront login sends the trusted-device key and adapts to silent/auto/manual levels
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `apps/store-web/src/TelegramLogin.jsx`
+- **Ref:** `6f1ebe7`
+
+### 2026-10-26 14:47 UTC - Claude - bot  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(identify): bot side of automatic verification: auto-approved screen, /devices list, per-device and global 'not me' revoke
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (3):** `apps/telegram-main/runner.py`, `apps/telegram-main/tgmain/handlers/identity.py`, `apps/telegram-main/tgmain/ui.py`
+- **Ref:** `34921ea`
+
+### 2026-10-26 14:20 UTC - Melorin Identify - api  _(auto)_
+- **Before:** trust.py and the trusted_devices model existed but nothing used them; every website login needed the manual number match
+- **Problem:** a returning, already-approved browser was asked to approve and match a number on every login
+- **Action:** create_session decides the level from the browser's device key; silent signs in with no bot step, auto approves when the bot link is opened, manual falls back to the number match; one _complete() path for all approvals; owner notice, forget/list/revoke helpers, bot and browser endpoints
+- **After:** existing login tests still pass (29); new tests follow in the next commit
+- **Files (5):** `apps/api/melorin/channels/telegram/trust.py`, `apps/api/melorin/channels/telegram/web.py`, `apps/api/melorin/channels/telegram/web_router.py`, `apps/api/melorin/kernel/models/identity.py`, `apps/api/melorin/modules/identity/schemas.py`
+- **Ref:** `a67e6a8`
+
+### 2026-10-26 13:22 UTC - Claude - tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** test(identify): model/migration agreement covers migration 0033
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `apps/api/tests/test_p01_telegram_web_login_bot.py`
+- **Ref:** `44e7081`
+
+### 2026-10-26 13:01 UTC - Claude - db, api  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(identify): trusted-device model, migration 0033 and trust policy engine
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (4):** `apps/api/alembic/versions/0033_trusted_devices.py`, `apps/api/melorin/channels/telegram/trust.py`, `apps/api/melorin/core/config.py`, `apps/api/melorin/kernel/models/identity.py`
+- **Ref:** `4a9bd65`
+
+
 ### 2026-10-25 UTC - claude - payments/receipt-ocr
 - **Before:** the customer had to type the receipt time, card tail and reference; the SMS "serial" was treated as a transaction id.
 - **Problem:** typing is friction and error-prone; the first SMS line is really the *account number*, so two same-amount deposits in one minute would have collapsed into one SMS.
