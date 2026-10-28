@@ -24,6 +24,7 @@ def test_migration_smoke_checks_0009_and_schema_contract():
     assert "information_schema.columns" in smoke
     assert "uq_commissions_store_referred_signup_reward" in smoke
     assert "uq_commissions_store_id_referred_user_id_kind" in smoke  # asserted ABSENT: 0037 dropped it
+    assert "indexdef" in smoke and "UNIQUE" in smoke  # the index must be unique and partial, not just present by name
     assert "referred_user_id" in migration
     assert "newer.created_at = c.created_at" in migration
     assert "newer.id < c.id" in migration
