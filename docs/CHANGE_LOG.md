@@ -50,6 +50,159 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-10-28 04:32 UTC - Claude - tests, scripts  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** test(ci): migration smoke also asserts the 0037 index is UNIQUE and partial on signup_reward (a name-only check would pass a plain index) - Verified on PostgreSQL 16 with mutations: non-partial unique, partial non-unique and a resurrected old constraint all fail the gate.
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `apps/api/tests/test_lint_gate_and_pg_migration.py`, `scripts/migration_smoke.sh`
+- **Ref:** `40aa9a7`
+
+### 2026-10-28 04:26 UTC - Claude - tests, scripts  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(ci): migration smoke asserts the 0037 partial unique index (signup reward only) and that the old commission constraints are gone - The smoke gate still looked for uq_commissions_referred_user_id_kind, which 0036/0037 replaced; verified on a real PostgreSQL 16 up to head. Co-Authored-By: Claude …
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `apps/api/tests/test_lint_gate_and_pg_migration.py`, `scripts/migration_smoke.sh`
+- **Ref:** `44c4bfa`
+
+### 2026-10-27 20:55 UTC - Claude - shared  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** chore(api-client): regenerate OpenAPI snapshot and TS schema for store-scoped referral/coupon routes (fixes the quality gate)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `packages/api-client/openapi.json`, `packages/api-client/src/schema.d.ts`
+- **Ref:** `90c1a0a`
+
+### 2026-10-27 19:11 UTC - Claude - api  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** unique key (store, referred, kind) also covered kind=commission, so the 2nd order failed in the worker; earned was summed from the last 50/200 rows only
+- **Action:** partial unique index on signup_reward (migration 0037), SQL earnings aggregate in /stores/{id}/referral and /me/referrals, bot uses it; tests; doc 21 third audit
+- **After:** tests 1715 passed, PG 136 passed, migration up/down verified on PostgreSQL
+- **Files (9):** `apps/api/alembic/versions/0037_commission_reward_unique.py`, `apps/api/melorin/kernel/models/referral.py`, `apps/api/melorin/modules/referral/router.py`, `apps/api/melorin/modules/referral/service.py`, `apps/api/tests/test_store_scoped_referral_program.py`, `apps/telegram-main/tests/test_referral_screen.py`, `apps/telegram-main/tgmain/ui.py`, `docs/21-Store-Scoped-Referral-Coupons.md` (+1 more)
+- **Ref:** `6aa0e17`
+
+### 2026-10-27 12:12 UTC - Claude - docs  _(auto)_
+- **Before:** doc 21 described the first audit only
+- **Problem:** the two fixes made after it were not documented
+- **Action:** added the second audit paragraph (FA + EN)
+- **After:** doc matches the code
+- **Files (1):** `docs/21-Store-Scoped-Referral-Coupons.md`
+- **Ref:** `b28a482`
+
+### 2026-10-27 12:12 UTC - Claude - referral  _(auto)_
+- **Before:** attach() checked "no relationship yet" and then inserted; two concurrent requests could both pass the check
+- **Problem:** the loser hit the unique key (store_id, referred_user_id) and the sign-up failed with a 500 instead of just not attaching
+- **Action:** the insert runs in a savepoint; an IntegrityError means "first touch already won" and returns False; test simulates the rival commit
+- **After:** exactly one relationship, no error; API suite 1713 passed, ruff and lint-imports clean
+- **Files (2):** `apps/api/melorin/modules/referral/service.py`, `apps/api/tests/test_store_scoped_referral_program.py`
+- **Ref:** `249ef4d`
+
+### 2026-10-27 12:07 UTC - Claude - referral  _(auto)_
+- **Before:** a customer whose first (rewarded) order was refunded counted as having zero completed orders, so the next order was classified as signup_reward again
+- **Problem:** the second signup_reward violated the unique key (store_id, referred_user_id, kind) and raised IntegrityError while completing the order
+- **Action:** the kind is decided by "no completed order before AND no signup reward already granted in this store"; regression test added
+- **After:** the next order pays the store's commission plan; test_after_the_first_order_is_refunded_... passes
+- **Files (2):** `apps/api/melorin/modules/referral/service.py`, `apps/api/tests/test_store_scoped_referral_program.py`
+- **Ref:** `793347f`
+
+### 2026-10-27 05:27 UTC - Claude - referral  _(auto)_
+- **Before:** an admin-flagged session skipped the store filter, so a platform admin opening a reseller bot saw every store's invites and commissions (mixed currencies) on that store's referral screen; the endpoint had only a source-text test
+- **Problem:** broke the rule that referral data is visible only inside its own store
+- **Action:** scope by the session's store whenever the token is bound to one; only a store-less admin hub session keeps the unscoped view; add behavioural tests for both bots' view
+- **After:** tests/test_store_scoped_referral_program.py passes (31); lint-imports, ruff check and format are clean
+- **Files (2):** `apps/api/melorin/modules/referral/router.py`, `apps/api/tests/test_store_scoped_referral_program.py`
+- **Ref:** `862f38b`
+
+### 2026-10-27 04:07 UTC - Claude - bot  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(telegram-main): referral screen shows this store's programme, link and earnings from Core
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (3):** `apps/telegram-main/tests/test_referral_screen.py`, `apps/telegram-main/tgmain/handlers/identity.py`, `apps/telegram-main/tgmain/ui.py`
+- **Ref:** `860f875`
+
+### 2026-10-27 04:02 UTC - Claude - docs  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** docs: regenerate API.md and STATUS.md for the store-scoped referral/coupon routes (0033)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `docs/API.md`, `docs/STATUS.md`
+- **Ref:** `9de1677`
+
+### 2026-10-27 03:57 UTC - Claude - admin-web  _(auto)_
+- **Before:** the coupon form always created for the main store, and Admin had no screen for a store's referral plans.
+- **Problem:** Admin could not see or set what a given store/agency pays for invites, and could not target a coupon at one store.
+- **Action:** new "برنامه‌های معرفی" screen (pick a store; its plans, numbers and saved rules are that store's only) and a store selector on the coupon screen (an "all" option still lists multi-store codes).
+- **After:** vitest (155 tests incl. tests/referral-coupons.test.jsx), eslint (no new warnings), prettier, build and bundle budget pass.
+- **Files (4):** `apps/admin-web/src/AdminExtra.jsx`, `apps/admin-web/src/App.jsx`, `apps/admin-web/src/ReferralProgramsView.jsx`, `apps/admin-web/tests/referral-coupons.test.jsx`
+- **Ref:** `782c937`
+
+### 2026-10-27 03:55 UTC - Claude - store-web  _(auto)_
+- **Before:** the profile showed only a bare referral code; a reseller had no screen for his store's referral plans or coupons.
+- **Problem:** nobody could see or set what an invite earns inside one store, and the platform-wide wording hid that it is per store.
+- **Action:** Referral card (link of THIS store's site and bot, its programme, the customer's standing there); reseller tabs "برنامهٔ معرفی" and "کدهای تخفیف" talking only to /stores/{id}/referral-rules and /stores/{id}/coupons (the store comes from the URL, never the body).
+- **After:** vitest (49 tests incl. tests/store-referral-coupons.test.jsx), eslint, prettier and the build/bundle budget pass.
+- **Files (7):** `apps/store-web/src/Dashboard.jsx`, `apps/store-web/src/Referral.jsx`, `apps/store-web/src/Reseller.jsx`, `apps/store-web/src/ResellerCoupons.jsx`, `apps/store-web/src/ResellerReferral.jsx`, `apps/store-web/src/storeProgram.js`, `apps/store-web/tests/store-referral-coupons.test.jsx`
+- **Ref:** `c0ee115`
+
+### 2026-10-27 03:55 UTC - Claude - identity  _(auto)_
+- **Before:** the reseller panel could not tell which currency the owner's store sells in.
+- **Problem:** referral plans and discount codes are amounts of ONE store's currency and had no unit to show.
+- **Action:** add currency to the /me/stores rows (members already see their own stores).
+- **After:** identity/channel-binding suites pass.
+- **Files (1):** `apps/api/melorin/modules/identity/routes/account.py`
+- **Ref:** `5ad93d6`
+
+### 2026-10-27 03:52 UTC - Claude - referral  _(auto)_
+- **Before:** a fixed signup reward/commission could exceed the order total (percent plans were already <= 100%).
+- **Problem:** fake sign-ups buying the cheapest plan could earn more than they paid, in any store.
+- **Action:** amount_for caps every model at net_paid before the plan's own max_amount.
+- **After:** tests/test_domain_money_rules.py pins it; referral suites pass.
+- **Files (2):** `apps/api/melorin/domain/commission.py`, `apps/api/tests/test_domain_money_rules.py`
+- **Ref:** `431d2f8`
+
+### 2026-10-27 03:52 UTC - Claude - api  _(auto)_
+- **Before:** ruff format --check listed 5 files of this branch.
+- **Problem:** the lint gate (make lint / CI) would fail.
+- **Action:** ran ruff format on them; no behaviour change.
+- **After:** ruff check and ruff format --check are clean.
+- **Files (5):** `apps/api/melorin/modules/identity/routes/_common.py`, `apps/api/melorin/modules/referral/service.py`, `apps/api/tests/test_coupon_patch_and_funding.py`, `apps/api/tests/test_store_scoped_coupons.py`, `apps/api/tests/test_store_scoped_referral_program.py`
+- **Ref:** `fdae657`
+
+### 2026-10-27 03:51 UTC - Claude - coupons  _(auto)_
+- **Before:** PATCH on a coupon (owner or admin) set fields directly, skipping the creation rules; an Admin domain coupon marked funded_by=store was charged to the reseller's margin.
+- **Problem:** a store could end up with an expired-before-start coupon, and a reseller could pay for a promotion he never created.
+- **Action:** apply_coupon_patch validates the edited rule with validate_definition; domain coupons must be funded_by=platform (new COUPON_FUNDING_INVALID rule) and build_quote treats any domain coupon as platform-funded; the window rule tolerates naive stored datetimes.
+- **After:** tests/test_coupon_patch_and_funding.py and the coupon rule/store-scope suites pass.
+- **Files (6):** `apps/api/melorin/domain/coupon.py`, `apps/api/melorin/modules/admin/coupons.py`, `apps/api/melorin/modules/catalog/router.py`, `apps/api/melorin/modules/catalog/service.py`, `apps/api/tests/test_coupon_definition_rules.py`, `apps/api/tests/test_coupon_patch_and_funding.py`
+- **Ref:** `596af5d`
+
+### 2026-10-27 03:42 UTC - archerhabibi - tests  _(auto)_
+- **Before:** no tests for per-store attribution, per-store plans, owner-plane access to programmes or coupon product/currency scoping
+- **Problem:** store isolation of rewards, commissions and discount codes was not pinned
+- **Action:** 38 new tests (pure rules, service-level isolation, owner/admin HTTP access) and a fix for the audit payload of saved plans (UUIDs were not JSON-safe)
+- **After:** new suites pass
+- **Files (3):** `apps/api/melorin/modules/referral/service.py`, `apps/api/tests/test_store_scoped_coupons.py`, `apps/api/tests/test_store_scoped_referral_program.py`
+- **Ref:** `aff4c83`
+
+### 2026-10-27 03:39 UTC - archerhabibi - coupons / admin  _(auto)_
+- **Before:** a reseller coupon could name products the store does not sell; an admin store coupon accepted unknown stores or a foreign currency; a domain coupon with a fixed amount had no currency
+- **Problem:** a coupon must never reach beyond the store/agency it was made for
+- **Action:** check_coupon_products (exists + sold by the reseller store), admin store coupons pinned to the store currency and store must exist, domain coupon with fixed amount requires currency, allowed store ids/kinds validated
+- **After:** coupon, admin and reseller suites pass
+- **Files (5):** `apps/api/melorin/domain/coupon.py`, `apps/api/melorin/modules/admin/coupons.py`, `apps/api/melorin/modules/catalog/router.py`, `apps/api/melorin/modules/catalog/service.py`, `apps/api/tests/test_admin_ops_http.py`
+- **Ref:** `2bf3f91`
+
+### 2026-10-27 03:38 UTC - archerhabibi - referral / identity  _(auto)_
+- **Before:** referral attribution was main-store only and unique per user platform-wide; reseller stores had no programme, plans were Admin-only, reseller stores could fall back to the main store's global defaults, and a code from any account was accepted as a referrer
+- **Problem:** rewards, commissions and referral links must belong strictly to the store/agency they were created in
+- **Action:** unique (store, referred user) for relationships and signup rewards (migration 0033), referrer must be an active member of the store, newcomer must be new to the store, per-store plan lookup with no leak of main-store defaults, plan validation (percent <= 100%), owner-plane and admin-plane endpoints…
+- **After:** full API suite passes (1580 passed)
+- **Files (7):** `apps/api/alembic/versions/0033_store_scoped_referral.py`, `apps/api/melorin/domain/commission.py`, `apps/api/melorin/kernel/models/referral.py`, `apps/api/melorin/modules/identity/routes/_common.py`, `apps/api/melorin/modules/referral/router.py`, `apps/api/melorin/modules/referral/service.py`, `apps/api/tests/test_event_center_extra_topics.py`
+- **Ref:** `c65ac1c`
+
+
 ### 2026-10-27 10:50 UTC - Claude - api, tests  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
