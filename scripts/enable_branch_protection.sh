@@ -3,9 +3,10 @@
 # Needs a token with repo admin rights; run once from your own machine:
 #   GH_TOKEN=<admin token> scripts/enable_branch_protection.sh archerhabibi/melorin-py [main]
 # Prints the resulting protection summary. Safe to re-run.
-# CAVEAT: with required checks, direct pushes to main are rejected - including the 'Changelog' workflow bot, which commits
-# docs/CHANGE_LOG.md straight to main. Deploys are already CI-gated by deploy.yml (workflow_run), so this is defence in depth:
-# before enabling it, switch changelog.yml to open a PR, or add the bot to a ruleset bypass list.
+# NOTE: with required checks, direct pushes to main are rejected. The 'Changelog' workflow therefore never pushes to main:
+# it keeps a pull request open from chore/changelog-auto (CI is started with workflow_dispatch; auto-merge is requested, so
+# enable "Allow auto-merge" and "Allow GitHub Actions to create pull requests" in the repository settings).
+# Deploys are CI-gated by deploy.yml (workflow_run), so this is defence in depth.
 set -euo pipefail
 REPO="${1:?usage: $0 owner/repo [branch]}"; BRANCH="${2:-main}"
 command -v gh >/dev/null || { echo "gh CLI is required" >&2; exit 1; }
