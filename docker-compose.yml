@@ -8,7 +8,7 @@ services:
   postgres:
     restart: unless-stopped
     stop_grace_period: 30s
-    image: postgres:16-alpine
+    image: postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab
     environment:
       POSTGRES_USER: melorin
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
@@ -20,7 +20,7 @@ services:
     cpus: 1.0
   redis:
     restart: unless-stopped
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
     # Bounded below the container cap so a runaway dataset gives Redis errors (rate limits fail closed, the DB outbox stays the
     # source of truth) instead of an OOM kill. noeviction: never silently drop queue or rate-limit keys.
     command: redis-server --appendonly yes --maxmemory 160mb --maxmemory-policy noeviction
@@ -142,7 +142,7 @@ services:
   caddy:
     restart: unless-stopped
     profiles: [local-proxy]
-    image: caddy:2-alpine
+    image: caddy:2-alpine@sha256:e70b164da81ef698b3ad19af799ea6086ce6d9e48ed4079eb9fe26f6fbf14ee5
     ports: ["80:80", "443:443"]
     environment:
       MELORIN_DOMAIN: ${MELORIN_DOMAIN:-localhost}
@@ -157,7 +157,7 @@ services:
     mem_limit: 128m
     cpus: 0.5
   alertmanager:
-    image: prom/alertmanager:v0.27.0
+    image: prom/alertmanager:v0.27.0@sha256:e13b6ed5cb929eeaee733479dce55e10eb3bc2e9c4586c705a4e8da41e5eacf5
     restart: unless-stopped
     # Receivers come from .env (ALERT_TELEGRAM_* and/or ALERT_SMTP_*/ALERT_EMAIL_TO); see infra/alertmanager-entrypoint.sh
     environment:
@@ -178,7 +178,7 @@ services:
     cpus: 0.25
   prometheus:
     restart: unless-stopped
-    image: prom/prometheus:v2.55.1
+    image: prom/prometheus:v2.55.1@sha256:2659f4c2ebb718e7695cb9b25ffa7d6be64db013daba13e05c875451cf51b0d3
     volumes:
       - ./infra/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./infra/alerts.yml:/etc/prometheus/alerts.yml:ro
