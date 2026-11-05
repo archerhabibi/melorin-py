@@ -73,6 +73,13 @@ async def create_panel(body: CreatePanel, admin: AdminUser, session: Session):
     )
     await session.commit()
     await session.refresh(p)
+    if p.kind == "pasarguard":  # a new panel: every store (Main + resellers) gets its Operator admin right away; the worker retries on failure
+        from melorin.modules.vpn import panel_admins
+
+        try:
+            await panel_admins.sync_all(session, limit=200, panel=p)
+        except Exception:
+            log.warning("panel admin sync after panel create failed panel=%s", p.id, exc_info=True)
     return _panel_out(p)
 
 

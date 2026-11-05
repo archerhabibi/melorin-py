@@ -16,6 +16,7 @@ from melorin.kernel.models.catalog import Product
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.stores import Store
 from melorin.modules.vpn.adapters.base import AccountSpec, ErrorKind, PanelError
+from melorin.modules.vpn import panel_admins
 from melorin.modules.vpn.adapters.registry import build_adapter, seed_adapter
 from melorin.modules.catalog.allocation import placement_snapshot, resolve_allocation
 from melorin.modules.vpn import renewal
@@ -230,6 +231,8 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
             pa = await renewal.apply_to_panel(adapter, account, product, now=now)
             expire = renewal.target(product, now=now).expires_at
         else:
+            # Every account is created under the PasarGuard admin of ITS store (Main Store or the reseller), never the shared owner.
+            owner = await panel_admins.owner_for(session, panel, order.store_id, adapter)
             expire = utcnow() + dt.timedelta(days=product.duration_days)
             traffic = product.traffic_gb * 1024**3 if product.traffic_gb else 0
             bundle = await session.get(Bundle, order.bundle_id) if order.bundle_id else None
@@ -259,7 +262,7 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
             )
             session.add(account)
             await session.flush()
-            pa = await adapter.create_account(AccountSpec(account.username, expire, traffic, product.max_devices, order.number))
+            pa = await adapter.create_account(AccountSpec(account.username, expire, traffic, product.max_devices, order.number, owner=owner))
     except PanelError as e:
         attempt.status, attempt.error_kind, attempt.error, attempt.finished_at = ("failed", e.kind, e.message, utcnow())
         if e.kind == ErrorKind.UNKNOWN:
