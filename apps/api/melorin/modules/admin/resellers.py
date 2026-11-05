@@ -36,6 +36,7 @@ class ResellerEdit(BaseModel):
     sales_enabled: bool | None = None
     api_enabled: bool | None = None
     bot_enabled: bool | None = None
+    site_enabled: bool | None = None
     bot_messages: dict[str, str] | None = None
 
 
@@ -76,6 +77,7 @@ async def _row(session, st: Store, *, detail: bool = False) -> dict:
         "api_enabled": prof.api_enabled if prof else False,
         "customers": customers,
         "bot": status_out(st),
+        "site_enabled": st.site_enabled,
     }
     if detail:
         out["bot_messages"] = st.bot_messages or {}
@@ -139,6 +141,8 @@ async def edit_reseller(store_id: uuid.UUID, body: ResellerEdit, admin: AdminUse
         st.bot_enabled = body.bot_enabled
         if not body.bot_enabled:
             st.bot_status, st.bot_status_detail = "stopped", "توسط مدیر غیرفعال شد."
+    if body.site_enabled is not None and change("site_enabled", st.site_enabled, body.site_enabled):
+        st.site_enabled = body.site_enabled
     if body.bot_messages is not None:
         texts = _clean_texts(body.bot_messages)
         if change("bot_messages", st.bot_messages or {}, texts):

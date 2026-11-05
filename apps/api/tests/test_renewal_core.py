@@ -306,7 +306,7 @@ async def test_after_renewal_the_account_equals_the_package_not_old_plus_package
     async with open_session() as s:
         t = await _world(s, expired_days_ago=3)
         panel = Panel_(used=4 * GIB, expire=t.account.expires_at)
-        monkeypatch.setattr(vpn, "build_adapter", lambda _p: panel)
+        monkeypatch.setattr(vpn, "build_adapter", lambda _p, _server=None: panel)
         o = await _renew(s, t)
         assert await vpn.provision_order(s, o.id) == "completed"
         acc = await s.get(VpnAccount, t.account.id)
@@ -328,7 +328,7 @@ async def test_panel_without_reset_still_gives_the_full_package_volume(monkeypat
     async with open_session() as s:
         t = await _world(s)
         panel = Panel_(used=4 * GIB, expire=t.account.expires_at, can_reset=False)
-        monkeypatch.setattr(vpn, "build_adapter", lambda _p: panel)
+        monkeypatch.setattr(vpn, "build_adapter", lambda _p, _server=None: panel)
         o = await _renew(s, t)
         assert await vpn.provision_order(s, o.id) == "completed"
         assert panel.calls[-1][2] == 14 * GIB  # 4 GB already used + the 10 GB package -> 10 GB remain
@@ -342,7 +342,7 @@ async def test_unlimited_package_renews_as_unlimited(monkeypatch):
         t.product.traffic_gb = 0
         await s.commit()
         panel = Panel_(used=2 * GIB, limit=10 * GIB, expire=t.account.expires_at)
-        monkeypatch.setattr(vpn, "build_adapter", lambda _p: panel)
+        monkeypatch.setattr(vpn, "build_adapter", lambda _p, _server=None: panel)
         o = await _renew(s, t)
         assert await vpn.provision_order(s, o.id) == "completed"
         assert (await s.get(VpnAccount, t.account.id)).traffic_limit_bytes == 0
@@ -352,7 +352,7 @@ async def test_a_timed_out_renewal_is_retried_and_never_reported_as_done_just_be
     async with open_session() as s:
         t = await _world(s)
         old = Panel_(used=4 * GIB, expire=t.account.expires_at, script=[PanelError(ErrorKind.UNKNOWN, "timeout")])
-        monkeypatch.setattr(vpn, "build_adapter", lambda _p: old)
+        monkeypatch.setattr(vpn, "build_adapter", lambda _p, _server=None: old)
         o = await _renew(s, t)
         assert await vpn.provision_order(s, o.id) == "retry_scheduled"  # panel still shows the OLD values -> not completed
         assert (await s.get(Order, o.id)).status == "processing"

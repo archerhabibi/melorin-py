@@ -35,18 +35,22 @@ def test_empty_product_codes_accept_any_product():
     assert chosen is c
 
 
-def test_direct_mode_prefers_least_loaded_server():
-    busy = cand("busy", active_on_server=5)
-    free = cand("free", active_on_server=1)
-    chosen, _ = select_allocation([busy, free], product_code="10", is_test=False)
-    assert chosen is free
+def test_default_balancing_is_round_robin_not_least_loaded():
+    """D2/D8: the old "least active" rule is gone. A busier destination that waited longer is chosen first."""
+    import datetime as dt
+
+    now = dt.datetime(2026, 11, 5, tzinfo=dt.UTC)
+    busy_but_waiting = cand("busy", active_on_server=5, last_assigned_at=now - dt.timedelta(hours=2))
+    free_but_recent = cand("free", active_on_server=1, last_assigned_at=now)
+    chosen, _ = select_allocation([free_but_recent, busy_but_waiting], product_code="10", is_test=False)
+    assert chosen is busy_but_waiting
 
 
-def test_group_mode_prefers_least_loaded_panel_then_member_sort():
-    a = cand("a", active_on_panel=3, member_sort=0)
-    b = cand("b", active_on_panel=1, member_sort=5)
+def test_group_mode_uses_the_same_balancing_and_member_sort_breaks_ties():
+    a = cand("a", active_on_panel=3, member_sort=5)
+    b = cand("b", active_on_panel=1, member_sort=0)
     chosen, _ = select_allocation([a, b], product_code="10", is_test=False, group_mode="automatic")
-    assert chosen is b
+    assert chosen is b  # never assigned both -> member_sort decides, panel load is no longer a key
 
 
 def test_test_order_needs_allow_test():

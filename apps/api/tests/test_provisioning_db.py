@@ -70,7 +70,7 @@ def panel_factory(monkeypatch):
 
     def install(panel: ScriptedPanel):
         holder["panel"] = panel
-        monkeypatch.setattr(vpn, "build_adapter", lambda _panel: panel)
+        monkeypatch.setattr(vpn, "build_adapter", lambda _panel, _server=None: panel)
         return panel
 
     return install

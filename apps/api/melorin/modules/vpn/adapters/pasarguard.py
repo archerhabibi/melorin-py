@@ -14,8 +14,9 @@ and the current PasarGuard panel API:
 `expire` is sent as ISO-8601 UTC ("...Z"), 0 = never. `data_limit` bytes, 0 = unlimited.
 Redirects are never followed with a Bearer token (credential forwarding / SSRF).
 
-Panel.config:
-  {"group_ids": [1, 2],            # REQUIRED by current PasarGuard UserCreate
+Panel.config (the destination keys below may also come from ``Server.target``, which wins; see vpn.targets):
+  {"group_ids": [1, 2],            # REQUIRED by current PasarGuard UserCreate (or "user_template_id" instead)
+   "limits_from": "product"|"template",  # template mode only: product (default) re-applies the package volume/time after creation
    "api_style": "current"|"legacy", # legacy = Marzban-style /api/user/{username} (old PasarGuard builds)
    "sub_base_url": "https://sub.example.com",  # prefix for relative subscription_url
    "verify_tls": true, "timeout": 20, "username_prefix": ""}
@@ -283,16 +284,48 @@ class PasarGuardAdapter:
     def capabilities(self) -> Capabilities:
         return Capabilities(suspend=True, extend=True, subscription_url=True, traffic_reset=True)
 
+    def _template_mode(self) -> bool:
+        return self.cfg.get("user_template_id") is not None
+
+    def _product_limits(self) -> bool:
+        """A template carries its own volume/time. By default the PACKAGE wins (``limits_from=product``), so one template can
+        serve every plan; ``limits_from=template`` keeps whatever the template says."""
+        return self._template_mode() and self.cfg.get("limits_from", "product") == "product"
+
+    @staticmethod
+    def _limits_match(d: dict, spec: AccountSpec) -> bool:
+        want_exp = parse_expire(iso_expire(spec.expire_at))
+        have_exp = parse_expire(d.get("expire"))
+        same_exp = (want_exp is None and have_exp is None) or (
+            want_exp is not None and have_exp is not None and abs((want_exp - have_exp).total_seconds()) < 2
+        )
+        return same_exp and int(d.get("data_limit") or 0) == int(spec.traffic_bytes or 0)
+
+    async def _apply_product_limits(self, d: dict, spec: AccountSpec) -> dict:
+        """Step 2 of template creation: overwrite the template's volume/time with the package's (absolute values: safe to repeat)."""
+        if self._limits_match(d, spec):
+            return d
+        out = await self._req(
+            "PUT",
+            self._write_path(d),
+            json=build_modify_payload(expire_at=spec.expire_at, traffic_bytes=spec.traffic_bytes, set_expire=True),
+        )
+        return out if isinstance(out, dict) and out.get("username") else await self._require(spec.username)
+
     async def create_account(self, spec: AccountSpec) -> PanelAccount:
         existing = await self._get_raw(spec.username)
         if existing:  # idempotent retry after an UNKNOWN outcome
+            if self._product_limits():  # the previous attempt may have died between create and the limits step
+                existing = await self._apply_product_limits(existing, spec)
             return self._to_account(existing)
-        endpoint = "/api/user/from_template" if self.cfg.get("user_template_id") is not None else "/api/user"
+        endpoint = "/api/user/from_template" if self._template_mode() else "/api/user"
         d = await self._req("POST", endpoint, json=build_create_payload(spec, self.cfg), ok409=True)
         if d.get("__conflict__"):
             d = await self._require(spec.username)
         elif not d.get("username"):
             d = await self._require(spec.username)
+        if self._product_limits():
+            d = await self._apply_product_limits(d, spec)
         return self._to_account(d)
 
     async def get_account(self, username: str) -> PanelAccount | None:
@@ -333,13 +366,44 @@ class PasarGuardAdapter:
         return self._to_account(out if out.get("username") else await self._require(username))
 
     async def list_groups(self) -> list[dict]:
-        """Admin helper to pick config.group_ids."""
+        """Admin helper to pick group_ids."""
         data = await self._req("GET", "/api/groups/simple", ok404=True)
         if data is None:
             data = await self._req("GET", "/api/groups")
         if isinstance(data, dict):
             data = data.get("groups") or []
         return [g for g in data if isinstance(g, dict)]
+
+    async def list_templates(self) -> list[dict]:
+        """Admin helper to pick user_template_id (ready-made user settings: groups + volume + time)."""
+        data = await self._req("GET", "/api/user_templates", ok404=True)
+        if isinstance(data, dict):
+            data = data.get("user_templates") or data.get("templates") or []
+        return [t for t in (data or []) if isinstance(t, dict)]
+
+    async def list_targets(self) -> dict:
+        """Everything an admin can aim a server at: ``{"groups": [...], "templates": [...]}`` in a flat, UI-ready shape."""
+        groups = [
+            {"id": int(g["id"]), "name": str(g.get("name") or g["id"]), "disabled": bool(g.get("is_disabled", False))}
+            for g in await self.list_groups()
+            if g.get("id") is not None
+        ]
+        try:
+            templates = [
+                {
+                    "id": int(t["id"]),
+                    "name": str(t.get("name") or t["id"]),
+                    "data_limit": int(t.get("data_limit") or 0),
+                    "expire_duration": int(t.get("expire_duration") or 0),
+                    "group_ids": [int(g) for g in (t.get("group_ids") or [])],
+                    "disabled": bool(t.get("is_disabled", False)),
+                }
+                for t in await self.list_templates()
+                if t.get("id") is not None
+            ]
+        except PanelError:
+            templates = []  # an older build or a role without template access: groups still work
+        return {"kind": "pasarguard", "groups": groups, "templates": templates}
 
     def normalize_status(self, raw: str) -> str:
         return _STATUS.get(raw, "unknown")

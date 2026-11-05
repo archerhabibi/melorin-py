@@ -1348,6 +1348,12 @@
       },
       "CreateBundle": {
         "properties": {
+          "balancing": {
+            "default": "round_robin",
+            "pattern": "^(round_robin|least_fill|fill_first)$",
+            "title": "Balancing",
+            "type": "string"
+          },
           "is_enabled": {
             "default": true,
             "title": "Is Enabled",
@@ -1708,6 +1714,17 @@
               }
             ],
             "title": "Product Codes"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
           }
         },
         "required": [
@@ -4199,6 +4216,17 @@
             ],
             "title": "Sales Enabled"
           },
+          "site_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site Enabled"
+          },
           "status": {
             "anyOf": [
               {
@@ -4301,6 +4329,11 @@
             "title": "Capacity",
             "type": "integer"
           },
+          "capacity_label": {
+            "default": "ظرفیت مقصد",
+            "title": "Capacity Label",
+            "type": "string"
+          },
           "created_at": {
             "anyOf": [
               {
@@ -4313,6 +4346,10 @@
             ],
             "title": "Created At"
           },
+          "effective_target": {
+            "title": "Effective Target",
+            "type": "object"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -4321,6 +4358,18 @@
           "is_enabled": {
             "title": "Is Enabled",
             "type": "boolean"
+          },
+          "last_assigned_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Assigned At"
           },
           "location": {
             "anyOf": [
@@ -4360,6 +4409,17 @@
             ],
             "title": "Product Codes"
           },
+          "target": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
+          },
           "total_accounts": {
             "default": 0,
             "title": "Total Accounts",
@@ -4376,6 +4436,13 @@
               }
             ],
             "title": "Updated At"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
           }
         },
         "required": [
@@ -4388,6 +4455,74 @@
           "is_enabled"
         ],
         "title": "ServerOut",
+        "type": "object"
+      },
+      "ServersFromTargets": {
+        "description": "Wizard / sync: one server slot per chosen group, template or inbound (or per ``set`` of inbounds).",
+        "properties": {
+          "allow_test": {
+            "default": true,
+            "title": "Allow Test",
+            "type": "boolean"
+          },
+          "capacity": {
+            "default": 500,
+            "exclusiveMinimum": 0.0,
+            "maximum": 100000.0,
+            "title": "Capacity",
+            "type": "integer"
+          },
+          "group_as_one": {
+            "default": false,
+            "title": "Group As One",
+            "type": "boolean"
+          },
+          "ids": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Ids",
+            "type": "array"
+          },
+          "kind": {
+            "pattern": "^(group|template|inbound)$",
+            "title": "Kind",
+            "type": "string"
+          },
+          "limits_from": {
+            "anyOf": [
+              {
+                "pattern": "^(product|template)$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limits From"
+          },
+          "product_codes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Codes"
+          }
+        },
+        "required": [
+          "kind",
+          "ids"
+        ],
+        "title": "ServersFromTargets",
         "type": "object"
       },
       "SetPassword": {
@@ -5765,6 +5900,18 @@
       },
       "UpdateBundle": {
         "properties": {
+          "balancing": {
+            "anyOf": [
+              {
+                "pattern": "^(round_robin|least_fill|fill_first)$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Balancing"
+          },
           "is_enabled": {
             "anyOf": [
               {
@@ -5961,6 +6108,17 @@
               }
             ],
             "title": "Product Codes"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
           }
         },
         "title": "UpdateServer",
@@ -8945,6 +9103,62 @@
         ]
       }
     },
+    "/api/v1/admin/panels/{panel_id}/servers/from-targets": {
+      "post": {
+        "operationId": "create_servers_from_targets_api_v1_admin_panels__panel_id__servers_from_targets_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServersFromTargets"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Servers From Targets",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/admin/panels/{panel_id}/state": {
       "post": {
         "operationId": "set_panel_state_api_v1_admin_panels__panel_id__state_post",
@@ -8996,6 +9210,53 @@
           }
         ],
         "summary": "Set Panel State",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/panels/{panel_id}/targets": {
+      "get": {
+        "description": "The panel's own groups/templates (PasarGuard) or inbounds (Sanaei), each marked with the servers already using it.",
+        "operationId": "panel_targets_api_v1_admin_panels__panel_id__targets_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Panel Targets",
         "tags": [
           "admin"
         ]

@@ -22,6 +22,8 @@ from melorin.modules.admin.schemas import (
     ServerOut,
     UpdateServer,
 )
+from melorin.modules.admin.targets import check_target, target_warnings
+from melorin.modules.vpn.targets import capacity_label, effective_destination
 from melorin.modules.admin._common import (
     _commit_or_conflict,
     _count,
@@ -146,12 +148,12 @@ async def _clean_product_codes(session, raw: list[str] | None) -> list[str] | No
     return codes or None
 
 
-def _server_out(s: Server, panel_name: str, active: int = 0, total: int = 0) -> ServerOut:
+def _server_out(s: Server, panel: Panel, active: int = 0, total: int = 0, warnings: list[str] | None = None) -> ServerOut:
     return ServerOut(
         id=s.id,
         name=s.name,
         panel_id=s.panel_id,
-        panel_name=panel_name,
+        panel_name=panel.name,
         location=s.location,
         capacity=s.capacity,
         product_codes=list(s.product_codes) if s.product_codes else None,
@@ -159,19 +161,26 @@ def _server_out(s: Server, panel_name: str, active: int = 0, total: int = 0) -> 
         is_enabled=bool(s.is_enabled),
         active_accounts=active,
         total_accounts=total,
+        target=s.target or None,
+        effective_target=effective_destination(panel.kind, panel.config, s.target),
+        capacity_label=capacity_label(panel.kind, s.target),
+        last_assigned_at=s.last_assigned_at,
+        warnings=warnings or [],
         created_at=s.created_at,
         updated_at=s.updated_at,
     )
 
 
 async def _server_counts(session, server_ids: list[uuid.UUID]) -> dict[uuid.UUID, tuple[int, int]]:
-    """server_id -> (active accounts, all accounts) in one grouped query."""
+    """server_id -> (accounts that count as load, all accounts) in one grouped query.
+
+    "Load" is exactly what the allocation counts (ACTIVE + PROVISIONING), so the fill bar never disagrees with routing."""
     from melorin.domain.order_state import VpnStatus
 
     if not server_ids:
         return {}
     rows = await session.execute(
-        select(VpnAccount.server_id, func.count(), func.count().filter(VpnAccount.status == VpnStatus.ACTIVE))
+        select(VpnAccount.server_id, func.count(), func.count().filter(VpnAccount.status.in_([VpnStatus.ACTIVE, VpnStatus.PROVISIONING])))
         .where(VpnAccount.server_id.in_(server_ids))
         .group_by(VpnAccount.server_id)
     )
@@ -180,22 +189,27 @@ async def _server_counts(session, server_ids: list[uuid.UUID]) -> dict[uuid.UUID
 
 @router.get("/servers", response_model=list[ServerOut])
 async def servers(_: AdminUser, session: Session):
-    rows = (await session.execute(select(Server, Panel.name).join(Panel, Panel.id == Server.panel_id).order_by(Server.created_at))).all()
+    rows = (await session.execute(select(Server, Panel).join(Panel, Panel.id == Server.panel_id).order_by(Server.created_at))).all()
     counts = await _server_counts(session, [s.id for s, _ in rows])
-    return [_server_out(s, pname, *counts.get(s.id, (0, 0))) for s, pname in rows]
+    return [_server_out(s, panel, *counts.get(s.id, (0, 0))) for s, panel in rows]
 
 
 @router.post("/servers", response_model=dict, status_code=201)
 async def create_server(body: CreateServer, admin: AdminUser, session: Session):
-    if not await session.get(Panel, body.panel_id):
+    panel = await session.get(Panel, body.panel_id)
+    if not panel:
         raise NotFound("پنل")
-    body = body.model_copy(update={"product_codes": await _clean_product_codes(session, body.product_codes)})
+    target = check_target(panel, body.target)  # 422 with every problem; the panel itself is only asked for warnings
+    body = body.model_copy(update={"product_codes": await _clean_product_codes(session, body.product_codes), "target": target})
     s = Server(**body.model_dump())
     session.add(s)
     await session.flush()
-    audit.record(session, "server.created", actor_id=admin.id, actor_type="admin", entity_type="server", entity_id=s.id)
+    audit.record(
+        session, "server.created", actor_id=admin.id, actor_type="admin", entity_type="server", entity_id=s.id, data={"target": target}
+    )
+    warnings = await target_warnings(session, panel, target, exclude=s.id)
     await session.commit()
-    return {"id": s.id}
+    return {"id": s.id, "warnings": warnings}
 
 
 @router.patch("/servers/{server_id}", response_model=ServerOut)
@@ -223,6 +237,10 @@ async def update_server(server_id: uuid.UUID, body: UpdateServer, admin: AdminUs
             raise AppError(
                 "SERVER_HAS_ACCOUNTS", "این سرور اکانت دارد و پنل آن قابل تغییر نیست. سرور جدید بسازید و این را غیرفعال کنید.", 409
             )
+    target_panel = await session.get(Panel, patch.get("panel_id") or s.panel_id)
+    if "target" in patch or "panel_id" in patch:
+        # a new panel needs its target re-checked against that panel's kind even when the target itself was not sent
+        patch["target"] = check_target(target_panel, patch["target"] if "target" in patch else s.target)
     changed = [k for k, v in patch.items() if getattr(s, k) != v]
     for k in changed:
         setattr(s, k, patch[k])
@@ -234,12 +252,12 @@ async def update_server(server_id: uuid.UUID, body: UpdateServer, admin: AdminUs
             actor_type="admin",
             entity_type="server",
             entity_id=s.id,
-            data={"changed": changed},
+            data={"changed": changed, **({"target": s.target} if "target" in changed else {})},
         )
+    warnings = await target_warnings(session, target_panel, s.target, exclude=s.id) if "target" in changed else []
     await session.commit()
     await session.refresh(s)
-    pname = await session.scalar(select(Panel.name).where(Panel.id == s.panel_id))
-    return _server_out(s, pname or "", *(await _server_counts(session, [s.id])).get(s.id, (0, 0)))
+    return _server_out(s, target_panel, *(await _server_counts(session, [s.id])).get(s.id, (0, 0)), warnings)
 
 
 @router.post("/servers/{server_id}/state")

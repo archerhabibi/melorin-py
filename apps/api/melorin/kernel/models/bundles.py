@@ -15,6 +15,9 @@ class Bundle(IdMixin, TimestampMixin, Base):
     __tablename__ = "bundles"
     name: Mapped[str] = mapped_column(String(120))
     selection_mode: Mapped[str] = mapped_column(String(20), default="automatic")  # automatic | manual
+    balancing: Mapped[str] = mapped_column(
+        String(20), default="round_robin", server_default="round_robin"
+    )  # how an automatic bundle spreads NEW sales over its destinations: round_robin | least_fill | fill_first
     naming_mode: Mapped[str] = mapped_column(String(20), default="automatic")  # automatic | custom
     kind_label: Mapped[str] = mapped_column(
         String(40), default="", server_default=""

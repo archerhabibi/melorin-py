@@ -878,6 +878,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/panels/{panel_id}/servers/from-targets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Servers From Targets */
+        post: operations["create_servers_from_targets_api_v1_admin_panels__panel_id__servers_from_targets_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/panels/{panel_id}/state": {
         parameters: {
             query?: never;
@@ -889,6 +906,26 @@ export interface paths {
         put?: never;
         /** Set Panel State */
         post: operations["set_panel_state_api_v1_admin_panels__panel_id__state_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/panels/{panel_id}/targets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Panel Targets
+         * @description The panel's own groups/templates (PasarGuard) or inbounds (Sanaei), each marked with the servers already using it.
+         */
+        get: operations["panel_targets_api_v1_admin_panels__panel_id__targets_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4795,6 +4832,11 @@ export interface components {
         /** CreateBundle */
         CreateBundle: {
             /**
+             * Balancing
+             * @default round_robin
+             */
+            balancing: string;
+            /**
              * Is Enabled
              * @default true
              */
@@ -4936,6 +4978,8 @@ export interface components {
             panel_id: string;
             /** Product Codes */
             product_codes?: string[] | null;
+            /** Target */
+            target?: Record<string, never> | null;
         };
         /** CreateTicket */
         CreateTicket: {
@@ -5807,6 +5851,8 @@ export interface components {
             name?: string | null;
             /** Sales Enabled */
             sales_enabled?: boolean | null;
+            /** Site Enabled */
+            site_enabled?: boolean | null;
             /** Status */
             status?: ("active" | "suspended") | null;
         };
@@ -5843,8 +5889,15 @@ export interface components {
             allow_test: boolean;
             /** Capacity */
             capacity: number;
+            /**
+             * Capacity Label
+             * @default ظرفیت مقصد
+             */
+            capacity_label: string;
             /** Created At */
             created_at?: string | null;
+            /** Effective Target */
+            effective_target?: Record<string, never>;
             /**
              * Id
              * Format: uuid
@@ -5852,6 +5905,8 @@ export interface components {
             id: string;
             /** Is Enabled */
             is_enabled: boolean;
+            /** Last Assigned At */
+            last_assigned_at?: string | null;
             /** Location */
             location?: string | null;
             /** Name */
@@ -5865,6 +5920,8 @@ export interface components {
             panel_name: string;
             /** Product Codes */
             product_codes?: string[] | null;
+            /** Target */
+            target?: Record<string, never> | null;
             /**
              * Total Accounts
              * @default 0
@@ -5872,6 +5929,37 @@ export interface components {
             total_accounts: number;
             /** Updated At */
             updated_at?: string | null;
+            /** Warnings */
+            warnings?: string[];
+        };
+        /**
+         * ServersFromTargets
+         * @description Wizard / sync: one server slot per chosen group, template or inbound (or per ``set`` of inbounds).
+         */
+        ServersFromTargets: {
+            /**
+             * Allow Test
+             * @default true
+             */
+            allow_test: boolean;
+            /**
+             * Capacity
+             * @default 500
+             */
+            capacity: number;
+            /**
+             * Group As One
+             * @default false
+             */
+            group_as_one: boolean;
+            /** Ids */
+            ids: number[];
+            /** Kind */
+            kind: string;
+            /** Limits From */
+            limits_from?: string | null;
+            /** Product Codes */
+            product_codes?: string[] | null;
         };
         /** SetPassword */
         SetPassword: {
@@ -6353,6 +6441,8 @@ export interface components {
         };
         /** UpdateBundle */
         UpdateBundle: {
+            /** Balancing */
+            balancing?: string | null;
             /** Is Enabled */
             is_enabled?: boolean | null;
             /** Kind Label */
@@ -6391,6 +6481,8 @@ export interface components {
             panel_id?: string | null;
             /** Product Codes */
             product_codes?: string[] | null;
+            /** Target */
+            target?: Record<string, never> | null;
         };
         /**
          * UpdateTicket
@@ -8247,6 +8339,41 @@ export interface operations {
             };
         };
     };
+    create_servers_from_targets_api_v1_admin_panels__panel_id__servers_from_targets_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                panel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServersFromTargets"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     set_panel_state_api_v1_admin_panels__panel_id__state_post: {
         parameters: {
             query?: never;
@@ -8261,6 +8388,37 @@ export interface operations {
                 "application/json": components["schemas"]["PanelState"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    panel_targets_api_v1_admin_panels__panel_id__targets_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                panel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
