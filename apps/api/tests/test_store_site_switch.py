@@ -10,7 +10,7 @@ from melorin.core import channel
 from melorin.core.db import Base
 from melorin.core.errors import AppError
 from melorin.kernel.models.stores import Store
-from melorin.modules.catalog.router import store_by_domain, tls_ask
+from melorin.modules.catalog.router import store_by_domain, store_by_slug, tls_ask
 
 
 @pytest.fixture
@@ -72,7 +72,18 @@ async def test_public_lookup_and_tls_gate_follow_the_switch(session):
     with pytest.raises(Exception):
         await store_by_domain("r.example.com", session)
     with pytest.raises(Exception):
+        await store_by_slug("r", session)
+    with pytest.raises(Exception):
         await tls_ask("r.example.com", session)
     rs.site_enabled = True
     await session.flush()
     assert (await tls_ask("r.example.com", session))["ok"] is True
+    assert (await store_by_slug("r", session)).slug == "r"
+
+
+async def test_main_store_is_never_hidden_by_the_switch(session):
+    main, _ = await _stores(session, False)
+    main.site_enabled = False  # ignored for the Main Store
+    await session.flush()
+    assert (await store_by_domain("main.example.com", session)).slug == "main"
+    assert (await tls_ask("main.example.com", session))["ok"] is True

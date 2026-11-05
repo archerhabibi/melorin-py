@@ -1,7 +1,7 @@
 import uuid
 
 from fastapi import APIRouter
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from melorin.core import audit
 from melorin.core.scope import StoreScope
@@ -51,10 +51,15 @@ async def get_main_store(session: Session):
     return _store_out(await main_store(session))
 
 
+def _site_off(s: Store) -> bool:
+    """A reseller whose website switch is off has no public storefront (the Main Store is always served)."""
+    return s.kind == "reseller" and not s.site_enabled
+
+
 @public.get("/stores/by-slug/{slug}", response_model=StoreOut)
 async def store_by_slug(slug: str, session: Session):
     s = await session.scalar(select(Store).where(Store.slug == slug, Store.status == "active"))
-    if not s:
+    if not s or _site_off(s):
         raise NotFound("فروشگاه")
     return _store_out(s)
 
@@ -62,7 +67,7 @@ async def store_by_slug(slug: str, session: Session):
 @public.get("/stores/by-domain/{domain}", response_model=StoreOut)
 async def store_by_domain(domain: str, session: Session):
     s = await session.scalar(select(Store).where(Store.domain == domain.strip().lower().rstrip("."), Store.status == "active"))
-    if not s or (s.kind == "reseller" and not s.site_enabled):  # a reseller whose website is off has no public storefront
+    if not s or _site_off(s):
         raise NotFound("فروشگاه")
     return _store_out(s)
 
@@ -72,7 +77,8 @@ async def tls_ask(domain: str, session: Session):
     """Caddy on-demand TLS gate: 200 only for the hostname of an active reseller store, 404 for everything else,
     so certificates are never issued for arbitrary names pointed at this server."""
     host = (domain or "").strip().lower().rstrip(".")
-    if not host or len(host) > 253 or not await session.scalar(select(Store.id).where(Store.domain == host, Store.status == "active", Store.site_enabled.is_(True))):
+    gate = select(Store.id).where(Store.domain == host, Store.status == "active", or_(Store.kind != "reseller", Store.site_enabled.is_(True)))
+    if not host or len(host) > 253 or not await session.scalar(gate):
         raise NotFound("فروشگاه")
     return {"ok": True}
 
