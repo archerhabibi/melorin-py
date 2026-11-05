@@ -79,3 +79,10 @@
 * (انجام شد در R06 - docs/17) secretهای جدای رانرها در compose/installer/update.
 * (انجام شد در T03) اتصال کانال به کلید API نماینده.
 * `rate_limit_per_minute` کلید ذخیره و نمایش داده می‌شود ولی هنوز اعمال نمی‌شود؛ اعمالش (با `core.ratelimit.hit`) نیازمند تصمیم درباره‌ی رفتار هنگام قطع Redis است.
+
+## Site switch per store (`stores.site_enabled`)
+
+- Reseller stores are created with the **website off and the bot on**; an admin turns the site on per reseller (Admin panel → Resellers → "وب‌سایت فروشگاه روشن باشد", or `PATCH /admin/resellers/{id}` with `site_enabled`).
+- The Main Store always serves both channels; `site_enabled` is ignored for it.
+- With the site off, `site_channel` answers `CHANNEL_DISABLED` (403), `/stores/by-domain/{domain}` returns 404 and the Caddy TLS gate refuses a certificate for the domain. The bot, the owner's API key and the admin panel are unaffected.
+- Migration `0038_store_site_enabled` switches the site off for already existing reseller stores.

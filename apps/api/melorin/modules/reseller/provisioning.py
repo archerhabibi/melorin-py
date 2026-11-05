@@ -16,6 +16,8 @@ async def create_reseller_store(session, a: ResellerApplication, target: Store, 
         domain=a.domain,
         bot_token_enc=token_enc,
         bot_username=a.bot_username,
+        bot_enabled=True,  # a new reseller is served through the bot from day one ...
+        site_enabled=False,  # ... while the storefront website stays off until an admin enables it
     )
     session.add(st)
     await session.flush()

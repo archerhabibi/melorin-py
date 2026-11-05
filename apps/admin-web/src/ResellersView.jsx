@@ -107,6 +107,7 @@ function Editor({ initial, call, toast, onClose, onDone }) {
     sales: !!x.sales_enabled,
     api: !!x.api_enabled,
     botOn: !!x.bot.enabled,
+    siteOn: !!x.site_enabled,
     texts: { welcome: '', support: '', rules: '', ...(x.bot_messages || {}) },
   });
   const [f, setF] = useState(pick(initial));
@@ -153,6 +154,7 @@ function Editor({ initial, call, toast, onClose, onDone }) {
     if (f.sales !== b.sales) body.sales_enabled = f.sales;
     if (f.api !== b.api) body.api_enabled = f.api;
     if (f.botOn !== b.botOn) body.bot_enabled = f.botOn;
+    if (f.siteOn !== b.siteOn) body.site_enabled = f.siteOn;
     if (JSON.stringify(f.texts) !== JSON.stringify(b.texts)) body.bot_messages = f.texts;
     if (
       body.status === 'suspended' &&
@@ -362,6 +364,12 @@ function Editor({ initial, call, toast, onClose, onDone }) {
           onChange={set('botOn')}
           label="ربات روشن باشد"
           hint="خاموش‌کردن ربات، فروشگاه و وب‌سایت را تعلیق نمی‌کند."
+        />
+        <Toggle
+          checked={f.siteOn}
+          onChange={set('siteOn')}
+          label="وب‌سایت فروشگاه روشن باشد"
+          hint="به‌طور پیش‌فرض برای نماینده‌ها خاموش است؛ مشتریان از راه ربات خرید می‌کنند. با روشن‌کردن، دامنهٔ نماینده به مشتریان پاسخ می‌دهد."
         />
         <Field
           label={bot.has_token ? 'جایگزینی توکن ربات' : 'توکن ربات'}

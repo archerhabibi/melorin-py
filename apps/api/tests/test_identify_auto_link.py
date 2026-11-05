@@ -11,7 +11,7 @@ from _db import make_order, make_product, make_store, make_user, open_session
 from melorin.core.config import get_settings
 from melorin.core.db import utcnow
 from melorin.domain.identity_auto_link import Account, Outcome, resolve
-from melorin.kernel.models.identity import Identity, IdentityLinkReview, RefreshToken, TrustedDevice, User
+from melorin.kernel.models.identity import Identity, IdentityLinkReview, RefreshToken, TrustedDevice
 from melorin.kernel.models.stores import StoreMembership
 from melorin.kernel.models.system import AuditEvent, SecurityEvent
 from melorin.kernel.models.wallet import Wallet

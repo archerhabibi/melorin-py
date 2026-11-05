@@ -227,6 +227,9 @@ async def site_channel(session, request: Any, *, hint: uuid.UUID | None = None) 
     if hint is not None and hint != store.id:
         inc("melorin_channel_rejected_total", reason="hint_mismatch")
         raise mismatch()
+    if store.kind == "reseller" and not store.site_enabled:
+        inc("melorin_channel_rejected_total", reason="site_disabled")
+        raise AppError("CHANNEL_DISABLED", "وب‌سایت این فروشگاه غیرفعال است؛ از طریق ربات خرید کنید.", 403)
     return _snapshot(SITE, store, host)
 
 
