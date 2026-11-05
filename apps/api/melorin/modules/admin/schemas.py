@@ -160,6 +160,7 @@ class PanelState(BaseModel):
 class CreateBundle(BaseModel):
     name: str = Field(min_length=2, max_length=120)
     selection_mode: str = Field(default="automatic", pattern="^(automatic|manual)$")
+    balancing: str = Field(default="round_robin", pattern="^(round_robin|least_fill|fill_first)$")
     naming_mode: str = Field(default="automatic", pattern="^(automatic|custom)$")
     kind_label: str = Field(default="", max_length=40)
     is_enabled: bool = True
@@ -172,6 +173,7 @@ class CreateBundle(BaseModel):
 class UpdateBundle(BaseModel):
     name: str | None = Field(default=None, min_length=2, max_length=120)
     selection_mode: str | None = Field(default=None, pattern="^(automatic|manual)$")
+    balancing: str | None = Field(default=None, pattern="^(round_robin|least_fill|fill_first)$")
     naming_mode: str | None = Field(default=None, pattern="^(automatic|custom)$")
     kind_label: str | None = Field(default=None, max_length=40)
     is_enabled: bool | None = None
@@ -195,6 +197,7 @@ class CreateServer(BaseModel):
     capacity: int = Field(gt=0, le=100000)
     product_codes: list[str] | None = None
     allow_test: bool = True
+    target: dict | None = None  # destination on the panel (group/template/inbound set); null = inherit the panel config
 
 
 class UpdateServer(BaseModel):
@@ -206,6 +209,7 @@ class UpdateServer(BaseModel):
     capacity: int | None = Field(default=None, gt=0, le=100000)
     product_codes: list[str] | None = None
     allow_test: bool | None = None
+    target: dict | None = None  # explicit null clears the target (= inherit panel.config)
 
 
 class ServerOut(BaseModel):
@@ -220,6 +224,11 @@ class ServerOut(BaseModel):
     is_enabled: bool
     active_accounts: int = 0
     total_accounts: int = 0
+    target: dict | None = None
+    effective_target: dict = Field(default_factory=dict)  # what new accounts really use (target laid over the panel config)
+    capacity_label: str = "ظرفیت مقصد"  # گروه / تمپلیت / اینباند / مقصد (D7)
+    last_assigned_at: dt.datetime | None = None
+    warnings: list[str] = Field(default_factory=list)
     created_at: dt.datetime | None = None
     updated_at: dt.datetime | None = None
 
