@@ -62,7 +62,7 @@ async def store_by_slug(slug: str, session: Session):
 @public.get("/stores/by-domain/{domain}", response_model=StoreOut)
 async def store_by_domain(domain: str, session: Session):
     s = await session.scalar(select(Store).where(Store.domain == domain.strip().lower().rstrip("."), Store.status == "active"))
-    if not s:
+    if not s or (s.kind == "reseller" and not s.site_enabled):  # a reseller whose website is off has no public storefront
         raise NotFound("فروشگاه")
     return _store_out(s)
 
@@ -72,7 +72,7 @@ async def tls_ask(domain: str, session: Session):
     """Caddy on-demand TLS gate: 200 only for the hostname of an active reseller store, 404 for everything else,
     so certificates are never issued for arbitrary names pointed at this server."""
     host = (domain or "").strip().lower().rstrip(".")
-    if not host or len(host) > 253 or not await session.scalar(select(Store.id).where(Store.domain == host, Store.status == "active")):
+    if not host or len(host) > 253 or not await session.scalar(select(Store.id).where(Store.domain == host, Store.status == "active", Store.site_enabled.is_(True))):
         raise NotFound("فروشگاه")
     return {"ok": True}
 
