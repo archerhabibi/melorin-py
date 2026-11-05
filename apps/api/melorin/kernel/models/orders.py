@@ -18,6 +18,9 @@ class Order(IdMixin, TimestampMixin, Base):
     vpn_account_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("vpn_accounts.id", use_alter=True))
     bundle_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("bundles.id"))
     selected_panel_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("panels.id"))
+    allocated_server_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("servers.id")
+    )  # destination pinned by the first allocation: retries reuse it, renewals never write it
     requested_account_name: Mapped[str | None] = mapped_column(String(64))
     status: Mapped[str] = mapped_column(String(30), index=True)
     payment_method: Mapped[str] = mapped_column(String(20))  # wallet | manual_card | gateway | free
