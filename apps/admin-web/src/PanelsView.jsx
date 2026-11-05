@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { authFetch } from './api.js';
 import { ServerForm, ServerImport } from './ServerForm.jsx';
+import { TargetWizard } from './TargetPicker.jsx';
+import { ago as lastAssigned, capacityLabel, describeTarget } from './targets.js';
 import { Badge, confirmDialog, dt, sid } from './ui.jsx';
 import {
   Dot,
@@ -167,13 +169,13 @@ function Chips({ values, onChange, placeholder }) {
   );
 }
 
-function Meter({ s }) {
+function Meter({ s, panelKind }) {
   const u = usage(s),
     t = capTone(u);
   return (
     <div>
       <div className="mb-1.5 flex items-baseline justify-between text-xs">
-        <span className="text-[var(--mu)]">ظرفیت</span>
+        <span className="text-[var(--mu)]">{capacityLabel(panelKind, s.target)}</span>
         <span className="num font-bold">
           <span style={{ color: `var(--${t})` }}>{num(s.active_accounts)}</span> از {num(s.capacity)}
           <span className="mr-1.5 font-normal text-[var(--mu)]">({num(Math.round(u * 100))}٪)</span>
@@ -818,10 +820,18 @@ function ServerRow({ s, panel, busy, onEdit, onToggle, onDelete }) {
             ) : null}
             <span className={`badge b-${st.tone}`}>{st.label}</span>
           </div>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-[var(--mu)]">
+            <span className="badge b-in" title="مقصد اتصال این سرور">
+              {describeTarget(
+                s.effective_target && Object.keys(s.effective_target).length ? s.effective_target : s.target,
+              )}
+            </span>
+            <span title="آخرین فروش جدید که به این مقصد رسید">آخرین تخصیص: {lastAssigned(s.last_assigned_at)}</span>
+          </div>
         </div>
       </div>
       <div className={dim}>
-        <Meter s={s} />
+        <Meter s={s} panelKind={panel?.kind} />
       </div>
       <div className="flex items-center justify-end gap-2">
         <Switch
@@ -859,6 +869,7 @@ function PanelSection({
   onSrvToggle,
   onSrvDelete,
   onImport,
+  onWizard,
 }) {
   const h = health(p),
     k = kindOf(p.kind),
@@ -1013,7 +1024,7 @@ function PanelSection({
             className="flex w-full items-center gap-2 border-b border-[var(--hair)] px-5 py-2 text-[11px] font-bold text-[var(--mu)] hover:text-[var(--tx)]"
           >
             <ChevronDown size={14} className={open ? '' : '-rotate-90'} />
-            سرورها (ظرفیت‌ها)<span className="badge b-mu num">{num(servers.length)}</span>
+            مقصدها (گروه/اینباند)<span className="badge b-mu num">{num(servers.length)}</span>
           </button>
           {showServers &&
             (servers.length ? (
@@ -1036,12 +1047,12 @@ function PanelSection({
                   <AlertTriangle size={15} />
                   {filtered
                     ? 'سروری با این فیلتر روی این پنل نیست'
-                    : 'این پنل هنوز سرور ندارد؛ تا ظرفیت تعریف نشود اکانتی روی آن ساخته نمی‌شود.'}
+                    : 'این پنل هنوز مقصد ندارد؛ تا ظرفیت تعریف نشود اکانتی روی آن ساخته نمی‌شود.'}
                 </span>
                 {!filtered && (
                   <button className="btn" onClick={() => onSrvAdd(p)}>
                     <Plus size={15} />
-                    افزودن اولین سرور
+                    افزودن اولین مقصد
                   </button>
                 )}
               </div>
@@ -1050,7 +1061,11 @@ function PanelSection({
             <footer className="flex flex-wrap items-center gap-2 bg-[var(--sf2)] px-5 py-2.5">
               <button className="btn btn-g" onClick={() => onSrvAdd(p)}>
                 <Plus size={13} />
-                سرور جدید
+                مقصد جدید
+              </button>
+              <button className="btn btn-g" onClick={() => onWizard(p)}>
+                <Layers size={13} />
+                ساخت از روی گروه/اینباندها
               </button>
               <button className="btn btn-g" onClick={() => onImport(p)}>
                 <FolderInput size={13} />
@@ -1083,6 +1098,7 @@ export default function PanelsView({ api, toast }) {
   const [srvDrawer, setSrvDrawer] = useState(null);
   const [srvBusy, setSrvBusy] = useState(new Set());
   const [importFor, setImportFor] = useState(null);
+  const [wizardFor, setWizardFor] = useState(null);
   const [page, setPage] = useState(0);
   const [sort, setSort] = useState('attention');
   const [dense, setDense] = useState('full');
@@ -1557,6 +1573,7 @@ export default function PanelsView({ api, toast }) {
                 onSrvEdit={(s) => setSrvDrawer({ panelId: s.panel_id, serverId: s.id })}
                 onSrvToggle={srvToggle}
                 onImport={setImportFor}
+                onWizard={setWizardFor}
               />
             ))}
           </div>
@@ -1591,6 +1608,15 @@ export default function PanelsView({ api, toast }) {
           onDelete={removeServer}
           onSaved={infra.reload}
           onClose={() => setSrvDrawer(null)}
+        />
+      )}
+      {wizardFor && (
+        <TargetWizard
+          api={api}
+          toast={toast}
+          panel={wizardFor}
+          onClose={() => setWizardFor(null)}
+          onDone={infra.reload}
         />
       )}
       {importFor && (

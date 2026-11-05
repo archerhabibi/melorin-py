@@ -243,9 +243,17 @@ async def test_create_account_omits_optional_fields_and_truncates_long_notes():
 
 async def test_create_account_from_template_uses_the_template_endpoint_and_minimal_body():
     panel = FakePanel()
-    await make(panel, cfg={"user_template_id": "7", "group_ids": []}).create_account(spec(username="t1"))
+    await make(panel, cfg={"user_template_id": "7", "group_ids": [], "limits_from": "template"}).create_account(spec(username="t1"))
     assert ("POST", "/api/user/from_template") in panel.calls
     assert panel.bodies[-1] == {"user_template_id": 7, "username": "t1", "note": "order 1001"}
+    assert not [c for c in panel.calls if c[0] == "PUT"]  # limits_from=template: the template's own volume/time stay
+
+
+async def test_template_default_applies_the_package_limits_right_after_creation():
+    panel = FakePanel()
+    await make(panel, cfg={"user_template_id": "7", "group_ids": []}).create_account(spec(username="t1"))
+    methods = [c[0] for c in panel.calls if c[0] in ("POST", "PUT") and "token" not in c[1]]
+    assert methods == ["POST", "PUT"]  # from_template first, then the absolute package volume/time
 
 
 @pytest.mark.parametrize("template_id", ["abc", 0, -3])

@@ -1,5 +1,6 @@
 // VPN accounts screen — server-side search / filter / paging over every store's accounts.
 // Data: GET /api/v1/admin/vpn-accounts (q, state, store_id, limit, offset; total in X-Total-Count).
+import { placementSummary } from './targets.js';
 import { useEffect, useMemo, useState } from 'react';
 import { Clock, Gauge, ShieldCheck, ShieldOff, Server, Timer } from 'lucide-react';
 import {
@@ -304,6 +305,7 @@ export default function VpnAccountsView({ api, toast }) {
 
 function AccountDrawer({ a, store, onClose }) {
   const u = usage(a);
+  const placement = placementSummary(a.placement);
   return (
     <Drawer
       title={a.username}
@@ -340,6 +342,14 @@ function AccountDrawer({ a, store, onClose }) {
           { label: 'انقضا', value: a.expires_at ? dt(a.expires_at) : 'نامحدود' },
           { label: 'ترافیک مصرفی', value: fmtBytes(a.traffic_used_bytes) },
           { label: 'سقف ترافیک', value: a.traffic_limit_bytes ? fmtBytes(a.traffic_limit_bytes) : 'نامحدود' },
+          ...(placement
+            ? [
+                { label: 'محل ساخت اکانت', value: placement.where },
+                { label: 'مقصد در لحظه‌ی ساخت', value: placement.target },
+                { label: 'روش تخصیص', value: placement.how },
+                { label: 'زمان تخصیص', value: a.placement.allocated_at ? dt(a.placement.allocated_at) : '—' },
+              ]
+            : []),
           { label: 'شناسه اکانت', value: a.id, ltr: true, copy: true },
           { label: 'شناسه مشتری', value: a.user_id, ltr: true, copy: true },
         ]}

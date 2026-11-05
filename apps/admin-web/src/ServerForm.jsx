@@ -16,6 +16,8 @@ import {
   tint,
 } from './kit.jsx';
 import { RelChip, Warn, serverState } from './infra.jsx';
+import { TargetPicker } from './TargetPicker.jsx';
+import { ago, capacityLabel, describeTarget } from './targets.js';
 
 // A server is only a capacity slot of ONE panel, so this form never asks "which panel":
 // the panel is the context it is opened from (PanelsView). Moving a server to another panel is
@@ -29,6 +31,7 @@ const EMPTY = (panel, name = '') => ({
   all: true,
   codes: [],
   allow_test: true,
+  target: null,
 });
 const fromServer = (s) => ({
   name: s.name,
@@ -38,6 +41,7 @@ const fromServer = (s) => ({
   all: !s.product_codes?.length,
   codes: s.product_codes || [],
   allow_test: !!s.allow_test,
+  target: s.target || null,
 });
 const payload = (f) => ({
   name: f.name.trim(),
@@ -46,11 +50,17 @@ const payload = (f) => ({
   capacity: Number(f.capacity),
   product_codes: f.all ? null : [...f.codes].sort(),
   allow_test: f.allow_test,
+  target: f.target,
 });
 
 function validate(f) {
   const e = {};
-  if (!f.name.trim()) e.name = 'نام سرور را وارد کنید';
+  if (!f.name.trim()) e.name = 'نام مقصد را وارد کنید';
+  const t = f.target;
+  if (t && Array.isArray(t.group_ids) && !t.group_ids.length)
+    e.target = 'حداقل یک گروه انتخاب کنید یا «ارث‌بری از پنل» را بزنید';
+  if (t && Array.isArray(t.inbound_ids) && !t.inbound_ids.length)
+    e.target = 'حداقل یک اینباند انتخاب کنید یا «ارث‌بری از پنل» را بزنید';
   const c = Number(f.capacity);
   if (!(c >= 1 && c <= 100000)) e.capacity = 'ظرفیت باید بین ۱ تا ۱۰۰٬۰۰۰ باشد';
   if (!f.all && !f.codes.length) e.codes = 'حداقل یک محصول انتخاب کنید یا «همه محصولات» را بزنید';
@@ -162,10 +172,10 @@ export function ServerForm({
     try {
       const r = await authFetch(api.base, url, { method, body: JSON.stringify(body) });
       if (!r.ok) {
-        setSrvErr(await errText(r, edit ? 'ذخیره تغییرات ناموفق بود' : 'ثبت سرور ناموفق بود'));
+        setSrvErr(await errText(r, edit ? 'ذخیره تغییرات ناموفق بود' : 'ثبت مقصد ناموفق بود'));
         return;
       }
-      toast(edit ? 'تغییرات سرور ذخیره شد' : 'سرور ثبت شد');
+      toast(edit ? 'تغییرات مقصد ذخیره شد' : 'مقصد ثبت شد');
       await onSaved();
       if (another && !edit) {
         const next = {
@@ -175,6 +185,7 @@ export function ServerForm({
           all: f.all,
           codes: f.codes,
           allow_test: f.allow_test,
+          target: null,
         };
         base.current = JSON.stringify(next);
         setF(next);
@@ -196,7 +207,7 @@ export function ServerForm({
 
   return (
     <Drawer
-      title={edit ? `ویرایش «${server.name}»` : 'افزودن سرور'}
+      title={edit ? `ویرایش «${server.name}»` : 'افزودن مقصد'}
       subtitle={`روی پنل «${panel?.name || '—'}»${edit ? ` · شناسه ${sid(server.id)}` : ''}`}
       icon={
         <span
@@ -210,12 +221,12 @@ export function ServerForm({
       busy={busy}
       onClose={onClose}
       error={srvErr}
-      danger={edit && onDelete && <DeleteButton label="حذف سرور" busy={busy} onClick={() => onDelete(server)} />}
+      danger={edit && onDelete && <DeleteButton label="حذف مقصد" busy={busy} onClick={() => onDelete(server)} />}
       footer={
         <>
           <button className="btn" disabled={busy || (edit && !dirty)} onClick={() => submit(false)}>
             {busy ? <RefreshCw size={15} className="animate-spin" /> : <Save size={15} />}
-            {edit ? 'ذخیره تغییرات' : 'ثبت سرور'}
+            {edit ? 'ذخیره تغییرات' : 'ثبت مقصد'}
           </button>
           {!edit && (
             <button className="btn btn-g !py-2 !text-sm" disabled={busy} onClick={() => submit(true)}>
@@ -240,14 +251,14 @@ export function ServerForm({
                 checked={server.is_enabled}
                 disabled={toggling}
                 onChange={(v) => onToggle(server, v)}
-                label="فعال بودن سرور"
+                label="فعال بودن مقصد"
               />
               {server.is_enabled ? 'فعال' : 'غیرفعال'}
             </label>
           </div>
           {!server.is_enabled && (
             <p className="text-[11px] leading-5 text-[var(--mu)]">
-              سرور غیرفعال برای اکانت جدید انتخاب نمی‌شود؛ اکانت‌های موجود حذف نمی‌شوند.
+              مقصد غیرفعال برای اکانت جدید انتخاب نمی‌شود؛ اکانت‌های موجود حذف نمی‌شوند.
             </p>
           )}
           <p className="text-[11px] text-[var(--mu)]">
@@ -258,10 +269,10 @@ export function ServerForm({
 
       <Section
         title="مشخصات"
-        hint="سرور یعنی یک ظرفیت مشخص روی همین پنل؛ وقتی پر شود، اکانت بعدی روی سرور دیگر ساخته می‌شود."
+        hint="مقصد یعنی یک گروه یا اینباند مشخص روی همین پنل با ظرفیت خودش؛ وقتی پر شود، فروش بعدی به مقصد بعدی می‌رود. تمدید همیشه روی مقصد قبلی می‌ماند."
       >
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="نام سرور" error={showErr('name')}>
+          <Field label="نام مقصد" error={showErr('name')}>
             <input
               ref={first}
               data-autofocus
@@ -296,7 +307,27 @@ export function ServerForm({
         </div>
       </Section>
 
-      <Section title="ظرفیت" hint="سقف اکانت‌های فعال روی این سرور.">
+      <Section
+        title="مقصد اتصال"
+        hint="اکانت‌های جدید این مقصد روی همین گروه/اینباند ساخته می‌شوند. اکانت‌های موجود هرگز جابه‌جا نمی‌شوند."
+      >
+        <TargetPicker api={api} panel={panel} value={f.target} onChange={set('target')} />
+        {showErr('target') && <p className="text-[11px] text-[var(--bd)]">{err.target}</p>}
+        {edit && (
+          <p className="text-[11px] text-[var(--mu)]">
+            فعلاً:{' '}
+            {describeTarget(
+              server.effective_target && Object.keys(server.effective_target).length
+                ? server.effective_target
+                : server.target,
+            )}{' '}
+            · آخرین تخصیص: {ago(server.last_assigned_at)}
+          </p>
+        )}
+        {edit && (server.warnings || []).map((w) => <Warn key={w}>{w}</Warn>)}
+      </Section>
+
+      <Section title={capacityLabel(panel?.kind, f.target)} hint="سقف اکانت‌های فعال روی این مقصد.">
         <Field label="تعداد اکانت فعال" error={showErr('capacity')}>
           <NumInput value={f.capacity} onChange={set('capacity')} suffix="اکانت" placeholder="500" />
         </Field>
@@ -319,7 +350,7 @@ export function ServerForm({
             دست‌نخورده می‌مانند.
           </p>
         )}
-        <Toggle checked={f.allow_test} onChange={set('allow_test')} label="اکانت تست روی این سرور مجاز باشد" />
+        <Toggle checked={f.allow_test} onChange={set('allow_test')} label="اکانت تست روی این مقصد مجاز باشد" />
       </Section>
 
       <section>
@@ -462,7 +493,7 @@ export function ServerImport({ api, panel, toast, onClose, onDone }) {
   };
   return (
     <Drawer
-      title="ورود دسته‌جمعی سرور"
+      title="ورود دسته‌جمعی مقصد"
       subtitle={`روی پنل «${panel.name}»`}
       icon={
         <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl" style={tint('in')}>
