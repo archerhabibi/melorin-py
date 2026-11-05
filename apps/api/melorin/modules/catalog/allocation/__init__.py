@@ -66,8 +66,10 @@ from melorin.modules.catalog.allocation.offers import (
     unit_price,
 )
 from melorin.modules.catalog.allocation.routing import (
+    BALANCING_MODES,
     Candidate,
     group_policy_violation,
+    placement_snapshot,
     requested_account_name,
     resolve_allocation,
     resolve_order_group,
@@ -86,6 +88,7 @@ from melorin.modules.catalog.allocation.reseller_prices import (
 )
 
 __all__ = [
+    "BALANCING_MODES",
     "BundleView",
     "Candidate",
     "SalePlan",
@@ -97,6 +100,7 @@ __all__ = [
     "ensure_customer_price",
     "group_policy_violation",
     "packages_for_bundle",
+    "placement_snapshot",
     "plan_sale",
     "renewal_offers",
     "requested_account_name",

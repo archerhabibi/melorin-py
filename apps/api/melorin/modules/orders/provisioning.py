@@ -17,7 +17,7 @@ from melorin.kernel.models.orders import Order
 from melorin.kernel.models.stores import Store
 from melorin.modules.vpn.adapters.base import AccountSpec, ErrorKind, PanelError
 from melorin.modules.vpn.adapters.registry import build_adapter, seed_adapter
-from melorin.modules.catalog.allocation import resolve_allocation
+from melorin.modules.catalog.allocation import placement_snapshot, resolve_allocation
 from melorin.modules.vpn import renewal
 from melorin.kernel.models.vpn import Panel, ProvisioningAttempt, Server, VpnAccount
 from melorin.kernel.models.bundles import Bundle, BundleMember
@@ -150,6 +150,19 @@ async def _give_up(session: AsyncSession, order: Order, message: str) -> str:
     return "refunded"
 
 
+async def _needs_review(session: AsyncSession, order: Order, message: str) -> str:
+    """A data defect no retry can fix (e.g. a renewal whose account has no server): park the order for review, never guess."""
+    order.status, order.last_error, order.needs_review = OrderStatus.PROVISIONING_FAILED, message, True
+    await events.emit(
+        session,
+        events.PROVISIONING_FAILED,
+        {"order_id": order.id, "store_id": order.store_id, "error": message, "auto_refund": False},
+        dedup_key=f"prov_review:{order.id}",
+    )
+    await session.commit()
+    return "needs_review"
+
+
 async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
     """Called by worker. Claims order with row lock, calls panel outside DB transaction, reconciles result."""
     order = await session.get(Order, order_id, with_for_update=True, populate_existing=True)
@@ -176,12 +189,18 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
         return "blocked"
     # Renewals keep their own panel. New accounts are placed by the single allocation core.
     account = await session.get(VpnAccount, order.vpn_account_id) if order.vpn_account_id else None
-    if account and account.panel_id and account.server_id:
+    group = None
+    if order.kind == "renewal" or account is not None:
+        # RENEWAL RULE: a renewal NEVER allocates. It stays on the account's own panel and server, whatever their load.
+        # An account that lost its server/panel link cannot be renewed safely (a new allocation could extend a different
+        # panel's user), so the order goes to review instead of guessing.
+        if not (account and account.panel_id and account.server_id):
+            return await _needs_review(session, order, "اکانت این تمدید به پنل یا مقصد مشخصی متصل نیست؛ تمدید بدون تخصیص جدید ممکن نیست.")
         panel = await session.get(Panel, account.panel_id)
         server = await session.get(Server, account.server_id)
     else:
         try:
-            server, panel, _group = await resolve_allocation(session, order, product)
+            server, panel, group = await resolve_allocation(session, order, product)
         except PanelError as e:
             # Allocation failure (no panel/server available).
             # Retry like any transient failure; auto-refund when retries exhausted.
@@ -199,7 +218,8 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
     order.status = OrderStatus.PROVISIONING
     await session.commit()
 
-    adapter = build_adapter(panel)
+    # Only NEW accounts get the server target merged in; a renewal talks to the panel with its plain config.
+    adapter = build_adapter(panel, None if account else server)
     if account:
         seed_adapter(adapter, account)
     now = utcnow()
@@ -235,6 +255,7 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
                 is_test=order.kind == "test",
                 expires_at=expire,
                 traffic_limit_bytes=traffic,
+                placement=placement_snapshot(order=order, group=group, panel=panel, server=server, remote_ref=None),
             )
             session.add(account)
             await session.flush()
@@ -261,6 +282,7 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
                         product_id=order.product_id,
                         server_id=server.id,
                         panel_id=panel.id,
+                        placement=placement_snapshot(order=order, group=group, panel=panel, server=server, remote_ref=remote.ref),
                     )
                     session.add(account)
                 account.panel_ref, account.status = remote.ref, VpnStatus.ACTIVE
@@ -298,6 +320,8 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
         return await _fail(session, order, str(e), account=account)
 
     account.server_id, account.panel_id, account.panel_ref = server.id, panel.id, pa.ref
+    if order.kind != "renewal" and account.placement is not None and account.placement.get("remote_ref") is None:
+        account.placement = {**account.placement, "remote_ref": pa.ref}  # the snapshot is written once; only the panel's id is filled in
     account.status = VpnStatus.ACTIVE
     account.expires_at = pa.expire_at
     account.traffic_limit_bytes = pa.traffic_limit_bytes

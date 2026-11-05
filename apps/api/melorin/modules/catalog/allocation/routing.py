@@ -3,17 +3,31 @@
 from __future__ import annotations
 
 import dataclasses
+import datetime as dt
 import uuid
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from melorin.core.db import utcnow
 from melorin.core.errors import AppError
 from melorin.domain.order_state import VpnStatus
 from melorin.kernel.models.stores import Store
 from melorin.modules.vpn.adapters.base import ErrorKind, PanelError
-from melorin.kernel.models.vpn import Panel, Server, VpnAccount
+from melorin.kernel.models.vpn import Panel, ProvisioningAttempt, Server, VpnAccount
 from melorin.kernel.models.bundles import Bundle, BundleMember, BundleProduct, StoreBundle
 from melorin.modules.vpn.bundles import clean_custom_name
 from melorin.modules.catalog.allocation.offers import sellable_bundles
+from melorin.modules.vpn.targets import effective_destination, normalize_target, validate_target
+
+BALANCING_MODES = ("round_robin", "least_fill", "fill_first")
+DEFAULT_BALANCING = "round_robin"
+_MIN_DT = dt.datetime.min.replace(tzinfo=dt.UTC)
+
+
+def _aware(value: dt.datetime | None) -> dt.datetime | None:
+    """SQLite returns naive datetimes, PostgreSQL aware ones: compare everything as UTC."""
+    if value is None:
+        return None
+    return value if value.tzinfo else value.replace(tzinfo=dt.UTC)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -36,17 +50,22 @@ class Candidate:
     member_sort: int = 0
     member_sales_limit: int | None = None
     member_sold: int = 0
+    last_assigned_at: dt.datetime | None = None  # round_robin key: written once per NEW order, never by a renewal
+    server_created_at: dt.datetime | None = None  # fill_first tie-break (oldest destination first)
+    target_error: str | None = None  # why the stored target is unusable for its panel kind (None = valid or inherited)
 
 
 def _reject_reason(
     c: Candidate, *, product_code: str, is_test: bool, group_mode: str | None, selected_panel_id: uuid.UUID | None
 ) -> str | None:
     if not c.server_enabled:
-        return "سرور غیرفعال است"
+        return "مقصد غیرفعال است"
     if not c.panel_enabled:
         return "پنل غیرفعال است"
     if not c.panel_healthy:
         return "پنل سالم نیست"
+    if c.target_error:
+        return f"مقصد نامعتبر است: {c.target_error}"
     if is_test and not c.allow_test:
         return "اکانت تست برای این سرور مجاز نیست"
     if c.product_codes and product_code not in c.product_codes:
@@ -59,8 +78,31 @@ def _reject_reason(
         if selected_panel_id is not None and c.panel_id != selected_panel_id:
             return "پنل انتخاب‌شده نیست"
     if c.active_on_server >= c.capacity:
-        return "ظرفیت سرور پر است"
+        return "ظرفیت مقصد پر است"
     return None
+
+
+def _rr_key(c: Candidate):
+    """Oldest ``last_assigned_at`` first (never assigned = first). Ties: bundle order, then id."""
+    at = _aware(c.last_assigned_at)
+    return (at is not None, at or _MIN_DT, c.member_sort, str(c.server_id))
+
+
+def _fill_ratio(c: Candidate) -> float:
+    return c.active_on_server / c.capacity if c.capacity > 0 else 1.0
+
+
+def _least_fill_key(c: Candidate):
+    """Emptiest destination first (active / capacity); ties fall back to the round_robin order."""
+    return (_fill_ratio(c), *_rr_key(c))
+
+
+def _fill_first_key(c: Candidate):
+    """Lowest bundle ``sort`` until it is full, then the next one; ties: oldest destination, then id."""
+    return (c.member_sort, _aware(c.server_created_at) or _MIN_DT, str(c.server_id))
+
+
+_BALANCING_KEYS = {"round_robin": _rr_key, "least_fill": _least_fill_key, "fill_first": _fill_first_key}
 
 
 def select_allocation(
@@ -70,8 +112,12 @@ def select_allocation(
     is_test: bool,
     group_mode: str | None = None,
     selected_panel_id: uuid.UUID | None = None,
+    balancing: str = DEFAULT_BALANCING,
 ) -> tuple[Candidate | None, list[str]]:
-    """Return (best candidate or None, human-readable reason for every rejected server)."""
+    """Return (best candidate or None, human-readable reason for every rejected server).
+
+    Eligibility is applied first (same for every method), then ``balancing`` orders the survivors.
+    """
     reasons: list[str] = []
     eligible: list[Candidate] = []
     for c in candidates:
@@ -82,10 +128,7 @@ def select_allocation(
             eligible.append(c)
     if not eligible:
         return None, reasons
-    if group_mode is None:
-        key = lambda c: (c.active_on_server, str(c.server_id))  # noqa: E731
-    else:
-        key = lambda c: (c.active_on_panel, c.member_sort, c.active_on_server, str(c.server_id))  # noqa: E731
+    key = _BALANCING_KEYS.get(balancing) or _rr_key
     return min(eligible, key=key), reasons
 
 
@@ -195,6 +238,9 @@ def requested_account_name(group, account_name: str | None) -> str | None:
     return name
 
 
+_LOAD_STATUSES = (VpnStatus.ACTIVE, VpnStatus.PROVISIONING)  # one definition of "load" for panel AND server counts
+
+
 async def _active_counts(session: AsyncSession, server_ids: list[uuid.UUID], panel_ids: list[uuid.UUID] | None) -> tuple[dict, dict]:
     """Load every load figure in at most two grouped queries, whatever the number of servers."""
     by_server: dict[uuid.UUID, int] = {}
@@ -202,14 +248,14 @@ async def _active_counts(session: AsyncSession, server_ids: list[uuid.UUID], pan
     if server_ids:
         rows = await session.execute(
             select(VpnAccount.server_id, func.count())
-            .where(VpnAccount.server_id.in_(server_ids), VpnAccount.status.in_([VpnStatus.ACTIVE, VpnStatus.PROVISIONING]))
+            .where(VpnAccount.server_id.in_(server_ids), VpnAccount.status.in_(_LOAD_STATUSES))
             .group_by(VpnAccount.server_id)
         )
         by_server = {sid: int(n) for sid, n in rows.all()}
     if panel_ids:
         rows = await session.execute(
             select(VpnAccount.panel_id, func.count())
-            .where(VpnAccount.panel_id.in_(panel_ids), VpnAccount.status == VpnStatus.ACTIVE)
+            .where(VpnAccount.panel_id.in_(panel_ids), VpnAccount.status.in_(_LOAD_STATUSES))
             .group_by(VpnAccount.panel_id)
         )
         by_panel = {pid: int(n) for pid, n in rows.all()}
@@ -234,11 +280,44 @@ def _candidate(server: Server, panel: Panel, member: BundleMember | None, active
         member_sort=int(member.sort or 0) if member else 0,
         member_sales_limit=member.sales_limit if member else None,
         member_sold=int(member.sold_count or 0) if member else 0,
+        last_assigned_at=server.last_assigned_at,
+        server_created_at=server.created_at,
+        target_error="؛ ".join(
+            validate_target(panel.kind, normalize_target(server.target), api_style=(panel.config or {}).get("api_style"))
+        )
+        or None,
     )
 
 
+async def _pin_must_stay(session: AsyncSession, order) -> bool:
+    """True when the order may already have an account on its pinned destination, so it must NOT be moved.
+
+    A live account row, or an earlier attempt whose outcome was UNKNOWN (timeout: the panel may have created the user), means
+    a second account on another panel could be a duplicate. Only an order that provably never reached a panel may be re-placed.
+    """
+    live = await session.scalar(
+        select(VpnAccount.id).where(VpnAccount.order_id == order.id, VpnAccount.status.in_(_LOAD_STATUSES)).limit(1)
+    )
+    if live is not None:
+        return True
+    unknown = await session.scalar(
+        select(ProvisioningAttempt.id)
+        .where(ProvisioningAttempt.order_id == order.id, ProvisioningAttempt.error_kind == ErrorKind.UNKNOWN)
+        .limit(1)
+    )
+    return unknown is not None
+
+
 async def resolve_allocation(session: AsyncSession, order, product) -> tuple[Server, Panel, Bundle | None]:
-    """Decide (server, panel, group) for a NEW account. Raises PanelError(PERMANENT) with a reason when impossible."""
+    """Decide (server, panel, group) for a NEW account. Raises PanelError(PERMANENT) with a reason when impossible.
+
+    Only NEW orders come here: a renewal keeps the account's own server and never allocates (see provisioning).
+
+    * The bundle row is locked for the whole transaction, so two orders of one bundle are allocated one after the other
+      (PostgreSQL ``FOR UPDATE``; a no-op on SQLite where there is only one writer).
+    * The first allocation PINS the server on the order (``allocated_server_id``) and moves ``last_assigned_at`` once.
+      Every retry reuses the pin: no turn is wasted and no duplicate account appears on another panel.
+    """
     group: Bundle | None = None
     group_mode: str | None = None
     if not order.bundle_id:
@@ -252,6 +331,7 @@ async def resolve_allocation(session: AsyncSession, order, product) -> tuple[Ser
     if why:
         raise PanelError(ErrorKind.PERMANENT, why)
     group_mode = group.selection_mode
+    balancing = group.balancing if group.balancing in BALANCING_MODES else DEFAULT_BALANCING
 
     members: dict[uuid.UUID, BundleMember] = {}
     query = select(Server, Panel).join(Panel, Panel.id == Server.panel_id)
@@ -270,12 +350,45 @@ async def resolve_allocation(session: AsyncSession, order, product) -> tuple[Ser
         session, [s.id for s, _ in pairs], list({p.id for _, p in pairs}) if group is not None else None
     )
     candidates = [_candidate(s, p, members.get(p.id), by_server.get(s.id, 0), by_panel.get(p.id, 0)) for s, p in pairs]
+    is_test = order.kind == "test"
+
+    pinned_id = getattr(order, "allocated_server_id", None)
+    if pinned_id is not None:
+        pinned = next((c for c in candidates if c.server_id == pinned_id), None)
+        if pinned is not None:
+            still_ok = (
+                _reject_reason(pinned, product_code=product.code, is_test=is_test, group_mode=group_mode, selected_panel_id=selected)
+                is None
+            )
+            if still_ok or await _pin_must_stay(session, order):
+                return await session.get(Server, pinned.server_id), await session.get(Panel, pinned.panel_id), group
+        elif await _pin_must_stay(session, order):
+            raise PanelError(ErrorKind.TRANSIENT, "مقصد ثابت‌شده‌ی سفارش دیگر در بسته نیست و نباید جابه‌جا شود.")
+        # the pinned destination is unusable and provably unused: allocate again below (a fresh turn)
+
     chosen, reasons = select_allocation(
-        candidates, product_code=product.code, is_test=order.kind == "test", group_mode=group_mode, selected_panel_id=selected
+        candidates, product_code=product.code, is_test=is_test, group_mode=group_mode, selected_panel_id=selected, balancing=balancing
     )
     if chosen is None:
-        detail = "؛ ".join(reasons) if reasons else "هیچ سروری تعریف نشده است"
+        detail = "؛ ".join(reasons) if reasons else "هیچ مقصدی تعریف نشده است"
         raise PanelError(ErrorKind.PERMANENT, f"no healthy compatible server | {detail}")
     server = await session.get(Server, chosen.server_id)
     panel = await session.get(Panel, chosen.panel_id)
+    order.allocated_server_id = server.id
+    server.last_assigned_at = utcnow()
     return server, panel, group
+
+
+def placement_snapshot(*, order, group: Bundle | None, panel: Panel, server: Server, remote_ref: str | None) -> dict:
+    """Immutable audit snapshot stored on the account at creation. Destination keys only: never credentials, tokens or other config."""
+    return {
+        "v": 1,
+        "allocated_at": utcnow().replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+        "bundle_id": str(order.bundle_id) if order.bundle_id else None,
+        "balancing": (group.balancing if group is not None else None) or DEFAULT_BALANCING,
+        "selected_by": "manual" if order.selected_panel_id else "automatic",
+        "panel": {"id": str(panel.id), "name": panel.name, "kind": panel.kind},
+        "server": {"id": str(server.id), "name": server.name},
+        "target": effective_destination(panel.kind, panel.config, server.target),
+        "remote_ref": remote_ref,
+    }

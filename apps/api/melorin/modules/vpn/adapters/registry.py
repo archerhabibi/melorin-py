@@ -11,6 +11,7 @@ from melorin.modules.vpn.adapters.mock import MockPanelAdapter
 from melorin.modules.vpn.adapters.pasarguard import PasarGuardAdapter
 from melorin.modules.vpn.adapters.sanaei import SanaeiAdapter
 from melorin.modules.vpn.adapters.upstream_bot import UpstreamBotAdapter
+from melorin.modules.vpn.targets import merge_config
 
 ADAPTERS: dict[str, type] = {
     "sanaei": SanaeiAdapter,
@@ -38,7 +39,9 @@ def _public_panel_url(url: str) -> bool:
     )
 
 
-def build_adapter(panel) -> PanelAdapter:
+def build_adapter(panel, server=None) -> PanelAdapter:
+    """Adapter for ``panel``. Pass ``server`` ONLY when creating a NEW account: its ``target`` (group/inbound set) is merged over
+    the panel config. Renewals, suspends, deletes and health checks call it without a server and never touch the target."""
     if panel.kind == "mock" and not get_settings().allow_mock_providers:
         raise AppError("MOCK_PROVIDER_DISABLED", "Mock provisioning is disabled in this environment.", 503)
     if panel.kind != "upstream_bot" and get_settings().env in {"staging", "production"}:  # upstream_bot talks Telegram, not HTTP
@@ -49,7 +52,8 @@ def build_adapter(panel) -> PanelAdapter:
     except KeyError as exc:
         raise AppError("PROVIDER_UNKNOWN", "VPN provider is not configured.", 400) from exc
     creds = json.loads(decrypt(panel.credentials_enc) or "{}") if panel.credentials_enc else {}
-    return cls(base_url=panel.base_url, credentials=creds, config=panel.config or {})
+    config = merge_config(panel.config, getattr(server, "target", None) if server is not None else None)
+    return cls(base_url=panel.base_url, credentials=creds, config=config)
 
 
 def register(kind: str, cls: type) -> None:
