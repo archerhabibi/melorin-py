@@ -50,6 +50,39 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-11-05 13:41 UTC - archerhabibi - admin-web, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(admin-web,tests,docs): target picker UI, bundle balancing UI, target rule/DB tests, API docs + OpenAPI snapshot - Completes the auto-target-selection patch on top of the backend commits (migration 0039, allocation, admin API). Review fix: noqa F811 on the two tests that reuse the imported pane…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (14):** `apps/admin-web/src/BundlesView.jsx`, `apps/admin-web/src/PanelsView.jsx`, `apps/admin-web/src/ServerForm.jsx`, `apps/admin-web/src/TargetPicker.jsx`, `apps/admin-web/src/VpnAccountsView.jsx`, `apps/admin-web/src/targets.js`, `apps/api/melorin/modules/admin/directory.py`, `apps/api/tests/test_pasarguard_adapter_contract.py` (+6 more)
+- **Ref:** `99167cc`
+
+### 2026-11-05 10:02 UTC - Claude - admin / adapters  _(auto)_
+- **Before:** servers had no destination; admin could not see a panel's groups, templates or inbounds; bundles had no balancing choice
+- **Problem:** choosing among 24+ groups or several inbounds was impossible from the panel UI/API
+- **Action:** Server.target accepted/validated on create+update (422 on invalid, warnings when the panel lacks the item or a duplicate exists), GET /admin/panels/{id}/targets (PasarGuard groups+templates, Sanaei inbounds, marked with used_by), POST /admin/panels/{id}/servers/from-targets (wizard + sync), Bundle.…
+- **After:** panel/admin contract tests pass; lint-imports clean
+- **Files (7):** `apps/api/melorin/modules/admin/bundles.py`, `apps/api/melorin/modules/admin/panels.py`, `apps/api/melorin/modules/admin/router.py`, `apps/api/melorin/modules/admin/schemas.py`, `apps/api/melorin/modules/admin/targets.py`, `apps/api/melorin/modules/vpn/adapters/pasarguard.py`, `apps/api/melorin/modules/vpn/adapters/sanaei/adapter.py`
+- **Ref:** `08ee2b0`
+
+### 2026-11-05 10:01 UTC - Claude - allocation  _(auto)_
+- **Before:** auto mode picked the panel with the fewest active accounts; panel and server counted load differently; every retry re-allocated; a renewal of an account without server_id allocated anew; accounts had no placement record
+- **Problem:** no spread across several groups/inbounds, retries could waste turns or duplicate accounts on another panel, renewals could extend the wrong panel
+- **Action:** balancing strategies on Bundle.balancing (default round_robin), ACTIVE+PROVISIONING counted for panel and server, first allocation pins orders.allocated_server_id and moves last_assigned_at once, renewals never allocate and park in review when the account lost its server, build_adapter(panel, serve…
+- **After:** full API suite 1722 passed; lint-imports clean
+- **Files (8):** `apps/api/melorin/modules/catalog/allocation/__init__.py`, `apps/api/melorin/modules/catalog/allocation/routing.py`, `apps/api/melorin/modules/orders/provisioning.py`, `apps/api/melorin/modules/vpn/adapters/registry.py`, `apps/api/melorin/modules/vpn/targets.py`, `apps/api/tests/test_core_allocation.py`, `apps/api/tests/test_provisioning_db.py`, `apps/api/tests/test_renewal_core.py`
+- **Ref:** `b5a7c42`
+
+### 2026-11-05 09:55 UTC - Claude - allocation  _(auto)_
+- **Before:** a server had no destination of its own; bundles had no balancing method; orders could not pin an allocation; accounts had no placement snapshot
+- **Problem:** auto selection could only pick a whole panel, and a retry re-ran the allocation from scratch
+- **Action:** add servers.target / last_assigned_at, bundles.balancing (default round_robin), orders.allocated_server_id, vpn_accounts.placement (all nullable or safe defaults)
+- **After:** migration upgrades and downgrades cleanly on SQLite; behaviour unchanged until the next commits use the columns
+- **Files (4):** `apps/api/alembic/versions/0039_target_selection.py`, `apps/api/melorin/kernel/models/bundles.py`, `apps/api/melorin/kernel/models/orders.py`, `apps/api/melorin/kernel/models/vpn.py`
+- **Ref:** `03a99d4`
+
+
 ### 2026-10-28 04:32 UTC - Claude - tests, scripts  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
