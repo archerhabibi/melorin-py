@@ -4199,6 +4199,17 @@
             ],
             "title": "Sales Enabled"
           },
+          "site_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site Enabled"
+          },
           "status": {
             "anyOf": [
               {

@@ -5807,6 +5807,8 @@ export interface components {
             name?: string | null;
             /** Sales Enabled */
             sales_enabled?: boolean | null;
+            /** Site Enabled */
+            site_enabled?: boolean | null;
             /** Status */
             status?: ("active" | "suspended") | null;
         };
