@@ -30,6 +30,10 @@ class Server(IdMixin, TimestampMixin, Base):
     product_codes: Mapped[list | None] = mapped_column(JSON)  # None = all products
     allow_test: Mapped[bool] = mapped_column(Boolean, default=True)
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Where on the panel this slot sends new accounts: {"group_ids": [..]} | {"user_template_id": n[, "limits_from": ..]} |
+    # {"inbound_ids": [..]}. NULL = inherit panel.config (the pre-target behaviour). Merged over panel.config at create time only.
+    target: Mapped[dict | None] = mapped_column(JSON)
+    last_assigned_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))  # round_robin key; written once per new order
 
 
 class VpnAccount(IdMixin, TimestampMixin, Base):
@@ -51,6 +55,8 @@ class VpnAccount(IdMixin, TimestampMixin, Base):
     links: Mapped[list | None] = mapped_column(JSON)
     near_expiry_notified: Mapped[bool] = mapped_column(Boolean, default=False)
     archived_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    # Immutable snapshot written once at creation (audit/support only, NEVER a routing source: that is server_id/panel_id).
+    placement: Mapped[dict | None] = mapped_column(JSON)
 
 
 class AccountReturn(IdMixin, CreatedMixin, Base):

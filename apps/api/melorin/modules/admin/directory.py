@@ -88,6 +88,9 @@ async def vpn_accounts(
             "expires_at": a.expires_at,
             "traffic_limit_bytes": a.traffic_limit_bytes,
             "traffic_used_bytes": a.traffic_used_bytes,
+            "server_id": a.server_id,
+            "panel_id": a.panel_id,
+            "placement": a.placement,  # creation snapshot (destination keys only, never credentials)
         }
         for a, u in rows
     ]

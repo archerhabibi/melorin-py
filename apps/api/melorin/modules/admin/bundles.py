@@ -53,6 +53,7 @@ def _bundle_out(b, panels, product_ids=()):
             "id": b.id,
             "name": b.name,
             "selection_mode": b.selection_mode,
+            "balancing": b.balancing or "round_robin",
             "naming_mode": b.naming_mode,
             "kind_label": b.kind_label,
             "is_enabled": b.is_enabled,
@@ -95,6 +96,7 @@ async def create_bundle(body: CreateBundle, admin: AdminUser, session: Session):
     b = Bundle(
         name=body.name,
         selection_mode=body.selection_mode,
+        balancing=body.balancing,
         naming_mode=body.naming_mode,
         kind_label=body.kind_label,
         is_enabled=body.is_enabled,

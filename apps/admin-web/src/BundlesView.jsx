@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { BALANCING } from './targets.js';
 import { confirmDialog } from './ui.jsx';
 import {
   ArrowDown,
@@ -56,7 +57,10 @@ import { focusOnMount } from './useDialog.js';
 // bundle-less route. Selection / naming / reseller policy are advanced options: most bundles never change them.
 const API = '/api/v1/admin/bundles';
 const MODES = {
-  automatic: ['خودکار', 'سیستم پنلی را انتخاب می‌کند که اکانت فعال کمتری دارد؛ مشتری چیزی نمی‌بیند.'],
+  automatic: [
+    'خودکار',
+    'سیستم برای هر فروش جدید یکی از مقصدهای (گروه/اینباند) پنل‌های بسته را با روش توزیع زیر انتخاب می‌کند؛ مشتری چیزی نمی‌بیند. تمدید همیشه روی مقصد قبلی می‌ماند.',
+  ],
   manual: ['انتخاب مشتری', 'مشتری هنگام خرید یکی از پنل‌های بسته را با «نام نمایشی» که شما می‌دهید انتخاب می‌کند.'],
 };
 
@@ -317,6 +321,7 @@ function GroupTable({ rows, panelById, idx, busy, hasResellers, onEdit, onToggle
 const EMPTY = {
   name: '',
   selection_mode: 'automatic',
+  balancing: 'round_robin',
   naming_mode: 'automatic',
   kind_label: '',
   sales_limit: '',
@@ -328,6 +333,7 @@ const EMPTY = {
 const fromGroup = (g) => ({
   name: g.name,
   selection_mode: g.selection_mode,
+  balancing: g.balancing || 'round_robin',
   naming_mode: g.naming_mode,
   kind_label: g.kind_label || '',
   sales_limit: g.sales_limit ? String(g.sales_limit) : '',
@@ -636,6 +642,7 @@ function GroupDrawer({
     () =>
       !!group &&
       (group.selection_mode !== 'automatic' ||
+        (group.balancing || 'round_robin') !== 'round_robin' ||
         group.naming_mode !== 'automatic' ||
         !!group.sales_limit ||
         !!group.kind_label),
@@ -921,6 +928,17 @@ function GroupDrawer({
               />
               <p className="text-[11px] leading-5 text-[var(--mu)]">{MODES[f.selection_mode][1]}</p>
             </Section>
+            {f.selection_mode === 'automatic' && (
+              <Section title="روش توزیع بین مقصدها">
+                <Segmented
+                  label="روش توزیع"
+                  value={f.balancing}
+                  onChange={set('balancing')}
+                  options={Object.entries(BALANCING).map(([k, [t]]) => [k, t])}
+                />
+                <p className="text-[11px] leading-5 text-[var(--mu)]">{BALANCING[f.balancing][1]}</p>
+              </Section>
+            )}
             <Section title="نام کاربری اکانت‌ها">
               <Field
                 hint={
@@ -1018,6 +1036,7 @@ export default function BundlesView({ api, toast }) {
     const body = {
       name: f.name,
       selection_mode: f.selection_mode,
+      balancing: f.balancing,
       naming_mode: f.naming_mode,
       kind_label: f.kind_label,
       is_enabled: f.is_enabled,

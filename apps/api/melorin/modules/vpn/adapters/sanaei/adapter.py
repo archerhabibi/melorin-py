@@ -213,6 +213,23 @@ class SanaeiAdapter(V3Mixin, LegacyMixin):
         d = await self._req("GET", "/panel/api/server/status")
         return (d or {}).get("obj") or {}
 
+    async def list_targets(self) -> dict:
+        """Inbounds an admin can aim a server at: id, remark, protocol, port and whether it is enabled (UI-ready, no secrets)."""
+        d = await self._req("GET", "/panel/api/inbounds/list")
+        rows = (d or {}).get("obj") or []
+        inbounds = [
+            {
+                "id": as_int(r.get("id"), 0),
+                "remark": str(r.get("remark") or ""),
+                "protocol": str(r.get("protocol") or ""),
+                "port": as_int(r.get("port"), 0),
+                "enabled": bool(r.get("enable", True)),
+            }
+            for r in rows
+            if isinstance(r, dict) and r.get("id") is not None
+        ]
+        return {"kind": "sanaei", "api_style": await self._api_style(), "inbounds": inbounds}
+
     def capabilities(self) -> Capabilities:
         return Capabilities(suspend=True, extend=True, subscription_url=True, traffic_reset=True)
 
