@@ -74,6 +74,8 @@ const STATUS = {
   awaiting_details: ['منتظر دامنه و توکن', 'warn'],
   refunded: ['بازپرداخت شد', 'neutral'],
   rejected: ['ردشده', 'bad'],
+  applied: ['اعمال‌شد', 'good'],
+  error: ['خطا', 'bad'],
   revoked: ['ابطال‌شده', 'bad'],
   suspended: ['تعلیق', 'bad'],
 };

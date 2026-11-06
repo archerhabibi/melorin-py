@@ -1,7 +1,7 @@
 import datetime as dt
 import uuid
 
-from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, Uuid
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, Uuid, text
 from sqlalchemy import event
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -101,3 +101,53 @@ def _forbid_owner_change(target, value, oldvalue, initiator):
     if oldvalue in (NO_VALUE, NEVER_SET, None) or oldvalue == value:
         return value
     raise ValueError("VPN account ownership transfer is not allowed")
+
+
+class PanelAdmin(IdMixin, TimestampMixin, Base):
+    """The PasarGuard admin (role Operator) that owns every account of ONE store on ONE panel.
+
+    One row per (panel, store): the Main Store and every reseller store each get their own admin, and all accounts sold through
+    that store (the reseller's own and their customers') are created under it. ``profile`` is the optional "Profile & contact"
+    block; only the Melorin admin edits it (a reseller files a ``PanelAdminChangeRequest``)."""
+
+    __tablename__ = "panel_admins"
+    __table_args__ = (
+        UniqueConstraint("panel_id", "store_id", name="uq_panel_admins_panel_store"),
+        # Two stores can never share one panel login: a name clash would hand one store's accounts to the other's admin.
+        Index("uq_panel_admins_panel_username", "panel_id", "username", unique=True),
+    )
+    panel_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("panels.id"), index=True)
+    store_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("stores.id"), index=True)
+    username: Mapped[str] = mapped_column(String(34))
+    password_enc: Mapped[str | None] = mapped_column(Text)  # encrypted; the panel only keeps a hash
+    remote_id: Mapped[int | None] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(20), default="pending", index=True)  # pending | active | error
+    last_error: Mapped[str | None] = mapped_column(Text)
+    synced_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    adopted_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))  # pre-existing accounts moved under this admin
+    profile: Mapped[dict | None] = mapped_column(JSON)  # profile_title, support_url, telegram_id, discord_webhook, sub_domain, note
+    profile_synced: Mapped[bool] = mapped_column(Boolean, default=True)  # False = a profile edit still has to reach the panel
+
+
+class PanelAdminChangeRequest(IdMixin, TimestampMixin, Base):
+    """A reseller asks the admin to change its "Profile & contact"; the admin applies (optionally edited) or rejects it."""
+
+    __tablename__ = "panel_admin_change_requests"
+    __table_args__ = (
+        # "One pending request per store" is enforced by the database, not only by a count (two concurrent clicks cannot both win).
+        Index(
+            "uq_panel_admin_request_one_pending",
+            "store_id",
+            unique=True,
+            postgresql_where=text("status = 'pending'"),
+            sqlite_where=text("status = 'pending'"),
+        ),
+    )
+    store_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("stores.id"), index=True)
+    requested_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
+    changes: Mapped[dict] = mapped_column(JSON)
+    message: Mapped[str | None] = mapped_column(String(500))
+    status: Mapped[str] = mapped_column(String(12), default="pending", index=True)  # pending | applied | rejected | cancelled
+    reviewed_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
+    reviewed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    review_note: Mapped[str | None] = mapped_column(String(500))

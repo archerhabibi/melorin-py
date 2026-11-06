@@ -20,6 +20,7 @@ import {
   ShieldCheck,
   Gift,
   Percent,
+  ServerCog,
 } from 'lucide-react';
 import { Loading, PageTitle, StatusBadge, fa, fd } from './ui.jsx';
 import Pricing from './ResellerPricing.jsx';
@@ -28,6 +29,7 @@ import Broadcast from './ResellerBroadcast.jsx';
 import EventCenter from './ResellerEventCenter.jsx';
 import ResellerReferral from './ResellerReferral.jsx';
 import ResellerCoupons from './ResellerCoupons.jsx';
+import ResellerPanelAdmin from './ResellerPanelAdmin.jsx';
 import BankSms from './ResellerBankSms.jsx';
 const J = { 'Content-Type': 'application/json' };
 
@@ -1161,6 +1163,7 @@ const tabs = [
   ['banksms', 'تأیید خودکار بانک', ShieldCheck],
   ['keys', 'کلیدهای API', KeyRound],
   ['hooks', 'وبهوک‌ها', Webhook],
+  ['paneladmin', 'ادمین پنل', ServerCog],
   ['settings', 'تنظیمات فروشگاه', Settings],
 ];
 export default function Reseller({ coreFetch, notify }) {
@@ -1232,6 +1235,7 @@ export default function Reseller({ coreFetch, notify }) {
             {tab === 'banksms' && <BankSms coreFetch={coreFetch} base={base} notify={notify} />}
             {tab === 'keys' && <Keys coreFetch={coreFetch} base={base} notify={notify} />}
             {tab === 'hooks' && <Hooks coreFetch={coreFetch} base={base} notify={notify} />}
+            {tab === 'paneladmin' && <ResellerPanelAdmin coreFetch={coreFetch} base={base} notify={notify} />}
             {tab === 'settings' && (
               <div className="space-y-4">
                 <Branding coreFetch={coreFetch} base={base} storeId={mine.id} notify={notify} />

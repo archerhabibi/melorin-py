@@ -26,6 +26,8 @@ const S = {
   provisioning: ['b-in', 'در حال ساخت'],
   running: ['b-in', 'در حال اجرا'],
   failed: ['b-bd', 'ناموفق'],
+  error: ['b-bd', 'خطا'],
+  rejected: ['b-bd', 'رد‌شده'],
   payment_failed: ['b-bd', 'پرداخت ناموفق'],
   provisioning_failed: ['b-bd', 'ساخت ناموفق'],
   unhealthy: ['b-bd', 'ناسالم'],
