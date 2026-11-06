@@ -23,7 +23,8 @@ function ProgramCard({ base, program, currency, onChanged, notify }) {
     referral_bonus: String(program.referral_bonus ?? 0),
   });
   const [busy, setBusy] = useState(false);
-  const set = (k) => (e) => setF((s) => ({ ...s, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
+  const set = (k) => (e) =>
+    setF((s) => ({ ...s, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
   const body = {
     enabled: f.enabled,
     earn_unit: toInt(f.earn_unit),
@@ -63,7 +64,13 @@ function ProgramCard({ base, program, currency, onChanged, notify }) {
         {fields.map(([k, label]) => (
           <label key={k} className="text-sm">
             {label}
-            <input className="input latin mt-1 text-left" dir="ltr" inputMode="numeric" value={f[k]} onChange={set(k)} />
+            <input
+              className="input latin mt-1 text-left"
+              dir="ltr"
+              inputMode="numeric"
+              value={f[k]}
+              onChange={set(k)}
+            />
           </label>
         ))}
       </div>
@@ -77,7 +84,9 @@ function ProgramCard({ base, program, currency, onChanged, notify }) {
 }
 
 function TiersCard({ base, tiers, onChanged, notify }) {
-  const [rows, setRows] = useState(tiers.map((t) => ({ name: t.name, min_points: String(t.min_points), mult: String(t.multiplier_bp / 10000) })));
+  const [rows, setRows] = useState(
+    tiers.map((t) => ({ name: t.name, min_points: String(t.min_points), mult: String(t.multiplier_bp / 10000) })),
+  );
   const [busy, setBusy] = useState(false);
   const upd = (i, k, v) => setRows((r) => r.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
   const parsed = rows.map((r) => ({
@@ -88,7 +97,11 @@ function TiersCard({ base, tiers, onChanged, notify }) {
   const bad = !parsed.length || parsed.some((t) => !t.name || t.min_points == null || !(t.multiplier_bp >= 1));
   async function save() {
     setBusy(true);
-    const r = await base.coreFetch(`${base.url}/tiers`, { method: 'PUT', headers: J, body: JSON.stringify({ tiers: parsed }) });
+    const r = await base.coreFetch(`${base.url}/tiers`, {
+      method: 'PUT',
+      headers: J,
+      body: JSON.stringify({ tiers: parsed }),
+    });
     setBusy(false);
     if (r.ok) {
       notify('سطح‌ها ذخیره شد');
@@ -98,7 +111,10 @@ function TiersCard({ base, tiers, onChanged, notify }) {
   return (
     <div className="card space-y-3" data-testid="loyalty-tiers">
       <h4 className="font-extrabold">سطح‌ها</h4>
-      <p className="text-xs text-muted">سطح اول از صفر امتیاز شروع می‌شود. سطح مشتری از مجموع امتیازی که تا امروز گرفته تعیین می‌شود و ضریب بالاتر امتیاز خریدهای بعدی را بیشتر می‌کند.</p>
+      <p className="text-xs text-muted">
+        سطح اول از صفر امتیاز شروع می‌شود. سطح مشتری از مجموع امتیازی که تا امروز گرفته تعیین می‌شود و ضریب بالاتر
+        امتیاز خریدهای بعدی را بیشتر می‌کند.
+      </p>
       {rows.map((r, i) => (
         <div key={i} className="grid grid-cols-[1fr_1fr_5rem_auto] items-end gap-2">
           <label className="text-xs">
@@ -107,13 +123,30 @@ function TiersCard({ base, tiers, onChanged, notify }) {
           </label>
           <label className="text-xs">
             از امتیاز
-            <input className="input latin mt-1 text-left" dir="ltr" inputMode="numeric" value={r.min_points} onChange={(e) => upd(i, 'min_points', e.target.value)} />
+            <input
+              className="input latin mt-1 text-left"
+              dir="ltr"
+              inputMode="numeric"
+              value={r.min_points}
+              onChange={(e) => upd(i, 'min_points', e.target.value)}
+            />
           </label>
           <label className="text-xs">
             ضریب
-            <input className="input latin mt-1 text-left" dir="ltr" inputMode="decimal" value={r.mult} onChange={(e) => upd(i, 'mult', e.target.value)} />
+            <input
+              className="input latin mt-1 text-left"
+              dir="ltr"
+              inputMode="decimal"
+              value={r.mult}
+              onChange={(e) => upd(i, 'mult', e.target.value)}
+            />
           </label>
-          <button className="btn-ghost" aria-label={`حذف ${r.name || 'سطح'}`} disabled={rows.length === 1} onClick={() => setRows((x) => x.filter((_, j) => j !== i))}>
+          <button
+            className="btn-ghost"
+            aria-label={`حذف ${r.name || 'سطح'}`}
+            disabled={rows.length === 1}
+            onClick={() => setRows((x) => x.filter((_, j) => j !== i))}
+          >
             <Trash2 size={15} aria-hidden="true" />
           </button>
         </div>
@@ -136,7 +169,8 @@ function RewardsCard({ base, rewards, currency, onChanged, notify }) {
   const [f, setF] = useState(EMPTY_REWARD);
   const [editing, setEditing] = useState(null);
   const [busy, setBusy] = useState(false);
-  const set = (k) => (e) => setF((s) => ({ ...s, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
+  const set = (k) => (e) =>
+    setF((s) => ({ ...s, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
   const body = {
     name: f.name.trim(),
     kind: 'wallet_credit',
@@ -146,7 +180,12 @@ function RewardsCard({ base, rewards, currency, onChanged, notify }) {
     per_user_limit: f.per_user_limit === '' ? null : toInt(f.per_user_limit),
     is_active: f.is_active,
   };
-  const bad = !body.name || !body.value || !body.cost_points || (f.stock !== '' && body.stock == null) || (f.per_user_limit !== '' && !body.per_user_limit);
+  const bad =
+    !body.name ||
+    !body.value ||
+    !body.cost_points ||
+    (f.stock !== '' && body.stock == null) ||
+    (f.per_user_limit !== '' && !body.per_user_limit);
   async function save() {
     setBusy(true);
     const url = editing ? `${base.url}/rewards/${editing}` : `${base.url}/rewards`;
@@ -200,19 +239,43 @@ function RewardsCard({ base, rewards, currency, onChanged, notify }) {
         </label>
         <label className="text-sm">
           هزینه (امتیاز)
-          <input className="input latin mt-1 text-left" dir="ltr" inputMode="numeric" value={f.cost_points} onChange={set('cost_points')} />
+          <input
+            className="input latin mt-1 text-left"
+            dir="ltr"
+            inputMode="numeric"
+            value={f.cost_points}
+            onChange={set('cost_points')}
+          />
         </label>
         <label className="text-sm">
           اعتبار کیف پول ({unitOf(currency)})
-          <input className="input latin mt-1 text-left" dir="ltr" inputMode="numeric" value={f.value} onChange={set('value')} />
+          <input
+            className="input latin mt-1 text-left"
+            dir="ltr"
+            inputMode="numeric"
+            value={f.value}
+            onChange={set('value')}
+          />
         </label>
         <label className="text-sm">
           موجودی (اختیاری)
-          <input className="input latin mt-1 text-left" dir="ltr" inputMode="numeric" value={f.stock} onChange={set('stock')} />
+          <input
+            className="input latin mt-1 text-left"
+            dir="ltr"
+            inputMode="numeric"
+            value={f.stock}
+            onChange={set('stock')}
+          />
         </label>
         <label className="text-sm">
           سقف برای هر مشتری (اختیاری)
-          <input className="input latin mt-1 text-left" dir="ltr" inputMode="numeric" value={f.per_user_limit} onChange={set('per_user_limit')} />
+          <input
+            className="input latin mt-1 text-left"
+            dir="ltr"
+            inputMode="numeric"
+            value={f.per_user_limit}
+            onChange={set('per_user_limit')}
+          />
         </label>
       </div>
       <div className="flex items-center justify-between">
@@ -265,11 +328,22 @@ function AdjustCard({ base, onChanged, notify }) {
       <div className="grid gap-3 sm:grid-cols-3">
         <label className="text-sm">
           شناسهٔ مشتری
-          <input className="input latin mt-1 text-left" dir="ltr" value={f.user_id} onChange={(e) => setF({ ...f, user_id: e.target.value })} />
+          <input
+            className="input latin mt-1 text-left"
+            dir="ltr"
+            value={f.user_id}
+            onChange={(e) => setF({ ...f, user_id: e.target.value })}
+          />
         </label>
         <label className="text-sm">
           تغییر امتیاز (مثلاً 100 یا -50)
-          <input className="input latin mt-1 text-left" dir="ltr" inputMode="numeric" value={f.delta} onChange={(e) => setF({ ...f, delta: e.target.value })} />
+          <input
+            className="input latin mt-1 text-left"
+            dir="ltr"
+            inputMode="numeric"
+            value={f.delta}
+            onChange={(e) => setF({ ...f, delta: e.target.value })}
+          />
         </label>
         <label className="text-sm">
           دلیل (اجباری)
@@ -295,7 +369,11 @@ export default function ResellerLoyalty({ coreFetch, storeId, notify, currency }
   const base = { coreFetch, url };
   const load = useCallback(async () => {
     try {
-      const [a, b, c] = await Promise.all([coreFetch(`${url}/program`), coreFetch(`${url}/rewards`), coreFetch(`${url}/summary`)]);
+      const [a, b, c] = await Promise.all([
+        coreFetch(`${url}/program`),
+        coreFetch(`${url}/rewards`),
+        coreFetch(`${url}/summary`),
+      ]);
       if (!a.ok || !b.ok || !c.ok) throw new Error('load');
       setProg(await a.json());
       setRewards(await b.json());
@@ -317,7 +395,9 @@ export default function ResellerLoyalty({ coreFetch, storeId, notify, currency }
         <h4 className="flex items-center gap-2 font-extrabold">
           <Award size={18} aria-hidden="true" /> باشگاه مشتریان فروشگاه من
         </h4>
-        <p className="mt-2 text-sm text-muted">امتیاز و پاداش فقط برای مشتریان همین فروشگاه است و اعتبار پاداش از حساب شما پرداخت می‌شود.</p>
+        <p className="mt-2 text-sm text-muted">
+          امتیاز و پاداش فقط برای مشتریان همین فروشگاه است و اعتبار پاداش از حساب شما پرداخت می‌شود.
+        </p>
         <dl className="mt-4 grid grid-cols-2 gap-3 text-center sm:grid-cols-4">
           {[
             ['اعضا', sum.members],
@@ -332,16 +412,23 @@ export default function ResellerLoyalty({ coreFetch, storeId, notify, currency }
           ))}
         </dl>
         {sum.tiers.length > 0 && (
-          <p className="mt-3 text-xs text-muted">
-            {sum.tiers.map((t) => `${t.name}: ${fa(t.members)}`).join(' · ')}
-          </p>
+          <p className="mt-3 text-xs text-muted">{sum.tiers.map((t) => `${t.name}: ${fa(t.members)}`).join(' · ')}</p>
         )}
       </div>
-      <ProgramCard key={`p${rev}`} base={base} program={prog.program} currency={currency} onChanged={load} notify={notify} />
+      <ProgramCard
+        key={`p${rev}`}
+        base={base}
+        program={prog.program}
+        currency={currency}
+        onChanged={load}
+        notify={notify}
+      />
       <TiersCard key={`t${rev}`} base={base} tiers={tiers} onChanged={load} notify={notify} />
       <RewardsCard key={`r${rev}`} base={base} rewards={rewards} currency={currency} onChanged={load} notify={notify} />
       <AdjustCard base={base} onChanged={load} notify={notify} />
-      <p className="text-xs text-muted">ضریب فعلی: {tiers.map((t) => `${t.name} ${multiplierLabel(t.multiplier_bp)}`).join(' · ')}</p>
+      <p className="text-xs text-muted">
+        ضریب فعلی: {tiers.map((t) => `${t.name} ${multiplierLabel(t.multiplier_bp)}`).join(' · ')}
+      </p>
     </div>
   );
 }

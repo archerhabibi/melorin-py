@@ -6,7 +6,8 @@ import { Empty, Loading, fa, fd } from './ui.jsx';
 import { unitOf } from './storeProgram.js';
 import { BLOCKED, TX_KIND, multiplierLabel, tierProgress } from './loyaltyFormat.js';
 
-const newKey = () => (globalThis.crypto?.randomUUID?.() || `k${Date.now()}${Math.random().toString(16).slice(2)}`).slice(0, 64);
+const newKey = () =>
+  (globalThis.crypto?.randomUUID?.() || `k${Date.now()}${Math.random().toString(16).slice(2)}`).slice(0, 64);
 
 export default function Loyalty({ coreFetch, storeId, notify }) {
   const [d, setD] = useState(null);
@@ -130,7 +131,9 @@ export default function Loyalty({ coreFetch, storeId, notify }) {
                   {r.remaining != null ? ` · ${fa(r.remaining)} عدد باقی‌مانده` : ''}
                 </div>
                 {!r.available && r.blocked_reason && (
-                  <div className="mt-1 text-xs text-muted">{BLOCKED[r.blocked_reason] || 'در حال حاضر قابل دریافت نیست'}</div>
+                  <div className="mt-1 text-xs text-muted">
+                    {BLOCKED[r.blocked_reason] || 'در حال حاضر قابل دریافت نیست'}
+                  </div>
                 )}
               </div>
               <button
