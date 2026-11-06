@@ -9,17 +9,16 @@ import datetime as dt
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, Path, Query
+from fastapi import APIRouter, Depends, Header, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from melorin.core import deps
-from melorin.core.deps import CurrentAuth, Session, StoreContext, StoreCtx
-from melorin.core.errors import Forbidden, NotFound
+from melorin.core.deps import Session, StoreContext, StoreCtx
+from melorin.core.errors import Forbidden
 from melorin.domain import loyalty as rules
 from melorin.domain.loyalty import Tier
 from melorin.kernel.models.loyalty import LoyaltyRedemption
-from melorin.kernel.models.stores import Store
 from melorin.modules.loyalty import service
 
 router = APIRouter(tags=["loyalty"])
@@ -29,14 +28,15 @@ _MONEY = 10**12
 
 
 # ------------------------------------------------------------------ manage plane context
-async def manage_context(session: Session, auth: CurrentAuth, store_id: uuid.UUID = Path(...)) -> StoreContext:
-    """Admin (admin-panel session of a super admin) for ANY store; otherwise the real owner of a RESELLER store."""
-    if auth.is_admin_session and auth.user.is_super_admin:
-        store = await session.get(Store, store_id)
-        if not store:
-            raise NotFound("فروشگاه")
-        return StoreContext(store=store, user=auth.user, membership=None, admin_session=True)
-    ctx = await deps.owner_store_context(session, auth, store_id)
+async def manage_context(ctx: Annotated[StoreContext, Depends(deps.owner_store_context)]) -> StoreContext:
+    """Admin (admin-panel session of a super admin) for ANY store; otherwise the real owner of a RESELLER store.
+
+    It stands on ``owner_store_context`` so the session's channel is checked against THIS store before anything else
+    (the guard in ``test_channel_binding`` refuses a ``{store_id}`` route without it); that dependency already lets an
+    admin-panel session through for any store and a store's owner through for his own.
+    """
+    if ctx.is_admin:
+        return ctx
     if not ctx.is_owner or ctx.store.kind != "reseller":
         raise Forbidden()
     return ctx
