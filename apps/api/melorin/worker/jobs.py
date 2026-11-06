@@ -9,7 +9,7 @@ from pathlib import Path
 
 from sqlalchemy import or_, select
 
-from melorin.core import events, integrations, settings_store
+from melorin.core import integrations, settings_store
 from melorin.core.db import session_factory, utcnow
 from melorin.kernel.models.identity import VerificationCode
 from melorin.kernel.models.system import BackupRun

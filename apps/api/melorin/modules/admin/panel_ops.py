@@ -19,7 +19,7 @@ from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import AppError, NotFound
 from melorin.domain.order_state import VpnStatus
 from melorin.kernel.models.stores import Store
-from melorin.kernel.models.vpn import Panel, PanelAdmin, PanelNode, PanelOrphan, ReconciliationIssue, VpnAccount
+from melorin.kernel.models.vpn import Panel, PanelNode, PanelOrphan, ReconciliationIssue, VpnAccount
 from melorin.modules.vpn import issues as issue_svc
 from melorin.modules.vpn import reconcile
 from melorin.modules.vpn.adapters.base import PanelError, supports
