@@ -115,7 +115,9 @@ async def _record_orphans(session, panel_id, remote: dict[str, PanelAccount], no
             continue
         row = existing.get(name)
         if row is None:
-            row = PanelOrphan(panel_id=panel_id, username=name, first_seen_at=now)
+            row = PanelOrphan(
+                panel_id=panel_id, username=name, first_seen_at=now, status="open"
+            )  # explicit: the column default only applies at flush
             session.add(row)
             existing[name] = row
         elif row.status == "gone":
@@ -135,8 +137,9 @@ async def _record_orphans(session, panel_id, remote: dict[str, PanelAccount], no
 async def reconcile_panel(session: AsyncSession, panel: Panel, *, batch: int = BATCH, now: dt.datetime | None = None) -> PanelResult:
     """One reconcile pass over ``panel``. Commits. Never raises for a panel problem: that becomes ``panel_unreachable`` issues."""
     now = now or utcnow()
-    result = PanelResult(panel_id=panel.id)
-    accounts = await _due_accounts(session, panel.id, batch)
+    panel_id = panel.id  # read once: after the rollback below ``panel`` is expired and an async session cannot lazy-load it
+    result = PanelResult(panel_id=panel_id)
+    accounts = await _due_accounts(session, panel_id, batch)
     adapter = None
     try:
         adapter = build_adapter(panel)
@@ -146,7 +149,7 @@ async def reconcile_panel(session: AsyncSession, panel: Panel, *, batch: int = B
         if listing:
             remote, complete = await _remote_map(adapter)
         result.complete = complete
-        owners = await _expected_owners(session, panel.id)
+        owners = await _expected_owners(session, panel_id)
         for account in accounts:
             if listing and complete:
                 found = remote.get(account.username)
@@ -155,12 +158,12 @@ async def reconcile_panel(session: AsyncSession, panel: Panel, *, batch: int = B
             await _compare(session, account, found, owners, now, result)
             result.checked += 1
         if listing and complete:
-            result.orphans = await _record_orphans(session, panel.id, remote, now)
+            result.orphans = await _record_orphans(session, panel_id, remote, now)
     except PanelError as exc:
         result.unreachable = True
         result.errors.append(exc.message[:200])
         await session.rollback()
-        accounts = await _due_accounts(session, panel.id, batch)
+        accounts = await _due_accounts(session, panel_id, batch)
         for account in accounts:
             account.sync_error_count = int(account.sync_error_count or 0) + 1
             await issues.open_issue(session, account.id, issues.UNREACHABLE, {"error": exc.message[:300]}, now=now)
@@ -172,7 +175,7 @@ async def reconcile_panel(session: AsyncSession, panel: Panel, *, batch: int = B
                 if hasattr(close, "__await__"):
                     await close
             except Exception:
-                log.warning("reconcile: adapter close failed panel=%s", panel.id, exc_info=True)
+                log.warning("reconcile: adapter close failed panel=%s", panel_id, exc_info=True)
     await session.commit()
     return result
 
