@@ -70,6 +70,47 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-11-06 20:35 UTC - Claude - shared  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** chore(api-client): regenerate OpenAPI snapshot for PanelOut.capabilities - CI quality lane failed at gen_api_client.py --check because the snapshot did not include the new PanelOut.capabilities field added in PG-00. Regenerated openapi.json and src/schema.d.ts.
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `packages/api-client/openapi.json`, `packages/api-client/src/schema.d.ts`
+- **Ref:** `a543fc9`
+
+### 2026-11-06 19:47 UTC - archerhabibi - tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** test(pasarguard): refresh contract fixture with role/permission schemas (PG-17)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `apps/api/tests/fixtures/pasarguard-openapi-5.6.0.contract.json`
+- **Ref:** `d48a663`
+
+### 2026-11-06 19:47 UTC - archerhabibi - tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** test(pasarguard): commit the PasarGuard 5.6.0 API contract fixture (PG-17)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `apps/api/tests/fixtures/pasarguard-openapi-5.6.0.contract.json`
+- **Ref:** `ad0405c`
+
+### 2026-11-06 19:47 UTC - Claude - scripts  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** chore(pasarguard): track role/permission schemas in the contract fixture
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `scripts/pasarguard_contract.py`
+- **Ref:** `30c0f0d`
+
+### 2026-11-06 19:44 UTC - Claude - scripts  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** chore(pasarguard): script to slim and diff the panel OpenAPI contract (PG-17)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `scripts/pasarguard_contract.py`
+- **Ref:** `77e492b`
+
+
 ### 2026-11-06 08:03 UTC - Claude - docs  _(auto)_
 - **Before:** doc 22 mentioned a button named «باشگاه من» that does not exist in the bot
 - **Problem:** documentation did not match the shipped bot (the /club command and the «🏅 باشگاه مشتریان» inline-menu button)
