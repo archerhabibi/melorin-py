@@ -5962,6 +5962,8 @@ export interface components {
         PanelOut: {
             /** Base Url */
             base_url: string;
+            /** Capabilities */
+            capabilities?: Record<string, never> | null;
             /** Config */
             config?: Record<string, never> | null;
             /** Created At */
