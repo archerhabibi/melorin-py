@@ -149,6 +149,8 @@ class PanelOut(BaseModel):
     last_health_error: str | None = None
     config: dict | None = None
     has_credentials: bool = False
+    # PG-00: effective capability flags + why a supported feature is denied (see modules/vpn/capabilities.py); the UI hides what is off
+    capabilities: dict | None = None
     created_at: dt.datetime | None = None
     updated_at: dt.datetime | None = None
 
