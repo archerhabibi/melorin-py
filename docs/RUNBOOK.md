@@ -25,6 +25,39 @@ Operating rules:
 ## Panel failure
 Panel health becomes unhealthy; provisioning selects no server and sends orders to manual review. Do not refund until Panel state is reconciled. Use admin retry or attach an existing account.
 
+## PasarGuard panel operations (Phase 1)
+
+**What Melorin now watches.** `panel_health_job` (5 min) reports `healthy | degraded | unhealthy` per panel and keeps one row per node in
+`panel_nodes`. `degraded` = the panel answers but a node is down (the reason is shown in Admin -> Panel operations, e.g. "self-signed
+certificate"); `unhealthy` = the panel does not answer or no node can serve. A server whose destination has no healthy node is skipped
+for **new** orders only; existing accounts are untouched. `reconciliation_job` (hourly) mirrors panel state onto accounts (`active`,
+`suspended`, `limited`, `expired`, `on_hold`), opens at most one issue per account and kind (`missing_on_panel`, `panel_unreachable`,
+`owner_mismatch`, `limits_mismatch`), closes it by itself when the condition clears, and lists panel users Melorin does not know
+(`panel_orphans`) - it never deletes anything on a panel.
+
+**Working the queue** (Admin -> Panel operations): `resync` re-checks one account now; `fix_owner` only calls `set_owner`;
+`archive_account` only archives the Melorin row of a user that is really gone; `ignore` needs a reason. Unknown panel users can only be
+listed or ignored.
+
+**Alerts / metrics.** `melorin_reconcile_open_issues{kind}` (every kind is always exported), `melorin_reconcile_lag_seconds` (age of the
+least recently synced live account; absent while an account was never synced) and the existing `MelorinPanelsUnhealthy` alert.
+
+**Low-traffic warnings are per store**: `GET/PUT/DELETE /api/v1/admin/stores/{id}/vpn-notices` (`{"traffic_low_levels": [80, 90]}`, 1-99,
+at most 4, `[]` = none). A level already sent stays sent; a renewal starts a new package and resets them.
+
+**PG-18 operating rules**
+1. *One controller per panel.* If a legacy tool (for example `PGClockBot`) also writes to the same PasarGuard, either stop it or make
+   it read-only before go-live; two writers fight over owner, status and deletes. Check with `systemctl status pgclockbot`.
+2. *Secrets in panel settings.* A Telegram bot token stored in the panel's notification settings is readable by anyone with
+   `settings` access. Revoke it in BotFather and set a new one before production; customer notices must come from Melorin only.
+3. *Nodes failing with `CERTIFICATE_VERIFY_FAILED (self-signed)`.* Fix it on the panel side: put the node's CA in the node's
+   `server_ca` or install a valid certificate. Never disable TLS verification in Melorin (`verify_tls=false` is refused outside
+   development, correctly).
+5. *Caddy shows `unhealthy` with `OCI runtime exec failed: procReady not received`.* The error happens before `wget` runs, so the
+   Caddyfile and the healthcheck command are not the cause - it is the Docker/runc exec path on the host. Check
+   `docker inspect --format '{{json .State.Health.Log}}' <caddy>`, then `docker version` / `runc --version` and the kernel log, restart
+   the container, and if it persists update Docker. Do not silence the check: an unhealthy flag that is always on hides a real one.
+
 ## Gateway / callback incident
 Payment callback is idempotent. Inspect `payment_attempts`, never manually edit payment status without audit and ledger compensation.
 
