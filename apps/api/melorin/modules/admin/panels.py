@@ -38,7 +38,7 @@ log = logging.getLogger("melorin.admin")
 def _panel_out(p: Panel) -> PanelOut:
     out = PanelOut.model_validate(p, from_attributes=True)
     out.has_credentials = bool(p.credentials_enc)
-    out.capabilities = capabilities.capabilities_out(p)
+    out.capabilities = {**capabilities.capabilities_out(p), "access": capabilities.access_review(p)}
     return out
 
 
