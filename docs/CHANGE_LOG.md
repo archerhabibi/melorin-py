@@ -57,6 +57,79 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-11-06 04:42 UTC - Claude - db, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(panel-admins): per-store isolation guards, race-safe creation, durable password reset - - pick_username(): two stores can never share one panel login (slugs that collapse to the same name, or a name already taken on the panel, get a store-id suffix); ensure_admin used to adopt and re-password s…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (7):** `apps/api/alembic/versions/0041_panel_admin_guards.py`, `apps/api/melorin/kernel/models/vpn.py`, `apps/api/melorin/modules/reseller/routes/panel_profile.py`, `apps/api/melorin/modules/vpn/panel_admins.py`, `apps/api/tests/test_panel_admins.py`, `apps/api/tests/test_panel_admins_http.py`, `docs/STATUS.md`
+- **Ref:** `c8b4937`
+
+### 2026-11-06 04:29 UTC - archerhabibi - docs  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** docs: API + STATUS for reseller panel-admin
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `docs/API.md`, `docs/STATUS.md`
+- **Ref:** `d63f35f`
+
+### 2026-11-06 04:29 UTC - archerhabibi - store-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** test(store-web): reseller panel-admin component tests
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `apps/store-web/tests/reseller-panel-admin.test.jsx`
+- **Ref:** `895c9e0`
+
+### 2026-11-06 04:29 UTC - archerhabibi - store-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(store-web): add 'ادمین پنل' tab to reseller panel
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `apps/store-web/src/Reseller.jsx`
+- **Ref:** `d1359c0`
+
+### 2026-11-06 04:29 UTC - archerhabibi - store-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(store-web): ResellerPanelAdmin - read-only per-store panel admin + profile change requests
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `apps/store-web/src/ResellerPanelAdmin.jsx`, `apps/store-web/src/ui.jsx`
+- **Ref:** `068123d`
+
+### 2026-11-06 04:29 UTC - archerhabibi - shared  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** chore(api-client): regenerate OpenAPI snapshot + TS schema for per-store panel admins
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `packages/api-client/openapi.json`, `packages/api-client/src/schema.d.ts`
+- **Ref:** `a45db20`
+
+### 2026-11-06 03:55 UTC - melorin-dev - admin-web  _(auto)_
+- **Before:** the PasarGuard admin of each store existed only as API; the admin could not see their health, edit "Profile & contact", read the login, or work through reseller change requests without calling the API by hand
+- **Problem:** requests had no queue or badge, a failed or unsynced admin was invisible, and a password view or reset had no UI guardrail
+- **Action:** new "ادمین‌های پنل" section (KPIs, status filter and search, per-admin drawer that sends only changed fields, audited password view with 60 s auto-hide and confirmed reset, request queue with before/after, per-field apply checkbox, required reject reason, read-only history), nav entry with pending-…
+- **After:** 11 new tests, whole admin-web suite 175 passing, eslint 0 errors and 25 warnings (unchanged), prettier clean
+- **Files (5):** `apps/admin-web/src/AdminExtra.jsx`, `apps/admin-web/src/App.jsx`, `apps/admin-web/src/PanelAdminsView.jsx`, `apps/admin-web/src/ui.jsx`, `apps/admin-web/tests/panel-admins.test.jsx`
+- **Ref:** `46f31bb`
+
+### 2026-11-06 03:51 UTC - melorin-dev - panel-admins  _(auto)_
+- **Before:** a reseller's profile change request reached nobody (admin had to poll), could not be withdrawn (one pending request blocked the store), the reseller never learned the outcome, and the admin desk had no "current profile" to compare; the HTTP routes had no tests and 8 files failed ruff format
+- **Problem:** requests sat unseen, a wrong request blocked the store until an admin acted, and CI (make lint) would fail on this branch
+- **Action:** alert every super admin on a new request (field names only, never values), notify the reseller on apply/reject, add reseller cancel endpoint, return current_profile in the admin request list, keep the really-applied changes, add 8 HTTP tests, ruff-format the branch files
+- **After:** 26 panel-admin tests pass; ruff check/format and lint-imports are clean
+- **Files (9):** `apps/api/melorin/kernel/models/vpn.py`, `apps/api/melorin/modules/admin/panel_admins.py`, `apps/api/melorin/modules/admin/panels.py`, `apps/api/melorin/modules/orders/provisioning.py`, `apps/api/melorin/modules/reseller/router.py`, `apps/api/melorin/modules/reseller/routes/panel_profile.py`, `apps/api/melorin/modules/vpn/panel_admins.py`, `apps/api/tests/test_panel_admins.py` (+1 more)
+- **Ref:** `3ae1629`
+
+### 2026-11-05 21:49 UTC - melorin-dev - db, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(vpn): one PasarGuard Operator admin per store (Main + each reseller) - - panel_admins table (0040): (panel, store) -> admin username, encrypted password, sync state, optional profile - adapter: ensure_admin / update_admin_profile / bulk_set_owner; new accounts get set_owner to their store's ad…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (15):** `apps/api/alembic/versions/0040_panel_admins.py`, `apps/api/melorin/kernel/models/vpn.py`, `apps/api/melorin/modules/admin/panel_admins.py`, `apps/api/melorin/modules/admin/panels.py`, `apps/api/melorin/modules/admin/router.py`, `apps/api/melorin/modules/orders/provisioning.py`, `apps/api/melorin/modules/reseller/router.py`, `apps/api/melorin/modules/reseller/routes/panel_profile.py` (+7 more)
+- **Ref:** `6f15259`
+
+
 ### 2026-11-05 13:41 UTC - archerhabibi - admin-web, api, tests  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
