@@ -9,8 +9,15 @@ from melorin.core import audit
 from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import NotFound
 from melorin.kernel.models.stores import Store
-from melorin.modules.payments import bank_sms, provisional, service as payment_service
-from melorin.modules.payments.schemas import BankSmsIgnoreIn, BankSmsLinkIn, BankSmsSourceIn, GraceResolveIn, GraceSettingsIn
+from melorin.modules.payments import bank_sms, provisional, receipt_fingerprints, service as payment_service
+from melorin.modules.payments.schemas import (
+    BankSmsIgnoreIn,
+    BankSmsLinkIn,
+    BankSmsSourceIn,
+    GraceResolveIn,
+    GraceSettingsIn,
+    ReceiptDupSettingsIn,
+)
 from melorin.kernel.models.payments import Payment
 from melorin.modules.admin.schemas import (
     OrderAction,
@@ -37,6 +44,7 @@ async def payments(_: AdminUser, session: Session, status: str | None = Query(de
             "provider": p.provider,
             "status": p.status,
             "has_receipt": bool(p.receipt_file_id),
+            "receipt_duplicate": bool((p.meta or {}).get("receipt_duplicate")),
             "created_at": p.created_at,
         }
         for p in (await session.scalars(q)).all()
@@ -63,6 +71,18 @@ async def payment_receipt(payment_id: uuid.UUID, admin: AdminUser, session: Sess
         media_type=fo.content_type,
         headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff", "Content-Disposition": "inline"},
     )
+
+
+@router.get("/payments/{payment_id}/receipt-duplicates")
+async def payment_receipt_duplicates(payment_id: uuid.UUID, _: AdminUser, session: Session):
+    """Every other payment (any store) whose receipt picture has the same fingerprint, with how it matched."""
+    if not await session.get(Payment, payment_id):
+        raise NotFound("پرداخت")
+    matches = await receipt_fingerprints.matches_for_payment(session, payment_id)
+    return {
+        "payment_id": payment_id,
+        "duplicates": [{"payment_id": m.payment_id, "store_id": m.store_id, "status": m.status, "matched_by": list(m.by)} for m in matches],
+    }
 
 
 @router.post("/payments/{payment_id}/review")
@@ -167,3 +187,16 @@ async def receipt_review_resolve(store_id: uuid.UUID, payment_id: uuid.UUID, bod
         session, store.id, payment_id, approve=body.approve, actor_id=admin.id, actor_type="admin", note=body.note
     )
     return {"ok": True, "status": p.status, "provisional": provisional.state(p)}
+
+
+# ----- Duplicate receipt pictures -----
+@router.get("/stores/{store_id}/receipt-duplicates/settings")
+async def receipt_dup_settings(store_id: uuid.UUID, _: AdminUser, session: Session):
+    store = await _store(session, store_id)
+    return {"policy": await receipt_fingerprints.get_policy(session, store.id)}
+
+
+@router.put("/stores/{store_id}/receipt-duplicates/settings")
+async def receipt_dup_save_settings(store_id: uuid.UUID, body: ReceiptDupSettingsIn, admin: AdminUser, session: Session):
+    store = await _store(session, store_id)
+    return await receipt_fingerprints.save_policy(session, store, body.policy, actor_id=admin.id, actor_type="admin")

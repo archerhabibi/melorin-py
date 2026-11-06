@@ -37,6 +37,8 @@ function setup(q = queue()) {
   const calls = [];
   const call = vi.fn(async (path, o = {}) => {
     calls.push([o.method || 'GET', path, o.body]);
+    if (path.endsWith('/receipt-duplicates/settings'))
+      return json({ policy: o.method === 'PUT' ? JSON.parse(o.body).policy : 'warn' });
     if (o.method === 'PUT') return json(q.config);
     if (o.method === 'POST') return json({ ok: true });
     return json(q);
@@ -177,5 +179,34 @@ describe('receipt OCR settings', () => {
     expect(test).toBeEnabled();
     await userEvent.click(screen.getByRole('radio', { name: /خاموش/ }));
     expect(test).toBeDisabled();
+  });
+
+  it('flags a receipt whose picture another payment already used and names that payment', async () => {
+    setup(
+      queue({
+        waiting: [
+          item({
+            duplicate: {
+              payments: [{ id: 'abcdef12-0000', status: 'awaiting_review', by: ['sha256'] }],
+              other_stores: 1,
+            },
+          }),
+        ],
+      }),
+    );
+    expect(await screen.findByText('تصویر تکراری')).toBeInTheDocument();
+    expect(screen.getByText(/abcdef12.*۱|abcdef12.*1 پرداخت در فروشگاه دیگر/)).toBeInTheDocument();
+  });
+
+  it('shows the duplicate-picture policy (warn by default) and saves a switch to block', async () => {
+    const { calls, toast } = setup();
+    const block = await screen.findByRole('radio', { name: 'رد کردن' });
+    expect(screen.getByRole('radio', { name: 'فقط هشدار' })).toHaveAttribute('aria-checked', 'true');
+    await userEvent.click(block);
+    await waitFor(() => expect(toast).toHaveBeenCalledWith('تنظیم رسید تکراری ذخیره شد'));
+    expect(calls.find(([m, p]) => m === 'PUT' && p === `${BASE}/receipt-duplicates/settings`)[2]).toBe(
+      JSON.stringify({ policy: 'block' }),
+    );
+    expect(screen.getByRole('radio', { name: 'رد کردن' })).toHaveAttribute('aria-checked', 'true');
   });
 });

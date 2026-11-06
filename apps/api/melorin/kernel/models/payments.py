@@ -1,7 +1,7 @@
 import datetime as dt
 import uuid
 
-from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, String, Text, UniqueConstraint, Uuid
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, Index, String, Text, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from melorin.kernel.base import Base, CreatedMixin, IdMixin, TimestampMixin
@@ -37,6 +37,22 @@ class PaymentAttempt(IdMixin, CreatedMixin, Base):
     action: Mapped[str] = mapped_column(String(30))
     result: Mapped[str] = mapped_column(String(30))
     data: Mapped[dict | None] = mapped_column(JSON)
+
+
+class PaymentReceiptFingerprint(IdMixin, CreatedMixin, Base):
+    """What identifies one receipt picture, kept apart from the payment so duplicate detection survives a replaced file.
+
+    ``sha256`` is computed by the API from the uploaded bytes (trusted). ``file_unique_id`` is Telegram's stable id of the
+    file, sent by the bot; it also catches the same picture re-sent from another chat, where the bytes differ after
+    Telegram's re-compression. Either may be NULL; a row with both NULL is never written.
+    """
+
+    __tablename__ = "payment_receipt_fingerprints"
+    __table_args__ = (Index("ix_receipt_fp_sha256", "sha256"), Index("ix_receipt_fp_file_unique_id", "file_unique_id"))
+    payment_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("payments.id", ondelete="CASCADE"), index=True)
+    store_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("stores.id"), index=True)
+    file_unique_id: Mapped[str | None] = mapped_column(String(128))
+    sha256: Mapped[str | None] = mapped_column(String(64))
 
 
 class BankSmsSource(IdMixin, TimestampMixin, Base):

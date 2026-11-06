@@ -4,9 +4,10 @@
 // (credit is reversed). Core makes every decision and enforces the caps; this panel edits the settings, shows the two
 // queues with a live countdown and sends the human decision.
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertTriangle, Check, Clock, Hourglass, ImageIcon, Undo2 } from 'lucide-react';
+import { AlertTriangle, Check, Clock, Copy, Hourglass, ImageIcon, Undo2 } from 'lucide-react';
 import { Empty, Field, Section, Switch, errText, num } from './kit.jsx';
 import { confirmDialog, dt } from './ui.jsx';
+import ReceiptDuplicatePolicy, { duplicateLine } from './ReceiptDuplicatePolicy.jsx';
 
 const JSON_H = { 'Content-Type': 'application/json' };
 const CUR = { IRT: 'تومان', IRR: 'ریال' };
@@ -64,9 +65,15 @@ function Row({ item, tone, now, minutes, children, onReceipt }) {
                 <AlertTriangle size={11} /> تأیید موقت نمی‌شود
               </span>
             )}
+            {item.duplicate && (
+              <span className="badge b-wn" title={duplicateLine(item.duplicate)}>
+                <Copy size={11} /> تصویر تکراری
+              </span>
+            )}
             {item.shortfall ? <span className="badge b-bd">کسری کیف پول: {num(item.shortfall)}</span> : null}
           </div>
           {item.block_text && <div className="text-[11px] text-[var(--wn)]">{item.block_text}</div>}
+          {item.duplicate && <div className="text-[11px] text-[var(--wn)]">{duplicateLine(item.duplicate)}</div>}
           <Facts r={item.receipt_read} />
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
@@ -261,6 +268,8 @@ export default function ReceiptReviewPanel({ call, toast, base, receiptPath, onC
           </li>
         ))}
       </ol>
+
+      <ReceiptDuplicatePolicy call={call} toast={toast} base={base} />
 
       <details className="group rounded-xl border border-[var(--ln)]" open={!c.enabled}>
         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-3 text-xs font-extrabold">

@@ -35,7 +35,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 
 <!-- BEGIN GENERATED ROUTES (scripts/gen_docs.py) -->
 
-### `admin` (107)
+### `admin` (110)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -98,6 +98,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/api/v1/admin/panels/{panel_id}/targets` | Panel Targets |
 | GET | `/api/v1/admin/payments` | Payments |
 | GET | `/api/v1/admin/payments/{payment_id}/receipt` | Payment Receipt |
+| GET | `/api/v1/admin/payments/{payment_id}/receipt-duplicates` | Payment Receipt Duplicates |
 | POST | `/api/v1/admin/payments/{payment_id}/refund` | Refund Payment |
 | POST | `/api/v1/admin/payments/{payment_id}/review` | Review Payment |
 | GET | `/api/v1/admin/products` | List Products |
@@ -129,6 +130,8 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | POST | `/api/v1/admin/stores/{store_id}/bank-sms/token` | Bank Sms Rotate Token |
 | POST | `/api/v1/admin/stores/{store_id}/bank-sms/{sms_id}/ignore` | Bank Sms Ignore |
 | POST | `/api/v1/admin/stores/{store_id}/bank-sms/{sms_id}/link` | Bank Sms Link |
+| GET | `/api/v1/admin/stores/{store_id}/receipt-duplicates/settings` | Receipt Dup Settings |
+| PUT | `/api/v1/admin/stores/{store_id}/receipt-duplicates/settings` | Receipt Dup Save Settings |
 | GET | `/api/v1/admin/stores/{store_id}/receipt-review` | Receipt Review Queue |
 | PUT | `/api/v1/admin/stores/{store_id}/receipt-review/settings` | Receipt Review Settings |
 | POST | `/api/v1/admin/stores/{store_id}/receipt-review/{payment_id}` | Receipt Review Resolve |
@@ -314,7 +317,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/api/v1/reports/payments` | Payment Totals |
 | GET | `/api/v1/reports/stores/{store_id}/sales` | Store Sales |
 
-### `reseller` (60)
+### `reseller` (63)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -361,11 +364,14 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/api/v1/stores/{store_id}/reseller/payment-config` | Get Payment Config |
 | PUT | `/api/v1/stores/{store_id}/reseller/payment-config/{provider}` | Put Payment Config |
 | GET | `/api/v1/stores/{store_id}/reseller/payments` | Store Payments |
+| GET | `/api/v1/stores/{store_id}/reseller/payments/{payment_id}/receipt-duplicates` | Reseller Payment Receipt Duplicates |
 | POST | `/api/v1/stores/{store_id}/reseller/payments/{payment_id}/review` | Review Store Payment |
 | GET | `/api/v1/stores/{store_id}/reseller/prices` | Reseller Prices |
 | POST | `/api/v1/stores/{store_id}/reseller/prices/batch` | Set Reseller Prices Batch |
 | PUT | `/api/v1/stores/{store_id}/reseller/prices/{product_id}` | Set Reseller Price |
 | GET | `/api/v1/stores/{store_id}/reseller/profile` | Profile |
+| GET | `/api/v1/stores/{store_id}/reseller/receipt-duplicates/settings` | Reseller Receipt Dup Settings |
+| PUT | `/api/v1/stores/{store_id}/reseller/receipt-duplicates/settings` | Reseller Receipt Dup Save Settings |
 | GET | `/api/v1/stores/{store_id}/reseller/receipt-review` | Reseller Receipt Review Queue |
 | PUT | `/api/v1/stores/{store_id}/reseller/receipt-review/settings` | Reseller Receipt Review Settings |
 | POST | `/api/v1/stores/{store_id}/reseller/receipt-review/{payment_id}` | Reseller Receipt Review Resolve |

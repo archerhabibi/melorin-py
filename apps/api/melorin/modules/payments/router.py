@@ -12,7 +12,7 @@ from melorin.core.errors import AppError
 from melorin.core.scope import StoreScope
 from melorin.core.storage import get_storage, validate_upload
 from melorin.core.ratelimit import RateLimit
-from melorin.modules.payments import bank_sms, receipt_ocr, service
+from melorin.modules.payments import bank_sms, receipt_fingerprints, receipt_ocr, service
 from melorin.kernel.models.payments import Payment
 from melorin.modules.payments.schemas import PaymentOut, TopupRequest, payment_out
 from melorin.kernel.models.system import FileObject
@@ -65,8 +65,14 @@ async def upload_receipt(
     paid_at: str | None = Form(default=None, max_length=40),
     reference: str | None = Form(default=None, max_length=40),
     source_card_last4: str | None = Form(default=None, max_length=8),
+    # Sent by the Telegram bot only: Telegram's stable id of the file (also matches the same picture re-sent from another chat).
+    file_unique_id: str | None = Form(default=None, max_length=128),
 ):
-    """Receipt image + the facts printed on it. With bank-SMS auto verification the SMS (not the image) is the proof."""
+    """Receipt image + the facts printed on it. With bank-SMS auto verification the SMS (not the image) is the proof.
+
+    Independently of the SMS, the picture's fingerprint is checked against every earlier receipt: the store policy
+    ``warn`` (default) accepts it and flags the reviewers, ``block`` answers 409 ``RECEIPT_DUPLICATE`` before anything is stored.
+    """
     user = ctx.user
     p = await StoreScope.of(ctx).get(session, Payment, payment_id, "پرداخت")
     typed = bank_sms.parse_claim(paid_at, reference, source_card_last4)
@@ -78,6 +84,8 @@ async def upload_receipt(
             raise AppError("FILE_TOO_LARGE", "حجم فایل زیاد است.", 413)
     data = bytes(data)
     digest = validate_upload(data, file.content_type or "")
+    matches = await receipt_fingerprints.find_matches(session, sha256=digest, file_unique_id=file_unique_id, exclude_payment_id=p.id)
+    receipt_fingerprints.reject_if_blocked(await receipt_fingerprints.get_policy(session, p.store_id), matches)
     ocr_cfg = receipt_ocr.resolve(await integrations.get_receipt_ocr(session))
     facts, engine = await receipt_ocr.read_receipt(data, file.content_type or "", ocr_cfg)
     claim = bank_sms.build_claim(typed, facts, engine)
@@ -93,7 +101,9 @@ async def upload_receipt(
     )
     session.add(fo)
     await session.flush()
-    await service.attach_receipt(session, p, fo.id, claim)
+    await receipt_fingerprints.store_fingerprint(session, p, sha256=digest, file_unique_id=file_unique_id)
+    duplicate = receipt_fingerprints.summarize(matches, store_id=p.store_id)
+    await service.attach_receipt(session, p, fo.id, claim, duplicate)  # commits the fingerprint with the receipt
     await bank_sms.try_auto_verify_payment(session, p)
     await session.refresh(p)
     return payment_out(p)

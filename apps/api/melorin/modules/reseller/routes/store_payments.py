@@ -12,13 +12,14 @@ from melorin.core.deps import OwnerCtx, Session
 from melorin.core.errors import AppError, NotFound
 from melorin.kernel.models.payments import Payment
 from melorin.kernel.models.stores import StorePaymentConfiguration
-from melorin.modules.payments import bank_sms, provisional, service as payments
+from melorin.modules.payments import bank_sms, provisional, receipt_fingerprints, service as payments
 from melorin.modules.payments.schemas import (
     BankSmsIgnoreIn,
     BankSmsLinkIn,
     BankSmsSourceIn,
     GraceResolveIn,
     GraceSettingsIn,
+    ReceiptDupSettingsIn,
     payment_out,
 )
 from melorin.modules.reseller.schemas import (
@@ -154,3 +155,30 @@ async def reseller_receipt_review_resolve(payment_id: uuid.UUID, body: GraceReso
         session, ctx.store.id, payment_id, approve=body.approve, actor_id=ctx.user.id, actor_type="reseller", note=body.note
     )
     return {"ok": True, "status": p.status, "provisional": provisional.state(p)}
+
+
+# ----- Duplicate receipt pictures (the reseller's own store) -----
+@router.get("/stores/{store_id}/reseller/receipt-duplicates/settings")
+async def reseller_receipt_dup_settings(ctx: OwnerCtx, session: Session):
+    return {"policy": await receipt_fingerprints.get_policy(session, ctx.store.id)}
+
+
+@router.put("/stores/{store_id}/reseller/receipt-duplicates/settings")
+async def reseller_receipt_dup_save_settings(body: ReceiptDupSettingsIn, ctx: OwnerCtx, session: Session):
+    return await receipt_fingerprints.save_policy(session, ctx.store, body.policy, actor_id=ctx.user.id, actor_type="reseller")
+
+
+@router.get("/stores/{store_id}/reseller/payments/{payment_id}/receipt-duplicates")
+async def reseller_payment_receipt_duplicates(payment_id: uuid.UUID, ctx: OwnerCtx, session: Session):
+    """Own-store payments that share this picture; payments of other stores are only counted, never named."""
+    p = await session.get(Payment, payment_id)
+    if not p or p.store_id != ctx.store.id:
+        raise NotFound("پرداخت")
+    matches = await receipt_fingerprints.matches_for_payment(session, payment_id)
+    return {
+        "payment_id": payment_id,
+        "duplicates": [
+            {"payment_id": m.payment_id, "status": m.status, "matched_by": list(m.by)} for m in matches if m.store_id == ctx.store.id
+        ],
+        "other_stores": sum(1 for m in matches if m.store_id != ctx.store.id),
+    }
