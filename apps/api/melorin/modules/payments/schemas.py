@@ -84,3 +84,10 @@ class GraceSettingsIn(BaseModel):
 class GraceResolveIn(BaseModel):
     approve: bool
     note: str | None = Field(default=None, max_length=300)
+
+
+class ReceiptDupSettingsIn(BaseModel):
+    """Per-store policy for a receipt picture that was already used: ``warn`` (default, accept and flag) or ``block``."""
+
+    model_config = ConfigDict(extra="forbid")
+    policy: str

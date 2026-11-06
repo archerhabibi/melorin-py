@@ -153,7 +153,10 @@ async def _block_reason(session: AsyncSession, p: Payment, cfg: dict, history: l
     ref = claim.get("reference")
     if ref and any(x.id != p.id and ((x.meta or {}).get("receipt_claim") or {}).get("reference") == ref for x in history):
         return "duplicate_reference"
-    if p.receipt_file_id:
+    dup = (p.meta or {}).get("receipt_duplicate")
+    if dup and (dup.get("payments") or dup.get("other_stores")):
+        return "duplicate_image"  # fingerprint check at upload: same picture (sha256 or Telegram file id) used by another payment
+    if p.receipt_file_id:  # receipts attached before fingerprints existed: fall back to the stored file hash
         sha = await session.scalar(select(FileObject.sha256).where(FileObject.id == p.receipt_file_id))
         if sha and await session.scalar(
             select(Payment.id)
@@ -284,6 +287,7 @@ def _item(p: Payment, cfg: dict) -> dict:
         "receipt_read": {k: claim.get(k) for k in ("paid_at", "amount_rial", "source_card_last4", "reference", "ocr_engine")}
         if claim
         else None,
+        "duplicate": (p.meta or {}).get("receipt_duplicate"),
     }
 
 

@@ -23,6 +23,7 @@ from melorin.modules.admin.schemas import (
     UpdateServer,
 )
 from melorin.modules.admin.targets import check_target, target_warnings
+from melorin.modules.vpn import capabilities
 from melorin.modules.vpn.targets import capacity_label, effective_destination
 from melorin.modules.admin._common import (
     _commit_or_conflict,
@@ -37,7 +38,19 @@ log = logging.getLogger("melorin.admin")
 def _panel_out(p: Panel) -> PanelOut:
     out = PanelOut.model_validate(p, from_attributes=True)
     out.has_credentials = bool(p.credentials_enc)
+    out.capabilities = capabilities.capabilities_out(p)
     return out
+
+
+async def _probe_capabilities(session, p: Panel) -> None:
+    """Best effort: read the panel role/permissions and store what this connection can do. Never blocks panel create/edit."""
+    try:
+        await capabilities.refresh(p)
+        await session.commit()
+        await session.refresh(p)
+    except Exception:
+        await session.rollback()
+        log.warning("panel capability probe failed panel=%s", p.id, exc_info=True)
 
 
 @router.post("/panels", response_model=PanelOut, status_code=201)
@@ -73,6 +86,7 @@ async def create_panel(body: CreatePanel, admin: AdminUser, session: Session):
     )
     await session.commit()
     await session.refresh(p)
+    await _probe_capabilities(session, p)
     if (
         p.kind == "pasarguard"
     ):  # a new panel: every store (Main + resellers) gets its Operator admin right away; the worker retries on failure
@@ -110,9 +124,11 @@ async def update_panel(panel_id: uuid.UUID, body: CreatePanel, admin: AdminUser,
     if body.credentials:
         p.credentials_enc = encrypt(__import__("json").dumps(body.credentials))
         changed.append("credentials")
-    if set(changed) - {"name"}:
-        # Connection details changed: the previous health result no longer describes this panel.
+    connection_changed = bool(set(changed) - {"name"})
+    if connection_changed:
+        # Connection details changed: the previous health result and capability snapshot no longer describe this panel.
         p.health_status, p.last_health_at, p.last_health_error = "unknown", None, None
+        p.capabilities, p.capabilities_checked_at = None, None
     audit.record(
         session,
         "panel.updated",
@@ -123,6 +139,8 @@ async def update_panel(panel_id: uuid.UUID, body: CreatePanel, admin: AdminUser,
         data={"kind": p.kind, "url": p.base_url, "changed": changed},
     )
     await session.commit()
+    if connection_changed:
+        await _probe_capabilities(session, p)
     return {"ok": True}
 
 
@@ -391,4 +409,6 @@ async def panel_health(panel_id: uuid.UUID, _: AdminUser, session: Session):
     p.health_status, p.last_health_at, p.last_health_error = "healthy" if ok else "unhealthy", utcnow(), (None if ok else error)
     await event_center_rules.notify_panel_health(session, p, previous)
     await session.commit()
+    if ok:  # an explicit health check is also the moment to re-read what the credential may do
+        await _probe_capabilities(session, p)
     return {"healthy": ok, "error": None if ok else error}

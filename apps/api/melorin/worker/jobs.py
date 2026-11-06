@@ -15,7 +15,7 @@ from melorin.kernel.models.identity import VerificationCode
 from melorin.kernel.models.system import BackupRun
 from melorin.modules.eventcenter import report as event_center_report
 from melorin.modules.eventcenter import rules as event_center_rules
-from melorin.modules.vpn import service
+from melorin.modules.vpn import capabilities, service
 from melorin.kernel.models.vpn import Panel, VpnAccount
 
 log = logging.getLogger("melorin.jobs")
@@ -100,6 +100,11 @@ async def panel_health_job(ctx=None):
                 ok = await adapter.health_check()
                 p.health_status, p.last_health_at = "healthy" if ok else "unhealthy", utcnow()
                 p.last_health_error = None if ok else "health check returned false"
+                if ok and capabilities.is_stale(p):  # hourly: permissions change when an admin edits the panel role
+                    try:
+                        await capabilities.refresh(p, adapter)
+                    except Exception:  # a probe problem must never flip the panel to unhealthy
+                        log.warning("panel capability refresh failed panel=%s", p.id, exc_info=True)
             except Exception as exc:
                 p.health_status, p.last_health_at, p.last_health_error = "unhealthy", utcnow(), str(exc)[:500]
             finally:
