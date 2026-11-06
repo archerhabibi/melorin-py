@@ -32,8 +32,19 @@ def _migration():
 
 
 def _engine_without_loyalty():
+    """An in-memory SQLite database holding every table except the loyalty ones.
+
+    The tables are built from a *copy* of the metadata. SQLAlchemy remembers on the shared constraint objects that a
+    ``use_alter`` foreign key (``orders.vpn_account_id``) was already emitted by an earlier ``create_all`` on PostgreSQL
+    (the PostgreSQL lane runs those tests first in the same process) and then leaves it out of every later ``create_all``,
+    which showed up here as phantom drift. A fresh copy has no such memory, so the result no longer depends on test order.
+    """
+    fresh = sa.MetaData(naming_convention=Base.metadata.naming_convention)
+    for table in Base.metadata.sorted_tables:
+        if table.name not in LOYALTY:
+            table.to_metadata(fresh)
     engine = sa.create_engine("sqlite://")
-    Base.metadata.create_all(engine, tables=[t for t in Base.metadata.sorted_tables if t.name not in LOYALTY])
+    fresh.create_all(engine)
     return engine
 
 
