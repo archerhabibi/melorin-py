@@ -277,3 +277,11 @@ async def receipt_grace_job(ctx=None):
         if n:
             log.info("receipt grace: provisional credits=%s", n)
         return n
+
+
+async def panel_admin_sync_job(ctx=None):
+    """Every minute: a new reseller / a new PasarGuard panel / an existing reseller meeting a new panel gets its Operator admin."""
+    from melorin.modules.vpn import panel_admins
+
+    async with session_factory()() as s:
+        return await panel_admins.sync_all(s)

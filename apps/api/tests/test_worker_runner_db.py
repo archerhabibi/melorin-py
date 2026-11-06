@@ -219,6 +219,8 @@ async def test_order_topic_handlers_delegate_to_provisioning_referral_and_delive
     monkeypatch.setattr(runner.vpn, "provision_order", lambda s, i: rec(f"provision:{i}"))
     monkeypatch.setattr("melorin.modules.referral.service.on_order_completed", lambda s, i: rec("ref_done"))
     monkeypatch.setattr("melorin.modules.referral.service.on_order_refunded", lambda s, i: rec("ref_refund"))
+    monkeypatch.setattr("melorin.modules.loyalty.service.on_order_completed", lambda s, i: rec("loyalty_done"))
+    monkeypatch.setattr("melorin.modules.loyalty.service.on_order_refunded", lambda s, i: rec("loyalty_refund"))
     monkeypatch.setattr("melorin.modules.orders.delivery.deliver_order", lambda s, i: rec(f"deliver:{i}"))
     monkeypatch.setattr(runner, "_webhook", lambda s, name, p, eid: rec(f"hook:{eid}"))
     monkeypatch.setattr(runner, "_notify_admins_provisioning_failed", lambda s, p: rec("admins"))
@@ -229,8 +231,8 @@ async def test_order_topic_handlers_delegate_to_provisioning_referral_and_delive
     await runner._on_order_refunded(None, p)
     await runner._on_provisioning_failed(None, p)
     assert log == [
-        f"provision:{oid}", "ref_done", f"hook:order.completed:{oid}", f"deliver:{oid}",
-        "ref_refund", f"hook:order.refunded:{oid}", "admins", f"hook:order.provisioning_failed:{oid}",
+        f"provision:{oid}", "ref_done", "loyalty_done", f"hook:order.completed:{oid}", f"deliver:{oid}",
+        "ref_refund", "loyalty_refund", f"hook:order.refunded:{oid}", "admins", f"hook:order.provisioning_failed:{oid}",
     ]  # fmt: skip
 
 

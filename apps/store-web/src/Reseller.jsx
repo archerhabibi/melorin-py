@@ -20,6 +20,8 @@ import {
   ShieldCheck,
   Gift,
   Percent,
+  Award,
+  ServerCog,
 } from 'lucide-react';
 import { Loading, PageTitle, StatusBadge, fa, fd } from './ui.jsx';
 import Pricing from './ResellerPricing.jsx';
@@ -27,7 +29,9 @@ import AccountInquiry from './AccountInquiry.jsx';
 import Broadcast from './ResellerBroadcast.jsx';
 import EventCenter from './ResellerEventCenter.jsx';
 import ResellerReferral from './ResellerReferral.jsx';
+import ResellerLoyalty from './ResellerLoyalty.jsx';
 import ResellerCoupons from './ResellerCoupons.jsx';
+import ResellerPanelAdmin from './ResellerPanelAdmin.jsx';
 import BankSms from './ResellerBankSms.jsx';
 const J = { 'Content-Type': 'application/json' };
 
@@ -1153,6 +1157,7 @@ const tabs = [
   ['pricing', 'قیمت‌گذاری', Tags],
   ['coupons', 'کدهای تخفیف', Percent],
   ['referral', 'برنامهٔ معرفی', Gift],
+  ['loyalty', 'باشگاه مشتریان', Award],
   ['customers', 'مشتریان', Users],
   ['accounts', 'اکانت‌های مشتریان', Gauge],
   ['broadcast', 'پیام همگانی', Megaphone],
@@ -1161,6 +1166,7 @@ const tabs = [
   ['banksms', 'تأیید خودکار بانک', ShieldCheck],
   ['keys', 'کلیدهای API', KeyRound],
   ['hooks', 'وبهوک‌ها', Webhook],
+  ['paneladmin', 'ادمین پنل', ServerCog],
   ['settings', 'تنظیمات فروشگاه', Settings],
 ];
 export default function Reseller({ coreFetch, notify }) {
@@ -1224,6 +1230,9 @@ export default function Reseller({ coreFetch, notify }) {
             {tab === 'referral' && (
               <ResellerReferral coreFetch={coreFetch} storeId={mine.id} notify={notify} currency={mine.currency} />
             )}
+            {tab === 'loyalty' && (
+              <ResellerLoyalty coreFetch={coreFetch} storeId={mine.id} notify={notify} currency={mine.currency} />
+            )}
             {tab === 'customers' && <Customers coreFetch={coreFetch} base={base} notify={notify} />}
             {tab === 'accounts' && <OwnerAccounts coreFetch={coreFetch} base={base} notify={notify} />}
             {tab === 'broadcast' && <Broadcast coreFetch={coreFetch} base={base} notify={notify} />}
@@ -1232,6 +1241,7 @@ export default function Reseller({ coreFetch, notify }) {
             {tab === 'banksms' && <BankSms coreFetch={coreFetch} base={base} notify={notify} />}
             {tab === 'keys' && <Keys coreFetch={coreFetch} base={base} notify={notify} />}
             {tab === 'hooks' && <Hooks coreFetch={coreFetch} base={base} notify={notify} />}
+            {tab === 'paneladmin' && <ResellerPanelAdmin coreFetch={coreFetch} base={base} notify={notify} />}
             {tab === 'settings' && (
               <div className="space-y-4">
                 <Branding coreFetch={coreFetch} base={base} storeId={mine.id} notify={notify} />

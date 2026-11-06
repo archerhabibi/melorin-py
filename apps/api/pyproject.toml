@@ -67,7 +67,7 @@ layers = [
   "melorin.modules.reports",
   "melorin.modules.reseller",
   "melorin.modules.orders | melorin.modules.payments | melorin.modules.identity",
-  "melorin.modules.catalog | melorin.modules.referral | melorin.modules.tickets",
+  "melorin.modules.catalog | melorin.modules.referral | melorin.modules.loyalty | melorin.modules.tickets",
   "melorin.modules.vpn | melorin.modules.wallet | melorin.modules.webhooks | melorin.modules.notifications | melorin.modules.stores | melorin.modules.system",
 ]
 

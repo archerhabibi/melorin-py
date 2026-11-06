@@ -22,6 +22,7 @@ from melorin.worker.jobs import (
     expiry_job,
     near_expiry_job,
     panel_health_job,
+    panel_admin_sync_job,
     privacy_retention_job,
     reconciliation_job,
     telegram_login_gc_job,
@@ -59,6 +60,7 @@ class WorkerSettings:
         backup_job,
         daily_report_job,
         panel_health_job,
+        panel_admin_sync_job,
         expiry_job,
         near_expiry_job,
         reconciliation_job,
@@ -76,6 +78,7 @@ class WorkerSettings:
         # 20:30 UTC = 00:00 Tehran: the nightly Event Center report of the day that just ended.
         cron(daily_report_job, hour=20, minute=30, unique=True),
         cron(panel_health_job, minute=set(range(0, 60, 5)), unique=True),
+        cron(panel_admin_sync_job, minute=set(range(0, 60)), unique=True),
         cron(expiry_job, minute=set(range(0, 60, 5)), unique=True),
         cron(near_expiry_job, minute=set(range(0, 60, 15)), unique=True),
         cron(reconciliation_job, minute=10, unique=True),

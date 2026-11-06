@@ -4,6 +4,7 @@ import { Plus, Search, X } from 'lucide-react';
 import { Badge, PasswordInput, confirmDialog, isStatus } from './ui.jsx';
 const ReportsView = lazy(() => import('./ReportsView.jsx'));
 const PanelsView = lazy(() => import('./PanelsView.jsx'));
+const PanelAdminsView = lazy(() => import('./PanelAdminsView.jsx'));
 const InfraHealthView = lazy(() => import('./InfraHealthView.jsx'));
 const ProductsView = lazy(() => import('./ProductsView.jsx'));
 const BundlesView = lazy(() => import('./BundlesView.jsx'));
@@ -24,6 +25,7 @@ const UsersView = lazy(() => import('./UsersView.jsx'));
 const StoresView = lazy(() => import('./StoresView.jsx'));
 const AuditView = lazy(() => import('./AuditView.jsx'));
 const ReferralProgramsView = lazy(() => import('./ReferralProgramsView.jsx'));
+const LoyaltyClubView = lazy(() => import('./LoyaltyClubView.jsx'));
 const money = (n) => new Intl.NumberFormat('fa-IR').format(n || 0);
 const box = 'card';
 const inp = 'inp';
@@ -698,9 +700,11 @@ export const extraRoutes = {
   تیکت‌ها: Tickets,
   'محصولات VPN': ProductsView,
   'پنل‌ها و سرورها': PanelsView,
+  'ادمین‌های پنل': PanelAdminsView,
   'بسته‌های فروش': BundlesView,
   کوپن‌ها: Coupons,
   'برنامه‌های معرفی': ReferralProgramsView,
+  'باشگاه مشتریان': LoyaltyClubView,
   تنظیمات: Settings,
   ممیزی: AuditView,
   هویت: IdentityHubView,

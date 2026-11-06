@@ -17,7 +17,7 @@ HELP = (
     "فرمان‌ها:\n"
     "/plans خرید اکانت\n/wallet کیف پول و شارژ حساب\n/topup مبلغ — شارژ کیف پول\n"
     "/accounts استعلام و تمدید اکانت\n/orders سفارش‌ها\n/test دریافت اکانت تست\n"
-    "/tickets پشتیبانی و تیکت‌ها\n/me حساب من در سایت\n/referral دعوت از دوستان\n"
+    "/tickets پشتیبانی و تیکت‌ها\n/me حساب من در سایت\n/referral دعوت از دوستان\n/club باشگاه مشتریان\n"
     "/reseller درخواست نمایندگی\n/devices مرورگرهای مطمئن (ورود خودکار)\n/cancel انصراف از مرحلهٔ جاری"
 )
 
@@ -31,6 +31,7 @@ BOT_COMMANDS = [
     ("test", "🧪 اکانت تست"),
     ("tickets", "🎧 پشتیبانی"),
     ("referral", "🎁 دعوت از دوستان"),
+    ("club", "🏅 باشگاه مشتریان"),
     ("reseller", "🤖 درخواست نمایندگی"),
     ("devices", "🔐 مرورگرهای مطمئن"),
     ("help", "راهنما"),
@@ -77,6 +78,7 @@ MENU = [
     [("🛒 خرید اکانت", "menu:plans"), ("💰 کیف پول", "menu:wallet")],
     [("📦 سفارش‌ها", "menu:orders"), ("🔑 اکانت‌ها", "menu:accounts")],
     [("🎫 تیکت‌ها", "menu:tickets"), ("🔔 اعلان‌ها", "menu:notifications")],
+    [("🏅 باشگاه مشتریان", "menu:club")],
 ]
 
 CURRENCY_LABEL = {"IRT": "تومان", "IRR": "ریال"}
@@ -285,3 +287,57 @@ def qr_png(data: str) -> bytes | None:
     buf = io.BytesIO()
     segno.make(data, error="m").save(buf, kind="png", scale=8, border=4)
     return buf.getvalue()
+
+
+LOYALTY_BLOCKED = {
+    "LOYALTY_NOT_ENOUGH_POINTS": "امتیاز کافی نیست",
+    "LOYALTY_REWARD_SOLD_OUT": "موجودی تمام شده",
+    "LOYALTY_REWARD_LIMIT": "سقف دریافت شما پر شده",
+    "LOYALTY_REWARD_INACTIVE": "غیرفعال است",
+}
+
+
+def loyalty_text(data: dict) -> str:
+    """The club screen of THIS store, built only from ``/stores/{id}/loyalty`` (the bot computes nothing)."""
+    if not data.get("enabled"):
+        return "🏅 <b>باشگاه مشتریان</b>\n\nاین فروشگاه فعلاً باشگاه مشتریان ندارد."
+    currency = data.get("currency")
+    lines = ["🏅 <b>باشگاه مشتریان</b>", "", f"امتیاز شما: <b>{money(data.get('balance'))}</b>"]
+    tier = data.get("tier")
+    if tier:
+        lines.append(f"سطح شما: <b>{esc(tier['name'])}</b> (ضریب {int(tier.get('multiplier_bp') or 10000) / 10000:g}×)")
+    nxt = data.get("next_tier")
+    lines.append(
+        f"تا سطح «{esc(nxt['name'])}»: <b>{money(nxt['points_missing'])}</b> امتیاز مانده"
+        if nxt
+        else "شما در بالاترین سطح هستید."
+    )
+    if int(data.get("debt") or 0) > 0:
+        lines.append(f"⚠️ {money(data['debt'])} امتیاز بابت بازگشت وجه از امتیازهای بعدی شما کم می‌شود.")
+    bonus = int((data.get("program") or {}).get("first_order_bonus") or 0)
+    if bonus:
+        lines.append(f"✨ هدیهٔ اولین خرید: {money(bonus)} امتیاز")
+    rewards = data.get("rewards") or []
+    lines.append("")
+    if rewards:
+        lines.append("🎁 <b>پاداش‌ها</b>")
+        for r in rewards:
+            why = "" if r.get("available") else f" — {LOYALTY_BLOCKED.get(r.get('blocked_reason'), 'فعلاً قابل دریافت نیست')}"
+            lines.append(f"• {esc(r['name'])}: {money(r['cost_points'])} امتیاز ← {fmt(r['value'], currency)}{why}")
+    else:
+        lines.append("فعلاً پاداشی تعریف نشده است.")
+    history = data.get("history") or []
+    if history:
+        lines += ["", "🕘 <b>آخرین تغییرات</b>"]
+        lines += [f"• {'+' if int(t['amount']) > 0 else ''}{money(t['amount'])}" for t in history[:3]]
+    return "\n".join(lines)
+
+
+def loyalty_keyboard_rows(data: dict) -> list:
+    """One button per reward the customer can take right now (Core says which), then the way back."""
+    rows = [
+        [(f"🎁 {r['name']} · {money(r['cost_points'])}", f"loy:r:{r['id']}")]
+        for r in (data.get("rewards") or [])
+        if r.get("available")
+    ][:6]
+    return rows + [[("🏠 خانه", "menu:home")]]

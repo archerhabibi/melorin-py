@@ -12,8 +12,8 @@ import uuid
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0040_receipt_fingerprints"
-down_revision = "0039_target_selection"
+revision = "0043_receipt_fingerprints"
+down_revision = "0042_customer_loyalty_club"
 branch_labels = None
 depends_on = None
 

@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { GoogleSignInButton } from './GoogleSignIn.jsx';
 import AccountInquiry from './AccountInquiry.jsx';
+import Loyalty from './Loyalty.jsx';
 import Referral from './Referral.jsx';
 import { Empty, Loading, PageTitle, PasswordInput, StatusBadge, fa, fd } from './ui.jsx';
 import { focusOnMount } from './useDialog.js';
@@ -1221,6 +1222,7 @@ function Profile({ coreFetch, storeId, account, notify, reload }) {
           ذخیره
         </button>
       </div>
+      <Loyalty coreFetch={coreFetch} storeId={storeId} notify={notify} />
       <Referral coreFetch={coreFetch} storeId={storeId} notify={notify} />
       <div className={card}>
         <h4 className="font-extrabold">اتصال تلگرام</h4>

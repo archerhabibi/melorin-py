@@ -20,10 +20,17 @@ Commits containing `[skip changelog]` and the bot's own commits are skipped.
 If `main` is protected, allow `github-actions[bot]` to bypass so the bot can push the log.
 
 
+## 2026-11-06 - One PasarGuard admin per store: isolation guards, race-safe creation, durable password reset
+- **Area:** panel-admins / vpn / reseller / api (migration 0041)
+- **Before:** `feat/panel-admin-per-store` gave every store its own Operator admin, but nothing in the database stopped two stores from ending up on one panel login, the worker and provisioning could both create the same (panel, store) row and one would crash, "one pending request per store" was only a `count()` before the insert, and a password reset changed the panel first and the database second.
+- **Problem:** `ensure_admin` adopts an existing admin with the same name and re-passwords it, so a name clash (two slugs collapsing to one login, or a login taken first) would silently hand one store's accounts to another store's admin - the exact thing this feature exists to prevent. The other three were check-then-act races (proven on PostgreSQL: without the fix two of the three race tests fail).
+- **Action:** `pick_username` gives a clashing store its own login (store-id suffix); `_create_row` inserts inside a SAVEPOINT and re-reads when it loses; migration `0041_panel_admin_guards` adds unique `(panel_id, username)` and a partial unique index for one pending request per store (it stops with the names if two stores already share a login); `reset_password` saves + flags the new secret before touching the panel, restores the old one on a clean refusal and converges through the worker after a crash; the reseller route maps the database refusal to `REQUEST_PENDING`.
+- **After:** the guarantees hold under real concurrency (`tests/test_panel_admins_postgres.py`), the migration was run up/down/up on PostgreSQL 18, 1795 API tests and both web suites pass; see docs/PANEL-ADMINS.md "Guarantees".
+
 ## 2026-11-06 - Duplicate receipt picture detection (sha256 + Telegram file_unique_id)
 - **Area:** payments / api / admin-web / telegram-main
 - **Before:** the same receipt picture could be attached to several payments; only the bank-SMS match protected against double credit, so receipts without SMS had no duplicate check.
-- **Action:** `payment_receipt_fingerprints` (migration 0040, backfilled from existing receipts); per-store policy `warn` (default) or `block` (409 `RECEIPT_DUPLICATE` before the file is stored); reviewers see the earlier payments in the notice, queue badge and admin list; flagged pictures are never provisionally credited; admin/reseller endpoints and a policy switch in the review panel; the bot sends `file_unique_id`.
+- **Action:** `payment_receipt_fingerprints` (migration 0043, backfilled from existing receipts); per-store policy `warn` (default) or `block` (409 `RECEIPT_DUPLICATE` before the file is stored); reviewers see the earlier payments in the notice, queue badge and admin list; flagged pictures are never provisionally credited; admin/reseller endpoints and a policy switch in the review panel; the bot sends `file_unique_id`.
 - **After:** 10 new API tests (full suite 1770 passed), 2 new panel tests (166 passed), migration upgrade/downgrade/backfill verified on PostgreSQL, live upload scenario verified; see docs/20-Card-Receipt-Auto-Verification.md.
 
 ## 2026-10-27 - Referral, commission and discount codes are scoped to their own store / reseller

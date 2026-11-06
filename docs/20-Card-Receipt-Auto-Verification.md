@@ -112,7 +112,7 @@ catches the same picture re-sent from another chat, where the bytes differ after
 * API: `GET/PUT /admin/stores/{id}/receipt-duplicates/settings` `{policy}`, `GET /admin/payments/{id}/receipt-duplicates`; reseller:
   `GET/PUT /stores/{id}/reseller/receipt-duplicates/settings`, `GET /stores/{id}/reseller/payments/{pid}/receipt-duplicates`.
   `POST .../payments/{id}/receipt` accepts an optional form field `file_unique_id` (letters, digits, `_`, `-`; anything else is dropped).
-* Migration 0040 backfills a `sha256` fingerprint for every receipt already attached, so older pictures are covered too.
+* Migration 0043 backfills a `sha256` fingerprint for every receipt already attached, so older pictures are covered too.
 * Known limits: a picture edited pixel-wise (re-screenshot, crop) has another hash - the SMS/reference check remains the proof; `file_unique_id` is
   client-supplied, so it is advisory next to the hash; two simultaneous uploads of one picture can both pass `block` (no unique constraint, by design).
 

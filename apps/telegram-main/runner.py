@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from tgmain.client import Ctx, TransportMixin  # noqa: E402,F401
 from tgmain.errors import CoreError  # noqa: E402,F401
 from tgmain.handlers.identity import IdentityMixin
+from tgmain.handlers.loyalty import LoyaltyMixin
 from tgmain.handlers.plans import PlansMixin
 from tgmain.handlers.wallet import WalletMixin
 from tgmain.handlers.accounts import AccountsMixin
@@ -34,7 +35,7 @@ from tgmain.ui import *  # noqa: E402,F401,F403  (re-exported: the reseller runn
 log = logging.getLogger("melorin.telegram.main")
 
 
-class TelegramRunner(TransportMixin, IdentityMixin, PlansMixin, WalletMixin, AccountsMixin, ResellerMixin, TicketsMixin):
+class TelegramRunner(TransportMixin, IdentityMixin, LoyaltyMixin, PlansMixin, WalletMixin, AccountsMixin, ResellerMixin, TicketsMixin):
     """Composition root: wiring (commands/callbacks), update dispatch and the long-poll loop. Feature handlers live in ``tgmain.handlers``."""
 
     channel = "main"
@@ -68,12 +69,14 @@ class TelegramRunner(TransportMixin, IdentityMixin, PlansMixin, WalletMixin, Acc
             "/notifications": self.cmd_notifications,
             "/link": self.cmd_link,
             "/referral": self.cmd_referral,
+            "/club": self.cmd_club,
             "/reseller": self.cmd_reseller,
             "/devices": self.cmd_devices,
             "/cancel": self.cmd_cancel,
         }
         self.callbacks = {
             "menu": self.cb_menu,
+            "loy": self.cb_loyalty,
             "plan": self.cb_plan,
             "buy": self.cb_buy,
             "ticket": self.cb_ticket,
@@ -163,6 +166,7 @@ class TelegramRunner(TransportMixin, IdentityMixin, PlansMixin, WalletMixin, Acc
             ACCOUNT_BUTTON: self.cmd_me,
             LEGACY_ACCOUNT_BUTTON: self.cmd_me,
             "🎁 دعوت از دوستان": self.cmd_referral,
+            "🏅 باشگاه مشتریان": self.cmd_club,
             "🧪 دریافت اکانت تست": self.cmd_test,
             "📜 قوانین خرید و آموزش": self.cmd_rules,
             "🎧 پشتیبانی": self.cmd_support,
@@ -310,6 +314,7 @@ class TelegramRunner(TransportMixin, IdentityMixin, PlansMixin, WalletMixin, Acc
             "test": self.cmd_test,
             "home": self.cmd_home,
             "devices": self.cmd_devices,
+            "club": self.cmd_club,
         }.get(name)
         await (fn(ctx, "") if fn else self.cmd_help(ctx, ""))
 
