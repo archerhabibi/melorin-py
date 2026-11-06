@@ -3123,6 +3123,193 @@ export interface paths {
         patch: operations["patch_coupon_api_v1_stores__store_id__coupons__coupon_id__patch"];
         trace?: never;
     };
+    "/api/v1/stores/{store_id}/loyalty": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Club
+         * @description The club of the store the customer is in: his points and tier, the ladder, the rewards and his latest entries.
+         */
+        get: operations["my_club_api_v1_stores__store_id__loyalty_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/loyalty/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My History
+         * @description One page of his points entries in THIS store (newest first); pass the last ``created_at`` as ``before`` for the next page.
+         */
+        get: operations["my_history_api_v1_stores__store_id__loyalty_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/loyalty/manage/adjust": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Adjust Points
+         * @description Grant (+) or deduct (-) points of one member of this store; the reason is mandatory and audited.
+         */
+        post: operations["adjust_points_api_v1_stores__store_id__loyalty_manage_adjust_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/loyalty/manage/program": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Program */
+        get: operations["get_program_api_v1_stores__store_id__loyalty_manage_program_get"];
+        /** Put Program */
+        put: operations["put_program_api_v1_stores__store_id__loyalty_manage_program_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/loyalty/manage/rewards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Rewards */
+        get: operations["list_rewards_api_v1_stores__store_id__loyalty_manage_rewards_get"];
+        put?: never;
+        /** Create Reward */
+        post: operations["create_reward_api_v1_stores__store_id__loyalty_manage_rewards_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/loyalty/manage/rewards/{reward_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Reward */
+        put: operations["update_reward_api_v1_stores__store_id__loyalty_manage_rewards__reward_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/loyalty/manage/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Club Summary */
+        get: operations["club_summary_api_v1_stores__store_id__loyalty_manage_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/loyalty/manage/tiers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Tiers
+         * @description Replace the whole ladder at once, so it is always valid: it starts at 0 points and the thresholds rise.
+         */
+        put: operations["put_tiers_api_v1_stores__store_id__loyalty_manage_tiers_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/loyalty/redemptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My Redemptions */
+        get: operations["my_redemptions_api_v1_stores__store_id__loyalty_redemptions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/loyalty/rewards/{reward_id}/redeem": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Redeem Reward
+         * @description Spend points on a reward. A retry with the same ``Idempotency-Key`` returns the first result and spends nothing more.
+         */
+        post: operations["redeem_reward_api_v1_stores__store_id__loyalty_rewards__reward_id__redeem_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/stores/{store_id}/notifications": {
         parameters: {
             query?: never;
@@ -4558,6 +4745,20 @@ export interface components {
              */
             body: string;
         };
+        /** AdjustIn */
+        AdjustIn: {
+            /** Delta */
+            delta: number;
+            /** Idempotency Key */
+            idempotency_key?: string | null;
+            /** Reason */
+            reason: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+        };
         /** AdminAccessIn */
         AdminAccessIn: {
             /** Enabled */
@@ -5927,6 +6128,27 @@ export interface components {
              */
             store_id: string;
         };
+        /** ProgramIn */
+        ProgramIn: {
+            /** Earn Unit */
+            earn_unit: number;
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * First Order Bonus
+             * @default 0
+             */
+            first_order_bonus: number;
+            /** Max Points Per Order */
+            max_points_per_order?: number | null;
+            /** Points Per Unit */
+            points_per_unit: number;
+            /**
+             * Referral Bonus
+             * @default 0
+             */
+            referral_bonus: number;
+        };
         /** QuoteRequest */
         QuoteRequest: {
             /** Bundle Id */
@@ -6106,6 +6328,36 @@ export interface components {
              * Format: uuid
              */
             user_id: string;
+        };
+        /** RewardIn */
+        RewardIn: {
+            /** Cost Points */
+            cost_points: number;
+            /** Description */
+            description?: string | null;
+            /**
+             * Is Active
+             * @default true
+             */
+            is_active: boolean;
+            /**
+             * Kind
+             * @default wallet_credit
+             */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Per User Limit */
+            per_user_limit?: number | null;
+            /**
+             * Sort Order
+             * @default 0
+             */
+            sort_order: number;
+            /** Stock */
+            stock?: number | null;
+            /** Value */
+            value: number;
         };
         /** ServerOut */
         ServerOut: {
@@ -6625,6 +6877,23 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /** TierIn */
+        TierIn: {
+            /** Min Points */
+            min_points: number;
+            /**
+             * Multiplier Bp
+             * @default 10000
+             */
+            multiplier_bp: number;
+            /** Name */
+            name: string;
+        };
+        /** TiersIn */
+        TiersIn: {
+            /** Tiers */
+            tiers: components["schemas"]["TierIn"][];
         };
         /** TokenPair */
         TokenPair: {
@@ -12824,6 +13093,407 @@ export interface operations {
                 "application/json": components["schemas"]["CouponPatch"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_club_api_v1_stores__store_id__loyalty_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_history_api_v1_stores__store_id__loyalty_history_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                before?: string | null;
+            };
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    adjust_points_api_v1_stores__store_id__loyalty_manage_adjust_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdjustIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_program_api_v1_stores__store_id__loyalty_manage_program_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_program_api_v1_stores__store_id__loyalty_manage_program_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProgramIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_rewards_api_v1_stores__store_id__loyalty_manage_rewards_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_reward_api_v1_stores__store_id__loyalty_manage_rewards_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RewardIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_reward_api_v1_stores__store_id__loyalty_manage_rewards__reward_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reward_id: string;
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RewardIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    club_summary_api_v1_stores__store_id__loyalty_manage_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_tiers_api_v1_stores__store_id__loyalty_manage_tiers_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TiersIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_redemptions_api_v1_stores__store_id__loyalty_redemptions_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    redeem_reward_api_v1_stores__store_id__loyalty_rewards__reward_id__redeem_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                reward_id: string;
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

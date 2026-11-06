@@ -25,6 +25,11 @@ def acc_referral_expense(store_id) -> str:
     return f"store:{store_id}:referral_expense"
 
 
+def acc_loyalty_expense(store_id) -> str:
+    """What a store's loyalty club pays out: wallet credit given for points comes from here."""
+    return f"store:{store_id}:loyalty_expense"
+
+
 def acc_clearing(provider: str) -> str:
     return f"gateway:{provider}:clearing"
 
