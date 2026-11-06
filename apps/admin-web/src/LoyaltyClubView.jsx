@@ -23,7 +23,8 @@ function Program({ program, currency, onSave }) {
     referral_bonus: String(program.referral_bonus ?? 0),
   });
   const [busy, setBusy] = useState(false);
-  const set = (k) => (e) => setF((s) => ({ ...s, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
+  const set = (k) => (e) =>
+    setF((s) => ({ ...s, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
   const body = {
     enabled: f.enabled,
     earn_unit: intOf(f.earn_unit),
@@ -46,7 +47,10 @@ function Program({ program, currency, onSave }) {
     ['referral_bonus', 'هدیهٔ معرف پس از اولین خرید دوستش (امتیاز)'],
   ];
   return (
-    <Section title="برنامهٔ امتیازدهی" hint="امتیاز از مبلغ خالص پرداخت‌شده (بعد از تخفیف) و فقط برای سفارش‌های تکمیل‌شدهٔ همین فروشگاه محاسبه می‌شود.">
+    <Section
+      title="برنامهٔ امتیازدهی"
+      hint="امتیاز از مبلغ خالص پرداخت‌شده (بعد از تخفیف) و فقط برای سفارش‌های تکمیل‌شدهٔ همین فروشگاه محاسبه می‌شود."
+    >
       <div data-testid="loyalty-program" className="space-y-3">
         <label className="flex items-center gap-2 text-xs font-bold">
           <input type="checkbox" checked={f.enabled} onChange={set('enabled')} /> باشگاه این فروشگاه فعال باشد
@@ -77,7 +81,9 @@ function Program({ program, currency, onSave }) {
 }
 
 function Tiers({ tiers, onSave }) {
-  const [rows, setRows] = useState(tiers.map((t) => ({ name: t.name, min_points: String(t.min_points), mult: String(t.multiplier_bp / 10000) })));
+  const [rows, setRows] = useState(
+    tiers.map((t) => ({ name: t.name, min_points: String(t.min_points), mult: String(t.multiplier_bp / 10000) })),
+  );
   const [busy, setBusy] = useState(false);
   const upd = (i, k, v) => setRows((r) => r.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
   const parsed = rows.map((r) => ({
@@ -87,7 +93,10 @@ function Tiers({ tiers, onSave }) {
   }));
   const bad = !parsed.length || parsed.some((t) => !t.name || t.min_points == null || !(t.multiplier_bp >= 1));
   return (
-    <Section title="سطح‌ها" hint="سطح اول از صفر شروع می‌شود. سطح مشتری از مجموع امتیازی که تا امروز گرفته تعیین می‌شود و ضریب بالاتر امتیاز خریدهای بعدی را بیشتر می‌کند.">
+    <Section
+      title="سطح‌ها"
+      hint="سطح اول از صفر شروع می‌شود. سطح مشتری از مجموع امتیازی که تا امروز گرفته تعیین می‌شود و ضریب بالاتر امتیاز خریدهای بعدی را بیشتر می‌کند."
+    >
       <div data-testid="loyalty-tiers" className="space-y-3">
         {rows.map((r, i) => (
           <div key={i} className="grid grid-cols-[1fr_1fr_5rem_auto] items-end gap-2">
@@ -95,12 +104,29 @@ function Tiers({ tiers, onSave }) {
               <input className="inp" value={r.name} onChange={(e) => upd(i, 'name', e.target.value)} />
             </Field>
             <Field label="از امتیاز">
-              <input className="inp" dir="ltr" inputMode="numeric" value={r.min_points} onChange={(e) => upd(i, 'min_points', e.target.value)} />
+              <input
+                className="inp"
+                dir="ltr"
+                inputMode="numeric"
+                value={r.min_points}
+                onChange={(e) => upd(i, 'min_points', e.target.value)}
+              />
             </Field>
             <Field label="ضریب">
-              <input className="inp" dir="ltr" inputMode="decimal" value={r.mult} onChange={(e) => upd(i, 'mult', e.target.value)} />
+              <input
+                className="inp"
+                dir="ltr"
+                inputMode="decimal"
+                value={r.mult}
+                onChange={(e) => upd(i, 'mult', e.target.value)}
+              />
             </Field>
-            <button className="btn" aria-label={`حذف ${r.name || 'سطح'}`} disabled={rows.length === 1} onClick={() => setRows((x) => x.filter((_, j) => j !== i))}>
+            <button
+              className="btn"
+              aria-label={`حذف ${r.name || 'سطح'}`}
+              disabled={rows.length === 1}
+              onClick={() => setRows((x) => x.filter((_, j) => j !== i))}
+            >
               <Trash2 size={14} />
             </button>
           </div>
@@ -132,7 +158,8 @@ function Rewards({ rewards, currency, onSave }) {
   const [f, setF] = useState(EMPTY_REWARD);
   const [editing, setEditing] = useState(null);
   const [busy, setBusy] = useState(false);
-  const set = (k) => (e) => setF((s) => ({ ...s, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
+  const set = (k) => (e) =>
+    setF((s) => ({ ...s, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
   const body = {
     name: f.name.trim(),
     kind: 'wallet_credit',
@@ -142,9 +169,17 @@ function Rewards({ rewards, currency, onSave }) {
     per_user_limit: f.per_user_limit === '' ? null : intOf(f.per_user_limit),
     is_active: f.is_active,
   };
-  const bad = !body.name || !body.value || !body.cost_points || (f.stock !== '' && body.stock == null) || (f.per_user_limit !== '' && !body.per_user_limit);
+  const bad =
+    !body.name ||
+    !body.value ||
+    !body.cost_points ||
+    (f.stock !== '' && body.stock == null) ||
+    (f.per_user_limit !== '' && !body.per_user_limit);
   return (
-    <Section title="پاداش‌ها" hint="پاداش فعلاً اعتبار کیف پول همان فروشگاه است و از حساب هزینهٔ باشگاه همان فروشگاه پرداخت می‌شود.">
+    <Section
+      title="پاداش‌ها"
+      hint="پاداش فعلاً اعتبار کیف پول همان فروشگاه است و از حساب هزینهٔ باشگاه همان فروشگاه پرداخت می‌شود."
+    >
       <div data-testid="loyalty-rewards-manage" className="space-y-3">
         {rewards.length === 0 ? (
           <p className="text-xs text-[var(--mu)]">هنوز پاداشی ساخته نشده است.</p>
@@ -196,7 +231,13 @@ function Rewards({ rewards, currency, onSave }) {
             <input className="inp" dir="ltr" inputMode="numeric" value={f.stock} onChange={set('stock')} />
           </Field>
           <Field label="سقف برای هر مشتری (اختیاری)">
-            <input className="inp" dir="ltr" inputMode="numeric" value={f.per_user_limit} onChange={set('per_user_limit')} />
+            <input
+              className="inp"
+              dir="ltr"
+              inputMode="numeric"
+              value={f.per_user_limit}
+              onChange={set('per_user_limit')}
+            />
           </Field>
         </div>
         <div className="flex items-center justify-between">
@@ -243,14 +284,28 @@ function Adjust({ onSave }) {
   const delta = Number(toEn(f.delta).replace('−', '-'));
   const bad = !f.user_id.trim() || !Number.isInteger(delta) || delta === 0 || !f.reason.trim();
   return (
-    <Section title="افزودن یا کم‌کردن امتیاز یک مشتری" hint="دلیل اجباری است و در ممیزی ثبت می‌شود. امتیاز منفی هم ثبت می‌شود و موجودی هرگز از صفر کمتر نمی‌شود.">
+    <Section
+      title="افزودن یا کم‌کردن امتیاز یک مشتری"
+      hint="دلیل اجباری است و در ممیزی ثبت می‌شود. امتیاز منفی هم ثبت می‌شود و موجودی هرگز از صفر کمتر نمی‌شود."
+    >
       <div data-testid="loyalty-adjust" className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-3">
           <Field label="شناسهٔ مشتری">
-            <input className="inp" dir="ltr" value={f.user_id} onChange={(e) => setF({ ...f, user_id: e.target.value })} />
+            <input
+              className="inp"
+              dir="ltr"
+              value={f.user_id}
+              onChange={(e) => setF({ ...f, user_id: e.target.value })}
+            />
           </Field>
           <Field label="تغییر امتیاز (مثلاً 100 یا -50)">
-            <input className="inp" dir="ltr" inputMode="numeric" value={f.delta} onChange={(e) => setF({ ...f, delta: e.target.value })} />
+            <input
+              className="inp"
+              dir="ltr"
+              inputMode="numeric"
+              value={f.delta}
+              onChange={(e) => setF({ ...f, delta: e.target.value })}
+            />
           </Field>
           <Field label="دلیل">
             <input className="inp" value={f.reason} onChange={(e) => setF({ ...f, reason: e.target.value })} />
@@ -320,7 +375,10 @@ export default function LoyaltyClubView({ api, toast }) {
   const currency = store?.currency;
   return (
     <div className="space-y-4">
-      <Section title="باشگاه مشتریان هر فروشگاه" hint="هر فروشگاه و نمایندگی باشگاه مستقل دارد: امتیاز، سطح و پاداش از یک فروشگاه به فروشگاه دیگر نمی‌رود.">
+      <Section
+        title="باشگاه مشتریان هر فروشگاه"
+        hint="هر فروشگاه و نمایندگی باشگاه مستقل دارد: امتیاز، سطح و پاداش از یک فروشگاه به فروشگاه دیگر نمی‌رود."
+      >
         <Field label="فروشگاه">
           <select className="inp" value={storeId} onChange={(e) => setStoreId(e.target.value)} aria-label="فروشگاه">
             {(stores.rows || []).map((s) => (
@@ -346,7 +404,9 @@ export default function LoyaltyClubView({ api, toast }) {
               ))}
             </dl>
             {data.sum.tiers.length > 0 && (
-              <p className="text-[11px] text-[var(--mu)]">{data.sum.tiers.map((t) => `${t.name}: ${num(t.members)}`).join(' · ')}</p>
+              <p className="text-[11px] text-[var(--mu)]">
+                {data.sum.tiers.map((t) => `${t.name}: ${num(t.members)}`).join(' · ')}
+              </p>
             )}
           </>
         )}
@@ -373,7 +433,13 @@ export default function LoyaltyClubView({ api, toast }) {
             rewards={data.rewards}
             currency={currency}
             onSave={(id, b) =>
-              write(id ? `/rewards/${id}` : '/rewards', id ? 'PUT' : 'POST', b, id ? 'پاداش ویرایش شد' : 'پاداش ساخته شد', 'ذخیرهٔ پاداش ناموفق بود')
+              write(
+                id ? `/rewards/${id}` : '/rewards',
+                id ? 'PUT' : 'POST',
+                b,
+                id ? 'پاداش ویرایش شد' : 'پاداش ساخته شد',
+                'ذخیرهٔ پاداش ناموفق بود',
+              )
             }
           />
           <Adjust onSave={(b) => write('/adjust', 'POST', b, 'امتیاز ثبت شد', 'ثبت امتیاز ناموفق بود')} />

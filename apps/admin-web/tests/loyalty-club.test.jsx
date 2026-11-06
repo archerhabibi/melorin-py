@@ -16,12 +16,20 @@ function setup({ failWrites = false } = {}) {
     const path = String(url).replace(/^https?:\/\/[^/]+/, '');
     calls.push([o.method || 'GET', path, o.body]);
     if (path === '/api/v1/admin/stores') return json(STORES);
-    if (o.method && o.method !== 'GET') return failWrites ? json({ error: { message: 'نامعتبر است.' } }, 400) : json({ ok: true });
+    if (o.method && o.method !== 'GET')
+      return failWrites ? json({ error: { message: 'نامعتبر است.' } }, 400) : json({ ok: true });
     if (path.endsWith('/manage/program'))
       return json({
         store_id: 'x',
         currency: 'IRT',
-        program: { enabled: true, earn_unit: 1000, points_per_unit: 1, max_points_per_order: null, first_order_bonus: 0, referral_bonus: 0 },
+        program: {
+          enabled: true,
+          earn_unit: 1000,
+          points_per_unit: 1,
+          max_points_per_order: null,
+          first_order_bonus: 0,
+          referral_bonus: 0,
+        },
         tiers: [
           { id: 1, name: 'برنزی', min_points: 0, multiplier_bp: 10000 },
           { id: 2, name: 'نقره‌ای', min_points: 500, multiplier_bp: 11000 },
@@ -30,7 +38,13 @@ function setup({ failWrites = false } = {}) {
       });
     if (path.endsWith('/manage/rewards')) return json([]);
     if (path.endsWith('/manage/summary'))
-      return json({ members: 7, points_outstanding: 1200, points_issued: 3000, value_paid: 15000, tiers: [{ name: 'برنزی', members: 7 }] });
+      return json({
+        members: 7,
+        points_outstanding: 1200,
+        points_issued: 3000,
+        value_paid: 15000,
+        tiers: [{ name: 'برنزی', members: 7 }],
+      });
     return json([]);
   });
   const toast = vi.fn();
