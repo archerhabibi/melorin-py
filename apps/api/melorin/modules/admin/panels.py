@@ -73,7 +73,9 @@ async def create_panel(body: CreatePanel, admin: AdminUser, session: Session):
     )
     await session.commit()
     await session.refresh(p)
-    if p.kind == "pasarguard":  # a new panel: every store (Main + resellers) gets its Operator admin right away; the worker retries on failure
+    if (
+        p.kind == "pasarguard"
+    ):  # a new panel: every store (Main + resellers) gets its Operator admin right away; the worker retries on failure
         from melorin.modules.vpn import panel_admins
 
         try:

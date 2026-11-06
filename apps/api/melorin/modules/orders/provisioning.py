@@ -262,7 +262,9 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
             )
             session.add(account)
             await session.flush()
-            pa = await adapter.create_account(AccountSpec(account.username, expire, traffic, product.max_devices, order.number, owner=owner))
+            pa = await adapter.create_account(
+                AccountSpec(account.username, expire, traffic, product.max_devices, order.number, owner=owner)
+            )
     except PanelError as e:
         attempt.status, attempt.error_kind, attempt.error, attempt.finished_at = ("failed", e.kind, e.message, utcnow())
         if e.kind == ErrorKind.UNKNOWN:

@@ -133,7 +133,7 @@ class PanelAdminChangeRequest(IdMixin, TimestampMixin, Base):
     requested_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
     changes: Mapped[dict] = mapped_column(JSON)
     message: Mapped[str | None] = mapped_column(String(500))
-    status: Mapped[str] = mapped_column(String(12), default="pending", index=True)  # pending | applied | rejected
+    status: Mapped[str] = mapped_column(String(12), default="pending", index=True)  # pending | applied | rejected | cancelled
     reviewed_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
     reviewed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     review_note: Mapped[str | None] = mapped_column(String(500))

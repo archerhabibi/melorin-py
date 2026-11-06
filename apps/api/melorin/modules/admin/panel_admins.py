@@ -6,7 +6,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from melorin.core import audit
+from melorin.core import audit, events
 from melorin.core.crypto import decrypt
 from melorin.core.db import utcnow
 from melorin.core.deps import AdminUser, Session
@@ -82,8 +82,14 @@ async def edit_profile(body: ProfileIn, admin: AdminUser, session: Session):
     if not results:
         raise NotFound("ادمین پنل")
     audit.record(
-        session, "panel_admin.profile_updated", actor_id=admin.id, actor_type="admin", entity_type="store", entity_id=body.store_id,
-        store_id=body.store_id, data={"fields": sorted(body.profile)},
+        session,
+        "panel_admin.profile_updated",
+        actor_id=admin.id,
+        actor_type="admin",
+        entity_type="store",
+        entity_id=body.store_id,
+        store_id=body.store_id,
+        data={"fields": sorted(body.profile)},
     )
     await session.commit()
     return {"results": results}
@@ -101,10 +107,22 @@ async def credentials(row_id: uuid.UUID, admin: AdminUser, session: Session):
     """Login of the store's admin on the PasarGuard dashboard (shown to the Melorin admin only; every view is audited)."""
     row = await _row(session, row_id)
     panel = await session.get(Panel, row.panel_id)
-    audit.record(session, "panel_admin.credentials_viewed", actor_id=admin.id, actor_type="admin", entity_type="panel_admin", entity_id=row.id,
-                 store_id=row.store_id)
+    audit.record(
+        session,
+        "panel_admin.credentials_viewed",
+        actor_id=admin.id,
+        actor_type="admin",
+        entity_type="panel_admin",
+        entity_id=row.id,
+        store_id=row.store_id,
+    )
     await session.commit()
-    return {"username": row.username, "password": decrypt(row.password_enc), "panel_url": panel.base_url if panel else None, "status": row.status}
+    return {
+        "username": row.username,
+        "password": decrypt(row.password_enc),
+        "panel_url": panel.base_url if panel else None,
+        "status": row.status,
+    }
 
 
 @router.post("/panel-admins/{row_id}/reset-password")
@@ -115,18 +133,58 @@ async def reset_password(row_id: uuid.UUID, admin: AdminUser, session: Session):
         password = await svc.reset_password(session, row, panel)
     except PanelError as exc:
         raise AppError("PANEL_ERROR", exc.message, 502) from exc
-    audit.record(session, "panel_admin.password_reset", actor_id=admin.id, actor_type="admin", entity_type="panel_admin", entity_id=row.id,
-                 store_id=row.store_id)
+    audit.record(
+        session,
+        "panel_admin.password_reset",
+        actor_id=admin.id,
+        actor_type="admin",
+        entity_type="panel_admin",
+        entity_id=row.id,
+        store_id=row.store_id,
+    )
     await session.commit()
     return {"username": row.username, "password": password}
 
 
 # ----- reseller change requests -----
-def _req_out(r: PanelAdminChangeRequest, store_name: str | None) -> dict:
+def _req_out(r: PanelAdminChangeRequest, store_name: str | None, current: dict | None = None) -> dict:
     return {
-        "id": r.id, "store_id": r.store_id, "store_name": store_name, "changes": r.changes, "message": r.message, "status": r.status,
-        "created_at": r.created_at, "reviewed_at": r.reviewed_at, "review_note": r.review_note,
+        "id": r.id,
+        "store_id": r.store_id,
+        "store_name": store_name,
+        "changes": r.changes,
+        "message": r.message,
+        "status": r.status,
+        "created_at": r.created_at,
+        "reviewed_at": r.reviewed_at,
+        "review_note": r.review_note,
+        "current_profile": current or {},  # what the store's admin has now, so the desk can show before -> after
     }
+
+
+async def _notify_requester(session, r: PanelAdminChangeRequest, *, applied: bool, note: str | None) -> None:
+    """Tell the reseller what happened to its request (a request that nobody answers would look ignored)."""
+    if not r.requested_by:
+        return
+    body = (
+        f"تغییرات درخواستی ({svc.describe_fields(r.changes)}) روی ادمین پنل شما اعمال شد."
+        if applied
+        else "درخواست تغییر پروفایل ادمین پنل شما رد شد."
+    )
+    if note:
+        body += f"\nتوضیح ادمین: {note}"
+    await events.emit(
+        session,
+        events.NOTIFY,
+        {
+            "user_id": r.requested_by,
+            "store_id": r.store_id,
+            "kind": "reseller_panel_admin_request",
+            "title": "✅ درخواست شما اعمال شد" if applied else "❌ درخواست شما رد شد",
+            "body": body,
+            "dedup_key": f"panel_admin_request_result:{r.id}",
+        },
+    )
 
 
 @router.get("/panel-admin-requests")
@@ -135,10 +193,13 @@ async def list_requests(_: AdminUser, session: Session, status: str | None = "pe
     if status:
         stmt = stmt.where(PanelAdminChangeRequest.status == status)
     rows = (await session.scalars(stmt)).all()
-    stores = {}
+    stores, current = {}, {}
     for r in rows:
-        stores[r.store_id] = stores.get(r.store_id) or await session.get(Store, r.store_id)
-    return [_req_out(r, stores[r.store_id].name if stores[r.store_id] else None) for r in rows]
+        if r.store_id not in stores:
+            stores[r.store_id] = await session.get(Store, r.store_id)
+            first = await session.scalar(select(PanelAdmin).where(PanelAdmin.store_id == r.store_id).order_by(PanelAdmin.created_at))
+            current[r.store_id] = dict(first.profile or {}) if first else {}
+    return [_req_out(r, stores[r.store_id].name if stores[r.store_id] else None, current[r.store_id]) for r in rows]
 
 
 async def _pending(session, request_id: uuid.UUID) -> PanelAdminChangeRequest:
@@ -161,8 +222,18 @@ async def apply_request(request_id: uuid.UUID, body: ReviewIn, admin: AdminUser,
     if not results:
         raise AppError("PANEL_ADMIN_MISSING", "برای این فروشگاه هنوز ادمینی روی پنل ساخته نشده است.", 409)
     r.status, r.reviewed_by, r.reviewed_at, r.review_note = "applied", admin.id, utcnow(), body.note
-    audit.record(session, "panel_admin.request_applied", actor_id=admin.id, actor_type="admin", entity_type="store", entity_id=r.store_id,
-                 store_id=r.store_id, data={"request_id": str(r.id), "fields": sorted(changes)})
+    audit.record(
+        session,
+        "panel_admin.request_applied",
+        actor_id=admin.id,
+        actor_type="admin",
+        entity_type="store",
+        entity_id=r.store_id,
+        store_id=r.store_id,
+        data={"request_id": str(r.id), "fields": sorted(changes)},
+    )
+    r.changes = changes  # keep what was really applied (the admin may have edited the reseller's wish)
+    await _notify_requester(session, r, applied=True, note=body.note)
     await session.commit()
     return {"ok": True, "results": results}
 
@@ -171,7 +242,16 @@ async def apply_request(request_id: uuid.UUID, body: ReviewIn, admin: AdminUser,
 async def reject_request(request_id: uuid.UUID, body: ReviewIn, admin: AdminUser, session: Session):
     r = await _pending(session, request_id)
     r.status, r.reviewed_by, r.reviewed_at, r.review_note = "rejected", admin.id, utcnow(), body.note
-    audit.record(session, "panel_admin.request_rejected", actor_id=admin.id, actor_type="admin", entity_type="store", entity_id=r.store_id,
-                 store_id=r.store_id, data={"request_id": str(r.id)})
+    audit.record(
+        session,
+        "panel_admin.request_rejected",
+        actor_id=admin.id,
+        actor_type="admin",
+        entity_type="store",
+        entity_id=r.store_id,
+        store_id=r.store_id,
+        data={"request_id": str(r.id)},
+    )
+    await _notify_requester(session, r, applied=False, note=body.note)
     await session.commit()
     return {"ok": True}

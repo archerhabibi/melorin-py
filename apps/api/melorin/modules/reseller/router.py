@@ -24,7 +24,18 @@ from melorin.modules.reseller.routes.public_api import api_router
 router = APIRouter(tags=["reseller"])
 # The families carry their own tag; their routes are attached directly (not wrapped) so ``router.routes`` lists every
 # reseller endpoint with its final path, in the same order as before the split.
-for _family in (applications, store_profile, panel_profile, pricing, customers, broadcasts, accounts, store_payments, credentials, webhook_endpoints):
+for _family in (
+    applications,
+    store_profile,
+    panel_profile,
+    pricing,
+    customers,
+    broadcasts,
+    accounts,
+    store_payments,
+    credentials,
+    webhook_endpoints,
+):
     router.routes.extend(_family.router.routes)
 
 __all__ = ["router", "api_router"]

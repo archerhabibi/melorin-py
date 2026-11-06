@@ -43,7 +43,9 @@ class Fake:
         if path == "/api/admin/token":
             return httpx.Response(200, json={"access_token": "t"})
         if path == "/api/admin-roles/simple":
-            return httpx.Response(200, json={"roles": [{"id": 1, "name": "owner", "is_owner": True}, {"id": 3, "name": "operator", "is_owner": False}]})
+            return httpx.Response(
+                200, json={"roles": [{"id": 1, "name": "owner", "is_owner": True}, {"id": 3, "name": "operator", "is_owner": False}]}
+            )
         if path == "/api/admins":
             return httpx.Response(200, json={"admins": [a for a in self.admins.values() if a["username"] == q.get("username")]})
         if path == "/api/admin" and method == "POST":
@@ -79,7 +81,9 @@ class Fake:
 
 
 def adapter(fake: Fake, **cfg) -> PasarGuardAdapter:
-    return PasarGuardAdapter("https://p.example.com", {"username": "owner", "password": "x"}, {"group_ids": [1], **cfg}, transport=httpx.MockTransport(fake))
+    return PasarGuardAdapter(
+        "https://p.example.com", {"username": "owner", "password": "x"}, {"group_ids": [1], **cfg}, transport=httpx.MockTransport(fake)
+    )
 
 
 def spec(owner=None):
@@ -254,8 +258,18 @@ async def test_existing_accounts_are_adopted_once(fake_adapter):
         main, r1, panel = await _world(s)
         user, product = await make_user(s), await make_product(s, price=1)
         order = await make_order(s, user=user, store=r1, product=product, total=1, status="paid", number="N1")
-        s.add(VpnAccount(username="old_1", user_id=user.id, store_id=r1.id, order_id=order.id, product_id=product.id, panel_id=panel.id,
-                         panel_ref="17", status="active"))
+        s.add(
+            VpnAccount(
+                username="old_1",
+                user_id=user.id,
+                store_id=r1.id,
+                order_id=order.id,
+                product_id=product.id,
+                panel_id=panel.id,
+                panel_ref="17",
+                status="active",
+            )
+        )
         await s.flush()
         await svc.sync_all(s)
         assert fake_adapter["a"].owned == [(["17"], "rs_aaaa1111")]
@@ -349,7 +363,9 @@ async def test_reseller_request_flow_one_pending_then_admin_applies_or_rejects(f
         await svc.sync_all(s)
         user = await make_user(s, super_admin=True)
         ctx = type("Ctx", (), {"store": r1, "user": user})()
-        out = await reseller_api.request_change(reseller_api.ProfileChangeIn(changes={"profile_title": "New", "support_url": "https://t.me/n"}), ctx, s)
+        out = await reseller_api.request_change(
+            reseller_api.ProfileChangeIn(changes={"profile_title": "New", "support_url": "https://t.me/n"}), ctx, s
+        )
         with pytest.raises(AppError) as e:  # second request while one is pending
             await reseller_api.request_change(reseller_api.ProfileChangeIn(changes={"profile_title": "X"}), ctx, s)
         assert e.value.code == "REQUEST_PENDING"

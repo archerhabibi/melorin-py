@@ -34,7 +34,20 @@ ROLE = "operator"
 # "Profile & contact" fields (all optional). ``sub_domain`` changes subscription links, ``note`` is internal: admin only.
 PROFILE_FIELDS = ("profile_title", "support_url", "telegram_id", "discord_webhook", "sub_domain", "note")
 REQUESTABLE_FIELDS = ("profile_title", "support_url", "telegram_id", "discord_webhook")
+FIELD_LABELS = {
+    "profile_title": "عنوان پروفایل",
+    "support_url": "لینک پشتیبانی",
+    "telegram_id": "آیدی تلگرام",
+    "discord_webhook": "وبهوک دیسکورد",
+    "sub_domain": "دامنهٔ اشتراک",
+    "note": "یادداشت داخلی",
+}
 _UNSAFE = re.compile(r"[<>\"'`\x00-\x1f]")
+
+
+def describe_fields(fields) -> str:
+    """Persian field names for an alert (values are never copied into notifications: a webhook URL is a secret)."""
+    return "، ".join(FIELD_LABELS.get(f, f) for f in sorted(fields)) or "—"
 
 
 class ProfileError(ValueError):
@@ -140,12 +153,17 @@ def _new_row(panel: Panel, store: Store) -> PanelAdmin:
 
 async def plan(session, *, panel: Panel | None = None) -> int:
     """Create the missing (panel, store) rows for every managed panel x every active store. Returns how many were added."""
-    panels = [panel] if panel else (await session.scalars(select(Panel).where(Panel.is_enabled.is_(True), Panel.kind == "pasarguard"))).all()
+    panels = (
+        [panel] if panel else (await session.scalars(select(Panel).where(Panel.is_enabled.is_(True), Panel.kind == "pasarguard"))).all()
+    )
     panels = [p for p in panels if managed(p)]
     if not panels:
         return 0
     stores = (await session.scalars(select(Store).where(Store.status == "active", Store.kind.in_(["main", "reseller"])))).all()
-    have = {(r.panel_id, r.store_id) for r in (await session.scalars(select(PanelAdmin).where(PanelAdmin.panel_id.in_([p.id for p in panels])))).all()}
+    have = {
+        (r.panel_id, r.store_id)
+        for r in (await session.scalars(select(PanelAdmin).where(PanelAdmin.panel_id.in_([p.id for p in panels])))).all()
+    }
     added = 0
     for p in panels:
         for st in stores:
@@ -164,7 +182,9 @@ async def _push(session, row: PanelAdmin, panel: Panel, store: Store, adapter) -
         password = decrypt(row.password_enc) or generate_password()
         if not row.password_enc:
             row.password_enc = encrypt(password)
-        remote = await adapter.ensure_admin(row.username, password, role=(panel.config or {}).get("admin_role") or ROLE, profile=row.profile)
+        remote = await adapter.ensure_admin(
+            row.username, password, role=(panel.config or {}).get("admin_role") or ROLE, profile=row.profile
+        )
         row.remote_id = int(remote["id"]) if remote.get("id") is not None else row.remote_id
         row.profile_synced = True
         row.status, row.last_error, row.synced_at = "active", None, utcnow()
@@ -197,7 +217,9 @@ async def sync_all(session, *, limit: int = 25, panel: Panel | None = None) -> d
     from melorin.modules.vpn.adapters import registry
 
     added = await plan(session, panel=panel)
-    stmt = select(PanelAdmin).where(or_(PanelAdmin.status != "active", PanelAdmin.profile_synced.is_(False), PanelAdmin.adopted_at.is_(None)))
+    stmt = select(PanelAdmin).where(
+        or_(PanelAdmin.status != "active", PanelAdmin.profile_synced.is_(False), PanelAdmin.adopted_at.is_(None))
+    )
     if panel:
         stmt = stmt.where(PanelAdmin.panel_id == panel.id)
     rows = (await session.scalars(stmt.order_by(PanelAdmin.created_at).limit(limit))).all()
