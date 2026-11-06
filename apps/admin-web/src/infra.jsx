@@ -93,8 +93,8 @@ export const clearParam = (name) => {
 export const KIND = { sanaei: 'سنایی (3x-ui)', pasarguard: 'پاسارگارد', mock: 'Mock' };
 export const health = (p) =>
   ['healthy', 'degraded', 'unhealthy'].includes(p?.health_status) ? p.health_status : 'unknown';
-export const HCOLOR = { healthy: 'var(--ok)', unhealthy: 'var(--bd)', unknown: 'var(--mu)' };
-export const HLABEL = { healthy: 'سالم', unhealthy: 'ناسالم', unknown: 'بررسی‌نشده' };
+export const HCOLOR = { healthy: 'var(--ok)', degraded: 'var(--wn)', unhealthy: 'var(--bd)', unknown: 'var(--mu)' };
+export const HLABEL = { healthy: 'سالم', degraded: 'مختل (نود خراب)', unhealthy: 'ناسالم', unknown: 'بررسی‌نشده' };
 
 export function Dot({ s, ping }) {
   const c = HCOLOR[s] || HCOLOR.unknown;
