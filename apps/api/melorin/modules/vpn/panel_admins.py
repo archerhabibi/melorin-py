@@ -21,6 +21,7 @@ import uuid
 from urllib.parse import urlsplit
 
 from sqlalchemy import or_, select
+from sqlalchemy.exc import IntegrityError
 
 from melorin.core.crypto import decrypt, encrypt
 from melorin.core.db import utcnow
@@ -65,6 +66,19 @@ def admin_username(store: Store) -> str:
     slug = re.sub(r"[^a-z0-9]+", "_", (store.slug or str(store.id)).lower()).strip("_")
     slug = re.sub(r"^reseller_?", "", slug) or store.id.hex[:8]
     return f"rs_{slug}"[:34]
+
+
+def pick_username(store: Store, taken: set[str]) -> str:
+    """First free panel login for ``store``: the plain ``admin_username`` unless ANOTHER store already holds it on that panel, then the
+    same name with a growing slice of the store id (still <= 34 chars). Two stores must never share one panel admin."""
+    base = admin_username(store)
+    if base not in taken:
+        return base
+    for width in (6, 10, 16, 32):
+        candidate = f"{base[: 34 - width - 1]}_{store.id.hex[:width]}"
+        if candidate not in taken:
+            return candidate
+    raise PanelError(ErrorKind.PERMANENT, f"no free panel admin name for store {store.id}")
 
 
 def generate_password() -> str:
@@ -140,15 +154,36 @@ def public_row(row: PanelAdmin, *, panel: Panel | None = None, store: Store | No
 
 
 # ----------------------------------------------------------------------------- planning (DB only)
-def _new_row(panel: Panel, store: Store) -> PanelAdmin:
+def _new_row(panel: Panel, store: Store, username: str | None = None) -> PanelAdmin:
     return PanelAdmin(
         panel_id=panel.id,
         store_id=store.id,
-        username=admin_username(store),
+        username=username or admin_username(store),
         password_enc=encrypt(generate_password()),
         status="pending",
         profile_synced=True,
     )
+
+
+async def _create_row(session, panel: Panel, store: Store) -> tuple[PanelAdmin, bool]:
+    """The (panel, store) row, created when missing. Returns ``(row, created)``.
+
+    Safe against the worker and provisioning racing for the same row, and against a login clash with another store: each insert
+    runs in its own SAVEPOINT; losing the race means "re-read what the winner made", a clash means "pick the next free name"."""
+    for _ in range(4):
+        row = await session.scalar(select(PanelAdmin).where(PanelAdmin.panel_id == panel.id, PanelAdmin.store_id == store.id))
+        if row is not None:
+            return row, False
+        taken = set((await session.scalars(select(PanelAdmin.username).where(PanelAdmin.panel_id == panel.id))).all())
+        row = _new_row(panel, store, pick_username(store, taken))
+        try:
+            async with session.begin_nested():
+                session.add(row)
+                await session.flush()
+            return row, True
+        except IntegrityError:
+            continue  # somebody else got there first (same store, or the same login): look again
+    raise PanelError(ErrorKind.TRANSIENT, f"could not allocate a panel admin for store {store.id}")
 
 
 async def plan(session, *, panel: Panel | None = None) -> int:
@@ -168,10 +203,8 @@ async def plan(session, *, panel: Panel | None = None) -> int:
     for p in panels:
         for st in stores:
             if (p.id, st.id) not in have:
-                session.add(_new_row(p, st))
-                added += 1
-    if added:
-        await session.flush()
+                _, created = await _create_row(session, p, st)
+                added += int(created)
     return added
 
 
@@ -257,14 +290,10 @@ async def owner_for(session, panel: Panel, store_id: uuid.UUID | None, adapter) 
     raised: the order is retried instead of creating the account under the wrong admin."""
     if store_id is None or not managed(panel) or not hasattr(adapter, "ensure_admin"):
         return None
-    row = await session.scalar(select(PanelAdmin).where(PanelAdmin.panel_id == panel.id, PanelAdmin.store_id == store_id))
     store = await session.get(Store, store_id)
     if store is None:
         return None
-    if row is None:
-        row = _new_row(panel, store)
-        session.add(row)
-        await session.flush()
+    row, _ = await _create_row(session, panel, store)
     if row.status != "active":
         await _push(session, row, panel, store, adapter)
         await session.commit()
@@ -308,15 +337,30 @@ async def apply_profile(session, store_id: uuid.UUID, changes: dict, *, panel_id
 
 
 async def reset_password(session, row: PanelAdmin, panel: Panel) -> str:
+    """Rotate the store admin's panel password so that the database and the panel can never disagree for good.
+
+    1. the NEW secret is saved first and the row is flagged ``profile_synced = False``: from this moment the worker's sync would push
+       exactly this password, so a crash (or a failed commit) after the panel changed still converges;
+    2. the panel is updated;
+    3. a clean panel refusal restores the previous secret (the admin was told it failed, and the old password still works)."""
     from melorin.modules.vpn.adapters import registry
 
     if not row.remote_id:
         raise PanelError(ErrorKind.PERMANENT, "admin is not created on the panel yet")
     password = generate_password()
-    adapter = registry.build_adapter(panel)
+    previous, previous_flag = row.password_enc, row.profile_synced
+    row.password_enc, row.profile_synced = encrypt(password), False
+    await session.commit()
+    adapter = None
     try:
+        adapter = registry.build_adapter(panel)
         await adapter.update_admin_profile(row.remote_id, {}, password=password)
+    except Exception:
+        row.password_enc, row.profile_synced = previous, previous_flag
+        await session.commit()
+        raise
     finally:
-        await adapter.close()
-    row.password_enc = encrypt(password)
+        if adapter is not None:
+            await adapter.close()
+    row.profile_synced = True  # the caller commits this together with its audit record
     return password

@@ -287,3 +287,25 @@ async def test_rejecting_tells_the_reseller_why_and_touches_nothing(panel_adapte
         assert len(told) == 1 and "نیاز به آدرس رسمی" in told[0]["body"]
         mine_after = (await c.get(f"/api/v1/stores/{reseller.id}/reseller/panel-admin/change-requests", headers=mine)).json()
         assert mine_after[0]["status"] == "rejected" and mine_after[0]["review_note"] == "نیاز به آدرس رسمی"
+
+
+async def test_two_simultaneous_requests_cannot_both_be_filed_even_when_the_count_check_is_blind(monkeypatch):
+    """The friendly ``count`` check is only a first line: the database allows one pending request per store, and the route turns
+    its refusal into the same clean ``REQUEST_PENDING`` answer (no 500, no second pending request, no second alert)."""
+    import sqlalchemy as sa
+
+    from melorin.modules.reseller.routes import panel_profile
+
+    async with api_client() as (c, maker, _):
+        await _admin(c, maker)
+        owner, reseller, _, _, _ = await _world(maker)
+        mine = _owner_headers(owner, reseller)
+        base = f"/api/v1/stores/{reseller.id}/reseller/panel-admin/change-requests"
+        assert (await c.post(base, headers=mine, json={"changes": {"profile_title": "First"}})).status_code == 201
+        monkeypatch.setattr(panel_profile, "func", type("F", (), {"count": staticmethod(lambda: sa.literal(0))}))  # the check sees nothing
+        again = await c.post(base, headers=mine, json={"changes": {"profile_title": "Second"}})
+        assert again.status_code == 409 and again.json()["error"]["code"] == "REQUEST_PENDING"
+        async with maker() as s:
+            pending = (await s.scalars(select(PanelAdminChangeRequest).where(PanelAdminChangeRequest.status == "pending"))).all()
+            assert [p.changes for p in pending] == [{"profile_title": "First"}]
+        assert len(await _outbox(maker, "admin_panel_admin_request")) == 1

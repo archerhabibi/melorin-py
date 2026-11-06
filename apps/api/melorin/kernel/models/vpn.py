@@ -1,7 +1,7 @@
 import datetime as dt
 import uuid
 
-from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, Uuid
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, Uuid, text
 from sqlalchemy import event
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -111,7 +111,11 @@ class PanelAdmin(IdMixin, TimestampMixin, Base):
     block; only the Melorin admin edits it (a reseller files a ``PanelAdminChangeRequest``)."""
 
     __tablename__ = "panel_admins"
-    __table_args__ = (UniqueConstraint("panel_id", "store_id", name="uq_panel_admins_panel_store"),)
+    __table_args__ = (
+        UniqueConstraint("panel_id", "store_id", name="uq_panel_admins_panel_store"),
+        # Two stores can never share one panel login: a name clash would hand one store's accounts to the other's admin.
+        Index("uq_panel_admins_panel_username", "panel_id", "username", unique=True),
+    )
     panel_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("panels.id"), index=True)
     store_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("stores.id"), index=True)
     username: Mapped[str] = mapped_column(String(34))
@@ -129,6 +133,16 @@ class PanelAdminChangeRequest(IdMixin, TimestampMixin, Base):
     """A reseller asks the admin to change its "Profile & contact"; the admin applies (optionally edited) or rejects it."""
 
     __tablename__ = "panel_admin_change_requests"
+    __table_args__ = (
+        # "One pending request per store" is enforced by the database, not only by a count (two concurrent clicks cannot both win).
+        Index(
+            "uq_panel_admin_request_one_pending",
+            "store_id",
+            unique=True,
+            postgresql_where=text("status = 'pending'"),
+            sqlite_where=text("status = 'pending'"),
+        ),
+    )
     store_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("stores.id"), index=True)
     requested_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
     changes: Mapped[dict] = mapped_column(JSON)

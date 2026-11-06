@@ -2,6 +2,7 @@
 
 import datetime as dt
 import json
+import uuid
 from urllib.parse import parse_qs
 
 import httpx
@@ -394,3 +395,180 @@ def test_migration_0040_follows_0039():
     m = importlib.util.module_from_spec(spec_)
     spec_.loader.exec_module(m)
     assert m.down_revision == "0039_target_selection" and len(m.revision) <= 32
+
+
+# ------------------------------------------------------------------ guards: login clashes, creation races, reset durability
+def test_pick_username_never_reuses_a_taken_login_and_stays_within_the_panel_limit():
+    class S:
+        kind, slug = "reseller", "reseller-" + "x" * 80
+        id = uuid.UUID("12345678-1234-5678-1234-567812345678")
+
+    base = svc.admin_username(S)
+    assert svc.pick_username(S, set()) == base
+    second = svc.pick_username(S, {base})
+    assert second != base and len(second) <= 34 and second.endswith("_123456")
+    third = svc.pick_username(S, {base, second})
+    assert third not in {base, second} and len(third) <= 34 and third.endswith("_1234567812")
+
+
+async def test_two_stores_whose_slugs_collapse_to_one_name_still_get_separate_panel_admins(fake_adapter):
+    """``ab-cd`` and ``ab_cd`` both become ``rs_ab_cd``: the second store must NOT adopt (and re-password) the first one's admin."""
+    async with open_session() as s:
+        main, r1, panel = await _world(s)
+        a = await make_store(s, kind="reseller", slug="reseller-ab-cd")
+        b = await make_store(s, kind="reseller", slug="reseller-ab_cd")
+        assert (await svc.sync_all(s))["failed"] == 0
+        rows = {r.store_id: r for r in (await s.scalars(select(PanelAdmin))).all()}
+        names = [rows[st.id].username for st in (main, r1, a, b)]
+        assert len(set(names)) == 4 and rows[a.id].username == "rs_ab_cd" and rows[b.id].username.startswith("rs_ab_cd_")
+        assert set(fake_adapter["a"].admins) == set(names)  # four logins on the panel, none shared
+
+
+async def test_the_database_refuses_a_shared_login_and_a_second_pending_request():
+    from sqlalchemy.exc import IntegrityError
+
+    async with open_session() as s:
+        main, r1, panel = await _world(s)
+        s.add(_row(panel, main, "ml_main"))
+        await s.flush()
+        with pytest.raises(IntegrityError):
+            async with s.begin_nested():
+                s.add(_row(panel, r1, "ml_main"))
+                await s.flush()
+        s.add(PanelAdminChangeRequest(store_id=r1.id, changes={"profile_title": "A"}, status="pending"))
+        await s.flush()
+        with pytest.raises(IntegrityError):
+            async with s.begin_nested():
+                s.add(PanelAdminChangeRequest(store_id=r1.id, changes={"profile_title": "B"}, status="pending"))
+                await s.flush()
+        # history is unlimited: only PENDING is unique
+        s.add(PanelAdminChangeRequest(store_id=r1.id, changes={"profile_title": "C"}, status="rejected"))
+        s.add(PanelAdminChangeRequest(store_id=main.id, changes={"profile_title": "D"}, status="pending"))
+        await s.flush()
+
+
+def _row(panel, store, username):
+    return PanelAdmin(panel_id=panel.id, store_id=store.id, username=username, password_enc=svc.encrypt("x"), status="pending")
+
+
+async def test_losing_the_creation_race_returns_the_winners_row(fake_adapter, monkeypatch):
+    """The worker and provisioning both see "no row yet"; the loser's INSERT fails and it must re-read, not crash."""
+    async with open_session() as s:
+        main, r1, panel = await _world(s)
+        winner = _row(panel, r1, "rs_aaaa1111")
+        s.add(winner)
+        await s.flush()
+        real_scalar, calls = s.scalar, {"n": 0}
+
+        async def blind_first_lookup(*a, **kw):
+            calls["n"] += 1
+            return None if calls["n"] == 1 else await real_scalar(*a, **kw)
+
+        monkeypatch.setattr(s, "scalar", blind_first_lookup)
+        row, created = await svc._create_row(s, panel, r1)
+        assert created is False and row.id == winner.id
+        assert len((await s.scalars(select(PanelAdmin).where(PanelAdmin.store_id == r1.id))).all()) == 1
+
+
+async def test_reset_password_saves_the_new_secret_before_touching_the_panel(fake_adapter, monkeypatch):
+    async with open_session() as s:
+        main, r1, panel = await _world(s)
+        await svc.sync_all(s)
+        row = await s.scalar(select(PanelAdmin).where(PanelAdmin.store_id == r1.id))
+        old = svc.decrypt(row.password_enc)
+        commits, seen = {"n": 0}, {}
+        real_commit = s.commit
+
+        async def counting_commit():
+            commits["n"] += 1
+            await real_commit()
+
+        async def spy_update(remote_id, profile, *, password=None):
+            seen.update(commits=commits["n"], flagged=row.profile_synced is False, stored=svc.decrypt(row.password_enc), pushed=password)
+            return {}
+
+        monkeypatch.setattr(s, "commit", counting_commit)
+        monkeypatch.setattr(fake_adapter["a"], "update_admin_profile", spy_update)
+        new = await svc.reset_password(s, row, panel)
+        assert new != old and seen == {"commits": 1, "flagged": True, "stored": new, "pushed": new}
+        assert row.profile_synced is True and svc.decrypt(row.password_enc) == new
+
+
+async def test_reset_password_restores_the_old_secret_when_the_panel_refuses(fake_adapter):
+    async with open_session() as s:
+        main, r1, panel = await _world(s)
+        await svc.sync_all(s)
+        row = await s.scalar(select(PanelAdmin).where(PanelAdmin.store_id == r1.id))
+        old_enc = row.password_enc
+        fake_adapter["a"].fail = True
+        with pytest.raises(PanelError):
+            await svc.reset_password(s, row, panel)
+        assert row.password_enc == old_enc and row.profile_synced is True  # the old password still works on the panel
+        assert fake_adapter["a"].closed >= 1
+
+
+async def test_a_crash_after_the_panel_changed_converges_through_the_worker(fake_adapter):
+    """New secret saved + flagged, process dies before the final commit: the next sync pushes exactly that secret."""
+    async with open_session() as s:
+        main, r1, panel = await _world(s)
+        await svc.sync_all(s)
+        row = await s.scalar(select(PanelAdmin).where(PanelAdmin.store_id == r1.id))
+        row.password_enc, row.profile_synced = svc.encrypt("Crash-Safe-Pass-12!"), False  # phase 1 of reset_password, then a crash
+        await s.commit()
+        assert (await svc.sync_all(s))["synced"] == 1
+        assert fake_adapter["a"].admins[row.username] == "Crash-Safe-Pass-12!" and row.profile_synced is True
+
+
+def test_migration_0041_follows_0040_and_guards_a_live_database():
+    import importlib.util
+    from pathlib import Path
+
+    import sqlalchemy as sa
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+
+    f = Path(__file__).resolve().parents[1] / "alembic/versions/0041_panel_admin_guards.py"
+    spec_ = importlib.util.spec_from_file_location("m0041", f)
+    m = importlib.util.module_from_spec(spec_)
+    spec_.loader.exec_module(m)
+    assert m.down_revision == "0040_panel_admins" and len(m.revision) <= 32
+
+    def fresh():
+        eng = sa.create_engine("sqlite://")
+        with eng.begin() as c:
+            c.execute(sa.text("CREATE TABLE panel_admins (id TEXT PRIMARY KEY, panel_id TEXT, store_id TEXT, username TEXT)"))
+            c.execute(
+                sa.text("CREATE TABLE panel_admin_change_requests (id TEXT PRIMARY KEY, store_id TEXT, status TEXT, created_at TEXT)")
+            )
+        return eng
+
+    def run(eng, fn):
+        with eng.begin() as conn:
+            with Operations.context(MigrationContext.configure(conn)):
+                fn()
+
+    eng = fresh()
+    with eng.begin() as c:  # two stores already share a login: the migration must stop, not guess
+        c.execute(sa.text("INSERT INTO panel_admins VALUES ('1','p','s1','rs_x'), ('2','p','s2','rs_x')"))
+    with pytest.raises(RuntimeError, match="share one panel login"):
+        run(eng, m.upgrade)
+
+    eng = fresh()
+    with eng.begin() as c:
+        c.execute(sa.text("INSERT INTO panel_admins VALUES ('1','p','s1','a'), ('2','p','s2','b'), ('3','q','s1','a')"))
+        c.execute(
+            sa.text(
+                "INSERT INTO panel_admin_change_requests VALUES "
+                "('r1','s1','pending','2026-11-01'), ('r2','s1','pending','2026-11-03'), ('r3','s1','pending','2026-11-02'),"
+                "('r4','s2','pending','2026-11-01'), ('r5','s1','rejected','2026-10-01')"
+            )
+        )
+    run(eng, m.upgrade)
+    with eng.connect() as c:
+        status = dict(c.execute(sa.text("SELECT id, status FROM panel_admin_change_requests")).fetchall())
+        assert status == {"r1": "cancelled", "r2": "pending", "r3": "cancelled", "r4": "pending", "r5": "rejected"}
+        indexes = {r[1] for r in c.execute(sa.text("PRAGMA index_list('panel_admins')")).fetchall()}
+        assert "uq_panel_admins_panel_username" in indexes
+    run(eng, m.downgrade)
+    with eng.connect() as c:
+        assert "uq_panel_admins_panel_username" not in {r[1] for r in c.execute(sa.text("PRAGMA index_list('panel_admins')")).fetchall()}

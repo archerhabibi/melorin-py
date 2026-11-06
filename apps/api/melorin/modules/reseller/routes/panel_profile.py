@@ -7,6 +7,7 @@ import uuid
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 
 from melorin.core import audit
 from melorin.core.db import utcnow
@@ -78,7 +79,11 @@ async def request_change(body: ProfileChangeIn, ctx: OwnerCtx, session: Session)
         store_id=ctx.store.id, requested_by=ctx.user.id, changes=changes, message=(body.message or "").strip() or None
     )
     session.add(r)
-    await session.flush()
+    try:  # the database allows ONE pending request per store: two clicks at once cannot both be filed
+        async with session.begin_nested():
+            await session.flush()
+    except IntegrityError as exc:
+        raise AppError("REQUEST_PENDING", "یک درخواست تغییر در انتظار بررسی دارید.", 409) from exc
     audit.record(
         session,
         "panel_admin.request_created",
