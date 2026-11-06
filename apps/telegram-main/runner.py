@@ -220,11 +220,12 @@ class TelegramRunner(TransportMixin, IdentityMixin, PlansMixin, WalletMixin, Acc
         if not pid:
             return await self.send(ctx.chat_id, "ابتدا با /topup مبلغ یک درخواست شارژ بسازید، سپس رسید را بفرستید.")
         if message.get("photo"):
-            file_id, ctype = message["photo"][-1]["file_id"], "image/jpeg"
+            file_id, unique_id, ctype = message["photo"][-1]["file_id"], message["photo"][-1].get("file_unique_id"), "image/jpeg"
         else:
             doc = message["document"]
-            file_id, ctype = (
+            file_id, unique_id, ctype = (
                 doc["file_id"],
+                doc.get("file_unique_id"),
                 doc.get("mime_type") or mimetypes.guess_type(doc.get("file_name", ""))[0] or "application/octet-stream",
             )
         info = await self.tg("getFile", {"file_id": file_id})
@@ -240,6 +241,7 @@ class TelegramRunner(TransportMixin, IdentityMixin, PlansMixin, WalletMixin, Acc
             "POST",
             f"/api/v1/stores/{(await self.store_info())['id']}/payments/{pid}/receipt",
             files={"file": ("receipt", dl.content, ctype)},
+            data={"file_unique_id": unique_id} if unique_id else None,  # lets Core spot the same picture re-sent from another chat
         )
         self._set_state(ctx.chat_id, None)
         await self.send(ctx.chat_id, "رسید دریافت شد ✅ پس از تأیید، کیف پول شما شارژ می‌شود.")

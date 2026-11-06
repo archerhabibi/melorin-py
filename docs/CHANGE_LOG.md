@@ -20,6 +20,12 @@ Commits containing `[skip changelog]` and the bot's own commits are skipped.
 If `main` is protected, allow `github-actions[bot]` to bypass so the bot can push the log.
 
 
+## 2026-11-06 - Duplicate receipt picture detection (sha256 + Telegram file_unique_id)
+- **Area:** payments / api / admin-web / telegram-main
+- **Before:** the same receipt picture could be attached to several payments; only the bank-SMS match protected against double credit, so receipts without SMS had no duplicate check.
+- **Action:** `payment_receipt_fingerprints` (migration 0040, backfilled from existing receipts); per-store policy `warn` (default) or `block` (409 `RECEIPT_DUPLICATE` before the file is stored); reviewers see the earlier payments in the notice, queue badge and admin list; flagged pictures are never provisionally credited; admin/reseller endpoints and a policy switch in the review panel; the bot sends `file_unique_id`.
+- **After:** 10 new API tests (full suite 1770 passed), 2 new panel tests (166 passed), migration upgrade/downgrade/backfill verified on PostgreSQL, live upload scenario verified; see docs/20-Card-Receipt-Auto-Verification.md.
+
 ## 2026-10-27 - Referral, commission and discount codes are scoped to their own store / reseller
 - **Area:** referral / coupons / api / store-web / admin-web / telegram-main
 - **Before:** one referrer and one signup reward per user for the whole platform; a purchase in another store could pay out of the wrong store's referral account; coupon limits and funding mixed stores.

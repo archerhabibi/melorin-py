@@ -12,6 +12,7 @@ from melorin.core.errors import AppError
 from melorin.core.crypto import decrypt
 from melorin.domain.order_state import PaymentStatus
 from melorin.kernel.models.identity import User
+from melorin.modules.payments import receipt_fingerprints
 from melorin.modules.payments.adapters.registry import get_adapter
 from melorin.modules.payments.gateway_catalog import validate_destination
 from melorin.kernel.models.payments import Payment, PaymentAttempt
@@ -148,22 +149,31 @@ async def create_intent(
     return p, res.instructions
 
 
-async def attach_receipt(session: AsyncSession, payment: Payment, file_id: uuid.UUID, claim: dict | None = None) -> None:
-    """``claim`` = what the customer read off the receipt (time, reference, source card tail); used by bank-SMS matching."""
+async def attach_receipt(
+    session: AsyncSession, payment: Payment, file_id: uuid.UUID, claim: dict | None = None, duplicate: dict | None = None
+) -> None:
+    """``claim`` = what the customer read off the receipt (time, reference, source card tail); used by bank-SMS matching.
+
+    ``duplicate`` = summary of earlier payments that used the same picture (see ``receipt_fingerprints.summarize``); it is
+    kept on the payment and added to the reviewers' notice. The upload itself was already accepted by the store's policy.
+    """
     if payment.provider != "manual_card" or payment.status not in (P.PENDING, P.AWAITING_REVIEW):
         raise AppError("INVALID_PAYMENT_STATE", "برای این پرداخت امکان ارسال رسید نیست.", 409)
     payment.receipt_file_id = file_id
     payment.meta = {**(payment.meta or {}), "receipt_attached_at": utcnow().isoformat()}  # start of the grace clock
     if claim:
         payment.meta = {**payment.meta, "receipt_claim": claim}
+    meta = {k: v for k, v in payment.meta.items() if k != "receipt_duplicate"}  # a replaced receipt starts clean
+    payment.meta = {**meta, "receipt_duplicate": duplicate} if duplicate else meta
     payment.status = P.AWAITING_REVIEW
+    note = receipt_fingerprints.warning_text(duplicate)
     await events.emit(
         session,
         events.EVENT_CENTER,
         {
             "store_id": payment.store_id,
             "topic": "payments",
-            "text": f"🧾 رسید جدید برای بررسی\nمبلغ: {payment.amount:,}\nشناسه: {payment.id}",
+            "text": f"🧾 رسید جدید برای بررسی\nمبلغ: {payment.amount:,}\nشناسه: {payment.id}" + (f"\n{note}" if note else ""),
         },
     )
     await session.commit()

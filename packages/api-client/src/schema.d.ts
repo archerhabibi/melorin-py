@@ -969,6 +969,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/payments/{payment_id}/receipt-duplicates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Payment Receipt Duplicates
+         * @description Every other payment (any store) whose receipt picture has the same fingerprint, with how it matched.
+         */
+        get: operations["payment_receipt_duplicates_api_v1_admin_payments__payment_id__receipt_duplicates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/payments/{payment_id}/refund": {
         parameters: {
             query?: never;
@@ -1525,6 +1545,24 @@ export interface paths {
         put?: never;
         /** Bank Sms Link */
         post: operations["bank_sms_link_api_v1_admin_stores__store_id__bank_sms__sms_id__link_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/stores/{store_id}/receipt-duplicates/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Receipt Dup Settings */
+        get: operations["receipt_dup_settings_api_v1_admin_stores__store_id__receipt_duplicates_settings_get"];
+        /** Receipt Dup Save Settings */
+        put: operations["receipt_dup_save_settings_api_v1_admin_stores__store_id__receipt_duplicates_settings_put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3119,6 +3157,9 @@ export interface paths {
         /**
          * Upload Receipt
          * @description Receipt image + the facts printed on it. With bank-SMS auto verification the SMS (not the image) is the proof.
+         *
+         *     Independently of the SMS, the picture's fingerprint is checked against every earlier receipt: the store policy
+         *     ``warn`` (default) accepts it and flags the reviewers, ``block`` answers 409 ``RECEIPT_DUPLICATE`` before anything is stored.
          */
         post: operations["upload_receipt_api_v1_stores__store_id__payments__payment_id__receipt_post"];
         delete?: never;
@@ -3698,6 +3739,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/stores/{store_id}/reseller/payments/{payment_id}/receipt-duplicates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Reseller Payment Receipt Duplicates
+         * @description Own-store payments that share this picture; payments of other stores are only counted, never named.
+         */
+        get: operations["reseller_payment_receipt_duplicates_api_v1_stores__store_id__reseller_payments__payment_id__receipt_duplicates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/stores/{store_id}/reseller/payments/{payment_id}/review": {
         parameters: {
             query?: never;
@@ -3787,6 +3848,24 @@ export interface paths {
         /** Profile */
         get: operations["profile_api_v1_stores__store_id__reseller_profile_get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/reseller/receipt-duplicates/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reseller Receipt Dup Settings */
+        get: operations["reseller_receipt_dup_settings_api_v1_stores__store_id__reseller_receipt_duplicates_settings_get"];
+        /** Reseller Receipt Dup Save Settings */
+        put: operations["reseller_receipt_dup_save_settings_api_v1_stores__store_id__reseller_receipt_duplicates_settings_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -4638,6 +4717,8 @@ export interface components {
         Body_upload_receipt_api_v1_stores__store_id__payments__payment_id__receipt_post: {
             /** File */
             file: string;
+            /** File Unique Id */
+            file_unique_id?: string | null;
             /** Paid At */
             paid_at?: string | null;
             /** Reference */
@@ -5748,6 +5829,14 @@ export interface components {
             unit_price: number;
             /** Wallet Balance */
             wallet_balance: number;
+        };
+        /**
+         * ReceiptDupSettingsIn
+         * @description Per-store policy for a receipt picture that was already used: ``warn`` (default, accept and flag) or ``block``.
+         */
+        ReceiptDupSettingsIn: {
+            /** Policy */
+            policy: string;
         };
         /**
          * ReceiptOcrIn
@@ -8502,6 +8591,37 @@ export interface operations {
             };
         };
     };
+    payment_receipt_duplicates_api_v1_admin_payments__payment_id__receipt_duplicates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     refund_payment_api_v1_admin_payments__payment_id__refund_post: {
         parameters: {
             query?: never;
@@ -9701,6 +9821,72 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["BankSmsLinkIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    receipt_dup_settings_api_v1_admin_stores__store_id__receipt_duplicates_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    receipt_dup_save_settings_api_v1_admin_stores__store_id__receipt_duplicates_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReceiptDupSettingsIn"];
             };
         };
         responses: {
@@ -13872,6 +14058,38 @@ export interface operations {
             };
         };
     };
+    reseller_payment_receipt_duplicates_api_v1_stores__store_id__reseller_payments__payment_id__receipt_duplicates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payment_id: string;
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     review_store_payment_api_v1_stores__store_id__reseller_payments__payment_id__review_post: {
         parameters: {
             query?: never;
@@ -14020,6 +14238,72 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reseller_receipt_dup_settings_api_v1_stores__store_id__reseller_receipt_duplicates_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reseller_receipt_dup_save_settings_api_v1_stores__store_id__reseller_receipt_duplicates_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReceiptDupSettingsIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

@@ -96,6 +96,26 @@ arrives later and matches the payment confirms it automatically.
   The plain payment-review route also resolves a provisional payment.
 * Residual risk: a forged receipt can hold a provisional credit for up to the review time and the cap; keep the caps low.
 
+### Duplicate receipt picture (fingerprint check)
+Independent of the bank SMS: at upload time the picture is compared with every earlier receipt by two fingerprints stored in
+`payment_receipt_fingerprints` - the `sha256` of the bytes (computed by Core, trusted) and Telegram's `file_unique_id` (sent by the bot; it also
+catches the same picture re-sent from another chat, where the bytes differ after Telegram re-compresses it). It helps receipts that have no SMS
+(no forwarder, unparsed bank, late SMS) and also the ones that do.
+
+* Per-store policy `payments.receipt_dup.<store_id>`: **`warn`** (default) accepts the receipt, stores `payment.meta.receipt_duplicate`, adds the earlier
+  payment ids to the review notice, shows a "تصویر تکراری" badge in the review queue and `receipt_duplicate` in the admin payment list;
+  **`block`** answers `409 RECEIPT_DUPLICATE` *before* anything is stored, so the payment stays open for another picture.
+* Never a duplicate: the same payment sending the same picture again (retry). `block` ignores matches that are only `failed`/`cancelled`
+  (a wrongly rejected customer can try again); `warn` still lists them with their status.
+* A flagged picture is never credited provisionally (the grace sweep reports `duplicate_image`).
+* Scope: matches are searched across all stores; a store owner sees only own-store payment ids, other stores are only counted.
+* API: `GET/PUT /admin/stores/{id}/receipt-duplicates/settings` `{policy}`, `GET /admin/payments/{id}/receipt-duplicates`; reseller:
+  `GET/PUT /stores/{id}/reseller/receipt-duplicates/settings`, `GET /stores/{id}/reseller/payments/{pid}/receipt-duplicates`.
+  `POST .../payments/{id}/receipt` accepts an optional form field `file_unique_id` (letters, digits, `_`, `-`; anything else is dropped).
+* Migration 0040 backfills a `sha256` fingerprint for every receipt already attached, so older pictures are covered too.
+* Known limits: a picture edited pixel-wise (re-screenshot, crop) has another hash - the SMS/reference check remains the proof; `file_unique_id` is
+  client-supplied, so it is advisory next to the hash; two simultaneous uploads of one picture can both pass `block` (no unique constraint, by design).
+
 ## فارسی
 
 ### ایده
@@ -154,3 +174,19 @@ Core می‌فرستد؛ Core آن را تحلیل و فقط یک بار ذخی�
 کیف پول منفی و «کسری» نمایش داده می‌شود). پیامک بانکی که بعداً برسد و مطابق باشد، شارژ موقت را خودکار نهایی می‌کند.
 برای هر فروشگاه **پیش‌فرض خاموش** است؛ سقف هر رسید، سقف کل اعتبار موقت باز و حداکثر باز برای هر مشتری قابل تنظیم است. موقت تأیید نمی‌شود:
 مبلغ رسید با درخواست فرق دارد، تصویر یا مرجع تکراری است، سقف‌ها پر است، یا مشتری قبلاً شارژ موقت لغوشده داشته است.
+
+### تصویر رسید تکراری (اثر انگشت تصویر)
+مستقل از پیامک بانک: هنگام بارگذاری، تصویر با همه‌ی رسیدهای قبلی با دو اثر انگشت مقایسه می‌شود که در `payment_receipt_fingerprints` ذخیره‌اند:
+`sha256` بایت‌ها (محاسبه‌ی Core، قابل اعتماد) و `file_unique_id` تلگرام (از ربات؛ همان تصویر را که از گفتگوی دیگر دوباره فرستاده شده و بایت‌هایش
+بعد از فشرده‌سازی تلگرام فرق دارد هم می‌گیرد). هم برای رسیدهای بدون پیامک مفید است و هم برای آن‌هایی که پیامک دارند.
+
+* سیاست هر فروشگاه `payments.receipt_dup.<store_id>`: **`warn`** (پیش‌فرض) رسید را می‌پذیرد، در `payment.meta.receipt_duplicate` ثبت می‌کند، شناسه‌ی
+  پرداخت‌های قبلی را به اعلان بازبینی اضافه می‌کند و نشان «تصویر تکراری» در صف و فیلد `receipt_duplicate` در فهرست پرداخت‌ها می‌گذارد؛
+  **`block`** پیش از ذخیره‌ی هر چیزی `409 RECEIPT_DUPLICATE` می‌دهد و پرداخت برای تصویر دیگر باز می‌ماند.
+* تکراری حساب نمی‌شود: ارسال دوباره‌ی همان تصویر برای همان پرداخت. در `block` تطبیق با پرداخت‌های فقط `failed`/`cancelled` نادیده گرفته می‌شود
+  (مشتری که اشتباهی رد شده بتواند دوباره بفرستد)؛ در `warn` با وضعیتشان فهرست می‌شوند.
+* تصویر علامت‌خورده هرگز تأیید موقت نمی‌شود (job با دلیل `duplicate_image` رد می‌کند).
+* دامنه: جست‌وجو در همه‌ی فروشگاه‌هاست؛ صاحب فروشگاه فقط شناسه‌ی پرداخت‌های فروشگاه خودش را می‌بیند و فروشگاه‌های دیگر فقط شمرده می‌شوند.
+* مهاجرت ۰۰۴۰ برای رسیدهای قبلی هم اثر انگشت `sha256` می‌سازد.
+* محدودیت: تصویر دستکاری‌شده (اسکرین‌شات دوباره، برش) هش دیگری دارد و اثبات اصلی همان پیامک/مرجع است؛ `file_unique_id` را کلاینت می‌فرستد پس
+  در کنار هش فقط مشورتی است؛ دو بارگذاری هم‌زمان یک تصویر در `block` هر دو می‌توانند رد شوند (قید یکتایی عمداً نیست).

@@ -798,6 +798,18 @@
             "title": "File",
             "type": "string"
           },
+          "file_unique_id": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Unique Id"
+          },
           "paid_at": {
             "anyOf": [
               {
@@ -3908,6 +3920,21 @@
           "sufficient_funds"
         ],
         "title": "QuoteWalletOut",
+        "type": "object"
+      },
+      "ReceiptDupSettingsIn": {
+        "additionalProperties": false,
+        "description": "Per-store policy for a receipt picture that was already used: ``warn`` (default, accept and flag) or ``block``.",
+        "properties": {
+          "policy": {
+            "title": "Policy",
+            "type": "string"
+          }
+        },
+        "required": [
+          "policy"
+        ],
+        "title": "ReceiptDupSettingsIn",
         "type": "object"
       },
       "ReceiptOcrIn": {
@@ -9367,6 +9394,53 @@
         ]
       }
     },
+    "/api/v1/admin/payments/{payment_id}/receipt-duplicates": {
+      "get": {
+        "description": "Every other payment (any store) whose receipt picture has the same fingerprint, with how it matched.",
+        "operationId": "payment_receipt_duplicates_api_v1_admin_payments__payment_id__receipt_duplicates_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "payment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Payment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Payment Receipt Duplicates",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/admin/payments/{payment_id}/refund": {
       "post": {
         "operationId": "refund_payment_api_v1_admin_payments__payment_id__refund_post",
@@ -11382,6 +11456,106 @@
           }
         ],
         "summary": "Bank Sms Link",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/stores/{store_id}/receipt-duplicates/settings": {
+      "get": {
+        "operationId": "receipt_dup_settings_api_v1_admin_stores__store_id__receipt_duplicates_settings_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Receipt Dup Settings",
+        "tags": [
+          "admin"
+        ]
+      },
+      "put": {
+        "operationId": "receipt_dup_save_settings_api_v1_admin_stores__store_id__receipt_duplicates_settings_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReceiptDupSettingsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Receipt Dup Save Settings",
         "tags": [
           "admin"
         ]
@@ -15947,7 +16121,7 @@
     },
     "/api/v1/stores/{store_id}/payments/{payment_id}/receipt": {
       "post": {
-        "description": "Receipt image + the facts printed on it. With bank-SMS auto verification the SMS (not the image) is the proof.",
+        "description": "Receipt image + the facts printed on it. With bank-SMS auto verification the SMS (not the image) is the proof.\n\nIndependently of the SMS, the picture's fingerprint is checked against every earlier receipt: the store policy\n``warn`` (default) accepts it and flags the reviewers, ``block`` answers 409 ``RECEIPT_DUPLICATE`` before anything is stored.",
         "operationId": "upload_receipt_api_v1_stores__store_id__payments__payment_id__receipt_post",
         "parameters": [
           {
@@ -18102,6 +18276,63 @@
         ]
       }
     },
+    "/api/v1/stores/{store_id}/reseller/payments/{payment_id}/receipt-duplicates": {
+      "get": {
+        "description": "Own-store payments that share this picture; payments of other stores are only counted, never named.",
+        "operationId": "reseller_payment_receipt_duplicates_api_v1_stores__store_id__reseller_payments__payment_id__receipt_duplicates_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "payment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Payment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reseller Payment Receipt Duplicates",
+        "tags": [
+          "reseller"
+        ]
+      }
+    },
     "/api/v1/stores/{store_id}/reseller/payments/{payment_id}/review": {
       "post": {
         "operationId": "review_store_payment_api_v1_stores__store_id__reseller_payments__payment_id__review_post",
@@ -18380,6 +18611,106 @@
           }
         ],
         "summary": "Profile",
+        "tags": [
+          "reseller"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/reseller/receipt-duplicates/settings": {
+      "get": {
+        "operationId": "reseller_receipt_dup_settings_api_v1_stores__store_id__reseller_receipt_duplicates_settings_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reseller Receipt Dup Settings",
+        "tags": [
+          "reseller"
+        ]
+      },
+      "put": {
+        "operationId": "reseller_receipt_dup_save_settings_api_v1_stores__store_id__reseller_receipt_duplicates_settings_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReceiptDupSettingsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reseller Receipt Dup Save Settings",
         "tags": [
           "reseller"
         ]
