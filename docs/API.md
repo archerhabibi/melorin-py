@@ -35,7 +35,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 
 <!-- BEGIN GENERATED ROUTES (scripts/gen_docs.py) -->
 
-### `admin` (99)
+### `admin` (107)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -80,6 +80,14 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | POST | `/api/v1/admin/orders/{order_id}/manual-review` | Review Order |
 | POST | `/api/v1/admin/orders/{order_id}/refund` | Refund Order |
 | POST | `/api/v1/admin/orders/{order_id}/retry` | Retry Order |
+| GET | `/api/v1/admin/panel-admin-requests` | List Requests |
+| POST | `/api/v1/admin/panel-admin-requests/{request_id}/apply` | Apply Request |
+| POST | `/api/v1/admin/panel-admin-requests/{request_id}/reject` | Reject Request |
+| GET | `/api/v1/admin/panel-admins` | List Panel Admins |
+| PATCH | `/api/v1/admin/panel-admins/profile` | Edit Profile |
+| POST | `/api/v1/admin/panel-admins/sync` | Sync Panel Admins |
+| GET | `/api/v1/admin/panel-admins/{row_id}/credentials` | Credentials |
+| POST | `/api/v1/admin/panel-admins/{row_id}/reset-password` | Reset Password |
 | GET | `/api/v1/admin/panels` | Panels |
 | POST | `/api/v1/admin/panels` | Create Panel |
 | PATCH | `/api/v1/admin/panels/{panel_id}` | Update Panel |
@@ -289,7 +297,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/api/v1/reports/payments` | Payment Totals |
 | GET | `/api/v1/reports/stores/{store_id}/sales` | Store Sales |
 
-### `reseller` (56)
+### `reseller` (60)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -329,6 +337,10 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | POST | `/api/v1/stores/{store_id}/reseller/event-center/check` | Reseller Check |
 | POST | `/api/v1/stores/{store_id}/reseller/event-center/provision` | Reseller Provision |
 | POST | `/api/v1/stores/{store_id}/reseller/event-center/test` | Reseller Test |
+| GET | `/api/v1/stores/{store_id}/reseller/panel-admin` | My Panel Admins |
+| GET | `/api/v1/stores/{store_id}/reseller/panel-admin/change-requests` | My Requests |
+| POST | `/api/v1/stores/{store_id}/reseller/panel-admin/change-requests` | Request Change |
+| POST | `/api/v1/stores/{store_id}/reseller/panel-admin/change-requests/{request_id}/cancel` | Cancel Request |
 | GET | `/api/v1/stores/{store_id}/reseller/payment-config` | Get Payment Config |
 | PUT | `/api/v1/stores/{store_id}/reseller/payment-config/{provider}` | Put Payment Config |
 | GET | `/api/v1/stores/{store_id}/reseller/payments` | Store Payments |
