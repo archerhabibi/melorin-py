@@ -6,7 +6,7 @@ import datetime as dt
 
 from sqlalchemy import func, select
 
-from _db import make_order, make_product, make_store, make_user
+from _db import make_order, make_product, make_store
 from _http import PASSWORD, add_user, api_client, totp_now
 from melorin.core.db import utcnow
 from melorin.kernel.models.loyalty import LoyaltyAccount, LoyaltyTransaction
