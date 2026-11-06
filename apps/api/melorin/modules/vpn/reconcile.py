@@ -90,9 +90,7 @@ async def _store_levels(session: AsyncSession, accounts: list[VpnAccount]) -> di
     return {sid: notices.levels_for_store(cfg) for sid, cfg in rows}
 
 
-async def _compare(
-    session, account, remote: PanelAccount | None, owners, now, result: PanelResult, levels: dict | None = None
-) -> None:
+async def _compare(session, account, remote: PanelAccount | None, owners, now, result: PanelResult, levels: dict | None = None) -> None:
     if remote is None:
         account.sync_error_count = int(account.sync_error_count or 0) + 1
         await issues.open_issue(session, account.id, issues.MISSING, {"username": account.username}, now=now)

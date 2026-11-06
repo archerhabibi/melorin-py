@@ -100,7 +100,9 @@ async def panel_health_job(ctx=None):
             try:
                 adapter = build_adapter(p)
                 result = await health.check_panel(s, p, adapter)
-                if result.status != health.UNHEALTHY and capabilities.is_stale(p):  # hourly: permissions change when the panel role is edited
+                if result.status != health.UNHEALTHY and capabilities.is_stale(
+                    p
+                ):  # hourly: permissions change when the panel role is edited
                     try:
                         await capabilities.refresh(p, adapter)
                     except Exception:  # a probe problem must never flip the panel to unhealthy

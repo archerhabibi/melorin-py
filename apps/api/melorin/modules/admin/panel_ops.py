@@ -113,7 +113,9 @@ async def panel_nodes(panel_id: uuid.UUID, _: AdminUser, session: Session):
     if not panel:
         raise NotFound("پنل")
     rows = (
-        await session.scalars(select(PanelNode).where(PanelNode.panel_id == panel_id, PanelNode.removed_at.is_(None)).order_by(PanelNode.name))
+        await session.scalars(
+            select(PanelNode).where(PanelNode.panel_id == panel_id, PanelNode.removed_at.is_(None)).order_by(PanelNode.name)
+        )
     ).all()
     nodes = [
         NodeOut(
@@ -184,7 +186,13 @@ async def _issue_rows(session, *, status, kind, panel_id, limit, offset):
     if panel_id:
         q = q.where(VpnAccount.panel_id == panel_id)
     total = await session.scalar(select(func.count()).select_from(q.subquery())) or 0
-    rows = (await session.execute(q.order_by(ReconciliationIssue.last_seen_at.desc().nulls_last(), ReconciliationIssue.created_at.desc()).limit(limit).offset(offset))).all()
+    rows = (
+        await session.execute(
+            q.order_by(ReconciliationIssue.last_seen_at.desc().nulls_last(), ReconciliationIssue.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+    ).all()
     return total, rows
 
 
@@ -224,7 +232,12 @@ async def reconciliation_issues(
     if kind and kind not in issue_svc.KINDS:
         raise AppError("BAD_KIND", "نوع مغایرت نامعتبر است.", 422)
     total, rows = await _issue_rows(
-        session, status=None if status in (None, "all") else status, kind=kind, panel_id=panel_id, limit=max(1, min(limit, 200)), offset=max(0, offset)
+        session,
+        status=None if status in (None, "all") else status,
+        kind=kind,
+        panel_id=panel_id,
+        limit=max(1, min(limit, 200)),
+        offset=max(0, offset),
     )
     return {"total": total, "items": [_issue_out(i, a, s, p) for i, a, s, p in rows]}
 
@@ -234,13 +247,22 @@ async def reconciliation_summary(_: AdminUser, session: Session):
     by_kind = dict(
         (
             await session.execute(
-                select(ReconciliationIssue.kind, func.count()).where(ReconciliationIssue.status == issue_svc.OPEN).group_by(ReconciliationIssue.kind)
+                select(ReconciliationIssue.kind, func.count())
+                .where(ReconciliationIssue.status == issue_svc.OPEN)
+                .group_by(ReconciliationIssue.kind)
             )
         ).all()
     )
     orphans = await session.scalar(select(func.count()).select_from(PanelOrphan).where(PanelOrphan.status == "open")) or 0
-    oldest = await session.scalar(select(func.min(VpnAccount.last_synced_at)).where(VpnAccount.status.in_(("active", "suspended", "limited"))))
-    return {"open": {k: int(by_kind.get(k, 0)) for k in issue_svc.KINDS}, "open_total": int(sum(by_kind.values())), "orphans_open": int(orphans), "oldest_sync_at": oldest}
+    oldest = await session.scalar(
+        select(func.min(VpnAccount.last_synced_at)).where(VpnAccount.status.in_(("active", "suspended", "limited")))
+    )
+    return {
+        "open": {k: int(by_kind.get(k, 0)) for k in issue_svc.KINDS},
+        "open_total": int(sum(by_kind.values())),
+        "orphans_open": int(orphans),
+        "oldest_sync_at": oldest,
+    }
 
 
 @router.post("/reconciliation/issues/{issue_id}/action", response_model=IssueOut)
@@ -286,11 +308,20 @@ async def issue_action(issue_id: uuid.UUID, body: IssueActionIn, admin: AdminUse
         outcome = await reconcile.reconcile_account(session, account.id)
         await session.refresh(issue)
         audit.record(
-            session, "reconciliation.resync", actor_id=admin.id, actor_type="admin", entity_type="vpn_account", entity_id=account.id,
-            store_id=account.store_id, data={"issue": str(issue.id), "outcome": outcome},
+            session,
+            "reconciliation.resync",
+            actor_id=admin.id,
+            actor_type="admin",
+            entity_type="vpn_account",
+            entity_id=account.id,
+            store_id=account.store_id,
+            data={"issue": str(issue.id), "outcome": outcome},
         )
         await session.commit()
-        store, panel = await session.get(Store, account.store_id), (await session.get(Panel, account.panel_id) if account.panel_id else None)
+        store, panel = (
+            await session.get(Store, account.store_id),
+            (await session.get(Panel, account.panel_id) if account.panel_id else None),
+        )
         return _issue_out(issue, account, store, panel)
     audit.record(
         session,
@@ -309,21 +340,37 @@ async def issue_action(issue_id: uuid.UUID, body: IssueActionIn, admin: AdminUse
 
 # ------------------------------------------------------------------------------------------------------------------ orphans
 @router.get("/panel-orphans")
-async def panel_orphans(_: AdminUser, session: Session, status: str | None = "open", panel_id: uuid.UUID | None = None, limit: int = 100, offset: int = 0):
+async def panel_orphans(
+    _: AdminUser, session: Session, status: str | None = "open", panel_id: uuid.UUID | None = None, limit: int = 100, offset: int = 0
+):
     q = select(PanelOrphan, Panel.name).join(Panel, Panel.id == PanelOrphan.panel_id)
     if status and status != "all":
         q = q.where(PanelOrphan.status == status)
     if panel_id:
         q = q.where(PanelOrphan.panel_id == panel_id)
     total = await session.scalar(select(func.count()).select_from(q.subquery())) or 0
-    rows = (await session.execute(q.order_by(PanelOrphan.last_seen_at.desc().nulls_last()).limit(max(1, min(limit, 500))).offset(max(0, offset)))).all()
+    rows = (
+        await session.execute(
+            q.order_by(PanelOrphan.last_seen_at.desc().nulls_last()).limit(max(1, min(limit, 500))).offset(max(0, offset))
+        )
+    ).all()
     return {
         "total": total,
         "items": [
             OrphanOut(
-                id=o.id, panel_id=o.panel_id, panel_name=name, username=o.username, remote_status=o.remote_status, owner_username=o.owner_username,
-                expire_at=o.expire_at, traffic_limit_bytes=int(o.traffic_limit_bytes or 0), traffic_used_bytes=int(o.traffic_used_bytes or 0),
-                status=o.status, note=o.note, first_seen_at=o.first_seen_at, last_seen_at=o.last_seen_at,
+                id=o.id,
+                panel_id=o.panel_id,
+                panel_name=name,
+                username=o.username,
+                remote_status=o.remote_status,
+                owner_username=o.owner_username,
+                expire_at=o.expire_at,
+                traffic_limit_bytes=int(o.traffic_limit_bytes or 0),
+                traffic_used_bytes=int(o.traffic_used_bytes or 0),
+                status=o.status,
+                note=o.note,
+                first_seen_at=o.first_seen_at,
+                last_seen_at=o.last_seen_at,
             )
             for o, name in rows
         ],
@@ -337,18 +384,37 @@ async def ignore_orphan(orphan_id: uuid.UUID, body: OrphanIgnoreIn, admin: Admin
     if not o:
         raise NotFound("کاربر پنل")
     o.status, o.note = "ignored", (body.note or "").strip() or None
-    audit.record(session, "panel_orphan.ignored", actor_id=admin.id, actor_type="admin", entity_type="panel_orphan", entity_id=o.id, data={"username": o.username, "panel_id": str(o.panel_id)})
+    audit.record(
+        session,
+        "panel_orphan.ignored",
+        actor_id=admin.id,
+        actor_type="admin",
+        entity_type="panel_orphan",
+        entity_id=o.id,
+        data={"username": o.username, "panel_id": str(o.panel_id)},
+    )
     await session.commit()
     return OrphanOut(
-        id=o.id, panel_id=o.panel_id, username=o.username, remote_status=o.remote_status, owner_username=o.owner_username, expire_at=o.expire_at,
-        traffic_limit_bytes=int(o.traffic_limit_bytes or 0), traffic_used_bytes=int(o.traffic_used_bytes or 0), status=o.status, note=o.note,
-        first_seen_at=o.first_seen_at, last_seen_at=o.last_seen_at,
+        id=o.id,
+        panel_id=o.panel_id,
+        username=o.username,
+        remote_status=o.remote_status,
+        owner_username=o.owner_username,
+        expire_at=o.expire_at,
+        traffic_limit_bytes=int(o.traffic_limit_bytes or 0),
+        traffic_used_bytes=int(o.traffic_used_bytes or 0),
+        status=o.status,
+        note=o.note,
+        first_seen_at=o.first_seen_at,
+        last_seen_at=o.last_seen_at,
     )
 
 
 # ------------------------------------------------------------------------------------------- per-store notice settings (PG-06)
 class NoticeSettingsIn(BaseModel):
-    traffic_low_levels: list[int] = Field(max_length=notices.MAX_LEVELS, description="percents (1-99) at which the customer is warned; [] = no warnings")
+    traffic_low_levels: list[int] = Field(
+        max_length=notices.MAX_LEVELS, description="percents (1-99) at which the customer is warned; [] = no warnings"
+    )
 
 
 class NoticeSettingsOut(BaseModel):
@@ -360,7 +426,9 @@ class NoticeSettingsOut(BaseModel):
 
 def _notice_out(store: Store) -> NoticeSettingsOut:
     custom = bool(store.vpn_notice_settings) and "traffic_low_levels" in store.vpn_notice_settings
-    return NoticeSettingsOut(store_id=store.id, traffic_low_levels=list(notices.levels_for_store(store.vpn_notice_settings)), is_default=not custom)
+    return NoticeSettingsOut(
+        store_id=store.id, traffic_low_levels=list(notices.levels_for_store(store.vpn_notice_settings)), is_default=not custom
+    )
 
 
 @router.get("/stores/{store_id}/vpn-notices", response_model=NoticeSettingsOut)
@@ -384,8 +452,14 @@ async def put_store_vpn_notices(store_id: uuid.UUID, body: NoticeSettingsIn, adm
     before = list(notices.levels_for_store(store.vpn_notice_settings))
     store.vpn_notice_settings = {**(store.vpn_notice_settings or {}), "traffic_low_levels": list(levels)}
     audit.record(
-        session, "store.vpn_notices.updated", actor_id=admin.id, actor_type="admin", entity_type="store", entity_id=store.id,
-        store_id=store.id, data={"before": before, "after": list(levels)},
+        session,
+        "store.vpn_notices.updated",
+        actor_id=admin.id,
+        actor_type="admin",
+        entity_type="store",
+        entity_id=store.id,
+        store_id=store.id,
+        data={"before": before, "after": list(levels)},
     )
     await session.commit()
     return _notice_out(store)
@@ -398,6 +472,15 @@ async def reset_store_vpn_notices(store_id: uuid.UUID, admin: AdminUser, session
     if not store:
         raise NotFound("فروشگاه")
     store.vpn_notice_settings = None
-    audit.record(session, "store.vpn_notices.reset", actor_id=admin.id, actor_type="admin", entity_type="store", entity_id=store.id, store_id=store.id, data={})
+    audit.record(
+        session,
+        "store.vpn_notices.reset",
+        actor_id=admin.id,
+        actor_type="admin",
+        entity_type="store",
+        entity_id=store.id,
+        store_id=store.id,
+        data={},
+    )
     await session.commit()
     return _notice_out(store)

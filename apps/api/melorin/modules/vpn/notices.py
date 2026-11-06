@@ -78,7 +78,14 @@ async def _emit(session, account, kind: str, title: str, body: str, key: str) ->
 
 
 async def expired(session, account) -> None:
-    await _emit(session, account, "vpn_expired", "اکانت منقضی شد", "اکانت VPN شما منقضی شده است.", f"notify:expired:{account.id}:{period_token(account)}")
+    await _emit(
+        session,
+        account,
+        "vpn_expired",
+        "اکانت منقضی شد",
+        "اکانت VPN شما منقضی شده است.",
+        f"notify:expired:{account.id}:{period_token(account)}",
+    )
 
 
 async def near_expiry(session, account) -> None:

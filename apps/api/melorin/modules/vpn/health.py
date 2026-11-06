@@ -94,7 +94,9 @@ def summarize(nodes: list[dict]) -> NodeSummary:
             s.error += 1
             if len(s.reasons) < MAX_REASONS:
                 msg = str(n.get("message") or "")[:300] or None
-                s.reasons.append({"node": str(n.get("name") or n.get("id")), "status": status, "message": msg, "hint": node_error_hint(msg)})
+                s.reasons.append(
+                    {"node": str(n.get("name") or n.get("id")), "status": status, "message": msg, "hint": node_error_hint(msg)}
+                )
     return s
 
 

@@ -70,16 +70,24 @@ async def _probe_reconcile(session, result: DatabaseProbe) -> None:
     try:
         rows = (
             await session.execute(
-                select(ReconciliationIssue.kind, func.count()).where(ReconciliationIssue.status == "open").group_by(ReconciliationIssue.kind)
+                select(ReconciliationIssue.kind, func.count())
+                .where(ReconciliationIssue.status == "open")
+                .group_by(ReconciliationIssue.kind)
             )
         ).all()
         result.open_issues = {kind: int(n) for kind, n in rows}
         oldest = await session.scalar(
-            select(func.min(VpnAccount.last_synced_at)).where(VpnAccount.status.in_(("active", "suspended", "limited")), VpnAccount.panel_id.is_not(None))
+            select(func.min(VpnAccount.last_synced_at)).where(
+                VpnAccount.status.in_(("active", "suspended", "limited")), VpnAccount.panel_id.is_not(None)
+            )
         )
         never = await session.scalar(
-            select(func.count()).select_from(VpnAccount).where(
-                VpnAccount.status.in_(("active", "suspended", "limited")), VpnAccount.panel_id.is_not(None), VpnAccount.last_synced_at.is_(None)
+            select(func.count())
+            .select_from(VpnAccount)
+            .where(
+                VpnAccount.status.in_(("active", "suspended", "limited")),
+                VpnAccount.panel_id.is_not(None),
+                VpnAccount.last_synced_at.is_(None),
             )
         )
         if oldest is not None and not never:

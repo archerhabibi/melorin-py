@@ -113,7 +113,9 @@ async def _login(c, m):
 async def test_notice_settings_need_an_admin():
     async with api_client() as (c, _, main):
         for method in ("get", "put", "delete"):
-            r = await getattr(c, method)(f"{BASE}/stores/{main.id}/vpn-notices", **({"json": {"traffic_low_levels": [70]}} if method == "put" else {}))
+            r = await getattr(c, method)(
+                f"{BASE}/stores/{main.id}/vpn-notices", **({"json": {"traffic_low_levels": [70]}} if method == "put" else {})
+            )
             assert r.status_code in (401, 403), (method, r.status_code)
 
 
