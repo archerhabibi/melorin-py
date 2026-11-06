@@ -34,6 +34,16 @@ function mock(calls) {
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, o = {}) => {
     const path = String(url).replace(/^https?:\/\/[^/]+/, '');
     calls.push([o.method || 'GET', path, o.body]);
+    if (path === '/api/v1/admin/stores') return json([{ id: 's1', name: 'Main Store' }]);
+    if (path === '/api/v1/admin/stores/s1/vpn-notices') {
+      if (o.method === 'PUT') {
+        const levels = JSON.parse(o.body).traffic_low_levels;
+        return json({ store_id: 's1', traffic_low_levels: levels, is_default: false, default_levels: [80, 90] });
+      }
+      if (o.method === 'DELETE')
+        return json({ store_id: 's1', traffic_low_levels: [80, 90], is_default: true, default_levels: [80, 90] });
+      return json({ store_id: 's1', traffic_low_levels: [80, 90], is_default: true, default_levels: [80, 90] });
+    }
     if (path.startsWith('/api/v1/admin/panels/p1/nodes')) {
       return json({
         panel_id: 'p1',
@@ -90,5 +100,33 @@ describe('PanelOpsView', () => {
     expect(await screen.findByText('bad-node')).toBeTruthy();
     expect(screen.getByText(/server_ca را تنظیم کنید/)).toBeTruthy();
     expect(screen.getByText(/1 از 2 نود فعال خطا دارد/)).toBeTruthy();
+  });
+
+  it('saves a store-specific low-traffic list, refuses a bad one without calling the API, and can reset', async () => {
+    const calls = [];
+    const toast = vi.fn();
+    mock(calls);
+    render(<PanelOpsView api={{ base: 'http://core.test' }} toast={toast} />);
+    await userEvent.click(await screen.findByRole('button', { name: /هشدار حجم/ }));
+    await screen.findByRole('option', { name: 'Main Store' });
+    await userEvent.selectOptions(screen.getByLabelText('فروشگاه'), 's1');
+    const input = await screen.findByLabelText('درصدهای هشدار');
+    expect(input.value).toBe('80, 90');
+
+    await userEvent.clear(input);
+    await userEvent.type(input, '0, 120');
+    await userEvent.click(screen.getByRole('button', { name: 'ذخیره' }));
+    expect(toast).toHaveBeenCalledWith(expect.stringContaining('۹۹'));
+    expect(calls.some((c) => c[0] === 'PUT')).toBe(false);
+
+    await userEvent.clear(input);
+    await userEvent.type(input, '50, 75');
+    await userEvent.click(screen.getByRole('button', { name: 'ذخیره' }));
+    await waitFor(() => expect(calls.some((c) => c[0] === 'PUT')).toBe(true));
+    expect(JSON.parse(calls.find((c) => c[0] === 'PUT')[2])).toEqual({ traffic_low_levels: [50, 75] });
+
+    await userEvent.click(await screen.findByRole('button', { name: 'بازگشت به پیش‌فرض' }));
+    await waitFor(() => expect(calls.some((c) => c[0] === 'DELETE')).toBe(true));
+    await waitFor(() => expect(screen.getByLabelText('درصدهای هشدار').value).toBe('80, 90'));
   });
 });

@@ -42,7 +42,7 @@ listed or ignored.
 **Alerts / metrics.** `melorin_reconcile_open_issues{kind}` (every kind is always exported), `melorin_reconcile_lag_seconds` (age of the
 least recently synced live account; absent while an account was never synced) and the existing `MelorinPanelsUnhealthy` alert.
 
-**Low-traffic warnings are per store**: `GET/PUT/DELETE /api/v1/admin/stores/{id}/vpn-notices` (`{"traffic_low_levels": [80, 90]}`, 1-99,
+**Low-traffic warnings are per store** (Admin -> Panel operations -> "هشدار حجم", or the API): `GET/PUT/DELETE /api/v1/admin/stores/{id}/vpn-notices` (`{"traffic_low_levels": [80, 90]}`, 1-99,
 at most 4, `[]` = none). A level already sent stays sent; a renewal starts a new package and resets them.
 
 **PG-18 operating rules**
