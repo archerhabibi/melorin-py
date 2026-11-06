@@ -3,6 +3,7 @@
 from melorin.kernel.models.bundles import *  # noqa: F401,F403
 from melorin.kernel.models.catalog import *  # noqa: F401,F403
 from melorin.kernel.models.identity import *  # noqa: F401,F403
+from melorin.kernel.models.loyalty import *  # noqa: F401,F403
 from melorin.kernel.models.notifications import *  # noqa: F401,F403
 from melorin.kernel.models.orders import *  # noqa: F401,F403
 from melorin.kernel.models.payments import *  # noqa: F401,F403
