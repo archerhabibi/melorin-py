@@ -57,6 +57,143 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-11-06 08:03 UTC - Claude - docs  _(auto)_
+- **Before:** doc 22 mentioned a button named «باشگاه من» that does not exist in the bot
+- **Problem:** documentation did not match the shipped bot (the /club command and the «🏅 باشگاه مشتریان» inline-menu button)
+- **Action:** name the real command and button, and note that reseller bots inherit them from the main runner
+- **After:** docs guard passes (gen_docs --check)
+- **Files (1):** `docs/22-Customer-Loyalty-Club.md`
+- **Ref:** `6893edc`
+
+### 2026-11-06 08:03 UTC - Claude - admin-web  _(auto)_
+- **Before:** flaky under load - the summary request was not recorded yet when the assertion ran
+- **Problem:** assertions on `calls` ran synchronously after findByTestId, a race with the second fetch
+- **Action:** wrap every call assertion in waitFor through a small `called(path)` helper
+- **After:** file passes 3/3 alone and the whole admin-web suite (181 tests) passes
+- **Files (1):** `apps/admin-web/tests/referral-coupons.test.jsx`
+- **Ref:** `9444150`
+
+### 2026-11-06 07:23 UTC - Claude - admin-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** style(admin-web): prettier --write on loyalty club view and its test - CI quality job failed at 'npm run format:check' in apps/admin-web on LoyaltyClubView.jsx and tests/loyalty-club.test.jsx (previous commit only formatted store-web).
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `apps/admin-web/src/LoyaltyClubView.jsx`, `apps/admin-web/tests/loyalty-club.test.jsx`
+- **Ref:** `8406dc2`
+
+### 2026-11-06 06:58 UTC - Claude - store-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** style(store-web): prettier --write on loyalty screens and their tests - Fixes the format:check step of the quality job (Loyalty.jsx, ResellerLoyalty.jsx, loyalty-customer/reseller tests).
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (4):** `apps/store-web/src/Loyalty.jsx`, `apps/store-web/src/ResellerLoyalty.jsx`, `apps/store-web/tests/loyalty-customer.test.jsx`, `apps/store-web/tests/loyalty-reseller.test.jsx`
+- **Ref:** `d5d4c34`
+
+### 2026-11-06 06:58 UTC - Claude - tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** test(loyalty): build the migration-0042 SQLite fixture from a metadata copy - The PostgreSQL lane runs create_all on the shared Base.metadata first. SQLAlchemy then remembers that the use_alter FK orders.vpn_account_id was already emitted and leaves it out of every later create_all, so compare_meta…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `apps/api/tests/test_migration_0042_loyalty.py`
+- **Ref:** `2c96385`
+
+### 2026-11-06 06:26 UTC - Claude - tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** style(loyalty): drop unused make_user import in HTTP test
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `apps/api/tests/test_loyalty_http.py`
+- **Ref:** `61efd83`
+
+### 2026-11-06 06:13 UTC - Claude - tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** test(worker): cover loyalty handlers in the order topic delegation test
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `apps/api/tests/test_worker_runner_db.py`
+- **Ref:** `f9ffcbc`
+
+### 2026-11-06 05:21 UTC - archerhabibi - loyalty  _(auto)_
+- **Before:** manage_context resolved the store by hand
+- **Problem:** test_channel_binding refused the manage routes (no channel-checked dependency)
+- **Action:** manage_context now depends on owner_store_context; admin sessions and the real owner of a reseller store keep the same access
+- **After:** channel-binding guard and 115 loyalty/guard tests pass
+- **Files (1):** `apps/api/melorin/modules/loyalty/router.py`
+- **Ref:** `37bcfa1`
+
+### 2026-11-06 05:15 UTC - archerhabibi - telegram-main  _(auto)_
+- **Before:** the bot had no way to show points, tier or rewards
+- **Problem:** customers on Telegram could not use the club
+- **Action:** add /club and the club screen (points, tier, rewards, last entries) with one-tap reward redeem using a callback-derived Idempotency-Key; listed in help and bot menu; inherited by reseller bots
+- **After:** 10 new pytest cases, bot suite 28 passed, reseller suite 2 passed, ruff clean
+- **Files (4):** `apps/telegram-main/runner.py`, `apps/telegram-main/tests/test_loyalty_club.py`, `apps/telegram-main/tgmain/handlers/loyalty.py`, `apps/telegram-main/tgmain/ui.py`
+- **Ref:** `6fa8da7`
+
+### 2026-11-06 05:14 UTC - archerhabibi - admin-web  _(auto)_
+- **Before:** only a reseller API existed; admin had no way to run a club
+- **Problem:** admin could not configure the main store's or a reseller's club
+- **Action:** add باشگاه مشتریان page (store picker, summary, earning rule, tier ladder, rewards, manual adjust) on the existing manage API
+- **After:** 6 new vitest cases; admin suite and lint results recorded in the commit before it
+- **Files (4):** `apps/admin-web/src/AdminExtra.jsx`, `apps/admin-web/src/App.jsx`, `apps/admin-web/src/LoyaltyClubView.jsx`, `apps/admin-web/tests/loyalty-club.test.jsx`
+- **Ref:** `a5f8dad`
+
+### 2026-11-06 05:12 UTC - archerhabibi - store-web  _(auto)_
+- **Before:** a reseller could not configure a club for his store
+- **Problem:** backend manage plane had no UI
+- **Action:** add Loyalty tab: summary, earning rule, tier ladder, rewards, manual point adjustment
+- **After:** 5 new vitest cases, whole web suite 61 passed, no new lint warnings
+- **Files (3):** `apps/store-web/src/Reseller.jsx`, `apps/store-web/src/ResellerLoyalty.jsx`, `apps/store-web/tests/loyalty-reseller.test.jsx`
+- **Ref:** `4ee4f27`
+
+### 2026-11-06 05:10 UTC - archerhabibi - store-web  _(auto)_
+- **Before:** customers could not see points, tier or rewards
+- **Problem:** backend club API had no customer screen
+- **Action:** add Loyalty card (points, tier progress, rewards with idempotent redeem, history, refund debt note) to the dashboard
+- **After:** 7 vitest cases pass, eslint clean
+- **Files (4):** `apps/store-web/src/Dashboard.jsx`, `apps/store-web/src/Loyalty.jsx`, `apps/store-web/src/loyaltyFormat.js`, `apps/store-web/tests/loyalty-customer.test.jsx`
+- **Ref:** `82b89d1`
+
+### 2026-11-06 05:09 UTC - archerhabibi - loyalty  _(auto)_
+- **Before:** code referenced docs/22 but it did not exist
+- **Problem:** no written rules for earning, tiers, rewards and refunds
+- **Action:** add docs/22-Customer-Loyalty-Club.md
+- **After:** rules, data model, API and UI plan documented
+- **Files (1):** `docs/22-Customer-Loyalty-Club.md`
+- **Ref:** `c84f409`
+
+### 2026-11-06 04:55 UTC - Claude - api  _(auto)_
+- **Before:** Melorin had referral and commission but no points, tiers or rewards.
+- **Problem:** no customer loyalty club.
+- **Action:** loyalty router + outbox handlers; docs/API.md, STATUS.md and the api-client OpenAPI snapshot regenerated.
+- **After:** 8 HTTP tests plus service/domain tests; guards and api-client typecheck pass.
+- **Files (8):** `apps/api/melorin/app.py`, `apps/api/melorin/modules/loyalty/router.py`, `apps/api/melorin/worker/runner.py`, `apps/api/tests/test_loyalty_http.py`, `docs/API.md`, `docs/STATUS.md`, `packages/api-client/openapi.json`, `packages/api-client/src/schema.d.ts`
+- **Ref:** `31a99ed`
+
+### 2026-11-06 04:53 UTC - Claude - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(loyalty): club service - earning, first-order and referral bonus, refund reversal with points debt, redeem to wallet, adjustments, summaries
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (5):** `apps/api/melorin/modules/loyalty/__init__.py`, `apps/api/melorin/modules/loyalty/service.py`, `apps/api/melorin/modules/wallet/service.py`, `apps/api/pyproject.toml`, `apps/api/tests/test_loyalty_service.py`
+- **Ref:** `31a7302`
+
+### 2026-11-06 04:50 UTC - Claude - db, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(loyalty): models and migration 0040 (programs, tiers, accounts, points ledger, rewards, redemptions)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (4):** `apps/api/alembic/versions/0040_customer_loyalty_club.py`, `apps/api/melorin/kernel/models/loyalty.py`, `apps/api/melorin/models.py`, `apps/api/tests/test_migration_0040_loyalty.py`
+- **Ref:** `9ce64aa`
+
+### 2026-11-06 04:48 UTC - Claude - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(loyalty): pure club rules - points, tiers, points debt, redeem and definition rules
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `apps/api/melorin/domain/loyalty.py`, `apps/api/tests/test_loyalty_domain.py`
+- **Ref:** `7a68c9d`
+
+
 ### 2026-11-06 04:42 UTC - Claude - db, api, tests  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
