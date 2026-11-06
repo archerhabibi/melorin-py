@@ -24,6 +24,7 @@ const UsersView = lazy(() => import('./UsersView.jsx'));
 const StoresView = lazy(() => import('./StoresView.jsx'));
 const AuditView = lazy(() => import('./AuditView.jsx'));
 const ReferralProgramsView = lazy(() => import('./ReferralProgramsView.jsx'));
+const LoyaltyClubView = lazy(() => import('./LoyaltyClubView.jsx'));
 const money = (n) => new Intl.NumberFormat('fa-IR').format(n || 0);
 const box = 'card';
 const inp = 'inp';
@@ -701,6 +702,7 @@ export const extraRoutes = {
   'بسته‌های فروش': BundlesView,
   کوپن‌ها: Coupons,
   'برنامه‌های معرفی': ReferralProgramsView,
+  'باشگاه مشتریان': LoyaltyClubView,
   تنظیمات: Settings,
   ممیزی: AuditView,
   هویت: IdentityHubView,

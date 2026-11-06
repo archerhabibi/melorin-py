@@ -48,6 +48,7 @@ import {
   UserPlus,
   Bot,
   Gift,
+  Award,
 } from 'lucide-react';
 
 // Section keys are Persian labels (AdminSections/AdminExtra route on them); slug drives the URL hash.
@@ -80,6 +81,7 @@ const groups = [
       ['مرکز رویداد', BellRing, 'event-center'],
       ['کوپن‌ها', Percent, 'coupons'],
       ['برنامه‌های معرفی', Gift, 'referral-programs'],
+      ['باشگاه مشتریان', Award, 'loyalty-club'],
     ],
   ],
   [
