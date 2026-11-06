@@ -68,11 +68,13 @@ def limits_drift(account, remote) -> dict | None:
     return diff or None
 
 
-async def apply_remote(session, account, remote, *, now: dt.datetime | None = None, notify: bool = True) -> list[str]:
+async def apply_remote(
+    session, account, remote, *, now: dt.datetime | None = None, notify: bool = True, levels: tuple[int, ...] | None = None
+) -> list[str]:
     """Copy the panel's state onto ``account``. Returns the list of status transitions (``"active->limited"``).
 
     Notices (all idempotent through their dedup keys): quota exhausted, disabled on the panel, expired on the panel, and the
-    80% / 90% traffic warnings. The caller commits.
+    traffic warnings (the store's own ``levels``, default 80% / 90%). The caller commits.
     """
     now = now or utcnow()
     previous = account.status
@@ -108,7 +110,7 @@ async def apply_remote(session, account, remote, *, now: dt.datetime | None = No
             await notices.expired(session, account)
         if account.status == VpnStatus.ACTIVE:
             percent = notices.traffic_percent(account)
-            level = notices.traffic_level(percent)
+            level = notices.traffic_level(percent, notices.TRAFFIC_LOW_LEVELS if levels is None else levels)
             if level > int(account.traffic_notified_level or 0):
                 await notices.traffic_low(session, account, level)
                 account.traffic_notified_level = level

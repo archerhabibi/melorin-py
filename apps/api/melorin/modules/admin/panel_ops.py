@@ -21,7 +21,7 @@ from melorin.domain.order_state import VpnStatus
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.vpn import Panel, PanelNode, PanelOrphan, ReconciliationIssue, VpnAccount
 from melorin.modules.vpn import issues as issue_svc
-from melorin.modules.vpn import reconcile
+from melorin.modules.vpn import notices, reconcile
 from melorin.modules.vpn.adapters.base import PanelError, supports
 from melorin.modules.vpn.adapters.registry import build_adapter, seed_adapter
 
@@ -344,3 +344,60 @@ async def ignore_orphan(orphan_id: uuid.UUID, body: OrphanIgnoreIn, admin: Admin
         traffic_limit_bytes=int(o.traffic_limit_bytes or 0), traffic_used_bytes=int(o.traffic_used_bytes or 0), status=o.status, note=o.note,
         first_seen_at=o.first_seen_at, last_seen_at=o.last_seen_at,
     )
+
+
+# ------------------------------------------------------------------------------------------- per-store notice settings (PG-06)
+class NoticeSettingsIn(BaseModel):
+    traffic_low_levels: list[int] = Field(max_length=notices.MAX_LEVELS, description="percents (1-99) at which the customer is warned; [] = no warnings")
+
+
+class NoticeSettingsOut(BaseModel):
+    store_id: uuid.UUID
+    traffic_low_levels: list[int]
+    is_default: bool
+    default_levels: list[int] = list(notices.TRAFFIC_LOW_LEVELS)
+
+
+def _notice_out(store: Store) -> NoticeSettingsOut:
+    custom = bool(store.vpn_notice_settings) and "traffic_low_levels" in store.vpn_notice_settings
+    return NoticeSettingsOut(store_id=store.id, traffic_low_levels=list(notices.levels_for_store(store.vpn_notice_settings)), is_default=not custom)
+
+
+@router.get("/stores/{store_id}/vpn-notices", response_model=NoticeSettingsOut)
+async def get_store_vpn_notices(store_id: uuid.UUID, _: AdminUser, session: Session):
+    store = await session.get(Store, store_id)
+    if not store:
+        raise NotFound("فروشگاه")
+    return _notice_out(store)
+
+
+@router.put("/stores/{store_id}/vpn-notices", response_model=NoticeSettingsOut)
+async def put_store_vpn_notices(store_id: uuid.UUID, body: NoticeSettingsIn, admin: AdminUser, session: Session):
+    """Set when THIS store's customers are warned about low traffic. Takes effect at the next sync; a level already warned stays warned."""
+    store = await session.get(Store, store_id)
+    if not store:
+        raise NotFound("فروشگاه")
+    try:
+        levels = notices.normalize_levels(body.traffic_low_levels)
+    except ValueError as exc:
+        raise AppError("INVALID_NOTICE_LEVELS", "آستانه‌های هشدار حجم نامعتبر است", status=422, details={"reason": str(exc)}) from exc
+    before = list(notices.levels_for_store(store.vpn_notice_settings))
+    store.vpn_notice_settings = {**(store.vpn_notice_settings or {}), "traffic_low_levels": list(levels)}
+    audit.record(
+        session, "store.vpn_notices.updated", actor_id=admin.id, actor_type="admin", entity_type="store", entity_id=store.id,
+        store_id=store.id, data={"before": before, "after": list(levels)},
+    )
+    await session.commit()
+    return _notice_out(store)
+
+
+@router.delete("/stores/{store_id}/vpn-notices", response_model=NoticeSettingsOut)
+async def reset_store_vpn_notices(store_id: uuid.UUID, admin: AdminUser, session: Session):
+    """Back to the platform defaults."""
+    store = await session.get(Store, store_id)
+    if not store:
+        raise NotFound("فروشگاه")
+    store.vpn_notice_settings = None
+    audit.record(session, "store.vpn_notices.reset", actor_id=admin.id, actor_type="admin", entity_type="store", entity_id=store.id, store_id=store.id, data={})
+    await session.commit()
+    return _notice_out(store)

@@ -21,8 +21,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from melorin.core.db import utcnow
+from melorin.kernel.models.stores import Store
 from melorin.kernel.models.vpn import Panel, PanelAdmin, PanelOrphan, VpnAccount
-from melorin.modules.vpn import issues, sync
+from melorin.modules.vpn import issues, notices, sync
 from melorin.modules.vpn.adapters.base import PanelAccount, PanelError, supports
 from melorin.modules.vpn.adapters.registry import build_adapter, seed_adapter
 
@@ -80,7 +81,18 @@ async def _due_accounts(session: AsyncSession, panel_id: uuid.UUID, limit: int) 
     )
 
 
-async def _compare(session, account, remote: PanelAccount | None, owners, now, result: PanelResult) -> None:
+async def _store_levels(session: AsyncSession, accounts: list[VpnAccount]) -> dict[uuid.UUID, tuple[int, ...]]:
+    """Each store's traffic-warning levels, read once per run (one query, not one per account)."""
+    ids = {a.store_id for a in accounts if a.store_id}
+    if not ids:
+        return {}
+    rows = (await session.execute(select(Store.id, Store.vpn_notice_settings).where(Store.id.in_(ids)))).all()
+    return {sid: notices.levels_for_store(cfg) for sid, cfg in rows}
+
+
+async def _compare(
+    session, account, remote: PanelAccount | None, owners, now, result: PanelResult, levels: dict | None = None
+) -> None:
     if remote is None:
         account.sync_error_count = int(account.sync_error_count or 0) + 1
         await issues.open_issue(session, account.id, issues.MISSING, {"username": account.username}, now=now)
@@ -88,7 +100,7 @@ async def _compare(session, account, remote: PanelAccount | None, owners, now, r
         result.missing += 1
         return
     drift = sync.limits_drift(account, remote)
-    changes = await sync.apply_remote(session, account, remote, now=now)
+    changes = await sync.apply_remote(session, account, remote, now=now, levels=(levels or {}).get(account.store_id))
     if changes:
         result.updated += 1
     await issues.close_issues(session, [account.id], [issues.MISSING, issues.UNREACHABLE], now=now)
@@ -150,12 +162,13 @@ async def reconcile_panel(session: AsyncSession, panel: Panel, *, batch: int = B
             remote, complete = await _remote_map(adapter)
         result.complete = complete
         owners = await _expected_owners(session, panel_id)
+        levels = await _store_levels(session, accounts)
         for account in accounts:
             if listing and complete:
                 found = remote.get(account.username)
             else:  # no listing (or a truncated one): ask for this one account, so "missing" is never guessed
                 found = await seed_adapter(adapter, account).get_account(account.username)
-            await _compare(session, account, found, owners, now, result)
+            await _compare(session, account, found, owners, now, result, levels)
             result.checked += 1
         if listing and complete:
             result.orphans = await _record_orphans(session, panel_id, remote, now)

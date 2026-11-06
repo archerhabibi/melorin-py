@@ -2370,6 +2370,184 @@
         "title": "IdentityOut",
         "type": "object"
       },
+      "IssueActionIn": {
+        "properties": {
+          "action": {
+            "pattern": "^(ignore|resolve|fix_owner|archive_account|resync)$",
+            "title": "Action",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "title": "IssueActionIn",
+        "type": "object"
+      },
+      "IssueOut": {
+        "properties": {
+          "allowed_actions": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Actions",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "details": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Details"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "occurrences": {
+            "title": "Occurrences",
+            "type": "integer"
+          },
+          "panel_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Panel Id"
+          },
+          "panel_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Panel Name"
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved At"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "store_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Store Id"
+          },
+          "store_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Store Name"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          },
+          "vpn_account_id": {
+            "format": "uuid",
+            "title": "Vpn Account Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "occurrences",
+          "created_at",
+          "vpn_account_id"
+        ],
+        "title": "IssueOut",
+        "type": "object"
+      },
       "LedgerEntryOut": {
         "properties": {
           "amount": {
@@ -2578,6 +2756,153 @@
           }
         },
         "title": "MeUpdate",
+        "type": "object"
+      },
+      "NodeOut": {
+        "properties": {
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "remote_id": {
+            "title": "Remote Id",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "status_changed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Changed At"
+          },
+          "usage_coefficient": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usage Coefficient"
+          },
+          "xray_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Xray Version"
+          }
+        },
+        "required": [
+          "remote_id",
+          "name",
+          "status"
+        ],
+        "title": "NodeOut",
+        "type": "object"
+      },
+      "NoticeSettingsIn": {
+        "properties": {
+          "traffic_low_levels": {
+            "description": "percents (1-99) at which the customer is warned; [] = no warnings",
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 4,
+            "title": "Traffic Low Levels",
+            "type": "array"
+          }
+        },
+        "required": [
+          "traffic_low_levels"
+        ],
+        "title": "NoticeSettingsIn",
+        "type": "object"
+      },
+      "NoticeSettingsOut": {
+        "properties": {
+          "default_levels": {
+            "default": [
+              80,
+              90
+            ],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Default Levels",
+            "type": "array"
+          },
+          "is_default": {
+            "title": "Is Default",
+            "type": "boolean"
+          },
+          "store_id": {
+            "format": "uuid",
+            "title": "Store Id",
+            "type": "string"
+          },
+          "traffic_low_levels": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Traffic Low Levels",
+            "type": "array"
+          }
+        },
+        "required": [
+          "store_id",
+          "traffic_low_levels",
+          "is_default"
+        ],
+        "title": "NoticeSettingsOut",
         "type": "object"
       },
       "OrderAction": {
@@ -2798,6 +3123,144 @@
           "completed_at"
         ],
         "title": "OrderOut",
+        "type": "object"
+      },
+      "OrphanIgnoreIn": {
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "title": "OrphanIgnoreIn",
+        "type": "object"
+      },
+      "OrphanOut": {
+        "properties": {
+          "expire_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expire At"
+          },
+          "first_seen_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Seen At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "owner_username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Username"
+          },
+          "panel_id": {
+            "format": "uuid",
+            "title": "Panel Id",
+            "type": "string"
+          },
+          "panel_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Panel Name"
+          },
+          "remote_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remote Status"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "traffic_limit_bytes": {
+            "default": 0,
+            "title": "Traffic Limit Bytes",
+            "type": "integer"
+          },
+          "traffic_used_bytes": {
+            "default": 0,
+            "title": "Traffic Used Bytes",
+            "type": "integer"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "panel_id",
+          "username",
+          "status"
+        ],
+        "title": "OrphanOut",
         "type": "object"
       },
       "OwnerAccountOut": {
@@ -3141,6 +3604,68 @@
         "title": "Page[LedgerEntryOut]",
         "type": "object"
       },
+      "PanelNodesOut": {
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "health_status": {
+            "title": "Health Status",
+            "type": "string"
+          },
+          "last_health_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Health At"
+          },
+          "last_health_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Health Error"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/NodeOut"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "panel_id": {
+            "format": "uuid",
+            "title": "Panel Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "panel_id",
+          "health_status",
+          "last_health_at",
+          "nodes"
+        ],
+        "title": "PanelNodesOut",
+        "type": "object"
+      },
       "PanelOut": {
         "properties": {
           "base_url": {
@@ -3185,6 +3710,17 @@
             "default": false,
             "title": "Has Credentials",
             "type": "boolean"
+          },
+          "health_detail": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Health Detail"
           },
           "health_status": {
             "title": "Health Status",
@@ -9665,6 +10201,155 @@
         ]
       }
     },
+    "/api/v1/admin/panel-orphans": {
+      "get": {
+        "operationId": "panel_orphans_api_v1_admin_panel_orphans_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": "open",
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "panel_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Panel Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Panel Orphans",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/panel-orphans/{orphan_id}/ignore": {
+      "post": {
+        "description": "\"This panel user is not ours and that is fine\" (a manual account, a test). It is kept, only hidden from the open list.",
+        "operationId": "ignore_orphan_api_v1_admin_panel_orphans__orphan_id__ignore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "orphan_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Orphan Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrphanIgnoreIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrphanOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Ignore Orphan",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/admin/panels": {
       "get": {
         "operationId": "panels_api_v1_admin_panels_get",
@@ -9841,6 +10526,7 @@
     },
     "/api/v1/admin/panels/{panel_id}/health": {
       "post": {
+        "description": "Explicit health check: panel answers AND its nodes (PG-01). ``healthy`` = the panel can serve customers (healthy or degraded).",
         "operationId": "panel_health_api_v1_admin_panels__panel_id__health_post",
         "parameters": [
           {
@@ -9880,6 +10566,101 @@
           }
         ],
         "summary": "Panel Health",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/panels/{panel_id}/nodes": {
+      "get": {
+        "operationId": "panel_nodes_api_v1_admin_panels__panel_id__nodes_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PanelNodesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Panel Nodes",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/panels/{panel_id}/reconcile": {
+      "post": {
+        "description": "Run reconcile v2 for one panel right now (the hourly job does the same).",
+        "operationId": "reconcile_panel_now_api_v1_admin_panels__panel_id__reconcile_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reconcile Panel Now",
         "tags": [
           "admin"
         ]
@@ -10596,6 +11377,194 @@
           }
         ],
         "summary": "Set Availability",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/reconciliation/issues": {
+      "get": {
+        "operationId": "reconciliation_issues_api_v1_admin_reconciliation_issues_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": "open",
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "panel_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Panel Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reconciliation Issues",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/reconciliation/issues/{issue_id}/action": {
+      "post": {
+        "operationId": "issue_action_api_v1_admin_reconciliation_issues__issue_id__action_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "issue_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Issue Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueActionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssueOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Issue Action",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/reconciliation/summary": {
+      "get": {
+        "operationId": "reconciliation_summary_api_v1_admin_reconciliation_summary_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reconciliation Summary",
         "tags": [
           "admin"
         ]
@@ -12572,6 +13541,158 @@
           }
         ],
         "summary": "Reseller Store Prices",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/stores/{store_id}/vpn-notices": {
+      "delete": {
+        "description": "Back to the platform defaults.",
+        "operationId": "reset_store_vpn_notices_api_v1_admin_stores__store_id__vpn_notices_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoticeSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reset Store Vpn Notices",
+        "tags": [
+          "admin"
+        ]
+      },
+      "get": {
+        "operationId": "get_store_vpn_notices_api_v1_admin_stores__store_id__vpn_notices_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoticeSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Store Vpn Notices",
+        "tags": [
+          "admin"
+        ]
+      },
+      "put": {
+        "description": "Set when THIS store's customers are warned about low traffic. Takes effect at the next sync; a level already warned stays warned.",
+        "operationId": "put_store_vpn_notices_api_v1_admin_stores__store_id__vpn_notices_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoticeSettingsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoticeSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Put Store Vpn Notices",
         "tags": [
           "admin"
         ]

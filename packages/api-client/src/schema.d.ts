@@ -970,6 +970,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/panel-orphans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Panel Orphans */
+        get: operations["panel_orphans_api_v1_admin_panel_orphans_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/panel-orphans/{orphan_id}/ignore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ignore Orphan
+         * @description "This panel user is not ours and that is fine" (a manual account, a test). It is kept, only hidden from the open list.
+         */
+        post: operations["ignore_orphan_api_v1_admin_panel_orphans__orphan_id__ignore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/panels": {
         parameters: {
             query?: never;
@@ -1015,8 +1052,48 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Panel Health */
+        /**
+         * Panel Health
+         * @description Explicit health check: panel answers AND its nodes (PG-01). ``healthy`` = the panel can serve customers (healthy or degraded).
+         */
         post: operations["panel_health_api_v1_admin_panels__panel_id__health_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/panels/{panel_id}/nodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Panel Nodes */
+        get: operations["panel_nodes_api_v1_admin_panels__panel_id__nodes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/panels/{panel_id}/reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reconcile Panel Now
+         * @description Run reconcile v2 for one panel right now (the hourly job does the same).
+         */
+        post: operations["reconcile_panel_now_api_v1_admin_panels__panel_id__reconcile_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1219,6 +1296,57 @@ export interface paths {
         put?: never;
         /** Set Availability */
         post: operations["set_availability_api_v1_admin_products__product_id__availability_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/reconciliation/issues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reconciliation Issues */
+        get: operations["reconciliation_issues_api_v1_admin_reconciliation_issues_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/reconciliation/issues/{issue_id}/action": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Issue Action */
+        post: operations["issue_action_api_v1_admin_reconciliation_issues__issue_id__action_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/reconciliation/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reconciliation Summary */
+        get: operations["reconciliation_summary_api_v1_admin_reconciliation_summary_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1797,6 +1925,31 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/stores/{store_id}/vpn-notices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Store Vpn Notices */
+        get: operations["get_store_vpn_notices_api_v1_admin_stores__store_id__vpn_notices_get"];
+        /**
+         * Put Store Vpn Notices
+         * @description Set when THIS store's customers are warned about low traffic. Takes effect at the next sync; a level already warned stays warned.
+         */
+        put: operations["put_store_vpn_notices_api_v1_admin_stores__store_id__vpn_notices_put"];
+        post?: never;
+        /**
+         * Reset Store Vpn Notices
+         * @description Back to the platform defaults.
+         */
+        delete: operations["reset_store_vpn_notices_api_v1_admin_stores__store_id__vpn_notices_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -5702,6 +5855,60 @@ export interface components {
             /** Verified */
             verified: boolean;
         };
+        /** IssueActionIn */
+        IssueActionIn: {
+            /** Action */
+            action: string;
+            /** Reason */
+            reason?: string | null;
+        };
+        /** IssueOut */
+        IssueOut: {
+            /**
+             * Allowed Actions
+             * @default []
+             */
+            allowed_actions: string[];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Details */
+            details?: Record<string, never> | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Last Seen At */
+            last_seen_at?: string | null;
+            /** Occurrences */
+            occurrences: number;
+            /** Panel Id */
+            panel_id?: string | null;
+            /** Panel Name */
+            panel_name?: string | null;
+            /** Resolution */
+            resolution?: string | null;
+            /** Resolved At */
+            resolved_at?: string | null;
+            /** Status */
+            status: string;
+            /** Store Id */
+            store_id?: string | null;
+            /** Store Name */
+            store_name?: string | null;
+            /** Username */
+            username?: string | null;
+            /**
+             * Vpn Account Id
+             * Format: uuid
+             */
+            vpn_account_id: string;
+        };
         /** LedgerEntryOut */
         LedgerEntryOut: {
             /** Amount */
@@ -5767,6 +5974,55 @@ export interface components {
             display_name?: string | null;
             /** Locale */
             locale?: string | null;
+        };
+        /** NodeOut */
+        NodeOut: {
+            /** Hint */
+            hint?: string | null;
+            /** Last Seen At */
+            last_seen_at?: string | null;
+            /** Message */
+            message?: string | null;
+            /** Name */
+            name: string;
+            /** Remote Id */
+            remote_id: number;
+            /** Status */
+            status: string;
+            /** Status Changed At */
+            status_changed_at?: string | null;
+            /** Usage Coefficient */
+            usage_coefficient?: number | null;
+            /** Xray Version */
+            xray_version?: string | null;
+        };
+        /** NoticeSettingsIn */
+        NoticeSettingsIn: {
+            /**
+             * Traffic Low Levels
+             * @description percents (1-99) at which the customer is warned; [] = no warnings
+             */
+            traffic_low_levels: number[];
+        };
+        /** NoticeSettingsOut */
+        NoticeSettingsOut: {
+            /**
+             * Default Levels
+             * @default [
+             *       80,
+             *       90
+             *     ]
+             */
+            default_levels: number[];
+            /** Is Default */
+            is_default: boolean;
+            /**
+             * Store Id
+             * Format: uuid
+             */
+            store_id: string;
+            /** Traffic Low Levels */
+            traffic_low_levels: number[];
         };
         /** OrderAction */
         OrderAction: {
@@ -5840,6 +6096,52 @@ export interface components {
             user_id: string;
             /** Vpn Account Id */
             vpn_account_id: string | null;
+        };
+        /** OrphanIgnoreIn */
+        OrphanIgnoreIn: {
+            /** Note */
+            note?: string | null;
+        };
+        /** OrphanOut */
+        OrphanOut: {
+            /** Expire At */
+            expire_at?: string | null;
+            /** First Seen At */
+            first_seen_at?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Last Seen At */
+            last_seen_at?: string | null;
+            /** Note */
+            note?: string | null;
+            /** Owner Username */
+            owner_username?: string | null;
+            /**
+             * Panel Id
+             * Format: uuid
+             */
+            panel_id: string;
+            /** Panel Name */
+            panel_name?: string | null;
+            /** Remote Status */
+            remote_status?: string | null;
+            /** Status */
+            status: string;
+            /**
+             * Traffic Limit Bytes
+             * @default 0
+             */
+            traffic_limit_bytes: number;
+            /**
+             * Traffic Used Bytes
+             * @default 0
+             */
+            traffic_used_bytes: number;
+            /** Username */
+            username: string;
         };
         /**
          * OwnerAccountOut
@@ -5958,6 +6260,24 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** PanelNodesOut */
+        PanelNodesOut: {
+            /** Detail */
+            detail?: Record<string, never> | null;
+            /** Health Status */
+            health_status: string;
+            /** Last Health At */
+            last_health_at: string | null;
+            /** Last Health Error */
+            last_health_error?: string | null;
+            /** Nodes */
+            nodes: components["schemas"]["NodeOut"][];
+            /**
+             * Panel Id
+             * Format: uuid
+             */
+            panel_id: string;
+        };
         /** PanelOut */
         PanelOut: {
             /** Base Url */
@@ -5973,6 +6293,8 @@ export interface components {
              * @default false
              */
             has_credentials: boolean;
+            /** Health Detail */
+            health_detail?: Record<string, never> | null;
             /** Health Status */
             health_status: string;
             /**
@@ -9044,6 +9366,75 @@ export interface operations {
             };
         };
     };
+    panel_orphans_api_v1_admin_panel_orphans_get: {
+        parameters: {
+            query?: {
+                status?: string | null;
+                panel_id?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ignore_orphan_api_v1_admin_panel_orphans__orphan_id__ignore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orphan_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrphanIgnoreIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrphanOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     panels_api_v1_admin_panels_get: {
         parameters: {
             query?: never;
@@ -9164,6 +9555,68 @@ export interface operations {
         };
     };
     panel_health_api_v1_admin_panels__panel_id__health_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                panel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    panel_nodes_api_v1_admin_panels__panel_id__nodes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                panel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PanelNodesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reconcile_panel_now_api_v1_admin_panels__panel_id__reconcile_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -9641,6 +10094,96 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reconciliation_issues_api_v1_admin_reconciliation_issues_get: {
+        parameters: {
+            query?: {
+                status?: string | null;
+                kind?: string | null;
+                panel_id?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    issue_action_api_v1_admin_reconciliation_issues__issue_id__action_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                issue_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IssueActionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssueOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reconciliation_summary_api_v1_admin_reconciliation_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };
@@ -10827,6 +11370,103 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_store_vpn_notices_api_v1_admin_stores__store_id__vpn_notices_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoticeSettingsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_store_vpn_notices_api_v1_admin_stores__store_id__vpn_notices_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoticeSettingsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoticeSettingsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_store_vpn_notices_api_v1_admin_stores__store_id__vpn_notices_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoticeSettingsOut"];
                 };
             };
             /** @description Validation Error */

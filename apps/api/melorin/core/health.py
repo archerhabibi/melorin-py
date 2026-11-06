@@ -6,6 +6,7 @@ Each probe is small and independently testable; ``app.ready`` only composes them
 from __future__ import annotations
 
 import asyncio
+import datetime as dt
 import logging
 import time
 from dataclasses import dataclass
@@ -16,12 +17,13 @@ from melorin.core.db import session_factory
 from melorin.core.metrics import set_alert, set_gauge
 from melorin.core.redis import get_redis
 from melorin.kernel.models.system import OutboxEvent
-from melorin.kernel.models.vpn import Panel
+from melorin.kernel.models.vpn import Panel, ReconciliationIssue, VpnAccount
 
 log = logging.getLogger("melorin.health")
 WORKER_MAX_AGE_SECONDS = 15
 OUTBOX_BACKLOG_THRESHOLD = 100
 REDIS_TIMEOUT_SECONDS = 2.5
+ISSUE_KINDS = ("missing_on_panel", "panel_unreachable", "owner_mismatch", "limits_mismatch")
 
 
 @dataclass
@@ -29,6 +31,8 @@ class DatabaseProbe:
     ok: bool = False
     pending: int = 0
     unhealthy_panels: int = 0
+    open_issues: dict[str, int] | None = None  # PG-04: open reconciliation issues by kind
+    reconcile_lag_seconds: float | None = None  # PG-04: age of the least recently synced live account (None = nothing to sync)
     error: str | None = None
 
 
@@ -55,9 +59,34 @@ async def probe_database() -> DatabaseProbe:
                 or 0
             )
             result.ok = True
+            await _probe_reconcile(session, result)
     except Exception as exc:
         result.error = str(exc)[:200]
     return result
+
+
+async def _probe_reconcile(session, result: DatabaseProbe) -> None:
+    """Reconcile signals must never turn a healthy database probe into a failed one, so they are best-effort."""
+    try:
+        rows = (
+            await session.execute(
+                select(ReconciliationIssue.kind, func.count()).where(ReconciliationIssue.status == "open").group_by(ReconciliationIssue.kind)
+            )
+        ).all()
+        result.open_issues = {kind: int(n) for kind, n in rows}
+        oldest = await session.scalar(
+            select(func.min(VpnAccount.last_synced_at)).where(VpnAccount.status.in_(("active", "suspended", "limited")), VpnAccount.panel_id.is_not(None))
+        )
+        never = await session.scalar(
+            select(func.count()).select_from(VpnAccount).where(
+                VpnAccount.status.in_(("active", "suspended", "limited")), VpnAccount.panel_id.is_not(None), VpnAccount.last_synced_at.is_(None)
+            )
+        )
+        if oldest is not None and not never:
+            oldest = oldest if oldest.tzinfo else oldest.replace(tzinfo=dt.UTC)
+            result.reconcile_lag_seconds = max(0.0, (dt.datetime.now(dt.UTC) - oldest).total_seconds())
+    except Exception as exc:
+        log.warning("reconcile signals unavailable: %s", type(exc).__name__)
 
 
 async def probe_worker() -> WorkerProbe:
@@ -80,6 +109,10 @@ async def probe_worker() -> WorkerProbe:
 def publish_signals(db: DatabaseProbe, worker: WorkerProbe) -> None:
     set_gauge("melorin_outbox_pending", float(db.pending))
     set_gauge("melorin_panels_unhealthy", float(db.unhealthy_panels))
+    for kind in ISSUE_KINDS:  # always publish every kind (0 when none) so a cleared issue does not leave a stale series
+        set_gauge("melorin_reconcile_open_issues", float((db.open_issues or {}).get(kind, 0)), kind=kind)
+    if db.reconcile_lag_seconds is not None:
+        set_gauge("melorin_reconcile_lag_seconds", float(db.reconcile_lag_seconds))
     set_alert("MelorinDatabaseUnavailable", not db.ok, summary="Database unavailable", severity="critical", details=db.error or "")
     set_alert("MelorinRedisUnavailable", not worker.redis_ok, summary="Redis unavailable", severity="critical")
     set_alert(

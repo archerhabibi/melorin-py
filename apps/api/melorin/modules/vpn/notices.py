@@ -9,8 +9,10 @@ import datetime as dt
 
 from melorin.core import events
 
-# Percent of the traffic package at which the customer is warned (each level at most once per package).
+# Percent of the traffic package at which the customer is warned (each level at most once per package). A store may replace
+# these with its own list (``stores.vpn_notice_settings["traffic_low_levels"]``); see :func:`levels_for_store`.
 TRAFFIC_LOW_LEVELS = (80, 90)
+MAX_LEVELS = 4  # more warnings than this is spam, not service
 
 
 def period_token(account) -> str:
@@ -27,9 +29,37 @@ def traffic_percent(account) -> int | None:
     return None if limit <= 0 else int(used * 100 // limit)
 
 
-def traffic_level(percent: int | None) -> int:
+def normalize_levels(raw) -> tuple[int, ...]:
+    """Validate a store's warning levels: 1-99 whole percents, no duplicates, ascending, at most ``MAX_LEVELS``.
+
+    An empty list is a valid choice ("this store sends no low-traffic warnings"). Anything that is not a list of whole numbers
+    raises ``ValueError`` so the admin API can refuse it instead of silently storing garbage.
+    """
+    if not isinstance(raw, (list, tuple)):
+        raise ValueError("traffic_low_levels must be a list of percents")
+    out: set[int] = set()
+    for item in raw:
+        if isinstance(item, bool) or not isinstance(item, int) or not 1 <= item <= 99:
+            raise ValueError("every level must be a whole percent between 1 and 99")
+        out.add(item)
+    if len(out) > MAX_LEVELS:
+        raise ValueError(f"at most {MAX_LEVELS} levels")
+    return tuple(sorted(out))
+
+
+def levels_for_store(settings: dict | None) -> tuple[int, ...]:
+    """The store's levels, or the platform default when it has none (or a stored value is no longer valid)."""
+    if not settings or "traffic_low_levels" not in settings:
+        return TRAFFIC_LOW_LEVELS
+    try:
+        return normalize_levels(settings["traffic_low_levels"])
+    except ValueError:
+        return TRAFFIC_LOW_LEVELS
+
+
+def traffic_level(percent: int | None, levels: tuple[int, ...] = TRAFFIC_LOW_LEVELS) -> int:
     """Highest warning level reached at ``percent`` (0 = below every level)."""
-    return max((lv for lv in TRAFFIC_LOW_LEVELS if percent is not None and percent >= lv), default=0)
+    return max((lv for lv in levels if percent is not None and percent >= lv), default=0)
 
 
 def reset_for_renewal(account) -> None:

@@ -35,6 +35,8 @@ class Store(IdMixin, TimestampMixin, Base):
     bot_status: Mapped[str | None] = mapped_column(String(20))
     bot_status_detail: Mapped[str | None] = mapped_column(String(300))
     bot_seen_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    # PG-06: this store's own VPN notice settings, today ``{"traffic_low_levels": [80, 90]}``. NULL = platform defaults.
+    vpn_notice_settings: Mapped[dict | None] = mapped_column(JSON)
 
 
 class BotStoreBinding(IdMixin, TimestampMixin, Base):
