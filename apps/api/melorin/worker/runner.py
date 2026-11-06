@@ -75,9 +75,11 @@ async def _on_provisioning_failed(session, p: dict):
 
 
 async def _on_order_completed(session, p: dict):
+    from melorin.modules.loyalty.service import on_order_completed as loyalty_on_order_completed
     from melorin.modules.referral.service import on_order_completed
 
     await on_order_completed(session, _oid(p))
+    await loyalty_on_order_completed(session, _oid(p))
     await _webhook(session, "order.completed", p, f"order.completed:{p.get('order_id')}")
 
 
@@ -88,9 +90,11 @@ async def _on_order_delivery(session, p: dict):
 
 
 async def _on_order_refunded(session, p: dict):
+    from melorin.modules.loyalty.service import on_order_refunded as loyalty_on_order_refunded
     from melorin.modules.referral.service import on_order_refunded
 
     await on_order_refunded(session, _oid(p))
+    await loyalty_on_order_refunded(session, _oid(p))
     await _webhook(session, "order.refunded", p, f"order.refunded:{p.get('order_id')}")
 
 

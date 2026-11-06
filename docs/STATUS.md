@@ -6,12 +6,12 @@
 
 | Measurement | Value |
 |---|---|
-| Alembic head | `0039_target_selection` |
-| Migrations | 39 |
-| ORM tables | 59 |
-| API operations | 273 |
-| API paths | 239 |
-| Test files / test functions (static count) | 164 / 1467 |
+| Alembic head | `0040_customer_loyalty_club` |
+| Migrations | 40 |
+| ORM tables | 65 |
+| API operations | 285 |
+| API paths | 249 |
+| Test files / test functions (static count) | 169 / 1539 |
 | Coverage | not measured here (CI writes `apps/api/coverage.xml`; run `pytest --cov=melorin --cov-report=xml`) |
 | Documents: repo root / `docs/` / `docs/history/` (tests only) | 3 / 32 / 4 |
 

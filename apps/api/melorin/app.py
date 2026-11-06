@@ -20,6 +20,7 @@ from melorin.modules.catalog.router import public as catalog_router
 from melorin.modules.identity.router import auth as auth_router, me as me_router
 from melorin.channels.telegram.oidc_router import tgoidc as telegram_oidc_router
 from melorin.channels.telegram.web_router import tgweb as telegram_web_router
+from melorin.modules.loyalty.router import router as loyalty_router
 from melorin.modules.notifications.router import router as notifications_router
 from melorin.modules.orders.router import router as orders_router
 from melorin.modules.payments.router import router as payments_router
@@ -72,6 +73,7 @@ app.include_router(internal_router, prefix="/api/v1")
 app.include_router(reseller_api_router, prefix="/api/v1")
 app.include_router(reports_router, prefix="/api/v1")
 app.include_router(referral_router, prefix="/api/v1")
+app.include_router(loyalty_router, prefix="/api/v1")
 app.include_router(tickets_router, prefix="/api/v1")
 app.include_router(admin_router, prefix="/api/v1")
 app.include_router(event_center_admin_router, prefix="/api/v1")

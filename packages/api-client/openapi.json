@@ -25,6 +25,47 @@
         "title": "AddMessage",
         "type": "object"
       },
+      "AdjustIn": {
+        "properties": {
+          "delta": {
+            "maximum": 1000000000.0,
+            "minimum": -1000000000.0,
+            "title": "Delta",
+            "type": "integer"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          },
+          "reason": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "delta",
+          "reason"
+        ],
+        "title": "AdjustIn",
+        "type": "object"
+      },
       "AdminAccessIn": {
         "properties": {
           "enabled": {
@@ -3777,6 +3818,60 @@
         "title": "ProductPatch",
         "type": "object"
       },
+      "ProgramIn": {
+        "properties": {
+          "earn_unit": {
+            "maximum": 1000000000000.0,
+            "minimum": 1.0,
+            "title": "Earn Unit",
+            "type": "integer"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "first_order_bonus": {
+            "default": 0,
+            "maximum": 1000000000.0,
+            "minimum": 0.0,
+            "title": "First Order Bonus",
+            "type": "integer"
+          },
+          "max_points_per_order": {
+            "anyOf": [
+              {
+                "maximum": 1000000000.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Points Per Order"
+          },
+          "points_per_unit": {
+            "maximum": 1000000000.0,
+            "minimum": 1.0,
+            "title": "Points Per Unit",
+            "type": "integer"
+          },
+          "referral_bonus": {
+            "default": 0,
+            "maximum": 1000000000.0,
+            "minimum": 0.0,
+            "title": "Referral Bonus",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "enabled",
+          "earn_unit",
+          "points_per_unit"
+        ],
+        "title": "ProgramIn",
+        "type": "object"
+      },
       "QuoteRequest": {
         "properties": {
           "bundle_id": {
@@ -4312,6 +4407,91 @@
           "user_id"
         ],
         "title": "RevokeIn",
+        "type": "object"
+      },
+      "RewardIn": {
+        "properties": {
+          "cost_points": {
+            "maximum": 1000000000.0,
+            "minimum": 1.0,
+            "title": "Cost Points",
+            "type": "integer"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "is_active": {
+            "default": true,
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "kind": {
+            "default": "wallet_credit",
+            "maxLength": 20,
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "per_user_limit": {
+            "anyOf": [
+              {
+                "maximum": 1000000000.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Per User Limit"
+          },
+          "sort_order": {
+            "default": 0,
+            "maximum": 10000.0,
+            "minimum": -10000.0,
+            "title": "Sort Order",
+            "type": "integer"
+          },
+          "stock": {
+            "anyOf": [
+              {
+                "maximum": 1000000000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stock"
+          },
+          "value": {
+            "maximum": 1000000000000.0,
+            "minimum": 1.0,
+            "title": "Value",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "value",
+          "cost_points"
+        ],
+        "title": "RewardIn",
         "type": "object"
       },
       "ServerOut": {
@@ -5784,6 +5964,53 @@
           "updated_at"
         ],
         "title": "TicketOut",
+        "type": "object"
+      },
+      "TierIn": {
+        "properties": {
+          "min_points": {
+            "maximum": 1000000000.0,
+            "minimum": 0.0,
+            "title": "Min Points",
+            "type": "integer"
+          },
+          "multiplier_bp": {
+            "default": 10000,
+            "maximum": 100000.0,
+            "minimum": 1.0,
+            "title": "Multiplier Bp",
+            "type": "integer"
+          },
+          "name": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "min_points"
+        ],
+        "title": "TierIn",
+        "type": "object"
+      },
+      "TiersIn": {
+        "properties": {
+          "tiers": {
+            "items": {
+              "$ref": "#/components/schemas/TierIn"
+            },
+            "maxItems": 11,
+            "minItems": 1,
+            "title": "Tiers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "tiers"
+        ],
+        "title": "TiersIn",
         "type": "object"
       },
       "TokenPair": {
@@ -15484,6 +15711,688 @@
         "summary": "Patch Coupon",
         "tags": [
           "catalog"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/loyalty": {
+      "get": {
+        "description": "The club of the store the customer is in: his points and tier, the ladder, the rewards and his latest entries.",
+        "operationId": "my_club_api_v1_stores__store_id__loyalty_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "My Club",
+        "tags": [
+          "loyalty"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/loyalty/history": {
+      "get": {
+        "description": "One page of his points entries in THIS store (newest first); pass the last ``created_at`` as ``before`` for the next page.",
+        "operationId": "my_history_api_v1_stores__store_id__loyalty_history_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "before",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Before"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "My History",
+        "tags": [
+          "loyalty"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/loyalty/manage/adjust": {
+      "post": {
+        "description": "Grant (+) or deduct (-) points of one member of this store; the reason is mandatory and audited.",
+        "operationId": "adjust_points_api_v1_stores__store_id__loyalty_manage_adjust_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdjustIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Adjust Points",
+        "tags": [
+          "loyalty"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/loyalty/manage/program": {
+      "get": {
+        "operationId": "get_program_api_v1_stores__store_id__loyalty_manage_program_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Program",
+        "tags": [
+          "loyalty"
+        ]
+      },
+      "put": {
+        "operationId": "put_program_api_v1_stores__store_id__loyalty_manage_program_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProgramIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Put Program",
+        "tags": [
+          "loyalty"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/loyalty/manage/rewards": {
+      "get": {
+        "operationId": "list_rewards_api_v1_stores__store_id__loyalty_manage_rewards_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Rewards",
+        "tags": [
+          "loyalty"
+        ]
+      },
+      "post": {
+        "operationId": "create_reward_api_v1_stores__store_id__loyalty_manage_rewards_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RewardIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Reward",
+        "tags": [
+          "loyalty"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/loyalty/manage/rewards/{reward_id}": {
+      "put": {
+        "operationId": "update_reward_api_v1_stores__store_id__loyalty_manage_rewards__reward_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "reward_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Reward Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RewardIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Reward",
+        "tags": [
+          "loyalty"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/loyalty/manage/summary": {
+      "get": {
+        "operationId": "club_summary_api_v1_stores__store_id__loyalty_manage_summary_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Club Summary",
+        "tags": [
+          "loyalty"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/loyalty/manage/tiers": {
+      "put": {
+        "description": "Replace the whole ladder at once, so it is always valid: it starts at 0 points and the thresholds rise.",
+        "operationId": "put_tiers_api_v1_stores__store_id__loyalty_manage_tiers_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TiersIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Put Tiers",
+        "tags": [
+          "loyalty"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/loyalty/redemptions": {
+      "get": {
+        "operationId": "my_redemptions_api_v1_stores__store_id__loyalty_redemptions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "My Redemptions",
+        "tags": [
+          "loyalty"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/loyalty/rewards/{reward_id}/redeem": {
+      "post": {
+        "description": "Spend points on a reward. A retry with the same ``Idempotency-Key`` returns the first result and spends nothing more.",
+        "operationId": "redeem_reward_api_v1_stores__store_id__loyalty_rewards__reward_id__redeem_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "reward_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Reward Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "minLength": 8,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Redeem Reward",
+        "tags": [
+          "loyalty"
         ]
       }
     },

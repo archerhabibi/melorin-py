@@ -225,6 +225,23 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/health/live` | Live |
 | GET | `/health/ready` | Ready |
 
+### `loyalty` (12)
+
+| Method | Path | Operation |
+|---|---|---|
+| GET | `/api/v1/stores/{store_id}/loyalty` | My Club |
+| GET | `/api/v1/stores/{store_id}/loyalty/history` | My History |
+| POST | `/api/v1/stores/{store_id}/loyalty/manage/adjust` | Adjust Points |
+| GET | `/api/v1/stores/{store_id}/loyalty/manage/program` | Get Program |
+| PUT | `/api/v1/stores/{store_id}/loyalty/manage/program` | Put Program |
+| GET | `/api/v1/stores/{store_id}/loyalty/manage/rewards` | List Rewards |
+| POST | `/api/v1/stores/{store_id}/loyalty/manage/rewards` | Create Reward |
+| PUT | `/api/v1/stores/{store_id}/loyalty/manage/rewards/{reward_id}` | Update Reward |
+| GET | `/api/v1/stores/{store_id}/loyalty/manage/summary` | Club Summary |
+| PUT | `/api/v1/stores/{store_id}/loyalty/manage/tiers` | Put Tiers |
+| GET | `/api/v1/stores/{store_id}/loyalty/redemptions` | My Redemptions |
+| POST | `/api/v1/stores/{store_id}/loyalty/rewards/{reward_id}/redeem` | Redeem Reward |
+
 ### `me` (10)
 
 | Method | Path | Operation |
