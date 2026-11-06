@@ -48,6 +48,7 @@ import {
   UserPlus,
   Bot,
   Gift,
+  Award,
   UserCog,
 } from 'lucide-react';
 
@@ -81,6 +82,7 @@ const groups = [
       ['مرکز رویداد', BellRing, 'event-center'],
       ['کوپن‌ها', Percent, 'coupons'],
       ['برنامه‌های معرفی', Gift, 'referral-programs'],
+      ['باشگاه مشتریان', Award, 'loyalty-club'],
     ],
   ],
   [

@@ -36,11 +36,13 @@ describe('admin per-store referral programmes', () => {
   it('loads the plans and numbers of the picked store only, and switches with the store', async () => {
     const { calls } = setup();
     await screen.findByTestId('plan-signup_reward');
-    expect(calls.some(([, p]) => p === '/api/v1/admin/referral-rules?store_id=main1')).toBe(true);
-    expect(calls.some(([, p]) => p === '/api/v1/admin/stores/main1/referrals/summary')).toBe(true);
+    const called = (path) => calls.some(([, p]) => p === path);
+    // The plans render before the summary request is recorded, so wait for each call instead of reading `calls` once.
+    await waitFor(() => expect(called('/api/v1/admin/referral-rules?store_id=main1')).toBe(true));
+    await waitFor(() => expect(called('/api/v1/admin/stores/main1/referrals/summary')).toBe(true));
     await userEvent.selectOptions(screen.getByLabelText('فروشگاه'), 'res1');
-    await waitFor(() => expect(calls.some(([, p]) => p === '/api/v1/admin/referral-rules?store_id=res1')).toBe(true));
-    expect(calls.some(([, p]) => p === '/api/v1/admin/stores/res1/referrals/summary')).toBe(true);
+    await waitFor(() => expect(called('/api/v1/admin/referral-rules?store_id=res1')).toBe(true));
+    await waitFor(() => expect(called('/api/v1/admin/stores/res1/referrals/summary')).toBe(true));
   });
 
   it('saves a plan for the picked store (store id in the body, same one as the list)', async () => {

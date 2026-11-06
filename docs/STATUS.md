@@ -6,14 +6,14 @@
 
 | Measurement | Value |
 |---|---|
-| Alembic head | `0041_panel_admin_guards` |
-| Migrations | 41 |
-| ORM tables | 61 |
-| API operations | 285 |
-| API paths | 250 |
-| Test files / test functions (static count) | 168 / 1517 |
+| Alembic head | `0042_customer_loyalty_club` |
+| Migrations | 42 |
+| ORM tables | 67 |
+| API operations | 297 |
+| API paths | 260 |
+| Test files / test functions (static count) | 172 / 1577 |
 | Coverage | not measured here (CI writes `apps/api/coverage.xml`; run `pytest --cov=melorin --cov-report=xml`) |
-| Documents: repo root / `docs/` / `docs/history/` (tests only) | 3 / 33 / 4 |
+| Documents: repo root / `docs/` / `docs/history/` (tests only) | 3 / 34 / 4 |
 
 Where things live: requirements and design `docs/01`-`docs/17` (13-17 are design records; 12 and 15 were merged into `DECISIONS.md` and `14`); route list `docs/API.md`;
 operations `docs/RUNBOOK.md`; decisions `docs/DECISIONS.md`; change log `docs/CHANGE_LOG.md`;
