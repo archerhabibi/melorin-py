@@ -170,6 +170,7 @@ async def _exercise_everything() -> list[dict]:
     await a.get_node(1)
     await a.reconnect_node(1)
     await a.get_settings()
+    await a.list_accounts(offset=0, limit=50)
     await a.revoke_account("alice")
     t = _adapter(panel, user_template_id=2)  # template mode: create from template, then re-apply product limits + owner
     await t.create_account(AccountSpec(username="bob", expire_at=EXPIRE, traffic_bytes=GB, note="n", owner="store-1"))

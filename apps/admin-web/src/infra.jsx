@@ -92,7 +92,7 @@ export const clearParam = (name) => {
 /* ---------- semantics ---------- */
 export const KIND = { sanaei: 'سنایی (3x-ui)', pasarguard: 'پاسارگارد', mock: 'Mock' };
 export const health = (p) =>
-  p?.health_status === 'healthy' || p?.health_status === 'unhealthy' ? p.health_status : 'unknown';
+  ['healthy', 'degraded', 'unhealthy'].includes(p?.health_status) ? p.health_status : 'unknown';
 export const HCOLOR = { healthy: 'var(--ok)', unhealthy: 'var(--bd)', unknown: 'var(--mu)' };
 export const HLABEL = { healthy: 'سالم', unhealthy: 'ناسالم', unknown: 'بررسی‌نشده' };
 

@@ -7,7 +7,7 @@ import logging
 import os
 from pathlib import Path
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from melorin.core import events, integrations, settings_store
 from melorin.core.db import session_factory, utcnow
@@ -15,7 +15,7 @@ from melorin.kernel.models.identity import VerificationCode
 from melorin.kernel.models.system import BackupRun
 from melorin.modules.eventcenter import report as event_center_report
 from melorin.modules.eventcenter import rules as event_center_rules
-from melorin.modules.vpn import capabilities, service
+from melorin.modules.vpn import capabilities, health, notices, reconcile
 from melorin.kernel.models.vpn import Panel, VpnAccount
 
 log = logging.getLogger("melorin.jobs")
@@ -88,32 +88,36 @@ async def daily_report_job(ctx=None):
 
 
 async def panel_health_job(ctx=None):
+    """Every 2 minutes: panel health in two layers (PG-01). The panel must answer AND have a connected node; a failing node
+    alone makes the panel ``degraded`` (still selling), no connected node makes it ``unhealthy`` (leaves server selection)."""
     async with session_factory()() as s:
         from melorin.modules.vpn.adapters.registry import build_adapter
 
         panels = (await s.scalars(select(Panel).where(Panel.is_enabled.is_(True)))).all()
         for p in panels:
             adapter = None
-            previous = p.health_status
+            result = health.HealthResult(health.UNHEALTHY, "unknown")
             try:
                 adapter = build_adapter(p)
-                ok = await adapter.health_check()
-                p.health_status, p.last_health_at = "healthy" if ok else "unhealthy", utcnow()
-                p.last_health_error = None if ok else "health check returned false"
-                if ok and capabilities.is_stale(p):  # hourly: permissions change when an admin edits the panel role
+                result = await health.check_panel(s, p, adapter)
+                if result.status != health.UNHEALTHY and capabilities.is_stale(p):  # hourly: permissions change when the panel role is edited
                     try:
                         await capabilities.refresh(p, adapter)
                     except Exception:  # a probe problem must never flip the panel to unhealthy
                         log.warning("panel capability refresh failed panel=%s", p.id, exc_info=True)
             except Exception as exc:
-                p.health_status, p.last_health_at, p.last_health_error = "unhealthy", utcnow(), str(exc)[:500]
+                result = health.HealthResult(
+                    health.UNHEALTHY, str(exc)[:500], {"layer": 1, "sellable": False, "checked_at": utcnow().isoformat()}
+                )
             finally:
                 if adapter:
                     try:
                         await _close_adapter(adapter)
                     except Exception:
                         log.exception("panel adapter close failed panel=%s", p.id)
+            previous = health.apply(p, result)
             await event_center_rules.notify_panel_health(s, p, previous)
+            await event_center_rules.notify_panel_nodes(s, p, result.node_changes)
         await s.commit()
 
 
@@ -122,24 +126,18 @@ async def expiry_job(ctx=None):
         now = utcnow()
         accounts = (
             await s.scalars(
-                select(VpnAccount).where(VpnAccount.status == "active", VpnAccount.expires_at.is_not(None), VpnAccount.expires_at <= now)
+                select(VpnAccount).where(
+                    VpnAccount.status == "active",
+                    VpnAccount.expires_at.is_not(None),
+                    VpnAccount.expires_at <= now,
+                    # PG-02: an ``on_hold`` account (waiting for its first connection) has no running clock yet
+                    or_(VpnAccount.remote_status.is_(None), VpnAccount.remote_status != "on_hold"),
+                )
             )
         ).all()
         for a in accounts:
             a.status = "expired"
-            await events.emit(
-                s,
-                events.NOTIFY,
-                {
-                    "user_id": a.user_id,
-                    "store_id": a.store_id,
-                    "kind": "vpn_expired",
-                    "title": "اکانت منقضی شد",
-                    "body": "اکانت VPN شما منقضی شده است.",
-                    "dedup_key": f"notify:expired:{a.id}",
-                },
-                dedup_key=f"notify:expired:{a.id}",
-            )
+            await notices.expired(s, a)
         await s.commit()
 
 
@@ -158,28 +156,31 @@ async def near_expiry_job(ctx=None):
             )
         ).all()
         for a in accounts:
-            a.near_expiry_notified = True
-            await events.emit(
-                s,
-                events.NOTIFY,
-                {
-                    "user_id": a.user_id,
-                    "store_id": a.store_id,
-                    "kind": "vpn_near_expiry",
-                    "title": "انقضای اکانت نزدیک است",
-                    "body": "اکانت VPN شما به‌زودی منقضی می‌شود.",
-                    "dedup_key": f"notify:near-expiry:{a.id}",
-                },
-                dedup_key=f"notify:near-expiry:{a.id}",
-            )
+            a.near_expiry_notified = True  # reset by a renewal (notices.reset_for_renewal), so the NEXT period warns again
+            await notices.near_expiry(s, a)
         await s.commit()
 
 
 async def reconciliation_job(ctx=None):
+    """Hourly: reconcile v2 (PG-04). One batched read per panel; accounts that waited longest go first; issues open, refresh
+    and close themselves. A failing panel never stops the others."""
+    done = 0
     async with session_factory()() as s:
-        rows = (await s.scalars(select(VpnAccount.id).where(VpnAccount.status.in_(["active", "suspended"])).limit(500))).all()
-        for id in rows:
-            await service.reconcile(s, id)
+        panel_ids = (await s.scalars(select(Panel.id).where(Panel.is_enabled.is_(True)))).all()
+    for panel_id in panel_ids:
+        async with session_factory()() as s:
+            try:
+                panel = await s.get(Panel, panel_id)
+                if panel is None:
+                    continue
+                result = await reconcile.reconcile_panel(s, panel)
+                done += result.checked
+                if result.unreachable:
+                    log.warning("reconcile: panel=%s unreachable: %s", panel_id, "; ".join(result.errors))
+            except Exception:
+                await s.rollback()
+                log.warning("reconcile failed panel=%s", panel_id, exc_info=True)
+    return done
 
 
 async def privacy_retention_job(ctx=None):

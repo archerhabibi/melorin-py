@@ -174,7 +174,8 @@ async def notify_panel_health(session, panel, previous: str | None) -> None:
     """Tell the admin's errors topic when a panel turns unhealthy (and when it recovers).
 
     Called by the health job and the manual health check with the status the panel had *before* this check, so a panel
-    that stays unhealthy does not repeat the message every 5 minutes. Best-effort: it can never fail the health check.
+    that stays unhealthy does not repeat the message every 5 minutes. ``degraded`` (some node failing, panel still serving) is
+    announced by :func:`notify_panel_nodes`, which names the nodes and the fix. Best-effort: it can never fail the health check.
     """
     now = panel.health_status
     if now == previous:
@@ -184,6 +185,8 @@ async def notify_panel_health(session, panel, previous: str | None) -> None:
         text = f"🔴 پنل «{panel.name}» ناسالم شد\nخطا: {error}"
     elif now == "healthy" and previous == "unhealthy":
         text = f"🟢 پنل «{panel.name}» دوباره سالم شد"
+    elif now == "degraded" and previous == "unhealthy":
+        text = f"🟠 پنل «{panel.name}» پاسخ می‌دهد ولی بعضی نودها خطا دارند"
     else:
         return
     try:
@@ -191,6 +194,35 @@ async def notify_panel_health(session, panel, previous: str | None) -> None:
             await events.emit(session, events.EVENT_CENTER, {"store_id": None, "topic": topics.ERRORS, "text": text})
     except Exception:
         log.exception("event-center panel health notice failed panel=%s", panel.id)
+
+
+def panel_nodes_text(panel_name: str, changes: list[dict]) -> str | None:
+    """One message per panel and check for every node that started or stopped failing (a 4-node outage is ONE notice)."""
+    failed = [c for c in changes if c["to"] in ("error", "limited", "unknown")]
+    recovered = [c for c in changes if c["from"] in ("error", "limited", "unknown") and c["to"] not in ("error", "limited", "unknown")]
+    lines: list[str] = []
+    if failed:
+        lines.append(f"🟠 نود(های) پنل «{panel_name}» خطا دارند:")
+        for c in failed[:8]:
+            msg = str(c.get("message") or "").strip()[:120]
+            lines.append(f"• {c['name']}" + (f" — {msg}" if msg else ""))
+        if len(failed) > 8:
+            lines.append(f"… و {len(failed) - 8} نود دیگر")
+    if recovered:
+        lines.append(f"🟢 نود(های) پنل «{panel_name}» دوباره سالم شدند: " + "، ".join(c["name"] for c in recovered[:8]))
+    return "\n".join(lines) or None
+
+
+async def notify_panel_nodes(session, panel, changes: list[dict]) -> None:
+    """Event Center notice for node status transitions found by the health job (PG-01). Best-effort."""
+    text = panel_nodes_text(panel.name, changes)
+    if not text:
+        return
+    try:
+        async with session.begin_nested():
+            await events.emit(session, events.EVENT_CENTER, {"store_id": None, "topic": topics.ERRORS, "text": text})
+    except Exception:
+        log.exception("event-center panel node notice failed panel=%s", panel.id)
 
 
 def _size(n: int | None) -> str:

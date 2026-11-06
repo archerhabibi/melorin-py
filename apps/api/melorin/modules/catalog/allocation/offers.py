@@ -6,6 +6,7 @@ import dataclasses
 import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from melorin.domain.panel_health import SELLABLE_STATES
 from melorin.core.errors import AppError, NotFound
 from melorin.modules.catalog import service as catalog_service
 from melorin.kernel.models.catalog import Product, StoreBundlePrice, StoreProduct
@@ -125,7 +126,7 @@ async def sellable_bundles(session: AsyncSession, store: Store) -> list[BundleVi
                         BundleMember.bundle_id == g.id,
                         BundleMember.is_enabled.is_(True),
                         Panel.is_enabled.is_(True),
-                        Panel.health_status == "healthy",
+                        Panel.health_status.in_(SELLABLE_STATES),
                     )
                     .order_by(BundleMember.sort)
                 )

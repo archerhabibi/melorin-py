@@ -151,6 +151,8 @@ class PanelOut(BaseModel):
     has_credentials: bool = False
     # PG-00: effective capability flags + why a supported feature is denied (see modules/vpn/capabilities.py); the UI hides what is off
     capabilities: dict | None = None
+    # PG-01: node-level health (counts, failing nodes with fix hints, ``sellable``); ``health_status`` may be ``degraded``
+    health_detail: dict | None = None
     created_at: dt.datetime | None = None
     updated_at: dt.datetime | None = None
 

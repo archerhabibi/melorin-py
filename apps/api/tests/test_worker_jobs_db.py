@@ -18,6 +18,7 @@ from melorin.core.db import utcnow
 from melorin.kernel.models.identity import VerificationCode
 from melorin.kernel.models.system import BackupRun, OutboxEvent, SystemSetting
 from melorin.kernel.models.vpn import Panel, VpnAccount
+from melorin.modules.vpn import notices, reconcile
 from melorin.worker import jobs
 
 
@@ -69,7 +70,7 @@ async def test_expiry_job_expires_only_overdue_active_accounts_and_notifies_once
         st = {a.id: a.status for a in (await s.scalars(select(VpnAccount))).all()}
     assert st[old.id] == "expired" and st[fresh.id] == "active" and st[no_end.id] == "active" and st[already.id] == "suspended"
     events = await _outbox(maker)
-    assert [e.dedup_key for e in events] == [f"notify:expired:{old.id}"]
+    assert [e.dedup_key for e in events] == [f"notify:expired:{old.id}:{notices.period_token(old)}"]
     assert events[0].payload["kind"] == "vpn_expired" and events[0].payload["user_id"] == str(old.user_id)
 
 
@@ -85,7 +86,7 @@ async def test_near_expiry_job_respects_window_flag_and_dedup(maker):
     async with maker() as s:
         flags = {a.id: a.near_expiry_notified for a in (await s.scalars(select(VpnAccount))).all()}
     assert flags[soon.id] is True and flags[later.id] is False and flags[past.id] is False and flags[done.id] is True
-    assert [e.dedup_key for e in await _outbox(maker)] == [f"notify:near-expiry:{soon.id}"]
+    assert [e.dedup_key for e in await _outbox(maker)] == [f"notify:near-expiry:{soon.id}:{notices.period_token(soon)}"]
 
 
 async def test_near_expiry_window_is_configurable_through_settings(maker):
@@ -147,20 +148,23 @@ async def test_close_adapter_tolerates_adapters_without_close():
 # --- reconciliation / retention / telegram gc ----------------------------------------------------------------------
 
 
-async def test_reconciliation_job_visits_active_and_suspended_accounts_only(maker, monkeypatch):
+async def test_reconciliation_job_runs_reconcile_v2_for_enabled_panels_and_survives_a_failing_one(maker, monkeypatch):
     seen = []
 
-    async def fake(session, account_id):
-        seen.append(account_id)
-        return "ok"
+    async def fake(session, panel, **kw):
+        seen.append(panel.name)
+        if panel.name == "boom":
+            raise RuntimeError("panel exploded")
+        return reconcile.PanelResult(panel_id=panel.id, checked=3)
 
-    monkeypatch.setattr(jobs.service, "reconcile", fake)
+    monkeypatch.setattr(jobs.reconcile, "reconcile_panel", fake)
     async with maker() as s:
-        a, b = await _account(s), await _account(s, status="suspended")
-        await _account(s, status="expired")
+        for name, enabled in (("a", True), ("boom", True), ("z", True), ("off", False)):
+            s.add(Panel(name=name, kind="mock", base_url="http://x", is_enabled=enabled))
         await s.commit()
-    await jobs.reconciliation_job()
-    assert set(seen) == {a.id, b.id}
+    done = await jobs.reconciliation_job()
+    assert sorted(seen) == ["a", "boom", "z"]  # a disabled panel is skipped, one failing panel does not stop the others
+    assert done == 6
 
 
 async def test_privacy_retention_deletes_only_old_expired_codes_and_returns_count(maker):

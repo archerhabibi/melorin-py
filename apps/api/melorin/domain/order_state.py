@@ -53,6 +53,7 @@ class VpnStatus(StrEnum):
     ACTIVE = "active"
     SUSPENDED = "suspended"
     EXPIRED = "expired"
+    LIMITED = "limited"  # PG-02: the panel stopped the account because its traffic quota is used up (renewable)
     REVOKED = "revoked"
     ARCHIVED = "archived"
 
