@@ -89,6 +89,33 @@ async def test_near_expiry_job_respects_window_flag_and_dedup(maker):
     assert [e.dedup_key for e in await _outbox(maker)] == [f"notify:near-expiry:{soon.id}:{notices.period_token(soon)}"]
 
 
+async def test_a_renewed_account_is_warned_again_before_its_next_expiry(maker):
+    """PG-06 acceptance: purchase -> near expiry -> notice -> renewal -> near expiry again -> a SECOND notice."""
+    async with maker() as s:
+        acc = await _account(s, expires_in_hours=10)
+        await s.commit()
+    await jobs.near_expiry_job()
+    first = [e.dedup_key for e in await _outbox(maker)]
+    assert len(first) == 1 and first[0].startswith(f"notify:near-expiry:{acc.id}:")
+
+    async with maker() as s:  # a successful renewal: new expiry far away, flags reset (what provisioning does)
+        row = await s.get(VpnAccount, acc.id)
+        row.expires_at = utcnow() + dt.timedelta(days=30)
+        notices.reset_for_renewal(row)
+        await s.commit()
+    await jobs.near_expiry_job()
+    assert [e.dedup_key for e in await _outbox(maker)] == first  # nothing to warn about yet
+
+    async with maker() as s:  # ... the renewed package is about to end
+        row = await s.get(VpnAccount, acc.id)
+        row.expires_at = utcnow() + dt.timedelta(hours=20)
+        await s.commit()
+    await jobs.near_expiry_job()
+    await jobs.near_expiry_job()  # idempotent inside the period
+    keys = [e.dedup_key for e in await _outbox(maker)]
+    assert len(keys) == 2 and keys[0] == first[0] and keys[1] != keys[0]
+
+
 async def test_near_expiry_window_is_configurable_through_settings(maker):
     async with maker() as s:
         a = await _account(s, expires_in_hours=100)
