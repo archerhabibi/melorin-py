@@ -1,4 +1,4 @@
-"""Migration 0040 creates exactly the loyalty tables the models describe (no drift) and removes them again on downgrade."""
+"""Migration 0042 creates exactly the loyalty tables the models describe (no drift) and removes them again on downgrade."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ VERSIONS = Path(__file__).resolve().parents[1] / "alembic" / "versions"
 
 
 def _migration():
-    spec = importlib.util.spec_from_file_location("m0040", VERSIONS / "0040_customer_loyalty_club.py")
+    spec = importlib.util.spec_from_file_location("m0042", VERSIONS / "0042_customer_loyalty_club.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -39,7 +39,7 @@ def _engine_without_loyalty():
 
 def test_revision_chain_is_linear():
     m = _migration()
-    assert (m.revision, m.down_revision) == ("0040_customer_loyalty_club", "0039_target_selection")
+    assert (m.revision, m.down_revision) == ("0042_customer_loyalty_club", "0041_panel_admin_guards")
 
 
 def test_upgrade_matches_the_models_and_downgrade_removes_every_table():

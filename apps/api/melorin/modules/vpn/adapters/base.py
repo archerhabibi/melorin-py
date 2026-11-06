@@ -27,6 +27,7 @@ class AccountSpec:
     traffic_bytes: int  # 0 = unlimited
     max_devices: int | None = None
     note: str | None = None
+    owner: str | None = None  # panel admin that must own the new account (PasarGuard: the store's Operator admin)
 
 
 @dataclass

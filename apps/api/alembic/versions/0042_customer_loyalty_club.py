@@ -13,8 +13,8 @@ Six new tables, nothing existing is altered, so the migration is safe on a live 
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0040_customer_loyalty_club"
-down_revision = "0039_target_selection"
+revision = "0042_customer_loyalty_club"
+down_revision = "0041_panel_admin_guards"
 branch_labels = None
 depends_on = None
 

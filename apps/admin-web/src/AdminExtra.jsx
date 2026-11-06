@@ -4,6 +4,7 @@ import { Plus, Search, X } from 'lucide-react';
 import { Badge, PasswordInput, confirmDialog, isStatus } from './ui.jsx';
 const ReportsView = lazy(() => import('./ReportsView.jsx'));
 const PanelsView = lazy(() => import('./PanelsView.jsx'));
+const PanelAdminsView = lazy(() => import('./PanelAdminsView.jsx'));
 const InfraHealthView = lazy(() => import('./InfraHealthView.jsx'));
 const ProductsView = lazy(() => import('./ProductsView.jsx'));
 const BundlesView = lazy(() => import('./BundlesView.jsx'));
@@ -699,6 +700,7 @@ export const extraRoutes = {
   تیکت‌ها: Tickets,
   'محصولات VPN': ProductsView,
   'پنل‌ها و سرورها': PanelsView,
+  'ادمین‌های پنل': PanelAdminsView,
   'بسته‌های فروش': BundlesView,
   کوپن‌ها: Coupons,
   'برنامه‌های معرفی': ReferralProgramsView,
