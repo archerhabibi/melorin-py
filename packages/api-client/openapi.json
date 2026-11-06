@@ -3147,6 +3147,17 @@
             "title": "Base Url",
             "type": "string"
           },
+          "capabilities": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capabilities"
+          },
           "config": {
             "anyOf": [
               {

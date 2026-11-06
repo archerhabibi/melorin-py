@@ -19,6 +19,9 @@ class Panel(IdMixin, TimestampMixin, Base):
     health_status: Mapped[str] = mapped_column(String(20), default="unknown")
     last_health_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     last_health_error: Mapped[str | None] = mapped_column(Text)
+    # PG-00: what this connection can do (adapter declaration narrowed by the panel role); see modules/vpn/capabilities.py
+    capabilities: Mapped[dict | None] = mapped_column(JSON)
+    capabilities_checked_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Server(IdMixin, TimestampMixin, Base):
