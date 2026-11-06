@@ -32,7 +32,9 @@ from pathlib import Path
 # Schemas the adapter reads or writes today, plus the ones the Phase 1+ roadmap (docs/PASARGUARD-MANAGEMENT) will need.
 TRACKED_SCHEMAS = (
     "UserResponse", "UserCreate", "UserModify", "UserTemplateResponse", "NextPlanModel",
-    "AdminDetails", "AdminCreate", "AdminModify", "RoleResponse",
+    "AdminDetails", "AdminCreate", "AdminModify", "AdminRoleData", "AdminRoleResponse", "RolePermissions",
+    "UsersPermissions", "AdminsPermissions", "NodesPermissions", "HostsPermissions", "SettingsPermissions", "SystemPermissions",
+    "HwidsPermissions", "CRUDPermissions", "APIKeysPermissions",
     "GroupResponse", "NodeResponse", "SystemStats", "SystemUsersStats", "SettingsSchema", "NotificationSettings",
     "HWIDSettings", "CleanupSettings", "NodeHealthSettings",
 )  # fmt: skip
