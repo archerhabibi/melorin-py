@@ -48,6 +48,7 @@ import {
   UserPlus,
   Bot,
   Gift,
+  UserCog,
 } from 'lucide-react';
 
 // Section keys are Persian labels (AdminSections/AdminExtra route on them); slug drives the URL hash.
@@ -86,6 +87,7 @@ const groups = [
     'زیرساخت',
     [
       ['پنل‌ها و سرورها', PanelTop, 'panels'],
+      ['ادمین‌های پنل', UserCog, 'panel-admins'],
       ['بسته‌های فروش', Layers, 'bundles'],
       ['محصولات VPN', Boxes, 'products'],
       ['سلامت زیرساخت', ShieldCheck, 'infra-health'],
@@ -150,6 +152,7 @@ function useCore() {
     health: null,
     backups: [],
     pendingApps: 0,
+    pendingPanelReq: 0,
     manualTasks: 0,
     loading: true,
     error: '',
@@ -174,6 +177,9 @@ function useCore() {
         const pendingApps = await getJson(base, '/api/v1/admin/reseller-applications?status=pending')
           .then((x) => x.length)
           .catch(() => 0);
+        const pendingPanelReq = await getJson(base, '/api/v1/admin/panel-admin-requests?status=pending')
+          .then((x) => x.length)
+          .catch(() => 0);
         const manualTasks = await getJson(base, '/api/v1/admin/manual-tasks?status=open')
           .then((x) => x.open || 0)
           .catch(() => 0);
@@ -187,6 +193,7 @@ function useCore() {
             tickets,
             stores,
             pendingApps,
+            pendingPanelReq,
             manualTasks,
             loading: false,
             error: '',
@@ -228,7 +235,7 @@ async function refundPayment(base, paymentId, reason) {
   return r.json();
 }
 
-function Nav({ section, go, openTickets, pendingApps, manualTasks }) {
+function Nav({ section, go, openTickets, pendingApps, pendingPanelReq, manualTasks }) {
   return (
     <nav aria-label="منوی اصلی" className="space-y-5 px-3 pb-6">
       {groups.map(([g, items, sub]) => (
@@ -254,6 +261,11 @@ function Nav({ section, go, openTickets, pendingApps, manualTasks }) {
               {name === 'درخواست‌های نمایندگی' && pendingApps > 0 && (
                 <span className="mr-auto rounded-full bg-[#e8743b] px-2 py-0.5 text-[10px] font-bold text-white">
                   {pendingApps}
+                </span>
+              )}
+              {name === 'ادمین‌های پنل' && pendingPanelReq > 0 && (
+                <span className="mr-auto rounded-full bg-[#e8743b] px-2 py-0.5 text-[10px] font-bold text-white">
+                  {pendingPanelReq}
                 </span>
               )}
               {name === 'کارهای دستی' && manualTasks > 0 && (
@@ -684,6 +696,7 @@ export default function App({ onLogout }) {
             go={go}
             openTickets={openTickets}
             pendingApps={api.pendingApps}
+            pendingPanelReq={api.pendingPanelReq}
             manualTasks={api.manualTasks}
           />
         </div>
@@ -784,6 +797,7 @@ export default function App({ onLogout }) {
               go={go}
               openTickets={openTickets}
               pendingApps={api.pendingApps}
+              pendingPanelReq={api.pendingPanelReq}
               manualTasks={api.manualTasks}
             />
           </div>
