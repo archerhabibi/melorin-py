@@ -4,9 +4,27 @@ import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle, Loader, RefreshCw, XCircle } from 'lucide-react';
 import { confirmDialog, promptDialog } from './ui.jsx';
 
-const NODE_COLOR = { connected: 'var(--ok)', connecting: 'var(--wn)', disabled: 'var(--mu)', error: 'var(--bd)', limited: 'var(--bd)' };
-const NODE_LABEL = { connected: 'متصل', connecting: 'در حال اتصال', disabled: 'غیرفعال', error: 'خطا', limited: 'محدود', unknown: 'نامشخص' };
-const CHECK_LABEL = { prefix: 'آدرس پایهٔ اشتراک', link_prefix: 'لینک اکانت واقعی', reachable: 'دسترسی‌پذیری', store_domains: 'دامنهٔ فروشگاه‌ها' };
+const NODE_COLOR = {
+  connected: 'var(--ok)',
+  connecting: 'var(--wn)',
+  disabled: 'var(--mu)',
+  error: 'var(--bd)',
+  limited: 'var(--bd)',
+};
+const NODE_LABEL = {
+  connected: 'متصل',
+  connecting: 'در حال اتصال',
+  disabled: 'غیرفعال',
+  error: 'خطا',
+  limited: 'محدود',
+  unknown: 'نامشخص',
+};
+const CHECK_LABEL = {
+  prefix: 'آدرس پایهٔ اشتراک',
+  link_prefix: 'لینک اکانت واقعی',
+  reachable: 'دسترسی‌پذیری',
+  store_domains: 'دامنهٔ فروشگاه‌ها',
+};
 const STATE_ICON = { ok: CheckCircle, warn: AlertTriangle, fail: XCircle, skip: AlertTriangle };
 const STATE_COLOR = { ok: 'var(--ok)', warn: 'var(--wn)', fail: 'var(--bd)', skip: 'var(--mu)' };
 const fmt = (v) => (v ? new Date(v).toLocaleString('fa-IR') : '—');
@@ -65,12 +83,20 @@ export default function PanelConsoleTab({ call, panelId, toast }) {
     const text = action === 'reconnect' ? 'اتصال دوباره' : 'ارسال دوبارهٔ تنظیمات';
     const reason = await promptDialog(`«${n.name}»: ${text}. دلیل را بنویسید:`, { title: text });
     if (!reason) return;
-    await act(`${action}-${n.remote_id}`, `/api/v1/admin/panels/${panelId}/ops/nodes/${n.remote_id}/${action}`, { reason }, `${text} انجام شد`);
+    await act(
+      `${action}-${n.remote_id}`,
+      `/api/v1/admin/panels/${panelId}/ops/nodes/${n.remote_id}/${action}`,
+      { reason },
+      `${text} انجام شد`,
+    );
   };
 
   const toggle = async (family, row, disabled) => {
     const label = { nodes: 'نود', hosts: 'هاست', groups: 'گروه' }[family];
-    const reason = await promptDialog(`${disabled ? 'غیرفعال' : 'فعال'}‌کردن ${label} «${row.name || row.remark}». دلیل:`, { title: 'تغییر وضعیت' });
+    const reason = await promptDialog(
+      `${disabled ? 'غیرفعال' : 'فعال'}‌کردن ${label} «${row.name || row.remark}». دلیل:`,
+      { title: 'تغییر وضعیت' },
+    );
     if (!reason) return;
     let force = false;
     const body = () => ({ ids: [row.id ?? row.remote_id], disabled, reason, force });
@@ -80,7 +106,11 @@ export default function PanelConsoleTab({ call, panelId, toast }) {
       let r = await call(path, { method: 'POST', body: JSON.stringify(body()) });
       let data = await r.json().catch(() => ({}));
       if (!r.ok && data?.error?.code === 'LAST_NODE') {
-        const ok = await confirmDialog(data.error.message, { title: 'آخرین نود متصل', danger: true, ok: 'با مسئولیت من انجام شود' });
+        const ok = await confirmDialog(data.error.message, {
+          title: 'آخرین نود متصل',
+          danger: true,
+          ok: 'با مسئولیت من انجام شود',
+        });
         if (!ok) {
           setBusy('');
           return;
@@ -115,7 +145,12 @@ export default function PanelConsoleTab({ call, panelId, toast }) {
     if (!typed) return;
     const reason = await promptDialog('دلیل ری‌استارت:', { title: 'ری‌استارت هسته' });
     if (!reason) return;
-    await act(`core-${core.id}`, `/api/v1/admin/panels/${panelId}/ops/cores/${core.id}/restart`, { reason, confirm_name: typed }, 'هسته ری‌استارت شد');
+    await act(
+      `core-${core.id}`,
+      `/api/v1/admin/panels/${panelId}/ops/cores/${core.id}/restart`,
+      { reason, confirm_name: typed },
+      'هسته ری‌استارت شد',
+    );
   };
 
   const runCheck = async () => {
@@ -130,7 +165,12 @@ export default function PanelConsoleTab({ call, panelId, toast }) {
   };
 
   if (!panelId) return <p className="card p-4 text-sm">برای دیدن کنسول یک پنل انتخاب کنید.</p>;
-  if (!ov) return <p className="card flex items-center gap-2 p-4 text-sm"><Loader size={14} className="animate-spin" /> در حال دریافت…</p>;
+  if (!ov)
+    return (
+      <p className="card flex items-center gap-2 p-4 text-sm">
+        <Loader size={14} className="animate-spin" /> در حال دریافت…
+      </p>
+    );
   const errs = Object.entries(ov.errors || {});
 
   return (
@@ -145,7 +185,9 @@ export default function PanelConsoleTab({ call, panelId, toast }) {
       {errs.length > 0 && (
         <div className="card space-y-1 p-3 text-sm" style={{ borderColor: 'var(--wn)' }}>
           {errs.map(([k, v]) => (
-            <div key={k} className="flex items-center gap-2"><AlertTriangle size={14} /> {v}</div>
+            <div key={k} className="flex items-center gap-2">
+              <AlertTriangle size={14} /> {v}
+            </div>
           ))}
         </div>
       )}
@@ -177,7 +219,10 @@ export default function PanelConsoleTab({ call, panelId, toast }) {
           <article key={n.remote_id} className="card p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: NODE_COLOR[n.status] || 'var(--mu)' }} />
+                <span
+                  className="inline-block h-2.5 w-2.5 rounded-full"
+                  style={{ background: NODE_COLOR[n.status] || 'var(--mu)' }}
+                />
                 <b>{n.name}</b>
                 <span className="text-xs text-[var(--mu)]">{NODE_LABEL[n.status] || n.status}</span>
                 {n.xray_version && <span className="text-xs text-[var(--mu)]">xray {n.xray_version}</span>}
@@ -190,19 +235,30 @@ export default function PanelConsoleTab({ call, panelId, toast }) {
                 )}
                 {ov.can.infra && (
                   <>
-                    <button className="btn btn-g" disabled={!!busy} onClick={() => nodeAction(n, 'sync')}>همگام‌سازی</button>
-                    <button className="btn btn-g" disabled={!!busy} onClick={() => toggle('nodes', { id: n.remote_id, name: n.name }, n.status !== 'disabled')}>
+                    <button className="btn btn-g" disabled={!!busy} onClick={() => nodeAction(n, 'sync')}>
+                      همگام‌سازی
+                    </button>
+                    <button
+                      className="btn btn-g"
+                      disabled={!!busy}
+                      onClick={() => toggle('nodes', { id: n.remote_id, name: n.name }, n.status !== 'disabled')}
+                    >
                       {n.status === 'disabled' ? 'فعال‌سازی' : 'غیرفعال‌سازی'}
                     </button>
                   </>
                 )}
               </div>
             </div>
-            {n.message && <div className="mt-1 text-xs" style={{ color: 'var(--bd)' }}>{n.message}</div>}
+            {n.message && (
+              <div className="mt-1 text-xs" style={{ color: 'var(--bd)' }}>
+                {n.message}
+              </div>
+            )}
             {n.hint && <div className="mt-1 text-xs">راه‌حل: {n.hint}</div>}
             {n.realtime && (
               <div className="mt-1 text-xs text-[var(--mu)]">
-                CPU {pct(n.realtime.cpu_usage)} · ↑ {bytes(n.realtime.outgoing_bandwidth_speed)} · ↓ {bytes(n.realtime.incoming_bandwidth_speed)}
+                CPU {pct(n.realtime.cpu_usage)} · ↑ {bytes(n.realtime.outgoing_bandwidth_speed)} · ↓{' '}
+                {bytes(n.realtime.incoming_bandwidth_speed)}
               </div>
             )}
           </article>
@@ -213,7 +269,9 @@ export default function PanelConsoleTab({ call, panelId, toast }) {
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold">گروه‌ها، هاست‌ها و هسته‌ها</h3>
-            <button className="btn btn-g" onClick={loadInfra}>{infra ? 'به‌روزرسانی' : 'نمایش'}</button>
+            <button className="btn btn-g" onClick={loadInfra}>
+              {infra ? 'به‌روزرسانی' : 'نمایش'}
+            </button>
           </div>
           {infra && (
             <div className="grid gap-3 md:grid-cols-3">
@@ -221,8 +279,12 @@ export default function PanelConsoleTab({ call, panelId, toast }) {
                 <div className="text-xs text-[var(--mu)]">گروه‌ها</div>
                 {infra.groups.map((g) => (
                   <div key={g.id} className="flex items-center justify-between text-sm">
-                    <span>{g.name} <span className="text-xs text-[var(--mu)]">({g.total_users ?? 0})</span></span>
-                    <button className="btn btn-g" disabled={!!busy} onClick={() => toggle('groups', g, !g.disabled)}>{g.disabled ? 'فعال' : 'غیرفعال'}</button>
+                    <span>
+                      {g.name} <span className="text-xs text-[var(--mu)]">({g.total_users ?? 0})</span>
+                    </span>
+                    <button className="btn btn-g" disabled={!!busy} onClick={() => toggle('groups', g, !g.disabled)}>
+                      {g.disabled ? 'فعال' : 'غیرفعال'}
+                    </button>
                   </div>
                 ))}
               </div>
@@ -231,7 +293,9 @@ export default function PanelConsoleTab({ call, panelId, toast }) {
                 {infra.hosts.map((h) => (
                   <div key={h.id} className="flex items-center justify-between text-sm">
                     <span>{h.remark || h.inbound_tag}</span>
-                    <button className="btn btn-g" disabled={!!busy} onClick={() => toggle('hosts', h, !h.disabled)}>{h.disabled ? 'فعال' : 'غیرفعال'}</button>
+                    <button className="btn btn-g" disabled={!!busy} onClick={() => toggle('hosts', h, !h.disabled)}>
+                      {h.disabled ? 'فعال' : 'غیرفعال'}
+                    </button>
                   </div>
                 ))}
               </div>
@@ -240,7 +304,9 @@ export default function PanelConsoleTab({ call, panelId, toast }) {
                 {infra.cores.map((c) => (
                   <div key={c.id} className="flex items-center justify-between text-sm">
                     <span>{c.name}</span>
-                    <button className="btn btn-g" disabled={!!busy} onClick={() => restartCore(c)}>ری‌استارت</button>
+                    <button className="btn btn-g" disabled={!!busy} onClick={() => restartCore(c)}>
+                      ری‌استارت
+                    </button>
                   </div>
                 ))}
               </div>
@@ -256,7 +322,11 @@ export default function PanelConsoleTab({ call, panelId, toast }) {
             {busy === 'sub' && <Loader size={14} className="animate-spin" />} اجرای آزمایش
           </button>
         </div>
-        {!sub?.result && <p className="card p-3 text-sm">هنوز آزمایش نشده. هیچ کاربری روی پنل ساخته نمی‌شود؛ فقط لینک یک اکانت واقعی بررسی می‌شود.</p>}
+        {!sub?.result && (
+          <p className="card p-3 text-sm">
+            هنوز آزمایش نشده. هیچ کاربری روی پنل ساخته نمی‌شود؛ فقط لینک یک اکانت واقعی بررسی می‌شود.
+          </p>
+        )}
         {sub?.result && (
           <div className="card space-y-2 p-3">
             <div className="text-xs text-[var(--mu)]">آخرین آزمایش: {fmt(sub.checked_at)}</div>
