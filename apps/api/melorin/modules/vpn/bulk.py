@@ -427,7 +427,9 @@ async def _run_panel_action(session: AsyncSession, op: BulkOperation, adapter, b
                     _mark(i, "failed", exc.message)
             op.error = exc.message[:300]
             await session.commit()
-            return exc.kind == ErrorKind.PERMANENT  # transient/unknown: stop now, the same chunk is safe to resend later
+            if exc.kind == ErrorKind.PERMANENT:
+                continue  # these items are failed (resumable); carry on with the next chunk
+            return False  # transient/unknown: stop now, the same chunk is safe to resend later
         accounts = {
             a.id: a for a in (await session.scalars(select(VpnAccount).where(VpnAccount.id.in_([i.vpn_account_id for i in batch])))).all()
         }
@@ -528,16 +530,15 @@ async def execute(session: AsyncSession, op_id: uuid.UUID, *, budget_seconds: fl
     op.started_at = op.started_at or utcnow()
     panel = await session.get(Panel, op.panel_id)
     adapter = None
-    finished_cleanly = False
     try:
         adapter = build_adapter(panel)
         needed = CAPABILITY[op.kind]
         if not supports(adapter, needed):
             raise PanelError(ErrorKind.PERMANENT, f"panel capability '{needed}' is not available for this connection")
         if op.kind in PANEL_ACTIONS:
-            finished_cleanly = await _run_panel_action(session, op, adapter, budget_end, clock)
+            await _run_panel_action(session, op, adapter, budget_end, clock)
         else:
-            finished_cleanly = await _run_relative(session, op, adapter, budget_end, clock)
+            await _run_relative(session, op, adapter, budget_end, clock)
     except PanelError as exc:
         op.error = exc.message[:300]
         if exc.kind == ErrorKind.PERMANENT:
@@ -584,8 +585,8 @@ async def execute(session: AsyncSession, op_id: uuid.UUID, *, budget_seconds: fl
             data={"kind": op.kind, "status": op.status, "succeeded": op.succeeded, "failed": op.failed, "skipped": op.skipped},
         )
     else:
-        op.lease_until = None if not finished_cleanly else op.lease_until
-        op.status = "running" if finished_cleanly else "confirmed"  # picked up again on the next tick
+        op.lease_until = None
+        op.status = "confirmed"  # time budget used up or the panel struggled: the next tick picks it up again
     await session.commit()
     return op
 
