@@ -143,7 +143,9 @@ async def test_archived_or_unprovisioned_accounts_have_no_tools(maker):
 async def test_panel_without_a_capability_reports_it_unavailable_and_is_never_called(maker, adapter):
     async with maker() as s:
         acc, panel, _ = await _account(s)
-        panel.capabilities = {"flags": Capabilities(suspend=True, extend=True).to_dict()}  # a credential that probed without device/usage rights
+        panel.capabilities = {
+            "flags": Capabilities(suspend=True, extend=True).to_dict()
+        }  # a credential that probed without device/usage rights
         rows = {t["tool"]: t for t in tools.available(acc, tools.CUSTOMER, panel)}
         assert not rows["devices"]["available"] and "پشتیبانی" in rows["devices"]["reason"]
         with pytest.raises(AppError) as e:
@@ -307,9 +309,20 @@ def test_routes_exist_per_role_and_privileged_tools_are_not_registered_for_lower
     from melorin.modules.vpn.tools_router import router
 
     paths = {(m, r.path) for r in router.routes for m in r.methods}
-    cust, own, adm = "/stores/{store_id}/vpn-accounts/{account_id}/tools", "/stores/{store_id}/reseller/accounts/{account_id}/tools", "/admin/vpn-accounts/{account_id}/tools"
+    cust, own, adm = (
+        "/stores/{store_id}/vpn-accounts/{account_id}/tools",
+        "/stores/{store_id}/reseller/accounts/{account_id}/tools",
+        "/admin/vpn-accounts/{account_id}/tools",
+    )
     for base in (cust, own, adm):
-        for method, suffix in (("GET", ""), ("GET", "/usage"), ("GET", "/devices"), ("DELETE", "/devices/{hwid}"), ("POST", "/devices/reset"), ("POST", "/rotate-subscription")):
+        for method, suffix in (
+            ("GET", ""),
+            ("GET", "/usage"),
+            ("GET", "/devices"),
+            ("DELETE", "/devices/{hwid}"),
+            ("POST", "/devices/reset"),
+            ("POST", "/rotate-subscription"),
+        ):
             assert (method, base + suffix) in paths
     for suffix in ("/presence", "/suspend", "/resume", "/adjust"):
         assert ("GET", cust + suffix) not in paths and ("POST", cust + suffix) not in paths

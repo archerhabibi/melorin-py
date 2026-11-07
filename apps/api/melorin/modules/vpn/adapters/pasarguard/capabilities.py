@@ -58,7 +58,11 @@ CAPABILITY_ENDPOINTS: dict[str, tuple[str, ...]] = {
         "POST /api/user_templates/bulk/enable",
         "POST /api/user_templates/bulk/disable",
     ),
-    "next_plan_ops": ("PUT /api/user/by-id/{user_id}", "POST /api/user/by-id/{user_id}/active_next", "PUT /api/user/from_template/by-id/{user_id}"),
+    "next_plan_ops": (
+        "PUT /api/user/by-id/{user_id}",
+        "POST /api/user/by-id/{user_id}/active_next",
+        "PUT /api/user/from_template/by-id/{user_id}",
+    ),
     # Phase 2: the panel calls Melorin (``/webhooks/pasarguard/{panel_id}``); the only panel routes involved switch the webhook on/off
     "event_source": ("GET /api/settings", "PUT /api/settings"),
 }

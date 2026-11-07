@@ -343,7 +343,9 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
         account.placement = {**account.placement, "remote_ref": pa.ref}  # the snapshot is written once; only the panel's id is filled in
     account.status = VpnStatus.ACTIVE
     if queued:
-        plans.mark_queued(account, template_id=queued_template, product_id=product.id, order_id=order.id, now=now)  # PG-09: nothing restarts
+        plans.mark_queued(
+            account, template_id=queued_template, product_id=product.id, order_id=order.id, now=now
+        )  # PG-09: nothing restarts
     elif order.kind == "renewal":
         notices.reset_for_renewal(account)  # PG-06
     account.expires_at = pa.expire_at

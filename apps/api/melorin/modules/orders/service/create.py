@@ -53,7 +53,12 @@ async def create_order(
         select(Order).where(Order.user_id == user_id, Order.store_id == store_id, Order.idempotency_key == idempotency_key)
     )
     if existing:
-        if existing.product_id != product_id or existing.kind != kind or existing.vpn_account_id != vpn_account_id or existing.renewal_mode != mode:
+        if (
+            existing.product_id != product_id
+            or existing.kind != kind
+            or existing.vpn_account_id != vpn_account_id
+            or existing.renewal_mode != mode
+        ):
             raise AppError("IDEMPOTENCY_KEY_REUSE", "کلید idempotency با سفارش دیگری استفاده شده است.", 409)
         return existing
     if payment_method != "wallet":
@@ -182,7 +187,12 @@ async def create_order(
             )
         )
         if existing:
-            if existing.product_id != product_id or existing.kind != kind or existing.vpn_account_id != vpn_account_id or existing.renewal_mode != mode:
+            if (
+                existing.product_id != product_id
+                or existing.kind != kind
+                or existing.vpn_account_id != vpn_account_id
+                or existing.renewal_mode != mode
+            ):
                 raise AppError("IDEMPOTENCY_KEY_REUSE", "کلید idempotency با سفارش دیگری استفاده شده است.", 409)
             return existing
         raise

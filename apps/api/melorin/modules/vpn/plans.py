@@ -125,7 +125,9 @@ async def apply_queue(adapter, account: VpnAccount, template_id: int):
     return pa
 
 
-def mark_queued(account: VpnAccount, *, template_id: int, product_id: uuid.UUID, order_id: uuid.UUID, now: dt.datetime | None = None) -> None:
+def mark_queued(
+    account: VpnAccount, *, template_id: int, product_id: uuid.UUID, order_id: uuid.UUID, now: dt.datetime | None = None
+) -> None:
     account.queued_plan = {
         "template_id": int(template_id),
         "product_id": str(product_id),
@@ -184,7 +186,12 @@ async def change_plan(
     reason = (reason or "").strip()
     if len(reason) < MIN_REASON:
         raise AppError("REASON_REQUIRED", "برای تغییر پلن، دلیل را بنویسید.", 400)
-    if account.archived_at is not None or account.status not in (VpnStatus.ACTIVE, VpnStatus.SUSPENDED, VpnStatus.EXPIRED, VpnStatus.LIMITED):
+    if account.archived_at is not None or account.status not in (
+        VpnStatus.ACTIVE,
+        VpnStatus.SUSPENDED,
+        VpnStatus.EXPIRED,
+        VpnStatus.LIMITED,
+    ):
         raise AppError("TOOL_UNAVAILABLE", "این اکانت در وضعیتی نیست که بتوان پلن آن را تغییر داد.", 409)
     if account.product_id == product.id:
         raise AppError("SAME_PLAN", "اکانت از قبل روی همین پکیج است.", 409)

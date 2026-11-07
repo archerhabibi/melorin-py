@@ -170,9 +170,7 @@ def target_of(panel: Panel, server: Server) -> dict:
     return effective_destination(panel.kind, panel.config, server.target)
 
 
-def assess_server(
-    panel: Panel, server: Server, groups: dict[int, Assessment], templates: dict[int, dict] | None
-) -> Assessment | None:
+def assess_server(panel: Panel, server: Server, groups: dict[int, Assessment], templates: dict[int, dict] | None) -> Assessment | None:
     """Verdict for one server, or ``None`` when its target is not something this check understands (then nothing changes)."""
     target = target_of(panel, server)
     if "user_template_id" in target:
@@ -300,7 +298,9 @@ async def refresh_panel(session: AsyncSession, panel: Panel, adapter, *, now: dt
             s.destination_health = {**verdict.to_dict(), "check": "ok", "checked_at": now.isoformat()}
             s.panel_total_users = verdict.total_users
             if was != s.sellable and s.is_enabled:
-                changes.append(Change(s.name, "sellable", "sellable" if was else "blocked", "sellable" if s.sellable else "blocked", s.sellable_reason))
+                changes.append(
+                    Change(s.name, "sellable", "sellable" if was else "blocked", "sellable" if s.sellable else "blocked", s.sellable_reason)
+                )
         else:
             detail = dict(s.destination_health or {})
             detail.update(check=check, checked_at=now.isoformat())

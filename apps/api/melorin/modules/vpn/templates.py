@@ -161,13 +161,19 @@ async def template_id_for(session: AsyncSession, panel_id: uuid.UUID, product_id
 
 
 async def mapping_for(session: AsyncSession, panel_id: uuid.UUID, product_id: uuid.UUID) -> ProductTemplate | None:
-    return await session.scalar(select(ProductTemplate).where(ProductTemplate.panel_id == panel_id, ProductTemplate.product_id == product_id))
+    return await session.scalar(
+        select(ProductTemplate).where(ProductTemplate.panel_id == panel_id, ProductTemplate.product_id == product_id)
+    )
 
 
 async def overview(session: AsyncSession, panel: Panel) -> dict:
     """Templates on the panel next to the packages mapped to them, with drift. A panel that cannot be asked still lists the mappings."""
     rows = (await session.scalars(select(ProductTemplate).where(ProductTemplate.panel_id == panel.id))).all()
-    products = {p.id: p for p in (await session.scalars(select(Product).where(Product.id.in_([r.product_id for r in rows])))).all()} if rows else {}
+    products = (
+        {p.id: p for p in (await session.scalars(select(Product).where(Product.id.in_([r.product_id for r in rows])))).all()}
+        if rows
+        else {}
+    )
     remote: dict[int, dict] | None = None
     error: str | None = None
     try:
@@ -194,7 +200,9 @@ async def overview(session: AsyncSession, panel: Panel) -> dict:
             "drift": None,
         }
         if remote is not None and product and row.remote_template_id in remote:
-            entry["drift"] = drift(spec_for(product, remote[row.remote_template_id].get("group_ids") or groups_for(panel)), remote[row.remote_template_id])
+            entry["drift"] = drift(
+                spec_for(product, remote[row.remote_template_id].get("group_ids") or groups_for(panel)), remote[row.remote_template_id]
+            )
         items.append(entry)
     mapped = {r.remote_template_id for r in rows}
     unmapped = [{"id": tid, "name": t.get("name")} for tid, t in (remote or {}).items() if tid not in mapped]
@@ -281,7 +289,14 @@ async def sync_product(session: AsyncSession, panel: Panel, product: Product, *,
     finally:
         await _close(adapter)
     row.name = spec["name"]
-    _audit(session, "synced", admin_id=admin_id, panel=panel, product=product, data={"remote_template_id": row.remote_template_id, "changed": before})
+    _audit(
+        session,
+        "synced",
+        admin_id=admin_id,
+        panel=panel,
+        product=product,
+        data={"remote_template_id": row.remote_template_id, "changed": before},
+    )
     await session.commit()
     return {"remote_template_id": row.remote_template_id, "changed": before, "in_sync": True}
 
@@ -311,5 +326,12 @@ async def set_disabled(session: AsyncSession, panel: Panel, product: Product, di
         raise _panel_error(exc) from exc
     finally:
         await _close(adapter)
-    _audit(session, "disabled" if disabled else "enabled", admin_id=admin_id, panel=panel, product=product, data={"remote_template_id": row.remote_template_id})
+    _audit(
+        session,
+        "disabled" if disabled else "enabled",
+        admin_id=admin_id,
+        panel=panel,
+        product=product,
+        data={"remote_template_id": row.remote_template_id},
+    )
     await session.commit()

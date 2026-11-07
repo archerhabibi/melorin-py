@@ -78,7 +78,13 @@ async def store_account_renew(
     from melorin.modules.orders.router import out as order_out  # lazy: orders imports the vpn package
 
     order = await reseller_renewal.reseller_renew(
-        session, ctx.user.id, ctx.store.id, account_id, idempotency_key=idempotency_key, channel=body.channel, renewal_mode=body.renewal_mode
+        session,
+        ctx.user.id,
+        ctx.store.id,
+        account_id,
+        idempotency_key=idempotency_key,
+        channel=body.channel,
+        renewal_mode=body.renewal_mode,
     )
     return order_out(order)
 

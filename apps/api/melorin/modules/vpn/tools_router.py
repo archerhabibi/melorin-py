@@ -5,7 +5,6 @@ account of his store; admin: any account); a tool a role does not have is not ev
 :mod:`melorin.modules.vpn.account_tools`.
 """
 
-
 import uuid
 from dataclasses import dataclass
 from typing import Annotated

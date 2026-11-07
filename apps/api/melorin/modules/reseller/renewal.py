@@ -30,7 +30,14 @@ async def reseller_renewal_offer(session, owner_id: uuid.UUID, store_id: uuid.UU
 
 
 async def reseller_renew(
-    session, owner_id: uuid.UUID, store_id: uuid.UUID, account_id: uuid.UUID, *, idempotency_key: str, channel: str, renewal_mode: str = "replace"
+    session,
+    owner_id: uuid.UUID,
+    store_id: uuid.UUID,
+    account_id: uuid.UUID,
+    *,
+    idempotency_key: str,
+    channel: str,
+    renewal_mode: str = "replace",
 ):
     """Renew one of the reseller's OWN accounts or one of THIS store's customers' accounts with the account's own package at
     its current price. The order belongs to the account's holder and is paid from the holder's wallet in the store; every

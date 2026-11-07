@@ -92,7 +92,9 @@ class FakeAdapter:
     # next plan
     async def set_next_plan(self, username, *, template_id, add_remaining_traffic=False):
         self._go("set_next_plan", template_id)
-        self.state.next_plan = {"user_template_id": template_id, "add_remaining_traffic": add_remaining_traffic} if self.echo_next_plan else None
+        self.state.next_plan = (
+            {"user_template_id": template_id, "add_remaining_traffic": add_remaining_traffic} if self.echo_next_plan else None
+        )
         return self.state
 
     async def clear_next_plan(self, username):
@@ -150,9 +152,22 @@ async def _audits(s, action):
 def test_spec_equals_the_package_and_validation_refuses_nonsense():
     p = Product(code="gold 30!", name="Gold", duration_days=30, traffic_gb=50, max_devices=2, main_price=1, reseller_price=1)
     spec = templates.spec_for(p, [2, 3])
-    assert spec == {"name": "melorin-gold-30-", "group_ids": [2, 3], "data_limit": 50 * GIB, "expire_duration": 30 * 86400, "status": "active", "hwid_limit": 2}
+    assert spec == {
+        "name": "melorin-gold-30-",
+        "group_ids": [2, 3],
+        "data_limit": 50 * GIB,
+        "expire_duration": 30 * 86400,
+        "status": "active",
+        "hwid_limit": 2,
+    }
     templates.validate_spec(spec)
-    for bad in ({**spec, "group_ids": []}, {**spec, "expire_duration": 0}, {**spec, "name": ""}, {**spec, "hwid_limit": 1000}, {**spec, "expire_duration": 4000 * 86400}):
+    for bad in (
+        {**spec, "group_ids": []},
+        {**spec, "expire_duration": 0},
+        {**spec, "name": ""},
+        {**spec, "hwid_limit": 1000},
+        {**spec, "expire_duration": 4000 * 86400},
+    ):
         with pytest.raises(AppError) as e:
             templates.validate_spec(bad)
         assert e.value.code == "BAD_TEMPLATE" and e.value.status == 400
@@ -292,7 +307,9 @@ async def test_apply_queue_trusts_only_what_the_panel_shows(adapter):
 
 
 def test_a_panel_that_does_not_report_next_plan_never_says_nothing_is_queued():
-    remote = PanelAccount(ref="r", username="a", status="active", expire_at=None, traffic_limit_bytes=0, traffic_used_bytes=0, next_plan_reported=False)
+    remote = PanelAccount(
+        ref="r", username="a", status="active", expire_at=None, traffic_limit_bytes=0, traffic_used_bytes=0, next_plan_reported=False
+    )
     assert not plans.queued_landed(remote, 7)
 
 
@@ -301,11 +318,38 @@ async def test_the_slot_is_released_only_when_the_panel_reports_nothing_queued(a
         t = await _prepare(s)
         plans.mark_queued(t.account, template_id=7, product_id=t.product.id, order_id=t.account.order_id, now=NOW)
         t.account.near_expiry_notified, t.account.traffic_notified_level = True, 90
-        still = PanelAccount(ref="r", username="a", status="active", expire_at=None, traffic_limit_bytes=0, traffic_used_bytes=0, next_plan={"user_template_id": 7}, next_plan_reported=True)
-        unknown = PanelAccount(ref="r", username="a", status="active", expire_at=None, traffic_limit_bytes=0, traffic_used_bytes=0, next_plan=None, next_plan_reported=False)
+        still = PanelAccount(
+            ref="r",
+            username="a",
+            status="active",
+            expire_at=None,
+            traffic_limit_bytes=0,
+            traffic_used_bytes=0,
+            next_plan={"user_template_id": 7},
+            next_plan_reported=True,
+        )
+        unknown = PanelAccount(
+            ref="r",
+            username="a",
+            status="active",
+            expire_at=None,
+            traffic_limit_bytes=0,
+            traffic_used_bytes=0,
+            next_plan=None,
+            next_plan_reported=False,
+        )
         assert not await plans.settle_from_remote(s, t.account, still) and not await plans.settle_from_remote(s, t.account, unknown)
         assert t.account.queued_plan is not None
-        started = PanelAccount(ref="r", username="a", status="active", expire_at=None, traffic_limit_bytes=0, traffic_used_bytes=0, next_plan=None, next_plan_reported=True)
+        started = PanelAccount(
+            ref="r",
+            username="a",
+            status="active",
+            expire_at=None,
+            traffic_limit_bytes=0,
+            traffic_used_bytes=0,
+            next_plan=None,
+            next_plan_reported=True,
+        )
         assert await plans.settle_from_remote(s, t.account, started)
         assert t.account.queued_plan is None and not t.account.near_expiry_notified and t.account.traffic_notified_level == 0
         assert len(await _audits(s, "vpn_account.queued_plan_started")) == 1
@@ -328,7 +372,14 @@ async def test_sync_releases_the_slot_through_apply_remote(adapter):
 # ------------------------------------------------------------------------------------------------------------ orders
 async def _queue_order(s, t, key="k1"):
     return await orders.create_order(
-        s, t.ctx, product_id=t.product.id, idempotency_key=key, kind="renewal", vpn_account_id=t.account.id, channel="web", renewal_mode="queue"
+        s,
+        t.ctx,
+        product_id=t.product.id,
+        idempotency_key=key,
+        kind="renewal",
+        vpn_account_id=t.account.id,
+        channel="web",
+        renewal_mode="queue",
     )
 
 
@@ -429,7 +480,9 @@ async def test_refunding_a_prepaid_order_takes_back_only_the_queued_package(adap
         adapter.calls.clear()
         monkey_build = lambda panel, server=None: adapter  # noqa: E731
         runner.build_adapter, runner.seed_adapter = monkey_build, lambda a, acc: a
-        await runner.rollback_renewal(s, {"vpn_account_id": t.account.id, "before": {"expires_at": None, "traffic_limit_bytes": 0}, "mode": "queue"})
+        await runner.rollback_renewal(
+            s, {"vpn_account_id": t.account.id, "before": {"expires_at": None, "traffic_limit_bytes": 0}, "mode": "queue"}
+        )
         assert [c[0] for c in adapter.calls] == ["clear_next_plan"]  # the running package is NOT re-extended
         await s.refresh(t.account)
         assert t.account.queued_plan is None
@@ -472,7 +525,11 @@ async def test_change_plan_moves_the_account_drops_the_queue_and_is_audited(adap
         assert account.traffic_limit_bytes == 50 * GIB and account.traffic_used_bytes == 0
         assert [c[0] for c in adapter.calls if c[0] in ("apply_template", "clear_next_plan")] == ["apply_template", "clear_next_plan"]
         (audit,) = await _audits(s, "vpn_account.plan_changed")
-        assert audit.data["reason"] == "customer upgraded by phone" and audit.data["template_id"] == 12 and audit.data["to_product"] == str(t.other.id)
+        assert (
+            audit.data["reason"] == "customer upgraded by phone"
+            and audit.data["template_id"] == 12
+            and audit.data["to_product"] == str(t.other.id)
+        )
         assert audit.data["before"]["product_id"] == str(t.product.id)
 
 
