@@ -21,6 +21,11 @@ groups:
         for: 5m
         labels: {severity: warning}
         annotations: {summary: "One or more enabled VPN panels are unhealthy"}
+      - alert: MelorinPanelWebhookSilent
+        expr: melorin_alert{alertname="MelorinPanelWebhookSilent",state="firing"} > 0
+        for: 10m
+        labels: {severity: warning}
+        annotations: {summary: "A panel connected to live events has been silent for hours (reconcile still covers it)"}
       - alert: MelorinOutboxBacklog
         expr: melorin_alert{alertname="MelorinOutboxBacklog",state="firing"} > 0
         for: 5m

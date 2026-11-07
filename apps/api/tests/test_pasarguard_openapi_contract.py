@@ -65,6 +65,7 @@ class RecordingPanel:
         self.users: dict[str, dict] = {}
         self.requests: list[dict] = []
         self.next_id = 1
+        self.settings: dict = {"webhook": {"enable": False}, "general": {"default_flow": ""}}
 
     def _user(self, username, **extra):
         u = self.users.setdefault(
@@ -110,7 +111,9 @@ class RecordingPanel:
         if path.endswith("/usage"):
             return httpx.Response(200, json={"stats": [{"total": 1}]})
         if path == "/api/settings":
-            return httpx.Response(200, json={"webhook": {"enable": False}})
+            if method == "PUT":
+                self.settings = body or {}
+            return httpx.Response(200, json=self.settings)
         if path == "/api/system":
             return httpx.Response(200, json={"version": "5.6.0"})
         if path == "/api/groups/simple":
@@ -170,6 +173,9 @@ async def _exercise_everything() -> list[dict]:
     await a.get_node(1)
     await a.reconnect_node(1)
     await a.get_settings()
+    await a.get_webhook_config("https://m.example.com/api/v1/webhooks/pasarguard/p")
+    await a.connect_webhook("https://m.example.com/api/v1/webhooks/pasarguard/p", "s3cret")
+    await a.disconnect_webhook("https://m.example.com/api/v1/webhooks/pasarguard/p")
     await a.list_accounts(offset=0, limit=50)
     await a.revoke_account("alice")
     t = _adapter(panel, user_template_id=2)  # template mode: create from template, then re-apply product limits + owner

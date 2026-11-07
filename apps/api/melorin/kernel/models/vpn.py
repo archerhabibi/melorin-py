@@ -24,6 +24,11 @@ class Panel(IdMixin, TimestampMixin, Base):
     capabilities_checked_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     # PG-01: node-level health summary (counts, reasons, ``sellable``); ``health_status`` is healthy | degraded | unhealthy | unknown
     health_detail: Mapped[dict | None] = mapped_column(JSON)
+    # PG-03: the panel pushes events to ``/webhooks/pasarguard/{panel_id}``. The shared secret is encrypted at rest and shown to nobody;
+    # ``webhook_last_at`` is the last accepted delivery (silence detection), ``webhook_connected_at`` when an admin switched it on.
+    webhook_secret_enc: Mapped[str | None] = mapped_column(Text)
+    webhook_last_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    webhook_connected_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Server(IdMixin, TimestampMixin, Base):
@@ -161,6 +166,35 @@ class PanelOrphan(IdMixin, TimestampMixin, Base):
     note: Mapped[str | None] = mapped_column(String(300))
     first_seen_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     last_seen_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class PanelEvent(IdMixin, CreatedMixin, Base):
+    """One event the panel pushed to Melorin (PG-03). Audit trail AND work queue: the endpoint only stores it (fast 200), the worker
+    processes it. ``dedup_key`` is unique per panel, so a retried or replayed delivery is stored once and acts once.
+
+    The payload is kept WITHOUT anything a leak could abuse (subscription links, proxy settings): see ``panel_events.sanitize``.
+    The event is only a *trigger*: processing re-reads the account from the panel, so a stale or out-of-order event cannot
+    write wrong state."""
+
+    __tablename__ = "panel_events"
+    __table_args__ = (
+        UniqueConstraint("panel_id", "dedup_key", name="uq_panel_events_dedup"),
+        Index("ix_panel_events_queue", "status", "available_at"),
+    )
+    panel_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("panels.id", ondelete="CASCADE"), index=True)
+    dedup_key: Mapped[str] = mapped_column(String(200))
+    event_id: Mapped[str | None] = mapped_column(String(100))  # the panel's own id (stable across its retries) when it sends one
+    action: Mapped[str] = mapped_column(String(40))
+    username: Mapped[str | None] = mapped_column(String(128))
+    enqueued_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))  # the panel's clock
+    received_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), index=True)
+    status: Mapped[str] = mapped_column(String(12), default="pending")  # pending | processing | processed | ignored | failed
+    available_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))  # next attempt (backoff)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    processed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    outcome: Mapped[str | None] = mapped_column(String(200))  # what happened: "active->limited", "unknown_account", an error text ...
+    vpn_account_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("vpn_accounts.id", ondelete="SET NULL"))
+    payload: Mapped[dict | None] = mapped_column(JSON)
 
 
 @event.listens_for(VpnAccount.user_id, "set")

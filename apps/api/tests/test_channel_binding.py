@@ -379,6 +379,9 @@ PUBLIC_ROUTES = {
     # bank-SMS forwarder of the store owner's phone: authenticated by the store's webhook token (only its SHA-256 is
     # stored, constant-time compare, rate limited), never by a user session
     "/payments/bank-sms/{store_id}",
+    # PasarGuard panel -> Melorin events (PG-03): authenticated by the per-panel shared secret (constant time, encrypted at rest),
+    # unknown/unconnected panels answer like a wrong secret, per-IP + failed-secret rate limits, body cap; never a user session
+    "/webhooks/pasarguard/{panel_id}",
     "/health/live",
     "/healthz",
     "/health/ready",

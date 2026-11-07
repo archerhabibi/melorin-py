@@ -75,6 +75,19 @@ def test_publish_signals_thresholds(monkeypatch):
     health.publish_signals(DatabaseProbe(ok=True, pending=101, unhealthy_panels=2), WorkerProbe(True, False, None))
     assert alerts["MelorinOutboxBacklog"] is True and alerts["MelorinPanelsUnhealthy"] is True
     assert alerts["MelorinWorkerStale"] is True and alerts["MelorinDatabaseUnavailable"] is False
-    assert gauges == {"melorin_outbox_pending": 101.0, "melorin_panels_unhealthy": 2.0}
+    assert gauges == {"melorin_outbox_pending": 101.0, "melorin_panels_unhealthy": 2.0, "melorin_panel_events_pending": 0.0}
+    assert alerts["MelorinPanelWebhookSilent"] is False
     health.publish_signals(DatabaseProbe(ok=True, pending=100), WorkerProbe(True, True, "1"))
     assert alerts["MelorinOutboxBacklog"] is False
+
+
+def test_a_silent_connected_panel_raises_the_webhook_alert_and_publishes_its_lag(monkeypatch):
+    alerts, gauges = {}, {}
+    monkeypatch.setattr(health, "set_alert", lambda name, active, **kw: alerts.__setitem__(name, active))
+    monkeypatch.setattr(health, "set_gauge", lambda name, value, **labels: gauges.__setitem__((name, tuple(labels.items())), value))
+    health.publish_signals(
+        DatabaseProbe(ok=True, webhook_lag_seconds={"p1": 90000.0}, webhook_silent=1, events_backlog=4), WorkerProbe(True, True, "1")
+    )
+    assert alerts["MelorinPanelWebhookSilent"] is True
+    assert gauges[("melorin_panel_webhook_lag_seconds", (("panel", "p1"),))] == 90000.0
+    assert gauges[("melorin_panel_events_pending", ())] == 4.0

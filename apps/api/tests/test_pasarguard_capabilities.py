@@ -127,7 +127,7 @@ def test_every_optional_flag_has_a_protocol_and_the_protocols_are_real():
 def test_supports_needs_both_the_flag_and_the_methods():
     a = make(Panel5())
     assert supports(a, "node_ops") and supports(a, "usage_ops") and supports(a, "traffic_reset")
-    assert not supports(a, "event_source")  # declared off until Phase 2
+    assert supports(a, "event_source")  # shipped in Phase 2 (PG-03): verify + connect/disconnect at the panel
     assert not supports(a, "no_such_capability")
 
     class FlagOnly:  # advertises node_ops but implements nothing: a bug the helper must not trust
@@ -235,14 +235,17 @@ def test_operator_loses_what_its_role_cannot_do_and_the_report_says_why():
 def test_service_role_is_enough_for_everyday_work_but_not_for_webhook_setup():
     declared = make(Panel5()).declared_capabilities()
     r = build_report(declared, role="melorin-service", is_owner=False, permissions=SERVICE)
-    assert r.capabilities.node_control and r.capabilities.bulk_ops and r.capabilities.admin_ops and r.users_scope == 2 and not r.denied
+    assert r.capabilities.node_control and r.capabilities.bulk_ops and r.capabilities.admin_ops and r.users_scope == 2
+    # events need ``settings.update``: a role without it keeps everything else and only loses the one-click webhook setup
+    assert r.denied == {"event_source": ["settings.update"]} and not r.capabilities.event_source
 
 
 # ------------------------------------------------------------------------------------------------------------ the probe
 def test_declared_capabilities_of_current_and_legacy_api_styles():
     current = PasarGuardAdapter("https://p.example.com", CREDS, {"group_ids": [1]}).capabilities()
     legacy = PasarGuardAdapter("https://p.example.com", CREDS, {"group_ids": [1], "api_style": "legacy"}).capabilities()
-    assert current.node_ops and current.device_ops and current.traffic_reset and not current.event_source
+    assert current.node_ops and current.device_ops and current.traffic_reset and current.event_source
+    assert not legacy.event_source  # the legacy API style has no settings route
     assert legacy.traffic_reset and legacy.subscription_rotate and not legacy.node_ops and not legacy.device_ops and not legacy.admin_ops
 
 
