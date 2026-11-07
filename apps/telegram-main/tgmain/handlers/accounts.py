@@ -169,7 +169,8 @@ class AccountsMixin:
             action.append(("🔄 تمدید", f"{'orn' if owner else 'rnw'}:{b64(account['id'])}"))
         if not owner and not account.get("is_test"):  # مرجوعی: Core decides (volume only, 3 days, 5 % used, 3 per day)
             action.append(("↩️ مرجوعی اکانت", f"rtn:{b64(account['id'])}"))
-        rows = ([action] if action else []) + [[("🔃 بروزرسانی از پنل", f"{pre}account:{account['id']}")], [("↩︎ بازگشت به لیست", back)]]
+        tools = [("🛠 ابزارها", f"{'otl' if owner else 'atl'}:{b64(account['id'])}")]
+        rows = ([action] if action else []) + [tools, [("🔃 بروزرسانی از پنل", f"{pre}account:{account['id']}")], [("↩︎ بازگشت به لیست", back)]]
         await self.screen(ctx, "\n".join(lines), rows)
 
     async def cb_account(self, ctx, value):
