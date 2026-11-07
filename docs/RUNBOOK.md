@@ -58,6 +58,46 @@ at most 4, `[]` = none). A level already sent stays sent; a renewal starts a new
    `docker inspect --format '{{json .State.Health.Log}}' <caddy>`, then `docker version` / `runc --version` and the kernel log, restart
    the container, and if it persists update Docker. Do not silence the check: an unhealthy flag that is always on hides a real one.
 
+## PasarGuard live events (Phase 2)
+
+**What it does.** The panel pushes "something happened to user X" (limited, expired, enabled, disabled, deleted, usage/days thresholds,
+usage reset, link revoked) to `POST /api/v1/webhooks/pasarguard/{panel_id}`. The endpoint only authenticates, stores and answers 200;
+the worker (`panel_event_job`, every 10 s, plus a best-effort sweep right after each delivery) re-reads the user from the panel and
+mirrors it with the same code as the hourly reconcile. **The event payload is never used as state**, so a replayed, stale, out-of-order
+or forged-but-authenticated event cannot write wrong data. The hourly reconcile stays the safety net for lost events. Nothing here
+writes to a panel (except the one-time connect below) and nothing deletes: `user_deleted` only opens a `missing_on_panel` issue.
+
+**Connecting** (Admin -> Panel operations -> choose the panel -> "رویدادهای زنده" -> اتصال; or `POST /api/v1/admin/panels/{id}/events/connect`
+with `{"confirm": true}`). Needs `MELORIN_PUBLIC_API_URL` (HTTPS) and a panel role with `settings.update`. Melorin generates the shared
+secret, stores it encrypted, and writes exactly one panel setting: its own webhook target (it also fills usage-percent/days-left
+thresholds only where the panel has none). If the panel refuses the write the previous secret is restored. The secret is never returned by
+any API. `rotate_secret: true` issues a new one; `disconnect` removes only Melorin's target.
+
+**Security model.** The panel authenticates with the `x-webhook-secret` header (no HMAC exists on the panel side), so the endpoint must be
+HTTPS-only and the secret never logged. Constant-time compare; a panel that is unknown, disabled or not connected answers exactly like a
+wrong secret; per-IP rate limit plus a much tighter limit on wrong secrets; body cap 512 KB, at most 500 events per delivery.
+
+**Delivery semantics.** At-least-once. Idempotency key = the panel's event `id` (or action + username + `enqueued_at`), UNIQUE per panel.
+Events are claimed with a 10-minute lease (a crashed worker's rows return to the queue), coalesced per user (ten events = one panel read),
+retried with back-off (10 s, 30 s, 2 min, 10 min, 30 min; 5 attempts, then `failed`), ignored when older than 7 days, and purged 30 days
+after they finish (`panel_event_purge_job`, 03:20). An event for a user Melorin does not know yet is retried briefly (it can outrun the
+commit of a brand-new account) and then ignored; reconcile lists that user as a discovered one.
+
+**Customer notices.** A status change seen through an event goes through the same notices as reconcile (`traffic_exhausted`,
+`expired`, `disabled_by_panel`, low-traffic levels per store). `reached_days_left` fires at the *panel's* thresholds; Melorin warns inside
+its own `vpn.near_expiry_hours` window, once per period (the flag resets on renewal). After connecting, turn off the panel's own Telegram
+notifications for customers so nobody is notified twice.
+
+**Operating it.**
+- State and counters: `GET /api/v1/admin/panels/{id}/events/status` (`?live=true` also reads the panel's own webhook settings and warns
+  if Melorin was removed from the panel or the webhook is off there). List: `GET .../events?status=&action=&username=`.
+- `POST .../events/process` runs one sweep now; `POST .../events/retry-failed` re-queues `failed` events (all, or `?event_id=`).
+- Metrics: `melorin_panel_events_total{action,status}`, `melorin_panel_events_pending`, `melorin_panel_webhook_lag_seconds{panel}`,
+  `melorin_panel_webhook_rejected_total{reason}`. Alert `MelorinPanelWebhookSilent`: a connected panel that has users has sent nothing
+  for 6 h (it may simply be quiet; check "بررسی تنظیمات پنل" first - someone may have cleared the webhook in the panel).
+- Many `failed` events: look at `outcome` in the list; usually the panel was unreachable (fix, then retry-failed). Rejections rising:
+  a wrong secret (rotate and reconnect) or a scanner (rate limits already apply).
+
 ## Gateway / callback incident
 Payment callback is idempotent. Inspect `payment_attempts`, never manually edit payment status without audit and ledger compensation.
 
