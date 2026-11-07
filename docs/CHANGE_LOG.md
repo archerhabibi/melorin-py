@@ -91,6 +91,55 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-11-07 01:43 UTC - Claude - shared  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** chore(api-client): refresh OpenAPI snapshot and generated schema for PG-03 admin/webhook endpoints (fixes quality gate)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `packages/api-client/openapi.json`, `packages/api-client/src/schema.d.ts`
+- **Ref:** `e1cb6a3`
+
+### 2026-11-07 01:08 UTC - Claude - api  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(arch): core.health no longer imports modules.vpn - WEBHOOK_SILENT_AFTER lives in core (import-linter 6/6 kept) (PG-03)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `apps/api/melorin/core/health.py`, `apps/api/melorin/modules/vpn/panel_events_admin.py`
+- **Ref:** `7f6264c`
+
+### 2026-11-07 00:56 UTC - archerhabibi - admin-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(admin-web): live events tab in Panel operations - connect/disconnect, queue health, event list, retry (PG-03)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (3):** `apps/admin-web/src/PanelEventsTab.jsx`, `apps/admin-web/src/PanelOpsView.jsx`, `apps/admin-web/tests/panel-events.test.jsx`
+- **Ref:** `b9ac1f6`
+
+### 2026-11-07 00:37 UTC - Claude - api, tests, infra  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(pasarguard): Phase 2 admin connect/disconnect/status API, worker sweep + retention, silent-webhook alert, tests (PG-03) - - panel_events_admin: connect (secret generated, encrypted, restored on refusal), disconnect, rotate, status (secret-free), retry_failed - admin routes: /panels/{id}/events…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (12):** `apps/api/melorin/core/health.py`, `apps/api/melorin/modules/admin/panel_ops.py`, `apps/api/melorin/modules/vpn/adapters/pasarguard/events.py`, `apps/api/melorin/modules/vpn/panel_events.py`, `apps/api/melorin/modules/vpn/panel_events_admin.py`, `apps/api/melorin/modules/vpn/webhook_router.py`, `apps/api/melorin/worker/arq_app.py`, `apps/api/melorin/worker/jobs.py` (+4 more)
+- **Ref:** `26fe5ff`
+
+### 2026-11-07 00:29 UTC - Claude - api  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(pasarguard): Phase 2 webhook intake - public endpoint, router, tests adjusted (PG-03, partial) - Adds the public POST /api/v1/webhooks/pasarguard/{panel_id} endpoint (secret check, rate limits, body cap, store-then-process) and registers it in app.py. Capability tests updated for event_source.…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `apps/api/melorin/app.py`, `apps/api/melorin/modules/vpn/webhook_router.py`
+- **Ref:** `4cc5182`
+
+### 2026-11-07 00:29 UTC - Claude - db, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(pasarguard): webhook adapter, panel_events model + migration 0047, event processor (PG-03, WIP)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (10):** `apps/api/alembic/versions/0047_panel_events.py`, `apps/api/melorin/kernel/models/vpn.py`, `apps/api/melorin/modules/vpn/adapters/base.py`, `apps/api/melorin/modules/vpn/adapters/pasarguard/__init__.py`, `apps/api/melorin/modules/vpn/adapters/pasarguard/capabilities.py`, `apps/api/melorin/modules/vpn/adapters/pasarguard/events.py`, `apps/api/melorin/modules/vpn/panel_events.py`, `apps/api/melorin/modules/vpn/reconcile.py` (+2 more)
+- **Ref:** `f197154`
+
+
 ### 2026-11-06 23:35 UTC - Claude - api, tests  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
