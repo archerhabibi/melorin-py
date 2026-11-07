@@ -91,6 +91,103 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-11-07 14:36 UTC - Claude - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(ci): Postgres-safe servers.sellable default + time-stable presence test - - models/vpn.py: server_default=true() instead of text("1"); Postgres rejects an integer default on a boolean column (DatatypeMismatchError), which broke the whole Postgres lane at schema creation. Alembic 0048 already us…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `apps/api/melorin/kernel/models/vpn.py`, `apps/api/tests/test_pasarguard_phase3_account_tools.py`
+- **Ref:** `c0a718d`
+
+### 2026-11-07 09:37 UTC - Claude - bot  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(bots): PG-10 account tools in the main bot (customer) and reseller bot (store owner) - usage, devices, link rotation, suspend/resume with a confirmation tap + tests
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (5):** `apps/telegram-main/runner.py`, `apps/telegram-main/tests/test_account_tools.py`, `apps/telegram-main/tgmain/handlers/accounts.py`, `apps/telegram-main/tgmain/handlers/tools.py`, `apps/telegram-reseller/tgreseller/bot.py`
+- **Ref:** `2141335`
+
+### 2026-11-07 09:34 UTC - Claude - store-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(store-web): PG-10 account tools for customer and store owner (usage, devices, link rotation, suspend/resume) + tests
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (3):** `apps/store-web/src/AccountInquiry.jsx`, `apps/store-web/src/AccountTools.jsx`, `apps/store-web/tests/account-tools.test.jsx`
+- **Ref:** `434bf00`
+
+### 2026-11-07 09:33 UTC - Claude - admin-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(admin-web): Phase 3 UI - capacity & sellability tab (PG-08), templates tab (PG-09), account tools in the account drawer (PG-10) + tests
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (6):** `apps/admin-web/src/AccountToolsPanel.jsx`, `apps/admin-web/src/PanelCapacityTab.jsx`, `apps/admin-web/src/PanelOpsView.jsx`, `apps/admin-web/src/PanelTemplatesTab.jsx`, `apps/admin-web/src/VpnAccountsView.jsx`, `apps/admin-web/tests/panel-phase3.test.jsx`
+- **Ref:** `3b1027f`
+
+### 2026-11-07 07:57 UTC - Claude - api, tests, docs  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** style+docs(pasarguard): ruff format Phase 3 files, regenerate STATUS/API docs (CI gates)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (15):** `apps/api/melorin/kernel/models/vpn.py`, `apps/api/melorin/modules/admin/targets.py`, `apps/api/melorin/modules/orders/provisioning.py`, `apps/api/melorin/modules/orders/service/create.py`, `apps/api/melorin/modules/reseller/renewal.py`, `apps/api/melorin/modules/reseller/routes/accounts.py`, `apps/api/melorin/modules/vpn/adapters/pasarguard/capabilities.py`, `apps/api/melorin/modules/vpn/capacity.py` (+7 more)
+- **Ref:** `f57dc89`
+
+### 2026-11-07 07:55 UTC - Claude - api, shared  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(api): avoid duplicate AdjustIn schema name (vpn tools vs loyalty) and refresh OpenAPI snapshot + generated client for Phase 3 endpoints (quality gate)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (4):** `apps/api/melorin/modules/vpn/schemas.py`, `apps/api/melorin/modules/vpn/tools_router.py`, `packages/api-client/openapi.json`, `packages/api-client/src/schema.d.ts`
+- **Ref:** `dc703f5`
+
+### 2026-11-07 07:53 UTC - Claude - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(pasarguard): Phase 3 review - import ErrorKind in nodes adapter (NameError), repair 3 failing tests, lint clean, regression test
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (4):** `apps/api/melorin/modules/vpn/adapters/pasarguard/nodes.py`, `apps/api/melorin/modules/vpn/tools_router.py`, `apps/api/tests/test_pasarguard_openapi_contract.py`, `apps/api/tests/test_pasarguard_phase3_templates_plans.py`
+- **Ref:** `9264148`
+
+### 2026-11-07 07:17 UTC - Claude - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** test(pasarguard): PG-09 templates, prepaid renewal and plan change tests; report unsupported panel before bad groups - Work in progress: the new test file has not been fully run yet. Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com> Claude-Session: https://claude.ai/code/session_013tQ2nF4za…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `apps/api/melorin/modules/vpn/templates.py`, `apps/api/tests/test_pasarguard_phase3_templates_plans.py`
+- **Ref:** `d82eaa7`
+
+### 2026-11-07 07:15 UTC - Claude - api  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(pasarguard): PG-09 templates, prepaid renewal (next_plan) and plan change - - vpn/templates.py: product<->panel template mapping (create/link/sync/unlink/disable), validation, drift report, audited, admin only - vpn/plans.py: renewal_mode replace|queue; queue eligibility, absolute next_plan ca…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (21):** `apps/api/melorin/modules/admin/router.py`, `apps/api/melorin/modules/admin/templates.py`, `apps/api/melorin/modules/catalog/router.py`, `apps/api/melorin/modules/catalog/schemas.py`, `apps/api/melorin/modules/orders/provisioning.py`, `apps/api/melorin/modules/orders/router.py`, `apps/api/melorin/modules/orders/schemas.py`, `apps/api/melorin/modules/orders/service/create.py` (+13 more)
+- **Ref:** `74f0e96`
+
+### 2026-11-07 06:58 UTC - Claude - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(pasarguard): PG-10 account tools - usage, last seen, devices, link rotation, suspend/resume, compensation (customer/owner/admin scopes, audited)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (5):** `apps/api/melorin/app.py`, `apps/api/melorin/modules/vpn/account_tools.py`, `apps/api/melorin/modules/vpn/schemas.py`, `apps/api/melorin/modules/vpn/tools_router.py`, `apps/api/tests/test_pasarguard_phase3_account_tools.py`
+- **Ref:** `c48cbb6`
+
+### 2026-11-07 06:50 UTC - Claude - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(pasarguard): PG-08 real destination health, sell-guard, capacity source and alerts
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (10):** `apps/api/melorin/modules/admin/capacity.py`, `apps/api/melorin/modules/admin/panels.py`, `apps/api/melorin/modules/admin/router.py`, `apps/api/melorin/modules/admin/schemas.py`, `apps/api/melorin/modules/admin/targets.py`, `apps/api/melorin/modules/catalog/allocation/routing.py`, `apps/api/melorin/modules/eventcenter/rules.py`, `apps/api/melorin/modules/vpn/capacity.py` (+2 more)
+- **Ref:** `9308988`
+
+### 2026-11-07 06:46 UTC - Claude - db, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(pasarguard): Phase 3 foundation - capacity/template/next-plan adapter ops, capability flags, migration 0048 (PG-08/09)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (9):** `apps/api/alembic/versions/0048_pasarguard_phase3.py`, `apps/api/melorin/kernel/models/orders.py`, `apps/api/melorin/kernel/models/vpn.py`, `apps/api/melorin/modules/vpn/adapters/base.py`, `apps/api/melorin/modules/vpn/adapters/pasarguard/capabilities.py`, `apps/api/melorin/modules/vpn/adapters/pasarguard/nodes.py`, `apps/api/melorin/modules/vpn/adapters/pasarguard/users.py`, `apps/api/tests/test_pasarguard_capabilities.py` (+1 more)
+- **Ref:** `96736f6`
+
+
 ### 2026-11-07 01:43 UTC - Claude - shared  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
