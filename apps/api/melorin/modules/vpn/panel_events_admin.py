@@ -21,6 +21,7 @@ from melorin.core.config import get_settings
 from melorin.core.crypto import encrypt
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError
+from melorin.core.health import WEBHOOK_SILENT_AFTER
 from melorin.kernel.models.vpn import Panel, PanelEvent
 from melorin.modules.vpn import panel_events
 from melorin.modules.vpn.adapters.base import PanelError, supports
@@ -28,7 +29,7 @@ from melorin.modules.vpn.adapters.registry import build_adapter
 
 log = logging.getLogger("melorin.vpn.panel_events_admin")
 
-SILENT_AFTER = dt.timedelta(hours=6)  # a connected panel with users that has sent nothing for this long is worth a look
+SILENT_AFTER = WEBHOOK_SILENT_AFTER  # single source of truth lives in core.health (core must not import modules)
 
 
 def webhook_url(panel: Panel) -> str:

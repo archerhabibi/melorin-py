@@ -24,6 +24,8 @@ WORKER_MAX_AGE_SECONDS = 15
 OUTBOX_BACKLOG_THRESHOLD = 100
 REDIS_TIMEOUT_SECONDS = 2.5
 ISSUE_KINDS = ("missing_on_panel", "panel_unreachable", "owner_mismatch", "limits_mismatch")
+# PG-03: a connected panel with users that has sent no event for this long is worth a look (owned here so core never imports modules).
+WEBHOOK_SILENT_AFTER = dt.timedelta(hours=6)
 
 
 @dataclass
@@ -106,7 +108,6 @@ async def _probe_events(session, result: DatabaseProbe) -> None:
     has nothing to say or lost its webhook setting; the hourly reconcile still covers it, the alert just makes it visible."""
     try:
         from melorin.kernel.models.vpn import PanelEvent
-        from melorin.modules.vpn import panel_events_admin
 
         now = dt.datetime.now(dt.UTC)
         lag: dict[str, float] = {}
@@ -129,7 +130,7 @@ async def _probe_events(session, result: DatabaseProbe) -> None:
             ref = p.webhook_last_at or p.webhook_connected_at
             ref = ref if ref.tzinfo else ref.replace(tzinfo=dt.UTC)
             lag[str(p.id)] = max(0.0, (now - ref).total_seconds())
-            if p.id in busy and now - ref > panel_events_admin.SILENT_AFTER:
+            if p.id in busy and now - ref > WEBHOOK_SILENT_AFTER:
                 silent += 1
         result.webhook_lag_seconds, result.webhook_silent = lag, silent
         result.events_backlog = int(
