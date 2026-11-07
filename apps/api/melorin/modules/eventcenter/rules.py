@@ -225,6 +225,36 @@ async def notify_panel_nodes(session, panel, changes: list[dict]) -> None:
         log.exception("event-center panel node notice failed panel=%s", panel.id)
 
 
+def server_capacity_text(panel_name: str, changes: list) -> str | None:
+    """One message per panel and check: destinations that stopped/started being sellable and capacity thresholds crossed (PG-08)."""
+    lines: list[str] = []
+    blocked = [c for c in changes if c.kind == "sellable" and c.new == "blocked"]
+    back = [c for c in changes if c.kind == "sellable" and c.new == "sellable"]
+    if blocked:
+        lines.append(f"🔴 مقصدهای پنل «{panel_name}» از فروش خارج شدند (اکانت‌های موجود تغییری نمی‌کنند):")
+        for c in blocked[:8]:
+            lines.append(f"• {c.server}" + (f" — {str(c.detail)[:140]}" if c.detail else ""))
+    if back:
+        lines.append(f"🟢 مقصدهای پنل «{panel_name}» دوباره قابل فروش شدند: " + "، ".join(c.server for c in back[:8]))
+    labels = {"80": "🟡 بیش از ۸۰٪ پر شد", "95": "🟠 بیش از ۹۵٪ پر شد", "100": "🔴 ظرفیت پر شد"}
+    for c in changes:
+        if c.kind == "capacity" and c.new in labels:
+            lines.append(f"{labels[c.new]}: {c.server} (پنل «{panel_name}»)")
+    return "\n".join(lines) or None
+
+
+async def notify_server_capacity(session, panel, changes: list) -> None:
+    """Event Center notice for sell-guard flips and capacity thresholds (PG-08). Best-effort."""
+    text = server_capacity_text(panel.name, changes)
+    if not text:
+        return
+    try:
+        async with session.begin_nested():
+            await events.emit(session, events.EVENT_CENTER, {"store_id": None, "topic": topics.ERRORS, "text": text})
+    except Exception:
+        log.exception("event-center server capacity notice failed panel=%s", panel.id)
+
+
 def _size(n: int | None) -> str:
     if not n:
         return "نامشخص"

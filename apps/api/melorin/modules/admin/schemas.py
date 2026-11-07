@@ -214,6 +214,7 @@ class UpdateServer(BaseModel):
     product_codes: list[str] | None = None
     allow_test: bool | None = None
     target: dict | None = None  # explicit null clears the target (= inherit panel.config)
+    capacity_source: str | None = Field(default=None, pattern="^(melorin|panel)$")  # PG-08: whose count fills the destination
 
 
 class ServerOut(BaseModel):
@@ -233,6 +234,13 @@ class ServerOut(BaseModel):
     capacity_label: str = "ظرفیت مقصد"  # گروه / تمپلیت / اینباند / مقصد (D7)
     last_assigned_at: dt.datetime | None = None
     warnings: list[str] = Field(default_factory=list)
+    # PG-08: the destination's real state on the panel and its fill level (Melorin's count beside the panel's own)
+    sellable: bool = True
+    sellable_reason: str | None = None
+    destination_health: dict | None = None
+    capacity_info: dict = Field(default_factory=dict)
+    capacity_source: str = "melorin"
+    capacity_checked_at: dt.datetime | None = None
     created_at: dt.datetime | None = None
     updated_at: dt.datetime | None = None
 

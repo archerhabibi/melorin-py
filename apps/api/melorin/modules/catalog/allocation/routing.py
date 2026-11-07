@@ -54,6 +54,8 @@ class Candidate:
     last_assigned_at: dt.datetime | None = None  # round_robin key: written once per NEW order, never by a renewal
     server_created_at: dt.datetime | None = None  # fill_first tie-break (oldest destination first)
     target_error: str | None = None  # why the stored target is unusable for its panel kind (None = valid or inherited)
+    destination_sellable: bool = True  # PG-08 sell-guard: the destination's group/host/node state on the panel (fail-open default)
+    destination_reason: str | None = None
 
 
 def _reject_reason(
@@ -67,6 +69,8 @@ def _reject_reason(
         return "پنل سالم نیست"
     if c.target_error:
         return f"مقصد نامعتبر است: {c.target_error}"
+    if not c.destination_sellable:
+        return f"مقصد روی پنل قابل فروش نیست: {c.destination_reason or 'سلامت مقصد تأیید نشده'}"
     if is_test and not c.allow_test:
         return "اکانت تست برای این سرور مجاز نیست"
     if c.product_codes and product_code not in c.product_codes:
@@ -264,6 +268,9 @@ async def _active_counts(session: AsyncSession, server_ids: list[uuid.UUID], pan
 
 
 def _candidate(server: Server, panel: Panel, member: BundleMember | None, active_server: int, active_panel: int) -> Candidate:
+    from melorin.modules.vpn.capacity import effective_load  # PG-08: capacity_source=panel also counts users created outside Melorin
+
+    active_server = effective_load(server, active_server)
     return Candidate(
         server_id=server.id,
         server_name=server.name,
@@ -283,6 +290,8 @@ def _candidate(server: Server, panel: Panel, member: BundleMember | None, active
         member_sold=int(member.sold_count or 0) if member else 0,
         last_assigned_at=server.last_assigned_at,
         server_created_at=server.created_at,
+        destination_sellable=bool(server.sellable) if server.sellable is not None else True,
+        destination_reason=server.sellable_reason,
         target_error="؛ ".join(
             validate_target(panel.kind, normalize_target(server.target), api_style=(panel.config or {}).get("api_style"))
         )

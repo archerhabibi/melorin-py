@@ -24,6 +24,7 @@ from melorin.modules.admin.schemas import (
 )
 from melorin.modules.admin.targets import check_target, target_warnings
 from melorin.modules.vpn import capabilities
+from melorin.modules.vpn.capacity import capacity_view
 from melorin.modules.vpn.targets import capacity_label, effective_destination
 from melorin.modules.admin._common import (
     _commit_or_conflict,
@@ -193,6 +194,12 @@ def _server_out(s: Server, panel: Panel, active: int = 0, total: int = 0, warnin
         capacity_label=capacity_label(panel.kind, s.target),
         last_assigned_at=s.last_assigned_at,
         warnings=warnings or [],
+        sellable=bool(s.sellable) if s.sellable is not None else True,
+        sellable_reason=s.sellable_reason,
+        destination_health=s.destination_health,
+        capacity_info=capacity_view(s, active),
+        capacity_source=s.capacity_source or "melorin",
+        capacity_checked_at=s.capacity_checked_at,
         created_at=s.created_at,
         updated_at=s.updated_at,
     )
