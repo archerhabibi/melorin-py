@@ -6,12 +6,12 @@
 
 | Measurement | Value |
 |---|---|
-| Alembic head | `0046_store_vpn_notice_settings` |
-| Migrations | 46 |
-| ORM tables | 70 |
-| API operations | 313 |
-| API paths | 272 |
-| Test files / test functions (static count) | 179 / 1703 |
+| Alembic head | `0047_panel_events` |
+| Migrations | 47 |
+| ORM tables | 71 |
+| API operations | 319 |
+| API paths | 278 |
+| Test files / test functions (static count) | 180 / 1739 |
 | Coverage | not measured here (CI writes `apps/api/coverage.xml`; run `pytest --cov=melorin --cov-report=xml`) |
 | Documents: repo root / `docs/` / `docs/history/` (tests only) | 3 / 34 / 4 |
 

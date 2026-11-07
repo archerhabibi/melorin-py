@@ -47,13 +47,14 @@ CAPABILITY_ENDPOINTS: dict[str, tuple[str, ...]] = {
     "admin_ops": ("GET /api/admins", "POST /api/admin", "PUT /api/admin/by-id/{admin_id}", "GET /api/admin-roles/simple"),
     "settings_ops": ("GET /api/settings",),
     "account_listing": ("GET /api/users",),
-    "event_source": (),  # Phase 2: the panel calls Melorin; the only panel route is PUT /api/settings (webhook), not used yet
+    # Phase 2: the panel calls Melorin (``/webhooks/pasarguard/{panel_id}``); the only panel routes involved switch the webhook on/off
+    "event_source": ("GET /api/settings", "PUT /api/settings"),
 }
 
 # Capabilities of the legacy (Marzban-style) API: only what the pre-capability adapter did.
 LEGACY_CAPABILITIES = frozenset({"suspend", "extend", "subscription_url", "traffic_reset", "subscription_rotate"})
-# Declared but switched off until their phase ships.
-NOT_YET = frozenset({"event_source"})
+# Declared but switched off until their phase ships (empty since Phase 2 shipped ``event_source``).
+NOT_YET: frozenset[str] = frozenset()
 
 PERMISSION_FALSE_VALUES = (None, False, 0, "0", "", "none", "None")
 

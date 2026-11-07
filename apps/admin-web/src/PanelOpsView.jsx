@@ -1,9 +1,10 @@
-// PasarGuard Phase 1 — panel operations: real node health (PG-01), reconciliation issues (PG-04), unknown panel users (PG-04)
+// PasarGuard Phase 1+2 — panel operations (live events tab: PG-03): real node health (PG-01), reconciliation issues (PG-04), unknown panel users (PG-04)
 // and the connection's access review (PG-05). Everything comes from the Core API; every write is an explicit, audited admin action.
 import { useCallback, useEffect, useState } from 'react';
 import { Activity, AlertTriangle, CheckCircle, Loader, RefreshCw, ShieldAlert } from 'lucide-react';
 import { authFetch } from './api.js';
 import { confirmDialog, promptDialog } from './ui.jsx';
+import PanelEventsTab from './PanelEventsTab.jsx';
 
 const KIND_LABEL = {
   missing_on_panel: 'کاربر روی پنل نیست',
@@ -343,6 +344,7 @@ export default function PanelOpsView({ api, toast }) {
         {tabBtn('issues', 'مغایرت‌ها', issues.total)}
         {tabBtn('orphans', 'کاربران ناشناس', orphans.total)}
         {tabBtn('nodes', 'نودها', 0)}
+        {tabBtn('events', 'رویدادهای زنده', 0)}
         {tabBtn('notices', 'هشدار حجم', 0)}
       </div>
 
@@ -402,6 +404,8 @@ export default function PanelOpsView({ api, toast }) {
       )}
 
       {tab === 'notices' && <NoticeLevels call={call} toast={toast} />}
+
+      {tab === 'events' && <PanelEventsTab call={call} panelId={panelId} toast={toast} />}
 
       {tab === 'nodes' && (
         <section className="space-y-3">
