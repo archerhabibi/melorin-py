@@ -274,8 +274,9 @@ async def test_a_live_lease_blocks_a_second_runner(panel_api):
         user, store, panel, _ = await _world(s, 2)
         op = await bulk.preview(s, kind="disable", selection=_sel(panel), reason="تعلیق", actor_id=user.id)
         await bulk.confirm(s, op.id, count=2, actor_id=user.id)
-        assert await bulk.claim_next(s) == op.id
-        assert await bulk.claim_next(s) is None  # leased
+        # An explicit clock: NOW is fixed at import time, so mixing it with the real clock made this test depend on suite duration.
+        assert await bulk.claim_next(s, now=NOW) == op.id
+        assert await bulk.claim_next(s, now=NOW) is None  # leased
         stale = NOW + dt.timedelta(minutes=10)
         assert await bulk.claim_next(s, now=stale) == op.id  # a crashed runner's lease expires
 
