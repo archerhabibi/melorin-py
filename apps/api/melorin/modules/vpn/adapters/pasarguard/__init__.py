@@ -1,7 +1,7 @@
 """PasarGuard panel adapter (https://github.com/PasarGuard/panel).
 
 Package layout (PG-00): ``core`` transport/auth, ``users`` account lifecycle + usage + devices, ``admins`` store operators,
-``nodes`` groups/templates/nodes/settings, ``events`` webhook vocabulary, ``capabilities`` declared vs permitted capabilities.
+``nodes`` groups/templates/nodes/settings, ``events`` webhook intake (verify, parse) and connect/disconnect at the panel, ``capabilities`` declared vs permitted capabilities.
 
 API contract aligned with the production client in PGClockBot (app/services/pasarguard.py)
 and the current PasarGuard panel API:
@@ -31,6 +31,7 @@ Panel credentials (encrypted): {"username": "...", "password": "..."},
 
 from melorin.modules.vpn.adapters.pasarguard.admins import AdminsMixin
 from melorin.modules.vpn.adapters.pasarguard.capabilities import CapabilitiesMixin
+from melorin.modules.vpn.adapters.pasarguard.events import EventsMixin
 from melorin.modules.vpn.adapters.pasarguard.core import (  # noqa: F401  (re-exported: tests and callers import these from here)
     _TOKEN_TTL,
     _TOKENS,
@@ -45,7 +46,7 @@ from melorin.modules.vpn.adapters.pasarguard.nodes import NodesMixin
 from melorin.modules.vpn.adapters.pasarguard.users import _STATUS, UsersMixin, build_create_payload, build_modify_payload  # noqa: F401
 
 
-class PasarGuardAdapter(UsersMixin, AdminsMixin, NodesMixin, CapabilitiesMixin, PasarGuardCore):
+class PasarGuardAdapter(UsersMixin, AdminsMixin, NodesMixin, EventsMixin, CapabilitiesMixin, PasarGuardCore):
     """PanelAdapter + the optional operation groups (NodeOps, UsageOps, DeviceOps, BulkOps, AdminOps, SettingsOps).
 
     Which of them a connection may use is ``capabilities()`` (declared) narrowed by ``discover_capabilities()`` (permitted)."""
