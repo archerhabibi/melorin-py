@@ -30,6 +30,7 @@ from melorin.modules.reports.router import router as reports_router
 from melorin.modules.referral.router import router as referral_router
 from melorin.modules.tickets.router import router as tickets_router
 from melorin.modules.vpn.router import router as vpn_router
+from melorin.modules.vpn.tools_router import router as vpn_tools_router
 from melorin.modules.vpn.webhook_router import router as panel_webhook_router
 from melorin.modules.wallet.router import router as wallet_router
 
@@ -69,6 +70,7 @@ app.include_router(wallet_router, prefix="/api/v1")
 app.include_router(payments_router, prefix="/api/v1")
 app.include_router(orders_router, prefix="/api/v1")
 app.include_router(vpn_router, prefix="/api/v1")
+app.include_router(vpn_tools_router, prefix="/api/v1")
 app.include_router(panel_webhook_router, prefix="/api/v1")
 app.include_router(reseller_router, prefix="/api/v1")
 app.include_router(internal_router, prefix="/api/v1")
