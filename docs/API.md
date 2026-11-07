@@ -35,7 +35,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 
 <!-- BEGIN GENERATED ROUTES (scripts/gen_docs.py) -->
 
-### `admin` (110)
+### `admin` (120)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -88,11 +88,15 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | POST | `/api/v1/admin/panel-admins/sync` | Sync Panel Admins |
 | GET | `/api/v1/admin/panel-admins/{row_id}/credentials` | Credentials |
 | POST | `/api/v1/admin/panel-admins/{row_id}/reset-password` | Reset Password |
+| GET | `/api/v1/admin/panel-orphans` | Panel Orphans |
+| POST | `/api/v1/admin/panel-orphans/{orphan_id}/ignore` | Ignore Orphan |
 | GET | `/api/v1/admin/panels` | Panels |
 | POST | `/api/v1/admin/panels` | Create Panel |
 | PATCH | `/api/v1/admin/panels/{panel_id}` | Update Panel |
 | DELETE | `/api/v1/admin/panels/{panel_id}` | Delete Panel |
 | POST | `/api/v1/admin/panels/{panel_id}/health` | Panel Health |
+| GET | `/api/v1/admin/panels/{panel_id}/nodes` | Panel Nodes |
+| POST | `/api/v1/admin/panels/{panel_id}/reconcile` | Reconcile Panel Now |
 | POST | `/api/v1/admin/panels/{panel_id}/servers/from-targets` | Create Servers From Targets |
 | POST | `/api/v1/admin/panels/{panel_id}/state` | Set Panel State |
 | GET | `/api/v1/admin/panels/{panel_id}/targets` | Panel Targets |
@@ -107,6 +111,9 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | DELETE | `/api/v1/admin/products/{product_id}` | Delete Product |
 | GET | `/api/v1/admin/products/{product_id}/availability` | Get Availability |
 | POST | `/api/v1/admin/products/{product_id}/availability` | Set Availability |
+| GET | `/api/v1/admin/reconciliation/issues` | Reconciliation Issues |
+| POST | `/api/v1/admin/reconciliation/issues/{issue_id}/action` | Issue Action |
+| GET | `/api/v1/admin/reconciliation/summary` | Reconciliation Summary |
 | GET | `/api/v1/admin/reports/analytics` | Report Analytics |
 | GET | `/api/v1/admin/reports/analytics.csv` | Export Analytics |
 | GET | `/api/v1/admin/reports/orders.csv` | Export Orders |
@@ -136,6 +143,9 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | PUT | `/api/v1/admin/stores/{store_id}/receipt-review/settings` | Receipt Review Settings |
 | POST | `/api/v1/admin/stores/{store_id}/receipt-review/{payment_id}` | Receipt Review Resolve |
 | GET | `/api/v1/admin/stores/{store_id}/reseller-prices` | Reseller Store Prices |
+| GET | `/api/v1/admin/stores/{store_id}/vpn-notices` | Get Store Vpn Notices |
+| PUT | `/api/v1/admin/stores/{store_id}/vpn-notices` | Put Store Vpn Notices |
+| DELETE | `/api/v1/admin/stores/{store_id}/vpn-notices` | Reset Store Vpn Notices |
 | GET | `/api/v1/admin/tickets` | Tickets |
 | POST | `/api/v1/admin/tickets/attachments` | Ticket Upload Attachment |
 | GET | `/api/v1/admin/tickets/{ticket_id}` | Ticket Detail |

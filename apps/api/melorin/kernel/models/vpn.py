@@ -1,7 +1,7 @@
 import datetime as dt
 import uuid
 
-from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, Uuid, text
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint, Uuid, text
 from sqlalchemy import event
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -22,6 +22,8 @@ class Panel(IdMixin, TimestampMixin, Base):
     # PG-00: what this connection can do (adapter declaration narrowed by the panel role); see modules/vpn/capabilities.py
     capabilities: Mapped[dict | None] = mapped_column(JSON)
     capabilities_checked_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    # PG-01: node-level health summary (counts, reasons, ``sellable``); ``health_status`` is healthy | degraded | unhealthy | unknown
+    health_detail: Mapped[dict | None] = mapped_column(JSON)
 
 
 class Server(IdMixin, TimestampMixin, Base):
@@ -57,6 +59,14 @@ class VpnAccount(IdMixin, TimestampMixin, Base):
     subscription_url: Mapped[str | None] = mapped_column(Text)
     links: Mapped[list | None] = mapped_column(JSON)
     near_expiry_notified: Mapped[bool] = mapped_column(Boolean, default=False)
+    # PG-06: highest "traffic running low" threshold (percent) already announced for the current package; 0 = none. Reset on renewal.
+    traffic_notified_level: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    # PG-02: what the panel last said (the panel is the source of truth for these; ``status`` is the normalised Melorin view)
+    last_synced_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    remote_status: Mapped[str | None] = mapped_column(String(20))  # raw panel status: active|on_hold|limited|expired|disabled
+    online_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    lifetime_used_traffic: Mapped[int | None] = mapped_column(BigInteger)
+    sync_error_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     archived_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     # Immutable snapshot written once at creation (audit/support only, NEVER a routing source: that is server_id/panel_id).
     placement: Mapped[dict | None] = mapped_column(JSON)
@@ -89,11 +99,68 @@ class ProvisioningAttempt(IdMixin, CreatedMixin, Base):
 
 
 class ReconciliationIssue(IdMixin, CreatedMixin, Base):
+    """One discrepancy between Melorin and a panel (PG-04).
+
+    Kinds: ``missing_on_panel`` | ``panel_unreachable`` | ``owner_mismatch`` | ``limits_mismatch``. At most ONE open row per
+    (account, kind): a repeat only bumps ``occurrences``/``last_seen_at``. A row closes itself (``resolution='auto'``) when the
+    condition clears, or by an admin (``resolved`` | ``ignored`` + reason).
+    """
+
     __tablename__ = "reconciliation_issues"
+    __table_args__ = (
+        Index(
+            "uq_reconciliation_issue_open",
+            "vpn_account_id",
+            "kind",
+            unique=True,
+            postgresql_where=text("status = 'open'"),
+            sqlite_where=text("status = 'open'"),
+        ),
+    )
     vpn_account_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("vpn_accounts.id"), index=True)
     kind: Mapped[str] = mapped_column(String(40))
     details: Mapped[dict | None] = mapped_column(JSON)
     status: Mapped[str] = mapped_column(String(20), default="open")  # open | resolved | ignored
+    occurrences: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    last_seen_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    resolved_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    resolution: Mapped[str | None] = mapped_column(String(300))  # auto | duplicate | <admin action / reason>
+
+
+class PanelNode(IdMixin, TimestampMixin, Base):
+    """Last known state of one node of a panel (PG-01), refreshed by ``panel_node_sync_job``."""
+
+    __tablename__ = "panel_nodes"
+    __table_args__ = (UniqueConstraint("panel_id", "remote_id", name="uq_panel_nodes_panel_remote"),)
+    panel_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("panels.id", ondelete="CASCADE"), index=True)
+    remote_id: Mapped[int] = mapped_column(Integer)
+    name: Mapped[str] = mapped_column(String(120))
+    status: Mapped[str] = mapped_column(String(20), index=True)  # connected | connecting | error | disabled | limited | unknown
+    message: Mapped[str | None] = mapped_column(Text)  # the panel's error text (e.g. CERTIFICATE_VERIFY_FAILED)
+    xray_version: Mapped[str | None] = mapped_column(String(40))
+    usage_coefficient: Mapped[float | None] = mapped_column(Float)
+    last_seen_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))  # last time the node was ``connected``
+    status_changed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    removed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))  # gone from the panel's node list
+
+
+class PanelOrphan(IdMixin, TimestampMixin, Base):
+    """A user that exists on the panel but not in Melorin (PG-04). Listed for an admin; NEVER deleted automatically."""
+
+    __tablename__ = "panel_orphans"
+    __table_args__ = (UniqueConstraint("panel_id", "username", name="uq_panel_orphans_panel_username"),)
+    panel_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("panels.id", ondelete="CASCADE"), index=True)
+    username: Mapped[str] = mapped_column(String(128))
+    remote_id: Mapped[int | None] = mapped_column(Integer)
+    remote_status: Mapped[str | None] = mapped_column(String(20))
+    owner_username: Mapped[str | None] = mapped_column(String(64))  # the panel admin that owns the user
+    expire_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    traffic_limit_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
+    traffic_used_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
+    status: Mapped[str] = mapped_column(String(20), default="open", index=True)  # open | ignored | gone
+    note: Mapped[str | None] = mapped_column(String(300))
+    first_seen_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    last_seen_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 @event.listens_for(VpnAccount.user_id, "set")

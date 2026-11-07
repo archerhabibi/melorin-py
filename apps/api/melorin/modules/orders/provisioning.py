@@ -19,7 +19,7 @@ from melorin.modules.vpn.adapters.base import AccountSpec, ErrorKind, PanelError
 from melorin.modules.vpn import panel_admins
 from melorin.modules.vpn.adapters.registry import build_adapter, seed_adapter
 from melorin.modules.catalog.allocation import placement_snapshot, resolve_allocation
-from melorin.modules.vpn import renewal
+from melorin.modules.vpn import notices, renewal
 from melorin.kernel.models.vpn import Panel, ProvisioningAttempt, Server, VpnAccount
 from melorin.kernel.models.bundles import Bundle, BundleMember
 from melorin.modules.vpn.bundles import clean_custom_name
@@ -291,6 +291,8 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
                     )
                     session.add(account)
                 account.panel_ref, account.status = remote.ref, VpnStatus.ACTIVE
+                if order.kind == "renewal":
+                    notices.reset_for_renewal(account)  # PG-06: a renewed account warns again before its NEXT expiry / quota end
                 account.expires_at = remote.expire_at
                 account.traffic_limit_bytes = remote.traffic_limit_bytes
                 account.traffic_used_bytes = remote.traffic_used_bytes
@@ -328,6 +330,8 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
     if order.kind != "renewal" and account.placement is not None and account.placement.get("remote_ref") is None:
         account.placement = {**account.placement, "remote_ref": pa.ref}  # the snapshot is written once; only the panel's id is filled in
     account.status = VpnStatus.ACTIVE
+    if order.kind == "renewal":
+        notices.reset_for_renewal(account)  # PG-06
     account.expires_at = pa.expire_at
     account.traffic_limit_bytes = pa.traffic_limit_bytes
     account.traffic_used_bytes = pa.traffic_used_bytes

@@ -55,6 +55,44 @@ def capabilities_out(panel) -> dict:
     return out
 
 
+# Capabilities Phase 1 (real health, status sync, reconcile v2) cannot do its job without: capability -> what the admin loses.
+PHASE1_ESSENTIAL = {
+    "node_ops": "سلامت واقعی نودها (فقط پاسخ‌دادن خود پنل بررسی می‌شود)",
+    "account_listing": "همگام‌سازی دسته‌ای و کشف کاربران ناشناس پنل",
+    "bulk_ops": "اصلاح مالک کاربران (owner_mismatch)",
+    "admin_ops": "مدیریت ادمین فروشگاه‌ها",
+}
+
+
+def access_review(panel) -> dict:
+    """PG-05 permission probe verdict for the admin UI, computed from the stored capability snapshot (no network).
+
+    ``level``: ``owner`` (highest privilege: a leaked credential controls the whole panel), ``limited`` (a Phase 1 capability is
+    denied), ``unknown`` (the role could not be read), ``least_privilege`` (everything Phase 1 needs, and not the owner),
+    ``not_applicable`` (not a PasarGuard panel). ``warnings`` is a list of ``{code, message, permissions}``; empty = nothing to fix.
+    """
+    if getattr(panel, "kind", None) != "pasarguard":
+        return {"level": "not_applicable", "role": None, "warnings": []}
+    out = capabilities_out(panel)
+    if out.get("source") != "probe":
+        detail = f" ({out['error']})" if out.get("error") else ""
+        warning = {"code": "unverified", "message": f"نقش و دسترسی‌های اتصال پنل خوانده نشده است{detail}", "permissions": []}
+        return {"level": "unknown", "role": out.get("role"), "warnings": [warning]}
+    warnings: list[dict] = []
+    denied = out.get("denied") or {}
+    if out.get("is_owner"):
+        message = "Melorin با حساب owner پنل وصل است؛ نشت این اعتبارنامه یعنی کنترل کامل پنل. یک ادمین سرویس با نقش محدود بسازید."
+        warnings.append({"code": "owner_credential", "message": message, "permissions": []})
+    for name, lost in PHASE1_ESSENTIAL.items():
+        if name in denied:
+            warnings.append({"code": f"missing_{name}", "message": f"دسترسی لازم نیست: {lost}", "permissions": list(denied[name])})
+    if out.get("users_scope") == 1:
+        message = "دسترسی کاربران فقط روی کاربران خود این ادمین است؛ کاربران ناشناس و مالک‌های اشتباه دیده نمی‌شوند."
+        warnings.append({"code": "own_users_only", "message": message, "permissions": ["users.read"]})
+    level = "owner" if out.get("is_owner") else ("limited" if warnings else "least_privilege")
+    return {"level": level, "role": out.get("role"), "warnings": warnings}
+
+
 def is_stale(panel, now: dt.datetime | None = None) -> bool:
     checked = getattr(panel, "capabilities_checked_at", None)
     if checked is None:

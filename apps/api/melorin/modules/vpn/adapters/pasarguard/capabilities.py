@@ -28,6 +28,7 @@ CAPABILITY_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "bulk_ops": ("users.set_owner",),
     "admin_ops": ("admins.read", "admins.create", "admins.update"),
     "settings_ops": ("settings.read",),
+    "account_listing": ("users.read",),
     "event_source": ("settings.read", "settings.update"),
 }
 
@@ -45,6 +46,7 @@ CAPABILITY_ENDPOINTS: dict[str, tuple[str, ...]] = {
     "bulk_ops": ("PUT /api/users/bulk/set_owner",),
     "admin_ops": ("GET /api/admins", "POST /api/admin", "PUT /api/admin/by-id/{admin_id}", "GET /api/admin-roles/simple"),
     "settings_ops": ("GET /api/settings",),
+    "account_listing": ("GET /api/users",),
     "event_source": (),  # Phase 2: the panel calls Melorin; the only panel route is PUT /api/settings (webhook), not used yet
 }
 

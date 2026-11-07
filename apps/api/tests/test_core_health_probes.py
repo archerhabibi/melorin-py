@@ -71,7 +71,7 @@ def test_build_checks_shape_and_degraded_rate_limit():
 def test_publish_signals_thresholds(monkeypatch):
     alerts, gauges = {}, {}
     monkeypatch.setattr(health, "set_alert", lambda name, active, **kw: alerts.__setitem__(name, active))
-    monkeypatch.setattr(health, "set_gauge", lambda name, value: gauges.__setitem__(name, value))
+    monkeypatch.setattr(health, "set_gauge", lambda name, value, **labels: gauges.__setitem__(name, value) if not labels else None)
     health.publish_signals(DatabaseProbe(ok=True, pending=101, unhealthy_panels=2), WorkerProbe(True, False, None))
     assert alerts["MelorinOutboxBacklog"] is True and alerts["MelorinPanelsUnhealthy"] is True
     assert alerts["MelorinWorkerStale"] is True and alerts["MelorinDatabaseUnavailable"] is False

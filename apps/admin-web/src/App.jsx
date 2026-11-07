@@ -12,6 +12,7 @@ import { backdropProps, useDialog } from './useDialog.js';
 import { legacyHash } from './infra.jsx';
 import { toggleTheme } from './theme.js';
 import {
+  Activity,
   BarChart3,
   Bell,
   CircleAlert,
@@ -93,6 +94,7 @@ const groups = [
       ['بسته‌های فروش', Layers, 'bundles'],
       ['محصولات VPN', Boxes, 'products'],
       ['سلامت زیرساخت', ShieldCheck, 'infra-health'],
+      ['عملیات پنل', Activity, 'panel-ops'],
     ],
     'مسیر فروش: پنل و سرور ← بسته فروش ← پکیج',
   ],

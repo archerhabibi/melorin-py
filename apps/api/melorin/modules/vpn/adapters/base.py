@@ -41,6 +41,11 @@ class PanelAccount:
     traffic_used_bytes: int
     subscription_url: str | None = None
     links: list[str] = field(default_factory=list)
+    # PG-02: what the panel itself says (None = this panel kind does not report it). ``status`` above is the normalised view.
+    remote_status: str | None = None  # raw panel status, e.g. PasarGuard ``on_hold``
+    online_at: dt.datetime | None = None
+    lifetime_used_bytes: int | None = None
+    owner: str | None = None  # panel admin that owns the account (PasarGuard ``admin.username``)
 
 
 # Capability names, in display order. ``Capabilities`` fields, ``panels.capabilities`` JSON keys and the admin UI all use these.
@@ -54,6 +59,7 @@ OPTIONAL_CAPABILITIES = (
     "bulk_ops",  # BulkOps: chunked operations over many accounts
     "admin_ops",  # AdminOps: panel-side admin (store operator) management
     "settings_ops",  # SettingsOps: read panel settings
+    "account_listing",  # AccountListing: page through every account of the panel (reconcile v2, orphan discovery)
     "event_source",  # EventSource: the panel pushes webhooks to Melorin
 )
 ALL_CAPABILITIES = CORE_CAPABILITIES + OPTIONAL_CAPABILITIES
@@ -78,6 +84,7 @@ class Capabilities:
     bulk_ops: bool = False
     admin_ops: bool = False
     settings_ops: bool = False
+    account_listing: bool = False
     event_source: bool = False
 
     def to_dict(self) -> dict[str, bool]:
@@ -188,6 +195,13 @@ class SettingsOps(Protocol):  # flag: settings_ops (read-only in Phase 0)
 
 
 @runtime_checkable
+class AccountListing(Protocol):  # flag: account_listing (PG-04)
+    async def list_accounts(self, *, offset: int = 0, limit: int = 100) -> tuple[list[PanelAccount], int | None]:
+        """One page of the panel's accounts plus the panel's total (``None`` when unknown)."""
+        ...
+
+
+@runtime_checkable
 class EventSource(Protocol):  # flag: event_source (Phase 2: webhook intake)
     def verify_webhook(self, headers: Mapping[str, str], body: bytes, secret: str) -> bool: ...
 
@@ -213,6 +227,7 @@ CAPABILITY_PROTOCOLS: dict[str, type] = {
     "bulk_ops": BulkOps,
     "admin_ops": AdminOps,
     "settings_ops": SettingsOps,
+    "account_listing": AccountListing,
     "event_source": EventSource,
 }
 
