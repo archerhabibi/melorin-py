@@ -35,7 +35,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 
 <!-- BEGIN GENERATED ROUTES (scripts/gen_docs.py) -->
 
-### `admin` (136)
+### `admin` (153)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -45,6 +45,12 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/api/v1/admin/broadcasts` | History |
 | POST | `/api/v1/admin/broadcasts` | Send |
 | GET | `/api/v1/admin/broadcasts/audiences` | Audiences |
+| GET | `/api/v1/admin/bulk-operations` | Bulk List |
+| POST | `/api/v1/admin/bulk-operations/preview` | Bulk Preview |
+| GET | `/api/v1/admin/bulk-operations/{op_id}` | Bulk Detail |
+| POST | `/api/v1/admin/bulk-operations/{op_id}/cancel` | Bulk Cancel |
+| POST | `/api/v1/admin/bulk-operations/{op_id}/confirm` | Bulk Confirm |
+| POST | `/api/v1/admin/bulk-operations/{op_id}/resume` | Bulk Resume |
 | GET | `/api/v1/admin/bundle-products/unassigned` | Unassigned Products |
 | GET | `/api/v1/admin/bundles` | List Bundles |
 | POST | `/api/v1/admin/bundles` | Create Bundle |
@@ -104,9 +110,16 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/api/v1/admin/panels/{panel_id}/events/status` | Panel Events Status |
 | POST | `/api/v1/admin/panels/{panel_id}/health` | Panel Health |
 | GET | `/api/v1/admin/panels/{panel_id}/nodes` | Panel Nodes |
+| GET | `/api/v1/admin/panels/{panel_id}/ops` | Ops Overview |
+| POST | `/api/v1/admin/panels/{panel_id}/ops/cores/{core_id}/restart` | Ops Core Restart |
+| GET | `/api/v1/admin/panels/{panel_id}/ops/infra` | Ops Infra |
+| POST | `/api/v1/admin/panels/{panel_id}/ops/nodes/{node_id}/{action}` | Ops Node Action |
+| POST | `/api/v1/admin/panels/{panel_id}/ops/{family}/toggle` | Ops Toggle |
 | POST | `/api/v1/admin/panels/{panel_id}/reconcile` | Reconcile Panel Now |
 | POST | `/api/v1/admin/panels/{panel_id}/servers/from-targets` | Create Servers From Targets |
 | POST | `/api/v1/admin/panels/{panel_id}/state` | Set Panel State |
+| GET | `/api/v1/admin/panels/{panel_id}/subscription-check` | Subscription Check Last |
+| POST | `/api/v1/admin/panels/{panel_id}/subscription-check` | Subscription Check Run |
 | GET | `/api/v1/admin/panels/{panel_id}/targets` | Panel Targets |
 | GET | `/api/v1/admin/panels/{panel_id}/templates` | Panel Templates |
 | POST | `/api/v1/admin/panels/{panel_id}/templates` | Template Create |
@@ -138,6 +151,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | POST | `/api/v1/admin/reseller-applications/{application_id}/review` | Review Application |
 | POST | `/api/v1/admin/reseller-applications/{application_id}/verify-bot` | Verify Application Bot |
 | PUT | `/api/v1/admin/reseller-stores/{store_id}/api` | Toggle Reseller Api |
+| PUT | `/api/v1/admin/resellers/{store_id}/suspend-policy` | Set Suspend Policy |
 | GET | `/api/v1/admin/servers` | Servers |
 | POST | `/api/v1/admin/servers` | Create Server |
 | PATCH | `/api/v1/admin/servers/{server_id}` | Update Server |
@@ -145,6 +159,9 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | POST | `/api/v1/admin/servers/{server_id}/state` | Set Server State |
 | GET | `/api/v1/admin/settings` | Settings |
 | PUT | `/api/v1/admin/settings/{key}` | Update Setting |
+| GET | `/api/v1/admin/store-admins` | Governance List |
+| POST | `/api/v1/admin/store-admins/refresh` | Governance Refresh |
+| PATCH | `/api/v1/admin/store-admins/{row_id}` | Governance Update |
 | GET | `/api/v1/admin/stores` | Stores |
 | GET | `/api/v1/admin/stores/{store_id}/bank-sms` | Bank Sms Overview |
 | POST | `/api/v1/admin/stores/{store_id}/bank-sms/reconcile` | Bank Sms Reconcile |
