@@ -58,6 +58,7 @@ TOOLS: tuple[Tool, ...] = (
     Tool("rotate", "لینک اشتراک جدید", "subscription_rotate", (CUSTOMER, OWNER, ADMIN), write=True),
     Tool("suspend", "تعلیق / فعال‌سازی", "suspend", (OWNER, ADMIN), write=True),
     Tool("adjust", "جبران حجم و زمان", "extend", (ADMIN,), write=True),
+    Tool("change_plan", "تغییر پلن اکانت", "next_plan_ops", (ADMIN,), write=True),  # PG-09: served by plans.change_plan
 )
 _BY_NAME = {t.name: t for t in TOOLS}
 

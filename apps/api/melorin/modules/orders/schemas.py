@@ -13,6 +13,7 @@ class CreateOrder(BaseModel):
     bundle_id: uuid.UUID | None = None
     selected_panel_id: uuid.UUID | None = None
     account_name: str | None = Field(default=None, max_length=40)
+    renewal_mode: str = Field(default="replace", pattern="^(replace|queue)$")  # PG-09: only meaningful for kind=renewal
 
 
 class OrderOut(BaseModel):
@@ -22,6 +23,7 @@ class OrderOut(BaseModel):
     user_id: uuid.UUID
     product_id: uuid.UUID
     kind: str
+    renewal_mode: str = "replace"
     status: str
     payment_method: str
     channel: str

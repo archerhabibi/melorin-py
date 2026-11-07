@@ -63,7 +63,7 @@ async def _refund(
             await events.emit(
                 session,
                 events.VPN_RENEWAL_ROLLBACK,
-                {"vpn_account_id": acc.id, "before": order.pricing_snapshot["renewal_before"]},
+                {"vpn_account_id": acc.id, "before": order.pricing_snapshot["renewal_before"], "mode": order.renewal_mode},
                 dedup_key=f"renewal_rollback:{order.id}",
             )
         else:

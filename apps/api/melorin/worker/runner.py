@@ -313,6 +313,18 @@ async def rollback_renewal(session, payload):
         return
     before = payload.get("before") or {}
     panel = await session.get(Panel, account.panel_id)
+    if payload.get("mode") == "queue":
+        # PG-09: a refunded PREPAID renewal never touched the running package, so only the queued one is taken back. When the
+        # queued package already started (the slot is empty) there is nothing to undo on the panel: money back is a support case.
+        if account.queued_plan:
+            adapter = seed_adapter(build_adapter(panel), account)
+            try:
+                await adapter.clear_next_plan(account.username)
+            finally:
+                await adapter.close()
+            account.queued_plan = None
+            await session.commit()
+        return
     pa = await seed_adapter(build_adapter(panel), account).extend_account(
         account.username,
         expire_at=dt.datetime.fromisoformat(before["expires_at"]) if before.get("expires_at") else None,

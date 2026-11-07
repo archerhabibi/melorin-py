@@ -103,6 +103,7 @@ class UsersMixin:
             lifetime_used_bytes=int(lifetime) if isinstance(lifetime, int | float) and not isinstance(lifetime, bool) else None,
             owner=str(owner.get("username")) if isinstance(owner, dict) and owner.get("username") else None,
             next_plan=self._next_plan_of(d),
+            next_plan_reported="next_plan" in d,
         )
 
     @staticmethod

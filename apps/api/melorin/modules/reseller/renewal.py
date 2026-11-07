@@ -29,7 +29,9 @@ async def reseller_renewal_offer(session, owner_id: uuid.UUID, store_id: uuid.UU
     return OwnerRenewalOut(**offer, payer_note=None if account.user_id == owner_id else PAYER_NOTE)
 
 
-async def reseller_renew(session, owner_id: uuid.UUID, store_id: uuid.UUID, account_id: uuid.UUID, *, idempotency_key: str, channel: str):
+async def reseller_renew(
+    session, owner_id: uuid.UUID, store_id: uuid.UUID, account_id: uuid.UUID, *, idempotency_key: str, channel: str, renewal_mode: str = "replace"
+):
     """Renew one of the reseller's OWN accounts or one of THIS store's customers' accounts with the account's own package at
     its current price. The order belongs to the account's holder and is paid from the holder's wallet in the store; every
     renewal rule stays in :mod:`renewal` / ``orders.create_order``. Returns the order."""
@@ -43,6 +45,7 @@ async def reseller_renew(session, owner_id: uuid.UUID, store_id: uuid.UUID, acco
         kind="renewal",
         vpn_account_id=account_id,
         channel=channel,
+        renewal_mode=renewal_mode,
     )
     if not is_own:
         audit.record(

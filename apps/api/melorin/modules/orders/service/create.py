@@ -15,7 +15,7 @@ from melorin.kernel.models.orders import Order, OrderStateTransition
 from melorin.kernel.models.stores import StoreMembership
 from melorin.kernel.models.system import TestAccountGrant
 from melorin.modules.catalog import allocation
-from melorin.modules.vpn import renewal
+from melorin.modules.vpn import plans, renewal
 from melorin.kernel.models.vpn import VpnAccount
 from melorin.modules.orders.service.base import ResellerDebtLimitReached, S, transition
 from melorin.modules.orders.service.payment import notify_debt_reached, pay_with_wallet
@@ -35,6 +35,7 @@ async def create_order(
     selected_panel_id: uuid.UUID | None = None,
     account_name: str | None = None,
     channel: str = "web",
+    renewal_mode: str = "replace",
 ) -> Order:
     """Wallet-first checkout (v1.1): every purchase is paid only from the wallet of the same Store.
 
@@ -45,11 +46,14 @@ async def create_order(
     # Plain values on purpose: ``session.rollback()`` expires every ORM instance and async code cannot lazy-load them
     # afterwards (MissingGreenlet -> HTTP 500). Every recovery path below must use these, never ``store.id``/``user.id``.
     store_id, user_id = store.id, user.id
+    mode = plans.normalize_mode(renewal_mode)
+    if mode == plans.QUEUE and kind != "renewal":
+        raise AppError("BAD_RENEWAL_MODE", "تمدید پیش‌خرید فقط برای سفارش تمدید معنا دارد.", 400)
     existing = await session.scalar(
         select(Order).where(Order.user_id == user_id, Order.store_id == store_id, Order.idempotency_key == idempotency_key)
     )
     if existing:
-        if existing.product_id != product_id or existing.kind != kind or existing.vpn_account_id != vpn_account_id:
+        if existing.product_id != product_id or existing.kind != kind or existing.vpn_account_id != vpn_account_id or existing.renewal_mode != mode:
             raise AppError("IDEMPOTENCY_KEY_REUSE", "کلید idempotency با سفارش دیگری استفاده شده است.", 409)
         return existing
     if payment_method != "wallet":
@@ -78,6 +82,9 @@ async def create_order(
             raise AppError(
                 "RENEWAL_PRODUCT_UNAVAILABLE", "پکیج این اکانت دیگر فروخته نمی‌شود؛ تمدید ممکن نیست و باید اکانت جدید تهیه کنید.", 409
             ) from e
+        if mode == plans.QUEUE:  # PG-09: same checks the quote ran; refused BEFORE any money moves
+            queue_check = await plans.check_queueable(session, account, product)
+            queue_check.raise_if_not_ok()
     elif kind == "purchase":
         product, sp = await catalog.get_sellable(session, store, product_id)
     else:
@@ -130,13 +137,17 @@ async def create_order(
             },
             "bundle_id": str(plan.group_id) if plan.group_id else None,
             "unit_price": plan.unit_price,  # the package's current price in the original bundle, charged now
+            "mode": mode,
         }
+        if mode == plans.QUEUE:
+            snapshot["renewal_queue"] = {"template_id": queue_check.template_id}  # the panel template to queue (provisioning reads it)
     order = Order(
         number=await codes.next_code(session, codes.ORDER_SEQ),
         user_id=user.id,
         store_id=store.id,
         product_id=product.id,
         kind=kind,
+        renewal_mode=mode,
         vpn_account_id=account.id if account else None,
         status=S.PENDING,
         payment_method="wallet",
@@ -171,7 +182,7 @@ async def create_order(
             )
         )
         if existing:
-            if existing.product_id != product_id or existing.kind != kind or existing.vpn_account_id != vpn_account_id:
+            if existing.product_id != product_id or existing.kind != kind or existing.vpn_account_id != vpn_account_id or existing.renewal_mode != mode:
                 raise AppError("IDEMPOTENCY_KEY_REUSE", "کلید idempotency با سفارش دیگری استفاده شده است.", 409)
             return existing
         raise

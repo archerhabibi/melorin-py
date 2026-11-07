@@ -46,7 +46,8 @@ class PanelAccount:
     online_at: dt.datetime | None = None
     lifetime_used_bytes: int | None = None
     owner: str | None = None  # panel admin that owns the account (PasarGuard ``admin.username``)
-    next_plan: dict | None = None  # PG-09: the package the panel will activate when this one ends (None = nothing queued / not reported)
+    next_plan: dict | None = None  # PG-09: the package the panel will activate when this one ends (None = nothing queued)
+    next_plan_reported: bool = False  # True only when the panel really reports the field: ``next_plan is None`` then means "nothing queued"
 
 
 # Capability names, in display order. ``Capabilities`` fields, ``panels.capabilities`` JSON keys and the admin UI all use these.

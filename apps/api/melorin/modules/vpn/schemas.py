@@ -26,6 +26,8 @@ class VpnAccountOut(BaseModel):
     health: str = "active"  # active | expiring | expired | depleted | disabled
     can_return: bool = False  # مرجوعی: volume account, <= 3 days old, <= 5% used, not renewed, daily limit not reached
     return_note: str | None = None  # Core's own words for "why not returnable" (None when returnable)
+    next_plan_queued: bool = False  # PG-09: a prepaid package is waiting; it starts by itself when the current one ends
+    next_plan_queued_at: dt.datetime | None = None
 
 
 class OwnerAccountOut(VpnAccountOut):

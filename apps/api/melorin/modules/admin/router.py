@@ -18,6 +18,7 @@ from melorin.modules.admin.panel_ops import router as panel_ops_router
 from melorin.modules.admin.bundles import router as bundles_router
 from melorin.modules.admin.targets import router as targets_router
 from melorin.modules.admin.capacity import router as capacity_router
+from melorin.modules.admin.templates import router as templates_router
 from melorin.modules.admin.payments import router as payments_router
 from melorin.modules.admin.orders import router as orders_router
 from melorin.modules.admin.directory import router as directory_router
@@ -43,6 +44,7 @@ for _family in (
     panel_ops_router,
     targets_router,
     capacity_router,
+    templates_router,
     bundles_router,
     payments_router,
     orders_router,
