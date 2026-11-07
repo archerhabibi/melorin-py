@@ -78,8 +78,12 @@ HTTPS-only and the secret never logged. Constant-time compare; a panel that is u
 wrong secret; per-IP rate limit plus a much tighter limit on wrong secrets; body cap 512 KB, at most 500 events per delivery.
 
 **Delivery semantics.** At-least-once. Idempotency key = the panel's event `id` (or action + username + `enqueued_at`), UNIQUE per panel.
+A panel that sends neither gets a key made of the content and the minute it arrived (an immediate re-delivery is a duplicate, a new event is not).
+The worker reads the panel without holding the account's row lock and repeats the read under the lock when the account changed meanwhile.
+A delivery is never failed because of one bad item (`Infinity`, `NaN`, wrong types): it is counted as `rejected` and skipped.
 Events are claimed with a 10-minute lease (a crashed worker's rows return to the queue), coalesced per user (ten events = one panel read),
-retried with back-off (10 s, 30 s, 2 min, 10 min, 30 min; 5 attempts, then `failed`), ignored when older than 7 days, and purged 30 days
+retried with back-off (10 s, 30 s, 2 min, 10 min, then every 30 min). A panel outage, timeout or 5xx is retried up to 12 times (about
+3.5 hours); a permanent panel error (auth, validation) or an internal error fails after 5 attempts. Then `failed`. Events are ignored when older than 7 days, and purged 30 days
 after they finish (`panel_event_purge_job`, 03:20). An event for a user Melorin does not know yet is retried briefly (it can outrun the
 commit of a brand-new account) and then ignored; reconcile lists that user as a discovered one.
 
@@ -90,7 +94,7 @@ notifications for customers so nobody is notified twice.
 
 **Operating it.**
 - State and counters: `GET /api/v1/admin/panels/{id}/events/status` (`?live=true` also reads the panel's own webhook settings and warns
-  if Melorin was removed from the panel or the webhook is off there). List: `GET .../events?status=&action=&username=`.
+  if Melorin was removed from the panel or the webhook is off there). List: `GET .../events?status=&action=&username=&limit=&offset=`.
 - `POST .../events/process` runs one sweep now; `POST .../events/retry-failed` re-queues `failed` events (all, or `?event_id=`).
 - Metrics: `melorin_panel_events_total{action,status}`, `melorin_panel_events_pending`, `melorin_panel_webhook_lag_seconds{panel}`,
   `melorin_panel_webhook_rejected_total{reason}`. Alert `MelorinPanelWebhookSilent`: a connected panel that has users has sent nothing

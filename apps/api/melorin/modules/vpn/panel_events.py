@@ -30,7 +30,7 @@ from melorin.core.metrics import inc
 from melorin.domain.order_state import VpnStatus
 from melorin.kernel.models.vpn import Panel, PanelEvent, VpnAccount
 from melorin.modules.vpn import notices, reconcile, sync
-from melorin.modules.vpn.adapters.base import PanelError
+from melorin.modules.vpn.adapters.base import ErrorKind, PanelError
 from melorin.modules.vpn.adapters.pasarguard.events import USER_EVENTS, ParsedBody
 from melorin.modules.vpn.adapters.registry import build_adapter, seed_adapter
 
@@ -39,7 +39,10 @@ log = logging.getLogger("melorin.vpn.panel_events")
 PENDING, PROCESSING, PROCESSED, IGNORED, FAILED = "pending", "processing", "processed", "ignored", "failed"
 BATCH = 200
 LEASE = dt.timedelta(minutes=10)  # a worker that dies mid-batch: its claimed rows become pending again after this
-MAX_ATTEMPTS = 5
+MAX_ATTEMPTS = 5  # internal errors and permanent panel errors (auth, validation): a person has to look
+# The panel being down or slow is not the event's fault: keep trying for hours (10 s, 30 s, 2 min, 10 min, then every 30 min), so an
+# outage of an hour or two loses nothing. Only after that is it ``failed`` (admin: retry-failed; reconcile converges anyway).
+PANEL_MAX_ATTEMPTS = 12
 BACKOFF_SECONDS = (10, 30, 120, 600, 1800)
 MAX_AGE = dt.timedelta(days=7)  # an event this old has nothing to add (the next reconcile mirrors the same state)
 RETENTION = dt.timedelta(days=30)
@@ -191,13 +194,15 @@ def _finish(rows: list[PanelEvent], status: str, outcome: str, now: dt.datetime,
         inc("melorin_panel_events_total", action=row.action if row.action in USER_EVENTS else "other", status=status)
 
 
-def _retry(rows: list[PanelEvent], reason: str, now: dt.datetime, *, delay: int | None = None) -> tuple[int, int]:
-    """Back off (or give up after ``MAX_ATTEMPTS``). Returns (retried, failed)."""
+def _retry(
+    rows: list[PanelEvent], reason: str, now: dt.datetime, *, delay: int | None = None, max_attempts: int = MAX_ATTEMPTS
+) -> tuple[int, int]:
+    """Back off (or give up after ``max_attempts``). Returns (retried, failed). The last backoff step repeats."""
     retried = failed = 0
     for row in rows:
         row.attempts = int(row.attempts or 0) + 1
         row.outcome = reason[:200]
-        if row.attempts >= MAX_ATTEMPTS:
+        if row.attempts >= max_attempts:
             row.status, row.processed_at, row.available_at = FAILED, now, None
             inc("melorin_panel_events_total", action=row.action if row.action in USER_EVENTS else "other", status=FAILED)
             failed += 1
@@ -221,13 +226,25 @@ async def _near_expiry(session: AsyncSession, account: VpnAccount, now: dt.datet
     return "near_expiry"
 
 
+def _panel_attempts(exc: PanelError) -> int:
+    """Timeouts, 5xx and 'outcome unclear' are the panel's problem: retry for long. A permanent error needs a person."""
+    return MAX_ATTEMPTS if exc.kind == ErrorKind.PERMANENT else PANEL_MAX_ATTEMPTS
+
+
+async def _read_remote(adapter, account: VpnAccount, username: str):
+    return await seed_adapter(adapter, account).get_account(username)
+
+
 async def _handle_user(
     session: AsyncSession, panel: Panel, adapter, username: str, rows: list[PanelEvent], ctx: dict, now: dt.datetime
 ) -> tuple[int, int, int]:
-    """All events of ONE user in this batch -> one re-read of the panel. Returns (processed, ignored, retried+failed)."""
-    account = await session.scalar(
-        select(VpnAccount).where(VpnAccount.panel_id == panel.id, VpnAccount.username == username).with_for_update()
-    )
+    """All events of ONE user in this batch -> one re-read of the panel. Returns (processed, ignored, retried+failed).
+
+    The panel is read WITHOUT holding the account's row lock (a slow panel must not freeze renewals and orders on that account for
+    the length of a timeout). The lock is taken afterwards, and when the account changed in between (a renewal committed while we
+    were reading) the read is repeated under the lock so a stale panel answer can never overwrite newer data.
+    """
+    account = await session.scalar(select(VpnAccount).where(VpnAccount.panel_id == panel.id, VpnAccount.username == username))
     if account is None:
         young = [r for r in rows if int(r.attempts or 0) < UNKNOWN_ACCOUNT_RETRIES]
         old = [r for r in rows if r not in young]
@@ -237,12 +254,20 @@ async def _handle_user(
     if account.status not in sync.SYNCABLE or account.archived_at is not None:
         _finish(rows, IGNORED, f"not_syncable:{account.status}", now, account.id)
         return 0, len(rows), 0
+    seen = account.updated_at
     try:
-        remote = await seed_adapter(adapter, account).get_account(username)
+        remote = await _read_remote(adapter, account, username)
+        await session.refresh(account, with_for_update=True)  # lock only now: short, no network inside
+        if account.updated_at != seen:
+            remote = await _read_remote(adapter, account, username)  # rare: re-read under the lock
     except PanelError as exc:
+        await session.refresh(account, with_for_update=True)
         account.sync_error_count = int(account.sync_error_count or 0) + 1
-        retried, failed = _retry(rows, f"panel error: {exc.message}", now)
+        retried, failed = _retry(rows, f"panel error: {exc.message}", now, max_attempts=_panel_attempts(exc))
         return 0, 0, retried + failed
+    if account.status not in sync.SYNCABLE or account.archived_at is not None:  # changed while we were reading
+        _finish(rows, IGNORED, f"not_syncable:{account.status}", now, account.id)
+        return 0, len(rows), 0
     actions = {r.action for r in rows}
     result = reconcile.PanelResult(panel_id=panel.id)
     before = account.status
@@ -274,7 +299,7 @@ async def _process_panel(session: AsyncSession, panel_id: uuid.UUID, rows: list[
     try:
         adapter = build_adapter(panel)
     except Exception as exc:  # misconfigured panel (TLS rule, unknown kind): retry later, never crash the sweep
-        retried, failed = _retry(rows, f"adapter: {type(exc).__name__}", now)
+        retried, failed = _retry(rows, f"adapter: {type(exc).__name__}", now, max_attempts=PANEL_MAX_ATTEMPTS)
         stats.retried, stats.failed = retried, failed
         await session.commit()
         return stats

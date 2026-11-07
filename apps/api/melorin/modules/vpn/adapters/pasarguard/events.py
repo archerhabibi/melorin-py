@@ -17,8 +17,10 @@ OpenAPI does not describe them, so the parser is deliberately tolerant and every
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import hmac
 import json
+import math
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -107,6 +109,12 @@ def _to_datetime(value) -> dt.datetime | None:
         return None
 
 
+def _finite(value) -> bool:
+    """JSON accepts ``Infinity``/``NaN`` (and ``1e999``); PostgreSQL's JSON type does not, so one such value would turn a whole
+    delivery into a 5xx that the panel then retries forever. Non-finite numbers are simply not kept."""
+    return not (isinstance(value, float) and not math.isfinite(value))
+
+
 def _short(value, limit: int) -> str | None:
     if value is None or isinstance(value, bool | dict | list):
         return None
@@ -118,7 +126,7 @@ def sanitize(raw: dict) -> dict:
     """What is safe and useful to keep for audit: no subscription links, no proxy settings, no free text from the panel."""
     out: dict = {}
     for key in ("id", "action", "username", "enqueued_at", "tries", "reset_traffic"):
-        if key in raw and not isinstance(raw[key], dict | list):
+        if raw.get(key) is not None and not isinstance(raw[key], dict | list) and _finite(raw[key]):
             out[key] = raw[key] if isinstance(raw[key], int | float | bool) else str(raw[key])[:200]
     by = raw.get("by")
     if isinstance(by, dict):
@@ -132,7 +140,7 @@ def sanitize(raw: dict) -> dict:
         kept = {
             k: user[k]
             for k in ("status", "expire", "data_limit", "used_traffic")
-            if k in user and isinstance(user[k], str | int | float | type(None))
+            if k in user and isinstance(user[k], str | int | float | type(None)) and _finite(user[k])
         }
         admin = user.get("admin")
         if isinstance(admin, dict) and _short(admin.get("username"), 64):
@@ -142,21 +150,72 @@ def sanitize(raw: dict) -> dict:
     return out
 
 
-def dedup_key_for(action: str, username: str | None, enqueued_at: dt.datetime | None, event_id: str | None) -> str:
-    """The panel's ``id`` when it sends one (stable across its retries); otherwise action + user + the panel's enqueue instant."""
+def dedup_key_for(
+    action: str,
+    username: str | None,
+    enqueued_at: dt.datetime | None,
+    event_id: str | None,
+    *,
+    fingerprint: str = "",
+    received_at: dt.datetime | None = None,
+) -> str:
+    """The panel's ``id`` when it sends one (stable across its retries); otherwise action + user + the panel's enqueue instant.
+
+    A panel that sends neither an ``id`` nor ``enqueued_at`` gives no stable identity. Using one fixed key would swallow every later
+    event of the same action for that user for as long as the row is kept, so the key then carries a content fingerprint and the
+    minute the delivery arrived: an immediate re-delivery of the same body is still a duplicate, a genuinely new event is not.
+    """
     if event_id:
         return f"id:{event_id}"[:200]
-    stamp = enqueued_at.isoformat() if enqueued_at else "no-ts"
-    return f"{action}:{username or '-'}:{stamp}"[:200]
+    if enqueued_at:
+        return f"{action}:{username or '-'}:{enqueued_at.isoformat()}"[:200]
+    minute = int((received_at or dt.datetime.now(dt.UTC)).timestamp() // 60)
+    return f"{action}:{username or '-'}:rx{minute}:{fingerprint}"[:200]
 
 
-def parse_body(body: bytes) -> ParsedBody:
+def _fingerprint(item: dict) -> str:
+    try:
+        text = json.dumps(item, sort_keys=True, default=str)
+    except (TypeError, ValueError):
+        text = repr(item)
+    return hashlib.sha1(text.encode("utf-8", "ignore"), usedforsecurity=False).hexdigest()[:12]
+
+
+MAX_TRIES = 1000
+
+
+def _parse_item(item: dict, now: dt.datetime) -> ParsedEvent | None:
+    action = str(item.get("action") or "").strip().lower()
+    if not _ACTION_RE.match(action):
+        return None
+    username = _short(item.get("username"), 128) or _short(
+        (item.get("user") or {}).get("username") if isinstance(item.get("user"), dict) else None, 128
+    )
+    event_id = _short(item.get("id"), 100)
+    enqueued_at = _to_datetime(item.get("enqueued_at"))
+    try:
+        tries = max(0, min(int(item.get("tries") or 0), MAX_TRIES))
+    except (TypeError, ValueError, OverflowError):  # "x", NaN, Infinity
+        tries = 0
+    return ParsedEvent(
+        action=action,
+        username=username,
+        enqueued_at=enqueued_at,
+        event_id=event_id,
+        tries=tries,
+        payload=sanitize(item),
+        dedup_key=dedup_key_for(action, username, enqueued_at, event_id, fingerprint=_fingerprint(item), received_at=now),
+    )
+
+
+def parse_body(body: bytes, *, now: dt.datetime | None = None) -> ParsedBody:
     """Parse one delivery. Raises ``ValueError`` when the body is not JSON at all (the endpoint answers 400); individual unusable
-    items are counted in ``rejected`` and skipped."""
+    items are counted in ``rejected`` and skipped - whatever is wrong with one item, it never fails the rest of the delivery."""
     if len(body) > MAX_BODY_BYTES:
         raise ValueError("body too large")
+    now = now or dt.datetime.now(dt.UTC)
     try:
-        data = json.loads(body)
+        data = json.loads(body, parse_constant=lambda _name: None)  # Infinity / -Infinity / NaN -> null
     except (ValueError, UnicodeDecodeError) as exc:
         raise ValueError("body is not JSON") from exc
     if isinstance(data, dict) and isinstance(data.get("events"), list):
@@ -170,30 +229,14 @@ def parse_body(body: bytes) -> ParsedBody:
         if not isinstance(item, dict):
             out.rejected += 1
             continue
-        action = str(item.get("action") or "").strip().lower()
-        if not _ACTION_RE.match(action):
+        try:
+            event = _parse_item(item, now)
+        except Exception:  # a poison item must cost one rejected item, never a 5xx for the whole delivery
+            event = None
+        if event is None:
             out.rejected += 1
             continue
-        username = _short(item.get("username"), 128) or _short(
-            (item.get("user") or {}).get("username") if isinstance(item.get("user"), dict) else None, 128
-        )
-        event_id = _short(item.get("id"), 100)
-        enqueued_at = _to_datetime(item.get("enqueued_at"))
-        try:
-            tries = int(item.get("tries") or 0)
-        except (TypeError, ValueError):
-            tries = 0
-        out.events.append(
-            ParsedEvent(
-                action=action,
-                username=username,
-                enqueued_at=enqueued_at,
-                event_id=event_id,
-                tries=tries,
-                payload=sanitize(item),
-                dedup_key=dedup_key_for(action, username, enqueued_at, event_id),
-            )
-        )
+        out.events.append(event)
     out.rejected += max(0, len(data) - MAX_EVENTS_PER_DELIVERY)
     return out
 

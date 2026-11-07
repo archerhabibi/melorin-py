@@ -80,6 +80,46 @@ def test_stored_payload_never_keeps_links_or_proxy_settings():
     assert wire.sanitize(raw)["user"]["admin"] == "ml_main"
 
 
+def test_non_finite_numbers_never_reach_the_stored_payload_or_fail_the_delivery():
+    body = (
+        b'[{"action":"user_updated","username":"a","tries":Infinity,"reset_traffic":NaN,"user":{"used_traffic":1e999,"status":"active"}},'
+        b'{"action":"user_limited","username":"b","tries":1e30}]'
+    )
+    parsed = wire.parse_body(body)  # used to raise OverflowError -> 500 -> the panel retried the same delivery forever
+    assert [e.action for e in parsed.events] == ["user_updated", "user_limited"] and parsed.rejected == 0
+    assert parsed.events[0].tries == 0 and parsed.events[1].tries == wire.MAX_TRIES
+    json.dumps(parsed.events[0].payload, allow_nan=False)  # what PostgreSQL's JSON type accepts
+    assert parsed.events[0].payload["user"] == {"status": "active"}
+
+
+def test_one_unusable_item_never_fails_the_rest(monkeypatch):
+    real = wire._parse_item
+
+    def boom(item, now):
+        if item.get("username") == "bad":
+            raise RuntimeError("poison")
+        return real(item, now)
+
+    monkeypatch.setattr(wire, "_parse_item", boom)
+    parsed = wire.parse_body(
+        json.dumps([{"action": "user_updated", "username": "bad"}, {"action": "user_updated", "username": "ok"}]).encode()
+    )
+    assert [e.username for e in parsed.events] == ["ok"] and parsed.rejected == 1
+
+
+def test_events_without_id_and_timestamp_are_not_swallowed_forever():
+    ev = json.dumps([{"action": "user_limited", "username": "a"}]).encode()
+    t0 = dt.datetime(2026, 11, 7, 10, 0, 5, tzinfo=dt.UTC)
+    same_minute = (
+        wire.parse_body(ev, now=t0).events[0].dedup_key == wire.parse_body(ev, now=t0 + dt.timedelta(seconds=40)).events[0].dedup_key
+    )
+    later = wire.parse_body(ev, now=t0 + dt.timedelta(days=2)).events[0].dedup_key
+    assert same_minute  # an immediate re-delivery of the same body is still a duplicate
+    assert later != wire.parse_body(ev, now=t0).events[0].dedup_key  # a genuinely new event days later is a new event
+    other = json.dumps([{"action": "user_limited", "username": "a", "reason": "x"}]).encode()
+    assert wire.parse_body(other, now=t0).events[0].dedup_key != wire.parse_body(ev, now=t0).events[0].dedup_key
+
+
 class _Settings:
     """Just enough of the adapter to run the webhook mixin against an in-memory ``/api/settings``."""
 
@@ -284,22 +324,67 @@ async def test_unknown_user_is_retried_briefly_then_left_to_reconcile(maker, mon
         assert row.status == "ignored" and "unknown_account" in row.outcome
 
 
-async def test_panel_outage_backs_off_then_gives_up_and_admin_can_requeue(maker, monkeypatch):
+async def test_panel_outage_keeps_retrying_for_hours_then_gives_up_and_admin_can_requeue(maker, monkeypatch):
     pid = await _world(maker)
     monkeypatch.setattr(panel_events, "build_adapter", lambda panel: FakePanel([remote("alice")], fail=True))
+    await _ingest(maker, pid, _body(_ev("user_limited")))
+    t = utcnow()
+    for i in range(panel_events.MAX_ATTEMPTS):  # the old limit: a short outage must NOT use the event up
+        await panel_events.run_pending(factory=maker, now=t + dt.timedelta(hours=i + 1))
+    async with maker() as s:
+        row = (await s.scalars(select(PanelEvent))).one()
+        assert row.status == "pending" and row.attempts == panel_events.MAX_ATTEMPTS
+    for i in range(panel_events.MAX_ATTEMPTS, panel_events.PANEL_MAX_ATTEMPTS):
+        await panel_events.run_pending(factory=maker, now=t + dt.timedelta(hours=i + 1))
+    async with maker() as s:
+        row = (await s.scalars(select(PanelEvent))).one()
+        assert row.status == "failed" and row.attempts == panel_events.PANEL_MAX_ATTEMPTS
+        assert await panel_events_admin.retry_failed(s, pid) == 1
+        await s.commit()
+    monkeypatch.setattr(panel_events, "build_adapter", lambda panel: FakePanel([remote("alice", status="limited")]))
+    await panel_events.run_pending(factory=maker, now=t + dt.timedelta(hours=40))
+    async with maker() as s:
+        assert (await s.scalar(select(PanelEvent.status))) == "processed"
+        assert (await s.scalar(select(VpnAccount.status))) == "limited"
+
+
+async def test_a_permanent_panel_error_needs_a_person_and_fails_after_the_short_limit(maker, monkeypatch):
+    pid = await _world(maker)
+
+    class Forbidden(FakePanel):
+        async def get_account(self, username):
+            raise PanelError(ErrorKind.PERMANENT, "forbidden")
+
+    monkeypatch.setattr(panel_events, "build_adapter", lambda panel: Forbidden())
     await _ingest(maker, pid, _body(_ev("user_limited")))
     t = utcnow()
     for i in range(panel_events.MAX_ATTEMPTS):
         await panel_events.run_pending(factory=maker, now=t + dt.timedelta(hours=i + 1))
     async with maker() as s:
-        row = (await s.scalars(select(PanelEvent))).one()
-        assert row.status == "failed" and row.attempts == panel_events.MAX_ATTEMPTS
-        assert await panel_events_admin.retry_failed(s, pid) == 1
-        await s.commit()
-    monkeypatch.setattr(panel_events, "build_adapter", lambda panel: FakePanel([remote("alice", status="limited")]))
-    await panel_events.run_pending(factory=maker, now=t + dt.timedelta(hours=10))
+        assert (await s.scalar(select(PanelEvent.status))) == "failed"
+
+
+async def test_a_renewal_that_commits_while_the_panel_is_read_forces_a_second_read_under_the_lock(maker, monkeypatch):
+    """The panel is read without the row lock; an account that changed meanwhile must not be overwritten by the older panel answer."""
+    pid = await _world(maker)
+
+    class Racing(FakePanel):
+        async def get_account(self, username):
+            self.reads += 1
+            if self.reads == 1:
+                async with maker() as other:  # a renewal commits while we are talking to the panel
+                    acc = (await other.scalars(select(VpnAccount))).one()
+                    acc.sync_error_count = 99
+                    await other.commit()
+                return remote(username, status="active")  # the OLD state
+            return remote(username, status="limited")  # what the panel says after the renewal
+
+    fake = Racing()
+    monkeypatch.setattr(panel_events, "build_adapter", lambda panel: fake)
+    await _ingest(maker, pid, _body(_ev("user_limited")))
+    await panel_events.run_pending(factory=maker)
+    assert fake.reads == 2
     async with maker() as s:
-        assert (await s.scalar(select(PanelEvent.status))) == "processed"
         assert (await s.scalar(select(VpnAccount.status))) == "limited"
 
 
@@ -514,3 +599,80 @@ async def test_event_admin_routes_need_an_admin(public_url):
         base = f"/api/v1/admin/panels/{pid}/events"
         assert (await c.get(f"{base}/status")).status_code in (401, 403)
         assert (await c.post(f"{base}/connect", json={"confirm": True})).status_code in (401, 403)
+
+
+async def test_the_new_secret_is_committed_before_the_panel_is_asked_to_use_it(public_url, monkeypatch):
+    seen = {}
+
+    class Spy(FakeAdminAdapter):
+        async def connect_webhook(self, url, secret):
+            async with maker() as other:  # the public endpoint reads in a different session
+                seen["stored"] = panel_events.secret_for(await other.get(Panel, pid))
+            return await super().connect_webhook(url, secret)
+
+    monkeypatch.setattr(panel_events_admin, "build_adapter", lambda panel: Spy())
+    async with api_client() as (c, maker, _):
+        h = await _admin(c, maker)
+        pid = await _world(maker, connected=False)
+        r = await c.post(f"/api/v1/admin/panels/{pid}/events/connect", json={"confirm": True}, headers=h)
+        assert r.status_code == 200, r.text
+        assert seen["stored"] and seen["stored"] != SECRET
+
+
+class _Flaky(FakeAdminAdapter):
+    """connect_webhook times out (outcome unknown) ``fail_times`` times, then works; ``applied`` = the panel kept the write anyway."""
+
+    def __init__(self, fail_times, applied=False, exc=None):
+        super().__init__()
+        self.fail_times, self.applied, self.exc = fail_times, applied, exc
+
+    async def connect_webhook(self, url, secret):
+        if self.exc:
+            raise self.exc
+        if self.fail_times > 0:
+            self.fail_times -= 1
+            self.registered = self.applied
+            self.calls.append(("timeout", url, secret))
+            raise PanelError(ErrorKind.UNKNOWN, "pasarguard timeout")
+        return await super().connect_webhook(url, secret)
+
+
+async def _connect(monkeypatch, adapter, *, connected=False):
+    monkeypatch.setattr(panel_events_admin, "build_adapter", lambda panel: adapter)
+    async with api_client() as (c, maker, _):
+        h = await _admin(c, maker)
+        pid = await _world(maker, connected=connected)
+        r = await c.post(f"/api/v1/admin/panels/{pid}/events/connect", json={"confirm": True, "rotate_secret": True}, headers=h)
+        async with maker() as s:
+            p = await s.get(Panel, pid)
+            return r, panel_events.secret_for(p), p.webhook_connected_at
+
+
+async def test_a_timeout_on_connect_is_repeated_and_keeps_the_new_secret(public_url, monkeypatch):
+    fake = _Flaky(fail_times=1)
+    r, stored, connected_at = await _connect(monkeypatch, fake)
+    assert r.status_code == 200 and connected_at is not None
+    assert stored == fake.calls[-1][2] and stored not in r.text  # the secret the panel finally got is the one Melorin stored
+
+
+async def test_an_unconfirmed_connect_keeps_the_new_secret_when_the_panel_shows_it_registered(public_url, monkeypatch):
+    fake = _Flaky(fail_times=5, applied=True)  # the writes timed out but the panel did apply them
+    r, stored, connected_at = await _connect(monkeypatch, fake)
+    assert r.status_code == 200 and connected_at is not None and stored == fake.calls[-1][2]
+    assert any("قطعی نبود" in w for w in r.json()["warnings"])  # the admin is told, not left guessing
+
+
+async def test_an_unconfirmed_connect_restores_the_old_state_when_the_panel_did_not_keep_it(public_url, monkeypatch):
+    r, stored, connected_at = await _connect(monkeypatch, _Flaky(fail_times=5, applied=False))
+    assert r.status_code == 502 and stored is None and connected_at is None
+
+
+async def test_an_unexpected_error_during_connect_does_not_leave_an_unused_secret(public_url, monkeypatch):
+    monkeypatch.setattr(panel_events_admin, "build_adapter", lambda panel: _Flaky(0, exc=RuntimeError("boom")))
+    async with api_client() as (c, maker, _):
+        h = await _admin(c, maker)
+        pid = await _world(maker, connected=False)
+        with pytest.raises(RuntimeError):
+            await c.post(f"/api/v1/admin/panels/{pid}/events/connect", json={"confirm": True}, headers=h)
+        async with maker() as s:
+            assert (await s.get(Panel, pid)).webhook_secret_enc is None

@@ -1,6 +1,6 @@
 // Melorin Admin Web — every KPI, row and action comes from the authenticated Core API.
 // Tokens live only in memory (see auth.js); nothing is persisted in browser storage.
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AdminSectionView } from './AdminSections.jsx';
 import { API_BASE, authFetch, getJson } from './api.js';
 import { clearTokens } from './auth.js';
@@ -632,10 +632,14 @@ export default function App({ onLogout }) {
   const [pal, setPal] = useState(false);
   const api = useCore();
   const openTickets = api.summary?.open_tickets || 0;
-  const toast = (x) => {
+  // Stable identity: views list `toast` in their effect/callback dependencies, so a new function on every render re-ran their loads
+  // (each toast re-rendered the app, which re-fetched, which toasted again).
+  const toastTimer = useRef(null);
+  const toast = useCallback((x) => {
     setNotice(x);
-    setTimeout(() => setNotice(''), 2600);
-  };
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setNotice(''), 2600);
+  }, []);
   const go = (name) => {
     window.location.hash = `/${flat.find((x) => x[0] === name)[2]}`;
     setOpen(false);

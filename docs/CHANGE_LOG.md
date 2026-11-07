@@ -20,6 +20,13 @@ Commits containing `[skip changelog]` and the bot's own commits are skipped.
 If `main` is protected, allow `github-actions[bot]` to bypass so the bot can push the log.
 
 
+## 2026-11-07 - PasarGuard Phase 2 review fixes: poison events, dedup, retry window, secret commit order, row lock, admin-web reload loop (PG-03)
+- **Area:** vpn / adapters / admin-web / docs / tests
+- **Before:** a delivery containing `Infinity`/`NaN` (or `tries: Infinity`) ended in a 5xx and the panel retried it forever; events without `id` and `enqueued_at` were deduplicated against every earlier event of the same action and user; a panel outage of ~13 minutes made events `failed`; `connect` flushed the new secret but did not commit it before the panel could use it, and a timeout rolled Melorin back to the old secret although the panel had kept the new one; the worker held the account row lock during the panel call; in admin-web every toast re-created `toast`, which reloaded the events tab and swapped it for a spinner (a failing load looped).
+- **Problem:** review of branch `feat/pasarguard-phase2-events` (items 1-6) and the CI quality lane failing at `gen_docs.py --check` (generated docs stale after migration 0047 and the new routes).
+- **Action:** the parser drops non-finite numbers, clamps `tries`, and skips a poison item without failing the delivery; the key for events without identity includes a content fingerprint and the arrival minute; panel errors retry up to 12 times (permanent ones still 5); the secret is committed before the panel write, an unclear outcome (timeout) is repeated once and then decided by the panel's own settings, an unexpected error restores the previous secret; the panel is read before the row lock and re-read under it when the account changed; `toast` has a stable identity, the events tab refetches in place, pages (`offset`) and filters by username, and the silence threshold comes from the API; `STATUS.md` and `API.md` regenerated.
+- **After:** new tests cover each fix (backend and admin-web); the quality lane's docs check passes locally. Not changed on purpose: header check before body read, lost-update risk of `PUT /api/settings`, username case handling.
+
 ## 2026-11-07 - PasarGuard Phase 2: live events from the panel (webhook) with idempotent worker, admin connect/monitor UI (PG-03) (migration 0047)
 - **Area:** vpn / adapters / admin / worker / health / admin-web / tests
 - **Before:** Melorin learned about panel changes only from the hourly reconcile (and not at all for a disabled/limited/expired user between runs); the panel's webhook was off and Melorin had no inbound endpoint for it; customers could be notified by the panel's own Telegram bot instead of the store.

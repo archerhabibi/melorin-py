@@ -42,10 +42,13 @@ function silentText(seconds) {
   return `${Math.round(seconds / 86400)} روز پیش`;
 }
 
+const PAGE = 50;
+
 export default function PanelEventsTab({ call, panelId, toast }) {
   const [state, setState] = useState(null);
   const [events, setEvents] = useState({ total: 0, items: [] });
   const [filter, setFilter] = useState('');
+  const [user, setUser] = useState('');
   const [busy, setBusy] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -58,15 +61,25 @@ export default function PanelEventsTab({ call, panelId, toast }) {
     [call],
   );
 
+  const query = useCallback(
+    (offset) => {
+      const q = new URLSearchParams({ limit: String(PAGE), offset: String(offset) });
+      if (filter) q.set('status', filter);
+      if (user.trim()) q.set('username', user.trim());
+      return `/api/v1/admin/panels/${panelId}/events?${q}`;
+    },
+    [panelId, filter, user],
+  );
+
+  // Reloads state + the first page in place: the previous data stays on screen (no spinner swap, the filter inputs keep focus).
   const load = useCallback(
     async (live = false) => {
       if (!panelId) return;
       setLoading(true);
       try {
-        const q = filter ? `&status=${filter}` : '';
         const [st, ev] = await Promise.all([
           getJ(`/api/v1/admin/panels/${panelId}/events/status${live ? '?live=true' : ''}`),
-          getJ(`/api/v1/admin/panels/${panelId}/events?limit=50${q}`),
+          getJ(query(0)),
         ]);
         setState(st);
         setEvents(ev);
@@ -75,13 +88,30 @@ export default function PanelEventsTab({ call, panelId, toast }) {
       }
       setLoading(false);
     },
-    [getJ, panelId, filter, toast],
+    [getJ, panelId, query, toast],
   );
 
+  const more = async () => {
+    setLoading(true);
+    try {
+      const ev = await getJ(query(events.items.length));
+      setEvents((cur) => ({ total: ev.total, items: [...cur.items, ...ev.items] }));
+    } catch {
+      toast('دریافت رویدادهای بیشتر ناموفق بود');
+    }
+    setLoading(false);
+  };
+
+  // Only a different panel starts from the spinner; a filter change just refetches.
   useEffect(() => {
     setState(null);
-    load();
-  }, [load]);
+    setEvents({ total: 0, items: [] });
+  }, [panelId]);
+
+  useEffect(() => {
+    const t = setTimeout(load, user ? 300 : 0); // debounce typing in the username filter
+    return () => clearTimeout(t);
+  }, [load, user]);
 
   const post = async (key, path, body, okText) => {
     setBusy(key);
@@ -131,7 +161,8 @@ export default function PanelEventsTab({ call, panelId, toast }) {
   if (!state.supported) return <p className="card p-4 text-sm">رویداد زنده فقط برای پنل پاسارگارد پشتیبانی می‌شود.</p>;
 
   const c = state.counts || {};
-  const silent = state.connected && state.silent_for_seconds != null && state.silent_for_seconds > 6 * 3600;
+  const silentAfter = state.silent_after_seconds || 6 * 3600;
+  const silent = state.connected && state.silent_for_seconds != null && state.silent_for_seconds > silentAfter;
 
   return (
     <section className="space-y-3" data-testid="panel-events-tab">
@@ -166,8 +197,8 @@ export default function PanelEventsTab({ call, panelId, toast }) {
           آدرس دریافت: <span dir="ltr">{state.url || '—'}</span> · وصل‌شده: {fmt(state.connected_at)} · آخرین رویداد:{' '}
           {silentText(state.silent_for_seconds)}
         </div>
-        {(state.warnings || []).map((w) => (
-          <p key={w} className="flex items-start gap-2 text-sm">
+        {(state.warnings || []).map((w, i) => (
+          <p key={`${i}-${w}`} className="flex items-start gap-2 text-sm">
             <AlertTriangle size={14} className="mt-1 shrink-0" style={{ color: 'var(--wn)' }} /> {w}
           </p>
         ))}
@@ -208,6 +239,14 @@ export default function PanelEventsTab({ call, panelId, toast }) {
             </option>
           ))}
         </select>
+        <input
+          className="inp"
+          value={user}
+          onChange={(e) => setUser(e.target.value)}
+          placeholder="نام کاربری"
+          aria-label="نام کاربری"
+          dir="ltr"
+        />
         <button className="btn btn-g" onClick={() => load()} disabled={loading}>
           {loading ? <Loader size={14} className="animate-spin" /> : <RefreshCw size={14} />} به‌روزرسانی
         </button>
@@ -257,6 +296,11 @@ export default function PanelEventsTab({ call, panelId, toast }) {
           </span>
         </article>
       ))}
+      {events.items.length < events.total && (
+        <button className="btn btn-g" onClick={more} disabled={loading}>
+          نمایش بیشتر ({events.items.length} از {events.total})
+        </button>
+      )}
     </section>
   );
 }

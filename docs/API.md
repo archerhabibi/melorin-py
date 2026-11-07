@@ -35,7 +35,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 
 <!-- BEGIN GENERATED ROUTES (scripts/gen_docs.py) -->
 
-### `admin` (120)
+### `admin` (126)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -94,6 +94,12 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | POST | `/api/v1/admin/panels` | Create Panel |
 | PATCH | `/api/v1/admin/panels/{panel_id}` | Update Panel |
 | DELETE | `/api/v1/admin/panels/{panel_id}` | Delete Panel |
+| GET | `/api/v1/admin/panels/{panel_id}/events` | Panel Events List |
+| POST | `/api/v1/admin/panels/{panel_id}/events/connect` | Panel Events Connect |
+| POST | `/api/v1/admin/panels/{panel_id}/events/disconnect` | Panel Events Disconnect |
+| POST | `/api/v1/admin/panels/{panel_id}/events/process` | Panel Events Process |
+| POST | `/api/v1/admin/panels/{panel_id}/events/retry-failed` | Panel Events Retry Failed |
+| GET | `/api/v1/admin/panels/{panel_id}/events/status` | Panel Events Status |
 | POST | `/api/v1/admin/panels/{panel_id}/health` | Panel Health |
 | GET | `/api/v1/admin/panels/{panel_id}/nodes` | Panel Nodes |
 | POST | `/api/v1/admin/panels/{panel_id}/reconcile` | Reconcile Panel Now |

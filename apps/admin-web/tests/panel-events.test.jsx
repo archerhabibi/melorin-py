@@ -41,7 +41,7 @@ const eventsList = {
   ],
 };
 
-function mock(calls, { connected = false } = {}) {
+function mock(calls, { connected = false, pageTotal = null } = {}) {
   let isConnected = connected;
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, o = {}) => {
     const path = String(url).replace(/^https?:\/\/[^/]+/, '');
@@ -57,7 +57,24 @@ function mock(calls, { connected = false } = {}) {
     if (path === '/api/v1/admin/panels/p1/events/retry-failed') return json({ requeued: 1 });
     if (path.startsWith('/api/v1/admin/panels/p1/events/status'))
       return json({ ...base, connected: isConnected, silent_for_seconds: isConnected ? 8 * 3600 : null });
-    if (path.startsWith('/api/v1/admin/panels/p1/events')) return json(eventsList);
+    if (path.startsWith('/api/v1/admin/panels/p1/events')) {
+      if (pageTotal) {
+        const offset = Number(new URL(`http://x${path}`).searchParams.get('offset') || 0);
+        const n = Math.min(50, pageTotal - offset);
+        return json({
+          total: pageTotal,
+          items: Array.from({ length: n }, (_, i) => ({
+            id: `m${offset + i}`,
+            action: 'user_updated',
+            username: `u${offset + i}`,
+            status: 'processed',
+            attempts: 0,
+            received_at: null,
+          })),
+        });
+      }
+      return json(eventsList);
+    }
     if (path.startsWith('/api/v1/admin/panels/p1/nodes'))
       return json({ panel_id: 'p1', health_status: 'healthy', detail: {}, nodes: [] });
     if (path.startsWith('/api/v1/admin/stores')) return json([]);
@@ -119,5 +136,30 @@ describe('PanelEventsTab', () => {
     expect(screen.getByText(/چند ساعت است رویدادی نرسیده/)).toBeTruthy();
     await userEvent.click(screen.getByRole('button', { name: 'تلاش مجدد ناموفق‌ها' }));
     await waitFor(() => expect(calls.some((c) => c[0] === 'POST' && c[1].endsWith('/events/retry-failed'))).toBe(true));
+  });
+
+  it('changing the filter refetches in place: the controls stay mounted and the status filter reaches the API', async () => {
+    const calls = [];
+    mock(calls, { connected: true });
+    render(<PanelOpsView api={{ base: 'http://core.test' }} toast={vi.fn()} />);
+    await openTab();
+    const select = await screen.findByLabelText('وضعیت رویداد');
+    await userEvent.selectOptions(select, 'failed');
+    await waitFor(() =>
+      expect(calls.some((c) => c[1].includes('/events?') && c[1].includes('status=failed'))).toBe(true),
+    );
+    expect(screen.getByLabelText('وضعیت رویداد')).toBe(select); // same node: not replaced by the loading spinner
+  });
+
+  it('pages through long lists and filters by username', async () => {
+    const calls = [];
+    mock(calls, { connected: true, pageTotal: 120 });
+    render(<PanelOpsView api={{ base: 'http://core.test' }} toast={vi.fn()} />);
+    await openTab();
+    await userEvent.click(await screen.findByRole('button', { name: /نمایش بیشتر \(50 از 120\)/ }));
+    await waitFor(() => expect(calls.some((c) => c[1].includes('offset=50'))).toBe(true));
+    expect(await screen.findByText(/نمایش بیشتر \(100 از 120\)/)).toBeTruthy();
+    await userEvent.type(screen.getByLabelText('نام کاربری'), 'alice');
+    await waitFor(() => expect(calls.some((c) => c[1].includes('username=alice'))).toBe(true));
   });
 });
