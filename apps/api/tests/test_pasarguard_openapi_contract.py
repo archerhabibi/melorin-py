@@ -353,3 +353,13 @@ def test_diff_tool_flags_a_renamed_schema_field():
     renamed["schemas"]["UserModify"]["props"].remove("data_limit")
     out = tool.diff(FIXTURE, renamed)
     assert any("UserModify" in row and "data_limit" in row for row in out["schema_changes"])
+
+
+async def test_create_template_without_groups_is_a_permanent_error_not_a_name_error():
+    """Regression: the guard referenced ``ErrorKind`` without importing it (NameError instead of a clean PanelError)."""
+    from melorin.modules.vpn.adapters.base import ErrorKind, PanelError
+
+    adapter = _adapter(RecordingPanel())
+    with pytest.raises(PanelError) as e:
+        await adapter.create_template({"name": "melorin-x", "group_ids": []})
+    assert e.value.kind == ErrorKind.PERMANENT

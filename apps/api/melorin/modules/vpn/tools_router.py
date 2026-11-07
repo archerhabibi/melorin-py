@@ -11,7 +11,6 @@ from dataclasses import dataclass
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import select
 
 from melorin.core.deps import AdminUser, OwnerCtx, Session, StoreCtx
 from melorin.core.errors import NotFound

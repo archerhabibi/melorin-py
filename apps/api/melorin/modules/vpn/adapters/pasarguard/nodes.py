@@ -1,6 +1,6 @@
 """PasarGuard infrastructure listings: groups, user templates, destination picker (and, below, nodes)."""
 
-from melorin.modules.vpn.adapters.base import PanelError
+from melorin.modules.vpn.adapters.base import ErrorKind, PanelError
 from melorin.modules.vpn.adapters.pasarguard.core import as_rows
 
 NODE_PAGE = 100

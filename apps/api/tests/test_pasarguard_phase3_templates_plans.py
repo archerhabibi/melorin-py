@@ -14,16 +14,16 @@ import types
 import pytest
 from sqlalchemy import select
 
-from _db import make_order, make_product, make_user, open_session
+from _db import make_user, open_session
 from melorin.core import codes
 from melorin.core.errors import AppError
 from melorin.kernel.models.catalog import Product
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.system import AuditEvent, OutboxEvent
-from melorin.kernel.models.vpn import Panel, ProductTemplate
+from melorin.kernel.models.vpn import ProductTemplate
 from melorin.modules.orders import provisioning as vpn
 from melorin.modules.orders import service as orders
-from melorin.modules.vpn import notices, plans, sync, templates
+from melorin.modules.vpn import plans, sync, templates
 from melorin.modules.vpn.adapters.base import Capabilities, ErrorKind, PanelAccount, PanelError
 from test_renewal_core import _balance, _world  # the shared renewal world: wallet, bundle, panel, account
 
@@ -235,7 +235,7 @@ async def test_a_panel_error_becomes_a_safe_client_error(adapter):
         admin = await make_user(s, super_admin=True)
         adapter.fail["create_template"] = PanelError(ErrorKind.TRANSIENT, "boom 10.0.0.5")
         with pytest.raises(AppError) as e:
-            await templates.create_for_product(s, t.panel, t.product, admin_id=admin.id)
+            await templates.create_for_product(s, t.panel, t.product, admin_id=admin.id, group_ids=[2])
         assert e.value.code == "PANEL_UNAVAILABLE" and e.value.status == 503 and "10.0.0.5" not in e.value.message
 
 
@@ -292,7 +292,7 @@ async def test_apply_queue_trusts_only_what_the_panel_shows(adapter):
 
 
 def test_a_panel_that_does_not_report_next_plan_never_says_nothing_is_queued():
-    remote = PanelAccount(ref="r", username="a", status="active", next_plan_reported=False)
+    remote = PanelAccount(ref="r", username="a", status="active", expire_at=None, traffic_limit_bytes=0, traffic_used_bytes=0, next_plan_reported=False)
     assert not plans.queued_landed(remote, 7)
 
 
@@ -301,11 +301,11 @@ async def test_the_slot_is_released_only_when_the_panel_reports_nothing_queued(a
         t = await _prepare(s)
         plans.mark_queued(t.account, template_id=7, product_id=t.product.id, order_id=t.account.order_id, now=NOW)
         t.account.near_expiry_notified, t.account.traffic_notified_level = True, 90
-        still = PanelAccount(ref="r", username="a", status="active", next_plan={"user_template_id": 7}, next_plan_reported=True)
-        unknown = PanelAccount(ref="r", username="a", status="active", next_plan=None, next_plan_reported=False)
+        still = PanelAccount(ref="r", username="a", status="active", expire_at=None, traffic_limit_bytes=0, traffic_used_bytes=0, next_plan={"user_template_id": 7}, next_plan_reported=True)
+        unknown = PanelAccount(ref="r", username="a", status="active", expire_at=None, traffic_limit_bytes=0, traffic_used_bytes=0, next_plan=None, next_plan_reported=False)
         assert not await plans.settle_from_remote(s, t.account, still) and not await plans.settle_from_remote(s, t.account, unknown)
         assert t.account.queued_plan is not None
-        started = PanelAccount(ref="r", username="a", status="active", next_plan=None, next_plan_reported=True)
+        started = PanelAccount(ref="r", username="a", status="active", expire_at=None, traffic_limit_bytes=0, traffic_used_bytes=0, next_plan=None, next_plan_reported=True)
         assert await plans.settle_from_remote(s, t.account, started)
         assert t.account.queued_plan is None and not t.account.near_expiry_notified and t.account.traffic_notified_level == 0
         assert len(await _audits(s, "vpn_account.queued_plan_started")) == 1
