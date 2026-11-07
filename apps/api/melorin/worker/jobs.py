@@ -15,7 +15,7 @@ from melorin.kernel.models.identity import VerificationCode
 from melorin.kernel.models.system import BackupRun
 from melorin.modules.eventcenter import report as event_center_report
 from melorin.modules.eventcenter import rules as event_center_rules
-from melorin.modules.vpn import capabilities, health, notices, reconcile
+from melorin.modules.vpn import capabilities, health, notices, panel_events, reconcile
 from melorin.kernel.models.vpn import Panel, VpnAccount
 
 log = logging.getLogger("melorin.jobs")
@@ -293,3 +293,17 @@ async def panel_admin_sync_job(ctx=None):
 
     async with session_factory()() as s:
         return await panel_admins.sync_all(s)
+
+
+async def panel_event_job(ctx=None):
+    """Every 10 seconds: process the PasarGuard events the endpoint stored (PG-03). Coalesced per user, leased, safe to run twice."""
+    stats = await panel_events.run_pending()
+    return stats.claimed
+
+
+async def panel_event_purge_job(ctx=None):
+    """Daily: drop finished panel events older than the retention window (30 days)."""
+    async with session_factory()() as s:
+        removed = await panel_events.purge(s)
+    log.info("panel events retention removed=%s", removed)
+    return removed

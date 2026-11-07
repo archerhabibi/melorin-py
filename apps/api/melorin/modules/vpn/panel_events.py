@@ -29,7 +29,7 @@ from melorin.core.db import session_factory, utcnow
 from melorin.core.metrics import inc
 from melorin.domain.order_state import VpnStatus
 from melorin.kernel.models.vpn import Panel, PanelEvent, VpnAccount
-from melorin.modules.vpn import issues, notices, reconcile, sync
+from melorin.modules.vpn import notices, reconcile, sync
 from melorin.modules.vpn.adapters.base import PanelError
 from melorin.modules.vpn.adapters.pasarguard.events import USER_EVENTS, ParsedBody
 from melorin.modules.vpn.adapters.registry import build_adapter, seed_adapter
@@ -69,7 +69,13 @@ def _initial_status(event, now: dt.datetime) -> tuple[str, str | None]:
 async def _existing_keys(session: AsyncSession, panel_id: uuid.UUID, keys: list[str]) -> set[str]:
     found: set[str] = set()
     for i in range(0, len(keys), 400):
-        found.update((await session.scalars(select(PanelEvent.dedup_key).where(PanelEvent.panel_id == panel_id, PanelEvent.dedup_key.in_(keys[i : i + 400])))).all())
+        found.update(
+            (
+                await session.scalars(
+                    select(PanelEvent.dedup_key).where(PanelEvent.panel_id == panel_id, PanelEvent.dedup_key.in_(keys[i : i + 400]))
+                )
+            ).all()
+        )
     return found
 
 
@@ -157,7 +163,9 @@ class RunStats:
     failed: int = 0
 
 
-async def claim(session: AsyncSession, *, limit: int = BATCH, panel_id: uuid.UUID | None = None, now: dt.datetime | None = None) -> list[PanelEvent]:
+async def claim(
+    session: AsyncSession, *, limit: int = BATCH, panel_id: uuid.UUID | None = None, now: dt.datetime | None = None
+) -> list[PanelEvent]:
     """Lease up to ``limit`` due events (oldest first). Rows another worker holds are skipped; abandoned leases are released."""
     now = now or utcnow()
     await session.execute(
@@ -166,7 +174,9 @@ async def claim(session: AsyncSession, *, limit: int = BATCH, panel_id: uuid.UUI
     query = select(PanelEvent).where(PanelEvent.status == PENDING, PanelEvent.available_at <= now)
     if panel_id is not None:
         query = query.where(PanelEvent.panel_id == panel_id)
-    rows = list((await session.scalars(query.order_by(PanelEvent.received_at, PanelEvent.id).limit(limit).with_for_update(skip_locked=True))).all())
+    rows = list(
+        (await session.scalars(query.order_by(PanelEvent.received_at, PanelEvent.id).limit(limit).with_for_update(skip_locked=True))).all()
+    )
     for row in rows:
         row.status, row.available_at = PROCESSING, now + LEASE
     await session.commit()
@@ -211,9 +221,13 @@ async def _near_expiry(session: AsyncSession, account: VpnAccount, now: dt.datet
     return "near_expiry"
 
 
-async def _handle_user(session: AsyncSession, panel: Panel, adapter, username: str, rows: list[PanelEvent], ctx: dict, now: dt.datetime) -> tuple[int, int, int]:
+async def _handle_user(
+    session: AsyncSession, panel: Panel, adapter, username: str, rows: list[PanelEvent], ctx: dict, now: dt.datetime
+) -> tuple[int, int, int]:
     """All events of ONE user in this batch -> one re-read of the panel. Returns (processed, ignored, retried+failed)."""
-    account = await session.scalar(select(VpnAccount).where(VpnAccount.panel_id == panel.id, VpnAccount.username == username).with_for_update())
+    account = await session.scalar(
+        select(VpnAccount).where(VpnAccount.panel_id == panel.id, VpnAccount.username == username).with_for_update()
+    )
     if account is None:
         young = [r for r in rows if int(r.attempts or 0) < UNKNOWN_ACCOUNT_RETRIES]
         old = [r for r in rows if r not in young]
@@ -269,7 +283,9 @@ async def _process_panel(session: AsyncSession, panel_id: uuid.UUID, rows: list[
         by_user.setdefault(row.username or "", []).append(row)
     try:
         owners = await reconcile._expected_owners(session, panel.id)
-        accounts = list((await session.scalars(select(VpnAccount).where(VpnAccount.panel_id == panel.id, VpnAccount.username.in_(list(by_user))))).all())
+        accounts = list(
+            (await session.scalars(select(VpnAccount).where(VpnAccount.panel_id == panel.id, VpnAccount.username.in_(list(by_user))))).all()
+        )
         ctx = {"owners": owners, "levels": await reconcile._store_levels(session, accounts)}
         for username, group in by_user.items():
             try:
@@ -325,7 +341,9 @@ async def run_pending(*, limit: int = BATCH, panel_id: uuid.UUID | None = None, 
 async def purge(session: AsyncSession, *, now: dt.datetime | None = None) -> int:
     """Retention: finished events older than ``RETENTION`` go (audit is short-lived by design; accounts keep their own history)."""
     cutoff = (now or utcnow()) - RETENTION
-    result = await session.execute(delete(PanelEvent).where(PanelEvent.status.in_((PROCESSED, IGNORED, FAILED)), PanelEvent.received_at < cutoff))
+    result = await session.execute(
+        delete(PanelEvent).where(PanelEvent.status.in_((PROCESSED, IGNORED, FAILED)), PanelEvent.received_at < cutoff)
+    )
     await session.commit()
     return int(result.rowcount or 0)
 

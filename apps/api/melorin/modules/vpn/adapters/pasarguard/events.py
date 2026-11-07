@@ -129,7 +129,11 @@ def sanitize(raw: dict) -> dict:
         out["reason"] = _short(raw.get("reason"), 120)
     user = raw.get("user")
     if isinstance(user, dict):
-        kept = {k: user[k] for k in ("status", "expire", "data_limit", "used_traffic") if isinstance(user.get(k), str | int | float | type(None))}
+        kept = {
+            k: user[k]
+            for k in ("status", "expire", "data_limit", "used_traffic")
+            if k in user and isinstance(user[k], str | int | float | type(None))
+        }
         admin = user.get("admin")
         if isinstance(admin, dict) and _short(admin.get("username"), 64):
             kept["admin"] = _short(admin.get("username"), 64)
@@ -170,7 +174,9 @@ def parse_body(body: bytes) -> ParsedBody:
         if not _ACTION_RE.match(action):
             out.rejected += 1
             continue
-        username = _short(item.get("username"), 128) or _short((item.get("user") or {}).get("username") if isinstance(item.get("user"), dict) else None, 128)
+        username = _short(item.get("username"), 128) or _short(
+            (item.get("user") or {}).get("username") if isinstance(item.get("user"), dict) else None, 128
+        )
         event_id = _short(item.get("id"), 100)
         enqueued_at = _to_datetime(item.get("enqueued_at"))
         try:
@@ -240,9 +246,7 @@ class EventsMixin:
             raise PanelError(ErrorKind.PERMANENT, "the panel did not keep the webhook settings (read-back differs)")
         return warnings
 
-    async def connect_webhook(
-        self, url: str, secret: str, *, usage_percent=DEFAULT_USAGE_PERCENT, days_left=DEFAULT_DAYS_LEFT
-    ) -> dict:
+    async def connect_webhook(self, url: str, secret: str, *, usage_percent=DEFAULT_USAGE_PERCENT, days_left=DEFAULT_DAYS_LEFT) -> dict:
         """Register Melorin as a webhook target. Other targets and every other setting stay untouched; thresholds are only filled
         when the panel has none. Idempotent: the same url is replaced, never duplicated."""
         settings = await self.get_settings()

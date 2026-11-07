@@ -84,4 +84,10 @@ async def pasarguard_webhook(panel_id: uuid.UUID, request: Request, background: 
 
     if result.accepted:
         background.add_task(_process_now, panel_id)
-    return {"ok": True, "accepted": result.accepted, "duplicates": result.duplicates, "ignored": result.ignored, "rejected": result.rejected}
+    return {
+        "ok": True,
+        "accepted": result.accepted,
+        "duplicates": result.duplicates,
+        "ignored": result.ignored,
+        "rejected": result.rejected,
+    }

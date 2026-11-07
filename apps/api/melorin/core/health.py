@@ -33,6 +33,9 @@ class DatabaseProbe:
     unhealthy_panels: int = 0
     open_issues: dict[str, int] | None = None  # PG-04: open reconciliation issues by kind
     reconcile_lag_seconds: float | None = None  # PG-04: age of the least recently synced live account (None = nothing to sync)
+    webhook_lag_seconds: dict[str, float] | None = None  # PG-03: per connected panel, seconds since its last accepted delivery
+    webhook_silent: int = 0  # connected panels that have been silent too long
+    events_backlog: int = 0  # pending panel events
     error: str | None = None
 
 
@@ -60,6 +63,7 @@ async def probe_database() -> DatabaseProbe:
             )
             result.ok = True
             await _probe_reconcile(session, result)
+            await _probe_events(session, result)
     except Exception as exc:
         result.error = str(exc)[:200]
     return result
@@ -97,6 +101,44 @@ async def _probe_reconcile(session, result: DatabaseProbe) -> None:
         log.warning("reconcile signals unavailable: %s", type(exc).__name__)
 
 
+async def _probe_events(session, result: DatabaseProbe) -> None:
+    """PG-03 signals, best-effort like the reconcile ones. A connected panel that has users but has been silent for hours either
+    has nothing to say or lost its webhook setting; the hourly reconcile still covers it, the alert just makes it visible."""
+    try:
+        from melorin.kernel.models.vpn import PanelEvent
+        from melorin.modules.vpn import panel_events_admin
+
+        now = dt.datetime.now(dt.UTC)
+        lag: dict[str, float] = {}
+        silent = 0
+        busy = set(
+            (
+                await session.scalars(
+                    select(VpnAccount.panel_id)
+                    .where(VpnAccount.status.in_(("active", "suspended", "limited")), VpnAccount.panel_id.is_not(None))
+                    .distinct()
+                )
+            ).all()
+        )
+        connected = (
+            await session.scalars(
+                select(Panel).where(Panel.is_enabled.is_(True), Panel.kind == "pasarguard", Panel.webhook_connected_at.is_not(None))
+            )
+        ).all()
+        for p in connected:
+            ref = p.webhook_last_at or p.webhook_connected_at
+            ref = ref if ref.tzinfo else ref.replace(tzinfo=dt.UTC)
+            lag[str(p.id)] = max(0.0, (now - ref).total_seconds())
+            if p.id in busy and now - ref > panel_events_admin.SILENT_AFTER:
+                silent += 1
+        result.webhook_lag_seconds, result.webhook_silent = lag, silent
+        result.events_backlog = int(
+            await session.scalar(select(func.count()).select_from(PanelEvent).where(PanelEvent.status == "pending")) or 0
+        )
+    except Exception as exc:
+        log.warning("panel event signals unavailable: %s", type(exc).__name__)
+
+
 async def probe_worker() -> WorkerProbe:
     result = WorkerProbe()
     redis = get_redis()
@@ -121,6 +163,16 @@ def publish_signals(db: DatabaseProbe, worker: WorkerProbe) -> None:
         set_gauge("melorin_reconcile_open_issues", float((db.open_issues or {}).get(kind, 0)), kind=kind)
     if db.reconcile_lag_seconds is not None:
         set_gauge("melorin_reconcile_lag_seconds", float(db.reconcile_lag_seconds))
+    for panel_id, seconds in (db.webhook_lag_seconds or {}).items():
+        set_gauge("melorin_panel_webhook_lag_seconds", float(seconds), panel=panel_id)
+    set_gauge("melorin_panel_events_pending", float(db.events_backlog))
+    set_alert(
+        "MelorinPanelWebhookSilent",
+        db.webhook_silent > 0,
+        summary="A connected panel stopped sending events",
+        severity="warning",
+        details=str(db.webhook_silent),
+    )
     set_alert("MelorinDatabaseUnavailable", not db.ok, summary="Database unavailable", severity="critical", details=db.error or "")
     set_alert("MelorinRedisUnavailable", not worker.redis_ok, summary="Redis unavailable", severity="critical")
     set_alert(
