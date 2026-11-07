@@ -86,6 +86,9 @@ class UsersMixin:
         if sub and sub.startswith("/"):
             sub = (self.cfg.get("sub_base_url") or self.base).rstrip("/") + sub
         links = d.get("links") or []
+        raw_status = str(d.get("status") or "")
+        lifetime = d.get("lifetime_used_traffic")
+        owner = d.get("admin")
         return PanelAccount(
             ref=str(d.get("id") if d.get("id") is not None else d["username"]),
             username=d["username"],
@@ -95,7 +98,19 @@ class UsersMixin:
             traffic_used_bytes=int(d.get("used_traffic") or 0),
             subscription_url=sub,
             links=list(links) if isinstance(links, list) else [],
+            remote_status=raw_status or None,
+            online_at=parse_expire(d.get("online_at")),
+            lifetime_used_bytes=int(lifetime) if isinstance(lifetime, int | float) and not isinstance(lifetime, bool) else None,
+            owner=str(owner.get("username")) if isinstance(owner, dict) and owner.get("username") else None,
         )
+
+    # ------------------------------------------------------------------ account listing (AccountListing, PG-04)
+    async def list_accounts(self, *, offset: int = 0, limit: int = 100) -> tuple[list[PanelAccount], int | None]:
+        """One page of ``GET /api/users`` (``load_sub=false``: no subscription rendering, so a page stays cheap)."""
+        data = await self._req("GET", "/api/users", params={"offset": int(offset), "limit": int(limit), "load_sub": "false"})
+        rows = [r for r in as_rows(data, "users", "items") if isinstance(r, dict) and r.get("username")]
+        total = data.get("total") if isinstance(data, dict) else None
+        return [self._to_account(r) for r in rows], total if isinstance(total, int) else None
 
     def _template_mode(self) -> bool:
         return self.cfg.get("user_template_id") is not None

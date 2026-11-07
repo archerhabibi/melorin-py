@@ -207,7 +207,7 @@ async def test_state_chips_filter_and_count_inside_the_scope():
 
 
 async def test_refresh_reads_the_panel_and_is_rate_limited(monkeypatch):
-    from melorin.modules.vpn import service as vpn
+    from melorin.modules.vpn import reconcile as vpn  # the single-account sync (service.reconcile) lives here since reconcile v2
     from melorin.kernel.models.vpn import Panel
 
     class FakePanel:

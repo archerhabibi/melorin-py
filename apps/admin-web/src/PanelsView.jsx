@@ -850,7 +850,7 @@ function ServerRow({ s, panel, busy, onEdit, onToggle, onDelete }) {
   );
 }
 
-const STRIPE = { healthy: 'var(--ok)', unhealthy: 'var(--bd)', unknown: 'var(--wn)' };
+const STRIPE = { healthy: 'var(--ok)', degraded: 'var(--wn)', unhealthy: 'var(--bd)', unknown: 'var(--wn)' };
 function PanelSection({
   p,
   servers,
@@ -1379,7 +1379,16 @@ export default function PanelsView({ api, toast }) {
     [rows, filter, q, only, groupPanels, productF, idx],
   );
   const sorted = useMemo(() => {
-    const rank = (p) => (!p.is_enabled ? 3 : health(p) === 'unhealthy' ? 0 : health(p) === 'unknown' ? 1 : 2);
+    const rank = (p) =>
+      !p.is_enabled
+        ? 4
+        : health(p) === 'unhealthy'
+          ? 0
+          : health(p) === 'degraded'
+            ? 1
+            : health(p) === 'unknown'
+              ? 2
+              : 3;
     const by = {
       attention: (a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name, 'fa'),
       name: (a, b) => a.name.localeCompare(b.name, 'fa'),

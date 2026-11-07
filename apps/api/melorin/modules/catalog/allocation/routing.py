@@ -8,6 +8,7 @@ import uuid
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from melorin.core.db import utcnow
+from melorin.domain.panel_health import SELLABLE_STATES
 from melorin.core.errors import AppError
 from melorin.domain.order_state import VpnStatus
 from melorin.kernel.models.stores import Store
@@ -270,7 +271,7 @@ def _candidate(server: Server, panel: Panel, member: BundleMember | None, active
         panel_name=panel.name,
         server_enabled=bool(server.is_enabled),
         panel_enabled=bool(panel.is_enabled),
-        panel_healthy=panel.health_status == "healthy",
+        panel_healthy=panel.health_status in SELLABLE_STATES,
         allow_test=bool(server.allow_test),
         product_codes=tuple(server.product_codes or ()),
         capacity=int(server.capacity or 0),

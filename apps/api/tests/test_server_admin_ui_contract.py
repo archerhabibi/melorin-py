@@ -46,8 +46,9 @@ def test_infra_screens_share_one_dependency_model():
     for page in ("PanelsView.jsx", "BundlesView.jsx", "ProductsView.jsx"):
         ui = _ui(page)
         assert "useInfra" in ui and "InfraChain" in ui, page
-    # an unknown panel health blocks allocation in the core, so the UI must treat it as not ready
-    assert 'panel.health_status == "healthy"' in ALLOCATION and 'h === "unknown"' in infra
+    # an unknown panel health blocks allocation in the core, so the UI must treat it as not ready; ``degraded`` (a node fails, the
+    # panel still serves) sells, so the UI must not block it (PG-01)
+    assert "panel.health_status in SELLABLE_STATES" in ALLOCATION and 'h === "unknown"' in infra and '"degraded"' in infra
 
 
 def test_server_edit_never_resends_unchanged_fields():

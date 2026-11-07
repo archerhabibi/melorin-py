@@ -6,6 +6,7 @@ const ReportsView = lazy(() => import('./ReportsView.jsx'));
 const PanelsView = lazy(() => import('./PanelsView.jsx'));
 const PanelAdminsView = lazy(() => import('./PanelAdminsView.jsx'));
 const InfraHealthView = lazy(() => import('./InfraHealthView.jsx'));
+const PanelOpsView = lazy(() => import('./PanelOpsView.jsx'));
 const ProductsView = lazy(() => import('./ProductsView.jsx'));
 const BundlesView = lazy(() => import('./BundlesView.jsx'));
 const TicketsView = lazy(() => import('./TicketsView.jsx'));
@@ -692,6 +693,7 @@ export const extraRoutes = {
   'پیام همگانی': BroadcastView,
   'مرکز رویداد': EventCenterView,
   'سلامت زیرساخت': InfraHealthView,
+  'عملیات پنل': PanelOpsView,
   سفارش‌ها: OrdersView,
   'اکانت‌های VPN': VpnAccountsView,
   کاربران: UsersView,

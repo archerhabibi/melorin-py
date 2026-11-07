@@ -15,7 +15,7 @@ from melorin.kernel.models.orders import Order
 from melorin.kernel.models.referral import CommissionRule
 from melorin.kernel.models.system import AuditEvent
 from melorin.kernel.models.bundles import Bundle, BundleMember, BundleProduct, StoreBundle
-from melorin.kernel.models.vpn import Panel, Server, VpnAccount
+from melorin.kernel.models.vpn import Panel, PanelNode, PanelOrphan, Server, VpnAccount
 
 ADMIN = types.SimpleNamespace(id=uuid.uuid4())
 
@@ -28,6 +28,8 @@ async def session(tmp_path):
             m.__table__
             for m in (
                 Panel,
+                PanelNode,
+                PanelOrphan,
                 Server,
                 VpnAccount,
                 Product,
