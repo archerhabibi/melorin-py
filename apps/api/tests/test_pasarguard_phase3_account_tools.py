@@ -184,7 +184,8 @@ async def test_usage_is_summed_per_period_and_customers_get_no_node_detail(maker
 
 async def test_presence_uses_the_synced_row_and_never_calls_the_panel(maker, adapter):
     async with maker() as s:
-        acc, panel, _ = await _account(s, online=NOW - dt.timedelta(minutes=2))
+        # fresh clock, not the import-time NOW: a slow CI run would otherwise age this past the 5-minute "online" window
+        acc, panel, _ = await _account(s, online=dt.datetime.now(dt.UTC) - dt.timedelta(minutes=2))
         p = tools.presence(acc, tools.OWNER, panel)
         assert p["online_now"] and not p["never_connected"] and "ip" not in "".join(p)
         acc.online_at = None

@@ -1,7 +1,22 @@
 import datetime as dt
 import uuid
 
-from sqlalchemy import JSON, BigInteger, Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint, Uuid, text
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    Uuid,
+    text,
+    true,
+)
 from sqlalchemy import event
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -46,7 +61,7 @@ class Server(IdMixin, TimestampMixin, Base):
     last_assigned_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))  # round_robin key; written once per new order
     # PG-08: the destination's REAL state on the panel (group/host/node), refreshed by the health job. ``sellable`` is the sell-guard:
     # False removes this destination from new-order selection (existing accounts are untouched). A check that could not run keeps the old value.
-    sellable: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("1"))
+    sellable: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
     sellable_reason: Mapped[str | None] = mapped_column(String(300))
     destination_health: Mapped[dict | None] = mapped_column(JSON)  # status healthy|degraded|blocked, score, reasons, hosts/nodes counts
     panel_total_users: Mapped[int | None] = mapped_column(Integer)  # users the PANEL counts in this destination (single-group targets only)
