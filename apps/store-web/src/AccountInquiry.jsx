@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { RefreshCw, Search, X, ChevronLeft, ChevronRight, Gauge, Loader2 } from 'lucide-react';
 import { SubscriptionCard } from './Subscription.jsx';
+import AccountTools from './AccountTools.jsx';
 import { Empty, Loading, fa, fd } from './ui.jsx';
 
 const PAGE = 12;
@@ -67,6 +68,7 @@ function Card({ a, owner, base, coreFetch, notify, extra, onChange }) {
       <button onClick={refresh} disabled={busy} className="btn-soft mt-2 w-full !py-2 text-xs">
         {busy ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}بروزرسانی از پنل
       </button>
+      <AccountTools a={a} base={base} coreFetch={coreFetch} notify={notify} owner={owner} onChange={onChange} />
       {extra}
     </div>
   );
