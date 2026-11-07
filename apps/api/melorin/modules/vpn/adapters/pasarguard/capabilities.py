@@ -93,7 +93,8 @@ CAPABILITY_ENDPOINTS: dict[str, tuple[str, ...]] = {
         "POST /api/admin/by-id/{admin_id}/users/activate",
     ),
     "admin_governance": ("GET /api/admins", "PUT /api/admin/by-id/{admin_id}"),
-    "subscription_probe": ("GET /api/settings", "GET /sub/{token}/info"),
+    # the public ``/sub/{token}/info`` fetch is made without credentials by the probe itself, so it is not a panel API call listed here
+    "subscription_probe": ("GET /api/settings",),
 }
 
 # Capabilities of the legacy (Marzban-style) API: only what the pre-capability adapter did.

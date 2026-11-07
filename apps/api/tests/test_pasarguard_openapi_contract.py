@@ -184,6 +184,24 @@ async def _exercise_everything() -> list[dict]:
     await a.list_nodes()
     await a.get_node(1)
     await a.reconnect_node(1)
+    # Phase 4 (PG-07 / PG-11 / PG-12 / PG-13)
+    await a.get_system_stats()
+    await a.get_system_resources()
+    await a.get_nodes_realtime()
+    await a.get_node_stats(1)
+    await a.sync_node(1)
+    await a.list_cores()
+    await a.restart_core(1)
+    for toggle in (a.set_nodes_disabled, a.set_hosts_disabled, a.set_groups_disabled):
+        await toggle([1, 2], True)
+        await toggle([1, 2], False)
+    for action in ("disable", "enable", "reset_usage", "rotate_links"):
+        await a.bulk_users_action(["1", "2"], action)
+    await a.set_admin_users_state(9, active=False)
+    await a.set_admin_users_state(9, active=True)
+    await a.get_admin_detail(9)
+    await a.update_admin_limits(9, data_limit=GB, status="disabled", notifications_off=True)
+    await a.get_subscription_settings()
     await a.get_settings()
     await a.get_webhook_config("https://m.example.com/api/v1/webhooks/pasarguard/p")
     await a.connect_webhook("https://m.example.com/api/v1/webhooks/pasarguard/p", "s3cret")
@@ -277,6 +295,7 @@ PERMISSION_SCHEMAS = {
     "system": "SystemPermissions",
     "hosts": "HostsPermissions",
     "groups": "CRUDPermissions",
+    "cores": "CRUDPermissions",
     "templates": "CRUDPermissions",
     "api_keys": "APIKeysPermissions",
 }
