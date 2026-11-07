@@ -135,8 +135,10 @@ async def edit_reseller(store_id: uuid.UUID, body: ResellerEdit, admin: AdminUse
                 raise AppError("DOMAIN_TAKEN", "این دامنه قبلاً برای فروشگاه یا درخواست دیگری ثبت شده است.", 409)
             change("domain", st.domain, domain)
             st.domain = domain
+    status_changed = False
     if body.status is not None and change("status", st.status, body.status):
         st.status = body.status
+        status_changed = True
     if body.bot_enabled is not None and change("bot_enabled", st.bot_enabled, body.bot_enabled):
         st.bot_enabled = body.bot_enabled
         if not body.bot_enabled:
@@ -164,7 +166,24 @@ async def edit_reseller(store_id: uuid.UUID, body: ResellerEdit, admin: AdminUse
             data={"before": before, "after": after},
         )
     await session.commit()
+    if status_changed:  # PG-11/12: a store that opted in also stops (or resumes) on the panel; failures never undo the status change
+        await _apply_panel_side(session, st, suspended=st.status == "suspended", actor_id=admin.id)
     return await _row(session, st, detail=True)
+
+
+async def _apply_panel_side(session, st: Store, *, suspended: bool, actor_id) -> None:
+    if st.suspend_policy != "disable_accounts":
+        return
+    import logging
+
+    from melorin.modules.vpn import bulk, governance
+
+    try:
+        await governance.apply_store_status(session, st, suspended=suspended, actor_id=actor_id)
+        await bulk.plan_store_state(session, st, suspend=suspended, actor_id=actor_id)
+    except Exception:  # the worker/reconcile and the admin's bulk page can finish what failed here
+        logging.getLogger("melorin.admin.resellers").warning("store panel-side state failed store=%s", st.id, exc_info=True)
+        await session.rollback()
 
 
 async def _ensure_bot_free(session, store: Store, bot_key: str, username: str | None) -> None:
