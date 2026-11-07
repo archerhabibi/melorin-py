@@ -7,6 +7,7 @@ import { confirmDialog, promptDialog } from './ui.jsx';
 import PanelEventsTab from './PanelEventsTab.jsx';
 import PanelCapacityTab from './PanelCapacityTab.jsx';
 import PanelTemplatesTab from './PanelTemplatesTab.jsx';
+import PanelConsoleTab from './PanelConsoleTab.jsx';
 
 const KIND_LABEL = {
   missing_on_panel: 'کاربر روی پنل نیست',
@@ -346,6 +347,7 @@ export default function PanelOpsView({ api, toast }) {
         {tabBtn('issues', 'مغایرت‌ها', issues.total)}
         {tabBtn('orphans', 'کاربران ناشناس', orphans.total)}
         {tabBtn('nodes', 'نودها', 0)}
+        {tabBtn('console', 'کنسول و اشتراک', 0)}
         {tabBtn('events', 'رویدادهای زنده', 0)}
         {tabBtn('capacity', 'ظرفیت و فروش', 0)}
         {tabBtn('templates', 'تمپلیت‌ها', 0)}
@@ -409,6 +411,7 @@ export default function PanelOpsView({ api, toast }) {
 
       {tab === 'notices' && <NoticeLevels call={call} toast={toast} />}
 
+      {tab === 'console' && <PanelConsoleTab call={call} panelId={panelId} toast={toast} />}
       {tab === 'events' && <PanelEventsTab call={call} panelId={panelId} toast={toast} />}
       {tab === 'capacity' && <PanelCapacityTab call={call} panelId={panelId} toast={toast} />}
       {tab === 'templates' && <PanelTemplatesTab call={call} panelId={panelId} toast={toast} />}
