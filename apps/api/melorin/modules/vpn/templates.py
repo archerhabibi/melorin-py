@@ -206,6 +206,7 @@ async def create_for_product(
     session: AsyncSession, panel: Panel, product: Product, *, admin_id: uuid.UUID, group_ids: list[int] | None = None
 ) -> ProductTemplate:
     """Create the package's template on the panel and map it. Returns the existing mapping if there already is one."""
+    ensure_supported(panel)  # the root reason first: an unsupported panel is reported as such, not as a bad group list
     existing = await mapping_for(session, panel.id, product.id)
     if existing:
         return existing
