@@ -259,7 +259,9 @@ class NodeInsight(Protocol):  # flag: node_insight (PG-07, read-only)
 
 
 @runtime_checkable
-class InfraControl(Protocol):  # flag: infra_control (PG-07). Every call is absolute (set disabled=true/false), so repeating one changes nothing.
+class InfraControl(
+    Protocol
+):  # flag: infra_control (PG-07). Every call is absolute (set disabled=true/false), so repeating one changes nothing.
     async def sync_node(self, node_id: int) -> None: ...
     async def list_cores(self) -> list[dict]: ...
     async def restart_core(self, core_id: int) -> None: ...

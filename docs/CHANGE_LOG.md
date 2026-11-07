@@ -20,6 +20,13 @@ Commits containing `[skip changelog]` and the bot's own commits are skipped.
 If `main` is protected, allow `github-actions[bot]` to bypass so the bot can push the log.
 
 
+## 2026-11-07 - PasarGuard Phase 4: operations console, bulk operations, store governance, subscription check (PG-07, PG-11, PG-12, PG-13)
+- **Area:** vpn / adapters / admin / worker / admin-web / docs / tests
+- **Before:** no way to see why a node fails or act on it from Melorin; no safe way to compensate or disable many accounts; store admins had no cap or usage view; subscription address mismatches were found by customers.
+- **Problem:** operators had to use the PasarGuard dashboard; a repeated relative bulk call could add days twice; suspending a store left its accounts running.
+- **Action:** audited ops console (reconnect/sync/core restart/toggle), bulk operations with preview, typed-count confirm, 200-item chunks, absolute targets, leases and resume, store admin governance, subscription check, store-suspension hook (opt-in), migration 0049. See `docs/PANEL-OPS-PHASE4.md`.
+- **After:** all four items work from the admin web; 2182 backend and 205 frontend tests pass; import contracts kept.
+
 ## 2026-11-07 - PasarGuard Phase 2 review fixes: poison events, dedup, retry window, secret commit order, row lock, admin-web reload loop (PG-03)
 - **Area:** vpn / adapters / admin-web / docs / tests
 - **Before:** a delivery containing `Infinity`/`NaN` (or `tries: Infinity`) ended in a 5xx and the panel retried it forever; events without `id` and `enqueued_at` were deduplicated against every earlier event of the same action and user; a panel outage of ~13 minutes made events `failed`; `connect` flushed the new secret but did not commit it before the panel could use it, and a timeout rolled Melorin back to the old secret although the panel had kept the new one; the worker held the account row lock during the panel call; in admin-web every toast re-created `toast`, which reloaded the events tab and swapped it for a spinner (a failing load looped).
