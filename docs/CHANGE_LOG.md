@@ -77,6 +77,79 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-11-06 23:35 UTC - Claude - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** style(api): apply ruff format (0.9.2) to fix quality gate - CI quality job failed at 'ruff format --check' on 7 files (core/health, admin/panel_ops, vpn/health, vpn/notices, vpn/reconcile, worker/jobs, test_pasarguard_phase1_followup). Formatting only; no behaviour change.
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (7):** `apps/api/melorin/core/health.py`, `apps/api/melorin/modules/admin/panel_ops.py`, `apps/api/melorin/modules/vpn/health.py`, `apps/api/melorin/modules/vpn/notices.py`, `apps/api/melorin/modules/vpn/reconcile.py`, `apps/api/melorin/worker/jobs.py`, `apps/api/tests/test_pasarguard_phase1_followup.py`
+- **Ref:** `bfb6b56`
+
+### 2026-11-06 23:18 UTC - Claude - tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** purchase -> near expiry -> notice -> renewal -> quiet -> near expiry again -> second notice; idempotent inside a period. Mutation-checked: removing the period from the dedup key fails it.
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `apps/api/tests/test_worker_jobs_db.py`
+- **Ref:** `e8dd2dc`
+
+### 2026-11-06 23:09 UTC - Claude - vpn / admin / health / migration 0046  _(auto)_
+- **Before:** low-traffic warnings were hard-coded at 80% and 90% for every store; the reconcile backlog (open issues, sync lag) was visible only in the admin page, not in Prometheus.
+- **Problem:** the report asks for thresholds configurable per store (PG-06) and melorin_reconcile_open_issues / melorin_reconcile_lag_seconds (PG-04 #7).
+- **Action:** stores.vpn_notice_settings (migration 0046, nullable JSON); notices.normalize_levels/levels_for_store (1-99 whole percents, max 4, [] = no warnings, broken stored value falls back to defaults); reconcile reads every store's levels once per run and passes them to sync.apply_remote; admin GET/PUT/DEL…
+- **After:** a store with [50] is warned at 60% while the default store is not; an empty list switches warnings off (mutation-checked: the "levels or default" bug fails a test); 24 new tests.
+- **Files (13):** `apps/api/alembic/versions/0046_store_vpn_notice_settings.py`, `apps/api/melorin/core/health.py`, `apps/api/melorin/kernel/models/stores.py`, `apps/api/melorin/modules/admin/panel_ops.py`, `apps/api/melorin/modules/vpn/notices.py`, `apps/api/melorin/modules/vpn/reconcile.py`, `apps/api/melorin/modules/vpn/sync.py`, `apps/api/tests/test_core_health_probes.py` (+5 more)
+- **Ref:** `f677e82`
+
+### 2026-11-06 22:47 UTC - Melorin Phase1 Bot - admin-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(admin-web): panel operations page (nodes, issues, unknown users, access review) + degraded health state (PG-01/04/05)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (6):** `apps/admin-web/src/AdminExtra.jsx`, `apps/admin-web/src/App.jsx`, `apps/admin-web/src/PanelOpsView.jsx`, `apps/admin-web/src/PanelsView.jsx`, `apps/admin-web/src/infra.jsx`, `apps/admin-web/tests/panel-ops.test.jsx`
+- **Ref:** `646ac11`
+
+### 2026-11-06 22:44 UTC - Melorin Phase1 Bot - tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** test(pasarguard): admin API tests for nodes, issues, actions, orphans, access review (PG-01/04/05)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `apps/api/tests/test_pasarguard_phase1_admin_api.py`
+- **Ref:** `03dbcff`
+
+### 2026-11-06 22:43 UTC - Melorin Phase1 Bot - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(pasarguard): reconcile v2 reads panel id before rollback and counts new orphans; add DB tests (PG-01/02/04)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `apps/api/melorin/modules/vpn/reconcile.py`, `apps/api/tests/test_pasarguard_phase1_db.py`
+- **Ref:** `8a161f1`
+
+### 2026-11-06 22:42 UTC - Melorin Phase1 Bot - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(pasarguard): PG-05 access review (permission probe verdict) + Phase 1 logic tests
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (3):** `apps/api/melorin/modules/admin/panels.py`, `apps/api/melorin/modules/vpn/capabilities.py`, `apps/api/tests/test_pasarguard_phase1_logic.py`
+- **Ref:** `4bc36ea`
+
+### 2026-11-06 21:57 UTC - Melorin Phase1 Bot - api  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** style(pasarguard): remove unused imports (ruff)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `apps/api/melorin/modules/admin/panel_ops.py`, `apps/api/melorin/worker/jobs.py`
+- **Ref:** `a5af3fa`
+
+### 2026-11-06 21:17 UTC - Melorin Phase1 Bot - admin-web, db, api  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(pasarguard): Phase 1 core - real node health, status sync, reconcile v2, notice fixes (PG-01/02/04/06)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (29):** `apps/admin-web/src/infra.jsx`, `apps/api/alembic/versions/0045_panel_ops_phase1.py`, `apps/api/melorin/domain/order_state.py`, `apps/api/melorin/domain/panel_health.py`, `apps/api/melorin/kernel/models/vpn.py`, `apps/api/melorin/modules/admin/panel_ops.py`, `apps/api/melorin/modules/admin/panels.py`, `apps/api/melorin/modules/admin/router.py` (+21 more)
+- **Ref:** `c9c98cc`
+
+
 ### 2026-11-06 20:35 UTC - Claude - shared  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
