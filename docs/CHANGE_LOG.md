@@ -91,6 +91,662 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-11-07 14:36 UTC - Claude - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(ci): Postgres-safe servers.sellable default + time-stable presence test - - models/vpn.py: server_default=true() instead of text("1"); Postgres rejects an integer default on a boolean column (DatatypeMismatchError), which broke the whole Postgres lane at schema creation. Alembic 0048 already us…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `apps/api/melorin/kernel/models/vpn.py`, `apps/api/tests/test_pasarguard_phase3_account_tools.py`
+- **Ref:** `c0a718d`
+
+### 2026-11-07 09:37 UTC - Claude - bot  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(bots): PG-10 account tools in the main bot (customer) and reseller bot (store owner) - usage, devices, link rotation, suspend/resume with a confirmation tap + tests
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (5):** `apps/telegram-main/runner.py`, `apps/telegram-main/tests/test_account_tools.py`, `apps/telegram-main/tgmain/handlers/accounts.py`, `apps/telegram-main/tgmain/handlers/tools.py`, `apps/telegram-reseller/tgreseller/bot.py`
+- **Ref:** `2141335`
+
+### 2026-11-07 09:34 UTC - Claude - store-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(store-web): PG-10 account tools for customer and store owner (usage, devices, link rotation, suspend/resume) + tests
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (3):** `apps/store-web/src/AccountInquiry.jsx`, `apps/store-web/src/AccountTools.jsx`, `apps/store-web/tests/account-tools.test.jsx`
+- **Ref:** `434bf00`
+
+### 2026-11-07 09:33 UTC - Claude - admin-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(admin-web): Phase 3 UI - capacity & sellability tab (PG-08), templates tab (PG-09), account tools in the account drawer (PG-10) + tests
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (6):** `apps/admin-web/src/AccountToolsPanel.jsx`, `apps/admin-web/src/PanelCapacityTab.jsx`, `apps/admin-web/src/PanelOpsView.jsx`, `apps/admin-web/src/PanelTemplatesTab.jsx`, `apps/admin-web/src/VpnAccountsView.jsx`, `apps/admin-web/tests/panel-phase3.test.jsx`
+- **Ref:** `3b1027f`
+
+### 2026-11-07 07:57 UTC - Claude - api, tests, docs  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** style+docs(pasarguard): ruff format Phase 3 files, regenerate STATUS/API docs (CI gates)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (15):** `apps/api/melorin/kernel/models/vpn.py`, `apps/api/melorin/modules/admin/targets.py`, `apps/api/melorin/modules/orders/provisioning.py`, `apps/api/melorin/modules/orders/service/create.py`, `apps/api/melorin/modules/reseller/renewal.py`, `apps/api/melorin/modules/reseller/routes/accounts.py`, `apps/api/melorin/modules/vpn/adapters/pasarguard/capabilities.py`, `apps/api/melorin/modules/vpn/capacity.py` (+7 more)
+- **Ref:** `f57dc89`
+
+### 2026-11-07 07:55 UTC - Claude - api, shared  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(api): avoid duplicate AdjustIn schema name (vpn tools vs loyalty) and refresh OpenAPI snapshot + generated client for Phase 3 endpoints (quality gate)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (4):** `apps/api/melorin/modules/vpn/schemas.py`, `apps/api/melorin/modules/vpn/tools_router.py`, `packages/api-client/openapi.json`, `packages/api-client/src/schema.d.ts`
+- **Ref:** `dc703f5`
+
+### 2026-11-07 07:53 UTC - Claude - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(pasarguard): Phase 3 review - import ErrorKind in nodes adapter (NameError), repair 3 failing tests, lint clean, regression test
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (4):** `apps/api/melorin/modules/vpn/adapters/pasarguard/nodes.py`, `apps/api/melorin/modules/vpn/tools_router.py`, `apps/api/tests/test_pasarguard_openapi_contract.py`, `apps/api/tests/test_pasarguard_phase3_templates_plans.py`
+- **Ref:** `9264148`
+
+### 2026-11-07 07:17 UTC - Claude - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** test(pasarguard): PG-09 templates, prepaid renewal and plan change tests; report unsupported panel before bad groups - Work in progress: the new test file has not been fully run yet. Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com> Claude-Session: https://claude.ai/code/session_013tQ2nF4za…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `apps/api/melorin/modules/vpn/templates.py`, `apps/api/tests/test_pasarguard_phase3_templates_plans.py`
+- **Ref:** `d82eaa7`
+
+### 2026-11-07 07:15 UTC - Claude - api  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(pasarguard): PG-09 templates, prepaid renewal (next_plan) and plan change - - vpn/templates.py: product<->panel template mapping (create/link/sync/unlink/disable), validation, drift report, audited, admin only - vpn/plans.py: renewal_mode replace|queue; queue eligibility, absolute next_plan ca…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (21):** `apps/api/melorin/modules/admin/router.py`, `apps/api/melorin/modules/admin/templates.py`, `apps/api/melorin/modules/catalog/router.py`, `apps/api/melorin/modules/catalog/schemas.py`, `apps/api/melorin/modules/orders/provisioning.py`, `apps/api/melorin/modules/orders/router.py`, `apps/api/melorin/modules/orders/schemas.py`, `apps/api/melorin/modules/orders/service/create.py` (+13 more)
+- **Ref:** `74f0e96`
+
+### 2026-11-07 06:58 UTC - Claude - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(pasarguard): PG-10 account tools - usage, last seen, devices, link rotation, suspend/resume, compensation (customer/owner/admin scopes, audited)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (5):** `apps/api/melorin/app.py`, `apps/api/melorin/modules/vpn/account_tools.py`, `apps/api/melorin/modules/vpn/schemas.py`, `apps/api/melorin/modules/vpn/tools_router.py`, `apps/api/tests/test_pasarguard_phase3_account_tools.py`
+- **Ref:** `c48cbb6`
+
+### 2026-11-07 06:50 UTC - Claude - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(pasarguard): PG-08 real destination health, sell-guard, capacity source and alerts
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (10):** `apps/api/melorin/modules/admin/capacity.py`, `apps/api/melorin/modules/admin/panels.py`, `apps/api/melorin/modules/admin/router.py`, `apps/api/melorin/modules/admin/schemas.py`, `apps/api/melorin/modules/admin/targets.py`, `apps/api/melorin/modules/catalog/allocation/routing.py`, `apps/api/melorin/modules/eventcenter/rules.py`, `apps/api/melorin/modules/vpn/capacity.py` (+2 more)
+- **Ref:** `9308988`
+
+### 2026-11-07 06:46 UTC - Claude - db, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(pasarguard): Phase 3 foundation - capacity/template/next-plan adapter ops, capability flags, migration 0048 (PG-08/09)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (9):** `apps/api/alembic/versions/0048_pasarguard_phase3.py`, `apps/api/melorin/kernel/models/orders.py`, `apps/api/melorin/kernel/models/vpn.py`, `apps/api/melorin/modules/vpn/adapters/base.py`, `apps/api/melorin/modules/vpn/adapters/pasarguard/capabilities.py`, `apps/api/melorin/modules/vpn/adapters/pasarguard/nodes.py`, `apps/api/melorin/modules/vpn/adapters/pasarguard/users.py`, `apps/api/tests/test_pasarguard_capabilities.py` (+1 more)
+- **Ref:** `96736f6`
+
+
+### 2026-11-07 01:43 UTC - Claude - shared  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** chore(api-client): refresh OpenAPI snapshot and generated schema for PG-03 admin/webhook endpoints (fixes quality gate)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `packages/api-client/openapi.json`, `packages/api-client/src/schema.d.ts`
+- **Ref:** `e1cb6a3`
+
+### 2026-11-07 01:08 UTC - Claude - api  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(arch): core.health no longer imports modules.vpn - WEBHOOK_SILENT_AFTER lives in core (import-linter 6/6 kept) (PG-03)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `apps/api/melorin/core/health.py`, `apps/api/melorin/modules/vpn/panel_events_admin.py`
+- **Ref:** `7f6264c`
+
+### 2026-11-07 00:56 UTC - archerhabibi - admin-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(admin-web): live events tab in Panel operations - connect/disconnect, queue health, event list, retry (PG-03)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (3):** `apps/admin-web/src/PanelEventsTab.jsx`, `apps/admin-web/src/PanelOpsView.jsx`, `apps/admin-web/tests/panel-events.test.jsx`
+- **Ref:** `b9ac1f6`
+
+### 2026-11-07 00:37 UTC - Claude - api, tests, infra  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(pasarguard): Phase 2 admin connect/disconnect/status API, worker sweep + retention, silent-webhook alert, tests (PG-03) - - panel_events_admin: connect (secret generated, encrypted, restored on refusal), disconnect, rotate, status (secret-free), retry_failed - admin routes: /panels/{id}/events…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (12):** `apps/api/melorin/core/health.py`, `apps/api/melorin/modules/admin/panel_ops.py`, `apps/api/melorin/modules/vpn/adapters/pasarguard/events.py`, `apps/api/melorin/modules/vpn/panel_events.py`, `apps/api/melorin/modules/vpn/panel_events_admin.py`, `apps/api/melorin/modules/vpn/webhook_router.py`, `apps/api/melorin/worker/arq_app.py`, `apps/api/melorin/worker/jobs.py` (+4 more)
+- **Ref:** `26fe5ff`
+
+### 2026-11-07 00:29 UTC - Claude - api  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(pasarguard): Phase 2 webhook intake - public endpoint, router, tests adjusted (PG-03, partial) - Adds the public POST /api/v1/webhooks/pasarguard/{panel_id} endpoint (secret check, rate limits, body cap, store-then-process) and registers it in app.py. Capability tests updated for event_source.…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `apps/api/melorin/app.py`, `apps/api/melorin/modules/vpn/webhook_router.py`
+- **Ref:** `4cc5182`
+
+### 2026-11-07 00:29 UTC - Claude - db, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(pasarguard): webhook adapter, panel_events model + migration 0047, event processor (PG-03, WIP)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (10):** `apps/api/alembic/versions/0047_panel_events.py`, `apps/api/melorin/kernel/models/vpn.py`, `apps/api/melorin/modules/vpn/adapters/base.py`, `apps/api/melorin/modules/vpn/adapters/pasarguard/__init__.py`, `apps/api/melorin/modules/vpn/adapters/pasarguard/capabilities.py`, `apps/api/melorin/modules/vpn/adapters/pasarguard/events.py`, `apps/api/melorin/modules/vpn/panel_events.py`, `apps/api/melorin/modules/vpn/reconcile.py` (+2 more)
+- **Ref:** `f197154`
+
+
+### 2026-11-06 23:35 UTC - Claude - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** style(api): apply ruff format (0.9.2) to fix quality gate - CI quality job failed at 'ruff format --check' on 7 files (core/health, admin/panel_ops, vpn/health, vpn/notices, vpn/reconcile, worker/jobs, test_pasarguard_phase1_followup). Formatting only; no behaviour change.
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (7):** `apps/api/melorin/core/health.py`, `apps/api/melorin/modules/admin/panel_ops.py`, `apps/api/melorin/modules/vpn/health.py`, `apps/api/melorin/modules/vpn/notices.py`, `apps/api/melorin/modules/vpn/reconcile.py`, `apps/api/melorin/worker/jobs.py`, `apps/api/tests/test_pasarguard_phase1_followup.py`
+- **Ref:** `bfb6b56`
+
+### 2026-11-06 23:18 UTC - Claude - tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** purchase -> near expiry -> notice -> renewal -> quiet -> near expiry again -> second notice; idempotent inside a period. Mutation-checked: removing the period from the dedup key fails it.
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `apps/api/tests/test_worker_jobs_db.py`
+- **Ref:** `e8dd2dc`
+
+### 2026-11-06 23:09 UTC - Claude - vpn / admin / health / migration 0046  _(auto)_
+- **Before:** low-traffic warnings were hard-coded at 80% and 90% for every store; the reconcile backlog (open issues, sync lag) was visible only in the admin page, not in Prometheus.
+- **Problem:** the report asks for thresholds configurable per store (PG-06) and melorin_reconcile_open_issues / melorin_reconcile_lag_seconds (PG-04 #7).
+- **Action:** stores.vpn_notice_settings (migration 0046, nullable JSON); notices.normalize_levels/levels_for_store (1-99 whole percents, max 4, [] = no warnings, broken stored value falls back to defaults); reconcile reads every store's levels once per run and passes them to sync.apply_remote; admin GET/PUT/DEL…
+- **After:** a store with [50] is warned at 60% while the default store is not; an empty list switches warnings off (mutation-checked: the "levels or default" bug fails a test); 24 new tests.
+- **Files (13):** `apps/api/alembic/versions/0046_store_vpn_notice_settings.py`, `apps/api/melorin/core/health.py`, `apps/api/melorin/kernel/models/stores.py`, `apps/api/melorin/modules/admin/panel_ops.py`, `apps/api/melorin/modules/vpn/notices.py`, `apps/api/melorin/modules/vpn/reconcile.py`, `apps/api/melorin/modules/vpn/sync.py`, `apps/api/tests/test_core_health_probes.py` (+5 more)
+- **Ref:** `f677e82`
+
+### 2026-11-06 22:47 UTC - Melorin Phase1 Bot - admin-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(admin-web): panel operations page (nodes, issues, unknown users, access review) + degraded health state (PG-01/04/05)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (6):** `apps/admin-web/src/AdminExtra.jsx`, `apps/admin-web/src/App.jsx`, `apps/admin-web/src/PanelOpsView.jsx`, `apps/admin-web/src/PanelsView.jsx`, `apps/admin-web/src/infra.jsx`, `apps/admin-web/tests/panel-ops.test.jsx`
+- **Ref:** `646ac11`
+
+### 2026-11-06 22:44 UTC - Melorin Phase1 Bot - tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** test(pasarguard): admin API tests for nodes, issues, actions, orphans, access review (PG-01/04/05)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `apps/api/tests/test_pasarguard_phase1_admin_api.py`
+- **Ref:** `03dbcff`
+
+### 2026-11-06 22:43 UTC - Melorin Phase1 Bot - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(pasarguard): reconcile v2 reads panel id before rollback and counts new orphans; add DB tests (PG-01/02/04)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `apps/api/melorin/modules/vpn/reconcile.py`, `apps/api/tests/test_pasarguard_phase1_db.py`
+- **Ref:** `8a161f1`
+
+### 2026-11-06 22:42 UTC - Melorin Phase1 Bot - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(pasarguard): PG-05 access review (permission probe verdict) + Phase 1 logic tests
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (3):** `apps/api/melorin/modules/admin/panels.py`, `apps/api/melorin/modules/vpn/capabilities.py`, `apps/api/tests/test_pasarguard_phase1_logic.py`
+- **Ref:** `4bc36ea`
+
+### 2026-11-06 21:57 UTC - Melorin Phase1 Bot - api  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** style(pasarguard): remove unused imports (ruff)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `apps/api/melorin/modules/admin/panel_ops.py`, `apps/api/melorin/worker/jobs.py`
+- **Ref:** `a5af3fa`
+
+### 2026-11-06 21:17 UTC - Melorin Phase1 Bot - admin-web, db, api  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(pasarguard): Phase 1 core - real node health, status sync, reconcile v2, notice fixes (PG-01/02/04/06)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (29):** `apps/admin-web/src/infra.jsx`, `apps/api/alembic/versions/0045_panel_ops_phase1.py`, `apps/api/melorin/domain/order_state.py`, `apps/api/melorin/domain/panel_health.py`, `apps/api/melorin/kernel/models/vpn.py`, `apps/api/melorin/modules/admin/panel_ops.py`, `apps/api/melorin/modules/admin/panels.py`, `apps/api/melorin/modules/admin/router.py` (+21 more)
+- **Ref:** `c9c98cc`
+
+
+### 2026-11-06 20:35 UTC - Claude - shared  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** chore(api-client): regenerate OpenAPI snapshot for PanelOut.capabilities - CI quality lane failed at gen_api_client.py --check because the snapshot did not include the new PanelOut.capabilities field added in PG-00. Regenerated openapi.json and src/schema.d.ts.
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `packages/api-client/openapi.json`, `packages/api-client/src/schema.d.ts`
+- **Ref:** `a543fc9`
+
+### 2026-11-06 19:47 UTC - archerhabibi - tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** test(pasarguard): refresh contract fixture with role/permission schemas (PG-17)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `apps/api/tests/fixtures/pasarguard-openapi-5.6.0.contract.json`
+- **Ref:** `d48a663`
+
+### 2026-11-06 19:47 UTC - archerhabibi - tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** test(pasarguard): commit the PasarGuard 5.6.0 API contract fixture (PG-17)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `apps/api/tests/fixtures/pasarguard-openapi-5.6.0.contract.json`
+- **Ref:** `ad0405c`
+
+### 2026-11-06 19:47 UTC - Claude - scripts  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** chore(pasarguard): track role/permission schemas in the contract fixture
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `scripts/pasarguard_contract.py`
+- **Ref:** `30c0f0d`
+
+### 2026-11-06 19:44 UTC - Claude - scripts  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** chore(pasarguard): script to slim and diff the panel OpenAPI contract (PG-17)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `scripts/pasarguard_contract.py`
+- **Ref:** `77e492b`
+
+
+### 2026-11-06 08:03 UTC - Claude - docs  _(auto)_
+- **Before:** doc 22 mentioned a button named «باشگاه من» that does not exist in the bot
+- **Problem:** documentation did not match the shipped bot (the /club command and the «🏅 باشگاه مشتریان» inline-menu button)
+- **Action:** name the real command and button, and note that reseller bots inherit them from the main runner
+- **After:** docs guard passes (gen_docs --check)
+- **Files (1):** `docs/22-Customer-Loyalty-Club.md`
+- **Ref:** `6893edc`
+
+### 2026-11-06 08:03 UTC - Claude - admin-web  _(auto)_
+- **Before:** flaky under load - the summary request was not recorded yet when the assertion ran
+- **Problem:** assertions on `calls` ran synchronously after findByTestId, a race with the second fetch
+- **Action:** wrap every call assertion in waitFor through a small `called(path)` helper
+- **After:** file passes 3/3 alone and the whole admin-web suite (181 tests) passes
+- **Files (1):** `apps/admin-web/tests/referral-coupons.test.jsx`
+- **Ref:** `9444150`
+
+### 2026-11-06 07:23 UTC - Claude - admin-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** style(admin-web): prettier --write on loyalty club view and its test - CI quality job failed at 'npm run format:check' in apps/admin-web on LoyaltyClubView.jsx and tests/loyalty-club.test.jsx (previous commit only formatted store-web).
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `apps/admin-web/src/LoyaltyClubView.jsx`, `apps/admin-web/tests/loyalty-club.test.jsx`
+- **Ref:** `8406dc2`
+
+### 2026-11-06 06:58 UTC - Claude - store-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** style(store-web): prettier --write on loyalty screens and their tests - Fixes the format:check step of the quality job (Loyalty.jsx, ResellerLoyalty.jsx, loyalty-customer/reseller tests).
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (4):** `apps/store-web/src/Loyalty.jsx`, `apps/store-web/src/ResellerLoyalty.jsx`, `apps/store-web/tests/loyalty-customer.test.jsx`, `apps/store-web/tests/loyalty-reseller.test.jsx`
+- **Ref:** `d5d4c34`
+
+### 2026-11-06 06:58 UTC - Claude - tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** test(loyalty): build the migration-0042 SQLite fixture from a metadata copy - The PostgreSQL lane runs create_all on the shared Base.metadata first. SQLAlchemy then remembers that the use_alter FK orders.vpn_account_id was already emitted and leaves it out of every later create_all, so compare_meta…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `apps/api/tests/test_migration_0042_loyalty.py`
+- **Ref:** `2c96385`
+
+### 2026-11-06 06:26 UTC - Claude - tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** style(loyalty): drop unused make_user import in HTTP test
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `apps/api/tests/test_loyalty_http.py`
+- **Ref:** `61efd83`
+
+### 2026-11-06 06:13 UTC - Claude - tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** test(worker): cover loyalty handlers in the order topic delegation test
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `apps/api/tests/test_worker_runner_db.py`
+- **Ref:** `f9ffcbc`
+
+### 2026-11-06 05:21 UTC - archerhabibi - loyalty  _(auto)_
+- **Before:** manage_context resolved the store by hand
+- **Problem:** test_channel_binding refused the manage routes (no channel-checked dependency)
+- **Action:** manage_context now depends on owner_store_context; admin sessions and the real owner of a reseller store keep the same access
+- **After:** channel-binding guard and 115 loyalty/guard tests pass
+- **Files (1):** `apps/api/melorin/modules/loyalty/router.py`
+- **Ref:** `37bcfa1`
+
+### 2026-11-06 05:15 UTC - archerhabibi - telegram-main  _(auto)_
+- **Before:** the bot had no way to show points, tier or rewards
+- **Problem:** customers on Telegram could not use the club
+- **Action:** add /club and the club screen (points, tier, rewards, last entries) with one-tap reward redeem using a callback-derived Idempotency-Key; listed in help and bot menu; inherited by reseller bots
+- **After:** 10 new pytest cases, bot suite 28 passed, reseller suite 2 passed, ruff clean
+- **Files (4):** `apps/telegram-main/runner.py`, `apps/telegram-main/tests/test_loyalty_club.py`, `apps/telegram-main/tgmain/handlers/loyalty.py`, `apps/telegram-main/tgmain/ui.py`
+- **Ref:** `6fa8da7`
+
+### 2026-11-06 05:14 UTC - archerhabibi - admin-web  _(auto)_
+- **Before:** only a reseller API existed; admin had no way to run a club
+- **Problem:** admin could not configure the main store's or a reseller's club
+- **Action:** add باشگاه مشتریان page (store picker, summary, earning rule, tier ladder, rewards, manual adjust) on the existing manage API
+- **After:** 6 new vitest cases; admin suite and lint results recorded in the commit before it
+- **Files (4):** `apps/admin-web/src/AdminExtra.jsx`, `apps/admin-web/src/App.jsx`, `apps/admin-web/src/LoyaltyClubView.jsx`, `apps/admin-web/tests/loyalty-club.test.jsx`
+- **Ref:** `a5f8dad`
+
+### 2026-11-06 05:12 UTC - archerhabibi - store-web  _(auto)_
+- **Before:** a reseller could not configure a club for his store
+- **Problem:** backend manage plane had no UI
+- **Action:** add Loyalty tab: summary, earning rule, tier ladder, rewards, manual point adjustment
+- **After:** 5 new vitest cases, whole web suite 61 passed, no new lint warnings
+- **Files (3):** `apps/store-web/src/Reseller.jsx`, `apps/store-web/src/ResellerLoyalty.jsx`, `apps/store-web/tests/loyalty-reseller.test.jsx`
+- **Ref:** `4ee4f27`
+
+### 2026-11-06 05:10 UTC - archerhabibi - store-web  _(auto)_
+- **Before:** customers could not see points, tier or rewards
+- **Problem:** backend club API had no customer screen
+- **Action:** add Loyalty card (points, tier progress, rewards with idempotent redeem, history, refund debt note) to the dashboard
+- **After:** 7 vitest cases pass, eslint clean
+- **Files (4):** `apps/store-web/src/Dashboard.jsx`, `apps/store-web/src/Loyalty.jsx`, `apps/store-web/src/loyaltyFormat.js`, `apps/store-web/tests/loyalty-customer.test.jsx`
+- **Ref:** `82b89d1`
+
+### 2026-11-06 05:09 UTC - archerhabibi - loyalty  _(auto)_
+- **Before:** code referenced docs/22 but it did not exist
+- **Problem:** no written rules for earning, tiers, rewards and refunds
+- **Action:** add docs/22-Customer-Loyalty-Club.md
+- **After:** rules, data model, API and UI plan documented
+- **Files (1):** `docs/22-Customer-Loyalty-Club.md`
+- **Ref:** `c84f409`
+
+### 2026-11-06 04:55 UTC - Claude - api  _(auto)_
+- **Before:** Melorin had referral and commission but no points, tiers or rewards.
+- **Problem:** no customer loyalty club.
+- **Action:** loyalty router + outbox handlers; docs/API.md, STATUS.md and the api-client OpenAPI snapshot regenerated.
+- **After:** 8 HTTP tests plus service/domain tests; guards and api-client typecheck pass.
+- **Files (8):** `apps/api/melorin/app.py`, `apps/api/melorin/modules/loyalty/router.py`, `apps/api/melorin/worker/runner.py`, `apps/api/tests/test_loyalty_http.py`, `docs/API.md`, `docs/STATUS.md`, `packages/api-client/openapi.json`, `packages/api-client/src/schema.d.ts`
+- **Ref:** `31a99ed`
+
+### 2026-11-06 04:53 UTC - Claude - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(loyalty): club service - earning, first-order and referral bonus, refund reversal with points debt, redeem to wallet, adjustments, summaries
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (5):** `apps/api/melorin/modules/loyalty/__init__.py`, `apps/api/melorin/modules/loyalty/service.py`, `apps/api/melorin/modules/wallet/service.py`, `apps/api/pyproject.toml`, `apps/api/tests/test_loyalty_service.py`
+- **Ref:** `31a7302`
+
+### 2026-11-06 04:50 UTC - Claude - db, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(loyalty): models and migration 0040 (programs, tiers, accounts, points ledger, rewards, redemptions)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (4):** `apps/api/alembic/versions/0040_customer_loyalty_club.py`, `apps/api/melorin/kernel/models/loyalty.py`, `apps/api/melorin/models.py`, `apps/api/tests/test_migration_0040_loyalty.py`
+- **Ref:** `9ce64aa`
+
+### 2026-11-06 04:48 UTC - Claude - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(loyalty): pure club rules - points, tiers, points debt, redeem and definition rules
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `apps/api/melorin/domain/loyalty.py`, `apps/api/tests/test_loyalty_domain.py`
+- **Ref:** `7a68c9d`
+
+
+### 2026-11-06 04:42 UTC - Claude - db, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(panel-admins): per-store isolation guards, race-safe creation, durable password reset - - pick_username(): two stores can never share one panel login (slugs that collapse to the same name, or a name already taken on the panel, get a store-id suffix); ensure_admin used to adopt and re-password s…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (7):** `apps/api/alembic/versions/0041_panel_admin_guards.py`, `apps/api/melorin/kernel/models/vpn.py`, `apps/api/melorin/modules/reseller/routes/panel_profile.py`, `apps/api/melorin/modules/vpn/panel_admins.py`, `apps/api/tests/test_panel_admins.py`, `apps/api/tests/test_panel_admins_http.py`, `docs/STATUS.md`
+- **Ref:** `c8b4937`
+
+### 2026-11-06 04:29 UTC - archerhabibi - docs  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** docs: API + STATUS for reseller panel-admin
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `docs/API.md`, `docs/STATUS.md`
+- **Ref:** `d63f35f`
+
+### 2026-11-06 04:29 UTC - archerhabibi - store-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** test(store-web): reseller panel-admin component tests
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `apps/store-web/tests/reseller-panel-admin.test.jsx`
+- **Ref:** `895c9e0`
+
+### 2026-11-06 04:29 UTC - archerhabibi - store-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(store-web): add 'ادمین پنل' tab to reseller panel
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `apps/store-web/src/Reseller.jsx`
+- **Ref:** `d1359c0`
+
+### 2026-11-06 04:29 UTC - archerhabibi - store-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(store-web): ResellerPanelAdmin - read-only per-store panel admin + profile change requests
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `apps/store-web/src/ResellerPanelAdmin.jsx`, `apps/store-web/src/ui.jsx`
+- **Ref:** `068123d`
+
+### 2026-11-06 04:29 UTC - archerhabibi - shared  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** chore(api-client): regenerate OpenAPI snapshot + TS schema for per-store panel admins
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `packages/api-client/openapi.json`, `packages/api-client/src/schema.d.ts`
+- **Ref:** `a45db20`
+
+### 2026-11-06 03:55 UTC - melorin-dev - admin-web  _(auto)_
+- **Before:** the PasarGuard admin of each store existed only as API; the admin could not see their health, edit "Profile & contact", read the login, or work through reseller change requests without calling the API by hand
+- **Problem:** requests had no queue or badge, a failed or unsynced admin was invisible, and a password view or reset had no UI guardrail
+- **Action:** new "ادمین‌های پنل" section (KPIs, status filter and search, per-admin drawer that sends only changed fields, audited password view with 60 s auto-hide and confirmed reset, request queue with before/after, per-field apply checkbox, required reject reason, read-only history), nav entry with pending-…
+- **After:** 11 new tests, whole admin-web suite 175 passing, eslint 0 errors and 25 warnings (unchanged), prettier clean
+- **Files (5):** `apps/admin-web/src/AdminExtra.jsx`, `apps/admin-web/src/App.jsx`, `apps/admin-web/src/PanelAdminsView.jsx`, `apps/admin-web/src/ui.jsx`, `apps/admin-web/tests/panel-admins.test.jsx`
+- **Ref:** `46f31bb`
+
+### 2026-11-06 03:51 UTC - melorin-dev - panel-admins  _(auto)_
+- **Before:** a reseller's profile change request reached nobody (admin had to poll), could not be withdrawn (one pending request blocked the store), the reseller never learned the outcome, and the admin desk had no "current profile" to compare; the HTTP routes had no tests and 8 files failed ruff format
+- **Problem:** requests sat unseen, a wrong request blocked the store until an admin acted, and CI (make lint) would fail on this branch
+- **Action:** alert every super admin on a new request (field names only, never values), notify the reseller on apply/reject, add reseller cancel endpoint, return current_profile in the admin request list, keep the really-applied changes, add 8 HTTP tests, ruff-format the branch files
+- **After:** 26 panel-admin tests pass; ruff check/format and lint-imports are clean
+- **Files (9):** `apps/api/melorin/kernel/models/vpn.py`, `apps/api/melorin/modules/admin/panel_admins.py`, `apps/api/melorin/modules/admin/panels.py`, `apps/api/melorin/modules/orders/provisioning.py`, `apps/api/melorin/modules/reseller/router.py`, `apps/api/melorin/modules/reseller/routes/panel_profile.py`, `apps/api/melorin/modules/vpn/panel_admins.py`, `apps/api/tests/test_panel_admins.py` (+1 more)
+- **Ref:** `3ae1629`
+
+### 2026-11-05 21:49 UTC - melorin-dev - db, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(vpn): one PasarGuard Operator admin per store (Main + each reseller) - - panel_admins table (0040): (panel, store) -> admin username, encrypted password, sync state, optional profile - adapter: ensure_admin / update_admin_profile / bulk_set_owner; new accounts get set_owner to their store's ad…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (15):** `apps/api/alembic/versions/0040_panel_admins.py`, `apps/api/melorin/kernel/models/vpn.py`, `apps/api/melorin/modules/admin/panel_admins.py`, `apps/api/melorin/modules/admin/panels.py`, `apps/api/melorin/modules/admin/router.py`, `apps/api/melorin/modules/orders/provisioning.py`, `apps/api/melorin/modules/reseller/router.py`, `apps/api/melorin/modules/reseller/routes/panel_profile.py` (+7 more)
+- **Ref:** `6f15259`
+
+
+### 2026-11-05 13:41 UTC - archerhabibi - admin-web, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(admin-web,tests,docs): target picker UI, bundle balancing UI, target rule/DB tests, API docs + OpenAPI snapshot - Completes the auto-target-selection patch on top of the backend commits (migration 0039, allocation, admin API). Review fix: noqa F811 on the two tests that reuse the imported pane…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (14):** `apps/admin-web/src/BundlesView.jsx`, `apps/admin-web/src/PanelsView.jsx`, `apps/admin-web/src/ServerForm.jsx`, `apps/admin-web/src/TargetPicker.jsx`, `apps/admin-web/src/VpnAccountsView.jsx`, `apps/admin-web/src/targets.js`, `apps/api/melorin/modules/admin/directory.py`, `apps/api/tests/test_pasarguard_adapter_contract.py` (+6 more)
+- **Ref:** `99167cc`
+
+### 2026-11-05 10:02 UTC - Claude - admin / adapters  _(auto)_
+- **Before:** servers had no destination; admin could not see a panel's groups, templates or inbounds; bundles had no balancing choice
+- **Problem:** choosing among 24+ groups or several inbounds was impossible from the panel UI/API
+- **Action:** Server.target accepted/validated on create+update (422 on invalid, warnings when the panel lacks the item or a duplicate exists), GET /admin/panels/{id}/targets (PasarGuard groups+templates, Sanaei inbounds, marked with used_by), POST /admin/panels/{id}/servers/from-targets (wizard + sync), Bundle.…
+- **After:** panel/admin contract tests pass; lint-imports clean
+- **Files (7):** `apps/api/melorin/modules/admin/bundles.py`, `apps/api/melorin/modules/admin/panels.py`, `apps/api/melorin/modules/admin/router.py`, `apps/api/melorin/modules/admin/schemas.py`, `apps/api/melorin/modules/admin/targets.py`, `apps/api/melorin/modules/vpn/adapters/pasarguard.py`, `apps/api/melorin/modules/vpn/adapters/sanaei/adapter.py`
+- **Ref:** `08ee2b0`
+
+### 2026-11-05 10:01 UTC - Claude - allocation  _(auto)_
+- **Before:** auto mode picked the panel with the fewest active accounts; panel and server counted load differently; every retry re-allocated; a renewal of an account without server_id allocated anew; accounts had no placement record
+- **Problem:** no spread across several groups/inbounds, retries could waste turns or duplicate accounts on another panel, renewals could extend the wrong panel
+- **Action:** balancing strategies on Bundle.balancing (default round_robin), ACTIVE+PROVISIONING counted for panel and server, first allocation pins orders.allocated_server_id and moves last_assigned_at once, renewals never allocate and park in review when the account lost its server, build_adapter(panel, serve…
+- **After:** full API suite 1722 passed; lint-imports clean
+- **Files (8):** `apps/api/melorin/modules/catalog/allocation/__init__.py`, `apps/api/melorin/modules/catalog/allocation/routing.py`, `apps/api/melorin/modules/orders/provisioning.py`, `apps/api/melorin/modules/vpn/adapters/registry.py`, `apps/api/melorin/modules/vpn/targets.py`, `apps/api/tests/test_core_allocation.py`, `apps/api/tests/test_provisioning_db.py`, `apps/api/tests/test_renewal_core.py`
+- **Ref:** `b5a7c42`
+
+### 2026-11-05 09:55 UTC - Claude - allocation  _(auto)_
+- **Before:** a server had no destination of its own; bundles had no balancing method; orders could not pin an allocation; accounts had no placement snapshot
+- **Problem:** auto selection could only pick a whole panel, and a retry re-ran the allocation from scratch
+- **Action:** add servers.target / last_assigned_at, bundles.balancing (default round_robin), orders.allocated_server_id, vpn_accounts.placement (all nullable or safe defaults)
+- **After:** migration upgrades and downgrades cleanly on SQLite; behaviour unchanged until the next commits use the columns
+- **Files (4):** `apps/api/alembic/versions/0039_target_selection.py`, `apps/api/melorin/kernel/models/bundles.py`, `apps/api/melorin/kernel/models/orders.py`, `apps/api/melorin/kernel/models/vpn.py`
+- **Ref:** `03a99d4`
+
+
+### 2026-10-28 04:32 UTC - Claude - tests, scripts  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** test(ci): migration smoke also asserts the 0037 index is UNIQUE and partial on signup_reward (a name-only check would pass a plain index) - Verified on PostgreSQL 16 with mutations: non-partial unique, partial non-unique and a resurrected old constraint all fail the gate.
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `apps/api/tests/test_lint_gate_and_pg_migration.py`, `scripts/migration_smoke.sh`
+- **Ref:** `40aa9a7`
+
+### 2026-10-28 04:26 UTC - Claude - tests, scripts  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(ci): migration smoke asserts the 0037 partial unique index (signup reward only) and that the old commission constraints are gone - The smoke gate still looked for uq_commissions_referred_user_id_kind, which 0036/0037 replaced; verified on a real PostgreSQL 16 up to head. Co-Authored-By: Claude …
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `apps/api/tests/test_lint_gate_and_pg_migration.py`, `scripts/migration_smoke.sh`
+- **Ref:** `44c4bfa`
+
+### 2026-10-27 20:55 UTC - Claude - shared  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** chore(api-client): regenerate OpenAPI snapshot and TS schema for store-scoped referral/coupon routes (fixes the quality gate)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `packages/api-client/openapi.json`, `packages/api-client/src/schema.d.ts`
+- **Ref:** `90c1a0a`
+
+### 2026-10-27 19:11 UTC - Claude - api  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** unique key (store, referred, kind) also covered kind=commission, so the 2nd order failed in the worker; earned was summed from the last 50/200 rows only
+- **Action:** partial unique index on signup_reward (migration 0037), SQL earnings aggregate in /stores/{id}/referral and /me/referrals, bot uses it; tests; doc 21 third audit
+- **After:** tests 1715 passed, PG 136 passed, migration up/down verified on PostgreSQL
+- **Files (9):** `apps/api/alembic/versions/0037_commission_reward_unique.py`, `apps/api/melorin/kernel/models/referral.py`, `apps/api/melorin/modules/referral/router.py`, `apps/api/melorin/modules/referral/service.py`, `apps/api/tests/test_store_scoped_referral_program.py`, `apps/telegram-main/tests/test_referral_screen.py`, `apps/telegram-main/tgmain/ui.py`, `docs/21-Store-Scoped-Referral-Coupons.md` (+1 more)
+- **Ref:** `6aa0e17`
+
+### 2026-10-27 12:12 UTC - Claude - docs  _(auto)_
+- **Before:** doc 21 described the first audit only
+- **Problem:** the two fixes made after it were not documented
+- **Action:** added the second audit paragraph (FA + EN)
+- **After:** doc matches the code
+- **Files (1):** `docs/21-Store-Scoped-Referral-Coupons.md`
+- **Ref:** `b28a482`
+
+### 2026-10-27 12:12 UTC - Claude - referral  _(auto)_
+- **Before:** attach() checked "no relationship yet" and then inserted; two concurrent requests could both pass the check
+- **Problem:** the loser hit the unique key (store_id, referred_user_id) and the sign-up failed with a 500 instead of just not attaching
+- **Action:** the insert runs in a savepoint; an IntegrityError means "first touch already won" and returns False; test simulates the rival commit
+- **After:** exactly one relationship, no error; API suite 1713 passed, ruff and lint-imports clean
+- **Files (2):** `apps/api/melorin/modules/referral/service.py`, `apps/api/tests/test_store_scoped_referral_program.py`
+- **Ref:** `249ef4d`
+
+### 2026-10-27 12:07 UTC - Claude - referral  _(auto)_
+- **Before:** a customer whose first (rewarded) order was refunded counted as having zero completed orders, so the next order was classified as signup_reward again
+- **Problem:** the second signup_reward violated the unique key (store_id, referred_user_id, kind) and raised IntegrityError while completing the order
+- **Action:** the kind is decided by "no completed order before AND no signup reward already granted in this store"; regression test added
+- **After:** the next order pays the store's commission plan; test_after_the_first_order_is_refunded_... passes
+- **Files (2):** `apps/api/melorin/modules/referral/service.py`, `apps/api/tests/test_store_scoped_referral_program.py`
+- **Ref:** `793347f`
+
+### 2026-10-27 05:27 UTC - Claude - referral  _(auto)_
+- **Before:** an admin-flagged session skipped the store filter, so a platform admin opening a reseller bot saw every store's invites and commissions (mixed currencies) on that store's referral screen; the endpoint had only a source-text test
+- **Problem:** broke the rule that referral data is visible only inside its own store
+- **Action:** scope by the session's store whenever the token is bound to one; only a store-less admin hub session keeps the unscoped view; add behavioural tests for both bots' view
+- **After:** tests/test_store_scoped_referral_program.py passes (31); lint-imports, ruff check and format are clean
+- **Files (2):** `apps/api/melorin/modules/referral/router.py`, `apps/api/tests/test_store_scoped_referral_program.py`
+- **Ref:** `862f38b`
+
+### 2026-10-27 04:07 UTC - Claude - bot  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(telegram-main): referral screen shows this store's programme, link and earnings from Core
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (3):** `apps/telegram-main/tests/test_referral_screen.py`, `apps/telegram-main/tgmain/handlers/identity.py`, `apps/telegram-main/tgmain/ui.py`
+- **Ref:** `860f875`
+
+### 2026-10-27 04:02 UTC - Claude - docs  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** docs: regenerate API.md and STATUS.md for the store-scoped referral/coupon routes (0033)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `docs/API.md`, `docs/STATUS.md`
+- **Ref:** `9de1677`
+
+### 2026-10-27 03:57 UTC - Claude - admin-web  _(auto)_
+- **Before:** the coupon form always created for the main store, and Admin had no screen for a store's referral plans.
+- **Problem:** Admin could not see or set what a given store/agency pays for invites, and could not target a coupon at one store.
+- **Action:** new "برنامه‌های معرفی" screen (pick a store; its plans, numbers and saved rules are that store's only) and a store selector on the coupon screen (an "all" option still lists multi-store codes).
+- **After:** vitest (155 tests incl. tests/referral-coupons.test.jsx), eslint (no new warnings), prettier, build and bundle budget pass.
+- **Files (4):** `apps/admin-web/src/AdminExtra.jsx`, `apps/admin-web/src/App.jsx`, `apps/admin-web/src/ReferralProgramsView.jsx`, `apps/admin-web/tests/referral-coupons.test.jsx`
+- **Ref:** `782c937`
+
+### 2026-10-27 03:55 UTC - Claude - store-web  _(auto)_
+- **Before:** the profile showed only a bare referral code; a reseller had no screen for his store's referral plans or coupons.
+- **Problem:** nobody could see or set what an invite earns inside one store, and the platform-wide wording hid that it is per store.
+- **Action:** Referral card (link of THIS store's site and bot, its programme, the customer's standing there); reseller tabs "برنامهٔ معرفی" and "کدهای تخفیف" talking only to /stores/{id}/referral-rules and /stores/{id}/coupons (the store comes from the URL, never the body).
+- **After:** vitest (49 tests incl. tests/store-referral-coupons.test.jsx), eslint, prettier and the build/bundle budget pass.
+- **Files (7):** `apps/store-web/src/Dashboard.jsx`, `apps/store-web/src/Referral.jsx`, `apps/store-web/src/Reseller.jsx`, `apps/store-web/src/ResellerCoupons.jsx`, `apps/store-web/src/ResellerReferral.jsx`, `apps/store-web/src/storeProgram.js`, `apps/store-web/tests/store-referral-coupons.test.jsx`
+- **Ref:** `c0ee115`
+
+### 2026-10-27 03:55 UTC - Claude - identity  _(auto)_
+- **Before:** the reseller panel could not tell which currency the owner's store sells in.
+- **Problem:** referral plans and discount codes are amounts of ONE store's currency and had no unit to show.
+- **Action:** add currency to the /me/stores rows (members already see their own stores).
+- **After:** identity/channel-binding suites pass.
+- **Files (1):** `apps/api/melorin/modules/identity/routes/account.py`
+- **Ref:** `5ad93d6`
+
+### 2026-10-27 03:52 UTC - Claude - referral  _(auto)_
+- **Before:** a fixed signup reward/commission could exceed the order total (percent plans were already <= 100%).
+- **Problem:** fake sign-ups buying the cheapest plan could earn more than they paid, in any store.
+- **Action:** amount_for caps every model at net_paid before the plan's own max_amount.
+- **After:** tests/test_domain_money_rules.py pins it; referral suites pass.
+- **Files (2):** `apps/api/melorin/domain/commission.py`, `apps/api/tests/test_domain_money_rules.py`
+- **Ref:** `431d2f8`
+
+### 2026-10-27 03:52 UTC - Claude - api  _(auto)_
+- **Before:** ruff format --check listed 5 files of this branch.
+- **Problem:** the lint gate (make lint / CI) would fail.
+- **Action:** ran ruff format on them; no behaviour change.
+- **After:** ruff check and ruff format --check are clean.
+- **Files (5):** `apps/api/melorin/modules/identity/routes/_common.py`, `apps/api/melorin/modules/referral/service.py`, `apps/api/tests/test_coupon_patch_and_funding.py`, `apps/api/tests/test_store_scoped_coupons.py`, `apps/api/tests/test_store_scoped_referral_program.py`
+- **Ref:** `fdae657`
+
+### 2026-10-27 03:51 UTC - Claude - coupons  _(auto)_
+- **Before:** PATCH on a coupon (owner or admin) set fields directly, skipping the creation rules; an Admin domain coupon marked funded_by=store was charged to the reseller's margin.
+- **Problem:** a store could end up with an expired-before-start coupon, and a reseller could pay for a promotion he never created.
+- **Action:** apply_coupon_patch validates the edited rule with validate_definition; domain coupons must be funded_by=platform (new COUPON_FUNDING_INVALID rule) and build_quote treats any domain coupon as platform-funded; the window rule tolerates naive stored datetimes.
+- **After:** tests/test_coupon_patch_and_funding.py and the coupon rule/store-scope suites pass.
+- **Files (6):** `apps/api/melorin/domain/coupon.py`, `apps/api/melorin/modules/admin/coupons.py`, `apps/api/melorin/modules/catalog/router.py`, `apps/api/melorin/modules/catalog/service.py`, `apps/api/tests/test_coupon_definition_rules.py`, `apps/api/tests/test_coupon_patch_and_funding.py`
+- **Ref:** `596af5d`
+
+### 2026-10-27 03:42 UTC - archerhabibi - tests  _(auto)_
+- **Before:** no tests for per-store attribution, per-store plans, owner-plane access to programmes or coupon product/currency scoping
+- **Problem:** store isolation of rewards, commissions and discount codes was not pinned
+- **Action:** 38 new tests (pure rules, service-level isolation, owner/admin HTTP access) and a fix for the audit payload of saved plans (UUIDs were not JSON-safe)
+- **After:** new suites pass
+- **Files (3):** `apps/api/melorin/modules/referral/service.py`, `apps/api/tests/test_store_scoped_coupons.py`, `apps/api/tests/test_store_scoped_referral_program.py`
+- **Ref:** `aff4c83`
+
+### 2026-10-27 03:39 UTC - archerhabibi - coupons / admin  _(auto)_
+- **Before:** a reseller coupon could name products the store does not sell; an admin store coupon accepted unknown stores or a foreign currency; a domain coupon with a fixed amount had no currency
+- **Problem:** a coupon must never reach beyond the store/agency it was made for
+- **Action:** check_coupon_products (exists + sold by the reseller store), admin store coupons pinned to the store currency and store must exist, domain coupon with fixed amount requires currency, allowed store ids/kinds validated
+- **After:** coupon, admin and reseller suites pass
+- **Files (5):** `apps/api/melorin/domain/coupon.py`, `apps/api/melorin/modules/admin/coupons.py`, `apps/api/melorin/modules/catalog/router.py`, `apps/api/melorin/modules/catalog/service.py`, `apps/api/tests/test_admin_ops_http.py`
+- **Ref:** `2bf3f91`
+
+### 2026-10-27 03:38 UTC - archerhabibi - referral / identity  _(auto)_
+- **Before:** referral attribution was main-store only and unique per user platform-wide; reseller stores had no programme, plans were Admin-only, reseller stores could fall back to the main store's global defaults, and a code from any account was accepted as a referrer
+- **Problem:** rewards, commissions and referral links must belong strictly to the store/agency they were created in
+- **Action:** unique (store, referred user) for relationships and signup rewards (migration 0033), referrer must be an active member of the store, newcomer must be new to the store, per-store plan lookup with no leak of main-store defaults, plan validation (percent <= 100%), owner-plane and admin-plane endpoints…
+- **After:** full API suite passes (1580 passed)
+- **Files (7):** `apps/api/alembic/versions/0033_store_scoped_referral.py`, `apps/api/melorin/domain/commission.py`, `apps/api/melorin/kernel/models/referral.py`, `apps/api/melorin/modules/identity/routes/_common.py`, `apps/api/melorin/modules/referral/router.py`, `apps/api/melorin/modules/referral/service.py`, `apps/api/tests/test_event_center_extra_topics.py`
+- **Ref:** `c65ac1c`
+
+
 ### 2026-10-27 10:50 UTC - Claude - api, tests  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
