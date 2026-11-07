@@ -19,7 +19,7 @@ from melorin.kernel.models.vpn import Panel, VpnAccount
 from melorin.modules.vpn import account_tools as tools
 from melorin.modules.vpn import inquiry
 from melorin.modules.vpn.schemas import (
-    AdjustIn,
+    AccountAdjustIn,
     DevicesOut,
     PresenceOut,
     ReasonIn,
@@ -109,7 +109,7 @@ def _register(prefix: str, dep) -> None:
     if role == tools.ADMIN:
 
         @router.post(f"{base}/adjust", response_model=VpnAccountOut, name=f"adjust_{role}")
-        async def adjust(body: AdjustIn, t: T, session: Session):
+        async def adjust(body: AccountAdjustIn, t: T, session: Session):
             account = await tools.adjust(
                 session, t.account, actor_id=t.actor_id, add_days=body.add_days, add_traffic_gb=body.add_traffic_gb, reason=body.reason
             )

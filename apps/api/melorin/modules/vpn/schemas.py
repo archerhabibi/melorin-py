@@ -91,7 +91,7 @@ class ReasonIn(BaseModel):
     reason: str | None = None
 
 
-class AdjustIn(BaseModel):
+class AccountAdjustIn(BaseModel):
     add_days: int = 0
     add_traffic_gb: int = 0
     reason: str
