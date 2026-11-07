@@ -29,6 +29,9 @@ CAPABILITY_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "admin_ops": ("admins.read", "admins.create", "admins.update"),
     "settings_ops": ("settings.read",),
     "account_listing": ("users.read",),
+    "capacity_ops": ("groups.read", "hosts.read", "nodes.read"),
+    "template_ops": ("templates.read", "templates.create", "templates.update"),
+    "next_plan_ops": ("users.update", "users.activate_next_plan"),
     "event_source": ("settings.read", "settings.update"),
 }
 
@@ -47,6 +50,15 @@ CAPABILITY_ENDPOINTS: dict[str, tuple[str, ...]] = {
     "admin_ops": ("GET /api/admins", "POST /api/admin", "PUT /api/admin/by-id/{admin_id}", "GET /api/admin-roles/simple"),
     "settings_ops": ("GET /api/settings",),
     "account_listing": ("GET /api/users",),
+    "capacity_ops": ("GET /api/groups", "GET /api/hosts", "GET /api/inbounds/details"),
+    "template_ops": (
+        "GET /api/user_templates",
+        "POST /api/user_template",
+        "PUT /api/user_template/{template_id}",
+        "POST /api/user_templates/bulk/enable",
+        "POST /api/user_templates/bulk/disable",
+    ),
+    "next_plan_ops": ("PUT /api/user/by-id/{user_id}", "POST /api/user/by-id/{user_id}/active_next", "PUT /api/user/from_template/by-id/{user_id}"),
     # Phase 2: the panel calls Melorin (``/webhooks/pasarguard/{panel_id}``); the only panel routes involved switch the webhook on/off
     "event_source": ("GET /api/settings", "PUT /api/settings"),
 }

@@ -49,11 +49,14 @@ OPERATOR = {  # what a store Operator may do on PasarGuard 5.6 (users: own scope
     "admins": {},
 }
 SERVICE = {  # a dedicated service role (PG-05 target): everything Melorin needs, nothing destructive on infrastructure
-    "users": {"read": 2, "update": 2, "reset_usage": 2, "revoke_sub": 2, "set_owner": 2},
+    "users": {"read": 2, "update": 2, "reset_usage": 2, "revoke_sub": 2, "set_owner": 2, "activate_next_plan": 2},
     "nodes": {"read": True, "reconnect": True},
     "hwids": {"read": True, "delete": True},
     "settings": {"read": True},
     "admins": {"read": True, "create": True, "update": True},
+    "groups": {"read": True},
+    "hosts": {"read": True},
+    "templates": {"read": True, "create": True, "update": True},
 }
 
 

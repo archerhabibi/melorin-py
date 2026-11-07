@@ -120,6 +120,18 @@ class RecordingPanel:
             return httpx.Response(200, json={"groups": [{"id": 1, "name": "g"}]})
         if path == "/api/user_templates":
             return httpx.Response(200, json=[{"id": 2, "name": "t"}])
+        if path == "/api/groups":
+            return httpx.Response(200, json={"groups": [{"id": 1, "name": "g", "total_users": 3, "inbound_tags": ["vless"]}], "total": 1})
+        if path == "/api/hosts":
+            return httpx.Response(200, json=[{"id": 1, "inbound_tag": "vless", "is_disabled": False}])
+        if path == "/api/inbounds/details":
+            return httpx.Response(200, json=[{"tag": "vless"}])
+        if path == "/api/user_template" and method == "POST":
+            return httpx.Response(201, json={"id": 7, "name": (body or {}).get("name"), "group_ids": (body or {}).get("group_ids")})
+        if re.fullmatch(r"/api/user_template/\d+", path) and method == "PUT":
+            return httpx.Response(200, json={"id": 7})
+        if path in ("/api/user_templates/bulk/enable", "/api/user_templates/bulk/disable"):
+            return httpx.Response(200, json={"count": 1})
         m = re.fullmatch(r"/api/user/by-username/([^/]+)", path)
         if m and method == "GET":
             name = m.group(1)
@@ -177,6 +189,17 @@ async def _exercise_everything() -> list[dict]:
     await a.connect_webhook("https://m.example.com/api/v1/webhooks/pasarguard/p", "s3cret")
     await a.disconnect_webhook("https://m.example.com/api/v1/webhooks/pasarguard/p")
     await a.list_accounts(offset=0, limit=50)
+    await a.list_groups_full()
+    await a.list_hosts()
+    await a.list_inbound_details()
+    await a.create_template({"name": "t7", "group_ids": [1], "data_limit": GB, "expire_duration": 86400})
+    await a.update_template(7, {"data_limit": 2 * GB})
+    await a.set_template_disabled(7, True)
+    await a.set_template_disabled(7, False)
+    await a.set_next_plan("alice", template_id=2)
+    await a.clear_next_plan("alice")
+    await a.activate_next_plan("alice")
+    await a.apply_template("alice", 2)
     await a.revoke_account("alice")
     t = _adapter(panel, user_template_id=2)  # template mode: create from template, then re-apply product limits + owner
     await t.create_account(AccountSpec(username="bob", expire_at=EXPIRE, traffic_bytes=GB, note="n", owner="store-1"))
@@ -253,6 +276,8 @@ PERMISSION_SCHEMAS = {
     "admins": "AdminsPermissions",
     "system": "SystemPermissions",
     "hosts": "HostsPermissions",
+    "groups": "CRUDPermissions",
+    "templates": "CRUDPermissions",
     "api_keys": "APIKeysPermissions",
 }
 

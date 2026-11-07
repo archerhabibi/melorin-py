@@ -15,6 +15,8 @@ class Order(IdMixin, TimestampMixin, Base):
     store_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("stores.id"), index=True)
     product_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("products.id"), index=True)
     kind: Mapped[str] = mapped_column(String(20), default="purchase")  # purchase | renewal | test
+    # PG-09: how a renewal lands. ``replace`` (default): the package restarts now (docs/13). ``queue``: prepaid, starts when the current one ends.
+    renewal_mode: Mapped[str] = mapped_column(String(10), default="replace", server_default="replace")
     vpn_account_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("vpn_accounts.id", use_alter=True))
     bundle_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("bundles.id"))
     selected_panel_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("panels.id"))
