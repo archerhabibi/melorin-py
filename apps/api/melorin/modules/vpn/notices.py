@@ -130,3 +130,15 @@ async def disabled_by_panel(session, account) -> None:
         "اکانت VPN شما غیرفعال شده است؛ در صورت نیاز با پشتیبانی تماس بگیرید.",
         f"notify:disabled:{account.id}:{period_token(account)}",
     )
+
+
+async def queued_plan_started(session, account) -> None:
+    """PG-09: the prepaid package the customer bought started (the panel switched to it). One notice per new period."""
+    await _emit(
+        session,
+        account,
+        "vpn_queued_plan_started",
+        "پکیج بعدی شما شروع شد",
+        "پکیج تمدیدشدهٔ اکانت VPN شما فعال شد.",
+        f"notify:queued-started:{account.id}:{period_token(account)}",
+    )

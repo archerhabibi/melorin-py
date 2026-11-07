@@ -26,6 +26,8 @@ class VpnAccountOut(BaseModel):
     health: str = "active"  # active | expiring | expired | depleted | disabled
     can_return: bool = False  # مرجوعی: volume account, <= 3 days old, <= 5% used, not renewed, daily limit not reached
     return_note: str | None = None  # Core's own words for "why not returnable" (None when returnable)
+    next_plan_queued: bool = False  # PG-09: a prepaid package is waiting; it starts by itself when the current one ends
+    next_plan_queued_at: dt.datetime | None = None
 
 
 class OwnerAccountOut(VpnAccountOut):
@@ -35,3 +37,61 @@ class OwnerAccountOut(VpnAccountOut):
     customer_name: str | None = None
     is_own: bool = False  # True: the owner's own account; False: an account of one of the store's customers
     holder_label: str | None = None  # Core's words for whose account this is ("اکانت خودتان" / "مشتری: ...")
+
+
+# ---------------------------------------------------------------- PG-10 account tools
+class ToolOut(BaseModel):
+    tool: str
+    label: str
+    write: bool
+    available: bool
+    reason: str | None = None  # Core's own words for "why not"
+
+
+class UsagePointOut(BaseModel):
+    at: str | None = None
+    used_bytes: int
+
+
+class UsageNodeOut(UsagePointOut):
+    node_id: int | str
+
+
+class UsageOut(BaseModel):
+    period: str
+    days: int
+    points: list[UsagePointOut]
+    by_node: list[UsageNodeOut] = []  # owner / admin only
+    total_bytes: int
+
+
+class PresenceOut(BaseModel):
+    online_at: dt.datetime | None
+    online_now: bool
+    never_connected: bool
+    remote_status: str | None = None
+    lifetime_used_bytes: int | None = None
+    last_synced_at: dt.datetime | None = None
+
+
+class DeviceOut(BaseModel):
+    hwid: str
+    label: str
+    platform: str | None = None
+    first_seen: str | None = None
+    last_seen: str | None = None
+
+
+class DevicesOut(BaseModel):
+    items: list[DeviceOut]
+    count: int
+
+
+class ReasonIn(BaseModel):
+    reason: str | None = None
+
+
+class AccountAdjustIn(BaseModel):
+    add_days: int = 0
+    add_traffic_gb: int = 0
+    reason: str

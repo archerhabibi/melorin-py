@@ -23,6 +23,7 @@ class QuoteRequest(BaseModel):
     bundle_id: uuid.UUID | None = None  # the bundle the customer picked (UI: بسته فروش)
     selected_panel_id: uuid.UUID | None = None  # manual bundles only
     vpn_account_id: uuid.UUID | None = None  # renewal: price comes from the bundle the account was sold through
+    renewal_mode: str = Field(default="replace", pattern="^(replace|queue)$")  # PG-09: restart now, or prepay the next package
 
 
 class BundlePanelOut(BaseModel):
@@ -50,6 +51,29 @@ class RenewalAfter(BaseModel):
     renew_until: dt.datetime | None
 
 
+class QueueAfter(BaseModel):
+    """PG-09 prepaid renewal: the package that starts when the current one ends (no invented start date)."""
+
+    mode: str = "queue"
+    starts: str = "when_current_ends"  # by time or by volume, whichever comes first (the panel's rule)
+    duration_days: int
+    traffic_gb: int  # 0 = unlimited
+    current_expires_at: dt.datetime | None
+    remaining_days_kept: int  # days still left on the current package are used up first, not replaced
+    earliest_end_estimate: dt.datetime | None = None
+
+
+class RenewalModeOut(BaseModel):
+    """One way to renew, with whether it can be used right now and why not (Core's words, shown as is)."""
+
+    mode: str  # replace | queue
+    available: bool
+    code: str | None = None
+    message: str | None = None
+    replace_after: RenewalAfter | None = None
+    queue_after: QueueAfter | None = None
+
+
 class RenewalOut(BaseModel):
     renewable: bool
     code: str | None = None  # why not (ACCOUNT_NOT_RENEWABLE, RENEWAL_WINDOW_PASSED, RENEWAL_IN_PROGRESS, ...)
@@ -57,6 +81,7 @@ class RenewalOut(BaseModel):
     renew_until: dt.datetime | None = None
     package: CatalogItem | None = None  # the account's own package at its current price in the original bundle
     after: RenewalAfter | None = None
+    modes: list[RenewalModeOut] = []  # PG-09: "replace" always; "queue" when the panel and the package allow a prepaid renewal
 
 
 class QuoteOut(BaseModel):
@@ -66,7 +91,8 @@ class QuoteOut(BaseModel):
     total: int
     currency: str
     coupon_code: str | None
-    renewal: RenewalAfter | None = None  # filled for a renewal quote
+    renewal: RenewalAfter | None = None  # filled for a renewal quote (mode replace)
+    renewal_queue: QueueAfter | None = None  # filled for a prepaid renewal quote (mode queue)
 
 
 class StoreOut(BaseModel):

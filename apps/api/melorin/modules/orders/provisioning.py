@@ -19,7 +19,7 @@ from melorin.modules.vpn.adapters.base import AccountSpec, ErrorKind, PanelError
 from melorin.modules.vpn import panel_admins
 from melorin.modules.vpn.adapters.registry import build_adapter, seed_adapter
 from melorin.modules.catalog.allocation import placement_snapshot, resolve_allocation
-from melorin.modules.vpn import notices, renewal
+from melorin.modules.vpn import notices, plans, renewal
 from melorin.kernel.models.vpn import Panel, ProvisioningAttempt, Server, VpnAccount
 from melorin.kernel.models.bundles import Bundle, BundleMember
 from melorin.modules.vpn.bundles import clean_custom_name
@@ -224,8 +224,17 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
     if account:
         seed_adapter(adapter, account)
     now = utcnow()
+    queued = bool(account and order.kind == "renewal" and order.renewal_mode == plans.QUEUE)
+    queued_template = int(((order.pricing_snapshot or {}).get("renewal_queue") or {}).get("template_id") or 0) if queued else 0
+    if queued and queued_template <= 0:
+        return await _needs_review(session, order, "تمدید پیش‌خرید بدون تمپلیت پنل ثبت شده است؛ بررسی دستی لازم است.")
     try:
-        if account:
+        if account and queued:
+            # PG-09 prepaid renewal: the NEXT package is queued on the panel; the current one keeps running untouched.
+            # Absolute value (a repeat changes nothing). The template was validated and stored when the order was created.
+            pa = await plans.apply_queue(adapter, account, queued_template)
+            expire = pa.expire_at
+        elif account:
             # Renewal = the account becomes exactly what a new account of its package is (core rule: vpn.renewal):
             # package time from now, package volume, usage back to zero. Absolute values, so a retry is harmless.
             pa = await renewal.apply_to_panel(adapter, account, product, now=now)
@@ -276,7 +285,8 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
                 remote = None
             # For a renewal the account already exists on the panel, so "it exists" proves nothing: only a panel that
             # already shows the renewed time/volume counts as success, otherwise the (idempotent) renewal is retried.
-            if remote and (order.kind != "renewal" or renewal.landed(remote, product, now=now)):
+            landed_ok = plans.queued_landed(remote, queued_template) if queued else (remote and renewal.landed(remote, product, now=now))
+            if remote and (order.kind != "renewal" or landed_ok):
                 # The panel actually succeeded despite the timeout - reconcile.
                 if account is None:
                     account = VpnAccount(
@@ -291,7 +301,9 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
                     )
                     session.add(account)
                 account.panel_ref, account.status = remote.ref, VpnStatus.ACTIVE
-                if order.kind == "renewal":
+                if queued:
+                    plans.mark_queued(account, template_id=queued_template, product_id=product.id, order_id=order.id, now=now)
+                elif order.kind == "renewal":
                     notices.reset_for_renewal(account)  # PG-06: a renewed account warns again before its NEXT expiry / quota end
                 account.expires_at = remote.expire_at
                 account.traffic_limit_bytes = remote.traffic_limit_bytes
@@ -330,7 +342,11 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
     if order.kind != "renewal" and account.placement is not None and account.placement.get("remote_ref") is None:
         account.placement = {**account.placement, "remote_ref": pa.ref}  # the snapshot is written once; only the panel's id is filled in
     account.status = VpnStatus.ACTIVE
-    if order.kind == "renewal":
+    if queued:
+        plans.mark_queued(
+            account, template_id=queued_template, product_id=product.id, order_id=order.id, now=now
+        )  # PG-09: nothing restarts
+    elif order.kind == "renewal":
         notices.reset_for_renewal(account)  # PG-06
     account.expires_at = pa.expire_at
     account.traffic_limit_bytes = pa.traffic_limit_bytes

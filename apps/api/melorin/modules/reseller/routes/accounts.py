@@ -63,6 +63,7 @@ async def store_account_renewal(account_id: uuid.UUID, ctx: OwnerCtx, session: S
 
 class OwnerRenewIn(BaseModel):
     channel: str = Field(default="web", pattern="^(web|telegram)$")
+    renewal_mode: str = Field(default="replace", pattern="^(replace|queue)$")  # PG-09
 
 
 @router.post("/stores/{store_id}/reseller/accounts/{account_id}/renew", status_code=201)
@@ -77,7 +78,13 @@ async def store_account_renew(
     from melorin.modules.orders.router import out as order_out  # lazy: orders imports the vpn package
 
     order = await reseller_renewal.reseller_renew(
-        session, ctx.user.id, ctx.store.id, account_id, idempotency_key=idempotency_key, channel=body.channel
+        session,
+        ctx.user.id,
+        ctx.store.id,
+        account_id,
+        idempotency_key=idempotency_key,
+        channel=body.channel,
+        renewal_mode=body.renewal_mode,
     )
     return order_out(order)
 

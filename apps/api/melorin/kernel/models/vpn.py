@@ -1,7 +1,22 @@
 import datetime as dt
 import uuid
 
-from sqlalchemy import JSON, BigInteger, Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint, Uuid, text
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    Uuid,
+    text,
+    true,
+)
 from sqlalchemy import event
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -44,6 +59,17 @@ class Server(IdMixin, TimestampMixin, Base):
     # {"inbound_ids": [..]}. NULL = inherit panel.config (the pre-target behaviour). Merged over panel.config at create time only.
     target: Mapped[dict | None] = mapped_column(JSON)
     last_assigned_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))  # round_robin key; written once per new order
+    # PG-08: the destination's REAL state on the panel (group/host/node), refreshed by the health job. ``sellable`` is the sell-guard:
+    # False removes this destination from new-order selection (existing accounts are untouched). A check that could not run keeps the old value.
+    sellable: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
+    sellable_reason: Mapped[str | None] = mapped_column(String(300))
+    destination_health: Mapped[dict | None] = mapped_column(JSON)  # status healthy|degraded|blocked, score, reasons, hosts/nodes counts
+    panel_total_users: Mapped[int | None] = mapped_column(Integer)  # users the PANEL counts in this destination (single-group targets only)
+    capacity_source: Mapped[str] = mapped_column(String(10), default="melorin", server_default="melorin")  # melorin | panel
+    capacity_alert_level: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0"
+    )  # highest announced fill threshold: 0 | 80 | 95 | 100
+    capacity_checked_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class VpnAccount(IdMixin, TimestampMixin, Base):
@@ -73,6 +99,8 @@ class VpnAccount(IdMixin, TimestampMixin, Base):
     lifetime_used_traffic: Mapped[int | None] = mapped_column(BigInteger)
     sync_error_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     archived_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    # PG-09: a prepaid package queued on the panel (``next_plan``): {"template_id", "product_id", "order_id", "queued_at"}; None = nothing queued.
+    queued_plan: Mapped[dict | None] = mapped_column(JSON)
     # Immutable snapshot written once at creation (audit/support only, NEVER a routing source: that is server_id/panel_id).
     placement: Mapped[dict | None] = mapped_column(JSON)
 
@@ -255,3 +283,15 @@ class PanelAdminChangeRequest(IdMixin, TimestampMixin, Base):
     reviewed_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
     reviewed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     review_note: Mapped[str | None] = mapped_column(String(500))
+
+
+class ProductTemplate(IdMixin, TimestampMixin, Base):
+    """PG-09: which panel user template carries a package (product) on one panel. ``managed`` = Melorin created it and may edit it."""
+
+    __tablename__ = "product_templates"
+    panel_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("panels.id", ondelete="CASCADE"), index=True)
+    product_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("products.id", ondelete="CASCADE"), index=True)
+    remote_template_id: Mapped[int] = mapped_column(Integer)
+    name: Mapped[str | None] = mapped_column(String(120))
+    managed: Mapped[bool] = mapped_column(Boolean, default=True)
+    __table_args__ = (UniqueConstraint("panel_id", "product_id", name="uq_product_templates_panel_product"),)

@@ -19,13 +19,15 @@ from melorin.modules.catalog.schemas import (
     BundlePanelOut,
     QuoteRequest,
     QuoteWalletOut,
+    QueueAfter,
     RenewalAfter,
+    RenewalModeOut,
     RenewalOut,
     StoreOut,
 )
 from melorin.kernel.models.stores import Store
 from melorin.modules.catalog import allocation
-from melorin.modules.vpn import renewal
+from melorin.modules.vpn import plans, renewal
 from melorin.kernel.models.vpn import VpnAccount
 from melorin.modules.wallet import service as wallet
 
@@ -180,11 +182,24 @@ async def renewal_info(account_id: uuid.UUID, ctx: StoreCtx, session: Session):
             renew_until=state.renew_until,
         )
     product, price = offers[0]
+    after = RenewalAfter(**renewal.describe(account, product))
+    modes = [RenewalModeOut(mode=plans.REPLACE, available=True, replace_after=after)]
+    check = await plans.check_queueable(session, account, product)
+    modes.append(
+        RenewalModeOut(
+            mode=plans.QUEUE,
+            available=check.ok,
+            code=check.code,
+            message=check.message,
+            queue_after=QueueAfter(**plans.describe_queue(account, product)) if check.ok else None,
+        )
+    )
     return RenewalOut(
         renewable=True,
         renew_until=state.renew_until,
         package=_item(product, price, ctx.store.currency),
-        after=RenewalAfter(**renewal.describe(account, product)),
+        after=after,
+        modes=modes,
     )
 
 
@@ -197,13 +212,19 @@ async def renewal_packages(account_id: uuid.UUID, ctx: StoreCtx, session: Sessio
     return [_item(p, price, ctx.store.currency) for p, price in await allocation.renewal_offers(session, ctx.store, account)]
 
 
-async def _quote(session, ctx, product_id, code, *, bundle_id=None, selected_panel_id=None, vpn_account_id=None, enforce=False):
+async def _quote(
+    session, ctx, product_id, code, *, bundle_id=None, selected_panel_id=None, vpn_account_id=None, enforce=False, renewal_mode="replace"
+):
     product, sp = await service.get_sellable(session, ctx.store, product_id)
     account = await _owned_account(session, ctx, vpn_account_id) if vpn_account_id else None
     if account is not None:
         await renewal.check_renewable(session, account, user_id=ctx.user.id, store_id=ctx.store.id)
         if product.id != account.product_id:
             raise AppError("RENEWAL_PRODUCT_MISMATCH", "تمدید فقط با همان پکیجی انجام می‌شود که اکانت با آن ساخته شده است.", 409)
+        if plans.normalize_mode(renewal_mode) == plans.QUEUE:
+            (await plans.check_queueable(session, account, product)).raise_if_not_ok()  # same refusal the order would give
+    elif plans.normalize_mode(renewal_mode) == plans.QUEUE:
+        raise AppError("BAD_RENEWAL_MODE", "تمدید پیش‌خرید فقط برای تمدید اکانت موجود معنا دارد.", 400)
     # Same core rule the order will apply, so a quote never promises what checkout would refuse.
     plan = await allocation.plan_sale(
         session,
@@ -243,14 +264,20 @@ async def checkout_quote(body: QuoteRequest, ctx: StoreCtx, session: Session):
         selected_panel_id=body.selected_panel_id,
         vpn_account_id=body.vpn_account_id,
         enforce=True,
+        renewal_mode=body.renewal_mode,
     )
     w = await wallet.get_wallet(session, ctx.user.id, ctx.store.id, currency=ctx.store.currency)
-    after = None
+    after = after_queue = None
     if body.vpn_account_id:
-        after = RenewalAfter(**renewal.describe(await _owned_account(session, ctx, body.vpn_account_id), product))
+        owned = await _owned_account(session, ctx, body.vpn_account_id)
+        if body.renewal_mode == plans.QUEUE:
+            after_queue = QueueAfter(**plans.describe_queue(owned, product))
+        else:
+            after = RenewalAfter(**renewal.describe(owned, product))
     await session.commit()
     return QuoteWalletOut(
         renewal=after,
+        renewal_queue=after_queue,
         product_id=product.id,
         unit_price=q.unit_price,
         discount=q.discount,

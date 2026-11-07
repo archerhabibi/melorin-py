@@ -21,6 +21,7 @@ def out(o: Order) -> OrderOut:
         user_id=o.user_id,
         product_id=o.product_id,
         kind=o.kind,
+        renewal_mode=o.renewal_mode,
         status=o.status,
         payment_method=o.payment_method,
         channel=o.channel,
@@ -61,6 +62,7 @@ async def create_order(
         selected_panel_id=body.selected_panel_id,
         account_name=body.account_name,
         channel="web",
+        renewal_mode=body.renewal_mode,
     )
     return out(o)
 

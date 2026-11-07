@@ -90,6 +90,10 @@ class ResellerTelegramRunner(_module.TelegramRunner):
         self.callbacks.update({"oacl": self.cb_owner_acc_list, "oacs": self.cb_owner_acc_search, "oacq": self.cb_owner_acc_clear,
                                "oaccount": self.cb_owner_account, "oqr": self.cb_owner_qr,
                                "orn": self.cb_owner_renew, "orb": self.cb_owner_renew_buy})
+        # PG-10 account tools for the store owner (last seen, devices, link rotation, suspend / resume); Core re-checks the scope
+        self.callbacks.update({"otl": self.cb_tools_o, "otr": self.cb_tool_rotate_ask_o, "otrc": self.cb_tool_rotate_o,
+                               "odr": self.cb_tool_devices_ask_o, "odrc": self.cb_tool_devices_o,
+                               "osp": self.cb_tool_suspend_ask, "ospc": self.cb_tool_suspend, "ors": self.cb_tool_resume})
         self.commands.pop("/reseller", None)  # reseller bots have no sub-resellers
         self.callbacks.update({"rv": self.cb_review, "prc": self.cb_price_pick, "prs": self.cb_price_scope, "mg": self.cb_manage})
 

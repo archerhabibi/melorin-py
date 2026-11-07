@@ -1,6 +1,29 @@
 {
   "components": {
     "schemas": {
+      "AccountAdjustIn": {
+        "properties": {
+          "add_days": {
+            "default": 0,
+            "title": "Add Days",
+            "type": "integer"
+          },
+          "add_traffic_gb": {
+            "default": 0,
+            "title": "Add Traffic Gb",
+            "type": "integer"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "AccountAdjustIn",
+        "type": "object"
+      },
       "AddMessage": {
         "properties": {
           "attachment_id": {
@@ -1091,6 +1114,27 @@
         "title": "CatalogItem",
         "type": "object"
       },
+      "ChangePlanIn": {
+        "properties": {
+          "product_id": {
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 300,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "product_id",
+          "reason"
+        ],
+        "title": "ChangePlanIn",
+        "type": "object"
+      },
       "CommissionRuleIn": {
         "properties": {
           "is_active": {
@@ -1533,6 +1577,12 @@
             "title": "Product Id",
             "type": "string"
           },
+          "renewal_mode": {
+            "default": "replace",
+            "pattern": "^(replace|queue)$",
+            "title": "Renewal Mode",
+            "type": "string"
+          },
           "selected_panel_id": {
             "anyOf": [
               {
@@ -1943,6 +1993,78 @@
           "idempotency_key"
         ],
         "title": "CustomerWalletAdjustment",
+        "type": "object"
+      },
+      "DeviceOut": {
+        "properties": {
+          "first_seen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Seen"
+          },
+          "hwid": {
+            "title": "Hwid",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "last_seen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen"
+          },
+          "platform": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Platform"
+          }
+        },
+        "required": [
+          "hwid",
+          "label"
+        ],
+        "title": "DeviceOut",
+        "type": "object"
+      },
+      "DevicesOut": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DeviceOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items",
+          "count"
+        ],
+        "title": "DevicesOut",
         "type": "object"
       },
       "EditMessage": {
@@ -3061,6 +3183,11 @@
             "title": "Product Snapshot",
             "type": "object"
           },
+          "renewal_mode": {
+            "default": "replace",
+            "title": "Renewal Mode",
+            "type": "string"
+          },
           "requested_account_name": {
             "anyOf": [
               {
@@ -3381,6 +3508,23 @@
             ],
             "title": "Links"
           },
+          "next_plan_queued": {
+            "default": false,
+            "title": "Next Plan Queued",
+            "type": "boolean"
+          },
+          "next_plan_queued_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Plan Queued At"
+          },
           "renew_note": {
             "anyOf": [
               {
@@ -3508,6 +3652,12 @@
             "pattern": "^(web|telegram)$",
             "title": "Channel",
             "type": "string"
+          },
+          "renewal_mode": {
+            "default": "replace",
+            "pattern": "^(replace|queue)$",
+            "title": "Renewal Mode",
+            "type": "string"
           }
         },
         "title": "OwnerRenewIn",
@@ -3547,6 +3697,14 @@
               }
             ],
             "title": "Message"
+          },
+          "modes": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/RenewalModeOut"
+            },
+            "title": "Modes",
+            "type": "array"
           },
           "package": {
             "anyOf": [
@@ -4004,6 +4162,71 @@
           "approve"
         ],
         "title": "PaymentReview",
+        "type": "object"
+      },
+      "PresenceOut": {
+        "properties": {
+          "last_synced_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Synced At"
+          },
+          "lifetime_used_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lifetime Used Bytes"
+          },
+          "never_connected": {
+            "title": "Never Connected",
+            "type": "boolean"
+          },
+          "online_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Online At"
+          },
+          "online_now": {
+            "title": "Online Now",
+            "type": "boolean"
+          },
+          "remote_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remote Status"
+          }
+        },
+        "required": [
+          "online_at",
+          "online_now",
+          "never_connected"
+        ],
+        "title": "PresenceOut",
         "type": "object"
       },
       "PriceBatchIn": {
@@ -4502,6 +4725,65 @@
         "title": "ProgramIn",
         "type": "object"
       },
+      "QueueAfter": {
+        "description": "PG-09 prepaid renewal: the package that starts when the current one ends (no invented start date).",
+        "properties": {
+          "current_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Expires At"
+          },
+          "duration_days": {
+            "title": "Duration Days",
+            "type": "integer"
+          },
+          "earliest_end_estimate": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Earliest End Estimate"
+          },
+          "mode": {
+            "default": "queue",
+            "title": "Mode",
+            "type": "string"
+          },
+          "remaining_days_kept": {
+            "title": "Remaining Days Kept",
+            "type": "integer"
+          },
+          "starts": {
+            "default": "when_current_ends",
+            "title": "Starts",
+            "type": "string"
+          },
+          "traffic_gb": {
+            "title": "Traffic Gb",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "duration_days",
+          "traffic_gb",
+          "current_expires_at",
+          "remaining_days_kept"
+        ],
+        "title": "QueueAfter",
+        "type": "object"
+      },
       "QuoteRequest": {
         "properties": {
           "bundle_id": {
@@ -4531,6 +4813,12 @@
           "product_id": {
             "format": "uuid",
             "title": "Product Id",
+            "type": "string"
+          },
+          "renewal_mode": {
+            "default": "replace",
+            "pattern": "^(replace|queue)$",
+            "title": "Renewal Mode",
             "type": "string"
           },
           "selected_panel_id": {
@@ -4605,6 +4893,16 @@
               }
             ]
           },
+          "renewal_queue": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QueueAfter"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "sufficient_funds": {
             "title": "Sufficient Funds",
             "type": "boolean"
@@ -4633,6 +4931,23 @@
           "sufficient_funds"
         ],
         "title": "QuoteWalletOut",
+        "type": "object"
+      },
+      "ReasonIn": {
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "title": "ReasonIn",
         "type": "object"
       },
       "ReceiptDupSettingsIn": {
@@ -4773,6 +5088,67 @@
         "title": "RenewalAfter",
         "type": "object"
       },
+      "RenewalModeOut": {
+        "description": "One way to renew, with whether it can be used right now and why not (Core's words, shown as is).",
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
+          "queue_after": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QueueAfter"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "replace_after": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RenewalAfter"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "mode",
+          "available"
+        ],
+        "title": "RenewalModeOut",
+        "type": "object"
+      },
       "RenewalOut": {
         "properties": {
           "after": {
@@ -4806,6 +5182,14 @@
               }
             ],
             "title": "Message"
+          },
+          "modes": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/RenewalModeOut"
+            },
+            "title": "Modes",
+            "type": "array"
           },
           "package": {
             "anyOf": [
@@ -5183,9 +5567,30 @@
             "title": "Capacity",
             "type": "integer"
           },
+          "capacity_checked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity Checked At"
+          },
+          "capacity_info": {
+            "title": "Capacity Info",
+            "type": "object"
+          },
           "capacity_label": {
             "default": "ظرفیت مقصد",
             "title": "Capacity Label",
+            "type": "string"
+          },
+          "capacity_source": {
+            "default": "melorin",
+            "title": "Capacity Source",
             "type": "string"
           },
           "created_at": {
@@ -5199,6 +5604,17 @@
               }
             ],
             "title": "Created At"
+          },
+          "destination_health": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Destination Health"
           },
           "effective_target": {
             "title": "Effective Target",
@@ -5262,6 +5678,22 @@
               }
             ],
             "title": "Product Codes"
+          },
+          "sellable": {
+            "default": true,
+            "title": "Sellable",
+            "type": "boolean"
+          },
+          "sellable_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sellable Reason"
           },
           "target": {
             "anyOf": [
@@ -6524,6 +6956,55 @@
         "title": "TelegramWebStartOut",
         "type": "object"
       },
+      "TemplateCreateIn": {
+        "properties": {
+          "group_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "maxItems": 50,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Ids"
+          },
+          "product_id": {
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "product_id"
+        ],
+        "title": "TemplateCreateIn",
+        "type": "object"
+      },
+      "TemplateLinkIn": {
+        "properties": {
+          "product_id": {
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "remote_template_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Remote Template Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "product_id",
+          "remote_template_id"
+        ],
+        "title": "TemplateLinkIn",
+        "type": "object"
+      },
       "TicketMessageOut": {
         "properties": {
           "attachment_id": {
@@ -6767,6 +7248,45 @@
         "title": "TokenPair",
         "type": "object"
       },
+      "ToolOut": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "tool": {
+            "title": "Tool",
+            "type": "string"
+          },
+          "write": {
+            "title": "Write",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "tool",
+          "label",
+          "write",
+          "available"
+        ],
+        "title": "ToolOut",
+        "type": "object"
+      },
       "TopupRequest": {
         "properties": {
           "amount": {
@@ -6977,6 +7497,18 @@
             ],
             "title": "Capacity"
           },
+          "capacity_source": {
+            "anyOf": [
+              {
+                "pattern": "^(melorin|panel)$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity Source"
+          },
           "location": {
             "anyOf": [
               {
@@ -7094,6 +7626,105 @@
         "title": "UpdateTicket",
         "type": "object"
       },
+      "UsageNodeOut": {
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At"
+          },
+          "node_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Node Id"
+          },
+          "used_bytes": {
+            "title": "Used Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "used_bytes",
+          "node_id"
+        ],
+        "title": "UsageNodeOut",
+        "type": "object"
+      },
+      "UsageOut": {
+        "properties": {
+          "by_node": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/UsageNodeOut"
+            },
+            "title": "By Node",
+            "type": "array"
+          },
+          "days": {
+            "title": "Days",
+            "type": "integer"
+          },
+          "period": {
+            "title": "Period",
+            "type": "string"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/UsagePointOut"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "total_bytes": {
+            "title": "Total Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "period",
+          "days",
+          "points",
+          "total_bytes"
+        ],
+        "title": "UsageOut",
+        "type": "object"
+      },
+      "UsagePointOut": {
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At"
+          },
+          "used_bytes": {
+            "title": "Used Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "used_bytes"
+        ],
+        "title": "UsagePointOut",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -7199,6 +7830,23 @@
               }
             ],
             "title": "Links"
+          },
+          "next_plan_queued": {
+            "default": false,
+            "title": "Next Plan Queued",
+            "type": "boolean"
+          },
+          "next_plan_queued_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Plan Queued At"
           },
           "renew_note": {
             "anyOf": [
@@ -10543,6 +11191,98 @@
         ]
       }
     },
+    "/api/v1/admin/panels/{panel_id}/capacity": {
+      "get": {
+        "operationId": "panel_capacity_api_v1_admin_panels__panel_id__capacity_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Panel Capacity",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/panels/{panel_id}/capacity/refresh": {
+      "post": {
+        "operationId": "refresh_capacity_api_v1_admin_panels__panel_id__capacity_refresh_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Refresh Capacity",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/admin/panels/{panel_id}/events": {
       "get": {
         "operationId": "panel_events_list_api_v1_admin_panels__panel_id__events_get",
@@ -11222,6 +11962,371 @@
           }
         ],
         "summary": "Panel Targets",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/panels/{panel_id}/templates": {
+      "get": {
+        "operationId": "panel_templates_api_v1_admin_panels__panel_id__templates_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Panel Templates",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "operationId": "template_create_api_v1_admin_panels__panel_id__templates_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TemplateCreateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Template Create",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/panels/{panel_id}/templates/link": {
+      "post": {
+        "operationId": "template_link_api_v1_admin_panels__panel_id__templates_link_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TemplateLinkIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Template Link",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/panels/{panel_id}/templates/{product_id}": {
+      "delete": {
+        "operationId": "template_unlink_api_v1_admin_panels__panel_id__templates__product_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Product Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Template Unlink",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/panels/{panel_id}/templates/{product_id}/disable": {
+      "post": {
+        "operationId": "template_disable_api_v1_admin_panels__panel_id__templates__product_id__disable_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Product Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Template Disable",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/panels/{panel_id}/templates/{product_id}/enable": {
+      "post": {
+        "operationId": "template_enable_api_v1_admin_panels__panel_id__templates__product_id__enable_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Product Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Template Enable",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/panels/{panel_id}/templates/{product_id}/sync": {
+      "post": {
+        "operationId": "template_sync_api_v1_admin_panels__panel_id__templates__product_id__sync_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Product Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Template Sync",
         "tags": [
           "admin"
         ]
@@ -14888,6 +15993,584 @@
         "summary": "Vpn Accounts",
         "tags": [
           "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/vpn-accounts/{account_id}/change-plan": {
+      "post": {
+        "operationId": "change_plan_api_v1_admin_vpn_accounts__account_id__change_plan_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePlanIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Change Plan",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/vpn-accounts/{account_id}/tools": {
+      "get": {
+        "operationId": "tools_admin_api_v1_admin_vpn_accounts__account_id__tools_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ToolOut"
+                  },
+                  "title": "Response Tools Admin Api V1 Admin Vpn Accounts  Account Id  Tools Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Tools Admin",
+        "tags": [
+          "vpn-account-tools"
+        ]
+      }
+    },
+    "/api/v1/admin/vpn-accounts/{account_id}/tools/adjust": {
+      "post": {
+        "operationId": "adjust_admin_api_v1_admin_vpn_accounts__account_id__tools_adjust_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountAdjustIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VpnAccountOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Adjust Admin",
+        "tags": [
+          "vpn-account-tools"
+        ]
+      }
+    },
+    "/api/v1/admin/vpn-accounts/{account_id}/tools/devices": {
+      "get": {
+        "operationId": "devices_admin_api_v1_admin_vpn_accounts__account_id__tools_devices_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Devices Admin",
+        "tags": [
+          "vpn-account-tools"
+        ]
+      }
+    },
+    "/api/v1/admin/vpn-accounts/{account_id}/tools/devices/reset": {
+      "post": {
+        "operationId": "devices_reset_admin_api_v1_admin_vpn_accounts__account_id__tools_devices_reset_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Devices Reset Admin",
+        "tags": [
+          "vpn-account-tools"
+        ]
+      }
+    },
+    "/api/v1/admin/vpn-accounts/{account_id}/tools/devices/{hwid}": {
+      "delete": {
+        "operationId": "device_delete_admin_api_v1_admin_vpn_accounts__account_id__tools_devices__hwid__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "hwid",
+            "required": true,
+            "schema": {
+              "title": "Hwid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Device Delete Admin",
+        "tags": [
+          "vpn-account-tools"
+        ]
+      }
+    },
+    "/api/v1/admin/vpn-accounts/{account_id}/tools/presence": {
+      "get": {
+        "operationId": "presence_admin_api_v1_admin_vpn_accounts__account_id__tools_presence_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresenceOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Presence Admin",
+        "tags": [
+          "vpn-account-tools"
+        ]
+      }
+    },
+    "/api/v1/admin/vpn-accounts/{account_id}/tools/resume": {
+      "post": {
+        "operationId": "resume_admin_api_v1_admin_vpn_accounts__account_id__tools_resume_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VpnAccountOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Resume Admin",
+        "tags": [
+          "vpn-account-tools"
+        ]
+      }
+    },
+    "/api/v1/admin/vpn-accounts/{account_id}/tools/rotate-subscription": {
+      "post": {
+        "operationId": "rotate_admin_api_v1_admin_vpn_accounts__account_id__tools_rotate_subscription_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VpnAccountOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Rotate Admin",
+        "tags": [
+          "vpn-account-tools"
+        ]
+      }
+    },
+    "/api/v1/admin/vpn-accounts/{account_id}/tools/suspend": {
+      "post": {
+        "operationId": "suspend_admin_api_v1_admin_vpn_accounts__account_id__tools_suspend_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasonIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VpnAccountOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Suspend Admin",
+        "tags": [
+          "vpn-account-tools"
+        ]
+      }
+    },
+    "/api/v1/admin/vpn-accounts/{account_id}/tools/usage": {
+      "get": {
+        "operationId": "usage_admin_api_v1_admin_vpn_accounts__account_id__tools_usage_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "period",
+            "required": false,
+            "schema": {
+              "default": "day",
+              "pattern": "^(hour|day)$",
+              "title": "Period",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 90,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Usage Admin",
+        "tags": [
+          "vpn-account-tools"
         ]
       }
     },
@@ -19810,6 +21493,560 @@
         ]
       }
     },
+    "/api/v1/stores/{store_id}/reseller/accounts/{account_id}/tools": {
+      "get": {
+        "operationId": "tools_owner_api_v1_stores__store_id__reseller_accounts__account_id__tools_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ToolOut"
+                  },
+                  "title": "Response Tools Owner Api V1 Stores  Store Id  Reseller Accounts  Account Id  Tools Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Tools Owner",
+        "tags": [
+          "vpn-account-tools"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/reseller/accounts/{account_id}/tools/devices": {
+      "get": {
+        "operationId": "devices_owner_api_v1_stores__store_id__reseller_accounts__account_id__tools_devices_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Devices Owner",
+        "tags": [
+          "vpn-account-tools"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/reseller/accounts/{account_id}/tools/devices/reset": {
+      "post": {
+        "operationId": "devices_reset_owner_api_v1_stores__store_id__reseller_accounts__account_id__tools_devices_reset_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Devices Reset Owner",
+        "tags": [
+          "vpn-account-tools"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/reseller/accounts/{account_id}/tools/devices/{hwid}": {
+      "delete": {
+        "operationId": "device_delete_owner_api_v1_stores__store_id__reseller_accounts__account_id__tools_devices__hwid__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "hwid",
+            "required": true,
+            "schema": {
+              "title": "Hwid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Device Delete Owner",
+        "tags": [
+          "vpn-account-tools"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/reseller/accounts/{account_id}/tools/presence": {
+      "get": {
+        "operationId": "presence_owner_api_v1_stores__store_id__reseller_accounts__account_id__tools_presence_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresenceOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Presence Owner",
+        "tags": [
+          "vpn-account-tools"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/reseller/accounts/{account_id}/tools/resume": {
+      "post": {
+        "operationId": "resume_owner_api_v1_stores__store_id__reseller_accounts__account_id__tools_resume_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VpnAccountOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Resume Owner",
+        "tags": [
+          "vpn-account-tools"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/reseller/accounts/{account_id}/tools/rotate-subscription": {
+      "post": {
+        "operationId": "rotate_owner_api_v1_stores__store_id__reseller_accounts__account_id__tools_rotate_subscription_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VpnAccountOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Rotate Owner",
+        "tags": [
+          "vpn-account-tools"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/reseller/accounts/{account_id}/tools/suspend": {
+      "post": {
+        "operationId": "suspend_owner_api_v1_stores__store_id__reseller_accounts__account_id__tools_suspend_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasonIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VpnAccountOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Suspend Owner",
+        "tags": [
+          "vpn-account-tools"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/reseller/accounts/{account_id}/tools/usage": {
+      "get": {
+        "operationId": "usage_owner_api_v1_stores__store_id__reseller_accounts__account_id__tools_usage_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "period",
+            "required": false,
+            "schema": {
+              "default": "day",
+              "pattern": "^(hour|day)$",
+              "title": "Period",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 90,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Usage Owner",
+        "tags": [
+          "vpn-account-tools"
+        ]
+      }
+    },
     "/api/v1/stores/{store_id}/reseller/api-credentials": {
       "get": {
         "operationId": "list_credentials_api_v1_stores__store_id__reseller_api_credentials_get",
@@ -23198,6 +25435,376 @@
         "tags": [
           "orders",
           "vpn-accounts"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/vpn-accounts/{account_id}/tools": {
+      "get": {
+        "operationId": "tools_customer_api_v1_stores__store_id__vpn_accounts__account_id__tools_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ToolOut"
+                  },
+                  "title": "Response Tools Customer Api V1 Stores  Store Id  Vpn Accounts  Account Id  Tools Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Tools Customer",
+        "tags": [
+          "vpn-account-tools"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/vpn-accounts/{account_id}/tools/devices": {
+      "get": {
+        "operationId": "devices_customer_api_v1_stores__store_id__vpn_accounts__account_id__tools_devices_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Devices Customer",
+        "tags": [
+          "vpn-account-tools"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/vpn-accounts/{account_id}/tools/devices/reset": {
+      "post": {
+        "operationId": "devices_reset_customer_api_v1_stores__store_id__vpn_accounts__account_id__tools_devices_reset_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Devices Reset Customer",
+        "tags": [
+          "vpn-account-tools"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/vpn-accounts/{account_id}/tools/devices/{hwid}": {
+      "delete": {
+        "operationId": "device_delete_customer_api_v1_stores__store_id__vpn_accounts__account_id__tools_devices__hwid__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "hwid",
+            "required": true,
+            "schema": {
+              "title": "Hwid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Device Delete Customer",
+        "tags": [
+          "vpn-account-tools"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/vpn-accounts/{account_id}/tools/rotate-subscription": {
+      "post": {
+        "operationId": "rotate_customer_api_v1_stores__store_id__vpn_accounts__account_id__tools_rotate_subscription_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VpnAccountOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Rotate Customer",
+        "tags": [
+          "vpn-account-tools"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/vpn-accounts/{account_id}/tools/usage": {
+      "get": {
+        "operationId": "usage_customer_api_v1_stores__store_id__vpn_accounts__account_id__tools_usage_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "period",
+            "required": false,
+            "schema": {
+              "default": "day",
+              "pattern": "^(hour|day)$",
+              "title": "Period",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 90,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Usage Customer",
+        "tags": [
+          "vpn-account-tools"
         ]
       }
     },

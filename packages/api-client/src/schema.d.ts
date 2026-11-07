@@ -1043,6 +1043,40 @@ export interface paths {
         patch: operations["update_panel_api_v1_admin_panels__panel_id__patch"];
         trace?: never;
     };
+    "/api/v1/admin/panels/{panel_id}/capacity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Panel Capacity */
+        get: operations["panel_capacity_api_v1_admin_panels__panel_id__capacity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/panels/{panel_id}/capacity/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Refresh Capacity */
+        post: operations["refresh_capacity_api_v1_admin_panels__panel_id__capacity_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/panels/{panel_id}/events": {
         parameters: {
             query?: never;
@@ -1256,6 +1290,109 @@ export interface paths {
         get: operations["panel_targets_api_v1_admin_panels__panel_id__targets_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/panels/{panel_id}/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Panel Templates */
+        get: operations["panel_templates_api_v1_admin_panels__panel_id__templates_get"];
+        put?: never;
+        /** Template Create */
+        post: operations["template_create_api_v1_admin_panels__panel_id__templates_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/panels/{panel_id}/templates/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Template Link */
+        post: operations["template_link_api_v1_admin_panels__panel_id__templates_link_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/panels/{panel_id}/templates/{product_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Template Unlink */
+        delete: operations["template_unlink_api_v1_admin_panels__panel_id__templates__product_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/panels/{panel_id}/templates/{product_id}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Template Disable */
+        post: operations["template_disable_api_v1_admin_panels__panel_id__templates__product_id__disable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/panels/{panel_id}/templates/{product_id}/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Template Enable */
+        post: operations["template_enable_api_v1_admin_panels__panel_id__templates__product_id__enable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/panels/{panel_id}/templates/{product_id}/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Template Sync */
+        post: operations["template_sync_api_v1_admin_panels__panel_id__templates__product_id__sync_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2278,6 +2415,193 @@ export interface paths {
          * @description The platform owner's inquiry: every account of every store, searchable and paged (``inquiry.admin_accounts``).
          */
         get: operations["vpn_accounts_api_v1_admin_vpn_accounts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/vpn-accounts/{account_id}/change-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Change Plan */
+        post: operations["change_plan_api_v1_admin_vpn_accounts__account_id__change_plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/vpn-accounts/{account_id}/tools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Tools Admin */
+        get: operations["tools_admin_api_v1_admin_vpn_accounts__account_id__tools_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/vpn-accounts/{account_id}/tools/adjust": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Adjust Admin */
+        post: operations["adjust_admin_api_v1_admin_vpn_accounts__account_id__tools_adjust_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/vpn-accounts/{account_id}/tools/devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Devices Admin */
+        get: operations["devices_admin_api_v1_admin_vpn_accounts__account_id__tools_devices_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/vpn-accounts/{account_id}/tools/devices/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Devices Reset Admin */
+        post: operations["devices_reset_admin_api_v1_admin_vpn_accounts__account_id__tools_devices_reset_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/vpn-accounts/{account_id}/tools/devices/{hwid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Device Delete Admin */
+        delete: operations["device_delete_admin_api_v1_admin_vpn_accounts__account_id__tools_devices__hwid__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/vpn-accounts/{account_id}/tools/presence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Presence Admin */
+        get: operations["presence_admin_api_v1_admin_vpn_accounts__account_id__tools_presence_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/vpn-accounts/{account_id}/tools/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resume Admin */
+        post: operations["resume_admin_api_v1_admin_vpn_accounts__account_id__tools_resume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/vpn-accounts/{account_id}/tools/rotate-subscription": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rotate Admin */
+        post: operations["rotate_admin_api_v1_admin_vpn_accounts__account_id__tools_rotate_subscription_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/vpn-accounts/{account_id}/tools/suspend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Suspend Admin */
+        post: operations["suspend_admin_api_v1_admin_vpn_accounts__account_id__tools_suspend_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/vpn-accounts/{account_id}/tools/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Usage Admin */
+        get: operations["usage_admin_api_v1_admin_vpn_accounts__account_id__tools_usage_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3950,6 +4274,159 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/stores/{store_id}/reseller/accounts/{account_id}/tools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Tools Owner */
+        get: operations["tools_owner_api_v1_stores__store_id__reseller_accounts__account_id__tools_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/reseller/accounts/{account_id}/tools/devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Devices Owner */
+        get: operations["devices_owner_api_v1_stores__store_id__reseller_accounts__account_id__tools_devices_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/reseller/accounts/{account_id}/tools/devices/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Devices Reset Owner */
+        post: operations["devices_reset_owner_api_v1_stores__store_id__reseller_accounts__account_id__tools_devices_reset_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/reseller/accounts/{account_id}/tools/devices/{hwid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Device Delete Owner */
+        delete: operations["device_delete_owner_api_v1_stores__store_id__reseller_accounts__account_id__tools_devices__hwid__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/reseller/accounts/{account_id}/tools/presence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Presence Owner */
+        get: operations["presence_owner_api_v1_stores__store_id__reseller_accounts__account_id__tools_presence_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/reseller/accounts/{account_id}/tools/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resume Owner */
+        post: operations["resume_owner_api_v1_stores__store_id__reseller_accounts__account_id__tools_resume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/reseller/accounts/{account_id}/tools/rotate-subscription": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rotate Owner */
+        post: operations["rotate_owner_api_v1_stores__store_id__reseller_accounts__account_id__tools_rotate_subscription_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/reseller/accounts/{account_id}/tools/suspend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Suspend Owner */
+        post: operations["suspend_owner_api_v1_stores__store_id__reseller_accounts__account_id__tools_suspend_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/reseller/accounts/{account_id}/tools/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Usage Owner */
+        get: operations["usage_owner_api_v1_stores__store_id__reseller_accounts__account_id__tools_usage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/stores/{store_id}/reseller/api-credentials": {
         parameters: {
             query?: never;
@@ -4890,6 +5367,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/stores/{store_id}/vpn-accounts/{account_id}/tools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Tools Customer */
+        get: operations["tools_customer_api_v1_stores__store_id__vpn_accounts__account_id__tools_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/vpn-accounts/{account_id}/tools/devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Devices Customer */
+        get: operations["devices_customer_api_v1_stores__store_id__vpn_accounts__account_id__tools_devices_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/vpn-accounts/{account_id}/tools/devices/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Devices Reset Customer */
+        post: operations["devices_reset_customer_api_v1_stores__store_id__vpn_accounts__account_id__tools_devices_reset_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/vpn-accounts/{account_id}/tools/devices/{hwid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Device Delete Customer */
+        delete: operations["device_delete_customer_api_v1_stores__store_id__vpn_accounts__account_id__tools_devices__hwid__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/vpn-accounts/{account_id}/tools/rotate-subscription": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rotate Customer */
+        post: operations["rotate_customer_api_v1_stores__store_id__vpn_accounts__account_id__tools_rotate_subscription_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/vpn-accounts/{account_id}/tools/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Usage Customer */
+        get: operations["usage_customer_api_v1_stores__store_id__vpn_accounts__account_id__tools_usage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/stores/{store_id}/wallet": {
         parameters: {
             query?: never;
@@ -5075,6 +5654,21 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AccountAdjustIn */
+        AccountAdjustIn: {
+            /**
+             * Add Days
+             * @default 0
+             */
+            add_days: number;
+            /**
+             * Add Traffic Gb
+             * @default 0
+             */
+            add_traffic_gb: number;
+            /** Reason */
+            reason: string;
+        };
         /** AddMessage */
         AddMessage: {
             /** Attachment Id */
@@ -5470,6 +6064,16 @@ export interface components {
             /** Traffic Gb */
             traffic_gb: number;
         };
+        /** ChangePlanIn */
+        ChangePlanIn: {
+            /**
+             * Product Id
+             * Format: uuid
+             */
+            product_id: string;
+            /** Reason */
+            reason: string;
+        };
         /** CommissionRuleIn */
         CommissionRuleIn: {
             /**
@@ -5641,6 +6245,11 @@ export interface components {
              * Format: uuid
              */
             product_id: string;
+            /**
+             * Renewal Mode
+             * @default replace
+             */
+            renewal_mode: string;
             /** Selected Panel Id */
             selected_panel_id?: string | null;
             /** Vpn Account Id */
@@ -5787,6 +6396,26 @@ export interface components {
              * @description receipt / transfer reference
              */
             reference?: string | null;
+        };
+        /** DeviceOut */
+        DeviceOut: {
+            /** First Seen */
+            first_seen?: string | null;
+            /** Hwid */
+            hwid: string;
+            /** Label */
+            label: string;
+            /** Last Seen */
+            last_seen?: string | null;
+            /** Platform */
+            platform?: string | null;
+        };
+        /** DevicesOut */
+        DevicesOut: {
+            /** Count */
+            count: number;
+            /** Items */
+            items: components["schemas"]["DeviceOut"][];
         };
         /** EditMessage */
         EditMessage: {
@@ -6195,6 +6824,11 @@ export interface components {
             product_id: string;
             /** Product Snapshot */
             product_snapshot: Record<string, never>;
+            /**
+             * Renewal Mode
+             * @default replace
+             */
+            renewal_mode: string;
             /** Requested Account Name */
             requested_account_name?: string | null;
             /** Selected Panel Id */
@@ -6316,6 +6950,13 @@ export interface components {
             is_test: boolean;
             /** Links */
             links: unknown[] | null;
+            /**
+             * Next Plan Queued
+             * @default false
+             */
+            next_plan_queued: boolean;
+            /** Next Plan Queued At */
+            next_plan_queued_at?: string | null;
             /** Renew Note */
             renew_note?: string | null;
             /** Renew Until */
@@ -6351,6 +6992,11 @@ export interface components {
              * @default web
              */
             channel: string;
+            /**
+             * Renewal Mode
+             * @default replace
+             */
+            renewal_mode: string;
         };
         /**
          * OwnerRenewalOut
@@ -6362,6 +7008,11 @@ export interface components {
             code?: string | null;
             /** Message */
             message?: string | null;
+            /**
+             * Modes
+             * @default []
+             */
+            modes: components["schemas"]["RenewalModeOut"][];
             package?: components["schemas"]["CatalogItem"] | null;
             /** Payer Note */
             payer_note?: string | null;
@@ -6519,6 +7170,21 @@ export interface components {
             /** Note */
             note?: string | null;
         };
+        /** PresenceOut */
+        PresenceOut: {
+            /** Last Synced At */
+            last_synced_at?: string | null;
+            /** Lifetime Used Bytes */
+            lifetime_used_bytes?: number | null;
+            /** Never Connected */
+            never_connected: boolean;
+            /** Online At */
+            online_at: string | null;
+            /** Online Now */
+            online_now: boolean;
+            /** Remote Status */
+            remote_status?: string | null;
+        };
         /** PriceBatchIn */
         PriceBatchIn: {
             /** Items */
@@ -6675,6 +7341,32 @@ export interface components {
              */
             referral_bonus: number;
         };
+        /**
+         * QueueAfter
+         * @description PG-09 prepaid renewal: the package that starts when the current one ends (no invented start date).
+         */
+        QueueAfter: {
+            /** Current Expires At */
+            current_expires_at: string | null;
+            /** Duration Days */
+            duration_days: number;
+            /** Earliest End Estimate */
+            earliest_end_estimate?: string | null;
+            /**
+             * Mode
+             * @default queue
+             */
+            mode: string;
+            /** Remaining Days Kept */
+            remaining_days_kept: number;
+            /**
+             * Starts
+             * @default when_current_ends
+             */
+            starts: string;
+            /** Traffic Gb */
+            traffic_gb: number;
+        };
         /** QuoteRequest */
         QuoteRequest: {
             /** Bundle Id */
@@ -6686,6 +7378,11 @@ export interface components {
              * Format: uuid
              */
             product_id: string;
+            /**
+             * Renewal Mode
+             * @default replace
+             */
+            renewal_mode: string;
             /** Selected Panel Id */
             selected_panel_id?: string | null;
             /** Vpn Account Id */
@@ -6710,6 +7407,7 @@ export interface components {
              */
             product_id: string;
             renewal?: components["schemas"]["RenewalAfter"] | null;
+            renewal_queue?: components["schemas"]["QueueAfter"] | null;
             /** Sufficient Funds */
             sufficient_funds: boolean;
             /** Total */
@@ -6718,6 +7416,11 @@ export interface components {
             unit_price: number;
             /** Wallet Balance */
             wallet_balance: number;
+        };
+        /** ReasonIn */
+        ReasonIn: {
+            /** Reason */
+            reason?: string | null;
         };
         /**
          * ReceiptDupSettingsIn
@@ -6786,6 +7489,22 @@ export interface components {
             /** Traffic Gb */
             traffic_gb: number;
         };
+        /**
+         * RenewalModeOut
+         * @description One way to renew, with whether it can be used right now and why not (Core's words, shown as is).
+         */
+        RenewalModeOut: {
+            /** Available */
+            available: boolean;
+            /** Code */
+            code?: string | null;
+            /** Message */
+            message?: string | null;
+            /** Mode */
+            mode: string;
+            queue_after?: components["schemas"]["QueueAfter"] | null;
+            replace_after?: components["schemas"]["RenewalAfter"] | null;
+        };
         /** RenewalOut */
         RenewalOut: {
             after?: components["schemas"]["RenewalAfter"] | null;
@@ -6793,6 +7512,11 @@ export interface components {
             code?: string | null;
             /** Message */
             message?: string | null;
+            /**
+             * Modes
+             * @default []
+             */
+            modes: components["schemas"]["RenewalModeOut"][];
             package?: components["schemas"]["CatalogItem"] | null;
             /** Renew Until */
             renew_until?: string | null;
@@ -6904,13 +7628,24 @@ export interface components {
             allow_test: boolean;
             /** Capacity */
             capacity: number;
+            /** Capacity Checked At */
+            capacity_checked_at?: string | null;
+            /** Capacity Info */
+            capacity_info?: Record<string, never>;
             /**
              * Capacity Label
              * @default ظرفیت مقصد
              */
             capacity_label: string;
+            /**
+             * Capacity Source
+             * @default melorin
+             */
+            capacity_source: string;
             /** Created At */
             created_at?: string | null;
+            /** Destination Health */
+            destination_health?: Record<string, never> | null;
             /** Effective Target */
             effective_target?: Record<string, never>;
             /**
@@ -6935,6 +7670,13 @@ export interface components {
             panel_name: string;
             /** Product Codes */
             product_codes?: string[] | null;
+            /**
+             * Sellable
+             * @default true
+             */
+            sellable: boolean;
+            /** Sellable Reason */
+            sellable_reason?: string | null;
             /** Target */
             target?: Record<string, never> | null;
             /**
@@ -7345,6 +8087,26 @@ export interface components {
             /** Session Id */
             session_id: string;
         };
+        /** TemplateCreateIn */
+        TemplateCreateIn: {
+            /** Group Ids */
+            group_ids?: number[] | null;
+            /**
+             * Product Id
+             * Format: uuid
+             */
+            product_id: string;
+        };
+        /** TemplateLinkIn */
+        TemplateLinkIn: {
+            /**
+             * Product Id
+             * Format: uuid
+             */
+            product_id: string;
+            /** Remote Template Id */
+            remote_template_id: number;
+        };
         /** TicketMessageOut */
         TicketMessageOut: {
             /** Attachment Id */
@@ -7454,6 +8216,19 @@ export interface components {
              */
             user_id: string;
         };
+        /** ToolOut */
+        ToolOut: {
+            /** Available */
+            available: boolean;
+            /** Label */
+            label: string;
+            /** Reason */
+            reason?: string | null;
+            /** Tool */
+            tool: string;
+            /** Write */
+            write: boolean;
+        };
         /** TopupRequest */
         TopupRequest: {
             /** Amount */
@@ -7510,6 +8285,8 @@ export interface components {
             allow_test?: boolean | null;
             /** Capacity */
             capacity?: number | null;
+            /** Capacity Source */
+            capacity_source?: string | null;
             /** Location */
             location?: string | null;
             /** Name */
@@ -7532,6 +8309,38 @@ export interface components {
             status?: ("open" | "closed") | null;
             /** Subject */
             subject?: string | null;
+        };
+        /** UsageNodeOut */
+        UsageNodeOut: {
+            /** At */
+            at?: string | null;
+            /** Node Id */
+            node_id: number | string;
+            /** Used Bytes */
+            used_bytes: number;
+        };
+        /** UsageOut */
+        UsageOut: {
+            /**
+             * By Node
+             * @default []
+             */
+            by_node: components["schemas"]["UsageNodeOut"][];
+            /** Days */
+            days: number;
+            /** Period */
+            period: string;
+            /** Points */
+            points: components["schemas"]["UsagePointOut"][];
+            /** Total Bytes */
+            total_bytes: number;
+        };
+        /** UsagePointOut */
+        UsagePointOut: {
+            /** At */
+            at?: string | null;
+            /** Used Bytes */
+            used_bytes: number;
         };
         /** ValidationError */
         ValidationError: {
@@ -7581,6 +8390,13 @@ export interface components {
             is_test: boolean;
             /** Links */
             links: unknown[] | null;
+            /**
+             * Next Plan Queued
+             * @default false
+             */
+            next_plan_queued: boolean;
+            /** Next Plan Queued At */
+            next_plan_queued_at?: string | null;
             /** Renew Note */
             renew_note?: string | null;
             /** Renew Until */
@@ -9675,6 +10491,68 @@ export interface operations {
             };
         };
     };
+    panel_capacity_api_v1_admin_panels__panel_id__capacity_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                panel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    refresh_capacity_api_v1_admin_panels__panel_id__capacity_refresh_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                panel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     panel_events_list_api_v1_admin_panels__panel_id__events_get: {
         parameters: {
             query?: {
@@ -10044,6 +10922,229 @@ export interface operations {
             header?: never;
             path: {
                 panel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    panel_templates_api_v1_admin_panels__panel_id__templates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                panel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    template_create_api_v1_admin_panels__panel_id__templates_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                panel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TemplateCreateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    template_link_api_v1_admin_panels__panel_id__templates_link_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                panel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TemplateLinkIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    template_unlink_api_v1_admin_panels__panel_id__templates__product_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                panel_id: string;
+                product_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    template_disable_api_v1_admin_panels__panel_id__templates__product_id__disable_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                panel_id: string;
+                product_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    template_enable_api_v1_admin_panels__panel_id__templates__product_id__enable_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                panel_id: string;
+                product_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    template_sync_api_v1_admin_panels__panel_id__templates__product_id__sync_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                panel_id: string;
+                product_id: string;
             };
             cookie?: never;
         };
@@ -12197,6 +13298,359 @@ export interface operations {
                 };
                 content: {
                     "application/json": Record<string, never>[];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_plan_api_v1_admin_vpn_accounts__account_id__change_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePlanIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    tools_admin_api_v1_admin_vpn_accounts__account_id__tools_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ToolOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    adjust_admin_api_v1_admin_vpn_accounts__account_id__tools_adjust_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccountAdjustIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VpnAccountOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    devices_admin_api_v1_admin_vpn_accounts__account_id__tools_devices_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DevicesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    devices_reset_admin_api_v1_admin_vpn_accounts__account_id__tools_devices_reset_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    device_delete_admin_api_v1_admin_vpn_accounts__account_id__tools_devices__hwid__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                hwid: string;
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    presence_admin_api_v1_admin_vpn_accounts__account_id__tools_presence_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PresenceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resume_admin_api_v1_admin_vpn_accounts__account_id__tools_resume_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VpnAccountOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rotate_admin_api_v1_admin_vpn_accounts__account_id__tools_rotate_subscription_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VpnAccountOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    suspend_admin_api_v1_admin_vpn_accounts__account_id__tools_suspend_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VpnAccountOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    usage_admin_api_v1_admin_vpn_accounts__account_id__tools_usage_get: {
+        parameters: {
+            query?: {
+                period?: string;
+                days?: number;
+            };
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageOut"];
                 };
             };
             /** @description Validation Error */
@@ -15323,6 +16777,298 @@ export interface operations {
             };
         };
     };
+    tools_owner_api_v1_stores__store_id__reseller_accounts__account_id__tools_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ToolOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    devices_owner_api_v1_stores__store_id__reseller_accounts__account_id__tools_devices_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DevicesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    devices_reset_owner_api_v1_stores__store_id__reseller_accounts__account_id__tools_devices_reset_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    device_delete_owner_api_v1_stores__store_id__reseller_accounts__account_id__tools_devices__hwid__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                hwid: string;
+                account_id: string;
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    presence_owner_api_v1_stores__store_id__reseller_accounts__account_id__tools_presence_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PresenceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resume_owner_api_v1_stores__store_id__reseller_accounts__account_id__tools_resume_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VpnAccountOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rotate_owner_api_v1_stores__store_id__reseller_accounts__account_id__tools_rotate_subscription_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VpnAccountOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    suspend_owner_api_v1_stores__store_id__reseller_accounts__account_id__tools_suspend_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VpnAccountOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    usage_owner_api_v1_stores__store_id__reseller_accounts__account_id__tools_usage_get: {
+        parameters: {
+            query?: {
+                period?: string;
+                days?: number;
+            };
+            header?: never;
+            path: {
+                account_id: string;
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_credentials_api_v1_stores__store_id__reseller_api_credentials_get: {
         parameters: {
             query?: never;
@@ -17325,6 +19071,198 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    tools_customer_api_v1_stores__store_id__vpn_accounts__account_id__tools_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ToolOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    devices_customer_api_v1_stores__store_id__vpn_accounts__account_id__tools_devices_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DevicesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    devices_reset_customer_api_v1_stores__store_id__vpn_accounts__account_id__tools_devices_reset_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    device_delete_customer_api_v1_stores__store_id__vpn_accounts__account_id__tools_devices__hwid__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                hwid: string;
+                account_id: string;
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rotate_customer_api_v1_stores__store_id__vpn_accounts__account_id__tools_rotate_subscription_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VpnAccountOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    usage_customer_api_v1_stores__store_id__vpn_accounts__account_id__tools_usage_get: {
+        parameters: {
+            query?: {
+                period?: string;
+                days?: number;
+            };
+            header?: never;
+            path: {
+                account_id: string;
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageOut"];
                 };
             };
             /** @description Validation Error */
