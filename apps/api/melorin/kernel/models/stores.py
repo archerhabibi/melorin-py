@@ -37,6 +37,9 @@ class Store(IdMixin, TimestampMixin, Base):
     bot_seen_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     # PG-06: this store's own VPN notice settings, today ``{"traffic_low_levels": [80, 90]}``. NULL = platform defaults.
     vpn_notice_settings: Mapped[dict | None] = mapped_column(JSON)
+    # PG-11/12: what suspending this store does on the panel. ``none`` = Melorin only blocks new sales (today's behaviour);
+    # ``disable_accounts`` also disables the store's panel admin and every account under it (re-activated when the store is).
+    suspend_policy: Mapped[str] = mapped_column(String(20), default="none", server_default=text("'none'"))
 
 
 class BotStoreBinding(IdMixin, TimestampMixin, Base):

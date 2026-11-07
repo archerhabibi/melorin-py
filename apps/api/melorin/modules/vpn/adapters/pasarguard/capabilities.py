@@ -33,6 +33,12 @@ CAPABILITY_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "template_ops": ("templates.read", "templates.create", "templates.update"),
     "next_plan_ops": ("users.update", "users.activate_next_plan"),
     "event_source": ("settings.read", "settings.update"),
+    # Phase 4
+    "node_insight": ("system.read", "nodes.stats"),
+    "infra_control": ("nodes.update", "hosts.update", "groups.update", "cores.read", "cores.update"),
+    "bulk_actions": ("users.update", "users.reset_usage", "users.revoke_sub", "admins.update"),
+    "admin_governance": ("admins.read", "admins.update"),
+    "subscription_probe": ("settings.read",),
 }
 
 # capability -> "METHOD /path-template" routes the adapter calls for it (current, non-legacy API style)
@@ -65,6 +71,29 @@ CAPABILITY_ENDPOINTS: dict[str, tuple[str, ...]] = {
     ),
     # Phase 2: the panel calls Melorin (``/webhooks/pasarguard/{panel_id}``); the only panel routes involved switch the webhook on/off
     "event_source": ("GET /api/settings", "PUT /api/settings"),
+    # Phase 4
+    "node_insight": ("GET /api/system", "GET /api/system/resources", "GET /api/nodes/realtime_stats", "GET /api/node/{node_id}/stats"),
+    "infra_control": (
+        "PUT /api/node/{node_id}/sync",
+        "GET /api/cores",
+        "POST /api/core/{core_id}/restart",
+        "POST /api/nodes/bulk/enable",
+        "POST /api/nodes/bulk/disable",
+        "POST /api/hosts/bulk/enable",
+        "POST /api/hosts/bulk/disable",
+        "POST /api/groups/bulk/enable",
+        "POST /api/groups/bulk/disable",
+    ),
+    "bulk_actions": (
+        "POST /api/users/bulk/disable",
+        "POST /api/users/bulk/enable",
+        "POST /api/users/bulk/reset",
+        "POST /api/users/bulk/revoke_sub",
+        "POST /api/admin/by-id/{admin_id}/users/disable",
+        "POST /api/admin/by-id/{admin_id}/users/activate",
+    ),
+    "admin_governance": ("GET /api/admins", "PUT /api/admin/by-id/{admin_id}"),
+    "subscription_probe": ("GET /api/settings", "GET /sub/{token}/info"),
 }
 
 # Capabilities of the legacy (Marzban-style) API: only what the pre-capability adapter did.

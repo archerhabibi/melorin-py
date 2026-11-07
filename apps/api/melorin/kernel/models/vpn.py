@@ -44,6 +44,9 @@ class Panel(IdMixin, TimestampMixin, Base):
     webhook_secret_enc: Mapped[str | None] = mapped_column(Text)
     webhook_last_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     webhook_connected_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    # PG-13: last subscription test ({ok, checks: [...], expected, actual}); NULL = never run
+    subscription_check: Mapped[dict | None] = mapped_column(JSON)
+    subscription_checked_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Server(IdMixin, TimestampMixin, Base):
@@ -259,6 +262,14 @@ class PanelAdmin(IdMixin, TimestampMixin, Base):
     adopted_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))  # pre-existing accounts moved under this admin
     profile: Mapped[dict | None] = mapped_column(JSON)  # profile_title, support_url, telegram_id, discord_webhook, sub_domain, note
     profile_synced: Mapped[bool] = mapped_column(Boolean, default=True)  # False = a profile edit still has to reach the panel
+    # PG-12 governance. ``data_limit_bytes`` is the traffic ceiling Melorin asked for (NULL = not managed, 0 = unlimited);
+    # the rest is what the panel last reported for this admin.
+    data_limit_bytes: Mapped[int | None] = mapped_column(BigInteger)
+    remote_status: Mapped[str | None] = mapped_column(String(12))  # the panel's admin status: active | disabled
+    used_traffic_bytes: Mapped[int | None] = mapped_column(BigInteger)
+    total_users: Mapped[int | None] = mapped_column(Integer)
+    usage_checked_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    governance_error: Mapped[str | None] = mapped_column(String(300))
 
 
 class PanelAdminChangeRequest(IdMixin, TimestampMixin, Base):
@@ -295,3 +306,51 @@ class ProductTemplate(IdMixin, TimestampMixin, Base):
     name: Mapped[str | None] = mapped_column(String(120))
     managed: Mapped[bool] = mapped_column(Boolean, default=True)
     __table_args__ = (UniqueConstraint("panel_id", "product_id", name="uq_product_templates_panel_product"),)
+
+
+class BulkOperation(IdMixin, TimestampMixin, Base):
+    """One bulk operation over many accounts of ONE panel (PG-11): preview -> typed confirmation -> chunked run -> report.
+
+    ``status``: ``previewed`` (items planned, nothing sent) -> ``confirmed`` (queued for the runner) -> ``running`` ->
+    ``done`` | ``partial`` (some items failed, resumable) | ``failed`` | ``cancelled`` | ``expired`` (preview never confirmed).
+    The selection is frozen into ``bulk_operation_items`` at preview time, so what an admin confirmed is exactly what runs."""
+
+    __tablename__ = "bulk_operations"
+    __table_args__ = (Index("ix_bulk_operations_status_created", "status", "created_at"),)
+    panel_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("panels.id", ondelete="CASCADE"), index=True)
+    store_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("stores.id", ondelete="SET NULL"), index=True)
+    kind: Mapped[str] = mapped_column(String(24))  # disable | enable | reset_usage | rotate_links | extend_days | add_traffic
+    params: Mapped[dict | None] = mapped_column(JSON)  # {"days": 3} / {"gb": 5}
+    selection: Mapped[dict | None] = mapped_column(JSON)  # the filter the admin used (audit)
+    reason: Mapped[str | None] = mapped_column(String(300))
+    origin: Mapped[str] = mapped_column(String(20), default="admin")  # admin | store_state
+    status: Mapped[str] = mapped_column(String(12), default="previewed", index=True)
+    total: Mapped[int] = mapped_column(Integer, default=0)
+    succeeded: Mapped[int] = mapped_column(Integer, default=0)
+    failed: Mapped[int] = mapped_column(Integer, default=0)
+    skipped: Mapped[int] = mapped_column(Integer, default=0)
+    sample: Mapped[list | None] = mapped_column(JSON)  # first usernames, for the preview
+    error: Mapped[str | None] = mapped_column(String(300))
+    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
+    confirmed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    started_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))  # an unconfirmed preview dies here
+    lease_until: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))  # one runner at a time (crash-safe lease)
+
+
+class BulkOperationItem(IdMixin, CreatedMixin, Base):
+    """One account of a bulk operation. ``target`` is the ABSOLUTE value to write (new expiry / new traffic limit), computed once at
+    preview time, so a retried item can never apply twice."""
+
+    __tablename__ = "bulk_operation_items"
+    __table_args__ = (UniqueConstraint("operation_id", "vpn_account_id", name="uq_bulk_items_operation_account"),)
+    operation_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("bulk_operations.id", ondelete="CASCADE"), index=True)
+    vpn_account_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("vpn_accounts.id", ondelete="CASCADE"), index=True)
+    username: Mapped[str] = mapped_column(String(64))
+    panel_ref: Mapped[str | None] = mapped_column(String(200))
+    target: Mapped[dict | None] = mapped_column(JSON)  # {"expire_at": iso, "traffic_bytes": n}
+    status: Mapped[str] = mapped_column(String(10), default="pending", index=True)  # pending | done | failed | skipped
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    error: Mapped[str | None] = mapped_column(String(300))
+    done_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
