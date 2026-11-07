@@ -28,6 +28,7 @@ from tgmain.handlers.loyalty import LoyaltyMixin
 from tgmain.handlers.plans import PlansMixin
 from tgmain.handlers.wallet import WalletMixin
 from tgmain.handlers.accounts import AccountsMixin
+from tgmain.handlers.tools import ToolsMixin
 from tgmain.handlers.reseller import ResellerMixin
 from tgmain.handlers.tickets import TicketsMixin
 from tgmain.ui import *  # noqa: E402,F401,F403  (re-exported: the reseller runner uses money/keyboard/esc/BOT_COMMANDS)
@@ -35,7 +36,7 @@ from tgmain.ui import *  # noqa: E402,F401,F403  (re-exported: the reseller runn
 log = logging.getLogger("melorin.telegram.main")
 
 
-class TelegramRunner(TransportMixin, IdentityMixin, LoyaltyMixin, PlansMixin, WalletMixin, AccountsMixin, ResellerMixin, TicketsMixin):
+class TelegramRunner(TransportMixin, IdentityMixin, LoyaltyMixin, PlansMixin, WalletMixin, AccountsMixin, ToolsMixin, ResellerMixin, TicketsMixin):
     """Composition root: wiring (commands/callbacks), update dispatch and the long-poll loop. Feature handlers live in ``tgmain.handlers``."""
 
     channel = "main"
@@ -109,6 +110,11 @@ class TelegramRunner(TransportMixin, IdentityMixin, LoyaltyMixin, PlansMixin, Wa
             "wla": self.cb_web_login,
             "wld": self.cb_web_login_deny,
             "wdr": self.cb_device_revoke,
+            "atl": self.cb_tools_a,
+            "atr": self.cb_tool_rotate_ask_a,
+            "atrc": self.cb_tool_rotate_a,
+            "adr": self.cb_tool_devices_ask_a,
+            "adrc": self.cb_tool_devices_a,
         }
 
     # ---------- dispatch ----------

@@ -126,7 +126,13 @@ async def panel_targets(panel_id: uuid.UUID, _: AdminUser, session: Session):
                 out.append({"id": str(s.id), "name": s.name})
         return out
 
+    from melorin.modules.admin.capacity import (
+        live_group_health,
+    )  # PG-08: each group with its real state (a broken one is flagged, not hidden)
+
+    health = await live_group_health(panel) or {}
     for g in listing.get("groups", []):
+        g["health"] = health.get(g["id"])
         g["used_by"] = used("group_ids", g["id"])
     for t in listing.get("templates", []):
         t["used_by"] = used("user_template_id", t["id"])

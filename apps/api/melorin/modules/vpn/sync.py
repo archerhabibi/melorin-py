@@ -100,6 +100,10 @@ async def apply_remote(
     if _g(remote, "lifetime_used_bytes") is not None:
         account.lifetime_used_traffic = remote.lifetime_used_bytes
     account.last_synced_at, account.sync_error_count = now, 0
+    if account.queued_plan:  # PG-09: a prepaid package that the panel no longer reports as queued has started
+        from melorin.modules.vpn import plans  # local import: plans builds on this module
+
+        await plans.settle_from_remote(session, account, remote, now=now, notify=notify)
 
     if notify and account.status in SYNCABLE:
         if changes and new_status == VpnStatus.LIMITED:

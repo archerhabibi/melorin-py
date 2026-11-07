@@ -35,7 +35,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 
 <!-- BEGIN GENERATED ROUTES (scripts/gen_docs.py) -->
 
-### `admin` (126)
+### `admin` (136)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -94,6 +94,8 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | POST | `/api/v1/admin/panels` | Create Panel |
 | PATCH | `/api/v1/admin/panels/{panel_id}` | Update Panel |
 | DELETE | `/api/v1/admin/panels/{panel_id}` | Delete Panel |
+| GET | `/api/v1/admin/panels/{panel_id}/capacity` | Panel Capacity |
+| POST | `/api/v1/admin/panels/{panel_id}/capacity/refresh` | Refresh Capacity |
 | GET | `/api/v1/admin/panels/{panel_id}/events` | Panel Events List |
 | POST | `/api/v1/admin/panels/{panel_id}/events/connect` | Panel Events Connect |
 | POST | `/api/v1/admin/panels/{panel_id}/events/disconnect` | Panel Events Disconnect |
@@ -106,6 +108,13 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | POST | `/api/v1/admin/panels/{panel_id}/servers/from-targets` | Create Servers From Targets |
 | POST | `/api/v1/admin/panels/{panel_id}/state` | Set Panel State |
 | GET | `/api/v1/admin/panels/{panel_id}/targets` | Panel Targets |
+| GET | `/api/v1/admin/panels/{panel_id}/templates` | Panel Templates |
+| POST | `/api/v1/admin/panels/{panel_id}/templates` | Template Create |
+| POST | `/api/v1/admin/panels/{panel_id}/templates/link` | Template Link |
+| DELETE | `/api/v1/admin/panels/{panel_id}/templates/{product_id}` | Template Unlink |
+| POST | `/api/v1/admin/panels/{panel_id}/templates/{product_id}/disable` | Template Disable |
+| POST | `/api/v1/admin/panels/{panel_id}/templates/{product_id}/enable` | Template Enable |
+| POST | `/api/v1/admin/panels/{panel_id}/templates/{product_id}/sync` | Template Sync |
 | GET | `/api/v1/admin/payments` | Payments |
 | GET | `/api/v1/admin/payments/{payment_id}/receipt` | Payment Receipt |
 | GET | `/api/v1/admin/payments/{payment_id}/receipt-duplicates` | Payment Receipt Duplicates |
@@ -165,6 +174,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | POST | `/api/v1/admin/trusted-devices/{device_id}/revoke` | Revoke Trusted Device |
 | GET | `/api/v1/admin/users` | Users |
 | GET | `/api/v1/admin/vpn-accounts` | Vpn Accounts |
+| POST | `/api/v1/admin/vpn-accounts/{account_id}/change-plan` | Change Plan |
 
 ### `admin-integrations` (13)
 
@@ -424,6 +434,36 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | POST | `/api/v1/tickets/{ticket_id}/messages` | Add Message |
 | PATCH | `/api/v1/tickets/{ticket_id}/messages/{message_id}` | Edit Message |
 | GET | `/api/v1/tickets/{ticket_id}/messages/{message_id}/attachment` | Message Attachment |
+
+### `vpn-account-tools` (25)
+
+| Method | Path | Operation |
+|---|---|---|
+| GET | `/api/v1/admin/vpn-accounts/{account_id}/tools` | Tools Admin |
+| POST | `/api/v1/admin/vpn-accounts/{account_id}/tools/adjust` | Adjust Admin |
+| GET | `/api/v1/admin/vpn-accounts/{account_id}/tools/devices` | Devices Admin |
+| POST | `/api/v1/admin/vpn-accounts/{account_id}/tools/devices/reset` | Devices Reset Admin |
+| DELETE | `/api/v1/admin/vpn-accounts/{account_id}/tools/devices/{hwid}` | Device Delete Admin |
+| GET | `/api/v1/admin/vpn-accounts/{account_id}/tools/presence` | Presence Admin |
+| POST | `/api/v1/admin/vpn-accounts/{account_id}/tools/resume` | Resume Admin |
+| POST | `/api/v1/admin/vpn-accounts/{account_id}/tools/rotate-subscription` | Rotate Admin |
+| POST | `/api/v1/admin/vpn-accounts/{account_id}/tools/suspend` | Suspend Admin |
+| GET | `/api/v1/admin/vpn-accounts/{account_id}/tools/usage` | Usage Admin |
+| GET | `/api/v1/stores/{store_id}/reseller/accounts/{account_id}/tools` | Tools Owner |
+| GET | `/api/v1/stores/{store_id}/reseller/accounts/{account_id}/tools/devices` | Devices Owner |
+| POST | `/api/v1/stores/{store_id}/reseller/accounts/{account_id}/tools/devices/reset` | Devices Reset Owner |
+| DELETE | `/api/v1/stores/{store_id}/reseller/accounts/{account_id}/tools/devices/{hwid}` | Device Delete Owner |
+| GET | `/api/v1/stores/{store_id}/reseller/accounts/{account_id}/tools/presence` | Presence Owner |
+| POST | `/api/v1/stores/{store_id}/reseller/accounts/{account_id}/tools/resume` | Resume Owner |
+| POST | `/api/v1/stores/{store_id}/reseller/accounts/{account_id}/tools/rotate-subscription` | Rotate Owner |
+| POST | `/api/v1/stores/{store_id}/reseller/accounts/{account_id}/tools/suspend` | Suspend Owner |
+| GET | `/api/v1/stores/{store_id}/reseller/accounts/{account_id}/tools/usage` | Usage Owner |
+| GET | `/api/v1/stores/{store_id}/vpn-accounts/{account_id}/tools` | Tools Customer |
+| GET | `/api/v1/stores/{store_id}/vpn-accounts/{account_id}/tools/devices` | Devices Customer |
+| POST | `/api/v1/stores/{store_id}/vpn-accounts/{account_id}/tools/devices/reset` | Devices Reset Customer |
+| DELETE | `/api/v1/stores/{store_id}/vpn-accounts/{account_id}/tools/devices/{hwid}` | Device Delete Customer |
+| POST | `/api/v1/stores/{store_id}/vpn-accounts/{account_id}/tools/rotate-subscription` | Rotate Customer |
+| GET | `/api/v1/stores/{store_id}/vpn-accounts/{account_id}/tools/usage` | Usage Customer |
 
 ### `vpn-accounts` (7)
 

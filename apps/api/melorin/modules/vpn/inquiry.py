@@ -116,7 +116,17 @@ def account_out(a: VpnAccount, now: dt.datetime | None = None) -> VpnAccountOut:
         health=health(a, now),
         created_at=a.created_at,
         updated_at=a.updated_at,
+        next_plan_queued=bool(a.queued_plan),
+        next_plan_queued_at=_queued_at(a),
     )
+
+
+def _queued_at(a: VpnAccount) -> dt.datetime | None:
+    raw = (a.queued_plan or {}).get("queued_at")
+    try:
+        return dt.datetime.fromisoformat(raw) if raw else None
+    except (TypeError, ValueError):
+        return None
 
 
 def owner_account_out(a: VpnAccount, user, now: dt.datetime | None = None, *, owner_id: uuid.UUID | None = None) -> OwnerAccountOut:

@@ -46,6 +46,8 @@ class PanelAccount:
     online_at: dt.datetime | None = None
     lifetime_used_bytes: int | None = None
     owner: str | None = None  # panel admin that owns the account (PasarGuard ``admin.username``)
+    next_plan: dict | None = None  # PG-09: the package the panel will activate when this one ends (None = nothing queued)
+    next_plan_reported: bool = False  # True only when the panel really reports the field: ``next_plan is None`` then means "nothing queued"
 
 
 # Capability names, in display order. ``Capabilities`` fields, ``panels.capabilities`` JSON keys and the admin UI all use these.
@@ -60,6 +62,9 @@ OPTIONAL_CAPABILITIES = (
     "admin_ops",  # AdminOps: panel-side admin (store operator) management
     "settings_ops",  # SettingsOps: read panel settings
     "account_listing",  # AccountListing: page through every account of the panel (reconcile v2, orphan discovery)
+    "capacity_ops",  # CapacityOps: groups/hosts/inbounds with their real state (PG-08: sellability and capacity of a destination)
+    "template_ops",  # TemplateOps: create/update/enable user templates (PG-09)
+    "next_plan_ops",  # NextPlanOps: queue the next package on an account, activate it, move an account to a template (PG-09)
     "event_source",  # EventSource: the panel pushes webhooks to Melorin
 )
 ALL_CAPABILITIES = CORE_CAPABILITIES + OPTIONAL_CAPABILITIES
@@ -85,6 +90,9 @@ class Capabilities:
     admin_ops: bool = False
     settings_ops: bool = False
     account_listing: bool = False
+    capacity_ops: bool = False
+    template_ops: bool = False
+    next_plan_ops: bool = False
     event_source: bool = False
 
     def to_dict(self) -> dict[str, bool]:
@@ -202,6 +210,29 @@ class AccountListing(Protocol):  # flag: account_listing (PG-04)
 
 
 @runtime_checkable
+class CapacityOps(Protocol):  # flag: capacity_ops (PG-08, read-only)
+    async def list_groups_full(self) -> list[dict]: ...
+    async def list_hosts(self) -> list[dict]: ...
+    async def list_inbound_details(self) -> list[dict]: ...
+
+
+@runtime_checkable
+class TemplateOps(Protocol):  # flag: template_ops (PG-09)
+    async def list_templates(self) -> list[dict]: ...
+    async def create_template(self, spec: dict) -> dict: ...
+    async def update_template(self, template_id: int, spec: dict) -> dict: ...
+    async def set_template_disabled(self, template_id: int, disabled: bool) -> dict: ...
+
+
+@runtime_checkable
+class NextPlanOps(Protocol):  # flag: next_plan_ops (PG-09)
+    async def set_next_plan(self, username: str, *, template_id: int, add_remaining_traffic: bool = False) -> PanelAccount: ...
+    async def clear_next_plan(self, username: str) -> PanelAccount: ...
+    async def activate_next_plan(self, username: str) -> PanelAccount: ...
+    async def apply_template(self, username: str, template_id: int) -> PanelAccount: ...
+
+
+@runtime_checkable
 class EventSource(Protocol):  # flag: event_source (PG-03: the panel pushes events; Melorin verifies them and registers itself)
     def verify_webhook(self, headers: Mapping[str, str], body: bytes, secret: str) -> bool: ...
     async def get_webhook_config(self, url: str | None = None) -> dict: ...
@@ -231,6 +262,9 @@ CAPABILITY_PROTOCOLS: dict[str, type] = {
     "admin_ops": AdminOps,
     "settings_ops": SettingsOps,
     "account_listing": AccountListing,
+    "capacity_ops": CapacityOps,
+    "template_ops": TemplateOps,
+    "next_plan_ops": NextPlanOps,
     "event_source": EventSource,
 }
 

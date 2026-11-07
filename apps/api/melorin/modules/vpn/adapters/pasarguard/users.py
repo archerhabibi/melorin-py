@@ -102,7 +102,16 @@ class UsersMixin:
             online_at=parse_expire(d.get("online_at")),
             lifetime_used_bytes=int(lifetime) if isinstance(lifetime, int | float) and not isinstance(lifetime, bool) else None,
             owner=str(owner.get("username")) if isinstance(owner, dict) and owner.get("username") else None,
+            next_plan=self._next_plan_of(d),
+            next_plan_reported="next_plan" in d,
         )
+
+    @staticmethod
+    def _next_plan_of(d: dict) -> dict | None:
+        plan = d.get("next_plan")
+        if not isinstance(plan, dict) or not any(v not in (None, 0, False) for v in plan.values()):
+            return None
+        return {k: plan.get(k) for k in ("user_template_id", "data_limit", "expire", "add_remaining_traffic") if k in plan}
 
     # ------------------------------------------------------------------ account listing (AccountListing, PG-04)
     async def list_accounts(self, *, offset: int = 0, limit: int = 100) -> tuple[list[PanelAccount], int | None]:
@@ -216,6 +225,36 @@ class UsersMixin:
 
     def normalize_status(self, raw: str) -> str:
         return _STATUS.get(raw, "unknown")
+
+    # ------------------------------------------------------------------ next plan / template move (NextPlanOps, PG-09)
+    async def _modify(self, username: str, body: dict) -> PanelAccount:
+        d = await self._require(username)
+        out = await self._req("PUT", self._write_path(d), json=body)
+        return self._to_account(out if isinstance(out, dict) and out.get("username") else await self._require(username))
+
+    async def set_next_plan(self, username: str, *, template_id: int, add_remaining_traffic: bool = False) -> PanelAccount:
+        """Queue ``template_id`` as the package the panel switches to when the current one ends. Absolute value: safe to repeat."""
+        if isinstance(template_id, bool) or int(template_id) <= 0:
+            raise PanelError(ErrorKind.PERMANENT, "pasarguard: next plan needs a positive template id")
+        plan = {"user_template_id": int(template_id), "add_remaining_traffic": bool(add_remaining_traffic)}
+        return await self._modify(username, {"next_plan": plan})
+
+    async def clear_next_plan(self, username: str) -> PanelAccount:
+        return await self._modify(username, {"next_plan": None})
+
+    async def activate_next_plan(self, username: str) -> PanelAccount:
+        """Start the queued package now (the panel does it by itself when the current one ends)."""
+        d = await self._require(username)
+        out = await self._req("POST", self._write_path(d, "/active_next"))
+        return self._to_account(out if isinstance(out, dict) and out.get("username") else await self._require(username))
+
+    async def apply_template(self, username: str, template_id: int) -> PanelAccount:
+        """Move an existing account to a template's groups, volume and time (plan change)."""
+        if self.legacy:
+            raise PanelError(ErrorKind.PERMANENT, "pasarguard: template change needs the current API style")
+        d = await self._require(username)
+        out = await self._req("PUT", f"/api/user/from_template/by-id/{int(d['id'])}", json={"user_template_id": int(template_id)})
+        return self._to_account(out if isinstance(out, dict) and out.get("username") else await self._require(username))
 
     # ------------------------------------------------------------------ usage (UsageOps)
     async def get_usage(

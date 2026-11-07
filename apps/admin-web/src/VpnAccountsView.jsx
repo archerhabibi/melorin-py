@@ -18,6 +18,7 @@ import {
   useRows,
 } from './kit.jsx';
 import { Badge, dt, sid } from './ui.jsx';
+import AccountToolsPanel from './AccountToolsPanel.jsx';
 import {
   Avatar,
   Cell2,
@@ -298,12 +299,21 @@ export default function VpnAccountsView({ api, toast }) {
         }
       />
       <Paginator page={page} setPage={setPage} total={res.total} pageSize={PAGE_SIZE} />
-      {sel && <AccountDrawer a={sel} store={storeName(sel.store_id)} onClose={() => setSelId(null)} />}
+      {sel && (
+        <AccountDrawer
+          a={sel}
+          store={storeName(sel.store_id)}
+          call={call}
+          toast={toast}
+          onChanged={() => setTick((t) => t + 1)}
+          onClose={() => setSelId(null)}
+        />
+      )}
     </div>
   );
 }
 
-function AccountDrawer({ a, store, onClose }) {
+function AccountDrawer({ a, store, call, toast, onChanged, onClose }) {
   const u = usage(a);
   const placement = placementSummary(a.placement);
   return (
@@ -333,6 +343,7 @@ function AccountDrawer({ a, store, onClose }) {
           <p className="text-[11px] text-[var(--mu)]">{num(Math.round(u * 100))}٪ از سقف ترافیک مصرف شده است.</p>
         )}
       </div>
+      <AccountToolsPanel call={call} accountId={a.id} toast={toast} onChanged={onChanged} />
       <Facts
         items={[
           { label: 'نام اکانت', value: a.username, ltr: true, copy: true },

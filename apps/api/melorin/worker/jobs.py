@@ -15,7 +15,7 @@ from melorin.kernel.models.identity import VerificationCode
 from melorin.kernel.models.system import BackupRun
 from melorin.modules.eventcenter import report as event_center_report
 from melorin.modules.eventcenter import rules as event_center_rules
-from melorin.modules.vpn import capabilities, health, notices, panel_events, reconcile
+from melorin.modules.vpn import capabilities, capacity, health, notices, panel_events, reconcile
 from melorin.kernel.models.vpn import Panel, VpnAccount
 
 log = logging.getLogger("melorin.jobs")
@@ -97,6 +97,7 @@ async def panel_health_job(ctx=None):
         for p in panels:
             adapter = None
             result = health.HealthResult(health.UNHEALTHY, "unknown")
+            capacity_changes: list = []
             try:
                 adapter = build_adapter(p)
                 result = await health.check_panel(s, p, adapter)
@@ -107,6 +108,11 @@ async def panel_health_job(ctx=None):
                         await capabilities.refresh(p, adapter)
                     except Exception:  # a probe problem must never flip the panel to unhealthy
                         log.warning("panel capability refresh failed panel=%s", p.id, exc_info=True)
+                if result.status != health.UNHEALTHY:  # PG-08: layer 3, the destinations' real group/host/node state and fill level
+                    try:
+                        capacity_changes = await capacity.refresh_panel(s, p, adapter)
+                    except Exception:  # never let a capacity problem change the panel's verdict
+                        log.warning("panel capacity refresh failed panel=%s", p.id, exc_info=True)
             except Exception as exc:
                 result = health.HealthResult(
                     health.UNHEALTHY, str(exc)[:500], {"layer": 1, "sellable": False, "checked_at": utcnow().isoformat()}
@@ -120,6 +126,7 @@ async def panel_health_job(ctx=None):
             previous = health.apply(p, result)
             await event_center_rules.notify_panel_health(s, p, previous)
             await event_center_rules.notify_panel_nodes(s, p, result.node_changes)
+            await event_center_rules.notify_server_capacity(s, p, capacity_changes)
         await s.commit()
 
 

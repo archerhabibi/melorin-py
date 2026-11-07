@@ -1,6 +1,6 @@
 """PasarGuard infrastructure listings: groups, user templates, destination picker (and, below, nodes)."""
 
-from melorin.modules.vpn.adapters.base import PanelError
+from melorin.modules.vpn.adapters.base import ErrorKind, PanelError
 from melorin.modules.vpn.adapters.pasarguard.core import as_rows
 
 NODE_PAGE = 100
@@ -47,6 +47,63 @@ class NodesMixin:
         except PanelError:
             templates = []  # an older build or a role without template access: groups still work
         return {"kind": "pasarguard", "groups": groups, "templates": templates}
+
+    # ------------------------------------------------------------------ capacity listings (CapacityOps, PG-08)
+    async def _paged(self, path: str, *keys: str) -> list[dict]:
+        rows: list[dict] = []
+        for page in range(NODE_MAX_PAGES):
+            data = await self._req("GET", path, params={"limit": NODE_PAGE, "offset": page * NODE_PAGE})
+            batch = as_rows(data, *keys)
+            rows.extend(batch)
+            total = data.get("total") if isinstance(data, dict) else None
+            if len(batch) < NODE_PAGE or (isinstance(total, int) and len(rows) >= total):
+                break
+        return rows
+
+    async def list_groups_full(self) -> list[dict]:
+        """Every group with ``total_users``, ``is_disabled`` and its ``inbound_tags`` (what ``/groups/simple`` leaves out)."""
+        return [g for g in await self._paged("/api/groups", "groups", "items") if g.get("id") is not None]
+
+    async def list_hosts(self) -> list[dict]:
+        """Every host (``inbound_tag``, ``is_disabled``, ...): a group serves customers only through an enabled host."""
+        return await self._paged("/api/hosts", "hosts", "items")
+
+    async def list_inbound_details(self) -> list[dict]:
+        data = await self._req("GET", "/api/inbounds/details", ok404=True)
+        return as_rows(data, "inbounds", "items")
+
+    # ------------------------------------------------------------------ templates (TemplateOps, PG-09)
+    @staticmethod
+    def _template_body(spec: dict) -> dict:
+        """Only the fields a package defines; absolute values so a repeated call changes nothing."""
+        body: dict = {}
+        for key in ("name", "username_prefix", "username_suffix", "status", "data_limit_reset_strategy"):
+            if spec.get(key) is not None:
+                body[key] = spec[key]
+        for key in ("data_limit", "expire_duration", "hwid_limit", "on_hold_timeout"):
+            if spec.get(key) is not None:
+                body[key] = int(spec[key])
+        if spec.get("group_ids") is not None:
+            body["group_ids"] = [int(g) for g in spec["group_ids"]]
+        if spec.get("reset_usages") is not None:
+            body["reset_usages"] = bool(spec["reset_usages"])
+        return body
+
+    async def create_template(self, spec: dict) -> dict:
+        body = self._template_body(spec)
+        if not body.get("name") or not body.get("group_ids"):
+            raise PanelError(ErrorKind.PERMANENT, "pasarguard: a template needs a name and at least one group")
+        out = await self._req("POST", "/api/user_template", json=body)
+        return out if isinstance(out, dict) else {}
+
+    async def update_template(self, template_id: int, spec: dict) -> dict:
+        out = await self._req("PUT", f"/api/user_template/{int(template_id)}", json=self._template_body(spec))
+        return out if isinstance(out, dict) else {}
+
+    async def set_template_disabled(self, template_id: int, disabled: bool) -> dict:
+        action = "disable" if disabled else "enable"
+        out = await self._req("POST", f"/api/user_templates/bulk/{action}", json={"ids": [int(template_id)]})
+        return out if isinstance(out, dict) else {}
 
     # ------------------------------------------------------------------ nodes (NodeOps)
     async def list_nodes(self) -> list[dict]:
