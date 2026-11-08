@@ -76,6 +76,8 @@ class PresenceOut(BaseModel):
     remote_status: str | None = None
     lifetime_used_bytes: int | None = None
     last_synced_at: dt.datetime | None = None
+    live: bool = True  # False = the panel did not answer; every panel number above is then empty
+    note: str | None = None
 
 
 class DeviceOut(BaseModel):

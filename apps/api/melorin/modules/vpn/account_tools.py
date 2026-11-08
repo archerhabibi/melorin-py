@@ -7,7 +7,7 @@ Every channel (customer bot/site, reseller bot/site, admin) goes through this mo
   panel or its credential cannot serve is reported as unavailable with a reason, never attempted.
 * **Scope is the caller's job.** The router resolves the account through ``StoreScope`` (customer), ``reseller_find`` (store
   owner) or the admin session and hands the row in; this module never widens it.
-* **Privacy.** Connection IPs are never exposed here. "Last seen" is the synced ``online_at``; device ids (HWID) are the
+* **Privacy.** Connection IPs are never exposed here. "Last seen" is read live from the panel (R7); device ids (HWID) are the
   customer's own devices and are only returned for the account the caller already reached.
 * **Writes are audited** with the acting role. Suspend/resume/compensation are owner/admin only. Compensation is admin only,
   needs a reason and is computed from a FRESH panel read (absolute values), so a retried call after a timeout can be re-read
@@ -198,21 +198,42 @@ async def usage(session: AsyncSession, account: VpnAccount, *, role: str, period
     return {"period": period, "days": days, **out}
 
 
-def presence(account: VpnAccount, role: str, panel: Panel | None = None) -> dict:
-    """Last seen / state from the synced row (no panel call, no IPs). Owner and admin only."""
+async def presence(session: AsyncSession, account: VpnAccount, role: str) -> dict:
+    """Last seen / state, read from the PANEL now (R7: ``online_at`` and lifetime usage are no longer kept in Melorin).
+
+    No IPs. Owner and admin only. When the panel cannot answer, ``live`` is false and every panel number is ``None``: a stale
+    value is never shown in its place (decision 9).
+    """
+    panel = await session.get(Panel, account.panel_id) if account.panel_id else None
     reason = _reason(_tool("presence"), role, account, panel)
     if reason:
         raise AppError("TOOL_UNAVAILABLE", reason, 403 if role not in _tool("presence").roles else 409)
-    now = utcnow()
-    seen = sync.aware(account.online_at)
-    return {
-        "online_at": account.online_at,
-        "online_now": bool(seen and now - seen <= dt.timedelta(minutes=5)),
-        "never_connected": seen is None,
-        "remote_status": account.remote_status,
-        "lifetime_used_bytes": account.lifetime_used_traffic,
-        "last_synced_at": account.last_synced_at,
-    }
+    out = {"online_at": None, "online_now": False, "never_connected": False, "remote_status": None, "lifetime_used_bytes": None,
+           "last_synced_at": None, "live": False, "note": "اطلاعات زنده از پنل موقتاً در دسترس نیست."}  # fmt: skip
+    adapter = None
+    try:
+        adapter = build_adapter(panel)
+        seed_adapter(adapter, account)
+        remote = await adapter.get_account(account.username)
+    except Exception:  # any panel failure is "no answer", never a guess
+        log.info("presence: live read failed account=%s", account.id, exc_info=True)
+        remote = None
+    finally:
+        if adapter is not None:
+            await _close(adapter)
+    if remote is None:
+        return out
+    seen = sync.aware(getattr(remote, "online_at", None))
+    out.update(
+        online_at=seen,
+        online_now=bool(seen and utcnow() - seen <= dt.timedelta(minutes=5)),
+        never_connected=seen is None,
+        remote_status=getattr(remote, "remote_status", None),
+        lifetime_used_bytes=getattr(remote, "lifetime_used_bytes", None),
+        live=True,
+        note=None,
+    )
+    return out
 
 
 def _device(row: dict) -> dict:

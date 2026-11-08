@@ -94,8 +94,7 @@ def _register(prefix: str, dep) -> None:
 
     @router.get(f"{base}/presence", response_model=PresenceOut, name=f"presence_{role}")
     async def presence(t: T, session: Session):
-        panel = await session.get(Panel, t.account.panel_id) if t.account.panel_id else None
-        return tools.presence(t.account, t.role, panel)
+        return await tools.presence(session, t.account, t.role)
 
     @router.post(f"{base}/suspend", response_model=VpnAccountOut, name=f"suspend_{role}")
     async def suspend(body: ReasonIn, t: T, session: Session):

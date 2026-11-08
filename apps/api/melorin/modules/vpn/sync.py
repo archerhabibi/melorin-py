@@ -95,10 +95,7 @@ async def apply_remote(
         account.expires_at = None  # a full PanelAccount without expiry = the panel shows unlimited time
     account.subscription_url, account.links = _g(remote, "subscription_url"), _g(remote, "links")
     account.remote_status = remote_status
-    if _g(remote, "online_at") is not None:
-        account.online_at = remote.online_at
-    if _g(remote, "lifetime_used_bytes") is not None:
-        account.lifetime_used_traffic = remote.lifetime_used_bytes
+    # R7: ``online_at`` / ``lifetime_used_traffic`` are no longer copied; "last seen" is read live (account_tools.presence).
     account.last_synced_at, account.sync_error_count = now, 0
     if account.queued_plan:  # PG-09: a prepaid package that the panel no longer reports as queued has started
         from melorin.modules.vpn import plans  # local import: plans builds on this module
