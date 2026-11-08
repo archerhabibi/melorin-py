@@ -35,7 +35,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 
 <!-- BEGIN GENERATED ROUTES (scripts/gen_docs.py) -->
 
-### `admin` (153)
+### `admin` (158)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -94,6 +94,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | POST | `/api/v1/admin/panel-admins/sync` | Sync Panel Admins |
 | GET | `/api/v1/admin/panel-admins/{row_id}/credentials` | Credentials |
 | POST | `/api/v1/admin/panel-admins/{row_id}/reset-password` | Reset Password |
+| GET | `/api/v1/admin/panel-backups` | Panel Backups |
 | GET | `/api/v1/admin/panel-orphans` | Panel Orphans |
 | POST | `/api/v1/admin/panel-orphans/{orphan_id}/ignore` | Ignore Orphan |
 | GET | `/api/v1/admin/panels` | Panels |
@@ -109,6 +110,8 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | POST | `/api/v1/admin/panels/{panel_id}/events/retry-failed` | Panel Events Retry Failed |
 | GET | `/api/v1/admin/panels/{panel_id}/events/status` | Panel Events Status |
 | POST | `/api/v1/admin/panels/{panel_id}/health` | Panel Health |
+| PUT | `/api/v1/admin/panels/{panel_id}/lifecycle-policy` | Lifecycle Policy |
+| GET | `/api/v1/admin/panels/{panel_id}/metrics` | Panel Readings |
 | GET | `/api/v1/admin/panels/{panel_id}/nodes` | Panel Nodes |
 | GET | `/api/v1/admin/panels/{panel_id}/ops` | Ops Overview |
 | POST | `/api/v1/admin/panels/{panel_id}/ops/cores/{core_id}/restart` | Ops Core Restart |
@@ -117,6 +120,8 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | POST | `/api/v1/admin/panels/{panel_id}/ops/{family}/toggle` | Ops Toggle |
 | POST | `/api/v1/admin/panels/{panel_id}/reconcile` | Reconcile Panel Now |
 | POST | `/api/v1/admin/panels/{panel_id}/servers/from-targets` | Create Servers From Targets |
+| GET | `/api/v1/admin/panels/{panel_id}/settings-drift` | Drift Last |
+| POST | `/api/v1/admin/panels/{panel_id}/settings-drift/check` | Drift Check |
 | POST | `/api/v1/admin/panels/{panel_id}/state` | Set Panel State |
 | GET | `/api/v1/admin/panels/{panel_id}/subscription-check` | Subscription Check Last |
 | POST | `/api/v1/admin/panels/{panel_id}/subscription-check` | Subscription Check Run |

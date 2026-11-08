@@ -20,6 +20,13 @@ Commits containing `[skip changelog]` and the bot's own commits are skipped.
 If `main` is protected, allow `github-actions[bot]` to bypass so the bot can push the log.
 
 
+## 2026-11-08 - PasarGuard Phase 5: panel metrics and alerts, settings drift, panel backup (PG-14, PG-15, PG-16)
+- **Area:** vpn / admin / worker / infra / scripts / admin-web / docs / tests
+- **Before:** Prometheus saw nothing about the panels; nobody noticed when the panel's settings (webhook, subscription prefix, auto-delete of expired users) drifted from what Melorin needs; the panel had no scheduled backup.
+- **Problem:** a panel with failing nodes, slow API or full disk was found by customers; a panel that auto-deletes expired users made renewable accounts look "missing"; the worker's `pg_dump` 16 cannot dump the panel's PostgreSQL 17.
+- **Action:** snapshot-based panel gauges and 9 alert rules, read-only settings drift check with an explicit lifecycle policy (audited), daily encrypted panel backup with its own age series, `pg_dump` 17 in the worker image, admin tab "شاخص و پشتیبان", Runbook "Panel lost" procedure, migration 0050. See `docs/PANEL-OPS-PHASE5.md`.
+- **After:** backend and admin-web tests pass; nothing is written to a panel by this phase.
+
 ## 2026-11-07 - PasarGuard Phase 4: operations console, bulk operations, store governance, subscription check (PG-07, PG-11, PG-12, PG-13)
 - **Area:** vpn / adapters / admin / worker / admin-web / docs / tests
 - **Before:** no way to see why a node fails or act on it from Melorin; no safe way to compensate or disable many accounts; store admins had no cap or usage view; subscription address mismatches were found by customers.

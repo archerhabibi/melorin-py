@@ -1072,6 +1072,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/panel-backups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Panel Backups */
+        get: operations["panel_backups_api_v1_admin_panel_backups_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/panel-orphans": {
         parameters: {
             query?: never;
@@ -1307,6 +1324,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/panels/{panel_id}/lifecycle-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Lifecycle Policy
+         * @description Choose what Melorin expects of the panel's auto-delete of expired users (audited). Changes Melorin's expectation only.
+         */
+        put: operations["lifecycle_policy_api_v1_admin_panels__panel_id__lifecycle_policy_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/panels/{panel_id}/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Panel Readings
+         * @description The last live reading of the panel (what the Prometheus gauges are built from) plus its node counts.
+         */
+        get: operations["panel_readings_api_v1_admin_panels__panel_id__metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/panels/{panel_id}/nodes": {
         parameters: {
             query?: never;
@@ -1440,6 +1497,43 @@ export interface paths {
         put?: never;
         /** Create Servers From Targets */
         post: operations["create_servers_from_targets_api_v1_admin_panels__panel_id__servers_from_targets_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/panels/{panel_id}/settings-drift": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Drift Last */
+        get: operations["drift_last_api_v1_admin_panels__panel_id__settings_drift_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/panels/{panel_id}/settings-drift/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Drift Check
+         * @description Read the panel's settings now and compare. Read-only: no setting is written to the panel.
+         */
+        post: operations["drift_check_api_v1_admin_panels__panel_id__settings_drift_check_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7002,6 +7096,16 @@ export interface components {
              */
             transaction_id: string;
         };
+        /** LifecyclePolicyIn */
+        LifecyclePolicyIn: {
+            /**
+             * Policy
+             * @enum {string}
+             */
+            policy: "keep" | "aligned";
+            /** Reason */
+            reason: string;
+        };
         /** LinkCodeOut */
         LinkCodeOut: {
             /** Code */
@@ -10867,6 +10971,26 @@ export interface operations {
             };
         };
     };
+    panel_backups_api_v1_admin_panel_backups_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
     panel_orphans_api_v1_admin_panel_orphans_get: {
         parameters: {
             query?: {
@@ -11348,6 +11472,72 @@ export interface operations {
             };
         };
     };
+    lifecycle_policy_api_v1_admin_panels__panel_id__lifecycle_policy_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                panel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LifecyclePolicyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    panel_readings_api_v1_admin_panels__panel_id__metrics_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                panel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     panel_nodes_api_v1_admin_panels__panel_id__nodes_get: {
         parameters: {
             query?: never;
@@ -11598,6 +11788,68 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    drift_last_api_v1_admin_panels__panel_id__settings_drift_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                panel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    drift_check_api_v1_admin_panels__panel_id__settings_drift_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                panel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

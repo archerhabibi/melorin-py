@@ -2897,6 +2897,30 @@
         "title": "LedgerEntryOut",
         "type": "object"
       },
+      "LifecyclePolicyIn": {
+        "properties": {
+          "policy": {
+            "enum": [
+              "keep",
+              "aligned"
+            ],
+            "title": "Policy",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 300,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "policy",
+          "reason"
+        ],
+        "title": "LifecyclePolicyIn",
+        "type": "object"
+      },
       "LinkCodeOut": {
         "properties": {
           "code": {
@@ -11512,6 +11536,30 @@
         ]
       }
     },
+    "/api/v1/admin/panel-backups": {
+      "get": {
+        "operationId": "panel_backups_api_v1_admin_panel_backups_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Panel Backups",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/admin/panel-orphans": {
       "get": {
         "operationId": "panel_orphans_api_v1_admin_panel_orphans_get",
@@ -12357,6 +12405,110 @@
         ]
       }
     },
+    "/api/v1/admin/panels/{panel_id}/lifecycle-policy": {
+      "put": {
+        "description": "Choose what Melorin expects of the panel's auto-delete of expired users (audited). Changes Melorin's expectation only.",
+        "operationId": "lifecycle_policy_api_v1_admin_panels__panel_id__lifecycle_policy_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LifecyclePolicyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Lifecycle Policy",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/panels/{panel_id}/metrics": {
+      "get": {
+        "description": "The last live reading of the panel (what the Prometheus gauges are built from) plus its node counts.",
+        "operationId": "panel_readings_api_v1_admin_panels__panel_id__metrics_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Panel Readings",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/admin/panels/{panel_id}/nodes": {
       "get": {
         "operationId": "panel_nodes_api_v1_admin_panels__panel_id__nodes_get",
@@ -12808,6 +12960,99 @@
           }
         ],
         "summary": "Create Servers From Targets",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/panels/{panel_id}/settings-drift": {
+      "get": {
+        "operationId": "drift_last_api_v1_admin_panels__panel_id__settings_drift_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Drift Last",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/panels/{panel_id}/settings-drift/check": {
+      "post": {
+        "description": "Read the panel's settings now and compare. Read-only: no setting is written to the panel.",
+        "operationId": "drift_check_api_v1_admin_panels__panel_id__settings_drift_check_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Drift Check",
         "tags": [
           "admin"
         ]

@@ -647,3 +647,11 @@ async def test_phase5_http_flow(monkeypatch):
         missing = await c.get(f"{BASE}/panels/00000000-0000-0000-0000-0000000000aa/settings-drift", headers=h)
         assert missing.status_code == 404
         assert adapter.writes == []
+
+
+def test_worker_image_can_dump_the_newer_panel_database():
+    """The panel's TimescaleDB is PostgreSQL 17 and Melorin's own is 16: pg_dump refuses a server newer than itself, so both clients ship."""
+    dockerfile = (ROOT / "apps" / "api" / "Dockerfile").read_text(encoding="utf-8")
+    assert "postgresql-client-16" in dockerfile and "postgresql-client-17" in dockerfile
+    env_example = (ROOT / ".env.example").read_text(encoding="utf-8")
+    assert "MELORIN_PANEL_BACKUP_DATABASE_URL" in env_example and "MELORIN_PANEL_BACKUP_PATHS" in env_example

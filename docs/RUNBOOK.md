@@ -193,3 +193,19 @@ Packages pushed by a workflow are private by default; keep them private. To go b
 
 ## PasarGuard operations (Phase 4)
 Node errors, outage compensation, bulk disable/enable and store suspension policy are described in `docs/PANEL-OPS-PHASE4.md`.
+
+## Panel lost: how Melorin converges (PasarGuard Phase 5, PG-16)
+Use this when the PasarGuard panel (not Melorin) is gone, reinstalled or restored from an old copy.
+
+1. **Stop the damage.** In Admin -> Panels -> "عملیات" pause selling on the affected server (disable the server or its products). Existing customers keep their data in Melorin.
+2. **Restore the panel.** Take the newest `panel-*.tar.age` from the backup directory (or the S3 copy), decrypt it with the age identity kept OFF the server, then
+   `tar -xf` it and restore `panel-db.dump` with `pg_restore --clean --if-exists --no-owner -d <panel database>` using the panel database's own port, and unpack `panel-data.tar` over the panel's data directory.
+   Start the panel and open it once to confirm users, nodes and the owner admin exist.
+3. **Check the connection.** Panels -> test connection; the credential Melorin uses (API key or service admin, PG-05) may have to be re-created if the restore predates it.
+4. **Let reconcile converge.** Run "بررسی مجدد" or wait for the hourly reconcile: accounts created after the backup show as `missing_on_panel` issues (use "re-create on panel"
+   or archive); users that exist only on the panel show up under "کاربران ناشناس" (import or ignore, never auto-deleted). Store admins are rebuilt by `panel_admin_sync_job` within a minute.
+5. **Verify settings.** Open the "شاخص و پشتیبان" tab and press "بررسی اکنون": fix webhook, subscription prefix and auto-delete drift on the panel side (Melorin writes no setting without your confirmation). Reconnect live events if needed.
+6. **Prove the backup next time.** Run `BACKUP_ARCHIVE=... BACKUP_IDENTITY_FILE=... scripts/verify_panel_backup.sh` (non-destructive) after any change and at least monthly.
+7. **Re-enable selling** once nodes are `connected` and the capacity/health view is green, then confirm a fresh panel backup runs the next day (`melorin_backup_age_seconds{target="panel"}`).
+
+If the backup is stale or not configured, the admin tab says so and alert `MelorinPanelBackupStale` fires. See `docs/PANEL-OPS-PHASE5.md`.
