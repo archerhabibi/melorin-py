@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError
+from melorin.domain.product_snapshot import product_snapshot as _product_snapshot
 from melorin.domain import coupon as cdom
 from melorin.domain.pricing import Discount, PricingError, Quote, quote
 from melorin.kernel.models.catalog import Coupon, CouponRedemption, Product, StoreBundlePrice, StoreProduct
@@ -214,14 +215,7 @@ async def build_quote(
 
 
 def product_snapshot(p: Product) -> dict:
-    return {
-        "id": str(p.id),
-        "code": p.code,
-        "name": p.name,
-        "duration_days": p.duration_days,
-        "traffic_gb": p.traffic_gb,
-        "max_devices": p.max_devices,
-    }
+    return _product_snapshot(p)
 
 
 async def check_coupon_products(session: AsyncSession, store: Store | None, product_ids) -> None:

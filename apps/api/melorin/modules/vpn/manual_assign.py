@@ -26,13 +26,13 @@ from melorin.core import audit, codes
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError, NotFound
 from melorin.domain.order_kinds import MANUAL
+from melorin.domain.product_snapshot import product_snapshot
 from melorin.domain.order_state import OrderStatus, VpnStatus
 from melorin.kernel.models.catalog import Product
 from melorin.kernel.models.identity import User
 from melorin.kernel.models.orders import Order, OrderStateTransition
 from melorin.kernel.models.stores import Store, StoreMembership
 from melorin.kernel.models.vpn import Panel, PanelAdmin, PanelOrphan, Server, VpnAccount
-from melorin.modules.catalog import service as catalog
 from melorin.modules.vpn import inquiry, sync
 from melorin.modules.vpn.adapters.base import PanelError
 from melorin.modules.vpn.adapters.registry import build_adapter
@@ -141,7 +141,7 @@ async def assign_orphan(
             "orphan_id": str(orphan.id),
             "assigned_by": str(admin.id),
         },
-        product_snapshot=catalog.product_snapshot(product),
+        product_snapshot=product_snapshot(product),
         idempotency_key=f"manual:{orphan.id}",  # one assignment per panel user; a repeat cannot create a second order
         paid_at=now,
         completed_at=now,
