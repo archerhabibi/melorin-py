@@ -2,18 +2,26 @@
 {#-
   Melorin base subscription page for PasarGuard (Jinja). Installed BY THE PANEL OPERATOR, never written by Melorin (stores cannot supply
   HTML: a store-chosen template would run on the shared subscription domain = XSS). It only READS three optional per-store values that
-  Melorin writes into the store admin's custom_variables: melorin_brand_name, melorin_support_url, melorin_logo_url.
+  Melorin writes into the store admin's custom_variables: MELORIN_BRAND_NAME, MELORIN_SUPPORT_URL, MELORIN_LOGO_URL.
+
+  Where they come from (read in the panel's 5.6.0 source): the page context holds `user`, `links`, `announce`, `announce_url`, `apps`.
+  `user.admin` is the owning admin and its `custom_variables` is a LIST of {key, value} whose keys the panel UPPER-CASES. A plain
+  `custom_variables` or `admin` name does not exist at top level, so the loop below goes through `user.admin`.
 
   Safety: no script, no external request, every value is escaped with |e, links/logo are re-checked here (https / tg only).
-  Missing variables -> neutral page, nothing breaks.
-
-  UNVERIFIED: PasarGuard docs do not say under which name custom_variables reach a template. Both `admin.custom_variables` and
-  `custom_variables` are tried below; confirm on a test panel (docs/PANEL-MEDIATOR-REWORK.md, "Subscription branding").
+  Missing admin or variables -> neutral page, nothing breaks.
 -#}
-{%- set cv = (admin.custom_variables if (admin is defined and admin) else None) or (custom_variables if custom_variables is defined else None) or {} -%}
-{%- set brand = (cv.get('melorin_brand_name') or '')|string|trim -%}
-{%- set support = (cv.get('melorin_support_url') or '')|string|trim -%}
-{%- set logo = (cv.get('melorin_logo_url') or '')|string|trim -%}
+{%- set ns = namespace(brand='', support='', logo='') -%}
+{%- if user is defined and user.admin is defined and user.admin -%}
+{%- for v in (user.admin.custom_variables or []) -%}
+{%- if v.key == 'MELORIN_BRAND_NAME' %}{% set ns.brand = (v.value or '')|string|trim %}{% endif -%}
+{%- if v.key == 'MELORIN_SUPPORT_URL' %}{% set ns.support = (v.value or '')|string|trim %}{% endif -%}
+{%- if v.key == 'MELORIN_LOGO_URL' %}{% set ns.logo = (v.value or '')|string|trim %}{% endif -%}
+{%- endfor -%}
+{%- endif -%}
+{%- set brand = ns.brand -%}
+{%- set support = ns.support -%}
+{%- set logo = ns.logo -%}
 <html lang="fa" dir="rtl">
 <head>
 <meta charset="utf-8">

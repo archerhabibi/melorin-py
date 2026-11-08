@@ -4,7 +4,7 @@ What the store owner edits: three plain fields kept in ``stores.branding["sub"]`
 ``logo_url``. Saving them changes NOTHING on a panel (decision 3: Melorin does not write panel settings on its own).
 
 What "apply" does: with the panel name typed as confirmation, it writes exactly three keys into the ``custom_variables`` of THAT store's
-panel admin (``melorin_brand_name`` / ``melorin_support_url`` / ``melorin_logo_url``) and leaves every other key the panel holds alone.
+panel admin (``MELORIN_BRAND_NAME`` / ``MELORIN_SUPPORT_URL`` / ``MELORIN_LOGO_URL``; the panel upper-cases keys) and leaves every other key alone.
 It reads the admin back afterwards and only reports success when the panel really kept the values; otherwise it restores what it saw
 before. ``revert`` removes the three keys. Both record an audit event with key names and a digest, never the values.
 
@@ -12,8 +12,10 @@ What Melorin never does: it does not write ``sub_template`` or any HTML. A store
 (XSS), so the template stays what the panel operator installed; it only has to read the three variables above. Values are checked here
 (plain text, no markup, https/tg links only) because the panel's page may print them.
 
-Not verified live: PasarGuard 5.6.0 accepts ``custom_variables`` on ``AdminModify`` (contract fixture) but its docs do not say how a page
-reads them, so the read-back check above is the only proof; the first real apply should be done on a test store.
+How a page reads them (verified in the panel's 5.6.0 source, 9 Nov 2026; the public docs are silent): the subscription page template gets
+only ``user``, ``links``, ``announce``, ``announce_url``, ``apps``. ``user.admin`` is the owning admin (``AdminContactInfo``) and its
+``custom_variables`` is a LIST of ``{key, value}`` with UPPER-CASE keys, so ``infra/sub-template/index.html`` loops over it. The panel's
+wire format is that same list (an object is refused with 422).
 """
 
 from __future__ import annotations
@@ -37,9 +39,12 @@ from melorin.modules.vpn.adapters.base import ErrorKind, PanelError
 log = logging.getLogger("melorin.vpn.sub_branding")
 
 FIELDS = ("display_name", "support_url", "logo_url")
-VARIABLES = {"display_name": "melorin_brand_name", "support_url": "melorin_support_url", "logo_url": "melorin_logo_url"}
+# The panel upper-cases custom-variable keys, so these are the names it really stores and the template really reads.
+VARIABLES = {"display_name": "MELORIN_BRAND_NAME", "support_url": "MELORIN_SUPPORT_URL", "logo_url": "MELORIN_LOGO_URL"}
 LIMITS = {"display_name": 64, "support_url": 512, "logo_url": 512}
-_UNSAFE = re.compile(r"[<>\"'`\\\x00-\x1f\x7f]")
+# ``{`` and ``}`` are refused too: the panel runs ``str.format_map`` over every custom value, so a brace would be read as a panel
+# placeholder (``{url}``, ``{username}``) or break the value.
+_UNSAFE = re.compile(r"[<>\"'`\\{}\x00-\x1f\x7f]")
 _IMG = (".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif")
 
 

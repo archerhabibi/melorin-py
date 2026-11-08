@@ -183,7 +183,7 @@ async def _exercise_everything() -> list[dict]:
     )
     await a.update_admin_profile(9, {"profile_title": "t", "telegram_id": 5}, password="pw2")
     await a.read_custom_variables("store-1")
-    await a.write_custom_variables(9, {"melorin_brand_name": "x"})
+    await a.write_custom_variables(9, {"MELORIN_BRAND_NAME": "x"})
     await a.list_targets()
     await a.list_nodes()
     await a.get_node(1)

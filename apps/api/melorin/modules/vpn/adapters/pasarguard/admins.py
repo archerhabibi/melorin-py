@@ -57,17 +57,27 @@ class AdminsMixin:
 
     @staticmethod
     def parse_custom_variables(raw) -> dict:
-        """The admin's ``custom_variables`` as a flat ``{str: str}`` dict. The panel may hand it over as an object or as a JSON string."""
+        """The admin's ``custom_variables`` as a flat ``{KEY: value}`` dict with UPPER-CASE keys.
+
+        PasarGuard 5.6.0 keeps a LIST of ``{"key", "value"}`` (``CustomVariable``) and upper-cases every key (read from the panel's own
+        models, 9 Nov 2026). An object or a JSON string is still tolerated so an older/other build cannot break a read.
+        """
         import json
 
         if isinstance(raw, str):
             try:
-                raw = json.loads(raw) if raw.strip() else {}
+                raw = json.loads(raw) if raw.strip() else []
             except ValueError:
                 return {}
-        if not isinstance(raw, dict):
-            return {}
-        return {str(k): str(v) for k, v in raw.items() if isinstance(v, str | int | float)}
+        out: dict[str, str] = {}
+        if isinstance(raw, list):
+            for item in raw:
+                if isinstance(item, dict) and item.get("key") and isinstance(item.get("value", ""), str | int | float):
+                    out[str(item["key"]).strip().upper()] = str(item.get("value", ""))
+            return out
+        if isinstance(raw, dict):
+            return {str(k).strip().upper(): str(v) for k, v in raw.items() if isinstance(v, str | int | float)}
+        return {}
 
     async def read_custom_variables(self, username: str) -> dict | None:
         """What the panel holds in the admin's ``custom_variables`` now (``None`` when the admin does not exist). Read-only."""
@@ -75,8 +85,12 @@ class AdminsMixin:
         return None if admin is None else self.parse_custom_variables(admin.get("custom_variables"))
 
     async def write_custom_variables(self, remote_id: int, variables: dict[str, str]) -> dict:
-        """Replace the admin's ``custom_variables`` with exactly ``variables`` (callers merge first). Touches nothing else."""
-        return await self._req("PUT", f"/api/admin/by-id/{int(remote_id)}", json={"custom_variables": dict(variables)})
+        """Replace the admin's ``custom_variables`` with exactly ``variables`` (callers merge first). Touches nothing else.
+
+        Wire format: a list of ``{"key", "value"}``. An object is refused by the panel with 422 ``list_type`` (checked against 5.6.0).
+        """
+        body = [{"key": str(k).strip().upper(), "value": str(v)} for k, v in sorted(variables.items())]
+        return await self._req("PUT", f"/api/admin/by-id/{int(remote_id)}", json={"custom_variables": body})
 
     async def bulk_set_owner(self, refs: list[str], owner: str) -> int:
         """Move existing users (panel ids) under ``owner``; chunked, idempotent."""

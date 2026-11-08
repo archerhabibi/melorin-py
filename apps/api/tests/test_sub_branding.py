@@ -37,6 +37,9 @@ def test_clean_accepts_plain_text_and_https_links_and_refuses_markup():
         {"support_url": "https://user:pw@example.com"},
         {"logo_url": "https://cdn.example.com/logo.html"},
         {"logo_url": "data:image/png;base64,AAAA"},
+        {"display_name": "{url}"},  # the panel would expand it as a placeholder
+        {"display_name": "a{b"},
+        {"support_url": "https://x.example.com/{username}"},
         {"sub_template": "<html>"},  # Melorin never takes a template from a store
         {"custom_variables": {"a": "b"}},
     ):
@@ -55,10 +58,44 @@ def test_save_keeps_other_branding_keys_and_empty_removes_the_block():
     assert sub_branding.wanted_variables(store) == {}
 
 
-def test_parse_custom_variables_handles_object_string_and_junk():
+def test_parse_custom_variables_reads_the_panels_list_and_tolerates_other_shapes():
     p = PasarGuardAdapter.parse_custom_variables
-    assert p({"a": "1", "b": 2, "c": {"x": 1}}) == {"a": "1", "b": "2"}
-    assert p('{"a": "1"}') == {"a": "1"} and p("") == {} and p("not json") == {} and p(None) == {}
+    # PasarGuard 5.6.0: a list of {key, value}, keys upper-cased
+    assert p([{"key": "melorin_brand_name", "value": "A"}, {"key": "THEME", "value": "dark"}, {"key": "", "value": "x"}, "junk"]) == {
+        "MELORIN_BRAND_NAME": "A",
+        "THEME": "dark",
+    }
+    assert p('[{"key": "a", "value": "1"}]') == {"A": "1"} and p([]) == {}
+    # tolerated, never produced by 5.6.0
+    assert p({"a": "1", "b": 2, "c": {"x": 1}}) == {"A": "1", "B": "2"}
+    assert p('{"a": "1"}') == {"A": "1"} and p("") == {} and p("not json") == {} and p(None) == {}
+
+
+@pytest.mark.asyncio
+async def test_write_custom_variables_sends_the_list_the_panel_accepts_not_an_object(monkeypatch):
+    """PasarGuard 5.6.0 answers 422 ``list_type`` to an object. The wire body must be a sorted list of upper-case {key, value}."""
+    a = PasarGuardAdapter("https://p.example.com", {"username": "admin", "password": "pw"}, {})
+    seen: dict = {}
+
+    async def fake_req(method, path, **kw):
+        seen.update(method=method, path=path, **kw)
+        return {}
+
+    monkeypatch.setattr(a, "_req", fake_req)
+    await a.write_custom_variables(7, {"melorin_support_url": "https://t.me/a", "MELORIN_BRAND_NAME": "Arash"})
+    assert seen["method"] == "PUT" and seen["path"] == "/api/admin/by-id/7"
+    assert seen["json"] == {
+        "custom_variables": [
+            {"key": "MELORIN_BRAND_NAME", "value": "Arash"},
+            {"key": "MELORIN_SUPPORT_URL", "value": "https://t.me/a"},
+        ]
+    }
+    await a.write_custom_variables(7, {})  # clearing = an empty list, still a list
+    assert seen["json"] == {"custom_variables": []}
+
+
+def test_our_variable_names_are_already_in_the_form_the_panel_stores():
+    assert all(v == v.upper() and v.startswith("MELORIN_") for v in sub_branding.VARIABLES.values())
 
 
 # ------------------------------------------------------------------------------------------------ apply / revert (fake panel)
@@ -113,17 +150,17 @@ async def _use(maker, monkeypatch, fake):
 
 @pytest.mark.asyncio
 async def test_apply_writes_only_our_three_keys_keeps_foreign_ones_and_audits_without_values(maker, monkeypatch):
-    fake = FakeAdmin({"theme": "dark", "melorin_brand_name": "old"})
+    fake = FakeAdmin({"THEME": "dark", "MELORIN_BRAND_NAME": "old"})
     pid, sid = await _use(maker, monkeypatch, fake)
     async with maker() as s:
         panel, store = await s.get(Panel, pid), await s.get(Store, sid)
         pre = await sub_branding.preview(s, store, panel)
         assert (
-            pre["live"] and pre["in_sync"] is False and pre["other_keys_kept"] == ["theme"] and fake.writes == []
+            pre["live"] and pre["in_sync"] is False and pre["other_keys_kept"] == ["THEME"] and fake.writes == []
         )  # preview writes nothing
         out = await sub_branding.apply(s, store, panel, actor_id=None)
         assert out["applied"] and out["changed"] and set(out["keys"]) == OURS
-        assert fake.vars["theme"] == "dark" and fake.vars["melorin_brand_name"] == "Arash VPN" and OURS <= set(fake.vars)
+        assert fake.vars["THEME"] == "dark" and fake.vars["MELORIN_BRAND_NAME"] == "Arash VPN" and OURS <= set(fake.vars)
         assert (await sub_branding.preview(s, store, panel))["in_sync"] is True
         events = (await s.scalars(select(AuditEvent).where(AuditEvent.action == "panel.sub_branding.applied"))).all()
         assert len(events) == 1 and "Arash" not in json.dumps(events[0].data) and "t.me" not in json.dumps(events[0].data)
@@ -134,14 +171,14 @@ async def test_apply_writes_only_our_three_keys_keeps_foreign_ones_and_audits_wi
 
 @pytest.mark.asyncio
 async def test_apply_restores_the_previous_values_when_the_panel_does_not_keep_them(maker, monkeypatch):
-    fake = FakeAdmin({"theme": "dark"}, keep=False)
+    fake = FakeAdmin({"THEME": "dark"}, keep=False)
     pid, sid = await _use(maker, monkeypatch, fake)
     async with maker() as s:
         panel, store = await s.get(Panel, pid), await s.get(Store, sid)
         with pytest.raises(AppError) as e:
             await sub_branding.apply(s, store, panel)
         assert e.value.code == "BRANDING_APPLY_FAILED"
-        assert fake.writes[-1] == {"theme": "dark"}  # the restore was attempted
+        assert fake.writes[-1] == {"THEME": "dark"}  # the restore was attempted
         assert "sub_applied" not in (store.branding or {})
 
 
@@ -180,14 +217,14 @@ async def test_apply_needs_something_to_apply_and_a_ready_store_admin(maker, mon
 
 @pytest.mark.asyncio
 async def test_revert_removes_only_our_keys(maker, monkeypatch):
-    fake = FakeAdmin({"theme": "dark"})
+    fake = FakeAdmin({"THEME": "dark"})
     pid, sid = await _use(maker, monkeypatch, fake)
     async with maker() as s:
         panel, store = await s.get(Panel, pid), await s.get(Store, sid)
         await sub_branding.apply(s, store, panel)
         out = await sub_branding.revert(s, store, panel)
         assert out["applied"] is False and set(out["removed"]) == OURS
-        assert fake.vars == {"theme": "dark"} and "sub_applied" not in (store.branding or {})
+        assert fake.vars == {"THEME": "dark"} and "sub_applied" not in (store.branding or {})
 
 
 @pytest.mark.asyncio
