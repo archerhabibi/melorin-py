@@ -574,6 +574,34 @@ async def put_store_vpn_notice_texts(store_id: uuid.UUID, body: NoticeTextsIn, a
     return NoticeTextsOut(store_id=store.id, texts=texts)
 
 
+class DigestIn(BaseModel):
+    enabled: bool
+
+
+@router.put("/stores/{store_id}/vpn-digest")
+async def put_store_vpn_digest(store_id: uuid.UUID, body: DigestIn, admin: AdminUser, session: Session):
+    """PG-06: switch the store owner's daily VPN digest on/off (off by default; a day with nothing to report sends nothing)."""
+    store = await session.get(Store, store_id)
+    if not store:
+        raise NotFound("فروشگاه")
+    settings = {**(store.vpn_notice_settings or {})}
+    before = settings.get("daily_digest") is True
+    settings["daily_digest"] = bool(body.enabled)
+    store.vpn_notice_settings = settings
+    audit.record(
+        session,
+        "store.vpn_digest.updated",
+        actor_id=admin.id,
+        actor_type="admin",
+        entity_type="store",
+        entity_id=store.id,
+        store_id=store.id,
+        data={"before": before, "after": bool(body.enabled)},
+    )
+    await session.commit()
+    return {"store_id": str(store.id), "daily_digest": bool(body.enabled), "has_owner": store.owner_user_id is not None}
+
+
 @router.delete("/stores/{store_id}/vpn-notices", response_model=NoticeSettingsOut)
 async def reset_store_vpn_notices(store_id: uuid.UUID, admin: AdminUser, session: Session):
     """Back to the platform defaults."""

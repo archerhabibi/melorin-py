@@ -35,7 +35,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 
 <!-- BEGIN GENERATED ROUTES (scripts/gen_docs.py) -->
 
-### `admin` (164)
+### `admin` (167)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -186,6 +186,9 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | PUT | `/api/v1/admin/stores/{store_id}/receipt-review/settings` | Receipt Review Settings |
 | POST | `/api/v1/admin/stores/{store_id}/receipt-review/{payment_id}` | Receipt Review Resolve |
 | GET | `/api/v1/admin/stores/{store_id}/reseller-prices` | Reseller Store Prices |
+| PUT | `/api/v1/admin/stores/{store_id}/vpn-digest` | Put Store Vpn Digest |
+| GET | `/api/v1/admin/stores/{store_id}/vpn-notice-texts` | Get Store Vpn Notice Texts |
+| PUT | `/api/v1/admin/stores/{store_id}/vpn-notice-texts` | Put Store Vpn Notice Texts |
 | GET | `/api/v1/admin/stores/{store_id}/vpn-notices` | Get Store Vpn Notices |
 | PUT | `/api/v1/admin/stores/{store_id}/vpn-notices` | Put Store Vpn Notices |
 | DELETE | `/api/v1/admin/stores/{store_id}/vpn-notices` | Reset Store Vpn Notices |

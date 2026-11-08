@@ -26,6 +26,7 @@ from melorin.worker.jobs import (
     store_governance_job,
     panel_event_purge_job,
     panel_health_job,
+    store_digest_job,
     panel_metrics_job,
     panel_settings_drift_job,
     panel_backup_job,
@@ -66,6 +67,7 @@ class WorkerSettings:
         poll_tick,
         backup_job,
         daily_report_job,
+        store_digest_job,
         panel_health_job,
         panel_metrics_job,
         panel_settings_drift_job,
@@ -91,6 +93,7 @@ class WorkerSettings:
         cron(backup_job, hour=2, minute=0, unique=True, timeout=900),
         # 20:30 UTC = 00:00 Tehran: the nightly Event Center report of the day that just ended.
         cron(daily_report_job, hour=20, minute=30, unique=True),
+        cron(store_digest_job, hour=17, minute=0, unique=True),
         cron(panel_health_job, minute=set(range(0, 60, 2)), unique=True),
         cron(panel_metrics_job, minute=set(range(1, 60, 2)), unique=True),
         cron(panel_settings_drift_job, minute=25, unique=True),

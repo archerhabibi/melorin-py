@@ -136,6 +136,16 @@ async def daily_report_job(ctx=None):
     return queued
 
 
+async def store_digest_job(ctx=None):
+    """Daily: the opt-in digest for store owners (PG-06). Says only what Melorin owns (notices sent, open discrepancies, sell blocks)."""
+    from melorin.modules.vpn import digest
+
+    async with session_factory()() as session:
+        queued = await digest.run(session)
+        await session.commit()
+    return queued
+
+
 async def panel_health_job(ctx=None):
     """Every 2 minutes: panel health in two layers (PG-01). The panel must answer AND have a connected node; a failing node
     alone makes the panel ``degraded`` (still selling), no connected node makes it ``unhealthy`` (leaves server selection)."""
