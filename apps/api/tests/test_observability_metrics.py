@@ -164,7 +164,7 @@ def _emitted_metric_names() -> set[str]:
     for path in (ROOT / "apps" / "api" / "melorin").rglob("*.py"):
         src = path.read_text()
         names |= set(re.findall(r'(?:inc|observe|set_gauge)\(\s*"(melorin_[a-z_]+)"', src))
-        if path.name == "business_metrics.py":
+        if path.name in ("business_metrics.py", "panel_metrics.py"):  # collectors that declare their gauges as constants
             names |= set(re.findall(r'"(melorin_[a-z_]+)"', src))
     return names
 

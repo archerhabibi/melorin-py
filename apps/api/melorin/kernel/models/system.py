@@ -87,3 +87,5 @@ class BackupRun(IdMixin, CreatedMixin, Base):
     location: Mapped[str | None] = mapped_column(String(300))
     size: Mapped[int | None] = mapped_column(BigInteger)
     details: Mapped[str | None] = mapped_column(Text)
+    # PG-16: what was backed up. ``melorin`` = Melorin's own database; ``panel`` = the PasarGuard panel's database + data directory.
+    target: Mapped[str] = mapped_column(String(12), default="melorin", server_default="melorin", index=True)
