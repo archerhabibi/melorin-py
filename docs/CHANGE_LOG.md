@@ -20,6 +20,13 @@ Commits containing `[skip changelog]` and the bot's own commits are skipped.
 If `main` is protected, allow `github-actions[bot]` to bypass so the bot can push the log.
 
 
+## 2026-11-09 - PG-12: screens for store usage report and subscription branding (store-web, admin-web)
+- **Area:** store-web / admin-web / tests
+- **Before:** the usage-report API (`/reseller/usage-report`), the branding fields API (`/reseller/sub-branding`) and the admin apply/revert API existed, but no web screen used them; only the reseller bot showed the usage report.
+- **Problem:** a store owner on the site could not see usage or set the subscription-page brand, and the admin had no button for the audited "apply to panel" step.
+- **Action:** store-web: new tab "گزارش مصرف" (`ResellerUsage.jsx`: live summary, 5 top consumers, "temporarily unavailable" and no numbers when the panel does not answer, never IP/links) and a branding form under "ادمین پنل" (`ResellerSubBranding.jsx`: name, support link, logo; saves only changed fields, nothing is sent to a panel). admin-web: `SubBrandingCard.jsx` in the panel-admin drawer (shows wanted vs on-panel, apply/remove only after typing the panel name, disabled while the panel is unreachable). No backend change.
+- **After:** 4 new store-web tests (76 total) and 3 new admin-web tests (212 total) pass; the 26 backend tests of both features pass. The panel's page template reading `melorin_*` variables is still unverified on a live panel (PasarGuard docs do not describe it).
+
 ## 2026-11-08 - PG-12: `melorin-store` role as an explicit, audited admin action
 - **Area:** vpn / admin / docs / tests
 - **Before:** store panel admins used the stock `operator` role, which carries `api_keys` rights (L6); the least-privilege role existed only as a read-only plan.
