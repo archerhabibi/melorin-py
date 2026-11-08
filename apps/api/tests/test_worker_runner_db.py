@@ -432,7 +432,7 @@ async def test_rollback_renewal_restores_expiry_and_traffic_from_the_snapshot(ma
             s, {"vpn_account_id": str(a.id), "before": {"expires_at": before_exp.isoformat(), "traffic_limit_bytes": 5}}
         )
         assert adapter.extended == [("acc1", before_exp, 5)]
-        assert a.traffic_limit_bytes == 5 and a.expires_at.replace(tzinfo=dt.UTC) == before_exp
+        assert a.sold_traffic_bytes == 5 and a.sold_expires_at.replace(tzinfo=dt.UTC) == before_exp  # the sold entitlement goes back too
         # a snapshot without values rolls back to "no expiry / no limit"
         await runner.rollback_renewal(s, {"vpn_account_id": str(a.id)})
         assert adapter.extended[-1] == ("acc1", None, 0)

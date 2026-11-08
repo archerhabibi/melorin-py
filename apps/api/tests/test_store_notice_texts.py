@@ -26,8 +26,15 @@ async def maker():
 def test_texts_are_validated():
     ok = notices.normalize_texts({"vpn_expired": {"title": " T ", "body": "B {store}"}})
     assert ok == {"vpn_expired": {"title": "T", "body": "B {store}"}}
-    for bad in (None, [], {"nope": {"title": "a", "body": "b"}}, {"vpn_expired": "x"}, {"vpn_expired": {"title": "", "body": "b"}},
-                {"vpn_expired": {"title": "a" * 81, "body": "b"}}, {"vpn_expired": {"title": "a", "body": "b" * 501}}):
+    for bad in (
+        None,
+        [],
+        {"nope": {"title": "a", "body": "b"}},
+        {"vpn_expired": "x"},
+        {"vpn_expired": {"title": "", "body": "b"}},
+        {"vpn_expired": {"title": "a" * 81, "body": "b"}},
+        {"vpn_expired": {"title": "a", "body": "b" * 501}},
+    ):
         with pytest.raises(ValueError):
             notices.normalize_texts(bad)
 

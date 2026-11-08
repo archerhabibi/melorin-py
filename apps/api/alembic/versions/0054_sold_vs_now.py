@@ -22,7 +22,9 @@ def upgrade() -> None:
         batch.alter_column("expires_at", new_column_name="sold_expires_at")
         batch.alter_column("traffic_limit_bytes", new_column_name="sold_traffic_bytes")
     bind = op.get_bind()
-    rows = bind.execute(sa.text("SELECT id, subscription_url, links FROM vpn_accounts WHERE subscription_url IS NOT NULL OR links IS NOT NULL"))
+    rows = bind.execute(
+        sa.text("SELECT id, subscription_url, links FROM vpn_accounts WHERE subscription_url IS NOT NULL OR links IS NOT NULL")
+    )
     import json
 
     for row in rows.fetchall():
@@ -33,8 +35,12 @@ def upgrade() -> None:
             except ValueError:
                 links = None
         snap = {"subscription_url": row.subscription_url, "links": links, "taken_at": None}
-        bind.execute(sa.text("UPDATE vpn_accounts SET delivery_snapshot = :s WHERE id = :i").bindparams(
-            sa.bindparam("s", type_=sa.JSON()), sa.bindparam("i")), {"s": snap, "i": row.id})
+        bind.execute(
+            sa.text("UPDATE vpn_accounts SET delivery_snapshot = :s WHERE id = :i").bindparams(
+                sa.bindparam("s", type_=sa.JSON()), sa.bindparam("i")
+            ),
+            {"s": snap, "i": row.id},
+        )
     with op.batch_alter_table("vpn_accounts") as batch:
         for col in ("traffic_used_bytes", "subscription_url", "links", "remote_status", "online_at", "lifetime_used_traffic"):
             batch.drop_column(col)

@@ -15,4 +15,6 @@ def test_alert_state_and_prometheus_rules_are_wired():
     assert "def set_alert" in metrics and "def alert_snapshot" in metrics
     for alert in ("DatabaseUnavailable", "RedisUnavailable", "WorkerStale", "PanelsUnhealthy", "OutboxBacklog"):
         assert alert in health and f"Melorin{alert}" in rules
-    assert "rule_files:" in prometheus and "./infra:/etc/prometheus/infra:ro" in compose and "/etc/prometheus/infra/alerts.yml" in prometheus
+    assert (
+        "rule_files:" in prometheus and "./infra:/etc/prometheus/infra:ro" in compose and "/etc/prometheus/infra/alerts.yml" in prometheus
+    )

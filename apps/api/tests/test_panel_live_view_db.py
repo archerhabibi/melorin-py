@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from _db import open_schema_engine
@@ -49,8 +48,19 @@ async def test_flag_off_returns_the_page_untouched(maker, monkeypatch):
     _, ids = await seed(maker, ["u1"])
     use(monkeypatch, _Counting([remote("u1", used=5 * 2**30)]))
     async with maker() as s:
+        await settings_store.set_value(s, live.SETTING, False)
+        await s.commit()
         accounts, outs = await _page(s, ids)
-        assert await live.overlay_page(s, outs, accounts) == outs  # default: off, no panel call
+        assert await live.overlay_page(s, outs, accounts) == outs  # switched off: no panel call
+
+
+async def test_flag_is_on_by_default(maker, monkeypatch):
+    _, ids = await seed(maker, ["u1"])
+    use(monkeypatch, _Counting([remote("u1", used=5 * 2**30)]))
+    async with maker() as s:
+        accounts, outs = await _page(s, ids)
+        (out,) = await live.overlay_page(s, outs, accounts)
+        assert out.live is True and out.traffic_used_bytes == 5 * 2**30
 
 
 async def test_flag_on_shows_the_panels_numbers_not_the_stored_copy(maker, monkeypatch):
@@ -69,14 +79,17 @@ async def test_panel_down_shows_unavailable_and_no_old_number(maker, monkeypatch
     _, ids = await seed(maker, ["u1"])
     async with maker() as s:
         acc = await s.get(VpnAccount, ids["u1"])
-        acc.traffic_used_bytes = 9 * 2**30  # a stale stored copy that must NOT be shown
+        acc.delivery_snapshot = {
+            "subscription_url": "https://old/link",
+            "links": [],
+        }  # a stale delivery snapshot must not be shown as usage
         await settings_store.set_value(s, live.SETTING, True)
         await s.commit()
         use(monkeypatch, _Down([]))
         accounts, outs = await _page(s, ids)
         (out,) = await live.overlay_page(s, outs, accounts)
     assert out.live is False and out.live_note == live.UNAVAILABLE_NOTE
-    assert out.traffic_used_bytes == 0 and out.usage_percent is None and out.days_left is None and out.health == "unavailable"
+    assert out.traffic_used_bytes is None and out.usage_percent is None and out.days_left is None and out.health == "unavailable"
 
 
 async def test_readings_are_cached_for_a_few_seconds(maker, monkeypatch):
@@ -96,4 +109,4 @@ async def test_account_missing_on_the_panel_is_unavailable_not_zero(maker, monke
     async with maker() as s:
         accounts = [await s.get(VpnAccount, i) for i in ids.values()]
         assert (await live.read(s, accounts))[accounts[0].id] is None
-        assert (await s.scalar(select(VpnAccount.traffic_used_bytes))) == 0  # nothing was written back
+        assert not hasattr(VpnAccount, "traffic_used_bytes")  # nothing to write back: usage is not stored

@@ -67,7 +67,9 @@ async def _bought(s, user, store, product, *, limit=10 * GIB, used=0, age_days=0
     if used:
         PANEL.users[username] = remote(username, used=used, limit=limit)
     acc = VpnAccount(
-        delivery_snapshot={"links": []}, username=username, panel_id=panel_id,
+        delivery_snapshot={"links": []},
+        username=username,
+        panel_id=panel_id,
         user_id=user.id,
         store_id=store.id,
         order_id=order.id,

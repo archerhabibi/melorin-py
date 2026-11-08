@@ -108,9 +108,8 @@ def test_freshness_window():
 def account(**kw):
     base = {
         "last_synced_at": NOW,
-        "remote_status": "active",
-        "expires_at": NOW + dt.timedelta(days=30),
-        "traffic_limit_bytes": 10 * 2**30,
+        "sold_expires_at": NOW + dt.timedelta(days=30),
+        "sold_traffic_bytes": 10 * 2**30,
     }
     return NS(**{**base, **kw})
 
@@ -132,7 +131,7 @@ def test_manual_panel_edits_are_detected():
 
 def test_drift_needs_a_baseline_and_ignores_on_hold():
     assert sync.limits_drift(account(last_synced_at=None), remote(traffic_limit_bytes=1)) is None
-    assert sync.limits_drift(account(remote_status="on_hold"), remote(expire_at=None)) is None
+    assert sync.limits_drift(account(), remote(remote_status="on_hold", expire_at=None)) is None
 
 
 # ------------------------------------------------------------------------------------------ PG-06 notices (regression)

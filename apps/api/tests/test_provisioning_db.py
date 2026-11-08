@@ -118,7 +118,9 @@ async def test_successful_provisioning_completes_the_order_and_activates_the_acc
         order = await s.get(Order, w["order"].id)
         acc = await s.get(VpnAccount, order.vpn_account_id)
         assert order.status == "completed" and order.provisioning_attempts == 1 and order.completed_at is not None
-        assert acc.status == "active" and acc.panel_ref and acc.subscription_url
+        assert (
+            acc.status == "active" and acc.panel_ref and acc.delivery_snapshot["subscription_url"]
+        )  # the link as delivered; later changes are read from the panel
         assert acc.sold_traffic_bytes == w["product"].traffic_gb * 1024**3
         assert len(panel.created) == 1
         topics = await _topics(s)

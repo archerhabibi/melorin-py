@@ -143,13 +143,13 @@ async def test_panel_side_changes_reach_melorin_in_one_pass(maker, monkeypatch):
     result = await run(maker, panel_id)
     assert result.checked == 4 and result.updated == 3 and result.complete
     async with maker() as s:
-        status = {a.username: (a.status, a.remote_status) for a in (await s.scalars(select(VpnAccount))).all()}
+        status = {a.username: a.status for a in (await s.scalars(select(VpnAccount))).all()}
         synced = (await s.scalars(select(VpnAccount.last_synced_at))).all()
     assert status == {
-        "limited_user": ("limited", "limited"),
-        "disabled_user": ("suspended", "disabled"),
-        "expired_user": ("expired", "expired"),
-        "fine_user": ("active", "active"),
+        "limited_user": "limited",  # the derived display state; the raw panel status is read live, not stored
+        "disabled_user": "suspended",
+        "expired_user": "expired",
+        "fine_user": "active",
     }
     assert all(_aware(t) >= NOW for t in synced)
 
@@ -235,7 +235,7 @@ async def test_wrong_owner_is_flagged_and_clears_when_fixed(maker, monkeypatch):
     assert await open_issues(maker, issues.OWNER_MISMATCH) == []
 
 
-async def test_manual_limit_edit_on_the_panel_is_reported_and_mirrored(maker, monkeypatch):
+async def test_manual_limit_edit_on_the_panel_is_reported_and_never_copied_over_the_sold_entitlement(maker, monkeypatch):
     panel_id, ids = await seed(maker, ["u1"])
     use(monkeypatch, FakePanel([remote("u1", limit=50 * 2**30, expire_days=90)]))
     result = await run(maker, panel_id)
@@ -243,7 +243,13 @@ async def test_manual_limit_edit_on_the_panel_is_reported_and_mirrored(maker, mo
     assert len(await open_issues(maker, issues.LIMITS_MISMATCH)) == 1
     async with maker() as s:
         acc = await s.get(VpnAccount, ids["u1"])
-    assert acc.sold_traffic_bytes == 50 * 2**30  # the panel is the source of truth
+        assert acc.sold_traffic_bytes == 10 * 2**30  # a sync never rewrites what Melorin sold
+        # the admin decides: accepting the panel's values rebases the entitlement explicitly
+        change = await reconcile.accept_panel(s, acc)
+        assert change["after"]["traffic_limit_bytes"] == 50 * 2**30 and acc.sold_traffic_bytes == 50 * 2**30
+        await s.commit()
+    await run(maker, panel_id)
+    assert await open_issues(maker, issues.LIMITS_MISMATCH) == []  # panel and entitlement agree again: the issue closes itself
 
 
 async def test_the_database_itself_rejects_a_second_open_issue(maker):

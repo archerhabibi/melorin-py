@@ -22,7 +22,8 @@ NOW = dt.datetime.now(dt.UTC)
 async def _account(s, *, user, store, product, name, days=20, used=0, limit=10 * GIB, status="active"):
     order = await make_order(s, user=user, store=store, product=product)
     a = VpnAccount(
-        delivery_snapshot={"subscription_url": f"https://sub.test/{name}", "links": []}, username=name,
+        delivery_snapshot={"subscription_url": f"https://sub.test/{name}", "links": []},
+        username=name,
         user_id=user.id,
         store_id=store.id,
         order_id=order.id,
@@ -30,7 +31,7 @@ async def _account(s, *, user, store, product, name, days=20, used=0, limit=10 *
         status=status,
         sold_expires_at=NOW + dt.timedelta(days=days),
         sold_traffic_bytes=limit,
-                            )
+    )
     s.add(a)
     await s.flush()
     return a
@@ -171,8 +172,8 @@ def test_clean_query_and_health_rules():
 # ---------------------------------------------------------------- Q02: filter chips, counters, live panel refresh
 async def _tuned_world(s):
     w = await _world(s)
-    w.a1.expires_at = NOW + dt.timedelta(days=1)  # expiring
-    w.a2.expires_at = NOW - dt.timedelta(days=2)  # expired
+    w.a1.sold_expires_at = NOW + dt.timedelta(days=1)  # expiring
+    w.a2.sold_expires_at = NOW - dt.timedelta(days=2)  # expired
     await s.commit()
     return w
 
@@ -215,12 +216,19 @@ async def test_refresh_reads_the_panel_and_is_rate_limited(monkeypatch):
             return types.SimpleNamespace(
                 status="active",
                 traffic_used_bytes=7 * GIB,
+                traffic_limit_bytes=10 * GIB,
+                remote_status="active",
                 subscription_url="https://sub.test/fresh",
                 links=[],
                 expire_at=NOW + dt.timedelta(days=30),
             )
 
+    from melorin.modules.vpn import live
+
     monkeypatch.setattr(vpn, "build_adapter", lambda _p: FakePanel())
+    monkeypatch.setattr(live, "build_adapter", lambda _p: FakePanel())  # the card the route returns is the panel's reading
+    monkeypatch.setattr(live, "seed_adapter", lambda adapter, account: adapter)
+    live.clear_cache()
     inquiry._last_refresh.clear()
     async with open_session() as s:
         w = await _world(s)
@@ -232,9 +240,10 @@ async def test_refresh_reads_the_panel_and_is_rate_limited(monkeypatch):
         r = Response()
         fresh = await vpn_router.refresh(w.a1.id, _ctx(w.store, w.alice), s, r)
         assert r.headers["X-Panel-Synced"] == "1" and fresh.traffic_used_bytes == 7 * GIB and fresh.days_left >= 29
+        after_first = FakePanel.calls  # one sync read + one live read for the card
         r2 = Response()
         await vpn_router.refresh(w.a1.id, _ctx(w.store, w.alice), s, r2)  # tapped again at once: no second panel call
-        assert r2.headers["X-Panel-Synced"] == "0" and FakePanel.calls == 1
+        assert r2.headers["X-Panel-Synced"] == "0" and FakePanel.calls == after_first
         # nobody can refresh somebody else's account (customer, or the owner of another store)
         with pytest.raises(AppError, match="NOT_FOUND"):
             await vpn_router.refresh(w.a1.id, _ctx(w.store, w.bob), s, Response())

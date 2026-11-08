@@ -23,7 +23,7 @@ from melorin.kernel.models.system import AuditEvent, OutboxEvent
 from melorin.kernel.models.vpn import ProductTemplate
 from melorin.modules.orders import provisioning as vpn
 from melorin.modules.orders import service as orders
-from melorin.modules.vpn import plans, sync, templates
+from melorin.modules.vpn import live, plans, sync, templates
 from melorin.modules.vpn.adapters.base import Capabilities, ErrorKind, PanelAccount, PanelError
 from test_renewal_core import _balance, _world  # the shared renewal world: wallet, bundle, panel, account
 
@@ -127,8 +127,10 @@ class FakeAdapter:
 @pytest.fixture
 def adapter(monkeypatch):
     fake = FakeAdapter()
-    for module in (templates, plans, vpn):
+    for module in (templates, plans, vpn, live):
         monkeypatch.setattr(module, "build_adapter", lambda panel, server=None: fake)
+    monkeypatch.setattr(live, "seed_adapter", lambda a, acc: a)  # "is it running now?" is a live panel reading
+    live.clear_cache()
     monkeypatch.setattr(plans, "seed_adapter", lambda a, acc: a)
     monkeypatch.setattr(vpn, "seed_adapter", lambda a, acc: a)
     return fake
@@ -270,11 +272,17 @@ async def test_queue_is_offered_only_for_a_running_account_on_a_capable_panel_wi
             mutate()
             assert (await plans.check_queueable(s, t.account, t.product, now=NOW)).code == code
         t.account.status = "active"
-        t.account.remote_status = "on_hold"
+        adapter.state.remote_status = "on_hold"  # "running now?" is the PANEL's reading, not a stored status
+        live.clear_cache()
         assert (await plans.check_queueable(s, t.account, t.product, now=NOW)).code == "QUEUE_NOT_APPLICABLE"
-        t.account.remote_status, t.account.sold_expires_at = "active", NOW - dt.timedelta(minutes=1)
+        adapter.state.remote_status, adapter.state.expire_at = "active", NOW - dt.timedelta(minutes=1)
+        live.clear_cache()
         assert (await plans.check_queueable(s, t.account, t.product, now=NOW)).code == "QUEUE_NOT_APPLICABLE"
-        t.account.sold_expires_at = NOW + dt.timedelta(days=3)
+        adapter.state.expire_at = NOW + dt.timedelta(days=3)
+        live.clear_cache()
+        adapter.fail["get_account"] = PanelError(ErrorKind.TRANSIENT, "down")
+        assert (await plans.check_queueable(s, t.account, t.product, now=NOW)).code == "PANEL_UNAVAILABLE"  # fails closed, this mode only
+        live.clear_cache()
         t.panel.capabilities = {"flags": Capabilities(extend=True).to_dict()}
         assert (await plans.check_queueable(s, t.account, t.product, now=NOW)).code == "QUEUE_UNSUPPORTED"
         t.panel.capabilities = {"flags": FLAGS}
@@ -522,7 +530,7 @@ async def test_change_plan_moves_the_account_drops_the_queue_and_is_audited(adap
         await s.commit()
         account = await plans.change_plan(s, t.account, t.other, admin_id=admin.id, reason="customer upgraded by phone")
         assert account.product_id == t.other.id and account.queued_plan is None
-        assert account.sold_traffic_bytes == 50 * GIB and account.traffic_used_bytes == 0
+        assert account.sold_traffic_bytes == 50 * GIB and adapter.state.traffic_used_bytes == 0
         assert [c[0] for c in adapter.calls if c[0] in ("apply_template", "clear_next_plan")] == ["apply_template", "clear_next_plan"]
         (audit,) = await _audits(s, "vpn_account.plan_changed")
         assert (

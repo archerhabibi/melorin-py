@@ -75,13 +75,14 @@ async def _seed(s, *, link=SUB, total=100_000, balance_after=400_000, kind="purc
     s.add(order)
     await s.flush()
     acc = VpnAccount(
-        delivery_snapshot={"subscription_url": link}, username="m_ab23cd",
+        delivery_snapshot={"subscription_url": link},
+        username="m_ab23cd",
         user_id=user.id,
         store_id=store_id,
         order_id=order.id,
         product_id=order.product_id,
         status="active",
-                sold_traffic_bytes=50 * 1024**3,
+        sold_traffic_bytes=50 * 1024**3,
     )
     s.add(acc)
     await s.flush()
@@ -189,7 +190,7 @@ async def test_missing_link_is_retried_not_sent_without_qr(session, tg):
         await delivery.deliver_order(session, order.id)
     assert tg["photo"] == [] and tg["message"] == []
     acc = await session.scalar(select(VpnAccount).where(VpnAccount.order_id == order.id))
-    acc.subscription_url = SUB
+    acc.delivery_snapshot = {"subscription_url": SUB, "links": [], "taken_at": None}
     await session.commit()
     assert await delivery.deliver_order(session, order.id) == "sent"
     assert len(tg["photo"]) == 1 and SUB in tg["photo"][0]["caption"]

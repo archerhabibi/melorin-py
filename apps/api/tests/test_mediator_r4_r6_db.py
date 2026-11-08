@@ -37,7 +37,6 @@ async def test_traffic_warning_level_comes_from_the_panel_reading(maker):
     _, ids = await seed(maker, ["u1"])
     async with maker() as s:
         acc = await s.get(VpnAccount, ids["u1"])
-        assert acc.traffic_used_bytes == 0  # stored copy says "nothing used"
         await sync.apply_remote(s, acc, remote("u1", used=9 * 2**30, limit=10 * 2**30), now=NOW)
         assert acc.traffic_notified_level == 90  # the panel said 90 %
 
@@ -47,7 +46,9 @@ async def test_admin_list_overlay_is_live_when_flag_on_and_unavailable_when_pane
     row = {"id": ids["u1"], "status": "active", "traffic_used_bytes": 123, "days_left": 1, "health": "active"}
     async with maker() as s:
         acc = await s.get(VpnAccount, ids["u1"])
-        assert await live.overlay_rows(s, [row], [acc]) == [row]  # flag off: untouched, no panel call
+        await settings_store.set_value(s, live.SETTING, False)
+        await s.commit()
+        assert await live.overlay_rows(s, [row], [acc]) == [row]  # switched off: untouched, no panel call
         await settings_store.set_value(s, live.SETTING, True)
         await s.commit()
         use(monkeypatch, FakePanel([remote("u1", used=5 * 2**30, expire_days=12)]))
@@ -59,7 +60,7 @@ async def test_admin_list_overlay_is_live_when_flag_on_and_unavailable_when_pane
         assert down["live"] is False and down["traffic_used_bytes"] is None and down["health"] == "unavailable"
 
 
-async def test_analytics_snapshot_labels_stored_traffic_and_reports_panel_numbers(maker):
+async def test_analytics_snapshot_labels_sold_volume_and_reports_panel_numbers(maker):
     await seed(maker, ["u1"])
     async with maker() as s:
         panel = (await s.scalars(select(Panel))).one()
@@ -68,7 +69,8 @@ async def test_analytics_snapshot_labels_stored_traffic_and_reports_panel_number
         await s.commit()
         snap = await analytics._snapshot(s, NOW + dt.timedelta(minutes=1))
     vpn = snap["vpn"]
-    assert vpn["traffic_source"] == "last_known" and vpn["traffic_as_of"]
+    assert vpn["traffic_source"] == "sold" and vpn["traffic_used_bytes"] is None  # no stored usage sum; usage is the panel's
+    assert vpn["traffic_limit_bytes"] == 10 * 2**30  # the sold volume of the active account
     assert vpn["panels"] == [
         {"panel_id": str(panel.id), "name": "pg", "up": True, "users_total": 5, "online_users": 2, "taken_at": NOW.isoformat()}
     ]

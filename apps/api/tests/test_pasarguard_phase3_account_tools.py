@@ -260,7 +260,7 @@ async def test_rotate_updates_the_link_audits_and_is_rate_limited(maker, adapter
     async with maker() as s:
         acc, _, user = await _account(s)
         await tools.rotate_subscription(s, acc, role=tools.CUSTOMER, actor_id=user.id)
-        assert acc.subscription_url == "https://sub/new" and acc.links == ["new"]
+        assert not hasattr(acc, "subscription_url")  # the current link lives on the panel; nothing is copied onto the account
         assert len(await _audits(s, "vpn_account.subscription_rotated")) == 1
         with pytest.raises(AppError) as e:
             await tools.rotate_subscription(s, acc, role=tools.CUSTOMER, actor_id=user.id)
@@ -271,7 +271,7 @@ async def test_suspend_then_resume_roundtrip_with_guards(maker, adapter):
     async with maker() as s:
         acc, _, user = await _account(s)
         await tools.suspend(s, acc, role=tools.OWNER, actor_id=user.id, reason="عدم پرداخت")
-        assert acc.status == "suspended" and acc.remote_status == "disabled"
+        assert acc.status == "suspended" and "suspend" in adapter.calls  # the panel was switched off; the raw status is not stored
         (event,) = await _audits(s, "vpn_account.suspended")
         assert event.data["reason"] == "عدم پرداخت"
         await tools.resume(s, acc, role=tools.ADMIN, actor_id=user.id)

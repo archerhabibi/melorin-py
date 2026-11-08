@@ -60,7 +60,8 @@ async def test_strict_refresh_ignores_the_rate_limit_and_reads_live_usage(maker,
         assert await inquiry.refresh_from_panel(s, acc) is True  # first call asks the panel ...
         assert await inquiry.refresh_from_panel(s, acc) is False  # ... the display path is rate limited
         assert await inquiry.refresh_from_panel(s, acc, strict=True) is True  # a refund never is
-        assert acc.traffic_used_bytes == 3 * 2**30
+        # the reading is the panel's: it is not copied onto the account
+        assert not hasattr(acc, "traffic_used_bytes")
 
 
 async def test_strict_refresh_passes_for_an_account_without_a_panel(maker):
