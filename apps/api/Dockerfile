@@ -25,9 +25,11 @@ FROM base AS runtime
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=/app PATH=/opt/venv/bin:$PATH
 WORKDIR /app
 COPY --from=pgdg-key /out/apt.postgresql.org.gpg /usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg
+# PG-16: Melorin's own database is PostgreSQL 16, the PasarGuard panel (TimescaleDB) is 17. pg_dump refuses a server NEWER than itself,
+# so both clients are installed; pg_wrapper then runs the newest one, which can dump either server.
 RUN echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg] http://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
     && apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates age rclone postgresql-client-16 tesseract-ocr tesseract-ocr-fas tesseract-ocr-eng \
+    && apt-get install -y --no-install-recommends ca-certificates age rclone postgresql-client-16 postgresql-client-17 tesseract-ocr tesseract-ocr-fas tesseract-ocr-eng \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=venv /opt/venv /opt/venv
 RUN useradd --create-home --uid 10001 appuser

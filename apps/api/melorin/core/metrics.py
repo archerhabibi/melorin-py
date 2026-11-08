@@ -25,6 +25,15 @@ def set_gauge(name: str, value: float, **labels: str) -> None:
         _gauges[(name, tuple(sorted((k, str(v)) for k, v in labels.items())))] = value
 
 
+def clear_gauges(*names: str) -> None:
+    """Drop every series of the named gauges, so a collector that recomputes them each scrape forgets panels/servers that are gone
+    (a deleted or renamed panel must not keep reporting its last value forever)."""
+    wanted = set(names)
+    with _lock:
+        for key in [k for k in _gauges if k[0] in wanted]:
+            del _gauges[key]
+
+
 def observe(name: str, value: float, *, buckets: tuple[float, ...] = DEFAULT_BUCKETS, **labels: str) -> None:
     """Record one observation into a histogram (``_bucket``/``_sum``/``_count`` series on render)."""
     key = (name, tuple(sorted((k, str(v)) for k, v in labels.items())))

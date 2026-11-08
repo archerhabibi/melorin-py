@@ -47,6 +47,15 @@ class Panel(IdMixin, TimestampMixin, Base):
     # PG-13: last subscription test ({ok, checks: [...], expected, actual}); NULL = never run
     subscription_check: Mapped[dict | None] = mapped_column(JSON)
     subscription_checked_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    # PG-14: last live reading of the panel (resources, users by status, online, API latency) taken by ``panel_metrics_job``; the
+    # /metrics scrape renders from this row so a scrape never waits for a panel.
+    metrics_snapshot: Mapped[dict | None] = mapped_column(JSON)
+    metrics_snapshot_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    # PG-15: what the panel's settings should look like for Melorin to work (read-only comparison) and the last verdict.
+    # ``expired_cleanup_policy``: keep = the panel must NOT auto-delete expired users | aligned = it may, but only after Melorin's renewal grace.
+    expired_cleanup_policy: Mapped[str] = mapped_column(String(10), default="keep", server_default="keep")
+    settings_drift: Mapped[dict | None] = mapped_column(JSON)
+    settings_drift_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Server(IdMixin, TimestampMixin, Base):

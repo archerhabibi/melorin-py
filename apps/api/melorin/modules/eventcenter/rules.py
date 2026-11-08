@@ -196,6 +196,26 @@ async def notify_panel_health(session, panel, previous: str | None) -> None:
         log.exception("event-center panel health notice failed panel=%s", panel.id)
 
 
+async def notify_settings_drift(session, panel, before: int, after: int) -> None:
+    """Announce (once) that a panel's settings started to differ from what Melorin needs, and when that is fixed (PG-15).
+
+    Only the change 0 -> N and N -> 0 is announced, so an unfixed drift does not repeat every hour. Findings are named by key; no value
+    read from the panel's settings is ever put in the message. Best-effort: it can never fail the drift check."""
+    if (before > 0) == (after > 0):
+        return
+    keys = ", ".join(f["key"] for f in (panel.settings_drift or {}).get("findings", []) if f.get("state") == "drift")
+    text = (
+        f"🟠 تنظیمات پنل «{panel.name}» با نیاز ملورین هم‌خوان نیست ({keys})؛ بخش «رانش تنظیمات» پنل را ببینید."
+        if after > 0
+        else f"🟢 تنظیمات پنل «{panel.name}» دوباره با ملورین هم‌خوان شد"
+    )
+    try:
+        async with session.begin_nested():
+            await events.emit(session, events.EVENT_CENTER, {"store_id": None, "topic": topics.ERRORS, "text": text})
+    except Exception:
+        log.exception("event-center settings drift notice failed panel=%s", panel.id)
+
+
 def panel_nodes_text(panel_name: str, changes: list[dict]) -> str | None:
     """One message per panel and check for every node that started or stopped failing (a 4-node outage is ONE notice)."""
     failed = [c for c in changes if c["to"] in ("error", "limited", "unknown")]
@@ -261,14 +281,20 @@ def _size(n: int | None) -> str:
     return f"{n / 1024 / 1024:.1f} MB" if n >= 1024 * 1024 else f"{max(1, n // 1024)} KB"
 
 
-def backup_text(status: str, size: int | None, details: str | None) -> str:
+def backup_text(status: str, size: int | None, details: str | None, target: str = "melorin") -> str:
     """The admin-facing text of one backup run. The server path is never included; error detail is clipped."""
+    label = "پشتیبان‌گیری از پنل پاسارگارد" if target == "panel" else "پشتیبان‌گیری"
     if status == "succeeded":
         where = "کپی روی S3 هم انجام شد" if "copied to S3" in (details or "") else "فقط روی سرور (ارسال به S3 غیرفعال است)"
-        return f"💾 پشتیبان‌گیری موفق بود\nحجم: {_size(size)}\n{where}"
+        return f"💾 {label} موفق بود\nحجم: {_size(size)}\n{where}"
     if status == "partial":
-        return f"🟠 پشتیبان محلی ساخته شد ولی ارسال به S3 ناموفق بود\nحجم: {_size(size)}\nخطا: {str(details or '')[-250:]}"
-    return f"🔴 پشتیبان‌گیری ناموفق بود\nخطا: {str(details or 'نامشخص')[:250]}"
+        head = (
+            "🟠 پشتیبان محلی پنل پاسارگارد ساخته شد ولی ارسال به S3 ناموفق بود"
+            if target == "panel"
+            else "🟠 پشتیبان محلی ساخته شد ولی ارسال به S3 ناموفق بود"
+        )
+        return f"{head}\nحجم: {_size(size)}\nخطا: {str(details or '')[-250:]}"
+    return f"🔴 {label} ناموفق بود\nخطا: {str(details or 'نامشخص')[:250]}"
 
 
 async def notify_backup(session, run) -> None:
@@ -278,7 +304,11 @@ async def notify_backup(session, run) -> None:
             await events.emit(
                 session,
                 events.EVENT_CENTER,
-                {"store_id": None, "topic": topics.BACKUP, "text": backup_text(run.status, run.size, run.details)},
+                {
+                    "store_id": None,
+                    "topic": topics.BACKUP,
+                    "text": backup_text(run.status, run.size, run.details, getattr(run, "target", "melorin")),
+                },
                 dedup_key=f"ec:backup:{run.id}",
             )
     except Exception:

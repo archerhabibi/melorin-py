@@ -181,6 +181,7 @@ async def backup_status(_: AdminUser, session: Session):
             "location": row.location,
             "size": row.size,
             "details": row.details,
+            "target": row.target,
             "created_at": row.created_at,
         }
         for row in rows

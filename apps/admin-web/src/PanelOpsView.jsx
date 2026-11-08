@@ -8,6 +8,7 @@ import PanelEventsTab from './PanelEventsTab.jsx';
 import PanelCapacityTab from './PanelCapacityTab.jsx';
 import PanelTemplatesTab from './PanelTemplatesTab.jsx';
 import PanelConsoleTab from './PanelConsoleTab.jsx';
+import PanelPhase5Tab from './PanelPhase5Tab.jsx';
 
 const KIND_LABEL = {
   missing_on_panel: 'کاربر روی پنل نیست',
@@ -351,6 +352,7 @@ export default function PanelOpsView({ api, toast }) {
         {tabBtn('events', 'رویدادهای زنده', 0)}
         {tabBtn('capacity', 'ظرفیت و فروش', 0)}
         {tabBtn('templates', 'تمپلیت‌ها', 0)}
+        {tabBtn('observe', 'شاخص و پشتیبان', 0)}
         {tabBtn('notices', 'هشدار حجم', 0)}
       </div>
 
@@ -412,6 +414,7 @@ export default function PanelOpsView({ api, toast }) {
       {tab === 'notices' && <NoticeLevels call={call} toast={toast} />}
 
       {tab === 'console' && <PanelConsoleTab call={call} panelId={panelId} toast={toast} />}
+      {tab === 'observe' && <PanelPhase5Tab call={call} panelId={panelId} toast={toast} />}
       {tab === 'events' && <PanelEventsTab call={call} panelId={panelId} toast={toast} />}
       {tab === 'capacity' && <PanelCapacityTab call={call} panelId={panelId} toast={toast} />}
       {tab === 'templates' && <PanelTemplatesTab call={call} panelId={panelId} toast={toast} />}
