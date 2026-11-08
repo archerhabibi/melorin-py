@@ -236,3 +236,21 @@ async def overlay_rows(session, rows: list[dict], accounts: list[VpnAccount]) ->
         return rows
     readings = await read(session, accounts)
     return [overlay_row(r, readings[a.id]) if a.id in readings else r for r, a in zip(rows, accounts, strict=True)]
+
+
+def _stored_link(account: VpnAccount) -> str | None:
+    return account.subscription_url or (account.links[0] if isinstance(account.links, list) and account.links else None)
+
+
+async def current_link(session, account: VpnAccount) -> str | None:
+    """R8: the subscription link as the PANEL has it now (it changes on ``revoke_sub``).
+
+    The stored value is only a *delivery snapshot* (what was handed to the customer); it is used when the panel cannot answer,
+    because a QR for the last delivered link is better than none. Accounts without a panel use the stored link.
+    """
+    if not account.panel_id:
+        return _stored_link(account)
+    reading = (await read(session, [account])).get(account.id)
+    if reading is not None:
+        return reading.subscription_url or (reading.links[0] if reading.links else None) or _stored_link(account)
+    return _stored_link(account)

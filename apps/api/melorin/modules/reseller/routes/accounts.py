@@ -94,7 +94,9 @@ async def store_account_renew(
 )
 async def store_account_qr(account_id: uuid.UUID, ctx: OwnerCtx, session: Session):
     a, _ = await _store_account(session, ctx, account_id)
-    link = a.subscription_url or (a.links[0] if isinstance(a.links, list) and a.links else None)
+    from melorin.modules.vpn import live  # lazy: avoids an import cycle
+
+    link = await live.current_link(session, a)  # R8
     if not link:
         raise NotFound("لینک اشتراک")
     from melorin.modules.orders.delivery import render_qr_png  # lazy: avoids a vpn <-> orders import cycle

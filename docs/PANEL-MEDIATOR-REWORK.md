@@ -24,6 +24,7 @@ Rule: **Melorin is a mediator**. Used traffic, limit, expiry and status belong t
 | PG-06 texts | **Per-store customer notice wording.** `PUT/GET /admin/stores/{id}/vpn-notice-texts` (`{kind: {title, body}}`, placeholders `{store}` and `{level}` only, no `str.format`, length-limited, 422 on junk). Platform text is the fallback; saving texts never touches the warning levels. | `notices.py`, `panel_ops.py` |
 | PG-06 digest | **Opt-in daily digest for the store owner** (`PUT /admin/stores/{id}/vpn-digest`, off by default; worker `store_digest_job` 17:00 UTC). It reports only what Melorin owns (notices sent in 24 h, open discrepancies, sell-block reason), **no usage/expiry numbers**; one per store per day; empty day = nothing sent. | `digest.py`, `worker/jobs.py` |
 | PG-12 / L6 (plan only) | `GET /admin/panels/{id}/store-role-plan`: the least-privilege `melorin-store` role (users CRUD + groups read; no `api_keys`, admins, nodes, settings). **Not created on the panel by Melorin**; create it on staging, test one store admin, then switch `panel_admins.ROLE`. | `store_role.py` |
+| R8 (read side) | **Subscription link is read from the panel.** The QR routes (customer and store owner) use `live.current_link`: the panel's current link (it changes on `revoke_sub`); the stored value is only the *delivery snapshot* and is used when the panel cannot answer. Sync still refreshes that snapshot (needed by the subscription check); no reader treats it as truth. | `live.current_link`, `vpn/router.py`, `reseller/routes/accounts.py` |
 | Fix | `state_hint` no longer breaks on account stand-ins without `remote_status` (a test on the branch was red). | `inquiry.py` |
 
 ## Switch-on order (staging first)
@@ -40,6 +41,11 @@ Rule: **Melorin is a mediator**. Used traffic, limit, expiry and status belong t
 3. Check the panel page: level `least_privilege`, all capabilities still on. Then revoke the old owner key **on the panel** (Melorin does not delete it).
 4. Rotation later: `POST …/rotate` with an owner `bootstrap` credential (needed because the service role cannot manage keys).
 Request shapes (`AdminRoleCreate`, `APIKeyCreate`) were read from the live panel's OpenAPI 5.6.0; the role was **not** applied to the live panel from this work, so run steps 1-3 on staging first.
+
+## Decisions needed before the next step
+
+* **Assign a manual account to a store/customer (PG-04).** `vpn_accounts.order_id` and `product_id` are NOT NULL, so assigning needs a synthetic zero-price order (`kind=manual`). That would appear in sales, commission and loyalty reports, so it needs a rule first (excluded from revenue? from referral rewards?). Not built on purpose.
+* **R9 (sold vs now) and dropping the copied columns** touch `limits_mismatch`, plan settlement and delivery; do them as their own migration after one release without readers.
 
 ## Not done yet (in priority order)
 

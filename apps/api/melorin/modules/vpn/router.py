@@ -76,7 +76,7 @@ async def get(account_id: uuid.UUID, ctx: StoreCtx, session: Session):
 async def qr(account_id: uuid.UUID, ctx: StoreCtx, session: Session):
     """PNG QR code of the account's subscription link (same image the Telegram delivery post uses)."""
     a = await inquiry.customer_account(session, StoreScope.of(ctx), account_id)
-    link = a.subscription_url or (a.links[0] if isinstance(a.links, list) and a.links else None)
+    link = await live.current_link(session, a)  # R8: the panel's link, stored copy only as fallback
     if not link:
         raise NotFound("لینک اشتراک")
     return Response(render_qr_png(link), media_type="image/png", headers={"Cache-Control": "private, no-store"})
