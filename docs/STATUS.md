@@ -9,9 +9,9 @@
 | Alembic head | `0054_sold_vs_now` |
 | Migrations | 54 |
 | ORM tables | 74 |
-| API operations | 387 |
-| API paths | 343 |
-| Test files / test functions (static count) | 195 / 1935 |
+| API operations | 388 |
+| API paths | 344 |
+| Test files / test functions (static count) | 196 / 1950 |
 | Coverage | not measured here (CI writes `apps/api/coverage.xml`; run `pytest --cov=melorin --cov-report=xml`) |
 | Documents: repo root / `docs/` / `docs/history/` (tests only) | 3 / 37 / 4 |
 

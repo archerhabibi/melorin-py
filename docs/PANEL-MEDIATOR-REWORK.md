@@ -11,7 +11,7 @@ Rule: **Melorin is a mediator**. Used traffic, limit, expiry and status belong t
 | R2 | **The panel decides expiry.** `expiry_job` no longer marks panel accounts `expired` by Melorin's clock: an overdue account is re-read live and the panel's status/expiry is applied (a renewal done on the panel moves the date; a panel that does not answer changes nothing). Accounts without a panel keep the local clock. Max 200 live reads per run. | `worker/jobs.py::expiry_job` |
 | L4 | Open issues of archived/revoked accounts close themselves (`resolution=account_inactive`). | `issues.close_for_inactive`, `reconcile_panel` |
 | R1 | **PanelLiveView.** Live expiry/usage/limit/health for a page of accounts, one adapter per panel, bounded concurrency, 20 s in-memory cache. Panel cannot answer → `live=false`, no numbers, text "temporarily unavailable" (decision 9). Setting `vpn.live_view` (default **on** since R9/R10: with no stored copy there is nothing to fall back on; switching it off shows no panel numbers). Wired into the customer account routes. | `modules/vpn/live.py`, `router.py`, `VpnAccountOut.live/live_note` |
-| PG-04 / decision 1 | Orphans can be recorded as **manual account** (`POST /admin/panel-orphans/{id}/manual`) and re-opened (`…/reopen`). Never deleted; becomes `gone` when the panel user disappears. | `panel_ops.py`, `reconcile._record_orphans` |
+| PG-04 / decision 1 | Orphans can be recorded as **manual account** (`POST /admin/panel-orphans/{id}/manual`), re-opened (`…/reopen`) and **assigned to a store customer** (`…/assign`, see the section below: zero-price `manual` order that is not a sale). Never deleted; becomes `gone` when the panel user disappears or is assigned. | `panel_ops.py`, `manual_assign.py`, `domain/order_kinds.py`, `reconcile._record_orphans` |
 | Decision 2 | **Configurable retention days** per panel for the `aligned` lifecycle policy (`PUT …/lifecycle-policy {policy, retention_days}`); the additive migration adds `panels.expected_retention_days`. Melorin only expects and warns; it never writes the panel. | `settings_drift.py`, `panel_phase5.py` |
 | L1 | **Prometheus works again.** `infra/` is mounted as a directory (no stale rules after `git pull`); `secrets/metrics-token` is owned by `nobody` (65534, mode 0600) and rewritten in place. | `docker-compose.yml`, `infra/prometheus.yml`, `scripts/install_server.sh` |
 
@@ -73,9 +73,29 @@ The API field names (`expires_at`, `traffic_limit_bytes`, `traffic_used_bytes`, 
 4. Rotation later: `POST …/rotate` with an owner `bootstrap` credential (needed because the service role cannot manage keys).
 Request shapes (`AdminRoleCreate`, `APIKeyCreate`) were read from the live panel's OpenAPI 5.6.0; the role was **not** applied to the live panel from this work, so run steps 1-3 on staging first.
 
-## Decisions needed before the next step
+## PG-04 decision 1 - assigning a manual account (DECIDED and built, 8 Nov 2026)
 
-* **Assign a manual account to a store/customer (PG-04).** `vpn_accounts.order_id` and `product_id` are NOT NULL, so assigning needs a synthetic zero-price order (`kind=manual`). That would appear in sales, commission and loyalty reports, so it needs a rule first (excluded from revenue? from referral rewards?). Not built on purpose.
+`POST /admin/panel-orphans/{id}/assign {store_id, user_id, product_id, server_id?, note?}` gives a panel user (status `open` or `manual`) to a store customer.
+
+**Why an order exists:** `vpn_accounts.order_id` / `product_id` are NOT NULL, so the account hangs on a synthetic order, `kind="manual"`, `total=0`, `payment_method="free"`, `channel="admin"`, `reseller_cost=NULL`, `status=completed`, `idempotency_key=manual:<orphan id>`. Melorin is unreleased, so the schema was not bent for it: no migration.
+
+**The rule (one module, `domain/order_kinds.py`: `NON_REVENUE_KINDS = {test, manual}`):**
+
+| Where | Manual order |
+|---|---|
+| Sales / revenue / order counts (admin analytics, timeseries, `/reports/stores/{id}/sales`, reseller report, reseller API report) | **excluded** (the order is not even counted as an order) |
+| Reseller commission / wholesale cost | **excluded** (`reseller_cost` is NULL: no debit, nothing to settle) |
+| Referral reward and commission, "store history" for new-customer rules | **excluded** (also `total=0`) |
+| Loyalty club points, first-order bonus, tier progress | **excluded** |
+| Returns / refunds | impossible (`kind != purchase`, nothing was paid) |
+| Event centre / Telegram orders topic | silent; the audit trail has `vpn_account.manual_assigned` |
+| Renewal of the account | allowed: a **new `renewal` order with a real price**, counted like any sale |
+
+`test` orders already followed the loyalty/referral/event part of this rule; they are now under the same constant (admin sales charts still show `test` as its own kind, as before).
+
+**What it does and does not do:** reads the user from the panel *now* (strict: panel does not answer -> `503 PANEL_UNAVAILABLE`, nothing created) and rebases the sold entitlement on it through `sync.record_sale` (same idea as `accept_panel`). It writes **nothing** to the panel. The orphan becomes `gone` with a note (same end state as `link_existing`). Refused with a clear code: orphan `gone` / `ignored` (re-open first), customer not an active member of the store (`NOT_A_MEMBER`), test or archived product, username taken, user missing on the panel. `owner_matches=false` in the answer means the panel user belongs to another PasarGuard admin than the store's: the next reconcile opens `owner_mismatch` and an admin decides `fix_owner` (Melorin never moves it by itself).
+
+Tests: `apps/api/tests/test_manual_assign_db.py` (15).
 
 ## R7-R10 status (8 Nov 2026): DONE
 R7 (stored panel numbers become dated snapshots, `online_at`/`lifetime_used_traffic` dropped), R8 (link read from the panel, `delivery_snapshot` only as the as-delivered fallback),
@@ -85,9 +105,8 @@ The suite (2275 tests) is green; tests that seeded usage/link/status on the acco
 ## Not done yet (in priority order)
 
 1. **Live check of PG-05** on the test panel (see rollout above); not run from this work.
-2. PG-04: "assign manual account to a store/customer" (decision above).
-3. PG-12 applying the `melorin-store` role (plan exists) and `sub_template`/`custom_variables` branding; per-store usage report in the reseller bot; N10 internal-network exception.
-4. Operator only: enable panel backup (`MELORIN_PANEL_BACKUP_*`, L2), rotate the Telegram token in `notification_settings`, fix node certificates (`server_ca`), Caddy healthcheck.
+2. PG-12 applying the `melorin-store` role (plan exists) and `sub_template`/`custom_variables` branding; per-store usage report in the reseller bot; N10 internal-network exception.
+3. Operator only: enable panel backup (`MELORIN_PANEL_BACKUP_*`, L2), rotate the Telegram token in `notification_settings`, fix node certificates (`server_ca`), Caddy healthcheck.
 
 ## Merge note (8 Nov 2026)
 `feat/pasarguard-phase6-mediator` and `feat/pasarguard-mediator-rework` were unified on this branch. The rework branch was the

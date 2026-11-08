@@ -20,6 +20,13 @@ Commits containing `[skip changelog]` and the bot's own commits are skipped.
 If `main` is protected, allow `github-actions[bot]` to bypass so the bot can push the log.
 
 
+## 2026-11-08 - PG-04: assign a manual account to a store customer (zero-price `manual` order, not a sale)
+- **Area:** vpn / admin / orders-reports / loyalty / referral / eventcenter / docs / tests
+- **Before:** a panel user created by hand could only be recorded as "manual"; it could not belong to a store or customer because `vpn_accounts.order_id` / `product_id` are NOT NULL, and no rule said whether a free order counts in sales, commission or the loyalty club.
+- **Problem:** without a rule, a synthetic order would inflate order counts and could pay referral rewards or loyalty points for nothing.
+- **Action:** `POST /admin/panel-orphans/{id}/assign` creates the account and an order `kind=manual` (total 0, no reseller cost). One constant, `domain/order_kinds.NON_REVENUE_KINDS = {test, manual}`, decides: manual orders are left out of sales/revenue/order counts, commission, referral (also "store history"), loyalty, returns and the orders topic; a later renewal is a normal priced `renewal`. The panel is read (strict), never written; owner mismatch is reported, not fixed. No migration. See `docs/PANEL-MEDIATOR-REWORK.md`.
+- **After:** 15 new tests, full suite green (2292 passed).
+
 ## 2026-11-08 - PasarGuard Phase 5: panel metrics and alerts, settings drift, panel backup (PG-14, PG-15, PG-16)
 - **Area:** vpn / admin / worker / infra / scripts / admin-web / docs / tests
 - **Before:** Prometheus saw nothing about the panels; nobody noticed when the panel's settings (webhook, subscription prefix, auto-delete of expired users) drifted from what Melorin needs; the panel had no scheduled backup.
