@@ -68,13 +68,72 @@ def traffic_level(percent: int | None, levels: tuple[int, ...] = TRAFFIC_LOW_LEV
     return max((lv for lv in levels if percent is not None and percent >= lv), default=0)
 
 
+# --------------------------------------------------------------------------------------------- per-store texts (PG-06)
+TEXT_KINDS = ("vpn_expired", "vpn_near_expiry", "vpn_traffic_low", "vpn_traffic_exhausted", "vpn_disabled", "vpn_queued_plan_started")
+TEXT_TOKENS = ("{store}", "{level}")  # the only placeholders; anything else stays literal text (no format() on admin input)
+MAX_TITLE, MAX_BODY = 80, 500
+
+
+def normalize_texts(raw) -> dict[str, dict[str, str]]:
+    """Validate a store's own customer-notice wording: ``{kind: {"title": ..., "body": ...}}``.
+
+    Unknown kinds, empty or over-long text are refused (``ValueError``) so the admin API can answer 422 instead of storing junk.
+    """
+    if not isinstance(raw, dict):
+        raise ValueError("texts must be an object keyed by notice kind")
+    out: dict[str, dict[str, str]] = {}
+    for kind, item in raw.items():
+        if kind not in TEXT_KINDS:
+            raise ValueError(f"unknown notice kind: {kind}")
+        if not isinstance(item, dict):
+            raise ValueError(f"{kind}: expected {{title, body}}")
+        title, body = str(item.get("title") or "").strip(), str(item.get("body") or "").strip()
+        if not title or not body:
+            raise ValueError(f"{kind}: title and body are both required")
+        if len(title) > MAX_TITLE or len(body) > MAX_BODY:
+            raise ValueError(f"{kind}: title max {MAX_TITLE}, body max {MAX_BODY} characters")
+        out[kind] = {"title": title, "body": body}
+    return out
+
+
+def texts_for_store(settings: dict | None) -> dict[str, dict[str, str]]:
+    """The store's valid custom texts (an invalid stored value is ignored, never raised at send time)."""
+    if not settings or not settings.get("texts"):
+        return {}
+    try:
+        return normalize_texts(settings["texts"])
+    except ValueError:
+        return {}
+
+
+def apply_texts(settings: dict | None, kind: str, title: str, body: str, *, store_name: str = "", level: int | None = None) -> tuple[str, str]:
+    """The store's wording for ``kind`` (with ``{store}`` / ``{level}`` filled in), or the platform text when it has none."""
+    custom = texts_for_store(settings).get(kind)
+    if not custom:
+        return title, body
+    fill = {"{store}": store_name or "", "{level}": "" if level is None else str(level)}
+
+    def _f(text: str) -> str:
+        for token, value in fill.items():
+            text = text.replace(token, value)
+        return text
+
+    return _f(custom["title"]), _f(custom["body"])
+
+
 def reset_for_renewal(account) -> None:
     """A successful renewal starts a fresh package: every per-period notice flag starts over."""
     account.near_expiry_notified = False
     account.traffic_notified_level = 0
 
 
-async def _emit(session, account, kind: str, title: str, body: str, key: str) -> None:
+async def _emit(session, account, kind: str, title: str, body: str, key: str, *, level: int | None = None) -> None:
+    if account.store_id:  # PG-06: a store may word its own customer notices
+        from melorin.kernel.models.stores import Store
+
+        store = await session.get(Store, account.store_id)
+        if store is not None and store.vpn_notice_settings:
+            title, body = apply_texts(store.vpn_notice_settings, kind, title, body, store_name=store.name or "", level=level)
     await events.emit(
         session,
         events.NOTIFY,
@@ -113,6 +172,7 @@ async def traffic_low(session, account, level: int) -> None:
         "حجم اکانت رو به اتمام است",
         f"بیش از {level}٪ از حجم اکانت VPN شما مصرف شده است.",
         f"notify:traffic-low:{account.id}:{period_token(account)}:{level}",
+        level=level,
     )
 
 

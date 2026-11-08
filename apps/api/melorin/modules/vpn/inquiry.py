@@ -109,7 +109,7 @@ def state_hint(remote_status: str | None, health_word: str, *, can_renew: bool) 
 
 def account_out(a: VpnAccount, now: dt.datetime | None = None) -> VpnAccountOut:
     state = renewal.eligibility(a, now=now)
-    note, action = state_hint(a.remote_status, health(a, now), can_renew=state.ok)
+    note, action = state_hint(getattr(a, "remote_status", None), health(a, now), can_renew=state.ok)
     return VpnAccountOut(
         state_note=note,
         suggested_action=action,
