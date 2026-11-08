@@ -21,11 +21,17 @@ async def test_owner_saves_validated_fields_and_nothing_unsafe(monkeypatch):
         assert (await c.get(_url(reseller))).status_code == 401
         assert (await c.put(_url(reseller), json={"display_name": "A"}, headers=_owner_headers(other_owner, reseller))).status_code == 403
         r = await c.put(
-            _url(reseller), json={"display_name": "Arash VPN", "support_url": "https://t.me/arash", "logo_url": "https://cdn.example.com/a.png"}, headers=h
+            _url(reseller),
+            json={"display_name": "Arash VPN", "support_url": "https://t.me/arash", "logo_url": "https://cdn.example.com/a.png"},
+            headers=h,
         )
         assert r.status_code == 200, r.text
         assert (await c.get(_url(reseller), headers=h)).json()["fields"]["display_name"] == "Arash VPN"
-        for bad in ({"display_name": "<b>x</b>"}, {"support_url": "http://insecure.example.com"}, {"logo_url": "https://x.example.com/p.html"}):
+        for bad in (
+            {"display_name": "<b>x</b>"},
+            {"support_url": "http://insecure.example.com"},
+            {"logo_url": "https://x.example.com/p.html"},
+        ):
             assert (await c.put(_url(reseller), json=bad, headers=h)).status_code == 422
         assert (await c.get(_url(reseller), headers=h)).json()["fields"]["display_name"] == "Arash VPN"  # a refused save changes nothing
 

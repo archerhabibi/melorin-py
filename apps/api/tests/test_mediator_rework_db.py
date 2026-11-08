@@ -217,3 +217,42 @@ async def test_link_existing_points_a_missing_account_at_the_real_panel_user(mak
         assert acc.username == "renamed_on_panel" and acc.panel_ref == "42"
         assert (await s.get(PanelOrphan, orphan.id)).status == "gone"
         assert (await s.get(ReconciliationIssue, issue.id)).status == "resolved"
+
+
+# ------------------------------------------------------- near-expiry warning needs the panel's agreement (mediator rule)
+async def test_near_expiry_warning_is_sent_only_when_the_panel_agrees(maker, monkeypatch):
+    from melorin.modules.vpn import live, notices
+
+    names = ["agrees", "on_hold", "renewed_on_panel", "panel_silent"]
+    panel_id, ids = await seed(maker, names)
+    soon = dt.datetime.now(dt.UTC) + dt.timedelta(hours=20)
+    async with maker() as s:
+        for a in (await s.scalars(select(VpnAccount))).all():
+            a.sold_expires_at = soon  # Melorin sold "ends in 20 h" for all four
+        await s.commit()
+    fake = FakePanel(
+        [
+            remote("agrees", expire_days=1),
+            remote("on_hold", status="on_hold", expire_days=1),
+            remote("renewed_on_panel", expire_days=20),
+            # "panel_silent": absent from the panel -> no reading -> no verdict
+        ]
+    )
+    monkeypatch.setattr(live, "build_adapter", lambda panel: fake)
+    monkeypatch.setattr(live, "seed_adapter", lambda adapter, account: adapter)
+    live.clear_cache()
+    sent: list[str] = []
+
+    async def fake_notice(session, account):
+        sent.append(account.username)
+
+    monkeypatch.setattr(notices, "near_expiry", fake_notice)
+    monkeypatch.setattr(jobs, "session_factory", lambda: maker)
+    await jobs.near_expiry_job()
+    assert sent == ["agrees"]
+    async with maker() as s:
+        flags = {a.username: a.near_expiry_notified for a in (await s.scalars(select(VpnAccount))).all()}
+    assert flags == {"agrees": True, "on_hold": False, "renewed_on_panel": False, "panel_silent": False}  # unknowns try again next run
+    live.clear_cache()
+    await jobs.near_expiry_job()
+    assert sent == ["agrees"]  # dedup still holds for the one that was warned

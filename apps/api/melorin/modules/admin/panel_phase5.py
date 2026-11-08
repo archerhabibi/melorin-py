@@ -175,7 +175,9 @@ async def service_access_rotate(panel_id: uuid.UUID, body: ServiceAccessIn, admi
 
 # ------------------------------------------------------------------------------------------------------------------ PG-12 sub branding
 class SubBrandingApplyIn(BaseModel):
-    confirm_name: str = Field(description="the panel's name, typed by the admin: this writes into a store admin's custom_variables on the PANEL")
+    confirm_name: str = Field(
+        description="the panel's name, typed by the admin: this writes into a store admin's custom_variables on the PANEL"
+    )
 
 
 async def _brand_targets(session, store_id: uuid.UUID, panel_id: uuid.UUID) -> tuple[Store, Panel]:

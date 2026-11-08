@@ -98,7 +98,9 @@ async def _world(maker):
         row = (await s.scalars(select(PanelAdmin))).one()
         row.remote_id = 7
         store = await s.get(Store, row.store_id)
-        sub_branding.save(store, {"display_name": "Arash VPN", "support_url": "https://t.me/arash", "logo_url": "https://cdn.example.com/a.png"})
+        sub_branding.save(
+            store, {"display_name": "Arash VPN", "support_url": "https://t.me/arash", "logo_url": "https://cdn.example.com/a.png"}
+        )
         await s.commit()
         return panel.id, store.id
 
@@ -116,7 +118,9 @@ async def test_apply_writes_only_our_three_keys_keeps_foreign_ones_and_audits_wi
     async with maker() as s:
         panel, store = await s.get(Panel, pid), await s.get(Store, sid)
         pre = await sub_branding.preview(s, store, panel)
-        assert pre["live"] and pre["in_sync"] is False and pre["other_keys_kept"] == ["theme"] and fake.writes == []  # preview writes nothing
+        assert (
+            pre["live"] and pre["in_sync"] is False and pre["other_keys_kept"] == ["theme"] and fake.writes == []
+        )  # preview writes nothing
         out = await sub_branding.apply(s, store, panel, actor_id=None)
         assert out["applied"] and out["changed"] and set(out["keys"]) == OURS
         assert fake.vars["theme"] == "dark" and fake.vars["melorin_brand_name"] == "Arash VPN" and OURS <= set(fake.vars)

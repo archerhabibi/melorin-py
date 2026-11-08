@@ -31,7 +31,11 @@ def test_reads_branding_from_either_context_name(where):
 
 
 def test_values_are_escaped_and_unsafe_links_dropped():
-    cv = {"melorin_brand_name": "<script>alert(1)</script>", "melorin_support_url": "javascript:alert(1)", "melorin_logo_url": "http://x/l.png"}
+    cv = {
+        "melorin_brand_name": "<script>alert(1)</script>",
+        "melorin_support_url": "javascript:alert(1)",
+        "melorin_logo_url": "http://x/l.png",
+    }
     html = _render(custom_variables=cv)
     assert "<script>alert" not in html and "&lt;script&gt;" in html
     assert "javascript:" not in html and "<img" not in html

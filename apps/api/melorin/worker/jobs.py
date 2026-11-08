@@ -15,7 +15,7 @@ from melorin.kernel.models.identity import VerificationCode
 from melorin.kernel.models.system import BackupRun
 from melorin.modules.eventcenter import report as event_center_report
 from melorin.modules.eventcenter import rules as event_center_rules
-from melorin.modules.vpn import capabilities, capacity, health, notices, panel_events, reconcile, sync
+from melorin.modules.vpn import capabilities, capacity, health, live, notices, panel_events, reconcile, sync
 from melorin.kernel.models.vpn import Panel, VpnAccount
 
 log = logging.getLogger("melorin.jobs")
@@ -254,6 +254,13 @@ async def expiry_job(ctx=None):
 
 
 async def near_expiry_job(ctx=None):
+    """Warn customers whose subscription is about to end.
+
+    Mediator rule: the SOLD expiry only nominates candidates. For an account on a panel the warning is sent only after a live read
+    says the panel agrees: not ``on_hold`` (its clock has not started), and the panel's own expiry is inside the window (a renewal
+    done on the panel pushes it out). A panel that does not answer sends nothing and leaves the flag unset, so the next run tries
+    again. An account without a panel has no other source, so its sold expiry is used as before.
+    """
     async with session_factory()() as s:
         hours = int(await settings_store.get(s, "vpn.near_expiry_hours") or 48)
         now, end = utcnow(), utcnow() + dt.timedelta(hours=hours)
@@ -267,7 +274,19 @@ async def near_expiry_job(ctx=None):
                 )
             )
         ).all()
+        on_panel = [a for a in accounts if a.panel_id]
+        readings = await live.read(s, on_panel[: live.MAX_ACCOUNTS]) if on_panel else {}
         for a in accounts:
+            if a.panel_id:
+                reading = readings.get(a.id)
+                if reading is None or reading.remote_status == "on_hold":
+                    continue  # no verdict (panel silent / clock not started): ask again next run, flag untouched
+                panel_expiry = reading.expires_at
+                if panel_expiry is not None:
+                    if panel_expiry.tzinfo is None:
+                        panel_expiry = panel_expiry.replace(tzinfo=dt.UTC)
+                    if not (now < panel_expiry <= end):
+                        continue  # renewed (or already over) on the panel: this warning would be wrong
             a.near_expiry_notified = True  # reset by a renewal (notices.reset_for_renewal), so the NEXT period warns again
             await notices.near_expiry(s, a)
         await s.commit()
