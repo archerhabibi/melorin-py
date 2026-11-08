@@ -199,24 +199,44 @@ async def panel_settings_drift_job(ctx=None):
     return done
 
 
+EXPIRY_CHECK_BATCH = 100  # accounts asked per run (the job runs every 5 minutes)
+EXPIRY_RECHECK_AFTER = dt.timedelta(minutes=2)  # an account the panel was asked about this recently is not asked again
+
+
 async def expiry_job(ctx=None):
+    """Phase 6 / R2: Melorin's clock no longer EXPIRES anything. The stored date is only a hint of whom to ask: every account whose
+    date has passed is read live from its panel, and the panel's answer (``sync.apply_remote``) decides, notice included. A panel
+    that cannot answer leaves the account untouched; the next run (or a panel event) settles it. ``on_hold`` accounts have no running
+    clock and accounts without a panel have nothing to ask, so both are skipped."""
+    from melorin.modules.vpn import service as vpn_service
+
+    now = utcnow()
     async with session_factory()() as s:
-        now = utcnow()
-        accounts = (
+        ids = (
             await s.scalars(
-                select(VpnAccount).where(
+                select(VpnAccount.id)
+                .where(
                     VpnAccount.status == "active",
+                    VpnAccount.panel_id.is_not(None),
                     VpnAccount.expires_at.is_not(None),
                     VpnAccount.expires_at <= now,
-                    # PG-02: an ``on_hold`` account (waiting for its first connection) has no running clock yet
                     or_(VpnAccount.remote_status.is_(None), VpnAccount.remote_status != "on_hold"),
+                    or_(VpnAccount.last_synced_at.is_(None), VpnAccount.last_synced_at <= now - EXPIRY_RECHECK_AFTER),
                 )
+                .order_by(VpnAccount.expires_at.asc())
+                .limit(EXPIRY_CHECK_BATCH)
             )
         ).all()
-        for a in accounts:
-            a.status = "expired"
-            await notices.expired(s, a)
-        await s.commit()
+    asked = 0
+    for account_id in ids:
+        async with session_factory()() as s:
+            try:
+                await vpn_service.reconcile(s, account_id)  # live read; commits; opens/closes issues itself
+                asked += 1
+            except Exception:
+                await s.rollback()
+                log.warning("expiry check failed account=%s", account_id, exc_info=True)
+    return asked
 
 
 async def near_expiry_job(ctx=None):

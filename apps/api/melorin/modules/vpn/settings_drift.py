@@ -153,12 +153,23 @@ def evaluate_notifications(settings: dict) -> dict:
     return finding("panel_notifications", "ok", "پنل اعلان مستقل نمی‌فرستد.", telegram=False, discord=False)
 
 
-def evaluate(settings: dict, *, policy: str, connected: bool, webhook_url: str | None, sub_base_url: str | None) -> list[dict]:
+MAX_RETENTION_DAYS = 3650
+
+
+def retention_days(panel: Panel) -> int:
+    """Days an expired user must be kept before the panel may delete it: the admin's number for this panel, never below the renewal grace."""
+    configured = getattr(panel, "expected_retention_days", None)
+    return max(GRACE_DAYS, int(configured)) if configured else GRACE_DAYS
+
+
+def evaluate(
+    settings: dict, *, policy: str, connected: bool, webhook_url: str | None, sub_base_url: str | None, retention: int = GRACE_DAYS
+) -> list[dict]:
     """All findings for one panel from its settings. Pure: no I/O, no secrets in the output."""
     return [
         evaluate_webhook(settings.get("webhook"), connected=connected, url=webhook_url),
         evaluate_subscription(settings.get("subscription"), sub_base_url),
-        evaluate_cleanup(settings.get("cleanup"), policy),
+        evaluate_cleanup(settings.get("cleanup"), policy, retention),
         evaluate_hwid(settings.get("hwid")),
         evaluate_notifications(settings),
     ]
@@ -211,6 +222,7 @@ async def check_panel(panel: Panel, adapter, *, now=None) -> dict:
         connected=panel.webhook_connected_at is not None,
         webhook_url=_public_webhook_url(panel),
         sub_base_url=cfg.get("sub_base_url"),
+        retention=retention_days(panel),
     )
     out = verdict(findings, policy=panel.expired_cleanup_policy, now=now)
     panel.settings_drift, panel.settings_drift_at = out, now
@@ -243,19 +255,26 @@ async def run_all(session: AsyncSession, *, close_adapter) -> int:
     return done
 
 
-async def set_policy(session: AsyncSession, panel_id: uuid.UUID, policy: str, *, actor_id: uuid.UUID, reason: str) -> dict:
+async def set_policy(
+    session: AsyncSession, panel_id: uuid.UUID, policy: str, *, actor_id: uuid.UUID, reason: str, retention_days: int | None = None
+) -> dict:
     """Admin choice of the lifecycle policy (audited). It changes Melorin's expectation only; nothing is written to the panel."""
     if policy not in POLICIES:
         raise AppError("BAD_POLICY", "سیاست نامعتبر است.", 400)
+    if retention_days is not None and not GRACE_DAYS <= retention_days <= MAX_RETENTION_DAYS:
+        raise AppError("BAD_RETENTION", f"مدت نگهداری باید بین {GRACE_DAYS} (مهلت تمدید) و {MAX_RETENTION_DAYS} روز باشد.", 400)
     panel = await session.get(Panel, panel_id)
     if not panel:
         raise NotFound("پنل")
     if panel.kind != "pasarguard":
         raise AppError("NOT_PASARGUARD", "این سیاست فقط برای پنل پاسارگارد معنا دارد.", 409)
     old, panel.expired_cleanup_policy = panel.expired_cleanup_policy, policy
+    old_days = panel.expected_retention_days
+    # only ``aligned`` has a retention; ``keep`` clears it (panel auto-delete is expected OFF)
+    panel.expected_retention_days = retention_days if policy == "aligned" else None
     audit.record(
         session, "panel.cleanup_policy_changed", actor_id=actor_id, actor_type="admin", entity_type="panel", entity_id=panel.id,
-        data={"from": old, "to": policy, "reason": reason[:300]},
+        data={"from": old, "to": policy, "reason": reason[:300], "retention_days_from": old_days, "retention_days_to": panel.expected_retention_days},
     )  # fmt: skip
     await session.commit()
     return await recheck(session, panel_id, actor_id=None)
@@ -301,6 +320,7 @@ def describe(panel: Panel) -> dict:
         "policy": panel.expired_cleanup_policy,
         "policies": [{"value": p, "label": POLICY_LABELS[p]} for p in POLICIES],
         "grace_days": GRACE_DAYS,
+        "expected_retention_days": retention_days(panel) if panel.expired_cleanup_policy == "aligned" else None,
         "checked_at": panel.settings_drift_at,
         "drifting": int((drift or {}).get("drifting") or 0),
         "findings": (drift or {}).get("findings") or [],

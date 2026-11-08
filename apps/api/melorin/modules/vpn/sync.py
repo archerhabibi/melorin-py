@@ -42,7 +42,13 @@ def status_from_remote(local: str, remote) -> str:
     if local not in SYNCABLE:
         return local
     raw = (getattr(remote, "remote_status", None) or getattr(remote, "status", None) or "").lower()
-    return REMOTE_TO_LOCAL.get(raw, local)
+    if raw in REMOTE_TO_LOCAL:
+        return REMOTE_TO_LOCAL[raw]
+    # a panel that reports no usable status (non-PasarGuard kinds) but sends its OWN expiry date that has passed: the panel says expired
+    expire_at = aware(_g(remote, "expire_at"))
+    if local == VpnStatus.ACTIVE and expire_at is not None and expire_at <= utcnow():
+        return VpnStatus.EXPIRED
+    return local
 
 
 def is_fresh(account, now: dt.datetime | None = None) -> bool:

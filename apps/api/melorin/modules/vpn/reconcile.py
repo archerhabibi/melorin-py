@@ -151,6 +151,7 @@ async def reconcile_panel(session: AsyncSession, panel: Panel, *, batch: int = B
     now = now or utcnow()
     panel_id = panel.id  # read once: after the rollback below ``panel`` is expired and an async session cannot lazy-load it
     result = PanelResult(panel_id=panel_id)
+    await issues.close_for_inactive_accounts(session, panel_id, now=now)  # L4: nothing to compare for archived/revoked accounts
     accounts = await _due_accounts(session, panel_id, batch)
     adapter = None
     try:

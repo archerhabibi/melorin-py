@@ -56,6 +56,9 @@ class Panel(IdMixin, TimestampMixin, Base):
     expired_cleanup_policy: Mapped[str] = mapped_column(String(10), default="keep", server_default="keep")
     settings_drift: Mapped[dict | None] = mapped_column(JSON)
     settings_drift_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    # Phase 6 (decision 2): with policy ``aligned`` the panel may auto-delete expired users only after THIS many days (NULL = the renewal
+    # grace). Melorin keeps the expectation and warns on drift; it never writes the panel's setting.
+    expected_retention_days: Mapped[int | None] = mapped_column(Integer)
 
 
 class Server(IdMixin, TimestampMixin, Base):

@@ -7,12 +7,12 @@ only raises ``occurrences`` and refreshes ``last_seen_at`` instead of piling up 
 import datetime as dt
 import uuid
 
-from sqlalchemy import select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from melorin.core.db import utcnow
-from melorin.kernel.models.vpn import ReconciliationIssue
+from melorin.kernel.models.vpn import ReconciliationIssue, VpnAccount
 
 MISSING = "missing_on_panel"
 UNREACHABLE = "panel_unreachable"
@@ -68,5 +68,20 @@ async def close_issues(
         update(ReconciliationIssue)
         .where(ReconciliationIssue.vpn_account_id.in_(account_ids), ReconciliationIssue.kind.in_(kinds), ReconciliationIssue.status == OPEN)
         .values(status=RESOLVED, resolution=resolution, resolved_at=now or utcnow())
+    )
+    return int(result.rowcount or 0)
+
+
+async def close_for_inactive_accounts(session: AsyncSession, panel_id: uuid.UUID, *, now: dt.datetime | None = None) -> int:
+    """L4: an archived / revoked account is no longer compared with the panel (its panel user was removed on purpose), so its open
+    issues could never clear by themselves. Close them all, whatever the kind. Returns how many were closed."""
+    inactive = select(VpnAccount.id).where(
+        VpnAccount.panel_id == panel_id, or_(VpnAccount.archived_at.is_not(None), VpnAccount.status.in_(("archived", "revoked")))
+    )
+    result = await session.execute(
+        update(ReconciliationIssue)
+        .where(ReconciliationIssue.vpn_account_id.in_(inactive), ReconciliationIssue.status == OPEN)
+        .values(status=RESOLVED, resolution="account_inactive", resolved_at=now or utcnow())
+        .execution_options(synchronize_session=False)
     )
     return int(result.rowcount or 0)

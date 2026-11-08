@@ -19,7 +19,7 @@ import uuid
 from sqlalchemy import and_, case, func, or_, select
 
 from melorin.core.db import utcnow
-from melorin.core.errors import NotFound
+from melorin.core.errors import AppError, NotFound
 from melorin.core.scope import OwnerScope, StoreScope
 from melorin.modules.vpn import renewal, service
 from melorin.kernel.models.vpn import VpnAccount
@@ -189,6 +189,25 @@ async def refresh_from_panel(session, account: VpnAccount) -> bool:
     await service.reconcile(session, account.id)
     await session.refresh(account)
     return True
+
+
+async def require_live(session, account: VpnAccount) -> None:
+    """FAIL-CLOSED live read for decisions that move money (Phase 6 / R3). Unlike :func:`refresh_from_panel` it is never skipped by
+    the TTL and a panel that cannot answer is an ERROR, not a reason to decide on stale numbers.
+
+    An account that was never placed on a panel (no ``panel_id``) has no panel data to wait for. This commits (the reconcile does), so
+    callers take their row locks AFTER it. Raises 503 ``PANEL_UNAVAILABLE`` when the panel did not answer or no longer knows the user.
+    """
+    if not account.panel_id:
+        return
+    outcome = await service.reconcile(session, account.id)
+    if outcome not in ("ok", "updated"):
+        raise AppError(
+            "PANEL_UNAVAILABLE",
+            "اطلاعات لحظه‌ای اکانت از پنل در دسترس نیست؛ برای جلوگیری از اشتباه در محاسبه، لطفاً کمی بعد دوباره تلاش کنید.",
+            503,
+        )
+    await session.refresh(account)
 
 
 # ================================================================ the scopes (every channel goes through these)

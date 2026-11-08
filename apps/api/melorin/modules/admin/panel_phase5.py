@@ -64,12 +64,15 @@ async def drift_check(panel_id: uuid.UUID, admin: AdminUser, session: Session):
 class LifecyclePolicyIn(BaseModel):
     policy: Literal["keep", "aligned"]
     reason: str = Field(min_length=3, max_length=300)
+    retention_days: int | None = Field(default=None, ge=1, le=3650, description="aligned only: days the panel must keep expired users")
 
 
 @router.put("/panels/{panel_id}/lifecycle-policy")
 async def lifecycle_policy(panel_id: uuid.UUID, body: LifecyclePolicyIn, admin: AdminUser, session: Session):
     """Choose what Melorin expects of the panel's auto-delete of expired users (audited). Changes Melorin's expectation only."""
-    return await settings_drift.set_policy(session, panel_id, body.policy, actor_id=admin.id, reason=body.reason)
+    return await settings_drift.set_policy(
+        session, panel_id, body.policy, actor_id=admin.id, reason=body.reason, retention_days=body.retention_days
+    )
 
 
 # ------------------------------------------------------------------------------------------------------------------ PG-16 backup
