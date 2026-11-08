@@ -215,6 +215,7 @@ def capacity_view(server: Server, melorin_active: int) -> dict:
         "panel_users": server.panel_total_users,
         "outside_melorin": max(0, int(server.panel_total_users) - melorin_active) if server.panel_total_users is not None else None,
         "source": server.capacity_source,
+        "panel_users_as_of": server.capacity_checked_at,  # R7: a stored panel number is always shown with its age
         "used": used,
         "percent": fill_percent(used, int(server.capacity or 0)),
         "state": fill_state(used, int(server.capacity or 0)),

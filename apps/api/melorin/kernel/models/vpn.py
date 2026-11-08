@@ -80,7 +80,7 @@ class Server(IdMixin, TimestampMixin, Base):
     sellable_reason: Mapped[str | None] = mapped_column(String(300))
     destination_health: Mapped[dict | None] = mapped_column(JSON)  # status healthy|degraded|blocked, score, reasons, hosts/nodes counts
     panel_total_users: Mapped[int | None] = mapped_column(Integer)  # users the PANEL counts in this destination (single-group targets only)
-    capacity_source: Mapped[str] = mapped_column(String(10), default="melorin", server_default="melorin")  # melorin | panel
+    capacity_source: Mapped[str] = mapped_column(String(10), default="panel", server_default="panel")  # panel (default, decision 6: the panel is the truth) | melorin
     capacity_alert_level: Mapped[int] = mapped_column(
         Integer, default=0, server_default="0"
     )  # highest announced fill threshold: 0 | 80 | 95 | 100

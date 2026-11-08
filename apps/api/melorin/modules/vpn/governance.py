@@ -80,6 +80,8 @@ def row_out(row: PanelAdmin, store: Store | None = None, panel: Panel | None = N
         "warning_level": warning_level(row),
         "sell_blocked": sell_blocked(row),
         "usage_checked_at": row.usage_checked_at,
+        "last_known": True,  # R7: used_traffic_bytes / total_users are a dated snapshot of the panel, never a live number
+        "as_of": row.usage_checked_at,
         "error": row.governance_error,
     }
 
