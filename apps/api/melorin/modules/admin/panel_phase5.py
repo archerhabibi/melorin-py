@@ -13,7 +13,7 @@ from sqlalchemy import func, select
 from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import AppError, NotFound
 from melorin.kernel.models.vpn import Panel, PanelNode
-from melorin.modules.vpn import panel_backup, panel_metrics, service_access, settings_drift
+from melorin.modules.vpn import panel_backup, panel_metrics, service_access, settings_drift, store_role
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -108,6 +108,14 @@ async def _service_panel(session, panel_id: uuid.UUID, confirm_name: str) -> Pan
     if confirm_name.strip() != panel.name:
         raise AppError("CONFIRM_REQUIRED", "نام پنل را برای تأیید دقیقاً وارد کنید.", 422)
     return panel
+
+
+@router.get("/panels/{panel_id}/store-role-plan")
+async def store_role_plan(panel_id: uuid.UUID, admin: AdminUser, session: Session):
+    """PG-12: the least-privilege role a store's panel admin should have (read-only plan; Melorin does not create it on the panel)."""
+    if not await session.get(Panel, panel_id):
+        raise NotFound("پنل")
+    return store_role.plan()
 
 
 @router.get("/panels/{panel_id}/service-access")

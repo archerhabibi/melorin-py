@@ -23,6 +23,7 @@ Rule: **Melorin is a mediator**. Used traffic, limit, expiry and status belong t
 | Decision 6 / L8 | **The panel is the capacity truth.** New and existing destinations use `capacity_source=panel` (migration `0052`); `effective_load` still falls back to Melorin's count until the panel's figure has been read. Stored panel numbers (`servers.panel_total_users`, `panel_admins.used_traffic_bytes/total_users`) are now shown with their age (`panel_users_as_of`, `as_of`, `last_known`). | `capacity.py`, `governance.py`, migration `0052` |
 | PG-06 texts | **Per-store customer notice wording.** `PUT/GET /admin/stores/{id}/vpn-notice-texts` (`{kind: {title, body}}`, placeholders `{store}` and `{level}` only, no `str.format`, length-limited, 422 on junk). Platform text is the fallback; saving texts never touches the warning levels. | `notices.py`, `panel_ops.py` |
 | PG-06 digest | **Opt-in daily digest for the store owner** (`PUT /admin/stores/{id}/vpn-digest`, off by default; worker `store_digest_job` 17:00 UTC). It reports only what Melorin owns (notices sent in 24 h, open discrepancies, sell-block reason), **no usage/expiry numbers**; one per store per day; empty day = nothing sent. | `digest.py`, `worker/jobs.py` |
+| PG-12 / L6 (plan only) | `GET /admin/panels/{id}/store-role-plan`: the least-privilege `melorin-store` role (users CRUD + groups read; no `api_keys`, admins, nodes, settings). **Not created on the panel by Melorin**; create it on staging, test one store admin, then switch `panel_admins.ROLE`. | `store_role.py` |
 | Fix | `state_hint` no longer breaks on account stand-ins without `remote_status` (a test on the branch was red). | `inquiry.py` |
 
 ## Switch-on order (staging first)
@@ -45,7 +46,7 @@ Request shapes (`AdminRoleCreate`, `APIKeyCreate`) were read from the live panel
 1. **Live check of PG-05** on the test panel (see rollout above); not run from this work.
 3. **R7–R10** stop writing the copied columns (`traffic_used_bytes`, `online_at`, `lifetime_used_traffic`, `subscription_url`, `links`, orphan/admin traffic, `servers.panel_total_users`), split "sold" from "now" (`expires_at`/`traffic_limit_bytes`), then drop the columns in a later migration. Deliberately **not** done in one step: `limits_mismatch`, plan settlement and the delivery message still read them.
 4. PG-04: "re-create on panel" and "link to existing panel user" issue actions; "assign manual account to a store/customer".
-5. PG-12 `melorin-store` role and `sub_template`/`custom_variables` branding; per-store usage report in the reseller bot; assign a manual account to a store/customer; admin-only online IP view; N10 internal-network exception. (PG-02 limited/on_hold text and PG-06 digest/texts are done above.)
+5. PG-12 applying the `melorin-store` role (plan exists) and `sub_template`/`custom_variables` branding; per-store usage report in the reseller bot; assign a manual account to a store/customer; admin-only online IP view; N10 internal-network exception. (PG-02 limited/on_hold text and PG-06 digest/texts are done above.)
 6. Operator only: enable panel backup (`MELORIN_PANEL_BACKUP_*`, L2), rotate the Telegram token in `notification_settings`, fix node certificates (`server_ca`), Caddy healthcheck.
 
 ## Merge note (8 Nov 2026)

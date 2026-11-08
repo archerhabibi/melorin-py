@@ -9,9 +9,9 @@
 | Alembic head | `0052_capacity_source_panel` |
 | Migrations | 52 |
 | ORM tables | 74 |
-| API operations | 385 |
-| API paths | 341 |
-| Test files / test functions (static count) | 193 / 1924 |
+| API operations | 386 |
+| API paths | 342 |
+| Test files / test functions (static count) | 194 / 1926 |
 | Coverage | not measured here (CI writes `apps/api/coverage.xml`; run `pytest --cov=melorin --cov-report=xml`) |
 | Documents: repo root / `docs/` / `docs/history/` (tests only) | 3 / 37 / 4 |
 
