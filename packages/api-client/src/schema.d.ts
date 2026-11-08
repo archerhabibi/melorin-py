@@ -1724,6 +1724,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/panels/{panel_id}/store-role/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Store Role Apply
+         * @description PG-12: create the `melorin-store` role on the panel (owner credential once) and use it for new/re-synced store admins.
+         */
+        post: operations["store_role_apply_api_v1_admin_panels__panel_id__store_role_apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/panels/{panel_id}/store-role/revert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Store Role Revert
+         * @description Back to the stock role for new/re-synced store admins. Nothing is written to the panel.
+         */
+        post: operations["store_role_revert_api_v1_admin_panels__panel_id__store_role_revert_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/panels/{panel_id}/subscription-check": {
         parameters: {
             query?: never;
@@ -12608,6 +12648,76 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    store_role_apply_api_v1_admin_panels__panel_id__store_role_apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                panel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServiceAccessIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    store_role_revert_api_v1_admin_panels__panel_id__store_role_revert_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                panel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServiceAccessIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

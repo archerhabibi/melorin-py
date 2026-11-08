@@ -14140,6 +14140,120 @@
         ]
       }
     },
+    "/api/v1/admin/panels/{panel_id}/store-role/apply": {
+      "post": {
+        "description": "PG-12: create the `melorin-store` role on the panel (owner credential once) and use it for new/re-synced store admins.",
+        "operationId": "store_role_apply_api_v1_admin_panels__panel_id__store_role_apply_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceAccessIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Store Role Apply",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/panels/{panel_id}/store-role/revert": {
+      "post": {
+        "description": "Back to the stock role for new/re-synced store admins. Nothing is written to the panel.",
+        "operationId": "store_role_revert_api_v1_admin_panels__panel_id__store_role_revert_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceAccessIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Store Role Revert",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/admin/panels/{panel_id}/subscription-check": {
       "get": {
         "operationId": "subscription_check_last_api_v1_admin_panels__panel_id__subscription_check_get",

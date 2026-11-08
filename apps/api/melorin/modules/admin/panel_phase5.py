@@ -113,9 +113,25 @@ async def _service_panel(session, panel_id: uuid.UUID, confirm_name: str) -> Pan
 @router.get("/panels/{panel_id}/store-role-plan")
 async def store_role_plan(panel_id: uuid.UUID, admin: AdminUser, session: Session):
     """PG-12: the least-privilege role a store's panel admin should have (read-only plan; Melorin does not create it on the panel)."""
-    if not await session.get(Panel, panel_id):
+    panel = await session.get(Panel, panel_id)
+    if not panel:
         raise NotFound("پنل")
-    return store_role.plan()
+    return store_role.plan(panel=panel)
+
+
+@router.post("/panels/{panel_id}/store-role/apply")
+async def store_role_apply(panel_id: uuid.UUID, body: ServiceAccessIn, admin: AdminUser, session: Session):
+    """PG-12: create the `melorin-store` role on the panel (owner credential once) and use it for new/re-synced store admins."""
+    panel = await _service_panel(session, panel_id, body.confirm_name)
+    boot = body.bootstrap.as_dict() if body.bootstrap else None
+    return await store_role.apply(session, panel, bootstrap=boot, actor_id=admin.id)
+
+
+@router.post("/panels/{panel_id}/store-role/revert")
+async def store_role_revert(panel_id: uuid.UUID, body: ServiceAccessIn, admin: AdminUser, session: Session):
+    """Back to the stock role for new/re-synced store admins. Nothing is written to the panel."""
+    panel = await _service_panel(session, panel_id, body.confirm_name)
+    return await store_role.revert(session, panel, actor_id=admin.id)
 
 
 @router.get("/panels/{panel_id}/service-access")

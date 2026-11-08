@@ -97,6 +97,9 @@ Request shapes (`AdminRoleCreate`, `APIKeyCreate`) were read from the live panel
 
 Tests: `apps/api/tests/test_manual_assign_db.py` (15).
 
+## PG-12 - the `melorin-store` role (explicit action, 8 Nov 2026)
+`POST /admin/panels/{id}/store-role/apply {confirm_name, bootstrap}` creates (or realigns) the role `melorin-store` (users create/read/update/delete + groups read; **no** `api_keys`, admins, nodes, hosts, settings) with an owner credential used for that one request and never stored, then sets `panel.config.admin_role`. New and re-synced store admins get the role (`panel_admins._push` passes it on every ensure); existing admins change on their next sync. `POST .../store-role/revert` returns to the stock role and writes nothing to the panel. Both are typed-name confirmed and audited (`panel.store_role.applied|reverted`). Nothing runs automatically (decision 3). Roll out on staging first: apply, resync one test store admin, do a create/renew/delete round trip, then the rest.
+
 ## R7-R10 status (8 Nov 2026): DONE
 R7 (stored panel numbers become dated snapshots, `online_at`/`lifetime_used_traffic` dropped), R8 (link read from the panel, `delivery_snapshot` only as the as-delivered fallback),
 R9 (`sold_*` vs panel "now") and R10 (`sync.record_sale` is the only writer; syncs never copy state) are implemented and the copied columns are dropped by `0054`.
@@ -105,7 +108,7 @@ The suite (2275 tests) is green; tests that seeded usage/link/status on the acco
 ## Not done yet (in priority order)
 
 1. **Live check of PG-05** on the test panel (see rollout above); not run from this work.
-2. PG-12 applying the `melorin-store` role (plan exists) and `sub_template`/`custom_variables` branding; per-store usage report in the reseller bot; N10 internal-network exception.
+2. PG-12 `sub_template`/`custom_variables` branding; per-store usage report in the reseller bot; N10 internal-network exception (deferred by decision 8). The `melorin-store` role itself is DONE as an explicit admin action (below).
 3. Operator only: enable panel backup (`MELORIN_PANEL_BACKUP_*`, L2), rotate the Telegram token in `notification_settings`, fix node certificates (`server_ca`), Caddy healthcheck.
 
 ## Merge note (8 Nov 2026)

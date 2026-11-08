@@ -20,6 +20,13 @@ Commits containing `[skip changelog]` and the bot's own commits are skipped.
 If `main` is protected, allow `github-actions[bot]` to bypass so the bot can push the log.
 
 
+## 2026-11-08 - PG-12: `melorin-store` role as an explicit, audited admin action
+- **Area:** vpn / admin / docs / tests
+- **Before:** store panel admins used the stock `operator` role, which carries `api_keys` rights (L6); the least-privilege role existed only as a read-only plan.
+- **Problem:** a reseller's panel admin could change or delete its own API keys, which Melorin never needs.
+- **Action:** `store_role.apply/revert` + `POST /admin/panels/{id}/store-role/apply|revert` (typed panel name, owner credential used once and never stored, idempotent, audited); the role is used for new and re-synced store admins through `panel.config.admin_role`; the panel admin list shows the configured role. Nothing is applied automatically; no migration.
+- **After:** 2 new tests, full backend suite green (2294 passed, 11 skipped); STATUS/API/OpenAPI/api-client regenerated. Not run against a live panel.
+
 ## 2026-11-08 - PG-04: assign a manual account to a store customer (zero-price `manual` order, not a sale)
 - **Area:** vpn / admin / orders-reports / loyalty / referral / eventcenter / docs / tests
 - **Before:** a panel user created by hand could only be recorded as "manual"; it could not belong to a store or customer because `vpn_accounts.order_id` / `product_id` are NOT NULL, and no rule said whether a free order counts in sales, commission or the loyalty club.

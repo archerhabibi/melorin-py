@@ -35,7 +35,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 
 <!-- BEGIN GENERATED ROUTES (scripts/gen_docs.py) -->
 
-### `admin` (169)
+### `admin` (171)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -131,6 +131,8 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | POST | `/api/v1/admin/panels/{panel_id}/settings-drift/check` | Drift Check |
 | POST | `/api/v1/admin/panels/{panel_id}/state` | Set Panel State |
 | GET | `/api/v1/admin/panels/{panel_id}/store-role-plan` | Store Role Plan |
+| POST | `/api/v1/admin/panels/{panel_id}/store-role/apply` | Store Role Apply |
+| POST | `/api/v1/admin/panels/{panel_id}/store-role/revert` | Store Role Revert |
 | GET | `/api/v1/admin/panels/{panel_id}/subscription-check` | Subscription Check Last |
 | POST | `/api/v1/admin/panels/{panel_id}/subscription-check` | Subscription Check Run |
 | GET | `/api/v1/admin/panels/{panel_id}/targets` | Panel Targets |
