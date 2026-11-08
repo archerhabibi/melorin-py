@@ -135,8 +135,13 @@ async def _record_orphans(session, panel_id, remote: dict[str, PanelAccount], no
         elif row.status == "gone":
             row.status = "open"
         row.remote_id = int(acc.ref) if str(acc.ref).isdigit() else None
-        row.remote_status, row.owner_username = acc.remote_status, acc.owner
-        row.expire_at, row.traffic_limit_bytes, row.traffic_used_bytes = acc.expire_at, acc.traffic_limit_bytes, acc.traffic_used_bytes
+        row.owner_username = acc.owner
+        row.snapshot = {  # R7: a dated copy for the admin list (age = last_seen_at); no decision reads it
+            "remote_status": acc.remote_status,
+            "expire_at": acc.expire_at.isoformat() if acc.expire_at else None,
+            "traffic_limit_bytes": int(acc.traffic_limit_bytes or 0),
+            "traffic_used_bytes": int(acc.traffic_used_bytes or 0),
+        }
         row.last_seen_at = now
         if row.status == "open":
             open_now += 1

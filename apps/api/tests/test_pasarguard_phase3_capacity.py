@@ -76,13 +76,13 @@ def test_fill_thresholds():
 
 
 def test_capacity_source_panel_counts_users_created_outside_melorin():
-    s = Server(name="s", capacity=10, capacity_source="panel", panel_total_users=9)
+    s = Server(name="s", capacity=10, capacity_source="panel", destination_health={"total_users": 9})
     assert cap.effective_load(s, 2) == 9
     view = cap.capacity_view(s, 2)
     assert view["used"] == 9 and view["outside_melorin"] == 7 and view["state"] == "warning" and view["panel_users"] == 9
     s.capacity_source = "melorin"
     assert cap.effective_load(s, 2) == 2  # default: unchanged behaviour
-    s.capacity_source, s.panel_total_users = "panel", None
+    s.capacity_source, s.destination_health = "panel", {}
     assert cap.effective_load(s, 2) == 2  # no panel figure yet: never guess
 
 
@@ -168,7 +168,7 @@ async def test_refresh_blocks_a_server_on_a_dead_group_and_reports_the_flip_once
         await s.refresh(ok), await s.refresh(dead)
         assert ok.sellable and not dead.sellable and "غیرفعال" in dead.sellable_reason
         assert dead.destination_health["status"] == cap.BLOCKED and dead.destination_health["check"] == "ok"
-        assert ok.panel_total_users == 7 and ok.capacity_checked_at is not None
+        assert cap.panel_users(ok) == 7 and ok.capacity_checked_at is not None
         assert [(c.server, c.kind, c.new) for c in changes] == [("S1", "sellable", "blocked")]
         again = await cap.refresh_panel(s, panel, adapter)
         assert again == []  # a standing condition is announced once, not every 2 minutes

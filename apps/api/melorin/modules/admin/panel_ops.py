@@ -87,6 +87,7 @@ class OrphanOut(BaseModel):
     expire_at: dt.datetime | None = None
     traffic_limit_bytes: int = 0
     traffic_used_bytes: int = 0
+    as_of: dt.datetime | None = None  # when the panel was last read (the numbers above are a snapshot of that moment)
     status: str
     note: str | None = None
     first_seen_at: dt.datetime | None = None
@@ -390,11 +391,8 @@ async def panel_orphans(
                 panel_id=o.panel_id,
                 panel_name=name,
                 username=o.username,
-                remote_status=o.remote_status,
                 owner_username=o.owner_username,
-                expire_at=o.expire_at,
-                traffic_limit_bytes=int(o.traffic_limit_bytes or 0),
-                traffic_used_bytes=int(o.traffic_used_bytes or 0),
+                **_orphan_numbers(o),
                 status=o.status,
                 note=o.note,
                 first_seen_at=o.first_seen_at,
@@ -405,16 +403,26 @@ async def panel_orphans(
     }
 
 
+def _orphan_numbers(o: PanelOrphan) -> dict:
+    """R7: the dated snapshot of an orphan, flattened for the API (``as_of`` = when the panel was last read)."""
+    snap = o.snapshot or {}
+    raw = snap.get("expire_at")
+    return {
+        "remote_status": snap.get("remote_status"),
+        "expire_at": dt.datetime.fromisoformat(raw) if raw else None,
+        "traffic_limit_bytes": int(snap.get("traffic_limit_bytes") or 0),
+        "traffic_used_bytes": int(snap.get("traffic_used_bytes") or 0),
+        "as_of": o.last_seen_at,
+    }
+
+
 def _orphan_out(o: PanelOrphan) -> OrphanOut:
     return OrphanOut(
         id=o.id,
         panel_id=o.panel_id,
         username=o.username,
-        remote_status=o.remote_status,
         owner_username=o.owner_username,
-        expire_at=o.expire_at,
-        traffic_limit_bytes=int(o.traffic_limit_bytes or 0),
-        traffic_used_bytes=int(o.traffic_used_bytes or 0),
+        **_orphan_numbers(o),
         status=o.status,
         note=o.note,
         first_seen_at=o.first_seen_at,

@@ -313,8 +313,7 @@ async def _store_admin(s, panel, *, policy="none", cap=100 * GIB, used=30 * GIB)
         remote_id=9,
         status="active",
         data_limit_bytes=cap,
-        used_traffic_bytes=used,
-        remote_status="active",
+        usage_snapshot={"used_traffic_bytes": used, "status": "active"},
     )
     s.add(row)
     await s.commit()
@@ -323,7 +322,9 @@ async def _store_admin(s, panel, *, policy="none", cap=100 * GIB, used=30 * GIB)
 
 def test_usage_ratio_warning_level_and_sell_blocked_rules():
     def row(**kw):
-        return PanelAdmin(data_limit_bytes=kw.get("cap"), used_traffic_bytes=kw.get("used"), remote_status=kw.get("status", "active"))
+        return PanelAdmin(
+            data_limit_bytes=kw.get("cap"), usage_snapshot={"used_traffic_bytes": kw.get("used"), "status": kw.get("status", "active")}
+        )
 
     assert governance.usage_ratio(row()) is None and governance.warning_level(row(cap=0, used=5)) == 0
     assert governance.warning_level(row(cap=100, used=79)) == 0
@@ -344,7 +345,8 @@ async def test_sync_usage_reads_every_admin_and_adopts_a_panel_side_cap_only_onc
         await s.commit()  # the caller (worker job / admin route) owns the commit
         assert (stats.checked, stats.updated, stats.errors) == (1, 1, 0)
         await s.refresh(row)
-        assert row.used_traffic_bytes == 30 * GIB and row.total_users == 4 and row.data_limit_bytes == 100 * GIB  # adopted
+        assert row.usage_snapshot["used_traffic_bytes"] == 30 * GIB and row.usage_snapshot["total_users"] == 4
+        assert row.data_limit_bytes == 100 * GIB  # adopted
         fake.admin["data_limit"] = 5 * GIB  # someone changed it on the panel: Melorin's own value is not silently replaced
         await governance.sync_usage(s, panel)
         await s.commit()
@@ -395,10 +397,10 @@ async def test_store_status_only_follows_the_panel_for_stores_that_opted_in(fake
         assert (
             report == [{"panel": "pg", "ok": True}]
             and fake.calls[-1] == ("admin_update", 9, None, "disabled", None)
-            and row.remote_status == "disabled"
+            and row.usage_snapshot["status"] == "disabled"
         )
         await governance.apply_store_status(s, store, suspended=False, actor_id=None)
-        assert fake.calls[-1] == ("admin_update", 9, None, "active", None) and row.remote_status == "active"
+        assert fake.calls[-1] == ("admin_update", 9, None, "active", None) and row.usage_snapshot["status"] == "active"
 
 
 async def test_a_failing_panel_is_reported_not_raised_on_store_suspension(fake):
