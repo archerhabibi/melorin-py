@@ -115,6 +115,9 @@ R7 (stored panel numbers become dated snapshots, `online_at`/`lifetime_used_traf
 R9 (`sold_*` vs panel "now") and R10 (`sync.record_sale` is the only writer; syncs never copy state) are implemented and the copied columns are dropped by `0054`.
 The suite (2275 tests) is green; tests that seeded usage/link/status on the account now seed them on a fake panel.
 
+## Verification pass (9 Nov 2026)
+Checked on the branch itself, not taken from the change log: backend suite, PostgreSQL lane for the mediator tests, migrations `0050` <-> `0054` on PostgreSQL 16, import-linter contracts, ruff, both web apps (tests, lint, admin build). Two real findings were fixed (layers contract; near-expiry warning confirmed by a live read, see CHANGE_LOG). **Still not verified, because it needs the live panel/VPS:** PG-05 provision/rotate, PG-12 role apply and branding apply (the PasarGuard docs at docs.pasarguard.org do not describe how `custom_variables` reach a page template; first apply on a test store), Prometheus after the `nobody` chown, panel backup env.
+
 ## Not done yet (in priority order)
 
 1. **Live check of PG-05** on the test panel (see rollout above); not run from this work.

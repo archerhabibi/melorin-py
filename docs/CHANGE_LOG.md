@@ -20,6 +20,13 @@ Commits containing `[skip changelog]` and the bot's own commits are skipped.
 If `main` is protected, allow `github-actions[bot]` to bypass so the bot can push the log.
 
 
+## 2026-11-09 - Mediator rework: verification pass (layering contract, near-expiry warning, formatting)
+- **Area:** api / worker / tests / docs
+- **Before:** `import-linter` reported the layers contract BROKEN on this branch (`vpn.manual_assign` imported `catalog.service`); `near_expiry_job` warned from Melorin's sold expiry alone, so an `on_hold` account (clock not started) or an account renewed on the panel could get a wrong "ends soon" notice; four PG-12 files were not `ruff format`-clean.
+- **Problem:** the sold expiry is Melorin's entitlement, not the panel's "now"; a warning is a statement about "now".
+- **Action:** `product_snapshot` moved to `domain/product_snapshot.py` (pure; `catalog` and `vpn` both use it, 6/6 contracts kept). `near_expiry_job` now nominates candidates from the sold expiry and sends only after a live read says the panel agrees (not `on_hold`, panel expiry inside the window); a panel that does not answer sends nothing and leaves the flag unset so the next run retries; accounts without a panel keep the sold expiry. New test `test_near_expiry_warning_is_sent_only_when_the_panel_agrees`. Formatting fixed.
+- **After:** verified on this branch: backend suite 2319 passed / 10 skipped; mediator, live-view, manual-assign, connections and PostgreSQL concurrency tests also green on PostgreSQL 16; `alembic upgrade head` -> `downgrade 0050` -> `upgrade head` -> `alembic check` clean; `ruff check`/`format` clean; admin-web 212 and store-web 76 vitest tests pass, both lint (0 errors) and admin-web build pass.
+
 ## 2026-11-09 - PG-12: vetted base subscription template that reads the `melorin_*` variables
 - **Area:** infra / docs / tests
 - **Before:** branding values were written into the store admin's `custom_variables`, but nothing in the repo could display them.
