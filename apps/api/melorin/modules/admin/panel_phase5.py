@@ -11,9 +11,9 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
 from melorin.core.deps import AdminUser, Session
-from melorin.core.errors import NotFound
+from melorin.core.errors import AppError, NotFound
 from melorin.kernel.models.vpn import Panel, PanelNode
-from melorin.modules.vpn import panel_backup, panel_metrics, settings_drift
+from melorin.modules.vpn import panel_backup, panel_metrics, service_access, settings_drift
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -81,3 +81,68 @@ async def lifecycle_policy(panel_id: uuid.UUID, body: LifecyclePolicyIn, admin: 
 @router.get("/panel-backups")
 async def panel_backups(admin: AdminUser, session: Session):
     return await panel_backup.status(session)
+
+
+# ------------------------------------------------------------------------------------------------------------------ PG-05 service access
+class BootstrapIn(BaseModel):
+    """An OWNER credential for this one request. Never stored, never logged, never returned."""
+
+    api_key: str | None = Field(default=None, repr=False, max_length=512)
+    username: str | None = Field(default=None, max_length=100)
+    password: str | None = Field(default=None, repr=False, max_length=512)
+
+    def as_dict(self) -> dict | None:
+        data = {k: v for k, v in self.model_dump().items() if v}
+        return data or None
+
+
+class ServiceAccessIn(BaseModel):
+    confirm_name: str = Field(description="the panel's name, typed by the admin: this creates a role, an admin and a key on the PANEL")
+    bootstrap: BootstrapIn | None = None
+
+
+async def _service_panel(session, panel_id: uuid.UUID, confirm_name: str) -> Panel:
+    panel = await session.get(Panel, panel_id)
+    if not panel:
+        raise NotFound("پنل")
+    if confirm_name.strip() != panel.name:
+        raise AppError("CONFIRM_REQUIRED", "نام پنل را برای تأیید دقیقاً وارد کنید.", 422)
+    return panel
+
+
+@router.get("/panels/{panel_id}/service-access")
+async def service_access_status(panel_id: uuid.UUID, admin: AdminUser, session: Session):
+    """Which credential level Melorin runs on, whether the service admin exists, and exactly what its role grants / withholds."""
+    panel = await session.get(Panel, panel_id)
+    if not panel:
+        raise NotFound("پنل")
+    return await service_access.status(panel)
+
+
+@router.post("/panels/{panel_id}/service-access/keys")
+async def service_access_keys(panel_id: uuid.UUID, body: BootstrapIn, admin: AdminUser, session: Session):
+    """The service admin's keys as the panel lists them (name, status, request count; never values). Needs an owner credential once."""
+    panel = await session.get(Panel, panel_id)
+    if not panel:
+        raise NotFound("پنل")
+    if body.as_dict() is None:
+        raise AppError("BOOTSTRAP_REQUIRED", "برای فهرست کلیدها یک اعتبارنامهٔ owner لازم است.", 422)
+    return await service_access.status(panel, bootstrap=body.as_dict())
+
+
+@router.post("/panels/{panel_id}/service-access/provision")
+async def service_access_provision(panel_id: uuid.UUID, body: ServiceAccessIn, admin: AdminUser, session: Session):
+    """Create the least-privilege admin + key, verify it, then switch Melorin to it. The old owner key is left for you to revoke."""
+    panel = await _service_panel(session, panel_id, body.confirm_name)
+    boot = body.bootstrap.as_dict() if body.bootstrap else None
+    return await service_access.provision(session, panel, bootstrap=boot, actor_id=admin.id)
+
+
+@router.post("/panels/{panel_id}/service-access/rotate")
+async def service_access_rotate(panel_id: uuid.UUID, body: ServiceAccessIn, admin: AdminUser, session: Session):
+    """Replace the service key (new key verified before the switch, old key deleted after). Needs an owner credential once."""
+    panel = await _service_panel(session, panel_id, body.confirm_name)
+    boot = body.bootstrap.as_dict() if body.bootstrap else None
+    if boot is None:
+        raise AppError("BOOTSTRAP_REQUIRED", "برای چرخش کلید یک اعتبارنامهٔ owner لازم است.", 422)
+    return await service_access.rotate(session, panel, bootstrap=boot, actor_id=admin.id)

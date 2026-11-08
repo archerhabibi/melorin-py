@@ -29,6 +29,7 @@ Panel credentials (encrypted): {"username": "...", "password": "..."},
 {"access_token": "..."} or {"api_key": "..."}.
 """
 
+from melorin.modules.vpn.adapters.pasarguard.access import AccessMixin
 from melorin.modules.vpn.adapters.pasarguard.admins import AdminsMixin
 from melorin.modules.vpn.adapters.pasarguard.capabilities import CapabilitiesMixin
 from melorin.modules.vpn.adapters.pasarguard.events import EventsMixin
@@ -47,7 +48,7 @@ from melorin.modules.vpn.adapters.pasarguard.ops import OpsMixin
 from melorin.modules.vpn.adapters.pasarguard.users import _STATUS, UsersMixin, build_create_payload, build_modify_payload  # noqa: F401
 
 
-class PasarGuardAdapter(UsersMixin, AdminsMixin, NodesMixin, OpsMixin, EventsMixin, CapabilitiesMixin, PasarGuardCore):
+class PasarGuardAdapter(UsersMixin, AdminsMixin, AccessMixin, NodesMixin, OpsMixin, EventsMixin, CapabilitiesMixin, PasarGuardCore):
     """PanelAdapter + the optional operation groups (NodeOps, UsageOps, DeviceOps, BulkOps, AdminOps, SettingsOps).
 
     Which of them a connection may use is ``capabilities()`` (declared) narrowed by ``discover_capabilities()`` (permitted)."""

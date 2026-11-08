@@ -9,11 +9,11 @@
 | Alembic head | `0051_pasarguard_mediator` |
 | Migrations | 51 |
 | ORM tables | 74 |
-| API operations | 378 |
-| API paths | 335 |
-| Test files / test functions (static count) | 188 / 1898 |
+| API operations | 382 |
+| API paths | 339 |
+| Test files / test functions (static count) | 190 / 1907 |
 | Coverage | not measured here (CI writes `apps/api/coverage.xml`; run `pytest --cov=melorin --cov-report=xml`) |
-| Documents: repo root / `docs/` / `docs/history/` (tests only) | 3 / 36 / 4 |
+| Documents: repo root / `docs/` / `docs/history/` (tests only) | 3 / 37 / 4 |
 
 Where things live: requirements and design `docs/01`-`docs/17` (13-17 are design records; 12 and 15 were merged into `DECISIONS.md` and `14`); route list `docs/API.md`;
 operations `docs/RUNBOOK.md`; decisions `docs/DECISIONS.md`; change log `docs/CHANGE_LOG.md`;
