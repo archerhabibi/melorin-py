@@ -65,7 +65,55 @@ groups:
         labels: {severity: warning}
         annotations: {summary: "One or more reseller Telegram bots are offline or in error"}
       - alert: MelorinBackupStale
-        expr: melorin_backup_age_seconds > 129600
+        expr: melorin_backup_age_seconds{target=""} > 129600
         for: 10m
         labels: {severity: critical}
         annotations: {summary: "No successful backup within 36 hours"}
+  # PG-14/15/16: the PasarGuard panels themselves. Series are labelled by panel / server name; a metric with no data is not emitted.
+  - name: melorin-panels
+    rules:
+      - alert: MelorinPanelNodeDown
+        expr: melorin_panel_nodes{status="connected"} == 0 and on(panel) melorin_panel_nodes{status="error"} > 0
+        for: 5m
+        labels: {severity: critical}
+        annotations: {summary: "A panel has failing nodes and none connected: nobody can be served"}
+      - alert: MelorinPanelDegraded
+        expr: melorin_panel_nodes{status="error"} > 0 and on(panel) melorin_panel_nodes{status="connected"} > 0
+        for: 10m
+        labels: {severity: warning}
+        annotations: {summary: "A panel has failing nodes but still serves customers"}
+      - alert: MelorinPanelApiSlow
+        expr: melorin_panel_api_latency_seconds > 3
+        for: 10m
+        labels: {severity: warning}
+        annotations: {summary: "A panel API answers slower than 3 seconds"}
+      - alert: MelorinPanelResourcesHigh
+        expr: melorin_panel_cpu_ratio > 0.9 or melorin_panel_mem_ratio > 0.9 or melorin_panel_disk_ratio > 0.9
+        for: 15m
+        labels: {severity: warning}
+        annotations: {summary: "A panel host is above 90% CPU, memory or disk"}
+      - alert: MelorinPanelMetricsStale
+        expr: melorin_panel_snapshot_age_seconds > 900
+        for: 10m
+        labels: {severity: warning}
+        annotations: {summary: "Panel readings are older than 15 minutes (panel down or metrics job stopped)"}
+      - alert: MelorinReconcileLagHigh
+        expr: melorin_reconcile_lag_seconds > 10800
+        for: 15m
+        labels: {severity: warning}
+        annotations: {summary: "Panel reconcile is not keeping up: an account has not been compared for over 3 hours"}
+      - alert: MelorinCapacityHigh
+        expr: melorin_server_capacity_ratio >= 0.95
+        for: 10m
+        labels: {severity: warning}
+        annotations: {summary: "A server is 95% full or more"}
+      - alert: MelorinPanelSettingsDrift
+        expr: melorin_panel_settings_drift > 0
+        for: 30m
+        labels: {severity: warning}
+        annotations: {summary: "A panel's settings differ from what Melorin needs (see Panels, settings drift)"}
+      - alert: MelorinPanelBackupStale
+        expr: melorin_backup_age_seconds{target="panel"} > 129600
+        for: 10m
+        labels: {severity: critical}
+        annotations: {summary: "No successful panel backup within 36 hours"}
