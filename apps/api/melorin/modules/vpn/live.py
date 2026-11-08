@@ -159,6 +159,8 @@ def overlay(out: VpnAccountOut, reading: LiveReading | None, *, now: dt.datetime
                 "usage_percent": None,
                 "days_left": None,
                 "health": "unavailable",
+                "state_note": None,
+                "suggested_action": None,
             }
         )
     now = now or utcnow()
@@ -178,6 +180,13 @@ def overlay(out: VpnAccountOut, reading: LiveReading | None, *, now: dt.datetime
             "days_left": inquiry.days_left(shadow, now),
             "usage_percent": inquiry.usage_percent(shadow),
             "health": inquiry.health(shadow, now),
+            **dict(
+                zip(
+                    ("state_note", "suggested_action"),
+                    inquiry.state_hint(reading.remote_status, inquiry.health(shadow, now), can_renew=out.can_renew),
+                    strict=True,
+                )
+            ),
             **({"subscription_url": reading.subscription_url} if reading.subscription_url else {}),
         }
     )

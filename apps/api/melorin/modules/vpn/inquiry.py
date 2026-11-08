@@ -94,9 +94,25 @@ def health(a: VpnAccount, now: dt.datetime | None = None) -> str:
     return "active"
 
 
+ON_HOLD_NOTE = "اشتراک شما آماده است و مدت آن از اولین اتصال شروع می‌شود."
+DEPLETED_NOTE = "حجم اشتراک شما تمام شده است. برای ادامه، آن را تمدید کنید."
+
+
+def state_hint(remote_status: str | None, health_word: str, *, can_renew: bool) -> tuple[str | None, str | None]:
+    """PG-02: ``(note, suggested_action)`` for the states the panel reports that need a word. Pure: callers pass what they read."""
+    if (remote_status or "") == "on_hold":
+        return ON_HOLD_NOTE, None  # nothing to do: the clock starts at the first connection
+    if health_word == "depleted" or (remote_status or "") == "limited":
+        return DEPLETED_NOTE, ("renew" if can_renew else None)
+    return None, None
+
+
 def account_out(a: VpnAccount, now: dt.datetime | None = None) -> VpnAccountOut:
     state = renewal.eligibility(a, now=now)
+    note, action = state_hint(a.remote_status, health(a, now), can_renew=state.ok)
     return VpnAccountOut(
+        state_note=note,
+        suggested_action=action,
         can_renew=state.ok,
         renew_until=state.renew_until,
         id=a.id,

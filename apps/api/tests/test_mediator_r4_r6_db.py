@@ -72,3 +72,15 @@ async def test_analytics_snapshot_labels_stored_traffic_and_reports_panel_number
     assert vpn["panels"] == [
         {"panel_id": str(panel.id), "name": "pg", "up": True, "users_total": 5, "online_users": 2, "taken_at": NOW.isoformat()}
     ]
+
+
+# ---------------------------------------------------------------------------------------------------------------- PG-02 words
+async def test_state_hint_says_what_on_hold_and_depleted_mean():
+    from melorin.modules.vpn import inquiry
+
+    note, action = inquiry.state_hint("on_hold", "active", can_renew=False)
+    assert "اولین اتصال" in note and action is None
+    note, action = inquiry.state_hint("limited", "depleted", can_renew=True)
+    assert note == inquiry.DEPLETED_NOTE and action == "renew"
+    assert inquiry.state_hint("limited", "depleted", can_renew=False) == (inquiry.DEPLETED_NOTE, None)
+    assert inquiry.state_hint("active", "active", can_renew=True) == (None, None)

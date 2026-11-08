@@ -1,7 +1,7 @@
 """Admin API - panel operations (PasarGuard roadmap Phase 1): node health, reconciliation issues, discovered panel users.
 
 Read endpoints are plain lists. Every write is an explicit admin decision, audited, and limited to the issue's own kind:
-``ignore`` / ``resolve`` (any kind), ``fix_owner`` (owner_mismatch), ``archive_account`` (missing_on_panel), ``resync`` (re-check now).
+``ignore`` / ``resolve`` (any kind), ``fix_owner`` (owner_mismatch), ``archive_account`` / ``link_existing`` / ``recreate_on_panel`` (missing_on_panel), ``resync`` (re-check now).
 Nothing here deletes anything on a panel, and orphans are only ever listed or ignored.
 """
 
@@ -21,14 +21,14 @@ from melorin.domain.order_state import VpnStatus
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.vpn import Panel, PanelEvent, PanelNode, PanelOrphan, ReconciliationIssue, VpnAccount
 from melorin.modules.vpn import issues as issue_svc
-from melorin.modules.vpn import notices, panel_events, panel_events_admin, reconcile
+from melorin.modules.vpn import notices, panel_events, panel_events_admin, recreate, reconcile
 from melorin.modules.vpn.adapters.base import PanelError, supports
 from melorin.modules.vpn.adapters.registry import build_adapter, seed_adapter
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 log = logging.getLogger("melorin.admin.panel_ops")
 
-ACTIONS = ("ignore", "resolve", "fix_owner", "archive_account", "link_existing", "resync")
+ACTIONS = ("ignore", "resolve", "fix_owner", "archive_account", "link_existing", "recreate_on_panel", "resync")
 
 
 class NodeOut(BaseModel):
@@ -72,7 +72,7 @@ class IssueOut(BaseModel):
 
 
 class IssueActionIn(BaseModel):
-    action: str = Field(pattern="^(ignore|resolve|fix_owner|archive_account|link_existing|resync)$")
+    action: str = Field(pattern="^(ignore|resolve|fix_owner|archive_account|link_existing|recreate_on_panel|resync)$")
     reason: str | None = Field(default=None, max_length=300)
     orphan_id: uuid.UUID | None = None  # link_existing: the panel user (orphan of the SAME panel) this account really is
 
@@ -101,7 +101,9 @@ def allowed_actions(kind: str, status: str) -> list[str]:
     """What an admin may do with an issue. Closed issues take no action."""
     if status != issue_svc.OPEN:
         return []
-    extra = {issue_svc.OWNER_MISMATCH: ["fix_owner"], issue_svc.MISSING: ["link_existing", "archive_account"]}.get(kind, [])
+    extra = {issue_svc.OWNER_MISMATCH: ["fix_owner"], issue_svc.MISSING: ["link_existing", "recreate_on_panel", "archive_account"]}.get(
+        kind, []
+    )
     return ["resync", *extra, "resolve", "ignore"]
 
 
@@ -302,6 +304,11 @@ async def issue_action(issue_id: uuid.UUID, body: IssueActionIn, admin: AdminUse
         account.sync_error_count = 0
         orphan.status, orphan.note = "gone", f"linked to account {account.id}"[:300]
         issue.status, issue.resolution, issue.resolved_at = issue_svc.RESOLVED, f"linked to panel user {orphan.username}"[:300], now
+    elif body.action == "recreate_on_panel":
+        if not reason:
+            raise AppError("REASON_REQUIRED", "برای ساخت دوباره روی پنل، دلیل را بنویسید.", 422)
+        new_ref = await recreate.recreate_on_panel(session, account)
+        issue.status, issue.resolution, issue.resolved_at = issue_svc.RESOLVED, f"re-created on panel (ref {new_ref}): {reason}"[:300], now
     elif body.action == "fix_owner":
         expected = (issue.details or {}).get("expected")
         panel = await session.get(Panel, account.panel_id) if account.panel_id else None
@@ -352,7 +359,7 @@ async def issue_action(issue_id: uuid.UUID, body: IssueActionIn, admin: AdminUse
         data={"issue": str(issue.id), "kind": issue.kind, "reason": reason},
     )
     await session.commit()
-    if body.action == "link_existing":
+    if body.action in ("link_existing", "recreate_on_panel"):
         await reconcile.reconcile_account(session, account.id)  # verify the link against the panel right away
         await session.refresh(issue)
     store, panel = await session.get(Store, account.store_id), (await session.get(Panel, account.panel_id) if account.panel_id else None)
