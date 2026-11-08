@@ -19,6 +19,7 @@ from melorin.modules.vpn import account_tools as tools
 from melorin.modules.vpn import inquiry
 from melorin.modules.vpn.schemas import (
     AccountAdjustIn,
+    ConnectionsOut,
     DevicesOut,
     PresenceOut,
     ReasonIn,
@@ -105,6 +106,12 @@ def _register(prefix: str, dep) -> None:
         return inquiry.account_out(await tools.resume(session, t.account, role=t.role, actor_id=t.actor_id))
 
     if role == tools.ADMIN:
+
+        @router.get(f"{base}/connections", response_model=ConnectionsOut, name=f"connections_{role}")
+        async def connections(
+            t: T, session: Session, limit: int = Query(20, ge=1, le=tools.MAX_FETCH_HISTORY), offset: int = Query(0, ge=0)
+        ):
+            return await tools.connections(session, t.account, role=t.role, actor_id=t.actor_id, limit=limit, offset=offset)
 
         @router.post(f"{base}/adjust", response_model=VpnAccountOut, name=f"adjust_{role}")
         async def adjust(body: AccountAdjustIn, t: T, session: Session):

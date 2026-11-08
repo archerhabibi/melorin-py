@@ -172,6 +172,8 @@ async def _exercise_everything() -> list[dict]:
     await a.list_devices("alice")
     await a.delete_device("alice", "abc")
     await a.reset_devices("alice")
+    await a.online_ips("alice")
+    await a.subscription_updates("alice", limit=5, offset=0)
     await a.bulk_set_owner(["1", "2"], "store-1")
     await a.find_admin("store-1")
     await a.ensure_admin(

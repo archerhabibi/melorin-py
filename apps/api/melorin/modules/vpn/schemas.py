@@ -97,6 +97,31 @@ class DevicesOut(BaseModel):
     count: int
 
 
+class OnlineIpOut(BaseModel):
+    node_id: int | str
+    ip: str
+    connections: int
+
+
+class FetchOut(BaseModel):
+    created_at: dt.datetime | str | None = None
+    user_agent: str | None = None
+    ip: str | None = None
+    hwid: str | None = None
+
+
+class ConnectionsOut(BaseModel):
+    """Admin-only view (decision 5). Read live from the panel, never stored."""
+
+    online_available: bool
+    online_ips: list[OnlineIpOut]
+    history_available: bool
+    history_count: int
+    history: list[FetchOut]
+    limit: int
+    offset: int
+
+
 class ReasonIn(BaseModel):
     reason: str | None = None
 

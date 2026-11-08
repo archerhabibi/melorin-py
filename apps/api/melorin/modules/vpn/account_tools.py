@@ -7,7 +7,8 @@ Every channel (customer bot/site, reseller bot/site, admin) goes through this mo
   panel or its credential cannot serve is reported as unavailable with a reason, never attempted.
 * **Scope is the caller's job.** The router resolves the account through ``StoreScope`` (customer), ``reseller_find`` (store
   owner) or the admin session and hands the row in; this module never widens it.
-* **Privacy.** Connection IPs are never exposed here. "Last seen" is read live from the panel (R7); device ids (HWID) are the
+* **Privacy.** Connection IPs are exposed ONLY to the platform admin (decision 5, tool ``connections``); owners and customers never
+  get them, every admin view is audited (the audit row carries counts, never the IPs). "Last seen" is read live from the panel (R7); device ids (HWID) are the
   customer's own devices and are only returned for the account the caller already reached.
 * **Writes are audited** with the acting role. Suspend/resume/compensation are owner/admin only. Compensation is admin only,
   needs a reason and is computed from a FRESH panel read (absolute values), so a retried call after a timeout can be re-read
@@ -55,6 +56,7 @@ TOOLS: tuple[Tool, ...] = (
     Tool("presence", "آخرین اتصال", None, (OWNER, ADMIN)),
     Tool("devices", "دستگاه‌ها", "device_ops", (CUSTOMER, OWNER, ADMIN)),
     Tool("devices_manage", "حذف / ریست دستگاه‌ها", "device_ops", (CUSTOMER, OWNER, ADMIN), write=True),
+    Tool("connections", "IP اتصال و تاریخچهٔ دریافت اشتراک", "ip_ops", (ADMIN,)),  # decision 5: admin only
     Tool("rotate", "لینک اشتراک جدید", "subscription_rotate", (CUSTOMER, OWNER, ADMIN), write=True),
     Tool("suspend", "تعلیق / فعال‌سازی", "suspend", (OWNER, ADMIN), write=True),
     Tool("adjust", "جبران حجم و زمان", "extend", (ADMIN,), write=True),
@@ -69,6 +71,7 @@ MAX_USAGE_DAYS = 90
 ROTATE_COOLDOWN_SECONDS = 20.0
 MAX_ADJUST_DAYS = 365
 MAX_ADJUST_GB = 1024
+MAX_FETCH_HISTORY = 100
 
 _last_rotate: dict[uuid.UUID, float] = {}
 
@@ -284,6 +287,53 @@ async def reset_devices(session: AsyncSession, account: VpnAccount, *, role: str
         await _close(adapter)
     _audit(session, account, "devices_reset", actor_id=actor_id, role=role)
     await session.commit()
+
+
+async def connections(
+    session: AsyncSession, account: VpnAccount, *, role: str, actor_id: uuid.UUID, limit: int = 20, offset: int = 0
+) -> dict:
+    """Admin only: the account's live connection IPs and its subscription-fetch history, read from the panel now.
+
+    Nothing is stored. Either half may be unavailable on its own (a node that is down, a credential without ``nodes.stats``):
+    that half is reported ``available=false`` and the other is still shown. Both failing is a panel error. Each view is audited
+    with counts only."""
+    adapter, _panel = await _open(session, account, role, "connections")
+    limit = max(1, min(int(limit), MAX_FETCH_HISTORY))
+    offset = max(0, int(offset))
+    failures: list[PanelError] = []
+    ips: list[dict] | None = None
+    history: dict | None = None
+    try:
+        try:
+            ips = await adapter.online_ips(account.username)
+        except PanelError as exc:
+            failures.append(exc)
+        try:
+            history = await adapter.subscription_updates(account.username, limit=limit, offset=offset)
+        except PanelError as exc:
+            failures.append(exc)
+    finally:
+        await _close(adapter)
+    if ips is None and history is None:
+        raise _panel_error(failures[0])
+    _audit(
+        session,
+        account,
+        "connections_viewed",
+        actor_id=actor_id,
+        role=role,
+        data={"online_ips": len(ips or []), "fetches": len((history or {}).get("items") or [])},
+    )
+    await session.commit()
+    return {
+        "online_available": ips is not None,
+        "online_ips": ips or [],
+        "history_available": history is not None,
+        "history_count": int((history or {}).get("count") or 0),
+        "history": (history or {}).get("items") or [],
+        "limit": limit,
+        "offset": offset,
+    }
 
 
 # ------------------------------------------------------------------------------------------------------------- write tools
