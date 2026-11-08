@@ -107,7 +107,9 @@ async def panel_backup_job(ctx=None):
             size = Path(location).stat().st_size if Path(location).exists() else None
             if proc.returncode == 0:
                 status = "succeeded"
-                details = "panel backup encrypted and verified" + ("; copied to S3" if env.get("MELORIN_BACKUP_OFFSITE_URI") else "; local only")
+                details = "panel backup encrypted and verified" + (
+                    "; copied to S3" if env.get("MELORIN_BACKUP_OFFSITE_URI") else "; local only"
+                )
             else:
                 status = "partial"
                 details = "local panel backup OK but S3 upload failed: " + stderr.decode(errors="replace")[-1500:]

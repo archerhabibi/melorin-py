@@ -27,7 +27,9 @@ async def panel_readings(panel_id: uuid.UUID, admin: AdminUser, session: Session
         raise NotFound("پنل")
     rows = (
         await session.execute(
-            select(PanelNode.status, func.count()).where(PanelNode.panel_id == panel.id, PanelNode.removed_at.is_(None)).group_by(PanelNode.status)
+            select(PanelNode.status, func.count())
+            .where(PanelNode.panel_id == panel.id, PanelNode.removed_at.is_(None))
+            .group_by(PanelNode.status)
         )
     ).all()
     nodes = dict.fromkeys(panel_metrics.NODE_STATES, 0)

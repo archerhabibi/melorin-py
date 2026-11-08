@@ -68,7 +68,9 @@ def evaluate_cleanup(cleanup: dict | None, policy: str, grace_days: int = GRACE_
     scope = " (کاربران محدودشده‌ی بی‌حجم هم شامل می‌شوند)" if includes_limited else ""
     if policy == "aligned":
         if days >= grace_days:
-            return finding("expired_cleanup", "ok", f"پنل منقضی‌ها را پس از {days} روز حذف می‌کند؛ از مهلت تمدید ({grace_days} روز) کمتر نیست.", **facts)
+            return finding(
+                "expired_cleanup", "ok", f"پنل منقضی‌ها را پس از {days} روز حذف می‌کند؛ از مهلت تمدید ({grace_days} روز) کمتر نیست.", **facts
+            )
         return finding(
             "expired_cleanup", "drift",
             f"پنل منقضی‌ها را پس از {days} روز حذف می‌کند{scope} ولی مهلت تمدید {grace_days} روز است؛ مشتری قبل از پایان مهلت اکانت خود را از دست می‌دهد.",
@@ -92,11 +94,15 @@ def evaluate_webhook(webhook: dict | None, *, connected: bool, url: str | None) 
         if info["enabled"] and info["melorin_registered"]:
             return finding("webhook", "ok", "پنل رویدادها را به ملورین می‌فرستد.", **facts)
         why = "رویداد در پنل خاموش شده است" if not info["enabled"] else "آدرس ملورین از فهرست مقصدهای پنل حذف شده است"
-        return finding("webhook", "drift", f"رویداد زنده در ملورین وصل است ولی {why}؛ تا اتصال دوباره فقط reconcile ساعتی همگام می‌کند.", **facts)
+        return finding(
+            "webhook", "drift", f"رویداد زنده در ملورین وصل است ولی {why}؛ تا اتصال دوباره فقط reconcile ساعتی همگام می‌کند.", **facts
+        )
     if info["enabled"] and info["melorin_registered"]:
         return finding("webhook", "ok", "آدرس ملورین در پنل ثبت شده است؛ اتصال زنده در ملورین فعال نیست ولی ناسازگاری وجود ندارد.", **facts)
     if info["enabled"] and info["targets"]:
-        return finding("webhook", "info", "پنل رویدادها را جای دیگری می‌فرستد و رویداد زنده ملورین وصل نیست (reconcile ساعتی کار می‌کند).", **facts)
+        return finding(
+            "webhook", "info", "پنل رویدادها را جای دیگری می‌فرستد و رویداد زنده ملورین وصل نیست (reconcile ساعتی کار می‌کند).", **facts
+        )
     return finding("webhook", "ok", "رویداد زنده فعال نیست و لازم هم نیست.", **facts)
 
 
@@ -107,7 +113,12 @@ def evaluate_subscription(subscription: dict | None, sub_base_url: str | None) -
     if not panel_origin:
         return finding("subscription_prefix", "info", "پنل آدرس پایه‌ی اشتراک (url_prefix) را تنظیم نکرده است.")
     if not melorin_origin:
-        return finding("subscription_prefix", "info", "برای این پنل sub_base_url در ملورین تنظیم نشده؛ فقط آدرس پنل نمایش داده می‌شود.", panel=panel_origin)
+        return finding(
+            "subscription_prefix",
+            "info",
+            "برای این پنل sub_base_url در ملورین تنظیم نشده؛ فقط آدرس پنل نمایش داده می‌شود.",
+            panel=panel_origin,
+        )
     if panel_origin != melorin_origin:
         return finding(
             "subscription_prefix", "drift",
@@ -121,7 +132,9 @@ def evaluate_hwid(hwid: dict | None) -> dict:
     """HWID (device limit) is a policy the panel owns: shown for troubleshooting, never a drift."""
     if not isinstance(hwid, dict):
         return finding("hwid", "unknown", "تنظیمات محدودیت دستگاه (HWID) خوانده نشد.")
-    facts = {k: hwid.get(k) for k in ("enabled", "forced", "fallback_limit", "min_limit", "max_limit") if isinstance(hwid.get(k), int | bool)}
+    facts = {
+        k: hwid.get(k) for k in ("enabled", "forced", "fallback_limit", "min_limit", "max_limit") if isinstance(hwid.get(k), int | bool)
+    }
     state = "فعال" if hwid.get("enabled") else "غیرفعال"
     return finding("hwid", "info", f"محدودیت دستگاه (HWID) در پنل {state} است.", **facts)
 
@@ -176,7 +189,13 @@ async def check_panel(panel: Panel, adapter, *, now=None) -> dict:
     now = now or utcnow()
     previous = panel.settings_drift if isinstance(panel.settings_drift, dict) else None
     if not (panel_caps.capabilities_of(panel).has("settings_ops") and supports(adapter, "settings_ops")):
-        out = {"checked_at": now.isoformat(), "policy": panel.expired_cleanup_policy, "drifting": 0, "findings": [], "error": "settings_unreadable"}
+        out = {
+            "checked_at": now.isoformat(),
+            "policy": panel.expired_cleanup_policy,
+            "drifting": 0,
+            "findings": [],
+            "error": "settings_unreadable",
+        }
         panel.settings_drift, panel.settings_drift_at = out, now
         return out
     try:

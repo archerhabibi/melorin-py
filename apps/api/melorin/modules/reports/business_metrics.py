@@ -56,7 +56,9 @@ async def collect(session: AsyncSession, now: dt.datetime | None = None) -> dict
     unhealthy_bots = sum(1 for st in stores if effective_state(st, now) in UNHEALTHY_BOT_STATES)
     values["melorin_reseller_bots_unhealthy"] = float(unhealthy_bots)
 
-    last_ok = await session.scalar(select(func.max(BackupRun.created_at)).where(BackupRun.status == "succeeded", BackupRun.target == "melorin"))
+    last_ok = await session.scalar(
+        select(func.max(BackupRun.created_at)).where(BackupRun.status == "succeeded", BackupRun.target == "melorin")
+    )
     if last_ok is None:
         age = float("inf")
     else:

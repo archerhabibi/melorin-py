@@ -22,7 +22,14 @@ RUNS_SHOWN = 20
 def _run_out(run: BackupRun) -> dict:
     """One run for the admin: the artifact's server path is never exposed, only its file name."""
     name = (run.location or "").rsplit("/", 1)[-1] or None
-    return {"id": run.id, "status": run.status, "size": run.size, "file": name, "details": (run.details or "")[:300], "created_at": run.created_at}
+    return {
+        "id": run.id,
+        "status": run.status,
+        "size": run.size,
+        "file": name,
+        "details": (run.details or "")[:300],
+        "created_at": run.created_at,
+    }
 
 
 async def status(session: AsyncSession, now: dt.datetime | None = None) -> dict:

@@ -184,7 +184,9 @@ async def collect(session: AsyncSession, now: dt.datetime | None = None) -> dict
     panels = (await session.scalars(select(Panel).where(Panel.is_enabled.is_(True)).order_by(Panel.name))).all()
     node_rows = (
         await session.execute(
-            select(PanelNode.panel_id, PanelNode.status, func.count()).where(PanelNode.removed_at.is_(None)).group_by(PanelNode.panel_id, PanelNode.status)
+            select(PanelNode.panel_id, PanelNode.status, func.count())
+            .where(PanelNode.removed_at.is_(None))
+            .group_by(PanelNode.panel_id, PanelNode.status)
         )
     ).all()
     nodes = _node_counts(node_rows)
@@ -221,7 +223,11 @@ async def collect(session: AsyncSession, now: dt.datetime | None = None) -> dict
                     put("melorin_panel_users", float(n), panel=name, status=state)
             if _num(snap.get("online_users")) is not None:
                 put("melorin_panel_online_users", float(snap["online_users"]), panel=name)
-            for key, metric in (("cpu_ratio", "melorin_panel_cpu_ratio"), ("mem_ratio", "melorin_panel_mem_ratio"), ("disk_ratio", "melorin_panel_disk_ratio")):
+            for key, metric in (
+                ("cpu_ratio", "melorin_panel_cpu_ratio"),
+                ("mem_ratio", "melorin_panel_mem_ratio"),
+                ("disk_ratio", "melorin_panel_disk_ratio"),
+            ):
                 if _num(snap.get(key)) is not None:
                     put(metric, float(snap[key]), panel=name)
         if p.webhook_connected_at is not None:
@@ -236,7 +242,13 @@ async def collect(session: AsyncSession, now: dt.datetime | None = None) -> dict
 
     # Reconcile: open issues per kind (always all kinds, so a cleared issue drops to 0 instead of vanishing) and the oldest sync.
     issue_rows = dict(
-        (await session.execute(select(ReconciliationIssue.kind, func.count()).where(ReconciliationIssue.status == "open").group_by(ReconciliationIssue.kind))).all()
+        (
+            await session.execute(
+                select(ReconciliationIssue.kind, func.count())
+                .where(ReconciliationIssue.status == "open")
+                .group_by(ReconciliationIssue.kind)
+            )
+        ).all()
     )
     for kind in sorted(set(ISSUE_KINDS) | set(issue_rows)):
         put("melorin_reconcile_open_issues", float(issue_rows.get(kind, 0)), kind=kind)

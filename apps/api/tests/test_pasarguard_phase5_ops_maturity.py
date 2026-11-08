@@ -137,7 +137,13 @@ async def test_collect_renders_panel_gauges_from_the_database():
     async with open_schema_engine() as engine, async_sessionmaker(engine, expire_on_commit=False)() as s:
         p = await _panel(s, status="degraded")
         s.add_all([_node(p, 1, "connected"), _node(p, 2, "error"), _node(p, 3, "disabled"), _node(p, 4, "limited")])
-        p.metrics_snapshot = {"latency_seconds": 0.42, "users": {"active": 5, "limited": 1}, "online_users": 3, "cpu_ratio": 0.3, "mem_ratio": 0.5}
+        p.metrics_snapshot = {
+            "latency_seconds": 0.42,
+            "users": {"active": 5, "limited": 1},
+            "online_users": 3,
+            "cpu_ratio": 0.3,
+            "mem_ratio": 0.5,
+        }
         p.metrics_snapshot_at = NOW - dt.timedelta(minutes=2)
         await s.flush()
         seen = await panel_metrics.collect(s, NOW)
@@ -146,7 +152,10 @@ async def test_collect_renders_panel_gauges_from_the_database():
         assert seen['melorin_panel_nodes{panel="pg",status="error"}'] == 2.0  # error + limited
         assert seen['melorin_panel_nodes{panel="pg",status="disabled"}'] == 1.0
         assert seen['melorin_panel_users{panel="pg",status="active"}'] == 5.0 and seen['melorin_panel_online_users{panel="pg"}'] == 3.0
-        assert seen['melorin_panel_api_latency_seconds{panel="pg"}'] == 0.42 and seen['melorin_panel_snapshot_age_seconds{panel="pg"}'] == 120.0
+        assert (
+            seen['melorin_panel_api_latency_seconds{panel="pg"}'] == 0.42
+            and seen['melorin_panel_snapshot_age_seconds{panel="pg"}'] == 120.0
+        )
         assert not any("disk_ratio" in k for k in seen)  # never read: absent, not zero
         text = _rendered()
         assert 'melorin_panel_cpu_ratio{panel="pg"} 0.3' in text
@@ -283,7 +292,15 @@ async def test_panel_backup_status_for_the_admin(monkeypatch):
         monkeypatch.setenv("MELORIN_PANEL_BACKUP_DATABASE_URL", "postgresql://u:p@db/panel")
         assert (await panel_backup.status(s, NOW))["state"] == "stale"
         s.add(BackupRun(status="failed", target="panel", details="x" * 900, created_at=NOW - dt.timedelta(hours=1)))
-        s.add(BackupRun(status="succeeded", target="panel", location="/var/backups/panel-20261108.tar.age", size=9, created_at=NOW - dt.timedelta(hours=2)))
+        s.add(
+            BackupRun(
+                status="succeeded",
+                target="panel",
+                location="/var/backups/panel-20261108.tar.age",
+                size=9,
+                created_at=NOW - dt.timedelta(hours=2),
+            )
+        )
         s.add(BackupRun(status="succeeded", target="melorin", created_at=NOW))
         await s.flush()
         st = await panel_backup.status(s, NOW)
@@ -333,14 +350,21 @@ def test_backup_scripts_are_valid_and_never_touch_melorin_backups():
     assert "-name 'panel-*.tar.age'" in src  # retention only ever deletes panel artifacts
     assert "MELORIN_PANEL_BACKUP_DATABASE_URL" in src and "age --encrypt" in src and "sha256sum --check" in src
     assert "--password" not in src and "PGPASSWORD" not in src  # no password in argv or environment
-    refused = subprocess.run(["bash", str(ROOT / "scripts" / "backup_panel.sh")], capture_output=True, text=True, env={"PATH": "/usr/bin:/bin"})
+    refused = subprocess.run(
+        ["bash", str(ROOT / "scripts" / "backup_panel.sh")], capture_output=True, text=True, env={"PATH": "/usr/bin:/bin"}
+    )
     assert refused.returncode == 2 and "not configured" in refused.stderr
 
 
 # ------------------------------------------------------------------------------------------------------------ PG-15 drift (pure)
 def test_cleanup_off_is_ok_under_both_policies():
     for policy in ("keep", "aligned"):
-        for block in ({"expired_users_retention_days": 0}, {}, {"expired_users_retention_days": None}, {"expired_users_retention_days": "x"}):
+        for block in (
+            {"expired_users_retention_days": 0},
+            {},
+            {"expired_users_retention_days": None},
+            {"expired_users_retention_days": "x"},
+        ):
             assert settings_drift.evaluate_cleanup(block, policy)["state"] == "ok"
 
 
@@ -365,7 +389,10 @@ def test_webhook_findings():
     on = {"enable": True, "webhooks": [{"url": url}]}
     assert settings_drift.evaluate_webhook(on, connected=True, url=url)["state"] == "ok"
     assert settings_drift.evaluate_webhook({"enable": False, "webhooks": [{"url": url}]}, connected=True, url=url)["state"] == "drift"
-    assert settings_drift.evaluate_webhook({"enable": True, "webhooks": [{"url": "https://other"}]}, connected=True, url=url)["state"] == "drift"
+    assert (
+        settings_drift.evaluate_webhook({"enable": True, "webhooks": [{"url": "https://other"}]}, connected=True, url=url)["state"]
+        == "drift"
+    )
     assert settings_drift.evaluate_webhook({}, connected=True, url=None)["state"] == "unknown"
     assert settings_drift.evaluate_webhook(on, connected=False, url=url)["state"] == "ok"  # registered but Melorin not "connected": fine
     other = settings_drift.evaluate_webhook({"enable": True, "webhooks": [{"url": "https://other"}]}, connected=False, url=url)
@@ -384,7 +411,12 @@ def test_subscription_prefix_findings():
 
 def test_notifications_and_hwid_are_informational_and_never_leak_secrets():
     settings = {
-        "notification_settings": {"notify_telegram": True, "telegram_api_token": "123456:SECRET-TOKEN", "telegram_chat_id": -100123, "discord_webhook_url": "https://discord/hook/SECRET"},
+        "notification_settings": {
+            "notify_telegram": True,
+            "telegram_api_token": "123456:SECRET-TOKEN",
+            "telegram_chat_id": -100123,
+            "discord_webhook_url": "https://discord/hook/SECRET",
+        },
         "hwid": {"enabled": True, "forced": False, "max_limit": 3, "fallback_limit": 1},
         "cleanup": {"expired_users_retention_days": 0},
     }
@@ -597,7 +629,9 @@ async def test_phase5_http_flow(monkeypatch):
             await s.commit()
             pid = str(p.id)
         reading = (await c.get(f"{BASE}/panels/{pid}/metrics", headers=h)).json()
-        assert reading["nodes"] == {"connected": 1, "connecting": 0, "disabled": 0, "error": 1} and reading["reading"]["users"] == {"active": 3}
+        assert reading["nodes"] == {"connected": 1, "connecting": 0, "disabled": 0, "error": 1} and reading["reading"]["users"] == {
+            "active": 3
+        }
         first = (await c.get(f"{BASE}/panels/{pid}/settings-drift", headers=h)).json()
         assert first["policy"] == "keep" and first["drifting"] == 0 and first["checked_at"] is None and first["grace_days"] == GRACE_DAYS
         checked = await c.post(f"{BASE}/panels/{pid}/settings-drift/check", headers=h)

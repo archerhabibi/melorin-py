@@ -288,7 +288,11 @@ def backup_text(status: str, size: int | None, details: str | None, target: str 
         where = "کپی روی S3 هم انجام شد" if "copied to S3" in (details or "") else "فقط روی سرور (ارسال به S3 غیرفعال است)"
         return f"💾 {label} موفق بود\nحجم: {_size(size)}\n{where}"
     if status == "partial":
-        head = "🟠 پشتیبان محلی پنل پاسارگارد ساخته شد ولی ارسال به S3 ناموفق بود" if target == "panel" else "🟠 پشتیبان محلی ساخته شد ولی ارسال به S3 ناموفق بود"
+        head = (
+            "🟠 پشتیبان محلی پنل پاسارگارد ساخته شد ولی ارسال به S3 ناموفق بود"
+            if target == "panel"
+            else "🟠 پشتیبان محلی ساخته شد ولی ارسال به S3 ناموفق بود"
+        )
         return f"{head}\nحجم: {_size(size)}\nخطا: {str(details or '')[-250:]}"
     return f"🔴 {label} ناموفق بود\nخطا: {str(details or 'نامشخص')[:250]}"
 
@@ -300,7 +304,11 @@ async def notify_backup(session, run) -> None:
             await events.emit(
                 session,
                 events.EVENT_CENTER,
-                {"store_id": None, "topic": topics.BACKUP, "text": backup_text(run.status, run.size, run.details, getattr(run, "target", "melorin"))},
+                {
+                    "store_id": None,
+                    "topic": topics.BACKUP,
+                    "text": backup_text(run.status, run.size, run.details, getattr(run, "target", "melorin")),
+                },
                 dedup_key=f"ec:backup:{run.id}",
             )
     except Exception:
