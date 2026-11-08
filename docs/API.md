@@ -467,12 +467,13 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | PATCH | `/api/v1/tickets/{ticket_id}/messages/{message_id}` | Edit Message |
 | GET | `/api/v1/tickets/{ticket_id}/messages/{message_id}/attachment` | Message Attachment |
 
-### `vpn-account-tools` (25)
+### `vpn-account-tools` (26)
 
 | Method | Path | Operation |
 |---|---|---|
 | GET | `/api/v1/admin/vpn-accounts/{account_id}/tools` | Tools Admin |
 | POST | `/api/v1/admin/vpn-accounts/{account_id}/tools/adjust` | Adjust Admin |
+| GET | `/api/v1/admin/vpn-accounts/{account_id}/tools/connections` | Connections Admin |
 | GET | `/api/v1/admin/vpn-accounts/{account_id}/tools/devices` | Devices Admin |
 | POST | `/api/v1/admin/vpn-accounts/{account_id}/tools/devices/reset` | Devices Reset Admin |
 | DELETE | `/api/v1/admin/vpn-accounts/{account_id}/tools/devices/{hwid}` | Device Delete Admin |

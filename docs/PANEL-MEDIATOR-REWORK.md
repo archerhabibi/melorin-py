@@ -27,6 +27,8 @@ Rule: **Melorin is a mediator**. Used traffic, limit, expiry and status belong t
 | R8 (read side) | **Subscription link is read from the panel.** The QR routes (customer and store owner) use `live.current_link`: the panel's current link (it changes on `revoke_sub`); the stored value is only the *delivery snapshot* and is used when the panel cannot answer. Sync still refreshes that snapshot (needed by the subscription check); no reader treats it as truth. | `live.current_link`, `vpn/router.py`, `reseller/routes/accounts.py` |
 | Fix | `state_hint` no longer breaks on account stand-ins without `remote_status` (a test on the branch was red). | `inquiry.py` |
 
+| Decision 5 | **Admin-only connection view.** New capability `ip_ops` (needs `nodes.stats` + `users.read`) and tool `connections`: live connection IPs per node and the subscription-fetch history (`GET …/admin/vpn-accounts/{id}/tools/connections?limit&offset`). Owners and customers do not have the tool (403 before any panel call). Nothing is stored; each view is audited (`vpn_account.connections_viewed`) with **counts only, never the IPs**. One half failing (a node down, a missing permission) does not hide the other; both failing is `503 PANEL_UNAVAILABLE`. Response shapes were checked against the live panel's source (`UserIPListAll`, `UserSubscriptionUpdateList`). | `adapters/pasarguard/users.py` (`online_ips`, `subscription_updates`), `account_tools.connections`, `tools_router.py`, tests `test_admin_connections_db.py` |
+
 ## Switch-on order (staging first)
 
 1. Deploy, run `alembic upgrade head` (additive; head: see docs/STATUS.md).
@@ -52,7 +54,7 @@ Request shapes (`AdminRoleCreate`, `APIKeyCreate`) were read from the live panel
 1. **Live check of PG-05** on the test panel (see rollout above); not run from this work.
 3. **R7–R10** stop writing the copied columns (`traffic_used_bytes`, `online_at`, `lifetime_used_traffic`, `subscription_url`, `links`, orphan/admin traffic, `servers.panel_total_users`), split "sold" from "now" (`expires_at`/`traffic_limit_bytes`), then drop the columns in a later migration. Deliberately **not** done in one step: `limits_mismatch`, plan settlement and the delivery message still read them.
 4. PG-04: "re-create on panel" and "link to existing panel user" issue actions; "assign manual account to a store/customer".
-5. PG-12 applying the `melorin-store` role (plan exists) and `sub_template`/`custom_variables` branding; per-store usage report in the reseller bot; assign a manual account to a store/customer; admin-only online IP view; N10 internal-network exception. (PG-02 limited/on_hold text and PG-06 digest/texts are done above.)
+5. PG-12 applying the `melorin-store` role (plan exists) and `sub_template`/`custom_variables` branding; per-store usage report in the reseller bot; assign a manual account to a store/customer; N10 internal-network exception. (The admin-only online IP view is done above.) (PG-02 limited/on_hold text and PG-06 digest/texts are done above.)
 6. Operator only: enable panel backup (`MELORIN_PANEL_BACKUP_*`, L2), rotate the Telegram token in `notification_settings`, fix node certificates (`server_ca`), Caddy healthcheck.
 
 ## Merge note (8 Nov 2026)
