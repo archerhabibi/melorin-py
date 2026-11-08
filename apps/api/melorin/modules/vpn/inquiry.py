@@ -19,7 +19,7 @@ import uuid
 from sqlalchemy import and_, case, func, or_, select
 
 from melorin.core.db import utcnow
-from melorin.core.errors import NotFound
+from melorin.core.errors import AppError, NotFound
 from melorin.core.scope import OwnerScope, StoreScope
 from melorin.modules.vpn import renewal, service
 from melorin.kernel.models.vpn import VpnAccount
@@ -172,21 +172,35 @@ REFRESH_TTL_SECONDS = 15.0
 _last_refresh: dict[uuid.UUID, float] = {}
 
 
-async def refresh_from_panel(session, account: VpnAccount) -> bool:
+class PanelUnavailable(AppError):
+    """The panel could not give a live answer and the caller refuses to decide on a stale copy (fail closed)."""
+
+    def __init__(self, message: str = "اطلاعات زندهٔ اکانت از پنل در دسترس نیست؛ چند دقیقهٔ دیگر دوباره تلاش کنید.") -> None:
+        super().__init__("PANEL_UNAVAILABLE", message, 503)
+
+
+async def refresh_from_panel(session, account: VpnAccount, *, strict: bool = False) -> bool:
     """Ask the VPN panel for the account's current expiry / usage / links and store them (the panel is the source of truth).
 
-    Rate-limited per account so a tapped button can never hammer a panel; returns ``True`` when the panel was asked now.
-    A panel that is down leaves the last synced numbers in place (the reconcile job records the issue).
+    Default (display paths): rate-limited per account so a tapped button can never hammer a panel; returns ``True`` when the
+    panel was asked now, and a panel that is down leaves the last synced numbers in place.
+
+    ``strict=True`` (money paths, e.g. a refund): never skipped by the rate limit, and a panel that cannot answer (unreachable,
+    or the user is missing there) raises :class:`PanelUnavailable` instead of letting the caller use a stale copy. An account
+    that has no panel at all has nothing to read and passes.
     """
     if not account.panel_id:
         return False
     now = time.monotonic()
-    if now - _last_refresh.get(account.id, -REFRESH_TTL_SECONDS) < REFRESH_TTL_SECONDS:
-        return False
-    if len(_last_refresh) > 5000:
-        _last_refresh.clear()
-    _last_refresh[account.id] = now
-    await service.reconcile(session, account.id)
+    if not strict:
+        if now - _last_refresh.get(account.id, -REFRESH_TTL_SECONDS) < REFRESH_TTL_SECONDS:
+            return False
+        if len(_last_refresh) > 5000:
+            _last_refresh.clear()
+        _last_refresh[account.id] = now
+    outcome = await service.reconcile(session, account.id)
+    if strict and outcome in ("issue", "missing"):
+        raise PanelUnavailable()
     await session.refresh(account)
     return True
 

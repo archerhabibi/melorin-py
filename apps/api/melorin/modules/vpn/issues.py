@@ -70,3 +70,25 @@ async def close_issues(
         .values(status=RESOLVED, resolution=resolution, resolved_at=now or utcnow())
     )
     return int(result.rowcount or 0)
+
+
+async def close_for_inactive(session: AsyncSession, panel_id: uuid.UUID, *, now=None) -> int:
+    """Close the open issues of accounts that were archived or revoked on purpose (their panel user is gone by design).
+
+    Reconcile only looks at live accounts, so without this an issue such as ``missing_on_panel`` on an archived account could
+    never close itself and would stay in the admin list for ever.
+    """
+    from melorin.domain.order_state import VpnStatus
+    from melorin.kernel.models.vpn import VpnAccount
+
+    inactive = select(VpnAccount.id).where(
+        VpnAccount.panel_id == panel_id,
+        (VpnAccount.archived_at.is_not(None)) | (VpnAccount.status.in_((VpnStatus.ARCHIVED, VpnStatus.REVOKED))),
+    )
+    result = await session.execute(
+        update(ReconciliationIssue)
+        .where(ReconciliationIssue.vpn_account_id.in_(inactive), ReconciliationIssue.status == OPEN)
+        .values(status=RESOLVED, resolution="account_inactive", resolved_at=now or utcnow())
+        .execution_options(synchronize_session=False)
+    )
+    return int(result.rowcount or 0)

@@ -4,7 +4,7 @@ Business rules (owner's words, enforced here and nowhere else; bot and website o
 
 * only a VOLUME account can be returned; unlimited accounts are NOT returnable for now;
 * within ``RETURN_MAX_DAYS`` (3) days of the purchase, and at most ``RETURN_MAX_USAGE_PERCENT`` (5 %) of the account's
-  volume used (the usage is re-read from the VPN panel first, so it is live);
+  volume used (the usage is re-read from the VPN panel first; if the panel cannot answer, the return is refused: fail closed);
 * at most ``RETURN_DAILY_LIMIT`` (3) returns per customer in any rolling 24 hours;
 * the account must be a normal paid purchase that is still unrenewed (a renewal makes the original order impossible to
   take back on its own); test, revoked and archived accounts cannot be returned;
@@ -138,8 +138,9 @@ async def prepare_return(session, scope: StoreScope, account_id: uuid.UUID) -> t
         raise NotFound("اکانت VPN")
     # the daily limit is counted under a lock on the user row, so parallel taps cannot jump over it
     await session.scalar(select(User.id).where(User.id == scope.user_id).with_for_update())
-    # live usage from the panel (rate-limited per account); a panel that is down keeps the last synced numbers
-    await inquiry.refresh_from_panel(session, account)
+    # mediator rule: usage belongs to the panel. A refund is decided ONLY on a fresh live read; a panel that cannot answer
+    # means "try again later" (fail closed), never a decision on the last synced copy.
+    await inquiry.refresh_from_panel(session, account, strict=True)
     now = utcnow()
     order = await session.get(Order, account.order_id, with_for_update=True, populate_existing=True)
     if order is not None and not scope.owns(order):

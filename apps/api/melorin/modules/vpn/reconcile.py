@@ -141,7 +141,7 @@ async def _record_orphans(session, panel_id, remote: dict[str, PanelAccount], no
         if row.status == "open":
             open_now += 1
     for name, row in existing.items():
-        if row.status in ("open", "ignored") and (name not in remote or name in known):
+        if row.status in ("open", "ignored", "manual") and (name not in remote or name in known):
             row.status = "gone"  # deleted on the panel, or Melorin now knows it
     return open_now
 
@@ -152,6 +152,7 @@ async def reconcile_panel(session: AsyncSession, panel: Panel, *, batch: int = B
     panel_id = panel.id  # read once: after the rollback below ``panel`` is expired and an async session cannot lazy-load it
     result = PanelResult(panel_id=panel_id)
     accounts = await _due_accounts(session, panel_id, batch)
+    await issues.close_for_inactive(session, panel_id, now=now)  # archived / revoked accounts never keep an open issue
     adapter = None
     try:
         adapter = build_adapter(panel)

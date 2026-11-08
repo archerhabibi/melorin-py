@@ -35,7 +35,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 
 <!-- BEGIN GENERATED ROUTES (scripts/gen_docs.py) -->
 
-### `admin` (158)
+### `admin` (160)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -97,6 +97,8 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/api/v1/admin/panel-backups` | Panel Backups |
 | GET | `/api/v1/admin/panel-orphans` | Panel Orphans |
 | POST | `/api/v1/admin/panel-orphans/{orphan_id}/ignore` | Ignore Orphan |
+| POST | `/api/v1/admin/panel-orphans/{orphan_id}/manual` | Manual Orphan |
+| POST | `/api/v1/admin/panel-orphans/{orphan_id}/reopen` | Reopen Orphan |
 | GET | `/api/v1/admin/panels` | Panels |
 | POST | `/api/v1/admin/panels` | Create Panel |
 | PATCH | `/api/v1/admin/panels/{panel_id}` | Update Panel |

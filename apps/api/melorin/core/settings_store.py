@@ -18,6 +18,7 @@ DEFAULTS: dict[str, object] = {
     "debt.near_ratio": 0.8,
     "vpn.near_expiry_hours": 48,
     "terms.version": "1.0",
+    "vpn.live_view": False,  # mediator rework: show the panel's live numbers instead of the stored copy (off = unchanged behaviour)
     "backup.retention_days": 30,
     "backup.runs_per_day": 1,
     "privacy.verification_code_retention_days": 7,

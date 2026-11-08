@@ -54,6 +54,9 @@ class Panel(IdMixin, TimestampMixin, Base):
     # PG-15: what the panel's settings should look like for Melorin to work (read-only comparison) and the last verdict.
     # ``expired_cleanup_policy``: keep = the panel must NOT auto-delete expired users | aligned = it may, but only after Melorin's renewal grace.
     expired_cleanup_policy: Mapped[str] = mapped_column(String(10), default="keep", server_default="keep")
+    # ``aligned`` policy: the least number of days the panel may wait before auto-deleting an expired user. ``None`` = Melorin's renewal
+    # grace (``renewal.GRACE_DAYS``). Melorin only EXPECTS this number and warns on drift; it never writes it to the panel.
+    expected_retention_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
     settings_drift: Mapped[dict | None] = mapped_column(JSON)
     settings_drift_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
 
@@ -202,7 +205,7 @@ class PanelOrphan(IdMixin, TimestampMixin, Base):
     expire_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     traffic_limit_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
     traffic_used_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
-    status: Mapped[str] = mapped_column(String(20), default="open", index=True)  # open | ignored | gone
+    status: Mapped[str] = mapped_column(String(20), default="open", index=True)  # open | ignored | manual | gone
     note: Mapped[str | None] = mapped_column(String(300))
     first_seen_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     last_seen_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))

@@ -9,7 +9,7 @@ from fastapi import APIRouter, Query, Response
 from melorin.core.deps import Session, StoreCtx
 from melorin.core.errors import NotFound
 from melorin.core.scope import StoreScope
-from melorin.modules.vpn import inquiry, returns
+from melorin.modules.vpn import inquiry, live, returns
 from melorin.modules.vpn.qr import render_qr_png
 from melorin.modules.vpn.schemas import VpnAccountOut
 
@@ -21,7 +21,8 @@ out = inquiry.account_out
 
 async def _with_returns(session, scope, accounts):
     elig = await returns.eligibility_for(session, scope, accounts)
-    return [returns.account_view(a, elig.get(a.id)) for a in accounts]
+    outs = [returns.account_view(a, elig.get(a.id)) for a in accounts]
+    return await live.overlay_page(session, outs, accounts)  # flag ``vpn.live_view``: the panel's numbers, never an old copy
 
 
 @router.get("", response_model=list[VpnAccountOut])

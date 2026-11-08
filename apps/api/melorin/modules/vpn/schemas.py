@@ -28,6 +28,10 @@ class VpnAccountOut(BaseModel):
     return_note: str | None = None  # Core's own words for "why not returnable" (None when returnable)
     next_plan_queued: bool = False  # PG-09: a prepaid package is waiting; it starts by itself when the current one ends
     next_plan_queued_at: dt.datetime | None = None
+    # mediator rule: ``live`` is False only when live reading is on and the panel could not answer; the numbers above are then empty
+    # and ``live_note`` says "temporarily unavailable" (never an old number)
+    live: bool = True
+    live_note: str | None = None
 
 
 class OwnerAccountOut(VpnAccountOut):
