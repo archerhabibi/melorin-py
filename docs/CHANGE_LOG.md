@@ -20,6 +20,13 @@ Commits containing `[skip changelog]` and the bot's own commits are skipped.
 If `main` is protected, allow `github-actions[bot]` to bypass so the bot can push the log.
 
 
+## 2026-11-09 - PG-12: vetted base subscription template that reads the `melorin_*` variables
+- **Area:** infra / docs / tests
+- **Before:** branding values were written into the store admin's `custom_variables`, but nothing in the repo could display them.
+- **Problem:** without an installed page template the "apply to panel" step changes nothing a customer sees. PasarGuard's docs say the subscription page is built from the admin's `sub_template` or the default template (Jinja) but do not say how `custom_variables` reach a template.
+- **Action:** `infra/sub-template/index.html`: one fixed, operator-installed page (no script, no external request, CSP `default-src 'none'`, every value escaped with `|e`, only https/tg links and https logo accepted, neutral page when variables are absent). It tries `admin.custom_variables` and `custom_variables`. Melorin still never writes `sub_template` or HTML. `tests/test_sub_template.py` renders it with an escaping-off Jinja environment (worst case).
+- **After:** 5 new tests pass. STILL UNVERIFIED on a live panel: under which name the panel exposes `custom_variables` to the template; the first apply on a test store must confirm it, and the template line that reads them must be adjusted if not.
+
 ## 2026-11-09 - PG-12: screens for store usage report and subscription branding (store-web, admin-web)
 - **Area:** store-web / admin-web / tests
 - **Before:** the usage-report API (`/reseller/usage-report`), the branding fields API (`/reseller/sub-branding`) and the admin apply/revert API existed, but no web screen used them; only the reseller bot showed the usage report.
