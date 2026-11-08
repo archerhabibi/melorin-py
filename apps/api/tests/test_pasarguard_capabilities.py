@@ -50,7 +50,8 @@ OPERATOR = {  # what a store Operator may do on PasarGuard 5.6 (users: own scope
 }
 SERVICE = {  # a dedicated service role (PG-05 target): everything Melorin needs, nothing destructive on infrastructure
     "users": {"read": 2, "update": 2, "reset_usage": 2, "revoke_sub": 2, "set_owner": 2, "activate_next_plan": 2},
-    "nodes": {"read": True, "reconnect": True},
+    "nodes": {"read": True, "reconnect": True, "stats": True},
+    "system": {"read": True},
     "hwids": {"read": True, "delete": True},
     "settings": {"read": True},
     "admins": {"read": True, "create": True, "update": True},
@@ -240,7 +241,12 @@ def test_service_role_is_enough_for_everyday_work_but_not_for_webhook_setup():
     r = build_report(declared, role="melorin-service", is_owner=False, permissions=SERVICE)
     assert r.capabilities.node_control and r.capabilities.bulk_ops and r.capabilities.admin_ops and r.users_scope == 2
     # events need ``settings.update``: a role without it keeps everything else and only loses the one-click webhook setup
-    assert r.denied == {"event_source": ["settings.update"]} and not r.capabilities.event_source
+    # Phase 4: reading stats is allowed, but restarting cores / toggling nodes, hosts and groups is infrastructure control and stays denied
+    assert r.denied == {
+        "event_source": ["settings.update"],
+        "infra_control": ["nodes.update", "hosts.update", "groups.update", "cores.read", "cores.update"],
+    }
+    assert not r.capabilities.event_source and not r.capabilities.infra_control and r.capabilities.node_insight
 
 
 # ------------------------------------------------------------------------------------------------------------ the probe

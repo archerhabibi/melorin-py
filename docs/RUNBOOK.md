@@ -189,3 +189,7 @@ By default `scripts/deploy.sh` builds the images on the production host (two at 
 4. Fallbacks: if a pull fails (image missing, no login) the deploy builds on the host instead and says so; a rollback re-points the tag at the previous commit (pulled, or rebuilt if it is not available). `melorin update` (manual) resets the tag to `local` and builds on the host.
 
 Packages pushed by a workflow are private by default; keep them private. To go back to host builds, remove `MELORIN_IMAGE_REGISTRY` from `.env`.
+
+
+## PasarGuard operations (Phase 4)
+Node errors, outage compensation, bulk disable/enable and store suspension policy are described in `docs/PANEL-OPS-PHASE4.md`.

@@ -66,6 +66,11 @@ OPTIONAL_CAPABILITIES = (
     "template_ops",  # TemplateOps: create/update/enable user templates (PG-09)
     "next_plan_ops",  # NextPlanOps: queue the next package on an account, activate it, move an account to a template (PG-09)
     "event_source",  # EventSource: the panel pushes webhooks to Melorin
+    "node_insight",  # NodeInsight: system resources, user counts and live node stats (PG-07, read-only)
+    "infra_control",  # InfraControl: sync a node, restart a core, enable/disable nodes, hosts and groups (PG-07, changes panel state)
+    "bulk_actions",  # BulkActions: disable/enable/reset/rotate many accounts and (de)activate a store admin's users at once (PG-11)
+    "admin_governance",  # AdminGovernance: a store admin's traffic cap, status, usage and notification switch (PG-12)
+    "subscription_probe",  # SubscriptionProbe: fetch a subscription's public info page to prove the link works (PG-13)
 )
 ALL_CAPABILITIES = CORE_CAPABILITIES + OPTIONAL_CAPABILITIES
 
@@ -94,6 +99,11 @@ class Capabilities:
     template_ops: bool = False
     next_plan_ops: bool = False
     event_source: bool = False
+    node_insight: bool = False
+    infra_control: bool = False
+    bulk_actions: bool = False
+    admin_governance: bool = False
+    subscription_probe: bool = False
 
     def to_dict(self) -> dict[str, bool]:
         return {name: bool(getattr(self, name)) for name in ALL_CAPABILITIES}
@@ -241,6 +251,46 @@ class EventSource(Protocol):  # flag: event_source (PG-03: the panel pushes even
 
 
 @runtime_checkable
+class NodeInsight(Protocol):  # flag: node_insight (PG-07, read-only)
+    async def get_system_stats(self) -> dict: ...
+    async def get_system_resources(self) -> dict: ...
+    async def get_nodes_realtime(self) -> dict[int, dict | None]: ...
+    async def get_node_stats(self, node_id: int) -> dict: ...
+
+
+@runtime_checkable
+class InfraControl(
+    Protocol
+):  # flag: infra_control (PG-07). Every call is absolute (set disabled=true/false), so repeating one changes nothing.
+    async def sync_node(self, node_id: int) -> None: ...
+    async def list_cores(self) -> list[dict]: ...
+    async def restart_core(self, core_id: int) -> None: ...
+    async def set_nodes_disabled(self, ids: list[int], disabled: bool) -> int: ...
+    async def set_hosts_disabled(self, ids: list[int], disabled: bool) -> int: ...
+    async def set_groups_disabled(self, ids: list[int], disabled: bool) -> int: ...
+
+
+@runtime_checkable
+class BulkActions(Protocol):  # flag: bulk_actions (PG-11). Only idempotent actions: a repeated disable/enable/reset/rotate is harmless.
+    async def bulk_users_action(self, refs: list[str], action: str) -> int: ...
+    async def set_admin_users_state(self, remote_id: int, *, active: bool) -> None: ...
+
+
+@runtime_checkable
+class AdminGovernance(Protocol):  # flag: admin_governance (PG-12)
+    async def get_admin_detail(self, remote_id: int) -> dict | None: ...
+    async def update_admin_limits(
+        self, remote_id: int, *, data_limit: int | None = None, status: str | None = None, notifications_off: bool | None = None
+    ) -> dict: ...
+
+
+@runtime_checkable
+class SubscriptionProbe(Protocol):  # flag: subscription_probe (PG-13)
+    async def get_subscription_settings(self) -> dict: ...
+    async def probe_subscription(self, url: str, *, allowed_hosts: set[str]) -> dict: ...
+
+
+@runtime_checkable
 class TrafficReset(Protocol):  # flag: traffic_reset (the old optional ``reset_traffic`` method, now declared)
     async def reset_traffic(self, username: str) -> PanelAccount: ...
 
@@ -266,6 +316,11 @@ CAPABILITY_PROTOCOLS: dict[str, type] = {
     "template_ops": TemplateOps,
     "next_plan_ops": NextPlanOps,
     "event_source": EventSource,
+    "node_insight": NodeInsight,
+    "infra_control": InfraControl,
+    "bulk_actions": BulkActions,
+    "admin_governance": AdminGovernance,
+    "subscription_probe": SubscriptionProbe,
 }
 
 

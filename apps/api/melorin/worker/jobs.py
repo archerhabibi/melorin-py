@@ -314,3 +314,28 @@ async def panel_event_purge_job(ctx=None):
         removed = await panel_events.purge(s)
     log.info("panel events retention removed=%s", removed)
     return removed
+
+
+async def bulk_operation_job(ctx=None):
+    """Every 15 seconds: run ONE confirmed bulk operation for up to ~40 s (PG-11). Leased per panel, chunked, resumable: a crash or a
+    second worker can never apply an item twice (absolute targets + ledger)."""
+    from melorin.modules.vpn import bulk
+
+    op = await bulk.run_next(session_factory(), budget_seconds=40.0)
+    return op.status if op else None
+
+
+async def store_governance_job(ctx=None):
+    """Every 15 minutes: read each store admin's usage / status / user count from its panel (PG-12)."""
+    from melorin.modules.vpn import governance
+
+    done = 0
+    async with session_factory()() as s:
+        panels = (await s.scalars(select(Panel).where(Panel.is_enabled.is_(True), Panel.kind == "pasarguard"))).all()
+        for p in panels:
+            try:
+                done += (await governance.sync_usage(s, p)).updated
+            except Exception:
+                log.warning("store governance sync failed panel=%s", p.id, exc_info=True)
+        await s.commit()
+    return done

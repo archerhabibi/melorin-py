@@ -932,6 +932,63 @@
         "title": "BotTokenIn",
         "type": "object"
       },
+      "BulkConfirmIn": {
+        "properties": {
+          "count": {
+            "minimum": 1.0,
+            "title": "Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "count"
+        ],
+        "title": "BulkConfirmIn",
+        "type": "object"
+      },
+      "BulkPreviewIn": {
+        "properties": {
+          "kind": {
+            "enum": [
+              "disable",
+              "enable",
+              "reset_usage",
+              "rotate_links",
+              "extend_days",
+              "add_traffic"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "params": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Params"
+          },
+          "reason": {
+            "maxLength": 300,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          },
+          "selection": {
+            "$ref": "#/components/schemas/SelectionIn"
+          }
+        },
+        "required": [
+          "kind",
+          "selection",
+          "reason"
+        ],
+        "title": "BulkPreviewIn",
+        "type": "object"
+      },
       "BundleOut": {
         "properties": {
           "id": {
@@ -1194,6 +1251,28 @@
           "store_id"
         ],
         "title": "CommissionRuleIn",
+        "type": "object"
+      },
+      "CoreRestartIn": {
+        "properties": {
+          "confirm_name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Confirm Name",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 300,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "confirm_name"
+        ],
+        "title": "CoreRestartIn",
         "type": "object"
       },
       "CouponIn": {
@@ -2379,6 +2458,68 @@
           "id_token"
         ],
         "title": "GoogleLogin",
+        "type": "object"
+      },
+      "GovernanceIn": {
+        "properties": {
+          "clear_limit": {
+            "default": false,
+            "title": "Clear Limit",
+            "type": "boolean"
+          },
+          "data_limit_gb": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 1048576.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Limit Gb"
+          },
+          "notifications_off": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notifications Off"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "active",
+                  "disabled"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "title": "GovernanceIn",
         "type": "object"
       },
       "GraceResolveIn": {
@@ -4933,23 +5074,6 @@
         "title": "QuoteWalletOut",
         "type": "object"
       },
-      "ReasonIn": {
-        "properties": {
-          "reason": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Reason"
-          }
-        },
-        "title": "ReasonIn",
-        "type": "object"
-      },
       "ReceiptDupSettingsIn": {
         "additionalProperties": false,
         "description": "Per-store policy for a receipt picture that was already used: ``warn`` (default, accept and flag) or ``block``.",
@@ -5552,6 +5676,73 @@
         "title": "RewardIn",
         "type": "object"
       },
+      "SelectionIn": {
+        "properties": {
+          "expiring_within_days": {
+            "anyOf": [
+              {
+                "maximum": 3650.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expiring Within Days"
+          },
+          "panel_id": {
+            "format": "uuid",
+            "title": "Panel Id",
+            "type": "string"
+          },
+          "server_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Server Id"
+          },
+          "statuses": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 6,
+            "title": "Statuses",
+            "type": "array"
+          },
+          "store_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Store Id"
+          },
+          "usernames": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 5000,
+            "title": "Usernames",
+            "type": "array"
+          }
+        },
+        "required": [
+          "panel_id"
+        ],
+        "title": "SelectionIn",
+        "type": "object"
+      },
       "ServerOut": {
         "properties": {
           "active_accounts": {
@@ -5944,6 +6135,23 @@
           "bot_username"
         ],
         "title": "StoreOut",
+        "type": "object"
+      },
+      "StorePolicyIn": {
+        "properties": {
+          "suspend_policy": {
+            "enum": [
+              "none",
+              "disable_accounts"
+            ],
+            "title": "Suspend Policy",
+            "type": "string"
+          }
+        },
+        "required": [
+          "suspend_policy"
+        ],
+        "title": "StorePolicyIn",
         "type": "object"
       },
       "StoreRuleIn": {
@@ -7186,6 +7394,41 @@
         "title": "TiersIn",
         "type": "object"
       },
+      "ToggleIn": {
+        "properties": {
+          "disabled": {
+            "title": "Disabled",
+            "type": "boolean"
+          },
+          "force": {
+            "default": false,
+            "title": "Force",
+            "type": "boolean"
+          },
+          "ids": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Ids",
+            "type": "array"
+          },
+          "reason": {
+            "maxLength": 300,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "ids",
+          "disabled"
+        ],
+        "title": "ToggleIn",
+        "type": "object"
+      },
       "TokenPair": {
         "properties": {
           "access_token": {
@@ -8185,6 +8428,21 @@
         "title": "BroadcastIn",
         "type": "object"
       },
+      "melorin__modules__admin__panel_phase4__ReasonIn": {
+        "properties": {
+          "reason": {
+            "maxLength": 300,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "ReasonIn",
+        "type": "object"
+      },
       "melorin__modules__reseller__routes__broadcasts__BroadcastIn": {
         "properties": {
           "body": {
@@ -8205,6 +8463,23 @@
           "body"
         ],
         "title": "BroadcastIn",
+        "type": "object"
+      },
+      "melorin__modules__vpn__schemas__ReasonIn": {
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "title": "ReasonIn",
         "type": "object"
       }
     },
@@ -8432,6 +8707,375 @@
           }
         ],
         "summary": "Audiences",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/bulk-operations": {
+      "get": {
+        "operationId": "bulk_list_api_v1_admin_bulk_operations_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "panel_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Panel Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Bulk List",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/bulk-operations/preview": {
+      "post": {
+        "operationId": "bulk_preview_api_v1_admin_bulk_operations_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkPreviewIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Bulk Preview",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/bulk-operations/{op_id}": {
+      "get": {
+        "operationId": "bulk_detail_api_v1_admin_bulk_operations__op_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "op_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Op Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "item_status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Item Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Bulk Detail",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/bulk-operations/{op_id}/cancel": {
+      "post": {
+        "operationId": "bulk_cancel_api_v1_admin_bulk_operations__op_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "op_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Op Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Bulk Cancel",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/bulk-operations/{op_id}/confirm": {
+      "post": {
+        "operationId": "bulk_confirm_api_v1_admin_bulk_operations__op_id__confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "op_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Op Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkConfirmIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Bulk Confirm",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/bulk-operations/{op_id}/resume": {
+      "post": {
+        "operationId": "bulk_resume_api_v1_admin_bulk_operations__op_id__resume_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "op_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Op Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Bulk Resume",
         "tags": [
           "admin"
         ]
@@ -11761,6 +12405,311 @@
         ]
       }
     },
+    "/api/v1/admin/panels/{panel_id}/ops": {
+      "get": {
+        "operationId": "ops_overview_api_v1_admin_panels__panel_id__ops_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Ops Overview",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/panels/{panel_id}/ops/cores/{core_id}/restart": {
+      "post": {
+        "operationId": "ops_core_restart_api_v1_admin_panels__panel_id__ops_cores__core_id__restart_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "core_id",
+            "required": true,
+            "schema": {
+              "title": "Core Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CoreRestartIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Ops Core Restart",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/panels/{panel_id}/ops/infra": {
+      "get": {
+        "operationId": "ops_infra_api_v1_admin_panels__panel_id__ops_infra_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Ops Infra",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/panels/{panel_id}/ops/nodes/{node_id}/{action}": {
+      "post": {
+        "operationId": "ops_node_action_api_v1_admin_panels__panel_id__ops_nodes__node_id___action__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "node_id",
+            "required": true,
+            "schema": {
+              "title": "Node Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "action",
+            "required": true,
+            "schema": {
+              "enum": [
+                "reconnect",
+                "sync"
+              ],
+              "title": "Action",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/melorin__modules__admin__panel_phase4__ReasonIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Ops Node Action",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/panels/{panel_id}/ops/{family}/toggle": {
+      "post": {
+        "operationId": "ops_toggle_api_v1_admin_panels__panel_id__ops__family__toggle_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "family",
+            "required": true,
+            "schema": {
+              "enum": [
+                "nodes",
+                "hosts",
+                "groups"
+              ],
+              "title": "Family",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ToggleIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Ops Toggle",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/admin/panels/{panel_id}/reconcile": {
       "post": {
         "description": "Run reconcile v2 for one panel right now (the hourly job does the same).",
@@ -11915,6 +12864,96 @@
           }
         ],
         "summary": "Set Panel State",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/panels/{panel_id}/subscription-check": {
+      "get": {
+        "operationId": "subscription_check_last_api_v1_admin_panels__panel_id__subscription_check_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Subscription Check Last",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "operationId": "subscription_check_run_api_v1_admin_panels__panel_id__subscription_check_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Subscription Check Run",
         "tags": [
           "admin"
         ]
@@ -13960,6 +14999,63 @@
         ]
       }
     },
+    "/api/v1/admin/resellers/{store_id}/suspend-policy": {
+      "put": {
+        "description": "Opt a store in/out of \"suspension also disables its panel admin and accounts\". Takes effect on the NEXT suspension.",
+        "operationId": "set_suspend_policy_api_v1_admin_resellers__store_id__suspend_policy_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StorePolicyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Set Suspend Policy",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/admin/resellers/{store_id}/verify-bot": {
       "post": {
         "description": "Ask Telegram whether the stored token still works (it may have been revoked in BotFather).",
@@ -14315,6 +15411,169 @@
           }
         ],
         "summary": "Update Setting",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/store-admins": {
+      "get": {
+        "operationId": "governance_list_api_v1_admin_store_admins_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "panel_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Panel Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Governance List",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/store-admins/refresh": {
+      "post": {
+        "description": "Read usage now instead of waiting for the periodic job.",
+        "operationId": "governance_refresh_api_v1_admin_store_admins_refresh_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "panel_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Panel Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Governance Refresh",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/store-admins/{row_id}": {
+      "patch": {
+        "operationId": "governance_update_api_v1_admin_store_admins__row_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "row_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Row Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GovernanceIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Governance Update",
         "tags": [
           "admin"
         ]
@@ -16464,7 +17723,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ReasonIn"
+                "$ref": "#/components/schemas/melorin__modules__vpn__schemas__ReasonIn"
               }
             }
           },
@@ -21927,7 +23186,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ReasonIn"
+                "$ref": "#/components/schemas/melorin__modules__vpn__schemas__ReasonIn"
               }
             }
           },

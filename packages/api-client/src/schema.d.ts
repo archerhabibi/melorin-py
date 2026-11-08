@@ -77,6 +77,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/bulk-operations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Bulk List */
+        get: operations["bulk_list_api_v1_admin_bulk_operations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/bulk-operations/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Bulk Preview */
+        post: operations["bulk_preview_api_v1_admin_bulk_operations_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/bulk-operations/{op_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Bulk Detail */
+        get: operations["bulk_detail_api_v1_admin_bulk_operations__op_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/bulk-operations/{op_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Bulk Cancel */
+        post: operations["bulk_cancel_api_v1_admin_bulk_operations__op_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/bulk-operations/{op_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Bulk Confirm */
+        post: operations["bulk_confirm_api_v1_admin_bulk_operations__op_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/bulk-operations/{op_id}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Bulk Resume */
+        post: operations["bulk_resume_api_v1_admin_bulk_operations__op_id__resume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/bundle-products/unassigned": {
         parameters: {
             query?: never;
@@ -1222,6 +1324,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/panels/{panel_id}/ops": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ops Overview */
+        get: operations["ops_overview_api_v1_admin_panels__panel_id__ops_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/panels/{panel_id}/ops/cores/{core_id}/restart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ops Core Restart */
+        post: operations["ops_core_restart_api_v1_admin_panels__panel_id__ops_cores__core_id__restart_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/panels/{panel_id}/ops/infra": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ops Infra */
+        get: operations["ops_infra_api_v1_admin_panels__panel_id__ops_infra_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/panels/{panel_id}/ops/nodes/{node_id}/{action}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ops Node Action */
+        post: operations["ops_node_action_api_v1_admin_panels__panel_id__ops_nodes__node_id___action__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/panels/{panel_id}/ops/{family}/toggle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ops Toggle */
+        post: operations["ops_toggle_api_v1_admin_panels__panel_id__ops__family__toggle_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/panels/{panel_id}/reconcile": {
         parameters: {
             query?: never;
@@ -1270,6 +1457,24 @@ export interface paths {
         put?: never;
         /** Set Panel State */
         post: operations["set_panel_state_api_v1_admin_panels__panel_id__state_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/panels/{panel_id}/subscription-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Subscription Check Last */
+        get: operations["subscription_check_last_api_v1_admin_panels__panel_id__subscription_check_get"];
+        put?: never;
+        /** Subscription Check Run */
+        post: operations["subscription_check_run_api_v1_admin_panels__panel_id__subscription_check_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1843,6 +2048,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/resellers/{store_id}/suspend-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Suspend Policy
+         * @description Opt a store in/out of "suspension also disables its panel admin and accounts". Takes effect on the NEXT suspension.
+         */
+        put: operations["set_suspend_policy_api_v1_admin_resellers__store_id__suspend_policy_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/resellers/{store_id}/verify-bot": {
         parameters: {
             query?: never;
@@ -1948,6 +2173,60 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/store-admins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Governance List */
+        get: operations["governance_list_api_v1_admin_store_admins_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/store-admins/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Governance Refresh
+         * @description Read usage now instead of waiting for the periodic job.
+         */
+        post: operations["governance_refresh_api_v1_admin_store_admins_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/store-admins/{row_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Governance Update */
+        patch: operations["governance_update_api_v1_admin_store_admins__row_id__patch"];
         trace?: never;
     };
     "/api/v1/admin/stores": {
@@ -5990,6 +6269,24 @@ export interface components {
             /** Token */
             token: string;
         };
+        /** BulkConfirmIn */
+        BulkConfirmIn: {
+            /** Count */
+            count: number;
+        };
+        /** BulkPreviewIn */
+        BulkPreviewIn: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "disable" | "enable" | "reset_usage" | "rotate_links" | "extend_days" | "add_traffic";
+            /** Params */
+            params?: Record<string, never> | null;
+            /** Reason */
+            reason: string;
+            selection: components["schemas"]["SelectionIn"];
+        };
         /** BundleOut */
         BundleOut: {
             /**
@@ -6096,6 +6393,13 @@ export interface components {
             store_id: string;
             /** Value */
             value: number;
+        };
+        /** CoreRestartIn */
+        CoreRestartIn: {
+            /** Confirm Name */
+            confirm_name: string;
+            /** Reason */
+            reason: string;
         };
         /** CouponIn */
         CouponIn: {
@@ -6562,6 +6866,22 @@ export interface components {
             id_token: string;
             /** Totp Code */
             totp_code?: string | null;
+        };
+        /** GovernanceIn */
+        GovernanceIn: {
+            /**
+             * Clear Limit
+             * @default false
+             */
+            clear_limit: boolean;
+            /** Data Limit Gb */
+            data_limit_gb?: number | null;
+            /** Notifications Off */
+            notifications_off?: boolean | null;
+            /** Reason */
+            reason?: string | null;
+            /** Status */
+            status?: ("active" | "disabled") | null;
         };
         /** GraceResolveIn */
         GraceResolveIn: {
@@ -7417,11 +7737,6 @@ export interface components {
             /** Wallet Balance */
             wallet_balance: number;
         };
-        /** ReasonIn */
-        ReasonIn: {
-            /** Reason */
-            reason?: string | null;
-        };
         /**
          * ReceiptDupSettingsIn
          * @description Per-store policy for a receipt picture that was already used: ``warn`` (default, accept and flag) or ``block``.
@@ -7617,6 +7932,24 @@ export interface components {
             /** Value */
             value: number;
         };
+        /** SelectionIn */
+        SelectionIn: {
+            /** Expiring Within Days */
+            expiring_within_days?: number | null;
+            /**
+             * Panel Id
+             * Format: uuid
+             */
+            panel_id: string;
+            /** Server Id */
+            server_id?: string | null;
+            /** Statuses */
+            statuses?: string[];
+            /** Store Id */
+            store_id?: string | null;
+            /** Usernames */
+            usernames?: string[];
+        };
         /** ServerOut */
         ServerOut: {
             /**
@@ -7758,6 +8091,14 @@ export interface components {
             name: string;
             /** Slug */
             slug: string;
+        };
+        /** StorePolicyIn */
+        StorePolicyIn: {
+            /**
+             * Suspend Policy
+             * @enum {string}
+             */
+            suspend_policy: "none" | "disable_accounts";
         };
         /**
          * StoreRuleIn
@@ -8191,6 +8532,20 @@ export interface components {
             /** Tiers */
             tiers: components["schemas"]["TierIn"][];
         };
+        /** ToggleIn */
+        ToggleIn: {
+            /** Disabled */
+            disabled: boolean;
+            /**
+             * Force
+             * @default false
+             */
+            force: boolean;
+            /** Ids */
+            ids: number[];
+            /** Reason */
+            reason: string;
+        };
         /** TokenPair */
         TokenPair: {
             /** Access Token */
@@ -8495,12 +8850,22 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** ReasonIn */
+        melorin__modules__admin__panel_phase4__ReasonIn: {
+            /** Reason */
+            reason: string;
+        };
         /** BroadcastIn */
         melorin__modules__reseller__routes__broadcasts__BroadcastIn: {
             /** Body */
             body: string;
             /** Title */
             title: string;
+        };
+        /** ReasonIn */
+        melorin__modules__vpn__schemas__ReasonIn: {
+            /** Reason */
+            reason?: string | null;
         };
     };
     responses: never;
@@ -8664,6 +9029,205 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    bulk_list_api_v1_admin_bulk_operations_get: {
+        parameters: {
+            query?: {
+                status?: string | null;
+                panel_id?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_preview_api_v1_admin_bulk_operations_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkPreviewIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_detail_api_v1_admin_bulk_operations__op_id__get: {
+        parameters: {
+            query?: {
+                item_status?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                op_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_cancel_api_v1_admin_bulk_operations__op_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                op_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_confirm_api_v1_admin_bulk_operations__op_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                op_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkConfirmIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_resume_api_v1_admin_bulk_operations__op_id__resume_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                op_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -10815,6 +11379,177 @@ export interface operations {
             };
         };
     };
+    ops_overview_api_v1_admin_panels__panel_id__ops_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                panel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ops_core_restart_api_v1_admin_panels__panel_id__ops_cores__core_id__restart_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                panel_id: string;
+                core_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CoreRestartIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ops_infra_api_v1_admin_panels__panel_id__ops_infra_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                panel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ops_node_action_api_v1_admin_panels__panel_id__ops_nodes__node_id___action__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                panel_id: string;
+                node_id: number;
+                action: "reconnect" | "sync";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["melorin__modules__admin__panel_phase4__ReasonIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ops_toggle_api_v1_admin_panels__panel_id__ops__family__toggle_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                panel_id: string;
+                family: "nodes" | "hosts" | "groups";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ToggleIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     reconcile_panel_now_api_v1_admin_panels__panel_id__reconcile_post: {
         parameters: {
             query?: never;
@@ -10895,6 +11630,68 @@ export interface operations {
                 "application/json": components["schemas"]["PanelState"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    subscription_check_last_api_v1_admin_panels__panel_id__subscription_check_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                panel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    subscription_check_run_api_v1_admin_panels__panel_id__subscription_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                panel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -12113,6 +12910,41 @@ export interface operations {
             };
         };
     };
+    set_suspend_policy_api_v1_admin_resellers__store_id__suspend_policy_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorePolicyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     verify_store_bot_api_v1_admin_resellers__store_id__verify_bot_post: {
         parameters: {
             query?: never;
@@ -12330,6 +13162,103 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["SettingUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    governance_list_api_v1_admin_store_admins_get: {
+        parameters: {
+            query?: {
+                panel_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    governance_refresh_api_v1_admin_store_admins_refresh_post: {
+        parameters: {
+            query?: {
+                panel_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    governance_update_api_v1_admin_store_admins__row_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                row_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GovernanceIn"];
             };
         };
         responses: {
@@ -13606,7 +14535,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ReasonIn"];
+                "application/json": components["schemas"]["melorin__modules__vpn__schemas__ReasonIn"];
             };
         };
         responses: {
@@ -17010,7 +17939,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ReasonIn"];
+                "application/json": components["schemas"]["melorin__modules__vpn__schemas__ReasonIn"];
             };
         };
         responses: {
