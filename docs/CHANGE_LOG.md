@@ -20,6 +20,13 @@ Commits containing `[skip changelog]` and the bot's own commits are skipped.
 If `main` is protected, allow `github-actions[bot]` to bypass so the bot can push the log.
 
 
+## 2026-11-09 - PG-12: the store role name is the admin's choice; PG-05 proven on the live panel
+- **Area:** api / tests / docs / ops
+- **Before:** the store role was the fixed name `melorin-store`; `applied_role()` only recognised that exact name. PG-05 provision/rotate had never been run against a real panel.
+- **Problem:** a store (or another deployment) may need its own role name; and "verified on fakes" is not "verified live".
+- **Action:** `store_role.normalize_role_name` (default `melorin-store`; 2-32 chars `a-z 0-9 - _`; `owner`, `administrator`, `operator`, `melorin-service` refused, validated BEFORE any panel call). `apply {role_name}` creates that role and records `panel.config.admin_role` + `admin_role_managed`; `plan?role_name=` previews it; `revert` clears both. Admin-web/API client regenerated (`StoreRoleIn.role_name`). Live on the test panel (5.6.0): `rotate` run with a temporary owner key (created and deleted by the operator, never stored) - new service key verified as `melorin-service` before the switch, old key deleted, a stray service key left by an earlier attempt found and removed, panel health read with the new key.
+- **After:** 127 tests of the affected area green (SQLite lane, run from the source tree); `gen_docs --check` clean; api-client typecheck + tests green.
+
 ## 2026-11-09 - Mediator rework: verification pass (layering contract, near-expiry warning, formatting)
 - **Area:** api / worker / tests / docs
 - **Before:** `import-linter` reported the layers contract BROKEN on this branch (`vpn.manual_assign` imported `catalog.service`); `near_expiry_job` warned from Melorin's sold expiry alone, so an `on_hold` account (clock not started) or an account renewed on the panel could get a wrong "ends soon" notice; four PG-12 files were not `ruff format`-clean.

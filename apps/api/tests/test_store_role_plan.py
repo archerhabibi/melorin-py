@@ -93,3 +93,42 @@ async def test_a_refused_role_changes_nothing(maker, monkeypatch):
         with pytest.raises(AppError) as e:
             await store_role.apply(s, panel, bootstrap={"api_key": "OWNER"})
         assert e.value.code == "STORE_ROLE_FAILED" and "admin_role" not in (panel.config or {})
+
+
+# ---- the role name is the admin's choice (default melorin-store) -------------------------------------------------------
+def test_role_name_default_valid_and_reserved():
+    assert store_role.normalize_role_name(None) == "melorin-store"
+    assert store_role.normalize_role_name("  ") == "melorin-store"
+    assert store_role.normalize_role_name("acme-reseller") == "acme-reseller"
+    assert store_role.role_body("acme-reseller")["name"] == "acme-reseller"
+    for bad in ("x", "Has Space", "UPPER", "a" * 33, "-lead", "semi;colon"):
+        with pytest.raises(AppError) as e:
+            store_role.normalize_role_name(bad)
+        assert e.value.code == "ROLE_NAME_INVALID"
+    for reserved in ("owner", "administrator", "operator", "melorin-service"):
+        with pytest.raises(AppError) as e:
+            store_role.normalize_role_name(reserved)
+        assert e.value.code == "ROLE_NAME_RESERVED"
+
+
+@pytest.mark.asyncio
+async def test_apply_with_a_custom_name_keeps_it_and_revert_clears_the_flag(maker, monkeypatch):
+    await seed(maker, [])
+    owner = _FakeOwner()
+    monkeypatch.setattr(store_role.registry, "build_adapter", lambda panel, credentials=None: owner)
+    async with maker() as s:
+        panel = (await s.scalars(select(Panel))).one()
+        panel.kind = "pasarguard"
+        with pytest.raises(AppError) as e:  # a bad name is refused before the panel is called
+            await store_role.apply(s, panel, bootstrap={"api_key": "OWNER"}, role_name="operator")
+        assert e.value.code == "ROLE_NAME_RESERVED" and owner.bodies == []
+        out = await store_role.apply(s, panel, bootstrap={"api_key": "OWNER"}, role_name="acme-reseller")
+        assert out["role"] == "acme-reseller" and owner.bodies[0]["name"] == "acme-reseller"
+        assert panel.config["admin_role"] == "acme-reseller" and panel.config["admin_role_managed"] is True
+        plan = store_role.plan(panel=panel)
+        assert plan["applied"] is True and plan["role"] == "acme-reseller" and plan["body"]["name"] == "acme-reseller"
+        again = await store_role.apply(s, panel, bootstrap={"api_key": "OWNER"})  # no name given: keeps the applied one
+        assert again["role"] == "acme-reseller"
+        await store_role.revert(s, panel)
+        assert "admin_role" not in panel.config and "admin_role_managed" not in panel.config
+        assert store_role.plan(panel=panel)["applied"] is False

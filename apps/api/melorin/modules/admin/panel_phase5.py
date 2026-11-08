@@ -111,21 +111,26 @@ async def _service_panel(session, panel_id: uuid.UUID, confirm_name: str) -> Pan
     return panel
 
 
+class StoreRoleIn(ServiceAccessIn):
+    role_name: str | None = Field(default=None, description="name of the store role on the panel; empty = `melorin-store`")
+
+
 @router.get("/panels/{panel_id}/store-role-plan")
-async def store_role_plan(panel_id: uuid.UUID, admin: AdminUser, session: Session):
+async def store_role_plan(panel_id: uuid.UUID, admin: AdminUser, session: Session, role_name: str | None = None):
     """PG-12: the least-privilege role a store's panel admin should have (read-only plan; Melorin does not create it on the panel)."""
     panel = await session.get(Panel, panel_id)
     if not panel:
         raise NotFound("پنل")
-    return store_role.plan(panel=panel)
+    return store_role.plan(panel=panel, role_name=role_name)
 
 
 @router.post("/panels/{panel_id}/store-role/apply")
-async def store_role_apply(panel_id: uuid.UUID, body: ServiceAccessIn, admin: AdminUser, session: Session):
-    """PG-12: create the `melorin-store` role on the panel (owner credential once) and use it for new/re-synced store admins."""
+async def store_role_apply(panel_id: uuid.UUID, body: StoreRoleIn, admin: AdminUser, session: Session):
+    """PG-12: create the store role on the panel (default name `melorin-store`, any valid name allowed; owner credential once)
+    and use it for new/re-synced store admins."""
     panel = await _service_panel(session, panel_id, body.confirm_name)
     boot = body.bootstrap.as_dict() if body.bootstrap else None
-    return await store_role.apply(session, panel, bootstrap=boot, actor_id=admin.id)
+    return await store_role.apply(session, panel, bootstrap=boot, actor_id=admin.id, role_name=body.role_name)
 
 
 @router.post("/panels/{panel_id}/store-role/revert")

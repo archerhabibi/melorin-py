@@ -1735,7 +1735,8 @@ export interface paths {
         put?: never;
         /**
          * Store Role Apply
-         * @description PG-12: create the `melorin-store` role on the panel (owner credential once) and use it for new/re-synced store admins.
+         * @description PG-12: create the store role on the panel (default name `melorin-store`, any valid name allowed; owner credential once)
+         *     and use it for new/re-synced store admins.
          */
         post: operations["store_role_apply_api_v1_admin_panels__panel_id__store_role_apply_post"];
         delete?: never;
@@ -8795,6 +8796,20 @@ export interface components {
              */
             suspend_policy: "none" | "disable_accounts";
         };
+        /** StoreRoleIn */
+        StoreRoleIn: {
+            bootstrap?: components["schemas"]["BootstrapIn"] | null;
+            /**
+             * Confirm Name
+             * @description the panel's name, typed by the admin: this creates a role, an admin and a key on the PANEL
+             */
+            confirm_name: string;
+            /**
+             * Role Name
+             * @description name of the store role on the panel; empty = `melorin-store`
+             */
+            role_name?: string | null;
+        };
         /**
          * StoreRuleIn
          * @description A plan of the store named in the URL (the store is never part of the body, so it cannot be spoofed).
@@ -12765,7 +12780,9 @@ export interface operations {
     };
     store_role_plan_api_v1_admin_panels__panel_id__store_role_plan_get: {
         parameters: {
-            query?: never;
+            query?: {
+                role_name?: string | null;
+            };
             header?: never;
             path: {
                 panel_id: string;
@@ -12805,7 +12822,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ServiceAccessIn"];
+                "application/json": components["schemas"]["StoreRoleIn"];
             };
         };
         responses: {

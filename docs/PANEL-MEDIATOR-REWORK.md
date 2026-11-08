@@ -118,6 +118,18 @@ The suite (2275 tests) is green; tests that seeded usage/link/status on the acco
 ## Verification pass (9 Nov 2026)
 Checked on the branch itself, not taken from the change log: backend suite, PostgreSQL lane for the mediator tests, migrations `0050` <-> `0054` on PostgreSQL 16, import-linter contracts, ruff, both web apps (tests, lint, admin build). Two real findings were fixed (layers contract; near-expiry warning confirmed by a live read, see CHANGE_LOG). **Still not verified, because it needs the live panel/VPS:** PG-05 provision/rotate, PG-12 role apply and branding apply (the PasarGuard docs at docs.pasarguard.org do not describe how `custom_variables` reach a page template; first apply on a test store), Prometheus after the `nobody` chown, panel backup env.
 
+## Store role name is configurable (9 Nov 2026)
+`POST /admin/panels/{id}/store-role/apply {confirm_name, bootstrap, role_name?}`: `role_name` defaults to `melorin-store`; any name of 2-32 characters
+(`a-z`, `0-9`, `-`, `_`) is accepted except the names the panel or Melorin already uses (`owner`, `administrator`, `operator`, `melorin-service`).
+The name is checked before the panel is called. `GET .../store-role-plan?role_name=` previews the body for a name. `revert` clears `admin_role` and
+`admin_role_managed`; the role itself stays on the panel (Melorin never deletes roles).
+
+## PG-05 proven on the live test panel (9 Nov 2026)
+Provision had been applied earlier; this pass ran **rotate** for real: temporary owner key (made by the operator inside the panel container, used once,
+deleted, never stored) -> new key under `melorin-service` verified (`least_privilege`, no missing permission) -> switch -> old key deleted. A stray
+second service key from an earlier attempt was found active and removed. The owner key `bot` (admin Ajdar) is still active on the panel: revoke it
+there once nothing else uses it.
+
 ## Not done yet (in priority order)
 
 1. **Live check of PG-05** on the test panel (see rollout above); not run from this work.

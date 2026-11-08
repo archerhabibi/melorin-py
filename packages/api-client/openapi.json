@@ -6717,6 +6717,42 @@
         "title": "StorePolicyIn",
         "type": "object"
       },
+      "StoreRoleIn": {
+        "properties": {
+          "bootstrap": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BootstrapIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "confirm_name": {
+            "description": "the panel's name, typed by the admin: this creates a role, an admin and a key on the PANEL",
+            "title": "Confirm Name",
+            "type": "string"
+          },
+          "role_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "name of the store role on the panel; empty = `melorin-store`",
+            "title": "Role Name"
+          }
+        },
+        "required": [
+          "confirm_name"
+        ],
+        "title": "StoreRoleIn",
+        "type": "object"
+      },
       "StoreRuleIn": {
         "description": "A plan of the store named in the URL (the store is never part of the body, so it cannot be spoofed).",
         "properties": {
@@ -14163,6 +14199,22 @@
               "title": "Panel Id",
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "role_name",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Role Name"
+            }
           }
         ],
         "responses": {
@@ -14198,7 +14250,7 @@
     },
     "/api/v1/admin/panels/{panel_id}/store-role/apply": {
       "post": {
-        "description": "PG-12: create the `melorin-store` role on the panel (owner credential once) and use it for new/re-synced store admins.",
+        "description": "PG-12: create the store role on the panel (default name `melorin-store`, any valid name allowed; owner credential once)\nand use it for new/re-synced store admins.",
         "operationId": "store_role_apply_api_v1_admin_panels__panel_id__store_role_apply_post",
         "parameters": [
           {
@@ -14216,7 +14268,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ServiceAccessIn"
+                "$ref": "#/components/schemas/StoreRoleIn"
               }
             }
           },
