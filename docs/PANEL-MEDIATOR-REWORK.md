@@ -29,6 +29,35 @@ Rule: **Melorin is a mediator**. Used traffic, limit, expiry and status belong t
 
 | Decision 5 | **Admin-only connection view.** New capability `ip_ops` (needs `nodes.stats` + `users.read`) and tool `connections`: live connection IPs per node and the subscription-fetch history (`GET …/admin/vpn-accounts/{id}/tools/connections?limit&offset`). Owners and customers do not have the tool (403 before any panel call). Nothing is stored; each view is audited (`vpn_account.connections_viewed`) with **counts only, never the IPs**. One half failing (a node down, a missing permission) does not hide the other; both failing is `503 PANEL_UNAVAILABLE`. Response shapes were checked against the live panel's source (`UserIPListAll`, `UserSubscriptionUpdateList`). | `adapters/pasarguard/users.py` (`online_ips`, `subscription_updates`), `account_tools.connections`, `tools_router.py`, tests `test_admin_connections_db.py` |
 
+## R9 / R10 + dropping the copied columns: design (8 Nov 2026, migration `0054`)
+
+Melorin has not been released, so this is done in ONE step (no "one release without readers" waiting period): readers are moved first,
+then the columns go in the same migration.
+
+### What a `vpn_accounts` row means afterwards
+| Column | Meaning | Written by |
+|---|---|---|
+| `sold_expires_at` (was `expires_at`) | **Sold entitlement**: the expiry Melorin last *sold or applied* (purchase, renewal, plan change, compensation, bulk extend, "accept panel"). Used where Melorin itself decides: renewal window, SQL list filters/counters, expiry/near-expiry scheduling, bulk selection, `limits_mismatch` baseline, delivery text, audit. **Never** copied from a sync. | acts only (`sync.record_sale`) |
+| `sold_traffic_bytes` (was `traffic_limit_bytes`) | Sold package volume (0 = unlimited). Same rules. | acts only |
+| `delivery_snapshot` (new, JSON) | What the customer was handed at delivery: `{subscription_url, links, taken_at}`. Written once at provisioning. Fallback only when the panel cannot answer (QR/delivery message). Not refreshed by sync. | provisioning |
+| `status` | The *derived display state* (active/limited/expired/suspended…). Updated from the panel by sync/events/live reads; allowed because SQL chips and sell logic need a bucket. | sync / events / acts |
+| dropped | `traffic_used_bytes`, `subscription_url`, `links`, `remote_status`, `online_at`, `lifetime_used_traffic` | nothing |
+
+"Now" values (expiry now, limit now, used, remote status, last seen, link) are **only** read from the panel (`live.py`, short in-memory cache).
+The API field names (`expires_at`, `traffic_limit_bytes`, `traffic_used_bytes`, `subscription_url`, `links`) do not change, so no client breaks;
+`traffic_used_bytes` becomes nullable (`null` = panel did not answer), and `live=false` tells the client the numbers are Melorin's entitlement.
+
+### Behaviour changes
+* **`sync.apply_remote` no longer copies state.** It updates `status`, `last_synced_at`, queued-plan settlement and the notices (from the reading it was given). It never writes `sold_*`.
+* **`sync.record_sale(account, expires_at, traffic_bytes)`** is the single writer of the entitlement. Every Melorin act calls it with the absolute values it just applied (R10).
+* **`limits_drift`** compares the panel with the *sold* entitlement and now stays visible (`limits_mismatch` auto-closes when the panel and the entitlement agree again). New issue action **`accept_panel`** rebases the entitlement on the live panel values (audited). An ignored drift is not re-opened while it is identical.
+* **Returns:** `evaluate()` takes the usage as a parameter. Lists pass the live reading if they have one (otherwise the usage rule is advisory-skipped); `prepare_return` always passes the strict fresh reading, so the money decision never uses a stored number. `AccountReturn.used_bytes/limit_bytes` stay as the audit snapshot.
+* **Analytics:** no stored usage sums; sold volume is summed from `sold_traffic_bytes` and labelled as sold, usage comes from each panel's monitoring snapshot.
+* **`expiry_job`** selects candidates by `sold_expires_at <= now` and decides on a live read (already so since R2); on-hold accounts are recognised from the live reading, not from a stored status.
+
+### Order of work (each step = one commit, suite green)
+1. Model + migration `0054` (rename/add/drop, no data carried: unreleased). 2. `sync`/`inquiry`/`live`/`returns` (read side). 3. Acts (provisioning, renewal, plans, bulk, account_tools, runner, recreate, admin orders) call `record_sale`. 4. Reconcile/issues (`accept_panel`), analytics, directory, subscription check, delivery. 5. Tests, docs regeneration, patch.
+
 ## Switch-on order (staging first)
 
 1. Deploy, run `alembic upgrade head` (additive; head: see docs/STATUS.md).
