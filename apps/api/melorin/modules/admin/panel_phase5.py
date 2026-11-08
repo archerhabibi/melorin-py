@@ -13,7 +13,8 @@ from sqlalchemy import func, select
 from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import AppError, NotFound
 from melorin.kernel.models.vpn import Panel, PanelNode
-from melorin.modules.vpn import panel_backup, panel_metrics, service_access, settings_drift, store_role
+from melorin.kernel.models.stores import Store
+from melorin.modules.vpn import panel_backup, panel_metrics, service_access, settings_drift, store_role, sub_branding
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -170,3 +171,40 @@ async def service_access_rotate(panel_id: uuid.UUID, body: ServiceAccessIn, admi
     if boot is None:
         raise AppError("BOOTSTRAP_REQUIRED", "برای چرخش کلید یک اعتبارنامهٔ owner لازم است.", 422)
     return await service_access.rotate(session, panel, bootstrap=boot, actor_id=admin.id)
+
+
+# ------------------------------------------------------------------------------------------------------------------ PG-12 sub branding
+class SubBrandingApplyIn(BaseModel):
+    confirm_name: str = Field(description="the panel's name, typed by the admin: this writes into a store admin's custom_variables on the PANEL")
+
+
+async def _brand_targets(session, store_id: uuid.UUID, panel_id: uuid.UUID) -> tuple[Store, Panel]:
+    store, panel = await session.get(Store, store_id), await session.get(Panel, panel_id)
+    if not store or not panel:
+        raise NotFound("فروشگاه یا پنل")
+    return store, panel
+
+
+@router.get("/stores/{store_id}/sub-branding/{panel_id}")
+async def sub_branding_preview(store_id: uuid.UUID, panel_id: uuid.UUID, admin: AdminUser, session: Session):
+    """Read-only: what the store wants versus what its panel admin holds now (three keys; other keys are never touched)."""
+    store, panel = await _brand_targets(session, store_id, panel_id)
+    return await sub_branding.preview(session, store, panel)
+
+
+@router.post("/stores/{store_id}/sub-branding/{panel_id}/apply")
+async def sub_branding_apply(store_id: uuid.UUID, panel_id: uuid.UUID, body: SubBrandingApplyIn, admin: AdminUser, session: Session):
+    """Write the store's name / support link / logo into its panel admin's `custom_variables` (verified by reading back; audited)."""
+    store, panel = await _brand_targets(session, store_id, panel_id)
+    if body.confirm_name.strip() != panel.name:
+        raise AppError("CONFIRM_REQUIRED", "نام پنل را برای تأیید دقیقاً وارد کنید.", 422)
+    return await sub_branding.apply(session, store, panel, actor_id=admin.id)
+
+
+@router.post("/stores/{store_id}/sub-branding/{panel_id}/revert")
+async def sub_branding_revert(store_id: uuid.UUID, panel_id: uuid.UUID, body: SubBrandingApplyIn, admin: AdminUser, session: Session):
+    """Remove the three branding keys from the store admin on the panel."""
+    store, panel = await _brand_targets(session, store_id, panel_id)
+    if body.confirm_name.strip() != panel.name:
+        raise AppError("CONFIRM_REQUIRED", "نام پنل را برای تأیید دقیقاً وارد کنید.", 422)
+    return await sub_branding.revert(session, store, panel, actor_id=admin.id)

@@ -55,6 +55,29 @@ class AdminsMixin:
             return {}
         return await self._req("PUT", f"/api/admin/by-id/{int(remote_id)}", json=body)
 
+    @staticmethod
+    def parse_custom_variables(raw) -> dict:
+        """The admin's ``custom_variables`` as a flat ``{str: str}`` dict. The panel may hand it over as an object or as a JSON string."""
+        import json
+
+        if isinstance(raw, str):
+            try:
+                raw = json.loads(raw) if raw.strip() else {}
+            except ValueError:
+                return {}
+        if not isinstance(raw, dict):
+            return {}
+        return {str(k): str(v) for k, v in raw.items() if isinstance(v, str | int | float)}
+
+    async def read_custom_variables(self, username: str) -> dict | None:
+        """What the panel holds in the admin's ``custom_variables`` now (``None`` when the admin does not exist). Read-only."""
+        admin = await self.find_admin(username)
+        return None if admin is None else self.parse_custom_variables(admin.get("custom_variables"))
+
+    async def write_custom_variables(self, remote_id: int, variables: dict[str, str]) -> dict:
+        """Replace the admin's ``custom_variables`` with exactly ``variables`` (callers merge first). Touches nothing else."""
+        return await self._req("PUT", f"/api/admin/by-id/{int(remote_id)}", json={"custom_variables": dict(variables)})
+
     async def bulk_set_owner(self, refs: list[str], owner: str) -> int:
         """Move existing users (panel ids) under ``owner``; chunked, idempotent."""
         ids = [int(r) for r in refs if str(r).isdigit()]

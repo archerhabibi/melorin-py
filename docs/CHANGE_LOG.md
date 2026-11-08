@@ -1311,3 +1311,10 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 - **After:** 5 new panel tests + 1 new API test; panel 161 passed, `vite build` ok. Not looked at in a real browser.
 - **Ref:** branch identify
 
+### 2026-11-09 - Claude (with owner) - PG-12 per-store subscription branding
+- **Before:** every store's subscription page carried the shared panel branding; `stores.branding` was free-form JSON replaced wholesale by the owner patch.
+- **Problem:** a reseller could not show its own name, support link or logo; a free-form value that a panel page may print is an injection risk.
+- **Action:** `modules/vpn/sub_branding.py` (validated fields in `stores.branding["sub"]`; admin `preview` / `apply` / `revert` writing three `custom_variables` keys of the store's panel admin, other keys kept, read-back verified with restore, typed panel name, audited without values); owner `GET/PUT /stores/{id}/reseller/sub-branding`; the generic branding patch can no longer set or wipe `sub`/`sub_applied`; adapter `read_custom_variables` / `write_custom_variables`; no `sub_template`, no HTML from stores.
+- **After:** `tests/test_sub_branding.py` (9 tests) and the 5.6.0 contract replay pass. No migration. NOT run against a live panel; how the panel page reads `custom_variables` is unconfirmed.
+- **Ref:** this commit
+

@@ -2755,6 +2755,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/stores/{store_id}/sub-branding/{panel_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sub Branding Preview
+         * @description Read-only: what the store wants versus what its panel admin holds now (three keys; other keys are never touched).
+         */
+        get: operations["sub_branding_preview_api_v1_admin_stores__store_id__sub_branding__panel_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/stores/{store_id}/sub-branding/{panel_id}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sub Branding Apply
+         * @description Write the store's name / support link / logo into its panel admin's `custom_variables` (verified by reading back; audited).
+         */
+        post: operations["sub_branding_apply_api_v1_admin_stores__store_id__sub_branding__panel_id__apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/stores/{store_id}/sub-branding/{panel_id}/revert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sub Branding Revert
+         * @description Remove the three branding keys from the store admin on the panel.
+         */
+        post: operations["sub_branding_revert_api_v1_admin_stores__store_id__sub_branding__panel_id__revert_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/stores/{store_id}/vpn-digest": {
         parameters: {
             query?: never;
@@ -5699,6 +5759,54 @@ export interface paths {
         };
         /** Report */
         get: operations["report_api_v1_stores__store_id__reseller_reports_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/reseller/sub-branding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sub Branding Get
+         * @description The three fields the owner chose for the subscription page. Saved in Melorin only; the admin puts them on the panel.
+         */
+        get: operations["sub_branding_get_api_v1_stores__store_id__reseller_sub_branding_get"];
+        /**
+         * Sub Branding Put
+         * @description Save name / support link / logo (plain text and https links only; an empty string clears a field). Nothing is sent to a panel.
+         */
+        put: operations["sub_branding_put_api_v1_stores__store_id__reseller_sub_branding_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/reseller/usage-report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Usage Report
+         * @description Accounts by state, total volume used, the 5 heaviest accounts, and how many are near expiry / near exhaustion.
+         *
+         *     Every number is read from the panel now; a panel that cannot answer shows no number (``live=false`` and a note), never an
+         *     old one. No IP address, connection detail or subscription link is part of the answer. Only this store's own panel admin
+         *     is read, so a store can never see another store's accounts.
+         */
+        get: operations["usage_report_api_v1_stores__store_id__reseller_usage_report_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -8707,6 +8815,23 @@ export interface components {
             product_id?: string | null;
             /** Value */
             value: number;
+        };
+        /** SubBrandingApplyIn */
+        SubBrandingApplyIn: {
+            /**
+             * Confirm Name
+             * @description the panel's name, typed by the admin: this writes into a store admin's custom_variables on the PANEL
+             */
+            confirm_name: string;
+        };
+        /** SubBrandingIn */
+        SubBrandingIn: {
+            /** Display Name */
+            display_name?: string | null;
+            /** Logo Url */
+            logo_url?: string | null;
+            /** Support Url */
+            support_url?: string | null;
         };
         /** SyncIn */
         SyncIn: {
@@ -14822,6 +14947,110 @@ export interface operations {
             };
         };
     };
+    sub_branding_preview_api_v1_admin_stores__store_id__sub_branding__panel_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+                panel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sub_branding_apply_api_v1_admin_stores__store_id__sub_branding__panel_id__apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+                panel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubBrandingApplyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sub_branding_revert_api_v1_admin_stores__store_id__sub_branding__panel_id__revert_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+                panel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubBrandingApplyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     put_store_vpn_digest_api_v1_admin_stores__store_id__vpn_digest_put: {
         parameters: {
             query?: never;
@@ -20583,6 +20812,103 @@ export interface operations {
         };
     };
     report_api_v1_stores__store_id__reseller_reports_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sub_branding_get_api_v1_stores__store_id__reseller_sub_branding_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sub_branding_put_api_v1_stores__store_id__reseller_sub_branding_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubBrandingIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    usage_report_api_v1_stores__store_id__reseller_usage_report_get: {
         parameters: {
             query?: never;
             header?: never;

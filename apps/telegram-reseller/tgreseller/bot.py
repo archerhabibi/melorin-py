@@ -65,8 +65,8 @@ def _gb(n) -> str:
 
 
 def owner_usage_text(rep: dict) -> str:
-    """The owner's usage screen, built only from what Core read from the panel just now. No IP, link or connection detail exists in
-    the report, so none can appear here. A panel that did not answer shows the unavailable text and no number at all."""
+    """The owner's usage screen, built only from what Core read live from the VPN service just now. No IP, link or connection detail exists in
+    the report, so none can appear here. A service that did not answer shows the unavailable text and no number at all."""
     head = "📈 <b>گزارش مصرف فروشگاه</b>"
     if not rep.get("live"):
         return f"{head}\n⏳ {esc(rep.get('note') or 'اطلاعات زنده از پنل موقتاً در دسترس نیست.')}\nکمی بعد دوباره امتحان کنید."
@@ -273,7 +273,7 @@ class ResellerTelegramRunner(_module.TelegramRunner):
         await self.screen(ctx, text, [[("🌐 تنظیم طرح‌ها در وب", site)]] if site else None)
 
     async def cmd_owner_usage(self, ctx, arg):
-        """On-demand usage report of THIS store, read live from the panel by Core. The daily digest has no numbers by design."""
+        """On-demand usage report of THIS store, read live from the VPN service by Core. The daily digest has no numbers by design."""
         if not await self._owner_only(ctx):
             return
         s = await self.store_info()

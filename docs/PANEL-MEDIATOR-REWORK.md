@@ -100,6 +100,15 @@ Tests: `apps/api/tests/test_manual_assign_db.py` (15).
 ## PG-12 - the `melorin-store` role (explicit action, 8 Nov 2026)
 `POST /admin/panels/{id}/store-role/apply {confirm_name, bootstrap}` creates (or realigns) the role `melorin-store` (users create/read/update/delete + groups read; **no** `api_keys`, admins, nodes, hosts, settings) with an owner credential used for that one request and never stored, then sets `panel.config.admin_role`. New and re-synced store admins get the role (`panel_admins._push` passes it on every ensure); existing admins change on their next sync. `POST .../store-role/revert` returns to the stock role and writes nothing to the panel. Both are typed-name confirmed and audited (`panel.store_role.applied|reverted`). Nothing runs automatically (decision 3). Roll out on staging first: apply, resync one test store admin, do a create/renew/delete round trip, then the rest.
 
+## PG-12 - per-store subscription branding (9 Nov 2026)
+The store owner edits three plain fields, `PUT /stores/{id}/reseller/sub-branding {display_name, support_url, logo_url}` (plain text, https links only, logo must be an image URL, no markup; stored in `stores.branding["sub"]`, no migration). Saving sends nothing to a panel.
+The admin puts them on the panel with an explicit action: `GET /admin/stores/{store_id}/sub-branding/{panel_id}` (read-only: wanted vs. what the panel holds), `POST .../apply {confirm_name}` and `POST .../revert {confirm_name}` (typed panel name, audited as `panel.sub_branding.applied|reverted` with key names and a digest, never values). Apply writes exactly three keys into the store admin's `custom_variables` (`melorin_brand_name`, `melorin_support_url`, `melorin_logo_url`), keeps every other key, **reads the admin back** and restores the previous values if the panel did not keep them. Nothing runs automatically (decision 3).
+Melorin never writes `sub_template` or HTML: a store-chosen template would run on the subscription domain (XSS). The page template stays what the panel operator installed; it must read the three variables.
+**Not verified live:** the 5.6.0 contract fixture allows `custom_variables` on `AdminModify`, but the PasarGuard docs do not describe how a page reads them. Do the first apply on a test store and look at the subscription page.
+
+## PG-12 - per-store usage report (done, 8 Nov 2026)
+`GET /stores/{id}/reseller/usage-report` and the reseller bot screen / `/usage`: account counts by state, total used volume, the 5 heaviest accounts, near-expiry (3 days) and near-exhaustion (90%) counts, read from the panel for that store's own admin only. A panel that cannot answer shows "temporarily unavailable", never an old number; no IP, device or link. The daily digest still carries no usage number (`store_usage.py`).
+
 ## R7-R10 status (8 Nov 2026): DONE
 R7 (stored panel numbers become dated snapshots, `online_at`/`lifetime_used_traffic` dropped), R8 (link read from the panel, `delivery_snapshot` only as the as-delivered fallback),
 R9 (`sold_*` vs panel "now") and R10 (`sync.record_sale` is the only writer; syncs never copy state) are implemented and the copied columns are dropped by `0054`.
@@ -108,7 +117,7 @@ The suite (2275 tests) is green; tests that seeded usage/link/status on the acco
 ## Not done yet (in priority order)
 
 1. **Live check of PG-05** on the test panel (see rollout above); not run from this work.
-2. PG-12 `sub_template`/`custom_variables` branding; per-store usage report in the reseller bot; N10 internal-network exception (deferred by decision 8). The `melorin-store` role itself is DONE as an explicit admin action (below).
+2. N10 internal-network exception (deferred by decision 8). PG-12 role, branding and the usage report are DONE (below); branding still needs one live apply on a test store.
 3. Operator only: enable panel backup (`MELORIN_PANEL_BACKUP_*`, L2), rotate the Telegram token in `notification_settings`, fix node certificates (`server_ca`), Caddy healthcheck.
 
 ## Merge note (8 Nov 2026)

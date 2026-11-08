@@ -1,6 +1,7 @@
 """The reseller owner's own store: profile + debt state, branding, order report."""
 
 from fastapi import APIRouter
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
 from melorin.core import audit, settings_store
@@ -11,6 +12,7 @@ from melorin.kernel.models.stores import ResellerProfile
 from melorin.modules.reseller.schemas import (
     StoreBrandingUpdate,
 )
+from melorin.modules.vpn import sub_branding
 from melorin.modules.wallet import service as wallet
 
 router = APIRouter(tags=["reseller"])
@@ -39,7 +41,10 @@ async def profile(ctx: OwnerCtx, session: Session):
 @router.patch("/stores/{store_id}/reseller/branding")
 async def branding(body: StoreBrandingUpdate, ctx: OwnerCtx, session: Session):
     if body.branding is not None:
-        ctx.store.branding = body.branding
+        # "sub" / "sub_applied" belong to the validated subscription-branding endpoints and the admin apply action: this generic
+        # patch can neither set nor wipe them.
+        keep = {k: v for k, v in (ctx.store.branding or {}).items() if k in ("sub", "sub_applied")}
+        ctx.store.branding = {**{k: v for k, v in body.branding.items() if k not in ("sub", "sub_applied")}, **keep}
     if body.bot_messages is not None:
         ctx.store.bot_messages = body.bot_messages
     audit.record(
@@ -63,3 +68,32 @@ async def report(ctx: OwnerCtx, session: Session):
         "currency": ctx.store.currency,
         "orders": [{"status": s, "count": n, "total": total, "reseller_cost": cost} for s, n, total, cost in rows],
     }
+
+
+class SubBrandingIn(BaseModel):
+    display_name: str | None = Field(default=None, max_length=64)
+    support_url: str | None = Field(default=None, max_length=512)
+    logo_url: str | None = Field(default=None, max_length=512)
+
+
+@router.get("/stores/{store_id}/reseller/sub-branding")
+async def sub_branding_get(ctx: OwnerCtx):
+    """The three fields the owner chose for the subscription page. Saved in Melorin only; the admin puts them on the panel."""
+    return {"fields": sub_branding.get(ctx.store), "applied_on": sorted((ctx.store.branding or {}).get("sub_applied") or {})}
+
+
+@router.put("/stores/{store_id}/reseller/sub-branding")
+async def sub_branding_put(body: SubBrandingIn, ctx: OwnerCtx, session: Session):
+    """Save name / support link / logo (plain text and https links only; an empty string clears a field). Nothing is sent to a panel."""
+    fields = sub_branding.save(ctx.store, body.model_dump(exclude_unset=True))
+    audit.record(
+        session,
+        "reseller.sub_branding_saved",
+        actor_id=ctx.user.id,
+        entity_type="store",
+        entity_id=ctx.store.id,
+        store_id=ctx.store.id,
+        data={"fields": sorted(fields)},
+    )
+    await session.commit()
+    return {"fields": fields, "note": "ذخیره شد. اعمال روی صفحهٔ اشتراک پس از تأیید مدیر انجام می‌شود."}

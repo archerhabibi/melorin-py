@@ -35,7 +35,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 
 <!-- BEGIN GENERATED ROUTES (scripts/gen_docs.py) -->
 
-### `admin` (171)
+### `admin` (174)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -190,6 +190,9 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | PUT | `/api/v1/admin/stores/{store_id}/receipt-review/settings` | Receipt Review Settings |
 | POST | `/api/v1/admin/stores/{store_id}/receipt-review/{payment_id}` | Receipt Review Resolve |
 | GET | `/api/v1/admin/stores/{store_id}/reseller-prices` | Reseller Store Prices |
+| GET | `/api/v1/admin/stores/{store_id}/sub-branding/{panel_id}` | Sub Branding Preview |
+| POST | `/api/v1/admin/stores/{store_id}/sub-branding/{panel_id}/apply` | Sub Branding Apply |
+| POST | `/api/v1/admin/stores/{store_id}/sub-branding/{panel_id}/revert` | Sub Branding Revert |
 | PUT | `/api/v1/admin/stores/{store_id}/vpn-digest` | Put Store Vpn Digest |
 | GET | `/api/v1/admin/stores/{store_id}/vpn-notice-texts` | Get Store Vpn Notice Texts |
 | PUT | `/api/v1/admin/stores/{store_id}/vpn-notice-texts` | Put Store Vpn Notice Texts |
@@ -378,7 +381,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/api/v1/reports/payments` | Payment Totals |
 | GET | `/api/v1/reports/stores/{store_id}/sales` | Store Sales |
 
-### `reseller` (63)
+### `reseller` (66)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -437,6 +440,9 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | PUT | `/api/v1/stores/{store_id}/reseller/receipt-review/settings` | Reseller Receipt Review Settings |
 | POST | `/api/v1/stores/{store_id}/reseller/receipt-review/{payment_id}` | Reseller Receipt Review Resolve |
 | GET | `/api/v1/stores/{store_id}/reseller/reports` | Report |
+| GET | `/api/v1/stores/{store_id}/reseller/sub-branding` | Sub Branding Get |
+| PUT | `/api/v1/stores/{store_id}/reseller/sub-branding` | Sub Branding Put |
+| GET | `/api/v1/stores/{store_id}/reseller/usage-report` | Usage Report |
 | GET | `/api/v1/stores/{store_id}/reseller/webhooks` | List Webhooks |
 | POST | `/api/v1/stores/{store_id}/reseller/webhooks` | Create Webhook |
 | PATCH | `/api/v1/stores/{store_id}/reseller/webhooks/{endpoint_id}` | Patch Webhook |

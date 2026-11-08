@@ -6773,6 +6773,62 @@
         "title": "StoreRuleIn",
         "type": "object"
       },
+      "SubBrandingApplyIn": {
+        "properties": {
+          "confirm_name": {
+            "description": "the panel's name, typed by the admin: this writes into a store admin's custom_variables on the PANEL",
+            "title": "Confirm Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "confirm_name"
+        ],
+        "title": "SubBrandingApplyIn",
+        "type": "object"
+      },
+      "SubBrandingIn": {
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "logo_url": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Url"
+          },
+          "support_url": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Support Url"
+          }
+        },
+        "title": "SubBrandingIn",
+        "type": "object"
+      },
       "SyncIn": {
         "properties": {
           "panel_id": {
@@ -17697,6 +17753,197 @@
         ]
       }
     },
+    "/api/v1/admin/stores/{store_id}/sub-branding/{panel_id}": {
+      "get": {
+        "description": "Read-only: what the store wants versus what its panel admin holds now (three keys; other keys are never touched).",
+        "operationId": "sub_branding_preview_api_v1_admin_stores__store_id__sub_branding__panel_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Sub Branding Preview",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/stores/{store_id}/sub-branding/{panel_id}/apply": {
+      "post": {
+        "description": "Write the store's name / support link / logo into its panel admin's `custom_variables` (verified by reading back; audited).",
+        "operationId": "sub_branding_apply_api_v1_admin_stores__store_id__sub_branding__panel_id__apply_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubBrandingApplyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Sub Branding Apply",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/stores/{store_id}/sub-branding/{panel_id}/revert": {
+      "post": {
+        "description": "Remove the three branding keys from the store admin on the panel.",
+        "operationId": "sub_branding_revert_api_v1_admin_stores__store_id__sub_branding__panel_id__revert_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubBrandingApplyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Sub Branding Revert",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/admin/stores/{store_id}/vpn-digest": {
       "put": {
         "description": "PG-06: switch the store owner's daily VPN digest on/off (off by default; a day with nothing to report sends nothing).",
@@ -27203,6 +27450,155 @@
           }
         ],
         "summary": "Report",
+        "tags": [
+          "reseller"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/reseller/sub-branding": {
+      "get": {
+        "description": "The three fields the owner chose for the subscription page. Saved in Melorin only; the admin puts them on the panel.",
+        "operationId": "sub_branding_get_api_v1_stores__store_id__reseller_sub_branding_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Sub Branding Get",
+        "tags": [
+          "reseller"
+        ]
+      },
+      "put": {
+        "description": "Save name / support link / logo (plain text and https links only; an empty string clears a field). Nothing is sent to a panel.",
+        "operationId": "sub_branding_put_api_v1_stores__store_id__reseller_sub_branding_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubBrandingIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Sub Branding Put",
+        "tags": [
+          "reseller"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/reseller/usage-report": {
+      "get": {
+        "description": "Accounts by state, total volume used, the 5 heaviest accounts, and how many are near expiry / near exhaustion.\n\nEvery number is read from the panel now; a panel that cannot answer shows no number (``live=false`` and a note), never an\nold one. No IP address, connection detail or subscription link is part of the answer. Only this store's own panel admin\nis read, so a store can never see another store's accounts.",
+        "operationId": "usage_report_api_v1_stores__store_id__reseller_usage_report_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Usage Report",
         "tags": [
           "reseller"
         ]
