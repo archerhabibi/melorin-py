@@ -209,3 +209,14 @@ Use this when the PasarGuard panel (not Melorin) is gone, reinstalled or restore
 7. **Re-enable selling** once nodes are `connected` and the capacity/health view is green, then confirm a fresh panel backup runs the next day (`melorin_backup_age_seconds{target="panel"}`).
 
 If the backup is stale or not configured, the admin tab says so and alert `MelorinPanelBackupStale` fires. See `docs/PANEL-OPS-PHASE5.md`.
+
+
+## Prometheus cannot scrape / shows old alert rules (Phase 6, finding L1)
+
+Symptoms: target `melorin-api` is `down` ("unable to read authorization credentials") and `/rules` lists fewer rules than `infra/alerts.yml`.
+Causes and fix on an EXISTING server (new installs and `melorin update` already do this):
+
+1. The token file must be readable by the Prometheus user (`nobody`, uid 65534): `chown 65534:65534 secrets/metrics-token && chmod 400 secrets/metrics-token`.
+2. Rules now come from a directory mount (`./infra:/etc/prometheus/infra:ro`), so a `git pull` is visible at once; reload with
+   `docker compose kill -s HUP prometheus`. The first time, recreate it: `docker compose up -d --force-recreate prometheus`.
+3. Verify: `/api/v1/targets` shows `up`; `/api/v1/rules` lists every rule of `infra/alerts.yml`; `melorin_panel_nodes` returns data.

@@ -181,7 +181,8 @@ services:
     image: prom/prometheus:v2.55.1
     volumes:
       - ./infra/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./infra/alerts.yml:/etc/prometheus/alerts.yml:ro
+      # a DIRECTORY mount: a single-file bind mount keeps pointing at the OLD inode after `git pull` replaces the file (live finding L1)
+      - ./infra:/etc/prometheus/infra:ro
       - ./secrets/metrics-token:/etc/prometheus/metrics-token:ro
       - prometheus_data:/prometheus
     depends_on: {api: {condition: service_healthy}, alertmanager: {condition: service_healthy}}

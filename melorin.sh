@@ -275,6 +275,7 @@ do_update() {
   compose build                          || { err "Build failed."; return 1; }
   compose run --rm api alembic upgrade head || { err "Migration failed - services were NOT restarted."; return 1; }
   compose up -d --remove-orphans         || { err "Could not start the services."; return 1; }
+  compose kill -s HUP prometheus >/dev/null 2>&1 || true   # re-read infra/alerts.yml (directory mount) without a restart
   ok "Updated to $after. Your .env was kept (copy: var/env.before-update)."
   [ "$before" != "$after" ] && info "If this menu changed, close it and run 'melorin' again."
 }

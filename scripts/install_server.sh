@@ -174,12 +174,13 @@ if [ -n "${BACKUP_OFFSITE_URI:-}" ]; then
   set_kv MELORIN_BACKUP_OFFSITE_URI "$BACKUP_OFFSITE_URI"
 fi
 
-# Prometheus reads a file secret, not the .env value. Write it atomically and
-# keep it readable only by the monitoring container's root user.
+# Prometheus reads a file secret, not the .env value. Write it atomically. The prom/prometheus image runs as "nobody" (65534), NOT
+# root, so a root:root 0600 file made every scrape fail ("unable to read authorization credentials", live finding L1): give the
+# file to that user and keep it private; without root rights fall back to group/world read of this one low-value token.
 mkdir -p secrets
 tmp_metrics="$(mktemp secrets/.metrics-token.XXXXXX)"
 printf '%s\n' "$(sed -n 's/^MELORIN_METRICS_TOKEN=//p' .env)" > "$tmp_metrics"
-chmod 600 "$tmp_metrics"
+if chown 65534:65534 "$tmp_metrics" 2>/dev/null; then chmod 400 "$tmp_metrics"; else chmod 644 "$tmp_metrics"; fi
 mv -f "$tmp_metrics" secrets/metrics-token
 
 if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
