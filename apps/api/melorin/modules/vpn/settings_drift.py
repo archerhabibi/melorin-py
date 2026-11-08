@@ -93,6 +93,8 @@ def evaluate_webhook(webhook: dict | None, *, connected: bool, url: str | None) 
             return finding("webhook", "ok", "پنل رویدادها را به ملورین می‌فرستد.", **facts)
         why = "رویداد در پنل خاموش شده است" if not info["enabled"] else "آدرس ملورین از فهرست مقصدهای پنل حذف شده است"
         return finding("webhook", "drift", f"رویداد زنده در ملورین وصل است ولی {why}؛ تا اتصال دوباره فقط reconcile ساعتی همگام می‌کند.", **facts)
+    if info["enabled"] and info["melorin_registered"]:
+        return finding("webhook", "ok", "آدرس ملورین در پنل ثبت شده است؛ اتصال زنده در ملورین فعال نیست ولی ناسازگاری وجود ندارد.", **facts)
     if info["enabled"] and info["targets"]:
         return finding("webhook", "info", "پنل رویدادها را جای دیگری می‌فرستد و رویداد زنده ملورین وصل نیست (reconcile ساعتی کار می‌کند).", **facts)
     return finding("webhook", "ok", "رویداد زنده فعال نیست و لازم هم نیست.", **facts)

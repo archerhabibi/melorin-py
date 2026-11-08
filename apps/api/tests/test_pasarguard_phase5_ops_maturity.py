@@ -94,6 +94,16 @@ class FakeAdapter:
             raise self.stats_error
         return self.stats
 
+    # the rest of the NodeInsight protocol: ``supports()`` requires every method, the snapshot only calls get_system_stats
+    async def get_system_resources(self):
+        return {}
+
+    async def get_nodes_realtime(self):
+        return {}
+
+    async def get_node_stats(self, node_id):
+        return {}
+
 
 async def test_snapshot_records_latency_and_readings(monkeypatch):
     async with open_schema_engine() as engine, async_sessionmaker(engine, expire_on_commit=False)() as s:
