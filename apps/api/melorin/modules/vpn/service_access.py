@@ -42,7 +42,6 @@ WITHHELD = (
     "nodes.delete",
     "hosts.create",
     "groups.create",
-    "groups.update",
     "groups.delete",
     "cores.create",
     "cores.delete",

@@ -90,6 +90,12 @@ async def test_role_holds_every_permission_melorin_needs_and_none_of_the_withhel
     assert "api_keys" not in perms and service_access.role_body()["name"] == "melorin-service"
 
 
+async def test_plan_never_lists_a_permission_as_both_granted_and_withheld():
+    plan = service_access.plan()
+    both = set(plan["grants"]) & set(plan["withheld"])
+    assert not both, both
+
+
 async def test_provision_switches_melorin_to_the_verified_key_and_never_stores_the_old_one(maker, monkeypatch):
     await seed(maker, [])
     owner = FakeOwner()
