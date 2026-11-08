@@ -10,7 +10,7 @@ from melorin.core.errors import NotFound
 from melorin.kernel.models.identity import User
 from melorin.kernel.models.stores import Store
 from melorin.modules.catalog import allocation
-from melorin.modules.vpn import inquiry
+from melorin.modules.vpn import inquiry, live
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 log = logging.getLogger("melorin.admin")
@@ -75,7 +75,7 @@ async def vpn_accounts(
     """The platform owner's inquiry: every account of every store, searchable and paged (``inquiry.admin_accounts``)."""
     rows, total = await inquiry.admin_accounts(session, q=q, store_id=store_id, state=state, limit=limit, offset=offset)
     response.headers["X-Total-Count"] = str(total)
-    return [
+    out = [
         {
             "id": a.id,
             "user_id": a.user_id,
@@ -94,3 +94,5 @@ async def vpn_accounts(
         }
         for a, u in rows
     ]
+    # R6: with ``vpn.live_view`` on, usage / expiry / health on this page come from the panel (or "temporarily unavailable").
+    return await live.overlay_rows(session, out, [a for a, _ in rows])

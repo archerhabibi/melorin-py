@@ -32,7 +32,7 @@ from melorin.kernel.models.orders import Order
 from melorin.kernel.models.payments import Payment
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.tickets import Ticket
-from melorin.kernel.models.vpn import VpnAccount
+from melorin.kernel.models.vpn import Panel, VpnAccount
 from melorin.modules.admin.timeseries import MAX_DAYS, MIN_DAYS, SOLD_STATUSES, day_axis, resolve_zone
 
 MAX_ROWS = 200_000  # per table and per request; ``truncated`` tells the UI when a window was cut
@@ -374,6 +374,24 @@ async def _load(session: AsyncSession, since: dt.datetime, store_id: uuid.UUID |
     return orders, pays, list(u_rows[:MAX_ROWS]), truncated
 
 
+async def _panel_aggregates(session: AsyncSession) -> list[dict]:
+    """Per enabled panel: the numbers the panel itself reported in its latest monitoring snapshot (never recomputed by Melorin)."""
+    out: list[dict] = []
+    for p in (await session.scalars(select(Panel).where(Panel.is_enabled.is_(True)).order_by(Panel.name))).all():
+        snap = p.metrics_snapshot if isinstance(p.metrics_snapshot, dict) else {}
+        out.append(
+            {
+                "panel_id": str(p.id),
+                "name": p.name,
+                "up": bool(snap.get("up")) if snap else None,
+                "users_total": snap.get("users_total"),
+                "online_users": snap.get("online_users"),
+                "taken_at": p.metrics_snapshot_at.isoformat() if p.metrics_snapshot_at else None,
+            }
+        )
+    return out
+
+
 async def _snapshot(session: AsyncSession, now: dt.datetime) -> dict:
     """Point-in-time operational numbers (not period based): VPN fleet, tickets, users."""
     vpn_status = dict((await session.execute(select(VpnAccount.status, func.count(VpnAccount.id)).group_by(VpnAccount.status))).all())
@@ -396,6 +414,8 @@ async def _snapshot(session: AsyncSession, now: dt.datetime) -> dict:
             ).where(VpnAccount.status == "active")
         )
     ).one()
+    as_of = await session.scalar(select(func.min(VpnAccount.last_synced_at)).where(VpnAccount.status == "active"))
+    panels = await _panel_aggregates(session)
     tickets = dict((await session.execute(select(Ticket.status, func.count(Ticket.id)).group_by(Ticket.status))).all())
     users_total = await session.scalar(select(func.count(User.id)).where(User.is_active.is_(True), User.is_guest.is_(False))) or 0
     return {
@@ -405,6 +425,10 @@ async def _snapshot(session: AsyncSession, now: dt.datetime) -> dict:
             "expiring_7d": int(expiring),
             "traffic_used_bytes": int(used),
             "traffic_limit_bytes": int(limit),
+            # R5: the two sums above are Melorin's LAST-KNOWN copy, not the panel's truth; say so and when it was read.
+            "traffic_source": "last_known",
+            "traffic_as_of": as_of.isoformat() if as_of else None,
+            "panels": panels,  # what each PANEL reports about itself (its own users / online counts), with the reading's age
         },
         "tickets": {"by_status": [{"status": k, "count": int(v)} for k, v in tickets.items()], "open": int(tickets.get("open", 0))},
         "users_total": int(users_total),

@@ -189,3 +189,41 @@ async def overlay_page(session, outs: list[VpnAccountOut], accounts: list[VpnAcc
         return outs
     readings = await read(session, accounts)
     return [overlay(o, readings[a.id]) if a.id in readings else o for o, a in zip(outs, accounts, strict=True)]
+
+
+def overlay_row(row: dict, reading: LiveReading | None, *, now: dt.datetime | None = None) -> dict:
+    """Same rule as :func:`overlay` for the plain dict an admin list returns (R6): panel numbers, or NO numbers when it did not answer."""
+    if reading is None:
+        return {
+            **row,
+            "live": False,
+            "live_note": UNAVAILABLE_NOTE,
+            "traffic_used_bytes": None,
+            "days_left": None,
+            "health": "unavailable",
+        }
+    now = now or utcnow()
+    shadow = types.SimpleNamespace(
+        expires_at=reading.expires_at,
+        traffic_limit_bytes=reading.traffic_limit_bytes,
+        traffic_used_bytes=reading.traffic_used_bytes,
+        status=row.get("status"),
+    )
+    return {
+        **row,
+        "live": True,
+        "live_note": None,
+        "expires_at": reading.expires_at,
+        "traffic_limit_bytes": reading.traffic_limit_bytes,
+        "traffic_used_bytes": reading.traffic_used_bytes,
+        "days_left": inquiry.days_left(shadow, now),
+        "health": inquiry.health(shadow, now),
+    }
+
+
+async def overlay_rows(session, rows: list[dict], accounts: list[VpnAccount]) -> list[dict]:
+    """Admin lists: with the flag off (or no panel account on the page) ``rows`` is returned untouched."""
+    if not rows or not await enabled(session):
+        return rows
+    readings = await read(session, accounts)
+    return [overlay_row(r, readings[a.id]) if a.id in readings else r for r, a in zip(rows, accounts, strict=True)]

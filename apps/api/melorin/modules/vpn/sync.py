@@ -113,7 +113,10 @@ async def apply_remote(
         elif changes and new_status == VpnStatus.EXPIRED:
             await notices.expired(session, account)
         if account.status == VpnStatus.ACTIVE:
-            percent = notices.traffic_percent(account)
+            # R4: the warning level is read off the panel's own numbers in ``remote``, not off the stored copy just written above.
+            percent = notices.percent_of(
+                _g(remote, "traffic_limit_bytes", account.traffic_limit_bytes), _g(remote, "traffic_used_bytes", 0)
+            )
             level = notices.traffic_level(percent, notices.TRAFFIC_LOW_LEVELS if levels is None else levels)
             if level > int(account.traffic_notified_level or 0):
                 await notices.traffic_low(session, account, level)

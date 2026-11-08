@@ -24,9 +24,15 @@ def period_token(account) -> str:
     return str(int(at.timestamp()) // 3600)
 
 
-def traffic_percent(account) -> int | None:
-    limit, used = int(account.traffic_limit_bytes or 0), int(account.traffic_used_bytes or 0)
+def percent_of(limit, used) -> int | None:
+    """Whole percent of a package used, from two numbers the caller just read from the panel (R4: never from a stored copy)."""
+    limit, used = int(limit or 0), int(used or 0)
     return None if limit <= 0 else int(used * 100 // limit)
+
+
+def traffic_percent(account) -> int | None:
+    """Percent from the account row's last-known numbers. Only for callers that have no fresh panel reading; notices use :func:`percent_of`."""
+    return percent_of(account.traffic_limit_bytes, account.traffic_used_bytes)
 
 
 def normalize_levels(raw) -> tuple[int, ...]:
