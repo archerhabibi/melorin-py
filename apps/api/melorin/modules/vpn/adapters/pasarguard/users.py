@@ -121,6 +121,19 @@ class UsersMixin:
         total = data.get("total") if isinstance(data, dict) else None
         return [self._to_account(r) for r in rows], total if isinstance(total, int) else None
 
+    async def list_owner_accounts(
+        self, owner: str, *, offset: int = 0, limit: int = 100, sort: str = "-used_traffic"
+    ) -> tuple[list[PanelAccount], int | None]:
+        """One page of ``GET /api/users?admin=<owner>``: only the users of ONE panel admin, heaviest first (read-only).
+
+        Used by the store usage report. The caller must still check ``PanelAccount.owner`` on every row: a panel that ignored the
+        ``admin`` filter would otherwise hand one store the accounts of another."""
+        params = {"admin": owner, "offset": int(offset), "limit": int(limit), "sort": sort, "load_sub": "false"}
+        data = await self._req("GET", "/api/users", params=params)
+        rows = [r for r in as_rows(data, "users", "items") if isinstance(r, dict) and r.get("username")]
+        total = data.get("total") if isinstance(data, dict) else None
+        return [self._to_account(r) for r in rows], total if isinstance(total, int) else None
+
     def _template_mode(self) -> bool:
         return self.cfg.get("user_template_id") is not None
 
