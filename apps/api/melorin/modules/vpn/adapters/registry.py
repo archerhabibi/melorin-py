@@ -68,5 +68,6 @@ def seed_adapter(adapter, account):
     """Name-mapping adapters (upstream_bot) re-learn the upstream account name from VpnAccount.panel_ref. No-op for others."""
     remember = getattr(adapter, "remember", None)
     if callable(remember):
-        remember(account.username, getattr(account, "panel_ref", None), getattr(account, "subscription_url", None))
+        snapshot = getattr(account, "delivery_snapshot", None) or {}  # R8: the link as it was delivered; the live link is the panel's
+        remember(account.username, getattr(account, "panel_ref", None), snapshot.get("subscription_url"))
     return adapter

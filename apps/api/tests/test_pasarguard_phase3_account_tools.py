@@ -110,8 +110,7 @@ async def _account(s, *, status="active", expires=None):
     order = await make_order(s, user=user, store=store, product=product, status="completed")
     acc = VpnAccount(
         username="acc1", user_id=user.id, store_id=store.id, order_id=order.id, product_id=product.id, panel_id=panel.id, status=status,
-        expires_at=expires or NOW + dt.timedelta(days=10), traffic_limit_bytes=10 * GIB, traffic_used_bytes=GIB,
-    )  # fmt: skip
+        sold_expires_at=expires or NOW + dt.timedelta(days=10), sold_traffic_bytes=10 * GIB,     )  # fmt: skip
     s.add(acc)
     await s.commit()
     return acc, panel, user
@@ -288,7 +287,7 @@ async def test_expired_or_limited_accounts_cannot_be_suspended_and_expired_ones_
         with pytest.raises(AppError) as e:
             await tools.suspend(s, acc, role=tools.ADMIN, actor_id=user.id)
         assert e.value.code == "ACCOUNT_NOT_ACTIVE"
-        acc.status, acc.expires_at = "suspended", NOW - dt.timedelta(days=1)
+        acc.status, acc.sold_expires_at = "suspended", NOW - dt.timedelta(days=1)
         with pytest.raises(AppError) as e2:
             await tools.resume(s, acc, role=tools.ADMIN, actor_id=user.id)
         assert e2.value.code == "ACCOUNT_NOT_SUSPENDED" and "resume" not in adapter.calls
@@ -301,7 +300,7 @@ async def test_adjust_adds_on_top_of_the_panels_fresh_state_and_audits_before_af
         before = adapter.remote.expire_at
         await tools.adjust(s, acc, actor_id=admin.id, add_days=3, add_traffic_gb=5, reason="قطعی نود")
         assert adapter.remote.expire_at == before + dt.timedelta(days=3) and adapter.remote.traffic_limit_bytes == 15 * GIB
-        assert acc.traffic_limit_bytes == 15 * GIB and acc.expires_at == adapter.remote.expire_at
+        assert acc.sold_traffic_bytes == 15 * GIB and acc.sold_expires_at == adapter.remote.expire_at
         (event,) = await _audits(s, "vpn_account.adjusted")
         assert event.data["add_days"] == 3 and event.data["before"]["traffic_limit_bytes"] == 10 * GIB
         assert event.data["after"]["traffic_limit_bytes"] == 15 * GIB and event.actor_type == "admin"

@@ -87,10 +87,9 @@ async def _world(s, n=3, *, status=VpnStatus.ACTIVE, expire_days=10, limit=10 * 
     for i in range(n):
         order = await make_order(s, user=user, store=store, product=product)
         a = VpnAccount(
-            username=f"acc{i}", user_id=user.id, store_id=store.id, order_id=order.id, product_id=product.id, panel_id=panel.id,
-            panel_ref=str(i + 1), status=status, expires_at=NOW + dt.timedelta(days=expire_days) if expire_days is not None else None,
-            traffic_limit_bytes=limit, subscription_url="https://sub/x",
-        )  # fmt: skip
+            delivery_snapshot={"subscription_url": "https://sub/x"}, username=f"acc{i}", user_id=user.id, store_id=store.id, order_id=order.id, product_id=product.id, panel_id=panel.id,
+            panel_ref=str(i + 1), status=status, sold_expires_at=NOW + dt.timedelta(days=expire_days) if expire_days is not None else None,
+            sold_traffic_bytes=limit,         )  # fmt: skip
         s.add(a)
         accounts.append(a)
     await s.commit()
@@ -310,7 +309,7 @@ async def test_extend_days_writes_an_absolute_value_and_mirrors_it(panel_api):
         for name in ("acc0", "acc1"):
             assert abs(panel_api.users[name].expire_at - expect) < dt.timedelta(seconds=2)
         row = await s.scalar(select(VpnAccount).where(VpnAccount.username == "acc0"))
-        assert abs(row.expires_at.replace(tzinfo=dt.UTC) - expect) < dt.timedelta(seconds=2)
+        assert abs(row.sold_expires_at.replace(tzinfo=dt.UTC) - expect) < dt.timedelta(seconds=2)
 
 
 async def test_extend_never_adds_twice_when_the_first_answer_was_lost(panel_api):

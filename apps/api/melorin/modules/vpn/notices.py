@@ -17,7 +17,7 @@ MAX_LEVELS = 4  # more warnings than this is spam, not service
 
 def period_token(account) -> str:
     """Stable id of the account's current package period (changes on every renewal, ignores second-level clock drift)."""
-    at = getattr(account, "expires_at", None)
+    at = getattr(account, "sold_expires_at", None)  # the SOLD period: it changes on every renewal (R9)
     if at is None:
         return "open"
     at = at if at.tzinfo else at.replace(tzinfo=dt.UTC)

@@ -175,7 +175,7 @@ async def test_three_renewals_stay_on_the_original_destination_and_never_allocat
         for n in range(3):
             r = await make_order(s, user=w["user"], store=w["store"], product=w["product"], total=2_000, status="paid", number=f"R{n}")
             r.kind, r.vpn_account_id = "renewal", acc.id
-            acc.expires_at = dt.datetime.now(dt.UTC) + dt.timedelta(days=3)
+            acc.sold_expires_at = dt.datetime.now(dt.UTC) + dt.timedelta(days=3)
             await s.commit()
             assert await vpn.provision_order(s, r.id) == "completed", r.last_error
             await s.refresh(acc)

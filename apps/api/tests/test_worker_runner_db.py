@@ -402,7 +402,7 @@ async def _vpn(s, *, with_panel=True, username="acc1"):
     await s.flush()
     a = VpnAccount(
         username=username, user_id=user.id, store_id=store.id, order_id=order.id, product_id=product.id,
-        panel_id=panel.id if with_panel else None, status="active", traffic_limit_bytes=999,
+        panel_id=panel.id if with_panel else None, status="active", sold_traffic_bytes=999,
     )  # fmt: skip
     s.add(a)
     await s.flush()

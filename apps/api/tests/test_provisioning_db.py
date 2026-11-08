@@ -119,7 +119,7 @@ async def test_successful_provisioning_completes_the_order_and_activates_the_acc
         acc = await s.get(VpnAccount, order.vpn_account_id)
         assert order.status == "completed" and order.provisioning_attempts == 1 and order.completed_at is not None
         assert acc.status == "active" and acc.panel_ref and acc.subscription_url
-        assert acc.traffic_limit_bytes == w["product"].traffic_gb * 1024**3
+        assert acc.sold_traffic_bytes == w["product"].traffic_gb * 1024**3
         assert len(panel.created) == 1
         topics = await _topics(s)
         assert "order.completed" in topics and "order.delivery" in topics
@@ -286,9 +286,9 @@ async def test_renewal_restarts_the_existing_account_on_its_own_panel_with_the_p
         await vpn.provision_order(s, w["order"].id)
         first = await s.get(Order, w["order"].id)
         acc = await s.get(VpnAccount, first.vpn_account_id)
-        acc.traffic_limit_bytes = 0  # was an unlimited account; the package has a volume, so that is what it shows now
+        acc.sold_traffic_bytes = 0  # was an unlimited account; the package has a volume, so that is what it shows now
         # SQLite hands back naive datetimes; PostgreSQL (timestamptz) returns aware ones, so pin an aware value.
-        acc.expires_at = dt.datetime.now(dt.UTC) + dt.timedelta(days=10)
+        acc.sold_expires_at = dt.datetime.now(dt.UTC) + dt.timedelta(days=10)
         renewal = await make_order(s, user=w["user"], store=w["store"], product=w["product"], total=2_000, status="paid", number="RENEW1")
         renewal.kind, renewal.vpn_account_id = "renewal", acc.id
         await s.commit()

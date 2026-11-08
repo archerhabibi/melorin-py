@@ -69,8 +69,7 @@ async def _account(s):
     order = await make_order(s, user=user, store=store, product=product, status="completed")
     acc = VpnAccount(
         username="acc1", user_id=user.id, store_id=store.id, order_id=order.id, product_id=product.id, panel_id=panel.id,
-        status="active", expires_at=NOW + dt.timedelta(days=10), traffic_limit_bytes=1, traffic_used_bytes=0,
-    )  # fmt: skip
+        status="active", sold_expires_at=NOW + dt.timedelta(days=10), sold_traffic_bytes=1,     )  # fmt: skip
     s.add(acc)
     await s.commit()
     return acc, panel, user

@@ -123,7 +123,7 @@ async def _world(s, *, expired_days_ago=3, status="expired", funds=50_000, store
     first.bundle_id = bundle.id
     expires = NOW - dt.timedelta(days=expired_days_ago)
     account = VpnAccount(
-        username="acc_1",
+        delivery_snapshot={"subscription_url": "https://sub.test/x", "links": []}, username="acc_1",
         user_id=user.id,
         store_id=store.id,
         order_id=first.id,
@@ -132,12 +132,9 @@ async def _world(s, *, expired_days_ago=3, status="expired", funds=50_000, store
         panel_id=panel.id,
         panel_ref="r",
         status=status,
-        expires_at=expires,
-        traffic_limit_bytes=10 * GIB,
-        traffic_used_bytes=4 * GIB,
-        subscription_url="https://sub.test/x",
-        links=[],
-    )
+        sold_expires_at=expires,
+        sold_traffic_bytes=10 * GIB,
+                            )
     s.add(account)
     w = await _fund(s, user, store, funds)
     await s.commit()
@@ -305,14 +302,14 @@ async def _paid_renewal(s, t, **kw):
 async def test_after_renewal_the_account_equals_the_package_not_old_plus_package(monkeypatch):
     async with open_session() as s:
         t = await _world(s, expired_days_ago=3)
-        panel = Panel_(used=4 * GIB, expire=t.account.expires_at)
+        panel = Panel_(used=4 * GIB, expire=t.account.sold_expires_at)
         monkeypatch.setattr(vpn, "build_adapter", lambda _p, _server=None: panel)
         o = await _renew(s, t)
         assert await vpn.provision_order(s, o.id) == "completed"
         acc = await s.get(VpnAccount, t.account.id)
-        exp = acc.expires_at if acc.expires_at.tzinfo else acc.expires_at.replace(tzinfo=dt.UTC)
+        exp = acc.sold_expires_at if acc.sold_expires_at.tzinfo else acc.sold_expires_at.replace(tzinfo=dt.UTC)
         assert abs(exp - (dt.datetime.now(dt.UTC) + dt.timedelta(days=30))) < dt.timedelta(minutes=2)  # from now, not from the old date
-        assert acc.traffic_limit_bytes == 10 * GIB and acc.traffic_used_bytes == 0  # the package's volume, usage restarted
+        assert acc.sold_traffic_bytes == 10 * GIB and acc.traffic_used_bytes == 0  # the package's volume, usage restarted
         assert acc.status == "active"
         assert panel.calls[0][0] == "extend" and panel.calls[-1] == ("reset",)
 
@@ -327,13 +324,13 @@ async def test_active_account_is_also_restarted_to_the_package_and_the_quote_say
 async def test_panel_without_reset_still_gives_the_full_package_volume(monkeypatch):
     async with open_session() as s:
         t = await _world(s)
-        panel = Panel_(used=4 * GIB, expire=t.account.expires_at, can_reset=False)
+        panel = Panel_(used=4 * GIB, expire=t.account.sold_expires_at, can_reset=False)
         monkeypatch.setattr(vpn, "build_adapter", lambda _p, _server=None: panel)
         o = await _renew(s, t)
         assert await vpn.provision_order(s, o.id) == "completed"
         assert panel.calls[-1][2] == 14 * GIB  # 4 GB already used + the 10 GB package -> 10 GB remain
         acc = await s.get(VpnAccount, t.account.id)
-        assert acc.traffic_limit_bytes - acc.traffic_used_bytes == 10 * GIB
+        assert acc.sold_traffic_bytes - acc.traffic_used_bytes == 10 * GIB
 
 
 async def test_unlimited_package_renews_as_unlimited(monkeypatch):
@@ -341,7 +338,7 @@ async def test_unlimited_package_renews_as_unlimited(monkeypatch):
         t = await _world(s)
         t.product.traffic_gb = 0
         await s.commit()
-        panel = Panel_(used=2 * GIB, limit=10 * GIB, expire=t.account.expires_at)
+        panel = Panel_(used=2 * GIB, limit=10 * GIB, expire=t.account.sold_expires_at)
         monkeypatch.setattr(vpn, "build_adapter", lambda _p, _server=None: panel)
         o = await _renew(s, t)
         assert await vpn.provision_order(s, o.id) == "completed"
@@ -351,7 +348,7 @@ async def test_unlimited_package_renews_as_unlimited(monkeypatch):
 async def test_a_timed_out_renewal_is_retried_and_never_reported_as_done_just_because_the_account_exists(monkeypatch):
     async with open_session() as s:
         t = await _world(s)
-        old = Panel_(used=4 * GIB, expire=t.account.expires_at, script=[PanelError(ErrorKind.UNKNOWN, "timeout")])
+        old = Panel_(used=4 * GIB, expire=t.account.sold_expires_at, script=[PanelError(ErrorKind.UNKNOWN, "timeout")])
         monkeypatch.setattr(vpn, "build_adapter", lambda _p, _server=None: old)
         o = await _renew(s, t)
         assert await vpn.provision_order(s, o.id) == "retry_scheduled"  # panel still shows the OLD values -> not completed
@@ -404,17 +401,14 @@ def test_account_list_tells_the_clients_whether_renewal_is_open():
 
     now = dt.datetime.now(dt.UTC)
     a = VpnAccount(
-        id=__import__("uuid").uuid4(),
+        delivery_snapshot={"subscription_url": None, "links": None}, id=__import__("uuid").uuid4(),
         username="u",
         user_id=__import__("uuid").uuid4(),
         status="expired",
         is_test=False,
-        expires_at=now - dt.timedelta(days=11),
-        traffic_limit_bytes=0,
-        traffic_used_bytes=0,
-        subscription_url=None,
-        links=None,
-        server_id=None,
+        sold_expires_at=now - dt.timedelta(days=11),
+        sold_traffic_bytes=0,
+                                server_id=None,
         created_at=now,
         updated_at=now,
     )
@@ -471,7 +465,7 @@ async def test_reseller_renews_his_own_account_without_an_owner_audit_entry():
         first = await make_order(s, user=t.owner, store=t.store, product=t.product, total=2_000, status="completed")
         first.bundle_id = t.bundle.id
         own = VpnAccount(
-            username="acc_owner",
+            delivery_snapshot={"subscription_url": "https://sub.test/o", "links": []}, username="acc_owner",
             user_id=t.owner.id,
             store_id=t.store.id,
             order_id=first.id,
@@ -480,12 +474,9 @@ async def test_reseller_renews_his_own_account_without_an_owner_audit_entry():
             panel_id=t.panel.id,
             panel_ref="r2",
             status="expired",
-            expires_at=NOW - dt.timedelta(days=3),
-            traffic_limit_bytes=10 * GIB,
-            traffic_used_bytes=0,
-            subscription_url="https://sub.test/o",
-            links=[],
-        )
+            sold_expires_at=NOW - dt.timedelta(days=3),
+            sold_traffic_bytes=10 * GIB,
+                                            )
         s.add_all([own, StoreMembership(store_id=t.store.id, user_id=t.owner.id, role="owner", status="active")])
         await _fund(s, t.owner, t.store, 50_000)
         await s.commit()

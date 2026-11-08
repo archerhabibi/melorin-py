@@ -142,16 +142,16 @@ def test_a_renewal_starts_a_new_notice_period():
     before = notices.period_token(acc)
     notices.reset_for_renewal(acc)
     assert acc.near_expiry_notified is False and acc.traffic_notified_level == 0
-    acc.expires_at = NOW + dt.timedelta(days=32)
+    acc.sold_expires_at = NOW + dt.timedelta(days=32)
     assert notices.period_token(acc) != before
 
 
 def test_period_token_ignores_second_level_drift_and_handles_open_accounts():
-    a = NS(expires_at=NOW)
-    b = NS(expires_at=NOW + dt.timedelta(seconds=40))
+    a = NS(sold_expires_at=NOW)
+    b = NS(sold_expires_at=NOW + dt.timedelta(seconds=40))
     assert notices.period_token(a) == notices.period_token(b)
-    assert notices.period_token(NS(expires_at=None)) == "open"
-    assert notices.period_token(NS(expires_at=NOW.replace(tzinfo=None))) == notices.period_token(a)
+    assert notices.period_token(NS(sold_expires_at=None)) == "open"
+    assert notices.period_token(NS(sold_expires_at=NOW.replace(tzinfo=None))) == notices.period_token(a)
 
 
 @pytest.mark.parametrize(
@@ -159,8 +159,7 @@ def test_period_token_ignores_second_level_drift_and_handles_open_accounts():
     [(0, 100, 0, 0), (79, 100, 79, 0), (80, 100, 80, 80), (89, 100, 89, 80), (90, 100, 90, 90), (150, 100, 150, 90), (5, 0, None, 0)],
 )
 def test_traffic_levels(used, limit, percent, level):
-    acc = NS(traffic_used_bytes=used, traffic_limit_bytes=limit)
-    assert notices.traffic_percent(acc) == percent
+    assert notices.percent_of(limit, used) == percent  # R4: from two numbers just read from the panel, never from a stored copy
     assert notices.traffic_level(percent) == level
 
 

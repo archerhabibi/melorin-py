@@ -450,8 +450,8 @@ async def test_run_stores_the_verdict_and_probes_only_configured_hosts(fake):
         panel = await _panel(s, config={"sub_base_url": "https://sub.example.com:1010"})
         user, store, product = await make_user(s), await make_store(s), await make_product(s)
         order = await make_order(s, user=user, store=store, product=product)
-        s.add(VpnAccount(username="a1", user_id=user.id, store_id=store.id, order_id=order.id, product_id=product.id, panel_id=panel.id, panel_ref="1",
-                         status=VpnStatus.ACTIVE, subscription_url="https://sub.example.com:1010/sub/tok"))  # fmt: skip
+        s.add(VpnAccount(delivery_snapshot={"subscription_url": "https://sub.example.com:1010/sub/tok"}, username="a1", user_id=user.id, store_id=store.id, order_id=order.id, product_id=product.id, panel_id=panel.id, panel_ref="1",
+                         status=VpnStatus.ACTIVE, ))  # fmt: skip
         await s.commit()
         out = await subscription_check.run(s, panel.id, actor_id=None)
         assert out["verdict"] == "ok" and out["tested_account"] == "a1"
@@ -544,7 +544,7 @@ async def test_bulk_flow_through_the_http_api(fake, monkeypatch):
             for i in range(2):
                 order = await make_order(s, user=user, store=main, product=product)
                 s.add(VpnAccount(username=f"u{i}", user_id=user.id, store_id=main.id, order_id=order.id, product_id=product.id, panel_id=panel.id,
-                                 panel_ref=str(i + 1), status=VpnStatus.ACTIVE, traffic_limit_bytes=GIB))  # fmt: skip
+                                 panel_ref=str(i + 1), status=VpnStatus.ACTIVE, sold_traffic_bytes=GIB))  # fmt: skip
             await s.commit()
             pid = str(panel.id)
         bad = await c.post(

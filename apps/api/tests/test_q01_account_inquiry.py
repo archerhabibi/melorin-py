@@ -22,18 +22,15 @@ NOW = dt.datetime.now(dt.UTC)
 async def _account(s, *, user, store, product, name, days=20, used=0, limit=10 * GIB, status="active"):
     order = await make_order(s, user=user, store=store, product=product)
     a = VpnAccount(
-        username=name,
+        delivery_snapshot={"subscription_url": f"https://sub.test/{name}", "links": []}, username=name,
         user_id=user.id,
         store_id=store.id,
         order_id=order.id,
         product_id=product.id,
         status=status,
-        expires_at=NOW + dt.timedelta(days=days),
-        traffic_limit_bytes=limit,
-        traffic_used_bytes=used,
-        subscription_url=f"https://sub.test/{name}",
-        links=[],
-    )
+        sold_expires_at=NOW + dt.timedelta(days=days),
+        sold_traffic_bytes=limit,
+                            )
     s.add(a)
     await s.flush()
     return a

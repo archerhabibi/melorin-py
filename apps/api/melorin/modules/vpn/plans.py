@@ -77,23 +77,25 @@ async def check_queueable(session: AsyncSession, account: VpnAccount, product: P
     now = sync.aware(now) or utcnow()
     if account.queued_plan:
         return _no("RENEWAL_ALREADY_QUEUED", "پکیج بعدی این اکانت از قبل خریداری شده و پس از پایان پکیج فعلی شروع می‌شود.")
-    # R9: "is it running right now?" is the PANEL's answer (live reading); a panel that cannot answer fails closed.
-    reading = (await live.read(session, [account])).get(account.id) if account.panel_id else None
-    if account.panel_id and reading is None:
-        raise inquiry.PanelUnavailable()
-    on_hold = reading is not None and reading.remote_status == "on_hold"
-    expires = sync.aware(reading.expires_at if reading is not None else account.sold_expires_at)
-    if account.status != VpnStatus.ACTIVE or on_hold or expires is None or expires <= now:
-        return _no(
-            "QUEUE_NOT_APPLICABLE",
-            "تمدید پیش‌خرید فقط برای اکانت فعالِ در حال استفاده ممکن است؛ برای این اکانت از تمدید معمولی استفاده کنید.",
-        )
+    # Cheap, panel-free refusals first: a package that cannot be queued here never costs a panel call.
     panel = await session.get(Panel, account.panel_id) if account.panel_id else None
     if panel is None or not panel_caps.capabilities_of(panel).has("next_plan_ops"):
         return _no("QUEUE_UNSUPPORTED", "پنل این اکانت از تمدید پیش‌خرید پشتیبانی نمی‌کند.")
     template_id = await templates.template_id_for(session, panel.id, product.id)
     if template_id is None:
         return _no("QUEUE_NO_TEMPLATE", "برای این پکیج روی پنل هنوز تمپلیتی تنظیم نشده است؛ تمدید پیش‌خرید فعال نیست.")
+    # R9: "is it running right now?" is the PANEL's answer (live reading). A panel that cannot answer fails closed, but as a
+    # refusal of this one mode (the customer still sees the page and the normal renewal), never as a 503 for the whole page.
+    reading = (await live.read(session, [account])).get(account.id)
+    if reading is None:
+        return _no("PANEL_UNAVAILABLE", "پنل در حال حاضر پاسخ نمی‌دهد؛ چند دقیقه بعد دوباره تلاش کنید.")
+    on_hold = reading.remote_status == "on_hold"
+    expires = sync.aware(reading.expires_at)
+    if account.status != VpnStatus.ACTIVE or on_hold or expires is None or expires <= now:
+        return _no(
+            "QUEUE_NOT_APPLICABLE",
+            "تمدید پیش‌خرید فقط برای اکانت فعالِ در حال استفاده ممکن است؛ برای این اکانت از تمدید معمولی استفاده کنید.",
+        )
     return QueueCheck(True, template_id=template_id)
 
 

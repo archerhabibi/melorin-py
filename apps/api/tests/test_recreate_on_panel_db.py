@@ -43,7 +43,7 @@ async def _setup(maker, monkeypatch, fake, *, days=30, status="active", with_ser
     panel_id, ids = await seed(maker, ["gone"])
     async with maker() as s:
         acc = await s.get(VpnAccount, ids["gone"])
-        acc.expires_at = dt.datetime.now(dt.UTC) + dt.timedelta(days=days)
+        acc.sold_expires_at = dt.datetime.now(dt.UTC) + dt.timedelta(days=days)
         acc.status = status
         if with_server:
             server = Server(name="srv", panel_id=panel_id)

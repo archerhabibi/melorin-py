@@ -97,8 +97,8 @@ async def seed(maker, usernames, *, with_admin="ml_main"):
                 product_id=product.id,
                 panel_id=panel.id,
                 status="active",
-                expires_at=NOW + dt.timedelta(days=30),
-                traffic_limit_bytes=10 * 2**30,
+                sold_expires_at=NOW + dt.timedelta(days=30),
+                sold_traffic_bytes=10 * 2**30,
                 last_synced_at=NOW - dt.timedelta(hours=2),
             )
             s.add(acc)
@@ -243,7 +243,7 @@ async def test_manual_limit_edit_on_the_panel_is_reported_and_mirrored(maker, mo
     assert len(await open_issues(maker, issues.LIMITS_MISMATCH)) == 1
     async with maker() as s:
         acc = await s.get(VpnAccount, ids["u1"])
-    assert acc.traffic_limit_bytes == 50 * 2**30  # the panel is the source of truth
+    assert acc.sold_traffic_bytes == 50 * 2**30  # the panel is the source of truth
 
 
 async def test_the_database_itself_rejects_a_second_open_issue(maker):

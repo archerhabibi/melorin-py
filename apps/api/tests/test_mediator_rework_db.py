@@ -77,7 +77,7 @@ async def test_strict_refresh_passes_for_an_account_without_a_panel(maker):
 async def _overdue(maker, name, *, panel_id=None, hours=-2):
     async with maker() as s:
         acc = await s.scalar(select(VpnAccount).where(VpnAccount.username == name))
-        acc.expires_at = dt.datetime.now(dt.UTC) + dt.timedelta(hours=hours)
+        acc.sold_expires_at = dt.datetime.now(dt.UTC) + dt.timedelta(hours=hours)
         await s.commit()
 
 
@@ -108,7 +108,7 @@ async def test_expiry_job_still_uses_the_clock_for_accounts_without_a_panel(make
                 order_id=order.id,
                 product_id=product.id,
                 status="active",
-                expires_at=dt.datetime.now(dt.UTC) - dt.timedelta(hours=1),
+                sold_expires_at=dt.datetime.now(dt.UTC) - dt.timedelta(hours=1),
             )
         )
         await s.commit()

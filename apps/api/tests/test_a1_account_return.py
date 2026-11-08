@@ -43,18 +43,16 @@ async def _bought(s, user, store, product, *, limit=10 * GIB, used=0, age_days=0
     order.status, order.kind = "completed", "purchase"
     order.paid_at = NOW - dt.timedelta(days=age_days)
     acc = VpnAccount(
-        username=name or f"acc_{order.number}",
+        delivery_snapshot={"links": []}, username=name or f"acc_{order.number}",
         user_id=user.id,
         store_id=store.id,
         order_id=order.id,
         product_id=product.id,
         status="active",
         is_test=is_test,
-        expires_at=NOW + dt.timedelta(days=20),
-        traffic_limit_bytes=limit,
-        traffic_used_bytes=used,
-        links=[],
-    )
+        sold_expires_at=NOW + dt.timedelta(days=20),
+        sold_traffic_bytes=limit,
+                    )
     s.add(acc)
     await s.flush()
     order.vpn_account_id = acc.id

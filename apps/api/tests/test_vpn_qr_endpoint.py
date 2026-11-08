@@ -38,14 +38,13 @@ def _ctx(user_id, store_id=STORE):
 
 async def _account(s, owner, link=SUB):
     a = VpnAccount(
-        username=f"m_{uuid.uuid4().hex[:8]}",
+        delivery_snapshot={"subscription_url": link}, username=f"m_{uuid.uuid4().hex[:8]}",
         user_id=owner,
         store_id=STORE,
         order_id=uuid.uuid4(),
         product_id=uuid.uuid4(),
         status="active",
-        subscription_url=link,
-    )
+            )
     s.add(a)
     await s.commit()
     return a

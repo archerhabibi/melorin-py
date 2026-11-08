@@ -41,7 +41,7 @@ async def _account(s, *, status="active", expires_in_hours=None, notified=False,
         product_id=product.id,
         panel_id=panel.id if panel else None,
         status=status,
-        expires_at=None if expires_in_hours is None else utcnow() + dt.timedelta(hours=expires_in_hours),
+        sold_expires_at=None if expires_in_hours is None else utcnow() + dt.timedelta(hours=expires_in_hours),
         near_expiry_notified=notified,
     )
     s.add(a)
@@ -100,7 +100,7 @@ async def test_a_renewed_account_is_warned_again_before_its_next_expiry(maker):
 
     async with maker() as s:  # a successful renewal: new expiry far away, flags reset (what provisioning does)
         row = await s.get(VpnAccount, acc.id)
-        row.expires_at = utcnow() + dt.timedelta(days=30)
+        row.sold_expires_at = utcnow() + dt.timedelta(days=30)
         notices.reset_for_renewal(row)
         await s.commit()
     await jobs.near_expiry_job()
@@ -108,7 +108,7 @@ async def test_a_renewed_account_is_warned_again_before_its_next_expiry(maker):
 
     async with maker() as s:  # ... the renewed package is about to end
         row = await s.get(VpnAccount, acc.id)
-        row.expires_at = utcnow() + dt.timedelta(hours=20)
+        row.sold_expires_at = utcnow() + dt.timedelta(hours=20)
         await s.commit()
     await jobs.near_expiry_job()
     await jobs.near_expiry_job()  # idempotent inside the period

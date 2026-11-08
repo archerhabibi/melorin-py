@@ -75,14 +75,13 @@ async def _seed(s, *, link=SUB, total=100_000, balance_after=400_000, kind="purc
     s.add(order)
     await s.flush()
     acc = VpnAccount(
-        username="m_ab23cd",
+        delivery_snapshot={"subscription_url": link}, username="m_ab23cd",
         user_id=user.id,
         store_id=store_id,
         order_id=order.id,
         product_id=order.product_id,
         status="active",
-        subscription_url=link,
-        traffic_limit_bytes=50 * 1024**3,
+                sold_traffic_bytes=50 * 1024**3,
     )
     s.add(acc)
     await s.flush()

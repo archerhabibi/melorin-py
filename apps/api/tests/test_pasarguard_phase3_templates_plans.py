@@ -272,9 +272,9 @@ async def test_queue_is_offered_only_for_a_running_account_on_a_capable_panel_wi
         t.account.status = "active"
         t.account.remote_status = "on_hold"
         assert (await plans.check_queueable(s, t.account, t.product, now=NOW)).code == "QUEUE_NOT_APPLICABLE"
-        t.account.remote_status, t.account.expires_at = "active", NOW - dt.timedelta(minutes=1)
+        t.account.remote_status, t.account.sold_expires_at = "active", NOW - dt.timedelta(minutes=1)
         assert (await plans.check_queueable(s, t.account, t.product, now=NOW)).code == "QUEUE_NOT_APPLICABLE"
-        t.account.expires_at = NOW + dt.timedelta(days=3)
+        t.account.sold_expires_at = NOW + dt.timedelta(days=3)
         t.panel.capabilities = {"flags": Capabilities(extend=True).to_dict()}
         assert (await plans.check_queueable(s, t.account, t.product, now=NOW)).code == "QUEUE_UNSUPPORTED"
         t.panel.capabilities = {"flags": FLAGS}
@@ -434,8 +434,8 @@ async def test_provisioning_a_prepaid_order_queues_the_package_and_leaves_the_ru
         t = await _prepare(s)
         t.account.near_expiry_notified = True  # the CURRENT period was already warned about: a queue must not reset that
         o = await _queue_order(s, t)
-        before = (t.account.expires_at, t.account.traffic_limit_bytes)
-        adapter.state.expire_at = t.account.expires_at
+        before = (t.account.sold_expires_at, t.account.sold_traffic_bytes)
+        adapter.state.expire_at = t.account.sold_expires_at
         result = await vpn.provision_order(s, o.id)
         assert result == "completed", o.last_error
         names = [c[0] for c in adapter.calls]
@@ -443,8 +443,8 @@ async def test_provisioning_a_prepaid_order_queues_the_package_and_leaves_the_ru
         await s.refresh(t.account)
         assert t.account.queued_plan["template_id"] == 7 and t.account.queued_plan["order_id"] == str(o.id)
         assert t.account.near_expiry_notified is True
-        assert (t.account.expires_at, t.account.traffic_limit_bytes) == (adapter.state.expire_at, adapter.state.traffic_limit_bytes)
-        assert t.account.traffic_limit_bytes == before[1]
+        assert (t.account.sold_expires_at, t.account.sold_traffic_bytes) == (adapter.state.expire_at, adapter.state.traffic_limit_bytes)
+        assert t.account.sold_traffic_bytes == before[1]
 
 
 async def test_a_timed_out_queue_call_that_really_landed_is_settled_without_a_second_attempt(adapter):
@@ -522,7 +522,7 @@ async def test_change_plan_moves_the_account_drops_the_queue_and_is_audited(adap
         await s.commit()
         account = await plans.change_plan(s, t.account, t.other, admin_id=admin.id, reason="customer upgraded by phone")
         assert account.product_id == t.other.id and account.queued_plan is None
-        assert account.traffic_limit_bytes == 50 * GIB and account.traffic_used_bytes == 0
+        assert account.sold_traffic_bytes == 50 * GIB and account.traffic_used_bytes == 0
         assert [c[0] for c in adapter.calls if c[0] in ("apply_template", "clear_next_plan")] == ["apply_template", "clear_next_plan"]
         (audit,) = await _audits(s, "vpn_account.plan_changed")
         assert (
@@ -563,8 +563,8 @@ def test_the_account_output_tells_every_channel_that_a_package_is_waiting():
     from melorin.modules.vpn import inquiry
 
     acc = types.SimpleNamespace(
-        id=__import__("uuid").uuid4(), username="a", status="active", is_test=False, expires_at=NOW + dt.timedelta(days=3),
-        traffic_limit_bytes=GIB, traffic_used_bytes=0, subscription_url=None, links=[], server_id=None, store_id=None,
+        id=__import__("uuid").uuid4(), username="a", status="active", is_test=False, sold_expires_at=NOW + dt.timedelta(days=3),
+        sold_traffic_bytes=GIB, delivery_snapshot=None, panel_id=None, server_id=None, store_id=None,
         created_at=NOW, updated_at=NOW, archived_at=None, queued_plan={"template_id": 7, "queued_at": NOW.isoformat()},
     )  # fmt: skip
     out = inquiry.account_out(acc, NOW)
