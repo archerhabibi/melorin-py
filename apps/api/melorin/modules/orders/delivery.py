@@ -61,9 +61,9 @@ def build_caption(*, order: Order, account: VpnAccount, link: str | None, balanc
     if snap.get("name"):
         lines.append(f"🛍 سرویس: {e(str(snap['name']))}")
     lines.append(f"👤 نام اکانت: <code>{e(account.username)}</code>")
-    if account.expires_at:
-        lines.append(f"⏳ انقضا: {account.expires_at:%Y-%m-%d}")
-    lines.append(f"📊 حجم: {_gb(account.traffic_limit_bytes) + ' GB' if account.traffic_limit_bytes else 'نامحدود'}")
+    if account.sold_expires_at:  # the delivery post states what was SOLD (a snapshot at the moment of delivery)
+        lines.append(f"⏳ انقضا: {account.sold_expires_at:%Y-%m-%d}")
+    lines.append(f"📊 حجم: {_gb(account.sold_traffic_bytes) + ' GB' if account.sold_traffic_bytes else 'نامحدود'}")
     if link:
         lines += [
             "",
@@ -134,7 +134,9 @@ async def deliver_order(session: AsyncSession, order_id: uuid.UUID) -> str:
     if account is None:
         return "skipped"
 
-    link = account.subscription_url or ((account.links or [None])[0] if isinstance(account.links, list) else None)
+    snap = account.delivery_snapshot if isinstance(account.delivery_snapshot, dict) else {}
+    links = snap.get("links")
+    link = snap.get("subscription_url") or ((links or [None])[0] if isinstance(links, list) else None)
     dedup = f"delivery:{order.id}"
     n = await session.scalar(select(Notification).where(Notification.dedup_key == dedup))
     if n and n.telegram_status == "sent":

@@ -6,14 +6,15 @@ Bot, website and the store owner's views all go through it, so the privacy rule 
   ``user_id`` and ``store_id`` into every query; what he bought in another store or bot is invisible and not renewable here);
 * a reseller's LIST shows only the accounts they made themselves in their store; their SEARCH also finds the accounts of
   THEIR OWN store's customers and never another store's accounts (not even their own personal ones from another store);
-* the numbers shown (remaining days, usage) come from the panel-synced account row; the bot and website never
-  compute their own version of them.
+* the numbers shown (remaining days, usage) are the PANEL's (``live.py`` overlays them on every page); the row only holds what
+  Melorin sold (``sold_*``). The bot and website never compute their own version of them.
 """
 
 from __future__ import annotations
 
 import datetime as dt
 import time
+import types
 import uuid
 
 from sqlalchemy import and_, case, func, or_, select
@@ -65,7 +66,15 @@ def reseller_visible(store_id: uuid.UUID):
     return VpnAccount.store_id == store_id
 
 
-def days_left(a: VpnAccount, now: dt.datetime | None = None) -> int | None:
+def entitlement(a: VpnAccount) -> types.SimpleNamespace:
+    """R9: the account seen as plain numbers: what Melorin SOLD, with no usage (Melorin does not own it). The pure helpers below
+    take anything with ``expires_at`` / ``traffic_limit_bytes`` / ``traffic_used_bytes`` / ``status`` (a live reading, too)."""
+    return types.SimpleNamespace(
+        expires_at=a.sold_expires_at, traffic_limit_bytes=a.sold_traffic_bytes, traffic_used_bytes=None, status=a.status
+    )
+
+
+def days_left(a, now: dt.datetime | None = None) -> int | None:
     expires = renewal._aware(a.expires_at)
     if expires is None:
         return None
@@ -73,19 +82,19 @@ def days_left(a: VpnAccount, now: dt.datetime | None = None) -> int | None:
     return (expires - now).days if expires > now else 0
 
 
-def usage_percent(a: VpnAccount) -> int | None:
-    if not a.traffic_limit_bytes:
-        return None  # unlimited
-    return min(100, int((a.traffic_used_bytes or 0) * 100 / a.traffic_limit_bytes))
+def usage_percent(a) -> int | None:
+    if not a.traffic_limit_bytes or a.traffic_used_bytes is None:
+        return None  # unlimited, or the usage is not known (the panel did not answer)
+    return min(100, int(a.traffic_used_bytes * 100 / a.traffic_limit_bytes))
 
 
-def health(a: VpnAccount, now: dt.datetime | None = None) -> str:
+def health(a, now: dt.datetime | None = None) -> str:
     """One word for list badges: active | expiring | expired | depleted | disabled."""
     now = renewal._aware(now) or utcnow()
     expires = renewal._aware(a.expires_at)
     if expires is not None and expires <= now:
         return "expired"
-    if a.traffic_limit_bytes and (a.traffic_used_bytes or 0) >= a.traffic_limit_bytes:
+    if a.traffic_limit_bytes and a.traffic_used_bytes is not None and a.traffic_used_bytes >= a.traffic_limit_bytes:
         return "depleted"
     if a.status != "active":
         return "disabled"
@@ -107,33 +116,43 @@ def state_hint(remote_status: str | None, health_word: str, *, can_renew: bool) 
     return None, None
 
 
+def delivered_link(a: VpnAccount) -> tuple[str | None, list | None]:
+    """The subscription link AS DELIVERED (R8). The live link, when the panel answers, is ``live.current_link``."""
+    snap = a.delivery_snapshot if isinstance(a.delivery_snapshot, dict) else {}
+    return snap.get("subscription_url"), snap.get("links")
+
+
 def account_out(a: VpnAccount, now: dt.datetime | None = None) -> VpnAccountOut:
+    """The account as Melorin knows it: the SOLD entitlement, no usage, the delivered link and ``live=False``. A channel puts the
+    panel's numbers on it with ``live.overlay_page`` (every route does); an account without a panel keeps this view."""
     state = renewal.eligibility(a, now=now)
-    note, action = state_hint(getattr(a, "remote_status", None), health(a, now), can_renew=state.ok)
+    ent = entitlement(a)
+    link, links = delivered_link(a)
     return VpnAccountOut(
-        state_note=note,
-        suggested_action=action,
+        state_note=None,
+        suggested_action=None,
         can_renew=state.ok,
         renew_until=state.renew_until,
         id=a.id,
         username=a.username,
         status=a.status,
         is_test=a.is_test,
-        expires_at=a.expires_at,
-        traffic_limit_bytes=a.traffic_limit_bytes,
-        traffic_used_bytes=a.traffic_used_bytes,
+        expires_at=a.sold_expires_at,
+        traffic_limit_bytes=a.sold_traffic_bytes,
+        traffic_used_bytes=None,
         renew_note=None if state.ok else state.message,
-        subscription_url=a.subscription_url,
-        links=a.links,
+        subscription_url=link,
+        links=links,
         server_id=a.server_id,
         store_id=a.store_id,
-        days_left=days_left(a, now),
-        usage_percent=usage_percent(a),
-        health=health(a, now),
+        days_left=days_left(ent, now),
+        usage_percent=None,
+        health=health(ent, now),
         created_at=a.created_at,
         updated_at=a.updated_at,
         next_plan_queued=bool(a.queued_plan),
         next_plan_queued_at=_queued_at(a),
+        live=not a.panel_id,  # a panel account is overlaid with the panel's numbers by the route; no panel = nothing to read
     )
 
 
@@ -162,7 +181,7 @@ def state_clause(state: str | None, now: dt.datetime | None = None):
     """SQL twin of :func:`health` for the list filter chips; ``None`` (or an unknown word) means no filter."""
     now = now or utcnow()
     soon = now + dt.timedelta(days=EXPIRING_SOON_DAYS)
-    exp = VpnAccount.expires_at
+    exp = VpnAccount.sold_expires_at
     if state == "expired":
         return and_(exp.is_not(None), exp <= now)
     if state == "expiring":
@@ -196,7 +215,7 @@ class PanelUnavailable(AppError):
 
 
 async def refresh_from_panel(session, account: VpnAccount, *, strict: bool = False) -> bool:
-    """Ask the VPN panel for the account's current expiry / usage / links and store them (the panel is the source of truth).
+    """Ask the VPN panel about the account and derive its status bucket from the answer (the panel is the source of truth; no number is stored).
 
     Default (display paths): rate-limited per account so a tapped button can never hammer a panel; returns ``True`` when the
     panel was asked now, and a panel that is down leaves the last synced numbers in place.

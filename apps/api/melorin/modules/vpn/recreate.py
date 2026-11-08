@@ -36,7 +36,7 @@ async def recreate_on_panel(session: AsyncSession, account: VpnAccount) -> str:
     if account.archived_at is not None or account.status not in RECREATABLE or not account.panel_id or not account.server_id:
         raise AppError("CANNOT_RECREATE", "این اکانت در وضعیتی نیست که بتوان آن را دوباره روی پنل ساخت.", 409)
     now = utcnow()
-    expires = sync.aware(account.expires_at)
+    expires = sync.aware(account.sold_expires_at)  # the entitlement Melorin sold: the new panel user gets exactly that
     if expires is not None and expires <= now:
         raise AppError("ENTITLEMENT_OVER", "زمان این اکانت تمام شده است؛ آن را از مسیر تمدید معمولی فعال کنید، نه با ساخت دوباره.", 409)
     panel = await session.get(Panel, account.panel_id)
@@ -54,7 +54,7 @@ async def recreate_on_panel(session: AsyncSession, account: VpnAccount) -> str:
         spec = AccountSpec(
             account.username,
             expires,
-            int(account.traffic_limit_bytes or 0),
+            int(account.sold_traffic_bytes or 0),
             getattr(product, "max_devices", None),
             getattr(order, "number", None),
             owner=owner,
@@ -73,4 +73,5 @@ async def recreate_on_panel(session: AsyncSession, account: VpnAccount) -> str:
     account.panel_ref = str(created.ref) if created.ref is not None else None
     account.sync_error_count = 0
     await sync.apply_remote(session, account, created, now=now, notify=False)
+    account.delivery_snapshot = sync.delivery_snapshot(created, now=now)  # a NEW panel user has a new link: that is what is handed out now
     return str(account.panel_ref or "")

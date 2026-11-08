@@ -11,7 +11,7 @@ class VpnAccountOut(BaseModel):
     is_test: bool
     expires_at: dt.datetime | None
     traffic_limit_bytes: int
-    traffic_used_bytes: int
+    traffic_used_bytes: int | None  # None = the panel did not answer / not read (Melorin does not store usage)
     subscription_url: str | None
     links: list | None
     server_id: uuid.UUID | None

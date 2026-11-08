@@ -83,16 +83,16 @@ async def vpn_accounts(
             "store_id": a.store_id,
             "username": a.username,
             "status": a.status,
-            "health": inquiry.health(a),
-            "days_left": inquiry.days_left(a),
-            "expires_at": a.expires_at,
-            "traffic_limit_bytes": a.traffic_limit_bytes,
-            "traffic_used_bytes": a.traffic_used_bytes,
+            "health": inquiry.health(inquiry.entitlement(a)),  # sold entitlement; the panel's numbers are overlaid below
+            "days_left": inquiry.days_left(inquiry.entitlement(a)),
+            "expires_at": a.sold_expires_at,
+            "traffic_limit_bytes": a.sold_traffic_bytes,
+            "traffic_used_bytes": None,  # Melorin stores no usage: read live (below) or unknown
             "server_id": a.server_id,
             "panel_id": a.panel_id,
             "placement": a.placement,  # creation snapshot (destination keys only, never credentials)
         }
         for a, u in rows
     ]
-    # R6: with ``vpn.live_view`` on, usage / expiry / health on this page come from the panel (or "temporarily unavailable").
+    # R6: usage / expiry / health on this page come from the panel (or "temporarily unavailable"); never from a stored copy.
     return await live.overlay_rows(session, out, [a for a, _ in rows])

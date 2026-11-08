@@ -19,7 +19,7 @@ from melorin.modules.vpn.adapters.base import AccountSpec, ErrorKind, PanelError
 from melorin.modules.vpn import panel_admins
 from melorin.modules.vpn.adapters.registry import build_adapter, seed_adapter
 from melorin.modules.catalog.allocation import placement_snapshot, resolve_allocation
-from melorin.modules.vpn import notices, plans, renewal
+from melorin.modules.vpn import notices, plans, renewal, sync
 from melorin.kernel.models.vpn import Panel, ProvisioningAttempt, Server, VpnAccount
 from melorin.kernel.models.bundles import Bundle, BundleMember
 from melorin.modules.vpn.bundles import clean_custom_name
@@ -265,8 +265,8 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
                 panel_id=panel.id,
                 status=VpnStatus.PROVISIONING,
                 is_test=order.kind == "test",
-                expires_at=expire,
-                traffic_limit_bytes=traffic,
+                sold_expires_at=expire,
+                sold_traffic_bytes=traffic,
                 placement=placement_snapshot(order=order, group=group, panel=panel, server=server, remote_ref=None),
             )
             session.add(account)
@@ -305,10 +305,10 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
                     plans.mark_queued(account, template_id=queued_template, product_id=product.id, order_id=order.id, now=now)
                 elif order.kind == "renewal":
                     notices.reset_for_renewal(account)  # PG-06: a renewed account warns again before its NEXT expiry / quota end
-                account.expires_at = remote.expire_at
-                account.traffic_limit_bytes = remote.traffic_limit_bytes
-                account.traffic_used_bytes = remote.traffic_used_bytes
-                account.subscription_url, account.links = remote.subscription_url, remote.links
+                if not queued:  # R10: an act records what it applied; a queued package changes nothing of the running one yet
+                    sync.record_sale(account, remote.expire_at, remote.traffic_limit_bytes)
+                if account.delivery_snapshot is None:
+                    account.delivery_snapshot = sync.delivery_snapshot(remote)
                 attempt.vpn_account_id, attempt.status = account.id, "succeeded"
                 order.vpn_account_id = account.id
                 order.status, order.completed_at = OrderStatus.COMPLETED, utcnow()
@@ -348,10 +348,10 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
         )  # PG-09: nothing restarts
     elif order.kind == "renewal":
         notices.reset_for_renewal(account)  # PG-06
-    account.expires_at = pa.expire_at
-    account.traffic_limit_bytes = pa.traffic_limit_bytes
-    account.traffic_used_bytes = pa.traffic_used_bytes
-    account.subscription_url, account.links = pa.subscription_url, pa.links
+    if not queued:  # R10: record what the act applied on the panel (absolute values); never a copy of the panel's usage
+        sync.record_sale(account, pa.expire_at, pa.traffic_limit_bytes)
+    if account.delivery_snapshot is None:
+        account.delivery_snapshot = sync.delivery_snapshot(pa)  # written once: what the customer was handed
     attempt.vpn_account_id, attempt.status, attempt.finished_at = account.id, "succeeded", utcnow()
     order.vpn_account_id, order.status, order.completed_at = account.id, OrderStatus.COMPLETED, utcnow()
     order.last_error, order.needs_review = None, False

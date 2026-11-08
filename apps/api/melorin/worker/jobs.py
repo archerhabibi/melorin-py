@@ -15,7 +15,7 @@ from melorin.kernel.models.identity import VerificationCode
 from melorin.kernel.models.system import BackupRun
 from melorin.modules.eventcenter import report as event_center_report
 from melorin.modules.eventcenter import rules as event_center_rules
-from melorin.modules.vpn import capabilities, capacity, health, notices, panel_events, reconcile
+from melorin.modules.vpn import capabilities, capacity, health, notices, panel_events, reconcile, sync
 from melorin.kernel.models.vpn import Panel, VpnAccount
 
 log = logging.getLogger("melorin.jobs")
@@ -215,20 +215,21 @@ EXPIRY_LIVE_BATCH = 200  # overdue panel accounts re-read per run (the rest wait
 async def expiry_job(ctx=None):
     """Overdue accounts. Mediator rule: the PANEL decides ``expired``, not Melorin's clock.
 
-    * an account on a panel is only a *candidate* once its stored expiry has passed; it is re-read live from the panel and the
+    * an account on a panel is only a *candidate* once its SOLD expiry has passed; it is re-read live from the panel and the
       panel's answer (status, current expiry) is applied. A panel that is down, or an account that is missing there, changes
       nothing (the reconcile job records the issue); a renewal done on the panel simply moves the expiry forward;
     * an account without a panel (manual / legacy) has no other source, so the local clock still applies to it;
-    * ``on_hold`` accounts (waiting for their first connection) have no running clock and are never candidates.
+    * ``on_hold`` accounts (waiting for their first connection) have no running clock: the live read says so, the status stays
+      ``active``, and a read younger than ``sync.FRESH_FOR`` is not repeated.
     """
     async with session_factory()() as s:
         now = utcnow()
         overdue = and_(
             VpnAccount.status == "active",
-            VpnAccount.expires_at.is_not(None),
-            VpnAccount.expires_at <= now,
-            or_(VpnAccount.remote_status.is_(None), VpnAccount.remote_status != "on_hold"),
+            VpnAccount.sold_expires_at.is_not(None),
+            VpnAccount.sold_expires_at <= now,
         )
+        not_just_read = or_(VpnAccount.last_synced_at.is_(None), VpnAccount.last_synced_at < now - sync.FRESH_FOR)
         # accounts without a panel: the only clock there is
         for a in (await s.scalars(select(VpnAccount).where(overdue, VpnAccount.panel_id.is_(None)))).all():
             a.status = "expired"
@@ -238,7 +239,7 @@ async def expiry_job(ctx=None):
         candidates = (
             await s.scalars(
                 select(VpnAccount.id)
-                .where(overdue, VpnAccount.panel_id.is_not(None))
+                .where(overdue, VpnAccount.panel_id.is_not(None), not_just_read)
                 .order_by(VpnAccount.last_synced_at.asc().nulls_first())
                 .limit(EXPIRY_LIVE_BATCH)
             )
@@ -261,8 +262,8 @@ async def near_expiry_job(ctx=None):
                 select(VpnAccount).where(
                     VpnAccount.status == "active",
                     VpnAccount.near_expiry_notified.is_(False),
-                    VpnAccount.expires_at > now,
-                    VpnAccount.expires_at <= end,
+                    VpnAccount.sold_expires_at > now,
+                    VpnAccount.sold_expires_at <= end,
                 )
             )
         ).all()

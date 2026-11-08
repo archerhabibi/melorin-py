@@ -9,7 +9,7 @@ from melorin.core.deps import OwnerCtx, Session
 from melorin.core.errors import NotFound
 from melorin.modules.reseller import renewal as reseller_renewal
 from melorin.modules.reseller.schemas import OwnerRenewalOut
-from melorin.modules.vpn import inquiry
+from melorin.modules.vpn import inquiry, live
 from melorin.modules.vpn.schemas import OwnerAccountOut
 
 router = APIRouter(tags=["reseller"])
@@ -28,7 +28,7 @@ async def store_accounts(
     """The reseller's inquiry: the LIST is only his own accounts, a SEARCH also finds his own customers' (``inquiry``)."""
     rows, total = await inquiry.reseller_accounts(session, ctx.user.id, ctx.store.id, q=q, state=state, limit=limit, offset=offset)
     response.headers["X-Total-Count"] = str(total)
-    return [inquiry.owner_account_out(a, u, owner_id=ctx.user.id) for a, u in rows]
+    return await live.owner_cards(session, rows, ctx.user.id)  # the panel's numbers, never an old copy
 
 
 @router.get("/stores/{store_id}/reseller/accounts/summary")
@@ -44,7 +44,7 @@ async def _store_account(session, ctx, account_id: uuid.UUID):
 @router.get("/stores/{store_id}/reseller/accounts/{account_id}", response_model=OwnerAccountOut)
 async def store_account(account_id: uuid.UUID, ctx: OwnerCtx, session: Session):
     a, u = await _store_account(session, ctx, account_id)
-    return inquiry.owner_account_out(a, u, owner_id=ctx.user.id)
+    return (await live.owner_cards(session, [(a, u)], ctx.user.id))[0]
 
 
 @router.post("/stores/{store_id}/reseller/accounts/{account_id}/refresh", response_model=OwnerAccountOut)
@@ -52,7 +52,7 @@ async def store_account_refresh(account_id: uuid.UUID, ctx: OwnerCtx, session: S
     """Owner's live view: re-read one of the store's accounts from its VPN panel."""
     a, u = await _store_account(session, ctx, account_id)
     response.headers["X-Panel-Synced"] = "1" if await inquiry.refresh_from_panel(session, a) else "0"
-    return inquiry.owner_account_out(a, u, owner_id=ctx.user.id)
+    return (await live.owner_cards(session, [(a, u)], ctx.user.id))[0]
 
 
 @router.get("/stores/{store_id}/reseller/accounts/{account_id}/renewal", response_model=OwnerRenewalOut)

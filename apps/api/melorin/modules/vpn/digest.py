@@ -93,7 +93,14 @@ async def run(session: AsyncSession, *, now: dt.datetime | None = None) -> int:
         await events.emit(
             session,
             events.NOTIFY,
-            {"user_id": store.owner_user_id, "store_id": store.id, "kind": "vpn_daily_digest", "title": title, "body": body, "dedup_key": key},
+            {
+                "user_id": store.owner_user_id,
+                "store_id": store.id,
+                "kind": "vpn_daily_digest",
+                "title": title,
+                "body": body,
+                "dedup_key": key,
+            },
             dedup_key=key,
         )
         queued += 0 if before else 1

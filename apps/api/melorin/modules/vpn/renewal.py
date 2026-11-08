@@ -54,7 +54,7 @@ class Eligibility:
 def eligibility(account, *, now: dt.datetime | None = None) -> Eligibility:
     """Pure rule: may ``account`` be renewed right now? (Ownership/store checks belong to the caller.)"""
     now = _aware(now) or utcnow()
-    expires = _aware(account.expires_at)
+    expires = _aware(account.sold_expires_at)  # R9: the renewal window runs on what Melorin sold
     until = expires + dt.timedelta(days=GRACE_DAYS) if expires else None
     if account.is_test:
         return Eligibility(False, "ACCOUNT_NOT_RENEWABLE", "اکانت تست قابل تمدید نیست.", until)
@@ -113,7 +113,7 @@ def describe(account, product, *, now: dt.datetime | None = None) -> dict:
     """The promise shown on every channel before payment: what the account will be after renewal."""
     now = _aware(now) or utcnow()
     t = target(product, now=now)
-    expires = _aware(account.expires_at)
+    expires = _aware(account.sold_expires_at)
     left = max(0, (expires - now).days) if expires and expires > now else 0
     return {
         "new_expires_at": t.expires_at,

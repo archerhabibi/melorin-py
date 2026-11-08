@@ -19,9 +19,10 @@ UNREACHABLE = "panel_unreachable"
 OWNER_MISMATCH = "owner_mismatch"
 LIMITS_MISMATCH = "limits_mismatch"
 KINDS = (MISSING, UNREACHABLE, OWNER_MISMATCH, LIMITS_MISMATCH)
-# Closed by the system when the condition clears. ``limits_mismatch`` is a signal about a manual edit that Melorin mirrors at once,
-# so it would "clear" on the very next sync: it stays open for an admin to acknowledge.
-AUTO_CLOSE = (MISSING, UNREACHABLE, OWNER_MISMATCH)
+# Closed by the system when the condition clears. R9: ``limits_mismatch`` compares the panel with what Melorin SOLD; Melorin no longer
+# copies the panel's values over the entitlement, so the drift stays visible until the panel and the entitlement agree again (or an
+# admin runs ``accept_panel`` / ``ignore``).
+AUTO_CLOSE = (MISSING, UNREACHABLE, OWNER_MISMATCH, LIMITS_MISMATCH)
 OPEN, RESOLVED, IGNORED = "open", "resolved", "ignored"
 
 
@@ -56,6 +57,17 @@ async def open_issue(
         existing.occurrences, existing.last_seen_at = int(existing.occurrences or 1) + 1, now
         return existing
     return row
+
+
+async def ignored_identical(session: AsyncSession, account_id: uuid.UUID, kind: str, details: dict | None) -> bool:
+    """Did an admin already ``ignore`` exactly this finding? An ignored drift is not re-opened while it is unchanged."""
+    last = await session.scalar(
+        select(ReconciliationIssue)
+        .where(ReconciliationIssue.vpn_account_id == account_id, ReconciliationIssue.kind == kind, ReconciliationIssue.status == IGNORED)
+        .order_by(ReconciliationIssue.resolved_at.desc().nulls_last())
+        .limit(1)
+    )
+    return last is not None and (last.details or None) == (details or None)
 
 
 async def close_issues(

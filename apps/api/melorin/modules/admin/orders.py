@@ -92,11 +92,11 @@ async def attach_account(order_id: uuid.UUID, body: AttachExistingAccount, admin
         server_id=s.id,
         panel_id=s.panel_id,
         panel_ref=body.panel_ref,
-        subscription_url=body.subscription_url,
+        delivery_snapshot={"subscription_url": body.subscription_url, "links": None, "taken_at": None},
         status="active",
-        expires_at=__import__("datetime").datetime.now(__import__("datetime").UTC)
+        sold_expires_at=__import__("datetime").datetime.now(__import__("datetime").UTC)
         + __import__("datetime").timedelta(days=product.duration_days),
-        traffic_limit_bytes=product.traffic_gb * 1024**3,
+        sold_traffic_bytes=product.traffic_gb * 1024**3,
     )
     session.add(a)
     await session.flush()

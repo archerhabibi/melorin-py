@@ -33,7 +33,7 @@ from melorin.domain.order_state import OrderStatus, VpnStatus
 from melorin.kernel.models.identity import User
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.vpn import AccountReturn, VpnAccount
-from melorin.modules.vpn import inquiry
+from melorin.modules.vpn import inquiry, live
 from melorin.modules.vpn.renewal import _aware
 
 RETURN_MAX_DAYS = 3
@@ -69,8 +69,12 @@ def evaluate(
     renewed: bool,
     returns_last_day: int,
     now: dt.datetime | None = None,
+    used_bytes: int | None = None,
 ) -> Eligibility:
-    """Pure rule: may ``account`` (bought with ``order``) be returned right now? Ownership/store checks belong to the caller."""
+    """Pure rule: may ``account`` (bought with ``order``) be returned right now? Ownership/store checks belong to the caller.
+
+    ``used_bytes`` is the PANEL's usage, passed by the caller (Melorin stores none). ``None`` = not known: the usage rule is then only
+    advisory-skipped (list badges); ``prepare_return`` always passes a fresh strict reading, so the money decision never skips it."""
     now = _aware(now) or utcnow()
     if account.is_test:
         return _no("ACCOUNT_NOT_RETURNABLE", "اکانت تست قابل مرجوع نیست.")
@@ -78,7 +82,7 @@ def evaluate(
         return _no("ACCOUNT_NOT_RETURNABLE", "این اکانت قابل مرجوع نیست.")
     if order is None or order.kind != "purchase" or order.status != OrderStatus.COMPLETED or (order.total or 0) <= 0:
         return _no("ACCOUNT_NOT_RETURNABLE", "این اکانت قابل مرجوع نیست.")
-    limit = int(account.traffic_limit_bytes or 0)
+    limit = int(account.sold_traffic_bytes or 0)  # the package that was sold
     if limit <= 0:
         return _no("RETURN_UNLIMITED", "اکانت‌های نامحدود فعلاً قابل مرجوع نیستند.")
     if renewed:
@@ -86,7 +90,7 @@ def evaluate(
     bought = _aware(order.paid_at) or _aware(order.created_at) or _aware(account.created_at)
     if bought is not None and now - bought > dt.timedelta(days=RETURN_MAX_DAYS):
         return _no("RETURN_TOO_OLD", f"مهلت مرجوعی ({RETURN_MAX_DAYS} روز از زمان خرید) تمام شده است.")
-    if int(account.traffic_used_bytes or 0) * 100 > limit * RETURN_MAX_USAGE_PERCENT:
+    if used_bytes is not None and int(used_bytes) * 100 > limit * RETURN_MAX_USAGE_PERCENT:
         return _no("RETURN_TOO_MUCH_USED", f"بیش از {RETURN_MAX_USAGE_PERCENT} درصد حجم این اکانت مصرف شده و قابل مرجوع نیست.")
     if returns_last_day >= RETURN_DAILY_LIMIT:
         return _no("RETURN_DAILY_LIMIT", f"سقف مرجوعی ({RETURN_DAILY_LIMIT} مورد در روز) پر شده است؛ بعداً دوباره تلاش کنید.")
@@ -103,10 +107,14 @@ async def _returns_last_day(session, user_id: uuid.UUID, now: dt.datetime) -> in
     )
 
 
-async def eligibility_for(session, scope: StoreScope, accounts: list[VpnAccount]) -> dict[uuid.UUID, Eligibility]:
-    """Eligibility of a page of the customer's accounts (three small queries, no per-account round trip)."""
+async def eligibility_for(
+    session, scope: StoreScope, accounts: list[VpnAccount], *, used: dict[uuid.UUID, int | None] | None = None
+) -> dict[uuid.UUID, Eligibility]:
+    """Eligibility of a page of the customer's accounts (three small queries, no per-account round trip). ``used`` = the live usage the
+    list already read (account id -> bytes); an account without a reading skips the usage rule (the real return re-checks strictly)."""
     if not accounts:
         return {}
+    used_by = used or {}
     now = utcnow()
     ids = [a.id for a in accounts]
     orders = {o.id: o for o in await session.scalars(select(Order).where(Order.id.in_([a.order_id for a in accounts])))}
@@ -116,7 +124,12 @@ async def eligibility_for(session, scope: StoreScope, accounts: list[VpnAccount]
         )
     )
     used_today = await _returns_last_day(session, scope.user_id, now)
-    return {a.id: evaluate(a, orders.get(a.order_id), renewed=a.id in renewed, returns_last_day=used_today, now=now) for a in accounts}
+    return {
+        a.id: evaluate(
+            a, orders.get(a.order_id), renewed=a.id in renewed, returns_last_day=used_today, now=now, used_bytes=used_by.get(a.id)
+        )
+        for a in accounts
+    }
 
 
 def account_view(account: VpnAccount, elig: Eligibility | None):
@@ -141,6 +154,8 @@ async def prepare_return(session, scope: StoreScope, account_id: uuid.UUID) -> t
     # mediator rule: usage belongs to the panel. A refund is decided ONLY on a fresh live read; a panel that cannot answer
     # means "try again later" (fail closed), never a decision on the last synced copy.
     await inquiry.refresh_from_panel(session, account, strict=True)
+    reading = await live.strict_reading(session, account)  # fresh, uncached; raises PanelUnavailable when the panel cannot answer
+    used_now = int(reading.traffic_used_bytes) if reading is not None else 0
     now = utcnow()
     order = await session.get(Order, account.order_id, with_for_update=True, populate_existing=True)
     if order is not None and not scope.owns(order):
@@ -153,7 +168,12 @@ async def prepare_return(session, scope: StoreScope, account_id: uuid.UUID) -> t
         )
     )
     evaluate(
-        account, order, renewed=renewed, returns_last_day=await _returns_last_day(session, scope.user_id, now), now=now
+        account,
+        order,
+        renewed=renewed,
+        returns_last_day=await _returns_last_day(session, scope.user_id, now),
+        now=now,
+        used_bytes=used_now,
     ).raise_if_not_ok()
     assert order is not None  # evaluate() refuses a missing order
     session.add(
@@ -162,8 +182,8 @@ async def prepare_return(session, scope: StoreScope, account_id: uuid.UUID) -> t
             store_id=scope.store_id,
             order_id=order.id,
             vpn_account_id=account.id,
-            used_bytes=int(account.traffic_used_bytes or 0),
-            limit_bytes=int(account.traffic_limit_bytes or 0),
+            used_bytes=used_now,  # audit snapshot at the moment of the refund (the only place a usage number is kept)
+            limit_bytes=int(account.sold_traffic_bytes or 0),
             amount=int(order.total),
         )
     )

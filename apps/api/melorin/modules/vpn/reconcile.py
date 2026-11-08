@@ -21,6 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from melorin.core.db import utcnow
+from melorin.core.errors import AppError
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.vpn import Panel, PanelAdmin, PanelOrphan, VpnAccount
 from melorin.modules.vpn import issues, notices, sync
@@ -105,8 +106,11 @@ async def _compare(
         result.updated += 1
     await issues.close_issues(session, [account.id], [issues.MISSING, issues.UNREACHABLE], now=now)
     if drift:
-        await issues.open_issue(session, account.id, issues.LIMITS_MISMATCH, drift, now=now)
-        result.limits_mismatch += 1
+        if not await issues.ignored_identical(session, account.id, issues.LIMITS_MISMATCH, drift):
+            await issues.open_issue(session, account.id, issues.LIMITS_MISMATCH, drift, now=now)
+            result.limits_mismatch += 1
+    elif check_drift:
+        await issues.close_issues(session, [account.id], [issues.LIMITS_MISMATCH], now=now)  # the panel agrees with the entitlement again
     expected = owners.get(account.store_id)
     if expected and remote.owner and remote.owner != expected:
         await issues.open_issue(session, account.id, issues.OWNER_MISMATCH, {"expected": expected, "panel": remote.owner}, now=now)
@@ -229,3 +233,42 @@ async def reconcile_account(session: AsyncSession, account_id: uuid.UUID) -> str
     if result.missing:
         return "issue"
     return "updated" if result.updated else "ok"
+
+
+async def accept_panel(session: AsyncSession, account: VpnAccount) -> dict:
+    """``accept_panel`` (limits_mismatch): rebase the SOLD entitlement on what the panel says right now. The caller audits and commits.
+
+    Used when the change made on the panel is the new truth (a manual renewal, a gift). A fresh read, never a stored number; an
+    account that waits for its first connection (``on_hold``) has no expiry to accept yet and is refused.
+    """
+    if not account.panel_id:
+        raise AppError("NO_PANEL", "این اکانت به پنل وصل نیست.", 409)
+    panel = await session.get(Panel, account.panel_id)
+    adapter = seed_adapter(build_adapter(panel), account)
+    try:
+        remote = await adapter.get_account(account.username)
+    except PanelError as exc:
+        raise AppError("PANEL_UNAVAILABLE", "پنل در حال حاضر پاسخ نمی‌دهد؛ چند لحظه بعد دوباره تلاش کنید.", 503) from exc
+    finally:
+        close = getattr(adapter, "close", None)
+        if callable(close):
+            try:
+                res = close()
+                if hasattr(res, "__await__"):
+                    await res
+            except Exception:
+                log.warning("accept_panel: adapter close failed account=%s", account.id, exc_info=True)
+    if remote is None:
+        raise AppError("MISSING_ON_PANEL", "این اکانت روی پنل پیدا نشد.", 409)
+    if (getattr(remote, "remote_status", None) or "") == "on_hold":
+        raise AppError("ON_HOLD", "این اکانت هنوز به‌اولین‌اتصال منتظر است؛ تاریخ انقضایی برای پذیرفتن وجود ندارد.", 409)
+    before = {
+        "expires_at": account.sold_expires_at.isoformat() if account.sold_expires_at else None,
+        "traffic_limit_bytes": int(account.sold_traffic_bytes or 0),
+    }
+    sync.record_sale(account, remote.expire_at, remote.traffic_limit_bytes)
+    after = {
+        "expires_at": remote.expire_at.isoformat() if remote.expire_at else None,
+        "traffic_limit_bytes": int(remote.traffic_limit_bytes or 0),
+    }
+    return {"before": before, "after": after}

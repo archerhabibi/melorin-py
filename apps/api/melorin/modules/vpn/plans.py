@@ -38,7 +38,7 @@ from melorin.domain.order_state import VpnStatus
 from melorin.kernel.models.catalog import Product
 from melorin.kernel.models.vpn import Panel, VpnAccount
 from melorin.modules.vpn import capabilities as panel_caps
-from melorin.modules.vpn import notices, sync, templates
+from melorin.modules.vpn import inquiry, live, notices, sync, templates
 from melorin.modules.vpn.adapters.base import ErrorKind, PanelError, supports
 from melorin.modules.vpn.adapters.registry import build_adapter, seed_adapter
 
@@ -75,10 +75,15 @@ def _no(code: str, message: str) -> QueueCheck:
 async def check_queueable(session: AsyncSession, account: VpnAccount, product: Product, *, now: dt.datetime | None = None) -> QueueCheck:
     """May ``account`` prepay its next package right now? (Ownership/window/open-renewal checks stay with ``renewal.check_renewable``.)"""
     now = sync.aware(now) or utcnow()
-    expires = sync.aware(account.expires_at)
     if account.queued_plan:
         return _no("RENEWAL_ALREADY_QUEUED", "پکیج بعدی این اکانت از قبل خریداری شده و پس از پایان پکیج فعلی شروع می‌شود.")
-    if account.status != VpnStatus.ACTIVE or account.remote_status == "on_hold" or expires is None or expires <= now:
+    # R9: "is it running right now?" is the PANEL's answer (live reading); a panel that cannot answer fails closed.
+    reading = (await live.read(session, [account])).get(account.id) if account.panel_id else None
+    if account.panel_id and reading is None:
+        raise inquiry.PanelUnavailable()
+    on_hold = reading is not None and reading.remote_status == "on_hold"
+    expires = sync.aware(reading.expires_at if reading is not None else account.sold_expires_at)
+    if account.status != VpnStatus.ACTIVE or on_hold or expires is None or expires <= now:
         return _no(
             "QUEUE_NOT_APPLICABLE",
             "تمدید پیش‌خرید فقط برای اکانت فعالِ در حال استفاده ممکن است؛ برای این اکانت از تمدید معمولی استفاده کنید.",
@@ -95,7 +100,7 @@ async def check_queueable(session: AsyncSession, account: VpnAccount, product: P
 def describe_queue(account: VpnAccount, product: Product, *, now: dt.datetime | None = None) -> dict:
     """The promise shown before payment for a prepaid renewal. No invented date: the package starts when the current one ends."""
     now = sync.aware(now) or utcnow()
-    expires = sync.aware(account.expires_at)
+    expires = sync.aware(account.sold_expires_at)  # what was sold; the pre-payment promise is about the package, not a usage figure
     left = max(0, (expires - now).days) if expires and expires > now else 0
     return {
         "mode": QUEUE,
@@ -154,6 +159,8 @@ async def settle_from_remote(
         return False
     started = account.queued_plan
     account.queued_plan = None
+    if hasattr(remote, "traffic_limit_bytes"):  # the queued package became the running one: that is the entitlement now (R10)
+        sync.record_sale(account, getattr(remote, "expire_at", None), remote.traffic_limit_bytes)
     notices.reset_for_renewal(account)  # the queued package is a fresh period: warn again before ITS end
     if notify:
         await notices.queued_plan_started(session, account)
@@ -206,8 +213,8 @@ async def change_plan(
     if not supports(adapter, "next_plan_ops"):
         await templates._close(adapter)
         raise AppError("TOOL_UNAVAILABLE", "پنل این اکانت از تغییر پلن پشتیبانی نمی‌کند.", 409)
-    before = {"product_id": str(account.product_id), "expires_at": account.expires_at.isoformat() if account.expires_at else None,
-              "traffic_limit_bytes": account.traffic_limit_bytes}  # fmt: skip
+    before = {"product_id": str(account.product_id), "expires_at": account.sold_expires_at.isoformat() if account.sold_expires_at else None,
+              "traffic_limit_bytes": account.sold_traffic_bytes}  # fmt: skip
     try:
         pa = await adapter.apply_template(account.username, template_id)
         if account.queued_plan:
@@ -220,6 +227,7 @@ async def change_plan(
     old_product = account.product_id
     account.product_id = product.id
     await sync.apply_remote(session, account, pa, notify=False)
+    sync.record_sale(account, pa.expire_at, pa.traffic_limit_bytes)  # R10: the new package is what was sold
     notices.reset_for_renewal(account)
     audit.record(
         session,
@@ -231,8 +239,8 @@ async def change_plan(
         store_id=account.store_id,
         data={"role": role, "username": account.username, "reason": reason[:300], "from_product": str(old_product),
               "to_product": str(product.id), "template_id": template_id, "before": before,
-              "after": {"expires_at": account.expires_at.isoformat() if account.expires_at else None,
-                        "traffic_limit_bytes": account.traffic_limit_bytes}},
+              "after": {"expires_at": account.sold_expires_at.isoformat() if account.sold_expires_at else None,
+                        "traffic_limit_bytes": account.sold_traffic_bytes}},
     )  # fmt: skip
     await session.commit()
     return account

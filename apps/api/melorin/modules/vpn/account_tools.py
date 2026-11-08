@@ -370,7 +370,7 @@ async def suspend(session: AsyncSession, account: VpnAccount, *, role: str, acto
         raise _panel_error(exc) from exc
     finally:
         await _close(adapter)
-    account.status, account.remote_status = VpnStatus.SUSPENDED, "disabled"
+    account.status = VpnStatus.SUSPENDED
     _audit(session, account, "suspended", actor_id=actor_id, role=role, data={"reason": (reason or "")[:300]})
     await session.commit()
     return account
@@ -378,7 +378,7 @@ async def suspend(session: AsyncSession, account: VpnAccount, *, role: str, acto
 
 async def resume(session: AsyncSession, account: VpnAccount, *, role: str, actor_id: uuid.UUID) -> VpnAccount:
     adapter, _panel = await _open(session, account, role, "suspend")
-    expires = sync.aware(account.expires_at)
+    expires = sync.aware(account.sold_expires_at)
     if account.status != VpnStatus.SUSPENDED or (expires is not None and expires <= utcnow()):
         await _close(adapter)
         raise AppError("ACCOUNT_NOT_SUSPENDED", "فقط اکانتِ تعلیق‌شده و منقضی‌نشده را می‌توان فعال کرد.", 409)
@@ -388,7 +388,7 @@ async def resume(session: AsyncSession, account: VpnAccount, *, role: str, actor
         raise _panel_error(exc) from exc
     finally:
         await _close(adapter)
-    account.status, account.remote_status = VpnStatus.ACTIVE, "active"
+    account.status = VpnStatus.ACTIVE
     _audit(session, account, "resumed", actor_id=actor_id, role=role)
     await session.commit()
     return account
@@ -433,6 +433,7 @@ async def adjust(
     finally:
         await _close(adapter)
     await sync.apply_remote(session, account, pa, notify=False)
+    sync.record_sale(account, pa.expire_at, pa.traffic_limit_bytes)  # R10: compensation changes the entitlement, with a reason on record
     _audit(
         session,
         account,

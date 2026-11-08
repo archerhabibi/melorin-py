@@ -124,17 +124,21 @@ async def run(session: AsyncSession, panel_id: uuid.UUID, *, actor_id: uuid.UUID
             raise AppError("PANEL_ERROR", f"پنل پاسخ نداد: {exc.message[:200]}", 502) from exc
         prefix = str(settings.get("url_prefix") or "").strip() or None
         sub_base = str((panel.config or {}).get("sub_base_url") or "").strip() or None
-        account = await session.scalar(
-            select(VpnAccount)
-            .where(
-                VpnAccount.panel_id == panel.id,
-                VpnAccount.status.in_([VpnStatus.ACTIVE, VpnStatus.SUSPENDED, VpnStatus.LIMITED]),
-                VpnAccount.subscription_url.is_not(None),
+        recent = (
+            await session.scalars(
+                select(VpnAccount)
+                .where(
+                    VpnAccount.panel_id == panel.id,
+                    VpnAccount.status.in_([VpnStatus.ACTIVE, VpnStatus.SUSPENDED, VpnStatus.LIMITED]),
+                    VpnAccount.delivery_snapshot.is_not(None),
+                )
+                .order_by(VpnAccount.created_at.desc())
+                .limit(20)
             )
-            .order_by(VpnAccount.created_at.desc())
-            .limit(1)
-        )
-        link = account.subscription_url if account else None
+        ).all()
+        # a link as DELIVERED is all the format check needs (prefix, scheme, reachability); it is not read as the account's state
+        account = next((a for a in recent if (a.delivery_snapshot or {}).get("subscription_url")), None)
+        link = (account.delivery_snapshot or {}).get("subscription_url") if account else None
         if link and link.startswith("/"):  # relative link: the panel joins it with the prefix
             link = (prefix or sub_base or "").rstrip("/") + link
         allowed = {h for h in (_host(prefix), _host(sub_base), _host(panel.base_url)) if h}

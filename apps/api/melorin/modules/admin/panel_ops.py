@@ -28,7 +28,7 @@ from melorin.modules.vpn.adapters.registry import build_adapter, seed_adapter
 router = APIRouter(prefix="/admin", tags=["admin"])
 log = logging.getLogger("melorin.admin.panel_ops")
 
-ACTIONS = ("ignore", "resolve", "fix_owner", "archive_account", "link_existing", "recreate_on_panel", "resync")
+ACTIONS = ("ignore", "resolve", "fix_owner", "archive_account", "link_existing", "recreate_on_panel", "resync", "accept_panel")
 
 
 class NodeOut(BaseModel):
@@ -72,7 +72,7 @@ class IssueOut(BaseModel):
 
 
 class IssueActionIn(BaseModel):
-    action: str = Field(pattern="^(ignore|resolve|fix_owner|archive_account|link_existing|recreate_on_panel|resync)$")
+    action: str = Field(pattern="^(ignore|resolve|fix_owner|archive_account|link_existing|recreate_on_panel|resync|accept_panel)$")
     reason: str | None = Field(default=None, max_length=300)
     orphan_id: uuid.UUID | None = None  # link_existing: the panel user (orphan of the SAME panel) this account really is
 
@@ -102,9 +102,11 @@ def allowed_actions(kind: str, status: str) -> list[str]:
     """What an admin may do with an issue. Closed issues take no action."""
     if status != issue_svc.OPEN:
         return []
-    extra = {issue_svc.OWNER_MISMATCH: ["fix_owner"], issue_svc.MISSING: ["link_existing", "recreate_on_panel", "archive_account"]}.get(
-        kind, []
-    )
+    extra = {
+        issue_svc.OWNER_MISMATCH: ["fix_owner"],
+        issue_svc.MISSING: ["link_existing", "recreate_on_panel", "archive_account"],
+        issue_svc.LIMITS_MISMATCH: ["accept_panel"],
+    }.get(kind, [])
     return ["resync", *extra, "resolve", "ignore"]
 
 
@@ -281,6 +283,7 @@ async def issue_action(issue_id: uuid.UUID, body: IssueActionIn, admin: AdminUse
     account = await session.get(VpnAccount, issue.vpn_account_id)
     now = utcnow()
     reason = (body.reason or "").strip() or None
+    extra_audit: dict = {}
     if body.action == "ignore":
         if not reason:
             raise AppError("REASON_REQUIRED", "برای نادیده گرفتن، دلیل را بنویسید.", 422)
@@ -310,6 +313,12 @@ async def issue_action(issue_id: uuid.UUID, body: IssueActionIn, admin: AdminUse
             raise AppError("REASON_REQUIRED", "برای ساخت دوباره روی پنل، دلیل را بنویسید.", 422)
         new_ref = await recreate.recreate_on_panel(session, account)
         issue.status, issue.resolution, issue.resolved_at = issue_svc.RESOLVED, f"re-created on panel (ref {new_ref}): {reason}"[:300], now
+    elif body.action == "accept_panel":
+        if not reason:
+            raise AppError("REASON_REQUIRED", "برای پذیرفتن مقادیر پنل، دلیل را بنویسید.", 422)
+        change = await reconcile.accept_panel(session, account)
+        issue.status, issue.resolution, issue.resolved_at = issue_svc.RESOLVED, f"accepted panel values: {reason}"[:300], now
+        extra_audit = change
     elif body.action == "fix_owner":
         expected = (issue.details or {}).get("expected")
         panel = await session.get(Panel, account.panel_id) if account.panel_id else None
@@ -357,7 +366,7 @@ async def issue_action(issue_id: uuid.UUID, body: IssueActionIn, admin: AdminUse
         entity_type="vpn_account",
         entity_id=account.id,
         store_id=account.store_id,
-        data={"issue": str(issue.id), "kind": issue.kind, "reason": reason},
+        data={"issue": str(issue.id), "kind": issue.kind, "reason": reason, **(extra_audit if body.action == "accept_panel" else {})},
     )
     await session.commit()
     if body.action in ("link_existing", "recreate_on_panel"):
@@ -533,7 +542,9 @@ class NoticeTextItem(BaseModel):
 
 
 class NoticeTextsIn(BaseModel):
-    texts: dict[str, NoticeTextItem] = Field(description="notice kind -> wording; placeholders {store} and {level}; {} clears all custom texts")
+    texts: dict[str, NoticeTextItem] = Field(
+        description="notice kind -> wording; placeholders {store} and {level}; {} clears all custom texts"
+    )
 
 
 class NoticeTextsOut(BaseModel):

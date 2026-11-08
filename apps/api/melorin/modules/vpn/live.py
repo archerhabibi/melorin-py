@@ -4,7 +4,8 @@ Mediator rule: used traffic, current limit, expiry and status belong to the pane
 keeps them only in a short in-memory cache (seconds, never a database column). When the panel cannot answer, the caller gets
 ``None`` and the UI says "temporarily unavailable"; it never falls back to an old number (decision 9).
 
-Rolled out behind the setting ``vpn.live_view`` (default off): with it off every channel behaves exactly as before.
+The setting ``vpn.live_view`` (default ON since R9/R10: Melorin has no stored copy to fall back on) can still switch it off for an
+incident; the account then shows only what Melorin sold (``sold_*``) with no usage.
 
 * :func:`read` reads a page of accounts (grouped per panel, one adapter per panel, bounded concurrency, short TTL cache);
 * :func:`overlay` puts a reading onto the ``VpnAccountOut`` a channel is about to return.
@@ -60,7 +61,8 @@ def clear_cache() -> None:
 
 
 async def enabled(session) -> bool:
-    return bool(await settings_store.get(session, SETTING))
+    value = await settings_store.get(session, SETTING)
+    return True if value is None else bool(value)
 
 
 def _reading(remote) -> LiveReading:
@@ -119,7 +121,7 @@ async def _read_panel(panel: Panel, accounts: list[VpnAccount]) -> dict[uuid.UUI
     return out
 
 
-async def read(session, accounts: list[VpnAccount]) -> dict[uuid.UUID, LiveReading | None]:
+async def read(session, accounts: list[VpnAccount], *, fresh: bool = False) -> dict[uuid.UUID, LiveReading | None]:
     """A live reading per account id (``None`` = the panel could not answer, or has no such user). Accounts without a panel are absent."""
     now = time.monotonic()
     result: dict[uuid.UUID, LiveReading | None] = {}
@@ -127,7 +129,7 @@ async def read(session, accounts: list[VpnAccount]) -> dict[uuid.UUID, LiveReadi
     for account in accounts[:MAX_ACCOUNTS]:
         if not account.panel_id:
             continue
-        hit, value = _cached(account.id, now)
+        hit, value = (False, None) if fresh else _cached(account.id, now)
         if hit:
             result[account.id] = value
         else:
@@ -155,7 +157,7 @@ def overlay(out: VpnAccountOut, reading: LiveReading | None, *, now: dt.datetime
             update={
                 "live": False,
                 "live_note": UNAVAILABLE_NOTE,
-                "traffic_used_bytes": 0,
+                "traffic_used_bytes": None,
                 "usage_percent": None,
                 "days_left": None,
                 "health": "unavailable",
@@ -192,11 +194,21 @@ def overlay(out: VpnAccountOut, reading: LiveReading | None, *, now: dt.datetime
     )
 
 
-async def overlay_page(session, outs: list[VpnAccountOut], accounts: list[VpnAccount]) -> list[VpnAccountOut]:
-    """The one call a route makes: with the flag off (or no panel account on the page) ``outs`` is returned untouched."""
-    if not outs or not await enabled(session):
+async def page_readings(session, accounts: list[VpnAccount]) -> dict[uuid.UUID, LiveReading | None]:
+    """Readings for a page (empty when the view is switched off or the page has no panel account)."""
+    if not accounts or not await enabled(session):
+        return {}
+    return await read(session, accounts)
+
+
+async def overlay_page(
+    session, outs: list[VpnAccountOut], accounts: list[VpnAccount], readings: dict[uuid.UUID, LiveReading | None] | None = None
+) -> list[VpnAccountOut]:
+    """The one call a route makes. ``readings`` may be passed when the route already read the page (e.g. for return eligibility)."""
+    if not outs:
         return outs
-    readings = await read(session, accounts)
+    if readings is None:
+        readings = await page_readings(session, accounts)
     return [overlay(o, readings[a.id]) if a.id in readings else o for o, a in zip(outs, accounts, strict=True)]
 
 
@@ -239,7 +251,9 @@ async def overlay_rows(session, rows: list[dict], accounts: list[VpnAccount]) ->
 
 
 def _stored_link(account: VpnAccount) -> str | None:
-    return account.subscription_url or (account.links[0] if isinstance(account.links, list) and account.links else None)
+    """The link as delivered (``delivery_snapshot``): a fallback only, never a reader of truth."""
+    url, links = inquiry.delivered_link(account)
+    return url or (links[0] if isinstance(links, list) and links else None)
 
 
 async def current_link(session, account: VpnAccount) -> str | None:
@@ -254,3 +268,26 @@ async def current_link(session, account: VpnAccount) -> str | None:
     if reading is not None:
         return reading.subscription_url or (reading.links[0] if reading.links else None) or _stored_link(account)
     return _stored_link(account)
+
+
+async def strict_reading(session, account: VpnAccount) -> LiveReading | None:
+    """Money paths (refunds): a FRESH panel reading, never the cache. A panel that cannot answer (or has no such user) raises
+    :class:`inquiry.PanelUnavailable` instead of letting the caller decide on an old number. An account without a panel has nothing
+    to read: ``None``."""
+    if not account.panel_id:
+        return None
+    reading = (await read(session, [account], fresh=True)).get(account.id)
+    if reading is None:
+        raise inquiry.PanelUnavailable()
+    return reading
+
+
+async def card(session, account: VpnAccount) -> VpnAccountOut:
+    """One account as a card with the panel's numbers on it (what an action route returns after it changed something)."""
+    return (await overlay_page(session, [inquiry.account_out(account)], [account]))[0]
+
+
+async def owner_cards(session, rows, owner_id: uuid.UUID):
+    """The store owner's cards (``rows`` = ``[(account, holder)]``) with the panel's numbers on them."""
+    outs = [inquiry.owner_account_out(a, u, owner_id=owner_id) for a, u in rows]
+    return await overlay_page(session, outs, [a for a, _ in rows])

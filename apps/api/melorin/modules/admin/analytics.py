@@ -400,21 +400,14 @@ async def _snapshot(session: AsyncSession, now: dt.datetime) -> dict:
         await session.scalar(
             select(func.count(VpnAccount.id)).where(
                 VpnAccount.status == "active",
-                VpnAccount.expires_at.is_not(None),
-                VpnAccount.expires_at >= now,
-                VpnAccount.expires_at <= soon,
+                VpnAccount.sold_expires_at.is_not(None),
+                VpnAccount.sold_expires_at >= now,
+                VpnAccount.sold_expires_at <= soon,
             )
         )
         or 0
     )
-    used, limit = (
-        await session.execute(
-            select(
-                func.coalesce(func.sum(VpnAccount.traffic_used_bytes), 0), func.coalesce(func.sum(VpnAccount.traffic_limit_bytes), 0)
-            ).where(VpnAccount.status == "active")
-        )
-    ).one()
-    as_of = await session.scalar(select(func.min(VpnAccount.last_synced_at)).where(VpnAccount.status == "active"))
+    sold = await session.scalar(select(func.coalesce(func.sum(VpnAccount.sold_traffic_bytes), 0)).where(VpnAccount.status == "active")) or 0
     panels = await _panel_aggregates(session)
     tickets = dict((await session.execute(select(Ticket.status, func.count(Ticket.id)).group_by(Ticket.status))).all())
     users_total = await session.scalar(select(func.count(User.id)).where(User.is_active.is_(True), User.is_guest.is_(False))) or 0
@@ -423,11 +416,12 @@ async def _snapshot(session: AsyncSession, now: dt.datetime) -> dict:
             "by_status": [{"status": k, "count": int(v)} for k, v in sorted(vpn_status.items(), key=lambda kv: -kv[1])],
             "active": int(vpn_status.get("active", 0)),
             "expiring_7d": int(expiring),
-            "traffic_used_bytes": int(used),
-            "traffic_limit_bytes": int(limit),
-            # R5: the two sums above are Melorin's LAST-KNOWN copy, not the panel's truth; say so and when it was read.
-            "traffic_source": "last_known",
-            "traffic_as_of": as_of.isoformat() if as_of else None,
+            # R5/R9: Melorin owns no usage. The volume sum is what was SOLD for active accounts; real usage and the user/online
+            # counts are each panel's own (``panels`` below, from its monitoring snapshot, with the age of the reading).
+            "traffic_used_bytes": None,
+            "traffic_limit_bytes": int(sold),
+            "traffic_source": "sold",
+            "traffic_as_of": None,
             "panels": panels,  # what each PANEL reports about itself (its own users / online counts), with the reading's age
         },
         "tickets": {"by_status": [{"status": k, "count": int(v)} for k, v in tickets.items()], "open": int(tickets.get("open", 0))},

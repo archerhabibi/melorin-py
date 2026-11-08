@@ -79,7 +79,9 @@ class Server(IdMixin, TimestampMixin, Base):
     sellable: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
     sellable_reason: Mapped[str | None] = mapped_column(String(300))
     destination_health: Mapped[dict | None] = mapped_column(JSON)  # status healthy|degraded|blocked, score, reasons, hosts/nodes counts
-    capacity_source: Mapped[str] = mapped_column(String(10), default="panel", server_default="panel")  # panel (default, decision 6: the panel is the truth) | melorin
+    capacity_source: Mapped[str] = mapped_column(
+        String(10), default="panel", server_default="panel"
+    )  # panel (default, decision 6: the panel is the truth) | melorin
     capacity_alert_level: Mapped[int] = mapped_column(
         Integer, default=0, server_default="0"
     )  # highest announced fill threshold: 0 | 80 | 95 | 100
@@ -98,19 +100,17 @@ class VpnAccount(IdMixin, TimestampMixin, Base):
     panel_ref: Mapped[str | None] = mapped_column(String(200))
     status: Mapped[str] = mapped_column(String(20), index=True)
     is_test: Mapped[bool] = mapped_column(Boolean, default=False)
-    expires_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), index=True)
-    traffic_limit_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
-    traffic_used_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
-    subscription_url: Mapped[str | None] = mapped_column(Text)
-    links: Mapped[list | None] = mapped_column(JSON)
+    # R9: what Melorin SOLD / last applied (purchase, renewal, plan change, compensation, bulk extend, "accept panel"). Written only
+    # by acts through ``sync.record_sale``, never copied from a sync. "Now" (expiry, limit, usage, link) is read from the panel.
+    sold_expires_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    sold_traffic_bytes: Mapped[int] = mapped_column(BigInteger, default=0)  # 0 = unlimited
+    # What the customer was handed at delivery: {subscription_url, links, taken_at}. Fallback for a QR when the panel cannot answer.
+    delivery_snapshot: Mapped[dict | None] = mapped_column(JSON)
     near_expiry_notified: Mapped[bool] = mapped_column(Boolean, default=False)
     # PG-06: highest "traffic running low" threshold (percent) already announced for the current package; 0 = none. Reset on renewal.
     traffic_notified_level: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
-    # PG-02: what the panel last said (the panel is the source of truth for these; ``status`` is the normalised Melorin view)
+    # PG-02: ``status`` is the derived display state (bucket for SQL chips); the panel's own numbers are read live.
     last_synced_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), index=True)
-    remote_status: Mapped[str | None] = mapped_column(String(20))  # raw panel status: active|on_hold|limited|expired|disabled
-    online_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
-    lifetime_used_traffic: Mapped[int | None] = mapped_column(BigInteger)
     sync_error_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     archived_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     # PG-09: a prepaid package queued on the panel (``next_plan``): {"template_id", "product_id", "order_id", "queued_at"}; None = nothing queued.

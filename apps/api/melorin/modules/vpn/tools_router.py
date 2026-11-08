@@ -16,7 +16,7 @@ from melorin.core.errors import NotFound
 from melorin.core.scope import StoreScope
 from melorin.kernel.models.vpn import Panel, VpnAccount
 from melorin.modules.vpn import account_tools as tools
-from melorin.modules.vpn import inquiry
+from melorin.modules.vpn import inquiry, live
 from melorin.modules.vpn.schemas import (
     AccountAdjustIn,
     ConnectionsOut,
@@ -88,7 +88,7 @@ def _register(prefix: str, dep) -> None:
 
     @router.post(f"{base}/rotate-subscription", response_model=VpnAccountOut, name=f"rotate_{role}")
     async def rotate(t: T, session: Session):
-        return inquiry.account_out(await tools.rotate_subscription(session, t.account, role=t.role, actor_id=t.actor_id))
+        return await live.card(session, await tools.rotate_subscription(session, t.account, role=t.role, actor_id=t.actor_id))
 
     if role == tools.CUSTOMER:
         return
@@ -99,11 +99,11 @@ def _register(prefix: str, dep) -> None:
 
     @router.post(f"{base}/suspend", response_model=VpnAccountOut, name=f"suspend_{role}")
     async def suspend(body: ReasonIn, t: T, session: Session):
-        return inquiry.account_out(await tools.suspend(session, t.account, role=t.role, actor_id=t.actor_id, reason=body.reason))
+        return await live.card(session, await tools.suspend(session, t.account, role=t.role, actor_id=t.actor_id, reason=body.reason))
 
     @router.post(f"{base}/resume", response_model=VpnAccountOut, name=f"resume_{role}")
     async def resume(t: T, session: Session):
-        return inquiry.account_out(await tools.resume(session, t.account, role=t.role, actor_id=t.actor_id))
+        return await live.card(session, await tools.resume(session, t.account, role=t.role, actor_id=t.actor_id))
 
     if role == tools.ADMIN:
 
@@ -118,7 +118,7 @@ def _register(prefix: str, dep) -> None:
             account = await tools.adjust(
                 session, t.account, actor_id=t.actor_id, add_days=body.add_days, add_traffic_gb=body.add_traffic_gb, reason=body.reason
             )
-            return inquiry.account_out(account)
+            return await live.card(session, account)
 
 
 _register("/stores/{store_id}/vpn-accounts", _customer)

@@ -20,9 +20,11 @@ out = inquiry.account_out
 
 
 async def _with_returns(session, scope, accounts):
-    elig = await returns.eligibility_for(session, scope, accounts)
+    readings = await live.page_readings(session, accounts)  # ONE live read of the page: usage for the return rule AND the overlay
+    used = {aid: r.traffic_used_bytes for aid, r in readings.items() if r is not None}
+    elig = await returns.eligibility_for(session, scope, accounts, used=used)
     outs = [returns.account_view(a, elig.get(a.id)) for a in accounts]
-    return await live.overlay_page(session, outs, accounts)  # flag ``vpn.live_view``: the panel's numbers, never an old copy
+    return await live.overlay_page(session, outs, accounts, readings)  # the panel's numbers, never an old copy
 
 
 @router.get("", response_model=list[VpnAccountOut])

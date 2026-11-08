@@ -30,11 +30,6 @@ def percent_of(limit, used) -> int | None:
     return None if limit <= 0 else int(used * 100 // limit)
 
 
-def traffic_percent(account) -> int | None:
-    """Percent from the account row's last-known numbers. Only for callers that have no fresh panel reading; notices use :func:`percent_of`."""
-    return percent_of(account.traffic_limit_bytes, account.traffic_used_bytes)
-
-
 def normalize_levels(raw) -> tuple[int, ...]:
     """Validate a store's warning levels: 1-99 whole percents, no duplicates, ascending, at most ``MAX_LEVELS``.
 
@@ -106,7 +101,9 @@ def texts_for_store(settings: dict | None) -> dict[str, dict[str, str]]:
         return {}
 
 
-def apply_texts(settings: dict | None, kind: str, title: str, body: str, *, store_name: str = "", level: int | None = None) -> tuple[str, str]:
+def apply_texts(
+    settings: dict | None, kind: str, title: str, body: str, *, store_name: str = "", level: int | None = None
+) -> tuple[str, str]:
     """The store's wording for ``kind`` (with ``{store}`` / ``{level}`` filled in), or the platform text when it has none."""
     custom = texts_for_store(settings).get(kind)
     if not custom:

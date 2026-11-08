@@ -17,6 +17,7 @@ from melorin.kernel.models.notifications import Notification
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.system import OutboxEvent
 from melorin.modules.orders import provisioning as vpn
+from melorin.modules.vpn import sync
 from melorin.modules.vpn.adapters.registry import build_adapter, seed_adapter
 from melorin.kernel.models.vpn import Panel, VpnAccount
 
@@ -330,7 +331,7 @@ async def rollback_renewal(session, payload):
         expire_at=dt.datetime.fromisoformat(before["expires_at"]) if before.get("expires_at") else None,
         traffic_bytes=int(before.get("traffic_limit_bytes") or 0),
     )
-    account.expires_at, account.traffic_limit_bytes = pa.expire_at, pa.traffic_limit_bytes
+    sync.record_sale(account, pa.expire_at, pa.traffic_limit_bytes)  # R10: back to what was applied before the refunded renewal
     await session.commit()
 
 
