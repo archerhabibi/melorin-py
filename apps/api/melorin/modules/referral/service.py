@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from melorin.core import audit, events, settings_store
 from melorin.core.errors import AppError, NotFound
 from melorin.domain.commission import Plan, PlanError, amount_for, offset_with_outstanding, split_reversal, validate_plan
+from melorin.domain.order_kinds import is_revenue, revenue_only
 from melorin.domain.order_state import OrderStatus
 from melorin.kernel.models.catalog import Product, StoreProduct
 from melorin.kernel.models.identity import User
@@ -39,7 +40,9 @@ async def is_store_member(session: AsyncSession, store: Store, user_id: uuid.UUI
 async def has_store_history(session: AsyncSession, store_id: uuid.UUID, user_id: uuid.UUID) -> bool:
     """True when the customer already bought (a real, non-test order) in THIS store: he is no longer 'new here'."""
     return bool(
-        await session.scalar(select(Order.id).where(Order.user_id == user_id, Order.store_id == store_id, Order.kind != "test").limit(1))
+        await session.scalar(
+            select(Order.id).where(Order.user_id == user_id, Order.store_id == store_id, revenue_only(Order.kind)).limit(1)
+        )
     )
 
 
@@ -134,7 +137,7 @@ async def _plan(session: AsyncSession, order: Order, kind: str) -> Plan | None:
 
 async def on_order_completed(session: AsyncSession, order_id: uuid.UUID) -> None:
     order = await session.get(Order, order_id)
-    if not order or order.kind == "test" or order.total <= 0:
+    if not order or not is_revenue(order.kind) or order.total <= 0:
         return
     # Store isolation (docs/17): the relationship is looked up INSIDE the order's own store. A referral made in another store
     # never pays here and never charges this store's referral-expense account; this store's own relationship (if any) is the one used.
@@ -155,7 +158,7 @@ async def on_order_completed(session: AsyncSession, order_id: uuid.UUID) -> None
                 # downgrade the signup reward of this store to a plain commission.
                 Order.store_id == order.store_id,
                 Order.status == OrderStatus.COMPLETED,
-                Order.kind != "test",
+                revenue_only(Order.kind),
                 Order.total > 0,
                 Order.completed_at < order.completed_at,
             )

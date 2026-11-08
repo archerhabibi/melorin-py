@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 
 from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import AppError, NotFound
+from melorin.domain.order_kinds import not_manual
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.payments import Payment
 from melorin.kernel.models.stores import Store
@@ -24,7 +25,7 @@ async def store_sales(store_id: uuid.UUID, _: AdminUser, session: Session):
     rows = (
         await session.execute(
             select(Order.status, func.count(Order.id), func.coalesce(func.sum(Order.total), 0))
-            .where(Order.store_id == store.id)
+            .where(Order.store_id == store.id, not_manual(Order.kind))
             .group_by(Order.status)
             .order_by(Order.status)
         )

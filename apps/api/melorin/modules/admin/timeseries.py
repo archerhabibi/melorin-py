@@ -18,6 +18,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from melorin.core.db import utcnow
+from melorin.domain.order_kinds import not_manual
 from melorin.domain.order_state import OrderStatus
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.payments import Payment
@@ -100,11 +101,15 @@ async def build_timeseries(session: AsyncSession, days: int = 30, now: dt.dateti
         ).all()
         order_day = local_day(Order.created_at, dialect, tz_name)
         order_all_rows = (
-            await session.execute(select(order_day, func.count(Order.id)).where(Order.created_at >= since).group_by(order_day))
+            await session.execute(
+                select(order_day, func.count(Order.id)).where(Order.created_at >= since, not_manual(Order.kind)).group_by(order_day)
+            )
         ).all()
         order_rows = (
             await session.execute(
-                select(order_day, func.count(Order.id)).where(Order.created_at >= since, Order.status.in_(sold)).group_by(order_day)
+                select(order_day, func.count(Order.id))
+                .where(Order.created_at >= since, Order.status.in_(sold), not_manual(Order.kind))
+                .group_by(order_day)
             )
         ).all()
     else:
@@ -119,7 +124,9 @@ async def build_timeseries(session: AsyncSession, days: int = 30, now: dt.dateti
         pay_rows = [(cur, day, n, total) for (cur, day), (n, total) in buckets.items()]
         all_counts: dict[str, int] = {}
         sold_counts: dict[str, int] = {}
-        for at, status in (await session.execute(select(Order.created_at, Order.status).where(Order.created_at >= since))).all():
+        for at, status in (
+            await session.execute(select(Order.created_at, Order.status).where(Order.created_at >= since, not_manual(Order.kind)))
+        ).all():
             day = _local_date(at, zone)
             all_counts[day] = all_counts.get(day, 0) + 1
             if status in sold:

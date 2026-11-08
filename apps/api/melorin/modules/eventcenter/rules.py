@@ -51,6 +51,8 @@ async def _order_rule(session, label: str, p: dict, *, test_text: str | None = N
         return None
     if order.kind == "test":
         return (order.store_id, topics.TESTS, f"{test_text}\nسفارش: {order.number}") if test_text else None
+    if order.kind == "manual":
+        return None  # assigned by an admin, not a sale: nothing to announce in the orders topic (the audit trail records it)
     return order.store_id, topics.ORDERS, f"{label}\nسفارش: {order.number}\nمبلغ: {_money(order.total, order.currency)}"
 
 

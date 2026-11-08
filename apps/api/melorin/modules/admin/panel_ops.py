@@ -2,7 +2,8 @@
 
 Read endpoints are plain lists. Every write is an explicit admin decision, audited, and limited to the issue's own kind:
 ``ignore`` / ``resolve`` (any kind), ``fix_owner`` (owner_mismatch), ``archive_account`` / ``link_existing`` / ``recreate_on_panel`` (missing_on_panel), ``resync`` (re-check now).
-Nothing here deletes anything on a panel, and orphans are only ever listed or ignored.
+Nothing here deletes anything on a panel; orphans are listed, ignored, recorded as manual or assigned to a customer (a zero-price
+``manual`` order that is NOT a sale: see ``domain/order_kinds``).
 """
 
 import datetime as dt
@@ -21,7 +22,7 @@ from melorin.domain.order_state import VpnStatus
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.vpn import Panel, PanelEvent, PanelNode, PanelOrphan, ReconciliationIssue, VpnAccount
 from melorin.modules.vpn import issues as issue_svc
-from melorin.modules.vpn import notices, panel_events, panel_events_admin, recreate, reconcile
+from melorin.modules.vpn import manual_assign, notices, panel_events, panel_events_admin, reconcile, recreate
 from melorin.modules.vpn.adapters.base import PanelError, supports
 from melorin.modules.vpn.adapters.registry import build_adapter, seed_adapter
 
@@ -473,6 +474,57 @@ async def manual_orphan(orphan_id: uuid.UUID, body: OrphanIgnoreIn, admin: Admin
     (it goes ``gone`` by itself when the panel user disappears); an admin may later assign it to a store/customer.
     """
     return await _set_orphan_status(session, admin, orphan_id, "manual", body, "panel_orphan.manual")
+
+
+class OrphanAssignIn(BaseModel):
+    store_id: uuid.UUID
+    user_id: uuid.UUID = Field(description="the customer (an active member of the store) who will own the account")
+    product_id: uuid.UUID = Field(description="the package this account is renewed as later; its price is NOT charged now")
+    server_id: uuid.UUID | None = Field(default=None, description="destination to count it on; default = the panel's only enabled one")
+    note: str | None = Field(default=None, max_length=300)
+
+
+class OrphanAssignOut(BaseModel):
+    vpn_account_id: uuid.UUID
+    order_id: uuid.UUID
+    order_number: str
+    username: str
+    store_id: uuid.UUID
+    user_id: uuid.UUID
+    revenue: str = "excluded"
+    excluded_from: list[str] = list(manual_assign.EXCLUDED_FROM)
+    owner_matches: bool | None = None
+    expected_owner: str | None = None
+
+
+@router.post("/panel-orphans/{orphan_id}/assign", response_model=OrphanAssignOut)
+async def assign_orphan(orphan_id: uuid.UUID, body: OrphanAssignIn, admin: AdminUser, session: Session):
+    """Give a panel user (open or recorded as manual) to a store customer.
+
+    Creates the account and a zero-price ``manual`` order that is NOT a sale: no revenue, no commission, no referral reward, no
+    loyalty points, no return. Writes nothing to the panel; the sold entitlement is the panel's reading taken now (a panel that does
+    not answer: 503, nothing created). ``owner_matches=false`` means the next reconcile will raise ``owner_mismatch`` (decide ``fix_owner``).
+    """
+    r = await manual_assign.assign_orphan(
+        session,
+        admin=admin,
+        orphan_id=orphan_id,
+        store_id=body.store_id,
+        user_id=body.user_id,
+        product_id=body.product_id,
+        server_id=body.server_id,
+        note=body.note,
+    )
+    return OrphanAssignOut(
+        vpn_account_id=r.account.id,
+        order_id=r.order.id,
+        order_number=r.order.number,
+        username=r.account.username,
+        store_id=r.account.store_id,
+        user_id=r.account.user_id,
+        owner_matches=r.owner_matches,
+        expected_owner=r.expected_owner,
+    )
 
 
 @router.post("/panel-orphans/{orphan_id}/reopen", response_model=OrphanOut)

@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 from melorin.core import admin_telegram
 from melorin.core.deps import Session, StoreContext, api_access
 from melorin.kernel.models.identity import User
+from melorin.domain.order_kinds import not_manual
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.stores import StoreMembership
 from melorin.modules.catalog import allocation
@@ -92,7 +93,7 @@ async def api_reports(session: Session, ctx: StoreContext = Depends(api_access("
     rows = (
         await session.execute(
             select(Order.status, func.count(), func.coalesce(func.sum(Order.total), 0))
-            .where(Order.store_id == ctx.store.id)
+            .where(Order.store_id == ctx.store.id, not_manual(Order.kind))
             .group_by(Order.status)
         )
     ).all()

@@ -5,6 +5,7 @@ from sqlalchemy import func, select
 
 from melorin.core import audit, settings_store
 from melorin.core.deps import OwnerCtx, Session, main_store
+from melorin.domain.order_kinds import not_manual
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.stores import ResellerProfile
 from melorin.modules.reseller.schemas import (
@@ -53,7 +54,7 @@ async def report(ctx: OwnerCtx, session: Session):
     rows = (
         await session.execute(
             select(Order.status, func.count(), func.coalesce(func.sum(Order.total), 0), func.coalesce(func.sum(Order.reseller_cost), 0))
-            .where(Order.store_id == ctx.store.id)
+            .where(Order.store_id == ctx.store.id, not_manual(Order.kind))
             .group_by(Order.status)
         )
     ).all()

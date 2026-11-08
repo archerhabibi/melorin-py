@@ -25,6 +25,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from melorin.core.db import utcnow
+from melorin.domain.order_kinds import not_manual
 from melorin.domain.order_state import OrderStatus
 from melorin.kernel.models.catalog import Product
 from melorin.kernel.models.identity import User
@@ -342,7 +343,7 @@ async def _load(session: AsyncSession, since: dt.datetime, store_id: uuid.UUID |
             Order.kind,
             Order.reseller_cost,
         )  # fmt: skip
-        .where((Order.created_at >= pad) | (Order.paid_at >= pad))
+        .where(((Order.created_at >= pad) | (Order.paid_at >= pad)), not_manual(Order.kind))
         .order_by(Order.created_at.desc())
         .limit(MAX_ROWS + 1)
     )
