@@ -38,7 +38,7 @@ from melorin.domain.order_state import VpnStatus
 from melorin.kernel.models.catalog import Product
 from melorin.kernel.models.vpn import Panel, VpnAccount
 from melorin.modules.vpn import capabilities as panel_caps
-from melorin.modules.vpn import inquiry, live, notices, sync, templates
+from melorin.modules.vpn import live, notices, sync, templates
 from melorin.modules.vpn.adapters.base import ErrorKind, PanelError, supports
 from melorin.modules.vpn.adapters.registry import build_adapter, seed_adapter
 
