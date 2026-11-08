@@ -160,3 +160,65 @@ def test_cleanup_verdict_uses_the_configured_retention():
     cleanup = {"expired_users_retention_days": 20}
     assert settings_drift.evaluate_cleanup(cleanup, "aligned", 30)["state"] == "drift"
     assert settings_drift.evaluate_cleanup(cleanup, "aligned", 15)["state"] == "ok"
+
+
+# ---------------------------------------------------------------- PG-04 orphans and link_existing
+async def test_orphan_manual_reopen_and_reconcile_keeps_manual_quiet():
+    from melorin.kernel.models.vpn import PanelOrphan
+    from melorin.modules.admin import panel_ops
+    from melorin.modules.vpn import reconcile
+    from melorin.modules.vpn.adapters.base import PanelAccount
+
+    async with open_session() as s:
+        panel = await _panel(s)
+        o = PanelOrphan(panel_id=panel.id, username="rahim", status="open")
+        s.add(o)
+        await s.commit()
+        admin = types.SimpleNamespace(id=(await make_user(s)).id)
+        out = await panel_ops.record_orphan_as_manual(o.id, panel_ops.OrphanIgnoreIn(note="made by hand"), admin, s)
+        assert out.status == "manual" and out.note == "made by hand"
+        remote = {
+            "rahim": PanelAccount(
+                ref="7",
+                username="rahim",
+                status="active",
+                expire_at=None,
+                traffic_limit_bytes=0,
+                traffic_used_bytes=0,
+                remote_status="active",
+                owner="Ajdar",
+            )
+        }
+        assert await reconcile._record_orphans(s, panel.id, remote, NOW) == 0  # still manual, not re-listed as open
+        assert (await s.get(PanelOrphan, o.id)).status == "manual"
+        assert await reconcile._record_orphans(s, panel.id, {}, NOW) == 0  # deleted on the panel -> gone
+        assert (await s.get(PanelOrphan, o.id)).status == "gone"
+        with pytest.raises(AppError):
+            await panel_ops.reopen_orphan(o.id, panel_ops.OrphanIgnoreIn(), admin, s)
+
+
+async def test_link_existing_points_a_missing_account_at_the_real_panel_user(monkeypatch):
+    from melorin.kernel.models.vpn import PanelOrphan
+    from melorin.modules.admin import panel_ops
+
+    async with open_session() as s:
+        panel = await _panel(s)
+        acc = await _account(s, panel, name="old_name")
+        issue = await issues.open_issue(s, acc.id, issues.MISSING, {})
+        orphan = PanelOrphan(panel_id=panel.id, username="renamed_on_panel", remote_id=42, status="open")
+        s.add(orphan)
+        await s.commit()
+        admin = types.SimpleNamespace(id=(await make_user(s)).id)
+
+        async def fake_reconcile(session, account_id):
+            return "ok"
+
+        monkeypatch.setattr(panel_ops.reconcile, "reconcile_account", fake_reconcile)
+        assert "link_existing" in panel_ops.allowed_actions(issues.MISSING, "open")
+        with pytest.raises(AppError):  # an orphan is required
+            await panel_ops.issue_action(issue.id, panel_ops.IssueActionIn(action="link_existing"), admin, s)
+        await panel_ops.issue_action(issue.id, panel_ops.IssueActionIn(action="link_existing", orphan_id=orphan.id), admin, s)
+        acc = await s.get(VpnAccount, acc.id)
+        assert acc.username == "renamed_on_panel" and acc.panel_ref == "42"
+        assert (await s.get(PanelOrphan, orphan.id)).status == "gone"
+        assert (await s.get(ReconciliationIssue, issue.id)).status == "resolved"

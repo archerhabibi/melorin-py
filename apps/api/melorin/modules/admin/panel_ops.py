@@ -1,8 +1,9 @@
 """Admin API - panel operations (PasarGuard roadmap Phase 1): node health, reconciliation issues, discovered panel users.
 
 Read endpoints are plain lists. Every write is an explicit admin decision, audited, and limited to the issue's own kind:
-``ignore`` / ``resolve`` (any kind), ``fix_owner`` (owner_mismatch), ``archive_account`` (missing_on_panel), ``resync`` (re-check now).
-Nothing here deletes anything on a panel, and orphans are only ever listed or ignored.
+``ignore`` / ``resolve`` (any kind), ``fix_owner`` (owner_mismatch), ``archive_account`` / ``link_existing`` (missing_on_panel),
+``resync`` (re-check now). Nothing here deletes anything on a panel. A panel user Melorin does not know is only listed, hidden
+(``ignore``) or recorded as a deliberate MANUAL account (``manual``, Phase 6 decision 1); it is never deleted or adopted automatically.
 """
 
 import datetime as dt
@@ -28,7 +29,7 @@ from melorin.modules.vpn.adapters.registry import build_adapter, seed_adapter
 router = APIRouter(prefix="/admin", tags=["admin"])
 log = logging.getLogger("melorin.admin.panel_ops")
 
-ACTIONS = ("ignore", "resolve", "fix_owner", "archive_account", "resync")
+ACTIONS = ("ignore", "resolve", "fix_owner", "archive_account", "link_existing", "resync")
 
 
 class NodeOut(BaseModel):
@@ -72,8 +73,11 @@ class IssueOut(BaseModel):
 
 
 class IssueActionIn(BaseModel):
-    action: str = Field(pattern="^(ignore|resolve|fix_owner|archive_account|resync)$")
+    action: str = Field(pattern="^(ignore|resolve|fix_owner|archive_account|link_existing|resync)$")
     reason: str | None = Field(default=None, max_length=300)
+    orphan_id: uuid.UUID | None = (
+        None  # link_existing: the panel user (an open/ignored/manual orphan of the SAME panel) this account really is
+    )
 
 
 class OrphanOut(BaseModel):
@@ -100,7 +104,7 @@ def allowed_actions(kind: str, status: str) -> list[str]:
     """What an admin may do with an issue. Closed issues take no action."""
     if status != issue_svc.OPEN:
         return []
-    extra = {issue_svc.OWNER_MISMATCH: ["fix_owner"], issue_svc.MISSING: ["archive_account"]}.get(kind, [])
+    extra = {issue_svc.OWNER_MISMATCH: ["fix_owner"], issue_svc.MISSING: ["link_existing", "archive_account"]}.get(kind, [])
     return ["resync", *extra, "resolve", "ignore"]
 
 
@@ -254,6 +258,7 @@ async def reconciliation_summary(_: AdminUser, session: Session):
         ).all()
     )
     orphans = await session.scalar(select(func.count()).select_from(PanelOrphan).where(PanelOrphan.status == "open")) or 0
+    manual = await session.scalar(select(func.count()).select_from(PanelOrphan).where(PanelOrphan.status == "manual")) or 0
     oldest = await session.scalar(
         select(func.min(VpnAccount.last_synced_at)).where(VpnAccount.status.in_(("active", "suspended", "limited")))
     )
@@ -261,6 +266,7 @@ async def reconciliation_summary(_: AdminUser, session: Session):
         "open": {k: int(by_kind.get(k, 0)) for k in issue_svc.KINDS},
         "open_total": int(sum(by_kind.values())),
         "orphans_open": int(orphans),
+        "orphans_manual": int(manual),
         "oldest_sync_at": oldest,
     }
 
@@ -284,6 +290,21 @@ async def issue_action(issue_id: uuid.UUID, body: IssueActionIn, admin: AdminUse
     elif body.action == "archive_account":
         account.status, account.archived_at = VpnStatus.ARCHIVED, now
         issue.status, issue.resolution, issue.resolved_at = issue_svc.RESOLVED, f"archived: {reason or 'missing on panel'}"[:300], now
+    elif body.action == "link_existing":
+        if body.orphan_id is None:
+            raise AppError("ORPHAN_REQUIRED", "کاربر موجود روی پنل را انتخاب کنید.", 422)
+        orphan = await session.get(PanelOrphan, body.orphan_id)
+        if not orphan or orphan.panel_id != account.panel_id or orphan.status == "gone":
+            raise NotFound("کاربر پنل")
+        if len(orphan.username) > 64 or await session.scalar(
+            select(VpnAccount.id).where(VpnAccount.username == orphan.username, VpnAccount.id != account.id)
+        ):
+            raise AppError("USERNAME_TAKEN", "این کاربر پنل قبلاً به اکانت دیگری وصل است یا نامش معتبر نیست.", 409)
+        account.username = orphan.username
+        account.panel_ref = str(orphan.remote_id) if orphan.remote_id is not None else None
+        account.sync_error_count = 0
+        orphan.status, orphan.note = "gone", f"linked to account {account.id}"[:300]  # no longer an orphan: Melorin knows it now
+        issue.status, issue.resolution, issue.resolved_at = issue_svc.RESOLVED, f"linked to panel user {orphan.username}"[:300], now
     elif body.action == "fix_owner":
         expected = (issue.details or {}).get("expected")
         panel = await session.get(Panel, account.panel_id) if account.panel_id else None
@@ -334,6 +355,9 @@ async def issue_action(issue_id: uuid.UUID, body: IssueActionIn, admin: AdminUse
         data={"issue": str(issue.id), "kind": issue.kind, "reason": reason},
     )
     await session.commit()
+    if body.action == "link_existing":
+        await reconcile.reconcile_account(session, account.id)  # verify the link against the panel right away (opens an issue if wrong)
+        await session.refresh(issue)
     store, panel = await session.get(Store, account.store_id), (await session.get(Panel, account.panel_id) if account.panel_id else None)
     return _issue_out(issue, account, store, panel)
 
@@ -356,47 +380,15 @@ async def panel_orphans(
     ).all()
     return {
         "total": total,
-        "items": [
-            OrphanOut(
-                id=o.id,
-                panel_id=o.panel_id,
-                panel_name=name,
-                username=o.username,
-                remote_status=o.remote_status,
-                owner_username=o.owner_username,
-                expire_at=o.expire_at,
-                traffic_limit_bytes=int(o.traffic_limit_bytes or 0),
-                traffic_used_bytes=int(o.traffic_used_bytes or 0),
-                status=o.status,
-                note=o.note,
-                first_seen_at=o.first_seen_at,
-                last_seen_at=o.last_seen_at,
-            )
-            for o, name in rows
-        ],
+        "items": [_orphan_out(o, name) for o, name in rows],
     }
 
 
-@router.post("/panel-orphans/{orphan_id}/ignore", response_model=OrphanOut)
-async def ignore_orphan(orphan_id: uuid.UUID, body: OrphanIgnoreIn, admin: AdminUser, session: Session):
-    """\"This panel user is not ours and that is fine\" (a manual account, a test). It is kept, only hidden from the open list."""
-    o = await session.get(PanelOrphan, orphan_id)
-    if not o:
-        raise NotFound("کاربر پنل")
-    o.status, o.note = "ignored", (body.note or "").strip() or None
-    audit.record(
-        session,
-        "panel_orphan.ignored",
-        actor_id=admin.id,
-        actor_type="admin",
-        entity_type="panel_orphan",
-        entity_id=o.id,
-        data={"username": o.username, "panel_id": str(o.panel_id)},
-    )
-    await session.commit()
+def _orphan_out(o: PanelOrphan, panel_name: str | None = None) -> OrphanOut:
     return OrphanOut(
         id=o.id,
         panel_id=o.panel_id,
+        panel_name=panel_name,
         username=o.username,
         remote_status=o.remote_status,
         owner_username=o.owner_username,
@@ -408,6 +400,45 @@ async def ignore_orphan(orphan_id: uuid.UUID, body: OrphanIgnoreIn, admin: Admin
         first_seen_at=o.first_seen_at,
         last_seen_at=o.last_seen_at,
     )
+
+
+async def _set_orphan_status(session, admin, orphan_id: uuid.UUID, status: str, note: str | None, audit_name: str) -> OrphanOut:
+    o = await session.get(PanelOrphan, orphan_id)
+    if not o:
+        raise NotFound("کاربر پنل")
+    if o.status == "gone":
+        raise AppError("ORPHAN_GONE", "این کاربر دیگر روی پنل نیست یا ملورین آن را می‌شناسد.", 409)
+    old, o.status, o.note = o.status, status, (note or "").strip()[:300] or None
+    audit.record(
+        session,
+        audit_name,
+        actor_id=admin.id,
+        actor_type="admin",
+        entity_type="panel_orphan",
+        entity_id=o.id,
+        data={"username": o.username, "panel_id": str(o.panel_id), "from": old, "to": status},
+    )
+    await session.commit()
+    return _orphan_out(o)
+
+
+@router.post("/panel-orphans/{orphan_id}/ignore", response_model=OrphanOut)
+async def ignore_orphan(orphan_id: uuid.UUID, body: OrphanIgnoreIn, admin: AdminUser, session: Session):
+    """\"This panel user is not ours and that is fine\" (a test, a leftover). It is kept, only hidden from the open list."""
+    return await _set_orphan_status(session, admin, orphan_id, "ignored", body.note, "panel_orphan.ignored")
+
+
+@router.post("/panel-orphans/{orphan_id}/manual", response_model=OrphanOut)
+async def record_orphan_as_manual(orphan_id: uuid.UUID, body: OrphanIgnoreIn, admin: AdminUser, session: Session):
+    """Phase 6 / decision 1: \"this user was made by hand on the panel on purpose\". It stays on the panel untouched (never auto-deleted),
+    leaves the open list, and is counted separately so it is never mistaken for a lost sale. Reversible with ``reopen``."""
+    return await _set_orphan_status(session, admin, orphan_id, "manual", body.note, "panel_orphan.recorded_manual")
+
+
+@router.post("/panel-orphans/{orphan_id}/reopen", response_model=OrphanOut)
+async def reopen_orphan(orphan_id: uuid.UUID, body: OrphanIgnoreIn, admin: AdminUser, session: Session):
+    """Undo ``ignore`` / ``manual``: the panel user is an open item again."""
+    return await _set_orphan_status(session, admin, orphan_id, "open", body.note, "panel_orphan.reopened")
 
 
 # ------------------------------------------------------------------------------------------- per-store notice settings (PG-06)

@@ -205,7 +205,7 @@ class PanelOrphan(IdMixin, TimestampMixin, Base):
     expire_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     traffic_limit_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
     traffic_used_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
-    status: Mapped[str] = mapped_column(String(20), default="open", index=True)  # open | ignored | gone
+    status: Mapped[str] = mapped_column(String(20), default="open", index=True)  # open | ignored | manual | gone
     note: Mapped[str | None] = mapped_column(String(300))
     first_seen_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     last_seen_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))

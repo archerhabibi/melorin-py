@@ -7,7 +7,8 @@ Per panel and run:
    when there are more than ``BATCH``;
 3. per account: mirror the panel's state (:mod:`sync`), then open / refresh / auto-close its issues
    (``missing_on_panel``, ``panel_unreachable``, ``owner_mismatch``, ``limits_mismatch``);
-4. panel users Melorin does not know become ``panel_orphans`` (listed for an admin, never deleted).
+4. panel users Melorin does not know become ``panel_orphans`` (listed for an admin, never deleted; an admin may record one as a
+   deliberate ``manual`` account, which stays quiet until it disappears from the panel).
 
 Nothing here writes to the panel.
 """
@@ -141,7 +142,7 @@ async def _record_orphans(session, panel_id, remote: dict[str, PanelAccount], no
         if row.status == "open":
             open_now += 1
     for name, row in existing.items():
-        if row.status in ("open", "ignored") and (name not in remote or name in known):
+        if row.status in ("open", "ignored", "manual") and (name not in remote or name in known):
             row.status = "gone"  # deleted on the panel, or Melorin now knows it
     return open_now
 
