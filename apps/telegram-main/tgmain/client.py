@@ -1,5 +1,6 @@
 """Core + Telegram transport for the main bot: per-update Ctx (CoreError re-exported), persistence and HTTP helpers."""
 
+import asyncio
 import json
 import logging
 import httpx
@@ -58,8 +59,30 @@ class TransportMixin:
         tmp.replace(self.state_file)
 
     # ---------- transport ----------
+    # Telegram answers 429 with ``parameters.retry_after`` (seconds). Honour it a bounded number of times (T22).
+    TG_MAX_RETRIES = 3
+    TG_MAX_WAIT = 30.0
+
+    @staticmethod
+    def retry_after_of(r: httpx.Response) -> float | None:
+        """Seconds Telegram asks us to wait on a 429, or None when the response is not a usable flood-wait."""
+        if r.status_code != 429:
+            return None
+        try:
+            wait = float((r.json().get("parameters") or {}).get("retry_after"))
+        except (ValueError, TypeError, AttributeError):
+            wait = float(r.headers.get("retry-after", "") or 1)
+        return max(0.0, wait)
+
     async def tg(self, method: str, payload: dict) -> dict:
-        r = await self.client.post(f"https://api.telegram.org/bot{self.token}/{method}", json=payload)
+        for attempt in range(self.TG_MAX_RETRIES + 1):
+            r = await self.client.post(f"https://api.telegram.org/bot{self.token}/{method}", json=payload)
+            wait = self.retry_after_of(r)
+            if wait is not None and attempt < self.TG_MAX_RETRIES and wait <= self.TG_MAX_WAIT:
+                log.warning("telegram 429 on %s, waiting %.0fs (retry %d/%d)", method, wait, attempt + 1, self.TG_MAX_RETRIES)
+                await asyncio.sleep(wait + 0.5)
+                continue
+            break
         r.raise_for_status()
         data = r.json()
         if not data.get("ok"):

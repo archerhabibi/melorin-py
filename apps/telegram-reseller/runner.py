@@ -18,7 +18,6 @@ Legacy static modes still work for development: ``MELORIN_RESELLER_BOTS_JSON`` (
 """
 
 import asyncio
-import logging
 import os
 import sys
 from pathlib import Path
@@ -27,6 +26,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from tgreseller.bot import CUSTOMER_COMMANDS, DEBT_LABEL, OWNER_BUTTON, OWNER_CACHE_SECONDS, OWNER_COMMANDS, OWNER_HELP, STORE_CACHE_SECONDS, TOKEN_RE, BotRevoked, RedactTokens, ResellerTelegramRunner, _module, esc, keyboard, log, money  # noqa: E402
+from tgmain.logsafe import setup_bot_logging  # noqa: E402
 from tgreseller.hosting import HEARTBEAT_SECONDS, Slot, Supervisor, _static_bots, heartbeat_loop  # noqa: E402
 
 # Names the tests and the supervisor reach through this module.
@@ -44,7 +44,5 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
-    for handler in logging.getLogger().handlers:
-        handler.addFilter(RedactTokens())
+    setup_bot_logging()
     asyncio.run(main())
