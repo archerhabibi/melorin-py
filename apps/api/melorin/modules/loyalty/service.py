@@ -439,11 +439,8 @@ async def _notify_earned(session: AsyncSession, order: Order, earned: int, befor
     body = f"{earned:,} امتیاز بابت سفارش {order.number} به باشگاه مشتریان شما اضافه شد."
     if after and (before is None or after.name != before.name):
         body += f"\nتبریک! به سطح «{after.name}» رسیدید."
-    await events.emit(
-        session,
-        events.NOTIFY,
-        {"user_id": order.user_id, "store_id": order.store_id, "kind": "loyalty", "title": "باشگاه مشتریان", "body": body},
-        dedup_key=f"notify:loyalty:{order.id}",
+    await events.emit_user_notice(
+        session, order.user_id, order.store_id, "loyalty", "باشگاه مشتریان", body, dedup_key=f"notify:loyalty:{order.id}"
     )
 
 

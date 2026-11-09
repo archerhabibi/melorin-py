@@ -64,11 +64,7 @@ async def check(
 
 
 async def _notify_owner(session: AsyncSession, a: ResellerApplication, *, title: str, body: str, key: str) -> None:
-    await events.emit(
-        session,
-        events.NOTIFY,
-        {"user_id": a.user_id, "store_id": a.target_store_id, "kind": "reseller_identity", "title": title, "body": body, "dedup_key": key},
-    )
+    await events.emit_user_notice(session, a.user_id, a.target_store_id, "reseller_identity", title, body, payload_dedup_key=key)
 
 
 async def recheck_one(session: AsyncSession, a: ResellerApplication, *, transport=None, dns_transport=None) -> str:

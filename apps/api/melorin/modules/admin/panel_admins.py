@@ -173,17 +173,14 @@ async def _notify_requester(session, r: PanelAdminChangeRequest, *, applied: boo
     )
     if note:
         body += f"\nتوضیح ادمین: {note}"
-    await events.emit(
+    await events.emit_user_notice(
         session,
-        events.NOTIFY,
-        {
-            "user_id": r.requested_by,
-            "store_id": r.store_id,
-            "kind": "reseller_panel_admin_request",
-            "title": "✅ درخواست شما اعمال شد" if applied else "❌ درخواست شما رد شد",
-            "body": body,
-            "dedup_key": f"panel_admin_request_result:{r.id}",
-        },
+        r.requested_by,
+        r.store_id,
+        "reseller_panel_admin_request",
+        "✅ درخواست شما اعمال شد" if applied else "❌ درخواست شما رد شد",
+        body,
+        payload_dedup_key=f"panel_admin_request_result:{r.id}",
     )
 
 

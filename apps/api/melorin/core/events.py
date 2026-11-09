@@ -66,3 +66,26 @@ def _jsonable(v):
 async def emit_store_notice(session, store_id, topic: str, text: str) -> None:
     """The one way to raise a store-scoped Event Center notice (T04); payments/bank_sms/provisional used private copies."""
     await emit(session, EVENT_CENTER, {"store_id": store_id, "topic": topic, "text": text})
+
+
+async def emit_user_notice(
+    session,
+    user_id,
+    store_id,
+    kind: str,
+    title: str,
+    body: str,
+    *,
+    payload_dedup_key: str | None = None,
+    dedup_key: str | None = None,
+    delay_seconds: float = 0,
+) -> None:
+    """The one way to raise a customer/reseller notification (T04). Builds the ``notification.send`` payload.
+
+    ``payload_dedup_key`` is the per-recipient key the worker stores on the Notification row (so a retry never re-sends);
+    ``dedup_key`` is the outbox-level key that stops the event itself being queued twice. Callers use whichever they used before.
+    """
+    payload = {"user_id": user_id, "store_id": store_id, "kind": kind, "title": title, "body": body}
+    if payload_dedup_key:
+        payload["dedup_key"] = payload_dedup_key
+    await emit(session, NOTIFY, payload, dedup_key=dedup_key, delay_seconds=delay_seconds)
