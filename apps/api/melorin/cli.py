@@ -1,9 +1,9 @@
 """Small operational CLI for first-install administration."""
 
 import argparse
-import datetime as dt
 import asyncio
 import uuid
+from melorin.domain.timeutil import utcnow
 import base64
 import binascii
 import getpass
@@ -60,7 +60,7 @@ async def bootstrap() -> None:
             user.totp_enabled = True
             user.totp_last_counter = None
         if await session.scalar(select(Identity).where(Identity.provider == "email", Identity.subject == email)) is None:
-            session.add(Identity(user_id=user.id, provider="email", subject=email, verified_at=dt.datetime.now(dt.timezone.utc)))
+            session.add(Identity(user_id=user.id, provider="email", subject=email, verified_at=utcnow()))
 
         tg_note = ""
         tg_raw = (getattr(settings, "bootstrap_admin_telegram_id", None) or "").strip()
@@ -120,7 +120,7 @@ async def outbox_replay(event_id: str) -> None:
         event = await session.get(OutboxEvent, uuid.UUID(event_id))
         if event is None:
             raise SystemExit("outbox event not found")
-        event.status, event.locked_at, event.available_at = "pending", None, __import__("datetime").datetime.now(__import__("datetime").UTC)
+        event.status, event.locked_at, event.available_at = "pending", None, utcnow()
         event.last_error = None
         await session.commit()
         print(f"outbox replay queued: {event.id}")

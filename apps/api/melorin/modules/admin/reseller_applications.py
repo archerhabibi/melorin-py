@@ -2,6 +2,7 @@
 
 import logging
 import uuid
+from melorin.domain.timeutil import utcnow
 from fastapi import APIRouter
 from sqlalchemy import select
 from melorin.core import audit
@@ -111,7 +112,7 @@ async def review_application(application_id: uuid.UUID, body: ResellerApproval, 
             await identity.ensure_identity_free(
                 session, domain=a.domain, bot_key=a.bot_key, bot_username=a.bot_username, exclude_application_id=a.id
             )
-    a.reviewed_by, a.reviewed_at = admin.id, __import__("datetime").datetime.now(__import__("datetime").UTC)
+    a.reviewed_by, a.reviewed_at = admin.id, utcnow()
     a.review_reason = reason
     if body.approve and not has_details:
         # Two-step request (filed from Telegram): approve the request only. The domain and bot token are collected from
