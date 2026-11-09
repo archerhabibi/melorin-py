@@ -8,7 +8,6 @@ from typing import Literal
 
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
 
 from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import NotFound
@@ -16,6 +15,8 @@ from melorin.kernel.models.stores import Store
 from melorin.kernel.models.vpn import BulkOperation, Panel, PanelAdmin
 from melorin.modules.vpn import bulk, governance, subscription_check
 from melorin.modules.panelops import ops_console
+
+from melorin.modules.panelops import queries
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -149,14 +150,8 @@ async def bulk_list(
     limit: int = Query(30, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ):
-    q = select(BulkOperation)
-    if status:
-        q = q.where(BulkOperation.status == status)
-    if panel_id:
-        q = q.where(BulkOperation.panel_id == panel_id)
-    total = await session.scalar(select(func.count()).select_from(q.subquery()))
-    rows = (await session.scalars(q.order_by(BulkOperation.created_at.desc()).limit(limit).offset(offset))).all()
-    return {"total": total or 0, "items": [await _named(session, r) for r in rows]}
+    total, rows = await queries.bulk_operation_rows(session, status=status, panel_id=panel_id, limit=limit, offset=offset)
+    return {"total": total, "items": [await _named(session, r) for r in rows]}
 
 
 @router.get("/bulk-operations/{op_id}")
@@ -203,21 +198,15 @@ class StorePolicyIn(BaseModel):
 
 @router.get("/store-admins")
 async def governance_list(admin: AdminUser, session: Session, panel_id: uuid.UUID | None = None):
-    q = select(PanelAdmin, Store, Panel).join(Store, Store.id == PanelAdmin.store_id).join(Panel, Panel.id == PanelAdmin.panel_id)
-    if panel_id:
-        q = q.where(PanelAdmin.panel_id == panel_id)
-    rows = (await session.execute(q.order_by(Store.name))).all()
+    rows = await queries.store_admin_rows(session, panel_id)
     return {"items": [governance.row_out(a, s, p) for a, s, p in rows]}
 
 
 @router.post("/store-admins/refresh")
 async def governance_refresh(admin: AdminUser, session: Session, panel_id: uuid.UUID | None = None):
     """Read usage now instead of waiting for the periodic job."""
-    q = select(Panel).where(Panel.kind == "pasarguard", Panel.is_enabled.is_(True))
-    if panel_id:
-        q = q.where(Panel.id == panel_id)
     out = {"checked": 0, "updated": 0, "errors": 0}
-    for panel in (await session.scalars(q)).all():
+    for panel in await queries.pasarguard_panels(session, panel_id):
         stats = await governance.sync_usage(session, panel)
         out["checked"] += stats.checked
         out["updated"] += stats.updated

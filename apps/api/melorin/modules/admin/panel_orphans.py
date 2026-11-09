@@ -10,13 +10,14 @@ import uuid
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
 
 from melorin.core import audit
 from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import AppError, NotFound
-from melorin.kernel.models.vpn import Panel, PanelOrphan
+from melorin.kernel.models.vpn import PanelOrphan
 from melorin.modules.vpn import manual_assign
+
+from melorin.modules.panelops import queries
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 log = logging.getLogger("melorin.admin.panel_orphans")
@@ -48,17 +49,7 @@ class OrphanIgnoreIn(BaseModel):
 async def panel_orphans(
     _: AdminUser, session: Session, status: str | None = "open", panel_id: uuid.UUID | None = None, limit: int = 100, offset: int = 0
 ):
-    q = select(PanelOrphan, Panel.name).join(Panel, Panel.id == PanelOrphan.panel_id)
-    if status and status != "all":
-        q = q.where(PanelOrphan.status == status)
-    if panel_id:
-        q = q.where(PanelOrphan.panel_id == panel_id)
-    total = await session.scalar(select(func.count()).select_from(q.subquery())) or 0
-    rows = (
-        await session.execute(
-            q.order_by(PanelOrphan.last_seen_at.desc().nulls_last()).limit(max(1, min(limit, 500))).offset(max(0, offset))
-        )
-    ).all()
+    total, rows = await queries.orphan_rows(session, status=status, panel_id=panel_id, limit=max(1, min(limit, 500)), offset=max(0, offset))
     return {
         "total": total,
         "items": [

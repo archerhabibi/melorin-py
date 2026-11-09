@@ -6,13 +6,14 @@ import uuid
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
 
 from melorin.core import audit
 from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import AppError, NotFound
-from melorin.kernel.models.vpn import Panel, PanelEvent
+from melorin.kernel.models.vpn import Panel
 from melorin.modules.vpn import panel_events, panel_events_admin
+
+from melorin.modules.panelops import queries
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 log = logging.getLogger("melorin.admin.panel_live_events")
@@ -94,15 +95,9 @@ async def panel_events_list(
     await _panel_or_404(session, panel_id)
     if status and status not in ("pending", "processing", "processed", "ignored", "failed"):
         raise AppError("BAD_STATUS", "وضعیت نامعتبر است.", 422)
-    q = select(PanelEvent).where(PanelEvent.panel_id == panel_id)
-    if status:
-        q = q.where(PanelEvent.status == status)
-    if action:
-        q = q.where(PanelEvent.action == action)
-    if username:
-        q = q.where(PanelEvent.username == username.strip())
-    total = await session.scalar(select(func.count()).select_from(q.subquery())) or 0
-    rows = (await session.scalars(q.order_by(PanelEvent.received_at.desc()).limit(max(1, min(limit, 200))).offset(max(0, offset)))).all()
+    total, rows = await queries.event_rows(
+        session, panel_id, status=status, action=action, username=username, limit=max(1, min(limit, 200)), offset=max(0, offset)
+    )
     return {
         "total": total,
         "items": [

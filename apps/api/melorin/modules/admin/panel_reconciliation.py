@@ -11,7 +11,6 @@ import uuid
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
 
 from melorin.core import audit
 from melorin.core.db import utcnow
@@ -19,11 +18,13 @@ from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import AppError, NotFound
 from melorin.domain.order_state import VpnStatus
 from melorin.kernel.models.stores import Store
-from melorin.kernel.models.vpn import Panel, PanelNode, PanelOrphan, ReconciliationIssue, VpnAccount
+from melorin.kernel.models.vpn import Panel, PanelOrphan, ReconciliationIssue, VpnAccount
 from melorin.modules.vpn import issues as issue_svc
 from melorin.modules.vpn import reconcile, recreate
 from melorin.modules.vpn.adapters.base import PanelError, supports
 from melorin.modules.vpn.adapters.registry import build_adapter, seed_adapter
+
+from melorin.modules.panelops import queries
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 log = logging.getLogger("melorin.admin.panel_reconciliation")
@@ -97,11 +98,7 @@ async def panel_nodes(panel_id: uuid.UUID, _: AdminUser, session: Session):
     panel = await session.get(Panel, panel_id)
     if not panel:
         raise NotFound("پنل")
-    rows = (
-        await session.scalars(
-            select(PanelNode).where(PanelNode.panel_id == panel_id, PanelNode.removed_at.is_(None)).order_by(PanelNode.name)
-        )
-    ).all()
+    rows = await queries.live_nodes(session, panel_id)
     nodes = [
         NodeOut(
             remote_id=r.remote_id,
@@ -158,27 +155,7 @@ async def reconcile_panel_now(panel_id: uuid.UUID, admin: AdminUser, session: Se
 
 # ------------------------------------------------------------------------------------------------------------------ issues
 async def _issue_rows(session, *, status, kind, panel_id, limit, offset):
-    q = (
-        select(ReconciliationIssue, VpnAccount, Store, Panel)
-        .join(VpnAccount, VpnAccount.id == ReconciliationIssue.vpn_account_id)
-        .outerjoin(Store, Store.id == VpnAccount.store_id)
-        .outerjoin(Panel, Panel.id == VpnAccount.panel_id)
-    )
-    if status:
-        q = q.where(ReconciliationIssue.status == status)
-    if kind:
-        q = q.where(ReconciliationIssue.kind == kind)
-    if panel_id:
-        q = q.where(VpnAccount.panel_id == panel_id)
-    total = await session.scalar(select(func.count()).select_from(q.subquery())) or 0
-    rows = (
-        await session.execute(
-            q.order_by(ReconciliationIssue.last_seen_at.desc().nulls_last(), ReconciliationIssue.created_at.desc())
-            .limit(limit)
-            .offset(offset)
-        )
-    ).all()
-    return total, rows
+    return await queries.issue_rows(session, status=status, kind=kind, panel_id=panel_id, limit=limit, offset=offset)
 
 
 def _issue_out(i: ReconciliationIssue, a: VpnAccount, store: Store | None, panel: Panel | None) -> IssueOut:
@@ -229,20 +206,7 @@ async def reconciliation_issues(
 
 @router.get("/reconciliation/summary")
 async def reconciliation_summary(_: AdminUser, session: Session):
-    by_kind = dict(
-        (
-            await session.execute(
-                select(ReconciliationIssue.kind, func.count())
-                .where(ReconciliationIssue.status == issue_svc.OPEN)
-                .group_by(ReconciliationIssue.kind)
-            )
-        ).all()
-    )
-    orphans = await session.scalar(select(func.count()).select_from(PanelOrphan).where(PanelOrphan.status == "open")) or 0
-    manual = await session.scalar(select(func.count()).select_from(PanelOrphan).where(PanelOrphan.status == "manual")) or 0
-    oldest = await session.scalar(
-        select(func.min(VpnAccount.last_synced_at)).where(VpnAccount.status.in_(("active", "suspended", "limited")))
-    )
+    by_kind, orphans, manual, oldest = await queries.reconciliation_counts(session, issue_svc.OPEN)
     return {
         "open": {k: int(by_kind.get(k, 0)) for k in issue_svc.KINDS},
         "open_total": int(sum(by_kind.values())),
@@ -278,9 +242,7 @@ async def issue_action(issue_id: uuid.UUID, body: IssueActionIn, admin: AdminUse
         orphan = await session.get(PanelOrphan, body.orphan_id)
         if not orphan or orphan.panel_id != account.panel_id or orphan.status == "gone":
             raise NotFound("کاربر پنل")
-        if len(orphan.username) > 64 or await session.scalar(
-            select(VpnAccount.id).where(VpnAccount.username == orphan.username, VpnAccount.id != account.id)
-        ):
+        if len(orphan.username) > 64 or await queries.username_in_use(session, orphan.username, except_account_id=account.id):
             raise AppError("USERNAME_TAKEN", "این کاربر پنل قبلاً به اکانت دیگری وصل است یا نامش معتبر نیست.", 409)
         account.username = orphan.username
         account.panel_ref = str(orphan.remote_id) if orphan.remote_id is not None else None
