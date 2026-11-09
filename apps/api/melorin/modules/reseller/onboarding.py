@@ -60,11 +60,7 @@ async def _super_admin_ids(session) -> list[uuid.UUID]:
 async def alert_admins(session, *, kind: str, title: str, body: str, key: str) -> None:
     """One notification per active super admin (own dedup key, so an outbox retry never repeats it)."""
     for admin_id in await _super_admin_ids(session):
-        await events.emit(
-            session,
-            events.NOTIFY,
-            {"user_id": admin_id, "kind": kind, "title": title, "body": body, "dedup_key": f"{key}:{admin_id}"},
-        )
+        await events.emit_user_notice(session, admin_id, None, kind, title, body, payload_dedup_key=f"{key}:{admin_id}")
 
 
 async def _add_task(session, a: ResellerApplication, kind: str, title: str, detail: str) -> AdminTask | None:

@@ -3,6 +3,8 @@
 import asyncio
 import json
 import logging
+import os
+import time
 import httpx
 
 from tgmain.ui import (
@@ -27,6 +29,31 @@ class Ctx:
         return f"tg-{self.callback_id or self.update_id}"
 
 
+def atomic_write_json(path, data) -> None:
+    """Crash-safe JSON write (T29): unique temp file in the same directory, fsync, then atomic rename.
+
+    A kill between write and rename leaves the previous file intact; a half-written file is never visible.
+    """
+    import os
+    import tempfile
+    from pathlib import Path
+
+    path = Path(path)
+    fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=path.name + ".", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(data, f)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_name, path)
+    except BaseException:
+        try:
+            os.unlink(tmp_name)
+        except FileNotFoundError:
+            pass
+        raise
+
+
 class TransportMixin:
     """Offset/state persistence, Telegram Bot API calls, Core HTTP calls and in-place screens."""
 
@@ -38,50 +65,80 @@ class TransportMixin:
             return None
 
     def _save_offset(self, offset: int) -> None:
-        tmp = self.offset_file.with_suffix(".tmp")
-        tmp.write_text(json.dumps({"offset": offset}))
-        tmp.replace(self.offset_file)
+        atomic_write_json(self.offset_file, {"offset": offset})
         self.offset = offset
 
+    # Per-chat flow state expires (T29/T60): an abandoned "waiting for receipt" must not hang forever or grow the file without bound.
+    STATE_TTL = float(os.getenv("MELORIN_STATE_TTL_SECONDS", "86400"))
+
+    AT_KEY = "__at__"  # reserved key in the (flat, backward compatible) state file: {chat_id: last-write epoch}
+
     def _load_state(self) -> dict:
+        """Read the flat ``{chat_id: state}`` file; ``__at__`` carries per-chat write times and is absent in older files."""
+        self.state_at = {}
         try:
-            return json.loads(self.state_file.read_text())
+            data = json.loads(self.state_file.read_text())
         except (FileNotFoundError, json.JSONDecodeError):
             return {}
+        if not isinstance(data, dict):
+            return {}
+        stamps = data.pop(self.AT_KEY, None)
+        if isinstance(stamps, dict):
+            self.state_at = {str(k): float(v) for k, v in stamps.items() if str(k) in data and isinstance(v, (int, float))}
+        now = time.time()
+        for chat in data:
+            self.state_at.setdefault(str(chat), now)  # no stamp yet: start its clock now
+        return data
+
+    def _persist_state(self) -> None:
+        atomic_write_json(self.state_file, {**self.state, self.AT_KEY: getattr(self, "state_at", {})})
 
     def _set_state(self, chat_id, value: dict | None) -> None:
+        key = str(chat_id)
+        at = self.__dict__.setdefault("state_at", {})
         if value is None:
-            self.state.pop(str(chat_id), None)
+            self.state.pop(key, None)
+            at.pop(key, None)
         else:
-            self.state[str(chat_id)] = value
-        tmp = self.state_file.with_suffix(".tmp")
-        tmp.write_text(json.dumps(self.state))
-        tmp.replace(self.state_file)
+            self.state[key] = value
+            at[key] = time.time()
+        self._persist_state()
+
+    def _expire_state(self, now: float | None = None) -> int:
+        """Drop chats whose state is older than ``STATE_TTL``. Returns how many were removed."""
+        now = time.time() if now is None else now
+        at = self.__dict__.setdefault("state_at", {})
+        stale = [c for c in list(self.state) if now - at.get(c, now) > self.STATE_TTL]
+        for c in stale:
+            self.state.pop(c, None)
+            at.pop(c, None)
+        if stale:
+            self._persist_state()
+        return len(stale)
 
     # ---------- transport ----------
-    MAX_RETRY_AFTER = 60  # never sleep longer than this inside one call (the runner loop has its own back-off)
-    RATE_LIMIT_RETRIES = 3
+    # Telegram answers 429 with ``parameters.retry_after`` (seconds). Honour it a bounded number of times (T22).
+    TG_MAX_RETRIES = 3
+    TG_MAX_WAIT = 30.0
 
     @staticmethod
-    def _retry_after(response: httpx.Response) -> float:
-        """Seconds Telegram asks us to wait on a 429 (``parameters.retry_after`` or the Retry-After header)."""
+    def retry_after_of(r: httpx.Response) -> float | None:
+        """Seconds Telegram asks us to wait on a 429, or None when the response is not a usable flood-wait."""
+        if r.status_code != 429:
+            return None
         try:
-            value = response.json().get("parameters", {}).get("retry_after")
-        except ValueError:
-            value = None
-        value = value if value is not None else response.headers.get("retry-after")
-        try:
-            return max(1.0, float(value))
-        except (TypeError, ValueError):
-            return 1.0
+            wait = float((r.json().get("parameters") or {}).get("retry_after"))
+        except (ValueError, TypeError, AttributeError):
+            wait = float(r.headers.get("retry-after", "") or 1)
+        return max(0.0, wait)
 
     async def tg(self, method: str, payload: dict) -> dict:
-        for attempt in range(self.RATE_LIMIT_RETRIES + 1):
+        for attempt in range(self.TG_MAX_RETRIES + 1):
             r = await self.client.post(f"https://api.telegram.org/bot{self.token}/{method}", json=payload)
-            if r.status_code == 429 and attempt < self.RATE_LIMIT_RETRIES:
-                wait = min(self._retry_after(r), self.MAX_RETRY_AFTER)  # T22: honour Telegram's retry_after
-                log.warning("telegram %s rate-limited (429); retrying in %.0fs", method, wait)
-                await asyncio.sleep(wait)
+            wait = self.retry_after_of(r)
+            if wait is not None and attempt < self.TG_MAX_RETRIES and wait <= self.TG_MAX_WAIT:
+                log.warning("telegram 429 on %s, waiting %.0fs (retry %d/%d)", method, wait, attempt + 1, self.TG_MAX_RETRIES)
+                await asyncio.sleep(wait + 0.5)
                 continue
             break
         r.raise_for_status()

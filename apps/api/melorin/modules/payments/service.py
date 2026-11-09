@@ -211,17 +211,8 @@ async def mark_succeeded(session: AsyncSession, payment_id: uuid.UUID, *, actor_
         data={"amount": p.amount, "note": note},
     )
     await events.emit(session, events.PAYMENT_SUCCEEDED, {"payment_id": p.id, "store_id": p.store_id})
-    await events.emit(
-        session,
-        events.NOTIFY,
-        {
-            "user_id": p.user_id,
-            "store_id": p.store_id,
-            "kind": "payment",
-            "title": "پرداخت تأیید شد",
-            "body": f"پرداخت {p.amount:,} تأیید شد.",
-        },
-        dedup_key=f"notify:payment:{p.id}",
+    await events.emit_user_notice(
+        session, p.user_id, p.store_id, "payment", "پرداخت تأیید شد", f"پرداخت {p.amount:,} تأیید شد.", dedup_key=f"notify:payment:{p.id}"
     )
     await session.commit()
     return p
@@ -243,17 +234,7 @@ async def mark_failed(session: AsyncSession, payment_id: uuid.UUID, *, actor_id=
         data={"reason": reason},
     )
     await events.emit(session, events.PAYMENT_FAILED, {"payment_id": p.id, "store_id": p.store_id})
-    await events.emit(
-        session,
-        events.NOTIFY,
-        {
-            "user_id": p.user_id,
-            "store_id": p.store_id,
-            "kind": "payment",
-            "title": "پرداخت ناموفق",
-            "body": reason or "پرداخت شما تأیید نشد.",
-        },
-    )
+    await events.emit_user_notice(session, p.user_id, p.store_id, "payment", "پرداخت ناموفق", reason or "پرداخت شما تأیید نشد.")
     await session.commit()
     return p
 

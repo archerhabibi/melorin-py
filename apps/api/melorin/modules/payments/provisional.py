@@ -166,7 +166,7 @@ async def _block_reason(session: AsyncSession, p: Payment, cfg: dict, history: l
 
 
 async def _notify(session: AsyncSession, store_id: uuid.UUID, text: str) -> None:
-    await events.emit(session, events.EVENT_CENTER, {"store_id": store_id, "topic": "payments", "text": text})
+    await events.emit_store_notice(session, store_id, "payments", text)
 
 
 async def _approve(session: AsyncSession, p: Payment, cfg: dict) -> bool:
@@ -352,16 +352,8 @@ async def resolve(
         store_id=p.store_id,
         data={"shortfall": short, "note": note},
     )
-    await events.emit(
-        session,
-        events.NOTIFY,
-        {
-            "user_id": p.user_id,
-            "store_id": p.store_id,
-            "kind": "payment",
-            "title": "شارژ موقت لغو شد",
-            "body": note or "رسید شما پس از بررسی تأیید نشد و شارژ موقت برگشت خورد.",
-        },
+    await events.emit_user_notice(
+        session, p.user_id, p.store_id, "payment", "شارژ موقت لغو شد", note or "رسید شما پس از بررسی تأیید نشد و شارژ موقت برگشت خورد."
     )
     await session.commit()
     return p

@@ -138,10 +138,14 @@ async def send(session, *, sender: User, store: Store, audience: str, title: str
     session.add(bc)
     await session.flush()
     for i, r in enumerate(people):
-        await events.emit(
+        await events.emit_user_notice(
             session,
-            events.NOTIFY,
-            {"user_id": r.user_id, "store_id": r.store_id, "kind": "broadcast", "title": title, "body": body, "dedup_key": key(bc.id, r)},
+            r.user_id,
+            r.store_id,
+            "broadcast",
+            title,
+            body,
+            payload_dedup_key=key(bc.id, r),
             dedup_key=key(bc.id, r),
             delay_seconds=i // PER_SECOND,
         )

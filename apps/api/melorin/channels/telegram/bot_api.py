@@ -4,9 +4,33 @@ The adapter is intentionally transport-only: identity, store isolation, authoriz
 order state, pricing, and provisioning remain in Core.
 """
 
+import asyncio
+import weakref
 from dataclasses import dataclass
 from typing import Any
 import httpx
+
+TELEGRAM_API = "https://api.telegram.org"
+_POOL_LIMITS = httpx.Limits(max_connections=20, max_keepalive_connections=10, keepalive_expiry=30.0)
+# One keep-alive pool per running event loop (T03): httpx clients are bound to the loop that first used them, and the
+# worker, the API and every test run their own loop. Entries vanish with their loop.
+_pools: "weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, httpx.AsyncClient]" = weakref.WeakKeyDictionary()
+
+
+def shared_client() -> httpx.AsyncClient:
+    """The pooled client every Bot API call of the current event loop goes through. Never close it from a caller."""
+    loop = asyncio.get_running_loop()
+    client = _pools.get(loop)
+    if client is None or client.is_closed:
+        client = _pools[loop] = httpx.AsyncClient(limits=_POOL_LIMITS)
+    return client
+
+
+async def close_shared_clients() -> None:
+    """Close the pool of the current loop (call from a shutdown hook)."""
+    client = _pools.pop(asyncio.get_running_loop(), None)
+    if client is not None and not client.is_closed:
+        await client.aclose()
 
 
 class TelegramApiError(RuntimeError):
@@ -20,6 +44,23 @@ class TelegramApiError(RuntimeError):
     def permanent(self) -> bool:
         """400/401/403/404 mean the bot, group or topic is wrong; retrying cannot fix it. 429 and 5xx are transient."""
         return self.code in (400, 401, 403, 404)
+
+
+async def get_me_response(
+    token: str, *, timeout: float = 10.0, client: httpx.AsyncClient | None = None, transport: httpx.AsyncBaseTransport | None = None
+) -> httpx.Response:
+    """Single raw ``getMe`` probe used by every token check (admin login settings, diagnostics, reseller onboarding).
+
+    Returns the HTTP response so callers keep their own status handling (401/404 = rejected). Network errors propagate as
+    ``httpx.HTTPError``; the bot token is never logged here (T03/T61).
+    """
+    url = f"{TELEGRAM_API}/bot{token}/getMe"
+    if client is not None:
+        return await client.get(url)
+    if transport is not None:  # tests inject a transport; production uses the shared pool
+        async with httpx.AsyncClient(timeout=timeout, transport=transport) as c:
+            return await c.get(url)
+    return await shared_client().get(url, timeout=timeout)
 
 
 @dataclass(frozen=True)
@@ -43,19 +84,17 @@ class TelegramChannel:
             return response.json()
 
     async def telegram(self, method: str, payload: dict[str, Any]) -> dict[str, Any]:
-        async with httpx.AsyncClient(base_url=f"https://api.telegram.org/bot{self.token}", timeout=self.timeout) as client:
-            response = await client.post(f"/{method}", json=payload)
-            response.raise_for_status()
-            data = response.json()
-            if not data.get("ok"):
-                raise RuntimeError(data.get("description", "Telegram API request failed"))
-            return data
+        response = await shared_client().post(f"{TELEGRAM_API}/bot{self.token}/{method}", json=payload, timeout=self.timeout)
+        response.raise_for_status()
+        data = response.json()
+        if not data.get("ok"):
+            raise RuntimeError(data.get("description", "Telegram API request failed"))
+        return data
 
     async def call(self, method: str, payload: dict[str, Any]) -> dict[str, Any]:
         """One Bot API call that raises :class:`TelegramApiError` (with ``retry_after``) instead of a bare RuntimeError."""
         try:
-            async with httpx.AsyncClient(base_url=f"https://api.telegram.org/bot{self.token}", timeout=self.timeout) as client:
-                response = await client.post(f"/{method}", json=payload)
+            response = await shared_client().post(f"{TELEGRAM_API}/bot{self.token}/{method}", json=payload, timeout=self.timeout)
         except httpx.HTTPError as exc:  # network / timeout: transient
             raise TelegramApiError(599, type(exc).__name__) from exc
         try:
@@ -120,13 +159,14 @@ class TelegramChannel:
             data["parse_mode"] = parse_mode
         if reply_markup:
             data["reply_markup"] = _json.dumps(reply_markup)
-        async with httpx.AsyncClient(base_url=f"https://api.telegram.org/bot{self.token}", timeout=self.timeout) as client:
-            response = await client.post("/sendPhoto", data=data, files={"photo": (filename, photo, "image/png")})
-            response.raise_for_status()
-            result = response.json()
-            if not result.get("ok"):
-                raise RuntimeError(result.get("description", "Telegram API request failed"))
-            return result
+        response = await shared_client().post(
+            f"{TELEGRAM_API}/bot{self.token}/sendPhoto", data=data, files={"photo": (filename, photo, "image/png")}, timeout=self.timeout
+        )
+        response.raise_for_status()
+        result = response.json()
+        if not result.get("ok"):
+            raise RuntimeError(result.get("description", "Telegram API request failed"))
+        return result
 
     async def authenticate_update(self, update: dict[str, Any], *, bot_secret: str) -> dict[str, Any]:
         """Resolve Telegram identity through Core before any channel operation."""

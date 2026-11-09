@@ -2,7 +2,6 @@
 
 import logging
 import os
-import re
 import time
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
@@ -16,6 +15,7 @@ _module = module_from_spec(_spec)
 assert _spec and _spec.loader
 _spec.loader.exec_module(_module)
 money, keyboard, esc = _module.money, _module.keyboard, _module.esc
+from tgmain.logsafe import TOKEN_RE, RedactTokens  # noqa: E402,F401  (tgmain is importable once the main runner module is loaded)
 
 log = logging.getLogger("melorin.telegram.reseller")
 
@@ -26,7 +26,6 @@ OWNER_COMMANDS = [("manage", OWNER_BUTTON), ("report", "📊 گزارش فروش
 DEBT_LABEL = {"ok": "🟢 عادی", "near": "🟠 نزدیک به سقف بدهی", "reached": "🔴 به سقف بدهی رسیده"}
 OWNER_CACHE_SECONDS = 600
 STORE_CACHE_SECONDS = 60  # welcome / support texts edited by the admin or the owner apply within a minute, no restart
-TOKEN_RE = re.compile(r"bot\d{6,15}:[A-Za-z0-9_-]{20,}")
 
 
 def owner_referral_text(rules: list, summary: dict, currency: str | None) -> str:
@@ -90,18 +89,6 @@ def owner_usage_text(rep: dict) -> str:
         lines += ["", "ℹ️ تعداد اکانت‌ها زیاد است؛ مصرف کل و شمارش‌ها بر پایه‌ی پرمصرف‌ترین‌ها محاسبه شده‌اند."]
     lines += ["", "اعداد همین حالا از پنل خوانده شده‌اند."]
     return "\n".join(lines)
-
-
-class RedactTokens(logging.Filter):
-    """httpx error text contains the request URL, i.e. the bot token. Never let it reach the logs."""
-
-    def filter(self, record: logging.LogRecord) -> bool:
-        record.msg = TOKEN_RE.sub("bot<redacted>", str(record.msg))
-        if record.args:
-            record.args = tuple(TOKEN_RE.sub("bot<redacted>", a) if isinstance(a, str) else a for a in (record.args if isinstance(record.args, tuple) else (record.args,)))
-        if record.exc_info and record.exc_info[1] is not None:
-            record.exc_text = TOKEN_RE.sub("bot<redacted>", logging.Formatter().formatException(record.exc_info))
-        return True
 
 
 class BotRevoked(Exception):

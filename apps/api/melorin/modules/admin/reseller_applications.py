@@ -156,17 +156,14 @@ async def review_application(application_id: uuid.UUID, body: ResellerApproval, 
         )
     else:
         title, text = "❌ درخواست نمایندگی شما رد شد", f"«{a.store_name}»: {reason}"
-    await events.emit(
+    await events.emit_user_notice(
         session,
-        events.NOTIFY,
-        {
-            "user_id": a.user_id,
-            "store_id": a.target_store_id,
-            "kind": "reseller_application",
-            "title": title,
-            "body": text,
-            "dedup_key": f"reseller_application:{a.id}:{a.status}",
-        },
+        a.user_id,
+        a.target_store_id,
+        "reseller_application",
+        title,
+        text,
+        payload_dedup_key=f"reseller_application:{a.id}:{a.status}",
     )
     await session.commit()
     return {"ok": True, "status": a.status, "store_id": a.store_id}

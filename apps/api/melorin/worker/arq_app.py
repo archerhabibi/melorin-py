@@ -70,7 +70,9 @@ async def startup(ctx):
 
 
 async def shutdown(ctx):
-    pass
+    from melorin.channels.telegram.bot_api import close_shared_clients
+
+    await close_shared_clients()
 
 
 class WorkerSettings:

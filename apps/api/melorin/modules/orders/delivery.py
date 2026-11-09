@@ -21,12 +21,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from melorin.core.fmt import format_amount
 from melorin.modules.vpn.qr import render_qr_png  # noqa: F401  (also the delivery module's public name)
 from melorin.core.config import get_settings
-from melorin.core.crypto import decrypt
 from melorin.core.metrics import inc
-from melorin.kernel.models.identity import Identity
 from melorin.kernel.models.notifications import Notification
 from melorin.kernel.models.orders import Order
-from melorin.kernel.models.stores import Store
 from melorin.kernel.models.vpn import VpnAccount
 from melorin.kernel.models.wallet import LedgerEntry, LedgerTransaction, Wallet
 
@@ -156,28 +153,25 @@ async def deliver_order(session: AsyncSession, order_id: uuid.UUID) -> str:
         session.add(n)
         await session.flush()
 
-    identity = await session.scalar(select(Identity).where(Identity.user_id == order.user_id, Identity.provider == "telegram"))
-    store = await session.get(Store, order.store_id)
-    token = decrypt(store.bot_token_enc) if store and store.bot_token_enc else get_settings().main_bot_token
-    if not identity or not token:
+    from melorin.modules.notifications.dispatch import telegram_target
+
+    target = await telegram_target(session, order.user_id, order.store_id, get_settings())
+    if target is None:
         n.telegram_status = "skipped"
         await session.commit()
         return "skipped"
-
-    from melorin.channels.telegram import TelegramChannel
-
-    channel = TelegramChannel(token, get_settings().store_web_url, "reseller" if store and store.kind == "reseller" else "main")
+    channel, chat_id = target
     caption = build_caption(order=order, account=account, link=link, balance=balance, currency=currency)
     try:
         if link and len(caption) <= CAPTION_LIMIT:
-            await channel.send_photo(identity.subject, render_qr_png(link), caption=caption, parse_mode="HTML")
+            await channel.send_photo(chat_id, render_qr_png(link), caption=caption, parse_mode="HTML")
         elif link:
             # Extremely long link: keep the photo post, but never exceed Telegram's caption limit.
             short = build_caption(order=order, account=account, link=None, balance=balance, currency=currency)
-            await channel.send_photo(identity.subject, render_qr_png(link), caption=short[:CAPTION_LIMIT], parse_mode="HTML")
-            await channel.send_message(identity.subject, f"🔗 {link}")
+            await channel.send_photo(chat_id, render_qr_png(link), caption=short[:CAPTION_LIMIT], parse_mode="HTML")
+            await channel.send_message(chat_id, f"🔗 {link}")
         else:
-            await channel.send_message(identity.subject, caption, parse_mode="HTML")
+            await channel.send_message(chat_id, caption, parse_mode="HTML")
         n.telegram_status = "sent"
         await session.commit()
         inc("melorin_notifications_total", channel="telegram", result="sent")
