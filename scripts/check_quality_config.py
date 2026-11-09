@@ -6,9 +6,9 @@ pyproject = (ROOT / "apps/api/pyproject.toml").read_text()
 gate = (ROOT / "scripts/run_quality_gate.sh").read_text()
 ci = (ROOT / ".github/workflows/ci.yml").read_text()
 
-# Must mirror [tool.ruff.lint] select in apps/api/pyproject.toml. Widening the policy (E7, I, UP, B) needs a
-# dedicated cleanup first (about 200 existing findings); keep both places in sync when that happens.
-required = ('"E4"', '"E9"', '"F"')
+# Must mirror [tool.ruff.lint] select in apps/api/pyproject.toml. Audit T30/T41 widened it with DTZ (naive datetimes),
+# B (bugbear), ASYNC and S (security); keep both places in sync when it changes again.
+required = ('"E4"', '"E9"', '"F"', '"DTZ"', '"B"', '"ASYNC"', '"S"')
 missing = [rule for rule in required if rule not in pyproject]
 if missing:
     raise SystemExit(f"quality policy missing rules: {missing}")

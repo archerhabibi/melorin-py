@@ -17,6 +17,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from melorin.domain.fmt import money
 from melorin.modules.vpn.qr import render_qr_png  # noqa: F401  (also the delivery module's public name)
 from melorin.core.config import get_settings
 from melorin.core.crypto import decrypt
@@ -36,10 +37,6 @@ LINK_WAIT = dt.timedelta(hours=1)  # how long a missing link is retried before d
 
 class LinkNotReady(RuntimeError):
     """The subscription link is not stored yet; raised so the outbox retries instead of sending a post without QR."""
-
-
-def _money(n) -> str:
-    return f"{int(n or 0):,}"
 
 
 def _gb(b) -> str:
@@ -75,7 +72,7 @@ def build_caption(*, order: Order, account: VpnAccount, link: str | None, balanc
     else:
         lines += ["", "🔗 لینک اشتراک در حال آماده‌سازی است؛ از بخش «اکانت‌ها» دریافت کنید."]
     if balance is not None:
-        lines += ["", f"💰 موجودی کیف پول: <b>{_money(balance)}</b> {e(currency)}"]
+        lines += ["", f"💰 موجودی کیف پول: <b>{money(balance)}</b> {e(currency)}"]
     return "\n".join(lines)
 
 
@@ -85,7 +82,7 @@ def build_plain_body(*, link: str | None, balance: int | None, currency: str) ->
     if link:
         parts.append(f"لینک اشتراک: {link}")
     if balance is not None:
-        parts.append(f"موجودی کیف پول: {_money(balance)} {currency}")
+        parts.append(f"موجودی کیف پول: {money(balance)} {currency}")
     return "\n".join(parts)
 
 

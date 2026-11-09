@@ -13,8 +13,10 @@ line-length = 140
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E4", "E9", "F"]
-ignore = ["F403", "F405"]
+select = ["E4", "E9", "F", "DTZ", "B", "ASYNC", "S"]
+# B008: FastAPI ``Depends()``/``Query()`` defaults. S101: type-narrowing asserts. S104: the API container must bind 0.0.0.0.
+# S105/S106: constant names that merely contain "token"/"secret"; S311: the mock adapter's failure dice are not crypto.
+ignore = ["F403", "F405", "B008", "S101", "S104", "S105", "S106", "S311"]
 per-file-ignores = { "melorin/models.py" = ["F403", "F405"] }
 [tool.ruff.format]
 quote-style = "double"

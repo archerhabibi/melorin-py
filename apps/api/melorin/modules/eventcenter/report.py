@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy import func, select
 
+from melorin.domain.fmt import money_by_currency
 from melorin.core.db import utcnow
 from melorin.domain.order_kinds import revenue_only
 from melorin.domain.order_state import OrderStatus, PaymentStatus
@@ -34,12 +35,6 @@ def _tehran() -> dt.tzinfo:
         return ZoneInfo("Asia/Tehran")
     except ZoneInfoNotFoundError:  # a slim container without tzdata
         return _TEHRAN_FALLBACK
-
-
-def _money(rows: list[tuple[str, int]]) -> str:
-    """``[(currency, total)]`` -> ``1,200,000 IRT`` (one part per currency, never mixed)."""
-    parts = [f"{int(total or 0):,} {cur}" for cur, total in rows if total]
-    return " + ".join(parts) if parts else "۰"
 
 
 async def _by_currency(session, count_col, amount, currency_col, *where) -> tuple[int, list[tuple[str, int]]]:
@@ -120,13 +115,13 @@ async def build(session, store_id: uuid.UUID | None, start: dt.datetime, end: dt
         f"📊 گزارش شبانه — {label}",
         f"{'کل پلتفرم' if admin else 'فروشگاه شما'} · ۲۴ ساعت گذشته",
         "",
-        f"🛒 فروش: {sales_n:,} سفارش — {_money(sales)}",
-        f"💳 پرداخت موفق: {paid_n:,} — {_money(paid)}  |  ناموفق: {failed_n:,}",
+        f"🛒 فروش: {sales_n:,} سفارش — {money_by_currency(sales)}",
+        f"💳 پرداخت موفق: {paid_n:,} — {money_by_currency(paid)}  |  ناموفق: {failed_n:,}",
         f"🧪 اکانت تست: {tests_n:,}",
         f"🎫 تیکت جدید: {tickets_n:,}",
     ]
     if admin:  # the referral program belongs to the Main Store only
-        lines.append(f"🤝 معرف جدید: {refs_n:,}  |  کمیسیون: {comm_n:,} مورد — {_money(comm)}")
+        lines.append(f"🤝 معرف جدید: {refs_n:,}  |  کمیسیون: {comm_n:,} مورد — {money_by_currency(comm)}")
     lines += ["", f"⏳ در انتظار شما: رسید {receipts:,} · تیکت باز {open_tickets:,} · سفارش نیازمند بررسی {review:,}"]
     return "\n".join(lines)
 

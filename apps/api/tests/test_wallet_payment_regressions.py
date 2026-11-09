@@ -37,5 +37,6 @@ def test_wallet_callback_parses_nested_amount_payload():
 
 
 def test_panel_health_job_accepts_sync_or_async_adapter_close():
-    source = read_source(ROOT / "melorin/worker/jobs.py")
-    assert "inspect.isawaitable(result)" in source
+    # audit T02: the single lifecycle helper lives in vpn/panel_session and jobs.py delegates to it
+    assert "inspect.isawaitable(result)" in read_source(ROOT / "melorin/modules/vpn/panel_session.py")
+    assert "close_adapter" in read_source(ROOT / "melorin/worker/jobs.py")

@@ -19,6 +19,7 @@ import uuid
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from melorin.modules.vpn.panel_session import closer
 from melorin.core.config import get_settings
 from melorin.core.crypto import encrypt
 from melorin.core.db import utcnow
@@ -51,13 +52,7 @@ def _is_connected(panel: Panel) -> bool:
     return bool(panel.webhook_secret_enc) and panel.webhook_connected_at is not None
 
 
-async def _close(adapter) -> None:
-    close = getattr(adapter, "close", None)
-    if callable(close):
-        try:
-            await close()
-        except Exception:
-            log.debug("adapter close failed", exc_info=True)
+_close = closer("panel events admin")
 
 
 async def counts(session: AsyncSession, panel_id: uuid.UUID, *, now: dt.datetime | None = None) -> dict:

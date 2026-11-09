@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from melorin.modules.vpn.panel_session import closer
 from melorin.core import audit
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError, NotFound
@@ -117,15 +118,7 @@ async def _adapter_for(panel: Panel, capability: str):
     return adapter
 
 
-async def _close(adapter) -> None:
-    close = getattr(adapter, "close", None)
-    if callable(close):
-        try:
-            res = close()
-            if hasattr(res, "__await__"):
-                await res
-        except Exception:
-            log.warning("governance: adapter close failed", exc_info=True)
+_close = closer("governance")
 
 
 async def sync_usage(session: AsyncSession, panel: Panel, adapter=None) -> SyncStats:
