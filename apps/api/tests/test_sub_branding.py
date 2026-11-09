@@ -11,7 +11,7 @@ from melorin.core.errors import AppError
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.system import AuditEvent
 from melorin.kernel.models.vpn import Panel, PanelAdmin
-from melorin.modules.vpn import sub_branding
+from melorin.modules.panelops import sub_branding
 from melorin.modules.vpn.adapters.base import ErrorKind, PanelError
 from melorin.modules.vpn.adapters.pasarguard import PasarGuardAdapter
 from test_pasarguard_phase1_db import seed

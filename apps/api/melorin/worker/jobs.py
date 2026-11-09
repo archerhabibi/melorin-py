@@ -191,7 +191,7 @@ async def panel_health_job(ctx=None):
 
 async def panel_metrics_job(ctx=None):
     """Every 2 minutes: one live reading per panel (latency, resources, users, online) for the /metrics gauges (PG-14)."""
-    from melorin.modules.vpn import panel_metrics
+    from melorin.modules.panelops import panel_metrics
 
     async with session_factory()() as s:
         done = await panel_metrics.run_snapshots(s, close_adapter=_close_adapter)
@@ -201,7 +201,7 @@ async def panel_metrics_job(ctx=None):
 
 async def panel_settings_drift_job(ctx=None):
     """Hourly: compare each PasarGuard panel's settings with what Melorin needs. READ-ONLY: it reports, an admin decides (PG-15)."""
-    from melorin.modules.vpn import settings_drift
+    from melorin.modules.panelops import settings_drift
 
     async with session_factory()() as s:
         done = await settings_drift.run_all(s, close_adapter=_close_adapter)

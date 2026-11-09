@@ -1,4 +1,5 @@
-from melorin.modules.vpn import service_access, store_role
+from melorin.modules.vpn import service_access
+from melorin.modules.panelops import store_role
 
 
 def test_store_role_is_smaller_than_the_service_role_and_has_no_key_or_admin_rights():

@@ -14,7 +14,8 @@ from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import AppError, NotFound
 from melorin.kernel.models.vpn import Panel, PanelNode
 from melorin.kernel.models.stores import Store
-from melorin.modules.vpn import panel_backup, panel_metrics, service_access, settings_drift, store_role, sub_branding
+from melorin.modules.vpn import service_access
+from melorin.modules.panelops import panel_backup, panel_metrics, settings_drift, store_role, sub_branding
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 

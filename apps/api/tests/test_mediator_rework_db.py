@@ -157,7 +157,7 @@ async def test_a_manual_orphan_stays_manual_and_goes_gone_when_the_panel_user_di
 
 # ------------------------------------------------------------------------------- decision 2: configurable retention days
 async def test_aligned_policy_uses_the_panel_specific_retention_days():
-    from melorin.modules.vpn import settings_drift as sd
+    from melorin.modules.panelops import settings_drift as sd
 
     cleanup = {"expired_users_retention_days": 20}
     assert sd.evaluate_cleanup(cleanup, "aligned", 30)["state"] == "drift"  # the admin expects at least 30
@@ -167,7 +167,7 @@ async def test_aligned_policy_uses_the_panel_specific_retention_days():
 
 
 async def test_set_policy_stores_and_clears_the_retention_days(maker, monkeypatch):
-    from melorin.modules.vpn import settings_drift as sd
+    from melorin.modules.panelops import settings_drift as sd
 
     panel_id, _ = await seed(maker, [])
     async with maker() as s:
