@@ -1,6 +1,8 @@
 """Sign in with Telegram: login settings, the main store's bot @username, and the diagnostics endpoint."""
 
 import httpx
+
+from melorin.channels.telegram.bot_api import get_me_response
 from fastapi import APIRouter
 from sqlalchemy import func, select
 
@@ -88,8 +90,7 @@ async def update_telegram(body: TelegramIn, admin: AdminUser, session: Session):
 async def _bot_get_me(token: str) -> tuple[bool, str | None]:
     """(reachable, username). ``reachable`` is False only on network failure; a rejected token gives (True, None)."""
     try:
-        async with httpx.AsyncClient(timeout=10) as c:
-            r = await c.get(f"https://api.telegram.org/bot{token}/getMe")
+        r = await get_me_response(token, timeout=10)
         me = (r.json() or {}).get("result") or {}
         return True, (me.get("username") or None) if r.status_code == 200 else None
     except (httpx.HTTPError, ValueError):

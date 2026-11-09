@@ -79,6 +79,7 @@ def _with_transport(runner, responses, sleeps, monkeypatch):
     return calls
 
 
+@pytest.mark.asyncio
 async def test_429_waits_retry_after_then_succeeds(runner, monkeypatch):
     sleeps = []
     responses = [
@@ -90,6 +91,7 @@ async def test_429_waits_retry_after_then_succeeds(runner, monkeypatch):
     assert len(calls) == 2 and sleeps == [7.5]
 
 
+@pytest.mark.asyncio
 async def test_429_gives_up_after_bounded_retries(runner, monkeypatch):
     sleeps = []
     responses = [httpx.Response(429, json={"parameters": {"retry_after": 1}}) for _ in range(10)]
@@ -99,6 +101,7 @@ async def test_429_gives_up_after_bounded_retries(runner, monkeypatch):
     assert len(calls) == runner.TG_MAX_RETRIES + 1
 
 
+@pytest.mark.asyncio
 async def test_huge_retry_after_is_not_slept_inline(runner, monkeypatch):
     sleeps = []
     calls = _with_transport(runner, [httpx.Response(429, json={"parameters": {"retry_after": 3600}})], sleeps, monkeypatch)
@@ -107,6 +110,7 @@ async def test_huge_retry_after_is_not_slept_inline(runner, monkeypatch):
     assert sleeps == [] and len(calls) == 1  # the caller's own backoff / replay policy takes over
 
 
+@pytest.mark.asyncio
 async def test_non_429_errors_are_not_retried(runner, monkeypatch):
     sleeps = []
     calls = _with_transport(runner, [httpx.Response(400, json={"ok": False})], sleeps, monkeypatch)

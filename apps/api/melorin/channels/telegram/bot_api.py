@@ -22,6 +22,21 @@ class TelegramApiError(RuntimeError):
         return self.code in (400, 401, 403, 404)
 
 
+async def get_me_response(
+    token: str, *, timeout: float = 10.0, client: httpx.AsyncClient | None = None, transport: httpx.AsyncBaseTransport | None = None
+) -> httpx.Response:
+    """Single raw ``getMe`` probe used by every token check (admin login settings, diagnostics, reseller onboarding).
+
+    Returns the HTTP response so callers keep their own status handling (401/404 = rejected). Network errors propagate as
+    ``httpx.HTTPError``; the bot token is never logged here (T03/T61).
+    """
+    url = f"https://api.telegram.org/bot{token}/getMe"
+    if client is not None:
+        return await client.get(url)
+    async with httpx.AsyncClient(timeout=timeout, transport=transport) as c:
+        return await c.get(url)
+
+
 @dataclass(frozen=True)
 class TelegramChannel:
     token: str

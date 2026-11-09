@@ -169,7 +169,7 @@ async def _block_reason(session: AsyncSession, p: Payment, cfg: dict, history: l
 
 
 async def _notify(session: AsyncSession, store_id: uuid.UUID, text: str) -> None:
-    await events.emit(session, events.EVENT_CENTER, {"store_id": store_id, "topic": "payments", "text": text})
+    await events.emit_store_notice(session, store_id, "payments", text)
 
 
 async def _approve(session: AsyncSession, p: Payment, cfg: dict) -> bool:

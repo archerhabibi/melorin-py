@@ -9,6 +9,8 @@ from urllib.parse import urlparse
 
 import httpx
 
+from melorin.channels.telegram.bot_api import get_me_response
+
 from melorin.core.config import get_settings
 from melorin.core.errors import AppError
 
@@ -68,8 +70,7 @@ async def verify_bot(token: str, *, transport: httpx.AsyncBaseTransport | None =
     application (the admin sees the bot as 'unverified' and can re-check it from the review screen before approving).
     """
     try:
-        async with httpx.AsyncClient(timeout=8, transport=transport) as client:
-            r = await client.get(f"https://api.telegram.org/bot{token}/getMe")
+        r = await get_me_response(token, timeout=8, transport=transport)
     except httpx.HTTPError:
         return None
     if r.status_code in (401, 404):

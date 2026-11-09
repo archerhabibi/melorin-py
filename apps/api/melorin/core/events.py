@@ -61,3 +61,8 @@ def _jsonable(v):
     if isinstance(v, str | int | float | bool) or v is None:
         return v
     return str(v)
+
+
+async def emit_store_notice(session, store_id, topic: str, text: str) -> None:
+    """The one way to raise a store-scoped Event Center notice (T04); payments/bank_sms/provisional used private copies."""
+    await emit(session, EVENT_CENTER, {"store_id": store_id, "topic": topic, "text": text})
