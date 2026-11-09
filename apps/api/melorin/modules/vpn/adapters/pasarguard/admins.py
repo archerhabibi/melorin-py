@@ -31,10 +31,17 @@ class AdminsMixin:
         return body
 
     async def ensure_admin(self, username: str, password: str, *, role: str = "operator", profile: dict | None = None) -> dict:
-        """Create the admin when missing (role Operator), adopt it (and set our password) when it already exists. Idempotent."""
+        """Create the admin when missing, adopt it (set our password, move it to ``role`` unless it is an owner) when it exists. Idempotent."""
         existing = await self.find_admin(username)
         if existing:
-            await self._req("PUT", f"/api/admin/by-id/{int(existing['id'])}", json={"password": password, **self._profile_body(profile)})
+            body: dict = {"password": password, **self._profile_body(profile)}
+            current = existing.get("role") if isinstance(existing.get("role"), dict) else {}
+            if not current.get("is_owner"):  # an owner's role is never touched, whatever the caller asks for
+                wanted = await self._role_id(role)
+                have = current.get("id") if current.get("id") is not None else existing.get("role_id")
+                if have is None or int(have) != wanted:
+                    body["role_id"] = wanted  # PG-12: applying `melorin-store` must reach admins that already exist
+            await self._req("PUT", f"/api/admin/by-id/{int(existing['id'])}", json=body)
             return existing
         body = {"username": username, "password": password, "role_id": await self._role_id(role), **self._profile_body(profile)}
         out = await self._req("POST", "/api/admin", json=body, ok409=True)

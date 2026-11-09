@@ -35,7 +35,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker  # noqa: E402
 
 from _db import open_schema_engine  # noqa: E402
 from melorin.core.errors import AppError  # noqa: E402
-from melorin.kernel.models.vpn import Panel  # noqa: E402
+from melorin.kernel.models.vpn import Panel, PanelAdmin  # noqa: E402
 from test_pasarguard_phase1_db import seed  # noqa: E402
 
 
@@ -73,8 +73,12 @@ async def test_apply_creates_the_role_then_new_store_admins_use_it_and_revert_re
         with pytest.raises(AppError) as e:
             await store_role.apply(s, panel, bootstrap=None)
         assert e.value.code == "BOOTSTRAP_REQUIRED" and owner.bodies == []
+        row = (await s.scalars(select(PanelAdmin))).one()
+        assert row.profile_synced is True  # seed: nothing pending
         out = await store_role.apply(s, panel, bootstrap={"api_key": "OWNER"})
         assert out["applied"] and owner.bodies[0]["name"] == "melorin-store"
+        await s.refresh(row)
+        assert row.profile_synced is False  # existing admins are now due: sync_all picks them up and moves them to the role
         assert panel.config["admin_role"] == "melorin-store" and "OWNER" not in json.dumps(panel.config)
         assert store_role.plan(panel=panel)["applied"] is True
         again = await store_role.apply(s, panel, bootstrap={"api_key": "OWNER"})  # idempotent

@@ -15,9 +15,11 @@ from __future__ import annotations
 import logging
 import re
 
+from sqlalchemy import update
+
 from melorin.core import audit
 from melorin.core.errors import AppError
-from melorin.kernel.models.vpn import Panel
+from melorin.kernel.models.vpn import Panel, PanelAdmin
 from melorin.modules.vpn.adapters import registry
 from melorin.modules.vpn.adapters.base import PanelError
 
@@ -40,6 +42,12 @@ def normalize_role_name(name: str | None) -> str:
     if value in RESERVED_ROLE_NAMES:
         raise AppError("ROLE_NAME_RESERVED", f"'{value}' is already used by the panel or by Melorin's service access.", 422)
     return value
+
+
+async def _due_for_sync(session, panel: Panel) -> None:
+    """``panel_admins.sync_all`` only picks rows that are unfinished or whose profile is unsynced, so an admin that already exists would
+    never learn about a new role. Flag this panel's rows: the next sync (worker, or ``sync_all``) moves each admin to the role."""
+    await session.execute(update(PanelAdmin).where(PanelAdmin.panel_id == panel.id).values(profile_synced=False))
 
 
 def role_body(name: str | None = None) -> dict:
@@ -107,6 +115,7 @@ async def apply(session, panel: Panel, *, bootstrap: dict | None, actor_id=None,
                 log.debug("store role: adapter close failed", exc_info=True)
     previous = (panel.config or {}).get("admin_role")
     panel.config = {**(panel.config or {}), "admin_role": name, "admin_role_managed": True}
+    await _due_for_sync(session, panel)
     audit.record(
         session,
         "panel.store_role.applied",
@@ -121,16 +130,17 @@ async def apply(session, panel: Panel, *, bootstrap: dict | None, actor_id=None,
         "applied": True,
         "role": name,
         "previous": previous or "operator",
-        "note": "New and re-synced store admins get this role; existing admins change on their next sync.",
+        "note": "New store admins get this role now; existing ones are moved to it by the next admin sync (they are flagged).",
     }
 
 
 async def revert(session, panel: Panel, *, actor_id=None) -> dict:
-    """Stop using the role for new / re-synced admins (back to the panel's stock role). Writes nothing to the panel."""
+    """Stop using the role (back to the panel's stock role). Writes nothing to the panel now; the next admin sync moves the admins back."""
     cfg = dict(panel.config or {})
     had = cfg.pop("admin_role", None)
     cfg.pop("admin_role_managed", None)
     panel.config = cfg
+    await _due_for_sync(session, panel)
     audit.record(
         session,
         "panel.store_role.reverted",

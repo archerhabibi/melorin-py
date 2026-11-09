@@ -45,7 +45,7 @@ class Fake:
             return httpx.Response(200, json={"access_token": "t"})
         if path == "/api/admin-roles/simple":
             return httpx.Response(
-                200, json={"roles": [{"id": 1, "name": "owner", "is_owner": True}, {"id": 3, "name": "operator", "is_owner": False}]}
+                200, json={"roles": [{"id": 1, "name": "owner", "is_owner": True}, {"id": 3, "name": "operator", "is_owner": False}, {"id": 7, "name": "melorin-store", "is_owner": False}]}
             )
         if path == "/api/admins":
             return httpx.Response(200, json={"admins": [a for a in self.admins.values() if a["username"] == q.get("username")]})
@@ -130,6 +130,27 @@ async def test_ensure_admin_is_idempotent_and_adopts_an_existing_one():
     assert first["id"] == again["id"] and len([x for x in fake.admins if x == "rs_x"]) == 1
     created = next(c for c in fake.calls if c[0] == "POST" and c[1] == "/api/admin")[2]
     assert created["profile_title"] == "Shop" and created["telegram_id"] == 5 and created["role_id"] == 3
+
+
+async def test_ensure_admin_moves_an_existing_admin_to_the_wanted_role_but_never_an_owner():
+    fake = Fake()
+    a = adapter(fake)
+    await a.ensure_admin("rs_x", "Passw0rd!Passw0rd!")  # created as operator (3)
+    assert fake.admins["rs_x"]["role_id"] == 3
+    await a.ensure_admin("rs_x", "Passw0rd!Passw0rd!", role="melorin-store")
+    assert fake.admins["rs_x"]["role_id"] == 7
+    seen = len(fake.calls)
+    await a.ensure_admin("rs_x", "Passw0rd!Passw0rd!", role="melorin-store")  # already there: the role is not sent again
+    put = next(c for c in fake.calls[seen:] if c[0] == "PUT")
+    assert "role_id" not in put[2]
+    fake.admins["boss"] = {"id": 9, "username": "boss", "role": {"id": 1, "name": "owner", "is_owner": True}}
+    await a.ensure_admin("boss", "Passw0rd!Passw0rd!", role="melorin-store")
+    assert "role_id" not in fake.admins["boss"]  # an owner keeps the owner role
+    # the real panel answers with a `role` object: compare by its id
+    fake.admins["real"] = {"id": 11, "username": "real", "role": {"id": 7, "name": "melorin-store", "is_owner": False}}
+    seen = len(fake.calls)
+    await a.ensure_admin("real", "Passw0rd!Passw0rd!", role="melorin-store")
+    assert "role_id" not in next(c for c in fake.calls[seen:] if c[0] == "PUT")[2]
 
 
 async def test_missing_operator_role_is_permanent():
