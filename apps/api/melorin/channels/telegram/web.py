@@ -36,6 +36,7 @@ from melorin.modules.identity import service
 from melorin.kernel.models.identity import RefreshToken, TelegramLoginSession, TrustedDevice, User
 from melorin.modules.identity.schemas import TelegramProfile, TokenPair
 from melorin.kernel.models.stores import Store
+from melorin.domain.timeutil import aware as _aware
 
 POLL_INTERVAL_SECONDS = 2
 MAX_WRONG_CHOICES = 2
@@ -49,10 +50,6 @@ def ttl_seconds(cfg: dict | None = None) -> int:
     if cfg is not None:
         return integrations.telegram_ttl(cfg)
     return max(60, min(600, int(get_settings().telegram_web_login_ttl_seconds)))
-
-
-def _aware(value: dt.datetime) -> dt.datetime:
-    return value.replace(tzinfo=value.tzinfo or dt.UTC)
 
 
 def seconds_left(row: TelegramLoginSession) -> int:

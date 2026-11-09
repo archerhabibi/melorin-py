@@ -253,6 +253,9 @@ async def expiry_job(ctx=None):
         return len(candidates)
 
 
+NEAR_EXPIRY_MAX_PAGES = 5  # bounds one run: at most 5 x live.MAX_ACCOUNTS panel reads
+
+
 async def near_expiry_job(ctx=None):
     """Warn customers whose subscription is about to end.
 
@@ -266,16 +269,21 @@ async def near_expiry_job(ctx=None):
         now, end = utcnow(), utcnow() + dt.timedelta(hours=hours)
         accounts = (
             await s.scalars(
-                select(VpnAccount).where(
+                select(VpnAccount)
+                .where(
                     VpnAccount.status == "active",
                     VpnAccount.near_expiry_notified.is_(False),
                     VpnAccount.sold_expires_at > now,
                     VpnAccount.sold_expires_at <= end,
                 )
+                .order_by(VpnAccount.sold_expires_at.asc(), VpnAccount.id)  # T23: the soonest-ending accounts are asked first
             )
         ).all()
         on_panel = [a for a in accounts if a.panel_id]
-        readings = await live.read(s, on_panel[: live.MAX_ACCOUNTS]) if on_panel else {}
+        readings: dict = {}
+        # T23: read in pages (one live.read never takes more than MAX_ACCOUNTS) instead of silently dropping everything after the first page
+        for start in range(0, min(len(on_panel), NEAR_EXPIRY_MAX_PAGES * live.MAX_ACCOUNTS), live.MAX_ACCOUNTS):
+            readings.update(await live.read(s, on_panel[start : start + live.MAX_ACCOUNTS]))
         for a in accounts:
             if a.panel_id:
                 reading = readings.get(a.id)

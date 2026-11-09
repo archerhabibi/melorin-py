@@ -27,12 +27,9 @@ from melorin.core.db import utcnow
 from melorin.core.errors import AppError
 from melorin.kernel.models.identity import User
 from melorin.kernel.models.stores import ResellerApplication, Store, StoreMembership
+from melorin.domain.timeutil import aware as _aware
 
 log = logging.getLogger("melorin.reseller.auto_approve")
-
-
-def _aware(value: dt.datetime) -> dt.datetime:
-    return value.replace(tzinfo=value.tzinfo or dt.UTC)
 
 
 async def blockers(session: AsyncSession, a: ResellerApplication) -> list[str]:

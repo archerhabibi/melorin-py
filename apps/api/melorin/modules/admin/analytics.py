@@ -35,6 +35,7 @@ from melorin.kernel.models.stores import Store
 from melorin.kernel.models.tickets import Ticket
 from melorin.kernel.models.vpn import Panel, VpnAccount
 from melorin.modules.admin.timeseries import MAX_DAYS, MIN_DAYS, SOLD_STATUSES, day_axis, resolve_zone
+from melorin.domain.timeutil import aware as _aware
 
 MAX_ROWS = 200_000  # per table and per request; ``truncated`` tells the UI when a window was cut
 TOP_N = 8
@@ -67,10 +68,6 @@ class PayRow(NamedTuple):
     provider: str
     purpose: str
     store_id: str
-
-
-def _aware(value: dt.datetime) -> dt.datetime:
-    return value.replace(tzinfo=dt.UTC) if value.tzinfo is None else value  # SQLite hands back naive UTC
 
 
 def _day(value: dt.datetime, zone: dt.tzinfo) -> str:

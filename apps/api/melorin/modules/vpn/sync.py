@@ -10,6 +10,7 @@ import datetime as dt
 from melorin.core.db import utcnow
 from melorin.domain.order_state import VpnStatus
 from melorin.modules.vpn import notices
+from melorin.domain.timeutil import aware  # noqa: F401  (re-exported: callers use sync.aware)
 
 # Melorin statuses the panel may overwrite. pending / provisioning / revoked / archived are Melorin-only lifecycle states.
 SYNCABLE = (VpnStatus.ACTIVE, VpnStatus.SUSPENDED, VpnStatus.EXPIRED, VpnStatus.LIMITED)
@@ -31,10 +32,6 @@ EXPIRY_TOLERANCE = dt.timedelta(hours=1)
 def _g(obj, name: str, default=None):
     """Panel adapters of other kinds (and test doubles) may not report every field: a missing one means \"not reported\"."""
     return getattr(obj, name, default)
-
-
-def aware(value: dt.datetime | None) -> dt.datetime | None:
-    return value if value is None or value.tzinfo else value.replace(tzinfo=dt.UTC)
 
 
 def status_from_remote(local: str, remote) -> str:

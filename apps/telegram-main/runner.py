@@ -389,5 +389,7 @@ class TelegramRunner(TransportMixin, IdentityMixin, LoyaltyMixin, PlansMixin, Wa
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
+    from tgmain.logsafe import install as install_safe_logging
+
+    install_safe_logging(os.getenv("LOG_LEVEL", "INFO"))  # T20: the bot token must never reach docker logs
     asyncio.run(TelegramRunner().run())
