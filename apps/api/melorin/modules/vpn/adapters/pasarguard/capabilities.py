@@ -26,7 +26,8 @@ CAPABILITY_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "usage_ops": ("users.read",),
     "device_ops": ("hwids.read", "hwids.delete"),
     "bulk_ops": ("users.set_owner",),
-    "admin_ops": ("admins.read", "admins.create", "admins.update"),
+    # admin_roles.read_simple: ensure_admin looks the role id up by name (also to move an EXISTING admin to a new role, found live)
+    "admin_ops": ("admins.read", "admins.create", "admins.update", "admin_roles.read_simple"),
     "settings_ops": ("settings.read",),
     "account_listing": ("users.read",),
     "capacity_ops": ("groups.read", "hosts.read", "nodes.read"),

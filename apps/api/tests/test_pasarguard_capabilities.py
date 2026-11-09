@@ -55,6 +55,7 @@ SERVICE = {  # a dedicated service role (PG-05 target): everything Melorin needs
     "hwids": {"read": True, "delete": True},
     "settings": {"read": True},
     "admins": {"read": True, "create": True, "update": True},
+    "admin_roles": {"read_simple": True},
     "groups": {"read": True},
     "hosts": {"read": True},
     "templates": {"read": True, "create": True, "update": True},

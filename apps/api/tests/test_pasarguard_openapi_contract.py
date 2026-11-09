@@ -301,6 +301,7 @@ PERMISSION_SCHEMAS = {
     "groups": "CRUDPermissions",
     "cores": "CRUDPermissions",
     "templates": "CRUDPermissions",
+    "admin_roles": "CRUDPermissions",
     "api_keys": "APIKeysPermissions",
 }
 
