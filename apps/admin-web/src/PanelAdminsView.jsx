@@ -314,7 +314,13 @@ function AdminDrawer({ row, call, toast, onClose, onDone }) {
       </section>
 
       {row.store_id && row.panel_id && row.status === 'active' && (
-        <SubBrandingCard storeId={row.store_id} panelId={row.panel_id} panelName={row.panel_name} call={call} toast={toast} />
+        <SubBrandingCard
+          storeId={row.store_id}
+          panelId={row.panel_id}
+          panelName={row.panel_name}
+          call={call}
+          toast={toast}
+        />
       )}
     </Drawer>
   );

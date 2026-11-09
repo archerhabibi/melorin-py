@@ -90,7 +90,12 @@ export default function SubBrandingCard({ storeId, panelId, panelName, call, toa
       )}
       <label className="block text-xs">
         <span className="text-[var(--mu)]">برای تأیید، نام پنل را تایپ کنید: «{panelName}»</span>
-        <input className="inp mt-1 w-full" value={typed} onChange={(e) => setTyped(e.target.value)} aria-label="نام پنل برای تأیید" />
+        <input
+          className="inp mt-1 w-full"
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          aria-label="نام پنل برای تأیید"
+        />
       </label>
       {error && (
         <p className="text-xs text-[var(--rd)]" role="alert">
@@ -105,7 +110,11 @@ export default function SubBrandingCard({ storeId, panelId, panelName, call, toa
         >
           اعمال روی پنل
         </button>
-        <button className="btn btn-g btn-d !py-2 !text-sm" disabled={!canType || !pv?.live} onClick={() => act('revert')}>
+        <button
+          className="btn btn-g btn-d !py-2 !text-sm"
+          disabled={!canType || !pv?.live}
+          onClick={() => act('revert')}
+        >
           برداشتن از پنل
         </button>
       </div>
