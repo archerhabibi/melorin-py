@@ -256,3 +256,31 @@ async def test_near_expiry_warning_is_sent_only_when_the_panel_agrees(maker, mon
     live.clear_cache()
     await jobs.near_expiry_job()
     assert sent == ["agrees"]  # dedup still holds for the one that was warned
+
+
+async def test_near_expiry_reads_every_page_not_only_the_first(maker, monkeypatch):
+    """T23: with more candidates than one live read may take, the rest must still be warned (soonest-ending first)."""
+    from melorin.modules.vpn import live, notices
+
+    names = [f"u{i}" for i in range(5)]
+    panel_id, ids = await seed(maker, names)
+    base = dt.datetime.now(dt.UTC)
+    async with maker() as s:
+        for i, a in enumerate((await s.scalars(select(VpnAccount).order_by(VpnAccount.username))).all()):
+            a.sold_expires_at = base + dt.timedelta(hours=40 - i)
+        await s.commit()
+    fake = FakePanel([remote(n, expire_days=1) for n in names])
+    monkeypatch.setattr(live, "build_adapter", lambda panel: fake)
+    monkeypatch.setattr(live, "seed_adapter", lambda adapter, account: adapter)
+    monkeypatch.setattr(live, "MAX_ACCOUNTS", 2)
+    live.clear_cache()
+    sent: list[str] = []
+
+    async def fake_notice(session, account):
+        sent.append(account.username)
+
+    monkeypatch.setattr(notices, "near_expiry", fake_notice)
+    monkeypatch.setattr(jobs, "session_factory", lambda: maker)
+    await jobs.near_expiry_job()
+    assert sorted(sent) == sorted(names)
+    assert sent[0] == "u4"  # the account that ends first is handled first
