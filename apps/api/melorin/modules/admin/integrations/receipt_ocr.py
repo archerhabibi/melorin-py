@@ -79,31 +79,7 @@ async def test_receipt_ocr(admin: AdminUser, session: Session):
         ok, detail = True, "tesseract روی سرور آماده است (دقت به فونت اپ بانک بستگی دارد)."
     else:
         try:
-            async with httpx.AsyncClient(timeout=c.timeout) as client:
-                r = await client.post(
-                    f"{c.base_url.rstrip('/')}/v1/messages",
-                    headers={"x-api-key": c.api_key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
-                    json={
-                        "model": c.model,
-                        "max_tokens": 5,
-                        "messages": [
-                            {
-                                "role": "user",
-                                "content": [
-                                    {
-                                        "type": "image",
-                                        "source": {
-                                            "type": "base64",
-                                            "media_type": "image/png",
-                                            "data": base64.b64encode(_PROBE_PNG).decode(),
-                                        },
-                                    },
-                                    {"type": "text", "text": "Reply with the single word OK."},
-                                ],
-                            }
-                        ],
-                    },
-                )
+            r = await receipt_ocr.post_vision(c, _PROBE_PNG, "image/png", "Reply with the single word OK.", max_tokens=5)
             if r.status_code == 200:
                 ok, detail = True, "اتصال و مدل تأیید شد."
             elif r.status_code in (401, 403):

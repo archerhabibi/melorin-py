@@ -178,7 +178,7 @@ def publish_signals(db: DatabaseProbe, worker: WorkerProbe) -> None:
     set_alert("MelorinRedisUnavailable", not worker.redis_ok, summary="Redis unavailable", severity="critical")
     set_alert(
         "MelorinWorkerStale",
-        not worker.worker_ok,
+        worker.redis_ok and not worker.worker_ok,  # T35: with Redis down the heartbeat is unknowable; MelorinRedisUnavailable already fires
         summary="Worker heartbeat stale",
         severity="critical",
         details=str(worker.last_tick or "missing"),
@@ -204,7 +204,7 @@ def build_checks(db: DatabaseProbe, worker: WorkerProbe) -> dict:
         "database": "ok" if db.ok else "unavailable",
         "redis": "ok" if worker.redis_ok else "unavailable",
         "rate_limit": "coordinated" if worker.redis_ok else "local_degraded",
-        "worker": "ok" if worker.worker_ok else "unavailable",
+        "worker": "ok" if worker.worker_ok else ("unavailable" if worker.redis_ok else "unknown"),  # T35: unknown = Redis down
         "worker_last_tick": worker.last_tick,
         "outbox_pending": db.pending,
         "unhealthy_panels": db.unhealthy_panels,

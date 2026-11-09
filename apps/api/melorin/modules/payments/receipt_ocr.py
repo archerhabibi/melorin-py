@@ -124,25 +124,42 @@ def _json_object(text: str) -> dict:
     return obj if isinstance(obj, dict) else {}
 
 
-async def _vision(data: bytes, content_type: str, c: OcrConfig) -> ReceiptFacts:
-    body = {
+async def post_vision(
+    c: OcrConfig,
+    data: bytes,
+    content_type: str,
+    prompt: str,
+    *,
+    max_tokens: int,
+    system: str | None = None,
+    temperature: float | None = None,
+) -> httpx.Response:
+    """The ONE place that builds and sends a vision (Messages API) request: receipt reading and the admin connection
+    test share it, so headers, version and image encoding can never drift apart (audit T13). Does not raise on HTTP status."""
+    body: dict = {
         "model": c.model,
-        "max_tokens": 300,
-        "temperature": 0,
-        "system": VISION_SYSTEM,
+        "max_tokens": max_tokens,
         "messages": [
             {
                 "role": "user",
                 "content": [
                     {"type": "image", "source": {"type": "base64", "media_type": content_type, "data": base64.b64encode(data).decode()}},
-                    {"type": "text", "text": VISION_PROMPT},
+                    {"type": "text", "text": prompt},
                 ],
             }
         ],
     }
+    if temperature is not None:
+        body["temperature"] = temperature
+    if system:
+        body["system"] = system
     headers = {"x-api-key": c.api_key, "anthropic-version": "2023-06-01", "content-type": "application/json"}
     async with httpx.AsyncClient(timeout=c.timeout) as client:
-        r = await client.post(f"{c.base_url.rstrip('/')}/v1/messages", json=body, headers=headers)
+        return await client.post(f"{c.base_url.rstrip('/')}/v1/messages", json=body, headers=headers)
+
+
+async def _vision(data: bytes, content_type: str, c: OcrConfig) -> ReceiptFacts:
+    r = await post_vision(c, data, content_type, VISION_PROMPT, max_tokens=300, system=VISION_SYSTEM, temperature=0)
     r.raise_for_status()
     parts = [b.get("text", "") for b in r.json().get("content", []) if b.get("type") == "text"]
     return facts_from_mapping(_json_object("".join(parts)))

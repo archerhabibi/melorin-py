@@ -18,6 +18,7 @@ from melorin.modules.eventcenter import rules as event_center_rules
 from melorin.modules.vpn import capabilities, capacity, health, live, notices, panel_events, reconcile, sync
 from melorin.kernel.models.vpn import Panel, VpnAccount
 from melorin.modules.vpn.adapters.lifecycle import close_adapter
+from melorin.worker import retention
 from melorin.worker.wrap import tracked_job
 
 _close_strict = functools.partial(close_adapter, strict=True)  # worker jobs keep raising on close failure
@@ -327,7 +328,7 @@ async def reconciliation_job(ctx=None):
 
 @tracked_job
 async def privacy_retention_job(ctx=None):
-    """Remove expired authentication codes while preserving financial/audit data."""
+    """Remove expired authentication codes and finished outbox/webhook rows (T51) while preserving financial/audit data."""
     async with session_factory()() as s:
         days = int(await settings_store.get(s, "privacy.verification_code_retention_days") or 7)
         cutoff = utcnow() - dt.timedelta(days=max(1, days))
@@ -338,7 +339,13 @@ async def privacy_retention_job(ctx=None):
             )
         )
         await s.commit()
-        log.info("privacy retention removed verification_codes=%s", result.rowcount or 0)
+        removed = await retention.purge_finished(s)  # T51: finished outbox events / webhook deliveries
+        log.info(
+            "privacy retention removed verification_codes=%s outbox_events=%s webhook_deliveries=%s",
+            result.rowcount or 0,
+            removed["outbox_events"],
+            removed["webhook_deliveries"],
+        )
         return int(result.rowcount or 0)
 
 
