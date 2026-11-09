@@ -13,6 +13,7 @@ import html
 import logging
 import datetime as dt
 import uuid
+from melorin.domain.timeutil import utcnow
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -114,8 +115,8 @@ def _link_wait_expired(order: Order) -> bool:
     if done is None:
         return True  # no timestamp to wait on: never block delivery forever
     if done.tzinfo is None:
-        done = done.replace(tzinfo=dt.timezone.utc)
-    return dt.datetime.now(dt.timezone.utc) - done > LINK_WAIT
+        done = done.replace(tzinfo=dt.UTC)
+    return utcnow() - done > LINK_WAIT
 
 
 async def deliver_order(session: AsyncSession, order_id: uuid.UUID) -> str:

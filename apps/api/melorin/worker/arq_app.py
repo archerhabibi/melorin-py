@@ -41,6 +41,8 @@ from melorin.worker.jobs import (
 from melorin.core.metrics import set_gauge
 from melorin.worker.wrap import tracked_job
 
+TICK_CONCURRENCY = 8
+
 
 @tracked_job(lock=False)  # runs every 2 s and is idempotent per claimed row, so no lock; still logged/metered like the rest
 async def poll_tick(ctx):
@@ -48,7 +50,14 @@ async def poll_tick(ctx):
         events = await claim_batch(session)
         deliveries = await claim_webhook_batch(session)
     if events or deliveries:
-        await asyncio.gather(*(process_event(e) for e in events), *(process_webhook(d) for d in deliveries))
+        # T27: at most TICK_CONCURRENCY rows in flight at once (each opens its own DB session); the batch itself is unchanged.
+        gate = asyncio.Semaphore(TICK_CONCURRENCY)
+
+        async def _bounded(coro):
+            async with gate:
+                return await coro
+
+        await asyncio.gather(*(_bounded(process_event(e)) for e in events), *(_bounded(process_webhook(d)) for d in deliveries))
     await ctx["redis"].set("melorin:worker:last_tick", str(time.time()), ex=15)
     set_gauge("melorin_worker_last_tick", __import__("time").time())
     return {"events": len(events), "deliveries": len(deliveries)}

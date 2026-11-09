@@ -2,6 +2,8 @@
 
 import logging
 import uuid
+from melorin.domain.timeutil import utcnow
+import datetime as dt
 from fastapi import APIRouter, Query
 from sqlalchemy import select
 from melorin.core import audit
@@ -94,8 +96,7 @@ async def attach_account(order_id: uuid.UUID, body: AttachExistingAccount, admin
         panel_ref=body.panel_ref,
         delivery_snapshot={"subscription_url": body.subscription_url, "links": None, "taken_at": None},
         status="active",
-        sold_expires_at=__import__("datetime").datetime.now(__import__("datetime").UTC)
-        + __import__("datetime").timedelta(days=product.duration_days),
+        sold_expires_at=utcnow() + dt.timedelta(days=product.duration_days),
         sold_traffic_bytes=product.traffic_gb * 1024**3,
     )
     session.add(a)
