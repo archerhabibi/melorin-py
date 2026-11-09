@@ -12,12 +12,13 @@ import uuid
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
-from sqlalchemy import select
 
 from melorin.core import audit
 from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import AppError, NotFound
 from melorin.kernel.models.vpn import Panel, Server
+from melorin.modules.panelops import queries
+from melorin.modules.vpn.panel_session import close_adapter
 from melorin.modules.vpn.adapters.registry import build_adapter
 from melorin.modules.vpn.targets import normalize_target, validate_target
 
@@ -51,11 +52,7 @@ async def fetch_listing(panel: Panel) -> dict | None:
         log.info("panel target listing failed panel=%s", panel.id, exc_info=True)
         return None
     finally:
-        if adapter is not None:
-            try:
-                await adapter.close()
-            except Exception:
-                log.warning("panel adapter close failed panel=%s", panel.id, exc_info=True)
+        await close_adapter(adapter)
 
 
 def listing_warnings(panel: Panel, target: dict | None, listing: dict | None) -> list[str]:
@@ -94,7 +91,7 @@ async def duplicate_warning(session, panel: Panel, target: dict | None, *, exclu
     """Two slots on one panel aimed at the same destination count the same users twice: say so."""
     if not target:
         return []
-    rows = (await session.scalars(select(Server).where(Server.panel_id == panel.id))).all()
+    rows = await queries.servers_of_panel(session, panel.id)
     same = [s.name for s in rows if s.id != exclude and normalize_target(s.target) == target]
     return [f"مقصد دیگری روی همین پنل (همین گروه/اینباند) وجود دارد: {', '.join(same)}"] if same else []
 
@@ -115,7 +112,7 @@ async def panel_targets(panel_id: uuid.UUID, _: AdminUser, session: Session):
     listing = await fetch_listing(panel)
     if listing is None:
         raise AppError("TARGETS_UNAVAILABLE", "فهرست گروه/اینباند از پنل خوانده نشد (پنل در دسترس نیست یا پشتیبانی نمی‌کند).", 502)
-    servers = (await session.scalars(select(Server).where(Server.panel_id == panel.id))).all()
+    servers = await queries.servers_of_panel(session, panel.id)
 
     def used(key: str, value: int) -> list[dict]:
         out = []
@@ -184,7 +181,7 @@ async def create_servers_from_targets(panel_id: uuid.UUID, body: ServersFromTarg
     units: list[list[int] | int] = (
         [list(dict.fromkeys(body.ids))] if (body.kind == "inbound" and body.group_as_one) else list(dict.fromkeys(body.ids))
     )
-    existing = [normalize_target(s.target) for s in (await session.scalars(select(Server).where(Server.panel_id == panel.id))).all()]
+    existing = [normalize_target(s.target) for s in await queries.servers_of_panel(session, panel.id)]
     created, skipped = [], []
     for unit in units:
         target = check_target(panel, _target_for(body.kind, unit, body.limits_from))
