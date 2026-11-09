@@ -45,7 +45,14 @@ class Fake:
             return httpx.Response(200, json={"access_token": "t"})
         if path == "/api/admin-roles/simple":
             return httpx.Response(
-                200, json={"roles": [{"id": 1, "name": "owner", "is_owner": True}, {"id": 3, "name": "operator", "is_owner": False}, {"id": 7, "name": "melorin-store", "is_owner": False}]}
+                200,
+                json={
+                    "roles": [
+                        {"id": 1, "name": "owner", "is_owner": True},
+                        {"id": 3, "name": "operator", "is_owner": False},
+                        {"id": 7, "name": "melorin-store", "is_owner": False},
+                    ]
+                },
             )
         if path == "/api/admins":
             return httpx.Response(200, json={"admins": [a for a in self.admins.values() if a["username"] == q.get("username")]})

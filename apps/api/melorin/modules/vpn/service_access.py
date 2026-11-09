@@ -142,7 +142,9 @@ async def _issue(session, panel: Panel, *, bootstrap: dict | None, actor_id, rep
     try:
         try:
             await owner.ensure_role(role_body())
-            admin = await owner.ensure_admin(ADMIN_USERNAME, generate_password() + generate_password(), role=ROLE_NAME)  # thrown away: key only; meets the panel's password rule (found live: token_urlsafe sometimes had no special character -> 422)
+            admin = await owner.ensure_admin(
+                ADMIN_USERNAME, generate_password() + generate_password(), role=ROLE_NAME
+            )  # thrown away: key only; meets the panel's password rule (found live: token_urlsafe sometimes had no special character -> 422)
             admin_id = int(admin["id"])
             new_key = await owner.create_api_key(admin_id, f"melorin-service-{secrets.token_hex(3)}", "Managed by Melorin (PG-05)")
         except PanelError as exc:

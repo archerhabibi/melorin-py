@@ -99,13 +99,13 @@ Tests: `apps/api/tests/test_manual_assign_db.py` (15).
 
 ## PG-12 - the `melorin-store` role (explicit action, 8 Nov 2026)
 `POST /admin/panels/{id}/store-role/apply {confirm_name, bootstrap}` creates (or realigns) the role `melorin-store` (users create/read/update/delete + groups read; **no** `api_keys`, admins, nodes, hosts, settings) with an owner credential used for that one request and never stored, then sets `panel.config.admin_role`. New and re-synced store admins get the role (`panel_admins._push` passes it on every ensure); existing admins change on their next sync. `POST .../store-role/revert` returns to the stock role and writes nothing to the panel. Both are typed-name confirmed and audited (`panel.store_role.applied|reverted`). Nothing runs automatically (decision 3).
-The page itself is a fixed base template shipped in `infra/sub-template/index.html` and installed by the panel operator (`CUSTOM_TEMPLATES_DIRECTORY` + `SUBSCRIPTION_PAGE_TEMPLATE=subscription/index.html`, restart the panel). Stores never supply HTML (XSS on the subscription domain). Open check: the docs do not say how `custom_variables` reach a template; verify on a test store before relying on it. Roll out on staging first: apply, resync one test store admin, do a create/renew/delete round trip, then the rest.
+The page itself is a fixed base template shipped in `infra/sub-template/index.html` and installed by the panel operator (`CUSTOM_TEMPLATES_DIRECTORY` + `SUBSCRIPTION_PAGE_TEMPLATE=subscription/index.html`, restart the panel). Stores never supply HTML (XSS on the subscription domain). Verified live (9 Nov 2026): `custom_variables` reach the template as `user.admin.custom_variables` (see the branding section). Roll out on staging first: apply, resync one test store admin, do a create/renew/delete round trip, then the rest.
 
 ## PG-12 - per-store subscription branding (9 Nov 2026)
 The store owner edits three plain fields, `PUT /stores/{id}/reseller/sub-branding {display_name, support_url, logo_url}` (plain text, https links only, logo must be an image URL, no markup; stored in `stores.branding["sub"]`, no migration). Saving sends nothing to a panel.
 The admin puts them on the panel with an explicit action: `GET /admin/stores/{store_id}/sub-branding/{panel_id}` (read-only: wanted vs. what the panel holds), `POST .../apply {confirm_name}` and `POST .../revert {confirm_name}` (typed panel name, audited as `panel.sub_branding.applied|reverted` with key names and a digest, never values). Apply writes exactly three keys into the store admin's `custom_variables` (`melorin_brand_name`, `melorin_support_url`, `melorin_logo_url`), keeps every other key, **reads the admin back** and restores the previous values if the panel did not keep them. Nothing runs automatically (decision 3).
 Melorin never writes `sub_template` or HTML: a store-chosen template would run on the subscription domain (XSS). The page template stays what the panel operator installed; it must read the three variables.
-**Not verified live:** the 5.6.0 contract fixture allows `custom_variables` on `AdminModify`, but the PasarGuard docs do not describe how a page reads them. Do the first apply on a test store and look at the subscription page.
+**Verified live (9 Nov 2026):** apply on the test store, then the subscription page of a test user (fetched with `Accept: text/html`) showed the brand name, the support link and the logo; revert emptied `custom_variables` again. Installing the page template is an operator step on the panel (below).
 
 ## PG-12 - per-store usage report (done, 8 Nov 2026)
 `GET /stores/{id}/reseller/usage-report` and the reseller bot screen / `/usage`: account counts by state, total used volume, the 5 heaviest accounts, near-expiry (3 days) and near-exhaustion (90%) counts, read from the panel for that store's own admin only. A panel that cannot answer shows "temporarily unavailable", never an old number; no IP, device or link. The daily digest still carries no usage number (`store_usage.py`).
@@ -130,11 +130,30 @@ deleted, never stored) -> new key under `melorin-service` verified (`least_privi
 second service key from an earlier attempt was found active and removed. The owner key `bot` (admin Ajdar) is still active on the panel: revoke it
 there once nothing else uses it.
 
+## Live proof, 9 Nov 2026 (test panel 5.6.0) - what the real panel showed that fakes did not
+| Finding | Fix |
+|---|---|
+| Applying `melorin-store` changed nothing for admins that already existed: `sync_all` only picks unfinished/unsynced rows, and `ensure_admin` never sent `role_id` | `ensure_admin` moves an existing admin to the wanted role (never an owner); `apply`/`revert` flag the panel's rows (`profile_synced=False`) so the next sync moves them |
+| Moving an admin needs the role id: the service role got `403 admin_roles.read_simple` | permission added to `CAPABILITY_REQUIREMENTS["admin_ops"]` (single source); the live service role was updated by a rotate |
+| Rotate sometimes failed with `422 Password must contain at least one special character` (the service admin's throw-away password was `token_urlsafe(32)`) | `generate_password() + generate_password()` (meets the panel rule) |
+| Panel backup with `MELORIN_PANEL_BACKUP_PATHS` failed: `privkey.pem` is `root:0600`, the worker runs as uid 10001 | operator step: `setfacl` (below). The database-only backup had been fine |
+
+Result on the test panel: `ml_main` holds `melorin-store`; rotate repeats cleanly (old key deleted); key list is `bot` (owner, still to be revoked by the operator) + the current service key.
+
+### Branding, end to end
+1. Operator installs the page once: copy `infra/sub-template/index.html` to `<CUSTOM_TEMPLATES_DIRECTORY>/subscription/index.html`, set `CUSTOM_TEMPLATES_DIRECTORY=/var/lib/pasarguard/templates/` and `SUBSCRIPTION_PAGE_TEMPLATE=subscription/index.html` in the panel's `.env`, `docker compose up -d pasarguard`.
+2. Store owner saves the three fields; admin calls `.../sub-branding/{panel_id}/apply {confirm_name}`; Melorin writes `custom_variables` and reads them back.
+3. A subscription link opened with `Accept: text/html` shows the brand. (From the server itself use the panel's own port, e.g. `https://127.0.0.1:8000/sub/<token>`; the public domain may not loop back.)
+
+### Panel backup, operator steps
+`MELORIN_PANEL_BACKUP_DATABASE_URL` (real database port, not PgBouncer) and `MELORIN_PANEL_BACKUP_PATHS=/panel-data`; mount `/var/lib/pasarguard:/panel-data:ro` into the worker (`docker-compose.override.yml`, which also joins the panel's backend network); give the worker's uid read access to the cert key so it can be archived:
+`setfacl -m u:10001:rx /var/lib/pasarguard/certs /var/lib/pasarguard/certs/<domain>; setfacl -m u:10001:r .../privkey.pem; setfacl -d -m u:10001:r .../<domain>` (default ACL so a renewed key inherits it). Then run `scripts/verify_panel_backup.sh` with the age identity. On a production host the identity must NOT live on the server (on this test host it does).
+
 ## Not done yet (in priority order)
 
-1. **Live check of PG-05** on the test panel (see rollout above); not run from this work.
-2. N10 internal-network exception (deferred by decision 8). PG-12 role, branding and the usage report are DONE (below); branding still needs one live apply on a test store.
-3. Operator only: enable panel backup (`MELORIN_PANEL_BACKUP_*`, L2), rotate the Telegram token in `notification_settings`, fix node certificates (`server_ca`), Caddy healthcheck.
+1. N10 internal-network exception (deferred by decision 8; not needed now).
+2. Operator only: revoke the old owner API key `bot` on the panel once nothing else uses it; rotate the Telegram token in `notification_settings`; fix node certificates (`server_ca`); Caddy healthcheck (container `unhealthy`, runc exec error).
+3. Production: keep the age identity offline; run `verify_panel_backup.sh` monthly.
 
 ## Merge note (8 Nov 2026)
 `feat/pasarguard-phase6-mediator` and `feat/pasarguard-mediator-rework` were unified on this branch. The rework branch was the
