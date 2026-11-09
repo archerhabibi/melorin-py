@@ -152,7 +152,7 @@ Result on the test panel: `ml_main` holds `melorin-store`; rotate repeats cleanl
 ## Live recheck, 9 Nov 2026 (test VPS, branch head `b4886e3`, all through MCP)
 | Item | Result |
 |---|---|
-| Code | `ruff check` clean; backend suite `2325 passed, 2 skipped, 12 deselected` (`-m "not integration and not concurrency"`, 11 min); Alembic head on the server `0054_sold_vs_now`. |
+| Code | `ruff check` clean; backend suite `2325 passed, 2 skipped, 12 deselected` (`-m "not integration and not concurrency"`, 11 min); server migrations at the current head (see `docs/STATUS.md`). |
 | PG-05 provision/rotate | Melorin runs on API key `melorin-service-b5ad7d` (admin `melorin-service`, role `melorin-service`, 1470 requests and rising). The owner key `bot` (admin Ajdar) is **idle** (request count unchanged over 50 s, 9409) and is still active: revoking it is the operator's decision. |
 | `melorin-store` role | Panel admin `ml_main` holds `melorin-store`; `panels.config.admin_role=melorin-store`, `admin_role_managed=true`; `panel_admins` row `active`, `profile_synced=true`. The role name is configurable per panel (`role_name`), so a store or panel may use another name. |
 | Subscription branding | The vetted page template on the panel is byte-identical to `infra/sub-template/index.html`; panel `.env` has `CUSTOM_TEMPLATES_DIRECTORY` and `SUBSCRIPTION_PAGE_TEMPLATE`. `ml_main.custom_variables` is currently `[]` (reverted after the 9 Nov end-to-end proof; not re-applied in this pass). |
