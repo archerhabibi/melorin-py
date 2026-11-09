@@ -26,15 +26,16 @@ from sqlalchemy import select
 from melorin.core import settings_store
 from melorin.core.db import utcnow
 from melorin.kernel.models.vpn import Panel, VpnAccount
-from melorin.modules.vpn import inquiry
+from melorin.modules.vpn import inquiry, panel_freshness
+from melorin.modules.vpn.panel_session import close_adapter
 from melorin.modules.vpn.adapters.registry import build_adapter, seed_adapter
 from melorin.modules.vpn.schemas import VpnAccountOut
 
 log = logging.getLogger("melorin.vpn.live")
 
 SETTING = "vpn.live_view"
-TTL_SECONDS = 20.0  # a reading
-FAIL_TTL_SECONDS = 5.0  # "the panel could not answer": try again soon, but never once per tap
+TTL_SECONDS = panel_freshness.LIVE_TTL_S  # a reading
+FAIL_TTL_SECONDS = panel_freshness.LIVE_FAIL_TTL_S  # "the panel could not answer": try again soon, but never once per tap
 CONCURRENCY = 5  # parallel single-user reads per panel
 MAX_ACCOUNTS = 200  # one call never reads more than a page
 CACHE_LIMIT = 5000
@@ -110,14 +111,7 @@ async def _read_panel(panel: Panel, accounts: list[VpnAccount]) -> dict[uuid.UUI
         log.info("live read: panel unavailable panel=%s", panel.id, exc_info=True)
         out = {a.id: None for a in accounts}
     finally:
-        close = getattr(adapter, "close", None)
-        if callable(close):
-            try:
-                res = close()
-                if hasattr(res, "__await__"):
-                    await res
-            except Exception:
-                log.debug("live read: adapter close failed panel=%s", panel.id, exc_info=True)
+        await close_adapter(adapter, f"live read {panel.id}")
     return out
 
 

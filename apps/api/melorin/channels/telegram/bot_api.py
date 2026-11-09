@@ -22,6 +22,24 @@ class TelegramApiError(RuntimeError):
         return self.code in (400, 401, 403, 404)
 
 
+async def probe_bot(
+    token: str, *, request_timeout: float = 10.0, client: httpx.AsyncClient | None = None, transport: httpx.AsyncBaseTransport | None = None
+) -> tuple[int, dict[str, Any]]:
+    """One ``getMe`` for a bot token (audit T03: the single place that builds this URL).
+
+    Returns ``(http_status, result)`` where ``result`` is the ``result`` object ({} when Telegram sent none). Raises
+    ``httpx.HTTPError`` on a network failure and ``ValueError`` when the body is not JSON - callers decide what an
+    unreachable Telegram means for them. Pass ``client`` to reuse a pool the caller already owns.
+    """
+    url = f"https://api.telegram.org/bot{token}/getMe"
+    if client is not None:
+        response = await client.get(url)
+    else:
+        async with httpx.AsyncClient(timeout=request_timeout, transport=transport) as own:
+            response = await own.get(url)
+    return response.status_code, ((response.json() or {}).get("result") or {})
+
+
 @dataclass(frozen=True)
 class TelegramChannel:
     token: str

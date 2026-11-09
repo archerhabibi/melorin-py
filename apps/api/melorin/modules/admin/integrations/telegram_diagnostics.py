@@ -7,6 +7,7 @@ Each check is a small function returning one result ``{"key", "status" (ok|warn|
 import httpx
 
 from melorin.channels.telegram import oidc as telegram_oidc
+from melorin.channels.telegram.bot_api import probe_bot
 from melorin.core import integrations
 from melorin.core.config import get_settings
 
@@ -105,12 +106,11 @@ async def check_bot(c: httpx.AsyncClient, token: str, username: str) -> dict:
     if not token:
         return _check("bot", "fail", "توکن ربات اصلی تنظیم نشده است.")
     try:
-        r = await c.get(f"https://api.telegram.org/bot{token}/getMe")
-        me = (r.json() or {}).get("result") or {}
+        status, me = await probe_bot(token, client=c)
     except (httpx.HTTPError, ValueError) as exc:
         return _check("bot", "fail", f"سرور به api.telegram.org وصل نشد ({type(exc).__name__}).")
     real = me.get("username")
-    if r.status_code != 200 or not me:
+    if status != 200 or not me:
         return _check("bot", "fail", "تلگرام توکن ربات اصلی را نپذیرفت (توکن ابطال یا اشتباه است).")
     if not username:
         return _check(
