@@ -16,9 +16,10 @@ from melorin.core.errors import NotFound
 from melorin.core.scope import StoreScope
 from melorin.kernel.models.vpn import Panel, VpnAccount
 from melorin.modules.vpn import account_tools as tools
-from melorin.modules.vpn import inquiry
+from melorin.modules.vpn import inquiry, live
 from melorin.modules.vpn.schemas import (
     AccountAdjustIn,
+    ConnectionsOut,
     DevicesOut,
     PresenceOut,
     ReasonIn,
@@ -87,32 +88,37 @@ def _register(prefix: str, dep) -> None:
 
     @router.post(f"{base}/rotate-subscription", response_model=VpnAccountOut, name=f"rotate_{role}")
     async def rotate(t: T, session: Session):
-        return inquiry.account_out(await tools.rotate_subscription(session, t.account, role=t.role, actor_id=t.actor_id))
+        return await live.card(session, await tools.rotate_subscription(session, t.account, role=t.role, actor_id=t.actor_id))
 
     if role == tools.CUSTOMER:
         return
 
     @router.get(f"{base}/presence", response_model=PresenceOut, name=f"presence_{role}")
     async def presence(t: T, session: Session):
-        panel = await session.get(Panel, t.account.panel_id) if t.account.panel_id else None
-        return tools.presence(t.account, t.role, panel)
+        return await tools.presence(session, t.account, t.role)
 
     @router.post(f"{base}/suspend", response_model=VpnAccountOut, name=f"suspend_{role}")
     async def suspend(body: ReasonIn, t: T, session: Session):
-        return inquiry.account_out(await tools.suspend(session, t.account, role=t.role, actor_id=t.actor_id, reason=body.reason))
+        return await live.card(session, await tools.suspend(session, t.account, role=t.role, actor_id=t.actor_id, reason=body.reason))
 
     @router.post(f"{base}/resume", response_model=VpnAccountOut, name=f"resume_{role}")
     async def resume(t: T, session: Session):
-        return inquiry.account_out(await tools.resume(session, t.account, role=t.role, actor_id=t.actor_id))
+        return await live.card(session, await tools.resume(session, t.account, role=t.role, actor_id=t.actor_id))
 
     if role == tools.ADMIN:
+
+        @router.get(f"{base}/connections", response_model=ConnectionsOut, name=f"connections_{role}")
+        async def connections(
+            t: T, session: Session, limit: int = Query(20, ge=1, le=tools.MAX_FETCH_HISTORY), offset: int = Query(0, ge=0)
+        ):
+            return await tools.connections(session, t.account, role=t.role, actor_id=t.actor_id, limit=limit, offset=offset)
 
         @router.post(f"{base}/adjust", response_model=VpnAccountOut, name=f"adjust_{role}")
         async def adjust(body: AccountAdjustIn, t: T, session: Session):
             account = await tools.adjust(
                 session, t.account, actor_id=t.actor_id, add_days=body.add_days, add_traffic_gb=body.add_traffic_gb, reason=body.reason
             )
-            return inquiry.account_out(account)
+            return await live.card(session, account)
 
 
 _register("/stores/{store_id}/vpn-accounts", _customer)

@@ -198,7 +198,7 @@ def _server_out(s: Server, panel: Panel, active: int = 0, total: int = 0, warnin
         sellable_reason=s.sellable_reason,
         destination_health=s.destination_health,
         capacity_info=capacity_view(s, active),
-        capacity_source=s.capacity_source or "melorin",
+        capacity_source=s.capacity_source or "panel",
         capacity_checked_at=s.capacity_checked_at,
         created_at=s.created_at,
         updated_at=s.updated_at,

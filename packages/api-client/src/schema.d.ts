@@ -1106,6 +1106,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/panel-orphans/{orphan_id}/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Assign Orphan
+         * @description Give a panel user (open or recorded as manual) to a store customer.
+         *
+         *     Creates the account and a zero-price ``manual`` order that is NOT a sale: no revenue, no commission, no referral reward, no
+         *     loyalty points, no return. Writes nothing to the panel; the sold entitlement is the panel's reading taken now (a panel that does
+         *     not answer: 503, nothing created). ``owner_matches=false`` means the next reconcile will raise ``owner_mismatch`` (decide ``fix_owner``).
+         */
+        post: operations["assign_orphan_api_v1_admin_panel_orphans__orphan_id__assign_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/panel-orphans/{orphan_id}/ignore": {
         parameters: {
             query?: never;
@@ -1117,9 +1141,52 @@ export interface paths {
         put?: never;
         /**
          * Ignore Orphan
-         * @description "This panel user is not ours and that is fine" (a manual account, a test). It is kept, only hidden from the open list.
+         * @description "This panel user is not ours and that is fine" (a test, a leftover). It is kept, only hidden from the open list.
          */
         post: operations["ignore_orphan_api_v1_admin_panel_orphans__orphan_id__ignore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/panel-orphans/{orphan_id}/manual": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Manual Orphan
+         * @description Record the panel user as a MANUAL ACCOUNT: created by hand on the panel, known and wanted, not sold through Melorin.
+         *
+         *     Nothing is written to the panel and nothing is deleted. The user leaves the open list and stays visible under ``status=manual``
+         *     (it goes ``gone`` by itself when the panel user disappears); an admin may later assign it to a store/customer.
+         */
+        post: operations["manual_orphan_api_v1_admin_panel_orphans__orphan_id__manual_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/panel-orphans/{orphan_id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reopen Orphan
+         * @description Undo ``ignore`` / ``manual``: the panel user is listed as open again.
+         */
+        post: operations["reopen_orphan_api_v1_admin_panel_orphans__orphan_id__reopen_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1503,6 +1570,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/panels/{panel_id}/service-access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Service Access Status
+         * @description Which credential level Melorin runs on, whether the service admin exists, and exactly what its role grants / withholds.
+         */
+        get: operations["service_access_status_api_v1_admin_panels__panel_id__service_access_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/panels/{panel_id}/service-access/keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Service Access Keys
+         * @description The service admin's keys as the panel lists them (name, status, request count; never values). Needs an owner credential once.
+         */
+        post: operations["service_access_keys_api_v1_admin_panels__panel_id__service_access_keys_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/panels/{panel_id}/service-access/provision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Service Access Provision
+         * @description Create the least-privilege admin + key, verify it, then switch Melorin to it. The old owner key is left for you to revoke.
+         */
+        post: operations["service_access_provision_api_v1_admin_panels__panel_id__service_access_provision_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/panels/{panel_id}/service-access/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Service Access Rotate
+         * @description Replace the service key (new key verified before the switch, old key deleted after). Needs an owner credential once.
+         */
+        post: operations["service_access_rotate_api_v1_admin_panels__panel_id__service_access_rotate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/panels/{panel_id}/settings-drift": {
         parameters: {
             query?: never;
@@ -1551,6 +1698,67 @@ export interface paths {
         put?: never;
         /** Set Panel State */
         post: operations["set_panel_state_api_v1_admin_panels__panel_id__state_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/panels/{panel_id}/store-role-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Store Role Plan
+         * @description PG-12: the least-privilege role a store's panel admin should have (read-only plan; Melorin does not create it on the panel).
+         */
+        get: operations["store_role_plan_api_v1_admin_panels__panel_id__store_role_plan_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/panels/{panel_id}/store-role/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Store Role Apply
+         * @description PG-12: create the store role on the panel (default name `melorin-store`, any valid name allowed; owner credential once)
+         *     and use it for new/re-synced store admins.
+         */
+        post: operations["store_role_apply_api_v1_admin_panels__panel_id__store_role_apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/panels/{panel_id}/store-role/revert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Store Role Revert
+         * @description Back to the stock role for new/re-synced store admins. Nothing is written to the panel.
+         */
+        post: operations["store_role_revert_api_v1_admin_panels__panel_id__store_role_revert_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2548,6 +2756,107 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/stores/{store_id}/sub-branding/{panel_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sub Branding Preview
+         * @description Read-only: what the store wants versus what its panel admin holds now (three keys; other keys are never touched).
+         */
+        get: operations["sub_branding_preview_api_v1_admin_stores__store_id__sub_branding__panel_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/stores/{store_id}/sub-branding/{panel_id}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sub Branding Apply
+         * @description Write the store's name / support link / logo into its panel admin's `custom_variables` (verified by reading back; audited).
+         */
+        post: operations["sub_branding_apply_api_v1_admin_stores__store_id__sub_branding__panel_id__apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/stores/{store_id}/sub-branding/{panel_id}/revert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sub Branding Revert
+         * @description Remove the three branding keys from the store admin on the panel.
+         */
+        post: operations["sub_branding_revert_api_v1_admin_stores__store_id__sub_branding__panel_id__revert_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/stores/{store_id}/vpn-digest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Store Vpn Digest
+         * @description PG-06: switch the store owner's daily VPN digest on/off (off by default; a day with nothing to report sends nothing).
+         */
+        put: operations["put_store_vpn_digest_api_v1_admin_stores__store_id__vpn_digest_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/stores/{store_id}/vpn-notice-texts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Store Vpn Notice Texts */
+        get: operations["get_store_vpn_notice_texts_api_v1_admin_stores__store_id__vpn_notice_texts_get"];
+        /**
+         * Put Store Vpn Notice Texts
+         * @description PG-06: this store's own wording for customer notices (expiry, low traffic, ...). Replaces the previous set; kinds not listed use the platform text.
+         */
+        put: operations["put_store_vpn_notice_texts_api_v1_admin_stores__store_id__vpn_notice_texts_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/stores/{store_id}/vpn-notices": {
         parameters: {
             query?: never;
@@ -2841,6 +3150,23 @@ export interface paths {
         put?: never;
         /** Adjust Admin */
         post: operations["adjust_admin_api_v1_admin_vpn_accounts__account_id__tools_adjust_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/vpn-accounts/{account_id}/tools/connections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Connections Admin */
+        get: operations["connections_admin_api_v1_admin_vpn_accounts__account_id__tools_connections_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5442,6 +5768,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/stores/{store_id}/reseller/sub-branding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sub Branding Get
+         * @description The three fields the owner chose for the subscription page. Saved in Melorin only; the admin puts them on the panel.
+         */
+        get: operations["sub_branding_get_api_v1_stores__store_id__reseller_sub_branding_get"];
+        /**
+         * Sub Branding Put
+         * @description Save name / support link / logo (plain text and https links only; an empty string clears a field). Nothing is sent to a panel.
+         */
+        put: operations["sub_branding_put_api_v1_stores__store_id__reseller_sub_branding_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stores/{store_id}/reseller/usage-report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Usage Report
+         * @description Accounts by state, total volume used, the 5 heaviest accounts, and how many are near expiry / near exhaustion.
+         *
+         *     Every number is read from the panel now; a panel that cannot answer shows no number (``live=false`` and a note), never an
+         *     old one. No IP address, connection detail or subscription link is part of the answer. Only this store's own panel admin
+         *     is read, so a store can never see another store's accounts.
+         */
+        get: operations["usage_report_api_v1_stores__store_id__reseller_usage_report_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/stores/{store_id}/reseller/webhooks": {
         parameters: {
             query?: never;
@@ -6358,6 +6732,18 @@ export interface components {
             /** Source Card Last4 */
             source_card_last4?: string | null;
         };
+        /**
+         * BootstrapIn
+         * @description An OWNER credential for this one request. Never stored, never logged, never returned.
+         */
+        BootstrapIn: {
+            /** Api Key */
+            api_key?: string | null;
+            /** Password */
+            password?: string | null;
+            /** Username */
+            username?: string | null;
+        };
         /** BotTokenIn */
         BotTokenIn: {
             /** Token */
@@ -6487,6 +6873,26 @@ export interface components {
             store_id: string;
             /** Value */
             value: number;
+        };
+        /**
+         * ConnectionsOut
+         * @description Admin-only view (decision 5). Read live from the panel, never stored.
+         */
+        ConnectionsOut: {
+            /** History */
+            history: components["schemas"]["FetchOut"][];
+            /** History Available */
+            history_available: boolean;
+            /** History Count */
+            history_count: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Online Available */
+            online_available: boolean;
+            /** Online Ips */
+            online_ips: components["schemas"]["OnlineIpOut"][];
         };
         /** CoreRestartIn */
         CoreRestartIn: {
@@ -6815,6 +7221,11 @@ export interface components {
             /** Items */
             items: components["schemas"]["DeviceOut"][];
         };
+        /** DigestIn */
+        DigestIn: {
+            /** Enabled */
+            enabled: boolean;
+        };
         /** EditMessage */
         EditMessage: {
             /** Body */
@@ -6929,6 +7340,17 @@ export interface components {
              */
             scope_type: string;
         };
+        /** FetchOut */
+        FetchOut: {
+            /** Created At */
+            created_at?: string | null;
+            /** Hwid */
+            hwid?: string | null;
+            /** Ip */
+            ip?: string | null;
+            /** User Agent */
+            user_agent?: string | null;
+        };
         /** GoogleIn */
         GoogleIn: {
             /**
@@ -7023,6 +7445,8 @@ export interface components {
         IssueActionIn: {
             /** Action */
             action: string;
+            /** Orphan Id */
+            orphan_id?: string | null;
             /** Reason */
             reason?: string | null;
         };
@@ -7105,6 +7529,11 @@ export interface components {
             policy: "keep" | "aligned";
             /** Reason */
             reason: string;
+            /**
+             * Retention Days
+             * @description aligned only: the least days the panel must keep expired users
+             */
+            retention_days?: number | null;
         };
         /** LinkCodeOut */
         LinkCodeOut: {
@@ -7198,6 +7627,66 @@ export interface components {
             /** Traffic Low Levels */
             traffic_low_levels: number[];
         };
+        /** NoticeTextItem */
+        NoticeTextItem: {
+            /** Body */
+            body: string;
+            /** Title */
+            title: string;
+        };
+        /** NoticeTextsIn */
+        NoticeTextsIn: {
+            /**
+             * Texts
+             * @description notice kind -> wording; placeholders {store} and {level}; {} clears all custom texts
+             */
+            texts: {
+                [key: string]: components["schemas"]["NoticeTextItem"];
+            };
+        };
+        /** NoticeTextsOut */
+        NoticeTextsOut: {
+            /**
+             * Kinds
+             * @default [
+             *       "vpn_expired",
+             *       "vpn_near_expiry",
+             *       "vpn_traffic_low",
+             *       "vpn_traffic_exhausted",
+             *       "vpn_disabled",
+             *       "vpn_queued_plan_started"
+             *     ]
+             */
+            kinds: string[];
+            /**
+             * Placeholders
+             * @default [
+             *       "{store}",
+             *       "{level}"
+             *     ]
+             */
+            placeholders: string[];
+            /**
+             * Store Id
+             * Format: uuid
+             */
+            store_id: string;
+            /** Texts */
+            texts: {
+                [key: string]: {
+                    [key: string]: string;
+                };
+            };
+        };
+        /** OnlineIpOut */
+        OnlineIpOut: {
+            /** Connections */
+            connections: number;
+            /** Ip */
+            ip: string;
+            /** Node Id */
+            node_id: number | string;
+        };
         /** OrderAction */
         OrderAction: {
             /** Reason */
@@ -7276,6 +7765,80 @@ export interface components {
             /** Vpn Account Id */
             vpn_account_id: string | null;
         };
+        /** OrphanAssignIn */
+        OrphanAssignIn: {
+            /** Note */
+            note?: string | null;
+            /**
+             * Product Id
+             * Format: uuid
+             * @description the package this account is renewed as later; its price is NOT charged now
+             */
+            product_id: string;
+            /**
+             * Server Id
+             * @description destination to count it on; default = the panel's only enabled one
+             */
+            server_id?: string | null;
+            /**
+             * Store Id
+             * Format: uuid
+             */
+            store_id: string;
+            /**
+             * User Id
+             * Format: uuid
+             * @description the customer (an active member of the store) who will own the account
+             */
+            user_id: string;
+        };
+        /** OrphanAssignOut */
+        OrphanAssignOut: {
+            /**
+             * Excluded From
+             * @default [
+             *       "sales",
+             *       "commission",
+             *       "referral",
+             *       "loyalty",
+             *       "returns"
+             *     ]
+             */
+            excluded_from: string[];
+            /** Expected Owner */
+            expected_owner?: string | null;
+            /**
+             * Order Id
+             * Format: uuid
+             */
+            order_id: string;
+            /** Order Number */
+            order_number: string;
+            /** Owner Matches */
+            owner_matches?: boolean | null;
+            /**
+             * Revenue
+             * @default excluded
+             */
+            revenue: string;
+            /**
+             * Store Id
+             * Format: uuid
+             */
+            store_id: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** Username */
+            username: string;
+            /**
+             * Vpn Account Id
+             * Format: uuid
+             */
+            vpn_account_id: string;
+        };
         /** OrphanIgnoreIn */
         OrphanIgnoreIn: {
             /** Note */
@@ -7283,6 +7846,8 @@ export interface components {
         };
         /** OrphanOut */
         OrphanOut: {
+            /** As Of */
+            as_of?: string | null;
             /** Expire At */
             expire_at?: string | null;
             /** First Seen At */
@@ -7375,6 +7940,13 @@ export interface components {
             /** Links */
             links: unknown[] | null;
             /**
+             * Live
+             * @default true
+             */
+            live: boolean;
+            /** Live Note */
+            live_note?: string | null;
+            /**
              * Next Plan Queued
              * @default false
              */
@@ -7389,16 +7961,20 @@ export interface components {
             return_note?: string | null;
             /** Server Id */
             server_id: string | null;
+            /** State Note */
+            state_note?: string | null;
             /** Status */
             status: string;
             /** Store Id */
             store_id?: string | null;
             /** Subscription Url */
             subscription_url: string | null;
+            /** Suggested Action */
+            suggested_action?: string | null;
             /** Traffic Limit Bytes */
             traffic_limit_bytes: number;
             /** Traffic Used Bytes */
-            traffic_used_bytes: number;
+            traffic_used_bytes: number | null;
             /**
              * Updated At
              * Format: date-time
@@ -7600,8 +8176,15 @@ export interface components {
             last_synced_at?: string | null;
             /** Lifetime Used Bytes */
             lifetime_used_bytes?: number | null;
+            /**
+             * Live
+             * @default true
+             */
+            live: boolean;
             /** Never Connected */
             never_connected: boolean;
+            /** Note */
+            note?: string | null;
             /** Online At */
             online_at: string | null;
             /** Online Now */
@@ -8076,7 +8659,7 @@ export interface components {
             capacity_label: string;
             /**
              * Capacity Source
-             * @default melorin
+             * @default panel
              */
             capacity_source: string;
             /** Created At */
@@ -8155,6 +8738,15 @@ export interface components {
             /** Product Codes */
             product_codes?: string[] | null;
         };
+        /** ServiceAccessIn */
+        ServiceAccessIn: {
+            bootstrap?: components["schemas"]["BootstrapIn"] | null;
+            /**
+             * Confirm Name
+             * @description the panel's name, typed by the admin: this creates a role, an admin and a key on the PANEL
+             */
+            confirm_name: string;
+        };
         /** SetPassword */
         SetPassword: {
             /** Password */
@@ -8204,6 +8796,20 @@ export interface components {
              */
             suspend_policy: "none" | "disable_accounts";
         };
+        /** StoreRoleIn */
+        StoreRoleIn: {
+            bootstrap?: components["schemas"]["BootstrapIn"] | null;
+            /**
+             * Confirm Name
+             * @description the panel's name, typed by the admin: this creates a role, an admin and a key on the PANEL
+             */
+            confirm_name: string;
+            /**
+             * Role Name
+             * @description name of the store role on the panel; empty = `melorin-store`
+             */
+            role_name?: string | null;
+        };
         /**
          * StoreRuleIn
          * @description A plan of the store named in the URL (the store is never part of the body, so it cannot be spoofed).
@@ -8224,6 +8830,23 @@ export interface components {
             product_id?: string | null;
             /** Value */
             value: number;
+        };
+        /** SubBrandingApplyIn */
+        SubBrandingApplyIn: {
+            /**
+             * Confirm Name
+             * @description the panel's name, typed by the admin: this writes into a store admin's custom_variables on the PANEL
+             */
+            confirm_name: string;
+        };
+        /** SubBrandingIn */
+        SubBrandingIn: {
+            /** Display Name */
+            display_name?: string | null;
+            /** Logo Url */
+            logo_url?: string | null;
+            /** Support Url */
+            support_url?: string | null;
         };
         /** SyncIn */
         SyncIn: {
@@ -8850,6 +9473,13 @@ export interface components {
             /** Links */
             links: unknown[] | null;
             /**
+             * Live
+             * @default true
+             */
+            live: boolean;
+            /** Live Note */
+            live_note?: string | null;
+            /**
              * Next Plan Queued
              * @default false
              */
@@ -8864,16 +9494,20 @@ export interface components {
             return_note?: string | null;
             /** Server Id */
             server_id: string | null;
+            /** State Note */
+            state_note?: string | null;
             /** Status */
             status: string;
             /** Store Id */
             store_id?: string | null;
             /** Subscription Url */
             subscription_url: string | null;
+            /** Suggested Action */
+            suggested_action?: string | null;
             /** Traffic Limit Bytes */
             traffic_limit_bytes: number;
             /** Traffic Used Bytes */
-            traffic_used_bytes: number;
+            traffic_used_bytes: number | null;
             /**
              * Updated At
              * Format: date-time
@@ -11025,7 +11659,112 @@ export interface operations {
             };
         };
     };
+    assign_orphan_api_v1_admin_panel_orphans__orphan_id__assign_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orphan_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrphanAssignIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrphanAssignOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     ignore_orphan_api_v1_admin_panel_orphans__orphan_id__ignore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orphan_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrphanIgnoreIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrphanOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    manual_orphan_api_v1_admin_panel_orphans__orphan_id__manual_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orphan_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrphanIgnoreIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrphanOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reopen_orphan_api_v1_admin_panel_orphans__orphan_id__reopen_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -11806,6 +12545,142 @@ export interface operations {
             };
         };
     };
+    service_access_status_api_v1_admin_panels__panel_id__service_access_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                panel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    service_access_keys_api_v1_admin_panels__panel_id__service_access_keys_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                panel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BootstrapIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    service_access_provision_api_v1_admin_panels__panel_id__service_access_provision_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                panel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServiceAccessIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    service_access_rotate_api_v1_admin_panels__panel_id__service_access_rotate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                panel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServiceAccessIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     drift_last_api_v1_admin_panels__panel_id__settings_drift_get: {
         parameters: {
             query?: never;
@@ -11880,6 +12755,109 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["PanelState"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    store_role_plan_api_v1_admin_panels__panel_id__store_role_plan_get: {
+        parameters: {
+            query?: {
+                role_name?: string | null;
+            };
+            header?: never;
+            path: {
+                panel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    store_role_apply_api_v1_admin_panels__panel_id__store_role_apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                panel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoreRoleIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    store_role_revert_api_v1_admin_panels__panel_id__store_role_revert_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                panel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServiceAccessIn"];
             };
         };
         responses: {
@@ -13986,6 +14964,211 @@ export interface operations {
             };
         };
     };
+    sub_branding_preview_api_v1_admin_stores__store_id__sub_branding__panel_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+                panel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sub_branding_apply_api_v1_admin_stores__store_id__sub_branding__panel_id__apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+                panel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubBrandingApplyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sub_branding_revert_api_v1_admin_stores__store_id__sub_branding__panel_id__revert_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+                panel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubBrandingApplyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_store_vpn_digest_api_v1_admin_stores__store_id__vpn_digest_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DigestIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_store_vpn_notice_texts_api_v1_admin_stores__store_id__vpn_notice_texts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoticeTextsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_store_vpn_notice_texts_api_v1_admin_stores__store_id__vpn_notice_texts_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoticeTextsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoticeTextsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_store_vpn_notices_api_v1_admin_stores__store_id__vpn_notices_get: {
         parameters: {
             query?: never;
@@ -14580,6 +15763,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VpnAccountOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    connections_admin_api_v1_admin_vpn_accounts__account_id__tools_connections_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectionsOut"];
                 };
             };
             /** @description Validation Error */
@@ -19612,6 +20829,103 @@ export interface operations {
         };
     };
     report_api_v1_stores__store_id__reseller_reports_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sub_branding_get_api_v1_stores__store_id__reseller_sub_branding_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sub_branding_put_api_v1_stores__store_id__reseller_sub_branding_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                store_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubBrandingIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    usage_report_api_v1_stores__store_id__reseller_usage_report_get: {
         parameters: {
             query?: never;
             header?: never;

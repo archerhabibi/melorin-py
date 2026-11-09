@@ -102,7 +102,7 @@ def adapter(monkeypatch):
     return fake
 
 
-async def _account(s, *, status="active", expires=None, online=None):
+async def _account(s, *, status="active", expires=None):
     store, user, product = await make_store(s, kind="main"), await make_user(s), await make_product(s)
     panel = Panel(name="P", kind="pasarguard", base_url="https://p.example.com", config={}, is_enabled=True, health_status="healthy")
     s.add(panel)
@@ -110,8 +110,7 @@ async def _account(s, *, status="active", expires=None, online=None):
     order = await make_order(s, user=user, store=store, product=product, status="completed")
     acc = VpnAccount(
         username="acc1", user_id=user.id, store_id=store.id, order_id=order.id, product_id=product.id, panel_id=panel.id, status=status,
-        expires_at=expires or NOW + dt.timedelta(days=10), traffic_limit_bytes=10 * GIB, traffic_used_bytes=GIB, online_at=online,
-    )  # fmt: skip
+        sold_expires_at=expires or NOW + dt.timedelta(days=10), sold_traffic_bytes=10 * GIB,     )  # fmt: skip
     s.add(acc)
     await s.commit()
     return acc, panel, user
@@ -164,7 +163,7 @@ async def test_a_role_without_the_tool_is_refused_before_any_panel_call(maker, a
                 await call
             assert e.value.status == 403
         with pytest.raises(AppError):
-            tools.presence(acc, tools.CUSTOMER)
+            await tools.presence(s, acc, tools.CUSTOMER)
         assert adapter.calls == []
 
 
@@ -182,15 +181,46 @@ async def test_usage_is_summed_per_period_and_customers_get_no_node_detail(maker
         assert e.value.code == "BAD_PERIOD"
 
 
-async def test_presence_uses_the_synced_row_and_never_calls_the_panel(maker, adapter):
+async def test_presence_reads_the_panel_live_and_never_a_stored_copy(maker, adapter):
     async with maker() as s:
+        acc, _, _ = await _account(s)  # the row stores no ``online_at`` any more (R7)
         # fresh clock, not the import-time NOW: a slow CI run would otherwise age this past the 5-minute "online" window
-        acc, panel, _ = await _account(s, online=dt.datetime.now(dt.UTC) - dt.timedelta(minutes=2))
-        p = tools.presence(acc, tools.OWNER, panel)
-        assert p["online_now"] and not p["never_connected"] and "ip" not in "".join(p)
-        acc.online_at = None
-        assert tools.presence(acc, tools.ADMIN, panel)["never_connected"]
-        assert adapter.calls == []
+        adapter.remote.online_at = dt.datetime.now(dt.UTC) - dt.timedelta(minutes=2)
+        adapter.remote.lifetime_used_bytes = 7 * GIB
+        adapter.get_account_calls = 0
+
+        async def get_account(username):
+            adapter.get_account_calls += 1
+            return adapter.remote
+
+        adapter.get_account = get_account
+        p = await tools.presence(s, acc, tools.OWNER)
+        assert p["live"] and p["online_now"] and not p["never_connected"] and p["lifetime_used_bytes"] == 7 * GIB
+        assert "ip" not in "".join(p)
+        adapter.remote.online_at = None
+        assert (await tools.presence(s, acc, tools.ADMIN))["never_connected"]
+        assert adapter.get_account_calls == 2  # every call asks the panel
+
+
+async def test_presence_with_the_panel_down_shows_nothing_instead_of_an_old_number(maker, adapter):
+    async with maker() as s:
+        acc, _, _ = await _account(s)
+
+        async def get_account(username):
+            raise PanelError(ErrorKind.TRANSIENT, "down")
+
+        adapter.get_account = get_account
+        p = await tools.presence(s, acc, tools.OWNER)
+        assert p["live"] is False and p["note"]
+        assert p["online_at"] is None and p["lifetime_used_bytes"] is None and not p["online_now"]
+
+
+async def test_presence_stays_closed_to_customers(maker, adapter):
+    async with maker() as s:
+        acc, _, _ = await _account(s)
+        with pytest.raises(AppError) as e:
+            await tools.presence(s, acc, tools.CUSTOMER)
+        assert e.value.status == 403
 
 
 async def test_devices_listing_drops_rows_without_an_id(maker, adapter):
@@ -230,7 +260,7 @@ async def test_rotate_updates_the_link_audits_and_is_rate_limited(maker, adapter
     async with maker() as s:
         acc, _, user = await _account(s)
         await tools.rotate_subscription(s, acc, role=tools.CUSTOMER, actor_id=user.id)
-        assert acc.subscription_url == "https://sub/new" and acc.links == ["new"]
+        assert not hasattr(acc, "subscription_url")  # the current link lives on the panel; nothing is copied onto the account
         assert len(await _audits(s, "vpn_account.subscription_rotated")) == 1
         with pytest.raises(AppError) as e:
             await tools.rotate_subscription(s, acc, role=tools.CUSTOMER, actor_id=user.id)
@@ -241,7 +271,7 @@ async def test_suspend_then_resume_roundtrip_with_guards(maker, adapter):
     async with maker() as s:
         acc, _, user = await _account(s)
         await tools.suspend(s, acc, role=tools.OWNER, actor_id=user.id, reason="عدم پرداخت")
-        assert acc.status == "suspended" and acc.remote_status == "disabled"
+        assert acc.status == "suspended" and "suspend" in adapter.calls  # the panel was switched off; the raw status is not stored
         (event,) = await _audits(s, "vpn_account.suspended")
         assert event.data["reason"] == "عدم پرداخت"
         await tools.resume(s, acc, role=tools.ADMIN, actor_id=user.id)
@@ -257,7 +287,7 @@ async def test_expired_or_limited_accounts_cannot_be_suspended_and_expired_ones_
         with pytest.raises(AppError) as e:
             await tools.suspend(s, acc, role=tools.ADMIN, actor_id=user.id)
         assert e.value.code == "ACCOUNT_NOT_ACTIVE"
-        acc.status, acc.expires_at = "suspended", NOW - dt.timedelta(days=1)
+        acc.status, acc.sold_expires_at = "suspended", NOW - dt.timedelta(days=1)
         with pytest.raises(AppError) as e2:
             await tools.resume(s, acc, role=tools.ADMIN, actor_id=user.id)
         assert e2.value.code == "ACCOUNT_NOT_SUSPENDED" and "resume" not in adapter.calls
@@ -270,7 +300,7 @@ async def test_adjust_adds_on_top_of_the_panels_fresh_state_and_audits_before_af
         before = adapter.remote.expire_at
         await tools.adjust(s, acc, actor_id=admin.id, add_days=3, add_traffic_gb=5, reason="قطعی نود")
         assert adapter.remote.expire_at == before + dt.timedelta(days=3) and adapter.remote.traffic_limit_bytes == 15 * GIB
-        assert acc.traffic_limit_bytes == 15 * GIB and acc.expires_at == adapter.remote.expire_at
+        assert acc.sold_traffic_bytes == 15 * GIB and acc.sold_expires_at == adapter.remote.expire_at
         (event,) = await _audits(s, "vpn_account.adjusted")
         assert event.data["add_days"] == 3 and event.data["before"]["traffic_limit_bytes"] == 10 * GIB
         assert event.data["after"]["traffic_limit_bytes"] == 15 * GIB and event.actor_type == "admin"

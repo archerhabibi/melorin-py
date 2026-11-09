@@ -239,7 +239,7 @@ class ServerOut(BaseModel):
     sellable_reason: str | None = None
     destination_health: dict | None = None
     capacity_info: dict = Field(default_factory=dict)
-    capacity_source: str = "melorin"
+    capacity_source: str = "panel"
     capacity_checked_at: dt.datetime | None = None
     created_at: dt.datetime | None = None
     updated_at: dt.datetime | None = None

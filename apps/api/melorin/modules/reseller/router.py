@@ -17,6 +17,7 @@ from melorin.modules.reseller.routes import (
     pricing,
     store_payments,
     store_profile,
+    usage,
     webhook_endpoints,
 )
 from melorin.modules.reseller.routes.public_api import api_router
@@ -34,6 +35,7 @@ for _family in (
     accounts,
     store_payments,
     credentials,
+    usage,
     webhook_endpoints,
 ):
     router.routes.extend(_family.router.routes)
@@ -52,6 +54,7 @@ _FAMILIES = (
     "accounts",
     "store_payments",
     "credentials",
+    "usage",
     "webhook_endpoints",
     "public_api",
 )

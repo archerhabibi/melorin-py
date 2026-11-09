@@ -17,6 +17,7 @@ from melorin.core import audit, events
 from melorin.core.errors import AppError, NotFound
 from melorin.domain import loyalty as rules
 from melorin.domain.loyalty import EARN_KINDS, LoyaltyError, Program, Reward, Tier
+from melorin.domain.order_kinds import is_revenue, revenue_only
 from melorin.domain.order_state import OrderStatus
 from melorin.kernel.models.identity import User
 from melorin.kernel.models.loyalty import (
@@ -350,7 +351,7 @@ async def _is_first_order(session: AsyncSession, order: Order) -> bool:
             Order.user_id == order.user_id,
             Order.store_id == order.store_id,
             Order.status == OrderStatus.COMPLETED,
-            Order.kind != "test",
+            revenue_only(Order.kind),
             Order.total > 0,
             Order.completed_at < order.completed_at,
         )
@@ -361,7 +362,7 @@ async def _is_first_order(session: AsyncSession, order: Order) -> bool:
 async def on_order_completed(session: AsyncSession, order_id: uuid.UUID) -> None:
     """Points for a completed order of THIS store's own club: the order points, the first-order bonus and the referrer's bonus."""
     order = await session.get(Order, order_id)
-    if not order or order.kind == "test" or order.total <= 0:
+    if not order or not is_revenue(order.kind) or order.total <= 0:
         return
     row = await get_program(session, order.store_id)
     if not row or not row.is_enabled:

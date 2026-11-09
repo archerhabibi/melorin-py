@@ -30,16 +30,15 @@ async def _seed(factory):
         product = await make_product(s)
         order = await make_order(s, user=alice, store=store_a, product=product)
         acct = VpnAccount(
+            delivery_snapshot={"links": []},
             username="alice_in_a",
             user_id=alice.id,
             store_id=store_a.id,
             order_id=order.id,
             product_id=product.id,
             status="active",
-            expires_at=dt.datetime.now(dt.UTC) + dt.timedelta(days=5),
-            traffic_limit_bytes=0,
-            traffic_used_bytes=0,
-            links=[],
+            sold_expires_at=dt.datetime.now(dt.UTC) + dt.timedelta(days=5),
+            sold_traffic_bytes=0,
         )
         s.add(acct)
         await s.commit()

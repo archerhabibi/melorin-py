@@ -11,14 +11,29 @@ from _db import make_order, make_product, make_store, make_user, open_session
 from melorin.core.deps import StoreContext
 from melorin.core.errors import AppError
 from melorin.core.scope import StoreScope
-from melorin.kernel.models.vpn import AccountReturn, VpnAccount
+from melorin.kernel.models.vpn import AccountReturn, Panel, VpnAccount
 from melorin.modules.orders import service as orders
 from melorin.modules.orders.service import account_return
+from melorin.modules.vpn import live, reconcile
 from melorin.modules.vpn import router as vpn_router
 from melorin.modules.wallet import service as wallet
+from test_pasarguard_phase1_db import FakePanel, remote
 
 GIB = 1024**3
 NOW = dt.datetime.now(dt.UTC)
+
+# Mediator rule: usage is the panel's, so an account that "has used X" is a panel user that reports X.
+PANEL = FakePanel()
+
+
+@pytest.fixture(autouse=True)
+def _panel(monkeypatch):
+    PANEL.users.clear()
+    monkeypatch.setattr(live, "build_adapter", lambda panel: PANEL)
+    monkeypatch.setattr(live, "seed_adapter", lambda adapter, account: adapter)
+    monkeypatch.setattr(reconcile, "build_adapter", lambda panel: PANEL)
+    monkeypatch.setattr(reconcile, "seed_adapter", lambda adapter, account: adapter)
+    live.clear_cache()
 
 
 async def _fund(s, user, store, amount):
@@ -42,18 +57,27 @@ async def _bought(s, user, store, product, *, limit=10 * GIB, used=0, age_days=0
     await orders.pay_with_wallet(s, order, store)
     order.status, order.kind = "completed", "purchase"
     order.paid_at = NOW - dt.timedelta(days=age_days)
+    panel_id = None
+    if used:
+        panel = Panel(name=f"pg_{order.number}", kind="mock", base_url="http://pg", is_enabled=True)
+        s.add(panel)
+        await s.flush()
+        panel_id = panel.id
+    username = name or f"acc_{order.number}"
+    if used:
+        PANEL.users[username] = remote(username, used=used, limit=limit)
     acc = VpnAccount(
-        username=name or f"acc_{order.number}",
+        delivery_snapshot={"links": []},
+        username=username,
+        panel_id=panel_id,
         user_id=user.id,
         store_id=store.id,
         order_id=order.id,
         product_id=product.id,
         status="active",
         is_test=is_test,
-        expires_at=NOW + dt.timedelta(days=20),
-        traffic_limit_bytes=limit,
-        traffic_used_bytes=used,
-        links=[],
+        sold_expires_at=NOW + dt.timedelta(days=20),
+        sold_traffic_bytes=limit,
     )
     s.add(acc)
     await s.flush()

@@ -26,7 +26,8 @@ CAPABILITY_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "usage_ops": ("users.read",),
     "device_ops": ("hwids.read", "hwids.delete"),
     "bulk_ops": ("users.set_owner",),
-    "admin_ops": ("admins.read", "admins.create", "admins.update"),
+    # admin_roles.read_simple: ensure_admin looks the role id up by name (also to move an EXISTING admin to a new role, found live)
+    "admin_ops": ("admins.read", "admins.create", "admins.update", "admin_roles.read_simple"),
     "settings_ops": ("settings.read",),
     "account_listing": ("users.read",),
     "capacity_ops": ("groups.read", "hosts.read", "nodes.read"),
@@ -39,6 +40,8 @@ CAPABILITY_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "bulk_actions": ("users.update", "users.reset_usage", "users.revoke_sub", "admins.update"),
     "admin_governance": ("admins.read", "admins.update"),
     "subscription_probe": ("settings.read",),
+    # decision 5: IPs are an admin-only view. ``nodes.stats`` reads the live IPs, ``users.read`` the subscription-fetch history
+    "ip_ops": ("nodes.stats", "users.read"),
 }
 
 # capability -> "METHOD /path-template" routes the adapter calls for it (current, non-legacy API style)
@@ -95,6 +98,7 @@ CAPABILITY_ENDPOINTS: dict[str, tuple[str, ...]] = {
     "admin_governance": ("GET /api/admins", "PUT /api/admin/by-id/{admin_id}"),
     # the public ``/sub/{token}/info`` fetch is made without credentials by the probe itself, so it is not a panel API call listed here
     "subscription_probe": ("GET /api/settings",),
+    "ip_ops": ("GET /api/node/online_stats/{user_id}/ip", "GET /api/user/by-id/{user_id}/sub_update"),
 }
 
 # Capabilities of the legacy (Marzban-style) API: only what the pre-capability adapter did.

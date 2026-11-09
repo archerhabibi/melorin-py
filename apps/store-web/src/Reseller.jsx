@@ -5,6 +5,7 @@ import {
   RefreshCw,
   X,
   Gauge,
+  Activity,
   Bot,
   CreditCard,
   Eye,
@@ -32,6 +33,8 @@ import ResellerReferral from './ResellerReferral.jsx';
 import ResellerLoyalty from './ResellerLoyalty.jsx';
 import ResellerCoupons from './ResellerCoupons.jsx';
 import ResellerPanelAdmin from './ResellerPanelAdmin.jsx';
+import ResellerUsage from './ResellerUsage.jsx';
+import ResellerSubBranding from './ResellerSubBranding.jsx';
 import BankSms from './ResellerBankSms.jsx';
 const J = { 'Content-Type': 'application/json' };
 
@@ -1160,6 +1163,7 @@ const tabs = [
   ['loyalty', 'باشگاه مشتریان', Award],
   ['customers', 'مشتریان', Users],
   ['accounts', 'اکانت‌های مشتریان', Gauge],
+  ['usage', 'گزارش مصرف', Activity],
   ['broadcast', 'پیام همگانی', Megaphone],
   ['events', 'مرکز رویداد', BellRing],
   ['payments', 'پرداخت‌ها', CreditCard],
@@ -1241,7 +1245,13 @@ export default function Reseller({ coreFetch, notify }) {
             {tab === 'banksms' && <BankSms coreFetch={coreFetch} base={base} notify={notify} />}
             {tab === 'keys' && <Keys coreFetch={coreFetch} base={base} notify={notify} />}
             {tab === 'hooks' && <Hooks coreFetch={coreFetch} base={base} notify={notify} />}
-            {tab === 'paneladmin' && <ResellerPanelAdmin coreFetch={coreFetch} base={base} notify={notify} />}
+            {tab === 'paneladmin' && (
+              <div className="space-y-4">
+                <ResellerPanelAdmin coreFetch={coreFetch} base={base} notify={notify} />
+                <ResellerSubBranding coreFetch={coreFetch} base={base} notify={notify} />
+              </div>
+            )}
+            {tab === 'usage' && <ResellerUsage coreFetch={coreFetch} base={base} notify={notify} />}
             {tab === 'settings' && (
               <div className="space-y-4">
                 <Branding coreFetch={coreFetch} base={base} storeId={mine.id} notify={notify} />

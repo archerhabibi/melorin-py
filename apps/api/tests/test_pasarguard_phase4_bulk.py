@@ -87,10 +87,9 @@ async def _world(s, n=3, *, status=VpnStatus.ACTIVE, expire_days=10, limit=10 * 
     for i in range(n):
         order = await make_order(s, user=user, store=store, product=product)
         a = VpnAccount(
-            username=f"acc{i}", user_id=user.id, store_id=store.id, order_id=order.id, product_id=product.id, panel_id=panel.id,
-            panel_ref=str(i + 1), status=status, expires_at=NOW + dt.timedelta(days=expire_days) if expire_days is not None else None,
-            traffic_limit_bytes=limit, subscription_url="https://sub/x",
-        )  # fmt: skip
+            delivery_snapshot={"subscription_url": "https://sub/x"}, username=f"acc{i}", user_id=user.id, store_id=store.id, order_id=order.id, product_id=product.id, panel_id=panel.id,
+            panel_ref=str(i + 1), status=status, sold_expires_at=NOW + dt.timedelta(days=expire_days) if expire_days is not None else None,
+            sold_traffic_bytes=limit,         )  # fmt: skip
         s.add(a)
         accounts.append(a)
     await s.commit()
@@ -145,7 +144,7 @@ async def test_preview_needs_a_reason_and_valid_params(panel_api):
 async def test_unlimited_accounts_are_skipped_for_compensation_and_an_empty_selection_is_refused(panel_api):
     async with open_schema_engine() as engine, async_sessionmaker(engine, expire_on_commit=False)() as s:
         user, store, panel, accounts = await _world(s, 2)
-        accounts[1].expires_at, accounts[1].traffic_limit_bytes = None, 0  # unlimited time and traffic
+        accounts[1].sold_expires_at, accounts[1].sold_traffic_bytes = None, 0  # unlimited time and traffic
         await s.commit()
         op = await bulk.preview(s, kind="extend_days", selection=_sel(panel), params={"days": 3}, reason="جبران", actor_id=user.id)
         assert op.total == 1 and op.skipped == 1 and op.selection["skipped"] == {"unlimited_time": 1}
@@ -217,7 +216,7 @@ async def test_disable_runs_in_chunks_marks_accounts_and_audits(panel_api, monke
         sent = [c for c in panel_api.calls if c[0] == "bulk"]
         assert [len(c[2]) for c in sent] == [2, 2, 1] and all(c[1] == "disable" for c in sent)
         rows = (await s.scalars(select(VpnAccount).order_by(VpnAccount.username))).all()
-        assert all(a.status == VpnStatus.SUSPENDED and a.remote_status == "disabled" and a.last_synced_at is None for a in rows)
+        assert all(a.status == VpnStatus.SUSPENDED and a.last_synced_at is None for a in rows)
         actions = {a.action for a in (await s.scalars(select(AuditEvent))).all()}
         assert {"bulk.previewed", "bulk.confirmed", "bulk.finished"} <= actions
 
@@ -310,7 +309,7 @@ async def test_extend_days_writes_an_absolute_value_and_mirrors_it(panel_api):
         for name in ("acc0", "acc1"):
             assert abs(panel_api.users[name].expire_at - expect) < dt.timedelta(seconds=2)
         row = await s.scalar(select(VpnAccount).where(VpnAccount.username == "acc0"))
-        assert abs(row.expires_at.replace(tzinfo=dt.UTC) - expect) < dt.timedelta(seconds=2)
+        assert abs(row.sold_expires_at.replace(tzinfo=dt.UTC) - expect) < dt.timedelta(seconds=2)
 
 
 async def test_extend_never_adds_twice_when_the_first_answer_was_lost(panel_api):

@@ -15,6 +15,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from sqlalchemy import func, select
 
 from melorin.core.db import utcnow
+from melorin.domain.order_kinds import revenue_only
 from melorin.domain.order_state import OrderStatus, PaymentStatus
 from melorin.kernel.models.notifications import TelegramEventDestination
 from melorin.kernel.models.orders import Order
@@ -66,7 +67,7 @@ async def build(session, store_id: uuid.UUID | None, start: dt.datetime, end: dt
         Order.total,
         Order.currency,
         Order.status == OrderStatus.COMPLETED.value,
-        Order.kind != "test",
+        revenue_only(Order.kind),
         Order.completed_at >= start,
         Order.completed_at < end,
         *scope(Order.store_id),

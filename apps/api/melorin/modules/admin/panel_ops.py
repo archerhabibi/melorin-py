@@ -1,8 +1,9 @@
 """Admin API - panel operations (PasarGuard roadmap Phase 1): node health, reconciliation issues, discovered panel users.
 
 Read endpoints are plain lists. Every write is an explicit admin decision, audited, and limited to the issue's own kind:
-``ignore`` / ``resolve`` (any kind), ``fix_owner`` (owner_mismatch), ``archive_account`` (missing_on_panel), ``resync`` (re-check now).
-Nothing here deletes anything on a panel, and orphans are only ever listed or ignored.
+``ignore`` / ``resolve`` (any kind), ``fix_owner`` (owner_mismatch), ``archive_account`` / ``link_existing`` / ``recreate_on_panel`` (missing_on_panel), ``resync`` (re-check now).
+Nothing here deletes anything on a panel; orphans are listed, ignored, recorded as manual or assigned to a customer (a zero-price
+``manual`` order that is NOT a sale: see ``domain/order_kinds``).
 """
 
 import datetime as dt
@@ -21,14 +22,14 @@ from melorin.domain.order_state import VpnStatus
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.vpn import Panel, PanelEvent, PanelNode, PanelOrphan, ReconciliationIssue, VpnAccount
 from melorin.modules.vpn import issues as issue_svc
-from melorin.modules.vpn import notices, panel_events, panel_events_admin, reconcile
+from melorin.modules.vpn import manual_assign, notices, panel_events, panel_events_admin, reconcile, recreate
 from melorin.modules.vpn.adapters.base import PanelError, supports
 from melorin.modules.vpn.adapters.registry import build_adapter, seed_adapter
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 log = logging.getLogger("melorin.admin.panel_ops")
 
-ACTIONS = ("ignore", "resolve", "fix_owner", "archive_account", "resync")
+ACTIONS = ("ignore", "resolve", "fix_owner", "archive_account", "link_existing", "recreate_on_panel", "resync", "accept_panel")
 
 
 class NodeOut(BaseModel):
@@ -72,8 +73,9 @@ class IssueOut(BaseModel):
 
 
 class IssueActionIn(BaseModel):
-    action: str = Field(pattern="^(ignore|resolve|fix_owner|archive_account|resync)$")
+    action: str = Field(pattern="^(ignore|resolve|fix_owner|archive_account|link_existing|recreate_on_panel|resync|accept_panel)$")
     reason: str | None = Field(default=None, max_length=300)
+    orphan_id: uuid.UUID | None = None  # link_existing: the panel user (orphan of the SAME panel) this account really is
 
 
 class OrphanOut(BaseModel):
@@ -86,6 +88,7 @@ class OrphanOut(BaseModel):
     expire_at: dt.datetime | None = None
     traffic_limit_bytes: int = 0
     traffic_used_bytes: int = 0
+    as_of: dt.datetime | None = None  # when the panel was last read (the numbers above are a snapshot of that moment)
     status: str
     note: str | None = None
     first_seen_at: dt.datetime | None = None
@@ -100,7 +103,11 @@ def allowed_actions(kind: str, status: str) -> list[str]:
     """What an admin may do with an issue. Closed issues take no action."""
     if status != issue_svc.OPEN:
         return []
-    extra = {issue_svc.OWNER_MISMATCH: ["fix_owner"], issue_svc.MISSING: ["archive_account"]}.get(kind, [])
+    extra = {
+        issue_svc.OWNER_MISMATCH: ["fix_owner"],
+        issue_svc.MISSING: ["link_existing", "recreate_on_panel", "archive_account"],
+        issue_svc.LIMITS_MISMATCH: ["accept_panel"],
+    }.get(kind, [])
     return ["resync", *extra, "resolve", "ignore"]
 
 
@@ -254,6 +261,7 @@ async def reconciliation_summary(_: AdminUser, session: Session):
         ).all()
     )
     orphans = await session.scalar(select(func.count()).select_from(PanelOrphan).where(PanelOrphan.status == "open")) or 0
+    manual = await session.scalar(select(func.count()).select_from(PanelOrphan).where(PanelOrphan.status == "manual")) or 0
     oldest = await session.scalar(
         select(func.min(VpnAccount.last_synced_at)).where(VpnAccount.status.in_(("active", "suspended", "limited")))
     )
@@ -261,6 +269,7 @@ async def reconciliation_summary(_: AdminUser, session: Session):
         "open": {k: int(by_kind.get(k, 0)) for k in issue_svc.KINDS},
         "open_total": int(sum(by_kind.values())),
         "orphans_open": int(orphans),
+        "orphans_manual": int(manual),
         "oldest_sync_at": oldest,
     }
 
@@ -275,6 +284,7 @@ async def issue_action(issue_id: uuid.UUID, body: IssueActionIn, admin: AdminUse
     account = await session.get(VpnAccount, issue.vpn_account_id)
     now = utcnow()
     reason = (body.reason or "").strip() or None
+    extra_audit: dict = {}
     if body.action == "ignore":
         if not reason:
             raise AppError("REASON_REQUIRED", "برای نادیده گرفتن، دلیل را بنویسید.", 422)
@@ -284,6 +294,32 @@ async def issue_action(issue_id: uuid.UUID, body: IssueActionIn, admin: AdminUse
     elif body.action == "archive_account":
         account.status, account.archived_at = VpnStatus.ARCHIVED, now
         issue.status, issue.resolution, issue.resolved_at = issue_svc.RESOLVED, f"archived: {reason or 'missing on panel'}"[:300], now
+    elif body.action == "link_existing":
+        if body.orphan_id is None:
+            raise AppError("ORPHAN_REQUIRED", "کاربر موجود روی پنل را انتخاب کنید.", 422)
+        orphan = await session.get(PanelOrphan, body.orphan_id)
+        if not orphan or orphan.panel_id != account.panel_id or orphan.status == "gone":
+            raise NotFound("کاربر پنل")
+        if len(orphan.username) > 64 or await session.scalar(
+            select(VpnAccount.id).where(VpnAccount.username == orphan.username, VpnAccount.id != account.id)
+        ):
+            raise AppError("USERNAME_TAKEN", "این کاربر پنل قبلاً به اکانت دیگری وصل است یا نامش معتبر نیست.", 409)
+        account.username = orphan.username
+        account.panel_ref = str(orphan.remote_id) if orphan.remote_id is not None else None
+        account.sync_error_count = 0
+        orphan.status, orphan.note = "gone", f"linked to account {account.id}"[:300]
+        issue.status, issue.resolution, issue.resolved_at = issue_svc.RESOLVED, f"linked to panel user {orphan.username}"[:300], now
+    elif body.action == "recreate_on_panel":
+        if not reason:
+            raise AppError("REASON_REQUIRED", "برای ساخت دوباره روی پنل، دلیل را بنویسید.", 422)
+        new_ref = await recreate.recreate_on_panel(session, account)
+        issue.status, issue.resolution, issue.resolved_at = issue_svc.RESOLVED, f"re-created on panel (ref {new_ref}): {reason}"[:300], now
+    elif body.action == "accept_panel":
+        if not reason:
+            raise AppError("REASON_REQUIRED", "برای پذیرفتن مقادیر پنل، دلیل را بنویسید.", 422)
+        change = await reconcile.accept_panel(session, account)
+        issue.status, issue.resolution, issue.resolved_at = issue_svc.RESOLVED, f"accepted panel values: {reason}"[:300], now
+        extra_audit = change
     elif body.action == "fix_owner":
         expected = (issue.details or {}).get("expected")
         panel = await session.get(Panel, account.panel_id) if account.panel_id else None
@@ -331,9 +367,12 @@ async def issue_action(issue_id: uuid.UUID, body: IssueActionIn, admin: AdminUse
         entity_type="vpn_account",
         entity_id=account.id,
         store_id=account.store_id,
-        data={"issue": str(issue.id), "kind": issue.kind, "reason": reason},
+        data={"issue": str(issue.id), "kind": issue.kind, "reason": reason, **(extra_audit if body.action == "accept_panel" else {})},
     )
     await session.commit()
+    if body.action in ("link_existing", "recreate_on_panel"):
+        await reconcile.reconcile_account(session, account.id)  # verify the link against the panel right away
+        await session.refresh(issue)
     store, panel = await session.get(Store, account.store_id), (await session.get(Panel, account.panel_id) if account.panel_id else None)
     return _issue_out(issue, account, store, panel)
 
@@ -362,11 +401,8 @@ async def panel_orphans(
                 panel_id=o.panel_id,
                 panel_name=name,
                 username=o.username,
-                remote_status=o.remote_status,
                 owner_username=o.owner_username,
-                expire_at=o.expire_at,
-                traffic_limit_bytes=int(o.traffic_limit_bytes or 0),
-                traffic_used_bytes=int(o.traffic_used_bytes or 0),
+                **_orphan_numbers(o),
                 status=o.status,
                 note=o.note,
                 first_seen_at=o.first_seen_at,
@@ -377,16 +413,43 @@ async def panel_orphans(
     }
 
 
-@router.post("/panel-orphans/{orphan_id}/ignore", response_model=OrphanOut)
-async def ignore_orphan(orphan_id: uuid.UUID, body: OrphanIgnoreIn, admin: AdminUser, session: Session):
-    """\"This panel user is not ours and that is fine\" (a manual account, a test). It is kept, only hidden from the open list."""
+def _orphan_numbers(o: PanelOrphan) -> dict:
+    """R7: the dated snapshot of an orphan, flattened for the API (``as_of`` = when the panel was last read)."""
+    snap = o.snapshot or {}
+    raw = snap.get("expire_at")
+    return {
+        "remote_status": snap.get("remote_status"),
+        "expire_at": dt.datetime.fromisoformat(raw) if raw else None,
+        "traffic_limit_bytes": int(snap.get("traffic_limit_bytes") or 0),
+        "traffic_used_bytes": int(snap.get("traffic_used_bytes") or 0),
+        "as_of": o.last_seen_at,
+    }
+
+
+def _orphan_out(o: PanelOrphan) -> OrphanOut:
+    return OrphanOut(
+        id=o.id,
+        panel_id=o.panel_id,
+        username=o.username,
+        owner_username=o.owner_username,
+        **_orphan_numbers(o),
+        status=o.status,
+        note=o.note,
+        first_seen_at=o.first_seen_at,
+        last_seen_at=o.last_seen_at,
+    )
+
+
+async def _set_orphan_status(session, admin, orphan_id: uuid.UUID, status: str, body: OrphanIgnoreIn, action: str) -> OrphanOut:
     o = await session.get(PanelOrphan, orphan_id)
     if not o:
         raise NotFound("کاربر پنل")
-    o.status, o.note = "ignored", (body.note or "").strip() or None
+    if o.status == "gone":
+        raise AppError("ORPHAN_GONE", "این کاربر دیگر در پنل نیست.", 409)
+    o.status, o.note = status, (body.note or "").strip() or None
     audit.record(
         session,
-        "panel_orphan.ignored",
+        action,
         actor_id=admin.id,
         actor_type="admin",
         entity_type="panel_orphan",
@@ -394,20 +457,80 @@ async def ignore_orphan(orphan_id: uuid.UUID, body: OrphanIgnoreIn, admin: Admin
         data={"username": o.username, "panel_id": str(o.panel_id)},
     )
     await session.commit()
-    return OrphanOut(
-        id=o.id,
-        panel_id=o.panel_id,
-        username=o.username,
-        remote_status=o.remote_status,
-        owner_username=o.owner_username,
-        expire_at=o.expire_at,
-        traffic_limit_bytes=int(o.traffic_limit_bytes or 0),
-        traffic_used_bytes=int(o.traffic_used_bytes or 0),
-        status=o.status,
-        note=o.note,
-        first_seen_at=o.first_seen_at,
-        last_seen_at=o.last_seen_at,
+    return _orphan_out(o)
+
+
+@router.post("/panel-orphans/{orphan_id}/ignore", response_model=OrphanOut)
+async def ignore_orphan(orphan_id: uuid.UUID, body: OrphanIgnoreIn, admin: AdminUser, session: Session):
+    """\"This panel user is not ours and that is fine\" (a test, a leftover). It is kept, only hidden from the open list."""
+    return await _set_orphan_status(session, admin, orphan_id, "ignored", body, "panel_orphan.ignored")
+
+
+@router.post("/panel-orphans/{orphan_id}/manual", response_model=OrphanOut)
+async def manual_orphan(orphan_id: uuid.UUID, body: OrphanIgnoreIn, admin: AdminUser, session: Session):
+    """Record the panel user as a MANUAL ACCOUNT: created by hand on the panel, known and wanted, not sold through Melorin.
+
+    Nothing is written to the panel and nothing is deleted. The user leaves the open list and stays visible under ``status=manual``
+    (it goes ``gone`` by itself when the panel user disappears); an admin may later assign it to a store/customer.
+    """
+    return await _set_orphan_status(session, admin, orphan_id, "manual", body, "panel_orphan.manual")
+
+
+class OrphanAssignIn(BaseModel):
+    store_id: uuid.UUID
+    user_id: uuid.UUID = Field(description="the customer (an active member of the store) who will own the account")
+    product_id: uuid.UUID = Field(description="the package this account is renewed as later; its price is NOT charged now")
+    server_id: uuid.UUID | None = Field(default=None, description="destination to count it on; default = the panel's only enabled one")
+    note: str | None = Field(default=None, max_length=300)
+
+
+class OrphanAssignOut(BaseModel):
+    vpn_account_id: uuid.UUID
+    order_id: uuid.UUID
+    order_number: str
+    username: str
+    store_id: uuid.UUID
+    user_id: uuid.UUID
+    revenue: str = "excluded"
+    excluded_from: list[str] = list(manual_assign.EXCLUDED_FROM)
+    owner_matches: bool | None = None
+    expected_owner: str | None = None
+
+
+@router.post("/panel-orphans/{orphan_id}/assign", response_model=OrphanAssignOut)
+async def assign_orphan(orphan_id: uuid.UUID, body: OrphanAssignIn, admin: AdminUser, session: Session):
+    """Give a panel user (open or recorded as manual) to a store customer.
+
+    Creates the account and a zero-price ``manual`` order that is NOT a sale: no revenue, no commission, no referral reward, no
+    loyalty points, no return. Writes nothing to the panel; the sold entitlement is the panel's reading taken now (a panel that does
+    not answer: 503, nothing created). ``owner_matches=false`` means the next reconcile will raise ``owner_mismatch`` (decide ``fix_owner``).
+    """
+    r = await manual_assign.assign_orphan(
+        session,
+        admin=admin,
+        orphan_id=orphan_id,
+        store_id=body.store_id,
+        user_id=body.user_id,
+        product_id=body.product_id,
+        server_id=body.server_id,
+        note=body.note,
     )
+    return OrphanAssignOut(
+        vpn_account_id=r.account.id,
+        order_id=r.order.id,
+        order_number=r.order.number,
+        username=r.account.username,
+        store_id=r.account.store_id,
+        user_id=r.account.user_id,
+        owner_matches=r.owner_matches,
+        expected_owner=r.expected_owner,
+    )
+
+
+@router.post("/panel-orphans/{orphan_id}/reopen", response_model=OrphanOut)
+async def reopen_orphan(orphan_id: uuid.UUID, body: OrphanIgnoreIn, admin: AdminUser, session: Session):
+    """Undo ``ignore`` / ``manual``: the panel user is listed as open again."""
+    return await _set_orphan_status(session, admin, orphan_id, "open", body, "panel_orphan.reopened")
 
 
 # ------------------------------------------------------------------------------------------- per-store notice settings (PG-06)
@@ -463,6 +586,91 @@ async def put_store_vpn_notices(store_id: uuid.UUID, body: NoticeSettingsIn, adm
     )
     await session.commit()
     return _notice_out(store)
+
+
+class NoticeTextItem(BaseModel):
+    title: str = Field(min_length=1, max_length=notices.MAX_TITLE)
+    body: str = Field(min_length=1, max_length=notices.MAX_BODY)
+
+
+class NoticeTextsIn(BaseModel):
+    texts: dict[str, NoticeTextItem] = Field(
+        description="notice kind -> wording; placeholders {store} and {level}; {} clears all custom texts"
+    )
+
+
+class NoticeTextsOut(BaseModel):
+    store_id: uuid.UUID
+    texts: dict[str, dict[str, str]]
+    kinds: list[str] = list(notices.TEXT_KINDS)
+    placeholders: list[str] = list(notices.TEXT_TOKENS)
+
+
+@router.get("/stores/{store_id}/vpn-notice-texts", response_model=NoticeTextsOut)
+async def get_store_vpn_notice_texts(store_id: uuid.UUID, _: AdminUser, session: Session):
+    store = await session.get(Store, store_id)
+    if not store:
+        raise NotFound("فروشگاه")
+    return NoticeTextsOut(store_id=store.id, texts=notices.texts_for_store(store.vpn_notice_settings))
+
+
+@router.put("/stores/{store_id}/vpn-notice-texts", response_model=NoticeTextsOut)
+async def put_store_vpn_notice_texts(store_id: uuid.UUID, body: NoticeTextsIn, admin: AdminUser, session: Session):
+    """PG-06: this store's own wording for customer notices (expiry, low traffic, ...). Replaces the previous set; kinds not listed use the platform text."""
+    store = await session.get(Store, store_id)
+    if not store:
+        raise NotFound("فروشگاه")
+    try:
+        texts = notices.normalize_texts({k: v.model_dump() for k, v in body.texts.items()})
+    except ValueError as exc:
+        raise AppError("INVALID_NOTICE_TEXTS", "متن اعلان نامعتبر است", status=422, details={"reason": str(exc)}) from exc
+    before = sorted(notices.texts_for_store(store.vpn_notice_settings))
+    settings = {**(store.vpn_notice_settings or {})}
+    if texts:
+        settings["texts"] = texts
+    else:
+        settings.pop("texts", None)
+    store.vpn_notice_settings = settings or None
+    audit.record(
+        session,
+        "store.vpn_notice_texts.updated",
+        actor_id=admin.id,
+        actor_type="admin",
+        entity_type="store",
+        entity_id=store.id,
+        store_id=store.id,
+        data={"before": before, "after": sorted(texts)},
+    )
+    await session.commit()
+    return NoticeTextsOut(store_id=store.id, texts=texts)
+
+
+class DigestIn(BaseModel):
+    enabled: bool
+
+
+@router.put("/stores/{store_id}/vpn-digest")
+async def put_store_vpn_digest(store_id: uuid.UUID, body: DigestIn, admin: AdminUser, session: Session):
+    """PG-06: switch the store owner's daily VPN digest on/off (off by default; a day with nothing to report sends nothing)."""
+    store = await session.get(Store, store_id)
+    if not store:
+        raise NotFound("فروشگاه")
+    settings = {**(store.vpn_notice_settings or {})}
+    before = settings.get("daily_digest") is True
+    settings["daily_digest"] = bool(body.enabled)
+    store.vpn_notice_settings = settings
+    audit.record(
+        session,
+        "store.vpn_digest.updated",
+        actor_id=admin.id,
+        actor_type="admin",
+        entity_type="store",
+        entity_id=store.id,
+        store_id=store.id,
+        data={"before": before, "after": bool(body.enabled)},
+    )
+    await session.commit()
+    return {"store_id": str(store.id), "daily_digest": bool(body.enabled), "has_owner": store.owner_user_id is not None}
 
 
 @router.delete("/stores/{store_id}/vpn-notices", response_model=NoticeSettingsOut)

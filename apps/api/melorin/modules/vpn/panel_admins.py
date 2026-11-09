@@ -143,7 +143,7 @@ def public_row(row: PanelAdmin, *, panel: Panel | None = None, store: Store | No
         "store_name": store.name if store else None,
         "store_kind": store.kind if store else None,
         "username": row.username,
-        "role": ROLE,
+        "role": (panel.config or {}).get("admin_role") or ROLE if panel else ROLE,
         "status": row.status,
         "last_error": row.last_error,
         "synced_at": row.synced_at,

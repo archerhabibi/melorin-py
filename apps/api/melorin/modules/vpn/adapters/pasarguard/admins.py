@@ -31,10 +31,17 @@ class AdminsMixin:
         return body
 
     async def ensure_admin(self, username: str, password: str, *, role: str = "operator", profile: dict | None = None) -> dict:
-        """Create the admin when missing (role Operator), adopt it (and set our password) when it already exists. Idempotent."""
+        """Create the admin when missing, adopt it (set our password, move it to ``role`` unless it is an owner) when it exists. Idempotent."""
         existing = await self.find_admin(username)
         if existing:
-            await self._req("PUT", f"/api/admin/by-id/{int(existing['id'])}", json={"password": password, **self._profile_body(profile)})
+            body: dict = {"password": password, **self._profile_body(profile)}
+            current = existing.get("role") if isinstance(existing.get("role"), dict) else {}
+            if not current.get("is_owner"):  # an owner's role is never touched, whatever the caller asks for
+                wanted = await self._role_id(role)
+                have = current.get("id") if current.get("id") is not None else existing.get("role_id")
+                if have is None or int(have) != wanted:
+                    body["role_id"] = wanted  # PG-12: applying `melorin-store` must reach admins that already exist
+            await self._req("PUT", f"/api/admin/by-id/{int(existing['id'])}", json=body)
             return existing
         body = {"username": username, "password": password, "role_id": await self._role_id(role), **self._profile_body(profile)}
         out = await self._req("POST", "/api/admin", json=body, ok409=True)
@@ -54,6 +61,43 @@ class AdminsMixin:
         if not body:
             return {}
         return await self._req("PUT", f"/api/admin/by-id/{int(remote_id)}", json=body)
+
+    @staticmethod
+    def parse_custom_variables(raw) -> dict:
+        """The admin's ``custom_variables`` as a flat ``{KEY: value}`` dict with UPPER-CASE keys.
+
+        PasarGuard 5.6.0 keeps a LIST of ``{"key", "value"}`` (``CustomVariable``) and upper-cases every key (read from the panel's own
+        models, 9 Nov 2026). An object or a JSON string is still tolerated so an older/other build cannot break a read.
+        """
+        import json
+
+        if isinstance(raw, str):
+            try:
+                raw = json.loads(raw) if raw.strip() else []
+            except ValueError:
+                return {}
+        out: dict[str, str] = {}
+        if isinstance(raw, list):
+            for item in raw:
+                if isinstance(item, dict) and item.get("key") and isinstance(item.get("value", ""), str | int | float):
+                    out[str(item["key"]).strip().upper()] = str(item.get("value", ""))
+            return out
+        if isinstance(raw, dict):
+            return {str(k).strip().upper(): str(v) for k, v in raw.items() if isinstance(v, str | int | float)}
+        return {}
+
+    async def read_custom_variables(self, username: str) -> dict | None:
+        """What the panel holds in the admin's ``custom_variables`` now (``None`` when the admin does not exist). Read-only."""
+        admin = await self.find_admin(username)
+        return None if admin is None else self.parse_custom_variables(admin.get("custom_variables"))
+
+    async def write_custom_variables(self, remote_id: int, variables: dict[str, str]) -> dict:
+        """Replace the admin's ``custom_variables`` with exactly ``variables`` (callers merge first). Touches nothing else.
+
+        Wire format: a list of ``{"key", "value"}``. An object is refused by the panel with 422 ``list_type`` (checked against 5.6.0).
+        """
+        body = [{"key": str(k).strip().upper(), "value": str(v)} for k, v in sorted(variables.items())]
+        return await self._req("PUT", f"/api/admin/by-id/{int(remote_id)}", json={"custom_variables": body})
 
     async def bulk_set_owner(self, refs: list[str], owner: str) -> int:
         """Move existing users (panel ids) under ``owner``; chunked, idempotent."""

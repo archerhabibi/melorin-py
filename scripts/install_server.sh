@@ -174,13 +174,18 @@ if [ -n "${BACKUP_OFFSITE_URI:-}" ]; then
   set_kv MELORIN_BACKUP_OFFSITE_URI "$BACKUP_OFFSITE_URI"
 fi
 
-# Prometheus reads a file secret, not the .env value. Write it atomically and
-# keep it readable only by the monitoring container's root user.
+# Prometheus reads a file secret, not the .env value. The prom/prometheus image runs as "nobody" (65534), so the file must belong to
+# that user (mode 0600 stays): a root-only file made the scrape target fail with "unable to read authorization credentials".
+# The content is written IN PLACE (same inode) because the file is bind-mounted into the container; ``mv`` would leave Prometheus
+# looking at the old file after a token rotation.
 mkdir -p secrets
 tmp_metrics="$(mktemp secrets/.metrics-token.XXXXXX)"
 printf '%s\n' "$(sed -n 's/^MELORIN_METRICS_TOKEN=//p' .env)" > "$tmp_metrics"
 chmod 600 "$tmp_metrics"
-mv -f "$tmp_metrics" secrets/metrics-token
+if [ ! -e secrets/metrics-token ]; then : > secrets/metrics-token; fi
+cat "$tmp_metrics" > secrets/metrics-token && rm -f "$tmp_metrics"
+chmod 600 secrets/metrics-token
+chown 65534:65534 secrets/metrics-token 2>/dev/null || echo ">> warning: could not chown secrets/metrics-token to 65534 (run as root)"
 
 if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
   ufw allow 80/tcp >/dev/null && ufw allow 443/tcp >/dev/null && echo ">> ufw: opened 80/tcp and 443/tcp"

@@ -917,6 +917,49 @@
         "title": "Body_upload_receipt_api_v1_stores__store_id__payments__payment_id__receipt_post",
         "type": "object"
       },
+      "BootstrapIn": {
+        "description": "An OWNER credential for this one request. Never stored, never logged, never returned.",
+        "properties": {
+          "api_key": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "title": "BootstrapIn",
+        "type": "object"
+      },
       "BotTokenIn": {
         "properties": {
           "token": {
@@ -1251,6 +1294,56 @@
           "store_id"
         ],
         "title": "CommissionRuleIn",
+        "type": "object"
+      },
+      "ConnectionsOut": {
+        "description": "Admin-only view (decision 5). Read live from the panel, never stored.",
+        "properties": {
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/FetchOut"
+            },
+            "title": "History",
+            "type": "array"
+          },
+          "history_available": {
+            "title": "History Available",
+            "type": "boolean"
+          },
+          "history_count": {
+            "title": "History Count",
+            "type": "integer"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "online_available": {
+            "title": "Online Available",
+            "type": "boolean"
+          },
+          "online_ips": {
+            "items": {
+              "$ref": "#/components/schemas/OnlineIpOut"
+            },
+            "title": "Online Ips",
+            "type": "array"
+          }
+        },
+        "required": [
+          "online_available",
+          "online_ips",
+          "history_available",
+          "history_count",
+          "history",
+          "limit",
+          "offset"
+        ],
+        "title": "ConnectionsOut",
         "type": "object"
       },
       "CoreRestartIn": {
@@ -2146,6 +2239,19 @@
         "title": "DevicesOut",
         "type": "object"
       },
+      "DigestIn": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "DigestIn",
+        "type": "object"
+      },
       "EditMessage": {
         "properties": {
           "body": {
@@ -2392,6 +2498,60 @@
           "enabled"
         ],
         "title": "FeatureUpdate",
+        "type": "object"
+      },
+      "FetchOut": {
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "hwid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hwid"
+          },
+          "ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ip"
+          },
+          "user_agent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Agent"
+          }
+        },
+        "title": "FetchOut",
         "type": "object"
       },
       "GoogleIn": {
@@ -2655,9 +2815,21 @@
       "IssueActionIn": {
         "properties": {
           "action": {
-            "pattern": "^(ignore|resolve|fix_owner|archive_account|resync)$",
+            "pattern": "^(ignore|resolve|fix_owner|archive_account|link_existing|recreate_on_panel|resync|accept_panel)$",
             "title": "Action",
             "type": "string"
+          },
+          "orphan_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Orphan Id"
           },
           "reason": {
             "anyOf": [
@@ -2912,6 +3084,20 @@
             "minLength": 3,
             "title": "Reason",
             "type": "string"
+          },
+          "retention_days": {
+            "anyOf": [
+              {
+                "maximum": 365.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "aligned only: the least days the panel must keep expired users",
+            "title": "Retention Days"
           }
         },
         "required": [
@@ -3211,6 +3397,126 @@
         "title": "NoticeSettingsOut",
         "type": "object"
       },
+      "NoticeTextItem": {
+        "properties": {
+          "body": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "body"
+        ],
+        "title": "NoticeTextItem",
+        "type": "object"
+      },
+      "NoticeTextsIn": {
+        "properties": {
+          "texts": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/NoticeTextItem"
+            },
+            "description": "notice kind -> wording; placeholders {store} and {level}; {} clears all custom texts",
+            "title": "Texts",
+            "type": "object"
+          }
+        },
+        "required": [
+          "texts"
+        ],
+        "title": "NoticeTextsIn",
+        "type": "object"
+      },
+      "NoticeTextsOut": {
+        "properties": {
+          "kinds": {
+            "default": [
+              "vpn_expired",
+              "vpn_near_expiry",
+              "vpn_traffic_low",
+              "vpn_traffic_exhausted",
+              "vpn_disabled",
+              "vpn_queued_plan_started"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "title": "Kinds",
+            "type": "array"
+          },
+          "placeholders": {
+            "default": [
+              "{store}",
+              "{level}"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "title": "Placeholders",
+            "type": "array"
+          },
+          "store_id": {
+            "format": "uuid",
+            "title": "Store Id",
+            "type": "string"
+          },
+          "texts": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "title": "Texts",
+            "type": "object"
+          }
+        },
+        "required": [
+          "store_id",
+          "texts"
+        ],
+        "title": "NoticeTextsOut",
+        "type": "object"
+      },
+      "OnlineIpOut": {
+        "properties": {
+          "connections": {
+            "title": "Connections",
+            "type": "integer"
+          },
+          "ip": {
+            "title": "Ip",
+            "type": "string"
+          },
+          "node_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Node Id"
+          }
+        },
+        "required": [
+          "node_id",
+          "ip",
+          "connections"
+        ],
+        "title": "OnlineIpOut",
+        "type": "object"
+      },
       "OrderAction": {
         "properties": {
           "reason": {
@@ -3436,6 +3742,142 @@
         "title": "OrderOut",
         "type": "object"
       },
+      "OrphanAssignIn": {
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "product_id": {
+            "description": "the package this account is renewed as later; its price is NOT charged now",
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "server_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "destination to count it on; default = the panel's only enabled one",
+            "title": "Server Id"
+          },
+          "store_id": {
+            "format": "uuid",
+            "title": "Store Id",
+            "type": "string"
+          },
+          "user_id": {
+            "description": "the customer (an active member of the store) who will own the account",
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "store_id",
+          "user_id",
+          "product_id"
+        ],
+        "title": "OrphanAssignIn",
+        "type": "object"
+      },
+      "OrphanAssignOut": {
+        "properties": {
+          "excluded_from": {
+            "default": [
+              "sales",
+              "commission",
+              "referral",
+              "loyalty",
+              "returns"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "title": "Excluded From",
+            "type": "array"
+          },
+          "expected_owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Owner"
+          },
+          "order_id": {
+            "format": "uuid",
+            "title": "Order Id",
+            "type": "string"
+          },
+          "order_number": {
+            "title": "Order Number",
+            "type": "string"
+          },
+          "owner_matches": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Matches"
+          },
+          "revenue": {
+            "default": "excluded",
+            "title": "Revenue",
+            "type": "string"
+          },
+          "store_id": {
+            "format": "uuid",
+            "title": "Store Id",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          },
+          "vpn_account_id": {
+            "format": "uuid",
+            "title": "Vpn Account Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vpn_account_id",
+          "order_id",
+          "order_number",
+          "username",
+          "store_id",
+          "user_id"
+        ],
+        "title": "OrphanAssignOut",
+        "type": "object"
+      },
       "OrphanIgnoreIn": {
         "properties": {
           "note": {
@@ -3456,6 +3898,18 @@
       },
       "OrphanOut": {
         "properties": {
+          "as_of": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
           "expire_at": {
             "anyOf": [
               {
@@ -3673,6 +4127,22 @@
             ],
             "title": "Links"
           },
+          "live": {
+            "default": true,
+            "title": "Live",
+            "type": "boolean"
+          },
+          "live_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Live Note"
+          },
           "next_plan_queued": {
             "default": false,
             "title": "Next Plan Queued",
@@ -3736,6 +4206,17 @@
             ],
             "title": "Server Id"
           },
+          "state_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State Note"
+          },
           "status": {
             "title": "Status",
             "type": "string"
@@ -3763,13 +4244,31 @@
             ],
             "title": "Subscription Url"
           },
+          "suggested_action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Action"
+          },
           "traffic_limit_bytes": {
             "title": "Traffic Limit Bytes",
             "type": "integer"
           },
           "traffic_used_bytes": {
-            "title": "Traffic Used Bytes",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Traffic Used Bytes"
           },
           "updated_at": {
             "format": "date-time",
@@ -4354,9 +4853,25 @@
             ],
             "title": "Lifetime Used Bytes"
           },
+          "live": {
+            "default": true,
+            "title": "Live",
+            "type": "boolean"
+          },
           "never_connected": {
             "title": "Never Connected",
             "type": "boolean"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
           },
           "online_at": {
             "anyOf": [
@@ -5804,7 +6319,7 @@
             "type": "string"
           },
           "capacity_source": {
-            "default": "melorin",
+            "default": "panel",
             "title": "Capacity Source",
             "type": "string"
           },
@@ -6026,6 +6541,30 @@
         "title": "ServersFromTargets",
         "type": "object"
       },
+      "ServiceAccessIn": {
+        "properties": {
+          "bootstrap": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BootstrapIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "confirm_name": {
+            "description": "the panel's name, typed by the admin: this creates a role, an admin and a key on the PANEL",
+            "title": "Confirm Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "confirm_name"
+        ],
+        "title": "ServiceAccessIn",
+        "type": "object"
+      },
       "SetPassword": {
         "properties": {
           "password": {
@@ -6178,6 +6717,42 @@
         "title": "StorePolicyIn",
         "type": "object"
       },
+      "StoreRoleIn": {
+        "properties": {
+          "bootstrap": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BootstrapIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "confirm_name": {
+            "description": "the panel's name, typed by the admin: this creates a role, an admin and a key on the PANEL",
+            "title": "Confirm Name",
+            "type": "string"
+          },
+          "role_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "name of the store role on the panel; empty = `melorin-store`",
+            "title": "Role Name"
+          }
+        },
+        "required": [
+          "confirm_name"
+        ],
+        "title": "StoreRoleIn",
+        "type": "object"
+      },
       "StoreRuleIn": {
         "description": "A plan of the store named in the URL (the store is never part of the body, so it cannot be spoofed).",
         "properties": {
@@ -6232,6 +6807,62 @@
           "value"
         ],
         "title": "StoreRuleIn",
+        "type": "object"
+      },
+      "SubBrandingApplyIn": {
+        "properties": {
+          "confirm_name": {
+            "description": "the panel's name, typed by the admin: this writes into a store admin's custom_variables on the PANEL",
+            "title": "Confirm Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "confirm_name"
+        ],
+        "title": "SubBrandingApplyIn",
+        "type": "object"
+      },
+      "SubBrandingIn": {
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "logo_url": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Url"
+          },
+          "support_url": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Support Url"
+          }
+        },
+        "title": "SubBrandingIn",
         "type": "object"
       },
       "SyncIn": {
@@ -8098,6 +8729,22 @@
             ],
             "title": "Links"
           },
+          "live": {
+            "default": true,
+            "title": "Live",
+            "type": "boolean"
+          },
+          "live_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Live Note"
+          },
           "next_plan_queued": {
             "default": false,
             "title": "Next Plan Queued",
@@ -8161,6 +8808,17 @@
             ],
             "title": "Server Id"
           },
+          "state_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State Note"
+          },
           "status": {
             "title": "Status",
             "type": "string"
@@ -8188,13 +8846,31 @@
             ],
             "title": "Subscription Url"
           },
+          "suggested_action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Action"
+          },
           "traffic_limit_bytes": {
             "title": "Traffic Limit Bytes",
             "type": "integer"
           },
           "traffic_used_bytes": {
-            "title": "Traffic Used Bytes",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Traffic Used Bytes"
           },
           "updated_at": {
             "format": "date-time",
@@ -11650,9 +12326,68 @@
         ]
       }
     },
+    "/api/v1/admin/panel-orphans/{orphan_id}/assign": {
+      "post": {
+        "description": "Give a panel user (open or recorded as manual) to a store customer.\n\nCreates the account and a zero-price ``manual`` order that is NOT a sale: no revenue, no commission, no referral reward, no\nloyalty points, no return. Writes nothing to the panel; the sold entitlement is the panel's reading taken now (a panel that does\nnot answer: 503, nothing created). ``owner_matches=false`` means the next reconcile will raise ``owner_mismatch`` (decide ``fix_owner``).",
+        "operationId": "assign_orphan_api_v1_admin_panel_orphans__orphan_id__assign_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "orphan_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Orphan Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrphanAssignIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrphanAssignOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Assign Orphan",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/admin/panel-orphans/{orphan_id}/ignore": {
       "post": {
-        "description": "\"This panel user is not ours and that is fine\" (a manual account, a test). It is kept, only hidden from the open list.",
+        "description": "\"This panel user is not ours and that is fine\" (a test, a leftover). It is kept, only hidden from the open list.",
         "operationId": "ignore_orphan_api_v1_admin_panel_orphans__orphan_id__ignore_post",
         "parameters": [
           {
@@ -11704,6 +12439,124 @@
           }
         ],
         "summary": "Ignore Orphan",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/panel-orphans/{orphan_id}/manual": {
+      "post": {
+        "description": "Record the panel user as a MANUAL ACCOUNT: created by hand on the panel, known and wanted, not sold through Melorin.\n\nNothing is written to the panel and nothing is deleted. The user leaves the open list and stays visible under ``status=manual``\n(it goes ``gone`` by itself when the panel user disappears); an admin may later assign it to a store/customer.",
+        "operationId": "manual_orphan_api_v1_admin_panel_orphans__orphan_id__manual_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "orphan_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Orphan Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrphanIgnoreIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrphanOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Manual Orphan",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/panel-orphans/{orphan_id}/reopen": {
+      "post": {
+        "description": "Undo ``ignore`` / ``manual``: the panel user is listed as open again.",
+        "operationId": "reopen_orphan_api_v1_admin_panel_orphans__orphan_id__reopen_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "orphan_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Orphan Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrphanIgnoreIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrphanOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reopen Orphan",
         "tags": [
           "admin"
         ]
@@ -12965,6 +13818,224 @@
         ]
       }
     },
+    "/api/v1/admin/panels/{panel_id}/service-access": {
+      "get": {
+        "description": "Which credential level Melorin runs on, whether the service admin exists, and exactly what its role grants / withholds.",
+        "operationId": "service_access_status_api_v1_admin_panels__panel_id__service_access_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Service Access Status",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/panels/{panel_id}/service-access/keys": {
+      "post": {
+        "description": "The service admin's keys as the panel lists them (name, status, request count; never values). Needs an owner credential once.",
+        "operationId": "service_access_keys_api_v1_admin_panels__panel_id__service_access_keys_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BootstrapIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Service Access Keys",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/panels/{panel_id}/service-access/provision": {
+      "post": {
+        "description": "Create the least-privilege admin + key, verify it, then switch Melorin to it. The old owner key is left for you to revoke.",
+        "operationId": "service_access_provision_api_v1_admin_panels__panel_id__service_access_provision_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceAccessIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Service Access Provision",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/panels/{panel_id}/service-access/rotate": {
+      "post": {
+        "description": "Replace the service key (new key verified before the switch, old key deleted after). Needs an owner credential once.",
+        "operationId": "service_access_rotate_api_v1_admin_panels__panel_id__service_access_rotate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceAccessIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Service Access Rotate",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/admin/panels/{panel_id}/settings-drift": {
       "get": {
         "operationId": "drift_last_api_v1_admin_panels__panel_id__settings_drift_get",
@@ -13109,6 +14180,183 @@
           }
         ],
         "summary": "Set Panel State",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/panels/{panel_id}/store-role-plan": {
+      "get": {
+        "description": "PG-12: the least-privilege role a store's panel admin should have (read-only plan; Melorin does not create it on the panel).",
+        "operationId": "store_role_plan_api_v1_admin_panels__panel_id__store_role_plan_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "role_name",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Role Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Store Role Plan",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/panels/{panel_id}/store-role/apply": {
+      "post": {
+        "description": "PG-12: create the store role on the panel (default name `melorin-store`, any valid name allowed; owner credential once)\nand use it for new/re-synced store admins.",
+        "operationId": "store_role_apply_api_v1_admin_panels__panel_id__store_role_apply_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StoreRoleIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Store Role Apply",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/panels/{panel_id}/store-role/revert": {
+      "post": {
+        "description": "Back to the stock role for new/re-synced store admins. Nothing is written to the panel.",
+        "operationId": "store_role_revert_api_v1_admin_panels__panel_id__store_role_revert_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceAccessIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Store Role Revert",
         "tags": [
           "admin"
         ]
@@ -16557,6 +17805,359 @@
         ]
       }
     },
+    "/api/v1/admin/stores/{store_id}/sub-branding/{panel_id}": {
+      "get": {
+        "description": "Read-only: what the store wants versus what its panel admin holds now (three keys; other keys are never touched).",
+        "operationId": "sub_branding_preview_api_v1_admin_stores__store_id__sub_branding__panel_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Sub Branding Preview",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/stores/{store_id}/sub-branding/{panel_id}/apply": {
+      "post": {
+        "description": "Write the store's name / support link / logo into its panel admin's `custom_variables` (verified by reading back; audited).",
+        "operationId": "sub_branding_apply_api_v1_admin_stores__store_id__sub_branding__panel_id__apply_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubBrandingApplyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Sub Branding Apply",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/stores/{store_id}/sub-branding/{panel_id}/revert": {
+      "post": {
+        "description": "Remove the three branding keys from the store admin on the panel.",
+        "operationId": "sub_branding_revert_api_v1_admin_stores__store_id__sub_branding__panel_id__revert_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "panel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Panel Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubBrandingApplyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Sub Branding Revert",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/stores/{store_id}/vpn-digest": {
+      "put": {
+        "description": "PG-06: switch the store owner's daily VPN digest on/off (off by default; a day with nothing to report sends nothing).",
+        "operationId": "put_store_vpn_digest_api_v1_admin_stores__store_id__vpn_digest_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DigestIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Put Store Vpn Digest",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/stores/{store_id}/vpn-notice-texts": {
+      "get": {
+        "operationId": "get_store_vpn_notice_texts_api_v1_admin_stores__store_id__vpn_notice_texts_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoticeTextsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Store Vpn Notice Texts",
+        "tags": [
+          "admin"
+        ]
+      },
+      "put": {
+        "description": "PG-06: this store's own wording for customer notices (expiry, low traffic, ...). Replaces the previous set; kinds not listed use the platform text.",
+        "operationId": "put_store_vpn_notice_texts_api_v1_admin_stores__store_id__vpn_notice_texts_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoticeTextsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoticeTextsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Put Store Vpn Notice Texts",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/admin/stores/{store_id}/vpn-notices": {
       "delete": {
         "description": "Back to the platform defaults.",
@@ -17661,6 +19262,77 @@
           }
         ],
         "summary": "Adjust Admin",
+        "tags": [
+          "vpn-account-tools"
+        ]
+      }
+    },
+    "/api/v1/admin/vpn-accounts/{account_id}/tools/connections": {
+      "get": {
+        "operationId": "connections_admin_api_v1_admin_vpn_accounts__account_id__tools_connections_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectionsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Connections Admin",
         "tags": [
           "vpn-account-tools"
         ]
@@ -25830,6 +27502,155 @@
           }
         ],
         "summary": "Report",
+        "tags": [
+          "reseller"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/reseller/sub-branding": {
+      "get": {
+        "description": "The three fields the owner chose for the subscription page. Saved in Melorin only; the admin puts them on the panel.",
+        "operationId": "sub_branding_get_api_v1_stores__store_id__reseller_sub_branding_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Sub Branding Get",
+        "tags": [
+          "reseller"
+        ]
+      },
+      "put": {
+        "description": "Save name / support link / logo (plain text and https links only; an empty string clears a field). Nothing is sent to a panel.",
+        "operationId": "sub_branding_put_api_v1_stores__store_id__reseller_sub_branding_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubBrandingIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Sub Branding Put",
+        "tags": [
+          "reseller"
+        ]
+      }
+    },
+    "/api/v1/stores/{store_id}/reseller/usage-report": {
+      "get": {
+        "description": "Accounts by state, total volume used, the 5 heaviest accounts, and how many are near expiry / near exhaustion.\n\nEvery number is read from the panel now; a panel that cannot answer shows no number (``live=false`` and a note), never an\nold one. No IP address, connection detail or subscription link is part of the answer. Only this store's own panel admin\nis read, so a store can never see another store's accounts.",
+        "operationId": "usage_report_api_v1_stores__store_id__reseller_usage_report_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Store Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Usage Report",
         "tags": [
           "reseller"
         ]

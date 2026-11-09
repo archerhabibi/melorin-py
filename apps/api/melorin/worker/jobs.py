@@ -7,7 +7,7 @@ import logging
 import os
 from pathlib import Path
 
-from sqlalchemy import or_, select
+from sqlalchemy import and_, or_, select
 
 from melorin.core import integrations, settings_store
 from melorin.core.db import session_factory, utcnow
@@ -15,7 +15,7 @@ from melorin.kernel.models.identity import VerificationCode
 from melorin.kernel.models.system import BackupRun
 from melorin.modules.eventcenter import report as event_center_report
 from melorin.modules.eventcenter import rules as event_center_rules
-from melorin.modules.vpn import capabilities, capacity, health, notices, panel_events, reconcile
+from melorin.modules.vpn import capabilities, capacity, health, live, notices, panel_events, reconcile, sync
 from melorin.kernel.models.vpn import Panel, VpnAccount
 
 log = logging.getLogger("melorin.jobs")
@@ -136,6 +136,16 @@ async def daily_report_job(ctx=None):
     return queued
 
 
+async def store_digest_job(ctx=None):
+    """Daily: the opt-in digest for store owners (PG-06). Says only what Melorin owns (notices sent, open discrepancies, sell blocks)."""
+    from melorin.modules.vpn import digest
+
+    async with session_factory()() as session:
+        queued = await digest.run(session)
+        await session.commit()
+    return queued
+
+
 async def panel_health_job(ctx=None):
     """Every 2 minutes: panel health in two layers (PG-01). The panel must answer AND have a connected node; a failing node
     alone makes the panel ``degraded`` (still selling), no connected node makes it ``unhealthy`` (leaves server selection)."""
@@ -199,27 +209,58 @@ async def panel_settings_drift_job(ctx=None):
     return done
 
 
+EXPIRY_LIVE_BATCH = 200  # overdue panel accounts re-read per run (the rest wait for the next run)
+
+
 async def expiry_job(ctx=None):
+    """Overdue accounts. Mediator rule: the PANEL decides ``expired``, not Melorin's clock.
+
+    * an account on a panel is only a *candidate* once its SOLD expiry has passed; it is re-read live from the panel and the
+      panel's answer (status, current expiry) is applied. A panel that is down, or an account that is missing there, changes
+      nothing (the reconcile job records the issue); a renewal done on the panel simply moves the expiry forward;
+    * an account without a panel (manual / legacy) has no other source, so the local clock still applies to it;
+    * ``on_hold`` accounts (waiting for their first connection) have no running clock: the live read says so, the status stays
+      ``active``, and a read younger than ``sync.FRESH_FOR`` is not repeated.
+    """
     async with session_factory()() as s:
         now = utcnow()
-        accounts = (
-            await s.scalars(
-                select(VpnAccount).where(
-                    VpnAccount.status == "active",
-                    VpnAccount.expires_at.is_not(None),
-                    VpnAccount.expires_at <= now,
-                    # PG-02: an ``on_hold`` account (waiting for its first connection) has no running clock yet
-                    or_(VpnAccount.remote_status.is_(None), VpnAccount.remote_status != "on_hold"),
-                )
-            )
-        ).all()
-        for a in accounts:
+        overdue = and_(
+            VpnAccount.status == "active",
+            VpnAccount.sold_expires_at.is_not(None),
+            VpnAccount.sold_expires_at <= now,
+        )
+        not_just_read = or_(VpnAccount.last_synced_at.is_(None), VpnAccount.last_synced_at < now - sync.FRESH_FOR)
+        # accounts without a panel: the only clock there is
+        for a in (await s.scalars(select(VpnAccount).where(overdue, VpnAccount.panel_id.is_(None)))).all():
             a.status = "expired"
             await notices.expired(s, a)
         await s.commit()
+        # accounts on a panel: ask the panel (oldest read first, bounded per run)
+        candidates = (
+            await s.scalars(
+                select(VpnAccount.id)
+                .where(overdue, VpnAccount.panel_id.is_not(None), not_just_read)
+                .order_by(VpnAccount.last_synced_at.asc().nulls_first())
+                .limit(EXPIRY_LIVE_BATCH)
+            )
+        ).all()
+        for account_id in candidates:
+            try:
+                await reconcile.reconcile_account(s, account_id)  # applies the panel's status; notices fire from sync.apply_remote
+            except Exception:
+                await s.rollback()
+                log.warning("expiry: live read failed account=%s", account_id, exc_info=True)
+        return len(candidates)
 
 
 async def near_expiry_job(ctx=None):
+    """Warn customers whose subscription is about to end.
+
+    Mediator rule: the SOLD expiry only nominates candidates. For an account on a panel the warning is sent only after a live read
+    says the panel agrees: not ``on_hold`` (its clock has not started), and the panel's own expiry is inside the window (a renewal
+    done on the panel pushes it out). A panel that does not answer sends nothing and leaves the flag unset, so the next run tries
+    again. An account without a panel has no other source, so its sold expiry is used as before.
+    """
     async with session_factory()() as s:
         hours = int(await settings_store.get(s, "vpn.near_expiry_hours") or 48)
         now, end = utcnow(), utcnow() + dt.timedelta(hours=hours)
@@ -228,12 +269,24 @@ async def near_expiry_job(ctx=None):
                 select(VpnAccount).where(
                     VpnAccount.status == "active",
                     VpnAccount.near_expiry_notified.is_(False),
-                    VpnAccount.expires_at > now,
-                    VpnAccount.expires_at <= end,
+                    VpnAccount.sold_expires_at > now,
+                    VpnAccount.sold_expires_at <= end,
                 )
             )
         ).all()
+        on_panel = [a for a in accounts if a.panel_id]
+        readings = await live.read(s, on_panel[: live.MAX_ACCOUNTS]) if on_panel else {}
         for a in accounts:
+            if a.panel_id:
+                reading = readings.get(a.id)
+                if reading is None or reading.remote_status == "on_hold":
+                    continue  # no verdict (panel silent / clock not started): ask again next run, flag untouched
+                panel_expiry = reading.expires_at
+                if panel_expiry is not None:
+                    if panel_expiry.tzinfo is None:
+                        panel_expiry = panel_expiry.replace(tzinfo=dt.UTC)
+                    if not (now < panel_expiry <= end):
+                        continue  # renewed (or already over) on the panel: this warning would be wrong
             a.near_expiry_notified = True  # reset by a renewal (notices.reset_for_renewal), so the NEXT period warns again
             await notices.near_expiry(s, a)
         await s.commit()

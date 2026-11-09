@@ -1,0 +1,68 @@
+<!doctype html>
+{#-
+  Melorin base subscription page for PasarGuard (Jinja). Installed BY THE PANEL OPERATOR, never written by Melorin (stores cannot supply
+  HTML: a store-chosen template would run on the shared subscription domain = XSS). It only READS three optional per-store values that
+  Melorin writes into the store admin's custom_variables: MELORIN_BRAND_NAME, MELORIN_SUPPORT_URL, MELORIN_LOGO_URL.
+
+  Where they come from (read in the panel's 5.6.0 source): the page context holds `user`, `links`, `announce`, `announce_url`, `apps`.
+  `user.admin` is the owning admin and its `custom_variables` is a LIST of {key, value} whose keys the panel UPPER-CASES. A plain
+  `custom_variables` or `admin` name does not exist at top level, so the loop below goes through `user.admin`.
+
+  Safety: no script, no external request, every value is escaped with |e, links/logo are re-checked here (https / tg only).
+  Missing admin or variables -> neutral page, nothing breaks.
+-#}
+{%- set ns = namespace(brand='', support='', logo='') -%}
+{%- if user is defined and user.admin is defined and user.admin -%}
+{%- for v in (user.admin.custom_variables or []) -%}
+{%- if v.key == 'MELORIN_BRAND_NAME' %}{% set ns.brand = (v.value or '')|string|trim %}{% endif -%}
+{%- if v.key == 'MELORIN_SUPPORT_URL' %}{% set ns.support = (v.value or '')|string|trim %}{% endif -%}
+{%- if v.key == 'MELORIN_LOGO_URL' %}{% set ns.logo = (v.value or '')|string|trim %}{% endif -%}
+{%- endfor -%}
+{%- endif -%}
+{%- set brand = ns.brand -%}
+{%- set support = ns.support -%}
+{%- set logo = ns.logo -%}
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https: data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<title>{{ (brand or user.username)|e }}</title>
+<style>
+body{font-family:system-ui,Tahoma,sans-serif;margin:0;background:#f4f5f7;color:#1c1f24}
+main{max-width:34rem;margin:0 auto;padding:1.25rem}
+.card{background:#fff;border-radius:.75rem;padding:1rem 1.1rem;margin-bottom:1rem;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+h1{font-size:1.2rem;margin:.25rem 0 0}.logo{max-height:3.5rem;max-width:12rem;display:block;margin:0 auto .5rem}
+dl{display:grid;grid-template-columns:auto 1fr;gap:.35rem 1rem;margin:0}dt{color:#5b6470}dd{margin:0;text-align:left;direction:ltr}
+code{display:block;word-break:break-all;background:#f0f2f5;border-radius:.4rem;padding:.5rem;margin:.4rem 0;font-size:.8rem;direction:ltr;text-align:left}
+a{color:#0b63ce}
+@media (prefers-color-scheme:dark){body{background:#14161a;color:#e7e9ee}.card{background:#1d2026}code{background:#262a31}dt{color:#9aa3b0}a{color:#6fb1ff}}
+</style>
+</head>
+<body>
+<main>
+<section class="card" style="text-align:center">
+{%- if logo.startswith('https://') %}<img class="logo" src="{{ logo|e }}" alt="">{% endif %}
+<h1>{{ (brand or 'اشتراک شما')|e }}</h1>
+{%- if support.startswith('https://') or support.startswith('tg://') %}
+<p><a href="{{ support|e }}" rel="noopener noreferrer">پشتیبانی</a></p>
+{%- endif %}
+</section>
+<section class="card">
+<dl>
+<dt>نام کاربری</dt><dd>{{ user.username|e }}</dd>
+<dt>وضعیت</dt><dd>{{ user.status.value|e }}</dd>
+<dt>مصرف</dt><dd>{{ user.used_traffic|bytesformat|e }}</dd>
+<dt>حجم کل</dt><dd>{% if user.data_limit %}{{ user.data_limit|bytesformat|e }}{% else %}∞{% endif %}</dd>
+</dl>
+</section>
+<section class="card">
+<strong>لینک‌های اتصال</strong>
+{%- for link in links %}
+<code>{{ link|e }}</code>
+{%- endfor %}
+</section>
+</main>
+</body>
+</html>

@@ -39,7 +39,7 @@ def _public_panel_url(url: str) -> bool:
     )
 
 
-def build_adapter(panel, server=None) -> PanelAdapter:
+def build_adapter(panel, server=None, *, credentials: dict | None = None) -> PanelAdapter:
     """Adapter for ``panel``. Pass ``server`` ONLY when creating a NEW account: its ``target`` (group/inbound set) is merged over
     the panel config. Renewals, suspends, deletes and health checks call it without a server and never touch the target."""
     if panel.kind == "mock" and not get_settings().allow_mock_providers:
@@ -51,7 +51,10 @@ def build_adapter(panel, server=None) -> PanelAdapter:
         cls = ADAPTERS[panel.kind]
     except KeyError as exc:
         raise AppError("PROVIDER_UNKNOWN", "VPN provider is not configured.", 400) from exc
-    creds = json.loads(decrypt(panel.credentials_enc) or "{}") if panel.credentials_enc else {}
+    if credentials is not None:  # a transient credential (PG-05 bootstrap / verification): used for this adapter only, never stored
+        creds = dict(credentials)
+    else:
+        creds = json.loads(decrypt(panel.credentials_enc) or "{}") if panel.credentials_enc else {}
     config = merge_config(panel.config, getattr(server, "target", None) if server is not None else None)
     return cls(base_url=panel.base_url, credentials=creds, config=config)
 
@@ -65,5 +68,6 @@ def seed_adapter(adapter, account):
     """Name-mapping adapters (upstream_bot) re-learn the upstream account name from VpnAccount.panel_ref. No-op for others."""
     remember = getattr(adapter, "remember", None)
     if callable(remember):
-        remember(account.username, getattr(account, "panel_ref", None), getattr(account, "subscription_url", None))
+        snapshot = getattr(account, "delivery_snapshot", None) or {}  # R8: the link as it was delivered; the live link is the panel's
+        remember(account.username, getattr(account, "panel_ref", None), snapshot.get("subscription_url"))
     return adapter

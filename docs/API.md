@@ -35,7 +35,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 
 <!-- BEGIN GENERATED ROUTES (scripts/gen_docs.py) -->
 
-### `admin` (158)
+### `admin` (174)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -96,7 +96,10 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | POST | `/api/v1/admin/panel-admins/{row_id}/reset-password` | Reset Password |
 | GET | `/api/v1/admin/panel-backups` | Panel Backups |
 | GET | `/api/v1/admin/panel-orphans` | Panel Orphans |
+| POST | `/api/v1/admin/panel-orphans/{orphan_id}/assign` | Assign Orphan |
 | POST | `/api/v1/admin/panel-orphans/{orphan_id}/ignore` | Ignore Orphan |
+| POST | `/api/v1/admin/panel-orphans/{orphan_id}/manual` | Manual Orphan |
+| POST | `/api/v1/admin/panel-orphans/{orphan_id}/reopen` | Reopen Orphan |
 | GET | `/api/v1/admin/panels` | Panels |
 | POST | `/api/v1/admin/panels` | Create Panel |
 | PATCH | `/api/v1/admin/panels/{panel_id}` | Update Panel |
@@ -120,9 +123,16 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | POST | `/api/v1/admin/panels/{panel_id}/ops/{family}/toggle` | Ops Toggle |
 | POST | `/api/v1/admin/panels/{panel_id}/reconcile` | Reconcile Panel Now |
 | POST | `/api/v1/admin/panels/{panel_id}/servers/from-targets` | Create Servers From Targets |
+| GET | `/api/v1/admin/panels/{panel_id}/service-access` | Service Access Status |
+| POST | `/api/v1/admin/panels/{panel_id}/service-access/keys` | Service Access Keys |
+| POST | `/api/v1/admin/panels/{panel_id}/service-access/provision` | Service Access Provision |
+| POST | `/api/v1/admin/panels/{panel_id}/service-access/rotate` | Service Access Rotate |
 | GET | `/api/v1/admin/panels/{panel_id}/settings-drift` | Drift Last |
 | POST | `/api/v1/admin/panels/{panel_id}/settings-drift/check` | Drift Check |
 | POST | `/api/v1/admin/panels/{panel_id}/state` | Set Panel State |
+| GET | `/api/v1/admin/panels/{panel_id}/store-role-plan` | Store Role Plan |
+| POST | `/api/v1/admin/panels/{panel_id}/store-role/apply` | Store Role Apply |
+| POST | `/api/v1/admin/panels/{panel_id}/store-role/revert` | Store Role Revert |
 | GET | `/api/v1/admin/panels/{panel_id}/subscription-check` | Subscription Check Last |
 | POST | `/api/v1/admin/panels/{panel_id}/subscription-check` | Subscription Check Run |
 | GET | `/api/v1/admin/panels/{panel_id}/targets` | Panel Targets |
@@ -180,6 +190,12 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | PUT | `/api/v1/admin/stores/{store_id}/receipt-review/settings` | Receipt Review Settings |
 | POST | `/api/v1/admin/stores/{store_id}/receipt-review/{payment_id}` | Receipt Review Resolve |
 | GET | `/api/v1/admin/stores/{store_id}/reseller-prices` | Reseller Store Prices |
+| GET | `/api/v1/admin/stores/{store_id}/sub-branding/{panel_id}` | Sub Branding Preview |
+| POST | `/api/v1/admin/stores/{store_id}/sub-branding/{panel_id}/apply` | Sub Branding Apply |
+| POST | `/api/v1/admin/stores/{store_id}/sub-branding/{panel_id}/revert` | Sub Branding Revert |
+| PUT | `/api/v1/admin/stores/{store_id}/vpn-digest` | Put Store Vpn Digest |
+| GET | `/api/v1/admin/stores/{store_id}/vpn-notice-texts` | Get Store Vpn Notice Texts |
+| PUT | `/api/v1/admin/stores/{store_id}/vpn-notice-texts` | Put Store Vpn Notice Texts |
 | GET | `/api/v1/admin/stores/{store_id}/vpn-notices` | Get Store Vpn Notices |
 | PUT | `/api/v1/admin/stores/{store_id}/vpn-notices` | Put Store Vpn Notices |
 | DELETE | `/api/v1/admin/stores/{store_id}/vpn-notices` | Reset Store Vpn Notices |
@@ -365,7 +381,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/api/v1/reports/payments` | Payment Totals |
 | GET | `/api/v1/reports/stores/{store_id}/sales` | Store Sales |
 
-### `reseller` (63)
+### `reseller` (66)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -424,6 +440,9 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | PUT | `/api/v1/stores/{store_id}/reseller/receipt-review/settings` | Reseller Receipt Review Settings |
 | POST | `/api/v1/stores/{store_id}/reseller/receipt-review/{payment_id}` | Reseller Receipt Review Resolve |
 | GET | `/api/v1/stores/{store_id}/reseller/reports` | Report |
+| GET | `/api/v1/stores/{store_id}/reseller/sub-branding` | Sub Branding Get |
+| PUT | `/api/v1/stores/{store_id}/reseller/sub-branding` | Sub Branding Put |
+| GET | `/api/v1/stores/{store_id}/reseller/usage-report` | Usage Report |
 | GET | `/api/v1/stores/{store_id}/reseller/webhooks` | List Webhooks |
 | POST | `/api/v1/stores/{store_id}/reseller/webhooks` | Create Webhook |
 | PATCH | `/api/v1/stores/{store_id}/reseller/webhooks/{endpoint_id}` | Patch Webhook |
@@ -457,12 +476,13 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | PATCH | `/api/v1/tickets/{ticket_id}/messages/{message_id}` | Edit Message |
 | GET | `/api/v1/tickets/{ticket_id}/messages/{message_id}/attachment` | Message Attachment |
 
-### `vpn-account-tools` (25)
+### `vpn-account-tools` (26)
 
 | Method | Path | Operation |
 |---|---|---|
 | GET | `/api/v1/admin/vpn-accounts/{account_id}/tools` | Tools Admin |
 | POST | `/api/v1/admin/vpn-accounts/{account_id}/tools/adjust` | Adjust Admin |
+| GET | `/api/v1/admin/vpn-accounts/{account_id}/tools/connections` | Connections Admin |
 | GET | `/api/v1/admin/vpn-accounts/{account_id}/tools/devices` | Devices Admin |
 | POST | `/api/v1/admin/vpn-accounts/{account_id}/tools/devices/reset` | Devices Reset Admin |
 | DELETE | `/api/v1/admin/vpn-accounts/{account_id}/tools/devices/{hwid}` | Device Delete Admin |

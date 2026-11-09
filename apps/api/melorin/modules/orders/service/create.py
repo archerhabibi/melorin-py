@@ -130,8 +130,8 @@ async def create_order(
         snapshot["bundle"] = {"id": str(bundle.id), "name": bundle.name, "kind_label": bundle.kind_label}
     if kind == "renewal" and account:
         snapshot["renewal_before"] = {
-            "expires_at": account.expires_at.isoformat() if account.expires_at else None,
-            "traffic_limit_bytes": account.traffic_limit_bytes,
+            "expires_at": account.sold_expires_at.isoformat() if account.sold_expires_at else None,
+            "traffic_limit_bytes": account.sold_traffic_bytes,
         }
         snapshot["renewal"] = {
             "package": {

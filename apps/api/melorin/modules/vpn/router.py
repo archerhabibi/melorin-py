@@ -9,7 +9,7 @@ from fastapi import APIRouter, Query, Response
 from melorin.core.deps import Session, StoreCtx
 from melorin.core.errors import NotFound
 from melorin.core.scope import StoreScope
-from melorin.modules.vpn import inquiry, returns
+from melorin.modules.vpn import inquiry, live, returns
 from melorin.modules.vpn.qr import render_qr_png
 from melorin.modules.vpn.schemas import VpnAccountOut
 
@@ -20,8 +20,11 @@ out = inquiry.account_out
 
 
 async def _with_returns(session, scope, accounts):
-    elig = await returns.eligibility_for(session, scope, accounts)
-    return [returns.account_view(a, elig.get(a.id)) for a in accounts]
+    readings = await live.page_readings(session, accounts)  # ONE live read of the page: usage for the return rule AND the overlay
+    used = {aid: r.traffic_used_bytes for aid, r in readings.items() if r is not None}
+    elig = await returns.eligibility_for(session, scope, accounts, used=used)
+    outs = [returns.account_view(a, elig.get(a.id)) for a in accounts]
+    return await live.overlay_page(session, outs, accounts, readings)  # the panel's numbers, never an old copy
 
 
 @router.get("", response_model=list[VpnAccountOut])
@@ -75,7 +78,7 @@ async def get(account_id: uuid.UUID, ctx: StoreCtx, session: Session):
 async def qr(account_id: uuid.UUID, ctx: StoreCtx, session: Session):
     """PNG QR code of the account's subscription link (same image the Telegram delivery post uses)."""
     a = await inquiry.customer_account(session, StoreScope.of(ctx), account_id)
-    link = a.subscription_url or (a.links[0] if isinstance(a.links, list) and a.links else None)
+    link = await live.current_link(session, a)  # R8: the panel's link, stored copy only as fallback
     if not link:
         raise NotFound("لینک اشتراک")
     return Response(render_qr_png(link), media_type="image/png", headers={"Cache-Control": "private, no-store"})

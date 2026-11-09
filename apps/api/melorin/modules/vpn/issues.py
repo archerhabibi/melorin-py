@@ -19,9 +19,10 @@ UNREACHABLE = "panel_unreachable"
 OWNER_MISMATCH = "owner_mismatch"
 LIMITS_MISMATCH = "limits_mismatch"
 KINDS = (MISSING, UNREACHABLE, OWNER_MISMATCH, LIMITS_MISMATCH)
-# Closed by the system when the condition clears. ``limits_mismatch`` is a signal about a manual edit that Melorin mirrors at once,
-# so it would "clear" on the very next sync: it stays open for an admin to acknowledge.
-AUTO_CLOSE = (MISSING, UNREACHABLE, OWNER_MISMATCH)
+# Closed by the system when the condition clears. R9: ``limits_mismatch`` compares the panel with what Melorin SOLD; Melorin no longer
+# copies the panel's values over the entitlement, so the drift stays visible until the panel and the entitlement agree again (or an
+# admin runs ``accept_panel`` / ``ignore``).
+AUTO_CLOSE = (MISSING, UNREACHABLE, OWNER_MISMATCH, LIMITS_MISMATCH)
 OPEN, RESOLVED, IGNORED = "open", "resolved", "ignored"
 
 
@@ -58,6 +59,17 @@ async def open_issue(
     return row
 
 
+async def ignored_identical(session: AsyncSession, account_id: uuid.UUID, kind: str, details: dict | None) -> bool:
+    """Did an admin already ``ignore`` exactly this finding? An ignored drift is not re-opened while it is unchanged."""
+    last = await session.scalar(
+        select(ReconciliationIssue)
+        .where(ReconciliationIssue.vpn_account_id == account_id, ReconciliationIssue.kind == kind, ReconciliationIssue.status == IGNORED)
+        .order_by(ReconciliationIssue.resolved_at.desc().nulls_last())
+        .limit(1)
+    )
+    return last is not None and (last.details or None) == (details or None)
+
+
 async def close_issues(
     session: AsyncSession, account_ids: list[uuid.UUID], kinds: tuple[str, ...] | list[str], *, resolution: str = "auto", now=None
 ) -> int:
@@ -68,5 +80,27 @@ async def close_issues(
         update(ReconciliationIssue)
         .where(ReconciliationIssue.vpn_account_id.in_(account_ids), ReconciliationIssue.kind.in_(kinds), ReconciliationIssue.status == OPEN)
         .values(status=RESOLVED, resolution=resolution, resolved_at=now or utcnow())
+    )
+    return int(result.rowcount or 0)
+
+
+async def close_for_inactive(session: AsyncSession, panel_id: uuid.UUID, *, now=None) -> int:
+    """Close the open issues of accounts that were archived or revoked on purpose (their panel user is gone by design).
+
+    Reconcile only looks at live accounts, so without this an issue such as ``missing_on_panel`` on an archived account could
+    never close itself and would stay in the admin list for ever.
+    """
+    from melorin.domain.order_state import VpnStatus
+    from melorin.kernel.models.vpn import VpnAccount
+
+    inactive = select(VpnAccount.id).where(
+        VpnAccount.panel_id == panel_id,
+        (VpnAccount.archived_at.is_not(None)) | (VpnAccount.status.in_((VpnStatus.ARCHIVED, VpnStatus.REVOKED))),
+    )
+    result = await session.execute(
+        update(ReconciliationIssue)
+        .where(ReconciliationIssue.vpn_account_id.in_(inactive), ReconciliationIssue.status == OPEN)
+        .values(status=RESOLVED, resolution="account_inactive", resolved_at=now or utcnow())
+        .execution_options(synchronize_session=False)
     )
     return int(result.rowcount or 0)

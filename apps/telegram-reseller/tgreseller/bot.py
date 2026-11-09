@@ -20,9 +20,9 @@ money, keyboard, esc = _module.money, _module.keyboard, _module.esc
 log = logging.getLogger("melorin.telegram.reseller")
 
 OWNER_BUTTON = "🏪 مدیریت فروشگاه"
-OWNER_HELP = "\n\nبخش نماینده:\n/manage مدیریت فروشگاه\n/report گزارش فروش\n/customers مشتریان\n/payments پرداخت‌های در انتظار تأیید\n/prices قیمت فروش محصولات\n/myreferral برنامه‌ی رفرال و کمیسیون فروشگاه"
+OWNER_HELP = "\n\nبخش نماینده:\n/manage مدیریت فروشگاه\n/report گزارش فروش\n/customers مشتریان\n/payments پرداخت‌های در انتظار تأیید\n/prices قیمت فروش محصولات\n/usage گزارش مصرف مشتریان\n/myreferral برنامه‌ی رفرال و کمیسیون فروشگاه"
 CUSTOMER_COMMANDS = [(c, d) for c, d in _module.BOT_COMMANDS if c != "reseller"]
-OWNER_COMMANDS = [("manage", OWNER_BUTTON), ("report", "📊 گزارش فروش"), ("customers", "👥 مشتریان"), ("payments", "💳 پرداخت‌های در انتظار"), ("prices", "💲 قیمت فروش"), ("allaccounts", "🗂 اکانت‌های من و مشتریان"), ("myreferral", "🎁 رفرال و کمیسیون فروشگاه")]
+OWNER_COMMANDS = [("manage", OWNER_BUTTON), ("report", "📊 گزارش فروش"), ("customers", "👥 مشتریان"), ("payments", "💳 پرداخت‌های در انتظار"), ("prices", "💲 قیمت فروش"), ("allaccounts", "🗂 اکانت‌های من و مشتریان"), ("usage", "📈 گزارش مصرف"), ("myreferral", "🎁 رفرال و کمیسیون فروشگاه")]
 DEBT_LABEL = {"ok": "🟢 عادی", "near": "🟠 نزدیک به سقف بدهی", "reached": "🔴 به سقف بدهی رسیده"}
 OWNER_CACHE_SECONDS = 600
 STORE_CACHE_SECONDS = 60  # welcome / support texts edited by the admin or the owner apply within a minute, no restart
@@ -57,6 +57,41 @@ def owner_referral_text(rules: list, summary: dict, currency: str | None) -> str
     return "\n".join(lines)
 
 
+USAGE_STATE_LABELS = (("active", "فعال"), ("on_hold", "در انتظار شروع"), ("limited", "اتمام حجم"), ("expired", "منقضی"), ("disabled", "غیرفعال"), ("other", "سایر"))
+
+
+def _gb(n) -> str:
+    return f"{(n or 0) / 1073741824:.1f}"
+
+
+def owner_usage_text(rep: dict) -> str:
+    """The owner's usage screen, built only from what Core read live from the VPN service just now. No IP, link or connection detail exists in
+    the report, so none can appear here. A service that did not answer shows the unavailable text and no number at all."""
+    head = "📈 <b>گزارش مصرف فروشگاه</b>"
+    if not rep.get("live"):
+        return f"{head}\n⏳ {esc(rep.get('note') or 'اطلاعات زنده از پنل موقتاً در دسترس نیست.')}\nکمی بعد دوباره امتحان کنید."
+    acc, usage = rep.get("accounts") or {}, rep.get("usage") or {}
+    more = "حداقل " if not rep.get("complete") else ""
+    states = " · ".join(f"{label}: {int(acc[k])}" for k, label in USAGE_STATE_LABELS if acc.get(k))
+    lines = [head, "", f"اکانت‌ها: <b>{int(acc.get('total') or 0)}</b>" + (f"\n{states}" if states else ""),
+             f"مصرف کل: <b>{more}{_gb(usage.get('total_used_bytes'))}</b> گیگابایت", "",
+             f"⏰ نزدیک انقضا (تا {int(rep.get('near_expiry_days') or 3)} روز): <b>{int(rep.get('near_expiry') or 0)}</b>",
+             f"📉 نزدیک اتمام حجم (از {int(rep.get('near_exhaustion_percent') or 90)}٪): <b>{int(rep.get('near_exhaustion') or 0)}</b>"]
+    top = rep.get("top_consumers") or []
+    if top:
+        lines += ["", "🔝 <b>پرمصرف‌ترین‌ها</b>"]
+        for i, t in enumerate(top, 1):
+            limit = int(t.get("limit_bytes") or 0)
+            share = f"{_gb(t.get('used_bytes'))} از {_gb(limit)} گیگ ({int(t['percent'])}٪)" if limit and t.get("percent") is not None else f"{_gb(t.get('used_bytes'))} گیگ (نامحدود)"
+            lines.append(f"{i}. <code>{esc(t.get('username'))}</code> · {share}")
+    if rep.get("note"):
+        lines += ["", f"⚠️ {esc(rep['note'])}"]
+    if not rep.get("complete") and not rep.get("note"):
+        lines += ["", "ℹ️ تعداد اکانت‌ها زیاد است؛ مصرف کل و شمارش‌ها بر پایه‌ی پرمصرف‌ترین‌ها محاسبه شده‌اند."]
+    lines += ["", "اعداد همین حالا از پنل خوانده شده‌اند."]
+    return "\n".join(lines)
+
+
 class RedactTokens(logging.Filter):
     """httpx error text contains the request URL, i.e. the bot token. Never let it reach the logs."""
 
@@ -85,7 +120,7 @@ class ResellerTelegramRunner(_module.TelegramRunner):
         self.health, self.health_detail = "connecting", None  # what the supervisor reports to Core
         self._store_at = 0.0
         self._owners: dict[str, tuple[bool, float]] = {}
-        self.commands.update({"/manage": self.cmd_manage, "/report": self.cmd_report, "/customers": self.cmd_customers, "/payments": self.cmd_payments, "/prices": self.cmd_prices, "/allaccounts": self.cmd_owner_accounts, "/myreferral": self.cmd_owner_referral})
+        self.commands.update({"/manage": self.cmd_manage, "/report": self.cmd_report, "/customers": self.cmd_customers, "/payments": self.cmd_payments, "/prices": self.cmd_prices, "/allaccounts": self.cmd_owner_accounts, "/myreferral": self.cmd_owner_referral, "/usage": self.cmd_owner_usage})
         # the store owner's account inquiry (every account sold in THIS store); Core answers 403 for anyone else
         self.callbacks.update({"oacl": self.cb_owner_acc_list, "oacs": self.cb_owner_acc_search, "oacq": self.cb_owner_acc_clear,
                                "oaccount": self.cb_owner_account, "oqr": self.cb_owner_qr,
@@ -215,14 +250,14 @@ class ResellerTelegramRunner(_module.TelegramRunner):
         except _module.CoreError:
             pending = []
         pay_label = f"💳 پرداخت‌های در انتظار ({len(pending)})" if pending else "💳 پرداخت‌ها"
-        rows = [[("📊 گزارش فروش", "mg:report"), ("👥 مشتریان", "mg:customers")], [("🗂 اکانت‌های مشتریان", "mg:accounts")], [(pay_label, "mg:payments"), ("💲 قیمت فروش", "mg:prices")], [("🎁 رفرال و کمیسیون", "mg:referral")]]
+        rows = [[("📊 گزارش فروش", "mg:report"), ("👥 مشتریان", "mg:customers")], [("🗂 اکانت‌های مشتریان", "mg:accounts")], [(pay_label, "mg:payments"), ("💲 قیمت فروش", "mg:prices")], [("📈 گزارش مصرف", "mg:usage"), ("🎁 رفرال و کمیسیون", "mg:referral")]]
         site = await self.account_url(ctx)
         if site:
             rows.append([("🌐 ورود به فروشگاه در وب", site)])
         await self.screen(ctx, "\n".join(lines), rows)
 
     async def cb_manage(self, ctx, which):
-        fn = {"report": self.cmd_report, "customers": self.cmd_customers, "accounts": self.cmd_owner_accounts, "payments": self.cmd_payments, "prices": self.cmd_prices, "referral": self.cmd_owner_referral}.get(which)
+        fn = {"report": self.cmd_report, "customers": self.cmd_customers, "accounts": self.cmd_owner_accounts, "payments": self.cmd_payments, "prices": self.cmd_prices, "referral": self.cmd_owner_referral, "usage": self.cmd_owner_usage}.get(which)
         if fn is None:
             return await self.send(ctx.chat_id, "گزینه نامعتبر است.")
         await fn(ctx, "")
@@ -236,6 +271,17 @@ class ResellerTelegramRunner(_module.TelegramRunner):
         text = owner_referral_text(rules, summary, s.get("currency"))
         site = await self.account_url(ctx)
         await self.screen(ctx, text, [[("🌐 تنظیم طرح‌ها در وب", site)]] if site else None)
+
+    async def cmd_owner_usage(self, ctx, arg):
+        """On-demand usage report of THIS store, read live from the VPN service by Core. The daily digest has no numbers by design."""
+        if not await self._owner_only(ctx):
+            return
+        s = await self.store_info()
+        try:
+            rep = await self.api(ctx, "GET", f"/api/v1/stores/{s['id']}/reseller/usage-report")
+        except _module.CoreError:
+            rep = {"live": False}
+        await self.screen(ctx, owner_usage_text(rep), [[("🔄 به‌روزرسانی", "mg:usage")], [("🗂 اکانت‌های مشتریان", "mg:accounts")]])
 
     async def cmd_report(self, ctx, arg):
         s = await self.store_info()

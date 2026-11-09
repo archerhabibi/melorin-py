@@ -172,6 +172,8 @@ async def _exercise_everything() -> list[dict]:
     await a.list_devices("alice")
     await a.delete_device("alice", "abc")
     await a.reset_devices("alice")
+    await a.online_ips("alice")
+    await a.subscription_updates("alice", limit=5, offset=0)
     await a.bulk_set_owner(["1", "2"], "store-1")
     await a.find_admin("store-1")
     await a.ensure_admin(
@@ -180,6 +182,8 @@ async def _exercise_everything() -> list[dict]:
         profile={"profile_title": "t", "support_url": "u", "discord_webhook": "d", "sub_domain": "s", "note": "n", "telegram_id": 5},
     )
     await a.update_admin_profile(9, {"profile_title": "t", "telegram_id": 5}, password="pw2")
+    await a.read_custom_variables("store-1")
+    await a.write_custom_variables(9, {"MELORIN_BRAND_NAME": "x"})
     await a.list_targets()
     await a.list_nodes()
     await a.get_node(1)
@@ -297,6 +301,7 @@ PERMISSION_SCHEMAS = {
     "groups": "CRUDPermissions",
     "cores": "CRUDPermissions",
     "templates": "CRUDPermissions",
+    "admin_roles": "CRUDPermissions",
     "api_keys": "APIKeysPermissions",
 }
 

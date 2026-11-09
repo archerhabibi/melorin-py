@@ -215,10 +215,10 @@ def _retry(
 
 async def _near_expiry(session: AsyncSession, account: VpnAccount, now: dt.datetime) -> str | None:
     """``reached_days_left`` fires at the PANEL's thresholds; Melorin warns inside its own window, once per period."""
-    if account.status != VpnStatus.ACTIVE or account.near_expiry_notified or account.expires_at is None:
+    if account.status != VpnStatus.ACTIVE or account.near_expiry_notified or account.sold_expires_at is None:
         return None
     hours = int(await settings_store.get(session, "vpn.near_expiry_hours") or 48)
-    expires = sync.aware(account.expires_at)
+    expires = sync.aware(account.sold_expires_at)
     if not now < expires <= now + dt.timedelta(hours=hours):
         return None
     account.near_expiry_notified = True  # same flag as near_expiry_job, reset by a renewal

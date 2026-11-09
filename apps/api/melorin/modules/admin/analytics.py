@@ -25,6 +25,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from melorin.core.db import utcnow
+from melorin.domain.order_kinds import not_manual
 from melorin.domain.order_state import OrderStatus
 from melorin.kernel.models.catalog import Product
 from melorin.kernel.models.identity import User
@@ -32,7 +33,7 @@ from melorin.kernel.models.orders import Order
 from melorin.kernel.models.payments import Payment
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.tickets import Ticket
-from melorin.kernel.models.vpn import VpnAccount
+from melorin.kernel.models.vpn import Panel, VpnAccount
 from melorin.modules.admin.timeseries import MAX_DAYS, MIN_DAYS, SOLD_STATUSES, day_axis, resolve_zone
 
 MAX_ROWS = 200_000  # per table and per request; ``truncated`` tells the UI when a window was cut
@@ -342,7 +343,7 @@ async def _load(session: AsyncSession, since: dt.datetime, store_id: uuid.UUID |
             Order.kind,
             Order.reseller_cost,
         )  # fmt: skip
-        .where((Order.created_at >= pad) | (Order.paid_at >= pad))
+        .where(((Order.created_at >= pad) | (Order.paid_at >= pad)), not_manual(Order.kind))
         .order_by(Order.created_at.desc())
         .limit(MAX_ROWS + 1)
     )
@@ -374,6 +375,24 @@ async def _load(session: AsyncSession, since: dt.datetime, store_id: uuid.UUID |
     return orders, pays, list(u_rows[:MAX_ROWS]), truncated
 
 
+async def _panel_aggregates(session: AsyncSession) -> list[dict]:
+    """Per enabled panel: the numbers the panel itself reported in its latest monitoring snapshot (never recomputed by Melorin)."""
+    out: list[dict] = []
+    for p in (await session.scalars(select(Panel).where(Panel.is_enabled.is_(True)).order_by(Panel.name))).all():
+        snap = p.metrics_snapshot if isinstance(p.metrics_snapshot, dict) else {}
+        out.append(
+            {
+                "panel_id": str(p.id),
+                "name": p.name,
+                "up": bool(snap.get("up")) if snap else None,
+                "users_total": snap.get("users_total"),
+                "online_users": snap.get("online_users"),
+                "taken_at": p.metrics_snapshot_at.isoformat() if p.metrics_snapshot_at else None,
+            }
+        )
+    return out
+
+
 async def _snapshot(session: AsyncSession, now: dt.datetime) -> dict:
     """Point-in-time operational numbers (not period based): VPN fleet, tickets, users."""
     vpn_status = dict((await session.execute(select(VpnAccount.status, func.count(VpnAccount.id)).group_by(VpnAccount.status))).all())
@@ -382,20 +401,15 @@ async def _snapshot(session: AsyncSession, now: dt.datetime) -> dict:
         await session.scalar(
             select(func.count(VpnAccount.id)).where(
                 VpnAccount.status == "active",
-                VpnAccount.expires_at.is_not(None),
-                VpnAccount.expires_at >= now,
-                VpnAccount.expires_at <= soon,
+                VpnAccount.sold_expires_at.is_not(None),
+                VpnAccount.sold_expires_at >= now,
+                VpnAccount.sold_expires_at <= soon,
             )
         )
         or 0
     )
-    used, limit = (
-        await session.execute(
-            select(
-                func.coalesce(func.sum(VpnAccount.traffic_used_bytes), 0), func.coalesce(func.sum(VpnAccount.traffic_limit_bytes), 0)
-            ).where(VpnAccount.status == "active")
-        )
-    ).one()
+    sold = await session.scalar(select(func.coalesce(func.sum(VpnAccount.sold_traffic_bytes), 0)).where(VpnAccount.status == "active")) or 0
+    panels = await _panel_aggregates(session)
     tickets = dict((await session.execute(select(Ticket.status, func.count(Ticket.id)).group_by(Ticket.status))).all())
     users_total = await session.scalar(select(func.count(User.id)).where(User.is_active.is_(True), User.is_guest.is_(False))) or 0
     return {
@@ -403,8 +417,13 @@ async def _snapshot(session: AsyncSession, now: dt.datetime) -> dict:
             "by_status": [{"status": k, "count": int(v)} for k, v in sorted(vpn_status.items(), key=lambda kv: -kv[1])],
             "active": int(vpn_status.get("active", 0)),
             "expiring_7d": int(expiring),
-            "traffic_used_bytes": int(used),
-            "traffic_limit_bytes": int(limit),
+            # R5/R9: Melorin owns no usage. The volume sum is what was SOLD for active accounts; real usage and the user/online
+            # counts are each panel's own (``panels`` below, from its monitoring snapshot, with the age of the reading).
+            "traffic_used_bytes": None,
+            "traffic_limit_bytes": int(sold),
+            "traffic_source": "sold",
+            "traffic_as_of": None,
+            "panels": panels,  # what each PANEL reports about itself (its own users / online counts), with the reading's age
         },
         "tickets": {"by_status": [{"status": k, "count": int(v)} for k, v in tickets.items()], "open": int(tickets.get("open", 0))},
         "users_total": int(users_total),

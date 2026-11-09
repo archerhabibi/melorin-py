@@ -199,10 +199,17 @@ def alert_level(used: int, capacity: int) -> int:
     return FULL_AT if pct >= FULL_AT else CRITICAL_AT if pct >= CRITICAL_AT else WARN_AT if pct >= WARN_AT else 0
 
 
+def panel_users(server: Server) -> int | None:
+    """R7: the panel's own count for this destination, from the dated ``destination_health`` snapshot (no separate column)."""
+    value = (server.destination_health or {}).get("total_users")
+    return int(value) if isinstance(value, int) else None
+
+
 def effective_load(server: Server, melorin_active: int) -> int:
     """What counts against ``capacity``: Melorin's own accounts, or (source=panel) the larger of that and the panel's count."""
-    if server.capacity_source == "panel" and server.panel_total_users is not None:
-        return max(melorin_active, int(server.panel_total_users))
+    seen = panel_users(server)
+    if server.capacity_source == "panel" and seen is not None:
+        return max(melorin_active, seen)
     return melorin_active
 
 
@@ -212,9 +219,10 @@ def capacity_view(server: Server, melorin_active: int) -> dict:
     return {
         "capacity": int(server.capacity or 0),
         "melorin_accounts": melorin_active,
-        "panel_users": server.panel_total_users,
-        "outside_melorin": max(0, int(server.panel_total_users) - melorin_active) if server.panel_total_users is not None else None,
+        "panel_users": panel_users(server),
+        "outside_melorin": max(0, panel_users(server) - melorin_active) if panel_users(server) is not None else None,
         "source": server.capacity_source,
+        "panel_users_as_of": server.capacity_checked_at,  # R7: a stored panel number is always shown with its age
         "used": used,
         "percent": fill_percent(used, int(server.capacity or 0)),
         "state": fill_state(used, int(server.capacity or 0)),
@@ -296,7 +304,6 @@ async def refresh_panel(session: AsyncSession, panel: Panel, adapter, *, now: dt
             was = bool(s.sellable)
             s.sellable, s.sellable_reason = verdict.sellable, ("؛ ".join(verdict.reasons)[:300] or None) if not verdict.sellable else None
             s.destination_health = {**verdict.to_dict(), "check": "ok", "checked_at": now.isoformat()}
-            s.panel_total_users = verdict.total_users
             if was != s.sellable and s.is_enabled:
                 changes.append(
                     Change(s.name, "sellable", "sellable" if was else "blocked", "sellable" if s.sellable else "blocked", s.sellable_reason)

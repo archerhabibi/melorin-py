@@ -71,6 +71,7 @@ OPTIONAL_CAPABILITIES = (
     "bulk_actions",  # BulkActions: disable/enable/reset/rotate many accounts and (de)activate a store admin's users at once (PG-11)
     "admin_governance",  # AdminGovernance: a store admin's traffic cap, status, usage and notification switch (PG-12)
     "subscription_probe",  # SubscriptionProbe: fetch a subscription's public info page to prove the link works (PG-13)
+    "ip_ops",  # IpOps: live connection IPs and subscription-fetch history of one account (decision 5: platform admin only)
 )
 ALL_CAPABILITIES = CORE_CAPABILITIES + OPTIONAL_CAPABILITIES
 
@@ -104,6 +105,7 @@ class Capabilities:
     bulk_actions: bool = False
     admin_governance: bool = False
     subscription_probe: bool = False
+    ip_ops: bool = False
 
     def to_dict(self) -> dict[str, bool]:
         return {name: bool(getattr(self, name)) for name in ALL_CAPABILITIES}
@@ -193,6 +195,12 @@ class DeviceOps(Protocol):  # flag: device_ops
     async def list_devices(self, username: str) -> list[dict]: ...
     async def delete_device(self, username: str, hwid: str) -> None: ...
     async def reset_devices(self, username: str) -> None: ...
+
+
+@runtime_checkable
+class IpOps(Protocol):  # flag: ip_ops
+    async def online_ips(self, username: str) -> list[dict]: ...
+    async def subscription_updates(self, username: str, *, limit: int = 20, offset: int = 0) -> dict: ...
 
 
 @runtime_checkable
@@ -308,6 +316,7 @@ CAPABILITY_PROTOCOLS: dict[str, type] = {
     "node_control": NodeOps,
     "usage_ops": UsageOps,
     "device_ops": DeviceOps,
+    "ip_ops": IpOps,
     "bulk_ops": BulkOps,
     "admin_ops": AdminOps,
     "settings_ops": SettingsOps,

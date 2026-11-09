@@ -236,7 +236,7 @@ async def test_reconcile_lag_is_zero_without_accounts():
 async def test_server_capacity_ratio_and_alert():
     async with open_schema_engine() as engine, async_sessionmaker(engine, expire_on_commit=False)() as s:
         p = await _panel(s)
-        full = Server(name="full", panel_id=p.id, capacity=10, capacity_source="panel", panel_total_users=10)
+        full = Server(name="full", panel_id=p.id, capacity=10, capacity_source="panel", destination_health={"total_users": 10})
         roomy = Server(name="roomy", panel_id=p.id, capacity=100)
         s.add_all([full, roomy])
         await s.flush()

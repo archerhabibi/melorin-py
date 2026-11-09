@@ -121,6 +121,19 @@ class UsersMixin:
         total = data.get("total") if isinstance(data, dict) else None
         return [self._to_account(r) for r in rows], total if isinstance(total, int) else None
 
+    async def list_owner_accounts(
+        self, owner: str, *, offset: int = 0, limit: int = 100, sort: str = "-used_traffic"
+    ) -> tuple[list[PanelAccount], int | None]:
+        """One page of ``GET /api/users?admin=<owner>``: only the users of ONE panel admin, heaviest first (read-only).
+
+        Used by the store usage report. The caller must still check ``PanelAccount.owner`` on every row: a panel that ignored the
+        ``admin`` filter would otherwise hand one store the accounts of another."""
+        params = {"admin": owner, "offset": int(offset), "limit": int(limit), "sort": sort, "load_sub": "false"}
+        data = await self._req("GET", "/api/users", params=params)
+        rows = [r for r in as_rows(data, "users", "items") if isinstance(r, dict) and r.get("username")]
+        total = data.get("total") if isinstance(data, dict) else None
+        return [self._to_account(r) for r in rows], total if isinstance(total, int) else None
+
     def _template_mode(self) -> bool:
         return self.cfg.get("user_template_id") is not None
 
@@ -292,3 +305,41 @@ class UsersMixin:
     async def reset_devices(self, username: str) -> None:
         d = await self._require(username)
         await self._req("POST", f"{self._device_base(d)}/reset")
+
+    # ------------------------------------------------------------------ connection IPs (IpOps, admin only)
+    @staticmethod
+    def _user_id(d: dict) -> int:
+        if d.get("id") is None:
+            raise PanelError(ErrorKind.PERMANENT, "pasarguard: this operation needs the panel user id")
+        return int(d["id"])
+
+    async def online_ips(self, username: str) -> list[dict]:
+        """Live connection IPs of one account on every node: ``[{"node_id", "ip", "connections"}]``.
+
+        The panel answers ``{"nodes": {"<node_id>": {"ips": {"<ip>": count}} | null}}``; a node that is down is ``null`` and is
+        skipped, not an error. Read-only."""
+        d = await self._require(username)
+        data = await self._req("GET", f"/api/node/online_stats/{self._user_id(d)}/ip")
+        nodes = data.get("nodes") if isinstance(data, dict) else None
+        rows: list[dict] = []
+        for node_id, entry in (nodes if isinstance(nodes, dict) else {}).items():
+            ips = entry.get("ips") if isinstance(entry, dict) else None
+            for ip, count in (ips if isinstance(ips, dict) else {}).items():
+                rows.append(
+                    {"node_id": int(node_id) if str(node_id).isdigit() else str(node_id), "ip": str(ip), "connections": int(count or 0)}
+                )
+        return sorted(rows, key=lambda r: (str(r["node_id"]), r["ip"]))
+
+    async def subscription_updates(self, username: str, *, limit: int = 20, offset: int = 0) -> dict:
+        """Subscription-fetch history (newest first as the panel returns it): ``{"count", "items": [{created_at, user_agent, ip, hwid}]}``."""
+        d = await self._require(username)
+        params = {"limit": max(1, min(int(limit), 100)), "offset": max(0, int(offset))}
+        data = await self._req("GET", f"/api/user/by-id/{self._user_id(d)}/sub_update", params=params)
+        raw = data.get("updates") if isinstance(data, dict) else None
+        items = [
+            {"created_at": r.get("created_at"), "user_agent": r.get("user_agent"), "ip": r.get("ip"), "hwid": r.get("hwid")}
+            for r in (raw if isinstance(raw, list) else [])
+            if isinstance(r, dict)
+        ]
+        count = data.get("count") if isinstance(data, dict) else None
+        return {"count": int(count) if isinstance(count, int | float) and not isinstance(count, bool) else len(items), "items": items}

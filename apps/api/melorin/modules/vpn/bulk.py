@@ -118,24 +118,24 @@ def validate_params(kind: str, params: dict | None) -> dict:
 
 def _skip_reason(kind: str, account: VpnAccount, params: dict, now: dt.datetime) -> str | None:
     """Why this (status-eligible) account cannot take the operation; ``None`` = it can."""
-    expires = sync.aware(account.expires_at)
+    expires = sync.aware(account.sold_expires_at)
     if kind == "enable" and expires is not None and expires <= now:
         return "expired"
     if kind == "extend_days" and expires is None:
         return "unlimited_time"
-    if kind == "add_traffic" and int(account.traffic_limit_bytes or 0) == 0:
+    if kind == "add_traffic" and int(account.sold_traffic_bytes or 0) == 0:
         return "unlimited_traffic"
     return None
 
 
 def _target(kind: str, account: VpnAccount, params: dict, now: dt.datetime) -> dict | None:
-    """The ABSOLUTE value to write for a relative kind, from what Melorin last synced; ``base`` is what must still be on the panel."""
+    """The ABSOLUTE value to write for a relative kind, from the SOLD entitlement; ``base`` is what must still be on the panel (else the item is skipped)."""
     if kind == "extend_days":
-        base = sync.aware(account.expires_at)
+        base = sync.aware(account.sold_expires_at)
         new = max(base, now) + dt.timedelta(days=params["days"])
         return {"base_expire_at": base.isoformat(), "expire_at": new.isoformat()}
     if kind == "add_traffic":
-        base = int(account.traffic_limit_bytes or 0)
+        base = int(account.sold_traffic_bytes or 0)
         return {"base_traffic_bytes": base, "traffic_bytes": base + params["gb"] * GIB}
     return None
 
@@ -157,7 +157,9 @@ async def _candidates(session: AsyncSession, kind: str, sel: Selection, now: dt.
     if sel.usernames:
         q = q.where(VpnAccount.username.in_(sel.usernames[:MAX_ITEMS]))
     if sel.expiring_within_days is not None:
-        q = q.where(VpnAccount.expires_at.is_not(None), VpnAccount.expires_at <= now + dt.timedelta(days=int(sel.expiring_within_days)))
+        q = q.where(
+            VpnAccount.sold_expires_at.is_not(None), VpnAccount.sold_expires_at <= now + dt.timedelta(days=int(sel.expiring_within_days))
+        )
     q = q.order_by(VpnAccount.created_at, VpnAccount.id).limit(MAX_ITEMS + 1)
     return list((await session.scalars(q)).all())
 
@@ -397,13 +399,11 @@ def _mark(item: BulkOperationItem, status: str, error: str | None = None) -> Non
 def _mirror_panel_action(kind: str, account: VpnAccount) -> None:
     """Reflect an idempotent panel action on the account right away; ``last_synced_at=None`` puts it first in line for reconcile v2."""
     if kind == "disable":
-        account.status, account.remote_status = VpnStatus.SUSPENDED, "disabled"
+        account.status = VpnStatus.SUSPENDED
     elif kind == "enable":
-        account.status, account.remote_status = VpnStatus.ACTIVE, "active"
-    elif kind == "reset_usage":
-        account.traffic_used_bytes = 0
-        if account.status == VpnStatus.LIMITED:
-            account.status, account.remote_status = VpnStatus.ACTIVE, "active"
+        account.status = VpnStatus.ACTIVE
+    elif kind == "reset_usage" and account.status == VpnStatus.LIMITED:  # usage itself is the panel's: only the status bucket moves
+        account.status = VpnStatus.ACTIVE
     account.last_synced_at = None
 
 
@@ -461,6 +461,7 @@ async def _apply_relative(session: AsyncSession, op: BulkOperation, item: BulkOp
             if _expire_matches(have, want):
                 _mark(item, "done")  # an earlier attempt already landed (e.g. the answer was lost): never add twice
                 await sync.apply_remote(session, account, remote, notify=False)
+                sync.record_sale(account, remote.expire_at, remote.traffic_limit_bytes)
                 return "done"
             if not _expire_matches(have, base):
                 _mark(item, "skipped", "changed on the panel since the preview")
@@ -472,6 +473,7 @@ async def _apply_relative(session: AsyncSession, op: BulkOperation, item: BulkOp
             if have_t == want:
                 _mark(item, "done")
                 await sync.apply_remote(session, account, remote, notify=False)
+                sync.record_sale(account, remote.expire_at, remote.traffic_limit_bytes)
                 return "done"
             if have_t != base_t:
                 _mark(item, "skipped", "changed on the panel since the preview")
@@ -485,6 +487,7 @@ async def _apply_relative(session: AsyncSession, op: BulkOperation, item: BulkOp
             return "failed"
         return "pending"
     await sync.apply_remote(session, account, pa, notify=False)
+    sync.record_sale(account, pa.expire_at, pa.traffic_limit_bytes)  # R10: the entitlement is what the act applied
     _mark(item, "done")
     return "done"
 

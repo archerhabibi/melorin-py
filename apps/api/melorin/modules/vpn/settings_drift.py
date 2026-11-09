@@ -41,6 +41,15 @@ POLICY_LABELS = {
 }
 
 
+MAX_RETENTION_DAYS = 365
+
+
+def effective_days(panel: Panel) -> int:
+    """The least days Melorin expects the panel to keep an expired user: the admin's number, else the renewal grace."""
+    days = getattr(panel, "expected_retention_days", None)
+    return int(days) if isinstance(days, int) and days > 0 else GRACE_DAYS
+
+
 def finding(key: str, state: str, message: str, **extra) -> dict:
     return {"key": key, "state": state, "message": message, **extra}
 
@@ -153,12 +162,14 @@ def evaluate_notifications(settings: dict) -> dict:
     return finding("panel_notifications", "ok", "پنل اعلان مستقل نمی‌فرستد.", telegram=False, discord=False)
 
 
-def evaluate(settings: dict, *, policy: str, connected: bool, webhook_url: str | None, sub_base_url: str | None) -> list[dict]:
+def evaluate(
+    settings: dict, *, policy: str, connected: bool, webhook_url: str | None, sub_base_url: str | None, grace_days: int = GRACE_DAYS
+) -> list[dict]:
     """All findings for one panel from its settings. Pure: no I/O, no secrets in the output."""
     return [
         evaluate_webhook(settings.get("webhook"), connected=connected, url=webhook_url),
         evaluate_subscription(settings.get("subscription"), sub_base_url),
-        evaluate_cleanup(settings.get("cleanup"), policy),
+        evaluate_cleanup(settings.get("cleanup"), policy, grace_days),
         evaluate_hwid(settings.get("hwid")),
         evaluate_notifications(settings),
     ]
@@ -211,6 +222,7 @@ async def check_panel(panel: Panel, adapter, *, now=None) -> dict:
         connected=panel.webhook_connected_at is not None,
         webhook_url=_public_webhook_url(panel),
         sub_base_url=cfg.get("sub_base_url"),
+        grace_days=effective_days(panel),
     )
     out = verdict(findings, policy=panel.expired_cleanup_policy, now=now)
     panel.settings_drift, panel.settings_drift_at = out, now
@@ -243,7 +255,9 @@ async def run_all(session: AsyncSession, *, close_adapter) -> int:
     return done
 
 
-async def set_policy(session: AsyncSession, panel_id: uuid.UUID, policy: str, *, actor_id: uuid.UUID, reason: str) -> dict:
+async def set_policy(
+    session: AsyncSession, panel_id: uuid.UUID, policy: str, *, actor_id: uuid.UUID, reason: str, retention_days: int | None = None
+) -> dict:
     """Admin choice of the lifecycle policy (audited). It changes Melorin's expectation only; nothing is written to the panel."""
     if policy not in POLICIES:
         raise AppError("BAD_POLICY", "سیاست نامعتبر است.", 400)
@@ -252,10 +266,14 @@ async def set_policy(session: AsyncSession, panel_id: uuid.UUID, policy: str, *,
         raise NotFound("پنل")
     if panel.kind != "pasarguard":
         raise AppError("NOT_PASARGUARD", "این سیاست فقط برای پنل پاسارگارد معنا دارد.", 409)
+    if retention_days is not None and not (isinstance(retention_days, int) and 1 <= retention_days <= MAX_RETENTION_DAYS):
+        raise AppError("BAD_RETENTION", f"تعداد روز نگهداری باید بین ۱ تا {MAX_RETENTION_DAYS} باشد.", 400)
     old, panel.expired_cleanup_policy = panel.expired_cleanup_policy, policy
+    old_days = panel.expected_retention_days
+    panel.expected_retention_days = retention_days if policy == "aligned" else None  # only the aligned policy has a number
     audit.record(
         session, "panel.cleanup_policy_changed", actor_id=actor_id, actor_type="admin", entity_type="panel", entity_id=panel.id,
-        data={"from": old, "to": policy, "reason": reason[:300]},
+        data={"from": old, "to": policy, "retention_days": [old_days, panel.expected_retention_days], "reason": reason[:300]},
     )  # fmt: skip
     await session.commit()
     return await recheck(session, panel_id, actor_id=None)
@@ -300,7 +318,9 @@ def describe(panel: Panel) -> dict:
         "panel_id": panel.id,
         "policy": panel.expired_cleanup_policy,
         "policies": [{"value": p, "label": POLICY_LABELS[p]} for p in POLICIES],
-        "grace_days": GRACE_DAYS,
+        "grace_days": effective_days(panel),
+        "default_grace_days": GRACE_DAYS,
+        "expected_retention_days": getattr(panel, "expected_retention_days", None),
         "checked_at": panel.settings_drift_at,
         "drifting": int((drift or {}).get("drifting") or 0),
         "findings": (drift or {}).get("findings") or [],

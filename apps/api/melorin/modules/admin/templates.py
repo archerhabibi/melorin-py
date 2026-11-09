@@ -22,7 +22,7 @@ from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import NotFound
 from melorin.kernel.models.catalog import Product
 from melorin.kernel.models.vpn import Panel, VpnAccount
-from melorin.modules.vpn import inquiry, plans, templates
+from melorin.modules.vpn import live, plans, templates
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -105,4 +105,4 @@ async def change_plan(account_id: uuid.UUID, body: ChangePlanIn, admin: AdminUse
     if account is None:
         raise NotFound("اکانت VPN")
     product = await _product(session, body.product_id)
-    return inquiry.account_out(await plans.change_plan(session, account, product, admin_id=admin.id, reason=body.reason))
+    return await live.card(session, await plans.change_plan(session, account, product, admin_id=admin.id, reason=body.reason))

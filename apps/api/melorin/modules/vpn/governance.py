@@ -33,9 +33,18 @@ WARN_LEVELS = (80, 95)
 STATUSES = ("active", "disabled")
 
 
+def snap(row: PanelAdmin) -> dict:
+    """R7: the panel's last-reported numbers for this admin (a dated snapshot; the age is ``row.usage_checked_at``)."""
+    return dict(row.usage_snapshot or {})
+
+
+def set_snap(row: PanelAdmin, **values) -> None:
+    row.usage_snapshot = {**snap(row), **values}  # a NEW dict: SQLAlchemy does not see in-place JSON changes
+
+
 def usage_ratio(row: PanelAdmin) -> float | None:
     """Used / cap in 0..1+, ``None`` when there is no cap or no reading yet."""
-    cap, used = row.data_limit_bytes, row.used_traffic_bytes
+    cap, used = row.data_limit_bytes, snap(row).get("used_traffic_bytes")
     if not cap or cap <= 0 or used is None:
         return None
     return used / cap
@@ -50,9 +59,10 @@ def warning_level(row: PanelAdmin) -> int:
 
 def sell_blocked(row: PanelAdmin) -> str | None:
     """Why this store cannot create accounts on the panel right now (``None`` = it can)."""
-    if row.remote_status == "disabled":
+    status = snap(row).get("status")
+    if status == "disabled":
         return "ادمین فروشگاه روی پنل غیرفعال است."
-    if row.remote_status == "limited":
+    if status == "limited":
         return "سقف حجم ادمین فروشگاه روی پنل پر شده است."
     ratio = usage_ratio(row)
     if ratio is not None and ratio >= 1:
@@ -72,14 +82,16 @@ def row_out(row: PanelAdmin, store: Store | None = None, panel: Panel | None = N
         "suspend_policy": store.suspend_policy if store else None,
         "username": row.username,
         "remote_id": row.remote_id,
-        "remote_status": row.remote_status,
+        "remote_status": snap(row).get("status"),
         "data_limit_bytes": row.data_limit_bytes,
-        "used_traffic_bytes": row.used_traffic_bytes,
-        "total_users": row.total_users,
+        "used_traffic_bytes": snap(row).get("used_traffic_bytes"),
+        "total_users": snap(row).get("total_users"),
         "usage_ratio": round(ratio, 4) if ratio is not None else None,
         "warning_level": warning_level(row),
         "sell_blocked": sell_blocked(row),
         "usage_checked_at": row.usage_checked_at,
+        "last_known": True,  # R7: used_traffic_bytes / total_users are a dated snapshot of the panel, never a live number
+        "as_of": row.usage_checked_at,
         "error": row.governance_error,
     }
 
@@ -148,9 +160,12 @@ async def sync_usage(session: AsyncSession, panel: Panel, adapter=None) -> SyncS
                 row.governance_error = "ادمین روی پنل پیدا نشد."
                 stats.errors += 1
                 continue
-            row.used_traffic_bytes = int(detail.get("used_traffic") or 0)
-            row.total_users = int(detail.get("total_users") or 0)
-            row.remote_status = str(detail.get("status") or "") or None
+            set_snap(
+                row,
+                used_traffic_bytes=int(detail.get("used_traffic") or 0),
+                total_users=int(detail.get("total_users") or 0),
+                status=str(detail.get("status") or "") or None,
+            )
             panel_cap = detail.get("data_limit")
             if row.data_limit_bytes is None and panel_cap:  # adopt a cap someone already set on the panel; never overwrite one Melorin set
                 row.data_limit_bytes = int(panel_cap)
@@ -200,13 +215,13 @@ async def set_limits(
         raise AppError("PANEL_ERROR", f"پنل درخواست را نپذیرفت: {exc.message[:200]}", 502) from exc
     finally:
         await _close(adapter)
-    before = {"data_limit_bytes": row.data_limit_bytes, "remote_status": row.remote_status}
+    before = {"data_limit_bytes": row.data_limit_bytes, "remote_status": snap(row).get("status")}
     if cap_bytes is not None:
         row.data_limit_bytes = cap_bytes or None
     if status is not None:
-        row.remote_status = status
+        set_snap(row, status=status)
     if isinstance(detail, dict) and detail.get("status"):
-        row.remote_status = str(detail["status"])
+        set_snap(row, status=str(detail["status"]))
     row.governance_error = None
     audit.record(
         session,
@@ -219,7 +234,7 @@ async def set_limits(
         data={
             "store": store.name if store else None,
             "before": before,
-            "after": {"data_limit_bytes": row.data_limit_bytes, "remote_status": row.remote_status},
+            "after": {"data_limit_bytes": row.data_limit_bytes, "remote_status": snap(row).get("status")},
             "notifications_off": notifications_off,
             "reason": (reason or "")[:300],
         },

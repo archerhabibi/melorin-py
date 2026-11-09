@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { authFetch } from './api.js';
 import { Badge, confirmDialog, dt } from './ui.jsx';
+import SubBrandingCard from './SubBrandingCard.jsx';
 import {
   CopyButton,
   Drawer,
@@ -311,6 +312,16 @@ function AdminDrawer({ row, call, toast, onClose, onDone }) {
           </button>
         </div>
       </section>
+
+      {row.store_id && row.panel_id && row.status === 'active' && (
+        <SubBrandingCard
+          storeId={row.store_id}
+          panelId={row.panel_id}
+          panelName={row.panel_name}
+          call={call}
+          toast={toast}
+        />
+      )}
     </Drawer>
   );
 }

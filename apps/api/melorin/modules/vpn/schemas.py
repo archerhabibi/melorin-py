@@ -11,7 +11,7 @@ class VpnAccountOut(BaseModel):
     is_test: bool
     expires_at: dt.datetime | None
     traffic_limit_bytes: int
-    traffic_used_bytes: int
+    traffic_used_bytes: int | None  # None = the panel did not answer / not read (Melorin does not store usage)
     subscription_url: str | None
     links: list | None
     server_id: uuid.UUID | None
@@ -28,6 +28,14 @@ class VpnAccountOut(BaseModel):
     return_note: str | None = None  # Core's own words for "why not returnable" (None when returnable)
     next_plan_queued: bool = False  # PG-09: a prepaid package is waiting; it starts by itself when the current one ends
     next_plan_queued_at: dt.datetime | None = None
+    # PG-02: Core's own words for a state the customer would otherwise not understand (``on_hold``, volume used up), and the one
+    # action that fixes it ("renew"); both None when nothing needs saying. Channels show them as they are.
+    state_note: str | None = None
+    suggested_action: str | None = None
+    # mediator rule: ``live`` is False only when live reading is on and the panel could not answer; the numbers above are then empty
+    # and ``live_note`` says "temporarily unavailable" (never an old number)
+    live: bool = True
+    live_note: str | None = None
 
 
 class OwnerAccountOut(VpnAccountOut):
@@ -72,6 +80,8 @@ class PresenceOut(BaseModel):
     remote_status: str | None = None
     lifetime_used_bytes: int | None = None
     last_synced_at: dt.datetime | None = None
+    live: bool = True  # False = the panel did not answer; every panel number above is then empty
+    note: str | None = None
 
 
 class DeviceOut(BaseModel):
@@ -85,6 +95,31 @@ class DeviceOut(BaseModel):
 class DevicesOut(BaseModel):
     items: list[DeviceOut]
     count: int
+
+
+class OnlineIpOut(BaseModel):
+    node_id: int | str
+    ip: str
+    connections: int
+
+
+class FetchOut(BaseModel):
+    created_at: dt.datetime | str | None = None
+    user_agent: str | None = None
+    ip: str | None = None
+    hwid: str | None = None
+
+
+class ConnectionsOut(BaseModel):
+    """Admin-only view (decision 5). Read live from the panel, never stored."""
+
+    online_available: bool
+    online_ips: list[OnlineIpOut]
+    history_available: bool
+    history_count: int
+    history: list[FetchOut]
+    limit: int
+    offset: int
 
 
 class ReasonIn(BaseModel):
