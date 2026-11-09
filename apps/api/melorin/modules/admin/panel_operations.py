@@ -1,4 +1,4 @@
-"""Admin API - PasarGuard Phase 4: operations console (PG-07), bulk operations (PG-11), store governance (PG-12), subscription test (PG-13).
+"""Admin API - panel operations - operations console (PG-07), bulk operations (PG-11), store governance (PG-12), subscription test (PG-13).
 
 Thin layer: every rule lives in ``modules/vpn/{ops_console,bulk,governance,subscription_check}.py``. Admin session only; every write is
 audited by the service it calls."""

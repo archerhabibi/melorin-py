@@ -22,6 +22,7 @@ from melorin.modules.vpn import health
 from melorin.modules.vpn import capabilities as panel_caps
 from melorin.modules.vpn.adapters.base import PanelError, supports
 from melorin.modules.vpn.adapters.registry import build_adapter
+from melorin.modules.vpn.panel_session import close_adapter as _close
 
 log = logging.getLogger("melorin.vpn.ops_console")
 
@@ -50,17 +51,6 @@ def reason_required(reason: str | None) -> str:
     if len(reason) < 3:
         raise AppError("REASON_REQUIRED", "برای این عملیات دلیل را بنویسید.", 400)
     return reason[:300]
-
-
-async def _close(adapter) -> None:
-    close = getattr(adapter, "close", None)
-    if callable(close):
-        try:
-            res = close()
-            if hasattr(res, "__await__"):
-                await res
-        except Exception:
-            log.warning("ops console: adapter close failed", exc_info=True)
 
 
 async def _panel(session: AsyncSession, panel_id: uuid.UUID) -> Panel:

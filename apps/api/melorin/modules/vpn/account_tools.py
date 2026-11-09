@@ -32,8 +32,10 @@ from melorin.domain.order_state import VpnStatus
 from melorin.kernel.models.vpn import Panel, VpnAccount
 from melorin.modules.vpn import capabilities as panel_caps
 from melorin.modules.vpn import sync
-from melorin.modules.vpn.adapters.base import ErrorKind, PanelError, supports
+from melorin.modules.vpn.adapters.base import PanelError, supports
 from melorin.modules.vpn.adapters.registry import build_adapter, seed_adapter
+from melorin.modules.vpn.panel_session import close_adapter as _close
+from melorin.modules.vpn.panel_session import panel_error
 
 log = logging.getLogger("melorin.vpn.tools")
 
@@ -86,16 +88,7 @@ def _tool(name: str) -> Tool:
 
 
 def _panel_error(exc: PanelError) -> AppError:
-    if exc.kind == ErrorKind.PERMANENT:
-        return AppError("PANEL_REJECTED", "پنل این درخواست را نپذیرفت؛ بعداً دوباره تلاش کنید یا با پشتیبانی تماس بگیرید.", 409)
-    return AppError("PANEL_UNAVAILABLE", "پنل در حال حاضر پاسخ نمی‌دهد؛ چند لحظه بعد دوباره تلاش کنید.", 503)
-
-
-async def _close(adapter) -> None:
-    try:
-        await adapter.close()
-    except Exception:
-        log.warning("adapter close failed", exc_info=True)
+    return panel_error(exc, rejected_hint="پنل این درخواست را نپذیرفت؛ بعداً دوباره تلاش کنید یا با پشتیبانی تماس بگیرید.")
 
 
 def _reason(tool: Tool, role: str, account: VpnAccount, panel: Panel | None) -> str | None:

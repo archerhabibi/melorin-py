@@ -24,6 +24,7 @@ from melorin.kernel.models.stores import Store
 from melorin.kernel.models.vpn import Panel, PanelAdmin
 from melorin.modules.vpn.adapters.base import PanelError, supports
 from melorin.modules.vpn.adapters.registry import build_adapter
+from melorin.modules.vpn.panel_session import close_adapter as _close
 
 log = logging.getLogger("melorin.vpn.governance")
 
@@ -115,17 +116,6 @@ async def _adapter_for(panel: Panel, capability: str):
             "CAPABILITY_MISSING", "اتصال این پنل دسترسی لازم برای مدیریت ادمین فروشگاه را ندارد.", 409, {"capability": capability}
         )
     return adapter
-
-
-async def _close(adapter) -> None:
-    close = getattr(adapter, "close", None)
-    if callable(close):
-        try:
-            res = close()
-            if hasattr(res, "__await__"):
-                await res
-        except Exception:
-            log.warning("governance: adapter close failed", exc_info=True)
 
 
 async def sync_usage(session: AsyncSession, panel: Panel, adapter=None) -> SyncStats:

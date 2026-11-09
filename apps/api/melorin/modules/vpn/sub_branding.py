@@ -35,6 +35,7 @@ from melorin.kernel.models.stores import Store
 from melorin.kernel.models.vpn import Panel, PanelAdmin
 from melorin.modules.vpn.adapters import registry
 from melorin.modules.vpn.adapters.base import ErrorKind, PanelError
+from melorin.modules.vpn.panel_session import close_adapter as _close
 
 log = logging.getLogger("melorin.vpn.sub_branding")
 
@@ -140,17 +141,6 @@ def _adapter(panel: Panel):
     if not hasattr(adapter, "read_custom_variables"):
         raise AppError("NOT_SUPPORTED", "This panel type cannot carry subscription branding.", 422)
     return adapter
-
-
-async def _close(adapter) -> None:
-    close = getattr(adapter, "close", None)
-    if callable(close):
-        try:
-            res = close()
-            if hasattr(res, "__await__"):
-                await res
-        except Exception:
-            log.debug("sub branding: adapter close failed", exc_info=True)
 
 
 async def preview(session, store: Store, panel: Panel) -> dict:

@@ -15,8 +15,8 @@ from melorin.modules.admin.products import router as products_router
 from melorin.modules.admin.panels import router as panels_router
 from melorin.modules.admin.panel_admins import router as panel_admins_router
 from melorin.modules.admin.panel_ops import router as panel_ops_router
-from melorin.modules.admin.panel_phase4 import router as panel_phase4_router
-from melorin.modules.admin.panel_phase5 import router as panel_phase5_router
+from melorin.modules.admin.panel_operations import router as panel_operations_router
+from melorin.modules.admin.panel_monitoring import router as panel_monitoring_router
 from melorin.modules.admin.bundles import router as bundles_router
 from melorin.modules.admin.targets import router as targets_router
 from melorin.modules.admin.capacity import router as capacity_router
@@ -44,8 +44,8 @@ for _family in (
     panels_router,
     panel_admins_router,
     panel_ops_router,
-    panel_phase4_router,
-    panel_phase5_router,
+    panel_operations_router,
+    panel_monitoring_router,
     targets_router,
     capacity_router,
     templates_router,

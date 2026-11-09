@@ -29,6 +29,7 @@ from melorin.modules.vpn.adapters import registry
 from melorin.modules.vpn.adapters.base import PanelError
 from melorin.modules.vpn.adapters.pasarguard.capabilities import CAPABILITY_REQUIREMENTS
 from melorin.modules.vpn.panel_admins import generate_password
+from melorin.modules.vpn.panel_session import close_adapter as _close
 
 log = logging.getLogger("melorin.vpn.service_access")
 
@@ -96,17 +97,6 @@ def _bootstrap_credentials(bootstrap: dict | None) -> dict | None:
     if bootstrap.get("username") and bootstrap.get("password"):
         return {"username": str(bootstrap["username"]), "password": str(bootstrap["password"])}
     raise AppError("BOOTSTRAP_CREDENTIAL_INVALID", "Give an owner api_key, or username and password.", 422)
-
-
-async def _close(adapter) -> None:
-    close = getattr(adapter, "close", None)
-    if callable(close):
-        try:
-            res = close()
-            if hasattr(res, "__await__"):
-                await res
-        except Exception:
-            log.debug("service access: adapter close failed", exc_info=True)
 
 
 def _fail(step: str, exc: Exception) -> AppError:

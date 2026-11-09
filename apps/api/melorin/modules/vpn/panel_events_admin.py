@@ -28,6 +28,7 @@ from melorin.kernel.models.vpn import Panel, PanelEvent
 from melorin.modules.vpn import panel_events
 from melorin.modules.vpn.adapters.base import ErrorKind, PanelError, supports
 from melorin.modules.vpn.adapters.registry import build_adapter
+from melorin.modules.vpn.panel_session import close_adapter as _close
 
 log = logging.getLogger("melorin.vpn.panel_events_admin")
 
@@ -49,15 +50,6 @@ def _require_pasarguard(panel: Panel) -> None:
 
 def _is_connected(panel: Panel) -> bool:
     return bool(panel.webhook_secret_enc) and panel.webhook_connected_at is not None
-
-
-async def _close(adapter) -> None:
-    close = getattr(adapter, "close", None)
-    if callable(close):
-        try:
-            await close()
-        except Exception:
-            log.debug("adapter close failed", exc_info=True)
 
 
 async def counts(session: AsyncSession, panel_id: uuid.UUID, *, now: dt.datetime | None = None) -> dict:
