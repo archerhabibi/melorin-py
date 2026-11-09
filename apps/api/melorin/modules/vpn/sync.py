@@ -9,7 +9,7 @@ import datetime as dt
 
 from melorin.core.db import utcnow
 from melorin.domain.order_state import VpnStatus
-from melorin.modules.vpn import notices
+from melorin.modules.vpn import notices, panel_freshness
 from melorin.domain.timeutil import aware  # noqa: F401  (re-exported: callers use sync.aware)
 
 # Melorin statuses the panel may overwrite. pending / provisioning / revoked / archived are Melorin-only lifecycle states.
@@ -24,7 +24,7 @@ REMOTE_TO_LOCAL = {
     "disabled": VpnStatus.SUSPENDED,
 }
 # A panel read younger than this is trusted by ``expiry_job`` (it does not second-guess the panel with Melorin's own clock).
-FRESH_FOR = dt.timedelta(minutes=30)
+FRESH_FOR = panel_freshness.SYNC_FRESH_FOR
 # Differences below these are noise (clock rounding), not a manual edit on the panel.
 EXPIRY_TOLERANCE = dt.timedelta(hours=1)
 
