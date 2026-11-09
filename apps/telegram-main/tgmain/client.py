@@ -1,5 +1,6 @@
 """Core + Telegram transport for the main bot: per-update Ctx (CoreError re-exported), persistence and HTTP helpers."""
 
+import asyncio
 import json
 import logging
 import httpx
@@ -58,8 +59,31 @@ class TransportMixin:
         tmp.replace(self.state_file)
 
     # ---------- transport ----------
+    MAX_RETRY_AFTER = 60  # never sleep longer than this inside one call (the runner loop has its own back-off)
+    RATE_LIMIT_RETRIES = 3
+
+    @staticmethod
+    def _retry_after(response: httpx.Response) -> float:
+        """Seconds Telegram asks us to wait on a 429 (``parameters.retry_after`` or the Retry-After header)."""
+        try:
+            value = response.json().get("parameters", {}).get("retry_after")
+        except ValueError:
+            value = None
+        value = value if value is not None else response.headers.get("retry-after")
+        try:
+            return max(1.0, float(value))
+        except (TypeError, ValueError):
+            return 1.0
+
     async def tg(self, method: str, payload: dict) -> dict:
-        r = await self.client.post(f"https://api.telegram.org/bot{self.token}/{method}", json=payload)
+        for attempt in range(self.RATE_LIMIT_RETRIES + 1):
+            r = await self.client.post(f"https://api.telegram.org/bot{self.token}/{method}", json=payload)
+            if r.status_code == 429 and attempt < self.RATE_LIMIT_RETRIES:
+                wait = min(self._retry_after(r), self.MAX_RETRY_AFTER)  # T22: honour Telegram's retry_after
+                log.warning("telegram %s rate-limited (429); retrying in %.0fs", method, wait)
+                await asyncio.sleep(wait)
+                continue
+            break
         r.raise_for_status()
         data = r.json()
         if not data.get("ok"):

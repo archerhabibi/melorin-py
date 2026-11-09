@@ -27,6 +27,7 @@ from melorin.kernel.models.vpn import Panel, PanelNode, ReconciliationIssue, Ser
 from melorin.modules.vpn import capabilities as panel_caps
 from melorin.modules.vpn import capacity
 from melorin.modules.vpn.adapters.base import PanelError, supports
+from melorin.domain.timeutil import aware as _aware
 
 log = logging.getLogger("melorin.vpn.panel_metrics")
 
@@ -55,12 +56,6 @@ GAUGES = (
     "melorin_reconcile_lag_seconds",
     "melorin_server_capacity_ratio",
 )
-
-
-def _aware(d: dt.datetime | None) -> dt.datetime | None:
-    if d is None:
-        return None
-    return d if d.tzinfo else d.replace(tzinfo=dt.UTC)
 
 
 def _ratio(used, total) -> float | None:

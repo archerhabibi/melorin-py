@@ -12,6 +12,7 @@ import hashlib
 import re
 from dataclasses import dataclass, field
 from zoneinfo import ZoneInfo
+from melorin.domain.timeutil import aware as _aware
 
 try:  # Iran has no DST since 2022; the fixed offset is only a fallback when tzdata is missing.
     TEHRAN = ZoneInfo("Asia/Tehran")
@@ -262,10 +263,6 @@ class Decision:
     payment_id: str | None = None
     reason: str = ""
     candidate_ids: tuple[str, ...] = ()
-
-
-def _aware(value: dt.datetime) -> dt.datetime:
-    return value if value.tzinfo else value.replace(tzinfo=dt.timezone.utc)
 
 
 _HALF_DAY = dt.timedelta(hours=12)

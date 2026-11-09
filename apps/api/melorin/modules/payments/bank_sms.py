@@ -28,6 +28,7 @@ from melorin.domain.order_state import PaymentStatus
 from melorin.kernel.models.payments import BankSmsMessage, BankSmsSource, Payment
 from melorin.kernel.models.stores import Store
 from melorin.modules.payments import service as payments
+from melorin.domain.timeutil import aware as _aware
 
 log = logging.getLogger("melorin.payments.bank_sms")
 P = PaymentStatus
@@ -87,12 +88,6 @@ def match_settings(source: BankSmsSource) -> dom.MatchSettings:
         require_claimed_time=bool(s.get("require_claimed_time", True)),
         max_auto_amount_rial=s.get("max_auto_amount_rial"),
     )
-
-
-def _aware(value: dt.datetime | None) -> dt.datetime | None:
-    if value is None:
-        return None
-    return value if value.tzinfo else value.replace(tzinfo=dt.UTC)
 
 
 def source_out(src: BankSmsSource | None, *, store_id: uuid.UUID | None = None) -> dict:
