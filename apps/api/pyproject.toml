@@ -13,9 +13,16 @@ line-length = 140
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E4", "E9", "F"]
-ignore = ["F403", "F405"]
-per-file-ignores = { "melorin/models.py" = ["F403", "F405"] }
+# T30/T41: DTZ (naive datetimes), B (bugbear), ASYNC (blocking calls in async code) and S (security) on top of E4/E9/F.
+select = ["E4", "E9", "F", "DTZ", "B", "ASYNC", "S"]
+# B008: FastAPI's Depends()/Query() defaults are the framework idiom. ASYNC109: explicit timeout parameters are intended.
+# S101/S104/S105/S106/S311: asserts as invariants, bind-all in the container entry point, header/field NAMES that look like
+# passwords, and non-crypto randomness in the mock adapter were reviewed one by one (false positives).
+ignore = ["F403", "F405", "B008", "ASYNC109", "S101", "S104", "S105", "S106", "S311"]
+[tool.ruff.lint.per-file-ignores]
+"melorin/models.py" = ["F403", "F405"]
+"tests/**" = ["S", "B", "DTZ", "ASYNC"]
+"alembic/**" = ["S", "B", "DTZ"]
 [tool.ruff.format]
 quote-style = "double"
 line-ending = "lf"

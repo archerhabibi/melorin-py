@@ -23,6 +23,7 @@ from melorin.core.errors import AppError, NotFound
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.vpn import Panel, PanelAdmin
 from melorin.modules.vpn.adapters.base import PanelError, supports
+from melorin.modules.vpn.adapters.lifecycle import close_adapter
 from melorin.modules.vpn.adapters.registry import build_adapter
 
 log = logging.getLogger("melorin.vpn.governance")
@@ -117,17 +118,6 @@ async def _adapter_for(panel: Panel, capability: str):
     return adapter
 
 
-async def _close(adapter) -> None:
-    close = getattr(adapter, "close", None)
-    if callable(close):
-        try:
-            res = close()
-            if hasattr(res, "__await__"):
-                await res
-        except Exception:
-            log.warning("governance: adapter close failed", exc_info=True)
-
-
 async def sync_usage(session: AsyncSession, panel: Panel, adapter=None) -> SyncStats:
     """Read every store admin of ``panel`` (usage, user count, status, the cap the panel really holds). One failing admin never stops the rest."""
     stats = SyncStats()
@@ -173,7 +163,7 @@ async def sync_usage(session: AsyncSession, panel: Panel, adapter=None) -> SyncS
             stats.updated += 1
     finally:
         if owned:
-            await _close(adapter)
+            await close_adapter(adapter)
     return stats
 
 
@@ -214,7 +204,7 @@ async def set_limits(
     except PanelError as exc:
         raise AppError("PANEL_ERROR", f"پنل درخواست را نپذیرفت: {exc.message[:200]}", 502) from exc
     finally:
-        await _close(adapter)
+        await close_adapter(adapter)
     before = {"data_limit_bytes": row.data_limit_bytes, "remote_status": snap(row).get("status")}
     if cap_bytes is not None:
         row.data_limit_bytes = cap_bytes or None

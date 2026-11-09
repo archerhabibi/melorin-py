@@ -27,6 +27,7 @@ from melorin.core.health import WEBHOOK_SILENT_AFTER
 from melorin.kernel.models.vpn import Panel, PanelEvent
 from melorin.modules.vpn import panel_events
 from melorin.modules.vpn.adapters.base import ErrorKind, PanelError, supports
+from melorin.modules.vpn.adapters.lifecycle import close_adapter
 from melorin.modules.vpn.adapters.registry import build_adapter
 
 log = logging.getLogger("melorin.vpn.panel_events_admin")
@@ -49,15 +50,6 @@ def _require_pasarguard(panel: Panel) -> None:
 
 def _is_connected(panel: Panel) -> bool:
     return bool(panel.webhook_secret_enc) and panel.webhook_connected_at is not None
-
-
-async def _close(adapter) -> None:
-    close = getattr(adapter, "close", None)
-    if callable(close):
-        try:
-            await close()
-        except Exception:
-            log.debug("adapter close failed", exc_info=True)
 
 
 async def counts(session: AsyncSession, panel_id: uuid.UUID, *, now: dt.datetime | None = None) -> dict:
@@ -122,7 +114,7 @@ async def status(session: AsyncSession, panel: Panel, *, live: bool = False, now
             out["warnings"].append(f"خواندن تنظیمات پنل ناموفق بود: {exc.message[:160]}")
         finally:
             if adapter is not None:
-                await _close(adapter)
+                await close_adapter(adapter)
     return out
 
 
@@ -181,7 +173,7 @@ async def connect(session: AsyncSession, panel: Panel, *, rotate: bool = False) 
         panel.webhook_connected_at = utcnow()
         await session.flush()
     finally:
-        await _close(adapter)
+        await close_adapter(adapter)
     state = await status(session, panel)
     state["warnings"] = list(result.get("warnings", [])) + state["warnings"]
     state["panel_side"] = {k: v for k, v in result.items() if k != "warnings"}
@@ -204,7 +196,7 @@ async def disconnect(session: AsyncSession, panel: Panel) -> dict:
         except PanelError as exc:
             raise AppError("PANEL_ERROR", f"پنل تنظیمات رویداد را نپذیرفت: {exc.message[:200]}", 502) from exc
         finally:
-            await _close(adapter)
+            await close_adapter(adapter)
     panel.webhook_secret_enc, panel.webhook_connected_at = None, None
     await session.flush()
     state = await status(session, panel)

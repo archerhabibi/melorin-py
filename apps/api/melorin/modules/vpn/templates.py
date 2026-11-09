@@ -32,6 +32,7 @@ from melorin.kernel.models.catalog import Product
 from melorin.kernel.models.vpn import Panel, ProductTemplate
 from melorin.modules.vpn import capabilities as panel_caps
 from melorin.modules.vpn.adapters.base import ErrorKind, PanelError, supports
+from melorin.modules.vpn.adapters.lifecycle import close_adapter
 from melorin.modules.vpn.adapters.registry import build_adapter
 
 log = logging.getLogger("melorin.vpn.templates")
@@ -112,13 +113,6 @@ def _panel_error(exc: PanelError) -> AppError:
     return AppError("PANEL_UNAVAILABLE", "پنل در حال حاضر پاسخ نمی‌دهد؛ چند لحظه بعد دوباره تلاش کنید.", 503)
 
 
-async def _close(adapter) -> None:
-    try:
-        await adapter.close()
-    except Exception:
-        log.warning("adapter close failed", exc_info=True)
-
-
 def ensure_supported(panel: Panel) -> None:
     if panel.kind != "pasarguard" or not panel_caps.capabilities_of(panel).has("template_ops"):
         raise AppError("TEMPLATES_UNSUPPORTED", "این پنل یا دسترسی فعلی آن از مدیریت تمپلیت پشتیبانی نمی‌کند.", 409)
@@ -128,7 +122,7 @@ async def _open(panel: Panel):
     ensure_supported(panel)
     adapter = build_adapter(panel)
     if not supports(adapter, "template_ops"):
-        await _close(adapter)
+        await close_adapter(adapter)
         raise AppError("TEMPLATES_UNSUPPORTED", "این پنل یا دسترسی فعلی آن از مدیریت تمپلیت پشتیبانی نمی‌کند.", 409)
     return adapter
 
@@ -186,7 +180,7 @@ async def overview(session: AsyncSession, panel: Panel) -> dict:
         except PanelError as exc:
             error = _panel_error(exc).message
         finally:
-            await _close(adapter)
+            await close_adapter(adapter)
     items = []
     for row in rows:
         product = products.get(row.product_id)
@@ -226,7 +220,7 @@ async def create_for_product(
     except PanelError as exc:
         raise _panel_error(exc) from exc
     finally:
-        await _close(adapter)
+        await close_adapter(adapter)
     row = ProductTemplate(panel_id=panel.id, product_id=product.id, remote_template_id=remote_id, name=spec["name"], managed=True)
     try:
         async with session.begin_nested():
@@ -254,7 +248,7 @@ async def link_existing(
     except PanelError as exc:
         raise _panel_error(exc) from exc
     finally:
-        await _close(adapter)
+        await close_adapter(adapter)
     if found is None:
         raise AppError("TEMPLATE_NOT_FOUND", "این تمپلیت روی پنل وجود ندارد.", 404)
     row = await mapping_for(session, panel.id, product.id)
@@ -287,7 +281,7 @@ async def sync_product(session: AsyncSession, panel: Panel, product: Product, *,
     except PanelError as exc:
         raise _panel_error(exc) from exc
     finally:
-        await _close(adapter)
+        await close_adapter(adapter)
     row.name = spec["name"]
     _audit(
         session,
@@ -325,7 +319,7 @@ async def set_disabled(session: AsyncSession, panel: Panel, product: Product, di
     except PanelError as exc:
         raise _panel_error(exc) from exc
     finally:
-        await _close(adapter)
+        await close_adapter(adapter)
     _audit(
         session,
         "disabled" if disabled else "enabled",

@@ -1,8 +1,8 @@
 """Periodic jobs. Run from cron/scheduler: health, expiry, reconciliation, backup status."""
 
 import asyncio
+import functools
 import datetime as dt
-import inspect
 import logging
 import os
 from pathlib import Path
@@ -17,18 +17,10 @@ from melorin.modules.eventcenter import report as event_center_report
 from melorin.modules.eventcenter import rules as event_center_rules
 from melorin.modules.vpn import capabilities, capacity, health, live, notices, panel_events, reconcile, sync
 from melorin.kernel.models.vpn import Panel, VpnAccount
+from melorin.modules.vpn.adapters.lifecycle import close_adapter
 
+_close_strict = functools.partial(close_adapter, strict=True)  # worker jobs keep raising on close failure
 log = logging.getLogger("melorin.jobs")
-
-
-async def _close_adapter(adapter) -> None:
-    """Close adapters safely, including legacy/test adapters with sync close()."""
-    close = getattr(adapter, "close", None)
-    if not close:
-        return
-    result = close()
-    if inspect.isawaitable(result):
-        await result
 
 
 async def backup_job(ctx=None):
@@ -179,7 +171,7 @@ async def panel_health_job(ctx=None):
             finally:
                 if adapter:
                     try:
-                        await _close_adapter(adapter)
+                        await close_adapter(adapter, strict=True)
                     except Exception:
                         log.exception("panel adapter close failed panel=%s", p.id)
             previous = health.apply(p, result)
@@ -194,7 +186,7 @@ async def panel_metrics_job(ctx=None):
     from melorin.modules.vpn import panel_metrics
 
     async with session_factory()() as s:
-        done = await panel_metrics.run_snapshots(s, close_adapter=_close_adapter)
+        done = await panel_metrics.run_snapshots(s, close_adapter=_close_strict)
         await s.commit()
     return done
 
@@ -204,7 +196,7 @@ async def panel_settings_drift_job(ctx=None):
     from melorin.modules.vpn import settings_drift
 
     async with session_factory()() as s:
-        done = await settings_drift.run_all(s, close_adapter=_close_adapter)
+        done = await settings_drift.run_all(s, close_adapter=_close_strict)
         await s.commit()
     return done
 

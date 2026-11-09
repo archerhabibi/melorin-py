@@ -21,6 +21,7 @@ from melorin.kernel.models.vpn import Panel, PanelNode
 from melorin.modules.vpn import health
 from melorin.modules.vpn import capabilities as panel_caps
 from melorin.modules.vpn.adapters.base import PanelError, supports
+from melorin.modules.vpn.adapters.lifecycle import close_adapter
 from melorin.modules.vpn.adapters.registry import build_adapter
 
 log = logging.getLogger("melorin.vpn.ops_console")
@@ -50,17 +51,6 @@ def reason_required(reason: str | None) -> str:
     if len(reason) < 3:
         raise AppError("REASON_REQUIRED", "برای این عملیات دلیل را بنویسید.", 400)
     return reason[:300]
-
-
-async def _close(adapter) -> None:
-    close = getattr(adapter, "close", None)
-    if callable(close):
-        try:
-            res = close()
-            if hasattr(res, "__await__"):
-                await res
-        except Exception:
-            log.warning("ops console: adapter close failed", exc_info=True)
 
 
 async def _panel(session: AsyncSession, panel_id: uuid.UUID) -> Panel:
@@ -119,7 +109,7 @@ async def overview(session: AsyncSession, panel_id: uuid.UUID) -> dict:
         errors["connection"] = exc.message
     finally:
         if adapter is not None:
-            await _close(adapter)
+            await close_adapter(adapter)
     nodes = [
         {
             "remote_id": r.remote_id,
@@ -180,7 +170,7 @@ async def list_infra(session: AsyncSession, panel_id: uuid.UUID) -> dict:
                 raise _panel_error(exc) from exc
         return out
     finally:
-        await _close(adapter)
+        await close_adapter(adapter)
 
 
 # ------------------------------------------------------------------------------------------------------------------ write
@@ -217,7 +207,7 @@ async def node_action(session: AsyncSession, panel_id: uuid.UUID, node_id: int, 
             raise _panel_error(exc) from exc
         await _refresh(session, panel, adapter)
     finally:
-        await _close(adapter)
+        await close_adapter(adapter)
     _audit(session, panel, admin_id, f"node_{action}", {"node": node.name, "remote_id": node.remote_id, "reason": reason})
     await session.commit()
     return {"ok": True, "action": action, "node": node.name}
@@ -246,7 +236,7 @@ async def core_restart(
         except PanelError as exc:
             raise _panel_error(exc) from exc
     finally:
-        await _close(adapter)
+        await close_adapter(adapter)
     _audit(session, panel, admin_id, "core_restart", {"core": core.get("name"), "core_id": int(core_id), "reason": reason})
     await session.commit()
     return {"ok": True, "core": core.get("name")}
@@ -294,7 +284,7 @@ async def toggle(
         if family == "nodes":
             await _refresh(session, panel, adapter)
     finally:
-        await _close(adapter)
+        await close_adapter(adapter)
     _audit(session, panel, admin_id, f"{family}_{'disable' if disabled else 'enable'}", {"ids": ids, "reason": reason, "force": force})
     await session.commit()
     return {"ok": True, "family": family, "disabled": disabled, "count": len(ids)}

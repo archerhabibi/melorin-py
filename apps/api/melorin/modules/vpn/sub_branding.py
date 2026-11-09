@@ -35,6 +35,7 @@ from melorin.kernel.models.stores import Store
 from melorin.kernel.models.vpn import Panel, PanelAdmin
 from melorin.modules.vpn.adapters import registry
 from melorin.modules.vpn.adapters.base import ErrorKind, PanelError
+from melorin.modules.vpn.adapters.lifecycle import close_adapter
 
 log = logging.getLogger("melorin.vpn.sub_branding")
 
@@ -142,17 +143,6 @@ def _adapter(panel: Panel):
     return adapter
 
 
-async def _close(adapter) -> None:
-    close = getattr(adapter, "close", None)
-    if callable(close):
-        try:
-            res = close()
-            if hasattr(res, "__await__"):
-                await res
-        except Exception:
-            log.debug("sub branding: adapter close failed", exc_info=True)
-
-
 async def preview(session, store: Store, panel: Panel) -> dict:
     """Read-only: what the panel holds now for our three keys versus what the store wants."""
     row = await _row(session, store, panel)
@@ -164,7 +154,7 @@ async def preview(session, store: Store, panel: Panel) -> dict:
         except PanelError as exc:
             return {"live": False, "note": "پنل موقتاً در دسترس نیست.", "wanted": want, "detail": (exc.message or "")[:200]}
     finally:
-        await _close(adapter)
+        await close_adapter(adapter)
     if current is None:
         return {"live": False, "note": "ادمین فروشگاه روی پنل پیدا نشد.", "wanted": want}
     ours = {k: current[k] for k in VARIABLES.values() if k in current}
@@ -213,7 +203,7 @@ async def apply(session, store: Store, panel: Panel, *, actor_id=None) -> dict:
         if after != before:
             await _write_verified(adapter, row, before, after)
     finally:
-        await _close(adapter)
+        await close_adapter(adapter)
     stamp = {"digest": digest(want), "at": utcnow().isoformat(), "keys": sorted(want)}
     _set_applied(store, panel.id, stamp)
     audit.record(
@@ -245,7 +235,7 @@ async def revert(session, store: Store, panel: Panel, *, actor_id=None) -> dict:
         if after != before:
             await _write_verified(adapter, row, before, after)
     finally:
-        await _close(adapter)
+        await close_adapter(adapter)
     _set_applied(store, panel.id, None)
     audit.record(
         session,
