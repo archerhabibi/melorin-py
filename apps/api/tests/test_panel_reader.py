@@ -86,3 +86,33 @@ async def test_panel_reader_pages_accounts_and_owner_accounts_with_their_own_cal
     owner = await reader.owner_accounts("shop-a", page_size=5, max_rows=50)
     assert owner.rows == [] and owner.total == 0 and owner.complete
     assert seen == [("all", 0, 5), ("owner", "shop-a", 0, 5)]
+
+
+@pytest.mark.asyncio
+async def test_read_many_returns_none_for_a_failing_account_and_reports_it():
+    class Adapter:
+        async def get_account(self, username):
+            if username == "bad":
+                raise RuntimeError("panel hiccup")
+            return None if username == "gone" else {"username": username}
+
+    accounts = [SimpleNamespace(id=i, username=u) for i, u in enumerate(["ok", "bad", "gone"])]
+    errors: list[str] = []
+    out = await PanelReader(Adapter()).read_many(accounts, concurrency=2, on_error=lambda a, e: errors.append(a.username))
+    assert out == {0: {"username": "ok"}, 1: None, 2: None} and errors == ["bad"]
+
+
+@pytest.mark.asyncio
+async def test_account_read_goes_through_the_seed_hook_first():
+    seeded: list[str] = []
+
+    class Adapter:
+        async def get_account(self, username):
+            return username.upper()
+
+    def seed(adapter, account):
+        seeded.append(account.username)
+        return adapter
+
+    assert await PanelReader(Adapter(), seed=seed).account(SimpleNamespace(username="abc")) == "ABC"
+    assert seeded == ["abc"]

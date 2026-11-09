@@ -13,7 +13,6 @@ incident; the account then shows only what Melorin sold (``sold_*``) with no usa
 
 from __future__ import annotations
 
-import asyncio
 import dataclasses
 import datetime as dt
 import logging
@@ -26,17 +25,19 @@ from sqlalchemy import select
 from melorin.core import settings_store
 from melorin.core.db import utcnow
 from melorin.kernel.models.vpn import Panel, VpnAccount
-from melorin.modules.vpn import inquiry
+from melorin.modules.vpn import freshness, inquiry
 from melorin.modules.vpn.adapters.registry import build_adapter, seed_adapter
+from melorin.modules.vpn.panel_reader import PanelReader
+from melorin.modules.vpn.panel_session import close_adapter
 from melorin.modules.vpn.schemas import VpnAccountOut
 
 log = logging.getLogger("melorin.vpn.live")
 
 SETTING = "vpn.live_view"
-TTL_SECONDS = 20.0  # a reading
-FAIL_TTL_SECONDS = 5.0  # "the panel could not answer": try again soon, but never once per tap
-CONCURRENCY = 5  # parallel single-user reads per panel
-MAX_ACCOUNTS = 200  # one call never reads more than a page
+TTL_SECONDS = freshness.READING_TTL_SECONDS  # a reading (aliases of the ``freshness`` policy)
+FAIL_TTL_SECONDS = freshness.READING_FAIL_TTL_SECONDS  # "the panel could not answer": try again soon, but never once per tap
+CONCURRENCY = freshness.READ_CONCURRENCY  # parallel single-user reads per panel
+MAX_ACCOUNTS = freshness.READ_MAX_ACCOUNTS  # one call never reads more than a page
 CACHE_LIMIT = 5000
 UNAVAILABLE_NOTE = "اطلاعات زنده از پنل موقتاً در دسترس نیست."
 
@@ -89,36 +90,20 @@ def _cached(account_id: uuid.UUID, now: float):
 
 
 async def _read_panel(panel: Panel, accounts: list[VpnAccount]) -> dict[uuid.UUID, LiveReading | None]:
-    out: dict[uuid.UUID, LiveReading | None] = {}
     adapter = None
     try:
         adapter = build_adapter(panel)
-        gate = asyncio.Semaphore(CONCURRENCY)
 
-        async def one(account: VpnAccount):
-            async with gate:
-                try:
-                    remote = await seed_adapter(adapter, account).get_account(account.username)
-                except Exception:  # a panel error is "no answer", never a guess
-                    log.info("live read failed account=%s", account.id, exc_info=True)
-                    return account.id, None
-                return account.id, (_reading(remote) if remote is not None else None)
+        def failed(account: VpnAccount, exc: Exception) -> None:  # a panel error is "no answer", never a guess
+            log.info("live read failed account=%s", account.id, exc_info=exc)
 
-        for account_id, reading in await asyncio.gather(*(one(a) for a in accounts)):
-            out[account_id] = reading
+        remotes = await PanelReader(adapter, seed=seed_adapter).read_many(accounts, concurrency=CONCURRENCY, on_error=failed)
+        return {account_id: (_reading(remote) if remote is not None else None) for account_id, remote in remotes.items()}
     except Exception:
         log.info("live read: panel unavailable panel=%s", panel.id, exc_info=True)
-        out = {a.id: None for a in accounts}
+        return {a.id: None for a in accounts}
     finally:
-        close = getattr(adapter, "close", None)
-        if callable(close):
-            try:
-                res = close()
-                if hasattr(res, "__await__"):
-                    await res
-            except Exception:
-                log.debug("live read: adapter close failed panel=%s", panel.id, exc_info=True)
-    return out
+        await close_adapter(adapter)
 
 
 async def read(session, accounts: list[VpnAccount], *, fresh: bool = False) -> dict[uuid.UUID, LiveReading | None]:
