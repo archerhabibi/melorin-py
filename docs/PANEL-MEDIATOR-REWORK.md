@@ -116,7 +116,7 @@ R9 (`sold_*` vs panel "now") and R10 (`sync.record_sale` is the only writer; syn
 The suite (2275 tests) is green; tests that seeded usage/link/status on the account now seed them on a fake panel.
 
 ## Verification pass (9 Nov 2026)
-Checked on the branch itself, not taken from the change log: backend suite, PostgreSQL lane for the mediator tests, migrations `0050` <-> `0054` on PostgreSQL 16, import-linter contracts, ruff, both web apps (tests, lint, admin build). Two real findings were fixed (layers contract; near-expiry warning confirmed by a live read, see CHANGE_LOG). **Still not verified, because it needs the live panel/VPS:** PG-05 provision/rotate, PG-12 role apply and branding apply (the PasarGuard docs at docs.pasarguard.org do not describe how `custom_variables` reach a page template; first apply on a test store), Prometheus after the `nobody` chown, panel backup env.
+Checked on the branch itself, not taken from the change log: backend suite, PostgreSQL lane for the mediator tests, migrations `0050` <-> `0054` on PostgreSQL 16, import-linter contracts, ruff, both web apps (tests, lint, admin build). Two real findings were fixed (layers contract; near-expiry warning confirmed by a live read, see CHANGE_LOG). Items that needed the live panel/VPS were checked in the next section (9 Nov 2026, live recheck).
 
 ## Store role name is configurable (9 Nov 2026)
 `POST /admin/panels/{id}/store-role/apply {confirm_name, bootstrap, role_name?}`: `role_name` defaults to `melorin-store`; any name of 2-32 characters
@@ -148,6 +148,17 @@ Result on the test panel: `ml_main` holds `melorin-store`; rotate repeats cleanl
 ### Panel backup, operator steps
 `MELORIN_PANEL_BACKUP_DATABASE_URL` (real database port, not PgBouncer) and `MELORIN_PANEL_BACKUP_PATHS=/panel-data`; mount `/var/lib/pasarguard:/panel-data:ro` into the worker (`docker-compose.override.yml`, which also joins the panel's backend network); give the worker's uid read access to the cert key so it can be archived:
 `setfacl -m u:10001:rx /var/lib/pasarguard/certs /var/lib/pasarguard/certs/<domain>; setfacl -m u:10001:r .../privkey.pem; setfacl -d -m u:10001:r .../<domain>` (default ACL so a renewed key inherits it). Then run `scripts/verify_panel_backup.sh` with the age identity. On a production host the identity must NOT live on the server (on this test host it does).
+
+## Live recheck, 9 Nov 2026 (test VPS, branch head `b4886e3`, all through MCP)
+| Item | Result |
+|---|---|
+| Code | `ruff check` clean; backend suite `2325 passed, 2 skipped, 12 deselected` (`-m "not integration and not concurrency"`, 11 min); Alembic head on the server `0054_sold_vs_now`. |
+| PG-05 provision/rotate | Melorin runs on API key `melorin-service-b5ad7d` (admin `melorin-service`, role `melorin-service`, 1470 requests and rising). The owner key `bot` (admin Ajdar) is **idle** (request count unchanged over 50 s, 9409) and is still active: revoking it is the operator's decision. |
+| `melorin-store` role | Panel admin `ml_main` holds `melorin-store`; `panels.config.admin_role=melorin-store`, `admin_role_managed=true`; `panel_admins` row `active`, `profile_synced=true`. The role name is configurable per panel (`role_name`), so a store or panel may use another name. |
+| Subscription branding | The vetted page template on the panel is byte-identical to `infra/sub-template/index.html`; panel `.env` has `CUSTOM_TEMPLATES_DIRECTORY` and `SUBSCRIPTION_PAGE_TEMPLATE`. `ml_main.custom_variables` is currently `[]` (reverted after the 9 Nov end-to-end proof; not re-applied in this pass). |
+| Prometheus | `secrets/metrics-token` is `65534:65534 0600`, container user `nobody`; target `melorin-api` **up**, 21 rules loaded, `melorin_panel_nodes` returns data, `MelorinPanelDegraded` firing (4 nodes in certificate error: operator step). |
+| `MELORIN_PANEL_BACKUP_*` | `..._DATABASE_URL` (real port, not PgBouncer) and `..._PATHS=/panel-data` are set in the worker; `docker-compose.override.yml` mounts `/var/lib/pasarguard` read-only. `backup_runs`: scheduled panel backups at 02:40 `succeeded` (encrypted, verified, local only); the two `failed` rows are the manual runs made before the ACL fix. |
+| Open (operator) | Revoke owner key `bot`; rotate the Telegram token in `notification_settings`; fix node certificates (`server_ca`); Caddy `unhealthy`. N10 deferred by decision. |
 
 ## Not done yet (in priority order)
 
