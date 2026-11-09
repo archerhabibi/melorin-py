@@ -140,7 +140,11 @@ export default function ResellerUsage({ coreFetch, base, notify }) {
       </div>
       {(rep.panels || []).some((p) => !p.ok) && (
         <p className="text-xs text-muted">
-          پنل‌های بدون پاسخ: {(rep.panels || []).filter((p) => !p.ok).map((p) => p.name).join('، ')}
+          پنل‌های بدون پاسخ:{' '}
+          {(rep.panels || [])
+            .filter((p) => !p.ok)
+            .map((p) => p.name)
+            .join('، ')}
         </p>
       )}
     </div>

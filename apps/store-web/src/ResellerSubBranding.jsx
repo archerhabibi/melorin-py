@@ -38,7 +38,9 @@ export default function ResellerSubBranding({ coreFetch, base, notify }) {
   if (failed) return <Empty text="تنظیمات برند اشتراک در دسترس نیست." icon={Palette} />;
   if (!saved) return <Loading rows={3} />;
   // only fields that really changed are sent; an emptied one is sent as "" (= clear)
-  const changes = Object.fromEntries(FIELDS.map(([k]) => [k, draft[k] ?? '']).filter(([k, v]) => v !== (saved[k] ?? '')));
+  const changes = Object.fromEntries(
+    FIELDS.map(([k]) => [k, draft[k] ?? '']).filter(([k, v]) => v !== (saved[k] ?? '')),
+  );
   const dirty = Object.keys(changes).length > 0;
 
   async function save() {

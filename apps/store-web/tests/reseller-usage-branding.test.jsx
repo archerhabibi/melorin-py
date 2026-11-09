@@ -17,7 +17,9 @@ const REPORT = {
   near_expiry_days: 3,
   near_exhaustion: 1,
   near_exhaustion_percent: 90,
-  top_consumers: [{ username: 'main_a1', used_bytes: 2 * 1024 ** 3, limit_bytes: 10 * 1024 ** 3, percent: 20, status: 'active' }],
+  top_consumers: [
+    { username: 'main_a1', used_bytes: 2 * 1024 ** 3, limit_bytes: 10 * 1024 ** 3, percent: 20, status: 'active' },
+  ],
   panels: [{ name: 'Panel DE', ok: true }],
 };
 
@@ -32,7 +34,13 @@ describe('reseller › usage report', () => {
   });
 
   it('shows "temporarily unavailable" and no number when the panel did not answer', async () => {
-    const down = { live: false, note: 'اطلاعات زنده از پنل موقتاً در دسترس نیست.', taken_at: REPORT.taken_at, complete: false, panels: [{ name: 'Panel DE', ok: false }] };
+    const down = {
+      live: false,
+      note: 'اطلاعات زنده از پنل موقتاً در دسترس نیست.',
+      taken_at: REPORT.taken_at,
+      complete: false,
+      panels: [{ name: 'Panel DE', ok: false }],
+    };
     render(<ResellerUsage coreFetch={vi.fn(async () => res(down))} base={BASE} notify={vi.fn()} />);
     expect(await screen.findByTestId('usage-unavailable')).toHaveTextContent('موقتاً در دسترس نیست');
     expect(screen.queryByText('مصرف کل')).toBeNull();
@@ -49,7 +57,8 @@ describe('reseller › sub branding', () => {
     const calls = [];
     const coreFetch = vi.fn(async (path, init = {}) => {
       calls.push([path, init.method || 'GET', init.body]);
-      if (!init.method) return res({ fields: { display_name: 'Paris VPN', support_url: 'https://t.me/x' }, applied_on: [] });
+      if (!init.method)
+        return res({ fields: { display_name: 'Paris VPN', support_url: 'https://t.me/x' }, applied_on: [] });
       return res({ fields: {}, note: 'ذخیره شد.' });
     });
     const notify = vi.fn();
