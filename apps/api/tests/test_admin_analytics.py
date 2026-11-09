@@ -12,8 +12,8 @@ from _db import make_order, make_product, make_store, make_user
 from _http import PASSWORD, add_user, api_client, totp_now
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.payments import Payment
-from melorin.modules.admin import analytics as an
-from melorin.modules.admin.timeseries import day_axis
+from melorin.modules.reports import analytics as an
+from melorin.modules.reports.timeseries import day_axis
 
 ADMIN = "/api/v1/admin"
 NOW = dt.datetime(2026, 10, 13, 15, 0, tzinfo=dt.UTC)

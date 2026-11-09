@@ -91,7 +91,7 @@ async def report_timeseries(
     tz: str = Query(default="UTC", max_length=64, description="IANA time zone used to bucket days, e.g. Asia/Tehran"),
 ):
     """Zero-filled daily orders + per-currency sales for the dashboard chart."""
-    from melorin.modules.admin.timeseries import build_timeseries
+    from melorin.modules.reports.timeseries import build_timeseries
 
     try:
         return await build_timeseries(session, days, tz=tz)
@@ -109,7 +109,7 @@ async def report_analytics(
     store_id: uuid.UUID | None = Query(default=None, description="limit orders and payments to one store"),
 ):
     """Everything the Reports & charts screen needs in one currency-safe payload (KPIs vs previous period, series, breakdowns)."""
-    from melorin.modules.admin.analytics import build_analytics
+    from melorin.modules.reports.analytics import build_analytics
 
     try:
         return await build_analytics(session, days, tz=tz, currency=currency.upper() if currency else None, store_id=store_id)
@@ -128,7 +128,7 @@ async def export_analytics(
     store_id: uuid.UUID | None = Query(default=None),
 ):
     """CSV of one analytics section (UTF-8 with BOM so Excel opens Persian names correctly)."""
-    from melorin.modules.admin.analytics import CSV_SECTIONS, build_analytics, to_csv_rows
+    from melorin.modules.reports.analytics import CSV_SECTIONS, build_analytics, to_csv_rows
 
     if section not in CSV_SECTIONS:
         raise AppError("INVALID_SECTION", "بخش گزارش نامعتبر است.", 422)

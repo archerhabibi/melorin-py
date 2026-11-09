@@ -34,7 +34,7 @@ from melorin.kernel.models.payments import Payment
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.tickets import Ticket
 from melorin.kernel.models.vpn import Panel, VpnAccount
-from melorin.modules.admin.timeseries import MAX_DAYS, MIN_DAYS, SOLD_STATUSES, day_axis, resolve_zone
+from melorin.modules.reports.timeseries import MAX_DAYS, MIN_DAYS, SOLD_STATUSES, day_axis, resolve_zone
 from melorin.domain.timeutil import aware as _aware
 
 MAX_ROWS = 200_000  # per table and per request; ``truncated`` tells the UI when a window was cut

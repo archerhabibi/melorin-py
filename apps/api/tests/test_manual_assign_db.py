@@ -19,7 +19,8 @@ from melorin.kernel.models.orders import Order
 from melorin.kernel.models.stores import StoreMembership
 from melorin.kernel.models.system import AuditEvent
 from melorin.kernel.models.vpn import Panel, PanelAdmin, PanelOrphan, VpnAccount
-from melorin.modules.admin import panel_orphans, timeseries
+from melorin.modules.admin import panel_orphans
+from melorin.modules.reports import timeseries
 from melorin.modules.eventcenter import rules
 from melorin.modules.referral import service as referral
 from melorin.modules.reports import router as reports

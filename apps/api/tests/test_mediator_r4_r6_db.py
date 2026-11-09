@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from _db import open_schema_engine
 from melorin.core import settings_store
 from melorin.kernel.models.vpn import Panel, VpnAccount
-from melorin.modules.admin import analytics
+from melorin.modules.reports import analytics
 from melorin.modules.vpn import live, notices, sync
 from test_panel_live_view_db import _Down, use
 from test_pasarguard_phase1_db import NOW, FakePanel, remote, seed
