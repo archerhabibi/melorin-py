@@ -187,6 +187,7 @@ SERVICE_ROLE = {
     "nodes": {"read": True},
     "settings": {"read": True},
     "admins": {"read": True, "create": True, "update": True},
+    "admin_roles": {"read_simple": True},
 }
 OPERATOR_ROLE = {"users": {"read": 1, "update": 1, "set_owner": 0}, "nodes": {}, "admins": {}}
 
