@@ -20,7 +20,7 @@ def _emit_sites():
 
 def test_every_emit_site_matches_schema():
     sites = list(_emit_sites())
-    assert len(sites) >= 50  # the audit counted 54; guards against the scan silently finding nothing
+    assert len(sites) >= 25  # the audit counted 54 direct sites; T04 moved the user-notice ones behind emit_user_notice. Guards against the scan silently finding nothing
     bad = []
     for path, line, topic, payload in sites:
         if not isinstance(payload, ast.Dict):

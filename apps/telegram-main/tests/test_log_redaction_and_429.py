@@ -45,7 +45,7 @@ def test_429_honours_retry_after_then_succeeds(monkeypatch):
 
     monkeypatch.setattr(asyncio, "sleep", fake_sleep)
     assert asyncio.run(_Bot(handler).tg("getUpdates", {})) == [1]
-    assert slept == [3.0] and len(calls) == 2
+    assert slept == [3.5] and len(calls) == 2  # retry_after + 0.5s margin (person3 client)
 
 
 def test_429_gives_up_after_retries(monkeypatch):

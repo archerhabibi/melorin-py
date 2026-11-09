@@ -14,7 +14,7 @@ def test_order_idempotency_insert_is_savepoint_protected():
     ]
     assert "async with session.begin_nested()" in section
     assert "await session.flush()" in section
-    assert "except IntegrityError:" in section
+    assert "except IntegrityError" in section  # ``as exc`` since audit B904
     assert "return existing" in section
 
 

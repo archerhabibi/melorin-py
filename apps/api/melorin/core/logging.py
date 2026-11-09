@@ -5,6 +5,8 @@ import sys
 from melorin.core.context import correlation_id
 from melorin.core.redact import scrub
 
+redact = scrub  # back-compat name (audit T20 tests and callers import it from here)
+
 
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
