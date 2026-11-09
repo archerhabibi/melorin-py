@@ -8,6 +8,7 @@ are out of scope on purpose. Panel events have their own purge (``vpn.panel_even
 from __future__ import annotations
 
 import datetime as dt
+from typing import Any, cast
 
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,9 +24,9 @@ WEBHOOK_DONE = ("delivered", "failed")
 
 async def _days(session: AsyncSession, key: str) -> int:
     try:
-        return max(1, int(await settings_store.get(session, key)))
+        return max(1, int(cast(Any, await settings_store.get(session, key))))
     except (TypeError, ValueError):
-        return int(settings_store.DEFAULTS[key])  # a mistyped admin value must not disable or break the purge
+        return int(cast(Any, settings_store.DEFAULTS[key]))  # a mistyped admin value must not disable or break the purge
 
 
 async def purge_finished(session: AsyncSession, *, now: dt.datetime | None = None) -> dict[str, int]:

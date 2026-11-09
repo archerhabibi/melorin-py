@@ -62,7 +62,7 @@ def next_delay(attempt: int) -> int | None:
     return BACKOFF[attempt - 1]
 
 
-def _blocked_ip(ip: ipaddress._BaseAddress) -> bool:
+def _blocked_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     return any(
         (
             ip.is_private,

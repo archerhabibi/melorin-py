@@ -83,7 +83,7 @@ def _find_time(text: str) -> dt.datetime | None:
             if name in _MONTHS:
                 day, month, year = int(m.group(1)), _MONTHS[name], int(m.group(3))
                 break
-    if year is None:
+    if year is None or month is None or day is None:
         return None
     try:
         return jalali_datetime_to_utc(year, month, day, hour, minute)
