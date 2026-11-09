@@ -18,11 +18,13 @@ from melorin.modules.eventcenter import rules as event_center_rules
 from melorin.modules.vpn import capabilities, capacity, health, live, notices, panel_events, reconcile, sync
 from melorin.kernel.models.vpn import Panel, VpnAccount
 from melorin.modules.vpn.adapters.lifecycle import close_adapter
+from melorin.worker.wrap import tracked_job
 
 _close_strict = functools.partial(close_adapter, strict=True)  # worker jobs keep raising on close failure
 log = logging.getLogger("melorin.jobs")
 
 
+@tracked_job
 async def backup_job(ctx=None):
     """Always write an encrypted LOCAL backup; also copy it to S3 when enabled in the Admin panel."""
     root = Path(os.getenv("MELORIN_PROJECT_ROOT", "/app"))
@@ -71,6 +73,7 @@ async def backup_job(ctx=None):
     return status
 
 
+@tracked_job
 async def panel_backup_job(ctx=None):
     """Daily: encrypted backup of the PasarGuard panel (its database and data directory), recorded as ``BackupRun(target="panel")`` (PG-16).
 
@@ -120,6 +123,7 @@ async def panel_backup_job(ctx=None):
     return status
 
 
+@tracked_job
 async def daily_report_job(ctx=None):
     """Queue the Event Center nightly summary (one per group). Safe to run twice: the report is deduplicated per Tehran day."""
     async with session_factory()() as session:
@@ -128,6 +132,7 @@ async def daily_report_job(ctx=None):
     return queued
 
 
+@tracked_job
 async def store_digest_job(ctx=None):
     """Daily: the opt-in digest for store owners (PG-06). Says only what Melorin owns (notices sent, open discrepancies, sell blocks)."""
     from melorin.modules.vpn import digest
@@ -138,6 +143,7 @@ async def store_digest_job(ctx=None):
     return queued
 
 
+@tracked_job
 async def panel_health_job(ctx=None):
     """Every 2 minutes: panel health in two layers (PG-01). The panel must answer AND have a connected node; a failing node
     alone makes the panel ``degraded`` (still selling), no connected node makes it ``unhealthy`` (leaves server selection)."""
@@ -181,6 +187,7 @@ async def panel_health_job(ctx=None):
         await s.commit()
 
 
+@tracked_job
 async def panel_metrics_job(ctx=None):
     """Every 2 minutes: one live reading per panel (latency, resources, users, online) for the /metrics gauges (PG-14)."""
     from melorin.modules.vpn import panel_metrics
@@ -191,6 +198,7 @@ async def panel_metrics_job(ctx=None):
     return done
 
 
+@tracked_job
 async def panel_settings_drift_job(ctx=None):
     """Hourly: compare each PasarGuard panel's settings with what Melorin needs. READ-ONLY: it reports, an admin decides (PG-15)."""
     from melorin.modules.vpn import settings_drift
@@ -204,6 +212,7 @@ async def panel_settings_drift_job(ctx=None):
 EXPIRY_LIVE_BATCH = 200  # overdue panel accounts re-read per run (the rest wait for the next run)
 
 
+@tracked_job
 async def expiry_job(ctx=None):
     """Overdue accounts. Mediator rule: the PANEL decides ``expired``, not Melorin's clock.
 
@@ -248,6 +257,7 @@ async def expiry_job(ctx=None):
 NEAR_EXPIRY_MAX_PAGES = 5  # bounds one run: at most 5 x live.MAX_ACCOUNTS panel reads
 
 
+@tracked_job
 async def near_expiry_job(ctx=None):
     """Warn customers whose subscription is about to end.
 
@@ -292,6 +302,7 @@ async def near_expiry_job(ctx=None):
         await s.commit()
 
 
+@tracked_job
 async def reconciliation_job(ctx=None):
     """Hourly: reconcile v2 (PG-04). One batched read per panel; accounts that waited longest go first; issues open, refresh
     and close themselves. A failing panel never stops the others."""
@@ -314,6 +325,7 @@ async def reconciliation_job(ctx=None):
     return done
 
 
+@tracked_job
 async def privacy_retention_job(ctx=None):
     """Remove expired authentication codes while preserving financial/audit data."""
     async with session_factory()() as s:
@@ -330,6 +342,7 @@ async def privacy_retention_job(ctx=None):
         return int(result.rowcount or 0)
 
 
+@tracked_job
 async def telegram_login_gc_job(ctx=None):
     """Drop finished website-login sessions (Telegram bot approval) one day after they expired."""
     from melorin.channels.telegram import web as telegram_web
@@ -340,6 +353,7 @@ async def telegram_login_gc_job(ctx=None):
         return removed
 
 
+@tracked_job
 async def identity_auto_link_job(ctx=None):
     """Safety net for identity-link conflicts (docs/21): settle every open review that became safe to merge by itself
     (an empty shell stayed empty). Two accounts that both hold records are left for an admin."""
@@ -352,6 +366,7 @@ async def identity_auto_link_job(ctx=None):
         return settled
 
 
+@tracked_job
 async def reseller_auto_verify_job(ctx=None):
     """Reseller applications verify themselves (docs/21): re-check the bot and the domain proof of every pending
     application whose retry is due. Back-off lives on the row, so a restart or a second worker never double-runs it."""
@@ -364,6 +379,7 @@ async def reseller_auto_verify_job(ctx=None):
         return done
 
 
+@tracked_job
 async def reseller_identity_recheck_job(ctx=None):
     """Approved resellers keep proving who they are (docs/21): re-check domain proof and bot token of every store whose
     check is due; repeated failure alerts admins (and suspends the store when RESELLER_RECHECK_SUSPEND is on)."""
@@ -376,6 +392,7 @@ async def reseller_identity_recheck_job(ctx=None):
         return done
 
 
+@tracked_job
 async def bank_sms_reconcile_job(ctx=None):
     """Safety net for card-to-card auto verification: pair open deposit SMS with receipts uploaded later or whose
     inline match failed. Idempotent; the wallet credit is protected by the ledger idempotency key."""
@@ -399,6 +416,7 @@ async def bank_sms_reconcile_job(ctx=None):
     return total
 
 
+@tracked_job
 async def receipt_grace_job(ctx=None):
     """Time-boxed manual review: credit provisionally (and flag for fast review) every card-to-card receipt that
     waited longer than the store's grace minutes. Runs every minute; idempotent."""
@@ -416,6 +434,7 @@ async def receipt_grace_job(ctx=None):
         return n
 
 
+@tracked_job
 async def panel_admin_sync_job(ctx=None):
     """Every minute: a new reseller / a new PasarGuard panel / an existing reseller meeting a new panel gets its Operator admin."""
     from melorin.modules.vpn import panel_admins
@@ -424,12 +443,14 @@ async def panel_admin_sync_job(ctx=None):
         return await panel_admins.sync_all(s)
 
 
+@tracked_job
 async def panel_event_job(ctx=None):
     """Every 10 seconds: process the PasarGuard events the endpoint stored (PG-03). Coalesced per user, leased, safe to run twice."""
     stats = await panel_events.run_pending()
     return stats.claimed
 
 
+@tracked_job
 async def panel_event_purge_job(ctx=None):
     """Daily: drop finished panel events older than the retention window (30 days)."""
     async with session_factory()() as s:
@@ -438,6 +459,7 @@ async def panel_event_purge_job(ctx=None):
     return removed
 
 
+@tracked_job
 async def bulk_operation_job(ctx=None):
     """Every 15 seconds: run ONE confirmed bulk operation for up to ~40 s (PG-11). Leased per panel, chunked, resumable: a crash or a
     second worker can never apply an item twice (absolute targets + ledger)."""
@@ -447,6 +469,7 @@ async def bulk_operation_job(ctx=None):
     return op.status if op else None
 
 
+@tracked_job
 async def store_governance_job(ctx=None):
     """Every 15 minutes: read each store admin's usage / status / user count from its panel (PG-12)."""
     from melorin.modules.vpn import governance
