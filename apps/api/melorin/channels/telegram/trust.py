@@ -1,6 +1,6 @@
 """Trusted devices: the engine behind automatic identity verification of the Telegram website login.
 
-Policy (docs/21-Automatic-Identity-Verification.md)
+Policy (docs/23-Automatic-Identity-Verification.md)
 
 * ``silent``  known browser + same network + seen recently  -> signed in with no bot step at all.
 * ``auto``    known browser (any network)                   -> opening the bot link is the whole approval, no number match.

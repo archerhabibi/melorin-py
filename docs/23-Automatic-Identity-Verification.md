@@ -1,4 +1,4 @@
-# 21 — Automatic identity verification (website login through the Telegram bot)
+# 23 — Automatic identity verification (website login through the Telegram bot)
 
 Goal: the identity check of a returning visitor needs **no manual step** whenever it is safe to skip one, and the
 manual step that remains is exactly the number-match confirmation of `TELEGRAM-WEB-LOGIN.md`.
