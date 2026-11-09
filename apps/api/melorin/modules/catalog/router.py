@@ -1,15 +1,14 @@
 import uuid
 
 from fastapi import APIRouter
-from sqlalchemy import or_, select
 
 from melorin.core import audit
 from melorin.core.scope import StoreScope
 from melorin.core.deps import OwnerCtx, Session, StoreCtx, main_store
 from melorin.core.errors import AppError, NotFound
 from melorin.domain import coupon as cdom
-from melorin.modules.catalog import service
-from melorin.kernel.models.catalog import Coupon, CouponRedemption
+from melorin.modules.catalog import queries, service
+from melorin.kernel.models.catalog import Coupon
 from melorin.modules.catalog.schemas import (
     CatalogItem,
     CouponIn,
@@ -60,7 +59,7 @@ def _site_off(s: Store) -> bool:
 
 @public.get("/stores/by-slug/{slug}", response_model=StoreOut)
 async def store_by_slug(slug: str, session: Session):
-    s = await session.scalar(select(Store).where(Store.slug == slug, Store.status == "active"))
+    s = await queries.active_store_by_slug(session, slug)
     if not s or _site_off(s):
         raise NotFound("فروشگاه")
     return _store_out(s)
@@ -68,7 +67,7 @@ async def store_by_slug(slug: str, session: Session):
 
 @public.get("/stores/by-domain/{domain}", response_model=StoreOut)
 async def store_by_domain(domain: str, session: Session):
-    s = await session.scalar(select(Store).where(Store.domain == domain.strip().lower().rstrip("."), Store.status == "active"))
+    s = await queries.active_store_by_domain(session, domain)
     if not s or _site_off(s):
         raise NotFound("فروشگاه")
     return _store_out(s)
@@ -79,10 +78,7 @@ async def tls_ask(domain: str, session: Session):
     """Caddy on-demand TLS gate: 200 only for the hostname of an active reseller store, 404 for everything else,
     so certificates are never issued for arbitrary names pointed at this server."""
     host = (domain or "").strip().lower().rstrip(".")
-    gate = select(Store.id).where(
-        Store.domain == host, Store.status == "active", or_(Store.kind != "reseller", Store.site_enabled.is_(True))
-    )
-    if not host or len(host) > 253 or not await session.scalar(gate):
+    if not host or len(host) > 253 or not await queries.tls_allowed(session, host):
         raise NotFound("فروشگاه")
     return {"ok": True}
 
@@ -318,7 +314,7 @@ def _rule_from_in(body: CouponIn, store: Store, creator_type: str) -> cdom.Coupo
 
 @public.get("/stores/{store_id}/coupons")
 async def list_coupons(ctx: OwnerCtx, session: Session):
-    rows = (await session.scalars(select(Coupon).where(Coupon.owner_key == str(ctx.store.id)).order_by(Coupon.created_at.desc()))).all()
+    rows = await queries.coupons_of_store(session, ctx.store.id)
     return [service.coupon_out(c) for c in rows]
 
 
@@ -331,7 +327,7 @@ async def create_coupon(body: CouponIn, ctx: OwnerCtx, session: Session):
     except cdom.CouponError as e:
         raise AppError(e.code, e.message, 400) from e
     await service.check_coupon_products(session, ctx.store, body.product_ids)
-    if await session.scalar(select(Coupon.id).where(Coupon.owner_key == str(ctx.store.id), Coupon.code == rule.code)):
+    if await queries.coupon_code_exists(session, ctx.store.id, rule.code):
         raise AppError("COUPON_EXISTS", "این کد تخفیف قبلاً ساخته شده است.", 409)
     c = Coupon(
         code=rule.code,
@@ -391,14 +387,7 @@ async def patch_coupon(coupon_id: uuid.UUID, body: CouponPatch, ctx: OwnerCtx, s
 
 @public.get("/stores/{store_id}/coupons/redemptions")
 async def coupon_redemptions(ctx: OwnerCtx, session: Session):
-    rows = (
-        await session.scalars(
-            select(CouponRedemption)
-            .where(CouponRedemption.store_id == ctx.store.id)
-            .order_by(CouponRedemption.created_at.desc())
-            .limit(500)
-        )
-    ).all()
+    rows = await queries.recent_redemptions(session, ctx.store.id)
     return [
         {
             "id": r.id,

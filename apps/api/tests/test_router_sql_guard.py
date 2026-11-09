@@ -40,7 +40,7 @@ def test_clean_routers_build_no_sql():
 
 
 MODULES = Path(__file__).resolve().parents[1] / "melorin" / "modules"
-CLEAN_MODULE_ROUTERS = ["notifications", "wallet", "reports", "payments", "orders", "tickets", "loyalty", "referral"]
+CLEAN_MODULE_ROUTERS = ["notifications", "wallet", "reports", "payments", "orders", "tickets", "loyalty", "referral", "catalog"]
 
 
 def test_clean_module_routers_build_no_sql():
