@@ -12,7 +12,7 @@ from melorin.kernel.models.stores import ResellerProfile
 from melorin.modules.reseller.schemas import (
     StoreBrandingUpdate,
 )
-from melorin.modules.vpn import sub_branding
+from melorin.modules.panelops import sub_branding
 from melorin.modules.wallet import service as wallet
 
 router = APIRouter(tags=["reseller"])

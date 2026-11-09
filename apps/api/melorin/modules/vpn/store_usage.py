@@ -31,6 +31,8 @@ from melorin.kernel.models.vpn import Panel, PanelAdmin
 from melorin.modules.vpn.adapters.base import PanelAccount
 from melorin.modules.vpn.adapters.registry import build_adapter
 from melorin.modules.vpn.live import UNAVAILABLE_NOTE
+from melorin.modules.vpn.panel_reader import PanelReader
+from melorin.modules.vpn.adapters.lifecycle import close_adapter
 
 log = logging.getLogger("melorin.vpn.store_usage")
 
@@ -133,33 +135,17 @@ async def _read_panel(panel: Panel, username: str) -> PanelReading | None:
         adapter = build_adapter(panel)
         if not hasattr(adapter, "list_owner_accounts"):
             return None
-        rows: list[PanelAccount] = []
-        total: int | None = None
-        while len(rows) < SCAN_LIMIT:
-            page, count = await adapter.list_owner_accounts(username, offset=len(rows), limit=PAGE)
-            if isinstance(count, int):
-                total = count
-            if not page:
-                break
-            rows.extend(page)
-            if len(page) < PAGE or (total is not None and len(rows) >= total):
-                break
+        listing = await PanelReader(adapter).owner_accounts(username, page_size=PAGE, max_rows=SCAN_LIMIT)
+        rows: list[PanelAccount] = listing.rows
         if any(r.owner != username for r in rows):  # fail closed: the panel did not apply the admin filter
             log.warning("store usage: panel=%s returned rows of another owner; discarded", panel.id)
             return None
-        return PanelReading(name=panel.name, rows=rows, total=total if total is not None else len(rows))
+        return PanelReading(name=panel.name, rows=rows, total=listing.total if listing.total is not None else len(rows))
     except Exception:  # a panel error is "no answer", never a guess
         log.info("store usage: panel unavailable panel=%s", panel.id, exc_info=True)
         return None
     finally:
-        close = getattr(adapter, "close", None)
-        if callable(close):
-            try:
-                res = close()
-                if hasattr(res, "__await__"):
-                    await res
-            except Exception:
-                log.debug("store usage: adapter close failed panel=%s", panel.id, exc_info=True)
+        await close_adapter(adapter)
 
 
 async def report(session, store: Store, *, now: dt.datetime | None = None, fresh: bool = False) -> dict:

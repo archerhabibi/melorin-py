@@ -17,7 +17,8 @@ from melorin.core.db import utcnow
 from melorin.core.errors import AppError
 from melorin.kernel.models.system import AuditEvent
 from melorin.kernel.models.vpn import BulkOperation, Panel, PanelAdmin, PanelNode
-from melorin.modules.vpn import governance, ops_console, subscription_check
+from melorin.modules.vpn import governance, subscription_check
+from melorin.modules.panelops import ops_console
 from melorin.modules.vpn.adapters.base import Capabilities, ErrorKind, PanelError
 from melorin.modules.vpn.adapters.pasarguard import PasarGuardAdapter
 

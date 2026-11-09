@@ -190,7 +190,7 @@ async def panel_health_job(ctx=None):
 @tracked_job
 async def panel_metrics_job(ctx=None):
     """Every 2 minutes: one live reading per panel (latency, resources, users, online) for the /metrics gauges (PG-14)."""
-    from melorin.modules.vpn import panel_metrics
+    from melorin.modules.panelops import panel_metrics
 
     async with session_factory()() as s:
         done = await panel_metrics.run_snapshots(s, close_adapter=_close_strict)
@@ -201,7 +201,7 @@ async def panel_metrics_job(ctx=None):
 @tracked_job
 async def panel_settings_drift_job(ctx=None):
     """Hourly: compare each PasarGuard panel's settings with what Melorin needs. READ-ONLY: it reports, an admin decides (PG-15)."""
-    from melorin.modules.vpn import settings_drift
+    from melorin.modules.panelops import settings_drift
 
     async with session_factory()() as s:
         done = await settings_drift.run_all(s, close_adapter=_close_strict)
@@ -445,7 +445,11 @@ async def panel_admin_sync_job(ctx=None):
 
 @tracked_job
 async def panel_event_job(ctx=None):
-    """Every 10 seconds: process the PasarGuard events the endpoint stored (PG-03). Coalesced per user, leased, safe to run twice."""
+    """Every 10 seconds: process the PasarGuard events the endpoint stored (PG-03). Coalesced per user, leased, safe to run twice.
+
+    This is NOT a second way of receiving events (audit T07): nothing here asks the panel what happened. There is one path in, the webhook
+    (``ingest`` stores each event once by ``(panel_id, dedup_key)``), and one consumer, ``run_pending``; the webhook calls it right away for
+    latency and this job sweeps what is left. Events the panel never delivered are caught by the hourly reconcile, not by polling."""
     stats = await panel_events.run_pending()
     return stats.claimed
 

@@ -9589,7 +9589,7 @@ export interface components {
             title: string;
         };
         /** ReasonIn */
-        melorin__modules__admin__panel_phase4__ReasonIn: {
+        melorin__modules__admin__panel_operations__ReasonIn: {
             /** Reason */
             reason: string;
         };
@@ -12419,7 +12419,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["melorin__modules__admin__panel_phase4__ReasonIn"];
+                "application/json": components["schemas"]["melorin__modules__admin__panel_operations__ReasonIn"];
             };
         };
         responses: {

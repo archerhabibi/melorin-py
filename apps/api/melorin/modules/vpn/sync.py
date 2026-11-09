@@ -9,8 +9,8 @@ import datetime as dt
 
 from melorin.core.db import utcnow
 from melorin.domain.order_state import VpnStatus
-from melorin.modules.vpn import notices
 from melorin.domain.timeutil import aware  # noqa: F401  (re-exported: callers use sync.aware)
+from melorin.modules.vpn import freshness, notices
 
 # Melorin statuses the panel may overwrite. pending / provisioning / revoked / archived are Melorin-only lifecycle states.
 SYNCABLE = (VpnStatus.ACTIVE, VpnStatus.SUSPENDED, VpnStatus.EXPIRED, VpnStatus.LIMITED)
@@ -24,7 +24,7 @@ REMOTE_TO_LOCAL = {
     "disabled": VpnStatus.SUSPENDED,
 }
 # A panel read younger than this is trusted by ``expiry_job`` (it does not second-guess the panel with Melorin's own clock).
-FRESH_FOR = dt.timedelta(minutes=30)
+FRESH_FOR = freshness.STORED_FOR  # kept as an alias; the policy lives in ``freshness``
 # Differences below these are noise (clock rounding), not a manual edit on the panel.
 EXPIRY_TOLERANCE = dt.timedelta(hours=1)
 
@@ -45,7 +45,7 @@ def status_from_remote(local: str, remote) -> str:
 
 def is_fresh(account, now: dt.datetime | None = None) -> bool:
     synced = aware(account.last_synced_at)
-    return synced is not None and (now or utcnow()) - synced <= FRESH_FOR
+    return freshness.is_stored_copy_fresh(synced, now or utcnow())
 
 
 def limits_drift(account, remote) -> dict | None:

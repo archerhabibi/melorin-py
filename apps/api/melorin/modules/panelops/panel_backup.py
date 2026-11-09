@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from melorin.core.db import utcnow
 from melorin.kernel.models.system import BackupRun
-from melorin.modules.vpn.panel_metrics import PANEL_BACKUP_MAX_AGE, _aware, panel_backup_configured
+from melorin.modules.panelops.panel_metrics import PANEL_BACKUP_MAX_AGE, _aware, panel_backup_configured
 
 RUNS_SHOWN = 20
 

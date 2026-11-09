@@ -170,7 +170,7 @@ async def metrics(request: Request):
         logging.getLogger("melorin.metrics").warning("business metrics unavailable", exc_info=True)
     # PG-14: panel gauges (nodes, readings, reconcile, capacity, webhook, panel backup) are also computed from the database only.
     try:
-        from melorin.modules.vpn import panel_metrics
+        from melorin.modules.panelops import panel_metrics
         from melorin.core.db import session_factory
 
         async with session_factory()() as session:

@@ -1,4 +1,4 @@
-"""Admin API - PasarGuard Phase 5: panel readings for dashboards (PG-14), settings drift + lifecycle policy (PG-15), panel backup (PG-16).
+"""Admin API - panel monitoring - panel readings for dashboards (PG-14), settings drift + lifecycle policy (PG-15), panel backup (PG-16).
 
 Thin layer: every rule lives in ``modules/vpn/{panel_metrics,settings_drift,panel_backup}.py``. Admin session only. Nothing here writes a
 setting to a panel: the drift check is read-only and the lifecycle policy only changes what Melorin expects."""
@@ -8,13 +8,15 @@ from typing import Literal
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
 
 from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import AppError, NotFound
-from melorin.kernel.models.vpn import Panel, PanelNode
+from melorin.kernel.models.vpn import Panel
 from melorin.kernel.models.stores import Store
-from melorin.modules.vpn import panel_backup, panel_metrics, service_access, settings_drift, store_role, sub_branding
+from melorin.modules.vpn import service_access
+from melorin.modules.panelops import panel_backup, panel_metrics, settings_drift, store_role, sub_branding
+
+from melorin.modules.panelops import queries
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -26,13 +28,7 @@ async def panel_readings(panel_id: uuid.UUID, admin: AdminUser, session: Session
     panel = await session.get(Panel, panel_id)
     if not panel:
         raise NotFound("پنل")
-    rows = (
-        await session.execute(
-            select(PanelNode.status, func.count())
-            .where(PanelNode.panel_id == panel.id, PanelNode.removed_at.is_(None))
-            .group_by(PanelNode.status)
-        )
-    ).all()
+    rows = await queries.node_status_counts(session, panel.id)
     nodes = dict.fromkeys(panel_metrics.NODE_STATES, 0)
     for status, n in rows:
         nodes[status if status in nodes else "error"] += int(n)

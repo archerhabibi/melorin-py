@@ -7,7 +7,7 @@ import pytest
 
 from melorin.domain.order_state import VpnStatus
 from melorin.domain.panel_health import DEGRADED, HEALTHY, SELLABLE_STATES, UNHEALTHY
-from melorin.modules.admin.panel_ops import allowed_actions
+from melorin.modules.admin.panel_reconciliation import allowed_actions
 from melorin.modules.vpn import capabilities as caps
 from melorin.modules.vpn import health, issues, notices, sync
 from melorin.modules.vpn.adapters.base import Capabilities
