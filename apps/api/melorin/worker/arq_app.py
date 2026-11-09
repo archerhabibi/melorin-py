@@ -41,14 +41,29 @@ from melorin.worker.jobs import (
 from melorin.core.metrics import set_gauge
 
 
+# audit T27: a tick used to start every claimed event AND webhook at once (up to a full batch of each); one slow
+# destination could then hold dozens of DB sessions and sockets. A semaphore keeps the same ordering-free semantics
+# (everything is still awaited together) but never runs more than this many deliveries in parallel.
+MAX_PARALLEL_DELIVERIES = 8
+
+
+async def _bounded(gate: asyncio.Semaphore, coro):
+    async with gate:
+        return await coro
+
+
 async def poll_tick(ctx):
     async with session_factory()() as session:
         events = await claim_batch(session)
         deliveries = await claim_webhook_batch(session)
     if events or deliveries:
-        await asyncio.gather(*(process_event(e) for e in events), *(process_webhook(d) for d in deliveries))
+        gate = asyncio.Semaphore(MAX_PARALLEL_DELIVERIES)
+        await asyncio.gather(
+            *(_bounded(gate, process_event(e)) for e in events),
+            *(_bounded(gate, process_webhook(d)) for d in deliveries),
+        )
     await ctx["redis"].set("melorin:worker:last_tick", str(time.time()), ex=15)
-    set_gauge("melorin_worker_last_tick", __import__("time").time())
+    set_gauge("melorin_worker_last_tick", time.time())
     return {"events": len(events), "deliveries": len(deliveries)}
 
 
