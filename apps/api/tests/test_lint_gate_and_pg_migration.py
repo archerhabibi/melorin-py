@@ -12,7 +12,8 @@ def test_quality_gate_uses_the_correctness_policy_and_ci_runs_it():
     config = (API / "pyproject.toml").read_text()
     gate = (ROOT / "scripts/run_quality_gate.sh").read_text()
     ci = (ROOT / ".github/workflows/ci.yml").read_text()
-    assert 'select = ["E4", "E9", "F"]' in config
+    # audit T30/T41: correctness policy widened with DTZ (naive datetimes), B (bugbear), ASYNC and S (security)
+    assert 'select = ["E4", "E9", "F", "DTZ", "B", "ASYNC", "S"]' in config
     assert "ruff check" in gate and "ruff format --check" in gate
     assert "ruff check melorin" in ci and "ruff format --check" in ci
 
