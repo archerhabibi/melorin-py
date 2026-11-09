@@ -1,6 +1,7 @@
 import json
 import ipaddress
 import socket
+import time
 from urllib.parse import urlparse
 
 from melorin.core.crypto import decrypt
@@ -21,15 +22,26 @@ ADAPTERS: dict[str, type] = {
 }
 
 
+_PUBLIC_TTL_S = 60.0
+_public_cache: dict[tuple[str, int], tuple[float, bool]] = {}
+
+
 def _public_panel_url(url: str) -> bool:
+    """HTTPS to a public address only. The DNS answer is cached for ``_PUBLIC_TTL_S`` (audit T24): ``getaddrinfo`` blocks the
+    event loop, and the pollers build an adapter per panel every few seconds, so one lookup per host per minute is enough."""
     parsed = urlparse(url)
     if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
         return False
+    key = (parsed.hostname.lower(), parsed.port or 443)
+    now = time.monotonic()
+    hit = _public_cache.get(key)
+    if hit and now - hit[0] < _PUBLIC_TTL_S:
+        return hit[1]
     try:
-        addresses = {item[4][0] for item in socket.getaddrinfo(parsed.hostname, parsed.port or 443, type=socket.SOCK_STREAM)}
+        addresses = {item[4][0] for item in socket.getaddrinfo(parsed.hostname, key[1], type=socket.SOCK_STREAM)}
     except socket.gaierror:
-        return False
-    return bool(addresses) and all(
+        return False  # failures are not cached: a transient resolver outage must not outlive itself
+    ok = bool(addresses) and all(
         not (ip := ipaddress.ip_address(address)).is_private
         and not ip.is_loopback
         and not ip.is_link_local
@@ -37,6 +49,10 @@ def _public_panel_url(url: str) -> bool:
         and not ip.is_multicast
         for address in addresses
     )
+    if len(_public_cache) > 256:
+        _public_cache.clear()
+    _public_cache[key] = (now, ok)
+    return ok
 
 
 def build_adapter(panel, server=None, *, credentials: dict | None = None) -> PanelAdapter:

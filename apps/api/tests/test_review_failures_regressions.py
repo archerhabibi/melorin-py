@@ -26,8 +26,8 @@ def test_l03_operational_controls_are_wired():
 def test_l03_lint_policy_is_correctness_focused():
     config = (API / "pyproject.toml").read_text()
     assert "[tool.ruff.lint]" in config
-    assert 'select = ["E4", "E9", "F"]' in config
-    assert 'ignore = ["F403", "F405"]' in config
+    assert 'select = ["E4", "E9", "F", "DTZ", "B", "ASYNC", "S"]' in config  # widened by audit T30/T41
+    assert '"F403"' in config and '"F405"' in config
 
 
 def test_l03_redis_fallback_is_bounded_and_concurrency_smoke_is_declared():
