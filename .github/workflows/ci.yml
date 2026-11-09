@@ -139,6 +139,28 @@ jobs:
 
   # M7.7: the unit/money-path suite again, but on a real PostgreSQL (private schema per test), plus the
   # concurrency tests that SQLite cannot prove. Catches dialect-specific bugs such as M6.1.
+  web-e2e:
+    # T42: browser E2E with a mocked Core API (e2e/). Non-blocking until the first green run on CI proves the specs.
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --include=dev --ignore-scripts --no-audit --no-fund
+        working-directory: apps/store-web
+      - run: npm ci --include=dev --ignore-scripts --no-audit --no-fund
+        working-directory: apps/admin-web
+      - run: npm ci --no-audit --no-fund
+        working-directory: e2e
+      - run: npx playwright install --with-deps chromium
+        working-directory: e2e
+      - run: npm test
+        working-directory: e2e
+        env: {CI: 'true'}
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with: {name: playwright-report, path: e2e/playwright-report}
   postgres-lane:
     runs-on: ubuntu-latest
     services:
