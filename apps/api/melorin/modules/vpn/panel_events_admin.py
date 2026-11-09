@@ -19,6 +19,7 @@ import uuid
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from melorin.modules.vpn.adapters import providers
 from melorin.core.config import get_settings
 from melorin.core.crypto import encrypt
 from melorin.core.db import utcnow
@@ -44,7 +45,7 @@ def webhook_url(panel: Panel) -> str:
 
 
 def _require_pasarguard(panel: Panel) -> None:
-    if panel.kind != "pasarguard":
+    if not providers.supports(panel.kind, "panel_ops"):
         raise AppError("NOT_PASARGUARD", "رویداد زنده فقط برای پنل پاسارگارد پشتیبانی می‌شود.", 409)
 
 
@@ -74,7 +75,7 @@ async def status(session: AsyncSession, panel: Panel, *, live: bool = False, now
     now = now or utcnow()
     out: dict = {
         "panel_id": str(panel.id),
-        "supported": panel.kind == "pasarguard",
+        "supported": providers.supports(panel.kind, "panel_ops"),
         "connected": _is_connected(panel),
         "connected_at": panel.webhook_connected_at,
         "last_event_at": panel.webhook_last_at,
@@ -85,7 +86,7 @@ async def status(session: AsyncSession, panel: Panel, *, live: bool = False, now
         "panel_side": None,
         "warnings": [],
     }
-    if panel.kind != "pasarguard":
+    if not providers.supports(panel.kind, "panel_ops"):
         return out
     try:
         out["url"] = webhook_url(panel)

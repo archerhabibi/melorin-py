@@ -17,6 +17,7 @@ from urllib.parse import urlsplit
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from melorin.modules.vpn.adapters import providers
 from melorin.core import audit
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError, NotFound
@@ -111,7 +112,7 @@ async def run(session: AsyncSession, panel_id: uuid.UUID, *, actor_id: uuid.UUID
     panel = await session.get(Panel, panel_id)
     if not panel:
         raise NotFound("پنل")
-    if panel.kind != "pasarguard":
+    if not providers.supports(panel.kind, "panel_ops"):
         raise AppError("CHECK_NOT_SUPPORTED", "آزمایش اشتراک فعلاً فقط برای پنل پاسارگارد است.", 409)
     adapter = build_adapter(panel)
     result: dict

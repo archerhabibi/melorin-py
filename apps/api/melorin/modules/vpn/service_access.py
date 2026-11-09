@@ -20,6 +20,7 @@ import json
 import logging
 import secrets
 
+from melorin.modules.vpn.adapters import providers
 from melorin.core import audit
 from melorin.core.crypto import encrypt
 from melorin.core.errors import AppError
@@ -116,7 +117,7 @@ def _is_service_report(report) -> bool:
 
 
 async def _issue(session, panel: Panel, *, bootstrap: dict | None, actor_id, replace: bool) -> dict:
-    if panel.kind != "pasarguard":
+    if not providers.supports(panel.kind, "panel_ops"):
         raise AppError("NOT_PASARGUARD", "Service access is only available for PasarGuard panels.", 422)
     cfg = dict(panel.config or {})
     if replace and not cfg.get("service_key_id"):

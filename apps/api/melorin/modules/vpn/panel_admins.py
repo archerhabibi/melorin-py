@@ -23,6 +23,7 @@ from urllib.parse import urlsplit
 from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 
+from melorin.modules.vpn.adapters import providers
 from melorin.core.crypto import decrypt, encrypt
 from melorin.core.db import utcnow
 from melorin.kernel.models.stores import Store
@@ -56,7 +57,7 @@ class ProfileError(ValueError):
 
 
 def managed(panel: Panel) -> bool:
-    return panel.kind == "pasarguard" and (panel.config or {}).get("admin_per_store") is not False
+    return providers.supports(panel.kind, "per_store_admin") and (panel.config or {}).get("admin_per_store") is not False
 
 
 def admin_username(store: Store) -> str:

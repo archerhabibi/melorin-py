@@ -1,5 +1,4 @@
 import datetime as dt
-import math
 import uuid
 
 from typing import Literal
@@ -64,69 +63,11 @@ class CreatePanel(BaseModel):
     config: dict = {}
 
     @model_validator(mode="after")
-    def _sanaei_contract(self):
-        # 3x-ui needs a subscription base (served on a separate Sub Port/Path) and a target inbound,
-        # otherwise provisioning creates panel clients that can never be delivered.
-        if self.kind == "sanaei":
-            cfg, cred = self.config or {}, self.credentials or {}
-            if cred and not (cred.get("api_token") or (cred.get("username") and cred.get("password"))):
-                raise ValueError("sanaei: credentials need api_token or username+password")
-            if not str(cfg.get("sub_base_url") or "").startswith(("http://", "https://")):
-                raise ValueError("sanaei: config.sub_base_url is required, e.g. https://sub.example.com:2096/sub")
-            if not (cfg.get("inbound_ids") or cfg.get("inbound_id") or cfg.get("template_username")):
-                raise ValueError("sanaei: config.inbound_ids or config.template_username is required")
-            if cfg.get("api_style", "auto") not in ("auto", "v3", "legacy"):
-                raise ValueError("sanaei: config.api_style must be auto, v3 or legacy")
-        if self.kind == "pasarguard":
-            cfg, cred = self.config or {}, self.credentials or {}
-            if cred and not (cred.get("api_key") or cred.get("access_token") or (cred.get("username") and cred.get("password"))):
-                raise ValueError("pasarguard: credentials need api_key, access_token or username+password")
-            template_id = cfg.get("user_template_id")
-            if template_id is None and not cfg.get("group_ids"):
-                raise ValueError("pasarguard: config.group_ids or config.user_template_id is required")
-            if template_id is not None:
-                try:
-                    if int(template_id) <= 0:
-                        raise ValueError
-                except (TypeError, ValueError) as exc:
-                    raise ValueError("pasarguard: config.user_template_id must be a positive integer") from exc
-        if self.kind == "upstream_bot":
-            cfg, cred = self.config or {}, self.credentials or {}
-            # Like the other kinds: credentials are validated only when they are sent (an edit may keep the stored secret);
-            # create_panel itself refuses a new upstream_bot panel without them.
-            if cred and not (cred.get("api_id") and cred.get("api_hash") and cred.get("session")):
-                raise ValueError("upstream_bot: credentials need api_id, api_hash and session (Telethon StringSession)")
-            if cred:
-                try:
-                    if int(cred["api_id"]) <= 0:
-                        raise ValueError
-                except (TypeError, ValueError) as exc:
-                    raise ValueError("upstream_bot: credentials.api_id must be a positive number") from exc
-            try:
-                max_price = int(cfg.get("max_price") or 0)
-            except (TypeError, ValueError) as exc:
-                raise ValueError("upstream_bot: config.max_price must be a number (toman)") from exc
-            if max_price <= 0:
-                raise ValueError("upstream_bot: config.max_price (toman, safety cap per purchase) is required")
-            if "plans" in cfg:
-                if not (isinstance(cfg["plans"], list) and all(isinstance(p, dict) for p in cfg["plans"])):
-                    raise ValueError("upstream_bot: config.plans must be a list of {traffic_gb, months, label}")
-                for plan in cfg["plans"]:
-                    try:
-                        gb, months = float(plan["traffic_gb"]), int(plan.get("months", 1))
-                        if not (math.isfinite(gb) and gb > 0 and months >= 1):
-                            raise ValueError
-                    except (KeyError, TypeError, ValueError) as exc:
-                        raise ValueError("upstream_bot: each plan needs traffic_gb > 0 and an integer months >= 1") from exc
-            if "renew" in cfg and not isinstance(cfg["renew"], dict):
-                raise ValueError("upstream_bot: config.renew must be an object")
-            for key in ("status_ttl", "step_timeout", "delivery_timeout", "poll_interval", "lock_ttl"):
-                if key in cfg:
-                    try:
-                        if not (math.isfinite(float(cfg[key])) and float(cfg[key]) > 0):
-                            raise ValueError
-                    except (TypeError, ValueError) as exc:
-                        raise ValueError(f"upstream_bot: config.{key} must be a positive number") from exc
+    def _provider_contract(self):
+        # Each provider family validates its own credentials/config (adapters/<kind>/contract.py); this model never branches on kind.
+        from melorin.modules.vpn.adapters import providers
+
+        providers.validate_settings(self.kind, self.credentials, self.config)
         return self
 
 

@@ -7,19 +7,13 @@ from urllib.parse import urlparse
 from melorin.core.crypto import decrypt
 from melorin.core.config import get_settings
 from melorin.core.errors import AppError
+from melorin.modules.vpn.adapters import providers
 from melorin.modules.vpn.adapters.base import PanelAdapter
-from melorin.modules.vpn.adapters.mock import MockPanelAdapter
-from melorin.modules.vpn.adapters.pasarguard import PasarGuardAdapter
-from melorin.modules.vpn.adapters.sanaei import SanaeiAdapter
-from melorin.modules.vpn.adapters.upstream_bot import UpstreamBotAdapter
 from melorin.modules.vpn.targets import merge_config
 
-ADAPTERS: dict[str, type] = {
-    "sanaei": SanaeiAdapter,
-    "pasarguard": PasarGuardAdapter,
-    "mock": MockPanelAdapter,
-    "upstream_bot": UpstreamBotAdapter,
-}
+# kind -> adapter class. Resolved lazily from the provider specs (providers.py): importing this module no longer imports every
+# family, so a family that is not configured, or whose optional dependency is missing, costs nothing (audit T16/T65).
+ADAPTERS = providers.AdapterClasses()
 
 
 # A verdict per URL for a short time (audit T24). ``build_adapter`` is synchronous and sits on hot paths (the worker builds one per panel
@@ -67,7 +61,10 @@ def build_adapter(panel, server=None, *, credentials: dict | None = None) -> Pan
     the panel config. Renewals, suspends, deletes and health checks call it without a server and never touch the target."""
     if panel.kind == "mock" and not get_settings().allow_mock_providers:
         raise AppError("MOCK_PROVIDER_DISABLED", "Mock provisioning is disabled in this environment.", 503)
-    if panel.kind != "upstream_bot" and get_settings().env in {"staging", "production"}:  # upstream_bot talks Telegram, not HTTP
+    if providers.enforces_egress_policy(panel.kind) and get_settings().env in {
+        "staging",
+        "production",
+    }:  # upstream_bot talks Telegram, not HTTP
         if not _public_panel_url(panel.base_url) or (panel.config or {}).get("verify_tls") is False:
             raise AppError("PANEL_TLS_VERIFY_REQUIRED", "Panel connections require HTTPS and certificate verification.", 503)
     try:
@@ -85,6 +82,10 @@ def build_adapter(panel, server=None, *, credentials: dict | None = None) -> Pan
 def register(kind: str, cls: type) -> None:
     """Extension point for new panels (Marzban, Hiddify, ...)."""
     ADAPTERS[kind] = cls
+    if providers.spec_for(kind) is None:  # a new family: declare it with the strict defaults (https transport, public URL only)
+        providers.register_provider(
+            providers.ProviderSpec(kind=kind, label=kind, adapter=f"{cls.__module__}:{cls.__qualname__}", transport="https")
+        )
 
 
 def seed_adapter(adapter, account):

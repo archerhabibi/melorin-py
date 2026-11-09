@@ -19,6 +19,7 @@ import uuid
 from fastapi import APIRouter, BackgroundTasks, Request
 from sqlalchemy import select
 
+from melorin.modules.vpn.adapters import providers
 from melorin.core.db import session_factory
 from melorin.core.errors import AppError
 from melorin.core.metrics import inc
@@ -68,7 +69,11 @@ async def pasarguard_webhook(panel_id: uuid.UUID, request: Request, background: 
 
     async with session_factory()() as session:
         panel = await session.scalar(select(Panel).where(Panel.id == panel_id))
-        secret = panel_events.secret_for(panel) if panel is not None and panel.is_enabled and panel.kind == "pasarguard" else None
+        secret = (
+            panel_events.secret_for(panel)
+            if panel is not None and panel.is_enabled and providers.supports(panel.kind, "webhook_events")
+            else None
+        )
         ok = wire.verify_secret(request.headers, secret) if secret else bool(hmac.compare_digest(b"x", b"y"))  # uniform work either way
         if not ok:
             inc("melorin_panel_webhook_rejected_total", reason="auth")

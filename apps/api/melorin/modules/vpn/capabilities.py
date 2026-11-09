@@ -6,6 +6,7 @@ declaration is used, so the admin UI always has an answer and never has to guess
 import datetime as dt
 import logging
 
+from melorin.modules.vpn.adapters import providers
 from melorin.core.db import utcnow
 from melorin.modules.vpn.adapters import registry
 from melorin.modules.vpn.adapters.base import ALL_CAPABILITIES, Capabilities, CapabilityReport, discover
@@ -71,7 +72,7 @@ def access_review(panel) -> dict:
     denied), ``unknown`` (the role could not be read), ``least_privilege`` (everything Phase 1 needs, and not the owner),
     ``not_applicable`` (not a PasarGuard panel). ``warnings`` is a list of ``{code, message, permissions}``; empty = nothing to fix.
     """
-    if getattr(panel, "kind", None) != "pasarguard":
+    if not providers.supports(getattr(panel, "kind", ""), "panel_ops"):
         return {"level": "not_applicable", "role": None, "warnings": []}
     out = capabilities_out(panel)
     if out.get("source") != "probe":

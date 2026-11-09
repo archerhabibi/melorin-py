@@ -12,6 +12,7 @@ import uuid
 
 from fastapi import APIRouter
 
+from melorin.modules.vpn.adapters import providers
 from melorin.core import audit
 from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import AppError, NotFound
@@ -36,7 +37,7 @@ async def _panel(session, panel_id: uuid.UUID) -> Panel:
 
 async def live_group_health(panel: Panel) -> dict[int, dict] | None:
     """``{group_id: assessment dict}`` from the live panel, or ``None`` when it cannot be asked (never raises)."""
-    if panel.kind != "pasarguard" or not panel_caps.capabilities_of(panel).has("capacity_ops"):
+    if not providers.supports(panel.kind, "panel_ops") or not panel_caps.capabilities_of(panel).has("capacity_ops"):
         return None
     adapter = None
     try:
@@ -82,7 +83,7 @@ async def panel_capacity(panel_id: uuid.UUID, _: AdminUser, session: Session):
 @router.post("/panels/{panel_id}/capacity/refresh")
 async def refresh_capacity(panel_id: uuid.UUID, admin: AdminUser, session: Session):
     panel = await _panel(session, panel_id)
-    if panel.kind != "pasarguard":
+    if not providers.supports(panel.kind, "panel_ops"):
         raise AppError("CAPABILITY_UNAVAILABLE", "بررسی ظرفیت واقعی فقط برای پنل پاسارگارد است.", 409)
     adapter = None
     try:

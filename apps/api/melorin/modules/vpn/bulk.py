@@ -25,6 +25,7 @@ from dataclasses import dataclass, field
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from melorin.modules.vpn.adapters import providers
 from melorin.core import audit
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError, NotFound
@@ -183,7 +184,7 @@ async def preview(
     panel = await session.get(Panel, selection.panel_id)
     if not panel:
         raise NotFound("پنل")
-    if panel.kind != "pasarguard":
+    if not providers.supports(panel.kind, "panel_ops"):
         raise AppError("BULK_NOT_SUPPORTED", "عملیات گروهی فعلاً فقط برای پنل پاسارگارد است.", 409)
     now = utcnow()
     accounts = await _candidates(session, kind, selection, now)
@@ -631,7 +632,7 @@ async def plan_store_state(session: AsyncSession, store: Store, *, suspend: bool
     made: list[BulkOperation] = []
     for panel_id in panel_ids:
         panel = await session.get(Panel, panel_id)
-        if not panel or panel.kind != "pasarguard":
+        if not panel or not providers.supports(panel.kind, "panel_ops"):
             continue
         sel = Selection(panel_id=panel_id, store_id=store.id)
         if not suspend:

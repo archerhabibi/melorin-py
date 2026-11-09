@@ -28,6 +28,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from melorin.modules.vpn.adapters import providers
 from melorin.core import audit
 from melorin.core.errors import AppError
 from melorin.kernel.models.catalog import Product
@@ -113,7 +114,7 @@ _panel_error = functools.partial(panel_failure, rejected="پنل این درخو
 
 
 def ensure_supported(panel: Panel) -> None:
-    if panel.kind != "pasarguard" or not panel_caps.capabilities_of(panel).has("template_ops"):
+    if not providers.supports(panel.kind, "panel_ops") or not panel_caps.capabilities_of(panel).has("template_ops"):
         raise AppError("TEMPLATES_UNSUPPORTED", "این پنل یا دسترسی فعلی آن از مدیریت تمپلیت پشتیبانی نمی‌کند.", 409)
 
 

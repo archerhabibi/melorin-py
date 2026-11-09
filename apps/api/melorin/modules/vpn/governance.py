@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from melorin.modules.vpn.adapters import providers
 from melorin.core import audit
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError, NotFound
@@ -242,7 +243,7 @@ async def apply_store_status(session: AsyncSession, store: Store, *, suspended: 
     report: list[dict] = []
     for row in rows:
         panel = await session.get(Panel, row.panel_id)
-        if not panel or panel.kind != "pasarguard":
+        if not panel or not providers.supports(panel.kind, "panel_ops"):
             continue
         try:
             await set_limits(
