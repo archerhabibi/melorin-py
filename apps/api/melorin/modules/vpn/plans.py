@@ -37,6 +37,7 @@ from melorin.core.errors import AppError
 from melorin.domain.order_state import VpnStatus
 from melorin.kernel.models.catalog import Product
 from melorin.kernel.models.vpn import Panel, VpnAccount
+from melorin.modules.vpn.adapters.lifecycle import close_adapter
 from melorin.modules.vpn import capabilities as panel_caps
 from melorin.modules.vpn import live, notices, sync, templates
 from melorin.modules.vpn.adapters.base import ErrorKind, PanelError, supports
@@ -213,7 +214,7 @@ async def change_plan(
     adapter = build_adapter(panel)
     seed_adapter(adapter, account)
     if not supports(adapter, "next_plan_ops"):
-        await templates._close(adapter)
+        await close_adapter(adapter)
         raise AppError("TOOL_UNAVAILABLE", "پنل این اکانت از تغییر پلن پشتیبانی نمی‌کند.", 409)
     before = {"product_id": str(account.product_id), "expires_at": account.sold_expires_at.isoformat() if account.sold_expires_at else None,
               "traffic_limit_bytes": account.sold_traffic_bytes}  # fmt: skip
@@ -225,7 +226,7 @@ async def change_plan(
     except PanelError as exc:
         raise templates._panel_error(exc) from exc
     finally:
-        await templates._close(adapter)
+        await close_adapter(adapter)
     old_product = account.product_id
     account.product_id = product.id
     await sync.apply_remote(session, account, pa, notify=False)
