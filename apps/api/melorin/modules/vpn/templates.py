@@ -18,6 +18,8 @@ Rules (all admin-only, all audited):
 
 from __future__ import annotations
 
+import functools
+
 import logging
 import re
 import uuid
@@ -31,8 +33,8 @@ from melorin.core.errors import AppError
 from melorin.kernel.models.catalog import Product
 from melorin.kernel.models.vpn import Panel, ProductTemplate
 from melorin.modules.vpn import capabilities as panel_caps
-from melorin.modules.vpn.adapters.base import ErrorKind, PanelError, supports
-from melorin.modules.vpn.adapters.lifecycle import close_adapter
+from melorin.modules.vpn.adapters.base import PanelError, supports
+from melorin.modules.vpn.adapters.lifecycle import close_adapter, panel_failure
 from melorin.modules.vpn.adapters.registry import build_adapter
 
 log = logging.getLogger("melorin.vpn.templates")
@@ -107,10 +109,7 @@ def drift(spec: dict, remote: dict) -> dict:
 
 
 # ------------------------------------------------------------------------------------------------------------- plumbing
-def _panel_error(exc: PanelError) -> AppError:
-    if exc.kind == ErrorKind.PERMANENT:
-        return AppError("PANEL_REJECTED", "پنل این درخواست را نپذیرفت؛ تنظیمات و دسترسی را بررسی کنید.", 409)
-    return AppError("PANEL_UNAVAILABLE", "پنل در حال حاضر پاسخ نمی‌دهد؛ چند لحظه بعد دوباره تلاش کنید.", 503)
+_panel_error = functools.partial(panel_failure, rejected="پنل این درخواست را نپذیرفت؛ تنظیمات و دسترسی را بررسی کنید.")
 
 
 def ensure_supported(panel: Panel) -> None:

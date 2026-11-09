@@ -19,12 +19,13 @@ import hmac
 import secrets
 import time
 import uuid
-from urllib.parse import urlencode, urlparse
+from urllib.parse import urlencode
 
 import httpx
 import jwt
 
 from melorin.core.config import get_settings
+from melorin.core.urls import origin as _origin
 from melorin.core.errors import AppError
 from melorin.modules.identity.schemas import TelegramProfile
 from melorin.kernel.models.stores import Store
@@ -46,11 +47,6 @@ _FLOW_TYP = "tg_oidc_flow"  # distinguishes this cookie from access tokens signe
 HTTP_TIMEOUT = 10.0
 _jwks_cache: dict = {"at": 0.0, "keys": {}}
 JWKS_TTL_SECONDS = 3600
-
-
-def _origin(url: str) -> str | None:
-    p = urlparse((url or "").strip())
-    return f"{p.scheme}://{p.netloc}" if p.scheme in ("http", "https") and p.netloc else None
 
 
 def callback_origin(store: Store | None) -> str:

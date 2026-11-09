@@ -17,6 +17,8 @@ Every channel (customer bot/site, reseller bot/site, admin) goes through this mo
 
 from __future__ import annotations
 
+import functools
+
 import datetime as dt
 import logging
 import time
@@ -32,8 +34,8 @@ from melorin.domain.order_state import VpnStatus
 from melorin.kernel.models.vpn import Panel, VpnAccount
 from melorin.modules.vpn import capabilities as panel_caps
 from melorin.modules.vpn import sync
-from melorin.modules.vpn.adapters.base import ErrorKind, PanelError, supports
-from melorin.modules.vpn.adapters.lifecycle import close_adapter
+from melorin.modules.vpn.adapters.base import PanelError, supports
+from melorin.modules.vpn.adapters.lifecycle import close_adapter, panel_failure
 from melorin.modules.vpn.adapters.registry import build_adapter, seed_adapter
 
 log = logging.getLogger("melorin.vpn.tools")
@@ -86,10 +88,7 @@ def _tool(name: str) -> Tool:
     return _BY_NAME[name]
 
 
-def _panel_error(exc: PanelError) -> AppError:
-    if exc.kind == ErrorKind.PERMANENT:
-        return AppError("PANEL_REJECTED", "پنل این درخواست را نپذیرفت؛ بعداً دوباره تلاش کنید یا با پشتیبانی تماس بگیرید.", 409)
-    return AppError("PANEL_UNAVAILABLE", "پنل در حال حاضر پاسخ نمی‌دهد؛ چند لحظه بعد دوباره تلاش کنید.", 503)
+_panel_error = functools.partial(panel_failure, rejected="پنل این درخواست را نپذیرفت؛ بعداً دوباره تلاش کنید یا با پشتیبانی تماس بگیرید.")
 
 
 def _reason(tool: Tool, role: str, account: VpnAccount, panel: Panel | None) -> str | None:

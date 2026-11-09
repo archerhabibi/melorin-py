@@ -9,6 +9,9 @@ from __future__ import annotations
 import inspect
 import logging
 
+from melorin.core.errors import AppError
+from melorin.modules.vpn.adapters.base import ErrorKind, PanelError
+
 log = logging.getLogger("melorin.vpn.adapters")
 
 
@@ -29,3 +32,17 @@ async def close_adapter(adapter, *, strict: bool = False) -> None:
         if strict:
             raise
         log.warning("adapter close failed", exc_info=True)
+
+
+_UNAVAILABLE = "پنل در حال حاضر پاسخ نمی‌دهد؛ چند لحظه بعد دوباره تلاش کنید."
+
+
+def panel_failure(exc: PanelError, *, rejected: str) -> AppError:
+    """Map a ``PanelError`` to the customer/admin-facing ``AppError`` (audit T02).
+
+    A PERMANENT error means the panel understood and refused (409, ``rejected`` explains what to do); anything else is
+    transient (503). Callers differ only in the ``rejected`` wording.
+    """
+    if exc.kind == ErrorKind.PERMANENT:
+        return AppError("PANEL_REJECTED", rejected, 409)
+    return AppError("PANEL_UNAVAILABLE", _UNAVAILABLE, 503)
