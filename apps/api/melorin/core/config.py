@@ -190,6 +190,10 @@ class Settings(BaseSettings):
     worker_poll_interval: float = 2.0
     allow_mock_providers: bool = False
     require_redis_rate_limit: bool = True
+    # T54: enforce each reseller API key's own ``rate_limit_per_minute`` (stored since the key was introduced, see docs/16 §8). Off by
+    # default so turning it on is a deliberate step; the Redis outage policy is the one of ``core.ratelimit.hit`` (fail closed in
+    # staging/production), i.e. while Redis is down every API-key call answers 429.
+    enforce_api_key_rate_limit: bool = False
     # Phase 5.6: the API sends baseline security headers itself so an EXTERNAL_PROXY install (no Caddy/nginx of ours in front)
     # is protected too. Headers a proxy already set are never overwritten. HSTS is only sent on requests that arrived over HTTPS.
     security_headers_enabled: bool = True

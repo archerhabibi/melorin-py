@@ -271,3 +271,40 @@ async def test_over_http_the_key_decides_the_store_and_errors_keep_their_public_
                 assert await get(f"{w.b.id}/catalog", raw_b) == (403, "API_SCOPE_FORBIDDEN")
         finally:
             app.dependency_overrides.pop(get_session, None)
+
+
+# ------------------------------------------------------------------ T54: the key's own rate limit
+async def test_api_key_rate_limit_is_off_by_default_and_enforced_when_enabled(monkeypatch):
+    from melorin.core.config import get_settings
+
+    calls = []
+
+    async def fake_hit(key, limit, window):
+        calls.append((key, limit, window))
+        return len(calls) <= 2  # third call in the window is over budget
+
+    monkeypatch.setattr(ch, "hit", fake_hit)
+    async with open_session() as s:
+        w = await _world(s)
+        raw = await _key(s, w.a, w.owner_a)
+        await _open(s, raw, w.a)
+        assert calls == []  # default: not enforced, Redis not touched
+
+        monkeypatch.setattr(get_settings(), "enforce_api_key_rate_limit", True)
+        await _open(s, raw, w.a)
+        await _open(s, raw, w.a)
+        assert await _code(_open(s, raw, w.a)) == "API_RATE_LIMITED"
+        assert calls[0][1:] == (120, 60) and calls[0][0].startswith("apikey:")
+
+
+async def test_unknown_key_never_burns_a_budget(monkeypatch):
+    from melorin.core.config import get_settings
+
+    async def boom(*a, **k):
+        raise AssertionError("rate limit must only count authenticated keys")
+
+    monkeypatch.setattr(ch, "hit", boom)
+    monkeypatch.setattr(get_settings(), "enforce_api_key_rate_limit", True)
+    async with open_session() as s:
+        w = await _world(s)
+        assert await _code(_open(s, "mlr_nope", w.a)) == "API_UNAUTHORIZED"
