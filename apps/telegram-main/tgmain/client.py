@@ -71,8 +71,10 @@ class TransportMixin:
     # Per-chat flow state expires (T29/T60): an abandoned "waiting for receipt" must not hang forever or grow the file without bound.
     STATE_TTL = float(os.getenv("MELORIN_STATE_TTL_SECONDS", "86400"))
 
+    AT_KEY = "__at__"  # reserved key in the (flat, backward compatible) state file: {chat_id: last-write epoch}
+
     def _load_state(self) -> dict:
-        """Read the state file. v2 = ``{"v": 2, "chats": {...}, "at": {chat: epoch}}``; the legacy file is the chats dict itself."""
+        """Read the flat ``{chat_id: state}`` file; ``__at__`` carries per-chat write times and is absent in older files."""
         self.state_at = {}
         try:
             data = json.loads(self.state_file.read_text())
@@ -80,18 +82,16 @@ class TransportMixin:
             return {}
         if not isinstance(data, dict):
             return {}
-        if data.get("v") == 2:
-            chats = data.get("chats") or {}
-            self.state_at = {str(k): float(v) for k, v in (data.get("at") or {}).items() if str(k) in chats}
-        else:
-            chats = data
+        stamps = data.pop(self.AT_KEY, None)
+        if isinstance(stamps, dict):
+            self.state_at = {str(k): float(v) for k, v in stamps.items() if str(k) in data and isinstance(v, (int, float))}
         now = time.time()
-        for chat in chats:
-            self.state_at.setdefault(str(chat), now)  # legacy / missing stamp: start its clock now
-        return chats
+        for chat in data:
+            self.state_at.setdefault(str(chat), now)  # no stamp yet: start its clock now
+        return data
 
     def _persist_state(self) -> None:
-        atomic_write_json(self.state_file, {"v": 2, "chats": self.state, "at": getattr(self, "state_at", {})})
+        atomic_write_json(self.state_file, {**self.state, self.AT_KEY: getattr(self, "state_at", {})})
 
     def _set_state(self, chat_id, value: dict | None) -> None:
         key = str(chat_id)

@@ -1,4 +1,4 @@
-"""T29/T60: per-chat bot state expires, and the old state-file format is still read."""
+"""T29/T60: per-chat bot state expires, and the state file without timestamps is still read."""
 
 import json
 import sys
@@ -22,15 +22,15 @@ def test_legacy_file_is_read_and_stamped(tmp_path):
     assert b.state == {"1": {"rs": "name"}} and "1" in b.state_at
 
 
-def test_set_state_writes_v2_and_roundtrips(tmp_path):
+def test_set_state_keeps_flat_file_and_roundtrips(tmp_path):
     f = tmp_path / "s.json"
     b = Box(f)
     b._set_state(7, {"topup_amount": True})
     raw = json.loads(f.read_text())
-    assert raw["v"] == 2 and raw["chats"] == {"7": {"topup_amount": True}} and "7" in raw["at"]
+    assert raw["7"] == {"topup_amount": True} and "7" in raw["__at__"]  # chat entries stay top-level: old code can still read it
     assert Box(f).state == {"7": {"topup_amount": True}}
     b._set_state(7, None)
-    assert json.loads(f.read_text())["chats"] == {}
+    assert "7" not in json.loads(f.read_text())
 
 
 def test_stale_chats_expire_fresh_ones_stay(tmp_path):
