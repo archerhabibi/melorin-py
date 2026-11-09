@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from sqlalchemy import func, select
 
 from melorin.channels.telegram import oidc as telegram_oidc
+from melorin.channels.telegram.bot_api import probe_bot
 from melorin.channels.telegram.web import normalise_bot_username
 from melorin.core import audit, integrations
 from melorin.core.config import get_settings
@@ -88,10 +89,8 @@ async def update_telegram(body: TelegramIn, admin: AdminUser, session: Session):
 async def _bot_get_me(token: str) -> tuple[bool, str | None]:
     """(reachable, username). ``reachable`` is False only on network failure; a rejected token gives (True, None)."""
     try:
-        async with httpx.AsyncClient(timeout=10) as c:
-            r = await c.get(f"https://api.telegram.org/bot{token}/getMe")
-        me = (r.json() or {}).get("result") or {}
-        return True, (me.get("username") or None) if r.status_code == 200 else None
+        status, me = await probe_bot(token, request_timeout=10)
+        return True, (me.get("username") or None) if status == 200 else None
     except (httpx.HTTPError, ValueError):
         return False, None
 

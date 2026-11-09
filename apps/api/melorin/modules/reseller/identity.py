@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 
 import httpx
 
+from melorin.channels.telegram.bot_api import probe_bot
 from melorin.core.config import get_settings
 from melorin.core.errors import AppError
 
@@ -68,15 +69,15 @@ async def verify_bot(token: str, *, transport: httpx.AsyncBaseTransport | None =
     application (the admin sees the bot as 'unverified' and can re-check it from the review screen before approving).
     """
     try:
-        async with httpx.AsyncClient(timeout=8, transport=transport) as client:
-            r = await client.get(f"https://api.telegram.org/bot{token}/getMe")
+        status, result = await probe_bot(token, request_timeout=8, transport=transport)
     except httpx.HTTPError:
         return None
-    if r.status_code in (401, 404):
-        raise AppError("BOT_TOKEN_REJECTED", "تلگرام این توکن را نپذیرفت؛ توکن را از BotFather دوباره بگیرید.", 422)
-    if r.status_code != 200:
+    except ValueError:  # 200 with a non-JSON body: same "could not verify" outcome as before the T03 refactor
         return None
-    result = (r.json() or {}).get("result") or {}
+    if status in (401, 404):
+        raise AppError("BOT_TOKEN_REJECTED", "تلگرام این توکن را نپذیرفت؛ توکن را از BotFather دوباره بگیرید.", 422)
+    if status != 200:
+        return None
     if not result.get("is_bot", True) or not result.get("username"):
         raise AppError("BOT_TOKEN_REJECTED", "این توکن متعلق به یک ربات نیست.", 422)
     return str(result["username"])

@@ -20,7 +20,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from melorin.core import audit, events
+from melorin.core import audit
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError, NotFound
 from melorin.domain import bank_sms as dom
@@ -28,6 +28,7 @@ from melorin.domain.order_state import PaymentStatus
 from melorin.kernel.models.payments import BankSmsMessage, BankSmsSource, Payment
 from melorin.kernel.models.stores import Store
 from melorin.modules.payments import service as payments
+from melorin.modules.payments.notify import notify_store_payments
 from melorin.domain.timeutil import aware as _aware
 
 log = logging.getLogger("melorin.payments.bank_sms")
@@ -255,10 +256,6 @@ async def _candidates(session: AsyncSession, store: Store) -> tuple[list[dom.Can
     return out, by_id
 
 
-async def _notify(session: AsyncSession, store_id: uuid.UUID, text: str) -> None:
-    await events.emit(session, events.EVENT_CENTER, {"store_id": store_id, "topic": "payments", "text": text})
-
-
 async def _link(
     session: AsyncSession, sms_id: uuid.UUID, payment_id: uuid.UUID, *, by: str, actor_id=None, note: str | None = None
 ) -> bool:
@@ -297,7 +294,7 @@ async def _link(
         await session.rollback()
         raise
     if by == "auto":
-        await _notify(session, p.store_id, f"✅ شارژ خودکار با پیامک بانک\nمبلغ: {p.amount:,}\nشناسه: {p.id}")
+        await notify_store_payments(session, p.store_id, f"✅ شارژ خودکار با پیامک بانک\nمبلغ: {p.amount:,}\nشناسه: {p.id}")
         await session.commit()
     return True
 
@@ -360,7 +357,7 @@ async def _confirm_provisional(
         store_id=p.store_id,
         data={"sms_id": str(sms.id), "by": "bank_sms"},
     )
-    await _notify(session, p.store_id, f"✅ تأیید موقت با پیامک بانک نهایی شد\nمبلغ: {p.amount:,}\nشناسه: {p.id}")
+    await notify_store_payments(session, p.store_id, f"✅ تأیید موقت با پیامک بانک نهایی شد\nمبلغ: {p.amount:,}\nشناسه: {p.id}")
     await session.commit()
     return True
 
@@ -401,7 +398,7 @@ async def match_message(session: AsyncSession, sms: BankSmsMessage, source: Bank
         sms.status, sms.note = "ambiguous", "candidates:" + ",".join(decision.candidate_ids)[:270]
         await session.commit()
         if newly:
-            await _notify(
+            await notify_store_payments(
                 session, sms.store_id, f"⚠️ چند رسید هم‌مبلغ برای یک پیامک بانکی؛ نیاز به بررسی دستی\nمبلغ: {sms.amount_rial:,} ریال"
             )
             await session.commit()
@@ -552,7 +549,9 @@ async def ingest(session: AsyncSession, src: BankSmsSource, text: str, *, sender
             return dup, False
         raise
     if gap:
-        await _notify(session, src.store_id, "⚠️ مانده‌ی پیامک بانک با پیامک قبلی همخوان نیست؛ ممکن است پیامکی دریافت نشده باشد.")
+        await notify_store_payments(
+            session, src.store_id, "⚠️ مانده‌ی پیامک بانک با پیامک قبلی همخوان نیست؛ ممکن است پیامکی دریافت نشده باشد."
+        )
         await session.commit()
     if m.status == "unmatched" and store is not None:
         await match_message(session, m, src, store)

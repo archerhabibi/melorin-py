@@ -31,6 +31,7 @@ from melorin.kernel.models.payments import Payment
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.system import FileObject
 from melorin.modules.payments import service as payments
+from melorin.modules.payments.notify import notify_store_payments
 from melorin.modules.wallet import service as wallet
 from melorin.domain.timeutil import aware as _aware
 
@@ -165,10 +166,6 @@ async def _block_reason(session: AsyncSession, p: Payment, cfg: dict, history: l
     return None
 
 
-async def _notify(session: AsyncSession, store_id: uuid.UUID, text: str) -> None:
-    await events.emit(session, events.EVENT_CENTER, {"store_id": store_id, "topic": "payments", "text": text})
-
-
 async def _approve(session: AsyncSession, p: Payment, cfg: dict) -> bool:
     """Credit one waiting receipt provisionally. Returns False (and writes nothing) if a human or an SMS got there first.
 
@@ -201,7 +198,7 @@ async def _approve(session: AsyncSession, p: Payment, cfg: dict) -> bool:
         store_id=p.store_id,
         data={"amount": p.amount, "grace_minutes": int(cfg["minutes"])},
     )
-    await _notify(
+    await notify_store_payments(
         session,
         p.store_id,
         f"⏳ تأیید موقت پس از {int(cfg['minutes'])} دقیقه بدون بررسی\nمبلغ: {p.amount:,}\nلطفاً هرچه زودتر بررسی کنید.\nشناسه: {p.id}",
@@ -230,7 +227,7 @@ async def run_store(session: AsyncSession, store: Store, *, now: dt.datetime | N
         if reason:
             if (state(p) or {}).get("block") != reason:  # tell the humans once why this one was NOT auto-approved
                 p.meta = {**(p.meta or {}), "provisional": {"state": "blocked", "block": reason}}
-                await _notify(
+                await notify_store_payments(
                     session, p.store_id, f"🔎 این رسید تأیید موقت نمی‌شود: {BLOCK_TEXT[reason]}\nمبلغ: {p.amount:,}\nشناسه: {p.id}"
                 )
                 await session.commit()
