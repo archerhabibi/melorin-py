@@ -19,6 +19,7 @@ from melorin.core.errors import AppError, NotFound
 from melorin.domain.order_state import VpnStatus
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.vpn import Panel, PanelOrphan, ReconciliationIssue, VpnAccount
+from melorin.modules.vpn.panel_session import close_adapter
 from melorin.modules.vpn import issues as issue_svc
 from melorin.modules.vpn import reconcile, recreate
 from melorin.modules.vpn.adapters.base import PanelError, supports
@@ -274,11 +275,7 @@ async def issue_action(issue_id: uuid.UUID, body: IssueActionIn, admin: AdminUse
         except PanelError as exc:
             raise AppError("PANEL_ERROR", f"پنل خطا داد: {exc.message[:200]}", 502) from exc
         finally:
-            if adapter is not None:
-                try:
-                    await adapter.close()
-                except Exception:
-                    log.warning("panel adapter close failed panel=%s", panel.id, exc_info=True)
+            await close_adapter(adapter)
         issue.status, issue.resolution, issue.resolved_at = issue_svc.RESOLVED, f"owner set to {expected}", now
     elif body.action == "resync":
         outcome = await reconcile.reconcile_account(session, account.id)

@@ -23,6 +23,7 @@ from melorin.modules.admin.schemas import (
     UpdateServer,
 )
 from melorin.modules.admin.targets import check_target, target_warnings
+from melorin.modules.vpn.panel_session import close_adapter
 from melorin.modules.vpn import capabilities
 from melorin.modules.vpn.capacity import capacity_view
 from melorin.modules.vpn.targets import capacity_label, effective_destination
@@ -408,11 +409,7 @@ async def panel_health(panel_id: uuid.UUID, _: AdminUser, session: Session):
             health.UNHEALTHY, (getattr(exc, "message", None) or str(exc) or exc.__class__.__name__)[:300], {"layer": 1, "sellable": False}
         )
     finally:
-        if adapter is not None:
-            try:
-                await adapter.close()
-            except Exception:
-                log.warning("panel adapter close failed panel=%s", p.id, exc_info=True)
+        await close_adapter(adapter)
     if result.error == "health check returned false":
         result.error = "پنل پاسخ سالم نداد."
     previous = health.apply(p, result)

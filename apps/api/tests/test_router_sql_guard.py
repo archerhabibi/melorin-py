@@ -6,7 +6,16 @@ import ast
 from pathlib import Path
 
 ADMIN = Path(__file__).resolve().parents[1] / "melorin" / "modules" / "admin"
-CLEAN = ["panel_reconciliation", "panel_orphans", "panel_live_events", "panel_operations", "panel_monitoring"]
+CLEAN = [
+    "panel_reconciliation",
+    "panel_orphans",
+    "panel_live_events",
+    "panel_operations",
+    "panel_monitoring",
+    "panel_admins",
+    "targets",
+    "capacity",
+]
 
 
 def _selects(path: Path) -> list[int]:

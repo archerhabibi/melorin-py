@@ -12,7 +12,18 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from melorin.kernel.models.stores import Store
-from melorin.kernel.models.vpn import BulkOperation, Panel, PanelAdmin, PanelEvent, PanelNode, PanelOrphan, ReconciliationIssue, VpnAccount
+from melorin.kernel.models.vpn import (
+    BulkOperation,
+    Panel,
+    PanelAdmin,
+    PanelAdminChangeRequest,
+    PanelEvent,
+    PanelNode,
+    PanelOrphan,
+    ReconciliationIssue,
+    Server,
+    VpnAccount,
+)
 
 
 async def live_nodes(session: AsyncSession, panel_id: uuid.UUID) -> list[PanelNode]:
@@ -134,3 +145,33 @@ async def pasarguard_panels(session: AsyncSession, panel_id: uuid.UUID | None) -
     if panel_id:
         q = q.where(Panel.id == panel_id)
     return list((await session.scalars(q)).all())
+
+
+async def servers_of_panel(session: AsyncSession, panel_id: uuid.UUID, *, by_name: bool = False) -> list[Server]:
+    """Every server slot of one panel (destinations screen, capacity screen). ``by_name`` orders for display."""
+    stmt = select(Server).where(Server.panel_id == panel_id)
+    if by_name:
+        stmt = stmt.order_by(Server.name)
+    return list((await session.scalars(stmt)).all())
+
+
+async def panel_admin_rows(session: AsyncSession, *, store_id: uuid.UUID | None, panel_id: uuid.UUID | None) -> list[PanelAdmin]:
+    stmt = select(PanelAdmin).order_by(PanelAdmin.created_at)
+    if store_id:
+        stmt = stmt.where(PanelAdmin.store_id == store_id)
+    if panel_id:
+        stmt = stmt.where(PanelAdmin.panel_id == panel_id)
+    return list((await session.scalars(stmt)).all())
+
+
+async def first_panel_admin(session: AsyncSession, store_id: uuid.UUID) -> PanelAdmin | None:
+    """The store's oldest panel admin: its profile is what a change request is compared with."""
+    return await session.scalar(select(PanelAdmin).where(PanelAdmin.store_id == store_id).order_by(PanelAdmin.created_at))
+
+
+async def change_requests(session: AsyncSession, status: str | None) -> list[PanelAdminChangeRequest]:
+    """Newest 200 reseller change requests, optionally one status."""
+    stmt = select(PanelAdminChangeRequest).order_by(PanelAdminChangeRequest.created_at.desc()).limit(200)
+    if status:
+        stmt = stmt.where(PanelAdminChangeRequest.status == status)
+    return list((await session.scalars(stmt)).all())
