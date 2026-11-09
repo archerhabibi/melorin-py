@@ -1,0 +1,13 @@
+{
+  "name": "@melorin/web-kit",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Code shared by admin-web and store-web: token store, dialog a11y hook, Google sign-in.",
+  "peerDependencies": { "react": "18.3.1" },
+  "exports": {
+    "./auth.js": "./src/auth.js",
+    "./useDialog.js": "./src/useDialog.js",
+    "./GoogleSignIn.jsx": "./src/GoogleSignIn.jsx"
+  }
+}

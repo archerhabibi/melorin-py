@@ -1,14 +1,4 @@
-let accessToken = '';
+export { getAccessToken, setTokens, clearTokens } from '@melorin/web-kit/auth.js';
 
-export function getAccessToken() {
-  return accessToken;
-}
-export function getRefreshToken() {
-  return '';
-}
-export function setTokens(pair) {
-  accessToken = pair?.access_token || '';
-}
-export function clearTokens() {
-  accessToken = '';
-}
+// Kept for backwards compatibility: the refresh token is an httpOnly cookie and is never readable from JS.
+export const getRefreshToken = () => '';
