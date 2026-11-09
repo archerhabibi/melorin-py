@@ -58,7 +58,7 @@ def clean_settings(raw: dict | None) -> dict:
     """Validate the tuning knobs (ordered rule table); unknown keys are rejected, ``None`` resets to the default."""
     raw = dict(raw or {})
     out: dict = {}
-    for key, kind, lo, hi, default in _SETTING_RULES:
+    for key, kind, lo, hi, _default in _SETTING_RULES:
         if key not in raw:
             continue
         value = raw.pop(key)

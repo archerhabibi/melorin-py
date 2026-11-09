@@ -178,7 +178,7 @@ async def create_order(
         async with session.begin_nested():
             session.add(order)
             await session.flush()
-    except IntegrityError:
+    except IntegrityError as exc:
         existing = await session.scalar(
             select(Order).where(
                 Order.user_id == user_id,
@@ -193,7 +193,7 @@ async def create_order(
                 or existing.vpn_account_id != vpn_account_id
                 or existing.renewal_mode != mode
             ):
-                raise AppError("IDEMPOTENCY_KEY_REUSE", "کلید idempotency با سفارش دیگری استفاده شده است.", 409)
+                raise AppError("IDEMPOTENCY_KEY_REUSE", "کلید idempotency با سفارش دیگری استفاده شده است.", 409) from exc
             return existing
         raise
     session.add(OrderStateTransition(order_id=order.id, from_status="-", to_status=S.PENDING, actor_id=user.id))
