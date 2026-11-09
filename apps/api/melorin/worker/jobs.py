@@ -24,7 +24,7 @@ _close_strict = functools.partial(close_adapter, strict=True)  # worker jobs kee
 log = logging.getLogger("melorin.jobs")
 
 
-@tracked_job
+@tracked_job(lock_ttl=910)
 async def backup_job(ctx=None):
     """Always write an encrypted LOCAL backup; also copy it to S3 when enabled in the Admin panel."""
     root = Path(os.getenv("MELORIN_PROJECT_ROOT", "/app"))
@@ -73,7 +73,7 @@ async def backup_job(ctx=None):
     return status
 
 
-@tracked_job
+@tracked_job(lock_ttl=910)
 async def panel_backup_job(ctx=None):
     """Daily: encrypted backup of the PasarGuard panel (its database and data directory), recorded as ``BackupRun(target="panel")`` (PG-16).
 

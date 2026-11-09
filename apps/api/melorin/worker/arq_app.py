@@ -39,8 +39,10 @@ from melorin.worker.jobs import (
     reseller_identity_recheck_job,
 )
 from melorin.core.metrics import set_gauge
+from melorin.worker.wrap import tracked_job
 
 
+@tracked_job(lock=False)  # runs every 2 s and is idempotent per claimed row, so no lock; still logged/metered like the rest
 async def poll_tick(ctx):
     async with session_factory()() as session:
         events = await claim_batch(session)
