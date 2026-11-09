@@ -27,6 +27,31 @@ class Ctx:
         return f"tg-{self.callback_id or self.update_id}"
 
 
+def atomic_write_json(path, data) -> None:
+    """Crash-safe JSON write (T29): unique temp file in the same directory, fsync, then atomic rename.
+
+    A kill between write and rename leaves the previous file intact; a half-written file is never visible.
+    """
+    import os
+    import tempfile
+    from pathlib import Path
+
+    path = Path(path)
+    fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=path.name + ".", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(data, f)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_name, path)
+    except BaseException:
+        try:
+            os.unlink(tmp_name)
+        except FileNotFoundError:
+            pass
+        raise
+
+
 class TransportMixin:
     """Offset/state persistence, Telegram Bot API calls, Core HTTP calls and in-place screens."""
 
@@ -38,9 +63,7 @@ class TransportMixin:
             return None
 
     def _save_offset(self, offset: int) -> None:
-        tmp = self.offset_file.with_suffix(".tmp")
-        tmp.write_text(json.dumps({"offset": offset}))
-        tmp.replace(self.offset_file)
+        atomic_write_json(self.offset_file, {"offset": offset})
         self.offset = offset
 
     def _load_state(self) -> dict:
@@ -54,9 +77,7 @@ class TransportMixin:
             self.state.pop(str(chat_id), None)
         else:
             self.state[str(chat_id)] = value
-        tmp = self.state_file.with_suffix(".tmp")
-        tmp.write_text(json.dumps(self.state))
-        tmp.replace(self.state_file)
+        atomic_write_json(self.state_file, self.state)
 
     # ---------- transport ----------
     # Telegram answers 429 with ``parameters.retry_after`` (seconds). Honour it a bounded number of times (T22).
