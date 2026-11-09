@@ -6,7 +6,10 @@ import { fileURLToPath } from 'node:url';
 export default defineConfig({
   plugins: [react()],
   resolve: {
-    alias: { '@melorin/web-kit': fileURLToPath(new URL('../../packages/web-kit/src', import.meta.url)) },
+    alias: {
+      '@melorin/web-kit': fileURLToPath(new URL('../../packages/web-kit/src', import.meta.url)),
+      '@melorin/api-client': fileURLToPath(new URL('../../packages/api-client/src/index.js', import.meta.url)),
+    },
     dedupe: ['react', 'react-dom'],
   },
   test: {

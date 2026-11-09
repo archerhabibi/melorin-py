@@ -1,3 +1,4 @@
+import { createApiClient } from '@melorin/api-client';
 import { getAccessToken, setTokens, clearTokens } from './auth.js';
 
 export const API_BASE = (import.meta.env?.VITE_MELORIN_API_URL || window.location.origin).replace(/\/$/, '');
@@ -43,8 +44,10 @@ export async function authFetch(base, path, options = {}) {
   return r;
 }
 
+/** GET + parse JSON through @melorin/api-client (T15): bearer token, one transparent refresh on 401. */
 export async function getJson(base, path) {
-  const r = await authFetch(base, path);
-  if (!r.ok) throw new Error(`${path}: ${r.status}`);
-  return r.json();
+  const client = createApiClient({ baseUrl: base, getAccessToken, refresh: () => refreshPair(base) });
+  const { data, response } = await client.get(path);
+  if (!response.ok) throw new Error(`${path}: ${response.status}`);
+  return data;
 }

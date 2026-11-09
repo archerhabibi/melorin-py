@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import Dashboard, { Faq } from './Dashboard.jsx';
 import { clearTokens, getAccessToken, setTokens } from './auth.js';
+import { publicGet, publicGetOrNull } from './coreApi.js';
 import { GoogleSignInButton, googleSignOut } from './GoogleSignIn.jsx';
 import TelegramLogin from './TelegramLogin.jsx';
 import { PurchaseResult } from './Subscription.jsx';
@@ -338,7 +339,6 @@ export default function App() {
     }
   };
   useEffect(() => {
-    const base = (import.meta.env?.VITE_MELORIN_API_URL || window.location.origin).replace(/\/$/, '');
     setCatalogLoading(true);
     // A reseller's own domain shows that reseller's store; any other host (main domain, localhost) shows the main store.
     coreFetch(`/api/v1/stores/by-domain/${encodeURIComponent(window.location.hostname.toLowerCase())}`, {
@@ -349,9 +349,8 @@ export default function App() {
       .then((store) => {
         setStoreId(store.id);
         setHasBot(Boolean(store.bot_username));
-        return fetch(`${base}/api/v1/stores/${store.id}/bundles`, { headers: { Accept: 'application/json' } });
+        return publicGet(`/api/v1/stores/${store.id}/bundles`);
       })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then((data) => {
         const list = Array.isArray(data) ? data : data.items || [];
         setBundles(list);
@@ -367,11 +366,9 @@ export default function App() {
   useEffect(() => {
     setCatalog([]);
     if (!storeId || !bundleId) return;
-    const base = (import.meta.env?.VITE_MELORIN_API_URL || window.location.origin).replace(/\/$/, '');
     let live = true;
     setPkgLoading(true);
-    fetch(`${base}/api/v1/stores/${storeId}/bundles/${bundleId}/packages`, { headers: { Accept: 'application/json' } })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+    publicGet(`/api/v1/stores/${storeId}/bundles/${bundleId}/packages`)
       .then((data) => live && setCatalog(Array.isArray(data) ? data : data.items || []))
       .catch(() => live && setCatalog([]))
       .finally(() => live && setPkgLoading(false));
@@ -444,8 +441,7 @@ export default function App() {
   }, [storeId, accessToken]);
   // Telegram login settings (Admin > Settings > Telegram login) and the result of a direct-login redirect (?tg_error=...).
   useEffect(() => {
-    fetch(`${base}/api/v1/auth/telegram/config`, { headers: { Accept: 'application/json' } })
-      .then((r) => (r.ok ? r.json() : null))
+    publicGetOrNull('/api/v1/auth/telegram/config')
       .then(setTgCfg)
       .catch(() => {});
     const q = new URLSearchParams(window.location.search);
