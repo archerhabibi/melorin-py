@@ -3,6 +3,8 @@
 import asyncio
 import json
 import logging
+import os
+import time
 import httpx
 
 from tgmain.ui import (
@@ -66,18 +68,53 @@ class TransportMixin:
         atomic_write_json(self.offset_file, {"offset": offset})
         self.offset = offset
 
+    # Per-chat flow state expires (T29/T60): an abandoned "waiting for receipt" must not hang forever or grow the file without bound.
+    STATE_TTL = float(os.getenv("MELORIN_STATE_TTL_SECONDS", "86400"))
+
     def _load_state(self) -> dict:
+        """Read the state file. v2 = ``{"v": 2, "chats": {...}, "at": {chat: epoch}}``; the legacy file is the chats dict itself."""
+        self.state_at = {}
         try:
-            return json.loads(self.state_file.read_text())
+            data = json.loads(self.state_file.read_text())
         except (FileNotFoundError, json.JSONDecodeError):
             return {}
+        if not isinstance(data, dict):
+            return {}
+        if data.get("v") == 2:
+            chats = data.get("chats") or {}
+            self.state_at = {str(k): float(v) for k, v in (data.get("at") or {}).items() if str(k) in chats}
+        else:
+            chats = data
+        now = time.time()
+        for chat in chats:
+            self.state_at.setdefault(str(chat), now)  # legacy / missing stamp: start its clock now
+        return chats
+
+    def _persist_state(self) -> None:
+        atomic_write_json(self.state_file, {"v": 2, "chats": self.state, "at": getattr(self, "state_at", {})})
 
     def _set_state(self, chat_id, value: dict | None) -> None:
+        key = str(chat_id)
+        at = self.__dict__.setdefault("state_at", {})
         if value is None:
-            self.state.pop(str(chat_id), None)
+            self.state.pop(key, None)
+            at.pop(key, None)
         else:
-            self.state[str(chat_id)] = value
-        atomic_write_json(self.state_file, self.state)
+            self.state[key] = value
+            at[key] = time.time()
+        self._persist_state()
+
+    def _expire_state(self, now: float | None = None) -> int:
+        """Drop chats whose state is older than ``STATE_TTL``. Returns how many were removed."""
+        now = time.time() if now is None else now
+        at = self.__dict__.setdefault("state_at", {})
+        stale = [c for c in list(self.state) if now - at.get(c, now) > self.STATE_TTL]
+        for c in stale:
+            self.state.pop(c, None)
+            at.pop(c, None)
+        if stale:
+            self._persist_state()
+        return len(stale)
 
     # ---------- transport ----------
     # Telegram answers 429 with ``parameters.retry_after`` (seconds). Honour it a bounded number of times (T22).

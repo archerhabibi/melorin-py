@@ -120,6 +120,7 @@ class TelegramRunner(TransportMixin, IdentityMixin, LoyaltyMixin, PlansMixin, Wa
 
     # ---------- dispatch ----------
     async def handle(self, update: dict) -> None:
+        self._expire_state()
         message = update.get("message")
         callback = update.get("callback_query")
         if callback:
