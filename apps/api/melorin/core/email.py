@@ -51,6 +51,7 @@ def _smtp_send(cfg: dict, to: str, subject: str, body: str) -> None:
     msg = EmailMessage()
     msg["From"], msg["To"], msg["Subject"] = cfg["from_addr"], to, subject
     msg.set_content(body)
+    client: smtplib.SMTP
     if cfg["security"] == "ssl":
         client = smtplib.SMTP_SSL(cfg["host"], cfg["port"], timeout=15)
     else:

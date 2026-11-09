@@ -1,4 +1,5 @@
 import datetime as dt  # noqa: F401
+from typing import Any
 from collections.abc import AsyncIterator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -15,7 +16,7 @@ def configure(url: str | None = None) -> None:
     global _engine, _sessionmaker
     s = get_settings()
     url = url or s.database_url
-    kwargs = {"pool_pre_ping": True}
+    kwargs: dict[str, Any] = {"pool_pre_ping": True}
     if url.startswith("postgresql"):
         kwargs.update(pool_size=s.db_pool_size, max_overflow=s.db_pool_size)
     _engine = create_async_engine(url, **kwargs)

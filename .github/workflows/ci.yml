@@ -44,6 +44,7 @@ jobs:
       - run: bash ../../scripts/run_quality_gate.sh
       - run: lint-imports
       - run: ruff check melorin --config pyproject.toml
+      - run: pip install mypy==2.4.1 && mypy --config-file pyproject.toml  # T41: core + worker are type-checked
       - run: ruff format --check melorin tests --config pyproject.toml
       - run: python -m compileall -q melorin
       - run: pytest -q -m "not integration" --cov=melorin --cov-report=term-missing --cov-report=xml --cov-fail-under=75

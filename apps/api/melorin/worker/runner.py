@@ -179,9 +179,10 @@ async def process_event(e: OutboxEvent):
         try:
             # claim_batch commits before returning, so never mutate its
             # detached ORM instance. Re-load the row in this session.
-            e = await session.get(OutboxEvent, event_id, with_for_update=True)
-            if e is None or e.status != "processing":
+            reloaded = await session.get(OutboxEvent, event_id, with_for_update=True)
+            if reloaded is None or reloaded.status != "processing":
                 return
+            e = reloaded
             handler = _TOPIC_HANDLERS.get(e.topic)
             if handler is not None:  # unknown topics are acknowledged without work, as before
                 await handler(session, e.payload or {})

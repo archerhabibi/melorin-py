@@ -104,9 +104,9 @@ def render() -> str:
     for (name, labels), value in rows:
         declare(name, "counter")
         out.append(f"{name}{_labels(labels)} {value}")
-    for (name, labels), value in gauges:
+    for (name, labels), gauge_value in gauges:
         declare(name, "gauge")
-        out.append(f"{name}{_labels(labels)} {value}")
+        out.append(f"{name}{_labels(labels)} {gauge_value}")
     for (name, labels), h in hists:
         declare(name, "histogram")
         for upper, count in zip(bounds[name], h["counts"], strict=True):
@@ -116,6 +116,6 @@ def render() -> str:
         out.append(f"{name}_count{_labels(labels)} {h['count']}")
     for name, alert in alerts:
         declare("melorin_alert", "gauge")
-        labels = f'alertname="{name}",severity="{alert["severity"]}",state="{alert["state"]}"'
-        out.append(f"melorin_alert{{{labels}}} 1")
+        alert_labels = f'alertname="{name}",severity="{alert["severity"]}",state="{alert["state"]}"'
+        out.append(f"melorin_alert{{{alert_labels}}} 1")
     return "\n".join(out) + ("\n" if out else "")

@@ -26,6 +26,14 @@ ignore = ["F403", "F405", "B008", "ASYNC109", "S101", "S104", "S105", "S106", "S
 [tool.ruff.format]
 quote-style = "double"
 line-ending = "lf"
+[tool.mypy]
+# T41: static typing is gated on the infrastructure packages first (core + worker); widen `files` as other packages are cleaned up.
+python_version = "3.12"
+files = ["melorin/core", "melorin/worker"]
+ignore_missing_imports = true
+follow_imports = "silent"
+warn_unused_ignores = true
+
 [tool.pytest.ini_options]
 pythonpath = ["."]
 asyncio_mode = "auto"
