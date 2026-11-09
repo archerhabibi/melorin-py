@@ -10,7 +10,6 @@ from melorin.core import events
 from melorin.core.config import get_settings
 from melorin.core.db import session_factory, utcnow
 from melorin.core.metrics import inc
-from melorin.core.crypto import decrypt
 from melorin import models  # noqa: F401, register all SQLAlchemy mappers before worker sessions
 from melorin.kernel.models.identity import User
 from melorin.kernel.models.notifications import Notification
@@ -224,25 +223,15 @@ async def _notify(session, p: dict, kind: str, title: str, body: str = ""):
         )
         session.add(n)
         await session.flush()
-    from melorin.kernel.models.identity import Identity
+    from melorin.modules.notifications.dispatch import telegram_target
 
-    identity = await session.scalar(select(Identity).where(Identity.user_id == user_id, Identity.provider == "telegram"))
-    if not identity:
+    target = await telegram_target(session, user_id, n.store_id, get_settings())
+    if target is None:
         n.telegram_status = "skipped"
         return
-    from melorin.kernel.models.stores import Store
-
-    store = await session.get(Store, n.store_id) if n.store_id else None
-    token = decrypt(store.bot_token_enc) if store and store.bot_token_enc else get_settings().main_bot_token
-    if not token:
-        n.telegram_status = "skipped"
-        return
+    channel, chat_id = target
     try:
-        from melorin.channels.telegram import TelegramChannel
-
-        await TelegramChannel(
-            token, get_settings().store_web_url, "reseller" if store and store.kind == "reseller" else "main"
-        ).send_message(identity.subject, f"{title}\n{body}")
+        await channel.send_message(chat_id, f"{title}\n{body}")
         n.telegram_status = "sent"
         inc("melorin_notifications_total", channel="telegram", result="sent")
     except Exception:
