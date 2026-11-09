@@ -8,6 +8,7 @@ Changes
 
 No existing table or column changes; downgrade only drops the new table.
 """
+
 import sqlalchemy as sa
 from alembic import op
 

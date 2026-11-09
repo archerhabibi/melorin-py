@@ -50,11 +50,15 @@ def upgrade() -> None:
             continue
         folded[keeper[key]] = folded.get(keeper[key], 0) + 1
         bind.execute(
-            sa.text("UPDATE reconciliation_issues SET status = 'resolved', resolution = 'duplicate', resolved_at = CURRENT_TIMESTAMP WHERE id = :id"),
+            sa.text(
+                "UPDATE reconciliation_issues SET status = 'resolved', resolution = 'duplicate', resolved_at = CURRENT_TIMESTAMP WHERE id = :id"
+            ),
             {"id": issue_id},
         )
     for issue_id, extra in folded.items():
-        bind.execute(sa.text("UPDATE reconciliation_issues SET occurrences = occurrences + :n WHERE id = :id"), {"n": extra, "id": issue_id})
+        bind.execute(
+            sa.text("UPDATE reconciliation_issues SET occurrences = occurrences + :n WHERE id = :id"), {"n": extra, "id": issue_id}
+        )
     op.create_index(
         "uq_reconciliation_issue_open",
         "reconciliation_issues",

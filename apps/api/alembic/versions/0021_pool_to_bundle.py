@@ -3,6 +3,7 @@
 Tables, indexes, unique and foreign-key constraints are renamed; data is preserved and the downgrade restores the old names.
 Audit history is left untouched (old rows keep their original action names).
 """
+
 import sqlalchemy as sa
 from alembic import op
 

@@ -1,4 +1,5 @@
 """Telegram Event Center: connection-health columns on telegram_event_destinations."""
+
 from alembic import op
 import sqlalchemy as sa
 

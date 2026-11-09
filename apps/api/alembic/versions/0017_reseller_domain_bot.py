@@ -11,6 +11,7 @@ Changes
 
 Existing applications keep NULL in the new columns; only new applications must provide them.
 """
+
 import sqlalchemy as sa
 from alembic import op
 
@@ -29,8 +30,20 @@ def upgrade():
     op.add_column("reseller_applications", sa.Column("bot_username", sa.String(100), nullable=True))
     op.add_column("reseller_applications", sa.Column("bot_verified", sa.Boolean(), nullable=False, server_default=sa.false()))
     op.add_column("reseller_applications", sa.Column("review_reason", sa.String(500), nullable=True))
-    op.create_index("uq_reseller_application_pending_domain", "reseller_applications", ["domain"], unique=True, postgresql_where=sa.text("status = 'pending'"))
-    op.create_index("uq_reseller_application_pending_bot", "reseller_applications", ["bot_key"], unique=True, postgresql_where=sa.text("status = 'pending'"))
+    op.create_index(
+        "uq_reseller_application_pending_domain",
+        "reseller_applications",
+        ["domain"],
+        unique=True,
+        postgresql_where=sa.text("status = 'pending'"),
+    )
+    op.create_index(
+        "uq_reseller_application_pending_bot",
+        "reseller_applications",
+        ["bot_key"],
+        unique=True,
+        postgresql_where=sa.text("status = 'pending'"),
+    )
 
 
 def downgrade():

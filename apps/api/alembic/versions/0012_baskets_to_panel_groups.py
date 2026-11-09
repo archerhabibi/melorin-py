@@ -1,4 +1,5 @@
 """Rename sales baskets to panel groups (tables, columns, indexes and constraints). Data is preserved."""
+
 import sqlalchemy as sa
 from alembic import op
 

@@ -1,4 +1,5 @@
 """Prevent duplicate first-order referral rewards."""
+
 from alembic import op
 import sqlalchemy as sa
 
@@ -12,8 +13,7 @@ def upgrade() -> None:
     op.add_column("commissions", sa.Column("referred_user_id", sa.Uuid(), nullable=True))
     op.execute(
         sa.text(
-            "UPDATE commissions c SET referred_user_id = o.user_id "
-            "FROM orders o WHERE c.order_id = o.id AND c.referred_user_id IS NULL"
+            "UPDATE commissions c SET referred_user_id = o.user_id FROM orders o WHERE c.order_id = o.id AND c.referred_user_id IS NULL"
         )
     )
     op.alter_column("commissions", "referred_user_id", nullable=False)

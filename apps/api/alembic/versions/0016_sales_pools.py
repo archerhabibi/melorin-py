@@ -10,6 +10,7 @@ Changes
 Products without a default pool are NOT assigned automatically; they stay unsellable until an admin puts
 them in a pool (there is no pool-less route any more).
 """
+
 import sqlalchemy as sa
 from alembic import op
 
@@ -45,13 +46,25 @@ def upgrade():
     if rows:
         pool_products = sa.table(
             "pool_products",
-            sa.column("id", sa.Uuid()), sa.column("panel_group_id", sa.Uuid()), sa.column("product_id", sa.Uuid()),
-            sa.column("is_listed", sa.Boolean()), sa.column("sort", sa.Integer()),
+            sa.column("id", sa.Uuid()),
+            sa.column("panel_group_id", sa.Uuid()),
+            sa.column("product_id", sa.Uuid()),
+            sa.column("is_listed", sa.Boolean()),
+            sa.column("sort", sa.Integer()),
         )
-        op.bulk_insert(pool_products, [
-            {"id": uuid.uuid4(), "panel_group_id": uuid.UUID(str(group_id)), "product_id": uuid.UUID(str(product_id)), "is_listed": True, "sort": 0}
-            for product_id, group_id in rows
-        ])
+        op.bulk_insert(
+            pool_products,
+            [
+                {
+                    "id": uuid.uuid4(),
+                    "panel_group_id": uuid.UUID(str(group_id)),
+                    "product_id": uuid.UUID(str(product_id)),
+                    "is_listed": True,
+                    "sort": 0,
+                }
+                for product_id, group_id in rows
+            ],
+        )
 
 
 def downgrade():

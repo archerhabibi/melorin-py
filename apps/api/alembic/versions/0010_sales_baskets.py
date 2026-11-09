@@ -1,4 +1,5 @@
 """Sales baskets: panel pools, naming policy and store overrides."""
+
 from alembic import op
 import sqlalchemy as sa
 

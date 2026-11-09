@@ -3,6 +3,7 @@
 Revision ID: 0008_bot_store_bindings
 Revises: 0007_admin_security
 """
+
 from alembic import op
 import sqlalchemy as sa
 

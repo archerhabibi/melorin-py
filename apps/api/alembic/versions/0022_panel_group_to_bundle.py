@@ -6,6 +6,7 @@ Columns: ``panel_group_id`` -> ``bundle_id`` (bundle_members, store_bundles, bun
 Indexes, unique and foreign-key constraints whose names embed the old words are renamed too (PostgreSQL). Data is preserved
 and the downgrade restores the old names. Audit history is left untouched.
 """
+
 import sqlalchemy as sa
 from alembic import op
 

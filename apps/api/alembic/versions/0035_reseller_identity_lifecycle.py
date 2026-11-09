@@ -6,6 +6,7 @@ Changes
   ``identity_lost_at`` (the schedule and outcome of the periodic re-check of an approved store's domain proof and bot).
 * Approved applications that already proved their domain are scheduled for a first re-check right away.
 """
+
 import sqlalchemy as sa
 from alembic import op
 

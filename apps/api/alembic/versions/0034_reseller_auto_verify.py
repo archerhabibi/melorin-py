@@ -5,6 +5,7 @@ Changes
 * ``reseller_applications`` gains ``domain_verified_at``, ``domain_method``, ``verify_attempts``, ``verify_next_at``
   and ``verify_error`` (proof of domain control and the retry schedule of the background verifier).
 """
+
 import sqlalchemy as sa
 from alembic import op
 

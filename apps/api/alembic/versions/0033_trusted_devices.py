@@ -5,6 +5,7 @@ Changes
 * ``trusted_devices``  new table: browsers that were approved once through the Telegram bot (SHA-256 of the device key).
 * ``telegram_login_sessions``  gains ``device_key_hash``, ``remember`` and ``auto_level``.
 """
+
 import sqlalchemy as sa
 from alembic import op
 

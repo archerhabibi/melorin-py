@@ -3,6 +3,7 @@
 Revision ID: 0007_admin_security
 Revises: 0006_store_scoped_resellers
 """
+
 from alembic import op
 import sqlalchemy as sa
 

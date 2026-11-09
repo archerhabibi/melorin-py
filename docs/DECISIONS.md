@@ -45,3 +45,7 @@ _Merged from the former 12-Change-Log-v1.1.md._
 
 ### موارد باز باقی‌مانده
 در سند `10-Roadmap-Open-Decisions.md` ثبت شده‌اند؛ از جمله درگاه پرداخت، Email Auth، روش تمدید، Reverse Proxy، Storage، Session/JWT، Monitoring stack، بازیافت کمیسیون خرج‌شده، تنظیم گروه‌های تلگرام و سیاست‌های تکمیلی ارز و شارژ دستی.
+
+## T39 / T36 - coverage floors and migration formatting (2026-11-10)
+- Money-handling code has its own line-coverage floors enforced by `scripts/check_coverage_floors.py` in CI (domain 92%, wallet 88%, payments 85%, orders 88%, `core/uow.py` 90%), on top of the global 75% net. Measured on 2026-11-10: 97.4 / 93.2 / 91.0 / 93.1 / 100. Raise floors as coverage grows; do not lower one without recording why here.
+- `alembic/` is now covered by `ruff format --check` (CI and `make lint`). The 37 migration files were reformatted only; the full non-integration suite (2390 tests, incl. the migration baseline contract) passes unchanged.
