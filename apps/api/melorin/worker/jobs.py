@@ -425,7 +425,11 @@ async def panel_admin_sync_job(ctx=None):
 
 
 async def panel_event_job(ctx=None):
-    """Every 10 seconds: process the PasarGuard events the endpoint stored (PG-03). Coalesced per user, leased, safe to run twice."""
+    """Every 10 seconds: process the PasarGuard events the endpoint stored (PG-03). Coalesced per user, leased, safe to run twice.
+
+    This is NOT a second way of receiving events (audit T07): nothing here asks the panel what happened. There is one path in, the webhook
+    (``ingest`` stores each event once by ``(panel_id, dedup_key)``), and one consumer, ``run_pending``; the webhook calls it right away for
+    latency and this job sweeps what is left. Events the panel never delivered are caught by the hourly reconcile, not by polling."""
     stats = await panel_events.run_pending()
     return stats.claimed
 
