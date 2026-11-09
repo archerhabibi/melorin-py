@@ -20,6 +20,13 @@ Commits containing `[skip changelog]` and the bot's own commits are skipped.
 If `main` is protected, allow `github-actions[bot]` to bypass so the bot can push the log.
 
 
+## 2026-11-09 - Panel backup verification works against a newer panel PostgreSQL
+- **Area:** scripts / docs / ops
+- **Before:** `scripts/verify_panel_backup.sh` always called the host's `pg_restore`.
+- **Problem:** found live on the test host: the panel database is PostgreSQL 17, Ubuntu 24.04 ships `pg_restore` 16, so the check of a perfectly good archive failed with `unsupported version (1.16) in file header`.
+- **Action:** optional `PG_RESTORE` (a command, e.g. `docker exec -i pasarguard-timescaledb-1 pg_restore`); the dump is read from stdin; a failure prints pg_restore's message plus a hint. Default behaviour is unchanged. RUNBOOK step 6 documents it.
+- **After:** the latest real archive verified on the test host: checksum OK, age decrypt OK, 330 database objects, 9 data entries (certs included). Prometheus checked live after the `nobody` chown: target `up`, 4 rule groups / 21 rules, `melorin_panel_nodes` returns data.
+
 ## 2026-11-09 - PG-12: the store role name is the admin's choice; PG-05 proven on the live panel
 - **Area:** api / tests / docs / ops
 - **Before:** the store role was the fixed name `melorin-store`; `applied_role()` only recognised that exact name. PG-05 provision/rotate had never been run against a real panel.
