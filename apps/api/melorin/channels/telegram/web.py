@@ -192,20 +192,15 @@ async def _silent_signin(session: AsyncSession, row: TelegramLoginSession, devic
 async def _notify_owner(session: AsyncSession, row: TelegramLoginSession, device, level: str) -> None:
     """Tell the account owner about a login that needed no tap. Deduplicated per device per day so it never spams."""
     how = "بدون نیاز به تأیید (مرورگر و شبکهٔ آشنا)" if level == "silent" else "با باز کردن لینک ربات (مرورگر آشنا)"
-    await events.emit(
+    await events.emit_user_notice(
         session,
-        events.NOTIFY,
-        {
-            "user_id": device.user_id,
-            "store_id": device.store_id,
-            "kind": f"web_login_{level}",
-            "title": "🔐 ورود به وب‌سایت با مرورگر مطمئن",
-            "body": (
-                f"🖥 {row.req_device or 'دستگاه ناشناس'}\n🌐 {row.req_ip or '-'}\n{how}\n\n"
-                "اگر این ورود از طرف شما نبود، دستور /devices را بفرستید و «این من نبودم» را بزنید."
-            ),
-            "dedup_key": f"tg_web_{level}:{device.id}:{utcnow():%Y%m%d}",
-        },
+        device.user_id,
+        device.store_id,
+        f"web_login_{level}",
+        "🔐 ورود به وب‌سایت با مرورگر مطمئن",
+        f"🖥 {row.req_device or 'دستگاه ناشناس'}\n🌐 {row.req_ip or '-'}\n{how}\n\n"
+        "اگر این ورود از طرف شما نبود، دستور /devices را بفرستید و «این من نبودم» را بزنید.",
+        payload_dedup_key=f"tg_web_{level}:{device.id}:{utcnow():%Y%m%d}",
     )
 
 

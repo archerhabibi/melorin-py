@@ -355,16 +355,8 @@ async def resolve(
         store_id=p.store_id,
         data={"shortfall": short, "note": note},
     )
-    await events.emit(
-        session,
-        events.NOTIFY,
-        {
-            "user_id": p.user_id,
-            "store_id": p.store_id,
-            "kind": "payment",
-            "title": "شارژ موقت لغو شد",
-            "body": note or "رسید شما پس از بررسی تأیید نشد و شارژ موقت برگشت خورد.",
-        },
+    await events.emit_user_notice(
+        session, p.user_id, p.store_id, "payment", "شارژ موقت لغو شد", note or "رسید شما پس از بررسی تأیید نشد و شارژ موقت برگشت خورد."
     )
     await session.commit()
     return p

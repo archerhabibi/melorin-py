@@ -131,12 +131,7 @@ async def _emit(session, account, kind: str, title: str, body: str, key: str, *,
         store = await session.get(Store, account.store_id)
         if store is not None and store.vpn_notice_settings:
             title, body = apply_texts(store.vpn_notice_settings, kind, title, body, store_name=store.name or "", level=level)
-    await events.emit(
-        session,
-        events.NOTIFY,
-        {"user_id": account.user_id, "store_id": account.store_id, "kind": kind, "title": title, "body": body, "dedup_key": key},
-        dedup_key=key,
-    )
+    await events.emit_user_notice(session, account.user_id, account.store_id, kind, title, body, payload_dedup_key=key, dedup_key=key)
 
 
 async def expired(session, account) -> None:
