@@ -19,9 +19,11 @@ from sqlalchemy import update
 
 from melorin.core import audit
 from melorin.core.errors import AppError
+from melorin.core.uow import unit_of_work
 from melorin.kernel.models.vpn import Panel, PanelAdmin
 from melorin.modules.vpn.adapters import registry
 from melorin.modules.vpn.adapters.base import PanelError
+from melorin.modules.vpn.adapters.lifecycle import close_adapter
 
 log = logging.getLogger("melorin.vpn.store_role")
 
@@ -105,27 +107,20 @@ async def apply(session, panel: Panel, *, bootstrap: dict | None, actor_id=None,
             detail = (getattr(exc, "message", None) or str(exc))[:200]
             raise AppError("STORE_ROLE_FAILED", f"Panel refused the role: {detail}", 502) from exc
     finally:
-        close = getattr(adapter, "close", None)
-        if callable(close):
-            try:
-                res = close()
-                if hasattr(res, "__await__"):
-                    await res
-            except Exception:
-                log.debug("store role: adapter close failed", exc_info=True)
+        await close_adapter(adapter)
     previous = (panel.config or {}).get("admin_role")
     panel.config = {**(panel.config or {}), "admin_role": name, "admin_role_managed": True}
-    await _due_for_sync(session, panel)
-    audit.record(
-        session,
-        "panel.store_role.applied",
-        actor_id=actor_id,
-        actor_type="admin",
-        entity_type="panel",
-        entity_id=panel.id,
-        data={"role": name, "role_id": role.get("id") if isinstance(role, dict) else None, "previous": previous},
-    )
-    await session.commit()
+    async with unit_of_work(session):
+        await _due_for_sync(session, panel)
+        audit.record(
+            session,
+            "panel.store_role.applied",
+            actor_id=actor_id,
+            actor_type="admin",
+            entity_type="panel",
+            entity_id=panel.id,
+            data={"role": name, "role_id": role.get("id") if isinstance(role, dict) else None, "previous": previous},
+        )
     return {
         "applied": True,
         "role": name,
@@ -140,15 +135,15 @@ async def revert(session, panel: Panel, *, actor_id=None) -> dict:
     had = cfg.pop("admin_role", None)
     cfg.pop("admin_role_managed", None)
     panel.config = cfg
-    await _due_for_sync(session, panel)
-    audit.record(
-        session,
-        "panel.store_role.reverted",
-        actor_id=actor_id,
-        actor_type="admin",
-        entity_type="panel",
-        entity_id=panel.id,
-        data={"was": had},
-    )
-    await session.commit()
+    async with unit_of_work(session):
+        await _due_for_sync(session, panel)
+        audit.record(
+            session,
+            "panel.store_role.reverted",
+            actor_id=actor_id,
+            actor_type="admin",
+            entity_type="panel",
+            entity_id=panel.id,
+            data={"was": had},
+        )
     return {"applied": False, "role": "operator"}
