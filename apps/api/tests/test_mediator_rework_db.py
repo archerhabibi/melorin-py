@@ -195,7 +195,7 @@ async def test_link_existing_points_a_missing_account_at_the_real_panel_user(mak
     import types
 
     from melorin.kernel.models.vpn import PanelOrphan
-    from melorin.modules.admin import panel_ops
+    from melorin.modules.admin import panel_reconciliation
 
     panel_id, ids = await seed(maker, ["old_name"])
     async with maker() as s:
@@ -208,11 +208,13 @@ async def test_link_existing_points_a_missing_account_at_the_real_panel_user(mak
         async def fake_reconcile(session, account_id):
             return "ok"
 
-        monkeypatch.setattr(panel_ops.reconcile, "reconcile_account", fake_reconcile)
-        assert "link_existing" in panel_ops.allowed_actions(issues.MISSING, "open")
+        monkeypatch.setattr(panel_reconciliation.reconcile, "reconcile_account", fake_reconcile)
+        assert "link_existing" in panel_reconciliation.allowed_actions(issues.MISSING, "open")
         with pytest.raises(AppError):  # an orphan is required
-            await panel_ops.issue_action(issue.id, panel_ops.IssueActionIn(action="link_existing"), admin, s)
-        await panel_ops.issue_action(issue.id, panel_ops.IssueActionIn(action="link_existing", orphan_id=orphan.id), admin, s)
+            await panel_reconciliation.issue_action(issue.id, panel_reconciliation.IssueActionIn(action="link_existing"), admin, s)
+        await panel_reconciliation.issue_action(
+            issue.id, panel_reconciliation.IssueActionIn(action="link_existing", orphan_id=orphan.id), admin, s
+        )
         acc = await s.get(VpnAccount, ids["old_name"])
         assert acc.username == "renamed_on_panel" and acc.panel_ref == "42"
         assert (await s.get(PanelOrphan, orphan.id)).status == "gone"
