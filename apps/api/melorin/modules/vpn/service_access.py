@@ -20,6 +20,7 @@ import json
 import logging
 import secrets
 
+from melorin.modules.vpn.panel_session import closer
 from melorin.core import audit
 from melorin.core.crypto import encrypt
 from melorin.core.errors import AppError
@@ -98,15 +99,7 @@ def _bootstrap_credentials(bootstrap: dict | None) -> dict | None:
     raise AppError("BOOTSTRAP_CREDENTIAL_INVALID", "Give an owner api_key, or username and password.", 422)
 
 
-async def _close(adapter) -> None:
-    close = getattr(adapter, "close", None)
-    if callable(close):
-        try:
-            res = close()
-            if hasattr(res, "__await__"):
-                await res
-        except Exception:
-            log.debug("service access: adapter close failed", exc_info=True)
+_close = closer("service access")
 
 
 def _fail(step: str, exc: Exception) -> AppError:

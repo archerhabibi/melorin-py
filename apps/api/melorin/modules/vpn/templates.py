@@ -26,6 +26,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from melorin.modules.vpn.panel_session import closer
 from melorin.core import audit
 from melorin.core.errors import AppError
 from melorin.kernel.models.catalog import Product
@@ -112,11 +113,7 @@ def _panel_error(exc: PanelError) -> AppError:
     return AppError("PANEL_UNAVAILABLE", "پنل در حال حاضر پاسخ نمی‌دهد؛ چند لحظه بعد دوباره تلاش کنید.", 503)
 
 
-async def _close(adapter) -> None:
-    try:
-        await adapter.close()
-    except Exception:
-        log.warning("adapter close failed", exc_info=True)
+_close = closer("templates")
 
 
 def ensure_supported(panel: Panel) -> None:

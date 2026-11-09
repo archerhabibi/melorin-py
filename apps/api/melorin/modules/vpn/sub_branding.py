@@ -28,6 +28,7 @@ from urllib.parse import urlsplit
 
 from sqlalchemy import select
 
+from melorin.modules.vpn.panel_session import closer
 from melorin.core import audit
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError
@@ -142,15 +143,7 @@ def _adapter(panel: Panel):
     return adapter
 
 
-async def _close(adapter) -> None:
-    close = getattr(adapter, "close", None)
-    if callable(close):
-        try:
-            res = close()
-            if hasattr(res, "__await__"):
-                await res
-        except Exception:
-            log.debug("sub branding: adapter close failed", exc_info=True)
+_close = closer("sub branding")
 
 
 async def preview(session, store: Store, panel: Panel) -> dict:

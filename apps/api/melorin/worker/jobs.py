@@ -2,7 +2,6 @@
 
 import asyncio
 import datetime as dt
-import inspect
 import logging
 import os
 from pathlib import Path
@@ -15,20 +14,14 @@ from melorin.kernel.models.identity import VerificationCode
 from melorin.kernel.models.system import BackupRun
 from melorin.modules.eventcenter import report as event_center_report
 from melorin.modules.eventcenter import rules as event_center_rules
+from melorin.modules.vpn.panel_session import close_adapter
 from melorin.modules.vpn import capabilities, capacity, health, live, notices, panel_events, reconcile, sync
 from melorin.kernel.models.vpn import Panel, VpnAccount
 
 log = logging.getLogger("melorin.jobs")
 
 
-async def _close_adapter(adapter) -> None:
-    """Close adapters safely, including legacy/test adapters with sync close()."""
-    close = getattr(adapter, "close", None)
-    if not close:
-        return
-    result = close()
-    if inspect.isawaitable(result):
-        await result
+_close_adapter = close_adapter  # audit T02: single lifecycle helper in vpn/panel_session
 
 
 async def backup_job(ctx=None):

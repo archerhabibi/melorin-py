@@ -15,6 +15,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from melorin.modules.vpn.panel_session import closer
 from melorin.core import audit
 from melorin.core.errors import AppError, NotFound
 from melorin.kernel.models.vpn import Panel, PanelNode
@@ -52,15 +53,7 @@ def reason_required(reason: str | None) -> str:
     return reason[:300]
 
 
-async def _close(adapter) -> None:
-    close = getattr(adapter, "close", None)
-    if callable(close):
-        try:
-            res = close()
-            if hasattr(res, "__await__"):
-                await res
-        except Exception:
-            log.warning("ops console: adapter close failed", exc_info=True)
+_close = closer("ops console")
 
 
 async def _panel(session: AsyncSession, panel_id: uuid.UUID) -> Panel:
