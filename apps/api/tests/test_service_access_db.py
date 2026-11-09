@@ -32,6 +32,9 @@ class FakeOwner:
     async def ensure_admin(self, username, password, *, role="operator", profile=None):
         self.calls.append(("admin", username, role))
         assert len(password) >= 32
+        # PasarGuard's password rule (a random token_urlsafe sometimes broke it: 422 found on the live panel)
+        assert sum(c.isdigit() for c in password) >= 2 and sum(c.isupper() for c in password) >= 2
+        assert sum(c.islower() for c in password) >= 2 and any(not c.isalnum() for c in password)
         return {"id": 42, "username": username}
 
     async def create_api_key(self, admin_id, name, note=None):

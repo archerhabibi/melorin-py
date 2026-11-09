@@ -28,6 +28,7 @@ from melorin.modules.vpn import capabilities as panel_caps
 from melorin.modules.vpn.adapters import registry
 from melorin.modules.vpn.adapters.base import PanelError
 from melorin.modules.vpn.adapters.pasarguard.capabilities import CAPABILITY_REQUIREMENTS
+from melorin.modules.vpn.panel_admins import generate_password
 
 log = logging.getLogger("melorin.vpn.service_access")
 
@@ -141,7 +142,7 @@ async def _issue(session, panel: Panel, *, bootstrap: dict | None, actor_id, rep
     try:
         try:
             await owner.ensure_role(role_body())
-            admin = await owner.ensure_admin(ADMIN_USERNAME, secrets.token_urlsafe(32), role=ROLE_NAME)  # password is thrown away: key only
+            admin = await owner.ensure_admin(ADMIN_USERNAME, generate_password() + generate_password(), role=ROLE_NAME)  # thrown away: key only; meets the panel's password rule (found live: token_urlsafe sometimes had no special character -> 422)
             admin_id = int(admin["id"])
             new_key = await owner.create_api_key(admin_id, f"melorin-service-{secrets.token_hex(3)}", "Managed by Melorin (PG-05)")
         except PanelError as exc:
