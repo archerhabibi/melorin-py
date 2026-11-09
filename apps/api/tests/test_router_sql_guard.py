@@ -18,13 +18,20 @@ CLEAN = [
 ]
 
 
+def _is_sql_builder(func: ast.expr) -> bool:
+    """``select(...)``/``update(...)`` etc. from SQLAlchemy - not ``dict.update(...)`` (only ``sa.``/``sqlalchemy.`` attributes count)."""
+    if isinstance(func, ast.Name):
+        return func.id in {"select", "update", "delete", "insert"}
+    return (
+        isinstance(func, ast.Attribute)
+        and func.attr in {"select", "update", "delete", "insert"}
+        and getattr(func.value, "id", "") in {"sa", "sqlalchemy"}
+    )
+
+
 def _selects(path: Path) -> list[int]:
     tree = ast.parse(path.read_text())
-    return [
-        n.lineno
-        for n in ast.walk(tree)
-        if isinstance(n, ast.Call) and getattr(n.func, "id", getattr(n.func, "attr", None)) in {"select", "update", "delete", "insert"}
-    ]
+    return [n.lineno for n in ast.walk(tree) if isinstance(n, ast.Call) and _is_sql_builder(n.func)]
 
 
 def test_clean_routers_build_no_sql():
@@ -33,7 +40,7 @@ def test_clean_routers_build_no_sql():
 
 
 MODULES = Path(__file__).resolve().parents[1] / "melorin" / "modules"
-CLEAN_MODULE_ROUTERS = ["notifications", "wallet", "reports"]
+CLEAN_MODULE_ROUTERS = ["notifications", "wallet", "reports", "payments", "orders", "tickets", "loyalty", "referral"]
 
 
 def test_clean_module_routers_build_no_sql():

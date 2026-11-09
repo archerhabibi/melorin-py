@@ -11,15 +11,13 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import select
 
 from melorin.core import deps
 from melorin.core.deps import Session, StoreContext, StoreCtx
 from melorin.core.errors import Forbidden
 from melorin.domain import loyalty as rules
 from melorin.domain.loyalty import Tier
-from melorin.kernel.models.loyalty import LoyaltyRedemption
-from melorin.modules.loyalty import service
+from melorin.modules.loyalty import queries, service
 
 router = APIRouter(tags=["loyalty"])
 
@@ -131,14 +129,7 @@ async def redeem_reward(
 
 @router.get("/stores/{store_id}/loyalty/redemptions")
 async def my_redemptions(ctx: StoreCtx, session: Session, limit: int = Query(default=20, ge=1, le=service.HISTORY_MAX)):
-    rows = (
-        await session.scalars(
-            select(LoyaltyRedemption)
-            .where(LoyaltyRedemption.store_id == ctx.store.id, LoyaltyRedemption.user_id == ctx.user.id)
-            .order_by(LoyaltyRedemption.created_at.desc())
-            .limit(limit)
-        )
-    ).all()
+    rows = await queries.my_redemptions(session, ctx.store.id, ctx.user.id, limit)
     return [
         {
             "id": r.id,
