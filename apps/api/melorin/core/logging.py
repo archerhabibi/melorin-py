@@ -2,7 +2,7 @@ import json
 import logging
 import sys
 
-from melorin.core.context import correlation_id
+from melorin.core.context import correlation_id, trace_id
 from melorin.core.redact import scrub
 
 redact = scrub  # back-compat name (audit T20 tests and callers import it from here)
@@ -17,6 +17,7 @@ class JsonFormatter(logging.Formatter):
             "logger": record.name,
             "msg": msg,
             "correlation_id": correlation_id.get(),
+            "trace_id": trace_id.get(),
         }
         if record.exc_info:
             data["exc"] = scrub(self.formatException(record.exc_info))

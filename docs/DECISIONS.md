@@ -66,6 +66,14 @@ _Merged from the former 12-Change-Log-v1.1.md._
 - Done: the PostgreSQL lane (`postgres-lane` in `ci.yml`) is a normal required job (no `continue-on-error`); broad `except Exception` handlers are ratcheted by `test_broad_except_exception_count_only_ratchets_down` (ceiling 104, lower it when you narrow one).
 - Deferred on purpose, each needs a real Docker host or product input that this remediation did not have:
   - T-R14 backup out of the Worker: moving `backup_job`/`panel_backup_job` into a dedicated ops container changes the compose topology and the restore drill; do it together with a first compose run on a Docker host.
-  - T-R13 OpenTelemetry and a CI performance budget: adds hash-locked dependencies and an exporter choice; decide the collector first, then wire `load_probe.py` against the full stack.
-  - T-R11 splitting the large JSX views (`store-web/App.jsx`, `ProductsView`, `TicketsView`, `PaymentsView`) and gradual TypeScript: do it one view per PR with the vitest suites as the safety net.
+  - T-R13 OpenTelemetry exporter and a CI performance budget: tracing now exists without new dependencies (see "Trace context" below); an exporter needs a collector decision and hash-locked packages. The `load_probe.py` budget needs the full stack.
+  - T-R11 remaining: `store-web/App.jsx` still holds the 1,000-line `App` component and the three admin views were split by block, not by feature; keep going one view per PR with the vitest suites as the safety net. Gradual TypeScript is not started.
+  - T-W08 ESLint ceilings stay at 13 / 25: each remaining warning is a `react-hooks/exhaustive-deps` case where a blind fix can loop or refetch, so they need a browser check, not a bulk edit.
   - Merging the pasarguard test files into ~6 files: renames are done; physical merging is cosmetic and was left out to keep git history of each suite readable.
+
+## Trace context (T-G06, 2026-11-10)
+- `CorrelationMiddleware` honours an inbound W3C `traceparent` (or creates a trace id), echoes `traceparent` on the response, and every JSON log line carries `trace_id`. `core/http.outbound_client` forwards the same trace id to peers. No SDK, collector or new dependency; `traceparent` is in the CORS allow-list. Tests: `tests/unit/test_tracing.py`.
+
+## T-R11 first split (2026-11-10)
+- `store-web/App.jsx`: static copy, constants, `Logo` and `HeroVisual` moved to `landing.jsx`.
+- `admin-web`: `TicketsView` -> `ticketsShared.jsx` + `TicketConversation.jsx`; `PaymentsView` -> `paymentsShared.jsx` + `PaymentParts.jsx`; `ProductsView` -> `productsShared.jsx` + `ProductParts.jsx`. Pure moves: vitest 79 / 215 pass and both builds are unchanged in size.

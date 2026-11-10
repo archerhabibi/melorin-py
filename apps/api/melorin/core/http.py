@@ -22,6 +22,8 @@ from typing import Any
 import httpx
 
 from melorin.core import metrics
+from melorin.core.context import trace_id
+from melorin.core.tracing import format_traceparent
 
 DEFAULT_TIMEOUT = httpx.Timeout(10.0, connect=5.0)
 USER_AGENT = "melorin-core/1"
@@ -34,6 +36,9 @@ def _status_class(code: int) -> str:
 
 async def _on_request(request: httpx.Request) -> None:
     request.extensions[_T0] = time.monotonic()
+    current = trace_id.get()
+    if current and "traceparent" not in request.headers:
+        request.headers["traceparent"] = format_traceparent(current)
 
 
 def _make_response_hook(purpose: str):

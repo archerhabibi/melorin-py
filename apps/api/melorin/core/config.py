@@ -157,7 +157,15 @@ class Settings(BaseSettings):
     public_api_url: str = ""
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:3001"]
     cors_allow_methods: list[str] = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
-    cors_allow_headers: list[str] = ["Accept", "Authorization", "Content-Type", "Idempotency-Key", "X-Bot-Secret", "X-Request-ID"]
+    cors_allow_headers: list[str] = [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "X-Bot-Secret",
+        "X-Request-ID",
+        "traceparent",
+    ]
     storage_dir: str = "./var/storage"
     max_upload_bytes: int = 5 * 1024 * 1024
     # Automatic reading of card-to-card receipts (docs/20-Card-Receipt-Auto-Verification.md): auto | vision | tesseract | off

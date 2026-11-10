@@ -4,7 +4,8 @@ import logging
 
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from melorin.core.context import client_ip, correlation_id
+from melorin.core.context import client_ip, correlation_id, trace_id as trace_id_var
+from melorin.core.tracing import format_traceparent, new_trace_id, parse_traceparent
 from melorin.core.config import get_settings
 from melorin.core.metrics import inc, observe
 from melorin.core.proxy import is_trusted_proxy, resolve_client_ip
@@ -40,6 +41,8 @@ class CorrelationMiddleware:
         ip = resolve_client_ip(direct, fwd, get_settings().trusted_proxy_ips)
         t1 = correlation_id.set(rid)
         t2 = client_ip.set(ip)
+        trace = parse_traceparent(headers.get(b"traceparent", b"").decode()) or new_trace_id()
+        t3 = trace_id_var.set(trace)
         start = time.perf_counter()
         status = {"code": 0}
 
@@ -47,6 +50,7 @@ class CorrelationMiddleware:
             if msg["type"] == "http.response.start":
                 status["code"] = msg["status"]
                 msg.setdefault("headers", []).append((b"x-request-id", rid.encode()))
+                msg["headers"].append((b"traceparent", format_traceparent(trace).encode()))
             await send(msg)
 
         try:
@@ -60,6 +64,7 @@ class CorrelationMiddleware:
             log.info("%s %s %s %.1fms", scope["method"], scope["path"], status["code"], ms)
             correlation_id.reset(t1)
             client_ip.reset(t2)
+            trace_id_var.reset(t3)
 
 
 # Baseline headers for an API that only returns JSON, text, images and CSV (Phase 5.6, audit W18). The interactive docs

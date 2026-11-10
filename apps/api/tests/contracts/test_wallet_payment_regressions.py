@@ -7,7 +7,9 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def test_main_payment_settings_have_first_class_forms():
     extra = read_web_source(ROOT.parent / "admin-web/src/AdminExtra.jsx")
-    payments = read_web_source(ROOT.parent / "admin-web/src/PaymentsView.jsx")
+    payments = "".join(
+        read_web_source(ROOT.parent / "admin-web/src" / name) for name in ("PaymentsView.jsx", "PaymentParts.jsx", "paymentsShared.jsx")
+    )
     # Payment gateway settings now live inside the redesigned Payments screen.
     assert "پرداخت‌ها: PaymentsView" in extra
     assert "GatewaySettings" in payments

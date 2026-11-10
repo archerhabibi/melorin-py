@@ -289,7 +289,9 @@ def test_bot_rename_and_close_and_reopen(bot):
 
 # ---------------------------------------------------------------- web front-ends
 def test_web_ticket_screens_use_the_new_edit_endpoints():
-    admin_ui = read_web_source(APPS / "admin-web" / "src" / "TicketsView.jsx")
+    admin_ui = "".join(
+        read_web_source(APPS / "admin-web" / "src" / name) for name in ("TicketsView.jsx", "TicketConversation.jsx", "ticketsShared.jsx")
+    )
     for needle in ("/api/v1/admin/tickets", "/messages/${m.id}", 'method: "PATCH"', "internal", "ویرایش‌شده"):
         assert needle in admin_ui
     assert "TicketsView" in read_web_source(APPS / "admin-web" / "src" / "AdminExtra.jsx")
