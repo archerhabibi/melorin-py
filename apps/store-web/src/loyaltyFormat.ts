@@ -2,10 +2,18 @@
 import { fa } from './ui.jsx';
 
 // 10000 = 1.0x. "۱٫۲۵×" for 12500.
-export const multiplierLabel = (bp) => `${fa(Number(bp || 10000) / 10000)}×`;
+export const multiplierLabel = (bp?: number | null): string => `${fa(Number(bp || 10000) / 10000)}×`;
 
 // Progress (0..100) from the current tier's threshold toward the next one; 100 when already at the top.
-export function tierProgress(current, next, lifetime) {
+export interface Tier {
+  min_points: number;
+}
+
+export function tierProgress(
+  current: Tier | null | undefined,
+  next: Tier | null | undefined,
+  lifetime: number,
+): number {
   if (!next) return 100;
   const from = current?.min_points ?? 0;
   const span = next.min_points - from;
@@ -13,7 +21,7 @@ export function tierProgress(current, next, lifetime) {
   return Math.max(0, Math.min(100, Math.round(((lifetime - from) / span) * 100)));
 }
 
-export const TX_KIND = {
+export const TX_KIND: Record<string, string> = {
   order_earn: 'امتیاز خرید',
   first_order_bonus: 'هدیهٔ اولین خرید',
   referral_bonus: 'هدیهٔ دعوت دوست',
@@ -23,7 +31,7 @@ export const TX_KIND = {
   redeem: 'دریافت پاداش',
 };
 
-export const BLOCKED = {
+export const BLOCKED: Record<string, string> = {
   LOYALTY_NOT_ENOUGH_POINTS: 'امتیاز کافی نیست',
   LOYALTY_REWARD_SOLD_OUT: 'موجودی تمام شده',
   LOYALTY_REWARD_LIMIT: 'سقف دریافت شما پر شده',

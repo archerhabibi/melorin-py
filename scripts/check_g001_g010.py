@@ -13,7 +13,19 @@ def has(needle: str, text: str) -> bool:
     return squash(needle) in squash(text)
 
 
-store = (root / "apps/store-web/src/App.jsx").read_text()
+# App.jsx was split into components (T-R11): the storefront shell is the sum of these files.
+STORE_SHELL = (
+    "App.jsx",
+    "SiteHeader.jsx",
+    "HeroSection.jsx",
+    "PlansSection.jsx",
+    "InfoSections.jsx",
+    "AccountBanner.jsx",
+    "SiteFooter.jsx",
+    "MobileNav.jsx",
+    "StoreDialogs.jsx",
+)
+store = "\n".join((root / "apps/store-web/src" / n).read_text() for n in STORE_SHELL)
 admin = (root / "apps/admin-web/src/App.jsx").read_text()
 caddy = (root / "infra/Caddyfile").read_text()
 api = (root / "apps/api/melorin/app.py").read_text()
@@ -27,7 +39,8 @@ checks = {
     "G005": "/health/*" in caddy and '@app.get("/healthz"' in api,
     "G006": "pytest==" in req and "ruff==" in req,
     "G007": (root / "scripts/preflight.py").is_file(),
-    "G008": (has("catalog.length ? catalog.map", store) or (has("catalog.length ? (", store) and has("catalog.map(", store))) and not has("catalog.length ? catalog : demoPlans", store),
+    "G008": (has("catalog.length ? catalog.map", store) or (has("catalog.length ? (", store) and has("catalog.map(", store)))
+    and not has("catalog.length ? catalog : demoPlans", store),
     "G009": (root / "scripts/check_frontend_contracts.py").is_file(),
     "G010": "drop_all" not in base and "create_all" not in base,
 }

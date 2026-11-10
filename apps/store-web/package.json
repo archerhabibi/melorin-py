@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
@@ -31,6 +32,7 @@
     "jsdom": "29.1.1",
     "prettier": "3.9.9",
     "tailwindcss": "4.3.3",
+    "typescript": "5.9.3",
     "vite": "7.3.7",
     "vitest": "5.0.5"
   },

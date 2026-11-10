@@ -136,6 +136,26 @@ def normalize_web_source(text: str) -> str:
     return normalize_source(_SIMPLE_SQ_STRING.sub(r'"\1"', text))
 
 
+# App.jsx was split into components (T-R11); the storefront shell is the sum of these files.
+STORE_SHELL_FILES = (
+    "App.jsx",
+    "SiteHeader.jsx",
+    "HeroSection.jsx",
+    "PlansSection.jsx",
+    "InfoSections.jsx",
+    "AccountBanner.jsx",
+    "SiteFooter.jsx",
+    "MobileNav.jsx",
+    "StoreDialogs.jsx",
+)
+
+
+def read_store_shell(root: str | Path) -> str:
+    """Normalised text of the storefront shell (App.jsx + the components split out of it)."""
+    base = Path(root) / "apps/store-web/src"
+    return "\n".join(read_web_source(base / name) for name in STORE_SHELL_FILES)
+
+
 def read_web_source(path: str | Path) -> str:
     """Return the normalised text of a JS/JSX file (needles must be written with double quotes)."""
     return normalize_web_source(Path(path).read_text(encoding="utf-8"))

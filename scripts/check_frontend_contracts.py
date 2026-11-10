@@ -13,7 +13,19 @@ def has(needle: str, text: str) -> bool:
     return squash(needle) in squash(text)
 
 
-store = (root / "apps/store-web/src/App.jsx").read_text()
+# App.jsx was split into components (T-R11): the storefront shell is the sum of these files.
+STORE_SHELL = (
+    "App.jsx",
+    "SiteHeader.jsx",
+    "HeroSection.jsx",
+    "PlansSection.jsx",
+    "InfoSections.jsx",
+    "AccountBanner.jsx",
+    "SiteFooter.jsx",
+    "MobileNav.jsx",
+    "StoreDialogs.jsx",
+)
+store = "\n".join((root / "apps/store-web/src" / n).read_text() for n in STORE_SHELL)
 admin = (root / "apps/admin-web/src/App.jsx").read_text()
 caddy = (root / "infra/Caddyfile").read_text()
 api = (root / "apps/api/melorin/app.py").read_text()
@@ -24,7 +36,9 @@ checks = {
     "No unscoped order collection": not has('coreFetch("/api/v1/orders")', store),
     "Admin ticket badge is defined": has("{openTickets}</span>", admin) and not has("{tickets}</span>", admin),
     "Admin section tables are mounted": has("<AdminSectionView section={section} api={api} toast={toast}/>", admin),
-    "Demo fallback is not rendered": (has("catalog.length ? catalog.map", store) or (has("catalog.length ? (", store) and has("catalog.map(", store)))
+    "Demo fallback is not rendered": (
+        has("catalog.length ? catalog.map", store) or (has("catalog.length ? (", store) and has("catalog.map(", store))
+    )
     and not has("catalog.length ? catalog : demoPlans", store),
     "Proxy health paths exist": "/health/*" in caddy and "/health " in caddy,
     "Health compatibility endpoint exists": '@app.get("/healthz"' in api,

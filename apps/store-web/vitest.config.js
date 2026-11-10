@@ -16,7 +16,7 @@ export default defineConfig({
     // vmThreads: per-file VM contexts in worker threads, cheaper than forked processes (T-R05/Phase 1).
     pool: 'vmThreads',
     environment: 'jsdom',
-    include: ['tests/**/*.test.{js,jsx}'],
+    include: ['tests/**/*.test.{js,jsx,ts,tsx}'],
     setupFiles: ['tests/setup.js'],
     restoreMocks: true,
     unstubGlobals: true,

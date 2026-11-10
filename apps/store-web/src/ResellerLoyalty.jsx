@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Award, Plus, Save, Trash2 } from 'lucide-react';
 import { Empty, Loading, fa } from './ui.jsx';
-import { toInt, unitOf } from './storeProgram.js';
-import { multiplierLabel } from './loyaltyFormat.js';
+import { toInt, unitOf } from './storeProgram.ts';
+import { multiplierLabel } from './loyaltyFormat.ts';
 
 const J = { 'Content-Type': 'application/json' };
 

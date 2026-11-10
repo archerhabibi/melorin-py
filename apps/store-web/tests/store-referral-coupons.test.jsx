@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import Referral from '../src/Referral.jsx';
 import ResellerReferral from '../src/ResellerReferral.jsx';
 import ResellerCoupons from '../src/ResellerCoupons.jsx';
-import { describePlan, percentToBp, toInt } from '../src/storeProgram.js';
+import { describePlan, percentToBp, toInt } from '../src/storeProgram.ts';
 
 const res = (body, status = 200) => new Response(JSON.stringify(body), { status });
 

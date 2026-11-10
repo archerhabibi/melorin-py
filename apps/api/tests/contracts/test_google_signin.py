@@ -145,8 +145,9 @@ def test_both_apps_use_googles_official_button_with_one_shared_initialisation():
 
 
 def test_login_pages_use_the_shared_button_and_no_legacy_hook():
-    for path in ("apps/store-web/src/App.jsx", "apps/admin-web/src/AdminAuth.jsx"):
-        src = (PROJECT / path).read_text()
+    from _source import read_store_shell
+
+    for src in (read_store_shell(PROJECT), (PROJECT / "apps/admin-web/src/AdminAuth.jsx").read_text()):
         assert "<GoogleSignInButton" in src and "useGoogleSignIn" not in src
     admin = read_web_source(PROJECT / "apps/admin-web/src/AdminAuth.jsx")
     assert "payload?.error?.code" in admin  # API errors are {error: {code}}

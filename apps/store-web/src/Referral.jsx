@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Copy, Gift } from 'lucide-react';
 import { Empty, Loading, fa } from './ui.jsx';
-import { describePlan, unitOf } from './storeProgram.js';
+import { describePlan, unitOf } from './storeProgram.ts';
 
 const KIND = { signup_reward: 'پاداش اولین خرید دوست', commission: 'کمیسیون' };
 const STATUS = { credited: 'واریز شد', reversed: 'برگشت‌خورده' };

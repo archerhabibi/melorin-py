@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from _source import read_source, read_web_source
+from _source import read_source, read_store_shell, read_web_source
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -102,7 +102,7 @@ def test_async_test_tooling_is_pinned():
 
 
 def test_store_frontend_does_not_fallback_to_demo_plans():
-    source = read_web_source(ROOT.parent.parent / "apps/store-web/src/App.jsx")
+    source = read_store_shell(ROOT.parent.parent)
     assert "const demoPlans" not in source
     assert "catalog.length ?" in source
     assert "catalog.length ? catalog : demoPlans" not in source

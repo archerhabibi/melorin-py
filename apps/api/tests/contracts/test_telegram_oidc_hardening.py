@@ -1,7 +1,7 @@
 # ruff: noqa: F811  (pytest fixtures imported from the R01 module are used as arguments)
 """Hardening of the Telegram login pass (R02): flow-cookie key separation, error classification, panel diagnostics, UI contract."""
 
-from _source import read_web_source
+from _source import read_store_shell, read_web_source
 import pathlib
 
 import httpx
@@ -185,7 +185,7 @@ async def test_panel_test_explains_switched_off_states(world, monkeypatch):
 
 # ---------------- UI contract ----------------
 def test_storefront_uses_the_shared_buttons_and_retries_after_a_failed_redirect():
-    app = read_web_source(ROOT / "apps/store-web/src/App.jsx") + read_web_source(ROOT / "apps/store-web/src/landing.jsx")
+    app = read_store_shell(ROOT) + read_web_source(ROOT / "apps/store-web/src/landing.jsx")
     assert 'import TelegramLoginButtons from "./TelegramLoginButtons.jsx"' in app and "<TelegramLoginButtons" in app
     assert "TG_RETRY" in app and 'setModal("login")' in app and "origin_mismatch" in app
     btn = read_web_source(ROOT / "apps/store-web/src/TelegramLoginButtons.jsx")

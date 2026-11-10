@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { publicGet, publicGetOrNull } from '../src/coreApi.js';
+import { publicGet, publicGetOrNull } from '../src/coreApi.ts';
 
 const reply = (status, body) => ({ status, ok: status < 400, text: async () => JSON.stringify(body) });
 

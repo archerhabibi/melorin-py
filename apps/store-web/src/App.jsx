@@ -3,7 +3,7 @@
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import Dashboard, { Faq } from './Dashboard.jsx';
 import { clearTokens, getAccessToken, setTokens } from './auth.js';
-import { publicGet, publicGetOrNull } from './coreApi.js';
+import { publicGet, publicGetOrNull } from './coreApi.ts';
 import { googleSignOut } from './GoogleSignIn.jsx';
 import TelegramLogin from './TelegramLogin.jsx';
 import { PurchaseResult } from './Subscription.jsx';

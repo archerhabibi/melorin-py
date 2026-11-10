@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Gift, Save } from 'lucide-react';
 import { Empty, Loading, fa } from './ui.jsx';
-import { percentToBp, toInt, unitOf } from './storeProgram.js';
+import { percentToBp, toInt, unitOf } from './storeProgram.ts';
 
 const J = { 'Content-Type': 'application/json' };
 const KINDS = [

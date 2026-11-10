@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Loyalty from '../src/Loyalty.jsx';
-import { multiplierLabel, tierProgress } from '../src/loyaltyFormat.js';
+import { multiplierLabel, tierProgress } from '../src/loyaltyFormat.ts';
 
 const res = (body, status = 200) => new Response(JSON.stringify(body), { status });
 

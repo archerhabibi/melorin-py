@@ -77,3 +77,10 @@ _Merged from the former 12-Change-Log-v1.1.md._
 ## T-R11 first split (2026-11-10)
 - `store-web/App.jsx`: static copy, constants, `Logo` and `HeroVisual` moved to `landing.jsx`.
 - `admin-web`: `TicketsView` -> `ticketsShared.jsx` + `TicketConversation.jsx`; `PaymentsView` -> `paymentsShared.jsx` + `PaymentParts.jsx`; `ProductsView` -> `productsShared.jsx` + `ProductParts.jsx`. Pure moves: vitest 79 / 215 pass and both builds are unchanged in size.
+
+## T-R11 close-out: App split + gradual TypeScript (2026-11-10)
+- `store-web/App.jsx` 1,084 -> ~545 lines: header, hero, plans, how/why, account banner, footer, mobile nav and the five dialog bodies (`StoreDialogs.jsx`) are components now; state and effects stay in `App` on purpose (no behaviour change, no new hooks).
+- Safety net is a real browser, not only jsdom: `e2e/tests/store.purchase.spec.js` (email-code login, quote -> wallet payment -> delivery dialog, insufficient funds, bot handoff, expired handoff, Tg error redirect, mobile menu) was written and passing BEFORE the split and is identical after it (Playwright + Chromium, Core mocked with `page.route`). Run: `cd e2e && npm ci && npx playwright install --with-deps chromium && npx playwright test`. Needs Node >= 20.19 (Vite 7).
+- TypeScript is started in `store-web` (strict, `allowJs`, `checkJs: false`): `coreApi.ts`, `storeProgram.ts`, `loyaltyFormat.ts` are typed; `npm run typecheck` is a CI step. Convert one leaf module per PR; do not turn on `checkJs` until the JSX components are typed.
+- Source-contract guards (`check_g001_g010.py`, `check_frontend_contracts.py`, `tests/_source.read_store_shell`) read the storefront shell as App.jsx + the split files, so a guard cannot pass by looking at only half the code. First-load budget for store-web raised 272 -> 273 kB for the extra component boundaries.
+- Still open: admin-web has no TypeScript yet; `App` still owns session/catalog state (a `useSession` / `useCatalog` hook extraction is the next safe step, now covered by the browser specs).

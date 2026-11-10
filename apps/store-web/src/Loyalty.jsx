@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Award, Gift, Sparkles } from 'lucide-react';
 import { Empty, Loading, fa, fd } from './ui.jsx';
-import { unitOf } from './storeProgram.js';
-import { BLOCKED, TX_KIND, multiplierLabel, tierProgress } from './loyaltyFormat.js';
+import { unitOf } from './storeProgram.ts';
+import { BLOCKED, TX_KIND, multiplierLabel, tierProgress } from './loyaltyFormat.ts';
 
 const newKey = () =>
   (globalThis.crypto?.randomUUID?.() || `k${Date.now()}${Math.random().toString(16).slice(2)}`).slice(0, 64);

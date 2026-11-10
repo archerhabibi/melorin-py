@@ -73,6 +73,8 @@ jobs:
         working-directory: apps/store-web
       - run: npm run lint
         working-directory: apps/store-web
+      - run: npm run typecheck
+        working-directory: apps/store-web
       - run: npm run format:check
         working-directory: apps/store-web
       - run: npm test

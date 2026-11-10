@@ -145,7 +145,7 @@ function TicketThread({ t, storeId, coreFetch, notify, onBack, onChanged }) {
     load();
     const iv = setInterval(() => !document.hidden && load(), 12000);
     return () => clearInterval(iv);
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
   }, [t.id]);
   useEffect(() => {
     const n = msgs?.length || 0;
@@ -443,7 +443,7 @@ export function Tickets({ coreFetch, storeId, notify }) {
       .catch(() => setList((x) => x || []));
   useEffect(() => {
     load();
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
   }, [storeId]);
   async function create() {
     setBusy(true);

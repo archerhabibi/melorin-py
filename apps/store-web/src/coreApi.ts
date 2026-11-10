@@ -1,18 +1,19 @@
 // Anonymous (no bearer token) reads of the public storefront API, through @melorin/api-client (T15).
 import { createApiClient } from '@melorin/api-client';
+import type { PathsWith } from '@melorin/api-client';
 
 const base = (import.meta.env?.VITE_MELORIN_API_URL || window.location.origin).replace(/\/$/, '');
 // 'same-origin' keeps the exact credential behaviour the previous plain fetch() calls had.
 const publicApi = createApiClient({ baseUrl: base, credentials: 'same-origin' });
 
 /** GET → parsed JSON; rejects with Error(<status>) on a non-2xx answer (same contract as the old `r.ok ? r.json() : reject`). */
-export async function publicGet(path) {
-  const { data, response } = await publicApi.get(path);
+export async function publicGet<T = unknown>(path: string): Promise<T> {
+  const { data, response } = await publicApi.get(path as PathsWith<'get'>);
   if (!response.ok) throw new Error(String(response.status));
-  return data;
+  return data as T;
 }
 /** Like publicGet but resolves null instead of rejecting on a non-2xx answer. */
-export async function publicGetOrNull(path) {
-  const { data, response } = await publicApi.get(path);
-  return response.ok ? data : null;
+export async function publicGetOrNull<T = unknown>(path: string): Promise<T | null> {
+  const { data, response } = await publicApi.get(path as PathsWith<'get'>);
+  return response.ok ? (data as T) : null;
 }
