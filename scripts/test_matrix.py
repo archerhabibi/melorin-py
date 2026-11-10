@@ -3,6 +3,7 @@
 Runs fast tests by default and makes integration/E2E/security/concurrency
 groups explicit, so missing runtime evidence cannot hide behind unit tests.
 """
+
 from __future__ import annotations
 
 import argparse

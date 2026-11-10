@@ -59,6 +59,6 @@ def test_caddyfile_issues_certificates_on_demand_only_after_core_approval():
 
 
 def test_storefront_resolves_the_store_from_the_hostname_with_main_as_fallback():
-    app = (REPO / "apps/store-web/src/App.jsx").read_text()
+    app = (REPO / "apps/store-web/src/useStoreCatalog.js").read_text()  # the store lookup moved out of App.jsx (T-R11)
     assert "/api/v1/stores/by-domain/${encodeURIComponent(window.location.hostname" in app
     assert app.index("stores/by-domain/") < app.index("/api/v1/stores/main")

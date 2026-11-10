@@ -4,13 +4,16 @@ This is intentionally opt-in because it creates isolated test rows in the
 configured database. It exercises two concurrent ledger posts with the same
 idempotency key and verifies one transaction.
 """
+
 import asyncio
 import os
 import sys
 import uuid
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "apps" / "api"))  # work from any cwd
+sys.path.insert(
+    0, str(Path(__file__).resolve().parents[1] / "apps" / "api")
+)  # work from any cwd
 
 from sqlalchemy import func, select
 
@@ -30,7 +33,9 @@ async def main():
     async with session_factory()() as session:
         tag = uuid.uuid4().hex[:10]
         session.add(User(id=user_id, display_name="h009-smoke"))
-        session.add(Store(id=store_id, kind="main", name="h009-smoke", slug="h009-" + tag))
+        session.add(
+            Store(id=store_id, kind="main", name="h009-smoke", slug="h009-" + tag)
+        )
         await session.flush()  # wallets reference users/stores through foreign keys
         w = Wallet(user_id=user_id, store_id=store_id, currency="IRT", balance=1000)
         session.add(w)
@@ -41,16 +46,26 @@ async def main():
         async with session_factory()() as session:
             w = await session.get(Wallet, wallet_id)
             tx, created = await wallet.post(
-                session, kind="h009-smoke", key="h009-" + str(wallet_id),
-                currency="IRT", store_id=store_id,
-                postings=[wallet.Posting(-100, wallet=w, min_balance=0), wallet.Posting(100, account="h009:cash")],
+                session,
+                kind="h009-smoke",
+                key="h009-" + str(wallet_id),
+                currency="IRT",
+                store_id=store_id,
+                postings=[
+                    wallet.Posting(-100, wallet=w, min_balance=0),
+                    wallet.Posting(100, account="h009:cash"),
+                ],
             )
             await session.commit()
             return created
 
     results = await asyncio.gather(post_once(), post_once())
     async with session_factory()() as session:
-        count = await session.scalar(select(func.count()).select_from(LedgerTransaction).where(LedgerTransaction.idempotency_key == "h009-" + str(wallet_id)))
+        count = await session.scalar(
+            select(func.count())
+            .select_from(LedgerTransaction)
+            .where(LedgerTransaction.idempotency_key == "h009-" + str(wallet_id))
+        )
         assert count == 1, count
     assert sum(results) == 1, results
     print("H009 PostgreSQL concurrency smoke passed")

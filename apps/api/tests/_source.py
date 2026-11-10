@@ -147,6 +147,8 @@ STORE_SHELL_FILES = (
     "SiteFooter.jsx",
     "MobileNav.jsx",
     "StoreDialogs.jsx",
+    "useCoreFetch.js",
+    "useStoreCatalog.js",
 )
 
 

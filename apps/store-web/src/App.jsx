@@ -1,9 +1,11 @@
 // Subject + plan: Melorin storefront for VPN customers. A warm Persian service counter meets a precise account console: dusk navy, saffron, and mint; hero catalog, store-scoped quote, wallet, and orders in one calm flow.
 // Design system v2: tokens live in styles.css (light + dark), shared primitives in ui.jsx.
-import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import Dashboard, { Faq } from './Dashboard.jsx';
 import { clearTokens, getAccessToken, setTokens } from './auth.js';
-import { publicGet, publicGetOrNull } from './coreApi.ts';
+import { publicGetOrNull } from './coreApi.ts';
+import { useCoreFetch } from './useCoreFetch.js';
+import { useStoreCatalog } from './useStoreCatalog.js';
 import { googleSignOut } from './GoogleSignIn.jsx';
 import TelegramLogin from './TelegramLogin.jsx';
 import { PurchaseResult } from './Subscription.jsx';
@@ -24,14 +26,8 @@ const Reseller = lazy(() => import('./Reseller.jsx'));
 export default function App() {
   const [active, setActive] = useState('Orbit');
   const [notice, setNotice] = useState('');
-  const [catalog, setCatalog] = useState([]);
-  const [catalogLoading, setCatalogLoading] = useState(true);
-  const [bundles, setBundles] = useState([]);
-  const [bundleId, setBundleId] = useState('');
   const [panelId, setPanelId] = useState('');
   const [accountName, setAccountName] = useState('');
-  const [pkgLoading, setPkgLoading] = useState(false);
-  const [apiState, setApiState] = useState('در حال اتصال به Core');
   const [accessToken, setAccessToken] = useState(() => getAccessToken());
   const [modal, setModal] = useState('');
   const [purchasedOrder, setPurchasedOrder] = useState(null);
@@ -40,8 +36,6 @@ export default function App() {
   const [account, setAccount] = useState(null);
   const [wallet, setWallet] = useState(null);
   const [orders, setOrders] = useState([]);
-  const [storeId, setStoreId] = useState('');
-  const [hasBot, setHasBot] = useState(false);
   const [tgCfg, setTgCfg] = useState(null); // which Telegram login buttons the admin enabled (null = unknown -> legacy behaviour)
   const [selectedQuote, setSelectedQuote] = useState(null);
   const [hash, setHash] = useState(window.location.hash);
@@ -70,12 +64,15 @@ export default function App() {
     setOrders([]);
     window.location.hash = '';
   };
+  const base = (import.meta.env?.VITE_MELORIN_API_URL || window.location.origin).replace(/\/$/, '');
+  const coreFetch = useCoreFetch(base, accessToken, setAccessToken);
+  const { catalog, catalogLoading, bundles, bundleId, setBundleId, pkgLoading, apiState, storeId, hasBot } =
+    useStoreCatalog(coreFetch, reloadKey);
   const tgBot = hasBot && (tgCfg ? tgCfg.bot_login : true);
   const tgOidc = Boolean(tgCfg?.oidc_login && storeId);
   const showTg = tgBot || tgOidc;
   const onDash = hash === '#/dashboard' && accessToken;
   const onReseller = hash === '#/reseller' && accessToken;
-  const base = (import.meta.env?.VITE_MELORIN_API_URL || window.location.origin).replace(/\/$/, '');
   // ─── Google Sign-In ───
   function completeLogin(pair) {
     setTokens(pair);
@@ -119,41 +116,6 @@ export default function App() {
       setBusy(false);
     }
   }
-  // Stable identity (so effects can list it as a dependency without re-running every render); the token is
-  // read from a ref at call time, which also means callers never send a stale token.
-  const accessTokenRef = useRef(accessToken);
-  accessTokenRef.current = accessToken;
-  const coreFetch = useCallback(
-    async (path, options = {}) => {
-      let token = accessTokenRef.current;
-      let response = await fetch(`${base}${path}`, {
-        ...options,
-        credentials: 'include',
-        headers: { ...(options.headers || {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      });
-      if (response.status === 401) {
-        {
-          const rr = await fetch(`${base}/api/v1/auth/refresh`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: '{}',
-          });
-          if (rr.ok) {
-            const pair = await rr.json();
-            setTokens(pair);
-            setAccessToken(pair.access_token);
-            response = await fetch(`${base}${path}`, {
-              ...options,
-              headers: { ...(options.headers || {}), Authorization: `Bearer ${pair.access_token}` },
-            });
-          }
-        }
-      }
-      return response;
-    },
-    [base],
-  );
   async function loadAccount() {
     if (!accessToken || !storeId) return;
     try {
@@ -229,44 +191,7 @@ export default function App() {
       setBusy(false);
     }
   };
-  useEffect(() => {
-    setCatalogLoading(true);
-    // A reseller's own domain shows that reseller's store; any other host (main domain, localhost) shows the main store.
-    coreFetch(`/api/v1/stores/by-domain/${encodeURIComponent(window.location.hostname.toLowerCase())}`, {
-      headers: { Accept: 'application/json' },
-    })
-      .then((r) => (r.ok ? r : coreFetch(`/api/v1/stores/main`, { headers: { Accept: 'application/json' } })))
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((store) => {
-        setStoreId(store.id);
-        setHasBot(Boolean(store.bot_username));
-        return publicGet(`/api/v1/stores/${store.id}/bundles`);
-      })
-      .then((data) => {
-        const list = Array.isArray(data) ? data : data.items || [];
-        setBundles(list);
-        setBundleId((cur) => (list.some((x) => x.id === cur) ? cur : list.length === 1 ? list[0].id : ''));
-        setApiState('اتصال Core برقرار است');
-      })
-      .catch(() => {
-        setBundles([]);
-        setApiState('Core در دسترس نیست؛ سرویس‌ها موقتاً نمایش داده نمی‌شود');
-      })
-      .finally(() => setCatalogLoading(false));
-  }, [reloadKey, coreFetch]);
-  useEffect(() => {
-    setCatalog([]);
-    if (!storeId || !bundleId) return;
-    let live = true;
-    setPkgLoading(true);
-    publicGet(`/api/v1/stores/${storeId}/bundles/${bundleId}/packages`)
-      .then((data) => live && setCatalog(Array.isArray(data) ? data : data.items || []))
-      .catch(() => live && setCatalog([]))
-      .finally(() => live && setPkgLoading(false));
-    return () => {
-      live = false;
-    };
-  }, [storeId, bundleId, reloadKey]);
+
   // Bot account button: #/auth/handoff?t=<single-use token> signs the Telegram user in automatically (Core issues the session).
   useEffect(() => {
     const m = /^#\/auth\/handoff\?t=([\w-]+)$/.exec(window.location.hash);

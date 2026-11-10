@@ -7,6 +7,7 @@
 The snapshot is deterministic (sorted keys, 2-space indent) so API changes show up as reviewable diffs.
 No database or Redis is touched: importing the app and calling ``app.openapi()`` is enough.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -21,15 +22,22 @@ TARGET = ROOT / "packages" / "api-client" / "openapi.json"
 
 def render() -> str:
     os.environ.setdefault("MELORIN_ENV", "development")
-    os.environ.setdefault("MELORIN_DATABASE_URL", "postgresql+asyncpg://openapi:openapi@localhost:5432/openapi")
+    os.environ.setdefault(
+        "MELORIN_DATABASE_URL",
+        "postgresql+asyncpg://openapi:openapi@localhost:5432/openapi",
+    )
     sys.path.insert(0, str(ROOT / "apps" / "api"))
     from melorin.app import app  # noqa: PLC0415 - env must be set before the import
 
-    return json.dumps(app.openapi(), indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+    return (
+        json.dumps(app.openapi(), indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+    )
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--write", action="store_true")
     mode.add_argument("--check", action="store_true")
@@ -38,7 +46,9 @@ def main() -> int:
     if args.write:
         TARGET.parent.mkdir(parents=True, exist_ok=True)
         TARGET.write_text(fresh, encoding="utf-8")
-        print(f"wrote {TARGET.relative_to(ROOT)} ({len(json.loads(fresh)['paths'])} paths)")
+        print(
+            f"wrote {TARGET.relative_to(ROOT)} ({len(json.loads(fresh)['paths'])} paths)"
+        )
         return 0
     if not TARGET.exists() or TARGET.read_text(encoding="utf-8") != fresh:
         print(

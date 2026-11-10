@@ -3,6 +3,7 @@
 This intentionally checks imports and app construction without starting a
 server or contacting external providers.
 """
+
 from importlib import import_module
 from pathlib import Path
 import os

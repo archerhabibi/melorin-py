@@ -18,9 +18,13 @@ async def main() -> None:
 
     api_id = int(input("api_id: ").strip())
     api_hash = getpass.getpass("api_hash (hidden): ").strip()
-    async with TelegramClient(StringSession(), api_id, api_hash) as client:  # prompts for phone, code and 2FA
+    async with TelegramClient(
+        StringSession(), api_id, api_hash
+    ) as client:  # prompts for phone, code and 2FA
         me = await client.get_me()
-        print(f"\nLogged in as {me.first_name} (id {me.id}). Session string (keep secret):\n")
+        print(
+            f"\nLogged in as {me.first_name} (id {me.id}). Session string (keep secret):\n"
+        )
         print(client.session.save())
 
 

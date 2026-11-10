@@ -84,16 +84,34 @@ def slim(openapi: dict, panel_version: str) -> dict:
             op = item.get(method)
             if op is None:
                 continue
-            query = sorted(p["name"] for p in op.get("parameters", []) if p.get("in") == "query")
-            operations[f"{method.upper()} {path}"] = {"query": query, "body": _body(op), "ok": _ok(op)}
+            query = sorted(
+                p["name"] for p in op.get("parameters", []) if p.get("in") == "query"
+            )
+            operations[f"{method.upper()} {path}"] = {
+                "query": query,
+                "body": _body(op),
+                "ok": _ok(op),
+            }
     components = (openapi.get("components") or {}).get("schemas") or {}
     schemas = {}
     for name in TRACKED_SCHEMAS:
         spec = components.get(name)
         if spec is not None:
-            schemas[name] = {"props": sorted(spec.get("properties", {})), "required": sorted(spec.get("required", []))}
-    enums = {name: spec["enum"] for name, spec in sorted(components.items()) if isinstance(spec.get("enum"), list)}
-    return {"panel_version": panel_version, "operations": operations, "schemas": schemas, "enums": enums}
+            schemas[name] = {
+                "props": sorted(spec.get("properties", {})),
+                "required": sorted(spec.get("required", [])),
+            }
+    enums = {
+        name: spec["enum"]
+        for name, spec in sorted(components.items())
+        if isinstance(spec.get("enum"), list)
+    }
+    return {
+        "panel_version": panel_version,
+        "operations": operations,
+        "schemas": schemas,
+        "enums": enums,
+    }
 
 
 def dump(fixture: dict) -> str:
@@ -104,14 +122,25 @@ def dump(fixture: dict) -> str:
         items = list(fixture[section].items())
         for i, (key, value) in enumerate(items):
             comma = "," if i < len(items) - 1 else ""
-            lines.append(f"    {json.dumps(key)}: {json.dumps(value, sort_keys=True, ensure_ascii=False)}{comma}")
+            lines.append(
+                f"    {json.dumps(key)}: {json.dumps(value, sort_keys=True, ensure_ascii=False)}{comma}"
+            )
         lines.append("  }" + ("," if section != "enums" else ""))
     lines.append("}")
     return "\n".join(lines) + "\n"
 
 
 def diff(old: dict, new: dict) -> dict[str, list[str]]:
-    out: dict[str, list[str]] = {k: [] for k in ("removed_operations", "added_operations", "changed_operations", "schema_changes", "enum_changes")}
+    out: dict[str, list[str]] = {
+        k: []
+        for k in (
+            "removed_operations",
+            "added_operations",
+            "changed_operations",
+            "schema_changes",
+            "enum_changes",
+        )
+    }
     old_ops, new_ops = old["operations"], new["operations"]
     out["removed_operations"] = sorted(set(old_ops) - set(new_ops))
     out["added_operations"] = sorted(set(new_ops) - set(old_ops))
@@ -123,25 +152,40 @@ def diff(old: dict, new: dict) -> dict[str, list[str]]:
         if a == b:
             continue
         if a is None or b is None:
-            out["schema_changes"].append(f"{name}: {'added' if a is None else 'removed'}")
+            out["schema_changes"].append(
+                f"{name}: {'added' if a is None else 'removed'}"
+            )
             continue
-        gone, came = sorted(set(a["props"]) - set(b["props"])), sorted(set(b["props"]) - set(a["props"]))
+        gone, came = (
+            sorted(set(a["props"]) - set(b["props"])),
+            sorted(set(b["props"]) - set(a["props"])),
+        )
         req = sorted(set(b["required"]) - set(a["required"]))
-        out["schema_changes"].append(f"{name}: removed={gone} added={came} newly_required={req}")
+        out["schema_changes"].append(
+            f"{name}: removed={gone} added={came} newly_required={req}"
+        )
     for name in sorted(set(old["enums"]) | set(new["enums"])):
         if old["enums"].get(name) != new["enums"].get(name):
-            out["enum_changes"].append(f"{name}: {old['enums'].get(name)} -> {new['enums'].get(name)}")
+            out["enum_changes"].append(
+                f"{name}: {old['enums'].get(name)} -> {new['enums'].get(name)}"
+            )
     return out
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     sub = parser.add_subparsers(dest="cmd", required=True)
-    s = sub.add_parser("slim", help="build the committed contract fixture from a full OpenAPI json")
+    s = sub.add_parser(
+        "slim", help="build the committed contract fixture from a full OpenAPI json"
+    )
     s.add_argument("openapi")
     s.add_argument("--panel-version", required=True)
     s.add_argument("--out", required=True)
-    d = sub.add_parser("diff", help="compare a (newer) OpenAPI json with the committed fixture")
+    d = sub.add_parser(
+        "diff", help="compare a (newer) OpenAPI json with the committed fixture"
+    )
     d.add_argument("openapi")
     d.add_argument("--fixture", required=True)
     d.add_argument("--panel-version", default="new")
@@ -152,7 +196,9 @@ def main(argv: list[str] | None = None) -> int:
         fixture = slim(openapi, args.panel_version)
         Path(args.out).parent.mkdir(parents=True, exist_ok=True)
         Path(args.out).write_text(dump(fixture), encoding="utf-8")
-        print(f"wrote {args.out}: {len(fixture['operations'])} operations, {len(fixture['schemas'])} schemas, {len(fixture['enums'])} enums")
+        print(
+            f"wrote {args.out}: {len(fixture['operations'])} operations, {len(fixture['schemas'])} schemas, {len(fixture['enums'])} enums"
+        )
         return 0
 
     old = json.loads(Path(args.fixture).read_text(encoding="utf-8"))
@@ -162,7 +208,15 @@ def main(argv: list[str] | None = None) -> int:
             print(f"## {title} ({len(rows)})")
             print("\n".join(f"  - {r}" for r in rows))
     # Added routes are information; anything else may break the adapter -> the contract tests tell which one.
-    breaking = any(changes[k] for k in ("removed_operations", "changed_operations", "schema_changes", "enum_changes"))
+    breaking = any(
+        changes[k]
+        for k in (
+            "removed_operations",
+            "changed_operations",
+            "schema_changes",
+            "enum_changes",
+        )
+    )
     print("RESULT:", "CHANGED (run the contract tests)" if breaking else "compatible")
     return 1 if breaking else 0
 

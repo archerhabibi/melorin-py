@@ -84,3 +84,7 @@ _Merged from the former 12-Change-Log-v1.1.md._
 - TypeScript is started in `store-web` (strict, `allowJs`, `checkJs: false`): `coreApi.ts`, `storeProgram.ts`, `loyaltyFormat.ts` are typed; `npm run typecheck` is a CI step. Convert one leaf module per PR; do not turn on `checkJs` until the JSX components are typed.
 - Source-contract guards (`check_g001_g010.py`, `check_frontend_contracts.py`, `tests/_source.read_store_shell`) read the storefront shell as App.jsx + the split files, so a guard cannot pass by looking at only half the code. First-load budget for store-web raised 272 -> 273 kB for the extra component boundaries.
 - Still open: admin-web has no TypeScript yet; `App` still owns session/catalog state (a `useSession` / `useCatalog` hook extraction is the next safe step, now covered by the browser specs).
+
+## T-R11 step 2: session and catalog hooks (2026-11-10)
+- `useCoreFetch` (authenticated fetch + one silent refresh) and `useStoreCatalog` (store, bundles, packages) moved out of `App`; `App.jsx` is ~470 lines.
+- The first attempt put the hook calls after a line that already used `hasBot`: lint, vitest (jsdom) and `vite build` all passed, but the real browser showed a white screen (`Cannot access ... before initialization`). The Playwright specs caught it; fixed by calling the hooks before first use. Lesson: for `App` refactors the browser specs are the gate, not vitest.

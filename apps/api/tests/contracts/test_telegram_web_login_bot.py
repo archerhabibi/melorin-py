@@ -7,7 +7,7 @@ from pathlib import Path
 
 import httpx
 import pytest
-from _source import read_source, read_web_source
+from _source import read_source, read_store_shell, read_web_source
 
 ROOT = Path(__file__).parents[3]
 PROJECT = ROOT.parent
@@ -215,7 +215,7 @@ def test_frontend_polls_with_post_body_and_keeps_nothing_in_storage():
     assert "localStorage" not in src and "sessionStorage" not in src
     assert "/cancel" in src and "keepalive: true" in src  # closing the dialog invalidates the Telegram link
     assert 'rel="noopener noreferrer"' in src and "visibilitychange" in src
-    app = read_web_source(PROJECT / "apps/store-web/src/App.jsx")
+    app = read_store_shell(PROJECT)
     assert 'import TelegramLogin from "./TelegramLogin.jsx"' in app and 'modal === "telegram"' in app
     assert "hasBot" in app and "store.bot_username" in app
     assert "pair.is_admin" in app  # admins still cannot keep a storefront session

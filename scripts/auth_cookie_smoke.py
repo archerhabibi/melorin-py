@@ -2,6 +2,7 @@
 
 Usage: BASE_URL=... COOKIE_JAR=... python scripts/auth_cookie_smoke.py
 """
+
 import os
 import sys
 from http.cookiejar import MozillaCookieJar
@@ -18,12 +19,20 @@ def main() -> int:
     jar = MozillaCookieJar(jar_path)
     jar.load(ignore_discard=True, ignore_expires=True)
     opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
-    req = urllib.request.Request(urljoin(base + "/", "api/v1/auth/refresh"), data=b"{}", method="POST", headers={"Content-Type": "application/json", "Origin": base})
+    req = urllib.request.Request(
+        urljoin(base + "/", "api/v1/auth/refresh"),
+        data=b"{}",
+        method="POST",
+        headers={"Content-Type": "application/json", "Origin": base},
+    )
     try:
         with opener.open(req, timeout=10) as response:
             if response.status != 200:
                 return 1
-            if not any(c.name == "melorin_refresh" and c.has_nonstandard_attr("HttpOnly") for c in jar):
+            if not any(
+                c.name == "melorin_refresh" and c.has_nonstandard_attr("HttpOnly")
+                for c in jar
+            ):
                 print("refresh cookie is not HttpOnly", file=sys.stderr)
                 return 1
             print("refresh cookie smoke passed")
