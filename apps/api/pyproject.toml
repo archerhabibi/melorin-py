@@ -37,7 +37,8 @@ check_untyped_defs = true
 warn_unused_ignores = true
 
 [tool.pytest.ini_options]
-pythonpath = ["."]
+# T-R05: tests are grouped in sub-folders but still import shared helpers by bare module name (module basenames are unique).
+pythonpath = [".", "tests", "tests/unit", "tests/service", "tests/http", "tests/adapters", "tests/contracts", "tests/postgres"]
 asyncio_mode = "auto"
 markers = ["integration: requires PostgreSQL/Redis or another external service", "concurrency: requires concurrent database sessions"]
 # M6.10: a too-short HMAC key in a test must fail loudly instead of drowning the warning signal.
