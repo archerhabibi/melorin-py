@@ -27,6 +27,18 @@ from melorin.core.redis import get_redis
 log = logging.getLogger("melorin.jobs")
 
 LOCK_PREFIX = "melorin:job:lock:"
+
+
+def item_failed(job: str) -> None:
+    """Count one per-item failure that a job deliberately isolates (T-W06 / T-R15).
+
+    Jobs loop over panels/accounts/stores and must not let one bad item stop the rest, so they catch ``Exception`` per
+    item. That used to be invisible: the job still reported ``outcome="ok"``. This counter makes it visible
+    (``melorin_job_item_failures_total{job}``) and feeds the ``MelorinJobItemFailures`` alert. The traceback is still
+    logged by the caller; ``job`` is a fixed low-cardinality label, never an id.
+    """
+    metrics.inc("melorin_job_item_failures_total", job=job)
+
 DEFAULT_LOCK_TTL = 130  # a little above ARQ's default job_timeout (120 s)
 
 _RELEASE = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end"

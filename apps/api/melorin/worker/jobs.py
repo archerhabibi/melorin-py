@@ -21,7 +21,7 @@ from melorin.modules.vpn import capabilities, capacity, health, live, notices, p
 from melorin.kernel.models.vpn import Panel, VpnAccount
 from melorin.modules.vpn.adapters.lifecycle import close_adapter
 from melorin.worker import retention
-from melorin.worker.wrap import tracked_job
+from melorin.worker.wrap import item_failed, tracked_job
 
 _close_strict = functools.partial(close_adapter, strict=True)  # worker jobs keep raising on close failure
 log = logging.getLogger("melorin.jobs")
@@ -167,11 +167,13 @@ async def panel_health_job(ctx=None):
                     try:
                         await capabilities.refresh(p, adapter)
                     except Exception:  # a probe problem must never flip the panel to unhealthy
+                        item_failed("panel_health_job")
                         log.warning("panel capability refresh failed panel=%s", p.id, exc_info=True)
                 if result.status != health.UNHEALTHY:  # PG-08: layer 3, the destinations' real group/host/node state and fill level
                     try:
                         capacity_changes = await capacity.refresh_panel(s, p, adapter)
                     except Exception:  # never let a capacity problem change the panel's verdict
+                        item_failed("panel_health_job")
                         log.warning("panel capacity refresh failed panel=%s", p.id, exc_info=True)
             except Exception as exc:
                 result = health.HealthResult(
@@ -253,6 +255,7 @@ async def expiry_job(ctx=None):
                 await reconcile.reconcile_account(s, account_id)  # applies the panel's status; notices fire from sync.apply_remote
             except Exception:
                 await s.rollback()
+                item_failed("expiry_job")
                 log.warning("expiry: live read failed account=%s", account_id, exc_info=True)
         return len(candidates)
 
@@ -324,6 +327,7 @@ async def reconciliation_job(ctx=None):
                     log.warning("reconcile: panel=%s unreachable: %s", panel_id, "; ".join(result.errors))
             except Exception:
                 await s.rollback()
+                item_failed("reconciliation_job")
                 log.warning("reconcile failed panel=%s", panel_id, exc_info=True)
     return done
 
@@ -426,6 +430,7 @@ async def bank_sms_reconcile_job(ctx=None):
                     total += (await bank_sms.reconcile_store(s, store))["matched"]
             except Exception:
                 await s.rollback()
+                item_failed("bank_sms_reconcile_job")
                 log.warning("bank sms reconcile failed store=%s", store_id, exc_info=True)
     return total
 
@@ -441,6 +446,7 @@ async def receipt_grace_job(ctx=None):
             n = await provisional.sweep(s)
         except Exception:
             await s.rollback()
+            item_failed("receipt_grace_job")
             log.warning("receipt grace sweep failed", exc_info=True)
             return 0
         if n:
@@ -499,6 +505,7 @@ async def store_governance_job(ctx=None):
             try:
                 done += (await governance.sync_usage(s, p)).updated
             except Exception:
+                item_failed("store_governance_job")
                 log.warning("store governance sync failed panel=%s", p.id, exc_info=True)
         await s.commit()
     return done

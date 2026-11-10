@@ -9,7 +9,6 @@ from melorin.core import crypto, db, integrations, settings_store
 from melorin.core import email as email_mod
 from melorin.core.config import Settings
 from melorin.core.errors import AppError
-from melorin.modules import system  # noqa: F401  (registers models)
 from melorin.kernel.models.system import SystemSetting
 
 
