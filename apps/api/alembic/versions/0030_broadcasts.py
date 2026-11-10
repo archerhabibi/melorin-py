@@ -1,4 +1,5 @@
 """Broadcast messages (پیام همگانی) sent by the admin or a reseller."""
+
 from alembic import op
 import sqlalchemy as sa
 

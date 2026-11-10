@@ -79,11 +79,7 @@ async def _refund(
         if actor_type == "system"
         else f"مبلغ سفارش {order.number} به کیف پول شما برگشت داده شد."
     )
-    await events.emit(
-        session,
-        events.NOTIFY,
-        {"user_id": order.user_id, "store_id": order.store_id, "kind": "refund", "title": "استرداد سفارش", "body": refund_body},
-    )
+    await events.emit_user_notice(session, order.user_id, order.store_id, "refund", "استرداد سفارش", refund_body)
     audit.record(
         session,
         "order.refunded",

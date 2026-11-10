@@ -1,6 +1,6 @@
 """Trusted devices: the engine behind automatic identity verification of the Telegram website login.
 
-Policy (docs/21-Automatic-Identity-Verification.md)
+Policy (docs/23-Automatic-Identity-Verification.md)
 
 * ``silent``  known browser + same network + seen recently  -> signed in with no bot step at all.
 * ``auto``    known browser (any network)                   -> opening the bot link is the whole approval, no number match.
@@ -21,13 +21,10 @@ from melorin.core.config import get_settings
 from melorin.core.db import utcnow
 from melorin.core.security import token_hash
 from melorin.kernel.models.identity import TrustedDevice
+from melorin.domain.timeutil import aware as _aware
 
 _KEY = re.compile(r"^[A-Za-z0-9_-]{32,128}$")
 MAX_DEVICES_PER_ACCOUNT = 10
-
-
-def _aware(value: dt.datetime) -> dt.datetime:
-    return value.replace(tzinfo=value.tzinfo or dt.UTC)
 
 
 def trust_days() -> int:

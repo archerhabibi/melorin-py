@@ -28,6 +28,7 @@ from melorin.domain.order_state import PaymentStatus
 from melorin.kernel.models.payments import BankSmsMessage, BankSmsSource, Payment
 from melorin.kernel.models.stores import Store
 from melorin.modules.payments import service as payments
+from melorin.domain.timeutil import aware as _aware
 
 log = logging.getLogger("melorin.payments.bank_sms")
 P = PaymentStatus
@@ -57,7 +58,7 @@ def clean_settings(raw: dict | None) -> dict:
     """Validate the tuning knobs (ordered rule table); unknown keys are rejected, ``None`` resets to the default."""
     raw = dict(raw or {})
     out: dict = {}
-    for key, kind, lo, hi, default in _SETTING_RULES:
+    for key, kind, lo, hi, _default in _SETTING_RULES:
         if key not in raw:
             continue
         value = raw.pop(key)
@@ -87,12 +88,6 @@ def match_settings(source: BankSmsSource) -> dom.MatchSettings:
         require_claimed_time=bool(s.get("require_claimed_time", True)),
         max_auto_amount_rial=s.get("max_auto_amount_rial"),
     )
-
-
-def _aware(value: dt.datetime | None) -> dt.datetime | None:
-    if value is None:
-        return None
-    return value if value.tzinfo else value.replace(tzinfo=dt.UTC)
 
 
 def source_out(src: BankSmsSource | None, *, store_id: uuid.UUID | None = None) -> dict:
@@ -261,7 +256,7 @@ async def _candidates(session: AsyncSession, store: Store) -> tuple[list[dom.Can
 
 
 async def _notify(session: AsyncSession, store_id: uuid.UUID, text: str) -> None:
-    await events.emit(session, events.EVENT_CENTER, {"store_id": store_id, "topic": "payments", "text": text})
+    await events.emit_store_notice(session, store_id, "payments", text)
 
 
 async def _link(

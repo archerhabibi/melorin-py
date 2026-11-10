@@ -8,6 +8,7 @@ Changes
 
 Existing rows are untouched. Applications filed with domain + bot token (web form) behave exactly as before.
 """
+
 import sqlalchemy as sa
 from alembic import op
 

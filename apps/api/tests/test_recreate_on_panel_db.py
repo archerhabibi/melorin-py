@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from _db import make_user, open_schema_engine
 from melorin.core.errors import AppError
 from melorin.kernel.models.vpn import ReconciliationIssue, Server, VpnAccount
-from melorin.modules.admin import panel_ops
+from melorin.modules.admin import panel_reconciliation
 from melorin.modules.vpn import issues, recreate
 from melorin.modules.vpn.adapters.base import ErrorKind, PanelError
 from test_pasarguard_phase1_db import FakePanel, remote, seed
@@ -64,19 +64,21 @@ async def _setup(maker, monkeypatch, fake, *, days=30, status="active", with_ser
     async def fake_reconcile(session, account_id):
         return "ok"
 
-    monkeypatch.setattr(panel_ops.reconcile, "reconcile_account", fake_reconcile)
+    monkeypatch.setattr(panel_reconciliation.reconcile, "reconcile_account", fake_reconcile)
     return panel_id, ids["gone"], issue_id, admin
 
 
 async def _act(maker, issue_id, admin, **kw):
     async with maker() as s:
-        return await panel_ops.issue_action(issue_id, panel_ops.IssueActionIn(action="recreate_on_panel", **kw), admin, s)
+        return await panel_reconciliation.issue_action(
+            issue_id, panel_reconciliation.IssueActionIn(action="recreate_on_panel", **kw), admin, s
+        )
 
 
 async def test_recreate_puts_the_sold_package_back_under_the_stores_admin(maker, monkeypatch):
     fake = _Creating()
     _, acc_id, issue_id, admin = await _setup(maker, monkeypatch, fake)
-    assert "recreate_on_panel" in panel_ops.allowed_actions(issues.MISSING, "open")
+    assert "recreate_on_panel" in panel_reconciliation.allowed_actions(issues.MISSING, "open")
     await _act(maker, issue_id, admin, reason="panel was restored from an old backup")
     spec = fake.created[0]
     assert spec.username == "gone" and spec.owner == "ml_main" and spec.traffic_bytes == 10 * 2**30

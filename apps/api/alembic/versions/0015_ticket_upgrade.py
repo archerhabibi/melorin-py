@@ -6,6 +6,7 @@ Changes
 * ``ticket_messages.is_internal`` BOOLEAN NOT NULL DEFAULT false (staff-only notes)
 * ``ticket_messages.edited_at``   TIMESTAMPTZ NULL (set when an author edits a message)
 """
+
 import sqlalchemy as sa
 from alembic import op
 

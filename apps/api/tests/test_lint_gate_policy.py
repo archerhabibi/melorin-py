@@ -6,7 +6,7 @@ PROJECT = ROOT.parent.parent
 
 def test_ruff_policy_is_correctness_focused_with_format_section():
     config = (ROOT / "pyproject.toml").read_text()
-    assert 'select = ["E4", "E9", "F"]' in config
+    assert 'select = ["E4", "E9", "F", "DTZ", "B", "ASYNC", "S"]' in config
     assert "[tool.ruff.format]" in config
 
 

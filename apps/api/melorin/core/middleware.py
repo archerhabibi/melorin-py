@@ -53,7 +53,7 @@ class CorrelationMiddleware:
             await self.app(scope, receive, _send)
         finally:
             route = route_label(scope["path"])
-            inc("melorin_http_requests_total", method=scope["method"], path=route, status=status["code"])
+            inc("melorin_http_requests_total", method=scope["method"], path=route, status=str(status["code"]))
             seconds = time.perf_counter() - start
             observe("melorin_http_request_duration_seconds", seconds, path=route)
             ms = seconds * 1000

@@ -11,12 +11,14 @@ import logging
 import uuid
 
 from fastapi import APIRouter
-from sqlalchemy import select
 
+from melorin.modules.vpn.adapters import providers
 from melorin.core import audit
 from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import AppError, NotFound
-from melorin.kernel.models.vpn import Panel, Server
+from melorin.kernel.models.vpn import Panel
+from melorin.modules.panelops import queries
+from melorin.modules.vpn.panel_session import close_adapter
 from melorin.modules.vpn import capabilities as panel_caps
 from melorin.modules.vpn import capacity
 from melorin.modules.vpn.adapters.base import PanelError, supports
@@ -35,7 +37,7 @@ async def _panel(session, panel_id: uuid.UUID) -> Panel:
 
 async def live_group_health(panel: Panel) -> dict[int, dict] | None:
     """``{group_id: assessment dict}`` from the live panel, or ``None`` when it cannot be asked (never raises)."""
-    if panel.kind != "pasarguard" or not panel_caps.capabilities_of(panel).has("capacity_ops"):
+    if not providers.supports(panel.kind, "panel_ops") or not panel_caps.capabilities_of(panel).has("capacity_ops"):
         return None
     adapter = None
     try:
@@ -48,17 +50,13 @@ async def live_group_health(panel: Panel) -> dict[int, dict] | None:
         log.info("live group health failed panel=%s", panel.id, exc_info=True)
         return None
     finally:
-        if adapter is not None:
-            try:
-                await adapter.close()
-            except Exception:
-                log.warning("adapter close failed panel=%s", panel.id, exc_info=True)
+        await close_adapter(adapter)
 
 
 @router.get("/panels/{panel_id}/capacity")
 async def panel_capacity(panel_id: uuid.UUID, _: AdminUser, session: Session):
     panel = await _panel(session, panel_id)
-    servers = (await session.scalars(select(Server).where(Server.panel_id == panel.id).order_by(Server.name))).all()
+    servers = await queries.servers_of_panel(session, panel.id, by_name=True)
     counts = await capacity.active_counts(session, [s.id for s in servers])
     return {
         "panel_id": panel.id,
@@ -85,7 +83,7 @@ async def panel_capacity(panel_id: uuid.UUID, _: AdminUser, session: Session):
 @router.post("/panels/{panel_id}/capacity/refresh")
 async def refresh_capacity(panel_id: uuid.UUID, admin: AdminUser, session: Session):
     panel = await _panel(session, panel_id)
-    if panel.kind != "pasarguard":
+    if not providers.supports(panel.kind, "panel_ops"):
         raise AppError("CAPABILITY_UNAVAILABLE", "بررسی ظرفیت واقعی فقط برای پنل پاسارگارد است.", 409)
     adapter = None
     try:
@@ -94,11 +92,7 @@ async def refresh_capacity(panel_id: uuid.UUID, admin: AdminUser, session: Sessi
     except PanelError as exc:
         raise AppError("PANEL_UNREACHABLE", f"پنل پاسخ نداد: {exc.message[:200]}", 502) from exc
     finally:
-        if adapter is not None:
-            try:
-                await adapter.close()
-            except Exception:
-                log.warning("adapter close failed panel=%s", panel.id, exc_info=True)
+        await close_adapter(adapter)
     audit.record(
         session,
         "panel.capacity_refreshed",

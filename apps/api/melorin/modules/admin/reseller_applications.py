@@ -2,6 +2,7 @@
 
 import logging
 import uuid
+from melorin.domain.timeutil import utcnow
 from fastapi import APIRouter
 from sqlalchemy import select
 from melorin.core import audit
@@ -111,7 +112,7 @@ async def review_application(application_id: uuid.UUID, body: ResellerApproval, 
             await identity.ensure_identity_free(
                 session, domain=a.domain, bot_key=a.bot_key, bot_username=a.bot_username, exclude_application_id=a.id
             )
-    a.reviewed_by, a.reviewed_at = admin.id, __import__("datetime").datetime.now(__import__("datetime").UTC)
+    a.reviewed_by, a.reviewed_at = admin.id, utcnow()
     a.review_reason = reason
     if body.approve and not has_details:
         # Two-step request (filed from Telegram): approve the request only. The domain and bot token are collected from
@@ -155,17 +156,14 @@ async def review_application(application_id: uuid.UUID, body: ResellerApproval, 
         )
     else:
         title, text = "❌ درخواست نمایندگی شما رد شد", f"«{a.store_name}»: {reason}"
-    await events.emit(
+    await events.emit_user_notice(
         session,
-        events.NOTIFY,
-        {
-            "user_id": a.user_id,
-            "store_id": a.target_store_id,
-            "kind": "reseller_application",
-            "title": title,
-            "body": text,
-            "dedup_key": f"reseller_application:{a.id}:{a.status}",
-        },
+        a.user_id,
+        a.target_store_id,
+        "reseller_application",
+        title,
+        text,
+        payload_dedup_key=f"reseller_application:{a.id}:{a.status}",
     )
     await session.commit()
     return {"ok": True, "status": a.status, "store_id": a.store_id}

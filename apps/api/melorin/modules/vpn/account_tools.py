@@ -17,6 +17,8 @@ Every channel (customer bot/site, reseller bot/site, admin) goes through this mo
 
 from __future__ import annotations
 
+import functools
+
 import datetime as dt
 import logging
 import time
@@ -32,7 +34,8 @@ from melorin.domain.order_state import VpnStatus
 from melorin.kernel.models.vpn import Panel, VpnAccount
 from melorin.modules.vpn import capabilities as panel_caps
 from melorin.modules.vpn import sync
-from melorin.modules.vpn.adapters.base import ErrorKind, PanelError, supports
+from melorin.modules.vpn.adapters.base import PanelError, supports
+from melorin.modules.vpn.adapters.lifecycle import close_adapter, panel_failure
 from melorin.modules.vpn.adapters.registry import build_adapter, seed_adapter
 
 log = logging.getLogger("melorin.vpn.tools")
@@ -85,17 +88,7 @@ def _tool(name: str) -> Tool:
     return _BY_NAME[name]
 
 
-def _panel_error(exc: PanelError) -> AppError:
-    if exc.kind == ErrorKind.PERMANENT:
-        return AppError("PANEL_REJECTED", "پنل این درخواست را نپذیرفت؛ بعداً دوباره تلاش کنید یا با پشتیبانی تماس بگیرید.", 409)
-    return AppError("PANEL_UNAVAILABLE", "پنل در حال حاضر پاسخ نمی‌دهد؛ چند لحظه بعد دوباره تلاش کنید.", 503)
-
-
-async def _close(adapter) -> None:
-    try:
-        await adapter.close()
-    except Exception:
-        log.warning("adapter close failed", exc_info=True)
+_panel_error = functools.partial(panel_failure, rejected="پنل این درخواست را نپذیرفت؛ بعداً دوباره تلاش کنید یا با پشتیبانی تماس بگیرید.")
 
 
 def _reason(tool: Tool, role: str, account: VpnAccount, panel: Panel | None) -> str | None:
@@ -133,7 +126,7 @@ async def _open(session: AsyncSession, account: VpnAccount, role: str, name: str
     adapter = build_adapter(panel)
     seed_adapter(adapter, account)
     if tool.capability and not supports(adapter, tool.capability):
-        await _close(adapter)
+        await close_adapter(adapter)
         raise AppError("TOOL_UNAVAILABLE", "پنل این اکانت از این امکان پشتیبانی نمی‌کند.", 409)
     return adapter, panel
 
@@ -194,7 +187,7 @@ async def usage(session: AsyncSession, account: VpnAccount, *, role: str, period
     except PanelError as exc:
         raise _panel_error(exc) from exc
     finally:
-        await _close(adapter)
+        await close_adapter(adapter)
     out = normalise_usage(rows)
     if role == CUSTOMER:
         out["by_node"] = []  # which servers carried the traffic is operational detail, not a customer view
@@ -223,7 +216,7 @@ async def presence(session: AsyncSession, account: VpnAccount, role: str) -> dic
         remote = None
     finally:
         if adapter is not None:
-            await _close(adapter)
+            await close_adapter(adapter)
     if remote is None:
         return out
     seen = sync.aware(getattr(remote, "online_at", None))
@@ -257,7 +250,7 @@ async def devices(session: AsyncSession, account: VpnAccount, *, role: str) -> d
     except PanelError as exc:
         raise _panel_error(exc) from exc
     finally:
-        await _close(adapter)
+        await close_adapter(adapter)
     items = [_device(r) for r in rows if isinstance(r, dict)]
     return {"items": [d for d in items if d["hwid"]], "count": len(items)}
 
@@ -272,7 +265,7 @@ async def delete_device(session: AsyncSession, account: VpnAccount, *, role: str
     except PanelError as exc:
         raise _panel_error(exc) from exc
     finally:
-        await _close(adapter)
+        await close_adapter(adapter)
     _audit(session, account, "device_deleted", actor_id=actor_id, role=role, data={"hwid_prefix": hwid[:6]})
     await session.commit()
 
@@ -284,7 +277,7 @@ async def reset_devices(session: AsyncSession, account: VpnAccount, *, role: str
     except PanelError as exc:
         raise _panel_error(exc) from exc
     finally:
-        await _close(adapter)
+        await close_adapter(adapter)
     _audit(session, account, "devices_reset", actor_id=actor_id, role=role)
     await session.commit()
 
@@ -313,7 +306,7 @@ async def connections(
         except PanelError as exc:
             failures.append(exc)
     finally:
-        await _close(adapter)
+        await close_adapter(adapter)
     if ips is None and history is None:
         raise _panel_error(failures[0])
     _audit(
@@ -348,7 +341,7 @@ async def rotate_subscription(session: AsyncSession, account: VpnAccount, *, rol
     except PanelError as exc:
         raise _panel_error(exc) from exc
     finally:
-        await _close(adapter)
+        await close_adapter(adapter)
     if len(_last_rotate) > 5000:
         _last_rotate.clear()
     _last_rotate[account.id] = now
@@ -362,14 +355,14 @@ async def suspend(session: AsyncSession, account: VpnAccount, *, role: str, acto
     """Switch the account off on the panel (owner / admin). Idempotent: an already-suspended account stays suspended."""
     adapter, _panel = await _open(session, account, role, "suspend")
     if account.status in (VpnStatus.EXPIRED, VpnStatus.LIMITED):
-        await _close(adapter)
+        await close_adapter(adapter)
         raise AppError("ACCOUNT_NOT_ACTIVE", "این اکانت منقضی یا تمام‌شده است و تعلیق معنا ندارد.", 409)
     try:
         await adapter.suspend_account(account.username)
     except PanelError as exc:
         raise _panel_error(exc) from exc
     finally:
-        await _close(adapter)
+        await close_adapter(adapter)
     account.status = VpnStatus.SUSPENDED
     _audit(session, account, "suspended", actor_id=actor_id, role=role, data={"reason": (reason or "")[:300]})
     await session.commit()
@@ -380,14 +373,14 @@ async def resume(session: AsyncSession, account: VpnAccount, *, role: str, actor
     adapter, _panel = await _open(session, account, role, "suspend")
     expires = sync.aware(account.sold_expires_at)
     if account.status != VpnStatus.SUSPENDED or (expires is not None and expires <= utcnow()):
-        await _close(adapter)
+        await close_adapter(adapter)
         raise AppError("ACCOUNT_NOT_SUSPENDED", "فقط اکانتِ تعلیق‌شده و منقضی‌نشده را می‌توان فعال کرد.", 409)
     try:
         await adapter.resume_account(account.username)
     except PanelError as exc:
         raise _panel_error(exc) from exc
     finally:
-        await _close(adapter)
+        await close_adapter(adapter)
     account.status = VpnStatus.ACTIVE
     _audit(session, account, "resumed", actor_id=actor_id, role=role)
     await session.commit()
@@ -431,7 +424,7 @@ async def adjust(
     except PanelError as exc:
         raise _panel_error(exc) from exc
     finally:
-        await _close(adapter)
+        await close_adapter(adapter)
     await sync.apply_remote(session, account, pa, notify=False)
     sync.record_sale(account, pa.expire_at, pa.traffic_limit_bytes)  # R10: compensation changes the entitlement, with a reason on record
     _audit(

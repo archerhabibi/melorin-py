@@ -15,7 +15,7 @@ const REASONS = {
   rate_limited: 'تلاش‌ها زیاد بود؛ کمی بعد دوباره امتحان کنید.',
   login_disabled: 'ورود با تلگرام موقتاً غیرفعال شده است.',
 };
-// Trusted browser (docs/21-Automatic-Identity-Verification.md): the server remembers this browser through an HttpOnly
+// Trusted browser (docs/23-Automatic-Identity-Verification.md): the server remembers this browser through an HttpOnly
 // cookie, so this component keeps nothing in browser storage and page scripts can never read the device key.
 // Sign-out on a shared computer: ask the server to drop this browser's trust.
 export async function forgetDevice(base) {

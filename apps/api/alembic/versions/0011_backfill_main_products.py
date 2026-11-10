@@ -3,6 +3,7 @@
 The admin UI now publishes new products automatically. This backfills products
 created before that behavior so an existing deployment is not left empty.
 """
+
 from alembic import op
 import sqlalchemy as sa
 
@@ -13,7 +14,8 @@ depends_on = None
 
 
 def upgrade():
-    op.execute(sa.text("""
+    op.execute(
+        sa.text("""
         INSERT INTO store_products (id, store_id, product_id, is_enabled, is_listed, customer_price, created_at, updated_at)
         SELECT md5(s.id::text || ':' || p.id::text)::uuid, s.id, p.id, TRUE, TRUE, NULL, now(), now()
         FROM stores s
@@ -28,7 +30,8 @@ def upgrade():
               FROM store_products sp
               WHERE sp.store_id = s.id AND sp.product_id = p.id
           )
-    """))
+    """)
+    )
 
 
 def downgrade():

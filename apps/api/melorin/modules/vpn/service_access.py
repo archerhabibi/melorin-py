@@ -20,6 +20,7 @@ import json
 import logging
 import secrets
 
+from melorin.modules.vpn.adapters import providers
 from melorin.core import audit
 from melorin.core.crypto import encrypt
 from melorin.core.errors import AppError
@@ -27,6 +28,7 @@ from melorin.kernel.models.vpn import Panel
 from melorin.modules.vpn import capabilities as panel_caps
 from melorin.modules.vpn.adapters import registry
 from melorin.modules.vpn.adapters.base import PanelError
+from melorin.modules.vpn.adapters.lifecycle import close_adapter
 from melorin.modules.vpn.adapters.pasarguard.capabilities import CAPABILITY_REQUIREMENTS
 from melorin.modules.vpn.panel_admins import generate_password
 
@@ -98,17 +100,6 @@ def _bootstrap_credentials(bootstrap: dict | None) -> dict | None:
     raise AppError("BOOTSTRAP_CREDENTIAL_INVALID", "Give an owner api_key, or username and password.", 422)
 
 
-async def _close(adapter) -> None:
-    close = getattr(adapter, "close", None)
-    if callable(close):
-        try:
-            res = close()
-            if hasattr(res, "__await__"):
-                await res
-        except Exception:
-            log.debug("service access: adapter close failed", exc_info=True)
-
-
 def _fail(step: str, exc: Exception) -> AppError:
     detail = (getattr(exc, "message", None) or str(exc) or exc.__class__.__name__)[:200]
     return AppError("SERVICE_ACCESS_FAILED", f"Panel refused the step '{step}': {detail}", 502)
@@ -126,7 +117,7 @@ def _is_service_report(report) -> bool:
 
 
 async def _issue(session, panel: Panel, *, bootstrap: dict | None, actor_id, replace: bool) -> dict:
-    if panel.kind != "pasarguard":
+    if not providers.supports(panel.kind, "panel_ops"):
         raise AppError("NOT_PASARGUARD", "Service access is only available for PasarGuard panels.", 422)
     cfg = dict(panel.config or {})
     if replace and not cfg.get("service_key_id"):
@@ -196,9 +187,9 @@ async def _issue(session, panel: Panel, *, bootstrap: dict | None, actor_id, rep
             else "Melorin now runs on the service key. Revoke the previous owner API key on the panel once you have checked the panel page.",
         }
     finally:
-        await _close(owner)
+        await close_adapter(owner)
         if candidate is not None:
-            await _close(candidate)
+            await close_adapter(candidate)
 
 
 async def _drop_key(owner, key: dict | None) -> None:
@@ -244,5 +235,5 @@ async def status(panel: Panel, *, bootstrap: dict | None = None) -> dict:
         except PanelError as exc:
             raise _fail("list keys", exc) from exc
         finally:
-            await _close(adapter)
+            await close_adapter(adapter)
     return out

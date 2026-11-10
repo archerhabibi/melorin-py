@@ -4,7 +4,6 @@ import uuid
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
-from sqlalchemy import select
 
 from melorin.core import audit, events
 from melorin.core.crypto import decrypt
@@ -13,6 +12,7 @@ from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import AppError, NotFound
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.vpn import Panel, PanelAdmin, PanelAdminChangeRequest
+from melorin.modules.panelops import queries
 from melorin.modules.vpn import panel_admins as svc
 from melorin.modules.vpn.adapters.base import PanelError
 
@@ -50,12 +50,7 @@ async def _out(session, rows):
 
 @router.get("/panel-admins")
 async def list_panel_admins(_: AdminUser, session: Session, store_id: uuid.UUID | None = None, panel_id: uuid.UUID | None = None):
-    stmt = select(PanelAdmin).order_by(PanelAdmin.created_at)
-    if store_id:
-        stmt = stmt.where(PanelAdmin.store_id == store_id)
-    if panel_id:
-        stmt = stmt.where(PanelAdmin.panel_id == panel_id)
-    return await _out(session, (await session.scalars(stmt)).all())
+    return await _out(session, await queries.panel_admin_rows(session, store_id=store_id, panel_id=panel_id))
 
 
 @router.post("/panel-admins/sync")
@@ -173,31 +168,25 @@ async def _notify_requester(session, r: PanelAdminChangeRequest, *, applied: boo
     )
     if note:
         body += f"\nتوضیح ادمین: {note}"
-    await events.emit(
+    await events.emit_user_notice(
         session,
-        events.NOTIFY,
-        {
-            "user_id": r.requested_by,
-            "store_id": r.store_id,
-            "kind": "reseller_panel_admin_request",
-            "title": "✅ درخواست شما اعمال شد" if applied else "❌ درخواست شما رد شد",
-            "body": body,
-            "dedup_key": f"panel_admin_request_result:{r.id}",
-        },
+        r.requested_by,
+        r.store_id,
+        "reseller_panel_admin_request",
+        "✅ درخواست شما اعمال شد" if applied else "❌ درخواست شما رد شد",
+        body,
+        payload_dedup_key=f"panel_admin_request_result:{r.id}",
     )
 
 
 @router.get("/panel-admin-requests")
 async def list_requests(_: AdminUser, session: Session, status: str | None = "pending"):
-    stmt = select(PanelAdminChangeRequest).order_by(PanelAdminChangeRequest.created_at.desc()).limit(200)
-    if status:
-        stmt = stmt.where(PanelAdminChangeRequest.status == status)
-    rows = (await session.scalars(stmt)).all()
+    rows = await queries.change_requests(session, status)
     stores, current = {}, {}
     for r in rows:
         if r.store_id not in stores:
             stores[r.store_id] = await session.get(Store, r.store_id)
-            first = await session.scalar(select(PanelAdmin).where(PanelAdmin.store_id == r.store_id).order_by(PanelAdmin.created_at))
+            first = await queries.first_panel_admin(session, r.store_id)
             current[r.store_id] = dict(first.profile or {}) if first else {}
     return [_req_out(r, stores[r.store_id].name if stores[r.store_id] else None, current[r.store_id]) for r in rows]
 

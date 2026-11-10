@@ -293,6 +293,10 @@ def test_web_ticket_screens_use_the_new_edit_endpoints():
     for needle in ("/api/v1/admin/tickets", "/messages/${m.id}", 'method: "PATCH"', "internal", "ویرایش‌شده"):
         assert needle in admin_ui
     assert "TicketsView" in read_web_source(APPS / "admin-web" / "src" / "AdminExtra.jsx")
-    store_ui = read_web_source(APPS / "store-web" / "src" / "Dashboard.jsx")
+    # Dashboard.jsx was split into dashboard/* (T31); the ticket screens live in the parts
+    store_src = APPS / "store-web" / "src"
+    store_ui = read_web_source(store_src / "Dashboard.jsx") + "".join(
+        read_web_source(p) for p in sorted((store_src / "dashboard").glob("*.jsx"))
+    )
     for needle in ("/api/v1/tickets/${t.id}/messages/${m.id}", "ویرایش موضوع", "بستن تیکت"):
         assert needle in store_ui

@@ -6,9 +6,9 @@ pyproject = (ROOT / "apps/api/pyproject.toml").read_text()
 gate = (ROOT / "scripts/run_quality_gate.sh").read_text()
 ci = (ROOT / ".github/workflows/ci.yml").read_text()
 
-# Must mirror [tool.ruff.lint] select in apps/api/pyproject.toml. Widening the policy (E7, I, UP, B) needs a
-# dedicated cleanup first (about 200 existing findings); keep both places in sync when that happens.
-required = ('"E4"', '"E9"', '"F"')
+# Must mirror [tool.ruff.lint] select in apps/api/pyproject.toml. Audit T30/T41 widened it with DTZ (naive datetimes),
+# B (bugbear), ASYNC and S (security); keep both places in sync when it changes again.
+required = ('"E4"', '"E9"', '"F"', '"DTZ"', '"B"', '"ASYNC"', '"S"')
 missing = [rule for rule in required if rule not in pyproject]
 if missing:
     raise SystemExit(f"quality policy missing rules: {missing}")
@@ -33,4 +33,11 @@ for web in ("apps/store-web", "apps/admin-web"):
     for cfg in ("eslint.config.js", ".prettierrc.json"):
         if not (ROOT / web / cfg).exists():
             raise SystemExit(f"{web}/{cfg} is missing")
+# T-R3: both Telegram bot suites and the alembic format check must run in the local gate and in CI, not in only one of them.
+for label, text in (("run_quality_gate.sh", gate), ("ci.yml", ci)):
+    for needle in ("../telegram-main/tests", "../telegram-reseller/tests"):
+        if needle not in text:
+            raise SystemExit(f"{label} does not run the bot suite {needle}")
+    if "apps/api/alembic" not in text and "tests alembic" not in text:
+        raise SystemExit(f"{label} does not format-check alembic migrations")
 print("Quality configuration is explicit and wired into local gate and CI")

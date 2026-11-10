@@ -12,12 +12,14 @@ import uuid
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
-from sqlalchemy import select
 
+from melorin.modules.vpn.adapters import providers
 from melorin.core import audit
 from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import AppError, NotFound
 from melorin.kernel.models.vpn import Panel, Server
+from melorin.modules.panelops import queries
+from melorin.modules.vpn.panel_session import close_adapter
 from melorin.modules.vpn.adapters.registry import build_adapter
 from melorin.modules.vpn.targets import normalize_target, validate_target
 
@@ -51,11 +53,7 @@ async def fetch_listing(panel: Panel) -> dict | None:
         log.info("panel target listing failed panel=%s", panel.id, exc_info=True)
         return None
     finally:
-        if adapter is not None:
-            try:
-                await adapter.close()
-            except Exception:
-                log.warning("panel adapter close failed panel=%s", panel.id, exc_info=True)
+        await close_adapter(adapter)
 
 
 def listing_warnings(panel: Panel, target: dict | None, listing: dict | None) -> list[str]:
@@ -64,37 +62,14 @@ def listing_warnings(panel: Panel, target: dict | None, listing: dict | None) ->
         return []
     if listing is None:
         return ["پنل در دسترس نیست یا فهرست مقصد ندارد؛ وجود مقصد روی پنل بررسی نشد."]
-    out: list[str] = []
-    if panel.kind == "pasarguard":
-        groups = {g["id"]: g for g in listing.get("groups", [])}
-        for gid in target.get("group_ids", []):
-            if gid not in groups:
-                out.append(f"گروه {gid} روی پنل پیدا نشد.")
-            elif groups[gid].get("disabled"):
-                out.append(f"گروه {gid} روی پنل غیرفعال است.")
-        if "user_template_id" in target:
-            tpl = {t["id"]: t for t in listing.get("templates", [])}.get(int(target["user_template_id"]))
-            if tpl is None:
-                out.append(f"تمپلیت {target['user_template_id']} روی پنل پیدا نشد.")
-            elif tpl.get("disabled"):
-                out.append(f"تمپلیت {target['user_template_id']} روی پنل غیرفعال است.")
-            elif target.get("limits_from") == "template":
-                out.append("حجم و مدت از خود تمپلیت می‌آید و با بسته‌ی فروش یکی نیست؛ مطمئن شوید با کدهای محصول همین سرور می‌خواند.")
-    elif panel.kind == "sanaei":
-        inbounds = {i["id"]: i for i in listing.get("inbounds", [])}
-        for iid in target.get("inbound_ids", []):
-            if iid not in inbounds:
-                out.append(f"اینباند {iid} روی پنل پیدا نشد.")
-            elif not inbounds[iid].get("enabled", True):
-                out.append(f"اینباند {iid} روی پنل غیرفعال است.")
-    return out
+    return providers.target_warnings(panel.kind, target, listing)
 
 
 async def duplicate_warning(session, panel: Panel, target: dict | None, *, exclude: uuid.UUID | None = None) -> list[str]:
     """Two slots on one panel aimed at the same destination count the same users twice: say so."""
     if not target:
         return []
-    rows = (await session.scalars(select(Server).where(Server.panel_id == panel.id))).all()
+    rows = await queries.servers_of_panel(session, panel.id)
     same = [s.name for s in rows if s.id != exclude and normalize_target(s.target) == target]
     return [f"مقصد دیگری روی همین پنل (همین گروه/اینباند) وجود دارد: {', '.join(same)}"] if same else []
 
@@ -115,7 +90,7 @@ async def panel_targets(panel_id: uuid.UUID, _: AdminUser, session: Session):
     listing = await fetch_listing(panel)
     if listing is None:
         raise AppError("TARGETS_UNAVAILABLE", "فهرست گروه/اینباند از پنل خوانده نشد (پنل در دسترس نیست یا پشتیبانی نمی‌کند).", 502)
-    servers = (await session.scalars(select(Server).where(Server.panel_id == panel.id))).all()
+    servers = await queries.servers_of_panel(session, panel.id)
 
     def used(key: str, value: int) -> list[dict]:
         out = []
@@ -168,9 +143,9 @@ async def create_servers_from_targets(panel_id: uuid.UUID, body: ServersFromTarg
     panel = await session.get(Panel, panel_id)
     if not panel:
         raise NotFound("پنل")
-    if body.kind in ("group", "template") and panel.kind != "pasarguard":
+    if body.kind in ("group", "template") and body.kind not in providers.target_kinds(panel.kind):
         raise AppError("INVALID_TARGET", "گروه و تمپلیت فقط برای پنل پاسارگارد است.", 422)
-    if body.kind == "inbound" and panel.kind != "sanaei":
+    if body.kind == "inbound" and "inbound" not in providers.target_kinds(panel.kind):
         raise AppError("INVALID_TARGET", "اینباند فقط برای پنل سنایی است.", 422)
     codes = await _clean_product_codes(session, body.product_codes)
     listing = await fetch_listing(panel) or {}
@@ -184,7 +159,7 @@ async def create_servers_from_targets(panel_id: uuid.UUID, body: ServersFromTarg
     units: list[list[int] | int] = (
         [list(dict.fromkeys(body.ids))] if (body.kind == "inbound" and body.group_as_one) else list(dict.fromkeys(body.ids))
     )
-    existing = [normalize_target(s.target) for s in (await session.scalars(select(Server).where(Server.panel_id == panel.id))).all()]
+    existing = [normalize_target(s.target) for s in await queries.servers_of_panel(session, panel.id)]
     created, skipped = [], []
     for unit in units:
         target = check_target(panel, _target_for(body.kind, unit, body.limits_from))

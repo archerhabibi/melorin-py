@@ -149,17 +149,14 @@ async def notify_customer(session: AsyncSession, t: Ticket, text: str) -> None:
     preview = text.strip().replace("\n", " ") or IMAGE_PLACEHOLDER
     if len(preview) > 280:
         preview = preview[:277] + "…"
-    await events.emit(
+    await events.emit_user_notice(
         session,
-        events.NOTIFY,
-        {
-            "user_id": t.user_id,
-            "store_id": t.store_id,
-            "kind": "ticket_reply",
-            "title": f"🎧 پاسخ جدید به تیکت #{t.number or str(t.id)[:6]}",
-            "body": f"{t.subject}\n\n{preview}",
-            "dedup_key": f"ticket_reply:{t.id}:{uuid.uuid4().hex[:8]}",
-        },
+        t.user_id,
+        t.store_id,
+        "ticket_reply",
+        f"🎧 پاسخ جدید به تیکت #{t.number or str(t.id)[:6]}",
+        f"{t.subject}\n\n{preview}",
+        payload_dedup_key=f"ticket_reply:{t.id}:{uuid.uuid4().hex[:8]}",
     )
 
 

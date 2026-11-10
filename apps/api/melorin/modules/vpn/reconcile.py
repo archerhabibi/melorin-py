@@ -27,6 +27,7 @@ from melorin.kernel.models.vpn import Panel, PanelAdmin, PanelOrphan, VpnAccount
 from melorin.modules.vpn import issues, notices, sync
 from melorin.modules.vpn.adapters.base import PanelAccount, PanelError, supports
 from melorin.modules.vpn.adapters.registry import build_adapter, seed_adapter
+from melorin.modules.vpn.panel_reader import PanelReader
 
 log = logging.getLogger("melorin.vpn.reconcile")
 
@@ -52,14 +53,8 @@ class PanelResult:
 
 async def _remote_map(adapter) -> tuple[dict[str, PanelAccount], bool]:
     """Every panel user by username and whether the listing is complete."""
-    out: dict[str, PanelAccount] = {}
-    for page in range(MAX_PAGES):
-        rows, total = await adapter.list_accounts(offset=page * PAGE, limit=PAGE)
-        for row in rows:
-            out[row.username] = row
-        if len(rows) < PAGE or (total is not None and len(out) >= total):
-            return out, True
-    return out, False
+    listing = await PanelReader(adapter).accounts(page_size=PAGE, max_rows=MAX_PAGES * PAGE)
+    return {row.username: row for row in listing.rows}, listing.complete
 
 
 async def _expected_owners(session: AsyncSession, panel_id: uuid.UUID) -> dict[uuid.UUID, str]:

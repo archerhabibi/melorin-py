@@ -1,13 +1,11 @@
 import uuid
 
 from fastapi import APIRouter, File, UploadFile
-from sqlalchemy import select
-
 from melorin.core import audit, codes, events
 from melorin.core.db import utcnow
 from melorin.core.deps import AuthSession, CurrentAuth, Session, StoreCtx
 from melorin.core.errors import AppError, NotFound
-from melorin.modules.tickets import service
+from melorin.modules.tickets import queries, service
 from melorin.kernel.models.tickets import Ticket, TicketMessage
 from melorin.modules.tickets.schemas import (
     AddMessage,
@@ -73,14 +71,7 @@ async def create(body: CreateTicket, ctx: StoreCtx, session: Session):
 
 @router.get("/stores/{store_id}/tickets", response_model=list[TicketOut])
 async def list_mine(ctx: StoreCtx, session: Session):
-    return [
-        tout(t)
-        for t in (
-            await session.scalars(
-                select(Ticket).where(Ticket.user_id == ctx.user.id, Ticket.store_id == ctx.store.id).order_by(Ticket.updated_at.desc())
-            )
-        ).all()
-    ]
+    return [tout(t) for t in await queries.mine(session, ctx.user.id, ctx.store.id)]
 
 
 @router.get("/tickets/{ticket_id}", response_model=TicketOut)

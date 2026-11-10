@@ -227,16 +227,13 @@ async def on_order_completed(session: AsyncSession, order_id: uuid.UUID) -> None
             store_id=order.store_id,
             data={"recovered": recovered, "gross": gross},
         )
-    await events.emit(
+    await events.emit_user_notice(
         session,
-        events.NOTIFY,
-        {
-            "user_id": rel.referrer_user_id,
-            "store_id": order.store_id,
-            "kind": "referral",
-            "title": "پاداش معرفی",
-            "body": f"مبلغ {payout:,} به کیف پول شما اضافه شد.",
-        },
+        rel.referrer_user_id,
+        order.store_id,
+        "referral",
+        "پاداش معرفی",
+        f"مبلغ {payout:,} به کیف پول شما اضافه شد.",
         dedup_key=f"notify:referral:{order.id}:{kind}",
     )
     head = "🎁 پاداش اولین خرید معرف" if kind == "signup_reward" else "🤝 کمیسیون معرف"

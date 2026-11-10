@@ -1,4 +1,5 @@
 """Card-to-card auto verification: bank SMS sources and received SMS messages."""
+
 from alembic import op
 import sqlalchemy as sa
 

@@ -68,7 +68,7 @@ def test_group_membership_is_saved_with_the_field_the_api_reads():
 
 def test_bundle_screen_manages_packages_through_bundle_endpoints():
     """The bundle screen edits packages (and per-bundle prices) via /bundles/{id}/products, never via the product PATCH."""
-    groups = _ui("BundlesView.jsx")
+    groups = _ui("BundlesView.jsx") + _ui("bundles/BundleDrawer.jsx") + _ui("bundles/BundleParts.jsx")  # split by T31
     assert "/products/" in groups and "kind_label" in groups and "member_labels" in groups
     assert "default_bundle_id" not in groups
     assert "PRODUCT_DEFAULT_BUNDLE" in ROUTER and "/bundles/{bundle_id}/products" in ROUTER

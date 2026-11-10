@@ -65,3 +65,20 @@ def _hermetic_environment(request: pytest.FixtureRequest):
         # Never leak values set by one test (or its monkeypatch) into the next.
         _scrub()
         _clear_settings_cache()
+
+
+@pytest.fixture(autouse=True)
+def _no_ambient_job_lock(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch):
+    """Unit tests never talk to a real Redis for the worker job lock.
+
+    ``Settings.redis_url`` defaults to ``redis://localhost``, so wherever a Redis service is up (CI's quality job, a
+    developer's machine) ``tracked_job`` would take a *real* lock. Each test runs on its own event loop while
+    ``get_redis()`` is cached, so the release can fail and the key then lives for its 130 s TTL - the next test that
+    runs the same job gets "previous run still holds the lock" and the job silently returns ``None``.
+    Tests that exercise the lock install their own fake with ``monkeypatch.setattr(wrap, "get_redis", ...)``.
+    """
+    if request.node.get_closest_marker("integration"):
+        return
+    from melorin.worker import wrap
+
+    monkeypatch.setattr(wrap, "get_redis", lambda: None)

@@ -1,11 +1,10 @@
 import uuid
 
 from fastapi import APIRouter, Header
-from sqlalchemy import select
 
 from melorin.core.deps import Session, StoreCtx
 from melorin.core.scope import StoreScope
-from melorin.modules.orders import service
+from melorin.modules.orders import queries, service
 from melorin.kernel.models.orders import Order
 from melorin.modules.orders.schemas import CreateOrder, OrderOut
 from melorin.modules.orders.service import account_return
@@ -75,7 +74,7 @@ async def test_account(ctx: StoreCtx, session: Session):
 @router.get("/stores/{store_id}/orders", response_model=list[OrderOut])
 async def list_orders(ctx: StoreCtx, session: Session):
     """Only the caller's own orders of THIS store."""
-    rows = (await session.scalars(select(Order).where(*StoreScope.of(ctx).where(Order)).order_by(Order.created_at.desc()).limit(100))).all()
+    rows = await queries.recent_for_scope(session, StoreScope.of(ctx).where(Order))
     return [out(o) for o in rows]
 
 

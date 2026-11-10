@@ -66,6 +66,17 @@ def test_build_checks_shape_and_degraded_rate_limit():
     bad = build_checks(DatabaseProbe(ok=False, error="x"), WorkerProbe())
     assert bad["database"] == "unavailable" and bad["redis"] == "unavailable"
     assert bad["rate_limit"] == "local_degraded" and bad["database_error"] == "x"
+    assert bad["worker"] == "unknown"  # T35: Redis down means the heartbeat cannot be read, not that the worker is stale
+    stale = build_checks(DatabaseProbe(ok=True), WorkerProbe(True, False, "1"))
+    assert stale["worker"] == "unavailable"
+
+
+def test_worker_stale_alert_is_silent_while_redis_is_down(monkeypatch):
+    alerts = {}
+    monkeypatch.setattr(health, "set_alert", lambda name, active, **kw: alerts.__setitem__(name, active))
+    monkeypatch.setattr(health, "set_gauge", lambda *a, **k: None)
+    health.publish_signals(DatabaseProbe(ok=True), WorkerProbe())  # Redis unreachable
+    assert alerts["MelorinRedisUnavailable"] is True and alerts["MelorinWorkerStale"] is False
 
 
 def test_publish_signals_thresholds(monkeypatch):

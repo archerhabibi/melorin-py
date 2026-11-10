@@ -421,16 +421,13 @@ async def _referrer_bonus(session: AsyncSession, order: Order, program: Program)
         order_id=order.id,
         memo="پاداش معرفی دوست",
     )
-    await events.emit(
+    await events.emit_user_notice(
         session,
-        events.NOTIFY,
-        {
-            "user_id": rel.referrer_user_id,
-            "store_id": order.store_id,
-            "kind": "loyalty",
-            "title": "امتیاز معرفی",
-            "body": f"{program.referral_bonus:,} امتیاز بابت اولین خرید دوست شما به باشگاه مشتریان اضافه شد.",
-        },
+        rel.referrer_user_id,
+        order.store_id,
+        "loyalty",
+        "امتیاز معرفی",
+        f"{program.referral_bonus:,} امتیاز بابت اولین خرید دوست شما به باشگاه مشتریان اضافه شد.",
         dedup_key=f"notify:loyalty:referral:{order.store_id}:{order.user_id}",
     )
 
@@ -439,11 +436,8 @@ async def _notify_earned(session: AsyncSession, order: Order, earned: int, befor
     body = f"{earned:,} امتیاز بابت سفارش {order.number} به باشگاه مشتریان شما اضافه شد."
     if after and (before is None or after.name != before.name):
         body += f"\nتبریک! به سطح «{after.name}» رسیدید."
-    await events.emit(
-        session,
-        events.NOTIFY,
-        {"user_id": order.user_id, "store_id": order.store_id, "kind": "loyalty", "title": "باشگاه مشتریان", "body": body},
-        dedup_key=f"notify:loyalty:{order.id}",
+    await events.emit_user_notice(
+        session, order.user_id, order.store_id, "loyalty", "باشگاه مشتریان", body, dedup_key=f"notify:loyalty:{order.id}"
     )
 
 
@@ -481,16 +475,13 @@ async def on_order_refunded(session: AsyncSession, order_id: uuid.UUID) -> None:
         if created:
             acc.debt += owed
             acc.lifetime_earned = max(0, acc.lifetime_earned - earned)
-            await events.emit(
+            await events.emit_user_notice(
                 session,
-                events.NOTIFY,
-                {
-                    "user_id": acc.user_id,
-                    "store_id": acc.store_id,
-                    "kind": "loyalty",
-                    "title": "باشگاه مشتریان",
-                    "body": f"{earned:,} امتیاز به‌دلیل استرداد سفارش از باشگاه مشتریان کسر شد.",
-                },
+                acc.user_id,
+                acc.store_id,
+                "loyalty",
+                "باشگاه مشتریان",
+                f"{earned:,} امتیاز به‌دلیل استرداد سفارش از باشگاه مشتریان کسر شد.",
                 dedup_key=f"notify:loyalty:reversal:{tx.id}",
             )
 
@@ -584,16 +575,13 @@ async def redeem(
     )
     reward.redeemed_count += 1
     redemption.points_tx_id, redemption.ledger_tx_id, redemption.completed_at = ptx.id, ltx.id, _now()
-    await events.emit(
+    await events.emit_user_notice(
         session,
-        events.NOTIFY,
-        {
-            "user_id": user.id,
-            "store_id": store.id,
-            "kind": "loyalty",
-            "title": "جایزه باشگاه مشتریان",
-            "body": f"مبلغ {reward.value:,} {store.currency} بابت «{reward.name}» به کیف پول شما اضافه شد.",
-        },
+        user.id,
+        store.id,
+        "loyalty",
+        "جایزه باشگاه مشتریان",
+        f"مبلغ {reward.value:,} {store.currency} بابت «{reward.name}» به کیف پول شما اضافه شد.",
         dedup_key=f"notify:loyalty:redeem:{redemption.id}",
     )
     return redemption, True

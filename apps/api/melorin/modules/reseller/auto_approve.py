@@ -27,12 +27,9 @@ from melorin.core.db import utcnow
 from melorin.core.errors import AppError
 from melorin.kernel.models.identity import User
 from melorin.kernel.models.stores import ResellerApplication, Store, StoreMembership
+from melorin.domain.timeutil import aware as _aware
 
 log = logging.getLogger("melorin.reseller.auto_approve")
-
-
-def _aware(value: dt.datetime) -> dt.datetime:
-    return value.replace(tzinfo=value.tzinfo or dt.UTC)
 
 
 async def blockers(session: AsyncSession, a: ResellerApplication) -> list[str]:
@@ -115,17 +112,14 @@ async def _approve(session, a, target, limit, now) -> bool:
         entity_id=a.id,
         data={"domain": a.domain, "domain_method": a.domain_method, "debt_limit": limit, "store_id": str(a.store_id)},
     )
-    await events.emit(
+    await events.emit_user_notice(
         session,
-        events.NOTIFY,
-        {
-            "user_id": a.user_id,
-            "store_id": a.target_store_id,
-            "kind": "reseller_application",
-            "title": "✅ درخواست نمایندگی شما تأیید شد",
-            "body": f"فروشگاه «{a.store_name}» پس از تأیید خودکار هویت (ربات و دامنه) ساخته شد.\n\nکارهای بعدی شما:\n{onboarding.steps_text('approved', domain=a.domain)}",
-            "dedup_key": f"reseller_application:{a.id}:approved",
-        },
+        a.user_id,
+        a.target_store_id,
+        "reseller_application",
+        "✅ درخواست نمایندگی شما تأیید شد",
+        f"فروشگاه «{a.store_name}» پس از تأیید خودکار هویت (ربات و دامنه) ساخته شد.\n\nکارهای بعدی شما:\n{onboarding.steps_text('approved', domain=a.domain)}",
+        payload_dedup_key=f"reseller_application:{a.id}:approved",
     )
     await onboarding.alert_admins(
         session,

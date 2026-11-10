@@ -3,6 +3,7 @@
 Revision ID: 0006_store_scoped_resellers
 Revises: 0005_orders_vpn_fk
 """
+
 from alembic import op
 import sqlalchemy as sa
 
@@ -24,10 +25,14 @@ def upgrade() -> None:
     app_columns = {c["name"] for c in inspector.get_columns("reseller_applications")}
     if "target_store_id" not in app_columns:
         op.add_column("reseller_applications", sa.Column("target_store_id", sa.Uuid(), nullable=True))
-        op.create_foreign_key("fk_reseller_applications_target_store_id_stores", "reseller_applications", "stores", ["target_store_id"], ["id"])
+        op.create_foreign_key(
+            "fk_reseller_applications_target_store_id_stores", "reseller_applications", "stores", ["target_store_id"], ["id"]
+        )
         main_id = bind.execute(sa.text("SELECT id FROM stores WHERE kind = 'main' ORDER BY created_at LIMIT 1")).scalar()
         if main_id:
-            bind.execute(sa.text("UPDATE reseller_applications SET target_store_id = :main WHERE target_store_id IS NULL"), {"main": main_id})
+            bind.execute(
+                sa.text("UPDATE reseller_applications SET target_store_id = :main WHERE target_store_id IS NULL"), {"main": main_id}
+            )
         op.alter_column("reseller_applications", "target_store_id", nullable=False)
         old = {i["name"] for i in inspector.get_indexes("reseller_applications")}
         if "uq_reseller_application_pending_user" in old:
@@ -40,12 +45,14 @@ def upgrade() -> None:
             postgresql_where=sa.text("status = 'pending'"),
         )
     # Existing reseller stores were all created from Main Store in v1.1.
-    bind.execute(sa.text("""
+    bind.execute(
+        sa.text("""
         UPDATE stores AS child
         SET parent_store_id = main.id
         FROM stores AS main
         WHERE child.kind = 'reseller' AND child.parent_store_id IS NULL AND main.kind = 'main'
-    """))
+    """)
+    )
 
 
 def downgrade() -> None:

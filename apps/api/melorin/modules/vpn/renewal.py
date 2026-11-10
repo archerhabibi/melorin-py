@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError
 from melorin.domain.order_state import OrderStatus, VpnStatus
+from melorin.domain.timeutil import aware as _aware
 
 GRACE_DAYS = 10
 GIB = 1024**3
@@ -30,13 +31,6 @@ GIB = 1024**3
 _NOT_RENEWABLE_STATUSES = (VpnStatus.REVOKED, VpnStatus.ARCHIVED, VpnStatus.PENDING, VpnStatus.PROVISIONING)
 # An order in one of these states is finished: it no longer blocks a new renewal of the same account.
 _FINISHED_ORDER_STATUSES = (OrderStatus.COMPLETED, OrderStatus.CANCELLED, OrderStatus.REFUNDED, OrderStatus.PAYMENT_FAILED)
-
-
-def _aware(d: dt.datetime | None) -> dt.datetime | None:
-    """SQLite hands back naive datetimes, PostgreSQL aware ones: compare everything in UTC."""
-    if d is None:
-        return None
-    return d if d.tzinfo else d.replace(tzinfo=dt.UTC)
 
 
 @dataclasses.dataclass(frozen=True)

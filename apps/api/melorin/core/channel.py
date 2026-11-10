@@ -41,6 +41,7 @@ from melorin.core.api_key_format import PREFIX, hash_key
 from melorin.core.errors import AppError
 from melorin.core.metrics import inc
 from melorin.core.proxy import ip_in_networks, is_trusted_proxy
+from melorin.core.ratelimit import hit
 
 log = logging.getLogger("melorin.channel")
 
@@ -313,6 +314,11 @@ async def api_channel(session, raw_key: str | None, *, store_id: uuid.UUID, scop
     if scope not in (cred.scopes or []):
         inc("melorin_channel_rejected_total", reason="api_scope")
         raise AppError("API_SCOPE_FORBIDDEN", "این کلید API چنین دسترسی‌ای ندارد.", 403)
+
+    # T54: the key's own per-minute budget, counted only for a key that passed every check above (a stranger's guesses never burn it).
+    if get_settings().enforce_api_key_rate_limit and not await hit(f"apikey:{cred.id}", max(int(cred.rate_limit_per_minute or 0), 1), 60):
+        inc("melorin_channel_rejected_total", reason="api_rate_limited")
+        raise AppError("API_RATE_LIMITED", "تعداد درخواست‌های این کلید API در دقیقه از سقف مجاز گذشته است.", 429)
 
     store = await session.get(Store, cred.store_id)
     profile = await session.scalar(select(ResellerProfile).where(ResellerProfile.store_id == cred.store_id))

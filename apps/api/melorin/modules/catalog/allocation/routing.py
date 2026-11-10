@@ -18,17 +18,11 @@ from melorin.kernel.models.bundles import Bundle, BundleMember, BundleProduct, S
 from melorin.modules.vpn.bundles import clean_custom_name
 from melorin.modules.catalog.allocation.offers import sellable_bundles
 from melorin.modules.vpn.targets import effective_destination, normalize_target, validate_target
+from melorin.domain.timeutil import aware as _aware
 
 BALANCING_MODES = ("round_robin", "least_fill", "fill_first")
 DEFAULT_BALANCING = "round_robin"
 _MIN_DT = dt.datetime.min.replace(tzinfo=dt.UTC)
-
-
-def _aware(value: dt.datetime | None) -> dt.datetime | None:
-    """SQLite returns naive datetimes, PostgreSQL aware ones: compare everything as UTC."""
-    if value is None:
-        return None
-    return value if value.tzinfo else value.replace(tzinfo=dt.UTC)
 
 
 @dataclasses.dataclass(frozen=True)

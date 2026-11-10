@@ -11,7 +11,9 @@ depends_on = None
 
 def upgrade():
     op.add_column("products", sa.Column("default_panel_group_id", sa.Uuid(), nullable=True))
-    op.create_foreign_key("fk_products_default_panel_group", "products", "panel_groups", ["default_panel_group_id"], ["id"], ondelete="SET NULL")
+    op.create_foreign_key(
+        "fk_products_default_panel_group", "products", "panel_groups", ["default_panel_group_id"], ["id"], ondelete="SET NULL"
+    )
     op.create_index("ix_products_default_panel_group_id", "products", ["default_panel_group_id"])
 
 

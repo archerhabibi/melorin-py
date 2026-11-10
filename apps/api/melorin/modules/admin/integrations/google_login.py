@@ -1,24 +1,17 @@
 """Sign in with Google: Client ID settings and a connectivity test."""
 
-from urllib.parse import urlparse
-
 import httpx
 from fastapi import APIRouter
 
 from melorin.core import integrations
 from melorin.core.config import get_settings
+from melorin.core.urls import origin as _origin
 from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import AppError
 from melorin.modules.admin.integrations._audit import record_integration
 from melorin.modules.admin.integrations.schemas import GoogleIn
 
 router = APIRouter(prefix="/integrations", tags=["admin-integrations"])
-
-
-def _origin(url: str) -> str | None:
-    """Reduce a URL to ``scheme://host[:port]`` - the only form Google accepts as an Authorized JavaScript origin."""
-    p = urlparse((url or "").strip())
-    return f"{p.scheme}://{p.netloc}" if p.scheme in ("http", "https") and p.netloc else None
 
 
 def google_public(cfg: dict) -> dict:

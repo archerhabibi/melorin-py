@@ -18,15 +18,12 @@ from melorin.core.errors import AppError, NotFound
 from melorin.kernel.models.identity import TrustedDevice, User
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.system import AuditEvent
+from melorin.domain.timeutil import aware as _aware
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 DEVICE_STATUSES = {"active", "expired", "revoked"}
 LIMIT = 500
-
-
-def _aware(v: dt.datetime) -> dt.datetime:
-    return v.replace(tzinfo=v.tzinfo or dt.UTC)
 
 
 def device_status(d: TrustedDevice, now: dt.datetime) -> str:

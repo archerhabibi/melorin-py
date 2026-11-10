@@ -38,7 +38,7 @@ Identity & Linking; Stores/Resellers; Authorization; Catalog; Pricing/Discount; 
 | Domain (خالص) | `melorin/domain` | هیچ‌چیز از پروژه |
 | Kernel | `melorin/kernel` (مدل‌های ORM، `Base`) | فقط `domain` |
 | Core (زیرساخت) | `melorin/core` | فقط `kernel` و `domain` |
-| ماژول‌ها (پشتهٔ بدون دور) | `melorin/modules/*` | لایهٔ پایین‌تر از خودش: `admin` › `reports` › `reseller` › `orders/payments/identity` › `catalog/referral/tickets` › `vpn/wallet/webhooks/notifications/stores/system` |
+| ماژول‌ها (پشتهٔ بدون دور) | `melorin/modules/*` | لایهٔ پایین‌تر از خودش: `admin` › `reports` › `reseller` › `orders/payments/identity` › `panelops` (عملیات روی پنل: کنسول، پایش، drift، پشتیبان، نقش فروشگاه، sub-branding؛ فقط `vpn` را import می‌کند و `vpn` هرگز آن را) › `catalog/referral/tickets` › `vpn/wallet/webhooks/notifications/stores/system` |
 | Channelها (Adapter) | `melorin/channels/*` (Telegram OIDC/web-login، Bot API) | هیچ‌گاه `admin`، `reseller`، `reports`، worker و نقاط ورودی |
 | نقاط ورودی | `app`، `cli`، `worker` | همه |
 

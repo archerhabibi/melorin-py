@@ -1,0 +1,15 @@
+{
+  "name": "melorin-e2e",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "packageManager": "npm@10.8.2",
+  "scripts": {
+    "test": "playwright test",
+    "list": "playwright test --list",
+    "install-browsers": "playwright install --with-deps chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.49.1"
+  }
+}

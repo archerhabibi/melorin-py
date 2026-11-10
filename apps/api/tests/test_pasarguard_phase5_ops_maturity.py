@@ -24,7 +24,7 @@ from melorin.domain.order_state import VpnStatus
 from melorin.kernel.models.system import AuditEvent, BackupRun
 from melorin.kernel.models.vpn import Panel, PanelNode, ReconciliationIssue, Server, VpnAccount
 from melorin.modules.reports import business_metrics
-from melorin.modules.vpn import panel_backup, panel_metrics, settings_drift
+from melorin.modules.panelops import panel_backup, panel_metrics, settings_drift
 from melorin.modules.vpn.adapters.base import Capabilities, ErrorKind, PanelError
 from melorin.modules.vpn.renewal import GRACE_DAYS
 
@@ -476,7 +476,7 @@ async def test_credential_without_settings_access_is_reported_not_guessed():
 
 
 async def test_policy_change_is_audited_validated_and_rechecked(monkeypatch):
-    from melorin.modules.vpn import settings_drift as mod
+    from melorin.modules.panelops import settings_drift as mod
 
     async with open_schema_engine() as engine, async_sessionmaker(engine, expire_on_commit=False)() as s:
         p = await _panel(s)
@@ -581,7 +581,7 @@ def test_melorin_backup_alert_ignores_the_panel_series():
 
 
 def test_every_gauge_is_declared_and_every_collector_alert_has_a_rule_or_a_ui_reason():
-    src = (ROOT / "apps/api/melorin/modules/vpn/panel_metrics.py").read_text()
+    src = (ROOT / "apps/api/melorin/modules/panelops/panel_metrics.py").read_text()
     declared = set(panel_metrics.GAUGES)
     used = set(re.findall(r'"(melorin_[a-z_]+)"', src))
     assert declared <= used

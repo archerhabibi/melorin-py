@@ -1,27 +1,32 @@
 import json
 import ipaddress
 import socket
+import time
 from urllib.parse import urlparse
 
 from melorin.core.crypto import decrypt
 from melorin.core.config import get_settings
 from melorin.core.errors import AppError
+from melorin.modules.vpn.adapters import providers
 from melorin.modules.vpn.adapters.base import PanelAdapter
-from melorin.modules.vpn.adapters.mock import MockPanelAdapter
-from melorin.modules.vpn.adapters.pasarguard import PasarGuardAdapter
-from melorin.modules.vpn.adapters.sanaei import SanaeiAdapter
-from melorin.modules.vpn.adapters.upstream_bot import UpstreamBotAdapter
 from melorin.modules.vpn.targets import merge_config
 
-ADAPTERS: dict[str, type] = {
-    "sanaei": SanaeiAdapter,
-    "pasarguard": PasarGuardAdapter,
-    "mock": MockPanelAdapter,
-    "upstream_bot": UpstreamBotAdapter,
-}
+# kind -> adapter class. Resolved lazily from the provider specs (providers.py): importing this module no longer imports every
+# family, so a family that is not configured, or whose optional dependency is missing, costs nothing (audit T16/T65).
+ADAPTERS = providers.AdapterClasses()
 
 
-def _public_panel_url(url: str) -> bool:
+# A verdict per URL for a short time (audit T24). ``build_adapter`` is synchronous and sits on hot paths (the worker builds one per panel
+# every few seconds), and ``getaddrinfo`` blocks the event loop; with the cache the lookup happens at most once per TTL per panel URL.
+# The TTL stays short on purpose: it is also the window in which a DNS change (rebinding) is not noticed. A refusal is cached for less.
+_VERDICT_TTL = 60.0
+_REFUSAL_TTL = 10.0
+_verdicts: dict[str, tuple[float, bool]] = {}
+
+
+def _resolves_public(url: str) -> bool:
+    """Policy (unchanged): https, no credentials in the URL, and EVERY address the host resolves to is public. A panel on the same host
+    (private address) is therefore refused in staging/production; that is the standing decision (N10), not an accident."""
     parsed = urlparse(url)
     if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
         return False
@@ -39,12 +44,27 @@ def _public_panel_url(url: str) -> bool:
     )
 
 
+def _public_panel_url(url: str) -> bool:
+    now = time.monotonic()
+    hit = _verdicts.get(url)
+    if hit is not None and hit[0] > now:
+        return hit[1]
+    verdict = _resolves_public(url)
+    if len(_verdicts) > 256:  # panels are few; this only bounds a pathological caller
+        _verdicts.clear()
+    _verdicts[url] = (now + (_VERDICT_TTL if verdict else _REFUSAL_TTL), verdict)
+    return verdict
+
+
 def build_adapter(panel, server=None, *, credentials: dict | None = None) -> PanelAdapter:
     """Adapter for ``panel``. Pass ``server`` ONLY when creating a NEW account: its ``target`` (group/inbound set) is merged over
     the panel config. Renewals, suspends, deletes and health checks call it without a server and never touch the target."""
     if panel.kind == "mock" and not get_settings().allow_mock_providers:
         raise AppError("MOCK_PROVIDER_DISABLED", "Mock provisioning is disabled in this environment.", 503)
-    if panel.kind != "upstream_bot" and get_settings().env in {"staging", "production"}:  # upstream_bot talks Telegram, not HTTP
+    if providers.enforces_egress_policy(panel.kind) and get_settings().env in {
+        "staging",
+        "production",
+    }:  # upstream_bot talks Telegram, not HTTP
         if not _public_panel_url(panel.base_url) or (panel.config or {}).get("verify_tls") is False:
             raise AppError("PANEL_TLS_VERIFY_REQUIRED", "Panel connections require HTTPS and certificate verification.", 503)
     try:
@@ -62,6 +82,10 @@ def build_adapter(panel, server=None, *, credentials: dict | None = None) -> Pan
 def register(kind: str, cls: type) -> None:
     """Extension point for new panels (Marzban, Hiddify, ...)."""
     ADAPTERS[kind] = cls
+    if providers.spec_for(kind) is None:  # a new family: declare it with the strict defaults (https transport, public URL only)
+        providers.register_provider(
+            providers.ProviderSpec(kind=kind, label=kind, adapter=f"{cls.__module__}:{cls.__qualname__}", transport="https")
+        )
 
 
 def seed_adapter(adapter, account):

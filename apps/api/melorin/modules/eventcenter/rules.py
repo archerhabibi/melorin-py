@@ -12,6 +12,7 @@ from collections.abc import Awaitable, Callable
 
 from sqlalchemy import func, select
 
+from melorin.core.fmt import format_amount
 from melorin.core import events
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.payments import Payment
@@ -34,10 +35,6 @@ def _uuid(value: object) -> uuid.UUID | None:
         return None
 
 
-def _money(amount: int | None, currency: str | None = None) -> str:
-    return f"{int(amount or 0):,}" + (f" {currency}" if currency else "")
-
-
 async def _order(session, p: dict) -> Order | None:
     oid = _uuid(p.get("order_id"))
     return await session.get(Order, oid) if oid else None
@@ -53,7 +50,7 @@ async def _order_rule(session, label: str, p: dict, *, test_text: str | None = N
         return (order.store_id, topics.TESTS, f"{test_text}\nسفارش: {order.number}") if test_text else None
     if order.kind == "manual":
         return None  # assigned by an admin, not a sale: nothing to announce in the orders topic (the audit trail records it)
-    return order.store_id, topics.ORDERS, f"{label}\nسفارش: {order.number}\nمبلغ: {_money(order.total, order.currency)}"
+    return order.store_id, topics.ORDERS, f"{label}\nسفارش: {order.number}\nمبلغ: {format_amount(order.total, order.currency)}"
 
 
 async def _paid(session, e, p):
@@ -73,7 +70,7 @@ async def _payment(session, label: str, p: dict) -> tuple[uuid.UUID | None, str,
     pay = await session.get(Payment, pid) if pid else None
     if pay is None:
         return None
-    return pay.store_id, topics.PAYMENTS, f"{label}\nمبلغ: {_money(pay.amount, pay.currency)}\nروش: {pay.provider}\nشناسه: {pay.id}"
+    return pay.store_id, topics.PAYMENTS, f"{label}\nمبلغ: {format_amount(pay.amount, pay.currency)}\nروش: {pay.provider}\nشناسه: {pay.id}"
 
 
 async def _pay_ok(session, e, p):
@@ -91,7 +88,7 @@ async def _debt(session, e, p):
     if state == "reached":
         return store_id, topics.DEBT, "⛔ سقف بدهی نماینده پر شد؛ فروش این فروشگاه متوقف است."
     if state == "near":
-        line = f"\nتراز: {_money(p.get('balance'))}  سقف: {_money(p.get('limit'))}" if p.get("limit") is not None else ""
+        line = f"\nتراز: {format_amount(p.get('balance'))}  سقف: {format_amount(p.get('limit'))}" if p.get("limit") is not None else ""
         return store_id, topics.DEBT, f"🟠 بدهی نماینده نزدیک سقف است.{line}"
     return None
 

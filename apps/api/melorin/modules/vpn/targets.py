@@ -13,9 +13,7 @@ from __future__ import annotations
 
 from typing import Any
 
-LIMITS_FROM = ("product", "template")
-_PASARGUARD_KEYS = {"group_ids", "user_template_id", "limits_from"}
-_SANAEI_KEYS = {"inbound_ids"}
+LIMITS_FROM = ("product", "template")  # kept for importers; the owner is adapters/pasarguard/contract.py
 # Keys that decide the connection destination; a target replaces ALL of them in the panel config, never just one.
 _DESTINATION_KEYS = ("group_ids", "user_template_id", "limits_from", "inbound_ids", "inbound_id")
 
@@ -57,45 +55,15 @@ def normalize_target(target: dict | None) -> dict | None:
 
 
 def validate_target(panel_kind: str, target: dict | None, *, api_style: str | None = None) -> list[str]:
-    """Human-readable problems with ``target`` for a panel of ``panel_kind``. An empty list means valid (None is always valid)."""
+    """Human-readable problems with ``target`` for a panel of ``panel_kind``. An empty list means valid (None is always valid).
+    The family-specific rules live in the provider's contract (adapters/<kind>/contract.py)."""
     if not target:
         return []
     if not isinstance(target, dict):
         return ["مقصد باید یک شیء باشد."]
-    problems: list[str] = []
-    if panel_kind == "pasarguard":
-        unknown = set(target) - _PASARGUARD_KEYS
-        if unknown:
-            problems.append(f"کلید نامعتبر برای پاسارگارد: {', '.join(sorted(unknown))}")
-        has_groups, has_template = "group_ids" in target, "user_template_id" in target
-        if has_groups == has_template:
-            problems.append("برای پاسارگارد دقیقاً یکی از گروه‌ها (group_ids) یا تمپلیت (user_template_id) لازم است.")
-        if has_groups and _ids(target["group_ids"]) is None:
-            problems.append("group_ids باید فهرست غیرتهی از عددهای مثبت باشد.")
-        if has_template:
-            try:
-                ok = int(target["user_template_id"]) > 0 and not isinstance(target["user_template_id"], bool)
-            except (TypeError, ValueError):
-                ok = False
-            if not ok:
-                problems.append("user_template_id باید عدد مثبت باشد.")
-        if "limits_from" in target:
-            if not has_template:
-                problems.append("limits_from فقط با user_template_id معنی دارد.")
-            if target["limits_from"] not in LIMITS_FROM:
-                problems.append("limits_from باید product یا template باشد.")
-    elif panel_kind == "sanaei":
-        unknown = set(target) - _SANAEI_KEYS
-        if unknown:
-            problems.append(f"کلید نامعتبر برای سنایی: {', '.join(sorted(unknown))}")
-        ids = _ids(target.get("inbound_ids"))
-        if ids is None:
-            problems.append("inbound_ids باید فهرست غیرتهی از عددهای مثبت باشد.")
-        elif api_style == "legacy" and len(ids) != 1:
-            problems.append("سنایی نسخه‌ی قدیمی (legacy) فقط یک اینباند را پشتیبانی می‌کند.")
-    else:
-        problems.append(f"پنل از نوع {panel_kind} مقصد جداگانه پشتیبانی نمی‌کند.")
-    return problems
+    from melorin.modules.vpn.adapters import providers
+
+    return providers.validate_target(panel_kind, target, api_style=api_style)
 
 
 def merge_config(panel_config: dict | None, target: dict | None) -> dict:
@@ -118,8 +86,6 @@ def effective_destination(panel_kind: str, panel_config: dict | None, target: di
 
 def capacity_label(panel_kind: str, target: dict | None) -> str:
     """The one place that names a server's capacity in the admin UI (D7): گروه / تمپلیت / اینباند / مقصد."""
-    if target and panel_kind == "pasarguard":
-        return "ظرفیت تمپلیت" if "user_template_id" in target else "ظرفیت گروه"
-    if target and panel_kind == "sanaei":
-        return "ظرفیت اینباند"
-    return "ظرفیت مقصد"
+    from melorin.modules.vpn.adapters import providers
+
+    return providers.capacity_label(panel_kind, target)

@@ -12,9 +12,10 @@ import hashlib
 import re
 from dataclasses import dataclass, field
 from zoneinfo import ZoneInfo
+from melorin.domain.timeutil import aware as _aware
 
 try:  # Iran has no DST since 2022; the fixed offset is only a fallback when tzdata is missing.
-    TEHRAN = ZoneInfo("Asia/Tehran")
+    TEHRAN: dt.tzinfo = ZoneInfo("Asia/Tehran")
 except Exception:  # pragma: no cover - depends on the host
     TEHRAN = dt.timezone(dt.timedelta(hours=3, minutes=30))
 
@@ -264,10 +265,6 @@ class Decision:
     candidate_ids: tuple[str, ...] = ()
 
 
-def _aware(value: dt.datetime) -> dt.datetime:
-    return value if value.tzinfo else value.replace(tzinfo=dt.timezone.utc)
-
-
 _HALF_DAY = dt.timedelta(hours=12)
 
 
@@ -330,7 +327,7 @@ def decide(sms: ParsedSms, candidates: list[Candidate], s: MatchSettings | None 
         # The claimed time (minute precision) is the only tie-breaker we trust; closest must be strictly unique.
         timed = [c for c in ok if c.claimed_paid_at is not None]
         if timed:
-            dist = {c.payment_id: claimed_distance(c.claimed_paid_at, sms.occurred_at, s)[0] for c in timed}
+            dist = {c.payment_id: claimed_distance(t, sms.occurred_at, s)[0] for c in timed if (t := c.claimed_paid_at) is not None}
             best = min(dist.values())
             nearest = [c for c in timed if dist[c.payment_id] == best]
             if len(nearest) == 1 and len(timed) == len(ok):

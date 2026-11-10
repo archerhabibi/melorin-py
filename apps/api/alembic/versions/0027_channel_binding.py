@@ -3,6 +3,7 @@
 Existing refresh tokens have no binding (``channel`` NULL) and are refused at rotation, so every user signs in again once
 through the right channel. The project has no production deployment yet, so this costs nothing; the rows stay for audit.
 """
+
 from alembic import op
 import sqlalchemy as sa
 

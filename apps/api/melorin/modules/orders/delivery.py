@@ -13,18 +13,17 @@ import html
 import logging
 import datetime as dt
 import uuid
+from melorin.domain.timeutil import utcnow
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from melorin.core.fmt import format_amount
 from melorin.modules.vpn.qr import render_qr_png  # noqa: F401  (also the delivery module's public name)
 from melorin.core.config import get_settings
-from melorin.core.crypto import decrypt
 from melorin.core.metrics import inc
-from melorin.kernel.models.identity import Identity
 from melorin.kernel.models.notifications import Notification
 from melorin.kernel.models.orders import Order
-from melorin.kernel.models.stores import Store
 from melorin.kernel.models.vpn import VpnAccount
 from melorin.kernel.models.wallet import LedgerEntry, LedgerTransaction, Wallet
 
@@ -36,10 +35,6 @@ LINK_WAIT = dt.timedelta(hours=1)  # how long a missing link is retried before d
 
 class LinkNotReady(RuntimeError):
     """The subscription link is not stored yet; raised so the outbox retries instead of sending a post without QR."""
-
-
-def _money(n) -> str:
-    return f"{int(n or 0):,}"
 
 
 def _gb(b) -> str:
@@ -75,7 +70,7 @@ def build_caption(*, order: Order, account: VpnAccount, link: str | None, balanc
     else:
         lines += ["", "🔗 لینک اشتراک در حال آماده‌سازی است؛ از بخش «اکانت‌ها» دریافت کنید."]
     if balance is not None:
-        lines += ["", f"💰 موجودی کیف پول: <b>{_money(balance)}</b> {e(currency)}"]
+        lines += ["", f"💰 موجودی کیف پول: <b>{format_amount(balance)}</b> {e(currency)}"]
     return "\n".join(lines)
 
 
@@ -85,7 +80,7 @@ def build_plain_body(*, link: str | None, balance: int | None, currency: str) ->
     if link:
         parts.append(f"لینک اشتراک: {link}")
     if balance is not None:
-        parts.append(f"موجودی کیف پول: {_money(balance)} {currency}")
+        parts.append(f"موجودی کیف پول: {format_amount(balance)} {currency}")
     return "\n".join(parts)
 
 
@@ -117,8 +112,8 @@ def _link_wait_expired(order: Order) -> bool:
     if done is None:
         return True  # no timestamp to wait on: never block delivery forever
     if done.tzinfo is None:
-        done = done.replace(tzinfo=dt.timezone.utc)
-    return dt.datetime.now(dt.timezone.utc) - done > LINK_WAIT
+        done = done.replace(tzinfo=dt.UTC)
+    return utcnow() - done > LINK_WAIT
 
 
 async def deliver_order(session: AsyncSession, order_id: uuid.UUID) -> str:
@@ -158,28 +153,25 @@ async def deliver_order(session: AsyncSession, order_id: uuid.UUID) -> str:
         session.add(n)
         await session.flush()
 
-    identity = await session.scalar(select(Identity).where(Identity.user_id == order.user_id, Identity.provider == "telegram"))
-    store = await session.get(Store, order.store_id)
-    token = decrypt(store.bot_token_enc) if store and store.bot_token_enc else get_settings().main_bot_token
-    if not identity or not token:
+    from melorin.modules.notifications.dispatch import telegram_target
+
+    target = await telegram_target(session, order.user_id, order.store_id, get_settings())
+    if target is None:
         n.telegram_status = "skipped"
         await session.commit()
         return "skipped"
-
-    from melorin.channels.telegram import TelegramChannel
-
-    channel = TelegramChannel(token, get_settings().store_web_url, "reseller" if store and store.kind == "reseller" else "main")
+    channel, chat_id = target
     caption = build_caption(order=order, account=account, link=link, balance=balance, currency=currency)
     try:
         if link and len(caption) <= CAPTION_LIMIT:
-            await channel.send_photo(identity.subject, render_qr_png(link), caption=caption, parse_mode="HTML")
+            await channel.send_photo(chat_id, render_qr_png(link), caption=caption, parse_mode="HTML")
         elif link:
             # Extremely long link: keep the photo post, but never exceed Telegram's caption limit.
             short = build_caption(order=order, account=account, link=None, balance=balance, currency=currency)
-            await channel.send_photo(identity.subject, render_qr_png(link), caption=short[:CAPTION_LIMIT], parse_mode="HTML")
-            await channel.send_message(identity.subject, f"🔗 {link}")
+            await channel.send_photo(chat_id, render_qr_png(link), caption=short[:CAPTION_LIMIT], parse_mode="HTML")
+            await channel.send_message(chat_id, f"🔗 {link}")
         else:
-            await channel.send_message(identity.subject, caption, parse_mode="HTML")
+            await channel.send_message(chat_id, caption, parse_mode="HTML")
         n.telegram_status = "sent"
         await session.commit()
         inc("melorin_notifications_total", channel="telegram", result="sent")

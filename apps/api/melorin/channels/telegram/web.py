@@ -8,7 +8,7 @@ Design (docs/TELEGRAM-WEB-LOGIN.md): an OAuth device-authorization style flow wi
   the website (phishing resistance: a link relayed to a victim is useless without the code on the attacker's screen).
 * Tokens are issued only to the holder of the poll token, exactly once, atomically (row lock + status transition).
 
-* Automatic verification (docs/21-Automatic-Identity-Verification.md): a browser approved once becomes a *trusted
+* Automatic verification (docs/23-Automatic-Identity-Verification.md): a browser approved once becomes a *trusted
   device* (``trust.py``). Its next login skips the number match (``auto``: opening the bot link is the approval) or the
   bot altogether (``silent``: same network, seen recently). An unknown browser always gets the manual number match.
 
@@ -36,6 +36,7 @@ from melorin.modules.identity import service
 from melorin.kernel.models.identity import RefreshToken, TelegramLoginSession, TrustedDevice, User
 from melorin.modules.identity.schemas import TelegramProfile, TokenPair
 from melorin.kernel.models.stores import Store
+from melorin.domain.timeutil import aware as _aware
 
 POLL_INTERVAL_SECONDS = 2
 MAX_WRONG_CHOICES = 2
@@ -49,10 +50,6 @@ def ttl_seconds(cfg: dict | None = None) -> int:
     if cfg is not None:
         return integrations.telegram_ttl(cfg)
     return max(60, min(600, int(get_settings().telegram_web_login_ttl_seconds)))
-
-
-def _aware(value: dt.datetime) -> dt.datetime:
-    return value.replace(tzinfo=value.tzinfo or dt.UTC)
 
 
 def seconds_left(row: TelegramLoginSession) -> int:
@@ -192,20 +189,15 @@ async def _silent_signin(session: AsyncSession, row: TelegramLoginSession, devic
 async def _notify_owner(session: AsyncSession, row: TelegramLoginSession, device, level: str) -> None:
     """Tell the account owner about a login that needed no tap. Deduplicated per device per day so it never spams."""
     how = "بدون نیاز به تأیید (مرورگر و شبکهٔ آشنا)" if level == "silent" else "با باز کردن لینک ربات (مرورگر آشنا)"
-    await events.emit(
+    await events.emit_user_notice(
         session,
-        events.NOTIFY,
-        {
-            "user_id": device.user_id,
-            "store_id": device.store_id,
-            "kind": f"web_login_{level}",
-            "title": "🔐 ورود به وب‌سایت با مرورگر مطمئن",
-            "body": (
-                f"🖥 {row.req_device or 'دستگاه ناشناس'}\n🌐 {row.req_ip or '-'}\n{how}\n\n"
-                "اگر این ورود از طرف شما نبود، دستور /devices را بفرستید و «این من نبودم» را بزنید."
-            ),
-            "dedup_key": f"tg_web_{level}:{device.id}:{utcnow():%Y%m%d}",
-        },
+        device.user_id,
+        device.store_id,
+        f"web_login_{level}",
+        "🔐 ورود به وب‌سایت با مرورگر مطمئن",
+        f"🖥 {row.req_device or 'دستگاه ناشناس'}\n🌐 {row.req_ip or '-'}\n{how}\n\n"
+        "اگر این ورود از طرف شما نبود، دستور /devices را بفرستید و «این من نبودم» را بزنید.",
+        payload_dedup_key=f"tg_web_{level}:{device.id}:{utcnow():%Y%m%d}",
     )
 
 

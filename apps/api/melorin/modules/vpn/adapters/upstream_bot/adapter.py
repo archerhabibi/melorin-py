@@ -191,7 +191,7 @@ class UpstreamBotAdapter:
         msgs = await self._client().recent(5)
         return max((m.id for m in msgs), default=0)
 
-    async def _wait(self, pred, *, after_id: int, watch: set[int] | None = None, timeout: float | None = None) -> Msg | None:
+    async def _wait(self, pred, *, after_id: int, watch: set[int] | None = None, timeout: float | None = None) -> Msg | None:  # noqa: ASYNC109 - protocol-level wait for a bot reply, not an asyncio cancel scope
         """First message (newest first) matching ``pred`` that is new (id > after_id) or one of ``watch`` (edited in place)."""
         end = time.monotonic() + float(timeout or self.cfg["step_timeout"])
         while True:

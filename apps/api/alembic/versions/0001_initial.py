@@ -5,6 +5,7 @@ that MODEL_SOURCE_FINGERPRINT was computed from). Later revisions 0002-0009
 then apply on top. Future schema changes must be explicit Alembic revisions;
 this file must not be regenerated from the live models.
 """
+
 from alembic import op
 
 revision = "0001_initial"
@@ -145,7 +146,7 @@ BASELINE_DDL = [
     "CREATE INDEX ix_webhook_deliveries_endpoint_id ON webhook_deliveries (endpoint_id)",
     "CREATE INDEX ix_payment_attempts_payment_id ON payment_attempts (payment_id)",
     "CREATE INDEX ix_provisioning_attempts_order_id ON provisioning_attempts (order_id)",
-    "CREATE INDEX ix_reconciliation_issues_vpn_account_id ON reconciliation_issues (vpn_account_id)"
+    "CREATE INDEX ix_reconciliation_issues_vpn_account_id ON reconciliation_issues (vpn_account_id)",
 ]
 
 

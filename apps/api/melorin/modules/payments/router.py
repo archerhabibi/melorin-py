@@ -3,7 +3,6 @@ import uuid
 
 from fastapi import APIRouter, Depends, File, Form, Header, Request, UploadFile
 from fastapi.responses import RedirectResponse
-from sqlalchemy import select
 
 from melorin.core import integrations
 from melorin.core.config import get_settings
@@ -12,7 +11,7 @@ from melorin.core.errors import AppError
 from melorin.core.scope import StoreScope
 from melorin.core.storage import get_storage, validate_upload
 from melorin.core.ratelimit import RateLimit
-from melorin.modules.payments import bank_sms, receipt_fingerprints, receipt_ocr, service
+from melorin.modules.payments import bank_sms, queries, receipt_fingerprints, receipt_ocr, service
 from melorin.kernel.models.payments import Payment
 from melorin.modules.payments.schemas import PaymentOut, TopupRequest, payment_out
 from melorin.kernel.models.system import FileObject
@@ -44,9 +43,7 @@ async def topup(
 @router.get("/stores/{store_id}/payments", response_model=list[PaymentOut])
 async def my_payments(ctx: StoreCtx, session: Session):
     """Only the caller's own payments / top-ups of THIS store."""
-    rows = (
-        await session.scalars(select(Payment).where(*StoreScope.of(ctx).where(Payment)).order_by(Payment.created_at.desc()).limit(100))
-    ).all()
+    rows = await queries.recent_for_scope(session, StoreScope.of(ctx).where(Payment))
     return [payment_out(p) for p in rows]
 
 

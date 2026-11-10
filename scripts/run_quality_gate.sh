@@ -19,7 +19,8 @@ bash scripts/test_restore_drill.sh
 python -m compileall -q apps/api/melorin apps/api/tests apps/telegram-main apps/telegram-reseller
 (cd apps/api && lint-imports)
 ruff check apps/api/melorin --config apps/api/pyproject.toml
-ruff format --check apps/api/melorin apps/api/tests --config apps/api/pyproject.toml
+# T36: alembic migrations are part of the format gate (CI and `make lint` already check them).
+ruff format --check apps/api/melorin apps/api/tests apps/api/alembic --config apps/api/pyproject.toml
 for web in apps/store-web apps/admin-web; do
   (cd "$web" && npm audit --include=dev --audit-level=high)
   # Phase 6: lint + formatting are part of the gate when dependencies are installed (CI always installs them).
@@ -28,4 +29,6 @@ for web in apps/store-web apps/admin-web; do
   fi
 done
 python scripts/test_matrix.py unit
+# Both Telegram bots have their own suites; CI runs them, so the local gate must too (T-R3).
+(cd apps/api && MELORIN_CORE_URL=http://core.invalid pytest -q -p no:cacheprovider ../telegram-main/tests ../telegram-reseller/tests)
 echo "Melorin quality gate passed"

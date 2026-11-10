@@ -8,7 +8,7 @@ import pytest
 import melorin.models  # noqa: F401  (registers every table so FKs resolve)
 from melorin.core import db
 from melorin.core.errors import AppError
-from melorin.modules.admin import timeseries as ts
+from melorin.modules.reports import timeseries as ts
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.payments import Payment
 from melorin.modules.reports import router as reports

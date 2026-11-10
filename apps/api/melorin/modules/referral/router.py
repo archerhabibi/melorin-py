@@ -10,13 +10,12 @@ import uuid
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
-from sqlalchemy import select
 
 from melorin.core.deps import AdminUser, CurrentAuth, OwnerCtx, Session, StoreCtx
 from melorin.core.errors import NotFound
-from melorin.kernel.models.referral import Commission, CommissionRule, ReferralRelationship
+from melorin.kernel.models.referral import Commission, ReferralRelationship
 from melorin.kernel.models.stores import Store
-from melorin.modules.referral import service
+from melorin.modules.referral import queries, service
 
 router = APIRouter(tags=["referrals"])
 
@@ -65,8 +64,8 @@ async def store_referral(ctx: StoreCtx, session: Session):
     user, store = ctx.user, ctx.store
     rel_scope = (ReferralRelationship.referrer_user_id == user.id, ReferralRelationship.store_id == store.id)
     com_scope = (Commission.referrer_user_id == user.id, Commission.store_id == store.id)
-    invited = len((await session.scalars(select(ReferralRelationship.id).where(*rel_scope))).all())
-    commissions = (await session.scalars(select(Commission).where(*com_scope).order_by(Commission.created_at.desc()).limit(50))).all()
+    invited = await queries.invited_count(session, rel_scope)
+    commissions = await queries.commissions(session, com_scope, 50)
     standing = await service.earnings(session, user.id, store.id)  # all commissions, not just the 50 listed below
     return {
         "store_id": store.id,
@@ -92,14 +91,14 @@ async def my_referrals(auth: CurrentAuth, session: Session):
         # session keeps the unscoped view of the user's own standing.
         rel_scope.append(ReferralRelationship.store_id == auth.claims.store_id)
         com_scope.append(Commission.store_id == auth.claims.store_id)
-    relationship = await session.scalar(select(ReferralRelationship).where(*rel_scope))
-    commissions = (await session.scalars(select(Commission).where(*com_scope).order_by(Commission.created_at.desc()).limit(200))).all()
+    relationship = await queries.first_relationship(session, rel_scope)
+    commissions = await queries.commissions(session, com_scope, 200)
     store = await session.get(Store, auth.claims.store_id) if auth.claims.store_id else None
     standing = await service.earnings(session, user.id, store.id) if store else {}
     return {
         **standing,
         "referral_code": user.referral_code,
-        "referred_count": len((await session.scalars(select(ReferralRelationship).where(*rel_scope))).all()),
+        "referred_count": await queries.relationship_count(session, rel_scope),
         "first_relationship_store_id": relationship.store_id if relationship else None,
         "links": _links(store, user.referral_code) if store else None,
         "program": await service.program_for(session, store) if store else None,
@@ -141,7 +140,7 @@ async def owner_summary(ctx: OwnerCtx, session: Session):
 async def list_rules(_: AdminUser, session: Session, store_id: uuid.UUID | None = None):
     if store_id:
         return [service.rule_out(r) for r in await service.list_rules(session, store_id)]
-    rows = (await session.scalars(select(CommissionRule).order_by(CommissionRule.store_id, CommissionRule.kind))).all()
+    rows = await queries.all_rules(session)
     return [service.rule_out(r) for r in rows]
 
 

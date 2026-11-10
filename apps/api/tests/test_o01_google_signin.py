@@ -128,17 +128,20 @@ def test_google_client_id_reaches_both_frontend_builds():
 def test_both_apps_use_googles_official_button_with_one_shared_initialisation():
     store = read_web_source(PROJECT / "apps/store-web/src/GoogleSignIn.jsx")
     admin = read_web_source(PROJECT / "apps/admin-web/src/GoogleSignIn.jsx")
-    # the two copies differ only by the surface constant and the header comment
+    kit = read_web_source(PROJECT / "packages/web-kit/src/GoogleSignIn.jsx")  # the shared implementation (T14)
+    # the two per-app bindings differ only by the surface constant and the header comment
     norm = lambda t: t.replace('"store"', '"X"').replace('"admin"', '"X"').replace("store-web", "APP").replace("admin-web", "APP")  # noqa: E731
     assert norm(store) == norm(admin)
-    for src in (store, admin):
+    for thin in (store, admin):
+        assert "@melorin/web-kit/GoogleSignIn.jsx" in thin and "configureGoogleSignIn" in thin
+    for src in (kit,):
         assert "renderButton" in src and "accounts.google.com/gsi/client" in src
         assert src.count("initialize({") == 1  # GIS is initialised once, in one place
         assert "nonce" in src and "/api/v1/auth/google/nonce" in src
         assert "filled_black" in src and "outline" in src  # follows the dark/light theme
         assert "locale" in src and "disableAutoSelect" in src
         assert ".prompt(" not in src  # no hand-made button driving One Tap
-    assert 'SURFACE = "store"' in store and 'SURFACE = "admin"' in admin
+    assert 'surface: "store"' in store and 'surface: "admin"' in admin  # read_web_source normalises quotes
 
 
 def test_login_pages_use_the_shared_button_and_no_legacy_hook():

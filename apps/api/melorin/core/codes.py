@@ -25,6 +25,7 @@ Uniqueness
 """
 
 import secrets
+from typing import cast
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -58,6 +59,6 @@ async def next_code(session: AsyncSession, sequence: str) -> str:
     so a rare collision can be retried without aborting the outer transaction.
     """
     seq_val = await session.scalar(select(func.nextval(sequence)))
-    prefix = _encode(int(seq_val) % _MAX_SEQ, SEQ_WIDTH)
+    prefix = _encode(int(cast(int, seq_val)) % _MAX_SEQ, SEQ_WIDTH)
     suffix = "".join(secrets.choice(ALPHABET) for _ in range(RAND_WIDTH))
     return prefix + suffix

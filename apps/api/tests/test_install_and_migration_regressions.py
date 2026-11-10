@@ -210,8 +210,8 @@ def test_worker_has_one_runtime_entrypoint():
 def test_lint_gate_uses_correctness_focused_policy():
     config = (ROOT / "pyproject.toml").read_text()
     assert "[tool.ruff.lint]" in config
-    assert 'select = ["E4", "E9", "F"]' in config
-    assert 'ignore = ["F403", "F405"]' in config
+    assert 'select = ["E4", "E9", "F", "DTZ", "B", "ASYNC", "S"]' in config
+    assert 'ignore = ["F403", "F405", "B008"' in config
 
 
 def test_release_matrix_is_the_single_current_status_source():

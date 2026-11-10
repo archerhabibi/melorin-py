@@ -10,6 +10,7 @@ V1 rules:
 import datetime as dt
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from melorin.domain.timeutil import aware as _aware
 
 
 class CouponError(Exception):
@@ -123,12 +124,6 @@ def validate_definition(rule: CouponRule, *, creator_store_id: str | None = None
     for is_violated, code, message in _DEFINITION_RULES:
         if is_violated(rule, creator_store_id):
             raise CouponError(code, message)
-
-
-def _aware(d: dt.datetime | None) -> dt.datetime | None:
-    if d is None:
-        return None
-    return d if d.tzinfo else d.replace(tzinfo=dt.UTC)
 
 
 def evaluate(rule: CouponRule, use: CouponUse) -> int:

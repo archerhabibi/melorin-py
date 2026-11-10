@@ -35,6 +35,7 @@ from melorin.core.db import utcnow
 from melorin.core.errors import AppError
 from melorin.kernel.models.stores import ResellerApplication
 from melorin.modules.reseller import identity
+from melorin.domain.timeutil import aware as _aware
 
 log = logging.getLogger("melorin.reseller.verify")
 
@@ -45,10 +46,6 @@ DOH_URL = "https://cloudflare-dns.com/dns-query"
 BACKOFF = (dt.timedelta(minutes=2), dt.timedelta(minutes=5), dt.timedelta(minutes=15), dt.timedelta(hours=1), dt.timedelta(hours=6))
 BATCH = 50
 MAX_PROOF_BYTES = 512  # the proof file is one short line; anything bigger is not it
-
-
-def _aware(value: dt.datetime) -> dt.datetime:
-    return value.replace(tzinfo=value.tzinfo or dt.UTC)
 
 
 # ---------------------------------------------------------------- pure -------------------------------------------------

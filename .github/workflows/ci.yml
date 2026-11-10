@@ -44,14 +44,17 @@ jobs:
       - run: bash ../../scripts/run_quality_gate.sh
       - run: lint-imports
       - run: ruff check melorin --config pyproject.toml
-      - run: ruff format --check melorin tests --config pyproject.toml
+      - run: pip install mypy==2.4.1 && mypy --config-file pyproject.toml  # T41: core + worker are type-checked
+      - run: ruff format --check melorin tests alembic --config pyproject.toml
       - run: python -m compileall -q melorin
       - run: pytest -q -m "not integration" --cov=melorin --cov-report=term-missing --cov-report=xml --cov-fail-under=75
         env: {MELORIN_DATABASE_URL: postgresql+asyncpg://melorin:test@localhost:5432/melorin, MELORIN_JWT_SECRET: ci-secret}
+      - run: python ../../scripts/check_coverage_floors.py coverage.xml  # T39: higher floors for money-handling code
       - run: pytest -q -m integration
         env: {MELORIN_DATABASE_URL: postgresql+asyncpg://melorin:test@localhost:5432/melorin, MELORIN_REDIS_URL: redis://localhost:6379/0, MELORIN_JWT_SECRET: ci-secret-ci-secret-ci-secret-1234, MELORIN_ALLOW_MOCK_PROVIDERS: 'true'}
       - run: pytest -q ../telegram-main/tests
         env: {MELORIN_CORE_URL: 'http://core.invalid'}
+      - run: pytest -q ../telegram-reseller/tests  # T-R3: this suite was never run by CI before
       - name: Compose files are valid (full stack and external-proxy variant)
         working-directory: .
         env: {POSTGRES_PASSWORD: ci-only}
@@ -138,6 +141,28 @@ jobs:
 
   # M7.7: the unit/money-path suite again, but on a real PostgreSQL (private schema per test), plus the
   # concurrency tests that SQLite cannot prove. Catches dialect-specific bugs such as M6.1.
+  web-e2e:
+    # T42: browser E2E with a mocked Core API (e2e/). Non-blocking until the first green run on CI proves the specs.
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --include=dev --ignore-scripts --no-audit --no-fund
+        working-directory: apps/store-web
+      - run: npm ci --include=dev --ignore-scripts --no-audit --no-fund
+        working-directory: apps/admin-web
+      - run: npm ci --no-audit --no-fund
+        working-directory: e2e
+      - run: npx playwright install --with-deps chromium
+        working-directory: e2e
+      - run: npm test
+        working-directory: e2e
+        env: {CI: 'true'}
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with: {name: playwright-report, path: e2e/playwright-report}
   postgres-lane:
     runs-on: ubuntu-latest
     services:

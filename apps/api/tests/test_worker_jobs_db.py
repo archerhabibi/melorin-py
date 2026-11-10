@@ -169,7 +169,7 @@ async def test_panel_health_job_records_healthy_unhealthy_error_and_closes_adapt
 
 
 async def test_close_adapter_tolerates_adapters_without_close():
-    await jobs._close_adapter(object())
+    await jobs.close_adapter(object())
 
 
 # --- reconciliation / retention / telegram gc ----------------------------------------------------------------------

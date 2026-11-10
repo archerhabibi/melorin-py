@@ -22,6 +22,8 @@ DEFAULTS: dict[str, object] = {
     "backup.retention_days": 30,
     "backup.runs_per_day": 1,
     "privacy.verification_code_retention_days": 7,
+    "privacy.outbox_retention_days": 30,  # processed outbox events (T51)
+    "privacy.webhook_delivery_retention_days": 30,  # delivered / finally failed webhook deliveries (T51)
 }
 
 

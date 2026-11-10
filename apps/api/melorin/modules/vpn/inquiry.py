@@ -22,7 +22,7 @@ from sqlalchemy import and_, case, func, or_, select
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError, NotFound
 from melorin.core.scope import OwnerScope, StoreScope
-from melorin.modules.vpn import renewal, service
+from melorin.modules.vpn import freshness, renewal, service
 from melorin.kernel.models.vpn import VpnAccount
 from melorin.modules.vpn.schemas import OwnerAccountOut, VpnAccountOut
 
@@ -203,7 +203,7 @@ async def summary(session, *conds) -> dict[str, int]:
 
 
 # ---------------------------------------------------------------- live data from the panel
-REFRESH_TTL_SECONDS = 15.0
+REFRESH_TTL_SECONDS = freshness.REFRESH_MIN_INTERVAL_SECONDS  # alias of the ``freshness`` policy
 _last_refresh: dict[uuid.UUID, float] = {}
 
 

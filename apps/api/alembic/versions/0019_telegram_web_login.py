@@ -9,6 +9,7 @@ Changes
 Rows are short lived (minutes) and removed by the ``telegram_login_gc_job`` worker job one day after expiry.
 No existing table changes.
 """
+
 import sqlalchemy as sa
 from alembic import op
 

@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from tgmain.client import Ctx, TransportMixin  # noqa: E402,F401
 from tgmain.errors import CoreError  # noqa: E402,F401
+from tgmain.logsafe import setup_bot_logging  # noqa: E402
 from tgmain.handlers.identity import IdentityMixin
 from tgmain.handlers.loyalty import LoyaltyMixin
 from tgmain.handlers.plans import PlansMixin
@@ -119,6 +120,7 @@ class TelegramRunner(TransportMixin, IdentityMixin, LoyaltyMixin, PlansMixin, Wa
 
     # ---------- dispatch ----------
     async def handle(self, update: dict) -> None:
+        self._expire_state()
         message = update.get("message")
         callback = update.get("callback_query")
         if callback:
@@ -389,5 +391,5 @@ class TelegramRunner(TransportMixin, IdentityMixin, LoyaltyMixin, PlansMixin, Wa
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
+    setup_bot_logging()
     asyncio.run(TelegramRunner().run())
