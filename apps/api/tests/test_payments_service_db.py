@@ -221,7 +221,7 @@ async def test_late_success_callback_after_failure_is_rejected_for_system_actor(
         assert await _balance(s, user, store) == 0
 
 
-@pytest.mark.parametrize("pid", [None, "not-a-uuid", str(uuid.uuid4())])
+@pytest.mark.parametrize("pid", [None, "not-a-uuid", "7f3c1b52-9d4e-4a6b-8c21-5e0f1a2b3c4d"])
 async def test_callback_with_missing_malformed_or_unknown_payment_id_is_404(gateway, pid):
     async with open_session() as s:
         await _setup(s)

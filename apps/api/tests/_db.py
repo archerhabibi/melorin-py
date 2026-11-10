@@ -16,6 +16,8 @@ import uuid
 from contextlib import asynccontextmanager
 
 from sqlalchemy import text
+from sqlalchemy.dialects import sqlite
+from sqlalchemy.schema import CreateIndex, CreateTable
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 import melorin.models  # noqa: F401  (registers every table)
@@ -32,14 +34,30 @@ def pg_url() -> str | None:
     return url or None
 
 
+_SQLITE_DDL: list[str] | None = None
+
+
+def _sqlite_ddl() -> list[str]:
+    """Compile the SQLite DDL for every table and index once per process (T-W01).
+
+    Replaying pre-compiled statements is several times cheaper than ``create_all`` for each of ~1,900 tests, and
+    it never swallows an error: a broken table fails the test that needs it immediately (T-W02).
+    """
+    global _SQLITE_DDL
+    if _SQLITE_DDL is None:
+        dialect = sqlite.dialect()
+        statements: list[str] = []
+        for table in Base.metadata.sorted_tables:
+            statements.append(str(CreateTable(table).compile(dialect=dialect)))
+            statements.extend(str(CreateIndex(index).compile(dialect=dialect)) for index in table.indexes)
+        _SQLITE_DDL = statements
+    return _SQLITE_DDL
+
+
 async def _create_tables(engine) -> None:
-    # Tables are created one by one so one broken table cannot hide the rest (kept as a safety net).
-    for table in Base.metadata.sorted_tables:
-        try:
-            async with engine.begin() as conn:
-                await conn.run_sync(lambda sync_conn, t=table: t.create(sync_conn, checkfirst=True))
-        except Exception:
-            pass
+    statements = _sqlite_ddl()
+    async with engine.begin() as conn:
+        await conn.run_sync(lambda sync_conn: [sync_conn.exec_driver_sql(sql) for sql in statements])
 
 
 @asynccontextmanager

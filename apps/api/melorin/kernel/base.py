@@ -1,10 +1,12 @@
-"""Declarative base and column mixins: the bottom of the dependency stack (pure SQLAlchemy, imports nothing of ours)."""
+"""Declarative base and column mixins: the bottom of the dependency stack (pure SQLAlchemy plus the pure ``domain`` time helper)."""
 
 import datetime as dt
 import uuid
 
 from sqlalchemy import DateTime, MetaData, Uuid, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+from melorin.domain.timeutil import utcnow  # single definition (T-W05); re-exported for kernel models
 
 NAMING = {
     "ix": "ix_%(column_0_label)s",
@@ -17,10 +19,6 @@ NAMING = {
 
 class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING)
-
-
-def utcnow() -> dt.datetime:
-    return dt.datetime.now(dt.UTC)
 
 
 class IdMixin:
