@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import IdentityHubView from '../src/IdentityHubView.jsx';
-import { legacyHash } from '../src/infra.jsx';
-import { DialogHost } from '../src/ui.jsx';
+import IdentityHubView from '../src/IdentityHubView.tsx';
+import { legacyHash } from '../src/infra.tsx';
+import { DialogHost } from '../src/ui.tsx';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
 const card = (id, name) => ({ id, display_name: name, email: `${name}@example.com`, orders: 1, providers: ['google'] });

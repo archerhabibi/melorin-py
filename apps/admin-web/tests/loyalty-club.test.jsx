@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import LoyaltyClubView from '../src/LoyaltyClubView.jsx';
-import { extraRoutes } from '../src/AdminExtra.jsx';
+import LoyaltyClubView from '../src/LoyaltyClubView.tsx';
+import { extraRoutes } from '../src/AdminExtra.tsx';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
 const STORES = [

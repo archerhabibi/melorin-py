@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import EventCenterView from '../src/EventCenterView.jsx';
+import EventCenterView from '../src/EventCenterView.tsx';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
 const topics = [

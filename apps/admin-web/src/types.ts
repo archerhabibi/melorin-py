@@ -1,0 +1,12 @@
+// Shared structural types for admin-web (TypeScript migration, T-O03 / T-R11).
+// Server payloads that are not yet bound to a generated @melorin/api-client schema use these aliases, so every
+// remaining loose spot is greppable (`Json`) and can be tightened one view at a time.
+
+/** A JSON object returned by the Core API whose shape is not yet generated into api-client types. */
+export type Rec = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+/** Any JSON value from the Core API (to be replaced by generated schema types). */
+export type Json = any; // eslint-disable-line @typescript-eslint/no-explicit-any
+/** Fetch-like function used by views: authFetch or a test double. */
+export type CallFn = (path: string, init?: RequestInit) => Promise<Response>;
+/** React children-bearing props helper. */
+export type WithChildren<P = unknown> = P & { children?: import('react').ReactNode };

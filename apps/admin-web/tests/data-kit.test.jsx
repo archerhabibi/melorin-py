@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import OrdersView, { OrderFlow } from '../src/OrdersView.jsx';
-import { DataGrid } from '../src/dataKit.jsx';
-import { Paginator, SearchBox, Stat } from '../src/kit.jsx';
+import OrdersView, { OrderFlow } from '../src/OrdersView.tsx';
+import { DataGrid } from '../src/dataKit.tsx';
+import { Paginator, SearchBox, Stat } from '../src/kit.tsx';
 import { Package } from 'lucide-react';
 
 const json = (body) =>

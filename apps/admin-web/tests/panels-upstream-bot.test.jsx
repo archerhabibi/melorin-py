@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import PanelsView from '../src/PanelsView.jsx';
-import { DialogHost } from '../src/ui.jsx';
+import PanelsView from '../src/PanelsView.tsx';
+import { DialogHost } from '../src/ui.tsx';
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });

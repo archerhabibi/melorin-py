@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import ReferralProgramsView from '../src/ReferralProgramsView.jsx';
-import { extraRoutes } from '../src/AdminExtra.jsx';
+import ReferralProgramsView from '../src/ReferralProgramsView.tsx';
+import { extraRoutes } from '../src/AdminExtra.tsx';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
 const STORES = [
