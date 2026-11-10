@@ -60,3 +60,12 @@ _Merged from the former 12-Change-Log-v1.1.md._
 - Review of `apps/admin-web/src/reportsLogic.js` (194 lines): it only formats numbers (`fmt*`), maps labels, draws donut/heat geometry and derives percentage shares and insight sentences from figures that Core already returned. It never computes balances, prices, fees or ledger values, so it is presentation logic and stays in the UI.
 - Rule going forward: if a report needs a *new* monetary figure (a total, margin, balance), Core's reports module must return it as a field; the browser may only format and compare it. Same rule as the quote's `balance_after` / `shortfall` (T-R10).
 - Branch hygiene (T-W16): the 19 remote branches fully merged into `main` were deleted on 2026-11-10; every commit remains reachable from `main`. Unmerged branches were kept for the owner to decide.
+
+## T-R05 / T-R07 / T-R12 / T-R13 / T-R14 / T-R15 - remediation close-out and deferred work (2026-11-10)
+- Done: pasarguard test files are named by feature (`admin_api`, `service_db`, `events`, `account_tools`, `capacity`, `bulk_ops`, `ops_governance`, `ops_maturity`, ...) instead of `phaseN`; `test_q02_bot_inquiry` became `test_bot_inquiry`; panel documents live in `docs/panels/`.
+- Done: the PostgreSQL lane (`postgres-lane` in `ci.yml`) is a normal required job (no `continue-on-error`); broad `except Exception` handlers are ratcheted by `test_broad_except_exception_count_only_ratchets_down` (ceiling 104, lower it when you narrow one).
+- Deferred on purpose, each needs a real Docker host or product input that this remediation did not have:
+  - T-R14 backup out of the Worker: moving `backup_job`/`panel_backup_job` into a dedicated ops container changes the compose topology and the restore drill; do it together with a first compose run on a Docker host.
+  - T-R13 OpenTelemetry and a CI performance budget: adds hash-locked dependencies and an exporter choice; decide the collector first, then wire `load_probe.py` against the full stack.
+  - T-R11 splitting the large JSX views (`store-web/App.jsx`, `ProductsView`, `TicketsView`, `PaymentsView`) and gradual TypeScript: do it one view per PR with the vitest suites as the safety net.
+  - Merging the pasarguard test files into ~6 files: renames are done; physical merging is cosmetic and was left out to keep git history of each suite readable.

@@ -14,7 +14,7 @@ def test_store_role_is_smaller_than_the_service_role_and_has_no_key_or_admin_rig
 
 async def test_plan_endpoint_is_admin_only_and_read_only():
     from _http import PASSWORD, add_user, api_client, totp_now
-    from test_pasarguard_phase1_db import seed  # noqa: F401  (schema helpers live there)
+    from test_pasarguard_service_db import seed  # noqa: F401  (schema helpers live there)
 
     async with api_client() as (c, m, _main):
         import uuid
@@ -37,7 +37,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker  # noqa: E402
 from _db import open_schema_engine  # noqa: E402
 from melorin.core.errors import AppError  # noqa: E402
 from melorin.kernel.models.vpn import Panel, PanelAdmin  # noqa: E402
-from test_pasarguard_phase1_db import seed  # noqa: E402
+from test_pasarguard_service_db import seed  # noqa: E402
 
 
 class _FakeOwner:

@@ -12,7 +12,7 @@ from melorin.core import health
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.vpn import ReconciliationIssue, VpnAccount
 from melorin.modules.vpn import issues, notices
-from test_pasarguard_phase1_db import NOW, FakePanel, remote, run, seed, use
+from test_pasarguard_service_db import NOW, FakePanel, remote, run, seed, use
 
 BASE = "/api/v1/admin"
 GIB = 2**30

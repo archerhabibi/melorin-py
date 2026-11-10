@@ -73,5 +73,5 @@ accounts to a new domain use a bulk `rotate_links` operation.
 
 ## Tests
 
-`tests/test_pasarguard_phase4_bulk.py`, `tests/test_pasarguard_phase4_ops_governance.py`, the OpenAPI contract test (every
+`tests/test_pasarguard_bulk_ops.py`, `tests/test_pasarguard_ops_governance.py`, the OpenAPI contract test (every
 Phase 4 call checked against the stored PasarGuard 5.6.0 schema) and `apps/admin-web/tests/panel-phase4.test.jsx`.

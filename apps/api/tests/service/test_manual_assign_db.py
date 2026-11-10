@@ -26,7 +26,7 @@ from melorin.modules.referral import service as referral
 from melorin.modules.reports import router as reports
 from melorin.modules.vpn import inquiry, manual_assign, returns
 from melorin.modules.vpn.adapters.base import ErrorKind, PanelError
-from test_pasarguard_phase1_db import FakePanel, remote
+from test_pasarguard_service_db import FakePanel, remote
 
 pytestmark = pytest.mark.asyncio
 

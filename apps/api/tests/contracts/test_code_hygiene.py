@@ -91,3 +91,12 @@ def test_dockerignore_keeps_secrets_out_and_does_not_hide_copied_paths():
                     assert not (source == pattern or source.startswith(pattern + "/")), (
                         f"{dockerfile.parent.name}: COPY {source} is hidden by .dockerignore ({pattern})"
                     )
+
+
+# T-W06/T-R15: broad `except Exception` handlers may only go down. Lower the ceiling whenever you narrow one.
+BROAD_EXCEPT_CEILING = 104
+
+
+def test_broad_except_exception_count_only_ratchets_down():
+    count = sum(path.read_text(encoding="utf-8").count("except Exception") for path in _python_sources())
+    assert count <= BROAD_EXCEPT_CEILING, f"{count} broad handlers (ceiling {BROAD_EXCEPT_CEILING}): catch specific errors and log them"

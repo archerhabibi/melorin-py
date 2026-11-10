@@ -12,7 +12,7 @@ from melorin.kernel.models.system import OutboxEvent
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.vpn import VpnAccount
 from melorin.modules.vpn import notices
-from test_pasarguard_phase1_db import seed
+from test_pasarguard_service_db import seed
 
 BASE = "/api/v1/admin"
 

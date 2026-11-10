@@ -15,7 +15,7 @@ from melorin.kernel.models.vpn import Panel, ReconciliationIssue, VpnAccount
 from melorin.modules.vpn import inquiry, issues
 from melorin.modules.vpn.adapters.base import ErrorKind, PanelError
 from melorin.worker import jobs
-from test_pasarguard_phase1_db import FakePanel, remote, run, seed, use
+from test_pasarguard_service_db import FakePanel, remote, run, seed, use
 
 pytestmark = pytest.mark.asyncio
 

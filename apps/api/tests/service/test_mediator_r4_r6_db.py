@@ -14,7 +14,7 @@ from melorin.kernel.models.vpn import Panel, VpnAccount
 from melorin.modules.reports import analytics
 from melorin.modules.vpn import live, notices, sync
 from test_panel_live_view_db import _Down, use
-from test_pasarguard_phase1_db import NOW, FakePanel, remote, seed
+from test_pasarguard_service_db import NOW, FakePanel, remote, seed
 
 pytestmark = pytest.mark.asyncio
 

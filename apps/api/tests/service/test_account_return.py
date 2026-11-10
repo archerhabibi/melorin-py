@@ -17,7 +17,7 @@ from melorin.modules.orders.service import account_return
 from melorin.modules.vpn import live, reconcile
 from melorin.modules.vpn import router as vpn_router
 from melorin.modules.wallet import service as wallet
-from test_pasarguard_phase1_db import FakePanel, remote
+from test_pasarguard_service_db import FakePanel, remote
 
 GIB = 1024**3
 NOW = dt.datetime.now(dt.UTC)

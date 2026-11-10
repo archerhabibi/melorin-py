@@ -84,5 +84,5 @@ Recovery procedure: `docs/RUNBOOK.md`, "Panel lost: how Melorin converges".
 
 ## Tests
 
-`apps/api/tests/test_pasarguard_phase5_ops_maturity.py` (gauges, absence rules, snapshot failures, drift findings and policy, backup state, auth on every
+`apps/api/tests/test_pasarguard_ops_maturity.py` (gauges, absence rules, snapshot failures, drift findings and policy, backup state, auth on every
 endpoint, alert-rule and script contracts, worker image clients) and `apps/admin-web/tests/panel-phase5.test.jsx`.

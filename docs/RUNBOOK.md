@@ -192,7 +192,7 @@ Packages pushed by a workflow are private by default; keep them private. To go b
 
 
 ## PasarGuard operations (Phase 4)
-Node errors, outage compensation, bulk disable/enable and store suspension policy are described in `docs/PANEL-OPS-PHASE4.md`.
+Node errors, outage compensation, bulk disable/enable and store suspension policy are described in `docs/panels/PANEL-OPS-PHASE4.md`.
 
 ## Panel lost: how Melorin converges (PasarGuard Phase 5, PG-16)
 Use this when the PasarGuard panel (not Melorin) is gone, reinstalled or restored from an old copy.
@@ -208,4 +208,4 @@ Use this when the PasarGuard panel (not Melorin) is gone, reinstalled or restore
 6. **Prove the backup next time.** Run `BACKUP_ARCHIVE=... BACKUP_IDENTITY_FILE=... scripts/verify_panel_backup.sh` (non-destructive) after any change and at least monthly. The host's `pg_restore` must be at least as new as the panel's PostgreSQL (the panel runs 17, Ubuntu 24.04 has 16): then add `PG_RESTORE='docker exec -i pasarguard-timescaledb-1 pg_restore'` (a pasted-in command reads the dump from stdin).
 7. **Re-enable selling** once nodes are `connected` and the capacity/health view is green, then confirm a fresh panel backup runs the next day (`melorin_backup_age_seconds{target="panel"}`).
 
-If the backup is stale or not configured, the admin tab says so and alert `MelorinPanelBackupStale` fires. See `docs/PANEL-OPS-PHASE5.md`.
+If the backup is stale or not configured, the admin tab says so and alert `MelorinPanelBackupStale` fires. See `docs/panels/PANEL-OPS-PHASE5.md`.
