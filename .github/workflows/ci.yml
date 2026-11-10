@@ -54,6 +54,7 @@ jobs:
         env: {MELORIN_DATABASE_URL: postgresql+asyncpg://melorin:test@localhost:5432/melorin, MELORIN_REDIS_URL: redis://localhost:6379/0, MELORIN_JWT_SECRET: ci-secret-ci-secret-ci-secret-1234, MELORIN_ALLOW_MOCK_PROVIDERS: 'true'}
       - run: pytest -q ../telegram-main/tests
         env: {MELORIN_CORE_URL: 'http://core.invalid'}
+      - run: pytest -q ../telegram-reseller/tests  # T-R3: this suite was never run by CI before
       - name: Compose files are valid (full stack and external-proxy variant)
         working-directory: .
         env: {POSTGRES_PASSWORD: ci-only}

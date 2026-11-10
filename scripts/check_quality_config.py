@@ -33,4 +33,11 @@ for web in ("apps/store-web", "apps/admin-web"):
     for cfg in ("eslint.config.js", ".prettierrc.json"):
         if not (ROOT / web / cfg).exists():
             raise SystemExit(f"{web}/{cfg} is missing")
+# T-R3: both Telegram bot suites and the alembic format check must run in the local gate and in CI, not in only one of them.
+for label, text in (("run_quality_gate.sh", gate), ("ci.yml", ci)):
+    for needle in ("../telegram-main/tests", "../telegram-reseller/tests"):
+        if needle not in text:
+            raise SystemExit(f"{label} does not run the bot suite {needle}")
+    if "apps/api/alembic" not in text and "tests alembic" not in text:
+        raise SystemExit(f"{label} does not format-check alembic migrations")
 print("Quality configuration is explicit and wired into local gate and CI")
