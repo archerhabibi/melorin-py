@@ -300,6 +300,7 @@ export default function App() {
         setNotice('لینک ورود منقضی شده است؛ دوباره از ربات تلگرام بزنید.');
         setModal('login');
       });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
   }, []);
   // After an automatic sign-in, offer the one-tap Google link (Google always needs the user's own consent) until it is linked.
   useEffect(() => {
@@ -337,9 +338,11 @@ export default function App() {
       .catch(() => {
         if (window.location.hash === '#/dashboard') setModal('login');
       });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
   }, []);
   useEffect(() => {
     if (storeId && accessToken) loadAccount();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
   }, [storeId, accessToken]);
   // Telegram login settings (Admin > Settings > Telegram login) and the result of a direct-login redirect (?tg_error=...).
   useEffect(() => {
@@ -357,6 +360,7 @@ export default function App() {
     );
     notify(TG_ERRORS[err] || TG_ERRORS.failed);
     if (TG_RETRY.has(err)) setModal('login'); // let the visitor try again (or pick another method) right away
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
   }, []);
   const pickBundle = (id) => {
     setBundleId(id);

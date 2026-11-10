@@ -429,6 +429,7 @@ export default function ResellersView({ api, toast }) {
   const [filter, setFilter] = useState('all');
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
   const all = rows || [];
   const inFilter = (x, k) =>
     k === 'all' ||

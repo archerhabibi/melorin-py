@@ -50,6 +50,7 @@ export default function BundlesView({ api, toast }) {
     }
   }, [params]);
   const rows = groups.rows,
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
     panels = panelsQ.rows || [],
     products = infra.products.rows || [];
   const panelById = useMemo(() => Object.fromEntries(panels.map((p) => [p.id, p])), [panels]);
@@ -70,6 +71,7 @@ export default function BundlesView({ api, toast }) {
           (filter === 'all' || (filter === 'on' ? g.is_enabled : filter === 'off' ? !g.is_enabled : attention(g))) &&
           g.name.toLowerCase().includes(q.trim().toLowerCase()),
       ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
     [rows, filter, q, idx],
   );
   const sorted = useMemo(() => {

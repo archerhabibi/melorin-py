@@ -126,6 +126,9 @@ class Settings(BaseSettings):
     reseller_bot_secret: str = ""
     metrics_token: str = ""
     health_token: str = ""
+    # Optional OpenTelemetry export (core/otlp.py): OTLP/HTTP collector base URL, e.g. http://otel-collector:4318. Empty = off.
+    otlp_endpoint: str = ""
+    otlp_service_name: str = "melorin-api"
     main_bot_token: str = ""
     google_client_id: str = ""
     # Website login approved in the Telegram bot (docs/TELEGRAM-WEB-LOGIN.md)

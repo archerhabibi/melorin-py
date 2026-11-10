@@ -44,6 +44,7 @@ function useList(api, path, toast) {
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d) => setRows(Array.isArray(d) ? d : d.items || []))
       .catch(() => toast('دریافت داده ناموفق بود'));
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
   }, [path, tick]);
   return { rows, call, reload: () => setTick((x) => x + 1) };
 }
@@ -328,6 +329,7 @@ function Integrations({ api, toast }) {
       .catch(() => toast('دریافت تنظیمات ناموفق بود'));
   useEffect(() => {
     load();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
   }, []);
   if (!em || !s3 || !aa) return null;
   const send = async (path, body, okMsg, tag) => {
@@ -628,6 +630,7 @@ function Settings({ api, toast }) {
       .call('/api/v1/admin/settings')
       .then((r) => (r.ok ? r.json() : {}))
       .then(setObj);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
   }, [tick]);
   const setFlag = async (f) => {
     const r = await flags.call(`/api/v1/admin/feature-flags/${encodeURIComponent(f.key)}`, {

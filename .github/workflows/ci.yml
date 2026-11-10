@@ -137,6 +137,10 @@ jobs:
           for i in $(seq 1 60); do curl -sf localhost:8000/health/ready && break; sleep 1; done
           curl -sf localhost:8000/health/ready || { echo "API/worker not ready"; tail -n 30 /tmp/api.log /tmp/worker.log; exit 1; }
           python ../../scripts/e2e_smoke.py
+          # T-G05 / T-R13 performance budget: read-only probe of the live stack; fails the job when p95 or the error rate regress.
+          # The ceilings are deliberately generous for shared CI runners; tighten them from the numbers in the job log.
+          python ../../scripts/load_probe.py --base-url http://localhost:8000 --path /health/live --path /health/ready \
+            --concurrency 10 --duration 10 --max-p95-ms 750 --max-error-rate 0
         env: {MELORIN_DATABASE_URL: 'postgresql+asyncpg://melorin:test@localhost:5432/melorin', MELORIN_REDIS_URL: 'redis://localhost:6379/0', MELORIN_ALLOW_MOCK_PROVIDERS: 'true', MELORIN_BOOTSTRAP_ADMIN_EMAIL: admin@example.com, MELORIN_BOOTSTRAP_ADMIN_PASSWORD: 'Strong-admin-password-123456', MELORIN_BOOTSTRAP_ADMIN_TOTP_SECRET: JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP, E2E_ADMIN_PASSWORD: 'Strong-admin-password-123456', MELORIN_JWT_SECRET: ci-secret-ci-secret-ci-secret-1234}
 
   web-e2e:

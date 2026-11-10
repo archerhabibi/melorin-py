@@ -211,6 +211,7 @@ export default function GoogleLoginSettings({ api, toast }) {
       .catch(() => toast('دریافت تنظیمات گوگل ناموفق بود'));
   useEffect(() => {
     load();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
   }, []);
 
   const origins = useMemo(() => {

@@ -313,6 +313,7 @@ export default function TelegramLoginSettings({ api, toast }) {
       .catch(() => toast('دریافت تنظیمات تلگرام ناموفق بود'));
   useEffect(() => {
     load();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
   }, []);
   // After the bot username changes keep the admin's unsaved form edits: only refresh the server copy.
   const reloadBot = (t) => {

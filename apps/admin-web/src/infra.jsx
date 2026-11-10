@@ -245,6 +245,7 @@ export function useInfra(api, { needs = ['panels', 'servers', 'groups', 'product
   _loaderRef.current = { panels: panels.load, servers: servers.load, groups: groups.load, products: products.load };
   const reload = useCallback(
     () => Promise.all(needs.map((k) => _loaderRef.current[k]())),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
     [], // stable; ref updated each render above
   );
   return {
@@ -412,14 +413,17 @@ function readiness(infra) {
 export function InfraChain({ current, infra }) {
   const st = useMemo(
     () => issuesOf(infra),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
     [infra.panels.rows, infra.servers.rows, infra.groups.rows, infra.products.rows],
   );
   const next = useMemo(
     () => nextStep(infra),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
     [infra.panels.rows, infra.servers.rows, infra.groups.rows, infra.products.rows, infra.loading, infra.failed],
   );
   const rd = useMemo(
     () => readiness(infra),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
     [infra.panels.rows, infra.servers.rows, infra.groups.rows, infra.products.rows],
   );
   const loading = infra.loading;

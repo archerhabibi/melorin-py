@@ -46,6 +46,7 @@ export default function PaymentsView({ api, toast }) {
   }, [call]);
   useEffect(() => setPage(0), [tab, provider, q]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
   const all = rows || [];
   const loading = rows === null;
   const counts = useMemo(

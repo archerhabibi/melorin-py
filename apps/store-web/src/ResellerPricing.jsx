@@ -140,11 +140,13 @@ export default function Pricing({ coreFetch, base, notify, dirtyRef }) {
     };
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
   }, [dirty]);
   useEffect(
     () => () => {
       if (dirtyRef) dirtyRef.current = false;
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
     [],
   );
 

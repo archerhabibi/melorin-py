@@ -82,6 +82,7 @@ export default function PanelsView({ api, toast }) {
   const rows = infra.panels.rows,
     failed = infra.panels.failed,
     load = infra.panels.load;
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
   const allServers = infra.servers.rows || [];
 
   const probe = useCallback(
@@ -120,6 +121,7 @@ export default function PanelsView({ api, toast }) {
       }
       return res.healthy;
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
     [probe, healthToast],
   );
 

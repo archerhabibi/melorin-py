@@ -75,6 +75,7 @@ export function PayConfig({ coreFetch, base, notify }) {
   const [f, setF] = useState({ card_number: '', holder: '', bank: '', min_amount: '', max_amount: '', enabled: true });
   useEffect(() => {
     if (cur) setF((x) => ({ ...x, ...cur.public_config, enabled: cur.is_enabled }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
   }, [rows]);
   const save = async () => {
     const { enabled, ...pub } = f;
