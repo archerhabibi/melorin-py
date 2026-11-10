@@ -29,6 +29,7 @@ from melorin.core.urls import origin as _origin
 from melorin.core.errors import AppError
 from melorin.modules.identity.schemas import TelegramProfile
 from melorin.kernel.models.stores import Store
+from melorin.core.http import outbound_client
 
 ISSUER = "https://oauth.telegram.org"
 AUTH_URL = f"{ISSUER}/auth"
@@ -120,7 +121,7 @@ def _oauth_error(r: httpx.Response) -> str:
 async def exchange_code(client_id: str, client_secret: str, code: str, redirect: str, verifier: str) -> str:
     """Server-to-server code exchange; returns the raw ``id_token``."""
     try:
-        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as c:
+        async with outbound_client("telegram_oidc", timeout=HTTP_TIMEOUT) as c:
             r = await c.post(
                 TOKEN_URL,
                 auth=(client_id, client_secret),
@@ -153,7 +154,7 @@ async def exchange_code(client_id: str, client_secret: str, code: str, redirect:
 
 
 async def fetch_jwks() -> dict:
-    async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as c:
+    async with outbound_client("telegram_oidc", timeout=HTTP_TIMEOUT) as c:
         r = await c.get(JWKS_URL)
     r.raise_for_status()
     return r.json()

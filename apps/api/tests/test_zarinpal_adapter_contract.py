@@ -46,7 +46,7 @@ class FakeZarinpal:
 def gateway(monkeypatch):
     def install(**responses) -> FakeZarinpal:
         fake = FakeZarinpal(**responses)
-        monkeypatch.setattr(zarinpal.httpx, "AsyncClient", lambda **kw: REAL_CLIENT(transport=httpx.MockTransport(fake), **kw))
+        monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: REAL_CLIENT(transport=httpx.MockTransport(fake), **kw))
         return fake
 
     return install

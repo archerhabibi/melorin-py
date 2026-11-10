@@ -11,6 +11,7 @@ from melorin.channels.telegram.bot_api import get_me_response
 from melorin.channels.telegram import oidc as telegram_oidc
 from melorin.core import integrations
 from melorin.core.config import get_settings
+from melorin.core.http import outbound_client
 
 
 def _check(key: str, status: str, message: str) -> dict:
@@ -130,7 +131,7 @@ async def run_diagnostics(cfg: dict, token: str, username: str, main_store) -> l
     checks = check_switches(cfg)
     if cfg["oidc_login"]:
         checks.append(check_site_url(main_store))
-    async with httpx.AsyncClient(timeout=10) as c:
+    async with outbound_client("admin_telegram_diagnostics", timeout=10) as c:
         if cfg["oidc_login"]:
             checks.append(await check_discovery(c))
             checks.append(await check_jwks(c))

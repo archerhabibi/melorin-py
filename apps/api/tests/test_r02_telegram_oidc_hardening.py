@@ -38,7 +38,7 @@ def patch_token_endpoint(monkeypatch, status, body):
         return httpx.Response(status, json=body) if isinstance(body, dict) else httpx.Response(status, text=body)
 
     monkeypatch.setattr(
-        oidc.httpx,
+        httpx,
         "AsyncClient",
         lambda **kw: real(transport=httpx.MockTransport(handler), **{k: v for k, v in kw.items() if k != "transport"}),
     )
@@ -71,7 +71,7 @@ async def test_exchange_code_sends_basic_auth_pkce_and_returns_the_id_token(monk
         seen["auth"], seen["body"] = request.headers.get("authorization"), request.content.decode()
         return httpx.Response(200, json={"id_token": "tok", "access_token": "a"})
 
-    monkeypatch.setattr(oidc.httpx, "AsyncClient", lambda **kw: real(transport=httpx.MockTransport(handler)))
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: real(transport=httpx.MockTransport(handler)))
     assert await oidc.exchange_code(CLIENT_ID, "secret", "abc", "https://x/cb", "ver" * 15) == "tok"
     assert seen["auth"].startswith("Basic ") and "code_verifier=" in seen["body"] and "grant_type=authorization_code" in seen["body"]
 
@@ -136,7 +136,7 @@ def fake_client(token_resp, bot="melorin_bot"):
 
 
 async def run_test(world, monkeypatch, token_resp=None, **kw):
-    monkeypatch.setattr(admin_integrations.httpx, "AsyncClient", fake_client(token_resp or Resp(400, {"error": "invalid_grant"})))
+    monkeypatch.setattr(httpx, "AsyncClient", fake_client(token_resp or Resp(400, {"error": "invalid_grant"})))
     monkeypatch.setattr(config_mod.get_settings(), "main_bot_token", "123456789:AAFakeToken")
     return {c["key"]: c for c in (await admin_integrations.test_telegram(ADMIN, world.s))["checks"]}
 

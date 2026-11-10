@@ -11,6 +11,7 @@ from melorin.modules.vpn.adapters.base import AccountSpec, Capabilities, ErrorKi
 from melorin.modules.vpn.adapters.sanaei.wire import as_int, classify, from_ms, is_not_found, to_ms
 from melorin.modules.vpn.adapters.sanaei.legacy import LegacyMixin
 from melorin.modules.vpn.adapters.sanaei.v3 import V3Mixin
+from melorin.core.http import outbound_client
 
 
 class SanaeiAdapter(V3Mixin, LegacyMixin):
@@ -85,7 +86,8 @@ class SanaeiAdapter(V3Mixin, LegacyMixin):
             headers = {"Accept": "application/json", "X-Requested-With": "XMLHttpRequest"}
             if self.token:
                 headers["Authorization"] = f"Bearer {self.token}"
-            self._client = httpx.AsyncClient(
+            self._client = outbound_client(
+                "panel_sanaei",
                 base_url=self.base,
                 timeout=self.timeout,
                 follow_redirects=False,

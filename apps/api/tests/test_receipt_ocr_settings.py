@@ -82,7 +82,7 @@ async def test_the_reader_uses_the_panel_config_not_the_environment(session, mon
         return httpx.Response(200, json={"content": [{"type": "text", "text": '{"amount_rial": 1500000}'}]})
 
     real = httpx.AsyncClient
-    monkeypatch.setattr(receipt_ocr.httpx, "AsyncClient", lambda **kw: real(transport=httpx.MockTransport(handler), **kw))
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: real(transport=httpx.MockTransport(handler), **kw))
     cfg = receipt_ocr.resolve(await integrations.get_receipt_ocr(session))
     facts, engine = await receipt_ocr.read_receipt(PNG, "image/png", cfg)
     assert engine == "vision" and facts.amount_rial == 1_500_000
@@ -94,7 +94,7 @@ async def test_connection_test_explains_the_failure(session, monkeypatch, status
     await admin_ocr.update_receipt_ocr(ReceiptOcrIn(engine="vision", api_key="k"), ADMIN, session)
     real = httpx.AsyncClient
     monkeypatch.setattr(
-        admin_ocr.httpx, "AsyncClient", lambda **kw: real(transport=httpx.MockTransport(lambda r: httpx.Response(status, json={})), **kw)
+        httpx, "AsyncClient", lambda **kw: real(transport=httpx.MockTransport(lambda r: httpx.Response(status, json={})), **kw)
     )
     out = await admin_ocr.test_receipt_ocr(ADMIN, session)
     assert out["ok"] is ok and needle in (out["detail"] or out["error"])

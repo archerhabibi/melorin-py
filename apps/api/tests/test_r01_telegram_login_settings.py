@@ -394,7 +394,7 @@ async def test_panel_test_endpoint_reports_without_leaking_secrets(world, monkey
         async def post(self, url, **k):
             return Resp(status=401, body={"error": "invalid_client"})
 
-    monkeypatch.setattr(admin_integrations.httpx, "AsyncClient", Client)
+    monkeypatch.setattr(httpx, "AsyncClient", Client)
     monkeypatch.setattr(config_mod.get_settings(), "main_bot_token", "123456789:AAFakeToken")
     out = await admin_integrations.test_telegram(ADMIN, world.s)
     by = {c["key"]: c for c in out["checks"]}

@@ -92,7 +92,7 @@ async def test_vision_engine_calls_the_provider_with_the_image_and_parses_json(m
         return httpx.Response(200, json={"content": [{"type": "text", "text": answer}]})
 
     real = httpx.AsyncClient
-    monkeypatch.setattr(receipt_ocr.httpx, "AsyncClient", lambda **kw: real(transport=httpx.MockTransport(handler), **kw))
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: real(transport=httpx.MockTransport(handler), **kw))
     facts, engine = await receipt_ocr.read_receipt(PNG, "image/png")
     assert engine == "vision" and facts.amount_rial == 1_500_000 and facts.source_last4 == "7931"
     assert seen["url"].endswith("/v1/messages") and seen["key"] == "k-test"
@@ -109,9 +109,7 @@ async def test_engine_failure_never_raises_and_pdf_is_skipped(monkeypatch):
     monkeypatch.setenv("MELORIN_RECEIPT_OCR_API_KEY", "k-test")
     config.get_settings.cache_clear()
     real = httpx.AsyncClient
-    monkeypatch.setattr(
-        receipt_ocr.httpx, "AsyncClient", lambda **kw: real(transport=httpx.MockTransport(lambda r: httpx.Response(500)), **kw)
-    )
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: real(transport=httpx.MockTransport(lambda r: httpx.Response(500)), **kw))
     assert await receipt_ocr.read_receipt(PNG, "image/png") == (None, "vision")
     assert await receipt_ocr.read_receipt(b"%PDF-1.4", "application/pdf") == (None, None)
     monkeypatch.setenv("MELORIN_RECEIPT_OCR_ENGINE", "off")

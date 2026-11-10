@@ -1,10 +1,9 @@
 """Zarinpal v4 adapter (optional; online gateway for V1 not yet chosen)."""
 
-import httpx
-
 from melorin.core.errors import AppError
 from melorin.modules.payments.adapters.base import CallbackResult, IntentResult, RefundResult
 from melorin.modules.vpn.adapters.base import ErrorKind, PanelError
+from melorin.core.http import outbound_client
 
 API = "https://payment.zarinpal.com/pg/v4/payment"
 SANDBOX = "https://sandbox.zarinpal.com/pg/v4/payment"
@@ -40,7 +39,7 @@ class ZarinpalAdapter:
             "callback_url": callback_url,
             "metadata": {"order_id": str(payment.id), "melorin_currency": payment.currency},
         }
-        async with httpx.AsyncClient(timeout=15) as c:
+        async with outbound_client("gateway_zarinpal", timeout=15) as c:
             r = await c.post(f"{self._base(settings)}/request.json", json=body)
         d = r.json().get("data") or {}
         if d.get("code") != 100:
@@ -56,7 +55,7 @@ class ZarinpalAdapter:
         # Fail closed: a callback without an Authority must never reach verify.json (None == None would pass the equality).
         if status != "OK" or not authority or authority != payment.external_ref:
             return CallbackResult(str(payment.id), authority, False, params)
-        async with httpx.AsyncClient(timeout=15) as c:
+        async with outbound_client("gateway_zarinpal", timeout=15) as c:
             r = await c.post(
                 f"{self._base(settings)}/verify.json",
                 json={"merchant_id": self._merchant(settings), "amount": self._gateway_amount(payment), "authority": authority},
@@ -75,7 +74,7 @@ class ZarinpalAdapter:
         if not token or not payment.external_ref:
             raise PanelError(ErrorKind.PERMANENT, "Zarinpal refund requires access_token and authority")
         body = {"merchant_id": self._merchant(settings), "authority": payment.external_ref}
-        async with httpx.AsyncClient(timeout=15) as c:
+        async with outbound_client("gateway_zarinpal", timeout=15) as c:
             r = await c.post(
                 f"{self._base(settings)}/refund.json",
                 headers={"Authorization": f"Bearer {token}"},

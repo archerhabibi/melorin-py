@@ -1,5 +1,6 @@
 """Sign in with Google: ID tokens are verified locally against Google's public keys and bound to a nonce cookie."""
 
+import httpx
 import time
 import types
 
@@ -141,11 +142,11 @@ async def test_real_key_loader_caches_and_survives_an_outage(monkeypatch):
         async def get(self, *a, **k):
             state.fetches += 1
             if state.down:
-                raise google_signin.httpx.ConnectError("down")
+                raise httpx.ConnectError("down")
             return R()
 
     monkeypatch.undo()  # use the real loader for this test
-    monkeypatch.setattr(google_signin.httpx, "AsyncClient", lambda **k: C())
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **k: C())
     monkeypatch.setitem(google_signin._google_keys, "keys", {})
     monkeypatch.setitem(google_signin._google_keys, "expires", 0.0)
     monkeypatch.setitem(google_signin._google_keys, "fetched", 0.0)
@@ -243,6 +244,6 @@ async def test_admin_connectivity_test_uses_the_public_key_endpoint(session, mon
             asked.append(url)
             return R()
 
-    monkeypatch.setattr(admin_integrations.httpx, "AsyncClient", lambda **k: C())
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **k: C())
     out = await admin_integrations.test_google(types.SimpleNamespace(id=None), session)
     assert out == {"ok": True, "error": None} and asked == ["https://www.googleapis.com/oauth2/v3/certs"]

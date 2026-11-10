@@ -68,7 +68,7 @@ class FakeClient:
 @pytest.fixture
 def http(monkeypatch):
     FakeClient.calls, FakeClient.outcome = [], 200
-    monkeypatch.setattr(svc.httpx, "AsyncClient", FakeClient)
+    monkeypatch.setattr(httpx, "AsyncClient", FakeClient)
     return FakeClient
 
 

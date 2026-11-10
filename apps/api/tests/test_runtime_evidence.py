@@ -136,8 +136,6 @@ async def test_telegram_fails_for_a_non_bot_account_and_reseller_uses_its_own_va
 
 @pytest.fixture
 def zarinpal_gateway(monkeypatch):
-    from melorin.modules.payments.adapters import zarinpal
-
     real = httpx.AsyncClient
 
     def install(*, verify_code=-54, forged_ok=False):
@@ -146,7 +144,7 @@ def zarinpal_gateway(monkeypatch):
                 return httpx.Response(200, json={"data": {"code": 100, "authority": "S" + "0" * 34 + "1"}})
             return httpx.Response(200, json={"data": {"code": 100 if forged_ok else verify_code}})
 
-        monkeypatch.setattr(zarinpal.httpx, "AsyncClient", lambda **kw: real(transport=httpx.MockTransport(handler), **kw))
+        monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: real(transport=httpx.MockTransport(handler), **kw))
 
     return install
 

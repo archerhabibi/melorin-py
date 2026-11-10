@@ -21,6 +21,7 @@ from melorin.kernel.models.identity import Identity, IdentityLinkReview, User
 from melorin.modules.identity import auto_link
 from melorin.modules.identity.lookup import email_taken as _email_taken
 from melorin.modules.identity.lookup import find_identity
+from melorin.core.http import outbound_client
 
 log = logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ async def _load_google_keys(force: bool = False) -> dict:
     if force and now - _google_keys["fetched"] < _GOOGLE_KEYS_MISS_COOLDOWN and _google_keys["keys"]:
         return _google_keys["keys"]  # unknown kid: do not let a forged header make us hammer Google
     try:
-        async with httpx.AsyncClient(timeout=10) as c:
+        async with outbound_client("google_signin", timeout=10) as c:
             r = await c.get(GOOGLE_CERTS_URL)
         r.raise_for_status()
         jwks = r.json()

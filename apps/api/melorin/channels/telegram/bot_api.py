@@ -9,6 +9,7 @@ import weakref
 from dataclasses import dataclass
 from typing import Any
 import httpx
+from melorin.core.http import outbound_client
 
 TELEGRAM_API = "https://api.telegram.org"
 _POOL_LIMITS = httpx.Limits(max_connections=20, max_keepalive_connections=10, keepalive_expiry=30.0)
@@ -22,7 +23,7 @@ def shared_client() -> httpx.AsyncClient:
     loop = asyncio.get_running_loop()
     client = _pools.get(loop)
     if client is None or client.is_closed:
-        client = _pools[loop] = httpx.AsyncClient(limits=_POOL_LIMITS)
+        client = _pools[loop] = outbound_client("telegram_bot_api", limits=_POOL_LIMITS)
     return client
 
 
@@ -58,7 +59,7 @@ async def get_me_response(
     if client is not None:
         return await client.get(url)
     if transport is not None:  # tests inject a transport; production uses the shared pool
-        async with httpx.AsyncClient(timeout=timeout, transport=transport) as c:
+        async with outbound_client("telegram_bot_api", timeout=timeout, transport=transport) as c:
             return await c.get(url)
     return await shared_client().get(url, timeout=timeout)
 
@@ -78,7 +79,7 @@ class TelegramChannel:
 
     async def core(self, method: str, path: str, *, bot_secret: str, json: dict[str, Any] | None = None) -> dict[str, Any]:
         headers = {"X-Bot-Secret": bot_secret, "Accept": "application/json"}
-        async with httpx.AsyncClient(base_url=self.core_base_url.rstrip("/"), timeout=self.timeout) as client:
+        async with outbound_client("telegram_core_api", base_url=self.core_base_url.rstrip("/"), timeout=self.timeout) as client:
             response = await client.request(method, path, headers=headers, json=json)
             response.raise_for_status()
             return response.json()

@@ -491,9 +491,8 @@ async def test_probe_never_fetches_an_unconfigured_host_or_follows_redirects():
             super().__init__(*a, **kw)
 
     adapter = PasarGuardAdapter("https://panel.example.com", {"api_key": "k"}, {})
-    import melorin.modules.vpn.adapters.pasarguard.ops as ops_mod
 
-    ops_mod.httpx.AsyncClient = Client
+    httpx.AsyncClient = Client
     try:
         allowed = {"sub.example.com"}
         assert (await adapter.probe_subscription("https://evil.example.org/sub/x", allowed_hosts=allowed))["ok"] is False
@@ -505,7 +504,7 @@ async def test_probe_never_fetches_an_unconfigured_host_or_follows_redirects():
         redirected = await adapter.probe_subscription("https://sub.example.com/redir", allowed_hosts=allowed)
         assert redirected["ok"] is False and redirected["status"] == 302 and len(hits) == 2  # the redirect target was not requested
     finally:
-        ops_mod.httpx.AsyncClient = real
+        httpx.AsyncClient = real
 
 
 # ----------------------------------------------------------------------------------------------------------------- admin API
