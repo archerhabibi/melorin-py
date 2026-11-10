@@ -13,6 +13,8 @@ export default defineConfig({
     dedupe: ['react', 'react-dom'],
   },
   test: {
+    // vmThreads: per-file VM contexts in worker threads, cheaper than forked processes (T-R05/Phase 1).
+    pool: 'vmThreads',
     environment: 'jsdom',
     include: ['tests/**/*.test.{js,jsx}'],
     setupFiles: ['tests/setup.js'],
