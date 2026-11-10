@@ -83,6 +83,9 @@ def resolve_digest(tagged_name: str) -> str:
         text=True,
     )
     digest = out.stdout.strip()
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):  # some buildx builds ignore --format and print the human-readable report
+        m = re.search(r"^Digest:\s*(sha256:[0-9a-f]{64})\s*$", out.stdout, re.M)
+        digest = m.group(1) if m else digest
     if out.returncode != 0 or not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
         raise RuntimeError(f"cannot resolve {tagged_name}: {(out.stderr or out.stdout).strip()[:200]}")
     return digest
