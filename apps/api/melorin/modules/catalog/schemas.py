@@ -110,6 +110,8 @@ class StoreOut(BaseModel):
 class QuoteWalletOut(QuoteOut):
     wallet_balance: int
     sufficient_funds: bool
+    balance_after: int | None = None  # wallet balance once this purchase is paid; None when funds are insufficient
+    shortfall: int = 0  # exact top-up needed when funds are insufficient, otherwise 0
     payment: str = "wallet"  # v1.1: every purchase is wallet-funded
 
 

@@ -167,13 +167,14 @@ class PlansMixin:
         balance = int(q.get("wallet_balance") or 0)
         lines += ["", f"👛 موجودی کیف پول: {esc(fmt(balance, c))}"]
         if q.get("sufficient_funds"):
-            lines.append(f"📉 موجودی پس از پرداخت: <b>{esc(fmt(balance - int(q['total']), c))}</b>")
+            # Core owns the arithmetic (T-R10): the bot only renders what the quote says.
+            lines.append(f"📉 موجودی پس از پرداخت: <b>{esc(fmt(int(q['balance_after']), c))}</b>")
             if coupon:
                 self._merge_state(ctx.chat_id, coupon={"pid": str(pid), "code": coupon})
             go = f"rnb:{renew}:{b64(pid)}" if renew else f"buy:{pid}"
             rows = [[("✅ تأیید و پرداخت از کیف پول", go)]]
         else:
-            short = int(q["total"]) - balance
+            short = int(q["shortfall"])
             lines.append(f"⚠️ موجودی کافی نیست؛ <b>{esc(fmt(short, c))}</b> کم دارید.")
             rows = [[(f"💳 شارژ {fmt(short, c)}", f"wallet:amount:{short}")]]
         if not renew:

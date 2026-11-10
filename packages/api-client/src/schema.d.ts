@@ -8397,6 +8397,8 @@ export interface components {
         };
         /** QuoteWalletOut */
         QuoteWalletOut: {
+            /** Balance After */
+            balance_after?: number | null;
             /** Coupon Code */
             coupon_code: string | null;
             /** Currency */
@@ -8415,6 +8417,11 @@ export interface components {
             product_id: string;
             renewal?: components["schemas"]["RenewalAfter"] | null;
             renewal_queue?: components["schemas"]["QueueAfter"] | null;
+            /**
+             * Shortfall
+             * @default 0
+             */
+            shortfall: number;
             /** Sufficient Funds */
             sufficient_funds: boolean;
             /** Total */

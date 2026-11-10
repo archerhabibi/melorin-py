@@ -82,3 +82,19 @@ def quote(
         reseller_currency if cost is not None else None,
         ("platform" if platform_funded else "store") if discount else None,
     )
+
+
+@dataclass(frozen=True)
+class WalletProjection:
+    """What a wallet-funded purchase would do to the balance. The one place this arithmetic lives (audit T-R10):
+    channels (bots, web) display these numbers and never subtract on their own."""
+
+    sufficient: bool
+    balance_after: int | None  # None when the balance does not cover the total
+    shortfall: int  # 0 when sufficient, otherwise the exact top-up needed
+
+
+def project_wallet(balance: int, total: int) -> WalletProjection:
+    if balance >= total:
+        return WalletProjection(True, balance - total, 0)
+    return WalletProjection(False, None, total - balance)

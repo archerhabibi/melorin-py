@@ -380,6 +380,7 @@ async def test_renewal_info_and_quote_endpoints_give_the_same_promise_the_order_
         assert info.after.duration_days == 30 and info.after.traffic_gb == 10 and info.renew_until is not None
         q = await catalog_router.checkout_quote(QuoteRequest(product_id=t.product.id, vpn_account_id=t.account.id), t.ctx, s)
         assert q.total == 2_500 and q.sufficient_funds and q.renewal.duration_days == 30
+        assert q.balance_after == q.wallet_balance - q.total and q.shortfall == 0  # T-R10: Core owns the arithmetic
         o = await _renew(s, t)
         assert o.total == q.total  # a quote never promises what checkout charges differently
         again = await catalog_router.renewal_info(t.account.id, t.ctx, s)

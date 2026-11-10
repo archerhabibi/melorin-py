@@ -35,6 +35,8 @@ class Fake:
             "coupon_code": None,
             "wallet_balance": 350_000,
             "sufficient_funds": True,
+            "balance_after": 250_000,
+            "shortfall": 0,
         }
         self.accounts = [
             {
@@ -172,7 +174,7 @@ def test_quote_card_shows_balance_before_and_after_and_confirm_button(bot):
 
 def test_insufficient_funds_offers_exact_shortfall_topup(bot):
     _, r, fake = bot
-    fake.quote.update(wallet_balance=30_000, sufficient_funds=False)
+    fake.quote.update(wallet_balance=30_000, sufficient_funds=False, balance_after=None, shortfall=70_000)
     run(r, cb("plan:" + PID))
     data = [b["callback_data"] for b in buttons(fake.edits[0])]
     assert "wallet:amount:70000" in data and f"buy:{PID}" not in data
@@ -282,7 +284,15 @@ def test_source_never_carries_allocation_data():
 def test_coupon_prompt_is_one_shot_even_when_funds_are_insufficient(bot):
     _, r, fake = bot
     run(r, cb(f"cpn:{PID}"))
-    fake.quote.update(wallet_balance=1_000, sufficient_funds=False, total=90_000, discount=10_000, coupon_code="OFF10")
+    fake.quote.update(
+        wallet_balance=1_000,
+        sufficient_funds=False,
+        balance_after=None,
+        shortfall=89_000,
+        total=90_000,
+        discount=10_000,
+        coupon_code="OFF10",
+    )
     run(r, msg("off10", uid=2))
     quotes_before = len([c for c in fake.calls if c[1].endswith("/quote")])
     run(r, msg("سلام", uid=3))  # ordinary text afterwards must NOT be treated as another coupon

@@ -59,6 +59,8 @@ class Fake:
                     "currency": "IRT",
                     "wallet_balance": 5000,
                     "sufficient_funds": True,
+                    "balance_after": 4000,
+                    "shortfall": 0,
                 },
             )
         if path == "/api/v1/stores/s1/orders":
