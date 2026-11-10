@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 import datetime as dt
-import uuid
 
 import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from _db import open_schema_engine
+from _db import make_store, open_schema_engine
+from melorin.core.crypto import encrypt
 from melorin.core.db import utcnow
 from melorin.kernel.models.system import OutboxEvent, SystemSetting
-from melorin.kernel.models.webhooks import WebhookDelivery
+from melorin.kernel.models.webhooks import WebhookDelivery, WebhookEndpoint
 from melorin.worker import jobs, retention
 
 
@@ -31,26 +31,36 @@ def _outbox(tag: str, status: str, age_days: int) -> OutboxEvent:
     )
 
 
-def _delivery(tag: str, status: str, age_days: int) -> WebhookDelivery:
+async def _endpoint(s) -> WebhookEndpoint:
+    """A real endpoint: ``webhook_deliveries.endpoint_id`` is a foreign key (enforced on PostgreSQL, not on SQLite)."""
+    store = await make_store(s)
+    endpoint = WebhookEndpoint(store_id=store.id, url="https://h.example.com", events=["*"], secret_enc=encrypt("s"))
+    s.add(endpoint)
+    await s.flush()
+    return endpoint
+
+
+def _delivery(endpoint: WebhookEndpoint, tag: str, status: str, age_days: int) -> WebhookDelivery:
     when = utcnow() - dt.timedelta(days=age_days)
     return WebhookDelivery(
-        endpoint_id=uuid.uuid4(), store_id=uuid.uuid4(), event_id=tag, event_type="x", payload={}, status=status, updated_at=when
+        endpoint_id=endpoint.id, store_id=endpoint.store_id, event_id=tag, event_type="x", payload={}, status=status, updated_at=when
     )
 
 
 async def test_purge_finished_removes_only_old_finished_rows(maker):
     async with maker() as s:
+        ep = await _endpoint(s)
         s.add_all(
             [
                 _outbox("old-done", "processed", 60),
                 _outbox("fresh-done", "processed", 2),
                 _outbox("old-pending", "pending", 60),
                 _outbox("old-processing", "processing", 60),
-                _delivery("old-delivered", "delivered", 60),
-                _delivery("old-failed", "failed", 60),
-                _delivery("fresh-delivered", "delivered", 1),
-                _delivery("old-pending", "pending", 60),
-                _delivery("old-delivering", "delivering", 60),
+                _delivery(ep, "old-delivered", "delivered", 60),
+                _delivery(ep, "old-failed", "failed", 60),
+                _delivery(ep, "fresh-delivered", "delivered", 1),
+                _delivery(ep, "old-pending", "pending", 60),
+                _delivery(ep, "old-delivering", "delivering", 60),
             ]
         )
         await s.commit()

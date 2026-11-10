@@ -7,12 +7,18 @@ test('storefront shows the bundles served by Core for the main store', async ({ 
     'GET /api/v1/auth/telegram/config': { enabled: false },
     'GET /api/v1/auth/google/config': { enabled: false },
     'GET /api/v1/stores/main': { id: 'store-main', bot_username: null },
-    'GET /api/v1/stores/store-main/bundles': [{ id: 'b1', name: 'E2E Bundle', mode: 'fixed' }],
+    // The bundle picker is rendered only when the store sells more than one bundle (a single one is auto-selected).
+    'GET /api/v1/stores/store-main/bundles': [
+      { id: 'b1', name: 'E2E Bundle', mode: 'fixed' },
+      { id: 'b2', name: 'E2E Second Bundle', mode: 'fixed' },
+    ],
     'GET /api/v1/stores/store-main/bundles/b1/packages': [],
+    'GET /api/v1/stores/store-main/bundles/b2/packages': [],
   });
   await page.goto('/');
   await expect(page).toHaveTitle(/ملورین/);
-  await expect(page.getByText('E2E Bundle').first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'E2E Bundle' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'E2E Second Bundle' })).toBeVisible();
   assertNoErrors();
 });
 

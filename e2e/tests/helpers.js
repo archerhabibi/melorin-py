@@ -8,7 +8,10 @@ export async function mockCore(page, handlers = {}) {
     const h = handlers[key];
     if (h === undefined)
       return route.fulfill({ status: 404, contentType: 'application/json', body: '{"detail":"not mocked"}' });
-    const { status = 200, body = {} } = typeof h === 'function' ? h(route.request()) : { body: h };
+    // A handler is a function, an explicit `{ status, body }` response, or a bare JSON body (answered with 200).
+    const spec = typeof h === 'function' ? h(route.request()) : h;
+    const explicit = spec !== null && typeof spec === 'object' && !Array.isArray(spec) && typeof spec.status === 'number';
+    const { status = 200, body = {} } = explicit ? spec : { body: spec };
     return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
   });
   return seen;
