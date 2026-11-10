@@ -19,7 +19,8 @@ def test_l03_readiness_and_worker_signals_are_wired():
 def test_l03_operational_controls_are_wired():
     arq = read_source(API / "melorin/worker/arq_app.py")
     compose = (ROOT / "docker-compose.yml").read_text()
-    assert "backup_job" in arq and "timeout=900" in arq
+    assert "backup_job" not in arq  # T-R14: moved to melorin.worker.backup_main
+    assert "worker.backup_main" in compose
     assert "secrets/metrics-token" in compose and "recipients.txt:/run/melorin-backup/recipients.txt:ro" in compose
 
 

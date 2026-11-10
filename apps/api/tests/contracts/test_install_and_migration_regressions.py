@@ -159,7 +159,7 @@ def test_k11_to_k20_operational_controls_are_present():
     assert "recipients.txt:/run/melorin-backup/recipients.txt:ro" in compose
     for marker in ("panel_health_job", "expiry_job", "near_expiry_job", "reconciliation_job"):
         assert marker in arq
-    assert "timeout=900" in arq
+    assert "backup_main" in compose  # T-R14: backups run in their own container, not in the ARQ worker
     assert 'state="firing"} > 0' in alerts and "for: 5m" in alerts
     assert "_public_panel_url" in registry and ".is_private" in registry
     assert "order_paid_retry:" in orders and "already_claimed" in vpn

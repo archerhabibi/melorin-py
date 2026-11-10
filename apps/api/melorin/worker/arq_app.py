@@ -15,7 +15,6 @@ from melorin.core.config import get_settings
 from melorin.core.db import session_factory
 from melorin.worker.runner import claim_batch, claim_webhook_batch, process_event, process_webhook
 from melorin.worker.jobs import (
-    backup_job,
     bank_sms_reconcile_job,
     receipt_grace_job,
     daily_report_job,
@@ -29,7 +28,6 @@ from melorin.worker.jobs import (
     store_digest_job,
     panel_metrics_job,
     panel_settings_drift_job,
-    panel_backup_job,
     panel_admin_sync_job,
     privacy_retention_job,
     reconciliation_job,
@@ -78,13 +76,11 @@ async def shutdown(ctx):
 class WorkerSettings:
     functions = [
         poll_tick,
-        backup_job,
         daily_report_job,
         store_digest_job,
         panel_health_job,
         panel_metrics_job,
         panel_settings_drift_job,
-        panel_backup_job,
         panel_admin_sync_job,
         panel_event_job,
         bulk_operation_job,
@@ -103,14 +99,12 @@ class WorkerSettings:
     ]
     cron_jobs = [
         cron(poll_tick, second=set(range(0, 60, 2)), unique=True),
-        cron(backup_job, hour=2, minute=0, unique=True, timeout=900),
         # 20:30 UTC = 00:00 Tehran: the nightly Event Center report of the day that just ended.
         cron(daily_report_job, hour=20, minute=30, unique=True),
         cron(store_digest_job, hour=17, minute=0, unique=True),
         cron(panel_health_job, minute=set(range(0, 60, 2)), unique=True),
         cron(panel_metrics_job, minute=set(range(1, 60, 2)), unique=True),
         cron(panel_settings_drift_job, minute=25, unique=True),
-        cron(panel_backup_job, hour=2, minute=40, unique=True, timeout=900),
         cron(panel_admin_sync_job, minute=set(range(0, 60)), unique=True),
         cron(panel_event_job, second=set(range(3, 60, 10)), unique=True),
         cron(bulk_operation_job, second={7, 22, 37, 52}, unique=True),
@@ -131,7 +125,7 @@ class WorkerSettings:
     on_shutdown = shutdown
     redis_settings = RedisSettings.from_dsn(get_settings().redis_url or "redis://localhost:6379/0")
     max_jobs = 20
-    # Keep the default short for ordinary jobs; backup_job has its own
-    # 15-minute cron timeout above.
+    # Keep the default short: the long-running backups moved to the dedicated backup container
+    # (melorin.worker.backup_main, T-R14), so no job here needs more than this.
     job_timeout = 120
     max_tries = 1

@@ -592,8 +592,11 @@ def test_every_gauge_is_declared_and_every_collector_alert_has_a_rule_or_a_ui_re
 
 def test_worker_schedules_the_new_jobs():
     arq = (ROOT / "apps/api/melorin/worker/arq_app.py").read_text()
-    for job in ("panel_metrics_job", "panel_settings_drift_job", "panel_backup_job"):
+    for job in ("panel_metrics_job", "panel_settings_drift_job"):
         assert f"cron({job}" in arq and arq.count(job) >= 3, job
+    # T-R14: the panel backup is scheduled by the dedicated backup container, no longer by the ARQ worker
+    assert "panel_backup_job" not in arq
+    assert "jobs.panel_backup_job" in (ROOT / "apps/api/melorin/worker/backup_main.py").read_text()
 
 
 # ------------------------------------------------------------------------------------------------------------ admin API

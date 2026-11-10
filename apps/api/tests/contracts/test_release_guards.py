@@ -147,8 +147,8 @@ def test_built_services_use_registry_aware_image_names():
     compose = (ROOT / "docker-compose.yml").read_text()
     for name in ("api", "store-web", "admin-web", "telegram-main", "telegram-reseller"):
         assert f"${{MELORIN_IMAGE_REGISTRY:-melorin}}/{name}:${{MELORIN_IMAGE_TAG:-local}}" in compose, name
-    # api and worker share one image; every service that has a build: also has the image: line right above it
-    assert len(re.findall(r"image: \$\{MELORIN_IMAGE_REGISTRY", compose)) == len(re.findall(r"^    build:$", compose, re.M)) == 6
+    # api, worker and backup share one image; every service that has a build: also has the image: line right above it
+    assert len(re.findall(r"image: \$\{MELORIN_IMAGE_REGISTRY", compose)) == len(re.findall(r"^    build:$", compose, re.M)) == 7
 
 
 def test_deploy_workflow_builds_images_before_deploying_and_deploys_the_prepared_sha():
