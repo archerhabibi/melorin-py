@@ -4,7 +4,7 @@ import sys
 
 from melorin.core.logging import JsonFormatter, redact
 
-TOKEN = "123456789:AAH_abcdefghijklmnopqrstuvwxyz012345"
+TOKEN = "123456789:AAH_abcdefghijklmnopqrstuvwxyz012345"  # pragma: allowlist secret
 
 
 def test_redact_scrubs_bot_token_in_url():

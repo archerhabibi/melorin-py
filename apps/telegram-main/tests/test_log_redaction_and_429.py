@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from tgmain.client import TransportMixin  # noqa: E402
 from tgmain.logsafe import RedactTokens  # noqa: E402
 
-TOKEN = "123456789:AAH_abcdefghijklmnopqrstuvwxyz012345"
+TOKEN = "123456789:AAH_abcdefghijklmnopqrstuvwxyz012345"  # pragma: allowlist secret
 
 
 def test_filter_redacts_message_args_and_traceback():
