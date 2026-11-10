@@ -5,9 +5,11 @@ import functools
 import datetime as dt
 import logging
 import os
+from typing import Any, cast
 from pathlib import Path
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, delete, or_, select
+from sqlalchemy.engine import CursorResult
 
 from melorin.core import integrations, settings_store
 from melorin.core.db import session_factory, utcnow
@@ -332,11 +334,16 @@ async def privacy_retention_job(ctx=None):
     async with session_factory()() as s:
         days = int(await settings_store.get(s, "privacy.verification_code_retention_days") or 7)
         cutoff = utcnow() - dt.timedelta(days=max(1, days))
-        result = await s.execute(
-            VerificationCode.__table__.delete().where(
-                VerificationCode.created_at < cutoff,
-                VerificationCode.expires_at < cutoff,
-            )
+        result = cast(
+            "CursorResult[Any]",
+            await s.execute(
+                delete(VerificationCode)
+                .where(
+                    VerificationCode.created_at < cutoff,
+                    VerificationCode.expires_at < cutoff,
+                )
+                .execution_options(synchronize_session=False)
+            ),
         )
         await s.commit()
         removed = await retention.purge_finished(s)  # T51: finished outbox events / webhook deliveries

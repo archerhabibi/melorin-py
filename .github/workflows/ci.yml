@@ -44,10 +44,10 @@ jobs:
       - run: bash ../../scripts/run_quality_gate.sh
       - run: lint-imports
       - run: ruff check melorin --config pyproject.toml
-      - run: pip install mypy==2.4.1 && mypy --config-file pyproject.toml  # T41: core + worker are type-checked
+      - run: mypy --config-file pyproject.toml  # T41/T-R09: type-checked packages are listed in pyproject.toml; mypy is hash-locked in requirements-dev.txt
       - run: ruff format --check melorin tests alembic --config pyproject.toml
       - run: python -m compileall -q melorin
-      - run: pytest -q -m "not integration" --cov=melorin --cov-report=term-missing --cov-report=xml --cov-fail-under=75
+      - run: pytest -q -n auto -m "not integration" --cov=melorin --cov-report=term-missing --cov-report=xml --cov-fail-under=75
         env: {MELORIN_DATABASE_URL: postgresql+asyncpg://melorin:test@localhost:5432/melorin, MELORIN_JWT_SECRET: ci-secret}
       - run: python ../../scripts/check_coverage_floors.py coverage.xml  # T39: higher floors for money-handling code
       - run: pytest -q -m integration
@@ -177,5 +177,5 @@ jobs:
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
       - run: pip install --require-hashes -r requirements-dev.txt
-      - run: pytest -q -m "not integration"
+      - run: pytest -q -n auto -m "not integration"
         env: {TEST_PG_URL: 'postgresql+asyncpg://melorin:test@localhost:5432/melorin'}

@@ -225,7 +225,7 @@ def requested_account_name(group, account_name: str | None) -> str | None:
     """
     if group.naming_mode != "custom":
         return None
-    if not (account_name or "").strip():
+    if account_name is None or not account_name.strip():
         return None
     name = clean_custom_name(account_name)
     if len(name) < 3:
@@ -293,6 +293,17 @@ def _candidate(server: Server, panel: Panel, member: BundleMember | None, active
     )
 
 
+async def _load_destination(
+    session: AsyncSession, server_id: uuid.UUID, panel_id: uuid.UUID, group: Bundle
+) -> tuple[Server, Panel, Bundle]:
+    """Load the chosen server and panel rows; a row that vanished mid-transaction is a retryable failure, not an AttributeError."""
+    server = await session.get(Server, server_id)
+    panel = await session.get(Panel, panel_id)
+    if server is None or panel is None:
+        raise PanelError(ErrorKind.TRANSIENT, "سرور یا پنل انتخاب‌شده دیگر در دسترس نیست؛ تخصیص دوباره تلاش می‌شود.")
+    return server, panel, group
+
+
 async def _pin_must_stay(session: AsyncSession, order) -> bool:
     """True when the order may already have an account on its pinned destination, so it must NOT be moved.
 
@@ -334,6 +345,8 @@ async def resolve_allocation(session: AsyncSession, order, product) -> tuple[Ser
     )
     if why:
         raise PanelError(ErrorKind.PERMANENT, why)
+    if group is None:  # group_policy_violation() already reports a missing bundle; this narrows the type
+        raise PanelError(ErrorKind.PERMANENT, "بسته فروش سفارش پیدا نشد.")
     group_mode = group.selection_mode
     balancing = group.balancing if group.balancing in BALANCING_MODES else DEFAULT_BALANCING
 
@@ -365,7 +378,7 @@ async def resolve_allocation(session: AsyncSession, order, product) -> tuple[Ser
                 is None
             )
             if still_ok or await _pin_must_stay(session, order):
-                return await session.get(Server, pinned.server_id), await session.get(Panel, pinned.panel_id), group
+                return await _load_destination(session, pinned.server_id, pinned.panel_id, group)
         elif await _pin_must_stay(session, order):
             raise PanelError(ErrorKind.TRANSIENT, "مقصد ثابت‌شده‌ی سفارش دیگر در بسته نیست و نباید جابه‌جا شود.")
         # the pinned destination is unusable and provably unused: allocate again below (a fresh turn)
@@ -376,8 +389,7 @@ async def resolve_allocation(session: AsyncSession, order, product) -> tuple[Ser
     if chosen is None:
         detail = "؛ ".join(reasons) if reasons else "هیچ مقصدی تعریف نشده است"
         raise PanelError(ErrorKind.PERMANENT, f"no healthy compatible server | {detail}")
-    server = await session.get(Server, chosen.server_id)
-    panel = await session.get(Panel, chosen.panel_id)
+    server, panel, group = await _load_destination(session, chosen.server_id, chosen.panel_id, group)
     order.allocated_server_id = server.id
     server.last_assigned_at = utcnow()
     return server, panel, group

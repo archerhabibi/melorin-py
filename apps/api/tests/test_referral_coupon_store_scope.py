@@ -88,7 +88,7 @@ def test_source_guard_the_locking_statement_names_one_coupon():
 
     src = inspect.getsource(catalog.find_coupon)
     assert "Coupon.id == rows[0].id" in src and "with_for_update" in src
-    assert src.index("with_for_update") > src.index("rows.sort")  # the lock comes after the winner is chosen, never on the broad query
+    assert src.index("with_for_update") > src.index("sorted(")  # the lock comes after the winner is chosen, never on the broad query
 
 
 def test_runner_secrets_are_wired_end_to_end():
