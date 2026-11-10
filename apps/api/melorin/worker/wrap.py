@@ -39,6 +39,7 @@ def item_failed(job: str) -> None:
     """
     metrics.inc("melorin_job_item_failures_total", job=job)
 
+
 DEFAULT_LOCK_TTL = 130  # a little above ARQ's default job_timeout (120 s)
 
 _RELEASE = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end"
