@@ -10,9 +10,9 @@ import BankSmsPanel from './BankSmsPanel.tsx';
 
 import { PAGE, prov, cur, reviewable, FILTERS, ago, sumBy, Metric, ProviderChip, Amount } from './paymentsShared.tsx';
 import { RowActions, Queue, PaymentDrawer, GatewaySettings } from './PaymentParts.tsx';
-import type { Json, Rec } from './types.ts';
+import type { Json, Rec, Toast } from './types.ts';
 
-export default function PaymentsView({ api, toast }: { api?: Json; toast?: Json }) {
+export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast }) {
   const call = useCallback((p: Json, o = {}) => authFetch(api.base, p, o), [api.base]);
   const [rows, setRows] = useState<Json>(null);
   const [failed, setFailed] = useState(false);
@@ -76,7 +76,7 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast?: Json 
   const rate = ok.length + bad.length ? ok.length / (ok.length + bad.length) : null;
   const filtering = !!(q || provider || tab !== 'all');
 
-  const run = async (p: Json, path: Json, body: Json, okMsg: Json, failMsg: Json) => {
+  const run = async (p: Json, path: string, body: Json, okMsg: Json, failMsg: Json) => {
     setBusy(p.id);
     try {
       const r = await call(`/api/v1/admin/payments/${p.id}/${path}`, { method: 'POST', body: JSON.stringify(body) });

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 // GoogleLoginSettings.tsx — Admin > Settings > "ورود با گوگل"
 // Collects the Google OAuth Client ID + switches and stores them on the server. A Client ID is public by design
 // and the ID-token flow needs no client secret, so nothing secret is collected or stored here.
@@ -5,7 +6,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { authFetch } from './api.ts';
 import { Check, ChevronDown, Copy, ExternalLink, ShieldCheck } from 'lucide-react';
-import type { Json } from './types.ts';
+import type { Json, Toast } from './types.ts';
 
 const CLIENT_ID_RE = /^[0-9]{6,}-[A-Za-z0-9_-]+\.apps\.googleusercontent\.com$/;
 
@@ -18,7 +19,7 @@ export const Field = ({
   label?: Json;
   hint?: Json;
   error?: Json;
-  children?: Json;
+  children?: ReactNode;
 }) => (
   <label className="block text-xs font-bold text-[var(--mu)]">
     {label}
@@ -64,7 +65,7 @@ export function CopyBox({ text }: { text?: Json }) {
   );
 }
 
-export const Step = ({ n, title, children }: { n?: Json; title?: Json; children?: Json }) => (
+export const Step = ({ n, title, children }: { n?: Json; title?: Json; children?: ReactNode }) => (
   <li className="flex gap-3">
     <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[var(--btn)] text-xs font-extrabold text-[var(--btntx)]">
       {n}
@@ -209,7 +210,7 @@ function Guide({ origins }: { origins?: Json }) {
   );
 }
 
-export default function GoogleLoginSettings({ api, toast }: { api?: Json; toast?: Json }) {
+export default function GoogleLoginSettings({ api, toast }: { api?: Json; toast: Toast }) {
   const call = (p: Json, o = {}) => authFetch(api.base, p, o);
   const [cfg, setCfg] = useState<Json>(null);
   const [busy, setBusy] = useState('');

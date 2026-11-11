@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useState } from 'react';
 import {
   AlertTriangle,
@@ -89,7 +90,7 @@ export function UpstreamBotLink({ ub, setUb, error }: { ub?: Json; setUb?: Json;
 }
 
 // ---------- credentials ----------
-function Step({ n, children }: { n?: Json; children?: Json }) {
+function Step({ n, children }: { n?: Json; children?: ReactNode }) {
   return (
     <li className="flex items-start gap-2.5">
       <span className="sec-n mt-0.5 shrink-0">{n}</span>
@@ -212,7 +213,7 @@ function Fold({
   title?: Json;
   hint?: Json;
   badge?: Json;
-  children?: Json;
+  children?: ReactNode;
   defaultOpen?: Json;
   Icon?: Json;
 }) {

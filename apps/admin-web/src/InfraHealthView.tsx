@@ -1,19 +1,20 @@
+import type { ReactNode } from 'react';
 import { useState, useCallback } from 'react';
 import { ShieldCheck, AlertTriangle, RefreshCw, Loader, CheckCircle, XCircle } from 'lucide-react';
 import { useInfra } from './infra.tsx';
-import type { Json, Rec } from './types.ts';
+import type { Json, Rec, Toast } from './types.ts';
 
 // ---- Issue section helpers ----
 function IssueSection({
   title,
-  items,
+  items = [],
   color = 'orange',
   children,
 }: {
-  title?: Json;
-  items?: Json;
-  color?: Json;
-  children?: Json;
+  title?: ReactNode;
+  items?: Json[];
+  color?: 'orange' | 'red' | 'blue' | 'gray';
+  children: (item: Json) => ReactNode;
 }) {
   if (!items.length) return null;
   const cls =
@@ -23,7 +24,7 @@ function IssueSection({
         red: 'border-red-200 bg-red-50 text-red-700',
         blue: 'border-blue-200 bg-blue-50 text-blue-800',
         gray: 'border-[var(--ln)] bg-[var(--mb)] text-[var(--mu)]',
-      } as Rec
+      } as Record<string, string>
     )[color] || '';
   return (
     <section className={`rounded-xl border p-4 ${cls}`}>
@@ -54,7 +55,7 @@ function Badge({ ok }: { ok?: Json }) {
 }
 
 // ---- Main component ----
-export default function InfraHealthView({ api, toast }: { api?: Json; toast?: Json }) {
+export default function InfraHealthView({ api, toast }: { api?: Json; toast: Toast }) {
   const infra = useInfra(api); // loads all (health needs full picture)
   const { panels, servers, groups, products, idx, reload } = infra;
 

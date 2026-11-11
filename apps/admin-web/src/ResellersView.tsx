@@ -32,7 +32,7 @@ import {
   num,
   useRows,
 } from './kit.tsx';
-import type { Json, Rec } from './types.ts';
+import type { CallFn, Json, Rec, Toast } from './types.ts';
 
 // Effective bot state computed by Core (stores/bots.py): what the admin should believe about the bot right now.
 const BOT_STATE: Rec = {
@@ -88,8 +88,8 @@ function Loader({
   onDone,
 }: {
   id?: Json;
-  call?: Json;
-  toast?: Json;
+  call: CallFn;
+  toast: Toast;
   onClose?: Json;
   onDone?: Json;
 }) {
@@ -118,8 +118,8 @@ function Editor({
   onDone,
 }: {
   initial?: Json;
-  call?: Json;
-  toast?: Json;
+  call: CallFn;
+  toast: Toast;
   onClose?: Json;
   onDone?: Json;
 }) {
@@ -143,7 +143,7 @@ function Editor({
   const base = pick(r);
   const dirty = JSON.stringify(f) !== JSON.stringify(base);
 
-  const run = async (path: Json, method: Json, body: Json, okMsg: Json) => {
+  const run = async (path: string, method: Json, body: Json, okMsg: Json) => {
     setBusy(true);
     setError('');
     try {
@@ -448,7 +448,7 @@ function Editor({
   );
 }
 
-export default function ResellersView({ api, toast }: { api?: Json; toast?: Json }) {
+export default function ResellersView({ api, toast }: { api?: Json; toast: Toast }) {
   const call = (p: Json, o = {}) => authFetch(api.base, p, o);
   const { rows, failed, load } = useRows(call, '/api/v1/admin/resellers');
   const [filter, setFilter] = useState('all');

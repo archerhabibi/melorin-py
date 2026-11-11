@@ -34,7 +34,7 @@ import {
   tint,
   useRows,
 } from './kit.tsx';
-import type { Json, Rec } from './types.ts';
+import type { CallFn, Json, Rec, Toast } from './types.ts';
 
 const PROVIDERS: Rec = {
   google: { label: 'Google', Icon: Globe, tone: 'in' },
@@ -230,8 +230,8 @@ function ReviewDrawer({
   onDone,
 }: {
   r?: Json;
-  call?: Json;
-  toast?: Json;
+  call: CallFn;
+  toast: Toast;
   onClose?: Json;
   onDone?: Json;
 }) {
@@ -322,7 +322,7 @@ function ReviewDrawer({
   );
 }
 
-export default function IdentityReviewsView({ api, toast }: { api?: Json; toast?: Json }) {
+export default function IdentityReviewsView({ api, toast }: { api?: Json; toast: Toast }) {
   const call = (p: Json, o = {}) => authFetch(api.base, p, o);
   const { rows, failed, load } = useRows(call, '/api/v1/admin/identity-link-reviews?status=all');
   const [status, setStatus] = useState('open');

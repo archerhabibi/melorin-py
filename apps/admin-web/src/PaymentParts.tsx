@@ -8,7 +8,7 @@ import { Drawer, Field, Section, Switch, num, tint } from './kit.tsx';
 import { Badge, dt, sid } from './ui.tsx';
 
 import { prov, reviewable, refundable, ago, copy, ProviderChip, Amount } from './paymentsShared.tsx';
-import type { Json } from './types.ts';
+import type { CallFn, Json, Toast } from './types.ts';
 
 export function RowActions({ p, busy, on, compact = false }: { p?: Json; busy?: Json; on?: Json; compact?: Json }) {
   const b = compact ? '!px-2' : '';
@@ -153,8 +153,8 @@ export function PaymentDrawer({
   busy?: Json;
   on?: Json;
   onClose?: Json;
-  toast?: Json;
-  call?: Json;
+  toast: Toast;
+  call: CallFn;
 }) {
   const [img, setImg] = useState<Json>(null);
   const [loadingImg, setLoadingImg] = useState(false);

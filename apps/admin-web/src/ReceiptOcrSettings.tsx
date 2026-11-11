@@ -7,7 +7,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, Check, ChevronDown, Cpu, Eye, FlaskConical, Power, ScanText, Sparkles } from 'lucide-react';
 import { authFetch } from './api.ts';
 import { Field, Secret } from './kit.tsx';
-import type { Json, Rec } from './types.ts';
+import type { Json, Rec, Toast } from './types.ts';
 
 const ENGINES = [
   {
@@ -82,7 +82,7 @@ function Pipeline() {
   );
 }
 
-export default function ReceiptOcrSettings({ api, toast }: { api?: Json; toast?: Json }) {
+export default function ReceiptOcrSettings({ api, toast }: { api?: Json; toast: Toast }) {
   const call = useCallback((p: Json, o = {}) => authFetch(api.base, p, o), [api.base]);
   const [cfg, setCfg] = useState<Json>(null);
   const [form, setForm] = useState<Json>(null);

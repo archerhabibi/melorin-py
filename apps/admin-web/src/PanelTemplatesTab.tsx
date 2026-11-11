@@ -3,13 +3,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle, Loader, RefreshCw } from 'lucide-react';
 import { confirmDialog } from './ui.tsx';
-import type { Json, Rec } from './types.ts';
+import type { CallFn, Json, Rec, Toast } from './types.ts';
 
 const DRIFT_LABEL: Rec = { data_limit: 'حجم', expire_duration: 'مدت', group_ids: 'گروه‌ها' };
 const driftText = (k: Json, v: Json) =>
   `${DRIFT_LABEL[k] || k}: پکیج ${JSON.stringify(v.package)} ← پنل ${JSON.stringify(v.panel)}`;
 
-export default function PanelTemplatesTab({ call, panelId, toast }: { call?: Json; panelId?: Json; toast?: Json }) {
+export default function PanelTemplatesTab({ call, panelId, toast }: { call: CallFn; panelId?: Json; toast: Toast }) {
   const [data, setData] = useState<Json>(null);
   const [products, setProducts] = useState<Rec[]>([]);
   const [pick, setPick] = useState('');
@@ -38,7 +38,7 @@ export default function PanelTemplatesTab({ call, panelId, toast }: { call?: Jso
     load();
   }, [load]);
 
-  const act = async (key: Json, path: Json, method: Json, body: Json, okText: Json) => {
+  const act = async (key: Json, path: string, method: Json, body: Json, okText: Json) => {
     setBusy(key);
     try {
       const r = await call(`/api/v1/admin/panels/${panelId}/templates${path}`, {

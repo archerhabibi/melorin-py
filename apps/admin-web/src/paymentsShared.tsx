@@ -6,7 +6,7 @@ import { Coins, CreditCard, Globe, Landmark, Star, Wallet } from 'lucide-react';
 
 import { num, tint } from './kit.tsx';
 import { dt } from './ui.tsx';
-import type { Json, Rec } from './types.ts';
+import type { Json, Rec, Toast } from './types.ts';
 
 export const PAGE = 15;
 export const REVIEWABLE = ['pending', 'review', 'receipt_submitted', 'awaiting_review'];
@@ -48,7 +48,7 @@ export const sumBy = (rows: Json) => {
   rows.forEach((p: Json) => m.set(p.currency, (m.get(p.currency) || 0) + (p.amount || 0)));
   return [...m].map(([c, a]) => `${num(a)} ${cur(c)}`).join(' · ') || '۰';
 };
-export const copy = (text: Json, toast: Json) =>
+export const copy = (text: Json, toast: Toast) =>
   navigator.clipboard?.writeText(String(text)).then(
     () => toast('کپی شد'),
     () => toast('کپی ناموفق بود'),

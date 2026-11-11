@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 // «هویت خودکار» — what the automatic identity verification did (docs/21): trusted browsers that sign visitors in
 // without a manual step, and accounts that were folded together automatically. The admin can revoke trust here.
 import { useEffect, useState } from 'react';
@@ -5,7 +6,7 @@ import { ArrowLeftRight, Fingerprint, MonitorSmartphone, ShieldOff, UserRound, U
 import { authFetch } from './api.ts';
 import { confirmDialog, dt, sid } from './ui.tsx';
 import { Empty, ErrorBar, KpiBar, Pills, SearchBox, Segmented, Stat, errText, num, tint, useRows } from './kit.tsx';
-import type { Json, Rec } from './types.ts';
+import type { CallFn, Json, Rec, Toast } from './types.ts';
 
 const STATUS: Rec = {
   active: ['فعال', 'ok'],
@@ -20,7 +21,7 @@ const PROVIDERS: Rec = { google: 'Google', email: 'ایمیل', telegram: 'تل�
 
 const who = (u: Json) => (u ? u.display_name || u.email || sid(u.id) : '-');
 
-function Chip({ tone, children }: { tone?: Json; children?: Json }) {
+function Chip({ tone, children }: { tone?: Json; children?: ReactNode }) {
   return (
     <span className="rounded-full px-2 py-0.5 text-[11px] font-bold" style={tint(tone)}>
       {children}
@@ -28,14 +29,14 @@ function Chip({ tone, children }: { tone?: Json; children?: Json }) {
   );
 }
 
-function DevicesTab({ call, toast, onChanged }: { call?: Json; toast?: Json; onChanged?: Json }) {
+function DevicesTab({ call, toast, onChanged }: { call: CallFn; toast: Toast; onChanged?: Json }) {
   const [status, setStatus] = useState('active');
   const [q, setQ] = useState('');
   const query = `?status=${status}${q.trim() ? `&q=${encodeURIComponent(q.trim())}` : ''}`;
   const { rows, failed, load } = useRows(call, `/api/v1/admin/trusted-devices${query}`);
   const [busy, setBusy] = useState<Json>(null);
 
-  const run = async (key: Json, path: Json, body: Json, done: Json) => {
+  const run = async (key: Json, path: string, body: Json, done: Json) => {
     setBusy(key);
     try {
       const res = await call(path, {
@@ -152,7 +153,7 @@ function DevicesTab({ call, toast, onChanged }: { call?: Json; toast?: Json; onC
   );
 }
 
-function MergesTab({ call }: { call?: Json }) {
+function MergesTab({ call }: { call: CallFn }) {
   const [days, setDays] = useState('90');
   const { rows, failed, load } = useRows(call, `/api/v1/admin/identity-auto-merges?days=${days}`);
   return (
@@ -208,7 +209,7 @@ function MergesTab({ call }: { call?: Json }) {
 }
 
 // `section` ('devices' | 'merges') pins the view to one tab when the screen is hosted inside the identity hub.
-export default function IdentityAutoView({ api, toast, section }: { api?: Json; toast?: Json; section?: Json }) {
+export default function IdentityAutoView({ api, toast, section }: { api?: Json; toast: Toast; section?: Json }) {
   const call = (p: Json, o = {}) => authFetch(api.base, p, o);
   const [tab, setTabState] = useState(section || 'devices');
   const setTab = (v: Json) => !section && setTabState(v);

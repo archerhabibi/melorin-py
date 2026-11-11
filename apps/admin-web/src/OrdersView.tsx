@@ -45,7 +45,7 @@ import {
   pageOf,
   useCall,
 } from './dataKit.tsx';
-import type { Json, Rec } from './types.ts';
+import type { Json, Rec, Toast } from './types.ts';
 
 const IN_PROGRESS = ['pending', 'payment_pending', 'paid', 'processing', 'provisioning'];
 const ATTENTION = ['provisioning_failed', 'manual_review', 'refund_pending', 'payment_failed'];
@@ -129,7 +129,7 @@ const SORTS: Rec = {
   high: (a: Json, b: Json) => Number(b.total || 0) - Number(a.total || 0),
 };
 
-export default function OrdersView({ api, toast }: { api?: Json; toast?: Json }) {
+export default function OrdersView({ api, toast }: { api?: Json; toast: Toast }) {
   const call = useCall(api);
   const orders = useRows(call, '/api/v1/admin/orders');
   const stores = useRows(call, '/api/v1/admin/stores');

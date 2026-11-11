@@ -30,7 +30,7 @@ import {
   timeOnly,
   initials,
 } from './ticketsShared.tsx';
-import type { Json, Rec } from './types.ts';
+import type { CallFn, Json, Rec, Toast } from './types.ts';
 
 export const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 // Quick check before uploading; the server validates type, size and file signature again and has the last word.
@@ -38,13 +38,13 @@ export const imageProblem = (file: Json) =>
   IMAGE_TYPES.includes(file?.type) ? '' : 'فقط تصویر (JPG، PNG یا WebP) مجاز است.';
 
 /** A ticket picture. It needs the login token, so it is fetched and shown from a blob instead of a plain <img src>. */
-export function TicketImage({ call, path }: { call?: Json; path?: Json }) {
+export function TicketImage({ call, path }: { call: CallFn; path: string }) {
   const [src, setSrc] = useState<Json>(null);
   const [failed, setFailed] = useState(false);
   const callRef = useRef(call); // `call` is a new function on every render of the page: keep the latest one without refetching
   callRef.current = call;
   useEffect(() => {
-    let url: Json = null;
+    let url: string | null = null;
     let dead = false;
     setSrc(null);
     setFailed(false);
@@ -89,7 +89,7 @@ export function Bubble({
 }: {
   m?: Json;
   ticketId?: Json;
-  call?: Json;
+  call: CallFn;
   mine?: Json;
   onEdit?: Json;
   editing?: Json;
@@ -201,7 +201,7 @@ export function Composer({
   onUpload?: Json;
   busy?: Json;
   ticketStatus?: Json;
-  toast?: Json;
+  toast: Toast;
 }) {
   const [mode, setMode] = useState('reply');
   const [text, setText] = useState('');
@@ -366,9 +366,9 @@ export function Conversation({
   onChanged,
   onBack,
 }: {
-  call?: Json;
+  call: CallFn;
   id?: Json;
-  toast?: Json;
+  toast: Toast;
   onChanged?: Json;
   onBack?: Json;
 }) {

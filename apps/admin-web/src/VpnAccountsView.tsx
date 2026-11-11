@@ -33,7 +33,7 @@ import {
   useCall,
   useDebounced,
 } from './dataKit.tsx';
-import type { Json, Rec } from './types.ts';
+import type { CallFn, Json, Rec, Toast } from './types.ts';
 
 const PATH = '/api/v1/admin/vpn-accounts';
 const EXPORT_CAP = 2000;
@@ -56,7 +56,7 @@ function Traffic({ a, wide }: { a?: Json; wide?: Json }) {
   );
 }
 
-export default function VpnAccountsView({ api, toast }: { api?: Json; toast?: Json }) {
+export default function VpnAccountsView({ api, toast }: { api?: Json; toast: Toast }) {
   const call = useCall(api);
   const stores = useRows(call, '/api/v1/admin/stores');
   const [q, setQ] = useState('');
@@ -329,8 +329,8 @@ function AccountDrawer({
 }: {
   a?: Json;
   store?: Json;
-  call?: Json;
-  toast?: Json;
+  call: CallFn;
+  toast: Toast;
   onChanged?: Json;
   onClose?: Json;
 }) {

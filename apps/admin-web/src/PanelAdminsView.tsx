@@ -33,7 +33,7 @@ import {
   num,
   useRows,
 } from './kit.tsx';
-import type { Json } from './types.ts';
+import type { CallFn, Json, Toast } from './types.ts';
 
 // key, label, hint, adminOnly - the same six fields as Core's PROFILE_FIELDS (a reseller may only ask for the first four)
 export const FIELDS: [string, string, string, boolean][] = [
@@ -76,7 +76,7 @@ const KindBadge = ({ kind }: { kind?: Json }) =>
   kind === 'main' ? <span className="badge b-in">فروشگاه اصلی</span> : <span className="badge b-mu">نماینده</span>;
 
 /** POST/PATCH helper shared by both drawers: resolves to the parsed body, or null after putting the reason in `setError`. */
-function useCall(call: Json, toast: Json) {
+function useCall(call: CallFn, toast: Toast) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const run = async (path: string, method: string, body?: Json, okMsg?: string) => {
@@ -109,8 +109,8 @@ function AdminDrawer({
   onDone,
 }: {
   row?: Json;
-  call?: Json;
-  toast?: Json;
+  call: CallFn;
+  toast: Toast;
   onClose?: Json;
   onDone?: Json;
 }) {
@@ -347,8 +347,8 @@ function RequestDrawer({
   onDone,
 }: {
   req?: Json;
-  call?: Json;
-  toast?: Json;
+  call: CallFn;
+  toast: Toast;
   onClose?: Json;
   onDone?: Json;
 }) {
@@ -510,7 +510,7 @@ function RequestDrawer({
   );
 }
 
-export default function PanelAdminsView({ api, toast }: { api?: Json; toast?: Json }) {
+export default function PanelAdminsView({ api, toast }: { api?: Json; toast: Toast }) {
   const call = (p: Json, o = {}) => authFetch(api.base, p, o);
   const admins = useRows(call, '/api/v1/admin/panel-admins');
   const requests = useRows(call, '/api/v1/admin/panel-admin-requests?status='); // empty status = every request

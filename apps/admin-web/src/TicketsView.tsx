@@ -6,7 +6,7 @@ import { Stat, num, useAlive } from './kit.tsx';
 
 import { fromNow, needsReply, PriorityPill } from './ticketsShared.tsx';
 import { Conversation } from './TicketConversation.tsx';
-import type { Json, Rec } from './types.ts';
+import type { CallFn, Json, Rec, Toast } from './types.ts';
 
 function TicketList({
   rows,
@@ -125,7 +125,7 @@ function TicketList({
   );
 }
 
-export default function TicketsView({ call, toast }: { call?: Json; toast?: Json }) {
+export default function TicketsView({ call, toast }: { call: CallFn; toast: Toast }) {
   const [rows, setRows] = useState<Json>(null);
   const [failed, setFailed] = useState(false);
   const [filter, setFilter] = useState('all');

@@ -3,7 +3,7 @@ import { AlertTriangle, Layers, RefreshCw, Wand2 } from 'lucide-react';
 import { authFetch } from './api.ts';
 import { Drawer, Field, NumInput, Section, Segmented, Toggle, errText, num, tint } from './kit.tsx';
 import { capacityLabel, targetKind } from './targets.ts';
-import type { Json, Rec } from './types.ts';
+import type { Json, Rec, Toast } from './types.ts';
 
 /** GET /admin/panels/{id}/targets once per panel; `reload` re-asks (the panel may have new groups). */
 export function usePanelTargets(api: Json, panelId: Json) {
@@ -190,7 +190,7 @@ export function TargetWizard({
 }: {
   api?: Json;
   panel?: Json;
-  toast?: Json;
+  toast: Toast;
   onClose?: Json;
   onDone?: Json;
 }) {

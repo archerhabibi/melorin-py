@@ -1,8 +1,9 @@
+import type { ReactNode } from 'react';
 import { lazy, useEffect, useState } from 'react';
 import { authFetch } from './api.ts';
 import { Plus, Search, X } from 'lucide-react';
 import { Badge, PasswordInput, confirmDialog, isStatus } from './ui.tsx';
-import type { Json, Rec } from './types.ts';
+import type { Json, Rec, Toast } from './types.ts';
 const ReportsView = lazy(() => import('./ReportsView.tsx'));
 const PanelsView = lazy(() => import('./PanelsView.tsx'));
 const PanelAdminsView = lazy(() => import('./PanelAdminsView.tsx'));
@@ -36,7 +37,7 @@ const inp = 'inp';
 const btn = 'btn';
 const ghost = 'btn btn-g';
 
-function useList(api: Json, path: Json, toast: Json) {
+function useList(api: Json, path: string, toast: Toast) {
   const [rows, setRows] = useState<Rec[]>([]);
   const [tick, setTick] = useState(0);
   const call = (p: Json, o = {}) => authFetch(api.base, p, o);
@@ -191,7 +192,7 @@ const Form = ({ fields, onSubmit, label }: { fields?: Json; onSubmit?: Json; lab
   );
 };
 
-function Coupons({ api, toast }: { api?: Json; toast?: Json }) {
+function Coupons({ api, toast }: { api?: Json; toast: Toast }) {
   const stores = useList(api, '/api/v1/admin/stores', toast).rows;
   const [storeId, setStoreId] = useState<Json>(null); // null = not chosen yet, '' = every store (also multi-store codes)
   useEffect(() => {
@@ -291,7 +292,7 @@ function SettingRow({ k, v, save }: { k?: Json; v?: Json; save?: Json }) {
   );
 }
 
-const Field = ({ label, children }: { label?: Json; children?: Json }) => (
+const Field = ({ label, children }: { label?: Json; children?: ReactNode }) => (
   <label className="block text-xs font-bold text-[var(--mu)]">
     {label}
     <div className="mt-1">{children}</div>
@@ -304,7 +305,7 @@ const Toggle = ({ on, set, label }: { on?: Json; set?: Json; label?: Json }) => 
   </label>
 );
 
-function Integrations({ api, toast }: { api?: Json; toast?: Json }) {
+function Integrations({ api, toast }: { api?: Json; toast: Toast }) {
   const call = (p: Json, o = {}) => authFetch(api.base, p, o);
   const [aa, setAa] = useState<Json>(null);
   const [ipText, setIpText] = useState('');
@@ -333,7 +334,7 @@ function Integrations({ api, toast }: { api?: Json; toast?: Json }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
   }, []);
   if (!em || !s3 || !aa) return null;
-  const send = async (path: Json, body: Json, okMsg: Json, tag: Json) => {
+  const send = async (path: string, body: Json, okMsg: Json, tag: Json) => {
     setBusy(tag);
     const r = await call(path, { method: path.endsWith('/test') ? 'POST' : 'PUT', body: JSON.stringify(body) });
     setBusy('');
@@ -570,7 +571,7 @@ function Integrations({ api, toast }: { api?: Json; toast?: Json }) {
   );
 }
 
-function ChangeAdminPassword({ api, toast }: { api?: Json; toast?: Json }) {
+function ChangeAdminPassword({ api, toast }: { api?: Json; toast: Toast }) {
   const [v, setV] = useState({ current: '', next: '', confirm: '' });
   const [busy, setBusy] = useState(false);
   const submit = async () => {
@@ -626,7 +627,7 @@ function ChangeAdminPassword({ api, toast }: { api?: Json; toast?: Json }) {
   );
 }
 
-function Settings({ api, toast }: { api?: Json; toast?: Json }) {
+function Settings({ api, toast }: { api?: Json; toast: Toast }) {
   const flags = useList(api, '/api/v1/admin/feature-flags', toast);
   const [obj, setObj] = useState<Rec>({});
   const [tick, setTick] = useState(0);
@@ -690,7 +691,7 @@ function Settings({ api, toast }: { api?: Json; toast?: Json }) {
   );
 }
 
-function Tickets({ api, toast }: { api?: Json; toast?: Json }) {
+function Tickets({ api, toast }: { api?: Json; toast: Toast }) {
   const call = (p: Json, o = {}) => authFetch(api.base, p, o);
   return <TicketsView call={call} toast={toast} />;
 }

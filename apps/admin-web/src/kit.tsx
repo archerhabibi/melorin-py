@@ -1,9 +1,10 @@
+import type { ReactNode } from 'react';
 // Shared building blocks for the catalog screens (VPN products, VPN sales bundles).
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, Copy, Eye, EyeOff, LayoutGrid, List, Search, Trash2, X } from 'lucide-react';
 import { confirmDialog, noticeDialog } from './ui.tsx';
 import { backdropProps, useDialog } from './useDialog.ts';
-import type { Json, Rec } from './types.ts';
+import type { CallFn, Json, Rec } from './types.ts';
 
 export const num = (v: Json) => Number(v || 0).toLocaleString('fa-IR');
 export const tint = (t: Json) => ({ background: `var(--${t}b, var(--mb))`, color: `var(--${t}, var(--mu))` });
@@ -54,7 +55,7 @@ export function DeleteButton({
   compact?: Json;
   busy?: Json;
   onClick?: Json;
-  className?: Json;
+  className?: string;
 }) {
   return (
     <button
@@ -72,7 +73,7 @@ export function DeleteButton({
 }
 
 /** Confirm → DELETE → report. The Core answers 409 with a plain reason when the item has history; that reason is shown in a dialog. Resolves true only when deleted. */
-export async function removeEntity(call: Json, path: Json, { title, message, done, toast }: Json) {
+export async function removeEntity(call: CallFn, path: string, { title, message, done, toast }: Json) {
   if (!(await confirmDialog(message, { title, danger: true, ok: 'حذف دائمی' }))) return false;
   try {
     const r = await call(path, { method: 'DELETE' });
@@ -103,7 +104,7 @@ export function useAlive() {
 
 /** Fetch a list endpoint once (and on reload). rows === null while loading. */
 /** Fetch a list; pass `{ skip: true }` on screens that do not need this endpoint (lazy-loading #3). */
-export function useRows(call: Json, path: Json, { skip = false } = {}) {
+export function useRows(call: CallFn, path: string, { skip = false } = {}) {
   const [rows, setRows] = useState<Rec[] | null>(skip ? [] : null);
   const [failed, setFailed] = useState(false);
   const alive = useAlive();
@@ -176,7 +177,17 @@ export function Paginator({
   );
 }
 
-export function Field({ label, hint, error, children }: { label?: Json; hint?: Json; error?: Json; children?: Json }) {
+export function Field({
+  label,
+  hint,
+  error,
+  children,
+}: {
+  label?: Json;
+  hint?: Json;
+  error?: Json;
+  children?: ReactNode;
+}) {
   return (
     <label className="block text-xs font-bold text-[var(--mu)]">
       {label}
@@ -320,14 +331,14 @@ export function Stat({
   );
 }
 /** Connected strip of Stat cells (replaces a loose grid of cards). */
-export const KpiBar = ({ cols = 4, children }: { cols?: Json; children?: Json }) => (
+export const KpiBar = ({ cols = 4, children }: { cols?: Json; children?: ReactNode }) => (
   <div className="kpis rise" style={{ '--cols': cols }}>
     {children}
   </div>
 );
 
 /** Section card. A title like "۲ · اتصال" renders the number as a step badge. */
-export function Section({ title, hint, children }: { title?: Json; hint?: Json; children?: Json }) {
+export function Section({ title, hint, children }: { title?: Json; hint?: Json; children?: ReactNode }) {
   const m = /^([۰-۹0-9]+)\s·\s(.*)$/.exec(title || '');
   return (
     <section className="card space-y-4 p-4 sm:p-5">
@@ -364,7 +375,7 @@ export function Ring({
   stroke?: Json;
   tone?: Json;
   label?: Json;
-  children?: Json;
+  children?: ReactNode;
 }) {
   const r = (size - stroke) / 2,
     c = 2 * Math.PI * r,
@@ -565,7 +576,17 @@ export function ViewToggle({
     </div>
   );
 }
-export function Empty({ Icon, title, text, children }: { Icon?: Json; title?: Json; text?: Json; children?: Json }) {
+export function Empty({
+  Icon,
+  title,
+  text,
+  children,
+}: {
+  Icon?: Json;
+  title?: Json;
+  text?: Json;
+  children?: ReactNode;
+}) {
   return (
     <div className="empty rise">
       <span className="tile h-16 w-16 bg-[var(--mb)] text-[var(--mu)]">
@@ -577,7 +598,7 @@ export function Empty({ Icon, title, text, children }: { Icon?: Json; title?: Js
     </div>
   );
 }
-export const ErrorBar = ({ children, onRetry }: { children?: Json; onRetry?: Json }) => (
+export const ErrorBar = ({ children, onRetry }: { children?: ReactNode; onRetry?: Json }) => (
   <p role="alert" className="flex items-center gap-2 rounded-xl bg-[var(--bdb)] p-3 text-sm text-[var(--bd)]">
     {children}
     {onRetry && (
@@ -642,7 +663,7 @@ export function Drawer({
   dirty?: Json;
   busy?: Json;
   onClose?: Json;
-  children?: Json;
+  children?: ReactNode;
   footer?: Json;
   error?: Json;
   danger?: Json;

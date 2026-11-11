@@ -5,7 +5,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { authFetch } from './api.ts';
 import { Segmented, num } from './kit.tsx';
-import type { Json } from './types.ts';
+import type { Json, Toast } from './types.ts';
 
 const IdentityReviewsView = lazy(() => import('./IdentityReviewsView.tsx'));
 const IdentityAutoView = lazy(() => import('./IdentityAutoView.tsx'));
@@ -17,7 +17,7 @@ const tabFromHash = () => {
   return TABS.includes(t ?? '') ? t : 'review';
 };
 
-export default function IdentityHubView({ api, toast }: { api?: Json; toast?: Json }) {
+export default function IdentityHubView({ api, toast }: { api?: Json; toast: Toast }) {
   const [tab, setTab] = useState(tabFromHash);
   const [open, setOpen] = useState<Json>(null); // number of conflicts waiting for a decision (badge on the first tab)
   useEffect(() => {

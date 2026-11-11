@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle, Loader, Radio, RefreshCw } from 'lucide-react';
 import { confirmDialog } from './ui.tsx';
-import type { Json, Rec } from './types.ts';
+import type { CallFn, Json, Rec, Toast } from './types.ts';
 
 const ACTION_LABEL: Rec = {
   user_created: 'ساخت کاربر',
@@ -45,7 +45,7 @@ function silentText(seconds: Json) {
 
 const PAGE = 50;
 
-export default function PanelEventsTab({ call, panelId, toast }: { call?: Json; panelId?: Json; toast?: Json }) {
+export default function PanelEventsTab({ call, panelId, toast }: { call: CallFn; panelId?: Json; toast: Toast }) {
   const [state, setState] = useState<Json>(null);
   const [events, setEvents] = useState<{ total: number; items: Rec[] }>({ total: 0, items: [] });
   const [filter, setFilter] = useState('');
@@ -54,7 +54,7 @@ export default function PanelEventsTab({ call, panelId, toast }: { call?: Json; 
   const [loading, setLoading] = useState(false);
 
   const getJ = useCallback(
-    async (path: Json) => {
+    async (path: string) => {
       const r = await call(path);
       if (!r.ok) throw new Error(String(r.status));
       return r.json();
@@ -114,7 +114,7 @@ export default function PanelEventsTab({ call, panelId, toast }: { call?: Json; 
     return () => clearTimeout(t);
   }, [load, user]);
 
-  const post = async (key: Json, path: Json, body: Json, okText: Json) => {
+  const post = async (key: Json, path: string, body: Json, okText: Json) => {
     setBusy(key);
     try {
       const r = await call(path, { method: 'POST', body: body ? JSON.stringify(body) : undefined });

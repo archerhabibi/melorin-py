@@ -17,7 +17,7 @@ import {
 import { Dot, Warn, health as hs, infraHref, memberIds } from '../infra.tsx';
 import { focusOnMount } from '../useDialog.ts';
 import { API, MODES } from './BundleParts.tsx';
-import type { Json, Rec } from '../types.ts';
+import type { CallFn, Json, Rec, Toast } from '../types.ts';
 
 const EMPTY = {
   name: '',
@@ -58,8 +58,8 @@ function BundlePackages({
   group?: Json;
   products?: Json;
   hasResellers?: Json;
-  call?: Json;
-  toast?: Json;
+  call: CallFn;
+  toast: Toast;
   onChanged?: Json;
 }) {
   const [rows, setRows] = useState<Json>(null),
@@ -270,7 +270,7 @@ function BundlePackages({
 }
 
 /** READ-ONLY: what each reseller store charges in this bundle. The admin cannot change these; resellers set them. */
-function ResellerPrices({ group, stores, call }: { group?: Json; stores?: Json; call?: Json }) {
+function ResellerPrices({ group, stores, call }: { group?: Json; stores?: Json; call: CallFn }) {
   const [sid, setSid] = useState(stores[0]?.id || ''),
     [rows, setRows] = useState<Json>(null);
   useEffect(() => {
@@ -353,8 +353,8 @@ export function GroupDrawer({
   idx?: Json;
   hasResellers?: Json;
   resellerStores?: Json;
-  call?: Json;
-  toast?: Json;
+  call: CallFn;
+  toast: Toast;
   onChanged?: Json;
   onClose?: Json;
   onSubmit?: Json;

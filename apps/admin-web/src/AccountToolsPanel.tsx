@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Loader } from 'lucide-react';
 import { confirmDialog, promptDialog } from './ui.tsx';
 import { fmtBytes } from './dataKit.tsx';
-import type { Json, Rec } from './types.ts';
+import type { CallFn, Json, Rec, Toast } from './types.ts';
 
 const fmt = (v: Json) => (v ? new Date(v).toLocaleString('fa-IR') : '—');
 
@@ -15,9 +15,9 @@ export default function AccountToolsPanel({
   toast,
   onChanged,
 }: {
-  call?: Json;
+  call: CallFn;
   accountId?: Json;
-  toast?: Json;
+  toast: Toast;
   onChanged?: Json;
 }) {
   const base = `/api/v1/admin/vpn-accounts/${accountId}`;
@@ -34,7 +34,7 @@ export default function AccountToolsPanel({
   const can = (tool: Json) => ok(tool)?.available;
 
   const get = useCallback(
-    async (path: Json) => {
+    async (path: string) => {
       const r = await call(`${base}/tools${path}`);
       return r.ok ? r.json() : null;
     },
@@ -72,7 +72,7 @@ export default function AccountToolsPanel({
     })();
   }, [call]);
 
-  const run = async (key: Json, url: Json, method: Json, body: Json, okText: Json) => {
+  const run = async (key: Json, url: string, method: Json, body: Json, okText: Json) => {
     setBusy(key);
     try {
       const r = await call(url, { method, body: body ? JSON.stringify(body) : undefined });

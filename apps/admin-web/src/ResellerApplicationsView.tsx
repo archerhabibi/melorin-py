@@ -29,7 +29,7 @@ import {
   num,
   useRows,
 } from './kit.tsx';
-import type { Json } from './types.ts';
+import type { CallFn, Json, Toast } from './types.ts';
 
 const STATUS_PILLS = [
   ['pending', 'در انتظار'],
@@ -65,8 +65,8 @@ function ReviewDrawer({
   onDone,
 }: {
   a?: Json;
-  call?: Json;
-  toast?: Json;
+  call: CallFn;
+  toast: Toast;
   onClose?: Json;
   onDone?: Json;
 }) {
@@ -79,7 +79,7 @@ function ReviewDrawer({
   const [bot, setBot] = useState(a);
   const twoStep = pending && !(a.domain && a.has_bot_token); // filed from Telegram: details are collected after approval
 
-  const run = async (path: Json, body: Json, okMsg: Json) => {
+  const run = async (path: string, body: Json, okMsg: Json) => {
     setBusy(true);
     setError('');
     try {
@@ -290,7 +290,7 @@ function ReviewDrawer({
   );
 }
 
-export default function ResellerApplicationsView({ api, toast }: { api?: Json; toast?: Json }) {
+export default function ResellerApplicationsView({ api, toast }: { api?: Json; toast: Toast }) {
   const call = (p: Json, o = {}) => authFetch(api.base, p, o);
   const { rows, failed, load } = useRows(call, '/api/v1/admin/reseller-applications');
   const [filter, setFilter] = useState('pending');

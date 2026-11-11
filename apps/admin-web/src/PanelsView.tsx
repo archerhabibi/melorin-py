@@ -33,7 +33,7 @@ import { AlertTriangle, Plus, RefreshCw, Server, ServerCog, ShieldAlert, ShieldC
 import { kindOf } from './panels/panelUi.tsx';
 import { PanelDrawer } from './panels/PanelDrawer.tsx';
 import { PanelSection } from './panels/PanelSection.tsx';
-import type { Json, Rec } from './types.ts';
+import type { Json, Rec, Toast } from './types.ts';
 
 // Panels and their servers are ONE screen: a server is only a capacity slot of a single panel,
 // so it is created, edited and enabled right under the panel it belongs to. Group membership of a
@@ -42,7 +42,7 @@ import type { Json, Rec } from './types.ts';
 // ---------- page ----------
 // Deep links: #/panels?id=<panel> · ?group=<group id> · ?product=<code> · ?add=1 (new panel) · ?id=<panel>&add=server
 const PAGE_SIZE = 10;
-export default function PanelsView({ api, toast }: { api?: Json; toast?: Json }) {
+export default function PanelsView({ api, toast }: { api?: Json; toast: Toast }) {
   const infra = useInfra(api);
   const { idx } = infra;
   const params = useHashParams();

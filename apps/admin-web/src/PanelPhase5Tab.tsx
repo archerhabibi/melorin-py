@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle, DatabaseBackup, Gauge, Info, Loader, RefreshCw } from 'lucide-react';
 import { promptDialog } from './ui.tsx';
-import type { Json, Rec } from './types.ts';
+import type { CallFn, Json, Rec, Toast } from './types.ts';
 
 const FINDING_COLOR: Rec = { ok: 'var(--ok)', drift: 'var(--bd)', info: 'var(--mu)', unknown: 'var(--wn)' };
 const FINDING_LABEL: Rec = { ok: 'سالم', drift: 'ناهمخوان', info: 'اطلاع', unknown: 'نامشخص' };
@@ -85,7 +85,7 @@ function Readings({ data }: { data?: Json }) {
   );
 }
 
-function Drift({ call, panelId, toast }: { call?: Json; panelId?: Json; toast?: Json }) {
+function Drift({ call, panelId, toast }: { call: CallFn; panelId?: Json; toast: Toast }) {
   const [d, setD] = useState<Json>(null);
   const [busy, setBusy] = useState('');
 
@@ -196,7 +196,7 @@ function Drift({ call, panelId, toast }: { call?: Json; panelId?: Json; toast?: 
   );
 }
 
-function Backup({ call, toast }: { call?: Json; toast?: Json }) {
+function Backup({ call, toast }: { call: CallFn; toast: Toast }) {
   const [b, setB] = useState<Json>(null);
   const load = useCallback(async () => {
     try {
@@ -244,7 +244,7 @@ function Backup({ call, toast }: { call?: Json; toast?: Json }) {
   );
 }
 
-export default function PanelPhase5Tab({ call, panelId, toast }: { call?: Json; panelId?: Json; toast?: Json }) {
+export default function PanelPhase5Tab({ call, panelId, toast }: { call: CallFn; panelId?: Json; toast: Toast }) {
   const [metrics, setMetrics] = useState<Json>(null);
   useEffect(() => {
     setMetrics(null);

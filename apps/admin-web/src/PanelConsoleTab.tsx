@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle, Loader, RefreshCw, XCircle } from 'lucide-react';
 import { confirmDialog, promptDialog } from './ui.tsx';
-import type { Json, Rec } from './types.ts';
+import type { CallFn, Json, Rec, Toast } from './types.ts';
 
 const NODE_COLOR: Rec = {
   connected: 'var(--ok)',
@@ -38,7 +38,7 @@ async function readJson(r: Json) {
   return data;
 }
 
-export default function PanelConsoleTab({ call, panelId, toast }: { call?: Json; panelId?: Json; toast?: Json }) {
+export default function PanelConsoleTab({ call, panelId, toast }: { call: CallFn; panelId?: Json; toast: Toast }) {
   const [ov, setOv] = useState<Json>(null);
   const [infra, setInfra] = useState<Json>(null);
   const [sub, setSub] = useState<Json>(null);
@@ -68,7 +68,7 @@ export default function PanelConsoleTab({ call, panelId, toast }: { call?: Json;
     load();
   }, [load]);
 
-  const act = async (key: Json, path: Json, body: Json, okText: Json) => {
+  const act = async (key: Json, path: string, body: Json, okText: Json) => {
     setBusy(key);
     try {
       await readJson(await call(path, { method: 'POST', body: JSON.stringify(body) }));

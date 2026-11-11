@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 // ReceiptReviewPanel.tsx — time-boxed manual review of card-to-card receipts ("بازبینی سریع و تأیید موقت").
 // An unclear receipt waits for a human. If nobody decides within N minutes the customer is credited *provisionally* and the
 // payment moves to a fast-review list; the first admin/agent who comes online confirms it (credit stays) or revokes it
@@ -8,7 +9,7 @@ import { AlertTriangle, Check, Clock, Copy, Hourglass, ImageIcon, Undo2 } from '
 import { Empty, Field, Section, Switch, errText, num } from './kit.tsx';
 import { confirmDialog, dt } from './ui.tsx';
 import ReceiptDuplicatePolicy, { duplicateLine } from './ReceiptDuplicatePolicy.tsx';
-import type { Json, Rec } from './types.ts';
+import type { CallFn, Json, Rec, Toast } from './types.ts';
 
 const JSON_H = { 'Content-Type': 'application/json' };
 const CUR: Rec = { IRT: 'تومان', IRR: 'ریال' };
@@ -61,7 +62,7 @@ function Row({
   tone?: Json;
   now?: Json;
   minutes?: Json;
-  children?: Json;
+  children?: ReactNode;
   onReceipt?: Json;
 }) {
   const left = item.auto_approve_at ? (new Date(item.auto_approve_at).getTime() - now) / 1000 : null;
@@ -142,9 +143,9 @@ export default function ReceiptReviewPanel({
   receiptPath,
   onChanged,
 }: {
-  call?: Json;
-  toast?: Json;
-  base?: Json;
+  call: CallFn;
+  toast: Toast;
+  base?: string;
   receiptPath?: Json;
   onChanged?: Json;
 }) {

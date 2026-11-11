@@ -6,7 +6,7 @@ import type { Json } from './types.ts';
 export const API_BASE = (import.meta.env?.VITE_MELORIN_API_URL || window.location.origin).replace(/\/$/, '');
 
 let refreshing: Json = null;
-async function refreshPair(base: Json) {
+async function refreshPair(base: string) {
   if (!refreshing) {
     refreshing = fetch(`${base}/api/v1/auth/refresh`, {
       method: 'POST',

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 // Shared building blocks for the data screens (orders, VPN accounts, users, stores, audit).
 // Keeps the five screens visually and behaviourally identical: header → KPI filters → toolbar →
 // table → detail drawer, with the same loading / empty / error / pagination states.
@@ -115,7 +116,7 @@ export function ScreenHead({
   busy?: Json;
   onExport?: Json;
   exportDisabled?: Json;
-  children?: Json;
+  children?: ReactNode;
 }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -151,7 +152,7 @@ export function ScreenHead({
 }
 
 /** Sticky toolbar wrapper shared by every screen. */
-export const Toolbar = ({ children }: { children?: Json }) => <div className="tool rise">{children}</div>;
+export const Toolbar = ({ children }: { children?: ReactNode }) => <div className="tool rise">{children}</div>;
 
 // Explicit ARIA roles: below 768px the CSS turns table parts into blocks/grids (card layout), which some
 // screen readers treat as "no longer a table". Spread (not literal attributes) to keep the roles deliberate.

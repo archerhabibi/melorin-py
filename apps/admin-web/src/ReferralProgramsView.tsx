@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Gift, Save } from 'lucide-react';
 import { authFetch } from './api.ts';
 import { Empty, Field, Section, errText, num, toEn, useRows } from './kit.tsx';
-import type { Json, Rec } from './types.ts';
+import type { Json, Rec, Toast } from './types.ts';
 
 const KINDS = [
   ['signup_reward', 'پاداش اولین خرید معرفی‌شده', 'یک‌بار، در اولین خرید مشتریِ دعوت‌شده در همین فروشگاه.'],
@@ -83,7 +83,7 @@ function Plan({
   );
 }
 
-export default function ReferralProgramsView({ api, toast }: { api?: Json; toast?: Json }) {
+export default function ReferralProgramsView({ api, toast }: { api?: Json; toast: Toast }) {
   const call = useCallback((p: Json, o = {}) => authFetch(api.base, p, o), [api.base]);
   const stores = useRows(call, '/api/v1/admin/stores');
   const [storeId, setStoreId] = useState('');

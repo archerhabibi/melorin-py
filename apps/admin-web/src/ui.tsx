@@ -54,7 +54,7 @@ export const dt = (v: Json) =>
   v ? new Date(v).toLocaleString('fa-IR', { dateStyle: 'medium', timeStyle: 'short' }) : '-';
 export const sid = (v: Json) => String(v || '').slice(0, 8) || '-';
 
-export function ThemeButton({ className = '' }: { className?: Json }) {
+export function ThemeButton({ className = '' }: { className?: string }) {
   const [t, setT] = useState(getTheme());
   useEffect(() => onTheme(setT), []); // eslint-disable-line react-hooks/exhaustive-deps
   return (
@@ -144,7 +144,7 @@ export function PasswordInput({
   wrapClassName = '',
   ...props
 }: {
-  className?: Json;
+  className?: string;
   wrapClassName?: Json;
   [k: string]: Json;
 }) {

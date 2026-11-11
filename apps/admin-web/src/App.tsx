@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 // Melorin Admin Web — every KPI, row and action comes from the authenticated Core API.
 // Tokens live only in memory (see auth.js); nothing is persisted in browser storage.
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -54,7 +55,7 @@ import {
   Award,
   UserCog,
 } from 'lucide-react';
-import type { Json, Rec } from './types.ts';
+import type { Json, Rec, Toast } from './types.ts';
 
 // Section keys are Persian labels (AdminSections/AdminExtra route on them); slug drives the URL hash.
 const groups: [string, [string, LucideIcon, string][], string?][] = [
@@ -225,7 +226,7 @@ function useCore() {
   return { ...(data as Rec), base, refresh, tick } as Rec;
 }
 
-async function downloadOrders(base: Json) {
+async function downloadOrders(base: string) {
   const r = await authFetch(base, '/api/v1/admin/reports/orders.csv');
   if (!r.ok) throw Error(`export ${r.status}`);
   const blob = await r.blob(),
@@ -236,7 +237,7 @@ async function downloadOrders(base: Json) {
   a.click();
   URL.revokeObjectURL(url);
 }
-async function refundPayment(base: Json, paymentId: Json, reason: Json) {
+async function refundPayment(base: string, paymentId: Json, reason: Json) {
   const r = await authFetch(base, `/api/v1/admin/payments/${paymentId}/refund`, {
     method: 'POST',
     body: JSON.stringify({ reason }),
@@ -350,7 +351,7 @@ const Kpi = ({
   </div>
 );
 
-function Dashboard({ api, toast }: { api?: Json; toast?: Json }) {
+function Dashboard({ api, toast }: { api?: Json; toast: Toast }) {
   const summary = api.summary || {};
   const byStatus = [...(summary.orders || [])].sort((a, b) => b.count - a.count);
   const orderCount = byStatus.reduce((a, x) => a + x.count, 0);
@@ -562,7 +563,7 @@ function Dashboard({ api, toast }: { api?: Json; toast?: Json }) {
 }
 
 // Signed-in admin identity (GET /api/v1/me) + sign-out (POST /api/v1/auth/logout revokes the refresh token and clears the cookie).
-function UserMenu({ base, go, toast, onLogout }: { base?: Json; go?: Json; toast?: Json; onLogout?: Json }) {
+function UserMenu({ base, go, toast, onLogout }: { base: string; go?: Json; toast: Toast; onLogout?: Json }) {
   const [me, setMe] = useState<Json>(null);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -858,7 +859,7 @@ export default function App({ onLogout }: { onLogout?: Json }) {
   );
 }
 
-function MobileNav({ onClose, children }: { onClose?: Json; children?: Json }) {
+function MobileNav({ onClose, children }: { onClose?: Json; children?: ReactNode }) {
   const ref = useDialog(onClose);
   return (
     <div className="fixed inset-0 z-30 bg-black/55 lg:hidden" {...backdropProps(onClose)}>

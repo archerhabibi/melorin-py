@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Copy } from 'lucide-react';
 import { Segmented, errText } from './kit.tsx';
-import type { Json, Rec } from './types.ts';
+import type { CallFn, Json, Rec, Toast } from './types.ts';
 
 const OPTIONS = [
   ['warn', 'فقط هشدار'],
@@ -27,7 +27,7 @@ export function duplicateLine(dup: Json) {
   return parts.length ? `همین تصویر قبلاً برای پرداخت ${parts.join(' و ')} ثبت شده است.` : '';
 }
 
-export default function ReceiptDuplicatePolicy({ call, toast, base }: { call?: Json; toast?: Json; base?: Json }) {
+export default function ReceiptDuplicatePolicy({ call, toast, base }: { call: CallFn; toast: Toast; base?: string }) {
   const [policy, setPolicy] = useState<Json>(null);
   const [busy, setBusy] = useState(false);
   const url = `${base}/receipt-duplicates/settings`;

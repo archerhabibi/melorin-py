@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 // TelegramLoginSettings.tsx — Admin > Settings > "ورود با تلگرام"
 // Two independent customer login methods share one master switch:
 //   1) تأیید در ربات  — device-authorization flow inside the store's bot (needs no extra data);
@@ -9,7 +10,7 @@ import { authFetch } from './api.ts';
 import { Check, ChevronDown, Copy, ExternalLink, Send, ShieldCheck } from 'lucide-react';
 import { CopyBox, Field, Step, Switch } from './GoogleLoginSettings.tsx';
 import { PasswordInput } from './ui.tsx';
-import type { Json, Rec } from './types.ts';
+import type { CallFn, Json, Rec, Toast } from './types.ts';
 
 const CLIENT_ID_RE = /^[0-9]{5,20}$/;
 const FIELDS = ['enabled', 'store_login', 'bot_login', 'number_match', 'ttl_seconds', 'oidc_login', 'client_id'];
@@ -20,7 +21,7 @@ const MARK: Rec = {
   fail: ['✕', 'text-[var(--bd)]'],
 };
 
-const Chip = ({ ok, children }: { ok?: Json; children?: Json }) => (
+const Chip = ({ ok, children }: { ok?: Json; children?: ReactNode }) => (
   <span className={`badge ${ok === true ? 'b-ok' : ok === 'warn' ? 'b-wn' : 'b-mu'}`}>{children}</span>
 );
 
@@ -46,7 +47,7 @@ function CopyAll({ lines }: { lines?: Json }) {
 const USERNAME_RE = /^@?[A-Za-z0-9_]{3,64}$/;
 
 // Main store's bot @username: the deep link t.me/<bot>?start=wl_… cannot be built without it.
-function MainBotBox({ saved, call, toast, reload }: { saved?: Json; call?: Json; toast?: Json; reload?: Json }) {
+function MainBotBox({ saved, call, toast, reload }: { saved?: Json; call: CallFn; toast: Toast; reload?: Json }) {
   const [name, setName] = useState(saved.main_bot_username || '');
   const [busy, setBusy] = useState('');
   const current = saved.main_bot_username || '';
@@ -122,7 +123,7 @@ function MainBotBox({ saved, call, toast, reload }: { saved?: Json; call?: Json;
 }
 
 function Guide({ cfg }: { cfg?: Json }) {
-  const ext = (href: Json, text: Json) => (
+  const ext = (href: string, text: Json) => (
     <a
       className="inline-flex items-center gap-1 text-[var(--ac)] underline"
       href={href}
@@ -293,7 +294,7 @@ function Guide({ cfg }: { cfg?: Json }) {
   );
 }
 
-export default function TelegramLoginSettings({ api, toast }: { api?: Json; toast?: Json }) {
+export default function TelegramLoginSettings({ api, toast }: { api?: Json; toast: Toast }) {
   const call = (p: Json, o = {}) => authFetch(api.base, p, o);
   const [cfg, setCfg] = useState<Json>(null);
   const [saved, setSaved] = useState<Json>(null); // the server's copy: badges and the connection test describe THIS, not the unsaved form

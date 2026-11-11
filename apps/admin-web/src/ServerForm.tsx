@@ -18,7 +18,7 @@ import {
 import { RelChip, Warn, serverState } from './infra.tsx';
 import { TargetPicker } from './TargetPicker.tsx';
 import { ago, capacityLabel, describeTarget } from './targets.ts';
-import type { Json, Rec } from './types.ts';
+import type { Json, Rec, Toast } from './types.ts';
 
 // A server is only a capacity slot of ONE panel, so this form never asks "which panel":
 // the panel is the context it is opened from (PanelsView). Moving a server to another panel is
@@ -129,7 +129,7 @@ export function ServerForm({
   toggling?: Json;
   onToggle?: Json;
   onDelete?: Json;
-  toast?: Json;
+  toast: Toast;
   onClose?: Json;
   onSaved?: Json;
 }) {
@@ -474,7 +474,7 @@ export function ServerImport({
 }: {
   api?: Json;
   panel?: Json;
-  toast?: Json;
+  toast: Toast;
   onClose?: Json;
   onDone?: Json;
 }) {

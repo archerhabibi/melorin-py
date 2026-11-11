@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 // Admin → Reports & charts. One payload from GET /api/v1/admin/reports/analytics drives every card on the screen.
 // Currency-safe (one currency at a time), compared with the previous period, exportable, with a table view for accessibility.
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -42,7 +43,7 @@ import {
   share,
 } from './reportsLogic.ts';
 import { label as statusLabel } from './ui.tsx';
-import type { Json, Rec } from './types.ts';
+import type { Json, Rec, Toast } from './types.ts';
 
 const RANGES = [7, 30, 90];
 const METRICS = [
@@ -138,8 +139,8 @@ const Card = ({
   title?: Json;
   hint?: Json;
   right?: Json;
-  children?: Json;
-  className?: Json;
+  children?: ReactNode;
+  className?: string;
 }) => (
   <section className={`card rise p-5 ${className}`}>
     <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -179,7 +180,7 @@ function DataTable({ cols, rows, caption }: { cols?: Json; rows?: Json; caption?
   );
 }
 
-async function download(path: Json, filename: Json) {
+async function download(path: string, filename: Json) {
   const r = await authFetch(API_BASE, path);
   if (!r.ok) throw new Error(`export ${r.status}`);
   const url = URL.createObjectURL(await r.blob());
@@ -197,7 +198,7 @@ const EXPORTS = [
   ['methods', 'روش پرداخت'],
 ];
 
-export default function ReportsView({ api, toast }: { api?: Json; toast?: Json }) {
+export default function ReportsView({ api, toast }: { api?: Json; toast: Toast }) {
   const [days, setDays] = useState(30);
   const [currency, setCurrency] = useState('');
   const [storeId, setStoreId] = useState('');

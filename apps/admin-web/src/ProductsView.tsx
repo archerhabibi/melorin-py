@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { confirmDialog } from './ui.tsx';
 import { AlertTriangle, Boxes, CheckCircle2, PowerOff, Plus, Save, ShieldAlert, Tag, Wallet, X } from 'lucide-react';
-import type { Json, Rec } from './types.ts';
+import type { Json, Rec, Toast } from './types.ts';
 import {
   Empty,
   ErrorBar,
@@ -22,7 +22,7 @@ import { InfraChain, clearParam, useHashParams, useInfra } from './infra.tsx';
 import { API } from './productsShared.tsx';
 import { ProductDrawer, ProductCard, ProductTable } from './ProductParts.tsx';
 
-export default function ProductsView({ api, toast }: { api?: Json; toast?: Json }) {
+export default function ProductsView({ api, toast }: { api?: Json; toast: Toast }) {
   const infra = useInfra(api);
   const { call, idx } = infra;
   const prods = infra.products,

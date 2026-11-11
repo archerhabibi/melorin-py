@@ -2,7 +2,7 @@
 // per-group health with the reasons, and a "check now" action. Everything comes from /admin/panels/{id}/capacity*.
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle, Loader, RefreshCw } from 'lucide-react';
-import type { Json, Rec } from './types.ts';
+import type { CallFn, Json, Rec, Toast } from './types.ts';
 
 const GROUP_LABEL: Rec = { healthy: 'سالم', degraded: 'مختل', blocked: 'مسدود' };
 const GROUP_COLOR: Rec = { healthy: 'var(--ok)', degraded: 'var(--wn)', blocked: 'var(--bd)' };
@@ -11,7 +11,7 @@ const FILL_COLOR: Rec = { ok: 'var(--ok)', warning: 'var(--wn)', critical: 'var(
 const SOURCE_LABEL: Rec = { melorin: 'شمارش Melorin', panel: 'شمارش پنل', max: 'بیشترین مقدار دو شمارش' };
 const fmt = (v: Json) => (v ? new Date(v).toLocaleString('fa-IR') : '—');
 
-export default function PanelCapacityTab({ call, panelId, toast }: { call?: Json; panelId?: Json; toast?: Json }) {
+export default function PanelCapacityTab({ call, panelId, toast }: { call: CallFn; panelId?: Json; toast: Toast }) {
   const [data, setData] = useState<Json>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);

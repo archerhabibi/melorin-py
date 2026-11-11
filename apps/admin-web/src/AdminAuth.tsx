@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { setTokens } from './auth.ts';
 import { PasswordInput, ThemeButton } from './ui.tsx';
@@ -8,7 +9,7 @@ import type { Json } from './types.ts';
 const errCode = (payload: Json) => payload?.error?.code || payload?.code;
 
 // Renders its children (divider + button + hint) only when Google sign-in is enabled for the admin panel.
-function GoogleGate({ children }: { children?: Json }) {
+function GoogleGate({ children }: { children?: ReactNode }) {
   return useGoogleConfig() ? <>{children}</> : null;
 }
 
@@ -38,7 +39,7 @@ function GoogleSignInButtonBlock({
   );
 }
 
-export default function AdminAuth({ base, onSuccess }: { base?: Json; onSuccess?: Json }) {
+export default function AdminAuth({ base, onSuccess }: { base?: string; onSuccess?: Json }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [totp, setTotp] = useState('');

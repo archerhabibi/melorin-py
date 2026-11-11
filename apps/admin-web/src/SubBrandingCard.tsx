@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Palette } from 'lucide-react';
 import { errText } from './kit.tsx';
-import type { Json, Rec } from './types.ts';
+import type { CallFn, Json, Rec, Toast } from './types.ts';
 
 const LABELS: Rec = { melorin_brand_name: 'نام برند', melorin_support_url: 'لینک پشتیبانی', melorin_logo_url: 'لوگو' };
 const ltr = (v: Json) => (
@@ -23,8 +23,8 @@ export default function SubBrandingCard({
   storeId?: Json;
   panelId?: Json;
   panelName?: Json;
-  call?: Json;
-  toast?: Json;
+  call: CallFn;
+  toast: Toast;
 }) {
   const url = `/api/v1/admin/stores/${storeId}/sub-branding/${panelId}`;
   const [pv, setPv] = useState<Json>(null);

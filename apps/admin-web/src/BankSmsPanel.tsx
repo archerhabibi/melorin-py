@@ -5,7 +5,7 @@ import { Copy, KeyRound, RefreshCw, ShieldCheck, Smartphone } from 'lucide-react
 import { Empty, Field, Section, Switch, errText, num } from './kit.tsx';
 import { confirmDialog, dt } from './ui.tsx';
 import ReceiptReviewPanel from './ReceiptReviewPanel.tsx';
-import type { Json, Rec } from './types.ts';
+import type { CallFn, Json, Rec, Toast } from './types.ts';
 
 const STATUS: Rec = {
   matched: ['شارژ شد', 'b-ok'],
@@ -22,7 +22,7 @@ const toInt = (s: Json) => {
 };
 const JSON_H = { 'Content-Type': 'application/json' };
 
-export default function BankSmsPanel({ call, toast, payments }: { call?: Json; toast?: Json; payments?: Json }) {
+export default function BankSmsPanel({ call, toast, payments }: { call: CallFn; toast: Toast; payments?: Json }) {
   const [store, setStore] = useState<Json>(null);
   const [data, setData] = useState<Json>(null);
   const [form, setForm] = useState<Json>(null);

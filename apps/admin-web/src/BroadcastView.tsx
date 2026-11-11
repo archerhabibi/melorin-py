@@ -5,7 +5,7 @@ import { AlertTriangle, CheckCircle2, Clock, Megaphone, RefreshCw, Send, Users }
 import { authFetch } from './api.ts';
 import { confirmDialog, dt } from './ui.tsx';
 import { Empty, ErrorBar, Field, Section, errText, num, useRows } from './kit.tsx';
-import type { Json, Rec } from './types.ts';
+import type { Json, Rec, Toast } from './types.ts';
 
 const TITLE_MAX = 120;
 const BODY_MAX = 3500;
@@ -49,7 +49,7 @@ export function DeliveryStats({ b }: { b?: Json }) {
   );
 }
 
-export default function BroadcastView({ api, toast }: { api?: Json; toast?: Json }) {
+export default function BroadcastView({ api, toast }: { api?: Json; toast: Toast }) {
   const call = useCallback((p: Json, o = {}) => authFetch(api.base, p, o), [api.base]);
   const hist = useRows(call, '/api/v1/admin/broadcasts');
   const [groups, setGroups] = useState<Rec[]>([]);

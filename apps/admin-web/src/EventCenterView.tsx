@@ -6,11 +6,11 @@ import { AlertTriangle, BellRing, CheckCircle2, ListPlus, ScanSearch, Send, Tras
 import { authFetch } from './api.ts';
 import { confirmDialog, dt } from './ui.tsx';
 import { ErrorBar, Field, Section, digits, errText } from './kit.tsx';
-import type { Json, Rec } from './types.ts';
+import type { Json, Rec, Toast } from './types.ts';
 
 const EMPTY = { configured: false, bot_ready: true, chat_id: '', is_enabled: true, note: '', topics: [] };
 
-export default function EventCenterView({ api, toast }: { api?: Json; toast?: Json }) {
+export default function EventCenterView({ api, toast }: { api?: Json; toast: Toast }) {
   const call = useCallback((p: Json, o = {}) => authFetch(api.base, p, o), [api.base]);
   const [data, setData] = useState<Json>(null);
   const [chat, setChat] = useState('');

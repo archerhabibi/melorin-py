@@ -2,7 +2,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { extraRoutes } from './AdminExtra.tsx';
 import { authFetch } from './api.ts';
 import { Badge, isStatus } from './ui.tsx';
-import type { Json, Rec } from './types.ts';
+import type { Json, Rec, Toast } from './types.ts';
 
 function SectionFallback() {
   return (
@@ -15,7 +15,7 @@ function SectionFallback() {
 
 const money = (n: Json) => new Intl.NumberFormat('fa-IR').format(n || 0);
 
-export function AdminSectionView({ section, api, toast }: { section?: Json; api?: Json; toast?: Json }) {
+export function AdminSectionView({ section, api, toast }: { section?: Json; api?: Json; toast: Toast }) {
   const [items, setItems] = useState<Rec[]>([]);
   const [loading, setLoading] = useState(false);
   const Extra = (extraRoutes as Rec)[section];

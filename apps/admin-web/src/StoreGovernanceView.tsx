@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, Loader, RefreshCw } from 'lucide-react';
 import { authFetch } from './api.ts';
 import { promptDialog } from './ui.tsx';
-import type { Json, Rec } from './types.ts';
+import type { Json, Rec, Toast } from './types.ts';
 
 const STATUS_LABEL: Rec = { active: 'فعال', disabled: 'غیرفعال', limited: 'سقف پر شده' };
 const fmt = (v: Json) => (v ? new Date(v).toLocaleString('fa-IR') : '—');
@@ -31,7 +31,7 @@ function Meter({ ratio }: { ratio?: Json }) {
   );
 }
 
-export default function StoreGovernanceView({ api, toast }: { api?: Json; toast?: Json }) {
+export default function StoreGovernanceView({ api, toast }: { api?: Json; toast: Toast }) {
   const call = useCallback((p: string, o?: RequestInit) => authFetch(api.base, p, o), [api.base]);
   const [rows, setRows] = useState<Json>(null);
   const [busy, setBusy] = useState('');

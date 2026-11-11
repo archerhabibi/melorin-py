@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Award, Plus, Save, Trash2 } from 'lucide-react';
 import { authFetch } from './api.ts';
 import { Empty, Field, Section, errText, num, toEn, useRows } from './kit.tsx';
-import type { Json, Rec } from './types.ts';
+import type { Json, Rec, Toast } from './types.ts';
 
 const unitOf = (c: Json) => (({ IRT: 'تومان', IRR: 'ریال' }) as Rec)[c] || c || '';
 const intOf = (v: Json) => {
@@ -332,7 +332,7 @@ function Adjust({ onSave }: { onSave?: Json }) {
   );
 }
 
-export default function LoyaltyClubView({ api, toast }: { api?: Json; toast?: Json }) {
+export default function LoyaltyClubView({ api, toast }: { api?: Json; toast: Toast }) {
   const call = useCallback((p: Json, o = {}) => authFetch(api.base, p, o), [api.base]);
   const stores = useRows(call, '/api/v1/admin/stores');
   const [storeId, setStoreId] = useState('');
@@ -363,7 +363,7 @@ export default function LoyaltyClubView({ api, toast }: { api?: Json; toast?: Js
     load();
   }, [load]);
 
-  async function write(path: Json, method: Json, payload: Json, okText: Json, failText: Json) {
+  async function write(path: string, method: Json, payload: Json, okText: Json, failText: Json) {
     const r = await call(`${base}${path}`, { method, headers: J, body: JSON.stringify(payload) });
     if (r.ok) {
       toast(okText);

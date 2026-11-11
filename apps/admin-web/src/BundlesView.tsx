@@ -18,12 +18,12 @@ import {
 import { InfraChain, clearParam, memberIds, useHashParams, useInfra } from './infra.tsx';
 import { API, groupIssue, GroupCard, GroupTable } from './bundles/BundleParts.tsx';
 import { GroupDrawer } from './bundles/BundleDrawer.tsx';
-import type { Json, Rec } from './types.ts';
+import type { Json, Rec, Toast } from './types.ts';
 
 // A sales bundle is a SALES BUNDLE (بسته فروش): panels + connection kind + the packages it sells, each with
 // its own price. Customers pick a bundle, so the bundle is the only way an account gets sold; there is no
 // bundle-less route. Selection / naming / reseller policy are advanced options: most bundles never change them.
-export default function BundlesView({ api, toast }: { api?: Json; toast?: Json }) {
+export default function BundlesView({ api, toast }: { api?: Json; toast: Toast }) {
   const infra = useInfra(api);
   const { call, idx } = infra;
   const groups = infra.groups,

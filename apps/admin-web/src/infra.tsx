@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 // Shared model + building blocks for the VPN infrastructure screens.
 //
 // Three screens form ONE chain that mirrors the allocation core (vpn/allocation.py):
@@ -14,7 +15,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, ArrowLeft, Boxes, Layers, PanelTop, Sparkles } from 'lucide-react';
 import { authFetch } from './api.ts';
 import { Ring, num, tint, useRows } from './kit.tsx';
-import type { Json, Rec } from './types.ts';
+import type { CallFn, Json, Rec } from './types.ts';
 
 /* ---------- chain definition ---------- */
 export const CHAIN = [
@@ -285,8 +286,8 @@ export const InfraLink = ({
 }: {
   to?: Json;
   params?: Json;
-  className?: Json;
-  children?: Json;
+  className?: string;
+  children?: ReactNode;
   title?: Json;
 }) => (
   <a href={infraHref(to, params)} title={title} className={`hover:text-[var(--ac)] hover:underline ${className}`}>
@@ -308,7 +309,7 @@ export function RelChip({
   params?: Json;
   tone?: Json;
   Icon?: Json;
-  children?: Json;
+  children?: ReactNode;
   title?: Json;
   dim?: Json;
 }) {
@@ -326,7 +327,7 @@ export function RelChip({
 }
 
 /** Row "label · chips" used by cards to show a relation. */
-export const Rel = ({ label, children, empty }: { label?: Json; children?: Json; empty?: Json }) => (
+export const Rel = ({ label, children, empty }: { label?: Json; children?: ReactNode; empty?: Json }) => (
   <div className="flex items-start gap-2 text-xs">
     <span className="mt-1 w-14 shrink-0 text-[11px] text-[var(--mu)]">{label}</span>
     <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
@@ -335,7 +336,7 @@ export const Rel = ({ label, children, empty }: { label?: Json; children?: Json;
   </div>
 );
 
-export const Warn = ({ children, tone = 'wn' }: { children?: Json; tone?: Json }) => (
+export const Warn = ({ children, tone = 'wn' }: { children?: ReactNode; tone?: Json }) => (
   <p className="flex items-start gap-2 rounded-lg px-3 py-2 text-[11px] font-bold leading-5" style={tint(tone)}>
     <AlertTriangle size={13} className="mt-0.5 shrink-0" />
     {children}
@@ -350,7 +351,7 @@ export const memberIds = (g: Json) =>
     .sort((a: Json, b: Json) => a.sort - b.sort)
     .map((m: Json) => m.panel_id);
 /** PATCH the member list of a group. Returns "" on success or an error text. */
-export async function saveGroupPanels(call: Json, group: Json, panelIds: Json) {
+export async function saveGroupPanels(call: CallFn, group: Json, panelIds: Json) {
   const r = await call(`/api/v1/admin/bundles/${group.id}`, {
     method: 'PATCH',
     body: JSON.stringify({ panel_ids: panelIds }),

@@ -9,7 +9,7 @@ import PanelCapacityTab from './PanelCapacityTab.tsx';
 import PanelTemplatesTab from './PanelTemplatesTab.tsx';
 import PanelConsoleTab from './PanelConsoleTab.tsx';
 import PanelPhase5Tab from './PanelPhase5Tab.tsx';
-import type { Json, Rec } from './types.ts';
+import type { CallFn, Json, Rec, Toast } from './types.ts';
 
 const KIND_LABEL: Rec = {
   missing_on_panel: 'کاربر روی پنل نیست',
@@ -68,7 +68,7 @@ function Details({ d }: { d?: Json }) {
 
 // PG-06: when THIS store's customers are warned about low traffic (percent of the package used).
 const DEFAULT_LEVELS_TEXT = '80, 90';
-function NoticeLevels({ call, toast }: { call?: Json; toast?: Json }) {
+function NoticeLevels({ call, toast }: { call: CallFn; toast: Toast }) {
   const [stores, setStores] = useState<Rec[]>([]);
   const [storeId, setStoreId] = useState('');
   const [cfg, setCfg] = useState<Json>(null);
@@ -170,7 +170,7 @@ function NoticeLevels({ call, toast }: { call?: Json; toast?: Json }) {
   );
 }
 
-export default function PanelOpsView({ api, toast }: { api?: Json; toast?: Json }) {
+export default function PanelOpsView({ api, toast }: { api?: Json; toast: Toast }) {
   const call = useCallback((p: string, o?: RequestInit) => authFetch(api.base, p, o), [api.base]);
   const [tab, setTab] = useState('issues');
   const [panels, setPanels] = useState<Rec[]>([]);
@@ -183,7 +183,7 @@ export default function PanelOpsView({ api, toast }: { api?: Json; toast?: Json 
   const [loading, setLoading] = useState(true);
 
   const getJ = useCallback(
-    async (path: Json) => {
+    async (path: string) => {
       const r = await call(path);
       if (!r.ok) throw new Error(String(r.status));
       return r.json();

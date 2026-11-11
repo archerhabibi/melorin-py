@@ -5,7 +5,7 @@ import { CheckCircle2, ClipboardCopy, Clock, ListChecks, RotateCcw } from 'lucid
 import { authFetch } from './api.ts';
 import { dt } from './ui.tsx';
 import { Empty, ErrorBar, KpiBar, Pills, Stat, errText, useRows } from './kit.tsx';
-import type { Json } from './types.ts';
+import type { Json, Toast } from './types.ts';
 
 const FILTERS = [
   ['open', 'در انتظار انجام'],
@@ -24,7 +24,7 @@ function TaskCard({
   busy?: Json;
   onDone?: Json;
   onReopen?: Json;
-  toast?: Json;
+  toast: Toast;
 }) {
   const copy = async () => {
     try {
@@ -66,7 +66,7 @@ function TaskCard({
   );
 }
 
-export default function ManualTasksView({ api, toast }: { api?: Json; toast?: Json }) {
+export default function ManualTasksView({ api, toast }: { api?: Json; toast: Toast }) {
   const call = (p: Json, o = {}) => authFetch(api.base, p, o);
   const { rows, failed, load } = useRows(call, '/api/v1/admin/manual-tasks?status=all');
   const [filter, setFilter] = useState('open');
