@@ -80,6 +80,39 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-11-10 07:46 UTC - archerhabibi - infra  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** ops(compose): no-new-privileges, cap_drop ALL, read-only root and bounded tmpfs for first-party services (T-R08; not yet run on a Docker host)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `docker-compose.yml`
+- **Ref:** `11367a7`
+
+### 2026-11-10 07:41 UTC - archerhabibi - api, tests, bot  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** refactor(quote): Core returns balance_after/shortfall; bot no longer does money arithmetic (T-R10)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (11):** `apps/api/melorin/domain/pricing.py`, `apps/api/melorin/modules/catalog/router.py`, `apps/api/melorin/modules/catalog/schemas.py`, `apps/api/tests/test_domain_pricing_wallet.py`, `apps/api/tests/test_renewal_core.py`, `apps/api/tests/test_telegram_bundles_flow.py`, `apps/api/tests/test_telegram_ux_v2.py`, `apps/telegram-main/tgmain/handlers/plans.py` (+3 more)
+- **Ref:** `78ef622`
+
+### 2026-11-10 07:40 UTC - archerhabibi - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(core): single outbound HTTP client with timeout/redirect/metrics policy; cheap scrypt in tests (T-R04, T-O02)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (25):** `apps/api/melorin/channels/telegram/bot_api.py`, `apps/api/melorin/channels/telegram/oidc.py`, `apps/api/melorin/core/http.py`, `apps/api/melorin/modules/admin/integrations/google_login.py`, `apps/api/melorin/modules/admin/integrations/telegram_diagnostics.py`, `apps/api/melorin/modules/identity/google.py`, `apps/api/melorin/modules/payments/adapters/zarinpal.py`, `apps/api/melorin/modules/payments/receipt_ocr.py` (+17 more)
+- **Ref:** `81d68a2`
+
+### 2026-11-10 07:32 UTC - archerhabibi - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** test: fail loudly on schema errors, replay cached DDL, fixed UUID param, jinja2 in dev lock, single utcnow (T-R02, T-W01..W05)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (5):** `apps/api/melorin/kernel/base.py`, `apps/api/requirements-dev.in`, `apps/api/requirements-dev.txt`, `apps/api/tests/_db.py`, `apps/api/tests/test_payments_service_db.py`
+- **Ref:** `7e2572e`
+
+
 ### 2026-11-09 - Claude (with owner) - PG-12 per-store subscription branding
 - **Before:** every store's subscription page carried the shared panel branding; `stores.branding` was free-form JSON replaced wholesale by the owner patch.
 - **Problem:** a reseller could not show its own name, support link or logo; a free-form value that a panel page may print is an injection risk.
