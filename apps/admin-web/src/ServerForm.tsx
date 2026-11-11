@@ -70,7 +70,8 @@ function validate(f: Json) {
 
 function ProductPicker({ products, value, onChange }: { products?: Json; value?: Json; onChange?: Json }) {
   const known = new Set((products || []).map((p: Json) => p.code));
-  const toggle = (code: Json) => onChange(value.includes(code) ? value.filter((c: Json) => c !== code) : [...value, code]);
+  const toggle = (code: Json) =>
+    onChange(value.includes(code) ? value.filter((c: Json) => c !== code) : [...value, code]);
   const items = [
     ...(products || []).map((p: Json) => ({ code: p.code, name: p.name })),
     ...value.filter((c: Json) => !known.has(c)).map((code: Json) => ({ code, name: 'محصول ناشناخته', stale: true })),
@@ -119,7 +120,19 @@ export function ServerForm({
   toast,
   onClose,
   onSaved,
-}: { api?: Json; infra?: Json; panel?: Json; server?: Json; locations?: Json; toggling?: Json; onToggle?: Json; onDelete?: Json; toast?: Json; onClose?: Json; onSaved?: Json }) {
+}: {
+  api?: Json;
+  infra?: Json;
+  panel?: Json;
+  server?: Json;
+  locations?: Json;
+  toggling?: Json;
+  onToggle?: Json;
+  onDelete?: Json;
+  toast?: Json;
+  onClose?: Json;
+  onSaved?: Json;
+}) {
   const edit = !!server;
   const panels = infra.panels.rows || [],
     products = infra.products.failed ? [] : infra.products.rows,
@@ -452,7 +465,19 @@ const parseLine = (line: Json) => {
   };
 };
 
-export function ServerImport({ api, panel, toast, onClose, onDone }: { api?: Json; panel?: Json; toast?: Json; onClose?: Json; onDone?: Json }) {
+export function ServerImport({
+  api,
+  panel,
+  toast,
+  onClose,
+  onDone,
+}: {
+  api?: Json;
+  panel?: Json;
+  toast?: Json;
+  onClose?: Json;
+  onDone?: Json;
+}) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const rows = useMemo(

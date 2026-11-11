@@ -49,7 +49,21 @@ function Facts({ r }: { r?: Json }) {
   );
 }
 
-function Row({ item, tone, now, minutes, children, onReceipt }: { item?: Json; tone?: Json; now?: Json; minutes?: Json; children?: Json; onReceipt?: Json }) {
+function Row({
+  item,
+  tone,
+  now,
+  minutes,
+  children,
+  onReceipt,
+}: {
+  item?: Json;
+  tone?: Json;
+  now?: Json;
+  minutes?: Json;
+  children?: Json;
+  onReceipt?: Json;
+}) {
   const left = item.auto_approve_at ? (new Date(item.auto_approve_at).getTime() - now) / 1000 : null;
   const total = (minutes || 5) * 60;
   const pct = left == null ? 0 : Math.min(100, Math.max(0, ((total - left) / total) * 100));
@@ -121,7 +135,19 @@ function Row({ item, tone, now, minutes, children, onReceipt }: { item?: Json; t
 }
 
 /** ``base`` = store API root, e.g. ``/api/v1/admin/stores/<id>`` or ``/api/v1/stores/<id>/reseller``. */
-export default function ReceiptReviewPanel({ call, toast, base, receiptPath, onChanged }: { call?: Json; toast?: Json; base?: Json; receiptPath?: Json; onChanged?: Json }) {
+export default function ReceiptReviewPanel({
+  call,
+  toast,
+  base,
+  receiptPath,
+  onChanged,
+}: {
+  call?: Json;
+  toast?: Json;
+  base?: Json;
+  receiptPath?: Json;
+  onChanged?: Json;
+}) {
   const [data, setData] = useState<Json>(null);
   const [form, setForm] = useState<Json>(null);
   const [busy, setBusy] = useState('');
@@ -281,7 +307,11 @@ export default function ReceiptReviewPanel({ call, toast, base, receiptPath, onC
         </summary>
         <div className="space-y-4 border-t border-[var(--ln)] p-3">
           <label className="flex items-center gap-2 text-xs font-bold">
-            <Switch checked={form.enabled} onChange={(v: Json) => setForm({ ...form, enabled: v })} label="تأیید موقت" />
+            <Switch
+              checked={form.enabled}
+              onChange={(v: Json) => setForm({ ...form, enabled: v })}
+              label="تأیید موقت"
+            />
             فعال‌سازی تأیید موقت پس از مهلت
           </label>
           <Field

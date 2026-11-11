@@ -52,7 +52,19 @@ const fromPrice = (products: Json) => {
 };
 
 /** Two switches: the main store, and resellers. Turning the main store off turns resellers off too. */
-function Switches({ g, busy, hasResellers, onToggle, onToggleReseller }: { g?: Json; busy?: Json; hasResellers?: Json; onToggle?: Json; onToggleReseller?: Json }) {
+function Switches({
+  g,
+  busy,
+  hasResellers,
+  onToggle,
+  onToggleReseller,
+}: {
+  g?: Json;
+  busy?: Json;
+  hasResellers?: Json;
+  onToggle?: Json;
+  onToggleReseller?: Json;
+}) {
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
       <label className="flex cursor-pointer items-center gap-2 text-xs font-bold">
@@ -82,7 +94,27 @@ function Switches({ g, busy, hasResellers, onToggle, onToggleReseller }: { g?: J
   );
 }
 
-export function GroupCard({ g, stat, products, busy, hasResellers, onEdit, onToggle, onToggleReseller, onDelete }: { g?: Json; stat?: Json; products?: Json; busy?: Json; hasResellers?: Json; onEdit?: Json; onToggle?: Json; onToggleReseller?: Json; onDelete?: Json }) {
+export function GroupCard({
+  g,
+  stat,
+  products,
+  busy,
+  hasResellers,
+  onEdit,
+  onToggle,
+  onToggleReseller,
+  onDelete,
+}: {
+  g?: Json;
+  stat?: Json;
+  products?: Json;
+  busy?: Json;
+  hasResellers?: Json;
+  onEdit?: Json;
+  onToggle?: Json;
+  onToggleReseller?: Json;
+  onDelete?: Json;
+}) {
   const ms = g.panels || [],
     dim = g.is_enabled ? '' : 'opacity-55',
     issue = groupIssue(g, stat);
@@ -160,7 +192,27 @@ export function GroupCard({ g, stat, products, busy, hasResellers, onEdit, onTog
   );
 }
 
-export function GroupTable({ rows, panelById, idx, busy, hasResellers, onEdit, onToggle, onToggleReseller, onDelete }: { rows?: Json; panelById?: Json; idx?: Json; busy?: Json; hasResellers?: Json; onEdit?: Json; onToggle?: Json; onToggleReseller?: Json; onDelete?: Json }) {
+export function GroupTable({
+  rows,
+  panelById,
+  idx,
+  busy,
+  hasResellers,
+  onEdit,
+  onToggle,
+  onToggleReseller,
+  onDelete,
+}: {
+  rows?: Json;
+  panelById?: Json;
+  idx?: Json;
+  busy?: Json;
+  hasResellers?: Json;
+  onEdit?: Json;
+  onToggle?: Json;
+  onToggleReseller?: Json;
+  onDelete?: Json;
+}) {
   return (
     <section className="card rise overflow-hidden">
       <div className="overflow-auto">

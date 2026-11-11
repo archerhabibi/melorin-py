@@ -98,7 +98,25 @@ export function downloadCsv(name: Json, head: Json, rows: Json) {
 }
 
 /** Screen title + subtitle + actions (refresh, CSV, …). */
-export function ScreenHead({ title, hint, count, onRefresh, busy, onExport, exportDisabled, children }: { title?: Json; hint?: Json; count?: Json; onRefresh?: Json; busy?: Json; onExport?: Json; exportDisabled?: Json; children?: Json }) {
+export function ScreenHead({
+  title,
+  hint,
+  count,
+  onRefresh,
+  busy,
+  onExport,
+  exportDisabled,
+  children,
+}: {
+  title?: Json;
+  hint?: Json;
+  count?: Json;
+  onRefresh?: Json;
+  busy?: Json;
+  onExport?: Json;
+  exportDisabled?: Json;
+  children?: Json;
+}) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="min-w-0 flex-1 basis-72">
@@ -153,7 +171,25 @@ const ROLE = {
  *   'full'  — spans the whole card width (bars, long text), 'hide' — not shown on phones.
  * Rows are keyboard-activatable when onRowClick is set; skeleton rows while `loading`.
  */
-export function DataGrid({ columns, rows, rowKey = 'id', onRowClick, loading, emptyNode, caption, minWidth = 760 }: { columns?: Json; rows?: Json; rowKey?: Json; onRowClick?: Json; loading?: Json; emptyNode?: Json; caption?: Json; minWidth?: Json }) {
+export function DataGrid({
+  columns,
+  rows,
+  rowKey = 'id',
+  onRowClick,
+  loading,
+  emptyNode,
+  caption,
+  minWidth = 760,
+}: {
+  columns?: Json;
+  rows?: Json;
+  rowKey?: Json;
+  onRowClick?: Json;
+  loading?: Json;
+  emptyNode?: Json;
+  caption?: Json;
+  minWidth?: Json;
+}) {
   const open = (r: Json) => onRowClick && onRowClick(r);
   const span = columns.length + (onRowClick ? 1 : 0);
   const titleKey = (columns.find((c: Json) => c.m === 'title') || columns[0] || {}).key;

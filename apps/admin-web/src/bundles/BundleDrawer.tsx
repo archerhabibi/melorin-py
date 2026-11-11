@@ -47,7 +47,21 @@ const fromGroup = (g: Json) => ({
 /** The packages of a bundle. Every package is here by default; the switch hides it in THIS bundle only.
  *  Price fields: the store price in this bundle and, only when resellers exist, the cooperation price they pay.
  *  An empty field = the product's own price. These prices are the same for every reseller (no per-store prices). */
-function BundlePackages({ group, products, hasResellers, call, toast, onChanged }: { group?: Json; products?: Json; hasResellers?: Json; call?: Json; toast?: Json; onChanged?: Json }) {
+function BundlePackages({
+  group,
+  products,
+  hasResellers,
+  call,
+  toast,
+  onChanged,
+}: {
+  group?: Json;
+  products?: Json;
+  hasResellers?: Json;
+  call?: Json;
+  toast?: Json;
+  onChanged?: Json;
+}) {
   const [rows, setRows] = useState<Json>(null),
     [draft, setDraft] = useState<Rec>({}),
     [busy, setBusy] = useState(''),
@@ -102,7 +116,8 @@ function BundlePackages({ group, products, hasResellers, call, toast, onChanged 
   };
   const n2 = (v: Json) => (v === '' || v == null ? null : Number(v));
   const dirtyRows = (rows || []).filter(
-    (r: Json) => draft[r.product_id] && (draft[r.product_id].main !== undefined || draft[r.product_id].res !== undefined),
+    (r: Json) =>
+      draft[r.product_id] && (draft[r.product_id].main !== undefined || draft[r.product_id].res !== undefined),
   );
   const saveAll = async () => {
     setSaving(true);
@@ -331,7 +346,20 @@ export function GroupDrawer({
   onClose,
   onSubmit,
   onDelete,
-}: { group?: Json; panels?: Json; products?: Json; idx?: Json; hasResellers?: Json; resellerStores?: Json; call?: Json; toast?: Json; onChanged?: Json; onClose?: Json; onSubmit?: Json; onDelete?: Json }) {
+}: {
+  group?: Json;
+  panels?: Json;
+  products?: Json;
+  idx?: Json;
+  hasResellers?: Json;
+  resellerStores?: Json;
+  call?: Json;
+  toast?: Json;
+  onChanged?: Json;
+  onClose?: Json;
+  onSubmit?: Json;
+  onDelete?: Json;
+}) {
   const edit = !!group;
   const [f, setF] = useState(() => (group ? fromGroup(group) : EMPTY));
   const base = useRef(JSON.stringify(f));

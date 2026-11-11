@@ -142,7 +142,25 @@ function validate(f: Json, withCreds: Json, srv: Json, edit: Json) {
   return e;
 }
 
-export function PanelDrawer({ panel, groups, idx, onClose, onSubmit, onToggle, onDelete, toggling }: { panel?: Json; groups?: Json; idx?: Json; onClose?: Json; onSubmit?: Json; onToggle?: Json; onDelete?: Json; toggling?: Json }) {
+export function PanelDrawer({
+  panel,
+  groups,
+  idx,
+  onClose,
+  onSubmit,
+  onToggle,
+  onDelete,
+  toggling,
+}: {
+  panel?: Json;
+  groups?: Json;
+  idx?: Json;
+  onClose?: Json;
+  onSubmit?: Json;
+  onToggle?: Json;
+  onDelete?: Json;
+  toggling?: Json;
+}) {
   const edit = !!panel;
   const initial = useMemo(
     () => ({

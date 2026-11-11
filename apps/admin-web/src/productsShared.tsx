@@ -1,5 +1,3 @@
-
-
 import { AlertTriangle, Layers, ServerCog } from 'lucide-react';
 import type { Json, Rec } from './types.ts';
 import { num } from './kit.tsx'; // #4
@@ -95,4 +93,3 @@ export function Route({ p, idx }: { p?: Json; idx?: Json }) {
     </div>
   );
 }
-

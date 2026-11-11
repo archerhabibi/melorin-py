@@ -13,9 +13,11 @@
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
     "types": ["vite/client"],
-    
+
     "paths": {
-      "@melorin/web-kit/*": ["../../packages/web-kit/src/*"], "@melorin/api-client": ["../../packages/api-client/src/index.d.ts"] }
+      "@melorin/web-kit/*": ["../../packages/web-kit/src/*"],
+      "@melorin/api-client": ["../../packages/api-client/src/index.d.ts"]
+    }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.d.ts"]
 }

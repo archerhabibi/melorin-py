@@ -1,16 +1,41 @@
 // Ticket desk: inbox + conversation side by side, inline editing, internal notes, quick replies.
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertTriangle, ArrowRight, CheckCheck, CircleDot, Clock, Lock, Paperclip, Pencil, RefreshCw, Send, Sparkles, Store, X } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowRight,
+  CheckCheck,
+  CircleDot,
+  Clock,
+  Lock,
+  Paperclip,
+  Pencil,
+  RefreshCw,
+  Send,
+  Sparkles,
+  Store,
+  X,
+} from 'lucide-react';
 import { confirmDialog, dt } from './ui.tsx';
 import { Field, Segmented, errText, num, useAlive } from './kit.tsx';
 import { focusOnMount } from './useDialog.ts';
 
-import { PRIORITY, DEPARTMENTS, DEPT_LABEL, QUICK, MAX, STATUS_OPTS, dayKey, timeOnly, initials } from './ticketsShared.tsx';
+import {
+  PRIORITY,
+  DEPARTMENTS,
+  DEPT_LABEL,
+  QUICK,
+  MAX,
+  STATUS_OPTS,
+  dayKey,
+  timeOnly,
+  initials,
+} from './ticketsShared.tsx';
 import type { Json, Rec } from './types.ts';
 
 export const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 // Quick check before uploading; the server validates type, size and file signature again and has the last word.
-export const imageProblem = (file: Json) => (IMAGE_TYPES.includes(file?.type) ? '' : 'فقط تصویر (JPG، PNG یا WebP) مجاز است.');
+export const imageProblem = (file: Json) =>
+  IMAGE_TYPES.includes(file?.type) ? '' : 'فقط تصویر (JPG، PNG یا WebP) مجاز است.';
 
 /** A ticket picture. It needs the login token, so it is fetched and shown from a blob instead of a plain <img src>. */
 export function TicketImage({ call, path }: { call?: Json; path?: Json }) {
@@ -51,7 +76,27 @@ export function TicketImage({ call, path }: { call?: Json; path?: Json }) {
 }
 
 /* ───────────────────────────── conversation ───────────────────────────── */
-export function Bubble({ m, ticketId, call, mine, onEdit, editing, onSaveEdit, onCancelEdit, busy }: { m?: Json; ticketId?: Json; call?: Json; mine?: Json; onEdit?: Json; editing?: Json; onSaveEdit?: Json; onCancelEdit?: Json; busy?: Json }) {
+export function Bubble({
+  m,
+  ticketId,
+  call,
+  mine,
+  onEdit,
+  editing,
+  onSaveEdit,
+  onCancelEdit,
+  busy,
+}: {
+  m?: Json;
+  ticketId?: Json;
+  call?: Json;
+  mine?: Json;
+  onEdit?: Json;
+  editing?: Json;
+  onSaveEdit?: Json;
+  onCancelEdit?: Json;
+  busy?: Json;
+}) {
   const [v, setV] = useState(m.body);
   useEffect(() => setV(m.body), [m.body, editing]);
   const staff = m.is_staff;
@@ -145,7 +190,19 @@ export function Bubble({ m, ticketId, call, mine, onEdit, editing, onSaveEdit, o
   );
 }
 
-export function Composer({ onSend, onUpload, busy, ticketStatus, toast }: { onSend?: Json; onUpload?: Json; busy?: Json; ticketStatus?: Json; toast?: Json }) {
+export function Composer({
+  onSend,
+  onUpload,
+  busy,
+  ticketStatus,
+  toast,
+}: {
+  onSend?: Json;
+  onUpload?: Json;
+  busy?: Json;
+  ticketStatus?: Json;
+  toast?: Json;
+}) {
   const [mode, setMode] = useState('reply');
   const [text, setText] = useState('');
   const [pic, setPic] = useState<Json>(null); // { file, id } - id is kept once uploaded, so a failed send never uploads twice
@@ -302,7 +359,19 @@ export function Composer({ onSend, onUpload, busy, ticketStatus, toast }: { onSe
   );
 }
 
-export function Conversation({ call, id, toast, onChanged, onBack }: { call?: Json; id?: Json; toast?: Json; onChanged?: Json; onBack?: Json }) {
+export function Conversation({
+  call,
+  id,
+  toast,
+  onChanged,
+  onBack,
+}: {
+  call?: Json;
+  id?: Json;
+  toast?: Json;
+  onChanged?: Json;
+  onBack?: Json;
+}) {
   const [d, setD] = useState<Json>(null);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);

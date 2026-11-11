@@ -52,7 +52,10 @@ const DETAIL_KEYS: Rec = { expected: 'مالک مورد انتظار', panel: '�
 function Details({ d }: { d?: Json }) {
   if (!d) return null;
   const rows = Object.entries(d).map(([k, v]) => {
-    const text = v && typeof v === 'object' ? `Melorin: ${(v as Rec).melorin ?? '—'} ← پنل: ${(v as Rec).panel ?? '—'}` : String(v);
+    const text =
+      v && typeof v === 'object'
+        ? `Melorin: ${(v as Rec).melorin ?? '—'} ← پنل: ${(v as Rec).panel ?? '—'}`
+        : String(v);
     return (
       <div key={k}>
         <span className="text-[var(--mu)]">{DETAIL_KEYS[k] || k}: </span>
@@ -428,7 +431,10 @@ export default function PanelOpsView({ api, toast }: { api?: Json; toast?: Json 
               <div className="card flex items-center gap-2 p-4 text-sm">
                 <AlertTriangle size={16} />
                 وضعیت پنل:{' '}
-                <b>{({ healthy: 'سالم', degraded: 'مختل', unhealthy: 'ناسالم' } as Rec)[nodes.health_status] || 'بررسی‌نشده'}</b>
+                <b>
+                  {({ healthy: 'سالم', degraded: 'مختل', unhealthy: 'ناسالم' } as Rec)[nodes.health_status] ||
+                    'بررسی‌نشده'}
+                </b>
                 {nodes.detail?.reason ? <span>— {nodes.detail.reason}</span> : null}
                 {nodes.detail?.sellable === false ? <b className="text-[var(--bd)]">(فروش جدید متوقف است)</b> : null}
               </div>

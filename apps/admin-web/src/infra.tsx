@@ -60,7 +60,10 @@ export function useHashParams() {
 }
 /** "servers" no longer is a screen of its own: servers live inside their panel (#/panels). */
 const LEGACY: Rec = {
-  servers: (p: Json) => ['panels', { id: p.panel, group: p.group, product: p.product, add: p.add ? 'server' : undefined }],
+  servers: (p: Json) => [
+    'panels',
+    { id: p.panel, group: p.group, product: p.product, add: p.add ? 'server' : undefined },
+  ],
 };
 export const infraHref = (slug: Json, params = {}) => {
   if (LEGACY[slug]) [slug, params] = LEGACY[slug](params);
@@ -96,7 +99,12 @@ export const clearParam = (name: Json) => {
 export const KIND = { sanaei: 'سنایی (3x-ui)', pasarguard: 'پاسارگارد', mock: 'Mock' };
 export const health = (p: Json) =>
   ['healthy', 'degraded', 'unhealthy'].includes(p?.health_status) ? p.health_status : 'unknown';
-export const HCOLOR: Rec = { healthy: 'var(--ok)', degraded: 'var(--wn)', unhealthy: 'var(--bd)', unknown: 'var(--mu)' };
+export const HCOLOR: Rec = {
+  healthy: 'var(--ok)',
+  degraded: 'var(--wn)',
+  unhealthy: 'var(--bd)',
+  unknown: 'var(--mu)',
+};
 export const HLABEL: Rec = { healthy: 'سالم', degraded: 'مختل (نود خراب)', unhealthy: 'ناسالم', unknown: 'بررسی‌نشده' };
 
 export function Dot({ s, ping }: { s?: Json; ping?: Json }) {
@@ -187,7 +195,10 @@ export function buildIndex(panels: Json, servers: Json, groups: Json, products: 
     else {
       const on = gs.filter((g: Json) => g.is_enabled);
       if (!on.length) issue = 'همه بسته‌های این محصول غیرفعال‌اند';
-      else on.forEach((g: Json) => (g.panels || []).filter((m: Json) => m.is_enabled).forEach((m: Json) => panelIds.add(m.panel_id)));
+      else
+        on.forEach((g: Json) =>
+          (g.panels || []).filter((m: Json) => m.is_enabled).forEach((m: Json) => panelIds.add(m.panel_id)),
+        );
       if (!issue && !panelIds.size) issue = 'بسته‌های این محصول پنل فعالی ندارند';
     }
     const cands = issue ? [] : servers.filter((s: Json) => panelIds.has(s.panel_id) && serves(s, p.code));
@@ -265,14 +276,42 @@ export function useInfra(api: Json, { needs = ['panels', 'servers', 'groups', 'p
 }
 
 /* ---------- UI: links ---------- */
-export const InfraLink = ({ to, params, className = '', children, title }: { to?: Json; params?: Json; className?: Json; children?: Json; title?: Json }) => (
+export const InfraLink = ({
+  to,
+  params,
+  className = '',
+  children,
+  title,
+}: {
+  to?: Json;
+  params?: Json;
+  className?: Json;
+  children?: Json;
+  title?: Json;
+}) => (
   <a href={infraHref(to, params)} title={title} className={`hover:text-[var(--ac)] hover:underline ${className}`}>
     {children}
   </a>
 );
 
 /** Small clickable chip that jumps to a related item in another screen. */
-export function RelChip({ to, params, tone = 'mu', Icon, children, title, dim }: { to?: Json; params?: Json; tone?: Json; Icon?: Json; children?: Json; title?: Json; dim?: Json }) {
+export function RelChip({
+  to,
+  params,
+  tone = 'mu',
+  Icon,
+  children,
+  title,
+  dim,
+}: {
+  to?: Json;
+  params?: Json;
+  tone?: Json;
+  Icon?: Json;
+  children?: Json;
+  title?: Json;
+  dim?: Json;
+}) {
   return (
     <a
       href={infraHref(to, params)}

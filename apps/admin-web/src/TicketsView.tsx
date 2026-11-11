@@ -8,7 +8,25 @@ import { fromNow, needsReply, PriorityPill } from './ticketsShared.tsx';
 import { Conversation } from './TicketConversation.tsx';
 import type { Json, Rec } from './types.ts';
 
-function TicketList({ rows, loading, sel, onPick, q, setQ, sort, setSort }: { rows?: Json; loading?: Json; sel?: Json; onPick?: Json; q?: Json; setQ?: Json; sort?: Json; setSort?: Json }) {
+function TicketList({
+  rows,
+  loading,
+  sel,
+  onPick,
+  q,
+  setQ,
+  sort,
+  setSort,
+}: {
+  rows?: Json;
+  loading?: Json;
+  sel?: Json;
+  onPick?: Json;
+  q?: Json;
+  setQ?: Json;
+  sort?: Json;
+  setSort?: Json;
+}) {
   return (
     <div className="card flex min-h-0 flex-col overflow-hidden">
       <div className="space-y-2 border-b border-[var(--ln)] p-3">

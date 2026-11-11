@@ -13,7 +13,19 @@ const FILTERS = [
   ['all', 'همه'],
 ];
 
-function TaskCard({ t, busy, onDone, onReopen, toast }: { t?: Json; busy?: Json; onDone?: Json; onReopen?: Json; toast?: Json }) {
+function TaskCard({
+  t,
+  busy,
+  onDone,
+  onReopen,
+  toast,
+}: {
+  t?: Json;
+  busy?: Json;
+  onDone?: Json;
+  onReopen?: Json;
+  toast?: Json;
+}) {
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(`${t.title}\n${t.detail}`);

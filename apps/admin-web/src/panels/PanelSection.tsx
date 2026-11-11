@@ -21,7 +21,21 @@ import { ago, isStale, kindOf, Meter } from './panelUi.tsx';
 import type { Json, Rec } from '../types.ts';
 
 // ---------- one panel with its servers ----------
-function ServerRow({ s, panel, busy, onEdit, onToggle, onDelete }: { s?: Json; panel?: Json; busy?: Json; onEdit?: Json; onToggle?: Json; onDelete?: Json }) {
+function ServerRow({
+  s,
+  panel,
+  busy,
+  onEdit,
+  onToggle,
+  onDelete,
+}: {
+  s?: Json;
+  panel?: Json;
+  busy?: Json;
+  onEdit?: Json;
+  onToggle?: Json;
+  onDelete?: Json;
+}) {
   const st = serverState(s, panel),
     dim = s.is_enabled ? '' : 'opacity-60';
   const limited = (s.product_codes || []).length;
@@ -106,7 +120,26 @@ export function PanelSection({
   onSrvDelete,
   onImport,
   onWizard,
-}: { p?: Json; servers?: Json; stat?: Json; groups?: Json; busy?: Json; srvBusy?: Json; filtered?: Json; dense?: Json; onCheck?: Json; onEdit?: Json; onToggle?: Json; onDelete?: Json; onSrvAdd?: Json; onSrvEdit?: Json; onSrvToggle?: Json; onSrvDelete?: Json; onImport?: Json; onWizard?: Json }) {
+}: {
+  p?: Json;
+  servers?: Json;
+  stat?: Json;
+  groups?: Json;
+  busy?: Json;
+  srvBusy?: Json;
+  filtered?: Json;
+  dense?: Json;
+  onCheck?: Json;
+  onEdit?: Json;
+  onToggle?: Json;
+  onDelete?: Json;
+  onSrvAdd?: Json;
+  onSrvEdit?: Json;
+  onSrvToggle?: Json;
+  onSrvDelete?: Json;
+  onImport?: Json;
+  onWizard?: Json;
+}) {
   const h = health(p),
     k = kindOf(p.kind),
     u = stat.capacity ? stat.active / stat.capacity : 0,

@@ -30,7 +30,8 @@ const FILTERS: Rec = {
 const SORTS: Rec = {
   new: (a: Json, b: Json) => String(b.created_at).localeCompare(String(a.created_at)),
   old: (a: Json, b: Json) => String(a.created_at).localeCompare(String(b.created_at)),
-  name: (a: Json, b: Json) => String(a.display_name || a.email || '').localeCompare(String(b.display_name || b.email || ''), 'fa'),
+  name: (a: Json, b: Json) =>
+    String(a.display_name || a.email || '').localeCompare(String(b.display_name || b.email || ''), 'fa'),
 };
 const title = (u: Json) => u.display_name || u.email || 'بدون نام';
 
@@ -111,7 +112,12 @@ export default function UsersView({ api }: { api?: Json }) {
       ),
     },
     { key: 'role', label: 'نقش', render: (u: Json) => <Role u={u} /> },
-    { key: 'status', label: 'وضعیت', m: 'head', render: (u: Json) => <Badge s={u.is_active ? 'active' : 'disabled'} /> },
+    {
+      key: 'status',
+      label: 'وضعیت',
+      m: 'head',
+      render: (u: Json) => <Badge s={u.is_active ? 'active' : 'disabled'} />,
+    },
     {
       key: 'stores',
       label: 'فروشگاه‌ها',

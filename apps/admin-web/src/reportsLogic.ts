@@ -36,7 +36,15 @@ export const pick = (map: Json, key: Json) => map[key] || String(key);
 
 // The API numbers weekdays Monday=0 .. Sunday=6; the Persian week starts on Saturday.
 export const WEEK_ORDER = [5, 6, 0, 1, 2, 3, 4];
-export const WEEKDAY_FA: Rec = { 0: 'دوشنبه', 1: 'سه‌شنبه', 2: 'چهارشنبه', 3: 'پنجشنبه', 4: 'جمعه', 5: 'شنبه', 6: 'یکشنبه' };
+export const WEEKDAY_FA: Rec = {
+  0: 'دوشنبه',
+  1: 'سه‌شنبه',
+  2: 'چهارشنبه',
+  3: 'پنجشنبه',
+  4: 'جمعه',
+  5: 'شنبه',
+  6: 'یکشنبه',
+};
 
 /** Direction + wording of a change vs the previous period. ``invert``: a rise is bad (refunds, failures). */
 export function deltaInfo(delta: Json, { invert = false } = {}) {
@@ -73,7 +81,8 @@ export function foldTail(rows: Json, max = 5, other = 'سایر') {
 }
 
 /** 0..1 intensity of a heatmap cell (sqrt scale so one huge hour does not wash out the rest). */
-export const heatLevel = (count: Json, max: Json) => (max > 0 && count > 0 ? Math.max(0.12, Math.sqrt(count / max)) : 0);
+export const heatLevel = (count: Json, max: Json) =>
+  max > 0 && count > 0 ? Math.max(0.12, Math.sqrt(count / max)) : 0;
 
 /** Plain-language findings derived from the payload. Each has a tone (ok | wn | in | bd) and Persian text. */
 export function buildInsights(d: Json) {

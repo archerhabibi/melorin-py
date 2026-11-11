@@ -201,7 +201,21 @@ export function UpstreamCredentials({ ub, setUb, show, edit }: { ub?: Json; setU
 }
 
 // ---------- settings ----------
-function Fold({ title, hint, badge, children, defaultOpen = false, Icon }: { title?: Json; hint?: Json; badge?: Json; children?: Json; defaultOpen?: Json; Icon?: Json }) {
+function Fold({
+  title,
+  hint,
+  badge,
+  children,
+  defaultOpen = false,
+  Icon,
+}: {
+  title?: Json;
+  hint?: Json;
+  badge?: Json;
+  children?: Json;
+  defaultOpen?: Json;
+  Icon?: Json;
+}) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="rounded-xl border border-[var(--hair)]">
@@ -227,7 +241,23 @@ function Fold({ title, hint, badge, children, defaultOpen = false, Icon }: { tit
 }
 
 /** Text override: empty = adapter default (shown as placeholder), a reset button appears once it is changed. */
-function TextOverride({ label, def, value, onChange, error, hint, ltr = false }: { label?: Json; def?: Json; value?: Json; onChange?: Json; error?: Json; hint?: Json; ltr?: Json }) {
+function TextOverride({
+  label,
+  def,
+  value,
+  onChange,
+  error,
+  hint,
+  ltr = false,
+}: {
+  label?: Json;
+  def?: Json;
+  value?: Json;
+  onChange?: Json;
+  error?: Json;
+  hint?: Json;
+  ltr?: Json;
+}) {
   const changed = !!(value ?? '').trim() && value.trim() !== def;
   return (
     <Field label={label} error={error} hint={hint}>
@@ -295,7 +325,8 @@ function WordChips({ values, onChange, placeholder }: { values?: Json; onChange?
 }
 
 function PlansEditor({ plans, onChange, error }: { plans?: Json; onChange?: Json; error?: Json }) {
-  const upd = (i: Json, k: Json, v: Json) => onChange(plans.map((p: Json, j: Json) => (j === i ? { ...p, [k]: v } : p)));
+  const upd = (i: Json, k: Json, v: Json) =>
+    onChange(plans.map((p: Json, j: Json) => (j === i ? { ...p, [k]: v } : p)));
   return (
     <div className="space-y-2">
       {plans.length === 0 && (
@@ -535,7 +566,11 @@ export function UpstreamSettings({ ub, setUb, err, show }: { ub?: Json; setUb?: 
         defaultOpen={ub.plans.length > 0}
         badge={ub.plans.length ? <span className="badge b-in mr-1">{num(ub.plans.length)}</span> : null}
       >
-        <PlansEditor plans={ub.plans} onChange={(v: Json) => setUb((u: Json) => ({ ...u, plans: v }))} error={show('plans')} />
+        <PlansEditor
+          plans={ub.plans}
+          onChange={(v: Json) => setUb((u: Json) => ({ ...u, plans: v }))}
+          error={show('plans')}
+        />
       </Fold>
 
       <Fold

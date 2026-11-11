@@ -12,7 +12,15 @@ function GoogleGate({ children }: { children?: Json }) {
   return useGoogleConfig() ? <>{children}</> : null;
 }
 
-function GoogleSignInButtonBlock({ totpReady, busy, onCredential }: { totpReady?: Json; busy?: Json; onCredential?: Json }) {
+function GoogleSignInButtonBlock({
+  totpReady,
+  busy,
+  onCredential,
+}: {
+  totpReady?: Json;
+  busy?: Json;
+  onCredential?: Json;
+}) {
   return (
     <GoogleGate>
       <div className="my-5 flex items-center gap-3">

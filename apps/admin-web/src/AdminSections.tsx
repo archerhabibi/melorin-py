@@ -37,7 +37,7 @@ export function AdminSectionView({ section, api, toast }: { section?: Json; api?
       0,
     );
     return () => clearTimeout(timer);
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
   }, [section, api.base]);
 
   if (Extra)

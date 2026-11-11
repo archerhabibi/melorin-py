@@ -4,15 +4,27 @@ import { useInfra } from './infra.tsx';
 import type { Json, Rec } from './types.ts';
 
 // ---- Issue section helpers ----
-function IssueSection({ title, items, color = 'orange', children }: { title?: Json; items?: Json; color?: Json; children?: Json }) {
+function IssueSection({
+  title,
+  items,
+  color = 'orange',
+  children,
+}: {
+  title?: Json;
+  items?: Json;
+  color?: Json;
+  children?: Json;
+}) {
   if (!items.length) return null;
-  const cls = (
-    {
-      orange: 'border-orange-200 bg-orange-50 text-orange-800',
-      red: 'border-red-200 bg-red-50 text-red-700',
-      blue: 'border-blue-200 bg-blue-50 text-blue-800',
-      gray: 'border-[var(--ln)] bg-[var(--mb)] text-[var(--mu)]',
-    } as Rec)[color] || '';
+  const cls =
+    (
+      {
+        orange: 'border-orange-200 bg-orange-50 text-orange-800',
+        red: 'border-red-200 bg-red-50 text-red-700',
+        blue: 'border-blue-200 bg-blue-50 text-blue-800',
+        gray: 'border-[var(--ln)] bg-[var(--mb)] text-[var(--mu)]',
+      } as Rec
+    )[color] || '';
   return (
     <section className={`rounded-xl border p-4 ${cls}`}>
       <h3 className="mb-2 font-bold">

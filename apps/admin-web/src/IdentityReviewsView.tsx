@@ -81,7 +81,9 @@ function ProviderTile({ p }: { p?: Json }) {
   );
 }
 const STATUS_TONE: Rec = { open: 'b-wn', dismissed: 'b-mu', linked: 'b-ok' };
-const StatusBadge = ({ s }: { s?: Json }) => <span className={`badge ${STATUS_TONE[s] || 'b-mu'}`}>{STATUS_TEXT[s] || s}</span>;
+const StatusBadge = ({ s }: { s?: Json }) => (
+  <span className={`badge ${STATUS_TONE[s] || 'b-mu'}`}>{STATUS_TEXT[s] || s}</span>
+);
 
 /** Compact account card used on both sides of a conflict. */
 function UserCard({ u, role, fallbackId }: { u?: Json; role?: Json; fallbackId?: Json }) {
@@ -220,7 +222,19 @@ function ReviewCard({ r, onOpen, onQuick }: { r?: Json; onOpen?: Json; onQuick?:
   );
 }
 
-function ReviewDrawer({ r, call, toast, onClose, onDone }: { r?: Json; call?: Json; toast?: Json; onClose?: Json; onDone?: Json }) {
+function ReviewDrawer({
+  r,
+  call,
+  toast,
+  onClose,
+  onDone,
+}: {
+  r?: Json;
+  call?: Json;
+  toast?: Json;
+  onClose?: Json;
+  onDone?: Json;
+}) {
   const [note, setNote] = useState(r.resolution_note || '');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
@@ -338,7 +352,9 @@ export default function IdentityReviewsView({ api, toast }: { api?: Json; toast?
               .includes(t),
           )),
     );
-    return list.sort((a, b) => (sort === 'new' ? -1 : 1) * (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()));
+    return list.sort(
+      (a, b) => (sort === 'new' ? -1 : 1) * (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
+    );
   }, [all, status, provider, q, sort]);
 
   const quick = async (r: Json) => {

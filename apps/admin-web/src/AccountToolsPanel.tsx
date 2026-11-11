@@ -9,7 +9,17 @@ import type { Json, Rec } from './types.ts';
 
 const fmt = (v: Json) => (v ? new Date(v).toLocaleString('fa-IR') : '—');
 
-export default function AccountToolsPanel({ call, accountId, toast, onChanged }: { call?: Json; accountId?: Json; toast?: Json; onChanged?: Json }) {
+export default function AccountToolsPanel({
+  call,
+  accountId,
+  toast,
+  onChanged,
+}: {
+  call?: Json;
+  accountId?: Json;
+  toast?: Json;
+  onChanged?: Json;
+}) {
   const base = `/api/v1/admin/vpn-accounts/${accountId}`;
   const [matrix, setMatrix] = useState<Json>(null);
   const [presence, setPresence] = useState<Json>(null);

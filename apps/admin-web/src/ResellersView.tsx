@@ -80,7 +80,19 @@ function BotCell({ bot }: { bot?: Json }) {
   );
 }
 
-function Loader({ id, call, toast, onClose, onDone }: { id?: Json; call?: Json; toast?: Json; onClose?: Json; onDone?: Json }) {
+function Loader({
+  id,
+  call,
+  toast,
+  onClose,
+  onDone,
+}: {
+  id?: Json;
+  call?: Json;
+  toast?: Json;
+  onClose?: Json;
+  onDone?: Json;
+}) {
   const [r, setR] = useState<Json>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -98,7 +110,19 @@ function Loader({ id, call, toast, onClose, onDone }: { id?: Json; call?: Json; 
   return <Editor key={r.id} initial={r} call={call} toast={toast} onClose={onClose} onDone={onDone} />;
 }
 
-function Editor({ initial, call, toast, onClose, onDone }: { initial?: Json; call?: Json; toast?: Json; onClose?: Json; onDone?: Json }) {
+function Editor({
+  initial,
+  call,
+  toast,
+  onClose,
+  onDone,
+}: {
+  initial?: Json;
+  call?: Json;
+  toast?: Json;
+  onClose?: Json;
+  onDone?: Json;
+}) {
   const [r, setR] = useState(initial); // last server copy
   const pick = (x: Json) => ({
     name: x.name,

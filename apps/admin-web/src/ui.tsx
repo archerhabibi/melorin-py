@@ -50,7 +50,8 @@ export const Badge = ({ s }: { s?: Json }) => {
   return <span className={`badge ${m ? m[0] : 'b-mu'}`}>{m ? m[1] : String(s ?? '-')}</span>;
 };
 export const isStatus = (v: Json) => typeof v === 'string' && v in S;
-export const dt = (v: Json) => (v ? new Date(v).toLocaleString('fa-IR', { dateStyle: 'medium', timeStyle: 'short' }) : '-');
+export const dt = (v: Json) =>
+  v ? new Date(v).toLocaleString('fa-IR', { dateStyle: 'medium', timeStyle: 'short' }) : '-';
 export const sid = (v: Json) => String(v || '').slice(0, 8) || '-';
 
 export function ThemeButton({ className = '' }: { className?: Json }) {
@@ -138,7 +139,15 @@ function DialogBody({ d, close }: { d?: Json; close?: Json }) {
 }
 
 /** Password field with an eye toggle (show / hide). Extra props go to the <input>. */
-export function PasswordInput({ className = '', wrapClassName = '', ...props }: { className?: Json; wrapClassName?: Json; [k: string]: Json }) {
+export function PasswordInput({
+  className = '',
+  wrapClassName = '',
+  ...props
+}: {
+  className?: Json;
+  wrapClassName?: Json;
+  [k: string]: Json;
+}) {
   const [show, setShow] = useState(false);
   return (
     <div className={`relative ${wrapClassName}`}>

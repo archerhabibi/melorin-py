@@ -43,7 +43,19 @@ export async function errText(r: Json, fallback: Json) {
 }
 
 /** Red "delete" control used by cards, rows and drawer footers (same look everywhere). */
-export function DeleteButton({ label = 'حذف', compact = false, busy = false, onClick, className = '' }: { label?: Json; compact?: Json; busy?: Json; onClick?: Json; className?: Json }) {
+export function DeleteButton({
+  label = 'حذف',
+  compact = false,
+  busy = false,
+  onClick,
+  className = '',
+}: {
+  label?: Json;
+  compact?: Json;
+  busy?: Json;
+  onClick?: Json;
+  className?: Json;
+}) {
   return (
     <button
       type="button"
@@ -119,7 +131,17 @@ export function useRows(call: Json, path: Json, { skip = false } = {}) {
 }
 
 /** Page navigation strip. Renders nothing when all items fit on one page. */
-export function Paginator({ page, setPage, total, pageSize = 20 }: { page?: Json; setPage?: Json; total?: Json; pageSize?: Json }) {
+export function Paginator({
+  page,
+  setPage,
+  total,
+  pageSize = 20,
+}: {
+  page?: Json;
+  setPage?: Json;
+  total?: Json;
+  pageSize?: Json;
+}) {
   const pages = Math.ceil(total / pageSize);
   if (pages <= 1) return null;
   const from = page * pageSize + 1;
@@ -169,7 +191,19 @@ export function Field({ label, hint, error, children }: { label?: Json; hint?: J
     </label>
   );
 }
-export function Switch({ checked, onChange, disabled, label, title }: { checked?: Json; onChange?: Json; disabled?: Json; label?: Json; title?: Json }) {
+export function Switch({
+  checked,
+  onChange,
+  disabled,
+  label,
+  title,
+}: {
+  checked?: Json;
+  onChange?: Json;
+  disabled?: Json;
+  label?: Json;
+  title?: Json;
+}) {
   return (
     <button
       type="button"
@@ -186,7 +220,17 @@ export function Switch({ checked, onChange, disabled, label, title }: { checked?
     </button>
   );
 }
-export function Toggle({ checked, onChange, label, hint }: { checked?: Json; onChange?: Json; label?: Json; hint?: Json }) {
+export function Toggle({
+  checked,
+  onChange,
+  label,
+  hint,
+}: {
+  checked?: Json;
+  onChange?: Json;
+  label?: Json;
+  hint?: Json;
+}) {
   return (
     <div className="flex items-start gap-3">
       <Switch checked={checked} onChange={onChange} label={label} />
@@ -197,7 +241,17 @@ export function Toggle({ checked, onChange, label, hint }: { checked?: Json; onC
     </div>
   );
 }
-export function Segmented({ value, onChange, options, label }: { value?: Json; onChange?: Json; options?: Json; label?: Json }) {
+export function Segmented({
+  value,
+  onChange,
+  options,
+  label,
+}: {
+  value?: Json;
+  onChange?: Json;
+  options?: Json;
+  label?: Json;
+}) {
   return (
     <div role="radiogroup" aria-label={label} className="pv-seg">
       {options.map(([v, l]: Json) => (
@@ -216,7 +270,25 @@ export function Segmented({ value, onChange, options, label }: { value?: Json; o
   );
 }
 /** One cell of a KpiBar. Clickable when `onClick` is given (acts as a filter toggle). */
-export function Stat({ label, value, tone, active, onClick, Icon, sub, ring }: { label?: Json; value?: Json; tone?: Json; active?: Json; onClick?: Json; Icon?: Json; sub?: Json; ring?: Json }) {
+export function Stat({
+  label,
+  value,
+  tone,
+  active,
+  onClick,
+  Icon,
+  sub,
+  ring,
+}: {
+  label?: Json;
+  value?: Json;
+  tone?: Json;
+  active?: Json;
+  onClick?: Json;
+  Icon?: Json;
+  sub?: Json;
+  ring?: Json;
+}) {
   const body = (
     <>
       {ring != null ? (
@@ -279,7 +351,21 @@ export function Section({ title, hint, children }: { title?: Json; hint?: Json; 
 
 /* ---------- v2 visual primitives ---------- */
 /** Circular gauge. value 0..1, tone = ok|wn|bd|in|mu. Children render in the centre. */
-export function Ring({ value = 0, size = 56, stroke = 6, tone = 'ok', label, children }: { value?: Json; size?: Json; stroke?: Json; tone?: Json; label?: Json; children?: Json }) {
+export function Ring({
+  value = 0,
+  size = 56,
+  stroke = 6,
+  tone = 'ok',
+  label,
+  children,
+}: {
+  value?: Json;
+  size?: Json;
+  stroke?: Json;
+  tone?: Json;
+  label?: Json;
+  children?: Json;
+}) {
   const r = (size - stroke) / 2,
     c = 2 * Math.PI * r,
     v = Math.max(0, Math.min(1, value || 0));
@@ -309,7 +395,19 @@ export function Ring({ value = 0, size = 56, stroke = 6, tone = 'ok', label, chi
   );
 }
 /** Segmented capacity meter (value 0..1). */
-export function SegMeter({ value = 0, tone = 'ok', label, max, now }: { value?: Json; tone?: Json; label?: Json; max?: Json; now?: Json }) {
+export function SegMeter({
+  value = 0,
+  tone = 'ok',
+  label,
+  max,
+  now,
+}: {
+  value?: Json;
+  tone?: Json;
+  label?: Json;
+  max?: Json;
+  now?: Json;
+}) {
   const v = Math.max(0, Math.min(1, value || 0));
   return (
     <div className="seg" role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={max} aria-valuenow={now}>
@@ -325,7 +423,19 @@ export const Bar = ({ value = 0, tone = 'ok', label }: { value?: Json; tone?: Js
 );
 
 /** Filter pills with live counts: options = [[key, label, count, { warn }]]. */
-export function Pills({ value, onChange, options, label, scroll = false }: { value?: Json; onChange?: Json; options?: Json; label?: Json; scroll?: Json }) {
+export function Pills({
+  value,
+  onChange,
+  options,
+  label,
+  scroll = false,
+}: {
+  value?: Json;
+  onChange?: Json;
+  options?: Json;
+  label?: Json;
+  scroll?: Json;
+}) {
   return (
     <div className={`pills ${scroll ? 'pills-scroll' : ''}`} role="group" aria-label={label}>
       {options.map(([k, l, n, o]: Json) => (
@@ -343,7 +453,19 @@ export function Pills({ value, onChange, options, label, scroll = false }: { val
     </div>
   );
 }
-export function SearchBox({ value, onChange, placeholder, label, hotkey = false }: { value?: Json; onChange?: Json; placeholder?: Json; label?: Json; hotkey?: Json }) {
+export function SearchBox({
+  value,
+  onChange,
+  placeholder,
+  label,
+  hotkey = false,
+}: {
+  value?: Json;
+  onChange?: Json;
+  placeholder?: Json;
+  label?: Json;
+  hotkey?: Json;
+}) {
   const ref = useRef<Json>(null);
   useEffect(() => {
     if (!hotkey) return undefined;
@@ -408,7 +530,17 @@ export function SortSelect({ value, onChange, options }: { value?: Json; onChang
     </select>
   );
 }
-export function ViewToggle({ value, onChange, options, disabled }: { value?: Json; onChange?: Json; options?: Json; disabled?: Json }) {
+export function ViewToggle({
+  value,
+  onChange,
+  options,
+  disabled,
+}: {
+  value?: Json;
+  onChange?: Json;
+  options?: Json;
+  disabled?: Json;
+}) {
   const I: Rec = { grid: LayoutGrid, table: List, list: List, cards: LayoutGrid };
   return (
     <div className="pv-seg" role="group" aria-label="نحوه نمایش">
@@ -457,7 +589,19 @@ export const ErrorBar = ({ children, onRetry }: { children?: Json; onRetry?: Jso
 );
 
 /** Number input showing grouped digits; `value` is a string of ASCII digits. */
-export function NumInput({ value, onChange, placeholder, suffix, ...rest }: { value?: Json; onChange?: Json; placeholder?: Json; suffix?: Json; [k: string]: Json }) {
+export function NumInput({
+  value,
+  onChange,
+  placeholder,
+  suffix,
+  ...rest
+}: {
+  value?: Json;
+  onChange?: Json;
+  placeholder?: Json;
+  suffix?: Json;
+  [k: string]: Json;
+}) {
   const shown = value === '' ? '' : Number(value).toLocaleString('en-US');
   return (
     <div className="relative">
@@ -480,7 +624,29 @@ export function NumInput({ value, onChange, placeholder, suffix, ...rest }: { va
 }
 
 /** Right-side drawer with dirty-guard on close, sticky footer and server-error slot. */
-export function Drawer({ title, subtitle, icon, dirty, busy, onClose, children, footer, error, danger }: { title?: Json; subtitle?: Json; icon?: Json; dirty?: Json; busy?: Json; onClose?: Json; children?: Json; footer?: Json; error?: Json; danger?: Json }) {
+export function Drawer({
+  title,
+  subtitle,
+  icon,
+  dirty,
+  busy,
+  onClose,
+  children,
+  footer,
+  error,
+  danger,
+}: {
+  title?: Json;
+  subtitle?: Json;
+  icon?: Json;
+  dirty?: Json;
+  busy?: Json;
+  onClose?: Json;
+  children?: Json;
+  footer?: Json;
+  error?: Json;
+  danger?: Json;
+}) {
   const close = async () => {
     if (busy) return;
     if (

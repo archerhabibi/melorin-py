@@ -57,7 +57,19 @@ function BotCell({ a }: { a?: Json }) {
   );
 }
 
-function ReviewDrawer({ a, call, toast, onClose, onDone }: { a?: Json; call?: Json; toast?: Json; onClose?: Json; onDone?: Json }) {
+function ReviewDrawer({
+  a,
+  call,
+  toast,
+  onClose,
+  onDone,
+}: {
+  a?: Json;
+  call?: Json;
+  toast?: Json;
+  onClose?: Json;
+  onDone?: Json;
+}) {
   const pending = a.status === 'pending';
   const awaiting = a.status === 'awaiting_details'; // approved as a request; the applicant still has to send domain + bot token
   const [debt, setDebt] = useState('0');

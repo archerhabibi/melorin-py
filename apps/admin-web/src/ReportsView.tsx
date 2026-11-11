@@ -82,7 +82,27 @@ function Delta({ delta, invert }: { delta?: Json; invert?: Json }) {
   );
 }
 
-function Kpi({ title, Icon, value, unit, kpi, color, invert, loading, hint }: { title?: Json; Icon?: Json; value?: Json; unit?: Json; kpi?: Json; color?: Json; invert?: Json; loading?: Json; hint?: Json }) {
+function Kpi({
+  title,
+  Icon,
+  value,
+  unit,
+  kpi,
+  color,
+  invert,
+  loading,
+  hint,
+}: {
+  title?: Json;
+  Icon?: Json;
+  value?: Json;
+  unit?: Json;
+  kpi?: Json;
+  color?: Json;
+  invert?: Json;
+  loading?: Json;
+  hint?: Json;
+}) {
   return (
     <div className="card rise p-4">
       <div className="flex items-start justify-between gap-2">
@@ -108,7 +128,19 @@ function Kpi({ title, Icon, value, unit, kpi, color, invert, loading, hint }: { 
   );
 }
 
-const Card = ({ title, hint, right, children, className = '' }: { title?: Json; hint?: Json; right?: Json; children?: Json; className?: Json }) => (
+const Card = ({
+  title,
+  hint,
+  right,
+  children,
+  className = '',
+}: {
+  title?: Json;
+  hint?: Json;
+  right?: Json;
+  children?: Json;
+  className?: Json;
+}) => (
   <section className={`card rise p-5 ${className}`}>
     <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
       <div>
@@ -214,15 +246,17 @@ export default function ReportsView({ api, toast }: { api?: Json; toast?: Json }
 
   const mainSeries = useMemo(() => {
     if (!s) return [];
-    const base: Rec[] = ({
-      revenue: [{ key: 'cur', label: 'این بازه', values: s.revenue, color: SERIES_COLORS[0], area: true }],
-      orders: [{ key: 'cur', label: 'این بازه', values: s.orders, color: SERIES_COLORS[0] }],
-      cash_in: [{ key: 'cur', label: 'این بازه', values: s.cash_in, color: SERIES_COLORS[2], area: true }],
-      new_users: [{ key: 'cur', label: 'این بازه', values: s.new_users, color: SERIES_COLORS[6] }],
-      cumulative: [
-        { key: 'cur', label: 'فروش تجمعی', values: s.cumulative_revenue, color: SERIES_COLORS[0], area: true },
-      ],
-    } as Record<string, Rec[]>)[metric];
+    const base: Rec[] = (
+      {
+        revenue: [{ key: 'cur', label: 'این بازه', values: s.revenue, color: SERIES_COLORS[0], area: true }],
+        orders: [{ key: 'cur', label: 'این بازه', values: s.orders, color: SERIES_COLORS[0] }],
+        cash_in: [{ key: 'cur', label: 'این بازه', values: s.cash_in, color: SERIES_COLORS[2], area: true }],
+        new_users: [{ key: 'cur', label: 'این بازه', values: s.new_users, color: SERIES_COLORS[6] }],
+        cumulative: [
+          { key: 'cur', label: 'فروش تجمعی', values: s.cumulative_revenue, color: SERIES_COLORS[0], area: true },
+        ],
+      } as Record<string, Rec[]>
+    )[metric];
     if (compare && (metric === 'revenue' || metric === 'orders')) {
       const prev = metric === 'revenue' ? s.revenue_prev : s.orders_prev;
       base.push({ key: 'prev', label: 'بازه‌ی قبلی', values: prev, color: SERIES_COLORS[1], dashed: true });
@@ -233,7 +267,8 @@ export default function ReportsView({ api, toast }: { api?: Json; toast?: Json }
   const unit = metric === 'orders' ? 'سفارش' : metric === 'new_users' ? 'نفر' : cur;
   const mainTitle = METRICS.find((m) => m[0] === metric)![1];
   const lead = mainSeries[0]?.values || [];
-  const periodTotal = metric === 'cumulative' ? lead[lead.length - 1] || 0 : lead.reduce((a: Json, b: Json) => a + b, 0);
+  const periodTotal =
+    metric === 'cumulative' ? lead[lead.length - 1] || 0 : lead.reduce((a: Json, b: Json) => a + b, 0);
 
   const statusItems = foldTail(
     (data?.orders_by_status || []).map((x: Json) => ({ key: x.status, label: statusLabel(x.status), value: x.count })),

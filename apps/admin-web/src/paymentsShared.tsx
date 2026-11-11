@@ -56,7 +56,21 @@ export const copy = (text: Json, toast: Json) =>
 
 // ---------------------------------------------------------------- small parts
 /** KpiBar cell for a text value (money per currency); Stat only renders numbers. */
-export function Metric({ Icon, tone, label, value, sub, loading }: { Icon?: Json; tone?: Json; label?: Json; value?: Json; sub?: Json; loading?: Json }) {
+export function Metric({
+  Icon,
+  tone,
+  label,
+  value,
+  sub,
+  loading,
+}: {
+  Icon?: Json;
+  tone?: Json;
+  label?: Json;
+  value?: Json;
+  sub?: Json;
+  loading?: Json;
+}) {
   return (
     <div className="kpi">
       <span className="tile h-11 w-11" style={tint(tone)}>
@@ -95,4 +109,3 @@ export function Amount({ p, big = false }: { p?: Json; big?: Json }) {
     </span>
   );
 }
-

@@ -35,16 +35,29 @@ export function Legend({ items }: { items?: Json }) {
 }
 
 /** Tiny trend line for KPI cards (decorative: the number beside it carries the value). */
-export function Sparkline({ values, color = 'var(--rc1)', w = 96, h = 30 }: { values?: Json; color?: Json; w?: Json; h?: Json }) {
+export function Sparkline({
+  values,
+  color = 'var(--rc1)',
+  w = 96,
+  h = 30,
+}: {
+  values?: Json;
+  color?: Json;
+  w?: Json;
+  h?: Json;
+}) {
   if (!values) return null;
   if (!values.length || !values.some(Boolean))
     return <div aria-hidden="true" className="h-[30px] w-24 rounded bg-[var(--mb)] opacity-60" />;
   const max = Math.max(...values, 1);
-  const pts = values.map((v: Json, i: Json) => [(i * (w - 4)) / Math.max(1, values.length - 1) + 2, h - 3 - (v / max) * (h - 8)]);
+  const pts = values.map((v: Json, i: Json) => [
+    (i * (w - 4)) / Math.max(1, values.length - 1) + 2,
+    h - 3 - (v / max) * (h - 8),
+  ]);
   const d = pts.map(([x, y]: Json, i: Json) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
   const [lx, ly] = pts[pts.length - 1];
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h} aria-hidden="true" {...{ dir: "ltr" }}>
+    <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h} aria-hidden="true" {...{ dir: 'ltr' }}>
       <path d={d} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
       <circle cx={lx} cy={ly} r="3" fill="var(--sf)" stroke={color} strokeWidth="2" />
     </svg>
@@ -55,7 +68,21 @@ export function Sparkline({ values, color = 'var(--rc1)', w = 96, h = 30 }: { va
  * Multi-series line/area chart over a day axis with crosshair tooltip (pointer + arrow keys).
  * series: [{ key, label, values, color, dashed?, area? }]
  */
-export function CompareChart({ days, series, unit = '', label, h = 260, bars = false }: { days?: Json; series?: Json; unit?: Json; label?: Json; h?: Json; bars?: Json }) {
+export function CompareChart({
+  days,
+  series,
+  unit = '',
+  label,
+  h = 260,
+  bars = false,
+}: {
+  days?: Json;
+  series?: Json;
+  unit?: Json;
+  label?: Json;
+  h?: Json;
+  bars?: Json;
+}) {
   const [hi, setHi] = useState<Json>(null);
   const gid = useId().replace(/:/g, '');
   const W = 760;
@@ -66,7 +93,8 @@ export function CompareChart({ days, series, unit = '', label, h = 260, bars = f
   const ih = h - P.t - P.b;
   const x = (i: Json) => P.l + (n > 1 ? (i * iw) / (n - 1) : iw / 2);
   const y = (v: Json) => P.t + ih * (1 - v / max);
-  const path = (vals: Json) => vals.map((v: Json, i: Json) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const path = (vals: Json) =>
+    vals.map((v: Json, i: Json) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
   const ticks = Array.from(new Set([0, 1, 2, 3, 4].map((k) => Math.round((k * (n - 1)) / 4))));
   const bw = Math.max(2, Math.min(20, (iw / n) * 0.6));
   const move = (e: Json) => {
@@ -210,7 +238,21 @@ export function CompareChart({ days, series, unit = '', label, h = 260, bars = f
 }
 
 /** Donut with center total. items: [{ key, label, value, color }]. Always paired with a legend list (values in text). */
-export function Donut({ items, center, sub, label, size = 150, stack = false }: { items?: Json; center?: Json; sub?: Json; label?: Json; size?: Json; stack?: Json }) {
+export function Donut({
+  items,
+  center,
+  sub,
+  label,
+  size = 150,
+  stack = false,
+}: {
+  items?: Json;
+  center?: Json;
+  sub?: Json;
+  label?: Json;
+  size?: Json;
+  stack?: Json;
+}) {
   const segs = donutSegments(items);
   const [on, setOn] = useState<Json>(null);
   const total = items.reduce((a: Json, x: Json) => a + x.value, 0);
@@ -242,7 +284,9 @@ export function Donut({ items, center, sub, label, size = 150, stack = false }: 
             <div className="text-lg font-extrabold leading-tight">
               {on ? fmtPct((items.find((x: Json) => x.key === on)?.value / (total || 1)) * 100) : center}
             </div>
-            <div className="text-[10px] text-[var(--mu)]">{on ? items.find((x: Json) => x.key === on)?.label : sub}</div>
+            <div className="text-[10px] text-[var(--mu)]">
+              {on ? items.find((x: Json) => x.key === on)?.label : sub}
+            </div>
           </div>
         </div>
       </div>
@@ -273,7 +317,15 @@ export function Donut({ items, center, sub, label, size = 150, stack = false }: 
 }
 
 /** Horizontal ranking bars. rows: [{ key, label, sub, value, display }]; all bars share one color (magnitude, not identity). */
-export function HBars({ rows, color = 'var(--rc1)', empty = 'داده‌ای برای نمایش نیست' }: { rows?: Json; color?: Json; empty?: Json }) {
+export function HBars({
+  rows,
+  color = 'var(--rc1)',
+  empty = 'داده‌ای برای نمایش نیست',
+}: {
+  rows?: Json;
+  color?: Json;
+  empty?: Json;
+}) {
   if (!rows.length) return <p className="py-6 text-center text-sm text-[var(--mu)]">{empty}</p>;
   const max = Math.max(...rows.map((r: Json) => r.value), 1);
   return (

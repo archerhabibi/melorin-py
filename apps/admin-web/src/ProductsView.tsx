@@ -2,7 +2,21 @@ import { useEffect, useMemo, useState } from 'react';
 import { confirmDialog } from './ui.tsx';
 import { AlertTriangle, Boxes, CheckCircle2, PowerOff, Plus, Save, ShieldAlert, Tag, Wallet, X } from 'lucide-react';
 import type { Json, Rec } from './types.ts';
-import { Empty, ErrorBar, KpiBar, Paginator, SearchBox, SortSelect, Stat, ViewToggle, errText, num, removeEntity, useAlive, useRows } from './kit.tsx'; // #4
+import {
+  Empty,
+  ErrorBar,
+  KpiBar,
+  Paginator,
+  SearchBox,
+  SortSelect,
+  Stat,
+  ViewToggle,
+  errText,
+  num,
+  removeEntity,
+  useAlive,
+  useRows,
+} from './kit.tsx'; // #4
 import { InfraChain, clearParam, useHashParams, useInfra } from './infra.tsx';
 
 import { API } from './productsShared.tsx';

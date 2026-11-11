@@ -7,7 +7,7 @@ import { authFetch } from './api.ts';
 import { Empty, Field, Section, errText, num, toEn, useRows } from './kit.tsx';
 import type { Json, Rec } from './types.ts';
 
-const unitOf = (c: Json) => ({ IRT: 'تومان', IRR: 'ریال' } as Rec)[c] || c || '';
+const unitOf = (c: Json) => (({ IRT: 'تومان', IRR: 'ریال' }) as Rec)[c] || c || '';
 const intOf = (v: Json) => {
   const s = toEn(v).replace(/[,٬\s]/g, '');
   return /^\d+$/.test(s) ? Number(s) : null;
@@ -86,7 +86,8 @@ function Tiers({ tiers, onSave }: { tiers?: Json; onSave?: Json }) {
     tiers.map((t: Json) => ({ name: t.name, min_points: String(t.min_points), mult: String(t.multiplier_bp / 10000) })),
   );
   const [busy, setBusy] = useState(false);
-  const upd = (i: Json, k: Json, v: Json) => setRows((r: Json) => r.map((x: Json, j: Json) => (j === i ? { ...x, [k]: v } : x)));
+  const upd = (i: Json, k: Json, v: Json) =>
+    setRows((r: Json) => r.map((x: Json, j: Json) => (j === i ? { ...x, [k]: v } : x)));
   const parsed = rows.map((r: Json) => ({
     name: r.name.trim(),
     min_points: intOf(r.min_points),

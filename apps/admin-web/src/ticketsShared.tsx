@@ -3,7 +3,12 @@
 import { Zap } from 'lucide-react';
 import type { Json, Rec } from './types.ts';
 
-export const PRIORITY: Rec = { low: ['کم', 'mu'], normal: ['عادی', 'in'], high: ['بالا', 'wn'], urgent: ['فوری', 'bd'] };
+export const PRIORITY: Rec = {
+  low: ['کم', 'mu'],
+  normal: ['عادی', 'in'],
+  high: ['بالا', 'wn'],
+  urgent: ['فوری', 'bd'],
+};
 export const DEPARTMENTS = [
   ['', 'بدون دسته'],
   ['technical', 'فنی'],

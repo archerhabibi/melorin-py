@@ -65,7 +65,12 @@ export default function VpnAccountsView({ api, toast }: { api?: Json; toast?: Js
   const [page, setPage] = useState(0);
   const [tick, setTick] = useState(0);
   const [selId, setSelId] = useState<Json>(null);
-  const [res, setRes] = useState<{ key: Json; rows: Rec[]; total: number; failed: boolean }>({ key: null, rows: [], total: 0, failed: false });
+  const [res, setRes] = useState<{ key: Json; rows: Rec[]; total: number; failed: boolean }>({
+    key: null,
+    rows: [],
+    total: 0,
+    failed: false,
+  });
   const [cnt, setCnt] = useState<Json>(null);
   const dq = useDebounced(q, 300);
   const storeMap = useMemo(() => indexBy(stores.rows), [stores.rows]);
@@ -314,7 +319,21 @@ export default function VpnAccountsView({ api, toast }: { api?: Json; toast?: Js
   );
 }
 
-function AccountDrawer({ a, store, call, toast, onChanged, onClose }: { a?: Json; store?: Json; call?: Json; toast?: Json; onChanged?: Json; onClose?: Json }) {
+function AccountDrawer({
+  a,
+  store,
+  call,
+  toast,
+  onChanged,
+  onClose,
+}: {
+  a?: Json;
+  store?: Json;
+  call?: Json;
+  toast?: Json;
+  onChanged?: Json;
+  onClose?: Json;
+}) {
   const u = usage(a);
   const placement = placementSummary(a.placement);
   return (

@@ -7,7 +7,11 @@ import type { Json, Rec } from './types.ts';
 
 /** GET /admin/panels/{id}/targets once per panel; `reload` re-asks (the panel may have new groups). */
 export function usePanelTargets(api: Json, panelId: Json) {
-  const [st, setSt] = useState<{ loading: boolean; data: Json; error: string }>({ loading: !!panelId, data: null, error: '' });
+  const [st, setSt] = useState<{ loading: boolean; data: Json; error: string }>({
+    loading: !!panelId,
+    data: null,
+    error: '',
+  });
   const [tick, setTick] = useState(0);
   useEffect(() => {
     if (!panelId) return undefined;
@@ -27,7 +31,21 @@ export function usePanelTargets(api: Json, panelId: Json) {
   return { ...st, reload: () => setTick((t) => t + 1) };
 }
 
-const Chip = ({ on, dim, onClick, title, sub, usedBy }: { on?: Json; dim?: Json; onClick?: Json; title?: Json; sub?: Json; usedBy?: Json }) => (
+const Chip = ({
+  on,
+  dim,
+  onClick,
+  title,
+  sub,
+  usedBy,
+}: {
+  on?: Json;
+  dim?: Json;
+  onClick?: Json;
+  title?: Json;
+  sub?: Json;
+  usedBy?: Json;
+}) => (
   <button
     type="button"
     aria-pressed={on}
@@ -52,7 +70,17 @@ const Chip = ({ on, dim, onClick, title, sub, usedBy }: { on?: Json; dim?: Json;
  * Choose a server's destination. `value` is the target object or null (= inherit the panel config).
  * Pasarguard: one or more groups, or one template. Sanaei: one or more inbounds (legacy panels: exactly one).
  */
-export function TargetPicker({ api, panel, value, onChange }: { api?: Json; panel?: Json; value?: Json; onChange?: Json }) {
+export function TargetPicker({
+  api,
+  panel,
+  value,
+  onChange,
+}: {
+  api?: Json;
+  panel?: Json;
+  value?: Json;
+  onChange?: Json;
+}) {
   const { loading, data, error, reload } = usePanelTargets(api, panel?.id);
   const kind = panel?.kind;
   const mode = value == null ? 'inherit' : targetKind(kind, value) === 'template' ? 'template' : 'set';
@@ -153,7 +181,19 @@ export function TargetPicker({ api, panel, value, onChange }: { api?: Json; pane
  * Wizard (and "sync with panel"): tick several groups / templates / inbounds, one server slot is created for each
  * (POST /admin/panels/{id}/servers/from-targets). Targets that already have a server are marked and skipped.
  */
-export function TargetWizard({ api, panel, toast, onClose, onDone }: { api?: Json; panel?: Json; toast?: Json; onClose?: Json; onDone?: Json }) {
+export function TargetWizard({
+  api,
+  panel,
+  toast,
+  onClose,
+  onDone,
+}: {
+  api?: Json;
+  panel?: Json;
+  toast?: Json;
+  onClose?: Json;
+  onDone?: Json;
+}) {
   const { loading, data, error, reload } = usePanelTargets(api, panel.id);
   const sanaei = panel.kind === 'sanaei';
   const [kind, setKind] = useState(sanaei ? 'inbound' : 'group');

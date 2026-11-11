@@ -41,7 +41,8 @@ const FILTERS: Rec = {
 };
 const SORTS: Rec = {
   name: (a: Json, b: Json) => String(a.name).localeCompare(String(b.name), 'fa'),
-  kind: (a: Json, b: Json) => String(a.kind).localeCompare(String(b.kind)) || String(a.name).localeCompare(String(b.name), 'fa'),
+  kind: (a: Json, b: Json) =>
+    String(a.kind).localeCompare(String(b.kind)) || String(a.name).localeCompare(String(b.name), 'fa'),
   slug: (a: Json, b: Json) => String(a.slug).localeCompare(String(b.slug)),
 };
 

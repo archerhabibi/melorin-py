@@ -13,7 +13,19 @@ const ltr = (v: Json) => (
   </span>
 );
 
-export default function SubBrandingCard({ storeId, panelId, panelName, call, toast }: { storeId?: Json; panelId?: Json; panelName?: Json; call?: Json; toast?: Json }) {
+export default function SubBrandingCard({
+  storeId,
+  panelId,
+  panelName,
+  call,
+  toast,
+}: {
+  storeId?: Json;
+  panelId?: Json;
+  panelName?: Json;
+  call?: Json;
+  toast?: Json;
+}) {
   const url = `/api/v1/admin/stores/${storeId}/sub-branding/${panelId}`;
   const [pv, setPv] = useState<Json>(null);
   const [typed, setTyped] = useState('');

@@ -10,14 +10,29 @@ const KINDS = [
   ['signup_reward', 'پاداش اولین خرید معرفی‌شده', 'یک‌بار، در اولین خرید مشتریِ دعوت‌شده در همین فروشگاه.'],
   ['commission', 'کمیسیون خریدهای بعدی', 'هر خرید بعدیِ همان مشتری در همین فروشگاه.'],
 ];
-const unitOf = (c: Json) => ({ IRT: 'تومان', IRR: 'ریال' } as Rec)[c] || c || '';
-const intOf = (v: Json) => (/^\d+$/.test(toEn(v).replace(/[,٬\s]/g, '')) ? Number(toEn(v).replace(/[,٬\s]/g, '')) : null);
+const unitOf = (c: Json) => (({ IRT: 'تومان', IRR: 'ریال' }) as Rec)[c] || c || '';
+const intOf = (v: Json) =>
+  /^\d+$/.test(toEn(v).replace(/[,٬\s]/g, '')) ? Number(toEn(v).replace(/[,٬\s]/g, '')) : null;
 const bpOf = (v: Json) => {
   const s = toEn(v).replace('٫', '.').trim();
   return /^\d+(\.\d{1,2})?$/.test(s) ? Math.round(Number(s) * 100) : null;
 };
 
-function Plan({ kind, title, hint, rule, currency, onSave }: { kind?: Json; title?: Json; hint?: Json; rule?: Json; currency?: Json; onSave?: Json }) {
+function Plan({
+  kind,
+  title,
+  hint,
+  rule,
+  currency,
+  onSave,
+}: {
+  kind?: Json;
+  title?: Json;
+  hint?: Json;
+  rule?: Json;
+  currency?: Json;
+  onSave?: Json;
+}) {
   const [model, setModel] = useState(rule?.model || 'percent');
   const [value, setValue] = useState(rule ? String(rule.model === 'percent' ? rule.value / 100 : rule.value) : '');
   const [cap, setCap] = useState(rule?.max_amount ? String(rule.max_amount) : '');

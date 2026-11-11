@@ -339,7 +339,8 @@ export default function BankSmsPanel({ call, toast, payments }: { call?: Json; t
                     {data.messages.map((m: Json) => {
                       const [label, tone] = STATUS[m.status] || [m.status, 'b-mu'];
                       const same = waiting.filter(
-                        (p: Json) => m.amount_rial && (p.currency === 'IRR' ? p.amount : p.amount * 10) === m.amount_rial,
+                        (p: Json) =>
+                          m.amount_rial && (p.currency === 'IRR' ? p.amount : p.amount * 10) === m.amount_rial,
                       );
                       return (
                         <tr key={m.id}>

@@ -148,7 +148,8 @@ function Clock() {
   );
 }
 const money = (v: Json) => new Intl.NumberFormat('fa-IR').format(v || 0);
-const moneyByCurrency = (rows: Json) => (rows || []).map((x: Json) => `${money(x.amount)} ${x.currency}`).join(' · ') || '۰';
+const moneyByCurrency = (rows: Json) =>
+  (rows || []).map((x: Json) => `${money(x.amount)} ${x.currency}`).join(' · ') || '۰';
 
 function useCore() {
   const base = API_BASE;
@@ -244,7 +245,21 @@ async function refundPayment(base: Json, paymentId: Json, reason: Json) {
   return r.json();
 }
 
-function Nav({ section, go, openTickets, pendingApps, pendingPanelReq, manualTasks }: { section?: Json; go?: Json; openTickets?: Json; pendingApps?: Json; pendingPanelReq?: Json; manualTasks?: Json }) {
+function Nav({
+  section,
+  go,
+  openTickets,
+  pendingApps,
+  pendingPanelReq,
+  manualTasks,
+}: {
+  section?: Json;
+  go?: Json;
+  openTickets?: Json;
+  pendingApps?: Json;
+  pendingPanelReq?: Json;
+  manualTasks?: Json;
+}) {
   return (
     <nav aria-label="منوی اصلی" className="space-y-5 px-3 pb-6">
       {groups.map(([g, items, sub]) => (
@@ -304,7 +319,21 @@ function Brand() {
   );
 }
 
-const Kpi = ({ t, n, s, I, tint, loading }: { t?: Json; n?: Json; s?: Json; I?: Json; tint?: Json; loading?: Json }) => (
+const Kpi = ({
+  t,
+  n,
+  s,
+  I,
+  tint,
+  loading,
+}: {
+  t?: Json;
+  n?: Json;
+  s?: Json;
+  I?: Json;
+  tint?: Json;
+  loading?: Json;
+}) => (
   <div className="card rise p-5">
     <div className="flex items-start justify-between">
       <div className="text-sm text-[var(--mu)]">{t}</div>

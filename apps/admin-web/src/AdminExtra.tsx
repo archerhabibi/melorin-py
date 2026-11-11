@@ -45,7 +45,7 @@ function useList(api: Json, path: Json, toast: Json) {
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d) => setRows(Array.isArray(d) ? d : d.items || []))
       .catch(() => toast('دریافت داده ناموفق بود'));
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
   }, [path, tick]);
   return { rows, call, reload: () => setTick((x) => x + 1) };
 }
@@ -330,7 +330,7 @@ function Integrations({ api, toast }: { api?: Json; toast?: Json }) {
       .catch(() => toast('دریافت تنظیمات ناموفق بود'));
   useEffect(() => {
     load();
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
   }, []);
   if (!em || !s3 || !aa) return null;
   const send = async (path: Json, body: Json, okMsg: Json, tag: Json) => {
@@ -353,7 +353,11 @@ function Integrations({ api, toast }: { api?: Json; toast?: Json }) {
       <div className="space-y-3 rounded-xl border border-[var(--ln)] p-4">
         <div className="flex items-center justify-between">
           <b>دسترسی ادمین (محدودیت IP)</b>
-          <Toggle on={aa.enabled} set={(v: Json) => setAa({ ...aa, enabled: v })} label={aa.enabled ? 'فعال' : 'غیرفعال'} />
+          <Toggle
+            on={aa.enabled}
+            set={(v: Json) => setAa({ ...aa, enabled: v })}
+            label={aa.enabled ? 'فعال' : 'غیرفعال'}
+          />
         </div>
         <p className="text-xs text-[var(--mu)]">
           به‌طور پیش‌فرض خاموش است. در حالت فعال، API ادمین فقط از IPها/CIDRهای زیر پاسخ می‌دهد (هر خط یک مورد). IP فعلی
@@ -631,7 +635,7 @@ function Settings({ api, toast }: { api?: Json; toast?: Json }) {
       .call('/api/v1/admin/settings')
       .then((r) => (r.ok ? r.json() : {}))
       .then(setObj);
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
   }, [tick]);
   const setFlag = async (f: Json) => {
     const r = await flags.call(`/api/v1/admin/feature-flags/${encodeURIComponent(f.key)}`, {

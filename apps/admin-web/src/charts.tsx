@@ -13,7 +13,23 @@ export const dayLong = (iso: Json) =>
   );
 
 // Dependency-free responsive SVG chart: smooth area or bars, hover/touch tooltip, themed via CSS variables.
-export function TrendChart({ days, values, color = 'var(--ac)', bars = false, unit = '', label, h = 230 }: { days?: Json; values?: Json; color?: Json; bars?: Json; unit?: Json; label?: Json; h?: Json }) {
+export function TrendChart({
+  days,
+  values,
+  color = 'var(--ac)',
+  bars = false,
+  unit = '',
+  label,
+  h = 230,
+}: {
+  days?: Json;
+  values?: Json;
+  color?: Json;
+  bars?: Json;
+  unit?: Json;
+  label?: Json;
+  h?: Json;
+}) {
   const [hi, setHi] = useState<Json>(null);
   const W = 720,
     P = { l: 50, r: 10, t: 14, b: 28 },

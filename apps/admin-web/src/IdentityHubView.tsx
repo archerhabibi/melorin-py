@@ -14,7 +14,7 @@ const TABS = ['review', 'auto', 'devices'];
 const tabFromHash = () => {
   const q = typeof window === 'undefined' ? '' : window.location.hash.split('?')[1] || '';
   const t = new URLSearchParams(q).get('tab');
-  return TABS.includes(t ?? "") ? t : 'review';
+  return TABS.includes(t ?? '') ? t : 'review';
 };
 
 export default function IdentityHubView({ api, toast }: { api?: Json; toast?: Json }) {

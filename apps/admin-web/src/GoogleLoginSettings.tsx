@@ -9,7 +9,17 @@ import type { Json } from './types.ts';
 
 const CLIENT_ID_RE = /^[0-9]{6,}-[A-Za-z0-9_-]+\.apps\.googleusercontent\.com$/;
 
-export const Field = ({ label, hint, error, children }: { label?: Json; hint?: Json; error?: Json; children?: Json }) => (
+export const Field = ({
+  label,
+  hint,
+  error,
+  children,
+}: {
+  label?: Json;
+  hint?: Json;
+  error?: Json;
+  children?: Json;
+}) => (
   <label className="block text-xs font-bold text-[var(--mu)]">
     {label}
     <div className="mt-1">{children}</div>
@@ -212,7 +222,7 @@ export default function GoogleLoginSettings({ api, toast }: { api?: Json; toast?
       .catch(() => toast('دریافت تنظیمات گوگل ناموفق بود'));
   useEffect(() => {
     load();
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
   }, []);
 
   const origins = useMemo(() => {

@@ -101,7 +101,19 @@ function useCall(call: Json, toast: Json) {
   return { busy, error, setError, run };
 }
 
-function AdminDrawer({ row, call, toast, onClose, onDone }: { row?: Json; call?: Json; toast?: Json; onClose?: Json; onDone?: Json }) {
+function AdminDrawer({
+  row,
+  call,
+  toast,
+  onClose,
+  onDone,
+}: {
+  row?: Json;
+  call?: Json;
+  toast?: Json;
+  onClose?: Json;
+  onDone?: Json;
+}) {
   const { busy, error, run } = useCall(call, toast);
   const init = useMemo(
     () => Object.fromEntries(FIELDS.map(([k]) => [k, row.profile?.[k] == null ? '' : String(row.profile[k])])),
@@ -327,7 +339,19 @@ function AdminDrawer({ row, call, toast, onClose, onDone }: { row?: Json; call?:
   );
 }
 
-function RequestDrawer({ req, call, toast, onClose, onDone }: { req?: Json; call?: Json; toast?: Json; onClose?: Json; onDone?: Json }) {
+function RequestDrawer({
+  req,
+  call,
+  toast,
+  onClose,
+  onDone,
+}: {
+  req?: Json;
+  call?: Json;
+  toast?: Json;
+  onClose?: Json;
+  onDone?: Json;
+}) {
   const { busy, error, setError, run } = useCall(call, toast);
   const pending = req.status === 'pending';
   const keys = FIELDS.map(([k]) => k).filter((k) => k in (req.changes || {}));

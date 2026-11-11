@@ -254,8 +254,16 @@ export default function OrdersView({ api, toast }: { api?: Json; toast?: Json })
       ),
     },
     { key: 'user', label: 'مشتری', render: (o: Json) => <Cell2 main={who(o.user_id)} sub={mail(o.user_id)} /> },
-    { key: 'store', label: 'فروشگاه', render: (o: Json) => <span className="text-[13px]">{storeName(o.store_id)}</span> },
-    { key: 'total', label: 'مبلغ', render: (o: Json) => <span className="num font-bold">{money(o.total, o.currency)}</span> },
+    {
+      key: 'store',
+      label: 'فروشگاه',
+      render: (o: Json) => <span className="text-[13px]">{storeName(o.store_id)}</span>,
+    },
+    {
+      key: 'total',
+      label: 'مبلغ',
+      render: (o: Json) => <span className="num font-bold">{money(o.total, o.currency)}</span>,
+    },
     { key: 'status', label: 'وضعیت', m: 'head', render: (o: Json) => <Badge s={o.status} /> },
     { key: 'at', label: 'ثبت', render: (o: Json) => <When v={o.created_at} /> },
   ];
@@ -390,7 +398,23 @@ export default function OrdersView({ api, toast }: { api?: Json; toast?: Json })
   );
 }
 
-function OrderDrawer({ o, busy, customer, email, store, onClose, act }: { o?: Json; busy?: Json; customer?: Json; email?: Json; store?: Json; onClose?: Json; act?: Json }) {
+function OrderDrawer({
+  o,
+  busy,
+  customer,
+  email,
+  store,
+  onClose,
+  act,
+}: {
+  o?: Json;
+  busy?: Json;
+  customer?: Json;
+  email?: Json;
+  store?: Json;
+  onClose?: Json;
+  act?: Json;
+}) {
   const canRetry = RETRYABLE.includes(o.status);
   const canReview = REVIEWABLE.includes(o.status);
   const canRefund = REFUNDABLE.includes(o.status);

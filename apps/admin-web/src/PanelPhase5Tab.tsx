@@ -124,7 +124,7 @@ function Drift({ call, panelId, toast }: { call?: Json; panelId?: Json; toast?: 
     try {
       const r = await call(`/api/v1/admin/panels/${panelId}/lifecycle-policy`, {
         method: 'PUT',
-        body: JSON.stringify({ policy, reason: String(reason ?? "").trim() }),
+        body: JSON.stringify({ policy, reason: String(reason ?? '').trim() }),
       });
       if (r.ok) setD(await r.json());
       toast(r.ok ? 'سیاست ذخیره شد (فقط انتظار ملورین عوض شد، پنل دست نخورد)' : 'ذخیره سیاست ناموفق بود');

@@ -8,7 +8,21 @@ import { focusOnMount } from './useDialog.ts';
 
 import { CUR, price, dur, gb, EMPTY, fromProduct, payload, validate, Route } from './productsShared.tsx';
 
-export function ProductDrawer({ product, products, hasResellers, onClose, onSubmit, onDelete }: { product?: Json; products?: Json; hasResellers?: Json; onClose?: Json; onSubmit?: Json; onDelete?: Json }) {
+export function ProductDrawer({
+  product,
+  products,
+  hasResellers,
+  onClose,
+  onSubmit,
+  onDelete,
+}: {
+  product?: Json;
+  products?: Json;
+  hasResellers?: Json;
+  onClose?: Json;
+  onSubmit?: Json;
+  onDelete?: Json;
+}) {
   const edit = !!product;
   const taken = useMemo(
     () => new Set((products || []).filter((x: Json) => x.id !== product?.id).map((x: Json) => x.code)),
@@ -235,7 +249,19 @@ export function ProductDrawer({ product, products, hasResellers, onClose, onSubm
   );
 }
 
-export function Switches({ p, busy, hasResellers, onToggle, onToggleReseller }: { p?: Json; busy?: Json; hasResellers?: Json; onToggle?: Json; onToggleReseller?: Json }) {
+export function Switches({
+  p,
+  busy,
+  hasResellers,
+  onToggle,
+  onToggleReseller,
+}: {
+  p?: Json;
+  busy?: Json;
+  hasResellers?: Json;
+  onToggle?: Json;
+  onToggleReseller?: Json;
+}) {
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
       <label className="flex cursor-pointer items-center gap-2 text-xs font-bold">
@@ -265,7 +291,25 @@ export function Switches({ p, busy, hasResellers, onToggle, onToggleReseller }: 
   );
 }
 
-export function ProductCard({ p, idx, busy, hasResellers, onEdit, onToggle, onToggleReseller, onDelete }: { p?: Json; idx?: Json; busy?: Json; hasResellers?: Json; onEdit?: Json; onToggle?: Json; onToggleReseller?: Json; onDelete?: Json }) {
+export function ProductCard({
+  p,
+  idx,
+  busy,
+  hasResellers,
+  onEdit,
+  onToggle,
+  onToggleReseller,
+  onDelete,
+}: {
+  p?: Json;
+  idx?: Json;
+  busy?: Json;
+  hasResellers?: Json;
+  onEdit?: Json;
+  onToggle?: Json;
+  onToggleReseller?: Json;
+  onDelete?: Json;
+}) {
   const r = idx.reach(p),
     dim = p.is_active ? '' : 'opacity-55';
   const state = !p.is_active ? 'off' : r.ok ? 'ok' : 'bd';
@@ -289,11 +333,13 @@ export function ProductCard({ p, idx, busy, hasResellers, onEdit, onToggle, onTo
         {p.is_test && <span className="badge b-wn">تست</span>}
       </div>
       <div className={`flex flex-wrap gap-1.5 ${dim}`}>
-        {([
-          [Clock, dur(p.duration_days)],
-          [p.traffic_gb ? Zap : Inf, gb(p.traffic_gb)],
-          [Smartphone, p.max_devices ? `${num(p.max_devices)} دستگاه` : 'دستگاه نامحدود'],
-        ] as [Json, Json][]).map(([I, t], i) => (
+        {(
+          [
+            [Clock, dur(p.duration_days)],
+            [p.traffic_gb ? Zap : Inf, gb(p.traffic_gb)],
+            [Smartphone, p.max_devices ? `${num(p.max_devices)} دستگاه` : 'دستگاه نامحدود'],
+          ] as [Json, Json][]
+        ).map(([I, t], i) => (
           <span key={i} className="spec">
             <I size={13} className="text-[var(--mu)]" />
             {t}
@@ -343,7 +389,19 @@ export function ProductTable({
   quick,
   draft,
   setDraft,
-}: { rows?: Json; idx?: Json; busy?: Json; hasResellers?: Json; onEdit?: Json; onToggle?: Json; onToggleReseller?: Json; onDelete?: Json; quick?: Json; draft?: Json; setDraft?: Json }) {
+}: {
+  rows?: Json;
+  idx?: Json;
+  busy?: Json;
+  hasResellers?: Json;
+  onEdit?: Json;
+  onToggle?: Json;
+  onToggleReseller?: Json;
+  onDelete?: Json;
+  quick?: Json;
+  draft?: Json;
+  setDraft?: Json;
+}) {
   return (
     <section className="card rise overflow-hidden">
       <div className="overflow-auto">
@@ -451,4 +509,3 @@ export function ProductTable({
     </section>
   );
 }
-

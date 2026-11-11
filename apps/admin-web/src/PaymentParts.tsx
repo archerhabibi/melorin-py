@@ -61,7 +61,19 @@ export function RowActions({ p, busy, on, compact = false }: { p?: Json; busy?: 
 }
 
 // ---------------------------------------------------------------- review queue
-export function Queue({ items, busy, on, seeAll, total }: { items?: Json; busy?: Json; on?: Json; seeAll?: Json; total?: Json }) {
+export function Queue({
+  items,
+  busy,
+  on,
+  seeAll,
+  total,
+}: {
+  items?: Json;
+  busy?: Json;
+  on?: Json;
+  seeAll?: Json;
+  total?: Json;
+}) {
   if (!items.length) return null;
   return (
     <section className="pay-queue rise">
@@ -129,7 +141,21 @@ export function Queue({ items, busy, on, seeAll, total }: { items?: Json; busy?:
 }
 
 // ---------------------------------------------------------------- detail drawer (shared kit Drawer)
-export function PaymentDrawer({ p, busy, on, onClose, toast, call }: { p?: Json; busy?: Json; on?: Json; onClose?: Json; toast?: Json; call?: Json }) {
+export function PaymentDrawer({
+  p,
+  busy,
+  on,
+  onClose,
+  toast,
+  call,
+}: {
+  p?: Json;
+  busy?: Json;
+  on?: Json;
+  onClose?: Json;
+  toast?: Json;
+  call?: Json;
+}) {
   const [img, setImg] = useState<Json>(null);
   const [loadingImg, setLoadingImg] = useState(false);
   useEffect(() => {

@@ -325,7 +325,8 @@ export default function PanelsView({ api, toast }: { api?: Json; toast?: Json })
   const group: Json = groupF ? idx.groupById.get(groupF) : null;
   const groupPanels = useMemo(() => (group ? new Set(memberIds(group)) : null), [group]);
   const productObj = productF ? (infra.products.rows || []).find((x) => x.code === productF) : null;
-  const serversOf = (p: Json) => (idx.serversByPanel.get(p.id) || []).filter((s: Json) => !productF || serves(s, productF));
+  const serversOf = (p: Json) =>
+    (idx.serversByPanel.get(p.id) || []).filter((s: Json) => !productF || serves(s, productF));
   const filtered = useMemo(
     () =>
       (rows || []).filter(
