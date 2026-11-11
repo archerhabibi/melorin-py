@@ -45,7 +45,7 @@ import {
   pageOf,
   useCall,
 } from './dataKit.tsx';
-import type { Json, Rec, Toast } from './types.ts';
+import type { AdminOrderRow, Json, Rec, Toast } from './types.ts';
 
 const IN_PROGRESS = ['pending', 'payment_pending', 'paid', 'processing', 'provisioning'];
 const ATTENTION = ['provisioning_failed', 'manual_review', 'refund_pending', 'payment_failed'];
@@ -115,23 +115,23 @@ export function OrderFlow({ status }: { status?: Json }) {
   );
 }
 
-const needsAttention = (o: Json) => !!o.needs_review || ATTENTION.includes(o.status);
-const GROUPS: Rec = {
+const needsAttention = (o: AdminOrderRow) => !!o.needs_review || ATTENTION.includes(o.status);
+const GROUPS: Record<string, (o: AdminOrderRow) => boolean> = {
   all: () => true,
-  done: (o: Json) => o.status === 'completed',
-  progress: (o: Json) => IN_PROGRESS.includes(o.status),
+  done: (o: AdminOrderRow) => o.status === 'completed',
+  progress: (o: AdminOrderRow) => IN_PROGRESS.includes(o.status),
   attention: needsAttention,
-  closed: (o: Json) => CLOSED.includes(o.status),
+  closed: (o: AdminOrderRow) => CLOSED.includes(o.status),
 };
-const SORTS: Rec = {
-  new: (a: Json, b: Json) => String(b.created_at).localeCompare(String(a.created_at)),
-  old: (a: Json, b: Json) => String(a.created_at).localeCompare(String(b.created_at)),
-  high: (a: Json, b: Json) => Number(b.total || 0) - Number(a.total || 0),
+const SORTS: Record<string, (a: AdminOrderRow, b: AdminOrderRow) => number> = {
+  new: (a: AdminOrderRow, b: AdminOrderRow) => String(b.created_at).localeCompare(String(a.created_at)),
+  old: (a: AdminOrderRow, b: AdminOrderRow) => String(a.created_at).localeCompare(String(b.created_at)),
+  high: (a: AdminOrderRow, b: AdminOrderRow) => Number(b.total || 0) - Number(a.total || 0),
 };
 
 export default function OrdersView({ api, toast }: { api?: Json; toast: Toast }) {
   const call = useCall(api);
-  const orders = useRows(call, '/api/v1/admin/orders');
+  const orders = useRows<AdminOrderRow>(call, '/api/v1/admin/orders');
   const stores = useRows(call, '/api/v1/admin/stores');
   const users = useRows(call, '/api/v1/admin/users');
   const [group, setGroup] = useState('all');
@@ -151,9 +151,11 @@ export default function OrdersView({ api, toast }: { api?: Json; toast: Toast })
   const who = (id: Json) => userMap[id]?.display_name || userMap[id]?.email || sid(id);
   const mail = (id: Json) => (userMap[id]?.display_name ? userMap[id]?.email : '');
 
-  const counts: Rec = useMemo(() => {
-    const c: Rec = Object.fromEntries(Object.keys(GROUPS).map((k) => [k, all.filter(GROUPS[k]).length]));
-    const rev: Rec = {};
+  const counts: Record<string, number | string> = useMemo(() => {
+    const c: Record<string, number> = Object.fromEntries(
+      Object.keys(GROUPS).map((k) => [k, all.filter(GROUPS[k]).length]),
+    );
+    const rev: Record<string, number> = {};
     all.filter(GROUPS.done).forEach((o) => {
       rev[o.currency || ''] = (rev[o.currency || ''] || 0) + Number(o.total || 0);
     });
@@ -244,7 +246,7 @@ export default function OrdersView({ api, toast }: { api?: Json; toast: Toast })
     {
       key: 'number',
       label: 'شماره',
-      render: (o: Json) => (
+      render: (o: AdminOrderRow) => (
         <span className="flex items-center gap-1.5">
           <span className="num font-extrabold" dir="ltr">
             {o.number}
@@ -253,19 +255,23 @@ export default function OrdersView({ api, toast }: { api?: Json; toast: Toast })
         </span>
       ),
     },
-    { key: 'user', label: 'مشتری', render: (o: Json) => <Cell2 main={who(o.user_id)} sub={mail(o.user_id)} /> },
+    {
+      key: 'user',
+      label: 'مشتری',
+      render: (o: AdminOrderRow) => <Cell2 main={who(o.user_id)} sub={mail(o.user_id)} />,
+    },
     {
       key: 'store',
       label: 'فروشگاه',
-      render: (o: Json) => <span className="text-[13px]">{storeName(o.store_id)}</span>,
+      render: (o: AdminOrderRow) => <span className="text-[13px]">{storeName(o.store_id)}</span>,
     },
     {
       key: 'total',
       label: 'مبلغ',
-      render: (o: Json) => <span className="num font-bold">{money(o.total, o.currency)}</span>,
+      render: (o: AdminOrderRow) => <span className="num font-bold">{money(o.total, o.currency)}</span>,
     },
-    { key: 'status', label: 'وضعیت', m: 'head', render: (o: Json) => <Badge s={o.status} /> },
-    { key: 'at', label: 'ثبت', render: (o: Json) => <When v={o.created_at} /> },
+    { key: 'status', label: 'وضعیت', m: 'head', render: (o: AdminOrderRow) => <Badge s={o.status} /> },
+    { key: 'at', label: 'ثبت', render: (o: AdminOrderRow) => <When v={o.created_at} /> },
   ];
 
   return (
@@ -357,7 +363,7 @@ export default function OrdersView({ api, toast }: { api?: Json; toast: Toast })
         columns={columns}
         rows={shown}
         loading={loading}
-        onRowClick={(o: Json) => setSelId(o.id)}
+        onRowClick={(o: AdminOrderRow) => setSelId(o.id)}
         emptyNode={
           <Empty
             Icon={Package}

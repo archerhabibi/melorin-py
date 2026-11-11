@@ -104,8 +104,8 @@ export function useAlive() {
 
 /** Fetch a list endpoint once (and on reload). rows === null while loading. */
 /** Fetch a list; pass `{ skip: true }` on screens that do not need this endpoint (lazy-loading #3). */
-export function useRows(call: CallFn, path: string, { skip = false } = {}) {
-  const [rows, setRows] = useState<Rec[] | null>(skip ? [] : null);
+export function useRows<T = Rec>(call: CallFn, path: string, { skip = false } = {}) {
+  const [rows, setRows] = useState<T[] | null>(skip ? [] : null);
   const [failed, setFailed] = useState(false);
   const alive = useAlive();
   const load = useCallback(async () => {

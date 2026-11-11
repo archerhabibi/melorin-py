@@ -15,3 +15,16 @@ export type WithChildren<P = unknown> = P & { children?: import('react').ReactNo
 export type Toast = (msg: string) => void;
 /** Entity id as the Core API emits it. */
 export type Id = string | number;
+
+/** Row of GET /api/v1/admin/orders (mirrors apps/api/melorin/modules/admin/orders.py). */
+export interface AdminOrderRow {
+  id: string;
+  number: string;
+  user_id: string;
+  store_id: string;
+  status: string;
+  total: number;
+  currency: string;
+  needs_review: boolean;
+  created_at: string;
+}
