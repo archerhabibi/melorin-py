@@ -184,14 +184,23 @@ jobs:
           exit 1
       - name: Install Chromium system dependencies
         working-directory: e2e
-        timeout-minutes: 6
+        # Hard cap is only a backstop: every command below is bounded with `timeout`, so a mirror/DNS outage degrades to a warning
+        # (the real `npm test` below decides whether Chromium can launch) instead of the step being killed and failing the job.
+        timeout-minutes: 8
+        continue-on-error: true
         run: |
-          # The hosted image already ships most libraries; only fonts/extras may be missing. A mirror outage must not fail the job
-          # outright: try with bounded apt timeouts, and let the real test run decide whether Chromium can actually launch.
-          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 update || echo "::warning::apt-get update failed; continuing with the image's package lists"
+          # The hosted image already ships most libraries; only fonts/extras may be missing.
+          # Fail fast when the Ubuntu mirrors are unreachable: with broken DNS apt burns minutes per index (run of 2026-11-11 hit 6 min).
+          if ! timeout 10 getent hosts archive.ubuntu.com >/dev/null && ! timeout 10 getent hosts azure.archive.ubuntu.com >/dev/null; then
+            echo "::warning::Ubuntu mirrors are not resolvable; skipping apt, relying on the runner image's libraries"
+            exit 0
+          fi
+          APT_OPTS="-o Acquire::Retries=0 -o Acquire::http::Timeout=10 -o Acquire::https::Timeout=10"
+          sudo timeout 90 apt-get $APT_OPTS update || echo "::warning::apt-get update failed; continuing with the image's package lists"
           for attempt in 1 2; do
-            sudo env "PATH=$PATH" npx playwright install-deps chromium && exit 0
-            echo "::warning::playwright install-deps failed (attempt $attempt/2)"; sleep 15
+            # install-deps runs its own apt-get update/install, so bound it as well
+            sudo env "PATH=$PATH" timeout 150 npx playwright install-deps chromium && exit 0
+            echo "::warning::playwright install-deps failed (attempt $attempt/2)"; sleep 10
           done
           echo "::warning::Chromium system dependencies could not be fully installed; relying on the runner image's libraries"
       - run: npm test
