@@ -82,5 +82,17 @@ https:// {
 
 # Plain HTTP on reseller domains -> HTTPS (the named sites above get this redirect automatically).
 http:// {
-  redir https://{host}{uri} permanent
+  # The container healthcheck (wget http://127.0.0.1/health/live from inside the container) must be answered over plain
+  # HTTP: without this exception it was redirected to https://127.0.0.1, which has no certificate, so Caddy reported
+  # "unhealthy" forever. Only loopback callers match; external traffic reaches Caddy from a non-loopback address.
+  @healthcheck {
+    remote_ip 127.0.0.1 ::1
+    path /health/live
+  }
+  handle @healthcheck {
+    reverse_proxy api:8000
+  }
+  handle {
+    redir https://{host}{uri} permanent
+  }
 }
