@@ -60,6 +60,8 @@ if git rev-parse --verify --quiet "origin/${REPO_REF}^{commit}" >/dev/null; then
 else
   git checkout --quiet --detach "$REPO_REF"
 fi
+# Containers running as "nobody" must be able to read the bind-mounted config, whatever umask cloned/checked it out.
+bash scripts/fix_perms.sh
 # Remember how this server was installed so `melorin` (melorin.sh) can update it the same way.
 mkdir -p var
 printf 'EXTERNAL_PROXY=%s\nREPO_REF=%s\n' "$EXTERNAL_PROXY" "$REPO_REF" > var/install-mode

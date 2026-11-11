@@ -12,6 +12,9 @@
 #
 # Shortcuts:  melorin install|update|status|restart|logs|panel
 set -uo pipefail
+# Hosts hardened with umask 077 would create 0600/0700 files on `git checkout` (update); containers running as "nobody"
+# (alertmanager, prometheus) could then not read their bind-mounted config. See scripts/fix_perms.sh.
+umask 022
 
 SELF="$(readlink -f "${BASH_SOURCE[0]}")"
 APP_DIR="$(cd "$(dirname "$SELF")" && pwd)"
@@ -261,6 +264,7 @@ do_update() {
     || { err "Checkout failed - there are local edits to tracked files in $APP_DIR."; return 1; }
   after="$(git rev-parse --short HEAD)"
   chmod +x melorin.sh scripts/*.sh 2>/dev/null || true
+  bash scripts/fix_perms.sh
   if [ "$before" = "$after" ]; then info "Already at $after; rebuilding anyway."; else info "Updating $before -> $after"; fi
   ( umask 077; mkdir -p var; cp -p .env var/env.before-update )
   # Least-privilege bot-runner secrets (docs/16): older installs get them on update; Core then retires the shared secret.

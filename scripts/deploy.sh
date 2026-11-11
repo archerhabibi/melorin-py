@@ -25,6 +25,7 @@
 # Environment: APP_DIR (default: repo root of this script), DEPLOY_HEALTH_TIMEOUT (default 180s), DEPLOY_SKIP_BACKUP=1,
 # DEPLOY_REMOTE (default origin). Compose file selection mirrors melorin.sh (external proxy / local-proxy profile).
 set -euo pipefail
+umask 022   # see scripts/fix_perms.sh: containers running as "nobody" must read the bind-mounted config
 
 APP_DIR="${APP_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
 REMOTE="${DEPLOY_REMOTE:-origin}"
@@ -178,6 +179,7 @@ rollback() {
     compose run --rm -T api alembic downgrade "$PREV_REV" || warn "database downgrade failed; schema stays at the new revision"
   fi
   git -c advice.detachedHead=false checkout --quiet --detach "$PREV"
+  [ -f "$APP_DIR/scripts/fix_perms.sh" ] && bash "$APP_DIR/scripts/fix_perms.sh" || true
   if provide_images "$PREV" && compose up -d --remove-orphans && wait_healthy; then
     say "rollback complete: serving $PREV_SHORT again"
     ops_log "rolled back to $PREV_SHORT" "$TARGET_SHORT" "$why"
@@ -191,6 +193,7 @@ rollback() {
 }
 
 git -c advice.detachedHead=false checkout --quiet --detach "$TARGET"
+[ -f "$APP_DIR/scripts/fix_perms.sh" ] && bash "$APP_DIR/scripts/fix_perms.sh" || true
 
 # ------------------------------------------------------------------ 4-6) build, migrate, up
 # Local builds happen on the production host while the old stack is still serving: build two images at a time, not all at once,
