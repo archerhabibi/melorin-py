@@ -83,6 +83,10 @@ if [ -n "$REPO_COMMIT" ]; then
 fi
 
 chmod +x melorin.sh scripts/*.sh 2>/dev/null || true
+# A checkout made earlier under umask 077 (manual git clone) leaves bind-mounted config unreadable for the non-root
+# containers (alertmanager/prometheus run as nobody). Re-apply readable perms on everything except secrets and .git.
+find . -path ./.git -prune -o -path ./secrets -prune -o -path ./.env -prune -o -type d -exec chmod go+rx {} + 2>/dev/null || true
+find . -path ./.git -prune -o -path ./secrets -prune -o -path ./.env -prune -o -type f -exec chmod go+r {} + 2>/dev/null || true
 ln -sf "$APP_DIR/melorin.sh" /usr/local/bin/melorin
 say "Command registered: run 'melorin' any time to open the menu."
 
