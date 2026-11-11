@@ -148,6 +148,12 @@ if [ ! -f .env ]; then
   if [ -n "$BOT" ]; then
     set_kv MELORIN_TELEGRAM_TOKEN "$BOT"
     set_kv MELORIN_MAIN_BOT_TOKEN "$BOT"
+    # Alertmanager receiver (T05): without ALERT_TELEGRAM_CHAT_ID the alertmanager container starts with NO receiver and every
+    # Prometheus alert is silently dropped. The main bot + the admin's numeric ID are already known here, so wire them up.
+    if [ -n "$ADMIN_TG" ]; then
+      set_kv ALERT_TELEGRAM_BOT_TOKEN "$BOT"
+      set_kv ALERT_TELEGRAM_CHAT_ID "$ADMIN_TG"
+    fi
     # Soft check only (Telegram may be unreachable from some networks).
     if curl -fsS -m 10 "https://api.telegram.org/bot${BOT}/getMe" >/dev/null 2>&1; then
       echo ">> main bot token verified with Telegram."
