@@ -78,7 +78,7 @@ def world(monkeypatch):
     gw, panel = _Gateway(), _Panel()
     monkeypatch.setitem(registry._ADAPTERS, gw.name, gw)
     monkeypatch.setattr(vpn, "build_adapter", lambda _panel, _server=None: panel)
-    if pg_url() is None:  # SQLite has no ``nextval``; on PostgreSQL the real sequence runs
+    if pg_url() is None:  # SQLite has no ``nextval``; on PostgreSQL the real sequence runs (created by tests/_db.py)
         counter = itertools.count(1)
 
         async def next_code(session, sequence):

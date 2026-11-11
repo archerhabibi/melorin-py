@@ -21,6 +21,7 @@ from sqlalchemy.schema import CreateIndex, CreateTable
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 import melorin.models  # noqa: F401  (registers every table)
+from melorin.core import codes
 from melorin.core.db import Base
 from melorin.kernel.models.catalog import Product
 from melorin.kernel.models.identity import User
@@ -80,6 +81,10 @@ async def open_schema_engine():
     try:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+            # The short-code sequences come from Alembic 0014, not from ORM metadata, so ``create_all`` never
+            # creates them; without these the real ``codes.next_code`` fails on PostgreSQL (relation does not exist).
+            for sequence in (codes.ORDER_SEQ, codes.TICKET_SEQ):
+                await conn.execute(text(f"CREATE SEQUENCE IF NOT EXISTS {sequence} START 1"))
         yield engine
     finally:
         await engine.dispose()
