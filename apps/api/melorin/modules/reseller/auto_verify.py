@@ -36,6 +36,7 @@ from melorin.core.errors import AppError
 from melorin.kernel.models.stores import ResellerApplication
 from melorin.modules.reseller import identity
 from melorin.domain.timeutil import aware as _aware
+from melorin.core.http import outbound_client
 
 log = logging.getLogger("melorin.reseller.verify")
 
@@ -102,7 +103,7 @@ async def host_is_public(domain: str) -> bool:
 # ---------------------------------------------------------------- network ----------------------------------------------
 async def check_dns(domain: str, value: str, *, transport: httpx.AsyncBaseTransport | None = None) -> bool:
     try:
-        async with httpx.AsyncClient(timeout=8, transport=transport) as client:
+        async with outbound_client("domain_verify_dns", timeout=8, transport=transport) as client:
             r = await client.get(
                 DOH_URL, params={"name": f"{TXT_PREFIX}.{domain}", "type": "TXT"}, headers={"accept": "application/dns-json"}
             )
@@ -115,7 +116,7 @@ async def check_http(domain: str, value: str, *, transport: httpx.AsyncBaseTrans
     if transport is None and not await host_is_public(domain):
         return False
     try:
-        async with httpx.AsyncClient(timeout=8, transport=transport, follow_redirects=False) as client:
+        async with outbound_client("domain_verify_http", timeout=8, transport=transport) as client:
             # Streamed and capped: a hostile domain must not be able to make the worker buffer an endless body.
             async with client.stream("GET", f"https://{domain}{HTTP_PATH}") as r:
                 if r.status_code != 200:

@@ -50,6 +50,14 @@ from melorin.core import config as _config  # noqa: E402
 
 _config.Settings.model_config["env_file"] = None
 
+# Test-only: scrypt at production cost (n=2**14, ~45 ms) dominates every test that creates a user. The stored format does not
+# encode the cost, so a cheap factor keeps hashing/verification fully functional. The hardened value stays in production code and
+# is pinned by tests/test_security_kdf_cost.py.
+from melorin.core import security as _security  # noqa: E402
+
+PRODUCTION_SCRYPT_N = _security._SCRYPT["n"]
+_security._SCRYPT["n"] = 2**4
+
 
 @pytest.fixture(autouse=True)
 def _hermetic_environment(request: pytest.FixtureRequest):

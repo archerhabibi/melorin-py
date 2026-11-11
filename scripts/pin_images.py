@@ -16,6 +16,7 @@ Resolving a digest needs access to the registries, so it runs where Docker Hub i
 (.github/workflows/pin-images.yml) does it on a GitHub runner and opens a pull request. Dependabot (docker /
 docker-compose ecosystems) then keeps the pins fresh. Nothing here invents a digest: an unresolvable reference is an error.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -28,7 +29,10 @@ from typing import NamedTuple
 ROOT = Path(__file__).resolve().parents[1]
 DIGEST = re.compile(r"@sha256:[0-9a-f]{64}$")
 COMPOSE_IMAGE = re.compile(r"^(?P<lead>\s*image:\s*)(?P<ref>[^\s#]+)(?P<tail>.*)$")
-DOCKER_FROM = re.compile(r"^(?P<lead>FROM\s+(?:--platform=\S+\s+)?)(?P<ref>\S+)(?P<tail>(?:\s+AS\s+\S+)?\s*)$", re.IGNORECASE)
+DOCKER_FROM = re.compile(
+    r"^(?P<lead>FROM\s+(?:--platform=\S+\s+)?)(?P<ref>\S+)(?P<tail>(?:\s+AS\s+\S+)?\s*)$",
+    re.IGNORECASE,
+)
 
 
 class Ref(NamedTuple):
@@ -78,13 +82,28 @@ def find_refs(root: Path = ROOT) -> list[Ref]:
 def resolve_digest(tagged_name: str) -> str:
     """Ask the registry for the manifest-list digest of `name:tag` (works for single- and multi-arch images)."""
     out = subprocess.run(
-        ["docker", "buildx", "imagetools", "inspect", tagged_name, "--format", "{{.Manifest.Digest}}"],
+        [
+            "docker",
+            "buildx",
+            "imagetools",
+            "inspect",
+            tagged_name,
+            "--format",
+            "{{.Manifest.Digest}}",
+        ],
         capture_output=True,
         text=True,
     )
     digest = out.stdout.strip()
+    if not re.fullmatch(
+        r"sha256:[0-9a-f]{64}", digest
+    ):  # some buildx builds ignore --format and print the human-readable report
+        m = re.search(r"^Digest:\s*(sha256:[0-9a-f]{64})\s*$", out.stdout, re.M)
+        digest = m.group(1) if m else digest
     if out.returncode != 0 or not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
-        raise RuntimeError(f"cannot resolve {tagged_name}: {(out.stderr or out.stdout).strip()[:200]}")
+        raise RuntimeError(
+            f"cannot resolve {tagged_name}: {(out.stderr or out.stdout).strip()[:200]}"
+        )
     return digest
 
 
@@ -113,10 +132,20 @@ def rewrite(root: Path, refs: list[Ref], digests: dict[str, str], refresh: bool)
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--check", action="store_true", help="exit 1 when any reference is not pinned by digest")
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="exit 1 when any reference is not pinned by digest",
+    )
     parser.add_argument("--pin", action="store_true", help="resolve and write digests")
-    parser.add_argument("--refresh", action="store_true", help="with --pin: also re-resolve already pinned references")
+    parser.add_argument(
+        "--refresh",
+        action="store_true",
+        help="with --pin: also re-resolve already pinned references",
+    )
     args = parser.parse_args(argv)
 
     refs = find_refs()
@@ -126,7 +155,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.pin:
         digests: dict[str, str] = {}
         try:
-            for name in sorted({r.tagged_name for r in refs if args.refresh or not r.pinned}):
+            for name in sorted(
+                {r.tagged_name for r in refs if args.refresh or not r.pinned}
+            ):
                 digests[name] = resolve_digest(name)
                 print(f"{name} -> {digests[name]}")
         except RuntimeError as exc:
@@ -136,9 +167,14 @@ def main(argv: list[str] | None = None) -> int:
         refs = find_refs()
     unpinned = [r for r in refs if not r.pinned]
     for r in refs:
-        print(f"{'pinned  ' if r.pinned else 'UNPINNED'} {r.file.relative_to(ROOT)}:{r.line}  {r.ref}")
+        print(
+            f"{'pinned  ' if r.pinned else 'UNPINNED'} {r.file.relative_to(ROOT)}:{r.line}  {r.ref}"
+        )
     if args.check and unpinned:
-        print(f"{len(unpinned)} image reference(s) are not pinned by digest (run the 'Pin images' workflow)", file=sys.stderr)
+        print(
+            f"{len(unpinned)} image reference(s) are not pinned by digest (run the 'Pin images' workflow)",
+            file=sys.stderr,
+        )
         return 1
     return 0
 

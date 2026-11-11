@@ -11,7 +11,7 @@ import {
   ubFromPanel,
   ubSummary,
   ubValidate,
-} from '../src/upstreamBot.js';
+} from '../src/upstreamBot.ts';
 
 const SESSION = '1' + 'A'.repeat(120);
 const ok = (over = {}) => ({ ...emptyUb(), bot: 'parent_bot', maxPrice: '100000', ...over });

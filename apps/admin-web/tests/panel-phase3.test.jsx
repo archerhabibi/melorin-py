@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import PanelCapacityTab from '../src/PanelCapacityTab.jsx';
-import PanelTemplatesTab from '../src/PanelTemplatesTab.jsx';
-import AccountToolsPanel from '../src/AccountToolsPanel.jsx';
-import { DialogHost } from '../src/ui.jsx';
+import PanelCapacityTab from '../src/PanelCapacityTab.tsx';
+import PanelTemplatesTab from '../src/PanelTemplatesTab.tsx';
+import AccountToolsPanel from '../src/AccountToolsPanel.tsx';
+import { DialogHost } from '../src/ui.tsx';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
 const mk = (handler) => {

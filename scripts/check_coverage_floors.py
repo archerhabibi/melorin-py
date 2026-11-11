@@ -57,7 +57,9 @@ def main(argv: list[str]) -> int:
         pct = 100.0 * covered / total
         ok = pct >= FLOORS[prefix]
         failed |= not ok
-        print(f"{'ok  ' if ok else 'FAIL'}  {prefix:<22} {pct:5.1f}%  (floor {FLOORS[prefix]:.0f}%, {covered}/{total} lines)")
+        print(
+            f"{'ok  ' if ok else 'FAIL'}  {prefix:<22} {pct:5.1f}%  (floor {FLOORS[prefix]:.0f}%, {covered}/{total} lines)"
+        )
     return 1 if failed else 0
 
 

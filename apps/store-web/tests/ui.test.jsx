@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Empty, Loading, Modal, StatusBadge, ThemeToggle, fa, fd, initTheme } from '../src/ui.jsx';
+import { Empty, Loading, Modal, StatusBadge, ThemeToggle, fa, fd, initTheme } from '../src/ui.tsx';
 
 describe('formatting helpers', () => {
   it('fa renders Persian digits with grouping and tolerates junk', () => {

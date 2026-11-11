@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { clearTokens, getAccessToken, setTokens } from '../src/auth.js';
-import { authFetch, getJson } from '../src/api.js';
+import { clearTokens, getAccessToken, setTokens } from '../src/auth.ts';
+import { authFetch, getJson } from '../src/api.ts';
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });

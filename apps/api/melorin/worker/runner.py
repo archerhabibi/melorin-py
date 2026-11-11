@@ -4,7 +4,7 @@ import datetime as dt
 import logging
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from melorin.core import events
 from melorin.core.config import get_settings
@@ -27,9 +27,10 @@ async def claim_batch(session, n=20):
     # Recover workers killed after claiming a row. A claim is leased, not permanent.
     lease_cutoff = utcnow() - dt.timedelta(minutes=10)
     await session.execute(
-        OutboxEvent.__table__.update()
+        update(OutboxEvent)
         .where(OutboxEvent.status == "processing", OutboxEvent.locked_at < lease_cutoff)
         .values(status="pending", locked_at=None, available_at=utcnow())
+        .execution_options(synchronize_session=False)
     )
     q = (
         select(OutboxEvent)
@@ -330,9 +331,10 @@ async def claim_webhook_batch(session, n=20):
 
     lease_cutoff = utcnow() - dt.timedelta(minutes=10)
     await session.execute(
-        WebhookDelivery.__table__.update()
+        update(WebhookDelivery)
         .where(WebhookDelivery.status == "delivering", WebhookDelivery.updated_at < lease_cutoff)
         .values(status="pending", next_attempt_at=utcnow())
+        .execution_options(synchronize_session=False)
     )
     q = (
         select(WebhookDelivery)

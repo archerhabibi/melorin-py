@@ -4,6 +4,7 @@
 * Reseller supervisor (``MELORIN_HEARTBEAT_FILE``): it may legitimately host zero bots, so there is no single token to
   ask about. It touches a heartbeat file every few seconds; a stale file means the process is stuck or dead.
 """
+
 import json
 import os
 import sys

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import ResellerBroadcast from '../src/ResellerBroadcast.jsx';
+import ResellerBroadcast from '../src/ResellerBroadcast.tsx';
 
 const res = (body, status = 200) => new Response(JSON.stringify(body), { status });
 

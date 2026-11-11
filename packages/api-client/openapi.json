@@ -5534,6 +5534,17 @@
       },
       "QuoteWalletOut": {
         "properties": {
+          "balance_after": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Balance After"
+          },
           "coupon_code": {
             "anyOf": [
               {
@@ -5582,6 +5593,11 @@
                 "type": "null"
               }
             ]
+          },
+          "shortfall": {
+            "default": 0,
+            "title": "Shortfall",
+            "type": "integer"
           },
           "sufficient_funds": {
             "title": "Sufficient Funds",

@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "allowJs": false,
+    "checkJs": false,
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "types": ["vite/client"],
+    "paths": {
+      "@melorin/web-kit/*": ["../../packages/web-kit/src/*"],
+      "@melorin/api-client": ["../../packages/api-client/src/index.d.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.d.ts"]
+}

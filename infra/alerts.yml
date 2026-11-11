@@ -31,6 +31,12 @@ groups:
         for: 5m
         labels: {severity: warning}
         annotations: {summary: "Melorin outbox backlog is growing"}
+      - alert: MelorinJobItemFailures
+        # T-W06: a job isolates per-item errors (one bad panel must not stop the rest) and still reports "ok"; this makes the swallowed errors visible.
+        expr: sum by (job) (increase(melorin_job_item_failures_total[30m])) > 5
+        for: 10m
+        labels: {severity: warning}
+        annotations: {summary: "A worker job keeps failing on individual items (see the job label and the worker log)"}
   # M7.6: traffic, business and housekeeping signals (HTTP, payments, provisioning, reseller bots, backups).
   - name: melorin-traffic
     rules:

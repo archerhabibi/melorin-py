@@ -21,8 +21,8 @@ case "$1" in
   up) exit 0 ;;
   ps)
     case "$*" in
-      *--services*) echo worker; exit 0 ;;
-      *State*) echo "postgres running healthy"; echo "api running healthy"; echo "worker running healthy"; echo "telegram_main running unhealthy"; exit 0 ;;
+      *--services*) echo worker; echo backup; exit 0 ;;
+      *State*) echo "postgres running healthy"; echo "api running healthy"; echo "worker running healthy"; echo "backup running healthy"; echo "telegram_main running unhealthy"; exit 0 ;;
       *) echo "api healthy"; echo "telegram_main unhealthy"; exit 0 ;;
     esac ;;
   run)

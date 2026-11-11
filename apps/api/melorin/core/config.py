@@ -126,6 +126,9 @@ class Settings(BaseSettings):
     reseller_bot_secret: str = ""
     metrics_token: str = ""
     health_token: str = ""
+    # Optional OpenTelemetry export (core/otlp.py): OTLP/HTTP collector base URL, e.g. http://otel-collector:4318. Empty = off.
+    otlp_endpoint: str = ""
+    otlp_service_name: str = "melorin-api"
     main_bot_token: str = ""
     google_client_id: str = ""
     # Website login approved in the Telegram bot (docs/TELEGRAM-WEB-LOGIN.md)
@@ -157,7 +160,15 @@ class Settings(BaseSettings):
     public_api_url: str = ""
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:3001"]
     cors_allow_methods: list[str] = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
-    cors_allow_headers: list[str] = ["Accept", "Authorization", "Content-Type", "Idempotency-Key", "X-Bot-Secret", "X-Request-ID"]
+    cors_allow_headers: list[str] = [
+        "Accept",
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "X-Bot-Secret",
+        "X-Request-ID",
+        "traceparent",
+    ]
     storage_dir: str = "./var/storage"
     max_upload_bytes: int = 5 * 1024 * 1024
     # Automatic reading of card-to-card receipts (docs/20-Card-Receipt-Auto-Verification.md): auto | vision | tesseract | off

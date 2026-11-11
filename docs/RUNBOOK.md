@@ -144,7 +144,7 @@ Checks: `docker compose exec caddy caddy validate --config /etc/caddy/Caddyfile`
 
 ## Release, rollback and alerting (audit P0)
 
-**Deploys are gated by CI.** `deploy.yml` runs only after a *successful* `CI` run on a push to `main` (`workflow_run`) and deploys exactly the commit CI tested. A manual run (`workflow_dispatch`) re-checks that the ref is on `main` and has a green CI run (a commit that differs from a CI-green ancestor only by the Changelog bot's `docs/CHANGE_LOG.md` entries is accepted, because bot pushes never start CI). It streams that commit's `scripts/deploy.sh` to the server, which: takes a lock, refuses hand-edited tracked files, takes an encrypted pre-deploy backup through the worker (aborts if it fails), builds, runs `alembic upgrade head`, starts the stack and waits for `/health/ready` (DB + Redis + worker) and healthy core services. Any failure after the checkout **automatically restores the previous commit**, rebuilds and re-verifies; the exit code is 1 (rolled back) or 2 (rollback failed - intervene). Bots that are unhealthy only produce a warning.
+**Deploys are gated by CI.** `deploy.yml` runs only after a *successful* `CI` run on a push to `main` (`workflow_run`) and deploys exactly the commit CI tested. A manual run (`workflow_dispatch`) re-checks that the ref is on `main` and has a green CI run (a commit that differs from a CI-green ancestor only by the Changelog bot's `docs/CHANGE_LOG.md` entries is accepted, because bot pushes never start CI). It streams that commit's `scripts/deploy.sh` to the server, which: takes a lock, refuses hand-edited tracked files, takes an encrypted pre-deploy backup through the backup container (aborts if it fails), builds, runs `alembic upgrade head`, starts the stack and waits for `/health/ready` (DB + Redis + worker) and healthy core services. Any failure after the checkout **automatically restores the previous commit**, rebuilds and re-verifies; the exit code is 1 (rolled back) or 2 (rollback failed - intervene). Bots that are unhealthy only produce a warning.
 
 * Manual deploy/rollback on the server: `cd /opt/melorin && scripts/deploy.sh --ref <sha-or-tag>`. Rolling *back* to an older release is the same command with the older ref.
 * Rollback restores **code**. The schema stays at the new revision (migrations 0002/0011/0023/0026 have no-op downgrades). Pass `--db-downgrade` to also run `alembic downgrade` to the previous revision when you know the downgrades are real. The pre-deploy backup path is printed on every failure; restore data by hand only if a migration was destructive.
@@ -192,7 +192,7 @@ Packages pushed by a workflow are private by default; keep them private. To go b
 
 
 ## PasarGuard operations (Phase 4)
-Node errors, outage compensation, bulk disable/enable and store suspension policy are described in `docs/PANEL-OPS-PHASE4.md`.
+Node errors, outage compensation, bulk disable/enable and store suspension policy are described in `docs/panels/PANEL-OPS-PHASE4.md`.
 
 ## Panel lost: how Melorin converges (PasarGuard Phase 5, PG-16)
 Use this when the PasarGuard panel (not Melorin) is gone, reinstalled or restored from an old copy.
@@ -208,4 +208,4 @@ Use this when the PasarGuard panel (not Melorin) is gone, reinstalled or restore
 6. **Prove the backup next time.** Run `BACKUP_ARCHIVE=... BACKUP_IDENTITY_FILE=... scripts/verify_panel_backup.sh` (non-destructive) after any change and at least monthly. The host's `pg_restore` must be at least as new as the panel's PostgreSQL (the panel runs 17, Ubuntu 24.04 has 16): then add `PG_RESTORE='docker exec -i pasarguard-timescaledb-1 pg_restore'` (a pasted-in command reads the dump from stdin).
 7. **Re-enable selling** once nodes are `connected` and the capacity/health view is green, then confirm a fresh panel backup runs the next day (`melorin_backup_age_seconds{target="panel"}`).
 
-If the backup is stale or not configured, the admin tab says so and alert `MelorinPanelBackupStale` fires. See `docs/PANEL-OPS-PHASE5.md`.
+If the backup is stale or not configured, the admin tab says so and alert `MelorinPanelBackupStale` fires. See `docs/panels/PANEL-OPS-PHASE5.md`.

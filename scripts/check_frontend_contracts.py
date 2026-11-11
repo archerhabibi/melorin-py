@@ -13,18 +13,40 @@ def has(needle: str, text: str) -> bool:
     return squash(needle) in squash(text)
 
 
-store = (root / "apps/store-web/src/App.jsx").read_text()
-admin = (root / "apps/admin-web/src/App.jsx").read_text()
+# App.tsx was split into components (T-R11): the storefront shell is the sum of these files.
+STORE_SHELL = (
+    "App.tsx",
+    "SiteHeader.tsx",
+    "HeroSection.tsx",
+    "PlansSection.tsx",
+    "InfoSections.tsx",
+    "AccountBanner.tsx",
+    "SiteFooter.tsx",
+    "MobileNav.tsx",
+    "StoreDialogs.tsx",
+    "useCoreFetch.ts",
+    "useStoreCatalog.ts",
+)
+store = "\n".join((root / "apps/store-web/src" / n).read_text() for n in STORE_SHELL)
+admin = (root / "apps/admin-web/src/App.tsx").read_text()
 caddy = (root / "infra/Caddyfile").read_text()
 api = (root / "apps/api/melorin/app.py").read_text()
 checks = {
     "Store ID is declared": has("const [storeId, setStoreId]", store),
     "Store ID is resolved": has("setStoreId(store.id)", store),
-    "Orders are Store-scoped": has("coreFetch(`/api/v1/stores/${storeId}/orders`).then", store),
+    "Orders are Store-scoped": has(
+        "coreFetch(`/api/v1/stores/${storeId}/orders`).then", store
+    ),
     "No unscoped order collection": not has('coreFetch("/api/v1/orders")', store),
-    "Admin ticket badge is defined": has("{openTickets}</span>", admin) and not has("{tickets}</span>", admin),
-    "Admin section tables are mounted": has("<AdminSectionView section={section} api={api} toast={toast}/>", admin),
-    "Demo fallback is not rendered": (has("catalog.length ? catalog.map", store) or (has("catalog.length ? (", store) and has("catalog.map(", store)))
+    "Admin ticket badge is defined": has("{openTickets}</span>", admin)
+    and not has("{tickets}</span>", admin),
+    "Admin section tables are mounted": has(
+        "<AdminSectionView section={section} api={api} toast={toast}/>", admin
+    ),
+    "Demo fallback is not rendered": (
+        has("catalog.length ? catalog.map", store)
+        or (has("catalog.length ? (", store) and has("catalog.map(", store))
+    )
     and not has("catalog.length ? catalog : demoPlans", store),
     "Proxy health paths exist": "/health/*" in caddy and "/health " in caddy,
     "Health compatibility endpoint exists": '@app.get("/healthz"' in api,

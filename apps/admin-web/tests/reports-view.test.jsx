@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import ReportsView from '../src/ReportsView.jsx';
+import ReportsView from '../src/ReportsView.tsx';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
 const days = ['2026-10-11', '2026-10-12', '2026-10-13'];

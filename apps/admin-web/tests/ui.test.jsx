@@ -14,8 +14,8 @@ import {
   promptDialog,
   sid,
   tone,
-} from '../src/ui.jsx';
-import { getTheme } from '../src/theme.js';
+} from '../src/ui.tsx';
+import { getTheme } from '../src/theme.ts';
 
 describe('status helpers', () => {
   it('maps known statuses to a Persian label and tone class, unknown ones to a muted raw value', () => {

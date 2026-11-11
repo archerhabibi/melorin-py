@@ -55,3 +55,42 @@ _Merged from the former 12-Change-Log-v1.1.md._
 - Adapter classes and each family's `contract.py` (settings/target validation, capacity label, listing warnings) are imported lazily; `upstream_bot` therefore needs Telethon only when a call is made.
 - Core code asks `providers.supports(kind, feature)` / `target_kinds(kind)` instead of comparing `panel.kind` with a string. A new family is one `register_provider(...)` call.
 - Guarded by `tests/test_provider_adapters.py` (no concrete family is imported outside the adapter layer, except the PasarGuard wire parsers listed in the test).
+
+## T-R10 - `reportsLogic.js` stays in admin-web; branch hygiene (2026-11-10)
+- Review of `apps/admin-web/src/reportsLogic.js` (194 lines): it only formats numbers (`fmt*`), maps labels, draws donut/heat geometry and derives percentage shares and insight sentences from figures that Core already returned. It never computes balances, prices, fees or ledger values, so it is presentation logic and stays in the UI.
+- Rule going forward: if a report needs a *new* monetary figure (a total, margin, balance), Core's reports module must return it as a field; the browser may only format and compare it. Same rule as the quote's `balance_after` / `shortfall` (T-R10).
+- Branch hygiene (T-W16): the 19 remote branches fully merged into `main` were deleted on 2026-11-10; every commit remains reachable from `main`. Unmerged branches were kept for the owner to decide.
+
+## T-R05 / T-R07 / T-R12 / T-R13 / T-R14 / T-R15 - remediation close-out and deferred work (2026-11-10)
+- Done: pasarguard test files are named by feature (`admin_api`, `service_db`, `events`, `account_tools`, `capacity`, `bulk_ops`, `ops_governance`, `ops_maturity`, ...) instead of `phaseN`; `test_q02_bot_inquiry` became `test_bot_inquiry`; panel documents live in `docs/panels/`.
+- Done: the PostgreSQL lane (`postgres-lane` in `ci.yml`) is a normal required job (no `continue-on-error`); broad `except Exception` handlers are ratcheted by `test_broad_except_exception_count_only_ratchets_down` (ceiling 104, lower it when you narrow one).
+- Deferred on purpose, each needs a real Docker host or product input that this remediation did not have:
+  - T-R14 backup out of the Worker: moving `backup_job`/`panel_backup_job` into a dedicated ops container changes the compose topology and the restore drill; do it together with a first compose run on a Docker host.
+  - T-R13 OpenTelemetry exporter and a CI performance budget: tracing now exists without new dependencies (see "Trace context" below); an exporter needs a collector decision and hash-locked packages. The `load_probe.py` budget needs the full stack.
+  - T-R11 remaining: `store-web/App.jsx` still holds the 1,000-line `App` component and the three admin views were split by block, not by feature; keep going one view per PR with the vitest suites as the safety net. Gradual TypeScript is not started.
+  - T-W08 ESLint ceilings stay at 13 / 25: each remaining warning is a `react-hooks/exhaustive-deps` case where a blind fix can loop or refetch, so they need a browser check, not a bulk edit.
+  - Merging the pasarguard test files into ~6 files: renames are done; physical merging is cosmetic and was left out to keep git history of each suite readable.
+
+## Trace context (T-G06, 2026-11-10)
+- `CorrelationMiddleware` honours an inbound W3C `traceparent` (or creates a trace id), echoes `traceparent` on the response, and every JSON log line carries `trace_id`. `core/http.outbound_client` forwards the same trace id to peers. No SDK, collector or new dependency; `traceparent` is in the CORS allow-list. Tests: `tests/unit/test_tracing.py`.
+
+## T-R11 first split (2026-11-10)
+- `store-web/App.jsx`: static copy, constants, `Logo` and `HeroVisual` moved to `landing.jsx`.
+- `admin-web`: `TicketsView` -> `ticketsShared.jsx` + `TicketConversation.jsx`; `PaymentsView` -> `paymentsShared.jsx` + `PaymentParts.jsx`; `ProductsView` -> `productsShared.jsx` + `ProductParts.jsx`. Pure moves: vitest 79 / 215 pass and both builds are unchanged in size.
+
+## T-R11 close-out: App split + gradual TypeScript (2026-11-10)
+- `store-web/App.jsx` 1,084 -> ~545 lines: header, hero, plans, how/why, account banner, footer, mobile nav and the five dialog bodies (`StoreDialogs.jsx`) are components now; state and effects stay in `App` on purpose (no behaviour change, no new hooks).
+- Safety net is a real browser, not only jsdom: `e2e/tests/store.purchase.spec.js` (email-code login, quote -> wallet payment -> delivery dialog, insufficient funds, bot handoff, expired handoff, Tg error redirect, mobile menu) was written and passing BEFORE the split and is identical after it (Playwright + Chromium, Core mocked with `page.route`). Run: `cd e2e && npm ci && npx playwright install --with-deps chromium && npx playwright test`. Needs Node >= 20.19 (Vite 7).
+- TypeScript is started in `store-web` (strict, `allowJs`, `checkJs: false`): `coreApi.ts`, `storeProgram.ts`, `loyaltyFormat.ts` are typed; `npm run typecheck` is a CI step. Convert one leaf module per PR; do not turn on `checkJs` until the JSX components are typed.
+- Source-contract guards (`check_g001_g010.py`, `check_frontend_contracts.py`, `tests/_source.read_store_shell`) read the storefront shell as App.jsx + the split files, so a guard cannot pass by looking at only half the code. First-load budget for store-web raised 272 -> 273 kB for the extra component boundaries.
+- Still open: admin-web has no TypeScript yet; `App` still owns session/catalog state (a `useSession` / `useCatalog` hook extraction is the next safe step, now covered by the browser specs).
+
+## T-R11 step 2: session and catalog hooks (2026-11-10)
+- `useCoreFetch` (authenticated fetch + one silent refresh) and `useStoreCatalog` (store, bundles, packages) moved out of `App`; `App.jsx` is ~470 lines.
+- The first attempt put the hook calls after a line that already used `hasBot`: lint, vitest (jsdom) and `vite build` all passed, but the real browser showed a white screen (`Cannot access ... before initialization`). The Playwright specs caught it; fixed by calling the hooks before first use. Lesson: for `App` refactors the browser specs are the gate, not vitest.
+
+## T-R11 finished: store-web fully on TypeScript (2026-11-11)
+- All 48 store-web source files are `.ts`/`.tsx` (`allowJs: false`, `strict`, `tsc` 0 errors); `typecheck` is a CI step for both web apps. ESLint now parses `.ts/.tsx` too (typescript-eslint parser) with the same `--max-warnings 0` ceiling, so type migration did not drop hook/a11y linting.
+- Honest limit: component props and server payloads that are not yet bound to generated `@melorin/api-client` schemas are typed `Json` / `Rec` (aliases in `src/types.ts`, same markers as admin-web). They are greppable; tighten one view per PR. This is a typed shell, not full type safety.
+- Verified in a real browser, not only jsdom: Playwright 10 passed / 2 skipped (the skipped two need a seeded staging stack), vitest 79, `vite build` OK (main bundle ~272 KB, gzip ~85 KB).
+- Source-contract guards (api tests, `check_g001_g010.py`, `check_frontend_contracts.py`) were repointed from `.jsx`/`.js` to `.tsx`/`.ts` for BOTH apps; the earlier admin-web migration had left 16 contract tests red because they still read the old names.

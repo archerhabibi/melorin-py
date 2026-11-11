@@ -46,6 +46,15 @@ class Posting:
     min_balance: int | None = 0  # for wallet debits; None = unchecked (reversal/admin)
 
 
+def _posting_account(p: Posting) -> str:
+    """Ledger account of one posting: its wallet's account, else the explicit one (a posting needs one of the two)."""
+    if p.wallet:
+        return acc_wallet(p.wallet)
+    if p.account is None:
+        raise ValueError("a ledger posting needs a wallet or an account")
+    return p.account
+
+
 async def get_wallet(
     session: AsyncSession, user_id: uuid.UUID, store_id: uuid.UUID, *, currency: str = "IRT", kind: str = "customer"
 ) -> Wallet:
@@ -110,9 +119,7 @@ async def post(
     if any(w.currency != currency for w in wallets):
         raise AppError("CURRENCY_MISMATCH", "واحد پول ناهمخوان است.", 400)
     await lock_wallets(session, wallets)
-    lines = [
-        Line(acc_wallet(p.wallet) if p.wallet else p.account, p.amount, p.wallet.id if p.wallet else None, p.min_balance) for p in postings
-    ]
+    lines = [Line(_posting_account(p), p.amount, p.wallet.id if p.wallet else None, p.min_balance) for p in postings]
     try:
         validate_balanced(lines)
     except LedgerError as e:

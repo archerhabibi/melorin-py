@@ -74,7 +74,9 @@ class Redactor:
     """Masks every secret value found in the environment (and anything shaped like a Telegram bot token)."""
 
     def __init__(self, env: Mapping[str, str], extra: list[str] | None = None):
-        values = {v for k, v in env.items() if _SECRET_NAME.search(k) and v and len(v) >= 6}
+        values = {
+            v for k, v in env.items() if _SECRET_NAME.search(k) and v and len(v) >= 6
+        }
         values.update(v for v in (extra or []) if v and len(v) >= 6)
         self._values = sorted(values, key=len, reverse=True)
 
@@ -93,9 +95,18 @@ class Redactor:
         return obj
 
 
-def run_command(cmd: list[str], timeout: int = 600, cwd: Path | None = None) -> tuple[int, str]:
+def run_command(
+    cmd: list[str], timeout: int = 600, cwd: Path | None = None
+) -> tuple[int, str]:
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=cwd or ROOT, check=False)  # noqa: S603
+        proc = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            cwd=cwd or ROOT,
+            check=False,
+        )  # noqa: S603
     except subprocess.TimeoutExpired:
         return 124, f"timeout after {timeout}s: {' '.join(cmd[:3])}"
     except OSError as exc:
@@ -110,7 +121,11 @@ def default_adapter_factory(cfg: dict):
         cls = ADAPTERS[cfg["kind"]]
     except KeyError as exc:
         raise ValueError(f"unknown panel kind {cfg.get('kind')!r}") from exc
-    return cls(base_url=cfg["base_url"], credentials=cfg.get("credentials") or {}, config=cfg.get("config") or {})
+    return cls(
+        base_url=cfg["base_url"],
+        credentials=cfg.get("credentials") or {},
+        config=cfg.get("config") or {},
+    )
 
 
 @dataclasses.dataclass
@@ -118,7 +133,9 @@ class Context:
     env: Mapping[str, str]
     evidence_dir: Path
     allow_mutation: bool = False
-    http: Callable[[], httpx.AsyncClient] = lambda: httpx.AsyncClient(timeout=15, follow_redirects=False)
+    http: Callable[[], httpx.AsyncClient] = lambda: httpx.AsyncClient(
+        timeout=15, follow_redirects=False
+    )
     run: Callable[..., tuple[int, str]] = run_command
     which: Callable[[str], str | None] = shutil.which
     adapter_factory: Callable[[dict], object] = default_adapter_factory
@@ -130,7 +147,14 @@ class Context:
         return f"missing environment: {', '.join(missing)}" if missing else None
 
     def first(self, *names: str) -> str:
-        return next(((self.env.get(n) or "").strip() for n in names if (self.env.get(n) or "").strip()), "")
+        return next(
+            (
+                (self.env.get(n) or "").strip()
+                for n in names
+                if (self.env.get(n) or "").strip()
+            ),
+            "",
+        )
 
 
 # --------------------------------------------------------------------------- Telegram
@@ -142,13 +166,26 @@ async def _telegram(ctx: Context, *token_vars: str) -> Result:
         return skipped(f"missing environment: {' or '.join(token_vars)}")
     async with ctx.http() as client:
         me = (await client.get(f"https://api.telegram.org/bot{token}/getMe")).json()
-        hook = (await client.get(f"https://api.telegram.org/bot{token}/getWebhookInfo")).json()
+        hook = (
+            await client.get(f"https://api.telegram.org/bot{token}/getWebhookInfo")
+        ).json()
     if not (me.get("ok") and (me.get("result") or {}).get("is_bot")):
-        return failed("getMe did not return a bot", ok=me.get("ok"), description=me.get("description"))
+        return failed(
+            "getMe did not return a bot",
+            ok=me.get("ok"),
+            description=me.get("description"),
+        )
     webhook_url = (hook.get("result") or {}).get("url") or ""
     if webhook_url:  # the runners use long polling (getUpdates), which Telegram refuses while a webhook is set
-        return failed("a webhook is registered but the runner uses long polling (getUpdates would return 409)", webhook_url=webhook_url)
-    return passed(bot_username=me["result"].get("username"), bot_id=me["result"].get("id"), webhook="none (long polling ready)")
+        return failed(
+            "a webhook is registered but the runner uses long polling (getUpdates would return 409)",
+            webhook_url=webhook_url,
+        )
+    return passed(
+        bot_username=me["result"].get("username"),
+        bot_id=me["result"].get("id"),
+        webhook="none (long polling ready)",
+    )
 
 
 async def check_telegram_main(ctx: Context) -> Result:
@@ -168,16 +205,37 @@ async def check_zarinpal_sandbox(ctx: Context) -> Result:
     from melorin.modules.payments.adapters.zarinpal import ZarinpalAdapter
 
     adapter = ZarinpalAdapter()
-    settings = {"gateway.zarinpal": {"merchant_id": ctx.env["MELORIN_ZARINPAL_SANDBOX_MERCHANT"].strip(), "sandbox": True}}
-    payment = types.SimpleNamespace(id=uuid.uuid4(), amount=10_000, currency="IRT", external_ref=None, status="pending")
-    intent = await adapter.create_payment_intent(payment, callback_url="https://example.invalid/cb", settings=settings)
+    settings = {
+        "gateway.zarinpal": {
+            "merchant_id": ctx.env["MELORIN_ZARINPAL_SANDBOX_MERCHANT"].strip(),
+            "sandbox": True,
+        }
+    }
+    payment = types.SimpleNamespace(
+        id=uuid.uuid4(),
+        amount=10_000,
+        currency="IRT",
+        external_ref=None,
+        status="pending",
+    )
+    intent = await adapter.create_payment_intent(
+        payment, callback_url="https://example.invalid/cb", settings=settings
+    )
     host = urlsplit(intent.instructions["redirect_url"]).hostname
     if host != "sandbox.zarinpal.com" or not intent.external_ref:
-        return failed("sandbox request.json did not yield a sandbox StartPay URL", host=host)
+        return failed(
+            "sandbox request.json did not yield a sandbox StartPay URL", host=host
+        )
     payment.external_ref = intent.external_ref
-    cancelled = await adapter.verify_callback({"Authority": intent.external_ref, "Status": "NOK"}, payment, settings=settings)
-    unpaid = await adapter.verify_callback({"Authority": intent.external_ref, "Status": "OK"}, payment, settings=settings)
-    forged = await adapter.verify_callback({"Authority": "A" + "0" * 35, "Status": "OK"}, payment, settings=settings)
+    cancelled = await adapter.verify_callback(
+        {"Authority": intent.external_ref, "Status": "NOK"}, payment, settings=settings
+    )
+    unpaid = await adapter.verify_callback(
+        {"Authority": intent.external_ref, "Status": "OK"}, payment, settings=settings
+    )
+    forged = await adapter.verify_callback(
+        {"Authority": "A" + "0" * 35, "Status": "OK"}, payment, settings=settings
+    )
     problems = [
         label
         for label, res in (
@@ -187,11 +245,17 @@ async def check_zarinpal_sandbox(ctx: Context) -> Result:
         )
         if res.succeeded
     ]
-    details = {"authority_prefix": intent.external_ref[:6], "unpaid_verify_code": (unpaid.raw.get("verify") or {}).get("code")}
+    details = {
+        "authority_prefix": intent.external_ref[:6],
+        "unpaid_verify_code": (unpaid.raw.get("verify") or {}).get("code"),
+    }
     if problems:
         return failed("; ".join(problems), **details)
     # A real money movement needs a browser payment with a sandbox card; that stays a manual, documented step.
-    return passed(**details, scope="request + verify negative paths against the sandbox (no browser payment performed)")
+    return passed(
+        **details,
+        scope="request + verify negative paths against the sandbox (no browser payment performed)",
+    )
 
 
 # --------------------------------------------------------------------------- real panels
@@ -208,12 +272,19 @@ async def _roundtrip(adapter, name: str) -> dict:
         steps["health_check"] = bool(await adapter.health_check())
         if not steps["health_check"]:
             raise RuntimeError("health_check returned False")
-        acc = await adapter.create_account(AccountSpec(username, expire, 1024**3, 1, "melorin runtime evidence"))
+        acc = await adapter.create_account(
+            AccountSpec(username, expire, 1024**3, 1, "melorin runtime evidence")
+        )
         created = True
-        steps["create"] = {"status": acc.status, "has_subscription": bool(acc.subscription_url)}
+        steps["create"] = {
+            "status": acc.status,
+            "has_subscription": bool(acc.subscription_url),
+        }
         got = await adapter.get_account(username)
         steps["get"] = bool(got and got.username == username)
-        await adapter.extend_account(username, expire_at=expire + dt.timedelta(days=1), traffic_bytes=2 * 1024**3)
+        await adapter.extend_account(
+            username, expire_at=expire + dt.timedelta(days=1), traffic_bytes=2 * 1024**3
+        )
         steps["extend"] = True
         await adapter.suspend_account(username)
         await adapter.resume_account(username)
@@ -225,7 +296,9 @@ async def _roundtrip(adapter, name: str) -> dict:
             try:
                 await adapter.revoke_account(username)
                 steps["revoke"] = True
-                steps["gone_after_revoke"] = (await adapter.get_account(username)) is None
+                steps["gone_after_revoke"] = (
+                    await adapter.get_account(username)
+                ) is None
             except Exception as exc:  # noqa: BLE001
                 steps["revoke_error"] = str(exc)[:200]
         close = getattr(adapter, "close", None)
@@ -233,15 +306,26 @@ async def _roundtrip(adapter, name: str) -> dict:
             result = close()
             if hasattr(result, "__await__"):
                 await result
-    ok = steps.get("health_check") and steps.get("get") and steps.get("extend") and steps.get("revoke") and steps.get("gone_after_revoke")
+    ok = (
+        steps.get("health_check")
+        and steps.get("get")
+        and steps.get("extend")
+        and steps.get("revoke")
+        and steps.get("gone_after_revoke")
+    )
     return {"panel": name, "ok": bool(ok), "steps": steps}
 
 
 async def check_panel_roundtrip(ctx: Context) -> Result:
     if reason := ctx.need("MELORIN_EVIDENCE_PANELS"):
-        return skipped(reason + " (path to a JSON list of {name, kind, base_url, credentials, config})")
+        return skipped(
+            reason
+            + " (path to a JSON list of {name, kind, base_url, credentials, config})"
+        )
     if not ctx.allow_mutation:
-        return skipped("creates and deletes a throwaway account on each panel; re-run with --allow-mutation")
+        return skipped(
+            "creates and deletes a throwaway account on each panel; re-run with --allow-mutation"
+        )
     panels = json.loads(Path(ctx.env["MELORIN_EVIDENCE_PANELS"]).read_text())
     outcomes = []
     for cfg in panels:
@@ -249,10 +333,19 @@ async def check_panel_roundtrip(ctx: Context) -> Result:
         try:
             outcomes.append(await _roundtrip(ctx.adapter_factory(cfg), name))
         except Exception as exc:  # noqa: BLE001
-            outcomes.append({"panel": name, "ok": False, "error": f"{type(exc).__name__}: {exc}"[:300]})
+            outcomes.append(
+                {
+                    "panel": name,
+                    "ok": False,
+                    "error": f"{type(exc).__name__}: {exc}"[:300],
+                }
+            )
     details = {"panels": outcomes}
     if not outcomes or not all(o["ok"] for o in outcomes):
-        return failed("one or more panels failed the create/read/extend/suspend/revoke round trip", **details)
+        return failed(
+            "one or more panels failed the create/read/extend/suspend/revoke round trip",
+            **details,
+        )
     return passed(**details)
 
 
@@ -265,9 +358,42 @@ async def check_docker_build(ctx: Context) -> Result:
     log = ctx.evidence_dir / "docker-build.log"
     steps = [
         ("compose config", ["docker", "compose", "config", "-q"]),
-        ("api image", ["docker", "build", "-f", "apps/api/Dockerfile", "-t", "melorin-evidence-api", "."]),
-        ("store-web image", ["docker", "build", "-f", "apps/store-web/Dockerfile", "-t", "melorin-evidence-store-web", "."]),
-        ("admin-web image", ["docker", "build", "-f", "apps/admin-web/Dockerfile", "-t", "melorin-evidence-admin-web", "."]),
+        (
+            "api image",
+            [
+                "docker",
+                "build",
+                "-f",
+                "apps/api/Dockerfile",
+                "-t",
+                "melorin-evidence-api",
+                ".",
+            ],
+        ),
+        (
+            "store-web image",
+            [
+                "docker",
+                "build",
+                "-f",
+                "apps/store-web/Dockerfile",
+                "-t",
+                "melorin-evidence-store-web",
+                ".",
+            ],
+        ),
+        (
+            "admin-web image",
+            [
+                "docker",
+                "build",
+                "-f",
+                "apps/admin-web/Dockerfile",
+                "-t",
+                "melorin-evidence-admin-web",
+                ".",
+            ],
+        ),
     ]
     outcomes, lines = {}, []
     for label, cmd in steps:
@@ -276,7 +402,12 @@ async def check_docker_build(ctx: Context) -> Result:
         lines.append(f"$ {' '.join(cmd)}\n[rc={rc}]\n{out}\n")
     log.write_text("\n".join(lines))
     if not all(outcomes.values()):
-        return failed("docker build/config failed: " + ", ".join(k for k, v in outcomes.items() if not v), steps=outcomes, log=log.name)
+        return failed(
+            "docker build/config failed: "
+            + ", ".join(k for k, v in outcomes.items() if not v),
+            steps=outcomes,
+            log=log.name,
+        )
     return passed(steps=outcomes, log=log.name)
 
 
@@ -286,7 +417,10 @@ async def check_docker_build(ctx: Context) -> Result:
 async def check_caddy_config(ctx: Context) -> Result:
     caddyfile = ROOT / "infra" / "Caddyfile"
     if ctx.which("caddy"):
-        rc, out = ctx.run(["caddy", "validate", "--config", str(caddyfile), "--adapter", "caddyfile"], timeout=120)
+        rc, out = ctx.run(
+            ["caddy", "validate", "--config", str(caddyfile), "--adapter", "caddyfile"],
+            timeout=120,
+        )
         tool = "caddy"
     elif ctx.which("docker"):
         rc, out = ctx.run(
@@ -310,12 +444,20 @@ async def check_caddy_config(ctx: Context) -> Result:
     else:
         return skipped("neither the caddy binary nor docker is available")
     (ctx.evidence_dir / "caddy-validate.log").write_text(out)
-    return passed(tool=tool) if rc == 0 else failed("caddy validate rejected infra/Caddyfile", tool=tool, output=out[-500:])
+    return (
+        passed(tool=tool)
+        if rc == 0
+        else failed(
+            "caddy validate rejected infra/Caddyfile", tool=tool, output=out[-500:]
+        )
+    )
 
 
 async def check_tls_ask_gate(ctx: Context) -> Result:
     """The on-demand TLS gate: Caddy may only obtain certificates for hostnames Core confirms."""
-    if reason := ctx.need("MELORIN_EVIDENCE_API_URL", "MELORIN_EVIDENCE_RESELLER_DOMAIN"):
+    if reason := ctx.need(
+        "MELORIN_EVIDENCE_API_URL", "MELORIN_EVIDENCE_RESELLER_DOMAIN"
+    ):
         return skipped(reason)
     base = ctx.env["MELORIN_EVIDENCE_API_URL"].rstrip("/")
     known = ctx.env["MELORIN_EVIDENCE_RESELLER_DOMAIN"].strip().lower()
@@ -324,10 +466,20 @@ async def check_tls_ask_gate(ctx: Context) -> Result:
         ok = await client.get(f"{base}/api/v1/tls/ask", params={"domain": known})
         refused = await client.get(f"{base}/api/v1/tls/ask", params={"domain": unknown})
         empty = await client.get(f"{base}/api/v1/tls/ask", params={"domain": ""})
-    details = {"registered_status": ok.status_code, "unregistered_status": refused.status_code, "empty_status": empty.status_code}
+    details = {
+        "registered_status": ok.status_code,
+        "unregistered_status": refused.status_code,
+        "empty_status": empty.status_code,
+    }
     if ok.status_code != 200 or refused.status_code != 404 or empty.status_code != 404:
-        return failed("tls/ask must answer 200 for an active reseller domain and 404 for everything else", **details)
-    return passed(**details, note="certificate issuance itself needs public DNS and is recorded manually")
+        return failed(
+            "tls/ask must answer 200 for an active reseller domain and 404 for everything else",
+            **details,
+        )
+    return passed(
+        **details,
+        note="certificate issuance itself needs public DNS and is recorded manually",
+    )
 
 
 # --------------------------------------------------------------------------- Prometheus / Alertmanager
@@ -357,7 +509,11 @@ async def check_prometheus_rules(ctx: Context) -> Result:
     else:
         return skipped("neither promtool nor docker is available")
     (ctx.evidence_dir / "promtool-rules.log").write_text(out)
-    return passed(tool=tool) if rc == 0 else failed("promtool rejected infra/alerts.yml", tool=tool, output=out[-500:])
+    return (
+        passed(tool=tool)
+        if rc == 0
+        else failed("promtool rejected infra/alerts.yml", tool=tool, output=out[-500:])
+    )
 
 
 async def check_prometheus_scrape(ctx: Context) -> Result:
@@ -366,14 +522,26 @@ async def check_prometheus_scrape(ctx: Context) -> Result:
     base = ctx.env["MELORIN_PROMETHEUS_URL"].rstrip("/")
     async with ctx.http() as client:
         ready = await client.get(f"{base}/-/ready")
-        up = (await client.get(f"{base}/api/v1/query", params={"query": 'up{job="melorin-api"}'})).json()
+        up = (
+            await client.get(
+                f"{base}/api/v1/query", params={"query": 'up{job="melorin-api"}'}
+            )
+        ).json()
         rules = (await client.get(f"{base}/api/v1/rules")).json()
     samples = (up.get("data") or {}).get("result") or []
     values = [s.get("value", [0, "0"])[1] for s in samples]
     groups = [g.get("name") for g in ((rules.get("data") or {}).get("groups") or [])]
     details = {"ready": ready.status_code, "up_samples": values, "rule_groups": groups}
-    if ready.status_code != 200 or not values or any(v != "1" for v in values) or "melorin-core" not in groups:
-        return failed("Prometheus is not scraping melorin-api successfully or the melorin-core rules are not loaded", **details)
+    if (
+        ready.status_code != 200
+        or not values
+        or any(v != "1" for v in values)
+        or "melorin-core" not in groups
+    ):
+        return failed(
+            "Prometheus is not scraping melorin-api successfully or the melorin-core rules are not loaded",
+            **details,
+        )
     return passed(**details)
 
 
@@ -386,8 +554,14 @@ async def check_alert_delivery(ctx: Context) -> Result:
     now = dt.datetime.now(dt.UTC)
     alert = [
         {
-            "labels": {"alertname": "MelorinEvidenceProbe", "severity": "info", "probe": marker},
-            "annotations": {"summary": "Melorin runtime evidence probe - safe to ignore"},
+            "labels": {
+                "alertname": "MelorinEvidenceProbe",
+                "severity": "info",
+                "probe": marker,
+            },
+            "annotations": {
+                "summary": "Melorin runtime evidence probe - safe to ignore"
+            },
             "startsAt": now.isoformat(),
             "endsAt": (now + dt.timedelta(minutes=2)).isoformat(),
         }
@@ -395,7 +569,9 @@ async def check_alert_delivery(ctx: Context) -> Result:
     async with ctx.http() as client:
         post = await client.post(f"{base}/api/v2/alerts", json=alert)
         if post.status_code >= 300:
-            return failed("Alertmanager refused the probe alert", status=post.status_code)
+            return failed(
+                "Alertmanager refused the probe alert", status=post.status_code
+            )
         seen = False
         for _ in range(10):
             listed = (await client.get(f"{base}/api/v2/alerts")).json()
@@ -404,11 +580,15 @@ async def check_alert_delivery(ctx: Context) -> Result:
                 break
             await ctx.sleep(1)
         if not seen:
-            return failed("probe alert was accepted but never became visible in Alertmanager", marker=marker)
+            return failed(
+                "probe alert was accepted but never became visible in Alertmanager",
+                marker=marker,
+            )
         receiver = ctx.first("MELORIN_ALERT_RECEIVER_PROBE_URL")
         if not receiver:
             return skipped(
-                "alert reached Alertmanager; set MELORIN_ALERT_RECEIVER_PROBE_URL to prove delivery to the receiver", ingested=True
+                "alert reached Alertmanager; set MELORIN_ALERT_RECEIVER_PROBE_URL to prove delivery to the receiver",
+                ingested=True,
             )
         delivered = False
         for _ in range(20):  # group_wait defaults to 30s
@@ -417,7 +597,11 @@ async def check_alert_delivery(ctx: Context) -> Result:
                 delivered = True
                 break
             await ctx.sleep(2)
-    return passed(marker=marker, delivered_to_receiver=True) if delivered else failed("alert never reached the receiver", marker=marker)
+    return (
+        passed(marker=marker, delivered_to_receiver=True)
+        if delivered
+        else failed("alert never reached the receiver", marker=marker)
+    )
 
 
 CHECKS: dict[str, Callable[[Context], Awaitable[Result]]] = {
@@ -458,13 +642,29 @@ def exit_code(results: list[Result], *, allow_skip: bool = False) -> int:
     return 0
 
 
-def write_bundle(results: list[Result], evidence_dir: Path, *, commit: str = "unknown") -> None:
+def write_bundle(
+    results: list[Result], evidence_dir: Path, *, commit: str = "unknown"
+) -> None:
     evidence_dir.mkdir(parents=True, exist_ok=True)
     stamp = dt.datetime.now(dt.UTC).isoformat(timespec="seconds")
-    payload = {"collected_at": stamp, "git_commit": commit, "results": [dataclasses.asdict(r) for r in results]}
-    (evidence_dir / "summary.json").write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
-    lines = [f"# Melorin runtime evidence - {stamp}", f"Commit: `{commit}`", "", "| Check | Status | Reason |", "|---|---|---|"]
-    lines += [f"| {r.name} | {r.status} | {r.reason.replace('|', '/')} |" for r in results]
+    payload = {
+        "collected_at": stamp,
+        "git_commit": commit,
+        "results": [dataclasses.asdict(r) for r in results],
+    }
+    (evidence_dir / "summary.json").write_text(
+        json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
+    )
+    lines = [
+        f"# Melorin runtime evidence - {stamp}",
+        f"Commit: `{commit}`",
+        "",
+        "| Check | Status | Reason |",
+        "|---|---|---|",
+    ]
+    lines += [
+        f"| {r.name} | {r.status} | {r.reason.replace('|', '/')} |" for r in results
+    ]
     (evidence_dir / "summary.md").write_text("\n".join(lines) + "\n")
 
 
@@ -477,9 +677,19 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--only", help="comma-separated check names")
     parser.add_argument("--list", action="store_true", help="list available checks")
-    parser.add_argument("--evidence-dir", default=os.environ.get("MELORIN_EVIDENCE_DIR"))
-    parser.add_argument("--allow-mutation", action="store_true", help="permit checks that create/delete throwaway data on real systems")
-    parser.add_argument("--allow-skip", action="store_true", help="do not fail the run when a check is skipped")
+    parser.add_argument(
+        "--evidence-dir", default=os.environ.get("MELORIN_EVIDENCE_DIR")
+    )
+    parser.add_argument(
+        "--allow-mutation",
+        action="store_true",
+        help="permit checks that create/delete throwaway data on real systems",
+    )
+    parser.add_argument(
+        "--allow-skip",
+        action="store_true",
+        help="do not fail the run when a check is skipped",
+    )
     args = parser.parse_args(argv)
     if args.list:
         print("\n".join(CHECKS))
@@ -489,9 +699,16 @@ def main(argv: list[str] | None = None) -> int:
     if unknown:
         print(f"unknown check(s): {', '.join(unknown)}", file=sys.stderr)
         return 2
-    evidence_dir = Path(args.evidence_dir or ROOT / "var" / "evidence" / f"m73-{dt.datetime.now(dt.UTC):%Y%m%dT%H%M%SZ}")
+    evidence_dir = Path(
+        args.evidence_dir
+        or ROOT / "var" / "evidence" / f"m73-{dt.datetime.now(dt.UTC):%Y%m%dT%H%M%SZ}"
+    )
     evidence_dir.mkdir(parents=True, exist_ok=True)
-    ctx = Context(env=dict(os.environ), evidence_dir=evidence_dir, allow_mutation=args.allow_mutation)
+    ctx = Context(
+        env=dict(os.environ),
+        evidence_dir=evidence_dir,
+        allow_mutation=args.allow_mutation,
+    )
     results = asyncio.run(run_checks(ctx, names))
     write_bundle(results, evidence_dir, commit=_git_commit())
     for r in results:

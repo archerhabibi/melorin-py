@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import SubBrandingCard from '../src/SubBrandingCard.jsx';
+import SubBrandingCard from '../src/SubBrandingCard.tsx';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
 const URL = '/api/v1/admin/stores/s1/sub-branding/p1';

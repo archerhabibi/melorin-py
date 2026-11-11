@@ -4,7 +4,6 @@ import socket
 import time
 import uuid
 
-import httpx
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +14,7 @@ from melorin.core.db import utcnow
 from melorin.core.errors import AppError, NotFound
 from melorin.domain import webhook as wh
 from melorin.kernel.models.webhooks import WebhookDelivery, WebhookEndpoint
+from melorin.core.http import outbound_client
 
 log = logging.getLogger("melorin.webhooks")
 
@@ -240,7 +240,7 @@ async def deliver_one(session: AsyncSession, delivery_id):
     }
     started = time.monotonic()
     try:
-        async with httpx.AsyncClient(timeout=10, follow_redirects=False) as c:
+        async with outbound_client("webhook_delivery", timeout=10, follow_redirects=False) as c:
             r = await c.post(e.url, content=body, headers=headers)
         d.last_status_code, d.last_response_ms = r.status_code, int((time.monotonic() - started) * 1000)
         if 200 <= r.status_code < 300:

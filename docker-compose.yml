@@ -4,11 +4,15 @@ name: melorin
 # MEMORY BUDGET (audit W6): every service has a mem_limit; the caps add up to 3584 MiB (3.5 GiB). That is the ceiling the host must be
 # able to honour, hence the 4 GB RAM recommendation in the README. scripts/check_ops_p0.py fails CI when a service has no cap or the
 # sum goes over MEMORY_BUDGET_MIB; raise the README recommendation together with that constant.
+# HARDENING (audit T-R08): first-party Python services drop every Linux capability, may not gain privileges and keep /tmp in a bounded
+# tmpfs; api and both bots also run with a read-only root filesystem (their only writable paths are named volumes). The backup
+# container (which owns rclone/age/pg_dump, T-R14) keeps a writable root because they write under the home directory. nginx web images only get no-new-privileges.
+# scripts/check_ops_p0.py enforces this list. NOTE: not exercised on a live Docker host in the audit sandbox - run `make deploy-test`.
 services:
   postgres:
     restart: unless-stopped
     stop_grace_period: 30s
-    image: postgres:16-alpine
+    image: postgres:16-alpine@sha256:aa6cb33cf4c19c765cefcf48d96176258800870a9a1e930ad126200f9d825139
     environment:
       POSTGRES_USER: melorin
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
@@ -20,7 +24,7 @@ services:
     cpus: 1.0
   redis:
     restart: unless-stopped
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:7b1753b4c5ad8458906c272a8132b8c15f5557b000379eb115fb239706a384b7
     # Bounded below the container cap so a runaway dataset gives Redis errors (rate limits fail closed, the DB outbox stays the
     # source of truth) instead of an OOM kill. noeviction: never silently drop queue or rate-limit keys.
     command: redis-server --appendonly yes --maxmemory 160mb --maxmemory-policy noeviction
@@ -42,6 +46,10 @@ services:
     volumes: [api_storage:/app/var]
     depends_on: {postgres: {condition: service_healthy}, redis: {condition: service_healthy}}
     networks: [backend]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs: ["/tmp:size=64m,mode=1777"]
     mem_limit: 768m
     cpus: 1.0
   worker:
@@ -54,13 +62,37 @@ services:
     env_file: [.env]
     command: arq melorin.worker.arq_app.WorkerSettings
     healthcheck: {test: [CMD, python, -c, 'import os, redis; r=redis.Redis.from_url(os.environ["MELORIN_REDIS_URL"]); raise SystemExit(0 if r.get("melorin:worker:last_tick") else 1)'], interval: 15s, timeout: 5s, retries: 8, start_period: 25s}
+    volumes: [api_storage:/app/var]
+    depends_on: {postgres: {condition: service_healthy}, redis: {condition: service_healthy}}
+    networks: [backend]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs: ["/tmp:size=64m,mode=1777"]
+    mem_limit: 512m
+    cpus: 1.0
+  # Backups run here, not in the Worker (audit T-R14): rclone/age/pg_dump and their writable home live in this one container, a stuck
+  # dump cannot delay business jobs, and the Worker above can run with a read-only root. Same image, same job code (worker/jobs.py).
+  backup:
+    restart: unless-stopped
+    stop_grace_period: 60s
+    image: ${MELORIN_IMAGE_REGISTRY:-melorin}/api:${MELORIN_IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    env_file: [.env]
+    command: python -m melorin.worker.backup_main
+    healthcheck: {test: [CMD, python, -c, 'import os, redis; redis.Redis.from_url(os.environ["MELORIN_REDIS_URL"]).ping()'], interval: 30s, timeout: 5s, retries: 5, start_period: 15s}
     volumes:
       - api_storage:/app/var
       - ./secrets/backup/recipients.txt:/run/melorin-backup/recipients.txt:ro
     depends_on: {postgres: {condition: service_healthy}, redis: {condition: service_healthy}}
     networks: [backend]
-    mem_limit: 768m
-    cpus: 1.0
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    tmpfs: ["/tmp:size=64m,mode=1777"]
+    mem_limit: 256m
+    cpus: 0.5
   store_web:
     restart: unless-stopped
     image: ${MELORIN_IMAGE_REGISTRY:-melorin}/store-web:${MELORIN_IMAGE_TAG:-local}
@@ -72,6 +104,7 @@ services:
     depends_on: {api: {condition: service_healthy}}
     healthcheck: {test: [CMD, wget, --spider, --quiet, http://127.0.0.1/], interval: 15s, timeout: 5s, retries: 8}
     networks: [backend]
+    security_opt: [no-new-privileges:true]
     mem_limit: 64m
     cpus: 0.25
   admin_web:
@@ -85,6 +118,7 @@ services:
     depends_on: {api: {condition: service_healthy}}
     healthcheck: {test: [CMD, wget, --spider, --quiet, http://127.0.0.1/], interval: 15s, timeout: 5s, retries: 8}
     networks: [backend]
+    security_opt: [no-new-privileges:true]
     mem_limit: 64m
     cpus: 0.25
   telegram_main:
@@ -110,6 +144,10 @@ services:
     depends_on: {api: {condition: service_healthy}}
     healthcheck: {test: [CMD, python, scripts/telegram_healthcheck.py], interval: 30s, timeout: 8s, retries: 3, start_period: 15s}
     networks: [backend]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs: ["/tmp:size=64m,mode=1777"]
     mem_limit: 192m
     cpus: 0.5
   telegram_reseller:
@@ -137,12 +175,16 @@ services:
     depends_on: {api: {condition: service_healthy}}
     healthcheck: {test: [CMD, python, scripts/telegram_healthcheck.py], interval: 30s, timeout: 8s, retries: 3, start_period: 20s}
     networks: [backend]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs: ["/tmp:size=64m,mode=1777"]
     mem_limit: 256m   # one process, one long-poll loop per reseller bot
     cpus: 0.5
   caddy:
     restart: unless-stopped
     profiles: [local-proxy]
-    image: caddy:2-alpine
+    image: caddy:2-alpine@sha256:78bd35025c7ba85961dd149ae670315129954e77abe2383ac47c89106b35ade9
     ports: ["80:80", "443:443"]
     environment:
       MELORIN_DOMAIN: ${MELORIN_DOMAIN:-localhost}
@@ -157,7 +199,7 @@ services:
     mem_limit: 128m
     cpus: 0.5
   alertmanager:
-    image: prom/alertmanager:v0.27.0
+    image: prom/alertmanager:v0.27.0@sha256:e13b6ed5cb929eeaee733479dce55e10eb3bc2e9c4586c705a4e8da41e5eacf5
     restart: unless-stopped
     # Receivers come from .env (ALERT_TELEGRAM_* and/or ALERT_SMTP_*/ALERT_EMAIL_TO); see infra/alertmanager-entrypoint.sh
     environment:
@@ -178,7 +220,7 @@ services:
     cpus: 0.25
   prometheus:
     restart: unless-stopped
-    image: prom/prometheus:v2.55.1
+    image: prom/prometheus:v2.55.1@sha256:2659f4c2ebb718e7695cb9b25ffa7d6be64db013daba13e05c875451cf51b0d3
     # The whole infra/ DIRECTORY is mounted (not single files): git replaces a changed file with a new inode, and a single-file bind mount
     # keeps showing the OLD file, so Prometheus kept running stale alert rules (live check L1). A directory mount always shows the current ones.
     command:

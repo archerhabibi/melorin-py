@@ -43,7 +43,7 @@ def retail_price(sp: StoreProduct | None, bundle_price: int | None) -> int | Non
 
 
 def below_cost(price: int | None, reseller_price: int) -> bool:
-    return bool(price) and price < reseller_price
+    return price is not None and price > 0 and price < reseller_price
 
 
 def unit_price(store: Store, product: Product, retail: int | None, pp: BundleProduct | None) -> int:

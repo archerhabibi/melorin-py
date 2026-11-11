@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import ResellerReceiptReview, { clock } from '../src/ResellerReceiptReview.jsx';
+import ResellerReceiptReview, { clock } from '../src/ResellerReceiptReview.tsx';
 
 const res = (body, status = 200) => new Response(JSON.stringify(body), { status });
 const BASE = '/api/v1/stores/s1/reseller';

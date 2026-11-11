@@ -10,6 +10,7 @@ from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import AppError
 from melorin.modules.admin.integrations._audit import record_integration
 from melorin.modules.admin.integrations.schemas import GoogleIn
+from melorin.core.http import outbound_client
 
 router = APIRouter(prefix="/integrations", tags=["admin-integrations"])
 
@@ -56,7 +57,7 @@ async def test_google(admin: AdminUser, session: Session):
         error = "فرمت Client ID نامعتبر است."
     else:
         try:
-            async with httpx.AsyncClient(timeout=10) as c:
+            async with outbound_client("admin_google_check", timeout=10) as c:
                 r = await c.get("https://www.googleapis.com/oauth2/v3/certs")
             # These are the public keys the server verifies Google ID tokens with: reachable + well-formed is all we test.
             ok = r.status_code == 200 and bool(r.json().get("keys"))

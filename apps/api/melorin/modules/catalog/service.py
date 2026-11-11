@@ -32,10 +32,8 @@ async def store_catalog(session: AsyncSession, store: Store) -> list[tuple[Produ
     rows = (await session.execute(q)).all()
     if store.kind == "reseller":  # priced = a store-wide price, or a price of its own in at least one bundle
         bundled = set((await session.scalars(select(StoreBundlePrice.product_id).where(StoreBundlePrice.store_id == store.id))).all())
-        rows = [r for r in rows if r[1].customer_price or r[0].id in bundled]
-    else:
-        rows = [r for r in rows if r[0].currency == store.currency]  # no implicit conversion
-    return rows
+        return [(p, sp) for p, sp in rows if sp.customer_price or p.id in bundled]
+    return [(p, sp) for p, sp in rows if p.currency == store.currency]  # no implicit conversion
 
 
 async def enabled_for_store(session: AsyncSession, store: Store) -> list[tuple[Product, StoreProduct]]:
@@ -48,7 +46,7 @@ async def enabled_for_store(session: AsyncSession, store: Store) -> list[tuple[P
     )
     if store.kind == "reseller":
         q = q.where(Product.reseller_enabled.is_(True))
-    return list((await session.execute(q)).all())
+    return [(p, sp) for p, sp in (await session.execute(q)).all()]
 
 
 async def get_sellable(session: AsyncSession, store: Store, product_id, *, allow_test: bool = False) -> tuple[Product, StoreProduct | None]:
@@ -100,8 +98,7 @@ def norm_code(code: str) -> str:
 async def find_coupon(session: AsyncSession, store: Store, code: str, *, lock: bool) -> Coupon | None:
     """Store-owned coupon wins over an Admin domain coupon with the same code (central selection rule)."""
     q = select(Coupon).where(Coupon.code == norm_code(code), or_(Coupon.owner_key == str(store.id), Coupon.owner_key == "admin"))
-    rows = (await session.scalars(q)).all()
-    rows.sort(key=lambda c: 0 if c.owner_key == str(store.id) else 1)
+    rows = sorted((await session.scalars(q)).all(), key=lambda c: 0 if c.owner_key == str(store.id) else 1)
     if not rows:
         return None
     if not lock:
@@ -135,9 +132,12 @@ async def resolve_coupon(
     if not code or not code.strip():
         return None, 0
     try:
-        code = cdom.pick_one([code])
+        picked = cdom.pick_one([code])
     except cdom.CouponError as e:
         raise AppError(e.code, e.message, 400) from e
+    if picked is None:  # unreachable for a non-blank code; kept so the type is honest
+        return None, 0
+    code = picked
     c = await find_coupon(session, store, code, lock=lock)
     if not c:
         raise AppError("COUPON_INVALID", "کد تخفیف معتبر نیست.", 400)

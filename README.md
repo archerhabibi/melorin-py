@@ -109,7 +109,8 @@ flowchart LR
 | Component | Path | Role |
 |---|---|---|
 | Core API (`api`) | `apps/api/melorin` | FastAPI; the only owner of PostgreSQL and of every business rule |
-| Worker (`worker`) | `apps/api/melorin/worker` | ARQ + Redis: outbox, provisioning retries, expiry, panel health, reconciliation, daily encrypted backup |
+| Worker (`worker`) | `apps/api/melorin/worker` | ARQ + Redis: outbox, provisioning retries, expiry, panel health, reconciliation |
+| Backup (`backup`) | `apps/api/melorin/worker/backup_main.py` | Own container (T-R14): daily encrypted local/S3 backup and panel backup, runs the same jobs the Worker used to run; records `backup_runs` |
 | Store web (`store_web`) | `apps/store-web` | Customer storefront, dashboard, reseller console |
 | Admin web (`admin_web`) | `apps/admin-web` | Admin panel |
 | Main bot (`telegram_main`) | `apps/telegram-main` | Main Telegram bot; transport only |

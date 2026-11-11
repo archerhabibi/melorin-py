@@ -45,8 +45,9 @@ async def reseller_price_table(session: AsyncSession, store: Store) -> list[dict
         rows = by_product.get(p.id)
         if not rows:
             continue
-        costs = [{"bundle_id": g.id, "bundle_name": g.name, "cost": effective_prices(p, pp)[1]} for pp, g in rows]
-        floor = max(c["cost"] for c in costs)
+        cost_values = [effective_prices(p, pp)[1] for pp, g in rows]
+        costs = [{"bundle_id": g.id, "bundle_name": g.name, "cost": cost} for (_pp, g), cost in zip(rows, cost_values, strict=True)]
+        floor = max(cost_values)
         price = sp.customer_price or None
         bundles = []
         for pp, g in sorted(rows, key=lambda r: (r[1].created_at, str(r[1].id))):

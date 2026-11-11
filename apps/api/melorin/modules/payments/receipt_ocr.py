@@ -24,6 +24,7 @@ import shutil
 import httpx
 
 from melorin.domain.receipt_text import ReceiptFacts, facts_from_mapping, parse_receipt_text
+from melorin.core.http import outbound_client
 
 log = logging.getLogger("melorin.payments.receipt_ocr")
 
@@ -154,7 +155,7 @@ async def post_vision(
     if system:
         body["system"] = system
     headers = {"x-api-key": c.api_key, "anthropic-version": "2023-06-01", "content-type": "application/json"}
-    async with httpx.AsyncClient(timeout=c.timeout) as client:
+    async with outbound_client("receipt_ocr", timeout=c.timeout) as client:
         return await client.post(f"{c.base_url.rstrip('/')}/v1/messages", json=body, headers=headers)
 
 

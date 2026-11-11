@@ -10,6 +10,7 @@ from urllib.parse import urlsplit
 import httpx
 
 from melorin.modules.vpn.adapters.base import ErrorKind, PanelError
+from melorin.core.http import outbound_client
 
 _TOKEN_TTL = 50 * 60
 _TOKENS: dict[tuple[str, str], tuple[str, float]] = {}  # (base, username) -> (token, expires)
@@ -99,7 +100,8 @@ class PasarGuardCore:
 
     # ------------------------------------------------------------------ transport
     def _client(self) -> httpx.AsyncClient:
-        return httpx.AsyncClient(
+        return outbound_client(
+            "panel_pasarguard",
             base_url=self.base,
             timeout=self.timeout,
             follow_redirects=False,

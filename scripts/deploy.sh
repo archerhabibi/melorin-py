@@ -6,7 +6,7 @@
 # Steps (any failure after step 3 triggers an automatic rollback to the previous commit):
 #   1. lock           one deploy at a time (flock on var/deploy.lock)
 #   2. fetch/checkout the requested ref (default origin/main) as a detached HEAD; remember the previous commit
-#   3. backup         encrypted pre-deploy DB backup through the running worker (scripts/backup_secure.sh); aborts if it fails
+#   3. backup         encrypted pre-deploy DB backup through the running backup container (scripts/backup_secure.sh); aborts if it fails
 #   4. images         build on the host (default) or, when MELORIN_IMAGE_REGISTRY is set in .env, pull the images CI built and
 #                     pushed for exactly this commit (tag = full commit sha); a failed pull falls back to a local build
 #   5. migrate        alembic upgrade head (Postgres DDL is transactional: a failed migration leaves the schema untouched)
@@ -78,7 +78,7 @@ env_set() {
 }
 
 # Make the images for <sha> available: pull from the registry when configured, else (or when the pull fails) build locally.
-IMAGE_SERVICES="api worker store_web admin_web telegram_main telegram_reseller"
+IMAGE_SERVICES="api worker backup store_web admin_web telegram_main telegram_reseller"
 provide_images() { # provide_images <full-sha>
   local sha="$1"
   if [ -z "$(env_get MELORIN_IMAGE_REGISTRY)" ]; then
@@ -112,7 +112,7 @@ wait_healthy() {
     fi
     if [ "$ready" = 1 ]; then
       # Core services must be healthy. Bots are reported but never block: an install without a Telegram token has unhealthy bots by design.
-      bad="$(compose ps --format '{{.Service}} {{.State}} {{.Health}}' 2>/dev/null | awk -v core=" postgres redis api worker store_web admin_web caddy alertmanager prometheus " 'index(core, " "$1" ") && ($2=="restarting" || $2=="exited" || $2=="dead" || $3=="unhealthy" || $3=="starting") {print $1":"$2"/"$3}' | tr '\n' ' ')"
+      bad="$(compose ps --format '{{.Service}} {{.State}} {{.Health}}' 2>/dev/null | awk -v core=" postgres redis api worker backup store_web admin_web caddy alertmanager prometheus " 'index(core, " "$1" ") && ($2=="restarting" || $2=="exited" || $2=="dead" || $3=="unhealthy" || $3=="starting") {print $1":"$2"/"$3}' | tr '\n' ' ')"
       if [ -z "$bad" ]; then
         compose ps --format '{{.Service}} {{.Health}}' 2>/dev/null | awk '$1 ~ /^telegram_/ && $2=="unhealthy" {print "bot not healthy: "$1}' | while read -r l; do warn "$l"; done
         return 0
@@ -152,9 +152,9 @@ fi
 BACKUP_PATH="(none)"
 if [ "$SKIP_BACKUP" = 1 ]; then
   warn "pre-deploy backup skipped on request"
-elif compose ps --status running --services 2>/dev/null | grep -qx worker; then
+elif compose ps --status running --services 2>/dev/null | grep -qx backup; then
   say "pre-deploy backup"
-  if out="$(compose exec -T worker /app/scripts/backup_secure.sh 2>&1)"; then
+  if out="$(compose exec -T backup /app/scripts/backup_secure.sh 2>&1)"; then
     BACKUP_PATH="$(printf '%s\n' "$out" | tail -n1)"; say "backup: $BACKUP_PATH"
   elif [ "$?" = 3 ]; then
     BACKUP_PATH="$(printf '%s\n' "$out" | grep -E '\.age$' | tail -n1 || true)"; warn "local backup OK, off-site copy failed: $BACKUP_PATH"
@@ -163,7 +163,7 @@ elif compose ps --status running --services 2>/dev/null | grep -qx worker; then
     ops_log "aborted (backup failed)" "$TARGET_SHORT" "pre-deploy backup failed"; exit 1
   fi
 else
-  warn "worker is not running (first install?); no pre-deploy backup taken"
+  warn "backup container is not running (first install?); no pre-deploy backup taken"
 fi
 
 PREV_REV="$(compose run --rm -T api alembic current 2>/dev/null | awk '/^[0-9a-zA-Z_]+/ {print $1; exit}' || true)"

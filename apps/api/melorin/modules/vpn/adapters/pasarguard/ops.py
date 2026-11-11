@@ -14,6 +14,7 @@ import httpx
 
 from melorin.modules.vpn.adapters.base import ErrorKind, PanelError
 from melorin.modules.vpn.adapters.pasarguard.core import as_rows
+from melorin.core.http import outbound_client
 
 BULK_CHUNK = 200
 USER_ACTIONS = {"disable": "disable", "enable": "enable", "reset_usage": "reset", "rotate_links": "revoke_sub"}
@@ -138,7 +139,9 @@ class OpsMixin:
             return {"ok": False, "status": None, "error": "host is not a configured subscription host"}
         target = url.split("?", 1)[0].rstrip("/") + "/info"
         try:
-            async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=False, verify=self.cfg.get("verify_tls", True)) as c:
+            async with outbound_client(
+                "panel_pasarguard_ops", timeout=self.timeout, follow_redirects=False, verify=self.cfg.get("verify_tls", True)
+            ) as c:
                 r = await c.get(target)
         except httpx.HTTPError as exc:
             return {"ok": False, "status": None, "error": f"{exc.__class__.__name__}: {str(exc)[:160]}"}

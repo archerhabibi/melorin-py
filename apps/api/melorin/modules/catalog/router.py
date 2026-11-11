@@ -7,6 +7,7 @@ from melorin.core.scope import StoreScope
 from melorin.core.deps import OwnerCtx, Session, StoreCtx, main_store
 from melorin.core.errors import AppError, NotFound
 from melorin.domain import coupon as cdom
+from melorin.domain import pricing
 from melorin.modules.catalog import queries, service
 from melorin.kernel.models.catalog import Coupon
 from melorin.modules.catalog.schemas import (
@@ -271,6 +272,7 @@ async def checkout_quote(body: QuoteRequest, ctx: StoreCtx, session: Session):
         else:
             after = RenewalAfter(**renewal.describe(owned, product))
     await session.commit()
+    funds = pricing.project_wallet(w.balance, q.total)
     return QuoteWalletOut(
         renewal=after,
         renewal_queue=after_queue,
@@ -281,7 +283,9 @@ async def checkout_quote(body: QuoteRequest, ctx: StoreCtx, session: Session):
         currency=q.currency,
         coupon_code=q.coupon_code,
         wallet_balance=w.balance,
-        sufficient_funds=w.balance >= q.total,
+        sufficient_funds=funds.sufficient,
+        balance_after=funds.balance_after,
+        shortfall=funds.shortfall,
     )
 
 
