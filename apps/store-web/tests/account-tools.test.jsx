@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import AccountTools from '../src/AccountTools.jsx';
+import AccountTools from '../src/AccountTools.tsx';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
 const T = (tool, available = true, reason = null) => ({ tool, label: tool, write: false, available, reason });

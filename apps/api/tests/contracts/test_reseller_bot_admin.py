@@ -270,8 +270,8 @@ def test_admin_ui_has_a_resellers_screen_and_never_asks_core_for_the_token():
     from pathlib import Path
 
     web = Path(__file__).parents[3] / "admin-web/src"
-    assert "نمایندگان: ResellersView" in read_web_source(web / "AdminExtra.jsx")
-    assert '"resellers"' in read_web_source(web / "App.jsx")
-    view = read_web_source(web / "ResellersView.jsx")
+    assert "نمایندگان: ResellersView" in read_web_source(web / "AdminExtra.tsx")
+    assert '"resellers"' in read_web_source(web / "App.tsx")
+    view = read_web_source(web / "ResellersView.tsx")
     assert "/api/v1/admin/resellers" in view and "/bot-token" in view and "/verify-bot" in view
     assert "bot_token" not in view  # the token is write-only: the screen only ever sends it

@@ -13,22 +13,22 @@ def has(needle: str, text: str) -> bool:
     return squash(needle) in squash(text)
 
 
-# App.jsx was split into components (T-R11): the storefront shell is the sum of these files.
+# App.tsx was split into components (T-R11): the storefront shell is the sum of these files.
 STORE_SHELL = (
-    "App.jsx",
-    "SiteHeader.jsx",
-    "HeroSection.jsx",
-    "PlansSection.jsx",
-    "InfoSections.jsx",
-    "AccountBanner.jsx",
-    "SiteFooter.jsx",
-    "MobileNav.jsx",
-    "StoreDialogs.jsx",
-    "useCoreFetch.js",
-    "useStoreCatalog.js",
+    "App.tsx",
+    "SiteHeader.tsx",
+    "HeroSection.tsx",
+    "PlansSection.tsx",
+    "InfoSections.tsx",
+    "AccountBanner.tsx",
+    "SiteFooter.tsx",
+    "MobileNav.tsx",
+    "StoreDialogs.tsx",
+    "useCoreFetch.ts",
+    "useStoreCatalog.ts",
 )
 store = "\n".join((root / "apps/store-web/src" / n).read_text() for n in STORE_SHELL)
-admin = (root / "apps/admin-web/src/App.jsx").read_text()
+admin = (root / "apps/admin-web/src/App.tsx").read_text()
 caddy = (root / "infra/Caddyfile").read_text()
 api = (root / "apps/api/melorin/app.py").read_text()
 checks = {

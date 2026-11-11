@@ -1,5 +1,5 @@
 // Wording for the loyalty club of ONE store (Core decides every number; this only formats it).
-import { fa } from './ui.jsx';
+import { fa } from './ui.tsx';
 
 // 10000 = 1.0x. "۱٫۲۵×" for 12500.
 export const multiplierLabel = (bp?: number | null): string => `${fa(Number(bp || 10000) / 10000)}×`;

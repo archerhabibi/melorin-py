@@ -156,12 +156,12 @@ def test_integration_keys_stay_out_of_generic_settings():
 
 
 def test_google_ui_is_wired_into_settings_and_login_pages():
-    extra = (PROJECT / "apps/admin-web/src/AdminExtra.jsx").read_text()
+    extra = (PROJECT / "apps/admin-web/src/AdminExtra.tsx").read_text()
     assert "<GoogleLoginSettings" in extra
-    ui = (PROJECT / "apps/admin-web/src/GoogleLoginSettings.jsx").read_text()
+    ui = (PROJECT / "apps/admin-web/src/GoogleLoginSettings.tsx").read_text()
     assert "/api/v1/admin/integrations/google" in ui and "apps.googleusercontent.com" in ui
     for app in ("admin-web", "store-web"):
-        hook = (PROJECT / f"apps/{app}/src/GoogleSignIn.jsx").read_text() + (
+        hook = (PROJECT / f"apps/{app}/src/GoogleSignIn.tsx").read_text() + (
             PROJECT / "packages/web-kit/src/GoogleSignIn.jsx"
         ).read_text()  # binding + shared kit (T14)
         assert "/api/v1/auth/google/config" in hook and "useGoogleConfig" in hook

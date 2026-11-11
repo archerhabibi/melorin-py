@@ -14,7 +14,7 @@ def test_admin_web_never_uses_browser_storage_or_remote_fonts():
 
 
 def test_admin_dashboard_has_no_hardcoded_date_and_uses_shared_client():
-    app = (SRC / "App.jsx").read_text()
+    app = (SRC / "App.tsx").read_text()
     assert "۱۴۰۵" not in app
     assert "authFetch" in app and "todayLabel()" in app
 

@@ -8,8 +8,8 @@ PROJECT = ROOT.parent.parent
 
 def test_refresh_session_uses_httponly_cookie():
     router = read_source(ROOT / "melorin/modules/identity/router.py")
-    auth = read_web_source(PROJECT / "apps/admin-web/src/auth.js")
-    main = read_web_source(PROJECT / "apps/admin-web/src/main.jsx")
+    auth = read_web_source(PROJECT / "apps/admin-web/src/auth.ts")
+    main = read_web_source(PROJECT / "apps/admin-web/src/main.tsx")
     assert "httponly=True" in router and "REFRESH_COOKIE" in router
     assert "refreshToken" not in auth
     assert 'credentials: "include"' in main

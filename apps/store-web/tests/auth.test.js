@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { clearTokens, getAccessToken, setTokens } from '../src/auth.js';
+import { clearTokens, getAccessToken, setTokens } from '../src/auth.ts';
 
 describe('store-web in-memory session token', () => {
   beforeEach(() => clearTokens());

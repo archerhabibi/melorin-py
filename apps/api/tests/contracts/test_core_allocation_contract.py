@@ -23,7 +23,7 @@ def test_migration_0013_follows_0012_and_matches_the_model():
 def test_channels_never_choose_a_server():
     # Channels say WHAT is bought and, since sales bundles, which bundle the customer picked (and the panel in a
     # manual bundle). The core validates every choice; the server is never chosen outside the core.
-    for rel in ("apps/telegram-main/runner.py", "apps/store-web/src/App.jsx"):
+    for rel in ("apps/telegram-main/runner.py", "apps/store-web/src/App.tsx"):
         src = read(rel)
         for forbidden in ("server_id", "default_bundle"):
             assert forbidden not in src, f"{rel} must not carry allocation data ({forbidden})"

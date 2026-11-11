@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { backdropProps, focusOnMount, useDialog } from '../src/useDialog.js';
+import { backdropProps, focusOnMount, useDialog } from '../src/useDialog.ts';
 
 function Box({ onClose, label, children }) {
   const ref = useDialog(onClose);

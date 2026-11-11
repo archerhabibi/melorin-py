@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import ResellerPanelAdmin from '../src/ResellerPanelAdmin.jsx';
+import ResellerPanelAdmin from '../src/ResellerPanelAdmin.tsx';
 
 const res = (body, status = 200) => new Response(JSON.stringify(body), { status });
 const BASE = '/api/v1/stores/s1/reseller';

@@ -7,7 +7,7 @@ ROOT = Path(__file__).parents[2]
 
 def test_product_currency_is_closed_set_and_admin_has_error_boundary():
     schema = read_source(ROOT / "melorin/modules/admin/schemas.py")
-    admin_main = (ROOT.parent / "admin-web/src/main.jsx").read_text()
+    admin_main = (ROOT.parent / "admin-web/src/main.tsx").read_text()
     assert 'Literal["IRT", "USD", "USDT", "XTR"]' in schema
     assert "AdminErrorBoundary" in admin_main
 

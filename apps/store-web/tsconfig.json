@@ -8,12 +8,15 @@
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "allowJs": true,
+    "allowJs": false,
     "checkJs": false,
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
     "types": ["vite/client"],
-    "paths": { "@melorin/api-client": ["../../packages/api-client/src/index.d.ts"] }
+    "paths": {
+      "@melorin/web-kit/*": ["../../packages/web-kit/src/*"],
+      "@melorin/api-client": ["../../packages/api-client/src/index.d.ts"]
+    }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.d.ts"]
 }

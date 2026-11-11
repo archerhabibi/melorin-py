@@ -1,5 +1,5 @@
 // Shared wording for the referral programme and discount codes of ONE store (Core decides every number; this only formats it).
-import { fa } from './ui.jsx';
+import { fa } from './ui.tsx';
 
 const UNITS: Record<string, string> = { IRT: 'تومان', IRR: 'ریال' };
 export const unitOf = (currency?: string | null): string => (currency ? UNITS[currency] || currency : '');

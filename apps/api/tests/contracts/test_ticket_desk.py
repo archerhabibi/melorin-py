@@ -290,15 +290,15 @@ def test_bot_rename_and_close_and_reopen(bot):
 # ---------------------------------------------------------------- web front-ends
 def test_web_ticket_screens_use_the_new_edit_endpoints():
     admin_ui = "".join(
-        read_web_source(APPS / "admin-web" / "src" / name) for name in ("TicketsView.jsx", "TicketConversation.jsx", "ticketsShared.jsx")
+        read_web_source(APPS / "admin-web" / "src" / name) for name in ("TicketsView.tsx", "TicketConversation.tsx", "ticketsShared.tsx")
     )
     for needle in ("/api/v1/admin/tickets", "/messages/${m.id}", 'method: "PATCH"', "internal", "ویرایش‌شده"):
         assert needle in admin_ui
-    assert "TicketsView" in read_web_source(APPS / "admin-web" / "src" / "AdminExtra.jsx")
-    # Dashboard.jsx was split into dashboard/* (T31); the ticket screens live in the parts
+    assert "TicketsView" in read_web_source(APPS / "admin-web" / "src" / "AdminExtra.tsx")
+    # Dashboard.tsx was split into dashboard/* (T31); the ticket screens live in the parts
     store_src = APPS / "store-web" / "src"
-    store_ui = read_web_source(store_src / "Dashboard.jsx") + "".join(
-        read_web_source(p) for p in sorted((store_src / "dashboard").glob("*.jsx"))
+    store_ui = read_web_source(store_src / "Dashboard.tsx") + "".join(
+        read_web_source(p) for p in sorted((store_src / "dashboard").glob("*.tsx"))
     )
     for needle in ("/api/v1/tickets/${t.id}/messages/${m.id}", "ویرایش موضوع", "بستن تیکت"):
         assert needle in store_ui

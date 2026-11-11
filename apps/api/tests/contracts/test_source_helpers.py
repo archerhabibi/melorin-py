@@ -28,6 +28,6 @@ def test_web_source_is_stable_under_prettier_layout():
 def test_dialog_hook_is_identical_in_both_web_apps():
     """Phase 6.4: one overlay behaviour (focus trap, Esc on the topmost dialog) shared byte-for-byte."""
     apps = Path(__file__).resolve().parents[3]
-    admin = (apps / "admin-web/src/useDialog.js").read_bytes()
-    store = (apps / "store-web/src/useDialog.js").read_bytes()
+    admin = (apps / "admin-web/src/useDialog.ts").read_bytes()
+    store = (apps / "store-web/src/useDialog.ts").read_bytes()
     assert admin == store

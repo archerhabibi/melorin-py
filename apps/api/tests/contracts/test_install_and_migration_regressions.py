@@ -110,10 +110,10 @@ def test_store_frontend_does_not_fallback_to_demo_plans():
 
 def test_web_tokens_are_not_persisted_in_local_storage():
     for path in (
-        ROOT.parent.parent / "apps/store-web/src/App.jsx",
-        ROOT.parent.parent / "apps/admin-web/src/AdminAuth.jsx",
-        ROOT.parent.parent / "apps/admin-web/src/AdminExtra.jsx",
-        ROOT.parent.parent / "apps/admin-web/src/AdminSections.jsx",
+        ROOT.parent.parent / "apps/store-web/src/App.tsx",
+        ROOT.parent.parent / "apps/admin-web/src/AdminAuth.tsx",
+        ROOT.parent.parent / "apps/admin-web/src/AdminExtra.tsx",
+        ROOT.parent.parent / "apps/admin-web/src/AdminSections.tsx",
     ):
         source = path.read_text()
         assert "localStorage.setItem" not in source
@@ -171,7 +171,7 @@ def test_k21_to_k27_hardening_is_wired():
     identity = read_source(ROOT / "melorin/modules/identity/service.py")
     config = read_source(ROOT / "melorin/core/config.py")
     compose = (root / "docker-compose.yml").read_text()
-    store_auth = read_web_source(root / "apps/store-web/src/App.jsx")
+    store_auth = read_web_source(root / "apps/store-web/src/App.tsx")
     quality = (root / "scripts/run_quality_gate.sh").read_text()
     assert "return False" in limiter and "if not user.is_active" in identity
     assert "backup_offsite_uri" in config

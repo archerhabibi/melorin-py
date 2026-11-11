@@ -159,8 +159,8 @@ export function ServerForm({
       url = '/api/v1/admin/servers',
       method = 'POST';
     if (edit) {
-      const was = payload(fromServer(server));
-      body = Object.fromEntries(Object.entries(now).filter(([k, v]) => JSON.stringify(v) !== JSON.stringify((was as Rec)[k])));
+      const was: Rec = payload(fromServer(server));
+      body = Object.fromEntries(Object.entries(now).filter(([k, v]) => JSON.stringify(v) !== JSON.stringify(was[k])));
       if (!Object.keys(body).length) {
         onClose();
         return;

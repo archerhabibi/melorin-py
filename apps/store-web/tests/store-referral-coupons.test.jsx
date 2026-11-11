@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import Referral from '../src/Referral.jsx';
-import ResellerReferral from '../src/ResellerReferral.jsx';
-import ResellerCoupons from '../src/ResellerCoupons.jsx';
+import Referral from '../src/Referral.tsx';
+import ResellerReferral from '../src/ResellerReferral.tsx';
+import ResellerCoupons from '../src/ResellerCoupons.tsx';
 import { describePlan, percentToBp, toInt } from '../src/storeProgram.ts';
 
 const res = (body, status = 200) => new Response(JSON.stringify(body), { status });

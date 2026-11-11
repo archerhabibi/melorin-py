@@ -185,14 +185,14 @@ async def test_panel_test_explains_switched_off_states(world, monkeypatch):
 
 # ---------------- UI contract ----------------
 def test_storefront_uses_the_shared_buttons_and_retries_after_a_failed_redirect():
-    app = read_store_shell(ROOT) + read_web_source(ROOT / "apps/store-web/src/landing.jsx")
-    assert 'import TelegramLoginButtons from "./TelegramLoginButtons.jsx"' in app and "<TelegramLoginButtons" in app
+    app = read_store_shell(ROOT) + read_web_source(ROOT / "apps/store-web/src/landing.tsx")
+    assert 'import TelegramLoginButtons from "./TelegramLoginButtons.tsx"' in app and "<TelegramLoginButtons" in app
     assert "TG_RETRY" in app and 'setModal("login")' in app and "origin_mismatch" in app
-    btn = read_web_source(ROOT / "apps/store-web/src/TelegramLoginButtons.jsx")
+    btn = read_web_source(ROOT / "apps/store-web/src/TelegramLoginButtons.tsx")
     assert "/api/v1/auth/telegram/oidc/start?store_id=" in btn and "pageshow" in btn and "btn-tg" in btn
 
 
 def test_admin_panel_describes_saved_state_and_guards_unsaved_edits():
-    src = read_web_source(ROOT / "apps/admin-web/src/TelegramLoginSettings.jsx")
+    src = read_web_source(ROOT / "apps/admin-web/src/TelegramLoginSettings.tsx")
     assert "const dirty" in src and "تغییرات ذخیره‌نشده" in src and "botReady" in src and "oidcReady" in src and "ttlError" in src
     assert "saved.store_login" in src  # the badge honours the storefront switch, like the server's public_telegram()

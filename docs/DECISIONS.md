@@ -88,3 +88,9 @@ _Merged from the former 12-Change-Log-v1.1.md._
 ## T-R11 step 2: session and catalog hooks (2026-11-10)
 - `useCoreFetch` (authenticated fetch + one silent refresh) and `useStoreCatalog` (store, bundles, packages) moved out of `App`; `App.jsx` is ~470 lines.
 - The first attempt put the hook calls after a line that already used `hasBot`: lint, vitest (jsdom) and `vite build` all passed, but the real browser showed a white screen (`Cannot access ... before initialization`). The Playwright specs caught it; fixed by calling the hooks before first use. Lesson: for `App` refactors the browser specs are the gate, not vitest.
+
+## T-R11 finished: store-web fully on TypeScript (2026-11-11)
+- All 48 store-web source files are `.ts`/`.tsx` (`allowJs: false`, `strict`, `tsc` 0 errors); `typecheck` is a CI step for both web apps. ESLint now parses `.ts/.tsx` too (typescript-eslint parser) with the same `--max-warnings 0` ceiling, so type migration did not drop hook/a11y linting.
+- Honest limit: component props and server payloads that are not yet bound to generated `@melorin/api-client` schemas are typed `Json` / `Rec` (aliases in `src/types.ts`, same markers as admin-web). They are greppable; tighten one view per PR. This is a typed shell, not full type safety.
+- Verified in a real browser, not only jsdom: Playwright 10 passed / 2 skipped (the skipped two need a seeded staging stack), vitest 79, `vite build` OK (main bundle ~272 KB, gzip ~85 KB).
+- Source-contract guards (api tests, `check_g001_g010.py`, `check_frontend_contracts.py`) were repointed from `.jsx`/`.js` to `.tsx`/`.ts` for BOTH apps; the earlier admin-web migration had left 16 contract tests red because they still read the old names.

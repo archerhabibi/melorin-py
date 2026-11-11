@@ -96,11 +96,11 @@ async def test_dismiss_without_body_still_works_for_old_clients(session):
 
 
 def test_screen_is_wired_into_the_admin_panel_and_bot_keeps_its_contract():
-    extra = read_web_source(PROJECT / "apps/admin-web/src/AdminExtra.jsx")
+    extra = read_web_source(PROJECT / "apps/admin-web/src/AdminExtra.tsx")
     assert "IdentityHubView" in extra and "function Reviews(" not in extra  # one «هویت» screen: review queue + auto report + devices
-    hub = read_web_source(PROJECT / "apps/admin-web/src/IdentityHubView.jsx")
+    hub = read_web_source(PROJECT / "apps/admin-web/src/IdentityHubView.tsx")
     assert "IdentityReviewsView" in hub and 'section="merges"' in hub and 'section="devices"' in hub
-    view = read_web_source(PROJECT / "apps/admin-web/src/IdentityReviewsView.jsx")
+    view = read_web_source(PROJECT / "apps/admin-web/src/IdentityReviewsView.tsx")
     assert "identity-link-reviews?status=all" in view and "reopen" in view and "dismiss" in view
     bot = _raw_text(PROJECT / "apps/telegram-main/runner.py")
     assert 'f"wla:{sid}:{c}"' in bot and 'f"wld:{sid}"' in bot  # callback data format is part of the Core contract

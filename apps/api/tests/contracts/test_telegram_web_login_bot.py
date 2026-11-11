@@ -209,14 +209,14 @@ def test_reseller_bot_inherits_the_flow_and_binds_its_own_store(tmp_path, monkey
 
 # ---------------- contracts of the other pieces ----------------
 def test_frontend_polls_with_post_body_and_keeps_nothing_in_storage():
-    src = read_web_source(PROJECT / "apps/store-web/src/TelegramLogin.jsx")
+    src = read_web_source(PROJECT / "apps/store-web/src/TelegramLogin.tsx")
     assert 'method: "POST"' in src and "poll_token: s.poll_token" in src
     assert "poll_token=" not in src and "?token" not in src  # secrets never travel in a URL
     assert "localStorage" not in src and "sessionStorage" not in src
     assert "/cancel" in src and "keepalive: true" in src  # closing the dialog invalidates the Telegram link
     assert 'rel="noopener noreferrer"' in src and "visibilitychange" in src
     app = read_store_shell(PROJECT)
-    assert 'import TelegramLogin from "./TelegramLogin.jsx"' in app and 'modal === "telegram"' in app
+    assert 'import TelegramLogin from "./TelegramLogin.tsx"' in app and 'modal === "telegram"' in app
     assert "hasBot" in app and "store.bot_username" in app
     assert "pair.is_admin" in app  # admins still cannot keep a storefront session
 
