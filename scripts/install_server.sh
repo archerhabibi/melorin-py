@@ -214,6 +214,12 @@ if grep -q '^MELORIN_BOOTSTRAP_ADMIN_TOTP_SECRET=' .env; then
   chmod 600 .env
 fi
 bash scripts/install_ops_watch.sh "$APP_DIR" || echo ">> could not install the automatic change recorder (see scripts/install_ops_watch.sh)" >&2
+# Host basics (swap, firewall, fail2ban), a saved copy of the one-time credentials and a verification report. Never fatal.
+# Opt out with POST_INSTALL=0.
+if [ "${POST_INSTALL:-1}" != "0" ]; then
+  APP_DIR="$APP_DIR" BOOTSTRAP_PASSWORD="${BOOTSTRAP_PASSWORD:-}" BOOTSTRAP_TOTP="${BOOTSTRAP_TOTP:-}" \
+    bash scripts/post_install.sh || echo ">> post-install step failed (non-fatal); run: bash scripts/post_install.sh" >&2
+fi
 
 echo
 echo "Done."
