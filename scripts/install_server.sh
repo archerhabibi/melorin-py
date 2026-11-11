@@ -64,6 +64,10 @@ fi
 mkdir -p var
 printf 'EXTERNAL_PROXY=%s\nREPO_REF=%s\n' "$EXTERNAL_PROXY" "$REPO_REF" > var/install-mode
 chmod +x melorin.sh get.sh 2>/dev/null || true
+# A checkout made earlier under umask 077 (manual git clone) leaves bind-mounted config unreadable for the non-root
+# containers (alertmanager/prometheus run as nobody). Re-apply readable perms on everything except secrets and .git.
+find . -path ./.git -prune -o -path ./secrets -prune -o -path ./.env -prune -o -type d -exec chmod go+rx {} + 2>/dev/null || true
+find . -path ./.git -prune -o -path ./secrets -prune -o -path ./.env -prune -o -type f -exec chmod go+r {} + 2>/dev/null || true
 ln -sf "$APP_DIR/melorin.sh" /usr/local/bin/melorin 2>/dev/null || true
 
 rand() { openssl rand -hex 32; }
