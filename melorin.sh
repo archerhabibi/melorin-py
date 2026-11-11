@@ -308,6 +308,11 @@ EOF
          if [ -z "$REPLY_TOKEN" ]; then warn "Nothing changed."; else
            local u; u="$(bot_username "$REPLY_TOKEN")"
            [ -n "$u" ] && ok "Token verified: $u" || warn "Could not verify the token with Telegram."
+           # Keep the alert receiver on the same bot unless the operator configured a different alert bot on purpose (T05).
+           local oldtok; oldtok="$(env_get MELORIN_MAIN_BOT_TOKEN)"
+           if [ -z "$(env_get ALERT_TELEGRAM_BOT_TOKEN)" ] || [ "$(env_get ALERT_TELEGRAM_BOT_TOKEN)" = "$oldtok" ]; then
+             env_set ALERT_TELEGRAM_BOT_TOKEN "$REPLY_TOKEN"
+           fi
            env_set MELORIN_TELEGRAM_TOKEN "$REPLY_TOKEN"; env_set MELORIN_MAIN_BOT_TOKEN "$REPLY_TOKEN"
            REPLY_TOKEN=""; ok "Saved."; apply_env
          fi; pause ;;
@@ -325,6 +330,10 @@ EOF
          if [ -z "$REPLY_TG" ]; then warn "Nothing changed."; else
            # Linked in the database (the running API is used: no restart needed) and remembered in .env for repair runs.
            if compose exec -T api python -m melorin.cli set-admin-telegram "$(env_get MELORIN_BOOTSTRAP_ADMIN_EMAIL)" "$REPLY_TG"; then
+             local oldtg; oldtg="$(env_get MELORIN_BOOTSTRAP_ADMIN_TELEGRAM_ID)"
+             if [ -z "$(env_get ALERT_TELEGRAM_CHAT_ID)" ] || [ "$(env_get ALERT_TELEGRAM_CHAT_ID)" = "$oldtg" ]; then
+               env_set ALERT_TELEGRAM_CHAT_ID "$REPLY_TG"   # T05: alerts follow the admin ID unless set separately
+             fi
              env_set MELORIN_BOOTSTRAP_ADMIN_TELEGRAM_ID "$REPLY_TG"; ok "Saved. Open the main bot once and press Start."
            else err "Could not link the Telegram ID (is the stack running? see the message above)."; fi
          fi; pause ;;
