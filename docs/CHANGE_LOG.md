@@ -21,6 +21,13 @@ If `main` is protected, allow `github-actions[bot]` to bypass so the bot can pus
 
 > Entries before 2026-11-09 were archived (T-R12) and live in git tag `changelog-archive-2026-11-09` (`git show changelog-archive-2026-11-09:docs/CHANGE_LOG.md`), per DOCUMENTATION-POLICY.
 
+## 2026-11-11 - Installer wires the Telegram alert receiver; container logs are rotated
+- **Area:** scripts / ops / docs
+- **Before:** `install_server.sh` never set `ALERT_TELEGRAM_BOT_TOKEN` / `ALERT_TELEGRAM_CHAT_ID`; no service had a log-rotation policy.
+- **Problem:** found on a clean-server install (T05/T06): Alertmanager started with "no alert receiver configured", so every Prometheus alert was dropped even though the bot token and the admin's Telegram ID had been given to the installer. Docker's default `json-file` driver never rotates, so logs could slowly fill the disk.
+- **Action:** when both bot token and admin ID are supplied the installer now sets the two `ALERT_TELEGRAM_*` keys; `melorin` menu 1 (bot token) and 5 (admin ID) keep them in sync unless a separate alert bot was configured. `docker-compose.yml` gets an `x-logging` anchor (`json-file`, 10m x 3) on all 12 services. Reports: `docs/T05..T08`.
+- **After:** verified live: Alertmanager loaded the receiver without the warning and delivered a test alert to the admin's Telegram (`alertmanager_notifications_total{integration="telegram"}` = 1, all failure counters 0); `docker compose config` valid, `scripts/check_ops_p0.py` green; all 12 containers healthy after recreation with `max-size=10m, max-file=3`.
+
 ## 2026-11-09 - Panel backup verification works against a newer panel PostgreSQL
 - **Area:** scripts / docs / ops
 - **Before:** `scripts/verify_panel_backup.sh` always called the host's `pg_restore`.
