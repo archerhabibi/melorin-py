@@ -11,6 +11,9 @@
 # Default mode uses the bundled Caddy. EXTERNAL_PROXY=true uses loopback
 # bindings and leaves TLS/routing to the existing host proxy.
 set -euo pipefail
+# Hosts hardened with umask 077 clone files as 0600/0700; containers running as non-root users (alertmanager,
+# prometheus = 'nobody') then cannot read their bind-mounted config. Secrets are chmod-ed explicitly later.
+umask 022
 
 REPO_URL="${REPO_URL:-https://github.com/archerhabibi/melorin-py.git}"
 # Pin production installs to a reviewed commit; override only during a deliberate release.

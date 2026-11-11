@@ -13,6 +13,9 @@
 #   REPO_COMMIT      full 40-char commit SHA the checkout must resolve to (supply-chain pin, T-W11). Recommended in production.
 #   REPO_ALLOW_MAIN  set to 1 to knowingly install the moving `main` branch once releases exist.
 set -euo pipefail
+# Hosts hardened with umask 077 clone files as 0600/0700; containers running as non-root users (alertmanager,
+# prometheus = 'nobody') then cannot read their bind-mounted config. Secrets are chmod-ed explicitly later.
+umask 022
 
 REPO_URL="${REPO_URL:-https://github.com/archerhabibi/melorin-py.git}"
 REPO_REF="${REPO_REF:-}"
