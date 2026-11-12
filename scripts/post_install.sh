@@ -92,6 +92,14 @@ else
     && ok "vm.overcommit_memory=1 (Redis background saves)" || warnx "could not set vm.overcommit_memory=1"
 fi
 
+# 5c) take the first backup right away: the MelorinBackupStale alert (critical) fires 10 minutes after install otherwise,
+#     because the scheduled backup only runs at 02:00 UTC. This also proves on day one that backups work.
+bk="$(docker ps -qf name=backup | head -1)"
+if [ -n "$bk" ]; then
+  r="$(docker exec "$bk" python -c 'import asyncio; from melorin.worker import jobs; print(asyncio.run(jobs.backup_job()))' 2>&1 | tail -1)"
+  [ "$r" = "succeeded" ] && ok "first backup taken (MelorinBackupStale stays quiet)" || warnx "first backup did not succeed ($r): see docker logs $bk"
+else warnx "backup container not running, no first backup taken"; fi
+
 say "Post-install: verification"
 tls_diagnose() { # $1 = domain: say WHY https is not answering (rate limit, DNS, validation) instead of a generic hint
   local logs line; logs="$(docker logs --tail 300 "$(docker ps -qf name=caddy | head -1)" 2>&1 || true)"

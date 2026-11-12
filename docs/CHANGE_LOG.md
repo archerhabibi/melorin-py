@@ -21,6 +21,13 @@ If `main` is protected, allow `github-actions[bot]` to bypass so the bot can pus
 
 > Entries before 2026-11-09 were archived (T-R12) and live in git tag `changelog-archive-2026-11-09` (`git show changelog-archive-2026-11-09:docs/CHANGE_LOG.md`), per DOCUMENTATION-POLICY.
 
+## 2026-11-12 - Persian Telegram alerts; first backup at install
+- **Area:** infra / scripts / ops
+- **Before:** Telegram alerts were Alertmanager's default English dump (labels, annotations, an internal Prometheus "Source:" link), and the critical `MelorinBackupStale` alert fired about 10 minutes after every install (no backup exists until the 02:00 UTC schedule), then "resolved" by itself.
+- **Problem:** hard to read for an Iranian operator; a false critical alarm on every fresh install.
+- **Action:** every rule in `infra/alerts.yml` has `summary_fa` and `hint_fa`; `alertmanager-entrypoint.sh` renders a Persian message template (severity, what happened, panel/server/job, hint, start/end in Iran time, no internal link; English summary is the fallback); `post_install.sh` takes the first backup immediately.
+- **After:** one readable Persian message per alert group; no false backup alarm after install.
+
 ## 2026-11-12 - HTTPS did not come up after repeated installs (Let's Encrypt rate limit); Redis overcommit
 - **Area:** infra / scripts / ops
 - **Before:** after several installs of the same domains the post-install check printed "did not answer 200 (got '000')" with no explanation, and the sites had no certificate.
