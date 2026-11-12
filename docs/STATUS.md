@@ -9,11 +9,11 @@
 | Alembic head | `0054_sold_vs_now` |
 | Migrations | 54 |
 | ORM tables | 74 |
-| API operations | 396 |
-| API paths | 351 |
-| Test files / test functions (static count) | 225 / 2074 |
+| API operations | 400 |
+| API paths | 354 |
+| Test files / test functions (static count) | 232 / 2109 |
 | Coverage | not measured here (CI writes `apps/api/coverage.xml`; run `pytest --cov=melorin --cov-report=xml`) |
-| Documents: repo root / `docs/` / `docs/history/` (tests only) | 3 / 39 / 4 |
+| Documents: repo root / `docs/` / `docs/history/` (tests only) | 3 / 35 / 4 |
 
 Where things live: requirements and design `docs/01`-`docs/17` (13-17 are design records; 12 and 15 were merged into `DECISIONS.md` and `14`); route list `docs/API.md`;
 operations `docs/RUNBOOK.md`; decisions `docs/DECISIONS.md`; change log `docs/CHANGE_LOG.md`;
