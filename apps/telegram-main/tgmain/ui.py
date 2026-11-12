@@ -220,20 +220,96 @@ def gb(b) -> str:
     return f"{(b or 0) / 1073741824:.1f}"
 
 
+# Admin-configured button styling (Bot API 9.4 ``style`` / ``icon_custom_emoji_id`` + a text decoration), downloaded from Core
+# by the runner (``TransportMixin.refresh_button_styles``). Same semantics as ``melorin.domain.button_style.resolve``:
+# the rule lists arrive ordered most-specific first, an exact key beats a prefix, the first match wins. Disabled = no-op.
+URL_STYLE_KEY = "@url"
+MAX_BUTTON_TEXT = 64
+_STYLES: dict = {"enabled": False, "inline": [], "reply": []}
+
+
+def set_button_styles(projection) -> None:
+    """Install the styling downloaded from Core; anything malformed switches styling off rather than breaking keyboards."""
+    global _STYLES
+    ok = (
+        isinstance(projection, dict)
+        and projection.get("enabled") is True
+        and isinstance(projection.get("inline"), list)
+        and isinstance(projection.get("reply"), list)
+    )
+    _STYLES = (
+        {"enabled": True, "inline": list(projection["inline"]), "reply": list(projection["reply"])}
+        if ok
+        else {"enabled": False, "inline": [], "reply": []}
+    )
+
+
+def _style_rule(rules, key: str):
+    for r in rules:
+        k, m = r.get("key"), r.get("match")
+        if (m == "exact" and k == key) or (m == "prefix" and isinstance(k, str) and key.startswith(k)):
+            return r
+    return None
+
+
+def styled_inline(text, key) -> dict:
+    """Text (maybe decorated) plus ``style`` / ``icon_custom_emoji_id`` for the inline button identified by ``key``."""
+    rule = _style_rule(_STYLES["inline"], str(key)) if _STYLES["enabled"] else None
+    if not rule:
+        return {"text": text}
+    decorated = f"{rule.get('prefix', '')}{text}{rule.get('suffix', '')}"
+    out = {"text": decorated if len(decorated) <= MAX_BUTTON_TEXT else text}
+    if rule.get("style"):
+        out["style"] = rule["style"]
+    if rule.get("icon"):
+        out["icon_custom_emoji_id"] = rule["icon"]
+    return out
+
+
+def has_styling(markup) -> bool:
+    """True when a reply markup carries any ``style`` / ``icon_custom_emoji_id`` (so a refusal can be retried without them)."""
+    if not isinstance(markup, dict):
+        return False
+    rows = markup.get("inline_keyboard") or markup.get("keyboard") or []
+    return any(isinstance(b, dict) and ("style" in b or "icon_custom_emoji_id" in b) for row in rows for b in row)
+
+
+def strip_styling(markup):
+    """Copy of a reply markup without the styling fields (the safe retry when Telegram refuses them)."""
+    if not isinstance(markup, dict):
+        return markup
+    out = dict(markup)
+    for rows_key in ("inline_keyboard", "keyboard"):
+        if rows_key in out:
+            out[rows_key] = [[{k: v for k, v in b.items() if k not in ("style", "icon_custom_emoji_id")} for b in row] for row in out[rows_key]]
+    return out
+
+
 def _button(text, data):
     """callback_data button, or a URL button when ``data`` is an absolute http(s) link (opens in the user's browser)."""
     if str(data).startswith(("https://", "http://")):
-        return {"text": text, "url": data}
-    return {"text": text, "callback_data": data}
+        return {**styled_inline(text, URL_STYLE_KEY), "url": data}
+    return {**styled_inline(text, data), "callback_data": data}
 
 
 def keyboard(rows):
     return {"inline_keyboard": [[_button(t, d) for t, d in row] for row in rows]}
 
 
+def _reply_button(text) -> dict:
+    """Reply-keyboard button: only colour/icon may change; the text is what the user sends back and must stay exact."""
+    rule = _style_rule(_STYLES["reply"], text) if _STYLES["enabled"] else None
+    out = {"text": text}
+    if rule and rule.get("style"):
+        out["style"] = rule["style"]
+    if rule and rule.get("icon"):
+        out["icon_custom_emoji_id"] = rule["icon"]
+    return out
+
+
 def reply_keyboard(rows):
     return {
-        "keyboard": [[{"text": text} for text in row] for row in rows],
+        "keyboard": [[_reply_button(text) for text in row] for row in rows],
         "resize_keyboard": True,
     }
 

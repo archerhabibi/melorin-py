@@ -9,8 +9,11 @@ import httpx
 
 from tgmain.ui import (
     MAIN_MENU,
+    has_styling,
     keyboard,
     reply_keyboard,
+    set_button_styles,
+    strip_styling,
 )
 from tgmain.errors import CoreError
 
@@ -132,7 +135,42 @@ class TransportMixin:
             wait = float(r.headers.get("retry-after", "") or 1)
         return max(0.0, wait)
 
+    STYLE_REFRESH_SECONDS = float(os.getenv("MELORIN_BUTTON_STYLE_REFRESH_SECONDS", "60"))
+    _styles_at = 0.0
+
+    async def refresh_button_styles(self) -> None:
+        """Download the admin's button styling from Core (at most once per ``STYLE_REFRESH_SECONDS``).
+
+        Best effort: on any failure the previous styling stays, and a bot that never reached Core simply sends plain buttons.
+        """
+        now = time.monotonic()
+        last = TransportMixin._styles_at
+        if last and now - last < self.STYLE_REFRESH_SECONDS:
+            return
+        TransportMixin._styles_at = now  # shared by every bot of the process (one Core, one styling): one fetch per interval
+        try:
+            r = await self.client.get(f"{self.core}/api/v1/telegram/button-styles", timeout=5.0)
+            if r.status_code == 200:
+                set_button_styles(r.json())
+        except (httpx.HTTPError, ValueError):
+            log.debug("button styles unavailable; keeping the previous ones")
+
     async def tg(self, method: str, payload: dict) -> dict:
+        try:
+            return await self._tg(method, payload)
+        except httpx.HTTPStatusError as exc:
+            # Telegram refuses a button style / Premium emoji it cannot show (e.g. an invalid id): never lose the message.
+            markup = payload.get("reply_markup")
+            try:
+                reason = str(exc.response.json().get("description", ""))
+            except ValueError:
+                reason = ""
+            if exc.response.status_code == 400 and has_styling(markup) and "not modified" not in reason:
+                log.warning("telegram refused styled buttons on %s; retrying without style/icon", method)
+                return await self._tg(method, {**payload, "reply_markup": strip_styling(markup)})
+            raise
+
+    async def _tg(self, method: str, payload: dict) -> dict:
         for attempt in range(self.TG_MAX_RETRIES + 1):
             r = await self.client.post(f"https://api.telegram.org/bot{self.token}/{method}", json=payload)
             wait = self.retry_after_of(r)
@@ -190,9 +228,11 @@ class TransportMixin:
         data = {"chat_id": str(chat_id), "caption": caption[:1024], "parse_mode": "HTML"}
         if rows:
             data["reply_markup"] = json.dumps(keyboard(rows))
-        r = await self.client.post(
-            f"https://api.telegram.org/bot{self.token}/sendPhoto", data=data, files={"photo": (filename, png, mime)}
-        )
+        url = f"https://api.telegram.org/bot{self.token}/sendPhoto"
+        r = await self.client.post(url, data=data, files={"photo": (filename, png, mime)})
+        if r.status_code == 400 and rows and has_styling(keyboard(rows)):  # styled buttons refused: resend plain
+            data["reply_markup"] = json.dumps(strip_styling(keyboard(rows)))
+            r = await self.client.post(url, data=data, files={"photo": (filename, png, mime)})
         r.raise_for_status()
 
     def main_menu_rows(self, chat_id) -> list:

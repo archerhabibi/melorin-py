@@ -121,6 +121,7 @@ class TelegramRunner(TransportMixin, IdentityMixin, LoyaltyMixin, PlansMixin, Wa
     # ---------- dispatch ----------
     async def handle(self, update: dict) -> None:
         self._expire_state()
+        await self.refresh_button_styles()
         message = update.get("message")
         callback = update.get("callback_query")
         if callback:
