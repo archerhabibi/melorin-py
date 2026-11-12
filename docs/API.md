@@ -35,7 +35,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 
 <!-- BEGIN GENERATED ROUTES (scripts/gen_docs.py) -->
 
-### `admin` (174)
+### `admin` (177)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -199,6 +199,9 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/api/v1/admin/stores/{store_id}/vpn-notices` | Get Store Vpn Notices |
 | PUT | `/api/v1/admin/stores/{store_id}/vpn-notices` | Put Store Vpn Notices |
 | DELETE | `/api/v1/admin/stores/{store_id}/vpn-notices` | Reset Store Vpn Notices |
+| GET | `/api/v1/admin/telegram/button-styles` | Get Button Styles |
+| PUT | `/api/v1/admin/telegram/button-styles` | Put Button Styles |
+| POST | `/api/v1/admin/telegram/button-styles/preview` | Preview Button Styles |
 | GET | `/api/v1/admin/tickets` | Tickets |
 | POST | `/api/v1/admin/tickets/attachments` | Ticket Upload Attachment |
 | GET | `/api/v1/admin/tickets/{ticket_id}` | Ticket Detail |
@@ -243,10 +246,26 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | DELETE | `/api/v1/admin/resellers/{store_id}/bot-token` | Clear Bot Token |
 | POST | `/api/v1/admin/resellers/{store_id}/verify-bot` | Verify Store Bot |
 
-### `auth` (24)
+### `admin-team` (8)
 
 | Method | Path | Operation |
 |---|---|---|
+| GET | `/api/v1/admin/admins` | List Admins |
+| POST | `/api/v1/admin/admins` | Invite Admin |
+| GET | `/api/v1/admin/admins/roles` | Admin Roles |
+| PATCH | `/api/v1/admin/admins/{admin_id}` | Patch Admin |
+| DELETE | `/api/v1/admin/admins/{admin_id}` | Remove Admin |
+| POST | `/api/v1/admin/admins/{admin_id}/reset-access` | Reset Admin Access |
+| POST | `/api/v1/admin/admins/{admin_id}/revoke-sessions` | Revoke Admin Sessions |
+| GET | `/api/v1/admin/me` | Admin Me |
+
+### `auth` (27)
+
+| Method | Path | Operation |
+|---|---|---|
+| POST | `/api/v1/auth/admin-invite/accept` | Admin Invite Accept |
+| POST | `/api/v1/auth/admin-invite/enroll` | Admin Invite Enroll |
+| POST | `/api/v1/auth/admin-invite/inspect` | Admin Invite Inspect |
 | POST | `/api/v1/auth/admin/password` | Change Admin Password |
 | POST | `/api/v1/auth/email/request-code` | Email Request Code |
 | POST | `/api/v1/auth/email/verify-code` | Email Verify Code |
@@ -461,6 +480,12 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | POST | `/api/v1/reseller-api/v1/stores/{store_id}/customers/{customer_id}/wallet` | Api Customer Wallet |
 | GET | `/api/v1/reseller-api/v1/stores/{store_id}/orders` | Api Orders |
 | GET | `/api/v1/reseller-api/v1/stores/{store_id}/reports` | Api Reports |
+
+### `telegram` (1)
+
+| Method | Path | Operation |
+|---|---|---|
+| GET | `/api/v1/telegram/button-styles` | Public Button Styles |
 
 ### `tickets` (9)
 
