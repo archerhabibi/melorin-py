@@ -2999,6 +2999,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/telegram/button-styles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Button Styles */
+        get: operations["get_button_styles_api_v1_admin_telegram_button_styles_get"];
+        /** Put Button Styles */
+        put: operations["put_button_styles_api_v1_admin_telegram_button_styles_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/telegram/button-styles/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Button Styles
+         * @description Send a sample of the submitted (not necessarily saved) styling to the admin's own Telegram chat.
+         */
+        post: operations["preview_button_styles_api_v1_admin_telegram_button_styles_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/tickets": {
         parameters: {
             query?: never;
@@ -6435,6 +6473,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/telegram/button-styles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Public Button Styles
+         * @description Secret-free styling the bots apply when they build keyboards (nothing but keys, colours, emoji ids, decoration).
+         */
+        get: operations["public_button_styles_api_v1_telegram_button_styles_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tickets/{ticket_id}": {
         parameters: {
             query?: never;
@@ -7083,6 +7141,16 @@ export interface components {
              * @default 0
              */
             sort: number;
+        };
+        /** ButtonStylesIn */
+        ButtonStylesIn: {
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
+            /** Rules */
+            rules?: Record<string, never>[];
         };
         /** CatalogItem */
         CatalogItem: {
@@ -15799,6 +15867,92 @@ export interface operations {
             };
         };
     };
+    get_button_styles_api_v1_admin_telegram_button_styles_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    put_button_styles_api_v1_admin_telegram_button_styles_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ButtonStylesIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_button_styles_api_v1_admin_telegram_button_styles_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ButtonStylesIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     tickets_api_v1_admin_tickets_get: {
         parameters: {
             query?: {
@@ -22501,6 +22655,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_button_styles_api_v1_telegram_button_styles_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };

@@ -80,7 +80,7 @@ PATH_RULES: tuple[tuple[re.Pattern[str], str, bool], ...] = tuple(
         (r"^admin/me$", "self", False),
         (r"^auth/admin/password$", "self", False),
         # platform-wide settings and integrations: owner only
-        (r"^admin/(settings|integrations|feature-flags)(/|$)", "system", False),
+        (r"^admin/(settings|integrations|feature-flags|telegram)(/|$)", "system", False),
         (r"^admin/audit(/|$)", "audit", False),
         (r"^admin/(dashboard|health)(/|$)", "overview", False),
         (r"^(admin/)?reports(/|$)", "reports", False),

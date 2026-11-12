@@ -35,7 +35,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 
 <!-- BEGIN GENERATED ROUTES (scripts/gen_docs.py) -->
 
-### `admin` (174)
+### `admin` (177)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -199,6 +199,9 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/api/v1/admin/stores/{store_id}/vpn-notices` | Get Store Vpn Notices |
 | PUT | `/api/v1/admin/stores/{store_id}/vpn-notices` | Put Store Vpn Notices |
 | DELETE | `/api/v1/admin/stores/{store_id}/vpn-notices` | Reset Store Vpn Notices |
+| GET | `/api/v1/admin/telegram/button-styles` | Get Button Styles |
+| PUT | `/api/v1/admin/telegram/button-styles` | Put Button Styles |
+| POST | `/api/v1/admin/telegram/button-styles/preview` | Preview Button Styles |
 | GET | `/api/v1/admin/tickets` | Tickets |
 | POST | `/api/v1/admin/tickets/attachments` | Ticket Upload Attachment |
 | GET | `/api/v1/admin/tickets/{ticket_id}` | Ticket Detail |
@@ -477,6 +480,12 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | POST | `/api/v1/reseller-api/v1/stores/{store_id}/customers/{customer_id}/wallet` | Api Customer Wallet |
 | GET | `/api/v1/reseller-api/v1/stores/{store_id}/orders` | Api Orders |
 | GET | `/api/v1/reseller-api/v1/stores/{store_id}/reports` | Api Reports |
+
+### `telegram` (1)
+
+| Method | Path | Operation |
+|---|---|---|
+| GET | `/api/v1/telegram/button-styles` | Public Button Styles |
 
 ### `tickets` (9)
 

@@ -381,6 +381,8 @@ PUBLIC_ROUTES = {
     "/stores/{store_id}/catalog",
     "/stores/{store_id}/bundles",
     "/stores/{store_id}/bundles/{bundle_id}/packages",
+    # button colours / Premium emoji ids / decoration the bots download: no secrets, no user data (admin-edited, validated)
+    "/telegram/button-styles",
     # gateway server-to-server callback, probes (the reseller API is NOT here: its routes carry api_store_context)
     "/payments/callbacks/{provider}",
     # bank-SMS forwarder of the store owner's phone: authenticated by the store's webhook token (only its SHA-256 is

@@ -29,6 +29,7 @@ export const SECTION_AREA: Record<string, string> = {
   'عملیات گروهی': 'infrastructure',
   'حجم فروشگاه‌ها': 'infrastructure',
   تنظیمات: 'system',
+  'دکمه‌های تلگرام': 'system',
   ممیزی: 'audit',
   هویت: 'customers',
   'مدیران سامانه': 'admins',

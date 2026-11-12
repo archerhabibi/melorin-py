@@ -35,6 +35,9 @@ class Fake:
         if path == "/api/v1/auth/telegram/bot":
             assert request.headers["x-bot-secret"] == "sek"
             return httpx.Response(200, json={"access_token": "A", "refresh_token": "R"})
+        if path == "/api/v1/telegram/button-styles":  # public, secret-free styling download: no credentials are sent
+            assert "authorization" not in request.headers and "x-bot-secret" not in request.headers
+            return httpx.Response(200, json={"enabled": False, "inline": [], "reply": []})
         assert request.headers.get("authorization") == "Bearer A"
         if path == "/api/v1/stores/s1/checkout/quote":
             return httpx.Response(
