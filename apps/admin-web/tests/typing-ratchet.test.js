@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 // Typing ratchet (T-O03 / T-R11): the loose `Json` / `Rec` aliases may only shrink.
 // Lower BUDGET whenever a view gets real types; never raise it.
-const BUDGET = 2042;
+const BUDGET = 2031;
 
 function walk(dir) {
   return readdirSync(dir).flatMap((n) => {
