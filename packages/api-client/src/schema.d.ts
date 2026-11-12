@@ -4,6 +4,106 @@
  */
 
 export interface paths {
+    "/api/v1/admin/admins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Admins */
+        get: operations["list_admins_api_v1_admin_admins_get"];
+        put?: never;
+        /**
+         * Invite Admin
+         * @description Invite an e-mail address as admin. Creates an inactive shell; nothing works until the invitee accepts.
+         */
+        post: operations["invite_admin_api_v1_admin_admins_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/admins/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Roles */
+        get: operations["admin_roles_api_v1_admin_admins_roles_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/admins/{admin_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Admin
+         * @description Take the person out of the team (the account is kept, inactive and hidden, so the audit trail still resolves).
+         */
+        delete: operations["remove_admin_api_v1_admin_admins__admin_id__delete"];
+        options?: never;
+        head?: never;
+        /** Patch Admin */
+        patch: operations["patch_admin_api_v1_admin_admins__admin_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/admin/admins/{admin_id}/reset-access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset Admin Access
+         * @description Lost phone or suspected compromise (also: send an expired invite again): wipes the password and authenticator, ends every
+         *     session and issues a fresh invite.
+         */
+        post: operations["reset_admin_access_api_v1_admin_admins__admin_id__reset_access_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/admins/{admin_id}/revoke-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke Admin Sessions
+         * @description Sign the admin out everywhere (their refresh tokens end; an access token lives at most a few minutes).
+         */
+        post: operations["revoke_admin_sessions_api_v1_admin_admins__admin_id__revoke_sessions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/audit": {
         parameters: {
             query?: never;
@@ -816,6 +916,23 @@ export interface paths {
         put?: never;
         /** Reopen */
         post: operations["reopen_api_v1_admin_manual_tasks__task_id__reopen_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Me */
+        get: operations["admin_me_api_v1_admin_me_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3303,6 +3420,57 @@ export interface paths {
         get: operations["usage_admin_api_v1_admin_vpn_accounts__account_id__tools_usage_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/admin-invite/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin Invite Accept */
+        post: operations["admin_invite_accept_api_v1_auth_admin_invite_accept_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/admin-invite/enroll": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin Invite Enroll */
+        post: operations["admin_invite_enroll_api_v1_auth_admin_invite_enroll_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/admin-invite/inspect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin Invite Inspect */
+        post: operations["admin_invite_inspect_api_v1_auth_admin_invite_inspect_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6522,12 +6690,113 @@ export interface components {
             /** Store Id */
             store_id?: string | null;
         };
+        /** AdminInviteAccept */
+        AdminInviteAccept: {
+            /** Password */
+            password: string;
+            /** Token */
+            token: string;
+            /** Totp Code */
+            totp_code: string;
+        };
+        /** AdminInviteEnrollment */
+        AdminInviteEnrollment: {
+            /** Otpauth Url */
+            otpauth_url: string;
+            /** Qr Data Uri */
+            qr_data_uri: string;
+            /** Secret */
+            secret: string;
+        };
+        /** AdminInviteInfo */
+        AdminInviteInfo: {
+            /** Display Name */
+            display_name: string | null;
+            /** Email */
+            email: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Role */
+            role: string;
+            /** Role Label */
+            role_label: string;
+        };
+        /** AdminInviteToken */
+        AdminInviteToken: {
+            /** Token */
+            token: string;
+        };
+        /** AdminMeOut */
+        AdminMeOut: {
+            /** Display Name */
+            display_name: string | null;
+            /** Email */
+            email: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Is Owner */
+            is_owner: boolean;
+            /** Permissions */
+            permissions: string[];
+            /** Role */
+            role: string | null;
+            /** Role Label */
+            role_label: string | null;
+        };
+        /** AdminOut */
+        AdminOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Display Name */
+            display_name: string | null;
+            /** Email */
+            email: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Invite Expires At */
+            invite_expires_at: string | null;
+            /** Is Active */
+            is_active: boolean;
+            /** Is Self */
+            is_self: boolean;
+            /** Last Login At */
+            last_login_at: string | null;
+            /** Role */
+            role: string | null;
+            /** Role Label */
+            role_label: string | null;
+            /** State */
+            state: string;
+            /** Totp Enabled */
+            totp_enabled: boolean;
+        };
         /** AdminPasswordChange */
         AdminPasswordChange: {
             /** Current Password */
             current_password: string;
             /** New Password */
             new_password: string;
+        };
+        /** AdminPatch */
+        AdminPatch: {
+            /** Display Name */
+            display_name?: string | null;
+            /** Is Active */
+            is_active?: boolean | null;
+            /** Role */
+            role?: string | null;
         };
         /** AdminUpdateTicket */
         AdminUpdateTicket: {
@@ -7440,6 +7709,33 @@ export interface components {
             subject: string;
             /** Verified */
             verified: boolean;
+        };
+        /** InviteIn */
+        InviteIn: {
+            /** Display Name */
+            display_name?: string | null;
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
+            /** Role */
+            role: string;
+        };
+        /** InviteOut */
+        InviteOut: {
+            admin: components["schemas"]["AdminOut"];
+            /** Emailed */
+            emailed: boolean;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Invite Path */
+            invite_path: string;
+            /** Invite Url */
+            invite_url: string | null;
         };
         /** IssueActionIn */
         IssueActionIn: {
@@ -8626,6 +8922,17 @@ export interface components {
             /** Value */
             value: number;
         };
+        /** RoleOut */
+        RoleOut: {
+            /** Description */
+            description: string;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Permissions */
+            permissions: string[];
+        };
         /** SelectionIn */
         SelectionIn: {
             /** Expiring Within Days */
@@ -9621,6 +9928,205 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    list_admins_api_v1_admin_admins_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOut"][];
+                };
+            };
+        };
+    };
+    invite_admin_api_v1_admin_admins_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_roles_api_v1_admin_admins_roles_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleOut"][];
+                };
+            };
+        };
+    };
+    remove_admin_api_v1_admin_admins__admin_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                admin_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_admin_api_v1_admin_admins__admin_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                admin_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_admin_access_api_v1_admin_admins__admin_id__reset_access_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                admin_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_admin_sessions_api_v1_admin_admins__admin_id__revoke_sessions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                admin_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     audit_log_api_v1_admin_audit_get: {
         parameters: {
             query?: {
@@ -11159,6 +11665,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_me_api_v1_admin_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMeOut"];
                 };
             };
         };
@@ -16056,6 +16582,105 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UsageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_invite_accept_api_v1_auth_admin_invite_accept_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminInviteAccept"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_invite_enroll_api_v1_auth_admin_invite_enroll_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminInviteToken"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminInviteEnrollment"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_invite_inspect_api_v1_auth_admin_invite_inspect_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminInviteToken"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminInviteInfo"];
                 };
             };
             /** @description Validation Error */

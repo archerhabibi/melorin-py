@@ -178,3 +178,40 @@ def test_password_policy_accepts(password):
 
 def test_short_email_local_part_is_not_a_password_rule():
     assert pp.violation("Zq9-aaaa-Bbbb-cc", "ab@x.io") is None
+
+
+# ---------------------------------------------------------------- guard wiring (deps.py)
+class _Untouchable:
+    """A session that fails the test if the guard writes anything (no audit event for a non-admin-panel session)."""
+
+    def __getattr__(self, name):
+        raise AssertionError(f"session.{name} must not be touched")
+
+
+def _admin_request(path: str, method: str):
+    import types
+
+    return types.SimpleNamespace(url=types.SimpleNamespace(path=path), method=method)
+
+
+async def test_role_guard_ignores_a_customer_channel_session_of_an_admin_account():
+    """The role check judges admin-panel sessions only; a customer session of the same account is refused by
+    ``require_admin_session`` itself, so it must neither pass here nor leave an ``admin_area_denied`` event."""
+    import types
+
+    from melorin.core import deps
+
+    user = types.SimpleNamespace(is_super_admin=True, admin_roles=["viewer"])
+    customer_session = types.SimpleNamespace(is_admin_session=False)
+    await deps.admin_area_guard(_admin_request("/api/v1/admin/settings/x", "PUT"), _Untouchable(), customer_session, user)
+
+
+def test_store_context_dependencies_require_the_request():
+    """``request`` has no default: a missing request would silently skip the admin role check (fail open)."""
+    import inspect
+
+    from melorin.core import deps
+
+    for dep in (deps.store_context, deps.owner_store_context):
+        param = inspect.signature(dep).parameters["request"]
+        assert param.default is inspect.Parameter.empty and param.kind is inspect.Parameter.KEYWORD_ONLY
