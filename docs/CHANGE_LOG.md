@@ -21,6 +21,13 @@ If `main` is protected, allow `github-actions[bot]` to bypass so the bot can pus
 
 > Entries before 2026-11-09 were archived (T-R12) and live in git tag `changelog-archive-2026-11-09` (`git show changelog-archive-2026-11-09:docs/CHANGE_LOG.md`), per DOCUMENTATION-POLICY.
 
+## 2026-11-12 - Admin team: invite admins with roles to the web panel
+- **Area:** api / admin-web / identity / docs
+- **Before:** every admin-panel user was all-powerful and the only way to add one was the CLI bootstrap; there was no role, no invitation and no way to take access away.
+- **Problem:** the owner could not give an accountant, a support agent or a viewer their own login without handing over everything.
+- **Action:** roles (owner, manager, finance, support, viewer) over permission areas enforced server-side by a path->area table (`domain/admin_access.py`, unknown paths owner-only, empty role = no access); one-time hashed invite links (72h) where the invitee sets their own password and authenticator (`/auth/admin-invite/*`); owner screen "مدیران سامانه" (invite, change role, suspend, reset access, revoke sessions, remove) and "حساب من" for everyone; self-protection and last-owner protection; migration `0055_admin_team` back-fills existing admins as owner. Design: `docs/24-Admin-Team-Design.md`.
+- **After:** the owner can add admins from the panel with least-privilege roles; every denial is audited; existing admins keep full access.
+
 ## 2026-11-12 - Persian Telegram alerts; first backup at install
 - **Area:** infra / scripts / ops
 - **Before:** Telegram alerts were Alertmanager's default English dump (labels, annotations, an internal Prometheus "Source:" link), and the critical `MelorinBackupStale` alert fired about 10 minutes after every install (no backup exists until the 02:00 UTC schedule), then "resolved" by itself.

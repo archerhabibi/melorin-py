@@ -349,6 +349,11 @@ PUBLIC_ROUTES = {
     "/auth/web-handoff/redeem",
     "/auth/refresh",
     "/auth/logout",
+    # an invited admin accepts their invitation: the one-time token (SHA-256 stored, 72 h, single use) is the credential and no
+    # session is issued; the new admin then signs in with password + TOTP (docs/24-Admin-Team-Design.md)
+    "/auth/admin-invite/inspect",
+    "/auth/admin-invite/enroll",
+    "/auth/admin-invite/accept",
     "/auth/telegram/web/sessions",
     "/auth/telegram/web/sessions/{session_id}/poll",
     "/auth/telegram/web/sessions/{session_id}/cancel",

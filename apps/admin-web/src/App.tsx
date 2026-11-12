@@ -12,6 +12,8 @@ import { Badge, DialogHost, ThemeButton, confirmDialog, label, sid, tone } from 
 import { Palette } from './palette.tsx';
 import { backdropProps, useDialog } from './useDialog.ts';
 import { legacyHash } from './infra.tsx';
+import { sectionAllowed } from './adminAccess.ts';
+import type { Permissions } from './adminAccess.ts';
 import { toggleTheme } from './theme.ts';
 import {
   Activity,
@@ -54,8 +56,9 @@ import {
   Gift,
   Award,
   UserCog,
+  UsersRound,
 } from 'lucide-react';
-import type { Json, Rec, Toast } from './types.ts';
+import type { AdminMe, Json, Rec, Toast } from './types.ts';
 
 // Section keys are Persian labels (AdminSections/AdminExtra route on them); slug drives the URL hash.
 const groups: [string, [string, LucideIcon, string][], string?][] = [
@@ -110,6 +113,8 @@ const groups: [string, [string, LucideIcon, string][], string?][] = [
       ['تنظیمات', Settings, 'settings'],
       ['ممیزی', ScrollText, 'audit'],
       ['هویت', Fingerprint, 'identity'],
+      ['مدیران سامانه', UsersRound, 'admin-team'],
+      ['حساب من', UserRound, 'my-account'],
     ],
   ],
 ];
@@ -160,6 +165,8 @@ function useCore() {
     users: [],
     tickets: [],
     stores: [],
+    me: null,
+    perms: undefined,
     health: null,
     backups: [],
     pendingApps: 0,
@@ -174,17 +181,27 @@ function useCore() {
     setData((x) => ({ ...x, loading: true }));
     (async () => {
       try {
-        const [summary, orders, health, backups, users, tickets, stores] = await Promise.all(
-          [
-            '/api/v1/admin/reports/summary',
-            '/api/v1/admin/orders',
-            '/api/v1/admin/health',
-            '/api/v1/admin/operations/backups',
-            '/api/v1/admin/users',
-            '/api/v1/admin/tickets',
-            '/api/v1/admin/stores',
-          ].map((p) => getJson(base, p)),
-        );
+        // A role may not read every list (a support admin has no reports, a finance admin no panels): each call fails on its own
+        // and only a total failure means "Core is unreachable".
+        const soft = async (p: string, fallback: unknown) => {
+          try {
+            return { ok: true, value: await getJson<unknown>(base, p) };
+          } catch {
+            return { ok: false, value: fallback };
+          }
+        };
+        const raw = await Promise.all([
+          soft('/api/v1/admin/reports/summary', null),
+          soft('/api/v1/admin/orders', []),
+          soft('/api/v1/admin/health', null),
+          soft('/api/v1/admin/operations/backups', []),
+          soft('/api/v1/admin/users', []),
+          soft('/api/v1/admin/tickets', []),
+          soft('/api/v1/admin/stores', []),
+        ]);
+        if (raw.every((x) => !x.ok)) throw new Error('unreachable');
+        const [summary, orders, health, backups, users, tickets, stores] = raw.map((x) => x.value);
+        const me = await getJson<AdminMe>(base, '/api/v1/admin/me').catch(() => null);
         const pendingApps = await getJson(base, '/api/v1/admin/reseller-applications?status=pending')
           .then((x) => x.length)
           .catch(() => 0);
@@ -203,6 +220,8 @@ function useCore() {
             users,
             tickets,
             stores,
+            me,
+            perms: me ? me.permissions : [],
             pendingApps,
             pendingPanelReq,
             manualTasks,
@@ -253,7 +272,9 @@ function Nav({
   pendingApps,
   pendingPanelReq,
   manualTasks,
+  perms,
 }: {
+  perms?: Permissions;
   section?: Json;
   go?: Json;
   openTickets?: Json;
@@ -263,45 +284,51 @@ function Nav({
 }) {
   return (
     <nav aria-label="منوی اصلی" className="space-y-5 px-3 pb-6">
-      {groups.map(([g, items, sub]) => (
-        <div key={g}>
-          <div className="mb-1.5 px-3 text-[11px] font-bold tracking-wide text-white/35">
-            {g}
-            {sub && <span className="mt-0.5 block text-[10px] font-normal tracking-normal text-white/25">{sub}</span>}
+      {groups
+        .map(
+          ([g, items, sub]) =>
+            [g, items.filter(([name]) => sectionAllowed(perms, name)), sub] as (typeof groups)[number],
+        )
+        .filter(([, items]) => items.length)
+        .map(([g, items, sub]) => (
+          <div key={g}>
+            <div className="mb-1.5 px-3 text-[11px] font-bold tracking-wide text-white/35">
+              {g}
+              {sub && <span className="mt-0.5 block text-[10px] font-normal tracking-normal text-white/25">{sub}</span>}
+            </div>
+            {items.map(([name, Icon]) => (
+              <button
+                key={name}
+                onClick={() => go(name)}
+                aria-current={section === name ? 'page' : undefined}
+                className={`navb ${section === name ? 'on' : ''}`}
+              >
+                <Icon size={18} />
+                <span>{name}</span>
+                {name === 'تیکت‌ها' && openTickets > 0 && (
+                  <span className="mr-auto rounded-full bg-[#e8743b] px-2 py-0.5 text-[10px] font-bold text-white">
+                    {openTickets}
+                  </span>
+                )}
+                {name === 'درخواست‌های نمایندگی' && pendingApps > 0 && (
+                  <span className="mr-auto rounded-full bg-[#e8743b] px-2 py-0.5 text-[10px] font-bold text-white">
+                    {pendingApps}
+                  </span>
+                )}
+                {name === 'ادمین‌های پنل' && pendingPanelReq > 0 && (
+                  <span className="mr-auto rounded-full bg-[#e8743b] px-2 py-0.5 text-[10px] font-bold text-white">
+                    {pendingPanelReq}
+                  </span>
+                )}
+                {name === 'کارهای دستی' && manualTasks > 0 && (
+                  <span className="mr-auto rounded-full bg-[#e8743b] px-2 py-0.5 text-[10px] font-bold text-white">
+                    {manualTasks}
+                  </span>
+                )}
+              </button>
+            ))}
           </div>
-          {items.map(([name, Icon]) => (
-            <button
-              key={name}
-              onClick={() => go(name)}
-              aria-current={section === name ? 'page' : undefined}
-              className={`navb ${section === name ? 'on' : ''}`}
-            >
-              <Icon size={18} />
-              <span>{name}</span>
-              {name === 'تیکت‌ها' && openTickets > 0 && (
-                <span className="mr-auto rounded-full bg-[#e8743b] px-2 py-0.5 text-[10px] font-bold text-white">
-                  {openTickets}
-                </span>
-              )}
-              {name === 'درخواست‌های نمایندگی' && pendingApps > 0 && (
-                <span className="mr-auto rounded-full bg-[#e8743b] px-2 py-0.5 text-[10px] font-bold text-white">
-                  {pendingApps}
-                </span>
-              )}
-              {name === 'ادمین‌های پنل' && pendingPanelReq > 0 && (
-                <span className="mr-auto rounded-full bg-[#e8743b] px-2 py-0.5 text-[10px] font-bold text-white">
-                  {pendingPanelReq}
-                </span>
-              )}
-              {name === 'کارهای دستی' && manualTasks > 0 && (
-                <span className="mr-auto rounded-full bg-[#e8743b] px-2 py-0.5 text-[10px] font-bold text-white">
-                  {manualTasks}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-      ))}
+        ))}
     </nav>
   );
 }
@@ -563,7 +590,19 @@ function Dashboard({ api, toast }: { api?: Json; toast: Toast }) {
 }
 
 // Signed-in admin identity (GET /api/v1/me) + sign-out (POST /api/v1/auth/logout revokes the refresh token and clears the cookie).
-function UserMenu({ base, go, toast, onLogout }: { base: string; go?: Json; toast: Toast; onLogout?: Json }) {
+function UserMenu({
+  base,
+  go,
+  toast,
+  onLogout,
+  adminMe,
+}: {
+  base: string;
+  go?: Json;
+  toast: Toast;
+  onLogout?: Json;
+  adminMe?: AdminMe | null;
+}) {
   const [me, setMe] = useState<Json>(null);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -626,7 +665,7 @@ function UserMenu({ base, go, toast, onLogout }: { base: string; go?: Json; toas
               </div>
             )}
             <div className="mt-2 flex flex-wrap gap-1.5">
-              <span className="badge b-in">{me?.is_admin === false ? 'کاربر' : 'Super Admin'}</span>
+              <span className="badge b-in">{adminMe?.role_label || (me?.is_admin === false ? 'کاربر' : 'ادمین')}</span>
               {me && (
                 <span className={`badge ${me.totp_enabled ? 'b-ok' : 'b-wn'}`}>
                   {me.totp_enabled ? 'TOTP فعال' : 'TOTP غیرفعال'}
@@ -638,7 +677,7 @@ function UserMenu({ base, go, toast, onLogout }: { base: string; go?: Json; toas
             role="menuitem"
             onClick={() => {
               setOpen(false);
-              go('تنظیمات');
+              go('حساب من');
             }}
             className="mt-1 flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm hover:bg-[var(--mb)]"
           >
@@ -706,12 +745,20 @@ export default function App({ onLogout }: { onLogout?: Json }) {
     window.addEventListener('keydown', f);
     return () => window.removeEventListener('keydown', f);
   }, []);
+  // A role that may not open the current screen (a bookmark, an old hash) lands on the first screen it may open.
+  useEffect(() => {
+    if (api.perms === undefined || sectionAllowed(api.perms, section)) return;
+    const first = flat.find(([name]) => sectionAllowed(api.perms, name));
+    if (first) window.location.hash = `/${first[2]}`;
+  }, [api.perms, section]);
   useEffect(() => {
     document.title = `${section} · ملورین`;
     window.scrollTo(0, 0);
   }, [section]);
   const palItems = [
-    ...flat.map(([name, Icon]) => ({ name, hint: 'برو به بخش', Icon, run: () => go(name) })),
+    ...flat
+      .filter(([name]) => sectionAllowed(api.perms, name))
+      .map(([name, Icon]) => ({ name, hint: 'برو به بخش', Icon, run: () => go(name) })),
     {
       name: 'به‌روزرسانی داده‌ها',
       hint: 'عملیات',
@@ -741,6 +788,7 @@ export default function App({ onLogout }: { onLogout?: Json }) {
             pendingApps={api.pendingApps}
             pendingPanelReq={api.pendingPanelReq}
             manualTasks={api.manualTasks}
+            perms={api.perms}
           />
         </div>
         <div className="m-4 rounded-2xl bg-white/[.07] p-4">
@@ -803,11 +851,16 @@ export default function App({ onLogout }: { onLogout?: Json }) {
               <Download size={16} />
               خروجی سفارش‌ها
             </button>
-            <UserMenu base={api.base} go={go} toast={toast} onLogout={onLogout} />
+            <UserMenu base={api.base} go={go} toast={toast} onLogout={onLogout} adminMe={api.me} />
           </div>
         </header>
         <main className="p-5 md:p-9">
           <div className="mx-auto max-w-7xl">
+            {Array.isArray(api.perms) && api.perms.length === 0 && !api.loading && (
+              <div role="alert" className="mb-5 rounded-2xl bg-[var(--wnb)] p-4 text-sm font-bold text-[var(--wn)]">
+                برای حساب شما نقشی تعریف نشده است. از مالک پنل بخواهید نقش مناسبی به شما بدهد.
+              </div>
+            )}
             {api.error && (
               <div
                 role="alert"
@@ -842,6 +895,7 @@ export default function App({ onLogout }: { onLogout?: Json }) {
               pendingApps={api.pendingApps}
               pendingPanelReq={api.pendingPanelReq}
               manualTasks={api.manualTasks}
+              perms={api.perms}
             />
           </div>
         </MobileNav>

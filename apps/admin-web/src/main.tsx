@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import { getAccessToken, setTokens } from './auth.ts';
 import AdminAuth from './AdminAuth.tsx';
+import AcceptInvite, { isInviteHash } from './AcceptInvite.tsx';
 import './styles.css';
 import './theme.ts';
 import type { Json } from './types.ts';
@@ -39,6 +40,13 @@ class AdminErrorBoundary extends React.Component<{ children?: React.ReactNode },
 }
 
 function Root() {
+  // An admin invitation opens this page from an e-mail: it needs no session and must never trigger a refresh or a sign-in screen.
+  const [invite, setInvite] = useState(() => isInviteHash(window.location.hash));
+  React.useEffect(() => {
+    const f = () => setInvite(isInviteHash(window.location.hash));
+    window.addEventListener('hashchange', f);
+    return () => window.removeEventListener('hashchange', f);
+  }, []);
   const [signedIn, setSignedIn] = useState(() => Boolean(getAccessToken()));
   const [checking, setChecking] = useState(() => !getAccessToken());
   const base = (import.meta.env?.VITE_MELORIN_API_URL || window.location.origin).replace(/\/$/, '');
@@ -58,6 +66,7 @@ function Root() {
       .catch(() => {})
       .finally(() => setChecking(false));
   }, [base]);
+  if (invite) return <AcceptInvite base={base} />;
   if (checking)
     return (
       <main className="grid min-h-screen place-items-center bg-[var(--nav)] text-white/80">

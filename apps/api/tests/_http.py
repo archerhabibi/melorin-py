@@ -78,6 +78,7 @@ async def add_user(maker, *, email="user@example.com", password=PASSWORD, admin=
             display_name=email.split("@")[0],
             password_hash=await hash_password(password) if password else None,
             is_super_admin=admin,
+            admin_roles=["owner"] if admin else [],
             is_active=active,
             totp_enabled=totp,
             totp_secret_enc=encrypt(TOTP_SECRET) if totp else None,
