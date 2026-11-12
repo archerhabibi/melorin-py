@@ -11,6 +11,9 @@
 # Default mode uses the bundled Caddy. EXTERNAL_PROXY=true uses loopback
 # bindings and leaves TLS/routing to the existing host proxy.
 set -euo pipefail
+# Hosts hardened with umask 077 clone files as 0600/0700; containers running as non-root users (alertmanager,
+# prometheus = 'nobody') then cannot read their bind-mounted config. Secrets are chmod-ed explicitly later.
+umask 022
 
 REPO_URL="${REPO_URL:-https://github.com/archerhabibi/melorin-py.git}"
 # Pin production installs to a reviewed commit; override only during a deliberate release.
@@ -61,6 +64,10 @@ fi
 mkdir -p var
 printf 'EXTERNAL_PROXY=%s\nREPO_REF=%s\n' "$EXTERNAL_PROXY" "$REPO_REF" > var/install-mode
 chmod +x melorin.sh get.sh 2>/dev/null || true
+# A checkout made earlier under umask 077 (manual git clone) leaves bind-mounted config unreadable for the non-root
+# containers (alertmanager/prometheus run as nobody). Re-apply readable perms on everything except secrets and .git.
+find . -path ./.git -prune -o -path ./secrets -prune -o -path ./.env -prune -o -type d -exec chmod go+rx {} + 2>/dev/null || true
+find . -path ./.git -prune -o -path ./secrets -prune -o -path ./.env -prune -o -type f -exec chmod go+r {} + 2>/dev/null || true
 ln -sf "$APP_DIR/melorin.sh" /usr/local/bin/melorin 2>/dev/null || true
 
 rand() { openssl rand -hex 32; }
@@ -141,6 +148,12 @@ if [ ! -f .env ]; then
   if [ -n "$BOT" ]; then
     set_kv MELORIN_TELEGRAM_TOKEN "$BOT"
     set_kv MELORIN_MAIN_BOT_TOKEN "$BOT"
+    # Alertmanager receiver (T05): without ALERT_TELEGRAM_CHAT_ID the alertmanager container starts with NO receiver and every
+    # Prometheus alert is silently dropped. The main bot + the admin's numeric ID are already known here, so wire them up.
+    if [ -n "$ADMIN_TG" ]; then
+      set_kv ALERT_TELEGRAM_BOT_TOKEN "$BOT"
+      set_kv ALERT_TELEGRAM_CHAT_ID "$ADMIN_TG"
+    fi
     # Soft check only (Telegram may be unreachable from some networks).
     if curl -fsS -m 10 "https://api.telegram.org/bot${BOT}/getMe" >/dev/null 2>&1; then
       echo ">> main bot token verified with Telegram."
@@ -211,6 +224,12 @@ if grep -q '^MELORIN_BOOTSTRAP_ADMIN_TOTP_SECRET=' .env; then
   chmod 600 .env
 fi
 bash scripts/install_ops_watch.sh "$APP_DIR" || echo ">> could not install the automatic change recorder (see scripts/install_ops_watch.sh)" >&2
+# Host basics (swap, firewall, fail2ban), a saved copy of the one-time credentials and a verification report. Never fatal.
+# Opt out with POST_INSTALL=0.
+if [ "${POST_INSTALL:-1}" != "0" ]; then
+  APP_DIR="$APP_DIR" BOOTSTRAP_PASSWORD="${BOOTSTRAP_PASSWORD:-}" BOOTSTRAP_TOTP="${BOOTSTRAP_TOTP:-}" \
+    bash scripts/post_install.sh || echo ">> post-install step failed (non-fatal); run: bash scripts/post_install.sh" >&2
+fi
 
 echo
 echo "Done."

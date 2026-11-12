@@ -13,6 +13,9 @@
 #   REPO_COMMIT      full 40-char commit SHA the checkout must resolve to (supply-chain pin, T-W11). Recommended in production.
 #   REPO_ALLOW_MAIN  set to 1 to knowingly install the moving `main` branch once releases exist.
 set -euo pipefail
+# Hosts hardened with umask 077 clone files as 0600/0700; containers running as non-root users (alertmanager,
+# prometheus = 'nobody') then cannot read their bind-mounted config. Secrets are chmod-ed explicitly later.
+umask 022
 
 REPO_URL="${REPO_URL:-https://github.com/archerhabibi/melorin-py.git}"
 REPO_REF="${REPO_REF:-}"
@@ -80,6 +83,10 @@ if [ -n "$REPO_COMMIT" ]; then
 fi
 
 chmod +x melorin.sh scripts/*.sh 2>/dev/null || true
+# A checkout made earlier under umask 077 (manual git clone) leaves bind-mounted config unreadable for the non-root
+# containers (alertmanager/prometheus run as nobody). Re-apply readable perms on everything except secrets and .git.
+find . -path ./.git -prune -o -path ./secrets -prune -o -path ./.env -prune -o -type d -exec chmod go+rx {} + 2>/dev/null || true
+find . -path ./.git -prune -o -path ./secrets -prune -o -path ./.env -prune -o -type f -exec chmod go+r {} + 2>/dev/null || true
 ln -sf "$APP_DIR/melorin.sh" /usr/local/bin/melorin
 say "Command registered: run 'melorin' any time to open the menu."
 

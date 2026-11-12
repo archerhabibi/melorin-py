@@ -194,12 +194,12 @@ async def test_a_session_of_store_a_is_refused_on_store_b_before_any_query():
     async with open_session() as s:
         w = await _world(s)
         in_a = auth_for(w.alice, w.a)
-        ctx = await deps.store_context(s, in_a, w.a.id)
+        ctx = await deps.store_context(s, in_a, w.a.id, request=fake_request())
         assert ctx.store.id == w.a.id and ctx.is_admin is False
-        assert await _codes(deps.store_context(s, in_a, w.b.id)) == "CHANNEL_MISMATCH"
-        assert await _codes(deps.store_context(s, in_a, w.main.id)) == "CHANNEL_MISMATCH"
+        assert await _codes(deps.store_context(s, in_a, w.b.id, request=fake_request())) == "CHANNEL_MISMATCH"
+        assert await _codes(deps.store_context(s, in_a, w.main.id, request=fake_request())) == "CHANNEL_MISMATCH"
         # an id that does not exist answers exactly like a real foreign store: no probing
-        assert await _codes(deps.store_context(s, in_a, uuid.uuid4())) == "CHANNEL_MISMATCH"
+        assert await _codes(deps.store_context(s, in_a, uuid.uuid4(), request=fake_request())) == "CHANNEL_MISMATCH"
         # and no membership was created in the foreign store by the failed attempts
         from melorin.kernel.models.stores import StoreMembership
 
@@ -211,18 +211,18 @@ async def test_bot_and_site_sessions_of_the_same_store_are_equivalent_for_the_st
     async with open_session() as s:
         w = await _world(s)
         for kind in ("site", "bot"):
-            assert (await deps.store_context(s, auth_for(w.alice, w.a, kind), w.a.id)).store.id == w.a.id
+            assert (await deps.store_context(s, auth_for(w.alice, w.a, kind), w.a.id, request=fake_request())).store.id == w.a.id
 
 
 async def test_admin_panel_session_reaches_every_store_but_a_customer_session_of_an_admin_does_not():
     async with open_session() as s:
         w = await _world(s)
-        ctx = await deps.store_context(s, admin_auth(w.admin), w.b.id)
+        ctx = await deps.store_context(s, admin_auth(w.admin), w.b.id, request=fake_request())
         assert ctx.is_admin is True
         as_customer = auth_for(w.admin, w.a, "bot")  # the same account, but through a bot: a customer session
         assert as_customer.is_admin_session is False
-        assert await _codes(deps.store_context(s, as_customer, w.b.id)) == "CHANNEL_MISMATCH"
-        assert (await deps.store_context(s, as_customer, w.a.id)).is_admin is False
+        assert await _codes(deps.store_context(s, as_customer, w.b.id, request=fake_request())) == "CHANNEL_MISMATCH"
+        assert (await deps.store_context(s, as_customer, w.a.id, request=fake_request())).is_admin is False
         assert await _codes(deps.require_admin_session(as_customer, w.admin)) == "FORBIDDEN"
 
 
@@ -230,14 +230,16 @@ async def test_owner_plane_store_own_channels_or_main_hub_for_the_real_owner_onl
     async with open_session() as s:
         w = await _world(s)
         owner_site = auth_for(w.owner_a, w.a)
-        assert (await deps.owner_store_context(s, owner_site, w.a.id)).store.id == w.a.id
-        assert await _codes(deps.owner_store_context(s, owner_site, w.b.id)) == "CHANNEL_MISMATCH"
+        assert (await deps.owner_store_context(s, owner_site, w.a.id, request=fake_request())).store.id == w.a.id
+        assert await _codes(deps.owner_store_context(s, owner_site, w.b.id, request=fake_request())) == "CHANNEL_MISMATCH"
         hub = auth_for(w.owner_a, w.main)  # the reseller panel on the main site
-        assert (await deps.owner_store_context(s, hub, w.a.id)).store.id == w.a.id
-        assert await _codes(deps.owner_store_context(s, hub, w.b.id)) == "CHANNEL_MISMATCH"  # not his store: not reachable, not joinable
+        assert (await deps.owner_store_context(s, hub, w.a.id, request=fake_request())).store.id == w.a.id
+        assert (
+            await _codes(deps.owner_store_context(s, hub, w.b.id, request=fake_request())) == "CHANNEL_MISMATCH"
+        )  # not his store: not reachable, not joinable
         # a plain customer of the main store cannot use the main hub to reach anybody's panel
         with pytest.raises(AppError) as e:
-            await deps.owner_store_context(s, auth_for(w.alice, w.main), w.a.id)
+            await deps.owner_store_context(s, auth_for(w.alice, w.main), w.a.id, request=fake_request())
         assert e.value.code == "CHANNEL_MISMATCH"
 
 
@@ -349,6 +351,11 @@ PUBLIC_ROUTES = {
     "/auth/web-handoff/redeem",
     "/auth/refresh",
     "/auth/logout",
+    # an invited admin accepts their invitation: the one-time token (SHA-256 stored, 72 h, single use) is the credential and no
+    # session is issued; the new admin then signs in with password + TOTP (docs/24-Admin-Team-Design.md)
+    "/auth/admin-invite/inspect",
+    "/auth/admin-invite/enroll",
+    "/auth/admin-invite/accept",
     "/auth/telegram/web/sessions",
     "/auth/telegram/web/sessions/{session_id}/poll",
     "/auth/telegram/web/sessions/{session_id}/cancel",
@@ -374,6 +381,8 @@ PUBLIC_ROUTES = {
     "/stores/{store_id}/catalog",
     "/stores/{store_id}/bundles",
     "/stores/{store_id}/bundles/{bundle_id}/packages",
+    # button colours / Premium emoji ids / decoration the bots download: no secrets, no user data (admin-edited, validated)
+    "/telegram/button-styles",
     # gateway server-to-server callback, probes (the reseller API is NOT here: its routes carry api_store_context)
     "/payments/callbacks/{provider}",
     # bank-SMS forwarder of the store owner's phone: authenticated by the store's webhook token (only its SHA-256 is

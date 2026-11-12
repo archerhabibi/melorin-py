@@ -21,6 +21,34 @@ If `main` is protected, allow `github-actions[bot]` to bypass so the bot can pus
 
 > Entries before 2026-11-09 were archived (T-R12) and live in git tag `changelog-archive-2026-11-09` (`git show changelog-archive-2026-11-09:docs/CHANGE_LOG.md`), per DOCUMENTATION-POLICY.
 
+## 2026-11-12 - Admin team: invite admins with roles to the web panel
+- **Area:** api / admin-web / identity / docs
+- **Before:** every admin-panel user was all-powerful and the only way to add one was the CLI bootstrap; there was no role, no invitation and no way to take access away.
+- **Problem:** the owner could not give an accountant, a support agent or a viewer their own login without handing over everything.
+- **Action:** roles (owner, manager, finance, support, viewer) over permission areas enforced server-side by a path->area table (`domain/admin_access.py`, unknown paths owner-only, empty role = no access); one-time hashed invite links (72h) where the invitee sets their own password and authenticator (`/auth/admin-invite/*`); owner screen "مدیران سامانه" (invite, change role, suspend, reset access, revoke sessions, remove) and "حساب من" for everyone; self-protection and last-owner protection; migration `0055_admin_team` back-fills existing admins as owner. Design: `docs/24-Admin-Team-Design.md`.
+- **After:** the owner can add admins from the panel with least-privilege roles; every denial is audited; existing admins keep full access.
+
+## 2026-11-12 - Persian Telegram alerts; first backup at install
+- **Area:** infra / scripts / ops
+- **Before:** Telegram alerts were Alertmanager's default English dump (labels, annotations, an internal Prometheus "Source:" link), and the critical `MelorinBackupStale` alert fired about 10 minutes after every install (no backup exists until the 02:00 UTC schedule), then "resolved" by itself.
+- **Problem:** hard to read for an Iranian operator; a false critical alarm on every fresh install.
+- **Action:** every rule in `infra/alerts.yml` has `summary_fa` and `hint_fa`; `alertmanager-entrypoint.sh` renders a Persian message template (severity, what happened, panel/server/job, hint, start/end in Iran time, no internal link; English summary is the fallback); `post_install.sh` takes the first backup immediately.
+- **After:** one readable Persian message per alert group; no false backup alarm after install.
+
+## 2026-11-12 - HTTPS did not come up after repeated installs (Let's Encrypt rate limit); Redis overcommit
+- **Area:** infra / scripts / ops
+- **Before:** after several installs of the same domains the post-install check printed "did not answer 200 (got '000')" with no explanation, and the sites had no certificate.
+- **Problem:** `melorin uninstall` ran `compose down -v`, which also deleted the `caddy_data` volume (certificates + ACME account), so every reinstall requested new certificates; Let's Encrypt allows 5 per exact hostname set per 7 days (HTTP 429, retry-after shown in the Caddy log). Caddy had no ACME e-mail, so its ZeroSSL fallback never registered. Redis warned that `vm.overcommit_memory` is 0.
+- **Action:** Caddyfile sets `email` (from the admin e-mail, passed as `MELORIN_ACME_EMAIL`); uninstall now keeps the certificate volumes; `post_install.sh` explains why HTTPS fails (rate limit with retry time / port 80 unreachable / other issuance error), waits 60 s instead of 30 s, and sets `vm.overcommit_memory=1` persistently.
+- **After:** a reinstall reuses the stored certificate. ZeroSSL refuses `.ir` hostnames, so for `.ir` the only CA is Let's Encrypt and an already exhausted limit can only be waited out.
+
+## 2026-11-11 - Installer wires the Telegram alert receiver; container logs are rotated
+- **Area:** scripts / ops / docs
+- **Before:** `install_server.sh` never set `ALERT_TELEGRAM_BOT_TOKEN` / `ALERT_TELEGRAM_CHAT_ID`; no service had a log-rotation policy.
+- **Problem:** found on a clean-server install (T05/T06): Alertmanager started with "no alert receiver configured", so every Prometheus alert was dropped even though the bot token and the admin's Telegram ID had been given to the installer. Docker's default `json-file` driver never rotates, so logs could slowly fill the disk.
+- **Action:** when both bot token and admin ID are supplied the installer now sets the two `ALERT_TELEGRAM_*` keys; `melorin` menu 1 (bot token) and 5 (admin ID) keep them in sync unless a separate alert bot was configured. `docker-compose.yml` gets an `x-logging` anchor (`json-file`, 10m x 3) on all 12 services. Reports: `docs/T05..T08`.
+- **After:** verified live: Alertmanager loaded the receiver without the warning and delivered a test alert to the admin's Telegram (`alertmanager_notifications_total{integration="telegram"}` = 1, all failure counters 0); `docker compose config` valid, `scripts/check_ops_p0.py` green; all 12 containers healthy after recreation with `max-size=10m, max-file=3`.
+
 ## 2026-11-09 - Panel backup verification works against a newer panel PostgreSQL
 - **Area:** scripts / docs / ops
 - **Before:** `scripts/verify_panel_backup.sh` always called the host's `pg_restore`.

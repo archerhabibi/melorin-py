@@ -8,8 +8,16 @@ name: melorin
 # tmpfs; api and both bots also run with a read-only root filesystem (their only writable paths are named volumes). The backup
 # container (which owns rclone/age/pg_dump, T-R14) keeps a writable root because they write under the home directory. nginx web images only get no-new-privileges.
 # scripts/check_ops_p0.py enforces this list. NOTE: not exercised on a live Docker host in the audit sandbox - run `make deploy-test`.
+# Log rotation (T06): the default json-file driver never rotates, so a chatty container could fill the 38 GB disk over months.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   postgres:
+    logging: *default-logging
     restart: unless-stopped
     stop_grace_period: 30s
     image: postgres:16-alpine@sha256:aa6cb33cf4c19c765cefcf48d96176258800870a9a1e930ad126200f9d825139
@@ -23,6 +31,7 @@ services:
     mem_limit: 768m
     cpus: 1.0
   redis:
+    logging: *default-logging
     restart: unless-stopped
     image: redis:7-alpine@sha256:7b1753b4c5ad8458906c272a8132b8c15f5557b000379eb115fb239706a384b7
     # Bounded below the container cap so a runaway dataset gives Redis errors (rate limits fail closed, the DB outbox stays the
@@ -34,6 +43,7 @@ services:
     mem_limit: 256m
     cpus: 0.5
   api:
+    logging: *default-logging
     restart: unless-stopped
     stop_grace_period: 30s
     image: ${MELORIN_IMAGE_REGISTRY:-melorin}/api:${MELORIN_IMAGE_TAG:-local}
@@ -53,6 +63,7 @@ services:
     mem_limit: 768m
     cpus: 1.0
   worker:
+    logging: *default-logging
     restart: unless-stopped
     stop_grace_period: 60s
     image: ${MELORIN_IMAGE_REGISTRY:-melorin}/api:${MELORIN_IMAGE_TAG:-local}
@@ -74,6 +85,7 @@ services:
   # Backups run here, not in the Worker (audit T-R14): rclone/age/pg_dump and their writable home live in this one container, a stuck
   # dump cannot delay business jobs, and the Worker above can run with a read-only root. Same image, same job code (worker/jobs.py).
   backup:
+    logging: *default-logging
     restart: unless-stopped
     stop_grace_period: 60s
     image: ${MELORIN_IMAGE_REGISTRY:-melorin}/api:${MELORIN_IMAGE_TAG:-local}
@@ -94,6 +106,7 @@ services:
     mem_limit: 256m
     cpus: 0.5
   store_web:
+    logging: *default-logging
     restart: unless-stopped
     image: ${MELORIN_IMAGE_REGISTRY:-melorin}/store-web:${MELORIN_IMAGE_TAG:-local}
     build:
@@ -108,6 +121,7 @@ services:
     mem_limit: 64m
     cpus: 0.25
   admin_web:
+    logging: *default-logging
     restart: unless-stopped
     image: ${MELORIN_IMAGE_REGISTRY:-melorin}/admin-web:${MELORIN_IMAGE_TAG:-local}
     build:
@@ -122,6 +136,7 @@ services:
     mem_limit: 64m
     cpus: 0.25
   telegram_main:
+    logging: *default-logging
     restart: unless-stopped
     stop_grace_period: 30s
     image: ${MELORIN_IMAGE_REGISTRY:-melorin}/telegram-main:${MELORIN_IMAGE_TAG:-local}
@@ -151,6 +166,7 @@ services:
     mem_limit: 192m
     cpus: 0.5
   telegram_reseller:
+    logging: *default-logging
     restart: unless-stopped
     stop_grace_period: 30s
     # Always on: it asks Core which reseller bots to run (admin → نمایندگان) and idles when there are none.
@@ -182,6 +198,7 @@ services:
     mem_limit: 256m   # one process, one long-poll loop per reseller bot
     cpus: 0.5
   caddy:
+    logging: *default-logging
     restart: unless-stopped
     profiles: [local-proxy]
     image: caddy:2-alpine@sha256:78bd35025c7ba85961dd149ae670315129954e77abe2383ac47c89106b35ade9
@@ -189,6 +206,7 @@ services:
     environment:
       MELORIN_DOMAIN: ${MELORIN_DOMAIN:-localhost}
       MELORIN_ADMIN_DOMAIN: ${MELORIN_ADMIN_DOMAIN:-admin.localhost}
+      MELORIN_ACME_EMAIL: ${MELORIN_BOOTSTRAP_ADMIN_EMAIL:-admin@localhost}
     volumes: [./infra/Caddyfile:/etc/caddy/Caddyfile:ro, caddy_data:/data, caddy_config:/config]
     depends_on:
       api: {condition: service_healthy}
@@ -199,6 +217,7 @@ services:
     mem_limit: 128m
     cpus: 0.5
   alertmanager:
+    logging: *default-logging
     image: prom/alertmanager:v0.27.0@sha256:e13b6ed5cb929eeaee733479dce55e10eb3bc2e9c4586c705a4e8da41e5eacf5
     restart: unless-stopped
     # Receivers come from .env (ALERT_TELEGRAM_* and/or ALERT_SMTP_*/ALERT_EMAIL_TO); see infra/alertmanager-entrypoint.sh
@@ -219,6 +238,7 @@ services:
     mem_limit: 64m
     cpus: 0.25
   prometheus:
+    logging: *default-logging
     restart: unless-stopped
     image: prom/prometheus:v2.55.1@sha256:2659f4c2ebb718e7695cb9b25ffa7d6be64db013daba13e05c875451cf51b0d3
     # The whole infra/ DIRECTORY is mounted (not single files): git replaces a changed file with a new inode, and a single-file bind mount

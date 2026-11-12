@@ -151,6 +151,7 @@ jobs:
     # T42: browser E2E with a mocked Core API (e2e/). Non-blocking until the first green run on CI proves the specs.
     runs-on: ubuntu-latest
     continue-on-error: true
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -161,8 +162,47 @@ jobs:
         working-directory: apps/admin-web
       - run: npm ci --no-audit --no-fund
         working-directory: e2e
-      - run: npx playwright install --with-deps chromium
+      # Cache the browser binaries (keyed on the pinned Playwright version) so a flaky Ubuntu mirror cannot fail the job on reruns.
+      - id: pw-version
+        run: echo "v=$(node -p "require('./node_modules/@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
         working-directory: e2e
+      - id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw-version.outputs.v }}
+      # Browser download (Playwright CDN) and OS packages (apt mirrors) are separate steps with bounded retries: the previous single
+      # `install --with-deps` burned ~10 min on DNS timeouts to the Ubuntu mirrors and then failed the whole job (run of 2026-11-11).
+      - name: Install Chromium
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        working-directory: e2e
+        run: |
+          for attempt in 1 2 3; do
+            npx playwright install chromium && exit 0
+            echo "::warning::playwright install failed (attempt $attempt/3)"; sleep $((attempt * 10))
+          done
+          exit 1
+      - name: Install Chromium system dependencies
+        working-directory: e2e
+        # Hard cap is only a backstop: every command below is bounded with `timeout`, so a mirror/DNS outage degrades to a warning
+        # (the real `npm test` below decides whether Chromium can launch) instead of the step being killed and failing the job.
+        timeout-minutes: 8
+        continue-on-error: true
+        run: |
+          # The hosted image already ships most libraries; only fonts/extras may be missing.
+          # Fail fast when the Ubuntu mirrors are unreachable: with broken DNS apt burns minutes per index (run of 2026-11-11 hit 6 min).
+          if ! timeout 10 getent hosts archive.ubuntu.com >/dev/null && ! timeout 10 getent hosts azure.archive.ubuntu.com >/dev/null; then
+            echo "::warning::Ubuntu mirrors are not resolvable; skipping apt, relying on the runner image's libraries"
+            exit 0
+          fi
+          APT_OPTS="-o Acquire::Retries=0 -o Acquire::http::Timeout=10 -o Acquire::https::Timeout=10"
+          sudo timeout 90 apt-get $APT_OPTS update || echo "::warning::apt-get update failed; continuing with the image's package lists"
+          for attempt in 1 2; do
+            # install-deps runs its own apt-get update/install, so bound it as well
+            sudo env "PATH=$PATH" timeout 150 npx playwright install-deps chromium && exit 0
+            echo "::warning::playwright install-deps failed (attempt $attempt/2)"; sleep 10
+          done
+          echo "::warning::Chromium system dependencies could not be fully installed; relying on the runner image's libraries"
       - run: npm test
         working-directory: e2e
         env: {CI: 'true'}

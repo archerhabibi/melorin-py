@@ -1,0 +1,252 @@
+"""Telegram button styling: validation, specificity of the matcher, reply-keyboard safety and the Bot API field names."""
+
+from __future__ import annotations
+
+import pytest
+
+from melorin.domain import button_style as bs
+
+
+def rule(**kw):
+    base = {"kind": "inline", "match": "exact", "key": "menu:plans", "style": "success"}
+    return {**base, **kw}
+
+
+def cfg(*rules, enabled=True):
+    return bs.normalize({"enabled": enabled, "rules": list(rules)})
+
+
+def test_normalize_accepts_colours_digits_and_trims():
+    out = cfg(rule(style="SUCCESS", icon=" ۵۰۰۰۰۰۰۱ ", prefix="💎 "))
+    r = out["rules"][0]
+    assert (r["style"], r["icon"], r["prefix"]) == ("success", "50000001", "💎 ")
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        rule(style="purple"),
+        rule(icon="abc"),
+        rule(icon="123"),
+        rule(prefix="1234567"),
+        rule(prefix="a\nb"),
+        rule(key=""),
+        rule(key="https://example.com/x"),
+        rule(kind="weird"),
+        rule(match="regex"),
+        rule(style=None),  # nothing to apply
+        rule(key=bs.URL_KEY, match="prefix"),
+    ],
+)
+def test_invalid_rules_are_refused_in_persian(bad):
+    with pytest.raises(bs.ButtonStyleError) as e:
+        cfg(bad)
+    assert "قانون 1" in str(e.value)
+
+
+def test_duplicate_rule_and_rule_limit():
+    with pytest.raises(bs.ButtonStyleError):
+        cfg(rule(), rule(style="danger"))
+    many = [rule(key=f"k{i}:", match="prefix") for i in range(bs.MAX_RULES + 1)]
+    with pytest.raises(bs.ButtonStyleError):
+        bs.normalize({"enabled": True, "rules": many})
+
+
+def test_reply_rules_ignore_decoration_and_match_exactly():
+    out = cfg({"kind": "reply", "key": "🛒 خرید اکانت", "match": "prefix", "style": "primary", "prefix": "X", "suffix": "Y"})
+    r = out["rules"][0]
+    assert (r["match"], r["prefix"], r["suffix"]) == ("exact", "", "")
+
+
+def test_exact_beats_prefix_and_longer_prefix_beats_shorter():
+    proj = bs.public_projection(
+        cfg(
+            rule(key="menu:", match="prefix", style="primary"),
+            rule(key="menu:plans", style="success"),
+            rule(key="menu:wa", match="prefix", style="danger"),
+        )
+    )
+    assert bs.apply_inline(proj, "menu:plans", "t")["style"] == "success"
+    assert bs.apply_inline(proj, "menu:wallet", "t")["style"] == "danger"
+    assert bs.apply_inline(proj, "menu:orders", "t")["style"] == "primary"
+    assert bs.apply_inline(proj, "other:1", "t") == {"text": "t"}
+
+
+def test_disabled_config_and_disabled_rule_change_nothing():
+    assert bs.public_projection(cfg(rule(), enabled=False)) == {"enabled": False, "inline": [], "reply": []}
+    proj = bs.public_projection(cfg(rule(enabled=False)))
+    assert bs.apply_inline(proj, "menu:plans", "t") == {"text": "t"}
+
+
+def test_inline_gets_style_icon_and_decoration_with_real_bot_api_field_names():
+    proj = bs.public_projection(cfg(rule(icon="5368324170671202286", prefix="💎 ", suffix=" ✨")))
+    assert bs.apply_inline(proj, "menu:plans", "خرید") == {
+        "text": "💎 خرید ✨",
+        "style": "success",
+        "icon_custom_emoji_id": "5368324170671202286",
+    }
+
+
+def test_decoration_never_pushes_a_label_past_the_limit():
+    proj = bs.public_projection(cfg(rule(prefix="💎💎 ")))
+    long = "x" * bs.MAX_BUTTON_TEXT
+    assert bs.apply_inline(proj, "menu:plans", long)["text"] == long
+
+
+def test_reply_keyboard_text_is_never_changed():
+    proj = bs.public_projection(cfg({"kind": "reply", "key": "🛒 خرید اکانت", "style": "success", "icon": "12345678"}))
+    assert bs.apply_reply(proj, "🛒 خرید اکانت") == {"text": "🛒 خرید اکانت", "style": "success", "icon_custom_emoji_id": "12345678"}
+    assert bs.apply_reply(proj, "🎧 پشتیبانی") == {"text": "🎧 پشتیبانی"}
+
+
+def test_url_buttons_are_styled_through_the_pseudo_key():
+    proj = bs.public_projection(cfg(rule(key=bs.URL_KEY, style="primary")))
+    assert bs.apply_inline(proj, bs.URL_KEY, "🌐 حساب من در سایت")["style"] == "primary"
+
+
+def test_strip_styling_removes_only_the_new_fields():
+    markup = {"inline_keyboard": [[{"text": "a", "callback_data": "x", "style": "danger", "icon_custom_emoji_id": "1"}]]}
+    assert bs.strip_styling(markup) == {"inline_keyboard": [[{"text": "a", "callback_data": "x"}]]}
+    assert bs.strip_styling(None) is None
+    assert "style" in markup["inline_keyboard"][0][0]  # the original is untouched
+
+
+def test_stored_tolerates_garbage():
+    assert bs.stored(None) == bs.default_config()
+    assert bs.stored({"enabled": True, "rules": [{"key": "x", "style": "pink"}]}) == bs.default_config()
+
+
+def test_every_preset_and_catalog_key_is_valid():
+    for preset in bs.PRESETS:
+        assert bs.normalize({"enabled": True, "rules": preset["rules"]})["rules"], preset["id"]
+    for item in bs.CATALOG:
+        bs.normalize_rule({**item, "style": "primary"}, 0)
+
+
+def test_sample_markups_use_the_configuration():
+    inline, reply = bs.sample_markups(cfg(rule(key="menu:plans", style="success")))
+    first = inline["inline_keyboard"][0][0]
+    assert first["style"] == "success" and first["callback_data"] == "noop:preview"
+    assert reply["keyboard"][0][0]["text"] == "🛒 خرید اکانت"
+
+
+def test_enabled_flags_must_be_real_booleans():
+    # "false" (a string) used to be coerced to True and silently switched a rule/the whole feature on
+    with pytest.raises(bs.ButtonStyleError):
+        bs.normalize({"enabled": "false", "rules": []})
+    with pytest.raises(bs.ButtonStyleError):
+        bs.normalize({"enabled": True, "rules": [rule(enabled="false")]})
+    assert bs.normalize({"enabled": None, "rules": [rule(enabled=None)]})["rules"][0]["enabled"] is True
+
+
+# ---- review fixes: validation gaps that let useless or Telegram-refused rules through -------------------------------
+
+
+def test_whitespace_only_decoration_is_not_a_decoration():
+    with pytest.raises(bs.ButtonStyleError):
+        cfg(rule(style=None, prefix="   ", suffix=" "))
+    out = cfg(rule(prefix=" ", suffix="\u00a0"))  # colour keeps the rule valid, the blanks are dropped
+    assert (out["rules"][0]["prefix"], out["rules"][0]["suffix"]) == ("", "")
+    assert cfg(rule(prefix="💎 "))["rules"][0]["prefix"] == "💎 "  # real decoration keeps its own spacing
+
+
+@pytest.mark.parametrize("key", ["a\nb", "a\x00b", "menu:\tplans"])
+def test_control_characters_in_a_key_are_refused_for_both_kinds(key):
+    with pytest.raises(bs.ButtonStyleError):
+        cfg(rule(key=key))
+    with pytest.raises(bs.ButtonStyleError):
+        cfg(rule(kind="reply", key=key))
+
+
+@pytest.mark.parametrize("icon", ["00000", "012345", "1" * 20, "１２３４５", "12 345"])
+def test_premium_emoji_id_must_look_like_a_telegram_int64(icon):
+    with pytest.raises(bs.ButtonStyleError):
+        cfg(rule(icon=icon))
+
+
+def test_premium_emoji_id_accepts_real_ids_and_persian_digits():
+    assert cfg(rule(icon="5368324170671202286"))["rules"][0]["icon"] == "5368324170671202286"
+    assert cfg(rule(icon="۵۳۶۸۳۲۴۱۷۰۶۷۱۲۰۲۲۸۶"))["rules"][0]["icon"] == "5368324170671202286"
+
+
+def test_note_is_collapsed_to_one_clean_line():
+    assert cfg(rule(note="  a\n b\t c  "))["rules"][0]["note"] == "a b c"
+
+
+# ---- hardening round: type confusion, int64 ids, invisible text, preview parity ----------------------------------------
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("key", ["menu:plans"]),
+        ("key", {"a": 1}),
+        ("key", 123),
+        ("prefix", ["x"]),
+        ("suffix", 5),
+        ("note", ["x"]),
+        ("kind", 0),
+        ("match", ["prefix"]),
+    ],
+)
+def test_non_string_fields_are_refused_instead_of_being_stringified(field, value):
+    """``str(["menu:plans"])`` used to be accepted as the key ``"['menu:plans']"`` (a rule that can never match)."""
+    with pytest.raises(bs.ButtonStyleError):
+        cfg(rule(**{field: value}))
+
+
+@pytest.mark.parametrize("icon", [True, 1.5, ["12345"], {"id": 1}])
+def test_icon_must_be_text_or_a_whole_number(icon):
+    with pytest.raises(bs.ButtonStyleError):
+        cfg(rule(icon=icon))
+
+
+def test_icon_given_as_a_json_number_is_accepted():
+    assert cfg(rule(icon=5368324170671202286))["rules"][0]["icon"] == "5368324170671202286"
+
+
+def test_emoji_id_cannot_exceed_int64():
+    assert cfg(rule(icon="9223372036854775807"))["rules"][0]["icon"] == "9223372036854775807"
+    for too_big in ("9223372036854775808", "9999999999999999999"):
+        with pytest.raises(bs.ButtonStyleError):
+            cfg(rule(icon=too_big))
+
+
+@pytest.mark.parametrize("invisible", ["​", "‏", "⁠", " ​ "])
+def test_invisible_text_is_neither_a_key_nor_a_decoration(invisible):
+    with pytest.raises(bs.ButtonStyleError):
+        cfg(rule(key=invisible))
+    with pytest.raises(bs.ButtonStyleError):
+        cfg(rule(style=None, prefix=invisible))
+    out = cfg(rule(prefix=invisible, suffix=invisible))  # a colour keeps the rule; the invisible decoration is dropped
+    assert (out["rules"][0]["prefix"], out["rules"][0]["suffix"]) == ("", "")
+
+
+def test_emoji_with_a_zero_width_joiner_is_still_a_decoration():
+    assert cfg(rule(prefix="👨‍👩 "))["rules"][0]["prefix"] == "👨‍👩 "
+
+
+def test_sample_keyboards_match_the_admin_live_preview():
+    """The "send a sample" message must show the same buttons as the on-screen preview (apps/admin-web buttonStyles.ts)."""
+    inline, reply = bs.sample_markups(cfg(rule(key="@url", style="primary"), rule(key="menu:plans", style="success")))
+    rows = inline["inline_keyboard"]
+    assert [[b["text"] for b in row] for row in rows] == [
+        ["🛒 خرید اکانت", "💰 کیف پول"],
+        ["✅ خرید و پرداخت"],
+        ["🎫 تیکت‌ها", "⛔ این من نبودم"],
+        ["🌐 حساب من در سایت"],
+        ["🏠 خانه"],
+    ]
+    link = rows[3][0]
+    assert link["url"] == bs.SAMPLE_URL and "callback_data" not in link and link["style"] == "primary"
+    assert all("callback_data" in b for row in rows for i, b in enumerate(row) if b["text"] != "🌐 حساب من در سایت")
+    assert [[b["text"] for b in row] for row in reply["keyboard"]] == [
+        ["🛒 خرید اکانت", "🔍 استعلام و تمدید اکانت"],
+        ["💰 کیف پول و شارژ حساب", "🌐 حساب من در سایت"],
+        ["🎧 پشتیبانی"],
+    ]
+
+
+def test_sample_reply_texts_are_real_menu_buttons():
+    reply_keys = {i["key"] for i in bs.CATALOG if i["kind"] == "reply"}
+    assert set(bs.SAMPLE_REPLY) <= reply_keys

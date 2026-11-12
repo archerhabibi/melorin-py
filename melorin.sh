@@ -308,6 +308,11 @@ EOF
          if [ -z "$REPLY_TOKEN" ]; then warn "Nothing changed."; else
            local u; u="$(bot_username "$REPLY_TOKEN")"
            [ -n "$u" ] && ok "Token verified: $u" || warn "Could not verify the token with Telegram."
+           # Keep the alert receiver on the same bot unless the operator configured a different alert bot on purpose (T05).
+           local oldtok; oldtok="$(env_get MELORIN_MAIN_BOT_TOKEN)"
+           if [ -z "$(env_get ALERT_TELEGRAM_BOT_TOKEN)" ] || [ "$(env_get ALERT_TELEGRAM_BOT_TOKEN)" = "$oldtok" ]; then
+             env_set ALERT_TELEGRAM_BOT_TOKEN "$REPLY_TOKEN"
+           fi
            env_set MELORIN_TELEGRAM_TOKEN "$REPLY_TOKEN"; env_set MELORIN_MAIN_BOT_TOKEN "$REPLY_TOKEN"
            REPLY_TOKEN=""; ok "Saved."; apply_env
          fi; pause ;;
@@ -325,6 +330,10 @@ EOF
          if [ -z "$REPLY_TG" ]; then warn "Nothing changed."; else
            # Linked in the database (the running API is used: no restart needed) and remembered in .env for repair runs.
            if compose exec -T api python -m melorin.cli set-admin-telegram "$(env_get MELORIN_BOOTSTRAP_ADMIN_EMAIL)" "$REPLY_TG"; then
+             local oldtg; oldtg="$(env_get MELORIN_BOOTSTRAP_ADMIN_TELEGRAM_ID)"
+             if [ -z "$(env_get ALERT_TELEGRAM_CHAT_ID)" ] || [ "$(env_get ALERT_TELEGRAM_CHAT_ID)" = "$oldtg" ]; then
+               env_set ALERT_TELEGRAM_CHAT_ID "$REPLY_TG"   # T05: alerts follow the admin ID unless set separately
+             fi
              env_set MELORIN_BOOTSTRAP_ADMIN_TELEGRAM_ID "$REPLY_TG"; ok "Saved. Open the main bot once and press Start."
            else err "Could not link the Telegram ID (is the stack running? see the message above)."; fi
          fi; pause ;;
@@ -442,7 +451,8 @@ do_status() {
 # ---------------------------------------------------------------- 7) Uninstall
 do_uninstall() {
   echo "${CR}This removes Melorin from this server.${C0}"
-  echo "  - containers, images and Docker volumes (database, redis, certificates)"
+  echo "  - containers, images and Docker volumes (database, redis)"
+  echo "  - TLS certificates are KEPT (volume caddy_data) so a reinstall does not hit the Let's Encrypt limit of 5 certificates/7 days"
   echo "  - $APP_DIR (including .env and the backup key secrets/backup/)"
   echo "  - the 'melorin' command and the change-recorder cron job"
   echo "Docker itself is not removed."
@@ -450,7 +460,13 @@ do_uninstall() {
   warn "Copy $APP_DIR/secrets/backup/age-identity.txt and any backups you need BEFORE continuing."
   local a; read -r -p "Type DELETE to confirm: " a || return 0
   [ "$a" = "DELETE" ] || { info "Cancelled."; return 0; }
-  if installed; then compose down -v --rmi local --remove-orphans || warn "compose down reported errors."; fi
+  if installed; then
+    local pj; pj="$(compose config --format json 2>/dev/null | sed -n 's/^  "name": "\([^"]*\)".*/\1/p' | head -1)"; pj="${pj:-$(basename "$APP_DIR")}"
+    compose down --rmi local --remove-orphans || warn "compose down reported errors."
+    # remove every volume of the project EXCEPT the certificates (caddy_data/caddy_config)
+    docker volume ls -q --filter "label=com.docker.compose.project=$pj" | grep -vE "_caddy_(data|config)$" | xargs -r docker volume rm >/dev/null 2>&1 || true
+    ok "Volumes removed; TLS certificates kept (docker volume rm ${pj}_caddy_data ${pj}_caddy_config to delete them too)."
+  fi
   rm -f /etc/cron.d/melorin-ops-watch "$LINK"
   cd / && rm -rf "$APP_DIR"
   ok "Melorin was removed."

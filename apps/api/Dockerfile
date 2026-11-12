@@ -9,10 +9,18 @@
 FROM python:3.12-slim-bookworm@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df AS base
 
 FROM base AS pgdg-key
-RUN apt-get update \
+# The key download is the only step here that depends on an external host. CI hit "curl: (56) Recv failure: Connection reset by peer"
+# once, so apt and curl both retry (curl needs --retry-all-errors: plain --retry skips connection resets), and the key is saved
+# to a file first, then dearmored, so a failed download fails the build at curl instead of being masked by the pipe.
+RUN printf 'Acquire::Retries "5";\nAcquire::http::Timeout "30";\n' > /etc/apt/apt.conf.d/80-retries \
+    && apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl gnupg \
     && install -d /out \
-    && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /out/apt.postgresql.org.gpg \
+    && curl -fsSL --retry 6 --retry-all-errors --retry-delay 5 --connect-timeout 15 --max-time 60 \
+        -o /tmp/ACCC4CF8.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+    && test -s /tmp/ACCC4CF8.asc \
+    && gpg --dearmor -o /out/apt.postgresql.org.gpg /tmp/ACCC4CF8.asc \
+    && test -s /out/apt.postgresql.org.gpg \
     && chmod 0644 /out/apt.postgresql.org.gpg
 
 FROM base AS venv

@@ -113,7 +113,7 @@ async def make_store(s, *, kind="main", currency="IRT", owner=None, slug=None) -
 
 
 async def make_user(s, *, super_admin=False) -> User:
-    user = User(display_name="u", is_super_admin=super_admin)
+    user = User(display_name="u", is_super_admin=super_admin, admin_roles=["owner"] if super_admin else [])
     s.add(user)
     await s.flush()
     return user

@@ -1,4 +1,10 @@
 {
+  # ACME account e-mail (required by ZeroSSL, used by Let's Encrypt for expiry notices).
+  email {$MELORIN_ACME_EMAIL:admin@localhost}
+  # Caddy's default issuers are Let's Encrypt, then ZeroSSL as the automatic fallback; the ACME e-mail above is what lets
+  # the ZeroSSL fallback register an account. Let's Encrypt allows only 5 certificates per exact set of hostnames per
+  # 7 days, so repeated (re)installs hit that limit (HTTP 429) and the sites had no certificate for up to a day.
+  # Note: ZeroSSL refuses some TLDs (e.g. .ir), so for those only Let's Encrypt works: keep the caddy_data volume.
   # Reseller store domains are not known when Caddy starts: certificates are issued on first visit, but only for
   # hostnames the Core API confirms (active reseller Store.domain). Anything else is refused.
   on_demand_tls {
@@ -82,5 +88,17 @@ https:// {
 
 # Plain HTTP on reseller domains -> HTTPS (the named sites above get this redirect automatically).
 http:// {
-  redir https://{host}{uri} permanent
+  # The container healthcheck (wget http://127.0.0.1/health/live from inside the container) must be answered over plain
+  # HTTP: without this exception it was redirected to https://127.0.0.1, which has no certificate, so Caddy reported
+  # "unhealthy" forever. Only loopback callers match; external traffic reaches Caddy from a non-loopback address.
+  @healthcheck {
+    remote_ip 127.0.0.1 ::1
+    path /health/live
+  }
+  handle @healthcheck {
+    reverse_proxy api:8000
+  }
+  handle {
+    redir https://{host}{uri} permanent
+  }
 }

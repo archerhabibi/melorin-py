@@ -5,38 +5,38 @@ groups:
         expr: melorin_alert{alertname="MelorinDatabaseUnavailable",state="firing"} > 0
         for: 2m
         labels: {severity: critical}
-        annotations: {summary: "Melorin database unavailable"}
+        annotations: {summary: "Melorin database unavailable", summary_fa: "پایگاه‌داده در دسترس نیست", hint_fa: "کانتینر postgres را بررسی کنید (melorin → وضعیت سرویس‌ها)."}
       - alert: MelorinRedisUnavailable
         expr: melorin_alert{alertname="MelorinRedisUnavailable",state="firing"} > 0
         for: 2m
         labels: {severity: critical}
-        annotations: {summary: "Melorin Redis unavailable"}
+        annotations: {summary: "Melorin Redis unavailable", summary_fa: "Redis در دسترس نیست", hint_fa: "کانتینر redis را بررسی کنید؛ صف‌ها و نشست‌ها بدون آن کار نمی‌کنند."}
       - alert: MelorinWorkerStale
         expr: melorin_alert{alertname="MelorinWorkerStale",state="firing"} > 0
         for: 2m
         labels: {severity: critical}
-        annotations: {summary: "Melorin worker heartbeat stale"}
+        annotations: {summary: "Melorin worker heartbeat stale", summary_fa: "ضربان (heartbeat) کارگر پس‌زمینه قدیمی شده؛ کارهای زمان‌بندی‌شده اجرا نمی‌شوند", hint_fa: "کانتینر worker را ری‌استارت کنید و لاگ آن را ببینید."}
       - alert: MelorinPanelsUnhealthy
         expr: melorin_alert{alertname="MelorinPanelsUnhealthy",state="firing"} > 0
         for: 5m
         labels: {severity: warning}
-        annotations: {summary: "One or more enabled VPN panels are unhealthy"}
+        annotations: {summary: "One or more enabled VPN panels are unhealthy", summary_fa: "یک یا چند پنل VPN فعال سالم نیستند", hint_fa: "بخش «پنل‌ها» در پنل ادمین را ببینید."}
       - alert: MelorinPanelWebhookSilent
         expr: melorin_alert{alertname="MelorinPanelWebhookSilent",state="firing"} > 0
         for: 10m
         labels: {severity: warning}
-        annotations: {summary: "A panel connected to live events has been silent for hours (reconcile still covers it)"}
+        annotations: {summary: "A panel connected to live events has been silent for hours (reconcile still covers it)", summary_fa: "پنلی که به رویدادهای زنده وصل است چند ساعت است ساکت است (تطبیق دوره‌ای هنوز آن را پوشش می‌دهد)", hint_fa: "وب‌هوک پنل را بررسی کنید."}
       - alert: MelorinOutboxBacklog
         expr: melorin_alert{alertname="MelorinOutboxBacklog",state="firing"} > 0
         for: 5m
         labels: {severity: warning}
-        annotations: {summary: "Melorin outbox backlog is growing"}
+        annotations: {summary: "Melorin outbox backlog is growing", summary_fa: "صف ارسال پیام‌ها (outbox) در حال بزرگ شدن است", hint_fa: "وضعیت worker و اتصال تلگرام را بررسی کنید."}
       - alert: MelorinJobItemFailures
         # T-W06: a job isolates per-item errors (one bad panel must not stop the rest) and still reports "ok"; this makes the swallowed errors visible.
         expr: sum by (job) (increase(melorin_job_item_failures_total[30m])) > 5
         for: 10m
         labels: {severity: warning}
-        annotations: {summary: "A worker job keeps failing on individual items (see the job label and the worker log)"}
+        annotations: {summary: "A worker job keeps failing on individual items (see the job label and the worker log)", summary_fa: "یک کار پس‌زمینه روی چند مورد پشت‌سرهم خطا می‌دهد", hint_fa: "برچسب «کار» را ببینید و لاگ worker را بخوانید."}
   # M7.6: traffic, business and housekeeping signals (HTTP, payments, provisioning, reseller bots, backups).
   - name: melorin-traffic
     rules:
@@ -46,35 +46,35 @@ groups:
             / clamp_min(sum(rate(melorin_http_requests_total[5m])), 0.001) > 0.05
         for: 5m
         labels: {severity: critical}
-        annotations: {summary: "More than 5% of HTTP responses are 5xx"}
+        annotations: {summary: "More than 5% of HTTP responses are 5xx", summary_fa: "بیش از ۵٪ پاسخ‌های HTTP خطای ۵xx هستند", hint_fa: "لاگ کانتینر api را بررسی کنید."}
       - alert: MelorinHttpLatencyHigh
         expr: |
           histogram_quantile(0.95, sum by (le) (rate(melorin_http_request_duration_seconds_bucket[5m]))) > 2.5
         for: 10m
         labels: {severity: warning}
-        annotations: {summary: "HTTP p95 latency above 2.5s"}
+        annotations: {summary: "HTTP p95 latency above 2.5s", summary_fa: "تأخیر HTTP (صدک ۹۵) بیش از ۲٫۵ ثانیه است", hint_fa: "فشار پایگاه‌داده و منابع سرور را بررسی کنید."}
   - name: melorin-business
     rules:
       - alert: MelorinPaymentFailureRateHigh
         expr: melorin_payments_recent_failure_ratio > 0.5 and melorin_payments_recent_total >= 5
         for: 5m
         labels: {severity: critical}
-        annotations: {summary: "More than half of recent payments failed"}
+        annotations: {summary: "More than half of recent payments failed", summary_fa: "بیش از نیمی از پرداخت‌های اخیر ناموفق بوده‌اند", hint_fa: "درگاه/کارت‌های پرداخت و تنظیمات آن‌ها را بررسی کنید."}
       - alert: MelorinProvisioningFailures
         expr: melorin_orders_provisioning_failed_recent > 0
         for: 2m
         labels: {severity: critical}
-        annotations: {summary: "Orders failed to provision in the last hour"}
+        annotations: {summary: "Orders failed to provision in the last hour", summary_fa: "در یک ساعت اخیر ساخت اکانت برای بعضی سفارش‌ها روی پنل ناموفق بوده", hint_fa: "سفارش‌های ناموفق و وضعیت پنل را ببینید؛ مشتری سرویس خود را نگرفته است."}
       - alert: MelorinResellerBotUnhealthy
         expr: melorin_reseller_bots_unhealthy > 0
         for: 5m
         labels: {severity: warning}
-        annotations: {summary: "One or more reseller Telegram bots are offline or in error"}
+        annotations: {summary: "One or more reseller Telegram bots are offline or in error", summary_fa: "یک یا چند ربات تلگرام نماینده آفلاین است یا خطا دارد", hint_fa: "بخش فروشگاه‌ها/ربات‌ها را ببینید."}
       - alert: MelorinBackupStale
         expr: melorin_backup_age_seconds{target=""} > 129600
         for: 10m
         labels: {severity: critical}
-        annotations: {summary: "No successful backup within 36 hours"}
+        annotations: {summary: "No successful backup within 36 hours", summary_fa: "در ۳۶ ساعت گذشته هیچ بکاپ موفقی گرفته نشده", hint_fa: "بکاپ خودکار هر شب ساعت ۰۲:۰۰ UTC (۰۵:۳۰ تهران) اجرا می‌شود؛ لاگ کانتینر backup را ببینید."}
   # PG-14/15/16: the PasarGuard panels themselves. Series are labelled by panel / server name; a metric with no data is not emitted.
   - name: melorin-panels
     rules:
@@ -82,44 +82,44 @@ groups:
         expr: melorin_panel_nodes{status="connected"} == 0 and on(panel) melorin_panel_nodes{status="error"} > 0
         for: 5m
         labels: {severity: critical}
-        annotations: {summary: "A panel has failing nodes and none connected: nobody can be served"}
+        annotations: {summary: "A panel has failing nodes and none connected: nobody can be served", summary_fa: "یک پنل نود خراب دارد و هیچ نود متصلی ندارد: هیچ‌کس سرویس نمی‌گیرد", hint_fa: "فوری: نودهای پنل را بررسی کنید."}
       - alert: MelorinPanelDegraded
         expr: melorin_panel_nodes{status="error"} > 0 and on(panel) melorin_panel_nodes{status="connected"} > 0
         for: 10m
         labels: {severity: warning}
-        annotations: {summary: "A panel has failing nodes but still serves customers"}
+        annotations: {summary: "A panel has failing nodes but still serves customers", summary_fa: "یک پنل نود خراب دارد ولی هنوز به مشتری‌ها سرویس می‌دهد", hint_fa: "نودهای خراب پنل را بررسی کنید."}
       - alert: MelorinPanelApiSlow
         expr: melorin_panel_api_latency_seconds > 3
         for: 10m
         labels: {severity: warning}
-        annotations: {summary: "A panel API answers slower than 3 seconds"}
+        annotations: {summary: "A panel API answers slower than 3 seconds", summary_fa: "API یک پنل کندتر از ۳ ثانیه پاسخ می‌دهد", hint_fa: "بار و شبکهٔ سرور پنل را بررسی کنید."}
       - alert: MelorinPanelResourcesHigh
         expr: melorin_panel_cpu_ratio > 0.9 or melorin_panel_mem_ratio > 0.9 or melorin_panel_disk_ratio > 0.9
         for: 15m
         labels: {severity: warning}
-        annotations: {summary: "A panel host is above 90% CPU, memory or disk"}
+        annotations: {summary: "A panel host is above 90% CPU, memory or disk", summary_fa: "منابع میزبان یک پنل (CPU، حافظه یا دیسک) بیش از ۹۰٪ است", hint_fa: "منابع سرور پنل را بررسی یا ارتقا دهید."}
       - alert: MelorinPanelMetricsStale
         expr: melorin_panel_snapshot_age_seconds > 900
         for: 10m
         labels: {severity: warning}
-        annotations: {summary: "Panel readings are older than 15 minutes (panel down or metrics job stopped)"}
+        annotations: {summary: "Panel readings are older than 15 minutes (panel down or metrics job stopped)", summary_fa: "آمار پنل‌ها قدیمی‌تر از ۱۵ دقیقه است (پنل از دسترس خارج یا کار متریک متوقف شده)", hint_fa: "اتصال به پنل و worker را بررسی کنید."}
       - alert: MelorinReconcileLagHigh
         expr: melorin_reconcile_lag_seconds > 10800
         for: 15m
         labels: {severity: warning}
-        annotations: {summary: "Panel reconcile is not keeping up: an account has not been compared for over 3 hours"}
+        annotations: {summary: "Panel reconcile is not keeping up: an account has not been compared for over 3 hours", summary_fa: "تطبیق با پنل عقب افتاده: یک اکانت بیش از ۳ ساعت است مقایسه نشده", hint_fa: "وضعیت worker و پنل را بررسی کنید."}
       - alert: MelorinCapacityHigh
         expr: melorin_server_capacity_ratio >= 0.95
         for: 10m
         labels: {severity: warning}
-        annotations: {summary: "A server is 95% full or more"}
+        annotations: {summary: "A server is 95% full or more", summary_fa: "ظرفیت یک سرور ۹۵٪ یا بیشتر پر شده", hint_fa: "سرور یا ظرفیت جدید اضافه کنید."}
       - alert: MelorinPanelSettingsDrift
         expr: melorin_panel_settings_drift > 0
         for: 30m
         labels: {severity: warning}
-        annotations: {summary: "A panel's settings differ from what Melorin needs (see Panels, settings drift)"}
+        annotations: {summary: "A panel's settings differ from what Melorin needs (see Panels, settings drift)", summary_fa: "تنظیمات یک پنل با نیاز ملورین فرق دارد", hint_fa: "بخش «پنل‌ها ← تفاوت تنظیمات» را ببینید."}
       - alert: MelorinPanelBackupStale
         expr: melorin_backup_age_seconds{target="panel"} > 129600
         for: 10m
         labels: {severity: critical}
-        annotations: {summary: "No successful panel backup within 36 hours"}
+        annotations: {summary: "No successful panel backup within 36 hours", summary_fa: "در ۳۶ ساعت گذشته هیچ بکاپ موفقی از پنل گرفته نشده", hint_fa: "لاگ کانتینر backup و دسترسی به پنل را بررسی کنید."}

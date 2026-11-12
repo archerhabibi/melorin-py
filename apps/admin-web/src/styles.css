@@ -1013,3 +1013,107 @@ button.kpi:hover {
     display: none !important;
   }
 }
+
+/* ---- Telegram button-style editor: a small Telegram-like preview (ButtonStylesView) ---- */
+.tg-phone {
+  --tg-blue: #3390ec;
+  --tg-green: #2ea44f;
+  --tg-red: #e5484d;
+  border-radius: 1rem;
+  padding: 0.9rem;
+  background: linear-gradient(160deg, var(--mb), var(--sf2));
+  border: 1px solid var(--ln);
+}
+.tg-bubble {
+  display: inline-block;
+  max-width: 100%;
+  padding: 0.5rem 0.8rem;
+  border-radius: 1rem 1rem 1rem 0.25rem;
+  background: var(--sf);
+  border: 1px solid var(--ln);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.tg-kb {
+  display: grid;
+  gap: 0.3rem;
+  margin-top: 0.4rem;
+}
+.tg-row {
+  display: flex;
+  gap: 0.3rem;
+}
+.tg-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--tx);
+  background: color-mix(in srgb, var(--tx) 10%, transparent);
+  border: 1px solid transparent;
+  transition: background 0.15s;
+}
+.tg-btn[data-style='primary'] {
+  background: var(--tg-blue);
+  color: #fff;
+}
+.tg-btn[data-style='success'] {
+  background: var(--tg-green);
+  color: #fff;
+}
+.tg-btn[data-style='danger'] {
+  background: var(--tg-red);
+  color: #fff;
+}
+.tg-btn-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 50%;
+  font-size: 0.7rem;
+  background: rgba(255, 255, 255, 0.28);
+}
+.tg-btn[data-style='none'] .tg-btn-icon {
+  background: color-mix(in srgb, var(--tx) 18%, transparent);
+}
+.tg-swatch {
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  border: 2px solid var(--ln);
+  background: var(--sf);
+  color: var(--tx);
+}
+.tg-swatch[data-style='primary'] {
+  border-color: #3390ec;
+}
+.tg-swatch[data-style='success'] {
+  border-color: #2ea44f;
+}
+.tg-swatch[data-style='danger'] {
+  border-color: #e5484d;
+}
+.tg-swatch.is-on[data-style='primary'] {
+  background: #3390ec;
+  color: #fff;
+}
+.tg-swatch.is-on[data-style='success'] {
+  background: #2ea44f;
+  color: #fff;
+}
+.tg-swatch.is-on[data-style='danger'] {
+  background: #e5484d;
+  color: #fff;
+}
+.tg-swatch.is-on[data-style='none'] {
+  background: var(--mb);
+  border-color: var(--mu);
+}
