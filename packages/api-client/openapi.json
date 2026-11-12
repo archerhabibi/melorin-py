@@ -1134,6 +1134,25 @@
         "title": "BundleProductIn",
         "type": "object"
       },
+      "ButtonStylesIn": {
+        "properties": {
+          "enabled": {
+            "default": false,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "rules": {
+            "items": {
+              "type": "object"
+            },
+            "maxItems": 120,
+            "title": "Rules",
+            "type": "array"
+          }
+        },
+        "title": "ButtonStylesIn",
+        "type": "object"
+      },
       "CatalogItem": {
         "properties": {
           "category": {
@@ -18326,6 +18345,117 @@
         ]
       }
     },
+    "/api/v1/admin/telegram/button-styles": {
+      "get": {
+        "operationId": "get_button_styles_api_v1_admin_telegram_button_styles_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Button Styles",
+        "tags": [
+          "admin"
+        ]
+      },
+      "put": {
+        "operationId": "put_button_styles_api_v1_admin_telegram_button_styles_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ButtonStylesIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Put Button Styles",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/telegram/button-styles/preview": {
+      "post": {
+        "description": "Send a sample of the submitted (not necessarily saved) styling to the admin's own Telegram chat.",
+        "operationId": "preview_button_styles_api_v1_admin_telegram_button_styles_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ButtonStylesIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Preview Button Styles",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/admin/tickets": {
       "get": {
         "operationId": "tickets_api_v1_admin_tickets_get",
@@ -29334,6 +29464,26 @@
         "summary": "My Transactions",
         "tags": [
           "wallet"
+        ]
+      }
+    },
+    "/api/v1/telegram/button-styles": {
+      "get": {
+        "description": "Secret-free styling the bots apply when they build keyboards (nothing but keys, colours, emoji ids, decoration).",
+        "operationId": "public_button_styles_api_v1_telegram_button_styles_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Public Button Styles",
+        "tags": [
+          "telegram"
         ]
       }
     },
