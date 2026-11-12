@@ -336,6 +336,303 @@
         "title": "AdminCouponIn",
         "type": "object"
       },
+      "AdminInviteAccept": {
+        "properties": {
+          "password": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Password",
+            "type": "string"
+          },
+          "token": {
+            "maxLength": 200,
+            "minLength": 20,
+            "title": "Token",
+            "type": "string"
+          },
+          "totp_code": {
+            "maxLength": 8,
+            "minLength": 6,
+            "title": "Totp Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "password",
+          "totp_code"
+        ],
+        "title": "AdminInviteAccept",
+        "type": "object"
+      },
+      "AdminInviteEnrollment": {
+        "properties": {
+          "otpauth_url": {
+            "title": "Otpauth Url",
+            "type": "string"
+          },
+          "qr_data_uri": {
+            "title": "Qr Data Uri",
+            "type": "string"
+          },
+          "secret": {
+            "title": "Secret",
+            "type": "string"
+          }
+        },
+        "required": [
+          "secret",
+          "otpauth_url",
+          "qr_data_uri"
+        ],
+        "title": "AdminInviteEnrollment",
+        "type": "object"
+      },
+      "AdminInviteInfo": {
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "role_label": {
+            "title": "Role Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "display_name",
+          "role",
+          "role_label",
+          "expires_at"
+        ],
+        "title": "AdminInviteInfo",
+        "type": "object"
+      },
+      "AdminInviteToken": {
+        "properties": {
+          "token": {
+            "maxLength": 200,
+            "minLength": 20,
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "AdminInviteToken",
+        "type": "object"
+      },
+      "AdminMeOut": {
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_owner": {
+            "title": "Is Owner",
+            "type": "boolean"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Permissions",
+            "type": "array"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "role_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Label"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "display_name",
+          "role",
+          "role_label",
+          "is_owner",
+          "permissions"
+        ],
+        "title": "AdminMeOut",
+        "type": "object"
+      },
+      "AdminOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "invite_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invite Expires At"
+          },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "is_self": {
+            "title": "Is Self",
+            "type": "boolean"
+          },
+          "last_login_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Login At"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "role_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Label"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "totp_enabled": {
+            "title": "Totp Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "display_name",
+          "role",
+          "role_label",
+          "state",
+          "is_active",
+          "totp_enabled",
+          "is_self",
+          "created_at",
+          "last_login_at",
+          "invite_expires_at"
+        ],
+        "title": "AdminOut",
+        "type": "object"
+      },
       "AdminPasswordChange": {
         "properties": {
           "current_password": {
@@ -356,6 +653,47 @@
           "new_password"
         ],
         "title": "AdminPasswordChange",
+        "type": "object"
+      },
+      "AdminPatch": {
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "maxLength": 20,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          }
+        },
+        "title": "AdminPatch",
         "type": "object"
       },
       "AdminUpdateTicket": {
@@ -2810,6 +3148,78 @@
           "verified"
         ],
         "title": "IdentityOut",
+        "type": "object"
+      },
+      "InviteIn": {
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          },
+          "role": {
+            "maxLength": 20,
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "role"
+        ],
+        "title": "InviteIn",
+        "type": "object"
+      },
+      "InviteOut": {
+        "properties": {
+          "admin": {
+            "$ref": "#/components/schemas/AdminOut"
+          },
+          "emailed": {
+            "title": "Emailed",
+            "type": "boolean"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "invite_path": {
+            "title": "Invite Path",
+            "type": "string"
+          },
+          "invite_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invite Url"
+          }
+        },
+        "required": [
+          "admin",
+          "invite_path",
+          "invite_url",
+          "expires_at",
+          "emailed"
+        ],
+        "title": "InviteOut",
         "type": "object"
       },
       "IssueActionIn": {
@@ -6231,6 +6641,37 @@
         "title": "RewardIn",
         "type": "object"
       },
+      "RoleOut": {
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Permissions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "description",
+          "permissions"
+        ],
+        "title": "RoleOut",
+        "type": "object"
+      },
       "SelectionIn": {
         "properties": {
           "expiring_within_days": {
@@ -9213,6 +9654,305 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/admins": {
+      "get": {
+        "operationId": "list_admins_api_v1_admin_admins_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AdminOut"
+                  },
+                  "title": "Response List Admins Api V1 Admin Admins Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Admins",
+        "tags": [
+          "admin-team"
+        ]
+      },
+      "post": {
+        "description": "Invite an e-mail address as admin. Creates an inactive shell; nothing works until the invitee accepts.",
+        "operationId": "invite_admin_api_v1_admin_admins_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InviteOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Invite Admin",
+        "tags": [
+          "admin-team"
+        ]
+      }
+    },
+    "/api/v1/admin/admins/roles": {
+      "get": {
+        "operationId": "admin_roles_api_v1_admin_admins_roles_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RoleOut"
+                  },
+                  "title": "Response Admin Roles Api V1 Admin Admins Roles Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Roles",
+        "tags": [
+          "admin-team"
+        ]
+      }
+    },
+    "/api/v1/admin/admins/{admin_id}": {
+      "delete": {
+        "description": "Take the person out of the team (the account is kept, inactive and hidden, so the audit trail still resolves).",
+        "operationId": "remove_admin_api_v1_admin_admins__admin_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "admin_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Admin Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Remove Admin",
+        "tags": [
+          "admin-team"
+        ]
+      },
+      "patch": {
+        "operationId": "patch_admin_api_v1_admin_admins__admin_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "admin_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Admin Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Patch Admin",
+        "tags": [
+          "admin-team"
+        ]
+      }
+    },
+    "/api/v1/admin/admins/{admin_id}/reset-access": {
+      "post": {
+        "description": "Lost phone or suspected compromise (also: send an expired invite again): wipes the password and authenticator, ends every\nsession and issues a fresh invite.",
+        "operationId": "reset_admin_access_api_v1_admin_admins__admin_id__reset_access_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "admin_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Admin Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InviteOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reset Admin Access",
+        "tags": [
+          "admin-team"
+        ]
+      }
+    },
+    "/api/v1/admin/admins/{admin_id}/revoke-sessions": {
+      "post": {
+        "description": "Sign the admin out everywhere (their refresh tokens end; an access token lives at most a few minutes).",
+        "operationId": "revoke_admin_sessions_api_v1_admin_admins__admin_id__revoke_sessions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "admin_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Admin Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Revoke Admin Sessions",
+        "tags": [
+          "admin-team"
+        ]
+      }
+    },
     "/api/v1/admin/audit": {
       "get": {
         "operationId": "audit_log_api_v1_admin_audit_get",
@@ -11487,6 +12227,32 @@
         "summary": "Reopen",
         "tags": [
           "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/me": {
+      "get": {
+        "operationId": "admin_me_api_v1_admin_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Me",
+        "tags": [
+          "admin-team"
         ]
       }
     },
@@ -19763,6 +20529,127 @@
         "summary": "Usage Admin",
         "tags": [
           "vpn-account-tools"
+        ]
+      }
+    },
+    "/api/v1/auth/admin-invite/accept": {
+      "post": {
+        "operationId": "admin_invite_accept_api_v1_auth_admin_invite_accept_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminInviteAccept"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Admin Invite Accept",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/admin-invite/enroll": {
+      "post": {
+        "operationId": "admin_invite_enroll_api_v1_auth_admin_invite_enroll_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminInviteToken"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminInviteEnrollment"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Admin Invite Enroll",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/admin-invite/inspect": {
+      "post": {
+        "operationId": "admin_invite_inspect_api_v1_auth_admin_invite_inspect_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminInviteToken"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminInviteInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Admin Invite Inspect",
+        "tags": [
+          "auth"
         ]
       }
     },

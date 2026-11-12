@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Annotated
 
 import jwt
-from fastapi import Depends, Header, Path
+from fastapi import Depends, Header, Path, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +17,7 @@ from melorin.core.context import client_ip
 from melorin.core.db import get_session
 from melorin.core.errors import AppError, Forbidden
 from melorin.core.security import decode_access_token
+from melorin.domain import admin_access
 from melorin.kernel.models.identity import User
 from melorin.kernel.models.stores import Store, StoreMembership
 
@@ -35,6 +36,11 @@ class AuthSession:
     def is_admin_session(self) -> bool:
         """Admin rights need BOTH the user flag and an admin-channel session (password+TOTP login of the admin panel)."""
         return self.claims.is_admin and self.user.is_super_admin
+
+    def admin_may_act_in_stores(self, *, write: bool) -> bool:
+        """An admin-panel session may use the store endpoints (reseller panel, loyalty, referral programs) only with the grants
+        the matching admin screens need (``domain.admin_access.store_context_allowed``)."""
+        return self.is_admin_session and admin_access.store_context_allowed(self.user.admin_roles, write=write)
 
 
 async def auth_session(session: Session, creds: HTTPAuthorizationCredentials | None = Depends(bearer)) -> AuthSession | None:
@@ -92,7 +98,30 @@ def ip_allowed(ip: str | None, networks: list[str]) -> bool:
     return any(addr in ipaddress.ip_network(n, strict=False) for n in networks)
 
 
-async def require_admin_session(auth: AuthSession = Depends(current_auth), user: User = Depends(require_admin)) -> User:
+async def admin_area_guard(
+    request: Request, session: Session, auth: AuthSession = Depends(current_auth), user: User = Depends(current_user)
+) -> None:
+    """Role check of an admin request: the path decides the permission area, the method the level (``domain/admin_access.py``).
+
+    A non-admin, or an admin's customer-channel session, is left to ``require_admin`` / ``require_admin_session`` (their own
+    refusal) and leaves no role-denied event. A denied admin is logged as a security
+    event, so a team member probing beyond their role is visible in the audit screen.
+    """
+    if not (user.is_super_admin and auth.is_admin_session):
+        return
+    area, write = admin_access.area_for(request.url.path, request.method)
+    if admin_access.allows(user.admin_roles, area, write=write):
+        return
+    audit.security_event(
+        session, "admin_area_denied", user.id, {"area": area, "write": write, "path": admin_access.normalise(request.url.path)}
+    )
+    await session.commit()
+    raise AppError("ADMIN_ROLE_FORBIDDEN", "نقش شما اجازه‌ی این کار را ندارد.", 403, {"area": area})
+
+
+async def require_admin_session(
+    auth: AuthSession = Depends(current_auth), user: User = Depends(require_admin), _area: None = Depends(admin_area_guard)
+) -> User:
     """Admin API: the user must be an admin AND the session must come from the admin panel's own login (password + TOTP).
 
     A session opened through a bot, a store website or an email code is a CUSTOMER session even when the account behind it
@@ -159,16 +188,26 @@ async def resolve_store_context(session: AsyncSession, store_id: uuid.UUID, user
     return StoreContext(store=store, user=user, membership=m, admin_session=admin_session)
 
 
-async def store_context(session: Session, auth: CurrentAuth, store_id: uuid.UUID = Path(...)) -> StoreContext:
+def _refuse_unprivileged_admin(auth: AuthSession, request: Request) -> None:
+    """An admin-panel session reaches a store's endpoints as a platform admin; a role without the matching grants must not."""
+    if auth.claims.is_admin:
+        write = request.method.upper() not in {"GET", "HEAD", "OPTIONS"}
+        if not auth.admin_may_act_in_stores(write=write):
+            raise AppError("ADMIN_ROLE_FORBIDDEN", "نقش شما اجازه‌ی این کار را ندارد.", 403)
+
+
+async def store_context(session: Session, auth: CurrentAuth, store_id: uuid.UUID = Path(...), *, request: Request) -> StoreContext:
     """Customer plane. The session must have been opened for THIS store (checked before any query), then the usual
     membership / suspension rules apply."""
     channel.ensure_store(auth.claims, store_id)
+    _refuse_unprivileged_admin(auth, request)
     return await resolve_store_context(session, store_id, auth.user, admin_session=auth.is_admin_session)
 
 
-async def owner_store_context(session: Session, auth: CurrentAuth, store_id: uuid.UUID = Path(...)) -> StoreContext:
+async def owner_store_context(session: Session, auth: CurrentAuth, store_id: uuid.UUID = Path(...), *, request: Request) -> StoreContext:
     """Owner plane (reseller panel): the store's own sessions, or the main store as account hub for the store's real owner."""
     await channel.ensure_owner_store(session, auth.claims, auth.user.id, store_id)
+    _refuse_unprivileged_admin(auth, request)
     return await resolve_store_context(session, store_id, auth.user, admin_session=auth.is_admin_session)
 
 

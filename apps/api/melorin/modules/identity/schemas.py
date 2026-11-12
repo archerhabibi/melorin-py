@@ -1,3 +1,4 @@
+import datetime as dt
 import uuid
 from typing import Literal
 
@@ -35,6 +36,30 @@ class PasswordLogin(BaseModel):
 
 class SetPassword(BaseModel):
     password: str = Field(min_length=8, max_length=128)
+
+
+class AdminInviteToken(BaseModel):
+    token: str = Field(min_length=20, max_length=200)
+
+
+class AdminInviteInfo(BaseModel):
+    email: str
+    display_name: str | None
+    role: str
+    role_label: str
+    expires_at: dt.datetime
+
+
+class AdminInviteEnrollment(BaseModel):
+    secret: str
+    otpauth_url: str
+    qr_data_uri: str  # SVG data URI of the authenticator QR code
+
+
+class AdminInviteAccept(BaseModel):
+    token: str = Field(min_length=20, max_length=200)
+    password: str = Field(min_length=1, max_length=256)  # the admin password policy answers with a precise message
+    totp_code: str = Field(min_length=6, max_length=8)
 
 
 class AdminPasswordChange(BaseModel):
