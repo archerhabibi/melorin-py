@@ -143,3 +143,36 @@ describe('admin button styles (دکمه‌های تلگرام)', () => {
     expect(calls.some((c) => c[1].endsWith('/preview'))).toBe(true);
   });
 });
+
+describe('rule validation mirrors the server (no round trip needed to learn a rule is refused)', () => {
+  const rule = (over = {}) => blankRule({ key: 'menu:plans', style: 'primary', ...over });
+
+  it('accepts a normal rule', () => {
+    expect(ruleProblem(rule(), 6)).toBe('');
+  });
+
+  it.each([
+    ['link used as a callback key', { key: 'https://x.example/a' }],
+    ['@url with prefix match', { key: '@url', match: 'prefix' }],
+    ['key with a line break', { key: 'menu:\nplans' }],
+    ['inline key longer than 64', { key: 'a'.repeat(65) }],
+    ['emoji id with a leading zero', { icon: '012345' }],
+    ['emoji id longer than 19 digits', { icon: '1'.repeat(20) }],
+    ['blank-only decoration and nothing else', { style: null, prefix: '   ' }],
+  ])('flags %s', (_name, over) => {
+    expect(ruleProblem(rule(over), 6)).not.toBe('');
+  });
+
+  it('allows a long reply-keyboard text up to 100 and ignores decoration for it', () => {
+    expect(ruleProblem(rule({ kind: 'reply', key: 'x'.repeat(100) }), 6)).toBe('');
+    expect(ruleProblem(rule({ kind: 'reply', key: 'x', style: null, prefix: '💎' }), 6)).not.toBe('');
+  });
+
+  it('sends blank decoration as empty and normalises Persian digits', () => {
+    const { rules } = toPayload({
+      enabled: true,
+      rules: [rule({ prefix: '  ', suffix: ' ✨', icon: '۵۳۶۸۳۲۴۱۷۰۶۷۱۲۰۲۲۸۶' })],
+    });
+    expect(rules[0]).toMatchObject({ prefix: '', suffix: ' ✨', icon: '5368324170671202286' });
+  });
+});

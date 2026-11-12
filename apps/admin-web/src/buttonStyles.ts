@@ -54,7 +54,11 @@ export const STYLE_ORDER: StyleName[] = ['primary', 'success', 'danger'];
 const DIGITS = '۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩';
 export const normalizeDigits = (s: string): string =>
   s.replace(/[۰-۹٠-٩]/g, (d) => String(DIGITS.indexOf(d) % 10)).replace(/\s+/g, '');
-export const isEmojiId = (s: string): boolean => /^[0-9]{5,25}$/.test(normalizeDigits(s));
+// Telegram custom-emoji ids are int64 values: no leading zero, at most 19 digits (same rule as the server).
+export const isEmojiId = (s: string): boolean => /^[1-9][0-9]{4,18}$/.test(normalizeDigits(s));
+export const EMOJI_ID_MESSAGE = 'شناسهٔ ایموجی پریمیوم باید فقط عدد باشد (۵ تا ۱۹ رقم و بدون صفر ابتدایی).';
+export const MAX_KEY = 64;
+export const MAX_REPLY_TEXT = 100;
 
 export const ruleId = (r: Pick<ButtonRule, 'kind' | 'match' | 'key'>): string => `${r.kind}|${r.match}|${r.key}`;
 
@@ -76,12 +80,25 @@ export function fromPreset(preset: Preset): ButtonRule[] {
   return preset.rules.map((r) => blankRule({ ...r, key: r.key ?? '' }));
 }
 
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHARS = /[\u0000-\u001f\u007f-\u009f]/;
+
 /** Client-side mirror of the server validation, per rule: the first problem in Persian or '' when fine. */
 export function ruleProblem(r: ButtonRule, maxDecor: number): string {
-  if (!r.key.trim()) return 'کلید دکمه خالی است.';
-  if (r.icon && !isEmojiId(r.icon)) return 'شناسهٔ ایموجی پریمیوم باید فقط عدد باشد (۵ تا ۲۵ رقم).';
+  const key = r.key.trim();
+  const limit = r.kind === 'reply' ? MAX_REPLY_TEXT : MAX_KEY;
+  if (!key) return 'کلید دکمه خالی است.';
+  if ([...key].length > limit) return `کلید دکمه از ${limit} نویسه بیشتر است.`;
+  if (CONTROL_CHARS.test(key)) return 'کلید نباید خط جدید یا نویسهٔ کنترلی داشته باشد.';
+  if (r.kind === 'inline' && /^https?:\/\//.test(key))
+    return `کلید باید callback دکمه باشد، نه لینک. برای دکمه‌های لینک از «${URL_KEY}» استفاده کنید.`;
+  if (key === URL_KEY && r.match === 'prefix') return `«${URL_KEY}» فقط تطبیق دقیق دارد.`;
+  if (r.icon && !isEmojiId(r.icon)) return EMOJI_ID_MESSAGE;
   if ([...r.prefix].length > maxDecor || [...r.suffix].length > maxDecor) return `تزئین حداکثر ${maxDecor} نویسه است.`;
-  if (!r.style && !r.icon && !r.prefix && !r.suffix) return 'حداقل یکی از رنگ، ایموجی یا تزئین را مشخص کنید.';
+  if (CONTROL_CHARS.test(r.prefix) || CONTROL_CHARS.test(r.suffix))
+    return 'تزئین نباید خط جدید یا نویسهٔ کنترلی داشته باشد.';
+  const decorated = r.kind === 'inline' && Boolean(r.prefix.trim() || r.suffix.trim());
+  if (!r.style && !r.icon && !decorated) return 'حداقل یکی از رنگ، ایموجی یا تزئین را مشخص کنید.';
   return '';
 }
 
@@ -103,7 +120,7 @@ export interface RenderedButton {
 export function renderInline(cfg: ButtonStyleConfig, key: string, text: string): RenderedButton {
   const rule = cfg.enabled ? resolve(cfg.rules, 'inline', key) : undefined;
   if (!rule) return { text, style: null, icon: null };
-  const decorated = `${rule.prefix}${text}${rule.suffix}`;
+  const decorated = `${rule.prefix.trim() ? rule.prefix : ''}${text}${rule.suffix.trim() ? rule.suffix : ''}`;
   return { text: [...decorated].length <= MAX_BUTTON_TEXT ? decorated : text, style: rule.style, icon: rule.icon };
 }
 
@@ -147,6 +164,8 @@ export function toPayload(cfg: ButtonStyleConfig): ButtonStyleConfig {
       key: r.key.trim(),
       icon: r.icon ? normalizeDigits(r.icon) : null,
       style: r.style || null,
+      prefix: r.prefix.trim() ? r.prefix : '',
+      suffix: r.suffix.trim() ? r.suffix : '',
     })),
   };
 }
