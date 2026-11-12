@@ -21,6 +21,13 @@ If `main` is protected, allow `github-actions[bot]` to bypass so the bot can pus
 
 > Entries before 2026-11-09 were archived (T-R12) and live in git tag `changelog-archive-2026-11-09` (`git show changelog-archive-2026-11-09:docs/CHANGE_LOG.md`), per DOCUMENTATION-POLICY.
 
+## 2026-11-12 - HTTPS did not come up after repeated installs (Let's Encrypt rate limit); Redis overcommit
+- **Area:** infra / scripts / ops
+- **Before:** after several installs of the same domains the post-install check printed "did not answer 200 (got '000')" with no explanation, and the sites had no certificate.
+- **Problem:** `melorin uninstall` ran `compose down -v`, which also deleted the `caddy_data` volume (certificates + ACME account), so every reinstall requested new certificates; Let's Encrypt allows 5 per exact hostname set per 7 days (HTTP 429, retry-after shown in the Caddy log). Caddy had no ACME e-mail, so its ZeroSSL fallback never registered. Redis warned that `vm.overcommit_memory` is 0.
+- **Action:** Caddyfile sets `email` (from the admin e-mail, passed as `MELORIN_ACME_EMAIL`); uninstall now keeps the certificate volumes; `post_install.sh` explains why HTTPS fails (rate limit with retry time / port 80 unreachable / other issuance error), waits 60 s instead of 30 s, and sets `vm.overcommit_memory=1` persistently.
+- **After:** a reinstall reuses the stored certificate. ZeroSSL refuses `.ir` hostnames, so for `.ir` the only CA is Let's Encrypt and an already exhausted limit can only be waited out.
+
 ## 2026-11-11 - Installer wires the Telegram alert receiver; container logs are rotated
 - **Area:** scripts / ops / docs
 - **Before:** `install_server.sh` never set `ALERT_TELEGRAM_BOT_TOKEN` / `ALERT_TELEGRAM_CHAT_ID`; no service had a log-rotation policy.

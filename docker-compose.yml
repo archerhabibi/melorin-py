@@ -206,6 +206,7 @@ services:
     environment:
       MELORIN_DOMAIN: ${MELORIN_DOMAIN:-localhost}
       MELORIN_ADMIN_DOMAIN: ${MELORIN_ADMIN_DOMAIN:-admin.localhost}
+      MELORIN_ACME_EMAIL: ${MELORIN_BOOTSTRAP_ADMIN_EMAIL:-admin@localhost}
     volumes: [./infra/Caddyfile:/etc/caddy/Caddyfile:ro, caddy_data:/data, caddy_config:/config]
     depends_on:
       api: {condition: service_healthy}
