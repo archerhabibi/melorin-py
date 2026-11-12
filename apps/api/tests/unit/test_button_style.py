@@ -137,3 +137,37 @@ def test_enabled_flags_must_be_real_booleans():
     with pytest.raises(bs.ButtonStyleError):
         bs.normalize({"enabled": True, "rules": [rule(enabled="false")]})
     assert bs.normalize({"enabled": None, "rules": [rule(enabled=None)]})["rules"][0]["enabled"] is True
+
+
+# ---- review fixes: validation gaps that let useless or Telegram-refused rules through -------------------------------
+
+
+def test_whitespace_only_decoration_is_not_a_decoration():
+    with pytest.raises(bs.ButtonStyleError):
+        cfg(rule(style=None, prefix="   ", suffix=" "))
+    out = cfg(rule(prefix=" ", suffix="\u00a0"))  # colour keeps the rule valid, the blanks are dropped
+    assert (out["rules"][0]["prefix"], out["rules"][0]["suffix"]) == ("", "")
+    assert cfg(rule(prefix="💎 "))["rules"][0]["prefix"] == "💎 "  # real decoration keeps its own spacing
+
+
+@pytest.mark.parametrize("key", ["a\nb", "a\x00b", "menu:\tplans"])
+def test_control_characters_in_a_key_are_refused_for_both_kinds(key):
+    with pytest.raises(bs.ButtonStyleError):
+        cfg(rule(key=key))
+    with pytest.raises(bs.ButtonStyleError):
+        cfg(rule(kind="reply", key=key))
+
+
+@pytest.mark.parametrize("icon", ["00000", "012345", "1" * 20, "１２３４５", "12 345"])
+def test_premium_emoji_id_must_look_like_a_telegram_int64(icon):
+    with pytest.raises(bs.ButtonStyleError):
+        cfg(rule(icon=icon))
+
+
+def test_premium_emoji_id_accepts_real_ids_and_persian_digits():
+    assert cfg(rule(icon="5368324170671202286"))["rules"][0]["icon"] == "5368324170671202286"
+    assert cfg(rule(icon="۵۳۶۸۳۲۴۱۷۰۶۷۱۲۰۲۲۸۶"))["rules"][0]["icon"] == "5368324170671202286"
+
+
+def test_note_is_collapsed_to_one_clean_line():
+    assert cfg(rule(note="  a\n b\t c  "))["rules"][0]["note"] == "a b c"

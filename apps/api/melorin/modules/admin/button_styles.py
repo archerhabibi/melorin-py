@@ -46,6 +46,27 @@ def _invalid(exc: bs.ButtonStyleError) -> AppError:
     return AppError("BUTTON_STYLE_INVALID", str(exc), 422)
 
 
+def _telegram_failure(exc: TelegramApiError) -> AppError:
+    """Tell the admin what really went wrong: only a 400 is Telegram refusing the style / Premium emoji itself."""
+    if exc.code == 403:
+        return AppError(
+            "TELEGRAM_CHAT_UNREACHABLE",
+            "ربات اصلی اجازهٔ پیام دادن به تلگرام شما را ندارد؛ ابتدا ربات را در تلگرام باز کنید و Start بزنید (یا ربات را آزاد کنید).",
+            409,
+        )
+    if exc.code == 401:
+        return AppError("MAIN_BOT_TOKEN_INVALID", "توکن ربات اصلی معتبر نیست؛ آن را در تنظیمات ربات بررسی کنید.", 409)
+    if exc.code == 429:
+        return AppError("TELEGRAM_RATE_LIMITED", "تلگرام موقتاً درخواست‌ها را محدود کرده است؛ چند لحظه بعد دوباره امتحان کنید.", 429)
+    if exc.code >= 500:
+        return AppError("TELEGRAM_UNREACHABLE", "اتصال به تلگرام برقرار نشد؛ کمی بعد دوباره امتحان کنید.", 502)
+    return AppError(
+        "TELEGRAM_REJECTED_STYLE",
+        f"تلگرام پیش‌نمایش را نپذیرفت: {exc.description}. اگر ایموجی پریمیوم گذاشته‌اید، مطمئن شوید شناسه درست است و صاحب ربات اشتراک Premium دارد.",
+        422,
+    )
+
+
 @router.get("/telegram/button-styles")
 async def get_button_styles(_: AdminUser, session: Session):
     return _view(await _load(session))
@@ -90,11 +111,7 @@ async def preview_button_styles(body: ButtonStylesIn, admin: AdminUser, session:
         await channel.call("sendMessage", {"chat_id": chat_id, "text": "پیش‌نمایش دکمه‌های اینلاین", "reply_markup": inline})
         await channel.call("sendMessage", {"chat_id": chat_id, "text": "پیش‌نمایش کیبورد پایین", "reply_markup": reply})
     except TelegramApiError as exc:
-        raise AppError(
-            "TELEGRAM_REJECTED_STYLE",
-            f"تلگرام پیش‌نمایش را نپذیرفت: {exc.description}. اگر ایموجی پریمیوم گذاشته‌اید، مطمئن شوید شناسه درست است و صاحب ربات اشتراک Premium دارد.",
-            422,
-        ) from exc
+        raise _telegram_failure(exc) from exc
     return {"ok": True}
 
 

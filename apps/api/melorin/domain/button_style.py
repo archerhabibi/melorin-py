@@ -26,7 +26,7 @@ KINDS: tuple[str, ...] = ("inline", "reply")
 MATCHES: tuple[str, ...] = ("exact", "prefix")
 
 URL_KEY = "@url"  # pseudo key: every URL button of the inline keyboards (they have no callback_data)
-EMOJI_ID_RE = re.compile(r"^[0-9]{5,25}$")
+EMOJI_ID_RE = re.compile(r"^[1-9][0-9]{4,18}$")  # int64 as Telegram sends it: no leading zero, at most 19 digits
 MAX_RULES = 120
 MAX_KEY = 64
 MAX_REPLY_TEXT = 100
@@ -93,6 +93,10 @@ CATALOG: tuple[dict[str, Any], ...] = (
     _inline("loy:", "🎁 پاداش باشگاه مشتریان", "باشگاه و دعوت", "prefix"),
     _inline("mg:", "منوی مدیریت نماینده", "ربات نماینده", "prefix"),
     _inline("rv:", "تأیید / رد پرداخت (نماینده)", "ربات نماینده", "prefix"),
+    _inline("oaccount:", "جزئیات اکانت مشتری (نماینده)", "ربات نماینده", "prefix"),
+    _inline("orn:", "🔄 تمدید اکانت مشتری (نماینده)", "ربات نماینده", "prefix"),
+    _inline("orb:", "✅ تأیید و تمدید (نماینده)", "ربات نماینده", "prefix"),
+    _inline("otl:", "ابزارهای اکانت مشتری (نماینده)", "ربات نماینده", "prefix"),
     _inline("osp:", "⏸ تعلیق اکانت (نماینده)", "ربات نماینده", "prefix"),
     _inline("ors:", "▶️ فعال‌سازی مجدد (نماینده)", "ربات نماینده", "prefix"),
     _inline(URL_KEY, "همهٔ دکمه‌های لینک (مثلاً «حساب من در سایت»)", "لینک‌ها"),
@@ -123,7 +127,7 @@ def _decor(value: Any, field: str, where: str) -> str:
         raise ButtonStyleError(f"{where}: «{field}» حداکثر {MAX_DECOR} نویسه است.")
     if any(unicodedata.category(ch) == "Cc" for ch in text):
         raise ButtonStyleError(f"{where}: «{field}» نباید خط جدید یا نویسهٔ کنترلی داشته باشد.")
-    return text
+    return text if text.strip() else ""  # blanks alone are not a decoration (they would only shift the label)
 
 
 def _style(value: Any, where: str) -> str | None:
@@ -140,7 +144,7 @@ def _icon(value: Any, where: str) -> str | None:
     if not text:
         return None
     if not EMOJI_ID_RE.match(text):
-        raise ButtonStyleError(f"{where}: شناسهٔ ایموجی پریمیوم باید فقط عدد باشد (۵ تا ۲۵ رقم).")
+        raise ButtonStyleError(f"{where}: شناسهٔ ایموجی پریمیوم باید فقط عدد باشد (۵ تا ۱۹ رقم و بدون صفر ابتدایی).")
     return text
 
 
@@ -167,7 +171,9 @@ def normalize_rule(raw: Any, index: int) -> dict[str, Any]:
     limit = MAX_REPLY_TEXT if kind == "reply" else MAX_KEY
     if not key or len(key) > limit:
         raise ButtonStyleError(f"{where}: کلید دکمه خالی است یا از {limit} نویسه بیشتر است.")
-    if kind == "inline" and (key.startswith(("http://", "https://")) or any(unicodedata.category(c) == "Cc" for c in key)):
+    if any(unicodedata.category(c) == "Cc" for c in key):
+        raise ButtonStyleError(f"{where}: کلید نباید خط جدید یا نویسهٔ کنترلی داشته باشد.")
+    if kind == "inline" and key.startswith(("http://", "https://")):
         raise ButtonStyleError(f"{where}: کلید باید callback دکمه باشد، نه لینک. برای دکمه‌های لینک از «{URL_KEY}» استفاده کنید.")
     if key == URL_KEY and match == "prefix":
         raise ButtonStyleError(f"{where}: «{URL_KEY}» فقط تطبیق دقیق دارد.")
@@ -175,7 +181,7 @@ def normalize_rule(raw: Any, index: int) -> dict[str, Any]:
         "kind": kind,
         "match": match,
         "key": key,
-        "note": str(raw.get("note") or "").strip()[:MAX_NOTE],
+        "note": " ".join(str(raw.get("note") or "").split())[:MAX_NOTE],
         "style": _style(raw.get("style"), where),
         "icon": _icon(raw.get("icon"), where),
         "prefix": _decor(raw.get("prefix"), "پیشوند", where) if kind == "inline" else "",
@@ -313,6 +319,7 @@ def _r(
 _CLASSIC = [
     _r("buy:", style="success", match="prefix"),
     _r("rnb:", style="success", match="prefix"),
+    _r("orb:", style="success", match="prefix"),
     _r("wla:", style="success", match="prefix"),
     _r("rtc:", style="danger", match="prefix"),
     _r("rsc:", style="danger", match="prefix"),

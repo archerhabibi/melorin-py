@@ -76,3 +76,23 @@ async def test_generic_settings_api_cannot_overwrite_the_integration_key():
         h = await _admin(c, maker)
         r = await c.put("/api/v1/admin/settings/integration.telegram_button_styles", json={"value": {"enabled": True}}, headers=h)
         assert r.status_code == 400
+
+
+@pytest.mark.parametrize(
+    ("code", "expected_code", "status"),
+    [
+        (403, "TELEGRAM_CHAT_UNREACHABLE", 409),
+        (401, "MAIN_BOT_TOKEN_INVALID", 409),
+        (429, "TELEGRAM_RATE_LIMITED", 429),
+        (599, "TELEGRAM_UNREACHABLE", 502),
+        (502, "TELEGRAM_UNREACHABLE", 502),
+        (400, "TELEGRAM_REJECTED_STYLE", 422),
+    ],
+)
+async def test_preview_failure_blames_the_real_cause(code, expected_code, status):
+    """Only a 400 is Telegram refusing the style; a blocked bot / bad token / flood-wait / outage must not read like a bad emoji."""
+    from melorin.channels.telegram.bot_api import TelegramApiError
+    from melorin.modules.admin.button_styles import _telegram_failure
+
+    err = _telegram_failure(TelegramApiError(code, "Forbidden: bot can't initiate conversation with a user"))
+    assert (err.code, err.status) == (expected_code, status)
