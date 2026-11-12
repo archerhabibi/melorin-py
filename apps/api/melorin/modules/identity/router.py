@@ -13,13 +13,14 @@ from melorin.modules.identity.routes._common import (  # noqa: F401
     REFRESH_COOKIE,
     _set_refresh_cookie,
 )
+from melorin.modules.identity.routes import admin_invite  # noqa: F401  (registers /auth/admin-invite/* on the auth router)
 from melorin.modules.identity.routes.account import me
 from melorin.modules.identity.routes.sign_in import auth
 
 __all__ = ["auth", "me", "REFRESH_COOKIE", "GOOGLE_NONCE_COOKIE", "GOOGLE_NONCE_PATH", "GOOGLE_NONCE_TTL", "_set_refresh_cookie"]
 
 # Backward-compatible attribute access (``router.create_web_handoff``) for callers and tests written before the split.
-_FAMILIES = ("sign_in", "account", "_common")
+_FAMILIES = ("sign_in", "account", "admin_invite", "_common")
 
 
 def __getattr__(name: str):

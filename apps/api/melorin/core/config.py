@@ -157,6 +157,9 @@ class Settings(BaseSettings):
     reseller_recheck_suspend: bool = False
 
     store_web_url: str = "http://localhost:3000"
+    # Host name of the admin panel (the installer's ADMIN_DOMAIN). Used to build the admin-invite link that is e-mailed to a new
+    # admin; empty = no link can be built server-side and the admin web composes it from its own address.
+    admin_domain: str = ""
     public_api_url: str = ""
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:3001"]
     cors_allow_methods: list[str] = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
@@ -228,6 +231,15 @@ class Settings(BaseSettings):
     @property
     def is_dev(self) -> bool:
         return self.env == "development"
+
+    @property
+    def admin_web_url(self) -> str:
+        """``https://admin.example.com`` (``http`` for a localhost development host); ``""`` when no admin domain is configured."""
+        host = self.admin_domain.strip().lower().rstrip("/")
+        if not host:
+            return ""
+        scheme = "http" if host.split(":")[0].endswith("localhost") or self.is_dev else "https"
+        return f"{scheme}://{host}"
 
 
 @lru_cache

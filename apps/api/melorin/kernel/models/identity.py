@@ -66,6 +66,25 @@ class VerificationCode(IdMixin, CreatedMixin, Base):
     used_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class AdminInvite(IdMixin, CreatedMixin, Base):
+    """One-time invitation of a new admin (docs/24-Admin-Team-Design.md).
+
+    The invited user already exists as an inactive shell (role in ``users.admin_roles``, no password, no 2FA). Only the SHA-256
+    of the invite token is stored, so a leaked database cannot be used to accept an invite. The invitee sets their own password and
+    enrols their own authenticator; the admin who created the invite never learns either. At most one invite per user is live:
+    issuing a new one revokes the older ones.
+    """
+
+    __tablename__ = "admin_invites"
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
+    expires_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), index=True)
+    used_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    attempts: Mapped[int] = mapped_column(Integer, default=0)  # wrong authenticator codes while accepting
+
+
 class TermsAcceptance(IdMixin, CreatedMixin, Base):
     __tablename__ = "terms_acceptances"
     user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"), index=True)

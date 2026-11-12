@@ -3,7 +3,7 @@ import { lazy, useEffect, useState } from 'react';
 import { authFetch } from './api.ts';
 import { Plus, Search, X } from 'lucide-react';
 import { Badge, PasswordInput, confirmDialog, isStatus } from './ui.tsx';
-import type { Json, Rec, Toast } from './types.ts';
+import type { Json, Rec, Toast, ViewApi } from './types.ts';
 const ReportsView = lazy(() => import('./ReportsView.tsx'));
 const PanelsView = lazy(() => import('./PanelsView.tsx'));
 const PanelAdminsView = lazy(() => import('./PanelAdminsView.tsx'));
@@ -21,6 +21,8 @@ const BroadcastView = lazy(() => import('./BroadcastView.tsx'));
 const ButtonStylesView = lazy(() => import('./ButtonStylesView.tsx'));
 const EventCenterView = lazy(() => import('./EventCenterView.tsx'));
 const ResellersView = lazy(() => import('./ResellersView.tsx'));
+const AdminTeamView = lazy(() => import('./AdminTeamView.tsx'));
+const MyAccountView = lazy(() => import('./MyAccountView.tsx'));
 const GoogleLoginSettings = lazy(() => import('./GoogleLoginSettings.tsx'));
 const ReceiptOcrSettings = lazy(() => import('./ReceiptOcrSettings.tsx'));
 const TelegramLoginSettings = lazy(() => import('./TelegramLoginSettings.tsx'));
@@ -692,6 +694,14 @@ function Settings({ api, toast }: { api?: Json; toast: Toast }) {
   );
 }
 
+function MyAccount({ api, toast }: { api: ViewApi; toast: Toast }) {
+  return (
+    <MyAccountView me={api.me}>
+      <ChangeAdminPassword api={api} toast={toast} />
+    </MyAccountView>
+  );
+}
+
 function Tickets({ api, toast }: { api?: Json; toast: Toast }) {
   const call = (p: Json, o = {}) => authFetch(api.base, p, o);
   return <TicketsView call={call} toast={toast} />;
@@ -725,4 +735,6 @@ export const extraRoutes = {
   تنظیمات: Settings,
   ممیزی: AuditView,
   هویت: IdentityHubView,
+  'مدیران سامانه': AdminTeamView,
+  'حساب من': MyAccount,
 };

@@ -45,6 +45,7 @@ async def bootstrap() -> None:
                 display_name="Melorin Admin",
                 password_hash=await hash_password(settings.bootstrap_admin_password),
                 is_super_admin=True,
+                admin_roles=["owner"],
                 is_active=True,
                 locale="fa",
             )
@@ -52,6 +53,7 @@ async def bootstrap() -> None:
             await session.flush()
         else:
             user.is_super_admin = True
+            user.admin_roles = ["owner"]  # the bootstrap admin is the first owner (docs/24-Admin-Team-Design.md)
             user.is_active = True
             if not user.password_hash:
                 user.password_hash = await hash_password(settings.bootstrap_admin_password)

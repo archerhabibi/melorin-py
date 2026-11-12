@@ -18,10 +18,10 @@ def admin_auth(user) -> AuthSession:
     return AuthSession(user=user, claims=SessionClaims(user_id=user.id, channel=ADMIN, store_id=None))
 
 
-def fake_request(host: str = "localhost", peer: str = "203.0.113.9", **headers):
+def fake_request(host: str = "localhost", peer: str = "203.0.113.9", method: str = "GET", **headers):
     """Minimal stand-in for ``fastapi.Request`` (headers/cookies/client) for handlers called directly."""
     h = {"host": host, "user-agent": "pytest", **{k.replace("_", "-"): v for k, v in headers.items()}}
-    return types.SimpleNamespace(headers=h, cookies={}, client=types.SimpleNamespace(host=peer))
+    return types.SimpleNamespace(headers=h, cookies={}, client=types.SimpleNamespace(host=peer), method=method)
 
 
 __all__ = ["ADMIN", "BOT", "SITE", "admin_auth", "auth_for", "fake_request", "uuid"]

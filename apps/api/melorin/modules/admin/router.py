@@ -8,6 +8,7 @@ schemas are unchanged; this module only assembles them under ``/admin``.
 
 from fastapi import APIRouter
 
+from melorin.modules.admin.admins import router as admins_router
 from melorin.modules.admin.integrations import router as integrations_router
 from melorin.modules.admin.resellers import router as resellers_router
 from melorin.modules.admin.overview import router as overview_router
@@ -43,6 +44,7 @@ router.include_router(resellers_router)
 # The route families already carry the /admin prefix and tag; their routes are attached directly (not wrapped) so
 # ``router.routes`` lists every admin endpoint with its final path, exactly as before the split.
 for _family in (
+    admins_router,
     overview_router,
     products_router,
     panels_router,
@@ -76,6 +78,7 @@ for _family in (
 # Backward-compatible attribute access (``from melorin.modules.admin.router import create_product``) for callers
 # and tests written before the split. New code should import from the family module directly.
 _FAMILIES = (
+    "admins",
     "overview",
     "products",
     "panels",

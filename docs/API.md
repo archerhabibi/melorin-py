@@ -246,10 +246,26 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | DELETE | `/api/v1/admin/resellers/{store_id}/bot-token` | Clear Bot Token |
 | POST | `/api/v1/admin/resellers/{store_id}/verify-bot` | Verify Store Bot |
 
-### `auth` (24)
+### `admin-team` (8)
 
 | Method | Path | Operation |
 |---|---|---|
+| GET | `/api/v1/admin/admins` | List Admins |
+| POST | `/api/v1/admin/admins` | Invite Admin |
+| GET | `/api/v1/admin/admins/roles` | Admin Roles |
+| PATCH | `/api/v1/admin/admins/{admin_id}` | Patch Admin |
+| DELETE | `/api/v1/admin/admins/{admin_id}` | Remove Admin |
+| POST | `/api/v1/admin/admins/{admin_id}/reset-access` | Reset Admin Access |
+| POST | `/api/v1/admin/admins/{admin_id}/revoke-sessions` | Revoke Admin Sessions |
+| GET | `/api/v1/admin/me` | Admin Me |
+
+### `auth` (27)
+
+| Method | Path | Operation |
+|---|---|---|
+| POST | `/api/v1/auth/admin-invite/accept` | Admin Invite Accept |
+| POST | `/api/v1/auth/admin-invite/enroll` | Admin Invite Enroll |
+| POST | `/api/v1/auth/admin-invite/inspect` | Admin Invite Inspect |
 | POST | `/api/v1/auth/admin/password` | Change Admin Password |
 | POST | `/api/v1/auth/email/request-code` | Email Request Code |
 | POST | `/api/v1/auth/email/verify-code` | Email Verify Code |
