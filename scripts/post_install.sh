@@ -85,11 +85,38 @@ if [ -d .git ] && ! git check-ignore -q secrets/metrics-token 2>/dev/null; then
   mkdir -p .git/info; grep -qx 'secrets/metrics-token' .git/info/exclude 2>/dev/null || echo 'secrets/metrics-token' >> .git/info/exclude
 fi
 
+# 5b) Redis needs vm.overcommit_memory=1 (its startup log warns that background saves can fail otherwise).
+if [ "$(cat /proc/sys/vm/overcommit_memory 2>/dev/null)" = "1" ]; then ok "vm.overcommit_memory already 1"
+else
+  sysctl -w vm.overcommit_memory=1 >/dev/null 2>&1 && echo 'vm.overcommit_memory=1' > /etc/sysctl.d/99-melorin-redis.conf \
+    && ok "vm.overcommit_memory=1 (Redis background saves)" || warnx "could not set vm.overcommit_memory=1"
+fi
+
+# 5c) take the first backup right away: the MelorinBackupStale alert (critical) fires 10 minutes after install otherwise,
+#     because the scheduled backup only runs at 02:00 UTC. This also proves on day one that backups work.
+bk="$(docker ps -qf name=backup | head -1)"
+if [ -n "$bk" ]; then
+  r="$(docker exec "$bk" python -c 'import asyncio; from melorin.worker import jobs; print(asyncio.run(jobs.backup_job()))' 2>&1 | tail -1)"
+  [ "$r" = "succeeded" ] && ok "first backup taken (MelorinBackupStale stays quiet)" || warnx "first backup did not succeed ($r): see docker logs $bk"
+else warnx "backup container not running, no first backup taken"; fi
+
 say "Post-install: verification"
+tls_diagnose() { # $1 = domain: say WHY https is not answering (rate limit, DNS, validation) instead of a generic hint
+  local logs line; logs="$(docker logs --tail 300 "$(docker ps -qf name=caddy | head -1)" 2>&1 || true)"
+  line="$(printf '%s\n' "$logs" | grep -F "$1" | grep -E 'rateLimited' | tail -1)"
+  if [ -n "$line" ]; then
+    warnx "$1: Let's Encrypt rate limit (5 certificates / 7 days for this exact hostname set), $(printf '%s' "$line" | sed -n 's/.*retry after \([0-9: -]* UTC\).*/retry after \1/p'). Caddy retries by itself once the limit expires (ZeroSSL is only a fallback where it accepts the domain; it refuses .ir). Do not reinstall in the meantime: every reinstall must reuse the existing certificate volume."
+  elif printf '%s\n' "$logs" | grep -F "$1" | grep -qiE 'Timeout during connect|no valid A records|Connection refused|firewall'; then
+    warnx "$1: the CA could not reach this server on port 80: check DNS and the cloud firewall (80/443)"
+  elif printf '%s\n' "$logs" | grep -F "$1" | grep -qiE 'error'; then
+    warnx "$1: certificate issuance reports an error, see: docker logs $(docker ps -qf name=caddy | head -1) | grep -i error"
+  fi
+}
 for k in MELORIN_DOMAIN MELORIN_ADMIN_DOMAIN; do
   d="$(env_get $k)"; [ -z "$d" ] && continue
-  code=""; for _ in 1 2 3 4 5 6; do code="$(curl -sS -m 10 -o /dev/null -w '%{http_code}' "https://$d/" 2>/dev/null || true)"; [ "$code" = 200 ] && break; sleep 5; done
-  [ "$code" = 200 ] && ok "https://$d answers 200 (TLS valid)" || warnx "https://$d did not answer 200 (got '${code:-none}'): check DNS and that ports 80/443 are reachable"
+  code=""; for _ in $(seq 1 12); do code="$(curl -sS -m 10 -o /dev/null -w '%{http_code}' "https://$d/" 2>/dev/null || true)"; [ "$code" = 200 ] && break; sleep 5; done
+  if [ "$code" = 200 ]; then ok "https://$d answers 200 (TLS valid)"
+  else warnx "https://$d did not answer 200 (got '${code:-none}')"; tls_diagnose "$d"; fi
 done
 tok="$(env_get MELORIN_TELEGRAM_TOKEN)"
 if [ -n "$tok" ]; then
