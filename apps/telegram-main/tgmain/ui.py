@@ -228,8 +228,32 @@ MAX_BUTTON_TEXT = 64
 _STYLES: dict = {"enabled": False, "inline": [], "reply": []}
 
 
+_STYLE_NAMES = ("primary", "success", "danger")
+_MATCHES = ("exact", "prefix")
+
+
+def _clean_rule(rule):
+    """One downloaded rule in canonical form, or None when it is unusable (a bad rule is dropped, never raised on)."""
+    if not isinstance(rule, dict):
+        return None
+    key, match = rule.get("key"), rule.get("match")
+    if not isinstance(key, str) or not key or match not in _MATCHES:
+        return None
+    out = {"key": key, "match": match}
+    if rule.get("style") in _STYLE_NAMES:
+        out["style"] = rule["style"]
+    icon = rule.get("icon")
+    if isinstance(icon, str) and icon.isascii() and icon.isdigit():
+        out["icon"] = icon
+    for field in ("prefix", "suffix"):
+        if isinstance(rule.get(field), str) and rule[field]:
+            out[field] = rule[field]
+    return out if len(out) > 2 else None
+
+
 def set_button_styles(projection) -> None:
-    """Install the styling downloaded from Core; anything malformed switches styling off rather than breaking keyboards."""
+    """Install the styling downloaded from Core; anything malformed switches styling off (or drops the bad rule) instead of
+    breaking keyboards: every menu of the bot is built through these helpers, so they must never raise."""
     global _STYLES
     ok = (
         isinstance(projection, dict)
@@ -237,11 +261,12 @@ def set_button_styles(projection) -> None:
         and isinstance(projection.get("inline"), list)
         and isinstance(projection.get("reply"), list)
     )
-    _STYLES = (
-        {"enabled": True, "inline": list(projection["inline"]), "reply": list(projection["reply"])}
-        if ok
-        else {"enabled": False, "inline": [], "reply": []}
-    )
+    if not ok:
+        _STYLES = {"enabled": False, "inline": [], "reply": []}
+        return
+    inline = [r for r in map(_clean_rule, projection["inline"]) if r]
+    reply = [r for r in map(_clean_rule, projection["reply"]) if r]
+    _STYLES = {"enabled": True, "inline": inline, "reply": reply}
 
 
 def _style_rule(rules, key: str):

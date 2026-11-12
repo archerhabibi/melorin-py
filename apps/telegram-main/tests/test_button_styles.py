@@ -133,3 +133,94 @@ async def test_not_modified_is_not_retried_and_plain_400_still_raises(runner):
     with pytest.raises(httpx.HTTPStatusError):
         await runner.tg("editMessageText", {"reply_markup": ui.keyboard([[("a", "menu:plans")]])})
     assert len(calls) == 1
+
+
+# ---- review fixes ---------------------------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "junk",
+    [
+        {"enabled": True, "inline": ["oops"], "reply": [None, 5]},
+        {"enabled": True, "inline": [{"key": None, "match": "exact", "style": "primary"}], "reply": []},
+        {"enabled": True, "inline": [{"key": "menu:", "match": "regex", "style": "primary"}], "reply": []},
+        {"enabled": True, "inline": [{"key": "menu:", "match": "prefix"}], "reply": []},
+    ],
+)
+def test_a_bad_rule_is_dropped_and_never_breaks_keyboards(junk):
+    """Every menu is built through these helpers: a malformed download must not raise (it used to AttributeError)."""
+    ui.set_button_styles(junk)
+    assert ui.keyboard([[("a", "menu:plans")]])["inline_keyboard"][0][0] == {"text": "a", "callback_data": "menu:plans"}
+    assert ui.reply_keyboard([["a"]])["keyboard"][0][0] == {"text": "a"}
+
+
+def test_unknown_colour_or_non_numeric_icon_never_reaches_telegram():
+    ui.set_button_styles(
+        {"enabled": True, "inline": [{"key": "menu:", "match": "prefix", "style": "purple", "icon": "abc", "prefix": "★ "}], "reply": []}
+    )
+    assert ui.keyboard([[("a", "menu:plans")]])["inline_keyboard"][0][0] == {"text": "★ a", "callback_data": "menu:plans"}
+    ui.set_button_styles({"enabled": True, "inline": [{"key": "menu:", "match": "prefix", "style": "danger", "icon": "12345678"}], "reply": []})
+    assert ui.keyboard([[("a", "menu:plans")]])["inline_keyboard"][0][0]["style"] == "danger"
+
+
+@pytest.mark.asyncio
+async def test_failed_download_is_retried_soon_not_after_a_whole_interval(runner):
+    calls = []
+
+    def handler(request):
+        calls.append(1)
+        raise httpx.ConnectError("core not up yet")
+
+    runner.client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    runner.STYLE_REFRESH_SECONDS = 60.0
+    runner.STYLE_RETRY_SECONDS = 10.0
+    await runner.refresh_button_styles()
+    from tgmain.client import TransportMixin
+
+    TransportMixin._styles_at -= 11  # ten seconds later
+    await runner.refresh_button_styles()
+    assert len(calls) == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("description", ["Bad Request: message to edit not found", "Bad Request: can't parse entities: x", "Bad Request: chat not found"])
+async def test_unrelated_400_is_not_retried_as_if_it_were_a_style_problem(runner, description):
+    ui.set_button_styles(PROJECTION)
+    calls = []
+
+    def handler(request):
+        calls.append(1)
+        return httpx.Response(400, json={"ok": False, "description": description})
+
+    runner.client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    with pytest.raises(httpx.HTTPStatusError):
+        await runner.tg("sendMessage", {"reply_markup": ui.keyboard([[("a", "menu:plans")]])})
+    assert len(calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_non_json_error_body_is_still_retried_plain(runner):
+    ui.set_button_styles(PROJECTION)
+    bodies = []
+
+    def handler(request):
+        bodies.append(json.loads(request.content))
+        if "style" in json.dumps(bodies[-1]):
+            return httpx.Response(400, content=b"<html>bad gateway-ish</html>")
+        return httpx.Response(200, json={"ok": True, "result": {}})
+
+    runner.client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    await runner.send(5, "hi", [[("خرید", "menu:plans")]])
+    assert len(bodies) == 2 and "style" not in json.dumps(bodies[1])
+
+
+@pytest.mark.asyncio
+async def test_error_body_that_is_not_an_object_does_not_crash_the_fallback(runner):
+    ui.set_button_styles(PROJECTION)
+
+    def handler(request):
+        return httpx.Response(400, json=["unexpected"])
+
+    runner.client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    with pytest.raises(httpx.HTTPStatusError):  # the second (plain) attempt fails the same way and is reported, not an AttributeError
+        await runner.tg("sendMessage", {"reply_markup": ui.keyboard([[("a", "menu:plans")]])})

@@ -136,6 +136,7 @@ class TransportMixin:
         return max(0.0, wait)
 
     STYLE_REFRESH_SECONDS = float(os.getenv("MELORIN_BUTTON_STYLE_REFRESH_SECONDS", "60"))
+    STYLE_RETRY_SECONDS = 10.0
     _styles_at = 0.0
 
     async def refresh_button_styles(self) -> None:
@@ -154,6 +155,19 @@ class TransportMixin:
                 set_button_styles(r.json())
         except (httpx.HTTPError, ValueError):
             log.debug("button styles unavailable; keeping the previous ones")
+            # Core not reachable yet (e.g. the bot came up first): try again soon instead of waiting a whole interval.
+            TransportMixin._styles_at = now - max(0.0, self.STYLE_REFRESH_SECONDS - self.STYLE_RETRY_SECONDS)
+
+    # 400 answers that have nothing to do with a button style: retrying without style would only repeat the same refusal.
+    _NOT_STYLE_REASONS = ("not modified", "message to edit not found", "message can't be edited", "can't parse entities", "chat not found")
+
+    @staticmethod
+    def _reason_of(exc: httpx.HTTPStatusError) -> str:
+        try:
+            body = exc.response.json()
+        except ValueError:
+            return ""
+        return str(body.get("description", "")).lower() if isinstance(body, dict) else ""
 
     async def tg(self, method: str, payload: dict) -> dict:
         try:
@@ -161,11 +175,8 @@ class TransportMixin:
         except httpx.HTTPStatusError as exc:
             # Telegram refuses a button style / Premium emoji it cannot show (e.g. an invalid id): never lose the message.
             markup = payload.get("reply_markup")
-            try:
-                reason = str(exc.response.json().get("description", ""))
-            except ValueError:
-                reason = ""
-            if exc.response.status_code == 400 and has_styling(markup) and "not modified" not in reason:
+            reason = self._reason_of(exc)
+            if exc.response.status_code == 400 and has_styling(markup) and not any(m in reason for m in self._NOT_STYLE_REASONS):
                 log.warning("telegram refused styled buttons on %s; retrying without style/icon", method)
                 return await self._tg(method, {**payload, "reply_markup": strip_styling(markup)})
             raise
