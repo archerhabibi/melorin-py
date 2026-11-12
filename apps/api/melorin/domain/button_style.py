@@ -45,6 +45,7 @@ class ButtonStyleError(ValueError):
 # Catalogue of the bots' real buttons (what the admin can style without typing raw callback strings)
 # ---------------------------------------------------------------------------------------------------------------------
 
+
 def _inline(key: str, label: str, group: str, match: str = "exact") -> dict[str, Any]:
     return {"kind": "inline", "key": key, "match": match, "label": label, "group": group}
 
@@ -111,6 +112,7 @@ CATALOG: tuple[dict[str, Any], ...] = (
 # Validation
 # ---------------------------------------------------------------------------------------------------------------------
 
+
 def default_config() -> dict[str, Any]:
     return {"enabled": False, "rules": []}
 
@@ -142,6 +144,15 @@ def _icon(value: Any, where: str) -> str | None:
     return text
 
 
+def _flag(value: Any, where: str, field: str, default: bool) -> bool:
+    """Strict boolean: a string such as ``"false"`` must not silently become ``True``."""
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    raise ButtonStyleError(f"{where}: «{field}» باید درست/نادرست باشد.")
+
+
 def normalize_rule(raw: Any, index: int) -> dict[str, Any]:
     where = f"قانون {index + 1}"
     if not isinstance(raw, dict):
@@ -169,7 +180,7 @@ def normalize_rule(raw: Any, index: int) -> dict[str, Any]:
         "icon": _icon(raw.get("icon"), where),
         "prefix": _decor(raw.get("prefix"), "پیشوند", where) if kind == "inline" else "",
         "suffix": _decor(raw.get("suffix"), "پسوند", where) if kind == "inline" else "",
-        "enabled": bool(raw.get("enabled", True)),
+        "enabled": _flag(raw.get("enabled"), where, "فعال", True),
     }
     if not (rule["style"] or rule["icon"] or rule["prefix"] or rule["suffix"]):
         raise ButtonStyleError(f"{where}: حداقل یکی از رنگ، ایموجی پریمیوم یا تزئین را مشخص کنید.")
@@ -194,7 +205,7 @@ def normalize(raw: Any) -> dict[str, Any]:
             raise ButtonStyleError(f"قانون {i + 1}: برای این دکمه قانون تکراری وجود دارد.")
         seen.add(ident)
         rules.append(rule)
-    return {"enabled": bool(raw.get("enabled", False)), "rules": rules}
+    return {"enabled": _flag(raw.get("enabled"), "تنظیمات", "فعال", False), "rules": rules}
 
 
 def stored(value: Any) -> dict[str, Any]:
@@ -210,6 +221,7 @@ def stored(value: Any) -> dict[str, Any]:
 # ---------------------------------------------------------------------------------------------------------------------
 # Projection for the bots and the matcher (kept identical to the one in apps/telegram-main/tgmain/ui.py)
 # ---------------------------------------------------------------------------------------------------------------------
+
 
 def _order(rule: dict[str, Any]) -> tuple[int, int]:
     return (0 if rule["match"] == "exact" else 1, -len(rule["key"]))
@@ -291,7 +303,10 @@ def strip_styling(markup: dict[str, Any] | None) -> dict[str, Any] | None:
 # Presets and the sample keyboard of the preview
 # ---------------------------------------------------------------------------------------------------------------------
 
-def _r(key: str, *, style: str | None = None, match: str = "exact", prefix: str = "", suffix: str = "", kind: str = "inline") -> dict[str, Any]:
+
+def _r(
+    key: str, *, style: str | None = None, match: str = "exact", prefix: str = "", suffix: str = "", kind: str = "inline"
+) -> dict[str, Any]:
     return {"kind": kind, "match": match, "key": key, "style": style, "prefix": prefix, "suffix": suffix, "icon": None, "enabled": True}
 
 

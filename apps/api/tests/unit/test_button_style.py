@@ -128,3 +128,12 @@ def test_sample_markups_use_the_configuration():
     first = inline["inline_keyboard"][0][0]
     assert first["style"] == "success" and first["callback_data"] == "noop:preview"
     assert reply["keyboard"][0][0]["text"] == "🛒 خرید اکانت"
+
+
+def test_enabled_flags_must_be_real_booleans():
+    # "false" (a string) used to be coerced to True and silently switched a rule/the whole feature on
+    with pytest.raises(bs.ButtonStyleError):
+        bs.normalize({"enabled": "false", "rules": []})
+    with pytest.raises(bs.ButtonStyleError):
+        bs.normalize({"enabled": True, "rules": [rule(enabled="false")]})
+    assert bs.normalize({"enabled": None, "rules": [rule(enabled=None)]})["rules"][0]["enabled"] is True
