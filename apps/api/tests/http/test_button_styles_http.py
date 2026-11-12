@@ -86,6 +86,7 @@ async def test_generic_settings_api_cannot_overwrite_the_integration_key():
         (429, "TELEGRAM_RATE_LIMITED", 429),
         (599, "TELEGRAM_UNREACHABLE", 502),
         (502, "TELEGRAM_UNREACHABLE", 502),
+        (404, "MAIN_BOT_TOKEN_INVALID", 409),
         (400, "TELEGRAM_REJECTED_STYLE", 422),
     ],
 )
@@ -96,3 +97,13 @@ async def test_preview_failure_blames_the_real_cause(code, expected_code, status
 
     err = _telegram_failure(TelegramApiError(code, "Forbidden: bot can't initiate conversation with a user"))
     assert (err.code, err.status) == (expected_code, status)
+
+
+@pytest.mark.parametrize("description", ["Bad Request: chat not found", "Bad Request: user not found", "Bad Request: PEER_ID_INVALID"])
+async def test_preview_400_about_the_chat_is_not_blamed_on_the_style(description):
+    """A wrong / never-started admin chat id is a 400 too; it must not read like a bad Premium emoji."""
+    from melorin.channels.telegram.bot_api import TelegramApiError
+    from melorin.modules.admin.button_styles import _telegram_failure
+
+    err = _telegram_failure(TelegramApiError(400, description))
+    assert (err.code, err.status) == ("TELEGRAM_CHAT_UNREACHABLE", 409)

@@ -12,6 +12,7 @@ import {
   SAMPLE_REPLY,
   STYLE_LABEL,
   STYLE_ORDER,
+  URL_KEY,
   blankRule,
   fromPreset,
   isEmojiId,
@@ -220,7 +221,8 @@ function AddRule({
     if (custom) {
       const k = key.trim();
       if (!k) return;
-      onAdd(blankRule({ kind, match: kind === 'reply' ? 'exact' : match, key: k, style: 'primary' }));
+      // reply texts and the pseudo key @url only ever match exactly (the form's default "prefix" would start them off invalid)
+      onAdd(blankRule({ kind, match: kind === 'reply' || k === URL_KEY ? 'exact' : match, key: k, style: 'primary' }));
       setKey('');
       return;
     }

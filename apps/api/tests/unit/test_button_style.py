@@ -171,3 +171,82 @@ def test_premium_emoji_id_accepts_real_ids_and_persian_digits():
 
 def test_note_is_collapsed_to_one_clean_line():
     assert cfg(rule(note="  a\n b\t c  "))["rules"][0]["note"] == "a b c"
+
+
+# ---- hardening round: type confusion, int64 ids, invisible text, preview parity ----------------------------------------
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("key", ["menu:plans"]),
+        ("key", {"a": 1}),
+        ("key", 123),
+        ("prefix", ["x"]),
+        ("suffix", 5),
+        ("note", ["x"]),
+        ("kind", 0),
+        ("match", ["prefix"]),
+    ],
+)
+def test_non_string_fields_are_refused_instead_of_being_stringified(field, value):
+    """``str(["menu:plans"])`` used to be accepted as the key ``"['menu:plans']"`` (a rule that can never match)."""
+    with pytest.raises(bs.ButtonStyleError):
+        cfg(rule(**{field: value}))
+
+
+@pytest.mark.parametrize("icon", [True, 1.5, ["12345"], {"id": 1}])
+def test_icon_must_be_text_or_a_whole_number(icon):
+    with pytest.raises(bs.ButtonStyleError):
+        cfg(rule(icon=icon))
+
+
+def test_icon_given_as_a_json_number_is_accepted():
+    assert cfg(rule(icon=5368324170671202286))["rules"][0]["icon"] == "5368324170671202286"
+
+
+def test_emoji_id_cannot_exceed_int64():
+    assert cfg(rule(icon="9223372036854775807"))["rules"][0]["icon"] == "9223372036854775807"
+    for too_big in ("9223372036854775808", "9999999999999999999"):
+        with pytest.raises(bs.ButtonStyleError):
+            cfg(rule(icon=too_big))
+
+
+@pytest.mark.parametrize("invisible", ["​", "‏", "⁠", " ​ "])
+def test_invisible_text_is_neither_a_key_nor_a_decoration(invisible):
+    with pytest.raises(bs.ButtonStyleError):
+        cfg(rule(key=invisible))
+    with pytest.raises(bs.ButtonStyleError):
+        cfg(rule(style=None, prefix=invisible))
+    out = cfg(rule(prefix=invisible, suffix=invisible))  # a colour keeps the rule; the invisible decoration is dropped
+    assert (out["rules"][0]["prefix"], out["rules"][0]["suffix"]) == ("", "")
+
+
+def test_emoji_with_a_zero_width_joiner_is_still_a_decoration():
+    assert cfg(rule(prefix="👨‍👩 "))["rules"][0]["prefix"] == "👨‍👩 "
+
+
+def test_sample_keyboards_match_the_admin_live_preview():
+    """The "send a sample" message must show the same buttons as the on-screen preview (apps/admin-web buttonStyles.ts)."""
+    inline, reply = bs.sample_markups(cfg(rule(key="@url", style="primary"), rule(key="menu:plans", style="success")))
+    rows = inline["inline_keyboard"]
+    assert [[b["text"] for b in row] for row in rows] == [
+        ["🛒 خرید اکانت", "💰 کیف پول"],
+        ["✅ خرید و پرداخت"],
+        ["🎫 تیکت‌ها", "⛔ این من نبودم"],
+        ["🌐 حساب من در سایت"],
+        ["🏠 خانه"],
+    ]
+    link = rows[3][0]
+    assert link["url"] == bs.SAMPLE_URL and "callback_data" not in link and link["style"] == "primary"
+    assert all("callback_data" in b for row in rows for i, b in enumerate(row) if b["text"] != "🌐 حساب من در سایت")
+    assert [[b["text"] for b in row] for row in reply["keyboard"]] == [
+        ["🛒 خرید اکانت", "🔍 استعلام و تمدید اکانت"],
+        ["💰 کیف پول و شارژ حساب", "🌐 حساب من در سایت"],
+        ["🎧 پشتیبانی"],
+    ]
+
+
+def test_sample_reply_texts_are_real_menu_buttons():
+    reply_keys = {i["key"] for i in bs.CATALOG if i["kind"] == "reply"}
+    assert set(bs.SAMPLE_REPLY) <= reply_keys

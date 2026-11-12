@@ -2,7 +2,15 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ButtonStylesView from '../src/ButtonStylesView.tsx';
-import { blankRule, renderInline, renderReply, ruleProblem, toPayload } from '../src/buttonStyles.ts';
+import {
+  blankRule,
+  hasVisible,
+  isEmojiId,
+  renderInline,
+  renderReply,
+  ruleProblem,
+  toPayload,
+} from '../src/buttonStyles.ts';
 import { DialogHost } from '../src/ui.tsx';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
@@ -174,5 +182,51 @@ describe('rule validation mirrors the server (no round trip needed to learn a ru
       rules: [rule({ prefix: '  ', suffix: ' ✨', icon: '۵۳۶۸۳۲۴۱۷۰۶۷۱۲۰۲۲۸۶' })],
     });
     expect(rules[0]).toMatchObject({ prefix: '', suffix: ' ✨', icon: '5368324170671202286' });
+  });
+});
+
+describe('stricter mirror of the server rules (int64 emoji ids, invisible text)', () => {
+  const rule = (over = {}) => blankRule({ key: 'menu:plans', style: 'primary', ...over });
+
+  it('accepts the largest int64 id and refuses anything above it', () => {
+    expect(isEmojiId('9223372036854775807')).toBe(true);
+    expect(isEmojiId('9223372036854775808')).toBe(false);
+    expect(isEmojiId('9999999999999999999')).toBe(false);
+    expect(isEmojiId('5368324170671202286')).toBe(true);
+    expect(isEmojiId('۵۳۶۸۳۲۴۱۷۰۶۷۱۲۰۲۲۸۶')).toBe(true);
+    expect(ruleProblem(rule({ icon: '9999999999999999999' }), 6)).toMatch(/ایموجی/);
+  });
+
+  it('treats zero-width and bidi characters as invisible', () => {
+    expect(hasVisible('\u200b')).toBe(false);
+    expect(hasVisible(' \u200f ')).toBe(false);
+    expect(hasVisible('💎 ')).toBe(true);
+    expect(hasVisible('👨\u200d👩')).toBe(true);
+  });
+
+  it('flags an invisible key and an invisible-only decoration, like the server', () => {
+    expect(ruleProblem(rule({ key: '\u200b' }), 6)).not.toBe('');
+    expect(ruleProblem(rule({ style: null, prefix: '\u200f' }), 6)).toMatch(/حداقل/);
+  });
+
+  it('drops invisible decoration from the payload and from the preview', () => {
+    const { rules } = toPayload({ enabled: true, rules: [rule({ prefix: '\u200b', suffix: '👨\u200d👩' })] });
+    expect(rules[0]).toMatchObject({ prefix: '', suffix: '👨\u200d👩' });
+    const cfg = { enabled: true, rules: [rule({ key: 'menu:', match: 'prefix', prefix: '\u200b' })] };
+    expect(renderInline(cfg, 'menu:plans', 'خرید').text).toBe('خرید');
+  });
+});
+
+describe('custom rules', () => {
+  it('a custom @url rule starts as an exact rule, not as an invalid prefix rule', async () => {
+    setup();
+    const user = userEvent.setup();
+    await screen.findByText('رنگی‌سازی دکمه‌های تلگرام');
+    await user.click(screen.getByRole('button', { name: /قانون سفارشی/ }));
+    await user.type(screen.getByPlaceholderText('menu:plans'), '@url');
+    await user.click(screen.getByRole('button', { name: /افزودن/ }));
+    const card = screen.getByText('@url', { selector: 'code' }).closest('li');
+    expect(within(card).getByText('دقیق')).toBeInTheDocument();
+    expect(within(card).queryByText(/فقط تطبیق دقیق/)).not.toBeInTheDocument();
   });
 });

@@ -46,15 +46,19 @@ def _invalid(exc: bs.ButtonStyleError) -> AppError:
     return AppError("BUTTON_STYLE_INVALID", str(exc), 422)
 
 
+_CHAT_GONE = ("chat not found", "user not found", "peer_id_invalid", "user is deactivated")
+
+
 def _telegram_failure(exc: TelegramApiError) -> AppError:
-    """Tell the admin what really went wrong: only a 400 is Telegram refusing the style / Premium emoji itself."""
-    if exc.code == 403:
+    """Tell the admin what really went wrong: only a 400 that is not about the chat itself is Telegram refusing the style."""
+    reason = (exc.description or "").lower()
+    if exc.code == 403 or (exc.code == 400 and any(m in reason for m in _CHAT_GONE)):
         return AppError(
             "TELEGRAM_CHAT_UNREACHABLE",
             "ربات اصلی اجازهٔ پیام دادن به تلگرام شما را ندارد؛ ابتدا ربات را در تلگرام باز کنید و Start بزنید (یا ربات را آزاد کنید).",
             409,
         )
-    if exc.code == 401:
+    if exc.code in (401, 404):
         return AppError("MAIN_BOT_TOKEN_INVALID", "توکن ربات اصلی معتبر نیست؛ آن را در تنظیمات ربات بررسی کنید.", 409)
     if exc.code == 429:
         return AppError("TELEGRAM_RATE_LIMITED", "تلگرام موقتاً درخواست‌ها را محدود کرده است؛ چند لحظه بعد دوباره امتحان کنید.", 429)

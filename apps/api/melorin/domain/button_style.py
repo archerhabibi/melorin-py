@@ -26,7 +26,8 @@ KINDS: tuple[str, ...] = ("inline", "reply")
 MATCHES: tuple[str, ...] = ("exact", "prefix")
 
 URL_KEY = "@url"  # pseudo key: every URL button of the inline keyboards (they have no callback_data)
-EMOJI_ID_RE = re.compile(r"^[1-9][0-9]{4,18}$")  # int64 as Telegram sends it: no leading zero, at most 19 digits
+EMOJI_ID_RE = re.compile(r"^[1-9][0-9]{4,18}\Z")  # int64 as Telegram sends it: no leading zero, at most 19 digits
+INT64_MAX = 2**63 - 1  # a 19-digit id above this cannot be a Telegram custom-emoji id
 MAX_RULES = 120
 MAX_KEY = 64
 MAX_REPLY_TEXT = 100
@@ -39,6 +40,21 @@ _DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890
 
 class ButtonStyleError(ValueError):
     """The submitted configuration is invalid; the message is Persian and shown to the admin as is."""
+
+
+def _has_visible(text: str) -> bool:
+    """True when ``text`` shows at least one glyph: spaces, control and format characters (zero-width space, bidi marks)
+    alone are invisible, so they are neither a usable button key nor a decoration."""
+    return any(not ch.isspace() and unicodedata.category(ch) not in ("Cc", "Cf") for ch in text)
+
+
+def _text(value: Any, where: str, field: str) -> str:
+    """A free-text field: ``None`` is empty, anything but a string is refused (``str(["a"])`` must never become a key)."""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    raise ButtonStyleError(f"{where}: «{field}» باید متن باشد.")
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -122,16 +138,16 @@ def default_config() -> dict[str, Any]:
 
 
 def _decor(value: Any, field: str, where: str) -> str:
-    text = "" if value is None else str(value)
+    text = _text(value, where, field)
     if len(text) > MAX_DECOR:
         raise ButtonStyleError(f"{where}: «{field}» حداکثر {MAX_DECOR} نویسه است.")
     if any(unicodedata.category(ch) == "Cc" for ch in text):
         raise ButtonStyleError(f"{where}: «{field}» نباید خط جدید یا نویسهٔ کنترلی داشته باشد.")
-    return text if text.strip() else ""  # blanks alone are not a decoration (they would only shift the label)
+    return text if _has_visible(text) else ""  # blanks / invisible characters alone are not a decoration (they would only shift the label)
 
 
 def _style(value: Any, where: str) -> str | None:
-    text = "" if value is None else str(value).strip().lower()
+    text = _text(value, where, "رنگ").strip().lower()
     if text in ("", "default", "none"):
         return None
     if text not in STYLES:
@@ -140,10 +156,12 @@ def _style(value: Any, where: str) -> str | None:
 
 
 def _icon(value: Any, where: str) -> str | None:
+    if isinstance(value, bool) or not isinstance(value, (str, int, type(None))):
+        raise ButtonStyleError(f"{where}: شناسهٔ ایموجی پریمیوم باید فقط عدد باشد.")
     text = ("" if value is None else str(value)).translate(_DIGITS).strip()
     if not text:
         return None
-    if not EMOJI_ID_RE.match(text):
+    if not EMOJI_ID_RE.match(text) or int(text) > INT64_MAX:
         raise ButtonStyleError(f"{where}: شناسهٔ ایموجی پریمیوم باید فقط عدد باشد (۵ تا ۱۹ رقم و بدون صفر ابتدایی).")
     return text
 
@@ -161,15 +179,15 @@ def normalize_rule(raw: Any, index: int) -> dict[str, Any]:
     where = f"قانون {index + 1}"
     if not isinstance(raw, dict):
         raise ButtonStyleError(f"{where}: ساختار نامعتبر است.")
-    kind = str(raw.get("kind") or "inline")
+    kind = _text(raw.get("kind"), where, "نوع") or "inline"
     if kind not in KINDS:
         raise ButtonStyleError(f"{where}: نوع دکمه نامعتبر است.")
-    match = "exact" if kind == "reply" else str(raw.get("match") or "exact")
+    match = "exact" if kind == "reply" else (_text(raw.get("match"), where, "تطبیق") or "exact")
     if match not in MATCHES:
         raise ButtonStyleError(f"{where}: نوع تطبیق باید دقیق یا پیشوندی باشد.")
-    key = str(raw.get("key") or "").strip()
+    key = _text(raw.get("key"), where, "کلید").strip()
     limit = MAX_REPLY_TEXT if kind == "reply" else MAX_KEY
-    if not key or len(key) > limit:
+    if not key or not _has_visible(key) or len(key) > limit:
         raise ButtonStyleError(f"{where}: کلید دکمه خالی است یا از {limit} نویسه بیشتر است.")
     if any(unicodedata.category(c) == "Cc" for c in key):
         raise ButtonStyleError(f"{where}: کلید نباید خط جدید یا نویسهٔ کنترلی داشته باشد.")
@@ -181,7 +199,7 @@ def normalize_rule(raw: Any, index: int) -> dict[str, Any]:
         "kind": kind,
         "match": match,
         "key": key,
-        "note": " ".join(str(raw.get("note") or "").split())[:MAX_NOTE],
+        "note": " ".join(_text(raw.get("note"), where, "یادداشت").split())[:MAX_NOTE],
         "style": _style(raw.get("style"), where),
         "icon": _icon(raw.get("icon"), where),
         "prefix": _decor(raw.get("prefix"), "پیشوند", where) if kind == "inline" else "",
@@ -370,21 +388,40 @@ PRESETS: tuple[dict[str, Any], ...] = (
 )
 
 # One representative button per look, in the order a customer meets them; used by the admin's "send a test to Telegram".
+# It mirrors the live preview of the admin panel (apps/admin-web/src/buttonStyles.ts) button for button, so what the admin
+# sees on screen is what arrives in Telegram. The ``@url`` entry is a link button (it needs a real URL to be accepted).
+SAMPLE_URL = "https://telegram.org"
 SAMPLE_INLINE: tuple[tuple[str, str], ...] = (
     ("🛒 خرید اکانت", "menu:plans"),
     ("💰 کیف پول", "menu:wallet"),
     ("✅ خرید و پرداخت", "buy:sample"),
     ("🎫 تیکت‌ها", "menu:tickets"),
     ("⛔ این من نبودم", "wld:sample"),
+    ("🌐 حساب من در سایت", URL_KEY),
     ("🏠 خانه", "menu:home"),
 )
-SAMPLE_REPLY: tuple[str, ...] = ("🛒 خرید اکانت", "💰 کیف پول و شارژ حساب", "🎧 پشتیبانی")
+SAMPLE_REPLY: tuple[str, ...] = (
+    "🛒 خرید اکانت",
+    "🔍 استعلام و تمدید اکانت",
+    "💰 کیف پول و شارژ حساب",
+    "🌐 حساب من در سایت",
+    "🎧 پشتیبانی",
+)
 
 
 def sample_markups(cfg: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
     """(inline markup, reply markup) built from ``cfg`` exactly as the bots would build the real ones."""
     proj = public_projection(cfg)
-    inline = [[{**apply_inline(proj, key, text), "callback_data": "noop:preview"}] for text, key in SAMPLE_INLINE]
-    inline_rows = [inline[0] + inline[1], inline[2], inline[3] + inline[4], inline[5]]
-    reply = [[apply_reply(proj, t) for t in SAMPLE_REPLY[:2]], [apply_reply(proj, SAMPLE_REPLY[2])]]
+
+    def button(text: str, key: str) -> dict[str, Any]:
+        target = {"url": SAMPLE_URL} if key == URL_KEY else {"callback_data": "noop:preview"}
+        return {**apply_inline(proj, key, text), **target}
+
+    b = [button(text, key) for text, key in SAMPLE_INLINE]
+    inline_rows = [b[0:2], b[2:3], b[3:5], b[5:6], b[6:7]]
+    reply = [
+        [apply_reply(proj, t) for t in SAMPLE_REPLY[:2]],
+        [apply_reply(proj, t) for t in SAMPLE_REPLY[2:4]],
+        [apply_reply(proj, SAMPLE_REPLY[4])],
+    ]
     return {"inline_keyboard": inline_rows}, {"keyboard": reply, "resize_keyboard": True, "one_time_keyboard": True}

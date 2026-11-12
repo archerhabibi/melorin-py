@@ -57,6 +57,15 @@ def atomic_write_json(path, data) -> None:
         raise
 
 
+def env_seconds(name: str, default: float) -> float:
+    """A positive number of seconds from the environment; a typo or a non-positive value must not stop the bot at import."""
+    try:
+        value = float(os.getenv(name, "") or default)
+    except ValueError:
+        return default
+    return value if value > 0 else default
+
+
 class TransportMixin:
     """Offset/state persistence, Telegram Bot API calls, Core HTTP calls and in-place screens."""
 
@@ -135,7 +144,7 @@ class TransportMixin:
             wait = float(r.headers.get("retry-after", "") or 1)
         return max(0.0, wait)
 
-    STYLE_REFRESH_SECONDS = float(os.getenv("MELORIN_BUTTON_STYLE_REFRESH_SECONDS", "60"))
+    STYLE_REFRESH_SECONDS = env_seconds("MELORIN_BUTTON_STYLE_REFRESH_SECONDS", 60.0)
     STYLE_RETRY_SECONDS = 10.0
     _styles_at = 0.0
 
@@ -153,21 +162,48 @@ class TransportMixin:
             r = await self.client.get(f"{self.core}/api/v1/telegram/button-styles", timeout=5.0)
             if r.status_code == 200:
                 set_button_styles(r.json())
+                return
+            log.debug("button styles answered %s; keeping the previous ones", r.status_code)
         except (httpx.HTTPError, ValueError):
             log.debug("button styles unavailable; keeping the previous ones")
-            # Core not reachable yet (e.g. the bot came up first): try again soon instead of waiting a whole interval.
-            TransportMixin._styles_at = now - max(0.0, self.STYLE_REFRESH_SECONDS - self.STYLE_RETRY_SECONDS)
+        # Core not ready yet (the bot came up first, a restart, a 5xx): try again soon instead of waiting a whole interval.
+        TransportMixin._styles_at = now - max(0.0, self.STYLE_REFRESH_SECONDS - self.STYLE_RETRY_SECONDS)
 
     # 400 answers that have nothing to do with a button style: retrying without style would only repeat the same refusal.
-    _NOT_STYLE_REASONS = ("not modified", "message to edit not found", "message can't be edited", "can't parse entities", "chat not found")
+    _NOT_STYLE_REASONS = (
+        "not modified",
+        "message to edit not found",
+        "message can't be edited",
+        "can't parse entities",
+        "chat not found",
+        "message is too long",
+        "message text is empty",
+        "text must be non-empty",
+        "reply markup is too long",
+        "button_data_invalid",
+        "button_url_invalid",
+        "wrong http url",
+        "url host is empty",
+        "wrong file identifier",
+        "wrong remote file identifier",
+        "user not found",
+    )
 
     @staticmethod
-    def _reason_of(exc: httpx.HTTPStatusError) -> str:
+    def _reason_of(response: httpx.Response) -> str:
         try:
-            body = exc.response.json()
+            body = response.json()
         except ValueError:
             return ""
         return str(body.get("description", "")).lower() if isinstance(body, dict) else ""
+
+    @classmethod
+    def _style_refused(cls, response: httpx.Response, markup) -> bool:
+        """A 400 on a styled keyboard whose reason is not one of the unrelated ones: worth one retry without the styling."""
+        if response.status_code != 400 or not has_styling(markup):
+            return False
+        reason = cls._reason_of(response)
+        return not any(m in reason for m in cls._NOT_STYLE_REASONS)
 
     async def tg(self, method: str, payload: dict) -> dict:
         try:
@@ -175,8 +211,7 @@ class TransportMixin:
         except httpx.HTTPStatusError as exc:
             # Telegram refuses a button style / Premium emoji it cannot show (e.g. an invalid id): never lose the message.
             markup = payload.get("reply_markup")
-            reason = self._reason_of(exc)
-            if exc.response.status_code == 400 and has_styling(markup) and not any(m in reason for m in self._NOT_STYLE_REASONS):
+            if self._style_refused(exc.response, markup):
                 log.warning("telegram refused styled buttons on %s; retrying without style/icon", method)
                 return await self._tg(method, {**payload, "reply_markup": strip_styling(markup)})
             raise
@@ -241,7 +276,8 @@ class TransportMixin:
             data["reply_markup"] = json.dumps(keyboard(rows))
         url = f"https://api.telegram.org/bot{self.token}/sendPhoto"
         r = await self.client.post(url, data=data, files={"photo": (filename, png, mime)})
-        if r.status_code == 400 and rows and has_styling(keyboard(rows)):  # styled buttons refused: resend plain
+        if rows and self._style_refused(r, keyboard(rows)):  # styled buttons refused: resend plain
+            log.warning("telegram refused styled buttons on sendPhoto; retrying without style/icon")
             data["reply_markup"] = json.dumps(strip_styling(keyboard(rows)))
             r = await self.client.post(url, data=data, files={"photo": (filename, png, mime)})
         r.raise_for_status()

@@ -224,3 +224,113 @@ async def test_error_body_that_is_not_an_object_does_not_crash_the_fallback(runn
     runner.client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     with pytest.raises(httpx.HTTPStatusError):  # the second (plain) attempt fails the same way and is reported, not an AttributeError
         await runner.tg("sendMessage", {"reply_markup": ui.keyboard([[("a", "menu:plans")]])})
+
+
+# ---- hardening round --------------------------------------------------------------------------------------------------
+
+
+def test_rules_are_reordered_by_specificity_whatever_order_core_sends():
+    """A short prefix listed first must not shadow an exact rule or a longer prefix (an older Core / a proxy may reorder)."""
+    ui.set_button_styles(
+        {
+            "enabled": True,
+            "inline": [
+                {"key": "menu:", "match": "prefix", "style": "primary"},
+                {"key": "menu:p", "match": "prefix", "style": "danger"},
+                {"key": "menu:plans", "match": "exact", "style": "success"},
+            ],
+            "reply": [],
+        }
+    )
+    kb = ui.keyboard([[("a", "menu:plans"), ("b", "menu:pay"), ("c", "menu:home")]])["inline_keyboard"][0]
+    assert [b["style"] for b in kb] == ["success", "danger", "primary"]
+
+
+@pytest.mark.parametrize("icon", ["0123456", "1234", "9223372036854775808", "12345678901234567890", "１２３４５", "12.5e3", "-12345"])
+def test_icon_that_core_would_have_refused_is_dropped_by_the_bot_too(icon):
+    ui.set_button_styles({"enabled": True, "inline": [{"key": "menu:", "match": "prefix", "style": "primary", "icon": icon}], "reply": []})
+    assert ui.keyboard([[("a", "menu:plans")]])["inline_keyboard"][0][0] == {"text": "a", "style": "primary", "callback_data": "menu:plans"}
+
+
+def test_oversized_or_blank_decoration_is_dropped():
+    ui.set_button_styles(
+        {"enabled": True, "inline": [{"key": "menu:", "match": "prefix", "style": "primary", "prefix": "x" * 7, "suffix": "   "}], "reply": []}
+    )
+    assert ui.keyboard([[("a", "menu:plans")]])["inline_keyboard"][0][0]["text"] == "a"
+
+
+@pytest.mark.parametrize("raw,expected", [("", 60.0), ("abc", 60.0), ("-5", 60.0), ("0", 60.0), ("15", 15.0), ("2.5", 2.5)])
+def test_refresh_interval_from_env_never_breaks_the_import(monkeypatch, raw, expected):
+    from tgmain.client import env_seconds
+
+    monkeypatch.setenv("X_SECONDS", raw)
+    assert env_seconds("X_SECONDS", 60.0) == expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [404, 500, 503])
+async def test_non_200_answer_is_retried_soon_and_keeps_the_previous_styling(runner, status):
+    ui.set_button_styles(PROJECTION)
+    calls = []
+
+    def handler(request):
+        calls.append(1)
+        return httpx.Response(status, json={"detail": "nope"})
+
+    runner.client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    runner.STYLE_REFRESH_SECONDS = 60.0
+    runner.STYLE_RETRY_SECONDS = 10.0
+    await runner.refresh_button_styles()
+    assert "style" in ui.keyboard([[("a", "menu:plans")]])["inline_keyboard"][0][0]
+    from tgmain.client import TransportMixin
+
+    TransportMixin._styles_at -= 11
+    await runner.refresh_button_styles()
+    assert len(calls) == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("description", ["Bad Request: message is too long", "Bad Request: BUTTON_DATA_INVALID", "Bad Request: wrong HTTP URL specified"])
+async def test_more_unrelated_400s_are_not_retried(runner, description):
+    ui.set_button_styles(PROJECTION)
+    calls = []
+
+    def handler(request):
+        calls.append(1)
+        return httpx.Response(400, json={"ok": False, "description": description})
+
+    runner.client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    with pytest.raises(httpx.HTTPStatusError):
+        await runner.tg("sendMessage", {"reply_markup": ui.keyboard([[("a", "menu:plans")]])})
+    assert len(calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_send_photo_is_resent_plain_when_telegram_refuses_the_style(runner):
+    ui.set_button_styles(PROJECTION)
+    seen = []
+
+    def handler(request):
+        seen.append(request.content)
+        if b'"style"' in request.content:
+            return httpx.Response(400, json={"ok": False, "description": "Bad Request: DOCUMENT_INVALID"})
+        return httpx.Response(200, json={"ok": True, "result": {}})
+
+    runner.client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    await runner.send_photo(5, b"\x89PNG", "caption", [[("خرید", "menu:plans")]])
+    assert len(seen) == 2 and b'"style"' in seen[0] and b'"style"' not in seen[1]
+
+
+@pytest.mark.asyncio
+async def test_send_photo_does_not_retry_an_unrelated_400(runner):
+    ui.set_button_styles(PROJECTION)
+    seen = []
+
+    def handler(request):
+        seen.append(1)
+        return httpx.Response(400, json={"ok": False, "description": "Bad Request: wrong file identifier/HTTP URL specified"})
+
+    runner.client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    with pytest.raises(httpx.HTTPStatusError):
+        await runner.send_photo(5, b"\x89PNG", "caption", [[("خرید", "menu:plans")]])
+    assert len(seen) == 1

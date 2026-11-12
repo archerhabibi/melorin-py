@@ -5,11 +5,10 @@ import datetime as dt
 import html
 import io
 import logging
+import re
 import uuid
 
 from tgmain.errors import CoreError
-
-log = logging.getLogger("melorin.telegram.main")
 
 log = logging.getLogger("melorin.telegram.main")
 
@@ -230,6 +229,9 @@ _STYLES: dict = {"enabled": False, "inline": [], "reply": []}
 
 _STYLE_NAMES = ("primary", "success", "danger")
 _MATCHES = ("exact", "prefix")
+_EMOJI_ID_RE = re.compile(r"[1-9][0-9]{4,18}")  # same rule as Core: a Telegram custom-emoji id is a positive int64
+_INT64_MAX = 2**63 - 1
+MAX_DECOR = 6
 
 
 def _clean_rule(rule):
@@ -243,12 +245,19 @@ def _clean_rule(rule):
     if rule.get("style") in _STYLE_NAMES:
         out["style"] = rule["style"]
     icon = rule.get("icon")
-    if isinstance(icon, str) and icon.isascii() and icon.isdigit():
+    if isinstance(icon, str) and _EMOJI_ID_RE.fullmatch(icon) and int(icon) <= _INT64_MAX:
         out["icon"] = icon
     for field in ("prefix", "suffix"):
-        if isinstance(rule.get(field), str) and rule[field]:
-            out[field] = rule[field]
+        value = rule.get(field)
+        if isinstance(value, str) and value.strip() and len(value) <= MAX_DECOR:
+            out[field] = value
     return out if len(out) > 2 else None
+
+
+def _specificity(rule) -> tuple:
+    """Exact before prefix, longer prefix first: the order Core publishes, re-applied here so a differently ordered list
+    (an older Core, a proxy rewriting JSON) can never let a short prefix shadow an exact rule."""
+    return (0 if rule["match"] == "exact" else 1, -len(rule["key"]))
 
 
 def set_button_styles(projection) -> None:
@@ -264,8 +273,8 @@ def set_button_styles(projection) -> None:
     if not ok:
         _STYLES = {"enabled": False, "inline": [], "reply": []}
         return
-    inline = [r for r in map(_clean_rule, projection["inline"]) if r]
-    reply = [r for r in map(_clean_rule, projection["reply"]) if r]
+    inline = sorted((r for r in map(_clean_rule, projection["inline"]) if r), key=_specificity)
+    reply = sorted((r for r in map(_clean_rule, projection["reply"]) if r), key=_specificity)
     _STYLES = {"enabled": True, "inline": inline, "reply": reply}
 
 
