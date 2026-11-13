@@ -232,7 +232,7 @@ async def test_order_topic_handlers_delegate_to_provisioning_referral_and_delive
     await runner._on_provisioning_failed(None, p)
     assert log == [
         f"provision:{oid}", "ref_done", "loyalty_done", f"hook:order.completed:{oid}", f"deliver:{oid}",
-        "ref_refund", "loyalty_refund", f"hook:order.refunded:{oid}", "admins", f"hook:order.provisioning_failed:{oid}",
+        "loyalty_refund", "ref_refund", f"hook:order.refunded:{oid}", "admins", f"hook:order.provisioning_failed:{oid}",
     ]  # fmt: skip
 
 
