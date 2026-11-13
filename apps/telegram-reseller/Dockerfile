@@ -4,8 +4,7 @@ COPY apps/telegram-reseller/requirements.txt .
 RUN pip install --no-cache-dir --require-hashes -r requirements.txt
 COPY apps/telegram-reseller/runner.py .
 COPY apps/telegram-reseller/tgreseller ./tgreseller
-COPY apps/telegram-main/runner.py /app/telegram-main/runner.py
-COPY apps/telegram-main/tgmain /app/telegram-main/tgmain
+COPY apps/telegram-main/tgmain ./tgmain
 RUN useradd --create-home --uid 10003 bot && mkdir -p /var/lib/melorin && chown -R bot:bot /app /var/lib/melorin
 USER bot
 CMD ["python", "runner.py"]
