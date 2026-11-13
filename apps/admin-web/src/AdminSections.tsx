@@ -1,7 +1,5 @@
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense } from 'react';
 import { extraRoutes } from './AdminExtra.tsx';
-import { authFetch } from './api.ts';
-import { Badge, isStatus } from './ui.tsx';
 import type { Json, Rec, Toast } from './types.ts';
 
 function SectionFallback() {
@@ -13,108 +11,19 @@ function SectionFallback() {
   );
 }
 
-const money = (n: Json) => new Intl.NumberFormat('fa-IR').format(n || 0);
-
+/** Every section is a lazy view in ``extraRoutes`` (keyed by its Persian label); an unknown key shows the empty state. */
 export function AdminSectionView({ section, api, toast }: { section?: Json; api?: Json; toast: Toast }) {
-  const [items, setItems] = useState<Rec[]>([]);
-  const [loading, setLoading] = useState(false);
   const Extra = (extraRoutes as Rec)[section];
-  const routes: Rec = {
-    تیکت‌ها: '/api/v1/admin/tickets',
-    پرداخت‌ها: '/api/v1/admin/payments',
-  };
-  useEffect(() => {
-    const path = routes[section];
-    if (!path) return;
-    setLoading(true);
-    const timer = setTimeout(
-      () =>
-        authFetch(api.base, path)
-          .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-          .then((data) => setItems(Array.isArray(data) ? data : data.items || []))
-          .catch(() => toast(`دریافت ${section} ناموفق بود`))
-          .finally(() => setLoading(false)),
-      0,
-    );
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
-  }, [section, api.base]);
-
   if (Extra)
     return (
       <Suspense fallback={<SectionFallback />}>
         <Extra api={api} toast={toast} />
       </Suspense>
     );
-  if (section === 'پرداخت‌ها')
-    return (
-      <DataTable
-        title="پرداخت‌ها"
-        loading={loading}
-        columns={['مبلغ', 'ارز', 'درگاه', 'وضعیت', 'رسید']}
-        rows={items.map((x) => [money(x.amount), x.currency, x.provider, x.status, x.has_receipt ? 'دارد' : 'ندارد'])}
-      />
-    );
-  if (section === 'تیکت‌ها')
-    return (
-      <DataTable
-        title="تیکت‌ها"
-        loading={loading}
-        columns={['موضوع', 'Store', 'وضعیت', 'آخرین تغییر']}
-        rows={items.map((x) => [x.subject, String(x.store_id || '').slice(0, 8), x.status, x.updated_at])}
-      />
-    );
   return (
     <div className="rounded-2xl border border-[var(--ln)] bg-[var(--sf)] p-6 shadow-xs">
       <h3 className="font-extrabold">داده‌ای برای این بخش تعریف نشده</h3>
       <p className="mt-2 text-sm text-[var(--mu)]">از داشبورد یا API مرتبط استفاده کنید.</p>
     </div>
-  );
-}
-
-function DataTable({ title, columns, rows, loading }: { title?: Json; columns?: Json; rows?: Json; loading?: Json }) {
-  return (
-    <section className="card rise overflow-hidden">
-      <div className="border-b border-[var(--ln)] px-5 py-4">
-        <h3 className="font-extrabold">{title}</h3>
-        <p className="mt-1 text-xs text-[var(--mu)]">داده زنده از Core API</p>
-      </div>
-      <div className="max-h-[70vh] overflow-auto">
-        <table className="tbl min-w-[680px]">
-          <thead>
-            <tr>
-              {columns.map((x: Json) => (
-                <th key={x}>{x}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              Array.from({ length: 5 }, (_, i) => (
-                <tr key={i}>
-                  <td colSpan={columns.length}>
-                    <div className="skel h-5 w-full" />
-                  </td>
-                </tr>
-              ))
-            ) : rows.length ? (
-              rows.map((row: Json, i: Json) => (
-                <tr key={i}>
-                  {row.map((x: Json, j: Json) => (
-                    <td key={j}>{isStatus(x) ? <Badge s={x} /> : String(x ?? '-')}</td>
-                  ))}
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={columns.length} className="p-12 text-center text-[var(--mu)]">
-                  داده‌ای وجود ندارد
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </section>
   );
 }

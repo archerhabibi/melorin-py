@@ -168,6 +168,7 @@ function useCore() {
   const base = API_BASE;
   const [data, setData] = useState<Rec>({
     summary: null,
+    attention: null,
     orders: [],
     users: [],
     tickets: [],
@@ -205,9 +206,11 @@ function useCore() {
           soft('/api/v1/admin/users', []),
           soft('/api/v1/admin/tickets', []),
           soft('/api/v1/admin/stores', []),
+          soft('/api/v1/admin/dashboard', null),
         ]);
         if (raw.every((x) => !x.ok)) throw new Error('unreachable');
-        const [summary, orders, health, backups, users, tickets, stores] = raw.map((x) => x.value);
+        const [summary, orders, health, backups, users, tickets, stores, dashboard] = raw.map((x) => x.value) as Rec[];
+        const attention = (dashboard as Rec | null)?.attention ?? null;
         const me = await getJson<AdminMe>(base, '/api/v1/admin/me').catch(() => null);
         const pendingApps = await getJson(base, '/api/v1/admin/reseller-applications?status=pending')
           .then((x) => x.length)
@@ -221,6 +224,7 @@ function useCore() {
         if (live)
           setData({
             summary,
+            attention,
             orders,
             health,
             backups,
@@ -385,6 +389,49 @@ const Kpi = ({
   </div>
 );
 
+const QUEUE_LABELS: Record<string, string> = {
+  provisioning_failures: 'سفارش‌های ناموفق در تحویل',
+  account_discrepancies: 'مغایرت اکانت با پنل',
+  panel_orphans: 'اکانت‌های بدون صاحب روی پنل',
+  failed_panel_events: 'رویدادهای ناموفق پنل',
+  failed_bulk_operations: 'عملیات گروهی ناموفق',
+  receipt_reviews: 'رسیدهای در انتظار بررسی',
+  refunds_pending: 'استردادهای در انتظار',
+  identity_conflicts: 'تعارض هویت',
+  reseller_applications: 'درخواست‌های نمایندگی',
+  open_tickets: 'تیکت‌های باز',
+};
+
+/** Read-only roll-up of what waits for an admin; every row links to the screen of the module that owns the fix. */
+function OperationsCenter({ attention, loading }: { attention?: Rec | null; loading?: boolean }) {
+  const items: Rec[] = (attention?.items || []).filter((x: Rec) => x.count > 0);
+  return (
+    <section className="card rise p-5" aria-label="مرکز عملیات">
+      <div className="flex items-center justify-between">
+        <h3 className="font-extrabold">مرکز عملیات</h3>
+        <span className="text-xs text-[var(--mu)]">{money(attention?.total || 0)} مورد در انتظار</span>
+      </div>
+      {items.length ? (
+        <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+          {items.map((x) => (
+            <li key={x.key}>
+              <a
+                href={`#/${x.section}`}
+                className="flex items-center justify-between rounded-xl border border-[var(--ln)] px-3 py-2 text-sm hover:bg-[var(--mb)]"
+              >
+                <span>{QUEUE_LABELS[x.key] || x.key}</span>
+                <b>{money(x.count)}</b>
+              </a>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-4 text-sm text-[var(--mu)]">{loading ? 'در حال دریافت…' : 'موردی در انتظار رسیدگی نیست'}</p>
+      )}
+    </section>
+  );
+}
+
 function Dashboard({ api, toast }: { api?: Json; toast: Toast }) {
   const summary = api.summary || {};
   const byStatus = [...(summary.orders || [])].sort((a, b) => b.count - a.count);
@@ -444,6 +491,7 @@ function Dashboard({ api, toast }: { api?: Json; toast: Toast }) {
       <div className="grid gap-6 xl:grid-cols-[1.6fr_.9fr]">
         <div className="space-y-6">
           <Trend tick={api.tick} />
+          <OperationsCenter attention={api.attention} loading={api.loading} />
           <section className="card rise p-5">
             <div className="flex items-center justify-between">
               <h3 className="font-extrabold">توزیع وضعیت سفارش‌ها</h3>

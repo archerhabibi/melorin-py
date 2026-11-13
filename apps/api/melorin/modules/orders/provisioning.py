@@ -300,7 +300,8 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
                         placement=placement_snapshot(order=order, group=group, panel=panel, server=server, remote_ref=remote.ref),
                     )
                     session.add(account)
-                account.panel_ref, account.status = remote.ref, VpnStatus.ACTIVE
+                account.panel_ref = remote.ref
+                set_vpn_status(account, VpnStatus.ACTIVE)
                 if queued:
                     plans.mark_queued(account, template_id=queued_template, product_id=product.id, order_id=order.id, now=now)
                 elif order.kind == "renewal":
