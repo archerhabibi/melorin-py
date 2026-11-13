@@ -108,7 +108,8 @@ async def test_process_event_runs_handler_and_marks_processed(maker, monkeypatch
     e = await _claimed(maker, "t.ok", {"a": 1})
     await runner.process_event(e)
     row = await _reload(maker, e)
-    assert seen == [{"a": 1}] and row.status == "processed" and row.processed_at and row.last_error is None
+    # the handler also receives the outbox event id: it is the notification dedup key (event + recipient + channel)
+    assert seen == [{"a": 1, "_event_id": str(e.id)}] and row.status == "processed" and row.processed_at and row.last_error is None
 
 
 async def test_process_event_acknowledges_unknown_topics_without_work(maker):

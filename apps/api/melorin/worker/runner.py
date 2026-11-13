@@ -9,6 +9,7 @@ from sqlalchemy import select, update
 from melorin.core import events
 from melorin.core.config import get_settings
 from melorin.core.db import session_factory, utcnow
+from melorin.domain.notification_dedup import EVENT_ID_FIELD, effective_key
 from melorin.core.metrics import inc
 from melorin import models  # noqa: F401, register all SQLAlchemy mappers before worker sessions
 from melorin.kernel.models.identity import User
@@ -191,7 +192,7 @@ async def process_event(e: OutboxEvent):
             e = reloaded
             handler = _TOPIC_HANDLERS.get(e.topic)
             if handler is not None:  # unknown topics are acknowledged without work, as before
-                await handler(session, e.payload or {})
+                await handler(session, {**(e.payload or {}), EVENT_ID_FIELD: str(e.id)})  # the event id drives notification dedup
             if e.topic != events.EVENT_CENTER_DELIVER:  # Telegram fan-out: best-effort, inside a SAVEPOINT, never fails the event
                 from melorin.modules.eventcenter import rules as event_center_rules
 
@@ -216,7 +217,7 @@ async def _notify(session, p: dict, kind: str, title: str, body: str = ""):
     if not p.get("user_id"):
         return
     user_id = uuid.UUID(str(p["user_id"]))
-    dedup_key = p.get("dedup_key")
+    dedup_key = effective_key(p, str(user_id), "telegram")
     n = await session.scalar(select(Notification).where(Notification.dedup_key == dedup_key)) if dedup_key else None
     if n and n.telegram_status == "sent":
         return
