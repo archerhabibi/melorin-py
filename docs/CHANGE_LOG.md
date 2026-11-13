@@ -108,6 +108,15 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-11-12 22:00 UTC - Melorin Ops - admin-web, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(auth): tell a wrong TOTP code apart from a wrong e-mail/password at admin sign-in - The admin form showed "wrong e-mail or password" for almost every failure, so a stale or reused authenticator code, a throttled account or a dead network all looked like a bad password. API: one helper checks th…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (9):** `apps/admin-web/src/AdminAuth.tsx`, `apps/admin-web/src/loginErrors.ts`, `apps/admin-web/src/styles.css`, `apps/admin-web/tests/admin-auth.test.jsx`, `apps/admin-web/tests/login-errors.test.js`, `apps/admin-web/tests/typing-ratchet.test.js`, `apps/api/melorin/modules/identity/routes/sign_in.py`, `apps/api/tests/contracts/test_google_signin.py` (+1 more)
+- **Ref:** `9a7955d`
+
+
 ### 2026-11-12 10:05 UTC - Claude - admin-web, api, tests  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
