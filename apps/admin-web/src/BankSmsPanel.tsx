@@ -2,6 +2,7 @@
 // human fallback (pair / ignore). Core decides every match; this panel only edits settings and shows what Core stored.
 import { useCallback, useEffect, useState } from 'react';
 import { Copy, KeyRound, RefreshCw, ShieldCheck, Smartphone } from 'lucide-react';
+import { formFromSource, sourceBody } from '@melorin/web-kit/bankSms.js';
 import { Empty, Field, Section, Switch, errText, num } from './kit.tsx';
 import { confirmDialog, dt } from './ui.tsx';
 import ReceiptReviewPanel from './ReceiptReviewPanel.tsx';
@@ -13,12 +14,6 @@ const STATUS: Rec = {
   ambiguous: ['نیاز به بررسی', 'b-wn'],
   ignored: ['نادیده', 'b-mu'],
   unparsed: ['نامفهوم', 'b-bd'],
-};
-const toInt = (s: Json) => {
-  const t = String(s ?? '')
-    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
-    .replace(/\D/g, '');
-  return t === '' ? null : Number(t);
 };
 const JSON_H = { 'Content-Type': 'application/json' };
 
@@ -32,17 +27,7 @@ export default function BankSmsPanel({ call, toast, payments }: { call: CallFn; 
 
   const apply = (d: Json) => {
     setData(d);
-    const s = d.source;
-    setForm({
-      auto_verify: !!s.auto_verify,
-      is_enabled: s.configured ? !!s.is_enabled : true,
-      senders: (s.senders || []).join('\n'),
-      window_minutes: String(s.settings.window_minutes),
-      time_tolerance_minutes: String(s.settings.time_tolerance_minutes),
-      require_claimed_time: !!s.settings.require_claimed_time,
-      max_auto_amount_rial: s.settings.max_auto_amount_rial ? String(s.settings.max_auto_amount_rial) : '',
-      account_number: s.settings.account_number || '',
-    });
+    setForm(formFromSource(d.source));
   };
 
   useEffect(() => {
@@ -79,21 +64,7 @@ export default function BankSmsPanel({ call, toast, payments }: { call: CallFn; 
   };
   const save = () =>
     run('save', async () => {
-      const body = {
-        is_enabled: form.is_enabled,
-        auto_verify: form.auto_verify,
-        senders: form.senders
-          .split(/[\n,]/)
-          .map((x: Json) => x.trim())
-          .filter(Boolean),
-        settings: {
-          window_minutes: toInt(form.window_minutes),
-          time_tolerance_minutes: toInt(form.time_tolerance_minutes),
-          require_claimed_time: form.require_claimed_time,
-          max_auto_amount_rial: toInt(form.max_auto_amount_rial),
-          account_number: String(form.account_number).replace(/\s/g, '') || null,
-        },
-      };
+      const body = sourceBody(form);
       const r = await call(`${base}/source`, { method: 'PUT', headers: JSON_H, body: JSON.stringify(body) });
       if (!r.ok) return toast(await errText(r, 'ذخیره ناموفق بود'));
       const d = await r.json();

@@ -12,6 +12,7 @@
     "./useDialog.js": "./src/useDialog.js",
     "./GoogleSignIn.jsx": "./src/GoogleSignIn.jsx",
     "./format.js": "./src/format.js",
-    "./eventCenter.js": "./src/eventCenter.js"
+    "./eventCenter.js": "./src/eventCenter.js",
+    "./bankSms.js": "./src/bankSms.js"
   }
 }
