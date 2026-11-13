@@ -1,6 +1,6 @@
 """Password policy for admin accounts (pure). Ordered rule table: the first violated rule wins, so the message is stable.
 
-Used when an invited admin chooses a password. Existing accounts keep their password until they change it.
+Used when an invited admin chooses a password and when an admin changes it (/auth/admin/password). Existing accounts keep their password until they change it.
 """
 
 from __future__ import annotations

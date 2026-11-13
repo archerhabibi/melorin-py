@@ -1,7 +1,7 @@
 // Payments screen — review queue, KPIs, filters, detail drawer and gateway settings.
 // Data comes only from GET /api/v1/admin/payments (+ /settings); actions use the existing
 // /review, /refund and /receipt endpoints, so no backend change is required.
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { Clock, Download, RefreshCw, ShieldAlert, TrendingUp, Undo2, Wallet, XCircle } from 'lucide-react';
 import { authFetch } from './api.ts';
 import { Empty, ErrorBar, KpiBar, Paginator, Pills, SearchBox, Stat, errText, num } from './kit.tsx';
@@ -11,6 +11,8 @@ import BankSmsPanel from './BankSmsPanel.tsx';
 import { PAGE, prov, cur, reviewable, FILTERS, ago, sumBy, Metric, ProviderChip, Amount } from './paymentsShared.tsx';
 import { RowActions, Queue, PaymentDrawer, GatewaySettings } from './PaymentParts.tsx';
 import type { Json, Rec, Toast } from './types.ts';
+
+const ReceiptOcrSettings = lazy(() => import('./ReceiptOcrSettings.tsx'));
 
 export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast }) {
   const call = useCallback((p: Json, o = {}) => authFetch(api.base, p, o), [api.base]);
@@ -360,6 +362,9 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast 
 
       <BankSmsPanel call={call} toast={toast} payments={all} />
       <GatewaySettings obj={settings} save={saveSetting} />
+      <Suspense fallback={<div className="skel h-44" />}>
+        <ReceiptOcrSettings api={api} toast={toast} />
+      </Suspense>
       {open && (
         <PaymentDrawer
           p={open}

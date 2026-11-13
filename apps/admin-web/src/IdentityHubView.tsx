@@ -1,7 +1,8 @@
-// «هویت» — one screen for everything about identity (docs/21), three tabs:
+// «هویت» — one screen for everything about identity (docs/21), four tabs:
 //   review  «نیاز به بررسی»      conflicts Core could not settle: an admin decides (IdentityReviewsView)
 //   auto    «انجام‌شده خودکار»   accounts Core folded together by itself (read-only report)
 //   devices «دستگاه‌های مورداعتماد» browsers that sign visitors in without a manual step; trust can be revoked
+//   login   «روش‌های ورود»      Google / Telegram sign-in settings (moved here from Settings)
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { authFetch } from './api.ts';
 import { Segmented, num } from './kit.tsx';
@@ -9,8 +10,10 @@ import type { Json, Toast } from './types.ts';
 
 const IdentityReviewsView = lazy(() => import('./IdentityReviewsView.tsx'));
 const IdentityAutoView = lazy(() => import('./IdentityAutoView.tsx'));
+const GoogleLoginSettings = lazy(() => import('./GoogleLoginSettings.tsx'));
+const TelegramLoginSettings = lazy(() => import('./TelegramLoginSettings.tsx'));
 
-const TABS = ['review', 'auto', 'devices'];
+const TABS = ['review', 'auto', 'devices', 'login'];
 const tabFromHash = () => {
   const q = typeof window === 'undefined' ? '' : window.location.hash.split('?')[1] || '';
   const t = new URLSearchParams(q).get('tab');
@@ -49,12 +52,19 @@ export default function IdentityHubView({ api, toast }: { api?: Json; toast: Toa
           ['review', <>نیاز به بررسی {open > 0 && <b className="num">{num(open)}</b>}</>],
           ['auto', 'انجام‌شده خودکار'],
           ['devices', 'دستگاه‌های مورداعتماد'],
+          ['login', 'روش‌های ورود'],
         ]}
       />
       <Suspense fallback={<div className="skel h-44" />}>
         {tab === 'review' && <IdentityReviewsView api={api} toast={toast} />}
         {tab === 'auto' && <IdentityAutoView key="merges" api={api} toast={toast} section="merges" />}
         {tab === 'devices' && <IdentityAutoView key="devices" api={api} toast={toast} section="devices" />}
+        {tab === 'login' && (
+          <div className="space-y-5">
+            <GoogleLoginSettings api={api} toast={toast} />
+            <TelegramLoginSettings api={api} toast={toast} />
+          </div>
+        )}
       </Suspense>
     </div>
   );

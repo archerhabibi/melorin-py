@@ -58,6 +58,7 @@ import {
   Award,
   UserCog,
   UsersRound,
+  Rows3,
 } from 'lucide-react';
 import type { AdminMe, Json, Rec, Toast } from './types.ts';
 
@@ -76,38 +77,53 @@ const groups: [string, [string, LucideIcon, string][], string?][] = [
       ['سفارش‌ها', Package, 'orders'],
       ['پرداخت‌ها', CreditCard, 'payments'],
       ['اکانت‌های VPN', Server, 'vpn'],
+      ['عملیات گروهی', Rows3, 'bulk-operations'],
       ['تیکت‌ها', Ticket, 'tickets'],
     ],
   ],
   [
-    'فروش و مشتریان',
+    'مشتریان',
     [
       ['کاربران', Users, 'users'],
       ['فروشگاه‌ها', Store, 'stores'],
       ['نمایندگان', Bot, 'resellers'],
       ['درخواست‌های نمایندگی', UserPlus, 'reseller-applications'],
       ['کارهای دستی', ListChecks, 'manual-tasks'],
-      ['پیام همگانی', Megaphone, 'broadcasts'],
-      ['دکمه‌های تلگرام', Paintbrush, 'button-styles'],
-      ['مرکز رویداد', BellRing, 'event-center'],
+    ],
+  ],
+  [
+    'بازاریابی',
+    [
       ['کوپن‌ها', Percent, 'coupons'],
       ['برنامه‌های معرفی', Gift, 'referral-programs'],
       ['باشگاه مشتریان', Award, 'loyalty-club'],
     ],
   ],
   [
-    'زیرساخت',
+    'ارتباطات',
     [
-      ['پنل‌ها و سرورها', PanelTop, 'panels'],
-      ['ادمین‌های پنل', UserCog, 'panel-admins'],
+      ['پیام همگانی', Megaphone, 'broadcasts'],
+      ['مرکز رویداد', BellRing, 'event-center'],
+      ['دکمه‌های تلگرام', Paintbrush, 'button-styles'],
+    ],
+  ],
+  [
+    'کاتالوگ',
+    [
       ['بسته‌های فروش', Layers, 'bundles'],
       ['محصولات VPN', Boxes, 'products'],
-      ['سلامت زیرساخت', ShieldCheck, 'infra-health'],
-      ['عملیات پنل', Activity, 'panel-ops'],
-      ['عملیات گروهی', Layers, 'bulk-operations'],
-      ['حجم فروشگاه‌ها', Gauge, 'store-governance'],
     ],
     'مسیر فروش: پنل و سرور ← بسته فروش ← پکیج',
+  ],
+  [
+    'پنل‌ها',
+    [
+      ['پنل‌ها و سرورها', PanelTop, 'panels'],
+      ['سلامت زیرساخت', ShieldCheck, 'infra-health'],
+      ['عملیات پنل', Activity, 'panel-ops'],
+      ['ادمین‌های پنل', UserCog, 'panel-admins'],
+      ['حجم فروشگاه‌ها', Gauge, 'store-governance'],
+    ],
   ],
   [
     'سیستم',
