@@ -107,3 +107,4 @@ _Merged from the former 12-Change-Log-v1.1.md._
 - Admin menu: stores, resellers, panel access (panel admins + sub branding) and volume governance are tabs of the single `فروشگاه‌ها` hub (`#/stores?tab=...`).
 - Reward stacking is written down in `domain/order_rewards.py`: coupon is already inside `order.total`; referral then loyalty settle from that charged total in a fixed order, refunds reverse loyalty then referral; the worker calls one `_settle_rewards`.
 - `domain/order_state.VPN_TRANSITIONS` + `assert_vpn_transition` define the account lifecycle table. Not yet wired into every writer (renewal, returns, recreate, bulk); that is the next step.
+- Panel read cycle: `panel_health_job` takes the metrics snapshot on the SAME adapter/login as the health check (one session per panel per 2 minutes). `panel_metrics_job` no longer has its own cron (function kept for manual runs).

@@ -103,7 +103,6 @@ class WorkerSettings:
         cron(daily_report_job, hour=20, minute=30, unique=True),
         cron(store_digest_job, hour=17, minute=0, unique=True),
         cron(panel_health_job, minute=set(range(0, 60, 2)), unique=True),
-        cron(panel_metrics_job, minute=set(range(1, 60, 2)), unique=True),
         cron(panel_settings_drift_job, minute=25, unique=True),
         cron(panel_admin_sync_job, minute=set(range(0, 60)), unique=True),
         cron(panel_event_job, second=set(range(3, 60, 10)), unique=True),

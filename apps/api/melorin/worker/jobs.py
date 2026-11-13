@@ -148,9 +148,10 @@ async def store_digest_job(ctx=None):
 
 @tracked_job
 async def panel_health_job(ctx=None):
-    """Every 2 minutes: panel health in two layers (PG-01). The panel must answer AND have a connected node; a failing node
+    """Every 2 minutes: ONE read cycle per panel: health in two layers (PG-01) plus the metrics snapshot (PG-14) on the same adapter. The panel must answer AND have a connected node; a failing node
     alone makes the panel ``degraded`` (still selling), no connected node makes it ``unhealthy`` (leaves server selection)."""
     async with session_factory()() as s:
+        from melorin.modules.panelops import panel_metrics
         from melorin.modules.vpn.adapters.registry import build_adapter
 
         panels = (await s.scalars(select(Panel).where(Panel.is_enabled.is_(True)))).all()
@@ -161,6 +162,8 @@ async def panel_health_job(ctx=None):
             try:
                 adapter = build_adapter(p)
                 result = await health.check_panel(s, p, adapter)
+                # One read cycle per panel: the metrics snapshot reuses this adapter/login (never raises).
+                await panel_metrics.snapshot_panel(p, adapter)
                 if result.status != health.UNHEALTHY and capabilities.is_stale(
                     p
                 ):  # hourly: permissions change when the panel role is edited
