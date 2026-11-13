@@ -30,7 +30,7 @@ from melorin.modules.vpn import capabilities as panel_caps
 from melorin.modules.vpn.adapters.base import PanelError, supports
 from melorin.modules.vpn.adapters.pasarguard.events import describe_webhook
 from melorin.modules.vpn.renewal import GRACE_DAYS
-from melorin.modules.vpn.subscription_check import _origin
+from melorin.modules.panelops.subscription_check import _origin
 
 log = logging.getLogger("melorin.vpn.settings_drift")
 
@@ -187,7 +187,7 @@ def verdict(findings: list[dict], *, policy: str, now) -> dict:
 
 def _public_webhook_url(panel: Panel) -> str | None:
     try:
-        from melorin.modules.vpn.panel_events_admin import webhook_url
+        from melorin.modules.panelops.panel_events_admin import webhook_url
 
         return webhook_url(panel)
     except AppError:

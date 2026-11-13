@@ -13,7 +13,7 @@ from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import AppError, NotFound
 from melorin.kernel.models.vpn import Panel
 from melorin.kernel.models.stores import Store
-from melorin.modules.vpn import service_access
+from melorin.modules.panelops import service_access
 from melorin.modules.panelops import panel_backup, panel_metrics, settings_drift, store_role, sub_branding
 
 from melorin.modules.panelops import queries

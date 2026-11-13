@@ -21,7 +21,8 @@ from melorin.kernel.models.stores import Store
 from melorin.kernel.models.vpn import Panel, PanelOrphan, ReconciliationIssue, VpnAccount
 from melorin.modules.vpn.panel_session import close_adapter
 from melorin.modules.vpn import issues as issue_svc
-from melorin.modules.vpn import reconcile, recreate
+from melorin.modules.vpn import reconcile
+from melorin.modules.panelops import recreate
 from melorin.modules.vpn.adapters.base import PanelError, supports
 from melorin.modules.vpn.adapters.registry import build_adapter, seed_adapter
 

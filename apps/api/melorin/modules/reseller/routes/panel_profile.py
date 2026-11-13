@@ -15,7 +15,7 @@ from melorin.core.deps import OwnerCtx, Session
 from melorin.core.errors import AppError, NotFound
 from melorin.kernel.models.vpn import Panel, PanelAdmin, PanelAdminChangeRequest
 from melorin.modules.reseller.onboarding import alert_admins
-from melorin.modules.vpn import panel_admins as svc
+from melorin.modules.panelops import panel_admins as svc
 
 router = APIRouter(tags=["reseller"])
 

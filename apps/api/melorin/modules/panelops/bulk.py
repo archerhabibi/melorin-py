@@ -36,7 +36,7 @@ from melorin.modules.vpn import sync
 from melorin.modules.vpn.adapters.base import ErrorKind, PanelError, supports
 from melorin.modules.vpn.adapters.registry import build_adapter
 
-log = logging.getLogger("melorin.vpn.bulk")
+log = logging.getLogger("melorin.panelops.bulk")
 
 GIB = 1024**3
 MAX_ITEMS = 5000  # one operation never touches more accounts than this

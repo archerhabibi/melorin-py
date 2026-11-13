@@ -1,4 +1,4 @@
-from melorin.modules.vpn import service_access
+from melorin.modules.panelops import service_access
 from melorin.modules.panelops import store_role
 
 

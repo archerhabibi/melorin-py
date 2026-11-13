@@ -138,7 +138,7 @@ async def daily_report_job(ctx=None):
 @tracked_job
 async def store_digest_job(ctx=None):
     """Daily: the opt-in digest for store owners (PG-06). Says only what Melorin owns (notices sent, open discrepancies, sell blocks)."""
-    from melorin.modules.vpn import digest
+    from melorin.modules.panelops import digest
 
     async with session_factory()() as session:
         queued = await digest.run(session)
@@ -457,7 +457,7 @@ async def receipt_grace_job(ctx=None):
 @tracked_job
 async def panel_admin_sync_job(ctx=None):
     """Every minute: a new reseller / a new PasarGuard panel / an existing reseller meeting a new panel gets its Operator admin."""
-    from melorin.modules.vpn import panel_admins
+    from melorin.modules.panelops import panel_admins
 
     async with session_factory()() as s:
         return await panel_admins.sync_all(s)
@@ -487,7 +487,7 @@ async def panel_event_purge_job(ctx=None):
 async def bulk_operation_job(ctx=None):
     """Every 15 seconds: run ONE confirmed bulk operation for up to ~40 s (PG-11). Leased per panel, chunked, resumable: a crash or a
     second worker can never apply an item twice (absolute targets + ledger)."""
-    from melorin.modules.vpn import bulk
+    from melorin.modules.panelops import bulk
 
     op = await bulk.run_next(session_factory(), budget_seconds=40.0)
     return op.status if op else None
@@ -496,7 +496,7 @@ async def bulk_operation_job(ctx=None):
 @tracked_job
 async def store_governance_job(ctx=None):
     """Every 15 minutes: read each store admin's usage / status / user count from its panel (PG-12)."""
-    from melorin.modules.vpn import governance
+    from melorin.modules.panelops import governance
 
     done = 0
     async with session_factory()() as s:

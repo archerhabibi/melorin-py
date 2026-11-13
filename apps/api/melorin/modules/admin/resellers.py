@@ -176,7 +176,7 @@ async def _apply_panel_side(session, st: Store, *, suspended: bool, actor_id) ->
         return
     import logging
 
-    from melorin.modules.vpn import bulk, governance
+    from melorin.modules.panelops import bulk, governance
 
     try:
         await governance.apply_store_status(session, st, suspended=suspended, actor_id=actor_id)

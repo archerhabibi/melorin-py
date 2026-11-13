@@ -27,7 +27,7 @@ from melorin.modules.vpn.adapters.base import PanelError, supports
 from melorin.modules.vpn.adapters.lifecycle import close_adapter
 from melorin.modules.vpn.adapters.registry import build_adapter
 
-log = logging.getLogger("melorin.vpn.governance")
+log = logging.getLogger("melorin.panelops.governance")
 
 GIB = 1024**3
 MAX_CAP_GB = 1024 * 1024  # 1 PB: a typo guard, not a business rule

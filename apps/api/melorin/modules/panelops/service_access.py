@@ -30,9 +30,9 @@ from melorin.modules.vpn.adapters import registry
 from melorin.modules.vpn.adapters.base import PanelError
 from melorin.modules.vpn.adapters.lifecycle import close_adapter
 from melorin.modules.vpn.adapters.pasarguard.capabilities import CAPABILITY_REQUIREMENTS
-from melorin.modules.vpn.panel_admins import generate_password
+from melorin.modules.panelops.panel_admins import generate_password
 
-log = logging.getLogger("melorin.vpn.service_access")
+log = logging.getLogger("melorin.panelops.service_access")
 
 ADMIN_USERNAME = "melorin-service"
 ROLE_NAME = "melorin-service"

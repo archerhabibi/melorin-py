@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from _db import make_store, open_schema_engine
 from melorin.kernel.models.vpn import Panel, PanelAdmin
-from melorin.modules.vpn import store_usage
+from melorin.modules.panelops import store_usage
 from melorin.modules.vpn.adapters.base import ErrorKind, PanelAccount, PanelError
 
 pytestmark = pytest.mark.asyncio

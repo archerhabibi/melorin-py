@@ -11,7 +11,7 @@ from sqlalchemy import select
 
 from _db import make_store, make_user, open_session
 from melorin.kernel.models.vpn import Panel, PanelAdmin, PanelAdminChangeRequest
-from melorin.modules.vpn import panel_admins as svc
+from melorin.modules.panelops import panel_admins as svc
 from melorin.modules.vpn.adapters import pasarguard
 from melorin.modules.vpn.adapters.base import AccountSpec, ErrorKind, PanelError
 from melorin.modules.vpn.adapters.pasarguard import PasarGuardAdapter
@@ -336,7 +336,7 @@ async def test_provisioning_passes_the_store_admin_as_owner(monkeypatch):
             seen["store_id"] = store_id
             return "rs_test"
 
-        monkeypatch.setattr(vpn.panel_admins, "owner_for", fake_owner)
+        monkeypatch.setattr(svc, "owner_for", fake_owner)
         panel = ScriptedPanel()
         monkeypatch.setattr(vpn, "build_adapter", lambda _p, _s=None: panel)
         await vpn.provision_order(s, w["order"].id)

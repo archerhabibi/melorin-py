@@ -92,7 +92,7 @@ async def create_panel(body: CreatePanel, admin: AdminUser, session: Session):
     if (
         p.kind == "pasarguard"
     ):  # a new panel: every store (Main + resellers) gets its Operator admin right away; the worker retries on failure
-        from melorin.modules.vpn import panel_admins
+        from melorin.modules.panelops import panel_admins
 
         try:
             await panel_admins.sync_all(session, limit=200, panel=p)

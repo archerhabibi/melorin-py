@@ -22,11 +22,12 @@ from melorin.domain.order_state import VpnStatus
 from melorin.kernel.models.catalog import Product
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.vpn import Panel, Server, VpnAccount
-from melorin.modules.vpn import panel_admins, sync
+from melorin.modules.vpn import sync
+from melorin.modules.panelops import panel_admins
 from melorin.modules.vpn.adapters.base import AccountSpec, ErrorKind, PanelError
 from melorin.modules.vpn.adapters.registry import build_adapter
 
-log = logging.getLogger("melorin.vpn.recreate")
+log = logging.getLogger("melorin.panelops.recreate")
 
 RECREATABLE = (VpnStatus.ACTIVE, VpnStatus.SUSPENDED, VpnStatus.LIMITED)
 

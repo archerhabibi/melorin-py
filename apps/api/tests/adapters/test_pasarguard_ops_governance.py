@@ -17,7 +17,7 @@ from melorin.core.db import utcnow
 from melorin.core.errors import AppError
 from melorin.kernel.models.system import AuditEvent
 from melorin.kernel.models.vpn import BulkOperation, Panel, PanelAdmin, PanelNode
-from melorin.modules.vpn import governance, subscription_check
+from melorin.modules.panelops import governance, subscription_check
 from melorin.modules.panelops import ops_console
 from melorin.modules.vpn.adapters.base import Capabilities, ErrorKind, PanelError
 from melorin.modules.vpn.adapters.pasarguard import PasarGuardAdapter
@@ -533,7 +533,7 @@ async def test_every_phase4_endpoint_needs_an_admin():
 async def test_bulk_flow_through_the_http_api(fake, monkeypatch):
     from melorin.domain.order_state import VpnStatus
     from melorin.kernel.models.vpn import VpnAccount
-    from melorin.modules.vpn import bulk
+    from melorin.modules.panelops import bulk
     from _db import make_order, make_product
 
     async with api_client() as (c, maker, main):

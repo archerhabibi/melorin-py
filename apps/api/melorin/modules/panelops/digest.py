@@ -20,7 +20,7 @@ from melorin.core.db import utcnow
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.system import OutboxEvent
 from melorin.kernel.models.vpn import PanelAdmin, ReconciliationIssue, VpnAccount
-from melorin.modules.vpn import governance
+from melorin.modules.panelops import governance
 
 KIND_LABELS = {
     "vpn_expired": "منقضی‌شده",

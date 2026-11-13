@@ -13,7 +13,7 @@ from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import NotFound
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.vpn import BulkOperation, Panel, PanelAdmin
-from melorin.modules.vpn import bulk, governance, subscription_check
+from melorin.modules.panelops import bulk, governance, subscription_check
 from melorin.modules.panelops import ops_console
 
 from melorin.modules.panelops import queries

@@ -15,7 +15,7 @@ from melorin.core.errors import AppError
 from melorin.domain.order_state import VpnStatus
 from melorin.kernel.models.system import AuditEvent
 from melorin.kernel.models.vpn import BulkOperation, BulkOperationItem, Panel, VpnAccount
-from melorin.modules.vpn import bulk
+from melorin.modules.panelops import bulk
 from melorin.modules.vpn.adapters.base import Capabilities, ErrorKind, PanelAccount, PanelError
 
 GIB = 1024**3

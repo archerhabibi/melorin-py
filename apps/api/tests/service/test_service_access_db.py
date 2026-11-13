@@ -12,7 +12,7 @@ from _db import open_schema_engine
 from melorin.core.crypto import decrypt, encrypt
 from melorin.core.errors import AppError
 from melorin.kernel.models.vpn import Panel
-from melorin.modules.vpn import service_access
+from melorin.modules.panelops import service_access
 from melorin.modules.vpn.adapters.base import ALL_CAPABILITIES, Capabilities
 from melorin.modules.vpn.adapters.pasarguard.capabilities import CAPABILITY_REQUIREMENTS, build_report, permission_granted
 from test_pasarguard_service_db import seed

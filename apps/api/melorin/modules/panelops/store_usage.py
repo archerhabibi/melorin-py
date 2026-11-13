@@ -34,7 +34,7 @@ from melorin.modules.vpn.live import UNAVAILABLE_NOTE
 from melorin.modules.vpn.panel_reader import PanelReader
 from melorin.modules.vpn.adapters.lifecycle import close_adapter
 
-log = logging.getLogger("melorin.vpn.store_usage")
+log = logging.getLogger("melorin.panelops.store_usage")
 
 PAGE = 100  # users per panel call
 SCAN_LIMIT = 2000  # users read per panel; more than this and the volume figures are marked incomplete

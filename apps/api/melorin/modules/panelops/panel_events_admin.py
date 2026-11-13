@@ -31,7 +31,7 @@ from melorin.modules.vpn.adapters.base import ErrorKind, PanelError, supports
 from melorin.modules.vpn.adapters.lifecycle import close_adapter
 from melorin.modules.vpn.adapters.registry import build_adapter
 
-log = logging.getLogger("melorin.vpn.panel_events_admin")
+log = logging.getLogger("melorin.panelops.panel_events_admin")
 
 SILENT_AFTER = WEBHOOK_SILENT_AFTER  # single source of truth lives in core.health (core must not import modules)
 CONNECT_VERIFY_ATTEMPTS = 2  # an idempotent connect is repeated once when its outcome is unclear

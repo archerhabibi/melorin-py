@@ -26,7 +26,7 @@ from melorin.kernel.models.vpn import Panel, PanelAdmin, VpnAccount
 from melorin.modules.vpn.adapters.base import PanelError, supports
 from melorin.modules.vpn.adapters.registry import build_adapter
 
-log = logging.getLogger("melorin.vpn.subscription_check")
+log = logging.getLogger("melorin.panelops.subscription_check")
 
 
 def _host(url: str | None) -> str:

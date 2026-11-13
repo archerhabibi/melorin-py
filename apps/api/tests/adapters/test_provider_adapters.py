@@ -177,7 +177,7 @@ _ALLOWED = {
     "melorin/modules/vpn/adapters/providers.py",
     "melorin/modules/vpn/webhook_router.py",
     "melorin/modules/vpn/panel_events.py",
-    "melorin/modules/vpn/service_access.py",
+    "melorin/modules/panelops/service_access.py",
     "melorin/modules/panelops/settings_drift.py",
 }
 
