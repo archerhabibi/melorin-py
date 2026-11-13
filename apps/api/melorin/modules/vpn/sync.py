@@ -8,7 +8,7 @@ those are read live (``live.py``). ``record_sale`` is the single writer of the s
 import datetime as dt
 
 from melorin.core.db import utcnow
-from melorin.domain.order_state import VpnStatus
+from melorin.domain.order_state import VpnStatus, set_vpn_status
 from melorin.domain.timeutil import aware  # noqa: F401  (re-exported: callers use sync.aware)
 from melorin.modules.vpn import freshness, notices
 
@@ -97,7 +97,7 @@ async def apply_remote(
     new_status = status_from_remote(previous, remote)
     changes: list[str] = []
     if new_status != previous:
-        account.status = new_status
+        set_vpn_status(account, VpnStatus(new_status))
         changes.append(f"{previous}->{new_status}")
 
     # R9/R10: nothing of the panel's numbers is copied. Used traffic, limit, expiry, link and last seen are read live (live.py).

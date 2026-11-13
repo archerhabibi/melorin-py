@@ -217,6 +217,9 @@ export function PanelSection({
               <Pencil size={13} />
               ویرایش
             </button>
+            <a className="btn btn-g" href={`#/panel-ops?panel=${p.id}`}>
+              عملیات پنل
+            </a>
             <button
               className="btn btn-g !px-2"
               aria-label="بررسی سلامت"

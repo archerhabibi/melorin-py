@@ -11,6 +11,7 @@ from pathlib import Path
 from sqlalchemy import and_, delete, or_, select
 from sqlalchemy.engine import CursorResult
 
+from melorin.domain.order_state import VpnStatus, set_vpn_status
 from melorin.core import integrations, settings_store
 from melorin.core.db import session_factory, utcnow
 from melorin.kernel.models.identity import VerificationCode
@@ -241,7 +242,7 @@ async def expiry_job(ctx=None):
         not_just_read = or_(VpnAccount.last_synced_at.is_(None), VpnAccount.last_synced_at < now - sync.FRESH_FOR)
         # accounts without a panel: the only clock there is
         for a in (await s.scalars(select(VpnAccount).where(overdue, VpnAccount.panel_id.is_(None)))).all():
-            a.status = "expired"
+            set_vpn_status(a, VpnStatus.EXPIRED)
             await notices.expired(s, a)
         await s.commit()
         # accounts on a panel: ask the panel (oldest read first, bounded per run)

@@ -172,9 +172,11 @@ function NoticeLevels({ call, toast }: { call: CallFn; toast: Toast }) {
 
 export default function PanelOpsView({ api, toast }: { api?: Json; toast: Toast }) {
   const call = useCallback((p: string, o?: RequestInit) => authFetch(api.base, p, o), [api.base]);
-  const [tab, setTab] = useState('issues');
+  const [tab, setTab] = useState(() => new URLSearchParams(window.location.hash.split('?')[1] || '').get('tab') || 'issues');
   const [panels, setPanels] = useState<Rec[]>([]);
-  const [panelId, setPanelId] = useState('');
+  // Deep link from the panel card: #/panel-ops?panel=<id>[&tab=<tab>]
+  const deep = new URLSearchParams(window.location.hash.split('?')[1] || '');
+  const [panelId, setPanelId] = useState(deep.get('panel') || '');
   const [summary, setSummary] = useState<Json>(null);
   const [issues, setIssues] = useState<{ total: number; items: Rec[] }>({ total: 0, items: [] });
   const [orphans, setOrphans] = useState<{ total: number; items: Rec[] }>({ total: 0, items: [] });
