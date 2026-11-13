@@ -105,3 +105,5 @@ _Merged from the former 12-Change-Log-v1.1.md._
   The admin edits the main store through `GET/PUT /admin/payment-destinations[/{provider}]` (area `payments`); `/admin/settings` refuses the legacy keys.
   A main store with no configuration now answers `PAYMENT_METHOD_DISABLED`, exactly like a reseller store.
 - Admin menu: stores, resellers, panel access (panel admins + sub branding) and volume governance are tabs of the single `فروشگاه‌ها` hub (`#/stores?tab=...`).
+- Reward stacking is written down in `domain/order_rewards.py`: coupon is already inside `order.total`; referral then loyalty settle from that charged total in a fixed order, refunds reverse loyalty then referral; the worker calls one `_settle_rewards`.
+- `domain/order_state.VPN_TRANSITIONS` + `assert_vpn_transition` define the account lifecycle table. Not yet wired into every writer (renewal, returns, recreate, bulk); that is the next step.

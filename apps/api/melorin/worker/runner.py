@@ -75,12 +75,22 @@ async def _on_provisioning_failed(session, p: dict):
     await _webhook(session, "order.provisioning_failed", p, f"order.provisioning_failed:{p.get('order_id')}")
 
 
-async def _on_order_completed(session, p: dict):
-    from melorin.modules.loyalty.service import on_order_completed as loyalty_on_order_completed
-    from melorin.modules.referral.service import on_order_completed
+async def _settle_rewards(session, order_id, *, reverse: bool) -> None:
+    """Run the reward engines in the order fixed by ``domain.order_rewards`` (the single stacking policy)."""
+    from melorin.domain.order_rewards import REVERSE_ORDER, SETTLE_ORDER, RewardEngine
+    from melorin.modules.loyalty import service as loyalty
+    from melorin.modules.referral import service as referral
 
-    await on_order_completed(session, _oid(p))
-    await loyalty_on_order_completed(session, _oid(p))
+    steps = {
+        RewardEngine.REFERRAL: referral.on_order_refunded if reverse else referral.on_order_completed,
+        RewardEngine.LOYALTY: loyalty.on_order_refunded if reverse else loyalty.on_order_completed,
+    }
+    for engine in REVERSE_ORDER if reverse else SETTLE_ORDER:
+        await steps[engine](session, order_id)
+
+
+async def _on_order_completed(session, p: dict):
+    await _settle_rewards(session, _oid(p), reverse=False)
     await _webhook(session, "order.completed", p, f"order.completed:{p.get('order_id')}")
 
 
@@ -91,11 +101,7 @@ async def _on_order_delivery(session, p: dict):
 
 
 async def _on_order_refunded(session, p: dict):
-    from melorin.modules.loyalty.service import on_order_refunded as loyalty_on_order_refunded
-    from melorin.modules.referral.service import on_order_refunded
-
-    await on_order_refunded(session, _oid(p))
-    await loyalty_on_order_refunded(session, _oid(p))
+    await _settle_rewards(session, _oid(p), reverse=True)
     await _webhook(session, "order.refunded", p, f"order.refunded:{p.get('order_id')}")
 
 

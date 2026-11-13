@@ -65,3 +65,24 @@ class PaymentStatus(StrEnum):
     FAILED = "failed"
     CANCELLED = "cancelled"
     REFUNDED = "refunded"
+
+
+V = VpnStatus
+VPN_TRANSITIONS: dict[VpnStatus, set[VpnStatus]] = {
+    V.PENDING: {V.PROVISIONING, V.ACTIVE, V.REVOKED, V.ARCHIVED},
+    V.PROVISIONING: {V.ACTIVE, V.PENDING, V.REVOKED, V.ARCHIVED},
+    V.ACTIVE: {V.SUSPENDED, V.EXPIRED, V.LIMITED, V.REVOKED, V.ARCHIVED},
+    V.SUSPENDED: {V.ACTIVE, V.EXPIRED, V.REVOKED, V.ARCHIVED},
+    V.EXPIRED: {V.ACTIVE, V.REVOKED, V.ARCHIVED},  # renewal brings it back
+    V.LIMITED: {V.ACTIVE, V.EXPIRED, V.SUSPENDED, V.REVOKED, V.ARCHIVED},  # quota reset / renewal
+    V.REVOKED: {V.ARCHIVED},
+    V.ARCHIVED: set(),
+}
+
+
+def assert_vpn_transition(src: str, dst: str) -> None:
+    """Guard for account lifecycle changes (renewal, return, recreate, bulk, reconcile). Same state is a no-op."""
+    if src == dst:
+        return
+    if VpnStatus(dst) not in VPN_TRANSITIONS[VpnStatus(src)]:
+        raise InvalidTransition(src, dst)
