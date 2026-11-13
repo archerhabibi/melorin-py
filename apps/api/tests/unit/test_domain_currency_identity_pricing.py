@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from melorin.domain import currency, identity_link, pricing, referral
+from melorin.domain import currency, identity_link, pricing, commission as referral
 from melorin.domain.identity_link import Candidate, Decision, decide
 
 

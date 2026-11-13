@@ -15,7 +15,7 @@ from melorin.kernel.models.stores import Store
 from melorin.modules.vpn.adapters.base import ErrorKind, PanelError
 from melorin.kernel.models.vpn import Panel, ProvisioningAttempt, Server, VpnAccount
 from melorin.kernel.models.bundles import Bundle, BundleMember, BundleProduct, StoreBundle
-from melorin.modules.vpn.bundles import clean_custom_name
+from melorin.domain.account_name import clean_custom_name
 from melorin.modules.catalog.allocation.offers import sellable_bundles
 from melorin.modules.vpn.targets import effective_destination, normalize_target, validate_target
 from melorin.domain.timeutil import aware as _aware

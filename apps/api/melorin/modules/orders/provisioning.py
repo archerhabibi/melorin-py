@@ -22,7 +22,7 @@ from melorin.modules.catalog.allocation import placement_snapshot, resolve_alloc
 from melorin.modules.vpn import notices, plans, renewal, sync
 from melorin.kernel.models.vpn import Panel, ProvisioningAttempt, Server, VpnAccount
 from melorin.kernel.models.bundles import Bundle, BundleMember
-from melorin.modules.vpn.bundles import clean_custom_name
+from melorin.domain.account_name import clean_custom_name
 
 log = logging.getLogger("melorin.provisioning")
 
