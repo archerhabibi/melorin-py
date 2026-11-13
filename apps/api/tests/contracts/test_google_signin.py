@@ -89,7 +89,7 @@ async def test_super_admin_cannot_bypass_totp_via_google(world):
     assert e.value.code == "TOTP_REQUIRED"
     with pytest.raises(AppError) as e:
         await _login(world, "g-admin", "000000")
-    assert e.value.code == "TOTP_REQUIRED"
+    assert e.value.code == "TOTP_INVALID"
 
 
 async def test_super_admin_without_totp_enrolled_is_refused(world):
@@ -104,7 +104,7 @@ async def test_super_admin_with_valid_totp_logs_in_once_replay_rejected(world):
     assert pair.is_admin is True and "melorin_refresh" in resp.headers.get("set-cookie", "")
     with pytest.raises(AppError) as e:
         await _login(world, "g-admin", code)
-    assert e.value.code == "TOTP_REQUIRED"
+    assert e.value.code == "TOTP_REPLAYED"
 
 
 def test_csp_allows_google_identity_services_on_every_site():
@@ -150,7 +150,11 @@ def test_login_pages_use_the_shared_button_and_no_legacy_hook():
     for src in (read_store_shell(PROJECT), (PROJECT / "apps/admin-web/src/AdminAuth.tsx").read_text()):
         assert "<GoogleSignInButton" in src and "useGoogleSignIn" not in src
     admin = read_web_source(PROJECT / "apps/admin-web/src/AdminAuth.tsx")
-    assert "payload?.error?.code" in admin  # API errors are {error: {code}}
+    assert "codeFromResponse" in admin  # the form reads the API error code through the shared helper ...
+    errors = read_web_source(PROJECT / "apps/admin-web/src/loginErrors.ts")
+    assert "error?.code" in errors  # ... which knows API errors are {error: {code}}
+    for code in ("INVALID_CREDENTIALS", "TOTP_REQUIRED", "TOTP_INVALID", "TOTP_REPLAYED"):
+        assert code in errors  # wrong password and the three TOTP failures each have their own message
 
 
 def test_popup_flow_keeps_window_opener_via_coop_header():

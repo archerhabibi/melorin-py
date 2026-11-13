@@ -119,13 +119,14 @@ async def test_admin_login_needs_a_valid_totp_and_gets_an_unbound_admin_session(
         body = {"email": "root@example.com", "password": PASSWORD}
         missing = await c.post(f"{API}/password/login", json=body)
         wrong = await c.post(f"{API}/password/login", json={**body, "totp_code": "12345a"})
-        assert (missing.status_code, _err(missing)) == (401, "TOTP_REQUIRED") and wrong.status_code == 401
+        assert (missing.status_code, _err(missing)) == (401, "TOTP_REQUIRED")
+        assert (wrong.status_code, _err(wrong)) == (401, "TOTP_INVALID")  # wrong code != missing code != bad password
         code = totp_now()  # ONE code for both attempts: two totp_now() calls can straddle a 30 s step boundary and flake
         ok = await c.post(f"{API}/password/login", json={**body, "totp_code": code})
         assert ok.status_code == 200, ok.text
         assert (ok.json()["is_admin"], ok.json()["channel"], ok.json()["store_id"]) == (True, "admin", None)
         replay = await c.post(f"{API}/password/login", json={**body, "totp_code": code})
-        assert replay.status_code == 401 and _err(replay) == "TOTP_REQUIRED"  # the same 30 s step cannot be used twice
+        assert replay.status_code == 401 and _err(replay) == "TOTP_REPLAYED"  # the same 30 s step cannot be used twice
 
 
 async def test_customer_with_totp_enabled_must_also_present_a_code():
@@ -323,3 +324,25 @@ async def test_web_handoff_redeem_issues_a_session_for_the_user_the_bot_vouched_
         r = await c.post(f"{API}/web-handoff/redeem", json={"token": "t" * 32})
         assert r.status_code == 200 and seen["args"] == ("t" * 32, main.id)
         assert (await c.post(f"{API}/web-handoff/redeem", json={"token": "short"})).status_code == 422
+
+
+async def test_admin_totp_failures_are_told_apart_from_a_wrong_password():
+    async with api_client() as (c, maker, _):
+        await add_user(maker, email="root@example.com", admin=True, totp=True)
+        ok_creds = {"email": "root@example.com", "password": PASSWORD}
+        bad_pw = await c.post(f"{API}/password/login", json={**ok_creds, "password": "not-the-password-1", "totp_code": "000000"})
+        blank = await c.post(f"{API}/password/login", json={**ok_creds, "totp_code": "   "})
+        wrong = await c.post(f"{API}/password/login", json={**ok_creds, "totp_code": "000000"})
+        assert (bad_pw.status_code, _err(bad_pw)) == (401, "INVALID_CREDENTIALS")
+        assert (blank.status_code, _err(blank)) == (401, "TOTP_REQUIRED")
+        assert (wrong.status_code, _err(wrong)) == (401, "TOTP_INVALID")
+        assert len({_err(bad_pw), _err(blank), _err(wrong)}) == 3  # the UI relies on these being three different codes
+
+
+async def test_admin_totp_pasted_with_a_separator_is_accepted():
+    async with api_client() as (c, maker, _):
+        await add_user(maker, email="root@example.com", admin=True, totp=True)
+        code = totp_now()
+        spaced = f"{code[:3]} {code[3:]}"
+        r = await c.post(f"{API}/password/login", json={"email": "root@example.com", "password": PASSWORD, "totp_code": spaced})
+        assert r.status_code == 200, r.text
