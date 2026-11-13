@@ -1565,10 +1565,10 @@ index 1204f3a..09b48de 100644
  whenever that is provably safe, and only the genuinely ambiguous cases still reach a human:
 diff --git a/apps/api/melorin/domain/messaging_policy.py b/apps/api/melorin/domain/messaging_policy.py
 new file mode 100644
-index 0000000..1d97ba9
+index 0000000..4b1f7b6
 --- /dev/null
 +++ b/apps/api/melorin/domain/messaging_policy.py
-@@ -0,0 +1,51 @@
+@@ -0,0 +1,56 @@
 +"""Which notification goes to whom, on which channel, how loudly (architecture review 2026-11-13, sections 4.7 and 5).
 +
 +The delivery paths stay separate (outbox -> Telegram DM, Event Center topics, Alertmanager, VPN notices); this table is the one place that
@@ -1620,6 +1620,11 @@ index 0000000..1d97ba9
 +    if r.family == TECHNICAL and audience == CUSTOMER:
 +        return False
 +    return audience == r.audience and channel in r.channels
++
++
++def dm_allowed(kind: str | None) -> bool:
++    """May this kind be delivered as a Telegram DM at all? Kinds routed only to the Event Center (panel, backup, infra, outbox alerts) are not."""
++    return DM in route_for(kind).channels
 diff --git a/apps/api/melorin/domain/notification_dedup.py b/apps/api/melorin/domain/notification_dedup.py
 new file mode 100644
 index 0000000..b29e6df
@@ -4330,10 +4335,10 @@ index 8efca89..022fc45 100644
      done = 0
      async with session_factory()() as s:
 diff --git a/apps/api/melorin/worker/runner.py b/apps/api/melorin/worker/runner.py
-index a7c6935..04aba37 100644
+index a7c6935..918dc99 100644
 --- a/apps/api/melorin/worker/runner.py
 +++ b/apps/api/melorin/worker/runner.py
-@@ -6,9 +6,11 @@ import uuid
+@@ -6,9 +6,12 @@ import uuid
  
  from sqlalchemy import select, update
  
@@ -4341,11 +4346,12 @@ index a7c6935..04aba37 100644
  from melorin.core import events
  from melorin.core.config import get_settings
  from melorin.core.db import session_factory, utcnow
++from melorin.domain import messaging_policy
 +from melorin.domain.notification_dedup import EVENT_ID_FIELD, effective_key
  from melorin.core.metrics import inc
  from melorin import models  # noqa: F401, register all SQLAlchemy mappers before worker sessions
  from melorin.kernel.models.identity import User
-@@ -17,7 +19,7 @@ from melorin.kernel.models.orders import Order
+@@ -17,7 +20,7 @@ from melorin.kernel.models.orders import Order
  from melorin.kernel.models.system import OutboxEvent
  from melorin.modules.orders import provisioning as vpn
  from melorin.modules.vpn import sync
@@ -4354,7 +4360,7 @@ index a7c6935..04aba37 100644
  from melorin.kernel.models.vpn import Panel, VpnAccount
  
  log = logging.getLogger("melorin.worker")
-@@ -75,12 +77,22 @@ async def _on_provisioning_failed(session, p: dict):
+@@ -75,12 +78,22 @@ async def _on_provisioning_failed(session, p: dict):
      await _webhook(session, "order.provisioning_failed", p, f"order.provisioning_failed:{p.get('order_id')}")
  
  
@@ -4382,7 +4388,7 @@ index a7c6935..04aba37 100644
      await _webhook(session, "order.completed", p, f"order.completed:{p.get('order_id')}")
  
  
-@@ -91,11 +103,7 @@ async def _on_order_delivery(session, p: dict):
+@@ -91,11 +104,7 @@ async def _on_order_delivery(session, p: dict):
  
  
  async def _on_order_refunded(session, p: dict):
@@ -4395,7 +4401,7 @@ index a7c6935..04aba37 100644
      await _webhook(session, "order.refunded", p, f"order.refunded:{p.get('order_id')}")
  
  
-@@ -185,7 +193,7 @@ async def process_event(e: OutboxEvent):
+@@ -185,7 +194,7 @@ async def process_event(e: OutboxEvent):
              e = reloaded
              handler = _TOPIC_HANDLERS.get(e.topic)
              if handler is not None:  # unknown topics are acknowledged without work, as before
@@ -4404,16 +4410,20 @@ index a7c6935..04aba37 100644
              if e.topic != events.EVENT_CENTER_DELIVER:  # Telegram fan-out: best-effort, inside a SAVEPOINT, never fails the event
                  from melorin.modules.eventcenter import rules as event_center_rules
  
-@@ -210,7 +218,7 @@ async def _notify(session, p: dict, kind: str, title: str, body: str = ""):
+@@ -209,8 +218,11 @@ async def process_event(e: OutboxEvent):
+ async def _notify(session, p: dict, kind: str, title: str, body: str = ""):
      if not p.get("user_id"):
          return
++    if not messaging_policy.dm_allowed(kind):  # event-center-only kinds never become a DM
++        inc("melorin_notifications_total", channel="telegram", result="policy_skipped")
++        return
      user_id = uuid.UUID(str(p["user_id"]))
 -    dedup_key = p.get("dedup_key")
 +    dedup_key = effective_key(p, str(user_id), "telegram")
      n = await session.scalar(select(Notification).where(Notification.dedup_key == dedup_key)) if dedup_key else None
      if n and n.telegram_status == "sent":
          return
-@@ -295,7 +303,7 @@ async def revoke_account(session, account_id):
+@@ -295,7 +307,7 @@ async def revoke_account(session, account_id):
          return
      panel = await session.get(Panel, a.panel_id)
      await seed_adapter(build_adapter(panel), a).revoke_account(a.username)
@@ -5774,10 +5784,10 @@ index 0f1ad9b..9216cdf 100644
  
 diff --git a/apps/api/tests/unit/test_messaging_policy.py b/apps/api/tests/unit/test_messaging_policy.py
 new file mode 100644
-index 0000000..7361f41
+index 0000000..33c3aac
 --- /dev/null
 +++ b/apps/api/tests/unit/test_messaging_policy.py
-@@ -0,0 +1,19 @@
+@@ -0,0 +1,24 @@
 +from melorin.domain import messaging_policy as m
 +
 +
@@ -5797,6 +5807,11 @@ index 0000000..7361f41
 +def test_longest_prefix_wins():
 +    assert m.route_for("vpn_near_expiry").severity == m.INFO
 +    assert m.route_for("store_volume_80").audience == m.STORE_OWNER
++
++
++def test_dm_allowed_only_for_kinds_routed_to_dm():
++    assert m.dm_allowed("vpn_expired") and m.dm_allowed("provisioning_failed") and m.dm_allowed(None)
++    assert not m.dm_allowed("panel_down") and not m.dm_allowed("backup_failed") and not m.dm_allowed("outbox_failure")
 diff --git a/apps/api/tests/unit/test_notification_dedup.py b/apps/api/tests/unit/test_notification_dedup.py
 new file mode 100644
 index 0000000..506d408
@@ -7034,7 +7049,7 @@ index cb2b24a..5e7709b 100644
  log = logging.getLogger("melorin.telegram.reseller")
  
 diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
-index 1be7e54..54fd61b 100644
+index 1be7e54..e6a938e 100644
 --- a/docs/DECISIONS.md
 +++ b/docs/DECISIONS.md
 @@ -51,7 +51,7 @@ _Merged from the former 12-Change-Log-v1.1.md._
@@ -7046,7 +7061,7 @@ index 1be7e54..54fd61b 100644
  - Adapter classes and each family's `contract.py` (settings/target validation, capacity label, listing warnings) are imported lazily; `upstream_bot` therefore needs Telethon only when a call is made.
  - Core code asks `providers.supports(kind, feature)` / `target_kinds(kind)` instead of comparing `panel.kind` with a string. A new family is one `register_provider(...)` call.
  - Guarded by `tests/test_provider_adapters.py` (no concrete family is imported outside the adapter layer, except the PasarGuard wire parsers listed in the test).
-@@ -94,3 +94,32 @@ _Merged from the former 12-Change-Log-v1.1.md._
+@@ -94,3 +94,33 @@ _Merged from the former 12-Change-Log-v1.1.md._
  - Honest limit: component props and server payloads that are not yet bound to generated `@melorin/api-client` schemas are typed `Json` / `Rec` (aliases in `src/types.ts`, same markers as admin-web). They are greppable; tighten one view per PR. This is a typed shell, not full type safety.
  - Verified in a real browser, not only jsdom: Playwright 10 passed / 2 skipped (the skipped two need a seeded staging stack), vitest 79, `vite build` OK (main bundle ~272 KB, gzip ~85 KB).
  - Source-contract guards (api tests, `check_g001_g010.py`, `check_frontend_contracts.py`) were repointed from `.jsx`/`.js` to `.tsx`/`.ts` for BOTH apps; the earlier admin-web migration had left 16 contract tests red because they still read the old names.
@@ -7078,7 +7093,8 @@ index 1be7e54..54fd61b 100644
 +- Account status writes: `tests/contracts/test_vpn_status_writes.py` fails the build on any direct `account.status = ...` outside `set_vpn_status`.
 +- Messaging policy: `domain/messaging_policy.py` classifies every notification kind (technical vs commercial, severity, audience, channels). Technical alerts never go to customers. It is the contract for the delivery paths; wiring each path to `allowed()` is incremental.
 +- Bank SMS rules (status labels, form mapping, request body) live in `@melorin/web-kit/bankSms.js` for both apps.
-+- Still open: route each delivery path through `messaging_policy.allowed`, move Loyalty / Referral / Broadcast logic onto web-kit hooks, and a shared design-token CSS package (admin and store skins still differ).
++- Telegram DM delivery (`worker/runner._notify`) now asks `messaging_policy.dm_allowed(kind)`: kinds routed only to the Event Center (panel, backup, infra, outbox alerts) are never sent as a DM.
++- Still open: route the remaining delivery paths (Event Center topics, VPN notices) through `messaging_policy.allowed`, move Loyalty / Referral / Broadcast logic onto web-kit hooks, and a shared design-token CSS package (admin and store skins still differ).
 diff --git a/docs/GLOSSARY.md b/docs/GLOSSARY.md
 index 05da7ef..c2d8a21 100644
 --- a/docs/GLOSSARY.md

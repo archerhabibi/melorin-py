@@ -1,7 +1,7 @@
 From 2b7a40f4d38354ba119e0b5f4b673112112ec92e Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@gmail.com>
 Date: Fri, 13 Nov 2026 11:54:01 +0000
-Subject: [PATCH 01/24] arch(contracts): put eventcenter and broadcast under
+Subject: [PATCH 01/25] arch(contracts): put eventcenter and broadcast under
  the layer contract
 
 ---
@@ -28,7 +28,7 @@ index 286ab43..8ac7f14 100644
 From 2d64d509e34f94253822c3dbe6a55249abcb6301 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@gmail.com>
 Date: Fri, 13 Nov 2026 11:58:35 +0000
-Subject: [PATCH 02/24] fix(auth): admin password change enforces the same
+Subject: [PATCH 02/25] fix(auth): admin password change enforces the same
  policy as invite acceptance
 
 ---
@@ -92,7 +92,7 @@ index 4b4c2e7..b25e1a7 100644
 From 5ebfec4a5a0ad094c54c045612d3869ebc5e45b9 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@gmail.com>
 Date: Fri, 13 Nov 2026 11:59:56 +0000
-Subject: [PATCH 03/24] feat(admin-ui): regroup the menu (operations,
+Subject: [PATCH 03/25] feat(admin-ui): regroup the menu (operations,
  customers, catalog+marketing, communication, infrastructure); single password
  form; Receipt OCR lives under Payments
 
@@ -231,7 +231,7 @@ index d735da1..1bc9415 100644
 From cf3078358e9dd56b704544fd5afe992040683daa Mon Sep 17 00:00:00 2001
 From: claude-refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 12:22:19 +0000
-Subject: [PATCH 04/24] test(admin-ui): contract test follows the regrouped
+Subject: [PATCH 04/25] test(admin-ui): contract test follows the regrouped
  menu (infra group, catalog+marketing group)
 
 ---
@@ -263,7 +263,7 @@ index c37b6d0..b1c0224 100644
 From fa2f9f1b12a3e751e31dd0e7c0fecfe020debe13 Mon Sep 17 00:00:00 2001
 From: claude-refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 12:26:08 +0000
-Subject: [PATCH 05/24] arch(panelops): move panel_admins, governance,
+Subject: [PATCH 05/25] arch(panelops): move panel_admins, governance,
  store_usage, service_access, panel_events_admin, bulk, subscription_check,
  recreate, digest from vpn to panelops
 
@@ -873,7 +873,7 @@ index dc6010d..5daf353 100644
 From 28b907357132344d43bf66ba46418fb216c133cb Mon Sep 17 00:00:00 2001
 From: claude-refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 12:36:11 +0000
-Subject: [PATCH 06/24] arch(panelops): one reconciliation-actions service;
+Subject: [PATCH 06/25] arch(panelops): one reconciliation-actions service;
  admin router no longer builds adapters or coordinates writes
 
 Behaviour, error codes, audit events and messages are unchanged. Commits go through unit_of_work. Tests that patched the router's
@@ -1252,7 +1252,7 @@ index 1be7e54..ae1b773 100644
 From d9bf9dddd7d1751e60a4974b89608d057b2f9a2a Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:09:10 +0000
-Subject: [PATCH 07/24] docs(identity): point identity docstrings at docs/23
+Subject: [PATCH 07/25] docs(identity): point identity docstrings at docs/23
  (was docs/21)
 
 ---
@@ -1496,7 +1496,7 @@ index f553767..6ad921e 100644
 From 4666d51295581024fbba949d8215350c69940168 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:17:14 +0000
-Subject: [PATCH 08/24] feat(admin-ui): Settings is tabbed (backup+email /
+Subject: [PATCH 08/25] feat(admin-ui): Settings is tabbed (backup+email /
  advanced); Google and Telegram sign-in move to Identity > sign-in methods
 
 ---
@@ -1638,7 +1638,7 @@ index 89ae544..5be23cf 100644
 From f5d1996854a4f0b4b0595d9eb227d3e6e1c423c3 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:33:00 +0000
-Subject: [PATCH 09/24] feat(admin-ui): store hub: stores, resellers, panel
+Subject: [PATCH 09/25] feat(admin-ui): store hub: stores, resellers, panel
  access and volume governance are tabs of one menu entry
 
 ---
@@ -1860,7 +1860,7 @@ index 0000000..6dcd158
 From 4133a03d42351e76a8ac37b31e3d309270715b1e Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:53:57 +0000
-Subject: [PATCH 10/24] arch(payments): the main store payment destination uses
+Subject: [PATCH 10/25] arch(payments): the main store payment destination uses
  StorePaymentConfiguration; global card.info/gateway.zarinpal and the fallback
  are removed (alembic 0056)
 
@@ -2642,7 +2642,7 @@ index ae1b773..01a6a68 100644
 From eecbae7ca6146bef7cd336a832f0f91aa7560d5d Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 14:34:34 +0000
-Subject: [PATCH 11/24] arch(rewards): one written stacking policy and one
+Subject: [PATCH 11/25] arch(rewards): one written stacking policy and one
  settlement path; vpn account transition table
 
 ---
@@ -2817,7 +2817,7 @@ index 01a6a68..13f2648 100644
 From 3d7d013580e91867a5ec537d24db8323ea4c3fa0 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 14:42:16 +0000
-Subject: [PATCH 12/24] test(worker): refunds reverse loyalty before referral
+Subject: [PATCH 12/25] test(worker): refunds reverse loyalty before referral
 
 ---
  apps/api/tests/service/test_worker_runner_db.py | 2 +-
@@ -2843,7 +2843,7 @@ index ae12e89..af12146 100644
 From 34e51683ea1a0f2d5c9c18a528a48964c9f1ce77 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 14:59:48 +0000
-Subject: [PATCH 13/24] arch(worker): one read cycle per panel: metrics
+Subject: [PATCH 13/25] arch(worker): one read cycle per panel: metrics
  snapshot rides on the health job adapter
 
 ---
@@ -2923,7 +2923,7 @@ index 13f2648..3390dbd 100644
 From 3338242826ea3df9a23a08a2da87601ed7a78ed6 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 15:20:11 +0000
-Subject: [PATCH 14/24] arch(vpn): account status changes go through the
+Subject: [PATCH 14/25] arch(vpn): account status changes go through the
  guarded transition table
 
 ---
@@ -3078,7 +3078,7 @@ index 3390dbd..1fa7cd4 100644
 From 7a4e0bf6c3ddd2d04e5993cc0e818273990efe85 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 15:33:23 +0000
-Subject: [PATCH 15/24] arch(messaging): notifications dedupe on event_id +
+Subject: [PATCH 15/25] arch(messaging): notifications dedupe on event_id +
  recipient + channel
 
 ---
@@ -3200,7 +3200,7 @@ index 1fa7cd4..9e68bb5 100644
 From aae44f6b1397699b701c15ee04d519609193659b Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 16:18:20 +0000
-Subject: [PATCH 16/24] arch: guard expiry/revoke/sync status writes; panel
+Subject: [PATCH 16/25] arch: guard expiry/revoke/sync status writes; panel
  card deep-links to panel operations
 
 ---
@@ -3324,7 +3324,7 @@ index 9e68bb5..7218ea0 100644
 From 35b241cc55ca4386a7037d8a7a3a062ba268bd63 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 16:50:44 +0000
-Subject: [PATCH 17/24] arch(telegram): shared bot core in tgmain.core;
+Subject: [PATCH 17/25] arch(telegram): shared bot core in tgmain.core;
  reseller bot imports it instead of loading main runner.py by path; reseller
  image copies tgmain only
 
@@ -4242,7 +4242,7 @@ index cb2b24a..5e7709b 100644
 From bed9db5b27ebee848c22126ec449af3077f48c34 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 16:50:44 +0000
-Subject: [PATCH 18/24] chore(domain): drop 5-line leftovers (vpn/bundles,
+Subject: [PATCH 18/25] chore(domain): drop 5-line leftovers (vpn/bundles,
  vpn/service, domain/referral); commission_amount lives with commission,
  clean_custom_name in domain/account_name
 
@@ -4343,7 +4343,7 @@ index 0f1ad9b..9216cdf 100644
 From 81b5dd64815592a79fd09d829427b9ea83acbd83 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 16:59:01 +0000
-Subject: [PATCH 19/24] feat(admin): Operations Center roll-up on
+Subject: [PATCH 19/25] feat(admin): Operations Center roll-up on
  /admin/dashboard + dashboard card; restore vpn/service.py; guard provisioning
  status write; drop dead DataTable branches; contract test follows
  tgmain.core; decisions
@@ -4773,7 +4773,7 @@ index 7218ea0..45e9108 100644
 From a42c4b5125ec4735d242e8c52db443ceec7eebcd Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 17:03:53 +0000
-Subject: [PATCH 20/24] test: source-contract tests read tgmain/core.py
+Subject: [PATCH 20/25] test: source-contract tests read tgmain/core.py
 
 ---
  apps/api/tests/service/test_account_return.py              | 2 +-
@@ -4813,7 +4813,7 @@ index 9b5bf8b..65018af 100644
 From f820a98089d4df8cb591ebcb8809ed36844af73f Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 17:26:04 +0000
-Subject: [PATCH 21/24] feat(admin-ui): panel detail drawer: nodes, console,
+Subject: [PATCH 21/25] feat(admin-ui): panel detail drawer: nodes, console,
  events, capacity, templates and indicators are tabs of the panel; panel-ops
  keeps discrepancies, orphans and notices
 
@@ -5275,7 +5275,7 @@ index 45e9108..dd84015 100644
 From 802aa443b74f0e51fac783fb0265773f7b1734f8 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 20:40:47 +0000
-Subject: [PATCH 22/24] arch(integrations): provider adapters, sessions,
+Subject: [PATCH 22/25] arch(integrations): provider adapters, sessions,
  readers, capabilities and target config move from vpn to
  modules/panel_integrations (lowest feature layer); shared Event Center logic
  and text helpers move to web-kit
@@ -8112,7 +8112,7 @@ index 1423897..7dc57d3 100644
 From 4396daa9c77daadf056227597cd4f0618718a1d2 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 20:40:56 +0000
-Subject: [PATCH 23/24] docs: record integration boundary and shared web-kit
+Subject: [PATCH 23/25] docs: record integration boundary and shared web-kit
  decisions
 
 ---
@@ -8137,7 +8137,7 @@ index 82095f7..392f75c 100644
 From e20603006d61038349bba97489e394bb7429f8e2 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 21:21:54 +0000
-Subject: [PATCH 24/24] arch: PanelSnapshot read model, messaging policy,
+Subject: [PATCH 24/25] arch: PanelSnapshot read model, messaging policy,
  status-write contract test, shared Bank SMS rules in web-kit
 
 ---
@@ -8719,6 +8719,82 @@ index 0000000..d97d251
 +    },
 +  };
 +}
+-- 
+2.43.0
+
+
+From 4cbea13a57d038502850d3cd383be13431f9cb98 Mon Sep 17 00:00:00 2001
+From: Pori Toooni <poritoooni@gmail.com>
+Date: Fri, 13 Nov 2026 22:08:29 +0000
+Subject: [PATCH 25/25] arch(messaging): DM delivery honours
+ messaging_policy.dm_allowed; decisions updated
+
+---
+ apps/api/melorin/domain/messaging_policy.py  | 5 +++++
+ apps/api/melorin/worker/runner.py            | 4 ++++
+ apps/api/tests/unit/test_messaging_policy.py | 5 +++++
+ docs/DECISIONS.md                            | 3 ++-
+ 4 files changed, 16 insertions(+), 1 deletion(-)
+
+diff --git a/apps/api/melorin/domain/messaging_policy.py b/apps/api/melorin/domain/messaging_policy.py
+index 1d97ba9..4b1f7b6 100644
+--- a/apps/api/melorin/domain/messaging_policy.py
++++ b/apps/api/melorin/domain/messaging_policy.py
+@@ -49,3 +49,8 @@ def allowed(kind: str | None, audience: str, channel: str) -> bool:
+     if r.family == TECHNICAL and audience == CUSTOMER:
+         return False
+     return audience == r.audience and channel in r.channels
++
++
++def dm_allowed(kind: str | None) -> bool:
++    """May this kind be delivered as a Telegram DM at all? Kinds routed only to the Event Center (panel, backup, infra, outbox alerts) are not."""
++    return DM in route_for(kind).channels
+diff --git a/apps/api/melorin/worker/runner.py b/apps/api/melorin/worker/runner.py
+index 04aba37..918dc99 100644
+--- a/apps/api/melorin/worker/runner.py
++++ b/apps/api/melorin/worker/runner.py
+@@ -10,6 +10,7 @@ from melorin.domain.order_state import VpnStatus, set_vpn_status
+ from melorin.core import events
+ from melorin.core.config import get_settings
+ from melorin.core.db import session_factory, utcnow
++from melorin.domain import messaging_policy
+ from melorin.domain.notification_dedup import EVENT_ID_FIELD, effective_key
+ from melorin.core.metrics import inc
+ from melorin import models  # noqa: F401, register all SQLAlchemy mappers before worker sessions
+@@ -217,6 +218,9 @@ async def process_event(e: OutboxEvent):
+ async def _notify(session, p: dict, kind: str, title: str, body: str = ""):
+     if not p.get("user_id"):
+         return
++    if not messaging_policy.dm_allowed(kind):  # event-center-only kinds never become a DM
++        inc("melorin_notifications_total", channel="telegram", result="policy_skipped")
++        return
+     user_id = uuid.UUID(str(p["user_id"]))
+     dedup_key = effective_key(p, str(user_id), "telegram")
+     n = await session.scalar(select(Notification).where(Notification.dedup_key == dedup_key)) if dedup_key else None
+diff --git a/apps/api/tests/unit/test_messaging_policy.py b/apps/api/tests/unit/test_messaging_policy.py
+index 7361f41..33c3aac 100644
+--- a/apps/api/tests/unit/test_messaging_policy.py
++++ b/apps/api/tests/unit/test_messaging_policy.py
+@@ -17,3 +17,8 @@ def test_commercial_notices_stay_off_technical_topics_and_unknown_defaults_to_cu
+ def test_longest_prefix_wins():
+     assert m.route_for("vpn_near_expiry").severity == m.INFO
+     assert m.route_for("store_volume_80").audience == m.STORE_OWNER
++
++
++def test_dm_allowed_only_for_kinds_routed_to_dm():
++    assert m.dm_allowed("vpn_expired") and m.dm_allowed("provisioning_failed") and m.dm_allowed(None)
++    assert not m.dm_allowed("panel_down") and not m.dm_allowed("backup_failed") and not m.dm_allowed("outbox_failure")
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index 54fd61b..e6a938e 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -122,4 +122,5 @@ _Merged from the former 12-Change-Log-v1.1.md._
+ - Account status writes: `tests/contracts/test_vpn_status_writes.py` fails the build on any direct `account.status = ...` outside `set_vpn_status`.
+ - Messaging policy: `domain/messaging_policy.py` classifies every notification kind (technical vs commercial, severity, audience, channels). Technical alerts never go to customers. It is the contract for the delivery paths; wiring each path to `allowed()` is incremental.
+ - Bank SMS rules (status labels, form mapping, request body) live in `@melorin/web-kit/bankSms.js` for both apps.
+-- Still open: route each delivery path through `messaging_policy.allowed`, move Loyalty / Referral / Broadcast logic onto web-kit hooks, and a shared design-token CSS package (admin and store skins still differ).
++- Telegram DM delivery (`worker/runner._notify`) now asks `messaging_policy.dm_allowed(kind)`: kinds routed only to the Event Center (panel, backup, infra, outbox alerts) are never sent as a DM.
++- Still open: route the remaining delivery paths (Event Center topics, VPN notices) through `messaging_policy.allowed`, move Loyalty / Referral / Broadcast logic onto web-kit hooks, and a shared design-token CSS package (admin and store skins still differ).
 -- 
 2.43.0
 
