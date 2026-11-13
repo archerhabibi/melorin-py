@@ -43,7 +43,6 @@ import {
   Store,
   Search,
   Layers,
-  Gauge,
   Moon,
   LogOut,
   KeyRound,
@@ -53,10 +52,8 @@ import {
   BellRing,
   Megaphone,
   UserPlus,
-  Bot,
   Gift,
   Award,
-  UserCog,
   UsersRound,
   Zap,
 } from 'lucide-react';
@@ -86,7 +83,6 @@ const groups: [string, [string, LucideIcon, string][], string?][] = [
     [
       ['کاربران', Users, 'users'],
       ['فروشگاه‌ها', Store, 'stores'],
-      ['نمایندگان', Bot, 'resellers'],
       ['درخواست‌های نمایندگی', UserPlus, 'reseller-applications'],
       ['کارهای دستی', ListChecks, 'manual-tasks'],
     ],
@@ -114,8 +110,6 @@ const groups: [string, [string, LucideIcon, string][], string?][] = [
     'زیرساخت',
     [
       ['پنل‌ها و سرورها', PanelTop, 'panels'],
-      ['ادمین‌های پنل', UserCog, 'panel-admins'],
-      ['حجم فروشگاه‌ها', Gauge, 'store-governance'],
       ['سلامت زیرساخت', ShieldCheck, 'infra-health'],
       ['عملیات پنل', Activity, 'panel-ops'],
     ],
@@ -328,7 +322,7 @@ function Nav({
                     {pendingApps}
                   </span>
                 )}
-                {name === 'ادمین‌های پنل' && pendingPanelReq > 0 && (
+                {name === 'فروشگاه‌ها' && pendingPanelReq > 0 && (
                   <span className="mr-auto rounded-full bg-[#e8743b] px-2 py-0.5 text-[10px] font-bold text-white">
                     {pendingPanelReq}
                   </span>

@@ -79,6 +79,13 @@ export const infraHref = (slug: Json, params = {}) => {
 export function legacyHash(hash: Json) {
   const [path, q = ''] = hash.split('?');
   if (path === '#/identity-auto') return '#/identity?tab=devices'; // the two identity screens became one hub
+  // the store hub: resellers, panel access and volume governance became tabs of #/stores
+  const hubTab: Record<string, string> = {
+    '#/resellers': 'resellers',
+    '#/panel-admins': 'panels',
+    '#/store-governance': 'volume',
+  };
+  if (hubTab[path]) return `#/stores?tab=${hubTab[path]}`;
   if (path !== '#/servers') return null;
   const p = Object.fromEntries(new URLSearchParams(q));
   return infraHref('servers', p);

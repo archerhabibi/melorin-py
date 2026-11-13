@@ -28,7 +28,7 @@ const IdentityHubView = lazy(() => import('./IdentityHubView.tsx'));
 const OrdersView = lazy(() => import('./OrdersView.tsx'));
 const VpnAccountsView = lazy(() => import('./VpnAccountsView.tsx'));
 const UsersView = lazy(() => import('./UsersView.tsx'));
-const StoresView = lazy(() => import('./StoresView.tsx'));
+const StoreHubView = lazy(() => import('./StoreHubView.tsx'));
 const AuditView = lazy(() => import('./AuditView.tsx'));
 const ReferralProgramsView = lazy(() => import('./ReferralProgramsView.tsx'));
 const LoyaltyClubView = lazy(() => import('./LoyaltyClubView.tsx'));
@@ -732,7 +732,7 @@ export const extraRoutes = {
   سفارش‌ها: OrdersView,
   'اکانت‌های VPN': VpnAccountsView,
   کاربران: UsersView,
-  فروشگاه‌ها: StoresView,
+  فروشگاه‌ها: StoreHubView,
   پرداخت‌ها: PaymentsView,
   تیکت‌ها: Tickets,
   'محصولات VPN': ProductsView,
