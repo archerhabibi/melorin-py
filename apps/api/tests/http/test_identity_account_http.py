@@ -274,6 +274,8 @@ async def test_admin_password_change_guards_and_effect():
         assert wrong.status_code == 401 and _err(wrong) == "INVALID_CURRENT_PASSWORD"
         same = await c.post(path, json={"current_password": PASSWORD, "new_password": PASSWORD}, headers=h)
         assert same.status_code == 400 and _err(same) == "PASSWORD_UNCHANGED"
+        weak = await c.post(path, json={"current_password": PASSWORD, "new_password": "short1A!"}, headers=h)
+        assert weak.status_code == 422 and _err(weak) == "PASSWORD_TOO_SHORT"
         ok = await c.post(path, json={"current_password": PASSWORD, "new_password": "another-strong-pass-1"}, headers=h)
         assert ok.status_code == 200 and ok.json() == {"ok": True}
         c.cookies.clear()

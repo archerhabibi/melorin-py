@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Request, Response
 from sqlalchemy import select
 from melorin.core import audit, channel
+from melorin.domain import password_policy
 from melorin.core.crypto import decrypt, encrypt
 from melorin.core.config import get_settings
 from melorin.core.deps import AdminUser, CurrentAuth, CurrentUser, Session, main_store
@@ -136,6 +137,9 @@ async def change_admin_password(body: AdminPasswordChange, admin: AdminUser, ses
         raise AppError("INVALID_CURRENT_PASSWORD", "رمز فعلی نادرست است.", 401)
     if body.current_password == body.new_password:
         raise AppError("PASSWORD_UNCHANGED", "رمز جدید باید با رمز فعلی متفاوت باشد.", 400)
+    broken = password_policy.violation(body.new_password, admin.email or "")  # same rules as invite acceptance
+    if broken:
+        raise AppError(broken, password_policy.MESSAGES_FA[broken], 422)
     admin.password_hash = await hash_password(body.new_password)
     audit.record(session, "admin.password_changed", actor_id=admin.id, actor_type="admin", entity_type="user", entity_id=admin.id)
     await session.commit()
