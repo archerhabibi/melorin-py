@@ -7,6 +7,7 @@ import { authFetch } from './api.ts';
 import { Empty, ErrorBar, KpiBar, Paginator, Pills, SearchBox, Stat, errText, num } from './kit.tsx';
 import { Badge, confirmDialog, dt, promptDialog, sid } from './ui.tsx';
 import BankSmsPanel from './BankSmsPanel.tsx';
+import ReceiptOcrSettings from './ReceiptOcrSettings.tsx';
 
 import { PAGE, prov, cur, reviewable, FILTERS, ago, sumBy, Metric, ProviderChip, Amount } from './paymentsShared.tsx';
 import { RowActions, Queue, PaymentDrawer, GatewaySettings } from './PaymentParts.tsx';
@@ -360,6 +361,7 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast 
 
       <BankSmsPanel call={call} toast={toast} payments={all} />
       <GatewaySettings obj={settings} save={saveSetting} />
+      <ReceiptOcrSettings api={api} toast={toast} />
       {open && (
         <PaymentDrawer
           p={open}

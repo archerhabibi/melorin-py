@@ -58,6 +58,7 @@ import {
   Award,
   UserCog,
   UsersRound,
+  Zap,
 } from 'lucide-react';
 import type { AdminMe, Json, Rec, Toast } from './types.ts';
 
@@ -76,23 +77,37 @@ const groups: [string, [string, LucideIcon, string][], string?][] = [
       ['سفارش‌ها', Package, 'orders'],
       ['پرداخت‌ها', CreditCard, 'payments'],
       ['اکانت‌های VPN', Server, 'vpn'],
+      ['عملیات گروهی', Zap, 'bulk-operations'], // acts on VPN accounts, so it sits next to them
       ['تیکت‌ها', Ticket, 'tickets'],
     ],
   ],
   [
-    'فروش و مشتریان',
+    'مشتریان و نمایندگان',
     [
       ['کاربران', Users, 'users'],
       ['فروشگاه‌ها', Store, 'stores'],
       ['نمایندگان', Bot, 'resellers'],
       ['درخواست‌های نمایندگی', UserPlus, 'reseller-applications'],
       ['کارهای دستی', ListChecks, 'manual-tasks'],
-      ['پیام همگانی', Megaphone, 'broadcasts'],
-      ['دکمه‌های تلگرام', Paintbrush, 'button-styles'],
-      ['مرکز رویداد', BellRing, 'event-center'],
+    ],
+  ],
+  [
+    'کاتالوگ و بازاریابی',
+    [
+      ['بسته‌های فروش', Layers, 'bundles'],
+      ['محصولات VPN', Boxes, 'products'],
       ['کوپن‌ها', Percent, 'coupons'],
       ['برنامه‌های معرفی', Gift, 'referral-programs'],
       ['باشگاه مشتریان', Award, 'loyalty-club'],
+    ],
+    'مسیر فروش: پنل و سرور ← بسته فروش ← پکیج',
+  ],
+  [
+    'ارتباطات',
+    [
+      ['پیام همگانی', Megaphone, 'broadcasts'],
+      ['مرکز رویداد', BellRing, 'event-center'],
+      ['دکمه‌های تلگرام', Paintbrush, 'button-styles'],
     ],
   ],
   [
@@ -100,14 +115,10 @@ const groups: [string, [string, LucideIcon, string][], string?][] = [
     [
       ['پنل‌ها و سرورها', PanelTop, 'panels'],
       ['ادمین‌های پنل', UserCog, 'panel-admins'],
-      ['بسته‌های فروش', Layers, 'bundles'],
-      ['محصولات VPN', Boxes, 'products'],
+      ['حجم فروشگاه‌ها', Gauge, 'store-governance'],
       ['سلامت زیرساخت', ShieldCheck, 'infra-health'],
       ['عملیات پنل', Activity, 'panel-ops'],
-      ['عملیات گروهی', Layers, 'bulk-operations'],
-      ['حجم فروشگاه‌ها', Gauge, 'store-governance'],
     ],
-    'مسیر فروش: پنل و سرور ← بسته فروش ← پکیج',
   ],
   [
     'سیستم',

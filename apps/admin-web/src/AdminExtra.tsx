@@ -24,7 +24,6 @@ const ResellersView = lazy(() => import('./ResellersView.tsx'));
 const AdminTeamView = lazy(() => import('./AdminTeamView.tsx'));
 const MyAccountView = lazy(() => import('./MyAccountView.tsx'));
 const GoogleLoginSettings = lazy(() => import('./GoogleLoginSettings.tsx'));
-const ReceiptOcrSettings = lazy(() => import('./ReceiptOcrSettings.tsx'));
 const TelegramLoginSettings = lazy(() => import('./TelegramLoginSettings.tsx'));
 const IdentityHubView = lazy(() => import('./IdentityHubView.tsx'));
 const OrdersView = lazy(() => import('./OrdersView.tsx'));
@@ -578,7 +577,7 @@ function ChangeAdminPassword({ api, toast }: { api?: Json; toast: Toast }) {
   const [v, setV] = useState({ current: '', next: '', confirm: '' });
   const [busy, setBusy] = useState(false);
   const submit = async () => {
-    if (v.next.length < 8) return toast('رمز جدید باید حداقل ۸ کاراکتر باشد');
+    if (v.next.length < 12) return toast('رمز جدید باید حداقل ۱۲ کاراکتر باشد');
     if (v.next !== v.confirm) return toast('تکرار رمز جدید یکسان نیست');
     setBusy(true);
     const r = await authFetch(api.base, '/api/v1/auth/admin/password', {
@@ -665,10 +664,8 @@ function Settings({ api, toast }: { api?: Json; toast: Toast }) {
   const rawSettings = Object.entries(obj).filter(([k]) => !['card.info', 'gateway.zarinpal'].includes(k));
   return (
     <div className="space-y-5">
-      <ChangeAdminPassword api={api} toast={toast} />
       <GoogleLoginSettings api={api} toast={toast} />
       <TelegramLoginSettings api={api} toast={toast} />
-      <ReceiptOcrSettings api={api} toast={toast} />
       <Integrations api={api} toast={toast} />
       <Table
         title="Feature Flags"
