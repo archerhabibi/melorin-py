@@ -100,3 +100,8 @@ _Merged from the former 12-Change-Log-v1.1.md._
   (`panel_admins`, `governance`, `store_usage`, `service_access`, `panel_events_admin`, `bulk`, `subscription_check`, `recreate`, `digest`).
   `vpn` never imports `panelops` (layer contract).
 - Reconciliation issue actions have one owner: `panelops/reconciliation_actions.py`. The admin router validates, authorizes and serializes only.
+- Payment destination has ONE model: `StorePaymentConfiguration`, for the main store too. The global `card.info` / `gateway.zarinpal` settings and the
+  main-store fallback in `payments/service.store_payment_settings` are gone; alembic `0056` converts existing values once (forward-only).
+  The admin edits the main store through `GET/PUT /admin/payment-destinations[/{provider}]` (area `payments`); `/admin/settings` refuses the legacy keys.
+  A main store with no configuration now answers `PAYMENT_METHOD_DISABLED`, exactly like a reseller store.
+- Admin menu: stores, resellers, panel access (panel admins + sub branding) and volume governance are tabs of the single `فروشگاه‌ها` hub (`#/stores?tab=...`).

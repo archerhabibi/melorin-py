@@ -85,7 +85,7 @@ PATH_RULES: tuple[tuple[re.Pattern[str], str, bool], ...] = tuple(
         (r"^admin/(dashboard|health)(/|$)", "overview", False),
         (r"^(admin/)?reports(/|$)", "reports", False),
         (r"^admin/orders(/|$)", "orders", False),
-        (r"^admin/(payments|stores/[^/]+/(bank-sms|receipt-review|receipt-duplicates))(/|$)", "payments", False),
+        (r"^admin/(payments|payment-destinations|stores/[^/]+/(bank-sms|receipt-review|receipt-duplicates))(/|$)", "payments", False),
         (
             r"^admin/(products|bundles|bundle-products|coupons|referral-rules|stores/[^/]+/(referrals|reseller-prices))(/|$)",
             "catalog",

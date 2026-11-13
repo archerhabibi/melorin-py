@@ -41,9 +41,18 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast 
     load();
   }, [load]);
   useEffect(() => {
-    call('/api/v1/admin/settings')
-      .then((r) => (r.ok ? r.json() : {}))
-      .then(setSettings)
+    // main store destinations: the same per-store model resellers use (card number / holder / bank, Zarinpal merchant id + sandbox)
+    call('/api/v1/admin/payment-destinations')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: Json[]) =>
+        setSettings({
+          manual_card: rows.find((x) => x.provider === 'manual_card')?.public_config,
+          zarinpal: (() => {
+            const z = rows.find((x) => x.provider === 'zarinpal');
+            return z && { merchant_id: z.merchant_id || '', sandbox: !!z.public_config?.sandbox };
+          })(),
+        }),
+      )
       .catch(() => {});
   }, [call]);
   useEffect(() => setPage(0), [tab, provider, q]);
@@ -126,12 +135,23 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast 
       }
     },
   };
-  const saveSetting = async (key: Json, value: Json) => {
+  const saveSetting = async (provider: string, value: Json) => {
+    const body =
+      provider === 'zarinpal'
+        ? {
+            is_enabled: true,
+            public_config: { sandbox: !!value.sandbox },
+            secret: { merchant_id: value.merchant_id.trim() },
+          }
+        : { is_enabled: true, public_config: value };
     try {
-      const r = await call(`/api/v1/admin/settings/${key}`, { method: 'PUT', body: JSON.stringify({ value }) });
+      const r = await call(`/api/v1/admin/payment-destinations/${provider}`, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      });
       if (r.ok) {
         toast('تنظیمات ذخیره شد');
-        setSettings((x) => ({ ...x, [key]: value }));
+        setSettings((x) => ({ ...x, [provider]: value }));
       } else toast(await errText(r, 'ذخیره تنظیمات ناموفق بود'));
     } catch {
       toast('ارتباط با سرور برقرار نشد');

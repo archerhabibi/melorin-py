@@ -13,7 +13,8 @@ def test_main_payment_settings_have_first_class_forms():
     # Payment gateway settings now live inside the redesigned Payments screen.
     assert "پرداخت‌ها: PaymentsView" in extra
     assert "GatewaySettings" in payments
-    assert "card.info" in payments and "gateway.zarinpal" in payments
+    assert "payment-destinations" in payments and "manual_card" in payments and "zarinpal" in payments
+    assert "card.info" not in payments and "gateway.zarinpal" not in payments  # the global keys are gone
     assert "تنظیمات پیشرفته سیستم" in extra
 
 

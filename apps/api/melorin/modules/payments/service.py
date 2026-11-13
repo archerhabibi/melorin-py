@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from melorin.core import audit, events, flags, settings_store
+from melorin.core import audit, events, flags
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError
 from melorin.core.crypto import decrypt
@@ -53,18 +53,8 @@ def _store_configured_settings(cfg: StorePaymentConfiguration, provider: str) ->
     }
 
 
-async def _main_store_legacy_settings(session: AsyncSession, provider: str) -> dict:
-    """The main store may still use the legacy global settings; its destination must be complete."""
-    legacy = await settings_store.all_settings(session)
-    if provider == "manual_card" and not all((legacy.get("card.info") or {}).get(k) for k in ("card_number", "holder")):
-        raise AppError("PAYMENT_DESTINATION_MISSING", "مقصد پرداخت کارت‌به‌کارت فروشگاه اصلی کامل نیست.", 409)
-    if provider == "zarinpal" and not (legacy.get(f"gateway.{provider}") or {}).get("merchant_id"):
-        raise AppError("PAYMENT_DESTINATION_MISSING", "مقصد پرداخت درگاه فروشگاه اصلی پیکربندی نشده است.", 409)
-    return {**legacy, "limits": {}}
-
-
 async def store_payment_settings(session: AsyncSession, store: Store, provider: str) -> dict:
-    """Payment destination belongs to the Store (v1.1). Main store may fall back to legacy global settings."""
+    """Payment destination belongs to the Store (v1.1) -- the main store included; there is no global fallback."""
     cfg = await session.scalar(
         select(StorePaymentConfiguration).where(
             StorePaymentConfiguration.store_id == store.id, StorePaymentConfiguration.provider == provider
@@ -73,8 +63,6 @@ async def store_payment_settings(session: AsyncSession, store: Store, provider: 
     _check_currency(provider, store.currency)
     if cfg is not None:
         return _store_configured_settings(cfg, provider)
-    if store.kind == "main":
-        return await _main_store_legacy_settings(session, provider)
     raise AppError("PAYMENT_METHOD_DISABLED", "روش شارژ برای این فروشگاه پیکربندی نشده است.", 400)
 
 
