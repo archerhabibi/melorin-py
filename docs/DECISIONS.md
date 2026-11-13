@@ -108,3 +108,4 @@ _Merged from the former 12-Change-Log-v1.1.md._
 - Reward stacking is written down in `domain/order_rewards.py`: coupon is already inside `order.total`; referral then loyalty settle from that charged total in a fixed order, refunds reverse loyalty then referral; the worker calls one `_settle_rewards`.
 - `domain/order_state.VPN_TRANSITIONS` + `assert_vpn_transition` define the account lifecycle table. Not yet wired into every writer (renewal, returns, recreate, bulk); that is the next step.
 - Panel read cycle: `panel_health_job` takes the metrics snapshot on the SAME adapter/login as the health check (one session per panel per 2 minutes). `panel_metrics_job` no longer has its own cron (function kept for manual runs).
+- Account status writes in provisioning, account_tools, bulk and reconciliation_actions go through `set_vpn_status` (guarded by `VPN_TRANSITIONS`). Renewal/returns/recreate/expiry paths that write status by other means are still to be moved.

@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from melorin.core import audit, events, flags, settings_store
 from melorin.core.db import utcnow
-from melorin.domain.order_state import OrderStatus, VpnStatus
+from melorin.domain.order_state import OrderStatus, VpnStatus, set_vpn_status
 from melorin.kernel.models.catalog import Product
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.stores import Store
@@ -84,7 +84,7 @@ async def _fail(
     # If a stub VpnAccount was created but the panel call failed before
     # returning a panel_ref, archive it so the next attempt starts fresh.
     if account is not None and account.status == VpnStatus.PROVISIONING and account.panel_ref is None:
-        account.status = VpnStatus.ARCHIVED
+        set_vpn_status(account, VpnStatus.ARCHIVED)
         # Mangle the username so UNIQUE does not block the next attempt.
         account.username = account.username[:55] + "_r" + str(order.provisioning_attempts)
 
@@ -341,7 +341,7 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
     account.server_id, account.panel_id, account.panel_ref = server.id, panel.id, pa.ref
     if order.kind != "renewal" and account.placement is not None and account.placement.get("remote_ref") is None:
         account.placement = {**account.placement, "remote_ref": pa.ref}  # the snapshot is written once; only the panel's id is filled in
-    account.status = VpnStatus.ACTIVE
+    set_vpn_status(account, VpnStatus.ACTIVE)
     if queued:
         plans.mark_queued(
             account, template_id=queued_template, product_id=product.id, order_id=order.id, now=now

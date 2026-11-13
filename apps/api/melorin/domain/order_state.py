@@ -86,3 +86,9 @@ def assert_vpn_transition(src: str, dst: str) -> None:
         return
     if VpnStatus(dst) not in VPN_TRANSITIONS[VpnStatus(src)]:
         raise InvalidTransition(src, dst)
+
+
+def set_vpn_status(account, dst: VpnStatus) -> None:
+    """The one way to change ``account.status``: checks the lifecycle table, then assigns."""
+    assert_vpn_transition(str(account.status), str(dst))
+    account.status = dst
