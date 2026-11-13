@@ -15,9 +15,9 @@ from melorin.domain.order_state import OrderStatus, VpnStatus, set_vpn_status
 from melorin.kernel.models.catalog import Product
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.stores import Store
-from melorin.modules.vpn.adapters.base import AccountSpec, ErrorKind, PanelError
+from melorin.modules.panel_integrations.adapters.base import AccountSpec, ErrorKind, PanelError
 from melorin.modules.panelops import panel_admins
-from melorin.modules.vpn.adapters.registry import build_adapter, seed_adapter
+from melorin.modules.panel_integrations.adapters.registry import build_adapter, seed_adapter
 from melorin.modules.catalog.allocation import placement_snapshot, resolve_allocation
 from melorin.modules.vpn import notices, plans, renewal, sync
 from melorin.kernel.models.vpn import Panel, ProvisioningAttempt, Server, VpnAccount

@@ -16,7 +16,7 @@ from melorin.domain.order_state import VpnStatus
 from melorin.kernel.models.system import AuditEvent
 from melorin.kernel.models.vpn import BulkOperation, BulkOperationItem, Panel, VpnAccount
 from melorin.modules.panelops import bulk
-from melorin.modules.vpn.adapters.base import Capabilities, ErrorKind, PanelAccount, PanelError
+from melorin.modules.panel_integrations.adapters.base import Capabilities, ErrorKind, PanelAccount, PanelError
 
 GIB = 1024**3
 NOW = dt.datetime.now(dt.UTC).replace(microsecond=0)

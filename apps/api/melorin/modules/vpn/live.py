@@ -26,9 +26,9 @@ from melorin.core import settings_store
 from melorin.core.db import utcnow
 from melorin.kernel.models.vpn import Panel, VpnAccount
 from melorin.modules.vpn import freshness, inquiry
-from melorin.modules.vpn.adapters.registry import build_adapter, seed_adapter
-from melorin.modules.vpn.panel_reader import PanelReader
-from melorin.modules.vpn.adapters.lifecycle import close_adapter
+from melorin.modules.panel_integrations.adapters.registry import build_adapter, seed_adapter
+from melorin.modules.panel_integrations.reader import PanelReader
+from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
 from melorin.modules.vpn.schemas import VpnAccountOut
 
 log = logging.getLogger("melorin.vpn.live")

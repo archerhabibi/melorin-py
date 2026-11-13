@@ -19,10 +19,10 @@ from melorin.core import audit
 from melorin.core.errors import AppError, NotFound
 from melorin.kernel.models.vpn import Panel, PanelNode
 from melorin.modules.vpn import health
-from melorin.modules.vpn import capabilities as panel_caps
-from melorin.modules.vpn.adapters.base import PanelError, supports
-from melorin.modules.vpn.adapters.lifecycle import close_adapter
-from melorin.modules.vpn.adapters.registry import build_adapter
+from melorin.modules.panel_integrations import capabilities as panel_caps
+from melorin.modules.panel_integrations.adapters.base import PanelError, supports
+from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
+from melorin.modules.panel_integrations.adapters.registry import build_adapter
 
 log = logging.getLogger("melorin.vpn.ops_console")
 

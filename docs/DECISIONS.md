@@ -51,7 +51,7 @@ _Merged from the former 12-Change-Log-v1.1.md._
 - `alembic/` is now covered by `ruff format --check` (CI and `make lint`). The 37 migration files were reformatted only; the full non-integration suite (2390 tests, incl. the migration baseline contract) passes unchanged.
 
 ## T16 / T65 - panel families kept, as plug-in adapters (2026-11-10)
-- Decision: `sanaei`, `pasarguard` and `upstream_bot` all stay. None is removed; each is a provider adapter declared in `modules/vpn/adapters/providers.py` (`ProviderSpec`: label, transport, features, target kinds, adapter path, contract path).
+- Decision: `sanaei`, `pasarguard` and `upstream_bot` all stay. None is removed; each is a provider adapter declared in `modules/panel_integrations/adapters/providers.py` (`ProviderSpec`: label, transport, features, target kinds, adapter path, contract path).
 - Adapter classes and each family's `contract.py` (settings/target validation, capacity label, listing warnings) are imported lazily; `upstream_bot` therefore needs Telethon only when a call is made.
 - Core code asks `providers.supports(kind, feature)` / `target_kinds(kind)` instead of comparing `panel.kind` with a string. A new family is one `register_provider(...)` call.
 - Guarded by `tests/test_provider_adapters.py` (no concrete family is imported outside the adapter layer, except the PasarGuard wire parsers listed in the test).

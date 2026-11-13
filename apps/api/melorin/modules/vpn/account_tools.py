@@ -32,11 +32,11 @@ from melorin.core.db import utcnow
 from melorin.core.errors import AppError
 from melorin.domain.order_state import VpnStatus, set_vpn_status
 from melorin.kernel.models.vpn import Panel, VpnAccount
-from melorin.modules.vpn import capabilities as panel_caps
+from melorin.modules.panel_integrations import capabilities as panel_caps
 from melorin.modules.vpn import sync
-from melorin.modules.vpn.adapters.base import PanelError, supports
-from melorin.modules.vpn.adapters.lifecycle import close_adapter, panel_failure
-from melorin.modules.vpn.adapters.registry import build_adapter, seed_adapter
+from melorin.modules.panel_integrations.adapters.base import PanelError, supports
+from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter, panel_failure
+from melorin.modules.panel_integrations.adapters.registry import build_adapter, seed_adapter
 
 log = logging.getLogger("melorin.vpn.tools")
 

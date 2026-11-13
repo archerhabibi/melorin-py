@@ -153,7 +153,7 @@ async def test_fix_owner_sets_the_expected_owner_on_the_panel(monkeypatch):
 
     class Stub:
         def capabilities(self):
-            from melorin.modules.vpn.adapters.base import Capabilities
+            from melorin.modules.panel_integrations.adapters.base import Capabilities
 
             return Capabilities(bulk_ops=True)
 

@@ -19,7 +19,7 @@ from melorin.kernel.models.orders import Order
 from melorin.kernel.models.system import OutboxEvent
 from melorin.modules.orders import provisioning as vpn
 from melorin.modules.vpn import sync
-from melorin.modules.vpn.adapters.registry import build_adapter, seed_adapter
+from melorin.modules.panel_integrations.adapters.registry import build_adapter, seed_adapter
 from melorin.kernel.models.vpn import Panel, VpnAccount
 
 log = logging.getLogger("melorin.worker")

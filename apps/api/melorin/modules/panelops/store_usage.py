@@ -28,11 +28,11 @@ from sqlalchemy import select
 from melorin.core.db import utcnow
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.vpn import Panel, PanelAdmin
-from melorin.modules.vpn.adapters.base import PanelAccount
-from melorin.modules.vpn.adapters.registry import build_adapter
+from melorin.modules.panel_integrations.adapters.base import PanelAccount
+from melorin.modules.panel_integrations.adapters.registry import build_adapter
 from melorin.modules.vpn.live import UNAVAILABLE_NOTE
-from melorin.modules.vpn.panel_reader import PanelReader
-from melorin.modules.vpn.adapters.lifecycle import close_adapter
+from melorin.modules.panel_integrations.reader import PanelReader
+from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
 
 log = logging.getLogger("melorin.panelops.store_usage")
 

@@ -12,17 +12,17 @@ import uuid
 
 from fastapi import APIRouter
 
-from melorin.modules.vpn.adapters import providers
+from melorin.modules.panel_integrations.adapters import providers
 from melorin.core import audit
 from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import AppError, NotFound
 from melorin.kernel.models.vpn import Panel
 from melorin.modules.panelops import queries
-from melorin.modules.vpn.panel_session import close_adapter
-from melorin.modules.vpn import capabilities as panel_caps
+from melorin.modules.panel_integrations.session import close_adapter
+from melorin.modules.panel_integrations import capabilities as panel_caps
 from melorin.modules.vpn import capacity
-from melorin.modules.vpn.adapters.base import PanelError, supports
-from melorin.modules.vpn.adapters.registry import build_adapter
+from melorin.modules.panel_integrations.adapters.base import PanelError, supports
+from melorin.modules.panel_integrations.adapters.registry import build_adapter
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 log = logging.getLogger("melorin.admin.capacity")

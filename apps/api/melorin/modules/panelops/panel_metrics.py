@@ -24,9 +24,9 @@ from melorin.core.db import utcnow
 from melorin.core.metrics import clear_gauges, set_alert, set_gauge
 from melorin.kernel.models.system import BackupRun
 from melorin.kernel.models.vpn import Panel, PanelNode, ReconciliationIssue, Server, VpnAccount
-from melorin.modules.vpn import capabilities as panel_caps
+from melorin.modules.panel_integrations import capabilities as panel_caps
 from melorin.modules.vpn import capacity
-from melorin.modules.vpn.adapters.base import PanelError, supports
+from melorin.modules.panel_integrations.adapters.base import PanelError, supports
 from melorin.domain.timeutil import aware as _aware
 
 log = logging.getLogger("melorin.vpn.panel_metrics")
@@ -127,7 +127,7 @@ async def snapshot_panel(panel: Panel, adapter, *, now: dt.datetime | None = Non
 
 async def run_snapshots(session: AsyncSession, *, close_adapter) -> int:
     """Worker entry: a snapshot for every enabled panel. One bad panel never blocks the others."""
-    from melorin.modules.vpn.adapters.registry import build_adapter
+    from melorin.modules.panel_integrations.adapters.registry import build_adapter
 
     done = 0
     for panel in (await session.scalars(select(Panel).where(Panel.is_enabled.is_(True)))).all():

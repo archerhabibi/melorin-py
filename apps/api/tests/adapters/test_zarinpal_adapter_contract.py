@@ -11,7 +11,7 @@ import pytest
 
 from melorin.core.errors import AppError
 from melorin.modules.payments.adapters import destination, manual_card, registry, zarinpal
-from melorin.modules.vpn.adapters.base import ErrorKind, PanelError
+from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError
 
 REAL_CLIENT = httpx.AsyncClient
 SETTINGS = {"gateway.zarinpal": {"merchant_id": "11111111-2222-3333-4444-555555555555"}}

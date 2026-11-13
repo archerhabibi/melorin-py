@@ -14,7 +14,7 @@ from melorin.kernel.models.stores import Store
 from melorin.kernel.models.vpn import Panel, PanelAdmin, PanelAdminChangeRequest
 from melorin.modules.panelops import queries
 from melorin.modules.panelops import panel_admins as svc
-from melorin.modules.vpn.adapters.base import PanelError
+from melorin.modules.panel_integrations.adapters.base import PanelError
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 

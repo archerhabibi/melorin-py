@@ -5,9 +5,9 @@ import time
 
 import pytest
 
-from melorin.modules.vpn.adapters.base import GB, AccountSpec, ErrorKind, PanelError
-from melorin.modules.vpn.adapters.upstream_bot import UpstreamBotAdapter, adapter as mod, parsing
-from melorin.modules.vpn.adapters.upstream_bot.chat import Button, Msg
+from melorin.modules.panel_integrations.adapters.base import GB, AccountSpec, ErrorKind, PanelError
+from melorin.modules.panel_integrations.adapters.upstream_bot import UpstreamBotAdapter, adapter as mod, parsing
+from melorin.modules.panel_integrations.adapters.upstream_bot.chat import Button, Msg
 
 DELIVERY = (
     "🏷 نام اکانت: eg1_1068\n🔶 نوع اکانت: سرویس اقتصادی حجمی\n🔷 توضیحات: ماهانه 10 گیگ بدون محدودیت کاربر\n"

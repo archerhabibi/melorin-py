@@ -14,7 +14,7 @@ from melorin.kernel.models.vpn import Panel, Server
 from melorin.modules.admin import panels as admin_panels
 from melorin.modules.admin import targets as admin_targets
 from melorin.modules.admin.schemas import CreateServer
-from melorin.modules.vpn.targets import capacity_label, effective_destination, merge_config, normalize_target, validate_target
+from melorin.modules.panel_integrations.targets import capacity_label, effective_destination, merge_config, normalize_target, validate_target
 
 ADMIN = types.SimpleNamespace(id=uuid.uuid4())
 

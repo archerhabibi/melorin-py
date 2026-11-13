@@ -174,14 +174,14 @@ class FakeAdapter:
         return self.healthy
 
     async def create_account(self, spec):
-        from melorin.modules.vpn.adapters.base import PanelAccount
+        from melorin.modules.panel_integrations.adapters.base import PanelAccount
 
         self.accounts[spec.username] = spec
         self.log.append("create")
         return PanelAccount("1", spec.username, "active", spec.expire_at, spec.traffic_bytes, 0, "https://sub/x")
 
     async def get_account(self, username):
-        from melorin.modules.vpn.adapters.base import PanelAccount
+        from melorin.modules.panel_integrations.adapters.base import PanelAccount
 
         s = self.accounts.get(username)
         return PanelAccount("1", username, "active", None, 0, 0) if s else None

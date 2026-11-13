@@ -19,14 +19,14 @@ import uuid
 from fastapi import APIRouter, BackgroundTasks, Request
 from sqlalchemy import select
 
-from melorin.modules.vpn.adapters import providers
+from melorin.modules.panel_integrations.adapters import providers
 from melorin.core.db import session_factory
 from melorin.core.errors import AppError
 from melorin.core.metrics import inc
 from melorin.core.ratelimit import client_ip, hit
 from melorin.kernel.models.vpn import Panel
 from melorin.modules.vpn import panel_events
-from melorin.modules.vpn.adapters.pasarguard import events as wire
+from melorin.modules.panel_integrations.adapters.pasarguard import events as wire
 
 router = APIRouter(tags=["webhooks"])
 log = logging.getLogger("melorin.vpn.webhook")

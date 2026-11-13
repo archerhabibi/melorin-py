@@ -8,9 +8,9 @@ import pytest
 
 from _http import PASSWORD, add_user, api_client, totp_now
 from melorin.kernel.models.vpn import Panel
-from melorin.modules.vpn import capabilities as service
-from melorin.modules.vpn.adapters import pasarguard, registry
-from melorin.modules.vpn.adapters.base import (
+from melorin.modules.panel_integrations import capabilities as service
+from melorin.modules.panel_integrations.adapters import pasarguard, registry
+from melorin.modules.panel_integrations.adapters.base import (
     ALL_CAPABILITIES,
     CAPABILITY_PROTOCOLS,
     Capabilities,
@@ -22,9 +22,9 @@ from melorin.modules.vpn.adapters.base import (
     static_report,
     supports,
 )
-from melorin.modules.vpn.adapters.mock import MockPanelAdapter
-from melorin.modules.vpn.adapters.pasarguard import PasarGuardAdapter
-from melorin.modules.vpn.adapters.pasarguard.capabilities import (
+from melorin.modules.panel_integrations.adapters.mock import MockPanelAdapter
+from melorin.modules.panel_integrations.adapters.pasarguard import PasarGuardAdapter
+from melorin.modules.panel_integrations.adapters.pasarguard.capabilities import (
     build_report,
     merge_permissions,
     missing_permissions,

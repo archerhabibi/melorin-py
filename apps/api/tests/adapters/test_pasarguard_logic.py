@@ -8,10 +8,10 @@ import pytest
 from melorin.domain.order_state import VpnStatus
 from melorin.domain.panel_health import DEGRADED, HEALTHY, SELLABLE_STATES, UNHEALTHY
 from melorin.modules.admin.panel_reconciliation import allowed_actions
-from melorin.modules.vpn import capabilities as caps
+from melorin.modules.panel_integrations import capabilities as caps
 from melorin.modules.vpn import health, issues, notices, sync
-from melorin.modules.vpn.adapters.base import Capabilities
-from melorin.modules.vpn.adapters.pasarguard.capabilities import build_report
+from melorin.modules.panel_integrations.adapters.base import Capabilities
+from melorin.modules.panel_integrations.adapters.pasarguard.capabilities import build_report
 
 NOW = dt.datetime(2026, 11, 7, 12, 0, tzinfo=dt.UTC)
 

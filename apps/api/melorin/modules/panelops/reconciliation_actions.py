@@ -21,9 +21,9 @@ from melorin.kernel.models.vpn import Panel, PanelOrphan, ReconciliationIssue, V
 from melorin.modules.panelops import queries, recreate
 from melorin.modules.vpn import issues as issue_svc
 from melorin.modules.vpn import reconcile
-from melorin.modules.vpn.adapters.base import PanelError, supports
-from melorin.modules.vpn.adapters.registry import build_adapter, seed_adapter
-from melorin.modules.vpn.panel_session import close_adapter
+from melorin.modules.panel_integrations.adapters.base import PanelError, supports
+from melorin.modules.panel_integrations.adapters.registry import build_adapter, seed_adapter
+from melorin.modules.panel_integrations.session import close_adapter
 
 ACTIONS = ("ignore", "resolve", "fix_owner", "archive_account", "link_existing", "recreate_on_panel", "resync", "accept_panel")
 _NEEDS_REASON = {

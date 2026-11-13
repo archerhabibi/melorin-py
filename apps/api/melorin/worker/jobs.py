@@ -18,9 +18,10 @@ from melorin.kernel.models.identity import VerificationCode
 from melorin.kernel.models.system import BackupRun
 from melorin.modules.eventcenter import report as event_center_report
 from melorin.modules.eventcenter import rules as event_center_rules
-from melorin.modules.vpn import capabilities, capacity, health, live, notices, panel_events, reconcile, sync
+from melorin.modules.vpn import capacity, health, live, notices, panel_events, reconcile, sync
+from melorin.modules.panel_integrations import capabilities
 from melorin.kernel.models.vpn import Panel, VpnAccount
-from melorin.modules.vpn.adapters.lifecycle import close_adapter
+from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
 from melorin.worker import retention
 from melorin.worker.wrap import item_failed, tracked_job
 
@@ -153,7 +154,7 @@ async def panel_health_job(ctx=None):
     alone makes the panel ``degraded`` (still selling), no connected node makes it ``unhealthy`` (leaves server selection)."""
     async with session_factory()() as s:
         from melorin.modules.panelops import panel_metrics
-        from melorin.modules.vpn.adapters.registry import build_adapter
+        from melorin.modules.panel_integrations.adapters.registry import build_adapter
 
         panels = (await s.scalars(select(Panel).where(Panel.is_enabled.is_(True)))).all()
         for p in panels:

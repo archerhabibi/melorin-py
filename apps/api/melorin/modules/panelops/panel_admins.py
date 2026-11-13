@@ -23,12 +23,12 @@ from urllib.parse import urlsplit
 from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 
-from melorin.modules.vpn.adapters import providers
+from melorin.modules.panel_integrations.adapters import providers
 from melorin.core.crypto import decrypt, encrypt
 from melorin.core.db import utcnow
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.vpn import Panel, PanelAdmin, VpnAccount
-from melorin.modules.vpn.adapters.base import ErrorKind, PanelError
+from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError
 
 log = logging.getLogger("melorin.panel_admins")
 
@@ -248,7 +248,7 @@ async def _push(session, row: PanelAdmin, panel: Panel, store: Store, adapter) -
 
 async def sync_all(session, *, limit: int = 25, panel: Panel | None = None) -> dict:
     """Plan, then bring up to ``limit`` unfinished rows in line with the panels. Safe to run concurrently with provisioning."""
-    from melorin.modules.vpn.adapters import registry
+    from melorin.modules.panel_integrations.adapters import registry
 
     added = await plan(session, panel=panel)
     stmt = select(PanelAdmin).where(
@@ -307,7 +307,7 @@ async def owner_for(session, panel: Panel, store_id: uuid.UUID | None, adapter) 
 async def apply_profile(session, store_id: uuid.UUID, changes: dict, *, panel_id: uuid.UUID | None = None) -> list[dict]:
     """Admin edit of "Profile & contact" for a store on one panel (or all). Saved locally first, then pushed; a panel that
     refuses is reported and retried by the worker (``profile_synced`` stays False)."""
-    from melorin.modules.vpn.adapters import registry
+    from melorin.modules.panel_integrations.adapters import registry
 
     clean = clean_profile(changes)
     stmt = select(PanelAdmin).where(PanelAdmin.store_id == store_id)
@@ -344,7 +344,7 @@ async def reset_password(session, row: PanelAdmin, panel: Panel) -> str:
        exactly this password, so a crash (or a failed commit) after the panel changed still converges;
     2. the panel is updated;
     3. a clean panel refusal restores the previous secret (the admin was told it failed, and the old password still works)."""
-    from melorin.modules.vpn.adapters import registry
+    from melorin.modules.panel_integrations.adapters import registry
 
     if not row.remote_id:
         raise PanelError(ErrorKind.PERMANENT, "admin is not created on the panel yet")

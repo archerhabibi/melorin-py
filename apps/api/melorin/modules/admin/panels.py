@@ -23,10 +23,10 @@ from melorin.modules.admin.schemas import (
     UpdateServer,
 )
 from melorin.modules.admin.targets import check_target, target_warnings
-from melorin.modules.vpn.panel_session import close_adapter
-from melorin.modules.vpn import capabilities
+from melorin.modules.panel_integrations.session import close_adapter
+from melorin.modules.panel_integrations import capabilities
 from melorin.modules.vpn.capacity import capacity_view
-from melorin.modules.vpn.targets import capacity_label, effective_destination
+from melorin.modules.panel_integrations.targets import capacity_label, effective_destination
 from melorin.modules.admin._common import (
     _commit_or_conflict,
     _count,
@@ -395,7 +395,7 @@ async def delete_server(server_id: uuid.UUID, admin: AdminUser, session: Session
 async def panel_health(panel_id: uuid.UUID, _: AdminUser, session: Session):
     """Explicit health check: panel answers AND its nodes (PG-01). ``healthy`` = the panel can serve customers (healthy or degraded)."""
     from melorin.modules.vpn import health
-    from melorin.modules.vpn.adapters.registry import build_adapter
+    from melorin.modules.panel_integrations.adapters.registry import build_adapter
 
     p = await session.get(Panel, panel_id)
     if not p:

@@ -28,15 +28,15 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from melorin.modules.vpn.adapters import providers
+from melorin.modules.panel_integrations.adapters import providers
 from melorin.core import audit
 from melorin.core.errors import AppError
 from melorin.kernel.models.catalog import Product
 from melorin.kernel.models.vpn import Panel, ProductTemplate
-from melorin.modules.vpn import capabilities as panel_caps
-from melorin.modules.vpn.adapters.base import PanelError, supports
-from melorin.modules.vpn.adapters.lifecycle import close_adapter, panel_failure
-from melorin.modules.vpn.adapters.registry import build_adapter
+from melorin.modules.panel_integrations import capabilities as panel_caps
+from melorin.modules.panel_integrations.adapters.base import PanelError, supports
+from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter, panel_failure
+from melorin.modules.panel_integrations.adapters.registry import build_adapter
 
 log = logging.getLogger("melorin.vpn.templates")
 

@@ -3,11 +3,15 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Code shared by admin-web and store-web: token store, dialog a11y hook, Google sign-in.",
-  "peerDependencies": { "react": "18.3.1" },
+  "description": "Code shared by admin-web and store-web: token store, dialog a11y hook, Google sign-in, text helpers, headless Event Center logic.",
+  "peerDependencies": {
+    "react": "18.3.1"
+  },
   "exports": {
     "./auth.js": "./src/auth.js",
     "./useDialog.js": "./src/useDialog.js",
-    "./GoogleSignIn.jsx": "./src/GoogleSignIn.jsx"
+    "./GoogleSignIn.jsx": "./src/GoogleSignIn.jsx",
+    "./format.js": "./src/format.js",
+    "./eventCenter.js": "./src/eventCenter.js"
   }
 }

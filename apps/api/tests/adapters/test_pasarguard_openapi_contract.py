@@ -18,12 +18,12 @@ from urllib.parse import parse_qs
 import httpx
 import pytest
 
-from melorin.modules.vpn.adapters import pasarguard
-from melorin.modules.vpn.adapters.base import ALL_CAPABILITIES, AccountSpec
-from melorin.modules.vpn.adapters.pasarguard import PasarGuardAdapter
-from melorin.modules.vpn.adapters.pasarguard.capabilities import CAPABILITY_ENDPOINTS, CAPABILITY_REQUIREMENTS, LEGACY_CAPABILITIES
-from melorin.modules.vpn.adapters.pasarguard.events import USER_EVENTS
-from melorin.modules.vpn.adapters.pasarguard.users import USAGE_PERIODS
+from melorin.modules.panel_integrations.adapters import pasarguard
+from melorin.modules.panel_integrations.adapters.base import ALL_CAPABILITIES, AccountSpec
+from melorin.modules.panel_integrations.adapters.pasarguard import PasarGuardAdapter
+from melorin.modules.panel_integrations.adapters.pasarguard.capabilities import CAPABILITY_ENDPOINTS, CAPABILITY_REQUIREMENTS, LEGACY_CAPABILITIES
+from melorin.modules.panel_integrations.adapters.pasarguard.events import USER_EVENTS
+from melorin.modules.panel_integrations.adapters.pasarguard.users import USAGE_PERIODS
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = json.loads((ROOT / "tests/fixtures/pasarguard-openapi-5.6.0.contract.json").read_text(encoding="utf-8"))
@@ -381,7 +381,7 @@ def test_diff_tool_flags_a_renamed_schema_field():
 
 async def test_create_template_without_groups_is_a_permanent_error_not_a_name_error():
     """Regression: the guard referenced ``ErrorKind`` without importing it (NameError instead of a clean PanelError)."""
-    from melorin.modules.vpn.adapters.base import ErrorKind, PanelError
+    from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError
 
     adapter = _adapter(RecordingPanel())
     with pytest.raises(PanelError) as e:

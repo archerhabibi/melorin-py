@@ -15,8 +15,8 @@ import pytest
 from pydantic import ValidationError
 
 from melorin.modules.admin.schemas import CreatePanel
-from melorin.modules.vpn import targets
-from melorin.modules.vpn.adapters import providers, registry
+from melorin.modules.panel_integrations import targets
+from melorin.modules.panel_integrations.adapters import providers, registry
 
 ROOT = pathlib.Path(__file__).resolve().parents[2] / "melorin"
 FAMILIES = {"sanaei", "pasarguard", "upstream_bot"}
@@ -167,14 +167,14 @@ def test_listing_warnings_come_from_the_family():
 # --- boundaries ------------------------------------------------------------------------------------------------------------------
 
 _FAMILY_PKGS = (
-    "melorin.modules.vpn.adapters.sanaei",
-    "melorin.modules.vpn.adapters.pasarguard",
-    "melorin.modules.vpn.adapters.upstream_bot",
+    "melorin.modules.panel_integrations.adapters.sanaei",
+    "melorin.modules.panel_integrations.adapters.pasarguard",
+    "melorin.modules.panel_integrations.adapters.upstream_bot",
 )
 # The only places allowed to name a concrete family: the adapter layer itself, plus the two PasarGuard wire-format parsers that
 # the webhook/event consumers must read (a PasarGuard-only feature, gated by providers.supports(..., "webhook_events")).
 _ALLOWED = {
-    "melorin/modules/vpn/adapters/providers.py",
+    "melorin/modules/panel_integrations/adapters/providers.py",
     "melorin/modules/vpn/webhook_router.py",
     "melorin/modules/vpn/panel_events.py",
     "melorin/modules/panelops/service_access.py",
@@ -198,9 +198,9 @@ def test_only_the_adapter_layer_imports_a_concrete_family():
         rel = path.relative_to(ROOT.parent).as_posix()
         if rel.startswith(
             (
-                "melorin/modules/vpn/adapters/sanaei/",
-                "melorin/modules/vpn/adapters/pasarguard/",
-                "melorin/modules/vpn/adapters/upstream_bot/",
+                "melorin/modules/panel_integrations/adapters/sanaei/",
+                "melorin/modules/panel_integrations/adapters/pasarguard/",
+                "melorin/modules/panel_integrations/adapters/upstream_bot/",
             )
         ):
             continue
@@ -214,8 +214,8 @@ def test_only_the_adapter_layer_imports_a_concrete_family():
 def test_registry_import_does_not_pull_in_any_family():
     code = (
         "import sys\n"
-        "import melorin.modules.vpn.adapters.registry\n"
-        "bad = [m for m in sys.modules if m.startswith('melorin.modules.vpn.adapters.') and m.split('.')[4] in ('sanaei','pasarguard','upstream_bot')]\n"
+        "import melorin.modules.panel_integrations.adapters.registry\n"
+        "bad = [m for m in sys.modules if m.startswith('melorin.modules.panel_integrations.adapters.') and m.split('.')[4] in ('sanaei','pasarguard','upstream_bot')]\n"
         "print(','.join(bad))\n"
     )
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, cwd=ROOT.parent, check=True).stdout.strip()
@@ -225,7 +225,7 @@ def test_registry_import_does_not_pull_in_any_family():
 def test_upstream_bot_loads_without_telethon():
     code = (
         "import sys\nsys.modules['telethon'] = None\n"  # makes `import telethon` raise ImportError
-        "from melorin.modules.vpn.adapters import registry\n"
+        "from melorin.modules.panel_integrations.adapters import registry\n"
         "cls = registry.ADAPTERS['upstream_bot']\nprint(cls.__name__)\n"
     )
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, cwd=ROOT.parent, check=True).stdout.strip()

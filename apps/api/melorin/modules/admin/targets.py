@@ -13,15 +13,15 @@ import uuid
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from melorin.modules.vpn.adapters import providers
+from melorin.modules.panel_integrations.adapters import providers
 from melorin.core import audit
 from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import AppError, NotFound
 from melorin.kernel.models.vpn import Panel, Server
 from melorin.modules.panelops import queries
-from melorin.modules.vpn.panel_session import close_adapter
-from melorin.modules.vpn.adapters.registry import build_adapter
-from melorin.modules.vpn.targets import normalize_target, validate_target
+from melorin.modules.panel_integrations.session import close_adapter
+from melorin.modules.panel_integrations.adapters.registry import build_adapter
+from melorin.modules.panel_integrations.targets import normalize_target, validate_target
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 log = logging.getLogger("melorin.admin.targets")

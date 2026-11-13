@@ -6,7 +6,7 @@ import socket
 
 import pytest
 
-from melorin.modules.vpn.adapters import registry
+from melorin.modules.panel_integrations.adapters import registry
 
 
 @pytest.fixture(autouse=True)

@@ -26,9 +26,9 @@ from melorin.core import audit
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError, NotFound
 from melorin.kernel.models.vpn import Panel
-from melorin.modules.vpn import capabilities as panel_caps
-from melorin.modules.vpn.adapters.base import PanelError, supports
-from melorin.modules.vpn.adapters.pasarguard.events import describe_webhook
+from melorin.modules.panel_integrations import capabilities as panel_caps
+from melorin.modules.panel_integrations.adapters.base import PanelError, supports
+from melorin.modules.panel_integrations.adapters.pasarguard.events import describe_webhook
 from melorin.modules.vpn.renewal import GRACE_DAYS
 from melorin.modules.panelops.subscription_check import _origin
 
@@ -232,7 +232,7 @@ async def check_panel(panel: Panel, adapter, *, now=None) -> dict:
 async def run_all(session: AsyncSession, *, close_adapter) -> int:
     """Worker entry: check every enabled PasarGuard panel; announce a panel that starts (or stops) drifting once."""
     from melorin.modules.eventcenter import rules as event_center_rules
-    from melorin.modules.vpn.adapters.registry import build_adapter
+    from melorin.modules.panel_integrations.adapters.registry import build_adapter
 
     done = 0
     panels = (await session.scalars(select(Panel).where(Panel.is_enabled.is_(True), Panel.kind == "pasarguard"))).all()
@@ -281,7 +281,7 @@ async def set_policy(
 
 async def recheck(session: AsyncSession, panel_id: uuid.UUID, *, actor_id: uuid.UUID | None) -> dict:
     """On-demand read-only check (admin button). Returns ``describe(panel)``."""
-    from melorin.modules.vpn.adapters.registry import build_adapter
+    from melorin.modules.panel_integrations.adapters.registry import build_adapter
 
     panel = await session.get(Panel, panel_id)
     if not panel:

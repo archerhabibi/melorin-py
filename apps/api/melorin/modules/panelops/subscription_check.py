@@ -17,14 +17,14 @@ from urllib.parse import urlsplit
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from melorin.modules.vpn.adapters import providers
+from melorin.modules.panel_integrations.adapters import providers
 from melorin.core import audit
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError, NotFound
 from melorin.domain.order_state import VpnStatus
 from melorin.kernel.models.vpn import Panel, PanelAdmin, VpnAccount
-from melorin.modules.vpn.adapters.base import PanelError, supports
-from melorin.modules.vpn.adapters.registry import build_adapter
+from melorin.modules.panel_integrations.adapters.base import PanelError, supports
+from melorin.modules.panel_integrations.adapters.registry import build_adapter
 
 log = logging.getLogger("melorin.panelops.subscription_check")
 

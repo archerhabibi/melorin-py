@@ -40,5 +40,5 @@ def test_wallet_callback_parses_nested_amount_payload():
 
 
 def test_panel_health_job_accepts_sync_or_async_adapter_close():
-    source = read_source(ROOT / "melorin/modules/vpn/adapters/lifecycle.py")
+    source = read_source(ROOT / "melorin/modules/panel_integrations/adapters/lifecycle.py")
     assert "inspect.isawaitable(result)" in source

@@ -19,8 +19,8 @@ from melorin.kernel.models.system import AuditEvent
 from melorin.kernel.models.vpn import BulkOperation, Panel, PanelAdmin, PanelNode
 from melorin.modules.panelops import governance, subscription_check
 from melorin.modules.panelops import ops_console
-from melorin.modules.vpn.adapters.base import Capabilities, ErrorKind, PanelError
-from melorin.modules.vpn.adapters.pasarguard import PasarGuardAdapter
+from melorin.modules.panel_integrations.adapters.base import Capabilities, ErrorKind, PanelError
+from melorin.modules.panel_integrations.adapters.pasarguard import PasarGuardAdapter
 
 BASE = "/api/v1/admin"
 GIB = 1024**3

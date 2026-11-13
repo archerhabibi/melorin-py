@@ -28,9 +28,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from melorin.core.db import utcnow
 from melorin.domain.order_state import VpnStatus
 from melorin.kernel.models.vpn import Panel, Server, VpnAccount
-from melorin.modules.vpn import capabilities as panel_caps
-from melorin.modules.vpn.adapters.base import PanelError, supports
-from melorin.modules.vpn.targets import effective_destination
+from melorin.modules.panel_integrations import capabilities as panel_caps
+from melorin.modules.panel_integrations.adapters.base import PanelError, supports
+from melorin.modules.panel_integrations.targets import effective_destination
 
 log = logging.getLogger("melorin.vpn.capacity")
 

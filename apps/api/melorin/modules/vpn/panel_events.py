@@ -30,9 +30,9 @@ from melorin.core.metrics import inc
 from melorin.domain.order_state import VpnStatus
 from melorin.kernel.models.vpn import Panel, PanelEvent, VpnAccount
 from melorin.modules.vpn import notices, reconcile, sync
-from melorin.modules.vpn.adapters.base import ErrorKind, PanelError
-from melorin.modules.vpn.adapters.pasarguard.events import USER_EVENTS, ParsedBody
-from melorin.modules.vpn.adapters.registry import build_adapter, seed_adapter
+from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError
+from melorin.modules.panel_integrations.adapters.pasarguard.events import USER_EVENTS, ParsedBody
+from melorin.modules.panel_integrations.adapters.registry import build_adapter, seed_adapter
 
 log = logging.getLogger("melorin.vpn.panel_events")
 

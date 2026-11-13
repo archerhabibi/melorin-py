@@ -17,7 +17,7 @@ from melorin.core.errors import AppError
 from melorin.kernel.models.system import AuditEvent
 from melorin.kernel.models.vpn import Panel, VpnAccount
 from melorin.modules.vpn import account_tools as tools
-from melorin.modules.vpn.adapters.base import Capabilities, ErrorKind, PanelAccount, PanelError
+from melorin.modules.panel_integrations.adapters.base import Capabilities, ErrorKind, PanelAccount, PanelError
 
 GIB = 1024**3
 NOW = dt.datetime.now(dt.UTC)

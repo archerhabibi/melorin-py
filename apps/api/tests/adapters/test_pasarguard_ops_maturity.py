@@ -25,7 +25,7 @@ from melorin.kernel.models.system import AuditEvent, BackupRun
 from melorin.kernel.models.vpn import Panel, PanelNode, ReconciliationIssue, Server, VpnAccount
 from melorin.modules.reports import business_metrics
 from melorin.modules.panelops import panel_backup, panel_metrics, settings_drift
-from melorin.modules.vpn.adapters.base import Capabilities, ErrorKind, PanelError
+from melorin.modules.panel_integrations.adapters.base import Capabilities, ErrorKind, PanelError
 from melorin.modules.vpn.renewal import GRACE_DAYS
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -483,7 +483,7 @@ async def test_policy_change_is_audited_validated_and_rechecked(monkeypatch):
         admin = await make_user(s, super_admin=True)
         await s.commit()
         adapter = SettingsAdapter({"cleanup": {"expired_users_retention_days": 30}})
-        import melorin.modules.vpn.adapters.registry as registry
+        import melorin.modules.panel_integrations.adapters.registry as registry
 
         monkeypatch.setattr(registry, "build_adapter", lambda panel, server=None: adapter)
         before = await mod.recheck(s, p.id, actor_id=None)
@@ -521,7 +521,7 @@ async def test_run_all_announces_a_drift_change_once(monkeypatch):
         await _panel(s)
         await s.commit()
         adapter = SettingsAdapter({"cleanup": {"expired_users_retention_days": 7}})
-        import melorin.modules.vpn.adapters.registry as registry
+        import melorin.modules.panel_integrations.adapters.registry as registry
 
         monkeypatch.setattr(registry, "build_adapter", lambda panel, server=None: adapter)
 
@@ -621,7 +621,7 @@ async def test_every_phase5_endpoint_needs_an_admin():
 
 
 async def test_phase5_http_flow(monkeypatch):
-    import melorin.modules.vpn.adapters.registry as registry
+    import melorin.modules.panel_integrations.adapters.registry as registry
 
     adapter = SettingsAdapter({"cleanup": {"expired_users_retention_days": 5}})
     monkeypatch.setattr(registry, "build_adapter", lambda panel, server=None: adapter)

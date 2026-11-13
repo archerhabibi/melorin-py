@@ -19,7 +19,7 @@ import uuid
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from melorin.modules.vpn.adapters import providers
+from melorin.modules.panel_integrations.adapters import providers
 from melorin.core.config import get_settings
 from melorin.core.crypto import encrypt
 from melorin.core.db import utcnow
@@ -27,9 +27,9 @@ from melorin.core.errors import AppError
 from melorin.core.health import WEBHOOK_SILENT_AFTER
 from melorin.kernel.models.vpn import Panel, PanelEvent
 from melorin.modules.vpn import panel_events
-from melorin.modules.vpn.adapters.base import ErrorKind, PanelError, supports
-from melorin.modules.vpn.adapters.lifecycle import close_adapter
-from melorin.modules.vpn.adapters.registry import build_adapter
+from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError, supports
+from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
+from melorin.modules.panel_integrations.adapters.registry import build_adapter
 
 log = logging.getLogger("melorin.panelops.panel_events_admin")
 

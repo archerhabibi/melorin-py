@@ -1,122 +1,40 @@
 // مرکز رویداد تلگرام: the admin connects ONE Telegram supergroup (with Topics) and maps each event kind to a Topic.
 // Core validates everything and does the sending; this screen only edits the settings, shows the connection health and
 // sends a real test message to every configured Topic.
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
 import { AlertTriangle, BellRing, CheckCircle2, ListPlus, ScanSearch, Send, Trash2 } from 'lucide-react';
 import { authFetch } from './api.ts';
 import { confirmDialog, dt } from './ui.tsx';
-import { ErrorBar, Field, Section, digits, errText } from './kit.tsx';
+import { useEventCenter } from '@melorin/web-kit/eventCenter.js';
+import { ErrorBar, Field, Section } from './kit.tsx';
 import type { Json, Rec, Toast } from './types.ts';
-
-const EMPTY = { configured: false, bot_ready: true, chat_id: '', is_enabled: true, note: '', topics: [] };
 
 export default function EventCenterView({ api, toast }: { api?: Json; toast: Toast }) {
   const call = useCallback((p: Json, o = {}) => authFetch(api.base, p, o), [api.base]);
-  const [data, setData] = useState<Json>(null);
-  const [chat, setChat] = useState('');
-  const [threads, setThreads] = useState<Rec>({});
-  const [enabled, setEnabled] = useState(true);
-  const [note, setNote] = useState('');
-  const [busy, setBusy] = useState('');
-  const [error, setError] = useState('');
-  const [failed, setFailed] = useState(false);
-  const [results, setResults] = useState<Json>(null);
-  const [check, setCheck] = useState<Json>(null);
-  const [made, setMade] = useState<Json>(null);
-
-  const apply = (d: Json) => {
-    setData(d);
-    setChat(d.chat_id || '');
-    setEnabled(d.is_enabled !== false);
-    setNote(d.note || '');
-    setThreads(Object.fromEntries((d.topics || []).map((t: Json) => [t.key, t.thread_id ? String(t.thread_id) : ''])));
-  };
-  const load = useCallback(async () => {
-    try {
-      const r = await call('/api/v1/admin/event-center');
-      if (!r.ok) throw 0;
-      apply(await r.json());
-      setFailed(false);
-    } catch {
-      setFailed(true);
-      setData((x: Json) => x || EMPTY);
-    }
-  }, [call]);
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  const act = async (name: Json, fn: Json) => {
-    setError('');
-    setBusy(name);
-    try {
-      await fn();
-    } catch {
-      setError('ارتباط با سرور برقرار نشد');
-    } finally {
-      setBusy('');
-    }
-  };
-
-  const save = () =>
-    act('save', async () => {
-      const topics = Object.fromEntries(Object.entries(threads).map(([k, v]) => [k, digits(v)]));
-      const r = await call('/api/v1/admin/event-center', {
-        method: 'PUT',
-        body: JSON.stringify({ chat_id: chat.trim(), topics, is_enabled: enabled, note: note.trim() || null }),
-      });
-      if (!r.ok) return setError(await errText(r, 'ذخیره ناموفق بود'));
-      apply(await r.json());
-      toast('تنظیمات مرکز رویداد ذخیره شد');
-    });
-
-  const test = () =>
-    act('test', async () => {
-      const r = await call('/api/v1/admin/event-center/test', { method: 'POST', body: '{}' });
-      if (!r.ok) return setError(await errText(r, 'ارسال تست ناموفق بود'));
-      const d = await r.json();
-      setResults(d.results || []);
-      await load();
-    });
-
-  const inspect = () =>
-    act('check', async () => {
-      const r = await call('/api/v1/admin/event-center/check', { method: 'POST', body: '{}' });
-      if (!r.ok) return setError(await errText(r, 'بررسی گروه ناموفق بود'));
-      setCheck(await r.json());
-    });
-
-  const provision = () =>
-    act('provision', async () => {
-      const r = await call('/api/v1/admin/event-center/provision', { method: 'POST', body: '{}' });
-      if (!r.ok) return setError(await errText(r, 'ساخت Topicها ناموفق بود'));
-      const d = await r.json();
-      setMade(d.results || []);
-      setCheck(null);
-      await load();
-      if (d.created || d.recreated) {
-        toast(
-          [d.created && `${d.created} Topic ساخته شد`, d.recreated && `${d.recreated} Topic حذف‌شده دوباره ساخته شد`]
-            .filter(Boolean)
-            .join('، '),
-        );
-      }
-    });
-
-  const remove = async () => {
-    const ok = await confirmDialog('اتصال گروه حذف شود؟ از این پس هیچ رویدادی به تلگرام ارسال نمی‌شود.', {
-      title: 'حذف گروه رویدادها',
-      ok: 'حذف',
-    });
-    if (!ok) return;
-    await act('delete', async () => {
-      const r = await call('/api/v1/admin/event-center', { method: 'DELETE' });
-      if (!r.ok) return setError(await errText(r, 'حذف ناموفق بود'));
-      setResults(null);
-      toast('گروه رویدادها حذف شد');
-      await load();
-    });
-  };
+  const confirm = useCallback((m: string) => confirmDialog(m, { title: 'حذف گروه رویدادها', ok: 'حذف' }), []);
+  const {
+    data,
+    chat,
+    setChat,
+    threads,
+    setThreads,
+    enabled,
+    setEnabled,
+    note,
+    setNote,
+    busy,
+    error,
+    failed,
+    results,
+    check,
+    made,
+    save,
+    test,
+    inspect,
+    provision,
+    remove,
+    reload,
+  } = useEventCenter({ call, url: '/api/v1/admin/event-center', notify: toast, confirm });
 
   if (!data) return <div className="card p-6 text-sm text-[var(--mu)]">در حال دریافت…</div>;
   const topics = data.topics || [];
@@ -128,7 +46,7 @@ export default function EventCenterView({ api, toast }: { api?: Json; toast: Toa
         title="گروه تلگرام"
         hint="یک سوپرگروه با قابلیت Topics بسازید، ربات اصلی را ادمین کنید (دسترسی ارسال پیام) و شناسهٔ گروه را که با -100 شروع می‌شود وارد کنید."
       >
-        {failed && <ErrorBar onRetry={load}>دریافت تنظیمات ناموفق بود.</ErrorBar>}
+        {failed && <ErrorBar onRetry={reload}>دریافت تنظیمات ناموفق بود.</ErrorBar>}
         {!data.bot_ready && <ErrorBar>ربات اصلی تنظیم نشده است؛ ارسال به گروه ممکن نیست.</ErrorBar>}
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="شناسهٔ گروه (Chat ID)" hint="مثال: -1001234567890">
@@ -162,7 +80,7 @@ export default function EventCenterView({ api, toast }: { api?: Json; toast: Toa
                 dir="ltr"
                 inputMode="numeric"
                 value={threads[t.key] || ''}
-                onChange={(e) => setThreads((x) => ({ ...x, [t.key]: e.target.value }))}
+                onChange={(e) => setThreads((x: Json) => ({ ...x, [t.key]: e.target.value }))}
                 placeholder="General"
               />
             </Field>

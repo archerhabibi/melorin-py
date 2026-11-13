@@ -10,7 +10,7 @@ One word, one meaning (audit T49). When a document or a commit says one of these
 | **`domain`** | Pure business rules (pricing, ledger math, coupons). Imports nothing from the rest of Melorin (enforced by import-linter). | قواعد خالص کسب‌وکار؛ هیچ چیز از بیرون import نمی‌کند. |
 | **module** | A bounded context under `melorin/modules/<name>` (vpn, orders, payments, panelops, ...). | یک بخش مستقل زیر `modules/`. |
 | **channel** | A protocol adapter (Telegram, web login). Translates a protocol; owns no business rule. | آداپتور پروتکل (تلگرام، ورود وب). |
-| **adapter** | A driver for one panel family under `modules/vpn/adapters` (pasarguard, sanaei, upstream_bot). | درایور یک خانوادهٔ پنل. |
+| **adapter** | A driver for one panel family under `modules/panel_integrations/adapters` (pasarguard, sanaei, upstream_bot). | درایور یک خانوادهٔ پنل. |
 | **panel** | An external VPN panel (e.g. PasarGuard). It owns volume, expiry and status; Melorin only mediates. | پنل VPN بیرونی؛ مالک حجم/انقضا/وضعیت است. |
 | **mediator rule** | Melorin never stores panel-owned numbers; it reads them live (`vpn.PanelReader`) and caches them only within the single freshness policy. | ملورین داده‌های پنل را ذخیره نمی‌کند، زنده می‌خواند. |
 | **outbox** | The `outbox_events` table: events written in the same transaction as the change, delivered by the worker. | رخدادهای هم‌تراکنش با تغییر، که worker ارسال می‌کند. |

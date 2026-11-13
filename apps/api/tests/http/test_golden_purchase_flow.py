@@ -24,7 +24,7 @@ from melorin.kernel.models.vpn import Panel, Server
 from melorin.modules.orders import provisioning as vpn
 from melorin.modules.payments.adapters import registry
 from melorin.modules.payments.adapters.base import CallbackResult, IntentResult
-from melorin.modules.vpn.adapters.base import PanelAccount
+from melorin.modules.panel_integrations.adapters.base import PanelAccount
 
 AUTH = "/api/v1/auth"
 

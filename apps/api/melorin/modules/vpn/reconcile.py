@@ -25,9 +25,9 @@ from melorin.core.errors import AppError
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.vpn import Panel, PanelAdmin, PanelOrphan, VpnAccount
 from melorin.modules.vpn import issues, notices, sync
-from melorin.modules.vpn.adapters.base import PanelAccount, PanelError, supports
-from melorin.modules.vpn.adapters.registry import build_adapter, seed_adapter
-from melorin.modules.vpn.panel_reader import PanelReader
+from melorin.modules.panel_integrations.adapters.base import PanelAccount, PanelError, supports
+from melorin.modules.panel_integrations.adapters.registry import build_adapter, seed_adapter
+from melorin.modules.panel_integrations.reader import PanelReader
 
 log = logging.getLogger("melorin.vpn.reconcile")
 

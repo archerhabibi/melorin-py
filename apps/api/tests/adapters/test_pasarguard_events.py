@@ -17,8 +17,8 @@ from melorin.core.db import utcnow
 from melorin.kernel.models.vpn import Panel, PanelEvent, ReconciliationIssue, VpnAccount
 from melorin.modules.vpn import panel_events
 from melorin.modules.panelops import panel_events_admin
-from melorin.modules.vpn.adapters.base import Capabilities, ErrorKind, PanelAccount, PanelError
-from melorin.modules.vpn.adapters.pasarguard import events as wire
+from melorin.modules.panel_integrations.adapters.base import Capabilities, ErrorKind, PanelAccount, PanelError
+from melorin.modules.panel_integrations.adapters.pasarguard import events as wire
 
 SECRET = "s3cret-value-for-tests"
 NOW = utcnow()

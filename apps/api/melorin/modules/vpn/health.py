@@ -22,8 +22,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from melorin.core.db import utcnow
 from melorin.domain.panel_health import DEGRADED, HEALTHY, SELLABLE_STATES, UNHEALTHY  # noqa: F401
 from melorin.kernel.models.vpn import Panel, PanelNode
-from melorin.modules.vpn import capabilities as panel_caps
-from melorin.modules.vpn.adapters.base import PanelError, supports
+from melorin.modules.panel_integrations import capabilities as panel_caps
+from melorin.modules.panel_integrations.adapters.base import PanelError, supports
 
 log = logging.getLogger("melorin.vpn.health")
 

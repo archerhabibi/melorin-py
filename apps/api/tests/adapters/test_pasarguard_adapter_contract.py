@@ -10,9 +10,9 @@ from urllib.parse import parse_qs, unquote
 import httpx
 import pytest
 
-from melorin.modules.vpn.adapters import pasarguard
-from melorin.modules.vpn.adapters.base import AccountSpec, ErrorKind, PanelError
-from melorin.modules.vpn.adapters.pasarguard import PasarGuardAdapter
+from melorin.modules.panel_integrations.adapters import pasarguard
+from melorin.modules.panel_integrations.adapters.base import AccountSpec, ErrorKind, PanelError
+from melorin.modules.panel_integrations.adapters.pasarguard import PasarGuardAdapter
 
 GB = 1024**3
 EXPIRE = dt.datetime(2027, 1, 1, 12, 30, 15, 999, tzinfo=dt.UTC)

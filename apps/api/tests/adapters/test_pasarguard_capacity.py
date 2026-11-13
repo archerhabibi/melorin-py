@@ -12,7 +12,7 @@ from melorin.kernel.models.vpn import Panel, Server
 from melorin.modules.catalog.allocation.routing import Candidate, select_allocation
 from melorin.modules.eventcenter.rules import server_capacity_text
 from melorin.modules.vpn import capacity as cap
-from melorin.modules.vpn.adapters.base import Capabilities, ErrorKind, PanelError
+from melorin.modules.panel_integrations.adapters.base import Capabilities, ErrorKind, PanelError
 
 GROUP = {"id": 1, "name": "VIP1", "is_disabled": False, "inbound_tags": ["vless", "trojan"], "total_users": 7}
 HOSTS = [{"inbound_tag": "vless", "is_disabled": False}, {"inbound_tag": "trojan", "is_disabled": False}]

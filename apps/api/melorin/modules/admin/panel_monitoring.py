@@ -1,6 +1,6 @@
 """Admin API - panel monitoring - panel readings for dashboards (PG-14), settings drift + lifecycle policy (PG-15), panel backup (PG-16).
 
-Thin layer: every rule lives in ``modules/vpn/{panel_metrics,settings_drift,panel_backup}.py``. Admin session only. Nothing here writes a
+Thin layer: every rule lives in ``modules/panelops/{panel_metrics,settings_drift,panel_backup}.py``. Admin session only. Nothing here writes a
 setting to a panel: the drift check is read-only and the lifecycle policy only changes what Melorin expects."""
 
 import uuid

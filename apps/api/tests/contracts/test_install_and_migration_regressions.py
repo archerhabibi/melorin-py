@@ -18,7 +18,7 @@ def test_migration_and_worker_blockers_are_fixed():
     assert "CreateTable" not in baseline
     assert "MODEL_SOURCE_FINGERPRINT" in baseline
     assert "from melorin import models" in runner
-    assert "melorin.modules.vpn.adapters.registry import" in runner and "build_adapter" in runner
+    assert "melorin.modules.panel_integrations.adapters.registry import" in runner and "build_adapter" in runner
     assert "register all SQLAlchemy mappers before worker sessions" in runner
     assert "session.get(OutboxEvent, event_id, with_for_update=True)" in runner
     assert "with_for_update=True" in runner
@@ -152,7 +152,7 @@ def test_k11_to_k20_operational_controls_are_present():
     installer = (root / "scripts/install_server.sh").read_text()
     arq = read_source(ROOT / "melorin/worker/arq_app.py")
     alerts = (root / "infra/alerts.yml").read_text()
-    registry = read_source(ROOT / "melorin/modules/vpn/adapters/registry.py")
+    registry = read_source(ROOT / "melorin/modules/panel_integrations/adapters/registry.py")
     orders = read_source(ROOT / "melorin/modules/orders/service.py")
     vpn = read_source(ROOT / "melorin/modules/orders/provisioning.py")
     assert "secrets/metrics-token" in compose and "tmp_metrics" in installer

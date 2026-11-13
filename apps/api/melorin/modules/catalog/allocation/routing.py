@@ -12,12 +12,12 @@ from melorin.domain.panel_health import SELLABLE_STATES
 from melorin.core.errors import AppError
 from melorin.domain.order_state import VpnStatus
 from melorin.kernel.models.stores import Store
-from melorin.modules.vpn.adapters.base import ErrorKind, PanelError
+from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError
 from melorin.kernel.models.vpn import Panel, ProvisioningAttempt, Server, VpnAccount
 from melorin.kernel.models.bundles import Bundle, BundleMember, BundleProduct, StoreBundle
 from melorin.domain.account_name import clean_custom_name
 from melorin.modules.catalog.allocation.offers import sellable_bundles
-from melorin.modules.vpn.targets import effective_destination, normalize_target, validate_target
+from melorin.modules.panel_integrations.targets import effective_destination, normalize_target, validate_target
 from melorin.domain.timeutil import aware as _aware
 
 BALANCING_MODES = ("round_robin", "least_fill", "fill_first")

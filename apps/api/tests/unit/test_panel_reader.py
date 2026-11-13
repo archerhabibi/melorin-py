@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from melorin.modules.vpn.panel_reader import PanelReader, read_pages
+from melorin.modules.panel_integrations.reader import PanelReader, read_pages
 
 
 def rows(start: int, n: int):

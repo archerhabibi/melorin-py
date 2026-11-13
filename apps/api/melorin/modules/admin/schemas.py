@@ -65,7 +65,7 @@ class CreatePanel(BaseModel):
     @model_validator(mode="after")
     def _provider_contract(self):
         # Each provider family validates its own credentials/config (adapters/<kind>/contract.py); this model never branches on kind.
-        from melorin.modules.vpn.adapters import providers
+        from melorin.modules.panel_integrations.adapters import providers
 
         providers.validate_settings(self.kind, self.credentials, self.config)
         return self
@@ -90,7 +90,7 @@ class PanelOut(BaseModel):
     last_health_error: str | None = None
     config: dict | None = None
     has_credentials: bool = False
-    # PG-00: effective capability flags + why a supported feature is denied (see modules/vpn/capabilities.py); the UI hides what is off
+    # PG-00: effective capability flags + why a supported feature is denied (see modules/panel_integrations/capabilities.py); the UI hides what is off
     capabilities: dict | None = None
     # PG-01: node-level health (counts, failing nodes with fix hints, ``sellable``); ``health_status`` may be ``degraded``
     health_detail: dict | None = None

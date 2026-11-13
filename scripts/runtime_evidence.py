@@ -115,7 +115,7 @@ def run_command(
 
 
 def default_adapter_factory(cfg: dict):
-    from melorin.modules.vpn.adapters.registry import ADAPTERS
+    from melorin.modules.panel_integrations.adapters.registry import ADAPTERS
 
     try:
         cls = ADAPTERS[cfg["kind"]]
@@ -262,7 +262,7 @@ async def check_zarinpal_sandbox(ctx: Context) -> Result:
 
 
 async def _roundtrip(adapter, name: str) -> dict:
-    from melorin.modules.vpn.adapters.base import AccountSpec
+    from melorin.modules.panel_integrations.adapters.base import AccountSpec
 
     steps: dict[str, object] = {}
     username = f"evidence_{dt.datetime.now(dt.UTC):%Y%m%d%H%M%S}_{uuid.uuid4().hex[:4]}"

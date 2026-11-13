@@ -24,7 +24,7 @@ from melorin.kernel.models.vpn import ProductTemplate
 from melorin.modules.orders import provisioning as vpn
 from melorin.modules.orders import service as orders
 from melorin.modules.vpn import live, plans, sync, templates
-from melorin.modules.vpn.adapters.base import Capabilities, ErrorKind, PanelAccount, PanelError
+from melorin.modules.panel_integrations.adapters.base import Capabilities, ErrorKind, PanelAccount, PanelError
 from test_renewal_core import _balance, _world  # the shared renewal world: wallet, bundle, panel, account
 
 GIB = 1024**3

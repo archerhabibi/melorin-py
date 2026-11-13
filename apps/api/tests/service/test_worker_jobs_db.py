@@ -153,7 +153,7 @@ class _Adapter:
 
 async def test_panel_health_job_records_healthy_unhealthy_error_and_closes_adapters(maker, monkeypatch):
     adapters = {"ok": _Adapter(True), "down": _Adapter(False, sync_close=True), "boom": _Adapter(RuntimeError("timeout"), close_fails=True)}
-    monkeypatch.setattr("melorin.modules.vpn.adapters.registry.build_adapter", lambda p: adapters[p.name])
+    monkeypatch.setattr("melorin.modules.panel_integrations.adapters.registry.build_adapter", lambda p: adapters[p.name])
     async with maker() as s:
         for name in (*adapters, "disabled"):
             s.add(Panel(name=name, kind="mock", base_url="http://x", is_enabled=name != "disabled"))

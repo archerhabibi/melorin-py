@@ -20,16 +20,16 @@ import json
 import logging
 import secrets
 
-from melorin.modules.vpn.adapters import providers
+from melorin.modules.panel_integrations.adapters import providers
 from melorin.core import audit
 from melorin.core.crypto import encrypt
 from melorin.core.errors import AppError
 from melorin.kernel.models.vpn import Panel
-from melorin.modules.vpn import capabilities as panel_caps
-from melorin.modules.vpn.adapters import registry
-from melorin.modules.vpn.adapters.base import PanelError
-from melorin.modules.vpn.adapters.lifecycle import close_adapter
-from melorin.modules.vpn.adapters.pasarguard.capabilities import CAPABILITY_REQUIREMENTS
+from melorin.modules.panel_integrations import capabilities as panel_caps
+from melorin.modules.panel_integrations.adapters import registry
+from melorin.modules.panel_integrations.adapters.base import PanelError
+from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
+from melorin.modules.panel_integrations.adapters.pasarguard.capabilities import CAPABILITY_REQUIREMENTS
 from melorin.modules.panelops.panel_admins import generate_password
 
 log = logging.getLogger("melorin.panelops.service_access")

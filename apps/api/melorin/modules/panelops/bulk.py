@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from melorin.modules.vpn.adapters import providers
+from melorin.modules.panel_integrations.adapters import providers
 from melorin.core import audit
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError, NotFound
@@ -33,8 +33,8 @@ from melorin.domain.order_state import VpnStatus, set_vpn_status
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.vpn import BulkOperation, BulkOperationItem, Panel, VpnAccount
 from melorin.modules.vpn import sync
-from melorin.modules.vpn.adapters.base import ErrorKind, PanelError, supports
-from melorin.modules.vpn.adapters.registry import build_adapter
+from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError, supports
+from melorin.modules.panel_integrations.adapters.registry import build_adapter
 
 log = logging.getLogger("melorin.panelops.bulk")
 
