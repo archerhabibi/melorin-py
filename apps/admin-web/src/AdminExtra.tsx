@@ -1,3 +1,4 @@
+import { Segmented } from './kit.tsx';
 import type { ReactNode } from 'react';
 import { lazy, useEffect, useState } from 'react';
 import { authFetch } from './api.ts';
@@ -23,8 +24,6 @@ const EventCenterView = lazy(() => import('./EventCenterView.tsx'));
 const ResellersView = lazy(() => import('./ResellersView.tsx'));
 const AdminTeamView = lazy(() => import('./AdminTeamView.tsx'));
 const MyAccountView = lazy(() => import('./MyAccountView.tsx'));
-const GoogleLoginSettings = lazy(() => import('./GoogleLoginSettings.tsx'));
-const TelegramLoginSettings = lazy(() => import('./TelegramLoginSettings.tsx'));
 const IdentityHubView = lazy(() => import('./IdentityHubView.tsx'));
 const OrdersView = lazy(() => import('./OrdersView.tsx'));
 const VpnAccountsView = lazy(() => import('./VpnAccountsView.tsx'));
@@ -630,6 +629,9 @@ function ChangeAdminPassword({ api, toast }: { api?: Json; toast: Toast }) {
 }
 
 function Settings({ api, toast }: { api?: Json; toast: Toast }) {
+  // Sign-in methods live in Identity («هویت»), Receipt OCR in Payments, the password form in My account.
+  const [tab, setTab] = useState('integrations');
+  const pick = (v: string) => setTab(v);
   const flags = useList(api, '/api/v1/admin/feature-flags', toast);
   const [obj, setObj] = useState<Rec>({});
   const [tick, setTick] = useState(0);
@@ -664,29 +666,40 @@ function Settings({ api, toast }: { api?: Json; toast: Toast }) {
   const rawSettings = Object.entries(obj).filter(([k]) => !['card.info', 'gateway.zarinpal'].includes(k));
   return (
     <div className="space-y-5">
-      <GoogleLoginSettings api={api} toast={toast} />
-      <TelegramLoginSettings api={api} toast={toast} />
-      <Integrations api={api} toast={toast} />
-      <Table
-        title="Feature Flags"
-        cols={['کلید', 'محدوده', 'فعال', '']}
-        rows={flags.rows.map((f) => [
-          f.key,
-          `${f.scope_type}:${f.scope_id}`,
-          f.enabled ? 'بله' : 'خیر',
-          <button key="flag" className={ghost} onClick={() => setFlag(f)}>
-            {f.enabled ? 'خاموش' : 'روشن'}
-          </button>,
-        ])}
+      <Segmented
+        label="بخش تنظیمات"
+        value={tab}
+        onChange={pick}
+        options={[
+          ['integrations', 'پشتیبان‌گیری و ایمیل'],
+          ['advanced', 'پیشرفته'],
+        ]}
       />
-      <section className={`${box} overflow-hidden`}>
-        <h3 className="px-5 py-4 font-extrabold">
-          تنظیمات پیشرفته سیستم <span className="text-xs font-normal text-[var(--mu)]">(مقدار به‌صورت JSON)</span>
-        </h3>
-        {rawSettings.map(([k, v]) => (
-          <SettingRow key={k} k={k} v={v} save={save} />
-        ))}
-      </section>
+      {tab === 'integrations' && <Integrations api={api} toast={toast} />}
+      {tab === 'advanced' && (
+        <>
+          <Table
+            title="Feature Flags"
+            cols={['کلید', 'محدوده', 'فعال', '']}
+            rows={flags.rows.map((f) => [
+              f.key,
+              `${f.scope_type}:${f.scope_id}`,
+              f.enabled ? 'بله' : 'خیر',
+              <button key="flag" className={ghost} onClick={() => setFlag(f)}>
+                {f.enabled ? 'خاموش' : 'روشن'}
+              </button>,
+            ])}
+          />
+          <section className={`${box} overflow-hidden`}>
+            <h3 className="px-5 py-4 font-extrabold">
+              تنظیمات پیشرفته سیستم <span className="text-xs font-normal text-[var(--mu)]">(مقدار به‌صورت JSON)</span>
+            </h3>
+            {rawSettings.map(([k, v]) => (
+              <SettingRow key={k} k={k} v={v} save={save} />
+            ))}
+          </section>
+        </>
+      )}
     </div>
   );
 }
