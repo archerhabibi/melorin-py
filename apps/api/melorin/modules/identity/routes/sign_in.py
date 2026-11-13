@@ -1,5 +1,7 @@
 """/auth: sign-in by e-mail code, password, Google, Telegram and web hand-off, plus refresh and logout."""
 
+import re
+
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy import select
 from melorin.core import audit, channel, flags, integrations
@@ -38,6 +40,34 @@ from melorin.modules.identity.routes._common import (
 auth = APIRouter(prefix="/auth", tags=["auth"], dependencies=[Depends(RateLimit("auth", 30, 60))])
 
 
+async def _require_valid_totp(session, user: User, code: str | None, *, via: str | None = None) -> int:
+    """Check the second factor and return the accepted RFC 6238 time-step.
+
+    The three ways it can fail are reported with three different codes (all HTTP 401) so a client can tell the person what to
+    do next instead of showing one catch-all message:
+
+    * ``TOTP_REQUIRED``  - no code was sent: ask for it.
+    * ``TOTP_INVALID``   - wrong, malformed or expired code (usually a stale code or a phone clock that is off).
+    * ``TOTP_REPLAYED``  - a correct code whose 30 s step was already used: wait for the next one.
+    """
+    extra = {"via": via} if via else None
+    code = re.sub(r"[\s-]+", "", code or "")  # "452 648" / "452-648" pasted from an authenticator app
+    if not code:
+        audit.security_event(session, "totp_failed", user.id, {**(extra or {}), "reason": "missing"})
+        await session.commit()
+        raise AppError("TOTP_REQUIRED", "کد تأیید دومرحله‌ای را وارد کنید.", 401)
+    counter = totp_counter(decrypt(user.totp_secret_enc) or "", code)
+    if counter is None:
+        audit.security_event(session, "totp_failed", user.id, extra)
+        await session.commit()
+        raise AppError("TOTP_INVALID", "کد تأیید دومرحله‌ای نادرست یا منقضی است.", 401)
+    if user.totp_last_counter is not None and counter <= user.totp_last_counter:
+        audit.security_event(session, "totp_replay", user.id, extra)
+        await session.commit()
+        raise AppError("TOTP_REPLAYED", "این کد دومرحله‌ای قبلاً استفاده شده است؛ کد بعدی را وارد کنید.", 401)
+    return counter
+
+
 @auth.post("/email/request-code")
 async def email_request_code(body: EmailCodeRequest, session: Session):
     dev_code = await service.request_email_code(session, body.email)
@@ -73,14 +103,8 @@ async def password_login(body: PasswordLogin, session: Session, request: Request
         audit.security_event(session, "admin_2fa_required", user.id)
         await session.commit()
         raise AppError("ADMIN_2FA_REQUIRED", "ابتدا احراز هویت دومرحله‌ای ادمین را فعال کنید.", 403)
-    counter = None
     if user.totp_enabled:
-        counter = totp_counter(decrypt(user.totp_secret_enc) or "", body.totp_code or "")
-        if counter is None or (user.totp_last_counter is not None and counter <= user.totp_last_counter):
-            audit.security_event(session, "totp_failed" if counter is None else "totp_replay", user.id)
-            await session.commit()
-            raise AppError("TOTP_REQUIRED", "کد تأیید دومرحله‌ای لازم، نادرست یا تکراری است.", 401)
-        user.totp_last_counter = counter
+        user.totp_last_counter = await _require_valid_totp(session, user, body.totp_code)
     if user.is_super_admin:
         audit.record(session, "admin.login", actor_id=user.id, actor_type="admin")
         chan = channel.ADMIN_CHANNEL  # password + TOTP just succeeded: the one way to get an admin session
@@ -137,12 +161,7 @@ async def google_login(body: GoogleLogin, session: Session, request: Request, re
             audit.security_event(session, "admin_2fa_required", user.id, {"via": "google"})
             await session.commit()
             raise AppError("ADMIN_2FA_REQUIRED", "ابتدا احراز هویت دومرحله‌ای ادمین را فعال کنید.", 403)
-        counter = totp_counter(decrypt(user.totp_secret_enc) or "", body.totp_code or "")
-        if counter is None or (user.totp_last_counter is not None and counter <= user.totp_last_counter):
-            audit.security_event(session, "totp_failed" if counter is None else "totp_replay", user.id, {"via": "google"})
-            await session.commit()
-            raise AppError("TOTP_REQUIRED", "کد تأیید دومرحله‌ای لازم، نادرست یا تکراری است.", 401)
-        user.totp_last_counter = counter
+        user.totp_last_counter = await _require_valid_totp(session, user, body.totp_code, via="google")
         audit.record(session, "admin.login", actor_id=user.id, actor_type="admin")
     chan = channel.ADMIN_CHANNEL if user.is_super_admin else await channel.site_channel(session, request)
     await _after_signup(session, user, created, chan.store_id, None)
