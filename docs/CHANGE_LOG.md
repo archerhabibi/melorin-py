@@ -108,6 +108,137 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-11-12 22:00 UTC - Melorin Ops - admin-web, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(auth): tell a wrong TOTP code apart from a wrong e-mail/password at admin sign-in - The admin form showed "wrong e-mail or password" for almost every failure, so a stale or reused authenticator code, a throttled account or a dead network all looked like a bad password. API: one helper checks th…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (9):** `apps/admin-web/src/AdminAuth.tsx`, `apps/admin-web/src/loginErrors.ts`, `apps/admin-web/src/styles.css`, `apps/admin-web/tests/admin-auth.test.jsx`, `apps/admin-web/tests/login-errors.test.js`, `apps/admin-web/tests/typing-ratchet.test.js`, `apps/api/melorin/modules/identity/routes/sign_in.py`, `apps/api/tests/contracts/test_google_signin.py` (+1 more)
+- **Ref:** `9a7955d`
+
+
+### 2026-11-12 10:05 UTC - Claude - admin-web, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(button-styles): review round 2 - strict types, int64 emoji ids, invisible text, honest preview errors, bot hardening - Core - normalize: key/prefix/suffix/note/kind/match must be strings (str(["a"]) used to become the key "['a']"); icon must be text or a whole number - emoji id must fit int64 (…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (12):** `apps/admin-web/src/ButtonStylesView.tsx`, `apps/admin-web/src/buttonStyles.ts`, `apps/admin-web/tests/button-styles.test.jsx`, `apps/api/melorin/domain/button_style.py`, `apps/api/melorin/modules/admin/button_styles.py`, `apps/api/tests/http/test_button_styles_http.py`, `apps/api/tests/unit/test_button_style.py`, `apps/telegram-main/tests/test_button_styles.py` (+4 more)
+- **Ref:** `a6c2b92`
+
+### 2026-11-12 08:14 UTC - Claude - admin-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(admin-web): client validation mirrors the server (key limits, control chars, link keys, @url, emoji id, blank decoration)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `apps/admin-web/src/buttonStyles.ts`, `apps/admin-web/tests/button-styles.test.jsx`
+- **Ref:** `1aa464d`
+
+### 2026-11-12 08:14 UTC - Claude - bot  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(bot): malformed styling rules never break keyboards; no pointless style retry; quick re-fetch after a failed download
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (3):** `apps/telegram-main/tests/test_button_styles.py`, `apps/telegram-main/tgmain/client.py`, `apps/telegram-main/tgmain/ui.py`
+- **Ref:** `ac9e102`
+
+### 2026-11-12 08:14 UTC - Claude - api, tests, docs  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(button-styles): stricter validation (emoji id, control chars, blank decoration), honest preview errors, owner buttons in catalog
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (6):** `apps/api/melorin/domain/button_style.py`, `apps/api/melorin/modules/admin/button_styles.py`, `apps/api/tests/http/test_button_styles_http.py`, `apps/api/tests/unit/test_button_style.py`, `docs/11-Channel-Specifications.md`, `docs/STATUS.md`
+- **Ref:** `1de99d8`
+
+### 2026-11-12 07:54 UTC - Claude - tests, shared  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(button-styles): fake Core serves public styles endpoint in bot flow contract; refresh OpenAPI snapshot and TS schema
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (3):** `apps/api/tests/contracts/test_telegram_bot_flows.py`, `packages/api-client/openapi.json`, `packages/api-client/src/schema.d.ts`
+- **Ref:** `84eacbd`
+
+### 2026-11-12 07:14 UTC - archerhabibi - telegram button styles  _(auto)_
+- **Before:** a string such as "false" in `enabled` (feature or rule) was coerced with bool() to True; button_style.py failed `ruff format --check` (make lint / CI)
+- **Problem:** an API client sending "false" would have switched styling on; lint gate would fail
+- **Action:** add _flag() that accepts only bool/None (422 otherwise), cover with a unit test, run ruff format
+- **After:** ruff check/format, mypy, lint-imports, full API suite (2495 passed), admin-web typecheck/eslint/prettier/vitest and bot tests pass
+- **Files (2):** `apps/api/melorin/domain/button_style.py`, `apps/api/tests/unit/test_button_style.py`
+- **Ref:** `0e1b6e0`
+
+### 2026-11-12 07:07 UTC - archerhabibi - tests, docs  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** docs: button styles section; regenerate API/STATUS; list public /telegram/button-styles - Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com> Claude-Session: https://claude.ai/code/session_01QK9KkSWioJ8gXCcYLr2seN
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (4):** `apps/api/tests/service/test_channel_binding.py`, `docs/11-Channel-Specifications.md`, `docs/API.md`, `docs/STATUS.md`
+- **Ref:** `20f7cd9`
+
+### 2026-11-12 07:07 UTC - archerhabibi - admin-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(admin-web): Telegram button style editor with live preview, presets and test send - Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com> Claude-Session: https://claude.ai/code/session_01QK9KkSWioJ8gXCcYLr2seN
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (6):** `apps/admin-web/src/AdminExtra.tsx`, `apps/admin-web/src/App.tsx`, `apps/admin-web/src/ButtonStylesView.tsx`, `apps/admin-web/src/buttonStyles.ts`, `apps/admin-web/src/styles.css`, `apps/admin-web/tests/button-styles.test.jsx`
+- **Ref:** `232ba6b`
+
+### 2026-11-12 07:07 UTC - archerhabibi - bot  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(bots): apply admin button styles (colour, premium emoji, decoration) with safe fallback - Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com> Claude-Session: https://claude.ai/code/session_01QK9KkSWioJ8gXCcYLr2seN
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (4):** `apps/telegram-main/runner.py`, `apps/telegram-main/tests/test_button_styles.py`, `apps/telegram-main/tgmain/client.py`, `apps/telegram-main/tgmain/ui.py`
+- **Ref:** `5ed0a03`
+
+### 2026-11-12 07:07 UTC - archerhabibi - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(admin-api): button-styles endpoints, public projection for bots, tests - Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com> Claude-Session: https://claude.ai/code/session_01QK9KkSWioJ8gXCcYLr2seN
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (6):** `apps/api/melorin/app.py`, `apps/api/melorin/core/integrations.py`, `apps/api/melorin/modules/admin/button_styles.py`, `apps/api/melorin/modules/admin/router.py`, `apps/api/tests/http/test_button_styles_http.py`, `apps/api/tests/unit/test_button_style.py`
+- **Ref:** `130e8ed`
+
+### 2026-11-12 07:07 UTC - archerhabibi - api  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(telegram): button style domain model (colour, premium emoji, decoration) - Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com> Claude-Session: https://claude.ai/code/session_01QK9KkSWioJ8gXCcYLr2seN
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `apps/api/melorin/domain/button_style.py`
+- **Ref:** `c0d8fe7`
+
+
+### 2026-11-10 07:46 UTC - archerhabibi - infra  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** ops(compose): no-new-privileges, cap_drop ALL, read-only root and bounded tmpfs for first-party services (T-R08; not yet run on a Docker host)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `docker-compose.yml`
+- **Ref:** `11367a7`
+
+### 2026-11-10 07:41 UTC - archerhabibi - api, tests, bot  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** refactor(quote): Core returns balance_after/shortfall; bot no longer does money arithmetic (T-R10)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (11):** `apps/api/melorin/domain/pricing.py`, `apps/api/melorin/modules/catalog/router.py`, `apps/api/melorin/modules/catalog/schemas.py`, `apps/api/tests/test_domain_pricing_wallet.py`, `apps/api/tests/test_renewal_core.py`, `apps/api/tests/test_telegram_bundles_flow.py`, `apps/api/tests/test_telegram_ux_v2.py`, `apps/telegram-main/tgmain/handlers/plans.py` (+3 more)
+- **Ref:** `78ef622`
+
+### 2026-11-10 07:40 UTC - archerhabibi - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(core): single outbound HTTP client with timeout/redirect/metrics policy; cheap scrypt in tests (T-R04, T-O02)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (25):** `apps/api/melorin/channels/telegram/bot_api.py`, `apps/api/melorin/channels/telegram/oidc.py`, `apps/api/melorin/core/http.py`, `apps/api/melorin/modules/admin/integrations/google_login.py`, `apps/api/melorin/modules/admin/integrations/telegram_diagnostics.py`, `apps/api/melorin/modules/identity/google.py`, `apps/api/melorin/modules/payments/adapters/zarinpal.py`, `apps/api/melorin/modules/payments/receipt_ocr.py` (+17 more)
+- **Ref:** `81d68a2`
+
+### 2026-11-10 07:32 UTC - archerhabibi - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** test: fail loudly on schema errors, replay cached DDL, fixed UUID param, jinja2 in dev lock, single utcnow (T-R02, T-W01..W05)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (5):** `apps/api/melorin/kernel/base.py`, `apps/api/requirements-dev.in`, `apps/api/requirements-dev.txt`, `apps/api/tests/_db.py`, `apps/api/tests/test_payments_service_db.py`
+- **Ref:** `7e2572e`
+
+
 ### 2026-11-09 - Claude (with owner) - PG-12 per-store subscription branding
 - **Before:** every store's subscription page carried the shared panel branding; `stores.branding` was free-form JSON replaced wholesale by the owner patch.
 - **Problem:** a reseller could not show its own name, support link or logo; a free-form value that a panel page may print is an injection risk.
