@@ -94,3 +94,9 @@ _Merged from the former 12-Change-Log-v1.1.md._
 - Honest limit: component props and server payloads that are not yet bound to generated `@melorin/api-client` schemas are typed `Json` / `Rec` (aliases in `src/types.ts`, same markers as admin-web). They are greppable; tighten one view per PR. This is a typed shell, not full type safety.
 - Verified in a real browser, not only jsdom: Playwright 10 passed / 2 skipped (the skipped two need a seeded staging stack), vitest 79, `vite build` OK (main bundle ~272 KB, gzip ~85 KB).
 - Source-contract guards (api tests, `check_g001_g010.py`, `check_frontend_contracts.py`) were repointed from `.jsx`/`.js` to `.tsx`/`.ts` for BOTH apps; the earlier admin-web migration had left 16 contract tests red because they still read the old names.
+
+## Architecture overlap review (2026-11-13)
+- `vpn` keeps the customer account lifecycle and the adapter/session layer; everything an admin does to a panel lives in `panelops`
+  (`panel_admins`, `governance`, `store_usage`, `service_access`, `panel_events_admin`, `bulk`, `subscription_check`, `recreate`, `digest`).
+  `vpn` never imports `panelops` (layer contract).
+- Reconciliation issue actions have one owner: `panelops/reconciliation_actions.py`. The admin router validates, authorizes and serializes only.

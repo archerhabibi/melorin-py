@@ -8,7 +8,7 @@ from _db import make_order, make_product, make_user
 from _http import PASSWORD, add_user, api_client, totp_now
 from melorin.core.db import utcnow
 from melorin.kernel.models.vpn import Panel, PanelNode, PanelOrphan, ReconciliationIssue, VpnAccount
-from melorin.modules.admin import panel_reconciliation
+from melorin.modules.panelops import reconciliation_actions
 from melorin.modules.vpn import issues
 
 BASE = "/api/v1/admin"
@@ -164,9 +164,9 @@ async def test_fix_owner_sets_the_expected_owner_on_the_panel(monkeypatch):
         async def close(self):
             return None
 
-    monkeypatch.setattr(panel_reconciliation, "build_adapter", lambda panel: Stub())
-    monkeypatch.setattr(panel_reconciliation, "seed_adapter", lambda adapter, account: adapter)
-    monkeypatch.setattr(panel_reconciliation, "supports", lambda adapter, cap: True)
+    monkeypatch.setattr(reconciliation_actions, "build_adapter", lambda panel: Stub())
+    monkeypatch.setattr(reconciliation_actions, "seed_adapter", lambda adapter, account: adapter)
+    monkeypatch.setattr(reconciliation_actions, "supports", lambda adapter, cap: True)
     async with api_client() as (c, maker, main):
         h = await _login(c, maker)
         w = await _world(maker, main, kinds=(issues.OWNER_MISMATCH,))
@@ -182,9 +182,9 @@ async def test_fix_owner_without_the_permission_is_a_clear_409_and_the_issue_sta
         async def close(self):
             return None
 
-    monkeypatch.setattr(panel_reconciliation, "build_adapter", lambda panel: Stub())
-    monkeypatch.setattr(panel_reconciliation, "seed_adapter", lambda adapter, account: adapter)
-    monkeypatch.setattr(panel_reconciliation, "supports", lambda adapter, cap: False)
+    monkeypatch.setattr(reconciliation_actions, "build_adapter", lambda panel: Stub())
+    monkeypatch.setattr(reconciliation_actions, "seed_adapter", lambda adapter, account: adapter)
+    monkeypatch.setattr(reconciliation_actions, "supports", lambda adapter, cap: False)
     async with api_client() as (c, maker, main):
         h = await _login(c, maker)
         w = await _world(maker, main, kinds=(issues.OWNER_MISMATCH,))
