@@ -1,4 +1,4 @@
-"""Admin API - automatic identity verification at a glance (docs/21): trusted devices and automatic account merges.
+"""Admin API - automatic identity verification at a glance (docs/23): trusted devices and automatic account merges.
 
 Read-mostly. The only write is revoking trust (one device, or every device of one account), which is always audited.
 Nothing here exposes a device key or its hash: the admin sees the browser label, network, usage and expiry.

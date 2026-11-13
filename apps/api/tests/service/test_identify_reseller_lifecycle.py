@@ -1,4 +1,4 @@
-"""Automatic approval of fully proven reseller applications and continuous re-verification of approved stores (docs/21)."""
+"""Automatic approval of fully proven reseller applications and continuous re-verification of approved stores (docs/23)."""
 
 from __future__ import annotations
 

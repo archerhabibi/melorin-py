@@ -1,4 +1,4 @@
-"""Automatic settlement of identity-link conflicts (docs/21, decision in ``melorin.domain.identity_auto_link``).
+"""Automatic settlement of identity-link conflicts (docs/23, decision in ``melorin.domain.identity_auto_link``).
 
 ``try_auto_resolve`` is called right after a conflict review is queued (same transaction) and by the worker sweep. When it
 is provably safe the empty-shell account is folded into the account that holds the records; otherwise the review stays

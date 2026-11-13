@@ -1,4 +1,4 @@
-"""Automatic identity verification of reseller applications (docs/21): domain proof (DNS / HTTP), bot re-check, schedule, gate."""
+"""Automatic identity verification of reseller applications (docs/23): domain proof (DNS / HTTP), bot re-check, schedule, gate."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Admin view of automatic identity verification (docs/21): trusted devices and automatic merges, over HTTP."""
+"""Admin view of automatic identity verification (docs/23): trusted devices and automatic merges, over HTTP."""
 
 from __future__ import annotations
 

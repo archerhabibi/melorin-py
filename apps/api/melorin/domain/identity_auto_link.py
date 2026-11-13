@@ -1,4 +1,4 @@
-"""Automatic resolution of identity-link conflicts (docs/21). Pure decision; the identity service executes it.
+"""Automatic resolution of identity-link conflicts (docs/23). Pure decision; the identity service executes it.
 
 A conflict (the same verified identity pointing at two accounts) used to wait for an admin. It is now settled by itself
 whenever that is provably safe, and only the genuinely ambiguous cases still reach a human:

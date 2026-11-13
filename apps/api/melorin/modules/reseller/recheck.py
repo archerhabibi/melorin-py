@@ -1,4 +1,4 @@
-"""Continuous identity re-verification of approved reseller stores (docs/21).
+"""Continuous identity re-verification of approved reseller stores (docs/23).
 
 Proving the domain and the bot once, at filing time, is not enough: a domain can be sold or lapse, a bot token can be
 revoked or leaked. Every approved store whose application proved its domain is re-checked on a schedule:
