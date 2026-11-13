@@ -17,3 +17,8 @@ def test_commercial_notices_stay_off_technical_topics_and_unknown_defaults_to_cu
 def test_longest_prefix_wins():
     assert m.route_for("vpn_near_expiry").severity == m.INFO
     assert m.route_for("store_volume_80").audience == m.STORE_OWNER
+
+
+def test_dm_allowed_only_for_kinds_routed_to_dm():
+    assert m.dm_allowed("vpn_expired") and m.dm_allowed("provisioning_failed") and m.dm_allowed(None)
+    assert not m.dm_allowed("panel_down") and not m.dm_allowed("backup_failed") and not m.dm_allowed("outbox_failure")

@@ -49,3 +49,8 @@ def allowed(kind: str | None, audience: str, channel: str) -> bool:
     if r.family == TECHNICAL and audience == CUSTOMER:
         return False
     return audience == r.audience and channel in r.channels
+
+
+def dm_allowed(kind: str | None) -> bool:
+    """May this kind be delivered as a Telegram DM at all? Kinds routed only to the Event Center (panel, backup, infra, outbox alerts) are not."""
+    return DM in route_for(kind).channels

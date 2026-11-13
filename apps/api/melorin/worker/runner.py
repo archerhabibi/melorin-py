@@ -10,6 +10,7 @@ from melorin.domain.order_state import VpnStatus, set_vpn_status
 from melorin.core import events
 from melorin.core.config import get_settings
 from melorin.core.db import session_factory, utcnow
+from melorin.domain import messaging_policy
 from melorin.domain.notification_dedup import EVENT_ID_FIELD, effective_key
 from melorin.core.metrics import inc
 from melorin import models  # noqa: F401, register all SQLAlchemy mappers before worker sessions
@@ -216,6 +217,9 @@ async def process_event(e: OutboxEvent):
 
 async def _notify(session, p: dict, kind: str, title: str, body: str = ""):
     if not p.get("user_id"):
+        return
+    if not messaging_policy.dm_allowed(kind):  # event-center-only kinds never become a DM
+        inc("melorin_notifications_total", channel="telegram", result="policy_skipped")
         return
     user_id = uuid.UUID(str(p["user_id"]))
     dedup_key = effective_key(p, str(user_id), "telegram")

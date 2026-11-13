@@ -122,4 +122,5 @@ _Merged from the former 12-Change-Log-v1.1.md._
 - Account status writes: `tests/contracts/test_vpn_status_writes.py` fails the build on any direct `account.status = ...` outside `set_vpn_status`.
 - Messaging policy: `domain/messaging_policy.py` classifies every notification kind (technical vs commercial, severity, audience, channels). Technical alerts never go to customers. It is the contract for the delivery paths; wiring each path to `allowed()` is incremental.
 - Bank SMS rules (status labels, form mapping, request body) live in `@melorin/web-kit/bankSms.js` for both apps.
-- Still open: route each delivery path through `messaging_policy.allowed`, move Loyalty / Referral / Broadcast logic onto web-kit hooks, and a shared design-token CSS package (admin and store skins still differ).
+- Telegram DM delivery (`worker/runner._notify`) now asks `messaging_policy.dm_allowed(kind)`: kinds routed only to the Event Center (panel, backup, infra, outbox alerts) are never sent as a DM.
+- Still open: route the remaining delivery paths (Event Center topics, VPN notices) through `messaging_policy.allowed`, move Loyalty / Referral / Broadcast logic onto web-kit hooks, and a shared design-token CSS package (admin and store skins still differ).
