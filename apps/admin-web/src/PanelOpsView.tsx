@@ -4,11 +4,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { Activity, AlertTriangle, CheckCircle, Loader, RefreshCw, ShieldAlert } from 'lucide-react';
 import { authFetch } from './api.ts';
 import { confirmDialog, promptDialog } from './ui.tsx';
-import PanelEventsTab from './PanelEventsTab.tsx';
-import PanelCapacityTab from './PanelCapacityTab.tsx';
-import PanelTemplatesTab from './PanelTemplatesTab.tsx';
-import PanelConsoleTab from './PanelConsoleTab.tsx';
-import PanelPhase5Tab from './PanelPhase5Tab.tsx';
 import type { CallFn, Json, Rec, Toast } from './types.ts';
 
 const KIND_LABEL: Rec = {
@@ -172,7 +167,10 @@ function NoticeLevels({ call, toast }: { call: CallFn; toast: Toast }) {
 
 export default function PanelOpsView({ api, toast }: { api?: Json; toast: Toast }) {
   const call = useCallback((p: string, o?: RequestInit) => authFetch(api.base, p, o), [api.base]);
-  const [tab, setTab] = useState(() => new URLSearchParams(window.location.hash.split('?')[1] || '').get('tab') || 'issues');
+  const [tab, setTab] = useState(() => {
+    const t = new URLSearchParams(window.location.hash.split('?')[1] || '').get('tab') || 'issues';
+    return ['issues', 'orphans', 'notices'].includes(t) ? t : 'issues';
+  });
   const [panels, setPanels] = useState<Rec[]>([]);
   // Deep link from the panel card: #/panel-ops?panel=<id>[&tab=<tab>]
   const deep = new URLSearchParams(window.location.hash.split('?')[1] || '');
@@ -180,7 +178,6 @@ export default function PanelOpsView({ api, toast }: { api?: Json; toast: Toast 
   const [summary, setSummary] = useState<Json>(null);
   const [issues, setIssues] = useState<{ total: number; items: Rec[] }>({ total: 0, items: [] });
   const [orphans, setOrphans] = useState<{ total: number; items: Rec[] }>({ total: 0, items: [] });
-  const [nodes, setNodes] = useState<Json>(null);
   const [busy, setBusy] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -206,8 +203,6 @@ export default function PanelOpsView({ api, toast }: { api?: Json; toast: Toast 
       setSummary(sm);
       setIssues(is);
       setOrphans(orp);
-      if (panelId) setNodes(await getJ(`/api/v1/admin/panels/${panelId}/nodes`));
-      else setNodes(null);
     } catch {
       toast('دریافت اطلاعات عملیات پنل ناموفق بود');
     }
@@ -301,6 +296,11 @@ export default function PanelOpsView({ api, toast }: { api?: Json; toast: Toast 
               </option>
             ))}
           </select>
+          {panelId && (
+            <a className="btn btn-g" href={`#/panels?detail=${panelId}`}>
+              عملیات این پنل
+            </a>
+          )}
           <button className="btn btn-g" onClick={load} disabled={loading}>
             {loading ? <Loader size={14} className="animate-spin" /> : <RefreshCw size={14} />} به‌روزرسانی
           </button>
@@ -353,12 +353,6 @@ export default function PanelOpsView({ api, toast }: { api?: Json; toast: Toast 
       <div className="flex flex-wrap gap-2">
         {tabBtn('issues', 'مغایرت‌ها', issues.total)}
         {tabBtn('orphans', 'کاربران ناشناس', orphans.total)}
-        {tabBtn('nodes', 'نودها', 0)}
-        {tabBtn('console', 'کنسول و اشتراک', 0)}
-        {tabBtn('events', 'رویدادهای زنده', 0)}
-        {tabBtn('capacity', 'ظرفیت و فروش', 0)}
-        {tabBtn('templates', 'تمپلیت‌ها', 0)}
-        {tabBtn('observe', 'شاخص و پشتیبان', 0)}
         {tabBtn('notices', 'هشدار حجم', 0)}
       </div>
 
@@ -418,47 +412,6 @@ export default function PanelOpsView({ api, toast }: { api?: Json; toast: Toast 
       )}
 
       {tab === 'notices' && <NoticeLevels call={call} toast={toast} />}
-
-      {tab === 'console' && <PanelConsoleTab call={call} panelId={panelId} toast={toast} />}
-      {tab === 'observe' && <PanelPhase5Tab call={call} panelId={panelId} toast={toast} />}
-      {tab === 'events' && <PanelEventsTab call={call} panelId={panelId} toast={toast} />}
-      {tab === 'capacity' && <PanelCapacityTab call={call} panelId={panelId} toast={toast} />}
-      {tab === 'templates' && <PanelTemplatesTab call={call} panelId={panelId} toast={toast} />}
-
-      {tab === 'nodes' && (
-        <section className="space-y-3">
-          {!panelId && <p className="card p-4 text-sm">برای دیدن نودها یک پنل انتخاب کنید.</p>}
-          {nodes && (
-            <>
-              <div className="card flex items-center gap-2 p-4 text-sm">
-                <AlertTriangle size={16} />
-                وضعیت پنل:{' '}
-                <b>
-                  {({ healthy: 'سالم', degraded: 'مختل', unhealthy: 'ناسالم' } as Rec)[nodes.health_status] ||
-                    'بررسی‌نشده'}
-                </b>
-                {nodes.detail?.reason ? <span>— {nodes.detail.reason}</span> : null}
-                {nodes.detail?.sellable === false ? <b className="text-[var(--bd)]">(فروش جدید متوقف است)</b> : null}
-              </div>
-              {nodes.nodes.map((n: Json) => (
-                <article key={n.remote_id} className="card p-4">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="h-2.5 w-2.5 rounded-full"
-                      style={{ background: NODE_COLOR[n.status] || 'var(--mu)' }}
-                    />
-                    <b>{n.name}</b>
-                    <span className="text-xs">{NODE_LABEL[n.status] || n.status}</span>
-                    <span className="text-xs text-[var(--mu)]">آخرین اتصال: {fmt(n.last_seen_at)}</span>
-                  </div>
-                  {n.message && <div className="mt-1 break-all text-xs text-[var(--mu)]">{n.message}</div>}
-                  {n.hint && <div className="mt-1 text-sm">{n.hint}</div>}
-                </article>
-              ))}
-            </>
-          )}
-        </section>
-      )}
     </div>
   );
 }

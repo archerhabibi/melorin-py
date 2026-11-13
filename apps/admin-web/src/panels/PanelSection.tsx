@@ -217,7 +217,7 @@ export function PanelSection({
               <Pencil size={13} />
               ویرایش
             </button>
-            <a className="btn btn-g" href={`#/panel-ops?panel=${p.id}`}>
+            <a className="btn btn-g" href={`#/panels?detail=${p.id}`}>
               عملیات پنل
             </a>
             <button
