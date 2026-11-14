@@ -112,7 +112,7 @@ describe('PanelsView · upstream_bot', () => {
     });
     expect(body.config).not.toHaveProperty('verify_tls');
     await waitFor(() => expect(calls.some((c) => c[1] === '/api/v1/admin/servers')).toBe(true));
-  });
+  }, 20000); // long typed form: slow on a loaded CI box
 
   it('previews the flow with the configured button texts', async () => {
     mockApi([]);

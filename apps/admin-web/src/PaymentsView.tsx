@@ -90,21 +90,41 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast 
   const rate = ok.length + bad.length ? ok.length / (ok.length + bad.length) : null;
   const filtering = !!(q || provider || tab !== 'all');
 
-  const run = async (p: Json, path: string, body: Json, okMsg: Json, failMsg: Json) => {
+  // Review and refund are typed calls (literal path each, so the schema checks the body); the client consumes the
+  // response body, so a failure's message comes from the parsed `error`.
+  const run = async (
+    p: Json,
+    send: (id: string) => Promise<{ response: Response; error?: unknown }>,
+    okMsg: Json,
+    failMsg: Json,
+  ) => {
     setBusy(p.id);
     try {
-      const r = await call(`/api/v1/admin/payments/${p.id}/${path}`, { method: 'POST', body: JSON.stringify(body) });
+      const { response: r, error } = await send(String(p.id));
       if (r.ok) {
         toast(okMsg);
         await load();
         setSel(null);
-      } else toast(await errText(r, failMsg));
+      } else {
+        const e = (error ?? {}) as { error?: { message?: string }; detail?: unknown };
+        toast(e.error?.message || (typeof e.detail === 'string' ? e.detail : '') || failMsg);
+      }
     } catch {
       toast('ارتباط با سرور برقرار نشد');
     } finally {
       setBusy('');
     }
   };
+  const review = (approve: boolean, reason: string) => (id: string) =>
+    client.post('/api/v1/admin/payments/{payment_id}/review', {
+      params: { path: { payment_id: id } },
+      body: { approve, reason },
+    });
+  const refund = (reason: string) => (id: string) =>
+    client.post('/api/v1/admin/payments/{payment_id}/refund', {
+      params: { path: { payment_id: id } },
+      body: { reason },
+    });
   const on = {
     approve: async (p: Json) => {
       if (
@@ -113,11 +133,11 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast 
           { title: 'تأیید پرداخت', ok: 'تأیید پرداخت' },
         )
       )
-        run(p, 'review', { approve: true, reason: '' }, 'پرداخت تأیید شد', 'تأیید ناموفق بود');
+        run(p, review(true, ''), 'پرداخت تأیید شد', 'تأیید ناموفق بود');
     },
     reject: async (p: Json) => {
       const reason = await promptDialog('دلیل رد این پرداخت را بنویسید.', { title: 'رد پرداخت', ok: 'رد پرداخت' });
-      if (reason !== null) run(p, 'review', { approve: false, reason }, 'پرداخت رد شد', 'رد پرداخت ناموفق بود');
+      if (reason !== null) run(p, review(false, reason), 'پرداخت رد شد', 'رد پرداخت ناموفق بود');
     },
     refund: async (p: Json) => {
       const reason = await promptDialog(
@@ -125,7 +145,7 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast 
         { title: 'استرداد پرداخت', ok: 'استرداد' },
       );
       if (reason !== null)
-        run(p, 'refund', { reason: reason || 'درخواست استرداد توسط Admin' }, 'استرداد ثبت شد', 'استرداد ناموفق بود');
+        run(p, refund(reason || 'درخواست استرداد توسط Admin'), 'استرداد ثبت شد', 'استرداد ناموفق بود');
     },
     receipt: async (p: Json) => {
       try {
