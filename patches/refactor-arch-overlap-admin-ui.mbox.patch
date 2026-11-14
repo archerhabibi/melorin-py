@@ -1,7 +1,7 @@
 From 2b7a40f4d38354ba119e0b5f4b673112112ec92e Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@gmail.com>
 Date: Fri, 13 Nov 2026 11:54:01 +0000
-Subject: [PATCH 01/40] arch(contracts): put eventcenter and broadcast under
+Subject: [PATCH 01/42] arch(contracts): put eventcenter and broadcast under
  the layer contract
 
 ---
@@ -28,7 +28,7 @@ index 286ab43..8ac7f14 100644
 From 2d64d509e34f94253822c3dbe6a55249abcb6301 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@gmail.com>
 Date: Fri, 13 Nov 2026 11:58:35 +0000
-Subject: [PATCH 02/40] fix(auth): admin password change enforces the same
+Subject: [PATCH 02/42] fix(auth): admin password change enforces the same
  policy as invite acceptance
 
 ---
@@ -92,7 +92,7 @@ index 4b4c2e7..b25e1a7 100644
 From 5ebfec4a5a0ad094c54c045612d3869ebc5e45b9 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@gmail.com>
 Date: Fri, 13 Nov 2026 11:59:56 +0000
-Subject: [PATCH 03/40] feat(admin-ui): regroup the menu (operations,
+Subject: [PATCH 03/42] feat(admin-ui): regroup the menu (operations,
  customers, catalog+marketing, communication, infrastructure); single password
  form; Receipt OCR lives under Payments
 
@@ -231,7 +231,7 @@ index d735da1..1bc9415 100644
 From cf3078358e9dd56b704544fd5afe992040683daa Mon Sep 17 00:00:00 2001
 From: claude-refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 12:22:19 +0000
-Subject: [PATCH 04/40] test(admin-ui): contract test follows the regrouped
+Subject: [PATCH 04/42] test(admin-ui): contract test follows the regrouped
  menu (infra group, catalog+marketing group)
 
 ---
@@ -263,7 +263,7 @@ index c37b6d0..b1c0224 100644
 From fa2f9f1b12a3e751e31dd0e7c0fecfe020debe13 Mon Sep 17 00:00:00 2001
 From: claude-refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 12:26:08 +0000
-Subject: [PATCH 05/40] arch(panelops): move panel_admins, governance,
+Subject: [PATCH 05/42] arch(panelops): move panel_admins, governance,
  store_usage, service_access, panel_events_admin, bulk, subscription_check,
  recreate, digest from vpn to panelops
 
@@ -873,7 +873,7 @@ index dc6010d..5daf353 100644
 From 28b907357132344d43bf66ba46418fb216c133cb Mon Sep 17 00:00:00 2001
 From: claude-refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 12:36:11 +0000
-Subject: [PATCH 06/40] arch(panelops): one reconciliation-actions service;
+Subject: [PATCH 06/42] arch(panelops): one reconciliation-actions service;
  admin router no longer builds adapters or coordinates writes
 
 Behaviour, error codes, audit events and messages are unchanged. Commits go through unit_of_work. Tests that patched the router's
@@ -1252,7 +1252,7 @@ index 1be7e54..ae1b773 100644
 From d9bf9dddd7d1751e60a4974b89608d057b2f9a2a Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:09:10 +0000
-Subject: [PATCH 07/40] docs(identity): point identity docstrings at docs/23
+Subject: [PATCH 07/42] docs(identity): point identity docstrings at docs/23
  (was docs/21)
 
 ---
@@ -1496,7 +1496,7 @@ index f553767..6ad921e 100644
 From 4666d51295581024fbba949d8215350c69940168 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:17:14 +0000
-Subject: [PATCH 08/40] feat(admin-ui): Settings is tabbed (backup+email /
+Subject: [PATCH 08/42] feat(admin-ui): Settings is tabbed (backup+email /
  advanced); Google and Telegram sign-in move to Identity > sign-in methods
 
 ---
@@ -1638,7 +1638,7 @@ index 89ae544..5be23cf 100644
 From f5d1996854a4f0b4b0595d9eb227d3e6e1c423c3 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:33:00 +0000
-Subject: [PATCH 09/40] feat(admin-ui): store hub: stores, resellers, panel
+Subject: [PATCH 09/42] feat(admin-ui): store hub: stores, resellers, panel
  access and volume governance are tabs of one menu entry
 
 ---
@@ -1860,7 +1860,7 @@ index 0000000..6dcd158
 From 4133a03d42351e76a8ac37b31e3d309270715b1e Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:53:57 +0000
-Subject: [PATCH 10/40] arch(payments): the main store payment destination uses
+Subject: [PATCH 10/42] arch(payments): the main store payment destination uses
  StorePaymentConfiguration; global card.info/gateway.zarinpal and the fallback
  are removed (alembic 0056)
 
@@ -2642,7 +2642,7 @@ index ae1b773..01a6a68 100644
 From eecbae7ca6146bef7cd336a832f0f91aa7560d5d Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 14:34:34 +0000
-Subject: [PATCH 11/40] arch(rewards): one written stacking policy and one
+Subject: [PATCH 11/42] arch(rewards): one written stacking policy and one
  settlement path; vpn account transition table
 
 ---
@@ -2817,7 +2817,7 @@ index 01a6a68..13f2648 100644
 From 3d7d013580e91867a5ec537d24db8323ea4c3fa0 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 14:42:16 +0000
-Subject: [PATCH 12/40] test(worker): refunds reverse loyalty before referral
+Subject: [PATCH 12/42] test(worker): refunds reverse loyalty before referral
 
 ---
  apps/api/tests/service/test_worker_runner_db.py | 2 +-
@@ -2843,7 +2843,7 @@ index ae12e89..af12146 100644
 From 34e51683ea1a0f2d5c9c18a528a48964c9f1ce77 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 14:59:48 +0000
-Subject: [PATCH 13/40] arch(worker): one read cycle per panel: metrics
+Subject: [PATCH 13/42] arch(worker): one read cycle per panel: metrics
  snapshot rides on the health job adapter
 
 ---
@@ -2923,7 +2923,7 @@ index 13f2648..3390dbd 100644
 From 3338242826ea3df9a23a08a2da87601ed7a78ed6 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 15:20:11 +0000
-Subject: [PATCH 14/40] arch(vpn): account status changes go through the
+Subject: [PATCH 14/42] arch(vpn): account status changes go through the
  guarded transition table
 
 ---
@@ -3078,7 +3078,7 @@ index 3390dbd..1fa7cd4 100644
 From 7a4e0bf6c3ddd2d04e5993cc0e818273990efe85 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 15:33:23 +0000
-Subject: [PATCH 15/40] arch(messaging): notifications dedupe on event_id +
+Subject: [PATCH 15/42] arch(messaging): notifications dedupe on event_id +
  recipient + channel
 
 ---
@@ -3200,7 +3200,7 @@ index 1fa7cd4..9e68bb5 100644
 From aae44f6b1397699b701c15ee04d519609193659b Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 16:18:20 +0000
-Subject: [PATCH 16/40] arch: guard expiry/revoke/sync status writes; panel
+Subject: [PATCH 16/42] arch: guard expiry/revoke/sync status writes; panel
  card deep-links to panel operations
 
 ---
@@ -3324,7 +3324,7 @@ index 9e68bb5..7218ea0 100644
 From 35b241cc55ca4386a7037d8a7a3a062ba268bd63 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 16:50:44 +0000
-Subject: [PATCH 17/40] arch(telegram): shared bot core in tgmain.core;
+Subject: [PATCH 17/42] arch(telegram): shared bot core in tgmain.core;
  reseller bot imports it instead of loading main runner.py by path; reseller
  image copies tgmain only
 
@@ -4242,7 +4242,7 @@ index cb2b24a..5e7709b 100644
 From bed9db5b27ebee848c22126ec449af3077f48c34 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 16:50:44 +0000
-Subject: [PATCH 18/40] chore(domain): drop 5-line leftovers (vpn/bundles,
+Subject: [PATCH 18/42] chore(domain): drop 5-line leftovers (vpn/bundles,
  vpn/service, domain/referral); commission_amount lives with commission,
  clean_custom_name in domain/account_name
 
@@ -4343,7 +4343,7 @@ index 0f1ad9b..9216cdf 100644
 From 81b5dd64815592a79fd09d829427b9ea83acbd83 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 16:59:01 +0000
-Subject: [PATCH 19/40] feat(admin): Operations Center roll-up on
+Subject: [PATCH 19/42] feat(admin): Operations Center roll-up on
  /admin/dashboard + dashboard card; restore vpn/service.py; guard provisioning
  status write; drop dead DataTable branches; contract test follows
  tgmain.core; decisions
@@ -4773,7 +4773,7 @@ index 7218ea0..45e9108 100644
 From a42c4b5125ec4735d242e8c52db443ceec7eebcd Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 17:03:53 +0000
-Subject: [PATCH 20/40] test: source-contract tests read tgmain/core.py
+Subject: [PATCH 20/42] test: source-contract tests read tgmain/core.py
 
 ---
  apps/api/tests/service/test_account_return.py              | 2 +-
@@ -4813,7 +4813,7 @@ index 9b5bf8b..65018af 100644
 From f820a98089d4df8cb591ebcb8809ed36844af73f Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 17:26:04 +0000
-Subject: [PATCH 21/40] feat(admin-ui): panel detail drawer: nodes, console,
+Subject: [PATCH 21/42] feat(admin-ui): panel detail drawer: nodes, console,
  events, capacity, templates and indicators are tabs of the panel; panel-ops
  keeps discrepancies, orphans and notices
 
@@ -5275,7 +5275,7 @@ index 45e9108..dd84015 100644
 From 802aa443b74f0e51fac783fb0265773f7b1734f8 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 20:40:47 +0000
-Subject: [PATCH 22/40] arch(integrations): provider adapters, sessions,
+Subject: [PATCH 22/42] arch(integrations): provider adapters, sessions,
  readers, capabilities and target config move from vpn to
  modules/panel_integrations (lowest feature layer); shared Event Center logic
  and text helpers move to web-kit
@@ -8112,7 +8112,7 @@ index 1423897..7dc57d3 100644
 From 4396daa9c77daadf056227597cd4f0618718a1d2 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 20:40:56 +0000
-Subject: [PATCH 23/40] docs: record integration boundary and shared web-kit
+Subject: [PATCH 23/42] docs: record integration boundary and shared web-kit
  decisions
 
 ---
@@ -8137,7 +8137,7 @@ index 82095f7..392f75c 100644
 From e20603006d61038349bba97489e394bb7429f8e2 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 21:21:54 +0000
-Subject: [PATCH 24/40] arch: PanelSnapshot read model, messaging policy,
+Subject: [PATCH 24/42] arch: PanelSnapshot read model, messaging policy,
  status-write contract test, shared Bank SMS rules in web-kit
 
 ---
@@ -8726,7 +8726,7 @@ index 0000000..d97d251
 From 4cbea13a57d038502850d3cd383be13431f9cb98 Mon Sep 17 00:00:00 2001
 From: Pori Toooni <poritoooni@gmail.com>
 Date: Fri, 13 Nov 2026 22:08:29 +0000
-Subject: [PATCH 25/40] arch(messaging): DM delivery honours
+Subject: [PATCH 25/42] arch(messaging): DM delivery honours
  messaging_policy.dm_allowed; decisions updated
 
 ---
@@ -8802,7 +8802,7 @@ index 54fd61b..e6a938e 100644
 From cbdfc1fb50f2474e3b531263ee626df651967279 Mon Sep 17 00:00:00 2001
 From: Pori Toooni <poritoooni@gmail.com>
 Date: Sat, 14 Nov 2026 06:03:59 +0000
-Subject: [PATCH 26/40] feat(web-kit): shared broadcast composer hook used by
+Subject: [PATCH 26/42] feat(web-kit): shared broadcast composer hook used by
  admin-web and store-web; decisions updated
 
 ---
@@ -9130,7 +9130,7 @@ index 0000000..454f752
 From 9168a7d321bfb75a24bcce2a9ff218ae98dd40a2 Mon Sep 17 00:00:00 2001
 From: Pori Toooni <poritoooni@gmail.com>
 Date: Sat, 14 Nov 2026 06:09:48 +0000
-Subject: [PATCH 27/40] feat(web-kit): shared referral plan form used by
+Subject: [PATCH 27/42] feat(web-kit): shared referral plan form used by
  admin-web and store-web; decisions updated
 
 ---
@@ -9395,7 +9395,7 @@ index 0000000..be1623c
 From 5c1964b6bd3252607196a5b33ca76cb825ab83da Mon Sep 17 00:00:00 2001
 From: Pori Toooni <poritoooni@gmail.com>
 Date: Sat, 14 Nov 2026 06:19:41 +0000
-Subject: [PATCH 28/40] feat(web-kit): shared loyalty club data layer used by
+Subject: [PATCH 28/42] feat(web-kit): shared loyalty club data layer used by
  admin-web and store-web; decisions updated
 
 ---
@@ -9637,7 +9637,7 @@ index 0000000..fec4cee
 From 14df2cdcbac02fcfabbcd78875f62b7f7fb0bb5b Mon Sep 17 00:00:00 2001
 From: Pori Toooni <poritoooni@gmail.com>
 Date: Sat, 14 Nov 2026 06:23:29 +0000
-Subject: [PATCH 29/40] feat(web-kit): shared design tokens (identical values
+Subject: [PATCH 29/42] feat(web-kit): shared design tokens (identical values
  only); decisions updated
 
 ---
@@ -9850,7 +9850,7 @@ index 0000000..f9858bb
 From 014b89fbe159cda8a04cf31807000b5b46be519b Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@users.noreply.github.com>
 Date: Sat, 14 Nov 2026 06:52:08 +0000
-Subject: [PATCH 30/40] arch: admin sync is event-driven with 15-min fallback;
+Subject: [PATCH 30/42] arch: admin sync is event-driven with 15-min fallback;
  rename admin team / panel operator labels; decisions
 
 ---
@@ -10104,7 +10104,7 @@ index 0761ec1..51a479e 100644
 From 413e2eae568257f6aebc675412cd552b53750289 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@users.noreply.github.com>
 Date: Sat, 14 Nov 2026 07:35:19 +0000
-Subject: [PATCH 31/40] docs: regenerate STATUS/API (head 0056, 413
+Subject: [PATCH 31/42] docs: regenerate STATUS/API (head 0056, 413
  operations); decisions: state machine writers complete
 
 ---
@@ -10183,7 +10183,7 @@ index 1367bca..1d9129e 100644
 From 983636616db750d9b16dd11d2512aa0f2427ce98 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@users.noreply.github.com>
 Date: Sat, 14 Nov 2026 07:48:17 +0000
-Subject: [PATCH 32/40] feat(web-kit): shared PasswordInput and base types;
+Subject: [PATCH 32/42] feat(web-kit): shared PasswordInput and base types;
  feat(admin-ui): per-store notice levels are a Store Hub tab; decisions
 
 ---
@@ -10778,7 +10778,7 @@ index 0000000..79ceddc
 From 1cde428f3ba9f8c2d2fc09eb52c279ccb1bdf608 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@users.noreply.github.com>
 Date: Sat, 14 Nov 2026 07:58:25 +0000
-Subject: [PATCH 33/40] feat(admin-ui): store hub gains read-only prices and
+Subject: [PATCH 33/42] feat(admin-ui): store hub gains read-only prices and
  API tabs; reseller editor is the profile tab; decisions
 
 ---
@@ -11094,7 +11094,7 @@ index eea5b94..0a636de 100644
 From 5e3ffdb47f99f80551b4710bbd4d75b464aa7bd8 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@users.noreply.github.com>
 Date: Sat, 14 Nov 2026 08:13:54 +0000
-Subject: [PATCH 34/40] test(e2e): store hub tabs and menu-route smoke in a
+Subject: [PATCH 34/42] test(e2e): store hub tabs and menu-route smoke in a
  real browser
 
 ---
@@ -11223,7 +11223,7 @@ index 0000000..9b5f3fc
 From 301d7ffc7ae54569831e025e2cafd78513f51fb1 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Sat, 14 Nov 2026 08:31:15 +0000
-Subject: [PATCH 35/40] arch(worker): split jobs.py by domain (backup, panels,
+Subject: [PATCH 35/42] arch(worker): split jobs.py by domain (backup, panels,
  accounts, identity, payments, reports); jobs.py is a facade; tests patch the
  owning module; decisions
 
@@ -12840,7 +12840,7 @@ index f8d5ff4..c17beb4 100644
 From 07265a3cae1f1e0b017f5e7fd1e602544dd05695 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Sat, 14 Nov 2026 08:34:49 +0000
-Subject: [PATCH 36/40] arch(panelops): panel notices (health, nodes, drift,
+Subject: [PATCH 36/42] arch(panelops): panel notices (health, nodes, drift,
  capacity) live in panelops/panel_notices; eventcenter.rules keeps
  outbox-event rules; decisions
 
@@ -13250,7 +13250,7 @@ index 3861e44..66d526b 100644
 From 02dbf20247e256f018ef57792a438098d6af0342 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@users.noreply.github.com>
 Date: Sat, 14 Nov 2026 08:59:33 +0000
-Subject: [PATCH 37/40] docs: identity ownership, palette merge postponed, gate
+Subject: [PATCH 37/42] docs: identity ownership, palette merge postponed, gate
  results; refresh patch
 
 ---
@@ -13275,7 +13275,7 @@ index 66d526b..bf6cbd2 100644
 From 7c610857e30fe8e59f5d47c1a2a5e19fdb9376bf Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@users.noreply.github.com>
 Date: Sat, 14 Nov 2026 09:02:42 +0000
-Subject: [PATCH 38/40] docs: decision on UI-less admin endpoints
+Subject: [PATCH 38/42] docs: decision on UI-less admin endpoints
 
 ---
  docs/DECISIONS.md | 1 +
@@ -13297,7 +13297,7 @@ index bf6cbd2..43741ae 100644
 From 4eb803a62729c389ea0f01a4828951f96ff8287d Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@users.noreply.github.com>
 Date: Sat, 14 Nov 2026 09:12:45 +0000
-Subject: [PATCH 39/40] feat(admin-ui): store notices tab gains customer notice
+Subject: [PATCH 39/42] feat(admin-ui): store notices tab gains customer notice
  texts and the owner daily digest switch
 
 ---
@@ -13628,7 +13628,7 @@ index d574f7d..a5557e5 100644
 From b2e32e60fdeef05a5d03e27406261813b0935de9 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@users.noreply.github.com>
 Date: Sat, 14 Nov 2026 09:25:25 +0000
-Subject: [PATCH 40/40] feat(admin-ui): screens for the formerly UI-less
+Subject: [PATCH 40/42] feat(admin-ui): screens for the formerly UI-less
  endpoints: bot bindings, unassigned products, product availability, order
  attach-account, panel access (service access and store role); decisions
 
@@ -14675,6 +14675,2828 @@ index 43741ae..810693d 100644
  - Gate on r3 (2026-11-14): lint-imports 6/6 kept, api pytest 2655 passed / 11 skipped, admin-web typecheck+build+vitest 289 passed, store-web 79 passed. Docker stack, bots and payment gateway not run.
 -- UI-less admin endpoints (T09/T10 inventory, 2026-11-14): consumer check across admin-web and both bots found no caller for store-role-plan, service-access, vpn-digest, vpn-notice-texts, bot-store-bindings, bundle-products/unassigned, products/{id}/availability and orders/{id}/attach-account (`tools/connections` has no route at all, so the heuristic entry was stale). Decision: keep them as API-only operator endpoints (permission-guarded, covered by API tests); none is removed. A screen is added only when a workflow needs it, in the group named by the review (store-role/service-access/digest/notice-texts: Store Hub; bundle-products and availability: catalog; attach-account: order detail). Docs numbering gaps 12 and 15 are intentional (docs/00-README).
 +- UI-less admin endpoints (T09/T10 inventory, 2026-11-14) now have screens (`tools/connections` had no route, so it was a stale heuristic entry): Store Hub «اعلان‌ها» tab holds `vpn-notice-texts` (per-kind customer wording) and `vpn-digest` (owner daily digest switch; `GET vpn-notices` now also returns `daily_digest` and `has_owner`); new Store Hub «ربات‌ها» tab lists/creates `bot-store-bindings`; the bundles screen warns about `bundle-products/unassigned`; the product drawer has a per-store availability section (`products/{id}/availability`); the order drawer has an attach-account form for orders in provisioning_failed / manual_review (`orders/{id}/attach-account`); the panel detail has an «دسترسی» tab for `store-role-plan` and `service-access` (provision, rotate, keys, store role apply/revert; owner credential is sent once and cleared from the form, panel name must be typed). Vitest covers the four read/write paths; the panel-access writes need a real panel and were not exercised. Docs numbering gaps 12 and 15 are intentional (docs/00-README).
+-- 
+2.43.0
+
+
+From 27e1ea74f249b73f64c9ca549d1efeb0147b2372 Mon Sep 17 00:00:00 2001
+From: archerhabibi <darushfardipor@gmail.com>
+Date: Sat, 14 Nov 2026 13:32:33 +0330
+Subject: [PATCH 41/42] arch: vpn becomes vpn_accounts (account lifecycle
+ only); capacity, health, templates join panel_integrations; panel_events and
+ its webhook router join panelops; admin routers call panelops.panel_probes
+ instead of building adapters; attributed, source-checked account status
+ writes; two new import contracts
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01TJkVJKo5rHV2wWVEgECvgM
+---
+ apps/api/melorin/app.py                       |  6 +-
+ apps/api/melorin/domain/order_state.py        | 65 ++++++++++++-
+ apps/api/melorin/domain/renewal_policy.py     |  9 ++
+ apps/api/melorin/modules/admin/capacity.py    | 40 +-------
+ apps/api/melorin/modules/admin/directory.py   |  2 +-
+ .../modules/admin/panel_live_events.py        |  2 +-
+ .../melorin/modules/admin/panel_operations.py |  2 +-
+ .../melorin/modules/admin/panel_orphans.py    |  2 +-
+ .../modules/admin/panel_reconciliation.py     |  6 +-
+ apps/api/melorin/modules/admin/panels.py      | 24 +----
+ .../modules/admin/store_vpn_notices.py        |  2 +-
+ apps/api/melorin/modules/admin/targets.py     | 25 +----
+ apps/api/melorin/modules/admin/templates.py   |  5 +-
+ .../modules/catalog/allocation/routing.py     |  4 +-
+ apps/api/melorin/modules/catalog/router.py    |  2 +-
+ apps/api/melorin/modules/orders/delivery.py   |  2 +-
+ .../melorin/modules/orders/provisioning.py    | 10 +-
+ .../modules/orders/service/account_return.py  |  4 +-
+ .../melorin/modules/orders/service/create.py  |  2 +-
+ .../adapters/pasarguard/access.py             |  2 +-
+ .../adapters/pasarguard/events.py             |  2 +-
+ .../{vpn => panel_integrations}/capacity.py   |  4 +-
+ .../{vpn => panel_integrations}/health.py     |  2 +-
+ .../modules/panel_integrations/reader.py      |  3 +
+ .../{vpn => panel_integrations}/templates.py  |  4 +-
+ apps/api/melorin/modules/panelops/bulk.py     | 10 +-
+ .../melorin/modules/panelops/ops_console.py   |  2 +-
+ .../modules/{vpn => panelops}/panel_events.py |  4 +-
+ .../modules/panelops/panel_events_admin.py    |  2 +-
+ .../melorin/modules/panelops/panel_metrics.py |  2 +-
+ .../melorin/modules/panelops/panel_probes.py  | 91 +++++++++++++++++++
+ .../panelops/reconciliation_actions.py        |  8 +-
+ apps/api/melorin/modules/panelops/recreate.py |  2 +-
+ .../modules/panelops/settings_drift.py        |  2 +-
+ .../melorin/modules/panelops/store_usage.py   |  4 +-
+ .../{vpn => panelops}/webhook_router.py       |  4 +-
+ .../melorin/modules/payments/store_config.py  |  4 +-
+ apps/api/melorin/modules/reseller/renewal.py  |  4 +-
+ .../modules/reseller/routes/accounts.py       |  6 +-
+ .../modules/{vpn => vpn_accounts}/__init__.py |  0
+ .../{vpn => vpn_accounts}/account_tools.py    |  8 +-
+ .../{vpn => vpn_accounts}/freshness.py        |  0
+ .../modules/{vpn => vpn_accounts}/inquiry.py  |  4 +-
+ .../modules/{vpn => vpn_accounts}/issues.py   |  0
+ .../modules/{vpn => vpn_accounts}/live.py     |  7 +-
+ .../{vpn => vpn_accounts}/manual_assign.py    |  2 +-
+ .../modules/{vpn => vpn_accounts}/notices.py  |  0
+ .../modules/{vpn => vpn_accounts}/plans.py    |  5 +-
+ .../modules/{vpn => vpn_accounts}/qr.py       |  0
+ .../{vpn => vpn_accounts}/reconcile.py        |  2 +-
+ .../modules/{vpn => vpn_accounts}/renewal.py  |  2 +-
+ .../modules/{vpn => vpn_accounts}/returns.py  |  4 +-
+ .../modules/{vpn => vpn_accounts}/router.py   |  6 +-
+ .../modules/{vpn => vpn_accounts}/schemas.py  |  0
+ .../modules/{vpn => vpn_accounts}/service.py  |  4 +-
+ .../modules/{vpn => vpn_accounts}/sync.py     |  8 +-
+ .../{vpn => vpn_accounts}/tools_router.py     |  8 +-
+ apps/api/melorin/worker/jobs_accounts.py      | 13 +--
+ apps/api/melorin/worker/jobs_backup.py        |  5 -
+ apps/api/melorin/worker/jobs_identity.py      |  8 --
+ apps/api/melorin/worker/jobs_panels.py        | 16 +---
+ apps/api/melorin/worker/jobs_payments.py      |  5 -
+ apps/api/melorin/worker/jobs_reports.py       |  5 -
+ apps/api/melorin/worker/retention.py          |  2 +-
+ apps/api/melorin/worker/runner.py             |  6 +-
+ apps/api/pyproject.toml                       | 29 +++++-
+ .../adapters/test_pasarguard_account_tools.py |  4 +-
+ .../adapters/test_pasarguard_admin_api.py     |  2 +-
+ .../adapters/test_pasarguard_capacity.py      |  2 +-
+ .../tests/adapters/test_pasarguard_events.py  |  2 +-
+ .../tests/adapters/test_pasarguard_logic.py   |  3 +-
+ .../test_pasarguard_openapi_contract.py       |  6 +-
+ .../adapters/test_pasarguard_ops_maturity.py  |  2 +-
+ .../adapters/test_pasarguard_service_db.py    |  3 +-
+ .../test_pasarguard_service_followup.py       |  2 +-
+ .../test_pasarguard_templates_plans.py        |  5 +-
+ .../tests/adapters/test_provider_adapters.py  |  4 +-
+ .../test_catalog_bundles_contract.py          |  2 +-
+ .../tests/contracts/test_commit_ratchet.py    | 16 ++--
+ .../tests/contracts/test_vpn_status_writes.py | 17 ++++
+ apps/api/tests/http/test_store_digest.py      |  2 +-
+ .../api/tests/http/test_store_notice_texts.py |  2 +-
+ .../api/tests/service/test_account_inquiry.py |  8 +-
+ apps/api/tests/service/test_account_return.py |  4 +-
+ .../service/test_admin_connections_db.py      |  2 +-
+ .../tests/service/test_manual_assign_db.py    |  2 +-
+ .../tests/service/test_mediator_r4_r6_db.py   |  4 +-
+ .../tests/service/test_mediator_rework_db.py  |  6 +-
+ .../tests/service/test_panel_live_view_db.py  |  2 +-
+ .../service/test_recreate_on_panel_db.py      |  2 +-
+ apps/api/tests/service/test_renewal_core.py   |  4 +-
+ .../api/tests/service/test_store_config_db.py | 14 ++-
+ .../api/tests/service/test_store_isolation.py |  6 +-
+ apps/api/tests/service/test_worker_jobs_db.py |  2 +-
+ apps/api/tests/unit/test_freshness_policy.py  |  2 +-
+ .../unit/test_panel_event_single_path.py      |  2 +-
+ apps/api/tests/unit/test_panel_snapshot.py    | 12 ++-
+ .../tests/unit/test_target_rules_and_admin.py |  8 +-
+ apps/api/tests/unit/test_vpn_qr_endpoint.py   |  2 +-
+ .../tests/unit/test_vpn_transition_sources.py | 65 +++++++++++++
+ docs/CHANGE_LOG.md                            |  2 +-
+ docs/panels/PANEL-MEDIATOR-REWORK.md          |  2 +-
+ 102 files changed, 470 insertions(+), 280 deletions(-)
+ create mode 100644 apps/api/melorin/domain/renewal_policy.py
+ rename apps/api/melorin/modules/{vpn => panel_integrations}/capacity.py (99%)
+ rename apps/api/melorin/modules/{vpn => panel_integrations}/health.py (99%)
+ rename apps/api/melorin/modules/{vpn => panel_integrations}/templates.py (99%)
+ rename apps/api/melorin/modules/{vpn => panelops}/panel_events.py (99%)
+ create mode 100644 apps/api/melorin/modules/panelops/panel_probes.py
+ rename apps/api/melorin/modules/{vpn => panelops}/webhook_router.py (96%)
+ rename apps/api/melorin/modules/{vpn => vpn_accounts}/__init__.py (100%)
+ rename apps/api/melorin/modules/{vpn => vpn_accounts}/account_tools.py (98%)
+ rename apps/api/melorin/modules/{vpn => vpn_accounts}/freshness.py (100%)
+ rename apps/api/melorin/modules/{vpn => vpn_accounts}/inquiry.py (99%)
+ rename apps/api/melorin/modules/{vpn => vpn_accounts}/issues.py (100%)
+ rename apps/api/melorin/modules/{vpn => vpn_accounts}/live.py (97%)
+ rename apps/api/melorin/modules/{vpn => vpn_accounts}/manual_assign.py (99%)
+ rename apps/api/melorin/modules/{vpn => vpn_accounts}/notices.py (100%)
+ rename apps/api/melorin/modules/{vpn => vpn_accounts}/plans.py (98%)
+ rename apps/api/melorin/modules/{vpn => vpn_accounts}/qr.py (100%)
+ rename apps/api/melorin/modules/{vpn => vpn_accounts}/reconcile.py (99%)
+ rename apps/api/melorin/modules/{vpn => vpn_accounts}/renewal.py (99%)
+ rename apps/api/melorin/modules/{vpn => vpn_accounts}/returns.py (98%)
+ rename apps/api/melorin/modules/{vpn => vpn_accounts}/router.py (95%)
+ rename apps/api/melorin/modules/{vpn => vpn_accounts}/schemas.py (100%)
+ rename apps/api/melorin/modules/{vpn => vpn_accounts}/service.py (79%)
+ rename apps/api/melorin/modules/{vpn => vpn_accounts}/sync.py (95%)
+ rename apps/api/melorin/modules/{vpn => vpn_accounts}/tools_router.py (96%)
+ create mode 100644 apps/api/tests/unit/test_vpn_transition_sources.py
+
+diff --git a/apps/api/melorin/app.py b/apps/api/melorin/app.py
+index 8d08e20..8a1efcb 100644
+--- a/apps/api/melorin/app.py
++++ b/apps/api/melorin/app.py
+@@ -30,9 +30,9 @@ from melorin.modules.reseller.router import api_router as reseller_api_router, r
+ from melorin.modules.reports.router import router as reports_router
+ from melorin.modules.referral.router import router as referral_router
+ from melorin.modules.tickets.router import router as tickets_router
+-from melorin.modules.vpn.router import router as vpn_router
+-from melorin.modules.vpn.tools_router import router as vpn_tools_router
+-from melorin.modules.vpn.webhook_router import router as panel_webhook_router
++from melorin.modules.vpn_accounts.router import router as vpn_router
++from melorin.modules.vpn_accounts.tools_router import router as vpn_tools_router
++from melorin.modules.panelops.webhook_router import router as panel_webhook_router
+ from melorin.modules.wallet.router import router as wallet_router
+ 
+ setup_logging()
+diff --git a/apps/api/melorin/domain/order_state.py b/apps/api/melorin/domain/order_state.py
+index 6ecaa41..af35335 100644
+--- a/apps/api/melorin/domain/order_state.py
++++ b/apps/api/melorin/domain/order_state.py
+@@ -1,3 +1,4 @@
++import dataclasses
+ from enum import StrEnum
+ 
+ 
+@@ -88,7 +89,63 @@ def assert_vpn_transition(src: str, dst: str) -> None:
+         raise InvalidTransition(src, dst)
+ 
+ 
+-def set_vpn_status(account, dst: VpnStatus) -> None:
+-    """The one way to change ``account.status``: checks the lifecycle table, then assigns."""
+-    assert_vpn_transition(str(account.status), str(dst))
+-    account.status = dst
++class VpnSource(StrEnum):
++    """WHO is changing an account's status. Every writer names itself so a transition can be audited and so a path can
++    never write a status it has no business with (a bulk action cannot revoke, the expiry job cannot activate)."""
++
++    PROVISIONING = "provisioning"  # an order creating/renewing the account on the panel (and cleaning a failed stub)
++    PANEL_SYNC = "panel_sync"  # what the panel itself reports (read cycle, reconcile, webhook events)
++    RECONCILIATION = "reconciliation"  # an admin resolving a discrepancy
++    BULK = "bulk"  # admin bulk operation
++    ACCOUNT_TOOLS = "account_tools"  # owner / store suspending or resuming one account
++    EXPIRY_JOB = "expiry_job"  # Melorin's own clock for accounts without a panel reading
++    RETURN = "return"  # the customer return (refund) revoking the account
++
++
++SOURCE_TARGETS: dict[VpnSource, frozenset[VpnStatus]] = {
++    VpnSource.PROVISIONING: frozenset({V.ACTIVE, V.ARCHIVED}),
++    VpnSource.PANEL_SYNC: frozenset({V.ACTIVE, V.SUSPENDED, V.EXPIRED, V.LIMITED}),
++    VpnSource.RECONCILIATION: frozenset({V.ARCHIVED}),
++    VpnSource.BULK: frozenset({V.ACTIVE, V.SUSPENDED}),
++    VpnSource.ACCOUNT_TOOLS: frozenset({V.ACTIVE, V.SUSPENDED}),
++    VpnSource.EXPIRY_JOB: frozenset({V.EXPIRED}),
++    VpnSource.RETURN: frozenset({V.REVOKED}),
++}
++
++
++class SourceNotAllowed(InvalidTransition):
++    def __init__(self, src: str, dst: str, source: str):
++        super().__init__(src, dst)
++        self.source = source
++        self.args = (f"{src} -> {dst} is not a status {source} may write",)
++
++
++@dataclasses.dataclass(frozen=True)
++class VpnTransition:
++    """The outcome of one status write; ``changed`` is False for an idempotent repeat. Callers put it in their audit data."""
++
++    src: str
++    dst: str
++    source: str
++    changed: bool
++
++    def as_audit(self) -> dict:
++        return {"from": self.src, "to": self.dst, "source": self.source}
++
++
++def set_vpn_status(account, dst: VpnStatus, *, source: VpnSource) -> VpnTransition:
++    """The one way to change ``account.status``.
++
++    Precondition: the lifecycle table allows ``current -> dst`` AND ``source`` may write ``dst``. Postcondition: the account holds
++    ``dst``. Writing the state the account already has changes nothing (so a retried job or a replayed event is harmless)."""
++    src = str(account.status)
++    dst = VpnStatus(dst)
++    source = VpnSource(source)
++    if dst not in SOURCE_TARGETS[source]:
++        raise SourceNotAllowed(src, str(dst), str(source))
++    assert_vpn_transition(src, str(dst))
++    changed = src != str(dst)
++    if changed:
++        account.status = dst
++    assert str(account.status) == str(dst)
++    return VpnTransition(src=src, dst=str(dst), source=str(source), changed=changed)
+diff --git a/apps/api/melorin/domain/renewal_policy.py b/apps/api/melorin/domain/renewal_policy.py
+new file mode 100644
+index 0000000..6584eec
+--- /dev/null
++++ b/apps/api/melorin/domain/renewal_policy.py
+@@ -0,0 +1,9 @@
++"""Renewal policy constants shared by the account lifecycle and by panel operations.
++
++``vpn_accounts.renewal`` decides what a renewal is; ``panelops.settings_drift`` must know how long a renewal is still
++accepted so a panel is never allowed to auto-delete an account earlier. Keeping the number here lets panel operations
++read it without importing the account-lifecycle module (see the ``panelops`` import contract in ``pyproject.toml``).
++"""
++
++# An account can be renewed until this many days after its expiry date; after that a new account must be bought.
++GRACE_DAYS = 10
+diff --git a/apps/api/melorin/modules/admin/capacity.py b/apps/api/melorin/modules/admin/capacity.py
+index 58da153..050d29c 100644
+--- a/apps/api/melorin/modules/admin/capacity.py
++++ b/apps/api/melorin/modules/admin/capacity.py
+@@ -7,25 +7,20 @@ The destination picker (``/admin/panels/{id}/targets``) shows the same per-group
+ 
+ from __future__ import annotations
+ 
+-import logging
+ import uuid
+ 
+ from fastapi import APIRouter
+ 
+-from melorin.modules.panel_integrations.adapters import providers
+ from melorin.core import audit
+ from melorin.core.deps import AdminUser, Session
+-from melorin.core.errors import AppError, NotFound
++from melorin.core.errors import NotFound
+ from melorin.kernel.models.vpn import Panel
+ from melorin.modules.panelops import queries
+-from melorin.modules.panel_integrations.session import close_adapter
++from melorin.modules.panelops.panel_probes import live_group_health, refresh_panel_capacity
+ from melorin.modules.panel_integrations import capabilities as panel_caps
+-from melorin.modules.vpn import capacity
+-from melorin.modules.panel_integrations.adapters.base import PanelError, supports
+-from melorin.modules.panel_integrations.adapters.registry import build_adapter
++from melorin.modules.panel_integrations import capacity
+ 
+ router = APIRouter(prefix="/admin", tags=["admin"])
+-log = logging.getLogger("melorin.admin.capacity")
+ 
+ 
+ async def _panel(session, panel_id: uuid.UUID) -> Panel:
+@@ -35,24 +30,6 @@ async def _panel(session, panel_id: uuid.UUID) -> Panel:
+     return panel
+ 
+ 
+-async def live_group_health(panel: Panel) -> dict[int, dict] | None:
+-    """``{group_id: assessment dict}`` from the live panel, or ``None`` when it cannot be asked (never raises)."""
+-    if not providers.supports(panel.kind, "panel_ops") or not panel_caps.capabilities_of(panel).has("capacity_ops"):
+-        return None
+-    adapter = None
+-    try:
+-        adapter = build_adapter(panel)
+-        if not supports(adapter, "capacity_ops"):
+-            return None
+-        groups, _templates = await capacity.fetch_assessments(adapter)
+-        return {gid: a.to_dict() for gid, a in groups.items()}
+-    except Exception:
+-        log.info("live group health failed panel=%s", panel.id, exc_info=True)
+-        return None
+-    finally:
+-        await close_adapter(adapter)
+-
+-
+ @router.get("/panels/{panel_id}/capacity")
+ async def panel_capacity(panel_id: uuid.UUID, _: AdminUser, session: Session):
+     panel = await _panel(session, panel_id)
+@@ -83,16 +60,7 @@ async def panel_capacity(panel_id: uuid.UUID, _: AdminUser, session: Session):
+ @router.post("/panels/{panel_id}/capacity/refresh")
+ async def refresh_capacity(panel_id: uuid.UUID, admin: AdminUser, session: Session):
+     panel = await _panel(session, panel_id)
+-    if not providers.supports(panel.kind, "panel_ops"):
+-        raise AppError("CAPABILITY_UNAVAILABLE", "بررسی ظرفیت واقعی فقط برای پنل پاسارگارد است.", 409)
+-    adapter = None
+-    try:
+-        adapter = build_adapter(panel)
+-        changes = await capacity.refresh_panel(session, panel, adapter)
+-    except PanelError as exc:
+-        raise AppError("PANEL_UNREACHABLE", f"پنل پاسخ نداد: {exc.message[:200]}", 502) from exc
+-    finally:
+-        await close_adapter(adapter)
++    changes = await refresh_panel_capacity(session, panel)
+     audit.record(
+         session,
+         "panel.capacity_refreshed",
+diff --git a/apps/api/melorin/modules/admin/directory.py b/apps/api/melorin/modules/admin/directory.py
+index 529fe3b..6582f60 100644
+--- a/apps/api/melorin/modules/admin/directory.py
++++ b/apps/api/melorin/modules/admin/directory.py
+@@ -10,7 +10,7 @@ from melorin.core.errors import NotFound
+ from melorin.kernel.models.identity import User
+ from melorin.kernel.models.stores import Store
+ from melorin.modules.catalog import allocation
+-from melorin.modules.vpn import inquiry, live
++from melorin.modules.vpn_accounts import inquiry, live
+ 
+ router = APIRouter(prefix="/admin", tags=["admin"])
+ log = logging.getLogger("melorin.admin")
+diff --git a/apps/api/melorin/modules/admin/panel_live_events.py b/apps/api/melorin/modules/admin/panel_live_events.py
+index 3a12757..f073297 100644
+--- a/apps/api/melorin/modules/admin/panel_live_events.py
++++ b/apps/api/melorin/modules/admin/panel_live_events.py
+@@ -11,7 +11,7 @@ from melorin.core import audit
+ from melorin.core.deps import AdminUser, Session
+ from melorin.core.errors import AppError, NotFound
+ from melorin.kernel.models.vpn import Panel
+-from melorin.modules.vpn import panel_events
++from melorin.modules.panelops import panel_events
+ from melorin.modules.panelops import panel_events_admin
+ 
+ from melorin.modules.panelops import queries
+diff --git a/apps/api/melorin/modules/admin/panel_operations.py b/apps/api/melorin/modules/admin/panel_operations.py
+index adf441f..ca82540 100644
+--- a/apps/api/melorin/modules/admin/panel_operations.py
++++ b/apps/api/melorin/modules/admin/panel_operations.py
+@@ -1,6 +1,6 @@
+ """Admin API - panel operations - operations console (PG-07), bulk operations (PG-11), store governance (PG-12), subscription test (PG-13).
+ 
+-Thin layer: every rule lives in ``modules/vpn/{ops_console,bulk,governance,subscription_check}.py``. Admin session only; every write is
++Thin layer: every rule lives in ``modules/vpn_accounts/{ops_console,bulk,governance,subscription_check}.py``. Admin session only; every write is
+ audited by the service it calls."""
+ 
+ import uuid
+diff --git a/apps/api/melorin/modules/admin/panel_orphans.py b/apps/api/melorin/modules/admin/panel_orphans.py
+index afe8e26..af3234a 100644
+--- a/apps/api/melorin/modules/admin/panel_orphans.py
++++ b/apps/api/melorin/modules/admin/panel_orphans.py
+@@ -15,7 +15,7 @@ from melorin.core import audit
+ from melorin.core.deps import AdminUser, Session
+ from melorin.core.errors import AppError, NotFound
+ from melorin.kernel.models.vpn import PanelOrphan
+-from melorin.modules.vpn import manual_assign
++from melorin.modules.vpn_accounts import manual_assign
+ 
+ from melorin.modules.panelops import queries
+ 
+diff --git a/apps/api/melorin/modules/admin/panel_reconciliation.py b/apps/api/melorin/modules/admin/panel_reconciliation.py
+index 9df061a..be6ea35 100644
+--- a/apps/api/melorin/modules/admin/panel_reconciliation.py
++++ b/apps/api/melorin/modules/admin/panel_reconciliation.py
+@@ -17,8 +17,8 @@ from melorin.core.deps import AdminUser, Session
+ from melorin.core.errors import AppError, NotFound
+ from melorin.kernel.models.stores import Store
+ from melorin.kernel.models.vpn import Panel, ReconciliationIssue, VpnAccount
+-from melorin.modules.vpn import issues as issue_svc
+-from melorin.modules.vpn import reconcile
++from melorin.modules.vpn_accounts import issues as issue_svc
++from melorin.modules.vpn_accounts import reconcile
+ 
+ from melorin.modules.panelops import queries
+ from melorin.modules.panelops import reconciliation_actions as actions
+@@ -77,7 +77,7 @@ class IssueActionIn(BaseModel):
+ # ------------------------------------------------------------------------------------------------------------------ nodes
+ @router.get("/panels/{panel_id}/nodes", response_model=PanelNodesOut)
+ async def panel_nodes(panel_id: uuid.UUID, _: AdminUser, session: Session):
+-    from melorin.modules.vpn.health import node_error_hint
++    from melorin.modules.panel_integrations.health import node_error_hint
+ 
+     panel = await session.get(Panel, panel_id)
+     if not panel:
+diff --git a/apps/api/melorin/modules/admin/panels.py b/apps/api/melorin/modules/admin/panels.py
+index 1325729..f0084e2 100644
+--- a/apps/api/melorin/modules/admin/panels.py
++++ b/apps/api/melorin/modules/admin/panels.py
+@@ -13,7 +13,6 @@ from melorin.kernel.models.catalog import Product
+ from melorin.kernel.models.orders import Order
+ from melorin.kernel.models.vpn import Panel, PanelNode, PanelOrphan, Server, VpnAccount
+ from melorin.kernel.models.bundles import Bundle, BundleMember
+-from melorin.modules.panelops import panel_notices
+ from melorin.modules.admin.schemas import (
+     CreatePanel,
+     CreateServer,
+@@ -23,9 +22,8 @@ from melorin.modules.admin.schemas import (
+     UpdateServer,
+ )
+ from melorin.modules.admin.targets import check_target, target_warnings
+-from melorin.modules.panel_integrations.session import close_adapter
+ from melorin.modules.panel_integrations import capabilities
+-from melorin.modules.vpn.capacity import capacity_view
++from melorin.modules.panel_integrations.capacity import capacity_view
+ from melorin.modules.panel_integrations.targets import capacity_label, effective_destination
+ from melorin.modules.admin._common import (
+     _commit_or_conflict,
+@@ -394,27 +392,13 @@ async def delete_server(server_id: uuid.UUID, admin: AdminUser, session: Session
+ @router.post("/panels/{panel_id}/health")
+ async def panel_health(panel_id: uuid.UUID, _: AdminUser, session: Session):
+     """Explicit health check: panel answers AND its nodes (PG-01). ``healthy`` = the panel can serve customers (healthy or degraded)."""
+-    from melorin.modules.vpn import health
+-    from melorin.modules.panel_integrations.adapters.registry import build_adapter
++    from melorin.modules.panel_integrations import health
++    from melorin.modules.panelops.panel_probes import check_health_now
+ 
+     p = await session.get(Panel, panel_id)
+     if not p:
+         raise NotFound("پنل")
+-    adapter = None
+-    try:
+-        adapter = build_adapter(p)
+-        result = await health.check_panel(session, p, adapter)
+-    except Exception as exc:
+-        result = health.HealthResult(
+-            health.UNHEALTHY, (getattr(exc, "message", None) or str(exc) or exc.__class__.__name__)[:300], {"layer": 1, "sellable": False}
+-        )
+-    finally:
+-        await close_adapter(adapter)
+-    if result.error == "health check returned false":
+-        result.error = "پنل پاسخ سالم نداد."
+-    previous = health.apply(p, result)
+-    await panel_notices.notify_panel_health(session, p, previous)
+-    await panel_notices.notify_panel_nodes(session, p, result.node_changes)
++    result = await check_health_now(session, p)
+     await session.commit()
+     usable = result.status in health.SELLABLE_STATES
+     if usable:  # an explicit health check is also the moment to re-read what the credential may do
+diff --git a/apps/api/melorin/modules/admin/store_vpn_notices.py b/apps/api/melorin/modules/admin/store_vpn_notices.py
+index a5557e5..b5712db 100644
+--- a/apps/api/melorin/modules/admin/store_vpn_notices.py
++++ b/apps/api/melorin/modules/admin/store_vpn_notices.py
+@@ -10,7 +10,7 @@ from melorin.core import audit
+ from melorin.core.deps import AdminUser, Session
+ from melorin.core.errors import AppError, NotFound
+ from melorin.kernel.models.stores import Store
+-from melorin.modules.vpn import notices
++from melorin.modules.vpn_accounts import notices
+ 
+ router = APIRouter(prefix="/admin", tags=["admin"])
+ log = logging.getLogger("melorin.admin.store_vpn_notices")
+diff --git a/apps/api/melorin/modules/admin/targets.py b/apps/api/melorin/modules/admin/targets.py
+index 1621977..0415368 100644
+--- a/apps/api/melorin/modules/admin/targets.py
++++ b/apps/api/melorin/modules/admin/targets.py
+@@ -7,7 +7,6 @@ many slots at once (wizard / sync with the panel).
+ 
+ from __future__ import annotations
+ 
+-import logging
+ import uuid
+ 
+ from fastapi import APIRouter
+@@ -19,12 +18,10 @@ from melorin.core.deps import AdminUser, Session
+ from melorin.core.errors import AppError, NotFound
+ from melorin.kernel.models.vpn import Panel, Server
+ from melorin.modules.panelops import queries
+-from melorin.modules.panel_integrations.session import close_adapter
+-from melorin.modules.panel_integrations.adapters.registry import build_adapter
++from melorin.modules.panelops.panel_probes import fetch_listing, live_group_health
+ from melorin.modules.panel_integrations.targets import normalize_target, validate_target
+ 
+ router = APIRouter(prefix="/admin", tags=["admin"])
+-log = logging.getLogger("melorin.admin.targets")
+ 
+ DEFAULT_CAPACITY = 500  # the value every group has today; editable per destination afterwards
+ 
+@@ -42,20 +39,6 @@ def check_target(panel: Panel, target: dict | None) -> dict | None:
+     return stored
+ 
+ 
+-async def fetch_listing(panel: Panel) -> dict | None:
+-    """What the panel offers right now, or None when it cannot be asked (down, wrong credentials, kind without a listing)."""
+-    adapter = None
+-    try:
+-        adapter = build_adapter(panel)
+-        lister = getattr(adapter, "list_targets", None)
+-        return await lister() if callable(lister) else None
+-    except Exception:
+-        log.info("panel target listing failed panel=%s", panel.id, exc_info=True)
+-        return None
+-    finally:
+-        await close_adapter(adapter)
+-
+-
+ def listing_warnings(panel: Panel, target: dict | None, listing: dict | None) -> list[str]:
+     """Compare ``target`` with the panel's own listing. Only warnings: the panel may change after saving."""
+     if not target:
+@@ -101,11 +84,7 @@ async def panel_targets(panel_id: uuid.UUID, _: AdminUser, session: Session):
+                 out.append({"id": str(s.id), "name": s.name})
+         return out
+ 
+-    from melorin.modules.admin.capacity import (
+-        live_group_health,
+-    )  # PG-08: each group with its real state (a broken one is flagged, not hidden)
+-
+-    health = await live_group_health(panel) or {}
++    health = await live_group_health(panel) or {}  # PG-08: each group with its real state (a broken one is flagged, not hidden)
+     for g in listing.get("groups", []):
+         g["health"] = health.get(g["id"])
+         g["used_by"] = used("group_ids", g["id"])
+diff --git a/apps/api/melorin/modules/admin/templates.py b/apps/api/melorin/modules/admin/templates.py
+index a1814a2..7dbd066 100644
+--- a/apps/api/melorin/modules/admin/templates.py
++++ b/apps/api/melorin/modules/admin/templates.py
+@@ -8,7 +8,7 @@
+ ``DELETE /admin/panels/{id}/templates/{product_id}``         forget the mapping (the template stays on the panel)
+ ``POST   /admin/vpn-accounts/{account_id}/change-plan``      move an existing account to another package's template (reason required)
+ 
+-All admin-only and audited; rules live in :mod:`melorin.modules.vpn.templates` and :mod:`melorin.modules.vpn.plans`.
++All admin-only and audited; rules live in :mod:`melorin.modules.panel_integrations.templates` and :mod:`melorin.modules.vpn_accounts.plans`.
+ """
+ 
+ from __future__ import annotations
+@@ -22,7 +22,8 @@ from melorin.core.deps import AdminUser, Session
+ from melorin.core.errors import NotFound
+ from melorin.kernel.models.catalog import Product
+ from melorin.kernel.models.vpn import Panel, VpnAccount
+-from melorin.modules.vpn import live, plans, templates
++from melorin.modules.vpn_accounts import live, plans
++from melorin.modules.panel_integrations import templates
+ 
+ router = APIRouter(prefix="/admin", tags=["admin"])
+ 
+diff --git a/apps/api/melorin/modules/catalog/allocation/routing.py b/apps/api/melorin/modules/catalog/allocation/routing.py
+index 3947462..3364813 100644
+--- a/apps/api/melorin/modules/catalog/allocation/routing.py
++++ b/apps/api/melorin/modules/catalog/allocation/routing.py
+@@ -262,7 +262,9 @@ async def _active_counts(session: AsyncSession, server_ids: list[uuid.UUID], pan
+ 
+ 
+ def _candidate(server: Server, panel: Panel, member: BundleMember | None, active_server: int, active_panel: int) -> Candidate:
+-    from melorin.modules.vpn.capacity import effective_load  # PG-08: capacity_source=panel also counts users created outside Melorin
++    from melorin.modules.panel_integrations.capacity import (
++        effective_load,
++    )  # PG-08: capacity_source=panel also counts users created outside Melorin
+ 
+     active_server = effective_load(server, active_server)
+     return Candidate(
+diff --git a/apps/api/melorin/modules/catalog/router.py b/apps/api/melorin/modules/catalog/router.py
+index 9029879..2f02887 100644
+--- a/apps/api/melorin/modules/catalog/router.py
++++ b/apps/api/melorin/modules/catalog/router.py
+@@ -27,7 +27,7 @@ from melorin.modules.catalog.schemas import (
+ )
+ from melorin.kernel.models.stores import Store
+ from melorin.modules.catalog import allocation
+-from melorin.modules.vpn import plans, renewal
++from melorin.modules.vpn_accounts import plans, renewal
+ from melorin.kernel.models.vpn import VpnAccount
+ from melorin.modules.wallet import service as wallet
+ 
+diff --git a/apps/api/melorin/modules/orders/delivery.py b/apps/api/melorin/modules/orders/delivery.py
+index 5b816b9..db8bbf7 100644
+--- a/apps/api/melorin/modules/orders/delivery.py
++++ b/apps/api/melorin/modules/orders/delivery.py
+@@ -19,7 +19,7 @@ from sqlalchemy import select
+ from sqlalchemy.ext.asyncio import AsyncSession
+ 
+ from melorin.core.fmt import format_amount
+-from melorin.modules.vpn.qr import render_qr_png  # noqa: F401  (also the delivery module's public name)
++from melorin.modules.vpn_accounts.qr import render_qr_png  # noqa: F401  (also the delivery module's public name)
+ from melorin.core.config import get_settings
+ from melorin.core.metrics import inc
+ from melorin.kernel.models.notifications import Notification
+diff --git a/apps/api/melorin/modules/orders/provisioning.py b/apps/api/melorin/modules/orders/provisioning.py
+index d4e35fb..a919fb7 100644
+--- a/apps/api/melorin/modules/orders/provisioning.py
++++ b/apps/api/melorin/modules/orders/provisioning.py
+@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
+ 
+ from melorin.core import audit, events, flags, settings_store
+ from melorin.core.db import utcnow
+-from melorin.domain.order_state import OrderStatus, VpnStatus, set_vpn_status
++from melorin.domain.order_state import OrderStatus, VpnSource, VpnStatus, set_vpn_status
+ from melorin.kernel.models.catalog import Product
+ from melorin.kernel.models.orders import Order
+ from melorin.kernel.models.stores import Store
+@@ -19,7 +19,7 @@ from melorin.modules.panel_integrations.adapters.base import AccountSpec, ErrorK
+ from melorin.modules.panelops import panel_admins
+ from melorin.modules.panel_integrations.adapters.registry import build_adapter, seed_adapter
+ from melorin.modules.catalog.allocation import placement_snapshot, resolve_allocation
+-from melorin.modules.vpn import notices, plans, renewal, sync
++from melorin.modules.vpn_accounts import notices, plans, renewal, sync
+ from melorin.kernel.models.vpn import Panel, ProvisioningAttempt, Server, VpnAccount
+ from melorin.kernel.models.bundles import Bundle, BundleMember
+ from melorin.domain.account_name import clean_custom_name
+@@ -84,7 +84,7 @@ async def _fail(
+     # If a stub VpnAccount was created but the panel call failed before
+     # returning a panel_ref, archive it so the next attempt starts fresh.
+     if account is not None and account.status == VpnStatus.PROVISIONING and account.panel_ref is None:
+-        set_vpn_status(account, VpnStatus.ARCHIVED)
++        set_vpn_status(account, VpnStatus.ARCHIVED, source=VpnSource.PROVISIONING)
+         # Mangle the username so UNIQUE does not block the next attempt.
+         account.username = account.username[:55] + "_r" + str(order.provisioning_attempts)
+ 
+@@ -301,7 +301,7 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
+                     )
+                     session.add(account)
+                 account.panel_ref = remote.ref
+-                set_vpn_status(account, VpnStatus.ACTIVE)
++                set_vpn_status(account, VpnStatus.ACTIVE, source=VpnSource.PROVISIONING)
+                 if queued:
+                     plans.mark_queued(account, template_id=queued_template, product_id=product.id, order_id=order.id, now=now)
+                 elif order.kind == "renewal":
+@@ -342,7 +342,7 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
+     account.server_id, account.panel_id, account.panel_ref = server.id, panel.id, pa.ref
+     if order.kind != "renewal" and account.placement is not None and account.placement.get("remote_ref") is None:
+         account.placement = {**account.placement, "remote_ref": pa.ref}  # the snapshot is written once; only the panel's id is filled in
+-    set_vpn_status(account, VpnStatus.ACTIVE)
++    set_vpn_status(account, VpnStatus.ACTIVE, source=VpnSource.PROVISIONING)
+     if queued:
+         plans.mark_queued(
+             account, template_id=queued_template, product_id=product.id, order_id=order.id, now=now
+diff --git a/apps/api/melorin/modules/orders/service/account_return.py b/apps/api/melorin/modules/orders/service/account_return.py
+index 2030a3c..3e0efc8 100644
+--- a/apps/api/melorin/modules/orders/service/account_return.py
++++ b/apps/api/melorin/modules/orders/service/account_return.py
+@@ -1,4 +1,4 @@
+-"""Customer account return (مرجوعی), executing half: the rules live in ``melorin.modules.vpn.returns`` (the lower layer);
++"""Customer account return (مرجوعی), executing half: the rules live in ``melorin.modules.vpn_accounts.returns`` (the lower layer);
+ this module, which may import ``orders``, turns an allowed return into a normal order refund."""
+ 
+ from __future__ import annotations
+@@ -7,7 +7,7 @@ import uuid
+ 
+ from melorin.core.scope import StoreScope
+ from melorin.modules.orders.service.refund import _refund
+-from melorin.modules.vpn import returns
++from melorin.modules.vpn_accounts import returns
+ 
+ 
+ async def return_account(session, scope: StoreScope, account_id: uuid.UUID) -> dict:
+diff --git a/apps/api/melorin/modules/orders/service/create.py b/apps/api/melorin/modules/orders/service/create.py
+index 40d6d95..bfb443f 100644
+--- a/apps/api/melorin/modules/orders/service/create.py
++++ b/apps/api/melorin/modules/orders/service/create.py
+@@ -15,7 +15,7 @@ from melorin.kernel.models.orders import Order, OrderStateTransition
+ from melorin.kernel.models.stores import StoreMembership
+ from melorin.kernel.models.system import TestAccountGrant
+ from melorin.modules.catalog import allocation
+-from melorin.modules.vpn import plans, renewal
++from melorin.modules.vpn_accounts import plans, renewal
+ from melorin.kernel.models.vpn import VpnAccount
+ from melorin.modules.orders.service.base import ResellerDebtLimitReached, S, transition
+ from melorin.modules.orders.service.payment import notify_debt_reached, pay_with_wallet
+diff --git a/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/access.py b/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/access.py
+index d8dff79..3152ed5 100644
+--- a/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/access.py
++++ b/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/access.py
+@@ -1,6 +1,6 @@
+ """PasarGuard access management (PG-05): the least-privilege role, the service admin's API key, and listing / deleting keys.
+ 
+-Only an owner-level credential may call these (they create roles and keys). They are used by ``modules/vpn/service_access.py`` with a
++Only an owner-level credential may call these (they create roles and keys). They are used by ``modules/vpn_accounts/service_access.py`` with a
+ credential the operator supplies for that one request; the credential Melorin runs on cannot do any of this by design.
+ Request shapes are taken from the live panel's OpenAPI 5.6.0 (``AdminRoleCreate``, ``APIKeyCreate``)."""
+ 
+diff --git a/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/events.py b/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/events.py
+index 2a50276..5f3e2c8 100644
+--- a/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/events.py
++++ b/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/events.py
+@@ -7,7 +7,7 @@ same across the panel's own retries), ``by``, ``reason``, ``reset_traffic`` and
+ are normal: the ``id`` (or action + username + enqueued_at) is the idempotency key.
+ 
+ **What Melorin trusts.** Only the fact that "something happened to this user". The payload is never used as state: the worker
+-re-reads the account from the panel (see ``modules/vpn/panel_events.py``), so a forged-but-authenticated, stale or out-of-order
++re-reads the account from the panel (see ``modules/panelops/panel_events.py``), so a forged-but-authenticated, stale or out-of-order
+ event cannot write wrong data. The payload kept for audit is stripped of links and proxy settings (:func:`sanitize`).
+ 
+ The header name and body shape follow the Marzban/PasarGuard webhook and PasarGuard PR #1180 (``id``/``by``/``reason``); the panel's
+diff --git a/apps/api/melorin/modules/vpn/capacity.py b/apps/api/melorin/modules/panel_integrations/capacity.py
+similarity index 99%
+rename from apps/api/melorin/modules/vpn/capacity.py
+rename to apps/api/melorin/modules/panel_integrations/capacity.py
+index 09d8116..a27fd18 100644
+--- a/apps/api/melorin/modules/vpn/capacity.py
++++ b/apps/api/melorin/modules/panel_integrations/capacity.py
+@@ -2,7 +2,7 @@
+ 
+ A server (destination) points at PasarGuard groups or a user template. A destination is only worth selling when customers created
+ there can actually connect:  group enabled -> at least one enabled host on one of its inbound tags -> at least one connected node
+-that runs those inbounds.  Layers 1-2 (panel answers, nodes) live in :mod:`melorin.modules.vpn.health`.
++that runs those inbounds.  Layers 1-2 (panel answers, nodes) live in :mod:`melorin.modules.panel_integrations.health`.
+ 
+ Pure functions first (``assess_group``, ``assess_server``, ``fill_state``), then one loader (:func:`refresh_panel`) that the health job
+ calls with a live adapter. Rules that matter:
+@@ -32,7 +32,7 @@ from melorin.modules.panel_integrations import capabilities as panel_caps
+ from melorin.modules.panel_integrations.adapters.base import PanelError, supports
+ from melorin.modules.panel_integrations.targets import effective_destination
+ 
+-log = logging.getLogger("melorin.vpn.capacity")
++log = logging.getLogger("melorin.panel_integrations.capacity")
+ 
+ OK, DEGRADED, BLOCKED = "healthy", "degraded", "blocked"
+ CAPACITY_SOURCES = ("melorin", "panel")
+diff --git a/apps/api/melorin/modules/vpn/health.py b/apps/api/melorin/modules/panel_integrations/health.py
+similarity index 99%
+rename from apps/api/melorin/modules/vpn/health.py
+rename to apps/api/melorin/modules/panel_integrations/health.py
+index bba5d9e..4a901ea 100644
+--- a/apps/api/melorin/modules/vpn/health.py
++++ b/apps/api/melorin/modules/panel_integrations/health.py
+@@ -25,7 +25,7 @@ from melorin.kernel.models.vpn import Panel, PanelNode
+ from melorin.modules.panel_integrations import capabilities as panel_caps
+ from melorin.modules.panel_integrations.adapters.base import PanelError, supports
+ 
+-log = logging.getLogger("melorin.vpn.health")
++log = logging.getLogger("melorin.panel_integrations.health")
+ 
+ MAX_REASONS = 20
+ 
+diff --git a/apps/api/melorin/modules/panel_integrations/reader.py b/apps/api/melorin/modules/panel_integrations/reader.py
+index 1298fb6..77a7281 100644
+--- a/apps/api/melorin/modules/panel_integrations/reader.py
++++ b/apps/api/melorin/modules/panel_integrations/reader.py
+@@ -13,6 +13,9 @@ from collections.abc import Awaitable, Callable, Hashable
+ from dataclasses import dataclass, field
+ from typing import Any
+ 
++# Shown instead of a number when the panel could not answer; an old reading is never presented as a live one.
++UNAVAILABLE_NOTE = "اطلاعات زنده از پنل موقتاً در دسترس نیست."
++
+ # fetch(offset=..., limit=...) -> (rows, total); ``total`` may be ``None`` when the panel does not report one.
+ Fetch = Callable[..., Awaitable[tuple[list, Any]]]
+ 
+diff --git a/apps/api/melorin/modules/vpn/templates.py b/apps/api/melorin/modules/panel_integrations/templates.py
+similarity index 99%
+rename from apps/api/melorin/modules/vpn/templates.py
+rename to apps/api/melorin/modules/panel_integrations/templates.py
+index 5f19813..1982261 100644
+--- a/apps/api/melorin/modules/vpn/templates.py
++++ b/apps/api/melorin/modules/panel_integrations/templates.py
+@@ -2,7 +2,7 @@
+ 
+ A template is how a PasarGuard panel knows a package: groups, volume, duration, device limit. Melorin keeps the mapping
+ ``(panel, product) -> remote template id`` in ``product_templates`` and uses it for two things: queueing a prepaid renewal
+-(:mod:`melorin.modules.vpn.plans`) and moving an account to another package.
++(:mod:`melorin.modules.vpn_accounts.plans`) and moving an account to another package.
+ 
+ Rules (all admin-only, all audited):
+ 
+@@ -38,7 +38,7 @@ from melorin.modules.panel_integrations.adapters.base import PanelError, support
+ from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter, panel_failure
+ from melorin.modules.panel_integrations.adapters.registry import build_adapter
+ 
+-log = logging.getLogger("melorin.vpn.templates")
++log = logging.getLogger("melorin.panel_integrations.templates")
+ 
+ GIB = 1024**3
+ DAY = 86400
+diff --git a/apps/api/melorin/modules/panelops/bulk.py b/apps/api/melorin/modules/panelops/bulk.py
+index c2586d4..38b0ad9 100644
+--- a/apps/api/melorin/modules/panelops/bulk.py
++++ b/apps/api/melorin/modules/panelops/bulk.py
+@@ -29,10 +29,10 @@ from melorin.modules.panel_integrations.adapters import providers
+ from melorin.core import audit
+ from melorin.core.db import utcnow
+ from melorin.core.errors import AppError, NotFound
+-from melorin.domain.order_state import VpnStatus, set_vpn_status
++from melorin.domain.order_state import VpnSource, VpnStatus, set_vpn_status
+ from melorin.kernel.models.stores import Store
+ from melorin.kernel.models.vpn import BulkOperation, BulkOperationItem, Panel, VpnAccount
+-from melorin.modules.vpn import sync
++from melorin.modules.vpn_accounts import sync
+ from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError, supports
+ from melorin.modules.panel_integrations.adapters.registry import build_adapter
+ 
+@@ -400,11 +400,11 @@ def _mark(item: BulkOperationItem, status: str, error: str | None = None) -> Non
+ def _mirror_panel_action(kind: str, account: VpnAccount) -> None:
+     """Reflect an idempotent panel action on the account right away; ``last_synced_at=None`` puts it first in line for reconcile v2."""
+     if kind == "disable":
+-        set_vpn_status(account, VpnStatus.SUSPENDED)
++        set_vpn_status(account, VpnStatus.SUSPENDED, source=VpnSource.BULK)
+     elif kind == "enable":
+-        set_vpn_status(account, VpnStatus.ACTIVE)
++        set_vpn_status(account, VpnStatus.ACTIVE, source=VpnSource.BULK)
+     elif kind == "reset_usage" and account.status == VpnStatus.LIMITED:  # usage itself is the panel's: only the status bucket moves
+-        set_vpn_status(account, VpnStatus.ACTIVE)
++        set_vpn_status(account, VpnStatus.ACTIVE, source=VpnSource.BULK)
+     account.last_synced_at = None
+ 
+ 
+diff --git a/apps/api/melorin/modules/panelops/ops_console.py b/apps/api/melorin/modules/panelops/ops_console.py
+index b00e9c0..b181e2c 100644
+--- a/apps/api/melorin/modules/panelops/ops_console.py
++++ b/apps/api/melorin/modules/panelops/ops_console.py
+@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
+ from melorin.core import audit
+ from melorin.core.errors import AppError, NotFound
+ from melorin.kernel.models.vpn import Panel, PanelNode
+-from melorin.modules.vpn import health
++from melorin.modules.panel_integrations import health
+ from melorin.modules.panel_integrations import capabilities as panel_caps
+ from melorin.modules.panel_integrations.adapters.base import PanelError, supports
+ from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
+diff --git a/apps/api/melorin/modules/vpn/panel_events.py b/apps/api/melorin/modules/panelops/panel_events.py
+similarity index 99%
+rename from apps/api/melorin/modules/vpn/panel_events.py
+rename to apps/api/melorin/modules/panelops/panel_events.py
+index b348c3d..c3b0720 100644
+--- a/apps/api/melorin/modules/vpn/panel_events.py
++++ b/apps/api/melorin/modules/panelops/panel_events.py
+@@ -29,12 +29,12 @@ from melorin.core.db import session_factory, utcnow
+ from melorin.core.metrics import inc
+ from melorin.domain.order_state import VpnStatus
+ from melorin.kernel.models.vpn import Panel, PanelEvent, VpnAccount
+-from melorin.modules.vpn import notices, reconcile, sync
++from melorin.modules.vpn_accounts import notices, reconcile, sync
+ from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError
+ from melorin.modules.panel_integrations.adapters.pasarguard.events import USER_EVENTS, ParsedBody
+ from melorin.modules.panel_integrations.adapters.registry import build_adapter, seed_adapter
+ 
+-log = logging.getLogger("melorin.vpn.panel_events")
++log = logging.getLogger("melorin.panelops.panel_events")
+ 
+ PENDING, PROCESSING, PROCESSED, IGNORED, FAILED = "pending", "processing", "processed", "ignored", "failed"
+ BATCH = 200
+diff --git a/apps/api/melorin/modules/panelops/panel_events_admin.py b/apps/api/melorin/modules/panelops/panel_events_admin.py
+index b6cd671..5930b21 100644
+--- a/apps/api/melorin/modules/panelops/panel_events_admin.py
++++ b/apps/api/melorin/modules/panelops/panel_events_admin.py
+@@ -26,7 +26,7 @@ from melorin.core.db import utcnow
+ from melorin.core.errors import AppError
+ from melorin.core.health import WEBHOOK_SILENT_AFTER
+ from melorin.kernel.models.vpn import Panel, PanelEvent
+-from melorin.modules.vpn import panel_events
++from melorin.modules.panelops import panel_events
+ from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError, supports
+ from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
+ from melorin.modules.panel_integrations.adapters.registry import build_adapter
+diff --git a/apps/api/melorin/modules/panelops/panel_metrics.py b/apps/api/melorin/modules/panelops/panel_metrics.py
+index 55d393b..dc400e7 100644
+--- a/apps/api/melorin/modules/panelops/panel_metrics.py
++++ b/apps/api/melorin/modules/panelops/panel_metrics.py
+@@ -25,7 +25,7 @@ from melorin.core.metrics import clear_gauges, set_alert, set_gauge
+ from melorin.kernel.models.system import BackupRun
+ from melorin.kernel.models.vpn import Panel, PanelNode, ReconciliationIssue, Server, VpnAccount
+ from melorin.modules.panel_integrations import capabilities as panel_caps
+-from melorin.modules.vpn import capacity
++from melorin.modules.panel_integrations import capacity
+ from melorin.modules.panel_integrations.adapters.base import PanelError, supports
+ from melorin.domain.timeutil import aware as _aware
+ 
+diff --git a/apps/api/melorin/modules/panelops/panel_probes.py b/apps/api/melorin/modules/panelops/panel_probes.py
+new file mode 100644
+index 0000000..0c15aa8
+--- /dev/null
++++ b/apps/api/melorin/modules/panelops/panel_probes.py
+@@ -0,0 +1,91 @@
++"""Live probes of one panel that admin screens ask for: what it offers, how its groups are doing, a health check now.
++
++The admin routers used to build a provider adapter themselves (``admin/capacity.py``, ``admin/targets.py``, ``admin/panels.py``).
++That put provider calls, session lifetime and failure translation in the top layer, where import-linter cannot see them. Every
++function here owns the adapter for the duration of ONE call and always closes it; a router only validates, authorizes, audits
++and shapes the HTTP response. The read-only functions never raise: a panel that cannot answer yields ``None``.
++"""
++
++from __future__ import annotations
++
++import logging
++
++from sqlalchemy.ext.asyncio import AsyncSession
++
++from melorin.core.errors import AppError
++from melorin.kernel.models.vpn import Panel
++from melorin.modules.panel_integrations import capabilities as panel_caps
++from melorin.modules.panel_integrations import capacity, health
++from melorin.modules.panel_integrations.adapters import providers
++from melorin.modules.panel_integrations.adapters.base import PanelError, supports
++from melorin.modules.panel_integrations.adapters.registry import build_adapter
++from melorin.modules.panel_integrations.session import close_adapter
++from melorin.modules.panelops import panel_notices
++
++log = logging.getLogger("melorin.panelops.panel_probes")
++
++
++async def live_group_health(panel: Panel) -> dict[int, dict] | None:
++    """``{group_id: assessment dict}`` from the live panel, or ``None`` when it cannot be asked (never raises)."""
++    if not providers.supports(panel.kind, "panel_ops") or not panel_caps.capabilities_of(panel).has("capacity_ops"):
++        return None
++    adapter = None
++    try:
++        adapter = build_adapter(panel)
++        if not supports(adapter, "capacity_ops"):
++            return None
++        groups, _templates = await capacity.fetch_assessments(adapter)
++        return {gid: a.to_dict() for gid, a in groups.items()}
++    except Exception:
++        log.info("live group health failed panel=%s", panel.id, exc_info=True)
++        return None
++    finally:
++        await close_adapter(adapter)
++
++
++async def fetch_listing(panel: Panel) -> dict | None:
++    """What the panel offers right now, or None when it cannot be asked (down, wrong credentials, kind without a listing)."""
++    adapter = None
++    try:
++        adapter = build_adapter(panel)
++        lister = getattr(adapter, "list_targets", None)
++        return await lister() if callable(lister) else None
++    except Exception:
++        log.info("panel target listing failed panel=%s", panel.id, exc_info=True)
++        return None
++    finally:
++        await close_adapter(adapter)
++
++
++async def refresh_panel_capacity(session: AsyncSession, panel: Panel) -> list:
++    """Run the check the health job runs, now, and store the verdicts. Raises ``AppError`` when the panel cannot do it or is down."""
++    if not providers.supports(panel.kind, "panel_ops"):
++        raise AppError("CAPABILITY_UNAVAILABLE", "بررسی ظرفیت واقعی فقط برای پنل پاسارگارد است.", 409)
++    adapter = None
++    try:
++        adapter = build_adapter(panel)
++        return await capacity.refresh_panel(session, panel, adapter)
++    except PanelError as exc:
++        raise AppError("PANEL_UNREACHABLE", f"پنل پاسخ نداد: {exc.message[:200]}", 502) from exc
++    finally:
++        await close_adapter(adapter)
++
++
++async def check_health_now(session: AsyncSession, panel: Panel) -> health.HealthResult:
++    """Explicit health check (panel answers AND its nodes), applied to the panel row and announced; the caller commits."""
++    adapter = None
++    try:
++        adapter = build_adapter(panel)
++        result = await health.check_panel(session, panel, adapter)
++    except Exception as exc:
++        result = health.HealthResult(
++            health.UNHEALTHY, (getattr(exc, "message", None) or str(exc) or exc.__class__.__name__)[:300], {"layer": 1, "sellable": False}
++        )
++    finally:
++        await close_adapter(adapter)
++    if result.error == "health check returned false":
++        result.error = "پنل پاسخ سالم نداد."
++    previous = health.apply(panel, result)
++    await panel_notices.notify_panel_health(session, panel, previous)
++    await panel_notices.notify_panel_nodes(session, panel, result.node_changes)
++    return result
+diff --git a/apps/api/melorin/modules/panelops/reconciliation_actions.py b/apps/api/melorin/modules/panelops/reconciliation_actions.py
+index 31fc5ec..dd19cab 100644
+--- a/apps/api/melorin/modules/panelops/reconciliation_actions.py
++++ b/apps/api/melorin/modules/panelops/reconciliation_actions.py
+@@ -16,11 +16,11 @@ from melorin.core import audit
+ from melorin.core.db import utcnow
+ from melorin.core.errors import AppError, NotFound
+ from melorin.core.uow import unit_of_work
+-from melorin.domain.order_state import VpnStatus, set_vpn_status
++from melorin.domain.order_state import VpnSource, VpnStatus, set_vpn_status
+ from melorin.kernel.models.vpn import Panel, PanelOrphan, ReconciliationIssue, VpnAccount
+ from melorin.modules.panelops import queries, recreate
+-from melorin.modules.vpn import issues as issue_svc
+-from melorin.modules.vpn import reconcile
++from melorin.modules.vpn_accounts import issues as issue_svc
++from melorin.modules.vpn_accounts import reconcile
+ from melorin.modules.panel_integrations.adapters.base import PanelError, supports
+ from melorin.modules.panel_integrations.adapters.registry import build_adapter, seed_adapter
+ from melorin.modules.panel_integrations.session import close_adapter
+@@ -106,7 +106,7 @@ async def apply_action(
+     elif action == "resolve":
+         _finish(issue, issue_svc.RESOLVED, f"admin: {reason or 'resolved'}", now)
+     elif action == "archive_account":
+-        set_vpn_status(account, VpnStatus.ARCHIVED)
++        set_vpn_status(account, VpnStatus.ARCHIVED, source=VpnSource.RECONCILIATION)
+         account.archived_at = now
+         _finish(issue, issue_svc.RESOLVED, f"archived: {reason or 'missing on panel'}", now)
+     elif action == "link_existing":
+diff --git a/apps/api/melorin/modules/panelops/recreate.py b/apps/api/melorin/modules/panelops/recreate.py
+index f94099a..18863d7 100644
+--- a/apps/api/melorin/modules/panelops/recreate.py
++++ b/apps/api/melorin/modules/panelops/recreate.py
+@@ -22,7 +22,7 @@ from melorin.domain.order_state import VpnStatus
+ from melorin.kernel.models.catalog import Product
+ from melorin.kernel.models.orders import Order
+ from melorin.kernel.models.vpn import Panel, Server, VpnAccount
+-from melorin.modules.vpn import sync
++from melorin.modules.vpn_accounts import sync
+ from melorin.modules.panelops import panel_admins
+ from melorin.modules.panel_integrations.adapters.base import AccountSpec, ErrorKind, PanelError
+ from melorin.modules.panel_integrations.adapters.registry import build_adapter
+diff --git a/apps/api/melorin/modules/panelops/settings_drift.py b/apps/api/melorin/modules/panelops/settings_drift.py
+index 836a15c..38be8fa 100644
+--- a/apps/api/melorin/modules/panelops/settings_drift.py
++++ b/apps/api/melorin/modules/panelops/settings_drift.py
+@@ -29,7 +29,7 @@ from melorin.kernel.models.vpn import Panel
+ from melorin.modules.panel_integrations import capabilities as panel_caps
+ from melorin.modules.panel_integrations.adapters.base import PanelError, supports
+ from melorin.modules.panel_integrations.adapters.pasarguard.events import describe_webhook
+-from melorin.modules.vpn.renewal import GRACE_DAYS
++from melorin.domain.renewal_policy import GRACE_DAYS
+ from melorin.modules.panelops.subscription_check import _origin
+ 
+ log = logging.getLogger("melorin.vpn.settings_drift")
+diff --git a/apps/api/melorin/modules/panelops/store_usage.py b/apps/api/melorin/modules/panelops/store_usage.py
+index 8fd0d82..81ebf85 100644
+--- a/apps/api/melorin/modules/panelops/store_usage.py
++++ b/apps/api/melorin/modules/panelops/store_usage.py
+@@ -2,7 +2,7 @@
+ 
+ Mediator rule: usage, limit, expiry and status belong to the PANEL. This module reads them from the panel when the owner asks and
+ keeps them only in a very short in-memory cache (seconds, never a database column). If a panel cannot answer, its numbers are
+-absent and the report says so; an old number is never shown in its place (decision 9, same as :mod:`melorin.modules.vpn.live`).
++absent and the report says so; an old number is never shown in its place (decision 9, same as :mod:`melorin.modules.vpn_accounts.live`).
+ 
+ What is read: for every panel where the store has an active panel admin, the users of THAT admin only (``GET /api/users?admin=``,
+ heaviest first, paged, read-only). Everything in the answer comes from that one reading, so the numbers always agree with each other.
+@@ -30,7 +30,7 @@ from melorin.kernel.models.stores import Store
+ from melorin.kernel.models.vpn import Panel, PanelAdmin
+ from melorin.modules.panel_integrations.adapters.base import PanelAccount
+ from melorin.modules.panel_integrations.adapters.registry import build_adapter
+-from melorin.modules.vpn.live import UNAVAILABLE_NOTE
++from melorin.modules.panel_integrations.reader import UNAVAILABLE_NOTE
+ from melorin.modules.panel_integrations.reader import PanelReader
+ from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
+ 
+diff --git a/apps/api/melorin/modules/vpn/webhook_router.py b/apps/api/melorin/modules/panelops/webhook_router.py
+similarity index 96%
+rename from apps/api/melorin/modules/vpn/webhook_router.py
+rename to apps/api/melorin/modules/panelops/webhook_router.py
+index e6f03b9..05cf429 100644
+--- a/apps/api/melorin/modules/vpn/webhook_router.py
++++ b/apps/api/melorin/modules/panelops/webhook_router.py
+@@ -1,7 +1,7 @@
+ """Public endpoint the PasarGuard panel calls (PG-03): ``POST /api/v1/webhooks/pasarguard/{panel_id}``.
+ 
+ The route only authenticates, parses, stores and answers (fast 200); every real effect happens in the worker
+-(:mod:`melorin.modules.vpn.panel_events`). Hardening, in the order the checks run:
++(:mod:`melorin.modules.panelops.panel_events`). Hardening, in the order the checks run:
+ 
+ 1. per-IP rate limit, and a much tighter limit on *failed* secrets (brute force);
+ 2. hard body cap (read while streaming, so a huge body is never buffered);
+@@ -25,7 +25,7 @@ from melorin.core.errors import AppError
+ from melorin.core.metrics import inc
+ from melorin.core.ratelimit import client_ip, hit
+ from melorin.kernel.models.vpn import Panel
+-from melorin.modules.vpn import panel_events
++from melorin.modules.panelops import panel_events
+ from melorin.modules.panel_integrations.adapters.pasarguard import events as wire
+ 
+ router = APIRouter(tags=["webhooks"])
+diff --git a/apps/api/melorin/modules/payments/store_config.py b/apps/api/melorin/modules/payments/store_config.py
+index d751fd5..7a9ecab 100644
+--- a/apps/api/melorin/modules/payments/store_config.py
++++ b/apps/api/melorin/modules/payments/store_config.py
+@@ -57,9 +57,7 @@ def admin_view(row: StorePaymentConfiguration) -> dict:
+ 
+ 
+ async def list_configs(session: AsyncSession, store_id: uuid.UUID) -> list[StorePaymentConfiguration]:
+-    return list(
+-        (await session.scalars(select(StorePaymentConfiguration).where(StorePaymentConfiguration.store_id == store_id))).all()
+-    )
++    return list((await session.scalars(select(StorePaymentConfiguration).where(StorePaymentConfiguration.store_id == store_id))).all())
+ 
+ 
+ async def upsert(
+diff --git a/apps/api/melorin/modules/reseller/renewal.py b/apps/api/melorin/modules/reseller/renewal.py
+index 057a940..39f55f3 100644
+--- a/apps/api/melorin/modules/reseller/renewal.py
++++ b/apps/api/melorin/modules/reseller/renewal.py
+@@ -1,6 +1,6 @@
+ """Renewal on behalf of a customer, started by the reseller who owns the store.
+ 
+-The account search/scope rules stay in :mod:`melorin.modules.vpn.inquiry`; the renewal itself runs through the same
++The account search/scope rules stay in :mod:`melorin.modules.vpn_accounts.inquiry`; the renewal itself runs through the same
+ orders/catalog rules a customer would hit, so this file only wires them together for the reseller channel."""
+ 
+ import uuid
+@@ -11,7 +11,7 @@ from melorin.kernel.models.vpn import VpnAccount
+ from melorin.modules.catalog.router import renewal_info
+ from melorin.modules.orders import service as orders
+ from melorin.modules.reseller.schemas import OwnerRenewalOut
+-from melorin.modules.vpn import inquiry
++from melorin.modules.vpn_accounts import inquiry
+ 
+ PAYER_NOTE = "مبلغ از کیف پول صاحب اکانت در همین فروشگاه کسر می‌شود."
+ 
+diff --git a/apps/api/melorin/modules/reseller/routes/accounts.py b/apps/api/melorin/modules/reseller/routes/accounts.py
+index 50d5e5f..6e92b79 100644
+--- a/apps/api/melorin/modules/reseller/routes/accounts.py
++++ b/apps/api/melorin/modules/reseller/routes/accounts.py
+@@ -9,8 +9,8 @@ from melorin.core.deps import OwnerCtx, Session
+ from melorin.core.errors import NotFound
+ from melorin.modules.reseller import renewal as reseller_renewal
+ from melorin.modules.reseller.schemas import OwnerRenewalOut
+-from melorin.modules.vpn import inquiry, live
+-from melorin.modules.vpn.schemas import OwnerAccountOut
++from melorin.modules.vpn_accounts import inquiry, live
++from melorin.modules.vpn_accounts.schemas import OwnerAccountOut
+ 
+ router = APIRouter(tags=["reseller"])
+ 
+@@ -94,7 +94,7 @@ async def store_account_renew(
+ )
+ async def store_account_qr(account_id: uuid.UUID, ctx: OwnerCtx, session: Session):
+     a, _ = await _store_account(session, ctx, account_id)
+-    from melorin.modules.vpn import live  # lazy: avoids an import cycle
++    from melorin.modules.vpn_accounts import live  # lazy: avoids an import cycle
+ 
+     link = await live.current_link(session, a)  # R8
+     if not link:
+diff --git a/apps/api/melorin/modules/vpn/__init__.py b/apps/api/melorin/modules/vpn_accounts/__init__.py
+similarity index 100%
+rename from apps/api/melorin/modules/vpn/__init__.py
+rename to apps/api/melorin/modules/vpn_accounts/__init__.py
+diff --git a/apps/api/melorin/modules/vpn/account_tools.py b/apps/api/melorin/modules/vpn_accounts/account_tools.py
+similarity index 98%
+rename from apps/api/melorin/modules/vpn/account_tools.py
+rename to apps/api/melorin/modules/vpn_accounts/account_tools.py
+index f402b7c..9c13094 100644
+--- a/apps/api/melorin/modules/vpn/account_tools.py
++++ b/apps/api/melorin/modules/vpn_accounts/account_tools.py
+@@ -30,10 +30,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
+ from melorin.core import audit
+ from melorin.core.db import utcnow
+ from melorin.core.errors import AppError
+-from melorin.domain.order_state import VpnStatus, set_vpn_status
++from melorin.domain.order_state import VpnSource, VpnStatus, set_vpn_status
+ from melorin.kernel.models.vpn import Panel, VpnAccount
+ from melorin.modules.panel_integrations import capabilities as panel_caps
+-from melorin.modules.vpn import sync
++from melorin.modules.vpn_accounts import sync
+ from melorin.modules.panel_integrations.adapters.base import PanelError, supports
+ from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter, panel_failure
+ from melorin.modules.panel_integrations.adapters.registry import build_adapter, seed_adapter
+@@ -363,7 +363,7 @@ async def suspend(session: AsyncSession, account: VpnAccount, *, role: str, acto
+         raise _panel_error(exc) from exc
+     finally:
+         await close_adapter(adapter)
+-    set_vpn_status(account, VpnStatus.SUSPENDED)
++    set_vpn_status(account, VpnStatus.SUSPENDED, source=VpnSource.ACCOUNT_TOOLS)
+     _audit(session, account, "suspended", actor_id=actor_id, role=role, data={"reason": (reason or "")[:300]})
+     await session.commit()
+     return account
+@@ -381,7 +381,7 @@ async def resume(session: AsyncSession, account: VpnAccount, *, role: str, actor
+         raise _panel_error(exc) from exc
+     finally:
+         await close_adapter(adapter)
+-    set_vpn_status(account, VpnStatus.ACTIVE)
++    set_vpn_status(account, VpnStatus.ACTIVE, source=VpnSource.ACCOUNT_TOOLS)
+     _audit(session, account, "resumed", actor_id=actor_id, role=role)
+     await session.commit()
+     return account
+diff --git a/apps/api/melorin/modules/vpn/freshness.py b/apps/api/melorin/modules/vpn_accounts/freshness.py
+similarity index 100%
+rename from apps/api/melorin/modules/vpn/freshness.py
+rename to apps/api/melorin/modules/vpn_accounts/freshness.py
+diff --git a/apps/api/melorin/modules/vpn/inquiry.py b/apps/api/melorin/modules/vpn_accounts/inquiry.py
+similarity index 99%
+rename from apps/api/melorin/modules/vpn/inquiry.py
+rename to apps/api/melorin/modules/vpn_accounts/inquiry.py
+index a2d608f..36b9bf4 100644
+--- a/apps/api/melorin/modules/vpn/inquiry.py
++++ b/apps/api/melorin/modules/vpn_accounts/inquiry.py
+@@ -22,9 +22,9 @@ from sqlalchemy import and_, case, func, or_, select
+ from melorin.core.db import utcnow
+ from melorin.core.errors import AppError, NotFound
+ from melorin.core.scope import OwnerScope, StoreScope
+-from melorin.modules.vpn import freshness, renewal, service
++from melorin.modules.vpn_accounts import freshness, renewal, service
+ from melorin.kernel.models.vpn import VpnAccount
+-from melorin.modules.vpn.schemas import OwnerAccountOut, VpnAccountOut
++from melorin.modules.vpn_accounts.schemas import OwnerAccountOut, VpnAccountOut
+ 
+ OWN_LABEL = "اکانت خودتان"
+ RESELLER_LIST_NOTE = (
+diff --git a/apps/api/melorin/modules/vpn/issues.py b/apps/api/melorin/modules/vpn_accounts/issues.py
+similarity index 100%
+rename from apps/api/melorin/modules/vpn/issues.py
+rename to apps/api/melorin/modules/vpn_accounts/issues.py
+diff --git a/apps/api/melorin/modules/vpn/live.py b/apps/api/melorin/modules/vpn_accounts/live.py
+similarity index 97%
+rename from apps/api/melorin/modules/vpn/live.py
+rename to apps/api/melorin/modules/vpn_accounts/live.py
+index c4c755e..4887403 100644
+--- a/apps/api/melorin/modules/vpn/live.py
++++ b/apps/api/melorin/modules/vpn_accounts/live.py
+@@ -25,11 +25,11 @@ from sqlalchemy import select
+ from melorin.core import settings_store
+ from melorin.core.db import utcnow
+ from melorin.kernel.models.vpn import Panel, VpnAccount
+-from melorin.modules.vpn import freshness, inquiry
++from melorin.modules.vpn_accounts import freshness, inquiry
+ from melorin.modules.panel_integrations.adapters.registry import build_adapter, seed_adapter
+-from melorin.modules.panel_integrations.reader import PanelReader
++from melorin.modules.panel_integrations.reader import UNAVAILABLE_NOTE, PanelReader
+ from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
+-from melorin.modules.vpn.schemas import VpnAccountOut
++from melorin.modules.vpn_accounts.schemas import VpnAccountOut
+ 
+ log = logging.getLogger("melorin.vpn.live")
+ 
+@@ -39,7 +39,6 @@ FAIL_TTL_SECONDS = freshness.READING_FAIL_TTL_SECONDS  # "the panel could not an
+ CONCURRENCY = freshness.READ_CONCURRENCY  # parallel single-user reads per panel
+ MAX_ACCOUNTS = freshness.READ_MAX_ACCOUNTS  # one call never reads more than a page
+ CACHE_LIMIT = 5000
+-UNAVAILABLE_NOTE = "اطلاعات زنده از پنل موقتاً در دسترس نیست."
+ 
+ 
+ @dataclasses.dataclass(frozen=True)
+diff --git a/apps/api/melorin/modules/vpn/manual_assign.py b/apps/api/melorin/modules/vpn_accounts/manual_assign.py
+similarity index 99%
+rename from apps/api/melorin/modules/vpn/manual_assign.py
+rename to apps/api/melorin/modules/vpn_accounts/manual_assign.py
+index 6aa3e52..b1497c5 100644
+--- a/apps/api/melorin/modules/vpn/manual_assign.py
++++ b/apps/api/melorin/modules/vpn_accounts/manual_assign.py
+@@ -33,7 +33,7 @@ from melorin.kernel.models.identity import User
+ from melorin.kernel.models.orders import Order, OrderStateTransition
+ from melorin.kernel.models.stores import Store, StoreMembership
+ from melorin.kernel.models.vpn import Panel, PanelAdmin, PanelOrphan, Server, VpnAccount
+-from melorin.modules.vpn import inquiry, sync
++from melorin.modules.vpn_accounts import inquiry, sync
+ from melorin.modules.panel_integrations.adapters.base import PanelError
+ from melorin.modules.panel_integrations.adapters.registry import build_adapter
+ 
+diff --git a/apps/api/melorin/modules/vpn/notices.py b/apps/api/melorin/modules/vpn_accounts/notices.py
+similarity index 100%
+rename from apps/api/melorin/modules/vpn/notices.py
+rename to apps/api/melorin/modules/vpn_accounts/notices.py
+diff --git a/apps/api/melorin/modules/vpn/plans.py b/apps/api/melorin/modules/vpn_accounts/plans.py
+similarity index 98%
+rename from apps/api/melorin/modules/vpn/plans.py
+rename to apps/api/melorin/modules/vpn_accounts/plans.py
+index 759b4a8..b1ef455 100644
+--- a/apps/api/melorin/modules/vpn/plans.py
++++ b/apps/api/melorin/modules/vpn_accounts/plans.py
+@@ -5,7 +5,7 @@ Two renewal behaviours, chosen explicitly by the buyer and shown identically in
+ * ``replace`` (default, today's rule, ``vpn.renewal``): the package restarts NOW. Days still left are replaced, not added.
+ * ``queue`` (this module): the buyer pays now for the NEXT package; the panel starts it by itself when the current one ends
+   (``next_plan``), so nothing that was already paid for is burned. Needs a panel that supports ``next_plan_ops`` and a
+-  panel template mapped to the package (:mod:`melorin.modules.vpn.templates`).
++  panel template mapped to the package (:mod:`melorin.modules.panel_integrations.templates`).
+ 
+ Honest wording on purpose: the panel switches to the queued package when the current one ends **by time or by volume**,
+ whichever comes first. When the volume ends first, the days still left on the old package are not carried over (the panel's
+@@ -39,7 +39,8 @@ from melorin.kernel.models.catalog import Product
+ from melorin.kernel.models.vpn import Panel, VpnAccount
+ from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
+ from melorin.modules.panel_integrations import capabilities as panel_caps
+-from melorin.modules.vpn import live, notices, sync, templates
++from melorin.modules.vpn_accounts import live, notices, sync
++from melorin.modules.panel_integrations import templates
+ from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError, supports
+ from melorin.modules.panel_integrations.adapters.registry import build_adapter, seed_adapter
+ 
+diff --git a/apps/api/melorin/modules/vpn/qr.py b/apps/api/melorin/modules/vpn_accounts/qr.py
+similarity index 100%
+rename from apps/api/melorin/modules/vpn/qr.py
+rename to apps/api/melorin/modules/vpn_accounts/qr.py
+diff --git a/apps/api/melorin/modules/vpn/reconcile.py b/apps/api/melorin/modules/vpn_accounts/reconcile.py
+similarity index 99%
+rename from apps/api/melorin/modules/vpn/reconcile.py
+rename to apps/api/melorin/modules/vpn_accounts/reconcile.py
+index b15045e..37f9b03 100644
+--- a/apps/api/melorin/modules/vpn/reconcile.py
++++ b/apps/api/melorin/modules/vpn_accounts/reconcile.py
+@@ -24,7 +24,7 @@ from melorin.core.db import utcnow
+ from melorin.core.errors import AppError
+ from melorin.kernel.models.stores import Store
+ from melorin.kernel.models.vpn import Panel, PanelAdmin, PanelOrphan, VpnAccount
+-from melorin.modules.vpn import issues, notices, sync
++from melorin.modules.vpn_accounts import issues, notices, sync
+ from melorin.modules.panel_integrations.adapters.base import PanelAccount, PanelError, supports
+ from melorin.modules.panel_integrations.adapters.registry import build_adapter, seed_adapter
+ from melorin.modules.panel_integrations.reader import PanelReader
+diff --git a/apps/api/melorin/modules/vpn/renewal.py b/apps/api/melorin/modules/vpn_accounts/renewal.py
+similarity index 99%
+rename from apps/api/melorin/modules/vpn/renewal.py
+rename to apps/api/melorin/modules/vpn_accounts/renewal.py
+index 16250b0..3dabc12 100644
+--- a/apps/api/melorin/modules/vpn/renewal.py
++++ b/apps/api/melorin/modules/vpn_accounts/renewal.py
+@@ -23,9 +23,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
+ from melorin.core.db import utcnow
+ from melorin.core.errors import AppError
+ from melorin.domain.order_state import OrderStatus, VpnStatus
++from melorin.domain.renewal_policy import GRACE_DAYS
+ from melorin.domain.timeutil import aware as _aware
+ 
+-GRACE_DAYS = 10
+ GIB = 1024**3
+ 
+ _NOT_RENEWABLE_STATUSES = (VpnStatus.REVOKED, VpnStatus.ARCHIVED, VpnStatus.PENDING, VpnStatus.PROVISIONING)
+diff --git a/apps/api/melorin/modules/vpn/returns.py b/apps/api/melorin/modules/vpn_accounts/returns.py
+similarity index 98%
+rename from apps/api/melorin/modules/vpn/returns.py
+rename to apps/api/melorin/modules/vpn_accounts/returns.py
+index 2b76c80..b2dc288 100644
+--- a/apps/api/melorin/modules/vpn/returns.py
++++ b/apps/api/melorin/modules/vpn_accounts/returns.py
+@@ -33,8 +33,8 @@ from melorin.domain.order_state import OrderStatus, VpnStatus
+ from melorin.kernel.models.identity import User
+ from melorin.kernel.models.orders import Order
+ from melorin.kernel.models.vpn import AccountReturn, VpnAccount
+-from melorin.modules.vpn import inquiry, live
+-from melorin.modules.vpn.renewal import _aware
++from melorin.modules.vpn_accounts import inquiry, live
++from melorin.modules.vpn_accounts.renewal import _aware
+ 
+ RETURN_MAX_DAYS = 3
+ RETURN_MAX_USAGE_PERCENT = 5
+diff --git a/apps/api/melorin/modules/vpn/router.py b/apps/api/melorin/modules/vpn_accounts/router.py
+similarity index 95%
+rename from apps/api/melorin/modules/vpn/router.py
+rename to apps/api/melorin/modules/vpn_accounts/router.py
+index c536bac..303f05e 100644
+--- a/apps/api/melorin/modules/vpn/router.py
++++ b/apps/api/melorin/modules/vpn_accounts/router.py
+@@ -9,9 +9,9 @@ from fastapi import APIRouter, Query, Response
+ from melorin.core.deps import Session, StoreCtx
+ from melorin.core.errors import NotFound
+ from melorin.core.scope import StoreScope
+-from melorin.modules.vpn import inquiry, live, returns
+-from melorin.modules.vpn.qr import render_qr_png
+-from melorin.modules.vpn.schemas import VpnAccountOut
++from melorin.modules.vpn_accounts import inquiry, live, returns
++from melorin.modules.vpn_accounts.qr import render_qr_png
++from melorin.modules.vpn_accounts.schemas import VpnAccountOut
+ 
+ router = APIRouter(prefix="/stores/{store_id}/vpn-accounts", tags=["vpn-accounts"])
+ 
+diff --git a/apps/api/melorin/modules/vpn/schemas.py b/apps/api/melorin/modules/vpn_accounts/schemas.py
+similarity index 100%
+rename from apps/api/melorin/modules/vpn/schemas.py
+rename to apps/api/melorin/modules/vpn_accounts/schemas.py
+diff --git a/apps/api/melorin/modules/vpn/service.py b/apps/api/melorin/modules/vpn_accounts/service.py
+similarity index 79%
+rename from apps/api/melorin/modules/vpn/service.py
+rename to apps/api/melorin/modules/vpn_accounts/service.py
+index 18c587f..2316523 100644
+--- a/apps/api/melorin/modules/vpn/service.py
++++ b/apps/api/melorin/modules/vpn_accounts/service.py
+@@ -1,4 +1,4 @@
+-"""Panel sync entry points. The comparison itself lives in :mod:`melorin.modules.vpn.reconcile` (PG-04, reconcile v2).
++"""Panel sync entry points. The comparison itself lives in :mod:`melorin.modules.vpn_accounts.reconcile` (PG-04, reconcile v2).
+ 
+ The order -> account workflow (retries, auto-refund) lives in :mod:`melorin.modules.orders.provisioning`."""
+ 
+@@ -6,7 +6,7 @@ import uuid
+ 
+ from sqlalchemy.ext.asyncio import AsyncSession
+ 
+-from melorin.modules.vpn import reconcile as _reconcile
++from melorin.modules.vpn_accounts import reconcile as _reconcile
+ 
+ 
+ async def reconcile(session: AsyncSession, account_id: uuid.UUID) -> str:
+diff --git a/apps/api/melorin/modules/vpn/sync.py b/apps/api/melorin/modules/vpn_accounts/sync.py
+similarity index 95%
+rename from apps/api/melorin/modules/vpn/sync.py
+rename to apps/api/melorin/modules/vpn_accounts/sync.py
+index bffd7b8..3c4c964 100644
+--- a/apps/api/melorin/modules/vpn/sync.py
++++ b/apps/api/melorin/modules/vpn_accounts/sync.py
+@@ -8,9 +8,9 @@ those are read live (``live.py``). ``record_sale`` is the single writer of the s
+ import datetime as dt
+ 
+ from melorin.core.db import utcnow
+-from melorin.domain.order_state import VpnStatus, set_vpn_status
++from melorin.domain.order_state import VpnSource, VpnStatus, set_vpn_status
+ from melorin.domain.timeutil import aware  # noqa: F401  (re-exported: callers use sync.aware)
+-from melorin.modules.vpn import freshness, notices
++from melorin.modules.vpn_accounts import freshness, notices
+ 
+ # Melorin statuses the panel may overwrite. pending / provisioning / revoked / archived are Melorin-only lifecycle states.
+ SYNCABLE = (VpnStatus.ACTIVE, VpnStatus.SUSPENDED, VpnStatus.EXPIRED, VpnStatus.LIMITED)
+@@ -97,13 +97,13 @@ async def apply_remote(
+     new_status = status_from_remote(previous, remote)
+     changes: list[str] = []
+     if new_status != previous:
+-        set_vpn_status(account, VpnStatus(new_status))
++        set_vpn_status(account, VpnStatus(new_status), source=VpnSource.PANEL_SYNC)
+         changes.append(f"{previous}->{new_status}")
+ 
+     # R9/R10: nothing of the panel's numbers is copied. Used traffic, limit, expiry, link and last seen are read live (live.py).
+     account.last_synced_at, account.sync_error_count = now, 0
+     if account.queued_plan:  # PG-09: a prepaid package that the panel no longer reports as queued has started
+-        from melorin.modules.vpn import plans  # local import: plans builds on this module
++        from melorin.modules.vpn_accounts import plans  # local import: plans builds on this module
+ 
+         await plans.settle_from_remote(session, account, remote, now=now, notify=notify)
+ 
+diff --git a/apps/api/melorin/modules/vpn/tools_router.py b/apps/api/melorin/modules/vpn_accounts/tools_router.py
+similarity index 96%
+rename from apps/api/melorin/modules/vpn/tools_router.py
+rename to apps/api/melorin/modules/vpn_accounts/tools_router.py
+index c8c30f9..7de441a 100644
+--- a/apps/api/melorin/modules/vpn/tools_router.py
++++ b/apps/api/melorin/modules/vpn_accounts/tools_router.py
+@@ -2,7 +2,7 @@
+ 
+ One handler set, three scopes. The scope is resolved BEFORE the tool runs (customer: his own account in this store; owner: an
+ account of his store; admin: any account); a tool a role does not have is not even registered for it. Rules live in
+-:mod:`melorin.modules.vpn.account_tools`.
++:mod:`melorin.modules.vpn_accounts.account_tools`.
+ """
+ 
+ import uuid
+@@ -15,9 +15,9 @@ from melorin.core.deps import AdminUser, OwnerCtx, Session, StoreCtx
+ from melorin.core.errors import NotFound
+ from melorin.core.scope import StoreScope
+ from melorin.kernel.models.vpn import Panel, VpnAccount
+-from melorin.modules.vpn import account_tools as tools
+-from melorin.modules.vpn import inquiry, live
+-from melorin.modules.vpn.schemas import (
++from melorin.modules.vpn_accounts import account_tools as tools
++from melorin.modules.vpn_accounts import inquiry, live
++from melorin.modules.vpn_accounts.schemas import (
+     AccountAdjustIn,
+     ConnectionsOut,
+     DevicesOut,
+diff --git a/apps/api/melorin/worker/jobs_accounts.py b/apps/api/melorin/worker/jobs_accounts.py
+index 47beb15..4e205c6 100644
+--- a/apps/api/melorin/worker/jobs_accounts.py
++++ b/apps/api/melorin/worker/jobs_accounts.py
+@@ -6,10 +6,10 @@ import logging
+ 
+ from sqlalchemy import and_, or_, select
+ 
+-from melorin.domain.order_state import VpnStatus, set_vpn_status
++from melorin.domain.order_state import VpnSource, VpnStatus, set_vpn_status
+ from melorin.core import settings_store
+ from melorin.core.db import session_factory, utcnow
+-from melorin.modules.vpn import live, notices, reconcile, sync
++from melorin.modules.vpn_accounts import live, notices, reconcile, sync
+ from melorin.kernel.models.vpn import VpnAccount
+ from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
+ from melorin.worker.wrap import item_failed, tracked_job
+@@ -18,8 +18,6 @@ _close_strict = functools.partial(close_adapter, strict=True)  # worker jobs kee
+ log = logging.getLogger("melorin.jobs")
+ 
+ 
+-
+-
+ @tracked_job
+ async def expiry_job(ctx=None):
+     """Overdue accounts. Mediator rule: the PANEL decides ``expired``, not Melorin's clock.
+@@ -41,7 +39,7 @@ async def expiry_job(ctx=None):
+         not_just_read = or_(VpnAccount.last_synced_at.is_(None), VpnAccount.last_synced_at < now - sync.FRESH_FOR)
+         # accounts without a panel: the only clock there is
+         for a in (await s.scalars(select(VpnAccount).where(overdue, VpnAccount.panel_id.is_(None)))).all():
+-            set_vpn_status(a, VpnStatus.EXPIRED)
++            set_vpn_status(a, VpnStatus.EXPIRED, source=VpnSource.EXPIRY_JOB)
+             await notices.expired(s, a)
+         await s.commit()
+         # accounts on a panel: ask the panel (oldest read first, bounded per run)
+@@ -63,7 +61,6 @@ async def expiry_job(ctx=None):
+         return len(candidates)
+ 
+ 
+-
+ @tracked_job
+ async def near_expiry_job(ctx=None):
+     """Warn customers whose subscription is about to end.
+@@ -109,11 +106,7 @@ async def near_expiry_job(ctx=None):
+         await s.commit()
+ 
+ 
+-
+ EXPIRY_LIVE_BATCH = 200  # overdue panel accounts re-read per run (the rest wait for the next run)
+ 
+ 
+-
+ NEAR_EXPIRY_MAX_PAGES = 5  # bounds one run: at most 5 x live.MAX_ACCOUNTS panel reads
+-
+-
+diff --git a/apps/api/melorin/worker/jobs_backup.py b/apps/api/melorin/worker/jobs_backup.py
+index 618adb7..28f90b2 100644
+--- a/apps/api/melorin/worker/jobs_backup.py
++++ b/apps/api/melorin/worker/jobs_backup.py
+@@ -18,8 +18,6 @@ _close_strict = functools.partial(close_adapter, strict=True)  # worker jobs kee
+ log = logging.getLogger("melorin.jobs")
+ 
+ 
+-
+-
+ @tracked_job(lock_ttl=910)
+ async def backup_job(ctx=None):
+     """Always write an encrypted LOCAL backup; also copy it to S3 when enabled in the Admin panel."""
+@@ -69,7 +67,6 @@ async def backup_job(ctx=None):
+     return status
+ 
+ 
+-
+ @tracked_job(lock_ttl=910)
+ async def panel_backup_job(ctx=None):
+     """Daily: encrypted backup of the PasarGuard panel (its database and data directory), recorded as ``BackupRun(target="panel")`` (PG-16).
+@@ -118,5 +115,3 @@ async def panel_backup_job(ctx=None):
+     if status != "succeeded":
+         log.error("panel backup %s: %s", status, details)
+     return status
+-
+-
+diff --git a/apps/api/melorin/worker/jobs_identity.py b/apps/api/melorin/worker/jobs_identity.py
+index b631ccf..6d884da 100644
+--- a/apps/api/melorin/worker/jobs_identity.py
++++ b/apps/api/melorin/worker/jobs_identity.py
+@@ -19,8 +19,6 @@ _close_strict = functools.partial(close_adapter, strict=True)  # worker jobs kee
+ log = logging.getLogger("melorin.jobs")
+ 
+ 
+-
+-
+ @tracked_job
+ async def identity_auto_link_job(ctx=None):
+     """Safety net for identity-link conflicts (docs/23): settle every open review that became safe to merge by itself
+@@ -34,7 +32,6 @@ async def identity_auto_link_job(ctx=None):
+         return settled
+ 
+ 
+-
+ @tracked_job
+ async def reseller_auto_verify_job(ctx=None):
+     """Reseller applications verify themselves (docs/23): re-check the bot and the domain proof of every pending
+@@ -48,7 +45,6 @@ async def reseller_auto_verify_job(ctx=None):
+         return done
+ 
+ 
+-
+ @tracked_job
+ async def reseller_identity_recheck_job(ctx=None):
+     """Approved resellers keep proving who they are (docs/23): re-check domain proof and bot token of every store whose
+@@ -62,7 +58,6 @@ async def reseller_identity_recheck_job(ctx=None):
+         return done
+ 
+ 
+-
+ @tracked_job
+ async def telegram_login_gc_job(ctx=None):
+     """Drop finished website-login sessions (Telegram bot approval) one day after they expired."""
+@@ -74,7 +69,6 @@ async def telegram_login_gc_job(ctx=None):
+         return removed
+ 
+ 
+-
+ @tracked_job
+ async def privacy_retention_job(ctx=None):
+     """Remove expired authentication codes and finished outbox/webhook rows (T51) while preserving financial/audit data."""
+@@ -101,5 +95,3 @@ async def privacy_retention_job(ctx=None):
+             removed["webhook_deliveries"],
+         )
+         return int(result.rowcount or 0)
+-
+-
+diff --git a/apps/api/melorin/worker/jobs_panels.py b/apps/api/melorin/worker/jobs_panels.py
+index 596f650..427f54a 100644
+--- a/apps/api/melorin/worker/jobs_panels.py
++++ b/apps/api/melorin/worker/jobs_panels.py
+@@ -7,7 +7,9 @@ from sqlalchemy import select
+ 
+ from melorin.core.db import session_factory, utcnow
+ from melorin.modules.panelops import panel_notices
+-from melorin.modules.vpn import capacity, health, panel_events, reconcile
++from melorin.modules.vpn_accounts import reconcile
++from melorin.modules.panel_integrations import capacity, health
++from melorin.modules.panelops import panel_events
+ from melorin.modules.panel_integrations import capabilities
+ from melorin.kernel.models.vpn import Panel
+ from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
+@@ -17,8 +19,6 @@ _close_strict = functools.partial(close_adapter, strict=True)  # worker jobs kee
+ log = logging.getLogger("melorin.jobs")
+ 
+ 
+-
+-
+ @tracked_job
+ async def panel_health_job(ctx=None):
+     """Every 2 minutes: ONE read cycle per panel: health in two layers (PG-01) plus the metrics snapshot (PG-14) on the same adapter. The panel must answer AND have a connected node; a failing node
+@@ -68,7 +68,6 @@ async def panel_health_job(ctx=None):
+         await s.commit()
+ 
+ 
+-
+ @tracked_job
+ async def panel_metrics_job(ctx=None):
+     """Every 2 minutes: one live reading per panel (latency, resources, users, online) for the /metrics gauges (PG-14)."""
+@@ -80,7 +79,6 @@ async def panel_metrics_job(ctx=None):
+     return done
+ 
+ 
+-
+ @tracked_job
+ async def panel_settings_drift_job(ctx=None):
+     """Hourly: compare each PasarGuard panel's settings with what Melorin needs. READ-ONLY: it reports, an admin decides (PG-15)."""
+@@ -92,7 +90,6 @@ async def panel_settings_drift_job(ctx=None):
+     return done
+ 
+ 
+-
+ @tracked_job
+ async def panel_admin_sync_job(ctx=None):
+     """Every 15 minutes (retry + safety net): panel create and reseller create already plan and push the Operator admin on the spot."""
+@@ -102,7 +99,6 @@ async def panel_admin_sync_job(ctx=None):
+         return await panel_admins.sync_all(s)
+ 
+ 
+-
+ @tracked_job
+ async def panel_event_job(ctx=None):
+     """Every 10 seconds: process the PasarGuard events the endpoint stored (PG-03). Coalesced per user, leased, safe to run twice.
+@@ -114,7 +110,6 @@ async def panel_event_job(ctx=None):
+     return stats.claimed
+ 
+ 
+-
+ @tracked_job
+ async def panel_event_purge_job(ctx=None):
+     """Daily: drop finished panel events older than the retention window (30 days)."""
+@@ -124,7 +119,6 @@ async def panel_event_purge_job(ctx=None):
+     return removed
+ 
+ 
+-
+ @tracked_job
+ async def bulk_operation_job(ctx=None):
+     """Every 15 seconds: run ONE confirmed bulk operation for up to ~40 s (PG-11). Leased per panel, chunked, resumable: a crash or a
+@@ -135,7 +129,6 @@ async def bulk_operation_job(ctx=None):
+     return op.status if op else None
+ 
+ 
+-
+ @tracked_job
+ async def store_governance_job(ctx=None):
+     """Every 15 minutes: read each store admin's usage / status / user count from its panel (PG-12)."""
+@@ -154,7 +147,6 @@ async def store_governance_job(ctx=None):
+     return done
+ 
+ 
+-
+ @tracked_job
+ async def reconciliation_job(ctx=None):
+     """Hourly: reconcile v2 (PG-04). One batched read per panel; accounts that waited longest go first; issues open, refresh
+@@ -177,5 +169,3 @@ async def reconciliation_job(ctx=None):
+                 item_failed("reconciliation_job")
+                 log.warning("reconcile failed panel=%s", panel_id, exc_info=True)
+     return done
+-
+-
+diff --git a/apps/api/melorin/worker/jobs_payments.py b/apps/api/melorin/worker/jobs_payments.py
+index edb7738..640f36b 100644
+--- a/apps/api/melorin/worker/jobs_payments.py
++++ b/apps/api/melorin/worker/jobs_payments.py
+@@ -13,8 +13,6 @@ _close_strict = functools.partial(close_adapter, strict=True)  # worker jobs kee
+ log = logging.getLogger("melorin.jobs")
+ 
+ 
+-
+-
+ @tracked_job
+ async def bank_sms_reconcile_job(ctx=None):
+     """Safety net for card-to-card auto verification: pair open deposit SMS with receipts uploaded later or whose
+@@ -40,7 +38,6 @@ async def bank_sms_reconcile_job(ctx=None):
+     return total
+ 
+ 
+-
+ @tracked_job
+ async def receipt_grace_job(ctx=None):
+     """Time-boxed manual review: credit provisionally (and flag for fast review) every card-to-card receipt that
+@@ -58,5 +55,3 @@ async def receipt_grace_job(ctx=None):
+         if n:
+             log.info("receipt grace: provisional credits=%s", n)
+         return n
+-
+-
+diff --git a/apps/api/melorin/worker/jobs_reports.py b/apps/api/melorin/worker/jobs_reports.py
+index c9235b5..642258a 100644
+--- a/apps/api/melorin/worker/jobs_reports.py
++++ b/apps/api/melorin/worker/jobs_reports.py
+@@ -13,8 +13,6 @@ _close_strict = functools.partial(close_adapter, strict=True)  # worker jobs kee
+ log = logging.getLogger("melorin.jobs")
+ 
+ 
+-
+-
+ @tracked_job
+ async def daily_report_job(ctx=None):
+     """Queue the Event Center nightly summary (one per group). Safe to run twice: the report is deduplicated per Tehran day."""
+@@ -24,7 +22,6 @@ async def daily_report_job(ctx=None):
+     return queued
+ 
+ 
+-
+ @tracked_job
+ async def store_digest_job(ctx=None):
+     """Daily: the opt-in digest for store owners (PG-06). Says only what Melorin owns (notices sent, open discrepancies, sell blocks)."""
+@@ -34,5 +31,3 @@ async def store_digest_job(ctx=None):
+         queued = await digest.run(session)
+         await session.commit()
+     return queued
+-
+-
+diff --git a/apps/api/melorin/worker/retention.py b/apps/api/melorin/worker/retention.py
+index fadb8e2..eb9148f 100644
+--- a/apps/api/melorin/worker/retention.py
++++ b/apps/api/melorin/worker/retention.py
+@@ -2,7 +2,7 @@
+ 
+ Only *finished* rows go: an outbox event that was processed, a webhook delivery that was delivered or finally failed.
+ Anything still pending/processing/delivering is never touched, and financial/audit tables (orders, ledger, audit log)
+-are out of scope on purpose. Panel events have their own purge (``vpn.panel_events.purge``).
++are out of scope on purpose. Panel events have their own purge (``panelops.panel_events.purge``).
+ """
+ 
+ from __future__ import annotations
+diff --git a/apps/api/melorin/worker/runner.py b/apps/api/melorin/worker/runner.py
+index 918dc99..2785f83 100644
+--- a/apps/api/melorin/worker/runner.py
++++ b/apps/api/melorin/worker/runner.py
+@@ -6,7 +6,7 @@ import uuid
+ 
+ from sqlalchemy import select, update
+ 
+-from melorin.domain.order_state import VpnStatus, set_vpn_status
++from melorin.domain.order_state import VpnSource, VpnStatus, set_vpn_status
+ from melorin.core import events
+ from melorin.core.config import get_settings
+ from melorin.core.db import session_factory, utcnow
+@@ -19,7 +19,7 @@ from melorin.kernel.models.notifications import Notification
+ from melorin.kernel.models.orders import Order
+ from melorin.kernel.models.system import OutboxEvent
+ from melorin.modules.orders import provisioning as vpn
+-from melorin.modules.vpn import sync
++from melorin.modules.vpn_accounts import sync
+ from melorin.modules.panel_integrations.adapters.registry import build_adapter, seed_adapter
+ from melorin.kernel.models.vpn import Panel, VpnAccount
+ 
+@@ -307,7 +307,7 @@ async def revoke_account(session, account_id):
+         return
+     panel = await session.get(Panel, a.panel_id)
+     await seed_adapter(build_adapter(panel), a).revoke_account(a.username)
+-    set_vpn_status(a, VpnStatus.REVOKED)
++    set_vpn_status(a, VpnStatus.REVOKED, source=VpnSource.RETURN)
+     await session.commit()
+ 
+ 
+diff --git a/apps/api/pyproject.toml b/apps/api/pyproject.toml
+index 53083f7..f0e4ae3 100644
+--- a/apps/api/pyproject.toml
++++ b/apps/api/pyproject.toml
+@@ -87,7 +87,7 @@ layers = [
+   "melorin.modules.orders | melorin.modules.payments | melorin.modules.identity",
+   "melorin.modules.panelops",
+   "melorin.modules.catalog | melorin.modules.referral | melorin.modules.loyalty | melorin.modules.tickets",
+-  "melorin.modules.vpn | melorin.modules.wallet | melorin.modules.webhooks | melorin.modules.notifications | melorin.modules.eventcenter | melorin.modules.broadcast",
++  "melorin.modules.vpn_accounts | melorin.modules.wallet | melorin.modules.webhooks | melorin.modules.notifications | melorin.modules.eventcenter | melorin.modules.broadcast",
+   "melorin.modules.panel_integrations",
+ ]
+ 
+@@ -100,6 +100,33 @@ layers = [
+   "melorin.modules.catalog.allocation.offers",
+ ]
+ 
++[[tool.importlinter.contracts]]
++name = "panelops reaches vpn_accounts only through account-lifecycle ports (sync, notices, reconcile, issues, freshness, renewal)"
++type = "forbidden"
++source_modules = ["melorin.modules.panelops"]
++forbidden_modules = [
++  "melorin.modules.vpn_accounts.router",
++  "melorin.modules.vpn_accounts.tools_router",
++  "melorin.modules.vpn_accounts.inquiry",
++  "melorin.modules.vpn_accounts.account_tools",
++  "melorin.modules.vpn_accounts.live",
++  "melorin.modules.vpn_accounts.plans",
++  "melorin.modules.vpn_accounts.returns",
++  "melorin.modules.vpn_accounts.manual_assign",
++  "melorin.modules.vpn_accounts.schemas",
++]
++allow_indirect_imports = true
++
++[[tool.importlinter.contracts]]
++name = "admin routers never build provider adapters or sessions (they call panelops services)"
++type = "forbidden"
++source_modules = ["melorin.modules.admin"]
++forbidden_modules = [
++  "melorin.modules.panel_integrations.adapters.registry",
++  "melorin.modules.panel_integrations.session",
++]
++allow_indirect_imports = true
++
+ [[tool.importlinter.contracts]]
+ name = "channels are adapters: they never import admin, reseller, reports, the worker or the entry points"
+ type = "forbidden"
+diff --git a/apps/api/tests/adapters/test_pasarguard_account_tools.py b/apps/api/tests/adapters/test_pasarguard_account_tools.py
+index c356322..458cf90 100644
+--- a/apps/api/tests/adapters/test_pasarguard_account_tools.py
++++ b/apps/api/tests/adapters/test_pasarguard_account_tools.py
+@@ -16,7 +16,7 @@ from _db import make_order, make_product, make_store, make_user, open_schema_eng
+ from melorin.core.errors import AppError
+ from melorin.kernel.models.system import AuditEvent
+ from melorin.kernel.models.vpn import Panel, VpnAccount
+-from melorin.modules.vpn import account_tools as tools
++from melorin.modules.vpn_accounts import account_tools as tools
+ from melorin.modules.panel_integrations.adapters.base import Capabilities, ErrorKind, PanelAccount, PanelError
+ 
+ GIB = 1024**3
+@@ -337,7 +337,7 @@ async def test_adjust_on_an_expired_account_counts_from_now_not_from_the_past(ma
+ 
+ # ---------------------------------------------------------------------------------------------------------------- HTTP surface
+ def test_routes_exist_per_role_and_privileged_tools_are_not_registered_for_lower_roles():
+-    from melorin.modules.vpn.tools_router import router
++    from melorin.modules.vpn_accounts.tools_router import router
+ 
+     paths = {(m, r.path) for r in router.routes for m in r.methods}
+     cust, own, adm = (
+diff --git a/apps/api/tests/adapters/test_pasarguard_admin_api.py b/apps/api/tests/adapters/test_pasarguard_admin_api.py
+index 0b0a846..f488895 100644
+--- a/apps/api/tests/adapters/test_pasarguard_admin_api.py
++++ b/apps/api/tests/adapters/test_pasarguard_admin_api.py
+@@ -9,7 +9,7 @@ from _http import PASSWORD, add_user, api_client, totp_now
+ from melorin.core.db import utcnow
+ from melorin.kernel.models.vpn import Panel, PanelNode, PanelOrphan, ReconciliationIssue, VpnAccount
+ from melorin.modules.panelops import reconciliation_actions
+-from melorin.modules.vpn import issues
++from melorin.modules.vpn_accounts import issues
+ 
+ BASE = "/api/v1/admin"
+ 
+diff --git a/apps/api/tests/adapters/test_pasarguard_capacity.py b/apps/api/tests/adapters/test_pasarguard_capacity.py
+index a3b2ebe..89251ac 100644
+--- a/apps/api/tests/adapters/test_pasarguard_capacity.py
++++ b/apps/api/tests/adapters/test_pasarguard_capacity.py
+@@ -11,7 +11,7 @@ from _db import open_schema_engine
+ from melorin.kernel.models.vpn import Panel, Server
+ from melorin.modules.catalog.allocation.routing import Candidate, select_allocation
+ from melorin.modules.panelops.panel_notices import server_capacity_text
+-from melorin.modules.vpn import capacity as cap
++from melorin.modules.panel_integrations import capacity as cap
+ from melorin.modules.panel_integrations.adapters.base import Capabilities, ErrorKind, PanelError
+ 
+ GROUP = {"id": 1, "name": "VIP1", "is_disabled": False, "inbound_tags": ["vless", "trojan"], "total_users": 7}
+diff --git a/apps/api/tests/adapters/test_pasarguard_events.py b/apps/api/tests/adapters/test_pasarguard_events.py
+index 33fc824..6baa50a 100644
+--- a/apps/api/tests/adapters/test_pasarguard_events.py
++++ b/apps/api/tests/adapters/test_pasarguard_events.py
+@@ -15,7 +15,7 @@ from _http import PASSWORD, add_user, api_client, totp_now
+ from melorin.core.crypto import encrypt
+ from melorin.core.db import utcnow
+ from melorin.kernel.models.vpn import Panel, PanelEvent, ReconciliationIssue, VpnAccount
+-from melorin.modules.vpn import panel_events
++from melorin.modules.panelops import panel_events
+ from melorin.modules.panelops import panel_events_admin
+ from melorin.modules.panel_integrations.adapters.base import Capabilities, ErrorKind, PanelAccount, PanelError
+ from melorin.modules.panel_integrations.adapters.pasarguard import events as wire
+diff --git a/apps/api/tests/adapters/test_pasarguard_logic.py b/apps/api/tests/adapters/test_pasarguard_logic.py
+index e9118d2..8636edc 100644
+--- a/apps/api/tests/adapters/test_pasarguard_logic.py
++++ b/apps/api/tests/adapters/test_pasarguard_logic.py
+@@ -9,7 +9,8 @@ from melorin.domain.order_state import VpnStatus
+ from melorin.domain.panel_health import DEGRADED, HEALTHY, SELLABLE_STATES, UNHEALTHY
+ from melorin.modules.admin.panel_reconciliation import allowed_actions
+ from melorin.modules.panel_integrations import capabilities as caps
+-from melorin.modules.vpn import health, issues, notices, sync
++from melorin.modules.vpn_accounts import issues, notices, sync
++from melorin.modules.panel_integrations import health
+ from melorin.modules.panel_integrations.adapters.base import Capabilities
+ from melorin.modules.panel_integrations.adapters.pasarguard.capabilities import build_report
+ 
+diff --git a/apps/api/tests/adapters/test_pasarguard_openapi_contract.py b/apps/api/tests/adapters/test_pasarguard_openapi_contract.py
+index 26e32cd..d06dc28 100644
+--- a/apps/api/tests/adapters/test_pasarguard_openapi_contract.py
++++ b/apps/api/tests/adapters/test_pasarguard_openapi_contract.py
+@@ -21,7 +21,11 @@ import pytest
+ from melorin.modules.panel_integrations.adapters import pasarguard
+ from melorin.modules.panel_integrations.adapters.base import ALL_CAPABILITIES, AccountSpec
+ from melorin.modules.panel_integrations.adapters.pasarguard import PasarGuardAdapter
+-from melorin.modules.panel_integrations.adapters.pasarguard.capabilities import CAPABILITY_ENDPOINTS, CAPABILITY_REQUIREMENTS, LEGACY_CAPABILITIES
++from melorin.modules.panel_integrations.adapters.pasarguard.capabilities import (
++    CAPABILITY_ENDPOINTS,
++    CAPABILITY_REQUIREMENTS,
++    LEGACY_CAPABILITIES,
++)
+ from melorin.modules.panel_integrations.adapters.pasarguard.events import USER_EVENTS
+ from melorin.modules.panel_integrations.adapters.pasarguard.users import USAGE_PERIODS
+ 
+diff --git a/apps/api/tests/adapters/test_pasarguard_ops_maturity.py b/apps/api/tests/adapters/test_pasarguard_ops_maturity.py
+index db73dc8..ecbf05d 100644
+--- a/apps/api/tests/adapters/test_pasarguard_ops_maturity.py
++++ b/apps/api/tests/adapters/test_pasarguard_ops_maturity.py
+@@ -27,7 +27,7 @@ from melorin.kernel.models.vpn import Panel, PanelNode, ReconciliationIssue, Ser
+ from melorin.modules.reports import business_metrics
+ from melorin.modules.panelops import panel_backup, panel_metrics, settings_drift
+ from melorin.modules.panel_integrations.adapters.base import Capabilities, ErrorKind, PanelError
+-from melorin.modules.vpn.renewal import GRACE_DAYS
++from melorin.modules.vpn_accounts.renewal import GRACE_DAYS
+ 
+ ROOT = Path(__file__).resolve().parents[4]
+ NOW = dt.datetime(2026, 11, 8, 12, 0, tzinfo=dt.UTC)
+diff --git a/apps/api/tests/adapters/test_pasarguard_service_db.py b/apps/api/tests/adapters/test_pasarguard_service_db.py
+index 0b363db..a2cc232 100644
+--- a/apps/api/tests/adapters/test_pasarguard_service_db.py
++++ b/apps/api/tests/adapters/test_pasarguard_service_db.py
+@@ -11,7 +11,8 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
+ from _db import make_order, make_product, make_store, make_user, open_schema_engine
+ from melorin.core.db import utcnow
+ from melorin.kernel.models.vpn import Panel, PanelAdmin, PanelNode, PanelOrphan, ReconciliationIssue, VpnAccount
+-from melorin.modules.vpn import health, issues, reconcile
++from melorin.modules.vpn_accounts import issues, reconcile
++from melorin.modules.panel_integrations import health
+ from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelAccount, PanelError
+ 
+ NOW = utcnow()
+diff --git a/apps/api/tests/adapters/test_pasarguard_service_followup.py b/apps/api/tests/adapters/test_pasarguard_service_followup.py
+index ef10786..c3a70f3 100644
+--- a/apps/api/tests/adapters/test_pasarguard_service_followup.py
++++ b/apps/api/tests/adapters/test_pasarguard_service_followup.py
+@@ -11,7 +11,7 @@ from _http import PASSWORD, add_user, api_client, totp_now
+ from melorin.core import health
+ from melorin.kernel.models.stores import Store
+ from melorin.kernel.models.vpn import ReconciliationIssue, VpnAccount
+-from melorin.modules.vpn import issues, notices
++from melorin.modules.vpn_accounts import issues, notices
+ from test_pasarguard_service_db import NOW, FakePanel, remote, run, seed, use
+ 
+ BASE = "/api/v1/admin"
+diff --git a/apps/api/tests/adapters/test_pasarguard_templates_plans.py b/apps/api/tests/adapters/test_pasarguard_templates_plans.py
+index c722e29..6996d57 100644
+--- a/apps/api/tests/adapters/test_pasarguard_templates_plans.py
++++ b/apps/api/tests/adapters/test_pasarguard_templates_plans.py
+@@ -23,7 +23,8 @@ from melorin.kernel.models.system import AuditEvent, OutboxEvent
+ from melorin.kernel.models.vpn import ProductTemplate
+ from melorin.modules.orders import provisioning as vpn
+ from melorin.modules.orders import service as orders
+-from melorin.modules.vpn import live, plans, sync, templates
++from melorin.modules.vpn_accounts import live, plans, sync
++from melorin.modules.panel_integrations import templates
+ from melorin.modules.panel_integrations.adapters.base import Capabilities, ErrorKind, PanelAccount, PanelError
+ from test_renewal_core import _balance, _world  # the shared renewal world: wallet, bundle, panel, account
+ 
+@@ -568,7 +569,7 @@ def test_admin_template_routes_exist_and_are_admin_guarded():
+ 
+ 
+ def test_the_account_output_tells_every_channel_that_a_package_is_waiting():
+-    from melorin.modules.vpn import inquiry
++    from melorin.modules.vpn_accounts import inquiry
+ 
+     acc = types.SimpleNamespace(
+         id=__import__("uuid").uuid4(), username="a", status="active", is_test=False, sold_expires_at=NOW + dt.timedelta(days=3),
+diff --git a/apps/api/tests/adapters/test_provider_adapters.py b/apps/api/tests/adapters/test_provider_adapters.py
+index 54b6335..c1b8279 100644
+--- a/apps/api/tests/adapters/test_provider_adapters.py
++++ b/apps/api/tests/adapters/test_provider_adapters.py
+@@ -175,8 +175,8 @@ _FAMILY_PKGS = (
+ # the webhook/event consumers must read (a PasarGuard-only feature, gated by providers.supports(..., "webhook_events")).
+ _ALLOWED = {
+     "melorin/modules/panel_integrations/adapters/providers.py",
+-    "melorin/modules/vpn/webhook_router.py",
+-    "melorin/modules/vpn/panel_events.py",
++    "melorin/modules/panelops/webhook_router.py",
++    "melorin/modules/panelops/panel_events.py",
+     "melorin/modules/panelops/service_access.py",
+     "melorin/modules/panelops/settings_drift.py",
+ }
+diff --git a/apps/api/tests/contracts/test_catalog_bundles_contract.py b/apps/api/tests/contracts/test_catalog_bundles_contract.py
+index 77e74b9..6d447eb 100644
+--- a/apps/api/tests/contracts/test_catalog_bundles_contract.py
++++ b/apps/api/tests/contracts/test_catalog_bundles_contract.py
+@@ -37,4 +37,4 @@ def test_baskets_are_renamed_to_bundles_everywhere():
+         assert f'"{old}": "{new}"' in migration
+     live = [p for p in (ROOT / "melorin").rglob("*.py")]
+     assert live and not [p for p in live if "basket" in p.read_text().lower()]
+-    assert not (ROOT / "melorin/modules/vpn/baskets.py").exists()
++    assert not (ROOT / "melorin/modules/vpn_accounts/baskets.py").exists()
+diff --git a/apps/api/tests/contracts/test_commit_ratchet.py b/apps/api/tests/contracts/test_commit_ratchet.py
+index 3533509..f140bf4 100644
+--- a/apps/api/tests/contracts/test_commit_ratchet.py
++++ b/apps/api/tests/contracts/test_commit_ratchet.py
+@@ -1,4 +1,4 @@
+-"""Ratchet for audit T10: hand-written ``session.commit()`` in vpn/panelops may only go down.
++"""Ratchet for audit T10: hand-written ``session.commit()`` in vpn_accounts/panelops/panel_integrations may only go down.
+ 
+ New code should use ``melorin.core.uow.unit_of_work``. When you migrate a call site, lower its number here (the test also fails
+ when a file is below its baseline, so the gain is locked in).
+@@ -10,18 +10,18 @@ import re
+ ROOT = pathlib.Path(__file__).resolve().parents[2] / "melorin"
+ 
+ BASELINE = {
+-    "modules/vpn/account_tools.py": 7,
++    "modules/vpn_accounts/account_tools.py": 7,
+     "modules/panelops/bulk.py": 12,
+     "modules/panelops/governance.py": 2,
+-    "modules/vpn/manual_assign.py": 1,
++    "modules/vpn_accounts/manual_assign.py": 1,
+     "modules/panelops/panel_admins.py": 4,
+-    "modules/vpn/panel_events.py": 7,
++    "modules/panelops/panel_events.py": 7,
+     "modules/panelops/panel_events_admin.py": 3,
+-    "modules/vpn/plans.py": 1,
+-    "modules/vpn/reconcile.py": 3,
++    "modules/vpn_accounts/plans.py": 1,
++    "modules/vpn_accounts/reconcile.py": 3,
+     "modules/panelops/service_access.py": 1,
+     "modules/panelops/subscription_check.py": 1,
+-    "modules/vpn/templates.py": 5,
++    "modules/panel_integrations/templates.py": 5,
+     "modules/panelops/ops_console.py": 3,
+     "modules/panelops/settings_drift.py": 2,
+     "modules/panelops/sub_branding.py": 2,
+@@ -30,7 +30,7 @@ BASELINE = {
+ 
+ def _counts() -> dict[str, int]:
+     out = {}
+-    for pkg in ("vpn", "panelops"):
++    for pkg in ("vpn_accounts", "panelops", "panel_integrations"):
+         for path in sorted((ROOT / "modules" / pkg).rglob("*.py")):
+             n = len(re.findall(r"\.commit\(\)", path.read_text(encoding="utf-8")))
+             if n:
+diff --git a/apps/api/tests/contracts/test_vpn_status_writes.py b/apps/api/tests/contracts/test_vpn_status_writes.py
+index c719f26..1a26a05 100644
+--- a/apps/api/tests/contracts/test_vpn_status_writes.py
++++ b/apps/api/tests/contracts/test_vpn_status_writes.py
+@@ -1,4 +1,5 @@
+ """Account status has one writer: ``set_vpn_status`` (guarded by the lifecycle table)."""
++
+ import re
+ from pathlib import Path
+ 
+@@ -17,3 +18,19 @@ def test_no_direct_account_status_assignment():
+             if PATTERN.search(line):
+                 bad.append(f"{rel}:{n}")
+     assert not bad, f"use set_vpn_status: {bad}"
++
++
++CALL = re.compile(r"\bset_vpn_status\(")
++
++
++def test_every_status_write_names_its_source():
++    """A status write without ``source=`` could not be audited or checked against ``SOURCE_TARGETS``."""
++    bad = []
++    for p in ROOT.rglob("*.py"):
++        rel = p.relative_to(ROOT).as_posix()
++        if rel == "domain/order_state.py":
++            continue
++        for n, line in enumerate(p.read_text(encoding="utf8").splitlines(), 1):
++            if CALL.search(line) and "import" not in line and "source=" not in line:
++                bad.append(f"{rel}:{n}")
++    assert not bad, f"pass source=VpnSource.X: {bad}"
+diff --git a/apps/api/tests/http/test_store_digest.py b/apps/api/tests/http/test_store_digest.py
+index bb969e8..f300daf 100644
+--- a/apps/api/tests/http/test_store_digest.py
++++ b/apps/api/tests/http/test_store_digest.py
+@@ -12,7 +12,7 @@ from melorin.core.db import utcnow
+ from melorin.kernel.models.stores import Store
+ from melorin.kernel.models.system import OutboxEvent
+ from melorin.kernel.models.vpn import VpnAccount
+-from melorin.modules.vpn import notices
++from melorin.modules.vpn_accounts import notices
+ from melorin.modules.panelops import digest
+ from test_pasarguard_service_db import seed
+ 
+diff --git a/apps/api/tests/http/test_store_notice_texts.py b/apps/api/tests/http/test_store_notice_texts.py
+index 092ef1c..a0579e6 100644
+--- a/apps/api/tests/http/test_store_notice_texts.py
++++ b/apps/api/tests/http/test_store_notice_texts.py
+@@ -11,7 +11,7 @@ from _http import PASSWORD, add_user, api_client, totp_now
+ from melorin.kernel.models.system import OutboxEvent
+ from melorin.kernel.models.stores import Store
+ from melorin.kernel.models.vpn import VpnAccount
+-from melorin.modules.vpn import notices
++from melorin.modules.vpn_accounts import notices
+ from test_pasarguard_service_db import seed
+ 
+ BASE = "/api/v1/admin"
+diff --git a/apps/api/tests/service/test_account_inquiry.py b/apps/api/tests/service/test_account_inquiry.py
+index 2f30bf8..c92e947 100644
+--- a/apps/api/tests/service/test_account_inquiry.py
++++ b/apps/api/tests/service/test_account_inquiry.py
+@@ -11,8 +11,8 @@ from _db import make_order, make_product, make_store, make_user, open_session
+ from melorin.core.deps import StoreContext
+ from melorin.core.errors import AppError
+ from melorin.modules.reseller import router as reseller_router
+-from melorin.modules.vpn import inquiry
+-from melorin.modules.vpn import router as vpn_router
++from melorin.modules.vpn_accounts import inquiry
++from melorin.modules.vpn_accounts import router as vpn_router
+ from melorin.kernel.models.vpn import VpnAccount
+ 
+ GIB = 1024**3
+@@ -205,7 +205,7 @@ async def test_state_chips_filter_and_count_inside_the_scope():
+ 
+ 
+ async def test_refresh_reads_the_panel_and_is_rate_limited(monkeypatch):
+-    from melorin.modules.vpn import reconcile as vpn  # the single-account sync (service.reconcile) lives here since reconcile v2
++    from melorin.modules.vpn_accounts import reconcile as vpn  # the single-account sync (service.reconcile) lives here since reconcile v2
+     from melorin.kernel.models.vpn import Panel
+ 
+     class FakePanel:
+@@ -223,7 +223,7 @@ async def test_refresh_reads_the_panel_and_is_rate_limited(monkeypatch):
+                 expire_at=NOW + dt.timedelta(days=30),
+             )
+ 
+-    from melorin.modules.vpn import live
++    from melorin.modules.vpn_accounts import live
+ 
+     monkeypatch.setattr(vpn, "build_adapter", lambda _p: FakePanel())
+     monkeypatch.setattr(live, "build_adapter", lambda _p: FakePanel())  # the card the route returns is the panel's reading
+diff --git a/apps/api/tests/service/test_account_return.py b/apps/api/tests/service/test_account_return.py
+index 48f2770..c8249c3 100644
+--- a/apps/api/tests/service/test_account_return.py
++++ b/apps/api/tests/service/test_account_return.py
+@@ -14,8 +14,8 @@ from melorin.core.scope import StoreScope
+ from melorin.kernel.models.vpn import AccountReturn, Panel, VpnAccount
+ from melorin.modules.orders import service as orders
+ from melorin.modules.orders.service import account_return
+-from melorin.modules.vpn import live, reconcile
+-from melorin.modules.vpn import router as vpn_router
++from melorin.modules.vpn_accounts import live, reconcile
++from melorin.modules.vpn_accounts import router as vpn_router
+ from melorin.modules.wallet import service as wallet
+ from test_pasarguard_service_db import FakePanel, remote
+ 
+diff --git a/apps/api/tests/service/test_admin_connections_db.py b/apps/api/tests/service/test_admin_connections_db.py
+index 5a0183e..3e61d5f 100644
+--- a/apps/api/tests/service/test_admin_connections_db.py
++++ b/apps/api/tests/service/test_admin_connections_db.py
+@@ -16,7 +16,7 @@ from _db import make_order, make_product, make_store, make_user, open_schema_eng
+ from melorin.core.errors import AppError
+ from melorin.kernel.models.system import AuditEvent
+ from melorin.kernel.models.vpn import Panel, VpnAccount
+-from melorin.modules.vpn import account_tools as tools
++from melorin.modules.vpn_accounts import account_tools as tools
+ from melorin.modules.panel_integrations.adapters.base import Capabilities, ErrorKind, PanelError
+ from melorin.modules.panel_integrations.adapters.pasarguard import PasarGuardAdapter
+ 
+diff --git a/apps/api/tests/service/test_manual_assign_db.py b/apps/api/tests/service/test_manual_assign_db.py
+index 4d1c7d5..d98fde5 100644
+--- a/apps/api/tests/service/test_manual_assign_db.py
++++ b/apps/api/tests/service/test_manual_assign_db.py
+@@ -24,7 +24,7 @@ from melorin.modules.reports import timeseries
+ from melorin.modules.eventcenter import rules
+ from melorin.modules.referral import service as referral
+ from melorin.modules.reports import router as reports
+-from melorin.modules.vpn import inquiry, manual_assign, returns
++from melorin.modules.vpn_accounts import inquiry, manual_assign, returns
+ from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError
+ from test_pasarguard_service_db import FakePanel, remote
+ 
+diff --git a/apps/api/tests/service/test_mediator_r4_r6_db.py b/apps/api/tests/service/test_mediator_r4_r6_db.py
+index 31c24a0..c0e0e37 100644
+--- a/apps/api/tests/service/test_mediator_r4_r6_db.py
++++ b/apps/api/tests/service/test_mediator_r4_r6_db.py
+@@ -12,7 +12,7 @@ from _db import open_schema_engine
+ from melorin.core import settings_store
+ from melorin.kernel.models.vpn import Panel, VpnAccount
+ from melorin.modules.reports import analytics
+-from melorin.modules.vpn import live, notices, sync
++from melorin.modules.vpn_accounts import live, notices, sync
+ from test_panel_live_view_db import _Down, use
+ from test_pasarguard_service_db import NOW, FakePanel, remote, seed
+ 
+@@ -78,7 +78,7 @@ async def test_analytics_snapshot_labels_sold_volume_and_reports_panel_numbers(m
+ 
+ # ---------------------------------------------------------------------------------------------------------------- PG-02 words
+ async def test_state_hint_says_what_on_hold_and_depleted_mean():
+-    from melorin.modules.vpn import inquiry
++    from melorin.modules.vpn_accounts import inquiry
+ 
+     note, action = inquiry.state_hint("on_hold", "active", can_renew=False)
+     assert "اولین اتصال" in note and action is None
+diff --git a/apps/api/tests/service/test_mediator_rework_db.py b/apps/api/tests/service/test_mediator_rework_db.py
+index 8de5458..8a0d6c1 100644
+--- a/apps/api/tests/service/test_mediator_rework_db.py
++++ b/apps/api/tests/service/test_mediator_rework_db.py
+@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
+ from _db import make_order, make_product, make_store, make_user, open_schema_engine
+ from melorin.core.errors import AppError
+ from melorin.kernel.models.vpn import Panel, ReconciliationIssue, VpnAccount
+-from melorin.modules.vpn import inquiry, issues
++from melorin.modules.vpn_accounts import inquiry, issues
+ from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError
+ from _jobs import patch_jobs
+ from melorin.worker import jobs
+@@ -224,7 +224,7 @@ async def test_link_existing_points_a_missing_account_at_the_real_panel_user(mak
+ 
+ # ------------------------------------------------------- near-expiry warning needs the panel's agreement (mediator rule)
+ async def test_near_expiry_warning_is_sent_only_when_the_panel_agrees(maker, monkeypatch):
+-    from melorin.modules.vpn import live, notices
++    from melorin.modules.vpn_accounts import live, notices
+ 
+     names = ["agrees", "on_hold", "renewed_on_panel", "panel_silent"]
+     panel_id, ids = await seed(maker, names)
+@@ -263,7 +263,7 @@ async def test_near_expiry_warning_is_sent_only_when_the_panel_agrees(maker, mon
+ 
+ async def test_near_expiry_reads_every_page_not_only_the_first(maker, monkeypatch):
+     """T23: with more candidates than one live read may take, the rest must still be warned (soonest-ending first)."""
+-    from melorin.modules.vpn import live, notices
++    from melorin.modules.vpn_accounts import live, notices
+ 
+     names = [f"u{i}" for i in range(5)]
+     panel_id, ids = await seed(maker, names)
+diff --git a/apps/api/tests/service/test_panel_live_view_db.py b/apps/api/tests/service/test_panel_live_view_db.py
+index 7f8639a..5defb59 100644
+--- a/apps/api/tests/service/test_panel_live_view_db.py
++++ b/apps/api/tests/service/test_panel_live_view_db.py
+@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
+ from _db import open_schema_engine
+ from melorin.core import settings_store
+ from melorin.kernel.models.vpn import VpnAccount
+-from melorin.modules.vpn import inquiry, live
++from melorin.modules.vpn_accounts import inquiry, live
+ from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError
+ from test_pasarguard_service_db import FakePanel, remote, seed
+ 
+diff --git a/apps/api/tests/service/test_recreate_on_panel_db.py b/apps/api/tests/service/test_recreate_on_panel_db.py
+index 54d77ab..1b88788 100644
+--- a/apps/api/tests/service/test_recreate_on_panel_db.py
++++ b/apps/api/tests/service/test_recreate_on_panel_db.py
+@@ -12,7 +12,7 @@ from _db import make_user, open_schema_engine
+ from melorin.core.errors import AppError
+ from melorin.kernel.models.vpn import ReconciliationIssue, Server, VpnAccount
+ from melorin.modules.admin import panel_reconciliation
+-from melorin.modules.vpn import issues
++from melorin.modules.vpn_accounts import issues
+ from melorin.modules.panelops import recreate
+ from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError
+ from test_pasarguard_service_db import FakePanel, remote, seed
+diff --git a/apps/api/tests/service/test_renewal_core.py b/apps/api/tests/service/test_renewal_core.py
+index 5375d98..debde67 100644
+--- a/apps/api/tests/service/test_renewal_core.py
++++ b/apps/api/tests/service/test_renewal_core.py
+@@ -18,7 +18,7 @@ from melorin.modules.orders import service as orders
+ from melorin.kernel.models.orders import Order
+ from melorin.kernel.models.stores import ResellerProfile, StoreMembership
+ from melorin.modules.catalog import allocation
+-from melorin.modules.vpn import renewal
++from melorin.modules.vpn_accounts import renewal
+ from melorin.modules.orders import provisioning as vpn
+ from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelAccount, PanelError
+ from melorin.kernel.models.bundles import Bundle, BundleMember, BundleProduct
+@@ -401,7 +401,7 @@ async def test_renewal_info_after_the_window_says_why_and_the_quote_is_refused()
+ 
+ 
+ def test_account_list_tells_the_clients_whether_renewal_is_open():
+-    from melorin.modules.vpn.router import out
++    from melorin.modules.vpn_accounts.router import out
+ 
+     now = dt.datetime.now(dt.UTC)
+     a = VpnAccount(
+diff --git a/apps/api/tests/service/test_store_config_db.py b/apps/api/tests/service/test_store_config_db.py
+index a0ec768..6d61fb7 100644
+--- a/apps/api/tests/service/test_store_config_db.py
++++ b/apps/api/tests/service/test_store_config_db.py
+@@ -49,8 +49,14 @@ async def test_main_store_uses_its_own_configuration():
+     async with open_session() as s:
+         main = await make_store(s, kind="main")
+         await store_config.upsert(
+-            s, store_id=main.id, provider="manual_card", is_enabled=True,
+-            public_config={"card_number": "6037", "holder": "Ali"}, secret=None, actor_id=ACTOR, actor_type="admin",
++            s,
++            store_id=main.id,
++            provider="manual_card",
++            is_enabled=True,
++            public_config={"card_number": "6037", "holder": "Ali"},
++            secret=None,
++            actor_id=ACTOR,
++            actor_type="admin",
+         )
+         await s.flush()
+         got = await pay.store_payment_settings(s, main, "manual_card")
+@@ -60,7 +66,9 @@ async def test_main_store_uses_its_own_configuration():
+ async def test_zarinpal_edit_keeps_the_stored_access_token_and_view_hides_secrets():
+     async with open_session() as s:
+         main = await make_store(s, kind="main")
+-        kw = dict(store_id=main.id, provider="zarinpal", is_enabled=True, public_config={"sandbox": False}, actor_id=ACTOR, actor_type="admin")
++        kw = dict(
++            store_id=main.id, provider="zarinpal", is_enabled=True, public_config={"sandbox": False}, actor_id=ACTOR, actor_type="admin"
++        )
+         await store_config.upsert(s, secret={"merchant_id": "m-1", "access_token": "tok"}, **kw)
+         row = await store_config.upsert(s, secret={"merchant_id": "m-2"}, **kw)
+         await s.flush()
+diff --git a/apps/api/tests/service/test_store_isolation.py b/apps/api/tests/service/test_store_isolation.py
+index dff3484..2f63948 100644
+--- a/apps/api/tests/service/test_store_isolation.py
++++ b/apps/api/tests/service/test_store_isolation.py
+@@ -21,8 +21,8 @@ from melorin.kernel.models.notifications import Notification
+ from melorin.modules.orders import router as orders_router
+ from melorin.modules.payments import router as pay_router
+ from melorin.kernel.models.payments import Payment
+-from melorin.modules.vpn import renewal
+-from melorin.modules.vpn import router as vpn_router
++from melorin.modules.vpn_accounts import renewal
++from melorin.modules.vpn_accounts import router as vpn_router
+ from melorin.kernel.models.vpn import VpnAccount
+ 
+ NOW = dt.datetime.now(dt.UTC)
+@@ -218,7 +218,7 @@ def test_customer_routers_never_use_a_bare_current_user_or_hand_written_ownershi
+     from pathlib import Path
+ 
+     root = Path(__file__).parents[2] / "melorin" / "modules"
+-    for rel in ("vpn/router.py", "orders/router.py", "payments/router.py", "notifications/router.py"):
++    for rel in ("vpn_accounts/router.py", "orders/router.py", "payments/router.py", "notifications/router.py"):
+         src = (root / rel).read_text()
+         assert "CurrentUser" not in src, f"{rel}: must resolve a StoreCtx, not a bare user"
+         assert ".user_id !=" not in src and ".user_id ==" not in src, f"{rel}: use StoreScope, not hand-written checks"
+diff --git a/apps/api/tests/service/test_worker_jobs_db.py b/apps/api/tests/service/test_worker_jobs_db.py
+index 762d56a..980c158 100644
+--- a/apps/api/tests/service/test_worker_jobs_db.py
++++ b/apps/api/tests/service/test_worker_jobs_db.py
+@@ -18,7 +18,7 @@ from melorin.core.db import utcnow
+ from melorin.kernel.models.identity import VerificationCode
+ from melorin.kernel.models.system import BackupRun, OutboxEvent, SystemSetting
+ from melorin.kernel.models.vpn import Panel, VpnAccount
+-from melorin.modules.vpn import notices, reconcile
++from melorin.modules.vpn_accounts import notices, reconcile
+ from melorin.core import integrations
+ from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
+ from _jobs import patch_jobs
+diff --git a/apps/api/tests/unit/test_freshness_policy.py b/apps/api/tests/unit/test_freshness_policy.py
+index 8ef4ed6..c8813e6 100644
+--- a/apps/api/tests/unit/test_freshness_policy.py
++++ b/apps/api/tests/unit/test_freshness_policy.py
+@@ -2,7 +2,7 @@
+ 
+ import datetime as dt
+ 
+-from melorin.modules.vpn import freshness, inquiry, live, sync
++from melorin.modules.vpn_accounts import freshness, inquiry, live, sync
+ 
+ 
+ def test_old_constant_names_are_the_policy_values():
+diff --git a/apps/api/tests/unit/test_panel_event_single_path.py b/apps/api/tests/unit/test_panel_event_single_path.py
+index cc7a1c8..81fbd05 100644
+--- a/apps/api/tests/unit/test_panel_event_single_path.py
++++ b/apps/api/tests/unit/test_panel_event_single_path.py
+@@ -4,7 +4,7 @@ from __future__ import annotations
+ 
+ import inspect
+ 
+-from melorin.modules.vpn import panel_events, webhook_router
++from melorin.modules.panelops import panel_events, webhook_router
+ from melorin.worker import jobs
+ 
+ 
+diff --git a/apps/api/tests/unit/test_panel_snapshot.py b/apps/api/tests/unit/test_panel_snapshot.py
+index c9bcfb7..7506a83 100644
+--- a/apps/api/tests/unit/test_panel_snapshot.py
++++ b/apps/api/tests/unit/test_panel_snapshot.py
+@@ -7,8 +7,16 @@ NOW = dt.datetime(2026, 11, 14, 12, 0, tzinfo=dt.UTC)
+ 
+ 
+ def _panel(**kw):
+-    base = dict(id="p1", name="P", health_status="healthy", last_health_at=NOW, last_health_error=None, health_detail=None,
+-                metrics_snapshot=None, metrics_snapshot_at=None)
++    base = dict(
++        id="p1",
++        name="P",
++        health_status="healthy",
++        last_health_at=NOW,
++        last_health_error=None,
++        health_detail=None,
++        metrics_snapshot=None,
++        metrics_snapshot_at=None,
++    )
+     base.update(kw)
+     return NS(**base)
+ 
+diff --git a/apps/api/tests/unit/test_target_rules_and_admin.py b/apps/api/tests/unit/test_target_rules_and_admin.py
+index c9efdf6..65b31a8 100644
+--- a/apps/api/tests/unit/test_target_rules_and_admin.py
++++ b/apps/api/tests/unit/test_target_rules_and_admin.py
+@@ -14,7 +14,13 @@ from melorin.kernel.models.vpn import Panel, Server
+ from melorin.modules.admin import panels as admin_panels
+ from melorin.modules.admin import targets as admin_targets
+ from melorin.modules.admin.schemas import CreateServer
+-from melorin.modules.panel_integrations.targets import capacity_label, effective_destination, merge_config, normalize_target, validate_target
++from melorin.modules.panel_integrations.targets import (
++    capacity_label,
++    effective_destination,
++    merge_config,
++    normalize_target,
++    validate_target,
++)
+ 
+ ADMIN = types.SimpleNamespace(id=uuid.uuid4())
+ 
+diff --git a/apps/api/tests/unit/test_vpn_qr_endpoint.py b/apps/api/tests/unit/test_vpn_qr_endpoint.py
+index 9691eb3..da40064 100644
+--- a/apps/api/tests/unit/test_vpn_qr_endpoint.py
++++ b/apps/api/tests/unit/test_vpn_qr_endpoint.py
+@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+ import melorin.models  # noqa: F401  (registers every table)
+ from melorin.core.db import Base
+ from melorin.core.errors import AppError
+-from melorin.modules.vpn import router as vpn_router
++from melorin.modules.vpn_accounts import router as vpn_router
+ from melorin.kernel.models.vpn import VpnAccount
+ 
+ SUB = "https://sub.example.com/sub/AbCdEf123"
+diff --git a/apps/api/tests/unit/test_vpn_transition_sources.py b/apps/api/tests/unit/test_vpn_transition_sources.py
+new file mode 100644
+index 0000000..eda57bd
+--- /dev/null
++++ b/apps/api/tests/unit/test_vpn_transition_sources.py
+@@ -0,0 +1,65 @@
++"""Account status writes are attributed and checked: lifecycle table AND the writer's own allowed targets."""
++
++from types import SimpleNamespace
++
++import pytest
++
++from melorin.domain.order_state import (
++    SOURCE_TARGETS,
++    VPN_TRANSITIONS,
++    InvalidTransition,
++    SourceNotAllowed,
++    VpnSource,
++    VpnStatus,
++    set_vpn_status,
++)
++
++
++def _acc(status):
++    return SimpleNamespace(status=status)
++
++
++def test_every_source_is_declared_and_targets_are_real_statuses():
++    assert set(SOURCE_TARGETS) == set(VpnSource)
++    for targets in SOURCE_TARGETS.values():
++        assert targets and targets <= set(VpnStatus)
++
++
++def test_allowed_write_returns_an_auditable_transition():
++    acc = _acc(VpnStatus.ACTIVE)
++    t = set_vpn_status(acc, VpnStatus.SUSPENDED, source=VpnSource.BULK)
++    assert acc.status == VpnStatus.SUSPENDED
++    assert (t.src, t.dst, t.source, t.changed) == ("active", "suspended", "bulk", True)
++    assert t.as_audit() == {"from": "active", "to": "suspended", "source": "bulk"}
++
++
++def test_repeating_the_same_write_is_idempotent():
++    acc = _acc(VpnStatus.SUSPENDED)
++    t = set_vpn_status(acc, VpnStatus.SUSPENDED, source=VpnSource.BULK)
++    assert acc.status == VpnStatus.SUSPENDED and t.changed is False
++
++
++@pytest.mark.parametrize(
++    ("source", "dst"),
++    [(s, d) for s in VpnSource for d in VpnStatus if d not in SOURCE_TARGETS[s]],
++)
++def test_a_source_cannot_write_a_status_outside_its_list(source, dst):
++    acc = _acc(VpnStatus.ACTIVE)
++    with pytest.raises(SourceNotAllowed):
++        set_vpn_status(acc, dst, source=source)
++    assert acc.status == VpnStatus.ACTIVE
++
++
++def test_lifecycle_table_still_applies_to_an_allowed_source():
++    acc = _acc(VpnStatus.REVOKED)
++    with pytest.raises(InvalidTransition):
++        set_vpn_status(acc, VpnStatus.ACTIVE, source=VpnSource.PROVISIONING)
++    assert acc.status == VpnStatus.REVOKED
++
++
++def test_renewal_path_expired_to_active_is_allowed_for_provisioning_and_sync():
++    for source in (VpnSource.PROVISIONING, VpnSource.PANEL_SYNC):
++        assert VpnStatus.ACTIVE in VPN_TRANSITIONS[VpnStatus.EXPIRED]
++        acc = _acc(VpnStatus.EXPIRED)
++        set_vpn_status(acc, VpnStatus.ACTIVE, source=source)
++        assert acc.status == VpnStatus.ACTIVE
+diff --git a/docs/CHANGE_LOG.md b/docs/CHANGE_LOG.md
+index 9f007bd..6ab9d7b 100644
+--- a/docs/CHANGE_LOG.md
++++ b/docs/CHANGE_LOG.md
+@@ -111,7 +111,7 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
+ ### 2026-11-09 - Claude (with owner) - PG-12 per-store subscription branding
+ - **Before:** every store's subscription page carried the shared panel branding; `stores.branding` was free-form JSON replaced wholesale by the owner patch.
+ - **Problem:** a reseller could not show its own name, support link or logo; a free-form value that a panel page may print is an injection risk.
+-- **Action:** `modules/vpn/sub_branding.py` (validated fields in `stores.branding["sub"]`; admin `preview` / `apply` / `revert` writing three `custom_variables` keys of the store's panel admin, other keys kept, read-back verified with restore, typed panel name, audited without values); owner `GET/PUT /stores/{id}/reseller/sub-branding`; the generic branding patch can no longer set or wipe `sub`/`sub_applied`; adapter `read_custom_variables` / `write_custom_variables`; no `sub_template`, no HTML from stores.
++- **Action:** `modules/vpn_accounts/sub_branding.py` (validated fields in `stores.branding["sub"]`; admin `preview` / `apply` / `revert` writing three `custom_variables` keys of the store's panel admin, other keys kept, read-back verified with restore, typed panel name, audited without values); owner `GET/PUT /stores/{id}/reseller/sub-branding`; the generic branding patch can no longer set or wipe `sub`/`sub_applied`; adapter `read_custom_variables` / `write_custom_variables`; no `sub_template`, no HTML from stores.
+ - **After:** `tests/test_sub_branding.py` (9 tests) and the 5.6.0 contract replay pass. No migration. NOT run against a live panel; how the panel page reads `custom_variables` is unconfirmed.
+ - **Ref:** this commit
+ 
+diff --git a/docs/panels/PANEL-MEDIATOR-REWORK.md b/docs/panels/PANEL-MEDIATOR-REWORK.md
+index c17beb4..2cf8663 100644
+--- a/docs/panels/PANEL-MEDIATOR-REWORK.md
++++ b/docs/panels/PANEL-MEDIATOR-REWORK.md
+@@ -10,7 +10,7 @@ Rule: **Melorin is a mediator**. Used traffic, limit, expiry and status belong t
+ | R3 | **Fail-closed refunds.** A return always does a fresh panel read (the 15 s rate limit no longer applies to it). Panel down or user missing there → `503 PANEL_UNAVAILABLE`, no refund. Accounts without a panel pass. | `inquiry.refresh_from_panel(strict=True)`, `returns.prepare_return` |
+ | R2 | **The panel decides expiry.** `expiry_job` no longer marks panel accounts `expired` by Melorin's clock: an overdue account is re-read live and the panel's status/expiry is applied (a renewal done on the panel moves the date; a panel that does not answer changes nothing). Accounts without a panel keep the local clock. Max 200 live reads per run. | `worker/jobs_accounts.py::expiry_job` |
+ | L4 | Open issues of archived/revoked accounts close themselves (`resolution=account_inactive`). | `issues.close_for_inactive`, `reconcile_panel` |
+-| R1 | **PanelLiveView.** Live expiry/usage/limit/health for a page of accounts, one adapter per panel, bounded concurrency, 20 s in-memory cache. Panel cannot answer → `live=false`, no numbers, text "temporarily unavailable" (decision 9). Setting `vpn.live_view` (default **on** since R9/R10: with no stored copy there is nothing to fall back on; switching it off shows no panel numbers). Wired into the customer account routes. | `modules/vpn/live.py`, `router.py`, `VpnAccountOut.live/live_note` |
++| R1 | **PanelLiveView.** Live expiry/usage/limit/health for a page of accounts, one adapter per panel, bounded concurrency, 20 s in-memory cache. Panel cannot answer → `live=false`, no numbers, text "temporarily unavailable" (decision 9). Setting `vpn.live_view` (default **on** since R9/R10: with no stored copy there is nothing to fall back on; switching it off shows no panel numbers). Wired into the customer account routes. | `modules/vpn_accounts/live.py`, `router.py`, `VpnAccountOut.live/live_note` |
+ | PG-04 / decision 1 | Orphans can be recorded as **manual account** (`POST /admin/panel-orphans/{id}/manual`), re-opened (`…/reopen`) and **assigned to a store customer** (`…/assign`, see the section below: zero-price `manual` order that is not a sale). Never deleted; becomes `gone` when the panel user disappears or is assigned. | `panel_orphans.py`, `manual_assign.py`, `domain/order_kinds.py`, `reconcile._record_orphans` |
+ | Decision 2 | **Configurable retention days** per panel for the `aligned` lifecycle policy (`PUT …/lifecycle-policy {policy, retention_days}`); the additive migration adds `panels.expected_retention_days`. Melorin only expects and warns; it never writes the panel. | `settings_drift.py`, `panel_monitoring.py` |
+ | L1 | **Prometheus works again.** `infra/` is mounted as a directory (no stale rules after `git pull`); `secrets/metrics-token` is owned by `nobody` (65534, mode 0600) and rewritten in place. | `docker-compose.yml`, `infra/prometheus.yml`, `scripts/install_server.sh` |
+-- 
+2.43.0
+
+
+From c5a5c1fb525b66a527cc8a65a6642ea382512660 Mon Sep 17 00:00:00 2001
+From: archerhabibi <darushfardipor@gmail.com>
+Date: Sat, 14 Nov 2026 13:34:07 +0330
+Subject: [PATCH 42/42] arch(health): PanelHealthSnapshot,
+ PanelCapacitySnapshot, PanelOperationalIssue models; reward policy gains cap
+ and vesting rules; tests for both and for the removed legacy payment keys
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01TJkVJKo5rHV2wWVEgECvgM
+---
+ apps/api/melorin/domain/commission.py         |  3 +-
+ apps/api/melorin/domain/order_rewards.py      | 11 +++
+ apps/api/melorin/domain/panel_snapshot.py     | 93 ++++++++++++++++++-
+ .../modules/panel_integrations/capacity.py    |  1 +
+ .../tests/unit/test_panel_snapshot_models.py  | 56 +++++++++++
+ .../test_reward_cap_and_legacy_payment.py     | 40 ++++++++
+ 6 files changed, 202 insertions(+), 2 deletions(-)
+ create mode 100644 apps/api/tests/unit/test_panel_snapshot_models.py
+ create mode 100644 apps/api/tests/unit/test_reward_cap_and_legacy_payment.py
+
+diff --git a/apps/api/melorin/domain/commission.py b/apps/api/melorin/domain/commission.py
+index 57f09c5..c88522f 100644
+--- a/apps/api/melorin/domain/commission.py
++++ b/apps/api/melorin/domain/commission.py
+@@ -5,6 +5,7 @@ reversal. What the referrer wallet can cover is taken now; the remainder becomes
+ offset from future commissions. The referrer wallet never goes negative because of a reversal.
+ """
+ 
++from melorin.domain.order_rewards import cap_reward
+ from collections.abc import Callable
+ from dataclasses import dataclass
+ 
+@@ -91,4 +92,4 @@ def commission_amount(net_paid: int, percent_bp: int) -> int:
+     """percent in basis points (1% = 100) on net paid after discount; floor to integer unit."""
+     if net_paid <= 0 or percent_bp <= 0:
+         return 0
+-    return net_paid * percent_bp // 10_000
++    return cap_reward(net_paid * percent_bp // 10_000, net_paid)  # rule 7 of domain/order_rewards: never more than was paid
+diff --git a/apps/api/melorin/domain/order_rewards.py b/apps/api/melorin/domain/order_rewards.py
+index f011902..a82812e 100644
+--- a/apps/api/melorin/domain/order_rewards.py
++++ b/apps/api/melorin/domain/order_rewards.py
+@@ -9,6 +9,10 @@ Rules (architecture review 2026-11-13, section 4.6):
+   4. Refund reverses in the opposite order: loyalty first, then referral.
+   5. Only revenue orders with ``total > 0`` earn anything.
+   6. Every grant carries its own idempotency key; re-running a step is a no-op.
++  7. Cap: a cash reward never exceeds the base it was computed from (``cap_reward``): even a mis-set 120% plan pays at most
++     what the customer paid. Loyalty points are not money and are limited by the program's own rules instead.
++  8. Vesting: a reward is final when the order completes and is posted to the ledger in the same settlement. There is no
++     time-based hold; the only way back is the refund reversal of rule 4, which is itself idempotent.
+ """
+ 
+ from enum import StrEnum
+@@ -28,3 +32,10 @@ def reward_base(total: int, *, is_revenue: bool) -> int:
+     if not is_revenue or total <= 0:
+         return 0
+     return total
++
++
++def cap_reward(amount: int, base: int) -> int:
++    """Rule 7: a cash reward is never negative and never more than the base it was computed from."""
++    if amount <= 0 or base <= 0:
++        return 0
++    return min(amount, base)
+diff --git a/apps/api/melorin/domain/panel_snapshot.py b/apps/api/melorin/domain/panel_snapshot.py
+index 747a2e0..c7189f5 100644
+--- a/apps/api/melorin/domain/panel_snapshot.py
++++ b/apps/api/melorin/domain/panel_snapshot.py
+@@ -1,4 +1,13 @@
+-"""One read model of "how is this panel right now" (health + live metrics + freshness).
++"""One read model of "how is this panel right now" (health + live metrics + freshness), and its two siblings.
++
++Three small models answer the whole health/capacity/attention question from one source (architecture review 2026-11-13, 4.6):
++
++* ``PanelHealthSnapshot``     connection and node health of one panel: status, last check, last error, freshness, sellable;
++* ``PanelCapacitySnapshot``   capacity of one destination (server slot): total, used, free, where the number comes from and its age;
++* ``PanelOperationalIssue``   one thing that needs a person: kind, subject, status, how often it was seen.
++
++``PanelSnapshot`` (health + the live reading of the same cycle) is what screens, reports and gauges already use; it now carries
++a ``health`` view so a caller that only needs the connection never touches the reading.
+ 
+ The panel row stores the last health check (``health_status``, ``health_detail``, ``last_health_at``) and the last live reading
+ (``metrics_snapshot``, ``metrics_snapshot_at``). Both are written by the single per-panel read cycle in the worker. Every screen,
+@@ -15,6 +24,77 @@ from typing import Any
+ from melorin.domain.panel_health import SELLABLE_STATES
+ 
+ 
++@dataclass(frozen=True)
++class PanelHealthSnapshot:
++    panel_id: Any
++    status: str
++    checked_at: dt.datetime | None
++    last_error: str | None
++    sellable: bool
++    detail: dict = field(default_factory=dict)
++
++    def is_fresh(self, now: dt.datetime, window: dt.timedelta) -> bool:
++        return self.checked_at is not None and now - self.checked_at <= window
++
++
++@dataclass(frozen=True)
++class PanelCapacitySnapshot:
++    server_id: Any
++    capacity: int
++    used: int
++    source: str | None
++    as_of: dt.datetime | None
++    state: str
++    percent: int | None
++    melorin_accounts: int = 0
++    panel_users: int | None = None
++
++    @property
++    def free(self) -> int:
++        return max(0, self.capacity - self.used)
++
++
++@dataclass(frozen=True)
++class PanelOperationalIssue:
++    key: str  # stable identity: ``<kind>:<subject_id>``
++    kind: str
++    subject_id: Any
++    status: str
++    occurrences: int = 1
++    last_seen_at: dt.datetime | None = None
++
++    @property
++    def needs_action(self) -> bool:
++        return self.status == "open"
++
++
++def capacity_snapshot_of(server_id: Any, view: dict) -> PanelCapacitySnapshot:
++    """Build the capacity model from the dict ``panel_integrations.capacity.capacity_view`` returns."""
++    return PanelCapacitySnapshot(
++        server_id=server_id,
++        capacity=int(view.get("capacity") or 0),
++        used=int(view.get("used") or 0),
++        source=view.get("source"),
++        as_of=view.get("panel_users_as_of"),
++        state=str(view.get("state") or "unknown"),
++        percent=view.get("percent"),
++        melorin_accounts=int(view.get("melorin_accounts") or 0),
++        panel_users=view.get("panel_users"),
++    )
++
++
++def issue_of(row: Any) -> PanelOperationalIssue:
++    """Build the attention model from a ``ReconciliationIssue`` row (or anything with the same attributes)."""
++    return PanelOperationalIssue(
++        key=f"{row.kind}:{row.vpn_account_id}",
++        kind=row.kind,
++        subject_id=row.vpn_account_id,
++        status=row.status,
++        occurrences=int(row.occurrences or 1),
++        last_seen_at=row.last_seen_at,
++    )
++
++
+ @dataclass(frozen=True)
+ class PanelSnapshot:
+     panel_id: Any
+@@ -39,6 +119,17 @@ class PanelSnapshot:
+     def online_users(self) -> Any:
+         return self.reading.get("online_users") if self.reading else None
+ 
++    @property
++    def health(self) -> PanelHealthSnapshot:
++        return PanelHealthSnapshot(
++            panel_id=self.panel_id,
++            status=self.health_status,
++            checked_at=self.checked_at,
++            last_error=self.last_error,
++            sellable=self.sellable,
++            detail=self.detail,
++        )
++
+     def is_fresh(self, now: dt.datetime, window: dt.timedelta) -> bool:
+         return self.taken_at is not None and now - self.taken_at <= window
+ 
+diff --git a/apps/api/melorin/modules/panel_integrations/capacity.py b/apps/api/melorin/modules/panel_integrations/capacity.py
+index a27fd18..e97b7f9 100644
+--- a/apps/api/melorin/modules/panel_integrations/capacity.py
++++ b/apps/api/melorin/modules/panel_integrations/capacity.py
+@@ -224,6 +224,7 @@ def capacity_view(server: Server, melorin_active: int) -> dict:
+         "source": server.capacity_source,
+         "panel_users_as_of": server.capacity_checked_at,  # R7: a stored panel number is always shown with its age
+         "used": used,
++        "free": max(0, int(server.capacity or 0) - used),
+         "percent": fill_percent(used, int(server.capacity or 0)),
+         "state": fill_state(used, int(server.capacity or 0)),
+     }
+diff --git a/apps/api/tests/unit/test_panel_snapshot_models.py b/apps/api/tests/unit/test_panel_snapshot_models.py
+new file mode 100644
+index 0000000..89031f1
+--- /dev/null
++++ b/apps/api/tests/unit/test_panel_snapshot_models.py
+@@ -0,0 +1,56 @@
++"""Health, capacity and attention are three small models built from one source each."""
++
++import datetime as dt
++from types import SimpleNamespace
++
++from melorin.domain.panel_snapshot import capacity_snapshot_of, issue_of, snapshot_of
++
++NOW = dt.datetime(2026, 11, 14, 12, 0, tzinfo=dt.UTC)
++
++
++def _panel(**kw):
++    base = dict(
++        id="p1",
++        name="main",
++        health_status="healthy",
++        health_detail={"sellable": True},
++        last_health_at=NOW - dt.timedelta(minutes=1),
++        last_health_error=None,
++        metrics_snapshot={"up": True, "users_total": 7},
++        metrics_snapshot_at=NOW - dt.timedelta(minutes=1),
++    )
++    base.update(kw)
++    return SimpleNamespace(**base)
++
++
++def test_snapshot_exposes_a_health_view_without_the_reading():
++    snap = snapshot_of(_panel())
++    health = snap.health
++    assert (health.panel_id, health.status, health.sellable, health.last_error) == ("p1", "healthy", True, None)
++    assert health.is_fresh(NOW, dt.timedelta(minutes=5)) is True
++    assert health.is_fresh(NOW, dt.timedelta(seconds=10)) is False
++    assert snap.users_total == 7
++
++
++def test_capacity_snapshot_free_is_never_negative():
++    view = {
++        "capacity": 100,
++        "used": 130,
++        "source": "panel",
++        "panel_users_as_of": NOW,
++        "state": "full",
++        "percent": 130,
++        "melorin_accounts": 90,
++        "panel_users": 130,
++    }
++    cap = capacity_snapshot_of("s1", view)
++    assert (cap.capacity, cap.used, cap.free, cap.source, cap.state) == (100, 130, 0, "panel", "full")
++    assert capacity_snapshot_of("s2", {"capacity": 10, "used": 4}).free == 6
++
++
++def test_operational_issue_needs_action_only_while_open():
++    row = SimpleNamespace(kind="missing_on_panel", vpn_account_id="a1", status="open", occurrences=3, last_seen_at=NOW)
++    issue = issue_of(row)
++    assert issue.key == "missing_on_panel:a1" and issue.needs_action and issue.occurrences == 3
++    row.status = "resolved"
++    assert issue_of(row).needs_action is False
+diff --git a/apps/api/tests/unit/test_reward_cap_and_legacy_payment.py b/apps/api/tests/unit/test_reward_cap_and_legacy_payment.py
+new file mode 100644
+index 0000000..081b3ff
+--- /dev/null
++++ b/apps/api/tests/unit/test_reward_cap_and_legacy_payment.py
+@@ -0,0 +1,40 @@
++"""Reward rule 7 (cap) and the removal of the legacy global payment-destination keys (architecture review 4.4, 4.5)."""
++
++import re
++from pathlib import Path
++
++from melorin.domain.commission import commission_amount
++from melorin.domain.order_rewards import cap_reward, reward_base
++
++ROOT = Path(__file__).parents[2] / "melorin"
++
++
++def test_cap_reward_never_exceeds_the_base_and_never_goes_negative():
++    assert cap_reward(50, 100) == 50
++    assert cap_reward(150, 100) == 100
++    assert cap_reward(-5, 100) == 0 and cap_reward(5, 0) == 0
++
++
++def test_commission_is_capped_at_what_the_customer_paid():
++    assert commission_amount(1000, 1000) == 100  # 10%
++    assert commission_amount(1000, 12_000) == 1000  # a 120% plan pays at most the net paid
++    assert commission_amount(0, 500) == 0
++
++
++def test_rewards_are_computed_from_what_was_charged():
++    assert reward_base(900, is_revenue=True) == 900
++    assert reward_base(900, is_revenue=False) == 0
++
++
++LEGACY_READ = re.compile(r"settings_store\.(?:get|set)\([^)]*[\"'](card\.info|gateway\.zarinpal|destination\.[a-z_]+)[\"']")
++
++
++def test_legacy_global_payment_destination_keys_are_not_read_or_written():
++    """The main store uses ``StorePaymentConfiguration``; the global ``card.info`` / ``gateway.zarinpal`` / ``destination.*``
++    keys and the main-store fallback were removed by migration 0056. A new read or write of them fails here."""
++    offenders = []
++    for p in ROOT.rglob("*.py"):
++        text = p.read_text(encoding="utf8")
++        if "_main_store_legacy_settings" in text or LEGACY_READ.search(text):
++            offenders.append(p.relative_to(ROOT).as_posix())
++    assert not offenders, f"legacy payment destination configuration is back: {offenders}"
 -- 
 2.43.0
 
