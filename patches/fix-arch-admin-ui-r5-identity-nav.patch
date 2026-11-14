@@ -3587,10 +3587,10 @@ index 25b52ab..ce28cfa 100644
 +    assert aa.allows([aa.SUPPORT], area, write=True)
 +    assert aa.allows([aa.FINANCE], area) and not aa.allows([aa.FINANCE], area, write=True)
 diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
-index b2c76ce..3b7dd90 100644
+index b2c76ce..5d365a6 100644
 --- a/docs/DECISIONS.md
 +++ b/docs/DECISIONS.md
-@@ -141,3 +141,24 @@ _Merged from the former 12-Change-Log-v1.1.md._
+@@ -141,3 +141,26 @@ _Merged from the former 12-Change-Log-v1.1.md._
  - Palette merge of admin-web and store-web is explicitly postponed by the owner (2026-11-14).
  - Gate on r3 (2026-11-14): lint-imports 6/6 kept, api pytest 2655 passed / 11 skipped, admin-web typecheck+build+vitest 289 passed, store-web 79 passed. Docker stack, bots and payment gateway not run.
  - UI-less admin endpoints (T09/T10 inventory, 2026-11-14) now have screens (`tools/connections` had no route, so it was a stale heuristic entry): Store Hub «اعلان‌ها» tab holds `vpn-notice-texts` (per-kind customer wording) and `vpn-digest` (owner daily digest switch; `GET vpn-notices` now also returns `daily_digest` and `has_owner`); new Store Hub «ربات‌ها» tab lists/creates `bot-store-bindings`; the bundles screen warns about `bundle-products/unassigned`; the product drawer has a per-store availability section (`products/{id}/availability`); the order drawer has an attach-account form for orders in provisioning_failed / manual_review (`orders/{id}/attach-account`); the panel detail has an «دسترسی» tab for `store-role-plan` and `service-access` (provision, rotate, keys, store role apply/revert; owner credential is sent once and cleared from the form, panel name must be typed). Vitest covers the four read/write paths; the panel-access writes need a real panel and were not exercised. Docs numbering gaps 12 and 15 are intentional (docs/00-README).
@@ -3615,6 +3615,8 @@ index b2c76ce..3b7dd90 100644
 +- r5 (phase 4, real PasarGuard, 2026-11-14): a live PasarGuard panel was registered in the Compose stack with an API key (read-only checks only, no accounts created or changed on the panel). Panel registration, adapter health check and reconciliation all worked: health reported `degraded` because 4 of 8 panel nodes could not be reached from the panel itself (panel-side), reconciliation completed with 0 errors and listed the 2 panel users Melorin does not know as orphans. Not covered: provisioning/renewal/deletion of a real account, node traffic, and `scripts/pasarguard_contract.py diff` (the panel hides its public OpenAPI; export it inside the container as the script documents).
 +
 +- r5 (phase 4, real PasarGuard lifecycle, 2026-11-14): on a dedicated test panel the full customer flow ran twice end to end: top-up approval -> wallet purchase -> worker provisioning -> the panel user exists with the right group, 1 GB quota and expiry -> admin suspend (panel `disabled`) -> resume (panel `active`) -> subscription rotate -> usage read -> customer return (wallet refunded, panel user deleted). No leftover panel users after either run. The first renewal attempt failed only because the test script sent the wrong field name (`account_id` instead of `vpn_account_id`); with the right field, a renewal order on the real panel completed and moved the panel expiry to now + the package duration (`replace` mode). Returning an account after a renewal is refused by design (`RETURN_RENEWED`). The panel test users were removed afterwards.
++
++- r5 (phase 4, browser): the Playwright suite (`e2e/`, real Chromium, mocked Core API) passed on a clean server: 26 passed, 2 skipped, including the role matrix, every admin menu route and Store Hub deep links. It runs against the Vite preview builds, not against the Compose stack.
 diff --git a/e2e/tests/admin.roles.spec.js b/e2e/tests/admin.roles.spec.js
 new file mode 100644
 index 0000000..a960f0d
