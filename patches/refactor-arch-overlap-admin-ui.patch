@@ -1155,6 +1155,69 @@ index d735da1..f030de8 100644
        {open && (
          <PaymentDrawer
            p={open}
+diff --git a/apps/admin-web/src/ReferralProgramsView.tsx b/apps/admin-web/src/ReferralProgramsView.tsx
+index a456287..2ba42e8 100644
+--- a/apps/admin-web/src/ReferralProgramsView.tsx
++++ b/apps/admin-web/src/ReferralProgramsView.tsx
+@@ -2,22 +2,15 @@
+ // saved rules all belong to that store (Core never mixes stores). A reseller may also edit his own store's plans from his panel.
+ import { useCallback, useEffect, useMemo, useState } from 'react';
+ import { Gift, Save } from 'lucide-react';
++import { unitOf, usePlanForm } from '@melorin/web-kit/referralPlan.js';
+ import { authFetch } from './api.ts';
+-import { Empty, Field, Section, errText, num, toEn, useRows } from './kit.tsx';
++import { Empty, Field, Section, errText, num, useRows } from './kit.tsx';
+ import type { Json, Rec, Toast } from './types.ts';
+ 
+ const KINDS = [
+   ['signup_reward', 'پاداش اولین خرید معرفی‌شده', 'یک‌بار، در اولین خرید مشتریِ دعوت‌شده در همین فروشگاه.'],
+   ['commission', 'کمیسیون خریدهای بعدی', 'هر خرید بعدیِ همان مشتری در همین فروشگاه.'],
+ ];
+-const unitOf = (c: Json) => (({ IRT: 'تومان', IRR: 'ریال' }) as Rec)[c] || c || '';
+-const intOf = (v: Json) =>
+-  /^\d+$/.test(toEn(v).replace(/[,٬\s]/g, '')) ? Number(toEn(v).replace(/[,٬\s]/g, '')) : null;
+-const bpOf = (v: Json) => {
+-  const s = toEn(v).replace('٫', '.').trim();
+-  return /^\d+(\.\d{1,2})?$/.test(s) ? Math.round(Number(s) * 100) : null;
+-};
+-
+ function Plan({
+   kind,
+   title,
+@@ -33,19 +26,11 @@ function Plan({
+   currency?: Json;
+   onSave?: Json;
+ }) {
+-  const [model, setModel] = useState(rule?.model || 'percent');
+-  const [value, setValue] = useState(rule ? String(rule.model === 'percent' ? rule.value / 100 : rule.value) : '');
+-  const [cap, setCap] = useState(rule?.max_amount ? String(rule.max_amount) : '');
+-  const [active, setActive] = useState(rule ? rule.is_active : true);
+-  const [busy, setBusy] = useState(false);
+-  const v = model === 'percent' ? bpOf(value) : intOf(value);
+-  const bad = value !== '' && (v == null || (cap !== '' && intOf(cap) == null));
+-  async function save() {
+-    if (v == null || bad) return;
+-    setBusy(true);
+-    await onSave({ kind, model, value: v, max_amount: cap ? intOf(cap) : null, is_active: active });
+-    setBusy(false);
+-  }
++  const { model, setModel, value, setValue, cap, setCap, active, setActive, bad, canSave, save } = usePlanForm({
++    kind,
++    rule,
++    onSave,
++  });
+   return (
+     <Section title={title} hint={hint}>
+       <div className="grid gap-3 sm:grid-cols-3" data-testid={`plan-${kind}`}>
+@@ -75,7 +60,7 @@ function Plan({
+         <label className="flex items-center gap-2 text-xs font-bold">
+           <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} /> فعال
+         </label>
+-        <button className="btn" disabled={busy || bad || value === ''} onClick={save}>
++        <button className="btn" disabled={!canSave} onClick={save}>
+           <Save size={14} /> ذخیره
+         </button>
+       </div>
 diff --git a/apps/admin-web/src/StoreHubView.tsx b/apps/admin-web/src/StoreHubView.tsx
 new file mode 100644
 index 0000000..bd074ac
@@ -6399,6 +6462,91 @@ index d49b510..a583dcc 100644
  
    if (data === null) return <Loading rows={3} />;
    const topics = data.topics || [];
+diff --git a/apps/store-web/src/ResellerReferral.tsx b/apps/store-web/src/ResellerReferral.tsx
+index 62ab383..861a192 100644
+--- a/apps/store-web/src/ResellerReferral.tsx
++++ b/apps/store-web/src/ResellerReferral.tsx
+@@ -4,7 +4,8 @@
+ import { useCallback, useEffect, useState } from 'react';
+ import { Gift, Save } from 'lucide-react';
+ import { Empty, Loading, fa } from './ui.tsx';
+-import { percentToBp, toInt, unitOf } from './storeProgram.ts';
++import { usePlanForm } from '@melorin/web-kit/referralPlan.js';
++import { unitOf } from './storeProgram.ts';
+ import type { Json } from './types';
+ 
+ const J = { 'Content-Type': 'application/json' };
+@@ -28,19 +29,11 @@ function PlanCard({
+   currency?: Json;
+   onSave?: Json;
+ }) {
+-  const [model, setModel] = useState(rule?.model || 'percent');
+-  const [value, setValue] = useState(rule ? String(rule.model === 'percent' ? rule.value / 100 : rule.value) : '');
+-  const [cap, setCap] = useState(rule?.max_amount ? String(rule.max_amount) : '');
+-  const [active, setActive] = useState(rule ? rule.is_active : true);
+-  const [busy, setBusy] = useState(false);
+-  const bad = value !== '' && (model === 'percent' ? percentToBp(value) : toInt(value)) == null;
+-  async function save() {
+-    const v = model === 'percent' ? percentToBp(value) : toInt(value);
+-    if (v == null || (cap && toInt(cap) == null)) return;
+-    setBusy(true);
+-    await onSave({ kind, model, value: v, max_amount: cap ? toInt(cap) : null, is_active: active });
+-    setBusy(false);
+-  }
++  const { model, setModel, value, setValue, cap, setCap, active, setActive, bad, canSave, save } = usePlanForm({
++    kind,
++    rule,
++    onSave,
++  });
+   return (
+     <div className="card space-y-3" data-testid={`plan-${kind}`}>
+       <div>
+@@ -82,7 +75,7 @@ function PlanCard({
+           <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
+           فعال
+         </label>
+-        <button className="btn-primary" disabled={busy || bad || value === ''} onClick={save}>
++        <button className="btn-primary" disabled={!canSave} onClick={save}>
+           <Save size={15} aria-hidden="true" /> ذخیره
+         </button>
+       </div>
+diff --git a/apps/store-web/src/storeProgram.ts b/apps/store-web/src/storeProgram.ts
+index ba934dd..2fddc57 100644
+--- a/apps/store-web/src/storeProgram.ts
++++ b/apps/store-web/src/storeProgram.ts
+@@ -1,8 +1,8 @@
+ // Shared wording for the referral programme and discount codes of ONE store (Core decides every number; this only formats it).
+ import { fa } from './ui.tsx';
+ 
+-const UNITS: Record<string, string> = { IRT: 'تومان', IRR: 'ریال' };
+-export const unitOf = (currency?: string | null): string => (currency ? UNITS[currency] || currency : '');
++export { percentToBp, toInt, unitOf } from '@melorin/web-kit/referralPlan.js';
++import { unitOf } from '@melorin/web-kit/referralPlan.js';
+ 
+ // A plan is { model: 'fixed' | 'percent', value, max_amount }. Percent values are basis points (۱۰۰۰ = ۱۰٪).
+ export interface Plan {
+@@ -17,21 +17,3 @@ export function describePlan(plan: Plan | null | undefined, currency?: string |
+   const main = plan.model === 'percent' ? `${fa(plan.value / 100)}٪` : `${fa(plan.value)} ${unit}`;
+   return plan.max_amount ? `${main} (حداکثر ${fa(plan.max_amount)} ${unit})` : main;
+ }
+-
+-const digits = (v: unknown): string =>
+-  String(v ?? '')
+-    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+-    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+-
+-// Typed amounts may use Persian digits; returns a non-negative integer, or null when empty/invalid.
+-export function toInt(v: unknown): number | null {
+-  const s = digits(v).replace(/[,٬\s]/g, '');
+-  return /^\d+$/.test(s) ? Number(s) : null;
+-}
+-
+-// "۱۲٫۵" (percent) -> basis points 1250; null when empty/invalid.
+-export function percentToBp(v: unknown): number | null {
+-  const s = digits(v).replace('٫', '.').replace(/\s/g, '');
+-  if (!/^\d+(\.\d{1,2})?$/.test(s)) return null;
+-  return Math.round(Number(s) * 100);
+-}
 diff --git a/apps/telegram-main/runner.py b/apps/telegram-main/runner.py
 index 1cf04d6..438b97a 100644
 --- a/apps/telegram-main/runner.py
@@ -7251,7 +7399,7 @@ index cb2b24a..5e7709b 100644
  log = logging.getLogger("melorin.telegram.reseller")
  
 diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
-index 1be7e54..eb74fc0 100644
+index 1be7e54..e6276e6 100644
 --- a/docs/DECISIONS.md
 +++ b/docs/DECISIONS.md
 @@ -51,7 +51,7 @@ _Merged from the former 12-Change-Log-v1.1.md._
@@ -7263,7 +7411,7 @@ index 1be7e54..eb74fc0 100644
  - Adapter classes and each family's `contract.py` (settings/target validation, capacity label, listing warnings) are imported lazily; `upstream_bot` therefore needs Telethon only when a call is made.
  - Core code asks `providers.supports(kind, feature)` / `target_kinds(kind)` instead of comparing `panel.kind` with a string. A new family is one `register_provider(...)` call.
  - Guarded by `tests/test_provider_adapters.py` (no concrete family is imported outside the adapter layer, except the PasarGuard wire parsers listed in the test).
-@@ -94,3 +94,35 @@ _Merged from the former 12-Change-Log-v1.1.md._
+@@ -94,3 +94,36 @@ _Merged from the former 12-Change-Log-v1.1.md._
  - Honest limit: component props and server payloads that are not yet bound to generated `@melorin/api-client` schemas are typed `Json` / `Rec` (aliases in `src/types.ts`, same markers as admin-web). They are greppable; tighten one view per PR. This is a typed shell, not full type safety.
  - Verified in a real browser, not only jsdom: Playwright 10 passed / 2 skipped (the skipped two need a seeded staging stack), vitest 79, `vite build` OK (main bundle ~272 KB, gzip ~85 KB).
  - Source-contract guards (api tests, `check_g001_g010.py`, `check_frontend_contracts.py`) were repointed from `.jsx`/`.js` to `.tsx`/`.ts` for BOTH apps; the earlier admin-web migration had left 16 contract tests red because they still read the old names.
@@ -7298,7 +7446,8 @@ index 1be7e54..eb74fc0 100644
 +- Telegram DM delivery (`worker/runner._notify`) now asks `messaging_policy.dm_allowed(kind)`: kinds routed only to the Event Center (panel, backup, infra, outbox alerts) are never sent as a DM.
 +- VPN notices already reach customers only through `_notify` (policy-gated). Event Center keeps its own topic routing (`ADMIN_ONLY_TOPICS`, `ADMIN_COPY_TOPICS`): it never talks to customers, so `messaging_policy.allowed` adds nothing there.
 +- Broadcast composer logic (draft, confirm, POST, error text, delivery polling) lives in `@melorin/web-kit/broadcast.js`; both apps keep their own markup.
-+- Still open: move Loyalty / Referral logic onto web-kit hooks, and a shared design-token CSS package (admin and store skins still differ).
++- Referral plan form (parsing, validation, save flow, `unitOf/toInt/percentToBp`) lives in `@melorin/web-kit/referralPlan.js`; `store-web/storeProgram.ts` re-exports the parsers.
++- Still open: move Loyalty logic onto web-kit hooks, and a shared design-token CSS package (admin and store skins still differ).
 diff --git a/docs/GLOSSARY.md b/docs/GLOSSARY.md
 index 05da7ef..c2d8a21 100644
 --- a/docs/GLOSSARY.md
@@ -7313,10 +7462,10 @@ index 05da7ef..c2d8a21 100644
  | **mediator rule** | Melorin never stores panel-owned numbers; it reads them live (`vpn.PanelReader`) and caches them only within the single freshness policy. | ملورین داده‌های پنل را ذخیره نمی‌کند، زنده می‌خواند. |
  | **outbox** | The `outbox_events` table: events written in the same transaction as the change, delivered by the worker. | رخدادهای هم‌تراکنش با تغییر، که worker ارسال می‌کند. |
 diff --git a/packages/web-kit/package.json b/packages/web-kit/package.json
-index bec8049..d8cacb7 100644
+index bec8049..3f05e9e 100644
 --- a/packages/web-kit/package.json
 +++ b/packages/web-kit/package.json
-@@ -3,11 +3,17 @@
+@@ -3,11 +3,18 @@
    "private": true,
    "version": "1.0.0",
    "type": "module",
@@ -7334,7 +7483,8 @@ index bec8049..d8cacb7 100644
 +    "./format.js": "./src/format.js",
 +    "./eventCenter.js": "./src/eventCenter.js",
 +    "./bankSms.js": "./src/bankSms.js",
-+    "./broadcast.js": "./src/broadcast.js"
++    "./broadcast.js": "./src/broadcast.js",
++    "./referralPlan.js": "./src/referralPlan.js"
    }
  }
 diff --git a/packages/web-kit/src/bankSms.d.ts b/packages/web-kit/src/bankSms.d.ts
@@ -7674,6 +7824,77 @@ index 0000000..9917c3d
 +  } catch {
 +    return fallback;
 +  }
++}
+diff --git a/packages/web-kit/src/referralPlan.d.ts b/packages/web-kit/src/referralPlan.d.ts
+new file mode 100644
+index 0000000..ce6d531
+--- /dev/null
++++ b/packages/web-kit/src/referralPlan.d.ts
+@@ -0,0 +1,17 @@
++export const unitOf: (currency?: string | null) => string;
++export function toInt(v: unknown): number | null;
++export function percentToBp(v: unknown): number | null;
++export function usePlanForm(cfg: { kind: string; rule?: any; onSave: (plan: any) => Promise<void> | void }): {
++  model: string;
++  setModel: (v: string) => void;
++  value: string;
++  setValue: (v: string) => void;
++  cap: string;
++  setCap: (v: string) => void;
++  active: boolean;
++  setActive: (v: boolean) => void;
++  busy: boolean;
++  bad: boolean;
++  canSave: boolean;
++  save: () => Promise<void>;
++};
+diff --git a/packages/web-kit/src/referralPlan.js b/packages/web-kit/src/referralPlan.js
+new file mode 100644
+index 0000000..be1623c
+--- /dev/null
++++ b/packages/web-kit/src/referralPlan.js
+@@ -0,0 +1,42 @@
++// Headless logic of one referral plan card (first-purchase reward / later-purchase commission). Admin-web (one store at a time) and
++// store-web (the reseller's own store) render their own markup; parsing, validation and the save flow are written once.
++// Core validates and stores the plan; percent values are basis points (1000 = 10%).
++import { useState } from 'react';
++import { toEn } from './format.js';
++
++const UNITS = { IRT: 'تومان', IRR: 'ریال' };
++export const unitOf = (currency) => (currency ? UNITS[currency] || currency : '');
++
++/** Typed amounts may use Persian digits; a non-negative integer, or null when empty/invalid. */
++export function toInt(v) {
++  const s = toEn(v).replace(/[,٬\s]/g, '');
++  return /^\d+$/.test(s) ? Number(s) : null;
++}
++
++/** "۱۲٫۵" (percent) -> basis points 1250; null when empty/invalid. */
++export function percentToBp(v) {
++  const s = toEn(v).replace('٫', '.').replace(/\s/g, '');
++  return /^\d+(\.\d{1,2})?$/.test(s) ? Math.round(Number(s) * 100) : null;
++}
++
++/** @param {{ kind: string, rule?: any, onSave: (plan: any) => Promise<void> | void }} cfg */
++export function usePlanForm({ kind, rule, onSave }) {
++  const [model, setModel] = useState(rule?.model || 'percent');
++  const [value, setValue] = useState(rule ? String(rule.model === 'percent' ? rule.value / 100 : rule.value) : '');
++  const [cap, setCap] = useState(rule?.max_amount ? String(rule.max_amount) : '');
++  const [active, setActive] = useState(rule ? rule.is_active : true);
++  const [busy, setBusy] = useState(false);
++  const v = model === 'percent' ? percentToBp(value) : toInt(value);
++  const bad = value !== '' && (v == null || (cap !== '' && toInt(cap) == null));
++  const canSave = !busy && !bad && value !== '';
++  async function save() {
++    if (v == null || bad) return;
++    setBusy(true);
++    try {
++      await onSave({ kind, model, value: v, max_amount: cap ? toInt(cap) : null, is_active: active });
++    } finally {
++      setBusy(false);
++    }
++  }
++  return { model, setModel, value, setValue, cap, setCap, active, setActive, busy, bad, canSave, save };
 +}
 diff --git a/scripts/runtime_evidence.py b/scripts/runtime_evidence.py
 index 1423897..7dc57d3 100644

@@ -1,7 +1,7 @@
 From 2b7a40f4d38354ba119e0b5f4b673112112ec92e Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@gmail.com>
 Date: Fri, 13 Nov 2026 11:54:01 +0000
-Subject: [PATCH 01/26] arch(contracts): put eventcenter and broadcast under
+Subject: [PATCH 01/27] arch(contracts): put eventcenter and broadcast under
  the layer contract
 
 ---
@@ -28,7 +28,7 @@ index 286ab43..8ac7f14 100644
 From 2d64d509e34f94253822c3dbe6a55249abcb6301 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@gmail.com>
 Date: Fri, 13 Nov 2026 11:58:35 +0000
-Subject: [PATCH 02/26] fix(auth): admin password change enforces the same
+Subject: [PATCH 02/27] fix(auth): admin password change enforces the same
  policy as invite acceptance
 
 ---
@@ -92,7 +92,7 @@ index 4b4c2e7..b25e1a7 100644
 From 5ebfec4a5a0ad094c54c045612d3869ebc5e45b9 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@gmail.com>
 Date: Fri, 13 Nov 2026 11:59:56 +0000
-Subject: [PATCH 03/26] feat(admin-ui): regroup the menu (operations,
+Subject: [PATCH 03/27] feat(admin-ui): regroup the menu (operations,
  customers, catalog+marketing, communication, infrastructure); single password
  form; Receipt OCR lives under Payments
 
@@ -231,7 +231,7 @@ index d735da1..1bc9415 100644
 From cf3078358e9dd56b704544fd5afe992040683daa Mon Sep 17 00:00:00 2001
 From: claude-refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 12:22:19 +0000
-Subject: [PATCH 04/26] test(admin-ui): contract test follows the regrouped
+Subject: [PATCH 04/27] test(admin-ui): contract test follows the regrouped
  menu (infra group, catalog+marketing group)
 
 ---
@@ -263,7 +263,7 @@ index c37b6d0..b1c0224 100644
 From fa2f9f1b12a3e751e31dd0e7c0fecfe020debe13 Mon Sep 17 00:00:00 2001
 From: claude-refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 12:26:08 +0000
-Subject: [PATCH 05/26] arch(panelops): move panel_admins, governance,
+Subject: [PATCH 05/27] arch(panelops): move panel_admins, governance,
  store_usage, service_access, panel_events_admin, bulk, subscription_check,
  recreate, digest from vpn to panelops
 
@@ -873,7 +873,7 @@ index dc6010d..5daf353 100644
 From 28b907357132344d43bf66ba46418fb216c133cb Mon Sep 17 00:00:00 2001
 From: claude-refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 12:36:11 +0000
-Subject: [PATCH 06/26] arch(panelops): one reconciliation-actions service;
+Subject: [PATCH 06/27] arch(panelops): one reconciliation-actions service;
  admin router no longer builds adapters or coordinates writes
 
 Behaviour, error codes, audit events and messages are unchanged. Commits go through unit_of_work. Tests that patched the router's
@@ -1252,7 +1252,7 @@ index 1be7e54..ae1b773 100644
 From d9bf9dddd7d1751e60a4974b89608d057b2f9a2a Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:09:10 +0000
-Subject: [PATCH 07/26] docs(identity): point identity docstrings at docs/23
+Subject: [PATCH 07/27] docs(identity): point identity docstrings at docs/23
  (was docs/21)
 
 ---
@@ -1496,7 +1496,7 @@ index f553767..6ad921e 100644
 From 4666d51295581024fbba949d8215350c69940168 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:17:14 +0000
-Subject: [PATCH 08/26] feat(admin-ui): Settings is tabbed (backup+email /
+Subject: [PATCH 08/27] feat(admin-ui): Settings is tabbed (backup+email /
  advanced); Google and Telegram sign-in move to Identity > sign-in methods
 
 ---
@@ -1638,7 +1638,7 @@ index 89ae544..5be23cf 100644
 From f5d1996854a4f0b4b0595d9eb227d3e6e1c423c3 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:33:00 +0000
-Subject: [PATCH 09/26] feat(admin-ui): store hub: stores, resellers, panel
+Subject: [PATCH 09/27] feat(admin-ui): store hub: stores, resellers, panel
  access and volume governance are tabs of one menu entry
 
 ---
@@ -1860,7 +1860,7 @@ index 0000000..6dcd158
 From 4133a03d42351e76a8ac37b31e3d309270715b1e Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:53:57 +0000
-Subject: [PATCH 10/26] arch(payments): the main store payment destination uses
+Subject: [PATCH 10/27] arch(payments): the main store payment destination uses
  StorePaymentConfiguration; global card.info/gateway.zarinpal and the fallback
  are removed (alembic 0056)
 
@@ -2642,7 +2642,7 @@ index ae1b773..01a6a68 100644
 From eecbae7ca6146bef7cd336a832f0f91aa7560d5d Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 14:34:34 +0000
-Subject: [PATCH 11/26] arch(rewards): one written stacking policy and one
+Subject: [PATCH 11/27] arch(rewards): one written stacking policy and one
  settlement path; vpn account transition table
 
 ---
@@ -2817,7 +2817,7 @@ index 01a6a68..13f2648 100644
 From 3d7d013580e91867a5ec537d24db8323ea4c3fa0 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 14:42:16 +0000
-Subject: [PATCH 12/26] test(worker): refunds reverse loyalty before referral
+Subject: [PATCH 12/27] test(worker): refunds reverse loyalty before referral
 
 ---
  apps/api/tests/service/test_worker_runner_db.py | 2 +-
@@ -2843,7 +2843,7 @@ index ae12e89..af12146 100644
 From 34e51683ea1a0f2d5c9c18a528a48964c9f1ce77 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 14:59:48 +0000
-Subject: [PATCH 13/26] arch(worker): one read cycle per panel: metrics
+Subject: [PATCH 13/27] arch(worker): one read cycle per panel: metrics
  snapshot rides on the health job adapter
 
 ---
@@ -2923,7 +2923,7 @@ index 13f2648..3390dbd 100644
 From 3338242826ea3df9a23a08a2da87601ed7a78ed6 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 15:20:11 +0000
-Subject: [PATCH 14/26] arch(vpn): account status changes go through the
+Subject: [PATCH 14/27] arch(vpn): account status changes go through the
  guarded transition table
 
 ---
@@ -3078,7 +3078,7 @@ index 3390dbd..1fa7cd4 100644
 From 7a4e0bf6c3ddd2d04e5993cc0e818273990efe85 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 15:33:23 +0000
-Subject: [PATCH 15/26] arch(messaging): notifications dedupe on event_id +
+Subject: [PATCH 15/27] arch(messaging): notifications dedupe on event_id +
  recipient + channel
 
 ---
@@ -3200,7 +3200,7 @@ index 1fa7cd4..9e68bb5 100644
 From aae44f6b1397699b701c15ee04d519609193659b Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 16:18:20 +0000
-Subject: [PATCH 16/26] arch: guard expiry/revoke/sync status writes; panel
+Subject: [PATCH 16/27] arch: guard expiry/revoke/sync status writes; panel
  card deep-links to panel operations
 
 ---
@@ -3324,7 +3324,7 @@ index 9e68bb5..7218ea0 100644
 From 35b241cc55ca4386a7037d8a7a3a062ba268bd63 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 16:50:44 +0000
-Subject: [PATCH 17/26] arch(telegram): shared bot core in tgmain.core;
+Subject: [PATCH 17/27] arch(telegram): shared bot core in tgmain.core;
  reseller bot imports it instead of loading main runner.py by path; reseller
  image copies tgmain only
 
@@ -4242,7 +4242,7 @@ index cb2b24a..5e7709b 100644
 From bed9db5b27ebee848c22126ec449af3077f48c34 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 16:50:44 +0000
-Subject: [PATCH 18/26] chore(domain): drop 5-line leftovers (vpn/bundles,
+Subject: [PATCH 18/27] chore(domain): drop 5-line leftovers (vpn/bundles,
  vpn/service, domain/referral); commission_amount lives with commission,
  clean_custom_name in domain/account_name
 
@@ -4343,7 +4343,7 @@ index 0f1ad9b..9216cdf 100644
 From 81b5dd64815592a79fd09d829427b9ea83acbd83 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 16:59:01 +0000
-Subject: [PATCH 19/26] feat(admin): Operations Center roll-up on
+Subject: [PATCH 19/27] feat(admin): Operations Center roll-up on
  /admin/dashboard + dashboard card; restore vpn/service.py; guard provisioning
  status write; drop dead DataTable branches; contract test follows
  tgmain.core; decisions
@@ -4773,7 +4773,7 @@ index 7218ea0..45e9108 100644
 From a42c4b5125ec4735d242e8c52db443ceec7eebcd Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 17:03:53 +0000
-Subject: [PATCH 20/26] test: source-contract tests read tgmain/core.py
+Subject: [PATCH 20/27] test: source-contract tests read tgmain/core.py
 
 ---
  apps/api/tests/service/test_account_return.py              | 2 +-
@@ -4813,7 +4813,7 @@ index 9b5bf8b..65018af 100644
 From f820a98089d4df8cb591ebcb8809ed36844af73f Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 17:26:04 +0000
-Subject: [PATCH 21/26] feat(admin-ui): panel detail drawer: nodes, console,
+Subject: [PATCH 21/27] feat(admin-ui): panel detail drawer: nodes, console,
  events, capacity, templates and indicators are tabs of the panel; panel-ops
  keeps discrepancies, orphans and notices
 
@@ -5275,7 +5275,7 @@ index 45e9108..dd84015 100644
 From 802aa443b74f0e51fac783fb0265773f7b1734f8 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 20:40:47 +0000
-Subject: [PATCH 22/26] arch(integrations): provider adapters, sessions,
+Subject: [PATCH 22/27] arch(integrations): provider adapters, sessions,
  readers, capabilities and target config move from vpn to
  modules/panel_integrations (lowest feature layer); shared Event Center logic
  and text helpers move to web-kit
@@ -8112,7 +8112,7 @@ index 1423897..7dc57d3 100644
 From 4396daa9c77daadf056227597cd4f0618718a1d2 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 20:40:56 +0000
-Subject: [PATCH 23/26] docs: record integration boundary and shared web-kit
+Subject: [PATCH 23/27] docs: record integration boundary and shared web-kit
  decisions
 
 ---
@@ -8137,7 +8137,7 @@ index 82095f7..392f75c 100644
 From e20603006d61038349bba97489e394bb7429f8e2 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 21:21:54 +0000
-Subject: [PATCH 24/26] arch: PanelSnapshot read model, messaging policy,
+Subject: [PATCH 24/27] arch: PanelSnapshot read model, messaging policy,
  status-write contract test, shared Bank SMS rules in web-kit
 
 ---
@@ -8726,7 +8726,7 @@ index 0000000..d97d251
 From 4cbea13a57d038502850d3cd383be13431f9cb98 Mon Sep 17 00:00:00 2001
 From: Pori Toooni <poritoooni@gmail.com>
 Date: Fri, 13 Nov 2026 22:08:29 +0000
-Subject: [PATCH 25/26] arch(messaging): DM delivery honours
+Subject: [PATCH 25/27] arch(messaging): DM delivery honours
  messaging_policy.dm_allowed; decisions updated
 
 ---
@@ -8802,7 +8802,7 @@ index 54fd61b..e6a938e 100644
 From cbdfc1fb50f2474e3b531263ee626df651967279 Mon Sep 17 00:00:00 2001
 From: Pori Toooni <poritoooni@gmail.com>
 Date: Sat, 14 Nov 2026 06:03:59 +0000
-Subject: [PATCH 26/26] feat(web-kit): shared broadcast composer hook used by
+Subject: [PATCH 26/27] feat(web-kit): shared broadcast composer hook used by
  admin-web and store-web; decisions updated
 
 ---
@@ -9122,6 +9122,271 @@ index 0000000..454f752
 +    }
 +  }, [title, body, post, confirm, onSent]);
 +  return { title, setTitle, body, setBody, busy, error, filled, send };
++}
+-- 
+2.43.0
+
+
+From 9168a7d321bfb75a24bcce2a9ff218ae98dd40a2 Mon Sep 17 00:00:00 2001
+From: Pori Toooni <poritoooni@gmail.com>
+Date: Sat, 14 Nov 2026 06:09:48 +0000
+Subject: [PATCH 27/27] feat(web-kit): shared referral plan form used by
+ admin-web and store-web; decisions updated
+
+---
+ apps/admin-web/src/ReferralProgramsView.tsx | 31 ++++-----------
+ apps/store-web/src/ResellerReferral.tsx     | 23 ++++-------
+ apps/store-web/src/storeProgram.ts          | 22 +----------
+ docs/DECISIONS.md                           |  3 +-
+ packages/web-kit/package.json               |  3 +-
+ packages/web-kit/src/referralPlan.d.ts      | 17 +++++++++
+ packages/web-kit/src/referralPlan.js        | 42 +++++++++++++++++++++
+ 7 files changed, 81 insertions(+), 60 deletions(-)
+ create mode 100644 packages/web-kit/src/referralPlan.d.ts
+ create mode 100644 packages/web-kit/src/referralPlan.js
+
+diff --git a/apps/admin-web/src/ReferralProgramsView.tsx b/apps/admin-web/src/ReferralProgramsView.tsx
+index a456287..2ba42e8 100644
+--- a/apps/admin-web/src/ReferralProgramsView.tsx
++++ b/apps/admin-web/src/ReferralProgramsView.tsx
+@@ -2,22 +2,15 @@
+ // saved rules all belong to that store (Core never mixes stores). A reseller may also edit his own store's plans from his panel.
+ import { useCallback, useEffect, useMemo, useState } from 'react';
+ import { Gift, Save } from 'lucide-react';
++import { unitOf, usePlanForm } from '@melorin/web-kit/referralPlan.js';
+ import { authFetch } from './api.ts';
+-import { Empty, Field, Section, errText, num, toEn, useRows } from './kit.tsx';
++import { Empty, Field, Section, errText, num, useRows } from './kit.tsx';
+ import type { Json, Rec, Toast } from './types.ts';
+ 
+ const KINDS = [
+   ['signup_reward', 'پاداش اولین خرید معرفی‌شده', 'یک‌بار، در اولین خرید مشتریِ دعوت‌شده در همین فروشگاه.'],
+   ['commission', 'کمیسیون خریدهای بعدی', 'هر خرید بعدیِ همان مشتری در همین فروشگاه.'],
+ ];
+-const unitOf = (c: Json) => (({ IRT: 'تومان', IRR: 'ریال' }) as Rec)[c] || c || '';
+-const intOf = (v: Json) =>
+-  /^\d+$/.test(toEn(v).replace(/[,٬\s]/g, '')) ? Number(toEn(v).replace(/[,٬\s]/g, '')) : null;
+-const bpOf = (v: Json) => {
+-  const s = toEn(v).replace('٫', '.').trim();
+-  return /^\d+(\.\d{1,2})?$/.test(s) ? Math.round(Number(s) * 100) : null;
+-};
+-
+ function Plan({
+   kind,
+   title,
+@@ -33,19 +26,11 @@ function Plan({
+   currency?: Json;
+   onSave?: Json;
+ }) {
+-  const [model, setModel] = useState(rule?.model || 'percent');
+-  const [value, setValue] = useState(rule ? String(rule.model === 'percent' ? rule.value / 100 : rule.value) : '');
+-  const [cap, setCap] = useState(rule?.max_amount ? String(rule.max_amount) : '');
+-  const [active, setActive] = useState(rule ? rule.is_active : true);
+-  const [busy, setBusy] = useState(false);
+-  const v = model === 'percent' ? bpOf(value) : intOf(value);
+-  const bad = value !== '' && (v == null || (cap !== '' && intOf(cap) == null));
+-  async function save() {
+-    if (v == null || bad) return;
+-    setBusy(true);
+-    await onSave({ kind, model, value: v, max_amount: cap ? intOf(cap) : null, is_active: active });
+-    setBusy(false);
+-  }
++  const { model, setModel, value, setValue, cap, setCap, active, setActive, bad, canSave, save } = usePlanForm({
++    kind,
++    rule,
++    onSave,
++  });
+   return (
+     <Section title={title} hint={hint}>
+       <div className="grid gap-3 sm:grid-cols-3" data-testid={`plan-${kind}`}>
+@@ -75,7 +60,7 @@ function Plan({
+         <label className="flex items-center gap-2 text-xs font-bold">
+           <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} /> فعال
+         </label>
+-        <button className="btn" disabled={busy || bad || value === ''} onClick={save}>
++        <button className="btn" disabled={!canSave} onClick={save}>
+           <Save size={14} /> ذخیره
+         </button>
+       </div>
+diff --git a/apps/store-web/src/ResellerReferral.tsx b/apps/store-web/src/ResellerReferral.tsx
+index 62ab383..861a192 100644
+--- a/apps/store-web/src/ResellerReferral.tsx
++++ b/apps/store-web/src/ResellerReferral.tsx
+@@ -4,7 +4,8 @@
+ import { useCallback, useEffect, useState } from 'react';
+ import { Gift, Save } from 'lucide-react';
+ import { Empty, Loading, fa } from './ui.tsx';
+-import { percentToBp, toInt, unitOf } from './storeProgram.ts';
++import { usePlanForm } from '@melorin/web-kit/referralPlan.js';
++import { unitOf } from './storeProgram.ts';
+ import type { Json } from './types';
+ 
+ const J = { 'Content-Type': 'application/json' };
+@@ -28,19 +29,11 @@ function PlanCard({
+   currency?: Json;
+   onSave?: Json;
+ }) {
+-  const [model, setModel] = useState(rule?.model || 'percent');
+-  const [value, setValue] = useState(rule ? String(rule.model === 'percent' ? rule.value / 100 : rule.value) : '');
+-  const [cap, setCap] = useState(rule?.max_amount ? String(rule.max_amount) : '');
+-  const [active, setActive] = useState(rule ? rule.is_active : true);
+-  const [busy, setBusy] = useState(false);
+-  const bad = value !== '' && (model === 'percent' ? percentToBp(value) : toInt(value)) == null;
+-  async function save() {
+-    const v = model === 'percent' ? percentToBp(value) : toInt(value);
+-    if (v == null || (cap && toInt(cap) == null)) return;
+-    setBusy(true);
+-    await onSave({ kind, model, value: v, max_amount: cap ? toInt(cap) : null, is_active: active });
+-    setBusy(false);
+-  }
++  const { model, setModel, value, setValue, cap, setCap, active, setActive, bad, canSave, save } = usePlanForm({
++    kind,
++    rule,
++    onSave,
++  });
+   return (
+     <div className="card space-y-3" data-testid={`plan-${kind}`}>
+       <div>
+@@ -82,7 +75,7 @@ function PlanCard({
+           <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
+           فعال
+         </label>
+-        <button className="btn-primary" disabled={busy || bad || value === ''} onClick={save}>
++        <button className="btn-primary" disabled={!canSave} onClick={save}>
+           <Save size={15} aria-hidden="true" /> ذخیره
+         </button>
+       </div>
+diff --git a/apps/store-web/src/storeProgram.ts b/apps/store-web/src/storeProgram.ts
+index ba934dd..2fddc57 100644
+--- a/apps/store-web/src/storeProgram.ts
++++ b/apps/store-web/src/storeProgram.ts
+@@ -1,8 +1,8 @@
+ // Shared wording for the referral programme and discount codes of ONE store (Core decides every number; this only formats it).
+ import { fa } from './ui.tsx';
+ 
+-const UNITS: Record<string, string> = { IRT: 'تومان', IRR: 'ریال' };
+-export const unitOf = (currency?: string | null): string => (currency ? UNITS[currency] || currency : '');
++export { percentToBp, toInt, unitOf } from '@melorin/web-kit/referralPlan.js';
++import { unitOf } from '@melorin/web-kit/referralPlan.js';
+ 
+ // A plan is { model: 'fixed' | 'percent', value, max_amount }. Percent values are basis points (۱۰۰۰ = ۱۰٪).
+ export interface Plan {
+@@ -17,21 +17,3 @@ export function describePlan(plan: Plan | null | undefined, currency?: string |
+   const main = plan.model === 'percent' ? `${fa(plan.value / 100)}٪` : `${fa(plan.value)} ${unit}`;
+   return plan.max_amount ? `${main} (حداکثر ${fa(plan.max_amount)} ${unit})` : main;
+ }
+-
+-const digits = (v: unknown): string =>
+-  String(v ?? '')
+-    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+-    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+-
+-// Typed amounts may use Persian digits; returns a non-negative integer, or null when empty/invalid.
+-export function toInt(v: unknown): number | null {
+-  const s = digits(v).replace(/[,٬\s]/g, '');
+-  return /^\d+$/.test(s) ? Number(s) : null;
+-}
+-
+-// "۱۲٫۵" (percent) -> basis points 1250; null when empty/invalid.
+-export function percentToBp(v: unknown): number | null {
+-  const s = digits(v).replace('٫', '.').replace(/\s/g, '');
+-  if (!/^\d+(\.\d{1,2})?$/.test(s)) return null;
+-  return Math.round(Number(s) * 100);
+-}
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index eb74fc0..e6276e6 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -125,4 +125,5 @@ _Merged from the former 12-Change-Log-v1.1.md._
+ - Telegram DM delivery (`worker/runner._notify`) now asks `messaging_policy.dm_allowed(kind)`: kinds routed only to the Event Center (panel, backup, infra, outbox alerts) are never sent as a DM.
+ - VPN notices already reach customers only through `_notify` (policy-gated). Event Center keeps its own topic routing (`ADMIN_ONLY_TOPICS`, `ADMIN_COPY_TOPICS`): it never talks to customers, so `messaging_policy.allowed` adds nothing there.
+ - Broadcast composer logic (draft, confirm, POST, error text, delivery polling) lives in `@melorin/web-kit/broadcast.js`; both apps keep their own markup.
+-- Still open: move Loyalty / Referral logic onto web-kit hooks, and a shared design-token CSS package (admin and store skins still differ).
++- Referral plan form (parsing, validation, save flow, `unitOf/toInt/percentToBp`) lives in `@melorin/web-kit/referralPlan.js`; `store-web/storeProgram.ts` re-exports the parsers.
++- Still open: move Loyalty logic onto web-kit hooks, and a shared design-token CSS package (admin and store skins still differ).
+diff --git a/packages/web-kit/package.json b/packages/web-kit/package.json
+index d8cacb7..3f05e9e 100644
+--- a/packages/web-kit/package.json
++++ b/packages/web-kit/package.json
+@@ -14,6 +14,7 @@
+     "./format.js": "./src/format.js",
+     "./eventCenter.js": "./src/eventCenter.js",
+     "./bankSms.js": "./src/bankSms.js",
+-    "./broadcast.js": "./src/broadcast.js"
++    "./broadcast.js": "./src/broadcast.js",
++    "./referralPlan.js": "./src/referralPlan.js"
+   }
+ }
+diff --git a/packages/web-kit/src/referralPlan.d.ts b/packages/web-kit/src/referralPlan.d.ts
+new file mode 100644
+index 0000000..ce6d531
+--- /dev/null
++++ b/packages/web-kit/src/referralPlan.d.ts
+@@ -0,0 +1,17 @@
++export const unitOf: (currency?: string | null) => string;
++export function toInt(v: unknown): number | null;
++export function percentToBp(v: unknown): number | null;
++export function usePlanForm(cfg: { kind: string; rule?: any; onSave: (plan: any) => Promise<void> | void }): {
++  model: string;
++  setModel: (v: string) => void;
++  value: string;
++  setValue: (v: string) => void;
++  cap: string;
++  setCap: (v: string) => void;
++  active: boolean;
++  setActive: (v: boolean) => void;
++  busy: boolean;
++  bad: boolean;
++  canSave: boolean;
++  save: () => Promise<void>;
++};
+diff --git a/packages/web-kit/src/referralPlan.js b/packages/web-kit/src/referralPlan.js
+new file mode 100644
+index 0000000..be1623c
+--- /dev/null
++++ b/packages/web-kit/src/referralPlan.js
+@@ -0,0 +1,42 @@
++// Headless logic of one referral plan card (first-purchase reward / later-purchase commission). Admin-web (one store at a time) and
++// store-web (the reseller's own store) render their own markup; parsing, validation and the save flow are written once.
++// Core validates and stores the plan; percent values are basis points (1000 = 10%).
++import { useState } from 'react';
++import { toEn } from './format.js';
++
++const UNITS = { IRT: 'تومان', IRR: 'ریال' };
++export const unitOf = (currency) => (currency ? UNITS[currency] || currency : '');
++
++/** Typed amounts may use Persian digits; a non-negative integer, or null when empty/invalid. */
++export function toInt(v) {
++  const s = toEn(v).replace(/[,٬\s]/g, '');
++  return /^\d+$/.test(s) ? Number(s) : null;
++}
++
++/** "۱۲٫۵" (percent) -> basis points 1250; null when empty/invalid. */
++export function percentToBp(v) {
++  const s = toEn(v).replace('٫', '.').replace(/\s/g, '');
++  return /^\d+(\.\d{1,2})?$/.test(s) ? Math.round(Number(s) * 100) : null;
++}
++
++/** @param {{ kind: string, rule?: any, onSave: (plan: any) => Promise<void> | void }} cfg */
++export function usePlanForm({ kind, rule, onSave }) {
++  const [model, setModel] = useState(rule?.model || 'percent');
++  const [value, setValue] = useState(rule ? String(rule.model === 'percent' ? rule.value / 100 : rule.value) : '');
++  const [cap, setCap] = useState(rule?.max_amount ? String(rule.max_amount) : '');
++  const [active, setActive] = useState(rule ? rule.is_active : true);
++  const [busy, setBusy] = useState(false);
++  const v = model === 'percent' ? percentToBp(value) : toInt(value);
++  const bad = value !== '' && (v == null || (cap !== '' && toInt(cap) == null));
++  const canSave = !busy && !bad && value !== '';
++  async function save() {
++    if (v == null || bad) return;
++    setBusy(true);
++    try {
++      await onSave({ kind, model, value: v, max_amount: cap ? toInt(cap) : null, is_active: active });
++    } finally {
++      setBusy(false);
++    }
++  }
++  return { model, setModel, value, setValue, cap, setCap, active, setActive, busy, bad, canSave, save };
 +}
 -- 
 2.43.0
