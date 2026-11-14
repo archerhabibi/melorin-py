@@ -46,12 +46,12 @@ async function openHub(page, tab) {
   return seen;
 }
 
-test('store hub shows all seven tabs and deep links to a tab', async ({ page }) => {
+test('store hub shows all eight tabs and deep links to a tab', async ({ page }) => {
   const assertNoErrors = failOnPageErrors(page);
   await openHub(page, 'prices');
   const group = page.getByRole('radiogroup', { name: 'بخش فروشگاه' });
   await expect(group).toBeVisible();
-  await expect(group.getByRole('radio')).toHaveCount(7);
+  await expect(group.getByRole('radio')).toHaveCount(8);
   await expect(group.getByRole('radio', { name: 'قیمت‌ها' })).toHaveAttribute('aria-checked', 'true');
   assertNoErrors();
 });
