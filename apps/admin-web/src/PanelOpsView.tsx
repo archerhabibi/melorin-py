@@ -2,7 +2,7 @@
 // and the connection's access review (PG-05). Everything comes from the Core API; every write is an explicit, audited admin action.
 import { useCallback, useEffect, useState } from 'react';
 import { Activity, AlertTriangle, CheckCircle, Loader, RefreshCw, ShieldAlert } from 'lucide-react';
-import { authFetch, typedClient } from './api.ts';
+import { getJson, typedClient } from './api.ts';
 import { confirmDialog, promptDialog } from './ui.tsx';
 import type { CallFn, Json, Rec, Toast } from './types.ts';
 
@@ -62,7 +62,6 @@ function Details({ d }: { d?: Json }) {
 }
 
 export default function PanelOpsView({ api, toast }: { api?: Json; toast: Toast }) {
-  const call = useCallback((p: string, o?: RequestInit) => authFetch(api.base, p, o), [api.base]);
   const [tab, setTab] = useState(() => {
     const t = new URLSearchParams(window.location.hash.split('?')[1] || '').get('tab') || 'issues';
     return ['issues', 'orphans'].includes(t) ? t : 'issues';
@@ -78,12 +77,9 @@ export default function PanelOpsView({ api, toast }: { api?: Json; toast: Toast 
   const [loading, setLoading] = useState(true);
 
   const getJ = useCallback(
-    async (path: string) => {
-      const r = await call(path);
-      if (!r.ok) throw new Error(String(r.status));
-      return r.json();
-    },
-    [call],
+    // reads go through @melorin/api-client (bearer + one refresh); throws on a non-2xx
+    (path: string) => getJson(api.base, path),
+    [api.base],
   );
 
   const load = useCallback(async () => {
