@@ -1,7 +1,7 @@
 From 1c4e61b9bf6333e47e97bbf838aaec969ab6cc95 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <noreply@melorin.local>
 Date: Sat, 14 Nov 2026 22:52:32 +0000
-Subject: [PATCH 1/2] refactor(audit): regroup admin menu, manual tasks become
+Subject: [PATCH 1/3] refactor(audit): regroup admin menu, manual tasks become
  a reseller-onboarding tab, one-shot migrate service, web-kit lockfile
 
 ---
@@ -488,7 +488,7 @@ index a44c7ca..fc831b4 100644
 From 145692ba71022818c6a426812fd3c0c3a1db8dba Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <noreply@melorin.local>
 Date: Sat, 14 Nov 2026 22:53:53 +0000
-Subject: [PATCH 2/2] refactor(audit): typed-client ratchet, explicit dead-code
+Subject: [PATCH 2/3] refactor(audit): typed-client ratchet, explicit dead-code
  fixes, decisions + changelog
 
 ---
@@ -609,6 +609,303 @@ index 39d2ee1..945072b 100644
 +- **Vulture findings were false positives, now explicit**: `initiator` is the mandatory SQLAlchemy listener argument (renamed `_initiator`); `CursorResult` is named only inside a string `cast`, so it moved under `TYPE_CHECKING`.
 +- Kept on purpose (audit §4, §7.6): Payments / Wallet, Orders / Provisioning, Identity / Authentication, PanelOps / Panel Integrations, Event Center / Notifications stay separate.
 +- Still open (own PRs, not done here): move `/admin/reports/summary` and `/timeseries` into the analytics contract and switch `AdminSession.tsx` / `Trend.tsx` first; split `PanelAdminsView`, `kit.tsx`, `UpstreamBotFields`, `TicketConversation`, `ReportsView` as pure moves; widen mypy module by module (orders, identity, reseller, payments); drop `modules/admin/router.py` re-exports once no import uses them; split `panelops` files by capability.
+-- 
+2.43.0
+
+
+From 289affc7d9221a8405d06805816b0db4f797847a Mon Sep 17 00:00:00 2001
+From: Melorin Refactor <noreply@melorin.local>
+Date: Sat, 14 Nov 2026 23:05:22 +0000
+Subject: [PATCH 3/3] refactor(admin-ui): migrate panels, servers, targets,
+ password and logout to typedClient (authFetch 40 -> 30)
+
+---
+ apps/admin-web/src/AdminShell.tsx             |  4 +-
+ apps/admin-web/src/ChangeAdminPassword.tsx    |  9 ++--
+ apps/admin-web/src/PanelsView.tsx             | 53 +++++++++++--------
+ apps/admin-web/src/ServerForm.tsx             | 12 ++---
+ apps/admin-web/src/TargetPicker.tsx           | 34 +++++++-----
+ .../admin-web/tests/authfetch-ratchet.test.js |  2 +-
+ docs/DECISIONS.md                             |  2 +-
+ 7 files changed, 67 insertions(+), 49 deletions(-)
+
+diff --git a/apps/admin-web/src/AdminShell.tsx b/apps/admin-web/src/AdminShell.tsx
+index 35f2f18..148229c 100644
+--- a/apps/admin-web/src/AdminShell.tsx
++++ b/apps/admin-web/src/AdminShell.tsx
+@@ -2,7 +2,7 @@ import { backdropProps } from './useDialog.ts';
+ import type { ReactNode } from 'react';
+ import { useEffect, useState } from 'react';
+ import { LogOut, KeyRound, ChevronDown, UserRound } from 'lucide-react';
+-import { authFetch, getJson } from './api.ts';
++import { getJson, typedClient } from './api.ts';
+ import { clearTokens } from './auth.ts';
+ import { googleSignOut } from './GoogleSignIn.tsx';
+ import { label } from './ui.tsx';
+@@ -87,7 +87,7 @@ export function UserMenu({
+     setBusy(true);
+     let ok = false;
+     try {
+-      ok = (await authFetch(base, '/api/v1/auth/logout', { method: 'POST', body: '{}' })).ok;
++      ok = (await typedClient(base).post('/api/v1/auth/logout', { body: {} })).response.ok;
+     } catch {
+       ok = false;
+     }
+diff --git a/apps/admin-web/src/ChangeAdminPassword.tsx b/apps/admin-web/src/ChangeAdminPassword.tsx
+index be2dcbe..fb098b2 100644
+--- a/apps/admin-web/src/ChangeAdminPassword.tsx
++++ b/apps/admin-web/src/ChangeAdminPassword.tsx
+@@ -1,6 +1,6 @@
+ import type { ReactNode } from 'react';
+ import { useState } from 'react';
+-import { authFetch } from './api.ts';
++import { typedClient } from './api.ts';
+ import { PasswordInput } from './ui.tsx';
+ import type { Json, Toast } from './types.ts';
+ import { box, inp, btn } from './adminExtraKit.tsx';
+@@ -19,11 +19,10 @@ export function ChangeAdminPassword({ api, toast }: { api?: Json; toast: Toast }
+     if (v.next.length < 12) return toast('رمز جدید باید حداقل ۱۲ کاراکتر باشد');
+     if (v.next !== v.confirm) return toast('تکرار رمز جدید یکسان نیست');
+     setBusy(true);
+-    const r = await authFetch(api.base, '/api/v1/auth/admin/password', {
+-      method: 'POST',
+-      body: JSON.stringify({ current_password: v.current, new_password: v.next }),
++    const { response: r, error } = await typedClient(api.base).post('/api/v1/auth/admin/password', {
++      body: { current_password: v.current, new_password: v.next },
+     });
+-    const d = await r.json().catch(() => ({}));
++    const d = (error ?? {}) as { error?: { message?: string }; detail?: { message?: string } }; // the typed client already consumed the body
+     setBusy(false);
+     if (!r.ok) return toast(d?.error?.message || d?.detail?.message || 'تغییر رمز ناموفق بود');
+     setV({ current: '', next: '', confirm: '' });
+diff --git a/apps/admin-web/src/PanelsView.tsx b/apps/admin-web/src/PanelsView.tsx
+index 988d515..1f95c36 100644
+--- a/apps/admin-web/src/PanelsView.tsx
++++ b/apps/admin-web/src/PanelsView.tsx
+@@ -1,5 +1,5 @@
+ import { useCallback, useEffect, useMemo, useState } from 'react';
+-import { authFetch } from './api.ts';
++import { typedClient } from './api.ts';
+ import { ServerForm, ServerImport } from './ServerForm.tsx';
+ import { TargetWizard } from './TargetPicker.tsx';
+ import { confirmDialog } from './ui.tsx';
+@@ -101,9 +101,11 @@ export default function PanelsView({ api, toast }: { api?: Json; toast: Toast })
+       let ok = false,
+         healthy = false;
+       try {
+-        const r = await authFetch(api.base, `/api/v1/admin/panels/${p.id}/health`, { method: 'POST' });
++        const { response: r, data } = await typedClient(api.base).post('/api/v1/admin/panels/{panel_id}/health', {
++          params: { path: { panel_id: p.id } },
++        });
+         ok = r.ok;
+-        healthy = ok && (await r.json()).healthy;
++        healthy = ok && !!(data as { healthy?: boolean } | undefined)?.healthy;
+       } catch {
+         /* network */
+       }
+@@ -163,26 +165,33 @@ export default function PanelsView({ api, toast }: { api?: Json; toast: Toast })
+   // One save = panel (+ first server on create) (+ group membership). Every step reports its own failure.
+   const save = async (payload: Json, withCheck: Json, { server, gids, was }: Json) => {
+     const editing = drawer !== 'add';
+-    const r = await authFetch(api.base, editing ? `/api/v1/admin/panels/${drawer}` : '/api/v1/admin/panels', {
+-      method: editing ? 'PATCH' : 'POST',
+-      body: JSON.stringify(payload),
+-    });
+-    if (!r.ok) return errText(r, editing ? 'ذخیره تغییرات ناموفق بود' : 'ثبت پنل ناموفق بود');
+-    const id = editing ? drawer : (await r.json())?.id;
++    const client = typedClient(api.base);
++    const {
++      response: r,
++      data,
++      error,
++    } = editing
++      ? await client.patch('/api/v1/admin/panels/{panel_id}', { params: { path: { panel_id: drawer } }, body: payload })
++      : await client.post('/api/v1/admin/panels', { body: payload });
++    // the typed client already consumed the body, so errText reads the parsed error
++    if (!r.ok) return errText({ json: async () => error }, editing ? 'ذخیره تغییرات ناموفق بود' : 'ثبت پنل ناموفق بود');
++    const id = editing ? drawer : (data as { id?: string } | undefined)?.id;
+     const notes: Json[] = [];
+     if (!editing && server && id) {
+-      const sr = await authFetch(api.base, '/api/v1/admin/servers', {
+-        method: 'POST',
+-        body: JSON.stringify({
++      const { response: sr, error: serr } = await client.post('/api/v1/admin/servers', {
++        body: {
+           name: server.name,
+           panel_id: id,
+           location: server.location || null,
+           capacity: server.capacity,
+           product_codes: null,
+           allow_test: true,
+-        }),
++        },
+       });
+-      if (!sr.ok) notes.push(`ساخت سرور ناموفق بود (${await errText(sr, 'خطا')}) — از «سرور جدید» اضافه کنید`);
++      if (!sr.ok)
++        notes.push(
++          `ساخت سرور ناموفق بود (${await errText({ json: async () => serr }, 'خطا')}) — از «سرور جدید» اضافه کنید`,
++        );
+     }
+     const toAdd = gids.filter((g: Json) => !was.includes(g)),
+       toDel = was.filter((g: Json) => !gids.includes(g));
+@@ -223,11 +232,11 @@ export default function PanelsView({ api, toast }: { api?: Json; toast: Toast })
+     let ok = false;
+     try {
+       ok = (
+-        await authFetch(api.base, `/api/v1/admin/panels/${p.id}/state`, {
+-          method: 'POST',
+-          body: JSON.stringify({ is_enabled: next }),
++        await typedClient(api.base).post('/api/v1/admin/panels/{panel_id}/state', {
++          params: { path: { panel_id: p.id } },
++          body: { is_enabled: next },
+         })
+-      ).ok;
++      ).response.ok;
+     } catch {
+       /* network */
+     }
+@@ -253,11 +262,11 @@ export default function PanelsView({ api, toast }: { api?: Json; toast: Toast })
+     let ok = false;
+     try {
+       ok = (
+-        await authFetch(api.base, `/api/v1/admin/servers/${s.id}/state`, {
+-          method: 'POST',
+-          body: JSON.stringify({ is_enabled: next }),
++        await typedClient(api.base).post('/api/v1/admin/servers/{server_id}/state', {
++          params: { path: { server_id: s.id } },
++          body: { is_enabled: next },
+         })
+-      ).ok;
++      ).response.ok;
+     } catch {
+       /* network */
+     }
+diff --git a/apps/admin-web/src/ServerForm.tsx b/apps/admin-web/src/ServerForm.tsx
+index a35c942..7f7ac54 100644
+--- a/apps/admin-web/src/ServerForm.tsx
++++ b/apps/admin-web/src/ServerForm.tsx
+@@ -1,6 +1,6 @@
+ import { useMemo, useRef, useState } from 'react';
+ import { AlertTriangle, ChevronDown, Layers, MapPin, Plus, RefreshCw, Save, Server, Upload } from 'lucide-react';
+-import { authFetch } from './api.ts';
++import { authFetch, typedClient } from './api.ts';
+ import { Badge, dt, sid } from './ui.tsx';
+ import {
+   Drawer,
+@@ -496,18 +496,18 @@ export function ServerImport({
+       fail: string[] = [];
+     for (const r of good) {
+       try {
+-        const res = await authFetch(api.base, '/api/v1/admin/servers', {
+-          method: 'POST',
+-          body: JSON.stringify({
++        const { response: res, error } = await typedClient(api.base).post('/api/v1/admin/servers', {
++          body: {
+             name: r.name,
+             location: r.location || null,
+             capacity: r.capacity,
+             product_codes: r.product_codes.length ? r.product_codes : null,
+             panel_id: panel.id,
+-          }),
++            allow_test: true, // the server default; the generated type marks it required
++          },
+         });
+         if (res.ok) ok++;
+-        else fail.push(`${r.name}: ${await errText(res, 'ناموفق')}`);
++        else fail.push(`${r.name}: ${await errText({ json: async () => error }, 'ناموفق')}`);
+       } catch {
+         fail.push(`${r.name}: ارتباط برقرار نشد`);
+       }
+diff --git a/apps/admin-web/src/TargetPicker.tsx b/apps/admin-web/src/TargetPicker.tsx
+index dffa777..e682a78 100644
+--- a/apps/admin-web/src/TargetPicker.tsx
++++ b/apps/admin-web/src/TargetPicker.tsx
+@@ -1,6 +1,6 @@
+ import { useEffect, useMemo, useState } from 'react';
+ import { AlertTriangle, Layers, RefreshCw, Wand2 } from 'lucide-react';
+-import { authFetch } from './api.ts';
++import { typedClient } from './api.ts';
+ import { Drawer, Field, NumInput, Section, Segmented, Toggle, errText, num, tint } from './kit.tsx';
+ import { capacityLabel, targetKind } from './targets.ts';
+ import type { Json, Rec, Toast } from './types.ts';
+@@ -17,11 +17,17 @@ export function usePanelTargets(api: Json, panelId: Json) {
+     if (!panelId) return undefined;
+     let live = true;
+     setSt((x) => ({ ...x, loading: true, error: '' }));
+-    authFetch(api.base, `/api/v1/admin/panels/${panelId}/targets`)
+-      .then(async (r) => {
++    typedClient(api.base)
++      .get('/api/v1/admin/panels/{panel_id}/targets', { params: { path: { panel_id: panelId } } })
++      .then(async ({ response: r, data, error }) => {
+         if (!live) return;
+-        if (r.ok) setSt({ loading: false, data: await r.json(), error: '' });
+-        else setSt({ loading: false, data: null, error: await errText(r, 'فهرست مقصدها از پنل خوانده نشد') });
++        if (r.ok) setSt({ loading: false, data: data as never, error: '' });
++        else
++          setSt({
++            loading: false,
++            data: null,
++            error: await errText({ json: async () => error }, 'فهرست مقصدها از پنل خوانده نشد'),
++          });
+       })
+       .catch(() => live && setSt({ loading: false, data: null, error: 'ارتباط با سرور برقرار نشد' }));
+     return () => {
+@@ -218,18 +224,22 @@ export function TargetWizard({
+     try {
+       const body = {
+         kind,
+-        ids: picked,
++        ids: picked.map(Number),
+         capacity,
+         allow_test: allowTest,
+-        ...(kind === 'inbound' ? { group_as_one: asOne } : {}),
++        group_as_one: kind === 'inbound' ? asOne : false, // false is the server default; the generated type marks it required
+         ...(kind === 'template' ? { limits_from: limitsFrom } : {}),
+       };
+-      const r = await authFetch(api.base, `/api/v1/admin/panels/${panel.id}/servers/from-targets`, {
+-        method: 'POST',
+-        body: JSON.stringify(body),
++      const {
++        response: r,
++        data,
++        error,
++      } = await typedClient(api.base).post('/api/v1/admin/panels/{panel_id}/servers/from-targets', {
++        params: { path: { panel_id: panel.id } },
++        body,
+       });
+-      if (!r.ok) return setMsg(await errText(r, 'ساخت مقصدها ناموفق بود'));
+-      const out = await r.json();
++      if (!r.ok) return setMsg(await errText({ json: async () => error }, 'ساخت مقصدها ناموفق بود'));
++      const out = data as { created: unknown[]; skipped: unknown[] };
+       toast(
+         `${num(out.created.length)} مقصد ساخته شد${out.skipped.length ? ` · ${num(out.skipped.length)} مورد قبلاً وجود داشت` : ''}`,
+       );
+diff --git a/apps/admin-web/tests/authfetch-ratchet.test.js b/apps/admin-web/tests/authfetch-ratchet.test.js
+index 4489a2c..2c163c9 100644
+--- a/apps/admin-web/tests/authfetch-ratchet.test.js
++++ b/apps/admin-web/tests/authfetch-ratchet.test.js
+@@ -5,7 +5,7 @@ import { join } from 'node:path';
+ // Typed-client migration ratchet (architecture audit 8.1): new admin code talks to the API through `typedClient`
+ // (paths and bodies checked against the generated OpenAPI types). `authFetch` call sites may only shrink.
+ // Lower BUDGET whenever a view is migrated; never raise it.
+-const BUDGET = 40;
++const BUDGET = 30;
+ 
+ function walk(dir) {
+   return readdirSync(dir).flatMap((n) => {
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index 945072b..ab87a6c 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -194,7 +194,7 @@ Source: `Melorin_Architecture_Admin_Audit.md` (the project has never been releas
+ - **«دکمه‌های تلگرام» moved to «سیستم و امنیت»**: its permission is `system` (owner only), so it now sits with the owner-only settings instead of the communications group where a manager would see a wall of 403s.
+ - **Compose: one-shot `migrate` service** (`alembic upgrade head`). `api`, `worker` and `backup` wait for `service_completed_successfully`, so a bare `docker compose up -d` on a fresh host cannot start against an empty schema. `check_ops_p0.py` skips `restart: "no"` one-shot jobs in the memory sum (it has exited before the others start) and allows that policy for `migrate` only. `melorin.sh` / `deploy.sh` keep their explicit migration step (idempotent, and deploy needs it for rollback).
+ - **web-kit has a lockfile**; `check_web_lockfiles.py` covers it and CI runs `npm ci` + `npm audit --omit=dev` there.
+-- **Typed-client ratchet** (`tests/authfetch-ratchet.test.js`): `authFetch(` call sites may only shrink (budget 40 at this commit). Migration order from the audit: Settings, Products, Bundles, Tickets, Reports, Store tabs, Resellers.
++- **Typed-client ratchet** (`tests/authfetch-ratchet.test.js`): `authFetch(` call sites may only shrink (budget 30 after the first migration batch: panels, servers, targets, password, logout). Migration order from the audit: Settings, Products, Bundles, Tickets, Reports, Store tabs, Resellers.
+ - **Vulture findings were false positives, now explicit**: `initiator` is the mandatory SQLAlchemy listener argument (renamed `_initiator`); `CursorResult` is named only inside a string `cast`, so it moved under `TYPE_CHECKING`.
+ - Kept on purpose (audit §4, §7.6): Payments / Wallet, Orders / Provisioning, Identity / Authentication, PanelOps / Panel Integrations, Event Center / Notifications stay separate.
+ - Still open (own PRs, not done here): move `/admin/reports/summary` and `/timeseries` into the analytics contract and switch `AdminSession.tsx` / `Trend.tsx` first; split `PanelAdminsView`, `kit.tsx`, `UpstreamBotFields`, `TicketConversation`, `ReportsView` as pure moves; widen mypy module by module (orders, identity, reseller, payments); drop `modules/admin/router.py` re-exports once no import uses them; split `panelops` files by capability.
 -- 
 2.43.0
 
