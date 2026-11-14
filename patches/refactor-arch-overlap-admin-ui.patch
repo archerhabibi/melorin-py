@@ -1439,17 +1439,81 @@ index a456287..2ba42e8 100644
            <Save size={14} /> ذخیره
          </button>
        </div>
+diff --git a/apps/admin-web/src/StoreApiView.tsx b/apps/admin-web/src/StoreApiView.tsx
+new file mode 100644
+index 0000000..e10e44f
+--- /dev/null
++++ b/apps/admin-web/src/StoreApiView.tsx
+@@ -0,0 +1,56 @@
++// «API» tab of the store hub: which reseller stores may create and use API keys for their own site.
++// One switch per store: PUT /admin/reseller-stores/{id}/api?enabled=. The keys themselves are managed by the reseller.
++import { useCallback, useState } from 'react';
++import { authFetch } from './api.ts';
++import { canWrite } from './adminAccess.ts';
++import { Empty, ErrorBar, Toggle, errText, useRows } from './kit.tsx';
++import type { Json, Rec, Toast } from './types.ts';
++
++export default function StoreApiView({ api, toast }: { api?: Json; toast: Toast }) {
++  const call = useCallback((p: string, o?: RequestInit) => authFetch(api.base, p, o), [api.base]);
++  const { rows, failed, load } = useRows(call, '/api/v1/admin/resellers');
++  const [busy, setBusy] = useState('');
++  const writable = canWrite(api?.perms, 'نمایندگان');
++
++  const flip = async (s: Rec, enabled: boolean) => {
++    setBusy(s.id);
++    try {
++      const r = await call(`/api/v1/admin/reseller-stores/${s.id}/api?enabled=${enabled}`, { method: 'PUT' });
++      if (!r.ok) throw new Error(await errText(r, String(r.status)));
++      toast(enabled ? 'دسترسی API فعال شد' : 'دسترسی API غیرفعال شد');
++      await load();
++    } catch (e: Json) {
++      toast(`ناموفق: ${e.message}`);
++    }
++    setBusy('');
++  };
++
++  return (
++    <section className="card space-y-3 p-4">
++      <p className="text-sm">
++        با فعال‌بودن دسترسی API، نماینده می‌تواند برای اتصال سایت خودش کلید API بسازد؛ کلید به همین فروشگاه محدود است.
++      </p>
++      {failed && <ErrorBar>دریافت فهرست نمایندگان ناموفق بود.</ErrorBar>}
++      {rows && rows.length === 0 && <Empty>هنوز نمایندهای ثبت نشده است.</Empty>}
++      <div className="divide-y divide-[var(--bd)]">
++        {(rows || []).map((s) => (
++          <div key={s.id} className="flex items-center justify-between gap-3 py-2">
++            <div className="min-w-0">
++              <div className="font-extrabold">{s.name}</div>
++              <div dir="ltr" className="latin text-xs text-[var(--mu)]">
++                {s.slug}
++              </div>
++            </div>
++            <div aria-busy={busy === s.id}>
++              <Toggle
++                checked={!!s.api_enabled}
++                onChange={(v: boolean) => writable && busy !== s.id && flip(s, v)}
++                label={`دسترسی API ${s.name}`}
++              />
++            </div>
++          </div>
++        ))}
++      </div>
++    </section>
++  );
++}
 diff --git a/apps/admin-web/src/StoreHubView.tsx b/apps/admin-web/src/StoreHubView.tsx
 new file mode 100644
-index 0000000..6de698c
+index 0000000..121bbf1
 --- /dev/null
 +++ b/apps/admin-web/src/StoreHubView.tsx
-@@ -0,0 +1,79 @@
-+// «فروشگاه‌ها» — the store hub: everything about a store (and its reseller) behind one menu entry, five tabs:
+@@ -0,0 +1,85 @@
++// «فروشگاه‌ها» — the store hub: everything about a store (and its reseller) behind one menu entry, seven tabs:
 +//   stores    «فروشگاه‌ها»       the list of stores
 +//   resellers «نمایندگان»        reseller accounts of those stores
 +//   panels    «دسترسی پنل»       panel operators (PanelAdmin) and sub branding, per store x panel
 +//   volume    «حجم و سیاست»      store volume governance and the suspend policy
++//   prices    «قیمت‌ها»         read-only retail prices of a reseller store (the reseller sets them)
++//   api       «API»             per-store API access switch
 +//   notices   «اعلان‌ها»         per-store low-traffic notice levels
 +// Each tab keeps its own permission area (SECTION_AREA of the section it came from), so a role sees only what it may open.
 +// Deep link: #/stores?tab=resellers (old #/resellers, #/panel-admins and #/store-governance are rewritten by legacyHash).
@@ -1470,15 +1534,19 @@ index 0000000..6de698c
 +const ResellersView = lazy(() => import('./ResellersView.tsx'));
 +const PanelAdminsView = lazy(() => import('./PanelAdminsView.tsx'));
 +const StoreGovernanceView = lazy(() => import('./StoreGovernanceView.tsx'));
++const StorePricesView = lazy(() => import('./StorePricesView.tsx'));
++const StoreApiView = lazy(() => import('./StoreApiView.tsx'));
 +const StoreNoticesView = lazy(() => import('./StoreNoticesView.tsx'));
 +
 +type HubView = LazyExoticComponent<(p: { api?: HubApi; toast: Toast }) => ReactNode>;
 +// tab id -> [label, section key used for the permission check, component]
 +const TAB_DEFS: [string, string, string, HubView][] = [
 +  ['stores', 'فروشگاه‌ها', 'فروشگاه‌ها', StoresView],
-+  ['resellers', 'نمایندگان', 'نمایندگان', ResellersView],
++  ['resellers', 'پروفایل نماینده', 'نمایندگان', ResellersView],
 +  ['panels', 'دسترسی پنل', 'اپراتور پنل فروشگاه', PanelAdminsView],
 +  ['volume', 'حجم و سیاست', 'حجم فروشگاه‌ها', StoreGovernanceView],
++  ['prices', 'قیمت‌ها', 'محصولات VPN', StorePricesView],
++  ['api', 'API', 'نمایندگان', StoreApiView],
 +  ['notices', 'اعلان‌ها', 'حجم فروشگاه‌ها', StoreNoticesView],
 +];
 +
@@ -1642,6 +1710,120 @@ index 0000000..88f8e4f
 +export default function StoreNoticesView({ api, toast }: { api?: Json; toast: Toast }) {
 +  const call = useCallback((p: string, o?: RequestInit) => authFetch(api.base, p, o), [api.base]);
 +  return <NoticeLevels call={call} toast={toast} />;
++}
+diff --git a/apps/admin-web/src/StorePricesView.tsx b/apps/admin-web/src/StorePricesView.tsx
+new file mode 100644
+index 0000000..7383570
+--- /dev/null
++++ b/apps/admin-web/src/StorePricesView.tsx
+@@ -0,0 +1,108 @@
++// «قیمت‌ها» tab of the store hub: READ-ONLY view of the retail prices a reseller store charges, per product and sales bundle.
++// Only the reseller sets these (reseller panel / bot); the admin sees them next to the cost floor so a below-cost or unpriced
++// package is spotted without opening the reseller's panel. Source: GET /admin/stores/{id}/reseller-prices.
++import { useCallback, useEffect, useState } from 'react';
++import { authFetch } from './api.ts';
++import { Empty, ErrorBar, num, useRows } from './kit.tsx';
++import type { Json, Rec, Toast } from './types.ts';
++
++const STATE: Rec = {
++  ok: ['b-ok', 'قابل فروش'],
++  unset: ['b-mu', 'بدون قیمت'],
++  below_cost: ['b-bd', 'زیر قیمت همکاری'],
++};
++const StateBadge = ({ s }: { s?: Json }) => {
++  const [cls, text] = STATE[s] || ['b-mu', String(s || '—')];
++  return <span className={`badge ${cls}`}>{text}</span>;
++};
++const unit = (c: Json) => ({ IRT: 'تومان', IRR: 'ریال' })[c as 'IRT' | 'IRR'] || c || '';
++const price = (v: Json, c: Json) => (v ? `${num(v)} ${unit(c)}` : '—');
++
++export default function StorePricesView({ api, toast }: { api?: Json; toast: Toast }) {
++  const call = useCallback((p: string, o?: RequestInit) => authFetch(api.base, p, o), [api.base]);
++  const { rows: stores, failed } = useRows(call, '/api/v1/admin/resellers');
++  const [storeId, setStoreId] = useState('');
++  const [table, setTable] = useState<Rec[] | null>(null);
++
++  useEffect(() => {
++    setTable(null);
++    if (!storeId) return;
++    let live = true;
++    (async () => {
++      try {
++        const r = await call(`/api/v1/admin/stores/${storeId}/reseller-prices`);
++        if (!r.ok) throw new Error(String(r.status));
++        const d = await r.json();
++        if (live) setTable(d);
++      } catch {
++        if (live) toast('دریافت قیمت‌های فروشگاه ناموفق بود');
++      }
++    })();
++    return () => {
++      live = false;
++    };
++  }, [call, storeId, toast]);
++
++  return (
++    <section className="card space-y-3 p-4">
++      <p className="text-sm">
++        قیمت فروش را فقط خود نماینده تعیین می‌کند؛ اینجا فقط‌خواندنی است و کنار قیمت همکاری (کف قیمت) نمایش داده می‌شود.
++      </p>
++      {failed && <ErrorBar>دریافت فهرست نمایندگان ناموفق بود.</ErrorBar>}
++      <select className="inp" value={storeId} onChange={(e) => setStoreId(e.target.value)} aria-label="فروشگاه نماینده">
++        <option value="">یک فروشگاه نماینده انتخاب کنید</option>
++        {(stores || []).map((s) => (
++          <option key={s.id} value={s.id}>
++            {s.name}
++          </option>
++        ))}
++      </select>
++      {storeId && table === null && <div className="skel h-24" />}
++      {table && table.length === 0 && <Empty>برای این فروشگاه محصولی فعال نشده است.</Empty>}
++      {table && table.length > 0 && (
++        <div className="overflow-x-auto">
++          <table className="tbl min-w-[720px]">
++            <thead>
++              <tr>
++                <th>محصول / بسته فروش</th>
++                <th>قیمت همکاری</th>
++                <th>قیمت فروش</th>
++                <th>وضعیت</th>
++              </tr>
++            </thead>
++            <tbody>
++              {table.map((p) => (
++                <FragmentRows key={p.product_id} p={p} />
++              ))}
++            </tbody>
++          </table>
++        </div>
++      )}
++    </section>
++  );
++}
++
++function FragmentRows({ p }: { p: Rec }) {
++  return (
++    <>
++      <tr className="font-extrabold">
++        <td>{p.name}</td>
++        <td>از {price(p.cost_floor, p.currency)}</td>
++        <td>{price(p.customer_price, p.currency)}</td>
++        <td>
++          <StateBadge s={p.state} />
++        </td>
++      </tr>
++      {(p.bundles || []).map((b: Rec) => (
++        <tr key={b.bundle_id} className="text-[var(--mu)]">
++          <td className="pr-6">{b.bundle_name}</td>
++          <td>{price(b.cost, p.currency)}</td>
++          <td>{price(b.effective_price, p.currency)}</td>
++          <td>
++            <StateBadge s={b.state} />
++          </td>
++        </tr>
++      ))}
++    </>
++  );
 +}
 diff --git a/apps/admin-web/src/adminAccess.ts b/apps/admin-web/src/adminAccess.ts
 index 23cfef4..925a668 100644
@@ -2115,6 +2297,77 @@ index ae903fc..358f0d1 100644
  import { DialogHost } from '../src/ui.tsx';
  
  const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
+diff --git a/apps/admin-web/tests/store-hub-tabs.test.jsx b/apps/admin-web/tests/store-hub-tabs.test.jsx
+new file mode 100644
+index 0000000..95e47aa
+--- /dev/null
++++ b/apps/admin-web/tests/store-hub-tabs.test.jsx
+@@ -0,0 +1,65 @@
++import { describe, expect, it, vi } from 'vitest';
++import { render, screen, waitFor } from '@testing-library/react';
++import userEvent from '@testing-library/user-event';
++import StorePricesView from '../src/StorePricesView.tsx';
++import StoreApiView from '../src/StoreApiView.tsx';
++
++const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
++const api = { base: 'http://core.test' };
++
++describe('store hub: prices and API tabs', () => {
++  it('prices tab shows the reseller price table read-only, with the cost floor and state', async () => {
++    const calls = [];
++    vi.stubGlobal(
++      'fetch',
++      vi.fn(async (url, o = {}) => {
++        const path = String(url).replace('http://core.test', '');
++        calls.push([o.method || 'GET', path]);
++        if (path === '/api/v1/admin/resellers') return json([{ id: 's9', name: 'Acme', slug: 'acme' }]);
++        if (path === '/api/v1/admin/stores/s9/reseller-prices')
++          return json([
++            {
++              product_id: 'p1',
++              name: 'Monthly',
++              currency: 'IRT',
++              customer_price: 90000,
++              cost_floor: 70000,
++              state: 'ok',
++              bundles: [{ bundle_id: 'b1', bundle_name: 'Eco', cost: 70000, effective_price: 90000, state: 'ok' }],
++            },
++          ]);
++        return json({}, 404);
++      }),
++    );
++    render(<StorePricesView api={api} toast={vi.fn()} />);
++    await screen.findByRole('option', { name: 'Acme' });
++    await userEvent.selectOptions(screen.getByLabelText('فروشگاه نماینده'), 's9');
++    expect(await screen.findByText('Monthly')).toBeTruthy();
++    expect(screen.getByText('Eco')).toBeTruthy();
++    expect(calls.every(([m]) => m === 'GET')).toBe(true);
++  });
++
++  it('API tab flips one store with PUT ?enabled= and reloads', async () => {
++    const calls = [];
++    let enabled = false;
++    vi.stubGlobal(
++      'fetch',
++      vi.fn(async (url, o = {}) => {
++        const path = String(url).replace('http://core.test', '');
++        calls.push([o.method || 'GET', path]);
++        if (path === '/api/v1/admin/resellers')
++          return json([{ id: 's9', name: 'Acme', slug: 'acme', api_enabled: enabled }]);
++        if (path.startsWith('/api/v1/admin/reseller-stores/s9/api')) {
++          enabled = path.endsWith('enabled=true');
++          return json({ store_id: 's9', api_enabled: enabled });
++        }
++        return json({}, 404);
++      }),
++    );
++    const toast = vi.fn();
++    render(<StoreApiView api={api} toast={toast} />);
++    await userEvent.click(await screen.findByRole('switch', { name: /Acme/ }));
++    await waitFor(() => expect(calls.some(([m, p]) => m === 'PUT' && p.endsWith('/api?enabled=true'))).toBe(true));
++    await waitFor(() => expect(toast).toHaveBeenCalled());
++  });
++});
 diff --git a/apps/admin-web/tests/store-hub.test.jsx b/apps/admin-web/tests/store-hub.test.jsx
 new file mode 100644
 index 0000000..05f7dbb
@@ -8198,7 +8451,7 @@ index 7a61d36..31567cc 100644
  | GET | `/api/v1/admin/payments/{payment_id}/receipt` | Payment Receipt |
  | GET | `/api/v1/admin/payments/{payment_id}/receipt-duplicates` | Payment Receipt Duplicates |
 diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
-index 1be7e54..eea5b94 100644
+index 1be7e54..0a636de 100644
 --- a/docs/DECISIONS.md
 +++ b/docs/DECISIONS.md
 @@ -51,7 +51,7 @@ _Merged from the former 12-Change-Log-v1.1.md._
@@ -8210,7 +8463,7 @@ index 1be7e54..eea5b94 100644
  - Adapter classes and each family's `contract.py` (settings/target validation, capacity label, listing warnings) are imported lazily; `upstream_bot` therefore needs Telethon only when a call is made.
  - Core code asks `providers.supports(kind, feature)` / `target_kinds(kind)` instead of comparing `panel.kind` with a string. A new family is one `register_provider(...)` call.
  - Guarded by `tests/test_provider_adapters.py` (no concrete family is imported outside the adapter layer, except the PasarGuard wire parsers listed in the test).
-@@ -94,3 +94,42 @@ _Merged from the former 12-Change-Log-v1.1.md._
+@@ -94,3 +94,43 @@ _Merged from the former 12-Change-Log-v1.1.md._
  - Honest limit: component props and server payloads that are not yet bound to generated `@melorin/api-client` schemas are typed `Json` / `Rec` (aliases in `src/types.ts`, same markers as admin-web). They are greppable; tighten one view per PR. This is a typed shell, not full type safety.
  - Verified in a real browser, not only jsdom: Playwright 10 passed / 2 skipped (the skipped two need a seeded staging stack), vitest 79, `vite build` OK (main bundle ~272 KB, gzip ~85 KB).
  - Source-contract guards (api tests, `check_g001_g010.py`, `check_frontend_contracts.py`) were repointed from `.jsx`/`.js` to `.tsx`/`.ts` for BOTH apps; the earlier admin-web migration had left 16 contract tests red because they still read the old names.
@@ -8252,7 +8505,8 @@ index 1be7e54..eea5b94 100644
 +- Wording: "admin" had four meanings. The UI now says «تیم مدیریت» (who signs in to Melorin) and «اپراتور پنل فروشگاه» (the PasarGuard operator of a store). Section keys changed with the labels; `SECTION_AREA` and the tests follow.
 +- Store Hub gained the «اعلان‌ها» tab (per-store low-traffic notice levels, moved out of panel operations; `#/panel-ops?tab=notices` is rewritten by `legacyHash`).
 +- `@melorin/web-kit` now also holds `PasswordInput` (inline SVG icons, no icon dependency) and the base types (`Rec`, `Json`, `CallFn`, `WithChildren`, `Toast`, `Id`); both apps' `ui.tsx`/`types.ts` re-export them. `@melorin/api-client` is already used by both apps (`getJson`, `publicGet`).
-+- Still open (needs product input or a browser): merging the two palettes (would restyle both apps), and the store profile/pricing/API tabs of the hub, which still live in the reseller drawer.
++- Store Hub now has seven tabs: stores, reseller profile and bot (the former «نمایندگان» editor), panel access, volume, prices, API, notices. Prices is READ-ONLY (`GET /admin/stores/{id}/reseller-prices`, area catalog): only the reseller sets retail prices. API is the per-store switch (`PUT /admin/reseller-stores/{id}/api`, area resellers); both endpoints had no UI before.
++- Still open (needs product input): merging the two palettes (would restyle both apps).
 diff --git a/docs/GLOSSARY.md b/docs/GLOSSARY.md
 index 05da7ef..c2d8a21 100644
 --- a/docs/GLOSSARY.md

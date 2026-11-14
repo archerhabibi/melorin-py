@@ -1,7 +1,7 @@
 From 2b7a40f4d38354ba119e0b5f4b673112112ec92e Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@gmail.com>
 Date: Fri, 13 Nov 2026 11:54:01 +0000
-Subject: [PATCH 01/32] arch(contracts): put eventcenter and broadcast under
+Subject: [PATCH 01/33] arch(contracts): put eventcenter and broadcast under
  the layer contract
 
 ---
@@ -28,7 +28,7 @@ index 286ab43..8ac7f14 100644
 From 2d64d509e34f94253822c3dbe6a55249abcb6301 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@gmail.com>
 Date: Fri, 13 Nov 2026 11:58:35 +0000
-Subject: [PATCH 02/32] fix(auth): admin password change enforces the same
+Subject: [PATCH 02/33] fix(auth): admin password change enforces the same
  policy as invite acceptance
 
 ---
@@ -92,7 +92,7 @@ index 4b4c2e7..b25e1a7 100644
 From 5ebfec4a5a0ad094c54c045612d3869ebc5e45b9 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@gmail.com>
 Date: Fri, 13 Nov 2026 11:59:56 +0000
-Subject: [PATCH 03/32] feat(admin-ui): regroup the menu (operations,
+Subject: [PATCH 03/33] feat(admin-ui): regroup the menu (operations,
  customers, catalog+marketing, communication, infrastructure); single password
  form; Receipt OCR lives under Payments
 
@@ -231,7 +231,7 @@ index d735da1..1bc9415 100644
 From cf3078358e9dd56b704544fd5afe992040683daa Mon Sep 17 00:00:00 2001
 From: claude-refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 12:22:19 +0000
-Subject: [PATCH 04/32] test(admin-ui): contract test follows the regrouped
+Subject: [PATCH 04/33] test(admin-ui): contract test follows the regrouped
  menu (infra group, catalog+marketing group)
 
 ---
@@ -263,7 +263,7 @@ index c37b6d0..b1c0224 100644
 From fa2f9f1b12a3e751e31dd0e7c0fecfe020debe13 Mon Sep 17 00:00:00 2001
 From: claude-refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 12:26:08 +0000
-Subject: [PATCH 05/32] arch(panelops): move panel_admins, governance,
+Subject: [PATCH 05/33] arch(panelops): move panel_admins, governance,
  store_usage, service_access, panel_events_admin, bulk, subscription_check,
  recreate, digest from vpn to panelops
 
@@ -873,7 +873,7 @@ index dc6010d..5daf353 100644
 From 28b907357132344d43bf66ba46418fb216c133cb Mon Sep 17 00:00:00 2001
 From: claude-refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 12:36:11 +0000
-Subject: [PATCH 06/32] arch(panelops): one reconciliation-actions service;
+Subject: [PATCH 06/33] arch(panelops): one reconciliation-actions service;
  admin router no longer builds adapters or coordinates writes
 
 Behaviour, error codes, audit events and messages are unchanged. Commits go through unit_of_work. Tests that patched the router's
@@ -1252,7 +1252,7 @@ index 1be7e54..ae1b773 100644
 From d9bf9dddd7d1751e60a4974b89608d057b2f9a2a Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:09:10 +0000
-Subject: [PATCH 07/32] docs(identity): point identity docstrings at docs/23
+Subject: [PATCH 07/33] docs(identity): point identity docstrings at docs/23
  (was docs/21)
 
 ---
@@ -1496,7 +1496,7 @@ index f553767..6ad921e 100644
 From 4666d51295581024fbba949d8215350c69940168 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:17:14 +0000
-Subject: [PATCH 08/32] feat(admin-ui): Settings is tabbed (backup+email /
+Subject: [PATCH 08/33] feat(admin-ui): Settings is tabbed (backup+email /
  advanced); Google and Telegram sign-in move to Identity > sign-in methods
 
 ---
@@ -1638,7 +1638,7 @@ index 89ae544..5be23cf 100644
 From f5d1996854a4f0b4b0595d9eb227d3e6e1c423c3 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:33:00 +0000
-Subject: [PATCH 09/32] feat(admin-ui): store hub: stores, resellers, panel
+Subject: [PATCH 09/33] feat(admin-ui): store hub: stores, resellers, panel
  access and volume governance are tabs of one menu entry
 
 ---
@@ -1860,7 +1860,7 @@ index 0000000..6dcd158
 From 4133a03d42351e76a8ac37b31e3d309270715b1e Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:53:57 +0000
-Subject: [PATCH 10/32] arch(payments): the main store payment destination uses
+Subject: [PATCH 10/33] arch(payments): the main store payment destination uses
  StorePaymentConfiguration; global card.info/gateway.zarinpal and the fallback
  are removed (alembic 0056)
 
@@ -2642,7 +2642,7 @@ index ae1b773..01a6a68 100644
 From eecbae7ca6146bef7cd336a832f0f91aa7560d5d Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 14:34:34 +0000
-Subject: [PATCH 11/32] arch(rewards): one written stacking policy and one
+Subject: [PATCH 11/33] arch(rewards): one written stacking policy and one
  settlement path; vpn account transition table
 
 ---
@@ -2817,7 +2817,7 @@ index 01a6a68..13f2648 100644
 From 3d7d013580e91867a5ec537d24db8323ea4c3fa0 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 14:42:16 +0000
-Subject: [PATCH 12/32] test(worker): refunds reverse loyalty before referral
+Subject: [PATCH 12/33] test(worker): refunds reverse loyalty before referral
 
 ---
  apps/api/tests/service/test_worker_runner_db.py | 2 +-
@@ -2843,7 +2843,7 @@ index ae12e89..af12146 100644
 From 34e51683ea1a0f2d5c9c18a528a48964c9f1ce77 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 14:59:48 +0000
-Subject: [PATCH 13/32] arch(worker): one read cycle per panel: metrics
+Subject: [PATCH 13/33] arch(worker): one read cycle per panel: metrics
  snapshot rides on the health job adapter
 
 ---
@@ -2923,7 +2923,7 @@ index 13f2648..3390dbd 100644
 From 3338242826ea3df9a23a08a2da87601ed7a78ed6 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 15:20:11 +0000
-Subject: [PATCH 14/32] arch(vpn): account status changes go through the
+Subject: [PATCH 14/33] arch(vpn): account status changes go through the
  guarded transition table
 
 ---
@@ -3078,7 +3078,7 @@ index 3390dbd..1fa7cd4 100644
 From 7a4e0bf6c3ddd2d04e5993cc0e818273990efe85 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 15:33:23 +0000
-Subject: [PATCH 15/32] arch(messaging): notifications dedupe on event_id +
+Subject: [PATCH 15/33] arch(messaging): notifications dedupe on event_id +
  recipient + channel
 
 ---
@@ -3200,7 +3200,7 @@ index 1fa7cd4..9e68bb5 100644
 From aae44f6b1397699b701c15ee04d519609193659b Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 16:18:20 +0000
-Subject: [PATCH 16/32] arch: guard expiry/revoke/sync status writes; panel
+Subject: [PATCH 16/33] arch: guard expiry/revoke/sync status writes; panel
  card deep-links to panel operations
 
 ---
@@ -3324,7 +3324,7 @@ index 9e68bb5..7218ea0 100644
 From 35b241cc55ca4386a7037d8a7a3a062ba268bd63 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 16:50:44 +0000
-Subject: [PATCH 17/32] arch(telegram): shared bot core in tgmain.core;
+Subject: [PATCH 17/33] arch(telegram): shared bot core in tgmain.core;
  reseller bot imports it instead of loading main runner.py by path; reseller
  image copies tgmain only
 
@@ -4242,7 +4242,7 @@ index cb2b24a..5e7709b 100644
 From bed9db5b27ebee848c22126ec449af3077f48c34 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 16:50:44 +0000
-Subject: [PATCH 18/32] chore(domain): drop 5-line leftovers (vpn/bundles,
+Subject: [PATCH 18/33] chore(domain): drop 5-line leftovers (vpn/bundles,
  vpn/service, domain/referral); commission_amount lives with commission,
  clean_custom_name in domain/account_name
 
@@ -4343,7 +4343,7 @@ index 0f1ad9b..9216cdf 100644
 From 81b5dd64815592a79fd09d829427b9ea83acbd83 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 16:59:01 +0000
-Subject: [PATCH 19/32] feat(admin): Operations Center roll-up on
+Subject: [PATCH 19/33] feat(admin): Operations Center roll-up on
  /admin/dashboard + dashboard card; restore vpn/service.py; guard provisioning
  status write; drop dead DataTable branches; contract test follows
  tgmain.core; decisions
@@ -4773,7 +4773,7 @@ index 7218ea0..45e9108 100644
 From a42c4b5125ec4735d242e8c52db443ceec7eebcd Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 17:03:53 +0000
-Subject: [PATCH 20/32] test: source-contract tests read tgmain/core.py
+Subject: [PATCH 20/33] test: source-contract tests read tgmain/core.py
 
 ---
  apps/api/tests/service/test_account_return.py              | 2 +-
@@ -4813,7 +4813,7 @@ index 9b5bf8b..65018af 100644
 From f820a98089d4df8cb591ebcb8809ed36844af73f Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 17:26:04 +0000
-Subject: [PATCH 21/32] feat(admin-ui): panel detail drawer: nodes, console,
+Subject: [PATCH 21/33] feat(admin-ui): panel detail drawer: nodes, console,
  events, capacity, templates and indicators are tabs of the panel; panel-ops
  keeps discrepancies, orphans and notices
 
@@ -5275,7 +5275,7 @@ index 45e9108..dd84015 100644
 From 802aa443b74f0e51fac783fb0265773f7b1734f8 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 20:40:47 +0000
-Subject: [PATCH 22/32] arch(integrations): provider adapters, sessions,
+Subject: [PATCH 22/33] arch(integrations): provider adapters, sessions,
  readers, capabilities and target config move from vpn to
  modules/panel_integrations (lowest feature layer); shared Event Center logic
  and text helpers move to web-kit
@@ -8112,7 +8112,7 @@ index 1423897..7dc57d3 100644
 From 4396daa9c77daadf056227597cd4f0618718a1d2 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 20:40:56 +0000
-Subject: [PATCH 23/32] docs: record integration boundary and shared web-kit
+Subject: [PATCH 23/33] docs: record integration boundary and shared web-kit
  decisions
 
 ---
@@ -8137,7 +8137,7 @@ index 82095f7..392f75c 100644
 From e20603006d61038349bba97489e394bb7429f8e2 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 21:21:54 +0000
-Subject: [PATCH 24/32] arch: PanelSnapshot read model, messaging policy,
+Subject: [PATCH 24/33] arch: PanelSnapshot read model, messaging policy,
  status-write contract test, shared Bank SMS rules in web-kit
 
 ---
@@ -8726,7 +8726,7 @@ index 0000000..d97d251
 From 4cbea13a57d038502850d3cd383be13431f9cb98 Mon Sep 17 00:00:00 2001
 From: Pori Toooni <poritoooni@gmail.com>
 Date: Fri, 13 Nov 2026 22:08:29 +0000
-Subject: [PATCH 25/32] arch(messaging): DM delivery honours
+Subject: [PATCH 25/33] arch(messaging): DM delivery honours
  messaging_policy.dm_allowed; decisions updated
 
 ---
@@ -8802,7 +8802,7 @@ index 54fd61b..e6a938e 100644
 From cbdfc1fb50f2474e3b531263ee626df651967279 Mon Sep 17 00:00:00 2001
 From: Pori Toooni <poritoooni@gmail.com>
 Date: Sat, 14 Nov 2026 06:03:59 +0000
-Subject: [PATCH 26/32] feat(web-kit): shared broadcast composer hook used by
+Subject: [PATCH 26/33] feat(web-kit): shared broadcast composer hook used by
  admin-web and store-web; decisions updated
 
 ---
@@ -9130,7 +9130,7 @@ index 0000000..454f752
 From 9168a7d321bfb75a24bcce2a9ff218ae98dd40a2 Mon Sep 17 00:00:00 2001
 From: Pori Toooni <poritoooni@gmail.com>
 Date: Sat, 14 Nov 2026 06:09:48 +0000
-Subject: [PATCH 27/32] feat(web-kit): shared referral plan form used by
+Subject: [PATCH 27/33] feat(web-kit): shared referral plan form used by
  admin-web and store-web; decisions updated
 
 ---
@@ -9395,7 +9395,7 @@ index 0000000..be1623c
 From 5c1964b6bd3252607196a5b33ca76cb825ab83da Mon Sep 17 00:00:00 2001
 From: Pori Toooni <poritoooni@gmail.com>
 Date: Sat, 14 Nov 2026 06:19:41 +0000
-Subject: [PATCH 28/32] feat(web-kit): shared loyalty club data layer used by
+Subject: [PATCH 28/33] feat(web-kit): shared loyalty club data layer used by
  admin-web and store-web; decisions updated
 
 ---
@@ -9637,7 +9637,7 @@ index 0000000..fec4cee
 From 14df2cdcbac02fcfabbcd78875f62b7f7fb0bb5b Mon Sep 17 00:00:00 2001
 From: Pori Toooni <poritoooni@gmail.com>
 Date: Sat, 14 Nov 2026 06:23:29 +0000
-Subject: [PATCH 29/32] feat(web-kit): shared design tokens (identical values
+Subject: [PATCH 29/33] feat(web-kit): shared design tokens (identical values
  only); decisions updated
 
 ---
@@ -9850,7 +9850,7 @@ index 0000000..f9858bb
 From 014b89fbe159cda8a04cf31807000b5b46be519b Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@users.noreply.github.com>
 Date: Sat, 14 Nov 2026 06:52:08 +0000
-Subject: [PATCH 30/32] arch: admin sync is event-driven with 15-min fallback;
+Subject: [PATCH 30/33] arch: admin sync is event-driven with 15-min fallback;
  rename admin team / panel operator labels; decisions
 
 ---
@@ -10104,7 +10104,7 @@ index 0761ec1..51a479e 100644
 From 413e2eae568257f6aebc675412cd552b53750289 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@users.noreply.github.com>
 Date: Sat, 14 Nov 2026 07:35:19 +0000
-Subject: [PATCH 31/32] docs: regenerate STATUS/API (head 0056, 413
+Subject: [PATCH 31/33] docs: regenerate STATUS/API (head 0056, 413
  operations); decisions: state machine writers complete
 
 ---
@@ -10183,7 +10183,7 @@ index 1367bca..1d9129e 100644
 From 983636616db750d9b16dd11d2512aa0f2427ce98 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@users.noreply.github.com>
 Date: Sat, 14 Nov 2026 07:48:17 +0000
-Subject: [PATCH 32/32] feat(web-kit): shared PasswordInput and base types;
+Subject: [PATCH 32/33] feat(web-kit): shared PasswordInput and base types;
  feat(admin-ui): per-store notice levels are a Store Hub tab; decisions
 
 ---
@@ -10771,6 +10771,322 @@ index 0000000..79ceddc
 +export type Toast = (msg: string) => void;
 +/** Entity id as the Core API emits it. */
 +export type Id = string | number;
+-- 
+2.43.0
+
+
+From 1cde428f3ba9f8c2d2fc09eb52c279ccb1bdf608 Mon Sep 17 00:00:00 2001
+From: archerhabibi <archerhabibi@users.noreply.github.com>
+Date: Sat, 14 Nov 2026 07:58:25 +0000
+Subject: [PATCH 33/33] feat(admin-ui): store hub gains read-only prices and
+ API tabs; reseller editor is the profile tab; decisions
+
+---
+ apps/admin-web/src/StoreApiView.tsx          |  56 ++++++++++
+ apps/admin-web/src/StoreHubView.tsx          |  10 +-
+ apps/admin-web/src/StorePricesView.tsx       | 108 +++++++++++++++++++
+ apps/admin-web/tests/store-hub-tabs.test.jsx |  65 +++++++++++
+ docs/DECISIONS.md                            |   3 +-
+ 5 files changed, 239 insertions(+), 3 deletions(-)
+ create mode 100644 apps/admin-web/src/StoreApiView.tsx
+ create mode 100644 apps/admin-web/src/StorePricesView.tsx
+ create mode 100644 apps/admin-web/tests/store-hub-tabs.test.jsx
+
+diff --git a/apps/admin-web/src/StoreApiView.tsx b/apps/admin-web/src/StoreApiView.tsx
+new file mode 100644
+index 0000000..e10e44f
+--- /dev/null
++++ b/apps/admin-web/src/StoreApiView.tsx
+@@ -0,0 +1,56 @@
++// «API» tab of the store hub: which reseller stores may create and use API keys for their own site.
++// One switch per store: PUT /admin/reseller-stores/{id}/api?enabled=. The keys themselves are managed by the reseller.
++import { useCallback, useState } from 'react';
++import { authFetch } from './api.ts';
++import { canWrite } from './adminAccess.ts';
++import { Empty, ErrorBar, Toggle, errText, useRows } from './kit.tsx';
++import type { Json, Rec, Toast } from './types.ts';
++
++export default function StoreApiView({ api, toast }: { api?: Json; toast: Toast }) {
++  const call = useCallback((p: string, o?: RequestInit) => authFetch(api.base, p, o), [api.base]);
++  const { rows, failed, load } = useRows(call, '/api/v1/admin/resellers');
++  const [busy, setBusy] = useState('');
++  const writable = canWrite(api?.perms, 'نمایندگان');
++
++  const flip = async (s: Rec, enabled: boolean) => {
++    setBusy(s.id);
++    try {
++      const r = await call(`/api/v1/admin/reseller-stores/${s.id}/api?enabled=${enabled}`, { method: 'PUT' });
++      if (!r.ok) throw new Error(await errText(r, String(r.status)));
++      toast(enabled ? 'دسترسی API فعال شد' : 'دسترسی API غیرفعال شد');
++      await load();
++    } catch (e: Json) {
++      toast(`ناموفق: ${e.message}`);
++    }
++    setBusy('');
++  };
++
++  return (
++    <section className="card space-y-3 p-4">
++      <p className="text-sm">
++        با فعال‌بودن دسترسی API، نماینده می‌تواند برای اتصال سایت خودش کلید API بسازد؛ کلید به همین فروشگاه محدود است.
++      </p>
++      {failed && <ErrorBar>دریافت فهرست نمایندگان ناموفق بود.</ErrorBar>}
++      {rows && rows.length === 0 && <Empty>هنوز نمایندهای ثبت نشده است.</Empty>}
++      <div className="divide-y divide-[var(--bd)]">
++        {(rows || []).map((s) => (
++          <div key={s.id} className="flex items-center justify-between gap-3 py-2">
++            <div className="min-w-0">
++              <div className="font-extrabold">{s.name}</div>
++              <div dir="ltr" className="latin text-xs text-[var(--mu)]">
++                {s.slug}
++              </div>
++            </div>
++            <div aria-busy={busy === s.id}>
++              <Toggle
++                checked={!!s.api_enabled}
++                onChange={(v: boolean) => writable && busy !== s.id && flip(s, v)}
++                label={`دسترسی API ${s.name}`}
++              />
++            </div>
++          </div>
++        ))}
++      </div>
++    </section>
++  );
++}
+diff --git a/apps/admin-web/src/StoreHubView.tsx b/apps/admin-web/src/StoreHubView.tsx
+index 6de698c..121bbf1 100644
+--- a/apps/admin-web/src/StoreHubView.tsx
++++ b/apps/admin-web/src/StoreHubView.tsx
+@@ -1,8 +1,10 @@
+-// «فروشگاه‌ها» — the store hub: everything about a store (and its reseller) behind one menu entry, five tabs:
++// «فروشگاه‌ها» — the store hub: everything about a store (and its reseller) behind one menu entry, seven tabs:
+ //   stores    «فروشگاه‌ها»       the list of stores
+ //   resellers «نمایندگان»        reseller accounts of those stores
+ //   panels    «دسترسی پنل»       panel operators (PanelAdmin) and sub branding, per store x panel
+ //   volume    «حجم و سیاست»      store volume governance and the suspend policy
++//   prices    «قیمت‌ها»         read-only retail prices of a reseller store (the reseller sets them)
++//   api       «API»             per-store API access switch
+ //   notices   «اعلان‌ها»         per-store low-traffic notice levels
+ // Each tab keeps its own permission area (SECTION_AREA of the section it came from), so a role sees only what it may open.
+ // Deep link: #/stores?tab=resellers (old #/resellers, #/panel-admins and #/store-governance are rewritten by legacyHash).
+@@ -23,15 +25,19 @@ const StoresView = lazy(() => import('./StoresView.tsx'));
+ const ResellersView = lazy(() => import('./ResellersView.tsx'));
+ const PanelAdminsView = lazy(() => import('./PanelAdminsView.tsx'));
+ const StoreGovernanceView = lazy(() => import('./StoreGovernanceView.tsx'));
++const StorePricesView = lazy(() => import('./StorePricesView.tsx'));
++const StoreApiView = lazy(() => import('./StoreApiView.tsx'));
+ const StoreNoticesView = lazy(() => import('./StoreNoticesView.tsx'));
+ 
+ type HubView = LazyExoticComponent<(p: { api?: HubApi; toast: Toast }) => ReactNode>;
+ // tab id -> [label, section key used for the permission check, component]
+ const TAB_DEFS: [string, string, string, HubView][] = [
+   ['stores', 'فروشگاه‌ها', 'فروشگاه‌ها', StoresView],
+-  ['resellers', 'نمایندگان', 'نمایندگان', ResellersView],
++  ['resellers', 'پروفایل نماینده', 'نمایندگان', ResellersView],
+   ['panels', 'دسترسی پنل', 'اپراتور پنل فروشگاه', PanelAdminsView],
+   ['volume', 'حجم و سیاست', 'حجم فروشگاه‌ها', StoreGovernanceView],
++  ['prices', 'قیمت‌ها', 'محصولات VPN', StorePricesView],
++  ['api', 'API', 'نمایندگان', StoreApiView],
+   ['notices', 'اعلان‌ها', 'حجم فروشگاه‌ها', StoreNoticesView],
+ ];
+ 
+diff --git a/apps/admin-web/src/StorePricesView.tsx b/apps/admin-web/src/StorePricesView.tsx
+new file mode 100644
+index 0000000..7383570
+--- /dev/null
++++ b/apps/admin-web/src/StorePricesView.tsx
+@@ -0,0 +1,108 @@
++// «قیمت‌ها» tab of the store hub: READ-ONLY view of the retail prices a reseller store charges, per product and sales bundle.
++// Only the reseller sets these (reseller panel / bot); the admin sees them next to the cost floor so a below-cost or unpriced
++// package is spotted without opening the reseller's panel. Source: GET /admin/stores/{id}/reseller-prices.
++import { useCallback, useEffect, useState } from 'react';
++import { authFetch } from './api.ts';
++import { Empty, ErrorBar, num, useRows } from './kit.tsx';
++import type { Json, Rec, Toast } from './types.ts';
++
++const STATE: Rec = {
++  ok: ['b-ok', 'قابل فروش'],
++  unset: ['b-mu', 'بدون قیمت'],
++  below_cost: ['b-bd', 'زیر قیمت همکاری'],
++};
++const StateBadge = ({ s }: { s?: Json }) => {
++  const [cls, text] = STATE[s] || ['b-mu', String(s || '—')];
++  return <span className={`badge ${cls}`}>{text}</span>;
++};
++const unit = (c: Json) => ({ IRT: 'تومان', IRR: 'ریال' })[c as 'IRT' | 'IRR'] || c || '';
++const price = (v: Json, c: Json) => (v ? `${num(v)} ${unit(c)}` : '—');
++
++export default function StorePricesView({ api, toast }: { api?: Json; toast: Toast }) {
++  const call = useCallback((p: string, o?: RequestInit) => authFetch(api.base, p, o), [api.base]);
++  const { rows: stores, failed } = useRows(call, '/api/v1/admin/resellers');
++  const [storeId, setStoreId] = useState('');
++  const [table, setTable] = useState<Rec[] | null>(null);
++
++  useEffect(() => {
++    setTable(null);
++    if (!storeId) return;
++    let live = true;
++    (async () => {
++      try {
++        const r = await call(`/api/v1/admin/stores/${storeId}/reseller-prices`);
++        if (!r.ok) throw new Error(String(r.status));
++        const d = await r.json();
++        if (live) setTable(d);
++      } catch {
++        if (live) toast('دریافت قیمت‌های فروشگاه ناموفق بود');
++      }
++    })();
++    return () => {
++      live = false;
++    };
++  }, [call, storeId, toast]);
++
++  return (
++    <section className="card space-y-3 p-4">
++      <p className="text-sm">
++        قیمت فروش را فقط خود نماینده تعیین می‌کند؛ اینجا فقط‌خواندنی است و کنار قیمت همکاری (کف قیمت) نمایش داده می‌شود.
++      </p>
++      {failed && <ErrorBar>دریافت فهرست نمایندگان ناموفق بود.</ErrorBar>}
++      <select className="inp" value={storeId} onChange={(e) => setStoreId(e.target.value)} aria-label="فروشگاه نماینده">
++        <option value="">یک فروشگاه نماینده انتخاب کنید</option>
++        {(stores || []).map((s) => (
++          <option key={s.id} value={s.id}>
++            {s.name}
++          </option>
++        ))}
++      </select>
++      {storeId && table === null && <div className="skel h-24" />}
++      {table && table.length === 0 && <Empty>برای این فروشگاه محصولی فعال نشده است.</Empty>}
++      {table && table.length > 0 && (
++        <div className="overflow-x-auto">
++          <table className="tbl min-w-[720px]">
++            <thead>
++              <tr>
++                <th>محصول / بسته فروش</th>
++                <th>قیمت همکاری</th>
++                <th>قیمت فروش</th>
++                <th>وضعیت</th>
++              </tr>
++            </thead>
++            <tbody>
++              {table.map((p) => (
++                <FragmentRows key={p.product_id} p={p} />
++              ))}
++            </tbody>
++          </table>
++        </div>
++      )}
++    </section>
++  );
++}
++
++function FragmentRows({ p }: { p: Rec }) {
++  return (
++    <>
++      <tr className="font-extrabold">
++        <td>{p.name}</td>
++        <td>از {price(p.cost_floor, p.currency)}</td>
++        <td>{price(p.customer_price, p.currency)}</td>
++        <td>
++          <StateBadge s={p.state} />
++        </td>
++      </tr>
++      {(p.bundles || []).map((b: Rec) => (
++        <tr key={b.bundle_id} className="text-[var(--mu)]">
++          <td className="pr-6">{b.bundle_name}</td>
++          <td>{price(b.cost, p.currency)}</td>
++          <td>{price(b.effective_price, p.currency)}</td>
++          <td>
++            <StateBadge s={b.state} />
++          </td>
++        </tr>
++      ))}
++    </>
++  );
++}
+diff --git a/apps/admin-web/tests/store-hub-tabs.test.jsx b/apps/admin-web/tests/store-hub-tabs.test.jsx
+new file mode 100644
+index 0000000..95e47aa
+--- /dev/null
++++ b/apps/admin-web/tests/store-hub-tabs.test.jsx
+@@ -0,0 +1,65 @@
++import { describe, expect, it, vi } from 'vitest';
++import { render, screen, waitFor } from '@testing-library/react';
++import userEvent from '@testing-library/user-event';
++import StorePricesView from '../src/StorePricesView.tsx';
++import StoreApiView from '../src/StoreApiView.tsx';
++
++const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
++const api = { base: 'http://core.test' };
++
++describe('store hub: prices and API tabs', () => {
++  it('prices tab shows the reseller price table read-only, with the cost floor and state', async () => {
++    const calls = [];
++    vi.stubGlobal(
++      'fetch',
++      vi.fn(async (url, o = {}) => {
++        const path = String(url).replace('http://core.test', '');
++        calls.push([o.method || 'GET', path]);
++        if (path === '/api/v1/admin/resellers') return json([{ id: 's9', name: 'Acme', slug: 'acme' }]);
++        if (path === '/api/v1/admin/stores/s9/reseller-prices')
++          return json([
++            {
++              product_id: 'p1',
++              name: 'Monthly',
++              currency: 'IRT',
++              customer_price: 90000,
++              cost_floor: 70000,
++              state: 'ok',
++              bundles: [{ bundle_id: 'b1', bundle_name: 'Eco', cost: 70000, effective_price: 90000, state: 'ok' }],
++            },
++          ]);
++        return json({}, 404);
++      }),
++    );
++    render(<StorePricesView api={api} toast={vi.fn()} />);
++    await screen.findByRole('option', { name: 'Acme' });
++    await userEvent.selectOptions(screen.getByLabelText('فروشگاه نماینده'), 's9');
++    expect(await screen.findByText('Monthly')).toBeTruthy();
++    expect(screen.getByText('Eco')).toBeTruthy();
++    expect(calls.every(([m]) => m === 'GET')).toBe(true);
++  });
++
++  it('API tab flips one store with PUT ?enabled= and reloads', async () => {
++    const calls = [];
++    let enabled = false;
++    vi.stubGlobal(
++      'fetch',
++      vi.fn(async (url, o = {}) => {
++        const path = String(url).replace('http://core.test', '');
++        calls.push([o.method || 'GET', path]);
++        if (path === '/api/v1/admin/resellers')
++          return json([{ id: 's9', name: 'Acme', slug: 'acme', api_enabled: enabled }]);
++        if (path.startsWith('/api/v1/admin/reseller-stores/s9/api')) {
++          enabled = path.endsWith('enabled=true');
++          return json({ store_id: 's9', api_enabled: enabled });
++        }
++        return json({}, 404);
++      }),
++    );
++    const toast = vi.fn();
++    render(<StoreApiView api={api} toast={toast} />);
++    await userEvent.click(await screen.findByRole('switch', { name: /Acme/ }));
++    await waitFor(() => expect(calls.some(([m, p]) => m === 'PUT' && p.endsWith('/api?enabled=true'))).toBe(true));
++    await waitFor(() => expect(toast).toHaveBeenCalled());
++  });
++});
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index eea5b94..0a636de 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -132,4 +132,5 @@ _Merged from the former 12-Change-Log-v1.1.md._
+ - Wording: "admin" had four meanings. The UI now says «تیم مدیریت» (who signs in to Melorin) and «اپراتور پنل فروشگاه» (the PasarGuard operator of a store). Section keys changed with the labels; `SECTION_AREA` and the tests follow.
+ - Store Hub gained the «اعلان‌ها» tab (per-store low-traffic notice levels, moved out of panel operations; `#/panel-ops?tab=notices` is rewritten by `legacyHash`).
+ - `@melorin/web-kit` now also holds `PasswordInput` (inline SVG icons, no icon dependency) and the base types (`Rec`, `Json`, `CallFn`, `WithChildren`, `Toast`, `Id`); both apps' `ui.tsx`/`types.ts` re-export them. `@melorin/api-client` is already used by both apps (`getJson`, `publicGet`).
+-- Still open (needs product input or a browser): merging the two palettes (would restyle both apps), and the store profile/pricing/API tabs of the hub, which still live in the reseller drawer.
++- Store Hub now has seven tabs: stores, reseller profile and bot (the former «نمایندگان» editor), panel access, volume, prices, API, notices. Prices is READ-ONLY (`GET /admin/stores/{id}/reseller-prices`, area catalog): only the reseller sets retail prices. API is the per-store switch (`PUT /admin/reseller-stores/{id}/api`, area resellers); both endpoints had no UI before.
++- Still open (needs product input): merging the two palettes (would restyle both apps).
 -- 
 2.43.0
 
