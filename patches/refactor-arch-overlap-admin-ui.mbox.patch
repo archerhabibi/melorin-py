@@ -1,7 +1,7 @@
 From 2b7a40f4d38354ba119e0b5f4b673112112ec92e Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@gmail.com>
 Date: Fri, 13 Nov 2026 11:54:01 +0000
-Subject: [PATCH 01/33] arch(contracts): put eventcenter and broadcast under
+Subject: [PATCH 01/34] arch(contracts): put eventcenter and broadcast under
  the layer contract
 
 ---
@@ -28,7 +28,7 @@ index 286ab43..8ac7f14 100644
 From 2d64d509e34f94253822c3dbe6a55249abcb6301 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@gmail.com>
 Date: Fri, 13 Nov 2026 11:58:35 +0000
-Subject: [PATCH 02/33] fix(auth): admin password change enforces the same
+Subject: [PATCH 02/34] fix(auth): admin password change enforces the same
  policy as invite acceptance
 
 ---
@@ -92,7 +92,7 @@ index 4b4c2e7..b25e1a7 100644
 From 5ebfec4a5a0ad094c54c045612d3869ebc5e45b9 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@gmail.com>
 Date: Fri, 13 Nov 2026 11:59:56 +0000
-Subject: [PATCH 03/33] feat(admin-ui): regroup the menu (operations,
+Subject: [PATCH 03/34] feat(admin-ui): regroup the menu (operations,
  customers, catalog+marketing, communication, infrastructure); single password
  form; Receipt OCR lives under Payments
 
@@ -231,7 +231,7 @@ index d735da1..1bc9415 100644
 From cf3078358e9dd56b704544fd5afe992040683daa Mon Sep 17 00:00:00 2001
 From: claude-refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 12:22:19 +0000
-Subject: [PATCH 04/33] test(admin-ui): contract test follows the regrouped
+Subject: [PATCH 04/34] test(admin-ui): contract test follows the regrouped
  menu (infra group, catalog+marketing group)
 
 ---
@@ -263,7 +263,7 @@ index c37b6d0..b1c0224 100644
 From fa2f9f1b12a3e751e31dd0e7c0fecfe020debe13 Mon Sep 17 00:00:00 2001
 From: claude-refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 12:26:08 +0000
-Subject: [PATCH 05/33] arch(panelops): move panel_admins, governance,
+Subject: [PATCH 05/34] arch(panelops): move panel_admins, governance,
  store_usage, service_access, panel_events_admin, bulk, subscription_check,
  recreate, digest from vpn to panelops
 
@@ -873,7 +873,7 @@ index dc6010d..5daf353 100644
 From 28b907357132344d43bf66ba46418fb216c133cb Mon Sep 17 00:00:00 2001
 From: claude-refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 12:36:11 +0000
-Subject: [PATCH 06/33] arch(panelops): one reconciliation-actions service;
+Subject: [PATCH 06/34] arch(panelops): one reconciliation-actions service;
  admin router no longer builds adapters or coordinates writes
 
 Behaviour, error codes, audit events and messages are unchanged. Commits go through unit_of_work. Tests that patched the router's
@@ -1252,7 +1252,7 @@ index 1be7e54..ae1b773 100644
 From d9bf9dddd7d1751e60a4974b89608d057b2f9a2a Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:09:10 +0000
-Subject: [PATCH 07/33] docs(identity): point identity docstrings at docs/23
+Subject: [PATCH 07/34] docs(identity): point identity docstrings at docs/23
  (was docs/21)
 
 ---
@@ -1496,7 +1496,7 @@ index f553767..6ad921e 100644
 From 4666d51295581024fbba949d8215350c69940168 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:17:14 +0000
-Subject: [PATCH 08/33] feat(admin-ui): Settings is tabbed (backup+email /
+Subject: [PATCH 08/34] feat(admin-ui): Settings is tabbed (backup+email /
  advanced); Google and Telegram sign-in move to Identity > sign-in methods
 
 ---
@@ -1638,7 +1638,7 @@ index 89ae544..5be23cf 100644
 From f5d1996854a4f0b4b0595d9eb227d3e6e1c423c3 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:33:00 +0000
-Subject: [PATCH 09/33] feat(admin-ui): store hub: stores, resellers, panel
+Subject: [PATCH 09/34] feat(admin-ui): store hub: stores, resellers, panel
  access and volume governance are tabs of one menu entry
 
 ---
@@ -1860,7 +1860,7 @@ index 0000000..6dcd158
 From 4133a03d42351e76a8ac37b31e3d309270715b1e Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:53:57 +0000
-Subject: [PATCH 10/33] arch(payments): the main store payment destination uses
+Subject: [PATCH 10/34] arch(payments): the main store payment destination uses
  StorePaymentConfiguration; global card.info/gateway.zarinpal and the fallback
  are removed (alembic 0056)
 
@@ -2642,7 +2642,7 @@ index ae1b773..01a6a68 100644
 From eecbae7ca6146bef7cd336a832f0f91aa7560d5d Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 14:34:34 +0000
-Subject: [PATCH 11/33] arch(rewards): one written stacking policy and one
+Subject: [PATCH 11/34] arch(rewards): one written stacking policy and one
  settlement path; vpn account transition table
 
 ---
@@ -2817,7 +2817,7 @@ index 01a6a68..13f2648 100644
 From 3d7d013580e91867a5ec537d24db8323ea4c3fa0 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 14:42:16 +0000
-Subject: [PATCH 12/33] test(worker): refunds reverse loyalty before referral
+Subject: [PATCH 12/34] test(worker): refunds reverse loyalty before referral
 
 ---
  apps/api/tests/service/test_worker_runner_db.py | 2 +-
@@ -2843,7 +2843,7 @@ index ae12e89..af12146 100644
 From 34e51683ea1a0f2d5c9c18a528a48964c9f1ce77 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 14:59:48 +0000
-Subject: [PATCH 13/33] arch(worker): one read cycle per panel: metrics
+Subject: [PATCH 13/34] arch(worker): one read cycle per panel: metrics
  snapshot rides on the health job adapter
 
 ---
@@ -2923,7 +2923,7 @@ index 13f2648..3390dbd 100644
 From 3338242826ea3df9a23a08a2da87601ed7a78ed6 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 15:20:11 +0000
-Subject: [PATCH 14/33] arch(vpn): account status changes go through the
+Subject: [PATCH 14/34] arch(vpn): account status changes go through the
  guarded transition table
 
 ---
@@ -3078,7 +3078,7 @@ index 3390dbd..1fa7cd4 100644
 From 7a4e0bf6c3ddd2d04e5993cc0e818273990efe85 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 15:33:23 +0000
-Subject: [PATCH 15/33] arch(messaging): notifications dedupe on event_id +
+Subject: [PATCH 15/34] arch(messaging): notifications dedupe on event_id +
  recipient + channel
 
 ---
@@ -3200,7 +3200,7 @@ index 1fa7cd4..9e68bb5 100644
 From aae44f6b1397699b701c15ee04d519609193659b Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 16:18:20 +0000
-Subject: [PATCH 16/33] arch: guard expiry/revoke/sync status writes; panel
+Subject: [PATCH 16/34] arch: guard expiry/revoke/sync status writes; panel
  card deep-links to panel operations
 
 ---
@@ -3324,7 +3324,7 @@ index 9e68bb5..7218ea0 100644
 From 35b241cc55ca4386a7037d8a7a3a062ba268bd63 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 16:50:44 +0000
-Subject: [PATCH 17/33] arch(telegram): shared bot core in tgmain.core;
+Subject: [PATCH 17/34] arch(telegram): shared bot core in tgmain.core;
  reseller bot imports it instead of loading main runner.py by path; reseller
  image copies tgmain only
 
@@ -4242,7 +4242,7 @@ index cb2b24a..5e7709b 100644
 From bed9db5b27ebee848c22126ec449af3077f48c34 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 16:50:44 +0000
-Subject: [PATCH 18/33] chore(domain): drop 5-line leftovers (vpn/bundles,
+Subject: [PATCH 18/34] chore(domain): drop 5-line leftovers (vpn/bundles,
  vpn/service, domain/referral); commission_amount lives with commission,
  clean_custom_name in domain/account_name
 
@@ -4343,7 +4343,7 @@ index 0f1ad9b..9216cdf 100644
 From 81b5dd64815592a79fd09d829427b9ea83acbd83 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 16:59:01 +0000
-Subject: [PATCH 19/33] feat(admin): Operations Center roll-up on
+Subject: [PATCH 19/34] feat(admin): Operations Center roll-up on
  /admin/dashboard + dashboard card; restore vpn/service.py; guard provisioning
  status write; drop dead DataTable branches; contract test follows
  tgmain.core; decisions
@@ -4773,7 +4773,7 @@ index 7218ea0..45e9108 100644
 From a42c4b5125ec4735d242e8c52db443ceec7eebcd Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 17:03:53 +0000
-Subject: [PATCH 20/33] test: source-contract tests read tgmain/core.py
+Subject: [PATCH 20/34] test: source-contract tests read tgmain/core.py
 
 ---
  apps/api/tests/service/test_account_return.py              | 2 +-
@@ -4813,7 +4813,7 @@ index 9b5bf8b..65018af 100644
 From f820a98089d4df8cb591ebcb8809ed36844af73f Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 17:26:04 +0000
-Subject: [PATCH 21/33] feat(admin-ui): panel detail drawer: nodes, console,
+Subject: [PATCH 21/34] feat(admin-ui): panel detail drawer: nodes, console,
  events, capacity, templates and indicators are tabs of the panel; panel-ops
  keeps discrepancies, orphans and notices
 
@@ -5275,7 +5275,7 @@ index 45e9108..dd84015 100644
 From 802aa443b74f0e51fac783fb0265773f7b1734f8 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 20:40:47 +0000
-Subject: [PATCH 22/33] arch(integrations): provider adapters, sessions,
+Subject: [PATCH 22/34] arch(integrations): provider adapters, sessions,
  readers, capabilities and target config move from vpn to
  modules/panel_integrations (lowest feature layer); shared Event Center logic
  and text helpers move to web-kit
@@ -8112,7 +8112,7 @@ index 1423897..7dc57d3 100644
 From 4396daa9c77daadf056227597cd4f0618718a1d2 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 20:40:56 +0000
-Subject: [PATCH 23/33] docs: record integration boundary and shared web-kit
+Subject: [PATCH 23/34] docs: record integration boundary and shared web-kit
  decisions
 
 ---
@@ -8137,7 +8137,7 @@ index 82095f7..392f75c 100644
 From e20603006d61038349bba97489e394bb7429f8e2 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 21:21:54 +0000
-Subject: [PATCH 24/33] arch: PanelSnapshot read model, messaging policy,
+Subject: [PATCH 24/34] arch: PanelSnapshot read model, messaging policy,
  status-write contract test, shared Bank SMS rules in web-kit
 
 ---
@@ -8726,7 +8726,7 @@ index 0000000..d97d251
 From 4cbea13a57d038502850d3cd383be13431f9cb98 Mon Sep 17 00:00:00 2001
 From: Pori Toooni <poritoooni@gmail.com>
 Date: Fri, 13 Nov 2026 22:08:29 +0000
-Subject: [PATCH 25/33] arch(messaging): DM delivery honours
+Subject: [PATCH 25/34] arch(messaging): DM delivery honours
  messaging_policy.dm_allowed; decisions updated
 
 ---
@@ -8802,7 +8802,7 @@ index 54fd61b..e6a938e 100644
 From cbdfc1fb50f2474e3b531263ee626df651967279 Mon Sep 17 00:00:00 2001
 From: Pori Toooni <poritoooni@gmail.com>
 Date: Sat, 14 Nov 2026 06:03:59 +0000
-Subject: [PATCH 26/33] feat(web-kit): shared broadcast composer hook used by
+Subject: [PATCH 26/34] feat(web-kit): shared broadcast composer hook used by
  admin-web and store-web; decisions updated
 
 ---
@@ -9130,7 +9130,7 @@ index 0000000..454f752
 From 9168a7d321bfb75a24bcce2a9ff218ae98dd40a2 Mon Sep 17 00:00:00 2001
 From: Pori Toooni <poritoooni@gmail.com>
 Date: Sat, 14 Nov 2026 06:09:48 +0000
-Subject: [PATCH 27/33] feat(web-kit): shared referral plan form used by
+Subject: [PATCH 27/34] feat(web-kit): shared referral plan form used by
  admin-web and store-web; decisions updated
 
 ---
@@ -9395,7 +9395,7 @@ index 0000000..be1623c
 From 5c1964b6bd3252607196a5b33ca76cb825ab83da Mon Sep 17 00:00:00 2001
 From: Pori Toooni <poritoooni@gmail.com>
 Date: Sat, 14 Nov 2026 06:19:41 +0000
-Subject: [PATCH 28/33] feat(web-kit): shared loyalty club data layer used by
+Subject: [PATCH 28/34] feat(web-kit): shared loyalty club data layer used by
  admin-web and store-web; decisions updated
 
 ---
@@ -9637,7 +9637,7 @@ index 0000000..fec4cee
 From 14df2cdcbac02fcfabbcd78875f62b7f7fb0bb5b Mon Sep 17 00:00:00 2001
 From: Pori Toooni <poritoooni@gmail.com>
 Date: Sat, 14 Nov 2026 06:23:29 +0000
-Subject: [PATCH 29/33] feat(web-kit): shared design tokens (identical values
+Subject: [PATCH 29/34] feat(web-kit): shared design tokens (identical values
  only); decisions updated
 
 ---
@@ -9850,7 +9850,7 @@ index 0000000..f9858bb
 From 014b89fbe159cda8a04cf31807000b5b46be519b Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@users.noreply.github.com>
 Date: Sat, 14 Nov 2026 06:52:08 +0000
-Subject: [PATCH 30/33] arch: admin sync is event-driven with 15-min fallback;
+Subject: [PATCH 30/34] arch: admin sync is event-driven with 15-min fallback;
  rename admin team / panel operator labels; decisions
 
 ---
@@ -10104,7 +10104,7 @@ index 0761ec1..51a479e 100644
 From 413e2eae568257f6aebc675412cd552b53750289 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@users.noreply.github.com>
 Date: Sat, 14 Nov 2026 07:35:19 +0000
-Subject: [PATCH 31/33] docs: regenerate STATUS/API (head 0056, 413
+Subject: [PATCH 31/34] docs: regenerate STATUS/API (head 0056, 413
  operations); decisions: state machine writers complete
 
 ---
@@ -10183,7 +10183,7 @@ index 1367bca..1d9129e 100644
 From 983636616db750d9b16dd11d2512aa0f2427ce98 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@users.noreply.github.com>
 Date: Sat, 14 Nov 2026 07:48:17 +0000
-Subject: [PATCH 32/33] feat(web-kit): shared PasswordInput and base types;
+Subject: [PATCH 32/34] feat(web-kit): shared PasswordInput and base types;
  feat(admin-ui): per-store notice levels are a Store Hub tab; decisions
 
 ---
@@ -10778,7 +10778,7 @@ index 0000000..79ceddc
 From 1cde428f3ba9f8c2d2fc09eb52c279ccb1bdf608 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@users.noreply.github.com>
 Date: Sat, 14 Nov 2026 07:58:25 +0000
-Subject: [PATCH 33/33] feat(admin-ui): store hub gains read-only prices and
+Subject: [PATCH 33/34] feat(admin-ui): store hub gains read-only prices and
  API tabs; reseller editor is the profile tab; decisions
 
 ---
@@ -11087,6 +11087,135 @@ index eea5b94..0a636de 100644
 -- Still open (needs product input or a browser): merging the two palettes (would restyle both apps), and the store profile/pricing/API tabs of the hub, which still live in the reseller drawer.
 +- Store Hub now has seven tabs: stores, reseller profile and bot (the former «نمایندگان» editor), panel access, volume, prices, API, notices. Prices is READ-ONLY (`GET /admin/stores/{id}/reseller-prices`, area catalog): only the reseller sets retail prices. API is the per-store switch (`PUT /admin/reseller-stores/{id}/api`, area resellers); both endpoints had no UI before.
 +- Still open (needs product input): merging the two palettes (would restyle both apps).
+-- 
+2.43.0
+
+
+From 5e3ffdb47f99f80551b4710bbd4d75b464aa7bd8 Mon Sep 17 00:00:00 2001
+From: archerhabibi <archerhabibi@users.noreply.github.com>
+Date: Sat, 14 Nov 2026 08:13:54 +0000
+Subject: [PATCH 34/34] test(e2e): store hub tabs and menu-route smoke in a
+ real browser
+
+---
+ docs/DECISIONS.md                |  1 +
+ e2e/tests/admin.storehub.spec.js | 98 ++++++++++++++++++++++++++++++++
+ 2 files changed, 99 insertions(+)
+ create mode 100644 e2e/tests/admin.storehub.spec.js
+
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index 0a636de..177bfe4 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -134,3 +134,4 @@ _Merged from the former 12-Change-Log-v1.1.md._
+ - `@melorin/web-kit` now also holds `PasswordInput` (inline SVG icons, no icon dependency) and the base types (`Rec`, `Json`, `CallFn`, `WithChildren`, `Toast`, `Id`); both apps' `ui.tsx`/`types.ts` re-export them. `@melorin/api-client` is already used by both apps (`getJson`, `publicGet`).
+ - Store Hub now has seven tabs: stores, reseller profile and bot (the former «نمایندگان» editor), panel access, volume, prices, API, notices. Prices is READ-ONLY (`GET /admin/stores/{id}/reseller-prices`, area catalog): only the reseller sets retail prices. API is the per-store switch (`PUT /admin/reseller-stores/{id}/api`, area resellers); both endpoints had no UI before.
+ - Still open (needs product input): merging the two palettes (would restyle both apps).
++- Browser check: `e2e/tests/admin.storehub.spec.js` (Playwright, Core mocked) opens the Store Hub tabs, flips the API switch, follows the old notices bookmark and visits every admin menu route looking for uncaught page errors. Real-browser evidence for the mocked API only; the full stack is still unrun here.
+diff --git a/e2e/tests/admin.storehub.spec.js b/e2e/tests/admin.storehub.spec.js
+new file mode 100644
+index 0000000..9b5f3fc
+--- /dev/null
++++ b/e2e/tests/admin.storehub.spec.js
+@@ -0,0 +1,98 @@
++import { expect, test } from '@playwright/test';
++import { failOnPageErrors, mockCore } from './helpers.js';
++
++const PERMS = [
++  'overview:rw',
++  'resellers:rw',
++  'catalog:rw',
++  'infrastructure:rw',
++  'payments:rw',
++  'customers:rw',
++  'system:rw',
++  'self:rw',
++];
++const reseller = {
++  id: 's9',
++  name: 'Acme Store',
++  slug: 'acme',
++  status: 'active',
++  api_enabled: false,
++  bot: { state: 'no_token' },
++  owner: null,
++  customers: 0,
++  currency: 'IRT',
++};
++
++async function openHub(page, tab) {
++  const seen = await mockCore(page, {
++    'POST /api/v1/auth/refresh': { body: { access_token: 'test-token' } },
++    'GET /api/v1/admin/me': { body: { permissions: PERMS, role: 'owner' } },
++    'GET /api/v1/admin/stores': [{ id: 's0', name: 'Main', slug: 'main', kind: 'main', status: 'active' }],
++    'GET /api/v1/admin/resellers': [reseller],
++    'GET /api/v1/admin/stores/s9/reseller-prices': [
++      {
++        product_id: 'p1',
++        name: 'Monthly VPN',
++        currency: 'IRT',
++        customer_price: 90000,
++        cost_floor: 70000,
++        state: 'ok',
++        bundles: [],
++      },
++    ],
++    'PUT /api/v1/admin/reseller-stores/s9/api': { body: { store_id: 's9', api_enabled: true } },
++  });
++  await page.goto(`/#/stores${tab ? `?tab=${tab}` : ''}`);
++  return seen;
++}
++
++test('store hub shows all seven tabs and deep links to a tab', async ({ page }) => {
++  const assertNoErrors = failOnPageErrors(page);
++  await openHub(page, 'prices');
++  const group = page.getByRole('radiogroup', { name: 'بخش فروشگاه' });
++  await expect(group).toBeVisible();
++  await expect(group.getByRole('radio')).toHaveCount(7);
++  await expect(group.getByRole('radio', { name: 'قیمت‌ها' })).toHaveAttribute('aria-checked', 'true');
++  assertNoErrors();
++});
++
++test('prices tab is read-only and lists a reseller price table', async ({ page }) => {
++  await openHub(page, 'prices');
++  await page.getByLabel('فروشگاه نماینده').selectOption('s9');
++  await expect(page.getByText('Monthly VPN')).toBeVisible();
++  await expect(page.locator('main input, main textarea')).toHaveCount(0);
++});
++
++test('API tab flips the switch with a PUT', async ({ page }) => {
++  const seen = await openHub(page, 'api');
++  await page.getByRole('switch', { name: /Acme Store/ }).click();
++  await expect.poll(() => seen.some((k) => k.startsWith('PUT /api/v1/admin/reseller-stores/s9/api'))).toBe(true);
++});
++
++test('old panel-ops notices bookmark lands on the notices tab', async ({ page }) => {
++  await openHub(page, '');
++  await page.goto('about:blank');
++  await page.goto('/#/panel-ops?tab=notices');
++  await expect(page).toHaveURL(/#\/stores\?tab=notices/);
++  await expect(page.getByRole('radio', { name: 'اعلان‌ها' })).toHaveAttribute('aria-checked', 'true', {
++    timeout: 15000,
++  });
++});
++
++const ROUTES =
++  'admin-team audit broadcasts bulk-operations bundles button-styles coupons event-center home identity infra-health loyalty-club manual-tasks my-account orders panel-ops panels payments products referral-programs reports reseller-applications settings stores tickets users vpn'.split(
++    ' ',
++  );
++
++test('every admin menu route renders without a page error or a blank screen', async ({ page }) => {
++  const errors = [];
++  // unmocked endpoints answer 404; views that reject with just the status are mock noise, anything else is a real error
++  page.on('pageerror', (e) => !/^(Error: )?\d{3}$|: \d{3}$/.test(e.message) && errors.push(e.message));
++  await openHub(page, '');
++  for (const slug of ROUTES) {
++    await page.goto(`/#/${slug === 'home' ? '' : slug}`);
++    await page.waitForTimeout(250);
++    await expect(page.locator('main')).not.toBeEmpty();
++  }
++  expect(errors, errors.join('\n')).toEqual([]);
++});
 -- 
 2.43.0
 

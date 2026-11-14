@@ -8451,7 +8451,7 @@ index 7a61d36..31567cc 100644
  | GET | `/api/v1/admin/payments/{payment_id}/receipt` | Payment Receipt |
  | GET | `/api/v1/admin/payments/{payment_id}/receipt-duplicates` | Payment Receipt Duplicates |
 diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
-index 1be7e54..0a636de 100644
+index 1be7e54..177bfe4 100644
 --- a/docs/DECISIONS.md
 +++ b/docs/DECISIONS.md
 @@ -51,7 +51,7 @@ _Merged from the former 12-Change-Log-v1.1.md._
@@ -8463,7 +8463,7 @@ index 1be7e54..0a636de 100644
  - Adapter classes and each family's `contract.py` (settings/target validation, capacity label, listing warnings) are imported lazily; `upstream_bot` therefore needs Telethon only when a call is made.
  - Core code asks `providers.supports(kind, feature)` / `target_kinds(kind)` instead of comparing `panel.kind` with a string. A new family is one `register_provider(...)` call.
  - Guarded by `tests/test_provider_adapters.py` (no concrete family is imported outside the adapter layer, except the PasarGuard wire parsers listed in the test).
-@@ -94,3 +94,43 @@ _Merged from the former 12-Change-Log-v1.1.md._
+@@ -94,3 +94,44 @@ _Merged from the former 12-Change-Log-v1.1.md._
  - Honest limit: component props and server payloads that are not yet bound to generated `@melorin/api-client` schemas are typed `Json` / `Rec` (aliases in `src/types.ts`, same markers as admin-web). They are greppable; tighten one view per PR. This is a typed shell, not full type safety.
  - Verified in a real browser, not only jsdom: Playwright 10 passed / 2 skipped (the skipped two need a seeded staging stack), vitest 79, `vite build` OK (main bundle ~272 KB, gzip ~85 KB).
  - Source-contract guards (api tests, `check_g001_g010.py`, `check_frontend_contracts.py`) were repointed from `.jsx`/`.js` to `.tsx`/`.ts` for BOTH apps; the earlier admin-web migration had left 16 contract tests red because they still read the old names.
@@ -8507,6 +8507,7 @@ index 1be7e54..0a636de 100644
 +- `@melorin/web-kit` now also holds `PasswordInput` (inline SVG icons, no icon dependency) and the base types (`Rec`, `Json`, `CallFn`, `WithChildren`, `Toast`, `Id`); both apps' `ui.tsx`/`types.ts` re-export them. `@melorin/api-client` is already used by both apps (`getJson`, `publicGet`).
 +- Store Hub now has seven tabs: stores, reseller profile and bot (the former «نمایندگان» editor), panel access, volume, prices, API, notices. Prices is READ-ONLY (`GET /admin/stores/{id}/reseller-prices`, area catalog): only the reseller sets retail prices. API is the per-store switch (`PUT /admin/reseller-stores/{id}/api`, area resellers); both endpoints had no UI before.
 +- Still open (needs product input): merging the two palettes (would restyle both apps).
++- Browser check: `e2e/tests/admin.storehub.spec.js` (Playwright, Core mocked) opens the Store Hub tabs, flips the API switch, follows the old notices bookmark and visits every admin menu route looking for uncaught page errors. Real-browser evidence for the mocked API only; the full stack is still unrun here.
 diff --git a/docs/GLOSSARY.md b/docs/GLOSSARY.md
 index 05da7ef..c2d8a21 100644
 --- a/docs/GLOSSARY.md
@@ -8555,6 +8556,110 @@ index 1367bca..1d9129e 100644
  | Coverage | not measured here (CI writes `apps/api/coverage.xml`; run `pytest --cov=melorin --cov-report=xml`) |
  | Documents: repo root / `docs/` / `docs/history/` (tests only) | 3 / 41 / 4 |
  
+diff --git a/e2e/tests/admin.storehub.spec.js b/e2e/tests/admin.storehub.spec.js
+new file mode 100644
+index 0000000..9b5f3fc
+--- /dev/null
++++ b/e2e/tests/admin.storehub.spec.js
+@@ -0,0 +1,98 @@
++import { expect, test } from '@playwright/test';
++import { failOnPageErrors, mockCore } from './helpers.js';
++
++const PERMS = [
++  'overview:rw',
++  'resellers:rw',
++  'catalog:rw',
++  'infrastructure:rw',
++  'payments:rw',
++  'customers:rw',
++  'system:rw',
++  'self:rw',
++];
++const reseller = {
++  id: 's9',
++  name: 'Acme Store',
++  slug: 'acme',
++  status: 'active',
++  api_enabled: false,
++  bot: { state: 'no_token' },
++  owner: null,
++  customers: 0,
++  currency: 'IRT',
++};
++
++async function openHub(page, tab) {
++  const seen = await mockCore(page, {
++    'POST /api/v1/auth/refresh': { body: { access_token: 'test-token' } },
++    'GET /api/v1/admin/me': { body: { permissions: PERMS, role: 'owner' } },
++    'GET /api/v1/admin/stores': [{ id: 's0', name: 'Main', slug: 'main', kind: 'main', status: 'active' }],
++    'GET /api/v1/admin/resellers': [reseller],
++    'GET /api/v1/admin/stores/s9/reseller-prices': [
++      {
++        product_id: 'p1',
++        name: 'Monthly VPN',
++        currency: 'IRT',
++        customer_price: 90000,
++        cost_floor: 70000,
++        state: 'ok',
++        bundles: [],
++      },
++    ],
++    'PUT /api/v1/admin/reseller-stores/s9/api': { body: { store_id: 's9', api_enabled: true } },
++  });
++  await page.goto(`/#/stores${tab ? `?tab=${tab}` : ''}`);
++  return seen;
++}
++
++test('store hub shows all seven tabs and deep links to a tab', async ({ page }) => {
++  const assertNoErrors = failOnPageErrors(page);
++  await openHub(page, 'prices');
++  const group = page.getByRole('radiogroup', { name: 'بخش فروشگاه' });
++  await expect(group).toBeVisible();
++  await expect(group.getByRole('radio')).toHaveCount(7);
++  await expect(group.getByRole('radio', { name: 'قیمت‌ها' })).toHaveAttribute('aria-checked', 'true');
++  assertNoErrors();
++});
++
++test('prices tab is read-only and lists a reseller price table', async ({ page }) => {
++  await openHub(page, 'prices');
++  await page.getByLabel('فروشگاه نماینده').selectOption('s9');
++  await expect(page.getByText('Monthly VPN')).toBeVisible();
++  await expect(page.locator('main input, main textarea')).toHaveCount(0);
++});
++
++test('API tab flips the switch with a PUT', async ({ page }) => {
++  const seen = await openHub(page, 'api');
++  await page.getByRole('switch', { name: /Acme Store/ }).click();
++  await expect.poll(() => seen.some((k) => k.startsWith('PUT /api/v1/admin/reseller-stores/s9/api'))).toBe(true);
++});
++
++test('old panel-ops notices bookmark lands on the notices tab', async ({ page }) => {
++  await openHub(page, '');
++  await page.goto('about:blank');
++  await page.goto('/#/panel-ops?tab=notices');
++  await expect(page).toHaveURL(/#\/stores\?tab=notices/);
++  await expect(page.getByRole('radio', { name: 'اعلان‌ها' })).toHaveAttribute('aria-checked', 'true', {
++    timeout: 15000,
++  });
++});
++
++const ROUTES =
++  'admin-team audit broadcasts bulk-operations bundles button-styles coupons event-center home identity infra-health loyalty-club manual-tasks my-account orders panel-ops panels payments products referral-programs reports reseller-applications settings stores tickets users vpn'.split(
++    ' ',
++  );
++
++test('every admin menu route renders without a page error or a blank screen', async ({ page }) => {
++  const errors = [];
++  // unmocked endpoints answer 404; views that reject with just the status are mock noise, anything else is a real error
++  page.on('pageerror', (e) => !/^(Error: )?\d{3}$|: \d{3}$/.test(e.message) && errors.push(e.message));
++  await openHub(page, '');
++  for (const slug of ROUTES) {
++    await page.goto(`/#/${slug === 'home' ? '' : slug}`);
++    await page.waitForTimeout(250);
++    await expect(page.locator('main')).not.toBeEmpty();
++  }
++  expect(errors, errors.join('\n')).toEqual([]);
++});
 diff --git a/packages/web-kit/package.json b/packages/web-kit/package.json
 index bec8049..beca5cc 100644
 --- a/packages/web-kit/package.json
