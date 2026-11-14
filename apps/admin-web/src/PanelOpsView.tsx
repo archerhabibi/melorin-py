@@ -2,7 +2,7 @@
 // and the connection's access review (PG-05). Everything comes from the Core API; every write is an explicit, audited admin action.
 import { useCallback, useEffect, useState } from 'react';
 import { Activity, AlertTriangle, CheckCircle, Loader, RefreshCw, ShieldAlert } from 'lucide-react';
-import { authFetch } from './api.ts';
+import { authFetch, typedClient } from './api.ts';
 import { confirmDialog, promptDialog } from './ui.tsx';
 import type { CallFn, Json, Rec, Toast } from './types.ts';
 
@@ -129,11 +129,16 @@ export default function PanelOpsView({ api, toast }: { api?: Json; toast: Toast 
     }
     setBusy(`${issue.id}:${action}`);
     try {
-      const r = await call(`/api/v1/admin/reconciliation/issues/${issue.id}/action`, {
-        method: 'POST',
-        body: JSON.stringify({ action, reason }),
-      });
-      if (!r.ok) throw new Error((await r.json().catch(() => ({})))?.error?.message || String(r.status));
+      // typed api-client: the action and its body are checked against the schema; the client already consumed the body, so the message comes from `error`
+      const { response: r, error } = await typedClient(api.base).post(
+        '/api/v1/admin/reconciliation/issues/{issue_id}/action',
+        {
+          params: { path: { issue_id: issue.id } },
+          body: { action, reason },
+        },
+      );
+      if (!r.ok)
+        throw new Error((error as { error?: { message?: string } } | undefined)?.error?.message || String(r.status));
       toast('انجام شد');
       await load();
     } catch (e: Json) {
@@ -146,9 +151,11 @@ export default function PanelOpsView({ api, toast }: { api?: Json; toast: Toast 
     if (!panelId) return;
     setBusy('reconcile');
     try {
-      const r = await call(`/api/v1/admin/panels/${panelId}/reconcile`, { method: 'POST' });
+      const { response: r, data } = await typedClient(api.base).post('/api/v1/admin/panels/{panel_id}/reconcile', {
+        params: { path: { panel_id: panelId } },
+      });
       if (!r.ok) throw new Error(String(r.status));
-      const d = await r.json();
+      const d = (data ?? {}) as { unreachable?: boolean; checked?: number; orphans?: number };
       toast(d.unreachable ? 'پنل در دسترس نبود' : `${d.checked} اکانت بررسی شد، ${d.orphans} کاربر ناشناس`);
       await load();
     } catch {
@@ -160,9 +167,9 @@ export default function PanelOpsView({ api, toast }: { api?: Json; toast: Toast 
   const ignoreOrphan = async (o: Json) => {
     const note = await promptDialog('توضیح (اختیاری): این کاربر چرا مشکلی ندارد؟', { title: 'نادیده گرفتن کاربر پنل' });
     if (note === null) return;
-    const r = await call(`/api/v1/admin/panel-orphans/${o.id}/ignore`, {
-      method: 'POST',
-      body: JSON.stringify({ note }),
+    const { response: r } = await typedClient(api.base).post('/api/v1/admin/panel-orphans/{orphan_id}/ignore', {
+      params: { path: { orphan_id: o.id } },
+      body: { note },
     });
     toast(r.ok ? 'از فهرست حذف شد (روی پنل دست نخورد)' : 'ناموفق بود');
     if (r.ok) await load();
