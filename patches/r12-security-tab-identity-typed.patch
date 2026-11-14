@@ -641,6 +641,19 @@ index 0000000..e4bd9fe
 +    expect(window.location.hash).toBe('#/settings?tab=security');
 +  });
 +});
+diff --git a/apps/api/tests/contracts/test_server_admin_ui_contract.py b/apps/api/tests/contracts/test_server_admin_ui_contract.py
+index 8d4030d..dcaaffb 100644
+--- a/apps/api/tests/contracts/test_server_admin_ui_contract.py
++++ b/apps/api/tests/contracts/test_server_admin_ui_contract.py
+@@ -34,7 +34,7 @@ def test_servers_live_inside_their_panel_screen():
+     app = _ui("adminNav.ts")  # menu groups live in adminNav.ts since the App.tsx split
+     assert '["پنل‌ها و سرورها", PanelTop, "panels"]' in app and '"servers"' not in app
+     # menu regroup: the panel screen leads the infrastructure group; bundles and products are catalog entries next to marketing
+-    infra_group = app[app.index('"زیرساخت"') : app.index('"سیستم"')]
++    infra_group = app[app.index('"زیرساخت"') : app.index('"سیستم و امنیت"')]
+     assert '"panels"' in infra_group and '"bundles"' not in infra_group
+     catalog_group = app[app.index('"کاتالوگ و بازاریابی"') : app.index('"ارتباطات"')]
+     assert catalog_group.index('"bundles"') < catalog_group.index('"products"')
 diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
 index 9ea24db..3c8d7f9 100644
 --- a/docs/DECISIONS.md

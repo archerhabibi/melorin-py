@@ -1,10 +1,10 @@
 From c45a191646ec4eb39687dd644b1fa3cd5713c29b Mon Sep 17 00:00:00 2001
 From: Melorin Dev <dev@melorin.local>
 Date: Sat, 14 Nov 2026 20:15:53 +0000
-Subject: [PATCH] =?UTF-8?q?refactor(admin-ui):=20security=20tab=20for=20ad?=
- =?UTF-8?q?min=20IP=20allowlist,=20group=20=C2=AB=D8=B3=DB=8C=D8=B3=D8=AA?=
- =?UTF-8?q?=D9=85=20=D9=88=20=D8=A7=D9=85=D9=86=DB=8C=D8=AA=C2=BB,=20ident?=
- =?UTF-8?q?ity=20devices=20on=20the=20typed=20api-client=20(r12)?=
+Subject: [PATCH 1/2] =?UTF-8?q?refactor(admin-ui):=20security=20tab=20for?=
+ =?UTF-8?q?=20admin=20IP=20allowlist,=20group=20=C2=AB=D8=B3=DB=8C=D8=B3?=
+ =?UTF-8?q?=D8=AA=D9=85=20=D9=88=20=D8=A7=D9=85=D9=86=DB=8C=D8=AA=C2=BB,?=
+ =?UTF-8?q?=20identity=20devices=20on=20the=20typed=20api-client=20(r12)?=
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -671,6 +671,37 @@ index 9ea24db..3c8d7f9 100644
  - r10 verification (2026-11-14, Python 3.12, locked requirements): full API suite 2720 passed, 11 skipped (9 min); `lint-imports` 8/8 kept.
  - r11 (phase 3, ninth step, 2026-11-14): Payments review (approve/reject) and refund are typed `client.post` calls with one literal path each. The receipt image stays on `authFetch` (binary body). The slow `panels-upstream-bot` creation test got a 20 s timeout: it timed out at the 5 s default when the box was loaded, unrelated to the code. Remaining on `authFetch`: receipt review/OCR/duplicate-policy/bank-SMS panels, Settings, products, bundles, tickets, reports and other views.
 +- r12 (phase 1 + 3, 2026-11-14): (a) Settings gets its own owner-only tab «امنیت دسترسی ادمین» (`#/settings?tab=security`) for the admin IP allowlist: it is a security policy, not an integration, so the first tab is now only SMTP/backup. Same server area (`system`), same endpoint; only the UI placement moved. (b) The last nav group is renamed «سیستم و امنیت» (labels only, section keys and permission areas unchanged). (c) Identity hub: trusted-device summary and the revoke / revoke-account actions use the typed client (literal path per action); list reads stay on `useRows`. Remaining on `authFetch`: see `grep authFetch apps/admin-web/src`.
+-- 
+2.43.0
+
+
+From 87d15b5a965ef8c49c83f8039aaeb928a37ce8d4 Mon Sep 17 00:00:00 2001
+From: Melorin Dev <dev@melorin.local>
+Date: Sat, 14 Nov 2026 20:25:45 +0000
+Subject: [PATCH 2/2] =?UTF-8?q?test(contracts):=20nav=20group=20is=20now?=
+ =?UTF-8?q?=20=C2=AB=D8=B3=DB=8C=D8=B3=D8=AA=D9=85=20=D9=88=20=D8=A7=D9=85?=
+ =?UTF-8?q?=D9=86=DB=8C=D8=AA=C2=BB=20(r12)?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ apps/api/tests/contracts/test_server_admin_ui_contract.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/apps/api/tests/contracts/test_server_admin_ui_contract.py b/apps/api/tests/contracts/test_server_admin_ui_contract.py
+index 8d4030d..dcaaffb 100644
+--- a/apps/api/tests/contracts/test_server_admin_ui_contract.py
++++ b/apps/api/tests/contracts/test_server_admin_ui_contract.py
+@@ -34,7 +34,7 @@ def test_servers_live_inside_their_panel_screen():
+     app = _ui("adminNav.ts")  # menu groups live in adminNav.ts since the App.tsx split
+     assert '["پنل‌ها و سرورها", PanelTop, "panels"]' in app and '"servers"' not in app
+     # menu regroup: the panel screen leads the infrastructure group; bundles and products are catalog entries next to marketing
+-    infra_group = app[app.index('"زیرساخت"') : app.index('"سیستم"')]
++    infra_group = app[app.index('"زیرساخت"') : app.index('"سیستم و امنیت"')]
+     assert '"panels"' in infra_group and '"bundles"' not in infra_group
+     catalog_group = app[app.index('"کاتالوگ و بازاریابی"') : app.index('"ارتباطات"')]
+     assert catalog_group.index('"bundles"') < catalog_group.index('"products"')
 -- 
 2.43.0
 
