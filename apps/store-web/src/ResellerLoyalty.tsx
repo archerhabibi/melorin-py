@@ -1,9 +1,10 @@
 import type { Rec } from './types';
 // Reseller panel › Loyalty club. The reseller runs the club of HIS store only: earning rule, tier ladder, rewards, and manual
 // point adjustments. Core validates everything and the store id is in the URL, so nothing here can touch another store.
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Award, Plus, Save, Trash2 } from 'lucide-react';
 import { Empty, Loading, fa } from './ui.tsx';
+import { useLoyaltyClub, tiersOf } from '@melorin/web-kit/loyaltyClub.js';
 import { toInt, unitOf } from './storeProgram.ts';
 import { multiplierLabel } from './loyaltyFormat.ts';
 import type { Json } from './types';
@@ -400,35 +401,13 @@ export default function ResellerLoyalty({
   notify?: Json;
   currency?: Json;
 }) {
-  const [prog, setProg] = useState<Json>(null);
-  const [rewards, setRewards] = useState<Json>(null);
-  const [sum, setSum] = useState<Json>(null);
-  const [failed, setFailed] = useState(false);
-  const [rev, setRev] = useState(0);
   const url = `/api/v1/stores/${storeId}/loyalty/manage`;
   const base = { coreFetch, url };
-  const load = useCallback(async () => {
-    try {
-      const [a, b, c] = await Promise.all([
-        coreFetch(`${url}/program`),
-        coreFetch(`${url}/rewards`),
-        coreFetch(`${url}/summary`),
-      ]);
-      if (!a.ok || !b.ok || !c.ok) throw new Error('load');
-      setProg(await a.json());
-      setRewards(await b.json());
-      setSum(await c.json());
-      setRev((n) => n + 1);
-    } catch {
-      setFailed(true);
-    }
-  }, [coreFetch, url]);
-  useEffect(() => {
-    load();
-  }, [load]);
+  const { data, failed, rev, load } = useLoyaltyClub({ call: coreFetch, url, notify });
   if (failed) return <Empty text="مدیریت باشگاه در دسترس نیست." />;
-  if (!prog || !rewards || !sum) return <Loading rows={3} />;
-  const tiers = prog.tiers.length ? prog.tiers : prog.default_tiers.map((t: Json) => ({ ...t }));
+  if (!data) return <Loading rows={3} />;
+  const { prog, rewards, sum } = data;
+  const tiers = tiersOf(prog);
   return (
     <div className="space-y-4">
       <div className="card">

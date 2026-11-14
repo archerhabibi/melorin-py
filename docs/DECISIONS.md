@@ -126,4 +126,5 @@ _Merged from the former 12-Change-Log-v1.1.md._
 - VPN notices already reach customers only through `_notify` (policy-gated). Event Center keeps its own topic routing (`ADMIN_ONLY_TOPICS`, `ADMIN_COPY_TOPICS`): it never talks to customers, so `messaging_policy.allowed` adds nothing there.
 - Broadcast composer logic (draft, confirm, POST, error text, delivery polling) lives in `@melorin/web-kit/broadcast.js`; both apps keep their own markup.
 - Referral plan form (parsing, validation, save flow, `unitOf/toInt/percentToBp`) lives in `@melorin/web-kit/referralPlan.js`; `store-web/storeProgram.ts` re-exports the parsers.
-- Still open: move Loyalty logic onto web-kit hooks, and a shared design-token CSS package (admin and store skins still differ).
+- Loyalty club data layer (load program/rewards/summary, revision counter, write helper, default-tier fallback) lives in `@melorin/web-kit/loyaltyClub.js`; the per-card edit forms stay in each app.
+- Still open: a shared design-token CSS package (admin skin uses hex variables, store skin uses RGB triplets; unifying changes both looks).

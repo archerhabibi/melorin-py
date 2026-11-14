@@ -15,6 +15,7 @@
     "./eventCenter.js": "./src/eventCenter.js",
     "./bankSms.js": "./src/bankSms.js",
     "./broadcast.js": "./src/broadcast.js",
-    "./referralPlan.js": "./src/referralPlan.js"
+    "./referralPlan.js": "./src/referralPlan.js",
+    "./loyaltyClub.js": "./src/loyaltyClub.js"
   }
 }
