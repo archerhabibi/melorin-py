@@ -88,6 +88,7 @@ export function legacyHash(hash: Json) {
   };
   if (hubTab[path]) return `#/stores?tab=${hubTab[path]}`;
   if (path === '#/panel-ops' && new URLSearchParams(q).get('tab') === 'notices') return '#/stores?tab=notices'; // per-store setting
+  if (path === '#/manual-tasks') return '#/reseller-applications?tab=tasks'; // manual tasks became a tab of the reseller onboarding desk
   if (path !== '#/servers') return null;
   const p = Object.fromEntries(new URLSearchParams(q));
   return infraHref('servers', p);

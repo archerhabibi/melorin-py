@@ -49,19 +49,14 @@ export function Nav({
                     {openTickets}
                   </span>
                 )}
-                {name === 'درخواست‌های نمایندگی' && pendingApps > 0 && (
+                {name === 'درخواست‌های نمایندگی' && pendingApps + (manualTasks || 0) > 0 && (
                   <span className="mr-auto rounded-full bg-[#e8743b] px-2 py-0.5 text-[10px] font-bold text-white">
-                    {pendingApps}
+                    {pendingApps + (manualTasks || 0)}
                   </span>
                 )}
                 {name === 'فروشگاه‌ها' && pendingPanelReq > 0 && (
                   <span className="mr-auto rounded-full bg-[#e8743b] px-2 py-0.5 text-[10px] font-bold text-white">
                     {pendingPanelReq}
-                  </span>
-                )}
-                {name === 'کارهای دستی' && manualTasks > 0 && (
-                  <span className="mr-auto rounded-full bg-[#e8743b] px-2 py-0.5 text-[10px] font-bold text-white">
-                    {manualTasks}
                   </span>
                 )}
               </button>

@@ -130,7 +130,7 @@ def memory_problems(compose: dict) -> list[str]:
             problems.append(
                 f"docker-compose.yml: service '{name}' has no mem_limit (W6)"
             )
-        else:
+        elif str(svc.get("restart", "")) != "no":  # one-shot jobs (migrate) have exited before the long-running services start
             total += cap
     if total > MEMORY_BUDGET_MIB:
         problems.append(
@@ -170,7 +170,9 @@ def main() -> int:
 def run_checks(errors: list[str]) -> None:
     compose = yaml.safe_load((ROOT / "docker-compose.yml").read_text())
     for name, svc in compose["services"].items():
-        if svc.get("restart") not in {"unless-stopped", "always"}:
+        # restart "no" is only valid for the one-shot migrate job (audit 8.2); everything else must restart itself.
+        allowed = {"unless-stopped", "always"} | ({"no"} if name == "migrate" else set())
+        if svc.get("restart") not in allowed:
             errors.append(
                 f"docker-compose.yml: service '{name}' has no restart policy (W2)"
             )

@@ -9,6 +9,7 @@ for directory in (
     ROOT / "apps/store-web",
     ROOT / "apps/admin-web",
     ROOT / "packages/api-client",
+    ROOT / "packages/web-kit",
 ):
     package = json.loads((directory / "package.json").read_text())
     lock_path = directory / "package-lock.json"
