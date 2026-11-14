@@ -1,7 +1,7 @@
 From c45a191646ec4eb39687dd644b1fa3cd5713c29b Mon Sep 17 00:00:00 2001
 From: Melorin Dev <dev@melorin.local>
 Date: Sat, 14 Nov 2026 20:15:53 +0000
-Subject: [PATCH 1/2] =?UTF-8?q?refactor(admin-ui):=20security=20tab=20for?=
+Subject: [PATCH 1/3] =?UTF-8?q?refactor(admin-ui):=20security=20tab=20for?=
  =?UTF-8?q?=20admin=20IP=20allowlist,=20group=20=C2=AB=D8=B3=DB=8C=D8=B3?=
  =?UTF-8?q?=D8=AA=D9=85=20=D9=88=20=D8=A7=D9=85=D9=86=DB=8C=D8=AA=C2=BB,?=
  =?UTF-8?q?=20identity=20devices=20on=20the=20typed=20api-client=20(r12)?=
@@ -678,7 +678,7 @@ index 9ea24db..3c8d7f9 100644
 From 87d15b5a965ef8c49c83f8039aaeb928a37ce8d4 Mon Sep 17 00:00:00 2001
 From: Melorin Dev <dev@melorin.local>
 Date: Sat, 14 Nov 2026 20:25:45 +0000
-Subject: [PATCH 2/2] =?UTF-8?q?test(contracts):=20nav=20group=20is=20now?=
+Subject: [PATCH 2/3] =?UTF-8?q?test(contracts):=20nav=20group=20is=20now?=
  =?UTF-8?q?=20=C2=AB=D8=B3=DB=8C=D8=B3=D8=AA=D9=85=20=D9=88=20=D8=A7=D9=85?=
  =?UTF-8?q?=D9=86=DB=8C=D8=AA=C2=BB=20(r12)?=
 MIME-Version: 1.0
@@ -702,6 +702,188 @@ index 8d4030d..dcaaffb 100644
      assert '"panels"' in infra_group and '"bundles"' not in infra_group
      catalog_group = app[app.index('"کاتالوگ و بازاریابی"') : app.index('"ارتباطات"')]
      assert catalog_group.index('"bundles"') < catalog_group.index('"products"')
+-- 
+2.43.0
+
+
+From e530b33923d47db5098cde1bc9092bf46d2e96c3 Mon Sep 17 00:00:00 2001
+From: Melorin Dev <dev@melorin.local>
+Date: Sat, 14 Nov 2026 20:53:51 +0000
+Subject: [PATCH 3/3] fix(admin-ui): ChangeAdminPassword in its own file so
+ Settings stays lazy; r12 verification evidence
+
+---
+ apps/admin-web/src/AdminExtra.tsx          |  2 +-
+ apps/admin-web/src/ChangeAdminPassword.tsx | 69 ++++++++++++++++++++++
+ apps/admin-web/src/SettingsView.tsx        | 56 ------------------
+ docs/DECISIONS.md                          |  1 +
+ 4 files changed, 71 insertions(+), 57 deletions(-)
+ create mode 100644 apps/admin-web/src/ChangeAdminPassword.tsx
+
+diff --git a/apps/admin-web/src/AdminExtra.tsx b/apps/admin-web/src/AdminExtra.tsx
+index 30db651..89bbe06 100644
+--- a/apps/admin-web/src/AdminExtra.tsx
++++ b/apps/admin-web/src/AdminExtra.tsx
+@@ -1,7 +1,7 @@
+ import { lazy } from 'react';
+ import { authFetch } from './api.ts';
+ import type { Json, Toast, ViewApi } from './types.ts';
+-import { ChangeAdminPassword } from './SettingsView.tsx';
++import { ChangeAdminPassword } from './ChangeAdminPassword.tsx';
+ const ReportsView = lazy(() => import('./ReportsView.tsx'));
+ const PanelsView = lazy(() => import('./PanelsView.tsx'));
+ const InfraHealthView = lazy(() => import('./InfraHealthView.tsx'));
+diff --git a/apps/admin-web/src/ChangeAdminPassword.tsx b/apps/admin-web/src/ChangeAdminPassword.tsx
+new file mode 100644
+index 0000000..be2dcbe
+--- /dev/null
++++ b/apps/admin-web/src/ChangeAdminPassword.tsx
+@@ -0,0 +1,69 @@
++import type { ReactNode } from 'react';
++import { useState } from 'react';
++import { authFetch } from './api.ts';
++import { PasswordInput } from './ui.tsx';
++import type { Json, Toast } from './types.ts';
++import { box, inp, btn } from './adminExtraKit.tsx';
++
++const Field = ({ label, children }: { label?: Json; children?: ReactNode }) => (
++  <label className="block text-xs font-bold text-[var(--mu)]">
++    {label}
++    <div className="mt-1">{children}</div>
++  </label>
++);
++
++export function ChangeAdminPassword({ api, toast }: { api?: Json; toast: Toast }) {
++  const [v, setV] = useState({ current: '', next: '', confirm: '' });
++  const [busy, setBusy] = useState(false);
++  const submit = async () => {
++    if (v.next.length < 12) return toast('رمز جدید باید حداقل ۱۲ کاراکتر باشد');
++    if (v.next !== v.confirm) return toast('تکرار رمز جدید یکسان نیست');
++    setBusy(true);
++    const r = await authFetch(api.base, '/api/v1/auth/admin/password', {
++      method: 'POST',
++      body: JSON.stringify({ current_password: v.current, new_password: v.next }),
++    });
++    const d = await r.json().catch(() => ({}));
++    setBusy(false);
++    if (!r.ok) return toast(d?.error?.message || d?.detail?.message || 'تغییر رمز ناموفق بود');
++    setV({ current: '', next: '', confirm: '' });
++    toast('رمز ادمین با موفقیت تغییر کرد');
++  };
++  return (
++    <section className={`${box} space-y-4 p-5`}>
++      <div>
++        <h3 className="font-extrabold">امنیت حساب ادمین</h3>
++        <p className="mt-1 text-xs text-[var(--mu)]">برای تغییر رمز، رمز فعلی لازم است. توکن نشست فعلی حفظ می‌شود.</p>
++      </div>
++      <div className="grid gap-3 md:grid-cols-3">
++        <Field label="رمز فعلی">
++          <PasswordInput
++            autoComplete="current-password"
++            className={inp}
++            value={v.current}
++            onChange={(e: Json) => setV({ ...v, current: e.target.value })}
++          />
++        </Field>
++        <Field label="رمز جدید">
++          <PasswordInput
++            autoComplete="new-password"
++            className={inp}
++            value={v.next}
++            onChange={(e: Json) => setV({ ...v, next: e.target.value })}
++          />
++        </Field>
++        <Field label="تکرار رمز جدید">
++          <PasswordInput
++            autoComplete="new-password"
++            className={inp}
++            value={v.confirm}
++            onChange={(e: Json) => setV({ ...v, confirm: e.target.value })}
++          />
++        </Field>
++      </div>
++      <button disabled={busy || !v.current || !v.next || !v.confirm} className={btn} onClick={submit}>
++        {busy ? 'در حال ذخیره...' : 'تغییر رمز'}
++      </button>
++    </section>
++  );
++}
+diff --git a/apps/admin-web/src/SettingsView.tsx b/apps/admin-web/src/SettingsView.tsx
+index 0fd91f6..6bf9896 100644
+--- a/apps/admin-web/src/SettingsView.tsx
++++ b/apps/admin-web/src/SettingsView.tsx
+@@ -318,62 +318,6 @@ function Integrations({ api, toast, part }: { api?: Json; toast: Toast; part: 'i
+   );
+ }
+ 
+-export function ChangeAdminPassword({ api, toast }: { api?: Json; toast: Toast }) {
+-  const [v, setV] = useState({ current: '', next: '', confirm: '' });
+-  const [busy, setBusy] = useState(false);
+-  const submit = async () => {
+-    if (v.next.length < 12) return toast('رمز جدید باید حداقل ۱۲ کاراکتر باشد');
+-    if (v.next !== v.confirm) return toast('تکرار رمز جدید یکسان نیست');
+-    setBusy(true);
+-    const r = await authFetch(api.base, '/api/v1/auth/admin/password', {
+-      method: 'POST',
+-      body: JSON.stringify({ current_password: v.current, new_password: v.next }),
+-    });
+-    const d = await r.json().catch(() => ({}));
+-    setBusy(false);
+-    if (!r.ok) return toast(d?.error?.message || d?.detail?.message || 'تغییر رمز ناموفق بود');
+-    setV({ current: '', next: '', confirm: '' });
+-    toast('رمز ادمین با موفقیت تغییر کرد');
+-  };
+-  return (
+-    <section className={`${box} space-y-4 p-5`}>
+-      <div>
+-        <h3 className="font-extrabold">امنیت حساب ادمین</h3>
+-        <p className="mt-1 text-xs text-[var(--mu)]">برای تغییر رمز، رمز فعلی لازم است. توکن نشست فعلی حفظ می‌شود.</p>
+-      </div>
+-      <div className="grid gap-3 md:grid-cols-3">
+-        <Field label="رمز فعلی">
+-          <PasswordInput
+-            autoComplete="current-password"
+-            className={inp}
+-            value={v.current}
+-            onChange={(e: Json) => setV({ ...v, current: e.target.value })}
+-          />
+-        </Field>
+-        <Field label="رمز جدید">
+-          <PasswordInput
+-            autoComplete="new-password"
+-            className={inp}
+-            value={v.next}
+-            onChange={(e: Json) => setV({ ...v, next: e.target.value })}
+-          />
+-        </Field>
+-        <Field label="تکرار رمز جدید">
+-          <PasswordInput
+-            autoComplete="new-password"
+-            className={inp}
+-            value={v.confirm}
+-            onChange={(e: Json) => setV({ ...v, confirm: e.target.value })}
+-          />
+-        </Field>
+-      </div>
+-      <button disabled={busy || !v.current || !v.next || !v.confirm} className={btn} onClick={submit}>
+-        {busy ? 'در حال ذخیره...' : 'تغییر رمز'}
+-      </button>
+-    </section>
+-  );
+-}
+-
+ const SETTINGS_TABS = ['integrations', 'security', 'login', 'advanced'];
+ const settingsTabFromHash = () => {
+   const q = typeof window === 'undefined' ? '' : window.location.hash.split('?')[1] || '';
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index 3c8d7f9..2a3afb0 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -182,3 +182,4 @@ _Merged from the former 12-Change-Log-v1.1.md._
+ - r10 verification (2026-11-14, Python 3.12, locked requirements): full API suite 2720 passed, 11 skipped (9 min); `lint-imports` 8/8 kept.
+ - r11 (phase 3, ninth step, 2026-11-14): Payments review (approve/reject) and refund are typed `client.post` calls with one literal path each. The receipt image stays on `authFetch` (binary body). The slow `panels-upstream-bot` creation test got a 20 s timeout: it timed out at the 5 s default when the box was loaded, unrelated to the code. Remaining on `authFetch`: receipt review/OCR/duplicate-policy/bank-SMS panels, Settings, products, bundles, tickets, reports and other views.
+ - r12 (phase 1 + 3, 2026-11-14): (a) Settings gets its own owner-only tab «امنیت دسترسی ادمین» (`#/settings?tab=security`) for the admin IP allowlist: it is a security policy, not an integration, so the first tab is now only SMTP/backup. Same server area (`system`), same endpoint; only the UI placement moved. (b) The last nav group is renamed «سیستم و امنیت» (labels only, section keys and permission areas unchanged). (c) Identity hub: trusted-device summary and the revoke / revoke-account actions use the typed client (literal path per action); list reads stay on `useRows`. Remaining on `authFetch`: see `grep authFetch apps/admin-web/src`.
++- r12 verification (2026-11-15, Python 3.12, Node 22, Docker 29): full API suite 2720 passed, 11 skipped; admin tests 301 passed; `lint-imports` 8/8; fresh-DB `migration_smoke.sh` to 0056 passed on PostgreSQL 16; `docker compose up --build` brought every service healthy (run `alembic upgrade head` BEFORE the first start, as `melorin.sh` does; the api logs `relation stores does not exist` otherwise); live `scripts/e2e_smoke.py` against the stack: ALL PASSED; Playwright (store + admin, mocked Core): 26 passed, 2 skipped (need a seeded staging stack). Fix: `ChangeAdminPassword` moved out of `SettingsView.tsx` into its own file, so Settings is a real lazy chunk (Vite warned it was imported both statically and dynamically). Bot, payment-gateway and real-panel flows remain unexercised.
 -- 
 2.43.0
 
