@@ -30,9 +30,9 @@ from melorin.modules.reseller.router import api_router as reseller_api_router, r
 from melorin.modules.reports.router import router as reports_router
 from melorin.modules.referral.router import router as referral_router
 from melorin.modules.tickets.router import router as tickets_router
-from melorin.modules.vpn.router import router as vpn_router
-from melorin.modules.vpn.tools_router import router as vpn_tools_router
-from melorin.modules.vpn.webhook_router import router as panel_webhook_router
+from melorin.modules.vpn_accounts.router import router as vpn_router
+from melorin.modules.vpn_accounts.tools_router import router as vpn_tools_router
+from melorin.modules.panelops.webhook_router import router as panel_webhook_router
 from melorin.modules.wallet.router import router as wallet_router
 
 setup_logging()

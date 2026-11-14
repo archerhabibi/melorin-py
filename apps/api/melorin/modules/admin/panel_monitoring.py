@@ -1,6 +1,6 @@
 """Admin API - panel monitoring - panel readings for dashboards (PG-14), settings drift + lifecycle policy (PG-15), panel backup (PG-16).
 
-Thin layer: every rule lives in ``modules/vpn/{panel_metrics,settings_drift,panel_backup}.py``. Admin session only. Nothing here writes a
+Thin layer: every rule lives in ``modules/panelops/{panel_metrics,settings_drift,panel_backup}.py``. Admin session only. Nothing here writes a
 setting to a panel: the drift check is read-only and the lifecycle policy only changes what Melorin expects."""
 
 import uuid
@@ -11,9 +11,10 @@ from pydantic import BaseModel, Field
 
 from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import AppError, NotFound
+from melorin.domain.panel_snapshot import snapshot_of
 from melorin.kernel.models.vpn import Panel
 from melorin.kernel.models.stores import Store
-from melorin.modules.vpn import service_access
+from melorin.modules.panelops import service_access
 from melorin.modules.panelops import panel_backup, panel_metrics, settings_drift, store_role, sub_branding
 
 from melorin.modules.panelops import queries
@@ -32,12 +33,12 @@ async def panel_readings(panel_id: uuid.UUID, admin: AdminUser, session: Session
     nodes = dict.fromkeys(panel_metrics.NODE_STATES, 0)
     for status, n in rows:
         nodes[status if status in nodes else "error"] += int(n)
-    snap = panel.metrics_snapshot if isinstance(panel.metrics_snapshot, dict) else None
+    snap = snapshot_of(panel)
     return {
         "panel_id": panel.id,
-        "health_status": panel.health_status,
-        "taken_at": panel.metrics_snapshot_at,
-        "reading": snap,
+        "health_status": snap.health_status,
+        "taken_at": snap.taken_at,
+        "reading": panel.metrics_snapshot if isinstance(panel.metrics_snapshot, dict) else None,
         "nodes": nodes if rows else None,
         "fresh_minutes": int(panel_metrics.SNAPSHOT_FRESH.total_seconds() // 60),
     }

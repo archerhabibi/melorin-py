@@ -130,7 +130,7 @@ async def link_google(session: AsyncSession, user: User, id_token: str, nonce: s
         session.add(review)
         audit.security_event(session, "identity_link_conflict", user.id, {"provider": "google", "candidate_user_id": str(ident.user_id)})
         await session.flush()
-        res = await auto_link.try_auto_resolve(session, review)  # empty shell on either side: settled by itself (docs/21)
+        res = await auto_link.try_auto_resolve(session, review)  # empty shell on either side: settled by itself (docs/23)
         await session.commit()
         if res is None:
             raise AppError("IDENTITY_LINK_REVIEW", "این حساب Google به حساب دیگری متصل است و برای بررسی دستی گزارش شد.", 409)
@@ -205,7 +205,7 @@ async def login_with_google(session: AsyncSession, id_token: str, nonce: str | N
             session.add(review)
             audit.security_event(session, "identity_link_conflict", user.id, {"email": email, "candidate_user_id": str(owner_id)})
             await session.flush()
-            res = await auto_link.try_auto_resolve(session, review)  # the verified Google e-mail proves ownership (docs/21)
+            res = await auto_link.try_auto_resolve(session, review)  # the verified Google e-mail proves ownership (docs/23)
             if res is not None:
                 user = await session.get(User, uuid.UUID(res.keeper))
                 created = user is not None and user.id == review.source_user_id

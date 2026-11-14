@@ -24,6 +24,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from melorin.domain.panel_snapshot import snapshot_of
 from melorin.core.db import utcnow
 from melorin.domain.order_kinds import not_manual
 from melorin.domain.order_state import OrderStatus
@@ -376,15 +377,15 @@ async def _panel_aggregates(session: AsyncSession) -> list[dict]:
     """Per enabled panel: the numbers the panel itself reported in its latest monitoring snapshot (never recomputed by Melorin)."""
     out: list[dict] = []
     for p in (await session.scalars(select(Panel).where(Panel.is_enabled.is_(True)).order_by(Panel.name))).all():
-        snap = p.metrics_snapshot if isinstance(p.metrics_snapshot, dict) else {}
+        snap = snapshot_of(p)
         out.append(
             {
                 "panel_id": str(p.id),
                 "name": p.name,
-                "up": bool(snap.get("up")) if snap else None,
-                "users_total": snap.get("users_total"),
-                "online_users": snap.get("online_users"),
-                "taken_at": p.metrics_snapshot_at.isoformat() if p.metrics_snapshot_at else None,
+                "up": snap.up,
+                "users_total": snap.users_total,
+                "online_users": snap.online_users,
+                "taken_at": snap.taken_at.isoformat() if snap.taken_at else None,
             }
         )
     return out

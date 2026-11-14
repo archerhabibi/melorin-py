@@ -3,8 +3,9 @@
 // Nothing here writes a setting to the panel: "check now" is a read, the policy only changes what Melorin expects.
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle, DatabaseBackup, Gauge, Info, Loader, RefreshCw } from 'lucide-react';
+import { getJson, typedClient } from './api.ts';
 import { promptDialog } from './ui.tsx';
-import type { CallFn, Json, Rec, Toast } from './types.ts';
+import type { Json, Rec, Toast } from './types.ts';
 
 const FINDING_COLOR: Rec = { ok: 'var(--ok)', drift: 'var(--bd)', info: 'var(--mu)', unknown: 'var(--wn)' };
 const FINDING_LABEL: Rec = { ok: 'سالم', drift: 'ناهمخوان', info: 'اطلاع', unknown: 'نامشخص' };
@@ -85,19 +86,17 @@ function Readings({ data }: { data?: Json }) {
   );
 }
 
-function Drift({ call, panelId, toast }: { call: CallFn; panelId?: Json; toast: Toast }) {
+function Drift({ api, panelId, toast }: { api: { base: string }; panelId?: Json; toast: Toast }) {
   const [d, setD] = useState<Json>(null);
   const [busy, setBusy] = useState('');
 
   const load = useCallback(async () => {
     try {
-      const r = await call(`/api/v1/admin/panels/${panelId}/settings-drift`);
-      if (!r.ok) throw new Error(String(r.status));
-      setD(await r.json());
+      setD(await getJson(api.base, `/api/v1/admin/panels/${panelId}/settings-drift`));
     } catch {
       toast('دریافت وضعیت تنظیمات پنل ناموفق بود');
     }
-  }, [call, panelId, toast]);
+  }, [api.base, panelId, toast]);
 
   useEffect(() => {
     load();
@@ -106,8 +105,11 @@ function Drift({ call, panelId, toast }: { call: CallFn; panelId?: Json; toast: 
   const check = async () => {
     setBusy('check');
     try {
-      const r = await call(`/api/v1/admin/panels/${panelId}/settings-drift/check`, { method: 'POST' });
-      if (r.ok) setD(await r.json());
+      const { response: r, data } = await typedClient(api.base).post(
+        '/api/v1/admin/panels/{panel_id}/settings-drift/check',
+        { params: { path: { panel_id: String(panelId) } } },
+      );
+      if (r.ok) setD(data);
       toast(r.ok ? 'تنظیمات پنل خوانده و مقایسه شد (چیزی روی پنل نوشته نشد)' : 'خواندن تنظیمات ناموفق بود');
     } finally {
       setBusy('');
@@ -122,11 +124,14 @@ function Drift({ call, panelId, toast }: { call: CallFn; panelId?: Json; toast: 
     if (reason === null) return;
     setBusy('policy');
     try {
-      const r = await call(`/api/v1/admin/panels/${panelId}/lifecycle-policy`, {
-        method: 'PUT',
-        body: JSON.stringify({ policy, reason: String(reason ?? '').trim() }),
-      });
-      if (r.ok) setD(await r.json());
+      const { response: r, data } = await typedClient(api.base).put(
+        '/api/v1/admin/panels/{panel_id}/lifecycle-policy',
+        {
+          params: { path: { panel_id: String(panelId) } },
+          body: { policy, reason: String(reason ?? '').trim() },
+        },
+      );
+      if (r.ok) setD(data);
       toast(r.ok ? 'سیاست ذخیره شد (فقط انتظار ملورین عوض شد، پنل دست نخورد)' : 'ذخیره سیاست ناموفق بود');
     } finally {
       setBusy('');
@@ -196,17 +201,15 @@ function Drift({ call, panelId, toast }: { call: CallFn; panelId?: Json; toast: 
   );
 }
 
-function Backup({ call, toast }: { call: CallFn; toast: Toast }) {
+function Backup({ api, toast }: { api: { base: string }; toast: Toast }) {
   const [b, setB] = useState<Json>(null);
   const load = useCallback(async () => {
     try {
-      const r = await call('/api/v1/admin/panel-backups');
-      if (!r.ok) throw new Error(String(r.status));
-      setB(await r.json());
+      setB(await getJson(api.base, '/api/v1/admin/panel-backups'));
     } catch {
       toast('دریافت وضعیت پشتیبان پنل ناموفق بود');
     }
-  }, [call, toast]);
+  }, [api.base, toast]);
   useEffect(() => {
     load();
   }, [load]);
@@ -244,34 +247,41 @@ function Backup({ call, toast }: { call: CallFn; toast: Toast }) {
   );
 }
 
-export default function PanelPhase5Tab({ call, panelId, toast }: { call: CallFn; panelId?: Json; toast: Toast }) {
+export default function PanelPhase5Tab({
+  api,
+  panelId,
+  toast,
+}: {
+  api: { base: string };
+  panelId?: Json;
+  toast: Toast;
+}) {
   const [metrics, setMetrics] = useState<Json>(null);
   useEffect(() => {
     setMetrics(null);
     if (!panelId) return;
     (async () => {
       try {
-        const r = await call(`/api/v1/admin/panels/${panelId}/metrics`);
-        if (r.ok) setMetrics(await r.json());
+        setMetrics(await getJson(api.base, `/api/v1/admin/panels/${panelId}/metrics`));
       } catch {
         toast('دریافت شاخص‌های پنل ناموفق بود');
       }
     })();
-  }, [call, panelId, toast]);
+  }, [api.base, panelId, toast]);
 
   return (
     <div className="space-y-4">
       {panelId ? (
         <>
           <Readings data={metrics} />
-          <Drift call={call} panelId={panelId} toast={toast} />
+          <Drift api={api} panelId={panelId} toast={toast} />
         </>
       ) : (
         <p className="card p-4 text-sm text-[var(--mu)]">
           برای دیدن شاخص‌ها و ناهمخوانی تنظیمات، یک پنل را از فهرست بالا انتخاب کنید.
         </p>
       )}
-      <Backup call={call} toast={toast} />
+      <Backup api={api} toast={toast} />
     </div>
   );
 }

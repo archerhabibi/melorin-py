@@ -26,11 +26,11 @@ from melorin.core import audit
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError, NotFound
 from melorin.kernel.models.vpn import Panel
-from melorin.modules.vpn import capabilities as panel_caps
-from melorin.modules.vpn.adapters.base import PanelError, supports
-from melorin.modules.vpn.adapters.pasarguard.events import describe_webhook
-from melorin.modules.vpn.renewal import GRACE_DAYS
-from melorin.modules.vpn.subscription_check import _origin
+from melorin.modules.panel_integrations import capabilities as panel_caps
+from melorin.modules.panel_integrations.adapters.base import PanelError, supports
+from melorin.modules.panel_integrations.adapters.pasarguard.events import describe_webhook
+from melorin.domain.renewal_policy import GRACE_DAYS
+from melorin.modules.panelops.subscription_check import _origin
 
 log = logging.getLogger("melorin.vpn.settings_drift")
 
@@ -187,7 +187,7 @@ def verdict(findings: list[dict], *, policy: str, now) -> dict:
 
 def _public_webhook_url(panel: Panel) -> str | None:
     try:
-        from melorin.modules.vpn.panel_events_admin import webhook_url
+        from melorin.modules.panelops.panel_events_admin import webhook_url
 
         return webhook_url(panel)
     except AppError:
@@ -231,8 +231,8 @@ async def check_panel(panel: Panel, adapter, *, now=None) -> dict:
 
 async def run_all(session: AsyncSession, *, close_adapter) -> int:
     """Worker entry: check every enabled PasarGuard panel; announce a panel that starts (or stops) drifting once."""
-    from melorin.modules.eventcenter import rules as event_center_rules
-    from melorin.modules.vpn.adapters.registry import build_adapter
+    from melorin.modules.panelops import panel_notices
+    from melorin.modules.panel_integrations.adapters.registry import build_adapter
 
     done = 0
     panels = (await session.scalars(select(Panel).where(Panel.is_enabled.is_(True), Panel.kind == "pasarguard"))).all()
@@ -243,7 +243,7 @@ async def run_all(session: AsyncSession, *, close_adapter) -> int:
             adapter = build_adapter(panel)
             after = (await check_panel(panel, adapter))["drifting"]
             done += 1
-            await event_center_rules.notify_settings_drift(session, panel, before, after)
+            await panel_notices.notify_settings_drift(session, panel, before, after)
         except Exception:
             log.warning("settings drift check failed panel=%s", panel.id, exc_info=True)
         finally:
@@ -281,7 +281,7 @@ async def set_policy(
 
 async def recheck(session: AsyncSession, panel_id: uuid.UUID, *, actor_id: uuid.UUID | None) -> dict:
     """On-demand read-only check (admin button). Returns ``describe(panel)``."""
-    from melorin.modules.vpn.adapters.registry import build_adapter
+    from melorin.modules.panel_integrations.adapters.registry import build_adapter
 
     panel = await session.get(Panel, panel_id)
     if not panel:

@@ -218,3 +218,31 @@ def test_store_context_dependencies_require_the_request():
     for dep in (deps.store_context, deps.owner_store_context):
         param = inspect.signature(dep).parameters["request"]
         assert param.default is inspect.Parameter.empty and param.kind is inspect.Parameter.KEYWORD_ONLY
+
+
+# ---- sign-in methods (Google / Telegram) moved to Settings in the admin UI: the API side must stay owner-only
+_LOGIN_SETTING_PATHS = [
+    ("/api/v1/admin/integrations", "GET"),
+    ("/api/v1/admin/integrations/google", "GET"),
+    ("/api/v1/admin/integrations/google", "PUT"),
+    ("/api/v1/admin/integrations/telegram", "GET"),
+    ("/api/v1/admin/integrations/telegram", "PUT"),
+    ("/api/v1/admin/integrations/telegram/test", "POST"),
+    ("/api/v1/admin/integrations/admin-access", "PUT"),
+]
+
+
+@pytest.mark.parametrize("path, method", _LOGIN_SETTING_PATHS)
+def test_login_settings_are_owner_only_for_every_role(path, method):
+    area, write = aa.area_for(path, method)
+    assert area == "system"
+    for role in aa.ROLES:
+        assert aa.allows([role], area, write=write) is (role == aa.OWNER)
+
+
+def test_customer_identity_is_a_customers_screen_support_writes_finance_reads():
+    # the identity screen (customers area) no longer hosts sign-in settings, so support may use it fully
+    area, write = aa.area_for("/api/v1/admin/identity-link-reviews", "GET")
+    assert area == "customers" and not write
+    assert aa.allows([aa.SUPPORT], area, write=True)
+    assert aa.allows([aa.FINANCE], area) and not aa.allows([aa.FINANCE], area, write=True)

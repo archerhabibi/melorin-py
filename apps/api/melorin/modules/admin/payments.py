@@ -6,10 +6,10 @@ from fastapi import APIRouter, Query
 from fastapi.responses import Response
 from sqlalchemy import select
 from melorin.core import audit
-from melorin.core.deps import AdminUser, Session
+from melorin.core.deps import AdminUser, Session, main_store
 from melorin.core.errors import NotFound
 from melorin.kernel.models.stores import Store
-from melorin.modules.payments import bank_sms, provisional, receipt_fingerprints, service as payment_service
+from melorin.modules.payments import store_config, bank_sms, provisional, receipt_fingerprints, service as payment_service
 from melorin.modules.payments.schemas import (
     BankSmsIgnoreIn,
     BankSmsLinkIn,
@@ -19,6 +19,7 @@ from melorin.modules.payments.schemas import (
     ReceiptDupSettingsIn,
 )
 from melorin.kernel.models.payments import Payment
+from melorin.modules.reseller.schemas import PaymentConfigIn
 from melorin.modules.admin.schemas import (
     OrderAction,
     ReviewPayment,
@@ -26,6 +27,31 @@ from melorin.modules.admin.schemas import (
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 log = logging.getLogger("melorin.admin")
+
+
+# ----- Main store payment destination (the same per-store model resellers use) -----
+@router.get("/payment-destinations")
+async def payment_destinations(_: AdminUser, session: Session):
+    store = await main_store(session)
+    return [store_config.admin_view(r) for r in await store_config.list_configs(session, store.id)]
+
+
+@router.put("/payment-destinations/{provider}")
+async def put_payment_destination(provider: str, body: PaymentConfigIn, admin: AdminUser, session: Session):
+    store_config.require_main_store_provider(provider)
+    store = await main_store(session)
+    await store_config.upsert(
+        session,
+        store_id=store.id,
+        provider=provider,
+        is_enabled=body.is_enabled,
+        public_config=body.public_config,
+        secret=body.secret,
+        actor_id=admin.id,
+        actor_type="admin",
+    )
+    await session.commit()
+    return {"ok": True}
 
 
 # ----- Payments, orders, manual recovery -----

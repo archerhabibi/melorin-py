@@ -3,16 +3,13 @@
 // every value; this screen only edits and shows it. A reseller manages his own store's club from his panel with the same API.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Award, Plus, Save, Trash2 } from 'lucide-react';
+import { toInt, unitOf } from '@melorin/web-kit/referralPlan.js';
+import { useLoyaltyClub } from '@melorin/web-kit/loyaltyClub.js';
 import { authFetch } from './api.ts';
-import { Empty, Field, Section, errText, num, toEn, useRows } from './kit.tsx';
+import { Empty, Field, Section, num, toEn, useRows } from './kit.tsx';
 import type { Json, Rec, Toast } from './types.ts';
 
-const unitOf = (c: Json) => (({ IRT: 'تومان', IRR: 'ریال' }) as Rec)[c] || c || '';
-const intOf = (v: Json) => {
-  const s = toEn(v).replace(/[,٬\s]/g, '');
-  return /^\d+$/.test(s) ? Number(s) : null;
-};
-const J = { 'Content-Type': 'application/json' };
+const intOf = toInt;
 
 function Program({ program, currency, onSave }: { program?: Json; currency?: Json; onSave?: Json }) {
   const [f, setF] = useState({
@@ -342,37 +339,7 @@ export default function LoyaltyClubView({ api, toast }: { api?: Json; toast: Toa
   }, [stores.rows, storeId]);
 
   const base = `/api/v1/stores/${storeId}/loyalty/manage`;
-  const [data, setData] = useState<Json>(null);
-  const [failed, setFailed] = useState(false);
-  const [rev, setRev] = useState(0);
-  const load = useCallback(async () => {
-    if (!storeId) return;
-    try {
-      const [a, b, c] = await Promise.all([call(`${base}/program`), call(`${base}/rewards`), call(`${base}/summary`)]);
-      if (!a.ok || !b.ok || !c.ok) throw new Error('load');
-      setData({ prog: await a.json(), rewards: await b.json(), sum: await c.json() });
-      setFailed(false);
-      setRev((n) => n + 1);
-    } catch {
-      setFailed(true);
-    }
-  }, [call, base, storeId]);
-  useEffect(() => {
-    setData(null);
-    setFailed(false);
-    load();
-  }, [load]);
-
-  async function write(path: string, method: Json, payload: Json, okText: Json, failText: Json) {
-    const r = await call(`${base}${path}`, { method, headers: J, body: JSON.stringify(payload) });
-    if (r.ok) {
-      toast(okText);
-      load();
-      return true;
-    }
-    toast(await errText(r, failText));
-    return false;
-  }
+  const { data, failed, rev, write } = useLoyaltyClub({ call, url: storeId ? base : null, notify: toast });
 
   const currency = store?.currency;
   return (

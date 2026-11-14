@@ -3,7 +3,7 @@
 from fastapi import APIRouter
 
 from melorin.core.deps import OwnerCtx, Session
-from melorin.modules.vpn import store_usage
+from melorin.modules.panelops import store_usage
 
 router = APIRouter(tags=["reseller"])
 

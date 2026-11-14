@@ -12,8 +12,8 @@ from melorin.kernel.models.stores import Store
 from melorin.kernel.models.system import AuditEvent
 from melorin.kernel.models.vpn import Panel, PanelAdmin
 from melorin.modules.panelops import sub_branding
-from melorin.modules.vpn.adapters.base import ErrorKind, PanelError
-from melorin.modules.vpn.adapters.pasarguard import PasarGuardAdapter
+from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError
+from melorin.modules.panel_integrations.adapters.pasarguard import PasarGuardAdapter
 from test_pasarguard_service_db import seed
 
 OURS = set(sub_branding.VARIABLES.values())

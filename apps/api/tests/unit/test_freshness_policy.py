@@ -2,7 +2,7 @@
 
 import datetime as dt
 
-from melorin.modules.vpn import freshness, inquiry, live, sync
+from melorin.modules.vpn_accounts import freshness, inquiry, live, sync
 
 
 def test_old_constant_names_are_the_policy_values():

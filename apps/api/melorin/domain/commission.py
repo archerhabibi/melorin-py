@@ -5,6 +5,7 @@ reversal. What the referrer wallet can cover is taken now; the remainder becomes
 offset from future commissions. The referrer wallet never goes negative because of a reversal.
 """
 
+from melorin.domain.order_rewards import cap_reward
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -85,3 +86,10 @@ def validate_plan(plan: Plan) -> None:
     for is_violated, code, message in _PLAN_RULES:
         if is_violated(plan):
             raise PlanError(code, message)
+
+
+def commission_amount(net_paid: int, percent_bp: int) -> int:
+    """percent in basis points (1% = 100) on net paid after discount; floor to integer unit."""
+    if net_paid <= 0 or percent_bp <= 0:
+        return 0
+    return cap_reward(net_paid * percent_bp // 10_000, net_paid)  # rule 7 of domain/order_rewards: never more than was paid

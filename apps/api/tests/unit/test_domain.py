@@ -2,7 +2,7 @@ from melorin.domain.debt import DebtState, can_afford, state
 from melorin.domain.ledger import LedgerError, Line, apply_to_balance, validate_balanced
 from melorin.domain.order_state import InvalidTransition, OrderStatus, assert_transition
 from melorin.domain.pricing import Discount, quote
-from melorin.domain.referral import commission_amount
+from melorin.domain.commission import commission_amount
 from melorin.domain.server_selection import ServerCandidate, select_server
 
 

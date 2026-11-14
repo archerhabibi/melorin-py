@@ -33,9 +33,9 @@ from melorin.core.db import utcnow
 from melorin.core.errors import AppError
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.vpn import Panel, PanelAdmin
-from melorin.modules.vpn.adapters import registry
-from melorin.modules.vpn.adapters.base import ErrorKind, PanelError
-from melorin.modules.vpn.adapters.lifecycle import close_adapter
+from melorin.modules.panel_integrations.adapters import registry
+from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError
+from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
 
 log = logging.getLogger("melorin.vpn.sub_branding")
 

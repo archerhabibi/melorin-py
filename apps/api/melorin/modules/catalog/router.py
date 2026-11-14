@@ -27,7 +27,7 @@ from melorin.modules.catalog.schemas import (
 )
 from melorin.kernel.models.stores import Store
 from melorin.modules.catalog import allocation
-from melorin.modules.vpn import plans, renewal
+from melorin.modules.vpn_accounts import plans, renewal
 from melorin.kernel.models.vpn import VpnAccount
 from melorin.modules.wallet import service as wallet
 

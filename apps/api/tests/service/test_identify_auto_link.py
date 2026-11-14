@@ -1,4 +1,4 @@
-"""Automatic settlement of identity-link conflicts (docs/21): pure decision, shell detection, merge, sweep."""
+"""Automatic settlement of identity-link conflicts (docs/23): pure decision, shell detection, merge, sweep."""
 
 from __future__ import annotations
 

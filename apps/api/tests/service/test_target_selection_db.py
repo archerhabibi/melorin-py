@@ -19,7 +19,7 @@ from melorin.kernel.models.orders import Order
 from melorin.kernel.models.vpn import Panel, Server, VpnAccount
 from melorin.modules.catalog.allocation import resolve_allocation
 from melorin.modules.orders import provisioning as vpn
-from melorin.modules.vpn.adapters.base import PanelError
+from melorin.modules.panel_integrations.adapters.base import PanelError
 from test_provisioning_db import ScriptedPanel, _world, panel_factory  # noqa: F401,F811
 
 ROOT = Path(__file__).resolve().parents[2]

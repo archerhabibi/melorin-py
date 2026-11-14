@@ -1,4 +1,4 @@
-"""Automatic identity verification of reseller applications (docs/21).
+"""Automatic identity verification of reseller applications (docs/23).
 
 What used to need an admin's hand is now checked by Core on a schedule:
 

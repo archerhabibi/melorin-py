@@ -11,7 +11,7 @@ from _http import PASSWORD, add_user, api_client, totp_now
 from melorin.kernel.models.system import OutboxEvent
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.vpn import VpnAccount
-from melorin.modules.vpn import notices
+from melorin.modules.vpn_accounts import notices
 from test_pasarguard_service_db import seed
 
 BASE = "/api/v1/admin"

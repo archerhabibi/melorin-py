@@ -16,9 +16,9 @@ from _db import make_order, make_product, make_store, make_user, open_schema_eng
 from melorin.core.errors import AppError
 from melorin.kernel.models.system import AuditEvent
 from melorin.kernel.models.vpn import Panel, VpnAccount
-from melorin.modules.vpn import account_tools as tools
-from melorin.modules.vpn.adapters.base import Capabilities, ErrorKind, PanelError
-from melorin.modules.vpn.adapters.pasarguard import PasarGuardAdapter
+from melorin.modules.vpn_accounts import account_tools as tools
+from melorin.modules.panel_integrations.adapters.base import Capabilities, ErrorKind, PanelError
+from melorin.modules.panel_integrations.adapters.pasarguard import PasarGuardAdapter
 
 NOW = dt.datetime.now(dt.UTC)
 IP_A, IP_B = "203.0.113.7", "198.51.100.9"

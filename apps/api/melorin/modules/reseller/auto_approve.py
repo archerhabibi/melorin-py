@@ -1,4 +1,4 @@
-"""Automatic approval of a fully proven reseller application (docs/21).
+"""Automatic approval of a fully proven reseller application (docs/23).
 
 An application that brought a Telegram bot **and** a domain, and for which Core has already proven both (bot ``getMe``,
 DNS/HTTP domain control), carries no open question for an admin to answer except "do we want this reseller at all".

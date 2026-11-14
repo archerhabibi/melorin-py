@@ -1,0 +1,252 @@
+From 94af527adec7d0f1b124dd7fea59a970b13574fe Mon Sep 17 00:00:00 2001
+From: Melorin Dev <dev@melorin.local>
+Date: Sat, 14 Nov 2026 19:16:54 +0000
+Subject: [PATCH] refactor(admin-ui): panel templates tab uses the typed
+ api-client (r9)
+
+---
+ apps/admin-web/src/PanelTemplatesTab.tsx      | 99 +++++++++++++++----
+ .../src/panels/PanelDetailDrawer.tsx          |  2 +-
+ apps/admin-web/tests/panel-phase3.test.jsx    | 12 +--
+ docs/DECISIONS.md                             |  2 +
+ 4 files changed, 88 insertions(+), 27 deletions(-)
+
+diff --git a/apps/admin-web/src/PanelTemplatesTab.tsx b/apps/admin-web/src/PanelTemplatesTab.tsx
+index 989b589..e8a5187 100644
+--- a/apps/admin-web/src/PanelTemplatesTab.tsx
++++ b/apps/admin-web/src/PanelTemplatesTab.tsx
+@@ -3,13 +3,22 @@
+ import { useCallback, useEffect, useState } from 'react';
+ import { AlertTriangle, CheckCircle, Loader, RefreshCw } from 'lucide-react';
+ import { confirmDialog } from './ui.tsx';
+-import type { CallFn, Json, Rec, Toast } from './types.ts';
++import { getJson, typedClient } from './api.ts';
++import type { Json, Rec, Toast } from './types.ts';
+ 
+ const DRIFT_LABEL: Rec = { data_limit: 'حجم', expire_duration: 'مدت', group_ids: 'گروه‌ها' };
+ const driftText = (k: Json, v: Json) =>
+   `${DRIFT_LABEL[k] || k}: پکیج ${JSON.stringify(v.package)} ← پنل ${JSON.stringify(v.panel)}`;
+ 
+-export default function PanelTemplatesTab({ call, panelId, toast }: { call: CallFn; panelId?: Json; toast: Toast }) {
++export default function PanelTemplatesTab({
++  api,
++  panelId,
++  toast,
++}: {
++  api: { base: string };
++  panelId?: Json;
++  toast: Toast;
++}) {
+   const [data, setData] = useState<Json>(null);
+   const [products, setProducts] = useState<Rec[]>([]);
+   const [pick, setPick] = useState('');
+@@ -21,32 +30,31 @@ export default function PanelTemplatesTab({ call, panelId, toast }: { call: Call
+     setLoading(true);
+     try {
+       const [t, p] = await Promise.all([
+-        call(`/api/v1/admin/panels/${panelId}/templates`),
+-        call('/api/v1/admin/products'),
++        getJson(api.base, `/api/v1/admin/panels/${panelId}/templates`),
++        getJson(api.base, '/api/v1/admin/products').catch(() => null),
+       ]);
+-      if (!t.ok) throw new Error(String(t.status));
+-      setData(await t.json());
+-      if (p.ok) setProducts(await p.json());
++      setData(t);
++      if (p) setProducts(p);
+     } catch {
+       toast('دریافت تمپلیت‌ها ناموفق بود');
+     }
+     setLoading(false);
+-  }, [call, panelId, toast]);
++  }, [api.base, panelId, toast]);
+ 
+   useEffect(() => {
+     setData(null);
+     load();
+   }, [load]);
+ 
+-  const act = async (key: Json, path: string, method: Json, body: Json, okText: Json) => {
++  // One typed call per action (literal path per endpoint); ``run`` returns the client result.
++  const pid = (id?: string) => ({ path: { panel_id: String(panelId), product_id: String(id) } });
++  const c = () => typedClient(api.base);
++  const act = async (key: Json, run: () => Promise<Json>, okText: Json) => {
+     setBusy(key);
+     try {
+-      const r = await call(`/api/v1/admin/panels/${panelId}/templates${path}`, {
+-        method,
+-        body: body ? JSON.stringify(body) : undefined,
+-      });
++      const { response: r, error } = await run();
+       if (!r.ok) {
+-        const e = await r.json().catch(() => ({}));
++        const e = (error ?? {}) as { message?: string; detail?: string };
+         toast(e?.message || e?.detail || 'عملیات ناموفق بود');
+       } else {
+         toast(okText);
+@@ -65,7 +73,11 @@ export default function PanelTemplatesTab({ call, panelId, toast }: { call: Call
+       }))
+     )
+       return;
+-    act(`u:${m.product_id}`, `/${m.product_id}`, 'DELETE', null, 'ارتباط حذف شد');
++    act(
++      `u:${m.product_id}`,
++      () => c().delete('/api/v1/admin/panels/{panel_id}/templates/{product_id}', { params: pid(m.product_id) }),
++      'ارتباط حذف شد',
++    );
+   };
+ 
+   if (!panelId) return <p className="card p-4 text-sm">برای دیدن تمپلیت‌ها یک پنل انتخاب کنید.</p>;
+@@ -112,7 +124,16 @@ export default function PanelTemplatesTab({ call, panelId, toast }: { call: Call
+                   <button
+                     className="btn btn-g"
+                     disabled={!!busy}
+-                    onClick={() => act(`s:${m.product_id}`, `/${m.product_id}/sync`, 'POST', null, 'همگام شد')}
++                    onClick={() =>
++                      act(
++                        `s:${m.product_id}`,
++                        () =>
++                          c().post('/api/v1/admin/panels/{panel_id}/templates/{product_id}/sync', {
++                            params: pid(m.product_id),
++                          }),
++                        'همگام شد',
++                      )
++                    }
+                   >
+                     {busy === `s:${m.product_id}` ? <Loader size={12} className="animate-spin" /> : null} همگام‌سازی با
+                     پکیج
+@@ -121,14 +142,32 @@ export default function PanelTemplatesTab({ call, panelId, toast }: { call: Call
+                 <button
+                   className="btn btn-g"
+                   disabled={!!busy}
+-                  onClick={() => act(`d:${m.product_id}`, `/${m.product_id}/disable`, 'POST', null, 'غیرفعال شد')}
++                  onClick={() =>
++                    act(
++                      `d:${m.product_id}`,
++                      () =>
++                        c().post('/api/v1/admin/panels/{panel_id}/templates/{product_id}/disable', {
++                          params: pid(m.product_id),
++                        }),
++                      'غیرفعال شد',
++                    )
++                  }
+                 >
+                   غیرفعال
+                 </button>
+                 <button
+                   className="btn btn-g"
+                   disabled={!!busy}
+-                  onClick={() => act(`e:${m.product_id}`, `/${m.product_id}/enable`, 'POST', null, 'فعال شد')}
++                  onClick={() =>
++                    act(
++                      `e:${m.product_id}`,
++                      () =>
++                        c().post('/api/v1/admin/panels/{panel_id}/templates/{product_id}/enable', {
++                          params: pid(m.product_id),
++                        }),
++                      'فعال شد',
++                    )
++                  }
+                 >
+                   فعال
+                 </button>
+@@ -162,7 +201,17 @@ export default function PanelTemplatesTab({ call, panelId, toast }: { call: Call
+         <button
+           className="btn"
+           disabled={!pick || !!busy}
+-          onClick={() => act('create', '', 'POST', { product_id: pick }, 'تمپلیت ساخته شد')}
++          onClick={() =>
++            act(
++              'create',
++              () =>
++                c().post('/api/v1/admin/panels/{panel_id}/templates', {
++                  params: { path: { panel_id: String(panelId) } },
++                  body: { product_id: pick },
++                }),
++              'تمپلیت ساخته شد',
++            )
++          }
+         >
+           ساخت تمپلیت برای این پکیج
+         </button>
+@@ -171,7 +220,17 @@ export default function PanelTemplatesTab({ call, panelId, toast }: { call: Call
+             key={t.id}
+             className="btn btn-g"
+             disabled={!pick || !!busy}
+-            onClick={() => act(`l:${t.id}`, '/link', 'POST', { product_id: pick, remote_template_id: t.id }, 'وصل شد')}
++            onClick={() =>
++              act(
++                `l:${t.id}`,
++                () =>
++                  c().post('/api/v1/admin/panels/{panel_id}/templates/link', {
++                    params: { path: { panel_id: String(panelId) } },
++                    body: { product_id: pick, remote_template_id: t.id },
++                  }),
++                'وصل شد',
++              )
++            }
+           >
+             وصل به #{t.id} «{t.name}»
+           </button>
+diff --git a/apps/admin-web/src/panels/PanelDetailDrawer.tsx b/apps/admin-web/src/panels/PanelDetailDrawer.tsx
+index 1dbf6c8..deb7f6e 100644
+--- a/apps/admin-web/src/panels/PanelDetailDrawer.tsx
++++ b/apps/admin-web/src/panels/PanelDetailDrawer.tsx
+@@ -50,7 +50,7 @@ export function PanelDetailTabs({
+       {tab === 'console' && <PanelConsoleTab call={call} panelId={panelId} toast={toast} />}
+       {tab === 'events' && <PanelEventsTab api={api} panelId={panelId} toast={toast} />}
+       {tab === 'capacity' && <PanelCapacityTab api={api} panelId={panelId} toast={toast} />}
+-      {tab === 'templates' && <PanelTemplatesTab call={call} panelId={panelId} toast={toast} />}
++      {tab === 'templates' && <PanelTemplatesTab api={api} panelId={panelId} toast={toast} />}
+       {tab === 'observe' && <PanelPhase5Tab api={api} panelId={panelId} toast={toast} />}
+       {tab === 'access' && <PanelAccessTab call={call} panelId={panelId} panelName={panelName} toast={toast} />}
+     </>
+diff --git a/apps/admin-web/tests/panel-phase3.test.jsx b/apps/admin-web/tests/panel-phase3.test.jsx
+index edd55e7..92de8b9 100644
+--- a/apps/admin-web/tests/panel-phase3.test.jsx
++++ b/apps/admin-web/tests/panel-phase3.test.jsx
+@@ -103,16 +103,16 @@ describe('PanelTemplatesTab (PG-09)', () => {
+   };
+ 
+   it('shows drift and syncs a managed template', async () => {
+-    const { call, calls } = mk(handler);
+-    render(<PanelTemplatesTab call={call} panelId="p1" toast={() => {}} />);
++    const { calls } = mk(handler);
++    render(<PanelTemplatesTab api={{ base: 'http://core.test' }} panelId="p1" toast={() => {}} />);
+     expect(await screen.findByText(/اختلاف — حجم/)).toBeInTheDocument();
+     await userEvent.click(screen.getByRole('button', { name: /همگام‌سازی با پکیج/ }));
+     await waitFor(() => expect(calls.some(([m, p]) => m === 'POST' && p.endsWith('/templates/pr1/sync'))).toBe(true));
+   });
+ 
+   it('creates a template only for a package that has none', async () => {
+-    const { call, calls } = mk(handler);
+-    render(<PanelTemplatesTab call={call} panelId="p1" toast={() => {}} />);
++    const { calls } = mk(handler);
++    render(<PanelTemplatesTab api={{ base: 'http://core.test' }} panelId="p1" toast={() => {}} />);
+     const select = await screen.findByLabelText('پکیج');
+     expect(Array.from(select.options).map((o) => o.value)).not.toContain('pr1');
+     await userEvent.selectOptions(select, 'pr2');
+@@ -124,8 +124,8 @@ describe('PanelTemplatesTab (PG-09)', () => {
+   });
+ 
+   it('links an unmapped template to the chosen package', async () => {
+-    const { call, calls } = mk(handler);
+-    render(<PanelTemplatesTab call={call} panelId="p1" toast={() => {}} />);
++    const { calls } = mk(handler);
++    render(<PanelTemplatesTab api={{ base: 'http://core.test' }} panelId="p1" toast={() => {}} />);
+     await userEvent.selectOptions(await screen.findByLabelText('پکیج'), 'pr2');
+     await userEvent.click(screen.getByRole('button', { name: /وصل به #9/ }));
+     await waitFor(() => {
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index 7d24b67..cfae6c0 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -174,3 +174,5 @@ _Merged from the former 12-Change-Log-v1.1.md._
+ - r7 (phase 3, fifth step, 2026-11-14): the panel drawer's capacity and live-events tabs no longer take the `authFetch`-based `call` prop. They receive `api` and read through `getJson` and write through `typedClient` (one literal path per action, so the schema checks each body). Same transport rules as before (in-memory bearer token, one shared refresh on 401). Capacity/events tests now mock `fetch`. Still on `authFetch` `call`: nodes, console, templates, observe (phase 5) and access tabs, and the remaining non-panel views; they move endpoint by endpoint.
+ 
+ - r8 (phase 3, sixth step, 2026-11-14): the panel drawer's nodes and observe (metrics, settings drift, lifecycle policy, panel backups) tabs take `api` and use `getJson` / `typedClient` (drift check POST and lifecycle-policy PUT are typed). Still on the `authFetch` `call` prop: console and subscription, templates, access tabs (dynamic paths and error-body handling; migrate with their own tests), plus the non-panel views.
++
++- r9 (phase 3, seventh step, 2026-11-14): the panel drawer's templates tab takes `api`; list reads use `getJson`, and create / link / sync / enable / disable / unlink are typed calls with one literal path each. Still on the `authFetch` `call` prop: console and subscription (family-dependent toggle paths and the LAST_NODE retry) and access tabs, plus the non-panel views.
+-- 
+2.43.0
+

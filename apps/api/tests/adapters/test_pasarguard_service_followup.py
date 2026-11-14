@@ -11,7 +11,7 @@ from _http import PASSWORD, add_user, api_client, totp_now
 from melorin.core import health
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.vpn import ReconciliationIssue, VpnAccount
-from melorin.modules.vpn import issues, notices
+from melorin.modules.vpn_accounts import issues, notices
 from test_pasarguard_service_db import NOW, FakePanel, remote, run, seed, use
 
 BASE = "/api/v1/admin"

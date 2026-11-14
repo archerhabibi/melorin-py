@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from _http import api_client
-from melorin.modules.vpn import store_usage
+from melorin.modules.panelops import store_usage
 from test_panel_admins_http import _owner_headers, _world
 from test_store_usage import FakeListing, acct, GB
 

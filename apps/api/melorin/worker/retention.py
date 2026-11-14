@@ -2,7 +2,7 @@
 
 Only *finished* rows go: an outbox event that was processed, a webhook delivery that was delivered or finally failed.
 Anything still pending/processing/delivering is never touched, and financial/audit tables (orders, ledger, audit log)
-are out of scope on purpose. Panel events have their own purge (``vpn.panel_events.purge``).
+are out of scope on purpose. Panel events have their own purge (``panelops.panel_events.purge``).
 """
 
 from __future__ import annotations

@@ -5,6 +5,7 @@ import App from './App.tsx';
 import { getAccessToken, setTokens } from './auth.ts';
 import AdminAuth from './AdminAuth.tsx';
 import AcceptInvite, { isInviteHash } from './AcceptInvite.tsx';
+import '@melorin/web-kit/tokens.css';
 import './styles.css';
 import './theme.ts';
 import type { Json } from './types.ts';

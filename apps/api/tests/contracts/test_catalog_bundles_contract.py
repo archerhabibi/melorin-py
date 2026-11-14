@@ -37,4 +37,4 @@ def test_baskets_are_renamed_to_bundles_everywhere():
         assert f'"{old}": "{new}"' in migration
     live = [p for p in (ROOT / "melorin").rglob("*.py")]
     assert live and not [p for p in live if "basket" in p.read_text().lower()]
-    assert not (ROOT / "melorin/modules/vpn/baskets.py").exists()
+    assert not (ROOT / "melorin/modules/vpn_accounts/baskets.py").exists()

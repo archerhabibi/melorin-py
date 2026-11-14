@@ -32,6 +32,7 @@ import {
 import { AlertTriangle, Plus, RefreshCw, Server, ServerCog, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { kindOf } from './panels/panelUi.tsx';
 import { PanelDrawer } from './panels/PanelDrawer.tsx';
+import { PanelDetailDrawer } from './panels/PanelDetailDrawer.tsx';
 import { PanelSection } from './panels/PanelSection.tsx';
 import type { Json, Rec, Toast } from './types.ts';
 
@@ -59,6 +60,7 @@ export default function PanelsView({ api, toast }: { api?: Json; toast: Toast })
   const [srvBusy, setSrvBusy] = useState(new Set());
   const [importFor, setImportFor] = useState<Json>(null);
   const [wizardFor, setWizardFor] = useState<Json>(null);
+  const [detailFor, setDetailFor] = useState<Json>(null); // {id, tab}: panel operations, opened by #/panels?detail=<id>[&tab=]
   const [page, setPage] = useState(0);
   const [sort, setSort] = useState('attention');
   const [dense, setDense] = useState('full');
@@ -67,6 +69,13 @@ export default function PanelsView({ api, toast }: { api?: Json; toast: Toast })
     setGroupF(params.get('group') || '');
     setProductF(params.get('product') || '');
   }, [params]);
+  useEffect(() => {
+    if (params.get('detail')) {
+      setDetailFor({ id: params.get('detail'), tab: params.get('tab') });
+      clearParam('detail');
+      clearParam('tab');
+    }
+  }, [params]); // eslint-disable-line react-hooks/exhaustive-deps -- same pattern as the add-deep-link effect below
   useEffect(() => {
     if (params.get('add') === '1') {
       setDrawer('add');
@@ -564,6 +573,21 @@ export default function PanelsView({ api, toast }: { api?: Json; toast: Toast })
           onToggle={toggle}
           onDelete={removePanel}
           toggling={editing ? busy.has(editing.id) : false}
+        />
+      )}
+      {detailFor && (
+        <PanelDetailDrawer
+          api={api}
+          toast={toast}
+          panel={
+            ((infra.panels?.rows || []).find((x: Json) => x.id === detailFor.id) as
+              { id: string; name: string } | undefined) || {
+              id: String(detailFor.id),
+              name: 'پنل',
+            }
+          }
+          tab={detailFor.tab}
+          onClose={() => setDetailFor(null)}
         />
       )}
       {srvDrawer && srvPanel && (!srvDrawer.serverId || srvEditing) && (

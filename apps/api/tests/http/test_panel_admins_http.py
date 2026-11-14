@@ -39,7 +39,7 @@ class Recorder:
 @pytest.fixture
 def panel_adapter(monkeypatch):
     rec = Recorder()
-    monkeypatch.setattr("melorin.modules.vpn.adapters.registry.build_adapter", lambda panel, server=None: rec)
+    monkeypatch.setattr("melorin.modules.panel_integrations.adapters.registry.build_adapter", lambda panel, server=None: rec)
     return rec
 
 

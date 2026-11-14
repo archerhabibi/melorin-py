@@ -83,7 +83,7 @@ services:
     mem_limit: 512m
     cpus: 1.0
   # Backups run here, not in the Worker (audit T-R14): rclone/age/pg_dump and their writable home live in this one container, a stuck
-  # dump cannot delay business jobs, and the Worker above can run with a read-only root. Same image, same job code (worker/jobs.py).
+  # dump cannot delay business jobs, and the Worker above can run with a read-only root. Same image, same job code (worker/jobs_*.py).
   backup:
     logging: *default-logging
     restart: unless-stopped

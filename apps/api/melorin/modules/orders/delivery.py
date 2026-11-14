@@ -19,7 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from melorin.core.fmt import format_amount
-from melorin.modules.vpn.qr import render_qr_png  # noqa: F401  (also the delivery module's public name)
+from melorin.modules.vpn_accounts.qr import render_qr_png  # noqa: F401  (also the delivery module's public name)
 from melorin.core.config import get_settings
 from melorin.core.metrics import inc
 from melorin.kernel.models.notifications import Notification

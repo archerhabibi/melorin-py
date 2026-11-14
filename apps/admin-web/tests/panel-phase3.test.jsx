@@ -7,13 +7,15 @@ import AccountToolsPanel from '../src/AccountToolsPanel.tsx';
 import { DialogHost } from '../src/ui.tsx';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
+// Capacity talks to Core through the typed api-client (global fetch); the other tabs still take a `call` prop.
 const mk = (handler) => {
   const calls = [];
-  const call = async (path, o = {}) => {
+  const run = async (path, o = {}) => {
     calls.push([o.method || 'GET', path, o.body]);
     return handler(path, o);
   };
-  return { call, calls };
+  vi.spyOn(globalThis, 'fetch').mockImplementation((url, o) => run(String(url).replace(/^https?:\/\/[^/]+/, ''), o));
+  return { call: run, calls };
 };
 
 afterEach(() => vi.restoreAllMocks());
@@ -48,8 +50,8 @@ describe('PanelCapacityTab (PG-08)', () => {
   };
 
   it('shows sellability, outside-Melorin users and group reasons', async () => {
-    const { call } = mk(() => json(capacity));
-    render(<PanelCapacityTab call={call} panelId="p1" toast={() => {}} />);
+    mk(() => json(capacity));
+    render(<PanelCapacityTab api={{ base: 'http://core.test' }} panelId="p1" toast={() => {}} />);
     expect(await screen.findByText('srv-a')).toBeInTheDocument();
     expect(screen.getByText('فروش متوقف')).toBeInTheDocument();
     expect(screen.getByText('نود متصلی برای این مقصد نیست')).toBeInTheDocument();
@@ -58,17 +60,17 @@ describe('PanelCapacityTab (PG-08)', () => {
   });
 
   it('refresh posts and reloads', async () => {
-    const { call, calls } = mk((path, o) =>
+    const { calls } = mk((path, o) =>
       o.method === 'POST' ? json({ changes: [{ server: 'srv-a', kind: 'blocked', to: 'x' }] }) : json(capacity),
     );
-    render(<PanelCapacityTab call={call} panelId="p1" toast={() => {}} />);
+    render(<PanelCapacityTab api={{ base: 'http://core.test' }} panelId="p1" toast={() => {}} />);
     await userEvent.click(await screen.findByRole('button', { name: /بررسی همین حالا/ }));
     await waitFor(() => expect(calls.some(([m, p]) => m === 'POST' && p.endsWith('/capacity/refresh'))).toBe(true));
   });
 
   it('explains an unsupported panel', async () => {
-    const { call } = mk(() => json({ ...capacity, capacity_ops: false }));
-    render(<PanelCapacityTab call={call} panelId="p1" toast={() => {}} />);
+    mk(() => json({ ...capacity, capacity_ops: false }));
+    render(<PanelCapacityTab api={{ base: 'http://core.test' }} panelId="p1" toast={() => {}} />);
     expect(await screen.findByText(/پشتیبانی نمی‌کند/)).toBeInTheDocument();
   });
 });
@@ -101,16 +103,16 @@ describe('PanelTemplatesTab (PG-09)', () => {
   };
 
   it('shows drift and syncs a managed template', async () => {
-    const { call, calls } = mk(handler);
-    render(<PanelTemplatesTab call={call} panelId="p1" toast={() => {}} />);
+    const { calls } = mk(handler);
+    render(<PanelTemplatesTab api={{ base: 'http://core.test' }} panelId="p1" toast={() => {}} />);
     expect(await screen.findByText(/اختلاف — حجم/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /همگام‌سازی با پکیج/ }));
     await waitFor(() => expect(calls.some(([m, p]) => m === 'POST' && p.endsWith('/templates/pr1/sync'))).toBe(true));
   });
 
   it('creates a template only for a package that has none', async () => {
-    const { call, calls } = mk(handler);
-    render(<PanelTemplatesTab call={call} panelId="p1" toast={() => {}} />);
+    const { calls } = mk(handler);
+    render(<PanelTemplatesTab api={{ base: 'http://core.test' }} panelId="p1" toast={() => {}} />);
     const select = await screen.findByLabelText('پکیج');
     expect(Array.from(select.options).map((o) => o.value)).not.toContain('pr1');
     await userEvent.selectOptions(select, 'pr2');
@@ -122,8 +124,8 @@ describe('PanelTemplatesTab (PG-09)', () => {
   });
 
   it('links an unmapped template to the chosen package', async () => {
-    const { call, calls } = mk(handler);
-    render(<PanelTemplatesTab call={call} panelId="p1" toast={() => {}} />);
+    const { calls } = mk(handler);
+    render(<PanelTemplatesTab api={{ base: 'http://core.test' }} panelId="p1" toast={() => {}} />);
     await userEvent.selectOptions(await screen.findByLabelText('پکیج'), 'pr2');
     await userEvent.click(screen.getByRole('button', { name: /وصل به #9/ }));
     await waitFor(() => {

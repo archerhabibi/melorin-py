@@ -298,12 +298,12 @@ export const maskCard = (n: Json) => {
 
 export function GatewaySettings({ obj, save }: { obj?: Json; save?: Json }) {
   const [open, setOpen] = useState(false);
-  const card = obj['card.info'] || {};
-  const zp = obj['gateway.zarinpal'] || {};
+  const card = obj.manual_card || {};
+  const zp = obj.zarinpal || {};
   const [c, setC] = useState({ card_number: '', holder: '', bank: '', ...card });
   const [z, setZ] = useState({ merchant_id: '', sandbox: false, ...zp });
-  useEffect(() => setC({ card_number: '', holder: '', bank: '', ...(obj['card.info'] || {}) }), [obj]);
-  useEffect(() => setZ({ merchant_id: '', sandbox: false, ...(obj['gateway.zarinpal'] || {}) }), [obj]);
+  useEffect(() => setC({ card_number: '', holder: '', bank: '', ...(obj.manual_card || {}) }), [obj]);
+  useEffect(() => setZ({ merchant_id: '', sandbox: false, ...(obj.zarinpal || {}) }), [obj]);
   const cardOk = !!(card.card_number && card.holder);
   const zpOk = !!zp.merchant_id;
   return (
@@ -363,7 +363,7 @@ export function GatewaySettings({ obj, save }: { obj?: Json; save?: Json }) {
             <button
               className="btn mt-4"
               disabled={!c.card_number.trim() || !c.holder.trim()}
-              onClick={() => save('card.info', c)}
+              onClick={() => save('manual_card', c)}
             >
               ذخیره اطلاعات کارت
             </button>
@@ -387,7 +387,7 @@ export function GatewaySettings({ obj, save }: { obj?: Json; save?: Json }) {
                 <Switch checked={!!z.sandbox} onChange={(v: Json) => setZ({ ...z, sandbox: v })} label="حالت Sandbox" />
               </div>
             </div>
-            <button className="btn mt-4" disabled={!z.merchant_id.trim()} onClick={() => save('gateway.zarinpal', z)}>
+            <button className="btn mt-4" disabled={!z.merchant_id.trim()} onClick={() => save('zarinpal', z)}>
               ذخیره تنظیمات زرین‌پال
             </button>
           </div>

@@ -10,7 +10,7 @@ from melorin.core.errors import NotFound
 from melorin.kernel.models.identity import User
 from melorin.kernel.models.stores import Store
 from melorin.modules.catalog import allocation
-from melorin.modules.vpn import inquiry, live
+from melorin.modules.vpn_accounts import inquiry, live
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 log = logging.getLogger("melorin.admin")

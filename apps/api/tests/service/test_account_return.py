@@ -14,8 +14,8 @@ from melorin.core.scope import StoreScope
 from melorin.kernel.models.vpn import AccountReturn, Panel, VpnAccount
 from melorin.modules.orders import service as orders
 from melorin.modules.orders.service import account_return
-from melorin.modules.vpn import live, reconcile
-from melorin.modules.vpn import router as vpn_router
+from melorin.modules.vpn_accounts import live, reconcile
+from melorin.modules.vpn_accounts import router as vpn_router
 from melorin.modules.wallet import service as wallet
 from test_pasarguard_service_db import FakePanel, remote
 
@@ -216,7 +216,7 @@ def test_bot_registers_the_return_callbacks_and_the_card_button():
     from pathlib import Path
 
     root = Path(__file__).parents[3] / "telegram-main"
-    runner = (root / "runner.py").read_text(encoding="utf-8")
+    runner = (root / "tgmain" / "core.py").read_text(encoding="utf-8")
     handler = (root / "tgmain/handlers/accounts.py").read_text(encoding="utf-8")
     assert '"rtn": self.cb_return' in runner and '"rtc": self.cb_return_confirm' in runner
     assert "async def cb_return(" in handler and "async def cb_return_confirm(" in handler

@@ -1,18 +1,15 @@
 """The store's own payment destination (gateway config) and review of manual-card payments."""
 
-import json
 import uuid
 
 from fastapi import APIRouter, Query
 from sqlalchemy import select
 
-from melorin.core import audit
-from melorin.core.crypto import encrypt
 from melorin.core.deps import OwnerCtx, Session
 from melorin.core.errors import AppError, NotFound
 from melorin.kernel.models.payments import Payment
 from melorin.kernel.models.stores import StorePaymentConfiguration
-from melorin.modules.payments import bank_sms, provisional, receipt_fingerprints, service as payments
+from melorin.modules.payments import store_config, bank_sms, provisional, receipt_fingerprints, service as payments
 from melorin.modules.payments.schemas import (
     BankSmsIgnoreIn,
     BankSmsLinkIn,
@@ -41,29 +38,15 @@ async def get_payment_config(ctx: OwnerCtx, session: Session):
 
 @router.put("/stores/{store_id}/reseller/payment-config/{provider}")
 async def put_payment_config(provider: str, body: PaymentConfigIn, ctx: OwnerCtx, session: Session):
-    from melorin.modules.payments.adapters.registry import get_adapter
-
-    get_adapter(provider)
-    row = await session.scalar(
-        select(StorePaymentConfiguration).where(
-            StorePaymentConfiguration.store_id == ctx.store.id, StorePaymentConfiguration.provider == provider
-        )
-    )
-    if not row:
-        row = StorePaymentConfiguration(store_id=ctx.store.id, provider=provider)
-        session.add(row)
-    row.is_enabled, row.public_config, row.updated_by = body.is_enabled, body.public_config, ctx.user.id
-    if body.secret is not None:
-        row.secret_enc = encrypt(json.dumps(body.secret))
-    audit.record(
+    await store_config.upsert(
         session,
-        "store.payment_config_updated",
+        store_id=ctx.store.id,
+        provider=provider,
+        is_enabled=body.is_enabled,
+        public_config=body.public_config,
+        secret=body.secret,
         actor_id=ctx.user.id,
         actor_type="reseller",
-        entity_type="store",
-        entity_id=ctx.store.id,
-        store_id=ctx.store.id,
-        data={"provider": provider, "enabled": body.is_enabled, "secret_changed": body.secret is not None},
     )
     await session.commit()
     return {"ok": True}

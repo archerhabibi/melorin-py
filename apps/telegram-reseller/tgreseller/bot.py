@@ -3,19 +3,23 @@
 import logging
 import os
 import time
-from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
+import sys
 
 import httpx
 
-_here = Path(__file__).resolve().parent.parent  # /app in the image, apps/telegram-reseller in the repo
-_path = next(p for p in (_here / "telegram-main" / "runner.py", _here.parent / "telegram-main" / "runner.py") if p.exists())
-_spec = spec_from_file_location("melorin_telegram_main_runner", _path)
-_module = module_from_spec(_spec)
-assert _spec and _spec.loader
-_spec.loader.exec_module(_module)
+# ``tgmain`` (the shared bot core) is copied next to this package in the image and lives in apps/telegram-main in the repo.
+_here = Path(__file__).resolve().parent.parent
+for _p in (_here, _here.parent / "telegram-main"):
+    if (_p / "tgmain").is_dir():
+        if str(_p) not in sys.path:
+            sys.path.insert(0, str(_p))
+        break
+
+from tgmain import core as _module  # noqa: E402
+from tgmain.logsafe import TOKEN_RE, RedactTokens  # noqa: E402,F401
+
 money, keyboard, esc = _module.money, _module.keyboard, _module.esc
-from tgmain.logsafe import TOKEN_RE, RedactTokens  # noqa: E402,F401  (tgmain is importable once the main runner module is loaded)
 
 log = logging.getLogger("melorin.telegram.reseller")
 

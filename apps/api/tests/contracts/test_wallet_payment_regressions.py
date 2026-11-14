@@ -13,8 +13,9 @@ def test_main_payment_settings_have_first_class_forms():
     # Payment gateway settings now live inside the redesigned Payments screen.
     assert "پرداخت‌ها: PaymentsView" in extra
     assert "GatewaySettings" in payments
-    assert "card.info" in payments and "gateway.zarinpal" in payments
-    assert "تنظیمات پیشرفته سیستم" in extra
+    assert "payment-destinations" in payments and "manual_card" in payments and "zarinpal" in payments
+    assert "card.info" not in payments and "gateway.zarinpal" not in payments  # the global keys are gone
+    assert "تنظیمات پیشرفته سیستم" in read_web_source(ROOT.parent / "admin-web/src/SettingsView.tsx")
 
 
 def test_zarinpal_is_validated_as_a_supported_destination():
@@ -39,5 +40,5 @@ def test_wallet_callback_parses_nested_amount_payload():
 
 
 def test_panel_health_job_accepts_sync_or_async_adapter_close():
-    source = read_source(ROOT / "melorin/modules/vpn/adapters/lifecycle.py")
+    source = read_source(ROOT / "melorin/modules/panel_integrations/adapters/lifecycle.py")
     assert "inspect.isawaitable(result)" in source

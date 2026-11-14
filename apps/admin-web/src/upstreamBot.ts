@@ -1,6 +1,6 @@
 import type { Json, Rec } from './types.ts';
 // Pure logic of the `upstream_bot` panel form (no React): defaults, parsing, validation, payload building and the
-// flow preview. The defaults mirror apps/api/melorin/modules/vpn/adapters/upstream_bot/adapter.py (DEFAULTS); a field
+// flow preview. The defaults mirror apps/api/melorin/modules/panel_integrations/adapters/upstream_bot/adapter.py (DEFAULTS); a field
 // left empty means "use the adapter default", so only real overrides are stored in the panel config.
 
 export const UB_TEXT: Rec = {

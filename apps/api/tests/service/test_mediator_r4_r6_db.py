@@ -12,7 +12,7 @@ from _db import open_schema_engine
 from melorin.core import settings_store
 from melorin.kernel.models.vpn import Panel, VpnAccount
 from melorin.modules.reports import analytics
-from melorin.modules.vpn import live, notices, sync
+from melorin.modules.vpn_accounts import live, notices, sync
 from test_panel_live_view_db import _Down, use
 from test_pasarguard_service_db import NOW, FakePanel, remote, seed
 
@@ -78,7 +78,7 @@ async def test_analytics_snapshot_labels_sold_volume_and_reports_panel_numbers(m
 
 # ---------------------------------------------------------------------------------------------------------------- PG-02 words
 async def test_state_hint_says_what_on_hold_and_depleted_mean():
-    from melorin.modules.vpn import inquiry
+    from melorin.modules.vpn_accounts import inquiry
 
     note, action = inquiry.state_hint("on_hold", "active", can_renew=False)
     assert "اولین اتصال" in note and action is None

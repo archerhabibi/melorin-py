@@ -1,6 +1,6 @@
 """Admin API - panel operations - operations console (PG-07), bulk operations (PG-11), store governance (PG-12), subscription test (PG-13).
 
-Thin layer: every rule lives in ``modules/vpn/{ops_console,bulk,governance,subscription_check}.py``. Admin session only; every write is
+Thin layer: every rule lives in ``modules/vpn_accounts/{ops_console,bulk,governance,subscription_check}.py``. Admin session only; every write is
 audited by the service it calls."""
 
 import uuid
@@ -13,7 +13,7 @@ from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import NotFound
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.vpn import BulkOperation, Panel, PanelAdmin
-from melorin.modules.vpn import bulk, governance, subscription_check
+from melorin.modules.panelops import bulk, governance, subscription_check
 from melorin.modules.panelops import ops_console
 
 from melorin.modules.panelops import queries

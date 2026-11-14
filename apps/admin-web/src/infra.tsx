@@ -78,7 +78,16 @@ export const infraHref = (slug: Json, params = {}) => {
 /** Old bookmarks (#/servers?panel=…) → new address, or null when the hash needs no rewrite. */
 export function legacyHash(hash: Json) {
   const [path, q = ''] = hash.split('?');
+  if (path === '#/identity' && new URLSearchParams(q).get('tab') === 'login') return '#/settings?tab=login'; // sign-in methods moved to Settings (owner-only)
   if (path === '#/identity-auto') return '#/identity?tab=devices'; // the two identity screens became one hub
+  // the store hub: resellers, panel access and volume governance became tabs of #/stores
+  const hubTab: Record<string, string> = {
+    '#/resellers': 'resellers',
+    '#/panel-admins': 'panels',
+    '#/store-governance': 'volume',
+  };
+  if (hubTab[path]) return `#/stores?tab=${hubTab[path]}`;
+  if (path === '#/panel-ops' && new URLSearchParams(q).get('tab') === 'notices') return '#/stores?tab=notices'; // per-store setting
   if (path !== '#/servers') return null;
   const p = Object.fromEntries(new URLSearchParams(q));
   return infraHref('servers', p);

@@ -25,6 +25,7 @@ class FakeGateway:
     def __init__(self):
         self.refunds = 0
         self.fail_refund = False
+        self.refund_unsupported = False
         self.intents = 0
 
     async def create_payment_intent(self, payment, *, callback_url, settings):
@@ -39,6 +40,8 @@ class FakeGateway:
         return payment.status
 
     async def refund(self, payment, *, settings):
+        if self.refund_unsupported:
+            raise NotImplementedError("no automatic refund")
         if self.fail_refund:
             raise RuntimeError("gateway down")
         self.refunds += 1
@@ -309,6 +312,21 @@ async def test_gateway_refund_failure_keeps_money_in_the_wallet_and_marks_the_op
             await payments.refund_payment(s, p.id, actor_id=admin.id)
         await s.refresh(p)
         assert p.status == "succeeded" and p.meta["refund_operation"] == "failed"
+        assert await _balance(s, user, store) == 5_000
+
+
+async def test_provider_without_automatic_refund_is_a_clean_409_and_money_stays(gateway):
+    async with open_session() as s:
+        store, user = await _setup(s)
+        admin = await make_user(s, super_admin=True)
+        p, _ = await _intent(s, store, user)
+        await payments.mark_succeeded(s, p.id)
+        gateway.refund_unsupported = True
+        with pytest.raises(AppError) as exc:
+            await payments.refund_payment(s, p.id, actor_id=admin.id)
+        assert exc.value.code == "REFUND_NOT_SUPPORTED" and exc.value.status == 409
+        await s.refresh(p)
+        assert p.status == "succeeded"
         assert await _balance(s, user, store) == 5_000
 
 

@@ -26,6 +26,10 @@ def test_admin_sections_have_live_data_contracts():
 
 def test_admin_screens_are_routed_to_their_views():
     extra = SRC.joinpath("AdminExtra.tsx").read_text()
-    for view in ("OrdersView", "VpnAccountsView", "UsersView", "StoresView", "AuditView"):
+    for view in ("OrdersView", "VpnAccountsView", "UsersView", "StoreHubView", "AuditView"):
         assert f"import('./{view}.tsx')" in extra, f"{view} is not lazy-loaded by AdminExtra.tsx"
         assert f": {view}," in extra, f"{view} is not mapped in extraRoutes"
+    # the store hub renders the stores list (and the merged reseller / panel-access / volume screens) as tabs
+    hub = SRC.joinpath("StoreHubView.tsx").read_text()
+    for view in ("StoresView", "ResellersView", "PanelAdminsView", "StoreGovernanceView"):
+        assert f"import('./{view}.tsx')" in hub, f"{view} is not a tab of the store hub"

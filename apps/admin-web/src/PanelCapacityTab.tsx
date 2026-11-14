@@ -2,7 +2,8 @@
 // per-group health with the reasons, and a "check now" action. Everything comes from /admin/panels/{id}/capacity*.
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle, Loader, RefreshCw } from 'lucide-react';
-import type { CallFn, Json, Rec, Toast } from './types.ts';
+import { getJson, typedClient } from './api.ts';
+import type { Json, Rec, Toast } from './types.ts';
 
 const GROUP_LABEL: Rec = { healthy: 'سالم', degraded: 'مختل', blocked: 'مسدود' };
 const GROUP_COLOR: Rec = { healthy: 'var(--ok)', degraded: 'var(--wn)', blocked: 'var(--bd)' };
@@ -11,7 +12,15 @@ const FILL_COLOR: Rec = { ok: 'var(--ok)', warning: 'var(--wn)', critical: 'var(
 const SOURCE_LABEL: Rec = { melorin: 'شمارش Melorin', panel: 'شمارش پنل', max: 'بیشترین مقدار دو شمارش' };
 const fmt = (v: Json) => (v ? new Date(v).toLocaleString('fa-IR') : '—');
 
-export default function PanelCapacityTab({ call, panelId, toast }: { call: CallFn; panelId?: Json; toast: Toast }) {
+export default function PanelCapacityTab({
+  api,
+  panelId,
+  toast,
+}: {
+  api: { base: string };
+  panelId?: Json;
+  toast: Toast;
+}) {
   const [data, setData] = useState<Json>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -20,14 +29,12 @@ export default function PanelCapacityTab({ call, panelId, toast }: { call: CallF
     if (!panelId) return;
     setLoading(true);
     try {
-      const r = await call(`/api/v1/admin/panels/${panelId}/capacity`);
-      if (!r.ok) throw new Error(String(r.status));
-      setData(await r.json());
+      setData(await getJson(api.base, `/api/v1/admin/panels/${panelId}/capacity`));
     } catch {
       toast('دریافت وضعیت ظرفیت ناموفق بود');
     }
     setLoading(false);
-  }, [call, panelId, toast]);
+  }, [api.base, panelId, toast]);
 
   useEffect(() => {
     setData(null);
@@ -37,8 +44,14 @@ export default function PanelCapacityTab({ call, panelId, toast }: { call: CallF
   const refresh = async () => {
     setBusy(true);
     try {
-      const r = await call(`/api/v1/admin/panels/${panelId}/capacity/refresh`, { method: 'POST' });
-      const body = await r.json().catch(() => ({}));
+      const {
+        response: r,
+        data,
+        error,
+      } = await typedClient(api.base).post('/api/v1/admin/panels/{panel_id}/capacity/refresh', {
+        params: { path: { panel_id: String(panelId) } },
+      });
+      const body = ((r.ok ? data : error) ?? {}) as { message?: string; detail?: string; changes?: unknown[] };
       if (!r.ok) {
         toast(body?.message || body?.detail || 'بررسی ظرفیت ناموفق بود');
       } else {

@@ -11,8 +11,9 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from _db import make_order, make_product, make_store, make_user, open_schema_engine
 from melorin.core.db import utcnow
 from melorin.kernel.models.vpn import Panel, PanelAdmin, PanelNode, PanelOrphan, ReconciliationIssue, VpnAccount
-from melorin.modules.vpn import health, issues, reconcile
-from melorin.modules.vpn.adapters.base import ErrorKind, PanelAccount, PanelError
+from melorin.modules.vpn_accounts import issues, reconcile
+from melorin.modules.panel_integrations import health
+from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelAccount, PanelError
 
 NOW = utcnow()
 
@@ -35,7 +36,7 @@ class FakePanel:
         self.nodes, self.down, self.single_calls = nodes, down, 0
 
     def capabilities(self):  # only what ``supports`` needs
-        from melorin.modules.vpn.adapters.base import Capabilities
+        from melorin.modules.panel_integrations.adapters.base import Capabilities
 
         return Capabilities(account_listing=True, node_ops=True)
 

@@ -1,0 +1,233 @@
+From 103c290035e7938d91023d12f9044f6f3a5b54a9 Mon Sep 17 00:00:00 2001
+From: Melorin Dev <dev@melorin.local>
+Date: Sat, 14 Nov 2026 19:08:26 +0000
+Subject: [PATCH] refactor(admin-ui): panel nodes and observe tabs use the
+ typed api-client (r8)
+
+---
+ apps/admin-web/src/PanelNodesTab.tsx          | 19 ++++--
+ apps/admin-web/src/PanelPhase5Tab.tsx         | 58 +++++++++++--------
+ .../src/panels/PanelDetailDrawer.tsx          |  4 +-
+ docs/DECISIONS.md                             |  2 +
+ 4 files changed, 51 insertions(+), 32 deletions(-)
+
+diff --git a/apps/admin-web/src/PanelNodesTab.tsx b/apps/admin-web/src/PanelNodesTab.tsx
+index 4728667..4cf6402 100644
+--- a/apps/admin-web/src/PanelNodesTab.tsx
++++ b/apps/admin-web/src/PanelNodesTab.tsx
+@@ -1,7 +1,8 @@
+ // Panel-scoped node health (PG-01): a tab of the panel detail drawer.
+ import { useEffect, useState } from 'react';
+ import { AlertTriangle } from 'lucide-react';
+-import type { CallFn, Json, Rec, Toast } from './types.ts';
++import { getJson } from './api.ts';
++import type { Json, Rec, Toast } from './types.ts';
+ 
+ const NODE_COLOR: Rec = {
+   connected: 'var(--ok)',
+@@ -20,21 +21,27 @@ const NODE_LABEL: Rec = {
+ };
+ const fmt = (v: Json) => (v ? new Date(v).toLocaleString('fa-IR') : '—');
+ 
+-export default function PanelNodesTab({ call, panelId, toast }: { call: CallFn; panelId?: string; toast: Toast }) {
++export default function PanelNodesTab({
++  api,
++  panelId,
++  toast,
++}: {
++  api: { base: string };
++  panelId?: string;
++  toast: Toast;
++}) {
+   const [nodes, setNodes] = useState<Json>(null);
+   useEffect(() => {
+     setNodes(null);
+     if (!panelId) return;
+     (async () => {
+       try {
+-        const r = await call(`/api/v1/admin/panels/${panelId}/nodes`);
+-        if (!r.ok) throw new Error(String(r.status));
+-        setNodes(await r.json());
++        setNodes(await getJson(api.base, `/api/v1/admin/panels/${panelId}/nodes`));
+       } catch {
+         toast('دریافت نودها ناموفق بود');
+       }
+     })();
+-  }, [call, panelId, toast]);
++  }, [api.base, panelId, toast]);
+   return (
+     <section className="space-y-3">
+       {!panelId && <p className="card p-4 text-sm">برای دیدن نودها یک پنل انتخاب کنید.</p>}
+diff --git a/apps/admin-web/src/PanelPhase5Tab.tsx b/apps/admin-web/src/PanelPhase5Tab.tsx
+index b557e58..c7ae8d2 100644
+--- a/apps/admin-web/src/PanelPhase5Tab.tsx
++++ b/apps/admin-web/src/PanelPhase5Tab.tsx
+@@ -3,8 +3,9 @@
+ // Nothing here writes a setting to the panel: "check now" is a read, the policy only changes what Melorin expects.
+ import { useCallback, useEffect, useState } from 'react';
+ import { AlertTriangle, CheckCircle, DatabaseBackup, Gauge, Info, Loader, RefreshCw } from 'lucide-react';
++import { getJson, typedClient } from './api.ts';
+ import { promptDialog } from './ui.tsx';
+-import type { CallFn, Json, Rec, Toast } from './types.ts';
++import type { Json, Rec, Toast } from './types.ts';
+ 
+ const FINDING_COLOR: Rec = { ok: 'var(--ok)', drift: 'var(--bd)', info: 'var(--mu)', unknown: 'var(--wn)' };
+ const FINDING_LABEL: Rec = { ok: 'سالم', drift: 'ناهمخوان', info: 'اطلاع', unknown: 'نامشخص' };
+@@ -85,19 +86,17 @@ function Readings({ data }: { data?: Json }) {
+   );
+ }
+ 
+-function Drift({ call, panelId, toast }: { call: CallFn; panelId?: Json; toast: Toast }) {
++function Drift({ api, panelId, toast }: { api: { base: string }; panelId?: Json; toast: Toast }) {
+   const [d, setD] = useState<Json>(null);
+   const [busy, setBusy] = useState('');
+ 
+   const load = useCallback(async () => {
+     try {
+-      const r = await call(`/api/v1/admin/panels/${panelId}/settings-drift`);
+-      if (!r.ok) throw new Error(String(r.status));
+-      setD(await r.json());
++      setD(await getJson(api.base, `/api/v1/admin/panels/${panelId}/settings-drift`));
+     } catch {
+       toast('دریافت وضعیت تنظیمات پنل ناموفق بود');
+     }
+-  }, [call, panelId, toast]);
++  }, [api.base, panelId, toast]);
+ 
+   useEffect(() => {
+     load();
+@@ -106,8 +105,11 @@ function Drift({ call, panelId, toast }: { call: CallFn; panelId?: Json; toast:
+   const check = async () => {
+     setBusy('check');
+     try {
+-      const r = await call(`/api/v1/admin/panels/${panelId}/settings-drift/check`, { method: 'POST' });
+-      if (r.ok) setD(await r.json());
++      const { response: r, data } = await typedClient(api.base).post(
++        '/api/v1/admin/panels/{panel_id}/settings-drift/check',
++        { params: { path: { panel_id: String(panelId) } } },
++      );
++      if (r.ok) setD(data);
+       toast(r.ok ? 'تنظیمات پنل خوانده و مقایسه شد (چیزی روی پنل نوشته نشد)' : 'خواندن تنظیمات ناموفق بود');
+     } finally {
+       setBusy('');
+@@ -122,11 +124,14 @@ function Drift({ call, panelId, toast }: { call: CallFn; panelId?: Json; toast:
+     if (reason === null) return;
+     setBusy('policy');
+     try {
+-      const r = await call(`/api/v1/admin/panels/${panelId}/lifecycle-policy`, {
+-        method: 'PUT',
+-        body: JSON.stringify({ policy, reason: String(reason ?? '').trim() }),
+-      });
+-      if (r.ok) setD(await r.json());
++      const { response: r, data } = await typedClient(api.base).put(
++        '/api/v1/admin/panels/{panel_id}/lifecycle-policy',
++        {
++          params: { path: { panel_id: String(panelId) } },
++          body: { policy, reason: String(reason ?? '').trim() },
++        },
++      );
++      if (r.ok) setD(data);
+       toast(r.ok ? 'سیاست ذخیره شد (فقط انتظار ملورین عوض شد، پنل دست نخورد)' : 'ذخیره سیاست ناموفق بود');
+     } finally {
+       setBusy('');
+@@ -196,17 +201,15 @@ function Drift({ call, panelId, toast }: { call: CallFn; panelId?: Json; toast:
+   );
+ }
+ 
+-function Backup({ call, toast }: { call: CallFn; toast: Toast }) {
++function Backup({ api, toast }: { api: { base: string }; toast: Toast }) {
+   const [b, setB] = useState<Json>(null);
+   const load = useCallback(async () => {
+     try {
+-      const r = await call('/api/v1/admin/panel-backups');
+-      if (!r.ok) throw new Error(String(r.status));
+-      setB(await r.json());
++      setB(await getJson(api.base, '/api/v1/admin/panel-backups'));
+     } catch {
+       toast('دریافت وضعیت پشتیبان پنل ناموفق بود');
+     }
+-  }, [call, toast]);
++  }, [api.base, toast]);
+   useEffect(() => {
+     load();
+   }, [load]);
+@@ -244,34 +247,41 @@ function Backup({ call, toast }: { call: CallFn; toast: Toast }) {
+   );
+ }
+ 
+-export default function PanelPhase5Tab({ call, panelId, toast }: { call: CallFn; panelId?: Json; toast: Toast }) {
++export default function PanelPhase5Tab({
++  api,
++  panelId,
++  toast,
++}: {
++  api: { base: string };
++  panelId?: Json;
++  toast: Toast;
++}) {
+   const [metrics, setMetrics] = useState<Json>(null);
+   useEffect(() => {
+     setMetrics(null);
+     if (!panelId) return;
+     (async () => {
+       try {
+-        const r = await call(`/api/v1/admin/panels/${panelId}/metrics`);
+-        if (r.ok) setMetrics(await r.json());
++        setMetrics(await getJson(api.base, `/api/v1/admin/panels/${panelId}/metrics`));
+       } catch {
+         toast('دریافت شاخص‌های پنل ناموفق بود');
+       }
+     })();
+-  }, [call, panelId, toast]);
++  }, [api.base, panelId, toast]);
+ 
+   return (
+     <div className="space-y-4">
+       {panelId ? (
+         <>
+           <Readings data={metrics} />
+-          <Drift call={call} panelId={panelId} toast={toast} />
++          <Drift api={api} panelId={panelId} toast={toast} />
+         </>
+       ) : (
+         <p className="card p-4 text-sm text-[var(--mu)]">
+           برای دیدن شاخص‌ها و ناهمخوانی تنظیمات، یک پنل را از فهرست بالا انتخاب کنید.
+         </p>
+       )}
+-      <Backup call={call} toast={toast} />
++      <Backup api={api} toast={toast} />
+     </div>
+   );
+ }
+diff --git a/apps/admin-web/src/panels/PanelDetailDrawer.tsx b/apps/admin-web/src/panels/PanelDetailDrawer.tsx
+index c833964..1dbf6c8 100644
+--- a/apps/admin-web/src/panels/PanelDetailDrawer.tsx
++++ b/apps/admin-web/src/panels/PanelDetailDrawer.tsx
+@@ -46,12 +46,12 @@ export function PanelDetailTabs({
+           </button>
+         ))}
+       </div>
+-      {tab === 'nodes' && <PanelNodesTab call={call} panelId={panelId} toast={toast} />}
++      {tab === 'nodes' && <PanelNodesTab api={api} panelId={panelId} toast={toast} />}
+       {tab === 'console' && <PanelConsoleTab call={call} panelId={panelId} toast={toast} />}
+       {tab === 'events' && <PanelEventsTab api={api} panelId={panelId} toast={toast} />}
+       {tab === 'capacity' && <PanelCapacityTab api={api} panelId={panelId} toast={toast} />}
+       {tab === 'templates' && <PanelTemplatesTab call={call} panelId={panelId} toast={toast} />}
+-      {tab === 'observe' && <PanelPhase5Tab call={call} panelId={panelId} toast={toast} />}
++      {tab === 'observe' && <PanelPhase5Tab api={api} panelId={panelId} toast={toast} />}
+       {tab === 'access' && <PanelAccessTab call={call} panelId={panelId} panelName={panelName} toast={toast} />}
+     </>
+   );
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index d485803..7d24b67 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -172,3 +172,5 @@ _Merged from the former 12-Change-Log-v1.1.md._
+ - r6 (verification, PostgreSQL, 2026-11-14): on a throwaway postgres:16-alpine, `scripts/migration_smoke.sh` ran from an empty database to head `0056_main_store_payment_config` and passed; the PostgreSQL lane (`tests/postgres`, via TEST_PG_URL) passed 8/8. Not run: upgrade from a previous-version database, full Compose with the r6 commits, Playwright against Compose.
+ 
+ - r7 (phase 3, fifth step, 2026-11-14): the panel drawer's capacity and live-events tabs no longer take the `authFetch`-based `call` prop. They receive `api` and read through `getJson` and write through `typedClient` (one literal path per action, so the schema checks each body). Same transport rules as before (in-memory bearer token, one shared refresh on 401). Capacity/events tests now mock `fetch`. Still on `authFetch` `call`: nodes, console, templates, observe (phase 5) and access tabs, and the remaining non-panel views; they move endpoint by endpoint.
++
++- r8 (phase 3, sixth step, 2026-11-14): the panel drawer's nodes and observe (metrics, settings drift, lifecycle policy, panel backups) tabs take `api` and use `getJson` / `typedClient` (drift check POST and lifecycle-policy PUT are typed). Still on the `authFetch` `call` prop: console and subscription, templates, access tabs (dynamic paths and error-body handling; migrate with their own tests), plus the non-panel views.
+-- 
+2.43.0
+

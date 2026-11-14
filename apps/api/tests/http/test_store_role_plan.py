@@ -1,4 +1,4 @@
-from melorin.modules.vpn import service_access
+from melorin.modules.panelops import service_access
 from melorin.modules.panelops import store_role
 
 
@@ -46,7 +46,7 @@ class _FakeOwner:
 
     async def ensure_role(self, body):
         if self.fail:
-            from melorin.modules.vpn.adapters.base import ErrorKind, PanelError
+            from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError
 
             raise PanelError(ErrorKind.PERMANENT, "403 forbidden")
         self.bodies.append(body)

@@ -46,6 +46,14 @@ export async function authFetch(base: string, path: string, options: RequestInit
   return r;
 }
 
+/**
+ * Typed client on the SAME transport rules as authFetch (in-memory bearer token, one shared refresh on 401).
+ * Prefer this for endpoints present in the OpenAPI snapshot: path, params and body are checked at compile time.
+ * `result.response` is the raw Response (use it with errText); `result.data` is typed from the schema.
+ */
+export const typedClient = (base: string) =>
+  createApiClient({ baseUrl: base, getAccessToken, refresh: () => refreshPair(base) });
+
 /** GET + parse JSON through @melorin/api-client (T15): bearer token, one transparent refresh on 401. */
 export async function getJson<T = Json>(base: string, path: string): Promise<T> {
   const client = createApiClient({ baseUrl: base, getAccessToken, refresh: () => refreshPair(base) });

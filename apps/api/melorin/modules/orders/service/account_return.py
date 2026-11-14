@@ -1,4 +1,4 @@
-"""Customer account return (مرجوعی), executing half: the rules live in ``melorin.modules.vpn.returns`` (the lower layer);
+"""Customer account return (مرجوعی), executing half: the rules live in ``melorin.modules.vpn_accounts.returns`` (the lower layer);
 this module, which may import ``orders``, turns an allowed return into a normal order refund."""
 
 from __future__ import annotations
@@ -7,7 +7,7 @@ import uuid
 
 from melorin.core.scope import StoreScope
 from melorin.modules.orders.service.refund import _refund
-from melorin.modules.vpn import returns
+from melorin.modules.vpn_accounts import returns
 
 
 async def return_account(session, scope: StoreScope, account_id: uuid.UUID) -> dict:

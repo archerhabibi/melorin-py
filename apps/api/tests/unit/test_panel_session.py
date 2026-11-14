@@ -2,8 +2,8 @@
 
 import pytest
 
-from melorin.modules.vpn import panel_session as ps
-from melorin.modules.vpn.adapters.base import ErrorKind, PanelError
+from melorin.modules.panel_integrations import session as ps
+from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError
 
 
 class _AsyncAdapter:
@@ -42,7 +42,7 @@ async def test_session_builds_and_always_closes(monkeypatch):
         seen.update(panel=panel, server=server, credentials=credentials)
         return adapter
 
-    monkeypatch.setattr("melorin.modules.vpn.adapters.registry.build_adapter", fake_build)
+    monkeypatch.setattr("melorin.modules.panel_integrations.adapters.registry.build_adapter", fake_build)
     with pytest.raises(ValueError):
         async with ps.panel_session("P", "S", credentials={"k": 1}) as got:
             assert got is adapter

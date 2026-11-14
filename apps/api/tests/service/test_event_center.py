@@ -15,6 +15,7 @@ from melorin.kernel.models.system import OutboxEvent
 from melorin.kernel.models.tickets import Ticket, TicketMessage
 from melorin.kernel.models.vpn import Panel
 from melorin.modules.eventcenter import rules, service
+from melorin.modules.panelops import panel_notices
 from melorin.modules.eventcenter.topics import topics_for
 
 GROUP = "-1001234567890"
@@ -287,11 +288,11 @@ async def test_panel_health_notice_only_on_state_change():
             return [r.payload["text"] for r in rows]
 
         panel.health_status, panel.last_health_error = "unhealthy", "timeout"
-        await rules.notify_panel_health(s, panel, "healthy")
-        await rules.notify_panel_health(s, panel, "unhealthy")  # still unhealthy: silent
+        await panel_notices.notify_panel_health(s, panel, "healthy")
+        await panel_notices.notify_panel_health(s, panel, "unhealthy")  # still unhealthy: silent
         panel.health_status, panel.last_health_error = "healthy", None
-        await rules.notify_panel_health(s, panel, "unknown")  # first check ok: silent
-        await rules.notify_panel_health(s, panel, "unhealthy")  # recovered
+        await panel_notices.notify_panel_health(s, panel, "unknown")  # first check ok: silent
+        await panel_notices.notify_panel_health(s, panel, "unhealthy")  # recovered
         texts = await queued()
         assert len(texts) == 2 and "Panel-A" in texts[0] and "timeout" in texts[0] and "دوباره سالم" in texts[1]
         e = (await s.scalars(select(OutboxEvent).where(OutboxEvent.topic == events.EVENT_CENTER))).first()

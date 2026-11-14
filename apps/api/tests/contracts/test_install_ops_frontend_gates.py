@@ -40,7 +40,7 @@ def test_acceptance_smoke_covers_real_provider_boundaries():
 
 
 def test_telegram_retries_transient_core_errors_without_advancing_offset():
-    bot = read("apps/telegram-main/runner.py")
+    bot = read("apps/telegram-main/tgmain/core.py")
     # Transient errors propagate (offset not advanced) only up to a bounded cap, then the update is dropped (no head-of-line blocking).
     assert "Transient errors propagate (offset not advanced)" in bot
     assert "MAX_UPDATE_ATTEMPTS" in bot

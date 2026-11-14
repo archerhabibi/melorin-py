@@ -6,9 +6,12 @@ import uuid
 
 from sqlalchemy import select, update
 
+from melorin.domain.order_state import VpnSource, VpnStatus, set_vpn_status
 from melorin.core import events
 from melorin.core.config import get_settings
 from melorin.core.db import session_factory, utcnow
+from melorin.domain import messaging_policy
+from melorin.domain.notification_dedup import EVENT_ID_FIELD, effective_key
 from melorin.core.metrics import inc
 from melorin import models  # noqa: F401, register all SQLAlchemy mappers before worker sessions
 from melorin.kernel.models.identity import User
@@ -16,8 +19,8 @@ from melorin.kernel.models.notifications import Notification
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.system import OutboxEvent
 from melorin.modules.orders import provisioning as vpn
-from melorin.modules.vpn import sync
-from melorin.modules.vpn.adapters.registry import build_adapter, seed_adapter
+from melorin.modules.vpn_accounts import sync
+from melorin.modules.panel_integrations.adapters.registry import build_adapter, seed_adapter
 from melorin.kernel.models.vpn import Panel, VpnAccount
 
 log = logging.getLogger("melorin.worker")
@@ -75,12 +78,22 @@ async def _on_provisioning_failed(session, p: dict):
     await _webhook(session, "order.provisioning_failed", p, f"order.provisioning_failed:{p.get('order_id')}")
 
 
-async def _on_order_completed(session, p: dict):
-    from melorin.modules.loyalty.service import on_order_completed as loyalty_on_order_completed
-    from melorin.modules.referral.service import on_order_completed
+async def _settle_rewards(session, order_id, *, reverse: bool) -> None:
+    """Run the reward engines in the order fixed by ``domain.order_rewards`` (the single stacking policy)."""
+    from melorin.domain.order_rewards import REVERSE_ORDER, SETTLE_ORDER, RewardEngine
+    from melorin.modules.loyalty import service as loyalty
+    from melorin.modules.referral import service as referral
 
-    await on_order_completed(session, _oid(p))
-    await loyalty_on_order_completed(session, _oid(p))
+    steps = {
+        RewardEngine.REFERRAL: referral.on_order_refunded if reverse else referral.on_order_completed,
+        RewardEngine.LOYALTY: loyalty.on_order_refunded if reverse else loyalty.on_order_completed,
+    }
+    for engine in REVERSE_ORDER if reverse else SETTLE_ORDER:
+        await steps[engine](session, order_id)
+
+
+async def _on_order_completed(session, p: dict):
+    await _settle_rewards(session, _oid(p), reverse=False)
     await _webhook(session, "order.completed", p, f"order.completed:{p.get('order_id')}")
 
 
@@ -91,11 +104,7 @@ async def _on_order_delivery(session, p: dict):
 
 
 async def _on_order_refunded(session, p: dict):
-    from melorin.modules.loyalty.service import on_order_refunded as loyalty_on_order_refunded
-    from melorin.modules.referral.service import on_order_refunded
-
-    await on_order_refunded(session, _oid(p))
-    await loyalty_on_order_refunded(session, _oid(p))
+    await _settle_rewards(session, _oid(p), reverse=True)
     await _webhook(session, "order.refunded", p, f"order.refunded:{p.get('order_id')}")
 
 
@@ -185,7 +194,7 @@ async def process_event(e: OutboxEvent):
             e = reloaded
             handler = _TOPIC_HANDLERS.get(e.topic)
             if handler is not None:  # unknown topics are acknowledged without work, as before
-                await handler(session, e.payload or {})
+                await handler(session, {**(e.payload or {}), EVENT_ID_FIELD: str(e.id)})  # the event id drives notification dedup
             if e.topic != events.EVENT_CENTER_DELIVER:  # Telegram fan-out: best-effort, inside a SAVEPOINT, never fails the event
                 from melorin.modules.eventcenter import rules as event_center_rules
 
@@ -209,8 +218,11 @@ async def process_event(e: OutboxEvent):
 async def _notify(session, p: dict, kind: str, title: str, body: str = ""):
     if not p.get("user_id"):
         return
+    if not messaging_policy.dm_allowed(kind):  # event-center-only kinds never become a DM
+        inc("melorin_notifications_total", channel="telegram", result="policy_skipped")
+        return
     user_id = uuid.UUID(str(p["user_id"]))
-    dedup_key = p.get("dedup_key")
+    dedup_key = effective_key(p, str(user_id), "telegram")
     n = await session.scalar(select(Notification).where(Notification.dedup_key == dedup_key)) if dedup_key else None
     if n and n.telegram_status == "sent":
         return
@@ -295,7 +307,7 @@ async def revoke_account(session, account_id):
         return
     panel = await session.get(Panel, a.panel_id)
     await seed_adapter(build_adapter(panel), a).revoke_account(a.username)
-    a.status = "revoked"
+    set_vpn_status(a, VpnStatus.REVOKED, source=VpnSource.RETURN)
     await session.commit()
 
 

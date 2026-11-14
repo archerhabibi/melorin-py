@@ -2023,6 +2023,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/payment-destinations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Payment Destinations */
+        get: operations["payment_destinations_api_v1_admin_payment_destinations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/payment-destinations/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Put Payment Destination */
+        put: operations["put_payment_destination_api_v1_admin_payment_destinations__provider__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/payments": {
         parameters: {
             query?: never;
@@ -7974,6 +8008,11 @@ export interface components {
         /** NoticeSettingsOut */
         NoticeSettingsOut: {
             /**
+             * Daily Digest
+             * @default false
+             */
+            daily_digest: boolean;
+            /**
              * Default Levels
              * @default [
              *       80,
@@ -7981,6 +8020,11 @@ export interface components {
              *     ]
              */
             default_levels: number[];
+            /**
+             * Has Owner
+             * @default false
+             */
+            has_owner: boolean;
             /** Is Default */
             is_default: boolean;
             /**
@@ -9983,7 +10027,7 @@ export interface components {
             title: string;
         };
         /** ReasonIn */
-        melorin__modules__vpn__schemas__ReasonIn: {
+        melorin__modules__vpn_accounts__schemas__ReasonIn: {
             /** Reason */
             reason?: string | null;
         };
@@ -13798,6 +13842,61 @@ export interface operations {
             };
         };
     };
+    payment_destinations_api_v1_admin_payment_destinations_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    put_payment_destination_api_v1_admin_payment_destinations__provider__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaymentConfigIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     payments_api_v1_admin_payments_get: {
         parameters: {
             query?: {
@@ -16691,7 +16790,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["melorin__modules__vpn__schemas__ReasonIn"];
+                "application/json": components["schemas"]["melorin__modules__vpn_accounts__schemas__ReasonIn"];
             };
         };
         responses: {
@@ -20194,7 +20293,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["melorin__modules__vpn__schemas__ReasonIn"];
+                "application/json": components["schemas"]["melorin__modules__vpn_accounts__schemas__ReasonIn"];
             };
         };
         responses: {

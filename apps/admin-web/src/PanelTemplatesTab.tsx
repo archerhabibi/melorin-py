@@ -3,13 +3,22 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle, Loader, RefreshCw } from 'lucide-react';
 import { confirmDialog } from './ui.tsx';
-import type { CallFn, Json, Rec, Toast } from './types.ts';
+import { getJson, typedClient } from './api.ts';
+import type { Json, Rec, Toast } from './types.ts';
 
 const DRIFT_LABEL: Rec = { data_limit: 'حجم', expire_duration: 'مدت', group_ids: 'گروه‌ها' };
 const driftText = (k: Json, v: Json) =>
   `${DRIFT_LABEL[k] || k}: پکیج ${JSON.stringify(v.package)} ← پنل ${JSON.stringify(v.panel)}`;
 
-export default function PanelTemplatesTab({ call, panelId, toast }: { call: CallFn; panelId?: Json; toast: Toast }) {
+export default function PanelTemplatesTab({
+  api,
+  panelId,
+  toast,
+}: {
+  api: { base: string };
+  panelId?: Json;
+  toast: Toast;
+}) {
   const [data, setData] = useState<Json>(null);
   const [products, setProducts] = useState<Rec[]>([]);
   const [pick, setPick] = useState('');
@@ -21,32 +30,31 @@ export default function PanelTemplatesTab({ call, panelId, toast }: { call: Call
     setLoading(true);
     try {
       const [t, p] = await Promise.all([
-        call(`/api/v1/admin/panels/${panelId}/templates`),
-        call('/api/v1/admin/products'),
+        getJson(api.base, `/api/v1/admin/panels/${panelId}/templates`),
+        getJson(api.base, '/api/v1/admin/products').catch(() => null),
       ]);
-      if (!t.ok) throw new Error(String(t.status));
-      setData(await t.json());
-      if (p.ok) setProducts(await p.json());
+      setData(t);
+      if (p) setProducts(p);
     } catch {
       toast('دریافت تمپلیت‌ها ناموفق بود');
     }
     setLoading(false);
-  }, [call, panelId, toast]);
+  }, [api.base, panelId, toast]);
 
   useEffect(() => {
     setData(null);
     load();
   }, [load]);
 
-  const act = async (key: Json, path: string, method: Json, body: Json, okText: Json) => {
+  // One typed call per action (literal path per endpoint); ``run`` returns the client result.
+  const pid = (id?: string) => ({ path: { panel_id: String(panelId), product_id: String(id) } });
+  const c = () => typedClient(api.base);
+  const act = async (key: Json, run: () => Promise<Json>, okText: Json) => {
     setBusy(key);
     try {
-      const r = await call(`/api/v1/admin/panels/${panelId}/templates${path}`, {
-        method,
-        body: body ? JSON.stringify(body) : undefined,
-      });
+      const { response: r, error } = await run();
       if (!r.ok) {
-        const e = await r.json().catch(() => ({}));
+        const e = (error ?? {}) as { message?: string; detail?: string };
         toast(e?.message || e?.detail || 'عملیات ناموفق بود');
       } else {
         toast(okText);
@@ -65,7 +73,11 @@ export default function PanelTemplatesTab({ call, panelId, toast }: { call: Call
       }))
     )
       return;
-    act(`u:${m.product_id}`, `/${m.product_id}`, 'DELETE', null, 'ارتباط حذف شد');
+    act(
+      `u:${m.product_id}`,
+      () => c().delete('/api/v1/admin/panels/{panel_id}/templates/{product_id}', { params: pid(m.product_id) }),
+      'ارتباط حذف شد',
+    );
   };
 
   if (!panelId) return <p className="card p-4 text-sm">برای دیدن تمپلیت‌ها یک پنل انتخاب کنید.</p>;
@@ -112,7 +124,16 @@ export default function PanelTemplatesTab({ call, panelId, toast }: { call: Call
                   <button
                     className="btn btn-g"
                     disabled={!!busy}
-                    onClick={() => act(`s:${m.product_id}`, `/${m.product_id}/sync`, 'POST', null, 'همگام شد')}
+                    onClick={() =>
+                      act(
+                        `s:${m.product_id}`,
+                        () =>
+                          c().post('/api/v1/admin/panels/{panel_id}/templates/{product_id}/sync', {
+                            params: pid(m.product_id),
+                          }),
+                        'همگام شد',
+                      )
+                    }
                   >
                     {busy === `s:${m.product_id}` ? <Loader size={12} className="animate-spin" /> : null} همگام‌سازی با
                     پکیج
@@ -121,14 +142,32 @@ export default function PanelTemplatesTab({ call, panelId, toast }: { call: Call
                 <button
                   className="btn btn-g"
                   disabled={!!busy}
-                  onClick={() => act(`d:${m.product_id}`, `/${m.product_id}/disable`, 'POST', null, 'غیرفعال شد')}
+                  onClick={() =>
+                    act(
+                      `d:${m.product_id}`,
+                      () =>
+                        c().post('/api/v1/admin/panels/{panel_id}/templates/{product_id}/disable', {
+                          params: pid(m.product_id),
+                        }),
+                      'غیرفعال شد',
+                    )
+                  }
                 >
                   غیرفعال
                 </button>
                 <button
                   className="btn btn-g"
                   disabled={!!busy}
-                  onClick={() => act(`e:${m.product_id}`, `/${m.product_id}/enable`, 'POST', null, 'فعال شد')}
+                  onClick={() =>
+                    act(
+                      `e:${m.product_id}`,
+                      () =>
+                        c().post('/api/v1/admin/panels/{panel_id}/templates/{product_id}/enable', {
+                          params: pid(m.product_id),
+                        }),
+                      'فعال شد',
+                    )
+                  }
                 >
                   فعال
                 </button>
@@ -162,7 +201,17 @@ export default function PanelTemplatesTab({ call, panelId, toast }: { call: Call
         <button
           className="btn"
           disabled={!pick || !!busy}
-          onClick={() => act('create', '', 'POST', { product_id: pick }, 'تمپلیت ساخته شد')}
+          onClick={() =>
+            act(
+              'create',
+              () =>
+                c().post('/api/v1/admin/panels/{panel_id}/templates', {
+                  params: { path: { panel_id: String(panelId) } },
+                  body: { product_id: pick },
+                }),
+              'تمپلیت ساخته شد',
+            )
+          }
         >
           ساخت تمپلیت برای این پکیج
         </button>
@@ -171,7 +220,17 @@ export default function PanelTemplatesTab({ call, panelId, toast }: { call: Call
             key={t.id}
             className="btn btn-g"
             disabled={!pick || !!busy}
-            onClick={() => act(`l:${t.id}`, '/link', 'POST', { product_id: pick, remote_template_id: t.id }, 'وصل شد')}
+            onClick={() =>
+              act(
+                `l:${t.id}`,
+                () =>
+                  c().post('/api/v1/admin/panels/{panel_id}/templates/link', {
+                    params: { path: { panel_id: String(panelId) } },
+                    body: { product_id: pick, remote_template_id: t.id },
+                  }),
+                'وصل شد',
+              )
+            }
           >
             وصل به #{t.id} «{t.name}»
           </button>

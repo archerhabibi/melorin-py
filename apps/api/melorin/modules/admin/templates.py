@@ -8,7 +8,7 @@
 ``DELETE /admin/panels/{id}/templates/{product_id}``         forget the mapping (the template stays on the panel)
 ``POST   /admin/vpn-accounts/{account_id}/change-plan``      move an existing account to another package's template (reason required)
 
-All admin-only and audited; rules live in :mod:`melorin.modules.vpn.templates` and :mod:`melorin.modules.vpn.plans`.
+All admin-only and audited; rules live in :mod:`melorin.modules.panel_integrations.templates` and :mod:`melorin.modules.vpn_accounts.plans`.
 """
 
 from __future__ import annotations
@@ -22,7 +22,8 @@ from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import NotFound
 from melorin.kernel.models.catalog import Product
 from melorin.kernel.models.vpn import Panel, VpnAccount
-from melorin.modules.vpn import live, plans, templates
+from melorin.modules.vpn_accounts import live, plans
+from melorin.modules.panel_integrations import templates
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 

@@ -203,7 +203,7 @@ Use this when the PasarGuard panel (not Melorin) is gone, reinstalled or restore
    Start the panel and open it once to confirm users, nodes and the owner admin exist.
 3. **Check the connection.** Panels -> test connection; the credential Melorin uses (API key or service admin, PG-05) may have to be re-created if the restore predates it.
 4. **Let reconcile converge.** Run "بررسی مجدد" or wait for the hourly reconcile: accounts created after the backup show as `missing_on_panel` issues (use "re-create on panel"
-   or archive); users that exist only on the panel show up under "کاربران ناشناس" (import or ignore, never auto-deleted). Store admins are rebuilt by `panel_admin_sync_job` within a minute.
+   or archive); users that exist only on the panel show up under "کاربران ناشناس" (import or ignore, never auto-deleted). Store admins are rebuilt by `panel_admin_sync_job` within 15 minutes (or at once with "sync now").
 5. **Verify settings.** Open the "شاخص و پشتیبان" tab and press "بررسی اکنون": fix webhook, subscription prefix and auto-delete drift on the panel side (Melorin writes no setting without your confirmation). Reconnect live events if needed.
 6. **Prove the backup next time.** Run `BACKUP_ARCHIVE=... BACKUP_IDENTITY_FILE=... scripts/verify_panel_backup.sh` (non-destructive) after any change and at least monthly. The host's `pg_restore` must be at least as new as the panel's PostgreSQL (the panel runs 17, Ubuntu 24.04 has 16): then add `PG_RESTORE='docker exec -i pasarguard-timescaledb-1 pg_restore'` (a pasted-in command reads the dump from stdin).
 7. **Re-enable selling** once nodes are `connected` and the capacity/health view is green, then confirm a fresh panel backup runs the next day (`melorin_backup_age_seconds{target="panel"}`).

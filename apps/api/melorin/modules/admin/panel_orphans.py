@@ -15,7 +15,7 @@ from melorin.core import audit
 from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import AppError, NotFound
 from melorin.kernel.models.vpn import PanelOrphan
-from melorin.modules.vpn import manual_assign
+from melorin.modules.vpn_accounts import manual_assign
 
 from melorin.modules.panelops import queries
 

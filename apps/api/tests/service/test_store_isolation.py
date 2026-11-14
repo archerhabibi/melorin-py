@@ -21,8 +21,8 @@ from melorin.kernel.models.notifications import Notification
 from melorin.modules.orders import router as orders_router
 from melorin.modules.payments import router as pay_router
 from melorin.kernel.models.payments import Payment
-from melorin.modules.vpn import renewal
-from melorin.modules.vpn import router as vpn_router
+from melorin.modules.vpn_accounts import renewal
+from melorin.modules.vpn_accounts import router as vpn_router
 from melorin.kernel.models.vpn import VpnAccount
 
 NOW = dt.datetime.now(dt.UTC)
@@ -218,7 +218,7 @@ def test_customer_routers_never_use_a_bare_current_user_or_hand_written_ownershi
     from pathlib import Path
 
     root = Path(__file__).parents[2] / "melorin" / "modules"
-    for rel in ("vpn/router.py", "orders/router.py", "payments/router.py", "notifications/router.py"):
+    for rel in ("vpn_accounts/router.py", "orders/router.py", "payments/router.py", "notifications/router.py"):
         src = (root / rel).read_text()
         assert "CurrentUser" not in src, f"{rel}: must resolve a StoreCtx, not a bare user"
         assert ".user_id !=" not in src and ".user_id ==" not in src, f"{rel}: use StoreScope, not hand-written checks"

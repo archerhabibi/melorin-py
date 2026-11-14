@@ -10,8 +10,8 @@ from urllib.parse import parse_qs, unquote
 import httpx
 import pytest
 
-from melorin.modules.vpn.adapters.base import AccountSpec, ErrorKind, PanelError
-from melorin.modules.vpn.adapters.sanaei import SanaeiAdapter, clean_client
+from melorin.modules.panel_integrations.adapters.base import AccountSpec, ErrorKind, PanelError
+from melorin.modules.panel_integrations.adapters.sanaei import SanaeiAdapter, clean_client
 
 GB = 1024**3
 SUB = "https://sub.example.com:2096/sub"

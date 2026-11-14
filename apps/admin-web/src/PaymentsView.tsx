@@ -3,17 +3,22 @@
 // /review, /refund and /receipt endpoints, so no backend change is required.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Clock, Download, RefreshCw, ShieldAlert, TrendingUp, Undo2, Wallet, XCircle } from 'lucide-react';
-import { authFetch } from './api.ts';
+import type { RequestBody } from '@melorin/api-client';
+import { authFetch, typedClient } from './api.ts';
 import { Empty, ErrorBar, KpiBar, Paginator, Pills, SearchBox, Stat, errText, num } from './kit.tsx';
 import { Badge, confirmDialog, dt, promptDialog, sid } from './ui.tsx';
 import BankSmsPanel from './BankSmsPanel.tsx';
+import ReceiptOcrSettings from './ReceiptOcrSettings.tsx';
 
 import { PAGE, prov, cur, reviewable, FILTERS, ago, sumBy, Metric, ProviderChip, Amount } from './paymentsShared.tsx';
 import { RowActions, Queue, PaymentDrawer, GatewaySettings } from './PaymentParts.tsx';
 import type { Json, Rec, Toast } from './types.ts';
 
+type DestinationBody = RequestBody<'/api/v1/admin/payment-destinations/{provider}', 'put'>;
+
 export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast }) {
   const call = useCallback((p: Json, o = {}) => authFetch(api.base, p, o), [api.base]);
+  const client = useMemo(() => typedClient(api?.base), [api?.base]);
   const [rows, setRows] = useState<Json>(null);
   const [failed, setFailed] = useState(false);
   const [settings, setSettings] = useState<Rec>({});
@@ -26,23 +31,32 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast 
 
   const load = useCallback(async () => {
     try {
-      const r = await call('/api/v1/admin/payments');
-      if (!r.ok) throw 0;
-      const d = await r.json();
-      setRows(Array.isArray(d) ? d : d.items || []);
+      const { data: d, response } = await client.get('/api/v1/admin/payments');
+      if (!response.ok) throw 0;
+      setRows(Array.isArray(d) ? d : (d as Json)?.items || []);
       setFailed(false);
     } catch {
       setFailed(true);
       setRows((x: Json) => x || []);
     }
-  }, [call]);
+  }, [client]);
   useEffect(() => {
     load();
   }, [load]);
   useEffect(() => {
-    call('/api/v1/admin/settings')
-      .then((r) => (r.ok ? r.json() : {}))
-      .then(setSettings)
+    // main store destinations: the same per-store model resellers use (card number / holder / bank, Zarinpal merchant id + sandbox)
+    client
+      .get('/api/v1/admin/payment-destinations')
+      .then((r) => (r.data as Json[] | undefined) ?? [])
+      .then((rows: Json[]) =>
+        setSettings({
+          manual_card: rows.find((x) => x.provider === 'manual_card')?.public_config,
+          zarinpal: (() => {
+            const z = rows.find((x) => x.provider === 'zarinpal');
+            return z && { merchant_id: z.merchant_id || '', sandbox: !!z.public_config?.sandbox };
+          })(),
+        }),
+      )
       .catch(() => {});
   }, [call]);
   useEffect(() => setPage(0), [tab, provider, q]);
@@ -76,21 +90,41 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast 
   const rate = ok.length + bad.length ? ok.length / (ok.length + bad.length) : null;
   const filtering = !!(q || provider || tab !== 'all');
 
-  const run = async (p: Json, path: string, body: Json, okMsg: Json, failMsg: Json) => {
+  // Review and refund are typed calls (literal path each, so the schema checks the body); the client consumes the
+  // response body, so a failure's message comes from the parsed `error`.
+  const run = async (
+    p: Json,
+    send: (id: string) => Promise<{ response: Response; error?: unknown }>,
+    okMsg: Json,
+    failMsg: Json,
+  ) => {
     setBusy(p.id);
     try {
-      const r = await call(`/api/v1/admin/payments/${p.id}/${path}`, { method: 'POST', body: JSON.stringify(body) });
+      const { response: r, error } = await send(String(p.id));
       if (r.ok) {
         toast(okMsg);
         await load();
         setSel(null);
-      } else toast(await errText(r, failMsg));
+      } else {
+        const e = (error ?? {}) as { error?: { message?: string }; detail?: unknown };
+        toast(e.error?.message || (typeof e.detail === 'string' ? e.detail : '') || failMsg);
+      }
     } catch {
       toast('ارتباط با سرور برقرار نشد');
     } finally {
       setBusy('');
     }
   };
+  const review = (approve: boolean, reason: string) => (id: string) =>
+    client.post('/api/v1/admin/payments/{payment_id}/review', {
+      params: { path: { payment_id: id } },
+      body: { approve, reason },
+    });
+  const refund = (reason: string) => (id: string) =>
+    client.post('/api/v1/admin/payments/{payment_id}/refund', {
+      params: { path: { payment_id: id } },
+      body: { reason },
+    });
   const on = {
     approve: async (p: Json) => {
       if (
@@ -99,11 +133,11 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast 
           { title: 'تأیید پرداخت', ok: 'تأیید پرداخت' },
         )
       )
-        run(p, 'review', { approve: true, reason: '' }, 'پرداخت تأیید شد', 'تأیید ناموفق بود');
+        run(p, review(true, ''), 'پرداخت تأیید شد', 'تأیید ناموفق بود');
     },
     reject: async (p: Json) => {
       const reason = await promptDialog('دلیل رد این پرداخت را بنویسید.', { title: 'رد پرداخت', ok: 'رد پرداخت' });
-      if (reason !== null) run(p, 'review', { approve: false, reason }, 'پرداخت رد شد', 'رد پرداخت ناموفق بود');
+      if (reason !== null) run(p, review(false, reason), 'پرداخت رد شد', 'رد پرداخت ناموفق بود');
     },
     refund: async (p: Json) => {
       const reason = await promptDialog(
@@ -111,7 +145,7 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast 
         { title: 'استرداد پرداخت', ok: 'استرداد' },
       );
       if (reason !== null)
-        run(p, 'refund', { reason: reason || 'درخواست استرداد توسط Admin' }, 'استرداد ثبت شد', 'استرداد ناموفق بود');
+        run(p, refund(reason || 'درخواست استرداد توسط Admin'), 'استرداد ثبت شد', 'استرداد ناموفق بود');
     },
     receipt: async (p: Json) => {
       try {
@@ -125,12 +159,24 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast 
       }
     },
   };
-  const saveSetting = async (key: Json, value: Json) => {
+  const saveSetting = async (provider: string, value: Json) => {
+    const body =
+      provider === 'zarinpal'
+        ? {
+            is_enabled: true,
+            public_config: { sandbox: !!value.sandbox },
+            secret: { merchant_id: value.merchant_id.trim() },
+          }
+        : { is_enabled: true, public_config: value };
     try {
-      const r = await call(`/api/v1/admin/settings/${key}`, { method: 'PUT', body: JSON.stringify({ value }) });
+      const { response: r } = await client.put('/api/v1/admin/payment-destinations/{provider}', {
+        params: { path: { provider } },
+        // the OpenAPI schema renders free-form objects as Record<string, never>; the server validates the real shape
+        body: body as unknown as DestinationBody,
+      });
       if (r.ok) {
         toast('تنظیمات ذخیره شد');
-        setSettings((x) => ({ ...x, [key]: value }));
+        setSettings((x) => ({ ...x, [provider]: value }));
       } else toast(await errText(r, 'ذخیره تنظیمات ناموفق بود'));
     } catch {
       toast('ارتباط با سرور برقرار نشد');
@@ -360,6 +406,7 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast 
 
       <BankSmsPanel call={call} toast={toast} payments={all} />
       <GatewaySettings obj={settings} save={saveSetting} />
+      <ReceiptOcrSettings api={api} toast={toast} />
       {open && (
         <PaymentDrawer
           p={open}

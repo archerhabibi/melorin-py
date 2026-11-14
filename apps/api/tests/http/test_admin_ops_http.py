@@ -5,6 +5,7 @@ whole ``/admin`` surface is closed to anonymous callers and to customer sessions
 
 from __future__ import annotations
 
+from melorin.kernel.models.stores import StorePaymentConfiguration
 import pytest
 from sqlalchemy import select
 
@@ -292,6 +293,9 @@ async def test_admin_refund_of_a_topup_reverses_the_credit_once_and_a_gateway_fa
     async with api_client() as (c, maker, main):
         h = await _admin(c, maker)
         p, user = await _payment(maker, main, provider=gw.name, amount=3000)
+        async with maker() as s:  # the main store has its own destination row like any store (no global fallback any more)
+            s.add(StorePaymentConfiguration(store_id=main.id, provider=gw.name, is_enabled=True, public_config={}))
+            await s.commit()
         not_succeeded = await c.post(f"{ADMIN}/payments/{p.id}/refund", headers=h, json={})
         assert not_succeeded.status_code == 409 and _err(not_succeeded) == "INVALID_PAYMENT_STATE"
         await c.post(f"{ADMIN}/payments/{p.id}/review", headers=h, json={"approve": True})

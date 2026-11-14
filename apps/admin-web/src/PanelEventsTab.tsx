@@ -2,8 +2,9 @@
 // Everything comes from the Core API (/admin/panels/{id}/events*). The webhook secret is never shown: the API never returns it.
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle, Loader, Radio, RefreshCw } from 'lucide-react';
+import { getJson, typedClient } from './api.ts';
 import { confirmDialog } from './ui.tsx';
-import type { CallFn, Json, Rec, Toast } from './types.ts';
+import type { Json, Rec, Toast } from './types.ts';
 
 const ACTION_LABEL: Rec = {
   user_created: 'ساخت کاربر',
@@ -45,7 +46,15 @@ function silentText(seconds: Json) {
 
 const PAGE = 50;
 
-export default function PanelEventsTab({ call, panelId, toast }: { call: CallFn; panelId?: Json; toast: Toast }) {
+export default function PanelEventsTab({
+  api,
+  panelId,
+  toast,
+}: {
+  api: { base: string };
+  panelId?: Json;
+  toast: Toast;
+}) {
   const [state, setState] = useState<Json>(null);
   const [events, setEvents] = useState<{ total: number; items: Rec[] }>({ total: 0, items: [] });
   const [filter, setFilter] = useState('');
@@ -53,14 +62,7 @@ export default function PanelEventsTab({ call, panelId, toast }: { call: CallFn;
   const [busy, setBusy] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const getJ = useCallback(
-    async (path: string) => {
-      const r = await call(path);
-      if (!r.ok) throw new Error(String(r.status));
-      return r.json();
-    },
-    [call],
-  );
+  const getJ = useCallback((path: string) => getJson(api.base, path), [api.base]);
 
   const query = useCallback(
     (offset: Json) => {
@@ -114,11 +116,12 @@ export default function PanelEventsTab({ call, panelId, toast }: { call: CallFn;
     return () => clearTimeout(t);
   }, [load, user]);
 
-  const post = async (key: Json, path: string, body: Json, okText: Json) => {
+  // One typed POST per action (literal path, so the schema checks each body); ``run`` returns the client result.
+  const post = async (key: Json, run: () => Promise<Json>, okText: Json) => {
     setBusy(key);
     try {
-      const r = await call(path, { method: 'POST', body: body ? JSON.stringify(body) : undefined });
-      const data = await r.json().catch(() => ({}));
+      const { response: r, data: ok, error } = await run();
+      const data = (r.ok ? ok : error) ?? {};
       if (!r.ok) throw new Error(data?.error?.message || String(r.status));
       toast(okText(data));
       if (data && data.connected !== undefined) setState(data);
@@ -136,8 +139,11 @@ export default function PanelEventsTab({ call, panelId, toast }: { call: CallFn;
     if (!(await confirmDialog(msg, { title: rotate ? 'چرخش راز وب‌هوک' : 'اتصال رویدادهای زنده' }))) return;
     await post(
       'connect',
-      `/api/v1/admin/panels/${panelId}/events/connect`,
-      { confirm: true, rotate_secret: rotate },
+      () =>
+        typedClient(api.base).post('/api/v1/admin/panels/{panel_id}/events/connect', {
+          params: { path: { panel_id: String(panelId) } },
+          body: { confirm: true, rotate_secret: !!rotate },
+        }),
       () => (rotate ? 'راز جدید ثبت شد' : 'رویدادهای زنده وصل شد'),
     );
   };
@@ -149,7 +155,14 @@ export default function PanelEventsTab({ call, panelId, toast }: { call: CallFn;
       }))
     )
       return;
-    await post('disconnect', `/api/v1/admin/panels/${panelId}/events/disconnect`, null, () => 'قطع شد');
+    await post(
+      'disconnect',
+      () =>
+        typedClient(api.base).post('/api/v1/admin/panels/{panel_id}/events/disconnect', {
+          params: { path: { panel_id: String(panelId) } },
+        }),
+      () => 'قطع شد',
+    );
   };
 
   if (!panelId) return <p className="card p-4 text-sm">برای دیدن رویدادهای زنده یک پنل انتخاب کنید.</p>;
@@ -257,8 +270,10 @@ export default function PanelEventsTab({ call, panelId, toast }: { call: CallFn;
           onClick={() =>
             post(
               'process',
-              `/api/v1/admin/panels/${panelId}/events/process`,
-              null,
+              () =>
+                typedClient(api.base).post('/api/v1/admin/panels/{panel_id}/events/process', {
+                  params: { path: { panel_id: String(panelId) } },
+                }),
               (d: Json) => `${d.processed} رویداد پردازش شد`,
             )
           }
@@ -271,8 +286,10 @@ export default function PanelEventsTab({ call, panelId, toast }: { call: CallFn;
           onClick={() =>
             post(
               'retry',
-              `/api/v1/admin/panels/${panelId}/events/retry-failed`,
-              null,
+              () =>
+                typedClient(api.base).post('/api/v1/admin/panels/{panel_id}/events/retry-failed', {
+                  params: { path: { panel_id: String(panelId) } },
+                }),
               (d: Json) => `${d.requeued} رویداد دوباره در صف رفت`,
             )
           }

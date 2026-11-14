@@ -4,6 +4,7 @@ import type { Rec } from './types';
 // only edits the settings, shows the forwarded SMS and lets a human settle what the matcher refused to guess.
 import { useCallback, useEffect, useState } from 'react';
 import { CheckCircle2, Copy, KeyRound, RefreshCw, ShieldCheck, Smartphone } from 'lucide-react';
+import { formFromSource, sourceBody } from '@melorin/web-kit/bankSms.js';
 import { Loading, fa, fd } from './ui.tsx';
 import ResellerReceiptReview from './ResellerReceiptReview.tsx';
 import type { Json } from './types';
@@ -16,12 +17,6 @@ const STATUS = {
   ambiguous: ['نیاز به بررسی', 'bg-danger-soft text-danger'],
   ignored: ['نادیده', 'bg-surface2 text-muted'],
   unparsed: ['نامفهوم', 'bg-danger-soft text-danger'],
-};
-const toInt = (s: Json) => {
-  const t = String(s ?? '')
-    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
-    .replace(/\D/g, '');
-  return t === '' ? null : Number(t);
 };
 
 async function message(r: Json, fallback: Json) {
@@ -42,17 +37,7 @@ export default function ResellerBankSms({ coreFetch, base, notify }: { coreFetch
 
   const apply = (d: Json) => {
     setData(d);
-    const s = d.source;
-    setForm({
-      auto_verify: !!s.auto_verify,
-      is_enabled: s.configured ? !!s.is_enabled : true,
-      senders: (s.senders || []).join('\n'),
-      window_minutes: String(s.settings.window_minutes),
-      time_tolerance_minutes: String(s.settings.time_tolerance_minutes),
-      require_claimed_time: !!s.settings.require_claimed_time,
-      max_auto_amount_rial: s.settings.max_auto_amount_rial ? String(s.settings.max_auto_amount_rial) : '',
-      account_number: s.settings.account_number || '',
-    });
+    setForm(formFromSource(d.source));
   };
   const load = useCallback(async () => {
     const r = await coreFetch(`${url}${filter ? `?status=${filter}` : ''}`);
@@ -75,21 +60,7 @@ export default function ResellerBankSms({ coreFetch, base, notify }: { coreFetch
   };
   const save = () =>
     run('save', async () => {
-      const body = {
-        is_enabled: form.is_enabled,
-        auto_verify: form.auto_verify,
-        senders: form.senders
-          .split(/[\n,]/)
-          .map((x: Json) => x.trim())
-          .filter(Boolean),
-        settings: {
-          window_minutes: toInt(form.window_minutes),
-          time_tolerance_minutes: toInt(form.time_tolerance_minutes),
-          require_claimed_time: form.require_claimed_time,
-          max_auto_amount_rial: toInt(form.max_auto_amount_rial),
-          account_number: String(form.account_number).replace(/\s/g, '') || null,
-        },
-      };
+      const body = sourceBody(form);
       const r = await coreFetch(`${url}/source`, { method: 'PUT', headers: J, body: JSON.stringify(body) });
       if (!r.ok) return notify(await message(r, 'ذخیره ناموفق بود'));
       const d = await r.json();

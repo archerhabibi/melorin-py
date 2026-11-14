@@ -56,10 +56,12 @@ async def health(_: AdminUser, session: Session):
 
 @router.get("/dashboard")
 async def dashboard(_: AdminUser, session: Session):
+    from melorin.modules.admin import operations_center
     from melorin.modules.orders.service import count_by_status
 
     return {
         "orders": await count_by_status(session),
+        "attention": await operations_center.attention(session),
         "active_users": await session.scalar(select(func.count()).select_from(User).where(User.is_active.is_(True))),
         "open_tickets": await session.scalar(select(func.count()).select_from(Ticket).where(Ticket.status == "open")) or 0,
     }

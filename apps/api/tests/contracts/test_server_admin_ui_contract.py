@@ -31,10 +31,13 @@ def test_servers_live_inside_their_panel_screen():
     assert "ServerForm" in panels and "ServerImport" in panels
     extra = _ui("AdminExtra.tsx")
     assert '"پنل‌ها و سرورها": PanelsView' in extra and "ServersView" not in extra
-    app = _ui("App.tsx")
+    app = _ui("adminNav.ts")  # menu groups live in adminNav.ts since the App.tsx split
     assert '["پنل‌ها و سرورها", PanelTop, "panels"]' in app and '"servers"' not in app
-    infra_group = app[app.index('["زیرساخت"') : app.index('["سیستم"')]
-    assert infra_group.index('"panels"') < infra_group.index('"bundles"') < infra_group.index('"products"')
+    # menu regroup: the panel screen leads the infrastructure group; bundles and products are catalog entries next to marketing
+    infra_group = app[app.index('"زیرساخت"') : app.index('"سیستم و امنیت"')]
+    assert '"panels"' in infra_group and '"bundles"' not in infra_group
+    catalog_group = app[app.index('"کاتالوگ و بازاریابی"') : app.index('"ارتباطات"')]
+    assert catalog_group.index('"bundles"') < catalog_group.index('"products"')
     # old bookmarks (#/servers?panel=<id>) still land on the merged screen
     assert "legacyHash" in app and "legacyHash" in _ui("infra.tsx")
 

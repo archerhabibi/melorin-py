@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import PanelOpsView from '../src/PanelOpsView.tsx';
+import StoreNoticesView from '../src/StoreNoticesView.tsx';
+import PanelTabsHarness from './PanelTabsHarness.jsx';
 import { DialogHost } from '../src/ui.tsx';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
@@ -96,7 +98,10 @@ describe('PanelOpsView', () => {
     await screen.findByRole('option', { name: 'pg-main' });
     await userEvent.selectOptions(screen.getByLabelText('پنل'), 'p1');
     expect(await screen.findByText(/Melorin با حساب owner پنل وصل است/)).toBeTruthy();
-    await userEvent.click(screen.getByRole('button', { name: 'نودها' }));
+    // the node list is a tab of the panel detail now
+    render(<PanelTabsHarness api={{ base: 'http://core.test' }} toast={vi.fn()} />);
+    await waitFor(() => expect(screen.getAllByRole('option', { name: 'pg-main' })).toHaveLength(2));
+    await userEvent.selectOptions(screen.getAllByLabelText('پنل')[1], 'p1');
     expect(await screen.findByText('bad-node')).toBeTruthy();
     expect(screen.getByText(/server_ca را تنظیم کنید/)).toBeTruthy();
     expect(screen.getByText(/1 از 2 نود فعال خطا دارد/)).toBeTruthy();
@@ -106,8 +111,8 @@ describe('PanelOpsView', () => {
     const calls = [];
     const toast = vi.fn();
     mock(calls);
-    render(<PanelOpsView api={{ base: 'http://core.test' }} toast={toast} />);
-    await userEvent.click(await screen.findByRole('button', { name: /هشدار حجم/ }));
+    // the notice levels are a tab of the store hub now (per-store setting)
+    render(<StoreNoticesView api={{ base: 'http://core.test' }} toast={toast} />);
     await screen.findByRole('option', { name: 'Main Store' });
     await userEvent.selectOptions(screen.getByLabelText('فروشگاه'), 's1');
     const input = await screen.findByLabelText('درصدهای هشدار');

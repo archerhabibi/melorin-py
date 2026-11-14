@@ -15,7 +15,7 @@ from melorin.kernel.models.orders import Order, OrderStateTransition
 from melorin.kernel.models.stores import StoreMembership
 from melorin.kernel.models.system import TestAccountGrant
 from melorin.modules.catalog import allocation
-from melorin.modules.vpn import plans, renewal
+from melorin.modules.vpn_accounts import plans, renewal
 from melorin.kernel.models.vpn import VpnAccount
 from melorin.modules.orders.service.base import ResellerDebtLimitReached, S, transition
 from melorin.modules.orders.service.payment import notify_debt_reached, pay_with_wallet

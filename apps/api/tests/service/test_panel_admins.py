@@ -11,10 +11,10 @@ from sqlalchemy import select
 
 from _db import make_store, make_user, open_session
 from melorin.kernel.models.vpn import Panel, PanelAdmin, PanelAdminChangeRequest
-from melorin.modules.vpn import panel_admins as svc
-from melorin.modules.vpn.adapters import pasarguard
-from melorin.modules.vpn.adapters.base import AccountSpec, ErrorKind, PanelError
-from melorin.modules.vpn.adapters.pasarguard import PasarGuardAdapter
+from melorin.modules.panelops import panel_admins as svc
+from melorin.modules.panel_integrations.adapters import pasarguard
+from melorin.modules.panel_integrations.adapters.base import AccountSpec, ErrorKind, PanelError
+from melorin.modules.panel_integrations.adapters.pasarguard import PasarGuardAdapter
 
 GB = 1024**3
 
@@ -228,7 +228,7 @@ class FakeAdapter:
 @pytest.fixture
 def fake_adapter(monkeypatch):
     holder = {"a": FakeAdapter()}
-    monkeypatch.setattr("melorin.modules.vpn.adapters.registry.build_adapter", lambda panel, server=None: holder["a"])
+    monkeypatch.setattr("melorin.modules.panel_integrations.adapters.registry.build_adapter", lambda panel, server=None: holder["a"])
     return holder
 
 
@@ -336,7 +336,7 @@ async def test_provisioning_passes_the_store_admin_as_owner(monkeypatch):
             seen["store_id"] = store_id
             return "rs_test"
 
-        monkeypatch.setattr(vpn.panel_admins, "owner_for", fake_owner)
+        monkeypatch.setattr(svc, "owner_for", fake_owner)
         panel = ScriptedPanel()
         monkeypatch.setattr(vpn, "build_adapter", lambda _p, _s=None: panel)
         await vpn.provision_order(s, w["order"].id)

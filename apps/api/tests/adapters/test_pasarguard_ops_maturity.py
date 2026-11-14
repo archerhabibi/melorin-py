@@ -16,6 +16,7 @@ import yaml
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from _jobs import jobs_source, patch_jobs
 from _db import make_order, make_product, make_user, open_schema_engine
 from _http import PASSWORD, add_user, api_client, totp_now
 from melorin.core import metrics
@@ -25,8 +26,8 @@ from melorin.kernel.models.system import AuditEvent, BackupRun
 from melorin.kernel.models.vpn import Panel, PanelNode, ReconciliationIssue, Server, VpnAccount
 from melorin.modules.reports import business_metrics
 from melorin.modules.panelops import panel_backup, panel_metrics, settings_drift
-from melorin.modules.vpn.adapters.base import Capabilities, ErrorKind, PanelError
-from melorin.modules.vpn.renewal import GRACE_DAYS
+from melorin.modules.panel_integrations.adapters.base import Capabilities, ErrorKind, PanelError
+from melorin.modules.vpn_accounts.renewal import GRACE_DAYS
 
 ROOT = Path(__file__).resolve().parents[4]
 NOW = dt.datetime(2026, 11, 8, 12, 0, tzinfo=dt.UTC)
@@ -321,7 +322,7 @@ async def test_panel_backup_job_records_a_panel_run(monkeypatch, tmp_path):
 
     async with open_schema_engine() as engine:
         maker = async_sessionmaker(engine, expire_on_commit=False)
-        monkeypatch.setattr(jobs, "session_factory", lambda: maker)
+        patch_jobs(monkeypatch, "session_factory", lambda: maker)
         artifact = tmp_path / "panel-1.tar.age"
         artifact.write_bytes(b"x" * 12)
         script_dir = tmp_path / "scripts"
@@ -483,7 +484,7 @@ async def test_policy_change_is_audited_validated_and_rechecked(monkeypatch):
         admin = await make_user(s, super_admin=True)
         await s.commit()
         adapter = SettingsAdapter({"cleanup": {"expired_users_retention_days": 30}})
-        import melorin.modules.vpn.adapters.registry as registry
+        import melorin.modules.panel_integrations.adapters.registry as registry
 
         monkeypatch.setattr(registry, "build_adapter", lambda panel, server=None: adapter)
         before = await mod.recheck(s, p.id, actor_id=None)
@@ -509,7 +510,7 @@ async def test_non_pasarguard_panels_are_not_checked():
 
 
 async def test_run_all_announces_a_drift_change_once(monkeypatch):
-    from melorin.modules.eventcenter import rules as ec
+    from melorin.modules.panelops import panel_notices as ec
 
     announced: list[tuple[int, int]] = []
 
@@ -521,7 +522,7 @@ async def test_run_all_announces_a_drift_change_once(monkeypatch):
         await _panel(s)
         await s.commit()
         adapter = SettingsAdapter({"cleanup": {"expired_users_retention_days": 7}})
-        import melorin.modules.vpn.adapters.registry as registry
+        import melorin.modules.panel_integrations.adapters.registry as registry
 
         monkeypatch.setattr(registry, "build_adapter", lambda panel, server=None: adapter)
 
@@ -534,7 +535,7 @@ async def test_run_all_announces_a_drift_change_once(monkeypatch):
 
 
 async def test_drift_notice_only_on_state_change(monkeypatch):
-    from melorin.modules.eventcenter import rules as ec
+    from melorin.modules.panelops import panel_notices as ec
 
     sent: list[str] = []
 
@@ -592,8 +593,10 @@ def test_every_gauge_is_declared_and_every_collector_alert_has_a_rule_or_a_ui_re
 
 def test_worker_schedules_the_new_jobs():
     arq = (ROOT / "apps/api/melorin/worker/arq_app.py").read_text()
-    for job in ("panel_metrics_job", "panel_settings_drift_job"):
-        assert f"cron({job}" in arq and arq.count(job) >= 3, job
+    assert "cron(panel_settings_drift_job" in arq and arq.count("panel_settings_drift_job") >= 3
+    # one read cycle per panel: metrics ride on the health job's adapter, so metrics has no cron of its own
+    assert "cron(panel_metrics_job" not in arq
+    assert "panel_metrics.snapshot_panel(p, adapter)" in jobs_source()
     # T-R14: the panel backup is scheduled by the dedicated backup container, no longer by the ARQ worker
     assert "panel_backup_job" not in arq
     assert "jobs.panel_backup_job" in (ROOT / "apps/api/melorin/worker/backup_main.py").read_text()
@@ -619,7 +622,7 @@ async def test_every_phase5_endpoint_needs_an_admin():
 
 
 async def test_phase5_http_flow(monkeypatch):
-    import melorin.modules.vpn.adapters.registry as registry
+    import melorin.modules.panel_integrations.adapters.registry as registry
 
     adapter = SettingsAdapter({"cleanup": {"expired_users_retention_days": 5}})
     monkeypatch.setattr(registry, "build_adapter", lambda panel, server=None: adapter)

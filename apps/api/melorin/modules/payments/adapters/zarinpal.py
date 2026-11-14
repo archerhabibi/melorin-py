@@ -2,7 +2,7 @@
 
 from melorin.core.errors import AppError
 from melorin.modules.payments.adapters.base import CallbackResult, IntentResult, RefundResult
-from melorin.modules.vpn.adapters.base import ErrorKind, PanelError
+from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError
 from melorin.core.http import outbound_client
 
 API = "https://payment.zarinpal.com/pg/v4/payment"

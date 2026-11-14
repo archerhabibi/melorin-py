@@ -1,9 +1,9 @@
-// «هویت» — one screen for everything about identity (docs/21), three tabs:
+// «هویت» — one screen for customer identity (docs/21), three tabs (Google/Telegram sign-in settings moved to Settings, owner-only):
 //   review  «نیاز به بررسی»      conflicts Core could not settle: an admin decides (IdentityReviewsView)
 //   auto    «انجام‌شده خودکار»   accounts Core folded together by itself (read-only report)
 //   devices «دستگاه‌های مورداعتماد» browsers that sign visitors in without a manual step; trust can be revoked
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { authFetch } from './api.ts';
+import { typedClient } from './api.ts';
 import { Segmented, num } from './kit.tsx';
 import type { Json, Toast } from './types.ts';
 
@@ -22,9 +22,10 @@ export default function IdentityHubView({ api, toast }: { api?: Json; toast: Toa
   const [open, setOpen] = useState<Json>(null); // number of conflicts waiting for a decision (badge on the first tab)
   useEffect(() => {
     let alive = true;
-    authFetch(api.base, '/api/v1/admin/identity-link-reviews?status=open')
-      .then((r) => (r.ok ? r.json() : []))
-      .then((rows) => alive && setOpen((rows || []).filter((x: Json) => !x.auto).length))
+    typedClient(api.base)
+      .get('/api/v1/admin/identity-link-reviews', { params: { query: { status: 'open' } } })
+      .then((r) => (r.data as Json[] | undefined) ?? [])
+      .then((rows) => alive && setOpen(rows.filter((x: Json) => !x.auto).length))
       .catch(() => {});
     return () => {
       alive = false;

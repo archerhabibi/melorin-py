@@ -2,8 +2,9 @@
 // without opening PasarGuard. Read-only by default; every action asks for a reason and is audited by the Core API.
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle, Loader, RefreshCw, XCircle } from 'lucide-react';
+import { typedClient } from './api.ts';
 import { confirmDialog, promptDialog } from './ui.tsx';
-import type { CallFn, Json, Rec, Toast } from './types.ts';
+import type { Json, Rec, Toast } from './types.ts';
 
 const NODE_COLOR: Rec = {
   connected: 'var(--ok)',
@@ -32,13 +33,28 @@ const fmt = (v: Json) => (v ? new Date(v).toLocaleString('fa-IR') : '—');
 const bytes = (n: Json) => (n == null ? '—' : `${(n / 2 ** 30).toFixed(1)} GB`);
 const pct = (v: Json) => (v == null ? '—' : `${Number(v).toFixed(0)}٪`);
 
-async function readJson(r: Json) {
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data?.error?.message || data?.detail?.[0]?.msg || String(r.status));
-  return data;
+type ApiError = { error?: { code?: string; message?: string }; detail?: { msg?: string }[] };
+const errText = (error: unknown, status: number) => {
+  const e = (error ?? {}) as ApiError;
+  return e.error?.message || e.detail?.[0]?.msg || String(status);
+};
+/** Result of a typed client call -> its data, or an Error carrying the server's message. */
+function unwrap<T>(res: { data?: T; error?: unknown; response: Response }) {
+  if (!res.response.ok) throw new Error(errText(res.error, res.response.status));
+  return res.data as T;
 }
 
-export default function PanelConsoleTab({ call, panelId, toast }: { call: CallFn; panelId?: Json; toast: Toast }) {
+export default function PanelConsoleTab({
+  api,
+  panelId,
+  toast,
+}: {
+  api: { base: string };
+  panelId?: Json;
+  toast: Toast;
+}) {
+  const client = useCallback(() => typedClient(api.base), [api.base]);
+  const pp = () => ({ path: { panel_id: String(panelId) } });
   const [ov, setOv] = useState<Json>(null);
   const [infra, setInfra] = useState<Json>(null);
   const [sub, setSub] = useState<Json>(null);
@@ -50,8 +66,14 @@ export default function PanelConsoleTab({ call, panelId, toast }: { call: CallFn
     setLoading(true);
     try {
       const [o, s] = await Promise.all([
-        call(`/api/v1/admin/panels/${panelId}/ops`).then(readJson),
-        call(`/api/v1/admin/panels/${panelId}/subscription-check`).then(readJson),
+        client()
+          .get('/api/v1/admin/panels/{panel_id}/ops', { params: { path: { panel_id: String(panelId) } } })
+          .then(unwrap),
+        client()
+          .get('/api/v1/admin/panels/{panel_id}/subscription-check', {
+            params: { path: { panel_id: String(panelId) } },
+          })
+          .then(unwrap),
       ]);
       setOv(o);
       setSub(s);
@@ -59,7 +81,7 @@ export default function PanelConsoleTab({ call, panelId, toast }: { call: CallFn
       toast(`دریافت کنسول ناموفق بود: ${e.message}`);
     }
     setLoading(false);
-  }, [call, panelId, toast]);
+  }, [client, panelId, toast]);
 
   useEffect(() => {
     setOv(null);
@@ -68,10 +90,10 @@ export default function PanelConsoleTab({ call, panelId, toast }: { call: CallFn
     load();
   }, [load]);
 
-  const act = async (key: Json, path: string, body: Json, okText: Json) => {
+  const act = async (key: Json, run: () => Promise<Json>, okText: Json) => {
     setBusy(key);
     try {
-      await readJson(await call(path, { method: 'POST', body: JSON.stringify(body) }));
+      unwrap(await run());
       toast(okText);
       await load();
     } catch (e: Json) {
@@ -86,8 +108,11 @@ export default function PanelConsoleTab({ call, panelId, toast }: { call: CallFn
     if (!reason) return;
     await act(
       `${action}-${n.remote_id}`,
-      `/api/v1/admin/panels/${panelId}/ops/nodes/${n.remote_id}/${action}`,
-      { reason },
+      () =>
+        client().post('/api/v1/admin/panels/{panel_id}/ops/nodes/{node_id}/{action}', {
+          params: { path: { panel_id: String(panelId), node_id: n.remote_id, action } },
+          body: { reason },
+        }),
       `${text} انجام شد`,
     );
   };
@@ -101,13 +126,17 @@ export default function PanelConsoleTab({ call, panelId, toast }: { call: CallFn
     if (!reason) return;
     let force = false;
     const body = () => ({ ids: [row.id ?? row.remote_id], disabled, reason, force });
-    const path = `/api/v1/admin/panels/${panelId}/ops/${family}/toggle`;
+    const send = () =>
+      client().post('/api/v1/admin/panels/{panel_id}/ops/{family}/toggle', {
+        params: { path: { panel_id: String(panelId), family } },
+        body: body(),
+      });
     setBusy(`${family}-${row.id ?? row.remote_id}`);
     try {
-      let r = await call(path, { method: 'POST', body: JSON.stringify(body()) });
-      let data = await r.json().catch(() => ({}));
-      if (!r.ok && data?.error?.code === 'LAST_NODE') {
-        const ok = await confirmDialog(data.error.message, {
+      let { response: r, error } = await send();
+      let data = (error ?? {}) as ApiError;
+      if (!r.ok && data.error?.code === 'LAST_NODE') {
+        const ok = await confirmDialog(data.error.message ?? '', {
           title: 'آخرین نود متصل',
           danger: true,
           ok: 'با مسئولیت من انجام شود',
@@ -117,10 +146,10 @@ export default function PanelConsoleTab({ call, panelId, toast }: { call: CallFn
           return;
         }
         force = true;
-        r = await call(path, { method: 'POST', body: JSON.stringify(body()) });
-        data = await r.json().catch(() => ({}));
+        ({ response: r, error } = await send());
+        data = (error ?? {}) as ApiError;
       }
-      if (!r.ok) throw new Error(data?.error?.message || String(r.status));
+      if (!r.ok) throw new Error(errText(data, r.status));
       toast('انجام شد');
       await load();
       if (infra) await loadInfra();
@@ -132,7 +161,7 @@ export default function PanelConsoleTab({ call, panelId, toast }: { call: CallFn
 
   const loadInfra = async () => {
     try {
-      setInfra(await readJson(await call(`/api/v1/admin/panels/${panelId}/ops/infra`)));
+      setInfra(unwrap(await client().get('/api/v1/admin/panels/{panel_id}/ops/infra', { params: pp() })));
     } catch (e: Json) {
       toast(`دریافت گروه‌ها و هاست‌ها ناموفق بود: ${e.message}`);
     }
@@ -148,8 +177,11 @@ export default function PanelConsoleTab({ call, panelId, toast }: { call: CallFn
     if (!reason) return;
     await act(
       `core-${core.id}`,
-      `/api/v1/admin/panels/${panelId}/ops/cores/${core.id}/restart`,
-      { reason, confirm_name: typed },
+      () =>
+        client().post('/api/v1/admin/panels/{panel_id}/ops/cores/{core_id}/restart', {
+          params: { path: { panel_id: String(panelId), core_id: core.id } },
+          body: { reason, confirm_name: typed },
+        }),
       'هسته ری‌استارت شد',
     );
   };
@@ -157,7 +189,7 @@ export default function PanelConsoleTab({ call, panelId, toast }: { call: CallFn
   const runCheck = async () => {
     setBusy('sub');
     try {
-      const r = await readJson(await call(`/api/v1/admin/panels/${panelId}/subscription-check`, { method: 'POST' }));
+      const r = unwrap(await client().post('/api/v1/admin/panels/{panel_id}/subscription-check', { params: pp() }));
       setSub({ checked_at: new Date().toISOString(), result: r });
     } catch (e: Json) {
       toast(`آزمایش اشتراک ناموفق بود: ${e.message}`);

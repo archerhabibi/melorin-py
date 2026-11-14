@@ -6,7 +6,7 @@ import re
 import pytest
 
 from melorin.core.fmt import format_amount, format_totals
-from melorin.modules.vpn.adapters.lifecycle import close_adapter
+from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
 
 ROOT = pathlib.Path(__file__).resolve().parents[2] / "melorin"
 
@@ -61,8 +61,8 @@ def test_origin_helper_has_one_home():
 
 
 def test_panel_failure_mapping():
-    from melorin.modules.vpn.adapters.base import ErrorKind, PanelError
-    from melorin.modules.vpn.adapters.lifecycle import panel_failure
+    from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError
+    from melorin.modules.panel_integrations.adapters.lifecycle import panel_failure
 
     perm = panel_failure(PanelError(ErrorKind.PERMANENT, "no"), rejected="R")
     assert (perm.code, perm.status) == ("PANEL_REJECTED", 409)

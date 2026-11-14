@@ -203,7 +203,7 @@ async def attach_email(session: AsyncSession, user: User, email: str, code: str)
     await consume_code(session, "email_login", email, code)  # proves ownership
     ident = await find_identity(session, "email", email)
     if ident and ident.user_id != user.id:
-        # Verified match on another account. Settled by itself when one of the two is an empty shell (docs/21);
+        # Verified match on another account. Settled by itself when one of the two is an empty shell (docs/23);
         # two accounts that both hold records are never merged automatically: queued for an admin.
         review = IdentityLinkReview(
             email=email,

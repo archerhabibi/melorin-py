@@ -13,6 +13,7 @@ from melorin.core.crypto import encrypt
 from melorin.core.db import utcnow
 from melorin.kernel.models.system import OutboxEvent, SystemSetting
 from melorin.kernel.models.webhooks import WebhookDelivery, WebhookEndpoint
+from _jobs import patch_jobs
 from melorin.worker import jobs, retention
 
 
@@ -20,7 +21,7 @@ from melorin.worker import jobs, retention
 async def maker(monkeypatch):
     async with open_schema_engine() as engine:
         m = async_sessionmaker(engine, expire_on_commit=False)
-        monkeypatch.setattr(jobs, "session_factory", lambda: m)
+        patch_jobs(monkeypatch, "session_factory", lambda: m)
         yield m
 
 

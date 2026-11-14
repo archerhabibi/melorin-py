@@ -12,6 +12,8 @@ from melorin.modules.admin.schemas import (
     SettingUpdate,
 )
 
+from melorin.modules.payments import store_config
+
 router = APIRouter(prefix="/admin", tags=["admin"])
 log = logging.getLogger("melorin.admin")
 
@@ -48,13 +50,15 @@ async def update_flag(key: str, body: FeatureUpdate, admin: AdminUser, session: 
 
 @router.get("/settings")
 async def settings(_: AdminUser, session: Session):
-    return await settings_store.all_settings(session)
+    return {k: v for k, v in (await settings_store.all_settings(session)).items() if not store_config.is_legacy_key(k)}
 
 
 @router.put("/settings/{key:path}")
 async def update_setting(key: str, body: SettingUpdate, admin: AdminUser, session: Session):
     if key.startswith("integration."):
         raise AppError("SETTING_RESERVED", "این تنظیم فقط از بخش یکپارچه‌سازی‌ها قابل تغییر است.", 400)
+    if store_config.is_legacy_key(key):
+        raise AppError("SETTING_RESERVED", "مقصد پرداخت فروشگاه اصلی از بخش پرداخت‌ها (مقصد پرداخت) تنظیم می‌شود.", 400)
     await settings_store.set_value(session, key, body.value)
     audit.record(
         session,

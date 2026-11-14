@@ -1,3 +1,4 @@
+from _jobs import jobs_source
 from pathlib import Path
 
 from _source import read_source, read_store_shell, read_web_source
@@ -18,7 +19,7 @@ def test_migration_and_worker_blockers_are_fixed():
     assert "CreateTable" not in baseline
     assert "MODEL_SOURCE_FINGERPRINT" in baseline
     assert "from melorin import models" in runner
-    assert "melorin.modules.vpn.adapters.registry import" in runner and "build_adapter" in runner
+    assert "melorin.modules.panel_integrations.adapters.registry import" in runner and "build_adapter" in runner
     assert "register all SQLAlchemy mappers before worker sessions" in runner
     assert "session.get(OutboxEvent, event_id, with_for_update=True)" in runner
     assert "with_for_update=True" in runner
@@ -152,7 +153,7 @@ def test_k11_to_k20_operational_controls_are_present():
     installer = (root / "scripts/install_server.sh").read_text()
     arq = read_source(ROOT / "melorin/worker/arq_app.py")
     alerts = (root / "infra/alerts.yml").read_text()
-    registry = read_source(ROOT / "melorin/modules/vpn/adapters/registry.py")
+    registry = read_source(ROOT / "melorin/modules/panel_integrations/adapters/registry.py")
     orders = read_source(ROOT / "melorin/modules/orders/service.py")
     vpn = read_source(ROOT / "melorin/modules/orders/provisioning.py")
     assert "secrets/metrics-token" in compose and "tmp_metrics" in installer
@@ -248,7 +249,7 @@ def test_i36_cli_has_explicit_operational_commands():
 
 
 def test_i37_privacy_retention_preserves_financial_and_audit_tables():
-    jobs = read_source(ROOT / "melorin/worker/jobs.py")
+    jobs = jobs_source()
     arq = read_source(ROOT / "melorin/worker/arq_app.py")
     settings = read_source(ROOT / "melorin/core/settings_store.py")
     assert "privacy_retention_job" in jobs

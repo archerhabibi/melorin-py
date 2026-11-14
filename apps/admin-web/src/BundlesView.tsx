@@ -18,6 +18,7 @@ import {
 import { InfraChain, clearParam, memberIds, useHashParams, useInfra } from './infra.tsx';
 import { API, groupIssue, GroupCard, GroupTable } from './bundles/BundleParts.tsx';
 import { GroupDrawer } from './bundles/BundleDrawer.tsx';
+import UnassignedProducts from './UnassignedProducts.tsx';
 import type { Json, Rec, Toast } from './types.ts';
 
 // A sales bundle is a SALES BUNDLE (بسته فروش): panels + connection kind + the packages it sells, each with
@@ -192,6 +193,7 @@ export default function BundlesView({ api, toast }: { api?: Json; toast: Toast }
   return (
     <div className="space-y-5">
       <InfraChain current="groups" infra={infra} />
+      <UnassignedProducts call={call} />
       <KpiBar cols={4}>
         <Stat
           label="همه بسته‌ها"

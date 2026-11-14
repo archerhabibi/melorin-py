@@ -1,0 +1,9 @@
+/* Design tokens shared by admin-web and store-web. Only values that are the SAME in both skins live here, so adopting them
+   changes no pixel. The skins keep their own palettes (admin: hex variables, store: RGB triplets); a new shared value goes here first. */
+:root {
+  --mk-font: Vazirmatn, system-ui, sans-serif;
+  --mk-ease-out: cubic-bezier(0.2, 0.8, 0.2, 1); /* the standard "settle" curve of both skins */
+  --mk-radius-pill: 999px;
+  --mk-brand-navy: 16 35 63; /* store primary; admin navigation uses the darker #0f1f38 */
+  --mk-brand-gold: 247 200 92; /* accent in dark mode of the store and the admin highlight */
+}

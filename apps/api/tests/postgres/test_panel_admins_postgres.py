@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from _db import make_store, make_user, open_schema_engine, pg_url
 from melorin.kernel.models.vpn import Panel, PanelAdmin, PanelAdminChangeRequest
-from melorin.modules.vpn import panel_admins as svc
+from melorin.modules.panelops import panel_admins as svc
 from test_panel_admins import FakeAdapter
 
 pytestmark = [
