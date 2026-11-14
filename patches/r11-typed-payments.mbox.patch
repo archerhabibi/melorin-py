@@ -1,0 +1,111 @@
+From a58c5ed715f0cd5668f508b0d5d4cfc68a015b7d Mon Sep 17 00:00:00 2001
+From: Melorin Dev <dev@melorin.local>
+Date: Sat, 14 Nov 2026 19:54:12 +0000
+Subject: [PATCH] refactor(admin-ui): payment review and refund use the typed
+ api-client (r11)
+
+---
+ apps/admin-web/src/PaymentsView.tsx           | 32 +++++++++++++++----
+ .../tests/panels-upstream-bot.test.jsx        |  2 +-
+ docs/DECISIONS.md                             |  3 ++
+ 3 files changed, 30 insertions(+), 7 deletions(-)
+
+diff --git a/apps/admin-web/src/PaymentsView.tsx b/apps/admin-web/src/PaymentsView.tsx
+index 53e5936..419f52a 100644
+--- a/apps/admin-web/src/PaymentsView.tsx
++++ b/apps/admin-web/src/PaymentsView.tsx
+@@ -90,21 +90,41 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast
+   const rate = ok.length + bad.length ? ok.length / (ok.length + bad.length) : null;
+   const filtering = !!(q || provider || tab !== 'all');
+ 
+-  const run = async (p: Json, path: string, body: Json, okMsg: Json, failMsg: Json) => {
++  // Review and refund are typed calls (literal path each, so the schema checks the body); the client consumes the
++  // response body, so a failure's message comes from the parsed `error`.
++  const run = async (
++    p: Json,
++    send: (id: string) => Promise<{ response: Response; error?: unknown }>,
++    okMsg: Json,
++    failMsg: Json,
++  ) => {
+     setBusy(p.id);
+     try {
+-      const r = await call(`/api/v1/admin/payments/${p.id}/${path}`, { method: 'POST', body: JSON.stringify(body) });
++      const { response: r, error } = await send(String(p.id));
+       if (r.ok) {
+         toast(okMsg);
+         await load();
+         setSel(null);
+-      } else toast(await errText(r, failMsg));
++      } else {
++        const e = (error ?? {}) as { error?: { message?: string }; detail?: unknown };
++        toast(e.error?.message || (typeof e.detail === 'string' ? e.detail : '') || failMsg);
++      }
+     } catch {
+       toast('ارتباط با سرور برقرار نشد');
+     } finally {
+       setBusy('');
+     }
+   };
++  const review = (approve: boolean, reason: string) => (id: string) =>
++    client.post('/api/v1/admin/payments/{payment_id}/review', {
++      params: { path: { payment_id: id } },
++      body: { approve, reason },
++    });
++  const refund = (reason: string) => (id: string) =>
++    client.post('/api/v1/admin/payments/{payment_id}/refund', {
++      params: { path: { payment_id: id } },
++      body: { reason },
++    });
+   const on = {
+     approve: async (p: Json) => {
+       if (
+@@ -113,11 +133,11 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast
+           { title: 'تأیید پرداخت', ok: 'تأیید پرداخت' },
+         )
+       )
+-        run(p, 'review', { approve: true, reason: '' }, 'پرداخت تأیید شد', 'تأیید ناموفق بود');
++        run(p, review(true, ''), 'پرداخت تأیید شد', 'تأیید ناموفق بود');
+     },
+     reject: async (p: Json) => {
+       const reason = await promptDialog('دلیل رد این پرداخت را بنویسید.', { title: 'رد پرداخت', ok: 'رد پرداخت' });
+-      if (reason !== null) run(p, 'review', { approve: false, reason }, 'پرداخت رد شد', 'رد پرداخت ناموفق بود');
++      if (reason !== null) run(p, review(false, reason), 'پرداخت رد شد', 'رد پرداخت ناموفق بود');
+     },
+     refund: async (p: Json) => {
+       const reason = await promptDialog(
+@@ -125,7 +145,7 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast
+         { title: 'استرداد پرداخت', ok: 'استرداد' },
+       );
+       if (reason !== null)
+-        run(p, 'refund', { reason: reason || 'درخواست استرداد توسط Admin' }, 'استرداد ثبت شد', 'استرداد ناموفق بود');
++        run(p, refund(reason || 'درخواست استرداد توسط Admin'), 'استرداد ثبت شد', 'استرداد ناموفق بود');
+     },
+     receipt: async (p: Json) => {
+       try {
+diff --git a/apps/admin-web/tests/panels-upstream-bot.test.jsx b/apps/admin-web/tests/panels-upstream-bot.test.jsx
+index 3fa12c1..b048e53 100644
+--- a/apps/admin-web/tests/panels-upstream-bot.test.jsx
++++ b/apps/admin-web/tests/panels-upstream-bot.test.jsx
+@@ -112,7 +112,7 @@ describe('PanelsView · upstream_bot', () => {
+     });
+     expect(body.config).not.toHaveProperty('verify_tls');
+     await waitFor(() => expect(calls.some((c) => c[1] === '/api/v1/admin/servers')).toBe(true));
+-  });
++  }, 20000); // long typed form: slow on a loaded CI box
+ 
+   it('previews the flow with the configured button texts', async () => {
+     mockApi([]);
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index 4056689..9ea24db 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -178,3 +178,6 @@ _Merged from the former 12-Change-Log-v1.1.md._
+ - r9 (phase 3, seventh step, 2026-11-14): the panel drawer's templates tab takes `api`; list reads use `getJson`, and create / link / sync / enable / disable / unlink are typed calls with one literal path each. Still on the `authFetch` `call` prop: console and subscription (family-dependent toggle paths and the LAST_NODE retry) and access tabs, plus the non-panel views.
+ 
+ - r10 (phase 3, eighth step, 2026-11-14): the last panel drawer tabs, console/subscription and access, take `api` and use the typed client (literal paths; the node action and family toggle use the schema's `{action}` / `{family}` path params; the LAST_NODE confirm-and-retry is kept). `PanelDetailTabs` no longer builds an `authFetch` `call`: every tab of the panel drawer is on `getJson` / `typedClient`. Access-tab writes (provision, rotate, store role apply/revert, list keys) need a real panel and were not exercised, only type-checked and covered by the existing tests. Remaining on `authFetch`: the non-panel views (see `grep authFetch apps/admin-web/src`).
++
++- r10 verification (2026-11-14, Python 3.12, locked requirements): full API suite 2720 passed, 11 skipped (9 min); `lint-imports` 8/8 kept.
++- r11 (phase 3, ninth step, 2026-11-14): Payments review (approve/reject) and refund are typed `client.post` calls with one literal path each. The receipt image stays on `authFetch` (binary body). The slow `panels-upstream-bot` creation test got a 20 s timeout: it timed out at the 5 s default when the box was loaded, unrelated to the code. Remaining on `authFetch`: receipt review/OCR/duplicate-policy/bank-SMS panels, Settings, products, bundles, tickets, reports and other views.
+-- 
+2.43.0
+
