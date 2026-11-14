@@ -8,6 +8,7 @@ describe('store hub', () => {
     expect(legacyHash('#/resellers')).toBe('#/stores?tab=resellers');
     expect(legacyHash('#/panel-admins')).toBe('#/stores?tab=panels');
     expect(legacyHash('#/store-governance')).toBe('#/stores?tab=volume');
+    expect(legacyHash('#/panel-ops?tab=notices')).toBe('#/stores?tab=notices');
     expect(legacyHash('#/stores')).toBeNull();
   });
 

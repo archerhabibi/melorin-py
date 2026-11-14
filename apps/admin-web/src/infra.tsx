@@ -86,6 +86,7 @@ export function legacyHash(hash: Json) {
     '#/store-governance': 'volume',
   };
   if (hubTab[path]) return `#/stores?tab=${hubTab[path]}`;
+  if (path === '#/panel-ops' && new URLSearchParams(q).get('tab') === 'notices') return '#/stores?tab=notices'; // per-store setting
   if (path !== '#/servers') return null;
   const p = Object.fromEntries(new URLSearchParams(q));
   return infraHref('servers', p);

@@ -1,8 +1,9 @@
-// «فروشگاه‌ها» — the store hub: everything about a store (and its reseller) behind one menu entry, four tabs:
+// «فروشگاه‌ها» — the store hub: everything about a store (and its reseller) behind one menu entry, five tabs:
 //   stores    «فروشگاه‌ها»       the list of stores
 //   resellers «نمایندگان»        reseller accounts of those stores
 //   panels    «دسترسی پنل»       panel operators (PanelAdmin) and sub branding, per store x panel
 //   volume    «حجم و سیاست»      store volume governance and the suspend policy
+//   notices   «اعلان‌ها»         per-store low-traffic notice levels
 // Each tab keeps its own permission area (SECTION_AREA of the section it came from), so a role sees only what it may open.
 // Deep link: #/stores?tab=resellers (old #/resellers, #/panel-admins and #/store-governance are rewritten by legacyHash).
 import type { LazyExoticComponent, ReactNode } from 'react';
@@ -22,6 +23,7 @@ const StoresView = lazy(() => import('./StoresView.tsx'));
 const ResellersView = lazy(() => import('./ResellersView.tsx'));
 const PanelAdminsView = lazy(() => import('./PanelAdminsView.tsx'));
 const StoreGovernanceView = lazy(() => import('./StoreGovernanceView.tsx'));
+const StoreNoticesView = lazy(() => import('./StoreNoticesView.tsx'));
 
 type HubView = LazyExoticComponent<(p: { api?: HubApi; toast: Toast }) => ReactNode>;
 // tab id -> [label, section key used for the permission check, component]
@@ -30,6 +32,7 @@ const TAB_DEFS: [string, string, string, HubView][] = [
   ['resellers', 'نمایندگان', 'نمایندگان', ResellersView],
   ['panels', 'دسترسی پنل', 'اپراتور پنل فروشگاه', PanelAdminsView],
   ['volume', 'حجم و سیاست', 'حجم فروشگاه‌ها', StoreGovernanceView],
+  ['notices', 'اعلان‌ها', 'حجم فروشگاه‌ها', StoreNoticesView],
 ];
 
 const tabFromHash = (ids: string[]) => {

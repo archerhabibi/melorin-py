@@ -1,0 +1,14 @@
+// Structural types shared by admin-web and store-web. Server payloads not yet bound to a generated
+// @melorin/api-client schema use these aliases so every loose spot stays greppable.
+/** A JSON object returned by the Core API whose shape is not yet generated into api-client types. */
+export type Rec = Record<string, any>;
+/** Any JSON value from the Core API (to be replaced by generated schema types). */
+export type Json = any;
+/** Fetch-like function used by views: authFetch or a test double. */
+export type CallFn = (path: string, init?: RequestInit) => Promise<Response>;
+/** React children-bearing props helper. */
+export type WithChildren<P = unknown> = P & { children?: import('react').ReactNode };
+/** Toast notifier supplied by App. */
+export type Toast = (msg: string) => void;
+/** Entity id as the Core API emits it. */
+export type Id = string | number;

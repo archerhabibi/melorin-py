@@ -17,6 +17,8 @@
     "./broadcast.js": "./src/broadcast.js",
     "./referralPlan.js": "./src/referralPlan.js",
     "./loyaltyClub.js": "./src/loyaltyClub.js",
-    "./tokens.css": "./src/tokens.css"
+    "./tokens.css": "./src/tokens.css",
+    "./PasswordInput.jsx": "./src/PasswordInput.jsx",
+    "./types": "./src/types.d.ts"
   }
 }

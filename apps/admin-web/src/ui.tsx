@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Eye, EyeOff, Moon, Sun } from 'lucide-react';
+import { Moon, Sun } from 'lucide-react';
 import { getTheme, onTheme, toggleTheme } from './theme.ts';
 import { backdropProps, useDialog } from './useDialog.ts';
 import type { Json, Rec } from './types.ts';
@@ -138,29 +138,4 @@ function DialogBody({ d, close }: { d?: Json; close?: Json }) {
   );
 }
 
-/** Password field with an eye toggle (show / hide). Extra props go to the <input>. */
-export function PasswordInput({
-  className = '',
-  wrapClassName = '',
-  ...props
-}: {
-  className?: string;
-  wrapClassName?: Json;
-  [k: string]: Json;
-}) {
-  const [show, setShow] = useState(false);
-  return (
-    <div className={`relative ${wrapClassName}`}>
-      <input {...props} dir="ltr" type={show ? 'text' : 'password'} className={`${className} !pl-10`} />
-      <button
-        type="button"
-        aria-label={show ? 'پنهان‌کردن رمز' : 'نمایش رمز'}
-        title={show ? 'پنهان‌کردن' : 'نمایش'}
-        className="absolute left-2 top-1/2 -translate-y-1/2 text-[var(--mu)]"
-        onClick={() => setShow((v) => !v)}
-      >
-        {show ? <EyeOff size={16} /> : <Eye size={16} />}
-      </button>
-    </div>
-  );
-}
+export { PasswordInput } from '@melorin/web-kit/PasswordInput.jsx';

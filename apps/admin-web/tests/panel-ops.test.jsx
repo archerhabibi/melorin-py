@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import PanelOpsView from '../src/PanelOpsView.tsx';
+import StoreNoticesView from '../src/StoreNoticesView.tsx';
 import PanelTabsHarness from './PanelTabsHarness.jsx';
 import { DialogHost } from '../src/ui.tsx';
 
@@ -110,8 +111,8 @@ describe('PanelOpsView', () => {
     const calls = [];
     const toast = vi.fn();
     mock(calls);
-    render(<PanelOpsView api={{ base: 'http://core.test' }} toast={toast} />);
-    await userEvent.click(await screen.findByRole('button', { name: /هشدار حجم/ }));
+    // the notice levels are a tab of the store hub now (per-store setting)
+    render(<StoreNoticesView api={{ base: 'http://core.test' }} toast={toast} />);
     await screen.findByRole('option', { name: 'Main Store' });
     await userEvent.selectOptions(screen.getByLabelText('فروشگاه'), 's1');
     const input = await screen.findByLabelText('درصدهای هشدار');
