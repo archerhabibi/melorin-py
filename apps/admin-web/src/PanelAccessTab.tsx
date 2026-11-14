@@ -2,9 +2,10 @@
 // admin (provision / rotate / list keys) and the store role new store admins get (plan / apply / revert).
 // Reads need nothing. Every write asks the admin to type the panel name; the owner credential is sent once, never kept.
 import { useCallback, useEffect, useState } from 'react';
-import { Secret, errText } from './kit.tsx';
+import { Secret } from './kit.tsx';
+import { getJson, typedClient } from './api.ts';
 import { confirmDialog } from './ui.tsx';
-import type { CallFn, Toast } from './types.ts';
+import type { Toast } from './types.ts';
 import { errMessage } from './adminHubTypes.ts';
 
 interface Access {
@@ -27,12 +28,12 @@ interface KeyRow {
 }
 
 export default function PanelAccessTab({
-  call,
+  api,
   panelId,
   panelName,
   toast,
 }: {
-  call: CallFn;
+  api: { base: string };
   panelId?: string;
   panelName?: string;
   toast: Toast;
@@ -49,14 +50,16 @@ export default function PanelAccessTab({
   const load = useCallback(async () => {
     if (!panelId) return;
     try {
-      const [a, p] = await Promise.all([call(`${base}/service-access`), call(`${base}/store-role-plan`)]);
-      if (!a.ok || !p.ok) throw new Error('load');
-      setAccess(await a.json());
-      setPlan(await p.json());
+      const [a, p] = await Promise.all([
+        getJson<Access>(api.base, `${base}/service-access`),
+        getJson<RolePlan>(api.base, `${base}/store-role-plan`),
+      ]);
+      setAccess(a);
+      setPlan(p);
     } catch {
       toast('دریافت وضعیت دسترسی پنل ناموفق بود');
     }
-  }, [call, base, panelId, toast]);
+  }, [api.base, base, panelId, toast]);
   useEffect(() => {
     setAccess(null);
     setPlan(null);
@@ -72,8 +75,38 @@ export default function PanelAccessTab({
   };
   const nameOk = !panelName || confirm.trim() === panelName;
 
+  // One literal typed path per write action, so the schema checks every body.
+  type Action = '/service-access/provision' | '/service-access/rotate' | '/store-role/apply' | '/store-role/revert';
+  const send = (
+    path: Action,
+    body: { confirm_name: string; bootstrap: ReturnType<typeof bootstrap>; role_name?: string | null },
+  ) => {
+    const params = { params: { path: { panel_id: String(panelId) } } };
+    const c = typedClient(api.base);
+    if (path === '/service-access/provision')
+      return c.post('/api/v1/admin/panels/{panel_id}/service-access/provision', { ...params, body });
+    if (path === '/service-access/rotate')
+      return c.post('/api/v1/admin/panels/{panel_id}/service-access/rotate', { ...params, body });
+    if (path === '/store-role/apply')
+      return c.post('/api/v1/admin/panels/{panel_id}/store-role/apply', { ...params, body });
+    return c.post('/api/v1/admin/panels/{panel_id}/store-role/revert', { ...params, body });
+  };
+  const failText = (error: unknown, status: number) => {
+    const d = (error ?? {}) as { error?: { message?: string }; detail?: unknown };
+    const det = d.detail as { message?: string; msg?: string }[] | { message?: string } | string | undefined;
+    return (
+      d.error?.message ||
+      (typeof det === 'string'
+        ? det
+        : Array.isArray(det)
+          ? det[0]?.msg?.replace(/^Value error, /, '')
+          : det?.message) ||
+      String(status)
+    );
+  };
+
   const run = async (
-    path: string,
+    path: Action,
     label: string,
     opts: { danger?: boolean; needsOwner?: boolean; extra?: Record<string, unknown> },
   ) => {
@@ -91,11 +124,12 @@ export default function PanelAccessTab({
       return;
     setBusy(true);
     try {
-      const r = await call(`${base}${path}`, {
-        method: 'POST',
-        body: JSON.stringify({ confirm_name: confirm.trim(), bootstrap: bootstrap(), ...opts.extra }),
+      const { response: r, error } = await send(path, {
+        confirm_name: confirm.trim(),
+        bootstrap: bootstrap(),
+        ...opts.extra,
       });
-      if (!r.ok) throw new Error(await errText(r, String(r.status)));
+      if (!r.ok) throw new Error(failText(error, r.status));
       toast(`${label} انجام شد`);
       setOwner({ api_key: '', username: '', password: '' }); // the credential never lingers in the form
       await load();
@@ -112,9 +146,16 @@ export default function PanelAccessTab({
     }
     setBusy(true);
     try {
-      const r = await call(`${base}/service-access/keys`, { method: 'POST', body: JSON.stringify(bootstrap()) });
-      if (!r.ok) throw new Error(await errText(r, String(r.status)));
-      setKeys((await r.json()).keys || []);
+      const {
+        response: r,
+        data,
+        error,
+      } = await typedClient(api.base).post('/api/v1/admin/panels/{panel_id}/service-access/keys', {
+        params: { path: { panel_id: String(panelId) } },
+        body: bootstrap() ?? {},
+      });
+      if (!r.ok) throw new Error(failText(error, r.status));
+      setKeys(((data ?? {}) as { keys?: KeyRow[] }).keys || []);
     } catch (e) {
       toast(`ناموفق: ${errMessage(e)}`);
     }

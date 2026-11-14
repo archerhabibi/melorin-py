@@ -1,7 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { Activity } from 'lucide-react';
 import { Drawer } from '../kit.tsx';
-import { authFetch } from '../api.ts';
 import PanelNodesTab from '../PanelNodesTab.tsx';
 import PanelConsoleTab from '../PanelConsoleTab.tsx';
 import PanelEventsTab from '../PanelEventsTab.tsx';
@@ -35,7 +34,6 @@ export function PanelDetailTabs({
   panelId?: string;
   tab?: string | null;
 }) {
-  const call = useCallback((p: string, o?: RequestInit) => authFetch(api.base, p, o), [api.base]);
   const [tab, setTab] = useState(DETAIL_TABS.some(([k]) => k === first) ? (first as string) : 'nodes');
   return (
     <>
@@ -47,12 +45,12 @@ export function PanelDetailTabs({
         ))}
       </div>
       {tab === 'nodes' && <PanelNodesTab api={api} panelId={panelId} toast={toast} />}
-      {tab === 'console' && <PanelConsoleTab call={call} panelId={panelId} toast={toast} />}
+      {tab === 'console' && <PanelConsoleTab api={api} panelId={panelId} toast={toast} />}
       {tab === 'events' && <PanelEventsTab api={api} panelId={panelId} toast={toast} />}
       {tab === 'capacity' && <PanelCapacityTab api={api} panelId={panelId} toast={toast} />}
       {tab === 'templates' && <PanelTemplatesTab api={api} panelId={panelId} toast={toast} />}
       {tab === 'observe' && <PanelPhase5Tab api={api} panelId={panelId} toast={toast} />}
-      {tab === 'access' && <PanelAccessTab call={call} panelId={panelId} panelName={panelName} toast={toast} />}
+      {tab === 'access' && <PanelAccessTab api={api} panelId={panelId} panelName={panelName} toast={toast} />}
     </>
   );
 }
