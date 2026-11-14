@@ -103,16 +103,16 @@ describe('PanelTemplatesTab (PG-09)', () => {
   };
 
   it('shows drift and syncs a managed template', async () => {
-    const { call, calls } = mk(handler);
-    render(<PanelTemplatesTab call={call} panelId="p1" toast={() => {}} />);
+    const { calls } = mk(handler);
+    render(<PanelTemplatesTab api={{ base: 'http://core.test' }} panelId="p1" toast={() => {}} />);
     expect(await screen.findByText(/اختلاف — حجم/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /همگام‌سازی با پکیج/ }));
     await waitFor(() => expect(calls.some(([m, p]) => m === 'POST' && p.endsWith('/templates/pr1/sync'))).toBe(true));
   });
 
   it('creates a template only for a package that has none', async () => {
-    const { call, calls } = mk(handler);
-    render(<PanelTemplatesTab call={call} panelId="p1" toast={() => {}} />);
+    const { calls } = mk(handler);
+    render(<PanelTemplatesTab api={{ base: 'http://core.test' }} panelId="p1" toast={() => {}} />);
     const select = await screen.findByLabelText('پکیج');
     expect(Array.from(select.options).map((o) => o.value)).not.toContain('pr1');
     await userEvent.selectOptions(select, 'pr2');
@@ -124,8 +124,8 @@ describe('PanelTemplatesTab (PG-09)', () => {
   });
 
   it('links an unmapped template to the chosen package', async () => {
-    const { call, calls } = mk(handler);
-    render(<PanelTemplatesTab call={call} panelId="p1" toast={() => {}} />);
+    const { calls } = mk(handler);
+    render(<PanelTemplatesTab api={{ base: 'http://core.test' }} panelId="p1" toast={() => {}} />);
     await userEvent.selectOptions(await screen.findByLabelText('پکیج'), 'pr2');
     await userEvent.click(screen.getByRole('button', { name: /وصل به #9/ }));
     await waitFor(() => {
