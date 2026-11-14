@@ -72,12 +72,23 @@ export default function PanelAccessTab({
   };
   const nameOk = !panelName || confirm.trim() === panelName;
 
-  const run = async (path: string, label: string, opts: { danger?: boolean; needsOwner?: boolean; extra?: Record<string, unknown> }) => {
+  const run = async (
+    path: string,
+    label: string,
+    opts: { danger?: boolean; needsOwner?: boolean; extra?: Record<string, unknown> },
+  ) => {
     if (opts.needsOwner && !bootstrap()) {
       toast('برای این کار اعتبارنامه‌ی owner پنل لازم است');
       return;
     }
-    if (!(await confirmDialog(`${label} روی خود پنل اعمال می‌شود. ادامه می‌دهید؟`, { title: label, danger: !!opts.danger, ok: 'اجرا' }))) return;
+    if (
+      !(await confirmDialog(`${label} روی خود پنل اعمال می‌شود. ادامه می‌دهید؟`, {
+        title: label,
+        danger: !!opts.danger,
+        ok: 'اجرا',
+      }))
+    )
+      return;
     setBusy(true);
     try {
       const r = await call(`${base}${path}`, {
@@ -147,29 +158,77 @@ export default function PanelAccessTab({
       <section className="card space-y-2 p-4">
         <h3 className="font-extrabold">عملیات روی پنل</h3>
         <p className="text-xs text-[var(--mu)]">
-          اعتبارنامه‌ی owner فقط برای همین درخواست فرستاده می‌شود و ذخیره نمی‌شود. برای تأیید، نام پنل را دقیق وارد کنید.
+          اعتبارنامه‌ی owner فقط برای همین درخواست فرستاده می‌شود و ذخیره نمی‌شود. برای تأیید، نام پنل را دقیق وارد
+          کنید.
         </p>
-        <input className="inp w-full" value={confirm} onChange={(e) => setConfirm(e.target.value)} aria-label="نام پنل برای تأیید" placeholder={panelName ? `نام پنل: ${panelName}` : 'نام پنل'} />
-        <Secret value={owner.api_key} onChange={(v: string) => setOwner((o) => ({ ...o, api_key: v }))} placeholder="کلید API ‏owner" />
+        <input
+          className="inp w-full"
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+          aria-label="نام پنل برای تأیید"
+          placeholder={panelName ? `نام پنل: ${panelName}` : 'نام پنل'}
+        />
+        <Secret
+          value={owner.api_key}
+          onChange={(v: string) => setOwner((o) => ({ ...o, api_key: v }))}
+          placeholder="کلید API ‏owner"
+        />
         <div className="grid gap-2 sm:grid-cols-2">
-          <input className="inp" dir="ltr" autoComplete="off" value={owner.username} onChange={(e) => setOwner((o) => ({ ...o, username: e.target.value }))} aria-label="نام کاربری owner" placeholder="یا نام کاربری owner" />
-          <Secret value={owner.password} onChange={(v: string) => setOwner((o) => ({ ...o, password: v }))} placeholder="رمز owner" />
+          <input
+            className="inp"
+            dir="ltr"
+            autoComplete="off"
+            value={owner.username}
+            onChange={(e) => setOwner((o) => ({ ...o, username: e.target.value }))}
+            aria-label="نام کاربری owner"
+            placeholder="یا نام کاربری owner"
+          />
+          <Secret
+            value={owner.password}
+            onChange={(v: string) => setOwner((o) => ({ ...o, password: v }))}
+            placeholder="رمز owner"
+          />
         </div>
-        <input className="inp w-full" dir="ltr" value={roleName} onChange={(e) => setRoleName(e.target.value)} aria-label="نام نقش فروشگاه" placeholder="نام نقش فروشگاه (خالی = melorin-store)" />
+        <input
+          className="inp w-full"
+          dir="ltr"
+          value={roleName}
+          onChange={(e) => setRoleName(e.target.value)}
+          aria-label="نام نقش فروشگاه"
+          placeholder="نام نقش فروشگاه (خالی = melorin-store)"
+        />
         <div className="flex flex-wrap gap-2">
-          <button className="btn" disabled={busy || !nameOk || !confirm} onClick={() => run('/service-access/provision', 'ساخت ادمین سرویس', {})}>
+          <button
+            className="btn"
+            disabled={busy || !nameOk || !confirm}
+            onClick={() => run('/service-access/provision', 'ساخت ادمین سرویس', {})}
+          >
             ساخت ادمین سرویس
           </button>
-          <button className="btn btn-g" disabled={busy || !nameOk || !confirm} onClick={() => run('/service-access/rotate', 'چرخش کلید سرویس', { needsOwner: true, danger: true })}>
+          <button
+            className="btn btn-g"
+            disabled={busy || !nameOk || !confirm}
+            onClick={() => run('/service-access/rotate', 'چرخش کلید سرویس', { needsOwner: true, danger: true })}
+          >
             چرخش کلید
           </button>
           <button className="btn btn-g" disabled={busy} onClick={listKeys}>
             فهرست کلیدها
           </button>
-          <button className="btn btn-g" disabled={busy || !nameOk || !confirm} onClick={() => run('/store-role/apply', 'اعمال نقش فروشگاه', { extra: { role_name: roleName.trim() || null } })}>
+          <button
+            className="btn btn-g"
+            disabled={busy || !nameOk || !confirm}
+            onClick={() =>
+              run('/store-role/apply', 'اعمال نقش فروشگاه', { extra: { role_name: roleName.trim() || null } })
+            }
+          >
             اعمال نقش فروشگاه
           </button>
-          <button className="btn btn-g btn-d" disabled={busy || !nameOk || !confirm} onClick={() => run('/store-role/revert', 'بازگشت به نقش پیش‌فرض', { danger: true })}>
+          <button
+            className="btn btn-g btn-d"
+            disabled={busy || !nameOk || !confirm}
+            onClick={() => run('/store-role/revert', 'بازگشت به نقش پیش‌فرض', { danger: true })}
+          >
             بازگشت به نقش پیش‌فرض
           </button>
         </div>

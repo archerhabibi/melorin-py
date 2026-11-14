@@ -55,7 +55,10 @@ export default function StoreBotsView({ api, toast }: { api?: HubApiProp; toast:
 
   return (
     <section className="card space-y-4 p-4">
-      <p className="text-sm">هر ربات تلگرام با «کلید ربات» به یک فروشگاه وصل می‌شود؛ مشتریان آن ربات فقط محصولات و قیمت‌های همان فروشگاه را می‌بینند.</p>
+      <p className="text-sm">
+        هر ربات تلگرام با «کلید ربات» به یک فروشگاه وصل می‌شود؛ مشتریان آن ربات فقط محصولات و قیمت‌های همان فروشگاه را
+        می‌بینند.
+      </p>
       {failed && <ErrorBar onRetry={load}>دریافت اتصال‌های ربات ناموفق بود.</ErrorBar>}
       {rows && rows.length === 0 && <Empty>هنوز رباتی به فروشگاهی وصل نشده است.</Empty>}
       <div className="divide-y divide-[var(--bd)]">
@@ -77,9 +80,28 @@ export default function StoreBotsView({ api, toast }: { api?: HubApiProp; toast:
         <div className="space-y-2 border-t border-[var(--bd)] pt-3">
           <h3 className="font-extrabold">اتصال ربات جدید</h3>
           <div className="grid gap-2 sm:grid-cols-2">
-            <input className="inp" dir="ltr" value={form.bot_key} onChange={(e) => set('bot_key', e.target.value)} aria-label="کلید ربات" placeholder="کلید ربات (حداقل ۸ نویسه)" />
-            <input className="inp" dir="ltr" value={form.bot_username} onChange={(e) => set('bot_username', e.target.value)} aria-label="نام کاربری ربات" placeholder="@username" />
-            <select className="inp" value={form.store_id} onChange={(e) => set('store_id', e.target.value)} aria-label="فروشگاه">
+            <input
+              className="inp"
+              dir="ltr"
+              value={form.bot_key}
+              onChange={(e) => set('bot_key', e.target.value)}
+              aria-label="کلید ربات"
+              placeholder="کلید ربات (حداقل ۸ نویسه)"
+            />
+            <input
+              className="inp"
+              dir="ltr"
+              value={form.bot_username}
+              onChange={(e) => set('bot_username', e.target.value)}
+              aria-label="نام کاربری ربات"
+              placeholder="@username"
+            />
+            <select
+              className="inp"
+              value={form.store_id}
+              onChange={(e) => set('store_id', e.target.value)}
+              aria-label="فروشگاه"
+            >
               <option value="">فروشگاه</option>
               {stores.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -87,7 +109,12 @@ export default function StoreBotsView({ api, toast }: { api?: HubApiProp; toast:
                 </option>
               ))}
             </select>
-            <select className="inp" value={form.bot_kind} onChange={(e) => set('bot_kind', e.target.value)} aria-label="نوع ربات">
+            <select
+              className="inp"
+              value={form.bot_kind}
+              onChange={(e) => set('bot_kind', e.target.value)}
+              aria-label="نوع ربات"
+            >
               <option value="reseller">ربات نماینده</option>
               <option value="main">ربات اصلی</option>
             </select>

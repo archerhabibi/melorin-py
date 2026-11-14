@@ -56,7 +56,10 @@ export default function AttachAccountForm({
         subscription_url: f.subscription_url.trim() || null,
         reason: f.reason.trim() || null,
       };
-      const r = await call(`/api/v1/admin/orders/${orderId}/attach-account`, { method: 'POST', body: JSON.stringify(body) });
+      const r = await call(`/api/v1/admin/orders/${orderId}/attach-account`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
       if (!r.ok) throw new Error(await errText(r, String(r.status)));
       toast('اکانت به سفارش وصل شد');
       await onDone();
@@ -69,8 +72,15 @@ export default function AttachAccountForm({
   return (
     <section className="card space-y-2 p-4">
       <h3 className="font-extrabold">اتصال اکانت موجود به سفارش</h3>
-      <p className="text-xs text-[var(--mu)]">وقتی اکانت را خودتان روی پنل ساخته‌اید و فقط باید به همین سفارش وصل شود.</p>
-      <select className="inp w-full" value={f.server_id} onChange={(e) => set('server_id', e.target.value)} aria-label="سرور">
+      <p className="text-xs text-[var(--mu)]">
+        وقتی اکانت را خودتان روی پنل ساخته‌اید و فقط باید به همین سفارش وصل شود.
+      </p>
+      <select
+        className="inp w-full"
+        value={f.server_id}
+        onChange={(e) => set('server_id', e.target.value)}
+        aria-label="سرور"
+      >
         <option value="">سرور</option>
         {servers.map((s) => (
           <option key={s.id} value={s.id}>
@@ -78,10 +88,37 @@ export default function AttachAccountForm({
           </option>
         ))}
       </select>
-      <input className="inp w-full" dir="ltr" value={f.username} onChange={(e) => set('username', e.target.value)} aria-label="نام کاربری اکانت روی پنل" placeholder="username" />
-      <input className="inp w-full" dir="ltr" value={f.panel_ref} onChange={(e) => set('panel_ref', e.target.value)} aria-label="شناسه روی پنل" placeholder="شناسه روی پنل (اختیاری)" />
-      <input className="inp w-full" dir="ltr" value={f.subscription_url} onChange={(e) => set('subscription_url', e.target.value)} aria-label="لینک اشتراک" placeholder="لینک اشتراک (اختیاری)" />
-      <input className="inp w-full" value={f.reason} onChange={(e) => set('reason', e.target.value)} aria-label="دلیل" placeholder="دلیل (برای ممیزی)" />
+      <input
+        className="inp w-full"
+        dir="ltr"
+        value={f.username}
+        onChange={(e) => set('username', e.target.value)}
+        aria-label="نام کاربری اکانت روی پنل"
+        placeholder="username"
+      />
+      <input
+        className="inp w-full"
+        dir="ltr"
+        value={f.panel_ref}
+        onChange={(e) => set('panel_ref', e.target.value)}
+        aria-label="شناسه روی پنل"
+        placeholder="شناسه روی پنل (اختیاری)"
+      />
+      <input
+        className="inp w-full"
+        dir="ltr"
+        value={f.subscription_url}
+        onChange={(e) => set('subscription_url', e.target.value)}
+        aria-label="لینک اشتراک"
+        placeholder="لینک اشتراک (اختیاری)"
+      />
+      <input
+        className="inp w-full"
+        value={f.reason}
+        onChange={(e) => set('reason', e.target.value)}
+        aria-label="دلیل"
+        placeholder="دلیل (برای ممیزی)"
+      />
       <button className="btn" disabled={busy || !f.server_id || !f.username.trim()} onClick={submit}>
         اتصال اکانت
       </button>

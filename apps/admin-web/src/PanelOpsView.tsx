@@ -305,7 +305,6 @@ export default function PanelOpsView({ api, toast }: { api?: Json; toast: Toast 
           ))}
         </section>
       )}
-
     </div>
   );
 }

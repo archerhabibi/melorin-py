@@ -117,7 +117,17 @@ const KIND_LABEL: Record<string, string> = {
 type Draft = Record<string, { title: string; body: string }>;
 
 /** The store's own wording for customer notices. Kinds left empty use the platform text. */
-function NoticeTexts({ call, toast, storeId, writable }: { call: CallFn; toast: Toast; storeId: string; writable: boolean }) {
+function NoticeTexts({
+  call,
+  toast,
+  storeId,
+  writable,
+}: {
+  call: CallFn;
+  toast: Toast;
+  storeId: string;
+  writable: boolean;
+}) {
   const [meta, setMeta] = useState<NoticeTextMeta | null>(null);
   const [draft, setDraft] = useState<Draft>({});
   const [saving, setSaving] = useState(false);
@@ -216,7 +226,19 @@ function NoticeTexts({ call, toast, storeId, writable }: { call: CallFn; toast: 
 }
 
 /** Daily VPN digest for the store owner (off by default; a day with nothing to report sends nothing). */
-function DigestSwitch({ call, toast, storeId, cfg, writable }: { call: CallFn; toast: Toast; storeId: string; cfg: NoticeCfg | null; writable: boolean }) {
+function DigestSwitch({
+  call,
+  toast,
+  storeId,
+  cfg,
+  writable,
+}: {
+  call: CallFn;
+  toast: Toast;
+  storeId: string;
+  cfg: NoticeCfg | null;
+  writable: boolean;
+}) {
   const [on, setOn] = useState(false);
   const [busy, setBusy] = useState(false);
   useEffect(() => setOn(!!cfg?.daily_digest), [cfg]);
@@ -224,7 +246,10 @@ function DigestSwitch({ call, toast, storeId, cfg, writable }: { call: CallFn; t
   const flip = async (v: boolean) => {
     setBusy(true);
     try {
-      const r = await call(`/api/v1/admin/stores/${storeId}/vpn-digest`, { method: 'PUT', body: JSON.stringify({ enabled: v }) });
+      const r = await call(`/api/v1/admin/stores/${storeId}/vpn-digest`, {
+        method: 'PUT',
+        body: JSON.stringify({ enabled: v }),
+      });
       if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as ErrorBody).error?.message || String(r.status));
       setOn(v);
       toast(v ? 'خلاصه‌ی روزانه فعال شد' : 'خلاصه‌ی روزانه غیرفعال شد');
