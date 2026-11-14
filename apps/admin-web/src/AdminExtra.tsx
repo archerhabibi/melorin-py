@@ -1,7 +1,7 @@
 import { lazy } from 'react';
 import { authFetch } from './api.ts';
 import type { Json, Toast, ViewApi } from './types.ts';
-import { ChangeAdminPassword } from './SettingsView.tsx';
+import { ChangeAdminPassword } from './ChangeAdminPassword.tsx';
 const ReportsView = lazy(() => import('./ReportsView.tsx'));
 const PanelsView = lazy(() => import('./PanelsView.tsx'));
 const InfraHealthView = lazy(() => import('./InfraHealthView.tsx'));
