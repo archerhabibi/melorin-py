@@ -9,7 +9,7 @@ import { legacyHash } from '../src/infra.tsx';
 const ROLES = {
   owner: ['overview:rw', 'customers:rw', 'system:rw', 'infrastructure:rw', 'resellers:rw'],
   manager: ['overview:rw', 'customers:rw', 'infrastructure:rw', 'resellers:rw'],
-  finance: ['overview:r', 'payments:rw', 'orders:r'],
+  finance: ['overview:r', 'payments:rw', 'orders:rw', 'customers:r'], // mirrors admin_access.py
   support: ['overview:r', 'customers:rw', 'support:rw'],
   viewer: ['overview:r', 'customers:r'],
 };
@@ -39,9 +39,9 @@ describe('sign-in methods moved from Identity to Settings', () => {
     expect(sectionAllowed(ROLES.owner, 'تنظیمات')).toBe(true);
   });
 
-  it('identity stays a customer screen for support, hidden from finance', () => {
+  it('identity stays a customers-area screen (support writes, finance reads)', () => {
     expect(sectionAllowed(ROLES.support, 'هویت')).toBe(true);
-    expect(sectionAllowed(ROLES.finance, 'هویت')).toBe(false);
+    expect(sectionAllowed(ROLES.finance, 'هویت')).toBe(true); // read-only; the server refuses writes
   });
 });
 
