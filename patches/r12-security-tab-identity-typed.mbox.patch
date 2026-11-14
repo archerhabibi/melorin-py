@@ -1,0 +1,676 @@
+From c45a191646ec4eb39687dd644b1fa3cd5713c29b Mon Sep 17 00:00:00 2001
+From: Melorin Dev <dev@melorin.local>
+Date: Sat, 14 Nov 2026 20:15:53 +0000
+Subject: [PATCH] =?UTF-8?q?refactor(admin-ui):=20security=20tab=20for=20ad?=
+ =?UTF-8?q?min=20IP=20allowlist,=20group=20=C2=AB=D8=B3=DB=8C=D8=B3=D8=AA?=
+ =?UTF-8?q?=D9=85=20=D9=88=20=D8=A7=D9=85=D9=86=DB=8C=D8=AA=C2=BB,=20ident?=
+ =?UTF-8?q?ity=20devices=20on=20the=20typed=20api-client=20(r12)?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ apps/admin-web/src/IdentityAutoView.tsx       |  36 +-
+ apps/admin-web/src/SettingsView.tsx           | 434 +++++++++---------
+ apps/admin-web/src/adminNav.ts                |   2 +-
+ .../tests/identity-login-move.test.jsx        |   2 +-
+ .../tests/settings-security-tab.test.jsx      |  40 ++
+ docs/DECISIONS.md                             |   1 +
+ 6 files changed, 289 insertions(+), 226 deletions(-)
+ create mode 100644 apps/admin-web/tests/settings-security-tab.test.jsx
+
+diff --git a/apps/admin-web/src/IdentityAutoView.tsx b/apps/admin-web/src/IdentityAutoView.tsx
+index 7ea8231..a62381c 100644
+--- a/apps/admin-web/src/IdentityAutoView.tsx
++++ b/apps/admin-web/src/IdentityAutoView.tsx
+@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
+ // without a manual step, and accounts that were folded together automatically. The admin can revoke trust here.
+ import { useEffect, useState } from 'react';
+ import { ArrowLeftRight, Fingerprint, MonitorSmartphone, ShieldOff, UserRound, Users } from 'lucide-react';
+-import { authFetch } from './api.ts';
++import { authFetch, typedClient } from './api.ts';
+ import { confirmDialog, dt, sid } from './ui.tsx';
+ import { Empty, ErrorBar, KpiBar, Pills, SearchBox, Segmented, Stat, errText, num, tint, useRows } from './kit.tsx';
+ import type { CallFn, Json, Rec, Toast } from './types.ts';
+@@ -29,20 +29,18 @@ function Chip({ tone, children }: { tone?: Json; children?: ReactNode }) {
+   );
+ }
+ 
+-function DevicesTab({ call, toast, onChanged }: { call: CallFn; toast: Toast; onChanged?: Json }) {
++function DevicesTab({ call, base, toast, onChanged }: { call: CallFn; base: string; toast: Toast; onChanged?: Json }) {
+   const [status, setStatus] = useState('active');
+   const [q, setQ] = useState('');
+   const query = `?status=${status}${q.trim() ? `&q=${encodeURIComponent(q.trim())}` : ''}`;
+   const { rows, failed, load } = useRows(call, `/api/v1/admin/trusted-devices${query}`);
+   const [busy, setBusy] = useState<Json>(null);
+ 
+-  const run = async (key: Json, path: string, body: Json, done: Json) => {
++  // typed api-client (same transport as authFetch); one literal path per action so the schema checks each body
++  const run = async (key: Json, send: () => Promise<{ response: Response }>, done: Json) => {
+     setBusy(key);
+     try {
+-      const res = await call(path, {
+-        method: 'POST',
+-        ...(body ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {}),
+-      });
++      const { response: res } = await send();
+       if (res.ok) {
+         toast(done);
+         load();
+@@ -62,7 +60,14 @@ function DevicesTab({ call, toast, onChanged }: { call: CallFn; toast: Toast; on
+       ))
+     )
+       return;
+-    run(d.id, `/api/v1/admin/trusted-devices/${d.id}/revoke`, null, 'اعتماد دستگاه لغو شد');
++    run(
++      d.id,
++      () =>
++        typedClient(base).post('/api/v1/admin/trusted-devices/{device_id}/revoke', {
++          params: { path: { device_id: d.id } },
++        }),
++      'اعتماد دستگاه لغو شد',
++    );
+   };
+   const revokeAccount = async (d: Json) => {
+     if (
+@@ -75,8 +80,10 @@ function DevicesTab({ call, toast, onChanged }: { call: CallFn; toast: Toast; on
+       return;
+     run(
+       `u${d.user?.id}`,
+-      '/api/v1/admin/trusted-devices/revoke-account',
+-      { user_id: d.user?.id },
++      () =>
++        typedClient(base).post('/api/v1/admin/trusted-devices/revoke-account', {
++          body: { user_id: d.user?.id },
++        }),
+       'همهٔ دستگاه‌های این حساب لغو شد',
+     );
+   };
+@@ -217,9 +224,10 @@ export default function IdentityAutoView({ api, toast, section }: { api?: Json;
+   const [s, setS] = useState<Rec>({});
+   useEffect(() => {
+     let alive = true;
+-    call('/api/v1/admin/trusted-devices/summary')
+-      .then((r) => (r.ok ? r.json() : {}))
+-      .then((d) => alive && setS(d || {}))
++    typedClient(api.base)
++      .get('/api/v1/admin/trusted-devices/summary')
++      .then((r) => (r.response.ok ? r.data : {}))
++      .then((d) => alive && setS((d as Rec) || {}))
+       .catch(() => {});
+     return () => {
+       alive = false;
+@@ -259,7 +267,7 @@ export default function IdentityAutoView({ api, toast, section }: { api?: Json;
+         />
+       )}
+       {tab === 'devices' ? (
+-        <DevicesTab call={call} toast={toast} onChanged={() => setTick((t) => t + 1)} />
++        <DevicesTab call={call} base={api.base} toast={toast} onChanged={() => setTick((t) => t + 1)} />
+       ) : (
+         <MergesTab call={call} />
+       )}
+diff --git a/apps/admin-web/src/SettingsView.tsx b/apps/admin-web/src/SettingsView.tsx
+index cb0a050..0fd91f6 100644
+--- a/apps/admin-web/src/SettingsView.tsx
++++ b/apps/admin-web/src/SettingsView.tsx
+@@ -39,7 +39,7 @@ const Toggle = ({ on, set, label }: { on?: Json; set?: Json; label?: Json }) =>
+   </label>
+ );
+ 
+-function Integrations({ api, toast }: { api?: Json; toast: Toast }) {
++function Integrations({ api, toast, part }: { api?: Json; toast: Toast; part: 'integrations' | 'security' }) {
+   const call = (p: Json, o = {}) => authFetch(api.base, p, o);
+   const [aa, setAa] = useState<Json>(null);
+   const [ipText, setIpText] = useState('');
+@@ -82,225 +82,238 @@ function Integrations({ api, toast }: { api?: Json; toast: Toast }) {
+   const s3s = (k: Json) => (v: Json) => setS3({ ...s3, [k]: v });
+   return (
+     <section className={`${box} space-y-6 p-5`}>
+-      <h3 className="font-extrabold">
+-        یکپارچه‌سازی‌ها <span className="text-xs font-normal text-[var(--mu)]">(اختیاری؛ برای نصب لازم نیستند)</span>
+-      </h3>
+-      <div className="space-y-3 rounded-xl border border-[var(--ln)] p-4">
+-        <div className="flex items-center justify-between">
+-          <b>دسترسی ادمین (محدودیت IP)</b>
+-          <Toggle
+-            on={aa.enabled}
+-            set={(v: Json) => setAa({ ...aa, enabled: v })}
+-            label={aa.enabled ? 'فعال' : 'غیرفعال'}
+-          />
+-        </div>
+-        <p className="text-xs text-[var(--mu)]">
+-          به‌طور پیش‌فرض خاموش است. در حالت فعال، API ادمین فقط از IPها/CIDRهای زیر پاسخ می‌دهد (هر خط یک مورد). IP فعلی
+-          شما: <code dir="ltr">{aa.your_ip}</code>. اگر قفل شدید، روی سرور:{' '}
+-          <code dir="ltr">python -m melorin.cli disable-admin-ip-allowlist</code>
+-        </p>
+-        <textarea
+-          dir="ltr"
+-          rows={3}
+-          className={inp}
+-          value={ipText}
+-          onChange={(e) => setIpText(e.target.value)}
+-          placeholder={'203.0.113.10/32\n198.51.100.0/24'}
+-        />
+-        <button
+-          disabled={busy === 'aa'}
+-          className={btn}
+-          onClick={() =>
+-            send(
+-              '/api/v1/admin/integrations/admin-access',
+-              { enabled: aa.enabled, ips: ipText.split(/[\s,]+/).filter(Boolean) },
+-              'تنظیمات دسترسی ادمین ذخیره شد',
+-              'aa',
+-            )
+-          }
+-        >
+-          ذخیره
+-        </button>
+-      </div>
+-      <div className="grid gap-6 lg:grid-cols-2">
++      {part === 'integrations' && (
++        <>
++          <h3 className="font-extrabold">
++            یکپارچه‌سازی‌ها{' '}
++            <span className="text-xs font-normal text-[var(--mu)]">(اختیاری؛ برای نصب لازم نیستند)</span>
++          </h3>
++        </>
++      )}
++      {part === 'security' && (
+         <div className="space-y-3 rounded-xl border border-[var(--ln)] p-4">
+           <div className="flex items-center justify-between">
+-            <b>ایمیل (SMTP)</b>
+-            <Toggle on={em.enabled} set={sm('enabled')} label={em.enabled ? 'فعال' : 'غیرفعال'} />
+-          </div>
+-          <p className="text-xs text-[var(--mu)]">
+-            وقتی غیرفعال است، ورود با کد ایمیلی در دسترس نیست؛ بقیه‌ی روش‌های ورود و سیستم عادی کار می‌کنند.
+-          </p>
+-          <div className="grid gap-3 sm:grid-cols-2">
+-            <Field label="میزبان SMTP">
+-              <input
+-                dir="ltr"
+-                className={inp}
+-                value={em.host}
+-                onChange={(e) => sm('host')(e.target.value)}
+-                placeholder="smtp.example.com"
+-              />
+-            </Field>
+-            <Field label="پورت">
+-              <input
+-                dir="ltr"
+-                type="number"
+-                className={inp}
+-                value={em.port}
+-                onChange={(e) => sm('port')(+e.target.value)}
+-              />
+-            </Field>
+-            <Field label="نام کاربری">
+-              <input dir="ltr" className={inp} value={em.username} onChange={(e) => sm('username')(e.target.value)} />
+-            </Field>
+-            <Field label={`رمز عبور${em.password_set ? ' (ذخیره شده؛ برای تغییر بنویسید)' : ''}`}>
+-              <PasswordInput
+-                autoComplete="new-password"
+-                className={inp}
+-                value={pw}
+-                onChange={(e: Json) => setPw(e.target.value)}
+-              />
+-            </Field>
+-            <Field label="آدرس فرستنده">
+-              <input
+-                dir="ltr"
+-                className={inp}
+-                value={em.from_addr}
+-                onChange={(e) => sm('from_addr')(e.target.value)}
+-                placeholder="no-reply@example.com"
+-              />
+-            </Field>
+-            <Field label="امنیت اتصال">
+-              <select className={inp} value={em.security} onChange={(e) => sm('security')(e.target.value)}>
+-                <option value="starttls">STARTTLS (۵۸۷)</option>
+-                <option value="ssl">SSL/TLS (۴۶۵)</option>
+-                <option value="none">بدون رمزنگاری</option>
+-              </select>
+-            </Field>
+-          </div>
+-          <div className="flex flex-wrap items-end gap-2">
+-            <button
+-              disabled={busy === 'em'}
+-              className={btn}
+-              onClick={() =>
+-                send(
+-                  '/api/v1/admin/integrations/email',
+-                  {
+-                    enabled: em.enabled,
+-                    host: em.host,
+-                    port: em.port,
+-                    username: em.username,
+-                    password: pw === '' ? null : pw,
+-                    from_addr: em.from_addr,
+-                    security: em.security,
+-                  },
+-                  'تنظیمات ایمیل ذخیره شد',
+-                  'em',
+-                )
+-              }
+-            >
+-              ذخیره
+-            </button>
+-            <input
+-              dir="ltr"
+-              className={`${inp} max-w-[14rem]`}
+-              value={to}
+-              onChange={(e) => setTo(e.target.value)}
+-              placeholder="ایمیل برای تست"
++            <b>دسترسی ادمین (محدودیت IP)</b>
++            <Toggle
++              on={aa.enabled}
++              set={(v: Json) => setAa({ ...aa, enabled: v })}
++              label={aa.enabled ? 'فعال' : 'غیرفعال'}
+             />
+-            <button
+-              disabled={!to || busy === 'emt'}
+-              className={ghost}
+-              onClick={() => send('/api/v1/admin/integrations/email/test', { to }, 'ایمیل تست ارسال شد', 'emt')}
+-            >
+-              ارسال تست
+-            </button>
+-          </div>
+-        </div>
+-        <div className="space-y-3 rounded-xl border border-[var(--ln)] p-4">
+-          <div className="flex items-center justify-between">
+-            <b>بکاپ</b>
+           </div>
+           <p className="text-xs text-[var(--mu)]">
+-            بکاپ محلی همیشه فعال است (رمزگذاری‌شده، روزانه ۰۲:۰۰ UTC، نگهداری {local?.retention_days} روز در{' '}
+-            <code dir="ltr">{local?.dir}</code>). کپی خارج از سرور روی S3 اختیاری است.
++            به‌طور پیش‌فرض خاموش است. در حالت فعال، API ادمین فقط از IPها/CIDRهای زیر پاسخ می‌دهد (هر خط یک مورد). IP
++            فعلی شما: <code dir="ltr">{aa.your_ip}</code>. اگر قفل شدید، روی سرور:{' '}
++            <code dir="ltr">python -m melorin.cli disable-admin-ip-allowlist</code>
+           </p>
+-          <Toggle on={s3.enabled} set={s3s('enabled')} label={s3.enabled ? 'کپی روی S3 فعال' : 'کپی روی S3 غیرفعال'} />
+-          <div className="grid gap-3 sm:grid-cols-2">
+-            <Field label="Endpoint (برای S3 سازگار)">
+-              <input
+-                dir="ltr"
+-                className={inp}
+-                value={s3.endpoint}
+-                onChange={(e) => s3s('endpoint')(e.target.value)}
+-                placeholder="https://s3.example.com"
+-              />
+-            </Field>
+-            <Field label="Region">
+-              <input
+-                dir="ltr"
+-                className={inp}
+-                value={s3.region}
+-                onChange={(e) => s3s('region')(e.target.value)}
+-                placeholder="us-east-1"
+-              />
+-            </Field>
+-            <Field label="Bucket">
+-              <input dir="ltr" className={inp} value={s3.bucket} onChange={(e) => s3s('bucket')(e.target.value)} />
+-            </Field>
+-            <Field label="Prefix">
+-              <input dir="ltr" className={inp} value={s3.prefix} onChange={(e) => s3s('prefix')(e.target.value)} />
+-            </Field>
+-            <Field label="Access Key">
++          <textarea
++            dir="ltr"
++            rows={3}
++            className={inp}
++            value={ipText}
++            onChange={(e) => setIpText(e.target.value)}
++            placeholder={'203.0.113.10/32\n198.51.100.0/24'}
++          />
++          <button
++            disabled={busy === 'aa'}
++            className={btn}
++            onClick={() =>
++              send(
++                '/api/v1/admin/integrations/admin-access',
++                { enabled: aa.enabled, ips: ipText.split(/[\s,]+/).filter(Boolean) },
++                'تنظیمات دسترسی ادمین ذخیره شد',
++                'aa',
++              )
++            }
++          >
++            ذخیره
++          </button>
++        </div>
++      )}
++      {part === 'integrations' && (
++        <div className="grid gap-6 lg:grid-cols-2">
++          <div className="space-y-3 rounded-xl border border-[var(--ln)] p-4">
++            <div className="flex items-center justify-between">
++              <b>ایمیل (SMTP)</b>
++              <Toggle on={em.enabled} set={sm('enabled')} label={em.enabled ? 'فعال' : 'غیرفعال'} />
++            </div>
++            <p className="text-xs text-[var(--mu)]">
++              وقتی غیرفعال است، ورود با کد ایمیلی در دسترس نیست؛ بقیه‌ی روش‌های ورود و سیستم عادی کار می‌کنند.
++            </p>
++            <div className="grid gap-3 sm:grid-cols-2">
++              <Field label="میزبان SMTP">
++                <input
++                  dir="ltr"
++                  className={inp}
++                  value={em.host}
++                  onChange={(e) => sm('host')(e.target.value)}
++                  placeholder="smtp.example.com"
++                />
++              </Field>
++              <Field label="پورت">
++                <input
++                  dir="ltr"
++                  type="number"
++                  className={inp}
++                  value={em.port}
++                  onChange={(e) => sm('port')(+e.target.value)}
++                />
++              </Field>
++              <Field label="نام کاربری">
++                <input dir="ltr" className={inp} value={em.username} onChange={(e) => sm('username')(e.target.value)} />
++              </Field>
++              <Field label={`رمز عبور${em.password_set ? ' (ذخیره شده؛ برای تغییر بنویسید)' : ''}`}>
++                <PasswordInput
++                  autoComplete="new-password"
++                  className={inp}
++                  value={pw}
++                  onChange={(e: Json) => setPw(e.target.value)}
++                />
++              </Field>
++              <Field label="آدرس فرستنده">
++                <input
++                  dir="ltr"
++                  className={inp}
++                  value={em.from_addr}
++                  onChange={(e) => sm('from_addr')(e.target.value)}
++                  placeholder="no-reply@example.com"
++                />
++              </Field>
++              <Field label="امنیت اتصال">
++                <select className={inp} value={em.security} onChange={(e) => sm('security')(e.target.value)}>
++                  <option value="starttls">STARTTLS (۵۸۷)</option>
++                  <option value="ssl">SSL/TLS (۴۶۵)</option>
++                  <option value="none">بدون رمزنگاری</option>
++                </select>
++              </Field>
++            </div>
++            <div className="flex flex-wrap items-end gap-2">
++              <button
++                disabled={busy === 'em'}
++                className={btn}
++                onClick={() =>
++                  send(
++                    '/api/v1/admin/integrations/email',
++                    {
++                      enabled: em.enabled,
++                      host: em.host,
++                      port: em.port,
++                      username: em.username,
++                      password: pw === '' ? null : pw,
++                      from_addr: em.from_addr,
++                      security: em.security,
++                    },
++                    'تنظیمات ایمیل ذخیره شد',
++                    'em',
++                  )
++                }
++              >
++                ذخیره
++              </button>
+               <input
+                 dir="ltr"
+-                className={inp}
+-                value={s3.access_key}
+-                onChange={(e) => s3s('access_key')(e.target.value)}
++                className={`${inp} max-w-[14rem]`}
++                value={to}
++                onChange={(e) => setTo(e.target.value)}
++                placeholder="ایمیل برای تست"
+               />
+-            </Field>
+-            <Field label={`Secret Key${s3.secret_key_set ? ' (ذخیره شده؛ برای تغییر بنویسید)' : ''}`}>
+-              <PasswordInput
+-                autoComplete="new-password"
+-                className={inp}
+-                value={sk}
+-                onChange={(e: Json) => setSk(e.target.value)}
+-              />
+-            </Field>
++              <button
++                disabled={!to || busy === 'emt'}
++                className={ghost}
++                onClick={() => send('/api/v1/admin/integrations/email/test', { to }, 'ایمیل تست ارسال شد', 'emt')}
++              >
++                ارسال تست
++              </button>
++            </div>
+           </div>
+-          <div className="flex gap-2">
+-            <button
+-              disabled={busy === 's3'}
+-              className={btn}
+-              onClick={() =>
+-                send(
+-                  '/api/v1/admin/integrations/backup-s3',
+-                  {
+-                    enabled: s3.enabled,
+-                    endpoint: s3.endpoint,
+-                    region: s3.region,
+-                    bucket: s3.bucket,
+-                    prefix: s3.prefix,
+-                    access_key: s3.access_key,
+-                    secret_key: sk === '' ? null : sk,
+-                  },
+-                  'تنظیمات S3 ذخیره شد',
+-                  's3',
+-                )
+-              }
+-            >
+-              ذخیره
+-            </button>
+-            <button
+-              disabled={busy === 's3t'}
+-              className={ghost}
+-              onClick={() => send('/api/v1/admin/integrations/backup-s3/test', {}, 'اتصال به S3 موفق بود', 's3t')}
+-            >
+-              تست اتصال
+-            </button>
++          <div className="space-y-3 rounded-xl border border-[var(--ln)] p-4">
++            <div className="flex items-center justify-between">
++              <b>بکاپ</b>
++            </div>
++            <p className="text-xs text-[var(--mu)]">
++              بکاپ محلی همیشه فعال است (رمزگذاری‌شده، روزانه ۰۲:۰۰ UTC، نگهداری {local?.retention_days} روز در{' '}
++              <code dir="ltr">{local?.dir}</code>). کپی خارج از سرور روی S3 اختیاری است.
++            </p>
++            <Toggle
++              on={s3.enabled}
++              set={s3s('enabled')}
++              label={s3.enabled ? 'کپی روی S3 فعال' : 'کپی روی S3 غیرفعال'}
++            />
++            <div className="grid gap-3 sm:grid-cols-2">
++              <Field label="Endpoint (برای S3 سازگار)">
++                <input
++                  dir="ltr"
++                  className={inp}
++                  value={s3.endpoint}
++                  onChange={(e) => s3s('endpoint')(e.target.value)}
++                  placeholder="https://s3.example.com"
++                />
++              </Field>
++              <Field label="Region">
++                <input
++                  dir="ltr"
++                  className={inp}
++                  value={s3.region}
++                  onChange={(e) => s3s('region')(e.target.value)}
++                  placeholder="us-east-1"
++                />
++              </Field>
++              <Field label="Bucket">
++                <input dir="ltr" className={inp} value={s3.bucket} onChange={(e) => s3s('bucket')(e.target.value)} />
++              </Field>
++              <Field label="Prefix">
++                <input dir="ltr" className={inp} value={s3.prefix} onChange={(e) => s3s('prefix')(e.target.value)} />
++              </Field>
++              <Field label="Access Key">
++                <input
++                  dir="ltr"
++                  className={inp}
++                  value={s3.access_key}
++                  onChange={(e) => s3s('access_key')(e.target.value)}
++                />
++              </Field>
++              <Field label={`Secret Key${s3.secret_key_set ? ' (ذخیره شده؛ برای تغییر بنویسید)' : ''}`}>
++                <PasswordInput
++                  autoComplete="new-password"
++                  className={inp}
++                  value={sk}
++                  onChange={(e: Json) => setSk(e.target.value)}
++                />
++              </Field>
++            </div>
++            <div className="flex gap-2">
++              <button
++                disabled={busy === 's3'}
++                className={btn}
++                onClick={() =>
++                  send(
++                    '/api/v1/admin/integrations/backup-s3',
++                    {
++                      enabled: s3.enabled,
++                      endpoint: s3.endpoint,
++                      region: s3.region,
++                      bucket: s3.bucket,
++                      prefix: s3.prefix,
++                      access_key: s3.access_key,
++                      secret_key: sk === '' ? null : sk,
++                    },
++                    'تنظیمات S3 ذخیره شد',
++                    's3',
++                  )
++                }
++              >
++                ذخیره
++              </button>
++              <button
++                disabled={busy === 's3t'}
++                className={ghost}
++                onClick={() => send('/api/v1/admin/integrations/backup-s3/test', {}, 'اتصال به S3 موفق بود', 's3t')}
++              >
++                تست اتصال
++              </button>
++            </div>
+           </div>
+         </div>
+-      </div>
++      )}
+     </section>
+   );
+ }
+@@ -361,7 +374,7 @@ export function ChangeAdminPassword({ api, toast }: { api?: Json; toast: Toast }
+   );
+ }
+ 
+-const SETTINGS_TABS = ['integrations', 'login', 'advanced'];
++const SETTINGS_TABS = ['integrations', 'security', 'login', 'advanced'];
+ const settingsTabFromHash = () => {
+   const q = typeof window === 'undefined' ? '' : window.location.hash.split('?')[1] || '';
+   const t = new URLSearchParams(q).get('tab') ?? '';
+@@ -419,11 +432,12 @@ export default function Settings({ api, toast }: { api?: Json; toast: Toast }) {
+         onChange={pick}
+         options={[
+           ['integrations', 'پشتیبان‌گیری و ایمیل'],
++          ['security', 'امنیت دسترسی ادمین'],
+           ['login', 'روش‌های ورود'],
+           ['advanced', 'پیشرفته'],
+         ]}
+       />
+-      {tab === 'integrations' && <Integrations api={api} toast={toast} />}
++      {(tab === 'integrations' || tab === 'security') && <Integrations key={tab} api={api} toast={toast} part={tab} />}
+       {tab === 'login' && (
+         <Suspense fallback={<div className="skel h-44" />}>
+           <div className="space-y-5">
+diff --git a/apps/admin-web/src/adminNav.ts b/apps/admin-web/src/adminNav.ts
+index f77e0ba..1f8fd4f 100644
+--- a/apps/admin-web/src/adminNav.ts
++++ b/apps/admin-web/src/adminNav.ts
+@@ -87,7 +87,7 @@ export const groups: [string, [string, LucideIcon, string][], string?][] = [
+     ],
+   ],
+   [
+-    'سیستم',
++    'سیستم و امنیت',
+     [
+       ['تنظیمات', Settings, 'settings'],
+       ['ممیزی', ScrollText, 'audit'],
+diff --git a/apps/admin-web/tests/identity-login-move.test.jsx b/apps/admin-web/tests/identity-login-move.test.jsx
+index 39b216c..3b30a56 100644
+--- a/apps/admin-web/tests/identity-login-move.test.jsx
++++ b/apps/admin-web/tests/identity-login-move.test.jsx
+@@ -56,6 +56,6 @@ describe('store hub is the single entry point', () => {
+     const src = readFileSync('src/adminNav.ts', 'utf8');
+     const grp = (name) => src.split(`'${name}',`)[1].split('\n  ],\n')[0];
+     expect(grp('مشتریان و فروشگاه‌ها')).toContain("'identity'");
+-    expect(grp('سیستم')).not.toContain("'identity'");
++    expect(grp('سیستم و امنیت')).not.toContain("'identity'");
+   });
+ });
+diff --git a/apps/admin-web/tests/settings-security-tab.test.jsx b/apps/admin-web/tests/settings-security-tab.test.jsx
+new file mode 100644
+index 0000000..e4bd9fe
+--- /dev/null
++++ b/apps/admin-web/tests/settings-security-tab.test.jsx
+@@ -0,0 +1,40 @@
++import { afterEach, describe, expect, it, vi } from 'vitest';
++import { render, screen, waitFor } from '@testing-library/react';
++import userEvent from '@testing-library/user-event';
++import Settings from '../src/SettingsView.tsx';
++
++const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
++const integrations = {
++  admin_access: { enabled: false, ips: [], your_ip: '203.0.113.7' },
++  email: { enabled: false },
++  backup: { s3: { enabled: false } },
++};
++
++afterEach(() => {
++  vi.restoreAllMocks();
++  window.history.replaceState(null, '', '/');
++});
++
++describe('Settings: admin IP allowlist lives in its own security tab', () => {
++  const mount = () => {
++    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
++      const path = String(url).replace(/^https?:\/\/[^/]+/, '');
++      if (path.startsWith('/api/v1/admin/integrations')) return json(integrations);
++      return json([]);
++    });
++    render(<Settings api={{ base: 'http://core.test' }} toast={vi.fn()} />);
++  };
++
++  it('keeps the IP allowlist off the integrations tab', async () => {
++    mount();
++    await waitFor(() => expect(screen.getByText('امنیت دسترسی ادمین')).toBeInTheDocument());
++    expect(screen.queryByText('دسترسی ادمین (محدودیت IP)')).not.toBeInTheDocument();
++  });
++
++  it('shows the IP allowlist on the security tab', async () => {
++    mount();
++    await userEvent.click(await screen.findByText('امنیت دسترسی ادمین'));
++    expect(await screen.findByText('دسترسی ادمین (محدودیت IP)')).toBeInTheDocument();
++    expect(window.location.hash).toBe('#/settings?tab=security');
++  });
++});
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index 9ea24db..3c8d7f9 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -181,3 +181,4 @@ _Merged from the former 12-Change-Log-v1.1.md._
+ 
+ - r10 verification (2026-11-14, Python 3.12, locked requirements): full API suite 2720 passed, 11 skipped (9 min); `lint-imports` 8/8 kept.
+ - r11 (phase 3, ninth step, 2026-11-14): Payments review (approve/reject) and refund are typed `client.post` calls with one literal path each. The receipt image stays on `authFetch` (binary body). The slow `panels-upstream-bot` creation test got a 20 s timeout: it timed out at the 5 s default when the box was loaded, unrelated to the code. Remaining on `authFetch`: receipt review/OCR/duplicate-policy/bank-SMS panels, Settings, products, bundles, tickets, reports and other views.
++- r12 (phase 1 + 3, 2026-11-14): (a) Settings gets its own owner-only tab «امنیت دسترسی ادمین» (`#/settings?tab=security`) for the admin IP allowlist: it is a security policy, not an integration, so the first tab is now only SMTP/backup. Same server area (`system`), same endpoint; only the UI placement moved. (b) The last nav group is renamed «سیستم و امنیت» (labels only, section keys and permission areas unchanged). (c) Identity hub: trusted-device summary and the revoke / revoke-account actions use the typed client (literal path per action); list reads stay on `useRows`. Remaining on `authFetch`: see `grep authFetch apps/admin-web/src`.
+-- 
+2.43.0
+
