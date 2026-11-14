@@ -13,6 +13,7 @@
     "./GoogleSignIn.jsx": "./src/GoogleSignIn.jsx",
     "./format.js": "./src/format.js",
     "./eventCenter.js": "./src/eventCenter.js",
-    "./bankSms.js": "./src/bankSms.js"
+    "./bankSms.js": "./src/bankSms.js",
+    "./broadcast.js": "./src/broadcast.js"
   }
 }

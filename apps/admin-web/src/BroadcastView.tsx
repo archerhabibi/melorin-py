@@ -2,13 +2,11 @@
 // limit); this screen only offers the groups Core returns, shows how many people each reaches, and tracks the delivery.
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Clock, Megaphone, RefreshCw, Send, Users } from 'lucide-react';
+import { BODY_MAX, TITLE_MAX, useBroadcastComposer, usePollWhileQueued } from '@melorin/web-kit/broadcast.js';
 import { authFetch } from './api.ts';
 import { confirmDialog, dt } from './ui.tsx';
 import { Empty, ErrorBar, Field, Section, errText, num, useRows } from './kit.tsx';
 import type { Json, Rec, Toast } from './types.ts';
-
-const TITLE_MAX = 120;
-const BODY_MAX = 3500;
 
 function AudienceCard({ a, on, onPick }: { a?: Json; on?: Json; onPick?: Json }) {
   return (
@@ -56,11 +54,6 @@ export default function BroadcastView({ api, toast }: { api?: Json; toast: Toast
   const [limit, setLimit] = useState<Json>(null);
   const [audFailed, setAudFailed] = useState(false);
   const [audience, setAudience] = useState('');
-  const [title, setTitle] = useState('');
-  const [body, setBody] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-
   // { audiences: [{id, label, count}], daily_limit } - Core says which groups exist and how many people each reaches
   const loadAudiences = useCallback(async () => {
     try {
@@ -80,44 +73,32 @@ export default function BroadcastView({ api, toast }: { api?: Json; toast: Toast
 
   const items = hist.rows || [];
   const picked = groups.find((g) => g.id === audience);
-  const queued = items.some((b) => b.queued > 0);
-
-  // while messages are still being delivered keep the numbers fresh
-  useEffect(() => {
-    if (!queued) return undefined;
-    const t = setInterval(hist.load, 8000);
-    return () => clearInterval(t);
-  }, [queued, hist.load]);
-
-  const ready = picked && picked.count > 0 && title.trim() && body.trim() && !busy;
-
-  const send = async () => {
-    setError('');
-    const ok = await confirmDialog(
-      `«${title.trim()}» برای ${num(picked?.count)} نفر (${picked?.label}) ارسال شود؟ پس از ارسال قابل بازگرداندن نیست.`,
-      { title: 'ارسال پیام همگانی', ok: 'ارسال' },
-    );
-    if (!ok) return;
-    setBusy(true);
-    try {
-      const r = await call('/api/v1/admin/broadcasts', {
-        method: 'POST',
-        body: JSON.stringify({ audience, title: title.trim(), body: body.trim() }),
-      });
-      if (!r.ok) setError(await errText(r, 'ارسال ناموفق بود'));
-      else {
-        const d = await r.json();
-        toast(`پیام برای ${num(d.recipients)} نفر در صف ارسال قرار گرفت`);
-        setTitle('');
-        setBody('');
-        await Promise.all([hist.load(), loadAudiences()]);
-      }
-    } catch {
-      setError('ارتباط با سرور برقرار نشد');
-    } finally {
-      setBusy(false);
-    }
-  };
+  usePollWhileQueued(items, hist.load); // while messages are still being delivered keep the numbers fresh
+  const post = useCallback(
+    (m: { title: string; body: string }) =>
+      call('/api/v1/admin/broadcasts', { method: 'POST', body: JSON.stringify({ audience, ...m }) }),
+    [call, audience],
+  );
+  const confirm = useCallback(
+    (t: string) =>
+      confirmDialog(
+        `«${t}» برای ${num(picked?.count)} نفر (${picked?.label}) ارسال شود؟ پس از ارسال قابل بازگرداندن نیست.`,
+        {
+          title: 'ارسال پیام همگانی',
+          ok: 'ارسال',
+        },
+      ),
+    [picked],
+  );
+  const onSent = useCallback(
+    async (d: Json) => {
+      toast(`پیام برای ${num(d.recipients)} نفر در صف ارسال قرار گرفت`);
+      await Promise.all([hist.load(), loadAudiences()]);
+    },
+    [toast, hist.load, loadAudiences],
+  );
+  const { title, setTitle, body, setBody, busy, error, filled, send } = useBroadcastComposer({ post, confirm, onSent });
+  const ready = picked && picked.count > 0 && filled && !busy;
 
   return (
     <div className="space-y-5">

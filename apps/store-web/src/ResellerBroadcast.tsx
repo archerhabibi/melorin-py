@@ -2,12 +2,11 @@
 // (his store's customers only, never another store's people) and enforces the daily limit; this tab shows Core's numbers.
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Clock, Megaphone, RefreshCw, Send, Users } from 'lucide-react';
+import { BODY_MAX, TITLE_MAX, useBroadcastComposer, usePollWhileQueued } from '@melorin/web-kit/broadcast.js';
 import { Empty, Loading, fa, fd } from './ui.tsx';
 import type { Json } from './types';
 
 const J = { 'Content-Type': 'application/json' };
-const TITLE_MAX = 120;
-const BODY_MAX = 3500;
 const chip = 'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold';
 
 function Delivery({ b }: { b?: Json }) {
@@ -44,11 +43,6 @@ export default function ResellerBroadcast({
 }) {
   const [data, setData] = useState<Json>(null);
   const [failed, setFailed] = useState(false);
-  const [title, setTitle] = useState('');
-  const [body, setBody] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-
   const load = useCallback(async () => {
     try {
       const r = await coreFetch(`${base}/broadcasts`);
@@ -66,48 +60,28 @@ export default function ResellerBroadcast({
 
   const items = data?.items || [];
   const reach = data?.audiences?.[0]?.count ?? 0;
-  const queued = items.some((b: Json) => b.queued > 0);
-  // keep the delivery numbers fresh while messages are still going out
-  useEffect(() => {
-    if (!queued) return undefined;
-    const t = setInterval(load, 8000);
-    return () => clearInterval(t);
-  }, [queued, load]);
+  usePollWhileQueued(items, load); // keep the delivery numbers fresh while messages are still going out
+  const post = useCallback(
+    (m: { title: string; body: string }) =>
+      coreFetch(`${base}/broadcasts`, { method: 'POST', headers: J, body: JSON.stringify(m) }),
+    [coreFetch, base],
+  );
+  const confirm = useCallback(
+    (t: string) =>
+      window.confirm(`«${t}» برای ${fa(reach)} مشتری فروشگاه شما ارسال شود؟ پس از ارسال قابل بازگرداندن نیست.`),
+    [reach],
+  );
+  const onSent = useCallback(
+    async (d: Json) => {
+      notify(`پیام برای ${fa(d.recipients)} مشتری در صف ارسال قرار گرفت`);
+      await load();
+    },
+    [notify, load],
+  );
+  const { title, setTitle, body, setBody, busy, error, filled, send } = useBroadcastComposer({ post, confirm, onSent });
 
   if (data === null) return <Loading rows={3} />;
-  const ready = title.trim() && body.trim() && reach > 0 && !busy;
-
-  const send = async () => {
-    setError('');
-    if (
-      !window.confirm(
-        `«${title.trim()}» برای ${fa(reach)} مشتری فروشگاه شما ارسال شود؟ پس از ارسال قابل بازگرداندن نیست.`,
-      )
-    )
-      return;
-    setBusy(true);
-    try {
-      const r = await coreFetch(`${base}/broadcasts`, {
-        method: 'POST',
-        headers: J,
-        body: JSON.stringify({ title: title.trim(), body: body.trim() }),
-      });
-      if (!r.ok) {
-        const d = await r.json().catch(() => ({}));
-        setError(d?.error?.message || (typeof d?.detail === 'string' ? d.detail : '') || 'ارسال ناموفق بود');
-      } else {
-        const d = await r.json();
-        notify(`پیام برای ${fa(d.recipients)} مشتری در صف ارسال قرار گرفت`);
-        setTitle('');
-        setBody('');
-        await load();
-      }
-    } catch {
-      setError('ارتباط با سرور برقرار نشد');
-    } finally {
-      setBusy(false);
-    }
-  };
+  const ready = filled && reach > 0 && !busy;
 
   return (
     <div className="space-y-6">
