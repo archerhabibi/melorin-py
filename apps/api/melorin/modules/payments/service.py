@@ -247,6 +247,13 @@ async def refund_payment(session: AsyncSession, payment_id: uuid.UUID, *, actor_
         p.meta = {**(p.meta or {}), "refund_operation": "failed", "refund_error": str(exc)[:300]}
         session.add(PaymentAttempt(payment_id=p.id, action="refund", result="failed", data={"error": str(exc)[:500]}))
         await session.commit()
+        if isinstance(exc, NotImplementedError):
+            # manual card / destination providers have no automatic refund: a clean 409 for the admin, not a 500
+            raise AppError(
+                "REFUND_NOT_SUPPORTED",
+                "این روش پرداخت استرداد خودکار ندارد؛ جبران دستی از کیف پول انجام شود.",
+                409,
+            ) from exc
         raise
     tx = await wallet.find_tx(session, f"payment:{p.id}")
     if tx:

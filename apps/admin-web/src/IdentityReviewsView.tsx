@@ -17,7 +17,7 @@ import {
   UserRound,
   Users,
 } from 'lucide-react';
-import { authFetch } from './api.ts';
+import { authFetch, typedClient } from './api.ts';
 import { dt, sid } from './ui.tsx';
 import {
   Drawer,
@@ -225,12 +225,14 @@ function ReviewCard({ r, onOpen, onQuick }: { r?: Json; onOpen?: Json; onQuick?:
 function ReviewDrawer({
   r,
   call,
+  base,
   toast,
   onClose,
   onDone,
 }: {
   r?: Json;
   call: CallFn;
+  base: string;
   toast: Toast;
   onClose?: Json;
   onDone?: Json;
@@ -243,10 +245,14 @@ function ReviewDrawer({
     setBusy(true);
     setErr('');
     try {
-      const res = await call(`/api/v1/admin/identity-link-reviews/${r.id}/${kind}`, {
-        method: 'POST',
-        ...(kind === 'dismiss' ? { body: JSON.stringify({ note: note.trim() || null }) } : {}),
-      });
+      const params = { path: { review_id: r.id } };
+      const { response: res } =
+        kind === 'dismiss'
+          ? await typedClient(base).post('/api/v1/admin/identity-link-reviews/{review_id}/dismiss', {
+              params,
+              body: { note: note.trim() || null },
+            })
+          : await typedClient(base).post('/api/v1/admin/identity-link-reviews/{review_id}/reopen', { params });
       if (!res.ok) {
         setErr(await errText(res, 'عملیات ناموفق بود'));
         return;
@@ -358,7 +364,12 @@ export default function IdentityReviewsView({ api, toast }: { api?: Json; toast:
   }, [all, status, provider, q, sort]);
 
   const quick = async (r: Json) => {
-    const res = await call(`/api/v1/admin/identity-link-reviews/${r.id}/dismiss`, { method: 'POST' });
+    const { response: res } = await typedClient(api.base).post(
+      '/api/v1/admin/identity-link-reviews/{review_id}/dismiss',
+      {
+        params: { path: { review_id: r.id } },
+      },
+    );
     if (res.ok) {
       toast('درخواست رد شد');
       load();
@@ -461,6 +472,7 @@ export default function IdentityReviewsView({ api, toast }: { api?: Json; toast:
           key={current.id + current.status}
           r={current}
           call={call}
+          base={api.base}
           toast={toast}
           onClose={() => setSel(null)}
           onDone={done}

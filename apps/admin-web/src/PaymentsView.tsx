@@ -3,7 +3,8 @@
 // /review, /refund and /receipt endpoints, so no backend change is required.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Clock, Download, RefreshCw, ShieldAlert, TrendingUp, Undo2, Wallet, XCircle } from 'lucide-react';
-import { authFetch } from './api.ts';
+import type { RequestBody } from '@melorin/api-client';
+import { authFetch, typedClient } from './api.ts';
 import { Empty, ErrorBar, KpiBar, Paginator, Pills, SearchBox, Stat, errText, num } from './kit.tsx';
 import { Badge, confirmDialog, dt, promptDialog, sid } from './ui.tsx';
 import BankSmsPanel from './BankSmsPanel.tsx';
@@ -13,8 +14,11 @@ import { PAGE, prov, cur, reviewable, FILTERS, ago, sumBy, Metric, ProviderChip,
 import { RowActions, Queue, PaymentDrawer, GatewaySettings } from './PaymentParts.tsx';
 import type { Json, Rec, Toast } from './types.ts';
 
+type DestinationBody = RequestBody<'/api/v1/admin/payment-destinations/{provider}', 'put'>;
+
 export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast }) {
   const call = useCallback((p: Json, o = {}) => authFetch(api.base, p, o), [api.base]);
+  const client = useMemo(() => typedClient(api?.base), [api?.base]);
   const [rows, setRows] = useState<Json>(null);
   const [failed, setFailed] = useState(false);
   const [settings, setSettings] = useState<Rec>({});
@@ -27,23 +31,23 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast 
 
   const load = useCallback(async () => {
     try {
-      const r = await call('/api/v1/admin/payments');
-      if (!r.ok) throw 0;
-      const d = await r.json();
-      setRows(Array.isArray(d) ? d : d.items || []);
+      const { data: d, response } = await client.get('/api/v1/admin/payments');
+      if (!response.ok) throw 0;
+      setRows(Array.isArray(d) ? d : (d as Json)?.items || []);
       setFailed(false);
     } catch {
       setFailed(true);
       setRows((x: Json) => x || []);
     }
-  }, [call]);
+  }, [client]);
   useEffect(() => {
     load();
   }, [load]);
   useEffect(() => {
     // main store destinations: the same per-store model resellers use (card number / holder / bank, Zarinpal merchant id + sandbox)
-    call('/api/v1/admin/payment-destinations')
-      .then((r) => (r.ok ? r.json() : []))
+    client
+      .get('/api/v1/admin/payment-destinations')
+      .then((r) => (r.data as Json[] | undefined) ?? [])
       .then((rows: Json[]) =>
         setSettings({
           manual_card: rows.find((x) => x.provider === 'manual_card')?.public_config,
@@ -145,9 +149,10 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast 
           }
         : { is_enabled: true, public_config: value };
     try {
-      const r = await call(`/api/v1/admin/payment-destinations/${provider}`, {
-        method: 'PUT',
-        body: JSON.stringify(body),
+      const { response: r } = await client.put('/api/v1/admin/payment-destinations/{provider}', {
+        params: { path: { provider } },
+        // the OpenAPI schema renders free-form objects as Record<string, never>; the server validates the real shape
+        body: body as unknown as DestinationBody,
       });
       if (r.ok) {
         toast('تنظیمات ذخیره شد');
