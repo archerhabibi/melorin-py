@@ -8,6 +8,7 @@ import PanelEventsTab from '../PanelEventsTab.tsx';
 import PanelCapacityTab from '../PanelCapacityTab.tsx';
 import PanelTemplatesTab from '../PanelTemplatesTab.tsx';
 import PanelPhase5Tab from '../PanelPhase5Tab.tsx';
+import PanelAccessTab from '../PanelAccessTab.tsx';
 import type { Toast } from '../types.ts';
 
 export const DETAIL_TABS: [string, string][] = [
@@ -17,6 +18,7 @@ export const DETAIL_TABS: [string, string][] = [
   ['capacity', 'ظرفیت و فروش'],
   ['templates', 'تمپلیت‌ها'],
   ['observe', 'شاخص و پشتیبان'],
+  ['access', 'دسترسی'],
 ];
 
 /** The panel-scoped tabs. ``panelId`` may be empty: each tab then shows its own "choose a panel" state. */
@@ -24,8 +26,10 @@ export function PanelDetailTabs({
   api,
   toast,
   panelId,
+  panelName,
   tab: first,
 }: {
+  panelName?: string;
   api: { base: string };
   toast: Toast;
   panelId?: string;
@@ -48,6 +52,7 @@ export function PanelDetailTabs({
       {tab === 'capacity' && <PanelCapacityTab call={call} panelId={panelId} toast={toast} />}
       {tab === 'templates' && <PanelTemplatesTab call={call} panelId={panelId} toast={toast} />}
       {tab === 'observe' && <PanelPhase5Tab call={call} panelId={panelId} toast={toast} />}
+      {tab === 'access' && <PanelAccessTab call={call} panelId={panelId} panelName={panelName} toast={toast} />}
     </>
   );
 }
@@ -68,7 +73,7 @@ export function PanelDetailDrawer({
 }) {
   return (
     <Drawer title={panel.name} subtitle="عملیات پنل" icon={<Activity size={18} />} onClose={onClose}>
-      <PanelDetailTabs api={api} toast={toast} panelId={panel.id} tab={tab} />
+      <PanelDetailTabs api={api} toast={toast} panelId={panel.id} panelName={panel.name} tab={tab} />
     </Drawer>
   );
 }

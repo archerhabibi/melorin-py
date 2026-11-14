@@ -5,7 +5,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { authFetch } from './api.ts';
 import { canWrite } from './adminAccess.ts';
 import { Switch } from './kit.tsx';
-import type { CallFn, Json, Rec, Toast } from './types.ts';
+import type { CallFn, Toast } from './types.ts';
+import { asList, errMessage } from './adminHubTypes.ts';
+import type { ErrorBody, HubApiProp, NoticeCfg, NoticeTextMeta, StoreRow } from './adminHubTypes.ts';
 
 const DEFAULT_LEVELS_TEXT = '80, 90';
 function NoticeLevels({
@@ -19,9 +21,9 @@ function NoticeLevels({
   toast: Toast;
   storeId: string;
   writable: boolean;
-  onCfg: (c: Json) => void;
+  onCfg: (c: NoticeCfg | null) => void;
 }) {
-  const [cfg, setCfg] = useState<Json>(null);
+  const [cfg, setCfg] = useState<NoticeCfg | null>(null);
   const [text, setText] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -48,7 +50,7 @@ function NoticeLevels({
     return nums.some((n) => !(n >= 1 && n <= 99)) || nums.length > 4 ? null : nums;
   };
 
-  const save = async (reset: Json) => {
+  const save = async (reset: boolean) => {
     const levels = reset ? null : parse();
     if (!reset && levels === null) {
       toast('حداکثر ۴ عدد صحیح بین ۱ تا ۹۹ وارد کنید (با کاما جدا کنید)');
@@ -60,14 +62,14 @@ function NoticeLevels({
         method: reset ? 'DELETE' : 'PUT',
         body: reset ? undefined : JSON.stringify({ traffic_low_levels: levels }),
       });
-      if (!r.ok) throw new Error((await r.json().catch(() => ({})))?.error?.message || String(r.status));
+      if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as ErrorBody).error?.message || String(r.status));
       const j = await r.json();
       setCfg(j);
       onCfg(j);
       setText(j.traffic_low_levels.join(', '));
       toast('ذخیره شد');
-    } catch (e: Json) {
-      toast(`ناموفق: ${e.message}`);
+    } catch (e) {
+      toast(`ناموفق: ${errMessage(e)}`);
     }
     setSaving(false);
   };
@@ -116,7 +118,7 @@ type Draft = Record<string, { title: string; body: string }>;
 
 /** The store's own wording for customer notices. Kinds left empty use the platform text. */
 function NoticeTexts({ call, toast, storeId, writable }: { call: CallFn; toast: Toast; storeId: string; writable: boolean }) {
-  const [meta, setMeta] = useState<Json>(null);
+  const [meta, setMeta] = useState<NoticeTextMeta | null>(null);
   const [draft, setDraft] = useState<Draft>({});
   const [saving, setSaving] = useState(false);
 
@@ -155,13 +157,13 @@ function NoticeTexts({ call, toast, storeId, writable }: { call: CallFn; toast: 
         method: 'PUT',
         body: JSON.stringify({ texts }),
       });
-      if (!r.ok) throw new Error((await r.json().catch(() => ({})))?.error?.message || String(r.status));
+      if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as ErrorBody).error?.message || String(r.status));
       const j = await r.json();
       setMeta(j);
       setDraft(j.texts || {});
       toast('ذخیره شد');
-    } catch (e: Json) {
-      toast(`ناموفق: ${e.message}`);
+    } catch (e) {
+      toast(`ناموفق: ${errMessage(e)}`);
     }
     setSaving(false);
   };
@@ -214,7 +216,7 @@ function NoticeTexts({ call, toast, storeId, writable }: { call: CallFn; toast: 
 }
 
 /** Daily VPN digest for the store owner (off by default; a day with nothing to report sends nothing). */
-function DigestSwitch({ call, toast, storeId, cfg, writable }: { call: CallFn; toast: Toast; storeId: string; cfg: Json; writable: boolean }) {
+function DigestSwitch({ call, toast, storeId, cfg, writable }: { call: CallFn; toast: Toast; storeId: string; cfg: NoticeCfg | null; writable: boolean }) {
   const [on, setOn] = useState(false);
   const [busy, setBusy] = useState(false);
   useEffect(() => setOn(!!cfg?.daily_digest), [cfg]);
@@ -223,11 +225,11 @@ function DigestSwitch({ call, toast, storeId, cfg, writable }: { call: CallFn; t
     setBusy(true);
     try {
       const r = await call(`/api/v1/admin/stores/${storeId}/vpn-digest`, { method: 'PUT', body: JSON.stringify({ enabled: v }) });
-      if (!r.ok) throw new Error((await r.json().catch(() => ({})))?.error?.message || String(r.status));
+      if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as ErrorBody).error?.message || String(r.status));
       setOn(v);
       toast(v ? 'خلاصه‌ی روزانه فعال شد' : 'خلاصه‌ی روزانه غیرفعال شد');
-    } catch (e: Json) {
-      toast(`ناموفق: ${e.message}`);
+    } catch (e) {
+      toast(`ناموفق: ${errMessage(e)}`);
     }
     setBusy(false);
   };
@@ -244,18 +246,18 @@ function DigestSwitch({ call, toast, storeId, cfg, writable }: { call: CallFn; t
   );
 }
 
-export default function StoreNoticesView({ api, toast }: { api?: Json; toast: Toast }) {
-  const call = useCallback((p: string, o?: RequestInit) => authFetch(api.base, p, o), [api.base]);
+export default function StoreNoticesView({ api, toast }: { api?: HubApiProp; toast: Toast }) {
+  const call = useCallback((p: string, o?: RequestInit) => authFetch(api?.base ?? '', p, o), [api?.base]);
   const writable = canWrite(api?.perms, 'حجم فروشگاه‌ها');
-  const [stores, setStores] = useState<Rec[]>([]);
+  const [stores, setStores] = useState<StoreRow[]>([]);
   const [storeId, setStoreId] = useState('');
-  const [cfg, setCfg] = useState<Json>(null);
+  const [cfg, setCfg] = useState<NoticeCfg | null>(null);
 
   useEffect(() => {
     (async () => {
       try {
         const r = await call('/api/v1/admin/stores');
-        if (r.ok) setStores(await r.json());
+        if (r.ok) setStores(asList<StoreRow>(await r.json()));
       } catch {
         toast('دریافت فهرست فروشگاه‌ها ناموفق بود');
       }

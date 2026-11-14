@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { confirmDialog } from './ui.tsx';
 import { AlertTriangle, Boxes, CheckCircle2, PowerOff, Plus, Save, ShieldAlert, Tag, Wallet, X } from 'lucide-react';
+import { asList } from './adminHubTypes.ts';
+import type { StoreRow } from './adminHubTypes.ts';
 import type { Json, Rec, Toast } from './types.ts';
 import {
   Empty,
@@ -400,6 +402,9 @@ export default function ProductsView({ api, toast }: { api?: Json; toast: Toast 
           product={editing}
           products={rows || []}
           hasResellers={hasResellers}
+          call={call}
+          stores={asList<StoreRow>(storesQ.rows)}
+          toast={toast}
           onClose={() => setDrawer(null)}
           onSubmit={save}
           onDelete={remove}

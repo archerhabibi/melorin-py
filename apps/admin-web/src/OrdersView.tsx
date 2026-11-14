@@ -2,6 +2,8 @@
 // admin actions the order state machine allows (retry / manual review / refund).
 // Data: GET /api/v1/admin/orders (+ /stores and /users to resolve names); actions: POST …/{retry|manual-review|refund}.
 import { useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
+import AttachAccountForm from './AttachAccountForm.tsx';
 import {
   AlertTriangle,
   Check,
@@ -398,6 +400,19 @@ export default function OrdersView({ api, toast }: { api?: Json; toast: Toast })
           store={storeName(sel.store_id)}
           onClose={() => setSelId(null)}
           act={act}
+          attach={
+            RETRYABLE.includes(sel.status) ? (
+              <AttachAccountForm
+                call={call}
+                orderId={sel.id}
+                toast={toast}
+                onDone={async () => {
+                  await orders.load();
+                  setSelId(null);
+                }}
+              />
+            ) : null
+          }
         />
       )}
     </div>
@@ -412,7 +427,9 @@ function OrderDrawer({
   store,
   onClose,
   act,
+  attach,
 }: {
+  attach?: ReactNode;
   o?: Json;
   busy?: Json;
   customer?: Json;
@@ -494,6 +511,7 @@ function OrderDrawer({
           در وضعیت فعلی، اقدام دستی برای این سفارش مجاز نیست.
         </p>
       )}
+      {attach}
       <Facts
         items={[
           { label: 'شماره سفارش', value: o.number, ltr: true, copy: true },

@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Boxes, ChevronDown, Clock, Infinity as Inf, Pencil, Save, Smartphone, Tag, Zap } from 'lucide-react';
-import type { Json } from './types.ts';
+import type { CallFn, Json } from './types.ts';
+import type { StoreRow } from './adminHubTypes.ts';
 import { Drawer, Field, NumInput, Section, Segmented, Switch, Toggle, DeleteButton, num, tint } from './kit.tsx'; // #4
 
 import { focusOnMount } from './useDialog.ts';
+import ProductAvailability from './ProductAvailability.tsx';
 
 import { CUR, price, dur, gb, EMPTY, fromProduct, payload, validate, Route } from './productsShared.tsx';
 
@@ -15,7 +17,13 @@ export function ProductDrawer({
   onClose,
   onSubmit,
   onDelete,
+  call,
+  stores,
+  toast,
 }: {
+  call?: CallFn;
+  stores?: StoreRow[];
+  toast?: (m: string) => void;
   product?: Json;
   products?: Json;
   hasResellers?: Json;
@@ -245,6 +253,9 @@ export function ProductDrawer({
           </div>
         )}
       </section>
+      {edit && call && (
+        <ProductAvailability call={call} productId={product.id} stores={stores || []} toast={toast ?? (() => {})} />
+      )}
     </Drawer>
   );
 }

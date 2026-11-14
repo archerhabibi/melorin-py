@@ -1,11 +1,12 @@
-// «فروشگاه‌ها» — the store hub: everything about a store (and its reseller) behind one menu entry, seven tabs:
+// «فروشگاه‌ها» — the store hub: everything about a store (and its reseller) behind one menu entry, eight tabs:
 //   stores    «فروشگاه‌ها»       the list of stores
 //   resellers «نمایندگان»        reseller accounts of those stores
 //   panels    «دسترسی پنل»       panel operators (PanelAdmin) and sub branding, per store x panel
 //   volume    «حجم و سیاست»      store volume governance and the suspend policy
 //   prices    «قیمت‌ها»         read-only retail prices of a reseller store (the reseller sets them)
 //   api       «API»             per-store API access switch
-//   notices   «اعلان‌ها»         per-store low-traffic notice levels
+//   notices   «اعلان‌ها»         per-store low-traffic levels, customer notice texts and the owner digest
+//   bots      «ربات‌ها»          bot key -> store bindings
 // Each tab keeps its own permission area (SECTION_AREA of the section it came from), so a role sees only what it may open.
 // Deep link: #/stores?tab=resellers (old #/resellers, #/panel-admins and #/store-governance are rewritten by legacyHash).
 import type { LazyExoticComponent, ReactNode } from 'react';
@@ -28,6 +29,7 @@ const StoreGovernanceView = lazy(() => import('./StoreGovernanceView.tsx'));
 const StorePricesView = lazy(() => import('./StorePricesView.tsx'));
 const StoreApiView = lazy(() => import('./StoreApiView.tsx'));
 const StoreNoticesView = lazy(() => import('./StoreNoticesView.tsx'));
+const StoreBotsView = lazy(() => import('./StoreBotsView.tsx'));
 
 type HubView = LazyExoticComponent<(p: { api?: HubApi; toast: Toast }) => ReactNode>;
 // tab id -> [label, section key used for the permission check, component]
@@ -39,6 +41,7 @@ const TAB_DEFS: [string, string, string, HubView][] = [
   ['prices', 'قیمت‌ها', 'محصولات VPN', StorePricesView],
   ['api', 'API', 'نمایندگان', StoreApiView],
   ['notices', 'اعلان‌ها', 'حجم فروشگاه‌ها', StoreNoticesView],
+  ['bots', 'ربات‌ها', 'نمایندگان', StoreBotsView],
 ];
 
 const tabFromHash = (ids: string[]) => {
