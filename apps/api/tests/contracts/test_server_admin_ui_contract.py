@@ -34,7 +34,7 @@ def test_servers_live_inside_their_panel_screen():
     app = _ui("adminNav.ts")  # menu groups live in adminNav.ts since the App.tsx split
     assert '["پنل‌ها و سرورها", PanelTop, "panels"]' in app and '"servers"' not in app
     # menu regroup: the panel screen leads the infrastructure group; bundles and products are catalog entries next to marketing
-    infra_group = app[app.index('"زیرساخت"') : app.index('"سیستم"')]
+    infra_group = app[app.index('"زیرساخت"') : app.index('"سیستم و امنیت"')]
     assert '"panels"' in infra_group and '"bundles"' not in infra_group
     catalog_group = app[app.index('"کاتالوگ و بازاریابی"') : app.index('"ارتباطات"')]
     assert catalog_group.index('"bundles"') < catalog_group.index('"products"')
