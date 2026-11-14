@@ -1,27 +1,26 @@
 import { Segmented } from './kit.tsx';
 import type { ReactNode } from 'react';
-import { lazy, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { authFetch } from './api.ts';
 import { Plus, Search, X } from 'lucide-react';
 import { Badge, PasswordInput, confirmDialog, isStatus } from './ui.tsx';
 import type { Json, Rec, Toast, ViewApi } from './types.ts';
 const ReportsView = lazy(() => import('./ReportsView.tsx'));
 const PanelsView = lazy(() => import('./PanelsView.tsx'));
-const PanelAdminsView = lazy(() => import('./PanelAdminsView.tsx'));
 const InfraHealthView = lazy(() => import('./InfraHealthView.tsx'));
 const PanelOpsView = lazy(() => import('./PanelOpsView.tsx'));
 const BulkOperationsView = lazy(() => import('./BulkOperationsView.tsx'));
-const StoreGovernanceView = lazy(() => import('./StoreGovernanceView.tsx'));
 const ProductsView = lazy(() => import('./ProductsView.tsx'));
 const BundlesView = lazy(() => import('./BundlesView.tsx'));
 const TicketsView = lazy(() => import('./TicketsView.tsx'));
 const PaymentsView = lazy(() => import('./PaymentsView.tsx'));
+const GoogleLoginSettings = lazy(() => import('./GoogleLoginSettings.tsx'));
+const TelegramLoginSettings = lazy(() => import('./TelegramLoginSettings.tsx'));
 const ResellerApplicationsView = lazy(() => import('./ResellerApplicationsView.tsx'));
 const ManualTasksView = lazy(() => import('./ManualTasksView.tsx'));
 const BroadcastView = lazy(() => import('./BroadcastView.tsx'));
 const ButtonStylesView = lazy(() => import('./ButtonStylesView.tsx'));
 const EventCenterView = lazy(() => import('./EventCenterView.tsx'));
-const ResellersView = lazy(() => import('./ResellersView.tsx'));
 const AdminTeamView = lazy(() => import('./AdminTeamView.tsx'));
 const MyAccountView = lazy(() => import('./MyAccountView.tsx'));
 const IdentityHubView = lazy(() => import('./IdentityHubView.tsx'));
@@ -628,10 +627,24 @@ function ChangeAdminPassword({ api, toast }: { api?: Json; toast: Toast }) {
   );
 }
 
+const SETTINGS_TABS = ['integrations', 'login', 'advanced'];
+const settingsTabFromHash = () => {
+  const q = typeof window === 'undefined' ? '' : window.location.hash.split('?')[1] || '';
+  const t = new URLSearchParams(q).get('tab') ?? '';
+  return SETTINGS_TABS.includes(t) ? t : 'integrations';
+};
+
 function Settings({ api, toast }: { api?: Json; toast: Toast }) {
-  // Sign-in methods live in Identity («هویت»), Receipt OCR in Payments, the password form in My account.
-  const [tab, setTab] = useState('integrations');
-  const pick = (v: string) => setTab(v);
+  // Sign-in methods (Google / Telegram) live here, owner-only (server area `system`); Receipt OCR in Payments, the password form in My account.
+  const [tab, setTab] = useState(settingsTabFromHash);
+  const pick = (v: string) => {
+    setTab(v);
+    window.history.replaceState(
+      null,
+      '',
+      `${window.location.pathname}${window.location.search}#/settings${v === 'integrations' ? '' : `?tab=${v}`}`,
+    );
+  };
   const flags = useList(api, '/api/v1/admin/feature-flags', toast);
   const [obj, setObj] = useState<Rec>({});
   const [tick, setTick] = useState(0);
@@ -672,10 +685,19 @@ function Settings({ api, toast }: { api?: Json; toast: Toast }) {
         onChange={pick}
         options={[
           ['integrations', 'پشتیبان‌گیری و ایمیل'],
+          ['login', 'روش‌های ورود'],
           ['advanced', 'پیشرفته'],
         ]}
       />
       {tab === 'integrations' && <Integrations api={api} toast={toast} />}
+      {tab === 'login' && (
+        <Suspense fallback={<div className="skel h-44" />}>
+          <div className="space-y-5">
+            <GoogleLoginSettings api={api} toast={toast} />
+            <TelegramLoginSettings api={api} toast={toast} />
+          </div>
+        </Suspense>
+      )}
       {tab === 'advanced' && (
         <>
           <Table
@@ -719,7 +741,6 @@ function Tickets({ api, toast }: { api?: Json; toast: Toast }) {
 
 export const extraRoutes = {
   'گزارشات و نمودارها': ReportsView,
-  نمایندگان: ResellersView,
   'درخواست‌های نمایندگی': ResellerApplicationsView,
   'کارهای دستی': ManualTasksView,
   'پیام همگانی': BroadcastView,
@@ -728,7 +749,6 @@ export const extraRoutes = {
   'سلامت زیرساخت': InfraHealthView,
   'عملیات پنل': PanelOpsView,
   'عملیات گروهی': BulkOperationsView,
-  'حجم فروشگاه‌ها': StoreGovernanceView,
   سفارش‌ها: OrdersView,
   'اکانت‌های VPN': VpnAccountsView,
   کاربران: UsersView,
@@ -737,7 +757,6 @@ export const extraRoutes = {
   تیکت‌ها: Tickets,
   'محصولات VPN': ProductsView,
   'پنل‌ها و سرورها': PanelsView,
-  'اپراتور پنل فروشگاه': PanelAdminsView,
   'بسته‌های فروش': BundlesView,
   کوپن‌ها: Coupons,
   'برنامه‌های معرفی': ReferralProgramsView,

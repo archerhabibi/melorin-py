@@ -113,7 +113,7 @@ const bodies = (calls, method, tail) =>
 
 describe('admin: PasarGuard admins of every store', () => {
   it('registers the section in the admin routes', () => {
-    expect(Object.keys(extraRoutes)).toContain('اپراتور پنل فروشگاه');
+    expect(Object.keys(extraRoutes)).not.toContain('اپراتور پنل فروشگاه'); // reachable through Store Hub only
   });
 
   it('lists every store admin and counts what needs care (error + profile not on the panel)', async () => {

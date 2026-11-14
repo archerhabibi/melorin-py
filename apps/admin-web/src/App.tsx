@@ -79,9 +79,10 @@ const groups: [string, [string, LucideIcon, string][], string?][] = [
     ],
   ],
   [
-    'مشتریان و نمایندگان',
+    'مشتریان و فروشگاه‌ها',
     [
       ['کاربران', Users, 'users'],
+      ['هویت', Fingerprint, 'identity'], // customer identity review / auto-link / trusted devices
       ['فروشگاه‌ها', Store, 'stores'],
       ['درخواست‌های نمایندگی', UserPlus, 'reseller-applications'],
       ['کارهای دستی', ListChecks, 'manual-tasks'],
@@ -119,7 +120,6 @@ const groups: [string, [string, LucideIcon, string][], string?][] = [
     [
       ['تنظیمات', Settings, 'settings'],
       ['ممیزی', ScrollText, 'audit'],
-      ['هویت', Fingerprint, 'identity'],
       ['تیم مدیریت', UsersRound, 'admin-team'],
       ['حساب من', UserRound, 'my-account'],
     ],

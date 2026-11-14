@@ -141,3 +141,12 @@ _Merged from the former 12-Change-Log-v1.1.md._
 - Palette merge of admin-web and store-web is explicitly postponed by the owner (2026-11-14).
 - Gate on r3 (2026-11-14): lint-imports 6/6 kept, api pytest 2655 passed / 11 skipped, admin-web typecheck+build+vitest 289 passed, store-web 79 passed. Docker stack, bots and payment gateway not run.
 - UI-less admin endpoints (T09/T10 inventory, 2026-11-14) now have screens (`tools/connections` had no route, so it was a stale heuristic entry): Store Hub «اعلان‌ها» tab holds `vpn-notice-texts` (per-kind customer wording) and `vpn-digest` (owner daily digest switch; `GET vpn-notices` now also returns `daily_digest` and `has_owner`); new Store Hub «ربات‌ها» tab lists/creates `bot-store-bindings`; the bundles screen warns about `bundle-products/unassigned`; the product drawer has a per-store availability section (`products/{id}/availability`); the order drawer has an attach-account form for orders in provisioning_failed / manual_review (`orders/{id}/attach-account`); the panel detail has an «دسترسی» tab for `store-role-plan` and `service-access` (provision, rotate, keys, store role apply/revert; owner credential is sent once and cleared from the form, panel name must be typed). Vitest covers the four read/write paths; the panel-access writes need a real panel and were not exercised. Docs numbering gaps 12 and 15 are intentional (docs/00-README).
+
+## 2026-11-14 Admin UI audit follow-up (r5)
+
+- **Sign-in methods (Google / Telegram) moved from «هویت» to «تنظیمات» (tab `#/settings?tab=login`).** The API (`admin/integrations/*`) lives in the owner-only `system` area, while «هویت» is a `customers` screen, so support/manager roles saw a tab that answered 403. The old `#/identity?tab=login` bookmark is rewritten by `legacyHash`.
+- **«هویت» now sits in the customers group** (renamed «مشتریان و فروشگاه‌ها»), no longer under «سیستم».
+- **Store Hub is the only entry** for resellers, shop panel operators and volume governance: the stand-alone `extraRoutes` entries were removed; `legacyHash` keeps old bookmarks working. `SECTION_AREA` keeps their areas for the hub's tab gating.
+- Server stays the authority for RBAC (`PATH_RULES` / `admin_area_guard`); the menu only hides screens.
+- Not changed (needs a product decision): `bulk-operations` stays in the `infrastructure` area.
+- Deferred: splitting `App.tsx` / `AdminExtra.tsx` and migrating views to `@melorin/api-client` (pure moves, own PRs).

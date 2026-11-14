@@ -78,6 +78,7 @@ export const infraHref = (slug: Json, params = {}) => {
 /** Old bookmarks (#/servers?panel=…) → new address, or null when the hash needs no rewrite. */
 export function legacyHash(hash: Json) {
   const [path, q = ''] = hash.split('?');
+  if (path === '#/identity' && new URLSearchParams(q).get('tab') === 'login') return '#/settings?tab=login'; // sign-in methods moved to Settings (owner-only)
   if (path === '#/identity-auto') return '#/identity?tab=devices'; // the two identity screens became one hub
   // the store hub: resellers, panel access and volume governance became tabs of #/stores
   const hubTab: Record<string, string> = {
