@@ -31,6 +31,7 @@ import {
   tint,
   useRows,
 } from './kit.tsx';
+import { typedClient } from './api.ts';
 import { Badge, confirmDialog, dt, promptDialog, sid } from './ui.tsx';
 import {
   Cell2,
@@ -211,15 +212,20 @@ export default function OrdersView({ api, toast }: { api?: Json; toast: Toast })
       return;
     setBusy(true);
     try {
-      const r = await call(`/api/v1/admin/orders/${o.id}/${kind}`, {
-        method: 'POST',
-        body: JSON.stringify({ reason }),
-      });
+      // typed api-client (same transport rules as authFetch); one literal path per action so the schema checks each body
+      const client = typedClient(api.base);
+      const params = { params: { path: { order_id: o.id } } };
+      const { response: r, error } =
+        kind === 'retry'
+          ? await client.post('/api/v1/admin/orders/{order_id}/retry', params)
+          : kind === 'manual-review'
+            ? await client.post('/api/v1/admin/orders/{order_id}/manual-review', { ...params, body: { reason } })
+            : await client.post('/api/v1/admin/orders/{order_id}/refund', { ...params, body: { reason } });
       if (r.ok) {
         toast(`${label} ثبت شد`);
         await orders.load();
         setSelId(null);
-      } else toast(await errText(r, `${label} ناموفق بود`));
+      } else toast(await errText({ json: async () => error }, `${label} ناموفق بود`)); // the client already consumed the body
     } catch {
       toast('ارتباط با سرور برقرار نشد');
     } finally {

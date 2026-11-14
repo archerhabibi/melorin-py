@@ -165,3 +165,4 @@ _Merged from the former 12-Change-Log-v1.1.md._
 
 - r5 (phase 4, browser): the Playwright suite (`e2e/`, real Chromium, mocked Core API) passed on a clean server: 26 passed, 2 skipped, including the role matrix, every admin menu route and Store Hub deep links. It runs against the Vite preview builds, not against the Compose stack.
 - r5 (menu, 2026-11-14): bulk operations stays in the `infrastructure` permission area (it changes accounts on the external panel); the menu label is now «عملیات گروهی روی پنل» so the label matches who may use it. The URL slug `bulk-operations` is unchanged.
+- r6 (phase 3, second step, 2026-11-14): Orders actions (retry / manual-review / refund) moved to `typedClient`, one literal path per action so the schema checks each body. The client consumes the response body, so failures read the message from its parsed `error`. Remaining on `authFetch`: Panel Operations and the other views, migrated endpoint by endpoint.
