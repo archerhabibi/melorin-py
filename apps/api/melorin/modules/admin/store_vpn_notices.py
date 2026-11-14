@@ -28,12 +28,18 @@ class NoticeSettingsOut(BaseModel):
     traffic_low_levels: list[int]
     is_default: bool
     default_levels: list[int] = list(notices.TRAFFIC_LOW_LEVELS)
+    daily_digest: bool = False
+    has_owner: bool = False
 
 
 def _notice_out(store: Store) -> NoticeSettingsOut:
     custom = bool(store.vpn_notice_settings) and "traffic_low_levels" in store.vpn_notice_settings
     return NoticeSettingsOut(
-        store_id=store.id, traffic_low_levels=list(notices.levels_for_store(store.vpn_notice_settings)), is_default=not custom
+        store_id=store.id,
+        traffic_low_levels=list(notices.levels_for_store(store.vpn_notice_settings)),
+        is_default=not custom,
+        daily_digest=(store.vpn_notice_settings or {}).get("daily_digest") is True,
+        has_owner=store.owner_user_id is not None,
     )
 
 
