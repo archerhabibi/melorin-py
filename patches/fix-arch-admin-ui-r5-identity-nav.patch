@@ -2335,16 +2335,21 @@ index 0000000..ad7fd81
 +
 +// Signed-in admin identity (GET /api/v1/me) + sign-out (POST /api/v1/auth/logout revokes the refresh token and clears the cookie).
 diff --git a/apps/admin-web/src/IdentityHubView.tsx b/apps/admin-web/src/IdentityHubView.tsx
-index 5be23cf..1b88c8d 100644
+index 5be23cf..c7d63d7 100644
 --- a/apps/admin-web/src/IdentityHubView.tsx
 +++ b/apps/admin-web/src/IdentityHubView.tsx
-@@ -1,4 +1,4 @@
+@@ -1,19 +1,16 @@
 -// «هویت» — one screen for everything about identity (docs/21), three tabs:
 +// «هویت» — one screen for customer identity (docs/21), three tabs (Google/Telegram sign-in settings moved to Settings, owner-only):
  //   review  «نیاز به بررسی»      conflicts Core could not settle: an admin decides (IdentityReviewsView)
  //   auto    «انجام‌شده خودکار»   accounts Core folded together by itself (read-only report)
  //   devices «دستگاه‌های مورداعتماد» browsers that sign visitors in without a manual step; trust can be revoked
-@@ -10,10 +10,7 @@ import type { Json, Toast } from './types.ts';
+ import { lazy, Suspense, useEffect, useState } from 'react';
+-import { authFetch } from './api.ts';
++import { typedClient } from './api.ts';
+ import { Segmented, num } from './kit.tsx';
+ import type { Json, Toast } from './types.ts';
+ 
  const IdentityReviewsView = lazy(() => import('./IdentityReviewsView.tsx'));
  const IdentityAutoView = lazy(() => import('./IdentityAutoView.tsx'));
  
@@ -2356,7 +2361,21 @@ index 5be23cf..1b88c8d 100644
  const tabFromHash = () => {
    const q = typeof window === 'undefined' ? '' : window.location.hash.split('?')[1] || '';
    const t = new URLSearchParams(q).get('tab');
-@@ -52,19 +49,12 @@ export default function IdentityHubView({ api, toast }: { api?: Json; toast: Toa
+@@ -25,9 +22,10 @@ export default function IdentityHubView({ api, toast }: { api?: Json; toast: Toa
+   const [open, setOpen] = useState<Json>(null); // number of conflicts waiting for a decision (badge on the first tab)
+   useEffect(() => {
+     let alive = true;
+-    authFetch(api.base, '/api/v1/admin/identity-link-reviews?status=open')
+-      .then((r) => (r.ok ? r.json() : []))
+-      .then((rows) => alive && setOpen((rows || []).filter((x: Json) => !x.auto).length))
++    typedClient(api.base)
++      .get('/api/v1/admin/identity-link-reviews', { params: { query: { status: 'open' } } })
++      .then((r) => (r.data as Json[] | undefined) ?? [])
++      .then((rows) => alive && setOpen(rows.filter((x: Json) => !x.auto).length))
+       .catch(() => {});
+     return () => {
+       alive = false;
+@@ -52,19 +50,12 @@ export default function IdentityHubView({ api, toast }: { api?: Json; toast: Toa
            ['review', <>نیاز به بررسی {open > 0 && <b className="num">{num(open)}</b>}</>],
            ['auto', 'انجام‌شده خودکار'],
            ['devices', 'دستگاه‌های مورداعتماد'],
@@ -2376,6 +2395,146 @@ index 5be23cf..1b88c8d 100644
        </Suspense>
      </div>
    );
+diff --git a/apps/admin-web/src/IdentityReviewsView.tsx b/apps/admin-web/src/IdentityReviewsView.tsx
+index 7924f06..3675103 100644
+--- a/apps/admin-web/src/IdentityReviewsView.tsx
++++ b/apps/admin-web/src/IdentityReviewsView.tsx
+@@ -17,7 +17,7 @@ import {
+   UserRound,
+   Users,
+ } from 'lucide-react';
+-import { authFetch } from './api.ts';
++import { authFetch, typedClient } from './api.ts';
+ import { dt, sid } from './ui.tsx';
+ import {
+   Drawer,
+@@ -225,12 +225,14 @@ function ReviewCard({ r, onOpen, onQuick }: { r?: Json; onOpen?: Json; onQuick?:
+ function ReviewDrawer({
+   r,
+   call,
++  base,
+   toast,
+   onClose,
+   onDone,
+ }: {
+   r?: Json;
+   call: CallFn;
++  base: string;
+   toast: Toast;
+   onClose?: Json;
+   onDone?: Json;
+@@ -243,10 +245,14 @@ function ReviewDrawer({
+     setBusy(true);
+     setErr('');
+     try {
+-      const res = await call(`/api/v1/admin/identity-link-reviews/${r.id}/${kind}`, {
+-        method: 'POST',
+-        ...(kind === 'dismiss' ? { body: JSON.stringify({ note: note.trim() || null }) } : {}),
+-      });
++      const params = { path: { review_id: r.id } };
++      const { response: res } =
++        kind === 'dismiss'
++          ? await typedClient(base).post('/api/v1/admin/identity-link-reviews/{review_id}/dismiss', {
++              params,
++              body: { note: note.trim() || null },
++            })
++          : await typedClient(base).post('/api/v1/admin/identity-link-reviews/{review_id}/reopen', { params });
+       if (!res.ok) {
+         setErr(await errText(res, 'عملیات ناموفق بود'));
+         return;
+@@ -358,7 +364,12 @@ export default function IdentityReviewsView({ api, toast }: { api?: Json; toast:
+   }, [all, status, provider, q, sort]);
+ 
+   const quick = async (r: Json) => {
+-    const res = await call(`/api/v1/admin/identity-link-reviews/${r.id}/dismiss`, { method: 'POST' });
++    const { response: res } = await typedClient(api.base).post(
++      '/api/v1/admin/identity-link-reviews/{review_id}/dismiss',
++      {
++        params: { path: { review_id: r.id } },
++      },
++    );
+     if (res.ok) {
+       toast('درخواست رد شد');
+       load();
+@@ -461,6 +472,7 @@ export default function IdentityReviewsView({ api, toast }: { api?: Json; toast:
+           key={current.id + current.status}
+           r={current}
+           call={call}
++          base={api.base}
+           toast={toast}
+           onClose={() => setSel(null)}
+           onDone={done}
+diff --git a/apps/admin-web/src/PaymentsView.tsx b/apps/admin-web/src/PaymentsView.tsx
+index f030de8..53e5936 100644
+--- a/apps/admin-web/src/PaymentsView.tsx
++++ b/apps/admin-web/src/PaymentsView.tsx
+@@ -3,7 +3,8 @@
+ // /review, /refund and /receipt endpoints, so no backend change is required.
+ import { useCallback, useEffect, useMemo, useState } from 'react';
+ import { Clock, Download, RefreshCw, ShieldAlert, TrendingUp, Undo2, Wallet, XCircle } from 'lucide-react';
+-import { authFetch } from './api.ts';
++import type { RequestBody } from '@melorin/api-client';
++import { authFetch, typedClient } from './api.ts';
+ import { Empty, ErrorBar, KpiBar, Paginator, Pills, SearchBox, Stat, errText, num } from './kit.tsx';
+ import { Badge, confirmDialog, dt, promptDialog, sid } from './ui.tsx';
+ import BankSmsPanel from './BankSmsPanel.tsx';
+@@ -13,8 +14,11 @@ import { PAGE, prov, cur, reviewable, FILTERS, ago, sumBy, Metric, ProviderChip,
+ import { RowActions, Queue, PaymentDrawer, GatewaySettings } from './PaymentParts.tsx';
+ import type { Json, Rec, Toast } from './types.ts';
+ 
++type DestinationBody = RequestBody<'/api/v1/admin/payment-destinations/{provider}', 'put'>;
++
+ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast }) {
+   const call = useCallback((p: Json, o = {}) => authFetch(api.base, p, o), [api.base]);
++  const client = useMemo(() => typedClient(api?.base), [api?.base]);
+   const [rows, setRows] = useState<Json>(null);
+   const [failed, setFailed] = useState(false);
+   const [settings, setSettings] = useState<Rec>({});
+@@ -27,23 +31,23 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast
+ 
+   const load = useCallback(async () => {
+     try {
+-      const r = await call('/api/v1/admin/payments');
+-      if (!r.ok) throw 0;
+-      const d = await r.json();
+-      setRows(Array.isArray(d) ? d : d.items || []);
++      const { data: d, response } = await client.get('/api/v1/admin/payments');
++      if (!response.ok) throw 0;
++      setRows(Array.isArray(d) ? d : (d as Json)?.items || []);
+       setFailed(false);
+     } catch {
+       setFailed(true);
+       setRows((x: Json) => x || []);
+     }
+-  }, [call]);
++  }, [client]);
+   useEffect(() => {
+     load();
+   }, [load]);
+   useEffect(() => {
+     // main store destinations: the same per-store model resellers use (card number / holder / bank, Zarinpal merchant id + sandbox)
+-    call('/api/v1/admin/payment-destinations')
+-      .then((r) => (r.ok ? r.json() : []))
++    client
++      .get('/api/v1/admin/payment-destinations')
++      .then((r) => (r.data as Json[] | undefined) ?? [])
+       .then((rows: Json[]) =>
+         setSettings({
+           manual_card: rows.find((x) => x.provider === 'manual_card')?.public_config,
+@@ -145,9 +149,10 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast
+           }
+         : { is_enabled: true, public_config: value };
+     try {
+-      const r = await call(`/api/v1/admin/payment-destinations/${provider}`, {
+-        method: 'PUT',
+-        body: JSON.stringify(body),
++      const { response: r } = await client.put('/api/v1/admin/payment-destinations/{provider}', {
++        params: { path: { provider } },
++        // the OpenAPI schema renders free-form objects as Record<string, never>; the server validates the real shape
++        body: body as unknown as DestinationBody,
+       });
+       if (r.ok) {
+         toast('تنظیمات ذخیره شد');
 diff --git a/apps/admin-web/src/SettingsView.tsx b/apps/admin-web/src/SettingsView.tsx
 new file mode 100644
 index 0000000..cb0a050
@@ -3127,6 +3286,25 @@ index 0000000..c83ab3a
 +  if (moved) window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${moved}`);
 +}
 +export const fromHash = () => (flat.find((x) => `#/${x[2]}` === window.location.hash.split('?')[0]) || flat[0])[0];
+diff --git a/apps/admin-web/src/api.ts b/apps/admin-web/src/api.ts
+index f301302..6b0703a 100644
+--- a/apps/admin-web/src/api.ts
++++ b/apps/admin-web/src/api.ts
+@@ -46,6 +46,14 @@ export async function authFetch(base: string, path: string, options: RequestInit
+   return r;
+ }
+ 
++/**
++ * Typed client on the SAME transport rules as authFetch (in-memory bearer token, one shared refresh on 401).
++ * Prefer this for endpoints present in the OpenAPI snapshot: path, params and body are checked at compile time.
++ * `result.response` is the raw Response (use it with errText); `result.data` is typed from the schema.
++ */
++export const typedClient = (base: string) =>
++  createApiClient({ baseUrl: base, getAccessToken, refresh: () => refreshPair(base) });
++
+ /** GET + parse JSON through @melorin/api-client (T15): bearer token, one transparent refresh on 401. */
+ export async function getJson<T = Json>(base: string, path: string): Promise<T> {
+   const client = createApiClient({ baseUrl: base, getAccessToken, refresh: () => refreshPair(base) });
 diff --git a/apps/admin-web/src/infra.tsx b/apps/admin-web/src/infra.tsx
 index d401dc1..7e5e4b4 100644
 --- a/apps/admin-web/src/infra.tsx
@@ -3245,6 +3423,24 @@ index 639a101..8cf7205 100644
    });
  
    it('offers only PasarGuard panels and requires a reason before previewing', async () => {
+diff --git a/apps/api/melorin/modules/payments/service.py b/apps/api/melorin/modules/payments/service.py
+index 82055e2..e308e7f 100644
+--- a/apps/api/melorin/modules/payments/service.py
++++ b/apps/api/melorin/modules/payments/service.py
+@@ -247,6 +247,13 @@ async def refund_payment(session: AsyncSession, payment_id: uuid.UUID, *, actor_
+         p.meta = {**(p.meta or {}), "refund_operation": "failed", "refund_error": str(exc)[:300]}
+         session.add(PaymentAttempt(payment_id=p.id, action="refund", result="failed", data={"error": str(exc)[:500]}))
+         await session.commit()
++        if isinstance(exc, NotImplementedError):
++            # manual card / destination providers have no automatic refund: a clean 409 for the admin, not a 500
++            raise AppError(
++                "REFUND_NOT_SUPPORTED",
++                "این روش پرداخت استرداد خودکار ندارد؛ جبران دستی از کیف پول انجام شود.",
++                409,
++            ) from exc
+         raise
+     tx = await wallet.find_tx(session, f"payment:{p.id}")
+     if tx:
 diff --git a/apps/api/tests/contracts/test_admin_web_token_storage.py b/apps/api/tests/contracts/test_admin_web_token_storage.py
 index 9619a41..a92f5f4 100644
 --- a/apps/api/tests/contracts/test_admin_web_token_storage.py
@@ -3311,6 +3507,49 @@ index 9a19000..bac3656 100644
  
  
  def test_zarinpal_is_validated_as_a_supported_destination():
+diff --git a/apps/api/tests/service/test_payments_service_db.py b/apps/api/tests/service/test_payments_service_db.py
+index 9866e46..75f809b 100644
+--- a/apps/api/tests/service/test_payments_service_db.py
++++ b/apps/api/tests/service/test_payments_service_db.py
+@@ -25,6 +25,7 @@ class FakeGateway:
+     def __init__(self):
+         self.refunds = 0
+         self.fail_refund = False
++        self.refund_unsupported = False
+         self.intents = 0
+ 
+     async def create_payment_intent(self, payment, *, callback_url, settings):
+@@ -39,6 +40,8 @@ class FakeGateway:
+         return payment.status
+ 
+     async def refund(self, payment, *, settings):
++        if self.refund_unsupported:
++            raise NotImplementedError("no automatic refund")
+         if self.fail_refund:
+             raise RuntimeError("gateway down")
+         self.refunds += 1
+@@ -312,6 +315,21 @@ async def test_gateway_refund_failure_keeps_money_in_the_wallet_and_marks_the_op
+         assert await _balance(s, user, store) == 5_000
+ 
+ 
++async def test_provider_without_automatic_refund_is_a_clean_409_and_money_stays(gateway):
++    async with open_session() as s:
++        store, user = await _setup(s)
++        admin = await make_user(s, super_admin=True)
++        p, _ = await _intent(s, store, user)
++        await payments.mark_succeeded(s, p.id)
++        gateway.refund_unsupported = True
++        with pytest.raises(AppError) as exc:
++            await payments.refund_payment(s, p.id, actor_id=admin.id)
++        assert exc.value.code == "REFUND_NOT_SUPPORTED" and exc.value.status == 409
++        await s.refresh(p)
++        assert p.status == "succeeded"
++        assert await _balance(s, user, store) == 5_000
++
++
+ async def test_refund_of_unknown_payment_is_404(gateway):
+     async with open_session() as s:
+         await _setup(s)
 diff --git a/apps/api/tests/unit/test_admin_access.py b/apps/api/tests/unit/test_admin_access.py
 index 25b52ab..ce28cfa 100644
 --- a/apps/api/tests/unit/test_admin_access.py
@@ -3348,10 +3587,10 @@ index 25b52ab..ce28cfa 100644
 +    assert aa.allows([aa.SUPPORT], area, write=True)
 +    assert aa.allows([aa.FINANCE], area) and not aa.allows([aa.FINANCE], area, write=True)
 diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
-index b2c76ce..586f25c 100644
+index b2c76ce..0bf99a5 100644
 --- a/docs/DECISIONS.md
 +++ b/docs/DECISIONS.md
-@@ -141,3 +141,15 @@ _Merged from the former 12-Change-Log-v1.1.md._
+@@ -141,3 +141,20 @@ _Merged from the former 12-Change-Log-v1.1.md._
  - Palette merge of admin-web and store-web is explicitly postponed by the owner (2026-11-14).
  - Gate on r3 (2026-11-14): lint-imports 6/6 kept, api pytest 2655 passed / 11 skipped, admin-web typecheck+build+vitest 289 passed, store-web 79 passed. Docker stack, bots and payment gateway not run.
  - UI-less admin endpoints (T09/T10 inventory, 2026-11-14) now have screens (`tools/connections` had no route, so it was a stale heuristic entry): Store Hub «اعلان‌ها» tab holds `vpn-notice-texts` (per-kind customer wording) and `vpn-digest` (owner daily digest switch; `GET vpn-notices` now also returns `daily_digest` and `has_owner`); new Store Hub «ربات‌ها» tab lists/creates `bot-store-bindings`; the bundles screen warns about `bundle-products/unassigned`; the product drawer has a per-store availability section (`products/{id}/availability`); the order drawer has an attach-account form for orders in provisioning_failed / manual_review (`orders/{id}/attach-account`); the panel detail has an «دسترسی» tab for `store-role-plan` and `service-access` (provision, rotate, keys, store role apply/revert; owner credential is sent once and cleared from the form, panel name must be typed). Vitest covers the four read/write paths; the panel-access writes need a real panel and were not exercised. Docs numbering gaps 12 and 15 are intentional (docs/00-README).
@@ -3367,6 +3606,11 @@ index b2c76ce..586f25c 100644
 +- r5 (phase 2, first step): `AdminExtra.tsx` (750 -> 72 lines) is now only the route registry. Coupons, Settings (+ integrations, sign-in methods, change-password) and the shared table/form primitives moved verbatim to `CouponsView.tsx`, `SettingsView.tsx`, `adminExtraKit.tsx`. No behaviour change.
 +- r5 (phase 2, second step): `App.tsx` (987 -> ~230 lines) split verbatim into `adminNav.ts` (menu groups + hash routing), `AdminNavigation.tsx`, `AdminShell.tsx` (brand, user menu, mobile nav, clock), `AdminSession.tsx` (`useCore`, downloads/refund helpers) and `Dashboard.tsx`. The G002/G003 and frontend-contract guards now read the sum of these files.
 +- r5 (phase 4): browser E2E for the role matrix (`e2e/tests/admin.roles.spec.js`): menu per role, identity hub without sign-in tab, Settings sign-in tab (owner only), old bookmarks. It found that a role without access still mounted the screen (and fired its API calls) for one render before App redirected it: `AdminSectionView` now renders nothing for a forbidden section.
++
++- r5 (verification, 2026-11-14): admin-web lint, typecheck, 299 tests (38 files), build and prettier all pass on this branch. Phase 3 (moving views to the typed api-client) is deliberately left for later, per the audit: gradual, endpoint by endpoint, not in this PR. Patch files: `patches/fix-arch-admin-ui-r5-identity-nav.*`.
++
++- r5 (phase 3, first step): `typedClient(base)` in `admin-web/src/api.ts` is the typed `@melorin/api-client` on the same transport rules as `authFetch` (in-memory bearer token, one shared refresh on 401). Identity reviews (list/dismiss/reopen) and Payments (list, destinations get/put) now use it; the remaining dynamic-path calls stay on `authFetch` until each endpoint is migrated. Note: the OpenAPI schema renders free-form objects as `Record<string, never>`, so destination bodies are cast once at the call site.
++- r5 (phase 4, real stack, 2026-11-14): Docker Compose (postgres, redis, api, worker, store-web, admin-web) built and run from an empty DB through migration 0056; `scripts/e2e_smoke.py` (mock panel) passed all checks (wallet top-up approval, purchase, provisioning, outbox, 401/403, throttling). Finding fixed: refunding a payment whose provider has no automatic refund (manual card) raised an unhandled `NotImplementedError` (HTTP 500); it is now a 409 `REFUND_NOT_SUPPORTED` with the money untouched, with a regression test. Selected API tests (payments, wallet ledger, order money, contracts): 548 passed, 1 skipped; `lint-imports` 8/8. Still NOT run: a real PasarGuard panel, Telegram bots, Caddy/Prometheus/Alertmanager, a live Zarinpal sandbox, the Playwright suite against Compose, and the full API suite.
 diff --git a/e2e/tests/admin.roles.spec.js b/e2e/tests/admin.roles.spec.js
 new file mode 100644
 index 0000000..a960f0d
