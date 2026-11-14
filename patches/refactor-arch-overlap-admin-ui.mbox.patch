@@ -1,7 +1,7 @@
 From 2b7a40f4d38354ba119e0b5f4b673112112ec92e Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@gmail.com>
 Date: Fri, 13 Nov 2026 11:54:01 +0000
-Subject: [PATCH 01/36] arch(contracts): put eventcenter and broadcast under
+Subject: [PATCH 01/38] arch(contracts): put eventcenter and broadcast under
  the layer contract
 
 ---
@@ -28,7 +28,7 @@ index 286ab43..8ac7f14 100644
 From 2d64d509e34f94253822c3dbe6a55249abcb6301 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@gmail.com>
 Date: Fri, 13 Nov 2026 11:58:35 +0000
-Subject: [PATCH 02/36] fix(auth): admin password change enforces the same
+Subject: [PATCH 02/38] fix(auth): admin password change enforces the same
  policy as invite acceptance
 
 ---
@@ -92,7 +92,7 @@ index 4b4c2e7..b25e1a7 100644
 From 5ebfec4a5a0ad094c54c045612d3869ebc5e45b9 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@gmail.com>
 Date: Fri, 13 Nov 2026 11:59:56 +0000
-Subject: [PATCH 03/36] feat(admin-ui): regroup the menu (operations,
+Subject: [PATCH 03/38] feat(admin-ui): regroup the menu (operations,
  customers, catalog+marketing, communication, infrastructure); single password
  form; Receipt OCR lives under Payments
 
@@ -231,7 +231,7 @@ index d735da1..1bc9415 100644
 From cf3078358e9dd56b704544fd5afe992040683daa Mon Sep 17 00:00:00 2001
 From: claude-refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 12:22:19 +0000
-Subject: [PATCH 04/36] test(admin-ui): contract test follows the regrouped
+Subject: [PATCH 04/38] test(admin-ui): contract test follows the regrouped
  menu (infra group, catalog+marketing group)
 
 ---
@@ -263,7 +263,7 @@ index c37b6d0..b1c0224 100644
 From fa2f9f1b12a3e751e31dd0e7c0fecfe020debe13 Mon Sep 17 00:00:00 2001
 From: claude-refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 12:26:08 +0000
-Subject: [PATCH 05/36] arch(panelops): move panel_admins, governance,
+Subject: [PATCH 05/38] arch(panelops): move panel_admins, governance,
  store_usage, service_access, panel_events_admin, bulk, subscription_check,
  recreate, digest from vpn to panelops
 
@@ -873,7 +873,7 @@ index dc6010d..5daf353 100644
 From 28b907357132344d43bf66ba46418fb216c133cb Mon Sep 17 00:00:00 2001
 From: claude-refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 12:36:11 +0000
-Subject: [PATCH 06/36] arch(panelops): one reconciliation-actions service;
+Subject: [PATCH 06/38] arch(panelops): one reconciliation-actions service;
  admin router no longer builds adapters or coordinates writes
 
 Behaviour, error codes, audit events and messages are unchanged. Commits go through unit_of_work. Tests that patched the router's
@@ -1252,7 +1252,7 @@ index 1be7e54..ae1b773 100644
 From d9bf9dddd7d1751e60a4974b89608d057b2f9a2a Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:09:10 +0000
-Subject: [PATCH 07/36] docs(identity): point identity docstrings at docs/23
+Subject: [PATCH 07/38] docs(identity): point identity docstrings at docs/23
  (was docs/21)
 
 ---
@@ -1496,7 +1496,7 @@ index f553767..6ad921e 100644
 From 4666d51295581024fbba949d8215350c69940168 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:17:14 +0000
-Subject: [PATCH 08/36] feat(admin-ui): Settings is tabbed (backup+email /
+Subject: [PATCH 08/38] feat(admin-ui): Settings is tabbed (backup+email /
  advanced); Google and Telegram sign-in move to Identity > sign-in methods
 
 ---
@@ -1638,7 +1638,7 @@ index 89ae544..5be23cf 100644
 From f5d1996854a4f0b4b0595d9eb227d3e6e1c423c3 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:33:00 +0000
-Subject: [PATCH 09/36] feat(admin-ui): store hub: stores, resellers, panel
+Subject: [PATCH 09/38] feat(admin-ui): store hub: stores, resellers, panel
  access and volume governance are tabs of one menu entry
 
 ---
@@ -1860,7 +1860,7 @@ index 0000000..6dcd158
 From 4133a03d42351e76a8ac37b31e3d309270715b1e Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:53:57 +0000
-Subject: [PATCH 10/36] arch(payments): the main store payment destination uses
+Subject: [PATCH 10/38] arch(payments): the main store payment destination uses
  StorePaymentConfiguration; global card.info/gateway.zarinpal and the fallback
  are removed (alembic 0056)
 
@@ -2642,7 +2642,7 @@ index ae1b773..01a6a68 100644
 From eecbae7ca6146bef7cd336a832f0f91aa7560d5d Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 14:34:34 +0000
-Subject: [PATCH 11/36] arch(rewards): one written stacking policy and one
+Subject: [PATCH 11/38] arch(rewards): one written stacking policy and one
  settlement path; vpn account transition table
 
 ---
@@ -2817,7 +2817,7 @@ index 01a6a68..13f2648 100644
 From 3d7d013580e91867a5ec537d24db8323ea4c3fa0 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 14:42:16 +0000
-Subject: [PATCH 12/36] test(worker): refunds reverse loyalty before referral
+Subject: [PATCH 12/38] test(worker): refunds reverse loyalty before referral
 
 ---
  apps/api/tests/service/test_worker_runner_db.py | 2 +-
@@ -2843,7 +2843,7 @@ index ae12e89..af12146 100644
 From 34e51683ea1a0f2d5c9c18a528a48964c9f1ce77 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 14:59:48 +0000
-Subject: [PATCH 13/36] arch(worker): one read cycle per panel: metrics
+Subject: [PATCH 13/38] arch(worker): one read cycle per panel: metrics
  snapshot rides on the health job adapter
 
 ---
@@ -2923,7 +2923,7 @@ index 13f2648..3390dbd 100644
 From 3338242826ea3df9a23a08a2da87601ed7a78ed6 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 15:20:11 +0000
-Subject: [PATCH 14/36] arch(vpn): account status changes go through the
+Subject: [PATCH 14/38] arch(vpn): account status changes go through the
  guarded transition table
 
 ---
@@ -3078,7 +3078,7 @@ index 3390dbd..1fa7cd4 100644
 From 7a4e0bf6c3ddd2d04e5993cc0e818273990efe85 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 15:33:23 +0000
-Subject: [PATCH 15/36] arch(messaging): notifications dedupe on event_id +
+Subject: [PATCH 15/38] arch(messaging): notifications dedupe on event_id +
  recipient + channel
 
 ---
@@ -3200,7 +3200,7 @@ index 1fa7cd4..9e68bb5 100644
 From aae44f6b1397699b701c15ee04d519609193659b Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 16:18:20 +0000
-Subject: [PATCH 16/36] arch: guard expiry/revoke/sync status writes; panel
+Subject: [PATCH 16/38] arch: guard expiry/revoke/sync status writes; panel
  card deep-links to panel operations
 
 ---
@@ -3324,7 +3324,7 @@ index 9e68bb5..7218ea0 100644
 From 35b241cc55ca4386a7037d8a7a3a062ba268bd63 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 16:50:44 +0000
-Subject: [PATCH 17/36] arch(telegram): shared bot core in tgmain.core;
+Subject: [PATCH 17/38] arch(telegram): shared bot core in tgmain.core;
  reseller bot imports it instead of loading main runner.py by path; reseller
  image copies tgmain only
 
@@ -4242,7 +4242,7 @@ index cb2b24a..5e7709b 100644
 From bed9db5b27ebee848c22126ec449af3077f48c34 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 16:50:44 +0000
-Subject: [PATCH 18/36] chore(domain): drop 5-line leftovers (vpn/bundles,
+Subject: [PATCH 18/38] chore(domain): drop 5-line leftovers (vpn/bundles,
  vpn/service, domain/referral); commission_amount lives with commission,
  clean_custom_name in domain/account_name
 
@@ -4343,7 +4343,7 @@ index 0f1ad9b..9216cdf 100644
 From 81b5dd64815592a79fd09d829427b9ea83acbd83 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 16:59:01 +0000
-Subject: [PATCH 19/36] feat(admin): Operations Center roll-up on
+Subject: [PATCH 19/38] feat(admin): Operations Center roll-up on
  /admin/dashboard + dashboard card; restore vpn/service.py; guard provisioning
  status write; drop dead DataTable branches; contract test follows
  tgmain.core; decisions
@@ -4773,7 +4773,7 @@ index 7218ea0..45e9108 100644
 From a42c4b5125ec4735d242e8c52db443ceec7eebcd Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 17:03:53 +0000
-Subject: [PATCH 20/36] test: source-contract tests read tgmain/core.py
+Subject: [PATCH 20/38] test: source-contract tests read tgmain/core.py
 
 ---
  apps/api/tests/service/test_account_return.py              | 2 +-
@@ -4813,7 +4813,7 @@ index 9b5bf8b..65018af 100644
 From f820a98089d4df8cb591ebcb8809ed36844af73f Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 17:26:04 +0000
-Subject: [PATCH 21/36] feat(admin-ui): panel detail drawer: nodes, console,
+Subject: [PATCH 21/38] feat(admin-ui): panel detail drawer: nodes, console,
  events, capacity, templates and indicators are tabs of the panel; panel-ops
  keeps discrepancies, orphans and notices
 
@@ -5275,7 +5275,7 @@ index 45e9108..dd84015 100644
 From 802aa443b74f0e51fac783fb0265773f7b1734f8 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 20:40:47 +0000
-Subject: [PATCH 22/36] arch(integrations): provider adapters, sessions,
+Subject: [PATCH 22/38] arch(integrations): provider adapters, sessions,
  readers, capabilities and target config move from vpn to
  modules/panel_integrations (lowest feature layer); shared Event Center logic
  and text helpers move to web-kit
@@ -8112,7 +8112,7 @@ index 1423897..7dc57d3 100644
 From 4396daa9c77daadf056227597cd4f0618718a1d2 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 20:40:56 +0000
-Subject: [PATCH 23/36] docs: record integration boundary and shared web-kit
+Subject: [PATCH 23/38] docs: record integration boundary and shared web-kit
  decisions
 
 ---
@@ -8137,7 +8137,7 @@ index 82095f7..392f75c 100644
 From e20603006d61038349bba97489e394bb7429f8e2 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 21:21:54 +0000
-Subject: [PATCH 24/36] arch: PanelSnapshot read model, messaging policy,
+Subject: [PATCH 24/38] arch: PanelSnapshot read model, messaging policy,
  status-write contract test, shared Bank SMS rules in web-kit
 
 ---
@@ -8726,7 +8726,7 @@ index 0000000..d97d251
 From 4cbea13a57d038502850d3cd383be13431f9cb98 Mon Sep 17 00:00:00 2001
 From: Pori Toooni <poritoooni@gmail.com>
 Date: Fri, 13 Nov 2026 22:08:29 +0000
-Subject: [PATCH 25/36] arch(messaging): DM delivery honours
+Subject: [PATCH 25/38] arch(messaging): DM delivery honours
  messaging_policy.dm_allowed; decisions updated
 
 ---
@@ -8802,7 +8802,7 @@ index 54fd61b..e6a938e 100644
 From cbdfc1fb50f2474e3b531263ee626df651967279 Mon Sep 17 00:00:00 2001
 From: Pori Toooni <poritoooni@gmail.com>
 Date: Sat, 14 Nov 2026 06:03:59 +0000
-Subject: [PATCH 26/36] feat(web-kit): shared broadcast composer hook used by
+Subject: [PATCH 26/38] feat(web-kit): shared broadcast composer hook used by
  admin-web and store-web; decisions updated
 
 ---
@@ -9130,7 +9130,7 @@ index 0000000..454f752
 From 9168a7d321bfb75a24bcce2a9ff218ae98dd40a2 Mon Sep 17 00:00:00 2001
 From: Pori Toooni <poritoooni@gmail.com>
 Date: Sat, 14 Nov 2026 06:09:48 +0000
-Subject: [PATCH 27/36] feat(web-kit): shared referral plan form used by
+Subject: [PATCH 27/38] feat(web-kit): shared referral plan form used by
  admin-web and store-web; decisions updated
 
 ---
@@ -9395,7 +9395,7 @@ index 0000000..be1623c
 From 5c1964b6bd3252607196a5b33ca76cb825ab83da Mon Sep 17 00:00:00 2001
 From: Pori Toooni <poritoooni@gmail.com>
 Date: Sat, 14 Nov 2026 06:19:41 +0000
-Subject: [PATCH 28/36] feat(web-kit): shared loyalty club data layer used by
+Subject: [PATCH 28/38] feat(web-kit): shared loyalty club data layer used by
  admin-web and store-web; decisions updated
 
 ---
@@ -9637,7 +9637,7 @@ index 0000000..fec4cee
 From 14df2cdcbac02fcfabbcd78875f62b7f7fb0bb5b Mon Sep 17 00:00:00 2001
 From: Pori Toooni <poritoooni@gmail.com>
 Date: Sat, 14 Nov 2026 06:23:29 +0000
-Subject: [PATCH 29/36] feat(web-kit): shared design tokens (identical values
+Subject: [PATCH 29/38] feat(web-kit): shared design tokens (identical values
  only); decisions updated
 
 ---
@@ -9850,7 +9850,7 @@ index 0000000..f9858bb
 From 014b89fbe159cda8a04cf31807000b5b46be519b Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@users.noreply.github.com>
 Date: Sat, 14 Nov 2026 06:52:08 +0000
-Subject: [PATCH 30/36] arch: admin sync is event-driven with 15-min fallback;
+Subject: [PATCH 30/38] arch: admin sync is event-driven with 15-min fallback;
  rename admin team / panel operator labels; decisions
 
 ---
@@ -10104,7 +10104,7 @@ index 0761ec1..51a479e 100644
 From 413e2eae568257f6aebc675412cd552b53750289 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@users.noreply.github.com>
 Date: Sat, 14 Nov 2026 07:35:19 +0000
-Subject: [PATCH 31/36] docs: regenerate STATUS/API (head 0056, 413
+Subject: [PATCH 31/38] docs: regenerate STATUS/API (head 0056, 413
  operations); decisions: state machine writers complete
 
 ---
@@ -10183,7 +10183,7 @@ index 1367bca..1d9129e 100644
 From 983636616db750d9b16dd11d2512aa0f2427ce98 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@users.noreply.github.com>
 Date: Sat, 14 Nov 2026 07:48:17 +0000
-Subject: [PATCH 32/36] feat(web-kit): shared PasswordInput and base types;
+Subject: [PATCH 32/38] feat(web-kit): shared PasswordInput and base types;
  feat(admin-ui): per-store notice levels are a Store Hub tab; decisions
 
 ---
@@ -10778,7 +10778,7 @@ index 0000000..79ceddc
 From 1cde428f3ba9f8c2d2fc09eb52c279ccb1bdf608 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@users.noreply.github.com>
 Date: Sat, 14 Nov 2026 07:58:25 +0000
-Subject: [PATCH 33/36] feat(admin-ui): store hub gains read-only prices and
+Subject: [PATCH 33/38] feat(admin-ui): store hub gains read-only prices and
  API tabs; reseller editor is the profile tab; decisions
 
 ---
@@ -11094,7 +11094,7 @@ index eea5b94..0a636de 100644
 From 5e3ffdb47f99f80551b4710bbd4d75b464aa7bd8 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@users.noreply.github.com>
 Date: Sat, 14 Nov 2026 08:13:54 +0000
-Subject: [PATCH 34/36] test(e2e): store hub tabs and menu-route smoke in a
+Subject: [PATCH 34/38] test(e2e): store hub tabs and menu-route smoke in a
  real browser
 
 ---
@@ -11223,7 +11223,7 @@ index 0000000..9b5f3fc
 From 301d7ffc7ae54569831e025e2cafd78513f51fb1 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Sat, 14 Nov 2026 08:31:15 +0000
-Subject: [PATCH 35/36] arch(worker): split jobs.py by domain (backup, panels,
+Subject: [PATCH 35/38] arch(worker): split jobs.py by domain (backup, panels,
  accounts, identity, payments, reports); jobs.py is a facade; tests patch the
  owning module; decisions
 
@@ -12840,7 +12840,7 @@ index f8d5ff4..c17beb4 100644
 From 07265a3cae1f1e0b017f5e7fd1e602544dd05695 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Sat, 14 Nov 2026 08:34:49 +0000
-Subject: [PATCH 36/36] arch(panelops): panel notices (health, nodes, drift,
+Subject: [PATCH 36/38] arch(panelops): panel notices (health, nodes, drift,
  capacity) live in panelops/panel_notices; eventcenter.rules keeps
  outbox-event rules; decisions
 
@@ -13243,6 +13243,53 @@ index 3861e44..66d526b 100644
  - Browser check: `e2e/tests/admin.storehub.spec.js` (Playwright, Core mocked) opens the Store Hub tabs, flips the API switch, follows the old notices bookmark and visits every admin menu route looking for uncaught page errors. Real-browser evidence for the mocked API only; the full stack is still unrun here.
  - Worker jobs are split by domain (T10 1.3): `jobs_backup`, `jobs_panels`, `jobs_accounts`, `jobs_identity`, `jobs_payments`, `jobs_reports`. `worker/jobs.py` (516 lines before) is a 69-line facade that re-exports the 20 job functions for `arq_app` and `backup_main`; no job body changed. Collaborators (`session_factory`, `integrations`, `close_adapter` ...) are patched on the module that owns the job; tests use `tests/_jobs.patch_jobs` / `jobs_source()` for that. Verified with the full backend suite (2655 passed) and `lint-imports` (6 kept).
 +- Panel notices (health, nodes, settings drift, sell-guard/capacity text builders) moved from `eventcenter/rules.py` to `panelops/panel_notices.py` (T10 1.6). `eventcenter.rules` keeps only outbox-event rules (orders, payments, tickets, failures, backup). The panel module emits to the Event Center `errors` topic; delivery routing stays with the Event Center. Callers: health job, manual health check, drift job.
+-- 
+2.43.0
+
+
+From 02dbf20247e256f018ef57792a438098d6af0342 Mon Sep 17 00:00:00 2001
+From: archerhabibi <archerhabibi@users.noreply.github.com>
+Date: Sat, 14 Nov 2026 08:59:33 +0000
+Subject: [PATCH 37/38] docs: identity ownership, palette merge postponed, gate
+ results; refresh patch
+
+---
+ docs/DECISIONS.md | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index 66d526b..bf6cbd2 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -137,3 +137,6 @@ _Merged from the former 12-Change-Log-v1.1.md._
+ - Browser check: `e2e/tests/admin.storehub.spec.js` (Playwright, Core mocked) opens the Store Hub tabs, flips the API switch, follows the old notices bookmark and visits every admin menu route looking for uncaught page errors. Real-browser evidence for the mocked API only; the full stack is still unrun here.
+ - Worker jobs are split by domain (T10 1.3): `jobs_backup`, `jobs_panels`, `jobs_accounts`, `jobs_identity`, `jobs_payments`, `jobs_reports`. `worker/jobs.py` (516 lines before) is a 69-line facade that re-exports the 20 job functions for `arq_app` and `backup_main`; no job body changed. Collaborators (`session_factory`, `integrations`, `close_adapter` ...) are patched on the module that owns the job; tests use `tests/_jobs.patch_jobs` / `jobs_source()` for that. Verified with the full backend suite (2655 passed) and `lint-imports` (6 kept).
+ - Panel notices (health, nodes, settings drift, sell-guard/capacity text builders) moved from `eventcenter/rules.py` to `panelops/panel_notices.py` (T10 1.6). `eventcenter.rules` keeps only outbox-event rules (orders, payments, tickets, failures, backup). The panel module emits to the Event Center `errors` topic; delivery routing stays with the Event Center. Callers: health job, manual health check, drift job.
++- Identity verification ownership (T09 1.11): `identity/auto_link` verifies CUSTOMER identity links (docs/23); `reseller/auto_verify`, `recheck`, `auto_approve` and `reseller/identity` verify RESELLER applicants during onboarding. They share domain rules in `domain/`, not code paths, so they stay separate on purpose; merging them would couple two lifecycles.
++- Palette merge of admin-web and store-web is explicitly postponed by the owner (2026-11-14).
++- Gate on r3 (2026-11-14): lint-imports 6/6 kept, api pytest 2655 passed / 11 skipped, admin-web typecheck+build+vitest 289 passed, store-web 79 passed. Docker stack, bots and payment gateway not run.
+-- 
+2.43.0
+
+
+From 7c610857e30fe8e59f5d47c1a2a5e19fdb9376bf Mon Sep 17 00:00:00 2001
+From: archerhabibi <archerhabibi@users.noreply.github.com>
+Date: Sat, 14 Nov 2026 09:02:42 +0000
+Subject: [PATCH 38/38] docs: decision on UI-less admin endpoints
+
+---
+ docs/DECISIONS.md | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index bf6cbd2..43741ae 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -140,3 +140,4 @@ _Merged from the former 12-Change-Log-v1.1.md._
+ - Identity verification ownership (T09 1.11): `identity/auto_link` verifies CUSTOMER identity links (docs/23); `reseller/auto_verify`, `recheck`, `auto_approve` and `reseller/identity` verify RESELLER applicants during onboarding. They share domain rules in `domain/`, not code paths, so they stay separate on purpose; merging them would couple two lifecycles.
+ - Palette merge of admin-web and store-web is explicitly postponed by the owner (2026-11-14).
+ - Gate on r3 (2026-11-14): lint-imports 6/6 kept, api pytest 2655 passed / 11 skipped, admin-web typecheck+build+vitest 289 passed, store-web 79 passed. Docker stack, bots and payment gateway not run.
++- UI-less admin endpoints (T09/T10 inventory, 2026-11-14): consumer check across admin-web and both bots found no caller for store-role-plan, service-access, vpn-digest, vpn-notice-texts, bot-store-bindings, bundle-products/unassigned, products/{id}/availability and orders/{id}/attach-account (`tools/connections` has no route at all, so the heuristic entry was stale). Decision: keep them as API-only operator endpoints (permission-guarded, covered by API tests); none is removed. A screen is added only when a workflow needs it, in the group named by the review (store-role/service-access/digest/notice-texts: Store Hub; bundle-products and availability: catalog; attach-account: order detail). Docs numbering gaps 12 and 15 are intentional (docs/00-README).
 -- 
 2.43.0
 
