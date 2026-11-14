@@ -484,6 +484,109 @@ index fb86b7e..de79cff 100644
        const r = await call(`${base}/source`, { method: 'PUT', headers: JSON_H, body: JSON.stringify(body) });
        if (!r.ok) return toast(await errText(r, 'ذخیره ناموفق بود'));
        const d = await r.json();
+diff --git a/apps/admin-web/src/BroadcastView.tsx b/apps/admin-web/src/BroadcastView.tsx
+index d5bc13d..04000ba 100644
+--- a/apps/admin-web/src/BroadcastView.tsx
++++ b/apps/admin-web/src/BroadcastView.tsx
+@@ -2,14 +2,12 @@
+ // limit); this screen only offers the groups Core returns, shows how many people each reaches, and tracks the delivery.
+ import { useCallback, useEffect, useState } from 'react';
+ import { AlertTriangle, CheckCircle2, Clock, Megaphone, RefreshCw, Send, Users } from 'lucide-react';
++import { BODY_MAX, TITLE_MAX, useBroadcastComposer, usePollWhileQueued } from '@melorin/web-kit/broadcast.js';
+ import { authFetch } from './api.ts';
+ import { confirmDialog, dt } from './ui.tsx';
+ import { Empty, ErrorBar, Field, Section, errText, num, useRows } from './kit.tsx';
+ import type { Json, Rec, Toast } from './types.ts';
+ 
+-const TITLE_MAX = 120;
+-const BODY_MAX = 3500;
+-
+ function AudienceCard({ a, on, onPick }: { a?: Json; on?: Json; onPick?: Json }) {
+   return (
+     <button
+@@ -56,11 +54,6 @@ export default function BroadcastView({ api, toast }: { api?: Json; toast: Toast
+   const [limit, setLimit] = useState<Json>(null);
+   const [audFailed, setAudFailed] = useState(false);
+   const [audience, setAudience] = useState('');
+-  const [title, setTitle] = useState('');
+-  const [body, setBody] = useState('');
+-  const [busy, setBusy] = useState(false);
+-  const [error, setError] = useState('');
+-
+   // { audiences: [{id, label, count}], daily_limit } - Core says which groups exist and how many people each reaches
+   const loadAudiences = useCallback(async () => {
+     try {
+@@ -80,44 +73,32 @@ export default function BroadcastView({ api, toast }: { api?: Json; toast: Toast
+ 
+   const items = hist.rows || [];
+   const picked = groups.find((g) => g.id === audience);
+-  const queued = items.some((b) => b.queued > 0);
+-
+-  // while messages are still being delivered keep the numbers fresh
+-  useEffect(() => {
+-    if (!queued) return undefined;
+-    const t = setInterval(hist.load, 8000);
+-    return () => clearInterval(t);
+-  }, [queued, hist.load]);
+-
+-  const ready = picked && picked.count > 0 && title.trim() && body.trim() && !busy;
+-
+-  const send = async () => {
+-    setError('');
+-    const ok = await confirmDialog(
+-      `«${title.trim()}» برای ${num(picked?.count)} نفر (${picked?.label}) ارسال شود؟ پس از ارسال قابل بازگرداندن نیست.`,
+-      { title: 'ارسال پیام همگانی', ok: 'ارسال' },
+-    );
+-    if (!ok) return;
+-    setBusy(true);
+-    try {
+-      const r = await call('/api/v1/admin/broadcasts', {
+-        method: 'POST',
+-        body: JSON.stringify({ audience, title: title.trim(), body: body.trim() }),
+-      });
+-      if (!r.ok) setError(await errText(r, 'ارسال ناموفق بود'));
+-      else {
+-        const d = await r.json();
+-        toast(`پیام برای ${num(d.recipients)} نفر در صف ارسال قرار گرفت`);
+-        setTitle('');
+-        setBody('');
+-        await Promise.all([hist.load(), loadAudiences()]);
+-      }
+-    } catch {
+-      setError('ارتباط با سرور برقرار نشد');
+-    } finally {
+-      setBusy(false);
+-    }
+-  };
++  usePollWhileQueued(items, hist.load); // while messages are still being delivered keep the numbers fresh
++  const post = useCallback(
++    (m: { title: string; body: string }) =>
++      call('/api/v1/admin/broadcasts', { method: 'POST', body: JSON.stringify({ audience, ...m }) }),
++    [call, audience],
++  );
++  const confirm = useCallback(
++    (t: string) =>
++      confirmDialog(
++        `«${t}» برای ${num(picked?.count)} نفر (${picked?.label}) ارسال شود؟ پس از ارسال قابل بازگرداندن نیست.`,
++        {
++          title: 'ارسال پیام همگانی',
++          ok: 'ارسال',
++        },
++      ),
++    [picked],
++  );
++  const onSent = useCallback(
++    async (d: Json) => {
++      toast(`پیام برای ${num(d.recipients)} نفر در صف ارسال قرار گرفت`);
++      await Promise.all([hist.load(), loadAudiences()]);
++    },
++    [toast, hist.load, loadAudiences],
++  );
++  const { title, setTitle, body, setBody, busy, error, filled, send } = useBroadcastComposer({ post, confirm, onSent });
++  const ready = picked && picked.count > 0 && filled && !busy;
+ 
+   return (
+     <div className="space-y-5">
 diff --git a/apps/admin-web/src/EventCenterView.tsx b/apps/admin-web/src/EventCenterView.tsx
 index 8d4015b..6804e4e 100644
 --- a/apps/admin-web/src/EventCenterView.tsx
@@ -6037,6 +6140,105 @@ index 0b26753..f7bd7fa 100644
        const r = await coreFetch(`${url}/source`, { method: 'PUT', headers: J, body: JSON.stringify(body) });
        if (!r.ok) return notify(await message(r, 'ذخیره ناموفق بود'));
        const d = await r.json();
+diff --git a/apps/store-web/src/ResellerBroadcast.tsx b/apps/store-web/src/ResellerBroadcast.tsx
+index 2312162..30699d5 100644
+--- a/apps/store-web/src/ResellerBroadcast.tsx
++++ b/apps/store-web/src/ResellerBroadcast.tsx
+@@ -2,12 +2,11 @@
+ // (his store's customers only, never another store's people) and enforces the daily limit; this tab shows Core's numbers.
+ import { useCallback, useEffect, useState } from 'react';
+ import { AlertTriangle, CheckCircle2, Clock, Megaphone, RefreshCw, Send, Users } from 'lucide-react';
++import { BODY_MAX, TITLE_MAX, useBroadcastComposer, usePollWhileQueued } from '@melorin/web-kit/broadcast.js';
+ import { Empty, Loading, fa, fd } from './ui.tsx';
+ import type { Json } from './types';
+ 
+ const J = { 'Content-Type': 'application/json' };
+-const TITLE_MAX = 120;
+-const BODY_MAX = 3500;
+ const chip = 'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold';
+ 
+ function Delivery({ b }: { b?: Json }) {
+@@ -44,11 +43,6 @@ export default function ResellerBroadcast({
+ }) {
+   const [data, setData] = useState<Json>(null);
+   const [failed, setFailed] = useState(false);
+-  const [title, setTitle] = useState('');
+-  const [body, setBody] = useState('');
+-  const [busy, setBusy] = useState(false);
+-  const [error, setError] = useState('');
+-
+   const load = useCallback(async () => {
+     try {
+       const r = await coreFetch(`${base}/broadcasts`);
+@@ -66,48 +60,28 @@ export default function ResellerBroadcast({
+ 
+   const items = data?.items || [];
+   const reach = data?.audiences?.[0]?.count ?? 0;
+-  const queued = items.some((b: Json) => b.queued > 0);
+-  // keep the delivery numbers fresh while messages are still going out
+-  useEffect(() => {
+-    if (!queued) return undefined;
+-    const t = setInterval(load, 8000);
+-    return () => clearInterval(t);
+-  }, [queued, load]);
++  usePollWhileQueued(items, load); // keep the delivery numbers fresh while messages are still going out
++  const post = useCallback(
++    (m: { title: string; body: string }) =>
++      coreFetch(`${base}/broadcasts`, { method: 'POST', headers: J, body: JSON.stringify(m) }),
++    [coreFetch, base],
++  );
++  const confirm = useCallback(
++    (t: string) =>
++      window.confirm(`«${t}» برای ${fa(reach)} مشتری فروشگاه شما ارسال شود؟ پس از ارسال قابل بازگرداندن نیست.`),
++    [reach],
++  );
++  const onSent = useCallback(
++    async (d: Json) => {
++      notify(`پیام برای ${fa(d.recipients)} مشتری در صف ارسال قرار گرفت`);
++      await load();
++    },
++    [notify, load],
++  );
++  const { title, setTitle, body, setBody, busy, error, filled, send } = useBroadcastComposer({ post, confirm, onSent });
+ 
+   if (data === null) return <Loading rows={3} />;
+-  const ready = title.trim() && body.trim() && reach > 0 && !busy;
+-
+-  const send = async () => {
+-    setError('');
+-    if (
+-      !window.confirm(
+-        `«${title.trim()}» برای ${fa(reach)} مشتری فروشگاه شما ارسال شود؟ پس از ارسال قابل بازگرداندن نیست.`,
+-      )
+-    )
+-      return;
+-    setBusy(true);
+-    try {
+-      const r = await coreFetch(`${base}/broadcasts`, {
+-        method: 'POST',
+-        headers: J,
+-        body: JSON.stringify({ title: title.trim(), body: body.trim() }),
+-      });
+-      if (!r.ok) {
+-        const d = await r.json().catch(() => ({}));
+-        setError(d?.error?.message || (typeof d?.detail === 'string' ? d.detail : '') || 'ارسال ناموفق بود');
+-      } else {
+-        const d = await r.json();
+-        notify(`پیام برای ${fa(d.recipients)} مشتری در صف ارسال قرار گرفت`);
+-        setTitle('');
+-        setBody('');
+-        await load();
+-      }
+-    } catch {
+-      setError('ارتباط با سرور برقرار نشد');
+-    } finally {
+-      setBusy(false);
+-    }
+-  };
++  const ready = filled && reach > 0 && !busy;
+ 
+   return (
+     <div className="space-y-6">
 diff --git a/apps/store-web/src/ResellerEventCenter.tsx b/apps/store-web/src/ResellerEventCenter.tsx
 index d49b510..a583dcc 100644
 --- a/apps/store-web/src/ResellerEventCenter.tsx
@@ -7049,7 +7251,7 @@ index cb2b24a..5e7709b 100644
  log = logging.getLogger("melorin.telegram.reseller")
  
 diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
-index 1be7e54..e6a938e 100644
+index 1be7e54..eb74fc0 100644
 --- a/docs/DECISIONS.md
 +++ b/docs/DECISIONS.md
 @@ -51,7 +51,7 @@ _Merged from the former 12-Change-Log-v1.1.md._
@@ -7061,7 +7263,7 @@ index 1be7e54..e6a938e 100644
  - Adapter classes and each family's `contract.py` (settings/target validation, capacity label, listing warnings) are imported lazily; `upstream_bot` therefore needs Telethon only when a call is made.
  - Core code asks `providers.supports(kind, feature)` / `target_kinds(kind)` instead of comparing `panel.kind` with a string. A new family is one `register_provider(...)` call.
  - Guarded by `tests/test_provider_adapters.py` (no concrete family is imported outside the adapter layer, except the PasarGuard wire parsers listed in the test).
-@@ -94,3 +94,33 @@ _Merged from the former 12-Change-Log-v1.1.md._
+@@ -94,3 +94,35 @@ _Merged from the former 12-Change-Log-v1.1.md._
  - Honest limit: component props and server payloads that are not yet bound to generated `@melorin/api-client` schemas are typed `Json` / `Rec` (aliases in `src/types.ts`, same markers as admin-web). They are greppable; tighten one view per PR. This is a typed shell, not full type safety.
  - Verified in a real browser, not only jsdom: Playwright 10 passed / 2 skipped (the skipped two need a seeded staging stack), vitest 79, `vite build` OK (main bundle ~272 KB, gzip ~85 KB).
  - Source-contract guards (api tests, `check_g001_g010.py`, `check_frontend_contracts.py`) were repointed from `.jsx`/`.js` to `.tsx`/`.ts` for BOTH apps; the earlier admin-web migration had left 16 contract tests red because they still read the old names.
@@ -7094,7 +7296,9 @@ index 1be7e54..e6a938e 100644
 +- Messaging policy: `domain/messaging_policy.py` classifies every notification kind (technical vs commercial, severity, audience, channels). Technical alerts never go to customers. It is the contract for the delivery paths; wiring each path to `allowed()` is incremental.
 +- Bank SMS rules (status labels, form mapping, request body) live in `@melorin/web-kit/bankSms.js` for both apps.
 +- Telegram DM delivery (`worker/runner._notify`) now asks `messaging_policy.dm_allowed(kind)`: kinds routed only to the Event Center (panel, backup, infra, outbox alerts) are never sent as a DM.
-+- Still open: route the remaining delivery paths (Event Center topics, VPN notices) through `messaging_policy.allowed`, move Loyalty / Referral / Broadcast logic onto web-kit hooks, and a shared design-token CSS package (admin and store skins still differ).
++- VPN notices already reach customers only through `_notify` (policy-gated). Event Center keeps its own topic routing (`ADMIN_ONLY_TOPICS`, `ADMIN_COPY_TOPICS`): it never talks to customers, so `messaging_policy.allowed` adds nothing there.
++- Broadcast composer logic (draft, confirm, POST, error text, delivery polling) lives in `@melorin/web-kit/broadcast.js`; both apps keep their own markup.
++- Still open: move Loyalty / Referral logic onto web-kit hooks, and a shared design-token CSS package (admin and store skins still differ).
 diff --git a/docs/GLOSSARY.md b/docs/GLOSSARY.md
 index 05da7ef..c2d8a21 100644
 --- a/docs/GLOSSARY.md
@@ -7109,10 +7313,10 @@ index 05da7ef..c2d8a21 100644
  | **mediator rule** | Melorin never stores panel-owned numbers; it reads them live (`vpn.PanelReader`) and caches them only within the single freshness policy. | ملورین داده‌های پنل را ذخیره نمی‌کند، زنده می‌خواند. |
  | **outbox** | The `outbox_events` table: events written in the same transaction as the change, delivered by the worker. | رخدادهای هم‌تراکنش با تغییر، که worker ارسال می‌کند. |
 diff --git a/packages/web-kit/package.json b/packages/web-kit/package.json
-index bec8049..bd42445 100644
+index bec8049..d8cacb7 100644
 --- a/packages/web-kit/package.json
 +++ b/packages/web-kit/package.json
-@@ -3,11 +3,16 @@
+@@ -3,11 +3,17 @@
    "private": true,
    "version": "1.0.0",
    "type": "module",
@@ -7129,7 +7333,8 @@ index bec8049..bd42445 100644
 +    "./GoogleSignIn.jsx": "./src/GoogleSignIn.jsx",
 +    "./format.js": "./src/format.js",
 +    "./eventCenter.js": "./src/eventCenter.js",
-+    "./bankSms.js": "./src/bankSms.js"
++    "./bankSms.js": "./src/bankSms.js",
++    "./broadcast.js": "./src/broadcast.js"
    }
  }
 diff --git a/packages/web-kit/src/bankSms.d.ts b/packages/web-kit/src/bankSms.d.ts
@@ -7199,6 +7404,86 @@ index 0000000..d97d251
 +      account_number: String(form.account_number).replace(/\s/g, '') || null,
 +    },
 +  };
++}
+diff --git a/packages/web-kit/src/broadcast.d.ts b/packages/web-kit/src/broadcast.d.ts
+new file mode 100644
+index 0000000..4cf1142
+--- /dev/null
++++ b/packages/web-kit/src/broadcast.d.ts
+@@ -0,0 +1,17 @@
++export const TITLE_MAX: number;
++export const BODY_MAX: number;
++export function usePollWhileQueued(items: { queued?: number }[] | undefined, reload: () => void): boolean;
++export function useBroadcastComposer(cfg: {
++  post: (payload: { title: string; body: string }) => Promise<Response>;
++  confirm: (title: string) => Promise<boolean> | boolean;
++  onSent: (result: any) => Promise<void> | void;
++}): {
++  title: string;
++  setTitle: (v: string) => void;
++  body: string;
++  setBody: (v: string) => void;
++  busy: boolean;
++  error: string;
++  filled: boolean;
++  send: () => Promise<void>;
++};
+diff --git a/packages/web-kit/src/broadcast.js b/packages/web-kit/src/broadcast.js
+new file mode 100644
+index 0000000..454f752
+--- /dev/null
++++ b/packages/web-kit/src/broadcast.js
+@@ -0,0 +1,51 @@
++// Headless logic of the broadcast composer (پیام همگانی). Admin-web (picks an audience) and store-web (own customers only) render their own
++// markup; the draft state, the confirm step, the POST and the error handling are written once. Core decides who is reached.
++import { useCallback, useEffect, useState } from 'react';
++import { errText } from './format.js';
++
++export const TITLE_MAX = 120;
++export const BODY_MAX = 3500;
++
++/** Keep polling `reload` every 8 s while any message still has queued deliveries. */
++export function usePollWhileQueued(items, reload) {
++  const queued = (items || []).some((b) => b.queued > 0);
++  useEffect(() => {
++    if (!queued) return undefined;
++    const t = setInterval(reload, 8000);
++    return () => clearInterval(t);
++  }, [queued, reload]);
++  return queued;
++}
++
++/**
++ * @param {{ post: (payload: {title: string, body: string}) => Promise<Response>,
++ *           confirm: (title: string) => Promise<boolean> | boolean,
++ *           onSent: (result: any) => Promise<void> | void }} cfg
++ */
++export function useBroadcastComposer({ post, confirm, onSent }) {
++  const [title, setTitle] = useState('');
++  const [body, setBody] = useState('');
++  const [busy, setBusy] = useState(false);
++  const [error, setError] = useState('');
++  const filled = Boolean(title.trim() && body.trim());
++  const send = useCallback(async () => {
++    setError('');
++    if (!(await confirm(title.trim()))) return;
++    setBusy(true);
++    try {
++      const r = await post({ title: title.trim(), body: body.trim() });
++      if (!r.ok) setError(await errText(r, 'ارسال ناموفق بود'));
++      else {
++        const d = await r.json();
++        setTitle('');
++        setBody('');
++        await onSent(d);
++      }
++    } catch {
++      setError('ارتباط با سرور برقرار نشد');
++    } finally {
++      setBusy(false);
++    }
++  }, [title, body, post, confirm, onSent]);
++  return { title, setTitle, body, setBody, busy, error, filled, send };
 +}
 diff --git a/packages/web-kit/src/eventCenter.d.ts b/packages/web-kit/src/eventCenter.d.ts
 new file mode 100644
