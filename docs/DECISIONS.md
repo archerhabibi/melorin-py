@@ -150,3 +150,4 @@ _Merged from the former 12-Change-Log-v1.1.md._
 - Server stays the authority for RBAC (`PATH_RULES` / `admin_area_guard`); the menu only hides screens.
 - Not changed (needs a product decision): `bulk-operations` stays in the `infrastructure` area.
 - Deferred: splitting `App.tsx` / `AdminExtra.tsx` and migrating views to `@melorin/api-client` (pure moves, own PRs).
+- r5 (phase 2, first step): `AdminExtra.tsx` (750 -> 72 lines) is now only the route registry. Coupons, Settings (+ integrations, sign-in methods, change-password) and the shared table/form primitives moved verbatim to `CouponsView.tsx`, `SettingsView.tsx`, `adminExtraKit.tsx`. No behaviour change.
