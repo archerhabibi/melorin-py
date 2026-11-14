@@ -1,0 +1,85 @@
+From 6ef9ffe2e018bf28d6a16d294c826024076c5422 Mon Sep 17 00:00:00 2001
+From: Melorin Dev <dev@melorin.local>
+Date: Sat, 14 Nov 2026 17:47:54 +0000
+Subject: [PATCH] refactor(admin-ui): panel-ops reconciliation writes use the
+ typed api-client (r6 phase 3 step 3)
+
+---
+ apps/admin-web/src/PanelOpsView.tsx | 29 ++++++++++++++++++-----------
+ docs/DECISIONS.md                   |  1 +
+ 2 files changed, 19 insertions(+), 11 deletions(-)
+
+diff --git a/apps/admin-web/src/PanelOpsView.tsx b/apps/admin-web/src/PanelOpsView.tsx
+index 3fafc7a..1607d29 100644
+--- a/apps/admin-web/src/PanelOpsView.tsx
++++ b/apps/admin-web/src/PanelOpsView.tsx
+@@ -2,7 +2,7 @@
+ // and the connection's access review (PG-05). Everything comes from the Core API; every write is an explicit, audited admin action.
+ import { useCallback, useEffect, useState } from 'react';
+ import { Activity, AlertTriangle, CheckCircle, Loader, RefreshCw, ShieldAlert } from 'lucide-react';
+-import { authFetch } from './api.ts';
++import { authFetch, typedClient } from './api.ts';
+ import { confirmDialog, promptDialog } from './ui.tsx';
+ import type { CallFn, Json, Rec, Toast } from './types.ts';
+ 
+@@ -129,11 +129,16 @@ export default function PanelOpsView({ api, toast }: { api?: Json; toast: Toast
+     }
+     setBusy(`${issue.id}:${action}`);
+     try {
+-      const r = await call(`/api/v1/admin/reconciliation/issues/${issue.id}/action`, {
+-        method: 'POST',
+-        body: JSON.stringify({ action, reason }),
+-      });
+-      if (!r.ok) throw new Error((await r.json().catch(() => ({})))?.error?.message || String(r.status));
++      // typed api-client: the action and its body are checked against the schema; the client already consumed the body, so the message comes from `error`
++      const { response: r, error } = await typedClient(api.base).post(
++        '/api/v1/admin/reconciliation/issues/{issue_id}/action',
++        {
++          params: { path: { issue_id: issue.id } },
++          body: { action, reason },
++        },
++      );
++      if (!r.ok)
++        throw new Error((error as { error?: { message?: string } } | undefined)?.error?.message || String(r.status));
+       toast('انجام شد');
+       await load();
+     } catch (e: Json) {
+@@ -146,9 +151,11 @@ export default function PanelOpsView({ api, toast }: { api?: Json; toast: Toast
+     if (!panelId) return;
+     setBusy('reconcile');
+     try {
+-      const r = await call(`/api/v1/admin/panels/${panelId}/reconcile`, { method: 'POST' });
++      const { response: r, data } = await typedClient(api.base).post('/api/v1/admin/panels/{panel_id}/reconcile', {
++        params: { path: { panel_id: panelId } },
++      });
+       if (!r.ok) throw new Error(String(r.status));
+-      const d = await r.json();
++      const d = (data ?? {}) as { unreachable?: boolean; checked?: number; orphans?: number };
+       toast(d.unreachable ? 'پنل در دسترس نبود' : `${d.checked} اکانت بررسی شد، ${d.orphans} کاربر ناشناس`);
+       await load();
+     } catch {
+@@ -160,9 +167,9 @@ export default function PanelOpsView({ api, toast }: { api?: Json; toast: Toast
+   const ignoreOrphan = async (o: Json) => {
+     const note = await promptDialog('توضیح (اختیاری): این کاربر چرا مشکلی ندارد؟', { title: 'نادیده گرفتن کاربر پنل' });
+     if (note === null) return;
+-    const r = await call(`/api/v1/admin/panel-orphans/${o.id}/ignore`, {
+-      method: 'POST',
+-      body: JSON.stringify({ note }),
++    const { response: r } = await typedClient(api.base).post('/api/v1/admin/panel-orphans/{orphan_id}/ignore', {
++      params: { path: { orphan_id: o.id } },
++      body: { note },
+     });
+     toast(r.ok ? 'از فهرست حذف شد (روی پنل دست نخورد)' : 'ناموفق بود');
+     if (r.ok) await load();
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index 0ccbf87..5bc94a7 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -166,3 +166,4 @@ _Merged from the former 12-Change-Log-v1.1.md._
+ - r5 (phase 4, browser): the Playwright suite (`e2e/`, real Chromium, mocked Core API) passed on a clean server: 26 passed, 2 skipped, including the role matrix, every admin menu route and Store Hub deep links. It runs against the Vite preview builds, not against the Compose stack.
+ - r5 (menu, 2026-11-14): bulk operations stays in the `infrastructure` permission area (it changes accounts on the external panel); the menu label is now «عملیات گروهی روی پنل» so the label matches who may use it. The URL slug `bulk-operations` is unchanged.
+ - r6 (phase 3, second step, 2026-11-14): Orders actions (retry / manual-review / refund) moved to `typedClient`, one literal path per action so the schema checks each body. The client consumes the response body, so failures read the message from its parsed `error`. Remaining on `authFetch`: Panel Operations and the other views, migrated endpoint by endpoint.
++- r6 (phase 3, third step, 2026-11-14): Panel Operations write calls (reconciliation issue action, panel reconcile, orphan ignore) moved to `typedClient`; no new loose Json/Rec types (typing ratchet stays green). Panel Operations reads and the capacity/events tabs stay on `authFetch` for now.
+-- 
+2.43.0
+
