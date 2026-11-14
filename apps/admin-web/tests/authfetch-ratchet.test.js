@@ -5,7 +5,7 @@ import { join } from 'node:path';
 // Typed-client migration ratchet (architecture audit 8.1): new admin code talks to the API through `typedClient`
 // (paths and bodies checked against the generated OpenAPI types). `authFetch` call sites may only shrink.
 // Lower BUDGET whenever a view is migrated; never raise it.
-const BUDGET = 40;
+const BUDGET = 30;
 
 function walk(dir) {
   return readdirSync(dir).flatMap((n) => {

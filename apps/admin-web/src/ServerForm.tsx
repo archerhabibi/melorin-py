@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { AlertTriangle, ChevronDown, Layers, MapPin, Plus, RefreshCw, Save, Server, Upload } from 'lucide-react';
-import { authFetch } from './api.ts';
+import { authFetch, typedClient } from './api.ts';
 import { Badge, dt, sid } from './ui.tsx';
 import {
   Drawer,
@@ -496,18 +496,18 @@ export function ServerImport({
       fail: string[] = [];
     for (const r of good) {
       try {
-        const res = await authFetch(api.base, '/api/v1/admin/servers', {
-          method: 'POST',
-          body: JSON.stringify({
+        const { response: res, error } = await typedClient(api.base).post('/api/v1/admin/servers', {
+          body: {
             name: r.name,
             location: r.location || null,
             capacity: r.capacity,
             product_codes: r.product_codes.length ? r.product_codes : null,
             panel_id: panel.id,
-          }),
+            allow_test: true, // the server default; the generated type marks it required
+          },
         });
         if (res.ok) ok++;
-        else fail.push(`${r.name}: ${await errText(res, 'ناموفق')}`);
+        else fail.push(`${r.name}: ${await errText({ json: async () => error }, 'ناموفق')}`);
       } catch {
         fail.push(`${r.name}: ارتباط برقرار نشد`);
       }
