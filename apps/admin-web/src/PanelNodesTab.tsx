@@ -1,7 +1,8 @@
 // Panel-scoped node health (PG-01): a tab of the panel detail drawer.
 import { useEffect, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
-import type { CallFn, Json, Rec, Toast } from './types.ts';
+import { getJson } from './api.ts';
+import type { Json, Rec, Toast } from './types.ts';
 
 const NODE_COLOR: Rec = {
   connected: 'var(--ok)',
@@ -20,21 +21,27 @@ const NODE_LABEL: Rec = {
 };
 const fmt = (v: Json) => (v ? new Date(v).toLocaleString('fa-IR') : '—');
 
-export default function PanelNodesTab({ call, panelId, toast }: { call: CallFn; panelId?: string; toast: Toast }) {
+export default function PanelNodesTab({
+  api,
+  panelId,
+  toast,
+}: {
+  api: { base: string };
+  panelId?: string;
+  toast: Toast;
+}) {
   const [nodes, setNodes] = useState<Json>(null);
   useEffect(() => {
     setNodes(null);
     if (!panelId) return;
     (async () => {
       try {
-        const r = await call(`/api/v1/admin/panels/${panelId}/nodes`);
-        if (!r.ok) throw new Error(String(r.status));
-        setNodes(await r.json());
+        setNodes(await getJson(api.base, `/api/v1/admin/panels/${panelId}/nodes`));
       } catch {
         toast('دریافت نودها ناموفق بود');
       }
     })();
-  }, [call, panelId, toast]);
+  }, [api.base, panelId, toast]);
   return (
     <section className="space-y-3">
       {!panelId && <p className="card p-4 text-sm">برای دیدن نودها یک پنل انتخاب کنید.</p>}
