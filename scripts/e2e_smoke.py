@@ -121,11 +121,16 @@ r = c.post(
     json={"store_id": sid, "enabled": True},
 )
 check("enable product for main store", r.status_code in (200, 201), r.text)
-c.put(
-    f"{A}/admin/settings/card.info",
+# Main store payment destination is a per-store row (alembic 0056); the global card.info setting is gone and rejected with 400.
+r = c.put(
+    f"{A}/admin/payment-destinations/manual_card",
     headers=adm,
-    json={"value": {"card_number": "6037000000000000", "holder": "Test"}},
+    json={
+        "is_enabled": True,
+        "public_config": {"card_number": "6037000000000000", "holder": "Test"},
+    },
 )
+check("configure main store manual_card destination", r.status_code == 200, r.text)
 r = c.post(f"{A}/admin/panels/{pid}/health", headers=adm)
 check("panel health-check", r.status_code == 200 and r.json().get("healthy"), r.text)
 
@@ -159,6 +164,7 @@ r = c.post(
 )
 check("top-up request", r.status_code in (200, 201), r.text)
 pay = r.json().get("id") or r.json().get("payment", {}).get("id")
+check("top-up payment id returned", bool(pay), r.text)
 r = c.post(f"{A}/admin/payments/{pay}/review", headers=adm, json={"approve": True})
 check("admin approves top-up", r.status_code == 200, r.text)
 w = c.get(f"{A}/stores/{sid}/wallet", headers=cust).json()
