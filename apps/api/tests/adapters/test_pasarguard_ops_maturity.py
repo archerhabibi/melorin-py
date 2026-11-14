@@ -16,6 +16,7 @@ import yaml
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from _jobs import jobs_source, patch_jobs
 from _db import make_order, make_product, make_user, open_schema_engine
 from _http import PASSWORD, add_user, api_client, totp_now
 from melorin.core import metrics
@@ -321,7 +322,7 @@ async def test_panel_backup_job_records_a_panel_run(monkeypatch, tmp_path):
 
     async with open_schema_engine() as engine:
         maker = async_sessionmaker(engine, expire_on_commit=False)
-        monkeypatch.setattr(jobs, "session_factory", lambda: maker)
+        patch_jobs(monkeypatch, "session_factory", lambda: maker)
         artifact = tmp_path / "panel-1.tar.age"
         artifact.write_bytes(b"x" * 12)
         script_dir = tmp_path / "scripts"
@@ -595,7 +596,7 @@ def test_worker_schedules_the_new_jobs():
     assert "cron(panel_settings_drift_job" in arq and arq.count("panel_settings_drift_job") >= 3
     # one read cycle per panel: metrics ride on the health job's adapter, so metrics has no cron of its own
     assert "cron(panel_metrics_job" not in arq
-    assert "panel_metrics.snapshot_panel(p, adapter)" in (ROOT / "apps/api/melorin/worker/jobs.py").read_text()
+    assert "panel_metrics.snapshot_panel(p, adapter)" in jobs_source()
     # T-R14: the panel backup is scheduled by the dedicated backup container, no longer by the ARQ worker
     assert "panel_backup_job" not in arq
     assert "jobs.panel_backup_job" in (ROOT / "apps/api/melorin/worker/backup_main.py").read_text()

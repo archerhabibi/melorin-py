@@ -14,6 +14,7 @@ from melorin.core.errors import AppError
 from melorin.kernel.models.vpn import Panel, ReconciliationIssue, VpnAccount
 from melorin.modules.vpn import inquiry, issues
 from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError
+from _jobs import patch_jobs
 from melorin.worker import jobs
 from test_pasarguard_service_db import FakePanel, remote, run, seed, use
 
@@ -87,7 +88,7 @@ async def test_expiry_job_does_not_expire_a_panel_account_on_its_own_clock(maker
     for n in ids:
         await _overdue(maker, n)
     fake = FakePanel([remote("renewed_on_panel", expire_days=20), remote("really_expired", status="expired", expire_days=-1)])
-    monkeypatch.setattr(jobs, "session_factory", lambda: maker)
+    patch_jobs(monkeypatch, "session_factory", lambda: maker)
     use(monkeypatch, fake)  # "panel_down" is simply absent from the panel => missing => no verdict
     await jobs.expiry_job()
     async with maker() as s:
@@ -113,7 +114,7 @@ async def test_expiry_job_still_uses_the_clock_for_accounts_without_a_panel(make
             )
         )
         await s.commit()
-    monkeypatch.setattr(jobs, "session_factory", lambda: maker)
+    patch_jobs(monkeypatch, "session_factory", lambda: maker)
     await jobs.expiry_job()
     async with maker() as s:
         assert (await s.scalar(select(VpnAccount.status))) == "expired"
@@ -249,7 +250,7 @@ async def test_near_expiry_warning_is_sent_only_when_the_panel_agrees(maker, mon
         sent.append(account.username)
 
     monkeypatch.setattr(notices, "near_expiry", fake_notice)
-    monkeypatch.setattr(jobs, "session_factory", lambda: maker)
+    patch_jobs(monkeypatch, "session_factory", lambda: maker)
     await jobs.near_expiry_job()
     assert sent == ["agrees"]
     async with maker() as s:
@@ -282,7 +283,7 @@ async def test_near_expiry_reads_every_page_not_only_the_first(maker, monkeypatc
         sent.append(account.username)
 
     monkeypatch.setattr(notices, "near_expiry", fake_notice)
-    monkeypatch.setattr(jobs, "session_factory", lambda: maker)
+    patch_jobs(monkeypatch, "session_factory", lambda: maker)
     await jobs.near_expiry_job()
     assert sorted(sent) == sorted(names)
     assert sent[0] == "u4"  # the account that ends first is handled first

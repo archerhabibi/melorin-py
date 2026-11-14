@@ -1,3 +1,4 @@
+from _jobs import jobs_source
 from pathlib import Path
 
 from _source import read_source, read_store_shell, read_web_source
@@ -248,7 +249,7 @@ def test_i36_cli_has_explicit_operational_commands():
 
 
 def test_i37_privacy_retention_preserves_financial_and_audit_tables():
-    jobs = read_source(ROOT / "melorin/worker/jobs.py")
+    jobs = jobs_source()
     arq = read_source(ROOT / "melorin/worker/arq_app.py")
     settings = read_source(ROOT / "melorin/core/settings_store.py")
     assert "privacy_retention_job" in jobs

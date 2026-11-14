@@ -19,6 +19,9 @@ from melorin.kernel.models.identity import VerificationCode
 from melorin.kernel.models.system import BackupRun, OutboxEvent, SystemSetting
 from melorin.kernel.models.vpn import Panel, VpnAccount
 from melorin.modules.vpn import notices, reconcile
+from melorin.core import integrations
+from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
+from _jobs import patch_jobs
 from melorin.worker import jobs
 
 
@@ -26,7 +29,7 @@ from melorin.worker import jobs
 async def maker(monkeypatch):
     async with open_schema_engine() as engine:
         m = async_sessionmaker(engine, expire_on_commit=False)
-        monkeypatch.setattr(jobs, "session_factory", lambda: m)
+        patch_jobs(monkeypatch, "session_factory", lambda: m)
         yield m
 
 
@@ -169,7 +172,7 @@ async def test_panel_health_job_records_healthy_unhealthy_error_and_closes_adapt
 
 
 async def test_close_adapter_tolerates_adapters_without_close():
-    await jobs.close_adapter(object())
+    await close_adapter(object())
 
 
 # --- reconciliation / retention / telegram gc ----------------------------------------------------------------------
@@ -184,7 +187,7 @@ async def test_reconciliation_job_runs_reconcile_v2_for_enabled_panels_and_survi
             raise RuntimeError("panel exploded")
         return reconcile.PanelResult(panel_id=panel.id, checked=3)
 
-    monkeypatch.setattr(jobs.reconcile, "reconcile_panel", fake)
+    monkeypatch.setattr(reconcile, "reconcile_panel", fake)
     async with maker() as s:
         for name, enabled in (("a", True), ("boom", True), ("z", True), ("off", False)):
             s.add(Panel(name=name, kind="mock", base_url="http://x", is_enabled=enabled))
@@ -245,8 +248,8 @@ def backup_env(maker, monkeypatch, tmp_path):
     async def no_s3(session):
         return {}
 
-    monkeypatch.setattr(jobs.integrations, "get_backup_s3", no_s3)
-    monkeypatch.setattr(jobs.integrations, "backup_s3_ready", lambda cfg: False)
+    monkeypatch.setattr(integrations, "get_backup_s3", no_s3)
+    monkeypatch.setattr(integrations, "backup_s3_ready", lambda cfg: False)
     return tmp_path
 
 
@@ -291,9 +294,9 @@ async def test_backup_job_passes_offsite_settings_to_the_script_when_s3_is_ready
     artifact = backup_env / "dump.enc"
     artifact.write_bytes(b"1")
     _script(backup_env, f'echo "$MELORIN_BACKUP_OFFSITE_URI" > {backup_env}/uri\necho {artifact}\n')
-    monkeypatch.setattr(jobs.integrations, "backup_s3_ready", lambda cfg: True)
-    monkeypatch.setattr(jobs.integrations, "rclone_env", lambda cfg: {"RCLONE_X": "1"})
-    monkeypatch.setattr(jobs.integrations, "rclone_uri", lambda cfg: "s3:bucket/path")
+    monkeypatch.setattr(integrations, "backup_s3_ready", lambda cfg: True)
+    monkeypatch.setattr(integrations, "rclone_env", lambda cfg: {"RCLONE_X": "1"})
+    monkeypatch.setattr(integrations, "rclone_uri", lambda cfg: "s3:bucket/path")
     assert await jobs.backup_job() == "succeeded"
     assert (backup_env / "uri").read_text().strip() == "s3:bucket/path"
     (run,) = await _runs(maker)
