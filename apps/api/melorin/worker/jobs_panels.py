@@ -6,7 +6,7 @@ import logging
 from sqlalchemy import select
 
 from melorin.core.db import session_factory, utcnow
-from melorin.modules.eventcenter import rules as event_center_rules
+from melorin.modules.panelops import panel_notices
 from melorin.modules.vpn import capacity, health, panel_events, reconcile
 from melorin.modules.panel_integrations import capabilities
 from melorin.kernel.models.vpn import Panel
@@ -62,9 +62,9 @@ async def panel_health_job(ctx=None):
                     except Exception:
                         log.exception("panel adapter close failed panel=%s", p.id)
             previous = health.apply(p, result)
-            await event_center_rules.notify_panel_health(s, p, previous)
-            await event_center_rules.notify_panel_nodes(s, p, result.node_changes)
-            await event_center_rules.notify_server_capacity(s, p, capacity_changes)
+            await panel_notices.notify_panel_health(s, p, previous)
+            await panel_notices.notify_panel_nodes(s, p, result.node_changes)
+            await panel_notices.notify_server_capacity(s, p, capacity_changes)
         await s.commit()
 
 

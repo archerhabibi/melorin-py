@@ -231,7 +231,7 @@ async def check_panel(panel: Panel, adapter, *, now=None) -> dict:
 
 async def run_all(session: AsyncSession, *, close_adapter) -> int:
     """Worker entry: check every enabled PasarGuard panel; announce a panel that starts (or stops) drifting once."""
-    from melorin.modules.eventcenter import rules as event_center_rules
+    from melorin.modules.panelops import panel_notices
     from melorin.modules.panel_integrations.adapters.registry import build_adapter
 
     done = 0
@@ -243,7 +243,7 @@ async def run_all(session: AsyncSession, *, close_adapter) -> int:
             adapter = build_adapter(panel)
             after = (await check_panel(panel, adapter))["drifting"]
             done += 1
-            await event_center_rules.notify_settings_drift(session, panel, before, after)
+            await panel_notices.notify_settings_drift(session, panel, before, after)
         except Exception:
             log.warning("settings drift check failed panel=%s", panel.id, exc_info=True)
         finally:

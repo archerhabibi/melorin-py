@@ -510,7 +510,7 @@ async def test_non_pasarguard_panels_are_not_checked():
 
 
 async def test_run_all_announces_a_drift_change_once(monkeypatch):
-    from melorin.modules.eventcenter import rules as ec
+    from melorin.modules.panelops import panel_notices as ec
 
     announced: list[tuple[int, int]] = []
 
@@ -535,7 +535,7 @@ async def test_run_all_announces_a_drift_change_once(monkeypatch):
 
 
 async def test_drift_notice_only_on_state_change(monkeypatch):
-    from melorin.modules.eventcenter import rules as ec
+    from melorin.modules.panelops import panel_notices as ec
 
     sent: list[str] = []
 

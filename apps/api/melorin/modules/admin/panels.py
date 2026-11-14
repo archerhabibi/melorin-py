@@ -13,7 +13,7 @@ from melorin.kernel.models.catalog import Product
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.vpn import Panel, PanelNode, PanelOrphan, Server, VpnAccount
 from melorin.kernel.models.bundles import Bundle, BundleMember
-from melorin.modules.eventcenter import rules as event_center_rules
+from melorin.modules.panelops import panel_notices
 from melorin.modules.admin.schemas import (
     CreatePanel,
     CreateServer,
@@ -413,8 +413,8 @@ async def panel_health(panel_id: uuid.UUID, _: AdminUser, session: Session):
     if result.error == "health check returned false":
         result.error = "پنل پاسخ سالم نداد."
     previous = health.apply(p, result)
-    await event_center_rules.notify_panel_health(session, p, previous)
-    await event_center_rules.notify_panel_nodes(session, p, result.node_changes)
+    await panel_notices.notify_panel_health(session, p, previous)
+    await panel_notices.notify_panel_nodes(session, p, result.node_changes)
     await session.commit()
     usable = result.status in health.SELLABLE_STATES
     if usable:  # an explicit health check is also the moment to re-read what the credential may do
