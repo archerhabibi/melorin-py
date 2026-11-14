@@ -1,0 +1,282 @@
+From 0c140f35f7d8a7c42522db91895c3a6456ccaa61 Mon Sep 17 00:00:00 2001
+From: Melorin Dev <dev@melorin.local>
+Date: Sat, 14 Nov 2026 18:55:48 +0000
+Subject: [PATCH] refactor(admin-ui): panel capacity and live-events tabs use
+ the typed api-client (r7)
+
+---
+ apps/admin-web/src/PanelCapacityTab.tsx       | 29 +++++++---
+ apps/admin-web/src/PanelEventsTab.tsx         | 57 ++++++++++++-------
+ .../src/panels/PanelDetailDrawer.tsx          |  4 +-
+ apps/admin-web/tests/panel-phase3.test.jsx    | 18 +++---
+ docs/DECISIONS.md                             |  2 +
+ 5 files changed, 72 insertions(+), 38 deletions(-)
+
+diff --git a/apps/admin-web/src/PanelCapacityTab.tsx b/apps/admin-web/src/PanelCapacityTab.tsx
+index 1411c5e..96b62c7 100644
+--- a/apps/admin-web/src/PanelCapacityTab.tsx
++++ b/apps/admin-web/src/PanelCapacityTab.tsx
+@@ -2,7 +2,8 @@
+ // per-group health with the reasons, and a "check now" action. Everything comes from /admin/panels/{id}/capacity*.
+ import { useCallback, useEffect, useState } from 'react';
+ import { AlertTriangle, CheckCircle, Loader, RefreshCw } from 'lucide-react';
+-import type { CallFn, Json, Rec, Toast } from './types.ts';
++import { getJson, typedClient } from './api.ts';
++import type { Json, Rec, Toast } from './types.ts';
+ 
+ const GROUP_LABEL: Rec = { healthy: 'سالم', degraded: 'مختل', blocked: 'مسدود' };
+ const GROUP_COLOR: Rec = { healthy: 'var(--ok)', degraded: 'var(--wn)', blocked: 'var(--bd)' };
+@@ -11,7 +12,15 @@ const FILL_COLOR: Rec = { ok: 'var(--ok)', warning: 'var(--wn)', critical: 'var(
+ const SOURCE_LABEL: Rec = { melorin: 'شمارش Melorin', panel: 'شمارش پنل', max: 'بیشترین مقدار دو شمارش' };
+ const fmt = (v: Json) => (v ? new Date(v).toLocaleString('fa-IR') : '—');
+ 
+-export default function PanelCapacityTab({ call, panelId, toast }: { call: CallFn; panelId?: Json; toast: Toast }) {
++export default function PanelCapacityTab({
++  api,
++  panelId,
++  toast,
++}: {
++  api: { base: string };
++  panelId?: Json;
++  toast: Toast;
++}) {
+   const [data, setData] = useState<Json>(null);
+   const [loading, setLoading] = useState(false);
+   const [busy, setBusy] = useState(false);
+@@ -20,14 +29,12 @@ export default function PanelCapacityTab({ call, panelId, toast }: { call: CallF
+     if (!panelId) return;
+     setLoading(true);
+     try {
+-      const r = await call(`/api/v1/admin/panels/${panelId}/capacity`);
+-      if (!r.ok) throw new Error(String(r.status));
+-      setData(await r.json());
++      setData(await getJson(api.base, `/api/v1/admin/panels/${panelId}/capacity`));
+     } catch {
+       toast('دریافت وضعیت ظرفیت ناموفق بود');
+     }
+     setLoading(false);
+-  }, [call, panelId, toast]);
++  }, [api.base, panelId, toast]);
+ 
+   useEffect(() => {
+     setData(null);
+@@ -37,8 +44,14 @@ export default function PanelCapacityTab({ call, panelId, toast }: { call: CallF
+   const refresh = async () => {
+     setBusy(true);
+     try {
+-      const r = await call(`/api/v1/admin/panels/${panelId}/capacity/refresh`, { method: 'POST' });
+-      const body = await r.json().catch(() => ({}));
++      const {
++        response: r,
++        data,
++        error,
++      } = await typedClient(api.base).post('/api/v1/admin/panels/{panel_id}/capacity/refresh', {
++        params: { path: { panel_id: String(panelId) } },
++      });
++      const body = ((r.ok ? data : error) ?? {}) as { message?: string; detail?: string; changes?: unknown[] };
+       if (!r.ok) {
+         toast(body?.message || body?.detail || 'بررسی ظرفیت ناموفق بود');
+       } else {
+diff --git a/apps/admin-web/src/PanelEventsTab.tsx b/apps/admin-web/src/PanelEventsTab.tsx
+index 608ed13..6a8cd5f 100644
+--- a/apps/admin-web/src/PanelEventsTab.tsx
++++ b/apps/admin-web/src/PanelEventsTab.tsx
+@@ -2,8 +2,9 @@
+ // Everything comes from the Core API (/admin/panels/{id}/events*). The webhook secret is never shown: the API never returns it.
+ import { useCallback, useEffect, useState } from 'react';
+ import { AlertTriangle, CheckCircle, Loader, Radio, RefreshCw } from 'lucide-react';
++import { getJson, typedClient } from './api.ts';
+ import { confirmDialog } from './ui.tsx';
+-import type { CallFn, Json, Rec, Toast } from './types.ts';
++import type { Json, Rec, Toast } from './types.ts';
+ 
+ const ACTION_LABEL: Rec = {
+   user_created: 'ساخت کاربر',
+@@ -45,7 +46,15 @@ function silentText(seconds: Json) {
+ 
+ const PAGE = 50;
+ 
+-export default function PanelEventsTab({ call, panelId, toast }: { call: CallFn; panelId?: Json; toast: Toast }) {
++export default function PanelEventsTab({
++  api,
++  panelId,
++  toast,
++}: {
++  api: { base: string };
++  panelId?: Json;
++  toast: Toast;
++}) {
+   const [state, setState] = useState<Json>(null);
+   const [events, setEvents] = useState<{ total: number; items: Rec[] }>({ total: 0, items: [] });
+   const [filter, setFilter] = useState('');
+@@ -53,14 +62,7 @@ export default function PanelEventsTab({ call, panelId, toast }: { call: CallFn;
+   const [busy, setBusy] = useState('');
+   const [loading, setLoading] = useState(false);
+ 
+-  const getJ = useCallback(
+-    async (path: string) => {
+-      const r = await call(path);
+-      if (!r.ok) throw new Error(String(r.status));
+-      return r.json();
+-    },
+-    [call],
+-  );
++  const getJ = useCallback((path: string) => getJson(api.base, path), [api.base]);
+ 
+   const query = useCallback(
+     (offset: Json) => {
+@@ -114,11 +116,12 @@ export default function PanelEventsTab({ call, panelId, toast }: { call: CallFn;
+     return () => clearTimeout(t);
+   }, [load, user]);
+ 
+-  const post = async (key: Json, path: string, body: Json, okText: Json) => {
++  // One typed POST per action (literal path, so the schema checks each body); ``run`` returns the client result.
++  const post = async (key: Json, run: () => Promise<Json>, okText: Json) => {
+     setBusy(key);
+     try {
+-      const r = await call(path, { method: 'POST', body: body ? JSON.stringify(body) : undefined });
+-      const data = await r.json().catch(() => ({}));
++      const { response: r, data: ok, error } = await run();
++      const data = (r.ok ? ok : error) ?? {};
+       if (!r.ok) throw new Error(data?.error?.message || String(r.status));
+       toast(okText(data));
+       if (data && data.connected !== undefined) setState(data);
+@@ -136,8 +139,11 @@ export default function PanelEventsTab({ call, panelId, toast }: { call: CallFn;
+     if (!(await confirmDialog(msg, { title: rotate ? 'چرخش راز وب‌هوک' : 'اتصال رویدادهای زنده' }))) return;
+     await post(
+       'connect',
+-      `/api/v1/admin/panels/${panelId}/events/connect`,
+-      { confirm: true, rotate_secret: rotate },
++      () =>
++        typedClient(api.base).post('/api/v1/admin/panels/{panel_id}/events/connect', {
++          params: { path: { panel_id: String(panelId) } },
++          body: { confirm: true, rotate_secret: !!rotate },
++        }),
+       () => (rotate ? 'راز جدید ثبت شد' : 'رویدادهای زنده وصل شد'),
+     );
+   };
+@@ -149,7 +155,14 @@ export default function PanelEventsTab({ call, panelId, toast }: { call: CallFn;
+       }))
+     )
+       return;
+-    await post('disconnect', `/api/v1/admin/panels/${panelId}/events/disconnect`, null, () => 'قطع شد');
++    await post(
++      'disconnect',
++      () =>
++        typedClient(api.base).post('/api/v1/admin/panels/{panel_id}/events/disconnect', {
++          params: { path: { panel_id: String(panelId) } },
++        }),
++      () => 'قطع شد',
++    );
+   };
+ 
+   if (!panelId) return <p className="card p-4 text-sm">برای دیدن رویدادهای زنده یک پنل انتخاب کنید.</p>;
+@@ -257,8 +270,10 @@ export default function PanelEventsTab({ call, panelId, toast }: { call: CallFn;
+           onClick={() =>
+             post(
+               'process',
+-              `/api/v1/admin/panels/${panelId}/events/process`,
+-              null,
++              () =>
++                typedClient(api.base).post('/api/v1/admin/panels/{panel_id}/events/process', {
++                  params: { path: { panel_id: String(panelId) } },
++                }),
+               (d: Json) => `${d.processed} رویداد پردازش شد`,
+             )
+           }
+@@ -271,8 +286,10 @@ export default function PanelEventsTab({ call, panelId, toast }: { call: CallFn;
+           onClick={() =>
+             post(
+               'retry',
+-              `/api/v1/admin/panels/${panelId}/events/retry-failed`,
+-              null,
++              () =>
++                typedClient(api.base).post('/api/v1/admin/panels/{panel_id}/events/retry-failed', {
++                  params: { path: { panel_id: String(panelId) } },
++                }),
+               (d: Json) => `${d.requeued} رویداد دوباره در صف رفت`,
+             )
+           }
+diff --git a/apps/admin-web/src/panels/PanelDetailDrawer.tsx b/apps/admin-web/src/panels/PanelDetailDrawer.tsx
+index 8a840eb..c833964 100644
+--- a/apps/admin-web/src/panels/PanelDetailDrawer.tsx
++++ b/apps/admin-web/src/panels/PanelDetailDrawer.tsx
+@@ -48,8 +48,8 @@ export function PanelDetailTabs({
+       </div>
+       {tab === 'nodes' && <PanelNodesTab call={call} panelId={panelId} toast={toast} />}
+       {tab === 'console' && <PanelConsoleTab call={call} panelId={panelId} toast={toast} />}
+-      {tab === 'events' && <PanelEventsTab call={call} panelId={panelId} toast={toast} />}
+-      {tab === 'capacity' && <PanelCapacityTab call={call} panelId={panelId} toast={toast} />}
++      {tab === 'events' && <PanelEventsTab api={api} panelId={panelId} toast={toast} />}
++      {tab === 'capacity' && <PanelCapacityTab api={api} panelId={panelId} toast={toast} />}
+       {tab === 'templates' && <PanelTemplatesTab call={call} panelId={panelId} toast={toast} />}
+       {tab === 'observe' && <PanelPhase5Tab call={call} panelId={panelId} toast={toast} />}
+       {tab === 'access' && <PanelAccessTab call={call} panelId={panelId} panelName={panelName} toast={toast} />}
+diff --git a/apps/admin-web/tests/panel-phase3.test.jsx b/apps/admin-web/tests/panel-phase3.test.jsx
+index fb331e0..edd55e7 100644
+--- a/apps/admin-web/tests/panel-phase3.test.jsx
++++ b/apps/admin-web/tests/panel-phase3.test.jsx
+@@ -7,13 +7,15 @@ import AccountToolsPanel from '../src/AccountToolsPanel.tsx';
+ import { DialogHost } from '../src/ui.tsx';
+ 
+ const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
++// Capacity talks to Core through the typed api-client (global fetch); the other tabs still take a `call` prop.
+ const mk = (handler) => {
+   const calls = [];
+-  const call = async (path, o = {}) => {
++  const run = async (path, o = {}) => {
+     calls.push([o.method || 'GET', path, o.body]);
+     return handler(path, o);
+   };
+-  return { call, calls };
++  vi.spyOn(globalThis, 'fetch').mockImplementation((url, o) => run(String(url).replace(/^https?:\/\/[^/]+/, ''), o));
++  return { call: run, calls };
+ };
+ 
+ afterEach(() => vi.restoreAllMocks());
+@@ -48,8 +50,8 @@ describe('PanelCapacityTab (PG-08)', () => {
+   };
+ 
+   it('shows sellability, outside-Melorin users and group reasons', async () => {
+-    const { call } = mk(() => json(capacity));
+-    render(<PanelCapacityTab call={call} panelId="p1" toast={() => {}} />);
++    mk(() => json(capacity));
++    render(<PanelCapacityTab api={{ base: 'http://core.test' }} panelId="p1" toast={() => {}} />);
+     expect(await screen.findByText('srv-a')).toBeInTheDocument();
+     expect(screen.getByText('فروش متوقف')).toBeInTheDocument();
+     expect(screen.getByText('نود متصلی برای این مقصد نیست')).toBeInTheDocument();
+@@ -58,17 +60,17 @@ describe('PanelCapacityTab (PG-08)', () => {
+   });
+ 
+   it('refresh posts and reloads', async () => {
+-    const { call, calls } = mk((path, o) =>
++    const { calls } = mk((path, o) =>
+       o.method === 'POST' ? json({ changes: [{ server: 'srv-a', kind: 'blocked', to: 'x' }] }) : json(capacity),
+     );
+-    render(<PanelCapacityTab call={call} panelId="p1" toast={() => {}} />);
++    render(<PanelCapacityTab api={{ base: 'http://core.test' }} panelId="p1" toast={() => {}} />);
+     await userEvent.click(await screen.findByRole('button', { name: /بررسی همین حالا/ }));
+     await waitFor(() => expect(calls.some(([m, p]) => m === 'POST' && p.endsWith('/capacity/refresh'))).toBe(true));
+   });
+ 
+   it('explains an unsupported panel', async () => {
+-    const { call } = mk(() => json({ ...capacity, capacity_ops: false }));
+-    render(<PanelCapacityTab call={call} panelId="p1" toast={() => {}} />);
++    mk(() => json({ ...capacity, capacity_ops: false }));
++    render(<PanelCapacityTab api={{ base: 'http://core.test' }} panelId="p1" toast={() => {}} />);
+     expect(await screen.findByText(/پشتیبانی نمی‌کند/)).toBeInTheDocument();
+   });
+ });
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index 04212e8..d485803 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -170,3 +170,5 @@ _Merged from the former 12-Change-Log-v1.1.md._
+ - r6 (phase 3, fourth step, 2026-11-14): Panel Operations reads (panels, reconciliation summary/issues, orphans) go through `getJson` from `@melorin/api-client`; PanelOpsView no longer uses `authFetch`. The capacity and events tabs of the panel drawer still take an `authFetch`-based `call` prop.
+ - r6 (verification, 2026-11-14, base 0ffcef6): full API suite 2720 passed, 11 skipped (9 min, Python 3.12, locked requirements); lint-imports 8/8 kept; admin-web typecheck, lint, build, prettier and the frontend/G001-G010 guards pass. Still not run in this round: migrations from the previous version, full Compose with the new commits, Playwright against Compose.
+ - r6 (verification, PostgreSQL, 2026-11-14): on a throwaway postgres:16-alpine, `scripts/migration_smoke.sh` ran from an empty database to head `0056_main_store_payment_config` and passed; the PostgreSQL lane (`tests/postgres`, via TEST_PG_URL) passed 8/8. Not run: upgrade from a previous-version database, full Compose with the r6 commits, Playwright against Compose.
++
++- r7 (phase 3, fifth step, 2026-11-14): the panel drawer's capacity and live-events tabs no longer take the `authFetch`-based `call` prop. They receive `api` and read through `getJson` and write through `typedClient` (one literal path per action, so the schema checks each body). Same transport rules as before (in-memory bearer token, one shared refresh on 401). Capacity/events tests now mock `fetch`. Still on `authFetch` `call`: nodes, console, templates, observe (phase 5) and access tabs, and the remaining non-panel views; they move endpoint by endpoint.
+-- 
+2.43.0
+
