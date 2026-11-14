@@ -1,0 +1,614 @@
+From 1c4e61b9bf6333e47e97bbf838aaec969ab6cc95 Mon Sep 17 00:00:00 2001
+From: Melorin Refactor <noreply@melorin.local>
+Date: Sat, 14 Nov 2026 22:52:32 +0000
+Subject: [PATCH 1/2] refactor(audit): regroup admin menu, manual tasks become
+ a reseller-onboarding tab, one-shot migrate service, web-kit lockfile
+
+---
+ .github/workflows/ci.yml                      |  5 ++
+ apps/admin-web/src/AdminExtra.tsx             |  6 +-
+ apps/admin-web/src/AdminNavigation.tsx        |  9 +--
+ apps/admin-web/src/ResellerOnboardingView.tsx | 64 +++++++++++++++++++
+ apps/admin-web/src/adminAccess.ts             |  1 -
+ apps/admin-web/src/adminNav.ts                | 33 +++++-----
+ apps/admin-web/src/infra.tsx                  |  1 +
+ apps/admin-web/tests/admin-team.test.jsx      |  2 +-
+ .../tests/identity-login-move.test.jsx        |  2 +-
+ apps/admin-web/tests/nav-structure.test.js    | 35 ++++++++++
+ docker-compose.yml                            | 26 +++++++-
+ packages/web-kit/package-lock.json            | 48 ++++++++++++++
+ scripts/check_ops_p0.py                       |  6 +-
+ scripts/check_web_lockfiles.py                |  1 +
+ 14 files changed, 205 insertions(+), 34 deletions(-)
+ create mode 100644 apps/admin-web/src/ResellerOnboardingView.tsx
+ create mode 100644 apps/admin-web/tests/nav-structure.test.js
+ create mode 100644 packages/web-kit/package-lock.json
+
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 61a796b..fe48301 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -97,6 +97,11 @@ jobs:
+         working-directory: apps/admin-web
+       - run: python scripts/check_bundle_budget.py
+         working-directory: .
++      # Shared web-kit now has a lockfile (audit 8.3): reproducible install + production-dependency audit.
++      - run: npm ci --ignore-scripts --no-audit --no-fund
++        working-directory: packages/web-kit
++      - run: npm audit --omit=dev --audit-level=high
++        working-directory: packages/web-kit
+       # Generated API client: types must match the committed OpenAPI snapshot, compile, and pass unit tests.
+       - run: npm ci --include=dev --ignore-scripts --no-audit --no-fund
+         working-directory: packages/api-client
+diff --git a/apps/admin-web/src/AdminExtra.tsx b/apps/admin-web/src/AdminExtra.tsx
+index 89bbe06..ca6af00 100644
+--- a/apps/admin-web/src/AdminExtra.tsx
++++ b/apps/admin-web/src/AdminExtra.tsx
+@@ -11,8 +11,7 @@ const ProductsView = lazy(() => import('./ProductsView.tsx'));
+ const BundlesView = lazy(() => import('./BundlesView.tsx'));
+ const TicketsView = lazy(() => import('./TicketsView.tsx'));
+ const PaymentsView = lazy(() => import('./PaymentsView.tsx'));
+-const ResellerApplicationsView = lazy(() => import('./ResellerApplicationsView.tsx'));
+-const ManualTasksView = lazy(() => import('./ManualTasksView.tsx'));
++const ResellerOnboardingView = lazy(() => import('./ResellerOnboardingView.tsx'));
+ const BroadcastView = lazy(() => import('./BroadcastView.tsx'));
+ const ButtonStylesView = lazy(() => import('./ButtonStylesView.tsx'));
+ const EventCenterView = lazy(() => import('./EventCenterView.tsx'));
+@@ -44,8 +43,7 @@ function Tickets({ api, toast }: { api?: Json; toast: Toast }) {
+ 
+ export const extraRoutes = {
+   'گزارشات و نمودارها': ReportsView,
+-  'درخواست‌های نمایندگی': ResellerApplicationsView,
+-  'کارهای دستی': ManualTasksView,
++  'درخواست‌های نمایندگی': ResellerOnboardingView, // + tab «اقدامات تکمیلی» (the old «کارهای دستی» screen)
+   'پیام همگانی': BroadcastView,
+   'دکمه‌های تلگرام': ButtonStylesView,
+   'مرکز رویداد': EventCenterView,
+diff --git a/apps/admin-web/src/AdminNavigation.tsx b/apps/admin-web/src/AdminNavigation.tsx
+index 340c14a..f31da86 100644
+--- a/apps/admin-web/src/AdminNavigation.tsx
++++ b/apps/admin-web/src/AdminNavigation.tsx
+@@ -49,9 +49,9 @@ export function Nav({
+                     {openTickets}
+                   </span>
+                 )}
+-                {name === 'درخواست‌های نمایندگی' && pendingApps > 0 && (
++                {name === 'درخواست‌های نمایندگی' && pendingApps + (manualTasks || 0) > 0 && (
+                   <span className="mr-auto rounded-full bg-[#e8743b] px-2 py-0.5 text-[10px] font-bold text-white">
+-                    {pendingApps}
++                    {pendingApps + (manualTasks || 0)}
+                   </span>
+                 )}
+                 {name === 'فروشگاه‌ها' && pendingPanelReq > 0 && (
+@@ -59,11 +59,6 @@ export function Nav({
+                     {pendingPanelReq}
+                   </span>
+                 )}
+-                {name === 'کارهای دستی' && manualTasks > 0 && (
+-                  <span className="mr-auto rounded-full bg-[#e8743b] px-2 py-0.5 text-[10px] font-bold text-white">
+-                    {manualTasks}
+-                  </span>
+-                )}
+               </button>
+             ))}
+           </div>
+diff --git a/apps/admin-web/src/ResellerOnboardingView.tsx b/apps/admin-web/src/ResellerOnboardingView.tsx
+new file mode 100644
+index 0000000..0c42719
+--- /dev/null
++++ b/apps/admin-web/src/ResellerOnboardingView.tsx
+@@ -0,0 +1,64 @@
++// «درخواست‌های نمایندگی» — the reseller onboarding desk, two tabs (audit 5.2: manual tasks are part of onboarding, not a menu of their own):
++//   applications «درخواست‌ها»        the review queue: approve (creates the store) or reject
++//   tasks        «اقدامات تکمیلی»    what a human must still do outside Melorin after sign-up (Google, Telegram, domain)
++import { lazy, Suspense, useEffect, useState } from 'react';
++import { getJson } from './api.ts';
++import { Segmented, num } from './kit.tsx';
++import { can } from './adminAccess.ts';
++import type { Toast, ViewApi } from './types.ts';
++
++const ResellerApplicationsView = lazy(() => import('./ResellerApplicationsView.tsx'));
++const ManualTasksView = lazy(() => import('./ManualTasksView.tsx'));
++
++const TABS = ['applications', 'tasks'];
++const tabFromHash = () => {
++  const q = typeof window === 'undefined' ? '' : window.location.hash.split('?')[1] || '';
++  const t = new URLSearchParams(q).get('tab');
++  return TABS.includes(t ?? '') ? (t as string) : 'applications';
++};
++
++export default function ResellerOnboardingView({ api, toast }: { api: ViewApi; toast: Toast }) {
++  // The server decides every request; this only hides a tab the role could not use (manual tasks sit in the «customers» area).
++  const perms = api.me?.permissions;
++  const tasksAllowed = can(perms, 'customers');
++  const [tab, setTab] = useState(() => (tabFromHash() === 'tasks' && !tasksAllowed ? 'applications' : tabFromHash()));
++  const [open, setOpen] = useState(0); // manual tasks still waiting for a human (badge on the second tab)
++  useEffect(() => {
++    if (!tasksAllowed) return;
++    let alive = true;
++    getJson<{ open?: number }>(api.base, '/api/v1/admin/manual-tasks?status=open')
++      .then((x) => alive && setOpen(x?.open || 0))
++      .catch(() => {});
++    return () => {
++      alive = false;
++    };
++  }, [api.base, tab, tasksAllowed]);
++  const pick = (v: string) => {
++    setTab(v);
++    // deep link: #/reseller-applications?tab=tasks (replaceState: switching tabs adds no history entry)
++    window.history.replaceState(
++      null,
++      '',
++      `${window.location.pathname}${window.location.search}#/reseller-applications${v === 'applications' ? '' : `?tab=${v}`}`,
++    );
++  };
++  return (
++    <div className="space-y-5">
++      {tasksAllowed && (
++        <Segmented
++          label="بخش درخواست‌های نمایندگی"
++          value={tab}
++          onChange={pick}
++          options={[
++            ['applications', 'درخواست‌ها'],
++            ['tasks', <>اقدامات تکمیلی {open > 0 && <b className="num">{num(open)}</b>}</>],
++          ]}
++        />
++      )}
++      <Suspense fallback={<div className="skel h-44" />}>
++        {tab === 'applications' && <ResellerApplicationsView api={api} toast={toast} />}
++        {tab === 'tasks' && tasksAllowed && <ManualTasksView api={api} toast={toast} />}
++      </Suspense>
++    </div>
++  );
++}
+diff --git a/apps/admin-web/src/adminAccess.ts b/apps/admin-web/src/adminAccess.ts
+index 4c5fe18..9978702 100644
+--- a/apps/admin-web/src/adminAccess.ts
++++ b/apps/admin-web/src/adminAccess.ts
+@@ -14,7 +14,6 @@ export const SECTION_AREA: Record<string, string> = {
+   فروشگاه‌ها: 'resellers',
+   نمایندگان: 'resellers',
+   'درخواست‌های نمایندگی': 'resellers',
+-  'کارهای دستی': 'customers',
+   'پیام همگانی': 'customers',
+   'مرکز رویداد': 'customers',
+   کوپن‌ها: 'catalog',
+diff --git a/apps/admin-web/src/adminNav.ts b/apps/admin-web/src/adminNav.ts
+index 1f8fd4f..f4a5ad7 100644
+--- a/apps/admin-web/src/adminNav.ts
++++ b/apps/admin-web/src/adminNav.ts
+@@ -19,7 +19,6 @@ import {
+   Store,
+   Layers,
+   UserRound,
+-  ListChecks,
+   BellRing,
+   Megaphone,
+   UserPlus,
+@@ -40,23 +39,26 @@ export const groups: [string, [string, LucideIcon, string][], string?][] = [
+     ],
+   ],
+   [
+-    'عملیات',
++    'فروش و عملیات',
+     [
+       ['سفارش‌ها', Package, 'orders'],
+       ['پرداخت‌ها', CreditCard, 'payments'],
+       ['اکانت‌های VPN', Server, 'vpn'],
+-      ['عملیات گروهی روی پنل', Zap, 'bulk-operations'], // acts on VPN accounts, so it sits next to them
+       ['تیکت‌ها', Ticket, 'tickets'],
+     ],
+   ],
+   [
+-    'مشتریان و فروشگاه‌ها',
++    'مشتریان',
+     [
+       ['کاربران', Users, 'users'],
+       ['هویت', Fingerprint, 'identity'], // customer identity review / auto-link / trusted devices
+-      ['فروشگاه‌ها', Store, 'stores'],
+-      ['درخواست‌های نمایندگی', UserPlus, 'reseller-applications'],
+-      ['کارهای دستی', ListChecks, 'manual-tasks'],
++    ],
++  ],
++  [
++    'فروشگاه‌ها و نمایندگان',
++    [
++      ['فروشگاه‌ها', Store, 'stores'], // the store hub: profile, panel access, volume, prices, API, notices, bots
++      ['درخواست‌های نمایندگی', UserPlus, 'reseller-applications'], // + tab «اقدامات تکمیلی» (former «کارهای دستی»)
+     ],
+   ],
+   [
+@@ -71,25 +73,26 @@ export const groups: [string, [string, LucideIcon, string][], string?][] = [
+     'مسیر فروش: پنل و سرور ← بسته فروش ← پکیج',
+   ],
+   [
+-    'ارتباطات',
++    'زیرساخت و عملیات پنل',
+     [
+-      ['پیام همگانی', Megaphone, 'broadcasts'],
+-      ['مرکز رویداد', BellRing, 'event-center'],
+-      ['دکمه‌های تلگرام', Paintbrush, 'button-styles'],
++      ['پنل‌ها و سرورها', PanelTop, 'panels'],
++      ['سلامت زیرساخت', ShieldCheck, 'infra-health'],
++      ['عملیات پنل', Activity, 'panel-ops'],
++      ['عملیات گروهی روی پنل', Zap, 'bulk-operations'], // infrastructure permission, previews + resumable runs on a panel
+     ],
+   ],
+   [
+-    'زیرساخت',
++    'ارتباطات',
+     [
+-      ['پنل‌ها و سرورها', PanelTop, 'panels'],
+-      ['سلامت زیرساخت', ShieldCheck, 'infra-health'],
+-      ['عملیات پنل', Activity, 'panel-ops'],
++      ['پیام همگانی', Megaphone, 'broadcasts'],
++      ['مرکز رویداد', BellRing, 'event-center'],
+     ],
+   ],
+   [
+     'سیستم و امنیت',
+     [
+       ['تنظیمات', Settings, 'settings'],
++      ['دکمه‌های تلگرام', Paintbrush, 'button-styles'], // «system» permission (owner), so it lives with the owner-only settings
+       ['ممیزی', ScrollText, 'audit'],
+       ['تیم مدیریت', UsersRound, 'admin-team'],
+       ['حساب من', UserRound, 'my-account'],
+diff --git a/apps/admin-web/src/infra.tsx b/apps/admin-web/src/infra.tsx
+index 7e5e4b4..0113735 100644
+--- a/apps/admin-web/src/infra.tsx
++++ b/apps/admin-web/src/infra.tsx
+@@ -88,6 +88,7 @@ export function legacyHash(hash: Json) {
+   };
+   if (hubTab[path]) return `#/stores?tab=${hubTab[path]}`;
+   if (path === '#/panel-ops' && new URLSearchParams(q).get('tab') === 'notices') return '#/stores?tab=notices'; // per-store setting
++  if (path === '#/manual-tasks') return '#/reseller-applications?tab=tasks'; // manual tasks became a tab of the reseller onboarding desk
+   if (path !== '#/servers') return null;
+   const p = Object.fromEntries(new URLSearchParams(q));
+   return infraHref('servers', p);
+diff --git a/apps/admin-web/tests/admin-team.test.jsx b/apps/admin-web/tests/admin-team.test.jsx
+index 7206bcd..bfd30a1 100644
+--- a/apps/admin-web/tests/admin-team.test.jsx
++++ b/apps/admin-web/tests/admin-team.test.jsx
+@@ -94,7 +94,7 @@ describe('admin access table (mirror of the server rules)', () => {
+     const { readFileSync } = await import('node:fs');
+     const src = readFileSync('src/adminNav.ts', 'utf8');
+     const navNames = [...src.matchAll(/\['([^']+)', [A-Za-z]+, '[a-z-]+'\]/g)].map((m) => m[1]);
+-    expect(navNames.length).toBeGreaterThan(25);
++    expect(navNames.length).toBeGreaterThan(20);
+     expect(navNames.filter((n) => !(n in SECTION_AREA))).toEqual([]);
+   });
+ 
+diff --git a/apps/admin-web/tests/identity-login-move.test.jsx b/apps/admin-web/tests/identity-login-move.test.jsx
+index 3b30a56..54b0bf9 100644
+--- a/apps/admin-web/tests/identity-login-move.test.jsx
++++ b/apps/admin-web/tests/identity-login-move.test.jsx
+@@ -55,7 +55,7 @@ describe('store hub is the single entry point', () => {
+   it('identity sits in the customers group, not in system', () => {
+     const src = readFileSync('src/adminNav.ts', 'utf8');
+     const grp = (name) => src.split(`'${name}',`)[1].split('\n  ],\n')[0];
+-    expect(grp('مشتریان و فروشگاه‌ها')).toContain("'identity'");
++    expect(grp('مشتریان')).toContain("'identity'");
+     expect(grp('سیستم و امنیت')).not.toContain("'identity'");
+   });
+ });
+diff --git a/apps/admin-web/tests/nav-structure.test.js b/apps/admin-web/tests/nav-structure.test.js
+new file mode 100644
+index 0000000..aaff267
+--- /dev/null
++++ b/apps/admin-web/tests/nav-structure.test.js
+@@ -0,0 +1,35 @@
++import { describe, expect, it } from 'vitest';
++import { groups, flat } from '../src/adminNav.ts';
++import { extraRoutes } from '../src/AdminExtra.tsx';
++import { SECTION_AREA, sectionAllowed } from '../src/adminAccess.ts';
++import { legacyHash } from '../src/infra.tsx';
++
++const where = (label) => groups.find(([, items]) => items.some((i) => i[0] === label))?.[0];
++
++describe('admin menu structure (architecture audit §5-§6)', () => {
++  it('puts bulk panel operations under the infrastructure group, next to panel ops', () => {
++    expect(where('عملیات گروهی روی پنل')).toBe('زیرساخت و عملیات پنل');
++    expect(SECTION_AREA['عملیات گروهی روی پنل']).toBe('infrastructure');
++  });
++  it('has no stand-alone manual-tasks entry: it is a tab of reseller applications', () => {
++    expect(flat.map((x) => x[0])).not.toContain('کارهای دستی');
++    expect(Object.keys(extraRoutes)).not.toContain('کارهای دستی');
++    expect(SECTION_AREA['کارهای دستی']).toBeUndefined();
++    expect(where('درخواست‌های نمایندگی')).toBe('فروشگاه‌ها و نمایندگان');
++    expect(legacyHash('#/manual-tasks')).toBe('#/reseller-applications?tab=tasks');
++  });
++  it('keeps Telegram buttons with the owner-only system settings, matching their permission', () => {
++    expect(where('دکمه‌های تلگرام')).toBe('سیستم و امنیت');
++    expect(SECTION_AREA['دکمه‌های تلگرام']).toBe('system');
++    expect(sectionAllowed(['communications:rw'], 'دکمه‌های تلگرام')).toBe(false);
++  });
++  it('gives every menu entry a route, a unique slug and an explicit permission area', () => {
++    const slugs = flat.map((x) => x[2]);
++    expect(new Set(slugs).size).toBe(slugs.length);
++    for (const [label] of flat) {
++      if (label === 'داشبورد') continue; // rendered by the shell, not a lazy route
++      expect(Object.keys(extraRoutes), label).toContain(label);
++    }
++    for (const [label] of flat) expect(SECTION_AREA[label], label).toBeTruthy();
++  });
++});
+diff --git a/docker-compose.yml b/docker-compose.yml
+index d6be3a0..50e40e9 100644
+--- a/docker-compose.yml
++++ b/docker-compose.yml
+@@ -42,6 +42,26 @@ services:
+     networks: [backend]
+     mem_limit: 256m
+     cpus: 0.5
++  # One-shot schema migration (audit 8.2): api, worker and backup start only after it exits 0, so a bare `docker compose up -d` on a fresh
++  # host can no longer hit `relation "stores" does not exist`. Not counted in the steady-state memory budget (it has exited before the
++  # other services start); scripts/check_ops_p0.py skips restart:"no" services in that sum.
++  migrate:
++    logging: *default-logging
++    restart: "no"
++    image: ${MELORIN_IMAGE_REGISTRY:-melorin}/api:${MELORIN_IMAGE_TAG:-local}
++    build:
++      context: .
++      dockerfile: apps/api/Dockerfile
++    env_file: [.env]
++    command: alembic upgrade head
++    depends_on: {postgres: {condition: service_healthy}}
++    networks: [backend]
++    security_opt: [no-new-privileges:true]
++    cap_drop: [ALL]
++    read_only: true
++    tmpfs: ["/tmp:size=64m,mode=1777"]
++    mem_limit: 256m
++    cpus: 0.5
+   api:
+     logging: *default-logging
+     restart: unless-stopped
+@@ -54,7 +74,7 @@ services:
+     command: uvicorn melorin.app:app --host 0.0.0.0 --port 8000
+     healthcheck: {test: [CMD, python, -c, 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8000/health/live", timeout=3)'], interval: 10s, timeout: 5s, retries: 12, start_period: 20s}
+     volumes: [api_storage:/app/var]
+-    depends_on: {postgres: {condition: service_healthy}, redis: {condition: service_healthy}}
++    depends_on: {postgres: {condition: service_healthy}, redis: {condition: service_healthy}, migrate: {condition: service_completed_successfully}}
+     networks: [backend]
+     security_opt: [no-new-privileges:true]
+     cap_drop: [ALL]
+@@ -74,7 +94,7 @@ services:
+     command: arq melorin.worker.arq_app.WorkerSettings
+     healthcheck: {test: [CMD, python, -c, 'import os, redis; r=redis.Redis.from_url(os.environ["MELORIN_REDIS_URL"]); raise SystemExit(0 if r.get("melorin:worker:last_tick") else 1)'], interval: 15s, timeout: 5s, retries: 8, start_period: 25s}
+     volumes: [api_storage:/app/var]
+-    depends_on: {postgres: {condition: service_healthy}, redis: {condition: service_healthy}}
++    depends_on: {postgres: {condition: service_healthy}, redis: {condition: service_healthy}, migrate: {condition: service_completed_successfully}}
+     networks: [backend]
+     security_opt: [no-new-privileges:true]
+     cap_drop: [ALL]
+@@ -98,7 +118,7 @@ services:
+     volumes:
+       - api_storage:/app/var
+       - ./secrets/backup/recipients.txt:/run/melorin-backup/recipients.txt:ro
+-    depends_on: {postgres: {condition: service_healthy}, redis: {condition: service_healthy}}
++    depends_on: {postgres: {condition: service_healthy}, redis: {condition: service_healthy}, migrate: {condition: service_completed_successfully}}
+     networks: [backend]
+     security_opt: [no-new-privileges:true]
+     cap_drop: [ALL]
+diff --git a/packages/web-kit/package-lock.json b/packages/web-kit/package-lock.json
+new file mode 100644
+index 0000000..9bb2e2d
+--- /dev/null
++++ b/packages/web-kit/package-lock.json
+@@ -0,0 +1,48 @@
++{
++  "name": "@melorin/web-kit",
++  "version": "1.0.0",
++  "lockfileVersion": 3,
++  "requires": true,
++  "packages": {
++    "": {
++      "name": "@melorin/web-kit",
++      "version": "1.0.0",
++      "peerDependencies": {
++        "react": "18.3.1"
++      }
++    },
++    "node_modules/js-tokens": {
++      "version": "4.0.0",
++      "resolved": "https://registry.npmjs.org/js-tokens/-/js-tokens-4.0.0.tgz",
++      "integrity": "sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==",
++      "license": "MIT",
++      "peer": true
++    },
++    "node_modules/loose-envify": {
++      "version": "1.4.0",
++      "resolved": "https://registry.npmjs.org/loose-envify/-/loose-envify-1.4.0.tgz",
++      "integrity": "sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q==",
++      "license": "MIT",
++      "peer": true,
++      "dependencies": {
++        "js-tokens": "^3.0.0 || ^4.0.0"
++      },
++      "bin": {
++        "loose-envify": "cli.js"
++      }
++    },
++    "node_modules/react": {
++      "version": "18.3.1",
++      "resolved": "https://registry.npmjs.org/react/-/react-18.3.1.tgz",
++      "integrity": "sha512-wS+hAgJShR0KhEvPJArfuPVN1+Hz1t0Y6n5jLrGQbkb4urgPE/0Rve+1kMB1v/oWgHgm4WIcV+i7F2pTVj+2iQ==",
++      "license": "MIT",
++      "peer": true,
++      "dependencies": {
++        "loose-envify": "^1.1.0"
++      },
++      "engines": {
++        "node": ">=0.10.0"
++      }
++    }
++  }
++}
+diff --git a/scripts/check_ops_p0.py b/scripts/check_ops_p0.py
+index 226879b..b1e8a23 100644
+--- a/scripts/check_ops_p0.py
++++ b/scripts/check_ops_p0.py
+@@ -130,7 +130,7 @@ def memory_problems(compose: dict) -> list[str]:
+             problems.append(
+                 f"docker-compose.yml: service '{name}' has no mem_limit (W6)"
+             )
+-        else:
++        elif str(svc.get("restart", "")) != "no":  # one-shot jobs (migrate) have exited before the long-running services start
+             total += cap
+     if total > MEMORY_BUDGET_MIB:
+         problems.append(
+@@ -170,7 +170,9 @@ def main() -> int:
+ def run_checks(errors: list[str]) -> None:
+     compose = yaml.safe_load((ROOT / "docker-compose.yml").read_text())
+     for name, svc in compose["services"].items():
+-        if svc.get("restart") not in {"unless-stopped", "always"}:
++        # restart "no" is only valid for the one-shot migrate job (audit 8.2); everything else must restart itself.
++        allowed = {"unless-stopped", "always"} | ({"no"} if name == "migrate" else set())
++        if svc.get("restart") not in allowed:
+             errors.append(
+                 f"docker-compose.yml: service '{name}' has no restart policy (W2)"
+             )
+diff --git a/scripts/check_web_lockfiles.py b/scripts/check_web_lockfiles.py
+index a44c7ca..fc831b4 100644
+--- a/scripts/check_web_lockfiles.py
++++ b/scripts/check_web_lockfiles.py
+@@ -9,6 +9,7 @@ for directory in (
+     ROOT / "apps/store-web",
+     ROOT / "apps/admin-web",
+     ROOT / "packages/api-client",
++    ROOT / "packages/web-kit",
+ ):
+     package = json.loads((directory / "package.json").read_text())
+     lock_path = directory / "package-lock.json"
+-- 
+2.43.0
+
+
+From 145692ba71022818c6a426812fd3c0c3a1db8dba Mon Sep 17 00:00:00 2001
+From: Melorin Refactor <noreply@melorin.local>
+Date: Sat, 14 Nov 2026 22:53:53 +0000
+Subject: [PATCH 2/2] refactor(audit): typed-client ratchet, explicit dead-code
+ fixes, decisions + changelog
+
+---
+ .../admin-web/tests/authfetch-ratchet.test.js | 23 +++++++++++++++++++
+ apps/api/melorin/kernel/models/vpn.py         |  2 +-
+ apps/api/melorin/worker/jobs_identity.py      |  6 +++--
+ docs/CHANGE_LOG.md                            |  7 ++++++
+ docs/DECISIONS.md                             | 15 ++++++++++++
+ 5 files changed, 50 insertions(+), 3 deletions(-)
+ create mode 100644 apps/admin-web/tests/authfetch-ratchet.test.js
+
+diff --git a/apps/admin-web/tests/authfetch-ratchet.test.js b/apps/admin-web/tests/authfetch-ratchet.test.js
+new file mode 100644
+index 0000000..4489a2c
+--- /dev/null
++++ b/apps/admin-web/tests/authfetch-ratchet.test.js
+@@ -0,0 +1,23 @@
++import { describe, it, expect } from 'vitest';
++import { readdirSync, readFileSync, statSync } from 'node:fs';
++import { join } from 'node:path';
++
++// Typed-client migration ratchet (architecture audit 8.1): new admin code talks to the API through `typedClient`
++// (paths and bodies checked against the generated OpenAPI types). `authFetch` call sites may only shrink.
++// Lower BUDGET whenever a view is migrated; never raise it.
++const BUDGET = 40;
++
++function walk(dir) {
++  return readdirSync(dir).flatMap((n) => {
++    const p = join(dir, n);
++    return statSync(p).isDirectory() ? walk(p) : [p];
++  });
++}
++
++describe('typed client ratchet', () => {
++  it('does not add new authFetch call sites', () => {
++    const files = walk('src').filter((f) => /\.(ts|tsx)$/.test(f) && !f.endsWith('api.ts'));
++    const n = files.reduce((a, f) => a + (readFileSync(f, 'utf8').match(/\bauthFetch\(/g) || []).length, 0);
++    expect(n).toBeLessThanOrEqual(BUDGET);
++  });
++});
+diff --git a/apps/api/melorin/kernel/models/vpn.py b/apps/api/melorin/kernel/models/vpn.py
+index c81c582..c8e5bbd 100644
+--- a/apps/api/melorin/kernel/models/vpn.py
++++ b/apps/api/melorin/kernel/models/vpn.py
+@@ -239,7 +239,7 @@ class PanelEvent(IdMixin, CreatedMixin, Base):
+ 
+ 
+ @event.listens_for(VpnAccount.user_id, "set")
+-def _forbid_owner_change(target, value, oldvalue, initiator):
++def _forbid_owner_change(target, value, oldvalue, _initiator):  # SQLAlchemy passes the event initiator positionally
+     """V1.1: VPN Account ownership transfer is forbidden for customers AND Admin."""
+     from sqlalchemy.orm.base import NO_VALUE, NEVER_SET
+ 
+diff --git a/apps/api/melorin/worker/jobs_identity.py b/apps/api/melorin/worker/jobs_identity.py
+index 6d884da..d55b1c6 100644
+--- a/apps/api/melorin/worker/jobs_identity.py
++++ b/apps/api/melorin/worker/jobs_identity.py
+@@ -3,10 +3,9 @@
+ import functools
+ import datetime as dt
+ import logging
+-from typing import Any, cast
++from typing import TYPE_CHECKING, Any, cast
+ 
+ from sqlalchemy import delete
+-from sqlalchemy.engine import CursorResult
+ 
+ from melorin.core import settings_store
+ from melorin.core.db import session_factory, utcnow
+@@ -15,6 +14,9 @@ from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
+ from melorin.worker import retention
+ from melorin.worker.wrap import tracked_job
+ 
++if TYPE_CHECKING:  # only named inside a string cast below: no runtime import needed
++    from sqlalchemy.engine import CursorResult  # noqa: F401
++
+ _close_strict = functools.partial(close_adapter, strict=True)  # worker jobs keep raising on close failure
+ log = logging.getLogger("melorin.jobs")
+ 
+diff --git a/docs/CHANGE_LOG.md b/docs/CHANGE_LOG.md
+index 6ab9d7b..684707c 100644
+--- a/docs/CHANGE_LOG.md
++++ b/docs/CHANGE_LOG.md
+@@ -21,6 +21,13 @@ If `main` is protected, allow `github-actions[bot]` to bypass so the bot can pus
+ 
+ > Entries before 2026-11-09 were archived (T-R12) and live in git tag `changelog-archive-2026-11-09` (`git show changelog-archive-2026-11-09:docs/CHANGE_LOG.md`), per DOCUMENTATION-POLICY.
+ 
++## 2026-11-15 - Pre-release audit: menu regroup, migrate service, web-kit lockfile
++- **Area:** admin-web / compose / ci / docs
++- **Before:** bulk panel operations sat under sales operations, manual tasks and Telegram buttons had menus that did not match their owner or permission, compose could start API/worker before the schema existed, web-kit had no lockfile.
++- **Problem:** confusing admin menu and a fragile first start on a clean server, found by the architecture audit.
++- **Action:** menu regrouped by job; manual tasks became the tab "اقدامات تکمیلی" of reseller applications; Telegram buttons moved to system settings; one-shot `migrate` compose service gating api/worker/backup; web-kit lockfile + CI audit; authFetch ratchet; two vulture false positives made explicit. Details: `docs/DECISIONS.md` (r13).
++- **After:** fresh `docker compose up -d` migrates first; the menu mirrors the permission model. API behaviour is unchanged.
++
+ ## 2026-11-12 - Admin team: invite admins with roles to the web panel
+ - **Area:** api / admin-web / identity / docs
+ - **Before:** every admin-panel user was all-powerful and the only way to add one was the CLI bootstrap; there was no role, no invitation and no way to take access away.
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index 39d2ee1..945072b 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -183,3 +183,18 @@ _Merged from the former 12-Change-Log-v1.1.md._
+ - r11 (phase 3, ninth step, 2026-11-14): Payments review (approve/reject) and refund are typed `client.post` calls with one literal path each. The receipt image stays on `authFetch` (binary body). The slow `panels-upstream-bot` creation test got a 20 s timeout: it timed out at the 5 s default when the box was loaded, unrelated to the code. Remaining on `authFetch`: receipt review/OCR/duplicate-policy/bank-SMS panels, Settings, products, bundles, tickets, reports and other views.
+ - r12 (phase 1 + 3, 2026-11-14): (a) Settings gets its own owner-only tab «امنیت دسترسی ادمین» (`#/settings?tab=security`) for the admin IP allowlist: it is a security policy, not an integration, so the first tab is now only SMTP/backup. Same server area (`system`), same endpoint; only the UI placement moved. (b) The last nav group is renamed «سیستم و امنیت» (labels only, section keys and permission areas unchanged). (c) Identity hub: trusted-device summary and the revoke / revoke-account actions use the typed client (literal path per action); list reads stay on `useRows`. Remaining on `authFetch`: see `grep authFetch apps/admin-web/src`.
+ - r12 verification (2026-11-15, Python 3.12, Node 22, Docker 29): full API suite 2720 passed, 11 skipped; admin tests 301 passed; `lint-imports` 8/8; fresh-DB `migration_smoke.sh` to head passed on PostgreSQL 16; `docker compose up --build` brought every service healthy (run `alembic upgrade head` BEFORE the first start, as `melorin.sh` does; the api logs `relation stores does not exist` otherwise); live `scripts/e2e_smoke.py` against the stack: ALL PASSED; Playwright (store + admin, mocked Core): 26 passed, 2 skipped (need a seeded staging stack). Fix: `ChangeAdminPassword` moved out of `SettingsView.tsx` into its own file, so Settings is a real lazy chunk (Vite warned it was imported both statically and dynamically). Bot, payment-gateway and real-panel flows remain unexercised.
++
++## 2026-11-15 Pre-release architecture audit follow-up (r13, branch `refactor/audit-pre-release-r12`)
++
++Source: `Melorin_Architecture_Admin_Audit.md` (the project has never been released, so menu and compose structure may change freely; money, security and state machines still need tests).
++
++- **Menu regrouped by the admin's job** (`adminNav.ts`): نمای کلی / فروش و عملیات / مشتریان / فروشگاه‌ها و نمایندگان / کاتالوگ و بازاریابی / زیرساخت و عملیات پنل / ارتباطات / سیستم و امنیت. Section keys (Persian labels) and slugs are unchanged except the removed one below, so permissions and deep links keep working.
++- **«عملیات گروهی روی پنل» moved to the infrastructure group** (it already used the `infrastructure` permission). Whether support may also run bulk operations stays a product decision: if yes, add a narrow dedicated permission, never the whole `infrastructure` area.
++- **«کارهای دستی» has no menu entry any more**: it is the tab «اقدامات تکمیلی» of «درخواست‌های نمایندگی» (`ResellerOnboardingView`, `#/reseller-applications?tab=tasks`). The tab is shown only to roles with the `customers` area (the manual-tasks API rule); the menu badge sums pending applications and open tasks. `legacyHash` rewrites `#/manual-tasks`. The API is untouched.
++- **«دکمه‌های تلگرام» moved to «سیستم و امنیت»**: its permission is `system` (owner only), so it now sits with the owner-only settings instead of the communications group where a manager would see a wall of 403s.
++- **Compose: one-shot `migrate` service** (`alembic upgrade head`). `api`, `worker` and `backup` wait for `service_completed_successfully`, so a bare `docker compose up -d` on a fresh host cannot start against an empty schema. `check_ops_p0.py` skips `restart: "no"` one-shot jobs in the memory sum (it has exited before the others start) and allows that policy for `migrate` only. `melorin.sh` / `deploy.sh` keep their explicit migration step (idempotent, and deploy needs it for rollback).
++- **web-kit has a lockfile**; `check_web_lockfiles.py` covers it and CI runs `npm ci` + `npm audit --omit=dev` there.
++- **Typed-client ratchet** (`tests/authfetch-ratchet.test.js`): `authFetch(` call sites may only shrink (budget 40 at this commit). Migration order from the audit: Settings, Products, Bundles, Tickets, Reports, Store tabs, Resellers.
++- **Vulture findings were false positives, now explicit**: `initiator` is the mandatory SQLAlchemy listener argument (renamed `_initiator`); `CursorResult` is named only inside a string `cast`, so it moved under `TYPE_CHECKING`.
++- Kept on purpose (audit §4, §7.6): Payments / Wallet, Orders / Provisioning, Identity / Authentication, PanelOps / Panel Integrations, Event Center / Notifications stay separate.
++- Still open (own PRs, not done here): move `/admin/reports/summary` and `/timeseries` into the analytics contract and switch `AdminSession.tsx` / `Trend.tsx` first; split `PanelAdminsView`, `kit.tsx`, `UpstreamBotFields`, `TicketConversation`, `ReportsView` as pure moves; widen mypy module by module (orders, identity, reseller, payments); drop `modules/admin/router.py` re-exports once no import uses them; split `panelops` files by capability.
+-- 
+2.43.0
+
