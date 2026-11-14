@@ -169,7 +169,7 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  border-radius: 999px;
+  border-radius: var(--mk-radius-pill);
   padding: 0.15rem 0.6rem;
   font-size: 0.72rem;
   font-weight: 700;
@@ -353,7 +353,7 @@ body {
   place-items: center;
   width: 1.7rem;
   height: 1.7rem;
-  border-radius: 999px;
+  border-radius: var(--mk-radius-pill);
   border: 2px solid var(--ln);
   background: var(--sf);
 }
@@ -458,7 +458,7 @@ body {
   flex: none;
   width: 2.4rem;
   height: 1.4rem;
-  border-radius: 999px;
+  border-radius: var(--mk-radius-pill);
   background: var(--ln);
   transition: background 0.15s;
 }
@@ -479,7 +479,7 @@ body {
   transform: translateX(-1rem);
 }
 .pv-drawer {
-  animation: pvin 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: pvin 0.28s var(--mk-ease-out) both;
 }
 @keyframes pvin {
   from {
@@ -519,7 +519,7 @@ body {
 }
 .card-i {
   transition:
-    transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 0.18s var(--mk-ease-out),
     box-shadow 0.18s,
     border-color 0.18s;
 }
@@ -569,7 +569,7 @@ body {
   border: 1px solid var(--ln);
   background: var(--sf);
   color: var(--mu);
-  border-radius: 999px;
+  border-radius: var(--mk-radius-pill);
   padding: 0.32rem 0.8rem;
   font-size: 0.78rem;
   font-weight: 700;
@@ -588,7 +588,7 @@ body {
   font-size: 0.7rem;
   min-width: 1.35rem;
   text-align: center;
-  border-radius: 999px;
+  border-radius: var(--mk-radius-pill);
   padding: 0 0.35rem;
   background: var(--mb);
   color: var(--tx);
@@ -720,19 +720,19 @@ button.kpi:hover {
   inset-block: 0;
   inset-inline-start: 0;
   border-radius: 5px;
-  transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: width 0.6s var(--mk-ease-out);
 }
 .bar {
   height: 6px;
-  border-radius: 999px;
+  border-radius: var(--mk-radius-pill);
   background: var(--mb);
   overflow: hidden;
 }
 .bar > i {
   display: block;
   height: 100%;
-  border-radius: 999px;
-  transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+  border-radius: var(--mk-radius-pill);
+  transition: width 0.6s var(--mk-ease-out);
 }
 /* ring */
 .gauge {
@@ -755,7 +755,7 @@ button.kpi:hover {
 }
 .gauge .fg {
   transition:
-    stroke-dashoffset 0.8s cubic-bezier(0.2, 0.8, 0.2, 1),
+    stroke-dashoffset 0.8s var(--mk-ease-out),
     stroke 0.3s;
 }
 /* health pill */
@@ -763,7 +763,7 @@ button.kpi:hover {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  border-radius: 999px;
+  border-radius: var(--mk-radius-pill);
   padding: 0.18rem 0.65rem 0.18rem 0.6rem;
   font-size: 0.72rem;
   font-weight: 800;
@@ -1094,7 +1094,7 @@ button.kpi:hover {
 }
 .tg-swatch {
   padding: 0.3rem 0.75rem;
-  border-radius: 999px;
+  border-radius: var(--mk-radius-pill);
   font-size: 0.72rem;
   font-weight: 800;
   border: 2px solid var(--ln);

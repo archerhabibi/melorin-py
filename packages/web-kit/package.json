@@ -16,6 +16,7 @@
     "./bankSms.js": "./src/bankSms.js",
     "./broadcast.js": "./src/broadcast.js",
     "./referralPlan.js": "./src/referralPlan.js",
-    "./loyaltyClub.js": "./src/loyaltyClub.js"
+    "./loyaltyClub.js": "./src/loyaltyClub.js",
+    "./tokens.css": "./src/tokens.css"
   }
 }
