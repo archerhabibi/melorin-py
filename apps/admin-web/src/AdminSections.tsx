@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import { extraRoutes } from './AdminExtra.tsx';
+import { sectionAllowed } from './adminAccess.ts';
 import type { Json, Rec, Toast } from './types.ts';
 
 function SectionFallback() {
@@ -13,6 +14,10 @@ function SectionFallback() {
 
 /** Every section is a lazy view in ``extraRoutes`` (keyed by its Persian label); an unknown key shows the empty state. */
 export function AdminSectionView({ section, api, toast }: { section?: Json; api?: Json; toast: Toast }) {
+  // Permissions still loading: show the skeleton. A role that may not open the screen never mounts it (so it never fires its
+  // API calls); App redirects it to the first screen it may open. The server stays the authority either way.
+  if (api?.perms === undefined && api?.loading) return <SectionFallback />;
+  if (api?.perms !== undefined && !sectionAllowed(api.perms, section)) return null;
   const Extra = (extraRoutes as Rec)[section];
   if (Extra)
     return (
