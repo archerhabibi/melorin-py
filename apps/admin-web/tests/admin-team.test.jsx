@@ -92,7 +92,7 @@ describe('admin access table (mirror of the server rules)', () => {
 
   it('the app nav and the access table agree', async () => {
     const { readFileSync } = await import('node:fs');
-    const src = readFileSync('src/App.tsx', 'utf8');
+    const src = readFileSync('src/adminNav.ts', 'utf8');
     const navNames = [...src.matchAll(/\['([^']+)', [A-Za-z]+, '[a-z-]+'\]/g)].map((m) => m[1]);
     expect(navNames.length).toBeGreaterThan(25);
     expect(navNames.filter((n) => !(n in SECTION_AREA))).toEqual([]);

@@ -151,3 +151,4 @@ _Merged from the former 12-Change-Log-v1.1.md._
 - Not changed (needs a product decision): `bulk-operations` stays in the `infrastructure` area.
 - Deferred: splitting `App.tsx` / `AdminExtra.tsx` and migrating views to `@melorin/api-client` (pure moves, own PRs).
 - r5 (phase 2, first step): `AdminExtra.tsx` (750 -> 72 lines) is now only the route registry. Coupons, Settings (+ integrations, sign-in methods, change-password) and the shared table/form primitives moved verbatim to `CouponsView.tsx`, `SettingsView.tsx`, `adminExtraKit.tsx`. No behaviour change.
+- r5 (phase 2, second step): `App.tsx` (987 -> ~230 lines) split verbatim into `adminNav.ts` (menu groups + hash routing), `AdminNavigation.tsx`, `AdminShell.tsx` (brand, user menu, mobile nav, clock), `AdminSession.tsx` (`useCore`, downloads/refund helpers) and `Dashboard.tsx`. The G002/G003 and frontend-contract guards now read the sum of these files.
