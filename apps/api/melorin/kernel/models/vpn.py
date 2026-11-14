@@ -239,7 +239,7 @@ class PanelEvent(IdMixin, CreatedMixin, Base):
 
 
 @event.listens_for(VpnAccount.user_id, "set")
-def _forbid_owner_change(target, value, oldvalue, initiator):
+def _forbid_owner_change(target, value, oldvalue, _initiator):  # SQLAlchemy passes the event initiator positionally
     """V1.1: VPN Account ownership transfer is forbidden for customers AND Admin."""
     from sqlalchemy.orm.base import NO_VALUE, NEVER_SET
 

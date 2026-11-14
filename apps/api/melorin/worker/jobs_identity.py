@@ -3,10 +3,9 @@
 import functools
 import datetime as dt
 import logging
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from sqlalchemy import delete
-from sqlalchemy.engine import CursorResult
 
 from melorin.core import settings_store
 from melorin.core.db import session_factory, utcnow
@@ -14,6 +13,9 @@ from melorin.kernel.models.identity import VerificationCode
 from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
 from melorin.worker import retention
 from melorin.worker.wrap import tracked_job
+
+if TYPE_CHECKING:  # only named inside a string cast below: no runtime import needed
+    from sqlalchemy.engine import CursorResult  # noqa: F401
 
 _close_strict = functools.partial(close_adapter, strict=True)  # worker jobs keep raising on close failure
 log = logging.getLogger("melorin.jobs")
