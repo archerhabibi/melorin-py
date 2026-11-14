@@ -1,7 +1,7 @@
 From 1c4e61b9bf6333e47e97bbf838aaec969ab6cc95 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <noreply@melorin.local>
 Date: Sat, 14 Nov 2026 22:52:32 +0000
-Subject: [PATCH 1/3] refactor(audit): regroup admin menu, manual tasks become
+Subject: [PATCH 1/4] refactor(audit): regroup admin menu, manual tasks become
  a reseller-onboarding tab, one-shot migrate service, web-kit lockfile
 
 ---
@@ -488,7 +488,7 @@ index a44c7ca..fc831b4 100644
 From 145692ba71022818c6a426812fd3c0c3a1db8dba Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <noreply@melorin.local>
 Date: Sat, 14 Nov 2026 22:53:53 +0000
-Subject: [PATCH 2/3] refactor(audit): typed-client ratchet, explicit dead-code
+Subject: [PATCH 2/4] refactor(audit): typed-client ratchet, explicit dead-code
  fixes, decisions + changelog
 
 ---
@@ -616,7 +616,7 @@ index 39d2ee1..945072b 100644
 From 289affc7d9221a8405d06805816b0db4f797847a Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <noreply@melorin.local>
 Date: Sat, 14 Nov 2026 23:05:22 +0000
-Subject: [PATCH 3/3] refactor(admin-ui): migrate panels, servers, targets,
+Subject: [PATCH 3/4] refactor(admin-ui): migrate panels, servers, targets,
  password and logout to typedClient (authFetch 40 -> 30)
 
 ---
@@ -903,6 +903,284 @@ index 945072b..ab87a6c 100644
  - **web-kit has a lockfile**; `check_web_lockfiles.py` covers it and CI runs `npm ci` + `npm audit --omit=dev` there.
 -- **Typed-client ratchet** (`tests/authfetch-ratchet.test.js`): `authFetch(` call sites may only shrink (budget 40 at this commit). Migration order from the audit: Settings, Products, Bundles, Tickets, Reports, Store tabs, Resellers.
 +- **Typed-client ratchet** (`tests/authfetch-ratchet.test.js`): `authFetch(` call sites may only shrink (budget 30 after the first migration batch: panels, servers, targets, password, logout). Migration order from the audit: Settings, Products, Bundles, Tickets, Reports, Store tabs, Resellers.
+ - **Vulture findings were false positives, now explicit**: `initiator` is the mandatory SQLAlchemy listener argument (renamed `_initiator`); `CursorResult` is named only inside a string `cast`, so it moved under `TYPE_CHECKING`.
+ - Kept on purpose (audit §4, §7.6): Payments / Wallet, Orders / Provisioning, Identity / Authentication, PanelOps / Panel Integrations, Event Center / Notifications stay separate.
+ - Still open (own PRs, not done here): move `/admin/reports/summary` and `/timeseries` into the analytics contract and switch `AdminSession.tsx` / `Trend.tsx` first; split `PanelAdminsView`, `kit.tsx`, `UpstreamBotFields`, `TicketConversation`, `ReportsView` as pure moves; widen mypy module by module (orders, identity, reseller, payments); drop `modules/admin/router.py` re-exports once no import uses them; split `panelops` files by capability.
+-- 
+2.43.0
+
+
+From 6f6c3a112cd3ad0278f997850c5cffa474afc7de Mon Sep 17 00:00:00 2001
+From: Melorin Refactor <noreply@melorin.local>
+Date: Sat, 14 Nov 2026 23:27:38 +0000
+Subject: [PATCH 4/4] refactor(admin-ui): Google, Telegram and receipt-OCR
+ integration settings use typedClient (authFetch 30 -> 27)
+
+---
+ apps/admin-web/src/GoogleLoginSettings.tsx    | 29 +++++++++---------
+ apps/admin-web/src/ReceiptOcrSettings.tsx     | 18 +++++------
+ apps/admin-web/src/TelegramLoginSettings.tsx  | 30 +++++++++----------
+ apps/admin-web/src/api.ts                     |  6 ++++
+ .../admin-web/tests/authfetch-ratchet.test.js |  2 +-
+ docs/DECISIONS.md                             |  2 +-
+ 6 files changed, 45 insertions(+), 42 deletions(-)
+
+diff --git a/apps/admin-web/src/GoogleLoginSettings.tsx b/apps/admin-web/src/GoogleLoginSettings.tsx
+index eb9ecd4..f522b23 100644
+--- a/apps/admin-web/src/GoogleLoginSettings.tsx
++++ b/apps/admin-web/src/GoogleLoginSettings.tsx
+@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
+ // and the ID-token flow needs no client secret, so nothing secret is collected or stored here.
+ 
+ import { useEffect, useMemo, useState } from 'react';
+-import { authFetch } from './api.ts';
++import { settled, typedClient } from './api.ts';
+ import { Check, ChevronDown, Copy, ExternalLink, ShieldCheck } from 'lucide-react';
+ import type { Json, Toast } from './types.ts';
+ 
+@@ -211,14 +211,14 @@ function Guide({ origins }: { origins?: Json }) {
+ }
+ 
+ export default function GoogleLoginSettings({ api, toast }: { api?: Json; toast: Toast }) {
+-  const call = (p: Json, o = {}) => authFetch(api.base, p, o);
+   const [cfg, setCfg] = useState<Json>(null);
+   const [busy, setBusy] = useState('');
+   const [testResult, setTestResult] = useState<Json>(null);
+ 
+   const load = () =>
+-    call('/api/v1/admin/integrations')
+-      .then((r) => (r.ok ? r.json() : Promise.reject()))
++    typedClient(api.base)
++      .get('/api/v1/admin/integrations')
++      .then(({ response: r, data }) => (r.ok ? (data as Json) : Promise.reject()))
+       .then((d) => setCfg(d.google))
+       .catch(() => toast('دریافت تنظیمات گوگل ناموفق بود'));
+   useEffect(() => {
+@@ -244,16 +244,16 @@ export default function GoogleLoginSettings({ api, toast }: { api?: Json; toast:
+ 
+   const save = async () => {
+     setBusy('save');
+-    const r = await call('/api/v1/admin/integrations/google', {
+-      method: 'PUT',
+-      body: JSON.stringify({
+-        enabled: cfg.enabled,
+-        client_id: id,
+-        admin_login: cfg.admin_login,
+-        store_login: cfg.store_login,
++    const { r, d } = settled(
++      await typedClient(api.base).put('/api/v1/admin/integrations/google', {
++        body: {
++          enabled: cfg.enabled,
++          client_id: id,
++          admin_login: cfg.admin_login,
++          store_login: cfg.store_login,
++        },
+       }),
+-    });
+-    const d = await r.json().catch(() => ({}));
++    );
+     setBusy('');
+     if (!r.ok) return toast(d?.error?.message || d?.detail?.message || 'ذخیره ناموفق بود');
+     toast('تنظیمات ورود با گوگل ذخیره شد');
+@@ -261,8 +261,7 @@ export default function GoogleLoginSettings({ api, toast }: { api?: Json; toast:
+   };
+   const test = async () => {
+     setBusy('test');
+-    const r = await call('/api/v1/admin/integrations/google/test', { method: 'POST', body: '{}' });
+-    const d = await r.json().catch(() => ({}));
++    const { r, d } = settled(await typedClient(api.base).post('/api/v1/admin/integrations/google/test', { body: {} }));
+     setBusy('');
+     setTestResult(r.ok ? d : { ok: false, error: d?.error?.message || 'تست انجام نشد' });
+   };
+diff --git a/apps/admin-web/src/ReceiptOcrSettings.tsx b/apps/admin-web/src/ReceiptOcrSettings.tsx
+index be8e023..c71d1ea 100644
+--- a/apps/admin-web/src/ReceiptOcrSettings.tsx
++++ b/apps/admin-web/src/ReceiptOcrSettings.tsx
+@@ -5,7 +5,7 @@
+ 
+ import { useCallback, useEffect, useState } from 'react';
+ import { AlertTriangle, Check, ChevronDown, Cpu, Eye, FlaskConical, Power, ScanText, Sparkles } from 'lucide-react';
+-import { authFetch } from './api.ts';
++import { settled, typedClient } from './api.ts';
+ import { Field, Secret } from './kit.tsx';
+ import type { Json, Rec, Toast } from './types.ts';
+ 
+@@ -83,7 +83,6 @@ function Pipeline() {
+ }
+ 
+ export default function ReceiptOcrSettings({ api, toast }: { api?: Json; toast: Toast }) {
+-  const call = useCallback((p: Json, o = {}) => authFetch(api.base, p, o), [api.base]);
+   const [cfg, setCfg] = useState<Json>(null);
+   const [form, setForm] = useState<Json>(null);
+   const [keyInput, setKeyInput] = useState('');
+@@ -105,11 +104,12 @@ export default function ReceiptOcrSettings({ api, toast }: { api?: Json; toast:
+   }, []);
+   const load = useCallback(
+     () =>
+-      call('/api/v1/admin/integrations')
+-        .then((r) => (r.ok ? r.json() : Promise.reject()))
++      typedClient(api.base)
++        .get('/api/v1/admin/integrations')
++        .then(({ response: r, data }) => (r.ok ? (data as Json) : Promise.reject()))
+         .then((d) => apply(d.receipt_ocr))
+         .catch(() => toast('دریافت تنظیمات خواندن رسید ناموفق بود')),
+-    [apply, call, toast],
++    [apply, api.base, toast],
+   );
+   useEffect(() => {
+     load();
+@@ -142,8 +142,7 @@ export default function ReceiptOcrSettings({ api, toast }: { api?: Json; toast:
+     if (keyInput) body.api_key = keyInput.trim();
+     else if (clearKey) body.api_key = '';
+     try {
+-      const r = await call('/api/v1/admin/integrations/receipt-ocr', { method: 'PUT', body: JSON.stringify(body) });
+-      const d = await r.json().catch(() => ({}));
++      const { r, d } = settled(await typedClient(api.base).put('/api/v1/admin/integrations/receipt-ocr', { body }));
+       if (!r.ok) return toast(d?.error?.message || 'ذخیره ناموفق بود');
+       toast('تنظیمات خواندن رسید ذخیره شد');
+       apply(d);
+@@ -157,8 +156,9 @@ export default function ReceiptOcrSettings({ api, toast }: { api?: Json; toast:
+   const runTest = async () => {
+     setBusy('test');
+     try {
+-      const r = await call('/api/v1/admin/integrations/receipt-ocr/test', { method: 'POST', body: '{}' });
+-      const d = await r.json().catch(() => ({}));
++      const { r, d } = settled(
++        await typedClient(api.base).post('/api/v1/admin/integrations/receipt-ocr/test', { body: {} }),
++      );
+       setTest(r.ok ? d : { ok: false, error: d?.error?.message || 'آزمایش انجام نشد' });
+     } catch {
+       setTest({ ok: false, error: 'ارتباط با سرور برقرار نشد' });
+diff --git a/apps/admin-web/src/TelegramLoginSettings.tsx b/apps/admin-web/src/TelegramLoginSettings.tsx
+index 75eb137..ba3fa04 100644
+--- a/apps/admin-web/src/TelegramLoginSettings.tsx
++++ b/apps/admin-web/src/TelegramLoginSettings.tsx
+@@ -6,11 +6,11 @@ import type { ReactNode } from 'react';
+ // The Client Secret is write-only: it is stored encrypted on the server and never sent back to the browser.
+ 
+ import { useEffect, useState } from 'react';
+-import { authFetch } from './api.ts';
++import { settled, typedClient } from './api.ts';
+ import { Check, ChevronDown, Copy, ExternalLink, Send, ShieldCheck } from 'lucide-react';
+ import { CopyBox, Field, Step, Switch } from './GoogleLoginSettings.tsx';
+ import { PasswordInput } from './ui.tsx';
+-import type { CallFn, Json, Rec, Toast } from './types.ts';
++import type { Json, Rec, Toast } from './types.ts';
+ 
+ const CLIENT_ID_RE = /^[0-9]{5,20}$/;
+ const FIELDS = ['enabled', 'store_login', 'bot_login', 'number_match', 'ttl_seconds', 'oidc_login', 'client_id'];
+@@ -47,7 +47,7 @@ function CopyAll({ lines }: { lines?: Json }) {
+ const USERNAME_RE = /^@?[A-Za-z0-9_]{3,64}$/;
+ 
+ // Main store's bot @username: the deep link t.me/<bot>?start=wl_… cannot be built without it.
+-function MainBotBox({ saved, call, toast, reload }: { saved?: Json; call: CallFn; toast: Toast; reload?: Json }) {
++function MainBotBox({ saved, base, toast, reload }: { saved?: Json; base: string; toast: Toast; reload?: Json }) {
+   const [name, setName] = useState(saved.main_bot_username || '');
+   const [busy, setBusy] = useState('');
+   const current = saved.main_bot_username || '';
+@@ -55,11 +55,9 @@ function MainBotBox({ saved, call, toast, reload }: { saved?: Json; call: CallFn
+   const invalid = typed && !USERNAME_RE.test(typed) ? 'فقط حروف انگلیسی، عدد و _ (۳ تا ۶۴ نویسه).' : '';
+   const run = async (username: Json, ok: Json) => {
+     setBusy(username === null ? 'auto' : 'save');
+-    const r = await call('/api/v1/admin/integrations/telegram/main-bot-username', {
+-      method: 'PUT',
+-      body: JSON.stringify({ username }),
+-    });
+-    const d = await r.json().catch(() => ({}));
++    const { r, d } = settled(
++      await typedClient(base).put('/api/v1/admin/integrations/telegram/main-bot-username', { body: { username } }),
++    );
+     setBusy('');
+     if (!r.ok) return toast(d?.error?.message || d?.detail?.message || 'ذخیرهٔ نام کاربری ربات ناموفق بود');
+     toast(ok);
+@@ -295,7 +293,6 @@ function Guide({ cfg }: { cfg?: Json }) {
+ }
+ 
+ export default function TelegramLoginSettings({ api, toast }: { api?: Json; toast: Toast }) {
+-  const call = (p: Json, o = {}) => authFetch(api.base, p, o);
+   const [cfg, setCfg] = useState<Json>(null);
+   const [saved, setSaved] = useState<Json>(null); // the server's copy: badges and the connection test describe THIS, not the unsaved form
+   const [secret, setSecret] = useState('');
+@@ -304,8 +301,9 @@ export default function TelegramLoginSettings({ api, toast }: { api?: Json; toas
+   const [result, setResult] = useState<Json>(null);
+ 
+   const load = () =>
+-    call('/api/v1/admin/integrations')
+-      .then((r) => (r.ok ? r.json() : Promise.reject()))
++    typedClient(api.base)
++      .get('/api/v1/admin/integrations')
++      .then(({ response: r, data }) => (r.ok ? (data as Json) : Promise.reject()))
+       .then((d) => {
+         setCfg(d.telegram);
+         setSaved(d.telegram);
+@@ -364,8 +362,7 @@ export default function TelegramLoginSettings({ api, toast }: { api?: Json; toas
+       client_id: id,
+       client_secret: secret.trim() ? secret.trim() : clearSecret ? '' : null,
+     };
+-    const r = await call('/api/v1/admin/integrations/telegram', { method: 'PUT', body: JSON.stringify(body) });
+-    const d = await r.json().catch(() => ({}));
++    const { r, d } = settled(await typedClient(api.base).put('/api/v1/admin/integrations/telegram', { body }));
+     setBusy('');
+     if (!r.ok) return toast(d?.error?.message || d?.detail?.message || 'ذخیره ناموفق بود');
+     toast('تنظیمات ورود با تلگرام ذخیره شد');
+@@ -374,8 +371,9 @@ export default function TelegramLoginSettings({ api, toast }: { api?: Json; toas
+   };
+   const test = async () => {
+     setBusy('test');
+-    const r = await call('/api/v1/admin/integrations/telegram/test', { method: 'POST', body: '{}' });
+-    const d = await r.json().catch(() => ({}));
++    const { r, d } = settled(
++      await typedClient(api.base).post('/api/v1/admin/integrations/telegram/test', { body: {} }),
++    );
+     setBusy('');
+     setResult(
+       r.ok ? d : { ok: false, checks: [{ key: 'x', status: 'fail', message: d?.error?.message || 'تست انجام نشد' }] },
+@@ -472,7 +470,7 @@ export default function TelegramLoginSettings({ api, toast }: { api?: Json; toas
+           <MainBotBox
+             key={saved.main_bot_username || 'none'}
+             saved={saved}
+-            call={call}
++            base={api.base}
+             toast={toast}
+             reload={reloadBot}
+           />
+diff --git a/apps/admin-web/src/api.ts b/apps/admin-web/src/api.ts
+index 6b0703a..4cc2b3c 100644
+--- a/apps/admin-web/src/api.ts
++++ b/apps/admin-web/src/api.ts
+@@ -61,3 +61,9 @@ export async function getJson<T = Json>(base: string, path: string): Promise<T>
+   if (!response.ok) throw new Error(`${path}: ${response.status}`);
+   return data as T;
+ }
++
++/** Typed-client result -> the raw Response plus the parsed body (data on success, error body otherwise; {} when empty). */
++export const settled = (res: { response: Response; data?: unknown; error?: unknown }) => ({
++  r: res.response,
++  d: ((res.response.ok ? res.data : res.error) ?? {}) as Record<string, unknown> & Json,
++});
+diff --git a/apps/admin-web/tests/authfetch-ratchet.test.js b/apps/admin-web/tests/authfetch-ratchet.test.js
+index 2c163c9..245454e 100644
+--- a/apps/admin-web/tests/authfetch-ratchet.test.js
++++ b/apps/admin-web/tests/authfetch-ratchet.test.js
+@@ -5,7 +5,7 @@ import { join } from 'node:path';
+ // Typed-client migration ratchet (architecture audit 8.1): new admin code talks to the API through `typedClient`
+ // (paths and bodies checked against the generated OpenAPI types). `authFetch` call sites may only shrink.
+ // Lower BUDGET whenever a view is migrated; never raise it.
+-const BUDGET = 30;
++const BUDGET = 27;
+ 
+ function walk(dir) {
+   return readdirSync(dir).flatMap((n) => {
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index ab87a6c..cdf4625 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -194,7 +194,7 @@ Source: `Melorin_Architecture_Admin_Audit.md` (the project has never been releas
+ - **«دکمه‌های تلگرام» moved to «سیستم و امنیت»**: its permission is `system` (owner only), so it now sits with the owner-only settings instead of the communications group where a manager would see a wall of 403s.
+ - **Compose: one-shot `migrate` service** (`alembic upgrade head`). `api`, `worker` and `backup` wait for `service_completed_successfully`, so a bare `docker compose up -d` on a fresh host cannot start against an empty schema. `check_ops_p0.py` skips `restart: "no"` one-shot jobs in the memory sum (it has exited before the others start) and allows that policy for `migrate` only. `melorin.sh` / `deploy.sh` keep their explicit migration step (idempotent, and deploy needs it for rollback).
+ - **web-kit has a lockfile**; `check_web_lockfiles.py` covers it and CI runs `npm ci` + `npm audit --omit=dev` there.
+-- **Typed-client ratchet** (`tests/authfetch-ratchet.test.js`): `authFetch(` call sites may only shrink (budget 30 after the first migration batch: panels, servers, targets, password, logout). Migration order from the audit: Settings, Products, Bundles, Tickets, Reports, Store tabs, Resellers.
++- **Typed-client ratchet** (`tests/authfetch-ratchet.test.js`): `authFetch(` call sites may only shrink (budget 27 after two batches: panels, servers, targets, password, logout, Google / Telegram / receipt-OCR integration settings). Migration order from the audit: Settings, Products, Bundles, Tickets, Reports, Store tabs, Resellers.
  - **Vulture findings were false positives, now explicit**: `initiator` is the mandatory SQLAlchemy listener argument (renamed `_initiator`); `CursorResult` is named only inside a string `cast`, so it moved under `TYPE_CHECKING`.
  - Kept on purpose (audit §4, §7.6): Payments / Wallet, Orders / Provisioning, Identity / Authentication, PanelOps / Panel Integrations, Event Center / Notifications stay separate.
  - Still open (own PRs, not done here): move `/admin/reports/summary` and `/timeseries` into the analytics contract and switch `AdminSession.tsx` / `Trend.tsx` first; split `PanelAdminsView`, `kit.tsx`, `UpstreamBotFields`, `TicketConversation`, `ReportsView` as pure moves; widen mypy module by module (orders, identity, reseller, payments); drop `modules/admin/router.py` re-exports once no import uses them; split `panelops` files by capability.
