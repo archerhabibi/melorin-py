@@ -9,6 +9,10 @@ Rules (architecture review 2026-11-13, section 4.6):
   4. Refund reverses in the opposite order: loyalty first, then referral.
   5. Only revenue orders with ``total > 0`` earn anything.
   6. Every grant carries its own idempotency key; re-running a step is a no-op.
+  7. Cap: a cash reward never exceeds the base it was computed from (``cap_reward``): even a mis-set 120% plan pays at most
+     what the customer paid. Loyalty points are not money and are limited by the program's own rules instead.
+  8. Vesting: a reward is final when the order completes and is posted to the ledger in the same settlement. There is no
+     time-based hold; the only way back is the refund reversal of rule 4, which is itself idempotent.
 """
 
 from enum import StrEnum
@@ -28,3 +32,10 @@ def reward_base(total: int, *, is_revenue: bool) -> int:
     if not is_revenue or total <= 0:
         return 0
     return total
+
+
+def cap_reward(amount: int, base: int) -> int:
+    """Rule 7: a cash reward is never negative and never more than the base it was computed from."""
+    if amount <= 0 or base <= 0:
+        return 0
+    return min(amount, base)
