@@ -1382,6 +1382,18 @@ index 5df784d..b6ce7c2 100644
    if (path !== '#/servers') return null;
    const p = Object.fromEntries(new URLSearchParams(q));
    return infraHref('servers', p);
+diff --git a/apps/admin-web/src/main.tsx b/apps/admin-web/src/main.tsx
+index d618abe..6646310 100644
+--- a/apps/admin-web/src/main.tsx
++++ b/apps/admin-web/src/main.tsx
+@@ -5,6 +5,7 @@ import App from './App.tsx';
+ import { getAccessToken, setTokens } from './auth.ts';
+ import AdminAuth from './AdminAuth.tsx';
+ import AcceptInvite, { isInviteHash } from './AcceptInvite.tsx';
++import '@melorin/web-kit/tokens.css';
+ import './styles.css';
+ import './theme.ts';
+ import type { Json } from './types.ts';
 diff --git a/apps/admin-web/src/panels/PanelDetailDrawer.tsx b/apps/admin-web/src/panels/PanelDetailDrawer.tsx
 new file mode 100644
 index 0000000..e301c9b
@@ -1476,6 +1488,124 @@ index ee7f304..7b7b01d 100644
              <button
                className="btn btn-g !px-2"
                aria-label="بررسی سلامت"
+diff --git a/apps/admin-web/src/styles.css b/apps/admin-web/src/styles.css
+index 16da336..dc25535 100644
+--- a/apps/admin-web/src/styles.css
++++ b/apps/admin-web/src/styles.css
+@@ -169,7 +169,7 @@ body {
+   display: inline-flex;
+   align-items: center;
+   gap: 0.35rem;
+-  border-radius: 999px;
++  border-radius: var(--mk-radius-pill);
+   padding: 0.15rem 0.6rem;
+   font-size: 0.72rem;
+   font-weight: 700;
+@@ -353,7 +353,7 @@ body {
+   place-items: center;
+   width: 1.7rem;
+   height: 1.7rem;
+-  border-radius: 999px;
++  border-radius: var(--mk-radius-pill);
+   border: 2px solid var(--ln);
+   background: var(--sf);
+ }
+@@ -458,7 +458,7 @@ body {
+   flex: none;
+   width: 2.4rem;
+   height: 1.4rem;
+-  border-radius: 999px;
++  border-radius: var(--mk-radius-pill);
+   background: var(--ln);
+   transition: background 0.15s;
+ }
+@@ -479,7 +479,7 @@ body {
+   transform: translateX(-1rem);
+ }
+ .pv-drawer {
+-  animation: pvin 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
++  animation: pvin 0.28s var(--mk-ease-out) both;
+ }
+ @keyframes pvin {
+   from {
+@@ -519,7 +519,7 @@ body {
+ }
+ .card-i {
+   transition:
+-    transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1),
++    transform 0.18s var(--mk-ease-out),
+     box-shadow 0.18s,
+     border-color 0.18s;
+ }
+@@ -569,7 +569,7 @@ body {
+   border: 1px solid var(--ln);
+   background: var(--sf);
+   color: var(--mu);
+-  border-radius: 999px;
++  border-radius: var(--mk-radius-pill);
+   padding: 0.32rem 0.8rem;
+   font-size: 0.78rem;
+   font-weight: 700;
+@@ -588,7 +588,7 @@ body {
+   font-size: 0.7rem;
+   min-width: 1.35rem;
+   text-align: center;
+-  border-radius: 999px;
++  border-radius: var(--mk-radius-pill);
+   padding: 0 0.35rem;
+   background: var(--mb);
+   color: var(--tx);
+@@ -720,19 +720,19 @@ button.kpi:hover {
+   inset-block: 0;
+   inset-inline-start: 0;
+   border-radius: 5px;
+-  transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
++  transition: width 0.6s var(--mk-ease-out);
+ }
+ .bar {
+   height: 6px;
+-  border-radius: 999px;
++  border-radius: var(--mk-radius-pill);
+   background: var(--mb);
+   overflow: hidden;
+ }
+ .bar > i {
+   display: block;
+   height: 100%;
+-  border-radius: 999px;
+-  transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
++  border-radius: var(--mk-radius-pill);
++  transition: width 0.6s var(--mk-ease-out);
+ }
+ /* ring */
+ .gauge {
+@@ -755,7 +755,7 @@ button.kpi:hover {
+ }
+ .gauge .fg {
+   transition:
+-    stroke-dashoffset 0.8s cubic-bezier(0.2, 0.8, 0.2, 1),
++    stroke-dashoffset 0.8s var(--mk-ease-out),
+     stroke 0.3s;
+ }
+ /* health pill */
+@@ -763,7 +763,7 @@ button.kpi:hover {
+   display: inline-flex;
+   align-items: center;
+   gap: 0.4rem;
+-  border-radius: 999px;
++  border-radius: var(--mk-radius-pill);
+   padding: 0.18rem 0.65rem 0.18rem 0.6rem;
+   font-size: 0.72rem;
+   font-weight: 800;
+@@ -1094,7 +1094,7 @@ button.kpi:hover {
+ }
+ .tg-swatch {
+   padding: 0.3rem 0.75rem;
+-  border-radius: 999px;
++  border-radius: var(--mk-radius-pill);
+   font-size: 0.72rem;
+   font-weight: 800;
+   border: 2px solid var(--ln);
 diff --git a/apps/admin-web/src/upstreamBot.ts b/apps/admin-web/src/upstreamBot.ts
 index 96ab932..cc6a461 100644
 --- a/apps/admin-web/src/upstreamBot.ts
@@ -6630,6 +6760,17 @@ index 62ab383..861a192 100644
            <Save size={15} aria-hidden="true" /> ذخیره
          </button>
        </div>
+diff --git a/apps/store-web/src/main.tsx b/apps/store-web/src/main.tsx
+index 2d6b98d..b5db1d5 100644
+--- a/apps/store-web/src/main.tsx
++++ b/apps/store-web/src/main.tsx
+@@ -1,5 +1,6 @@
+ import { createRoot } from 'react-dom/client';
+ import App from './App.tsx';
++import '@melorin/web-kit/tokens.css';
+ import './styles.css';
+ import { initTheme } from './ui.tsx';
+ 
 diff --git a/apps/store-web/src/storeProgram.ts b/apps/store-web/src/storeProgram.ts
 index ba934dd..2fddc57 100644
 --- a/apps/store-web/src/storeProgram.ts
@@ -6667,6 +6808,19 @@ index ba934dd..2fddc57 100644
 -  if (!/^\d+(\.\d{1,2})?$/.test(s)) return null;
 -  return Math.round(Number(s) * 100);
 -}
+diff --git a/apps/store-web/src/styles.css b/apps/store-web/src/styles.css
+index 0e665af..806bb8d 100644
+--- a/apps/store-web/src/styles.css
++++ b/apps/store-web/src/styles.css
+@@ -135,7 +135,7 @@
+     @apply inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-bold text-ink transition hover:bg-surface2 disabled:opacity-40;
+   }
+   .btn-pill {
+-    border-radius: 999px;
++    border-radius: var(--mk-radius-pill);
+   }
+   .card {
+     @apply rounded-2xl border border-line bg-surface p-5 shadow-soft;
 diff --git a/apps/telegram-main/runner.py b/apps/telegram-main/runner.py
 index 1cf04d6..438b97a 100644
 --- a/apps/telegram-main/runner.py
@@ -7519,7 +7673,7 @@ index cb2b24a..5e7709b 100644
  log = logging.getLogger("melorin.telegram.reseller")
  
 diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
-index 1be7e54..ac0db1d 100644
+index 1be7e54..5ce3f2a 100644
 --- a/docs/DECISIONS.md
 +++ b/docs/DECISIONS.md
 @@ -51,7 +51,7 @@ _Merged from the former 12-Change-Log-v1.1.md._
@@ -7568,7 +7722,7 @@ index 1be7e54..ac0db1d 100644
 +- Broadcast composer logic (draft, confirm, POST, error text, delivery polling) lives in `@melorin/web-kit/broadcast.js`; both apps keep their own markup.
 +- Referral plan form (parsing, validation, save flow, `unitOf/toInt/percentToBp`) lives in `@melorin/web-kit/referralPlan.js`; `store-web/storeProgram.ts` re-exports the parsers.
 +- Loyalty club data layer (load program/rewards/summary, revision counter, write helper, default-tier fallback) lives in `@melorin/web-kit/loyaltyClub.js`; the per-card edit forms stay in each app.
-+- Still open: a shared design-token CSS package (admin skin uses hex variables, store skin uses RGB triplets; unifying changes both looks).
++- Design tokens: `@melorin/web-kit/tokens.css` holds only values identical in both skins (font stack, settle easing, pill radius, brand navy/gold) and both apps import it, so no pixel changes. The palettes still differ (admin hex variables, store RGB triplets); merging them would restyle both apps and is a product decision, not a refactor.
 diff --git a/docs/GLOSSARY.md b/docs/GLOSSARY.md
 index 05da7ef..c2d8a21 100644
 --- a/docs/GLOSSARY.md
@@ -7583,10 +7737,10 @@ index 05da7ef..c2d8a21 100644
  | **mediator rule** | Melorin never stores panel-owned numbers; it reads them live (`vpn.PanelReader`) and caches them only within the single freshness policy. | ملورین داده‌های پنل را ذخیره نمی‌کند، زنده می‌خواند. |
  | **outbox** | The `outbox_events` table: events written in the same transaction as the change, delivered by the worker. | رخدادهای هم‌تراکنش با تغییر، که worker ارسال می‌کند. |
 diff --git a/packages/web-kit/package.json b/packages/web-kit/package.json
-index bec8049..ec8bf5e 100644
+index bec8049..9f96ed2 100644
 --- a/packages/web-kit/package.json
 +++ b/packages/web-kit/package.json
-@@ -3,11 +3,19 @@
+@@ -3,11 +3,20 @@
    "private": true,
    "version": "1.0.0",
    "type": "module",
@@ -7606,7 +7760,8 @@ index bec8049..ec8bf5e 100644
 +    "./bankSms.js": "./src/bankSms.js",
 +    "./broadcast.js": "./src/broadcast.js",
 +    "./referralPlan.js": "./src/referralPlan.js",
-+    "./loyaltyClub.js": "./src/loyaltyClub.js"
++    "./loyaltyClub.js": "./src/loyaltyClub.js",
++    "./tokens.css": "./src/tokens.css"
    }
  }
 diff --git a/packages/web-kit/src/bankSms.d.ts b/packages/web-kit/src/bankSms.d.ts
@@ -8094,6 +8249,21 @@ index 0000000..be1623c
 +    }
 +  }
 +  return { model, setModel, value, setValue, cap, setCap, active, setActive, busy, bad, canSave, save };
++}
+diff --git a/packages/web-kit/src/tokens.css b/packages/web-kit/src/tokens.css
+new file mode 100644
+index 0000000..f9858bb
+--- /dev/null
++++ b/packages/web-kit/src/tokens.css
+@@ -0,0 +1,9 @@
++/* Design tokens shared by admin-web and store-web. Only values that are the SAME in both skins live here, so adopting them
++   changes no pixel. The skins keep their own palettes (admin: hex variables, store: RGB triplets); a new shared value goes here first. */
++:root {
++  --mk-font: Vazirmatn, system-ui, sans-serif;
++  --mk-ease-out: cubic-bezier(0.2, 0.8, 0.2, 1); /* the standard "settle" curve of both skins */
++  --mk-radius-pill: 999px;
++  --mk-brand-navy: 16 35 63; /* store primary; admin navigation uses the darker #0f1f38 */
++  --mk-brand-gold: 247 200 92; /* accent in dark mode of the store and the admin highlight */
 +}
 diff --git a/scripts/runtime_evidence.py b/scripts/runtime_evidence.py
 index 1423897..7dc57d3 100644
