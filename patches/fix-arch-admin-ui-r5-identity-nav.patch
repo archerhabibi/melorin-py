@@ -3587,7 +3587,7 @@ index 25b52ab..ce28cfa 100644
 +    assert aa.allows([aa.SUPPORT], area, write=True)
 +    assert aa.allows([aa.FINANCE], area) and not aa.allows([aa.FINANCE], area, write=True)
 diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
-index b2c76ce..174521c 100644
+index b2c76ce..3b7dd90 100644
 --- a/docs/DECISIONS.md
 +++ b/docs/DECISIONS.md
 @@ -141,3 +141,24 @@ _Merged from the former 12-Change-Log-v1.1.md._
@@ -3614,7 +3614,7 @@ index b2c76ce..174521c 100644
 +
 +- r5 (phase 4, real PasarGuard, 2026-11-14): a live PasarGuard panel was registered in the Compose stack with an API key (read-only checks only, no accounts created or changed on the panel). Panel registration, adapter health check and reconciliation all worked: health reported `degraded` because 4 of 8 panel nodes could not be reached from the panel itself (panel-side), reconciliation completed with 0 errors and listed the 2 panel users Melorin does not know as orphans. Not covered: provisioning/renewal/deletion of a real account, node traffic, and `scripts/pasarguard_contract.py diff` (the panel hides its public OpenAPI; export it inside the container as the script documents).
 +
-+- r5 (phase 4, real PasarGuard lifecycle, 2026-11-14): on a dedicated test panel the full customer flow ran twice end to end: top-up approval -> wallet purchase -> worker provisioning -> the panel user exists with the right group, 1 GB quota and expiry -> admin suspend (panel `disabled`) -> resume (panel `active`) -> subscription rotate -> usage read -> customer return (wallet refunded, panel user deleted). No leftover panel users after either run. A renewal order made right after purchase was refused with `ACCOUNT_NOT_RENEWABLE` (409); the rule behind it was not investigated, so renewal against the real panel is still unverified.
++- r5 (phase 4, real PasarGuard lifecycle, 2026-11-14): on a dedicated test panel the full customer flow ran twice end to end: top-up approval -> wallet purchase -> worker provisioning -> the panel user exists with the right group, 1 GB quota and expiry -> admin suspend (panel `disabled`) -> resume (panel `active`) -> subscription rotate -> usage read -> customer return (wallet refunded, panel user deleted). No leftover panel users after either run. The first renewal attempt failed only because the test script sent the wrong field name (`account_id` instead of `vpn_account_id`); with the right field, a renewal order on the real panel completed and moved the panel expiry to now + the package duration (`replace` mode). Returning an account after a renewal is refused by design (`RETURN_RENEWED`). The panel test users were removed afterwards.
 diff --git a/e2e/tests/admin.roles.spec.js b/e2e/tests/admin.roles.spec.js
 new file mode 100644
 index 0000000..a960f0d
