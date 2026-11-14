@@ -51,7 +51,7 @@ export const extraRoutes = {
   'مرکز رویداد': EventCenterView,
   'سلامت زیرساخت': InfraHealthView,
   'عملیات پنل': PanelOpsView,
-  'عملیات گروهی': BulkOperationsView,
+  'عملیات گروهی روی پنل': BulkOperationsView,
   سفارش‌ها: OrdersView,
   'اکانت‌های VPN': VpnAccountsView,
   کاربران: UsersView,

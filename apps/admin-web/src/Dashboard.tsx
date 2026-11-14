@@ -44,7 +44,7 @@ const QUEUE_LABELS: Record<string, string> = {
   account_discrepancies: 'مغایرت اکانت با پنل',
   panel_orphans: 'اکانت‌های بدون صاحب روی پنل',
   failed_panel_events: 'رویدادهای ناموفق پنل',
-  failed_bulk_operations: 'عملیات گروهی ناموفق',
+  failed_bulk_operations: 'عملیات گروهی روی پنل ناموفق',
   receipt_reviews: 'رسیدهای در انتظار بررسی',
   refunds_pending: 'استردادهای در انتظار',
   identity_conflicts: 'تعارض هویت',

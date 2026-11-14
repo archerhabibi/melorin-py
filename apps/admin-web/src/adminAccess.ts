@@ -26,7 +26,7 @@ export const SECTION_AREA: Record<string, string> = {
   'محصولات VPN': 'catalog',
   'سلامت زیرساخت': 'infrastructure',
   'عملیات پنل': 'infrastructure',
-  'عملیات گروهی': 'infrastructure',
+  'عملیات گروهی روی پنل': 'infrastructure',
   'حجم فروشگاه‌ها': 'infrastructure',
   تنظیمات: 'system',
   'دکمه‌های تلگرام': 'system',

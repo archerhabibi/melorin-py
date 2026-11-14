@@ -45,7 +45,7 @@ export const groups: [string, [string, LucideIcon, string][], string?][] = [
       ['سفارش‌ها', Package, 'orders'],
       ['پرداخت‌ها', CreditCard, 'payments'],
       ['اکانت‌های VPN', Server, 'vpn'],
-      ['عملیات گروهی', Zap, 'bulk-operations'], // acts on VPN accounts, so it sits next to them
+      ['عملیات گروهی روی پنل', Zap, 'bulk-operations'], // acts on VPN accounts, so it sits next to them
       ['تیکت‌ها', Ticket, 'tickets'],
     ],
   ],
