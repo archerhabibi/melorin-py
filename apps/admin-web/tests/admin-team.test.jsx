@@ -75,7 +75,7 @@ function setupTeam({ failInvite = false } = {}) {
 
 describe('admin access table (mirror of the server rules)', () => {
   it('every screen of the nav has a permission area, and unknown screens fall to owner-only', () => {
-    expect(SECTION_AREA['مدیران سامانه']).toBe('admins');
+    expect(SECTION_AREA['تیم مدیریت']).toBe('admins');
     expect(SECTION_AREA['تنظیمات']).toBe('system');
     expect(sectionAllowed(['orders:r'], 'screen-nobody-knows')).toBe(false);
     expect(sectionAllowed(['system:rw'], 'screen-nobody-knows')).toBe(true);
@@ -99,7 +99,7 @@ describe('admin access table (mirror of the server rules)', () => {
   });
 
   it('registers both new screens', () => {
-    expect(Object.keys(extraRoutes)).toEqual(expect.arrayContaining(['مدیران سامانه', 'حساب من']));
+    expect(Object.keys(extraRoutes)).toEqual(expect.arrayContaining(['تیم مدیریت', 'حساب من']));
   });
 });
 

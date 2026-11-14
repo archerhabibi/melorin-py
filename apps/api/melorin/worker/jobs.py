@@ -461,7 +461,7 @@ async def receipt_grace_job(ctx=None):
 
 @tracked_job
 async def panel_admin_sync_job(ctx=None):
-    """Every minute: a new reseller / a new PasarGuard panel / an existing reseller meeting a new panel gets its Operator admin."""
+    """Every 15 minutes (retry + safety net): panel create and reseller create already plan and push the Operator admin on the spot."""
     from melorin.modules.panelops import panel_admins
 
     async with session_factory()() as s:

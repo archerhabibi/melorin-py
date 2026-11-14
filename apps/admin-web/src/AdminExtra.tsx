@@ -737,7 +737,7 @@ export const extraRoutes = {
   تیکت‌ها: Tickets,
   'محصولات VPN': ProductsView,
   'پنل‌ها و سرورها': PanelsView,
-  'ادمین‌های پنل': PanelAdminsView,
+  'اپراتور پنل فروشگاه': PanelAdminsView,
   'بسته‌های فروش': BundlesView,
   کوپن‌ها: Coupons,
   'برنامه‌های معرفی': ReferralProgramsView,
@@ -745,6 +745,6 @@ export const extraRoutes = {
   تنظیمات: Settings,
   ممیزی: AuditView,
   هویت: IdentityHubView,
-  'مدیران سامانه': AdminTeamView,
+  'تیم مدیریت': AdminTeamView,
   'حساب من': MyAccount,
 };

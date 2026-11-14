@@ -120,7 +120,7 @@ const groups: [string, [string, LucideIcon, string][], string?][] = [
       ['تنظیمات', Settings, 'settings'],
       ['ممیزی', ScrollText, 'audit'],
       ['هویت', Fingerprint, 'identity'],
-      ['مدیران سامانه', UsersRound, 'admin-team'],
+      ['تیم مدیریت', UsersRound, 'admin-team'],
       ['حساب من', UserRound, 'my-account'],
     ],
   ],

@@ -613,7 +613,7 @@ export default function PanelAdminsView({ api, toast }: { api?: Json; toast: Toa
       <section className="card rise overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--ln)] px-5 py-4">
           <div>
-            <h3 className="font-extrabold">ادمین‌های پنل</h3>
+            <h3 className="font-extrabold">اپراتور پنل فروشگاه</h3>
             <p className="mt-1 text-xs text-[var(--mu)]">
               برای هر فروشگاه یک ادمین Operator روی هر پنل PasarGuard؛ همهٔ اکانت‌های آن فروشگاه زیر همین ادمین ساخته
               می‌شوند.

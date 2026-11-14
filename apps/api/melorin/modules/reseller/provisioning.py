@@ -30,4 +30,8 @@ async def create_reseller_store(session, a: ResellerApplication, target: Store, 
         )
     )
     await link_store_catalog(session, st)  # connect the new store to the main packages and sales bundles
+    # Event-driven: the (panel, store) Operator-admin rows exist from this moment; the worker only pushes/retries them.
+    from melorin.modules.panelops import panel_admins
+
+    await panel_admins.plan(session)
     return st

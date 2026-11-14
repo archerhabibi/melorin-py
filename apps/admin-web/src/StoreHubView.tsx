@@ -28,7 +28,7 @@ type HubView = LazyExoticComponent<(p: { api?: HubApi; toast: Toast }) => ReactN
 const TAB_DEFS: [string, string, string, HubView][] = [
   ['stores', 'فروشگاه‌ها', 'فروشگاه‌ها', StoresView],
   ['resellers', 'نمایندگان', 'نمایندگان', ResellersView],
-  ['panels', 'دسترسی پنل', 'ادمین‌های پنل', PanelAdminsView],
+  ['panels', 'دسترسی پنل', 'اپراتور پنل فروشگاه', PanelAdminsView],
   ['volume', 'حجم و سیاست', 'حجم فروشگاه‌ها', StoreGovernanceView],
 ];
 

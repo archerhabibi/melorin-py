@@ -104,7 +104,7 @@ class WorkerSettings:
         cron(store_digest_job, hour=17, minute=0, unique=True),
         cron(panel_health_job, minute=set(range(0, 60, 2)), unique=True),
         cron(panel_settings_drift_job, minute=25, unique=True),
-        cron(panel_admin_sync_job, minute=set(range(0, 60)), unique=True),
+        cron(panel_admin_sync_job, minute={0, 15, 30, 45}, unique=True),
         cron(panel_event_job, second=set(range(3, 60, 10)), unique=True),
         cron(bulk_operation_job, second={7, 22, 37, 52}, unique=True),
         cron(store_governance_job, minute={4, 19, 34, 49}, unique=True),

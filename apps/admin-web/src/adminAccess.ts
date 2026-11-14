@@ -21,7 +21,7 @@ export const SECTION_AREA: Record<string, string> = {
   'برنامه‌های معرفی': 'catalog',
   'باشگاه مشتریان': 'catalog',
   'پنل‌ها و سرورها': 'infrastructure',
-  'ادمین‌های پنل': 'infrastructure',
+  'اپراتور پنل فروشگاه': 'infrastructure',
   'بسته‌های فروش': 'catalog',
   'محصولات VPN': 'catalog',
   'سلامت زیرساخت': 'infrastructure',
@@ -32,7 +32,7 @@ export const SECTION_AREA: Record<string, string> = {
   'دکمه‌های تلگرام': 'system',
   ممیزی: 'audit',
   هویت: 'customers',
-  'مدیران سامانه': 'admins',
+  'تیم مدیریت': 'admins',
   'حساب من': 'self',
 };
 

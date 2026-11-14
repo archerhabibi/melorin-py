@@ -493,7 +493,7 @@ export default function AdminTeamView({ api, toast }: { api: ViewApi; toast: Toa
   return (
     <div className="space-y-5">
       <ScreenHead
-        title="مدیران سامانه"
+        title="تیم مدیریت"
         hint="چه کسانی وارد این پنل می‌شوند و هرکدام چه کاری می‌توانند بکنند. ادمین جدید با لینک دعوت یک‌بارمصرف خودش رمز و TOTP می‌سازد."
         count={loading ? null : all.length}
         onRefresh={() => {

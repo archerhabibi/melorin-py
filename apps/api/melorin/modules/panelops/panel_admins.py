@@ -3,7 +3,7 @@
 * The Main Store and every reseller store get their OWN admin on every enabled PasarGuard panel (``panel_admins`` row per
   (panel, store)). Every account sold through a store - the reseller's own and their customers' - is created under that admin.
 * Rows are planned by :func:`plan` (DB only) and made real on the panel by :func:`sync_all` (the worker's
-  ``panel_admin_sync_job`` every minute, "sync now" in the admin API, and lazily by :func:`owner_for` while provisioning).
+  ``panel_admin_sync_job`` every 15 minutes as retry/fallback, "sync now" in the admin API, and lazily by :func:`owner_for` while provisioning).
   Everything is idempotent: a new reseller, a new panel, or a reseller that existed long before the panel was added all end in
   the same state.
 * "Profile & contact" is optional and edited by the Melorin admin only. A reseller files a change request
