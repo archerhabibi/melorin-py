@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 // without a manual step, and accounts that were folded together automatically. The admin can revoke trust here.
 import { useEffect, useState } from 'react';
 import { ArrowLeftRight, Fingerprint, MonitorSmartphone, ShieldOff, UserRound, Users } from 'lucide-react';
-import { authFetch } from './api.ts';
+import { authFetch, typedClient } from './api.ts';
 import { confirmDialog, dt, sid } from './ui.tsx';
 import { Empty, ErrorBar, KpiBar, Pills, SearchBox, Segmented, Stat, errText, num, tint, useRows } from './kit.tsx';
 import type { CallFn, Json, Rec, Toast } from './types.ts';
@@ -29,20 +29,18 @@ function Chip({ tone, children }: { tone?: Json; children?: ReactNode }) {
   );
 }
 
-function DevicesTab({ call, toast, onChanged }: { call: CallFn; toast: Toast; onChanged?: Json }) {
+function DevicesTab({ call, base, toast, onChanged }: { call: CallFn; base: string; toast: Toast; onChanged?: Json }) {
   const [status, setStatus] = useState('active');
   const [q, setQ] = useState('');
   const query = `?status=${status}${q.trim() ? `&q=${encodeURIComponent(q.trim())}` : ''}`;
   const { rows, failed, load } = useRows(call, `/api/v1/admin/trusted-devices${query}`);
   const [busy, setBusy] = useState<Json>(null);
 
-  const run = async (key: Json, path: string, body: Json, done: Json) => {
+  // typed api-client (same transport as authFetch); one literal path per action so the schema checks each body
+  const run = async (key: Json, send: () => Promise<{ response: Response }>, done: Json) => {
     setBusy(key);
     try {
-      const res = await call(path, {
-        method: 'POST',
-        ...(body ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {}),
-      });
+      const { response: res } = await send();
       if (res.ok) {
         toast(done);
         load();
@@ -62,7 +60,14 @@ function DevicesTab({ call, toast, onChanged }: { call: CallFn; toast: Toast; on
       ))
     )
       return;
-    run(d.id, `/api/v1/admin/trusted-devices/${d.id}/revoke`, null, 'اعتماد دستگاه لغو شد');
+    run(
+      d.id,
+      () =>
+        typedClient(base).post('/api/v1/admin/trusted-devices/{device_id}/revoke', {
+          params: { path: { device_id: d.id } },
+        }),
+      'اعتماد دستگاه لغو شد',
+    );
   };
   const revokeAccount = async (d: Json) => {
     if (
@@ -75,8 +80,10 @@ function DevicesTab({ call, toast, onChanged }: { call: CallFn; toast: Toast; on
       return;
     run(
       `u${d.user?.id}`,
-      '/api/v1/admin/trusted-devices/revoke-account',
-      { user_id: d.user?.id },
+      () =>
+        typedClient(base).post('/api/v1/admin/trusted-devices/revoke-account', {
+          body: { user_id: d.user?.id },
+        }),
       'همهٔ دستگاه‌های این حساب لغو شد',
     );
   };
@@ -217,9 +224,10 @@ export default function IdentityAutoView({ api, toast, section }: { api?: Json; 
   const [s, setS] = useState<Rec>({});
   useEffect(() => {
     let alive = true;
-    call('/api/v1/admin/trusted-devices/summary')
-      .then((r) => (r.ok ? r.json() : {}))
-      .then((d) => alive && setS(d || {}))
+    typedClient(api.base)
+      .get('/api/v1/admin/trusted-devices/summary')
+      .then((r) => (r.response.ok ? r.data : {}))
+      .then((d) => alive && setS((d as Rec) || {}))
       .catch(() => {});
     return () => {
       alive = false;
@@ -259,7 +267,7 @@ export default function IdentityAutoView({ api, toast, section }: { api?: Json; 
         />
       )}
       {tab === 'devices' ? (
-        <DevicesTab call={call} toast={toast} onChanged={() => setTick((t) => t + 1)} />
+        <DevicesTab call={call} base={api.base} toast={toast} onChanged={() => setTick((t) => t + 1)} />
       ) : (
         <MergesTab call={call} />
       )}

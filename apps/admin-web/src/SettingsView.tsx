@@ -39,7 +39,7 @@ const Toggle = ({ on, set, label }: { on?: Json; set?: Json; label?: Json }) => 
   </label>
 );
 
-function Integrations({ api, toast }: { api?: Json; toast: Toast }) {
+function Integrations({ api, toast, part }: { api?: Json; toast: Toast; part: 'integrations' | 'security' }) {
   const call = (p: Json, o = {}) => authFetch(api.base, p, o);
   const [aa, setAa] = useState<Json>(null);
   const [ipText, setIpText] = useState('');
@@ -82,225 +82,238 @@ function Integrations({ api, toast }: { api?: Json; toast: Toast }) {
   const s3s = (k: Json) => (v: Json) => setS3({ ...s3, [k]: v });
   return (
     <section className={`${box} space-y-6 p-5`}>
-      <h3 className="font-extrabold">
-        یکپارچه‌سازی‌ها <span className="text-xs font-normal text-[var(--mu)]">(اختیاری؛ برای نصب لازم نیستند)</span>
-      </h3>
-      <div className="space-y-3 rounded-xl border border-[var(--ln)] p-4">
-        <div className="flex items-center justify-between">
-          <b>دسترسی ادمین (محدودیت IP)</b>
-          <Toggle
-            on={aa.enabled}
-            set={(v: Json) => setAa({ ...aa, enabled: v })}
-            label={aa.enabled ? 'فعال' : 'غیرفعال'}
-          />
-        </div>
-        <p className="text-xs text-[var(--mu)]">
-          به‌طور پیش‌فرض خاموش است. در حالت فعال، API ادمین فقط از IPها/CIDRهای زیر پاسخ می‌دهد (هر خط یک مورد). IP فعلی
-          شما: <code dir="ltr">{aa.your_ip}</code>. اگر قفل شدید، روی سرور:{' '}
-          <code dir="ltr">python -m melorin.cli disable-admin-ip-allowlist</code>
-        </p>
-        <textarea
-          dir="ltr"
-          rows={3}
-          className={inp}
-          value={ipText}
-          onChange={(e) => setIpText(e.target.value)}
-          placeholder={'203.0.113.10/32\n198.51.100.0/24'}
-        />
-        <button
-          disabled={busy === 'aa'}
-          className={btn}
-          onClick={() =>
-            send(
-              '/api/v1/admin/integrations/admin-access',
-              { enabled: aa.enabled, ips: ipText.split(/[\s,]+/).filter(Boolean) },
-              'تنظیمات دسترسی ادمین ذخیره شد',
-              'aa',
-            )
-          }
-        >
-          ذخیره
-        </button>
-      </div>
-      <div className="grid gap-6 lg:grid-cols-2">
+      {part === 'integrations' && (
+        <>
+          <h3 className="font-extrabold">
+            یکپارچه‌سازی‌ها{' '}
+            <span className="text-xs font-normal text-[var(--mu)]">(اختیاری؛ برای نصب لازم نیستند)</span>
+          </h3>
+        </>
+      )}
+      {part === 'security' && (
         <div className="space-y-3 rounded-xl border border-[var(--ln)] p-4">
           <div className="flex items-center justify-between">
-            <b>ایمیل (SMTP)</b>
-            <Toggle on={em.enabled} set={sm('enabled')} label={em.enabled ? 'فعال' : 'غیرفعال'} />
-          </div>
-          <p className="text-xs text-[var(--mu)]">
-            وقتی غیرفعال است، ورود با کد ایمیلی در دسترس نیست؛ بقیه‌ی روش‌های ورود و سیستم عادی کار می‌کنند.
-          </p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="میزبان SMTP">
-              <input
-                dir="ltr"
-                className={inp}
-                value={em.host}
-                onChange={(e) => sm('host')(e.target.value)}
-                placeholder="smtp.example.com"
-              />
-            </Field>
-            <Field label="پورت">
-              <input
-                dir="ltr"
-                type="number"
-                className={inp}
-                value={em.port}
-                onChange={(e) => sm('port')(+e.target.value)}
-              />
-            </Field>
-            <Field label="نام کاربری">
-              <input dir="ltr" className={inp} value={em.username} onChange={(e) => sm('username')(e.target.value)} />
-            </Field>
-            <Field label={`رمز عبور${em.password_set ? ' (ذخیره شده؛ برای تغییر بنویسید)' : ''}`}>
-              <PasswordInput
-                autoComplete="new-password"
-                className={inp}
-                value={pw}
-                onChange={(e: Json) => setPw(e.target.value)}
-              />
-            </Field>
-            <Field label="آدرس فرستنده">
-              <input
-                dir="ltr"
-                className={inp}
-                value={em.from_addr}
-                onChange={(e) => sm('from_addr')(e.target.value)}
-                placeholder="no-reply@example.com"
-              />
-            </Field>
-            <Field label="امنیت اتصال">
-              <select className={inp} value={em.security} onChange={(e) => sm('security')(e.target.value)}>
-                <option value="starttls">STARTTLS (۵۸۷)</option>
-                <option value="ssl">SSL/TLS (۴۶۵)</option>
-                <option value="none">بدون رمزنگاری</option>
-              </select>
-            </Field>
-          </div>
-          <div className="flex flex-wrap items-end gap-2">
-            <button
-              disabled={busy === 'em'}
-              className={btn}
-              onClick={() =>
-                send(
-                  '/api/v1/admin/integrations/email',
-                  {
-                    enabled: em.enabled,
-                    host: em.host,
-                    port: em.port,
-                    username: em.username,
-                    password: pw === '' ? null : pw,
-                    from_addr: em.from_addr,
-                    security: em.security,
-                  },
-                  'تنظیمات ایمیل ذخیره شد',
-                  'em',
-                )
-              }
-            >
-              ذخیره
-            </button>
-            <input
-              dir="ltr"
-              className={`${inp} max-w-[14rem]`}
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-              placeholder="ایمیل برای تست"
+            <b>دسترسی ادمین (محدودیت IP)</b>
+            <Toggle
+              on={aa.enabled}
+              set={(v: Json) => setAa({ ...aa, enabled: v })}
+              label={aa.enabled ? 'فعال' : 'غیرفعال'}
             />
-            <button
-              disabled={!to || busy === 'emt'}
-              className={ghost}
-              onClick={() => send('/api/v1/admin/integrations/email/test', { to }, 'ایمیل تست ارسال شد', 'emt')}
-            >
-              ارسال تست
-            </button>
-          </div>
-        </div>
-        <div className="space-y-3 rounded-xl border border-[var(--ln)] p-4">
-          <div className="flex items-center justify-between">
-            <b>بکاپ</b>
           </div>
           <p className="text-xs text-[var(--mu)]">
-            بکاپ محلی همیشه فعال است (رمزگذاری‌شده، روزانه ۰۲:۰۰ UTC، نگهداری {local?.retention_days} روز در{' '}
-            <code dir="ltr">{local?.dir}</code>). کپی خارج از سرور روی S3 اختیاری است.
+            به‌طور پیش‌فرض خاموش است. در حالت فعال، API ادمین فقط از IPها/CIDRهای زیر پاسخ می‌دهد (هر خط یک مورد). IP
+            فعلی شما: <code dir="ltr">{aa.your_ip}</code>. اگر قفل شدید، روی سرور:{' '}
+            <code dir="ltr">python -m melorin.cli disable-admin-ip-allowlist</code>
           </p>
-          <Toggle on={s3.enabled} set={s3s('enabled')} label={s3.enabled ? 'کپی روی S3 فعال' : 'کپی روی S3 غیرفعال'} />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Endpoint (برای S3 سازگار)">
+          <textarea
+            dir="ltr"
+            rows={3}
+            className={inp}
+            value={ipText}
+            onChange={(e) => setIpText(e.target.value)}
+            placeholder={'203.0.113.10/32\n198.51.100.0/24'}
+          />
+          <button
+            disabled={busy === 'aa'}
+            className={btn}
+            onClick={() =>
+              send(
+                '/api/v1/admin/integrations/admin-access',
+                { enabled: aa.enabled, ips: ipText.split(/[\s,]+/).filter(Boolean) },
+                'تنظیمات دسترسی ادمین ذخیره شد',
+                'aa',
+              )
+            }
+          >
+            ذخیره
+          </button>
+        </div>
+      )}
+      {part === 'integrations' && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="space-y-3 rounded-xl border border-[var(--ln)] p-4">
+            <div className="flex items-center justify-between">
+              <b>ایمیل (SMTP)</b>
+              <Toggle on={em.enabled} set={sm('enabled')} label={em.enabled ? 'فعال' : 'غیرفعال'} />
+            </div>
+            <p className="text-xs text-[var(--mu)]">
+              وقتی غیرفعال است، ورود با کد ایمیلی در دسترس نیست؛ بقیه‌ی روش‌های ورود و سیستم عادی کار می‌کنند.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="میزبان SMTP">
+                <input
+                  dir="ltr"
+                  className={inp}
+                  value={em.host}
+                  onChange={(e) => sm('host')(e.target.value)}
+                  placeholder="smtp.example.com"
+                />
+              </Field>
+              <Field label="پورت">
+                <input
+                  dir="ltr"
+                  type="number"
+                  className={inp}
+                  value={em.port}
+                  onChange={(e) => sm('port')(+e.target.value)}
+                />
+              </Field>
+              <Field label="نام کاربری">
+                <input dir="ltr" className={inp} value={em.username} onChange={(e) => sm('username')(e.target.value)} />
+              </Field>
+              <Field label={`رمز عبور${em.password_set ? ' (ذخیره شده؛ برای تغییر بنویسید)' : ''}`}>
+                <PasswordInput
+                  autoComplete="new-password"
+                  className={inp}
+                  value={pw}
+                  onChange={(e: Json) => setPw(e.target.value)}
+                />
+              </Field>
+              <Field label="آدرس فرستنده">
+                <input
+                  dir="ltr"
+                  className={inp}
+                  value={em.from_addr}
+                  onChange={(e) => sm('from_addr')(e.target.value)}
+                  placeholder="no-reply@example.com"
+                />
+              </Field>
+              <Field label="امنیت اتصال">
+                <select className={inp} value={em.security} onChange={(e) => sm('security')(e.target.value)}>
+                  <option value="starttls">STARTTLS (۵۸۷)</option>
+                  <option value="ssl">SSL/TLS (۴۶۵)</option>
+                  <option value="none">بدون رمزنگاری</option>
+                </select>
+              </Field>
+            </div>
+            <div className="flex flex-wrap items-end gap-2">
+              <button
+                disabled={busy === 'em'}
+                className={btn}
+                onClick={() =>
+                  send(
+                    '/api/v1/admin/integrations/email',
+                    {
+                      enabled: em.enabled,
+                      host: em.host,
+                      port: em.port,
+                      username: em.username,
+                      password: pw === '' ? null : pw,
+                      from_addr: em.from_addr,
+                      security: em.security,
+                    },
+                    'تنظیمات ایمیل ذخیره شد',
+                    'em',
+                  )
+                }
+              >
+                ذخیره
+              </button>
               <input
                 dir="ltr"
-                className={inp}
-                value={s3.endpoint}
-                onChange={(e) => s3s('endpoint')(e.target.value)}
-                placeholder="https://s3.example.com"
+                className={`${inp} max-w-[14rem]`}
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                placeholder="ایمیل برای تست"
               />
-            </Field>
-            <Field label="Region">
-              <input
-                dir="ltr"
-                className={inp}
-                value={s3.region}
-                onChange={(e) => s3s('region')(e.target.value)}
-                placeholder="us-east-1"
-              />
-            </Field>
-            <Field label="Bucket">
-              <input dir="ltr" className={inp} value={s3.bucket} onChange={(e) => s3s('bucket')(e.target.value)} />
-            </Field>
-            <Field label="Prefix">
-              <input dir="ltr" className={inp} value={s3.prefix} onChange={(e) => s3s('prefix')(e.target.value)} />
-            </Field>
-            <Field label="Access Key">
-              <input
-                dir="ltr"
-                className={inp}
-                value={s3.access_key}
-                onChange={(e) => s3s('access_key')(e.target.value)}
-              />
-            </Field>
-            <Field label={`Secret Key${s3.secret_key_set ? ' (ذخیره شده؛ برای تغییر بنویسید)' : ''}`}>
-              <PasswordInput
-                autoComplete="new-password"
-                className={inp}
-                value={sk}
-                onChange={(e: Json) => setSk(e.target.value)}
-              />
-            </Field>
+              <button
+                disabled={!to || busy === 'emt'}
+                className={ghost}
+                onClick={() => send('/api/v1/admin/integrations/email/test', { to }, 'ایمیل تست ارسال شد', 'emt')}
+              >
+                ارسال تست
+              </button>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <button
-              disabled={busy === 's3'}
-              className={btn}
-              onClick={() =>
-                send(
-                  '/api/v1/admin/integrations/backup-s3',
-                  {
-                    enabled: s3.enabled,
-                    endpoint: s3.endpoint,
-                    region: s3.region,
-                    bucket: s3.bucket,
-                    prefix: s3.prefix,
-                    access_key: s3.access_key,
-                    secret_key: sk === '' ? null : sk,
-                  },
-                  'تنظیمات S3 ذخیره شد',
-                  's3',
-                )
-              }
-            >
-              ذخیره
-            </button>
-            <button
-              disabled={busy === 's3t'}
-              className={ghost}
-              onClick={() => send('/api/v1/admin/integrations/backup-s3/test', {}, 'اتصال به S3 موفق بود', 's3t')}
-            >
-              تست اتصال
-            </button>
+          <div className="space-y-3 rounded-xl border border-[var(--ln)] p-4">
+            <div className="flex items-center justify-between">
+              <b>بکاپ</b>
+            </div>
+            <p className="text-xs text-[var(--mu)]">
+              بکاپ محلی همیشه فعال است (رمزگذاری‌شده، روزانه ۰۲:۰۰ UTC، نگهداری {local?.retention_days} روز در{' '}
+              <code dir="ltr">{local?.dir}</code>). کپی خارج از سرور روی S3 اختیاری است.
+            </p>
+            <Toggle
+              on={s3.enabled}
+              set={s3s('enabled')}
+              label={s3.enabled ? 'کپی روی S3 فعال' : 'کپی روی S3 غیرفعال'}
+            />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Endpoint (برای S3 سازگار)">
+                <input
+                  dir="ltr"
+                  className={inp}
+                  value={s3.endpoint}
+                  onChange={(e) => s3s('endpoint')(e.target.value)}
+                  placeholder="https://s3.example.com"
+                />
+              </Field>
+              <Field label="Region">
+                <input
+                  dir="ltr"
+                  className={inp}
+                  value={s3.region}
+                  onChange={(e) => s3s('region')(e.target.value)}
+                  placeholder="us-east-1"
+                />
+              </Field>
+              <Field label="Bucket">
+                <input dir="ltr" className={inp} value={s3.bucket} onChange={(e) => s3s('bucket')(e.target.value)} />
+              </Field>
+              <Field label="Prefix">
+                <input dir="ltr" className={inp} value={s3.prefix} onChange={(e) => s3s('prefix')(e.target.value)} />
+              </Field>
+              <Field label="Access Key">
+                <input
+                  dir="ltr"
+                  className={inp}
+                  value={s3.access_key}
+                  onChange={(e) => s3s('access_key')(e.target.value)}
+                />
+              </Field>
+              <Field label={`Secret Key${s3.secret_key_set ? ' (ذخیره شده؛ برای تغییر بنویسید)' : ''}`}>
+                <PasswordInput
+                  autoComplete="new-password"
+                  className={inp}
+                  value={sk}
+                  onChange={(e: Json) => setSk(e.target.value)}
+                />
+              </Field>
+            </div>
+            <div className="flex gap-2">
+              <button
+                disabled={busy === 's3'}
+                className={btn}
+                onClick={() =>
+                  send(
+                    '/api/v1/admin/integrations/backup-s3',
+                    {
+                      enabled: s3.enabled,
+                      endpoint: s3.endpoint,
+                      region: s3.region,
+                      bucket: s3.bucket,
+                      prefix: s3.prefix,
+                      access_key: s3.access_key,
+                      secret_key: sk === '' ? null : sk,
+                    },
+                    'تنظیمات S3 ذخیره شد',
+                    's3',
+                  )
+                }
+              >
+                ذخیره
+              </button>
+              <button
+                disabled={busy === 's3t'}
+                className={ghost}
+                onClick={() => send('/api/v1/admin/integrations/backup-s3/test', {}, 'اتصال به S3 موفق بود', 's3t')}
+              >
+                تست اتصال
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </section>
   );
 }
@@ -361,7 +374,7 @@ export function ChangeAdminPassword({ api, toast }: { api?: Json; toast: Toast }
   );
 }
 
-const SETTINGS_TABS = ['integrations', 'login', 'advanced'];
+const SETTINGS_TABS = ['integrations', 'security', 'login', 'advanced'];
 const settingsTabFromHash = () => {
   const q = typeof window === 'undefined' ? '' : window.location.hash.split('?')[1] || '';
   const t = new URLSearchParams(q).get('tab') ?? '';
@@ -419,11 +432,12 @@ export default function Settings({ api, toast }: { api?: Json; toast: Toast }) {
         onChange={pick}
         options={[
           ['integrations', 'پشتیبان‌گیری و ایمیل'],
+          ['security', 'امنیت دسترسی ادمین'],
           ['login', 'روش‌های ورود'],
           ['advanced', 'پیشرفته'],
         ]}
       />
-      {tab === 'integrations' && <Integrations api={api} toast={toast} />}
+      {(tab === 'integrations' || tab === 'security') && <Integrations key={tab} api={api} toast={toast} part={tab} />}
       {tab === 'login' && (
         <Suspense fallback={<div className="skel h-44" />}>
           <div className="space-y-5">

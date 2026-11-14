@@ -87,7 +87,7 @@ export const groups: [string, [string, LucideIcon, string][], string?][] = [
     ],
   ],
   [
-    'سیستم',
+    'سیستم و امنیت',
     [
       ['تنظیمات', Settings, 'settings'],
       ['ممیزی', ScrollText, 'audit'],
