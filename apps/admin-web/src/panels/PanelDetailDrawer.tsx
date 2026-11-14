@@ -48,8 +48,8 @@ export function PanelDetailTabs({
       </div>
       {tab === 'nodes' && <PanelNodesTab call={call} panelId={panelId} toast={toast} />}
       {tab === 'console' && <PanelConsoleTab call={call} panelId={panelId} toast={toast} />}
-      {tab === 'events' && <PanelEventsTab call={call} panelId={panelId} toast={toast} />}
-      {tab === 'capacity' && <PanelCapacityTab call={call} panelId={panelId} toast={toast} />}
+      {tab === 'events' && <PanelEventsTab api={api} panelId={panelId} toast={toast} />}
+      {tab === 'capacity' && <PanelCapacityTab api={api} panelId={panelId} toast={toast} />}
       {tab === 'templates' && <PanelTemplatesTab call={call} panelId={panelId} toast={toast} />}
       {tab === 'observe' && <PanelPhase5Tab call={call} panelId={panelId} toast={toast} />}
       {tab === 'access' && <PanelAccessTab call={call} panelId={panelId} panelName={panelName} toast={toast} />}

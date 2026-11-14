@@ -7,13 +7,15 @@ import AccountToolsPanel from '../src/AccountToolsPanel.tsx';
 import { DialogHost } from '../src/ui.tsx';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
+// Capacity talks to Core through the typed api-client (global fetch); the other tabs still take a `call` prop.
 const mk = (handler) => {
   const calls = [];
-  const call = async (path, o = {}) => {
+  const run = async (path, o = {}) => {
     calls.push([o.method || 'GET', path, o.body]);
     return handler(path, o);
   };
-  return { call, calls };
+  vi.spyOn(globalThis, 'fetch').mockImplementation((url, o) => run(String(url).replace(/^https?:\/\/[^/]+/, ''), o));
+  return { call: run, calls };
 };
 
 afterEach(() => vi.restoreAllMocks());
@@ -48,8 +50,8 @@ describe('PanelCapacityTab (PG-08)', () => {
   };
 
   it('shows sellability, outside-Melorin users and group reasons', async () => {
-    const { call } = mk(() => json(capacity));
-    render(<PanelCapacityTab call={call} panelId="p1" toast={() => {}} />);
+    mk(() => json(capacity));
+    render(<PanelCapacityTab api={{ base: 'http://core.test' }} panelId="p1" toast={() => {}} />);
     expect(await screen.findByText('srv-a')).toBeInTheDocument();
     expect(screen.getByText('فروش متوقف')).toBeInTheDocument();
     expect(screen.getByText('نود متصلی برای این مقصد نیست')).toBeInTheDocument();
@@ -58,17 +60,17 @@ describe('PanelCapacityTab (PG-08)', () => {
   });
 
   it('refresh posts and reloads', async () => {
-    const { call, calls } = mk((path, o) =>
+    const { calls } = mk((path, o) =>
       o.method === 'POST' ? json({ changes: [{ server: 'srv-a', kind: 'blocked', to: 'x' }] }) : json(capacity),
     );
-    render(<PanelCapacityTab call={call} panelId="p1" toast={() => {}} />);
+    render(<PanelCapacityTab api={{ base: 'http://core.test' }} panelId="p1" toast={() => {}} />);
     await userEvent.click(await screen.findByRole('button', { name: /بررسی همین حالا/ }));
     await waitFor(() => expect(calls.some(([m, p]) => m === 'POST' && p.endsWith('/capacity/refresh'))).toBe(true));
   });
 
   it('explains an unsupported panel', async () => {
-    const { call } = mk(() => json({ ...capacity, capacity_ops: false }));
-    render(<PanelCapacityTab call={call} panelId="p1" toast={() => {}} />);
+    mk(() => json({ ...capacity, capacity_ops: false }));
+    render(<PanelCapacityTab api={{ base: 'http://core.test' }} panelId="p1" toast={() => {}} />);
     expect(await screen.findByText(/پشتیبانی نمی‌کند/)).toBeInTheDocument();
   });
 });
