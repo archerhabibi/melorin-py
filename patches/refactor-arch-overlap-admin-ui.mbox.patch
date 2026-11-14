@@ -1,7 +1,7 @@
 From 2b7a40f4d38354ba119e0b5f4b673112112ec92e Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@gmail.com>
 Date: Fri, 13 Nov 2026 11:54:01 +0000
-Subject: [PATCH 01/27] arch(contracts): put eventcenter and broadcast under
+Subject: [PATCH 01/28] arch(contracts): put eventcenter and broadcast under
  the layer contract
 
 ---
@@ -28,7 +28,7 @@ index 286ab43..8ac7f14 100644
 From 2d64d509e34f94253822c3dbe6a55249abcb6301 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@gmail.com>
 Date: Fri, 13 Nov 2026 11:58:35 +0000
-Subject: [PATCH 02/27] fix(auth): admin password change enforces the same
+Subject: [PATCH 02/28] fix(auth): admin password change enforces the same
  policy as invite acceptance
 
 ---
@@ -92,7 +92,7 @@ index 4b4c2e7..b25e1a7 100644
 From 5ebfec4a5a0ad094c54c045612d3869ebc5e45b9 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@gmail.com>
 Date: Fri, 13 Nov 2026 11:59:56 +0000
-Subject: [PATCH 03/27] feat(admin-ui): regroup the menu (operations,
+Subject: [PATCH 03/28] feat(admin-ui): regroup the menu (operations,
  customers, catalog+marketing, communication, infrastructure); single password
  form; Receipt OCR lives under Payments
 
@@ -231,7 +231,7 @@ index d735da1..1bc9415 100644
 From cf3078358e9dd56b704544fd5afe992040683daa Mon Sep 17 00:00:00 2001
 From: claude-refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 12:22:19 +0000
-Subject: [PATCH 04/27] test(admin-ui): contract test follows the regrouped
+Subject: [PATCH 04/28] test(admin-ui): contract test follows the regrouped
  menu (infra group, catalog+marketing group)
 
 ---
@@ -263,7 +263,7 @@ index c37b6d0..b1c0224 100644
 From fa2f9f1b12a3e751e31dd0e7c0fecfe020debe13 Mon Sep 17 00:00:00 2001
 From: claude-refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 12:26:08 +0000
-Subject: [PATCH 05/27] arch(panelops): move panel_admins, governance,
+Subject: [PATCH 05/28] arch(panelops): move panel_admins, governance,
  store_usage, service_access, panel_events_admin, bulk, subscription_check,
  recreate, digest from vpn to panelops
 
@@ -873,7 +873,7 @@ index dc6010d..5daf353 100644
 From 28b907357132344d43bf66ba46418fb216c133cb Mon Sep 17 00:00:00 2001
 From: claude-refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 12:36:11 +0000
-Subject: [PATCH 06/27] arch(panelops): one reconciliation-actions service;
+Subject: [PATCH 06/28] arch(panelops): one reconciliation-actions service;
  admin router no longer builds adapters or coordinates writes
 
 Behaviour, error codes, audit events and messages are unchanged. Commits go through unit_of_work. Tests that patched the router's
@@ -1252,7 +1252,7 @@ index 1be7e54..ae1b773 100644
 From d9bf9dddd7d1751e60a4974b89608d057b2f9a2a Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:09:10 +0000
-Subject: [PATCH 07/27] docs(identity): point identity docstrings at docs/23
+Subject: [PATCH 07/28] docs(identity): point identity docstrings at docs/23
  (was docs/21)
 
 ---
@@ -1496,7 +1496,7 @@ index f553767..6ad921e 100644
 From 4666d51295581024fbba949d8215350c69940168 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:17:14 +0000
-Subject: [PATCH 08/27] feat(admin-ui): Settings is tabbed (backup+email /
+Subject: [PATCH 08/28] feat(admin-ui): Settings is tabbed (backup+email /
  advanced); Google and Telegram sign-in move to Identity > sign-in methods
 
 ---
@@ -1638,7 +1638,7 @@ index 89ae544..5be23cf 100644
 From f5d1996854a4f0b4b0595d9eb227d3e6e1c423c3 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:33:00 +0000
-Subject: [PATCH 09/27] feat(admin-ui): store hub: stores, resellers, panel
+Subject: [PATCH 09/28] feat(admin-ui): store hub: stores, resellers, panel
  access and volume governance are tabs of one menu entry
 
 ---
@@ -1860,7 +1860,7 @@ index 0000000..6dcd158
 From 4133a03d42351e76a8ac37b31e3d309270715b1e Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:53:57 +0000
-Subject: [PATCH 10/27] arch(payments): the main store payment destination uses
+Subject: [PATCH 10/28] arch(payments): the main store payment destination uses
  StorePaymentConfiguration; global card.info/gateway.zarinpal and the fallback
  are removed (alembic 0056)
 
@@ -2642,7 +2642,7 @@ index ae1b773..01a6a68 100644
 From eecbae7ca6146bef7cd336a832f0f91aa7560d5d Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 14:34:34 +0000
-Subject: [PATCH 11/27] arch(rewards): one written stacking policy and one
+Subject: [PATCH 11/28] arch(rewards): one written stacking policy and one
  settlement path; vpn account transition table
 
 ---
@@ -2817,7 +2817,7 @@ index 01a6a68..13f2648 100644
 From 3d7d013580e91867a5ec537d24db8323ea4c3fa0 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 14:42:16 +0000
-Subject: [PATCH 12/27] test(worker): refunds reverse loyalty before referral
+Subject: [PATCH 12/28] test(worker): refunds reverse loyalty before referral
 
 ---
  apps/api/tests/service/test_worker_runner_db.py | 2 +-
@@ -2843,7 +2843,7 @@ index ae12e89..af12146 100644
 From 34e51683ea1a0f2d5c9c18a528a48964c9f1ce77 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 14:59:48 +0000
-Subject: [PATCH 13/27] arch(worker): one read cycle per panel: metrics
+Subject: [PATCH 13/28] arch(worker): one read cycle per panel: metrics
  snapshot rides on the health job adapter
 
 ---
@@ -2923,7 +2923,7 @@ index 13f2648..3390dbd 100644
 From 3338242826ea3df9a23a08a2da87601ed7a78ed6 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 15:20:11 +0000
-Subject: [PATCH 14/27] arch(vpn): account status changes go through the
+Subject: [PATCH 14/28] arch(vpn): account status changes go through the
  guarded transition table
 
 ---
@@ -3078,7 +3078,7 @@ index 3390dbd..1fa7cd4 100644
 From 7a4e0bf6c3ddd2d04e5993cc0e818273990efe85 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 15:33:23 +0000
-Subject: [PATCH 15/27] arch(messaging): notifications dedupe on event_id +
+Subject: [PATCH 15/28] arch(messaging): notifications dedupe on event_id +
  recipient + channel
 
 ---
@@ -3200,7 +3200,7 @@ index 1fa7cd4..9e68bb5 100644
 From aae44f6b1397699b701c15ee04d519609193659b Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 16:18:20 +0000
-Subject: [PATCH 16/27] arch: guard expiry/revoke/sync status writes; panel
+Subject: [PATCH 16/28] arch: guard expiry/revoke/sync status writes; panel
  card deep-links to panel operations
 
 ---
@@ -3324,7 +3324,7 @@ index 9e68bb5..7218ea0 100644
 From 35b241cc55ca4386a7037d8a7a3a062ba268bd63 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 16:50:44 +0000
-Subject: [PATCH 17/27] arch(telegram): shared bot core in tgmain.core;
+Subject: [PATCH 17/28] arch(telegram): shared bot core in tgmain.core;
  reseller bot imports it instead of loading main runner.py by path; reseller
  image copies tgmain only
 
@@ -4242,7 +4242,7 @@ index cb2b24a..5e7709b 100644
 From bed9db5b27ebee848c22126ec449af3077f48c34 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 16:50:44 +0000
-Subject: [PATCH 18/27] chore(domain): drop 5-line leftovers (vpn/bundles,
+Subject: [PATCH 18/28] chore(domain): drop 5-line leftovers (vpn/bundles,
  vpn/service, domain/referral); commission_amount lives with commission,
  clean_custom_name in domain/account_name
 
@@ -4343,7 +4343,7 @@ index 0f1ad9b..9216cdf 100644
 From 81b5dd64815592a79fd09d829427b9ea83acbd83 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 16:59:01 +0000
-Subject: [PATCH 19/27] feat(admin): Operations Center roll-up on
+Subject: [PATCH 19/28] feat(admin): Operations Center roll-up on
  /admin/dashboard + dashboard card; restore vpn/service.py; guard provisioning
  status write; drop dead DataTable branches; contract test follows
  tgmain.core; decisions
@@ -4773,7 +4773,7 @@ index 7218ea0..45e9108 100644
 From a42c4b5125ec4735d242e8c52db443ceec7eebcd Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 17:03:53 +0000
-Subject: [PATCH 20/27] test: source-contract tests read tgmain/core.py
+Subject: [PATCH 20/28] test: source-contract tests read tgmain/core.py
 
 ---
  apps/api/tests/service/test_account_return.py              | 2 +-
@@ -4813,7 +4813,7 @@ index 9b5bf8b..65018af 100644
 From f820a98089d4df8cb591ebcb8809ed36844af73f Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 17:26:04 +0000
-Subject: [PATCH 21/27] feat(admin-ui): panel detail drawer: nodes, console,
+Subject: [PATCH 21/28] feat(admin-ui): panel detail drawer: nodes, console,
  events, capacity, templates and indicators are tabs of the panel; panel-ops
  keeps discrepancies, orphans and notices
 
@@ -5275,7 +5275,7 @@ index 45e9108..dd84015 100644
 From 802aa443b74f0e51fac783fb0265773f7b1734f8 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 20:40:47 +0000
-Subject: [PATCH 22/27] arch(integrations): provider adapters, sessions,
+Subject: [PATCH 22/28] arch(integrations): provider adapters, sessions,
  readers, capabilities and target config move from vpn to
  modules/panel_integrations (lowest feature layer); shared Event Center logic
  and text helpers move to web-kit
@@ -8112,7 +8112,7 @@ index 1423897..7dc57d3 100644
 From 4396daa9c77daadf056227597cd4f0618718a1d2 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 20:40:56 +0000
-Subject: [PATCH 23/27] docs: record integration boundary and shared web-kit
+Subject: [PATCH 23/28] docs: record integration boundary and shared web-kit
  decisions
 
 ---
@@ -8137,7 +8137,7 @@ index 82095f7..392f75c 100644
 From e20603006d61038349bba97489e394bb7429f8e2 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 21:21:54 +0000
-Subject: [PATCH 24/27] arch: PanelSnapshot read model, messaging policy,
+Subject: [PATCH 24/28] arch: PanelSnapshot read model, messaging policy,
  status-write contract test, shared Bank SMS rules in web-kit
 
 ---
@@ -8726,7 +8726,7 @@ index 0000000..d97d251
 From 4cbea13a57d038502850d3cd383be13431f9cb98 Mon Sep 17 00:00:00 2001
 From: Pori Toooni <poritoooni@gmail.com>
 Date: Fri, 13 Nov 2026 22:08:29 +0000
-Subject: [PATCH 25/27] arch(messaging): DM delivery honours
+Subject: [PATCH 25/28] arch(messaging): DM delivery honours
  messaging_policy.dm_allowed; decisions updated
 
 ---
@@ -8802,7 +8802,7 @@ index 54fd61b..e6a938e 100644
 From cbdfc1fb50f2474e3b531263ee626df651967279 Mon Sep 17 00:00:00 2001
 From: Pori Toooni <poritoooni@gmail.com>
 Date: Sat, 14 Nov 2026 06:03:59 +0000
-Subject: [PATCH 26/27] feat(web-kit): shared broadcast composer hook used by
+Subject: [PATCH 26/28] feat(web-kit): shared broadcast composer hook used by
  admin-web and store-web; decisions updated
 
 ---
@@ -9130,7 +9130,7 @@ index 0000000..454f752
 From 9168a7d321bfb75a24bcce2a9ff218ae98dd40a2 Mon Sep 17 00:00:00 2001
 From: Pori Toooni <poritoooni@gmail.com>
 Date: Sat, 14 Nov 2026 06:09:48 +0000
-Subject: [PATCH 27/27] feat(web-kit): shared referral plan form used by
+Subject: [PATCH 27/28] feat(web-kit): shared referral plan form used by
  admin-web and store-web; decisions updated
 
 ---
@@ -9388,6 +9388,248 @@ index 0000000..be1623c
 +  }
 +  return { model, setModel, value, setValue, cap, setCap, active, setActive, busy, bad, canSave, save };
 +}
+-- 
+2.43.0
+
+
+From 5c1964b6bd3252607196a5b33ca76cb825ab83da Mon Sep 17 00:00:00 2001
+From: Pori Toooni <poritoooni@gmail.com>
+Date: Sat, 14 Nov 2026 06:19:41 +0000
+Subject: [PATCH 28/28] feat(web-kit): shared loyalty club data layer used by
+ admin-web and store-web; decisions updated
+
+---
+ apps/admin-web/src/LoyaltyClubView.tsx | 43 +++------------------
+ apps/store-web/src/ResellerLoyalty.tsx | 33 +++-------------
+ docs/DECISIONS.md                      |  3 +-
+ packages/web-kit/package.json          |  3 +-
+ packages/web-kit/src/loyaltyClub.d.ts  | 12 ++++++
+ packages/web-kit/src/loyaltyClub.js    | 53 ++++++++++++++++++++++++++
+ 6 files changed, 80 insertions(+), 67 deletions(-)
+ create mode 100644 packages/web-kit/src/loyaltyClub.d.ts
+ create mode 100644 packages/web-kit/src/loyaltyClub.js
+
+diff --git a/apps/admin-web/src/LoyaltyClubView.tsx b/apps/admin-web/src/LoyaltyClubView.tsx
+index 8b3c262..0cfab0a 100644
+--- a/apps/admin-web/src/LoyaltyClubView.tsx
++++ b/apps/admin-web/src/LoyaltyClubView.tsx
+@@ -3,16 +3,13 @@
+ // every value; this screen only edits and shows it. A reseller manages his own store's club from his panel with the same API.
+ import { useCallback, useEffect, useMemo, useState } from 'react';
+ import { Award, Plus, Save, Trash2 } from 'lucide-react';
++import { toInt, unitOf } from '@melorin/web-kit/referralPlan.js';
++import { useLoyaltyClub } from '@melorin/web-kit/loyaltyClub.js';
+ import { authFetch } from './api.ts';
+-import { Empty, Field, Section, errText, num, toEn, useRows } from './kit.tsx';
++import { Empty, Field, Section, num, toEn, useRows } from './kit.tsx';
+ import type { Json, Rec, Toast } from './types.ts';
+ 
+-const unitOf = (c: Json) => (({ IRT: 'تومان', IRR: 'ریال' }) as Rec)[c] || c || '';
+-const intOf = (v: Json) => {
+-  const s = toEn(v).replace(/[,٬\s]/g, '');
+-  return /^\d+$/.test(s) ? Number(s) : null;
+-};
+-const J = { 'Content-Type': 'application/json' };
++const intOf = toInt;
+ 
+ function Program({ program, currency, onSave }: { program?: Json; currency?: Json; onSave?: Json }) {
+   const [f, setF] = useState({
+@@ -342,37 +339,7 @@ export default function LoyaltyClubView({ api, toast }: { api?: Json; toast: Toa
+   }, [stores.rows, storeId]);
+ 
+   const base = `/api/v1/stores/${storeId}/loyalty/manage`;
+-  const [data, setData] = useState<Json>(null);
+-  const [failed, setFailed] = useState(false);
+-  const [rev, setRev] = useState(0);
+-  const load = useCallback(async () => {
+-    if (!storeId) return;
+-    try {
+-      const [a, b, c] = await Promise.all([call(`${base}/program`), call(`${base}/rewards`), call(`${base}/summary`)]);
+-      if (!a.ok || !b.ok || !c.ok) throw new Error('load');
+-      setData({ prog: await a.json(), rewards: await b.json(), sum: await c.json() });
+-      setFailed(false);
+-      setRev((n) => n + 1);
+-    } catch {
+-      setFailed(true);
+-    }
+-  }, [call, base, storeId]);
+-  useEffect(() => {
+-    setData(null);
+-    setFailed(false);
+-    load();
+-  }, [load]);
+-
+-  async function write(path: string, method: Json, payload: Json, okText: Json, failText: Json) {
+-    const r = await call(`${base}${path}`, { method, headers: J, body: JSON.stringify(payload) });
+-    if (r.ok) {
+-      toast(okText);
+-      load();
+-      return true;
+-    }
+-    toast(await errText(r, failText));
+-    return false;
+-  }
++  const { data, failed, rev, write } = useLoyaltyClub({ call, url: storeId ? base : null, notify: toast });
+ 
+   const currency = store?.currency;
+   return (
+diff --git a/apps/store-web/src/ResellerLoyalty.tsx b/apps/store-web/src/ResellerLoyalty.tsx
+index d17d08f..e722f84 100644
+--- a/apps/store-web/src/ResellerLoyalty.tsx
++++ b/apps/store-web/src/ResellerLoyalty.tsx
+@@ -1,9 +1,10 @@
+ import type { Rec } from './types';
+ // Reseller panel › Loyalty club. The reseller runs the club of HIS store only: earning rule, tier ladder, rewards, and manual
+ // point adjustments. Core validates everything and the store id is in the URL, so nothing here can touch another store.
+-import { useCallback, useEffect, useState } from 'react';
++import { useState } from 'react';
+ import { Award, Plus, Save, Trash2 } from 'lucide-react';
+ import { Empty, Loading, fa } from './ui.tsx';
++import { useLoyaltyClub, tiersOf } from '@melorin/web-kit/loyaltyClub.js';
+ import { toInt, unitOf } from './storeProgram.ts';
+ import { multiplierLabel } from './loyaltyFormat.ts';
+ import type { Json } from './types';
+@@ -400,35 +401,13 @@ export default function ResellerLoyalty({
+   notify?: Json;
+   currency?: Json;
+ }) {
+-  const [prog, setProg] = useState<Json>(null);
+-  const [rewards, setRewards] = useState<Json>(null);
+-  const [sum, setSum] = useState<Json>(null);
+-  const [failed, setFailed] = useState(false);
+-  const [rev, setRev] = useState(0);
+   const url = `/api/v1/stores/${storeId}/loyalty/manage`;
+   const base = { coreFetch, url };
+-  const load = useCallback(async () => {
+-    try {
+-      const [a, b, c] = await Promise.all([
+-        coreFetch(`${url}/program`),
+-        coreFetch(`${url}/rewards`),
+-        coreFetch(`${url}/summary`),
+-      ]);
+-      if (!a.ok || !b.ok || !c.ok) throw new Error('load');
+-      setProg(await a.json());
+-      setRewards(await b.json());
+-      setSum(await c.json());
+-      setRev((n) => n + 1);
+-    } catch {
+-      setFailed(true);
+-    }
+-  }, [coreFetch, url]);
+-  useEffect(() => {
+-    load();
+-  }, [load]);
++  const { data, failed, rev, load } = useLoyaltyClub({ call: coreFetch, url, notify });
+   if (failed) return <Empty text="مدیریت باشگاه در دسترس نیست." />;
+-  if (!prog || !rewards || !sum) return <Loading rows={3} />;
+-  const tiers = prog.tiers.length ? prog.tiers : prog.default_tiers.map((t: Json) => ({ ...t }));
++  if (!data) return <Loading rows={3} />;
++  const { prog, rewards, sum } = data;
++  const tiers = tiersOf(prog);
+   return (
+     <div className="space-y-4">
+       <div className="card">
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index e6276e6..ac0db1d 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -126,4 +126,5 @@ _Merged from the former 12-Change-Log-v1.1.md._
+ - VPN notices already reach customers only through `_notify` (policy-gated). Event Center keeps its own topic routing (`ADMIN_ONLY_TOPICS`, `ADMIN_COPY_TOPICS`): it never talks to customers, so `messaging_policy.allowed` adds nothing there.
+ - Broadcast composer logic (draft, confirm, POST, error text, delivery polling) lives in `@melorin/web-kit/broadcast.js`; both apps keep their own markup.
+ - Referral plan form (parsing, validation, save flow, `unitOf/toInt/percentToBp`) lives in `@melorin/web-kit/referralPlan.js`; `store-web/storeProgram.ts` re-exports the parsers.
+-- Still open: move Loyalty logic onto web-kit hooks, and a shared design-token CSS package (admin and store skins still differ).
++- Loyalty club data layer (load program/rewards/summary, revision counter, write helper, default-tier fallback) lives in `@melorin/web-kit/loyaltyClub.js`; the per-card edit forms stay in each app.
++- Still open: a shared design-token CSS package (admin skin uses hex variables, store skin uses RGB triplets; unifying changes both looks).
+diff --git a/packages/web-kit/package.json b/packages/web-kit/package.json
+index 3f05e9e..ec8bf5e 100644
+--- a/packages/web-kit/package.json
++++ b/packages/web-kit/package.json
+@@ -15,6 +15,7 @@
+     "./eventCenter.js": "./src/eventCenter.js",
+     "./bankSms.js": "./src/bankSms.js",
+     "./broadcast.js": "./src/broadcast.js",
+-    "./referralPlan.js": "./src/referralPlan.js"
++    "./referralPlan.js": "./src/referralPlan.js",
++    "./loyaltyClub.js": "./src/loyaltyClub.js"
+   }
+ }
+diff --git a/packages/web-kit/src/loyaltyClub.d.ts b/packages/web-kit/src/loyaltyClub.d.ts
+new file mode 100644
+index 0000000..970d9a6
+--- /dev/null
++++ b/packages/web-kit/src/loyaltyClub.d.ts
+@@ -0,0 +1,12 @@
++export function useLoyaltyClub(cfg: {
++  call: (path: string, init?: RequestInit) => Promise<Response>;
++  url: string | null;
++  notify: (msg: string) => void;
++}): {
++  data: { prog: any; rewards: any; sum: any } | null;
++  failed: boolean;
++  rev: number;
++  load: () => Promise<void>;
++  write: (path: string, method: string, payload: unknown, okText: string, failText: string) => Promise<boolean>;
++};
++export function tiersOf(prog: { tiers: any[]; default_tiers: any[] }): any[];
+diff --git a/packages/web-kit/src/loyaltyClub.js b/packages/web-kit/src/loyaltyClub.js
+new file mode 100644
+index 0000000..fec4cee
+--- /dev/null
++++ b/packages/web-kit/src/loyaltyClub.js
+@@ -0,0 +1,53 @@
++// Headless data layer of the loyalty club screen (program, rewards, summary of ONE store). Admin-web (store picker) and store-web
++// (the reseller's own store) render their own markup; loading, the revision counter that resets the edit forms, and the write
++// helper are written once. The store id is in `url`, never in a body; Core decides every value.
++import { useCallback, useEffect, useState } from 'react';
++import { errText } from './format.js';
++
++const JSON_HEADERS = { 'Content-Type': 'application/json' };
++
++/**
++ * @param {{ call: (path: string, init?: RequestInit) => Promise<Response>, url: string | null,
++ *           notify: (msg: string) => void }} cfg  `url` null = nothing selected yet
++ */
++export function useLoyaltyClub({ call, url, notify }) {
++  const [data, setData] = useState(null);
++  const [failed, setFailed] = useState(false);
++  const [rev, setRev] = useState(0);
++  const load = useCallback(async () => {
++    if (!url) return;
++    try {
++      const [a, b, c] = await Promise.all([call(`${url}/program`), call(`${url}/rewards`), call(`${url}/summary`)]);
++      if (!a.ok || !b.ok || !c.ok) throw new Error('load');
++      setData({ prog: await a.json(), rewards: await b.json(), sum: await c.json() });
++      setFailed(false);
++      setRev((n) => n + 1);
++    } catch {
++      setFailed(true);
++    }
++  }, [call, url]);
++  useEffect(() => {
++    setData(null);
++    setFailed(false);
++    load();
++  }, [load]);
++
++  /** One write (PUT/POST) under the club; toasts the outcome and reloads on success. Resolves true when Core accepted it. */
++  const write = useCallback(
++    async (path, method, payload, okText, failText) => {
++      const r = await call(`${url}${path}`, { method, headers: JSON_HEADERS, body: JSON.stringify(payload) });
++      if (r.ok) {
++        notify(okText);
++        load();
++        return true;
++      }
++      notify(await errText(r, failText));
++      return false;
++    },
++    [call, url, notify, load],
++  );
++  return { data, failed, rev, load, write };
++}
++
++/** Tiers to show: the saved ladder, or a copy of Core's default ladder when the store has none yet. */
++export const tiersOf = (prog) => (prog.tiers.length ? prog.tiers : prog.default_tiers.map((t) => ({ ...t })));
 -- 
 2.43.0
 
