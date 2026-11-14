@@ -1,0 +1,3571 @@
+diff --git a/apps/admin-web/src/AdminExtra.tsx b/apps/admin-web/src/AdminExtra.tsx
+index 2b1c2c1..0e931c3 100644
+--- a/apps/admin-web/src/AdminExtra.tsx
++++ b/apps/admin-web/src/AdminExtra.tsx
+@@ -1,17 +1,12 @@
+-import { Segmented } from './kit.tsx';
+-import type { ReactNode } from 'react';
+-import { lazy, useEffect, useState } from 'react';
++import { lazy } from 'react';
+ import { authFetch } from './api.ts';
+-import { Plus, Search, X } from 'lucide-react';
+-import { Badge, PasswordInput, confirmDialog, isStatus } from './ui.tsx';
+-import type { Json, Rec, Toast, ViewApi } from './types.ts';
++import type { Json, Toast, ViewApi } from './types.ts';
++import { ChangeAdminPassword } from './SettingsView.tsx';
+ const ReportsView = lazy(() => import('./ReportsView.tsx'));
+ const PanelsView = lazy(() => import('./PanelsView.tsx'));
+-const PanelAdminsView = lazy(() => import('./PanelAdminsView.tsx'));
+ const InfraHealthView = lazy(() => import('./InfraHealthView.tsx'));
+ const PanelOpsView = lazy(() => import('./PanelOpsView.tsx'));
+ const BulkOperationsView = lazy(() => import('./BulkOperationsView.tsx'));
+-const StoreGovernanceView = lazy(() => import('./StoreGovernanceView.tsx'));
+ const ProductsView = lazy(() => import('./ProductsView.tsx'));
+ const BundlesView = lazy(() => import('./BundlesView.tsx'));
+ const TicketsView = lazy(() => import('./TicketsView.tsx'));
+@@ -21,7 +16,6 @@ const ManualTasksView = lazy(() => import('./ManualTasksView.tsx'));
+ const BroadcastView = lazy(() => import('./BroadcastView.tsx'));
+ const ButtonStylesView = lazy(() => import('./ButtonStylesView.tsx'));
+ const EventCenterView = lazy(() => import('./EventCenterView.tsx'));
+-const ResellersView = lazy(() => import('./ResellersView.tsx'));
+ const AdminTeamView = lazy(() => import('./AdminTeamView.tsx'));
+ const MyAccountView = lazy(() => import('./MyAccountView.tsx'));
+ const IdentityHubView = lazy(() => import('./IdentityHubView.tsx'));
+@@ -32,677 +26,8 @@ const StoreHubView = lazy(() => import('./StoreHubView.tsx'));
+ const AuditView = lazy(() => import('./AuditView.tsx'));
+ const ReferralProgramsView = lazy(() => import('./ReferralProgramsView.tsx'));
+ const LoyaltyClubView = lazy(() => import('./LoyaltyClubView.tsx'));
+-const money = (n: Json) => new Intl.NumberFormat('fa-IR').format(n || 0);
+-const box = 'card';
+-const inp = 'inp';
+-const btn = 'btn';
+-const ghost = 'btn btn-g';
+-
+-function useList(api: Json, path: string, toast: Toast) {
+-  const [rows, setRows] = useState<Rec[]>([]);
+-  const [tick, setTick] = useState(0);
+-  const call = (p: Json, o = {}) => authFetch(api.base, p, o);
+-  useEffect(() => {
+-    call(path)
+-      .then((r) => (r.ok ? r.json() : Promise.reject()))
+-      .then((d) => setRows(Array.isArray(d) ? d : d.items || []))
+-      .catch(() => toast('دریافت داده ناموفق بود'));
+-    // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
+-  }, [path, tick]);
+-  return { rows, call, reload: () => setTick((x) => x + 1) };
+-}
+-const Table = ({ cols, rows, title, extra }: { cols?: Json; rows?: Json; title?: Json; extra?: Json }) => {
+-  const [q, setQ] = useState('');
+-  const show = q
+-    ? rows.filter((r: Json) => r.some((c: Json) => typeof c === 'string' && c.toLowerCase().includes(q.toLowerCase())))
+-    : rows;
+-  return (
+-    <section className={`${box} rise overflow-hidden`}>
+-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--ln)] px-5 py-4">
+-        <h3 className="font-extrabold">
+-          {title} <span className="text-xs font-medium text-[var(--mu)]">({show.length.toLocaleString('fa-IR')})</span>
+-        </h3>
+-        <div className="flex items-center gap-2">
+-          {extra}
+-          <label className="relative">
+-            <Search
+-              size={15}
+-              className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--mu)]"
+-            />
+-            <input
+-              aria-label="جستجو"
+-              value={q}
+-              onChange={(e) => setQ(e.target.value)}
+-              placeholder="جستجو…"
+-              className={`${inp} w-44 pr-9`}
+-            />
+-          </label>
+-        </div>
+-      </div>
+-      <div className="max-h-[70vh] overflow-auto">
+-        <table className="tbl min-w-[640px]">
+-          <thead>
+-            <tr>
+-              {cols.map((c: Json, i: Json) => (
+-                <th key={i}>{c}</th>
+-              ))}
+-            </tr>
+-          </thead>
+-          <tbody>
+-            {show.length ? (
+-              show.map((r: Json, i: Json) => (
+-                <tr key={i}>
+-                  {r.map((c: Json, j: Json) => (
+-                    <td key={j}>{isStatus(c) ? <Badge s={c} /> : (c ?? '-')}</td>
+-                  ))}
+-                </tr>
+-              ))
+-            ) : (
+-              <tr>
+-                <td colSpan={cols.length} className="p-12 text-center text-[var(--mu)]">
+-                  {q ? 'نتیجه‌ای پیدا نشد' : 'داده‌ای وجود ندارد'}
+-                </td>
+-              </tr>
+-            )}
+-          </tbody>
+-        </table>
+-      </div>
+-    </section>
+-  );
+-};
+-const JSONK = new Set(['cred', 'cfg']);
+-const Form = ({ fields, onSubmit, label }: { fields?: Json; onSubmit?: Json; label?: Json }) => {
+-  const [v, setV] = useState<Rec>({});
+-  const [open, setOpen] = useState(false);
+-  if (!open)
+-    return (
+-      <div className="mb-5">
+-        <button className="btn" onClick={() => setOpen(true)}>
+-          <Plus size={16} />
+-          {label}
+-        </button>
+-      </div>
+-    );
+-  return (
+-    <section className="card rise mb-5 p-5">
+-      <div className="mb-4 flex items-center justify-between">
+-        <h3 className="font-extrabold">{label}</h3>
+-        <button aria-label="بستن فرم" className="btn btn-g" onClick={() => setOpen(false)}>
+-          <X size={15} />
+-        </button>
+-      </div>
+-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+-        {fields.map(([k, l, t]: Json) =>
+-          JSONK.has(k) ? (
+-            <label key={k} className="text-xs font-bold text-[var(--mu)] sm:col-span-2 lg:col-span-4">
+-              {l}
+-              <textarea
+-                rows={3}
+-                dir="ltr"
+-                spellCheck={false}
+-                className={`${inp} mt-1.5 font-mono text-xs`}
+-                value={v[k] ?? ''}
+-                onChange={(e) => setV({ ...v, [k]: e.target.value })}
+-              />
+-            </label>
+-          ) : (
+-            <label key={k} className="text-xs font-bold text-[var(--mu)]">
+-              {l}
+-              {t === 'select' ? (
+-                <select
+-                  dir="ltr"
+-                  className={`${inp} mt-1.5`}
+-                  value={v[k] ?? 'IRT'}
+-                  onChange={(e) => setV({ ...v, [k]: e.target.value })}
+-                >
+-                  <option value="IRT">IRT</option>
+-                  <option value="USD">USD</option>
+-                  <option value="USDT">USDT</option>
+-                  <option value="XTR">XTR</option>
+-                </select>
+-              ) : (
+-                <input
+-                  type={t || 'text'}
+-                  dir="ltr"
+-                  className={`${inp} mt-1.5`}
+-                  value={v[k] ?? ''}
+-                  onChange={(e) => setV({ ...v, [k]: e.target.value })}
+-                />
+-              )}
+-            </label>
+-          ),
+-        )}
+-      </div>
+-      <div className="mt-5 flex gap-2">
+-        <button
+-          className={btn}
+-          onClick={() =>
+-            onSubmit(v, () => {
+-              setV({});
+-              setOpen(false);
+-            })
+-          }
+-        >
+-          {label}
+-        </button>
+-        <button className="btn btn-g" onClick={() => setOpen(false)}>
+-          انصراف
+-        </button>
+-      </div>
+-    </section>
+-  );
+-};
+-
+-function Coupons({ api, toast }: { api?: Json; toast: Toast }) {
+-  const stores = useList(api, '/api/v1/admin/stores', toast).rows;
+-  const [storeId, setStoreId] = useState<Json>(null); // null = not chosen yet, '' = every store (also multi-store codes)
+-  useEffect(() => {
+-    if (storeId === null && stores.length) setStoreId((stores.find((s) => s.kind === 'main') || stores[0]).id);
+-  }, [stores, storeId]);
+-  // a discount code belongs to ONE store: the form below always creates for the store picked here
+-  const { rows, call, reload } = useList(api, `/api/v1/admin/coupons${storeId ? `?store_id=${storeId}` : ''}`, toast);
+-  const store = stores.find((s) => s.id === storeId);
+-  const create = async (v: Json, done: Json) => {
+-    if (!storeId) return toast('ابتدا یک فروشگاه مشخص را انتخاب کنید');
+-    const r = await call('/api/v1/admin/coupons', {
+-      method: 'POST',
+-      body: JSON.stringify({
+-        code: v.code,
+-        percent_bp: Math.round((+v.pct || 0) * 100),
+-        fixed: +v.fixed || 0,
+-        max_redemptions: v.max ? +v.max : null,
+-        scope: 'store',
+-        store_id: storeId,
+-      }),
+-    });
+-    if (r.ok) {
+-      toast('کوپن ساخته شد');
+-      done();
+-      reload();
+-    } else toast('ساخت کوپن ناموفق بود');
+-  };
+-  const toggle = async (c: Json) => {
+-    const r = await call(`/api/v1/admin/coupons/${c.id}`, {
+-      method: 'PATCH',
+-      body: JSON.stringify({ status: c.status === 'active' ? 'disabled' : 'active' }),
+-    });
+-    r.ok ? reload() : toast('تغییر ناموفق بود');
+-  };
+-  return (
+-    <>
+-      <section className={`${box} rise p-4`}>
+-        <label className="block text-xs font-bold text-[var(--mu)]">
+-          فروشگاه (کد تخفیف فقط در همین فروشگاه کار می‌کند)
+-          <select
+-            className={`${inp} mt-1.5`}
+-            aria-label="فروشگاه"
+-            value={storeId ?? ''}
+-            onChange={(e) => setStoreId(e.target.value)}
+-          >
+-            <option value="">همه (شامل کدهای چندفروشگاهی)</option>
+-            {stores.map((s) => (
+-              <option key={s.id} value={s.id}>
+-                {s.name} {s.kind === 'main' ? '(اصلی)' : '(نمایندگی)'} · {s.currency}
+-              </option>
+-            ))}
+-          </select>
+-        </label>
+-      </section>
+-      <Form
+-        label={`افزودن کوپن${store ? ` برای «${store.name}»` : ''}`}
+-        onSubmit={create}
+-        fields={[
+-          ['code', 'کد'],
+-          ['pct', 'درصد تخفیف', 'number'],
+-          ['fixed', 'تخفیف ثابت', 'number'],
+-          ['max', 'سقف استفاده', 'number'],
+-        ]}
+-      />
+-      <Table
+-        title="کوپن‌ها"
+-        cols={['کد', 'درصد', 'ثابت', 'استفاده', 'وضعیت', '']}
+-        rows={rows.map((c) => [
+-          c.code,
+-          c.percent_bp != null ? `${c.percent_bp / 100}%` : '-',
+-          money(c.fixed),
+-          `${c.redeemed ?? c.redemptions ?? 0}/${c.max_redemptions ?? '∞'}`,
+-          c.status,
+-          <button key="toggle" className={ghost} onClick={() => toggle(c)}>
+-            {c.status === 'active' ? 'غیرفعال' : 'فعال'}
+-          </button>,
+-        ])}
+-      />
+-    </>
+-  );
+-}
+-
+-function SettingRow({ k, v, save }: { k?: Json; v?: Json; save?: Json }) {
+-  const [t, setT] = useState(JSON.stringify(v));
+-  useEffect(() => setT(JSON.stringify(v)), [v]);
+-  const dirty = t !== JSON.stringify(v);
+-  return (
+-    <div className="flex items-center gap-3 border-t border-[var(--ln)] px-5 py-3">
+-      <code dir="ltr" className="w-60 shrink-0 text-xs font-bold text-[var(--tx)]">
+-        {k}
+-      </code>
+-      <input dir="ltr" className={inp} value={t} onChange={(e) => setT(e.target.value)} />
+-      <button disabled={!dirty} className={btn} onClick={() => save(k, t)}>
+-        ذخیره
+-      </button>
+-    </div>
+-  );
+-}
+-
+-const Field = ({ label, children }: { label?: Json; children?: ReactNode }) => (
+-  <label className="block text-xs font-bold text-[var(--mu)]">
+-    {label}
+-    <div className="mt-1">{children}</div>
+-  </label>
+-);
+-const Toggle = ({ on, set, label }: { on?: Json; set?: Json; label?: Json }) => (
+-  <label className="flex cursor-pointer items-center gap-2 text-sm font-bold">
+-    <input type="checkbox" checked={on} onChange={(e) => set(e.target.checked)} />
+-    {label}
+-  </label>
+-);
+-
+-function Integrations({ api, toast }: { api?: Json; toast: Toast }) {
+-  const call = (p: Json, o = {}) => authFetch(api.base, p, o);
+-  const [aa, setAa] = useState<Json>(null);
+-  const [ipText, setIpText] = useState('');
+-  const [em, setEm] = useState<Json>(null);
+-  const [s3, setS3] = useState<Json>(null);
+-  const [local, setLocal] = useState<Json>(null);
+-  const [pw, setPw] = useState('');
+-  const [sk, setSk] = useState('');
+-  const [to, setTo] = useState('');
+-  const [busy, setBusy] = useState('');
+-  const load = () =>
+-    call('/api/v1/admin/integrations')
+-      .then((r) => (r.ok ? r.json() : Promise.reject()))
+-      .then((d) => {
+-        setAa(d.admin_access);
+-        setIpText((d.admin_access?.ips || []).join('\n'));
+-        setEm(d.email);
+-        setS3(d.backup.s3);
+-        setLocal(d.backup.local);
+-        setPw('');
+-        setSk('');
+-      })
+-      .catch(() => toast('دریافت تنظیمات ناموفق بود'));
+-  useEffect(() => {
+-    load();
+-    // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
+-  }, []);
+-  if (!em || !s3 || !aa) return null;
+-  const send = async (path: string, body: Json, okMsg: Json, tag: Json) => {
+-    setBusy(tag);
+-    const r = await call(path, { method: path.endsWith('/test') ? 'POST' : 'PUT', body: JSON.stringify(body) });
+-    setBusy('');
+-    const d = await r.json().catch(() => ({}));
+-    if (!r.ok) return toast(d?.error?.message || d?.detail?.message || 'ذخیره ناموفق بود');
+-    if (path.endsWith('/test')) return toast(d.ok ? okMsg : `ناموفق: ${d.error || ''}`);
+-    toast(okMsg);
+-    load();
+-  };
+-  const sm = (k: Json) => (v: Json) => setEm({ ...em, [k]: v });
+-  const s3s = (k: Json) => (v: Json) => setS3({ ...s3, [k]: v });
+-  return (
+-    <section className={`${box} space-y-6 p-5`}>
+-      <h3 className="font-extrabold">
+-        یکپارچه‌سازی‌ها <span className="text-xs font-normal text-[var(--mu)]">(اختیاری؛ برای نصب لازم نیستند)</span>
+-      </h3>
+-      <div className="space-y-3 rounded-xl border border-[var(--ln)] p-4">
+-        <div className="flex items-center justify-between">
+-          <b>دسترسی ادمین (محدودیت IP)</b>
+-          <Toggle
+-            on={aa.enabled}
+-            set={(v: Json) => setAa({ ...aa, enabled: v })}
+-            label={aa.enabled ? 'فعال' : 'غیرفعال'}
+-          />
+-        </div>
+-        <p className="text-xs text-[var(--mu)]">
+-          به‌طور پیش‌فرض خاموش است. در حالت فعال، API ادمین فقط از IPها/CIDRهای زیر پاسخ می‌دهد (هر خط یک مورد). IP فعلی
+-          شما: <code dir="ltr">{aa.your_ip}</code>. اگر قفل شدید، روی سرور:{' '}
+-          <code dir="ltr">python -m melorin.cli disable-admin-ip-allowlist</code>
+-        </p>
+-        <textarea
+-          dir="ltr"
+-          rows={3}
+-          className={inp}
+-          value={ipText}
+-          onChange={(e) => setIpText(e.target.value)}
+-          placeholder={'203.0.113.10/32\n198.51.100.0/24'}
+-        />
+-        <button
+-          disabled={busy === 'aa'}
+-          className={btn}
+-          onClick={() =>
+-            send(
+-              '/api/v1/admin/integrations/admin-access',
+-              { enabled: aa.enabled, ips: ipText.split(/[\s,]+/).filter(Boolean) },
+-              'تنظیمات دسترسی ادمین ذخیره شد',
+-              'aa',
+-            )
+-          }
+-        >
+-          ذخیره
+-        </button>
+-      </div>
+-      <div className="grid gap-6 lg:grid-cols-2">
+-        <div className="space-y-3 rounded-xl border border-[var(--ln)] p-4">
+-          <div className="flex items-center justify-between">
+-            <b>ایمیل (SMTP)</b>
+-            <Toggle on={em.enabled} set={sm('enabled')} label={em.enabled ? 'فعال' : 'غیرفعال'} />
+-          </div>
+-          <p className="text-xs text-[var(--mu)]">
+-            وقتی غیرفعال است، ورود با کد ایمیلی در دسترس نیست؛ بقیه‌ی روش‌های ورود و سیستم عادی کار می‌کنند.
+-          </p>
+-          <div className="grid gap-3 sm:grid-cols-2">
+-            <Field label="میزبان SMTP">
+-              <input
+-                dir="ltr"
+-                className={inp}
+-                value={em.host}
+-                onChange={(e) => sm('host')(e.target.value)}
+-                placeholder="smtp.example.com"
+-              />
+-            </Field>
+-            <Field label="پورت">
+-              <input
+-                dir="ltr"
+-                type="number"
+-                className={inp}
+-                value={em.port}
+-                onChange={(e) => sm('port')(+e.target.value)}
+-              />
+-            </Field>
+-            <Field label="نام کاربری">
+-              <input dir="ltr" className={inp} value={em.username} onChange={(e) => sm('username')(e.target.value)} />
+-            </Field>
+-            <Field label={`رمز عبور${em.password_set ? ' (ذخیره شده؛ برای تغییر بنویسید)' : ''}`}>
+-              <PasswordInput
+-                autoComplete="new-password"
+-                className={inp}
+-                value={pw}
+-                onChange={(e: Json) => setPw(e.target.value)}
+-              />
+-            </Field>
+-            <Field label="آدرس فرستنده">
+-              <input
+-                dir="ltr"
+-                className={inp}
+-                value={em.from_addr}
+-                onChange={(e) => sm('from_addr')(e.target.value)}
+-                placeholder="no-reply@example.com"
+-              />
+-            </Field>
+-            <Field label="امنیت اتصال">
+-              <select className={inp} value={em.security} onChange={(e) => sm('security')(e.target.value)}>
+-                <option value="starttls">STARTTLS (۵۸۷)</option>
+-                <option value="ssl">SSL/TLS (۴۶۵)</option>
+-                <option value="none">بدون رمزنگاری</option>
+-              </select>
+-            </Field>
+-          </div>
+-          <div className="flex flex-wrap items-end gap-2">
+-            <button
+-              disabled={busy === 'em'}
+-              className={btn}
+-              onClick={() =>
+-                send(
+-                  '/api/v1/admin/integrations/email',
+-                  {
+-                    enabled: em.enabled,
+-                    host: em.host,
+-                    port: em.port,
+-                    username: em.username,
+-                    password: pw === '' ? null : pw,
+-                    from_addr: em.from_addr,
+-                    security: em.security,
+-                  },
+-                  'تنظیمات ایمیل ذخیره شد',
+-                  'em',
+-                )
+-              }
+-            >
+-              ذخیره
+-            </button>
+-            <input
+-              dir="ltr"
+-              className={`${inp} max-w-[14rem]`}
+-              value={to}
+-              onChange={(e) => setTo(e.target.value)}
+-              placeholder="ایمیل برای تست"
+-            />
+-            <button
+-              disabled={!to || busy === 'emt'}
+-              className={ghost}
+-              onClick={() => send('/api/v1/admin/integrations/email/test', { to }, 'ایمیل تست ارسال شد', 'emt')}
+-            >
+-              ارسال تست
+-            </button>
+-          </div>
+-        </div>
+-        <div className="space-y-3 rounded-xl border border-[var(--ln)] p-4">
+-          <div className="flex items-center justify-between">
+-            <b>بکاپ</b>
+-          </div>
+-          <p className="text-xs text-[var(--mu)]">
+-            بکاپ محلی همیشه فعال است (رمزگذاری‌شده، روزانه ۰۲:۰۰ UTC، نگهداری {local?.retention_days} روز در{' '}
+-            <code dir="ltr">{local?.dir}</code>). کپی خارج از سرور روی S3 اختیاری است.
+-          </p>
+-          <Toggle on={s3.enabled} set={s3s('enabled')} label={s3.enabled ? 'کپی روی S3 فعال' : 'کپی روی S3 غیرفعال'} />
+-          <div className="grid gap-3 sm:grid-cols-2">
+-            <Field label="Endpoint (برای S3 سازگار)">
+-              <input
+-                dir="ltr"
+-                className={inp}
+-                value={s3.endpoint}
+-                onChange={(e) => s3s('endpoint')(e.target.value)}
+-                placeholder="https://s3.example.com"
+-              />
+-            </Field>
+-            <Field label="Region">
+-              <input
+-                dir="ltr"
+-                className={inp}
+-                value={s3.region}
+-                onChange={(e) => s3s('region')(e.target.value)}
+-                placeholder="us-east-1"
+-              />
+-            </Field>
+-            <Field label="Bucket">
+-              <input dir="ltr" className={inp} value={s3.bucket} onChange={(e) => s3s('bucket')(e.target.value)} />
+-            </Field>
+-            <Field label="Prefix">
+-              <input dir="ltr" className={inp} value={s3.prefix} onChange={(e) => s3s('prefix')(e.target.value)} />
+-            </Field>
+-            <Field label="Access Key">
+-              <input
+-                dir="ltr"
+-                className={inp}
+-                value={s3.access_key}
+-                onChange={(e) => s3s('access_key')(e.target.value)}
+-              />
+-            </Field>
+-            <Field label={`Secret Key${s3.secret_key_set ? ' (ذخیره شده؛ برای تغییر بنویسید)' : ''}`}>
+-              <PasswordInput
+-                autoComplete="new-password"
+-                className={inp}
+-                value={sk}
+-                onChange={(e: Json) => setSk(e.target.value)}
+-              />
+-            </Field>
+-          </div>
+-          <div className="flex gap-2">
+-            <button
+-              disabled={busy === 's3'}
+-              className={btn}
+-              onClick={() =>
+-                send(
+-                  '/api/v1/admin/integrations/backup-s3',
+-                  {
+-                    enabled: s3.enabled,
+-                    endpoint: s3.endpoint,
+-                    region: s3.region,
+-                    bucket: s3.bucket,
+-                    prefix: s3.prefix,
+-                    access_key: s3.access_key,
+-                    secret_key: sk === '' ? null : sk,
+-                  },
+-                  'تنظیمات S3 ذخیره شد',
+-                  's3',
+-                )
+-              }
+-            >
+-              ذخیره
+-            </button>
+-            <button
+-              disabled={busy === 's3t'}
+-              className={ghost}
+-              onClick={() => send('/api/v1/admin/integrations/backup-s3/test', {}, 'اتصال به S3 موفق بود', 's3t')}
+-            >
+-              تست اتصال
+-            </button>
+-          </div>
+-        </div>
+-      </div>
+-    </section>
+-  );
+-}
+-
+-function ChangeAdminPassword({ api, toast }: { api?: Json; toast: Toast }) {
+-  const [v, setV] = useState({ current: '', next: '', confirm: '' });
+-  const [busy, setBusy] = useState(false);
+-  const submit = async () => {
+-    if (v.next.length < 12) return toast('رمز جدید باید حداقل ۱۲ کاراکتر باشد');
+-    if (v.next !== v.confirm) return toast('تکرار رمز جدید یکسان نیست');
+-    setBusy(true);
+-    const r = await authFetch(api.base, '/api/v1/auth/admin/password', {
+-      method: 'POST',
+-      body: JSON.stringify({ current_password: v.current, new_password: v.next }),
+-    });
+-    const d = await r.json().catch(() => ({}));
+-    setBusy(false);
+-    if (!r.ok) return toast(d?.error?.message || d?.detail?.message || 'تغییر رمز ناموفق بود');
+-    setV({ current: '', next: '', confirm: '' });
+-    toast('رمز ادمین با موفقیت تغییر کرد');
+-  };
+-  return (
+-    <section className={`${box} space-y-4 p-5`}>
+-      <div>
+-        <h3 className="font-extrabold">امنیت حساب ادمین</h3>
+-        <p className="mt-1 text-xs text-[var(--mu)]">برای تغییر رمز، رمز فعلی لازم است. توکن نشست فعلی حفظ می‌شود.</p>
+-      </div>
+-      <div className="grid gap-3 md:grid-cols-3">
+-        <Field label="رمز فعلی">
+-          <PasswordInput
+-            autoComplete="current-password"
+-            className={inp}
+-            value={v.current}
+-            onChange={(e: Json) => setV({ ...v, current: e.target.value })}
+-          />
+-        </Field>
+-        <Field label="رمز جدید">
+-          <PasswordInput
+-            autoComplete="new-password"
+-            className={inp}
+-            value={v.next}
+-            onChange={(e: Json) => setV({ ...v, next: e.target.value })}
+-          />
+-        </Field>
+-        <Field label="تکرار رمز جدید">
+-          <PasswordInput
+-            autoComplete="new-password"
+-            className={inp}
+-            value={v.confirm}
+-            onChange={(e: Json) => setV({ ...v, confirm: e.target.value })}
+-          />
+-        </Field>
+-      </div>
+-      <button disabled={busy || !v.current || !v.next || !v.confirm} className={btn} onClick={submit}>
+-        {busy ? 'در حال ذخیره...' : 'تغییر رمز'}
+-      </button>
+-    </section>
+-  );
+-}
+-
+-function Settings({ api, toast }: { api?: Json; toast: Toast }) {
+-  // Sign-in methods live in Identity («هویت»), Receipt OCR in Payments, the password form in My account.
+-  const [tab, setTab] = useState('integrations');
+-  const pick = (v: string) => setTab(v);
+-  const flags = useList(api, '/api/v1/admin/feature-flags', toast);
+-  const [obj, setObj] = useState<Rec>({});
+-  const [tick, setTick] = useState(0);
+-  useEffect(() => {
+-    flags
+-      .call('/api/v1/admin/settings')
+-      .then((r) => (r.ok ? r.json() : {}))
+-      .then(setObj);
+-    // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
+-  }, [tick]);
+-  const setFlag = async (f: Json) => {
+-    const r = await flags.call(`/api/v1/admin/feature-flags/${encodeURIComponent(f.key)}`, {
+-      method: 'PUT',
+-      body: JSON.stringify({ enabled: !f.enabled, scope_type: f.scope_type, scope_id: f.scope_id, note: f.note }),
+-    });
+-    r.ok ? flags.reload() : toast('تغییر ناموفق بود');
+-  };
+-  const save = async (key: Json, text: Json) => {
+-    let value;
+-    try {
+-      value = JSON.parse(text);
+-    } catch {
+-      return toast('مقدار باید JSON معتبر باشد');
+-    }
+-    if (!(await confirmDialog(`مقدار «${key}» تغییر کند؟`, { title: 'تغییر تنظیم سیستم', ok: 'ذخیره' }))) return;
+-    const r = await flags.call(`/api/v1/admin/settings/${key}`, { method: 'PUT', body: JSON.stringify({ value }) });
+-    if (r.ok) {
+-      toast('تنظیم ذخیره شد');
+-      setTick((x) => x + 1);
+-    } else toast('ذخیره ناموفق بود');
+-  };
+-  const rawSettings = Object.entries(obj).filter(([k]) => !['card.info', 'gateway.zarinpal'].includes(k));
+-  return (
+-    <div className="space-y-5">
+-      <Segmented
+-        label="بخش تنظیمات"
+-        value={tab}
+-        onChange={pick}
+-        options={[
+-          ['integrations', 'پشتیبان‌گیری و ایمیل'],
+-          ['advanced', 'پیشرفته'],
+-        ]}
+-      />
+-      {tab === 'integrations' && <Integrations api={api} toast={toast} />}
+-      {tab === 'advanced' && (
+-        <>
+-          <Table
+-            title="Feature Flags"
+-            cols={['کلید', 'محدوده', 'فعال', '']}
+-            rows={flags.rows.map((f) => [
+-              f.key,
+-              `${f.scope_type}:${f.scope_id}`,
+-              f.enabled ? 'بله' : 'خیر',
+-              <button key="flag" className={ghost} onClick={() => setFlag(f)}>
+-                {f.enabled ? 'خاموش' : 'روشن'}
+-              </button>,
+-            ])}
+-          />
+-          <section className={`${box} overflow-hidden`}>
+-            <h3 className="px-5 py-4 font-extrabold">
+-              تنظیمات پیشرفته سیستم <span className="text-xs font-normal text-[var(--mu)]">(مقدار به‌صورت JSON)</span>
+-            </h3>
+-            {rawSettings.map(([k, v]) => (
+-              <SettingRow key={k} k={k} v={v} save={save} />
+-            ))}
+-          </section>
+-        </>
+-      )}
+-    </div>
+-  );
+-}
++const Coupons = lazy(() => import('./CouponsView.tsx'));
++const Settings = lazy(() => import('./SettingsView.tsx'));
+ 
+ function MyAccount({ api, toast }: { api: ViewApi; toast: Toast }) {
+   return (
+@@ -719,7 +44,6 @@ function Tickets({ api, toast }: { api?: Json; toast: Toast }) {
+ 
+ export const extraRoutes = {
+   'گزارشات و نمودارها': ReportsView,
+-  نمایندگان: ResellersView,
+   'درخواست‌های نمایندگی': ResellerApplicationsView,
+   'کارهای دستی': ManualTasksView,
+   'پیام همگانی': BroadcastView,
+@@ -728,7 +52,6 @@ export const extraRoutes = {
+   'سلامت زیرساخت': InfraHealthView,
+   'عملیات پنل': PanelOpsView,
+   'عملیات گروهی': BulkOperationsView,
+-  'حجم فروشگاه‌ها': StoreGovernanceView,
+   سفارش‌ها: OrdersView,
+   'اکانت‌های VPN': VpnAccountsView,
+   کاربران: UsersView,
+@@ -737,7 +60,6 @@ export const extraRoutes = {
+   تیکت‌ها: Tickets,
+   'محصولات VPN': ProductsView,
+   'پنل‌ها و سرورها': PanelsView,
+-  'اپراتور پنل فروشگاه': PanelAdminsView,
+   'بسته‌های فروش': BundlesView,
+   کوپن‌ها: Coupons,
+   'برنامه‌های معرفی': ReferralProgramsView,
+diff --git a/apps/admin-web/src/AdminNavigation.tsx b/apps/admin-web/src/AdminNavigation.tsx
+new file mode 100644
+index 0000000..340c14a
+--- /dev/null
++++ b/apps/admin-web/src/AdminNavigation.tsx
+@@ -0,0 +1,73 @@
++import { label } from './ui.tsx';
++import { sectionAllowed } from './adminAccess.ts';
++import type { Permissions } from './adminAccess.ts';
++import type { Json } from './types.ts';
++import { groups } from './adminNav.ts';
++
++export function Nav({
++  section,
++  go,
++  openTickets,
++  pendingApps,
++  pendingPanelReq,
++  manualTasks,
++  perms,
++}: {
++  perms?: Permissions;
++  section?: Json;
++  go?: Json;
++  openTickets?: Json;
++  pendingApps?: Json;
++  pendingPanelReq?: Json;
++  manualTasks?: Json;
++}) {
++  return (
++    <nav aria-label="منوی اصلی" className="space-y-5 px-3 pb-6">
++      {groups
++        .map(
++          ([g, items, sub]) =>
++            [g, items.filter(([name]) => sectionAllowed(perms, name)), sub] as (typeof groups)[number],
++        )
++        .filter(([, items]) => items.length)
++        .map(([g, items, sub]) => (
++          <div key={g}>
++            <div className="mb-1.5 px-3 text-[11px] font-bold tracking-wide text-white/35">
++              {g}
++              {sub && <span className="mt-0.5 block text-[10px] font-normal tracking-normal text-white/25">{sub}</span>}
++            </div>
++            {items.map(([name, Icon]) => (
++              <button
++                key={name}
++                onClick={() => go(name)}
++                aria-current={section === name ? 'page' : undefined}
++                className={`navb ${section === name ? 'on' : ''}`}
++              >
++                <Icon size={18} />
++                <span>{name}</span>
++                {name === 'تیکت‌ها' && openTickets > 0 && (
++                  <span className="mr-auto rounded-full bg-[#e8743b] px-2 py-0.5 text-[10px] font-bold text-white">
++                    {openTickets}
++                  </span>
++                )}
++                {name === 'درخواست‌های نمایندگی' && pendingApps > 0 && (
++                  <span className="mr-auto rounded-full bg-[#e8743b] px-2 py-0.5 text-[10px] font-bold text-white">
++                    {pendingApps}
++                  </span>
++                )}
++                {name === 'فروشگاه‌ها' && pendingPanelReq > 0 && (
++                  <span className="mr-auto rounded-full bg-[#e8743b] px-2 py-0.5 text-[10px] font-bold text-white">
++                    {pendingPanelReq}
++                  </span>
++                )}
++                {name === 'کارهای دستی' && manualTasks > 0 && (
++                  <span className="mr-auto rounded-full bg-[#e8743b] px-2 py-0.5 text-[10px] font-bold text-white">
++                    {manualTasks}
++                  </span>
++                )}
++              </button>
++            ))}
++          </div>
++        ))}
++    </nav>
++  );
++}
+diff --git a/apps/admin-web/src/AdminSections.tsx b/apps/admin-web/src/AdminSections.tsx
+index 6a1190d..a1ae7a8 100644
+--- a/apps/admin-web/src/AdminSections.tsx
++++ b/apps/admin-web/src/AdminSections.tsx
+@@ -1,5 +1,6 @@
+ import { Suspense } from 'react';
+ import { extraRoutes } from './AdminExtra.tsx';
++import { sectionAllowed } from './adminAccess.ts';
+ import type { Json, Rec, Toast } from './types.ts';
+ 
+ function SectionFallback() {
+@@ -13,6 +14,10 @@ function SectionFallback() {
+ 
+ /** Every section is a lazy view in ``extraRoutes`` (keyed by its Persian label); an unknown key shows the empty state. */
+ export function AdminSectionView({ section, api, toast }: { section?: Json; api?: Json; toast: Toast }) {
++  // Permissions still loading: show the skeleton. A role that may not open the screen never mounts it (so it never fires its
++  // API calls); App redirects it to the first screen it may open. The server stays the authority either way.
++  if (api?.perms === undefined && api?.loading) return <SectionFallback />;
++  if (api?.perms !== undefined && !sectionAllowed(api.perms, section)) return null;
+   const Extra = (extraRoutes as Rec)[section];
+   if (Extra)
+     return (
+diff --git a/apps/admin-web/src/AdminSession.tsx b/apps/admin-web/src/AdminSession.tsx
+new file mode 100644
+index 0000000..ab1c6bb
+--- /dev/null
++++ b/apps/admin-web/src/AdminSession.tsx
+@@ -0,0 +1,115 @@
++import { useCallback, useEffect, useState } from 'react';
++import { API_BASE, authFetch, getJson } from './api.ts';
++import type { AdminMe, Json, Rec } from './types.ts';
++
++export function useCore() {
++  const base = API_BASE;
++  const [data, setData] = useState<Rec>({
++    summary: null,
++    attention: null,
++    orders: [],
++    users: [],
++    tickets: [],
++    stores: [],
++    me: null,
++    perms: undefined,
++    health: null,
++    backups: [],
++    pendingApps: 0,
++    pendingPanelReq: 0,
++    manualTasks: 0,
++    loading: true,
++    error: '',
++  });
++  const [tick, setTick] = useState(0);
++  useEffect(() => {
++    let live = true;
++    setData((x) => ({ ...x, loading: true }));
++    (async () => {
++      try {
++        // A role may not read every list (a support admin has no reports, a finance admin no panels): each call fails on its own
++        // and only a total failure means "Core is unreachable".
++        const soft = async (p: string, fallback: unknown) => {
++          try {
++            return { ok: true, value: await getJson<unknown>(base, p) };
++          } catch {
++            return { ok: false, value: fallback };
++          }
++        };
++        const raw = await Promise.all([
++          soft('/api/v1/admin/reports/summary', null),
++          soft('/api/v1/admin/orders', []),
++          soft('/api/v1/admin/health', null),
++          soft('/api/v1/admin/operations/backups', []),
++          soft('/api/v1/admin/users', []),
++          soft('/api/v1/admin/tickets', []),
++          soft('/api/v1/admin/stores', []),
++          soft('/api/v1/admin/dashboard', null),
++        ]);
++        if (raw.every((x) => !x.ok)) throw new Error('unreachable');
++        const [summary, orders, health, backups, users, tickets, stores, dashboard] = raw.map((x) => x.value) as Rec[];
++        const attention = (dashboard as Rec | null)?.attention ?? null;
++        const me = await getJson<AdminMe>(base, '/api/v1/admin/me').catch(() => null);
++        const pendingApps = await getJson(base, '/api/v1/admin/reseller-applications?status=pending')
++          .then((x) => x.length)
++          .catch(() => 0);
++        const pendingPanelReq = await getJson(base, '/api/v1/admin/panel-admin-requests?status=pending')
++          .then((x) => x.length)
++          .catch(() => 0);
++        const manualTasks = await getJson(base, '/api/v1/admin/manual-tasks?status=open')
++          .then((x) => x.open || 0)
++          .catch(() => 0);
++        if (live)
++          setData({
++            summary,
++            attention,
++            orders,
++            health,
++            backups,
++            users,
++            tickets,
++            stores,
++            me,
++            perms: me ? me.permissions : [],
++            pendingApps,
++            pendingPanelReq,
++            manualTasks,
++            loading: false,
++            error: '',
++          });
++      } catch (e: Json) {
++        if (live)
++          setData((x) => ({
++            ...x,
++            loading: false,
++            error: 'اتصال به Core API برقرار نشد. وارد شوید یا آدرس API را بررسی کنید.',
++          }));
++      }
++    })();
++    return () => {
++      live = false;
++    };
++  }, [base, tick]);
++  const refresh = useCallback(() => setTick((x) => x + 1), []);
++  return { ...(data as Rec), base, refresh, tick } as Rec;
++}
++
++export async function downloadOrders(base: string) {
++  const r = await authFetch(base, '/api/v1/admin/reports/orders.csv');
++  if (!r.ok) throw Error(`export ${r.status}`);
++  const blob = await r.blob(),
++    url = URL.createObjectURL(blob),
++    a = document.createElement('a');
++  a.href = url;
++  a.download = 'melorin-orders.csv';
++  a.click();
++  URL.revokeObjectURL(url);
++}
++export async function refundPayment(base: string, paymentId: Json, reason: Json) {
++  const r = await authFetch(base, `/api/v1/admin/payments/${paymentId}/refund`, {
++    method: 'POST',
++    body: JSON.stringify({ reason }),
++  });
++  if (!r.ok) throw Error(`refund ${r.status}`);
++  return r.json();
++}
+diff --git a/apps/admin-web/src/AdminShell.tsx b/apps/admin-web/src/AdminShell.tsx
+new file mode 100644
+index 0000000..35f2f18
+--- /dev/null
++++ b/apps/admin-web/src/AdminShell.tsx
+@@ -0,0 +1,177 @@
++import { backdropProps } from './useDialog.ts';
++import type { ReactNode } from 'react';
++import { useEffect, useState } from 'react';
++import { LogOut, KeyRound, ChevronDown, UserRound } from 'lucide-react';
++import { authFetch, getJson } from './api.ts';
++import { clearTokens } from './auth.ts';
++import { googleSignOut } from './GoogleSignIn.tsx';
++import { label } from './ui.tsx';
++import { useDialog } from './useDialog.ts';
++import type { AdminMe, Json, Toast } from './types.ts';
++
++export const todayLabel = () =>
++  new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
++    weekday: 'long',
++    day: 'numeric',
++    month: 'long',
++    year: 'numeric',
++  }).format(new Date());
++// Live wall-clock shown next to the date (browser timezone, Persian digits).
++const timeFmt = new Intl.DateTimeFormat('fa-IR', {
++  hour: '2-digit',
++  minute: '2-digit',
++  second: '2-digit',
++  hour12: false,
++});
++export function Clock() {
++  const [now, setNow] = useState(() => new Date());
++  useEffect(() => {
++    const t = setInterval(() => setNow(new Date()), 1000);
++    return () => clearInterval(t);
++  }, []);
++  return (
++    <time dateTime={now.toISOString()} dir="ltr" className="inline-block tabular-nums">
++      {timeFmt.format(now)}
++    </time>
++  );
++}
++export function Brand() {
++  return (
++    <div className="flex h-[72px] items-center gap-3 px-6">
++      <div className="grid h-10 w-10 place-items-center rounded-2xl bg-[#f4c95d] text-xl font-extrabold text-[#0f1f38]">
++        م
++      </div>
++      <div>
++        <div className="font-extrabold text-white">ملورین</div>
++        <div className="text-[10px] tracking-[.2em] text-white/50">CONTROL ROOM</div>
++      </div>
++    </div>
++  );
++}
++
++export function UserMenu({
++  base,
++  go,
++  toast,
++  onLogout,
++  adminMe,
++}: {
++  base: string;
++  go?: Json;
++  toast: Toast;
++  onLogout?: Json;
++  adminMe?: AdminMe | null;
++}) {
++  const [me, setMe] = useState<Json>(null);
++  const [open, setOpen] = useState(false);
++  const [busy, setBusy] = useState(false);
++  useEffect(() => {
++    getJson(base, '/api/v1/me')
++      .then(setMe)
++      .catch(() => {});
++  }, [base]);
++  useEffect(() => {
++    if (!open) return;
++    const esc = (e: Json) => e.key === 'Escape' && setOpen(false);
++    const away = (e: Json) => !e.target.closest?.('[data-usermenu]') && setOpen(false);
++    window.addEventListener('keydown', esc);
++    window.addEventListener('pointerdown', away);
++    return () => {
++      window.removeEventListener('keydown', esc);
++      window.removeEventListener('pointerdown', away);
++    };
++  }, [open]);
++  const name = me?.display_name || me?.email || 'مدیر';
++  const initials = [...name.trim()].slice(0, 1).join('').toUpperCase();
++  const signOut = async () => {
++    setBusy(true);
++    let ok = false;
++    try {
++      ok = (await authFetch(base, '/api/v1/auth/logout', { method: 'POST', body: '{}' })).ok;
++    } catch {
++      ok = false;
++    }
++    if (!ok) {
++      setBusy(false);
++      toast('خروج از سرور تأیید نشد؛ دوباره تلاش کنید');
++      return;
++    }
++    googleSignOut();
++    clearTokens();
++    onLogout?.();
++  };
++  return (
++    <div className="relative" data-usermenu>
++      <button
++        onClick={() => setOpen((x) => !x)}
++        aria-haspopup="menu"
++        aria-expanded={open}
++        className="btn btn-g gap-2 !py-1.5 !pl-2 !pr-1.5"
++      >
++        <span className="grid h-7 w-7 place-items-center rounded-lg bg-[var(--okb)] text-xs font-extrabold text-[var(--ok)]">
++          {initials || <UserRound size={15} />}
++        </span>
++        <span className="hidden max-w-[9rem] truncate text-xs font-bold sm:block">{name}</span>
++        <ChevronDown size={14} className="text-[var(--mu)]" />
++      </button>
++      {open && (
++        <div role="menu" className="card rise absolute left-0 top-[calc(100%+8px)] z-30 w-64 overflow-hidden p-1.5">
++          <div className="border-b border-[var(--ln)] px-3 pb-3 pt-2">
++            <div className="truncate text-sm font-extrabold">{name}</div>
++            {me?.email && me.email !== name && (
++              <div dir="ltr" className="truncate text-right text-xs text-[var(--mu)]">
++                {me.email}
++              </div>
++            )}
++            <div className="mt-2 flex flex-wrap gap-1.5">
++              <span className="badge b-in">{adminMe?.role_label || (me?.is_admin === false ? 'کاربر' : 'ادمین')}</span>
++              {me && (
++                <span className={`badge ${me.totp_enabled ? 'b-ok' : 'b-wn'}`}>
++                  {me.totp_enabled ? 'TOTP فعال' : 'TOTP غیرفعال'}
++                </span>
++              )}
++            </div>
++          </div>
++          <button
++            role="menuitem"
++            onClick={() => {
++              setOpen(false);
++              go('حساب من');
++            }}
++            className="mt-1 flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm hover:bg-[var(--mb)]"
++          >
++            <KeyRound size={16} className="text-[var(--mu)]" />
++            رمز عبور و امنیت
++          </button>
++          <button
++            role="menuitem"
++            disabled={busy}
++            onClick={signOut}
++            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-bold text-[var(--bd)] hover:bg-[var(--bdb)] disabled:opacity-50"
++          >
++            <LogOut size={16} />
++            {busy ? 'در حال خروج…' : 'خروج از حساب'}
++          </button>
++        </div>
++      )}
++    </div>
++  );
++}
++
++export function MobileNav({ onClose, children }: { onClose?: Json; children?: ReactNode }) {
++  const ref = useDialog(onClose);
++  return (
++    <div className="fixed inset-0 z-30 bg-black/55 lg:hidden" {...backdropProps(onClose)}>
++      <div
++        ref={ref}
++        tabIndex={-1}
++        role="dialog"
++        aria-modal="true"
++        aria-label="منوی اصلی"
++        className="absolute right-0 top-0 flex h-full w-72 flex-col bg-[var(--nav)]"
++      >
++        {children}
++      </div>
++    </div>
++  );
++}
+diff --git a/apps/admin-web/src/App.tsx b/apps/admin-web/src/App.tsx
+index 347605c..88e5fa2 100644
+--- a/apps/admin-web/src/App.tsx
++++ b/apps/admin-web/src/App.tsx
+@@ -1,758 +1,23 @@
+-import type { ReactNode } from 'react';
+-// Melorin Admin Web — every KPI, row and action comes from the authenticated Core API.
+-// Tokens live only in memory (see auth.js); nothing is persisted in browser storage.
++import { downloadOrders } from './AdminSession.tsx';
+ import { useCallback, useEffect, useRef, useState } from 'react';
+-import type { LucideIcon } from 'lucide-react';
++import { Bell, CircleAlert, Download, Menu, RefreshCw, Search, Moon, X } from 'lucide-react';
+ import { AdminSectionView } from './AdminSections.tsx';
+-import { API_BASE, authFetch, getJson } from './api.ts';
+-import { clearTokens } from './auth.ts';
+-import { googleSignOut } from './GoogleSignIn.tsx';
+-import Trend from './Trend.tsx';
+-import { Badge, DialogHost, ThemeButton, confirmDialog, label, sid, tone } from './ui.tsx';
++import { DialogHost, ThemeButton, label } from './ui.tsx';
+ import { Palette } from './palette.tsx';
+-import { backdropProps, useDialog } from './useDialog.ts';
+ import { legacyHash } from './infra.tsx';
+ import { sectionAllowed } from './adminAccess.ts';
+-import type { Permissions } from './adminAccess.ts';
+ import { toggleTheme } from './theme.ts';
+-import {
+-  Activity,
+-  BarChart3,
+-  Bell,
+-  CircleAlert,
+-  CreditCard,
+-  Database,
+-  Download,
+-  Fingerprint,
+-  LayoutDashboard,
+-  Menu,
+-  Package,
+-  Paintbrush,
+-  PanelTop,
+-  Percent,
+-  RefreshCw,
+-  Server,
+-  Settings,
+-  ShieldCheck,
+-  Ticket,
+-  Users,
+-  WalletCards,
+-  X,
+-  Boxes,
+-  ScrollText,
+-  Store,
+-  Search,
+-  Layers,
+-  Moon,
+-  LogOut,
+-  KeyRound,
+-  ChevronDown,
+-  UserRound,
+-  ListChecks,
+-  BellRing,
+-  Megaphone,
+-  UserPlus,
+-  Gift,
+-  Award,
+-  UsersRound,
+-  Zap,
+-} from 'lucide-react';
+-import type { AdminMe, Json, Rec, Toast } from './types.ts';
+-
+-// Section keys are Persian labels (AdminSections/AdminExtra route on them); slug drives the URL hash.
+-const groups: [string, [string, LucideIcon, string][], string?][] = [
+-  [
+-    'نمای کلی',
+-    [
+-      ['داشبورد', LayoutDashboard, 'home'],
+-      ['گزارشات و نمودارها', BarChart3, 'reports'],
+-    ],
+-  ],
+-  [
+-    'عملیات',
+-    [
+-      ['سفارش‌ها', Package, 'orders'],
+-      ['پرداخت‌ها', CreditCard, 'payments'],
+-      ['اکانت‌های VPN', Server, 'vpn'],
+-      ['عملیات گروهی', Zap, 'bulk-operations'], // acts on VPN accounts, so it sits next to them
+-      ['تیکت‌ها', Ticket, 'tickets'],
+-    ],
+-  ],
+-  [
+-    'مشتریان و نمایندگان',
+-    [
+-      ['کاربران', Users, 'users'],
+-      ['فروشگاه‌ها', Store, 'stores'],
+-      ['درخواست‌های نمایندگی', UserPlus, 'reseller-applications'],
+-      ['کارهای دستی', ListChecks, 'manual-tasks'],
+-    ],
+-  ],
+-  [
+-    'کاتالوگ و بازاریابی',
+-    [
+-      ['بسته‌های فروش', Layers, 'bundles'],
+-      ['محصولات VPN', Boxes, 'products'],
+-      ['کوپن‌ها', Percent, 'coupons'],
+-      ['برنامه‌های معرفی', Gift, 'referral-programs'],
+-      ['باشگاه مشتریان', Award, 'loyalty-club'],
+-    ],
+-    'مسیر فروش: پنل و سرور ← بسته فروش ← پکیج',
+-  ],
+-  [
+-    'ارتباطات',
+-    [
+-      ['پیام همگانی', Megaphone, 'broadcasts'],
+-      ['مرکز رویداد', BellRing, 'event-center'],
+-      ['دکمه‌های تلگرام', Paintbrush, 'button-styles'],
+-    ],
+-  ],
+-  [
+-    'زیرساخت',
+-    [
+-      ['پنل‌ها و سرورها', PanelTop, 'panels'],
+-      ['سلامت زیرساخت', ShieldCheck, 'infra-health'],
+-      ['عملیات پنل', Activity, 'panel-ops'],
+-    ],
+-  ],
+-  [
+-    'سیستم',
+-    [
+-      ['تنظیمات', Settings, 'settings'],
+-      ['ممیزی', ScrollText, 'audit'],
+-      ['هویت', Fingerprint, 'identity'],
+-      ['تیم مدیریت', UsersRound, 'admin-team'],
+-      ['حساب من', UserRound, 'my-account'],
+-    ],
+-  ],
+-];
+-const flat = groups.flatMap(([, items]) => items);
+-// The hash may carry deep-link params (#/servers?panel=<id>); only the path picks the section.
+-// Old bookmarks of the removed #/servers screen are rewritten to #/panels (servers live inside their panel now).
+-if (typeof window !== 'undefined') {
+-  const moved = legacyHash(window.location.hash);
+-  if (moved) window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${moved}`);
+-}
+-const fromHash = () => (flat.find((x) => `#/${x[2]}` === window.location.hash.split('?')[0]) || flat[0])[0];
+-
+-const todayLabel = () =>
+-  new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
+-    weekday: 'long',
+-    day: 'numeric',
+-    month: 'long',
+-    year: 'numeric',
+-  }).format(new Date());
+-// Live wall-clock shown next to the date (browser timezone, Persian digits).
+-const timeFmt = new Intl.DateTimeFormat('fa-IR', {
+-  hour: '2-digit',
+-  minute: '2-digit',
+-  second: '2-digit',
+-  hour12: false,
+-});
+-function Clock() {
+-  const [now, setNow] = useState(() => new Date());
+-  useEffect(() => {
+-    const t = setInterval(() => setNow(new Date()), 1000);
+-    return () => clearInterval(t);
+-  }, []);
+-  return (
+-    <time dateTime={now.toISOString()} dir="ltr" className="inline-block tabular-nums">
+-      {timeFmt.format(now)}
+-    </time>
+-  );
+-}
+-const money = (v: Json) => new Intl.NumberFormat('fa-IR').format(v || 0);
+-const moneyByCurrency = (rows: Json) =>
+-  (rows || []).map((x: Json) => `${money(x.amount)} ${x.currency}`).join(' · ') || '۰';
+-
+-function useCore() {
+-  const base = API_BASE;
+-  const [data, setData] = useState<Rec>({
+-    summary: null,
+-    attention: null,
+-    orders: [],
+-    users: [],
+-    tickets: [],
+-    stores: [],
+-    me: null,
+-    perms: undefined,
+-    health: null,
+-    backups: [],
+-    pendingApps: 0,
+-    pendingPanelReq: 0,
+-    manualTasks: 0,
+-    loading: true,
+-    error: '',
+-  });
+-  const [tick, setTick] = useState(0);
+-  useEffect(() => {
+-    let live = true;
+-    setData((x) => ({ ...x, loading: true }));
+-    (async () => {
+-      try {
+-        // A role may not read every list (a support admin has no reports, a finance admin no panels): each call fails on its own
+-        // and only a total failure means "Core is unreachable".
+-        const soft = async (p: string, fallback: unknown) => {
+-          try {
+-            return { ok: true, value: await getJson<unknown>(base, p) };
+-          } catch {
+-            return { ok: false, value: fallback };
+-          }
+-        };
+-        const raw = await Promise.all([
+-          soft('/api/v1/admin/reports/summary', null),
+-          soft('/api/v1/admin/orders', []),
+-          soft('/api/v1/admin/health', null),
+-          soft('/api/v1/admin/operations/backups', []),
+-          soft('/api/v1/admin/users', []),
+-          soft('/api/v1/admin/tickets', []),
+-          soft('/api/v1/admin/stores', []),
+-          soft('/api/v1/admin/dashboard', null),
+-        ]);
+-        if (raw.every((x) => !x.ok)) throw new Error('unreachable');
+-        const [summary, orders, health, backups, users, tickets, stores, dashboard] = raw.map((x) => x.value) as Rec[];
+-        const attention = (dashboard as Rec | null)?.attention ?? null;
+-        const me = await getJson<AdminMe>(base, '/api/v1/admin/me').catch(() => null);
+-        const pendingApps = await getJson(base, '/api/v1/admin/reseller-applications?status=pending')
+-          .then((x) => x.length)
+-          .catch(() => 0);
+-        const pendingPanelReq = await getJson(base, '/api/v1/admin/panel-admin-requests?status=pending')
+-          .then((x) => x.length)
+-          .catch(() => 0);
+-        const manualTasks = await getJson(base, '/api/v1/admin/manual-tasks?status=open')
+-          .then((x) => x.open || 0)
+-          .catch(() => 0);
+-        if (live)
+-          setData({
+-            summary,
+-            attention,
+-            orders,
+-            health,
+-            backups,
+-            users,
+-            tickets,
+-            stores,
+-            me,
+-            perms: me ? me.permissions : [],
+-            pendingApps,
+-            pendingPanelReq,
+-            manualTasks,
+-            loading: false,
+-            error: '',
+-          });
+-      } catch (e: Json) {
+-        if (live)
+-          setData((x) => ({
+-            ...x,
+-            loading: false,
+-            error: 'اتصال به Core API برقرار نشد. وارد شوید یا آدرس API را بررسی کنید.',
+-          }));
+-      }
+-    })();
+-    return () => {
+-      live = false;
+-    };
+-  }, [base, tick]);
+-  const refresh = useCallback(() => setTick((x) => x + 1), []);
+-  return { ...(data as Rec), base, refresh, tick } as Rec;
+-}
+-
+-async function downloadOrders(base: string) {
+-  const r = await authFetch(base, '/api/v1/admin/reports/orders.csv');
+-  if (!r.ok) throw Error(`export ${r.status}`);
+-  const blob = await r.blob(),
+-    url = URL.createObjectURL(blob),
+-    a = document.createElement('a');
+-  a.href = url;
+-  a.download = 'melorin-orders.csv';
+-  a.click();
+-  URL.revokeObjectURL(url);
+-}
+-async function refundPayment(base: string, paymentId: Json, reason: Json) {
+-  const r = await authFetch(base, `/api/v1/admin/payments/${paymentId}/refund`, {
+-    method: 'POST',
+-    body: JSON.stringify({ reason }),
+-  });
+-  if (!r.ok) throw Error(`refund ${r.status}`);
+-  return r.json();
+-}
+-
+-function Nav({
+-  section,
+-  go,
+-  openTickets,
+-  pendingApps,
+-  pendingPanelReq,
+-  manualTasks,
+-  perms,
+-}: {
+-  perms?: Permissions;
+-  section?: Json;
+-  go?: Json;
+-  openTickets?: Json;
+-  pendingApps?: Json;
+-  pendingPanelReq?: Json;
+-  manualTasks?: Json;
+-}) {
+-  return (
+-    <nav aria-label="منوی اصلی" className="space-y-5 px-3 pb-6">
+-      {groups
+-        .map(
+-          ([g, items, sub]) =>
+-            [g, items.filter(([name]) => sectionAllowed(perms, name)), sub] as (typeof groups)[number],
+-        )
+-        .filter(([, items]) => items.length)
+-        .map(([g, items, sub]) => (
+-          <div key={g}>
+-            <div className="mb-1.5 px-3 text-[11px] font-bold tracking-wide text-white/35">
+-              {g}
+-              {sub && <span className="mt-0.5 block text-[10px] font-normal tracking-normal text-white/25">{sub}</span>}
+-            </div>
+-            {items.map(([name, Icon]) => (
+-              <button
+-                key={name}
+-                onClick={() => go(name)}
+-                aria-current={section === name ? 'page' : undefined}
+-                className={`navb ${section === name ? 'on' : ''}`}
+-              >
+-                <Icon size={18} />
+-                <span>{name}</span>
+-                {name === 'تیکت‌ها' && openTickets > 0 && (
+-                  <span className="mr-auto rounded-full bg-[#e8743b] px-2 py-0.5 text-[10px] font-bold text-white">
+-                    {openTickets}
+-                  </span>
+-                )}
+-                {name === 'درخواست‌های نمایندگی' && pendingApps > 0 && (
+-                  <span className="mr-auto rounded-full bg-[#e8743b] px-2 py-0.5 text-[10px] font-bold text-white">
+-                    {pendingApps}
+-                  </span>
+-                )}
+-                {name === 'فروشگاه‌ها' && pendingPanelReq > 0 && (
+-                  <span className="mr-auto rounded-full bg-[#e8743b] px-2 py-0.5 text-[10px] font-bold text-white">
+-                    {pendingPanelReq}
+-                  </span>
+-                )}
+-                {name === 'کارهای دستی' && manualTasks > 0 && (
+-                  <span className="mr-auto rounded-full bg-[#e8743b] px-2 py-0.5 text-[10px] font-bold text-white">
+-                    {manualTasks}
+-                  </span>
+-                )}
+-              </button>
+-            ))}
+-          </div>
+-        ))}
+-    </nav>
+-  );
+-}
+-
+-function Brand() {
+-  return (
+-    <div className="flex h-[72px] items-center gap-3 px-6">
+-      <div className="grid h-10 w-10 place-items-center rounded-2xl bg-[#f4c95d] text-xl font-extrabold text-[#0f1f38]">
+-        م
+-      </div>
+-      <div>
+-        <div className="font-extrabold text-white">ملورین</div>
+-        <div className="text-[10px] tracking-[.2em] text-white/50">CONTROL ROOM</div>
+-      </div>
+-    </div>
+-  );
+-}
+-
+-const Kpi = ({
+-  t,
+-  n,
+-  s,
+-  I,
+-  tint,
+-  loading,
+-}: {
+-  t?: Json;
+-  n?: Json;
+-  s?: Json;
+-  I?: Json;
+-  tint?: Json;
+-  loading?: Json;
+-}) => (
+-  <div className="card rise p-5">
+-    <div className="flex items-start justify-between">
+-      <div className="text-sm text-[var(--mu)]">{t}</div>
+-      <div className={`rounded-xl p-2.5 ${tint}`}>
+-        <I size={17} />
+-      </div>
+-    </div>
+-    {loading ? (
+-      <div className="skel mt-5 h-8 w-2/3" />
+-    ) : (
+-      <div className="mt-5 text-2xl font-extrabold tracking-tight">{n}</div>
+-    )}
+-    <div className="mt-2 text-xs font-semibold text-[var(--mu)]">{s}</div>
+-  </div>
+-);
+-
+-const QUEUE_LABELS: Record<string, string> = {
+-  provisioning_failures: 'سفارش‌های ناموفق در تحویل',
+-  account_discrepancies: 'مغایرت اکانت با پنل',
+-  panel_orphans: 'اکانت‌های بدون صاحب روی پنل',
+-  failed_panel_events: 'رویدادهای ناموفق پنل',
+-  failed_bulk_operations: 'عملیات گروهی ناموفق',
+-  receipt_reviews: 'رسیدهای در انتظار بررسی',
+-  refunds_pending: 'استردادهای در انتظار',
+-  identity_conflicts: 'تعارض هویت',
+-  reseller_applications: 'درخواست‌های نمایندگی',
+-  open_tickets: 'تیکت‌های باز',
+-};
+-
+-/** Read-only roll-up of what waits for an admin; every row links to the screen of the module that owns the fix. */
+-function OperationsCenter({ attention, loading }: { attention?: Rec | null; loading?: boolean }) {
+-  const items: Rec[] = (attention?.items || []).filter((x: Rec) => x.count > 0);
+-  return (
+-    <section className="card rise p-5" aria-label="مرکز عملیات">
+-      <div className="flex items-center justify-between">
+-        <h3 className="font-extrabold">مرکز عملیات</h3>
+-        <span className="text-xs text-[var(--mu)]">{money(attention?.total || 0)} مورد در انتظار</span>
+-      </div>
+-      {items.length ? (
+-        <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+-          {items.map((x) => (
+-            <li key={x.key}>
+-              <a
+-                href={`#/${x.section}`}
+-                className="flex items-center justify-between rounded-xl border border-[var(--ln)] px-3 py-2 text-sm hover:bg-[var(--mb)]"
+-              >
+-                <span>{QUEUE_LABELS[x.key] || x.key}</span>
+-                <b>{money(x.count)}</b>
+-              </a>
+-            </li>
+-          ))}
+-        </ul>
+-      ) : (
+-        <p className="mt-4 text-sm text-[var(--mu)]">{loading ? 'در حال دریافت…' : 'موردی در انتظار رسیدگی نیست'}</p>
+-      )}
+-    </section>
+-  );
+-}
+-
+-function Dashboard({ api, toast }: { api?: Json; toast: Toast }) {
+-  const summary = api.summary || {};
+-  const byStatus = [...(summary.orders || [])].sort((a, b) => b.count - a.count);
+-  const orderCount = byStatus.reduce((a, x) => a + x.count, 0);
+-  const active = byStatus
+-    .filter((x) => ['paid', 'processing', 'provisioning'].includes(x.status))
+-    .reduce((a, x) => a + x.count, 0);
+-  const needsAttention = byStatus
+-    .filter((x) => ['manual_review', 'provisioning_failed', 'payment_failed', 'refund_pending'].includes(x.status))
+-    .reduce((a, x) => a + x.count, 0);
+-  const openTickets = summary.open_tickets || 0;
+-  const h = api.health,
+-    ok = (k: Json) => h?.[k] === 'ok';
+-  const services = [
+-    ['Core API', ok('api')],
+-    ['PostgreSQL', ok('database')],
+-    ['Redis', ok('redis')],
+-    ['Worker', ok('worker')],
+-  ];
+-  const rows = api.orders || [];
+-  return (
+-    <div className="space-y-6">
+-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+-        <Kpi
+-          loading={api.loading}
+-          t="فروش ثبت‌شده"
+-          n={moneyByCurrency(summary.payments)}
+-          s="از گزارش مالی Core"
+-          I={WalletCards}
+-          tint="bg-[var(--okb)] text-[var(--ok)]"
+-        />
+-        <Kpi
+-          loading={api.loading}
+-          t="سفارش‌های فعال"
+-          n={money(active)}
+-          s={`${money(orderCount)} کل سفارش`}
+-          I={Package}
+-          tint="bg-[var(--inb)] text-[var(--in)]"
+-        />
+-        <Kpi
+-          loading={api.loading}
+-          t="نیازمند توجه"
+-          n={money(needsAttention)}
+-          s="بررسی دستی، خطا یا استرداد"
+-          I={CircleAlert}
+-          tint="bg-[var(--wnb)] text-[var(--wn)]"
+-        />
+-        <Kpi
+-          loading={api.loading}
+-          t="تیکت‌های باز"
+-          n={money(openTickets)}
+-          s="از صف پشتیبانی"
+-          I={Ticket}
+-          tint="bg-[var(--mb)] text-[var(--tx)]"
+-        />
+-      </div>
+-      <div className="grid gap-6 xl:grid-cols-[1.6fr_.9fr]">
+-        <div className="space-y-6">
+-          <Trend tick={api.tick} />
+-          <OperationsCenter attention={api.attention} loading={api.loading} />
+-          <section className="card rise p-5">
+-            <div className="flex items-center justify-between">
+-              <h3 className="font-extrabold">توزیع وضعیت سفارش‌ها</h3>
+-              <span className="text-xs text-[var(--mu)]">{money(orderCount)} سفارش</span>
+-            </div>
+-            {orderCount ? (
+-              <>
+-                <div
+-                  className="mt-4 flex h-3 overflow-hidden rounded-full bg-[var(--mb)]"
+-                  role="img"
+-                  aria-label="نمودار توزیع وضعیت سفارش‌ها"
+-                >
+-                  {byStatus.map((x) => (
+-                    <div
+-                      key={x.status}
+-                      title={`${label(x.status)}: ${x.count}`}
+-                      style={{ width: `${(x.count / orderCount) * 100}%`, background: `var(--${tone(x.status)})` }}
+-                    />
+-                  ))}
+-                </div>
+-                <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2">
+-                  {byStatus.map((x) => (
+-                    <div key={x.status} className="flex items-center gap-2 text-xs">
+-                      <Badge s={x.status} />
+-                      <b>{money(x.count)}</b>
+-                    </div>
+-                  ))}
+-                </div>
+-              </>
+-            ) : (
+-              <p className="mt-4 text-sm text-[var(--mu)]">{api.loading ? 'در حال دریافت…' : 'هنوز سفارشی ثبت نشده'}</p>
+-            )}
+-          </section>
+-          <section className="card rise overflow-hidden">
+-            <div className="flex items-center justify-between border-b border-[var(--ln)] px-5 py-4">
+-              <div>
+-                <h3 className="font-extrabold">آخرین سفارش‌ها</h3>
+-                <p className="mt-1 text-xs text-[var(--mu)]">دریافت مستقیم از Core API</p>
+-              </div>
+-              <button onClick={api.refresh} className="text-sm font-bold text-[var(--ac)]">
+-                به‌روزرسانی
+-              </button>
+-            </div>
+-            <div className="overflow-x-auto">
+-              <table className="tbl min-w-[620px]">
+-                <thead>
+-                  <tr>
+-                    <th>شماره</th>
+-                    <th>Store</th>
+-                    <th>مبلغ</th>
+-                    <th>وضعیت</th>
+-                    <th>شناسه</th>
+-                    <th>عملیات</th>
+-                  </tr>
+-                </thead>
+-                <tbody>
+-                  {rows.length ? (
+-                    rows.slice(0, 8).map((o: Json) => (
+-                      <tr key={String(o.id)}>
+-                        <td className="font-bold">{o.number}</td>
+-                        <td className="text-[var(--mu)]">{sid(o.store_id)}</td>
+-                        <td className="font-semibold">
+-                          {money(o.total)} {o.currency}
+-                        </td>
+-                        <td>
+-                          <Badge s={o.status} />
+-                        </td>
+-                        <td className="text-xs text-[var(--mu)]">{sid(o.id)}</td>
+-                        <td>
+-                          <button
+-                            disabled={!o.payment_id || o.payment_status !== 'succeeded'}
+-                            onClick={async () => {
+-                              if (
+-                                !(await confirmDialog('استرداد واقعی این پرداخت انجام شود؟', {
+-                                  title: 'استرداد پرداخت',
+-                                  danger: true,
+-                                  ok: 'استرداد',
+-                                }))
+-                              )
+-                                return;
+-                              refundPayment(api.base || '', o.payment_id, 'درخواست استرداد توسط Admin')
+-                                .then(() => {
+-                                  toast('استرداد ثبت شد');
+-                                  api.refresh();
+-                                })
+-                                .catch(() => toast('استرداد ناموفق بود'));
+-                            }}
+-                            className="btn btn-g btn-d"
+-                          >
+-                            استرداد
+-                          </button>
+-                        </td>
+-                      </tr>
+-                    ))
+-                  ) : (
+-                    <tr>
+-                      <td colSpan={6} className="p-12 text-center text-sm text-[var(--mu)]">
+-                        {api.loading ? 'در حال دریافت…' : 'سفارشی از API برنگشت'}
+-                      </td>
+-                    </tr>
+-                  )}
+-                </tbody>
+-              </table>
+-            </div>
+-          </section>
+-        </div>
+-        <aside className="space-y-6">
+-          <section className="rise rounded-2xl bg-[var(--nav)] p-5 text-white">
+-            <div className="flex items-center justify-between">
+-              <h3 className="font-extrabold">سلامت زیرساخت</h3>
+-              <ShieldCheck className="text-[#8ce0ba]" size={20} />
+-            </div>
+-            <div className="mt-5 space-y-3.5">
+-              {services.map(([n, good]) => (
+-                <div
+-                  key={String(n)}
+-                  className="flex items-center justify-between border-b border-white/10 pb-3 last:border-0 last:pb-0"
+-                >
+-                  <div className="flex items-center gap-2 text-sm">
+-                    <span
+-                      className={`h-2 w-2 rounded-full ${good ? 'bg-[#8ce0ba]' : h ? 'bg-[#f87171]' : 'bg-[#f4c95d]'}`}
+-                    />
+-                    {n}
+-                  </div>
+-                  <div className="text-xs text-white/70">{good ? 'پایدار' : h ? 'مشکل‌دار' : 'نامشخص'}</div>
+-                </div>
+-              ))}
+-            </div>
+-          </section>
+-          <section className="card rise p-5">
+-            <div className="flex items-center justify-between">
+-              <h3 className="font-extrabold">آخرین Backup</h3>
+-              <Database size={19} className="text-[var(--ac)]" />
+-            </div>
+-            {api.backups?.[0] ? (
+-              <div className="mt-4 space-y-2 text-sm">
+-                <Badge s={api.backups[0].status} />
+-                <div className="text-xs text-[var(--mu)]">
+-                  {new Date(api.backups[0].created_at).toLocaleString('fa-IR')}
+-                </div>
+-                <div className="text-xs text-[var(--mu)]">{money(api.backups.length)} اجرا ثبت شده</div>
+-              </div>
+-            ) : (
+-              <p className="mt-4 text-sm text-[var(--mu)]">{api.loading ? 'در حال دریافت…' : 'هنوز Backup ثبت نشده'}</p>
+-            )}
+-          </section>
+-        </aside>
+-      </div>
+-    </div>
+-  );
+-}
+-
+-// Signed-in admin identity (GET /api/v1/me) + sign-out (POST /api/v1/auth/logout revokes the refresh token and clears the cookie).
+-function UserMenu({
+-  base,
+-  go,
+-  toast,
+-  onLogout,
+-  adminMe,
+-}: {
+-  base: string;
+-  go?: Json;
+-  toast: Toast;
+-  onLogout?: Json;
+-  adminMe?: AdminMe | null;
+-}) {
+-  const [me, setMe] = useState<Json>(null);
+-  const [open, setOpen] = useState(false);
+-  const [busy, setBusy] = useState(false);
+-  useEffect(() => {
+-    getJson(base, '/api/v1/me')
+-      .then(setMe)
+-      .catch(() => {});
+-  }, [base]);
+-  useEffect(() => {
+-    if (!open) return;
+-    const esc = (e: Json) => e.key === 'Escape' && setOpen(false);
+-    const away = (e: Json) => !e.target.closest?.('[data-usermenu]') && setOpen(false);
+-    window.addEventListener('keydown', esc);
+-    window.addEventListener('pointerdown', away);
+-    return () => {
+-      window.removeEventListener('keydown', esc);
+-      window.removeEventListener('pointerdown', away);
+-    };
+-  }, [open]);
+-  const name = me?.display_name || me?.email || 'مدیر';
+-  const initials = [...name.trim()].slice(0, 1).join('').toUpperCase();
+-  const signOut = async () => {
+-    setBusy(true);
+-    let ok = false;
+-    try {
+-      ok = (await authFetch(base, '/api/v1/auth/logout', { method: 'POST', body: '{}' })).ok;
+-    } catch {
+-      ok = false;
+-    }
+-    if (!ok) {
+-      setBusy(false);
+-      toast('خروج از سرور تأیید نشد؛ دوباره تلاش کنید');
+-      return;
+-    }
+-    googleSignOut();
+-    clearTokens();
+-    onLogout?.();
+-  };
+-  return (
+-    <div className="relative" data-usermenu>
+-      <button
+-        onClick={() => setOpen((x) => !x)}
+-        aria-haspopup="menu"
+-        aria-expanded={open}
+-        className="btn btn-g gap-2 !py-1.5 !pl-2 !pr-1.5"
+-      >
+-        <span className="grid h-7 w-7 place-items-center rounded-lg bg-[var(--okb)] text-xs font-extrabold text-[var(--ok)]">
+-          {initials || <UserRound size={15} />}
+-        </span>
+-        <span className="hidden max-w-[9rem] truncate text-xs font-bold sm:block">{name}</span>
+-        <ChevronDown size={14} className="text-[var(--mu)]" />
+-      </button>
+-      {open && (
+-        <div role="menu" className="card rise absolute left-0 top-[calc(100%+8px)] z-30 w-64 overflow-hidden p-1.5">
+-          <div className="border-b border-[var(--ln)] px-3 pb-3 pt-2">
+-            <div className="truncate text-sm font-extrabold">{name}</div>
+-            {me?.email && me.email !== name && (
+-              <div dir="ltr" className="truncate text-right text-xs text-[var(--mu)]">
+-                {me.email}
+-              </div>
+-            )}
+-            <div className="mt-2 flex flex-wrap gap-1.5">
+-              <span className="badge b-in">{adminMe?.role_label || (me?.is_admin === false ? 'کاربر' : 'ادمین')}</span>
+-              {me && (
+-                <span className={`badge ${me.totp_enabled ? 'b-ok' : 'b-wn'}`}>
+-                  {me.totp_enabled ? 'TOTP فعال' : 'TOTP غیرفعال'}
+-                </span>
+-              )}
+-            </div>
+-          </div>
+-          <button
+-            role="menuitem"
+-            onClick={() => {
+-              setOpen(false);
+-              go('حساب من');
+-            }}
+-            className="mt-1 flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm hover:bg-[var(--mb)]"
+-          >
+-            <KeyRound size={16} className="text-[var(--mu)]" />
+-            رمز عبور و امنیت
+-          </button>
+-          <button
+-            role="menuitem"
+-            disabled={busy}
+-            onClick={signOut}
+-            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-bold text-[var(--bd)] hover:bg-[var(--bdb)] disabled:opacity-50"
+-          >
+-            <LogOut size={16} />
+-            {busy ? 'در حال خروج…' : 'خروج از حساب'}
+-          </button>
+-        </div>
+-      )}
+-    </div>
+-  );
+-}
++import type { Json } from './types.ts';
++import { flat } from './adminNav.ts';
++import { fromHash } from './adminNav.ts';
++import { Clock } from './AdminShell.tsx';
++import { todayLabel } from './AdminShell.tsx';
++import { Brand } from './AdminShell.tsx';
++import { UserMenu } from './AdminShell.tsx';
++import { MobileNav } from './AdminShell.tsx';
++import Dashboard from './Dashboard.tsx';
++import { useCore } from './AdminSession.tsx';
++import { Nav } from './AdminNavigation.tsx';
+ 
+ export default function App({ onLogout }: { onLogout?: Json }) {
+   const [section, setSection] = useState(fromHash);
+@@ -967,21 +232,3 @@ export default function App({ onLogout }: { onLogout?: Json }) {
+     </div>
+   );
+ }
+-
+-function MobileNav({ onClose, children }: { onClose?: Json; children?: ReactNode }) {
+-  const ref = useDialog(onClose);
+-  return (
+-    <div className="fixed inset-0 z-30 bg-black/55 lg:hidden" {...backdropProps(onClose)}>
+-      <div
+-        ref={ref}
+-        tabIndex={-1}
+-        role="dialog"
+-        aria-modal="true"
+-        aria-label="منوی اصلی"
+-        className="absolute right-0 top-0 flex h-full w-72 flex-col bg-[var(--nav)]"
+-      >
+-        {children}
+-      </div>
+-    </div>
+-  );
+-}
+diff --git a/apps/admin-web/src/CouponsView.tsx b/apps/admin-web/src/CouponsView.tsx
+new file mode 100644
+index 0000000..5e1bf50
+--- /dev/null
++++ b/apps/admin-web/src/CouponsView.tsx
+@@ -0,0 +1,86 @@
++import { useEffect, useState } from 'react';
++import type { Json, Toast } from './types.ts';
++import { money, box, inp, ghost, useList, Table, Form } from './adminExtraKit.tsx';
++
++export default function Coupons({ api, toast }: { api?: Json; toast: Toast }) {
++  const stores = useList(api, '/api/v1/admin/stores', toast).rows;
++  const [storeId, setStoreId] = useState<Json>(null); // null = not chosen yet, '' = every store (also multi-store codes)
++  useEffect(() => {
++    if (storeId === null && stores.length) setStoreId((stores.find((s) => s.kind === 'main') || stores[0]).id);
++  }, [stores, storeId]);
++  // a discount code belongs to ONE store: the form below always creates for the store picked here
++  const { rows, call, reload } = useList(api, `/api/v1/admin/coupons${storeId ? `?store_id=${storeId}` : ''}`, toast);
++  const store = stores.find((s) => s.id === storeId);
++  const create = async (v: Json, done: Json) => {
++    if (!storeId) return toast('ابتدا یک فروشگاه مشخص را انتخاب کنید');
++    const r = await call('/api/v1/admin/coupons', {
++      method: 'POST',
++      body: JSON.stringify({
++        code: v.code,
++        percent_bp: Math.round((+v.pct || 0) * 100),
++        fixed: +v.fixed || 0,
++        max_redemptions: v.max ? +v.max : null,
++        scope: 'store',
++        store_id: storeId,
++      }),
++    });
++    if (r.ok) {
++      toast('کوپن ساخته شد');
++      done();
++      reload();
++    } else toast('ساخت کوپن ناموفق بود');
++  };
++  const toggle = async (c: Json) => {
++    const r = await call(`/api/v1/admin/coupons/${c.id}`, {
++      method: 'PATCH',
++      body: JSON.stringify({ status: c.status === 'active' ? 'disabled' : 'active' }),
++    });
++    r.ok ? reload() : toast('تغییر ناموفق بود');
++  };
++  return (
++    <>
++      <section className={`${box} rise p-4`}>
++        <label className="block text-xs font-bold text-[var(--mu)]">
++          فروشگاه (کد تخفیف فقط در همین فروشگاه کار می‌کند)
++          <select
++            className={`${inp} mt-1.5`}
++            aria-label="فروشگاه"
++            value={storeId ?? ''}
++            onChange={(e) => setStoreId(e.target.value)}
++          >
++            <option value="">همه (شامل کدهای چندفروشگاهی)</option>
++            {stores.map((s) => (
++              <option key={s.id} value={s.id}>
++                {s.name} {s.kind === 'main' ? '(اصلی)' : '(نمایندگی)'} · {s.currency}
++              </option>
++            ))}
++          </select>
++        </label>
++      </section>
++      <Form
++        label={`افزودن کوپن${store ? ` برای «${store.name}»` : ''}`}
++        onSubmit={create}
++        fields={[
++          ['code', 'کد'],
++          ['pct', 'درصد تخفیف', 'number'],
++          ['fixed', 'تخفیف ثابت', 'number'],
++          ['max', 'سقف استفاده', 'number'],
++        ]}
++      />
++      <Table
++        title="کوپن‌ها"
++        cols={['کد', 'درصد', 'ثابت', 'استفاده', 'وضعیت', '']}
++        rows={rows.map((c) => [
++          c.code,
++          c.percent_bp != null ? `${c.percent_bp / 100}%` : '-',
++          money(c.fixed),
++          `${c.redeemed ?? c.redemptions ?? 0}/${c.max_redemptions ?? '∞'}`,
++          c.status,
++          <button key="toggle" className={ghost} onClick={() => toggle(c)}>
++            {c.status === 'active' ? 'غیرفعال' : 'فعال'}
++          </button>,
++        ])}
++      />
++    </>
++  );
++}
+diff --git a/apps/admin-web/src/Dashboard.tsx b/apps/admin-web/src/Dashboard.tsx
+new file mode 100644
+index 0000000..ad7fd81
+--- /dev/null
++++ b/apps/admin-web/src/Dashboard.tsx
+@@ -0,0 +1,297 @@
++import { refundPayment } from './AdminSession.tsx';
++import { CircleAlert, Database, Package, ShieldCheck, Ticket, WalletCards, Store } from 'lucide-react';
++import Trend from './Trend.tsx';
++import { Badge, confirmDialog, label, sid, tone } from './ui.tsx';
++import type { Json, Rec, Toast } from './types.ts';
++
++export const money = (v: Json) => new Intl.NumberFormat('fa-IR').format(v || 0);
++export const moneyByCurrency = (rows: Json) =>
++  (rows || []).map((x: Json) => `${money(x.amount)} ${x.currency}`).join(' · ') || '۰';
++
++const Kpi = ({
++  t,
++  n,
++  s,
++  I,
++  tint,
++  loading,
++}: {
++  t?: Json;
++  n?: Json;
++  s?: Json;
++  I?: Json;
++  tint?: Json;
++  loading?: Json;
++}) => (
++  <div className="card rise p-5">
++    <div className="flex items-start justify-between">
++      <div className="text-sm text-[var(--mu)]">{t}</div>
++      <div className={`rounded-xl p-2.5 ${tint}`}>
++        <I size={17} />
++      </div>
++    </div>
++    {loading ? (
++      <div className="skel mt-5 h-8 w-2/3" />
++    ) : (
++      <div className="mt-5 text-2xl font-extrabold tracking-tight">{n}</div>
++    )}
++    <div className="mt-2 text-xs font-semibold text-[var(--mu)]">{s}</div>
++  </div>
++);
++
++const QUEUE_LABELS: Record<string, string> = {
++  provisioning_failures: 'سفارش‌های ناموفق در تحویل',
++  account_discrepancies: 'مغایرت اکانت با پنل',
++  panel_orphans: 'اکانت‌های بدون صاحب روی پنل',
++  failed_panel_events: 'رویدادهای ناموفق پنل',
++  failed_bulk_operations: 'عملیات گروهی ناموفق',
++  receipt_reviews: 'رسیدهای در انتظار بررسی',
++  refunds_pending: 'استردادهای در انتظار',
++  identity_conflicts: 'تعارض هویت',
++  reseller_applications: 'درخواست‌های نمایندگی',
++  open_tickets: 'تیکت‌های باز',
++};
++
++/** Read-only roll-up of what waits for an admin; every row links to the screen of the module that owns the fix. */
++function OperationsCenter({ attention, loading }: { attention?: Rec | null; loading?: boolean }) {
++  const items: Rec[] = (attention?.items || []).filter((x: Rec) => x.count > 0);
++  return (
++    <section className="card rise p-5" aria-label="مرکز عملیات">
++      <div className="flex items-center justify-between">
++        <h3 className="font-extrabold">مرکز عملیات</h3>
++        <span className="text-xs text-[var(--mu)]">{money(attention?.total || 0)} مورد در انتظار</span>
++      </div>
++      {items.length ? (
++        <ul className="mt-4 grid gap-2 sm:grid-cols-2">
++          {items.map((x) => (
++            <li key={x.key}>
++              <a
++                href={`#/${x.section}`}
++                className="flex items-center justify-between rounded-xl border border-[var(--ln)] px-3 py-2 text-sm hover:bg-[var(--mb)]"
++              >
++                <span>{QUEUE_LABELS[x.key] || x.key}</span>
++                <b>{money(x.count)}</b>
++              </a>
++            </li>
++          ))}
++        </ul>
++      ) : (
++        <p className="mt-4 text-sm text-[var(--mu)]">{loading ? 'در حال دریافت…' : 'موردی در انتظار رسیدگی نیست'}</p>
++      )}
++    </section>
++  );
++}
++
++export default function Dashboard({ api, toast }: { api?: Json; toast: Toast }) {
++  const summary = api.summary || {};
++  const byStatus = [...(summary.orders || [])].sort((a, b) => b.count - a.count);
++  const orderCount = byStatus.reduce((a, x) => a + x.count, 0);
++  const active = byStatus
++    .filter((x) => ['paid', 'processing', 'provisioning'].includes(x.status))
++    .reduce((a, x) => a + x.count, 0);
++  const needsAttention = byStatus
++    .filter((x) => ['manual_review', 'provisioning_failed', 'payment_failed', 'refund_pending'].includes(x.status))
++    .reduce((a, x) => a + x.count, 0);
++  const openTickets = summary.open_tickets || 0;
++  const h = api.health,
++    ok = (k: Json) => h?.[k] === 'ok';
++  const services = [
++    ['Core API', ok('api')],
++    ['PostgreSQL', ok('database')],
++    ['Redis', ok('redis')],
++    ['Worker', ok('worker')],
++  ];
++  const rows = api.orders || [];
++  return (
++    <div className="space-y-6">
++      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
++        <Kpi
++          loading={api.loading}
++          t="فروش ثبت‌شده"
++          n={moneyByCurrency(summary.payments)}
++          s="از گزارش مالی Core"
++          I={WalletCards}
++          tint="bg-[var(--okb)] text-[var(--ok)]"
++        />
++        <Kpi
++          loading={api.loading}
++          t="سفارش‌های فعال"
++          n={money(active)}
++          s={`${money(orderCount)} کل سفارش`}
++          I={Package}
++          tint="bg-[var(--inb)] text-[var(--in)]"
++        />
++        <Kpi
++          loading={api.loading}
++          t="نیازمند توجه"
++          n={money(needsAttention)}
++          s="بررسی دستی، خطا یا استرداد"
++          I={CircleAlert}
++          tint="bg-[var(--wnb)] text-[var(--wn)]"
++        />
++        <Kpi
++          loading={api.loading}
++          t="تیکت‌های باز"
++          n={money(openTickets)}
++          s="از صف پشتیبانی"
++          I={Ticket}
++          tint="bg-[var(--mb)] text-[var(--tx)]"
++        />
++      </div>
++      <div className="grid gap-6 xl:grid-cols-[1.6fr_.9fr]">
++        <div className="space-y-6">
++          <Trend tick={api.tick} />
++          <OperationsCenter attention={api.attention} loading={api.loading} />
++          <section className="card rise p-5">
++            <div className="flex items-center justify-between">
++              <h3 className="font-extrabold">توزیع وضعیت سفارش‌ها</h3>
++              <span className="text-xs text-[var(--mu)]">{money(orderCount)} سفارش</span>
++            </div>
++            {orderCount ? (
++              <>
++                <div
++                  className="mt-4 flex h-3 overflow-hidden rounded-full bg-[var(--mb)]"
++                  role="img"
++                  aria-label="نمودار توزیع وضعیت سفارش‌ها"
++                >
++                  {byStatus.map((x) => (
++                    <div
++                      key={x.status}
++                      title={`${label(x.status)}: ${x.count}`}
++                      style={{ width: `${(x.count / orderCount) * 100}%`, background: `var(--${tone(x.status)})` }}
++                    />
++                  ))}
++                </div>
++                <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2">
++                  {byStatus.map((x) => (
++                    <div key={x.status} className="flex items-center gap-2 text-xs">
++                      <Badge s={x.status} />
++                      <b>{money(x.count)}</b>
++                    </div>
++                  ))}
++                </div>
++              </>
++            ) : (
++              <p className="mt-4 text-sm text-[var(--mu)]">{api.loading ? 'در حال دریافت…' : 'هنوز سفارشی ثبت نشده'}</p>
++            )}
++          </section>
++          <section className="card rise overflow-hidden">
++            <div className="flex items-center justify-between border-b border-[var(--ln)] px-5 py-4">
++              <div>
++                <h3 className="font-extrabold">آخرین سفارش‌ها</h3>
++                <p className="mt-1 text-xs text-[var(--mu)]">دریافت مستقیم از Core API</p>
++              </div>
++              <button onClick={api.refresh} className="text-sm font-bold text-[var(--ac)]">
++                به‌روزرسانی
++              </button>
++            </div>
++            <div className="overflow-x-auto">
++              <table className="tbl min-w-[620px]">
++                <thead>
++                  <tr>
++                    <th>شماره</th>
++                    <th>Store</th>
++                    <th>مبلغ</th>
++                    <th>وضعیت</th>
++                    <th>شناسه</th>
++                    <th>عملیات</th>
++                  </tr>
++                </thead>
++                <tbody>
++                  {rows.length ? (
++                    rows.slice(0, 8).map((o: Json) => (
++                      <tr key={String(o.id)}>
++                        <td className="font-bold">{o.number}</td>
++                        <td className="text-[var(--mu)]">{sid(o.store_id)}</td>
++                        <td className="font-semibold">
++                          {money(o.total)} {o.currency}
++                        </td>
++                        <td>
++                          <Badge s={o.status} />
++                        </td>
++                        <td className="text-xs text-[var(--mu)]">{sid(o.id)}</td>
++                        <td>
++                          <button
++                            disabled={!o.payment_id || o.payment_status !== 'succeeded'}
++                            onClick={async () => {
++                              if (
++                                !(await confirmDialog('استرداد واقعی این پرداخت انجام شود؟', {
++                                  title: 'استرداد پرداخت',
++                                  danger: true,
++                                  ok: 'استرداد',
++                                }))
++                              )
++                                return;
++                              refundPayment(api.base || '', o.payment_id, 'درخواست استرداد توسط Admin')
++                                .then(() => {
++                                  toast('استرداد ثبت شد');
++                                  api.refresh();
++                                })
++                                .catch(() => toast('استرداد ناموفق بود'));
++                            }}
++                            className="btn btn-g btn-d"
++                          >
++                            استرداد
++                          </button>
++                        </td>
++                      </tr>
++                    ))
++                  ) : (
++                    <tr>
++                      <td colSpan={6} className="p-12 text-center text-sm text-[var(--mu)]">
++                        {api.loading ? 'در حال دریافت…' : 'سفارشی از API برنگشت'}
++                      </td>
++                    </tr>
++                  )}
++                </tbody>
++              </table>
++            </div>
++          </section>
++        </div>
++        <aside className="space-y-6">
++          <section className="rise rounded-2xl bg-[var(--nav)] p-5 text-white">
++            <div className="flex items-center justify-between">
++              <h3 className="font-extrabold">سلامت زیرساخت</h3>
++              <ShieldCheck className="text-[#8ce0ba]" size={20} />
++            </div>
++            <div className="mt-5 space-y-3.5">
++              {services.map(([n, good]) => (
++                <div
++                  key={String(n)}
++                  className="flex items-center justify-between border-b border-white/10 pb-3 last:border-0 last:pb-0"
++                >
++                  <div className="flex items-center gap-2 text-sm">
++                    <span
++                      className={`h-2 w-2 rounded-full ${good ? 'bg-[#8ce0ba]' : h ? 'bg-[#f87171]' : 'bg-[#f4c95d]'}`}
++                    />
++                    {n}
++                  </div>
++                  <div className="text-xs text-white/70">{good ? 'پایدار' : h ? 'مشکل‌دار' : 'نامشخص'}</div>
++                </div>
++              ))}
++            </div>
++          </section>
++          <section className="card rise p-5">
++            <div className="flex items-center justify-between">
++              <h3 className="font-extrabold">آخرین Backup</h3>
++              <Database size={19} className="text-[var(--ac)]" />
++            </div>
++            {api.backups?.[0] ? (
++              <div className="mt-4 space-y-2 text-sm">
++                <Badge s={api.backups[0].status} />
++                <div className="text-xs text-[var(--mu)]">
++                  {new Date(api.backups[0].created_at).toLocaleString('fa-IR')}
++                </div>
++                <div className="text-xs text-[var(--mu)]">{money(api.backups.length)} اجرا ثبت شده</div>
++              </div>
++            ) : (
++              <p className="mt-4 text-sm text-[var(--mu)]">{api.loading ? 'در حال دریافت…' : 'هنوز Backup ثبت نشده'}</p>
++            )}
++          </section>
++        </aside>
++      </div>
++    </div>
++  );
++}
++
++// Signed-in admin identity (GET /api/v1/me) + sign-out (POST /api/v1/auth/logout revokes the refresh token and clears the cookie).
+diff --git a/apps/admin-web/src/IdentityHubView.tsx b/apps/admin-web/src/IdentityHubView.tsx
+index 5be23cf..1b88c8d 100644
+--- a/apps/admin-web/src/IdentityHubView.tsx
++++ b/apps/admin-web/src/IdentityHubView.tsx
+@@ -1,4 +1,4 @@
+-// «هویت» — one screen for everything about identity (docs/21), three tabs:
++// «هویت» — one screen for customer identity (docs/21), three tabs (Google/Telegram sign-in settings moved to Settings, owner-only):
+ //   review  «نیاز به بررسی»      conflicts Core could not settle: an admin decides (IdentityReviewsView)
+ //   auto    «انجام‌شده خودکار»   accounts Core folded together by itself (read-only report)
+ //   devices «دستگاه‌های مورداعتماد» browsers that sign visitors in without a manual step; trust can be revoked
+@@ -10,10 +10,7 @@ import type { Json, Toast } from './types.ts';
+ const IdentityReviewsView = lazy(() => import('./IdentityReviewsView.tsx'));
+ const IdentityAutoView = lazy(() => import('./IdentityAutoView.tsx'));
+ 
+-const GoogleLoginSettings = lazy(() => import('./GoogleLoginSettings.tsx'));
+-const TelegramLoginSettings = lazy(() => import('./TelegramLoginSettings.tsx'));
+-
+-const TABS = ['review', 'auto', 'devices', 'login'];
++const TABS = ['review', 'auto', 'devices'];
+ const tabFromHash = () => {
+   const q = typeof window === 'undefined' ? '' : window.location.hash.split('?')[1] || '';
+   const t = new URLSearchParams(q).get('tab');
+@@ -52,19 +49,12 @@ export default function IdentityHubView({ api, toast }: { api?: Json; toast: Toa
+           ['review', <>نیاز به بررسی {open > 0 && <b className="num">{num(open)}</b>}</>],
+           ['auto', 'انجام‌شده خودکار'],
+           ['devices', 'دستگاه‌های مورداعتماد'],
+-          ['login', 'روش‌های ورود'], // Google / Telegram sign-in: an identity topic, not a system setting
+         ]}
+       />
+       <Suspense fallback={<div className="skel h-44" />}>
+         {tab === 'review' && <IdentityReviewsView api={api} toast={toast} />}
+         {tab === 'auto' && <IdentityAutoView key="merges" api={api} toast={toast} section="merges" />}
+         {tab === 'devices' && <IdentityAutoView key="devices" api={api} toast={toast} section="devices" />}
+-        {tab === 'login' && (
+-          <div className="space-y-5">
+-            <GoogleLoginSettings api={api} toast={toast} />
+-            <TelegramLoginSettings api={api} toast={toast} />
+-          </div>
+-        )}
+       </Suspense>
+     </div>
+   );
+diff --git a/apps/admin-web/src/SettingsView.tsx b/apps/admin-web/src/SettingsView.tsx
+new file mode 100644
+index 0000000..cb0a050
+--- /dev/null
++++ b/apps/admin-web/src/SettingsView.tsx
+@@ -0,0 +1,461 @@
++import { Segmented } from './kit.tsx';
++import type { ReactNode } from 'react';
++import { lazy, Suspense, useEffect, useState } from 'react';
++import { authFetch } from './api.ts';
++import { PasswordInput, confirmDialog } from './ui.tsx';
++import type { Json, Rec, Toast } from './types.ts';
++import { box, inp, btn, ghost, useList, Table } from './adminExtraKit.tsx';
++
++const GoogleLoginSettings = lazy(() => import('./GoogleLoginSettings.tsx'));
++const TelegramLoginSettings = lazy(() => import('./TelegramLoginSettings.tsx'));
++
++function SettingRow({ k, v, save }: { k?: Json; v?: Json; save?: Json }) {
++  const [t, setT] = useState(JSON.stringify(v));
++  useEffect(() => setT(JSON.stringify(v)), [v]);
++  const dirty = t !== JSON.stringify(v);
++  return (
++    <div className="flex items-center gap-3 border-t border-[var(--ln)] px-5 py-3">
++      <code dir="ltr" className="w-60 shrink-0 text-xs font-bold text-[var(--tx)]">
++        {k}
++      </code>
++      <input dir="ltr" className={inp} value={t} onChange={(e) => setT(e.target.value)} />
++      <button disabled={!dirty} className={btn} onClick={() => save(k, t)}>
++        ذخیره
++      </button>
++    </div>
++  );
++}
++
++const Field = ({ label, children }: { label?: Json; children?: ReactNode }) => (
++  <label className="block text-xs font-bold text-[var(--mu)]">
++    {label}
++    <div className="mt-1">{children}</div>
++  </label>
++);
++const Toggle = ({ on, set, label }: { on?: Json; set?: Json; label?: Json }) => (
++  <label className="flex cursor-pointer items-center gap-2 text-sm font-bold">
++    <input type="checkbox" checked={on} onChange={(e) => set(e.target.checked)} />
++    {label}
++  </label>
++);
++
++function Integrations({ api, toast }: { api?: Json; toast: Toast }) {
++  const call = (p: Json, o = {}) => authFetch(api.base, p, o);
++  const [aa, setAa] = useState<Json>(null);
++  const [ipText, setIpText] = useState('');
++  const [em, setEm] = useState<Json>(null);
++  const [s3, setS3] = useState<Json>(null);
++  const [local, setLocal] = useState<Json>(null);
++  const [pw, setPw] = useState('');
++  const [sk, setSk] = useState('');
++  const [to, setTo] = useState('');
++  const [busy, setBusy] = useState('');
++  const load = () =>
++    call('/api/v1/admin/integrations')
++      .then((r) => (r.ok ? r.json() : Promise.reject()))
++      .then((d) => {
++        setAa(d.admin_access);
++        setIpText((d.admin_access?.ips || []).join('\n'));
++        setEm(d.email);
++        setS3(d.backup.s3);
++        setLocal(d.backup.local);
++        setPw('');
++        setSk('');
++      })
++      .catch(() => toast('دریافت تنظیمات ناموفق بود'));
++  useEffect(() => {
++    load();
++    // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
++  }, []);
++  if (!em || !s3 || !aa) return null;
++  const send = async (path: string, body: Json, okMsg: Json, tag: Json) => {
++    setBusy(tag);
++    const r = await call(path, { method: path.endsWith('/test') ? 'POST' : 'PUT', body: JSON.stringify(body) });
++    setBusy('');
++    const d = await r.json().catch(() => ({}));
++    if (!r.ok) return toast(d?.error?.message || d?.detail?.message || 'ذخیره ناموفق بود');
++    if (path.endsWith('/test')) return toast(d.ok ? okMsg : `ناموفق: ${d.error || ''}`);
++    toast(okMsg);
++    load();
++  };
++  const sm = (k: Json) => (v: Json) => setEm({ ...em, [k]: v });
++  const s3s = (k: Json) => (v: Json) => setS3({ ...s3, [k]: v });
++  return (
++    <section className={`${box} space-y-6 p-5`}>
++      <h3 className="font-extrabold">
++        یکپارچه‌سازی‌ها <span className="text-xs font-normal text-[var(--mu)]">(اختیاری؛ برای نصب لازم نیستند)</span>
++      </h3>
++      <div className="space-y-3 rounded-xl border border-[var(--ln)] p-4">
++        <div className="flex items-center justify-between">
++          <b>دسترسی ادمین (محدودیت IP)</b>
++          <Toggle
++            on={aa.enabled}
++            set={(v: Json) => setAa({ ...aa, enabled: v })}
++            label={aa.enabled ? 'فعال' : 'غیرفعال'}
++          />
++        </div>
++        <p className="text-xs text-[var(--mu)]">
++          به‌طور پیش‌فرض خاموش است. در حالت فعال، API ادمین فقط از IPها/CIDRهای زیر پاسخ می‌دهد (هر خط یک مورد). IP فعلی
++          شما: <code dir="ltr">{aa.your_ip}</code>. اگر قفل شدید، روی سرور:{' '}
++          <code dir="ltr">python -m melorin.cli disable-admin-ip-allowlist</code>
++        </p>
++        <textarea
++          dir="ltr"
++          rows={3}
++          className={inp}
++          value={ipText}
++          onChange={(e) => setIpText(e.target.value)}
++          placeholder={'203.0.113.10/32\n198.51.100.0/24'}
++        />
++        <button
++          disabled={busy === 'aa'}
++          className={btn}
++          onClick={() =>
++            send(
++              '/api/v1/admin/integrations/admin-access',
++              { enabled: aa.enabled, ips: ipText.split(/[\s,]+/).filter(Boolean) },
++              'تنظیمات دسترسی ادمین ذخیره شد',
++              'aa',
++            )
++          }
++        >
++          ذخیره
++        </button>
++      </div>
++      <div className="grid gap-6 lg:grid-cols-2">
++        <div className="space-y-3 rounded-xl border border-[var(--ln)] p-4">
++          <div className="flex items-center justify-between">
++            <b>ایمیل (SMTP)</b>
++            <Toggle on={em.enabled} set={sm('enabled')} label={em.enabled ? 'فعال' : 'غیرفعال'} />
++          </div>
++          <p className="text-xs text-[var(--mu)]">
++            وقتی غیرفعال است، ورود با کد ایمیلی در دسترس نیست؛ بقیه‌ی روش‌های ورود و سیستم عادی کار می‌کنند.
++          </p>
++          <div className="grid gap-3 sm:grid-cols-2">
++            <Field label="میزبان SMTP">
++              <input
++                dir="ltr"
++                className={inp}
++                value={em.host}
++                onChange={(e) => sm('host')(e.target.value)}
++                placeholder="smtp.example.com"
++              />
++            </Field>
++            <Field label="پورت">
++              <input
++                dir="ltr"
++                type="number"
++                className={inp}
++                value={em.port}
++                onChange={(e) => sm('port')(+e.target.value)}
++              />
++            </Field>
++            <Field label="نام کاربری">
++              <input dir="ltr" className={inp} value={em.username} onChange={(e) => sm('username')(e.target.value)} />
++            </Field>
++            <Field label={`رمز عبور${em.password_set ? ' (ذخیره شده؛ برای تغییر بنویسید)' : ''}`}>
++              <PasswordInput
++                autoComplete="new-password"
++                className={inp}
++                value={pw}
++                onChange={(e: Json) => setPw(e.target.value)}
++              />
++            </Field>
++            <Field label="آدرس فرستنده">
++              <input
++                dir="ltr"
++                className={inp}
++                value={em.from_addr}
++                onChange={(e) => sm('from_addr')(e.target.value)}
++                placeholder="no-reply@example.com"
++              />
++            </Field>
++            <Field label="امنیت اتصال">
++              <select className={inp} value={em.security} onChange={(e) => sm('security')(e.target.value)}>
++                <option value="starttls">STARTTLS (۵۸۷)</option>
++                <option value="ssl">SSL/TLS (۴۶۵)</option>
++                <option value="none">بدون رمزنگاری</option>
++              </select>
++            </Field>
++          </div>
++          <div className="flex flex-wrap items-end gap-2">
++            <button
++              disabled={busy === 'em'}
++              className={btn}
++              onClick={() =>
++                send(
++                  '/api/v1/admin/integrations/email',
++                  {
++                    enabled: em.enabled,
++                    host: em.host,
++                    port: em.port,
++                    username: em.username,
++                    password: pw === '' ? null : pw,
++                    from_addr: em.from_addr,
++                    security: em.security,
++                  },
++                  'تنظیمات ایمیل ذخیره شد',
++                  'em',
++                )
++              }
++            >
++              ذخیره
++            </button>
++            <input
++              dir="ltr"
++              className={`${inp} max-w-[14rem]`}
++              value={to}
++              onChange={(e) => setTo(e.target.value)}
++              placeholder="ایمیل برای تست"
++            />
++            <button
++              disabled={!to || busy === 'emt'}
++              className={ghost}
++              onClick={() => send('/api/v1/admin/integrations/email/test', { to }, 'ایمیل تست ارسال شد', 'emt')}
++            >
++              ارسال تست
++            </button>
++          </div>
++        </div>
++        <div className="space-y-3 rounded-xl border border-[var(--ln)] p-4">
++          <div className="flex items-center justify-between">
++            <b>بکاپ</b>
++          </div>
++          <p className="text-xs text-[var(--mu)]">
++            بکاپ محلی همیشه فعال است (رمزگذاری‌شده، روزانه ۰۲:۰۰ UTC، نگهداری {local?.retention_days} روز در{' '}
++            <code dir="ltr">{local?.dir}</code>). کپی خارج از سرور روی S3 اختیاری است.
++          </p>
++          <Toggle on={s3.enabled} set={s3s('enabled')} label={s3.enabled ? 'کپی روی S3 فعال' : 'کپی روی S3 غیرفعال'} />
++          <div className="grid gap-3 sm:grid-cols-2">
++            <Field label="Endpoint (برای S3 سازگار)">
++              <input
++                dir="ltr"
++                className={inp}
++                value={s3.endpoint}
++                onChange={(e) => s3s('endpoint')(e.target.value)}
++                placeholder="https://s3.example.com"
++              />
++            </Field>
++            <Field label="Region">
++              <input
++                dir="ltr"
++                className={inp}
++                value={s3.region}
++                onChange={(e) => s3s('region')(e.target.value)}
++                placeholder="us-east-1"
++              />
++            </Field>
++            <Field label="Bucket">
++              <input dir="ltr" className={inp} value={s3.bucket} onChange={(e) => s3s('bucket')(e.target.value)} />
++            </Field>
++            <Field label="Prefix">
++              <input dir="ltr" className={inp} value={s3.prefix} onChange={(e) => s3s('prefix')(e.target.value)} />
++            </Field>
++            <Field label="Access Key">
++              <input
++                dir="ltr"
++                className={inp}
++                value={s3.access_key}
++                onChange={(e) => s3s('access_key')(e.target.value)}
++              />
++            </Field>
++            <Field label={`Secret Key${s3.secret_key_set ? ' (ذخیره شده؛ برای تغییر بنویسید)' : ''}`}>
++              <PasswordInput
++                autoComplete="new-password"
++                className={inp}
++                value={sk}
++                onChange={(e: Json) => setSk(e.target.value)}
++              />
++            </Field>
++          </div>
++          <div className="flex gap-2">
++            <button
++              disabled={busy === 's3'}
++              className={btn}
++              onClick={() =>
++                send(
++                  '/api/v1/admin/integrations/backup-s3',
++                  {
++                    enabled: s3.enabled,
++                    endpoint: s3.endpoint,
++                    region: s3.region,
++                    bucket: s3.bucket,
++                    prefix: s3.prefix,
++                    access_key: s3.access_key,
++                    secret_key: sk === '' ? null : sk,
++                  },
++                  'تنظیمات S3 ذخیره شد',
++                  's3',
++                )
++              }
++            >
++              ذخیره
++            </button>
++            <button
++              disabled={busy === 's3t'}
++              className={ghost}
++              onClick={() => send('/api/v1/admin/integrations/backup-s3/test', {}, 'اتصال به S3 موفق بود', 's3t')}
++            >
++              تست اتصال
++            </button>
++          </div>
++        </div>
++      </div>
++    </section>
++  );
++}
++
++export function ChangeAdminPassword({ api, toast }: { api?: Json; toast: Toast }) {
++  const [v, setV] = useState({ current: '', next: '', confirm: '' });
++  const [busy, setBusy] = useState(false);
++  const submit = async () => {
++    if (v.next.length < 12) return toast('رمز جدید باید حداقل ۱۲ کاراکتر باشد');
++    if (v.next !== v.confirm) return toast('تکرار رمز جدید یکسان نیست');
++    setBusy(true);
++    const r = await authFetch(api.base, '/api/v1/auth/admin/password', {
++      method: 'POST',
++      body: JSON.stringify({ current_password: v.current, new_password: v.next }),
++    });
++    const d = await r.json().catch(() => ({}));
++    setBusy(false);
++    if (!r.ok) return toast(d?.error?.message || d?.detail?.message || 'تغییر رمز ناموفق بود');
++    setV({ current: '', next: '', confirm: '' });
++    toast('رمز ادمین با موفقیت تغییر کرد');
++  };
++  return (
++    <section className={`${box} space-y-4 p-5`}>
++      <div>
++        <h3 className="font-extrabold">امنیت حساب ادمین</h3>
++        <p className="mt-1 text-xs text-[var(--mu)]">برای تغییر رمز، رمز فعلی لازم است. توکن نشست فعلی حفظ می‌شود.</p>
++      </div>
++      <div className="grid gap-3 md:grid-cols-3">
++        <Field label="رمز فعلی">
++          <PasswordInput
++            autoComplete="current-password"
++            className={inp}
++            value={v.current}
++            onChange={(e: Json) => setV({ ...v, current: e.target.value })}
++          />
++        </Field>
++        <Field label="رمز جدید">
++          <PasswordInput
++            autoComplete="new-password"
++            className={inp}
++            value={v.next}
++            onChange={(e: Json) => setV({ ...v, next: e.target.value })}
++          />
++        </Field>
++        <Field label="تکرار رمز جدید">
++          <PasswordInput
++            autoComplete="new-password"
++            className={inp}
++            value={v.confirm}
++            onChange={(e: Json) => setV({ ...v, confirm: e.target.value })}
++          />
++        </Field>
++      </div>
++      <button disabled={busy || !v.current || !v.next || !v.confirm} className={btn} onClick={submit}>
++        {busy ? 'در حال ذخیره...' : 'تغییر رمز'}
++      </button>
++    </section>
++  );
++}
++
++const SETTINGS_TABS = ['integrations', 'login', 'advanced'];
++const settingsTabFromHash = () => {
++  const q = typeof window === 'undefined' ? '' : window.location.hash.split('?')[1] || '';
++  const t = new URLSearchParams(q).get('tab') ?? '';
++  return SETTINGS_TABS.includes(t) ? t : 'integrations';
++};
++
++export default function Settings({ api, toast }: { api?: Json; toast: Toast }) {
++  // Sign-in methods (Google / Telegram) live here, owner-only (server area `system`); Receipt OCR in Payments, the password form in My account.
++  const [tab, setTab] = useState(settingsTabFromHash);
++  const pick = (v: string) => {
++    setTab(v);
++    window.history.replaceState(
++      null,
++      '',
++      `${window.location.pathname}${window.location.search}#/settings${v === 'integrations' ? '' : `?tab=${v}`}`,
++    );
++  };
++  const flags = useList(api, '/api/v1/admin/feature-flags', toast);
++  const [obj, setObj] = useState<Rec>({});
++  const [tick, setTick] = useState(0);
++  useEffect(() => {
++    flags
++      .call('/api/v1/admin/settings')
++      .then((r) => (r.ok ? r.json() : {}))
++      .then(setObj);
++    // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
++  }, [tick]);
++  const setFlag = async (f: Json) => {
++    const r = await flags.call(`/api/v1/admin/feature-flags/${encodeURIComponent(f.key)}`, {
++      method: 'PUT',
++      body: JSON.stringify({ enabled: !f.enabled, scope_type: f.scope_type, scope_id: f.scope_id, note: f.note }),
++    });
++    r.ok ? flags.reload() : toast('تغییر ناموفق بود');
++  };
++  const save = async (key: Json, text: Json) => {
++    let value;
++    try {
++      value = JSON.parse(text);
++    } catch {
++      return toast('مقدار باید JSON معتبر باشد');
++    }
++    if (!(await confirmDialog(`مقدار «${key}» تغییر کند؟`, { title: 'تغییر تنظیم سیستم', ok: 'ذخیره' }))) return;
++    const r = await flags.call(`/api/v1/admin/settings/${key}`, { method: 'PUT', body: JSON.stringify({ value }) });
++    if (r.ok) {
++      toast('تنظیم ذخیره شد');
++      setTick((x) => x + 1);
++    } else toast('ذخیره ناموفق بود');
++  };
++  const rawSettings = Object.entries(obj).filter(([k]) => !['card.info', 'gateway.zarinpal'].includes(k));
++  return (
++    <div className="space-y-5">
++      <Segmented
++        label="بخش تنظیمات"
++        value={tab}
++        onChange={pick}
++        options={[
++          ['integrations', 'پشتیبان‌گیری و ایمیل'],
++          ['login', 'روش‌های ورود'],
++          ['advanced', 'پیشرفته'],
++        ]}
++      />
++      {tab === 'integrations' && <Integrations api={api} toast={toast} />}
++      {tab === 'login' && (
++        <Suspense fallback={<div className="skel h-44" />}>
++          <div className="space-y-5">
++            <GoogleLoginSettings api={api} toast={toast} />
++            <TelegramLoginSettings api={api} toast={toast} />
++          </div>
++        </Suspense>
++      )}
++      {tab === 'advanced' && (
++        <>
++          <Table
++            title="Feature Flags"
++            cols={['کلید', 'محدوده', 'فعال', '']}
++            rows={flags.rows.map((f) => [
++              f.key,
++              `${f.scope_type}:${f.scope_id}`,
++              f.enabled ? 'بله' : 'خیر',
++              <button key="flag" className={ghost} onClick={() => setFlag(f)}>
++                {f.enabled ? 'خاموش' : 'روشن'}
++              </button>,
++            ])}
++          />
++          <section className={`${box} overflow-hidden`}>
++            <h3 className="px-5 py-4 font-extrabold">
++              تنظیمات پیشرفته سیستم <span className="text-xs font-normal text-[var(--mu)]">(مقدار به‌صورت JSON)</span>
++            </h3>
++            {rawSettings.map(([k, v]) => (
++              <SettingRow key={k} k={k} v={v} save={save} />
++            ))}
++          </section>
++        </>
++      )}
++    </div>
++  );
++}
+diff --git a/apps/admin-web/src/adminExtraKit.tsx b/apps/admin-web/src/adminExtraKit.tsx
+new file mode 100644
+index 0000000..c3a942f
+--- /dev/null
++++ b/apps/admin-web/src/adminExtraKit.tsx
+@@ -0,0 +1,166 @@
++import { useEffect, useState } from 'react';
++import { authFetch } from './api.ts';
++import { Plus, Search, X } from 'lucide-react';
++import { Badge, isStatus } from './ui.tsx';
++import type { Json, Rec, Toast } from './types.ts';
++// Shared primitives of the Coupons and Settings screens (moved verbatim out of AdminExtra.tsx).
++export const money = (n: Json) => new Intl.NumberFormat('fa-IR').format(n || 0);
++export const box = 'card';
++export const inp = 'inp';
++export const btn = 'btn';
++export const ghost = 'btn btn-g';
++
++export function useList(api: Json, path: string, toast: Toast) {
++  const [rows, setRows] = useState<Rec[]>([]);
++  const [tick, setTick] = useState(0);
++  const call = (p: Json, o = {}) => authFetch(api.base, p, o);
++  useEffect(() => {
++    call(path)
++      .then((r) => (r.ok ? r.json() : Promise.reject()))
++      .then((d) => setRows(Array.isArray(d) ? d : d.items || []))
++      .catch(() => toast('دریافت داده ناموفق بود'));
++    // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
++  }, [path, tick]);
++  return { rows, call, reload: () => setTick((x) => x + 1) };
++}
++export const Table = ({ cols, rows, title, extra }: { cols?: Json; rows?: Json; title?: Json; extra?: Json }) => {
++  const [q, setQ] = useState('');
++  const show = q
++    ? rows.filter((r: Json) => r.some((c: Json) => typeof c === 'string' && c.toLowerCase().includes(q.toLowerCase())))
++    : rows;
++  return (
++    <section className={`${box} rise overflow-hidden`}>
++      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--ln)] px-5 py-4">
++        <h3 className="font-extrabold">
++          {title} <span className="text-xs font-medium text-[var(--mu)]">({show.length.toLocaleString('fa-IR')})</span>
++        </h3>
++        <div className="flex items-center gap-2">
++          {extra}
++          <label className="relative">
++            <Search
++              size={15}
++              className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--mu)]"
++            />
++            <input
++              aria-label="جستجو"
++              value={q}
++              onChange={(e) => setQ(e.target.value)}
++              placeholder="جستجو…"
++              className={`${inp} w-44 pr-9`}
++            />
++          </label>
++        </div>
++      </div>
++      <div className="max-h-[70vh] overflow-auto">
++        <table className="tbl min-w-[640px]">
++          <thead>
++            <tr>
++              {cols.map((c: Json, i: Json) => (
++                <th key={i}>{c}</th>
++              ))}
++            </tr>
++          </thead>
++          <tbody>
++            {show.length ? (
++              show.map((r: Json, i: Json) => (
++                <tr key={i}>
++                  {r.map((c: Json, j: Json) => (
++                    <td key={j}>{isStatus(c) ? <Badge s={c} /> : (c ?? '-')}</td>
++                  ))}
++                </tr>
++              ))
++            ) : (
++              <tr>
++                <td colSpan={cols.length} className="p-12 text-center text-[var(--mu)]">
++                  {q ? 'نتیجه‌ای پیدا نشد' : 'داده‌ای وجود ندارد'}
++                </td>
++              </tr>
++            )}
++          </tbody>
++        </table>
++      </div>
++    </section>
++  );
++};
++export const JSONK = new Set(['cred', 'cfg']);
++export const Form = ({ fields, onSubmit, label }: { fields?: Json; onSubmit?: Json; label?: Json }) => {
++  const [v, setV] = useState<Rec>({});
++  const [open, setOpen] = useState(false);
++  if (!open)
++    return (
++      <div className="mb-5">
++        <button className="btn" onClick={() => setOpen(true)}>
++          <Plus size={16} />
++          {label}
++        </button>
++      </div>
++    );
++  return (
++    <section className="card rise mb-5 p-5">
++      <div className="mb-4 flex items-center justify-between">
++        <h3 className="font-extrabold">{label}</h3>
++        <button aria-label="بستن فرم" className="btn btn-g" onClick={() => setOpen(false)}>
++          <X size={15} />
++        </button>
++      </div>
++      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
++        {fields.map(([k, l, t]: Json) =>
++          JSONK.has(k) ? (
++            <label key={k} className="text-xs font-bold text-[var(--mu)] sm:col-span-2 lg:col-span-4">
++              {l}
++              <textarea
++                rows={3}
++                dir="ltr"
++                spellCheck={false}
++                className={`${inp} mt-1.5 font-mono text-xs`}
++                value={v[k] ?? ''}
++                onChange={(e) => setV({ ...v, [k]: e.target.value })}
++              />
++            </label>
++          ) : (
++            <label key={k} className="text-xs font-bold text-[var(--mu)]">
++              {l}
++              {t === 'select' ? (
++                <select
++                  dir="ltr"
++                  className={`${inp} mt-1.5`}
++                  value={v[k] ?? 'IRT'}
++                  onChange={(e) => setV({ ...v, [k]: e.target.value })}
++                >
++                  <option value="IRT">IRT</option>
++                  <option value="USD">USD</option>
++                  <option value="USDT">USDT</option>
++                  <option value="XTR">XTR</option>
++                </select>
++              ) : (
++                <input
++                  type={t || 'text'}
++                  dir="ltr"
++                  className={`${inp} mt-1.5`}
++                  value={v[k] ?? ''}
++                  onChange={(e) => setV({ ...v, [k]: e.target.value })}
++                />
++              )}
++            </label>
++          ),
++        )}
++      </div>
++      <div className="mt-5 flex gap-2">
++        <button
++          className={btn}
++          onClick={() =>
++            onSubmit(v, () => {
++              setV({});
++              setOpen(false);
++            })
++          }
++        >
++          {label}
++        </button>
++        <button className="btn btn-g" onClick={() => setOpen(false)}>
++          انصراف
++        </button>
++      </div>
++    </section>
++  );
++};
+diff --git a/apps/admin-web/src/adminNav.ts b/apps/admin-web/src/adminNav.ts
+new file mode 100644
+index 0000000..c83ab3a
+--- /dev/null
++++ b/apps/admin-web/src/adminNav.ts
+@@ -0,0 +1,106 @@
++import type { LucideIcon } from 'lucide-react';
++import {
++  Activity,
++  BarChart3,
++  CreditCard,
++  Fingerprint,
++  LayoutDashboard,
++  Package,
++  Paintbrush,
++  PanelTop,
++  Percent,
++  Server,
++  Settings,
++  ShieldCheck,
++  Ticket,
++  Users,
++  Boxes,
++  ScrollText,
++  Store,
++  Layers,
++  UserRound,
++  ListChecks,
++  BellRing,
++  Megaphone,
++  UserPlus,
++  Gift,
++  Award,
++  UsersRound,
++  Zap,
++} from 'lucide-react';
++import { legacyHash } from './infra.tsx';
++
++// Section keys are Persian labels (AdminSections/AdminExtra route on them); slug drives the URL hash.
++export const groups: [string, [string, LucideIcon, string][], string?][] = [
++  [
++    'نمای کلی',
++    [
++      ['داشبورد', LayoutDashboard, 'home'],
++      ['گزارشات و نمودارها', BarChart3, 'reports'],
++    ],
++  ],
++  [
++    'عملیات',
++    [
++      ['سفارش‌ها', Package, 'orders'],
++      ['پرداخت‌ها', CreditCard, 'payments'],
++      ['اکانت‌های VPN', Server, 'vpn'],
++      ['عملیات گروهی', Zap, 'bulk-operations'], // acts on VPN accounts, so it sits next to them
++      ['تیکت‌ها', Ticket, 'tickets'],
++    ],
++  ],
++  [
++    'مشتریان و فروشگاه‌ها',
++    [
++      ['کاربران', Users, 'users'],
++      ['هویت', Fingerprint, 'identity'], // customer identity review / auto-link / trusted devices
++      ['فروشگاه‌ها', Store, 'stores'],
++      ['درخواست‌های نمایندگی', UserPlus, 'reseller-applications'],
++      ['کارهای دستی', ListChecks, 'manual-tasks'],
++    ],
++  ],
++  [
++    'کاتالوگ و بازاریابی',
++    [
++      ['بسته‌های فروش', Layers, 'bundles'],
++      ['محصولات VPN', Boxes, 'products'],
++      ['کوپن‌ها', Percent, 'coupons'],
++      ['برنامه‌های معرفی', Gift, 'referral-programs'],
++      ['باشگاه مشتریان', Award, 'loyalty-club'],
++    ],
++    'مسیر فروش: پنل و سرور ← بسته فروش ← پکیج',
++  ],
++  [
++    'ارتباطات',
++    [
++      ['پیام همگانی', Megaphone, 'broadcasts'],
++      ['مرکز رویداد', BellRing, 'event-center'],
++      ['دکمه‌های تلگرام', Paintbrush, 'button-styles'],
++    ],
++  ],
++  [
++    'زیرساخت',
++    [
++      ['پنل‌ها و سرورها', PanelTop, 'panels'],
++      ['سلامت زیرساخت', ShieldCheck, 'infra-health'],
++      ['عملیات پنل', Activity, 'panel-ops'],
++    ],
++  ],
++  [
++    'سیستم',
++    [
++      ['تنظیمات', Settings, 'settings'],
++      ['ممیزی', ScrollText, 'audit'],
++      ['تیم مدیریت', UsersRound, 'admin-team'],
++      ['حساب من', UserRound, 'my-account'],
++    ],
++  ],
++];
++export const flat = groups.flatMap(([, items]) => items);
++// The hash may carry deep-link params (#/servers?panel=<id>); only the path picks the section.
++// Old bookmarks of the removed #/servers screen are rewritten to #/panels (servers live inside their panel now).
++if (typeof window !== 'undefined') {
++  const moved = legacyHash(window.location.hash);
++  if (moved) window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${moved}`);
++}
++export const fromHash = () => (flat.find((x) => `#/${x[2]}` === window.location.hash.split('?')[0]) || flat[0])[0];
+diff --git a/apps/admin-web/src/infra.tsx b/apps/admin-web/src/infra.tsx
+index d401dc1..7e5e4b4 100644
+--- a/apps/admin-web/src/infra.tsx
++++ b/apps/admin-web/src/infra.tsx
+@@ -78,6 +78,7 @@ export const infraHref = (slug: Json, params = {}) => {
+ /** Old bookmarks (#/servers?panel=…) → new address, or null when the hash needs no rewrite. */
+ export function legacyHash(hash: Json) {
+   const [path, q = ''] = hash.split('?');
++  if (path === '#/identity' && new URLSearchParams(q).get('tab') === 'login') return '#/settings?tab=login'; // sign-in methods moved to Settings (owner-only)
+   if (path === '#/identity-auto') return '#/identity?tab=devices'; // the two identity screens became one hub
+   // the store hub: resellers, panel access and volume governance became tabs of #/stores
+   const hubTab: Record<string, string> = {
+diff --git a/apps/admin-web/tests/admin-team.test.jsx b/apps/admin-web/tests/admin-team.test.jsx
+index 04ffa0a..7206bcd 100644
+--- a/apps/admin-web/tests/admin-team.test.jsx
++++ b/apps/admin-web/tests/admin-team.test.jsx
+@@ -92,7 +92,7 @@ describe('admin access table (mirror of the server rules)', () => {
+ 
+   it('the app nav and the access table agree', async () => {
+     const { readFileSync } = await import('node:fs');
+-    const src = readFileSync('src/App.tsx', 'utf8');
++    const src = readFileSync('src/adminNav.ts', 'utf8');
+     const navNames = [...src.matchAll(/\['([^']+)', [A-Za-z]+, '[a-z-]+'\]/g)].map((m) => m[1]);
+     expect(navNames.length).toBeGreaterThan(25);
+     expect(navNames.filter((n) => !(n in SECTION_AREA))).toEqual([]);
+diff --git a/apps/admin-web/tests/identity-login-move.test.jsx b/apps/admin-web/tests/identity-login-move.test.jsx
+new file mode 100644
+index 0000000..39b216c
+--- /dev/null
++++ b/apps/admin-web/tests/identity-login-move.test.jsx
+@@ -0,0 +1,61 @@
++import { afterEach, describe, expect, it, vi } from 'vitest';
++import { readFileSync } from 'node:fs';
++import { render, screen } from '@testing-library/react';
++import IdentityHubView from '../src/IdentityHubView.tsx';
++import { extraRoutes } from '../src/AdminExtra.tsx';
++import { SECTION_AREA, sectionAllowed } from '../src/adminAccess.ts';
++import { legacyHash } from '../src/infra.tsx';
++
++const ROLES = {
++  owner: ['overview:rw', 'customers:rw', 'system:rw', 'infrastructure:rw', 'resellers:rw'],
++  manager: ['overview:rw', 'customers:rw', 'infrastructure:rw', 'resellers:rw'],
++  finance: ['overview:r', 'payments:rw', 'orders:rw', 'customers:r'], // mirrors admin_access.py
++  support: ['overview:r', 'customers:rw', 'support:rw'],
++  viewer: ['overview:r', 'customers:r'],
++};
++
++afterEach(() => {
++  vi.restoreAllMocks();
++  window.history.replaceState(null, '', '/');
++});
++
++describe('sign-in methods moved from Identity to Settings', () => {
++  it('identity hub has no login tab any more', async () => {
++    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response('[]'));
++    render(<IdentityHubView api={{ base: 'http://core.test' }} toast={vi.fn()} />);
++    expect(await screen.findByRole('radio', { name: /نیاز به بررسی/ })).toBeInTheDocument();
++    expect(screen.queryByRole('radio', { name: /روش‌های ورود/ })).toBeNull();
++  });
++
++  it('rewrites the old #/identity?tab=login bookmark to Settings', () => {
++    expect(legacyHash('#/identity?tab=login')).toBe('#/settings?tab=login');
++    expect(legacyHash('#/identity?tab=auto')).toBeNull();
++  });
++
++  it('Settings (owner-only area) is where sign-in methods live', () => {
++    expect(SECTION_AREA['تنظیمات']).toBe('system');
++    for (const role of ['manager', 'finance', 'support', 'viewer'])
++      expect(sectionAllowed(ROLES[role], 'تنظیمات')).toBe(false);
++    expect(sectionAllowed(ROLES.owner, 'تنظیمات')).toBe(true);
++  });
++
++  it('identity stays a customers-area screen (support writes, finance reads)', () => {
++    expect(sectionAllowed(ROLES.support, 'هویت')).toBe(true);
++    expect(sectionAllowed(ROLES.finance, 'هویت')).toBe(true); // read-only; the server refuses writes
++  });
++});
++
++describe('store hub is the single entry point', () => {
++  it('has no stand-alone routes for the tabs it absorbed', () => {
++    for (const k of ['نمایندگان', 'اپراتور پنل فروشگاه', 'حجم فروشگاه‌ها'])
++      expect(Object.keys(extraRoutes)).not.toContain(k);
++    expect(Object.keys(extraRoutes)).toContain('فروشگاه‌ها');
++  });
++
++  it('identity sits in the customers group, not in system', () => {
++    const src = readFileSync('src/adminNav.ts', 'utf8');
++    const grp = (name) => src.split(`'${name}',`)[1].split('\n  ],\n')[0];
++    expect(grp('مشتریان و فروشگاه‌ها')).toContain("'identity'");
++    expect(grp('سیستم')).not.toContain("'identity'");
++  });
++});
+diff --git a/apps/admin-web/tests/panel-admins.test.jsx b/apps/admin-web/tests/panel-admins.test.jsx
+index 6781334..25c81ba 100644
+--- a/apps/admin-web/tests/panel-admins.test.jsx
++++ b/apps/admin-web/tests/panel-admins.test.jsx
+@@ -113,7 +113,7 @@ const bodies = (calls, method, tail) =>
+ 
+ describe('admin: PasarGuard admins of every store', () => {
+   it('registers the section in the admin routes', () => {
+-    expect(Object.keys(extraRoutes)).toContain('اپراتور پنل فروشگاه');
++    expect(Object.keys(extraRoutes)).not.toContain('اپراتور پنل فروشگاه'); // reachable through Store Hub only
+   });
+ 
+   it('lists every store admin and counts what needs care (error + profile not on the panel)', async () => {
+diff --git a/apps/admin-web/tests/panel-phase4.test.jsx b/apps/admin-web/tests/panel-phase4.test.jsx
+index 639a101..8cf7205 100644
+--- a/apps/admin-web/tests/panel-phase4.test.jsx
++++ b/apps/admin-web/tests/panel-phase4.test.jsx
+@@ -43,7 +43,7 @@ describe('PG-11 bulk operations screen', () => {
+   };
+ 
+   it('is registered in the admin routes', () => {
+-    expect(Object.keys(extraRoutes)).toEqual(expect.arrayContaining(['عملیات گروهی', 'حجم فروشگاه‌ها']));
++    expect(Object.keys(extraRoutes)).toContain('عملیات گروهی'); // volume governance is a Store Hub tab now
+   });
+ 
+   it('offers only PasarGuard panels and requires a reason before previewing', async () => {
+diff --git a/apps/api/tests/contracts/test_admin_web_token_storage.py b/apps/api/tests/contracts/test_admin_web_token_storage.py
+index 9619a41..a92f5f4 100644
+--- a/apps/api/tests/contracts/test_admin_web_token_storage.py
++++ b/apps/api/tests/contracts/test_admin_web_token_storage.py
+@@ -14,7 +14,8 @@ def test_admin_web_never_uses_browser_storage_or_remote_fonts():
+ 
+ 
+ def test_admin_dashboard_has_no_hardcoded_date_and_uses_shared_client():
+-    app = (SRC / "App.tsx").read_text()
++    # App.tsx was split (r5): shell, session and dashboard modules together
++    app = "".join((SRC / n).read_text() for n in ("App.tsx", "AdminShell.tsx", "AdminSession.tsx", "Dashboard.tsx"))
+     assert "۱۴۰۵" not in app
+     assert "authFetch" in app and "todayLabel()" in app
+ 
+diff --git a/apps/api/tests/contracts/test_google_settings.py b/apps/api/tests/contracts/test_google_settings.py
+index 2fc68b9..2ca92e8 100644
+--- a/apps/api/tests/contracts/test_google_settings.py
++++ b/apps/api/tests/contracts/test_google_settings.py
+@@ -156,7 +156,7 @@ def test_integration_keys_stay_out_of_generic_settings():
+ 
+ 
+ def test_google_ui_is_wired_into_settings_and_login_pages():
+-    hub = (PROJECT / "apps/admin-web/src/IdentityHubView.tsx").read_text()  # sign-in methods are a tab of the identity hub
++    hub = (PROJECT / "apps/admin-web/src/SettingsView.tsx").read_text()  # sign-in methods are an owner-only tab of Settings
+     assert "<GoogleLoginSettings" in hub
+     ui = (PROJECT / "apps/admin-web/src/GoogleLoginSettings.tsx").read_text()
+     assert "/api/v1/admin/integrations/google" in ui and "apps.googleusercontent.com" in ui
+diff --git a/apps/api/tests/contracts/test_reseller_bot_admin.py b/apps/api/tests/contracts/test_reseller_bot_admin.py
+index d1339a5..f171410 100644
+--- a/apps/api/tests/contracts/test_reseller_bot_admin.py
++++ b/apps/api/tests/contracts/test_reseller_bot_admin.py
+@@ -270,7 +270,7 @@ def test_admin_ui_has_a_resellers_screen_and_never_asks_core_for_the_token():
+     from pathlib import Path
+ 
+     web = Path(__file__).parents[3] / "admin-web/src"
+-    assert "نمایندگان: ResellersView" in read_web_source(web / "AdminExtra.tsx")
++    assert "ResellersView" not in read_web_source(web / "AdminExtra.tsx")  # no stand-alone route: the store hub is the only entry
+     assert '"resellers"' in read_web_source(web / "StoreHubView.tsx")  # a tab of the store hub
+     view = read_web_source(web / "ResellersView.tsx")
+     assert "/api/v1/admin/resellers" in view and "/bot-token" in view and "/verify-bot" in view
+diff --git a/apps/api/tests/contracts/test_server_admin_ui_contract.py b/apps/api/tests/contracts/test_server_admin_ui_contract.py
+index b1c0224..8d4030d 100644
+--- a/apps/api/tests/contracts/test_server_admin_ui_contract.py
++++ b/apps/api/tests/contracts/test_server_admin_ui_contract.py
+@@ -31,7 +31,7 @@ def test_servers_live_inside_their_panel_screen():
+     assert "ServerForm" in panels and "ServerImport" in panels
+     extra = _ui("AdminExtra.tsx")
+     assert '"پنل‌ها و سرورها": PanelsView' in extra and "ServersView" not in extra
+-    app = _ui("App.tsx")
++    app = _ui("adminNav.ts")  # menu groups live in adminNav.ts since the App.tsx split
+     assert '["پنل‌ها و سرورها", PanelTop, "panels"]' in app and '"servers"' not in app
+     # menu regroup: the panel screen leads the infrastructure group; bundles and products are catalog entries next to marketing
+     infra_group = app[app.index('"زیرساخت"') : app.index('"سیستم"')]
+diff --git a/apps/api/tests/contracts/test_wallet_payment_regressions.py b/apps/api/tests/contracts/test_wallet_payment_regressions.py
+index 9a19000..bac3656 100644
+--- a/apps/api/tests/contracts/test_wallet_payment_regressions.py
++++ b/apps/api/tests/contracts/test_wallet_payment_regressions.py
+@@ -15,7 +15,7 @@ def test_main_payment_settings_have_first_class_forms():
+     assert "GatewaySettings" in payments
+     assert "payment-destinations" in payments and "manual_card" in payments and "zarinpal" in payments
+     assert "card.info" not in payments and "gateway.zarinpal" not in payments  # the global keys are gone
+-    assert "تنظیمات پیشرفته سیستم" in extra
++    assert "تنظیمات پیشرفته سیستم" in read_web_source(ROOT.parent / "admin-web/src/SettingsView.tsx")
+ 
+ 
+ def test_zarinpal_is_validated_as_a_supported_destination():
+diff --git a/apps/api/tests/unit/test_admin_access.py b/apps/api/tests/unit/test_admin_access.py
+index 25b52ab..ce28cfa 100644
+--- a/apps/api/tests/unit/test_admin_access.py
++++ b/apps/api/tests/unit/test_admin_access.py
+@@ -218,3 +218,31 @@ def test_store_context_dependencies_require_the_request():
+     for dep in (deps.store_context, deps.owner_store_context):
+         param = inspect.signature(dep).parameters["request"]
+         assert param.default is inspect.Parameter.empty and param.kind is inspect.Parameter.KEYWORD_ONLY
++
++
++# ---- sign-in methods (Google / Telegram) moved to Settings in the admin UI: the API side must stay owner-only
++_LOGIN_SETTING_PATHS = [
++    ("/api/v1/admin/integrations", "GET"),
++    ("/api/v1/admin/integrations/google", "GET"),
++    ("/api/v1/admin/integrations/google", "PUT"),
++    ("/api/v1/admin/integrations/telegram", "GET"),
++    ("/api/v1/admin/integrations/telegram", "PUT"),
++    ("/api/v1/admin/integrations/telegram/test", "POST"),
++    ("/api/v1/admin/integrations/admin-access", "PUT"),
++]
++
++
++@pytest.mark.parametrize("path, method", _LOGIN_SETTING_PATHS)
++def test_login_settings_are_owner_only_for_every_role(path, method):
++    area, write = aa.area_for(path, method)
++    assert area == "system"
++    for role in aa.ROLES:
++        assert aa.allows([role], area, write=write) is (role == aa.OWNER)
++
++
++def test_customer_identity_is_a_customers_screen_support_writes_finance_reads():
++    # the identity screen (customers area) no longer hosts sign-in settings, so support may use it fully
++    area, write = aa.area_for("/api/v1/admin/identity-link-reviews", "GET")
++    assert area == "customers" and not write
++    assert aa.allows([aa.SUPPORT], area, write=True)
++    assert aa.allows([aa.FINANCE], area) and not aa.allows([aa.FINANCE], area, write=True)
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index b2c76ce..586f25c 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -141,3 +141,15 @@ _Merged from the former 12-Change-Log-v1.1.md._
+ - Palette merge of admin-web and store-web is explicitly postponed by the owner (2026-11-14).
+ - Gate on r3 (2026-11-14): lint-imports 6/6 kept, api pytest 2655 passed / 11 skipped, admin-web typecheck+build+vitest 289 passed, store-web 79 passed. Docker stack, bots and payment gateway not run.
+ - UI-less admin endpoints (T09/T10 inventory, 2026-11-14) now have screens (`tools/connections` had no route, so it was a stale heuristic entry): Store Hub «اعلان‌ها» tab holds `vpn-notice-texts` (per-kind customer wording) and `vpn-digest` (owner daily digest switch; `GET vpn-notices` now also returns `daily_digest` and `has_owner`); new Store Hub «ربات‌ها» tab lists/creates `bot-store-bindings`; the bundles screen warns about `bundle-products/unassigned`; the product drawer has a per-store availability section (`products/{id}/availability`); the order drawer has an attach-account form for orders in provisioning_failed / manual_review (`orders/{id}/attach-account`); the panel detail has an «دسترسی» tab for `store-role-plan` and `service-access` (provision, rotate, keys, store role apply/revert; owner credential is sent once and cleared from the form, panel name must be typed). Vitest covers the four read/write paths; the panel-access writes need a real panel and were not exercised. Docs numbering gaps 12 and 15 are intentional (docs/00-README).
++
++## 2026-11-14 Admin UI audit follow-up (r5)
++
++- **Sign-in methods (Google / Telegram) moved from «هویت» to «تنظیمات» (tab `#/settings?tab=login`).** The API (`admin/integrations/*`) lives in the owner-only `system` area, while «هویت» is a `customers` screen, so support/manager roles saw a tab that answered 403. The old `#/identity?tab=login` bookmark is rewritten by `legacyHash`.
++- **«هویت» now sits in the customers group** (renamed «مشتریان و فروشگاه‌ها»), no longer under «سیستم».
++- **Store Hub is the only entry** for resellers, shop panel operators and volume governance: the stand-alone `extraRoutes` entries were removed; `legacyHash` keeps old bookmarks working. `SECTION_AREA` keeps their areas for the hub's tab gating.
++- Server stays the authority for RBAC (`PATH_RULES` / `admin_area_guard`); the menu only hides screens.
++- Not changed (needs a product decision): `bulk-operations` stays in the `infrastructure` area.
++- Deferred: splitting `App.tsx` / `AdminExtra.tsx` and migrating views to `@melorin/api-client` (pure moves, own PRs).
++- r5 (phase 2, first step): `AdminExtra.tsx` (750 -> 72 lines) is now only the route registry. Coupons, Settings (+ integrations, sign-in methods, change-password) and the shared table/form primitives moved verbatim to `CouponsView.tsx`, `SettingsView.tsx`, `adminExtraKit.tsx`. No behaviour change.
++- r5 (phase 2, second step): `App.tsx` (987 -> ~230 lines) split verbatim into `adminNav.ts` (menu groups + hash routing), `AdminNavigation.tsx`, `AdminShell.tsx` (brand, user menu, mobile nav, clock), `AdminSession.tsx` (`useCore`, downloads/refund helpers) and `Dashboard.tsx`. The G002/G003 and frontend-contract guards now read the sum of these files.
++- r5 (phase 4): browser E2E for the role matrix (`e2e/tests/admin.roles.spec.js`): menu per role, identity hub without sign-in tab, Settings sign-in tab (owner only), old bookmarks. It found that a role without access still mounted the screen (and fired its API calls) for one render before App redirected it: `AdminSectionView` now renders nothing for a forbidden section.
+diff --git a/e2e/tests/admin.roles.spec.js b/e2e/tests/admin.roles.spec.js
+new file mode 100644
+index 0000000..a960f0d
+--- /dev/null
++++ b/e2e/tests/admin.roles.spec.js
+@@ -0,0 +1,164 @@
++// r5: sign-in methods live in Settings (owner-only), identity is a customers screen, Store Hub is the only store entry.
++// Permissions below mirror apps/api/melorin/domain/admin_access.py (ROLE_PERMISSIONS).
++import { expect, test } from '@playwright/test';
++import { mockCore } from './helpers.js';
++
++const ROLE_PERMS = {
++  owner: 'admins audit catalog customers infrastructure orders overview payments reports resellers self support system'
++    .split(' ')
++    .map((a) => `${a}:rw`),
++  manager: [
++    'audit:r',
++    'catalog:rw',
++    'customers:rw',
++    'infrastructure:rw',
++    'orders:rw',
++    'overview:rw',
++    'payments:rw',
++    'reports:rw',
++    'resellers:rw',
++    'self:rw',
++    'support:rw',
++  ],
++  finance: [
++    'catalog:r',
++    'customers:r',
++    'orders:rw',
++    'overview:r',
++    'payments:rw',
++    'reports:r',
++    'resellers:r',
++    'self:rw',
++  ],
++  support: ['catalog:r', 'customers:rw', 'orders:r', 'overview:r', 'payments:r', 'self:rw', 'support:rw'],
++  viewer: [
++    'catalog:r',
++    'customers:r',
++    'infrastructure:r',
++    'orders:r',
++    'overview:r',
++    'payments:r',
++    'reports:r',
++    'resellers:r',
++    'self:rw',
++    'support:r',
++  ],
++};
++
++async function openAs(role, page, hash = '/') {
++  const seen = await mockCore(page, {
++    'POST /api/v1/auth/refresh': { status: 200, body: { access_token: 'test-token' } },
++    'GET /api/v1/admin/me': {
++      status: 200,
++      body: { permissions: ROLE_PERMS[role], role, email: `${role}@example.com` },
++    },
++    // at least one dashboard feed must answer, otherwise the shell stays in its error state and perms never load
++    'GET /api/v1/admin/dashboard': { status: 200, body: { attention: null } },
++    'GET /api/v1/admin/orders': [],
++    'GET /api/v1/admin/users': [],
++    'GET /api/v1/admin/tickets': [],
++    'GET /api/v1/admin/stores': [{ id: 's0', name: 'Main', slug: 'main', kind: 'main', status: 'active' }],
++    'GET /api/v1/admin/identity-link-reviews': [],
++    'GET /api/v1/admin/integrations/google': { status: 200, body: { enabled: false, client_id: '' } },
++    'GET /api/v1/admin/integrations/telegram': { status: 200, body: { enabled: false } },
++    'GET /api/v1/admin/integrations': {
++      status: 200,
++      body: {
++        google: { enabled: false, client_id: '', source: 'none', suggested_origins: [] },
++        telegram: {
++          enabled: false,
++          client_id: '',
++          client_secret_set: false,
++          source: 'none',
++          origins: [],
++          redirect_uris: [],
++          ttl_seconds: 300,
++          ttl_min: 60,
++          ttl_max: 600,
++          main_bot_username: '',
++          suggested_client_id: '',
++        },
++        email: {},
++        backup: { s3: {}, local: {} },
++        admin_access: { ips: [] },
++      },
++    },
++    'GET /api/v1/admin/settings': { status: 200, body: {} },
++    'GET /api/v1/admin/feature-flags': [],
++  });
++  await page.goto(`/#${hash}`);
++  await expect(page.getByRole('navigation', { name: 'منوی اصلی' })).toBeVisible({ timeout: 15000 });
++  return seen;
++}
++const nav = (page) => page.getByRole('navigation', { name: 'منوی اصلی' });
++
++for (const role of ['owner', 'manager', 'finance', 'support', 'viewer']) {
++  test(`${role}: menu shows Settings and Team only for the owner; identity sits with customers`, async ({ page }) => {
++    await openAs(role, page);
++    const owner = role === 'owner';
++    await expect(nav(page).getByRole('button', { name: 'تنظیمات' })).toHaveCount(owner ? 1 : 0);
++    await expect(nav(page).getByRole('button', { name: 'تیم مدیریت' })).toHaveCount(owner ? 1 : 0);
++    // identity: customers area, readable by everyone except none of the five roles lacks customers:r
++    await expect(nav(page).getByRole('button', { name: 'هویت' })).toHaveCount(1);
++    // the old stand-alone entries never show up in the menu
++    for (const gone of ['نمایندگان', 'اپراتور پنل فروشگاه', 'حجم فروشگاه‌ها'])
++      await expect(nav(page).getByRole('button', { name: gone, exact: true })).toHaveCount(0);
++  });
++}
++
++test('support: the identity hub has three tabs and no sign-in tab', async ({ page }) => {
++  await openAs('support', page, '/identity');
++  const group = page.getByRole('radiogroup', { name: 'بخش هویت' });
++  await expect(group.getByRole('radio')).toHaveCount(3);
++  await expect(group.getByRole('radio', { name: 'روش‌های ورود' })).toHaveCount(0);
++});
++
++test('support: opening Settings by URL never reaches the sign-in settings API', async ({ page }) => {
++  const seen = await openAs('support', page, '/settings?tab=login');
++  await page.waitForTimeout(800);
++  await expect(page.getByText('ورود با گوگل')).toHaveCount(0);
++  expect(seen.filter((k) => k.includes('/admin/integrations'))).toEqual([]);
++});
++
++test('owner: sign-in methods are a Settings tab with Google and Telegram forms', async ({ page }) => {
++  const seen = await openAs('owner', page, '/settings?tab=login');
++  const group = page.getByRole('radiogroup', { name: 'بخش تنظیمات' });
++  await expect(group.getByRole('radio', { name: 'روش‌های ورود' })).toHaveAttribute('aria-checked', 'true');
++  await expect.poll(() => seen.includes('GET /api/v1/admin/integrations')).toBe(true);
++  await expect(page.getByRole('heading', { name: /گوگل/ }).first()).toBeVisible();
++});
++
++test('owner: the tab is deep-linkable and switching tabs updates the URL', async ({ page }) => {
++  await openAs('owner', page, '/settings');
++  const group = page.getByRole('radiogroup', { name: 'بخش تنظیمات' });
++  await group.getByRole('radio', { name: 'روش‌های ورود' }).click();
++  await expect(page).toHaveURL(/#\/settings\?tab=login/);
++  await group.getByRole('radio', { name: 'پشتیبان‌گیری و ایمیل' }).click();
++  await expect(page).toHaveURL(/#\/settings$/);
++});
++
++test('old bookmarks land on their new homes', async ({ page }) => {
++  await openAs('owner', page, '/');
++  const cases = [
++    ['/identity?tab=login', /#\/settings\?tab=login/],
++    ['/identity-auto', /#\/identity\?tab=devices/],
++    ['/resellers', /#\/stores\?tab=resellers/],
++    ['/panel-admins', /#\/stores\?tab=panels/],
++    ['/store-governance', /#\/stores\?tab=volume/],
++  ];
++  for (const [from, to] of cases) {
++    await page.goto('about:blank');
++    await page.goto(`/#${from}`);
++    await expect(page).toHaveURL(to, { timeout: 15000 });
++  }
++});
++
++test('store hub is the only entry for the absorbed tabs (owner, panels and volume tabs render)', async ({ page }) => {
++  const errors = [];
++  page.on('pageerror', (e) => !/^(Error: )?\d{3}$|: \d{3}$/.test(e.message) && errors.push(e.message));
++  await openAs('owner', page, '/stores?tab=panels');
++  await expect(page.getByRole('radio', { name: 'دسترسی پنل' })).toHaveAttribute('aria-checked', 'true');
++  await page.goto('/#/stores?tab=volume');
++  await expect(page.locator('main')).not.toBeEmpty();
++  expect(errors, errors.join('\n')).toEqual([]);
++});
+diff --git a/scripts/check_frontend_contracts.py b/scripts/check_frontend_contracts.py
+index 38c7800..01f8d09 100644
+--- a/scripts/check_frontend_contracts.py
++++ b/scripts/check_frontend_contracts.py
+@@ -28,7 +28,10 @@ STORE_SHELL = (
+     "useStoreCatalog.ts",
+ )
+ store = "\n".join((root / "apps/store-web/src" / n).read_text() for n in STORE_SHELL)
+-admin = (root / "apps/admin-web/src/App.tsx").read_text()
++admin = "\n".join(  # App.tsx was split (admin UI r5): the shell is the sum of these files
++    (root / "apps/admin-web/src" / n).read_text()
++    for n in ("App.tsx", "AdminNavigation.tsx", "AdminShell.tsx", "Dashboard.tsx")
++)
+ caddy = (root / "infra/Caddyfile").read_text()
+ api = (root / "apps/api/melorin/app.py").read_text()
+ checks = {
+diff --git a/scripts/check_g001_g010.py b/scripts/check_g001_g010.py
+index 540e144..3548811 100644
+--- a/scripts/check_g001_g010.py
++++ b/scripts/check_g001_g010.py
+@@ -28,7 +28,10 @@ STORE_SHELL = (
+     "useStoreCatalog.ts",
+ )
+ store = "\n".join((root / "apps/store-web/src" / n).read_text() for n in STORE_SHELL)
+-admin = (root / "apps/admin-web/src/App.tsx").read_text()
++admin = "\n".join(  # App.tsx was split (admin UI r5): the shell is the sum of these files
++    (root / "apps/admin-web/src" / n).read_text()
++    for n in ("App.tsx", "AdminNavigation.tsx", "AdminShell.tsx", "Dashboard.tsx")
++)
+ caddy = (root / "infra/Caddyfile").read_text()
+ api = (root / "apps/api/melorin/app.py").read_text()
+ base = (root / "apps/api/alembic/versions/0001_initial.py").read_text()
