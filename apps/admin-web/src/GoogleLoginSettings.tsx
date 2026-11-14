@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 // and the ID-token flow needs no client secret, so nothing secret is collected or stored here.
 
 import { useEffect, useMemo, useState } from 'react';
-import { authFetch } from './api.ts';
+import { settled, typedClient } from './api.ts';
 import { Check, ChevronDown, Copy, ExternalLink, ShieldCheck } from 'lucide-react';
 import type { Json, Toast } from './types.ts';
 
@@ -211,14 +211,14 @@ function Guide({ origins }: { origins?: Json }) {
 }
 
 export default function GoogleLoginSettings({ api, toast }: { api?: Json; toast: Toast }) {
-  const call = (p: Json, o = {}) => authFetch(api.base, p, o);
   const [cfg, setCfg] = useState<Json>(null);
   const [busy, setBusy] = useState('');
   const [testResult, setTestResult] = useState<Json>(null);
 
   const load = () =>
-    call('/api/v1/admin/integrations')
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
+    typedClient(api.base)
+      .get('/api/v1/admin/integrations')
+      .then(({ response: r, data }) => (r.ok ? (data as Json) : Promise.reject()))
       .then((d) => setCfg(d.google))
       .catch(() => toast('دریافت تنظیمات گوگل ناموفق بود'));
   useEffect(() => {
@@ -244,16 +244,16 @@ export default function GoogleLoginSettings({ api, toast }: { api?: Json; toast:
 
   const save = async () => {
     setBusy('save');
-    const r = await call('/api/v1/admin/integrations/google', {
-      method: 'PUT',
-      body: JSON.stringify({
-        enabled: cfg.enabled,
-        client_id: id,
-        admin_login: cfg.admin_login,
-        store_login: cfg.store_login,
+    const { r, d } = settled(
+      await typedClient(api.base).put('/api/v1/admin/integrations/google', {
+        body: {
+          enabled: cfg.enabled,
+          client_id: id,
+          admin_login: cfg.admin_login,
+          store_login: cfg.store_login,
+        },
       }),
-    });
-    const d = await r.json().catch(() => ({}));
+    );
     setBusy('');
     if (!r.ok) return toast(d?.error?.message || d?.detail?.message || 'ذخیره ناموفق بود');
     toast('تنظیمات ورود با گوگل ذخیره شد');
@@ -261,8 +261,7 @@ export default function GoogleLoginSettings({ api, toast }: { api?: Json; toast:
   };
   const test = async () => {
     setBusy('test');
-    const r = await call('/api/v1/admin/integrations/google/test', { method: 'POST', body: '{}' });
-    const d = await r.json().catch(() => ({}));
+    const { r, d } = settled(await typedClient(api.base).post('/api/v1/admin/integrations/google/test', { body: {} }));
     setBusy('');
     setTestResult(r.ok ? d : { ok: false, error: d?.error?.message || 'تست انجام نشد' });
   };

@@ -61,3 +61,9 @@ export async function getJson<T = Json>(base: string, path: string): Promise<T> 
   if (!response.ok) throw new Error(`${path}: ${response.status}`);
   return data as T;
 }
+
+/** Typed-client result -> the raw Response plus the parsed body (data on success, error body otherwise; {} when empty). */
+export const settled = (res: { response: Response; data?: unknown; error?: unknown }) => ({
+  r: res.response,
+  d: ((res.response.ok ? res.data : res.error) ?? {}) as Record<string, unknown> & Json,
+});
