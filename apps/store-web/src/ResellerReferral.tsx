@@ -4,7 +4,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Gift, Save } from 'lucide-react';
 import { Empty, Loading, fa } from './ui.tsx';
-import { percentToBp, toInt, unitOf } from './storeProgram.ts';
+import { usePlanForm } from '@melorin/web-kit/referralPlan.js';
+import { unitOf } from './storeProgram.ts';
 import type { Json } from './types';
 
 const J = { 'Content-Type': 'application/json' };
@@ -28,19 +29,11 @@ function PlanCard({
   currency?: Json;
   onSave?: Json;
 }) {
-  const [model, setModel] = useState(rule?.model || 'percent');
-  const [value, setValue] = useState(rule ? String(rule.model === 'percent' ? rule.value / 100 : rule.value) : '');
-  const [cap, setCap] = useState(rule?.max_amount ? String(rule.max_amount) : '');
-  const [active, setActive] = useState(rule ? rule.is_active : true);
-  const [busy, setBusy] = useState(false);
-  const bad = value !== '' && (model === 'percent' ? percentToBp(value) : toInt(value)) == null;
-  async function save() {
-    const v = model === 'percent' ? percentToBp(value) : toInt(value);
-    if (v == null || (cap && toInt(cap) == null)) return;
-    setBusy(true);
-    await onSave({ kind, model, value: v, max_amount: cap ? toInt(cap) : null, is_active: active });
-    setBusy(false);
-  }
+  const { model, setModel, value, setValue, cap, setCap, active, setActive, bad, canSave, save } = usePlanForm({
+    kind,
+    rule,
+    onSave,
+  });
   return (
     <div className="card space-y-3" data-testid={`plan-${kind}`}>
       <div>
@@ -82,7 +75,7 @@ function PlanCard({
           <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
           فعال
         </label>
-        <button className="btn-primary" disabled={busy || bad || value === ''} onClick={save}>
+        <button className="btn-primary" disabled={!canSave} onClick={save}>
           <Save size={15} aria-hidden="true" /> ذخیره
         </button>
       </div>

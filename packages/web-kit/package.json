@@ -14,6 +14,7 @@
     "./format.js": "./src/format.js",
     "./eventCenter.js": "./src/eventCenter.js",
     "./bankSms.js": "./src/bankSms.js",
-    "./broadcast.js": "./src/broadcast.js"
+    "./broadcast.js": "./src/broadcast.js",
+    "./referralPlan.js": "./src/referralPlan.js"
   }
 }
