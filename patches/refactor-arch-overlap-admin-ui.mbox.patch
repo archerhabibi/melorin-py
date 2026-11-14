@@ -1,7 +1,7 @@
 From 2b7a40f4d38354ba119e0b5f4b673112112ec92e Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@gmail.com>
 Date: Fri, 13 Nov 2026 11:54:01 +0000
-Subject: [PATCH 01/30] arch(contracts): put eventcenter and broadcast under
+Subject: [PATCH 01/31] arch(contracts): put eventcenter and broadcast under
  the layer contract
 
 ---
@@ -28,7 +28,7 @@ index 286ab43..8ac7f14 100644
 From 2d64d509e34f94253822c3dbe6a55249abcb6301 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@gmail.com>
 Date: Fri, 13 Nov 2026 11:58:35 +0000
-Subject: [PATCH 02/30] fix(auth): admin password change enforces the same
+Subject: [PATCH 02/31] fix(auth): admin password change enforces the same
  policy as invite acceptance
 
 ---
@@ -92,7 +92,7 @@ index 4b4c2e7..b25e1a7 100644
 From 5ebfec4a5a0ad094c54c045612d3869ebc5e45b9 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@gmail.com>
 Date: Fri, 13 Nov 2026 11:59:56 +0000
-Subject: [PATCH 03/30] feat(admin-ui): regroup the menu (operations,
+Subject: [PATCH 03/31] feat(admin-ui): regroup the menu (operations,
  customers, catalog+marketing, communication, infrastructure); single password
  form; Receipt OCR lives under Payments
 
@@ -231,7 +231,7 @@ index d735da1..1bc9415 100644
 From cf3078358e9dd56b704544fd5afe992040683daa Mon Sep 17 00:00:00 2001
 From: claude-refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 12:22:19 +0000
-Subject: [PATCH 04/30] test(admin-ui): contract test follows the regrouped
+Subject: [PATCH 04/31] test(admin-ui): contract test follows the regrouped
  menu (infra group, catalog+marketing group)
 
 ---
@@ -263,7 +263,7 @@ index c37b6d0..b1c0224 100644
 From fa2f9f1b12a3e751e31dd0e7c0fecfe020debe13 Mon Sep 17 00:00:00 2001
 From: claude-refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 12:26:08 +0000
-Subject: [PATCH 05/30] arch(panelops): move panel_admins, governance,
+Subject: [PATCH 05/31] arch(panelops): move panel_admins, governance,
  store_usage, service_access, panel_events_admin, bulk, subscription_check,
  recreate, digest from vpn to panelops
 
@@ -873,7 +873,7 @@ index dc6010d..5daf353 100644
 From 28b907357132344d43bf66ba46418fb216c133cb Mon Sep 17 00:00:00 2001
 From: claude-refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 12:36:11 +0000
-Subject: [PATCH 06/30] arch(panelops): one reconciliation-actions service;
+Subject: [PATCH 06/31] arch(panelops): one reconciliation-actions service;
  admin router no longer builds adapters or coordinates writes
 
 Behaviour, error codes, audit events and messages are unchanged. Commits go through unit_of_work. Tests that patched the router's
@@ -1252,7 +1252,7 @@ index 1be7e54..ae1b773 100644
 From d9bf9dddd7d1751e60a4974b89608d057b2f9a2a Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:09:10 +0000
-Subject: [PATCH 07/30] docs(identity): point identity docstrings at docs/23
+Subject: [PATCH 07/31] docs(identity): point identity docstrings at docs/23
  (was docs/21)
 
 ---
@@ -1496,7 +1496,7 @@ index f553767..6ad921e 100644
 From 4666d51295581024fbba949d8215350c69940168 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:17:14 +0000
-Subject: [PATCH 08/30] feat(admin-ui): Settings is tabbed (backup+email /
+Subject: [PATCH 08/31] feat(admin-ui): Settings is tabbed (backup+email /
  advanced); Google and Telegram sign-in move to Identity > sign-in methods
 
 ---
@@ -1638,7 +1638,7 @@ index 89ae544..5be23cf 100644
 From f5d1996854a4f0b4b0595d9eb227d3e6e1c423c3 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:33:00 +0000
-Subject: [PATCH 09/30] feat(admin-ui): store hub: stores, resellers, panel
+Subject: [PATCH 09/31] feat(admin-ui): store hub: stores, resellers, panel
  access and volume governance are tabs of one menu entry
 
 ---
@@ -1860,7 +1860,7 @@ index 0000000..6dcd158
 From 4133a03d42351e76a8ac37b31e3d309270715b1e Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:53:57 +0000
-Subject: [PATCH 10/30] arch(payments): the main store payment destination uses
+Subject: [PATCH 10/31] arch(payments): the main store payment destination uses
  StorePaymentConfiguration; global card.info/gateway.zarinpal and the fallback
  are removed (alembic 0056)
 
@@ -2642,7 +2642,7 @@ index ae1b773..01a6a68 100644
 From eecbae7ca6146bef7cd336a832f0f91aa7560d5d Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 14:34:34 +0000
-Subject: [PATCH 11/30] arch(rewards): one written stacking policy and one
+Subject: [PATCH 11/31] arch(rewards): one written stacking policy and one
  settlement path; vpn account transition table
 
 ---
@@ -2817,7 +2817,7 @@ index 01a6a68..13f2648 100644
 From 3d7d013580e91867a5ec537d24db8323ea4c3fa0 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 14:42:16 +0000
-Subject: [PATCH 12/30] test(worker): refunds reverse loyalty before referral
+Subject: [PATCH 12/31] test(worker): refunds reverse loyalty before referral
 
 ---
  apps/api/tests/service/test_worker_runner_db.py | 2 +-
@@ -2843,7 +2843,7 @@ index ae12e89..af12146 100644
 From 34e51683ea1a0f2d5c9c18a528a48964c9f1ce77 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 14:59:48 +0000
-Subject: [PATCH 13/30] arch(worker): one read cycle per panel: metrics
+Subject: [PATCH 13/31] arch(worker): one read cycle per panel: metrics
  snapshot rides on the health job adapter
 
 ---
@@ -2923,7 +2923,7 @@ index 13f2648..3390dbd 100644
 From 3338242826ea3df9a23a08a2da87601ed7a78ed6 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 15:20:11 +0000
-Subject: [PATCH 14/30] arch(vpn): account status changes go through the
+Subject: [PATCH 14/31] arch(vpn): account status changes go through the
  guarded transition table
 
 ---
@@ -3078,7 +3078,7 @@ index 3390dbd..1fa7cd4 100644
 From 7a4e0bf6c3ddd2d04e5993cc0e818273990efe85 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 15:33:23 +0000
-Subject: [PATCH 15/30] arch(messaging): notifications dedupe on event_id +
+Subject: [PATCH 15/31] arch(messaging): notifications dedupe on event_id +
  recipient + channel
 
 ---
@@ -3200,7 +3200,7 @@ index 1fa7cd4..9e68bb5 100644
 From aae44f6b1397699b701c15ee04d519609193659b Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 16:18:20 +0000
-Subject: [PATCH 16/30] arch: guard expiry/revoke/sync status writes; panel
+Subject: [PATCH 16/31] arch: guard expiry/revoke/sync status writes; panel
  card deep-links to panel operations
 
 ---
@@ -3324,7 +3324,7 @@ index 9e68bb5..7218ea0 100644
 From 35b241cc55ca4386a7037d8a7a3a062ba268bd63 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 16:50:44 +0000
-Subject: [PATCH 17/30] arch(telegram): shared bot core in tgmain.core;
+Subject: [PATCH 17/31] arch(telegram): shared bot core in tgmain.core;
  reseller bot imports it instead of loading main runner.py by path; reseller
  image copies tgmain only
 
@@ -4242,7 +4242,7 @@ index cb2b24a..5e7709b 100644
 From bed9db5b27ebee848c22126ec449af3077f48c34 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 16:50:44 +0000
-Subject: [PATCH 18/30] chore(domain): drop 5-line leftovers (vpn/bundles,
+Subject: [PATCH 18/31] chore(domain): drop 5-line leftovers (vpn/bundles,
  vpn/service, domain/referral); commission_amount lives with commission,
  clean_custom_name in domain/account_name
 
@@ -4343,7 +4343,7 @@ index 0f1ad9b..9216cdf 100644
 From 81b5dd64815592a79fd09d829427b9ea83acbd83 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 16:59:01 +0000
-Subject: [PATCH 19/30] feat(admin): Operations Center roll-up on
+Subject: [PATCH 19/31] feat(admin): Operations Center roll-up on
  /admin/dashboard + dashboard card; restore vpn/service.py; guard provisioning
  status write; drop dead DataTable branches; contract test follows
  tgmain.core; decisions
@@ -4773,7 +4773,7 @@ index 7218ea0..45e9108 100644
 From a42c4b5125ec4735d242e8c52db443ceec7eebcd Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 17:03:53 +0000
-Subject: [PATCH 20/30] test: source-contract tests read tgmain/core.py
+Subject: [PATCH 20/31] test: source-contract tests read tgmain/core.py
 
 ---
  apps/api/tests/service/test_account_return.py              | 2 +-
@@ -4813,7 +4813,7 @@ index 9b5bf8b..65018af 100644
 From f820a98089d4df8cb591ebcb8809ed36844af73f Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 17:26:04 +0000
-Subject: [PATCH 21/30] feat(admin-ui): panel detail drawer: nodes, console,
+Subject: [PATCH 21/31] feat(admin-ui): panel detail drawer: nodes, console,
  events, capacity, templates and indicators are tabs of the panel; panel-ops
  keeps discrepancies, orphans and notices
 
@@ -5275,7 +5275,7 @@ index 45e9108..dd84015 100644
 From 802aa443b74f0e51fac783fb0265773f7b1734f8 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 20:40:47 +0000
-Subject: [PATCH 22/30] arch(integrations): provider adapters, sessions,
+Subject: [PATCH 22/31] arch(integrations): provider adapters, sessions,
  readers, capabilities and target config move from vpn to
  modules/panel_integrations (lowest feature layer); shared Event Center logic
  and text helpers move to web-kit
@@ -8112,7 +8112,7 @@ index 1423897..7dc57d3 100644
 From 4396daa9c77daadf056227597cd4f0618718a1d2 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 20:40:56 +0000
-Subject: [PATCH 23/30] docs: record integration boundary and shared web-kit
+Subject: [PATCH 23/31] docs: record integration boundary and shared web-kit
  decisions
 
 ---
@@ -8137,7 +8137,7 @@ index 82095f7..392f75c 100644
 From e20603006d61038349bba97489e394bb7429f8e2 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 21:21:54 +0000
-Subject: [PATCH 24/30] arch: PanelSnapshot read model, messaging policy,
+Subject: [PATCH 24/31] arch: PanelSnapshot read model, messaging policy,
  status-write contract test, shared Bank SMS rules in web-kit
 
 ---
@@ -8726,7 +8726,7 @@ index 0000000..d97d251
 From 4cbea13a57d038502850d3cd383be13431f9cb98 Mon Sep 17 00:00:00 2001
 From: Pori Toooni <poritoooni@gmail.com>
 Date: Fri, 13 Nov 2026 22:08:29 +0000
-Subject: [PATCH 25/30] arch(messaging): DM delivery honours
+Subject: [PATCH 25/31] arch(messaging): DM delivery honours
  messaging_policy.dm_allowed; decisions updated
 
 ---
@@ -8802,7 +8802,7 @@ index 54fd61b..e6a938e 100644
 From cbdfc1fb50f2474e3b531263ee626df651967279 Mon Sep 17 00:00:00 2001
 From: Pori Toooni <poritoooni@gmail.com>
 Date: Sat, 14 Nov 2026 06:03:59 +0000
-Subject: [PATCH 26/30] feat(web-kit): shared broadcast composer hook used by
+Subject: [PATCH 26/31] feat(web-kit): shared broadcast composer hook used by
  admin-web and store-web; decisions updated
 
 ---
@@ -9130,7 +9130,7 @@ index 0000000..454f752
 From 9168a7d321bfb75a24bcce2a9ff218ae98dd40a2 Mon Sep 17 00:00:00 2001
 From: Pori Toooni <poritoooni@gmail.com>
 Date: Sat, 14 Nov 2026 06:09:48 +0000
-Subject: [PATCH 27/30] feat(web-kit): shared referral plan form used by
+Subject: [PATCH 27/31] feat(web-kit): shared referral plan form used by
  admin-web and store-web; decisions updated
 
 ---
@@ -9395,7 +9395,7 @@ index 0000000..be1623c
 From 5c1964b6bd3252607196a5b33ca76cb825ab83da Mon Sep 17 00:00:00 2001
 From: Pori Toooni <poritoooni@gmail.com>
 Date: Sat, 14 Nov 2026 06:19:41 +0000
-Subject: [PATCH 28/30] feat(web-kit): shared loyalty club data layer used by
+Subject: [PATCH 28/31] feat(web-kit): shared loyalty club data layer used by
  admin-web and store-web; decisions updated
 
 ---
@@ -9637,7 +9637,7 @@ index 0000000..fec4cee
 From 14df2cdcbac02fcfabbcd78875f62b7f7fb0bb5b Mon Sep 17 00:00:00 2001
 From: Pori Toooni <poritoooni@gmail.com>
 Date: Sat, 14 Nov 2026 06:23:29 +0000
-Subject: [PATCH 29/30] feat(web-kit): shared design tokens (identical values
+Subject: [PATCH 29/31] feat(web-kit): shared design tokens (identical values
  only); decisions updated
 
 ---
@@ -9850,7 +9850,7 @@ index 0000000..f9858bb
 From 014b89fbe159cda8a04cf31807000b5b46be519b Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@users.noreply.github.com>
 Date: Sat, 14 Nov 2026 06:52:08 +0000
-Subject: [PATCH 30/30] arch: admin sync is event-driven with 15-min fallback;
+Subject: [PATCH 30/31] arch: admin sync is event-driven with 15-min fallback;
  rename admin team / panel operator labels; decisions
 
 ---
@@ -10097,6 +10097,85 @@ index 0761ec1..51a479e 100644
  5. **Verify settings.** Open the "شاخص و پشتیبان" tab and press "بررسی اکنون": fix webhook, subscription prefix and auto-delete drift on the panel side (Melorin writes no setting without your confirmation). Reconnect live events if needed.
  6. **Prove the backup next time.** Run `BACKUP_ARCHIVE=... BACKUP_IDENTITY_FILE=... scripts/verify_panel_backup.sh` (non-destructive) after any change and at least monthly. The host's `pg_restore` must be at least as new as the panel's PostgreSQL (the panel runs 17, Ubuntu 24.04 has 16): then add `PG_RESTORE='docker exec -i pasarguard-timescaledb-1 pg_restore'` (a pasted-in command reads the dump from stdin).
  7. **Re-enable selling** once nodes are `connected` and the capacity/health view is green, then confirm a fresh panel backup runs the next day (`melorin_backup_age_seconds{target="panel"}`).
+-- 
+2.43.0
+
+
+From 413e2eae568257f6aebc675412cd552b53750289 Mon Sep 17 00:00:00 2001
+From: archerhabibi <archerhabibi@users.noreply.github.com>
+Date: Sat, 14 Nov 2026 07:35:19 +0000
+Subject: [PATCH 31/31] docs: regenerate STATUS/API (head 0056, 413
+ operations); decisions: state machine writers complete
+
+---
+ docs/API.md       |  4 +++-
+ docs/DECISIONS.md |  4 ++--
+ docs/STATUS.md    | 10 +++++-----
+ 3 files changed, 10 insertions(+), 8 deletions(-)
+
+diff --git a/docs/API.md b/docs/API.md
+index 7a61d36..31567cc 100644
+--- a/docs/API.md
++++ b/docs/API.md
+@@ -35,7 +35,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
+ 
+ <!-- BEGIN GENERATED ROUTES (scripts/gen_docs.py) -->
+ 
+-### `admin` (177)
++### `admin` (179)
+ 
+ | Method | Path | Operation |
+ |---|---|---|
+@@ -143,6 +143,8 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
+ | POST | `/api/v1/admin/panels/{panel_id}/templates/{product_id}/disable` | Template Disable |
+ | POST | `/api/v1/admin/panels/{panel_id}/templates/{product_id}/enable` | Template Enable |
+ | POST | `/api/v1/admin/panels/{panel_id}/templates/{product_id}/sync` | Template Sync |
++| GET | `/api/v1/admin/payment-destinations` | Payment Destinations |
++| PUT | `/api/v1/admin/payment-destinations/{provider}` | Put Payment Destination |
+ | GET | `/api/v1/admin/payments` | Payments |
+ | GET | `/api/v1/admin/payments/{payment_id}/receipt` | Payment Receipt |
+ | GET | `/api/v1/admin/payments/{payment_id}/receipt-duplicates` | Payment Receipt Duplicates |
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index 3e3f562..179c1c6 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -106,7 +106,7 @@ _Merged from the former 12-Change-Log-v1.1.md._
+   A main store with no configuration now answers `PAYMENT_METHOD_DISABLED`, exactly like a reseller store.
+ - Admin menu: stores, resellers, panel access (panel admins + sub branding) and volume governance are tabs of the single `فروشگاه‌ها` hub (`#/stores?tab=...`).
+ - Reward stacking is written down in `domain/order_rewards.py`: coupon is already inside `order.total`; referral then loyalty settle from that charged total in a fixed order, refunds reverse loyalty then referral; the worker calls one `_settle_rewards`.
+-- `domain/order_state.VPN_TRANSITIONS` + `assert_vpn_transition` define the account lifecycle table. Not yet wired into every writer (renewal, returns, recreate, bulk); that is the next step.
++- `domain/order_state.VPN_TRANSITIONS` + `assert_vpn_transition` define the account lifecycle table; every writer goes through `set_vpn_status` (enforced by a contract test).
+ - Panel read cycle: `panel_health_job` takes the metrics snapshot on the SAME adapter/login as the health check (one session per panel per 2 minutes). `panel_metrics_job` no longer has its own cron (function kept for manual runs).
+ - Account status writes in provisioning, account_tools, bulk and reconciliation_actions go through `set_vpn_status` (guarded by `VPN_TRANSITIONS`). Renewal/returns/recreate/expiry paths that write status by other means are still to be moved.
+ - Notification dedup: `domain/notification_dedup.py`. The outbox hands its event id to every handler (`_event_id`); `_notify` dedupes on `event_id + recipient + channel` unless the caller already gave an explicit `dedup_key`. An outbox retry can no longer re-send to a recipient/channel that already got it.
+@@ -130,4 +130,4 @@ _Merged from the former 12-Change-Log-v1.1.md._
+ - Design tokens: `@melorin/web-kit/tokens.css` holds only values identical in both skins (font stack, settle easing, pill radius, brand navy/gold) and both apps import it, so no pixel changes. The palettes still differ (admin hex variables, store RGB triplets); merging them would restyle both apps and is a product decision, not a refactor.
+ - Admin sync is event-driven: panel create already pushed the Operator admins at once; reseller-store creation now plans its (panel, store) rows in the same transaction. `panel_admin_sync_job` runs every 15 minutes as retry/fallback (was every minute); "sync now" stays.
+ - Wording: "admin" had four meanings. The UI now says «تیم مدیریت» (who signs in to Melorin) and «اپراتور پنل فروشگاه» (the PasarGuard operator of a store). Section keys changed with the labels; `SECTION_AREA` and the tests follow.
+-- Still open (needs product input or a browser/Docker host): merging the two palettes, shared `ui.tsx`/`types.ts`, wiring `packages/api-client`, moving the remaining Store Hub tabs (profile, pricing, notifications, API) into the hub, renewal/returns/recreate onto one account state-machine writer.
++- Still open (needs product input or a browser/Docker host): merging the two palettes, shared `ui.tsx`/`types.ts`, wiring `packages/api-client`, moving the remaining Store Hub tabs (profile, pricing, notifications, API) into the hub, (the account state-machine writer is done: renewal/returns/recreate only read status).
+diff --git a/docs/STATUS.md b/docs/STATUS.md
+index 1367bca..1d9129e 100644
+--- a/docs/STATUS.md
++++ b/docs/STATUS.md
+@@ -6,12 +6,12 @@
+ 
+ | Measurement | Value |
+ |---|---|
+-| Alembic head | `0055_admin_team` |
+-| Migrations | 55 |
++| Alembic head | `0056_main_store_payment_config` |
++| Migrations | 56 |
+ | ORM tables | 75 |
+-| API operations | 411 |
+-| API paths | 363 |
+-| Test files / test functions (static count) | 234 / 2171 |
++| API operations | 413 |
++| API paths | 365 |
++| Test files / test functions (static count) | 242 / 2198 |
+ | Coverage | not measured here (CI writes `apps/api/coverage.xml`; run `pytest --cov=melorin --cov-report=xml`) |
+ | Documents: repo root / `docs/` / `docs/history/` (tests only) | 3 / 41 / 4 |
+ 
 -- 
 2.43.0
 

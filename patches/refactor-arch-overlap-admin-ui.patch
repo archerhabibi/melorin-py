@@ -7805,8 +7805,30 @@ index cb2b24a..5e7709b 100644
  
  log = logging.getLogger("melorin.telegram.reseller")
  
+diff --git a/docs/API.md b/docs/API.md
+index 7a61d36..31567cc 100644
+--- a/docs/API.md
++++ b/docs/API.md
+@@ -35,7 +35,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
+ 
+ <!-- BEGIN GENERATED ROUTES (scripts/gen_docs.py) -->
+ 
+-### `admin` (177)
++### `admin` (179)
+ 
+ | Method | Path | Operation |
+ |---|---|---|
+@@ -143,6 +143,8 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
+ | POST | `/api/v1/admin/panels/{panel_id}/templates/{product_id}/disable` | Template Disable |
+ | POST | `/api/v1/admin/panels/{panel_id}/templates/{product_id}/enable` | Template Enable |
+ | POST | `/api/v1/admin/panels/{panel_id}/templates/{product_id}/sync` | Template Sync |
++| GET | `/api/v1/admin/payment-destinations` | Payment Destinations |
++| PUT | `/api/v1/admin/payment-destinations/{provider}` | Put Payment Destination |
+ | GET | `/api/v1/admin/payments` | Payments |
+ | GET | `/api/v1/admin/payments/{payment_id}/receipt` | Payment Receipt |
+ | GET | `/api/v1/admin/payments/{payment_id}/receipt-duplicates` | Payment Receipt Duplicates |
 diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
-index 1be7e54..3e3f562 100644
+index 1be7e54..179c1c6 100644
 --- a/docs/DECISIONS.md
 +++ b/docs/DECISIONS.md
 @@ -51,7 +51,7 @@ _Merged from the former 12-Change-Log-v1.1.md._
@@ -7834,7 +7856,7 @@ index 1be7e54..3e3f562 100644
 +  A main store with no configuration now answers `PAYMENT_METHOD_DISABLED`, exactly like a reseller store.
 +- Admin menu: stores, resellers, panel access (panel admins + sub branding) and volume governance are tabs of the single `فروشگاه‌ها` hub (`#/stores?tab=...`).
 +- Reward stacking is written down in `domain/order_rewards.py`: coupon is already inside `order.total`; referral then loyalty settle from that charged total in a fixed order, refunds reverse loyalty then referral; the worker calls one `_settle_rewards`.
-+- `domain/order_state.VPN_TRANSITIONS` + `assert_vpn_transition` define the account lifecycle table. Not yet wired into every writer (renewal, returns, recreate, bulk); that is the next step.
++- `domain/order_state.VPN_TRANSITIONS` + `assert_vpn_transition` define the account lifecycle table; every writer goes through `set_vpn_status` (enforced by a contract test).
 +- Panel read cycle: `panel_health_job` takes the metrics snapshot on the SAME adapter/login as the health check (one session per panel per 2 minutes). `panel_metrics_job` no longer has its own cron (function kept for manual runs).
 +- Account status writes in provisioning, account_tools, bulk and reconciliation_actions go through `set_vpn_status` (guarded by `VPN_TRANSITIONS`). Renewal/returns/recreate/expiry paths that write status by other means are still to be moved.
 +- Notification dedup: `domain/notification_dedup.py`. The outbox hands its event id to every handler (`_event_id`); `_notify` dedupes on `event_id + recipient + channel` unless the caller already gave an explicit `dedup_key`. An outbox retry can no longer re-send to a recipient/channel that already got it.
@@ -7858,7 +7880,7 @@ index 1be7e54..3e3f562 100644
 +- Design tokens: `@melorin/web-kit/tokens.css` holds only values identical in both skins (font stack, settle easing, pill radius, brand navy/gold) and both apps import it, so no pixel changes. The palettes still differ (admin hex variables, store RGB triplets); merging them would restyle both apps and is a product decision, not a refactor.
 +- Admin sync is event-driven: panel create already pushed the Operator admins at once; reseller-store creation now plans its (panel, store) rows in the same transaction. `panel_admin_sync_job` runs every 15 minutes as retry/fallback (was every minute); "sync now" stays.
 +- Wording: "admin" had four meanings. The UI now says «تیم مدیریت» (who signs in to Melorin) and «اپراتور پنل فروشگاه» (the PasarGuard operator of a store). Section keys changed with the labels; `SECTION_AREA` and the tests follow.
-+- Still open (needs product input or a browser/Docker host): merging the two palettes, shared `ui.tsx`/`types.ts`, wiring `packages/api-client`, moving the remaining Store Hub tabs (profile, pricing, notifications, API) into the hub, renewal/returns/recreate onto one account state-machine writer.
++- Still open (needs product input or a browser/Docker host): merging the two palettes, shared `ui.tsx`/`types.ts`, wiring `packages/api-client`, moving the remaining Store Hub tabs (profile, pricing, notifications, API) into the hub, (the account state-machine writer is done: renewal/returns/recreate only read status).
 diff --git a/docs/GLOSSARY.md b/docs/GLOSSARY.md
 index 05da7ef..c2d8a21 100644
 --- a/docs/GLOSSARY.md
@@ -7885,6 +7907,28 @@ index 0761ec1..51a479e 100644
  5. **Verify settings.** Open the "شاخص و پشتیبان" tab and press "بررسی اکنون": fix webhook, subscription prefix and auto-delete drift on the panel side (Melorin writes no setting without your confirmation). Reconnect live events if needed.
  6. **Prove the backup next time.** Run `BACKUP_ARCHIVE=... BACKUP_IDENTITY_FILE=... scripts/verify_panel_backup.sh` (non-destructive) after any change and at least monthly. The host's `pg_restore` must be at least as new as the panel's PostgreSQL (the panel runs 17, Ubuntu 24.04 has 16): then add `PG_RESTORE='docker exec -i pasarguard-timescaledb-1 pg_restore'` (a pasted-in command reads the dump from stdin).
  7. **Re-enable selling** once nodes are `connected` and the capacity/health view is green, then confirm a fresh panel backup runs the next day (`melorin_backup_age_seconds{target="panel"}`).
+diff --git a/docs/STATUS.md b/docs/STATUS.md
+index 1367bca..1d9129e 100644
+--- a/docs/STATUS.md
++++ b/docs/STATUS.md
+@@ -6,12 +6,12 @@
+ 
+ | Measurement | Value |
+ |---|---|
+-| Alembic head | `0055_admin_team` |
+-| Migrations | 55 |
++| Alembic head | `0056_main_store_payment_config` |
++| Migrations | 56 |
+ | ORM tables | 75 |
+-| API operations | 411 |
+-| API paths | 363 |
+-| Test files / test functions (static count) | 234 / 2171 |
++| API operations | 413 |
++| API paths | 365 |
++| Test files / test functions (static count) | 242 / 2198 |
+ | Coverage | not measured here (CI writes `apps/api/coverage.xml`; run `pytest --cov=melorin --cov-report=xml`) |
+ | Documents: repo root / `docs/` / `docs/history/` (tests only) | 3 / 41 / 4 |
+ 
 diff --git a/packages/web-kit/package.json b/packages/web-kit/package.json
 index bec8049..9f96ed2 100644
 --- a/packages/web-kit/package.json
