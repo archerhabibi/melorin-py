@@ -156,7 +156,7 @@ def test_integration_keys_stay_out_of_generic_settings():
 
 
 def test_google_ui_is_wired_into_settings_and_login_pages():
-    hub = (PROJECT / "apps/admin-web/src/IdentityHubView.tsx").read_text()  # sign-in methods are a tab of the identity hub
+    hub = (PROJECT / "apps/admin-web/src/SettingsView.tsx").read_text()  # sign-in methods are an owner-only tab of Settings
     assert "<GoogleLoginSettings" in hub
     ui = (PROJECT / "apps/admin-web/src/GoogleLoginSettings.tsx").read_text()
     assert "/api/v1/admin/integrations/google" in ui and "apps.googleusercontent.com" in ui

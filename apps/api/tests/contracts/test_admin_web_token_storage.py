@@ -14,7 +14,8 @@ def test_admin_web_never_uses_browser_storage_or_remote_fonts():
 
 
 def test_admin_dashboard_has_no_hardcoded_date_and_uses_shared_client():
-    app = (SRC / "App.tsx").read_text()
+    # App.tsx was split (r5): shell, session and dashboard modules together
+    app = "".join((SRC / n).read_text() for n in ("App.tsx", "AdminShell.tsx", "AdminSession.tsx", "Dashboard.tsx"))
     assert "۱۴۰۵" not in app
     assert "authFetch" in app and "todayLabel()" in app
 

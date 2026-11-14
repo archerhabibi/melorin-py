@@ -15,7 +15,7 @@ def test_main_payment_settings_have_first_class_forms():
     assert "GatewaySettings" in payments
     assert "payment-destinations" in payments and "manual_card" in payments and "zarinpal" in payments
     assert "card.info" not in payments and "gateway.zarinpal" not in payments  # the global keys are gone
-    assert "تنظیمات پیشرفته سیستم" in extra
+    assert "تنظیمات پیشرفته سیستم" in read_web_source(ROOT.parent / "admin-web/src/SettingsView.tsx")
 
 
 def test_zarinpal_is_validated_as_a_supported_destination():

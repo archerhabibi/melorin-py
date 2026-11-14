@@ -31,7 +31,7 @@ def test_servers_live_inside_their_panel_screen():
     assert "ServerForm" in panels and "ServerImport" in panels
     extra = _ui("AdminExtra.tsx")
     assert '"پنل‌ها و سرورها": PanelsView' in extra and "ServersView" not in extra
-    app = _ui("App.tsx")
+    app = _ui("adminNav.ts")  # menu groups live in adminNav.ts since the App.tsx split
     assert '["پنل‌ها و سرورها", PanelTop, "panels"]' in app and '"servers"' not in app
     # menu regroup: the panel screen leads the infrastructure group; bundles and products are catalog entries next to marketing
     infra_group = app[app.index('"زیرساخت"') : app.index('"سیستم"')]
