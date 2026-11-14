@@ -1,0 +1,92 @@
+From 30efde8bf06fbbff06127b1599e1c3eaee0e4a05 Mon Sep 17 00:00:00 2001
+From: Melorin Dev <dev@melorin.local>
+Date: Sat, 14 Nov 2026 17:31:46 +0000
+Subject: [PATCH] refactor(admin-ui): label bulk operations as a panel
+ operation (infrastructure area kept); decision recorded
+
+---
+ apps/admin-web/src/AdminExtra.tsx          | 2 +-
+ apps/admin-web/src/Dashboard.tsx           | 2 +-
+ apps/admin-web/src/adminAccess.ts          | 2 +-
+ apps/admin-web/src/adminNav.ts             | 2 +-
+ apps/admin-web/tests/panel-phase4.test.jsx | 2 +-
+ docs/DECISIONS.md                          | 1 +
+ 6 files changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/apps/admin-web/src/AdminExtra.tsx b/apps/admin-web/src/AdminExtra.tsx
+index 0e931c3..30db651 100644
+--- a/apps/admin-web/src/AdminExtra.tsx
++++ b/apps/admin-web/src/AdminExtra.tsx
+@@ -51,7 +51,7 @@ export const extraRoutes = {
+   'مرکز رویداد': EventCenterView,
+   'سلامت زیرساخت': InfraHealthView,
+   'عملیات پنل': PanelOpsView,
+-  'عملیات گروهی': BulkOperationsView,
++  'عملیات گروهی روی پنل': BulkOperationsView,
+   سفارش‌ها: OrdersView,
+   'اکانت‌های VPN': VpnAccountsView,
+   کاربران: UsersView,
+diff --git a/apps/admin-web/src/Dashboard.tsx b/apps/admin-web/src/Dashboard.tsx
+index ad7fd81..1648c18 100644
+--- a/apps/admin-web/src/Dashboard.tsx
++++ b/apps/admin-web/src/Dashboard.tsx
+@@ -44,7 +44,7 @@ const QUEUE_LABELS: Record<string, string> = {
+   account_discrepancies: 'مغایرت اکانت با پنل',
+   panel_orphans: 'اکانت‌های بدون صاحب روی پنل',
+   failed_panel_events: 'رویدادهای ناموفق پنل',
+-  failed_bulk_operations: 'عملیات گروهی ناموفق',
++  failed_bulk_operations: 'عملیات گروهی روی پنل ناموفق',
+   receipt_reviews: 'رسیدهای در انتظار بررسی',
+   refunds_pending: 'استردادهای در انتظار',
+   identity_conflicts: 'تعارض هویت',
+diff --git a/apps/admin-web/src/adminAccess.ts b/apps/admin-web/src/adminAccess.ts
+index 925a668..4c5fe18 100644
+--- a/apps/admin-web/src/adminAccess.ts
++++ b/apps/admin-web/src/adminAccess.ts
+@@ -26,7 +26,7 @@ export const SECTION_AREA: Record<string, string> = {
+   'محصولات VPN': 'catalog',
+   'سلامت زیرساخت': 'infrastructure',
+   'عملیات پنل': 'infrastructure',
+-  'عملیات گروهی': 'infrastructure',
++  'عملیات گروهی روی پنل': 'infrastructure',
+   'حجم فروشگاه‌ها': 'infrastructure',
+   تنظیمات: 'system',
+   'دکمه‌های تلگرام': 'system',
+diff --git a/apps/admin-web/src/adminNav.ts b/apps/admin-web/src/adminNav.ts
+index c83ab3a..f77e0ba 100644
+--- a/apps/admin-web/src/adminNav.ts
++++ b/apps/admin-web/src/adminNav.ts
+@@ -45,7 +45,7 @@ export const groups: [string, [string, LucideIcon, string][], string?][] = [
+       ['سفارش‌ها', Package, 'orders'],
+       ['پرداخت‌ها', CreditCard, 'payments'],
+       ['اکانت‌های VPN', Server, 'vpn'],
+-      ['عملیات گروهی', Zap, 'bulk-operations'], // acts on VPN accounts, so it sits next to them
++      ['عملیات گروهی روی پنل', Zap, 'bulk-operations'], // acts on VPN accounts, so it sits next to them
+       ['تیکت‌ها', Ticket, 'tickets'],
+     ],
+   ],
+diff --git a/apps/admin-web/tests/panel-phase4.test.jsx b/apps/admin-web/tests/panel-phase4.test.jsx
+index 8cf7205..3efeaae 100644
+--- a/apps/admin-web/tests/panel-phase4.test.jsx
++++ b/apps/admin-web/tests/panel-phase4.test.jsx
+@@ -43,7 +43,7 @@ describe('PG-11 bulk operations screen', () => {
+   };
+ 
+   it('is registered in the admin routes', () => {
+-    expect(Object.keys(extraRoutes)).toContain('عملیات گروهی'); // volume governance is a Store Hub tab now
++    expect(Object.keys(extraRoutes)).toContain('عملیات گروهی روی پنل'); // volume governance is a Store Hub tab now
+   });
+ 
+   it('offers only PasarGuard panels and requires a reason before previewing', async () => {
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index 5d365a6..044f139 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -164,3 +164,4 @@ _Merged from the former 12-Change-Log-v1.1.md._
+ - r5 (phase 4, real PasarGuard lifecycle, 2026-11-14): on a dedicated test panel the full customer flow ran twice end to end: top-up approval -> wallet purchase -> worker provisioning -> the panel user exists with the right group, 1 GB quota and expiry -> admin suspend (panel `disabled`) -> resume (panel `active`) -> subscription rotate -> usage read -> customer return (wallet refunded, panel user deleted). No leftover panel users after either run. The first renewal attempt failed only because the test script sent the wrong field name (`account_id` instead of `vpn_account_id`); with the right field, a renewal order on the real panel completed and moved the panel expiry to now + the package duration (`replace` mode). Returning an account after a renewal is refused by design (`RETURN_RENEWED`). The panel test users were removed afterwards.
+ 
+ - r5 (phase 4, browser): the Playwright suite (`e2e/`, real Chromium, mocked Core API) passed on a clean server: 26 passed, 2 skipped, including the role matrix, every admin menu route and Store Hub deep links. It runs against the Vite preview builds, not against the Compose stack.
++- r5 (menu, 2026-11-14): bulk operations stays in the `infrastructure` permission area (it changes accounts on the external panel); the menu label is now «عملیات گروهی روی پنل» so the label matches who may use it. The URL slug `bulk-operations` is unchanged.
+-- 
+2.43.0
+
