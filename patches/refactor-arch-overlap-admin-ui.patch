@@ -453,6 +453,102 @@ index 6229acd..347605c 100644
            <section className="card rise p-5">
              <div className="flex items-center justify-between">
                <h3 className="font-extrabold">توزیع وضعیت سفارش‌ها</h3>
+diff --git a/apps/admin-web/src/AttachAccountForm.tsx b/apps/admin-web/src/AttachAccountForm.tsx
+new file mode 100644
+index 0000000..794ff07
+--- /dev/null
++++ b/apps/admin-web/src/AttachAccountForm.tsx
+@@ -0,0 +1,90 @@
++// Manual fix for an order stuck in provisioning_failed / manual_review: the account already exists on the panel,
++// so attach it to the order (POST /admin/orders/{id}/attach-account). The order completes with that account.
++import { useEffect, useState } from 'react';
++import { confirmDialog } from './ui.tsx';
++import { errText } from './kit.tsx';
++import type { CallFn } from './types.ts';
++import { asList, errMessage } from './adminHubTypes.ts';
++
++interface ServerRow {
++  id: string;
++  name: string;
++  panel_name: string;
++}
++
++export default function AttachAccountForm({
++  call,
++  orderId,
++  toast,
++  onDone,
++}: {
++  call: CallFn;
++  orderId: string;
++  toast: (m: string) => void;
++  onDone: () => void | Promise<void>;
++}) {
++  const [servers, setServers] = useState<ServerRow[]>([]);
++  const [f, setF] = useState({ server_id: '', username: '', panel_ref: '', subscription_url: '', reason: '' });
++  const [busy, setBusy] = useState(false);
++  const set = (k: string, v: string) => setF((x) => ({ ...x, [k]: v }));
++
++  useEffect(() => {
++    (async () => {
++      try {
++        const r = await call('/api/v1/admin/servers');
++        if (r.ok) setServers(asList<ServerRow>(await r.json()));
++      } catch {
++        toast('دریافت فهرست سرورها ناموفق بود');
++      }
++    })();
++  }, [call, toast]);
++
++  const submit = async () => {
++    if (
++      !(await confirmDialog('اکانت موجود به این سفارش وصل و سفارش تکمیل می‌شود. ادامه می‌دهید؟', {
++        title: 'اتصال اکانت به سفارش',
++        ok: 'اتصال',
++      }))
++    )
++      return;
++    setBusy(true);
++    try {
++      const body = {
++        server_id: f.server_id,
++        username: f.username.trim(),
++        panel_ref: f.panel_ref.trim() || null,
++        subscription_url: f.subscription_url.trim() || null,
++        reason: f.reason.trim() || null,
++      };
++      const r = await call(`/api/v1/admin/orders/${orderId}/attach-account`, { method: 'POST', body: JSON.stringify(body) });
++      if (!r.ok) throw new Error(await errText(r, String(r.status)));
++      toast('اکانت به سفارش وصل شد');
++      await onDone();
++    } catch (e) {
++      toast(`ناموفق: ${errMessage(e)}`);
++    }
++    setBusy(false);
++  };
++
++  return (
++    <section className="card space-y-2 p-4">
++      <h3 className="font-extrabold">اتصال اکانت موجود به سفارش</h3>
++      <p className="text-xs text-[var(--mu)]">وقتی اکانت را خودتان روی پنل ساخته‌اید و فقط باید به همین سفارش وصل شود.</p>
++      <select className="inp w-full" value={f.server_id} onChange={(e) => set('server_id', e.target.value)} aria-label="سرور">
++        <option value="">سرور</option>
++        {servers.map((s) => (
++          <option key={s.id} value={s.id}>
++            {s.panel_name} · {s.name}
++          </option>
++        ))}
++      </select>
++      <input className="inp w-full" dir="ltr" value={f.username} onChange={(e) => set('username', e.target.value)} aria-label="نام کاربری اکانت روی پنل" placeholder="username" />
++      <input className="inp w-full" dir="ltr" value={f.panel_ref} onChange={(e) => set('panel_ref', e.target.value)} aria-label="شناسه روی پنل" placeholder="شناسه روی پنل (اختیاری)" />
++      <input className="inp w-full" dir="ltr" value={f.subscription_url} onChange={(e) => set('subscription_url', e.target.value)} aria-label="لینک اشتراک" placeholder="لینک اشتراک (اختیاری)" />
++      <input className="inp w-full" value={f.reason} onChange={(e) => set('reason', e.target.value)} aria-label="دلیل" placeholder="دلیل (برای ممیزی)" />
++      <button className="btn" disabled={busy || !f.server_id || !f.username.trim()} onClick={submit}>
++        اتصال اکانت
++      </button>
++    </section>
++  );
++}
 diff --git a/apps/admin-web/src/BankSmsPanel.tsx b/apps/admin-web/src/BankSmsPanel.tsx
 index fb86b7e..de79cff 100644
 --- a/apps/admin-web/src/BankSmsPanel.tsx
@@ -623,6 +719,26 @@ index d5bc13d..04000ba 100644
  
    return (
      <div className="space-y-5">
+diff --git a/apps/admin-web/src/BundlesView.tsx b/apps/admin-web/src/BundlesView.tsx
+index 5f1618d..d56fd76 100644
+--- a/apps/admin-web/src/BundlesView.tsx
++++ b/apps/admin-web/src/BundlesView.tsx
+@@ -18,6 +18,7 @@ import {
+ import { InfraChain, clearParam, memberIds, useHashParams, useInfra } from './infra.tsx';
+ import { API, groupIssue, GroupCard, GroupTable } from './bundles/BundleParts.tsx';
+ import { GroupDrawer } from './bundles/BundleDrawer.tsx';
++import UnassignedProducts from './UnassignedProducts.tsx';
+ import type { Json, Rec, Toast } from './types.ts';
+ 
+ // A sales bundle is a SALES BUNDLE (بسته فروش): panels + connection kind + the packages it sells, each with
+@@ -192,6 +193,7 @@ export default function BundlesView({ api, toast }: { api?: Json; toast: Toast }
+   return (
+     <div className="space-y-5">
+       <InfraChain current="groups" infra={infra} />
++      <UnassignedProducts call={call} />
+       <KpiBar cols={4}>
+         <Stat
+           label="همه بسته‌ها"
 diff --git a/apps/admin-web/src/EventCenterView.tsx b/apps/admin-web/src/EventCenterView.tsx
 index 8d4015b..6804e4e 100644
 --- a/apps/admin-web/src/EventCenterView.tsx
@@ -895,6 +1011,255 @@ index 8b3c262..0cfab0a 100644
  
    const currency = store?.currency;
    return (
+diff --git a/apps/admin-web/src/OrdersView.tsx b/apps/admin-web/src/OrdersView.tsx
+index d5a23ed..24b7ce0 100644
+--- a/apps/admin-web/src/OrdersView.tsx
++++ b/apps/admin-web/src/OrdersView.tsx
+@@ -2,6 +2,8 @@
+ // admin actions the order state machine allows (retry / manual review / refund).
+ // Data: GET /api/v1/admin/orders (+ /stores and /users to resolve names); actions: POST …/{retry|manual-review|refund}.
+ import { useMemo, useState } from 'react';
++import type { ReactNode } from 'react';
++import AttachAccountForm from './AttachAccountForm.tsx';
+ import {
+   AlertTriangle,
+   Check,
+@@ -398,6 +400,19 @@ export default function OrdersView({ api, toast }: { api?: Json; toast: Toast })
+           store={storeName(sel.store_id)}
+           onClose={() => setSelId(null)}
+           act={act}
++          attach={
++            RETRYABLE.includes(sel.status) ? (
++              <AttachAccountForm
++                call={call}
++                orderId={sel.id}
++                toast={toast}
++                onDone={async () => {
++                  await orders.load();
++                  setSelId(null);
++                }}
++              />
++            ) : null
++          }
+         />
+       )}
+     </div>
+@@ -412,7 +427,9 @@ function OrderDrawer({
+   store,
+   onClose,
+   act,
++  attach,
+ }: {
++  attach?: ReactNode;
+   o?: Json;
+   busy?: Json;
+   customer?: Json;
+@@ -494,6 +511,7 @@ function OrderDrawer({
+           در وضعیت فعلی، اقدام دستی برای این سفارش مجاز نیست.
+         </p>
+       )}
++      {attach}
+       <Facts
+         items={[
+           { label: 'شماره سفارش', value: o.number, ltr: true, copy: true },
+diff --git a/apps/admin-web/src/PanelAccessTab.tsx b/apps/admin-web/src/PanelAccessTab.tsx
+new file mode 100644
+index 0000000..47d6cf3
+--- /dev/null
++++ b/apps/admin-web/src/PanelAccessTab.tsx
+@@ -0,0 +1,192 @@
++// «دسترسی» tab of the panel detail (PG-12): which credential level Melorin runs on at this panel, the least-privilege service
++// admin (provision / rotate / list keys) and the store role new store admins get (plan / apply / revert).
++// Reads need nothing. Every write asks the admin to type the panel name; the owner credential is sent once, never kept.
++import { useCallback, useEffect, useState } from 'react';
++import { Secret, errText } from './kit.tsx';
++import { confirmDialog } from './ui.tsx';
++import type { CallFn, Toast } from './types.ts';
++import { errMessage } from './adminHubTypes.ts';
++
++interface Access {
++  level: string;
++  role?: string | null;
++  provisioned?: boolean;
++  warnings?: string[];
++}
++interface RolePlan {
++  role: string;
++  applied?: boolean;
++  grants?: string[];
++  withheld?: string[];
++}
++interface KeyRow {
++  id: string | number;
++  name: string;
++  status: string;
++  request_count?: number;
++}
++
++export default function PanelAccessTab({
++  call,
++  panelId,
++  panelName,
++  toast,
++}: {
++  call: CallFn;
++  panelId?: string;
++  panelName?: string;
++  toast: Toast;
++}) {
++  const [access, setAccess] = useState<Access | null>(null);
++  const [plan, setPlan] = useState<RolePlan | null>(null);
++  const [keys, setKeys] = useState<KeyRow[] | null>(null);
++  const [confirm, setConfirm] = useState('');
++  const [owner, setOwner] = useState({ api_key: '', username: '', password: '' });
++  const [roleName, setRoleName] = useState('');
++  const [busy, setBusy] = useState(false);
++
++  const base = `/api/v1/admin/panels/${panelId}`;
++  const load = useCallback(async () => {
++    if (!panelId) return;
++    try {
++      const [a, p] = await Promise.all([call(`${base}/service-access`), call(`${base}/store-role-plan`)]);
++      if (!a.ok || !p.ok) throw new Error('load');
++      setAccess(await a.json());
++      setPlan(await p.json());
++    } catch {
++      toast('دریافت وضعیت دسترسی پنل ناموفق بود');
++    }
++  }, [call, base, panelId, toast]);
++  useEffect(() => {
++    setAccess(null);
++    setPlan(null);
++    setKeys(null);
++    load();
++  }, [load]);
++
++  if (!panelId) return <p className="text-sm text-[var(--mu)]">یک پنل انتخاب کنید.</p>;
++
++  const bootstrap = () => {
++    const b = Object.fromEntries(Object.entries(owner).filter(([, v]) => v.trim()));
++    return Object.keys(b).length ? b : null;
++  };
++  const nameOk = !panelName || confirm.trim() === panelName;
++
++  const run = async (path: string, label: string, opts: { danger?: boolean; needsOwner?: boolean; extra?: Record<string, unknown> }) => {
++    if (opts.needsOwner && !bootstrap()) {
++      toast('برای این کار اعتبارنامه‌ی owner پنل لازم است');
++      return;
++    }
++    if (!(await confirmDialog(`${label} روی خود پنل اعمال می‌شود. ادامه می‌دهید؟`, { title: label, danger: !!opts.danger, ok: 'اجرا' }))) return;
++    setBusy(true);
++    try {
++      const r = await call(`${base}${path}`, {
++        method: 'POST',
++        body: JSON.stringify({ confirm_name: confirm.trim(), bootstrap: bootstrap(), ...opts.extra }),
++      });
++      if (!r.ok) throw new Error(await errText(r, String(r.status)));
++      toast(`${label} انجام شد`);
++      setOwner({ api_key: '', username: '', password: '' }); // the credential never lingers in the form
++      await load();
++    } catch (e) {
++      toast(`ناموفق: ${errMessage(e)}`);
++    }
++    setBusy(false);
++  };
++
++  const listKeys = async () => {
++    if (!bootstrap()) {
++      toast('برای فهرست کلیدها اعتبارنامه‌ی owner لازم است');
++      return;
++    }
++    setBusy(true);
++    try {
++      const r = await call(`${base}/service-access/keys`, { method: 'POST', body: JSON.stringify(bootstrap()) });
++      if (!r.ok) throw new Error(await errText(r, String(r.status)));
++      setKeys((await r.json()).keys || []);
++    } catch (e) {
++      toast(`ناموفق: ${errMessage(e)}`);
++    }
++    setBusy(false);
++  };
++
++  return (
++    <div className="space-y-4" aria-busy={busy}>
++      <section className="card space-y-2 p-4">
++        <h3 className="font-extrabold">دسترسی سرویس ملورین</h3>
++        {!access ? (
++          <div className="skel h-16" />
++        ) : (
++          <>
++            <p className="text-sm">
++              سطح دسترسی: <b>{String(access.level)}</b> · نقش: <b>{String(access.role ?? '—')}</b> ·{' '}
++              {access.provisioned ? 'ادمین سرویس ساخته شده' : 'هنوز با دسترسی کامل owner کار می‌کند'}
++            </p>
++            {(access.warnings || []).map((w: string) => (
++              <p key={w} className="text-xs" style={{ color: 'var(--wn)' }}>
++                {w}
++              </p>
++            ))}
++          </>
++        )}
++      </section>
++
++      <section className="card space-y-2 p-4">
++        <h3 className="font-extrabold">نقش فروشگاه</h3>
++        {plan && (
++          <>
++            <p className="text-sm">
++              نقش <span className="latin">{plan.role}</span> · {plan.applied ? 'اعمال شده' : 'اعمال نشده'}
++            </p>
++            <p className="text-xs text-[var(--mu)]">دسترسی‌های این نقش: {(plan.grants || []).join('، ') || '—'}</p>
++            <p className="text-xs text-[var(--mu)]">محروم‌شده‌ها: {(plan.withheld || []).join('، ') || '—'}</p>
++          </>
++        )}
++      </section>
++
++      <section className="card space-y-2 p-4">
++        <h3 className="font-extrabold">عملیات روی پنل</h3>
++        <p className="text-xs text-[var(--mu)]">
++          اعتبارنامه‌ی owner فقط برای همین درخواست فرستاده می‌شود و ذخیره نمی‌شود. برای تأیید، نام پنل را دقیق وارد کنید.
++        </p>
++        <input className="inp w-full" value={confirm} onChange={(e) => setConfirm(e.target.value)} aria-label="نام پنل برای تأیید" placeholder={panelName ? `نام پنل: ${panelName}` : 'نام پنل'} />
++        <Secret value={owner.api_key} onChange={(v: string) => setOwner((o) => ({ ...o, api_key: v }))} placeholder="کلید API ‏owner" />
++        <div className="grid gap-2 sm:grid-cols-2">
++          <input className="inp" dir="ltr" autoComplete="off" value={owner.username} onChange={(e) => setOwner((o) => ({ ...o, username: e.target.value }))} aria-label="نام کاربری owner" placeholder="یا نام کاربری owner" />
++          <Secret value={owner.password} onChange={(v: string) => setOwner((o) => ({ ...o, password: v }))} placeholder="رمز owner" />
++        </div>
++        <input className="inp w-full" dir="ltr" value={roleName} onChange={(e) => setRoleName(e.target.value)} aria-label="نام نقش فروشگاه" placeholder="نام نقش فروشگاه (خالی = melorin-store)" />
++        <div className="flex flex-wrap gap-2">
++          <button className="btn" disabled={busy || !nameOk || !confirm} onClick={() => run('/service-access/provision', 'ساخت ادمین سرویس', {})}>
++            ساخت ادمین سرویس
++          </button>
++          <button className="btn btn-g" disabled={busy || !nameOk || !confirm} onClick={() => run('/service-access/rotate', 'چرخش کلید سرویس', { needsOwner: true, danger: true })}>
++            چرخش کلید
++          </button>
++          <button className="btn btn-g" disabled={busy} onClick={listKeys}>
++            فهرست کلیدها
++          </button>
++          <button className="btn btn-g" disabled={busy || !nameOk || !confirm} onClick={() => run('/store-role/apply', 'اعمال نقش فروشگاه', { extra: { role_name: roleName.trim() || null } })}>
++            اعمال نقش فروشگاه
++          </button>
++          <button className="btn btn-g btn-d" disabled={busy || !nameOk || !confirm} onClick={() => run('/store-role/revert', 'بازگشت به نقش پیش‌فرض', { danger: true })}>
++            بازگشت به نقش پیش‌فرض
++          </button>
++        </div>
++        {keys && (
++          <ul className="divide-y divide-[var(--bd)] text-sm">
++            {keys.length === 0 && <li className="py-1 text-[var(--mu)]">کلیدی ثبت نشده است.</li>}
++            {keys.map((k) => (
++              <li key={String(k.id)} className="flex justify-between gap-2 py-1">
++                <span className="latin">{String(k.name)}</span>
++                <span className="text-xs text-[var(--mu)]">
++                  {String(k.status)} · {String(k.request_count ?? 0)} درخواست
++                </span>
++              </li>
++            ))}
++          </ul>
++        )}
++      </section>
++    </div>
++  );
++}
 diff --git a/apps/admin-web/src/PanelAdminsView.tsx b/apps/admin-web/src/PanelAdminsView.tsx
 index 910bd20..67bde6c 100644
 --- a/apps/admin-web/src/PanelAdminsView.tsx
@@ -1376,6 +1741,160 @@ index d735da1..f030de8 100644
        {open && (
          <PaymentDrawer
            p={open}
+diff --git a/apps/admin-web/src/ProductAvailability.tsx b/apps/admin-web/src/ProductAvailability.tsx
+new file mode 100644
+index 0000000..935ec9c
+--- /dev/null
++++ b/apps/admin-web/src/ProductAvailability.tsx
+@@ -0,0 +1,83 @@
++// Per-store availability of one product (GET/POST /admin/products/{id}/availability?store_id=): sold in this store at all,
++// and listed in its storefront. The reseller's own price is not touched here (the reseller sets it).
++import { useEffect, useState } from 'react';
++import { Toggle, errText } from './kit.tsx';
++import type { CallFn } from './types.ts';
++import { errMessage } from './adminHubTypes.ts';
++import type { StoreRow } from './adminHubTypes.ts';
++
++export default function ProductAvailability({
++  call,
++  productId,
++  stores,
++  toast,
++  writable = true,
++}: {
++  call: CallFn;
++  productId: string;
++  stores: StoreRow[];
++  toast: (m: string) => void;
++  writable?: boolean;
++}) {
++  const [storeId, setStoreId] = useState('');
++  const [state, setState] = useState<{ enabled: boolean; listed: boolean } | null>(null);
++  const [busy, setBusy] = useState(false);
++
++  useEffect(() => {
++    setState(null);
++    if (!storeId) return;
++    (async () => {
++      try {
++        const r = await call(`/api/v1/admin/products/${productId}/availability?store_id=${storeId}`);
++        if (!r.ok) throw new Error(await errText(r, String(r.status)));
++        setState(await r.json());
++      } catch {
++        toast('دریافت وضعیت فروش ناموفق بود');
++      }
++    })();
++  }, [call, productId, storeId, toast]);
++
++  const save = async (next: { enabled: boolean; listed: boolean }) => {
++    setBusy(true);
++    try {
++      const r = await call(`/api/v1/admin/products/${productId}/availability`, {
++        method: 'POST',
++        body: JSON.stringify({ store_id: storeId, ...next }),
++      });
++      if (!r.ok) throw new Error(await errText(r, String(r.status)));
++      setState(next);
++      toast('ذخیره شد');
++    } catch (e) {
++      toast(`ناموفق: ${errMessage(e)}`);
++    }
++    setBusy(false);
++  };
++
++  return (
++    <section className="space-y-2 border-t border-[var(--bd)] pt-3">
++      <h3 className="font-extrabold">فروش در هر فروشگاه</h3>
++      <select className="inp w-full" value={storeId} onChange={(e) => setStoreId(e.target.value)} aria-label="فروشگاه">
++        <option value="">یک فروشگاه انتخاب کنید</option>
++        {stores.map((s) => (
++          <option key={s.id} value={s.id}>
++            {s.name}
++          </option>
++        ))}
++      </select>
++      {state && (
++        <div className="space-y-2" aria-busy={busy}>
++          <Toggle
++            checked={!!state.enabled}
++            onChange={(v: boolean) => writable && !busy && save({ enabled: v, listed: state.listed })}
++            label="قابل فروش در این فروشگاه"
++          />
++          <Toggle
++            checked={!!state.listed}
++            onChange={(v: boolean) => writable && !busy && save({ enabled: state.enabled, listed: v })}
++            label="نمایش در ویترین"
++          />
++        </div>
++      )}
++    </section>
++  );
++}
+diff --git a/apps/admin-web/src/ProductParts.tsx b/apps/admin-web/src/ProductParts.tsx
+index 0785fac..202f0b5 100644
+--- a/apps/admin-web/src/ProductParts.tsx
++++ b/apps/admin-web/src/ProductParts.tsx
+@@ -1,10 +1,12 @@
+ import { useEffect, useMemo, useRef, useState } from 'react';
+ 
+ import { Boxes, ChevronDown, Clock, Infinity as Inf, Pencil, Save, Smartphone, Tag, Zap } from 'lucide-react';
+-import type { Json } from './types.ts';
++import type { CallFn, Json } from './types.ts';
++import type { StoreRow } from './adminHubTypes.ts';
+ import { Drawer, Field, NumInput, Section, Segmented, Switch, Toggle, DeleteButton, num, tint } from './kit.tsx'; // #4
+ 
+ import { focusOnMount } from './useDialog.ts';
++import ProductAvailability from './ProductAvailability.tsx';
+ 
+ import { CUR, price, dur, gb, EMPTY, fromProduct, payload, validate, Route } from './productsShared.tsx';
+ 
+@@ -15,7 +17,13 @@ export function ProductDrawer({
+   onClose,
+   onSubmit,
+   onDelete,
++  call,
++  stores,
++  toast,
+ }: {
++  call?: CallFn;
++  stores?: StoreRow[];
++  toast?: (m: string) => void;
+   product?: Json;
+   products?: Json;
+   hasResellers?: Json;
+@@ -245,6 +253,9 @@ export function ProductDrawer({
+           </div>
+         )}
+       </section>
++      {edit && call && (
++        <ProductAvailability call={call} productId={product.id} stores={stores || []} toast={toast ?? (() => {})} />
++      )}
+     </Drawer>
+   );
+ }
+diff --git a/apps/admin-web/src/ProductsView.tsx b/apps/admin-web/src/ProductsView.tsx
+index a445088..a162101 100644
+--- a/apps/admin-web/src/ProductsView.tsx
++++ b/apps/admin-web/src/ProductsView.tsx
+@@ -1,6 +1,8 @@
+ import { useEffect, useMemo, useState } from 'react';
+ import { confirmDialog } from './ui.tsx';
+ import { AlertTriangle, Boxes, CheckCircle2, PowerOff, Plus, Save, ShieldAlert, Tag, Wallet, X } from 'lucide-react';
++import { asList } from './adminHubTypes.ts';
++import type { StoreRow } from './adminHubTypes.ts';
+ import type { Json, Rec, Toast } from './types.ts';
+ import {
+   Empty,
+@@ -400,6 +402,9 @@ export default function ProductsView({ api, toast }: { api?: Json; toast: Toast
+           product={editing}
+           products={rows || []}
+           hasResellers={hasResellers}
++          call={call}
++          stores={asList<StoreRow>(storesQ.rows)}
++          toast={toast}
+           onClose={() => setDrawer(null)}
+           onSubmit={save}
+           onDelete={remove}
 diff --git a/apps/admin-web/src/ReferralProgramsView.tsx b/apps/admin-web/src/ReferralProgramsView.tsx
 index a456287..2ba42e8 100644
 --- a/apps/admin-web/src/ReferralProgramsView.tsx
@@ -1501,20 +2020,129 @@ index 0000000..e10e44f
 +    </section>
 +  );
 +}
+diff --git a/apps/admin-web/src/StoreBotsView.tsx b/apps/admin-web/src/StoreBotsView.tsx
+new file mode 100644
+index 0000000..8fd498b
+--- /dev/null
++++ b/apps/admin-web/src/StoreBotsView.tsx
+@@ -0,0 +1,102 @@
++// «ربات‌ها» tab of the store hub: which Telegram bot belongs to which store (GET/POST /admin/bot-store-bindings).
++// A binding is how a bot key reaches its store; the reseller bot normally creates its own on onboarding, this is the admin's view and manual path.
++import { useCallback, useEffect, useState } from 'react';
++import { authFetch } from './api.ts';
++import { canWrite } from './adminAccess.ts';
++import { Empty, ErrorBar, errText, useRows } from './kit.tsx';
++import type { Toast } from './types.ts';
++import { asList, errMessage } from './adminHubTypes.ts';
++import type { HubApiProp, StoreRow } from './adminHubTypes.ts';
++
++const KIND_LABEL: Record<string, string> = { main: 'ربات اصلی', reseller: 'ربات نماینده' };
++
++export default function StoreBotsView({ api, toast }: { api?: HubApiProp; toast: Toast }) {
++  const call = useCallback((p: string, o?: RequestInit) => authFetch(api?.base ?? '', p, o), [api?.base]);
++  const { rows, failed, load } = useRows(call, '/api/v1/admin/bot-store-bindings');
++  const [stores, setStores] = useState<StoreRow[]>([]);
++  const [form, setForm] = useState({ bot_key: '', bot_username: '', store_id: '', bot_kind: 'reseller' });
++  const [saving, setSaving] = useState(false);
++  const writable = canWrite(api?.perms, 'نمایندگان');
++
++  useEffect(() => {
++    (async () => {
++      try {
++        const r = await call('/api/v1/admin/stores');
++        if (r.ok) setStores(asList<StoreRow>(await r.json()));
++      } catch {
++        toast('دریافت فهرست فروشگاه‌ها ناموفق بود');
++      }
++    })();
++  }, [call, toast]);
++
++  const storeName = (id: string) => stores.find((s) => s.id === id)?.name ?? id;
++  const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
++  const valid = form.bot_key.trim().length >= 8 && !!form.store_id;
++
++  const create = async () => {
++    setSaving(true);
++    try {
++      const body = {
++        bot_key: form.bot_key.trim(),
++        bot_username: form.bot_username.trim().replace(/^@/, '') || null,
++        store_id: form.store_id,
++        bot_kind: form.bot_kind,
++      };
++      const r = await call('/api/v1/admin/bot-store-bindings', { method: 'POST', body: JSON.stringify(body) });
++      if (!r.ok) throw new Error(await errText(r, String(r.status)));
++      toast('اتصال ربات ثبت شد');
++      setForm((f) => ({ ...f, bot_key: '', bot_username: '' }));
++      await load();
++    } catch (e) {
++      toast(`ناموفق: ${errMessage(e)}`);
++    }
++    setSaving(false);
++  };
++
++  return (
++    <section className="card space-y-4 p-4">
++      <p className="text-sm">هر ربات تلگرام با «کلید ربات» به یک فروشگاه وصل می‌شود؛ مشتریان آن ربات فقط محصولات و قیمت‌های همان فروشگاه را می‌بینند.</p>
++      {failed && <ErrorBar onRetry={load}>دریافت اتصال‌های ربات ناموفق بود.</ErrorBar>}
++      {rows && rows.length === 0 && <Empty>هنوز رباتی به فروشگاهی وصل نشده است.</Empty>}
++      <div className="divide-y divide-[var(--bd)]">
++        {(rows || []).map((b) => (
++          <div key={b.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
++            <div className="min-w-0">
++              <div className="font-extrabold">{storeName(b.store_id)}</div>
++              <div dir="ltr" className="latin text-xs text-[var(--mu)]">
++                {b.bot_username ? `@${b.bot_username}` : '-'} · {String(b.bot_key).slice(0, 4)}…
++              </div>
++            </div>
++            <div className="text-xs text-[var(--mu)]">
++              {KIND_LABEL[b.bot_kind] ?? b.bot_kind} · {b.status}
++            </div>
++          </div>
++        ))}
++      </div>
++      {writable && (
++        <div className="space-y-2 border-t border-[var(--bd)] pt-3">
++          <h3 className="font-extrabold">اتصال ربات جدید</h3>
++          <div className="grid gap-2 sm:grid-cols-2">
++            <input className="inp" dir="ltr" value={form.bot_key} onChange={(e) => set('bot_key', e.target.value)} aria-label="کلید ربات" placeholder="کلید ربات (حداقل ۸ نویسه)" />
++            <input className="inp" dir="ltr" value={form.bot_username} onChange={(e) => set('bot_username', e.target.value)} aria-label="نام کاربری ربات" placeholder="@username" />
++            <select className="inp" value={form.store_id} onChange={(e) => set('store_id', e.target.value)} aria-label="فروشگاه">
++              <option value="">فروشگاه</option>
++              {stores.map((s) => (
++                <option key={s.id} value={s.id}>
++                  {s.name}
++                </option>
++              ))}
++            </select>
++            <select className="inp" value={form.bot_kind} onChange={(e) => set('bot_kind', e.target.value)} aria-label="نوع ربات">
++              <option value="reseller">ربات نماینده</option>
++              <option value="main">ربات اصلی</option>
++            </select>
++          </div>
++          <button className="btn" disabled={!valid || saving} onClick={create}>
++            ثبت اتصال
++          </button>
++        </div>
++      )}
++    </section>
++  );
++}
 diff --git a/apps/admin-web/src/StoreHubView.tsx b/apps/admin-web/src/StoreHubView.tsx
 new file mode 100644
-index 0000000..121bbf1
+index 0000000..ed64a0d
 --- /dev/null
 +++ b/apps/admin-web/src/StoreHubView.tsx
-@@ -0,0 +1,85 @@
-+// «فروشگاه‌ها» — the store hub: everything about a store (and its reseller) behind one menu entry, seven tabs:
+@@ -0,0 +1,88 @@
++// «فروشگاه‌ها» — the store hub: everything about a store (and its reseller) behind one menu entry, eight tabs:
 +//   stores    «فروشگاه‌ها»       the list of stores
 +//   resellers «نمایندگان»        reseller accounts of those stores
 +//   panels    «دسترسی پنل»       panel operators (PanelAdmin) and sub branding, per store x panel
 +//   volume    «حجم و سیاست»      store volume governance and the suspend policy
 +//   prices    «قیمت‌ها»         read-only retail prices of a reseller store (the reseller sets them)
 +//   api       «API»             per-store API access switch
-+//   notices   «اعلان‌ها»         per-store low-traffic notice levels
++//   notices   «اعلان‌ها»         per-store low-traffic levels, customer notice texts and the owner digest
++//   bots      «ربات‌ها»          bot key -> store bindings
 +// Each tab keeps its own permission area (SECTION_AREA of the section it came from), so a role sees only what it may open.
 +// Deep link: #/stores?tab=resellers (old #/resellers, #/panel-admins and #/store-governance are rewritten by legacyHash).
 +import type { LazyExoticComponent, ReactNode } from 'react';
@@ -1537,6 +2165,7 @@ index 0000000..121bbf1
 +const StorePricesView = lazy(() => import('./StorePricesView.tsx'));
 +const StoreApiView = lazy(() => import('./StoreApiView.tsx'));
 +const StoreNoticesView = lazy(() => import('./StoreNoticesView.tsx'));
++const StoreBotsView = lazy(() => import('./StoreBotsView.tsx'));
 +
 +type HubView = LazyExoticComponent<(p: { api?: HubApi; toast: Toast }) => ReactNode>;
 +// tab id -> [label, section key used for the permission check, component]
@@ -1548,6 +2177,7 @@ index 0000000..121bbf1
 +  ['prices', 'قیمت‌ها', 'محصولات VPN', StorePricesView],
 +  ['api', 'API', 'نمایندگان', StoreApiView],
 +  ['notices', 'اعلان‌ها', 'حجم فروشگاه‌ها', StoreNoticesView],
++  ['bots', 'ربات‌ها', 'نمایندگان', StoreBotsView],
 +];
 +
 +const tabFromHash = (ids: string[]) => {
@@ -1594,34 +2224,38 @@ index 0000000..121bbf1
 +}
 diff --git a/apps/admin-web/src/StoreNoticesView.tsx b/apps/admin-web/src/StoreNoticesView.tsx
 new file mode 100644
-index 0000000..88f8e4f
+index 0000000..83ba4dc
 --- /dev/null
 +++ b/apps/admin-web/src/StoreNoticesView.tsx
-@@ -0,0 +1,113 @@
+@@ -0,0 +1,282 @@
 +// «اعلان‌ها» tab of the store hub (PG-06): when a store's customers are warned about low traffic. Moved out of panel operations:
-+// the setting belongs to one store, not to a panel.
++// the setting belongs to one store, not to a panel. Also holds the store's own notice wording (vpn-notice-texts) and the
++// owner's daily digest switch (vpn-digest), which had no screen before.
 +import { useCallback, useEffect, useState } from 'react';
 +import { authFetch } from './api.ts';
-+import type { CallFn, Json, Rec, Toast } from './types.ts';
++import { canWrite } from './adminAccess.ts';
++import { Switch } from './kit.tsx';
++import type { CallFn, Toast } from './types.ts';
++import { asList, errMessage } from './adminHubTypes.ts';
++import type { ErrorBody, HubApiProp, NoticeCfg, NoticeTextMeta, StoreRow } from './adminHubTypes.ts';
 +
 +const DEFAULT_LEVELS_TEXT = '80, 90';
-+function NoticeLevels({ call, toast }: { call: CallFn; toast: Toast }) {
-+  const [stores, setStores] = useState<Rec[]>([]);
-+  const [storeId, setStoreId] = useState('');
-+  const [cfg, setCfg] = useState<Json>(null);
++function NoticeLevels({
++  call,
++  toast,
++  storeId,
++  writable,
++  onCfg,
++}: {
++  call: CallFn;
++  toast: Toast;
++  storeId: string;
++  writable: boolean;
++  onCfg: (c: NoticeCfg | null) => void;
++}) {
++  const [cfg, setCfg] = useState<NoticeCfg | null>(null);
 +  const [text, setText] = useState('');
 +  const [saving, setSaving] = useState(false);
-+
-+  useEffect(() => {
-+    (async () => {
-+      try {
-+        const r = await call('/api/v1/admin/stores');
-+        if (r.ok) setStores(await r.json());
-+      } catch {
-+        toast('دریافت فهرست فروشگاه‌ها ناموفق بود');
-+      }
-+    })();
-+  }, [call, toast]);
 +
 +  useEffect(() => {
 +    setCfg(null);
@@ -1632,12 +2266,13 @@ index 0000000..88f8e4f
 +        if (!r.ok) throw new Error(String(r.status));
 +        const j = await r.json();
 +        setCfg(j);
++        onCfg(j);
 +        setText(j.traffic_low_levels.join(', '));
 +      } catch {
 +        toast('دریافت تنظیمات هشدار ناموفق بود');
 +      }
 +    })();
-+  }, [call, storeId, toast]);
++  }, [call, storeId, toast, onCfg]);
 +
 +  const parse = () => {
 +    const parts = text.split(/[,،\s]+/).filter(Boolean);
@@ -1645,7 +2280,7 @@ index 0000000..88f8e4f
 +    return nums.some((n) => !(n >= 1 && n <= 99)) || nums.length > 4 ? null : nums;
 +  };
 +
-+  const save = async (reset: Json) => {
++  const save = async (reset: boolean) => {
 +    const levels = reset ? null : parse();
 +    if (!reset && levels === null) {
 +      toast('حداکثر ۴ عدد صحیح بین ۱ تا ۹۹ وارد کنید (با کاما جدا کنید)');
@@ -1657,31 +2292,24 @@ index 0000000..88f8e4f
 +        method: reset ? 'DELETE' : 'PUT',
 +        body: reset ? undefined : JSON.stringify({ traffic_low_levels: levels }),
 +      });
-+      if (!r.ok) throw new Error((await r.json().catch(() => ({})))?.error?.message || String(r.status));
++      if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as ErrorBody).error?.message || String(r.status));
 +      const j = await r.json();
 +      setCfg(j);
++      onCfg(j);
 +      setText(j.traffic_low_levels.join(', '));
 +      toast('ذخیره شد');
-+    } catch (e: Json) {
-+      toast(`ناموفق: ${e.message}`);
++    } catch (e) {
++      toast(`ناموفق: ${errMessage(e)}`);
 +    }
 +    setSaving(false);
 +  };
 +
 +  return (
-+    <section className="card space-y-3 p-4">
++    <div className="space-y-3">
 +      <p className="text-sm">
 +        مشتریان هر فروشگاه وقتی درصد مصرف حجم اکانتشان به این عددها رسید، یک‌بار پیام می‌گیرند. پیش‌فرض:{' '}
 +        {DEFAULT_LEVELS_TEXT}. لیست خالی یعنی این فروشگاه هشدار حجم نمی‌فرستد.
 +      </p>
-+      <select className="inp" value={storeId} onChange={(e) => setStoreId(e.target.value)} aria-label="فروشگاه">
-+        <option value="">یک فروشگاه انتخاب کنید</option>
-+        {stores.map((s) => (
-+          <option key={s.id} value={s.id}>
-+            {s.name}
-+          </option>
-+        ))}
-+      </select>
 +      {cfg && (
 +        <div className="flex flex-wrap items-center gap-2">
 +          <input
@@ -1692,10 +2320,10 @@ index 0000000..88f8e4f
 +            aria-label="درصدهای هشدار"
 +            placeholder={DEFAULT_LEVELS_TEXT}
 +          />
-+          <button className="btn" disabled={saving} onClick={() => save(false)}>
++          <button className="btn" disabled={saving || !writable} onClick={() => save(false)}>
 +            ذخیره
 +          </button>
-+          <button className="btn btn-g" disabled={saving || cfg.is_default} onClick={() => save(true)}>
++          <button className="btn btn-g" disabled={saving || !writable || cfg.is_default} onClick={() => save(true)}>
 +            بازگشت به پیش‌فرض
 +          </button>
 +          <span className="text-xs text-[var(--mu)]">
@@ -1703,13 +2331,184 @@ index 0000000..88f8e4f
 +          </span>
 +        </div>
 +      )}
-+    </section>
++    </div>
 +  );
 +}
 +
-+export default function StoreNoticesView({ api, toast }: { api?: Json; toast: Toast }) {
-+  const call = useCallback((p: string, o?: RequestInit) => authFetch(api.base, p, o), [api.base]);
-+  return <NoticeLevels call={call} toast={toast} />;
++const KIND_LABEL: Record<string, string> = {
++  vpn_expired: 'انقضای اکانت',
++  vpn_near_expiry: 'نزدیک انقضا',
++  vpn_traffic_low: 'کم‌شدن حجم',
++  vpn_traffic_exhausted: 'اتمام حجم',
++  vpn_disabled: 'غیرفعال‌شدن اکانت',
++  vpn_queued_plan_started: 'شروع پلن صف‌شده',
++};
++
++type Draft = Record<string, { title: string; body: string }>;
++
++/** The store's own wording for customer notices. Kinds left empty use the platform text. */
++function NoticeTexts({ call, toast, storeId, writable }: { call: CallFn; toast: Toast; storeId: string; writable: boolean }) {
++  const [meta, setMeta] = useState<NoticeTextMeta | null>(null);
++  const [draft, setDraft] = useState<Draft>({});
++  const [saving, setSaving] = useState(false);
++
++  useEffect(() => {
++    setMeta(null);
++    if (!storeId) return;
++    (async () => {
++      try {
++        const r = await call(`/api/v1/admin/stores/${storeId}/vpn-notice-texts`);
++        if (!r.ok) throw new Error(String(r.status));
++        const j = await r.json();
++        setMeta(j);
++        setDraft(j.texts || {});
++      } catch {
++        toast('دریافت متن اعلان‌ها ناموفق بود');
++      }
++    })();
++  }, [call, storeId, toast]);
++
++  const edit = (kind: string, field: 'title' | 'body', v: string) =>
++    setDraft((d) => ({ ...d, [kind]: { ...(d[kind] ?? { title: '', body: '' }), [field]: v } }));
++
++  const save = async (clear: boolean) => {
++    // a kind with an empty title and body is not sent: it falls back to the platform text
++    const texts = clear
++      ? {}
++      : Object.fromEntries(Object.entries(draft).filter(([, t]) => t.title.trim() || t.body.trim()));
++    const half = Object.entries(texts).find(([, t]) => !t.title.trim() || !t.body.trim());
++    if (half) {
++      toast(`برای «${KIND_LABEL[half[0]] ?? half[0]}» هم عنوان و هم متن لازم است`);
++      return;
++    }
++    setSaving(true);
++    try {
++      const r = await call(`/api/v1/admin/stores/${storeId}/vpn-notice-texts`, {
++        method: 'PUT',
++        body: JSON.stringify({ texts }),
++      });
++      if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as ErrorBody).error?.message || String(r.status));
++      const j = await r.json();
++      setMeta(j);
++      setDraft(j.texts || {});
++      toast('ذخیره شد');
++    } catch (e) {
++      toast(`ناموفق: ${errMessage(e)}`);
++    }
++    setSaving(false);
++  };
++
++  if (!meta) return null;
++  return (
++    <div className="space-y-3">
++      <h3 className="font-extrabold">متن اعلان‌های مشتری</h3>
++      <p className="text-sm">
++        متن اختصاصی این فروشگاه برای پیام‌های اکانت. جای‌نگه‌دارها:{' '}
++        <span dir="ltr" className="latin">
++          {(meta.placeholders || []).join('  ')}
++        </span>
++        . اگر هر دو خانه‌ی یک نوع خالی بماند، متن پیش‌فرض سامانه فرستاده می‌شود.
++      </p>
++      {(meta.kinds || []).map((k: string) => (
++        <div key={k} className="space-y-1">
++          <div className="text-sm font-extrabold">{KIND_LABEL[k] ?? k}</div>
++          <input
++            className="inp w-full"
++            maxLength={80}
++            value={draft[k]?.title ?? ''}
++            onChange={(e) => edit(k, 'title', e.target.value)}
++            aria-label={`عنوان ${KIND_LABEL[k] ?? k}`}
++            placeholder="عنوان"
++            disabled={!writable}
++          />
++          <textarea
++            className="inp w-full"
++            rows={2}
++            maxLength={500}
++            value={draft[k]?.body ?? ''}
++            onChange={(e) => edit(k, 'body', e.target.value)}
++            aria-label={`متن ${KIND_LABEL[k] ?? k}`}
++            placeholder="متن پیام"
++            disabled={!writable}
++          />
++        </div>
++      ))}
++      <div className="flex flex-wrap gap-2">
++        <button className="btn" disabled={saving || !writable} onClick={() => save(false)}>
++          ذخیره‌ی متن‌ها
++        </button>
++        <button className="btn btn-g" disabled={saving || !writable} onClick={() => save(true)}>
++          بازگشت به متن پیش‌فرض
++        </button>
++      </div>
++    </div>
++  );
++}
++
++/** Daily VPN digest for the store owner (off by default; a day with nothing to report sends nothing). */
++function DigestSwitch({ call, toast, storeId, cfg, writable }: { call: CallFn; toast: Toast; storeId: string; cfg: NoticeCfg | null; writable: boolean }) {
++  const [on, setOn] = useState(false);
++  const [busy, setBusy] = useState(false);
++  useEffect(() => setOn(!!cfg?.daily_digest), [cfg]);
++  if (!cfg) return null;
++  const flip = async (v: boolean) => {
++    setBusy(true);
++    try {
++      const r = await call(`/api/v1/admin/stores/${storeId}/vpn-digest`, { method: 'PUT', body: JSON.stringify({ enabled: v }) });
++      if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as ErrorBody).error?.message || String(r.status));
++      setOn(v);
++      toast(v ? 'خلاصه‌ی روزانه فعال شد' : 'خلاصه‌ی روزانه غیرفعال شد');
++    } catch (e) {
++      toast(`ناموفق: ${errMessage(e)}`);
++    }
++    setBusy(false);
++  };
++  return (
++    <div className="flex items-center justify-between gap-3">
++      <div className="text-sm">
++        خلاصه‌ی روزانه‌ی اکانت‌ها برای مالک فروشگاه
++        {!cfg.has_owner && <span className="text-[var(--mu)]"> (این فروشگاه هنوز مالک ندارد)</span>}
++      </div>
++      <div aria-busy={busy}>
++        <Switch checked={on} onChange={(v: boolean) => writable && !busy && flip(v)} label="خلاصه‌ی روزانه" />
++      </div>
++    </div>
++  );
++}
++
++export default function StoreNoticesView({ api, toast }: { api?: HubApiProp; toast: Toast }) {
++  const call = useCallback((p: string, o?: RequestInit) => authFetch(api?.base ?? '', p, o), [api?.base]);
++  const writable = canWrite(api?.perms, 'حجم فروشگاه‌ها');
++  const [stores, setStores] = useState<StoreRow[]>([]);
++  const [storeId, setStoreId] = useState('');
++  const [cfg, setCfg] = useState<NoticeCfg | null>(null);
++
++  useEffect(() => {
++    (async () => {
++      try {
++        const r = await call('/api/v1/admin/stores');
++        if (r.ok) setStores(asList<StoreRow>(await r.json()));
++      } catch {
++        toast('دریافت فهرست فروشگاه‌ها ناموفق بود');
++      }
++    })();
++  }, [call, toast]);
++
++  return (
++    <section className="card space-y-4 p-4">
++      <select className="inp" value={storeId} onChange={(e) => setStoreId(e.target.value)} aria-label="فروشگاه">
++        <option value="">یک فروشگاه انتخاب کنید</option>
++        {stores.map((s) => (
++          <option key={s.id} value={s.id}>
++            {s.name}
++          </option>
++        ))}
++      </select>
++      <NoticeLevels call={call} toast={toast} storeId={storeId} writable={writable} onCfg={setCfg} />
++      {storeId && <DigestSwitch call={call} toast={toast} storeId={storeId} cfg={cfg} writable={writable} />}
++      {storeId && <NoticeTexts call={call} toast={toast} storeId={storeId} writable={writable} />}
++    </section>
++  );
 +}
 diff --git a/apps/admin-web/src/StorePricesView.tsx b/apps/admin-web/src/StorePricesView.tsx
 new file mode 100644
@@ -1825,6 +2624,52 @@ index 0000000..7383570
 +    </>
 +  );
 +}
+diff --git a/apps/admin-web/src/UnassignedProducts.tsx b/apps/admin-web/src/UnassignedProducts.tsx
+new file mode 100644
+index 0000000..735720b
+--- /dev/null
++++ b/apps/admin-web/src/UnassignedProducts.tsx
+@@ -0,0 +1,40 @@
++// Warning card on the bundles screen: products no bundle sells (GET /admin/bundle-products/unassigned).
++// Customers cannot buy them until an admin puts them in a bundle. Hidden when there are none.
++import { useEffect, useState } from 'react';
++import type { CallFn } from './types.ts';
++import { asList } from './adminHubTypes.ts';
++
++interface Unassigned {
++  product_id: string;
++  name: string;
++  is_active: boolean;
++}
++
++export default function UnassignedProducts({ call }: { call: CallFn }) {
++  const [rows, setRows] = useState<Unassigned[]>([]);
++  useEffect(() => {
++    (async () => {
++      try {
++        const r = await call('/api/v1/admin/bundle-products/unassigned');
++        if (r.ok) setRows(asList<Unassigned>(await r.json()));
++      } catch {
++        setRows([]);
++      }
++    })();
++  }, [call]);
++  if (rows.length === 0) return null;
++  return (
++    <div className="card space-y-1 p-3" role="status">
++      <div className="font-extrabold">محصولی بدون بسته فروش ({rows.length.toLocaleString('fa-IR')})</div>
++      <p className="text-sm text-[var(--mu)]">مشتری این محصول‌ها را نمی‌تواند بخرد تا در یک بسته فروش قرار بگیرند:</p>
++      <div className="flex flex-wrap gap-1">
++        {rows.map((p) => (
++          <span key={p.product_id} className="pill">
++            {p.name}
++            {!p.is_active && ' (غیرفعال)'}
++          </span>
++        ))}
++      </div>
++    </div>
++  );
++}
 diff --git a/apps/admin-web/src/adminAccess.ts b/apps/admin-web/src/adminAccess.ts
 index 23cfef4..925a668 100644
 --- a/apps/admin-web/src/adminAccess.ts
@@ -1847,6 +2692,38 @@ index 23cfef4..925a668 100644
    'حساب من': 'self',
  };
  
+diff --git a/apps/admin-web/src/adminHubTypes.ts b/apps/admin-web/src/adminHubTypes.ts
+new file mode 100644
+index 0000000..4bbcdcb
+--- /dev/null
++++ b/apps/admin-web/src/adminHubTypes.ts
+@@ -0,0 +1,26 @@
++// Narrow shapes for the store-hub / panel-access / order-attach screens (instead of the loose aliases in types.ts).
++export interface HubApiProp {
++  base?: string;
++  perms?: string[];
++}
++export interface StoreRow {
++  id: string;
++  name: string;
++  kind?: string;
++}
++export interface NoticeCfg {
++  traffic_low_levels: number[];
++  is_default: boolean;
++  daily_digest?: boolean;
++  has_owner?: boolean;
++}
++export interface NoticeTextMeta {
++  texts: Record<string, { title: string; body: string }>;
++  kinds: string[];
++  placeholders: string[];
++}
++export interface ErrorBody {
++  error?: { message?: string };
++}
++export const errMessage = (e: unknown) => (e instanceof Error ? e.message : String(e));
++export const asList = <T>(j: unknown): T[] => (Array.isArray(j) ? (j as T[]) : []);
 diff --git a/apps/admin-web/src/infra.tsx b/apps/admin-web/src/infra.tsx
 index 5df784d..d401dc1 100644
 --- a/apps/admin-web/src/infra.tsx
@@ -1880,10 +2757,10 @@ index d618abe..6646310 100644
  import type { Json } from './types.ts';
 diff --git a/apps/admin-web/src/panels/PanelDetailDrawer.tsx b/apps/admin-web/src/panels/PanelDetailDrawer.tsx
 new file mode 100644
-index 0000000..e301c9b
+index 0000000..8a840eb
 --- /dev/null
 +++ b/apps/admin-web/src/panels/PanelDetailDrawer.tsx
-@@ -0,0 +1,74 @@
+@@ -0,0 +1,79 @@
 +import { useCallback, useState } from 'react';
 +import { Activity } from 'lucide-react';
 +import { Drawer } from '../kit.tsx';
@@ -1894,6 +2771,7 @@ index 0000000..e301c9b
 +import PanelCapacityTab from '../PanelCapacityTab.tsx';
 +import PanelTemplatesTab from '../PanelTemplatesTab.tsx';
 +import PanelPhase5Tab from '../PanelPhase5Tab.tsx';
++import PanelAccessTab from '../PanelAccessTab.tsx';
 +import type { Toast } from '../types.ts';
 +
 +export const DETAIL_TABS: [string, string][] = [
@@ -1903,6 +2781,7 @@ index 0000000..e301c9b
 +  ['capacity', 'ظرفیت و فروش'],
 +  ['templates', 'تمپلیت‌ها'],
 +  ['observe', 'شاخص و پشتیبان'],
++  ['access', 'دسترسی'],
 +];
 +
 +/** The panel-scoped tabs. ``panelId`` may be empty: each tab then shows its own "choose a panel" state. */
@@ -1910,8 +2789,10 @@ index 0000000..e301c9b
 +  api,
 +  toast,
 +  panelId,
++  panelName,
 +  tab: first,
 +}: {
++  panelName?: string;
 +  api: { base: string };
 +  toast: Toast;
 +  panelId?: string;
@@ -1934,6 +2815,7 @@ index 0000000..e301c9b
 +      {tab === 'capacity' && <PanelCapacityTab call={call} panelId={panelId} toast={toast} />}
 +      {tab === 'templates' && <PanelTemplatesTab call={call} panelId={panelId} toast={toast} />}
 +      {tab === 'observe' && <PanelPhase5Tab call={call} panelId={panelId} toast={toast} />}
++      {tab === 'access' && <PanelAccessTab call={call} panelId={panelId} panelName={panelName} toast={toast} />}
 +    </>
 +  );
 +}
@@ -1954,7 +2836,7 @@ index 0000000..e301c9b
 +}) {
 +  return (
 +    <Drawer title={panel.name} subtitle="عملیات پنل" icon={<Activity size={18} />} onClose={onClose}>
-+      <PanelDetailTabs api={api} toast={toast} panelId={panel.id} tab={tab} />
++      <PanelDetailTabs api={api} toast={toast} panelId={panel.id} panelName={panel.name} tab={tab} />
 +    </Drawer>
 +  );
 +}
@@ -2297,6 +3179,98 @@ index ae903fc..358f0d1 100644
  import { DialogHost } from '../src/ui.tsx';
  
  const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
+diff --git a/apps/admin-web/tests/store-hub-endpoints.test.jsx b/apps/admin-web/tests/store-hub-endpoints.test.jsx
+new file mode 100644
+index 0000000..3b84065
+--- /dev/null
++++ b/apps/admin-web/tests/store-hub-endpoints.test.jsx
+@@ -0,0 +1,86 @@
++import { afterEach, describe, expect, it, vi } from 'vitest';
++import { render, screen, waitFor } from '@testing-library/react';
++import userEvent from '@testing-library/user-event';
++import StoreBotsView from '../src/StoreBotsView.tsx';
++import StoreNoticesView from '../src/StoreNoticesView.tsx';
++import UnassignedProducts from '../src/UnassignedProducts.tsx';
++import ProductAvailability from '../src/ProductAvailability.tsx';
++
++const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
++const api = { base: 'http://core.test', perms: [] };
++const STORES = [{ id: 's1', name: 'فروشگاه الف', kind: 'reseller' }];
++const calls = [];
++
++function stubFetch(routes) {
++  vi.stubGlobal(
++    'fetch',
++    vi.fn(async (url, init = {}) => {
++      const path = String(url).replace('http://core.test', '');
++      calls.push({ path, method: init.method || 'GET', body: init.body ? JSON.parse(init.body) : null });
++      const hit = Object.entries(routes).find(([k]) => path.startsWith(k.split(' ')[1]) && (init.method || 'GET') === k.split(' ')[0]);
++      return hit ? json(typeof hit[1] === 'function' ? hit[1]() : hit[1]) : json({}, 404);
++    }),
++  );
++}
++
++afterEach(() => {
++  vi.unstubAllGlobals();
++  calls.length = 0;
++});
++
++describe('store hub screens for formerly UI-less endpoints', () => {
++  it('bot bindings: lists them and creates one for a store', async () => {
++    stubFetch({
++      'GET /api/v1/admin/bot-store-bindings': [{ id: 'b1', bot_key: 'abcdefgh1234', bot_username: 'rep_bot', store_id: 's1', bot_kind: 'reseller', status: 'active' }],
++      'GET /api/v1/admin/stores': STORES,
++      'POST /api/v1/admin/bot-store-bindings': { id: 'b2' },
++    });
++    render(<StoreBotsView api={api} toast={() => {}} />);
++    expect(await screen.findByText('@rep_bot', { exact: false })).toBeTruthy();
++    // the write form is hidden for a role without write access
++    expect(screen.queryByText('اتصال ربات جدید')).toBeNull();
++  });
++
++  it('notices tab: saves custom notice texts and the digest switch for the chosen store', async () => {
++    stubFetch({
++      'GET /api/v1/admin/stores/s1/vpn-notices': { traffic_low_levels: [80, 90], is_default: true, daily_digest: false, has_owner: true },
++      'GET /api/v1/admin/stores/s1/vpn-notice-texts': { texts: {}, kinds: ['vpn_expired'], placeholders: ['{store}', '{level}'] },
++      'PUT /api/v1/admin/stores/s1/vpn-notice-texts': { texts: { vpn_expired: { title: 'پایان', body: 'تمام شد {store}' } }, kinds: ['vpn_expired'], placeholders: [] },
++      'GET /api/v1/admin/stores': STORES,
++    });
++    const user = userEvent.setup();
++    render(<StoreNoticesView api={{ ...api, perms: ['infrastructure:rw'] }} toast={() => {}} />);
++    await user.selectOptions(await screen.findByLabelText('فروشگاه'), 's1');
++    await user.type(await screen.findByLabelText('عنوان انقضای اکانت'), 'پایان');
++    await user.type(screen.getByLabelText('متن انقضای اکانت'), 'تمام شد');
++    await user.click(screen.getByText('ذخیره‌ی متن‌ها'));
++    await waitFor(() => expect(calls.some((c) => c.method === 'PUT' && c.path.endsWith('/vpn-notice-texts'))).toBe(true));
++    const put = calls.find((c) => c.method === 'PUT');
++    expect(put.body.texts.vpn_expired).toEqual({ title: 'پایان', body: 'تمام شد' });
++  });
++
++  it('unassigned products: warns, and stays silent when every product is in a bundle', async () => {
++    stubFetch({ 'GET /api/v1/admin/bundle-products/unassigned': [{ product_id: 'p1', code: 'x', name: 'محصول یتیم', is_active: true }] });
++    const { unmount } = render(<UnassignedProducts call={(p, o) => fetch(`http://core.test${p}`, o)} />);
++    expect(await screen.findByText('محصول یتیم')).toBeTruthy();
++    unmount();
++    stubFetch({ 'GET /api/v1/admin/bundle-products/unassigned': [] });
++    const { container } = render(<UnassignedProducts call={(p, o) => fetch(`http://core.test${p}`, o)} />);
++    await waitFor(() => expect(calls.length).toBeGreaterThan(0));
++    expect(container.textContent).toBe('');
++  });
++
++  it('product availability: loads the store state and posts the change', async () => {
++    stubFetch({
++      'GET /api/v1/admin/products/p1/availability': { store_id: 's1', enabled: true, listed: true, customer_price: null },
++      'POST /api/v1/admin/products/p1/availability': { ok: true },
++    });
++    const user = userEvent.setup();
++    render(<ProductAvailability call={(p, o) => fetch(`http://core.test${p}`, o)} productId="p1" stores={STORES} toast={() => {}} />);
++    await user.selectOptions(screen.getByLabelText('فروشگاه'), 's1');
++    const toggle = await screen.findByRole('switch', { name: /نمایش در ویترین/ });
++    await user.click(toggle);
++    await waitFor(() => expect(calls.some((c) => c.method === 'POST')).toBe(true));
++    expect(calls.find((c) => c.method === 'POST').body).toEqual({ store_id: 's1', enabled: true, listed: false });
++  });
++});
 diff --git a/apps/admin-web/tests/store-hub-tabs.test.jsx b/apps/admin-web/tests/store-hub-tabs.test.jsx
 new file mode 100644
 index 0000000..95e47aa
@@ -3400,6 +4374,30 @@ index 8aadb8a..05eaec6 100644
      await settings_store.set_value(session, key, body.value)
      audit.record(
          session,
+diff --git a/apps/api/melorin/modules/admin/store_vpn_notices.py b/apps/api/melorin/modules/admin/store_vpn_notices.py
+index d574f7d..a5557e5 100644
+--- a/apps/api/melorin/modules/admin/store_vpn_notices.py
++++ b/apps/api/melorin/modules/admin/store_vpn_notices.py
+@@ -28,12 +28,18 @@ class NoticeSettingsOut(BaseModel):
+     traffic_low_levels: list[int]
+     is_default: bool
+     default_levels: list[int] = list(notices.TRAFFIC_LOW_LEVELS)
++    daily_digest: bool = False
++    has_owner: bool = False
+ 
+ 
+ def _notice_out(store: Store) -> NoticeSettingsOut:
+     custom = bool(store.vpn_notice_settings) and "traffic_low_levels" in store.vpn_notice_settings
+     return NoticeSettingsOut(
+-        store_id=store.id, traffic_low_levels=list(notices.levels_for_store(store.vpn_notice_settings)), is_default=not custom
++        store_id=store.id,
++        traffic_low_levels=list(notices.levels_for_store(store.vpn_notice_settings)),
++        is_default=not custom,
++        daily_digest=(store.vpn_notice_settings or {}).get("daily_digest") is True,
++        has_owner=store.owner_user_id is not None,
+     )
+ 
+ 
 diff --git a/apps/api/melorin/modules/admin/targets.py b/apps/api/melorin/modules/admin/targets.py
 index 186917b..1621977 100644
 --- a/apps/api/melorin/modules/admin/targets.py
@@ -10147,7 +11145,7 @@ index 7a61d36..31567cc 100644
  | GET | `/api/v1/admin/payments/{payment_id}/receipt` | Payment Receipt |
  | GET | `/api/v1/admin/payments/{payment_id}/receipt-duplicates` | Payment Receipt Duplicates |
 diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
-index 1be7e54..43741ae 100644
+index 1be7e54..810693d 100644
 --- a/docs/DECISIONS.md
 +++ b/docs/DECISIONS.md
 @@ -51,7 +51,7 @@ _Merged from the former 12-Change-Log-v1.1.md._
@@ -10209,7 +11207,7 @@ index 1be7e54..43741ae 100644
 +- Identity verification ownership (T09 1.11): `identity/auto_link` verifies CUSTOMER identity links (docs/23); `reseller/auto_verify`, `recheck`, `auto_approve` and `reseller/identity` verify RESELLER applicants during onboarding. They share domain rules in `domain/`, not code paths, so they stay separate on purpose; merging them would couple two lifecycles.
 +- Palette merge of admin-web and store-web is explicitly postponed by the owner (2026-11-14).
 +- Gate on r3 (2026-11-14): lint-imports 6/6 kept, api pytest 2655 passed / 11 skipped, admin-web typecheck+build+vitest 289 passed, store-web 79 passed. Docker stack, bots and payment gateway not run.
-+- UI-less admin endpoints (T09/T10 inventory, 2026-11-14): consumer check across admin-web and both bots found no caller for store-role-plan, service-access, vpn-digest, vpn-notice-texts, bot-store-bindings, bundle-products/unassigned, products/{id}/availability and orders/{id}/attach-account (`tools/connections` has no route at all, so the heuristic entry was stale). Decision: keep them as API-only operator endpoints (permission-guarded, covered by API tests); none is removed. A screen is added only when a workflow needs it, in the group named by the review (store-role/service-access/digest/notice-texts: Store Hub; bundle-products and availability: catalog; attach-account: order detail). Docs numbering gaps 12 and 15 are intentional (docs/00-README).
++- UI-less admin endpoints (T09/T10 inventory, 2026-11-14) now have screens (`tools/connections` had no route, so it was a stale heuristic entry): Store Hub «اعلان‌ها» tab holds `vpn-notice-texts` (per-kind customer wording) and `vpn-digest` (owner daily digest switch; `GET vpn-notices` now also returns `daily_digest` and `has_owner`); new Store Hub «ربات‌ها» tab lists/creates `bot-store-bindings`; the bundles screen warns about `bundle-products/unassigned`; the product drawer has a per-store availability section (`products/{id}/availability`); the order drawer has an attach-account form for orders in provisioning_failed / manual_review (`orders/{id}/attach-account`); the panel detail has an «دسترسی» tab for `store-role-plan` and `service-access` (provision, rotate, keys, store role apply/revert; owner credential is sent once and cleared from the form, panel name must be typed). Vitest covers the four read/write paths; the panel-access writes need a real panel and were not exercised. Docs numbering gaps 12 and 15 are intentional (docs/00-README).
 diff --git a/docs/GLOSSARY.md b/docs/GLOSSARY.md
 index 05da7ef..7e9f949 100644
 --- a/docs/GLOSSARY.md
