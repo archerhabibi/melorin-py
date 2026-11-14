@@ -6,7 +6,7 @@
 #             No curl, no gnupg, no pip cache, no test tooling; runs as a non-root user.
 # Keep the PostgreSQL client major aligned with the postgres:16 service so custom-format restores work without a
 # cross-major compatibility workaround. The base image is pinned by digest by scripts/pin_images.py.
-FROM python:3.12-slim-bookworm@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df AS base
+FROM python:3.15-slim-bookworm@sha256:96599df822d0e1c6bb700014a05c7f3c8cabc6e0f7ff3c4f9f69cee033b4b5d9 AS base
 
 FROM base AS pgdg-key
 # The key download is the only step here that depends on an external host. CI hit "curl: (56) Recv failure: Connection reset by peer"
