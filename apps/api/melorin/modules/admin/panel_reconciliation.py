@@ -17,8 +17,8 @@ from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import AppError, NotFound
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.vpn import Panel, ReconciliationIssue, VpnAccount
-from melorin.modules.vpn import issues as issue_svc
-from melorin.modules.vpn import reconcile
+from melorin.modules.vpn_accounts import issues as issue_svc
+from melorin.modules.vpn_accounts import reconcile
 
 from melorin.modules.panelops import queries
 from melorin.modules.panelops import reconciliation_actions as actions
@@ -77,7 +77,7 @@ class IssueActionIn(BaseModel):
 # ------------------------------------------------------------------------------------------------------------------ nodes
 @router.get("/panels/{panel_id}/nodes", response_model=PanelNodesOut)
 async def panel_nodes(panel_id: uuid.UUID, _: AdminUser, session: Session):
-    from melorin.modules.vpn.health import node_error_hint
+    from melorin.modules.panel_integrations.health import node_error_hint
 
     panel = await session.get(Panel, panel_id)
     if not panel:

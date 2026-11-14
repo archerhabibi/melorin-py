@@ -49,8 +49,14 @@ async def test_main_store_uses_its_own_configuration():
     async with open_session() as s:
         main = await make_store(s, kind="main")
         await store_config.upsert(
-            s, store_id=main.id, provider="manual_card", is_enabled=True,
-            public_config={"card_number": "6037", "holder": "Ali"}, secret=None, actor_id=ACTOR, actor_type="admin",
+            s,
+            store_id=main.id,
+            provider="manual_card",
+            is_enabled=True,
+            public_config={"card_number": "6037", "holder": "Ali"},
+            secret=None,
+            actor_id=ACTOR,
+            actor_type="admin",
         )
         await s.flush()
         got = await pay.store_payment_settings(s, main, "manual_card")
@@ -60,7 +66,9 @@ async def test_main_store_uses_its_own_configuration():
 async def test_zarinpal_edit_keeps_the_stored_access_token_and_view_hides_secrets():
     async with open_session() as s:
         main = await make_store(s, kind="main")
-        kw = dict(store_id=main.id, provider="zarinpal", is_enabled=True, public_config={"sandbox": False}, actor_id=ACTOR, actor_type="admin")
+        kw = dict(
+            store_id=main.id, provider="zarinpal", is_enabled=True, public_config={"sandbox": False}, actor_id=ACTOR, actor_type="admin"
+        )
         await store_config.upsert(s, secret={"merchant_id": "m-1", "access_token": "tok"}, **kw)
         row = await store_config.upsert(s, secret={"merchant_id": "m-2"}, **kw)
         await s.flush()

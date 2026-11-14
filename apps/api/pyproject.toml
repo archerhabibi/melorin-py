@@ -87,7 +87,7 @@ layers = [
   "melorin.modules.orders | melorin.modules.payments | melorin.modules.identity",
   "melorin.modules.panelops",
   "melorin.modules.catalog | melorin.modules.referral | melorin.modules.loyalty | melorin.modules.tickets",
-  "melorin.modules.vpn | melorin.modules.wallet | melorin.modules.webhooks | melorin.modules.notifications | melorin.modules.eventcenter | melorin.modules.broadcast",
+  "melorin.modules.vpn_accounts | melorin.modules.wallet | melorin.modules.webhooks | melorin.modules.notifications | melorin.modules.eventcenter | melorin.modules.broadcast",
   "melorin.modules.panel_integrations",
 ]
 
@@ -99,6 +99,33 @@ layers = [
   "melorin.modules.catalog.allocation.routing",
   "melorin.modules.catalog.allocation.offers",
 ]
+
+[[tool.importlinter.contracts]]
+name = "panelops reaches vpn_accounts only through account-lifecycle ports (sync, notices, reconcile, issues, freshness, renewal)"
+type = "forbidden"
+source_modules = ["melorin.modules.panelops"]
+forbidden_modules = [
+  "melorin.modules.vpn_accounts.router",
+  "melorin.modules.vpn_accounts.tools_router",
+  "melorin.modules.vpn_accounts.inquiry",
+  "melorin.modules.vpn_accounts.account_tools",
+  "melorin.modules.vpn_accounts.live",
+  "melorin.modules.vpn_accounts.plans",
+  "melorin.modules.vpn_accounts.returns",
+  "melorin.modules.vpn_accounts.manual_assign",
+  "melorin.modules.vpn_accounts.schemas",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "admin routers never build provider adapters or sessions (they call panelops services)"
+type = "forbidden"
+source_modules = ["melorin.modules.admin"]
+forbidden_modules = [
+  "melorin.modules.panel_integrations.adapters.registry",
+  "melorin.modules.panel_integrations.session",
+]
+allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
 name = "channels are adapters: they never import admin, reseller, reports, the worker or the entry points"

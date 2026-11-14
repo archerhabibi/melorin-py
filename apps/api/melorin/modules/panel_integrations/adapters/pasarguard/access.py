@@ -1,6 +1,6 @@
 """PasarGuard access management (PG-05): the least-privilege role, the service admin's API key, and listing / deleting keys.
 
-Only an owner-level credential may call these (they create roles and keys). They are used by ``modules/vpn/service_access.py`` with a
+Only an owner-level credential may call these (they create roles and keys). They are used by ``modules/vpn_accounts/service_access.py`` with a
 credential the operator supplies for that one request; the credential Melorin runs on cannot do any of this by design.
 Request shapes are taken from the live panel's OpenAPI 5.6.0 (``AdminRoleCreate``, ``APIKeyCreate``)."""
 

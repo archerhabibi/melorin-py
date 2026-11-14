@@ -18,7 +18,7 @@ from melorin.modules.orders import service as orders
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.stores import ResellerProfile, StoreMembership
 from melorin.modules.catalog import allocation
-from melorin.modules.vpn import renewal
+from melorin.modules.vpn_accounts import renewal
 from melorin.modules.orders import provisioning as vpn
 from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelAccount, PanelError
 from melorin.kernel.models.bundles import Bundle, BundleMember, BundleProduct
@@ -401,7 +401,7 @@ async def test_renewal_info_after_the_window_says_why_and_the_quote_is_refused()
 
 
 def test_account_list_tells_the_clients_whether_renewal_is_open():
-    from melorin.modules.vpn.router import out
+    from melorin.modules.vpn_accounts.router import out
 
     now = dt.datetime.now(dt.UTC)
     a = VpnAccount(

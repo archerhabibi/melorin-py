@@ -16,7 +16,7 @@ from _db import make_order, make_product, make_store, make_user, open_schema_eng
 from melorin.core.errors import AppError
 from melorin.kernel.models.system import AuditEvent
 from melorin.kernel.models.vpn import Panel, VpnAccount
-from melorin.modules.vpn import account_tools as tools
+from melorin.modules.vpn_accounts import account_tools as tools
 from melorin.modules.panel_integrations.adapters.base import Capabilities, ErrorKind, PanelAccount, PanelError
 
 GIB = 1024**3
@@ -337,7 +337,7 @@ async def test_adjust_on_an_expired_account_counts_from_now_not_from_the_past(ma
 
 # ---------------------------------------------------------------------------------------------------------------- HTTP surface
 def test_routes_exist_per_role_and_privileged_tools_are_not_registered_for_lower_roles():
-    from melorin.modules.vpn.tools_router import router
+    from melorin.modules.vpn_accounts.tools_router import router
 
     paths = {(m, r.path) for r in router.routes for m in r.methods}
     cust, own, adm = (

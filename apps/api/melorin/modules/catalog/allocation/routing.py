@@ -262,7 +262,9 @@ async def _active_counts(session: AsyncSession, server_ids: list[uuid.UUID], pan
 
 
 def _candidate(server: Server, panel: Panel, member: BundleMember | None, active_server: int, active_panel: int) -> Candidate:
-    from melorin.modules.vpn.capacity import effective_load  # PG-08: capacity_source=panel also counts users created outside Melorin
+    from melorin.modules.panel_integrations.capacity import (
+        effective_load,
+    )  # PG-08: capacity_source=panel also counts users created outside Melorin
 
     active_server = effective_load(server, active_server)
     return Candidate(

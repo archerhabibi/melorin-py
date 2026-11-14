@@ -26,7 +26,7 @@ from melorin.core.db import utcnow
 from melorin.core.errors import AppError
 from melorin.core.health import WEBHOOK_SILENT_AFTER
 from melorin.kernel.models.vpn import Panel, PanelEvent
-from melorin.modules.vpn import panel_events
+from melorin.modules.panelops import panel_events
 from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError, supports
 from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
 from melorin.modules.panel_integrations.adapters.registry import build_adapter

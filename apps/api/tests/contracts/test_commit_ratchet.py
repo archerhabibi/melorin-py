@@ -1,4 +1,4 @@
-"""Ratchet for audit T10: hand-written ``session.commit()`` in vpn/panelops may only go down.
+"""Ratchet for audit T10: hand-written ``session.commit()`` in vpn_accounts/panelops/panel_integrations may only go down.
 
 New code should use ``melorin.core.uow.unit_of_work``. When you migrate a call site, lower its number here (the test also fails
 when a file is below its baseline, so the gain is locked in).
@@ -10,18 +10,18 @@ import re
 ROOT = pathlib.Path(__file__).resolve().parents[2] / "melorin"
 
 BASELINE = {
-    "modules/vpn/account_tools.py": 7,
+    "modules/vpn_accounts/account_tools.py": 7,
     "modules/panelops/bulk.py": 12,
     "modules/panelops/governance.py": 2,
-    "modules/vpn/manual_assign.py": 1,
+    "modules/vpn_accounts/manual_assign.py": 1,
     "modules/panelops/panel_admins.py": 4,
-    "modules/vpn/panel_events.py": 7,
+    "modules/panelops/panel_events.py": 7,
     "modules/panelops/panel_events_admin.py": 3,
-    "modules/vpn/plans.py": 1,
-    "modules/vpn/reconcile.py": 3,
+    "modules/vpn_accounts/plans.py": 1,
+    "modules/vpn_accounts/reconcile.py": 3,
     "modules/panelops/service_access.py": 1,
     "modules/panelops/subscription_check.py": 1,
-    "modules/vpn/templates.py": 5,
+    "modules/panel_integrations/templates.py": 5,
     "modules/panelops/ops_console.py": 3,
     "modules/panelops/settings_drift.py": 2,
     "modules/panelops/sub_branding.py": 2,
@@ -30,7 +30,7 @@ BASELINE = {
 
 def _counts() -> dict[str, int]:
     out = {}
-    for pkg in ("vpn", "panelops"):
+    for pkg in ("vpn_accounts", "panelops", "panel_integrations"):
         for path in sorted((ROOT / "modules" / pkg).rglob("*.py")):
             n = len(re.findall(r"\.commit\(\)", path.read_text(encoding="utf-8")))
             if n:

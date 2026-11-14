@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import inspect
 
-from melorin.modules.vpn import panel_events, webhook_router
+from melorin.modules.panelops import panel_events, webhook_router
 from melorin.worker import jobs
 
 

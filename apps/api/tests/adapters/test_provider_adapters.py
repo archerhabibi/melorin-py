@@ -175,8 +175,8 @@ _FAMILY_PKGS = (
 # the webhook/event consumers must read (a PasarGuard-only feature, gated by providers.supports(..., "webhook_events")).
 _ALLOWED = {
     "melorin/modules/panel_integrations/adapters/providers.py",
-    "melorin/modules/vpn/webhook_router.py",
-    "melorin/modules/vpn/panel_events.py",
+    "melorin/modules/panelops/webhook_router.py",
+    "melorin/modules/panelops/panel_events.py",
     "melorin/modules/panelops/service_access.py",
     "melorin/modules/panelops/settings_drift.py",
 }

@@ -1,6 +1,6 @@
 """Renewal on behalf of a customer, started by the reseller who owns the store.
 
-The account search/scope rules stay in :mod:`melorin.modules.vpn.inquiry`; the renewal itself runs through the same
+The account search/scope rules stay in :mod:`melorin.modules.vpn_accounts.inquiry`; the renewal itself runs through the same
 orders/catalog rules a customer would hit, so this file only wires them together for the reseller channel."""
 
 import uuid
@@ -11,7 +11,7 @@ from melorin.kernel.models.vpn import VpnAccount
 from melorin.modules.catalog.router import renewal_info
 from melorin.modules.orders import service as orders
 from melorin.modules.reseller.schemas import OwnerRenewalOut
-from melorin.modules.vpn import inquiry
+from melorin.modules.vpn_accounts import inquiry
 
 PAYER_NOTE = "مبلغ از کیف پول صاحب اکانت در همین فروشگاه کسر می‌شود."
 

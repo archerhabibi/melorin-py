@@ -2,7 +2,7 @@
 
 A server (destination) points at PasarGuard groups or a user template. A destination is only worth selling when customers created
 there can actually connect:  group enabled -> at least one enabled host on one of its inbound tags -> at least one connected node
-that runs those inbounds.  Layers 1-2 (panel answers, nodes) live in :mod:`melorin.modules.vpn.health`.
+that runs those inbounds.  Layers 1-2 (panel answers, nodes) live in :mod:`melorin.modules.panel_integrations.health`.
 
 Pure functions first (``assess_group``, ``assess_server``, ``fill_state``), then one loader (:func:`refresh_panel`) that the health job
 calls with a live adapter. Rules that matter:
@@ -32,7 +32,7 @@ from melorin.modules.panel_integrations import capabilities as panel_caps
 from melorin.modules.panel_integrations.adapters.base import PanelError, supports
 from melorin.modules.panel_integrations.targets import effective_destination
 
-log = logging.getLogger("melorin.vpn.capacity")
+log = logging.getLogger("melorin.panel_integrations.capacity")
 
 OK, DEGRADED, BLOCKED = "healthy", "degraded", "blocked"
 CAPACITY_SOURCES = ("melorin", "panel")

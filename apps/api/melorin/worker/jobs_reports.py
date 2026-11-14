@@ -13,8 +13,6 @@ _close_strict = functools.partial(close_adapter, strict=True)  # worker jobs kee
 log = logging.getLogger("melorin.jobs")
 
 
-
-
 @tracked_job
 async def daily_report_job(ctx=None):
     """Queue the Event Center nightly summary (one per group). Safe to run twice: the report is deduplicated per Tehran day."""
@@ -22,7 +20,6 @@ async def daily_report_job(ctx=None):
         queued = await event_center_report.run(session)
         await session.commit()
     return queued
-
 
 
 @tracked_job
@@ -34,5 +31,3 @@ async def store_digest_job(ctx=None):
         queued = await digest.run(session)
         await session.commit()
     return queued
-
-

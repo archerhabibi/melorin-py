@@ -22,9 +22,9 @@ from sqlalchemy import and_, case, func, or_, select
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError, NotFound
 from melorin.core.scope import OwnerScope, StoreScope
-from melorin.modules.vpn import freshness, renewal, service
+from melorin.modules.vpn_accounts import freshness, renewal, service
 from melorin.kernel.models.vpn import VpnAccount
-from melorin.modules.vpn.schemas import OwnerAccountOut, VpnAccountOut
+from melorin.modules.vpn_accounts.schemas import OwnerAccountOut, VpnAccountOut
 
 OWN_LABEL = "اکانت خودتان"
 RESELLER_LIST_NOTE = (

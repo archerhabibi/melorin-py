@@ -2,7 +2,7 @@
 
 One handler set, three scopes. The scope is resolved BEFORE the tool runs (customer: his own account in this store; owner: an
 account of his store; admin: any account); a tool a role does not have is not even registered for it. Rules live in
-:mod:`melorin.modules.vpn.account_tools`.
+:mod:`melorin.modules.vpn_accounts.account_tools`.
 """
 
 import uuid
@@ -15,9 +15,9 @@ from melorin.core.deps import AdminUser, OwnerCtx, Session, StoreCtx
 from melorin.core.errors import NotFound
 from melorin.core.scope import StoreScope
 from melorin.kernel.models.vpn import Panel, VpnAccount
-from melorin.modules.vpn import account_tools as tools
-from melorin.modules.vpn import inquiry, live
-from melorin.modules.vpn.schemas import (
+from melorin.modules.vpn_accounts import account_tools as tools
+from melorin.modules.vpn_accounts import inquiry, live
+from melorin.modules.vpn_accounts.schemas import (
     AccountAdjustIn,
     ConnectionsOut,
     DevicesOut,

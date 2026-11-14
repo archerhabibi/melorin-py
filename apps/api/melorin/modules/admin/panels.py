@@ -13,7 +13,6 @@ from melorin.kernel.models.catalog import Product
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.vpn import Panel, PanelNode, PanelOrphan, Server, VpnAccount
 from melorin.kernel.models.bundles import Bundle, BundleMember
-from melorin.modules.panelops import panel_notices
 from melorin.modules.admin.schemas import (
     CreatePanel,
     CreateServer,
@@ -23,9 +22,8 @@ from melorin.modules.admin.schemas import (
     UpdateServer,
 )
 from melorin.modules.admin.targets import check_target, target_warnings
-from melorin.modules.panel_integrations.session import close_adapter
 from melorin.modules.panel_integrations import capabilities
-from melorin.modules.vpn.capacity import capacity_view
+from melorin.modules.panel_integrations.capacity import capacity_view
 from melorin.modules.panel_integrations.targets import capacity_label, effective_destination
 from melorin.modules.admin._common import (
     _commit_or_conflict,
@@ -394,27 +392,13 @@ async def delete_server(server_id: uuid.UUID, admin: AdminUser, session: Session
 @router.post("/panels/{panel_id}/health")
 async def panel_health(panel_id: uuid.UUID, _: AdminUser, session: Session):
     """Explicit health check: panel answers AND its nodes (PG-01). ``healthy`` = the panel can serve customers (healthy or degraded)."""
-    from melorin.modules.vpn import health
-    from melorin.modules.panel_integrations.adapters.registry import build_adapter
+    from melorin.modules.panel_integrations import health
+    from melorin.modules.panelops.panel_probes import check_health_now
 
     p = await session.get(Panel, panel_id)
     if not p:
         raise NotFound("پنل")
-    adapter = None
-    try:
-        adapter = build_adapter(p)
-        result = await health.check_panel(session, p, adapter)
-    except Exception as exc:
-        result = health.HealthResult(
-            health.UNHEALTHY, (getattr(exc, "message", None) or str(exc) or exc.__class__.__name__)[:300], {"layer": 1, "sellable": False}
-        )
-    finally:
-        await close_adapter(adapter)
-    if result.error == "health check returned false":
-        result.error = "پنل پاسخ سالم نداد."
-    previous = health.apply(p, result)
-    await panel_notices.notify_panel_health(session, p, previous)
-    await panel_notices.notify_panel_nodes(session, p, result.node_changes)
+    result = await check_health_now(session, p)
     await session.commit()
     usable = result.status in health.SELLABLE_STATES
     if usable:  # an explicit health check is also the moment to re-read what the credential may do

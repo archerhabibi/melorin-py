@@ -9,7 +9,7 @@ from _http import PASSWORD, add_user, api_client, totp_now
 from melorin.core.db import utcnow
 from melorin.kernel.models.vpn import Panel, PanelNode, PanelOrphan, ReconciliationIssue, VpnAccount
 from melorin.modules.panelops import reconciliation_actions
-from melorin.modules.vpn import issues
+from melorin.modules.vpn_accounts import issues
 
 BASE = "/api/v1/admin"
 

@@ -9,9 +9,9 @@ from fastapi import APIRouter, Query, Response
 from melorin.core.deps import Session, StoreCtx
 from melorin.core.errors import NotFound
 from melorin.core.scope import StoreScope
-from melorin.modules.vpn import inquiry, live, returns
-from melorin.modules.vpn.qr import render_qr_png
-from melorin.modules.vpn.schemas import VpnAccountOut
+from melorin.modules.vpn_accounts import inquiry, live, returns
+from melorin.modules.vpn_accounts.qr import render_qr_png
+from melorin.modules.vpn_accounts.schemas import VpnAccountOut
 
 router = APIRouter(prefix="/stores/{store_id}/vpn-accounts", tags=["vpn-accounts"])
 

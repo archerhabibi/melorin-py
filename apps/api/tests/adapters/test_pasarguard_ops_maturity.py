@@ -27,7 +27,7 @@ from melorin.kernel.models.vpn import Panel, PanelNode, ReconciliationIssue, Ser
 from melorin.modules.reports import business_metrics
 from melorin.modules.panelops import panel_backup, panel_metrics, settings_drift
 from melorin.modules.panel_integrations.adapters.base import Capabilities, ErrorKind, PanelError
-from melorin.modules.vpn.renewal import GRACE_DAYS
+from melorin.modules.vpn_accounts.renewal import GRACE_DAYS
 
 ROOT = Path(__file__).resolve().parents[4]
 NOW = dt.datetime(2026, 11, 8, 12, 0, tzinfo=dt.UTC)

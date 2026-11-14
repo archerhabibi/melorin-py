@@ -24,7 +24,7 @@ from melorin.core.db import utcnow
 from melorin.core.errors import AppError
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.vpn import Panel, PanelAdmin, PanelOrphan, VpnAccount
-from melorin.modules.vpn import issues, notices, sync
+from melorin.modules.vpn_accounts import issues, notices, sync
 from melorin.modules.panel_integrations.adapters.base import PanelAccount, PanelError, supports
 from melorin.modules.panel_integrations.adapters.registry import build_adapter, seed_adapter
 from melorin.modules.panel_integrations.reader import PanelReader

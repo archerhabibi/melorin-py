@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from _db import open_schema_engine
 from melorin.core import settings_store
 from melorin.kernel.models.vpn import VpnAccount
-from melorin.modules.vpn import inquiry, live
+from melorin.modules.vpn_accounts import inquiry, live
 from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError
 from test_pasarguard_service_db import FakePanel, remote, seed
 

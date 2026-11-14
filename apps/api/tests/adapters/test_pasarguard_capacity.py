@@ -11,7 +11,7 @@ from _db import open_schema_engine
 from melorin.kernel.models.vpn import Panel, Server
 from melorin.modules.catalog.allocation.routing import Candidate, select_allocation
 from melorin.modules.panelops.panel_notices import server_capacity_text
-from melorin.modules.vpn import capacity as cap
+from melorin.modules.panel_integrations import capacity as cap
 from melorin.modules.panel_integrations.adapters.base import Capabilities, ErrorKind, PanelError
 
 GROUP = {"id": 1, "name": "VIP1", "is_disabled": False, "inbound_tags": ["vless", "trojan"], "total_users": 7}

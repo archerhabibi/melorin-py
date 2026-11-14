@@ -25,7 +25,7 @@ from melorin.core.metrics import clear_gauges, set_alert, set_gauge
 from melorin.kernel.models.system import BackupRun
 from melorin.kernel.models.vpn import Panel, PanelNode, ReconciliationIssue, Server, VpnAccount
 from melorin.modules.panel_integrations import capabilities as panel_caps
-from melorin.modules.vpn import capacity
+from melorin.modules.panel_integrations import capacity
 from melorin.modules.panel_integrations.adapters.base import PanelError, supports
 from melorin.domain.timeutil import aware as _aware
 

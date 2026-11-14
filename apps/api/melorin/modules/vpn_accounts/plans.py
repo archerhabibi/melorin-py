@@ -5,7 +5,7 @@ Two renewal behaviours, chosen explicitly by the buyer and shown identically in 
 * ``replace`` (default, today's rule, ``vpn.renewal``): the package restarts NOW. Days still left are replaced, not added.
 * ``queue`` (this module): the buyer pays now for the NEXT package; the panel starts it by itself when the current one ends
   (``next_plan``), so nothing that was already paid for is burned. Needs a panel that supports ``next_plan_ops`` and a
-  panel template mapped to the package (:mod:`melorin.modules.vpn.templates`).
+  panel template mapped to the package (:mod:`melorin.modules.panel_integrations.templates`).
 
 Honest wording on purpose: the panel switches to the queued package when the current one ends **by time or by volume**,
 whichever comes first. When the volume ends first, the days still left on the old package are not carried over (the panel's
@@ -39,7 +39,8 @@ from melorin.kernel.models.catalog import Product
 from melorin.kernel.models.vpn import Panel, VpnAccount
 from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
 from melorin.modules.panel_integrations import capabilities as panel_caps
-from melorin.modules.vpn import live, notices, sync, templates
+from melorin.modules.vpn_accounts import live, notices, sync
+from melorin.modules.panel_integrations import templates
 from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError, supports
 from melorin.modules.panel_integrations.adapters.registry import build_adapter, seed_adapter
 

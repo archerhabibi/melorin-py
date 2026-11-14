@@ -23,9 +23,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError
 from melorin.domain.order_state import OrderStatus, VpnStatus
+from melorin.domain.renewal_policy import GRACE_DAYS
 from melorin.domain.timeutil import aware as _aware
 
-GRACE_DAYS = 10
 GIB = 1024**3
 
 _NOT_RENEWABLE_STATUSES = (VpnStatus.REVOKED, VpnStatus.ARCHIVED, VpnStatus.PENDING, VpnStatus.PROVISIONING)

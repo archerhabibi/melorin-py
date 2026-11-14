@@ -23,7 +23,8 @@ from melorin.kernel.models.system import AuditEvent, OutboxEvent
 from melorin.kernel.models.vpn import ProductTemplate
 from melorin.modules.orders import provisioning as vpn
 from melorin.modules.orders import service as orders
-from melorin.modules.vpn import live, plans, sync, templates
+from melorin.modules.vpn_accounts import live, plans, sync
+from melorin.modules.panel_integrations import templates
 from melorin.modules.panel_integrations.adapters.base import Capabilities, ErrorKind, PanelAccount, PanelError
 from test_renewal_core import _balance, _world  # the shared renewal world: wallet, bundle, panel, account
 
@@ -568,7 +569,7 @@ def test_admin_template_routes_exist_and_are_admin_guarded():
 
 
 def test_the_account_output_tells_every_channel_that_a_package_is_waiting():
-    from melorin.modules.vpn import inquiry
+    from melorin.modules.vpn_accounts import inquiry
 
     acc = types.SimpleNamespace(
         id=__import__("uuid").uuid4(), username="a", status="active", is_test=False, sold_expires_at=NOW + dt.timedelta(days=3),

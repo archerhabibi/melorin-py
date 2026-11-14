@@ -2,7 +2,7 @@
 
 Mediator rule: usage, limit, expiry and status belong to the PANEL. This module reads them from the panel when the owner asks and
 keeps them only in a very short in-memory cache (seconds, never a database column). If a panel cannot answer, its numbers are
-absent and the report says so; an old number is never shown in its place (decision 9, same as :mod:`melorin.modules.vpn.live`).
+absent and the report says so; an old number is never shown in its place (decision 9, same as :mod:`melorin.modules.vpn_accounts.live`).
 
 What is read: for every panel where the store has an active panel admin, the users of THAT admin only (``GET /api/users?admin=``,
 heaviest first, paged, read-only). Everything in the answer comes from that one reading, so the numbers always agree with each other.
@@ -30,7 +30,7 @@ from melorin.kernel.models.stores import Store
 from melorin.kernel.models.vpn import Panel, PanelAdmin
 from melorin.modules.panel_integrations.adapters.base import PanelAccount
 from melorin.modules.panel_integrations.adapters.registry import build_adapter
-from melorin.modules.vpn.live import UNAVAILABLE_NOTE
+from melorin.modules.panel_integrations.reader import UNAVAILABLE_NOTE
 from melorin.modules.panel_integrations.reader import PanelReader
 from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
 

@@ -13,6 +13,9 @@ from collections.abc import Awaitable, Callable, Hashable
 from dataclasses import dataclass, field
 from typing import Any
 
+# Shown instead of a number when the panel could not answer; an old reading is never presented as a live one.
+UNAVAILABLE_NOTE = "اطلاعات زنده از پنل موقتاً در دسترس نیست."
+
 # fetch(offset=..., limit=...) -> (rows, total); ``total`` may be ``None`` when the panel does not report one.
 Fetch = Callable[..., Awaitable[tuple[list, Any]]]
 

@@ -7,7 +7,6 @@ many slots at once (wizard / sync with the panel).
 
 from __future__ import annotations
 
-import logging
 import uuid
 
 from fastapi import APIRouter
@@ -19,12 +18,10 @@ from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import AppError, NotFound
 from melorin.kernel.models.vpn import Panel, Server
 from melorin.modules.panelops import queries
-from melorin.modules.panel_integrations.session import close_adapter
-from melorin.modules.panel_integrations.adapters.registry import build_adapter
+from melorin.modules.panelops.panel_probes import fetch_listing, live_group_health
 from melorin.modules.panel_integrations.targets import normalize_target, validate_target
 
 router = APIRouter(prefix="/admin", tags=["admin"])
-log = logging.getLogger("melorin.admin.targets")
 
 DEFAULT_CAPACITY = 500  # the value every group has today; editable per destination afterwards
 
@@ -40,20 +37,6 @@ def check_target(panel: Panel, target: dict | None) -> dict | None:
     if problems:
         raise AppError("INVALID_TARGET", "؛ ".join(problems), 422, {"errors": problems})
     return stored
-
-
-async def fetch_listing(panel: Panel) -> dict | None:
-    """What the panel offers right now, or None when it cannot be asked (down, wrong credentials, kind without a listing)."""
-    adapter = None
-    try:
-        adapter = build_adapter(panel)
-        lister = getattr(adapter, "list_targets", None)
-        return await lister() if callable(lister) else None
-    except Exception:
-        log.info("panel target listing failed panel=%s", panel.id, exc_info=True)
-        return None
-    finally:
-        await close_adapter(adapter)
 
 
 def listing_warnings(panel: Panel, target: dict | None, listing: dict | None) -> list[str]:
@@ -101,11 +84,7 @@ async def panel_targets(panel_id: uuid.UUID, _: AdminUser, session: Session):
                 out.append({"id": str(s.id), "name": s.name})
         return out
 
-    from melorin.modules.admin.capacity import (
-        live_group_health,
-    )  # PG-08: each group with its real state (a broken one is flagged, not hidden)
-
-    health = await live_group_health(panel) or {}
+    health = await live_group_health(panel) or {}  # PG-08: each group with its real state (a broken one is flagged, not hidden)
     for g in listing.get("groups", []):
         g["health"] = health.get(g["id"])
         g["used_by"] = used("group_ids", g["id"])

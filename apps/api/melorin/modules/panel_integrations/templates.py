@@ -2,7 +2,7 @@
 
 A template is how a PasarGuard panel knows a package: groups, volume, duration, device limit. Melorin keeps the mapping
 ``(panel, product) -> remote template id`` in ``product_templates`` and uses it for two things: queueing a prepaid renewal
-(:mod:`melorin.modules.vpn.plans`) and moving an account to another package.
+(:mod:`melorin.modules.vpn_accounts.plans`) and moving an account to another package.
 
 Rules (all admin-only, all audited):
 
@@ -38,7 +38,7 @@ from melorin.modules.panel_integrations.adapters.base import PanelError, support
 from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter, panel_failure
 from melorin.modules.panel_integrations.adapters.registry import build_adapter
 
-log = logging.getLogger("melorin.vpn.templates")
+log = logging.getLogger("melorin.panel_integrations.templates")
 
 GIB = 1024**3
 DAY = 86400

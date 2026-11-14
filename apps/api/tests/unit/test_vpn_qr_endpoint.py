@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 import melorin.models  # noqa: F401  (registers every table)
 from melorin.core.db import Base
 from melorin.core.errors import AppError
-from melorin.modules.vpn import router as vpn_router
+from melorin.modules.vpn_accounts import router as vpn_router
 from melorin.kernel.models.vpn import VpnAccount
 
 SUB = "https://sub.example.com/sub/AbCdEf123"

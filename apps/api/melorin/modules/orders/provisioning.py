@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from melorin.core import audit, events, flags, settings_store
 from melorin.core.db import utcnow
-from melorin.domain.order_state import OrderStatus, VpnStatus, set_vpn_status
+from melorin.domain.order_state import OrderStatus, VpnSource, VpnStatus, set_vpn_status
 from melorin.kernel.models.catalog import Product
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.stores import Store
@@ -19,7 +19,7 @@ from melorin.modules.panel_integrations.adapters.base import AccountSpec, ErrorK
 from melorin.modules.panelops import panel_admins
 from melorin.modules.panel_integrations.adapters.registry import build_adapter, seed_adapter
 from melorin.modules.catalog.allocation import placement_snapshot, resolve_allocation
-from melorin.modules.vpn import notices, plans, renewal, sync
+from melorin.modules.vpn_accounts import notices, plans, renewal, sync
 from melorin.kernel.models.vpn import Panel, ProvisioningAttempt, Server, VpnAccount
 from melorin.kernel.models.bundles import Bundle, BundleMember
 from melorin.domain.account_name import clean_custom_name
@@ -84,7 +84,7 @@ async def _fail(
     # If a stub VpnAccount was created but the panel call failed before
     # returning a panel_ref, archive it so the next attempt starts fresh.
     if account is not None and account.status == VpnStatus.PROVISIONING and account.panel_ref is None:
-        set_vpn_status(account, VpnStatus.ARCHIVED)
+        set_vpn_status(account, VpnStatus.ARCHIVED, source=VpnSource.PROVISIONING)
         # Mangle the username so UNIQUE does not block the next attempt.
         account.username = account.username[:55] + "_r" + str(order.provisioning_attempts)
 
@@ -301,7 +301,7 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
                     )
                     session.add(account)
                 account.panel_ref = remote.ref
-                set_vpn_status(account, VpnStatus.ACTIVE)
+                set_vpn_status(account, VpnStatus.ACTIVE, source=VpnSource.PROVISIONING)
                 if queued:
                     plans.mark_queued(account, template_id=queued_template, product_id=product.id, order_id=order.id, now=now)
                 elif order.kind == "renewal":
@@ -342,7 +342,7 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
     account.server_id, account.panel_id, account.panel_ref = server.id, panel.id, pa.ref
     if order.kind != "renewal" and account.placement is not None and account.placement.get("remote_ref") is None:
         account.placement = {**account.placement, "remote_ref": pa.ref}  # the snapshot is written once; only the panel's id is filled in
-    set_vpn_status(account, VpnStatus.ACTIVE)
+    set_vpn_status(account, VpnStatus.ACTIVE, source=VpnSource.PROVISIONING)
     if queued:
         plans.mark_queued(
             account, template_id=queued_template, product_id=product.id, order_id=order.id, now=now

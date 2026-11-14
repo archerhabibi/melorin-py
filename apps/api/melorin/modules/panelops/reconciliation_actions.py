@@ -16,11 +16,11 @@ from melorin.core import audit
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError, NotFound
 from melorin.core.uow import unit_of_work
-from melorin.domain.order_state import VpnStatus, set_vpn_status
+from melorin.domain.order_state import VpnSource, VpnStatus, set_vpn_status
 from melorin.kernel.models.vpn import Panel, PanelOrphan, ReconciliationIssue, VpnAccount
 from melorin.modules.panelops import queries, recreate
-from melorin.modules.vpn import issues as issue_svc
-from melorin.modules.vpn import reconcile
+from melorin.modules.vpn_accounts import issues as issue_svc
+from melorin.modules.vpn_accounts import reconcile
 from melorin.modules.panel_integrations.adapters.base import PanelError, supports
 from melorin.modules.panel_integrations.adapters.registry import build_adapter, seed_adapter
 from melorin.modules.panel_integrations.session import close_adapter
@@ -106,7 +106,7 @@ async def apply_action(
     elif action == "resolve":
         _finish(issue, issue_svc.RESOLVED, f"admin: {reason or 'resolved'}", now)
     elif action == "archive_account":
-        set_vpn_status(account, VpnStatus.ARCHIVED)
+        set_vpn_status(account, VpnStatus.ARCHIVED, source=VpnSource.RECONCILIATION)
         account.archived_at = now
         _finish(issue, issue_svc.RESOLVED, f"archived: {reason or 'missing on panel'}", now)
     elif action == "link_existing":

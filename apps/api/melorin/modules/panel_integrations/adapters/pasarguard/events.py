@@ -7,7 +7,7 @@ same across the panel's own retries), ``by``, ``reason``, ``reset_traffic`` and 
 are normal: the ``id`` (or action + username + enqueued_at) is the idempotency key.
 
 **What Melorin trusts.** Only the fact that "something happened to this user". The payload is never used as state: the worker
-re-reads the account from the panel (see ``modules/vpn/panel_events.py``), so a forged-but-authenticated, stale or out-of-order
+re-reads the account from the panel (see ``modules/panelops/panel_events.py``), so a forged-but-authenticated, stale or out-of-order
 event cannot write wrong data. The payload kept for audit is stripped of links and proxy settings (:func:`sanitize`).
 
 The header name and body shape follow the Marzban/PasarGuard webhook and PasarGuard PR #1180 (``id``/``by``/``reason``); the panel's

@@ -22,7 +22,7 @@ from melorin.domain.order_state import VpnStatus
 from melorin.kernel.models.catalog import Product
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.vpn import Panel, Server, VpnAccount
-from melorin.modules.vpn import sync
+from melorin.modules.vpn_accounts import sync
 from melorin.modules.panelops import panel_admins
 from melorin.modules.panel_integrations.adapters.base import AccountSpec, ErrorKind, PanelError
 from melorin.modules.panel_integrations.adapters.registry import build_adapter

@@ -13,8 +13,6 @@ _close_strict = functools.partial(close_adapter, strict=True)  # worker jobs kee
 log = logging.getLogger("melorin.jobs")
 
 
-
-
 @tracked_job
 async def bank_sms_reconcile_job(ctx=None):
     """Safety net for card-to-card auto verification: pair open deposit SMS with receipts uploaded later or whose
@@ -40,7 +38,6 @@ async def bank_sms_reconcile_job(ctx=None):
     return total
 
 
-
 @tracked_job
 async def receipt_grace_job(ctx=None):
     """Time-boxed manual review: credit provisionally (and flag for fast review) every card-to-card receipt that
@@ -58,5 +55,3 @@ async def receipt_grace_job(ctx=None):
         if n:
             log.info("receipt grace: provisional credits=%s", n)
         return n
-
-

@@ -1,3 +1,4 @@
+import dataclasses
 from enum import StrEnum
 
 
@@ -88,7 +89,63 @@ def assert_vpn_transition(src: str, dst: str) -> None:
         raise InvalidTransition(src, dst)
 
 
-def set_vpn_status(account, dst: VpnStatus) -> None:
-    """The one way to change ``account.status``: checks the lifecycle table, then assigns."""
-    assert_vpn_transition(str(account.status), str(dst))
-    account.status = dst
+class VpnSource(StrEnum):
+    """WHO is changing an account's status. Every writer names itself so a transition can be audited and so a path can
+    never write a status it has no business with (a bulk action cannot revoke, the expiry job cannot activate)."""
+
+    PROVISIONING = "provisioning"  # an order creating/renewing the account on the panel (and cleaning a failed stub)
+    PANEL_SYNC = "panel_sync"  # what the panel itself reports (read cycle, reconcile, webhook events)
+    RECONCILIATION = "reconciliation"  # an admin resolving a discrepancy
+    BULK = "bulk"  # admin bulk operation
+    ACCOUNT_TOOLS = "account_tools"  # owner / store suspending or resuming one account
+    EXPIRY_JOB = "expiry_job"  # Melorin's own clock for accounts without a panel reading
+    RETURN = "return"  # the customer return (refund) revoking the account
+
+
+SOURCE_TARGETS: dict[VpnSource, frozenset[VpnStatus]] = {
+    VpnSource.PROVISIONING: frozenset({V.ACTIVE, V.ARCHIVED}),
+    VpnSource.PANEL_SYNC: frozenset({V.ACTIVE, V.SUSPENDED, V.EXPIRED, V.LIMITED}),
+    VpnSource.RECONCILIATION: frozenset({V.ARCHIVED}),
+    VpnSource.BULK: frozenset({V.ACTIVE, V.SUSPENDED}),
+    VpnSource.ACCOUNT_TOOLS: frozenset({V.ACTIVE, V.SUSPENDED}),
+    VpnSource.EXPIRY_JOB: frozenset({V.EXPIRED}),
+    VpnSource.RETURN: frozenset({V.REVOKED}),
+}
+
+
+class SourceNotAllowed(InvalidTransition):
+    def __init__(self, src: str, dst: str, source: str):
+        super().__init__(src, dst)
+        self.source = source
+        self.args = (f"{src} -> {dst} is not a status {source} may write",)
+
+
+@dataclasses.dataclass(frozen=True)
+class VpnTransition:
+    """The outcome of one status write; ``changed`` is False for an idempotent repeat. Callers put it in their audit data."""
+
+    src: str
+    dst: str
+    source: str
+    changed: bool
+
+    def as_audit(self) -> dict:
+        return {"from": self.src, "to": self.dst, "source": self.source}
+
+
+def set_vpn_status(account, dst: VpnStatus, *, source: VpnSource) -> VpnTransition:
+    """The one way to change ``account.status``.
+
+    Precondition: the lifecycle table allows ``current -> dst`` AND ``source`` may write ``dst``. Postcondition: the account holds
+    ``dst``. Writing the state the account already has changes nothing (so a retried job or a replayed event is harmless)."""
+    src = str(account.status)
+    dst = VpnStatus(dst)
+    source = VpnSource(source)
+    if dst not in SOURCE_TARGETS[source]:
+        raise SourceNotAllowed(src, str(dst), str(source))
+    assert_vpn_transition(src, str(dst))
+    changed = src != str(dst)
+    if changed:
+        account.status = dst
+    assert str(account.status) == str(dst)
+    return VpnTransition(src=src, dst=str(dst), source=str(source), changed=changed)

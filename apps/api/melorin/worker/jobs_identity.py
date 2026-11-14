@@ -19,8 +19,6 @@ _close_strict = functools.partial(close_adapter, strict=True)  # worker jobs kee
 log = logging.getLogger("melorin.jobs")
 
 
-
-
 @tracked_job
 async def identity_auto_link_job(ctx=None):
     """Safety net for identity-link conflicts (docs/23): settle every open review that became safe to merge by itself
@@ -32,7 +30,6 @@ async def identity_auto_link_job(ctx=None):
         if settled:
             log.info("identity conflicts settled automatically=%s", settled)
         return settled
-
 
 
 @tracked_job
@@ -48,7 +45,6 @@ async def reseller_auto_verify_job(ctx=None):
         return done
 
 
-
 @tracked_job
 async def reseller_identity_recheck_job(ctx=None):
     """Approved resellers keep proving who they are (docs/23): re-check domain proof and bot token of every store whose
@@ -62,7 +58,6 @@ async def reseller_identity_recheck_job(ctx=None):
         return done
 
 
-
 @tracked_job
 async def telegram_login_gc_job(ctx=None):
     """Drop finished website-login sessions (Telegram bot approval) one day after they expired."""
@@ -72,7 +67,6 @@ async def telegram_login_gc_job(ctx=None):
         removed = await telegram_web.purge_old(s)
         log.info("telegram web login sessions removed=%s", removed)
         return removed
-
 
 
 @tracked_job
@@ -101,5 +95,3 @@ async def privacy_retention_job(ctx=None):
             removed["webhook_deliveries"],
         )
         return int(result.rowcount or 0)
-
-

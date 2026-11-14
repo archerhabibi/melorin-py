@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from melorin.core import audit
 from melorin.core.errors import AppError, NotFound
 from melorin.kernel.models.vpn import Panel, PanelNode
-from melorin.modules.vpn import health
+from melorin.modules.panel_integrations import health
 from melorin.modules.panel_integrations import capabilities as panel_caps
 from melorin.modules.panel_integrations.adapters.base import PanelError, supports
 from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter

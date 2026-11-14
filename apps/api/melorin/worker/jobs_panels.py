@@ -7,7 +7,9 @@ from sqlalchemy import select
 
 from melorin.core.db import session_factory, utcnow
 from melorin.modules.panelops import panel_notices
-from melorin.modules.vpn import capacity, health, panel_events, reconcile
+from melorin.modules.vpn_accounts import reconcile
+from melorin.modules.panel_integrations import capacity, health
+from melorin.modules.panelops import panel_events
 from melorin.modules.panel_integrations import capabilities
 from melorin.kernel.models.vpn import Panel
 from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
@@ -15,8 +17,6 @@ from melorin.worker.wrap import item_failed, tracked_job
 
 _close_strict = functools.partial(close_adapter, strict=True)  # worker jobs keep raising on close failure
 log = logging.getLogger("melorin.jobs")
-
-
 
 
 @tracked_job
@@ -68,7 +68,6 @@ async def panel_health_job(ctx=None):
         await s.commit()
 
 
-
 @tracked_job
 async def panel_metrics_job(ctx=None):
     """Every 2 minutes: one live reading per panel (latency, resources, users, online) for the /metrics gauges (PG-14)."""
@@ -78,7 +77,6 @@ async def panel_metrics_job(ctx=None):
         done = await panel_metrics.run_snapshots(s, close_adapter=_close_strict)
         await s.commit()
     return done
-
 
 
 @tracked_job
@@ -92,7 +90,6 @@ async def panel_settings_drift_job(ctx=None):
     return done
 
 
-
 @tracked_job
 async def panel_admin_sync_job(ctx=None):
     """Every 15 minutes (retry + safety net): panel create and reseller create already plan and push the Operator admin on the spot."""
@@ -100,7 +97,6 @@ async def panel_admin_sync_job(ctx=None):
 
     async with session_factory()() as s:
         return await panel_admins.sync_all(s)
-
 
 
 @tracked_job
@@ -114,7 +110,6 @@ async def panel_event_job(ctx=None):
     return stats.claimed
 
 
-
 @tracked_job
 async def panel_event_purge_job(ctx=None):
     """Daily: drop finished panel events older than the retention window (30 days)."""
@@ -122,7 +117,6 @@ async def panel_event_purge_job(ctx=None):
         removed = await panel_events.purge(s)
     log.info("panel events retention removed=%s", removed)
     return removed
-
 
 
 @tracked_job
@@ -133,7 +127,6 @@ async def bulk_operation_job(ctx=None):
 
     op = await bulk.run_next(session_factory(), budget_seconds=40.0)
     return op.status if op else None
-
 
 
 @tracked_job
@@ -152,7 +145,6 @@ async def store_governance_job(ctx=None):
                 log.warning("store governance sync failed panel=%s", p.id, exc_info=True)
         await s.commit()
     return done
-
 
 
 @tracked_job
@@ -177,5 +169,3 @@ async def reconciliation_job(ctx=None):
                 item_failed("reconciliation_job")
                 log.warning("reconcile failed panel=%s", panel_id, exc_info=True)
     return done
-
-

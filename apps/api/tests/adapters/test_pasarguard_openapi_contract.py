@@ -21,7 +21,11 @@ import pytest
 from melorin.modules.panel_integrations.adapters import pasarguard
 from melorin.modules.panel_integrations.adapters.base import ALL_CAPABILITIES, AccountSpec
 from melorin.modules.panel_integrations.adapters.pasarguard import PasarGuardAdapter
-from melorin.modules.panel_integrations.adapters.pasarguard.capabilities import CAPABILITY_ENDPOINTS, CAPABILITY_REQUIREMENTS, LEGACY_CAPABILITIES
+from melorin.modules.panel_integrations.adapters.pasarguard.capabilities import (
+    CAPABILITY_ENDPOINTS,
+    CAPABILITY_REQUIREMENTS,
+    LEGACY_CAPABILITIES,
+)
 from melorin.modules.panel_integrations.adapters.pasarguard.events import USER_EVENTS
 from melorin.modules.panel_integrations.adapters.pasarguard.users import USAGE_PERIODS
 

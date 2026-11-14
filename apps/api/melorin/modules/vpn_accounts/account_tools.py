@@ -30,10 +30,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from melorin.core import audit
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError
-from melorin.domain.order_state import VpnStatus, set_vpn_status
+from melorin.domain.order_state import VpnSource, VpnStatus, set_vpn_status
 from melorin.kernel.models.vpn import Panel, VpnAccount
 from melorin.modules.panel_integrations import capabilities as panel_caps
-from melorin.modules.vpn import sync
+from melorin.modules.vpn_accounts import sync
 from melorin.modules.panel_integrations.adapters.base import PanelError, supports
 from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter, panel_failure
 from melorin.modules.panel_integrations.adapters.registry import build_adapter, seed_adapter
@@ -363,7 +363,7 @@ async def suspend(session: AsyncSession, account: VpnAccount, *, role: str, acto
         raise _panel_error(exc) from exc
     finally:
         await close_adapter(adapter)
-    set_vpn_status(account, VpnStatus.SUSPENDED)
+    set_vpn_status(account, VpnStatus.SUSPENDED, source=VpnSource.ACCOUNT_TOOLS)
     _audit(session, account, "suspended", actor_id=actor_id, role=role, data={"reason": (reason or "")[:300]})
     await session.commit()
     return account
@@ -381,7 +381,7 @@ async def resume(session: AsyncSession, account: VpnAccount, *, role: str, actor
         raise _panel_error(exc) from exc
     finally:
         await close_adapter(adapter)
-    set_vpn_status(account, VpnStatus.ACTIVE)
+    set_vpn_status(account, VpnStatus.ACTIVE, source=VpnSource.ACCOUNT_TOOLS)
     _audit(session, account, "resumed", actor_id=actor_id, role=role)
     await session.commit()
     return account

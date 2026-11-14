@@ -29,10 +29,10 @@ from melorin.modules.panel_integrations.adapters import providers
 from melorin.core import audit
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError, NotFound
-from melorin.domain.order_state import VpnStatus, set_vpn_status
+from melorin.domain.order_state import VpnSource, VpnStatus, set_vpn_status
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.vpn import BulkOperation, BulkOperationItem, Panel, VpnAccount
-from melorin.modules.vpn import sync
+from melorin.modules.vpn_accounts import sync
 from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError, supports
 from melorin.modules.panel_integrations.adapters.registry import build_adapter
 
@@ -400,11 +400,11 @@ def _mark(item: BulkOperationItem, status: str, error: str | None = None) -> Non
 def _mirror_panel_action(kind: str, account: VpnAccount) -> None:
     """Reflect an idempotent panel action on the account right away; ``last_synced_at=None`` puts it first in line for reconcile v2."""
     if kind == "disable":
-        set_vpn_status(account, VpnStatus.SUSPENDED)
+        set_vpn_status(account, VpnStatus.SUSPENDED, source=VpnSource.BULK)
     elif kind == "enable":
-        set_vpn_status(account, VpnStatus.ACTIVE)
+        set_vpn_status(account, VpnStatus.ACTIVE, source=VpnSource.BULK)
     elif kind == "reset_usage" and account.status == VpnStatus.LIMITED:  # usage itself is the panel's: only the status bucket moves
-        set_vpn_status(account, VpnStatus.ACTIVE)
+        set_vpn_status(account, VpnStatus.ACTIVE, source=VpnSource.BULK)
     account.last_synced_at = None
 
 

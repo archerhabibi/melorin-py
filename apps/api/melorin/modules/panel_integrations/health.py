@@ -25,7 +25,7 @@ from melorin.kernel.models.vpn import Panel, PanelNode
 from melorin.modules.panel_integrations import capabilities as panel_caps
 from melorin.modules.panel_integrations.adapters.base import PanelError, supports
 
-log = logging.getLogger("melorin.vpn.health")
+log = logging.getLogger("melorin.panel_integrations.health")
 
 MAX_REASONS = 20
 

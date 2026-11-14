@@ -18,8 +18,6 @@ _close_strict = functools.partial(close_adapter, strict=True)  # worker jobs kee
 log = logging.getLogger("melorin.jobs")
 
 
-
-
 @tracked_job(lock_ttl=910)
 async def backup_job(ctx=None):
     """Always write an encrypted LOCAL backup; also copy it to S3 when enabled in the Admin panel."""
@@ -67,7 +65,6 @@ async def backup_job(ctx=None):
     if status != "succeeded":
         log.error("backup %s: %s", status, details)
     return status
-
 
 
 @tracked_job(lock_ttl=910)
@@ -118,5 +115,3 @@ async def panel_backup_job(ctx=None):
     if status != "succeeded":
         log.error("panel backup %s: %s", status, details)
     return status
-
-

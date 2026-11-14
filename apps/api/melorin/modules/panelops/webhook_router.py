@@ -1,7 +1,7 @@
 """Public endpoint the PasarGuard panel calls (PG-03): ``POST /api/v1/webhooks/pasarguard/{panel_id}``.
 
 The route only authenticates, parses, stores and answers (fast 200); every real effect happens in the worker
-(:mod:`melorin.modules.vpn.panel_events`). Hardening, in the order the checks run:
+(:mod:`melorin.modules.panelops.panel_events`). Hardening, in the order the checks run:
 
 1. per-IP rate limit, and a much tighter limit on *failed* secrets (brute force);
 2. hard body cap (read while streaming, so a huge body is never buffered);
@@ -25,7 +25,7 @@ from melorin.core.errors import AppError
 from melorin.core.metrics import inc
 from melorin.core.ratelimit import client_ip, hit
 from melorin.kernel.models.vpn import Panel
-from melorin.modules.vpn import panel_events
+from melorin.modules.panelops import panel_events
 from melorin.modules.panel_integrations.adapters.pasarguard import events as wire
 
 router = APIRouter(tags=["webhooks"])

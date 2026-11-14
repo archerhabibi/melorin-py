@@ -25,11 +25,11 @@ from sqlalchemy import select
 from melorin.core import settings_store
 from melorin.core.db import utcnow
 from melorin.kernel.models.vpn import Panel, VpnAccount
-from melorin.modules.vpn import freshness, inquiry
+from melorin.modules.vpn_accounts import freshness, inquiry
 from melorin.modules.panel_integrations.adapters.registry import build_adapter, seed_adapter
-from melorin.modules.panel_integrations.reader import PanelReader
+from melorin.modules.panel_integrations.reader import UNAVAILABLE_NOTE, PanelReader
 from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
-from melorin.modules.vpn.schemas import VpnAccountOut
+from melorin.modules.vpn_accounts.schemas import VpnAccountOut
 
 log = logging.getLogger("melorin.vpn.live")
 
@@ -39,7 +39,6 @@ FAIL_TTL_SECONDS = freshness.READING_FAIL_TTL_SECONDS  # "the panel could not an
 CONCURRENCY = freshness.READ_CONCURRENCY  # parallel single-user reads per panel
 MAX_ACCOUNTS = freshness.READ_MAX_ACCOUNTS  # one call never reads more than a page
 CACHE_LIMIT = 5000
-UNAVAILABLE_NOTE = "اطلاعات زنده از پنل موقتاً در دسترس نیست."
 
 
 @dataclasses.dataclass(frozen=True)

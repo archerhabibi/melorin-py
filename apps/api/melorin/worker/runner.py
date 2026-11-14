@@ -6,7 +6,7 @@ import uuid
 
 from sqlalchemy import select, update
 
-from melorin.domain.order_state import VpnStatus, set_vpn_status
+from melorin.domain.order_state import VpnSource, VpnStatus, set_vpn_status
 from melorin.core import events
 from melorin.core.config import get_settings
 from melorin.core.db import session_factory, utcnow
@@ -19,7 +19,7 @@ from melorin.kernel.models.notifications import Notification
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.system import OutboxEvent
 from melorin.modules.orders import provisioning as vpn
-from melorin.modules.vpn import sync
+from melorin.modules.vpn_accounts import sync
 from melorin.modules.panel_integrations.adapters.registry import build_adapter, seed_adapter
 from melorin.kernel.models.vpn import Panel, VpnAccount
 
@@ -307,7 +307,7 @@ async def revoke_account(session, account_id):
         return
     panel = await session.get(Panel, a.panel_id)
     await seed_adapter(build_adapter(panel), a).revoke_account(a.username)
-    set_vpn_status(a, VpnStatus.REVOKED)
+    set_vpn_status(a, VpnStatus.REVOKED, source=VpnSource.RETURN)
     await session.commit()
 
 

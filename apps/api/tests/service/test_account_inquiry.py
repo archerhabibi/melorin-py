@@ -11,8 +11,8 @@ from _db import make_order, make_product, make_store, make_user, open_session
 from melorin.core.deps import StoreContext
 from melorin.core.errors import AppError
 from melorin.modules.reseller import router as reseller_router
-from melorin.modules.vpn import inquiry
-from melorin.modules.vpn import router as vpn_router
+from melorin.modules.vpn_accounts import inquiry
+from melorin.modules.vpn_accounts import router as vpn_router
 from melorin.kernel.models.vpn import VpnAccount
 
 GIB = 1024**3
@@ -205,7 +205,7 @@ async def test_state_chips_filter_and_count_inside_the_scope():
 
 
 async def test_refresh_reads_the_panel_and_is_rate_limited(monkeypatch):
-    from melorin.modules.vpn import reconcile as vpn  # the single-account sync (service.reconcile) lives here since reconcile v2
+    from melorin.modules.vpn_accounts import reconcile as vpn  # the single-account sync (service.reconcile) lives here since reconcile v2
     from melorin.kernel.models.vpn import Panel
 
     class FakePanel:
@@ -223,7 +223,7 @@ async def test_refresh_reads_the_panel_and_is_rate_limited(monkeypatch):
                 expire_at=NOW + dt.timedelta(days=30),
             )
 
-    from melorin.modules.vpn import live
+    from melorin.modules.vpn_accounts import live
 
     monkeypatch.setattr(vpn, "build_adapter", lambda _p: FakePanel())
     monkeypatch.setattr(live, "build_adapter", lambda _p: FakePanel())  # the card the route returns is the panel's reading

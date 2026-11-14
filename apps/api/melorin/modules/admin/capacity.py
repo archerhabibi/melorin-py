@@ -7,25 +7,20 @@ The destination picker (``/admin/panels/{id}/targets``) shows the same per-group
 
 from __future__ import annotations
 
-import logging
 import uuid
 
 from fastapi import APIRouter
 
-from melorin.modules.panel_integrations.adapters import providers
 from melorin.core import audit
 from melorin.core.deps import AdminUser, Session
-from melorin.core.errors import AppError, NotFound
+from melorin.core.errors import NotFound
 from melorin.kernel.models.vpn import Panel
 from melorin.modules.panelops import queries
-from melorin.modules.panel_integrations.session import close_adapter
+from melorin.modules.panelops.panel_probes import live_group_health, refresh_panel_capacity
 from melorin.modules.panel_integrations import capabilities as panel_caps
-from melorin.modules.vpn import capacity
-from melorin.modules.panel_integrations.adapters.base import PanelError, supports
-from melorin.modules.panel_integrations.adapters.registry import build_adapter
+from melorin.modules.panel_integrations import capacity
 
 router = APIRouter(prefix="/admin", tags=["admin"])
-log = logging.getLogger("melorin.admin.capacity")
 
 
 async def _panel(session, panel_id: uuid.UUID) -> Panel:
@@ -33,24 +28,6 @@ async def _panel(session, panel_id: uuid.UUID) -> Panel:
     if not panel:
         raise NotFound("پنل")
     return panel
-
-
-async def live_group_health(panel: Panel) -> dict[int, dict] | None:
-    """``{group_id: assessment dict}`` from the live panel, or ``None`` when it cannot be asked (never raises)."""
-    if not providers.supports(panel.kind, "panel_ops") or not panel_caps.capabilities_of(panel).has("capacity_ops"):
-        return None
-    adapter = None
-    try:
-        adapter = build_adapter(panel)
-        if not supports(adapter, "capacity_ops"):
-            return None
-        groups, _templates = await capacity.fetch_assessments(adapter)
-        return {gid: a.to_dict() for gid, a in groups.items()}
-    except Exception:
-        log.info("live group health failed panel=%s", panel.id, exc_info=True)
-        return None
-    finally:
-        await close_adapter(adapter)
 
 
 @router.get("/panels/{panel_id}/capacity")
@@ -83,16 +60,7 @@ async def panel_capacity(panel_id: uuid.UUID, _: AdminUser, session: Session):
 @router.post("/panels/{panel_id}/capacity/refresh")
 async def refresh_capacity(panel_id: uuid.UUID, admin: AdminUser, session: Session):
     panel = await _panel(session, panel_id)
-    if not providers.supports(panel.kind, "panel_ops"):
-        raise AppError("CAPABILITY_UNAVAILABLE", "بررسی ظرفیت واقعی فقط برای پنل پاسارگارد است.", 409)
-    adapter = None
-    try:
-        adapter = build_adapter(panel)
-        changes = await capacity.refresh_panel(session, panel, adapter)
-    except PanelError as exc:
-        raise AppError("PANEL_UNREACHABLE", f"پنل پاسخ نداد: {exc.message[:200]}", 502) from exc
-    finally:
-        await close_adapter(adapter)
+    changes = await refresh_panel_capacity(session, panel)
     audit.record(
         session,
         "panel.capacity_refreshed",

@@ -14,8 +14,8 @@ from melorin.core.scope import StoreScope
 from melorin.kernel.models.vpn import AccountReturn, Panel, VpnAccount
 from melorin.modules.orders import service as orders
 from melorin.modules.orders.service import account_return
-from melorin.modules.vpn import live, reconcile
-from melorin.modules.vpn import router as vpn_router
+from melorin.modules.vpn_accounts import live, reconcile
+from melorin.modules.vpn_accounts import router as vpn_router
 from melorin.modules.wallet import service as wallet
 from test_pasarguard_service_db import FakePanel, remote
 

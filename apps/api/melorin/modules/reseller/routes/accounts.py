@@ -9,8 +9,8 @@ from melorin.core.deps import OwnerCtx, Session
 from melorin.core.errors import NotFound
 from melorin.modules.reseller import renewal as reseller_renewal
 from melorin.modules.reseller.schemas import OwnerRenewalOut
-from melorin.modules.vpn import inquiry, live
-from melorin.modules.vpn.schemas import OwnerAccountOut
+from melorin.modules.vpn_accounts import inquiry, live
+from melorin.modules.vpn_accounts.schemas import OwnerAccountOut
 
 router = APIRouter(tags=["reseller"])
 
@@ -94,7 +94,7 @@ async def store_account_renew(
 )
 async def store_account_qr(account_id: uuid.UUID, ctx: OwnerCtx, session: Session):
     a, _ = await _store_account(session, ctx, account_id)
-    from melorin.modules.vpn import live  # lazy: avoids an import cycle
+    from melorin.modules.vpn_accounts import live  # lazy: avoids an import cycle
 
     link = await live.current_link(session, a)  # R8
     if not link:

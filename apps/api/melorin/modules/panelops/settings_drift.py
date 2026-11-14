@@ -29,7 +29,7 @@ from melorin.kernel.models.vpn import Panel
 from melorin.modules.panel_integrations import capabilities as panel_caps
 from melorin.modules.panel_integrations.adapters.base import PanelError, supports
 from melorin.modules.panel_integrations.adapters.pasarguard.events import describe_webhook
-from melorin.modules.vpn.renewal import GRACE_DAYS
+from melorin.domain.renewal_policy import GRACE_DAYS
 from melorin.modules.panelops.subscription_check import _origin
 
 log = logging.getLogger("melorin.vpn.settings_drift")

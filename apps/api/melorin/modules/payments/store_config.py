@@ -57,9 +57,7 @@ def admin_view(row: StorePaymentConfiguration) -> dict:
 
 
 async def list_configs(session: AsyncSession, store_id: uuid.UUID) -> list[StorePaymentConfiguration]:
-    return list(
-        (await session.scalars(select(StorePaymentConfiguration).where(StorePaymentConfiguration.store_id == store_id))).all()
-    )
+    return list((await session.scalars(select(StorePaymentConfiguration).where(StorePaymentConfiguration.store_id == store_id))).all())
 
 
 async def upsert(

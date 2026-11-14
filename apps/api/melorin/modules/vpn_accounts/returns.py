@@ -33,8 +33,8 @@ from melorin.domain.order_state import OrderStatus, VpnStatus
 from melorin.kernel.models.identity import User
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.vpn import AccountReturn, VpnAccount
-from melorin.modules.vpn import inquiry, live
-from melorin.modules.vpn.renewal import _aware
+from melorin.modules.vpn_accounts import inquiry, live
+from melorin.modules.vpn_accounts.renewal import _aware
 
 RETURN_MAX_DAYS = 3
 RETURN_MAX_USAGE_PERCENT = 5

@@ -7,8 +7,16 @@ NOW = dt.datetime(2026, 11, 14, 12, 0, tzinfo=dt.UTC)
 
 
 def _panel(**kw):
-    base = dict(id="p1", name="P", health_status="healthy", last_health_at=NOW, last_health_error=None, health_detail=None,
-                metrics_snapshot=None, metrics_snapshot_at=None)
+    base = dict(
+        id="p1",
+        name="P",
+        health_status="healthy",
+        last_health_at=NOW,
+        last_health_error=None,
+        health_detail=None,
+        metrics_snapshot=None,
+        metrics_snapshot_at=None,
+    )
     base.update(kw)
     return NS(**base)
 

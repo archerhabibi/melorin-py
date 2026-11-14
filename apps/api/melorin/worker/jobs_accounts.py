@@ -6,18 +6,16 @@ import logging
 
 from sqlalchemy import and_, or_, select
 
-from melorin.domain.order_state import VpnStatus, set_vpn_status
+from melorin.domain.order_state import VpnSource, VpnStatus, set_vpn_status
 from melorin.core import settings_store
 from melorin.core.db import session_factory, utcnow
-from melorin.modules.vpn import live, notices, reconcile, sync
+from melorin.modules.vpn_accounts import live, notices, reconcile, sync
 from melorin.kernel.models.vpn import VpnAccount
 from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
 from melorin.worker.wrap import item_failed, tracked_job
 
 _close_strict = functools.partial(close_adapter, strict=True)  # worker jobs keep raising on close failure
 log = logging.getLogger("melorin.jobs")
-
-
 
 
 @tracked_job
@@ -41,7 +39,7 @@ async def expiry_job(ctx=None):
         not_just_read = or_(VpnAccount.last_synced_at.is_(None), VpnAccount.last_synced_at < now - sync.FRESH_FOR)
         # accounts without a panel: the only clock there is
         for a in (await s.scalars(select(VpnAccount).where(overdue, VpnAccount.panel_id.is_(None)))).all():
-            set_vpn_status(a, VpnStatus.EXPIRED)
+            set_vpn_status(a, VpnStatus.EXPIRED, source=VpnSource.EXPIRY_JOB)
             await notices.expired(s, a)
         await s.commit()
         # accounts on a panel: ask the panel (oldest read first, bounded per run)
@@ -61,7 +59,6 @@ async def expiry_job(ctx=None):
                 item_failed("expiry_job")
                 log.warning("expiry: live read failed account=%s", account_id, exc_info=True)
         return len(candidates)
-
 
 
 @tracked_job
@@ -109,11 +106,7 @@ async def near_expiry_job(ctx=None):
         await s.commit()
 
 
-
 EXPIRY_LIVE_BATCH = 200  # overdue panel accounts re-read per run (the rest wait for the next run)
 
 
-
 NEAR_EXPIRY_MAX_PAGES = 5  # bounds one run: at most 5 x live.MAX_ACCOUNTS panel reads
-
-

@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from _db import make_order, make_product, make_store, make_user, open_schema_engine
 from melorin.core.errors import AppError
 from melorin.kernel.models.vpn import Panel, ReconciliationIssue, VpnAccount
-from melorin.modules.vpn import inquiry, issues
+from melorin.modules.vpn_accounts import inquiry, issues
 from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError
 from _jobs import patch_jobs
 from melorin.worker import jobs
@@ -224,7 +224,7 @@ async def test_link_existing_points_a_missing_account_at_the_real_panel_user(mak
 
 # ------------------------------------------------------- near-expiry warning needs the panel's agreement (mediator rule)
 async def test_near_expiry_warning_is_sent_only_when_the_panel_agrees(maker, monkeypatch):
-    from melorin.modules.vpn import live, notices
+    from melorin.modules.vpn_accounts import live, notices
 
     names = ["agrees", "on_hold", "renewed_on_panel", "panel_silent"]
     panel_id, ids = await seed(maker, names)
@@ -263,7 +263,7 @@ async def test_near_expiry_warning_is_sent_only_when_the_panel_agrees(maker, mon
 
 async def test_near_expiry_reads_every_page_not_only_the_first(maker, monkeypatch):
     """T23: with more candidates than one live read may take, the rest must still be warned (soonest-ending first)."""
-    from melorin.modules.vpn import live, notices
+    from melorin.modules.vpn_accounts import live, notices
 
     names = [f"u{i}" for i in range(5)]
     panel_id, ids = await seed(maker, names)

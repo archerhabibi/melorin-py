@@ -9,7 +9,8 @@ from melorin.domain.order_state import VpnStatus
 from melorin.domain.panel_health import DEGRADED, HEALTHY, SELLABLE_STATES, UNHEALTHY
 from melorin.modules.admin.panel_reconciliation import allowed_actions
 from melorin.modules.panel_integrations import capabilities as caps
-from melorin.modules.vpn import health, issues, notices, sync
+from melorin.modules.vpn_accounts import issues, notices, sync
+from melorin.modules.panel_integrations import health
 from melorin.modules.panel_integrations.adapters.base import Capabilities
 from melorin.modules.panel_integrations.adapters.pasarguard.capabilities import build_report
 

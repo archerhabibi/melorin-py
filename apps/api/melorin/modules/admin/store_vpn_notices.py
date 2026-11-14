@@ -10,7 +10,7 @@ from melorin.core import audit
 from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import AppError, NotFound
 from melorin.kernel.models.stores import Store
-from melorin.modules.vpn import notices
+from melorin.modules.vpn_accounts import notices
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 log = logging.getLogger("melorin.admin.store_vpn_notices")

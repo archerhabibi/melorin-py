@@ -33,7 +33,7 @@ from melorin.kernel.models.identity import User
 from melorin.kernel.models.orders import Order, OrderStateTransition
 from melorin.kernel.models.stores import Store, StoreMembership
 from melorin.kernel.models.vpn import Panel, PanelAdmin, PanelOrphan, Server, VpnAccount
-from melorin.modules.vpn import inquiry, sync
+from melorin.modules.vpn_accounts import inquiry, sync
 from melorin.modules.panel_integrations.adapters.base import PanelError
 from melorin.modules.panel_integrations.adapters.registry import build_adapter
 

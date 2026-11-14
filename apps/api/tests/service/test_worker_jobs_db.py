@@ -18,7 +18,7 @@ from melorin.core.db import utcnow
 from melorin.kernel.models.identity import VerificationCode
 from melorin.kernel.models.system import BackupRun, OutboxEvent, SystemSetting
 from melorin.kernel.models.vpn import Panel, VpnAccount
-from melorin.modules.vpn import notices, reconcile
+from melorin.modules.vpn_accounts import notices, reconcile
 from melorin.core import integrations
 from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
 from _jobs import patch_jobs
