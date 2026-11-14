@@ -1,7 +1,7 @@
 From 2b7a40f4d38354ba119e0b5f4b673112112ec92e Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@gmail.com>
 Date: Fri, 13 Nov 2026 11:54:01 +0000
-Subject: [PATCH 01/34] arch(contracts): put eventcenter and broadcast under
+Subject: [PATCH 01/36] arch(contracts): put eventcenter and broadcast under
  the layer contract
 
 ---
@@ -28,7 +28,7 @@ index 286ab43..8ac7f14 100644
 From 2d64d509e34f94253822c3dbe6a55249abcb6301 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@gmail.com>
 Date: Fri, 13 Nov 2026 11:58:35 +0000
-Subject: [PATCH 02/34] fix(auth): admin password change enforces the same
+Subject: [PATCH 02/36] fix(auth): admin password change enforces the same
  policy as invite acceptance
 
 ---
@@ -92,7 +92,7 @@ index 4b4c2e7..b25e1a7 100644
 From 5ebfec4a5a0ad094c54c045612d3869ebc5e45b9 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@gmail.com>
 Date: Fri, 13 Nov 2026 11:59:56 +0000
-Subject: [PATCH 03/34] feat(admin-ui): regroup the menu (operations,
+Subject: [PATCH 03/36] feat(admin-ui): regroup the menu (operations,
  customers, catalog+marketing, communication, infrastructure); single password
  form; Receipt OCR lives under Payments
 
@@ -231,7 +231,7 @@ index d735da1..1bc9415 100644
 From cf3078358e9dd56b704544fd5afe992040683daa Mon Sep 17 00:00:00 2001
 From: claude-refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 12:22:19 +0000
-Subject: [PATCH 04/34] test(admin-ui): contract test follows the regrouped
+Subject: [PATCH 04/36] test(admin-ui): contract test follows the regrouped
  menu (infra group, catalog+marketing group)
 
 ---
@@ -263,7 +263,7 @@ index c37b6d0..b1c0224 100644
 From fa2f9f1b12a3e751e31dd0e7c0fecfe020debe13 Mon Sep 17 00:00:00 2001
 From: claude-refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 12:26:08 +0000
-Subject: [PATCH 05/34] arch(panelops): move panel_admins, governance,
+Subject: [PATCH 05/36] arch(panelops): move panel_admins, governance,
  store_usage, service_access, panel_events_admin, bulk, subscription_check,
  recreate, digest from vpn to panelops
 
@@ -873,7 +873,7 @@ index dc6010d..5daf353 100644
 From 28b907357132344d43bf66ba46418fb216c133cb Mon Sep 17 00:00:00 2001
 From: claude-refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 12:36:11 +0000
-Subject: [PATCH 06/34] arch(panelops): one reconciliation-actions service;
+Subject: [PATCH 06/36] arch(panelops): one reconciliation-actions service;
  admin router no longer builds adapters or coordinates writes
 
 Behaviour, error codes, audit events and messages are unchanged. Commits go through unit_of_work. Tests that patched the router's
@@ -1252,7 +1252,7 @@ index 1be7e54..ae1b773 100644
 From d9bf9dddd7d1751e60a4974b89608d057b2f9a2a Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:09:10 +0000
-Subject: [PATCH 07/34] docs(identity): point identity docstrings at docs/23
+Subject: [PATCH 07/36] docs(identity): point identity docstrings at docs/23
  (was docs/21)
 
 ---
@@ -1496,7 +1496,7 @@ index f553767..6ad921e 100644
 From 4666d51295581024fbba949d8215350c69940168 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:17:14 +0000
-Subject: [PATCH 08/34] feat(admin-ui): Settings is tabbed (backup+email /
+Subject: [PATCH 08/36] feat(admin-ui): Settings is tabbed (backup+email /
  advanced); Google and Telegram sign-in move to Identity > sign-in methods
 
 ---
@@ -1638,7 +1638,7 @@ index 89ae544..5be23cf 100644
 From f5d1996854a4f0b4b0595d9eb227d3e6e1c423c3 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:33:00 +0000
-Subject: [PATCH 09/34] feat(admin-ui): store hub: stores, resellers, panel
+Subject: [PATCH 09/36] feat(admin-ui): store hub: stores, resellers, panel
  access and volume governance are tabs of one menu entry
 
 ---
@@ -1860,7 +1860,7 @@ index 0000000..6dcd158
 From 4133a03d42351e76a8ac37b31e3d309270715b1e Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 13:53:57 +0000
-Subject: [PATCH 10/34] arch(payments): the main store payment destination uses
+Subject: [PATCH 10/36] arch(payments): the main store payment destination uses
  StorePaymentConfiguration; global card.info/gateway.zarinpal and the fallback
  are removed (alembic 0056)
 
@@ -2642,7 +2642,7 @@ index ae1b773..01a6a68 100644
 From eecbae7ca6146bef7cd336a832f0f91aa7560d5d Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 14:34:34 +0000
-Subject: [PATCH 11/34] arch(rewards): one written stacking policy and one
+Subject: [PATCH 11/36] arch(rewards): one written stacking policy and one
  settlement path; vpn account transition table
 
 ---
@@ -2817,7 +2817,7 @@ index 01a6a68..13f2648 100644
 From 3d7d013580e91867a5ec537d24db8323ea4c3fa0 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 14:42:16 +0000
-Subject: [PATCH 12/34] test(worker): refunds reverse loyalty before referral
+Subject: [PATCH 12/36] test(worker): refunds reverse loyalty before referral
 
 ---
  apps/api/tests/service/test_worker_runner_db.py | 2 +-
@@ -2843,7 +2843,7 @@ index ae12e89..af12146 100644
 From 34e51683ea1a0f2d5c9c18a528a48964c9f1ce77 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 14:59:48 +0000
-Subject: [PATCH 13/34] arch(worker): one read cycle per panel: metrics
+Subject: [PATCH 13/36] arch(worker): one read cycle per panel: metrics
  snapshot rides on the health job adapter
 
 ---
@@ -2923,7 +2923,7 @@ index 13f2648..3390dbd 100644
 From 3338242826ea3df9a23a08a2da87601ed7a78ed6 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 15:20:11 +0000
-Subject: [PATCH 14/34] arch(vpn): account status changes go through the
+Subject: [PATCH 14/36] arch(vpn): account status changes go through the
  guarded transition table
 
 ---
@@ -3078,7 +3078,7 @@ index 3390dbd..1fa7cd4 100644
 From 7a4e0bf6c3ddd2d04e5993cc0e818273990efe85 Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 15:33:23 +0000
-Subject: [PATCH 15/34] arch(messaging): notifications dedupe on event_id +
+Subject: [PATCH 15/36] arch(messaging): notifications dedupe on event_id +
  recipient + channel
 
 ---
@@ -3200,7 +3200,7 @@ index 1fa7cd4..9e68bb5 100644
 From aae44f6b1397699b701c15ee04d519609193659b Mon Sep 17 00:00:00 2001
 From: Zahra Khaton <zkhaton28@gmail.com>
 Date: Fri, 13 Nov 2026 16:18:20 +0000
-Subject: [PATCH 16/34] arch: guard expiry/revoke/sync status writes; panel
+Subject: [PATCH 16/36] arch: guard expiry/revoke/sync status writes; panel
  card deep-links to panel operations
 
 ---
@@ -3324,7 +3324,7 @@ index 9e68bb5..7218ea0 100644
 From 35b241cc55ca4386a7037d8a7a3a062ba268bd63 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 16:50:44 +0000
-Subject: [PATCH 17/34] arch(telegram): shared bot core in tgmain.core;
+Subject: [PATCH 17/36] arch(telegram): shared bot core in tgmain.core;
  reseller bot imports it instead of loading main runner.py by path; reseller
  image copies tgmain only
 
@@ -4242,7 +4242,7 @@ index cb2b24a..5e7709b 100644
 From bed9db5b27ebee848c22126ec449af3077f48c34 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 16:50:44 +0000
-Subject: [PATCH 18/34] chore(domain): drop 5-line leftovers (vpn/bundles,
+Subject: [PATCH 18/36] chore(domain): drop 5-line leftovers (vpn/bundles,
  vpn/service, domain/referral); commission_amount lives with commission,
  clean_custom_name in domain/account_name
 
@@ -4343,7 +4343,7 @@ index 0f1ad9b..9216cdf 100644
 From 81b5dd64815592a79fd09d829427b9ea83acbd83 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 16:59:01 +0000
-Subject: [PATCH 19/34] feat(admin): Operations Center roll-up on
+Subject: [PATCH 19/36] feat(admin): Operations Center roll-up on
  /admin/dashboard + dashboard card; restore vpn/service.py; guard provisioning
  status write; drop dead DataTable branches; contract test follows
  tgmain.core; decisions
@@ -4773,7 +4773,7 @@ index 7218ea0..45e9108 100644
 From a42c4b5125ec4735d242e8c52db443ceec7eebcd Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 17:03:53 +0000
-Subject: [PATCH 20/34] test: source-contract tests read tgmain/core.py
+Subject: [PATCH 20/36] test: source-contract tests read tgmain/core.py
 
 ---
  apps/api/tests/service/test_account_return.py              | 2 +-
@@ -4813,7 +4813,7 @@ index 9b5bf8b..65018af 100644
 From f820a98089d4df8cb591ebcb8809ed36844af73f Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 17:26:04 +0000
-Subject: [PATCH 21/34] feat(admin-ui): panel detail drawer: nodes, console,
+Subject: [PATCH 21/36] feat(admin-ui): panel detail drawer: nodes, console,
  events, capacity, templates and indicators are tabs of the panel; panel-ops
  keeps discrepancies, orphans and notices
 
@@ -5275,7 +5275,7 @@ index 45e9108..dd84015 100644
 From 802aa443b74f0e51fac783fb0265773f7b1734f8 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 20:40:47 +0000
-Subject: [PATCH 22/34] arch(integrations): provider adapters, sessions,
+Subject: [PATCH 22/36] arch(integrations): provider adapters, sessions,
  readers, capabilities and target config move from vpn to
  modules/panel_integrations (lowest feature layer); shared Event Center logic
  and text helpers move to web-kit
@@ -8112,7 +8112,7 @@ index 1423897..7dc57d3 100644
 From 4396daa9c77daadf056227597cd4f0618718a1d2 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 20:40:56 +0000
-Subject: [PATCH 23/34] docs: record integration boundary and shared web-kit
+Subject: [PATCH 23/36] docs: record integration boundary and shared web-kit
  decisions
 
 ---
@@ -8137,7 +8137,7 @@ index 82095f7..392f75c 100644
 From e20603006d61038349bba97489e394bb7429f8e2 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Fri, 13 Nov 2026 21:21:54 +0000
-Subject: [PATCH 24/34] arch: PanelSnapshot read model, messaging policy,
+Subject: [PATCH 24/36] arch: PanelSnapshot read model, messaging policy,
  status-write contract test, shared Bank SMS rules in web-kit
 
 ---
@@ -8726,7 +8726,7 @@ index 0000000..d97d251
 From 4cbea13a57d038502850d3cd383be13431f9cb98 Mon Sep 17 00:00:00 2001
 From: Pori Toooni <poritoooni@gmail.com>
 Date: Fri, 13 Nov 2026 22:08:29 +0000
-Subject: [PATCH 25/34] arch(messaging): DM delivery honours
+Subject: [PATCH 25/36] arch(messaging): DM delivery honours
  messaging_policy.dm_allowed; decisions updated
 
 ---
@@ -8802,7 +8802,7 @@ index 54fd61b..e6a938e 100644
 From cbdfc1fb50f2474e3b531263ee626df651967279 Mon Sep 17 00:00:00 2001
 From: Pori Toooni <poritoooni@gmail.com>
 Date: Sat, 14 Nov 2026 06:03:59 +0000
-Subject: [PATCH 26/34] feat(web-kit): shared broadcast composer hook used by
+Subject: [PATCH 26/36] feat(web-kit): shared broadcast composer hook used by
  admin-web and store-web; decisions updated
 
 ---
@@ -9130,7 +9130,7 @@ index 0000000..454f752
 From 9168a7d321bfb75a24bcce2a9ff218ae98dd40a2 Mon Sep 17 00:00:00 2001
 From: Pori Toooni <poritoooni@gmail.com>
 Date: Sat, 14 Nov 2026 06:09:48 +0000
-Subject: [PATCH 27/34] feat(web-kit): shared referral plan form used by
+Subject: [PATCH 27/36] feat(web-kit): shared referral plan form used by
  admin-web and store-web; decisions updated
 
 ---
@@ -9395,7 +9395,7 @@ index 0000000..be1623c
 From 5c1964b6bd3252607196a5b33ca76cb825ab83da Mon Sep 17 00:00:00 2001
 From: Pori Toooni <poritoooni@gmail.com>
 Date: Sat, 14 Nov 2026 06:19:41 +0000
-Subject: [PATCH 28/34] feat(web-kit): shared loyalty club data layer used by
+Subject: [PATCH 28/36] feat(web-kit): shared loyalty club data layer used by
  admin-web and store-web; decisions updated
 
 ---
@@ -9637,7 +9637,7 @@ index 0000000..fec4cee
 From 14df2cdcbac02fcfabbcd78875f62b7f7fb0bb5b Mon Sep 17 00:00:00 2001
 From: Pori Toooni <poritoooni@gmail.com>
 Date: Sat, 14 Nov 2026 06:23:29 +0000
-Subject: [PATCH 29/34] feat(web-kit): shared design tokens (identical values
+Subject: [PATCH 29/36] feat(web-kit): shared design tokens (identical values
  only); decisions updated
 
 ---
@@ -9850,7 +9850,7 @@ index 0000000..f9858bb
 From 014b89fbe159cda8a04cf31807000b5b46be519b Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@users.noreply.github.com>
 Date: Sat, 14 Nov 2026 06:52:08 +0000
-Subject: [PATCH 30/34] arch: admin sync is event-driven with 15-min fallback;
+Subject: [PATCH 30/36] arch: admin sync is event-driven with 15-min fallback;
  rename admin team / panel operator labels; decisions
 
 ---
@@ -10104,7 +10104,7 @@ index 0761ec1..51a479e 100644
 From 413e2eae568257f6aebc675412cd552b53750289 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@users.noreply.github.com>
 Date: Sat, 14 Nov 2026 07:35:19 +0000
-Subject: [PATCH 31/34] docs: regenerate STATUS/API (head 0056, 413
+Subject: [PATCH 31/36] docs: regenerate STATUS/API (head 0056, 413
  operations); decisions: state machine writers complete
 
 ---
@@ -10183,7 +10183,7 @@ index 1367bca..1d9129e 100644
 From 983636616db750d9b16dd11d2512aa0f2427ce98 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@users.noreply.github.com>
 Date: Sat, 14 Nov 2026 07:48:17 +0000
-Subject: [PATCH 32/34] feat(web-kit): shared PasswordInput and base types;
+Subject: [PATCH 32/36] feat(web-kit): shared PasswordInput and base types;
  feat(admin-ui): per-store notice levels are a Store Hub tab; decisions
 
 ---
@@ -10778,7 +10778,7 @@ index 0000000..79ceddc
 From 1cde428f3ba9f8c2d2fc09eb52c279ccb1bdf608 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@users.noreply.github.com>
 Date: Sat, 14 Nov 2026 07:58:25 +0000
-Subject: [PATCH 33/34] feat(admin-ui): store hub gains read-only prices and
+Subject: [PATCH 33/36] feat(admin-ui): store hub gains read-only prices and
  API tabs; reseller editor is the profile tab; decisions
 
 ---
@@ -11094,7 +11094,7 @@ index eea5b94..0a636de 100644
 From 5e3ffdb47f99f80551b4710bbd4d75b464aa7bd8 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@users.noreply.github.com>
 Date: Sat, 14 Nov 2026 08:13:54 +0000
-Subject: [PATCH 34/34] test(e2e): store hub tabs and menu-route smoke in a
+Subject: [PATCH 34/36] test(e2e): store hub tabs and menu-route smoke in a
  real browser
 
 ---
@@ -11216,6 +11216,2033 @@ index 0000000..9b5f3fc
 +  }
 +  expect(errors, errors.join('\n')).toEqual([]);
 +});
+-- 
+2.43.0
+
+
+From 301d7ffc7ae54569831e025e2cafd78513f51fb1 Mon Sep 17 00:00:00 2001
+From: Melorin Refactor <refactor@melorin.local>
+Date: Sat, 14 Nov 2026 08:31:15 +0000
+Subject: [PATCH 35/36] arch(worker): split jobs.py by domain (backup, panels,
+ accounts, identity, payments, reports); jobs.py is a facade; tests patch the
+ owning module; decisions
+
+---
+ apps/api/melorin/worker/jobs.py               | 585 +++---------------
+ apps/api/melorin/worker/jobs_accounts.py      | 119 ++++
+ apps/api/melorin/worker/jobs_backup.py        | 122 ++++
+ apps/api/melorin/worker/jobs_identity.py      | 105 ++++
+ apps/api/melorin/worker/jobs_panels.py        | 181 ++++++
+ apps/api/melorin/worker/jobs_payments.py      |  62 ++
+ apps/api/melorin/worker/jobs_reports.py       |  38 ++
+ apps/api/tests/_jobs.py                       |  22 +
+ .../adapters/test_pasarguard_ops_maturity.py  |   5 +-
+ .../contracts/test_backup_runtime_boundary.py |   3 +-
+ .../test_install_and_migration_regressions.py |   3 +-
+ apps/api/tests/service/test_data_retention.py |   3 +-
+ .../tests/service/test_mediator_rework_db.py  |   9 +-
+ apps/api/tests/service/test_worker_jobs_db.py |  19 +-
+ apps/api/tests/unit/test_job_item_failures.py |   5 +-
+ docker-compose.yml                            |   2 +-
+ docs/18-Telegram-Event-Center-Design.md       |   2 +-
+ docs/DECISIONS.md                             |   1 +
+ docs/GLOSSARY.md                              |   2 +-
+ docs/panels/PANEL-MEDIATOR-REWORK.md          |   4 +-
+ 20 files changed, 751 insertions(+), 541 deletions(-)
+ create mode 100644 apps/api/melorin/worker/jobs_accounts.py
+ create mode 100644 apps/api/melorin/worker/jobs_backup.py
+ create mode 100644 apps/api/melorin/worker/jobs_identity.py
+ create mode 100644 apps/api/melorin/worker/jobs_panels.py
+ create mode 100644 apps/api/melorin/worker/jobs_payments.py
+ create mode 100644 apps/api/melorin/worker/jobs_reports.py
+ create mode 100644 apps/api/tests/_jobs.py
+
+diff --git a/apps/api/melorin/worker/jobs.py b/apps/api/melorin/worker/jobs.py
+index 09ba0b7..4130df7 100644
+--- a/apps/api/melorin/worker/jobs.py
++++ b/apps/api/melorin/worker/jobs.py
+@@ -1,516 +1,69 @@
+-"""Periodic jobs. Run from cron/scheduler: health, expiry, reconciliation, backup status."""
+-
+-import asyncio
+-import functools
+-import datetime as dt
+-import logging
+-import os
+-from typing import Any, cast
+-from pathlib import Path
+-
+-from sqlalchemy import and_, delete, or_, select
+-from sqlalchemy.engine import CursorResult
+-
+-from melorin.domain.order_state import VpnStatus, set_vpn_status
+-from melorin.core import integrations, settings_store
+-from melorin.core.db import session_factory, utcnow
+-from melorin.kernel.models.identity import VerificationCode
+-from melorin.kernel.models.system import BackupRun
+-from melorin.modules.eventcenter import report as event_center_report
+-from melorin.modules.eventcenter import rules as event_center_rules
+-from melorin.modules.vpn import capacity, health, live, notices, panel_events, reconcile, sync
+-from melorin.modules.panel_integrations import capabilities
+-from melorin.kernel.models.vpn import Panel, VpnAccount
+-from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
+-from melorin.worker import retention
+-from melorin.worker.wrap import item_failed, tracked_job
+-
+-_close_strict = functools.partial(close_adapter, strict=True)  # worker jobs keep raising on close failure
+-log = logging.getLogger("melorin.jobs")
+-
+-
+-@tracked_job(lock_ttl=910)
+-async def backup_job(ctx=None):
+-    """Always write an encrypted LOCAL backup; also copy it to S3 when enabled in the Admin panel."""
+-    root = Path(os.getenv("MELORIN_PROJECT_ROOT", "/app"))
+-    script = root / "scripts" / "backup_secure.sh"
+-    started = utcnow()
+-    status, location, details, size = "failed", None, None, None
+-    env = dict(os.environ)
+-    try:
+-        async with session_factory()() as session:
+-            s3 = await integrations.get_backup_s3(session)
+-        if integrations.backup_s3_ready(s3):
+-            env.update(integrations.rclone_env(s3))
+-            env["MELORIN_BACKUP_OFFSITE_URI"] = integrations.rclone_uri(s3)
+-        proc = await asyncio.create_subprocess_exec(
+-            str(script),
+-            stdout=asyncio.subprocess.PIPE,
+-            stderr=asyncio.subprocess.PIPE,
+-            cwd=str(root),
+-            env=env,
+-        )
+-        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=900)
+-        lines = stdout.decode(errors="replace").strip().splitlines()
+-        if proc.returncode in (0, 3) and lines:
+-            location = lines[-1]
+-            size = Path(location).stat().st_size if Path(location).exists() else None
+-            if proc.returncode == 0:
+-                status = "succeeded"
+-                details = "encrypted artifact and checksum verification completed" + (
+-                    "; copied to S3" if env.get("MELORIN_BACKUP_OFFSITE_URI") else "; local only"
+-                )
+-            else:  # exit 3: local backup is fine, the off-site copy failed
+-                status = "partial"
+-                details = "local backup OK but S3 upload failed: " + stderr.decode(errors="replace")[-1500:]
+-        else:
+-            details = stderr.decode(errors="replace")[-2000:]
+-    except Exception as exc:
+-        details = str(exc)[:2000]
+-    async with session_factory()() as session:
+-        run = BackupRun(status=status, location=location, size=size, details=details, created_at=started)
+-        session.add(run)
+-        await session.flush()  # the run id is the dedup key of its Event Center notice
+-        await event_center_rules.notify_backup(session, run)
+-        await session.commit()
+-    if status != "succeeded":
+-        log.error("backup %s: %s", status, details)
+-    return status
+-
+-
+-@tracked_job(lock_ttl=910)
+-async def panel_backup_job(ctx=None):
+-    """Daily: encrypted backup of the PasarGuard panel (its database and data directory), recorded as ``BackupRun(target="panel")`` (PG-16).
+-
+-    Does nothing (no run, no alert) until ``MELORIN_PANEL_BACKUP_DATABASE_URL`` and/or ``MELORIN_PANEL_BACKUP_PATHS`` is set: a panel that is
+-    not backed up by Melorin is "not in use", not "stale". Same exit-code protocol as ``backup_job`` (0 ok, 3 local ok but off-site failed)."""
+-    if not (os.getenv("MELORIN_PANEL_BACKUP_DATABASE_URL") or os.getenv("MELORIN_PANEL_BACKUP_PATHS")):
+-        return "not_configured"
+-    root = Path(os.getenv("MELORIN_PROJECT_ROOT", "/app"))
+-    script = root / "scripts" / "backup_panel.sh"
+-    started = utcnow()
+-    status, location, details, size = "failed", None, None, None
+-    env = dict(os.environ)
+-    try:
+-        async with session_factory()() as session:
+-            s3 = await integrations.get_backup_s3(session)
+-        if integrations.backup_s3_ready(s3):
+-            env.update(integrations.rclone_env(s3))
+-            env["MELORIN_BACKUP_OFFSITE_URI"] = integrations.rclone_uri(s3)
+-        proc = await asyncio.create_subprocess_exec(
+-            str(script), stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, cwd=str(root), env=env
+-        )
+-        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=900)
+-        lines = stdout.decode(errors="replace").strip().splitlines()
+-        if proc.returncode in (0, 3) and lines:
+-            location = lines[-1]
+-            size = Path(location).stat().st_size if Path(location).exists() else None
+-            if proc.returncode == 0:
+-                status = "succeeded"
+-                details = "panel backup encrypted and verified" + (
+-                    "; copied to S3" if env.get("MELORIN_BACKUP_OFFSITE_URI") else "; local only"
+-                )
+-            else:
+-                status = "partial"
+-                details = "local panel backup OK but S3 upload failed: " + stderr.decode(errors="replace")[-1500:]
+-        else:
+-            details = stderr.decode(errors="replace")[-2000:]
+-    except Exception as exc:
+-        details = str(exc)[:2000]
+-    async with session_factory()() as session:
+-        run = BackupRun(status=status, location=location, size=size, details=details, created_at=started, target="panel")
+-        session.add(run)
+-        await session.flush()
+-        await event_center_rules.notify_backup(session, run)
+-        await session.commit()
+-    if status != "succeeded":
+-        log.error("panel backup %s: %s", status, details)
+-    return status
+-
+-
+-@tracked_job
+-async def daily_report_job(ctx=None):
+-    """Queue the Event Center nightly summary (one per group). Safe to run twice: the report is deduplicated per Tehran day."""
+-    async with session_factory()() as session:
+-        queued = await event_center_report.run(session)
+-        await session.commit()
+-    return queued
+-
+-
+-@tracked_job
+-async def store_digest_job(ctx=None):
+-    """Daily: the opt-in digest for store owners (PG-06). Says only what Melorin owns (notices sent, open discrepancies, sell blocks)."""
+-    from melorin.modules.panelops import digest
+-
+-    async with session_factory()() as session:
+-        queued = await digest.run(session)
+-        await session.commit()
+-    return queued
+-
+-
+-@tracked_job
+-async def panel_health_job(ctx=None):
+-    """Every 2 minutes: ONE read cycle per panel: health in two layers (PG-01) plus the metrics snapshot (PG-14) on the same adapter. The panel must answer AND have a connected node; a failing node
+-    alone makes the panel ``degraded`` (still selling), no connected node makes it ``unhealthy`` (leaves server selection)."""
+-    async with session_factory()() as s:
+-        from melorin.modules.panelops import panel_metrics
+-        from melorin.modules.panel_integrations.adapters.registry import build_adapter
+-
+-        panels = (await s.scalars(select(Panel).where(Panel.is_enabled.is_(True)))).all()
+-        for p in panels:
+-            adapter = None
+-            result = health.HealthResult(health.UNHEALTHY, "unknown")
+-            capacity_changes: list = []
+-            try:
+-                adapter = build_adapter(p)
+-                result = await health.check_panel(s, p, adapter)
+-                # One read cycle per panel: the metrics snapshot reuses this adapter/login (never raises).
+-                await panel_metrics.snapshot_panel(p, adapter)
+-                if result.status != health.UNHEALTHY and capabilities.is_stale(
+-                    p
+-                ):  # hourly: permissions change when the panel role is edited
+-                    try:
+-                        await capabilities.refresh(p, adapter)
+-                    except Exception:  # a probe problem must never flip the panel to unhealthy
+-                        item_failed("panel_health_job")
+-                        log.warning("panel capability refresh failed panel=%s", p.id, exc_info=True)
+-                if result.status != health.UNHEALTHY:  # PG-08: layer 3, the destinations' real group/host/node state and fill level
+-                    try:
+-                        capacity_changes = await capacity.refresh_panel(s, p, adapter)
+-                    except Exception:  # never let a capacity problem change the panel's verdict
+-                        item_failed("panel_health_job")
+-                        log.warning("panel capacity refresh failed panel=%s", p.id, exc_info=True)
+-            except Exception as exc:
+-                result = health.HealthResult(
+-                    health.UNHEALTHY, str(exc)[:500], {"layer": 1, "sellable": False, "checked_at": utcnow().isoformat()}
+-                )
+-            finally:
+-                if adapter:
+-                    try:
+-                        await close_adapter(adapter, strict=True)
+-                    except Exception:
+-                        log.exception("panel adapter close failed panel=%s", p.id)
+-            previous = health.apply(p, result)
+-            await event_center_rules.notify_panel_health(s, p, previous)
+-            await event_center_rules.notify_panel_nodes(s, p, result.node_changes)
+-            await event_center_rules.notify_server_capacity(s, p, capacity_changes)
+-        await s.commit()
+-
+-
+-@tracked_job
+-async def panel_metrics_job(ctx=None):
+-    """Every 2 minutes: one live reading per panel (latency, resources, users, online) for the /metrics gauges (PG-14)."""
+-    from melorin.modules.panelops import panel_metrics
+-
+-    async with session_factory()() as s:
+-        done = await panel_metrics.run_snapshots(s, close_adapter=_close_strict)
+-        await s.commit()
+-    return done
+-
+-
+-@tracked_job
+-async def panel_settings_drift_job(ctx=None):
+-    """Hourly: compare each PasarGuard panel's settings with what Melorin needs. READ-ONLY: it reports, an admin decides (PG-15)."""
+-    from melorin.modules.panelops import settings_drift
+-
+-    async with session_factory()() as s:
+-        done = await settings_drift.run_all(s, close_adapter=_close_strict)
+-        await s.commit()
+-    return done
+-
+-
+-EXPIRY_LIVE_BATCH = 200  # overdue panel accounts re-read per run (the rest wait for the next run)
+-
+-
+-@tracked_job
+-async def expiry_job(ctx=None):
+-    """Overdue accounts. Mediator rule: the PANEL decides ``expired``, not Melorin's clock.
+-
+-    * an account on a panel is only a *candidate* once its SOLD expiry has passed; it is re-read live from the panel and the
+-      panel's answer (status, current expiry) is applied. A panel that is down, or an account that is missing there, changes
+-      nothing (the reconcile job records the issue); a renewal done on the panel simply moves the expiry forward;
+-    * an account without a panel (manual / legacy) has no other source, so the local clock still applies to it;
+-    * ``on_hold`` accounts (waiting for their first connection) have no running clock: the live read says so, the status stays
+-      ``active``, and a read younger than ``sync.FRESH_FOR`` is not repeated.
+-    """
+-    async with session_factory()() as s:
+-        now = utcnow()
+-        overdue = and_(
+-            VpnAccount.status == "active",
+-            VpnAccount.sold_expires_at.is_not(None),
+-            VpnAccount.sold_expires_at <= now,
+-        )
+-        not_just_read = or_(VpnAccount.last_synced_at.is_(None), VpnAccount.last_synced_at < now - sync.FRESH_FOR)
+-        # accounts without a panel: the only clock there is
+-        for a in (await s.scalars(select(VpnAccount).where(overdue, VpnAccount.panel_id.is_(None)))).all():
+-            set_vpn_status(a, VpnStatus.EXPIRED)
+-            await notices.expired(s, a)
+-        await s.commit()
+-        # accounts on a panel: ask the panel (oldest read first, bounded per run)
+-        candidates = (
+-            await s.scalars(
+-                select(VpnAccount.id)
+-                .where(overdue, VpnAccount.panel_id.is_not(None), not_just_read)
+-                .order_by(VpnAccount.last_synced_at.asc().nulls_first())
+-                .limit(EXPIRY_LIVE_BATCH)
+-            )
+-        ).all()
+-        for account_id in candidates:
+-            try:
+-                await reconcile.reconcile_account(s, account_id)  # applies the panel's status; notices fire from sync.apply_remote
+-            except Exception:
+-                await s.rollback()
+-                item_failed("expiry_job")
+-                log.warning("expiry: live read failed account=%s", account_id, exc_info=True)
+-        return len(candidates)
+-
+-
+-NEAR_EXPIRY_MAX_PAGES = 5  # bounds one run: at most 5 x live.MAX_ACCOUNTS panel reads
+-
+-
+-@tracked_job
+-async def near_expiry_job(ctx=None):
+-    """Warn customers whose subscription is about to end.
+-
+-    Mediator rule: the SOLD expiry only nominates candidates. For an account on a panel the warning is sent only after a live read
+-    says the panel agrees: not ``on_hold`` (its clock has not started), and the panel's own expiry is inside the window (a renewal
+-    done on the panel pushes it out). A panel that does not answer sends nothing and leaves the flag unset, so the next run tries
+-    again. An account without a panel has no other source, so its sold expiry is used as before.
+-    """
+-    async with session_factory()() as s:
+-        hours = int(await settings_store.get(s, "vpn.near_expiry_hours") or 48)
+-        now, end = utcnow(), utcnow() + dt.timedelta(hours=hours)
+-        accounts = (
+-            await s.scalars(
+-                select(VpnAccount)
+-                .where(
+-                    VpnAccount.status == "active",
+-                    VpnAccount.near_expiry_notified.is_(False),
+-                    VpnAccount.sold_expires_at > now,
+-                    VpnAccount.sold_expires_at <= end,
+-                )
+-                .order_by(VpnAccount.sold_expires_at.asc(), VpnAccount.id)  # T23: the soonest-ending accounts are asked first
+-            )
+-        ).all()
+-        on_panel = [a for a in accounts if a.panel_id]
+-        readings: dict = {}
+-        # T23: read in pages (one live.read never takes more than MAX_ACCOUNTS) instead of silently dropping everything after the first page
+-        for start in range(0, min(len(on_panel), NEAR_EXPIRY_MAX_PAGES * live.MAX_ACCOUNTS), live.MAX_ACCOUNTS):
+-            readings.update(await live.read(s, on_panel[start : start + live.MAX_ACCOUNTS]))
+-        for a in accounts:
+-            if a.panel_id:
+-                reading = readings.get(a.id)
+-                if reading is None or reading.remote_status == "on_hold":
+-                    continue  # no verdict (panel silent / clock not started): ask again next run, flag untouched
+-                panel_expiry = reading.expires_at
+-                if panel_expiry is not None:
+-                    if panel_expiry.tzinfo is None:
+-                        panel_expiry = panel_expiry.replace(tzinfo=dt.UTC)
+-                    if not (now < panel_expiry <= end):
+-                        continue  # renewed (or already over) on the panel: this warning would be wrong
+-            a.near_expiry_notified = True  # reset by a renewal (notices.reset_for_renewal), so the NEXT period warns again
+-            await notices.near_expiry(s, a)
+-        await s.commit()
+-
+-
+-@tracked_job
+-async def reconciliation_job(ctx=None):
+-    """Hourly: reconcile v2 (PG-04). One batched read per panel; accounts that waited longest go first; issues open, refresh
+-    and close themselves. A failing panel never stops the others."""
+-    done = 0
+-    async with session_factory()() as s:
+-        panel_ids = (await s.scalars(select(Panel.id).where(Panel.is_enabled.is_(True)))).all()
+-    for panel_id in panel_ids:
+-        async with session_factory()() as s:
+-            try:
+-                panel = await s.get(Panel, panel_id)
+-                if panel is None:
+-                    continue
+-                result = await reconcile.reconcile_panel(s, panel)
+-                done += result.checked
+-                if result.unreachable:
+-                    log.warning("reconcile: panel=%s unreachable: %s", panel_id, "; ".join(result.errors))
+-            except Exception:
+-                await s.rollback()
+-                item_failed("reconciliation_job")
+-                log.warning("reconcile failed panel=%s", panel_id, exc_info=True)
+-    return done
+-
+-
+-@tracked_job
+-async def privacy_retention_job(ctx=None):
+-    """Remove expired authentication codes and finished outbox/webhook rows (T51) while preserving financial/audit data."""
+-    async with session_factory()() as s:
+-        days = int(await settings_store.get(s, "privacy.verification_code_retention_days") or 7)
+-        cutoff = utcnow() - dt.timedelta(days=max(1, days))
+-        result = cast(
+-            "CursorResult[Any]",
+-            await s.execute(
+-                delete(VerificationCode)
+-                .where(
+-                    VerificationCode.created_at < cutoff,
+-                    VerificationCode.expires_at < cutoff,
+-                )
+-                .execution_options(synchronize_session=False)
+-            ),
+-        )
+-        await s.commit()
+-        removed = await retention.purge_finished(s)  # T51: finished outbox events / webhook deliveries
+-        log.info(
+-            "privacy retention removed verification_codes=%s outbox_events=%s webhook_deliveries=%s",
+-            result.rowcount or 0,
+-            removed["outbox_events"],
+-            removed["webhook_deliveries"],
+-        )
+-        return int(result.rowcount or 0)
+-
+-
+-@tracked_job
+-async def telegram_login_gc_job(ctx=None):
+-    """Drop finished website-login sessions (Telegram bot approval) one day after they expired."""
+-    from melorin.channels.telegram import web as telegram_web
+-
+-    async with session_factory()() as s:
+-        removed = await telegram_web.purge_old(s)
+-        log.info("telegram web login sessions removed=%s", removed)
+-        return removed
+-
+-
+-@tracked_job
+-async def identity_auto_link_job(ctx=None):
+-    """Safety net for identity-link conflicts (docs/23): settle every open review that became safe to merge by itself
+-    (an empty shell stayed empty). Two accounts that both hold records are left for an admin."""
+-    from melorin.modules.identity import auto_link
+-
+-    async with session_factory()() as s:
+-        settled = await auto_link.sweep(s)
+-        if settled:
+-            log.info("identity conflicts settled automatically=%s", settled)
+-        return settled
+-
+-
+-@tracked_job
+-async def reseller_auto_verify_job(ctx=None):
+-    """Reseller applications verify themselves (docs/23): re-check the bot and the domain proof of every pending
+-    application whose retry is due. Back-off lives on the row, so a restart or a second worker never double-runs it."""
+-    from melorin.modules.reseller import auto_verify
+-
+-    async with session_factory()() as s:
+-        done = await auto_verify.sweep(s)
+-        if done:
+-            log.info("reseller applications auto-verified rounds=%s", done)
+-        return done
+-
+-
+-@tracked_job
+-async def reseller_identity_recheck_job(ctx=None):
+-    """Approved resellers keep proving who they are (docs/23): re-check domain proof and bot token of every store whose
+-    check is due; repeated failure alerts admins (and suspends the store when RESELLER_RECHECK_SUSPEND is on)."""
+-    from melorin.modules.reseller import recheck
+-
+-    async with session_factory()() as s:
+-        done = await recheck.sweep(s)
+-        if done:
+-            log.info("reseller identities re-checked=%s", done)
+-        return done
+-
+-
+-@tracked_job
+-async def bank_sms_reconcile_job(ctx=None):
+-    """Safety net for card-to-card auto verification: pair open deposit SMS with receipts uploaded later or whose
+-    inline match failed. Idempotent; the wallet credit is protected by the ledger idempotency key."""
+-    from melorin.kernel.models.payments import BankSmsSource
+-    from melorin.kernel.models.stores import Store
+-    from melorin.modules.payments import bank_sms
+-
+-    total = 0
+-    async with session_factory()() as s:
+-        ids = (
+-            await s.scalars(select(BankSmsSource.store_id).where(BankSmsSource.is_enabled.is_(True), BankSmsSource.auto_verify.is_(True)))
+-        ).all()
+-        for store_id in ids:
+-            try:
+-                store = await s.get(Store, store_id)
+-                if store:
+-                    total += (await bank_sms.reconcile_store(s, store))["matched"]
+-            except Exception:
+-                await s.rollback()
+-                item_failed("bank_sms_reconcile_job")
+-                log.warning("bank sms reconcile failed store=%s", store_id, exc_info=True)
+-    return total
+-
+-
+-@tracked_job
+-async def receipt_grace_job(ctx=None):
+-    """Time-boxed manual review: credit provisionally (and flag for fast review) every card-to-card receipt that
+-    waited longer than the store's grace minutes. Runs every minute; idempotent."""
+-    from melorin.modules.payments import provisional
+-
+-    async with session_factory()() as s:
+-        try:
+-            n = await provisional.sweep(s)
+-        except Exception:
+-            await s.rollback()
+-            item_failed("receipt_grace_job")
+-            log.warning("receipt grace sweep failed", exc_info=True)
+-            return 0
+-        if n:
+-            log.info("receipt grace: provisional credits=%s", n)
+-        return n
+-
+-
+-@tracked_job
+-async def panel_admin_sync_job(ctx=None):
+-    """Every 15 minutes (retry + safety net): panel create and reseller create already plan and push the Operator admin on the spot."""
+-    from melorin.modules.panelops import panel_admins
+-
+-    async with session_factory()() as s:
+-        return await panel_admins.sync_all(s)
+-
+-
+-@tracked_job
+-async def panel_event_job(ctx=None):
+-    """Every 10 seconds: process the PasarGuard events the endpoint stored (PG-03). Coalesced per user, leased, safe to run twice.
+-
+-    This is NOT a second way of receiving events (audit T07): nothing here asks the panel what happened. There is one path in, the webhook
+-    (``ingest`` stores each event once by ``(panel_id, dedup_key)``), and one consumer, ``run_pending``; the webhook calls it right away for
+-    latency and this job sweeps what is left. Events the panel never delivered are caught by the hourly reconcile, not by polling."""
+-    stats = await panel_events.run_pending()
+-    return stats.claimed
+-
+-
+-@tracked_job
+-async def panel_event_purge_job(ctx=None):
+-    """Daily: drop finished panel events older than the retention window (30 days)."""
+-    async with session_factory()() as s:
+-        removed = await panel_events.purge(s)
+-    log.info("panel events retention removed=%s", removed)
+-    return removed
+-
+-
+-@tracked_job
+-async def bulk_operation_job(ctx=None):
+-    """Every 15 seconds: run ONE confirmed bulk operation for up to ~40 s (PG-11). Leased per panel, chunked, resumable: a crash or a
+-    second worker can never apply an item twice (absolute targets + ledger)."""
+-    from melorin.modules.panelops import bulk
+-
+-    op = await bulk.run_next(session_factory(), budget_seconds=40.0)
+-    return op.status if op else None
+-
+-
+-@tracked_job
+-async def store_governance_job(ctx=None):
+-    """Every 15 minutes: read each store admin's usage / status / user count from its panel (PG-12)."""
+-    from melorin.modules.panelops import governance
+-
+-    done = 0
+-    async with session_factory()() as s:
+-        panels = (await s.scalars(select(Panel).where(Panel.is_enabled.is_(True), Panel.kind == "pasarguard"))).all()
+-        for p in panels:
+-            try:
+-                done += (await governance.sync_usage(s, p)).updated
+-            except Exception:
+-                item_failed("store_governance_job")
+-                log.warning("store governance sync failed panel=%s", p.id, exc_info=True)
+-        await s.commit()
+-    return done
++"""Periodic jobs, one module per domain. This file only re-exports the names the scheduler imports (``arq_app``).
++
++Job bodies live in ``jobs_backup``, ``jobs_panels``, ``jobs_accounts``, ``jobs_identity``, ``jobs_payments`` and ``jobs_reports``;
++patch collaborators (``session_factory`` ...) on the module that owns the job.
++"""
++
++from melorin.worker.jobs_backup import (
++    backup_job,
++    panel_backup_job,
++)
++from melorin.worker.jobs_panels import (
++    panel_health_job,
++    panel_metrics_job,
++    panel_settings_drift_job,
++    panel_admin_sync_job,
++    panel_event_job,
++    panel_event_purge_job,
++    bulk_operation_job,
++    store_governance_job,
++    reconciliation_job,
++)
++from melorin.worker.jobs_accounts import (
++    expiry_job,
++    near_expiry_job,
++    EXPIRY_LIVE_BATCH,
++    NEAR_EXPIRY_MAX_PAGES,
++)
++from melorin.worker.jobs_identity import (
++    identity_auto_link_job,
++    reseller_auto_verify_job,
++    reseller_identity_recheck_job,
++    telegram_login_gc_job,
++    privacy_retention_job,
++)
++from melorin.worker.jobs_payments import (
++    bank_sms_reconcile_job,
++    receipt_grace_job,
++)
++from melorin.worker.jobs_reports import (
++    daily_report_job,
++    store_digest_job,
++)
++
++__all__ = [
++    "backup_job",
++    "panel_backup_job",
++    "panel_health_job",
++    "panel_metrics_job",
++    "panel_settings_drift_job",
++    "panel_admin_sync_job",
++    "panel_event_job",
++    "panel_event_purge_job",
++    "bulk_operation_job",
++    "store_governance_job",
++    "reconciliation_job",
++    "expiry_job",
++    "near_expiry_job",
++    "EXPIRY_LIVE_BATCH",
++    "NEAR_EXPIRY_MAX_PAGES",
++    "identity_auto_link_job",
++    "reseller_auto_verify_job",
++    "reseller_identity_recheck_job",
++    "telegram_login_gc_job",
++    "privacy_retention_job",
++    "bank_sms_reconcile_job",
++    "receipt_grace_job",
++    "daily_report_job",
++    "store_digest_job",
++]
+diff --git a/apps/api/melorin/worker/jobs_accounts.py b/apps/api/melorin/worker/jobs_accounts.py
+new file mode 100644
+index 0000000..47beb15
+--- /dev/null
++++ b/apps/api/melorin/worker/jobs_accounts.py
+@@ -0,0 +1,119 @@
++"""Account lifecycle jobs: expiry and near-expiry against the panels."""
++
++import functools
++import datetime as dt
++import logging
++
++from sqlalchemy import and_, or_, select
++
++from melorin.domain.order_state import VpnStatus, set_vpn_status
++from melorin.core import settings_store
++from melorin.core.db import session_factory, utcnow
++from melorin.modules.vpn import live, notices, reconcile, sync
++from melorin.kernel.models.vpn import VpnAccount
++from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
++from melorin.worker.wrap import item_failed, tracked_job
++
++_close_strict = functools.partial(close_adapter, strict=True)  # worker jobs keep raising on close failure
++log = logging.getLogger("melorin.jobs")
++
++
++
++
++@tracked_job
++async def expiry_job(ctx=None):
++    """Overdue accounts. Mediator rule: the PANEL decides ``expired``, not Melorin's clock.
++
++    * an account on a panel is only a *candidate* once its SOLD expiry has passed; it is re-read live from the panel and the
++      panel's answer (status, current expiry) is applied. A panel that is down, or an account that is missing there, changes
++      nothing (the reconcile job records the issue); a renewal done on the panel simply moves the expiry forward;
++    * an account without a panel (manual / legacy) has no other source, so the local clock still applies to it;
++    * ``on_hold`` accounts (waiting for their first connection) have no running clock: the live read says so, the status stays
++      ``active``, and a read younger than ``sync.FRESH_FOR`` is not repeated.
++    """
++    async with session_factory()() as s:
++        now = utcnow()
++        overdue = and_(
++            VpnAccount.status == "active",
++            VpnAccount.sold_expires_at.is_not(None),
++            VpnAccount.sold_expires_at <= now,
++        )
++        not_just_read = or_(VpnAccount.last_synced_at.is_(None), VpnAccount.last_synced_at < now - sync.FRESH_FOR)
++        # accounts without a panel: the only clock there is
++        for a in (await s.scalars(select(VpnAccount).where(overdue, VpnAccount.panel_id.is_(None)))).all():
++            set_vpn_status(a, VpnStatus.EXPIRED)
++            await notices.expired(s, a)
++        await s.commit()
++        # accounts on a panel: ask the panel (oldest read first, bounded per run)
++        candidates = (
++            await s.scalars(
++                select(VpnAccount.id)
++                .where(overdue, VpnAccount.panel_id.is_not(None), not_just_read)
++                .order_by(VpnAccount.last_synced_at.asc().nulls_first())
++                .limit(EXPIRY_LIVE_BATCH)
++            )
++        ).all()
++        for account_id in candidates:
++            try:
++                await reconcile.reconcile_account(s, account_id)  # applies the panel's status; notices fire from sync.apply_remote
++            except Exception:
++                await s.rollback()
++                item_failed("expiry_job")
++                log.warning("expiry: live read failed account=%s", account_id, exc_info=True)
++        return len(candidates)
++
++
++
++@tracked_job
++async def near_expiry_job(ctx=None):
++    """Warn customers whose subscription is about to end.
++
++    Mediator rule: the SOLD expiry only nominates candidates. For an account on a panel the warning is sent only after a live read
++    says the panel agrees: not ``on_hold`` (its clock has not started), and the panel's own expiry is inside the window (a renewal
++    done on the panel pushes it out). A panel that does not answer sends nothing and leaves the flag unset, so the next run tries
++    again. An account without a panel has no other source, so its sold expiry is used as before.
++    """
++    async with session_factory()() as s:
++        hours = int(await settings_store.get(s, "vpn.near_expiry_hours") or 48)
++        now, end = utcnow(), utcnow() + dt.timedelta(hours=hours)
++        accounts = (
++            await s.scalars(
++                select(VpnAccount)
++                .where(
++                    VpnAccount.status == "active",
++                    VpnAccount.near_expiry_notified.is_(False),
++                    VpnAccount.sold_expires_at > now,
++                    VpnAccount.sold_expires_at <= end,
++                )
++                .order_by(VpnAccount.sold_expires_at.asc(), VpnAccount.id)  # T23: the soonest-ending accounts are asked first
++            )
++        ).all()
++        on_panel = [a for a in accounts if a.panel_id]
++        readings: dict = {}
++        # T23: read in pages (one live.read never takes more than MAX_ACCOUNTS) instead of silently dropping everything after the first page
++        for start in range(0, min(len(on_panel), NEAR_EXPIRY_MAX_PAGES * live.MAX_ACCOUNTS), live.MAX_ACCOUNTS):
++            readings.update(await live.read(s, on_panel[start : start + live.MAX_ACCOUNTS]))
++        for a in accounts:
++            if a.panel_id:
++                reading = readings.get(a.id)
++                if reading is None or reading.remote_status == "on_hold":
++                    continue  # no verdict (panel silent / clock not started): ask again next run, flag untouched
++                panel_expiry = reading.expires_at
++                if panel_expiry is not None:
++                    if panel_expiry.tzinfo is None:
++                        panel_expiry = panel_expiry.replace(tzinfo=dt.UTC)
++                    if not (now < panel_expiry <= end):
++                        continue  # renewed (or already over) on the panel: this warning would be wrong
++            a.near_expiry_notified = True  # reset by a renewal (notices.reset_for_renewal), so the NEXT period warns again
++            await notices.near_expiry(s, a)
++        await s.commit()
++
++
++
++EXPIRY_LIVE_BATCH = 200  # overdue panel accounts re-read per run (the rest wait for the next run)
++
++
++
++NEAR_EXPIRY_MAX_PAGES = 5  # bounds one run: at most 5 x live.MAX_ACCOUNTS panel reads
++
++
+diff --git a/apps/api/melorin/worker/jobs_backup.py b/apps/api/melorin/worker/jobs_backup.py
+new file mode 100644
+index 0000000..618adb7
+--- /dev/null
++++ b/apps/api/melorin/worker/jobs_backup.py
+@@ -0,0 +1,122 @@
++"""Backup jobs: encrypted local backup (+S3) and the per-panel backup."""
++
++import asyncio
++import functools
++import logging
++import os
++from pathlib import Path
++
++
++from melorin.core import integrations
++from melorin.core.db import session_factory, utcnow
++from melorin.kernel.models.system import BackupRun
++from melorin.modules.eventcenter import rules as event_center_rules
++from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
++from melorin.worker.wrap import tracked_job
++
++_close_strict = functools.partial(close_adapter, strict=True)  # worker jobs keep raising on close failure
++log = logging.getLogger("melorin.jobs")
++
++
++
++
++@tracked_job(lock_ttl=910)
++async def backup_job(ctx=None):
++    """Always write an encrypted LOCAL backup; also copy it to S3 when enabled in the Admin panel."""
++    root = Path(os.getenv("MELORIN_PROJECT_ROOT", "/app"))
++    script = root / "scripts" / "backup_secure.sh"
++    started = utcnow()
++    status, location, details, size = "failed", None, None, None
++    env = dict(os.environ)
++    try:
++        async with session_factory()() as session:
++            s3 = await integrations.get_backup_s3(session)
++        if integrations.backup_s3_ready(s3):
++            env.update(integrations.rclone_env(s3))
++            env["MELORIN_BACKUP_OFFSITE_URI"] = integrations.rclone_uri(s3)
++        proc = await asyncio.create_subprocess_exec(
++            str(script),
++            stdout=asyncio.subprocess.PIPE,
++            stderr=asyncio.subprocess.PIPE,
++            cwd=str(root),
++            env=env,
++        )
++        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=900)
++        lines = stdout.decode(errors="replace").strip().splitlines()
++        if proc.returncode in (0, 3) and lines:
++            location = lines[-1]
++            size = Path(location).stat().st_size if Path(location).exists() else None
++            if proc.returncode == 0:
++                status = "succeeded"
++                details = "encrypted artifact and checksum verification completed" + (
++                    "; copied to S3" if env.get("MELORIN_BACKUP_OFFSITE_URI") else "; local only"
++                )
++            else:  # exit 3: local backup is fine, the off-site copy failed
++                status = "partial"
++                details = "local backup OK but S3 upload failed: " + stderr.decode(errors="replace")[-1500:]
++        else:
++            details = stderr.decode(errors="replace")[-2000:]
++    except Exception as exc:
++        details = str(exc)[:2000]
++    async with session_factory()() as session:
++        run = BackupRun(status=status, location=location, size=size, details=details, created_at=started)
++        session.add(run)
++        await session.flush()  # the run id is the dedup key of its Event Center notice
++        await event_center_rules.notify_backup(session, run)
++        await session.commit()
++    if status != "succeeded":
++        log.error("backup %s: %s", status, details)
++    return status
++
++
++
++@tracked_job(lock_ttl=910)
++async def panel_backup_job(ctx=None):
++    """Daily: encrypted backup of the PasarGuard panel (its database and data directory), recorded as ``BackupRun(target="panel")`` (PG-16).
++
++    Does nothing (no run, no alert) until ``MELORIN_PANEL_BACKUP_DATABASE_URL`` and/or ``MELORIN_PANEL_BACKUP_PATHS`` is set: a panel that is
++    not backed up by Melorin is "not in use", not "stale". Same exit-code protocol as ``backup_job`` (0 ok, 3 local ok but off-site failed)."""
++    if not (os.getenv("MELORIN_PANEL_BACKUP_DATABASE_URL") or os.getenv("MELORIN_PANEL_BACKUP_PATHS")):
++        return "not_configured"
++    root = Path(os.getenv("MELORIN_PROJECT_ROOT", "/app"))
++    script = root / "scripts" / "backup_panel.sh"
++    started = utcnow()
++    status, location, details, size = "failed", None, None, None
++    env = dict(os.environ)
++    try:
++        async with session_factory()() as session:
++            s3 = await integrations.get_backup_s3(session)
++        if integrations.backup_s3_ready(s3):
++            env.update(integrations.rclone_env(s3))
++            env["MELORIN_BACKUP_OFFSITE_URI"] = integrations.rclone_uri(s3)
++        proc = await asyncio.create_subprocess_exec(
++            str(script), stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, cwd=str(root), env=env
++        )
++        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=900)
++        lines = stdout.decode(errors="replace").strip().splitlines()
++        if proc.returncode in (0, 3) and lines:
++            location = lines[-1]
++            size = Path(location).stat().st_size if Path(location).exists() else None
++            if proc.returncode == 0:
++                status = "succeeded"
++                details = "panel backup encrypted and verified" + (
++                    "; copied to S3" if env.get("MELORIN_BACKUP_OFFSITE_URI") else "; local only"
++                )
++            else:
++                status = "partial"
++                details = "local panel backup OK but S3 upload failed: " + stderr.decode(errors="replace")[-1500:]
++        else:
++            details = stderr.decode(errors="replace")[-2000:]
++    except Exception as exc:
++        details = str(exc)[:2000]
++    async with session_factory()() as session:
++        run = BackupRun(status=status, location=location, size=size, details=details, created_at=started, target="panel")
++        session.add(run)
++        await session.flush()
++        await event_center_rules.notify_backup(session, run)
++        await session.commit()
++    if status != "succeeded":
++        log.error("panel backup %s: %s", status, details)
++    return status
++
++
+diff --git a/apps/api/melorin/worker/jobs_identity.py b/apps/api/melorin/worker/jobs_identity.py
+new file mode 100644
+index 0000000..b631ccf
+--- /dev/null
++++ b/apps/api/melorin/worker/jobs_identity.py
+@@ -0,0 +1,105 @@
++"""Identity and privacy jobs: auto-link, reseller verification, Telegram login GC, retention."""
++
++import functools
++import datetime as dt
++import logging
++from typing import Any, cast
++
++from sqlalchemy import delete
++from sqlalchemy.engine import CursorResult
++
++from melorin.core import settings_store
++from melorin.core.db import session_factory, utcnow
++from melorin.kernel.models.identity import VerificationCode
++from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
++from melorin.worker import retention
++from melorin.worker.wrap import tracked_job
++
++_close_strict = functools.partial(close_adapter, strict=True)  # worker jobs keep raising on close failure
++log = logging.getLogger("melorin.jobs")
++
++
++
++
++@tracked_job
++async def identity_auto_link_job(ctx=None):
++    """Safety net for identity-link conflicts (docs/23): settle every open review that became safe to merge by itself
++    (an empty shell stayed empty). Two accounts that both hold records are left for an admin."""
++    from melorin.modules.identity import auto_link
++
++    async with session_factory()() as s:
++        settled = await auto_link.sweep(s)
++        if settled:
++            log.info("identity conflicts settled automatically=%s", settled)
++        return settled
++
++
++
++@tracked_job
++async def reseller_auto_verify_job(ctx=None):
++    """Reseller applications verify themselves (docs/23): re-check the bot and the domain proof of every pending
++    application whose retry is due. Back-off lives on the row, so a restart or a second worker never double-runs it."""
++    from melorin.modules.reseller import auto_verify
++
++    async with session_factory()() as s:
++        done = await auto_verify.sweep(s)
++        if done:
++            log.info("reseller applications auto-verified rounds=%s", done)
++        return done
++
++
++
++@tracked_job
++async def reseller_identity_recheck_job(ctx=None):
++    """Approved resellers keep proving who they are (docs/23): re-check domain proof and bot token of every store whose
++    check is due; repeated failure alerts admins (and suspends the store when RESELLER_RECHECK_SUSPEND is on)."""
++    from melorin.modules.reseller import recheck
++
++    async with session_factory()() as s:
++        done = await recheck.sweep(s)
++        if done:
++            log.info("reseller identities re-checked=%s", done)
++        return done
++
++
++
++@tracked_job
++async def telegram_login_gc_job(ctx=None):
++    """Drop finished website-login sessions (Telegram bot approval) one day after they expired."""
++    from melorin.channels.telegram import web as telegram_web
++
++    async with session_factory()() as s:
++        removed = await telegram_web.purge_old(s)
++        log.info("telegram web login sessions removed=%s", removed)
++        return removed
++
++
++
++@tracked_job
++async def privacy_retention_job(ctx=None):
++    """Remove expired authentication codes and finished outbox/webhook rows (T51) while preserving financial/audit data."""
++    async with session_factory()() as s:
++        days = int(await settings_store.get(s, "privacy.verification_code_retention_days") or 7)
++        cutoff = utcnow() - dt.timedelta(days=max(1, days))
++        result = cast(
++            "CursorResult[Any]",
++            await s.execute(
++                delete(VerificationCode)
++                .where(
++                    VerificationCode.created_at < cutoff,
++                    VerificationCode.expires_at < cutoff,
++                )
++                .execution_options(synchronize_session=False)
++            ),
++        )
++        await s.commit()
++        removed = await retention.purge_finished(s)  # T51: finished outbox events / webhook deliveries
++        log.info(
++            "privacy retention removed verification_codes=%s outbox_events=%s webhook_deliveries=%s",
++            result.rowcount or 0,
++            removed["outbox_events"],
++            removed["webhook_deliveries"],
++        )
++        return int(result.rowcount or 0)
++
++
+diff --git a/apps/api/melorin/worker/jobs_panels.py b/apps/api/melorin/worker/jobs_panels.py
+new file mode 100644
+index 0000000..f316156
+--- /dev/null
++++ b/apps/api/melorin/worker/jobs_panels.py
+@@ -0,0 +1,181 @@
++"""Panel jobs: one read cycle (health/metrics/capacity), drift, admin sync, provider events, bulk runs, governance, reconciliation."""
++
++import functools
++import logging
++
++from sqlalchemy import select
++
++from melorin.core.db import session_factory, utcnow
++from melorin.modules.eventcenter import rules as event_center_rules
++from melorin.modules.vpn import capacity, health, panel_events, reconcile
++from melorin.modules.panel_integrations import capabilities
++from melorin.kernel.models.vpn import Panel
++from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
++from melorin.worker.wrap import item_failed, tracked_job
++
++_close_strict = functools.partial(close_adapter, strict=True)  # worker jobs keep raising on close failure
++log = logging.getLogger("melorin.jobs")
++
++
++
++
++@tracked_job
++async def panel_health_job(ctx=None):
++    """Every 2 minutes: ONE read cycle per panel: health in two layers (PG-01) plus the metrics snapshot (PG-14) on the same adapter. The panel must answer AND have a connected node; a failing node
++    alone makes the panel ``degraded`` (still selling), no connected node makes it ``unhealthy`` (leaves server selection)."""
++    async with session_factory()() as s:
++        from melorin.modules.panelops import panel_metrics
++        from melorin.modules.panel_integrations.adapters.registry import build_adapter
++
++        panels = (await s.scalars(select(Panel).where(Panel.is_enabled.is_(True)))).all()
++        for p in panels:
++            adapter = None
++            result = health.HealthResult(health.UNHEALTHY, "unknown")
++            capacity_changes: list = []
++            try:
++                adapter = build_adapter(p)
++                result = await health.check_panel(s, p, adapter)
++                # One read cycle per panel: the metrics snapshot reuses this adapter/login (never raises).
++                await panel_metrics.snapshot_panel(p, adapter)
++                if result.status != health.UNHEALTHY and capabilities.is_stale(
++                    p
++                ):  # hourly: permissions change when the panel role is edited
++                    try:
++                        await capabilities.refresh(p, adapter)
++                    except Exception:  # a probe problem must never flip the panel to unhealthy
++                        item_failed("panel_health_job")
++                        log.warning("panel capability refresh failed panel=%s", p.id, exc_info=True)
++                if result.status != health.UNHEALTHY:  # PG-08: layer 3, the destinations' real group/host/node state and fill level
++                    try:
++                        capacity_changes = await capacity.refresh_panel(s, p, adapter)
++                    except Exception:  # never let a capacity problem change the panel's verdict
++                        item_failed("panel_health_job")
++                        log.warning("panel capacity refresh failed panel=%s", p.id, exc_info=True)
++            except Exception as exc:
++                result = health.HealthResult(
++                    health.UNHEALTHY, str(exc)[:500], {"layer": 1, "sellable": False, "checked_at": utcnow().isoformat()}
++                )
++            finally:
++                if adapter:
++                    try:
++                        await close_adapter(adapter, strict=True)
++                    except Exception:
++                        log.exception("panel adapter close failed panel=%s", p.id)
++            previous = health.apply(p, result)
++            await event_center_rules.notify_panel_health(s, p, previous)
++            await event_center_rules.notify_panel_nodes(s, p, result.node_changes)
++            await event_center_rules.notify_server_capacity(s, p, capacity_changes)
++        await s.commit()
++
++
++
++@tracked_job
++async def panel_metrics_job(ctx=None):
++    """Every 2 minutes: one live reading per panel (latency, resources, users, online) for the /metrics gauges (PG-14)."""
++    from melorin.modules.panelops import panel_metrics
++
++    async with session_factory()() as s:
++        done = await panel_metrics.run_snapshots(s, close_adapter=_close_strict)
++        await s.commit()
++    return done
++
++
++
++@tracked_job
++async def panel_settings_drift_job(ctx=None):
++    """Hourly: compare each PasarGuard panel's settings with what Melorin needs. READ-ONLY: it reports, an admin decides (PG-15)."""
++    from melorin.modules.panelops import settings_drift
++
++    async with session_factory()() as s:
++        done = await settings_drift.run_all(s, close_adapter=_close_strict)
++        await s.commit()
++    return done
++
++
++
++@tracked_job
++async def panel_admin_sync_job(ctx=None):
++    """Every 15 minutes (retry + safety net): panel create and reseller create already plan and push the Operator admin on the spot."""
++    from melorin.modules.panelops import panel_admins
++
++    async with session_factory()() as s:
++        return await panel_admins.sync_all(s)
++
++
++
++@tracked_job
++async def panel_event_job(ctx=None):
++    """Every 10 seconds: process the PasarGuard events the endpoint stored (PG-03). Coalesced per user, leased, safe to run twice.
++
++    This is NOT a second way of receiving events (audit T07): nothing here asks the panel what happened. There is one path in, the webhook
++    (``ingest`` stores each event once by ``(panel_id, dedup_key)``), and one consumer, ``run_pending``; the webhook calls it right away for
++    latency and this job sweeps what is left. Events the panel never delivered are caught by the hourly reconcile, not by polling."""
++    stats = await panel_events.run_pending()
++    return stats.claimed
++
++
++
++@tracked_job
++async def panel_event_purge_job(ctx=None):
++    """Daily: drop finished panel events older than the retention window (30 days)."""
++    async with session_factory()() as s:
++        removed = await panel_events.purge(s)
++    log.info("panel events retention removed=%s", removed)
++    return removed
++
++
++
++@tracked_job
++async def bulk_operation_job(ctx=None):
++    """Every 15 seconds: run ONE confirmed bulk operation for up to ~40 s (PG-11). Leased per panel, chunked, resumable: a crash or a
++    second worker can never apply an item twice (absolute targets + ledger)."""
++    from melorin.modules.panelops import bulk
++
++    op = await bulk.run_next(session_factory(), budget_seconds=40.0)
++    return op.status if op else None
++
++
++
++@tracked_job
++async def store_governance_job(ctx=None):
++    """Every 15 minutes: read each store admin's usage / status / user count from its panel (PG-12)."""
++    from melorin.modules.panelops import governance
++
++    done = 0
++    async with session_factory()() as s:
++        panels = (await s.scalars(select(Panel).where(Panel.is_enabled.is_(True), Panel.kind == "pasarguard"))).all()
++        for p in panels:
++            try:
++                done += (await governance.sync_usage(s, p)).updated
++            except Exception:
++                item_failed("store_governance_job")
++                log.warning("store governance sync failed panel=%s", p.id, exc_info=True)
++        await s.commit()
++    return done
++
++
++
++@tracked_job
++async def reconciliation_job(ctx=None):
++    """Hourly: reconcile v2 (PG-04). One batched read per panel; accounts that waited longest go first; issues open, refresh
++    and close themselves. A failing panel never stops the others."""
++    done = 0
++    async with session_factory()() as s:
++        panel_ids = (await s.scalars(select(Panel.id).where(Panel.is_enabled.is_(True)))).all()
++    for panel_id in panel_ids:
++        async with session_factory()() as s:
++            try:
++                panel = await s.get(Panel, panel_id)
++                if panel is None:
++                    continue
++                result = await reconcile.reconcile_panel(s, panel)
++                done += result.checked
++                if result.unreachable:
++                    log.warning("reconcile: panel=%s unreachable: %s", panel_id, "; ".join(result.errors))
++            except Exception:
++                await s.rollback()
++                item_failed("reconciliation_job")
++                log.warning("reconcile failed panel=%s", panel_id, exc_info=True)
++    return done
++
++
+diff --git a/apps/api/melorin/worker/jobs_payments.py b/apps/api/melorin/worker/jobs_payments.py
+new file mode 100644
+index 0000000..edb7738
+--- /dev/null
++++ b/apps/api/melorin/worker/jobs_payments.py
+@@ -0,0 +1,62 @@
++"""Payment jobs: bank-SMS reconcile and receipt grace."""
++
++import functools
++import logging
++
++from sqlalchemy import select
++
++from melorin.core.db import session_factory
++from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
++from melorin.worker.wrap import item_failed, tracked_job
++
++_close_strict = functools.partial(close_adapter, strict=True)  # worker jobs keep raising on close failure
++log = logging.getLogger("melorin.jobs")
++
++
++
++
++@tracked_job
++async def bank_sms_reconcile_job(ctx=None):
++    """Safety net for card-to-card auto verification: pair open deposit SMS with receipts uploaded later or whose
++    inline match failed. Idempotent; the wallet credit is protected by the ledger idempotency key."""
++    from melorin.kernel.models.payments import BankSmsSource
++    from melorin.kernel.models.stores import Store
++    from melorin.modules.payments import bank_sms
++
++    total = 0
++    async with session_factory()() as s:
++        ids = (
++            await s.scalars(select(BankSmsSource.store_id).where(BankSmsSource.is_enabled.is_(True), BankSmsSource.auto_verify.is_(True)))
++        ).all()
++        for store_id in ids:
++            try:
++                store = await s.get(Store, store_id)
++                if store:
++                    total += (await bank_sms.reconcile_store(s, store))["matched"]
++            except Exception:
++                await s.rollback()
++                item_failed("bank_sms_reconcile_job")
++                log.warning("bank sms reconcile failed store=%s", store_id, exc_info=True)
++    return total
++
++
++
++@tracked_job
++async def receipt_grace_job(ctx=None):
++    """Time-boxed manual review: credit provisionally (and flag for fast review) every card-to-card receipt that
++    waited longer than the store's grace minutes. Runs every minute; idempotent."""
++    from melorin.modules.payments import provisional
++
++    async with session_factory()() as s:
++        try:
++            n = await provisional.sweep(s)
++        except Exception:
++            await s.rollback()
++            item_failed("receipt_grace_job")
++            log.warning("receipt grace sweep failed", exc_info=True)
++            return 0
++        if n:
++            log.info("receipt grace: provisional credits=%s", n)
++        return n
++
++
+diff --git a/apps/api/melorin/worker/jobs_reports.py b/apps/api/melorin/worker/jobs_reports.py
+new file mode 100644
+index 0000000..c9235b5
+--- /dev/null
++++ b/apps/api/melorin/worker/jobs_reports.py
+@@ -0,0 +1,38 @@
++"""Reporting jobs: Event Center daily report and store digest."""
++
++import functools
++import logging
++
++
++from melorin.core.db import session_factory
++from melorin.modules.eventcenter import report as event_center_report
++from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
++from melorin.worker.wrap import tracked_job
++
++_close_strict = functools.partial(close_adapter, strict=True)  # worker jobs keep raising on close failure
++log = logging.getLogger("melorin.jobs")
++
++
++
++
++@tracked_job
++async def daily_report_job(ctx=None):
++    """Queue the Event Center nightly summary (one per group). Safe to run twice: the report is deduplicated per Tehran day."""
++    async with session_factory()() as session:
++        queued = await event_center_report.run(session)
++        await session.commit()
++    return queued
++
++
++
++@tracked_job
++async def store_digest_job(ctx=None):
++    """Daily: the opt-in digest for store owners (PG-06). Says only what Melorin owns (notices sent, open discrepancies, sell blocks)."""
++    from melorin.modules.panelops import digest
++
++    async with session_factory()() as session:
++        queued = await digest.run(session)
++        await session.commit()
++    return queued
++
++
+diff --git a/apps/api/tests/_jobs.py b/apps/api/tests/_jobs.py
+new file mode 100644
+index 0000000..8b6204d
+--- /dev/null
++++ b/apps/api/tests/_jobs.py
+@@ -0,0 +1,22 @@
++"""Job collaborators live in one module per domain (``melorin.worker.jobs_*``); patch them through here."""
++
++from melorin.worker import jobs_accounts, jobs_backup, jobs_identity, jobs_panels, jobs_payments, jobs_reports
++
++JOB_MODULES = (jobs_accounts, jobs_backup, jobs_identity, jobs_panels, jobs_payments, jobs_reports)
++
++
++def patch_jobs(monkeypatch, name, value):
++    """Replace ``name`` in every job module that uses it (e.g. ``session_factory``)."""
++    hit = False
++    for mod in JOB_MODULES:
++        if hasattr(mod, name):
++            monkeypatch.setattr(mod, name, value)
++            hit = True
++    assert hit, f"no job module has {name}"
++
++
++def jobs_source() -> str:
++    """Source of every job module together (the contract tests assert on the whole job set)."""
++    import inspect
++
++    return "".join(inspect.getsource(m) for m in JOB_MODULES)
+diff --git a/apps/api/tests/adapters/test_pasarguard_ops_maturity.py b/apps/api/tests/adapters/test_pasarguard_ops_maturity.py
+index 2bc094a..fcc21bb 100644
+--- a/apps/api/tests/adapters/test_pasarguard_ops_maturity.py
++++ b/apps/api/tests/adapters/test_pasarguard_ops_maturity.py
+@@ -16,6 +16,7 @@ import yaml
+ from sqlalchemy import select
+ from sqlalchemy.ext.asyncio import async_sessionmaker
+ 
++from _jobs import jobs_source, patch_jobs
+ from _db import make_order, make_product, make_user, open_schema_engine
+ from _http import PASSWORD, add_user, api_client, totp_now
+ from melorin.core import metrics
+@@ -321,7 +322,7 @@ async def test_panel_backup_job_records_a_panel_run(monkeypatch, tmp_path):
+ 
+     async with open_schema_engine() as engine:
+         maker = async_sessionmaker(engine, expire_on_commit=False)
+-        monkeypatch.setattr(jobs, "session_factory", lambda: maker)
++        patch_jobs(monkeypatch, "session_factory", lambda: maker)
+         artifact = tmp_path / "panel-1.tar.age"
+         artifact.write_bytes(b"x" * 12)
+         script_dir = tmp_path / "scripts"
+@@ -595,7 +596,7 @@ def test_worker_schedules_the_new_jobs():
+     assert "cron(panel_settings_drift_job" in arq and arq.count("panel_settings_drift_job") >= 3
+     # one read cycle per panel: metrics ride on the health job's adapter, so metrics has no cron of its own
+     assert "cron(panel_metrics_job" not in arq
+-    assert "panel_metrics.snapshot_panel(p, adapter)" in (ROOT / "apps/api/melorin/worker/jobs.py").read_text()
++    assert "panel_metrics.snapshot_panel(p, adapter)" in jobs_source()
+     # T-R14: the panel backup is scheduled by the dedicated backup container, no longer by the ARQ worker
+     assert "panel_backup_job" not in arq
+     assert "jobs.panel_backup_job" in (ROOT / "apps/api/melorin/worker/backup_main.py").read_text()
+diff --git a/apps/api/tests/contracts/test_backup_runtime_boundary.py b/apps/api/tests/contracts/test_backup_runtime_boundary.py
+index 37f0789..8b8002b 100644
+--- a/apps/api/tests/contracts/test_backup_runtime_boundary.py
++++ b/apps/api/tests/contracts/test_backup_runtime_boundary.py
+@@ -1,10 +1,11 @@
++from _jobs import jobs_source
+ from pathlib import Path
+ 
+ from _source import read_source
+ 
+ 
+ def test_backup_runtime_boundary_is_scheduled_and_audited():
+-    jobs = read_source(Path(__file__).parents[2].joinpath("melorin", "worker", "jobs.py"))
++    jobs = jobs_source()
+     arq = read_source(Path(__file__).parents[2].joinpath("melorin", "worker", "arq_app.py"))
+     assert "backup_secure.sh" in jobs
+     assert "BackupRun" in jobs
+diff --git a/apps/api/tests/contracts/test_install_and_migration_regressions.py b/apps/api/tests/contracts/test_install_and_migration_regressions.py
+index c62891b..ba03aad 100644
+--- a/apps/api/tests/contracts/test_install_and_migration_regressions.py
++++ b/apps/api/tests/contracts/test_install_and_migration_regressions.py
+@@ -1,3 +1,4 @@
++from _jobs import jobs_source
+ from pathlib import Path
+ 
+ from _source import read_source, read_store_shell, read_web_source
+@@ -248,7 +249,7 @@ def test_i36_cli_has_explicit_operational_commands():
+ 
+ 
+ def test_i37_privacy_retention_preserves_financial_and_audit_tables():
+-    jobs = read_source(ROOT / "melorin/worker/jobs.py")
++    jobs = jobs_source()
+     arq = read_source(ROOT / "melorin/worker/arq_app.py")
+     settings = read_source(ROOT / "melorin/core/settings_store.py")
+     assert "privacy_retention_job" in jobs
+diff --git a/apps/api/tests/service/test_data_retention.py b/apps/api/tests/service/test_data_retention.py
+index 3a2896e..cd212e0 100644
+--- a/apps/api/tests/service/test_data_retention.py
++++ b/apps/api/tests/service/test_data_retention.py
+@@ -13,6 +13,7 @@ from melorin.core.crypto import encrypt
+ from melorin.core.db import utcnow
+ from melorin.kernel.models.system import OutboxEvent, SystemSetting
+ from melorin.kernel.models.webhooks import WebhookDelivery, WebhookEndpoint
++from _jobs import patch_jobs
+ from melorin.worker import jobs, retention
+ 
+ 
+@@ -20,7 +21,7 @@ from melorin.worker import jobs, retention
+ async def maker(monkeypatch):
+     async with open_schema_engine() as engine:
+         m = async_sessionmaker(engine, expire_on_commit=False)
+-        monkeypatch.setattr(jobs, "session_factory", lambda: m)
++        patch_jobs(monkeypatch, "session_factory", lambda: m)
+         yield m
+ 
+ 
+diff --git a/apps/api/tests/service/test_mediator_rework_db.py b/apps/api/tests/service/test_mediator_rework_db.py
+index cd305f5..8de5458 100644
+--- a/apps/api/tests/service/test_mediator_rework_db.py
++++ b/apps/api/tests/service/test_mediator_rework_db.py
+@@ -14,6 +14,7 @@ from melorin.core.errors import AppError
+ from melorin.kernel.models.vpn import Panel, ReconciliationIssue, VpnAccount
+ from melorin.modules.vpn import inquiry, issues
+ from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError
++from _jobs import patch_jobs
+ from melorin.worker import jobs
+ from test_pasarguard_service_db import FakePanel, remote, run, seed, use
+ 
+@@ -87,7 +88,7 @@ async def test_expiry_job_does_not_expire_a_panel_account_on_its_own_clock(maker
+     for n in ids:
+         await _overdue(maker, n)
+     fake = FakePanel([remote("renewed_on_panel", expire_days=20), remote("really_expired", status="expired", expire_days=-1)])
+-    monkeypatch.setattr(jobs, "session_factory", lambda: maker)
++    patch_jobs(monkeypatch, "session_factory", lambda: maker)
+     use(monkeypatch, fake)  # "panel_down" is simply absent from the panel => missing => no verdict
+     await jobs.expiry_job()
+     async with maker() as s:
+@@ -113,7 +114,7 @@ async def test_expiry_job_still_uses_the_clock_for_accounts_without_a_panel(make
+             )
+         )
+         await s.commit()
+-    monkeypatch.setattr(jobs, "session_factory", lambda: maker)
++    patch_jobs(monkeypatch, "session_factory", lambda: maker)
+     await jobs.expiry_job()
+     async with maker() as s:
+         assert (await s.scalar(select(VpnAccount.status))) == "expired"
+@@ -249,7 +250,7 @@ async def test_near_expiry_warning_is_sent_only_when_the_panel_agrees(maker, mon
+         sent.append(account.username)
+ 
+     monkeypatch.setattr(notices, "near_expiry", fake_notice)
+-    monkeypatch.setattr(jobs, "session_factory", lambda: maker)
++    patch_jobs(monkeypatch, "session_factory", lambda: maker)
+     await jobs.near_expiry_job()
+     assert sent == ["agrees"]
+     async with maker() as s:
+@@ -282,7 +283,7 @@ async def test_near_expiry_reads_every_page_not_only_the_first(maker, monkeypatc
+         sent.append(account.username)
+ 
+     monkeypatch.setattr(notices, "near_expiry", fake_notice)
+-    monkeypatch.setattr(jobs, "session_factory", lambda: maker)
++    patch_jobs(monkeypatch, "session_factory", lambda: maker)
+     await jobs.near_expiry_job()
+     assert sorted(sent) == sorted(names)
+     assert sent[0] == "u4"  # the account that ends first is handled first
+diff --git a/apps/api/tests/service/test_worker_jobs_db.py b/apps/api/tests/service/test_worker_jobs_db.py
+index a580d51..762d56a 100644
+--- a/apps/api/tests/service/test_worker_jobs_db.py
++++ b/apps/api/tests/service/test_worker_jobs_db.py
+@@ -19,6 +19,9 @@ from melorin.kernel.models.identity import VerificationCode
+ from melorin.kernel.models.system import BackupRun, OutboxEvent, SystemSetting
+ from melorin.kernel.models.vpn import Panel, VpnAccount
+ from melorin.modules.vpn import notices, reconcile
++from melorin.core import integrations
++from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
++from _jobs import patch_jobs
+ from melorin.worker import jobs
+ 
+ 
+@@ -26,7 +29,7 @@ from melorin.worker import jobs
+ async def maker(monkeypatch):
+     async with open_schema_engine() as engine:
+         m = async_sessionmaker(engine, expire_on_commit=False)
+-        monkeypatch.setattr(jobs, "session_factory", lambda: m)
++        patch_jobs(monkeypatch, "session_factory", lambda: m)
+         yield m
+ 
+ 
+@@ -169,7 +172,7 @@ async def test_panel_health_job_records_healthy_unhealthy_error_and_closes_adapt
+ 
+ 
+ async def test_close_adapter_tolerates_adapters_without_close():
+-    await jobs.close_adapter(object())
++    await close_adapter(object())
+ 
+ 
+ # --- reconciliation / retention / telegram gc ----------------------------------------------------------------------
+@@ -184,7 +187,7 @@ async def test_reconciliation_job_runs_reconcile_v2_for_enabled_panels_and_survi
+             raise RuntimeError("panel exploded")
+         return reconcile.PanelResult(panel_id=panel.id, checked=3)
+ 
+-    monkeypatch.setattr(jobs.reconcile, "reconcile_panel", fake)
++    monkeypatch.setattr(reconcile, "reconcile_panel", fake)
+     async with maker() as s:
+         for name, enabled in (("a", True), ("boom", True), ("z", True), ("off", False)):
+             s.add(Panel(name=name, kind="mock", base_url="http://x", is_enabled=enabled))
+@@ -245,8 +248,8 @@ def backup_env(maker, monkeypatch, tmp_path):
+     async def no_s3(session):
+         return {}
+ 
+-    monkeypatch.setattr(jobs.integrations, "get_backup_s3", no_s3)
+-    monkeypatch.setattr(jobs.integrations, "backup_s3_ready", lambda cfg: False)
++    monkeypatch.setattr(integrations, "get_backup_s3", no_s3)
++    monkeypatch.setattr(integrations, "backup_s3_ready", lambda cfg: False)
+     return tmp_path
+ 
+ 
+@@ -291,9 +294,9 @@ async def test_backup_job_passes_offsite_settings_to_the_script_when_s3_is_ready
+     artifact = backup_env / "dump.enc"
+     artifact.write_bytes(b"1")
+     _script(backup_env, f'echo "$MELORIN_BACKUP_OFFSITE_URI" > {backup_env}/uri\necho {artifact}\n')
+-    monkeypatch.setattr(jobs.integrations, "backup_s3_ready", lambda cfg: True)
+-    monkeypatch.setattr(jobs.integrations, "rclone_env", lambda cfg: {"RCLONE_X": "1"})
+-    monkeypatch.setattr(jobs.integrations, "rclone_uri", lambda cfg: "s3:bucket/path")
++    monkeypatch.setattr(integrations, "backup_s3_ready", lambda cfg: True)
++    monkeypatch.setattr(integrations, "rclone_env", lambda cfg: {"RCLONE_X": "1"})
++    monkeypatch.setattr(integrations, "rclone_uri", lambda cfg: "s3:bucket/path")
+     assert await jobs.backup_job() == "succeeded"
+     assert (backup_env / "uri").read_text().strip() == "s3:bucket/path"
+     (run,) = await _runs(maker)
+diff --git a/apps/api/tests/unit/test_job_item_failures.py b/apps/api/tests/unit/test_job_item_failures.py
+index 4d9abc4..660b388 100644
+--- a/apps/api/tests/unit/test_job_item_failures.py
++++ b/apps/api/tests/unit/test_job_item_failures.py
+@@ -2,11 +2,10 @@
+ 
+ from __future__ import annotations
+ 
+-import inspect
+ import re
+ 
+ from melorin.core import metrics
+-from melorin.worker import jobs
++from _jobs import jobs_source
+ from melorin.worker.wrap import item_failed
+ 
+ 
+@@ -22,7 +21,7 @@ def test_item_failed_counts_per_job():
+ 
+ def test_every_isolating_except_in_jobs_reports_the_failure():
+     """A ``except Exception`` that only logs and continues must also call ``item_failed`` with a real job name."""
+-    src = inspect.getsource(jobs)
++    src = jobs_source()
+     job_names = set(re.findall(r"^async def (\w+_job)\(", src, flags=re.M))
+     labels = set(re.findall(r'item_failed\("(\w+)"\)', src))
+     assert labels, "no item_failed call sites found"
+diff --git a/docker-compose.yml b/docker-compose.yml
+index beb9099..d6be3a0 100644
+--- a/docker-compose.yml
++++ b/docker-compose.yml
+@@ -83,7 +83,7 @@ services:
+     mem_limit: 512m
+     cpus: 1.0
+   # Backups run here, not in the Worker (audit T-R14): rclone/age/pg_dump and their writable home live in this one container, a stuck
+-  # dump cannot delay business jobs, and the Worker above can run with a read-only root. Same image, same job code (worker/jobs.py).
++  # dump cannot delay business jobs, and the Worker above can run with a read-only root. Same image, same job code (worker/jobs_*.py).
+   backup:
+     logging: *default-logging
+     restart: unless-stopped
+diff --git a/docs/18-Telegram-Event-Center-Design.md b/docs/18-Telegram-Event-Center-Design.md
+index 69c1641..d082b4f 100644
+--- a/docs/18-Telegram-Event-Center-Design.md
++++ b/docs/18-Telegram-Event-Center-Design.md
+@@ -30,7 +30,7 @@ Reseller: `GET/PUT/DELETE /stores/{store_id}/reseller/event-center`، `POST …/
+ | daily | گزارش شبانه (پایین) |
+ 
+ ## گزارش شبانه
+-`worker.jobs.daily_report_job` با cron ساعت 20:30 UTC (= ۰۰:۰۰ تهران) اجرا می‌شود و برای هر گروهِ فعال یک خلاصهٔ ۲۴ ساعت گذشته می‌سازد (`eventcenter/report.py`): فروش (به‌تفکیک ارز، بدون اکانت تست)، پرداخت موفق/ناموفق، اکانت تست، تیکت جدید، و آنچه الان منتظر شماست (رسید در انتظار، تیکت باز، سفارش نیازمند بررسی). گروه ادمین اعداد کل پلتفرم + معرف و کمیسیون را می‌گیرد؛ گروه نماینده فقط اعداد فروشگاه خودش را (بدون خط معرف). کلید dedup = `daily:<تاریخ تهران>:<store|admin>`، پس اجرای دوبارهٔ cron یا ری‌استارت ورکر یک شب را دوبار نمی‌فرستد. اگر ورکر با ساعت غیر UTC اجرا شود cron باید متناسب تنظیم شود.
++`worker.jobs_reports.daily_report_job` با cron ساعت 20:30 UTC (= ۰۰:۰۰ تهران) اجرا می‌شود و برای هر گروهِ فعال یک خلاصهٔ ۲۴ ساعت گذشته می‌سازد (`eventcenter/report.py`): فروش (به‌تفکیک ارز، بدون اکانت تست)، پرداخت موفق/ناموفق، اکانت تست، تیکت جدید، و آنچه الان منتظر شماست (رسید در انتظار، تیکت باز، سفارش نیازمند بررسی). گروه ادمین اعداد کل پلتفرم + معرف و کمیسیون را می‌گیرد؛ گروه نماینده فقط اعداد فروشگاه خودش را (بدون خط معرف). کلید dedup = `daily:<تاریخ تهران>:<store|admin>`، پس اجرای دوبارهٔ cron یا ری‌استارت ورکر یک شب را دوبار نمی‌فرستد. اگر ورکر با ساعت غیر UTC اجرا شود cron باید متناسب تنظیم شود.
+ 
+ ## وضعیت پیاده‌سازی
+ - Backend: `modules/eventcenter/{service,rules,routes,schemas,topics}.py`، migration `0031`، handler `eventcenter.deliver` در worker، tap مرکزی پس از هر handler.
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index 177bfe4..3861e44 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -135,3 +135,4 @@ _Merged from the former 12-Change-Log-v1.1.md._
+ - Store Hub now has seven tabs: stores, reseller profile and bot (the former «نمایندگان» editor), panel access, volume, prices, API, notices. Prices is READ-ONLY (`GET /admin/stores/{id}/reseller-prices`, area catalog): only the reseller sets retail prices. API is the per-store switch (`PUT /admin/reseller-stores/{id}/api`, area resellers); both endpoints had no UI before.
+ - Still open (needs product input): merging the two palettes (would restyle both apps).
+ - Browser check: `e2e/tests/admin.storehub.spec.js` (Playwright, Core mocked) opens the Store Hub tabs, flips the API switch, follows the old notices bookmark and visits every admin menu route looking for uncaught page errors. Real-browser evidence for the mocked API only; the full stack is still unrun here.
++- Worker jobs are split by domain (T10 1.3): `jobs_backup`, `jobs_panels`, `jobs_accounts`, `jobs_identity`, `jobs_payments`, `jobs_reports`. `worker/jobs.py` (516 lines before) is a 69-line facade that re-exports the 20 job functions for `arq_app` and `backup_main`; no job body changed. Collaborators (`session_factory`, `integrations`, `close_adapter` ...) are patched on the module that owns the job; tests use `tests/_jobs.patch_jobs` / `jobs_source()` for that. Verified with the full backend suite (2655 passed) and `lint-imports` (6 kept).
+diff --git a/docs/GLOSSARY.md b/docs/GLOSSARY.md
+index c2d8a21..7e9f949 100644
+--- a/docs/GLOSSARY.md
++++ b/docs/GLOSSARY.md
+@@ -14,7 +14,7 @@ One word, one meaning (audit T49). When a document or a commit says one of these
+ | **panel** | An external VPN panel (e.g. PasarGuard). It owns volume, expiry and status; Melorin only mediates. | پنل VPN بیرونی؛ مالک حجم/انقضا/وضعیت است. |
+ | **mediator rule** | Melorin never stores panel-owned numbers; it reads them live (`vpn.PanelReader`) and caches them only within the single freshness policy. | ملورین داده‌های پنل را ذخیره نمی‌کند، زنده می‌خواند. |
+ | **outbox** | The `outbox_events` table: events written in the same transaction as the change, delivered by the worker. | رخدادهای هم‌تراکنش با تغییر، که worker ارسال می‌کند. |
+-| **job** | One arq task in `worker/jobs.py`, always wrapped by `tracked_job`. Cron jobs are listed in `worker/arq_app.py`. | یک کار arq با wrapper یکسان. |
++| **job** | One arq task in `worker/jobs_*.py` (one module per domain; `worker/jobs.py` re-exports them), always wrapped by `tracked_job`. Cron jobs are listed in `worker/arq_app.py`. | یک کار arq با wrapper یکسان. |
+ | **bot** | A Telegram bot process under `apps/telegram-*` (customer bot, reseller bot). It holds no business rule and talks to Core over HTTP. | فرایند ربات تلگرام؛ فقط با Core از راه HTTP حرف می‌زند. |
+ | **store** | A tenant (main store or reseller store); wallets, currency and payment targets are store-scoped. | مستأجر (فروشگاه اصلی یا نماینده). |
+ | **retention** | Deleting *finished* operational rows after a window (`worker/retention.py`); never ledger, orders or audit log. | حذف ردیف‌های تمام‌شده پس از یک بازه؛ هرگز ledger/سفارش/audit. |
+diff --git a/docs/panels/PANEL-MEDIATOR-REWORK.md b/docs/panels/PANEL-MEDIATOR-REWORK.md
+index f8d5ff4..c17beb4 100644
+--- a/docs/panels/PANEL-MEDIATOR-REWORK.md
++++ b/docs/panels/PANEL-MEDIATOR-REWORK.md
+@@ -8,7 +8,7 @@ Rule: **Melorin is a mediator**. Used traffic, limit, expiry and status belong t
+ | ID | Change | Where |
+ |---|---|---|
+ | R3 | **Fail-closed refunds.** A return always does a fresh panel read (the 15 s rate limit no longer applies to it). Panel down or user missing there → `503 PANEL_UNAVAILABLE`, no refund. Accounts without a panel pass. | `inquiry.refresh_from_panel(strict=True)`, `returns.prepare_return` |
+-| R2 | **The panel decides expiry.** `expiry_job` no longer marks panel accounts `expired` by Melorin's clock: an overdue account is re-read live and the panel's status/expiry is applied (a renewal done on the panel moves the date; a panel that does not answer changes nothing). Accounts without a panel keep the local clock. Max 200 live reads per run. | `worker/jobs.py::expiry_job` |
++| R2 | **The panel decides expiry.** `expiry_job` no longer marks panel accounts `expired` by Melorin's clock: an overdue account is re-read live and the panel's status/expiry is applied (a renewal done on the panel moves the date; a panel that does not answer changes nothing). Accounts without a panel keep the local clock. Max 200 live reads per run. | `worker/jobs_accounts.py::expiry_job` |
+ | L4 | Open issues of archived/revoked accounts close themselves (`resolution=account_inactive`). | `issues.close_for_inactive`, `reconcile_panel` |
+ | R1 | **PanelLiveView.** Live expiry/usage/limit/health for a page of accounts, one adapter per panel, bounded concurrency, 20 s in-memory cache. Panel cannot answer → `live=false`, no numbers, text "temporarily unavailable" (decision 9). Setting `vpn.live_view` (default **on** since R9/R10: with no stored copy there is nothing to fall back on; switching it off shows no panel numbers). Wired into the customer account routes. | `modules/vpn/live.py`, `router.py`, `VpnAccountOut.live/live_note` |
+ | PG-04 / decision 1 | Orphans can be recorded as **manual account** (`POST /admin/panel-orphans/{id}/manual`), re-opened (`…/reopen`) and **assigned to a store customer** (`…/assign`, see the section below: zero-price `manual` order that is not a sale). Never deleted; becomes `gone` when the panel user disappears or is assigned. | `panel_orphans.py`, `manual_assign.py`, `domain/order_kinds.py`, `reconcile._record_orphans` |
+@@ -22,7 +22,7 @@ Rule: **Melorin is a mediator**. Used traffic, limit, expiry and status belong t
+ 
+ | Decision 6 / L8 | **The panel is the capacity truth.** New and existing destinations use `capacity_source=panel` (migration `0052`); `effective_load` still falls back to Melorin's count until the panel's figure has been read. Stored panel numbers (`servers.panel_total_users`, `panel_admins.used_traffic_bytes/total_users`) are now shown with their age (`panel_users_as_of`, `as_of`, `last_known`). | `capacity.py`, `governance.py`, migration `0052` |
+ | PG-06 texts | **Per-store customer notice wording.** `PUT/GET /admin/stores/{id}/vpn-notice-texts` (`{kind: {title, body}}`, placeholders `{store}` and `{level}` only, no `str.format`, length-limited, 422 on junk). Platform text is the fallback; saving texts never touches the warning levels. | `notices.py`, `store_vpn_notices.py` |
+-| PG-06 digest | **Opt-in daily digest for the store owner** (`PUT /admin/stores/{id}/vpn-digest`, off by default; worker `store_digest_job` 17:00 UTC). It reports only what Melorin owns (notices sent in 24 h, open discrepancies, sell-block reason), **no usage/expiry numbers**; one per store per day; empty day = nothing sent. | `digest.py`, `worker/jobs.py` |
++| PG-06 digest | **Opt-in daily digest for the store owner** (`PUT /admin/stores/{id}/vpn-digest`, off by default; worker `store_digest_job` 17:00 UTC). It reports only what Melorin owns (notices sent in 24 h, open discrepancies, sell-block reason), **no usage/expiry numbers**; one per store per day; empty day = nothing sent. | `digest.py`, `worker/jobs_reports.py` |
+ | PG-12 / L6 (plan only) | `GET /admin/panels/{id}/store-role-plan`: the least-privilege `melorin-store` role (users CRUD + groups read; no `api_keys`, admins, nodes, settings). **Not created on the panel by Melorin**; create it on staging, test one store admin, then switch `panel_admins.ROLE`. | `store_role.py` |
+ | R8 (read side) | **Subscription link is read from the panel.** The QR routes (customer and store owner) use `live.current_link`: the panel's current link (it changes on `revoke_sub`); the stored value is only the *delivery snapshot* and is used when the panel cannot answer. Sync still refreshes that snapshot (needed by the subscription check); no reader treats it as truth. | `live.current_link`, `vpn/router.py`, `reseller/routes/accounts.py` |
+ | Fix | `state_hint` no longer breaks on account stand-ins without `remote_status` (a test on the branch was red). | `inquiry.py` |
+-- 
+2.43.0
+
+
+From 07265a3cae1f1e0b017f5e7fd1e602544dd05695 Mon Sep 17 00:00:00 2001
+From: Melorin Refactor <refactor@melorin.local>
+Date: Sat, 14 Nov 2026 08:34:49 +0000
+Subject: [PATCH 36/36] arch(panelops): panel notices (health, nodes, drift,
+ capacity) live in panelops/panel_notices; eventcenter.rules keeps
+ outbox-event rules; decisions
+
+---
+ apps/api/melorin/modules/admin/panels.py      |   6 +-
+ apps/api/melorin/modules/eventcenter/rules.py | 105 ---------------
+ .../melorin/modules/panelops/panel_notices.py | 120 ++++++++++++++++++
+ .../modules/panelops/settings_drift.py        |   4 +-
+ apps/api/melorin/worker/jobs_panels.py        |   8 +-
+ .../adapters/test_pasarguard_capacity.py      |   2 +-
+ .../adapters/test_pasarguard_ops_maturity.py  |   4 +-
+ apps/api/tests/service/test_event_center.py   |   9 +-
+ docs/DECISIONS.md                             |   1 +
+ 9 files changed, 138 insertions(+), 121 deletions(-)
+ create mode 100644 apps/api/melorin/modules/panelops/panel_notices.py
+
+diff --git a/apps/api/melorin/modules/admin/panels.py b/apps/api/melorin/modules/admin/panels.py
+index a607af5..1325729 100644
+--- a/apps/api/melorin/modules/admin/panels.py
++++ b/apps/api/melorin/modules/admin/panels.py
+@@ -13,7 +13,7 @@ from melorin.kernel.models.catalog import Product
+ from melorin.kernel.models.orders import Order
+ from melorin.kernel.models.vpn import Panel, PanelNode, PanelOrphan, Server, VpnAccount
+ from melorin.kernel.models.bundles import Bundle, BundleMember
+-from melorin.modules.eventcenter import rules as event_center_rules
++from melorin.modules.panelops import panel_notices
+ from melorin.modules.admin.schemas import (
+     CreatePanel,
+     CreateServer,
+@@ -413,8 +413,8 @@ async def panel_health(panel_id: uuid.UUID, _: AdminUser, session: Session):
+     if result.error == "health check returned false":
+         result.error = "پنل پاسخ سالم نداد."
+     previous = health.apply(p, result)
+-    await event_center_rules.notify_panel_health(session, p, previous)
+-    await event_center_rules.notify_panel_nodes(session, p, result.node_changes)
++    await panel_notices.notify_panel_health(session, p, previous)
++    await panel_notices.notify_panel_nodes(session, p, result.node_changes)
+     await session.commit()
+     usable = result.status in health.SELLABLE_STATES
+     if usable:  # an explicit health check is also the moment to re-read what the credential may do
+diff --git a/apps/api/melorin/modules/eventcenter/rules.py b/apps/api/melorin/modules/eventcenter/rules.py
+index f6ae470..9446802 100644
+--- a/apps/api/melorin/modules/eventcenter/rules.py
++++ b/apps/api/melorin/modules/eventcenter/rules.py
+@@ -169,111 +169,6 @@ async def report_outbox_failure(session, e: OutboxEvent) -> None:
+         log.exception("event-center failure report failed event=%s", e.id)
+ 
+ 
+-async def notify_panel_health(session, panel, previous: str | None) -> None:
+-    """Tell the admin's errors topic when a panel turns unhealthy (and when it recovers).
+-
+-    Called by the health job and the manual health check with the status the panel had *before* this check, so a panel
+-    that stays unhealthy does not repeat the message every 5 minutes. ``degraded`` (some node failing, panel still serving) is
+-    announced by :func:`notify_panel_nodes`, which names the nodes and the fix. Best-effort: it can never fail the health check.
+-    """
+-    now = panel.health_status
+-    if now == previous:
+-        return
+-    if now == "unhealthy":
+-        error = str(panel.last_health_error or "نامشخص")[:250]
+-        text = f"🔴 پنل «{panel.name}» ناسالم شد\nخطا: {error}"
+-    elif now == "healthy" and previous == "unhealthy":
+-        text = f"🟢 پنل «{panel.name}» دوباره سالم شد"
+-    elif now == "degraded" and previous == "unhealthy":
+-        text = f"🟠 پنل «{panel.name}» پاسخ می‌دهد ولی بعضی نودها خطا دارند"
+-    else:
+-        return
+-    try:
+-        async with session.begin_nested():
+-            await events.emit(session, events.EVENT_CENTER, {"store_id": None, "topic": topics.ERRORS, "text": text})
+-    except Exception:
+-        log.exception("event-center panel health notice failed panel=%s", panel.id)
+-
+-
+-async def notify_settings_drift(session, panel, before: int, after: int) -> None:
+-    """Announce (once) that a panel's settings started to differ from what Melorin needs, and when that is fixed (PG-15).
+-
+-    Only the change 0 -> N and N -> 0 is announced, so an unfixed drift does not repeat every hour. Findings are named by key; no value
+-    read from the panel's settings is ever put in the message. Best-effort: it can never fail the drift check."""
+-    if (before > 0) == (after > 0):
+-        return
+-    keys = ", ".join(f["key"] for f in (panel.settings_drift or {}).get("findings", []) if f.get("state") == "drift")
+-    text = (
+-        f"🟠 تنظیمات پنل «{panel.name}» با نیاز ملورین هم‌خوان نیست ({keys})؛ بخش «رانش تنظیمات» پنل را ببینید."
+-        if after > 0
+-        else f"🟢 تنظیمات پنل «{panel.name}» دوباره با ملورین هم‌خوان شد"
+-    )
+-    try:
+-        async with session.begin_nested():
+-            await events.emit(session, events.EVENT_CENTER, {"store_id": None, "topic": topics.ERRORS, "text": text})
+-    except Exception:
+-        log.exception("event-center settings drift notice failed panel=%s", panel.id)
+-
+-
+-def panel_nodes_text(panel_name: str, changes: list[dict]) -> str | None:
+-    """One message per panel and check for every node that started or stopped failing (a 4-node outage is ONE notice)."""
+-    failed = [c for c in changes if c["to"] in ("error", "limited", "unknown")]
+-    recovered = [c for c in changes if c["from"] in ("error", "limited", "unknown") and c["to"] not in ("error", "limited", "unknown")]
+-    lines: list[str] = []
+-    if failed:
+-        lines.append(f"🟠 نود(های) پنل «{panel_name}» خطا دارند:")
+-        for c in failed[:8]:
+-            msg = str(c.get("message") or "").strip()[:120]
+-            lines.append(f"• {c['name']}" + (f" — {msg}" if msg else ""))
+-        if len(failed) > 8:
+-            lines.append(f"… و {len(failed) - 8} نود دیگر")
+-    if recovered:
+-        lines.append(f"🟢 نود(های) پنل «{panel_name}» دوباره سالم شدند: " + "، ".join(c["name"] for c in recovered[:8]))
+-    return "\n".join(lines) or None
+-
+-
+-async def notify_panel_nodes(session, panel, changes: list[dict]) -> None:
+-    """Event Center notice for node status transitions found by the health job (PG-01). Best-effort."""
+-    text = panel_nodes_text(panel.name, changes)
+-    if not text:
+-        return
+-    try:
+-        async with session.begin_nested():
+-            await events.emit(session, events.EVENT_CENTER, {"store_id": None, "topic": topics.ERRORS, "text": text})
+-    except Exception:
+-        log.exception("event-center panel node notice failed panel=%s", panel.id)
+-
+-
+-def server_capacity_text(panel_name: str, changes: list) -> str | None:
+-    """One message per panel and check: destinations that stopped/started being sellable and capacity thresholds crossed (PG-08)."""
+-    lines: list[str] = []
+-    blocked = [c for c in changes if c.kind == "sellable" and c.new == "blocked"]
+-    back = [c for c in changes if c.kind == "sellable" and c.new == "sellable"]
+-    if blocked:
+-        lines.append(f"🔴 مقصدهای پنل «{panel_name}» از فروش خارج شدند (اکانت‌های موجود تغییری نمی‌کنند):")
+-        for c in blocked[:8]:
+-            lines.append(f"• {c.server}" + (f" — {str(c.detail)[:140]}" if c.detail else ""))
+-    if back:
+-        lines.append(f"🟢 مقصدهای پنل «{panel_name}» دوباره قابل فروش شدند: " + "، ".join(c.server for c in back[:8]))
+-    labels = {"80": "🟡 بیش از ۸۰٪ پر شد", "95": "🟠 بیش از ۹۵٪ پر شد", "100": "🔴 ظرفیت پر شد"}
+-    for c in changes:
+-        if c.kind == "capacity" and c.new in labels:
+-            lines.append(f"{labels[c.new]}: {c.server} (پنل «{panel_name}»)")
+-    return "\n".join(lines) or None
+-
+-
+-async def notify_server_capacity(session, panel, changes: list) -> None:
+-    """Event Center notice for sell-guard flips and capacity thresholds (PG-08). Best-effort."""
+-    text = server_capacity_text(panel.name, changes)
+-    if not text:
+-        return
+-    try:
+-        async with session.begin_nested():
+-            await events.emit(session, events.EVENT_CENTER, {"store_id": None, "topic": topics.ERRORS, "text": text})
+-    except Exception:
+-        log.exception("event-center server capacity notice failed panel=%s", panel.id)
+-
+-
+ def _size(n: int | None) -> str:
+     if not n:
+         return "نامشخص"
+diff --git a/apps/api/melorin/modules/panelops/panel_notices.py b/apps/api/melorin/modules/panelops/panel_notices.py
+new file mode 100644
+index 0000000..fde1fca
+--- /dev/null
++++ b/apps/api/melorin/modules/panelops/panel_notices.py
+@@ -0,0 +1,120 @@
++"""Event Center notices about panels (health, nodes, settings drift, sell-guard/capacity).
++
++They describe panel state, so they live with the panel domain (``panelops``) and only *emit* an Event Center message
++(topic ``errors``); how and where it is delivered stays the Event Center's business. All are best-effort: a failure here can never
++fail the health, drift or capacity check that calls them.
++"""
++
++from __future__ import annotations
++
++import logging
++
++from melorin.core import events
++from melorin.modules.eventcenter import topics
++
++log = logging.getLogger("melorin.panelops.notices")
++
++
++async def notify_panel_health(session, panel, previous: str | None) -> None:
++    """Tell the admin's errors topic when a panel turns unhealthy (and when it recovers).
++
++    Called by the health job and the manual health check with the status the panel had *before* this check, so a panel
++    that stays unhealthy does not repeat the message every 5 minutes. ``degraded`` (some node failing, panel still serving) is
++    announced by :func:`notify_panel_nodes`, which names the nodes and the fix. Best-effort: it can never fail the health check.
++    """
++    now = panel.health_status
++    if now == previous:
++        return
++    if now == "unhealthy":
++        error = str(panel.last_health_error or "نامشخص")[:250]
++        text = f"🔴 پنل «{panel.name}» ناسالم شد\nخطا: {error}"
++    elif now == "healthy" and previous == "unhealthy":
++        text = f"🟢 پنل «{panel.name}» دوباره سالم شد"
++    elif now == "degraded" and previous == "unhealthy":
++        text = f"🟠 پنل «{panel.name}» پاسخ می‌دهد ولی بعضی نودها خطا دارند"
++    else:
++        return
++    try:
++        async with session.begin_nested():
++            await events.emit(session, events.EVENT_CENTER, {"store_id": None, "topic": topics.ERRORS, "text": text})
++    except Exception:
++        log.exception("panel notice: panel health notice failed panel=%s", panel.id)
++
++
++async def notify_settings_drift(session, panel, before: int, after: int) -> None:
++    """Announce (once) that a panel's settings started to differ from what Melorin needs, and when that is fixed (PG-15).
++
++    Only the change 0 -> N and N -> 0 is announced, so an unfixed drift does not repeat every hour. Findings are named by key; no value
++    read from the panel's settings is ever put in the message. Best-effort: it can never fail the drift check."""
++    if (before > 0) == (after > 0):
++        return
++    keys = ", ".join(f["key"] for f in (panel.settings_drift or {}).get("findings", []) if f.get("state") == "drift")
++    text = (
++        f"🟠 تنظیمات پنل «{panel.name}» با نیاز ملورین هم‌خوان نیست ({keys})؛ بخش «رانش تنظیمات» پنل را ببینید."
++        if after > 0
++        else f"🟢 تنظیمات پنل «{panel.name}» دوباره با ملورین هم‌خوان شد"
++    )
++    try:
++        async with session.begin_nested():
++            await events.emit(session, events.EVENT_CENTER, {"store_id": None, "topic": topics.ERRORS, "text": text})
++    except Exception:
++        log.exception("panel notice: settings drift notice failed panel=%s", panel.id)
++
++
++def panel_nodes_text(panel_name: str, changes: list[dict]) -> str | None:
++    """One message per panel and check for every node that started or stopped failing (a 4-node outage is ONE notice)."""
++    failed = [c for c in changes if c["to"] in ("error", "limited", "unknown")]
++    recovered = [c for c in changes if c["from"] in ("error", "limited", "unknown") and c["to"] not in ("error", "limited", "unknown")]
++    lines: list[str] = []
++    if failed:
++        lines.append(f"🟠 نود(های) پنل «{panel_name}» خطا دارند:")
++        for c in failed[:8]:
++            msg = str(c.get("message") or "").strip()[:120]
++            lines.append(f"• {c['name']}" + (f" — {msg}" if msg else ""))
++        if len(failed) > 8:
++            lines.append(f"… و {len(failed) - 8} نود دیگر")
++    if recovered:
++        lines.append(f"🟢 نود(های) پنل «{panel_name}» دوباره سالم شدند: " + "، ".join(c["name"] for c in recovered[:8]))
++    return "\n".join(lines) or None
++
++
++async def notify_panel_nodes(session, panel, changes: list[dict]) -> None:
++    """Event Center notice for node status transitions found by the health job (PG-01). Best-effort."""
++    text = panel_nodes_text(panel.name, changes)
++    if not text:
++        return
++    try:
++        async with session.begin_nested():
++            await events.emit(session, events.EVENT_CENTER, {"store_id": None, "topic": topics.ERRORS, "text": text})
++    except Exception:
++        log.exception("panel notice: panel node notice failed panel=%s", panel.id)
++
++
++def server_capacity_text(panel_name: str, changes: list) -> str | None:
++    """One message per panel and check: destinations that stopped/started being sellable and capacity thresholds crossed (PG-08)."""
++    lines: list[str] = []
++    blocked = [c for c in changes if c.kind == "sellable" and c.new == "blocked"]
++    back = [c for c in changes if c.kind == "sellable" and c.new == "sellable"]
++    if blocked:
++        lines.append(f"🔴 مقصدهای پنل «{panel_name}» از فروش خارج شدند (اکانت‌های موجود تغییری نمی‌کنند):")
++        for c in blocked[:8]:
++            lines.append(f"• {c.server}" + (f" — {str(c.detail)[:140]}" if c.detail else ""))
++    if back:
++        lines.append(f"🟢 مقصدهای پنل «{panel_name}» دوباره قابل فروش شدند: " + "، ".join(c.server for c in back[:8]))
++    labels = {"80": "🟡 بیش از ۸۰٪ پر شد", "95": "🟠 بیش از ۹۵٪ پر شد", "100": "🔴 ظرفیت پر شد"}
++    for c in changes:
++        if c.kind == "capacity" and c.new in labels:
++            lines.append(f"{labels[c.new]}: {c.server} (پنل «{panel_name}»)")
++    return "\n".join(lines) or None
++
++
++async def notify_server_capacity(session, panel, changes: list) -> None:
++    """Event Center notice for sell-guard flips and capacity thresholds (PG-08). Best-effort."""
++    text = server_capacity_text(panel.name, changes)
++    if not text:
++        return
++    try:
++        async with session.begin_nested():
++            await events.emit(session, events.EVENT_CENTER, {"store_id": None, "topic": topics.ERRORS, "text": text})
++    except Exception:
++        log.exception("panel notice: server capacity notice failed panel=%s", panel.id)
+diff --git a/apps/api/melorin/modules/panelops/settings_drift.py b/apps/api/melorin/modules/panelops/settings_drift.py
+index e8a66a3..836a15c 100644
+--- a/apps/api/melorin/modules/panelops/settings_drift.py
++++ b/apps/api/melorin/modules/panelops/settings_drift.py
+@@ -231,7 +231,7 @@ async def check_panel(panel: Panel, adapter, *, now=None) -> dict:
+ 
+ async def run_all(session: AsyncSession, *, close_adapter) -> int:
+     """Worker entry: check every enabled PasarGuard panel; announce a panel that starts (or stops) drifting once."""
+-    from melorin.modules.eventcenter import rules as event_center_rules
++    from melorin.modules.panelops import panel_notices
+     from melorin.modules.panel_integrations.adapters.registry import build_adapter
+ 
+     done = 0
+@@ -243,7 +243,7 @@ async def run_all(session: AsyncSession, *, close_adapter) -> int:
+             adapter = build_adapter(panel)
+             after = (await check_panel(panel, adapter))["drifting"]
+             done += 1
+-            await event_center_rules.notify_settings_drift(session, panel, before, after)
++            await panel_notices.notify_settings_drift(session, panel, before, after)
+         except Exception:
+             log.warning("settings drift check failed panel=%s", panel.id, exc_info=True)
+         finally:
+diff --git a/apps/api/melorin/worker/jobs_panels.py b/apps/api/melorin/worker/jobs_panels.py
+index f316156..596f650 100644
+--- a/apps/api/melorin/worker/jobs_panels.py
++++ b/apps/api/melorin/worker/jobs_panels.py
+@@ -6,7 +6,7 @@ import logging
+ from sqlalchemy import select
+ 
+ from melorin.core.db import session_factory, utcnow
+-from melorin.modules.eventcenter import rules as event_center_rules
++from melorin.modules.panelops import panel_notices
+ from melorin.modules.vpn import capacity, health, panel_events, reconcile
+ from melorin.modules.panel_integrations import capabilities
+ from melorin.kernel.models.vpn import Panel
+@@ -62,9 +62,9 @@ async def panel_health_job(ctx=None):
+                     except Exception:
+                         log.exception("panel adapter close failed panel=%s", p.id)
+             previous = health.apply(p, result)
+-            await event_center_rules.notify_panel_health(s, p, previous)
+-            await event_center_rules.notify_panel_nodes(s, p, result.node_changes)
+-            await event_center_rules.notify_server_capacity(s, p, capacity_changes)
++            await panel_notices.notify_panel_health(s, p, previous)
++            await panel_notices.notify_panel_nodes(s, p, result.node_changes)
++            await panel_notices.notify_server_capacity(s, p, capacity_changes)
+         await s.commit()
+ 
+ 
+diff --git a/apps/api/tests/adapters/test_pasarguard_capacity.py b/apps/api/tests/adapters/test_pasarguard_capacity.py
+index fed4aa5..a3b2ebe 100644
+--- a/apps/api/tests/adapters/test_pasarguard_capacity.py
++++ b/apps/api/tests/adapters/test_pasarguard_capacity.py
+@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
+ from _db import open_schema_engine
+ from melorin.kernel.models.vpn import Panel, Server
+ from melorin.modules.catalog.allocation.routing import Candidate, select_allocation
+-from melorin.modules.eventcenter.rules import server_capacity_text
++from melorin.modules.panelops.panel_notices import server_capacity_text
+ from melorin.modules.vpn import capacity as cap
+ from melorin.modules.panel_integrations.adapters.base import Capabilities, ErrorKind, PanelError
+ 
+diff --git a/apps/api/tests/adapters/test_pasarguard_ops_maturity.py b/apps/api/tests/adapters/test_pasarguard_ops_maturity.py
+index fcc21bb..db73dc8 100644
+--- a/apps/api/tests/adapters/test_pasarguard_ops_maturity.py
++++ b/apps/api/tests/adapters/test_pasarguard_ops_maturity.py
+@@ -510,7 +510,7 @@ async def test_non_pasarguard_panels_are_not_checked():
+ 
+ 
+ async def test_run_all_announces_a_drift_change_once(monkeypatch):
+-    from melorin.modules.eventcenter import rules as ec
++    from melorin.modules.panelops import panel_notices as ec
+ 
+     announced: list[tuple[int, int]] = []
+ 
+@@ -535,7 +535,7 @@ async def test_run_all_announces_a_drift_change_once(monkeypatch):
+ 
+ 
+ async def test_drift_notice_only_on_state_change(monkeypatch):
+-    from melorin.modules.eventcenter import rules as ec
++    from melorin.modules.panelops import panel_notices as ec
+ 
+     sent: list[str] = []
+ 
+diff --git a/apps/api/tests/service/test_event_center.py b/apps/api/tests/service/test_event_center.py
+index 6f2610b..ac903b4 100644
+--- a/apps/api/tests/service/test_event_center.py
++++ b/apps/api/tests/service/test_event_center.py
+@@ -15,6 +15,7 @@ from melorin.kernel.models.system import OutboxEvent
+ from melorin.kernel.models.tickets import Ticket, TicketMessage
+ from melorin.kernel.models.vpn import Panel
+ from melorin.modules.eventcenter import rules, service
++from melorin.modules.panelops import panel_notices
+ from melorin.modules.eventcenter.topics import topics_for
+ 
+ GROUP = "-1001234567890"
+@@ -287,11 +288,11 @@ async def test_panel_health_notice_only_on_state_change():
+             return [r.payload["text"] for r in rows]
+ 
+         panel.health_status, panel.last_health_error = "unhealthy", "timeout"
+-        await rules.notify_panel_health(s, panel, "healthy")
+-        await rules.notify_panel_health(s, panel, "unhealthy")  # still unhealthy: silent
++        await panel_notices.notify_panel_health(s, panel, "healthy")
++        await panel_notices.notify_panel_health(s, panel, "unhealthy")  # still unhealthy: silent
+         panel.health_status, panel.last_health_error = "healthy", None
+-        await rules.notify_panel_health(s, panel, "unknown")  # first check ok: silent
+-        await rules.notify_panel_health(s, panel, "unhealthy")  # recovered
++        await panel_notices.notify_panel_health(s, panel, "unknown")  # first check ok: silent
++        await panel_notices.notify_panel_health(s, panel, "unhealthy")  # recovered
+         texts = await queued()
+         assert len(texts) == 2 and "Panel-A" in texts[0] and "timeout" in texts[0] and "دوباره سالم" in texts[1]
+         e = (await s.scalars(select(OutboxEvent).where(OutboxEvent.topic == events.EVENT_CENTER))).first()
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index 3861e44..66d526b 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -136,3 +136,4 @@ _Merged from the former 12-Change-Log-v1.1.md._
+ - Still open (needs product input): merging the two palettes (would restyle both apps).
+ - Browser check: `e2e/tests/admin.storehub.spec.js` (Playwright, Core mocked) opens the Store Hub tabs, flips the API switch, follows the old notices bookmark and visits every admin menu route looking for uncaught page errors. Real-browser evidence for the mocked API only; the full stack is still unrun here.
+ - Worker jobs are split by domain (T10 1.3): `jobs_backup`, `jobs_panels`, `jobs_accounts`, `jobs_identity`, `jobs_payments`, `jobs_reports`. `worker/jobs.py` (516 lines before) is a 69-line facade that re-exports the 20 job functions for `arq_app` and `backup_main`; no job body changed. Collaborators (`session_factory`, `integrations`, `close_adapter` ...) are patched on the module that owns the job; tests use `tests/_jobs.patch_jobs` / `jobs_source()` for that. Verified with the full backend suite (2655 passed) and `lint-imports` (6 kept).
++- Panel notices (health, nodes, settings drift, sell-guard/capacity text builders) moved from `eventcenter/rules.py` to `panelops/panel_notices.py` (T10 1.6). `eventcenter.rules` keeps only outbox-event rules (orders, payments, tickets, failures, backup). The panel module emits to the Event Center `errors` topic; delivery routing stays with the Event Center. Callers: health job, manual health check, drift job.
 -- 
 2.43.0
 
