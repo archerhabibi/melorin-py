@@ -73,7 +73,7 @@ class FakePanel:
 @pytest.fixture
 def panel_api(monkeypatch):
     fake = FakePanel()
-    monkeypatch.setattr(bulk, "build_adapter", lambda panel, server=None: fake)
+    monkeypatch.setattr(bulk_runner, "build_adapter", lambda panel, server=None: fake)
     return fake
 
 
@@ -286,7 +286,7 @@ async def test_a_panel_without_the_capability_fails_cleanly_and_sends_nothing(mo
             return Capabilities(bulk_actions=False)
 
     fake = Limited()
-    monkeypatch.setattr(bulk, "build_adapter", lambda panel, server=None: fake)
+    monkeypatch.setattr(bulk_runner, "build_adapter", lambda panel, server=None: fake)
     async with open_schema_engine() as engine, async_sessionmaker(engine, expire_on_commit=False)() as s:
         user, store, panel, _ = await _world(s, 2)
         op = await bulk.preview(s, kind="disable", selection=_sel(panel), reason="تعلیق", actor_id=user.id)

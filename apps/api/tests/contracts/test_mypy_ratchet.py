@@ -12,4 +12,4 @@ def test_mypy_ratchet_only_shrinks():
     ratchet = [m for o in mypy.get("overrides", []) if o.get("ignore_errors") for m in o["module"]]
     assert len(ratchet) <= MAX_RATCHET, "do not add modules to the mypy ratchet; fix the typing instead"
     for pkg in ("orders", "identity", "reseller"):
-        assert f"melorin/modules/{pkg}" in mypy["files"]
+        assert "melorin" in mypy["files"] or f"melorin/modules/{pkg}" in mypy["files"]  # the whole package is gated
