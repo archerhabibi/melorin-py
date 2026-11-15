@@ -29,6 +29,7 @@ class RejectIn(BaseModel):
 class UnlinkIn(BaseModel):
     identity_id: uuid.UUID
     current_password: str | None = Field(default=None, max_length=128)  # required when the account has a password (re-authentication)
+    reauth_code: str | None = Field(default=None, min_length=4, max_length=12)  # e-mail one-time code for passwordless accounts
 
 
 class ConsolidationIn(BaseModel):

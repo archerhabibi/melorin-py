@@ -2,14 +2,12 @@
 
 from fastapi import APIRouter, Request, Response
 
-from melorin.core import audit as platform_audit
 from melorin.core.deps import CurrentUser, Session, main_store
 from melorin.core.errors import AppError
 from melorin.core.ratelimit import hit
-from melorin.core.security import verify_password
 from melorin.modules.identity import google as google_signin
 from melorin.modules.identity import service
-from melorin.modules.identity.account_linking import consolidation, linking, persons, queries, telegram
+from melorin.modules.identity.account_linking import consolidation, linking, persons, queries, reauth, telegram
 from melorin.modules.identity.account_linking.schemas import (
     ConfirmIn,
     ConsolidationIn,
@@ -101,14 +99,23 @@ async def link_reject(body: RejectIn, user: CurrentUser, session: Session):
     return await linking.reject_operation(session, user, body.operation_id)
 
 
+@router.get("/reauth")
+async def reauth_method(user: CurrentUser):
+    """Which proof a sensitive change needs for this account: ``password`` | ``email_code`` | ``session``."""
+    return {"method": reauth.method_for(user)}
+
+
+@router.post("/reauth/email/start")
+async def reauth_email_start(user: CurrentUser, session: Session):
+    await _limit(user, "reauth-start", 5, 300)
+    dev_code = await reauth.start_email_code(session, user)
+    return {"ok": True, "expires_in": 600, **({"dev_code": dev_code} if dev_code else {})}
+
+
 @router.post("/unlink")
 async def unlink(body: UnlinkIn, user: CurrentUser, session: Session):
     await _limit(user, "unlink", 10, 300)
-    if user.password_hash:  # re-authentication for a sensitive change
-        if not body.current_password or not await verify_password(body.current_password, user.password_hash):
-            platform_audit.security_event(session, "identity_unlink_reauth_failed", user.id)
-            await session.commit()
-            raise AppError("REAUTH_REQUIRED", "برای این تغییر رمز فعلی لازم است.", 401)
+    await reauth.require(session, user, password=body.current_password, code=body.reauth_code)
     return await linking.unlink_identity(session, user, body.identity_id)
 
 
