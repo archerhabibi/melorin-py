@@ -30,10 +30,10 @@ line-ending = "lf"
 # T41: static typing is gated on core + worker + the pure domain and the kernel models; widen `files` as other packages are cleaned up.
 python_version = "3.12"
 files = ["melorin/core", "melorin/worker", "melorin/domain", "melorin/kernel", "melorin/modules/wallet", "melorin/modules/catalog",
-         "melorin/modules/orders", "melorin/modules/identity", "melorin/modules/reseller"]
+         "melorin/modules/orders", "melorin/modules/identity", "melorin/modules/reseller", "melorin/modules/payments"]
 ignore_missing_imports = true
 follow_imports = "silent"
-# T-W07/T-R09: bodies of unannotated functions are checked too; widen `files` one package at a time (r13: orders, identity, reseller are in scope; files in the ratchet list below still carry known Optional-narrowing errors and may only be removed from it, never added).
+# T-W07/T-R09: bodies of unannotated functions are checked too; widen `files` one package at a time (r13: orders, identity, reseller are in scope; r14: payments too, with no ratchet entries; files in the ratchet list below still carry known Optional-narrowing errors and may only be removed from it, never added).
 check_untyped_defs = true
 warn_unused_ignores = true
 

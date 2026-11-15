@@ -170,6 +170,8 @@ async def attach_receipt(
 async def mark_succeeded(session: AsyncSession, payment_id: uuid.UUID, *, actor_id=None, actor_type="system", note=None) -> Payment:
     """Idempotent: duplicate callbacks/approvals never double-credit (row lock + ledger idempotency key)."""
     p = await session.get(Payment, payment_id, with_for_update=True, populate_existing=True)
+    if p is None:
+        raise AppError("PAYMENT_NOT_FOUND", "پرداخت یافت نشد.", 404)
     if p.status == P.SUCCEEDED:
         return p
     if p.status in (P.FAILED, P.CANCELLED) and actor_type != "admin":
@@ -208,6 +210,8 @@ async def mark_succeeded(session: AsyncSession, payment_id: uuid.UUID, *, actor_
 
 async def mark_failed(session: AsyncSession, payment_id: uuid.UUID, *, actor_id=None, reason=None) -> Payment:
     p = await session.get(Payment, payment_id, with_for_update=True, populate_existing=True)
+    if p is None:
+        raise AppError("PAYMENT_NOT_FOUND", "پرداخت یافت نشد.", 404)
     if p.status in (P.SUCCEEDED, P.FAILED):
         return p
     p.status = P.FAILED
@@ -237,6 +241,8 @@ async def refund_payment(session: AsyncSession, payment_id: uuid.UUID, *, actor_
     if p.status != P.SUCCEEDED:
         raise AppError("INVALID_PAYMENT_STATE", "فقط پرداخت موفق قابل استرداد است.", 409)
     store = await session.get(Store, p.store_id)
+    if store is None:
+        raise AppError("STORE_NOT_FOUND", "فروشگاه یافت نشد.", 404)
     cfg = await store_payment_settings(session, store, p.provider)
     p.meta = {**(p.meta or {}), "refund_operation": "pending"}
     await session.flush()
@@ -292,6 +298,8 @@ async def handle_callback(session: AsyncSession, provider: str, params: dict) ->
         await session.commit()
         return p
     store = await session.get(Store, p.store_id)
+    if store is None:
+        raise AppError("STORE_NOT_FOUND", "فروشگاه یافت نشد.", 404)
     cfg = await store_payment_settings(session, store, provider)
     res = await adapter.verify_callback(params, p, settings=cfg)
     session.add(PaymentAttempt(payment_id=p.id, action="callback", result="ok" if res.succeeded else "failed", data=res.raw))

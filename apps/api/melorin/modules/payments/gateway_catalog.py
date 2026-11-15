@@ -4,7 +4,9 @@ These are destination types, not claims that credentials or provider sandboxes
 are configured. Automatic settlement is only implemented by an adapter.
 """
 
-SUPPORTED_DESTINATIONS = {
+from typing import Any
+
+SUPPORTED_DESTINATIONS: dict[str, dict[str, Any]] = {
     "manual_card": {"currencies": {"IRT", "IRR"}, "requires_review": True},
     "zarinpal": {"currencies": {"IRT", "IRR"}, "requires_review": False},
     "external_gateway": {"currencies": {"IRT", "IRR", "USD", "EUR", "AED", "TRY"}, "requires_review": True},

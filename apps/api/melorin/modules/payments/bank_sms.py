@@ -15,6 +15,7 @@ import hmac
 import logging
 import secrets
 import uuid
+from typing import Any, cast
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -37,7 +38,7 @@ MAX_SMS_CHARS = 1000
 TOKEN_PREFIX = "mlr_sms_"
 
 # (key, kind, minimum, maximum, default) - the single place that defines which tuning knobs exist.
-_SETTING_RULES = (
+_SETTING_RULES: tuple[tuple[str, type, Any, Any, Any], ...] = (
     ("window_minutes", int, 5, 7 * 24 * 60, 720),
     ("time_tolerance_minutes", int, 0, 30, 5),
     ("require_claimed_time", bool, None, None, True),
@@ -335,14 +336,14 @@ async def _confirm_provisional(
     decision = dom.decide(parsed, cands, match_settings(source))
     if decision.kind != "matched":
         return False
-    p = await session.get(Payment, uuid.UUID(decision.payment_id), with_for_update=True, populate_existing=True)
-    sms = await session.get(BankSmsMessage, sms.id, with_for_update=True, populate_existing=True)
+    p = await session.get(Payment, uuid.UUID(decision.payment_id), with_for_update=True, populate_existing=True)  # type: ignore[assignment]  # re-read under lock; the None check follows
+    sms = cast(BankSmsMessage, await session.get(BankSmsMessage, sms.id, with_for_update=True, populate_existing=True))
     prov = ((p.meta or {}).get("provisional") or {}) if p else {}
     if p is None or sms.status == "matched" or prov.get("state") != "open":
         return False
     sms.status, sms.payment_id, sms.matched_by, sms.note = "matched", p.id, "auto", "confirmed_provisional"
     p.meta = {
-        **p.meta,
+        **(p.meta or {}),
         "bank_sms": {"sms_id": str(sms.id), "serial": sms.serial, "by": "auto"},
         "provisional": {**prov, "state": "confirmed", "resolved_at": utcnow().isoformat(), "resolved_by": "bank_sms"},
     }
@@ -373,7 +374,7 @@ async def match_message(session: AsyncSession, sms: BankSmsMessage, source: Bank
         bank=source.bank,
         direction="deposit",
         amount_rial=sms.amount_rial,
-        occurred_at=_aware(sms.occurred_at),
+        occurred_at=cast(dt.datetime, _aware(sms.occurred_at)),
         serial=sms.serial,
         balance_rial=sms.balance_rial,
         fingerprint=sms.fingerprint,
@@ -524,7 +525,7 @@ async def ingest(session: AsyncSession, src: BankSmsSource, text: str, *, sender
         )
         if prev is not None:
             signed = parsed.amount_rial if parsed.direction == "deposit" else -parsed.amount_rial
-            gap = prev.balance_rial + signed != parsed.balance_rial
+            gap = (prev.balance_rial or 0) + signed != parsed.balance_rial
     m = BankSmsMessage(
         store_id=src.store_id,
         source_id=src.id,
