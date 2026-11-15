@@ -253,3 +253,5 @@ Source: `Melorin_Architecture_Admin_Audit.md` (the project has never been releas
 - admin-web PanelsView: the KPI strip, search/filter/sort toolbar and scope banner moved to PanelsToolbar.tsx (pure move, 638 to 562 lines). No behaviour change.
 - Re-verified on a clean checkout: lint-imports 8 kept, ruff clean, mypy clean (371 files), admin-web tsc, eslint and vitest (42 files, 309 tests) green.
 - Still open on purpose: remaining 500-600 line admin-web bodies (see docs/AUDIT-R18-STATUS.md debt register); rotate the GitHub token that was pasted into chat.
+
+- r20 (2): ServerForm to ServerImport, UpstreamBotFields to UpstreamGuide and UpstreamEditors, TelegramLoginSettings to TelegramLoginParts, infra to InfraChain, ReportsView to ReportsSections (typed ReportModel props). Pure moves; typing ratchet lowered 2031 to 2029; tsc, eslint, vitest 309 and 210 UI contract tests green.
