@@ -74,7 +74,7 @@ async def test_account(ctx: StoreCtx, session: Session):
 @router.get("/stores/{store_id}/orders", response_model=list[OrderOut])
 async def list_orders(ctx: StoreCtx, session: Session):
     """Only the caller's own orders of THIS store."""
-    rows = await queries.recent_for_scope(session, StoreScope.of(ctx).where(Order))
+    rows = await queries.recent_for_scope(session, list(StoreScope.of(ctx).where(Order)))
     return [out(o) for o in rows]
 
 

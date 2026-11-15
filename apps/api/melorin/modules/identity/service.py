@@ -32,6 +32,14 @@ CODE_TTL = dt.timedelta(minutes=10)
 MAX_CODE_ATTEMPTS = 5
 
 
+async def _owner_of(session: AsyncSession, user_id: uuid.UUID | None) -> User:
+    """The user an identity or link code points at; a dangling reference is a clear 404, not an AttributeError."""
+    user = await session.get(User, user_id) if user_id else None
+    if user is None:
+        raise AppError("USER_NOT_FOUND", "کاربر یافت نشد.", 404)
+    return user
+
+
 async def user_by_referral_code(session: AsyncSession, code: str | None) -> User | None:
     if not code:
         return None
@@ -127,7 +135,7 @@ async def get_or_create_user_for_identity(
     if ident:
         if data:
             ident.data = data
-        return await session.get(User, ident.user_id), False
+        return await _owner_of(session, ident.user_id), False
     user = User(display_name=display_name, email=subject if provider == "email" else None)
     session.add(user)
     await session.flush()
@@ -183,7 +191,7 @@ async def login_with_email_code(session: AsyncSession, email: str, code: str) ->
     if ident:
         if not ident.verified_at:
             ident.verified_at = utcnow()
-        return await session.get(User, ident.user_id), False
+        return await _owner_of(session, ident.user_id), False
     # A user created without an email Identity (bootstrap admin, password-only accounts) already owns this
     # address: the verified code proves ownership, so link a verified Identity instead of duplicating the user.
     existing = await session.scalar(select(User).where(User.email == email))
@@ -324,7 +332,7 @@ async def link_telegram(session: AsyncSession, code: str, p: TelegramProfile) ->
     )
     if not vc or vc.expires_at.replace(tzinfo=vc.expires_at.tzinfo or dt.UTC) < utcnow():
         raise AppError("CODE_INVALID", "کد اتصال نامعتبر یا منقضی است.", 400)
-    user = await session.get(User, vc.user_id)
+    user = await _owner_of(session, vc.user_id)
     ident = await find_identity(session, "telegram", str(p.telegram_id))
     if ident and ident.user_id != user.id:
         # The link code (signed-in website user) and the bot (Telegram's own identity) prove both sides: fold an empty shell.
@@ -333,6 +341,7 @@ async def link_telegram(session: AsyncSession, code: str, p: TelegramProfile) ->
         if res is not None and res.keeper == str(user.id):
             ident = await find_identity(session, "telegram", str(p.telegram_id))
         elif res is not None:  # the link-code account was the shell: the Telegram account keeps living
+            assert other is not None  # res is only set when the other account exists
             vc.used_at = utcnow()
             await session.commit()
             return other

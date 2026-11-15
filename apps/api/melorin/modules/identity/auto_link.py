@@ -159,6 +159,8 @@ async def try_auto_merge(session: AsyncSession, a: User, b: User, *, review: Ide
     res = resolve(await _account(session, a), await _account(session, b))
     if res.outcome is not Outcome.MERGE:
         return None
+    if res.keeper is None or res.shell is None:
+        return None
     by_id = {str(a.id): a, str(b.id): b}
     await merge(session, by_id[res.keeper], by_id[res.shell], reason=res.reason, review=review)
     return res

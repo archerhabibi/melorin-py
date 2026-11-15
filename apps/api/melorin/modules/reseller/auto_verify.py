@@ -97,7 +97,7 @@ async def host_is_public(domain: str) -> bool:
     except OSError:
         return False
     addrs = {i[4][0] for i in infos}
-    return bool(addrs) and all(is_public_ip(a) for a in addrs)
+    return bool(addrs) and all(is_public_ip(str(a)) for a in addrs)
 
 
 # ---------------------------------------------------------------- network ----------------------------------------------
@@ -107,7 +107,7 @@ async def check_dns(domain: str, value: str, *, transport: httpx.AsyncBaseTransp
             r = await client.get(
                 DOH_URL, params={"name": f"{TXT_PREFIX}.{domain}", "type": "TXT"}, headers={"accept": "application/dns-json"}
             )
-        return r.status_code == 200 and _txt_matches((r.json() or {}).get("Answer"), value)
+        return r.status_code == 200 and _txt_matches((r.json() or {}).get("Answer") or [], value)
     except (httpx.HTTPError, ValueError):
         return False
 

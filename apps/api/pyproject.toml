@@ -37,17 +37,9 @@ follow_imports = "silent"
 check_untyped_defs = true
 warn_unused_ignores = true
 
-# r13 ratchet: known remaining errors (61 at the time of writing). tests/contracts/test_mypy_ratchet.py forbids growing this list.
+# r13 ratchet: known remaining errors (r14: only orders.provisioning remains). tests/contracts/test_mypy_ratchet.py forbids growing this list.
 [[tool.mypy.overrides]]
 module = [
-  "melorin.modules.identity.auto_link",
-  "melorin.modules.identity.google",
-  "melorin.modules.identity.service",
-  "melorin.modules.reseller.auto_approve",
-  "melorin.modules.reseller.auto_verify",
-  "melorin.modules.reseller.bots",
-  "melorin.modules.orders.service.create",
-  "melorin.modules.orders.router",
   "melorin.modules.orders.provisioning",
 ]
 ignore_errors = true
