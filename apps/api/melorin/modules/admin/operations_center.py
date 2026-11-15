@@ -21,7 +21,7 @@ QUEUES: dict[str, tuple[str, str]] = {
     "account_discrepancies": ("panel", "vpn"),
     "panel_orphans": ("panel", "vpn"),
     "failed_panel_events": ("panel", "panel-ops"),
-    "failed_bulk_operations": ("panel", "bulk-operations"),
+    "failed_bulk_operations": ("panel", "panel-ops"),
     "receipt_reviews": ("finance", "payments"),
     "refunds_pending": ("finance", "orders"),
     "identity_conflicts": ("identity", "identity"),

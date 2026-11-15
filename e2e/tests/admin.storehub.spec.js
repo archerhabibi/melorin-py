@@ -70,7 +70,7 @@ test('API tab flips the switch with a PUT', async ({ page }) => {
 });
 
 const ROUTES =
-  'admin-team audit broadcasts bulk-operations bundles button-styles coupons event-center home identity infra-health loyalty-club manual-tasks my-account orders panel-ops panels payments products referral-programs reports reseller-applications settings stores tickets users vpn'.split(
+  'admin-team audit broadcasts bundles button-styles coupons event-center home identity infra-health loyalty-club manual-tasks my-account orders panel-ops panels payments products referral-programs reports reseller-applications settings stores tickets users vpn'.split(
     ' ',
   );
 

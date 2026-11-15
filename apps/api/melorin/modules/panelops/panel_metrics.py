@@ -236,15 +236,16 @@ async def collect(session: AsyncSession, now: dt.datetime | None = None) -> dict
                 drifting.append(name)
 
     # Reconcile: open issues per kind (always all kinds, so a cleared issue drops to 0 instead of vanishing) and the oldest sync.
-    issue_rows = dict(
-        (
+    issue_rows = {
+        r[0]: r[1]
+        for r in (
             await session.execute(
                 select(ReconciliationIssue.kind, func.count())
                 .where(ReconciliationIssue.status == "open")
                 .group_by(ReconciliationIssue.kind)
             )
         ).all()
-    )
+    }
     for kind in sorted(set(ISSUE_KINDS) | set(issue_rows)):
         put("melorin_reconcile_open_issues", float(issue_rows.get(kind, 0)), kind=kind)
     oldest = await session.scalar(

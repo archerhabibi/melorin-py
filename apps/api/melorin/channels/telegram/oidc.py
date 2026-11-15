@@ -13,6 +13,7 @@ Standard Authorization Code flow with PKCE (S256), done entirely on the server:
 Admins never get a session here (same rule as the bot-approval flow and the storefront Google flow).
 """
 
+from typing import Any, cast
 import base64
 import hashlib
 import hmac
@@ -214,7 +215,7 @@ def profile_from_claims(claims: dict) -> TelegramProfile:
     """``id`` is the real Telegram user ID (``sub`` is an OIDC-scoped identifier and would create duplicate accounts)."""
     raw = claims.get("id")
     try:
-        tg_id = int(raw)
+        tg_id = int(cast(Any, raw))
     except (TypeError, ValueError):
         raise AppError("TELEGRAM_OIDC_NO_ID", "تلگرام شناسهٔ کاربر را نفرستاد؛ دسترسی profile باید فعال باشد.", 401) from None
     if tg_id <= 0:

@@ -123,9 +123,9 @@ async def panel_event_purge_job(ctx=None):
 async def bulk_operation_job(ctx=None):
     """Every 15 seconds: run ONE confirmed bulk operation for up to ~40 s (PG-11). Leased per panel, chunked, resumable: a crash or a
     second worker can never apply an item twice (absolute targets + ledger)."""
-    from melorin.modules.panelops import bulk
+    from melorin.modules.panelops import bulk_runner
 
-    op = await bulk.run_next(session_factory(), budget_seconds=40.0)
+    op = await bulk_runner.run_next(session_factory(), budget_seconds=40.0)
     return op.status if op else None
 
 

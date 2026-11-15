@@ -23,9 +23,8 @@ export const SECTION_AREA: Record<string, string> = {
   'اپراتور پنل فروشگاه': 'infrastructure',
   'بسته‌های فروش': 'catalog',
   'محصولات VPN': 'catalog',
-  'سلامت زیرساخت': 'infrastructure',
-  'عملیات پنل': 'infrastructure',
-  'عملیات گروهی روی پنل': 'infrastructure',
+  'پایش و سلامت': 'infrastructure',
+  'عملیات مدیریتی': 'infrastructure', // + tab «عملیات گروهی»
   'حجم فروشگاه‌ها': 'infrastructure',
   تنظیمات: 'system',
   'دکمه‌های تلگرام': 'system',

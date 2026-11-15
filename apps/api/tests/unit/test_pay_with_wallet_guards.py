@@ -1,4 +1,5 @@
 """r13e: pay_with_wallet fails with a clear AppError (not AttributeError) when its store or the reseller owner is missing."""
+
 import uuid
 from types import SimpleNamespace
 from unittest.mock import AsyncMock

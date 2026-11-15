@@ -151,6 +151,7 @@ def evaluate_hwid(hwid: dict | None) -> dict:
 def evaluate_notifications(settings: dict) -> dict:
     """Does the panel message people by itself? Flags only: tokens / chat ids / URLs are never copied."""
     notif = settings.get("notification_settings") if isinstance(settings.get("notification_settings"), dict) else {}
+    notif = notif or {}
     telegram = bool(notif.get("notify_telegram"))
     discord = bool(notif.get("notify_discord"))
     if telegram or discord:

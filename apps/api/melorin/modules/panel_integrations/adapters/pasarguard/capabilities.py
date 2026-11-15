@@ -12,6 +12,7 @@ OpenAPI contract fixture (``tests/test_pasarguard_openapi_contract.py``), so a p
 a route is caught in CI, not by a customer.
 """
 
+from typing import TYPE_CHECKING, Any
 from melorin.modules.panel_integrations.adapters.base import ALL_CAPABILITIES, Capabilities, CapabilityReport, PanelError
 
 # capability -> permissions (``section.action``) the credential needs, ALL of them
@@ -164,6 +165,12 @@ def build_report(declared: Capabilities, *, role: str | None, is_owner: bool, pe
 
 class CapabilitiesMixin:
     """``declared_capabilities`` / ``capabilities`` / ``discover_capabilities`` for the PasarGuard adapter."""
+
+    if TYPE_CHECKING:  # what the host adapter class provides to this mixin (declared for the type checker only)
+
+        async def _req(self, method: str, path: str, *, ok404: bool = False, ok409: bool = False, **kw: Any) -> Any: ...
+
+        legacy: bool
 
     def declared_capabilities(self) -> Capabilities:
         names = LEGACY_CAPABILITIES if self.legacy else frozenset(ALL_CAPABILITIES) - NOT_YET

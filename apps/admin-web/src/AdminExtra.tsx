@@ -5,8 +5,7 @@ import { ChangeAdminPassword } from './ChangeAdminPassword.tsx';
 const ReportsView = lazy(() => import('./ReportsView.tsx'));
 const PanelsView = lazy(() => import('./PanelsView.tsx'));
 const InfraHealthView = lazy(() => import('./InfraHealthView.tsx'));
-const PanelOpsView = lazy(() => import('./PanelOpsView.tsx'));
-const BulkOperationsView = lazy(() => import('./BulkOperationsView.tsx'));
+const InfraOpsHubView = lazy(() => import('./InfraOpsHubView.tsx'));
 const ProductsView = lazy(() => import('./ProductsView.tsx'));
 const BundlesView = lazy(() => import('./BundlesView.tsx'));
 const TicketsView = lazy(() => import('./TicketsView.tsx'));
@@ -47,9 +46,8 @@ export const extraRoutes = {
   'پیام همگانی': BroadcastView,
   'دکمه‌های تلگرام': ButtonStylesView,
   'مرکز رویداد': EventCenterView,
-  'سلامت زیرساخت': InfraHealthView,
-  'عملیات پنل': PanelOpsView,
-  'عملیات گروهی روی پنل': BulkOperationsView,
+  'پایش و سلامت': InfraHealthView,
+  'عملیات مدیریتی': InfraOpsHubView,
   سفارش‌ها: OrdersView,
   'اکانت‌های VPN': VpnAccountsView,
   کاربران: UsersView,

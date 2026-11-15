@@ -18,6 +18,7 @@ Rules (all admin-only, all audited):
 
 from __future__ import annotations
 
+from typing import Any
 import functools
 
 import logging
@@ -184,7 +185,7 @@ async def overview(session: AsyncSession, panel: Panel) -> dict:
     items = []
     for row in rows:
         product = products.get(row.product_id)
-        entry = {
+        entry: dict[str, Any] = {
             "product_id": row.product_id,
             "product_name": product.name if product else None,
             "remote_template_id": row.remote_template_id,

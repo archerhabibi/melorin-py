@@ -19,6 +19,7 @@ import uuid
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from melorin.modules.panel_integrations.adapters.base import optional_ops
 from melorin.modules.panel_integrations.adapters import providers
 from melorin.core.config import get_settings
 from melorin.core.crypto import encrypt
@@ -55,13 +56,14 @@ def _is_connected(panel: Panel) -> bool:
 
 async def counts(session: AsyncSession, panel_id: uuid.UUID, *, now: dt.datetime | None = None) -> dict:
     now = now or utcnow()
-    by_status = dict(
-        (
+    by_status = {
+        r[0]: r[1]
+        for r in (
             await session.execute(
                 select(PanelEvent.status, func.count()).where(PanelEvent.panel_id == panel_id).group_by(PanelEvent.status)
             )
         ).all()
-    )
+    }
     day = await session.scalar(
         select(func.count())
         .select_from(PanelEvent)
@@ -102,7 +104,7 @@ async def status(session: AsyncSession, panel: Panel, *, live: bool = False, now
         try:
             adapter = build_adapter(panel)
             if supports(adapter, "event_source"):
-                out["panel_side"] = await adapter.get_webhook_config(out["url"])
+                out["panel_side"] = await optional_ops(adapter).get_webhook_config(out["url"])
                 if not out["panel_side"]["melorin_registered"]:
                     out["warnings"].append(
                         "پنل دیگر Melorin را به‌عنوان مقصد رویداد ندارد (کسی آن را از پنل پاک کرده است). دوباره وصل کنید."
@@ -190,7 +192,7 @@ async def disconnect(session: AsyncSession, panel: Panel) -> dict:
         adapter = build_adapter(panel)
         try:
             if supports(adapter, "event_source"):
-                result = await adapter.disconnect_webhook(url)
+                result = await optional_ops(adapter).disconnect_webhook(url)
                 warnings = list(result.get("warnings", []))
             else:
                 warnings.append("نقش فعلی اجازهٔ تغییر تنظیمات پنل را نداشت؛ مقصد را خودتان از پنل حذف کنید.")

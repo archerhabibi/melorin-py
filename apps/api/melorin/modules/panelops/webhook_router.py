@@ -85,6 +85,8 @@ async def pasarguard_webhook(panel_id: uuid.UUID, request: Request, background: 
         except ValueError as exc:
             inc("melorin_panel_webhook_rejected_total", reason="body")
             raise AppError("BAD_REQUEST", str(exc), 400) from exc
+        if panel is None:
+            raise _unauthorized()
         result = await panel_events.ingest(session, panel, parsed)
 
     if result.accepted:

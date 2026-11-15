@@ -33,7 +33,7 @@ class NoticeSettingsOut(BaseModel):
 
 
 def _notice_out(store: Store) -> NoticeSettingsOut:
-    custom = bool(store.vpn_notice_settings) and "traffic_low_levels" in store.vpn_notice_settings
+    custom = bool(store.vpn_notice_settings) and "traffic_low_levels" in (store.vpn_notice_settings or {})
     return NoticeSettingsOut(
         store_id=store.id,
         traffic_low_levels=list(notices.levels_for_store(store.vpn_notice_settings)),

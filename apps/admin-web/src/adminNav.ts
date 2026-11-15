@@ -75,9 +75,8 @@ export const groups: [string, [string, LucideIcon, string][], string?][] = [
     'زیرساخت و عملیات پنل',
     [
       ['پنل‌ها و سرورها', PanelTop, 'panels'],
-      ['سلامت زیرساخت', ShieldCheck, 'infra-health'],
-      ['عملیات پنل', Activity, 'panel-ops'],
-      ['عملیات گروهی روی پنل', Zap, 'bulk-operations'], // infrastructure permission, previews + resumable runs on a panel
+      ['پایش و سلامت', ShieldCheck, 'infra-health'],
+      ['عملیات مدیریتی', Activity, 'panel-ops'], // tabs: عملیات پنل / عملیات گروهی (bulk runs: previews + resumable, infrastructure permission)
     ],
   ],
   [

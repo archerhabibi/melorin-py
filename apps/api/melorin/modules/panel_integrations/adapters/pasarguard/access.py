@@ -4,10 +4,15 @@ Only an owner-level credential may call these (they create roles and keys). They
 credential the operator supplies for that one request; the credential Melorin runs on cannot do any of this by design.
 Request shapes are taken from the live panel's OpenAPI 5.6.0 (``AdminRoleCreate``, ``APIKeyCreate``)."""
 
+from typing import TYPE_CHECKING, Any
 from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError
 
 
 class AccessMixin:
+    if TYPE_CHECKING:  # what the host adapter class provides to this mixin (declared for the type checker only)
+
+        async def _req(self, method: str, path: str, *, ok404: bool = False, ok409: bool = False, **kw: Any) -> Any: ...
+
     async def find_role(self, name: str) -> dict | None:
         data = await self._req("GET", "/api/admin-roles", params={"search": name, "limit": 50})
         rows = data.get("roles") if isinstance(data, dict) else data

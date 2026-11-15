@@ -11,7 +11,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[2] / "melorin"
 
 BASELINE = {
     "modules/vpn_accounts/account_tools.py": 7,
-    "modules/panelops/bulk.py": 12,
+    "modules/panelops/bulk.py": 6,
+    "modules/panelops/bulk_runner.py": 6,
     "modules/panelops/governance.py": 2,
     "modules/vpn_accounts/manual_assign.py": 1,
     "modules/panelops/panel_admins.py": 4,

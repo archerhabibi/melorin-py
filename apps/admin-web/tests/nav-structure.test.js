@@ -6,9 +6,13 @@ import { SECTION_AREA, sectionAllowed } from '../src/adminAccess.ts';
 const where = (label) => groups.find(([, items]) => items.some((i) => i[0] === label))?.[0];
 
 describe('admin menu structure (architecture audit §5-§6)', () => {
-  it('puts bulk panel operations under the infrastructure group, next to panel ops', () => {
-    expect(where('عملیات گروهی روی پنل')).toBe('زیرساخت و عملیات پنل');
-    expect(SECTION_AREA['عملیات گروهی روی پنل']).toBe('infrastructure');
+  it('groups infrastructure as panels, monitoring, and one operations hub that holds the bulk runs as a tab', () => {
+    for (const label of ['پنل‌ها و سرورها', 'پایش و سلامت', 'عملیات مدیریتی']) {
+      expect(where(label), label).toBe('زیرساخت و عملیات پنل');
+      expect(SECTION_AREA[label], label).toBe('infrastructure');
+    }
+    expect(flat.map((x) => x[0])).not.toContain('عملیات گروهی روی پنل');
+    expect(Object.keys(extraRoutes)).not.toContain('عملیات گروهی روی پنل');
   });
   it('has no stand-alone manual-tasks entry: it is a tab of reseller applications', () => {
     expect(flat.map((x) => x[0])).not.toContain('کارهای دستی');

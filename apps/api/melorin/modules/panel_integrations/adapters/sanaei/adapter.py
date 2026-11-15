@@ -104,6 +104,7 @@ class SanaeiAdapter(V3Mixin, LegacyMixin):
         if not user or not pwd:
             raise PanelError(ErrorKind.PERMANENT, "sanaei: credentials missing (api_token or username/password)")
         try:
+            assert self._client is not None  # _login only runs right after the client was built
             r = await self._client.post("/login", data={"username": user, "password": pwd})
         except httpx.TimeoutException as e:
             raise PanelError(ErrorKind.TRANSIENT, f"sanaei: login timeout: {e}") from e
@@ -277,10 +278,10 @@ class SanaeiAdapter(V3Mixin, LegacyMixin):
             traffic = await self._v3_traffic(username, rec)
             ref = f"{','.join(map(str, ids)) or '-'}:{rec.get('uuid') or rec.get('subId') or username}"
             return self._to_account(rec, traffic, ref, await self._links(username))
-        found = await self._legacy_find(username)
-        if not found:
+        legacy_found = await self._legacy_find(username)
+        if not legacy_found:
             return None
-        iid, c, st = found
+        iid, c, st = legacy_found
         return self._to_account(c, st, f"{iid}:{self._legacy_cid(c)}")
 
     async def suspend_account(self, username: str) -> None:

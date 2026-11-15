@@ -38,15 +38,16 @@ async def live_nodes(session: AsyncSession, panel_id: uuid.UUID) -> list[PanelNo
 
 
 async def node_status_counts(session: AsyncSession, panel_id: uuid.UUID) -> list[tuple[str, int]]:
-    return list(
-        (
+    return [
+        (r[0], r[1])
+        for r in (
             await session.execute(
                 select(PanelNode.status, func.count())
                 .where(PanelNode.panel_id == panel_id, PanelNode.removed_at.is_(None))
                 .group_by(PanelNode.status)
             )
         ).all()
-    )
+    ]
 
 
 async def issue_rows(session: AsyncSession, *, status, kind, panel_id, limit, offset):
@@ -76,15 +77,16 @@ async def issue_rows(session: AsyncSession, *, status, kind, panel_id, limit, of
 
 async def reconciliation_counts(session: AsyncSession, open_status: str) -> tuple[dict, int, int, object]:
     """``(open issues by kind, open orphans, manual orphans, oldest last_synced_at of a live account)``."""
-    by_kind = dict(
-        (
+    by_kind = {
+        r[0]: r[1]
+        for r in (
             await session.execute(
                 select(ReconciliationIssue.kind, func.count())
                 .where(ReconciliationIssue.status == open_status)
                 .group_by(ReconciliationIssue.kind)
             )
         ).all()
-    )
+    }
     orphans = await session.scalar(select(func.count()).select_from(PanelOrphan).where(PanelOrphan.status == "open")) or 0
     manual = await session.scalar(select(func.count()).select_from(PanelOrphan).where(PanelOrphan.status == "manual")) or 0
     oldest = await session.scalar(

@@ -1,5 +1,6 @@
 """3x-ui 1.x/2.x (clients live inside inbound.settings.clients)."""
 
+from typing import TYPE_CHECKING, Any
 import json
 import secrets
 import uuid
@@ -10,6 +11,15 @@ from melorin.modules.panel_integrations.adapters.sanaei.wire import as_int, pars
 
 
 class LegacyMixin:
+    if TYPE_CHECKING:  # what the host adapter class provides to this mixin (declared for the type checker only)
+
+        @staticmethod
+        def _q(v: str) -> str: ...
+        async def _req(self, method: str, path: str, *, ok_missing: bool = False, **kw: Any) -> dict | None: ...
+
+        @property
+        def inbound_ids(self) -> list[int]: ...
+
     def _legacy_client_obj(self, spec: AccountSpec, tpl: dict) -> dict:
         return {
             "id": str(uuid.uuid4()),

@@ -17,6 +17,7 @@ import re
 
 from sqlalchemy import update
 
+from melorin.modules.panel_integrations.adapters.base import optional_ops
 from melorin.core import audit
 from melorin.core.errors import AppError
 from melorin.core.uow import unit_of_work
@@ -102,7 +103,7 @@ async def apply(session, panel: Panel, *, bootstrap: dict | None, actor_id=None,
     adapter = registry.build_adapter(panel, credentials=creds)
     try:
         try:
-            role = await adapter.ensure_role(role_body(name))
+            role = await optional_ops(adapter).ensure_role(role_body(name))
         except PanelError as exc:
             detail = (getattr(exc, "message", None) or str(exc))[:200]
             raise AppError("STORE_ROLE_FAILED", f"Panel refused the role: {detail}", 502) from exc

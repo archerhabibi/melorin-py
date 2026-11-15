@@ -15,6 +15,7 @@ Design (docs/TELEGRAM-WEB-LOGIN.md): an OAuth device-authorization style flow wi
 Everything here is transport independent; routers/bot runners only call these functions.
 """
 
+from typing import Any, cast
 import datetime as dt
 import hmac
 import re
@@ -480,12 +481,12 @@ async def purge_old(session: AsyncSession, older_than: dt.timedelta = dt.timedel
     """Housekeeping: finished login sessions one day after expiry; trusted devices a month after they expired or were
     revoked (kept that long so an investigation still sees which browser was removed and when)."""
     cutoff = utcnow() - older_than
-    result = await session.execute(TelegramLoginSession.__table__.delete().where(TelegramLoginSession.expires_at < cutoff))
+    result = await session.execute(cast(Any, TelegramLoginSession.__table__).delete().where(TelegramLoginSession.expires_at < cutoff))
     stale = utcnow() - dt.timedelta(days=30)
     devices = await session.execute(
-        TrustedDevice.__table__.delete().where(
-            (TrustedDevice.expires_at < stale) | (TrustedDevice.revoked_at.is_not(None) & (TrustedDevice.revoked_at < stale))
-        )
+        cast(Any, TrustedDevice.__table__)
+        .delete()
+        .where((TrustedDevice.expires_at < stale) | (TrustedDevice.revoked_at.is_not(None) & (TrustedDevice.revoked_at < stale)))
     )
     await session.commit()
-    return int((result.rowcount or 0) + (devices.rowcount or 0))
+    return int((cast(Any, result).rowcount or 0) + (cast(Any, devices).rowcount or 0))

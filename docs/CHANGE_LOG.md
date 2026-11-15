@@ -21,12 +21,12 @@ If `main` is protected, allow `github-actions[bot]` to bypass so the bot can pus
 
 > Entries before 2026-11-09 were archived (T-R12) and live in git tag `changelog-archive-2026-11-09` (`git show changelog-archive-2026-11-09:docs/CHANGE_LOG.md`), per DOCUMENTATION-POLICY.
 
-## 2026-11-15 - mypy gate widened (reports, tickets, notifications, loyalty, webhooks, vpn_accounts)
-- **Area:** api / typing
-- **Before:** mypy gated 10 packages; 6 more carried 35 type errors.
-- **Problem:** the audit (8.5) asks for type checking to grow module by module, money and provisioning paths first.
-- **Action:** errors fixed without changing behaviour (annotations, comprehensions instead of `dict(rows)`, a renamed shadowed variable); `reconcile_account` answers `missing` for a deleted panel instead of crashing. Decision: `docs/DECISIONS.md` (r16).
-- **After:** `mypy` clean on the wider scope.
+## 2026-11-15 - Audit leftovers: whole-backend mypy, bulk split, infrastructure hub
+- **Area:** api / admin-web / typing / docs
+- **Before:** mypy gated 10 packages (about 235 errors elsewhere), `panelops/bulk.py` held lifecycle and worker in 690 lines, infrastructure had four menu entries with bulk runs apart from panel operations.
+- **Problem:** the architecture audit (5.6, 8.4, 8.5) asked for staged typing, smaller files and one operations screen.
+- **Action:** every remaining error fixed (annotations, host stubs for adapter mixins, `optional_ops`, guards that answer 404 instead of crashing); `bulk_runner.py` split off; menu is now «پنل‌ها و سرورها» / «پایش و سلامت» / «عملیات مدیریتی» (tabs ops + bulk). Decision: `docs/DECISIONS.md` (r16).
+- **After:** `mypy` clean on the whole package; API behaviour unchanged except clean 404/401 answers on vanished-row paths.
 
 ## 2026-11-15 - Pre-release audit: menu regroup, migrate service, web-kit lockfile
 - **Area:** admin-web / compose / ci / docs

@@ -16,6 +16,7 @@ OpenAPI does not describe them, so the parser is deliberately tolerant and every
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any
 import datetime as dt
 import hashlib
 import hmac
@@ -262,6 +263,11 @@ def describe_webhook(settings: dict | None, url: str | None = None) -> dict:
 
 class EventsMixin:
     """``EventSource``: verify deliveries and switch the webhook on/off at the panel (the only panel settings Melorin ever writes)."""
+
+    if TYPE_CHECKING:  # what the host adapter class provides to this mixin (declared for the type checker only)
+
+        async def _req(self, method: str, path: str, *, ok404: bool = False, ok409: bool = False, **kw: Any) -> Any: ...
+        async def get_settings(self) -> dict[str, Any]: ...
 
     def verify_webhook(self, headers: Mapping[str, str], body: bytes, secret: str) -> bool:  # noqa: ARG002 - body unused: shared-secret scheme
         return verify_secret(headers, secret)

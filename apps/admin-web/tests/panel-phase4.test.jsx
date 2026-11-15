@@ -42,8 +42,8 @@ describe('PG-11 bulk operations screen', () => {
     return null;
   };
 
-  it('is registered in the admin routes', () => {
-    expect(Object.keys(extraRoutes)).toContain('عملیات گروهی روی پنل'); // volume governance is a Store Hub tab now
+  it('is reachable as a tab of the operations hub route', () => {
+    expect(Object.keys(extraRoutes)).toContain('عملیات مدیریتی'); // volume governance is a Store Hub tab now
   });
 
   it('offers only PasarGuard panels and requires a reason before previewing', async () => {

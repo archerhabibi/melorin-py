@@ -29,10 +29,7 @@ line-ending = "lf"
 [tool.mypy]
 # T41: static typing is gated on core + worker + the pure domain and the kernel models; widen `files` as other packages are cleaned up.
 python_version = "3.12"
-files = ["melorin/core", "melorin/worker", "melorin/domain", "melorin/kernel", "melorin/modules/wallet", "melorin/modules/catalog",
-         "melorin/modules/orders", "melorin/modules/identity", "melorin/modules/reseller", "melorin/modules/payments",
-         "melorin/modules/reports", "melorin/modules/tickets", "melorin/modules/notifications", "melorin/modules/loyalty", "melorin/modules/webhooks",
-         "melorin/modules/vpn_accounts", "melorin/modules/referral", "melorin/modules/broadcast", "melorin/modules/eventcenter"]
+files = ["melorin"]
 ignore_missing_imports = true
 follow_imports = "silent"
 # T-W07/T-R09: bodies of unannotated functions are checked too; widen `files` one package at a time (r13: orders, identity, reseller are in scope; r14: payments too, with no ratchet entries; r15: the ratchet is empty, every module in `files` is clean).
