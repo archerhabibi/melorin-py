@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import TicketsView from '../src/TicketsView.tsx';
+import TicketsView from '../src/features/tickets/TicketsView.tsx';
 import { PasswordInput } from '../src/ui.tsx';
 
 const json = (body, status = 200) =>

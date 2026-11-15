@@ -388,7 +388,7 @@ PRESETS: tuple[dict[str, Any], ...] = (
 )
 
 # One representative button per look, in the order a customer meets them; used by the admin's "send a test to Telegram".
-# It mirrors the live preview of the admin panel (apps/admin-web/src/buttonStyles.ts) button for button, so what the admin
+# It mirrors the live preview of the admin panel (apps/admin-web/src/features/settings/buttonStyles.ts) button for button, so what the admin
 # sees on screen is what arrives in Telegram. The ``@url`` entry is a link button (it needs a real URL to be accepted).
 SAMPLE_URL = "https://telegram.org"
 SAMPLE_INLINE: tuple[tuple[str, str], ...] = (

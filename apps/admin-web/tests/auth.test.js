@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { clearTokens, getAccessToken, setTokens } from '../src/auth.ts';
+import { clearTokens, getAccessToken, setTokens } from '../src/api/auth.ts';
 
 describe('admin-web in-memory session token', () => {
   beforeEach(() => clearTokens());

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import PanelsView from '../src/PanelsView.tsx';
+import PanelsView from '../src/features/panels/PanelsView.tsx';
 import { DialogHost } from '../src/ui.tsx';
 
 const json = (body, status = 200) =>

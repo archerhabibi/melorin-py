@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import AdminTeamView from '../src/AdminTeamView.tsx';
-import AcceptInvite, { inviteToken, isInviteHash, passwordChecks } from '../src/AcceptInvite.tsx';
-import { extraRoutes } from '../src/AdminExtra.tsx';
-import { SECTION_AREA, can, sectionAllowed } from '../src/adminAccess.ts';
+import AdminTeamView from '../src/features/settings/AdminTeamView.tsx';
+import AcceptInvite, { inviteToken, isInviteHash, passwordChecks } from '../src/features/auth/AcceptInvite.tsx';
+import { extraRoutes } from '../src/app/AdminExtra.tsx';
+import { SECTION_AREA, can, sectionAllowed } from '../src/app/adminAccess.ts';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
 const BASE = 'http://core.test';
@@ -92,7 +92,7 @@ describe('admin access table (mirror of the server rules)', () => {
 
   it('the app nav and the access table agree', async () => {
     const { readFileSync } = await import('node:fs');
-    const src = readFileSync('src/adminNav.ts', 'utf8');
+    const src = readFileSync('src/app/adminNav.ts', 'utf8');
     const navNames = [...src.matchAll(/\['([^']+)', [A-Za-z]+, '[a-z-]+'\]/g)].map((m) => m[1]);
     expect(navNames.length).toBeGreaterThan(20);
     expect(navNames.filter((n) => !(n in SECTION_AREA))).toEqual([]);

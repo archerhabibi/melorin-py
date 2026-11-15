@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import ButtonStylesView from '../src/ButtonStylesView.tsx';
+import ButtonStylesView from '../src/features/settings/ButtonStylesView.tsx';
 import {
   blankRule,
   hasVisible,
@@ -10,7 +10,7 @@ import {
   renderReply,
   ruleProblem,
   toPayload,
-} from '../src/buttonStyles.ts';
+} from '../src/features/settings/buttonStyles.ts';
 import { DialogHost } from '../src/ui.tsx';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status });

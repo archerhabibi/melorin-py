@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import StoreBotsView from '../src/StoreBotsView.tsx';
-import StoreNoticesView from '../src/StoreNoticesView.tsx';
-import UnassignedProducts from '../src/UnassignedProducts.tsx';
-import ProductAvailability from '../src/ProductAvailability.tsx';
+import StoreBotsView from '../src/features/stores/StoreBotsView.tsx';
+import StoreNoticesView from '../src/features/stores/StoreNoticesView.tsx';
+import UnassignedProducts from '../src/features/catalog/UnassignedProducts.tsx';
+import ProductAvailability from '../src/features/catalog/ProductAvailability.tsx';
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
