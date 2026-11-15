@@ -1,7 +1,7 @@
 From 1c4e61b9bf6333e47e97bbf838aaec969ab6cc95 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <noreply@melorin.local>
 Date: Sat, 14 Nov 2026 22:52:32 +0000
-Subject: [PATCH 1/4] refactor(audit): regroup admin menu, manual tasks become
+Subject: [PATCH 1/5] refactor(audit): regroup admin menu, manual tasks become
  a reseller-onboarding tab, one-shot migrate service, web-kit lockfile
 
 ---
@@ -488,7 +488,7 @@ index a44c7ca..fc831b4 100644
 From 145692ba71022818c6a426812fd3c0c3a1db8dba Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <noreply@melorin.local>
 Date: Sat, 14 Nov 2026 22:53:53 +0000
-Subject: [PATCH 2/4] refactor(audit): typed-client ratchet, explicit dead-code
+Subject: [PATCH 2/5] refactor(audit): typed-client ratchet, explicit dead-code
  fixes, decisions + changelog
 
 ---
@@ -616,7 +616,7 @@ index 39d2ee1..945072b 100644
 From 289affc7d9221a8405d06805816b0db4f797847a Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <noreply@melorin.local>
 Date: Sat, 14 Nov 2026 23:05:22 +0000
-Subject: [PATCH 3/4] refactor(admin-ui): migrate panels, servers, targets,
+Subject: [PATCH 3/5] refactor(admin-ui): migrate panels, servers, targets,
  password and logout to typedClient (authFetch 40 -> 30)
 
 ---
@@ -913,7 +913,7 @@ index 945072b..ab87a6c 100644
 From 6f6c3a112cd3ad0278f997850c5cffa474afc7de Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <noreply@melorin.local>
 Date: Sat, 14 Nov 2026 23:27:38 +0000
-Subject: [PATCH 4/4] refactor(admin-ui): Google, Telegram and receipt-OCR
+Subject: [PATCH 4/5] refactor(admin-ui): Google, Telegram and receipt-OCR
  integration settings use typedClient (authFetch 30 -> 27)
 
 ---
@@ -1181,6 +1181,677 @@ index ab87a6c..cdf4625 100644
  - **web-kit has a lockfile**; `check_web_lockfiles.py` covers it and CI runs `npm ci` + `npm audit --omit=dev` there.
 -- **Typed-client ratchet** (`tests/authfetch-ratchet.test.js`): `authFetch(` call sites may only shrink (budget 30 after the first migration batch: panels, servers, targets, password, logout). Migration order from the audit: Settings, Products, Bundles, Tickets, Reports, Store tabs, Resellers.
 +- **Typed-client ratchet** (`tests/authfetch-ratchet.test.js`): `authFetch(` call sites may only shrink (budget 27 after two batches: panels, servers, targets, password, logout, Google / Telegram / receipt-OCR integration settings). Migration order from the audit: Settings, Products, Bundles, Tickets, Reports, Store tabs, Resellers.
+ - **Vulture findings were false positives, now explicit**: `initiator` is the mandatory SQLAlchemy listener argument (renamed `_initiator`); `CursorResult` is named only inside a string `cast`, so it moved under `TYPE_CHECKING`.
+ - Kept on purpose (audit §4, §7.6): Payments / Wallet, Orders / Provisioning, Identity / Authentication, PanelOps / Panel Integrations, Event Center / Notifications stay separate.
+ - Still open (own PRs, not done here): move `/admin/reports/summary` and `/timeseries` into the analytics contract and switch `AdminSession.tsx` / `Trend.tsx` first; split `PanelAdminsView`, `kit.tsx`, `UpstreamBotFields`, `TicketConversation`, `ReportsView` as pure moves; widen mypy module by module (orders, identity, reseller, payments); drop `modules/admin/router.py` re-exports once no import uses them; split `panelops` files by capability.
+-- 
+2.43.0
+
+
+From 76a0b57c8563fbb30939332b772497f2dbc638f5 Mon Sep 17 00:00:00 2001
+From: Melorin Refactor <noreply@melorin.local>
+Date: Sun, 15 Nov 2026 06:13:01 +0000
+Subject: [PATCH 5/5] refactor(admin-ui): one useCall hook replaces 22
+ authFetch wrappers; refund and server form typed (authFetch call sites 27 ->
+ 2)
+
+---
+ apps/admin-web/src/AdminExtra.tsx               |  4 ++--
+ apps/admin-web/src/AdminSession.tsx             | 10 +++++-----
+ apps/admin-web/src/BroadcastView.tsx            |  4 ++--
+ apps/admin-web/src/BulkOperationsView.tsx       |  4 ++--
+ apps/admin-web/src/ButtonStylesView.tsx         |  4 ++--
+ apps/admin-web/src/EventCenterView.tsx          |  4 ++--
+ apps/admin-web/src/IdentityAutoView.tsx         |  4 ++--
+ apps/admin-web/src/IdentityReviewsView.tsx      |  4 ++--
+ apps/admin-web/src/LoyaltyClubView.tsx          |  4 ++--
+ apps/admin-web/src/ManualTasksView.tsx          |  4 ++--
+ apps/admin-web/src/PanelAdminsView.tsx          |  4 ++--
+ apps/admin-web/src/PaymentsView.tsx             |  4 ++--
+ apps/admin-web/src/ReferralProgramsView.tsx     |  4 ++--
+ apps/admin-web/src/ResellerApplicationsView.tsx |  4 ++--
+ apps/admin-web/src/ResellersView.tsx            |  4 ++--
+ apps/admin-web/src/ServerForm.tsx               | 17 +++++++++--------
+ apps/admin-web/src/SettingsView.tsx             |  4 ++--
+ apps/admin-web/src/StoreApiView.tsx             |  4 ++--
+ apps/admin-web/src/StoreBotsView.tsx            |  4 ++--
+ apps/admin-web/src/StoreGovernanceView.tsx      |  4 ++--
+ apps/admin-web/src/StoreNoticesView.tsx         |  4 ++--
+ apps/admin-web/src/StorePricesView.tsx          |  4 ++--
+ apps/admin-web/src/adminExtraKit.tsx            |  4 ++--
+ apps/admin-web/src/api.ts                       | 15 +++++++++++++++
+ apps/admin-web/src/dataKit.tsx                  | 11 ++---------
+ apps/admin-web/src/infra.tsx                    |  4 ++--
+ apps/admin-web/tests/authfetch-ratchet.test.js  |  2 +-
+ docs/DECISIONS.md                               |  2 +-
+ 28 files changed, 77 insertions(+), 68 deletions(-)
+
+diff --git a/apps/admin-web/src/AdminExtra.tsx b/apps/admin-web/src/AdminExtra.tsx
+index ca6af00..da53514 100644
+--- a/apps/admin-web/src/AdminExtra.tsx
++++ b/apps/admin-web/src/AdminExtra.tsx
+@@ -1,5 +1,5 @@
+ import { lazy } from 'react';
+-import { authFetch } from './api.ts';
++import { useCall } from './api.ts';
+ import type { Json, Toast, ViewApi } from './types.ts';
+ import { ChangeAdminPassword } from './ChangeAdminPassword.tsx';
+ const ReportsView = lazy(() => import('./ReportsView.tsx'));
+@@ -37,7 +37,7 @@ function MyAccount({ api, toast }: { api: ViewApi; toast: Toast }) {
+ }
+ 
+ function Tickets({ api, toast }: { api?: Json; toast: Toast }) {
+-  const call = (p: Json, o = {}) => authFetch(api.base, p, o);
++  const call = useCall(api);
+   return <TicketsView call={call} toast={toast} />;
+ }
+ 
+diff --git a/apps/admin-web/src/AdminSession.tsx b/apps/admin-web/src/AdminSession.tsx
+index ab1c6bb..bd6b28f 100644
+--- a/apps/admin-web/src/AdminSession.tsx
++++ b/apps/admin-web/src/AdminSession.tsx
+@@ -1,5 +1,5 @@
+ import { useCallback, useEffect, useState } from 'react';
+-import { API_BASE, authFetch, getJson } from './api.ts';
++import { API_BASE, authFetch, getJson, typedClient } from './api.ts';
+ import type { AdminMe, Json, Rec } from './types.ts';
+ 
+ export function useCore() {
+@@ -106,10 +106,10 @@ export async function downloadOrders(base: string) {
+   URL.revokeObjectURL(url);
+ }
+ export async function refundPayment(base: string, paymentId: Json, reason: Json) {
+-  const r = await authFetch(base, `/api/v1/admin/payments/${paymentId}/refund`, {
+-    method: 'POST',
+-    body: JSON.stringify({ reason }),
++  const { response: r, data } = await typedClient(base).post('/api/v1/admin/payments/{payment_id}/refund', {
++    params: { path: { payment_id: paymentId } },
++    body: { reason },
+   });
+   if (!r.ok) throw Error(`refund ${r.status}`);
+-  return r.json();
++  return data;
+ }
+diff --git a/apps/admin-web/src/BroadcastView.tsx b/apps/admin-web/src/BroadcastView.tsx
+index 04000ba..39c06d8 100644
+--- a/apps/admin-web/src/BroadcastView.tsx
++++ b/apps/admin-web/src/BroadcastView.tsx
+@@ -3,7 +3,7 @@
+ import { useCallback, useEffect, useState } from 'react';
+ import { AlertTriangle, CheckCircle2, Clock, Megaphone, RefreshCw, Send, Users } from 'lucide-react';
+ import { BODY_MAX, TITLE_MAX, useBroadcastComposer, usePollWhileQueued } from '@melorin/web-kit/broadcast.js';
+-import { authFetch } from './api.ts';
++import { useCall } from './api.ts';
+ import { confirmDialog, dt } from './ui.tsx';
+ import { Empty, ErrorBar, Field, Section, errText, num, useRows } from './kit.tsx';
+ import type { Json, Rec, Toast } from './types.ts';
+@@ -48,7 +48,7 @@ export function DeliveryStats({ b }: { b?: Json }) {
+ }
+ 
+ export default function BroadcastView({ api, toast }: { api?: Json; toast: Toast }) {
+-  const call = useCallback((p: Json, o = {}) => authFetch(api.base, p, o), [api.base]);
++  const call = useCall(api);
+   const hist = useRows(call, '/api/v1/admin/broadcasts');
+   const [groups, setGroups] = useState<Rec[]>([]);
+   const [limit, setLimit] = useState<Json>(null);
+diff --git a/apps/admin-web/src/BulkOperationsView.tsx b/apps/admin-web/src/BulkOperationsView.tsx
+index 67bd100..98ac6d8 100644
+--- a/apps/admin-web/src/BulkOperationsView.tsx
++++ b/apps/admin-web/src/BulkOperationsView.tsx
+@@ -2,7 +2,7 @@
+ // Everything runs in the Core API worker; this screen only plans, confirms and shows progress. Nothing here deletes an account.
+ import { useCallback, useEffect, useRef, useState } from 'react';
+ import { CheckCircle, Loader, RefreshCw, XCircle } from 'lucide-react';
+-import { authFetch } from './api.ts';
++import { useCall } from './api.ts';
+ import { confirmDialog } from './ui.tsx';
+ import type { Json, Rec, Toast } from './types.ts';
+ 
+@@ -48,7 +48,7 @@ async function readJson(r: Json) {
+ }
+ 
+ export default function BulkOperationsView({ api, toast }: { api?: Json; toast: Toast }) {
+-  const call = useCallback((p: string, o?: RequestInit) => authFetch(api.base, p, o), [api.base]);
++  const call = useCall(api);
+   const [panels, setPanels] = useState<Rec[]>([]);
+   const [stores, setStores] = useState<Rec[]>([]);
+   const [form, setForm] = useState({
+diff --git a/apps/admin-web/src/ButtonStylesView.tsx b/apps/admin-web/src/ButtonStylesView.tsx
+index d42e4e8..2bfece8 100644
+--- a/apps/admin-web/src/ButtonStylesView.tsx
++++ b/apps/admin-web/src/ButtonStylesView.tsx
+@@ -4,7 +4,7 @@
+ // the bots download the result, and Telegram's own rules apply (custom emoji need a Premium bot owner).
+ import { useCallback, useEffect, useMemo, useState } from 'react';
+ import { Info, Paintbrush, Plus, RotateCcw, Save, Send, Sparkles, Trash2 } from 'lucide-react';
+-import { authFetch } from './api.ts';
++import { useCall } from './api.ts';
+ import { Empty, ErrorBar, Field, Section, Switch, errText, num } from './kit.tsx';
+ import { confirmDialog } from './ui.tsx';
+ import {
+@@ -299,7 +299,7 @@ function AddRule({
+ }
+ 
+ export default function ButtonStylesView({ api, toast }: { api: { base: string }; toast: Toast }) {
+-  const call = useCallback((p: string, o: RequestInit = {}) => authFetch(api.base, p, o), [api.base]);
++  const call = useCall(api);
+   const [data, setData] = useState<ButtonStylesPayload | null>(null);
+   const [saved, setSaved] = useState<ButtonStyleConfig>(EMPTY);
+   const [cfg, setCfg] = useState<ButtonStyleConfig>(EMPTY);
+diff --git a/apps/admin-web/src/EventCenterView.tsx b/apps/admin-web/src/EventCenterView.tsx
+index 6804e4e..386ffbb 100644
+--- a/apps/admin-web/src/EventCenterView.tsx
++++ b/apps/admin-web/src/EventCenterView.tsx
+@@ -3,14 +3,14 @@
+ // sends a real test message to every configured Topic.
+ import { useCallback } from 'react';
+ import { AlertTriangle, BellRing, CheckCircle2, ListPlus, ScanSearch, Send, Trash2 } from 'lucide-react';
+-import { authFetch } from './api.ts';
++import { useCall } from './api.ts';
+ import { confirmDialog, dt } from './ui.tsx';
+ import { useEventCenter } from '@melorin/web-kit/eventCenter.js';
+ import { ErrorBar, Field, Section } from './kit.tsx';
+ import type { Json, Rec, Toast } from './types.ts';
+ 
+ export default function EventCenterView({ api, toast }: { api?: Json; toast: Toast }) {
+-  const call = useCallback((p: Json, o = {}) => authFetch(api.base, p, o), [api.base]);
++  const call = useCall(api);
+   const confirm = useCallback((m: string) => confirmDialog(m, { title: 'حذف گروه رویدادها', ok: 'حذف' }), []);
+   const {
+     data,
+diff --git a/apps/admin-web/src/IdentityAutoView.tsx b/apps/admin-web/src/IdentityAutoView.tsx
+index a62381c..9713fe6 100644
+--- a/apps/admin-web/src/IdentityAutoView.tsx
++++ b/apps/admin-web/src/IdentityAutoView.tsx
+@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
+ // without a manual step, and accounts that were folded together automatically. The admin can revoke trust here.
+ import { useEffect, useState } from 'react';
+ import { ArrowLeftRight, Fingerprint, MonitorSmartphone, ShieldOff, UserRound, Users } from 'lucide-react';
+-import { authFetch, typedClient } from './api.ts';
++import { typedClient, useCall } from './api.ts';
+ import { confirmDialog, dt, sid } from './ui.tsx';
+ import { Empty, ErrorBar, KpiBar, Pills, SearchBox, Segmented, Stat, errText, num, tint, useRows } from './kit.tsx';
+ import type { CallFn, Json, Rec, Toast } from './types.ts';
+@@ -217,7 +217,7 @@ function MergesTab({ call }: { call: CallFn }) {
+ 
+ // `section` ('devices' | 'merges') pins the view to one tab when the screen is hosted inside the identity hub.
+ export default function IdentityAutoView({ api, toast, section }: { api?: Json; toast: Toast; section?: Json }) {
+-  const call = (p: Json, o = {}) => authFetch(api.base, p, o);
++  const call = useCall(api);
+   const [tab, setTabState] = useState(section || 'devices');
+   const setTab = (v: Json) => !section && setTabState(v);
+   const [tick, setTick] = useState(0);
+diff --git a/apps/admin-web/src/IdentityReviewsView.tsx b/apps/admin-web/src/IdentityReviewsView.tsx
+index 3675103..ff4ba28 100644
+--- a/apps/admin-web/src/IdentityReviewsView.tsx
++++ b/apps/admin-web/src/IdentityReviewsView.tsx
+@@ -17,7 +17,7 @@ import {
+   UserRound,
+   Users,
+ } from 'lucide-react';
+-import { authFetch, typedClient } from './api.ts';
++import { typedClient, useCall } from './api.ts';
+ import { dt, sid } from './ui.tsx';
+ import {
+   Drawer,
+@@ -329,7 +329,7 @@ function ReviewDrawer({
+ }
+ 
+ export default function IdentityReviewsView({ api, toast }: { api?: Json; toast: Toast }) {
+-  const call = (p: Json, o = {}) => authFetch(api.base, p, o);
++  const call = useCall(api);
+   const { rows, failed, load } = useRows(call, '/api/v1/admin/identity-link-reviews?status=all');
+   const [status, setStatus] = useState('open');
+   const [provider, setProvider] = useState('all');
+diff --git a/apps/admin-web/src/LoyaltyClubView.tsx b/apps/admin-web/src/LoyaltyClubView.tsx
+index 0cfab0a..f37d8c1 100644
+--- a/apps/admin-web/src/LoyaltyClubView.tsx
++++ b/apps/admin-web/src/LoyaltyClubView.tsx
+@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
+ import { Award, Plus, Save, Trash2 } from 'lucide-react';
+ import { toInt, unitOf } from '@melorin/web-kit/referralPlan.js';
+ import { useLoyaltyClub } from '@melorin/web-kit/loyaltyClub.js';
+-import { authFetch } from './api.ts';
++import { useCall } from './api.ts';
+ import { Empty, Field, Section, num, toEn, useRows } from './kit.tsx';
+ import type { Json, Rec, Toast } from './types.ts';
+ 
+@@ -330,7 +330,7 @@ function Adjust({ onSave }: { onSave?: Json }) {
+ }
+ 
+ export default function LoyaltyClubView({ api, toast }: { api?: Json; toast: Toast }) {
+-  const call = useCallback((p: Json, o = {}) => authFetch(api.base, p, o), [api.base]);
++  const call = useCall(api);
+   const stores = useRows(call, '/api/v1/admin/stores');
+   const [storeId, setStoreId] = useState('');
+   const store = useMemo(() => (stores.rows || []).find((s) => s.id === storeId), [stores.rows, storeId]);
+diff --git a/apps/admin-web/src/ManualTasksView.tsx b/apps/admin-web/src/ManualTasksView.tsx
+index 3c330ea..24be5e2 100644
+--- a/apps/admin-web/src/ManualTasksView.tsx
++++ b/apps/admin-web/src/ManualTasksView.tsx
+@@ -2,7 +2,7 @@
+ // Core alerts every admin (panel + Telegram) when a task appears; the admin ticks it here once it is done.
+ import { useState } from 'react';
+ import { CheckCircle2, ClipboardCopy, Clock, ListChecks, RotateCcw } from 'lucide-react';
+-import { authFetch } from './api.ts';
++import { useCall } from './api.ts';
+ import { dt } from './ui.tsx';
+ import { Empty, ErrorBar, KpiBar, Pills, Stat, errText, useRows } from './kit.tsx';
+ import type { Json, Toast } from './types.ts';
+@@ -67,7 +67,7 @@ function TaskCard({
+ }
+ 
+ export default function ManualTasksView({ api, toast }: { api?: Json; toast: Toast }) {
+-  const call = (p: Json, o = {}) => authFetch(api.base, p, o);
++  const call = useCall(api);
+   const { rows, failed, load } = useRows(call, '/api/v1/admin/manual-tasks?status=all');
+   const [filter, setFilter] = useState('open');
+   const [busy, setBusy] = useState(false);
+diff --git a/apps/admin-web/src/PanelAdminsView.tsx b/apps/admin-web/src/PanelAdminsView.tsx
+index 67bde6c..c13e9b4 100644
+--- a/apps/admin-web/src/PanelAdminsView.tsx
++++ b/apps/admin-web/src/PanelAdminsView.tsx
+@@ -14,7 +14,7 @@ import {
+   UserCog,
+   XCircle,
+ } from 'lucide-react';
+-import { authFetch } from './api.ts';
++import { useCall as useApiCall } from './api.ts';
+ import { Badge, confirmDialog, dt } from './ui.tsx';
+ import SubBrandingCard from './SubBrandingCard.tsx';
+ import {
+@@ -511,7 +511,7 @@ function RequestDrawer({
+ }
+ 
+ export default function PanelAdminsView({ api, toast }: { api?: Json; toast: Toast }) {
+-  const call = (p: Json, o = {}) => authFetch(api.base, p, o);
++  const call = useApiCall(api);
+   const admins = useRows(call, '/api/v1/admin/panel-admins');
+   const requests = useRows(call, '/api/v1/admin/panel-admin-requests?status='); // empty status = every request
+   const [tab, setTab] = useState('admins');
+diff --git a/apps/admin-web/src/PaymentsView.tsx b/apps/admin-web/src/PaymentsView.tsx
+index 419f52a..321329b 100644
+--- a/apps/admin-web/src/PaymentsView.tsx
++++ b/apps/admin-web/src/PaymentsView.tsx
+@@ -4,7 +4,7 @@
+ import { useCallback, useEffect, useMemo, useState } from 'react';
+ import { Clock, Download, RefreshCw, ShieldAlert, TrendingUp, Undo2, Wallet, XCircle } from 'lucide-react';
+ import type { RequestBody } from '@melorin/api-client';
+-import { authFetch, typedClient } from './api.ts';
++import { typedClient, useCall } from './api.ts';
+ import { Empty, ErrorBar, KpiBar, Paginator, Pills, SearchBox, Stat, errText, num } from './kit.tsx';
+ import { Badge, confirmDialog, dt, promptDialog, sid } from './ui.tsx';
+ import BankSmsPanel from './BankSmsPanel.tsx';
+@@ -17,7 +17,7 @@ import type { Json, Rec, Toast } from './types.ts';
+ type DestinationBody = RequestBody<'/api/v1/admin/payment-destinations/{provider}', 'put'>;
+ 
+ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast }) {
+-  const call = useCallback((p: Json, o = {}) => authFetch(api.base, p, o), [api.base]);
++  const call = useCall(api);
+   const client = useMemo(() => typedClient(api?.base), [api?.base]);
+   const [rows, setRows] = useState<Json>(null);
+   const [failed, setFailed] = useState(false);
+diff --git a/apps/admin-web/src/ReferralProgramsView.tsx b/apps/admin-web/src/ReferralProgramsView.tsx
+index 2ba42e8..ddc0382 100644
+--- a/apps/admin-web/src/ReferralProgramsView.tsx
++++ b/apps/admin-web/src/ReferralProgramsView.tsx
+@@ -3,7 +3,7 @@
+ import { useCallback, useEffect, useMemo, useState } from 'react';
+ import { Gift, Save } from 'lucide-react';
+ import { unitOf, usePlanForm } from '@melorin/web-kit/referralPlan.js';
+-import { authFetch } from './api.ts';
++import { useCall } from './api.ts';
+ import { Empty, Field, Section, errText, num, useRows } from './kit.tsx';
+ import type { Json, Rec, Toast } from './types.ts';
+ 
+@@ -69,7 +69,7 @@ function Plan({
+ }
+ 
+ export default function ReferralProgramsView({ api, toast }: { api?: Json; toast: Toast }) {
+-  const call = useCallback((p: Json, o = {}) => authFetch(api.base, p, o), [api.base]);
++  const call = useCall(api);
+   const stores = useRows(call, '/api/v1/admin/stores');
+   const [storeId, setStoreId] = useState('');
+   const store = useMemo(() => (stores.rows || []).find((s) => s.id === storeId), [stores.rows, storeId]);
+diff --git a/apps/admin-web/src/ResellerApplicationsView.tsx b/apps/admin-web/src/ResellerApplicationsView.tsx
+index cd0970b..65e59f9 100644
+--- a/apps/admin-web/src/ResellerApplicationsView.tsx
++++ b/apps/admin-web/src/ResellerApplicationsView.tsx
+@@ -13,7 +13,7 @@ import {
+   UserPlus,
+   XCircle,
+ } from 'lucide-react';
+-import { authFetch } from './api.ts';
++import { useCall } from './api.ts';
+ import { Badge, confirmDialog, dt } from './ui.tsx';
+ import {
+   Drawer,
+@@ -291,7 +291,7 @@ function ReviewDrawer({
+ }
+ 
+ export default function ResellerApplicationsView({ api, toast }: { api?: Json; toast: Toast }) {
+-  const call = (p: Json, o = {}) => authFetch(api.base, p, o);
++  const call = useCall(api);
+   const { rows, failed, load } = useRows(call, '/api/v1/admin/reseller-applications');
+   const [filter, setFilter] = useState('pending');
+   const [q, setQ] = useState('');
+diff --git a/apps/admin-web/src/ResellersView.tsx b/apps/admin-web/src/ResellersView.tsx
+index bbebe08..b7b99f2 100644
+--- a/apps/admin-web/src/ResellersView.tsx
++++ b/apps/admin-web/src/ResellersView.tsx
+@@ -14,7 +14,7 @@ import {
+   Trash2,
+   Unplug,
+ } from 'lucide-react';
+-import { authFetch } from './api.ts';
++import { useCall } from './api.ts';
+ import { PasswordInput, confirmDialog, dt } from './ui.tsx';
+ import {
+   Drawer,
+@@ -449,7 +449,7 @@ function Editor({
+ }
+ 
+ export default function ResellersView({ api, toast }: { api?: Json; toast: Toast }) {
+-  const call = (p: Json, o = {}) => authFetch(api.base, p, o);
++  const call = useCall(api);
+   const { rows, failed, load } = useRows(call, '/api/v1/admin/resellers');
+   const [filter, setFilter] = useState('all');
+   const [q, setQ] = useState('');
+diff --git a/apps/admin-web/src/ServerForm.tsx b/apps/admin-web/src/ServerForm.tsx
+index 7f7ac54..2489420 100644
+--- a/apps/admin-web/src/ServerForm.tsx
++++ b/apps/admin-web/src/ServerForm.tsx
+@@ -1,6 +1,6 @@
+ import { useMemo, useRef, useState } from 'react';
+ import { AlertTriangle, ChevronDown, Layers, MapPin, Plus, RefreshCw, Save, Server, Upload } from 'lucide-react';
+-import { authFetch, typedClient } from './api.ts';
++import { typedClient } from './api.ts';
+ import { Badge, dt, sid } from './ui.tsx';
+ import {
+   Drawer,
+@@ -168,9 +168,7 @@ export function ServerForm({
+       return;
+     }
+     const now = payload(f);
+-    let body: Json = now,
+-      url = '/api/v1/admin/servers',
+-      method = 'POST';
++    let body: Json = now;
+     if (edit) {
+       const was: Rec = payload(fromServer(server));
+       body = Object.fromEntries(Object.entries(now).filter(([k, v]) => JSON.stringify(v) !== JSON.stringify(was[k])));
+@@ -178,15 +176,18 @@ export function ServerForm({
+         onClose();
+         return;
+       }
+-      url = `/api/v1/admin/servers/${server.id}`;
+-      method = 'PATCH';
+     }
+     setBusy(true);
+     setSrvErr('');
+     try {
+-      const r = await authFetch(api.base, url, { method, body: JSON.stringify(body) });
++      const client = typedClient(api.base);
++      const { response: r, error } = edit
++        ? await client.patch('/api/v1/admin/servers/{server_id}', { params: { path: { server_id: server.id } }, body })
++        : await client.post('/api/v1/admin/servers', { body });
+       if (!r.ok) {
+-        setSrvErr(await errText(r, edit ? 'ذخیره تغییرات ناموفق بود' : 'ثبت مقصد ناموفق بود'));
++        setSrvErr(
++          await errText({ json: async () => error }, edit ? 'ذخیره تغییرات ناموفق بود' : 'ثبت مقصد ناموفق بود'),
++        );
+         return;
+       }
+       toast(edit ? 'تغییرات مقصد ذخیره شد' : 'مقصد ثبت شد');
+diff --git a/apps/admin-web/src/SettingsView.tsx b/apps/admin-web/src/SettingsView.tsx
+index 6bf9896..ab01276 100644
+--- a/apps/admin-web/src/SettingsView.tsx
++++ b/apps/admin-web/src/SettingsView.tsx
+@@ -1,7 +1,7 @@
+ import { Segmented } from './kit.tsx';
+ import type { ReactNode } from 'react';
+ import { lazy, Suspense, useEffect, useState } from 'react';
+-import { authFetch } from './api.ts';
++import { useCall } from './api.ts';
+ import { PasswordInput, confirmDialog } from './ui.tsx';
+ import type { Json, Rec, Toast } from './types.ts';
+ import { box, inp, btn, ghost, useList, Table } from './adminExtraKit.tsx';
+@@ -40,7 +40,7 @@ const Toggle = ({ on, set, label }: { on?: Json; set?: Json; label?: Json }) =>
+ );
+ 
+ function Integrations({ api, toast, part }: { api?: Json; toast: Toast; part: 'integrations' | 'security' }) {
+-  const call = (p: Json, o = {}) => authFetch(api.base, p, o);
++  const call = useCall(api);
+   const [aa, setAa] = useState<Json>(null);
+   const [ipText, setIpText] = useState('');
+   const [em, setEm] = useState<Json>(null);
+diff --git a/apps/admin-web/src/StoreApiView.tsx b/apps/admin-web/src/StoreApiView.tsx
+index e10e44f..d111326 100644
+--- a/apps/admin-web/src/StoreApiView.tsx
++++ b/apps/admin-web/src/StoreApiView.tsx
+@@ -1,13 +1,13 @@
+ // «API» tab of the store hub: which reseller stores may create and use API keys for their own site.
+ // One switch per store: PUT /admin/reseller-stores/{id}/api?enabled=. The keys themselves are managed by the reseller.
+ import { useCallback, useState } from 'react';
+-import { authFetch } from './api.ts';
++import { useCall } from './api.ts';
+ import { canWrite } from './adminAccess.ts';
+ import { Empty, ErrorBar, Toggle, errText, useRows } from './kit.tsx';
+ import type { Json, Rec, Toast } from './types.ts';
+ 
+ export default function StoreApiView({ api, toast }: { api?: Json; toast: Toast }) {
+-  const call = useCallback((p: string, o?: RequestInit) => authFetch(api.base, p, o), [api.base]);
++  const call = useCall(api);
+   const { rows, failed, load } = useRows(call, '/api/v1/admin/resellers');
+   const [busy, setBusy] = useState('');
+   const writable = canWrite(api?.perms, 'نمایندگان');
+diff --git a/apps/admin-web/src/StoreBotsView.tsx b/apps/admin-web/src/StoreBotsView.tsx
+index e36ae1d..7683f19 100644
+--- a/apps/admin-web/src/StoreBotsView.tsx
++++ b/apps/admin-web/src/StoreBotsView.tsx
+@@ -1,7 +1,7 @@
+ // «ربات‌ها» tab of the store hub: which Telegram bot belongs to which store (GET/POST /admin/bot-store-bindings).
+ // A binding is how a bot key reaches its store; the reseller bot normally creates its own on onboarding, this is the admin's view and manual path.
+ import { useCallback, useEffect, useState } from 'react';
+-import { authFetch } from './api.ts';
++import { useCall } from './api.ts';
+ import { canWrite } from './adminAccess.ts';
+ import { Empty, ErrorBar, errText, useRows } from './kit.tsx';
+ import type { Toast } from './types.ts';
+@@ -11,7 +11,7 @@ import type { HubApiProp, StoreRow } from './adminHubTypes.ts';
+ const KIND_LABEL: Record<string, string> = { main: 'ربات اصلی', reseller: 'ربات نماینده' };
+ 
+ export default function StoreBotsView({ api, toast }: { api?: HubApiProp; toast: Toast }) {
+-  const call = useCallback((p: string, o?: RequestInit) => authFetch(api?.base ?? '', p, o), [api?.base]);
++  const call = useCall(api);
+   const { rows, failed, load } = useRows(call, '/api/v1/admin/bot-store-bindings');
+   const [stores, setStores] = useState<StoreRow[]>([]);
+   const [form, setForm] = useState({ bot_key: '', bot_username: '', store_id: '', bot_kind: 'reseller' });
+diff --git a/apps/admin-web/src/StoreGovernanceView.tsx b/apps/admin-web/src/StoreGovernanceView.tsx
+index b9131fa..06d8929 100644
+--- a/apps/admin-web/src/StoreGovernanceView.tsx
++++ b/apps/admin-web/src/StoreGovernanceView.tsx
+@@ -1,7 +1,7 @@
+ // PasarGuard Phase 4 (PG-12) — each store's panel admin: traffic cap, usage, panel status, and what a suspension does on the panel.
+ import { useCallback, useEffect, useState } from 'react';
+ import { AlertTriangle, Loader, RefreshCw } from 'lucide-react';
+-import { authFetch } from './api.ts';
++import { useCall } from './api.ts';
+ import { promptDialog } from './ui.tsx';
+ import type { Json, Rec, Toast } from './types.ts';
+ 
+@@ -32,7 +32,7 @@ function Meter({ ratio }: { ratio?: Json }) {
+ }
+ 
+ export default function StoreGovernanceView({ api, toast }: { api?: Json; toast: Toast }) {
+-  const call = useCallback((p: string, o?: RequestInit) => authFetch(api.base, p, o), [api.base]);
++  const call = useCall(api);
+   const [rows, setRows] = useState<Json>(null);
+   const [busy, setBusy] = useState('');
+ 
+diff --git a/apps/admin-web/src/StoreNoticesView.tsx b/apps/admin-web/src/StoreNoticesView.tsx
+index da70f43..2abe42d 100644
+--- a/apps/admin-web/src/StoreNoticesView.tsx
++++ b/apps/admin-web/src/StoreNoticesView.tsx
+@@ -2,7 +2,7 @@
+ // the setting belongs to one store, not to a panel. Also holds the store's own notice wording (vpn-notice-texts) and the
+ // owner's daily digest switch (vpn-digest), which had no screen before.
+ import { useCallback, useEffect, useState } from 'react';
+-import { authFetch } from './api.ts';
++import { useCall } from './api.ts';
+ import { canWrite } from './adminAccess.ts';
+ import { Switch } from './kit.tsx';
+ import type { CallFn, Toast } from './types.ts';
+@@ -272,7 +272,7 @@ function DigestSwitch({
+ }
+ 
+ export default function StoreNoticesView({ api, toast }: { api?: HubApiProp; toast: Toast }) {
+-  const call = useCallback((p: string, o?: RequestInit) => authFetch(api?.base ?? '', p, o), [api?.base]);
++  const call = useCall(api);
+   const writable = canWrite(api?.perms, 'حجم فروشگاه‌ها');
+   const [stores, setStores] = useState<StoreRow[]>([]);
+   const [storeId, setStoreId] = useState('');
+diff --git a/apps/admin-web/src/StorePricesView.tsx b/apps/admin-web/src/StorePricesView.tsx
+index 7383570..7ef5859 100644
+--- a/apps/admin-web/src/StorePricesView.tsx
++++ b/apps/admin-web/src/StorePricesView.tsx
+@@ -2,7 +2,7 @@
+ // Only the reseller sets these (reseller panel / bot); the admin sees them next to the cost floor so a below-cost or unpriced
+ // package is spotted without opening the reseller's panel. Source: GET /admin/stores/{id}/reseller-prices.
+ import { useCallback, useEffect, useState } from 'react';
+-import { authFetch } from './api.ts';
++import { useCall } from './api.ts';
+ import { Empty, ErrorBar, num, useRows } from './kit.tsx';
+ import type { Json, Rec, Toast } from './types.ts';
+ 
+@@ -19,7 +19,7 @@ const unit = (c: Json) => ({ IRT: 'تومان', IRR: 'ریال' })[c as 'IRT' |
+ const price = (v: Json, c: Json) => (v ? `${num(v)} ${unit(c)}` : '—');
+ 
+ export default function StorePricesView({ api, toast }: { api?: Json; toast: Toast }) {
+-  const call = useCallback((p: string, o?: RequestInit) => authFetch(api.base, p, o), [api.base]);
++  const call = useCall(api);
+   const { rows: stores, failed } = useRows(call, '/api/v1/admin/resellers');
+   const [storeId, setStoreId] = useState('');
+   const [table, setTable] = useState<Rec[] | null>(null);
+diff --git a/apps/admin-web/src/adminExtraKit.tsx b/apps/admin-web/src/adminExtraKit.tsx
+index c3a942f..129ed0e 100644
+--- a/apps/admin-web/src/adminExtraKit.tsx
++++ b/apps/admin-web/src/adminExtraKit.tsx
+@@ -1,5 +1,5 @@
+ import { useEffect, useState } from 'react';
+-import { authFetch } from './api.ts';
++import { useCall } from './api.ts';
+ import { Plus, Search, X } from 'lucide-react';
+ import { Badge, isStatus } from './ui.tsx';
+ import type { Json, Rec, Toast } from './types.ts';
+@@ -13,7 +13,7 @@ export const ghost = 'btn btn-g';
+ export function useList(api: Json, path: string, toast: Toast) {
+   const [rows, setRows] = useState<Rec[]>([]);
+   const [tick, setTick] = useState(0);
+-  const call = (p: Json, o = {}) => authFetch(api.base, p, o);
++  const call = useCall(api);
+   useEffect(() => {
+     call(path)
+       .then((r) => (r.ok ? r.json() : Promise.reject()))
+diff --git a/apps/admin-web/src/api.ts b/apps/admin-web/src/api.ts
+index 4cc2b3c..68ebcd8 100644
+--- a/apps/admin-web/src/api.ts
++++ b/apps/admin-web/src/api.ts
+@@ -1,3 +1,4 @@
++import { useMemo } from 'react';
+ import { createApiClient } from '@melorin/api-client';
+ import type { PathsWith } from '@melorin/api-client';
+ import { getAccessToken, setTokens, clearTokens } from './auth.ts';
+@@ -67,3 +68,17 @@ export const settled = (res: { response: Response; data?: unknown; error?: unkno
+   r: res.response,
+   d: ((res.response.ok ? res.data : res.error) ?? {}) as Record<string, unknown> & Json,
+ });
++
++/**
++ * Stable `(path, init) => Response` bound to the API base, for screens that feed a generic path to shared helpers (useRows, web-kit hooks).
++ * The ONE place views reach `authFetch`; endpoints with a literal path should use `typedClient` instead (see the ratchet test).
++ */
++export const useCall = (api?: { base?: string } | null) => {
++  const base = api?.base ?? '';
++  return useMemo(
++    () =>
++      (p: string, o: RequestInit = {}) =>
++        authFetch(base, p, o),
++    [base],
++  );
++};
+diff --git a/apps/admin-web/src/dataKit.tsx b/apps/admin-web/src/dataKit.tsx
+index b9299e6..7635f64 100644
+--- a/apps/admin-web/src/dataKit.tsx
++++ b/apps/admin-web/src/dataKit.tsx
+@@ -4,20 +4,13 @@ import type { ReactNode } from 'react';
+ // table → detail drawer, with the same loading / empty / error / pagination states.
+ import { useEffect, useMemo, useState } from 'react';
+ import { Check, ChevronLeft, Copy, Download, RefreshCw } from 'lucide-react';
+-import { authFetch } from './api.ts';
++import { useCall } from './api.ts';
+ import { num } from './kit.tsx';
+ import type { Json, Rec } from './types.ts';
+ 
+ export const PAGE_SIZE = 20;
+ 
+-/** Stable authFetch bound to the API base. */
+-export const useCall = (api: Json) =>
+-  useMemo(
+-    () =>
+-      (p: Json, o = {}) =>
+-        authFetch(api.base, p, o),
+-    [api.base],
+-  );
++export { useCall }; // one shared hook (api.ts): stable (path, init) => Response bound to the API base
+ 
+ /** Debounced copy of a fast-changing value (search boxes). */
+ export function useDebounced(value: Json, ms = 300) {
+diff --git a/apps/admin-web/src/infra.tsx b/apps/admin-web/src/infra.tsx
+index 0113735..dc5d4b2 100644
+--- a/apps/admin-web/src/infra.tsx
++++ b/apps/admin-web/src/infra.tsx
+@@ -13,7 +13,7 @@ import type { ReactNode } from 'react';
+ // where an item sits in the chain, what it depends on, and what is broken for sale.
+ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+ import { AlertTriangle, ArrowLeft, Boxes, Layers, PanelTop, Sparkles } from 'lucide-react';
+-import { authFetch } from './api.ts';
++import { useCall } from './api.ts';
+ import { Ring, num, tint, useRows } from './kit.tsx';
+ import type { CallFn, Json, Rec } from './types.ts';
+ 
+@@ -253,7 +253,7 @@ export function buildIndex(panels: Json, servers: Json, groups: Json, products:
+  * Default (no arg) fetches all four — backward-compatible. */
+ export function useInfra(api: Json, { needs = ['panels', 'servers', 'groups', 'products'] } = {}) {
+   const has = (k: Json) => needs.includes(k);
+-  const call = useCallback((p: string, o?: RequestInit) => authFetch(api.base, p, o), [api.base]);
++  const call = useCall(api);
+   const panels = useRows(call, '/api/v1/admin/panels', { skip: !has('panels') });
+   const servers = useRows(call, '/api/v1/admin/servers', { skip: !has('servers') });
+   const groups = useRows(call, '/api/v1/admin/bundles', { skip: !has('groups') });
+diff --git a/apps/admin-web/tests/authfetch-ratchet.test.js b/apps/admin-web/tests/authfetch-ratchet.test.js
+index 245454e..a192cbe 100644
+--- a/apps/admin-web/tests/authfetch-ratchet.test.js
++++ b/apps/admin-web/tests/authfetch-ratchet.test.js
+@@ -5,7 +5,7 @@ import { join } from 'node:path';
+ // Typed-client migration ratchet (architecture audit 8.1): new admin code talks to the API through `typedClient`
+ // (paths and bodies checked against the generated OpenAPI types). `authFetch` call sites may only shrink.
+ // Lower BUDGET whenever a view is migrated; never raise it.
+-const BUDGET = 27;
++const BUDGET = 2; // the two binary downloads (orders.csv, report exports): authFetch is otherwise only reached through useCall in api.ts
+ 
+ function walk(dir) {
+   return readdirSync(dir).flatMap((n) => {
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index cdf4625..ec43b52 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -194,7 +194,7 @@ Source: `Melorin_Architecture_Admin_Audit.md` (the project has never been releas
+ - **«دکمه‌های تلگرام» moved to «سیستم و امنیت»**: its permission is `system` (owner only), so it now sits with the owner-only settings instead of the communications group where a manager would see a wall of 403s.
+ - **Compose: one-shot `migrate` service** (`alembic upgrade head`). `api`, `worker` and `backup` wait for `service_completed_successfully`, so a bare `docker compose up -d` on a fresh host cannot start against an empty schema. `check_ops_p0.py` skips `restart: "no"` one-shot jobs in the memory sum (it has exited before the others start) and allows that policy for `migrate` only. `melorin.sh` / `deploy.sh` keep their explicit migration step (idempotent, and deploy needs it for rollback).
+ - **web-kit has a lockfile**; `check_web_lockfiles.py` covers it and CI runs `npm ci` + `npm audit --omit=dev` there.
+-- **Typed-client ratchet** (`tests/authfetch-ratchet.test.js`): `authFetch(` call sites may only shrink (budget 27 after two batches: panels, servers, targets, password, logout, Google / Telegram / receipt-OCR integration settings). Migration order from the audit: Settings, Products, Bundles, Tickets, Reports, Store tabs, Resellers.
++- **Typed-client ratchet** (`tests/authfetch-ratchet.test.js`): `authFetch(` call sites may only shrink (budget 2 after three batches: every view now reaches the network through `typedClient` (literal paths) or the single `useCall` hook in `api.ts` (generic paths fed to shared helpers such as `useRows` and the web-kit hooks); the two remaining raw `authFetch` calls are binary downloads (orders.csv, report exports). Migration order from the audit: Settings, Products, Bundles, Tickets, Reports, Store tabs, Resellers.
  - **Vulture findings were false positives, now explicit**: `initiator` is the mandatory SQLAlchemy listener argument (renamed `_initiator`); `CursorResult` is named only inside a string `cast`, so it moved under `TYPE_CHECKING`.
  - Kept on purpose (audit §4, §7.6): Payments / Wallet, Orders / Provisioning, Identity / Authentication, PanelOps / Panel Integrations, Event Center / Notifications stay separate.
  - Still open (own PRs, not done here): move `/admin/reports/summary` and `/timeseries` into the analytics contract and switch `AdminSession.tsx` / `Trend.tsx` first; split `PanelAdminsView`, `kit.tsx`, `UpstreamBotFields`, `TicketConversation`, `ReportsView` as pure moves; widen mypy module by module (orders, identity, reseller, payments); drop `modules/admin/router.py` re-exports once no import uses them; split `panelops` files by capability.
