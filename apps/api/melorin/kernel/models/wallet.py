@@ -24,6 +24,9 @@ class Wallet(IdMixin, TimestampMixin, Base):
     )  # customer (reseller_credit is legacy: merged into customer by migration 0026)
     currency: Mapped[str] = mapped_column(String(8), default="IRT")
     balance: Mapped[int] = mapped_column(BigInteger, default=0)
+    # docs/25: after a consolidation the source wallet is `consolidated` (kept for history, never reused) and points at the central one.
+    status: Mapped[str] = mapped_column(String(12), default="active", server_default="active")  # active | consolidated
+    consolidated_into_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("wallets.id"))
 
 
 class LedgerTransaction(IdMixin, CreatedMixin, Base):

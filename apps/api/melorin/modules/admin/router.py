@@ -37,6 +37,7 @@ from melorin.modules.admin.settings import router as settings_router
 from melorin.modules.admin.coupons import router as coupons_router
 from melorin.modules.admin.identity_reviews import router as identity_reviews_router
 from melorin.modules.admin.identity_auto import router as identity_auto_router
+from melorin.modules.admin.identity_persons import router as identity_persons_router
 from melorin.modules.admin.button_styles import router as button_styles_router
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -72,6 +73,7 @@ for _family in (
     coupons_router,
     identity_reviews_router,
     identity_auto_router,
+    identity_persons_router,
     button_styles_router,
 ):
     router.routes.extend(_family.routes)

@@ -22,8 +22,12 @@ from melorin.core.security import (
     refresh_expiry,
     token_hash,
 )
-from melorin.kernel.models.identity import Identity, IdentityLinkReview, RefreshToken, TermsAcceptance, User, VerificationCode
+from melorin.kernel.models.identity import IdentityLinkReview, RefreshToken, TermsAcceptance, User, VerificationCode
 from melorin.modules.identity import auto_link
+from melorin.domain.account_linking import Evidence
+from melorin.kernel.models.person import Person
+from melorin.modules.identity.account_linking import linking, persons
+from melorin.modules.identity.account_linking import telegram as tg_link
 from melorin.modules.identity.lookup import find_identity
 from melorin.modules.identity.schemas import TelegramProfile, TokenPair
 
@@ -54,6 +58,10 @@ async def issue_tokens(
     access token and into the refresh-token family, so the session can never be used for, or moved to, another store."""
     if not user.is_active:
         raise AppError("UNAUTHORIZED", "حساب کاربری غیرفعال است.", 401)
+    if user.person_id is not None:
+        person = await session.get(Person, user.person_id)
+        if person is not None and person.status == "blocked":
+            raise AppError("UNAUTHORIZED", "حساب کاربری غیرفعال است.", 401)
     if chan.is_admin != bool(user.is_super_admin):
         # An admin account never gets a customer session through a store channel, and nobody else gets an admin one.
         raise AppError("ADMIN_USE_PANEL", "ورود مدیران فقط از پنل مدیریت انجام می‌شود.", 403)
@@ -135,11 +143,12 @@ async def get_or_create_user_for_identity(
     if ident:
         if data:
             ident.data = data
+        ident.last_used_at = utcnow()
         return await _owner_of(session, ident.user_id), False
     user = User(display_name=display_name, email=subject if provider == "email" else None)
     session.add(user)
     await session.flush()
-    session.add(Identity(user_id=user.id, provider=provider, subject=subject, data=data, verified_at=utcnow() if verified else None))
+    await linking.adopt_identity(session, user, provider, subject, data=data, verified=verified)
     audit.record(session, "identity.created", actor_id=user.id, entity_type="user", entity_id=user.id, data={"provider": provider})
     return user, True
 
@@ -191,12 +200,13 @@ async def login_with_email_code(session: AsyncSession, email: str, code: str) ->
     if ident:
         if not ident.verified_at:
             ident.verified_at = utcnow()
+        ident.last_used_at = utcnow()
         return await _owner_of(session, ident.user_id), False
     # A user created without an email Identity (bootstrap admin, password-only accounts) already owns this
     # address: the verified code proves ownership, so link a verified Identity instead of duplicating the user.
     existing = await session.scalar(select(User).where(User.email == email))
     if existing is not None:
-        session.add(Identity(user_id=existing.id, provider="email", subject=email, data=None, verified_at=utcnow()))
+        await linking.attach_identity(session, existing, "email", email, evidence=Evidence.EMAIL_CODE)
         audit.record(
             session, "identity.linked", actor_id=existing.id, entity_type="user", entity_id=existing.id, data={"provider": "email"}
         )
@@ -225,14 +235,29 @@ async def attach_email(session: AsyncSession, user: User, email: str, code: str)
         await session.flush()
         res = await auto_link.try_auto_resolve(session, review)
         if res is None:
+            # Both sides are proven (signed in + the e-mail code): record it so the user can confirm that both profiles are theirs.
+            op = await linking.open_conflict(
+                session,
+                user,
+                await persons.ensure_person(session, user),
+                "email",
+                email,
+                await linking.person_id_of_identity(session, ident),
+                Evidence.EMAIL_CODE,
+            )
             await session.commit()
-            raise AppError("IDENTITY_LINK_REVIEW", "این ایمیل به حساب دیگری متصل است و برای بررسی دستی گزارش شد.", 409)
+            raise AppError(
+                "IDENTITY_LINK_REVIEW",
+                "این ایمیل به حساب دیگری متصل است و برای بررسی دستی گزارش شد.",
+                409,
+                {"operation_id": str(op.id), "status": op.status},
+            )
         if res.keeper != str(user.id):  # the signed-in account was the empty shell: its session ended with the merge
             await session.commit()
             raise AppError("IDENTITY_MERGED", "حساب‌ها به‌طور خودکار یکی شدند؛ دوباره وارد شوید.", 409)
         ident = await find_identity(session, "email", email)  # now owned by this user
     if not ident:
-        session.add(Identity(user_id=user.id, provider="email", subject=email, verified_at=utcnow()))
+        await linking.attach_identity(session, user, "email", email, evidence=Evidence.EMAIL_CODE)
     if not user.email:
         user.email = email
     audit.record(session, "identity.linked", actor_id=user.id, entity_type="user", entity_id=user.id, data={"provider": "email"})
@@ -262,12 +287,8 @@ async def login_with_telegram(session: AsyncSession, p: TelegramProfile) -> tupl
 
 
 async def create_link_code(session: AsyncSession, user: User) -> str:
-    code = new_opaque_token(9)
-    session.add(
-        VerificationCode(
-            purpose="telegram_link", target="link", code_hash=token_hash("link" + code), user_id=user.id, expires_at=utcnow() + CODE_TTL
-        )
-    )
+    """Start a Telegram link (or replacement): a single-use hashed token tied to an auditable operation (docs/25)."""
+    _, code = await tg_link.start(session, user)
     await session.commit()
     return code
 
@@ -321,40 +342,82 @@ async def redeem_web_handoff(session: AsyncSession, token: str, site: Channel) -
 
 
 async def link_telegram(session: AsyncSession, code: str, p: TelegramProfile) -> User:
-    vc = await session.scalar(
-        select(VerificationCode)
-        .where(
-            VerificationCode.purpose == "telegram_link",
-            VerificationCode.code_hash == token_hash("link" + code),
-            VerificationCode.used_at.is_(None),
+    """Complete a Telegram link started on the website. Telegram itself vouches for ``p.telegram_id`` (the bot reads it from the update);
+    the single-use token vouches for the signed-in account that asked. A token is an ``account_link_operations`` row (docs/25);
+    tokens minted before that change still work through the legacy ``verification_codes`` row."""
+    op = await tg_link.find_operation(session, code)
+    vc: VerificationCode | None = None
+    if op is not None:
+        user = await tg_link.begin_completion(session, op)
+    else:
+        vc = await session.scalar(
+            select(VerificationCode)
+            .where(
+                VerificationCode.purpose == "telegram_link",
+                VerificationCode.code_hash == token_hash("link" + code),
+                VerificationCode.used_at.is_(None),
+            )
+            .with_for_update()
         )
-        .with_for_update()
-    )
-    if not vc or vc.expires_at.replace(tzinfo=vc.expires_at.tzinfo or dt.UTC) < utcnow():
-        raise AppError("CODE_INVALID", "کد اتصال نامعتبر یا منقضی است.", 400)
-    user = await _owner_of(session, vc.user_id)
-    ident = await find_identity(session, "telegram", str(p.telegram_id))
+        if not vc or vc.expires_at.replace(tzinfo=vc.expires_at.tzinfo or dt.UTC) < utcnow():
+            raise AppError("CODE_INVALID", "کد اتصال نامعتبر یا منقضی است.", 400)
+        user = await _owner_of(session, vc.user_id)
+    subject = str(p.telegram_id)
+    ident = await find_identity(session, "telegram", subject)
     if ident and ident.user_id != user.id:
-        # The link code (signed-in website user) and the bot (Telegram's own identity) prove both sides: fold an empty shell.
-        other = await session.get(User, ident.user_id)
-        res = await auto_link.try_auto_merge(session, user, other) if other is not None else None
-        if res is not None and res.keeper == str(user.id):
-            ident = await find_identity(session, "telegram", str(p.telegram_id))
-        elif res is not None:  # the link-code account was the shell: the Telegram account keeps living
-            assert other is not None  # res is only set when the other account exists
-            vc.used_at = utcnow()
-            await session.commit()
-            return other
+        mine = await persons.ensure_person(session, user)
+        if await linking.person_id_of_identity(session, ident) == mine.id:
+            ident = None  # another account of the same person already holds it: nothing to attach, nothing in conflict
         else:
-            audit.security_event(session, "link_conflict", user.id, {"telegram_id": p.telegram_id})
-            await session.commit()
-            raise AppError("IDENTITY_IN_USE", "این حساب Telegram به کاربر دیگری متصل است. برای ادغام با پشتیبانی تماس بگیرید.", 409)
-    if not ident:
-        session.add(
-            Identity(user_id=user.id, provider="telegram", subject=str(p.telegram_id), verified_at=utcnow(), data={"username": p.username})
+            # The link code (signed-in website user) and the bot (Telegram's own identity) prove both sides: fold an empty shell.
+            other = await session.get(User, ident.user_id)
+            res = await auto_link.try_auto_merge(session, user, other) if other is not None else None
+            if res is not None and res.keeper == str(user.id):
+                ident = await find_identity(session, "telegram", subject)
+            elif res is not None:  # the link-code account was the shell: the Telegram account keeps living
+                assert other is not None  # res is only set when the other account exists
+                if vc is not None:
+                    vc.used_at = utcnow()
+                if op is not None:
+                    await tg_link.finish(session, op, subject=subject, outcome="merged_shell")
+                await session.commit()
+                return other
+            else:
+                audit.security_event(session, "link_conflict", user.id, {"telegram_id": p.telegram_id})
+                conflict = await linking.open_conflict(
+                    session, user, mine, "telegram", subject, await linking.person_id_of_identity(session, ident), Evidence.TELEGRAM_BOT, op
+                )
+                await session.commit()
+                raise AppError(
+                    "IDENTITY_IN_USE",
+                    "این حساب Telegram به کاربر دیگری متصل است. اگر هر دو حساب مال شماست، اتصال را در صفحهٔ «اتصال حساب‌ها» تأیید کنید.",
+                    409,
+                    {"operation_id": str(conflict.id), "status": conflict.status},
+                )
+    outcome = "already"
+    if ident is None or ident.user_id == user.id:
+        outcome = await linking.attach_identity(
+            session,
+            user,
+            "telegram",
+            subject,
+            evidence=Evidence.TELEGRAM_BOT,
+            data={"username": p.username},
+            replace=op is not None and op.operation_type == "replace",
+            operation=op,
         )
-    vc.used_at = utcnow()
+    if vc is not None:
+        vc.used_at = utcnow()
+    if op is not None:
+        await tg_link.finish(session, op, subject=subject, outcome=outcome)
     user.is_guest = False
-    audit.record(session, "identity.linked", actor_id=user.id, entity_type="user", entity_id=user.id, data={"provider": "telegram"})
+    audit.record(
+        session,
+        "identity.linked",
+        actor_id=user.id,
+        entity_type="user",
+        entity_id=user.id,
+        data={"provider": "telegram", "outcome": outcome},
+    )
     await session.commit()
     return user

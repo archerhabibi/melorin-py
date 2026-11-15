@@ -16,6 +16,8 @@ from melorin.core.middleware import CorrelationMiddleware, SecurityHeadersMiddle
 from melorin.core.metrics import render, set_alert, set_gauge
 from melorin.modules.eventcenter.routes import admin_router as event_center_admin_router, reseller_router as event_center_reseller_router
 from melorin.modules.admin.router import router as admin_router
+from melorin.modules.identity.account_linking.router import router as identity_link_router
+from melorin.modules.identity.account_linking.internal import router as identity_link_internal_router
 from melorin.modules.admin.button_styles import public as button_styles_public_router
 from melorin.modules.catalog.router import public as catalog_router
 from melorin.modules.identity.router import auth as auth_router, me as me_router
@@ -65,6 +67,8 @@ app.include_router(auth_router, prefix="/api/v1")
 app.include_router(telegram_web_router, prefix="/api/v1")
 app.include_router(telegram_oidc_router, prefix="/api/v1")
 app.include_router(me_router, prefix="/api/v1")
+app.include_router(identity_link_router, prefix="/api/v1")
+app.include_router(identity_link_internal_router, prefix="/api/v1")
 app.include_router(notifications_router, prefix="/api/v1")
 app.include_router(catalog_router, prefix="/api/v1")
 app.include_router(wallet_router, prefix="/api/v1")

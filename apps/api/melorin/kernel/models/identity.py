@@ -2,7 +2,7 @@ import datetime as dt
 import secrets
 import uuid
 
-from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint, Uuid
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint, Uuid, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from melorin.kernel.base import Base, CreatedMixin, IdMixin, TimestampMixin
@@ -24,13 +24,29 @@ class User(IdMixin, TimestampMixin, Base):
     totp_last_counter: Mapped[int | None] = mapped_column()
     allowed_ips: Mapped[list | None] = mapped_column(JSON)  # optional admin IP restriction
     archived_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    # The person this account belongs to (docs/25). NULL only for rows created before the first linking touch; backfilled by 0057.
+    person_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("persons.id"), index=True)
     identities: Mapped[list["Identity"]] = relationship(back_populates="user", lazy="selectin")
 
 
 class Identity(IdMixin, CreatedMixin, Base):
     __tablename__ = "identities"
-    __table_args__ = (UniqueConstraint("provider", "subject"),)
+    __table_args__ = (
+        UniqueConstraint("provider", "subject"),
+        # docs/25 §2.1: a person has at most ONE active Telegram login (replacing it revokes the old row, history stays).
+        Index(
+            "uq_identities_one_active_telegram_per_person",
+            "person_id",
+            unique=True,
+            postgresql_where=text("provider = 'telegram' AND status = 'active'"),
+            sqlite_where=text("provider = 'telegram' AND status = 'active'"),
+        ),
+    )
     user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"), index=True)
+    person_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("persons.id"), index=True)
+    status: Mapped[str] = mapped_column(String(10), default="active", server_default="active")  # active | revoked
+    revoked_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    last_used_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     provider: Mapped[str] = mapped_column(String(20))  # telegram | google | email
     subject: Mapped[str] = mapped_column(String(320))
     verified_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))

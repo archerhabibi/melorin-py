@@ -8,6 +8,7 @@ from sqlalchemy import select
 
 import melorin.models  # noqa: F401  (registers every table so FKs resolve)
 from _chan import fake_request  # noqa: E402
+from melorin.kernel.models.person import Person
 from melorin.channels.telegram import trust, web
 from melorin.core import db, ratelimit
 from melorin.core.db import utcnow
@@ -28,6 +29,7 @@ def _tables():
 
     extra = [getattr(system, n).__table__ for n in ("OutboxEvent", "Notification") if hasattr(system, n)]
     return [
+        Person.__table__,
         User.__table__,
         Identity.__table__,
         RefreshToken.__table__,

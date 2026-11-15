@@ -20,6 +20,8 @@ from melorin.core.errors import AppError
 from melorin.kernel.models.identity import Identity, IdentityLinkReview, User
 from melorin.modules.identity import auto_link
 from melorin.modules.identity.lookup import email_taken as _email_taken
+from melorin.domain.account_linking import Evidence
+from melorin.modules.identity.account_linking import linking, persons
 from melorin.modules.identity.lookup import find_identity
 from melorin.core.http import outbound_client
 
@@ -111,14 +113,16 @@ async def _google_claims(session: AsyncSession, id_token: str, nonce: str | None
     return g
 
 
-async def link_google(session: AsyncSession, user: User, id_token: str, nonce: str | None = None) -> None:
+async def link_google(session: AsyncSession, user: User, id_token: str, nonce: str | None = None) -> str:
     """Attach a Google account to the signed-in user (e.g. an account created from Telegram), so both logins open the
     same account. A Google account that already belongs to another user is never merged: it is reported for review."""
     g = await _google_claims(session, id_token, nonce)
     sub, email = g["sub"], (g.get("email") or "").lower() or None
     ident = await find_identity(session, "google", sub)
     if ident and ident.user_id == user.id:
-        return
+        return "already"
+    if ident and await linking.person_id_of_identity(session, ident) == (await persons.ensure_person(session, user)).id:
+        return "already"  # another account of the same person
     if ident:
         review = IdentityLinkReview(
             email=email or "",
@@ -131,22 +135,37 @@ async def link_google(session: AsyncSession, user: User, id_token: str, nonce: s
         audit.security_event(session, "identity_link_conflict", user.id, {"provider": "google", "candidate_user_id": str(ident.user_id)})
         await session.flush()
         res = await auto_link.try_auto_resolve(session, review)  # empty shell on either side: settled by itself (docs/23)
-        await session.commit()
         if res is None:
-            raise AppError("IDENTITY_LINK_REVIEW", "این حساب Google به حساب دیگری متصل است و برای بررسی دستی گزارش شد.", 409)
+            # Both sides are proven (signed in + the Google token): record it so the user can confirm both profiles are theirs.
+            op = await linking.open_conflict(
+                session,
+                user,
+                await persons.ensure_person(session, user),
+                "google",
+                sub,
+                await linking.person_id_of_identity(session, ident),
+                Evidence.OAUTH_GOOGLE,
+            )
+            await session.commit()
+            raise AppError(
+                "IDENTITY_LINK_REVIEW",
+                "این حساب Google به حساب دیگری متصل است و برای بررسی دستی گزارش شد.",
+                409,
+                {"operation_id": str(op.id), "status": op.status},
+            )
+        await session.commit()
         if res.keeper != str(user.id):  # the signed-in account was the empty shell: its session ended with the merge
             raise AppError("IDENTITY_MERGED", "حساب‌ها به‌طور خودکار یکی شدند؛ دوباره وارد شوید.", 409)
-        return
+        return "merged"
     email_verified = bool(email) and str(g.get("email_verified")).lower() == "true"
-    session.add(
-        Identity(
-            user_id=user.id, provider="google", subject=sub, verified_at=utcnow(), data={"email": email, "email_verified": email_verified}
-        )
+    outcome = await linking.attach_identity(
+        session, user, "google", sub, evidence=Evidence.OAUTH_GOOGLE, data={"email": email, "email_verified": email_verified}
     )
     if email and email_verified and not user.email and not await _email_taken(session, email):
         user.email = email
     audit.record(session, "identity.linked", actor_id=user.id, entity_type="user", entity_id=user.id, data={"provider": "google"})
     await session.commit()
+    return outcome
 
 
 async def login_with_google(session: AsyncSession, id_token: str, nonce: str | None = None) -> tuple[User, bool]:
@@ -159,6 +178,7 @@ async def login_with_google(session: AsyncSession, id_token: str, nonce: str | N
         found = await session.get(User, ident.user_id)
         if found is None:
             raise AppError("USER_NOT_FOUND", "کاربر یافت نشد.", 404)
+        ident.last_used_at = utcnow()
         return found, False
     user: User | None = None
     created = False
@@ -217,14 +237,6 @@ async def login_with_google(session: AsyncSession, id_token: str, nonce: str | N
         created = True
         session.add(user)
         await session.flush()
-    session.add(
-        Identity(
-            user_id=user.id,
-            provider="google",
-            subject=sub,
-            verified_at=utcnow(),
-            data={"email": email, "email_verified": bool(email_verified)},
-        )
-    )
+    await linking.adopt_identity(session, user, "google", sub, data={"email": email, "email_verified": bool(email_verified)})
     audit.record(session, "identity.linked", actor_id=user.id, entity_type="user", entity_id=user.id, data={"provider": "google"})
     return user, created

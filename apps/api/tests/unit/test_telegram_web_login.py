@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from sqlalchemy import select
 
 import melorin.models  # noqa: F401  (registers every table so FKs resolve)
+from melorin.kernel.models.person import Person
 from melorin.core import db, ratelimit
 from melorin.core.config import get_settings
 from melorin.core.db import utcnow
@@ -25,6 +26,7 @@ from _chan import fake_request  # noqa: E402
 
 _REQ = fake_request("localhost")  # development: an unknown host falls back to the main store
 TABLES = [
+    Person.__table__,
     User.__table__,
     Identity.__table__,
     RefreshToken.__table__,

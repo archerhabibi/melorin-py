@@ -21,6 +21,7 @@ from melorin.kernel.base import Base
 from melorin.kernel.models.identity import Identity, IdentityLinkReview, RefreshToken, TrustedDevice, User
 from melorin.kernel.models.stores import StoreMembership
 from melorin.kernel.models.wallet import LedgerEntry, Wallet
+from melorin.modules.identity.account_linking import persons
 
 log = logging.getLogger(__name__)
 
@@ -98,10 +99,15 @@ async def merge(session: AsyncSession, keeper: User, shell: User, *, reason: str
     """Fold ``shell`` into ``keeper``: its identities, e-mail, trusted devices and store memberships move over, its sessions
     end, the account itself is deactivated and archived (kept for the audit trail, never deleted)."""
     now = utcnow()
+    keeper_person = await persons.ensure_person(session, keeper)
+    shell_person = await persons.ensure_person(session, shell)
+    keeper_has_telegram = any(i.provider == "telegram" for i in await persons.identities_of(session, keeper_person.id))
     shell_idents = (await session.scalars(select(Identity).where(Identity.user_id == shell.id))).all()
     moved = [i.provider for i in shell_idents]
     for ident in shell_idents:
-        ident.user_id = keeper.id
+        ident.user_id, ident.person_id = keeper.id, keeper_person.id
+        if ident.provider == "telegram" and ident.status == "active" and keeper_has_telegram:
+            ident.status, ident.revoked_at = "revoked", now  # one active Telegram per person: the keeper's stays (docs/25)
     if shell.email:
         email, shell.email = shell.email, None
         await session.flush()  # release the platform-unique e-mail before the keeper takes it
@@ -124,7 +130,10 @@ async def merge(session: AsyncSession, keeper: User, shell: User, *, reason: str
         .values(status="linked", resolution_note=f"auto:{reason}"[:500])
     )
     shell.is_active, shell.archived_at = False, now
+    shell.person_id = keeper_person.id
     await session.flush()
+    if shell_person.id != keeper_person.id and not await persons.accounts_of(session, shell_person.id):
+        shell_person.status, shell_person.merged_into_id = "merged", keeper_person.id
     for u in (keeper, shell):
         session.expire(u, ["identities"])  # the in-memory collections are stale after the move
     data = {"keeper": str(keeper.id), "shell": str(shell.id), "rule": reason, "providers": moved}

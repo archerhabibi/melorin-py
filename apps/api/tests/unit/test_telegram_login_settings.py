@@ -13,6 +13,7 @@ from fastapi import FastAPI
 from sqlalchemy import select
 
 import melorin.models  # noqa: F401  (registers every table so FKs resolve)
+from melorin.kernel.models.person import Person
 from melorin.core import config as config_mod
 from melorin.core import db, integrations, ratelimit
 from melorin.core.deps import get_session
@@ -28,6 +29,7 @@ from melorin.kernel.models.stores import Store
 from melorin.kernel.models.system import AuditEvent, FeatureFlag, SecurityEvent, SystemSetting
 
 TABLES = [
+    Person.__table__,
     User.__table__,
     Identity.__table__,
     RefreshToken.__table__,

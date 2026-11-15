@@ -7,6 +7,7 @@ from _source import _raw_text, read_web_source
 import pytest
 
 import melorin.models  # noqa: F401  (registers every table so FKs resolve)
+from melorin.kernel.models.person import Person
 from melorin.core import db
 from melorin.core.errors import AppError
 from melorin.modules.admin import identity_reviews as admin_identity_reviews
@@ -15,7 +16,7 @@ from melorin.kernel.models.orders import Order
 from melorin.kernel.models.system import AuditEvent
 
 PROJECT = Path(__file__).resolve().parents[4]
-TABLES = [User.__table__, Identity.__table__, IdentityLinkReview.__table__, Order.__table__, AuditEvent.__table__]
+TABLES = [Person.__table__, User.__table__, Identity.__table__, IdentityLinkReview.__table__, Order.__table__, AuditEvent.__table__]
 
 
 @pytest.fixture

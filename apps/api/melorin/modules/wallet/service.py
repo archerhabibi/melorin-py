@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from melorin.core import events
 from melorin.core.errors import AppError
 from melorin.domain.ledger import LedgerError, Line, apply_to_balance, validate_balanced
+from melorin.kernel.models.identity import User
+from melorin.kernel.models.person import Person
 from melorin.kernel.models.wallet import LedgerEntry, LedgerTransaction, Wallet
 
 
@@ -56,10 +58,16 @@ def _posting_account(p: Posting) -> str:
 
 
 async def get_wallet(
-    session: AsyncSession, user_id: uuid.UUID, store_id: uuid.UUID, *, currency: str = "IRT", kind: str = "customer"
+    session: AsyncSession, user_id: uuid.UUID, store_id: uuid.UUID, *, currency: str = "IRT", kind: str = "customer", route: bool = True
 ) -> Wallet:
+    """The wallet an account spends from. After a person consolidation (docs/25) every account of that person is routed to the
+    central account's wallet; ``route=False`` returns the account's own row (used by the consolidation itself)."""
     q = select(Wallet).where(Wallet.user_id == user_id, Wallet.store_id == store_id, Wallet.kind == kind, Wallet.currency == currency)
     w = await session.scalar(q)
+    if route and kind == "customer":
+        routed = await _central_wallet(session, user_id, store_id, currency, w)
+        if routed is not None:
+            return routed
     if w:
         return w
     try:
@@ -69,6 +77,26 @@ async def get_wallet(
     except IntegrityError:  # concurrent creation
         w = await session.scalar(q)
     return w
+
+
+async def _central_wallet(
+    session: AsyncSession, user_id: uuid.UUID, store_id: uuid.UUID, currency: str, own: Wallet | None
+) -> Wallet | None:
+    """The central wallet to use instead of ``own``, or None. Funds that are still in an account's own active wallet stay usable
+    there until a consolidation moves them (money is never hidden by a routing rule)."""
+    hops = 0
+    while own is not None and own.status == "consolidated" and own.consolidated_into_id and hops < 4:
+        own = await session.get(Wallet, own.consolidated_into_id)
+        hops += 1
+        if own is not None and own.status != "consolidated":
+            return own
+    user = await session.get(User, user_id)
+    person = await session.get(Person, user.person_id) if user is not None and user.person_id else None
+    if person is None or person.central_user_id is None or person.central_user_id == user_id:
+        return None
+    if own is not None and own.balance != 0:
+        return None
+    return await get_wallet(session, person.central_user_id, store_id, currency=currency, route=False)
 
 
 def acc_store_topup(store_id, provider: str) -> str:

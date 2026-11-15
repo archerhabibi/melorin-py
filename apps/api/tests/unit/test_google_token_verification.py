@@ -10,6 +10,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import Response
 
 import melorin.models  # noqa: F401  (registers every table so FKs resolve)
+from melorin.kernel.models.person import Person
 from melorin.core import config as config_mod
 from melorin.core import db, integrations, settings_store
 from melorin.core.errors import AppError
@@ -22,6 +23,7 @@ from melorin.kernel.models.system import AuditEvent, SecurityEvent, SystemSettin
 
 CLIENT_ID = "123456789012-abc123def456.apps.googleusercontent.com"
 TABLES = [
+    Person.__table__,
     User.__table__,
     Identity.__table__,
     RefreshToken.__table__,

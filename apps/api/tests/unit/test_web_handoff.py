@@ -6,6 +6,7 @@ from fastapi import Response
 from _chan import auth_for, fake_request
 
 import melorin.models  # noqa: F401
+from melorin.kernel.models.person import Person
 from melorin.core import db
 from melorin.core.errors import AppError
 from melorin.modules.identity import router, service
@@ -15,6 +16,7 @@ from melorin.kernel.models.stores import Store
 from melorin.kernel.models.system import AuditEvent, SecurityEvent
 
 TABLES = [
+    Person.__table__,
     User.__table__,
     Identity.__table__,
     RefreshToken.__table__,
