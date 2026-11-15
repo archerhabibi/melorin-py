@@ -2,7 +2,7 @@
 import tomllib
 from pathlib import Path
 
-MAX_RATCHET = 10  # lower this number whenever a module is cleaned and removed from the override list
+MAX_RATCHET = 9  # lower this number whenever a module is cleaned and removed from the override list
 
 
 def test_mypy_ratchet_only_shrinks():

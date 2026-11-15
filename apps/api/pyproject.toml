@@ -46,7 +46,6 @@ module = [
   "melorin.modules.reseller.auto_approve",
   "melorin.modules.reseller.auto_verify",
   "melorin.modules.reseller.bots",
-  "melorin.modules.orders.service.payment",
   "melorin.modules.orders.service.create",
   "melorin.modules.orders.router",
   "melorin.modules.orders.provisioning",
