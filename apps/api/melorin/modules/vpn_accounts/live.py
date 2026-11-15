@@ -120,14 +120,14 @@ async def read(session, accounts: list[VpnAccount], *, fresh: bool = False) -> d
             todo.setdefault(account.panel_id, []).append(account)
     if todo:
         panels = {p.id: p for p in (await session.scalars(select(Panel).where(Panel.id.in_(list(todo))))).all()}
-        fresh: list[dict] = []
+        parts: list[dict] = []
         for panel_id, group in todo.items():
             panel = panels.get(panel_id)
-            fresh.append(await _read_panel(panel, group) if panel is not None else {a.id: None for a in group})
+            parts.append(await _read_panel(panel, group) if panel is not None else {a.id: None for a in group})
         if len(_cache) > CACHE_LIMIT:
             _cache.clear()
         stamp = time.monotonic()
-        for part in fresh:
+        for part in parts:
             for account_id, reading in part.items():
                 _cache[account_id] = (stamp, reading)
                 result[account_id] = reading
@@ -273,5 +273,5 @@ async def card(session, account: VpnAccount) -> VpnAccountOut:
 
 async def owner_cards(session, rows, owner_id: uuid.UUID):
     """The store owner's cards (``rows`` = ``[(account, holder)]``) with the panel's numbers on them."""
-    outs = [inquiry.owner_account_out(a, u, owner_id=owner_id) for a, u in rows]
+    outs: list[VpnAccountOut] = [inquiry.owner_account_out(a, u, owner_id=owner_id) for a, u in rows]
     return await overlay_page(session, outs, [a for a, _ in rows])

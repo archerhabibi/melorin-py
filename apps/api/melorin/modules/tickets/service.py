@@ -56,12 +56,12 @@ async def save_image(session: AsyncSession, *, user_id: uuid.UUID, store_id: uui
     if content_type not in TICKET_IMAGE_TYPES:
         raise AppError("UNSUPPORTED_FILE", "فقط تصویر (JPG، PNG یا WebP) مجاز است.", 415)
     limit = get_settings().max_upload_bytes
-    data = bytearray()
+    buf = bytearray()
     while chunk := await file.read(1024 * 1024):
-        data.extend(chunk)
-        if len(data) > limit:
+        buf.extend(chunk)
+        if len(buf) > limit:
             raise AppError("FILE_TOO_LARGE", "حجم تصویر زیاد است.", 413)
-    data = bytes(data)
+    data = bytes(buf)
     if not data:
         raise AppError("EMPTY_FILE", "فایل خالی است.", 422)
     digest = validate_upload(data, content_type)

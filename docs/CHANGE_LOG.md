@@ -21,6 +21,13 @@ If `main` is protected, allow `github-actions[bot]` to bypass so the bot can pus
 
 > Entries before 2026-11-09 were archived (T-R12) and live in git tag `changelog-archive-2026-11-09` (`git show changelog-archive-2026-11-09:docs/CHANGE_LOG.md`), per DOCUMENTATION-POLICY.
 
+## 2026-11-15 - mypy gate widened (reports, tickets, notifications, loyalty, webhooks, vpn_accounts)
+- **Area:** api / typing
+- **Before:** mypy gated 10 packages; 6 more carried 35 type errors.
+- **Problem:** the audit (8.5) asks for type checking to grow module by module, money and provisioning paths first.
+- **Action:** errors fixed without changing behaviour (annotations, comprehensions instead of `dict(rows)`, a renamed shadowed variable); `reconcile_account` answers `missing` for a deleted panel instead of crashing. Decision: `docs/DECISIONS.md` (r16).
+- **After:** `mypy` clean on the wider scope.
+
 ## 2026-11-15 - Pre-release audit: menu regroup, migrate service, web-kit lockfile
 - **Area:** admin-web / compose / ci / docs
 - **Before:** bulk panel operations sat under sales operations, manual tasks and Telegram buttons had menus that did not match their owner or permission, compose could start API/worker before the schema existed, web-kit had no lockfile.

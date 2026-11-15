@@ -27,13 +27,15 @@ def _out(n: Notification) -> dict:
 
 @router.get("")
 async def list_notifications(ctx: StoreCtx, session: Session, unread_only: bool = False, limit: int = 50):
-    unread, items = await queries.list_for_store(session, StoreScope.of(ctx).where(Notification), unread_only=unread_only, limit=limit)
+    unread, items = await queries.list_for_store(
+        session, list(StoreScope.of(ctx).where(Notification)), unread_only=unread_only, limit=limit
+    )
     return {"unread": unread, "items": [_out(n) for n in items]}
 
 
 @router.post("/read-all")
 async def read_all(ctx: StoreCtx, session: Session):
-    await queries.mark_all_read(session, StoreScope.of(ctx).where(Notification))
+    await queries.mark_all_read(session, list(StoreScope.of(ctx).where(Notification)))
     await session.commit()
     return {"ok": True}
 

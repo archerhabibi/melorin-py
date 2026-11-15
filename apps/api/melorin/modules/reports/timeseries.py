@@ -12,6 +12,8 @@ see ``SOLD_STATUSES``) so it describes the same population as the sales series;
 """
 
 import datetime as dt
+from collections.abc import Sequence
+from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy import func, select
@@ -90,6 +92,9 @@ async def build_timeseries(session: AsyncSession, days: int = 30, now: dt.dateti
     sold = [s.value for s in SOLD_STATUSES]
     sql_side = dialect == "postgresql" or tz_name == "UTC"
 
+    pay_rows: Sequence[Any]
+    order_all_rows: Sequence[Any]
+    order_rows: Sequence[Any]
     if sql_side:
         sale_day = local_day(sale_at, dialect, tz_name)
         pay_rows = (
