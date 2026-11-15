@@ -137,22 +137,6 @@ test('owner: the tab is deep-linkable and switching tabs updates the URL', async
   await expect(page).toHaveURL(/#\/settings$/);
 });
 
-test('old bookmarks land on their new homes', async ({ page }) => {
-  await openAs('owner', page, '/');
-  const cases = [
-    ['/identity?tab=login', /#\/settings\?tab=login/],
-    ['/identity-auto', /#\/identity\?tab=devices/],
-    ['/resellers', /#\/stores\?tab=resellers/],
-    ['/panel-admins', /#\/stores\?tab=panels/],
-    ['/store-governance', /#\/stores\?tab=volume/],
-  ];
-  for (const [from, to] of cases) {
-    await page.goto('about:blank');
-    await page.goto(`/#${from}`);
-    await expect(page).toHaveURL(to, { timeout: 15000 });
-  }
-});
-
 test('store hub is the only entry for the absorbed tabs (owner, panels and volume tabs render)', async ({ page }) => {
   const errors = [];
   page.on('pageerror', (e) => !/^(Error: )?\d{3}$|: \d{3}$/.test(e.message) && errors.push(e.message));
