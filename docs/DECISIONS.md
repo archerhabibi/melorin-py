@@ -248,3 +248,8 @@ Source: `Melorin_Architecture_Admin_Audit.md` (the project has never been releas
 ## r19 - audit leftovers (branch refactor/audit-r19-impl)
 - `upstream_bot/adapter.py`: defaults moved to `config.py`, mapping store and chat lock to `state.py` (the test patch point is now `upstream_bot.state`). Flows deliberately stay in one class.
 - admin-web: shared kit/ui/charts/theme/types/useDialog moved to `src/shared/` (pure move, imports rewritten, tsc/eslint/vitest green).
+
+## r20 - audit follow-up (branch refactor/audit-r20-impl)
+- admin-web PanelsView: the KPI strip, search/filter/sort toolbar and scope banner moved to PanelsToolbar.tsx (pure move, 638 to 562 lines). No behaviour change.
+- Re-verified on a clean checkout: lint-imports 8 kept, ruff clean, mypy clean (371 files), admin-web tsc, eslint and vitest (42 files, 309 tests) green.
+- Still open on purpose: remaining 500-600 line admin-web bodies (see docs/AUDIT-R18-STATUS.md debt register); rotate the GitHub token that was pasted into chat.
