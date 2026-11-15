@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { API_BASE, authFetch, getJson, typedClient } from '../api/api.ts';
-import type { AdminMe, Json, Rec } from '../types.ts';
+import type { AdminMe, Json, Rec } from '../shared/types.ts';
 
 export function useCore() {
   const base = API_BASE;

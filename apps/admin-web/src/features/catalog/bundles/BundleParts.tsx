@@ -1,7 +1,7 @@
 import { Layers, Pencil } from 'lucide-react';
-import { Bar, Switch, DeleteButton, capTone, num, tint } from '../../../kit.tsx';
+import { Bar, Switch, DeleteButton, capTone, num, tint } from '../../../shared/kit.tsx';
 import { Dot, Warn, health as hs, infraHref } from '../../panel-operations/infra.tsx';
-import type { Json, Rec } from '../../../types.ts';
+import type { Json, Rec } from '../../../shared/types.ts';
 
 export const API = '/api/v1/admin/bundles';
 export const MODES = {

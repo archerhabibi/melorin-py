@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { CheckCheck, Lock, Paperclip, Send, Sparkles, X } from 'lucide-react';
-import { Segmented, num } from '../../kit.tsx';
+import { Segmented, num } from '../../shared/kit.tsx';
 import { QUICK, MAX } from './ticketsShared.tsx';
 import { IMAGE_TYPES, imageProblem } from './TicketBubble.tsx';
-import type { Json, Rec, Toast } from '../../types.ts';
+import type { Json, Rec, Toast } from '../../shared/types.ts';
 
 export function Composer({
   onSend,

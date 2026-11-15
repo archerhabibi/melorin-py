@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { Json, Toast } from '../../types.ts';
+import type { Json, Toast } from '../../shared/types.ts';
 import { money, box, inp, ghost, useList, Table, Form } from '../../app/adminExtraKit.tsx';
 
 export default function Coupons({ api, toast }: { api?: Json; toast: Toast }) {

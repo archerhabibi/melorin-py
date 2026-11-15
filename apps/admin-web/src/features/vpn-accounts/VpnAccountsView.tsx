@@ -16,8 +16,8 @@ import {
   num,
   tint,
   useRows,
-} from '../../kit.tsx';
-import { Badge, dt, sid } from '../../ui.tsx';
+} from '../../shared/kit.tsx';
+import { Badge, dt, sid } from '../../shared/ui.tsx';
 import AccountToolsPanel from './AccountToolsPanel.tsx';
 import {
   Avatar,
@@ -32,8 +32,8 @@ import {
   indexBy,
   useCall,
   useDebounced,
-} from '../../dataKit.tsx';
-import type { CallFn, Json, Rec, Toast } from '../../types.ts';
+} from '../../shared/dataKit.tsx';
+import type { CallFn, Json, Rec, Toast } from '../../shared/types.ts';
 
 const PATH = '/api/v1/admin/vpn-accounts';
 const EXPORT_CAP = 2000;

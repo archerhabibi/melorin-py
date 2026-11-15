@@ -3,9 +3,9 @@
 import { useState } from 'react';
 import { CheckCircle2, ClipboardCopy, Clock, ListChecks, RotateCcw } from 'lucide-react';
 import { useCall } from '../../api/api.ts';
-import { dt } from '../../ui.tsx';
-import { Empty, ErrorBar, KpiBar, Pills, Stat, errText, useRows } from '../../kit.tsx';
-import type { Json, Toast } from '../../types.ts';
+import { dt } from '../../shared/ui.tsx';
+import { Empty, ErrorBar, KpiBar, Pills, Stat, errText, useRows } from '../../shared/kit.tsx';
+import type { Json, Toast } from '../../shared/types.ts';
 
 const FILTERS = [
   ['open', 'در انتظار انجام'],

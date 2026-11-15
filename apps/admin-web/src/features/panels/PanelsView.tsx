@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { typedClient } from '../../api/api.ts';
 import { ServerForm, ServerImport } from './ServerForm.tsx';
 import { TargetWizard } from './TargetPicker.tsx';
-import { confirmDialog } from '../../ui.tsx';
+import { confirmDialog } from '../../shared/ui.tsx';
 import {
   InfraChain,
   clearParam,
@@ -28,13 +28,13 @@ import {
   num,
   removeEntity,
   useAlive,
-} from '../../kit.tsx';
+} from '../../shared/kit.tsx';
 import { AlertTriangle, Plus, RefreshCw, Server, ServerCog, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { kindOf } from './panelUi.tsx';
 import { PanelDrawer } from './PanelDrawer.tsx';
 import { PanelDetailDrawer } from './PanelDetailDrawer.tsx';
 import { PanelSection } from './PanelSection.tsx';
-import type { Json, Rec, Toast } from '../../types.ts';
+import type { Json, Rec, Toast } from '../../shared/types.ts';
 
 // Panels and their servers are ONE screen: a server is only a capacity slot of a single panel,
 // so it is created, edited and enabled right under the panel it belongs to. Group membership of a

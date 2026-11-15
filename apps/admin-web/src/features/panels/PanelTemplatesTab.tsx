@@ -2,9 +2,9 @@
 // Melorin never edits a template it did not create (managed=false); every write is an audited admin action.
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle, Loader, RefreshCw } from 'lucide-react';
-import { confirmDialog } from '../../ui.tsx';
+import { confirmDialog } from '../../shared/ui.tsx';
 import { getJson, typedClient } from '../../api/api.ts';
-import type { Json, Rec, Toast } from '../../types.ts';
+import type { Json, Rec, Toast } from '../../shared/types.ts';
 
 const DRIFT_LABEL: Rec = { data_limit: 'حجم', expire_duration: 'مدت', group_ids: 'گروه‌ها' };
 const driftText = (k: Json, v: Json) =>

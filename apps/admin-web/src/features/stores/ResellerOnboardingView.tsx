@@ -3,9 +3,9 @@
 //   tasks        «اقدامات تکمیلی»    what a human must still do outside Melorin after sign-up (Google, Telegram, domain)
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { getJson } from '../../api/api.ts';
-import { Segmented, num } from '../../kit.tsx';
+import { Segmented, num } from '../../shared/kit.tsx';
 import { can } from '../../app/adminAccess.ts';
-import type { Toast, ViewApi } from '../../types.ts';
+import type { Toast, ViewApi } from '../../shared/types.ts';
 
 const ResellerApplicationsView = lazy(() => import('../resellers/ResellerApplicationsView.tsx'));
 const ManualTasksView = lazy(() => import('../resellers/ManualTasksView.tsx'));

@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 // table → detail drawer, with the same loading / empty / error / pagination states.
 import { useEffect, useMemo, useState } from 'react';
 import { Check, ChevronLeft, Copy, Download, RefreshCw } from 'lucide-react';
-import { useCall } from './api/api.ts';
+import { useCall } from '../api/api.ts';
 import { num } from './kit.tsx';
 import type { Json, Rec } from './types.ts';
 

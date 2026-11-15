@@ -4,11 +4,11 @@
 import { useEffect, useState } from 'react';
 import { Check, ChevronDown, Copy, Receipt, Settings2, ShieldAlert, Undo2, X, XCircle } from 'lucide-react';
 
-import { Drawer, Field, Section, Switch, num, tint } from '../../kit.tsx';
-import { Badge, dt, sid } from '../../ui.tsx';
+import { Drawer, Field, Section, Switch, num, tint } from '../../shared/kit.tsx';
+import { Badge, dt, sid } from '../../shared/ui.tsx';
 
 import { prov, reviewable, refundable, ago, copy, ProviderChip, Amount } from './paymentsShared.tsx';
-import type { CallFn, Json, Toast } from '../../types.ts';
+import type { CallFn, Json, Toast } from '../../shared/types.ts';
 
 export function RowActions({ p, busy, on, compact = false }: { p?: Json; busy?: Json; on?: Json; compact?: Json }) {
   const b = compact ? '!px-2' : '';

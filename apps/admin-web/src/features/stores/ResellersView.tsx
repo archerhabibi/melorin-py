@@ -15,7 +15,7 @@ import {
   Unplug,
 } from 'lucide-react';
 import { useCall } from '../../api/api.ts';
-import { PasswordInput, confirmDialog, dt } from '../../ui.tsx';
+import { PasswordInput, confirmDialog, dt } from '../../shared/ui.tsx';
 import {
   Drawer,
   Empty,
@@ -31,8 +31,8 @@ import {
   errText,
   num,
   useRows,
-} from '../../kit.tsx';
-import type { CallFn, Json, Rec, Toast } from '../../types.ts';
+} from '../../shared/kit.tsx';
+import type { CallFn, Json, Rec, Toast } from '../../shared/types.ts';
 
 // Effective bot state computed by Core (stores/bots.py): what the admin should believe about the bot right now.
 const BOT_STATE: Rec = {

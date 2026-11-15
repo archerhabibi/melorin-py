@@ -3,8 +3,8 @@
 // package is spotted without opening the reseller's panel. Source: GET /admin/stores/{id}/reseller-prices.
 import { useCallback, useEffect, useState } from 'react';
 import { useCall } from '../../api/api.ts';
-import { Empty, ErrorBar, num, useRows } from '../../kit.tsx';
-import type { Json, Rec, Toast } from '../../types.ts';
+import { Empty, ErrorBar, num, useRows } from '../../shared/kit.tsx';
+import type { Json, Rec, Toast } from '../../shared/types.ts';
 
 const STATE: Rec = {
   ok: ['b-ok', 'قابل فروش'],

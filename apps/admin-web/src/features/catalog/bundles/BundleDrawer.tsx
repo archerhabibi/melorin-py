@@ -13,11 +13,11 @@ import {
   errText,
   num,
   tint,
-} from '../../../kit.tsx';
+} from '../../../shared/kit.tsx';
 import { Dot, Warn, health as hs, infraHref, memberIds } from '../../panel-operations/infra.tsx';
-import { focusOnMount } from '../../../useDialog.ts';
+import { focusOnMount } from '../../../shared/useDialog.ts';
 import { API, MODES } from './BundleParts.tsx';
-import type { CallFn, Json, Rec, Toast } from '../../../types.ts';
+import type { CallFn, Json, Rec, Toast } from '../../../shared/types.ts';
 
 const EMPTY = {
   name: '',

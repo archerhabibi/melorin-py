@@ -2,9 +2,9 @@
 // Data: GET /api/v1/admin/me (the same call App uses to filter the menu).
 import type { ReactNode } from 'react';
 import { ShieldCheck } from 'lucide-react';
-import { Facts } from '../../dataKit.tsx';
+import { Facts } from '../../shared/dataKit.tsx';
 import { AREA_LABEL, ROLE_TONE } from '../../app/adminAccess.ts';
-import type { AdminMe } from '../../types.ts';
+import type { AdminMe } from '../../shared/types.ts';
 
 export default function MyAccountView({ me, children }: { me: AdminMe | null | undefined; children?: ReactNode }) {
   const perms: string[] = me?.permissions || [];

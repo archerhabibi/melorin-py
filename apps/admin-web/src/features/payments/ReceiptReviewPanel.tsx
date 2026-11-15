@@ -6,10 +6,10 @@ import type { ReactNode } from 'react';
 // queues with a live countdown and sends the human decision.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Check, Clock, Copy, Hourglass, ImageIcon, Undo2 } from 'lucide-react';
-import { Empty, Field, Section, Switch, errText, num } from '../../kit.tsx';
-import { confirmDialog, dt } from '../../ui.tsx';
+import { Empty, Field, Section, Switch, errText, num } from '../../shared/kit.tsx';
+import { confirmDialog, dt } from '../../shared/ui.tsx';
 import ReceiptDuplicatePolicy, { duplicateLine } from './ReceiptDuplicatePolicy.tsx';
-import type { CallFn, Json, Rec, Toast } from '../../types.ts';
+import type { CallFn, Json, Rec, Toast } from '../../shared/types.ts';
 
 const JSON_H = { 'Content-Type': 'application/json' };
 const CUR: Rec = { IRT: 'تومان', IRR: 'ریال' };

@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { confirmDialog } from '../../ui.tsx';
+import { confirmDialog } from '../../shared/ui.tsx';
 import { AlertTriangle, Boxes, CheckCircle2, PowerOff, Plus, Save, ShieldAlert, Tag, Wallet, X } from 'lucide-react';
 import { asList } from '../../app/adminHubTypes.ts';
 import type { StoreRow } from '../../app/adminHubTypes.ts';
-import type { Json, Rec, Toast } from '../../types.ts';
+import type { Json, Rec, Toast } from '../../shared/types.ts';
 import {
   Empty,
   ErrorBar,
@@ -18,7 +18,7 @@ import {
   removeEntity,
   useAlive,
   useRows,
-} from '../../kit.tsx'; // #4
+} from '../../shared/kit.tsx'; // #4
 import { InfraChain, clearParam, useHashParams, useInfra } from '../panel-operations/infra.tsx';
 
 import { API } from './productsShared.tsx';

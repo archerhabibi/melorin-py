@@ -1,6 +1,6 @@
 import { lazy } from 'react';
 import { useCall } from '../api/api.ts';
-import type { Json, Toast, ViewApi } from '../types.ts';
+import type { Json, Toast, ViewApi } from '../shared/types.ts';
 import { ChangeAdminPassword } from '../features/settings/ChangeAdminPassword.tsx';
 const ReportsView = lazy(() => import('../features/reports/ReportsView.tsx'));
 const PanelsView = lazy(() => import('../features/panels/PanelsView.tsx'));

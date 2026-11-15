@@ -1,7 +1,7 @@
-import { label } from '../ui.tsx';
+import { label } from '../shared/ui.tsx';
 import { sectionAllowed } from './adminAccess.ts';
 import type { Permissions } from './adminAccess.ts';
-import type { Json } from '../types.ts';
+import type { Json } from '../shared/types.ts';
 import { groups } from './adminNav.ts';
 
 export function Nav({

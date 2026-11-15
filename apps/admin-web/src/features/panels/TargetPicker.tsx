@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Layers, RefreshCw, Wand2 } from 'lucide-react';
 import { typedClient } from '../../api/api.ts';
-import { Drawer, Field, NumInput, Section, Segmented, Toggle, errText, num, tint } from '../../kit.tsx';
+import { Drawer, Field, NumInput, Section, Segmented, Toggle, errText, num, tint } from '../../shared/kit.tsx';
 import { capacityLabel, targetKind } from './targets.ts';
-import type { Json, Rec, Toast } from '../../types.ts';
+import type { Json, Rec, Toast } from '../../shared/types.ts';
 
 /** GET /admin/panels/{id}/targets once per panel; `reload` re-asks (the panel may have new groups). */
 export function usePanelTargets(api: Json, panelId: Json) {

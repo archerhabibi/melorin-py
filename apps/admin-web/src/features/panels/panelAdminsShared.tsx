@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { errText } from '../../kit.tsx';
-import type { CallFn, Json, Toast } from '../../types.ts';
+import { errText } from '../../shared/kit.tsx';
+import type { CallFn, Json, Toast } from '../../shared/types.ts';
 
 // key, label, hint, adminOnly - the same six fields as Core's PROFILE_FIELDS (a reseller may only ask for the first four)
 export const FIELDS: [string, string, string, boolean][] = [

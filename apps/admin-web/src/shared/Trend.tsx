@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { API_BASE, getJson } from './api/api.ts';
+import { API_BASE, getJson } from '../api/api.ts';
 import { TrendChart } from './charts.tsx';
 import type { Json } from './types.ts';
 

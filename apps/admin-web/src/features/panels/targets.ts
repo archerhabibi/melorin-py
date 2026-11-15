@@ -1,4 +1,4 @@
-import type { Json, Rec } from '../../types.ts';
+import type { Json, Rec } from '../../shared/types.ts';
 // Destination ("مقصد") helpers shared by the server form, the wizard, the panel list and the account drawer.
 // A destination is a server slot's `target`: {group_ids} | {user_template_id} | {inbound_ids}; null = the panel's own config.
 

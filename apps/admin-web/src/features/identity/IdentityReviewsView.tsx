@@ -18,7 +18,7 @@ import {
   Users,
 } from 'lucide-react';
 import { typedClient, useCall } from '../../api/api.ts';
-import { dt, sid } from '../../ui.tsx';
+import { dt, sid } from '../../shared/ui.tsx';
 import {
   Drawer,
   Empty,
@@ -33,8 +33,8 @@ import {
   num,
   tint,
   useRows,
-} from '../../kit.tsx';
-import type { CallFn, Json, Rec, Toast } from '../../types.ts';
+} from '../../shared/kit.tsx';
+import type { CallFn, Json, Rec, Toast } from '../../shared/types.ts';
 
 const PROVIDERS: Rec = {
   google: { label: 'Google', Icon: Globe, tone: 'in' },

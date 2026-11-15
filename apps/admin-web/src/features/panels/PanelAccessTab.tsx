@@ -2,10 +2,10 @@
 // admin (provision / rotate / list keys) and the store role new store admins get (plan / apply / revert).
 // Reads need nothing. Every write asks the admin to type the panel name; the owner credential is sent once, never kept.
 import { useCallback, useEffect, useState } from 'react';
-import { Secret } from '../../kit.tsx';
+import { Secret } from '../../shared/kit.tsx';
 import { getJson, typedClient } from '../../api/api.ts';
-import { confirmDialog } from '../../ui.tsx';
-import type { Toast } from '../../types.ts';
+import { confirmDialog } from '../../shared/ui.tsx';
+import type { Toast } from '../../shared/types.ts';
 import { errMessage } from '../../app/adminHubTypes.ts';
 
 interface Access {

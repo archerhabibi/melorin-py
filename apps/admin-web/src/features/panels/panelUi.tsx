@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { capacityLabel } from './targets.ts';
 import { usage } from '../panel-operations/infra.tsx';
-import { SegMeter, capTone, num } from '../../kit.tsx';
+import { SegMeter, capTone, num } from '../../shared/kit.tsx';
 import { Bot, FlaskConical, Server, ServerCog, ShieldCheck, X } from 'lucide-react';
-import type { Json, Rec } from '../../types.ts';
+import type { Json, Rec } from '../../shared/types.ts';
 
 // ---------- helpers ----------
 const STALE_MS = 24 * 3600 * 1000;

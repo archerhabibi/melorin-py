@@ -2,8 +2,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, Loader, RefreshCw } from 'lucide-react';
 import { useCall } from '../../api/api.ts';
-import { promptDialog } from '../../ui.tsx';
-import type { Json, Rec, Toast } from '../../types.ts';
+import { promptDialog } from '../../shared/ui.tsx';
+import type { Json, Rec, Toast } from '../../shared/types.ts';
 
 const STATUS_LABEL: Rec = { active: 'فعال', disabled: 'غیرفعال', limited: 'سقف پر شده' };
 const fmt = (v: Json) => (v ? new Date(v).toLocaleString('fa-IR') : '—');

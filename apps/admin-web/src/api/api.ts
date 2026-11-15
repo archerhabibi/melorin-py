@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { createApiClient } from '@melorin/api-client';
 import type { PathsWith } from '@melorin/api-client';
 import { getAccessToken, setTokens, clearTokens } from './auth.ts';
-import type { Json } from '../types.ts';
+import type { Json } from '../shared/types.ts';
 
 export const API_BASE = (import.meta.env?.VITE_MELORIN_API_URL || window.location.origin).replace(/\/$/, '');
 

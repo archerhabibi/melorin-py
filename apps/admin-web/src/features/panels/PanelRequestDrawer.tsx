@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { CheckCircle2, Inbox, XCircle } from 'lucide-react';
-import { Badge, confirmDialog, dt } from '../../ui.tsx';
-import { Drawer, Field, digits, num } from '../../kit.tsx';
-import type { CallFn, Json, Toast } from '../../types.ts';
+import { Badge, confirmDialog, dt } from '../../shared/ui.tsx';
+import { Drawer, Field, digits, num } from '../../shared/kit.tsx';
+import type { CallFn, Json, Toast } from '../../shared/types.ts';
 import { FIELDS, LABEL, ltr, useCall } from './panelAdminsShared.tsx';
 
 export function RequestDrawer({

@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import PanelOpsView from '../src/features/panel-operations/PanelOpsView.tsx';
 import StoreNoticesView from '../src/features/stores/StoreNoticesView.tsx';
 import PanelTabsHarness from './PanelTabsHarness.jsx';
-import { DialogHost } from '../src/ui.tsx';
+import { DialogHost } from '../src/shared/ui.tsx';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
 const panel = {

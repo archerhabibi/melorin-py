@@ -1,8 +1,8 @@
 import { refundPayment } from '../../app/AdminSession.tsx';
 import { CircleAlert, Database, Package, ShieldCheck, Ticket, WalletCards, Store } from 'lucide-react';
-import Trend from '../../Trend.tsx';
-import { Badge, confirmDialog, label, sid, tone } from '../../ui.tsx';
-import type { Json, Rec, Toast } from '../../types.ts';
+import Trend from '../../shared/Trend.tsx';
+import { Badge, confirmDialog, label, sid, tone } from '../../shared/ui.tsx';
+import type { Json, Rec, Toast } from '../../shared/types.ts';
 
 export const money = (v: Json) => new Intl.NumberFormat('fa-IR').format(v || 0);
 export const moneyByCurrency = (rows: Json) =>

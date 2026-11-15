@@ -14,8 +14,8 @@ import {
   ViewToggle,
   tint,
   useRows,
-} from '../../kit.tsx';
-import { Badge } from '../../ui.tsx';
+} from '../../shared/kit.tsx';
+import { Badge } from '../../shared/ui.tsx';
 import {
   Avatar,
   Cell2,
@@ -30,8 +30,8 @@ import {
   matches,
   pageOf,
   useCall,
-} from '../../dataKit.tsx';
-import type { Json, Rec } from '../../types.ts';
+} from '../../shared/dataKit.tsx';
+import type { Json, Rec } from '../../shared/types.ts';
 
 const FILTERS: Rec = {
   all: () => true,

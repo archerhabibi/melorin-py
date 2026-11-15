@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import PanelCapacityTab from '../src/features/panels/PanelCapacityTab.tsx';
 import PanelTemplatesTab from '../src/features/panels/PanelTemplatesTab.tsx';
 import AccountToolsPanel from '../src/features/vpn-accounts/AccountToolsPanel.tsx';
-import { DialogHost } from '../src/ui.tsx';
+import { DialogHost } from '../src/shared/ui.tsx';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
 // Capacity talks to Core through the typed api-client (global fetch); the other tabs still take a `call` prop.

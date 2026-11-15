@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle, Loader, Radio, RefreshCw } from 'lucide-react';
 import { getJson, typedClient } from '../../api/api.ts';
-import { confirmDialog } from '../../ui.tsx';
-import type { Json, Rec, Toast } from '../../types.ts';
+import { confirmDialog } from '../../shared/ui.tsx';
+import type { Json, Rec, Toast } from '../../shared/types.ts';
 
 const ACTION_LABEL: Rec = {
   user_created: 'ساخت کاربر',

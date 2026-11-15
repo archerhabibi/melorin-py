@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { describeTarget, ago as lastAssigned } from './targets.ts';
-import { Badge, dt } from '../../ui.tsx';
+import { Badge, dt } from '../../shared/ui.tsx';
 import { Dot, HLABEL, RelChip, health, serverState, usage } from '../panel-operations/infra.tsx';
-import { Ring, CopyButton, Switch, DeleteButton, capTone, num, tint } from '../../kit.tsx';
+import { Ring, CopyButton, Switch, DeleteButton, capTone, num, tint } from '../../shared/kit.tsx';
 import {
   AlertTriangle,
   ChevronDown,
@@ -18,7 +18,7 @@ import {
 import { UpstreamSpecs } from './UpstreamFlowParts.tsx';
 import { ubSummary } from './upstreamBot.ts';
 import { ago, isStale, kindOf, Meter } from './panelUi.tsx';
-import type { Json, Rec } from '../../types.ts';
+import type { Json, Rec } from '../../shared/types.ts';
 
 // ---------- one panel with its servers ----------
 function ServerRow({

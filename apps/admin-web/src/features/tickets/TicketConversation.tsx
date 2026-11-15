@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, ArrowRight, CheckCheck, CircleDot, Clock, Pencil, RefreshCw, Store, X } from 'lucide-react';
-import { confirmDialog, dt } from '../../ui.tsx';
-import { Field, errText, useAlive } from '../../kit.tsx';
-import { focusOnMount } from '../../useDialog.ts';
+import { confirmDialog, dt } from '../../shared/ui.tsx';
+import { Field, errText, useAlive } from '../../shared/kit.tsx';
+import { focusOnMount } from '../../shared/useDialog.ts';
 import { PRIORITY, DEPARTMENTS, DEPT_LABEL, STATUS_OPTS, dayKey } from './ticketsShared.tsx';
-import type { CallFn, Json, Toast } from '../../types.ts';
+import type { CallFn, Json, Toast } from '../../shared/types.ts';
 import { Composer } from './TicketComposer.tsx';
 import { Bubble } from './TicketBubble.tsx';
 

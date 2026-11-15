@@ -17,7 +17,7 @@ import {
   WalletCards,
 } from 'lucide-react';
 import { API_BASE, getJson } from '../../api/api.ts';
-import { dayShort } from '../../charts.tsx';
+import { dayShort } from '../../shared/charts.tsx';
 import { Funnel, HBars, Heatmap, Legend, SERIES_COLORS, CompareChart, Donut } from './ReportCharts.tsx';
 import {
   CHANNEL_LABELS,
@@ -37,8 +37,8 @@ import {
   pick,
   share,
 } from './reportsLogic.ts';
-import { label as statusLabel } from '../../ui.tsx';
-import type { Json, Rec, Toast } from '../../types.ts';
+import { label as statusLabel } from '../../shared/ui.tsx';
+import type { Json, Rec, Toast } from '../../shared/types.ts';
 
 import { RANGES, METRICS, TONES, Seg, Kpi, Card, DataTable, download, EXPORTS } from './ReportsParts.tsx';
 export default function ReportsView({ api, toast }: { api?: Json; toast: Toast }) {

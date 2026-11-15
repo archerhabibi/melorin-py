@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Activity } from 'lucide-react';
-import { Drawer } from '../../kit.tsx';
+import { Drawer } from '../../shared/kit.tsx';
 import PanelNodesTab from './PanelNodesTab.tsx';
 import PanelConsoleTab from './PanelConsoleTab.tsx';
 import PanelEventsTab from './PanelEventsTab.tsx';
@@ -8,7 +8,7 @@ import PanelCapacityTab from './PanelCapacityTab.tsx';
 import PanelTemplatesTab from './PanelTemplatesTab.tsx';
 import PanelPhase5Tab from './PanelPhase5Tab.tsx';
 import PanelAccessTab from './PanelAccessTab.tsx';
-import type { Toast } from '../../types.ts';
+import type { Toast } from '../../shared/types.ts';
 
 export const DETAIL_TABS: [string, string][] = [
   ['nodes', 'نودها'],

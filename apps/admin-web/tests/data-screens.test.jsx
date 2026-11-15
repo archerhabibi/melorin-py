@@ -6,8 +6,8 @@ import VpnAccountsView from '../src/features/vpn-accounts/VpnAccountsView.tsx';
 import UsersView from '../src/features/customers/UsersView.tsx';
 import StoresView from '../src/features/stores/StoresView.tsx';
 import AuditView from '../src/features/settings/AuditView.tsx';
-import { DialogHost } from '../src/ui.tsx';
-import { csvCell, fmtBytes, matches, relTime } from '../src/dataKit.tsx';
+import { DialogHost } from '../src/shared/ui.tsx';
+import { csvCell, fmtBytes, matches, relTime } from '../src/shared/dataKit.tsx';
 
 const json = (body, status = 200, headers = {}) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...headers } });

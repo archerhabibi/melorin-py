@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { extraRoutes } from './AdminExtra.tsx';
 import { sectionAllowed } from './adminAccess.ts';
-import type { Json, Rec, Toast } from '../types.ts';
+import type { Json, Rec, Toast } from '../shared/types.ts';
 
 function SectionFallback() {
   return (

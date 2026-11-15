@@ -3,9 +3,9 @@
 // panel cannot serve is shown disabled with the Core's own reason. Connection IPs are never shown.
 import { useCallback, useEffect, useState } from 'react';
 import { Loader } from 'lucide-react';
-import { confirmDialog, promptDialog } from '../../ui.tsx';
-import { fmtBytes } from '../../dataKit.tsx';
-import type { CallFn, Json, Rec, Toast } from '../../types.ts';
+import { confirmDialog, promptDialog } from '../../shared/ui.tsx';
+import { fmtBytes } from '../../shared/dataKit.tsx';
+import type { CallFn, Json, Rec, Toast } from '../../shared/types.ts';
 
 const fmt = (v: Json) => (v ? new Date(v).toLocaleString('fa-IR') : '—');
 

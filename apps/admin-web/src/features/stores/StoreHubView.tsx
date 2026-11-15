@@ -12,8 +12,8 @@
 import type { LazyExoticComponent, ReactNode } from 'react';
 import { lazy, Suspense, useState } from 'react';
 import { sectionAllowed } from '../../app/adminAccess.ts';
-import { Segmented } from '../../kit.tsx';
-import type { Toast } from '../../types.ts';
+import { Segmented } from '../../shared/kit.tsx';
+import type { Toast } from '../../shared/types.ts';
 
 /** The slice of the app-shell api the hub itself reads; the tab views get the whole object. */
 interface HubApi {

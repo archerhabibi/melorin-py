@@ -11,7 +11,7 @@ import {
   ruleProblem,
   toPayload,
 } from '../src/features/settings/buttonStyles.ts';
-import { DialogHost } from '../src/ui.tsx';
+import { DialogHost } from '../src/shared/ui.tsx';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
 

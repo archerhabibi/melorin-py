@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle, Loader, RefreshCw, XCircle } from 'lucide-react';
 import { typedClient } from '../../api/api.ts';
-import { confirmDialog, promptDialog } from '../../ui.tsx';
-import type { Json, Rec, Toast } from '../../types.ts';
+import { confirmDialog, promptDialog } from '../../shared/ui.tsx';
+import type { Json, Rec, Toast } from '../../shared/types.ts';
 
 const NODE_COLOR: Rec = {
   connected: 'var(--ok)',

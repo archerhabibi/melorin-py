@@ -4,10 +4,10 @@
 import { useCallback } from 'react';
 import { AlertTriangle, BellRing, CheckCircle2, ListPlus, ScanSearch, Send, Trash2 } from 'lucide-react';
 import { useCall } from '../../api/api.ts';
-import { confirmDialog, dt } from '../../ui.tsx';
+import { confirmDialog, dt } from '../../shared/ui.tsx';
 import { useEventCenter } from '@melorin/web-kit/eventCenter.js';
-import { ErrorBar, Field, Section } from '../../kit.tsx';
-import type { Json, Rec, Toast } from '../../types.ts';
+import { ErrorBar, Field, Section } from '../../shared/kit.tsx';
+import type { Json, Rec, Toast } from '../../shared/types.ts';
 
 export default function EventCenterView({ api, toast }: { api?: Json; toast: Toast }) {
   const call = useCall(api);

@@ -6,8 +6,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, Check, ChevronDown, Cpu, Eye, FlaskConical, Power, ScanText, Sparkles } from 'lucide-react';
 import { settled, typedClient } from '../../api/api.ts';
-import { Field, Secret } from '../../kit.tsx';
-import type { Json, Rec, Toast } from '../../types.ts';
+import { Field, Secret } from '../../shared/kit.tsx';
+import type { Json, Rec, Toast } from '../../shared/types.ts';
 
 const ENGINES = [
   {

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle, Loader, RefreshCw } from 'lucide-react';
 import { getJson, typedClient } from '../../api/api.ts';
-import type { Json, Rec, Toast } from '../../types.ts';
+import type { Json, Rec, Toast } from '../../shared/types.ts';
 
 const GROUP_LABEL: Rec = { healthy: 'سالم', degraded: 'مختل', blocked: 'مسدود' };
 const GROUP_COLOR: Rec = { healthy: 'var(--ok)', degraded: 'var(--wn)', blocked: 'var(--bd)' };

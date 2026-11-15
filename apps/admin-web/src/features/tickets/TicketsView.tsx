@@ -1,12 +1,12 @@
 // Ticket desk: inbox + conversation side by side, inline editing, internal notes, quick replies.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CheckCheck, CircleDot, Inbox, Lock, MessageSquareText, RefreshCw, Search, Zap } from 'lucide-react';
-import { Badge } from '../../ui.tsx';
-import { Stat, num, useAlive } from '../../kit.tsx';
+import { Badge } from '../../shared/ui.tsx';
+import { Stat, num, useAlive } from '../../shared/kit.tsx';
 
 import { fromNow, needsReply, PriorityPill } from './ticketsShared.tsx';
 import { Conversation } from './TicketConversation.tsx';
-import type { CallFn, Json, Rec, Toast } from '../../types.ts';
+import type { CallFn, Json, Rec, Toast } from '../../shared/types.ts';
 
 function TicketList({
   rows,

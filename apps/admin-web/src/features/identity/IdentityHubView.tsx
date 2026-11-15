@@ -4,8 +4,8 @@
 //   devices «دستگاه‌های مورداعتماد» browsers that sign visitors in without a manual step; trust can be revoked
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { typedClient } from '../../api/api.ts';
-import { Segmented, num } from '../../kit.tsx';
-import type { Json, Toast } from '../../types.ts';
+import { Segmented, num } from '../../shared/kit.tsx';
+import type { Json, Toast } from '../../shared/types.ts';
 
 const IdentityReviewsView = lazy(() => import('./IdentityReviewsView.tsx'));
 const IdentityAutoView = lazy(() => import('./IdentityAutoView.tsx'));

@@ -1,7 +1,7 @@
 // Pure helpers for the Reports & charts screen (no React, no DOM): formatting, labels, insights, chart geometry.
 // Kept separate so every rule here is unit-tested (tests/reports-logic.test.js).
-import { dayLong } from '../../charts.tsx';
-import type { Json, Rec } from '../../types.ts';
+import { dayLong } from '../../shared/charts.tsx';
+import type { Json, Rec } from '../../shared/types.ts';
 
 export const nf = new Intl.NumberFormat('fa-IR');
 export const cf = new Intl.NumberFormat('fa-IR', { notation: 'compact', maximumFractionDigits: 1 });

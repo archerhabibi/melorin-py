@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { useState, useCallback } from 'react';
 import { ShieldCheck, AlertTriangle, RefreshCw, Loader, CheckCircle, XCircle } from 'lucide-react';
 import { useInfra } from './infra.tsx';
-import type { Json, Rec, Toast } from '../../types.ts';
+import type { Json, Rec, Toast } from '../../shared/types.ts';
 
 // ---- Issue section helpers ----
 function IssueSection({

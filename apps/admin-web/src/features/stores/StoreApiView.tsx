@@ -3,8 +3,8 @@
 import { useCallback, useState } from 'react';
 import { useCall } from '../../api/api.ts';
 import { canWrite } from '../../app/adminAccess.ts';
-import { Empty, ErrorBar, Toggle, errText, useRows } from '../../kit.tsx';
-import type { Json, Rec, Toast } from '../../types.ts';
+import { Empty, ErrorBar, Toggle, errText, useRows } from '../../shared/kit.tsx';
+import type { Json, Rec, Toast } from '../../shared/types.ts';
 
 export default function StoreApiView({ api, toast }: { api?: Json; toast: Toast }) {
   const call = useCall(api);

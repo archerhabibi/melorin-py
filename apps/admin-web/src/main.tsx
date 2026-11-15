@@ -7,8 +7,8 @@ import AdminAuth from './app/AdminAuth.tsx';
 import AcceptInvite, { isInviteHash } from './features/auth/AcceptInvite.tsx';
 import '@melorin/web-kit/tokens.css';
 import './styles.css';
-import './theme.ts';
-import type { Json } from './types.ts';
+import './shared/theme.ts';
+import type { Json } from './shared/types.ts';
 
 class AdminErrorBoundary extends React.Component<{ children?: React.ReactNode }, { error: Json }> {
   constructor(props: Json) {

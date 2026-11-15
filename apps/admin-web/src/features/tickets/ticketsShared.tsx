@@ -1,7 +1,7 @@
 // Ticket desk: inbox + conversation side by side, inline editing, internal notes, quick replies.
 
 import { Zap } from 'lucide-react';
-import type { Json, Rec } from '../../types.ts';
+import type { Json, Rec } from '../../shared/types.ts';
 
 export const PRIORITY: Rec = {
   low: ['کم', 'mu'],

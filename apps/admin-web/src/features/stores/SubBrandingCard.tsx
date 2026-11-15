@@ -3,8 +3,8 @@
 // types the panel's name. Never automatic (decision 3); the server reads the admin back and reports success only if the panel kept it.
 import { useCallback, useEffect, useState } from 'react';
 import { Palette } from 'lucide-react';
-import { errText } from '../../kit.tsx';
-import type { CallFn, Json, Rec, Toast } from '../../types.ts';
+import { errText } from '../../shared/kit.tsx';
+import type { CallFn, Json, Rec, Toast } from '../../shared/types.ts';
 
 const LABELS: Rec = { melorin_brand_name: 'نام برند', melorin_support_url: 'لینک پشتیبانی', melorin_logo_url: 'لوگو' };
 const ltr = (v: Json) => (

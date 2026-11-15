@@ -14,8 +14,8 @@ import {
   Stat,
   tint,
   useRows,
-} from '../../kit.tsx';
-import { dt, sid } from '../../ui.tsx';
+} from '../../shared/kit.tsx';
+import { dt, sid } from '../../shared/ui.tsx';
 import {
   Cell2,
   DataGrid,
@@ -29,8 +29,8 @@ import {
   matches,
   pageOf,
   useCall,
-} from '../../dataKit.tsx';
-import type { Json, Rec } from '../../types.ts';
+} from '../../shared/dataKit.tsx';
+import type { Json, Rec } from '../../shared/types.ts';
 
 const CAP = 500;
 const DAY = 86400000;

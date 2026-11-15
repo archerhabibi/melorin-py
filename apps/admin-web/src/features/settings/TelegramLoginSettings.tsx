@@ -9,8 +9,8 @@ import { useEffect, useState } from 'react';
 import { settled, typedClient } from '../../api/api.ts';
 import { Check, ChevronDown, Copy, ExternalLink, Send, ShieldCheck } from 'lucide-react';
 import { CopyBox, Field, Step, Switch } from './GoogleLoginSettings.tsx';
-import { PasswordInput } from '../../ui.tsx';
-import type { Json, Rec, Toast } from '../../types.ts';
+import { PasswordInput } from '../../shared/ui.tsx';
+import type { Json, Rec, Toast } from '../../shared/types.ts';
 
 const CLIENT_ID_RE = /^[0-9]{5,20}$/;
 const FIELDS = ['enabled', 'store_login', 'bot_login', 'number_match', 'ttl_seconds', 'oidc_login', 'client_id'];

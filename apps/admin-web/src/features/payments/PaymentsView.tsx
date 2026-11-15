@@ -5,14 +5,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Clock, Download, RefreshCw, ShieldAlert, TrendingUp, Undo2, Wallet, XCircle } from 'lucide-react';
 import type { RequestBody } from '@melorin/api-client';
 import { typedClient, useCall } from '../../api/api.ts';
-import { Empty, ErrorBar, KpiBar, Paginator, Pills, SearchBox, Stat, errText, num } from '../../kit.tsx';
-import { Badge, confirmDialog, dt, promptDialog, sid } from '../../ui.tsx';
+import { Empty, ErrorBar, KpiBar, Paginator, Pills, SearchBox, Stat, errText, num } from '../../shared/kit.tsx';
+import { Badge, confirmDialog, dt, promptDialog, sid } from '../../shared/ui.tsx';
 import BankSmsPanel from './BankSmsPanel.tsx';
 import ReceiptOcrSettings from './ReceiptOcrSettings.tsx';
 
 import { PAGE, prov, cur, reviewable, FILTERS, ago, sumBy, Metric, ProviderChip, Amount } from './paymentsShared.tsx';
 import { RowActions, Queue, PaymentDrawer, GatewaySettings } from './PaymentParts.tsx';
-import type { Json, Rec, Toast } from '../../types.ts';
+import type { Json, Rec, Toast } from '../../shared/types.ts';
 
 type DestinationBody = RequestBody<'/api/v1/admin/payment-destinations/{provider}', 'put'>;
 

@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Copy, KeyRound, RefreshCw, ShieldCheck, Smartphone } from 'lucide-react';
 import { formFromSource, sourceBody } from '@melorin/web-kit/bankSms.js';
-import { Empty, Field, Section, Switch, errText, num } from '../../kit.tsx';
-import { confirmDialog, dt } from '../../ui.tsx';
+import { Empty, Field, Section, Switch, errText, num } from '../../shared/kit.tsx';
+import { confirmDialog, dt } from '../../shared/ui.tsx';
 import ReceiptReviewPanel from './ReceiptReviewPanel.tsx';
-import type { CallFn, Json, Rec, Toast } from '../../types.ts';
+import type { CallFn, Json, Rec, Toast } from '../../shared/types.ts';
 
 const STATUS: Rec = {
   matched: ['شارژ شد', 'b-ok'],

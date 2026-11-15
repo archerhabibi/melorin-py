@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { getJson } from '../../api/api.ts';
-import type { Json, Rec, Toast } from '../../types.ts';
+import type { Json, Rec, Toast } from '../../shared/types.ts';
 
 const NODE_COLOR: Rec = {
   connected: 'var(--ok)',

@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CheckCircle, Loader, RefreshCw, XCircle } from 'lucide-react';
 import { useCall } from '../../api/api.ts';
-import { confirmDialog } from '../../ui.tsx';
-import type { Json, Rec, Toast } from '../../types.ts';
+import { confirmDialog } from '../../shared/ui.tsx';
+import type { Json, Rec, Toast } from '../../shared/types.ts';
 
 const KINDS = [
   ['extend_days', 'جبران زمان (افزودن روز)'],

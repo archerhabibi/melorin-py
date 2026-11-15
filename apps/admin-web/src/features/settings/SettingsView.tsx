@@ -1,9 +1,9 @@
-import { Segmented } from '../../kit.tsx';
+import { Segmented } from '../../shared/kit.tsx';
 import type { ReactNode } from 'react';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { useCall } from '../../api/api.ts';
-import { PasswordInput, confirmDialog } from '../../ui.tsx';
-import type { Json, Rec, Toast } from '../../types.ts';
+import { PasswordInput, confirmDialog } from '../../shared/ui.tsx';
+import type { Json, Rec, Toast } from '../../shared/types.ts';
 import { box, inp, btn, ghost, useList, Table } from '../../app/adminExtraKit.tsx';
 
 const GoogleLoginSettings = lazy(() => import('./GoogleLoginSettings.tsx'));

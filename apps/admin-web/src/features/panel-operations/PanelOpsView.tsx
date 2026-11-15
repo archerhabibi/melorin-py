@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Activity, AlertTriangle, CheckCircle, Loader, RefreshCw, ShieldAlert } from 'lucide-react';
 import { getJson, typedClient } from '../../api/api.ts';
-import { confirmDialog, promptDialog } from '../../ui.tsx';
-import type { CallFn, Json, Rec, Toast } from '../../types.ts';
+import { confirmDialog, promptDialog } from '../../shared/ui.tsx';
+import type { CallFn, Json, Rec, Toast } from '../../shared/types.ts';
 
 const KIND_LABEL: Rec = {
   missing_on_panel: 'کاربر روی پنل نیست',

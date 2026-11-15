@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useCall } from '../../api/api.ts';
 import { canWrite } from '../../app/adminAccess.ts';
-import { Empty, ErrorBar, errText, useRows } from '../../kit.tsx';
-import type { Toast } from '../../types.ts';
+import { Empty, ErrorBar, errText, useRows } from '../../shared/kit.tsx';
+import type { Toast } from '../../shared/types.ts';
 import { asList, errMessage } from '../../app/adminHubTypes.ts';
 import type { HubApiProp, StoreRow } from '../../app/adminHubTypes.ts';
 

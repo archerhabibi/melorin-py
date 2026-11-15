@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { settled, typedClient } from '../../api/api.ts';
 import { Check, ChevronDown, Copy, ExternalLink, ShieldCheck } from 'lucide-react';
-import type { Json, Toast } from '../../types.ts';
+import type { Json, Toast } from '../../shared/types.ts';
 
 const CLIENT_ID_RE = /^[0-9]{6,}-[A-Za-z0-9_-]+\.apps\.googleusercontent\.com$/;
 

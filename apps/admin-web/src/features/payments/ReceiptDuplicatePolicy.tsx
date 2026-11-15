@@ -5,8 +5,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Copy } from 'lucide-react';
-import { Segmented, errText } from '../../kit.tsx';
-import type { CallFn, Json, Rec, Toast } from '../../types.ts';
+import { Segmented, errText } from '../../shared/kit.tsx';
+import type { CallFn, Json, Rec, Toast } from '../../shared/types.ts';
 
 const OPTIONS = [
   ['warn', 'فقط هشدار'],

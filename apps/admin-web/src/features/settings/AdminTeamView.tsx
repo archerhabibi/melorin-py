@@ -15,11 +15,11 @@ import {
   Stat,
   errText,
   useRows,
-} from '../../kit.tsx';
-import { Avatar, Cell2, DataGrid, Facts, ScreenHead, Toolbar, When, matches, useCall } from '../../dataKit.tsx';
-import { confirmDialog } from '../../ui.tsx';
+} from '../../shared/kit.tsx';
+import { Avatar, Cell2, DataGrid, Facts, ScreenHead, Toolbar, When, matches, useCall } from '../../shared/dataKit.tsx';
+import { confirmDialog } from '../../shared/ui.tsx';
 import { AREA_LABEL, ROLE_TONE, TEAM_ERRORS } from '../../app/adminAccess.ts';
-import type { AdminInviteResult, AdminMember, AdminRoleInfo, Toast, ViewApi } from '../../types.ts';
+import type { AdminInviteResult, AdminMember, AdminRoleInfo, Toast, ViewApi } from '../../shared/types.ts';
 
 const BASE = '/api/v1/admin/admins';
 const STATE: Record<string, [string, string]> = {

@@ -4,8 +4,8 @@
 import type { ChangeEvent } from 'react';
 import { useMemo, useState } from 'react';
 import { CheckCircle2, MailWarning, ShieldCheck, Smartphone } from 'lucide-react';
-import { PasswordInput, ThemeButton } from '../../ui.tsx';
-import type { AdminEnrollment, AdminInviteInfo } from '../../types.ts';
+import { PasswordInput, ThemeButton } from '../../shared/ui.tsx';
+import type { AdminEnrollment, AdminInviteInfo } from '../../shared/types.ts';
 
 export const INVITE_HASH = '#/accept-invite';
 export const isInviteHash = (hash: string) => hash === INVITE_HASH || hash.startsWith(`${INVITE_HASH}?`);

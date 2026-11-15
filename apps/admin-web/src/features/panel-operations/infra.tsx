@@ -14,8 +14,8 @@ import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, ArrowLeft, Boxes, Layers, PanelTop, Sparkles } from 'lucide-react';
 import { useCall } from '../../api/api.ts';
-import { Ring, num, tint, useRows } from '../../kit.tsx';
-import type { CallFn, Json, Rec } from '../../types.ts';
+import { Ring, num, tint, useRows } from '../../shared/kit.tsx';
+import type { CallFn, Json, Rec } from '../../shared/types.ts';
 
 /* ---------- chain definition ---------- */
 export const CHAIN = [

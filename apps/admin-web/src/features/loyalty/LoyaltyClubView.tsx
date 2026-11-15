@@ -6,8 +6,8 @@ import { Award, Plus, Save, Trash2 } from 'lucide-react';
 import { toInt, unitOf } from '@melorin/web-kit/referralPlan.js';
 import { useLoyaltyClub } from '@melorin/web-kit/loyaltyClub.js';
 import { useCall } from '../../api/api.ts';
-import { Empty, Field, Section, num, toEn, useRows } from '../../kit.tsx';
-import type { Json, Rec, Toast } from '../../types.ts';
+import { Empty, Field, Section, num, toEn, useRows } from '../../shared/kit.tsx';
+import type { Json, Rec, Toast } from '../../shared/types.ts';
 
 const intOf = toInt;
 

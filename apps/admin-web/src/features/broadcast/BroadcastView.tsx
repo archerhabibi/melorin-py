@@ -4,9 +4,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Clock, Megaphone, RefreshCw, Send, Users } from 'lucide-react';
 import { BODY_MAX, TITLE_MAX, useBroadcastComposer, usePollWhileQueued } from '@melorin/web-kit/broadcast.js';
 import { useCall } from '../../api/api.ts';
-import { confirmDialog, dt } from '../../ui.tsx';
-import { Empty, ErrorBar, Field, Section, errText, num, useRows } from '../../kit.tsx';
-import type { Json, Rec, Toast } from '../../types.ts';
+import { confirmDialog, dt } from '../../shared/ui.tsx';
+import { Empty, ErrorBar, Field, Section, errText, num, useRows } from '../../shared/kit.tsx';
+import type { Json, Rec, Toast } from '../../shared/types.ts';
 
 function AudienceCard({ a, on, onPick }: { a?: Json; on?: Json; onPick?: Json }) {
   return (

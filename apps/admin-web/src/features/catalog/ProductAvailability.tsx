@@ -1,8 +1,8 @@
 // Per-store availability of one product (GET/POST /admin/products/{id}/availability?store_id=): sold in this store at all,
 // and listed in its storefront. The reseller's own price is not touched here (the reseller sets it).
 import { useEffect, useState } from 'react';
-import { Toggle, errText } from '../../kit.tsx';
-import type { CallFn } from '../../types.ts';
+import { Toggle, errText } from '../../shared/kit.tsx';
+import type { CallFn } from '../../shared/types.ts';
 import { errMessage } from '../../app/adminHubTypes.ts';
 import type { StoreRow } from '../../app/adminHubTypes.ts';
 

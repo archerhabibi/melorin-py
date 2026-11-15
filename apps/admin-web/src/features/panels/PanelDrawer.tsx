@@ -1,9 +1,9 @@
 import { useMemo, useRef, useState } from 'react';
-import { Badge, dt, sid } from '../../ui.tsx';
+import { Badge, dt, sid } from '../../shared/ui.tsx';
 import { Dot, health, memberIds } from '../panel-operations/infra.tsx';
-import { Drawer, Field, NumInput, Section, Secret, Segmented, Switch, Toggle, DeleteButton, tint } from '../../kit.tsx';
+import { Drawer, Field, NumInput, Section, Secret, Segmented, Switch, Toggle, DeleteButton, tint } from '../../shared/kit.tsx';
 import { Activity, AlertTriangle, Check, ChevronDown, Plus, RefreshCw, Save, ShieldCheck } from 'lucide-react';
-import { focusOnMount } from '../../useDialog.ts';
+import { focusOnMount } from '../../shared/useDialog.ts';
 import { UpstreamBotLink, UpstreamCredentials, UpstreamSettings } from './UpstreamBotFields.tsx';
 import { UpstreamFlowSection } from './UpstreamFlowParts.tsx';
 import {
@@ -17,7 +17,7 @@ import {
   ubValidate,
 } from './upstreamBot.ts';
 import { KINDS, kindOf, Chips } from './panelUi.tsx';
-import type { Json, Rec } from '../../types.ts';
+import type { Json, Rec } from '../../shared/types.ts';
 
 // ---------- panel add / edit form ----------
 const EMPTY = {

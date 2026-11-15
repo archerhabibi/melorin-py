@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Clock, ExternalLink, KeyRound, Pencil, RefreshCw, UserCog } from 'lucide-react';
-import { Badge, confirmDialog, dt } from '../../ui.tsx';
+import { Badge, confirmDialog, dt } from '../../shared/ui.tsx';
 import SubBrandingCard from '../stores/SubBrandingCard.tsx';
-import { CopyButton, Drawer, Field, digits } from '../../kit.tsx';
-import type { CallFn, Json, Toast } from '../../types.ts';
+import { CopyButton, Drawer, Field, digits } from '../../shared/kit.tsx';
+import type { CallFn, Json, Toast } from '../../shared/types.ts';
 import { FIELDS, shown, ltr, KindBadge, useCall } from './panelAdminsShared.tsx';
 
 export function AdminDrawer({

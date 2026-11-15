@@ -10,9 +10,9 @@ import {
   ShieldCheck,
   Terminal,
 } from 'lucide-react';
-import { Section, Segmented, num, tint } from '../../kit.tsx';
+import { Section, Segmented, num, tint } from '../../shared/kit.tsx';
 import { UB_TEXT, parseBot, ubFlows } from './upstreamBot.ts';
-import type { Json, Rec } from '../../types.ts';
+import type { Json, Rec } from '../../shared/types.ts';
 
 export const fmt = (n: Json) => (n > 0 ? num(n) : '—');
 

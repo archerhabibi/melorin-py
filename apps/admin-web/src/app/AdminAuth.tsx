@@ -2,7 +2,7 @@ import type { ChangeEvent, KeyboardEvent, ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { CircleAlert, ShieldAlert } from 'lucide-react';
 import { setTokens } from '../api/auth.ts';
-import { PasswordInput, ThemeButton } from '../ui.tsx';
+import { PasswordInput, ThemeButton } from '../shared/ui.tsx';
 import { GoogleSignInButton, useGoogleConfig } from '../features/auth/GoogleSignIn.tsx';
 import {
   codeFromResponse,

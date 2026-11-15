@@ -1,6 +1,6 @@
 import { AlertTriangle, Layers, ServerCog } from 'lucide-react';
-import type { Json, Rec } from '../../types.ts';
-import { num } from '../../kit.tsx'; // #4
+import type { Json, Rec } from '../../shared/types.ts';
+import { num } from '../../shared/kit.tsx'; // #4
 import { infraHref } from '../panel-operations/infra.tsx';
 
 export const API = '/api/v1/admin/products';

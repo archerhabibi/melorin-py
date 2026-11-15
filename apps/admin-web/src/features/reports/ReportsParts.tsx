@@ -5,7 +5,7 @@ import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react';
 import { API_BASE, authFetch } from '../../api/api.ts';
 import { Sparkline } from './ReportCharts.tsx';
 import { deltaInfo } from './reportsLogic.ts';
-import type { Json, Rec } from '../../types.ts';
+import type { Json, Rec } from '../../shared/types.ts';
 
 export const RANGES = [7, 30, 90];
 export const METRICS = [

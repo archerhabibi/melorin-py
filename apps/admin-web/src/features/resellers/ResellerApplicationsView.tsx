@@ -14,7 +14,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { useCall } from '../../api/api.ts';
-import { Badge, confirmDialog, dt } from '../../ui.tsx';
+import { Badge, confirmDialog, dt } from '../../shared/ui.tsx';
 import {
   Drawer,
   Empty,
@@ -28,8 +28,8 @@ import {
   errText,
   num,
   useRows,
-} from '../../kit.tsx';
-import type { CallFn, Json, Toast } from '../../types.ts';
+} from '../../shared/kit.tsx';
+import type { CallFn, Json, Toast } from '../../shared/types.ts';
 
 const STATUS_PILLS = [
   ['pending', 'در انتظار'],

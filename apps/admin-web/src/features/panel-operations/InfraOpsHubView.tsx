@@ -3,8 +3,8 @@
 //   bulk  «عملیات گروهی»   preview -> exact-count confirm -> resumable run over many accounts of one panel (BulkOperationsView)
 // Both stay behind the `infrastructure` permission. Deep links: #/panel-ops (ops), #/panel-ops?tab=bulk.
 import { lazy, Suspense, useState } from 'react';
-import { Segmented } from '../../kit.tsx';
-import type { Json, Toast } from '../../types.ts';
+import { Segmented } from '../../shared/kit.tsx';
+import type { Json, Toast } from '../../shared/types.ts';
 
 const PanelOpsView = lazy(() => import('./PanelOpsView.tsx'));
 const BulkOperationsView = lazy(() => import('./BulkOperationsView.tsx'));

@@ -1,9 +1,9 @@
 // Dependency-free SVG/HTML chart primitives for the Reports screen. Colors come from --rc1..--rc8 (see styles.css),
 // text always wears text tokens (never the series color), every chart has an aria-label and a keyboard path.
 import { useId, useState } from 'react';
-import { dayLong, dayShort } from '../../charts.tsx';
+import { dayLong, dayShort } from '../../shared/charts.tsx';
 import { WEEKDAY_FA, WEEK_ORDER, donutSegments, fmt, fmtCompact, fmtPct, heatLevel, nf } from './reportsLogic.ts';
-import type { Json } from '../../types.ts';
+import type { Json } from '../../shared/types.ts';
 
 export const SERIES_COLORS = [
   'var(--rc1)',

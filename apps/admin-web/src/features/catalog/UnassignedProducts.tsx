@@ -1,7 +1,7 @@
 // Warning card on the bundles screen: products no bundle sells (GET /admin/bundle-products/unassigned).
 // Customers cannot buy them until an admin puts them in a bundle. Hidden when there are none.
 import { useEffect, useState } from 'react';
-import type { CallFn } from '../../types.ts';
+import type { CallFn } from '../../shared/types.ts';
 import { asList } from '../../app/adminHubTypes.ts';
 
 interface Unassigned {

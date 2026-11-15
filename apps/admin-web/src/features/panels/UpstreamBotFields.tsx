@@ -15,9 +15,9 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { CopyButton, Field, NumInput, Secret, Toggle, num } from '../../kit.tsx';
+import { CopyButton, Field, NumInput, Secret, Toggle, num } from '../../shared/kit.tsx';
 import { PRICE_PRESETS, UB_NUM, UB_RENEW, UB_TEXT, botLooksLikeBot, botUrl, ubBot } from './upstreamBot.ts';
-import type { Json } from '../../types.ts';
+import type { Json } from '../../shared/types.ts';
 
 export function UpstreamBotLink({ ub, setUb, error }: { ub?: Json; setUb?: Json; error?: Json }) {
   const bot = ubBot(ub),

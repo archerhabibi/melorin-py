@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Gift, Save } from 'lucide-react';
 import { unitOf, usePlanForm } from '@melorin/web-kit/referralPlan.js';
 import { useCall } from '../../api/api.ts';
-import { Empty, Field, Section, errText, num, useRows } from '../../kit.tsx';
-import type { Json, Rec, Toast } from '../../types.ts';
+import { Empty, Field, Section, errText, num, useRows } from '../../shared/kit.tsx';
+import type { Json, Rec, Toast } from '../../shared/types.ts';
 
 const KINDS = [
   ['signup_reward', 'پاداش اولین خرید معرفی‌شده', 'یک‌بار، در اولین خرید مشتریِ دعوت‌شده در همین فروشگاه.'],

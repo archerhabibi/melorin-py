@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Lock, Pencil } from 'lucide-react';
-import { dt } from '../../ui.tsx';
-import { focusOnMount } from '../../useDialog.ts';
+import { dt } from '../../shared/ui.tsx';
+import { focusOnMount } from '../../shared/useDialog.ts';
 import { MAX, timeOnly, initials } from './ticketsShared.tsx';
-import type { CallFn, Json } from '../../types.ts';
+import type { CallFn, Json } from '../../shared/types.ts';
 
 export const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 // Quick check before uploading; the server validates type, size and file signature again and has the last word.

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useCall } from '../api/api.ts';
 import { Plus, Search, X } from 'lucide-react';
-import { Badge, isStatus } from '../ui.tsx';
-import type { Json, Rec, Toast } from '../types.ts';
+import { Badge, isStatus } from '../shared/ui.tsx';
+import type { Json, Rec, Toast } from '../shared/types.ts';
 // Shared primitives of the Coupons and Settings screens (moved verbatim out of AdminExtra.tsx).
 export const money = (n: Json) => new Intl.NumberFormat('fa-IR').format(n || 0);
 export const box = 'card';

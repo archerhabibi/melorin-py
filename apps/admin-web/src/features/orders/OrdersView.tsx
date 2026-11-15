@@ -30,9 +30,9 @@ import {
   errText,
   tint,
   useRows,
-} from '../../kit.tsx';
+} from '../../shared/kit.tsx';
 import { typedClient } from '../../api/api.ts';
-import { Badge, confirmDialog, dt, promptDialog, sid } from '../../ui.tsx';
+import { Badge, confirmDialog, dt, promptDialog, sid } from '../../shared/ui.tsx';
 import {
   Cell2,
   DataGrid,
@@ -47,8 +47,8 @@ import {
   money,
   pageOf,
   useCall,
-} from '../../dataKit.tsx';
-import type { AdminOrderRow, Json, Rec, Toast } from '../../types.ts';
+} from '../../shared/dataKit.tsx';
+import type { AdminOrderRow, Json, Rec, Toast } from '../../shared/types.ts';
 
 const IN_PROGRESS = ['pending', 'payment_pending', 'paid', 'processing', 'provisioning'];
 const ATTENTION = ['provisioning_failed', 'manual_review', 'refund_pending', 'payment_failed'];

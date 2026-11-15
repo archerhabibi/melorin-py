@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import IdentityHubView from '../src/features/identity/IdentityHubView.tsx';
-import { DialogHost } from '../src/ui.tsx';
+import { DialogHost } from '../src/shared/ui.tsx';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
 const card = (id, name) => ({ id, display_name: name, email: `${name}@example.com`, orders: 1, providers: ['google'] });

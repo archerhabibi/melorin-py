@@ -4,8 +4,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useCall } from '../../api/api.ts';
 import { canWrite } from '../../app/adminAccess.ts';
-import { Switch } from '../../kit.tsx';
-import type { CallFn, Toast } from '../../types.ts';
+import { Switch } from '../../shared/kit.tsx';
+import type { CallFn, Toast } from '../../shared/types.ts';
 import { asList, errMessage } from '../../app/adminHubTypes.ts';
 import type { ErrorBody, HubApiProp, NoticeCfg, NoticeTextMeta, StoreRow } from '../../app/adminHubTypes.ts';
 

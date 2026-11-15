@@ -5,8 +5,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Info, Paintbrush, Plus, RotateCcw, Save, Send, Sparkles, Trash2 } from 'lucide-react';
 import { useCall } from '../../api/api.ts';
-import { Empty, ErrorBar, Field, Section, Switch, errText, num } from '../../kit.tsx';
-import { confirmDialog } from '../../ui.tsx';
+import { Empty, ErrorBar, Field, Section, Switch, errText, num } from '../../shared/kit.tsx';
+import { confirmDialog } from '../../shared/ui.tsx';
 import {
   SAMPLE_INLINE,
   SAMPLE_REPLY,
@@ -33,7 +33,7 @@ import type {
   RenderedButton,
   StyleName,
 } from './buttonStyles.ts';
-import type { Toast } from '../../types.ts';
+import type { Toast } from '../../shared/types.ts';
 
 const EMPTY: ButtonStyleConfig = { enabled: false, rules: [] };
 

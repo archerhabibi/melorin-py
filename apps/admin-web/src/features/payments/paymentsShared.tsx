@@ -4,9 +4,9 @@
 
 import { Coins, CreditCard, Globe, Landmark, Star, Wallet } from 'lucide-react';
 
-import { num, tint } from '../../kit.tsx';
-import { dt } from '../../ui.tsx';
-import type { Json, Rec, Toast } from '../../types.ts';
+import { num, tint } from '../../shared/kit.tsx';
+import { dt } from '../../shared/ui.tsx';
+import type { Json, Rec, Toast } from '../../shared/types.ts';
 
 export const PAGE = 15;
 export const REVIEWABLE = ['pending', 'review', 'receipt_submitted', 'awaiting_review'];

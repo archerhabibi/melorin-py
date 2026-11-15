@@ -1,13 +1,13 @@
-import { backdropProps } from '../useDialog.ts';
+import { backdropProps } from '../shared/useDialog.ts';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { LogOut, KeyRound, ChevronDown, UserRound } from 'lucide-react';
 import { getJson, typedClient } from '../api/api.ts';
 import { clearTokens } from '../api/auth.ts';
 import { googleSignOut } from '../features/auth/GoogleSignIn.tsx';
-import { label } from '../ui.tsx';
-import { useDialog } from '../useDialog.ts';
-import type { AdminMe, Json, Toast } from '../types.ts';
+import { label } from '../shared/ui.tsx';
+import { useDialog } from '../shared/useDialog.ts';
+import type { AdminMe, Json, Toast } from '../shared/types.ts';
 
 export const todayLabel = () =>
   new Intl.DateTimeFormat('fa-IR-u-ca-persian', {

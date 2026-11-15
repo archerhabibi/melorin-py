@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { typedClient } from '../../api/api.ts';
-import { PasswordInput } from '../../ui.tsx';
-import type { Json, Toast } from '../../types.ts';
+import { PasswordInput } from '../../shared/ui.tsx';
+import type { Json, Toast } from '../../shared/types.ts';
 import { box, inp, btn } from '../../app/adminExtraKit.tsx';
 
 const Field = ({ label, children }: { label?: Json; children?: ReactNode }) => (

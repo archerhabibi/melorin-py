@@ -1,9 +1,9 @@
 // Manual fix for an order stuck in provisioning_failed / manual_review: the account already exists on the panel,
 // so attach it to the order (POST /admin/orders/{id}/attach-account). The order completes with that account.
 import { useEffect, useState } from 'react';
-import { confirmDialog } from '../../ui.tsx';
-import { errText } from '../../kit.tsx';
-import type { CallFn } from '../../types.ts';
+import { confirmDialog } from '../../shared/ui.tsx';
+import { errText } from '../../shared/kit.tsx';
+import type { CallFn } from '../../shared/types.ts';
 import { asList, errMessage } from '../../app/adminHubTypes.ts';
 
 interface ServerRow {

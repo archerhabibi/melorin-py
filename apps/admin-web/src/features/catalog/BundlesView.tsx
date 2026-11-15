@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { confirmDialog } from '../../ui.tsx';
+import { confirmDialog } from '../../shared/ui.tsx';
 import { CheckCircle2, Layers, Plus, ShieldAlert } from 'lucide-react';
 import {
   Empty,
@@ -14,12 +14,12 @@ import {
   removeEntity,
   useAlive,
   useRows,
-} from '../../kit.tsx';
+} from '../../shared/kit.tsx';
 import { InfraChain, clearParam, memberIds, useHashParams, useInfra } from '../panel-operations/infra.tsx';
 import { API, groupIssue, GroupCard, GroupTable } from './bundles/BundleParts.tsx';
 import { GroupDrawer } from './bundles/BundleDrawer.tsx';
 import UnassignedProducts from './UnassignedProducts.tsx';
-import type { Json, Rec, Toast } from '../../types.ts';
+import type { Json, Rec, Toast } from '../../shared/types.ts';
 
 // A sales bundle is a SALES BUNDLE (بسته فروش): panels + connection kind + the packages it sells, each with
 // its own price. Customers pick a bundle, so the bundle is the only way an account gets sold; there is no
