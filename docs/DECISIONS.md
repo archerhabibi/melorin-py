@@ -244,3 +244,7 @@ Source: `Melorin_Architecture_Admin_Audit.md` (the project has never been releas
 - Large backend files split behind unchanged facades (`payments.bank_sms` package, `loyalty.service`, `referral.service`, `reports.analytics`). Public names, worker patch points and API contracts are unchanged. `upstream_bot/adapter.py` is intentionally left whole (ordered bot protocol).
 - Dead code removed (unreferenced functions, schemas and admin-web exports). Backend modules are kept.
 - admin-web moved to `app/`, `api/`, `features/*` (pure moves). `docs/AUDIT-R18-STATUS.md` is the live audit status and debt register; `docs/AUDIT-2026-11-15.md` is historical.
+
+## r19 - audit leftovers (branch refactor/audit-r19-impl)
+- `upstream_bot/adapter.py`: defaults moved to `config.py`, mapping store and chat lock to `state.py` (the test patch point is now `upstream_bot.state`). Flows deliberately stay in one class.
+- admin-web: shared kit/ui/charts/theme/types/useDialog moved to `src/shared/` (pure move, imports rewritten, tsc/eslint/vitest green).
