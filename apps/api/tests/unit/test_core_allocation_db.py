@@ -11,7 +11,8 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 import melorin.models  # noqa: F401  (registers every table)
 from melorin.core.db import Base
 from melorin.core.errors import AppError
-from melorin.modules.admin.router import create_product, update_bundle, update_product
+from melorin.modules.admin.products import create_product, update_product
+from melorin.modules.admin.bundles import update_bundle
 from melorin.modules.admin.schemas import CreateProduct, ProductPatch, UpdateBundle
 from melorin.kernel.models.catalog import Product
 from melorin.kernel.models.system import AuditEvent

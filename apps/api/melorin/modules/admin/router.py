@@ -73,36 +73,3 @@ for _family in (
     button_styles_router,
 ):
     router.routes.extend(_family.routes)
-
-
-# Backward-compatible attribute access (``from melorin.modules.admin.router import create_product``) for callers
-# and tests written before the split. New code should import from the family module directly.
-_FAMILIES = (
-    "admins",
-    "overview",
-    "products",
-    "panels",
-    "bundles",
-    "payments",
-    "orders",
-    "directory",
-    "tickets",
-    "reseller_applications",
-    "manual_tasks",
-    "settings",
-    "coupons",
-    "identity_reviews",
-    "identity_auto",
-    "button_styles",
-    "_common",
-)
-
-
-def __getattr__(name: str):
-    import importlib
-
-    for family in _FAMILIES:
-        module = importlib.import_module(f"melorin.modules.admin.{family}")
-        if name in vars(module):
-            return getattr(module, name)
-    raise AttributeError(name)

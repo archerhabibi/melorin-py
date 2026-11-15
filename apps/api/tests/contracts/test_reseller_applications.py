@@ -13,7 +13,7 @@ import melorin.models  # noqa: F401
 from melorin.core.crypto import decrypt
 from melorin.core.db import Base
 from melorin.core.errors import AppError
-from melorin.modules.admin.router import applications, review_application, verify_application_bot
+from melorin.modules.admin.reseller_applications import applications, review_application, verify_application_bot
 from melorin.modules.admin.schemas import ResellerApproval
 from melorin.kernel.models.identity import User
 from melorin.modules.reseller import identity

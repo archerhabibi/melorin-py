@@ -203,3 +203,8 @@ Source: `Melorin_Architecture_Admin_Audit.md` (the project has never been releas
 - **Decision:** orders, identity and reseller are now inside the mypy gate. 9 files (14 at first; 4 cleaned in r13d via crypto overloads, orders payment in r13e with None-guard tests) that still carry Optional-narrowing errors (61 in total, mostly session.get() results used without a None check, in payment/provisioning/identity-merge paths) sit in an ignore_errors override list.
 - **Why a ratchet and not a mass fix:** these are money and provisioning paths; a blind assert or default value could change behaviour. Each file is cleaned together with a test that proves the None case, then removed from the list.
 - **Rule:** the list may only shrink. tests/contracts/test_mypy_ratchet.py fails if it grows.
+
+## r14 - audit follow-up (branch `refactor/audit-pre-release-r14`)
+- `modules/admin/router.py` is now only the composition root: the `__getattr__` re-export shim is removed and every test imports from the owning route module.
+- Pure moves (no logic change): `PanelAdminsView` -> `panelAdminsShared`, `PanelAdminDrawer`, `PanelRequestDrawer`; `TicketConversation` -> `TicketBubble`, `TicketComposer`; `UpstreamBotFields` -> `UpstreamFlowParts`; `kit.tsx` -> `kitFormat`, `kitDisplay`, `kitFilters`, `kitOverlays` (re-exported from `kit.tsx`).
+- Still open: retire `/admin/reports/summary` and `/timeseries` into the analytics contract; widen mypy to payments; a limited support permission for bulk panel operations (product decision).
