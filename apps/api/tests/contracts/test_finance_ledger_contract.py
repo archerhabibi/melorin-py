@@ -11,7 +11,7 @@ def test_ledger_insert_handles_concurrent_idempotency_race():
 
 
 def test_sales_summary_is_currency_grouped():
-    source = read_source(Path(__file__).parents[2].joinpath("melorin", "modules", "admin", "router.py"))
+    source = read_source(Path(__file__).parents[2].joinpath("melorin", "modules", "reports", "summary.py"))
     assert "Payment.currency" in source
     assert "group_by(Payment.currency)" in source
     assert "currency_safe" in source

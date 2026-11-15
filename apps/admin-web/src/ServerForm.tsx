@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { AlertTriangle, ChevronDown, Layers, MapPin, Plus, RefreshCw, Save, Server, Upload } from 'lucide-react';
-import { authFetch } from './api.ts';
+import { typedClient } from './api.ts';
 import { Badge, dt, sid } from './ui.tsx';
 import {
   Drawer,
@@ -168,9 +168,7 @@ export function ServerForm({
       return;
     }
     const now = payload(f);
-    let body: Json = now,
-      url = '/api/v1/admin/servers',
-      method = 'POST';
+    let body: Json = now;
     if (edit) {
       const was: Rec = payload(fromServer(server));
       body = Object.fromEntries(Object.entries(now).filter(([k, v]) => JSON.stringify(v) !== JSON.stringify(was[k])));
@@ -178,15 +176,18 @@ export function ServerForm({
         onClose();
         return;
       }
-      url = `/api/v1/admin/servers/${server.id}`;
-      method = 'PATCH';
     }
     setBusy(true);
     setSrvErr('');
     try {
-      const r = await authFetch(api.base, url, { method, body: JSON.stringify(body) });
+      const client = typedClient(api.base);
+      const { response: r, error } = edit
+        ? await client.patch('/api/v1/admin/servers/{server_id}', { params: { path: { server_id: server.id } }, body })
+        : await client.post('/api/v1/admin/servers', { body });
       if (!r.ok) {
-        setSrvErr(await errText(r, edit ? 'ذخیره تغییرات ناموفق بود' : 'ثبت مقصد ناموفق بود'));
+        setSrvErr(
+          await errText({ json: async () => error }, edit ? 'ذخیره تغییرات ناموفق بود' : 'ثبت مقصد ناموفق بود'),
+        );
         return;
       }
       toast(edit ? 'تغییرات مقصد ذخیره شد' : 'مقصد ثبت شد');
@@ -496,18 +497,18 @@ export function ServerImport({
       fail: string[] = [];
     for (const r of good) {
       try {
-        const res = await authFetch(api.base, '/api/v1/admin/servers', {
-          method: 'POST',
-          body: JSON.stringify({
+        const { response: res, error } = await typedClient(api.base).post('/api/v1/admin/servers', {
+          body: {
             name: r.name,
             location: r.location || null,
             capacity: r.capacity,
             product_codes: r.product_codes.length ? r.product_codes : null,
             panel_id: panel.id,
-          }),
+            allow_test: true, // the server default; the generated type marks it required
+          },
         });
         if (res.ok) ok++;
-        else fail.push(`${r.name}: ${await errText(res, 'ناموفق')}`);
+        else fail.push(`${r.name}: ${await errText({ json: async () => error }, 'ناموفق')}`);
       } catch {
         fail.push(`${r.name}: ارتباط برقرار نشد`);
       }

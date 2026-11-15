@@ -14,7 +14,7 @@ import {
   Trash2,
   Unplug,
 } from 'lucide-react';
-import { authFetch } from './api.ts';
+import { useCall } from './api.ts';
 import { PasswordInput, confirmDialog, dt } from './ui.tsx';
 import {
   Drawer,
@@ -449,7 +449,7 @@ function Editor({
 }
 
 export default function ResellersView({ api, toast }: { api?: Json; toast: Toast }) {
-  const call = (p: Json, o = {}) => authFetch(api.base, p, o);
+  const call = useCall(api);
   const { rows, failed, load } = useRows(call, '/api/v1/admin/resellers');
   const [filter, setFilter] = useState('all');
   const [q, setQ] = useState('');

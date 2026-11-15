@@ -14,7 +14,6 @@ export const SECTION_AREA: Record<string, string> = {
   فروشگاه‌ها: 'resellers',
   نمایندگان: 'resellers',
   'درخواست‌های نمایندگی': 'resellers',
-  'کارهای دستی': 'customers',
   'پیام همگانی': 'customers',
   'مرکز رویداد': 'customers',
   کوپن‌ها: 'catalog',

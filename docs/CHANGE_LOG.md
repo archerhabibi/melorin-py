@@ -21,6 +21,13 @@ If `main` is protected, allow `github-actions[bot]` to bypass so the bot can pus
 
 > Entries before 2026-11-09 were archived (T-R12) and live in git tag `changelog-archive-2026-11-09` (`git show changelog-archive-2026-11-09:docs/CHANGE_LOG.md`), per DOCUMENTATION-POLICY.
 
+## 2026-11-15 - Pre-release audit: menu regroup, migrate service, web-kit lockfile
+- **Area:** admin-web / compose / ci / docs
+- **Before:** bulk panel operations sat under sales operations, manual tasks and Telegram buttons had menus that did not match their owner or permission, compose could start API/worker before the schema existed, web-kit had no lockfile.
+- **Problem:** confusing admin menu and a fragile first start on a clean server, found by the architecture audit.
+- **Action:** menu regrouped by job; manual tasks became the tab "اقدامات تکمیلی" of reseller applications; Telegram buttons moved to system settings; one-shot `migrate` compose service gating api/worker/backup; web-kit lockfile + CI audit; authFetch ratchet; two vulture false positives made explicit. Details: `docs/DECISIONS.md` (r13).
+- **After:** fresh `docker compose up -d` migrates first; the menu mirrors the permission model. API behaviour is unchanged.
+
 ## 2026-11-12 - Admin team: invite admins with roles to the web panel
 - **Area:** api / admin-web / identity / docs
 - **Before:** every admin-panel user was all-powerful and the only way to add one was the CLI bootstrap; there was no role, no invitation and no way to take access away.

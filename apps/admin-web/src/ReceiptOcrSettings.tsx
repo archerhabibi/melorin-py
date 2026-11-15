@@ -5,7 +5,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, Check, ChevronDown, Cpu, Eye, FlaskConical, Power, ScanText, Sparkles } from 'lucide-react';
-import { authFetch } from './api.ts';
+import { settled, typedClient } from './api.ts';
 import { Field, Secret } from './kit.tsx';
 import type { Json, Rec, Toast } from './types.ts';
 
@@ -83,7 +83,6 @@ function Pipeline() {
 }
 
 export default function ReceiptOcrSettings({ api, toast }: { api?: Json; toast: Toast }) {
-  const call = useCallback((p: Json, o = {}) => authFetch(api.base, p, o), [api.base]);
   const [cfg, setCfg] = useState<Json>(null);
   const [form, setForm] = useState<Json>(null);
   const [keyInput, setKeyInput] = useState('');
@@ -105,11 +104,12 @@ export default function ReceiptOcrSettings({ api, toast }: { api?: Json; toast: 
   }, []);
   const load = useCallback(
     () =>
-      call('/api/v1/admin/integrations')
-        .then((r) => (r.ok ? r.json() : Promise.reject()))
+      typedClient(api.base)
+        .get('/api/v1/admin/integrations')
+        .then(({ response: r, data }) => (r.ok ? (data as Json) : Promise.reject()))
         .then((d) => apply(d.receipt_ocr))
         .catch(() => toast('دریافت تنظیمات خواندن رسید ناموفق بود')),
-    [apply, call, toast],
+    [apply, api.base, toast],
   );
   useEffect(() => {
     load();
@@ -142,8 +142,7 @@ export default function ReceiptOcrSettings({ api, toast }: { api?: Json; toast: 
     if (keyInput) body.api_key = keyInput.trim();
     else if (clearKey) body.api_key = '';
     try {
-      const r = await call('/api/v1/admin/integrations/receipt-ocr', { method: 'PUT', body: JSON.stringify(body) });
-      const d = await r.json().catch(() => ({}));
+      const { r, d } = settled(await typedClient(api.base).put('/api/v1/admin/integrations/receipt-ocr', { body }));
       if (!r.ok) return toast(d?.error?.message || 'ذخیره ناموفق بود');
       toast('تنظیمات خواندن رسید ذخیره شد');
       apply(d);
@@ -157,8 +156,9 @@ export default function ReceiptOcrSettings({ api, toast }: { api?: Json; toast: 
   const runTest = async () => {
     setBusy('test');
     try {
-      const r = await call('/api/v1/admin/integrations/receipt-ocr/test', { method: 'POST', body: '{}' });
-      const d = await r.json().catch(() => ({}));
+      const { r, d } = settled(
+        await typedClient(api.base).post('/api/v1/admin/integrations/receipt-ocr/test', { body: {} }),
+      );
       setTest(r.ok ? d : { ok: false, error: d?.error?.message || 'آزمایش انجام نشد' });
     } catch {
       setTest({ ok: false, error: 'ارتباط با سرور برقرار نشد' });

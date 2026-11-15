@@ -2,7 +2,7 @@
 // Core alerts every admin (panel + Telegram) when a task appears; the admin ticks it here once it is done.
 import { useState } from 'react';
 import { CheckCircle2, ClipboardCopy, Clock, ListChecks, RotateCcw } from 'lucide-react';
-import { authFetch } from './api.ts';
+import { useCall } from './api.ts';
 import { dt } from './ui.tsx';
 import { Empty, ErrorBar, KpiBar, Pills, Stat, errText, useRows } from './kit.tsx';
 import type { Json, Toast } from './types.ts';
@@ -67,7 +67,7 @@ function TaskCard({
 }
 
 export default function ManualTasksView({ api, toast }: { api?: Json; toast: Toast }) {
-  const call = (p: Json, o = {}) => authFetch(api.base, p, o);
+  const call = useCall(api);
   const { rows, failed, load } = useRows(call, '/api/v1/admin/manual-tasks?status=all');
   const [filter, setFilter] = useState('open');
   const [busy, setBusy] = useState(false);

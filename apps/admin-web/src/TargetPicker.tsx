@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Layers, RefreshCw, Wand2 } from 'lucide-react';
-import { authFetch } from './api.ts';
+import { typedClient } from './api.ts';
 import { Drawer, Field, NumInput, Section, Segmented, Toggle, errText, num, tint } from './kit.tsx';
 import { capacityLabel, targetKind } from './targets.ts';
 import type { Json, Rec, Toast } from './types.ts';
@@ -17,11 +17,17 @@ export function usePanelTargets(api: Json, panelId: Json) {
     if (!panelId) return undefined;
     let live = true;
     setSt((x) => ({ ...x, loading: true, error: '' }));
-    authFetch(api.base, `/api/v1/admin/panels/${panelId}/targets`)
-      .then(async (r) => {
+    typedClient(api.base)
+      .get('/api/v1/admin/panels/{panel_id}/targets', { params: { path: { panel_id: panelId } } })
+      .then(async ({ response: r, data, error }) => {
         if (!live) return;
-        if (r.ok) setSt({ loading: false, data: await r.json(), error: '' });
-        else setSt({ loading: false, data: null, error: await errText(r, 'فهرست مقصدها از پنل خوانده نشد') });
+        if (r.ok) setSt({ loading: false, data: data as never, error: '' });
+        else
+          setSt({
+            loading: false,
+            data: null,
+            error: await errText({ json: async () => error }, 'فهرست مقصدها از پنل خوانده نشد'),
+          });
       })
       .catch(() => live && setSt({ loading: false, data: null, error: 'ارتباط با سرور برقرار نشد' }));
     return () => {
@@ -218,18 +224,22 @@ export function TargetWizard({
     try {
       const body = {
         kind,
-        ids: picked,
+        ids: picked.map(Number),
         capacity,
         allow_test: allowTest,
-        ...(kind === 'inbound' ? { group_as_one: asOne } : {}),
+        group_as_one: kind === 'inbound' ? asOne : false, // false is the server default; the generated type marks it required
         ...(kind === 'template' ? { limits_from: limitsFrom } : {}),
       };
-      const r = await authFetch(api.base, `/api/v1/admin/panels/${panel.id}/servers/from-targets`, {
-        method: 'POST',
-        body: JSON.stringify(body),
+      const {
+        response: r,
+        data,
+        error,
+      } = await typedClient(api.base).post('/api/v1/admin/panels/{panel_id}/servers/from-targets', {
+        params: { path: { panel_id: panel.id } },
+        body,
       });
-      if (!r.ok) return setMsg(await errText(r, 'ساخت مقصدها ناموفق بود'));
-      const out = await r.json();
+      if (!r.ok) return setMsg(await errText({ json: async () => error }, 'ساخت مقصدها ناموفق بود'));
+      const out = data as { created: unknown[]; skipped: unknown[] };
       toast(
         `${num(out.created.length)} مقصد ساخته شد${out.skipped.length ? ` · ${num(out.skipped.length)} مورد قبلاً وجود داشت` : ''}`,
       );

@@ -43,7 +43,7 @@ async def topup(
 @router.get("/stores/{store_id}/payments", response_model=list[PaymentOut])
 async def my_payments(ctx: StoreCtx, session: Session):
     """Only the caller's own payments / top-ups of THIS store."""
-    rows = await queries.recent_for_scope(session, StoreScope.of(ctx).where(Payment))
+    rows = await queries.recent_for_scope(session, list(StoreScope.of(ctx).where(Payment)))
     return [payment_out(p) for p in rows]
 
 
@@ -74,19 +74,19 @@ async def upload_receipt(
     p = await StoreScope.of(ctx).get(session, Payment, payment_id, "پرداخت")
     typed = bank_sms.parse_claim(paid_at, reference, source_card_last4)
     limit = get_settings().max_upload_bytes
-    data = bytearray()
+    buf = bytearray()
     while chunk := await file.read(1024 * 1024):
-        data.extend(chunk)
-        if len(data) > limit:
+        buf.extend(chunk)
+        if len(buf) > limit:
             raise AppError("FILE_TOO_LARGE", "حجم فایل زیاد است.", 413)
-    data = bytes(data)
+    data = bytes(buf)
     digest = validate_upload(data, file.content_type or "")
     matches = await receipt_fingerprints.find_matches(session, sha256=digest, file_unique_id=file_unique_id, exclude_payment_id=p.id)
     receipt_fingerprints.reject_if_blocked(await receipt_fingerprints.get_policy(session, p.store_id), matches)
     ocr_cfg = receipt_ocr.resolve(await integrations.get_receipt_ocr(session))
     facts, engine = await receipt_ocr.read_receipt(data, file.content_type or "", ocr_cfg)
     claim = bank_sms.build_claim(typed, facts, engine)
-    key = await get_storage().put(data, file.content_type)
+    key = await get_storage().put(data, file.content_type or "")
     fo = FileObject(
         owner_user_id=user.id,
         store_id=p.store_id,
@@ -159,7 +159,7 @@ async def _handle_payment_callback(provider: str, request: Request, session: Ses
     params = dict(request.query_params)
     if request.method == "POST":
         try:
-            params.update(dict(await request.form()))
+            params.update({k: v for k, v in (await request.form()).items() if isinstance(v, str)})
         except Exception:
             # A gateway may POST an empty or non-form body; the query string still carries the callback fields.
             # Never log the body: it can contain payment authority/token values.

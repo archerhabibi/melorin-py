@@ -107,7 +107,9 @@ def test_every_compose_service_is_memory_capped_within_budget():
     guard = _load_guard()
     compose = yaml.safe_load((ROOT / "docker-compose.yml").read_text())
     assert guard.memory_problems(compose) == []
-    total = sum(guard._mib(s["mem_limit"]) for s in compose["services"].values())
+    total = sum(
+        guard._mib(s["mem_limit"]) for s in compose["services"].values() if str(s.get("restart", "")) != "no"
+    )  # the one-shot migrate service has exited before the rest start
     assert total == guard.MEMORY_BUDGET_MIB == 3584
     assert "3584 MiB" in (ROOT / "docs/RUNBOOK.md").read_text()
 
@@ -147,8 +149,8 @@ def test_built_services_use_registry_aware_image_names():
     compose = (ROOT / "docker-compose.yml").read_text()
     for name in ("api", "store-web", "admin-web", "telegram-main", "telegram-reseller"):
         assert f"${{MELORIN_IMAGE_REGISTRY:-melorin}}/{name}:${{MELORIN_IMAGE_TAG:-local}}" in compose, name
-    # api, worker and backup share one image; every service that has a build: also has the image: line right above it
-    assert len(re.findall(r"image: \$\{MELORIN_IMAGE_REGISTRY", compose)) == len(re.findall(r"^    build:$", compose, re.M)) == 7
+    # api, migrate, worker and backup share one image; every service that has a build: also has the image: line right above it
+    assert len(re.findall(r"image: \$\{MELORIN_IMAGE_REGISTRY", compose)) == len(re.findall(r"^    build:$", compose, re.M)) == 8
 
 
 def test_deploy_workflow_builds_images_before_deploying_and_deploys_the_prepared_sha():

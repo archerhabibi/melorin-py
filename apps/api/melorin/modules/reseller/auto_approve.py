@@ -77,7 +77,7 @@ async def try_approve(session: AsyncSession, a: ResellerApplication) -> bool:
         if await blockers(session, a):
             return False
         await identity.ensure_identity_free(
-            session, domain=a.domain, bot_key=a.bot_key, bot_username=a.bot_username, exclude_application_id=a.id
+            session, domain=a.domain or "", bot_key=a.bot_key or "", bot_username=a.bot_username, exclude_application_id=a.id
         )
         target = await session.get(Store, a.target_store_id)
         limit = max(0, int(get_settings().reseller_auto_approve_debt_limit))

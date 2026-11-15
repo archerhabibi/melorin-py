@@ -16,7 +16,7 @@ from melorin.kernel.models.identity import Identity, User
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.system import AuditEvent, FileObject, OutboxEvent
 from melorin.kernel.models.tickets import Ticket, TicketMessage
-from melorin.modules.admin import router as admin
+from melorin.modules.admin import tickets as admin_tickets
 from melorin.modules.tickets import router as customer
 from melorin.modules.tickets.schemas import AddMessage, AdminAddMessage, CreateTicket
 
@@ -135,20 +135,20 @@ async def test_only_ticket_owner_and_staff_can_download(world):
     msg = await customer.add_message(world.t.id, AddMessage(attachment_id=att.id), world.cust_auth, world.s)
     with pytest.raises(AppError):
         await customer.message_attachment(world.t.id, msg.id, world.other_auth, world.s)
-    resp = await admin.ticket_message_attachment(world.t.id, msg.id, world.staff, world.s)
+    resp = await admin_tickets.ticket_message_attachment(world.t.id, msg.id, world.staff, world.s)
     assert resp.body == PNG
 
 
 async def test_staff_reply_with_picture_notifies_customer_and_internal_note_stays_hidden(world):
-    att = await admin.ticket_upload_attachment(world.staff, world.s, upload(PNG, "image/png"))
-    out = await admin.ticket_reply(world.t.id, AdminAddMessage(attachment_id=att.id), world.staff, world.s)
+    att = await admin_tickets.ticket_upload_attachment(world.staff, world.s, upload(PNG, "image/png"))
+    out = await admin_tickets.ticket_reply(world.t.id, AdminAddMessage(attachment_id=att.id), world.staff, world.s)
     assert out["body"] == "" and out["attachment_id"] == str(att.id)
-    rows = await admin.tickets(world.staff, world.s, status=None, priority=None, store_id=None, q=None)
+    rows = await admin_tickets.tickets(world.staff, world.s, status=None, priority=None, store_id=None, q=None)
     assert rows[0]["last_message"] == "📎 تصویر"
     shown = await customer.message_attachment(world.t.id, uuid.UUID(out["id"]), world.cust_auth, world.s)
     assert shown.body == PNG
-    note_att = await admin.ticket_upload_attachment(world.staff, world.s, upload(JPEG, "image/jpeg"))
-    note = await admin.ticket_reply(
+    note_att = await admin_tickets.ticket_upload_attachment(world.staff, world.s, upload(JPEG, "image/jpeg"))
+    note = await admin_tickets.ticket_reply(
         world.t.id, AdminAddMessage(body="داخلی", internal=True, attachment_id=note_att.id), world.staff, world.s
     )
     with pytest.raises(AppError):  # a staff-only note's picture is never served to the customer

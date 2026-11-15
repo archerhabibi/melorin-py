@@ -55,7 +55,7 @@ describe('store hub is the single entry point', () => {
   it('identity sits in the customers group, not in system', () => {
     const src = readFileSync('src/adminNav.ts', 'utf8');
     const grp = (name) => src.split(`'${name}',`)[1].split('\n  ],\n')[0];
-    expect(grp('مشتریان و فروشگاه‌ها')).toContain("'identity'");
+    expect(grp('مشتریان')).toContain("'identity'");
     expect(grp('سیستم و امنیت')).not.toContain("'identity'");
   });
 });

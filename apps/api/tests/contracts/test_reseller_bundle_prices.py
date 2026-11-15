@@ -20,7 +20,7 @@ from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from melorin.core.db import Base
 from melorin.core.errors import AppError
-from melorin.modules.admin import router as admin
+from melorin.modules.admin import bundles as admin_bundles
 from melorin.modules.catalog import service as catalog
 from melorin.kernel.models.catalog import Product, StoreBundlePrice, StoreProduct
 from melorin.modules.reseller import router as reseller_router
@@ -328,7 +328,7 @@ async def test_removing_a_package_from_a_bundle_drops_the_resellers_price_for_it
     st, p, cheap, dear = await world(session)
     await allocation.set_bundle_price(session, st, dear.id, p.id, 50000)
     await allocation.set_bundle_price(session, st, cheap.id, p.id, 25000)
-    await admin.remove_bundle_product(dear.id, p.id, ADMIN, session)
+    await admin_bundles.remove_bundle_product(dear.id, p.id, ADMIN, session)
     assert await allocation.store_bundle_prices(session, st.id) == {(cheap.id, p.id): 25000}
 
 

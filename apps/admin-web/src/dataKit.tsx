@@ -4,20 +4,13 @@ import type { ReactNode } from 'react';
 // table → detail drawer, with the same loading / empty / error / pagination states.
 import { useEffect, useMemo, useState } from 'react';
 import { Check, ChevronLeft, Copy, Download, RefreshCw } from 'lucide-react';
-import { authFetch } from './api.ts';
+import { useCall } from './api.ts';
 import { num } from './kit.tsx';
 import type { Json, Rec } from './types.ts';
 
 export const PAGE_SIZE = 20;
 
-/** Stable authFetch bound to the API base. */
-export const useCall = (api: Json) =>
-  useMemo(
-    () =>
-      (p: Json, o = {}) =>
-        authFetch(api.base, p, o),
-    [api.base],
-  );
+export { useCall }; // one shared hook (api.ts): stable (path, init) => Response bound to the API base
 
 /** Debounced copy of a fast-changing value (search boxes). */
 export function useDebounced(value: Json, ms = 300) {

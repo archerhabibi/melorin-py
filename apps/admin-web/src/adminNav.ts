@@ -19,7 +19,6 @@ import {
   Store,
   Layers,
   UserRound,
-  ListChecks,
   BellRing,
   Megaphone,
   UserPlus,
@@ -40,23 +39,26 @@ export const groups: [string, [string, LucideIcon, string][], string?][] = [
     ],
   ],
   [
-    'عملیات',
+    'فروش و عملیات',
     [
       ['سفارش‌ها', Package, 'orders'],
       ['پرداخت‌ها', CreditCard, 'payments'],
       ['اکانت‌های VPN', Server, 'vpn'],
-      ['عملیات گروهی روی پنل', Zap, 'bulk-operations'], // acts on VPN accounts, so it sits next to them
       ['تیکت‌ها', Ticket, 'tickets'],
     ],
   ],
   [
-    'مشتریان و فروشگاه‌ها',
+    'مشتریان',
     [
       ['کاربران', Users, 'users'],
       ['هویت', Fingerprint, 'identity'], // customer identity review / auto-link / trusted devices
-      ['فروشگاه‌ها', Store, 'stores'],
-      ['درخواست‌های نمایندگی', UserPlus, 'reseller-applications'],
-      ['کارهای دستی', ListChecks, 'manual-tasks'],
+    ],
+  ],
+  [
+    'فروشگاه‌ها و نمایندگان',
+    [
+      ['فروشگاه‌ها', Store, 'stores'], // the store hub: profile, panel access, volume, prices, API, notices, bots
+      ['درخواست‌های نمایندگی', UserPlus, 'reseller-applications'], // + tab «اقدامات تکمیلی» (former «کارهای دستی»)
     ],
   ],
   [
@@ -71,25 +73,26 @@ export const groups: [string, [string, LucideIcon, string][], string?][] = [
     'مسیر فروش: پنل و سرور ← بسته فروش ← پکیج',
   ],
   [
-    'ارتباطات',
-    [
-      ['پیام همگانی', Megaphone, 'broadcasts'],
-      ['مرکز رویداد', BellRing, 'event-center'],
-      ['دکمه‌های تلگرام', Paintbrush, 'button-styles'],
-    ],
-  ],
-  [
-    'زیرساخت',
+    'زیرساخت و عملیات پنل',
     [
       ['پنل‌ها و سرورها', PanelTop, 'panels'],
       ['سلامت زیرساخت', ShieldCheck, 'infra-health'],
       ['عملیات پنل', Activity, 'panel-ops'],
+      ['عملیات گروهی روی پنل', Zap, 'bulk-operations'], // infrastructure permission, previews + resumable runs on a panel
+    ],
+  ],
+  [
+    'ارتباطات',
+    [
+      ['پیام همگانی', Megaphone, 'broadcasts'],
+      ['مرکز رویداد', BellRing, 'event-center'],
     ],
   ],
   [
     'سیستم و امنیت',
     [
       ['تنظیمات', Settings, 'settings'],
+      ['دکمه‌های تلگرام', Paintbrush, 'button-styles'], // «system» permission (owner), so it lives with the owner-only settings
       ['ممیزی', ScrollText, 'audit'],
       ['تیم مدیریت', UsersRound, 'admin-team'],
       ['حساب من', UserRound, 'my-account'],

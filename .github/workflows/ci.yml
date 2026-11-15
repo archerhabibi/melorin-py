@@ -97,6 +97,11 @@ jobs:
         working-directory: apps/admin-web
       - run: python scripts/check_bundle_budget.py
         working-directory: .
+      # Shared web-kit now has a lockfile (audit 8.3): reproducible install + production-dependency audit.
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: packages/web-kit
+      - run: npm audit --omit=dev --audit-level=high
+        working-directory: packages/web-kit
       # Generated API client: types must match the committed OpenAPI snapshot, compile, and pass unit tests.
       - run: npm ci --include=dev --ignore-scripts --no-audit --no-fund
         working-directory: packages/api-client

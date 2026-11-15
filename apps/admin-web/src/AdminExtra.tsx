@@ -1,5 +1,5 @@
 import { lazy } from 'react';
-import { authFetch } from './api.ts';
+import { useCall } from './api.ts';
 import type { Json, Toast, ViewApi } from './types.ts';
 import { ChangeAdminPassword } from './ChangeAdminPassword.tsx';
 const ReportsView = lazy(() => import('./ReportsView.tsx'));
@@ -11,8 +11,7 @@ const ProductsView = lazy(() => import('./ProductsView.tsx'));
 const BundlesView = lazy(() => import('./BundlesView.tsx'));
 const TicketsView = lazy(() => import('./TicketsView.tsx'));
 const PaymentsView = lazy(() => import('./PaymentsView.tsx'));
-const ResellerApplicationsView = lazy(() => import('./ResellerApplicationsView.tsx'));
-const ManualTasksView = lazy(() => import('./ManualTasksView.tsx'));
+const ResellerOnboardingView = lazy(() => import('./ResellerOnboardingView.tsx'));
 const BroadcastView = lazy(() => import('./BroadcastView.tsx'));
 const ButtonStylesView = lazy(() => import('./ButtonStylesView.tsx'));
 const EventCenterView = lazy(() => import('./EventCenterView.tsx'));
@@ -38,14 +37,13 @@ function MyAccount({ api, toast }: { api: ViewApi; toast: Toast }) {
 }
 
 function Tickets({ api, toast }: { api?: Json; toast: Toast }) {
-  const call = (p: Json, o = {}) => authFetch(api.base, p, o);
+  const call = useCall(api);
   return <TicketsView call={call} toast={toast} />;
 }
 
 export const extraRoutes = {
   'گزارشات و نمودارها': ReportsView,
-  'درخواست‌های نمایندگی': ResellerApplicationsView,
-  'کارهای دستی': ManualTasksView,
+  'درخواست‌های نمایندگی': ResellerOnboardingView, // + tab «اقدامات تکمیلی» (the old «کارهای دستی» screen)
   'پیام همگانی': BroadcastView,
   'دکمه‌های تلگرام': ButtonStylesView,
   'مرکز رویداد': EventCenterView,

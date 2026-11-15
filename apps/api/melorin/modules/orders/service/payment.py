@@ -20,6 +20,8 @@ async def pay_with_wallet(session: AsyncSession, order: Order, store: Store | No
     Both the customer balance and the reseller debt limit are checked under row locks BEFORE any debit.
     """
     store = store or await session.get(Store, order.store_id)
+    if store is None:
+        raise AppError("STORE_NOT_FOUND", "فروشگاه سفارش پیدا نشد.", 404)
     cust = await wallet.get_wallet(session, order.user_id, store.id, currency=order.currency)
     profile = None
     res_w = None
@@ -31,11 +33,16 @@ async def pay_with_wallet(session: AsyncSession, order: Order, store: Store | No
             raise AppError("RESELLER_SALES_DISABLED", "فروش این فروشگاه غیرفعال است.", 403)
         main = main or await main_store(session)
         # The owner's ordinary Main Store wallet doubles as the reseller account: it may dip to -debt_limit.
+        if store.owner_user_id is None:  # a reseller store always has an owner; never debit an unowned account
+            raise AppError("STORE_OWNER_MISSING", "مالک فروشگاه نماینده مشخص نیست.", 409)
         res_w = await wallet.get_wallet(session, store.owner_user_id, main.id, currency=res_currency)
         to_lock.append(res_w)
     await wallet.lock_wallets(session, to_lock)
-    if res_w is not None and not debt.can_afford(res_w.balance, order.reseller_cost, profile.debt_limit):
-        raise ResellerDebtLimitReached(store.id)
+    reseller_cost = order.reseller_cost or 0
+    if res_w is not None:
+        assert profile is not None  # set together with res_w above
+        if not debt.can_afford(res_w.balance, reseller_cost, profile.debt_limit):
+            raise ResellerDebtLimitReached(store.id)
     if cust.balance < order.total:
         raise AppError(
             "INSUFFICIENT_FUNDS",
@@ -58,6 +65,7 @@ async def pay_with_wallet(session: AsyncSession, order: Order, store: Store | No
             memo=f"سفارش {order.number}",
         )
     if res_w is not None:
+        assert profile is not None and main is not None
         await wallet.post(
             session,
             kind="reseller_cost",
@@ -66,8 +74,8 @@ async def pay_with_wallet(session: AsyncSession, order: Order, store: Store | No
             store_id=main.id,
             order_id=order.id,
             postings=[
-                wallet.Posting(-order.reseller_cost, wallet=res_w, min_balance=debt.min_balance(profile.debt_limit)),
-                wallet.Posting(order.reseller_cost, account=wallet.acc_revenue(main.id)),
+                wallet.Posting(-reseller_cost, wallet=res_w, min_balance=debt.min_balance(profile.debt_limit)),
+                wallet.Posting(reseller_cost, account=wallet.acc_revenue(main.id)),
             ],
             memo=f"هزینه نمایندگی سفارش {order.number}",
         )

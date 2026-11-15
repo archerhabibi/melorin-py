@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Clock, Download, RefreshCw, ShieldAlert, TrendingUp, Undo2, Wallet, XCircle } from 'lucide-react';
 import type { RequestBody } from '@melorin/api-client';
-import { authFetch, typedClient } from './api.ts';
+import { typedClient, useCall } from './api.ts';
 import { Empty, ErrorBar, KpiBar, Paginator, Pills, SearchBox, Stat, errText, num } from './kit.tsx';
 import { Badge, confirmDialog, dt, promptDialog, sid } from './ui.tsx';
 import BankSmsPanel from './BankSmsPanel.tsx';
@@ -17,7 +17,7 @@ import type { Json, Rec, Toast } from './types.ts';
 type DestinationBody = RequestBody<'/api/v1/admin/payment-destinations/{provider}', 'put'>;
 
 export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast }) {
-  const call = useCallback((p: Json, o = {}) => authFetch(api.base, p, o), [api.base]);
+  const call = useCall(api);
   const client = useMemo(() => typedClient(api?.base), [api?.base]);
   const [rows, setRows] = useState<Json>(null);
   const [failed, setFailed] = useState(false);

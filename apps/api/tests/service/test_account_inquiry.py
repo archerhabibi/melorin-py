@@ -254,17 +254,17 @@ async def test_refresh_reads_the_panel_and_is_rate_limited(monkeypatch):
 
 
 async def test_admin_inquiry_searches_every_store_and_pages():
-    from melorin.modules.admin import router as admin_router
+    from melorin.modules.admin import directory as admin_directory
 
     async with open_session() as s:
         w = await _world(s)
         r = Response()
-        everything = await admin_router.vpn_accounts(w.owner, s, r, q=None, store_id=None, state=None, limit=100, offset=0)
+        everything = await admin_directory.vpn_accounts(w.owner, s, r, q=None, store_id=None, state=None, limit=100, offset=0)
         assert {x["username"] for x in everything} == {"alice_phone", "alice_pc", "bob_main", "eve_main"}
         assert r.headers["X-Total-Count"] == "4"
-        by_customer = await admin_router.vpn_accounts(w.owner, s, Response(), q="alice", store_id=None, state=None, limit=100, offset=0)
+        by_customer = await admin_directory.vpn_accounts(w.owner, s, Response(), q="alice", store_id=None, state=None, limit=100, offset=0)
         assert {x["username"] for x in by_customer} == {"alice_phone", "alice_pc"}
-        one_store = await admin_router.vpn_accounts(w.owner, s, Response(), q=None, store_id=w.other.id, state=None, limit=100, offset=0)
+        one_store = await admin_directory.vpn_accounts(w.owner, s, Response(), q=None, store_id=w.other.id, state=None, limit=100, offset=0)
         assert [x["username"] for x in one_store] == ["eve_main"]
-        page = await admin_router.vpn_accounts(w.owner, s, Response(), q=None, store_id=None, state=None, limit=1, offset=3)
+        page = await admin_directory.vpn_accounts(w.owner, s, Response(), q=None, store_id=None, state=None, limit=1, offset=3)
         assert len(page) == 1

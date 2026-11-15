@@ -143,7 +143,7 @@ async def link_google(session: AsyncSession, user: User, id_token: str, nonce: s
             user_id=user.id, provider="google", subject=sub, verified_at=utcnow(), data={"email": email, "email_verified": email_verified}
         )
     )
-    if email_verified and not user.email and not await _email_taken(session, email):
+    if email and email_verified and not user.email and not await _email_taken(session, email):
         user.email = email
     audit.record(session, "identity.linked", actor_id=user.id, entity_type="user", entity_id=user.id, data={"provider": "google"})
     await session.commit()
@@ -156,7 +156,10 @@ async def login_with_google(session: AsyncSession, id_token: str, nonce: str | N
     sub, email = g["sub"], (g.get("email") or "").lower() or None
     ident = await find_identity(session, "google", sub)
     if ident:
-        return await session.get(User, ident.user_id), False
+        found = await session.get(User, ident.user_id)
+        if found is None:
+            raise AppError("USER_NOT_FOUND", "کاربر یافت نشد.", 404)
+        return found, False
     user: User | None = None
     created = False
     email_verified = email and str(g.get("email_verified")).lower() == "true"
@@ -188,7 +191,7 @@ async def login_with_google(session: AsyncSession, id_token: str, nonce: str | N
             audit.security_event(
                 session, "identity_link_conflict", user.id, {"email": email, "candidate_user_ids": [str(x) for x in candidate_ids]}
             )
-        elif await _email_taken(session, email):
+        elif email and await _email_taken(session, email):
             # User.email can be populated without an Identity in legacy data.
             owner_id = await session.scalar(select(User.id).where(User.email == email))
             user = User(display_name=g.get("name"), is_guest=True)

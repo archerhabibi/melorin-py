@@ -12,7 +12,7 @@ from sqlalchemy import select
 import melorin.models  # noqa: F401  (registers every table so FKs resolve)
 from melorin.core import db, events
 from melorin.core.errors import AppError
-from melorin.modules.admin import router as admin
+from melorin.modules.admin import tickets as admin_tickets
 from melorin.kernel.models.identity import Identity, User
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.system import AuditEvent, OutboxEvent
@@ -63,38 +63,38 @@ async def world(tmp_path):
 
 
 async def test_admin_list_has_customer_priority_and_filters(world):
-    rows = await admin.tickets(world.staff, world.s, status=None, priority=None, store_id=None, q=None)
+    rows = await admin_tickets.tickets(world.staff, world.s, status=None, priority=None, store_id=None, q=None)
     assert rows[0]["customer"]["email"] == "c@example.com" and rows[0]["priority"] == "normal" and rows[0]["message_count"] == 1
     assert rows[0]["last_message"] == "کمک می‌خواهم" and rows[0]["last_from_staff"] is False
-    assert await admin.tickets(world.staff, world.s, status="closed", priority=None, store_id=None, q=None) == []
-    assert len(await admin.tickets(world.staff, world.s, status=None, priority=None, store_id=None, q="ab23")) == 1
+    assert await admin_tickets.tickets(world.staff, world.s, status="closed", priority=None, store_id=None, q=None) == []
+    assert len(await admin_tickets.tickets(world.staff, world.s, status=None, priority=None, store_id=None, q="ab23")) == 1
 
 
 async def test_staff_reply_notifies_customer_and_internal_note_does_not(world):
-    await admin.ticket_reply(world.t.id, AdminAddMessage(body="یادداشت داخلی", internal=True), world.staff, world.s)
+    await admin_tickets.ticket_reply(world.t.id, AdminAddMessage(body="یادداشت داخلی", internal=True), world.staff, world.s)
     assert (await world.s.scalars(select(OutboxEvent).where(OutboxEvent.topic == events.NOTIFY))).first() is None
     await world.s.refresh(world.t)
     assert world.t.status == "open"
 
-    out = await admin.ticket_reply(world.t.id, AdminAddMessage(body="پاسخ شما"), world.staff, world.s)
+    out = await admin_tickets.ticket_reply(world.t.id, AdminAddMessage(body="پاسخ شما"), world.staff, world.s)
     assert out["ticket_status"] == "answered" and out["is_internal"] is False
     ev = (await world.s.scalars(select(OutboxEvent).where(OutboxEvent.topic == events.NOTIFY))).one()
     assert ev.payload["kind"] == "ticket_reply" and ev.payload["user_id"] == str(world.cust.id)
 
 
 async def test_customer_never_sees_internal_notes(world):
-    await admin.ticket_reply(world.t.id, AdminAddMessage(body="فقط ادمین", internal=True), world.staff, world.s)
-    await admin.ticket_reply(world.t.id, AdminAddMessage(body="برای مشتری"), world.staff, world.s)
+    await admin_tickets.ticket_reply(world.t.id, AdminAddMessage(body="فقط ادمین", internal=True), world.staff, world.s)
+    await admin_tickets.ticket_reply(world.t.id, AdminAddMessage(body="برای مشتری"), world.staff, world.s)
     mine = await customer.messages(world.t.id, world.cust_auth, world.s)
     assert [m.body for m in mine] == ["کمک می‌خواهم", "برای مشتری"]
-    detail = await admin.ticket_detail(world.t.id, world.staff, world.s)
+    detail = await admin_tickets.ticket_detail(world.t.id, world.staff, world.s)
     assert [m["is_internal"] for m in detail["messages"]] == [False, True, False]
     assert detail["messages"][1]["author_name"] == "پشتیبان"
     assert [m["mine"] for m in detail["messages"]] == [False, True, True]
 
 
 async def test_admin_can_edit_subject_priority_status_and_it_is_audited(world):
-    row = await admin.update_ticket(
+    row = await admin_tickets.update_ticket(
         world.t.id, AdminUpdateTicket(subject="موضوع جدید", priority="urgent", status="closed", department="billing"), world.staff, world.s
     )
     assert (row["subject"], row["priority"], row["status"], row["department"]) == ("موضوع جدید", "urgent", "closed", "billing")
@@ -109,20 +109,20 @@ async def test_message_edit_is_author_only_and_stamped(world):
     with pytest.raises(AppError):  # someone else's ticket is a 404, not a leak
         await customer.edit_message(world.t.id, first.id, EditMessage(body="x"), world.other_auth, world.s)
     with pytest.raises(AppError):  # staff cannot rewrite the customer's words
-        await admin.ticket_edit_message(world.t.id, first.id, EditMessage(body="x"), world.staff, world.s)
-    reply = await admin.ticket_reply(world.t.id, AdminAddMessage(body="غلط"), world.staff, world.s)
-    fixed = await admin.ticket_edit_message(world.t.id, uuid.UUID(reply["id"]), EditMessage(body="درست"), world.staff, world.s)
+        await admin_tickets.ticket_edit_message(world.t.id, first.id, EditMessage(body="x"), world.staff, world.s)
+    reply = await admin_tickets.ticket_reply(world.t.id, AdminAddMessage(body="غلط"), world.staff, world.s)
+    fixed = await admin_tickets.ticket_edit_message(world.t.id, uuid.UUID(reply["id"]), EditMessage(body="درست"), world.staff, world.s)
     assert fixed["body"] == "درست" and fixed["edited_at"]
 
 
 async def test_admin_reply_and_edit_reject_whitespace_only_text(world):
     for body in ("   ", "\n\t "):
         with pytest.raises(AppError) as e:
-            await admin.ticket_reply(world.t.id, AdminAddMessage(body=body), world.staff, world.s)
+            await admin_tickets.ticket_reply(world.t.id, AdminAddMessage(body=body), world.staff, world.s)
         assert e.value.status == 422
-    reply = await admin.ticket_reply(world.t.id, AdminAddMessage(body="پاسخ"), world.staff, world.s)
+    reply = await admin_tickets.ticket_reply(world.t.id, AdminAddMessage(body="پاسخ"), world.staff, world.s)
     with pytest.raises(AppError) as e:
-        await admin.ticket_edit_message(world.t.id, uuid.UUID(reply["id"]), EditMessage(body="   "), world.staff, world.s)
+        await admin_tickets.ticket_edit_message(world.t.id, uuid.UUID(reply["id"]), EditMessage(body="   "), world.staff, world.s)
     assert e.value.status == 422
     msgs = await customer.messages(world.t.id, world.staff_auth, world.s)
     assert [m.body for m in msgs][-1] == "پاسخ" and len(msgs) == 2
@@ -142,7 +142,7 @@ async def test_customer_can_rename_close_and_reopen_but_not_closed_edit(world):
 
 
 async def test_customer_reply_reopens_and_staff_reply_via_legacy_endpoint_notifies(world):
-    await admin.update_ticket(world.t.id, AdminUpdateTicket(status="answered"), world.staff, world.s)
+    await admin_tickets.update_ticket(world.t.id, AdminUpdateTicket(status="answered"), world.staff, world.s)
     await customer.add_message(world.t.id, AddMessage(body="ممنون، یک سؤال دیگر"), world.cust_auth, world.s)
     await world.s.refresh(world.t)
     assert world.t.status == "open"
@@ -290,7 +290,8 @@ def test_bot_rename_and_close_and_reopen(bot):
 # ---------------------------------------------------------------- web front-ends
 def test_web_ticket_screens_use_the_new_edit_endpoints():
     admin_ui = "".join(
-        read_web_source(APPS / "admin-web" / "src" / name) for name in ("TicketsView.tsx", "TicketConversation.tsx", "ticketsShared.tsx")
+        read_web_source(APPS / "admin-web" / "src" / name)
+        for name in ("TicketsView.tsx", "TicketConversation.tsx", "TicketBubble.tsx", "TicketComposer.tsx", "ticketsShared.tsx")
     )
     for needle in ("/api/v1/admin/tickets", "/messages/${m.id}", 'method: "PATCH"', "internal", "ویرایش‌شده"):
         assert needle in admin_ui
