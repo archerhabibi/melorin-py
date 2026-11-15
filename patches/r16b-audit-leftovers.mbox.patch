@@ -1,0 +1,2173 @@
+From de09847f8fa6930e60dd9a231c180bcbe1ccb105 Mon Sep 17 00:00:00 2001
+From: Melorin Refactor <refactor@melorin.local>
+Date: Sun, 15 Nov 2026 09:49:38 +0000
+Subject: [PATCH] refactor: audit leftovers (whole-backend mypy, bulk_runner
+ split, infrastructure operations hub)
+
+Area: api / admin-web / typing
+Action: mypy gates all of melorin; panelops bulk split; menu: panels / monitoring / operations hub
+---
+ apps/admin-web/src/AdminExtra.tsx             |   8 +-
+ apps/admin-web/src/InfraOpsHubView.tsx        |  47 +++
+ apps/admin-web/src/adminAccess.ts             |   5 +-
+ apps/admin-web/src/adminNav.ts                |   5 +-
+ apps/admin-web/tests/nav-structure.test.js    |  10 +-
+ apps/admin-web/tests/panel-phase4.test.jsx    |   4 +-
+ apps/api/melorin/channels/telegram/oidc.py    |   3 +-
+ apps/api/melorin/channels/telegram/web.py     |  11 +-
+ .../melorin/channels/telegram/web_router.py   |   7 +-
+ .../melorin/modules/admin/identity_auto.py    |  17 +-
+ .../melorin/modules/admin/identity_reviews.py |   9 +-
+ .../modules/admin/operations_center.py        |   2 +-
+ .../api/melorin/modules/admin/panel_admins.py |   7 +-
+ .../modules/admin/panel_reconciliation.py     |   2 +
+ apps/api/melorin/modules/admin/panels.py      |   2 +
+ .../modules/admin/reseller_applications.py    |   8 +-
+ .../modules/admin/store_vpn_notices.py        |   2 +-
+ apps/api/melorin/modules/admin/tickets.py     |   2 +
+ .../panel_integrations/adapters/base.py       |   8 +-
+ .../adapters/pasarguard/access.py             |   5 +
+ .../adapters/pasarguard/admins.py             |   7 +-
+ .../adapters/pasarguard/capabilities.py       |   7 +
+ .../adapters/pasarguard/core.py               |   1 +
+ .../adapters/pasarguard/events.py             |   6 +
+ .../adapters/pasarguard/nodes.py              |   5 +
+ .../adapters/pasarguard/ops.py                |   8 +
+ .../adapters/pasarguard/users.py              |  13 +-
+ .../adapters/sanaei/adapter.py                |   7 +-
+ .../adapters/sanaei/legacy.py                 |  10 +
+ .../panel_integrations/adapters/sanaei/v3.py  |  15 +-
+ .../adapters/upstream_bot/adapter.py          |  24 +-
+ .../modules/panel_integrations/capacity.py    |   2 +-
+ .../modules/panel_integrations/templates.py   |   3 +-
+ apps/api/melorin/modules/panelops/bulk.py     | 281 +---------------
+ .../melorin/modules/panelops/bulk_runner.py   | 303 ++++++++++++++++++
+ .../melorin/modules/panelops/governance.py    |   2 +-
+ .../melorin/modules/panelops/ops_console.py   |  29 +-
+ .../melorin/modules/panelops/panel_admins.py  |   8 +-
+ .../melorin/modules/panelops/panel_events.py  |   4 +-
+ .../modules/panelops/panel_events_admin.py    |  12 +-
+ .../melorin/modules/panelops/panel_metrics.py |   7 +-
+ apps/api/melorin/modules/panelops/queries.py  |  14 +-
+ .../modules/panelops/settings_drift.py        |   1 +
+ .../melorin/modules/panelops/store_role.py    |   3 +-
+ .../modules/panelops/subscription_check.py    |   5 +-
+ .../modules/panelops/webhook_router.py        |   2 +
+ apps/api/melorin/worker/jobs_panels.py        |   4 +-
+ apps/api/pyproject.toml                       |   5 +-
+ .../adapters/test_pasarguard_bulk_ops.py      |  24 +-
+ .../tests/contracts/test_commit_ratchet.py    |   3 +-
+ apps/api/tests/contracts/test_mypy_ratchet.py |   1 +
+ .../tests/contracts/test_release_guards.py    |   4 +-
+ .../tests/unit/test_pay_with_wallet_guards.py |   1 +
+ docs/CHANGE_LOG.md                            |  12 +-
+ docs/DECISIONS.md                             |   7 +-
+ e2e/tests/admin.storehub.spec.js              |   2 +-
+ 56 files changed, 614 insertions(+), 392 deletions(-)
+ create mode 100644 apps/admin-web/src/InfraOpsHubView.tsx
+ create mode 100644 apps/api/melorin/modules/panelops/bulk_runner.py
+
+diff --git a/apps/admin-web/src/AdminExtra.tsx b/apps/admin-web/src/AdminExtra.tsx
+index da53514..2ca3538 100644
+--- a/apps/admin-web/src/AdminExtra.tsx
++++ b/apps/admin-web/src/AdminExtra.tsx
+@@ -5,8 +5,7 @@ import { ChangeAdminPassword } from './ChangeAdminPassword.tsx';
+ const ReportsView = lazy(() => import('./ReportsView.tsx'));
+ const PanelsView = lazy(() => import('./PanelsView.tsx'));
+ const InfraHealthView = lazy(() => import('./InfraHealthView.tsx'));
+-const PanelOpsView = lazy(() => import('./PanelOpsView.tsx'));
+-const BulkOperationsView = lazy(() => import('./BulkOperationsView.tsx'));
++const InfraOpsHubView = lazy(() => import('./InfraOpsHubView.tsx'));
+ const ProductsView = lazy(() => import('./ProductsView.tsx'));
+ const BundlesView = lazy(() => import('./BundlesView.tsx'));
+ const TicketsView = lazy(() => import('./TicketsView.tsx'));
+@@ -47,9 +46,8 @@ export const extraRoutes = {
+   'پیام همگانی': BroadcastView,
+   'دکمه‌های تلگرام': ButtonStylesView,
+   'مرکز رویداد': EventCenterView,
+-  'سلامت زیرساخت': InfraHealthView,
+-  'عملیات پنل': PanelOpsView,
+-  'عملیات گروهی روی پنل': BulkOperationsView,
++  'پایش و سلامت': InfraHealthView,
++  'عملیات مدیریتی': InfraOpsHubView,
+   سفارش‌ها: OrdersView,
+   'اکانت‌های VPN': VpnAccountsView,
+   کاربران: UsersView,
+diff --git a/apps/admin-web/src/InfraOpsHubView.tsx b/apps/admin-web/src/InfraOpsHubView.tsx
+new file mode 100644
+index 0000000..3d913c6
+--- /dev/null
++++ b/apps/admin-web/src/InfraOpsHubView.tsx
+@@ -0,0 +1,47 @@
++// «عملیات مدیریتی» - one screen for what an admin DOES to the panels (architecture audit 5.6), two tabs:
++//   ops   «عملیات پنل»     console, access, events, backup, reconciliation of one panel (PanelOpsView)
++//   bulk  «عملیات گروهی»   preview -> exact-count confirm -> resumable run over many accounts of one panel (BulkOperationsView)
++// Both stay behind the `infrastructure` permission. Deep links: #/panel-ops (ops), #/panel-ops?tab=bulk.
++import { lazy, Suspense, useState } from 'react';
++import { Segmented } from './kit.tsx';
++import type { Json, Toast } from './types.ts';
++
++const PanelOpsView = lazy(() => import('./PanelOpsView.tsx'));
++const BulkOperationsView = lazy(() => import('./BulkOperationsView.tsx'));
++
++const TABS = ['ops', 'bulk'];
++const tabFromHash = () => {
++  const q = typeof window === 'undefined' ? '' : window.location.hash.split('?')[1] || '';
++  const t = new URLSearchParams(q).get('tab');
++  return TABS.includes(t ?? '') ? (t as string) : 'ops';
++};
++
++export default function InfraOpsHubView({ api, toast }: { api?: Json; toast: Toast }) {
++  const [tab, setTab] = useState(tabFromHash);
++  const pick = (v: string) => {
++    setTab(v);
++    // replaceState: switching tabs adds no history entry; a panel deep link (?panel=) belongs to the ops tab only
++    window.history.replaceState(
++      null,
++      '',
++      `${window.location.pathname}${window.location.search}#/panel-ops${v === 'ops' ? '' : `?tab=${v}`}`,
++    );
++  };
++  return (
++    <div className="space-y-5">
++      <Segmented
++        label="بخش عملیات مدیریتی"
++        value={tab}
++        onChange={pick}
++        options={[
++          ['ops', 'عملیات پنل'],
++          ['bulk', 'عملیات گروهی'],
++        ]}
++      />
++      <Suspense fallback={<div className="skel h-44" />}>
++        {tab === 'ops' && <PanelOpsView api={api} toast={toast} />}
++        {tab === 'bulk' && <BulkOperationsView api={api} toast={toast} />}
++      </Suspense>
++    </div>
++  );
++}
+diff --git a/apps/admin-web/src/adminAccess.ts b/apps/admin-web/src/adminAccess.ts
+index 9978702..d6af6f7 100644
+--- a/apps/admin-web/src/adminAccess.ts
++++ b/apps/admin-web/src/adminAccess.ts
+@@ -23,9 +23,8 @@ export const SECTION_AREA: Record<string, string> = {
+   'اپراتور پنل فروشگاه': 'infrastructure',
+   'بسته‌های فروش': 'catalog',
+   'محصولات VPN': 'catalog',
+-  'سلامت زیرساخت': 'infrastructure',
+-  'عملیات پنل': 'infrastructure',
+-  'عملیات گروهی روی پنل': 'infrastructure',
++  'پایش و سلامت': 'infrastructure',
++  'عملیات مدیریتی': 'infrastructure', // + tab «عملیات گروهی»
+   'حجم فروشگاه‌ها': 'infrastructure',
+   تنظیمات: 'system',
+   'دکمه‌های تلگرام': 'system',
+diff --git a/apps/admin-web/src/adminNav.ts b/apps/admin-web/src/adminNav.ts
+index e807a4f..f278621 100644
+--- a/apps/admin-web/src/adminNav.ts
++++ b/apps/admin-web/src/adminNav.ts
+@@ -75,9 +75,8 @@ export const groups: [string, [string, LucideIcon, string][], string?][] = [
+     'زیرساخت و عملیات پنل',
+     [
+       ['پنل‌ها و سرورها', PanelTop, 'panels'],
+-      ['سلامت زیرساخت', ShieldCheck, 'infra-health'],
+-      ['عملیات پنل', Activity, 'panel-ops'],
+-      ['عملیات گروهی روی پنل', Zap, 'bulk-operations'], // infrastructure permission, previews + resumable runs on a panel
++      ['پایش و سلامت', ShieldCheck, 'infra-health'],
++      ['عملیات مدیریتی', Activity, 'panel-ops'], // tabs: عملیات پنل / عملیات گروهی (bulk runs: previews + resumable, infrastructure permission)
+     ],
+   ],
+   [
+diff --git a/apps/admin-web/tests/nav-structure.test.js b/apps/admin-web/tests/nav-structure.test.js
+index 64cd69e..f52babf 100644
+--- a/apps/admin-web/tests/nav-structure.test.js
++++ b/apps/admin-web/tests/nav-structure.test.js
+@@ -6,9 +6,13 @@ import { SECTION_AREA, sectionAllowed } from '../src/adminAccess.ts';
+ const where = (label) => groups.find(([, items]) => items.some((i) => i[0] === label))?.[0];
+ 
+ describe('admin menu structure (architecture audit §5-§6)', () => {
+-  it('puts bulk panel operations under the infrastructure group, next to panel ops', () => {
+-    expect(where('عملیات گروهی روی پنل')).toBe('زیرساخت و عملیات پنل');
+-    expect(SECTION_AREA['عملیات گروهی روی پنل']).toBe('infrastructure');
++  it('groups infrastructure as panels, monitoring, and one operations hub that holds the bulk runs as a tab', () => {
++    for (const label of ['پنل‌ها و سرورها', 'پایش و سلامت', 'عملیات مدیریتی']) {
++      expect(where(label), label).toBe('زیرساخت و عملیات پنل');
++      expect(SECTION_AREA[label], label).toBe('infrastructure');
++    }
++    expect(flat.map((x) => x[0])).not.toContain('عملیات گروهی روی پنل');
++    expect(Object.keys(extraRoutes)).not.toContain('عملیات گروهی روی پنل');
+   });
+   it('has no stand-alone manual-tasks entry: it is a tab of reseller applications', () => {
+     expect(flat.map((x) => x[0])).not.toContain('کارهای دستی');
+diff --git a/apps/admin-web/tests/panel-phase4.test.jsx b/apps/admin-web/tests/panel-phase4.test.jsx
+index 3efeaae..10de23a 100644
+--- a/apps/admin-web/tests/panel-phase4.test.jsx
++++ b/apps/admin-web/tests/panel-phase4.test.jsx
+@@ -42,8 +42,8 @@ describe('PG-11 bulk operations screen', () => {
+     return null;
+   };
+ 
+-  it('is registered in the admin routes', () => {
+-    expect(Object.keys(extraRoutes)).toContain('عملیات گروهی روی پنل'); // volume governance is a Store Hub tab now
++  it('is reachable as a tab of the operations hub route', () => {
++    expect(Object.keys(extraRoutes)).toContain('عملیات مدیریتی'); // volume governance is a Store Hub tab now
+   });
+ 
+   it('offers only PasarGuard panels and requires a reason before previewing', async () => {
+diff --git a/apps/api/melorin/channels/telegram/oidc.py b/apps/api/melorin/channels/telegram/oidc.py
+index 469b17a..52c1ba5 100644
+--- a/apps/api/melorin/channels/telegram/oidc.py
++++ b/apps/api/melorin/channels/telegram/oidc.py
+@@ -13,6 +13,7 @@ Standard Authorization Code flow with PKCE (S256), done entirely on the server:
+ Admins never get a session here (same rule as the bot-approval flow and the storefront Google flow).
+ """
+ 
++from typing import Any, cast
+ import base64
+ import hashlib
+ import hmac
+@@ -214,7 +215,7 @@ def profile_from_claims(claims: dict) -> TelegramProfile:
+     """``id`` is the real Telegram user ID (``sub`` is an OIDC-scoped identifier and would create duplicate accounts)."""
+     raw = claims.get("id")
+     try:
+-        tg_id = int(raw)
++        tg_id = int(cast(Any, raw))
+     except (TypeError, ValueError):
+         raise AppError("TELEGRAM_OIDC_NO_ID", "تلگرام شناسهٔ کاربر را نفرستاد؛ دسترسی profile باید فعال باشد.", 401) from None
+     if tg_id <= 0:
+diff --git a/apps/api/melorin/channels/telegram/web.py b/apps/api/melorin/channels/telegram/web.py
+index 8accd60..6f88cac 100644
+--- a/apps/api/melorin/channels/telegram/web.py
++++ b/apps/api/melorin/channels/telegram/web.py
+@@ -15,6 +15,7 @@ Design (docs/TELEGRAM-WEB-LOGIN.md): an OAuth device-authorization style flow wi
+ Everything here is transport independent; routers/bot runners only call these functions.
+ """
+ 
++from typing import Any, cast
+ import datetime as dt
+ import hmac
+ import re
+@@ -480,12 +481,12 @@ async def purge_old(session: AsyncSession, older_than: dt.timedelta = dt.timedel
+     """Housekeeping: finished login sessions one day after expiry; trusted devices a month after they expired or were
+     revoked (kept that long so an investigation still sees which browser was removed and when)."""
+     cutoff = utcnow() - older_than
+-    result = await session.execute(TelegramLoginSession.__table__.delete().where(TelegramLoginSession.expires_at < cutoff))
++    result = await session.execute(cast(Any, TelegramLoginSession.__table__).delete().where(TelegramLoginSession.expires_at < cutoff))
+     stale = utcnow() - dt.timedelta(days=30)
+     devices = await session.execute(
+-        TrustedDevice.__table__.delete().where(
+-            (TrustedDevice.expires_at < stale) | (TrustedDevice.revoked_at.is_not(None) & (TrustedDevice.revoked_at < stale))
+-        )
++        cast(Any, TrustedDevice.__table__)
++        .delete()
++        .where((TrustedDevice.expires_at < stale) | (TrustedDevice.revoked_at.is_not(None) & (TrustedDevice.revoked_at < stale)))
+     )
+     await session.commit()
+-    return int((result.rowcount or 0) + (devices.rowcount or 0))
++    return int((cast(Any, result).rowcount or 0) + (cast(Any, devices).rowcount or 0))
+diff --git a/apps/api/melorin/channels/telegram/web_router.py b/apps/api/melorin/channels/telegram/web_router.py
+index dfe2f8c..d8b0f20 100644
+--- a/apps/api/melorin/channels/telegram/web_router.py
++++ b/apps/api/melorin/channels/telegram/web_router.py
+@@ -4,6 +4,7 @@ Browser endpoints are public but rate limited; bot endpoints require the shared
+ scoped to the store the calling bot serves.
+ """
+ 
++from typing import Any, cast
+ import datetime as dt
+ 
+ from fastapi import APIRouter, Depends, Request, Response
+@@ -103,7 +104,7 @@ async def start(body: TelegramWebStart, session: Session, request: Request, resp
+         qr=_qr(link),
+         # A trusted browser is never shown a number: there is nothing to match (silent) or the bot link is the approval (auto).
+         match_code=started.row.match_code if started.level == "manual" and web.number_match_enabled(cfg) else None,
+-        level=started.level,
++        level=cast(Any, started.level),
+         bot_username=started.bot_username,
+         expires_in=web.seconds_left(started.row),
+         poll_interval=web.POLL_INTERVAL_SECONDS,
+@@ -121,7 +122,7 @@ async def poll(session_id: str, body: TelegramWebPoll, session: Session, request
+         reason=result.reason,
+         expires_in=result.expires_in,
+         tokens=result.tokens,
+-        level=result.level,
++        level=cast(Any, result.level),
+         match_code=result.match_code,
+     )
+ 
+@@ -173,7 +174,7 @@ async def bot_decide(body: TelegramWebDecision, session: Session, bot: BotAuth):
+ async def bot_devices(body: TelegramWebDevices, session: Session, bot: BotAuth):
+     """Trusted browsers of the calling Telegram account in this store (the bot's /devices screen)."""
+     await channel.bot_channel(session, bot, body.store_id)
+-    return TelegramWebDevicesOut(devices=await web.list_devices(session, body.store_id, body.telegram_id))
++    return TelegramWebDevicesOut(devices=cast(Any, await web.list_devices(session, body.store_id, body.telegram_id)))
+ 
+ 
+ @tgweb.post("/bot/revoke", response_model=TelegramWebRevokeOut)
+diff --git a/apps/api/melorin/modules/admin/identity_auto.py b/apps/api/melorin/modules/admin/identity_auto.py
+index f45bf9c..4d4c7ca 100644
+--- a/apps/api/melorin/modules/admin/identity_auto.py
++++ b/apps/api/melorin/modules/admin/identity_auto.py
+@@ -9,7 +9,7 @@ import uuid
+ 
+ from fastapi import APIRouter
+ from pydantic import BaseModel
+-from sqlalchemy import func, or_, select
++from sqlalchemy import ColumnElement, func, or_, select
+ 
+ from melorin.core import audit
+ from melorin.core.db import utcnow
+@@ -32,6 +32,11 @@ def device_status(d: TrustedDevice, now: dt.datetime) -> str:
+     return "expired" if _aware(d.expires_at) <= now else "active"
+ 
+ 
++def _pick(users: dict, key):
++    """``users[key]`` when ``key`` is a real id (an event without keeper/shell data has none)."""
++    return users.get(key) if key is not None else None
++
++
+ def _uid(v) -> uuid.UUID | None:
+     try:
+         return v if isinstance(v, uuid.UUID) else uuid.UUID(str(v))
+@@ -63,7 +68,11 @@ async def trusted_devices(_: AdminUser, session: Session, status: str = "active"
+     term = (q or "").strip().lower()[:100]
+     if term:
+         like = f"%{term}%"
+-        conds = [func.lower(User.email).like(like), func.lower(User.display_name).like(like), func.lower(TrustedDevice.label).like(like)]
++        conds: list[ColumnElement[bool]] = [
++            func.lower(User.email).like(like),
++            func.lower(User.display_name).like(like),
++            func.lower(TrustedDevice.label).like(like),
++        ]
+         if term.isdigit():
+             conds.append(TrustedDevice.telegram_id == int(term))
+         stmt = stmt.where(or_(*conds))
+@@ -184,8 +193,8 @@ async def identity_auto_merges(_: AdminUser, session: Session, days: int = 90):
+             "created_at": e.created_at,
+             "rule": (e.data or {}).get("rule"),
+             "providers": (e.data or {}).get("providers") or [],
+-            "keeper": _user_card(users.get(_uid((e.data or {}).get("keeper")))),
+-            "shell": _user_card(users.get(_uid((e.data or {}).get("shell")))),
++            "keeper": _user_card(_pick(users, _uid((e.data or {}).get("keeper")))),
++            "shell": _user_card(_pick(users, _uid((e.data or {}).get("shell")))),
+         }
+         for e in events
+     ]
+diff --git a/apps/api/melorin/modules/admin/identity_reviews.py b/apps/api/melorin/modules/admin/identity_reviews.py
+index cbb6299..b00cb7a 100644
+--- a/apps/api/melorin/modules/admin/identity_reviews.py
++++ b/apps/api/melorin/modules/admin/identity_reviews.py
+@@ -63,9 +63,12 @@ async def identity_link_reviews(_: AdminUser, session: Session, status: str = "o
+     orders: dict = {}
+     if wanted:
+         users = {u.id: u for u in (await session.scalars(select(User).where(User.id.in_(wanted)))).all()}
+-        orders = dict(
+-            (await session.execute(select(Order.user_id, func.count()).where(Order.user_id.in_(wanted)).group_by(Order.user_id))).all()
+-        )
++        orders = {
++            r[0]: r[1]
++            for r in (
++                await session.execute(select(Order.user_id, func.count()).where(Order.user_id.in_(wanted)).group_by(Order.user_id))
++            ).all()
++        }
+     out = []
+     for r in rows:
+         cand_ids = [x for x in (_uuid(c) for c in (r.candidate_user_ids or [])) if x]
+diff --git a/apps/api/melorin/modules/admin/operations_center.py b/apps/api/melorin/modules/admin/operations_center.py
+index f372ab8..d39273c 100644
+--- a/apps/api/melorin/modules/admin/operations_center.py
++++ b/apps/api/melorin/modules/admin/operations_center.py
+@@ -21,7 +21,7 @@ QUEUES: dict[str, tuple[str, str]] = {
+     "account_discrepancies": ("panel", "vpn"),
+     "panel_orphans": ("panel", "vpn"),
+     "failed_panel_events": ("panel", "panel-ops"),
+-    "failed_bulk_operations": ("panel", "bulk-operations"),
++    "failed_bulk_operations": ("panel", "panel-ops"),
+     "receipt_reviews": ("finance", "payments"),
+     "refunds_pending": ("finance", "orders"),
+     "identity_conflicts": ("identity", "identity"),
+diff --git a/apps/api/melorin/modules/admin/panel_admins.py b/apps/api/melorin/modules/admin/panel_admins.py
+index ee51612..fd386c6 100644
+--- a/apps/api/melorin/modules/admin/panel_admins.py
++++ b/apps/api/melorin/modules/admin/panel_admins.py
+@@ -39,7 +39,8 @@ def _bad(exc: svc.ProfileError) -> AppError:
+ 
+ 
+ async def _out(session, rows):
+-    panels, stores = {}, {}
++    panels: dict = {}
++    stores: dict = {}
+     out = []
+     for r in rows:
+         panels[r.panel_id] = panels.get(r.panel_id) or await session.get(Panel, r.panel_id)
+@@ -124,6 +125,8 @@ async def credentials(row_id: uuid.UUID, admin: AdminUser, session: Session):
+ async def reset_password(row_id: uuid.UUID, admin: AdminUser, session: Session):
+     row = await _row(session, row_id)
+     panel = await session.get(Panel, row.panel_id)
++    if panel is None:
++        raise NotFound("پنل")
+     try:
+         password = await svc.reset_password(session, row, panel)
+     except PanelError as exc:
+@@ -188,7 +191,7 @@ async def list_requests(_: AdminUser, session: Session, status: str | None = "pe
+             stores[r.store_id] = await session.get(Store, r.store_id)
+             first = await queries.first_panel_admin(session, r.store_id)
+             current[r.store_id] = dict(first.profile or {}) if first else {}
+-    return [_req_out(r, stores[r.store_id].name if stores[r.store_id] else None, current[r.store_id]) for r in rows]
++    return [_req_out(r, (s.name if (s := stores[r.store_id]) else None), current[r.store_id]) for r in rows]
+ 
+ 
+ async def _pending(session, request_id: uuid.UUID) -> PanelAdminChangeRequest:
+diff --git a/apps/api/melorin/modules/admin/panel_reconciliation.py b/apps/api/melorin/modules/admin/panel_reconciliation.py
+index be6ea35..2e2b88a 100644
+--- a/apps/api/melorin/modules/admin/panel_reconciliation.py
++++ b/apps/api/melorin/modules/admin/panel_reconciliation.py
+@@ -206,6 +206,8 @@ async def issue_action(issue_id: uuid.UUID, body: IssueActionIn, admin: AdminUse
+     if not issue:
+         raise NotFound("مغایرت")
+     account = await session.get(VpnAccount, issue.vpn_account_id)
++    if account is None:
++        raise NotFound("اکانت")
+     await actions.apply_action(session, issue, account, action=body.action, reason=body.reason, orphan_id=body.orphan_id, actor_id=admin.id)
+     store, panel = await session.get(Store, account.store_id), (await session.get(Panel, account.panel_id) if account.panel_id else None)
+     return _issue_out(issue, account, store, panel)
+diff --git a/apps/api/melorin/modules/admin/panels.py b/apps/api/melorin/modules/admin/panels.py
+index f0084e2..d0af6e8 100644
+--- a/apps/api/melorin/modules/admin/panels.py
++++ b/apps/api/melorin/modules/admin/panels.py
+@@ -271,6 +271,8 @@ async def update_server(server_id: uuid.UUID, body: UpdateServer, admin: AdminUs
+                 "SERVER_HAS_ACCOUNTS", "این سرور اکانت دارد و پنل آن قابل تغییر نیست. سرور جدید بسازید و این را غیرفعال کنید.", 409
+             )
+     target_panel = await session.get(Panel, patch.get("panel_id") or s.panel_id)
++    if target_panel is None:
++        raise NotFound("پنل")
+     if "target" in patch or "panel_id" in patch:
+         # a new panel needs its target re-checked against that panel's kind even when the target itself was not sent
+         patch["target"] = check_target(target_panel, patch["target"] if "target" in patch else s.target)
+diff --git a/apps/api/melorin/modules/admin/reseller_applications.py b/apps/api/melorin/modules/admin/reseller_applications.py
+index d796c6b..bb0945a 100644
+--- a/apps/api/melorin/modules/admin/reseller_applications.py
++++ b/apps/api/melorin/modules/admin/reseller_applications.py
+@@ -64,7 +64,7 @@ async def applications(_: AdminUser, session: Session, status: str | None = None
+     if status:
+         q = q.where(ResellerApplication.status == status)
+     # Pending first (oldest first, so nobody waits behind newer requests), then history newest first.
+-    rows = (await session.execute(q.order_by(ResellerApplication.created_at))).all()
++    rows = list((await session.execute(q.order_by(ResellerApplication.created_at))).all())
+     rows.sort(key=lambda r: (r[0].status != "pending", r[0].created_at if r[0].status == "pending" else -r[0].created_at.timestamp()))
+     return [_application_row(x, u, t) for x, u, t in rows]
+ 
+@@ -110,7 +110,7 @@ async def review_application(application_id: uuid.UUID, body: ResellerApproval,
+             raise AppError("STORE_MEMBERSHIP_REQUIRED", "متقاضی دیگر عضو فعال فروشگاه مقصد نیست.", 409)
+         if has_details:
+             await identity.ensure_identity_free(
+-                session, domain=a.domain, bot_key=a.bot_key, bot_username=a.bot_username, exclude_application_id=a.id
++                session, domain=a.domain or "", bot_key=a.bot_key or "", bot_username=a.bot_username, exclude_application_id=a.id
+             )
+     a.reviewed_by, a.reviewed_at = admin.id, utcnow()
+     a.review_reason = reason
+@@ -123,7 +123,9 @@ async def review_application(application_id: uuid.UUID, body: ResellerApproval,
+         a.status = "approved" if body.approve else "rejected"
+         token_enc, a.bot_token_enc = a.bot_token_enc, None  # the secret moves to the Store (approve) or is dropped (reject)
+         if body.approve:
+-            await create_reseller_store(session, a, target, token_enc=token_enc, debt_limit=body.debt_limit)
++            if target is None:
++                raise NotFound("فروشگاه")
++            await create_reseller_store(session, a, target, token_enc=token_enc or "", debt_limit=body.debt_limit)
+     from melorin.modules.reseller import onboarding
+ 
+     await onboarding.complete_review_task(session, a, admin.id)
+diff --git a/apps/api/melorin/modules/admin/store_vpn_notices.py b/apps/api/melorin/modules/admin/store_vpn_notices.py
+index b5712db..e1b7b27 100644
+--- a/apps/api/melorin/modules/admin/store_vpn_notices.py
++++ b/apps/api/melorin/modules/admin/store_vpn_notices.py
+@@ -33,7 +33,7 @@ class NoticeSettingsOut(BaseModel):
+ 
+ 
+ def _notice_out(store: Store) -> NoticeSettingsOut:
+-    custom = bool(store.vpn_notice_settings) and "traffic_low_levels" in store.vpn_notice_settings
++    custom = bool(store.vpn_notice_settings) and "traffic_low_levels" in (store.vpn_notice_settings or {})
+     return NoticeSettingsOut(
+         store_id=store.id,
+         traffic_low_levels=list(notices.levels_for_store(store.vpn_notice_settings)),
+diff --git a/apps/api/melorin/modules/admin/tickets.py b/apps/api/melorin/modules/admin/tickets.py
+index 8c5d177..05d2601 100644
+--- a/apps/api/melorin/modules/admin/tickets.py
++++ b/apps/api/melorin/modules/admin/tickets.py
+@@ -202,6 +202,8 @@ async def ticket_edit_message(ticket_id: uuid.UUID, message_id: uuid.UUID, body:
+     if m.author_id != admin.id:
+         raise AppError("FORBIDDEN", "فقط نویسندهٔ پیام می‌تواند آن را ویرایش کند.", 403)
+     t = await session.get(Ticket, ticket_id)
++    if t is None:
++        raise NotFound("تیکت")
+     new = body.body.strip()
+     if not new:
+         raise AppError("EMPTY_MESSAGE", "متن پیام نمی‌تواند خالی باشد.", 422)
+diff --git a/apps/api/melorin/modules/panel_integrations/adapters/base.py b/apps/api/melorin/modules/panel_integrations/adapters/base.py
+index 967fdcd..ce01745 100644
+--- a/apps/api/melorin/modules/panel_integrations/adapters/base.py
++++ b/apps/api/melorin/modules/panel_integrations/adapters/base.py
+@@ -4,7 +4,7 @@ import datetime as dt
+ from collections.abc import Mapping
+ from dataclasses import dataclass, field
+ from enum import StrEnum
+-from typing import Protocol, runtime_checkable
++from typing import Any, Protocol, runtime_checkable
+ 
+ GB = 1024**3
+ 
+@@ -352,6 +352,12 @@ def require(adapter, capability: str) -> None:
+         raise PanelError(ErrorKind.PERMANENT, f"{getattr(adapter, 'kind', 'panel')}: capability '{capability}' is not available")
+ 
+ 
++def optional_ops(adapter: "PanelAdapter") -> "Any":
++    """The adapter seen through its optional capability methods (``ensure_role``, ``list_hosts``, ...). They are not part of the
++    :class:`PanelAdapter` protocol on purpose: callers gate them with :func:`supports` first, so the type checker cannot know them."""
++    return adapter
++
++
+ class PanelAdapter(Protocol):
+     kind: str
+ 
+diff --git a/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/access.py b/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/access.py
+index 3152ed5..91bb5df 100644
+--- a/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/access.py
++++ b/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/access.py
+@@ -4,10 +4,15 @@ Only an owner-level credential may call these (they create roles and keys). They
+ credential the operator supplies for that one request; the credential Melorin runs on cannot do any of this by design.
+ Request shapes are taken from the live panel's OpenAPI 5.6.0 (``AdminRoleCreate``, ``APIKeyCreate``)."""
+ 
++from typing import TYPE_CHECKING, Any
+ from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError
+ 
+ 
+ class AccessMixin:
++    if TYPE_CHECKING:  # what the host adapter class provides to this mixin (declared for the type checker only)
++
++        async def _req(self, method: str, path: str, *, ok404: bool = False, ok409: bool = False, **kw: Any) -> Any: ...
++
+     async def find_role(self, name: str) -> dict | None:
+         data = await self._req("GET", "/api/admin-roles", params={"search": name, "limit": 50})
+         rows = data.get("roles") if isinstance(data, dict) else data
+diff --git a/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/admins.py b/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/admins.py
+index 8a15ff1..8410e81 100644
+--- a/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/admins.py
++++ b/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/admins.py
+@@ -1,9 +1,14 @@
+ """PasarGuard admins: one Operator admin per store, profile fields, bulk owner moves."""
+ 
++from typing import TYPE_CHECKING, Any
+ from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError
+ 
+ 
+ class AdminsMixin:
++    if TYPE_CHECKING:  # what the host adapter class provides to this mixin (declared for the type checker only)
++
++        async def _req(self, method: str, path: str, *, ok404: bool = False, ok409: bool = False, **kw: Any) -> Any: ...
++
+     async def _role_id(self, name: str) -> int:
+         data = await self._req("GET", "/api/admin-roles/simple")
+         roles = data.get("roles") if isinstance(data, dict) else data
+@@ -35,7 +40,7 @@ class AdminsMixin:
+         existing = await self.find_admin(username)
+         if existing:
+             body: dict = {"password": password, **self._profile_body(profile)}
+-            current = existing.get("role") if isinstance(existing.get("role"), dict) else {}
++            current: dict = (existing.get("role") if isinstance(existing.get("role"), dict) else None) or {}
+             if not current.get("is_owner"):  # an owner's role is never touched, whatever the caller asks for
+                 wanted = await self._role_id(role)
+                 have = current.get("id") if current.get("id") is not None else existing.get("role_id")
+diff --git a/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/capabilities.py b/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/capabilities.py
+index 4a0b5ae..accb71d 100644
+--- a/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/capabilities.py
++++ b/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/capabilities.py
+@@ -12,6 +12,7 @@ OpenAPI contract fixture (``tests/test_pasarguard_openapi_contract.py``), so a p
+ a route is caught in CI, not by a customer.
+ """
+ 
++from typing import TYPE_CHECKING, Any
+ from melorin.modules.panel_integrations.adapters.base import ALL_CAPABILITIES, Capabilities, CapabilityReport, PanelError
+ 
+ # capability -> permissions (``section.action``) the credential needs, ALL of them
+@@ -165,6 +166,12 @@ def build_report(declared: Capabilities, *, role: str | None, is_owner: bool, pe
+ class CapabilitiesMixin:
+     """``declared_capabilities`` / ``capabilities`` / ``discover_capabilities`` for the PasarGuard adapter."""
+ 
++    if TYPE_CHECKING:  # what the host adapter class provides to this mixin (declared for the type checker only)
++
++        async def _req(self, method: str, path: str, *, ok404: bool = False, ok409: bool = False, **kw: Any) -> Any: ...
++
++        legacy: bool
++
+     def declared_capabilities(self) -> Capabilities:
+         names = LEGACY_CAPABILITIES if self.legacy else frozenset(ALL_CAPABILITIES) - NOT_YET
+         return Capabilities(**{name: name in names for name in ALL_CAPABILITIES})
+diff --git a/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/core.py b/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/core.py
+index 044b148..534c429 100644
+--- a/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/core.py
++++ b/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/core.py
+@@ -128,6 +128,7 @@ class PasarGuardCore:
+                 raise PanelError(ErrorKind.PERMANENT, f"pasarguard: login failed ({last.status_code})")
+             if last.status_code != 422:  # 422 => retry without grant_type
+                 break
++        assert last is not None  # the loop above runs at least once
+         raise PanelError(_classify(last.status_code), f"pasarguard: login http {last.status_code}: {_error_detail(last.text)}")
+ 
+     def _uses_api_key(self) -> bool:
+diff --git a/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/events.py b/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/events.py
+index 5f3e2c8..d5bbf18 100644
+--- a/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/events.py
++++ b/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/events.py
+@@ -16,6 +16,7 @@ OpenAPI does not describe them, so the parser is deliberately tolerant and every
+ 
+ from __future__ import annotations
+ 
++from typing import TYPE_CHECKING, Any
+ import datetime as dt
+ import hashlib
+ import hmac
+@@ -263,6 +264,11 @@ def describe_webhook(settings: dict | None, url: str | None = None) -> dict:
+ class EventsMixin:
+     """``EventSource``: verify deliveries and switch the webhook on/off at the panel (the only panel settings Melorin ever writes)."""
+ 
++    if TYPE_CHECKING:  # what the host adapter class provides to this mixin (declared for the type checker only)
++
++        async def _req(self, method: str, path: str, *, ok404: bool = False, ok409: bool = False, **kw: Any) -> Any: ...
++        async def get_settings(self) -> dict[str, Any]: ...
++
+     def verify_webhook(self, headers: Mapping[str, str], body: bytes, secret: str) -> bool:  # noqa: ARG002 - body unused: shared-secret scheme
+         return verify_secret(headers, secret)
+ 
+diff --git a/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/nodes.py b/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/nodes.py
+index 1e885c8..fc791e1 100644
+--- a/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/nodes.py
++++ b/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/nodes.py
+@@ -1,5 +1,6 @@
+ """PasarGuard infrastructure listings: groups, user templates, destination picker (and, below, nodes)."""
+ 
++from typing import TYPE_CHECKING, Any
+ from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError
+ from melorin.modules.panel_integrations.adapters.pasarguard.core import as_rows
+ 
+@@ -8,6 +9,10 @@ NODE_MAX_PAGES = 50  # 5,000 nodes: far beyond any real panel, but a runaway loo
+ 
+ 
+ class NodesMixin:
++    if TYPE_CHECKING:  # what the host adapter class provides to this mixin (declared for the type checker only)
++
++        async def _req(self, method: str, path: str, *, ok404: bool = False, ok409: bool = False, **kw: Any) -> Any: ...
++
+     async def list_groups(self) -> list[dict]:
+         """Admin helper to pick group_ids."""
+         data = await self._req("GET", "/api/groups/simple", ok404=True)
+diff --git a/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/ops.py b/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/ops.py
+index df273e2..2aaffe8 100644
+--- a/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/ops.py
++++ b/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/ops.py
+@@ -8,6 +8,7 @@ Design rules (doc: PasarGuard roadmap section 3):
+   a repeat would apply twice. Time/traffic compensation goes through ``extend_account`` with an absolute value instead;
+ * ids are sent in chunks of ``BULK_CHUNK`` (the panel's own bulk limit used by ``bulk_set_owner``)."""
+ 
++from typing import TYPE_CHECKING, Any
+ from urllib.parse import urlsplit
+ 
+ import httpx
+@@ -25,6 +26,13 @@ def _ids(values) -> list[int]:
+ 
+ 
+ class OpsMixin:
++    if TYPE_CHECKING:  # what the host adapter class provides to this mixin (declared for the type checker only)
++
++        async def _req(self, method: str, path: str, *, ok404: bool = False, ok409: bool = False, **kw: Any) -> Any: ...
++
++        cfg: dict[str, Any]
++        timeout: Any
++
+     # ------------------------------------------------------------------ NodeInsight (read-only)
+     async def get_system_stats(self) -> dict:
+         data = await self._req("GET", "/api/system")
+diff --git a/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/users.py b/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/users.py
+index d140fde..a5e9e1d 100644
+--- a/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/users.py
++++ b/apps/api/melorin/modules/panel_integrations/adapters/pasarguard/users.py
+@@ -1,5 +1,6 @@
+ """PasarGuard account lifecycle (user create/read/modify/delete/reset/rotate) plus per-user usage and devices."""
+ 
++from typing import TYPE_CHECKING, Any
+ import datetime as dt
+ from urllib.parse import quote
+ 
+@@ -19,14 +20,14 @@ def build_create_payload(spec: AccountSpec, cfg: dict) -> dict:
+             raise PanelError(ErrorKind.PERMANENT, "pasarguard: config.user_template_id must be an integer") from exc
+         if template_id <= 0:
+             raise PanelError(ErrorKind.PERMANENT, "pasarguard: config.user_template_id must be positive")
+-        body = {"user_template_id": template_id, "username": spec.username}
++        body: dict = {"user_template_id": template_id, "username": spec.username}
+         if spec.note:
+             body["note"] = spec.note[:500]
+         return body
+     group_ids = [int(g) for g in (cfg.get("group_ids") or [])]
+     if not group_ids:
+         raise PanelError(ErrorKind.PERMANENT, "pasarguard: config.group_ids is required")
+-    body: dict = {
++    body = {
+         "username": spec.username,
+         "status": "active",
+         "group_ids": group_ids,
+@@ -57,6 +58,14 @@ def build_modify_payload(
+ 
+ 
+ class UsersMixin:
++    if TYPE_CHECKING:  # what the host adapter class provides to this mixin (declared for the type checker only)
++
++        async def _req(self, method: str, path: str, *, ok404: bool = False, ok409: bool = False, **kw: Any) -> Any: ...
++
++        base: str
++        cfg: dict[str, Any]
++        legacy: bool
++
+     # ------------------------------------------------------------------ paths
+     @staticmethod
+     def _q(username: str) -> str:
+diff --git a/apps/api/melorin/modules/panel_integrations/adapters/sanaei/adapter.py b/apps/api/melorin/modules/panel_integrations/adapters/sanaei/adapter.py
+index 8fc5bdc..3ecd3d5 100644
+--- a/apps/api/melorin/modules/panel_integrations/adapters/sanaei/adapter.py
++++ b/apps/api/melorin/modules/panel_integrations/adapters/sanaei/adapter.py
+@@ -104,6 +104,7 @@ class SanaeiAdapter(V3Mixin, LegacyMixin):
+         if not user or not pwd:
+             raise PanelError(ErrorKind.PERMANENT, "sanaei: credentials missing (api_token or username/password)")
+         try:
++            assert self._client is not None  # _login only runs right after the client was built
+             r = await self._client.post("/login", data={"username": user, "password": pwd})
+         except httpx.TimeoutException as e:
+             raise PanelError(ErrorKind.TRANSIENT, f"sanaei: login timeout: {e}") from e
+@@ -277,10 +278,10 @@ class SanaeiAdapter(V3Mixin, LegacyMixin):
+             traffic = await self._v3_traffic(username, rec)
+             ref = f"{','.join(map(str, ids)) or '-'}:{rec.get('uuid') or rec.get('subId') or username}"
+             return self._to_account(rec, traffic, ref, await self._links(username))
+-        found = await self._legacy_find(username)
+-        if not found:
++        legacy_found = await self._legacy_find(username)
++        if not legacy_found:
+             return None
+-        iid, c, st = found
++        iid, c, st = legacy_found
+         return self._to_account(c, st, f"{iid}:{self._legacy_cid(c)}")
+ 
+     async def suspend_account(self, username: str) -> None:
+diff --git a/apps/api/melorin/modules/panel_integrations/adapters/sanaei/legacy.py b/apps/api/melorin/modules/panel_integrations/adapters/sanaei/legacy.py
+index ffade16..7ad579c 100644
+--- a/apps/api/melorin/modules/panel_integrations/adapters/sanaei/legacy.py
++++ b/apps/api/melorin/modules/panel_integrations/adapters/sanaei/legacy.py
+@@ -1,5 +1,6 @@
+ """3x-ui 1.x/2.x (clients live inside inbound.settings.clients)."""
+ 
++from typing import TYPE_CHECKING, Any
+ import json
+ import secrets
+ import uuid
+@@ -10,6 +11,15 @@ from melorin.modules.panel_integrations.adapters.sanaei.wire import as_int, pars
+ 
+ 
+ class LegacyMixin:
++    if TYPE_CHECKING:  # what the host adapter class provides to this mixin (declared for the type checker only)
++
++        @staticmethod
++        def _q(v: str) -> str: ...
++        async def _req(self, method: str, path: str, *, ok_missing: bool = False, **kw: Any) -> dict | None: ...
++
++        @property
++        def inbound_ids(self) -> list[int]: ...
++
+     def _legacy_client_obj(self, spec: AccountSpec, tpl: dict) -> dict:
+         return {
+             "id": str(uuid.uuid4()),
+diff --git a/apps/api/melorin/modules/panel_integrations/adapters/sanaei/v3.py b/apps/api/melorin/modules/panel_integrations/adapters/sanaei/v3.py
+index e843177..38a9aae 100644
+--- a/apps/api/melorin/modules/panel_integrations/adapters/sanaei/v3.py
++++ b/apps/api/melorin/modules/panel_integrations/adapters/sanaei/v3.py
+@@ -1,5 +1,6 @@
+ """3x-ui 3.x (clients are first-class rows under /panel/api/clients/*)."""
+ 
++from typing import TYPE_CHECKING, Any
+ import time
+ 
+ 
+@@ -8,6 +9,18 @@ from melorin.modules.panel_integrations.adapters.sanaei.wire import TEMPLATE_TTL
+ 
+ 
+ class V3Mixin:
++    if TYPE_CHECKING:  # what the host adapter class provides to this mixin (declared for the type checker only)
++
++        @staticmethod
++        def _q(v: str) -> str: ...
++        async def _req(self, method: str, path: str, *, ok_missing: bool = False, **kw: Any) -> dict | None: ...
++
++        cfg: dict[str, Any]
++        _template: tuple[dict, float] | None
++
++        @property
++        def inbound_ids(self) -> list[int]: ...
++
+     async def _links(self, email: str) -> list[str]:
+         if not self.cfg.get("fetch_links", True):
+             return []
+@@ -37,7 +50,7 @@ class V3Mixin:
+         obj = (d or {}).get("obj")
+         if isinstance(obj, dict):
+             return obj
+-        return rec.get("traffic") if isinstance(rec.get("traffic"), dict) else {}
++        return (rec.get("traffic") if isinstance(rec.get("traffic"), dict) else None) or {}
+ 
+     async def _template_defaults(self) -> dict:
+         """inboundIds/flow/limitIp from config, optionally copied from a manually created template client."""
+diff --git a/apps/api/melorin/modules/panel_integrations/adapters/upstream_bot/adapter.py b/apps/api/melorin/modules/panel_integrations/adapters/upstream_bot/adapter.py
+index fe2bd25..cb5c7b5 100644
+--- a/apps/api/melorin/modules/panel_integrations/adapters/upstream_bot/adapter.py
++++ b/apps/api/melorin/modules/panel_integrations/adapters/upstream_bot/adapter.py
+@@ -28,6 +28,7 @@ import logging
+ import re
+ import time
+ import uuid
++from typing import Any, NoReturn, cast
+ 
+ from melorin.modules.panel_integrations.adapters.base import GB, AccountSpec, Capabilities, ErrorKind, PanelAccount, PanelError
+ from melorin.modules.panel_integrations.adapters.upstream_bot import parsing
+@@ -222,7 +223,9 @@ class UpstreamBotAdapter:
+         if not m:
+             raise PanelError(ErrorKind.TRANSIENT, f"upstream_bot: main menu button '{label}' did not appear after /start")
+         mark = await self._top_id()
+-        await c.click(m, self._find_button(m, label))
++        button = self._find_button(m, label)
++        assert button is not None  # the wait above only returns a message that carries it
++        await c.click(m, button)
+         return mark, m
+ 
+     async def _open_detail(self, ref: str) -> tuple[int, Msg, parsing.AccountDetail]:
+@@ -233,7 +236,9 @@ class UpstreamBotAdapter:
+         if not sm:
+             raise PanelError(ErrorKind.TRANSIENT, "upstream_bot: purchases screen / search button did not appear")
+         mark2 = await self._top_id()
+-        await c.click(sm, self._find_button(sm, self.cfg["search_button"]))
++        search = self._find_button(sm, self.cfg["search_button"])
++        assert search is not None  # the wait above only returns a message that carries it
++        await c.click(sm, search)
+         ask = await self._wait(lambda x: "اسم اکانت" in x.text or "نام اکانت" in x.text, after_id=mark2)
+         if not ask:
+             raise PanelError(ErrorKind.TRANSIENT, "upstream_bot: search prompt did not appear")
+@@ -242,7 +247,9 @@ class UpstreamBotAdapter:
+         det = await self._wait(lambda x: (d := parsing.parse_account_detail(x.text)) is not None and d.name == ref, after_id=mark3)
+         if not det:
+             raise PanelError(ErrorKind.PERMANENT, f"upstream_bot: account {ref} was not found in the parent bot")
+-        return mark3, det, parsing.parse_account_detail(det.text)
++        detail = parsing.parse_account_detail(det.text)
++        assert detail is not None  # the wait above only returns a message that parses
++        return mark3, det, detail
+ 
+     def _pick_plan(self, msg: Msg, spec: AccountSpec) -> tuple[Button, parsing.PlanButton]:
+         gb = round(spec.traffic_bytes / GB, 2) if spec.traffic_bytes else 0
+@@ -354,10 +361,10 @@ class UpstreamBotAdapter:
+                 and m.date_ts >= float(rec.get("started", 0)) - 5
+                 and parsing.parse_purchase_result(m.text)
+             ):
+-                taken = parsing.parse_purchase_result(m.text).name
+-                if await self._name_taken(taken):
+-                    continue
+                 res = parsing.parse_purchase_result(m.text)
++                assert res is not None  # the condition above parsed it
++                if await self._name_taken(res.name):
++                    continue
+                 data = {**rec, "status": "active", "ref": res.name, "subscription_url": res.subscription_url, "bought_at": time.time()}
+                 await self.store.set(username, data)
+                 return self._account(username, data)
+@@ -467,7 +474,7 @@ class UpstreamBotAdapter:
+         its printed amount is 0 in the real bot, so only 0 / the option price are accepted. After the confirm click every failure
+         is UNKNOWN and a retry first reads the account screen: it never pays twice for one renewal.
+         """
+-        r = {**DEFAULTS["renew"], **(self.cfg.get("renew") or {})}
++        r = {**cast(dict[str, Any], DEFAULTS["renew"]), **(self.cfg.get("renew") or {})}
+         if not r.get("enabled"):
+             raise PanelError(ErrorKind.PERMANENT, "upstream_bot: renewal is not enabled (config.renew.enabled); needs manual handling")
+         d = await self.store.get(username)
+@@ -499,6 +506,7 @@ class UpstreamBotAdapter:
+             if not opts:
+                 await self._raise_unrecognised(mark, "renewal options did not appear")
+             screen = parsing.parse_renew_screen(opts.text)
++            assert screen is not None  # the wait above only returns a message that parses
+             if screen.name != ref:
+                 raise PanelError(ErrorKind.PERMANENT, f"upstream_bot: renewal screen is for {screen.name}, expected {ref}")
+             want_gb = round(traffic_bytes / GB, 2) if traffic_bytes else 0
+@@ -598,7 +606,7 @@ class UpstreamBotAdapter:
+         except PanelError:
+             log.warning("upstream_bot: could not press cancel on a half-finished flow", exc_info=True)
+ 
+-    async def _raise_unrecognised(self, mark: int, what: str) -> None:
++    async def _raise_unrecognised(self, mark: int, what: str) -> NoReturn:
+         latest = await self._latest_text(mark)
+         if parsing.is_operation_expired(latest):
+             raise PanelError(ErrorKind.TRANSIENT, f"upstream_bot: {what}: the parent bot said the operation expired (stale buttons); retry")
+diff --git a/apps/api/melorin/modules/panel_integrations/capacity.py b/apps/api/melorin/modules/panel_integrations/capacity.py
+index e97b7f9..fd91226 100644
+--- a/apps/api/melorin/modules/panel_integrations/capacity.py
++++ b/apps/api/melorin/modules/panel_integrations/capacity.py
+@@ -220,7 +220,7 @@ def capacity_view(server: Server, melorin_active: int) -> dict:
+         "capacity": int(server.capacity or 0),
+         "melorin_accounts": melorin_active,
+         "panel_users": panel_users(server),
+-        "outside_melorin": max(0, panel_users(server) - melorin_active) if panel_users(server) is not None else None,
++        "outside_melorin": None if (pu := panel_users(server)) is None else max(0, pu - melorin_active),
+         "source": server.capacity_source,
+         "panel_users_as_of": server.capacity_checked_at,  # R7: a stored panel number is always shown with its age
+         "used": used,
+diff --git a/apps/api/melorin/modules/panel_integrations/templates.py b/apps/api/melorin/modules/panel_integrations/templates.py
+index 1982261..5112def 100644
+--- a/apps/api/melorin/modules/panel_integrations/templates.py
++++ b/apps/api/melorin/modules/panel_integrations/templates.py
+@@ -18,6 +18,7 @@ Rules (all admin-only, all audited):
+ 
+ from __future__ import annotations
+ 
++from typing import Any
+ import functools
+ 
+ import logging
+@@ -184,7 +185,7 @@ async def overview(session: AsyncSession, panel: Panel) -> dict:
+     items = []
+     for row in rows:
+         product = products.get(row.product_id)
+-        entry = {
++        entry: dict[str, Any] = {
+             "product_id": row.product_id,
+             "product_name": product.name if product else None,
+             "remote_template_id": row.remote_template_id,
+diff --git a/apps/api/melorin/modules/panelops/bulk.py b/apps/api/melorin/modules/panelops/bulk.py
+index 38b0ad9..34daa41 100644
+--- a/apps/api/melorin/modules/panelops/bulk.py
++++ b/apps/api/melorin/modules/panelops/bulk.py
+@@ -22,19 +22,17 @@ import logging
+ import uuid
+ from dataclasses import dataclass, field
+ 
+-from sqlalchemy import func, or_, select, update
++from sqlalchemy import func, select, update
+ from sqlalchemy.ext.asyncio import AsyncSession
+ 
+ from melorin.modules.panel_integrations.adapters import providers
+ from melorin.core import audit
+ from melorin.core.db import utcnow
+ from melorin.core.errors import AppError, NotFound
+-from melorin.domain.order_state import VpnSource, VpnStatus, set_vpn_status
++from melorin.domain.order_state import VpnStatus
+ from melorin.kernel.models.stores import Store
+ from melorin.kernel.models.vpn import BulkOperation, BulkOperationItem, Panel, VpnAccount
+ from melorin.modules.vpn_accounts import sync
+-from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError, supports
+-from melorin.modules.panel_integrations.adapters.registry import build_adapter
+ 
+ log = logging.getLogger("melorin.panelops.bulk")
+ 
+@@ -133,11 +131,13 @@ def _target(kind: str, account: VpnAccount, params: dict, now: dt.datetime) -> d
+     """The ABSOLUTE value to write for a relative kind, from the SOLD entitlement; ``base`` is what must still be on the panel (else the item is skipped)."""
+     if kind == "extend_days":
+         base = sync.aware(account.sold_expires_at)
++        if base is None:
++            return None
+         new = max(base, now) + dt.timedelta(days=params["days"])
+         return {"base_expire_at": base.isoformat(), "expire_at": new.isoformat()}
+     if kind == "add_traffic":
+-        base = int(account.sold_traffic_bytes or 0)
+-        return {"base_traffic_bytes": base, "traffic_bytes": base + params["gb"] * GIB}
++        base_bytes = int(account.sold_traffic_bytes or 0)
++        return {"base_traffic_bytes": base_bytes, "traffic_bytes": base_bytes + params["gb"] * GIB}
+     return None
+ 
+ 
+@@ -223,7 +223,7 @@ async def preview(
+     op.total = len(items)
+     op.skipped = sum(skipped.values())
+     op.sample = [i.username for i in items[:SAMPLE]]
+-    op.selection = {**op.selection, "skipped": skipped}
++    op.selection = {**(op.selection or {}), "skipped": skipped}
+     audit.record(
+         session,
+         "bulk.previewed",
+@@ -343,268 +343,6 @@ async def _counts(session: AsyncSession, op: BulkOperation) -> dict[str, int]:
+     return {status: n for status, n in rows}
+ 
+ 
+-async def claim_next(session: AsyncSession, now: dt.datetime | None = None) -> uuid.UUID | None:
+-    """Pick one runnable operation and take its lease atomically. ``None`` when there is nothing to do."""
+-    now = now or utcnow()
+-    candidates = (
+-        await session.scalars(
+-            select(BulkOperation.id)
+-            .where(BulkOperation.status.in_(OPEN), or_(BulkOperation.lease_until.is_(None), BulkOperation.lease_until < now))
+-            .order_by(BulkOperation.created_at)
+-            .limit(5)
+-        )
+-    ).all()
+-    for op_id in candidates:
+-        panel_id = await session.scalar(select(BulkOperation.panel_id).where(BulkOperation.id == op_id))
+-        other = await session.scalar(
+-            select(func.count())
+-            .select_from(BulkOperation)
+-            .where(BulkOperation.panel_id == panel_id, BulkOperation.id != op_id, BulkOperation.lease_until >= now)
+-        )
+-        if other:  # one runner per panel: another operation holds a live lease there
+-            continue
+-        res = await session.execute(
+-            update(BulkOperation)
+-            .where(
+-                BulkOperation.id == op_id,
+-                BulkOperation.status.in_(OPEN),
+-                or_(BulkOperation.lease_until.is_(None), BulkOperation.lease_until < now),
+-            )
+-            .values(lease_until=now + LEASE, status="running")
+-        )
+-        await session.commit()
+-        if res.rowcount:
+-            return op_id
+-    return None
+-
+-
+-async def _pending(session: AsyncSession, op: BulkOperation, limit: int) -> list[BulkOperationItem]:
+-    return list(
+-        (
+-            await session.scalars(
+-                select(BulkOperationItem)
+-                .where(BulkOperationItem.operation_id == op.id, BulkOperationItem.status == "pending")
+-                .order_by(BulkOperationItem.created_at, BulkOperationItem.id)
+-                .limit(limit)
+-            )
+-        ).all()
+-    )
+-
+-
+-def _mark(item: BulkOperationItem, status: str, error: str | None = None) -> None:
+-    item.status, item.error = status, (error[:300] if error else None)
+-    if status != "pending":
+-        item.done_at = utcnow()
+-
+-
+-def _mirror_panel_action(kind: str, account: VpnAccount) -> None:
+-    """Reflect an idempotent panel action on the account right away; ``last_synced_at=None`` puts it first in line for reconcile v2."""
+-    if kind == "disable":
+-        set_vpn_status(account, VpnStatus.SUSPENDED, source=VpnSource.BULK)
+-    elif kind == "enable":
+-        set_vpn_status(account, VpnStatus.ACTIVE, source=VpnSource.BULK)
+-    elif kind == "reset_usage" and account.status == VpnStatus.LIMITED:  # usage itself is the panel's: only the status bucket moves
+-        set_vpn_status(account, VpnStatus.ACTIVE, source=VpnSource.BULK)
+-    account.last_synced_at = None
+-
+-
+-async def _run_panel_action(session: AsyncSession, op: BulkOperation, adapter, budget_end: float, clock) -> bool:
+-    """Chunked idempotent action. Returns False when the run should stop (transient/unknown error: retried next tick)."""
+-    while clock() < budget_end:
+-        batch = await _pending(session, op, CHUNK)
+-        if not batch:
+-            return True
+-        await session.refresh(op)
+-        if op.status == "cancelled":
+-            return False
+-        refs = [i.panel_ref for i in batch if i.panel_ref]
+-        try:
+-            if refs:
+-                await adapter.bulk_users_action(refs, op.kind)
+-        except PanelError as exc:
+-            for i in batch:
+-                i.attempts = int(i.attempts or 0) + 1
+-                if exc.kind == ErrorKind.PERMANENT or i.attempts >= MAX_ATTEMPTS:
+-                    _mark(i, "failed", exc.message)
+-            op.error = exc.message[:300]
+-            await session.commit()
+-            if exc.kind == ErrorKind.PERMANENT:
+-                continue  # these items are failed (resumable); carry on with the next chunk
+-            return False  # transient/unknown: stop now, the same chunk is safe to resend later
+-        accounts = {
+-            a.id: a for a in (await session.scalars(select(VpnAccount).where(VpnAccount.id.in_([i.vpn_account_id for i in batch])))).all()
+-        }
+-        for i in batch:
+-            _mark(i, "done" if i.panel_ref else "failed", None if i.panel_ref else "no panel reference")
+-            account = accounts.get(i.vpn_account_id)
+-            if account and i.panel_ref:
+-                _mirror_panel_action(op.kind, account)
+-        op.lease_until = utcnow() + LEASE
+-        await session.commit()
+-    return True
+-
+-
+-def _expire_matches(a: dt.datetime | None, b: dt.datetime | None) -> bool:
+-    return a is not None and b is not None and abs(a - b) <= SKEW
+-
+-
+-async def _apply_relative(session: AsyncSession, op: BulkOperation, item: BulkOperationItem, account: VpnAccount, adapter) -> str:
+-    """One account of extend_days / add_traffic. Returns ``done | skipped | pending`` (pending = transient, retry later)."""
+-    target = item.target or {}
+-    try:
+-        remote = await adapter.get_account(account.username)
+-        if remote is None:
+-            _mark(item, "failed", "missing on panel")
+-            return "failed"
+-        if op.kind == "extend_days":
+-            want, base = dt.datetime.fromisoformat(target["expire_at"]), dt.datetime.fromisoformat(target["base_expire_at"])
+-            have = sync.aware(remote.expire_at)
+-            if _expire_matches(have, want):
+-                _mark(item, "done")  # an earlier attempt already landed (e.g. the answer was lost): never add twice
+-                await sync.apply_remote(session, account, remote, notify=False)
+-                sync.record_sale(account, remote.expire_at, remote.traffic_limit_bytes)
+-                return "done"
+-            if not _expire_matches(have, base):
+-                _mark(item, "skipped", "changed on the panel since the preview")
+-                return "skipped"
+-            pa = await adapter.extend_account(account.username, expire_at=want, traffic_bytes=int(remote.traffic_limit_bytes or 0))
+-        else:
+-            want, base_t = int(target["traffic_bytes"]), int(target["base_traffic_bytes"])
+-            have_t = int(remote.traffic_limit_bytes or 0)
+-            if have_t == want:
+-                _mark(item, "done")
+-                await sync.apply_remote(session, account, remote, notify=False)
+-                sync.record_sale(account, remote.expire_at, remote.traffic_limit_bytes)
+-                return "done"
+-            if have_t != base_t:
+-                _mark(item, "skipped", "changed on the panel since the preview")
+-                return "skipped"
+-            pa = await adapter.extend_account(account.username, expire_at=sync.aware(remote.expire_at), traffic_bytes=want)
+-    except PanelError as exc:
+-        item.attempts = int(item.attempts or 0) + 1
+-        item.error = exc.message[:300]
+-        if exc.kind == ErrorKind.PERMANENT or item.attempts >= MAX_ATTEMPTS:
+-            _mark(item, "failed", exc.message)
+-            return "failed"
+-        return "pending"
+-    await sync.apply_remote(session, account, pa, notify=False)
+-    sync.record_sale(account, pa.expire_at, pa.traffic_limit_bytes)  # R10: the entitlement is what the act applied
+-    _mark(item, "done")
+-    return "done"
+-
+-
+-async def _run_relative(session: AsyncSession, op: BulkOperation, adapter, budget_end: float, clock) -> bool:
+-    while clock() < budget_end:
+-        batch = await _pending(session, op, PER_ACCOUNT_BATCH)
+-        if not batch:
+-            return True
+-        await session.refresh(op)
+-        if op.status == "cancelled":
+-            return False
+-        accounts = {
+-            a.id: a for a in (await session.scalars(select(VpnAccount).where(VpnAccount.id.in_([i.vpn_account_id for i in batch])))).all()
+-        }
+-        stop = False
+-        for item in batch:
+-            account = accounts.get(item.vpn_account_id)
+-            if account is None:
+-                _mark(item, "failed", "account is gone")
+-                continue
+-            outcome = await _apply_relative(session, op, item, account, adapter)
+-            if outcome == "pending":
+-                stop = True  # the panel is struggling: stop this tick, items stay pending
+-                break
+-        op.lease_until = utcnow() + LEASE
+-        await session.commit()
+-        if stop:
+-            return False
+-    return True
+-
+-
+-async def execute(session: AsyncSession, op_id: uuid.UUID, *, budget_seconds: float = 45.0, clock=None) -> BulkOperation:
+-    """Run one claimed operation for up to ``budget_seconds`` (the worker calls this every tick until it is finished)."""
+-    import time
+-
+-    clock = clock or time.monotonic
+-    budget_end = clock() + budget_seconds
+-    op = await get(session, op_id)
+-    if op.status not in OPEN:
+-        return op
+-    op.status = "running"
+-    op.started_at = op.started_at or utcnow()
+-    panel = await session.get(Panel, op.panel_id)
+-    adapter = None
+-    try:
+-        adapter = build_adapter(panel)
+-        needed = CAPABILITY[op.kind]
+-        if not supports(adapter, needed):
+-            raise PanelError(ErrorKind.PERMANENT, f"panel capability '{needed}' is not available for this connection")
+-        if op.kind in PANEL_ACTIONS:
+-            await _run_panel_action(session, op, adapter, budget_end, clock)
+-        else:
+-            await _run_relative(session, op, adapter, budget_end, clock)
+-    except PanelError as exc:
+-        op.error = exc.message[:300]
+-        if exc.kind == ErrorKind.PERMANENT:
+-            await session.execute(
+-                update(BulkOperationItem)
+-                .where(BulkOperationItem.operation_id == op.id, BulkOperationItem.status == "pending")
+-                .values(status="failed", error=exc.message[:300])
+-            )
+-    except AppError as exc:  # e.g. TLS policy: nothing was sent
+-        op.error = exc.message[:300]
+-        await session.execute(
+-            update(BulkOperationItem)
+-            .where(BulkOperationItem.operation_id == op.id, BulkOperationItem.status == "pending")
+-            .values(status="failed", error=exc.message[:300])
+-        )
+-    finally:
+-        if adapter is not None:
+-            close = getattr(adapter, "close", None)
+-            if callable(close):
+-                try:
+-                    res = close()
+-                    if hasattr(res, "__await__"):
+-                        await res
+-                except Exception:
+-                    log.warning("bulk: adapter close failed op=%s", op.id, exc_info=True)
+-    await session.refresh(op)
+-    if op.status == "cancelled":
+-        await session.commit()
+-        return op
+-    counts = await _counts(session, op)
+-    op.succeeded, op.failed = counts.get("done", 0), counts.get("failed", 0)
+-    pre_skipped = sum(((op.selection or {}).get("skipped") or {}).values())
+-    op.skipped = pre_skipped + counts.get("skipped", 0)
+-    if counts.get("pending", 0) == 0:
+-        op.status = "done" if op.failed == 0 else ("failed" if op.succeeded == 0 and counts.get("skipped", 0) == 0 else "partial")
+-        op.finished_at, op.lease_until = utcnow(), None
+-        audit.record(
+-            session,
+-            "bulk.finished",
+-            actor_type="system",
+-            entity_type="bulk_operation",
+-            entity_id=op.id,
+-            store_id=op.store_id,
+-            data={"kind": op.kind, "status": op.status, "succeeded": op.succeeded, "failed": op.failed, "skipped": op.skipped},
+-        )
+-    else:
+-        op.lease_until = None
+-        op.status = "confirmed"  # time budget used up or the panel struggled: the next tick picks it up again
+-    await session.commit()
+-    return op
+-
+-
+-async def run_next(session_factory, *, budget_seconds: float = 45.0) -> BulkOperation | None:
+-    """Worker entry point: expire stale previews, claim one runnable operation, run it for a bounded time."""
+-    async with session_factory() as s:
+-        await expire_stale_previews(s)
+-        op_id = await claim_next(s)
+-        if op_id is None:
+-            return None
+-        return await execute(s, op_id, budget_seconds=budget_seconds)
+-
+-
+ # ------------------------------------------------------------------------------------------------------------------ reporting
+ def item_out(i: BulkOperationItem) -> dict:
+     return {"username": i.username, "status": i.status, "attempts": i.attempts, "error": i.error, "done_at": i.done_at}
+@@ -634,7 +372,7 @@ async def plan_store_state(session: AsyncSession, store: Store, *, suspend: bool
+         panel = await session.get(Panel, panel_id)
+         if not panel or not providers.supports(panel.kind, "panel_ops"):
+             continue
+-        sel = Selection(panel_id=panel_id, store_id=store.id)
++        sel = Selection(panel_id=panel.id, store_id=store.id)
+         if not suspend:
+             prior = await session.scalar(
+                 select(BulkOperation)
+@@ -684,9 +422,6 @@ __all__ = [
+     "confirm",
+     "cancel",
+     "resume",
+-    "execute",
+-    "run_next",
+-    "claim_next",
+     "plan_store_state",
+     "items_page",
+     "item_out",
+diff --git a/apps/api/melorin/modules/panelops/bulk_runner.py b/apps/api/melorin/modules/panelops/bulk_runner.py
+new file mode 100644
+index 0000000..9fbbad1
+--- /dev/null
++++ b/apps/api/melorin/modules/panelops/bulk_runner.py
+@@ -0,0 +1,303 @@
++"""Bulk panel operations, execution side: claim one confirmed operation, run it in bounded time, resume after a crash.
++
++The lifecycle (preview, confirm, cancel, resume, reporting) stays in :mod:`melorin.modules.panelops.bulk`; this module is what the worker runs.
++"""
++
++from __future__ import annotations
++
++import datetime as dt
++import logging
++import uuid
++
++from sqlalchemy import func, or_, select, update
++from sqlalchemy.ext.asyncio import AsyncSession
++
++from melorin.core import audit
++from melorin.core.db import utcnow
++from melorin.core.errors import AppError
++from melorin.domain.order_state import VpnSource, VpnStatus, set_vpn_status
++from melorin.kernel.models.vpn import BulkOperation, BulkOperationItem, Panel, VpnAccount
++from melorin.modules.vpn_accounts import sync
++from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError, supports
++from melorin.modules.panel_integrations.adapters.registry import build_adapter
++
++from melorin.modules.panelops.bulk import (
++    CAPABILITY,
++    CHUNK,
++    LEASE,
++    MAX_ATTEMPTS,
++    OPEN,
++    PANEL_ACTIONS,
++    PER_ACCOUNT_BATCH,
++    SKEW,
++    _counts,
++    expire_stale_previews,
++    get,
++)
++
++log = logging.getLogger("melorin.panelops.bulk_runner")
++
++
++async def claim_next(session: AsyncSession, now: dt.datetime | None = None) -> uuid.UUID | None:
++    """Pick one runnable operation and take its lease atomically. ``None`` when there is nothing to do."""
++    now = now or utcnow()
++    candidates = (
++        await session.scalars(
++            select(BulkOperation.id)
++            .where(BulkOperation.status.in_(OPEN), or_(BulkOperation.lease_until.is_(None), BulkOperation.lease_until < now))
++            .order_by(BulkOperation.created_at)
++            .limit(5)
++        )
++    ).all()
++    for op_id in candidates:
++        panel_id = await session.scalar(select(BulkOperation.panel_id).where(BulkOperation.id == op_id))
++        other = await session.scalar(
++            select(func.count())
++            .select_from(BulkOperation)
++            .where(BulkOperation.panel_id == panel_id, BulkOperation.id != op_id, BulkOperation.lease_until >= now)
++        )
++        if other:  # one runner per panel: another operation holds a live lease there
++            continue
++        res = await session.execute(
++            update(BulkOperation)
++            .where(
++                BulkOperation.id == op_id,
++                BulkOperation.status.in_(OPEN),
++                or_(BulkOperation.lease_until.is_(None), BulkOperation.lease_until < now),
++            )
++            .values(lease_until=now + LEASE, status="running")
++        )
++        await session.commit()
++        if res.rowcount:
++            return op_id
++    return None
++
++
++async def _pending(session: AsyncSession, op: BulkOperation, limit: int) -> list[BulkOperationItem]:
++    return list(
++        (
++            await session.scalars(
++                select(BulkOperationItem)
++                .where(BulkOperationItem.operation_id == op.id, BulkOperationItem.status == "pending")
++                .order_by(BulkOperationItem.created_at, BulkOperationItem.id)
++                .limit(limit)
++            )
++        ).all()
++    )
++
++
++def _mark(item: BulkOperationItem, status: str, error: str | None = None) -> None:
++    item.status, item.error = status, (error[:300] if error else None)
++    if status != "pending":
++        item.done_at = utcnow()
++
++
++def _mirror_panel_action(kind: str, account: VpnAccount) -> None:
++    """Reflect an idempotent panel action on the account right away; ``last_synced_at=None`` puts it first in line for reconcile v2."""
++    if kind == "disable":
++        set_vpn_status(account, VpnStatus.SUSPENDED, source=VpnSource.BULK)
++    elif kind == "enable":
++        set_vpn_status(account, VpnStatus.ACTIVE, source=VpnSource.BULK)
++    elif kind == "reset_usage" and account.status == VpnStatus.LIMITED:  # usage itself is the panel's: only the status bucket moves
++        set_vpn_status(account, VpnStatus.ACTIVE, source=VpnSource.BULK)
++    account.last_synced_at = None
++
++
++async def _run_panel_action(session: AsyncSession, op: BulkOperation, adapter, budget_end: float, clock) -> bool:
++    """Chunked idempotent action. Returns False when the run should stop (transient/unknown error: retried next tick)."""
++    while clock() < budget_end:
++        batch = await _pending(session, op, CHUNK)
++        if not batch:
++            return True
++        await session.refresh(op)
++        if op.status == "cancelled":
++            return False
++        refs = [i.panel_ref for i in batch if i.panel_ref]
++        try:
++            if refs:
++                await adapter.bulk_users_action(refs, op.kind)
++        except PanelError as exc:
++            for i in batch:
++                i.attempts = int(i.attempts or 0) + 1
++                if exc.kind == ErrorKind.PERMANENT or i.attempts >= MAX_ATTEMPTS:
++                    _mark(i, "failed", exc.message)
++            op.error = exc.message[:300]
++            await session.commit()
++            if exc.kind == ErrorKind.PERMANENT:
++                continue  # these items are failed (resumable); carry on with the next chunk
++            return False  # transient/unknown: stop now, the same chunk is safe to resend later
++        accounts = {
++            a.id: a for a in (await session.scalars(select(VpnAccount).where(VpnAccount.id.in_([i.vpn_account_id for i in batch])))).all()
++        }
++        for i in batch:
++            _mark(i, "done" if i.panel_ref else "failed", None if i.panel_ref else "no panel reference")
++            account = accounts.get(i.vpn_account_id)
++            if account and i.panel_ref:
++                _mirror_panel_action(op.kind, account)
++        op.lease_until = utcnow() + LEASE
++        await session.commit()
++    return True
++
++
++def _expire_matches(a: dt.datetime | None, b: dt.datetime | None) -> bool:
++    return a is not None and b is not None and abs(a - b) <= SKEW
++
++
++async def _apply_relative(session: AsyncSession, op: BulkOperation, item: BulkOperationItem, account: VpnAccount, adapter) -> str:
++    """One account of extend_days / add_traffic. Returns ``done | skipped | pending`` (pending = transient, retry later)."""
++    target = item.target or {}
++    try:
++        remote = await adapter.get_account(account.username)
++        if remote is None:
++            _mark(item, "failed", "missing on panel")
++            return "failed"
++        if op.kind == "extend_days":
++            want, base = dt.datetime.fromisoformat(target["expire_at"]), dt.datetime.fromisoformat(target["base_expire_at"])
++            have = sync.aware(remote.expire_at)
++            if _expire_matches(have, want):
++                _mark(item, "done")  # an earlier attempt already landed (e.g. the answer was lost): never add twice
++                await sync.apply_remote(session, account, remote, notify=False)
++                sync.record_sale(account, remote.expire_at, remote.traffic_limit_bytes)
++                return "done"
++            if not _expire_matches(have, base):
++                _mark(item, "skipped", "changed on the panel since the preview")
++                return "skipped"
++            pa = await adapter.extend_account(account.username, expire_at=want, traffic_bytes=int(remote.traffic_limit_bytes or 0))
++        else:
++            want_t, base_t = int(target["traffic_bytes"]), int(target["base_traffic_bytes"])
++            have_t = int(remote.traffic_limit_bytes or 0)
++            if have_t == want_t:
++                _mark(item, "done")
++                await sync.apply_remote(session, account, remote, notify=False)
++                sync.record_sale(account, remote.expire_at, remote.traffic_limit_bytes)
++                return "done"
++            if have_t != base_t:
++                _mark(item, "skipped", "changed on the panel since the preview")
++                return "skipped"
++            pa = await adapter.extend_account(account.username, expire_at=sync.aware(remote.expire_at), traffic_bytes=want_t)
++    except PanelError as exc:
++        item.attempts = int(item.attempts or 0) + 1
++        item.error = exc.message[:300]
++        if exc.kind == ErrorKind.PERMANENT or item.attempts >= MAX_ATTEMPTS:
++            _mark(item, "failed", exc.message)
++            return "failed"
++        return "pending"
++    await sync.apply_remote(session, account, pa, notify=False)
++    sync.record_sale(account, pa.expire_at, pa.traffic_limit_bytes)  # R10: the entitlement is what the act applied
++    _mark(item, "done")
++    return "done"
++
++
++async def _run_relative(session: AsyncSession, op: BulkOperation, adapter, budget_end: float, clock) -> bool:
++    while clock() < budget_end:
++        batch = await _pending(session, op, PER_ACCOUNT_BATCH)
++        if not batch:
++            return True
++        await session.refresh(op)
++        if op.status == "cancelled":
++            return False
++        accounts = {
++            a.id: a for a in (await session.scalars(select(VpnAccount).where(VpnAccount.id.in_([i.vpn_account_id for i in batch])))).all()
++        }
++        stop = False
++        for item in batch:
++            account = accounts.get(item.vpn_account_id)
++            if account is None:
++                _mark(item, "failed", "account is gone")
++                continue
++            outcome = await _apply_relative(session, op, item, account, adapter)
++            if outcome == "pending":
++                stop = True  # the panel is struggling: stop this tick, items stay pending
++                break
++        op.lease_until = utcnow() + LEASE
++        await session.commit()
++        if stop:
++            return False
++    return True
++
++
++async def execute(session: AsyncSession, op_id: uuid.UUID, *, budget_seconds: float = 45.0, clock=None) -> BulkOperation:
++    """Run one claimed operation for up to ``budget_seconds`` (the worker calls this every tick until it is finished)."""
++    import time
++
++    clock = clock or time.monotonic
++    budget_end = clock() + budget_seconds
++    op = await get(session, op_id)
++    if op.status not in OPEN:
++        return op
++    op.status = "running"
++    op.started_at = op.started_at or utcnow()
++    panel = await session.get(Panel, op.panel_id)
++    adapter = None
++    try:
++        adapter = build_adapter(panel)
++        needed = CAPABILITY[op.kind]
++        if not supports(adapter, needed):
++            raise PanelError(ErrorKind.PERMANENT, f"panel capability '{needed}' is not available for this connection")
++        if op.kind in PANEL_ACTIONS:
++            await _run_panel_action(session, op, adapter, budget_end, clock)
++        else:
++            await _run_relative(session, op, adapter, budget_end, clock)
++    except PanelError as exc:
++        op.error = exc.message[:300]
++        if exc.kind == ErrorKind.PERMANENT:
++            await session.execute(
++                update(BulkOperationItem)
++                .where(BulkOperationItem.operation_id == op.id, BulkOperationItem.status == "pending")
++                .values(status="failed", error=exc.message[:300])
++            )
++    except AppError as exc:  # e.g. TLS policy: nothing was sent
++        op.error = exc.message[:300]
++        await session.execute(
++            update(BulkOperationItem)
++            .where(BulkOperationItem.operation_id == op.id, BulkOperationItem.status == "pending")
++            .values(status="failed", error=exc.message[:300])
++        )
++    finally:
++        if adapter is not None:
++            close = getattr(adapter, "close", None)
++            if callable(close):
++                try:
++                    res = close()
++                    if hasattr(res, "__await__"):
++                        await res
++                except Exception:
++                    log.warning("bulk: adapter close failed op=%s", op.id, exc_info=True)
++    await session.refresh(op)
++    if op.status == "cancelled":
++        await session.commit()
++        return op
++    counts = await _counts(session, op)
++    op.succeeded, op.failed = counts.get("done", 0), counts.get("failed", 0)
++    pre_skipped = sum(((op.selection or {}).get("skipped") or {}).values())
++    op.skipped = pre_skipped + counts.get("skipped", 0)
++    if counts.get("pending", 0) == 0:
++        op.status = "done" if op.failed == 0 else ("failed" if op.succeeded == 0 and counts.get("skipped", 0) == 0 else "partial")
++        op.finished_at, op.lease_until = utcnow(), None
++        audit.record(
++            session,
++            "bulk.finished",
++            actor_type="system",
++            entity_type="bulk_operation",
++            entity_id=op.id,
++            store_id=op.store_id,
++            data={"kind": op.kind, "status": op.status, "succeeded": op.succeeded, "failed": op.failed, "skipped": op.skipped},
++        )
++    else:
++        op.lease_until = None
++        op.status = "confirmed"  # time budget used up or the panel struggled: the next tick picks it up again
++    await session.commit()
++    return op
++
++
++async def run_next(session_factory, *, budget_seconds: float = 45.0) -> BulkOperation | None:
++    """Worker entry point: expire stale previews, claim one runnable operation, run it for a bounded time."""
++    async with session_factory() as s:
++        await expire_stale_previews(s)
++        op_id = await claim_next(s)
++        if op_id is None:
++            return None
++        return await execute(s, op_id, budget_seconds=budget_seconds)
++
++
++__all__ = ["claim_next", "execute", "run_next"]
+diff --git a/apps/api/melorin/modules/panelops/governance.py b/apps/api/melorin/modules/panelops/governance.py
+index 7c7b8b9..53e023d 100644
+--- a/apps/api/melorin/modules/panelops/governance.py
++++ b/apps/api/melorin/modules/panelops/governance.py
+@@ -142,7 +142,7 @@ async def sync_usage(session: AsyncSession, panel: Panel, adapter=None) -> SyncS
+         for row in rows:
+             stats.checked += 1
+             try:
+-                detail = await adapter.get_admin_detail(int(row.remote_id))
++                detail = await adapter.get_admin_detail(int(row.remote_id or 0))
+             except PanelError as exc:
+                 row.governance_error = exc.message[:300]
+                 stats.errors += 1
+diff --git a/apps/api/melorin/modules/panelops/ops_console.py b/apps/api/melorin/modules/panelops/ops_console.py
+index b181e2c..85aa546 100644
+--- a/apps/api/melorin/modules/panelops/ops_console.py
++++ b/apps/api/melorin/modules/panelops/ops_console.py
+@@ -15,6 +15,7 @@ import uuid
+ from sqlalchemy import select
+ from sqlalchemy.ext.asyncio import AsyncSession
+ 
++from melorin.modules.panel_integrations.adapters.base import optional_ops
+ from melorin.core import audit
+ from melorin.core.errors import AppError, NotFound
+ from melorin.kernel.models.vpn import Panel, PanelNode
+@@ -88,9 +89,9 @@ async def overview(session: AsyncSession, panel_id: uuid.UUID) -> dict:
+         adapter = build_adapter(panel)
+         if supports(adapter, "node_insight"):
+             for name, call in (
+-                ("system", adapter.get_system_stats),
+-                ("resources", adapter.get_system_resources),
+-                ("realtime", adapter.get_nodes_realtime),
++                ("system", optional_ops(adapter).get_system_stats),
++                ("resources", optional_ops(adapter).get_system_resources),
++                ("realtime", optional_ops(adapter).get_nodes_realtime),
+             ):
+                 try:
+                     data = await call()
+@@ -150,7 +151,7 @@ async def list_infra(session: AsyncSession, panel_id: uuid.UUID) -> dict:
+             try:
+                 out["groups"] = [
+                     {"id": g.get("id"), "name": g.get("name"), "disabled": bool(g.get("is_disabled")), "total_users": g.get("total_users")}
+-                    for g in await adapter.list_groups_full()
++                    for g in await optional_ops(adapter).list_groups_full()
+                 ]
+                 out["hosts"] = [
+                     {
+@@ -159,13 +160,13 @@ async def list_infra(session: AsyncSession, panel_id: uuid.UUID) -> dict:
+                         "inbound_tag": h.get("inbound_tag"),
+                         "disabled": bool(h.get("is_disabled")),
+                     }
+-                    for h in await adapter.list_hosts()
++                    for h in await optional_ops(adapter).list_hosts()
+                 ]
+             except PanelError as exc:
+                 raise _panel_error(exc) from exc
+         if supports(adapter, "infra_control"):
+             try:
+-                out["cores"] = [{"id": c.get("id"), "name": c.get("name")} for c in await adapter.list_cores()]
++                out["cores"] = [{"id": c.get("id"), "name": c.get("name")} for c in await optional_ops(adapter).list_cores()]
+             except PanelError as exc:
+                 raise _panel_error(exc) from exc
+         return out
+@@ -202,7 +203,11 @@ async def node_action(session: AsyncSession, panel_id: uuid.UUID, node_id: int,
+     try:
+         _need(adapter, "node_control" if action == "reconnect" else "infra_control")
+         try:
+-            await (adapter.reconnect_node(int(node_id)) if action == "reconnect" else adapter.sync_node(int(node_id)))
++            await (
++                optional_ops(adapter).reconnect_node(int(node_id))
++                if action == "reconnect"
++                else optional_ops(adapter).sync_node(int(node_id))
++            )
+         except PanelError as exc:
+             raise _panel_error(exc) from exc
+         await _refresh(session, panel, adapter)
+@@ -223,7 +228,7 @@ async def core_restart(
+     try:
+         _need(adapter, "infra_control")
+         try:
+-            cores = await adapter.list_cores()
++            cores = await optional_ops(adapter).list_cores()
+         except PanelError as exc:
+             raise _panel_error(exc) from exc
+         core = next((c for c in cores if c.get("id") == int(core_id)), None)
+@@ -232,7 +237,7 @@ async def core_restart(
+         if (confirm_name or "").strip() != str(core.get("name") or ""):
+             raise AppError("CONFIRM_NAME_MISMATCH", "نام هسته را دقیقاً تایپ کنید تا ری‌استارت تأیید شود.", 409)
+         try:
+-            await adapter.restart_core(int(core_id))
++            await optional_ops(adapter).restart_core(int(core_id))
+         except PanelError as exc:
+             raise _panel_error(exc) from exc
+     finally:
+@@ -276,7 +281,11 @@ async def toggle(
+     adapter = build_adapter(panel)
+     try:
+         _need(adapter, "infra_control")
+-        call = {"nodes": adapter.set_nodes_disabled, "hosts": adapter.set_hosts_disabled, "groups": adapter.set_groups_disabled}[family]
++        call = {
++            "nodes": optional_ops(adapter).set_nodes_disabled,
++            "hosts": optional_ops(adapter).set_hosts_disabled,
++            "groups": optional_ops(adapter).set_groups_disabled,
++        }[family]
+         try:
+             await call(ids, disabled)
+         except PanelError as exc:
+diff --git a/apps/api/melorin/modules/panelops/panel_admins.py b/apps/api/melorin/modules/panelops/panel_admins.py
+index c6ea042..074cb82 100644
+--- a/apps/api/melorin/modules/panelops/panel_admins.py
++++ b/apps/api/melorin/modules/panelops/panel_admins.py
+@@ -13,6 +13,7 @@
+ 
+ from __future__ import annotations
+ 
++from typing import Any
+ import logging
+ import re
+ import secrets
+@@ -23,6 +24,7 @@ from urllib.parse import urlsplit
+ from sqlalchemy import or_, select
+ from sqlalchemy.exc import IntegrityError
+ 
++from melorin.modules.panel_integrations.adapters.base import optional_ops
+ from melorin.modules.panel_integrations.adapters import providers
+ from melorin.core.crypto import decrypt, encrypt
+ from melorin.core.db import utcnow
+@@ -258,7 +260,7 @@ async def sync_all(session, *, limit: int = 25, panel: Panel | None = None) -> d
+         stmt = stmt.where(PanelAdmin.panel_id == panel.id)
+     rows = (await session.scalars(stmt.order_by(PanelAdmin.created_at).limit(limit))).all()
+     done = failed = 0
+-    adapters: dict[uuid.UUID, object] = {}
++    adapters: dict[uuid.UUID, Any] = {}
+     try:
+         for row in rows:
+             p = panel if panel and panel.id == row.panel_id else await session.get(Panel, row.panel_id)
+@@ -324,7 +326,7 @@ async def apply_profile(session, store_id: uuid.UUID, changes: dict, *, panel_id
+             adapter = None
+             try:
+                 adapter = registry.build_adapter(panel)
+-                await adapter.update_admin_profile(row.remote_id, clean)
++                await optional_ops(adapter).update_admin_profile(row.remote_id, clean)
+                 row.profile_synced = True
+             except PanelError as exc:
+                 error = exc.message[:300]
+@@ -355,7 +357,7 @@ async def reset_password(session, row: PanelAdmin, panel: Panel) -> str:
+     adapter = None
+     try:
+         adapter = registry.build_adapter(panel)
+-        await adapter.update_admin_profile(row.remote_id, {}, password=password)
++        await optional_ops(adapter).update_admin_profile(row.remote_id, {}, password=password)
+     except Exception:
+         row.password_enc, row.profile_synced = previous, previous_flag
+         await session.commit()
+diff --git a/apps/api/melorin/modules/panelops/panel_events.py b/apps/api/melorin/modules/panelops/panel_events.py
+index c3b0720..af8dbbf 100644
+--- a/apps/api/melorin/modules/panelops/panel_events.py
++++ b/apps/api/melorin/modules/panelops/panel_events.py
+@@ -31,7 +31,7 @@ from melorin.domain.order_state import VpnStatus
+ from melorin.kernel.models.vpn import Panel, PanelEvent, VpnAccount
+ from melorin.modules.vpn_accounts import notices, reconcile, sync
+ from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError
+-from melorin.modules.panel_integrations.adapters.pasarguard.events import USER_EVENTS, ParsedBody
++from melorin.modules.panel_integrations.adapters.pasarguard.events import USER_EVENTS, ParsedBody, ParsedEvent
+ from melorin.modules.panel_integrations.adapters.registry import build_adapter, seed_adapter
+ 
+ log = logging.getLogger("melorin.panelops.panel_events")
+@@ -87,7 +87,7 @@ async def ingest(session: AsyncSession, panel: Panel, parsed: ParsedBody, *, now
+     now = now or utcnow()
+     result = IngestResult(rejected=parsed.rejected)
+     panel_id = panel.id
+-    unique: dict[str, object] = {}
++    unique: dict[str, ParsedEvent] = {}
+     for event in parsed.events:
+         if event.dedup_key in unique:
+             result.duplicates += 1
+diff --git a/apps/api/melorin/modules/panelops/panel_events_admin.py b/apps/api/melorin/modules/panelops/panel_events_admin.py
+index 5930b21..830ab54 100644
+--- a/apps/api/melorin/modules/panelops/panel_events_admin.py
++++ b/apps/api/melorin/modules/panelops/panel_events_admin.py
+@@ -19,6 +19,7 @@ import uuid
+ from sqlalchemy import func, select, update
+ from sqlalchemy.ext.asyncio import AsyncSession
+ 
++from melorin.modules.panel_integrations.adapters.base import optional_ops
+ from melorin.modules.panel_integrations.adapters import providers
+ from melorin.core.config import get_settings
+ from melorin.core.crypto import encrypt
+@@ -55,13 +56,14 @@ def _is_connected(panel: Panel) -> bool:
+ 
+ async def counts(session: AsyncSession, panel_id: uuid.UUID, *, now: dt.datetime | None = None) -> dict:
+     now = now or utcnow()
+-    by_status = dict(
+-        (
++    by_status = {
++        r[0]: r[1]
++        for r in (
+             await session.execute(
+                 select(PanelEvent.status, func.count()).where(PanelEvent.panel_id == panel_id).group_by(PanelEvent.status)
+             )
+         ).all()
+-    )
++    }
+     day = await session.scalar(
+         select(func.count())
+         .select_from(PanelEvent)
+@@ -102,7 +104,7 @@ async def status(session: AsyncSession, panel: Panel, *, live: bool = False, now
+         try:
+             adapter = build_adapter(panel)
+             if supports(adapter, "event_source"):
+-                out["panel_side"] = await adapter.get_webhook_config(out["url"])
++                out["panel_side"] = await optional_ops(adapter).get_webhook_config(out["url"])
+                 if not out["panel_side"]["melorin_registered"]:
+                     out["warnings"].append(
+                         "پنل دیگر Melorin را به‌عنوان مقصد رویداد ندارد (کسی آن را از پنل پاک کرده است). دوباره وصل کنید."
+@@ -190,7 +192,7 @@ async def disconnect(session: AsyncSession, panel: Panel) -> dict:
+         adapter = build_adapter(panel)
+         try:
+             if supports(adapter, "event_source"):
+-                result = await adapter.disconnect_webhook(url)
++                result = await optional_ops(adapter).disconnect_webhook(url)
+                 warnings = list(result.get("warnings", []))
+             else:
+                 warnings.append("نقش فعلی اجازهٔ تغییر تنظیمات پنل را نداشت؛ مقصد را خودتان از پنل حذف کنید.")
+diff --git a/apps/api/melorin/modules/panelops/panel_metrics.py b/apps/api/melorin/modules/panelops/panel_metrics.py
+index dc400e7..052dbcf 100644
+--- a/apps/api/melorin/modules/panelops/panel_metrics.py
++++ b/apps/api/melorin/modules/panelops/panel_metrics.py
+@@ -236,15 +236,16 @@ async def collect(session: AsyncSession, now: dt.datetime | None = None) -> dict
+                 drifting.append(name)
+ 
+     # Reconcile: open issues per kind (always all kinds, so a cleared issue drops to 0 instead of vanishing) and the oldest sync.
+-    issue_rows = dict(
+-        (
++    issue_rows = {
++        r[0]: r[1]
++        for r in (
+             await session.execute(
+                 select(ReconciliationIssue.kind, func.count())
+                 .where(ReconciliationIssue.status == "open")
+                 .group_by(ReconciliationIssue.kind)
+             )
+         ).all()
+-    )
++    }
+     for kind in sorted(set(ISSUE_KINDS) | set(issue_rows)):
+         put("melorin_reconcile_open_issues", float(issue_rows.get(kind, 0)), kind=kind)
+     oldest = await session.scalar(
+diff --git a/apps/api/melorin/modules/panelops/queries.py b/apps/api/melorin/modules/panelops/queries.py
+index fce952d..0dd17e2 100644
+--- a/apps/api/melorin/modules/panelops/queries.py
++++ b/apps/api/melorin/modules/panelops/queries.py
+@@ -38,15 +38,16 @@ async def live_nodes(session: AsyncSession, panel_id: uuid.UUID) -> list[PanelNo
+ 
+ 
+ async def node_status_counts(session: AsyncSession, panel_id: uuid.UUID) -> list[tuple[str, int]]:
+-    return list(
+-        (
++    return [
++        (r[0], r[1])
++        for r in (
+             await session.execute(
+                 select(PanelNode.status, func.count())
+                 .where(PanelNode.panel_id == panel_id, PanelNode.removed_at.is_(None))
+                 .group_by(PanelNode.status)
+             )
+         ).all()
+-    )
++    ]
+ 
+ 
+ async def issue_rows(session: AsyncSession, *, status, kind, panel_id, limit, offset):
+@@ -76,15 +77,16 @@ async def issue_rows(session: AsyncSession, *, status, kind, panel_id, limit, of
+ 
+ async def reconciliation_counts(session: AsyncSession, open_status: str) -> tuple[dict, int, int, object]:
+     """``(open issues by kind, open orphans, manual orphans, oldest last_synced_at of a live account)``."""
+-    by_kind = dict(
+-        (
++    by_kind = {
++        r[0]: r[1]
++        for r in (
+             await session.execute(
+                 select(ReconciliationIssue.kind, func.count())
+                 .where(ReconciliationIssue.status == open_status)
+                 .group_by(ReconciliationIssue.kind)
+             )
+         ).all()
+-    )
++    }
+     orphans = await session.scalar(select(func.count()).select_from(PanelOrphan).where(PanelOrphan.status == "open")) or 0
+     manual = await session.scalar(select(func.count()).select_from(PanelOrphan).where(PanelOrphan.status == "manual")) or 0
+     oldest = await session.scalar(
+diff --git a/apps/api/melorin/modules/panelops/settings_drift.py b/apps/api/melorin/modules/panelops/settings_drift.py
+index 38be8fa..5c9d158 100644
+--- a/apps/api/melorin/modules/panelops/settings_drift.py
++++ b/apps/api/melorin/modules/panelops/settings_drift.py
+@@ -151,6 +151,7 @@ def evaluate_hwid(hwid: dict | None) -> dict:
+ def evaluate_notifications(settings: dict) -> dict:
+     """Does the panel message people by itself? Flags only: tokens / chat ids / URLs are never copied."""
+     notif = settings.get("notification_settings") if isinstance(settings.get("notification_settings"), dict) else {}
++    notif = notif or {}
+     telegram = bool(notif.get("notify_telegram"))
+     discord = bool(notif.get("notify_discord"))
+     if telegram or discord:
+diff --git a/apps/api/melorin/modules/panelops/store_role.py b/apps/api/melorin/modules/panelops/store_role.py
+index 7ae8aac..44fd31f 100644
+--- a/apps/api/melorin/modules/panelops/store_role.py
++++ b/apps/api/melorin/modules/panelops/store_role.py
+@@ -17,6 +17,7 @@ import re
+ 
+ from sqlalchemy import update
+ 
++from melorin.modules.panel_integrations.adapters.base import optional_ops
+ from melorin.core import audit
+ from melorin.core.errors import AppError
+ from melorin.core.uow import unit_of_work
+@@ -102,7 +103,7 @@ async def apply(session, panel: Panel, *, bootstrap: dict | None, actor_id=None,
+     adapter = registry.build_adapter(panel, credentials=creds)
+     try:
+         try:
+-            role = await adapter.ensure_role(role_body(name))
++            role = await optional_ops(adapter).ensure_role(role_body(name))
+         except PanelError as exc:
+             detail = (getattr(exc, "message", None) or str(exc))[:200]
+             raise AppError("STORE_ROLE_FAILED", f"Panel refused the role: {detail}", 502) from exc
+diff --git a/apps/api/melorin/modules/panelops/subscription_check.py b/apps/api/melorin/modules/panelops/subscription_check.py
+index 8db929f..79697ef 100644
+--- a/apps/api/melorin/modules/panelops/subscription_check.py
++++ b/apps/api/melorin/modules/panelops/subscription_check.py
+@@ -17,6 +17,7 @@ from urllib.parse import urlsplit
+ from sqlalchemy import select
+ from sqlalchemy.ext.asyncio import AsyncSession
+ 
++from melorin.modules.panel_integrations.adapters.base import optional_ops
+ from melorin.modules.panel_integrations.adapters import providers
+ from melorin.core import audit
+ from melorin.core.db import utcnow
+@@ -120,7 +121,7 @@ async def run(session: AsyncSession, panel_id: uuid.UUID, *, actor_id: uuid.UUID
+         if not supports(adapter, "subscription_probe"):
+             raise AppError("CAPABILITY_MISSING", "اتصال این پنل اجازهٔ خواندن تنظیمات اشتراک را ندارد (settings.read).", 409)
+         try:
+-            settings = await adapter.get_subscription_settings()
++            settings = await optional_ops(adapter).get_subscription_settings()
+         except PanelError as exc:
+             raise AppError("PANEL_ERROR", f"پنل پاسخ نداد: {exc.message[:200]}", 502) from exc
+         prefix = str(settings.get("url_prefix") or "").strip() or None
+@@ -143,7 +144,7 @@ async def run(session: AsyncSession, panel_id: uuid.UUID, *, actor_id: uuid.UUID
+         if link and link.startswith("/"):  # relative link: the panel joins it with the prefix
+             link = (prefix or sub_base or "").rstrip("/") + link
+         allowed = {h for h in (_host(prefix), _host(sub_base), _host(panel.base_url)) if h}
+-        probe = await adapter.probe_subscription(link, allowed_hosts=allowed) if link else None
++        probe = await optional_ops(adapter).probe_subscription(link, allowed_hosts=allowed) if link else None
+         domains = [
+             _sub_domain_host(a.profile) for a in (await session.scalars(select(PanelAdmin).where(PanelAdmin.panel_id == panel.id))).all()
+         ]
+diff --git a/apps/api/melorin/modules/panelops/webhook_router.py b/apps/api/melorin/modules/panelops/webhook_router.py
+index 05cf429..b4093ce 100644
+--- a/apps/api/melorin/modules/panelops/webhook_router.py
++++ b/apps/api/melorin/modules/panelops/webhook_router.py
+@@ -85,6 +85,8 @@ async def pasarguard_webhook(panel_id: uuid.UUID, request: Request, background:
+         except ValueError as exc:
+             inc("melorin_panel_webhook_rejected_total", reason="body")
+             raise AppError("BAD_REQUEST", str(exc), 400) from exc
++        if panel is None:
++            raise _unauthorized()
+         result = await panel_events.ingest(session, panel, parsed)
+ 
+     if result.accepted:
+diff --git a/apps/api/melorin/worker/jobs_panels.py b/apps/api/melorin/worker/jobs_panels.py
+index 427f54a..381da75 100644
+--- a/apps/api/melorin/worker/jobs_panels.py
++++ b/apps/api/melorin/worker/jobs_panels.py
+@@ -123,9 +123,9 @@ async def panel_event_purge_job(ctx=None):
+ async def bulk_operation_job(ctx=None):
+     """Every 15 seconds: run ONE confirmed bulk operation for up to ~40 s (PG-11). Leased per panel, chunked, resumable: a crash or a
+     second worker can never apply an item twice (absolute targets + ledger)."""
+-    from melorin.modules.panelops import bulk
++    from melorin.modules.panelops import bulk_runner
+ 
+-    op = await bulk.run_next(session_factory(), budget_seconds=40.0)
++    op = await bulk_runner.run_next(session_factory(), budget_seconds=40.0)
+     return op.status if op else None
+ 
+ 
+diff --git a/apps/api/pyproject.toml b/apps/api/pyproject.toml
+index 7218a02..75fb0a2 100644
+--- a/apps/api/pyproject.toml
++++ b/apps/api/pyproject.toml
+@@ -29,10 +29,7 @@ line-ending = "lf"
+ [tool.mypy]
+ # T41: static typing is gated on core + worker + the pure domain and the kernel models; widen `files` as other packages are cleaned up.
+ python_version = "3.12"
+-files = ["melorin/core", "melorin/worker", "melorin/domain", "melorin/kernel", "melorin/modules/wallet", "melorin/modules/catalog",
+-         "melorin/modules/orders", "melorin/modules/identity", "melorin/modules/reseller", "melorin/modules/payments",
+-         "melorin/modules/reports", "melorin/modules/tickets", "melorin/modules/notifications", "melorin/modules/loyalty", "melorin/modules/webhooks",
+-         "melorin/modules/vpn_accounts", "melorin/modules/referral", "melorin/modules/broadcast", "melorin/modules/eventcenter"]
++files = ["melorin"]
+ ignore_missing_imports = true
+ follow_imports = "silent"
+ # T-W07/T-R09: bodies of unannotated functions are checked too; widen `files` one package at a time (r13: orders, identity, reseller are in scope; r14: payments too, with no ratchet entries; r15: the ratchet is empty, every module in `files` is clean).
+diff --git a/apps/api/tests/adapters/test_pasarguard_bulk_ops.py b/apps/api/tests/adapters/test_pasarguard_bulk_ops.py
+index 2953c7b..13722cf 100644
+--- a/apps/api/tests/adapters/test_pasarguard_bulk_ops.py
++++ b/apps/api/tests/adapters/test_pasarguard_bulk_ops.py
+@@ -15,7 +15,7 @@ from melorin.core.errors import AppError
+ from melorin.domain.order_state import VpnStatus
+ from melorin.kernel.models.system import AuditEvent
+ from melorin.kernel.models.vpn import BulkOperation, BulkOperationItem, Panel, VpnAccount
+-from melorin.modules.panelops import bulk
++from melorin.modules.panelops import bulk, bulk_runner
+ from melorin.modules.panel_integrations.adapters.base import Capabilities, ErrorKind, PanelAccount, PanelError
+ 
+ GIB = 1024**3
+@@ -106,10 +106,10 @@ async def _items(s, op):
+ 
+ async def _run_to_end(s, op_id, *, ticks=10):
+     for _ in range(ticks):
+-        claimed = await bulk.claim_next(s)
++        claimed = await bulk_runner.claim_next(s)
+         if claimed is None:
+             break
+-        await bulk.execute(s, claimed, budget_seconds=5)
++        await bulk_runner.execute(s, claimed, budget_seconds=5)
+     return await bulk.get(s, op_id)
+ 
+ 
+@@ -174,7 +174,7 @@ async def test_confirmation_needs_the_exact_count(panel_api):
+             await bulk.confirm(s, op.id, count=2, actor_id=user.id)
+         assert e.value.code == "BULK_COUNT_MISMATCH"
+         assert (await bulk.get(s, op.id)).status == "previewed"
+-        assert await bulk.claim_next(s) is None  # an unconfirmed preview is never run
++        assert await bulk_runner.claim_next(s) is None  # an unconfirmed preview is never run
+         await bulk.confirm(s, op.id, count=3, actor_id=user.id)
+         assert (await bulk.get(s, op.id)).status == "confirmed"
+         with pytest.raises(AppError) as e:  # confirming twice is refused, not repeated
+@@ -228,8 +228,8 @@ async def test_transient_error_stops_the_run_and_the_rest_resumes_without_repeat
+         op = await bulk.preview(s, kind="reset_usage", selection=_sel(panel), reason="ریست", actor_id=user.id)
+         await bulk.confirm(s, op.id, count=4, actor_id=user.id)
+         panel_api.fail_next = [PanelError(ErrorKind.TRANSIENT, "502")]
+-        claimed = await bulk.claim_next(s)
+-        mid = await bulk.execute(s, claimed, budget_seconds=5)
++        claimed = await bulk_runner.claim_next(s)
++        mid = await bulk_runner.execute(s, claimed, budget_seconds=5)
+         assert mid.status == "confirmed" and mid.succeeded == 0  # nothing marked done, picked up again on the next tick
+         end = await _run_to_end(s, op.id)
+         assert end.status == "done" and end.succeeded == 4
+@@ -262,7 +262,7 @@ async def test_cancel_stops_a_confirmed_operation_before_anything_is_sent(panel_
+         op = await bulk.preview(s, kind="disable", selection=_sel(panel), reason="تعلیق", actor_id=user.id)
+         await bulk.confirm(s, op.id, count=2, actor_id=user.id)
+         await bulk.cancel(s, op.id, actor_id=user.id)
+-        assert await bulk.claim_next(s) is None and panel_api.calls == []
++        assert await bulk_runner.claim_next(s) is None and panel_api.calls == []
+         with pytest.raises(AppError) as e:
+             await bulk.cancel(s, op.id, actor_id=user.id)
+         assert e.value.code == "BULK_FINISHED"
+@@ -274,10 +274,10 @@ async def test_a_live_lease_blocks_a_second_runner(panel_api):
+         op = await bulk.preview(s, kind="disable", selection=_sel(panel), reason="تعلیق", actor_id=user.id)
+         await bulk.confirm(s, op.id, count=2, actor_id=user.id)
+         # An explicit clock: NOW is fixed at import time, so mixing it with the real clock made this test depend on suite duration.
+-        assert await bulk.claim_next(s, now=NOW) == op.id
+-        assert await bulk.claim_next(s, now=NOW) is None  # leased
++        assert await bulk_runner.claim_next(s, now=NOW) == op.id
++        assert await bulk_runner.claim_next(s, now=NOW) is None  # leased
+         stale = NOW + dt.timedelta(minutes=10)
+-        assert await bulk.claim_next(s, now=stale) == op.id  # a crashed runner's lease expires
++        assert await bulk_runner.claim_next(s, now=stale) == op.id  # a crashed runner's lease expires
+ 
+ 
+ async def test_a_panel_without_the_capability_fails_cleanly_and_sends_nothing(monkeypatch):
+@@ -320,8 +320,8 @@ async def test_extend_never_adds_twice_when_the_first_answer_was_lost(panel_api)
+         await bulk.confirm(s, op.id, count=1, actor_id=user.id)
+         panel_api.apply_then_fail_extend = True
+         panel_api.fail_next = [PanelError(ErrorKind.UNKNOWN, "timeout")]  # applied on the panel, answer lost
+-        claimed = await bulk.claim_next(s)
+-        mid = await bulk.execute(s, claimed, budget_seconds=5)
++        claimed = await bulk_runner.claim_next(s)
++        mid = await bulk_runner.execute(s, claimed, budget_seconds=5)
+         assert mid.status == "confirmed"
+         after_first = panel_api.users["acc0"].expire_at
+         end = await _run_to_end(s, op.id)
+diff --git a/apps/api/tests/contracts/test_commit_ratchet.py b/apps/api/tests/contracts/test_commit_ratchet.py
+index f140bf4..cbe24ef 100644
+--- a/apps/api/tests/contracts/test_commit_ratchet.py
++++ b/apps/api/tests/contracts/test_commit_ratchet.py
+@@ -11,7 +11,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[2] / "melorin"
+ 
+ BASELINE = {
+     "modules/vpn_accounts/account_tools.py": 7,
+-    "modules/panelops/bulk.py": 12,
++    "modules/panelops/bulk.py": 6,
++    "modules/panelops/bulk_runner.py": 6,
+     "modules/panelops/governance.py": 2,
+     "modules/vpn_accounts/manual_assign.py": 1,
+     "modules/panelops/panel_admins.py": 4,
+diff --git a/apps/api/tests/contracts/test_mypy_ratchet.py b/apps/api/tests/contracts/test_mypy_ratchet.py
+index f229118..00db583 100644
+--- a/apps/api/tests/contracts/test_mypy_ratchet.py
++++ b/apps/api/tests/contracts/test_mypy_ratchet.py
+@@ -1,4 +1,5 @@
+ """r13: the mypy error ratchet may only shrink (docs/DECISIONS.md r13b, audit section 8.5)."""
++
+ import tomllib
+ from pathlib import Path
+ 
+diff --git a/apps/api/tests/contracts/test_release_guards.py b/apps/api/tests/contracts/test_release_guards.py
+index df28875..377f3e6 100644
+--- a/apps/api/tests/contracts/test_release_guards.py
++++ b/apps/api/tests/contracts/test_release_guards.py
+@@ -107,7 +107,9 @@ def test_every_compose_service_is_memory_capped_within_budget():
+     guard = _load_guard()
+     compose = yaml.safe_load((ROOT / "docker-compose.yml").read_text())
+     assert guard.memory_problems(compose) == []
+-    total = sum(guard._mib(s["mem_limit"]) for s in compose["services"].values() if str(s.get("restart", "")) != "no")  # the one-shot migrate service has exited before the rest start
++    total = sum(
++        guard._mib(s["mem_limit"]) for s in compose["services"].values() if str(s.get("restart", "")) != "no"
++    )  # the one-shot migrate service has exited before the rest start
+     assert total == guard.MEMORY_BUDGET_MIB == 3584
+     assert "3584 MiB" in (ROOT / "docs/RUNBOOK.md").read_text()
+ 
+diff --git a/apps/api/tests/unit/test_pay_with_wallet_guards.py b/apps/api/tests/unit/test_pay_with_wallet_guards.py
+index 64efeda..d093bd0 100644
+--- a/apps/api/tests/unit/test_pay_with_wallet_guards.py
++++ b/apps/api/tests/unit/test_pay_with_wallet_guards.py
+@@ -1,4 +1,5 @@
+ """r13e: pay_with_wallet fails with a clear AppError (not AttributeError) when its store or the reseller owner is missing."""
++
+ import uuid
+ from types import SimpleNamespace
+ from unittest.mock import AsyncMock
+diff --git a/docs/CHANGE_LOG.md b/docs/CHANGE_LOG.md
+index bc94000..077a2c3 100644
+--- a/docs/CHANGE_LOG.md
++++ b/docs/CHANGE_LOG.md
+@@ -21,12 +21,12 @@ If `main` is protected, allow `github-actions[bot]` to bypass so the bot can pus
+ 
+ > Entries before 2026-11-09 were archived (T-R12) and live in git tag `changelog-archive-2026-11-09` (`git show changelog-archive-2026-11-09:docs/CHANGE_LOG.md`), per DOCUMENTATION-POLICY.
+ 
+-## 2026-11-15 - mypy gate widened (reports, tickets, notifications, loyalty, webhooks, vpn_accounts)
+-- **Area:** api / typing
+-- **Before:** mypy gated 10 packages; 6 more carried 35 type errors.
+-- **Problem:** the audit (8.5) asks for type checking to grow module by module, money and provisioning paths first.
+-- **Action:** errors fixed without changing behaviour (annotations, comprehensions instead of `dict(rows)`, a renamed shadowed variable); `reconcile_account` answers `missing` for a deleted panel instead of crashing. Decision: `docs/DECISIONS.md` (r16).
+-- **After:** `mypy` clean on the wider scope.
++## 2026-11-15 - Audit leftovers: whole-backend mypy, bulk split, infrastructure hub
++- **Area:** api / admin-web / typing / docs
++- **Before:** mypy gated 10 packages (about 235 errors elsewhere), `panelops/bulk.py` held lifecycle and worker in 690 lines, infrastructure had four menu entries with bulk runs apart from panel operations.
++- **Problem:** the architecture audit (5.6, 8.4, 8.5) asked for staged typing, smaller files and one operations screen.
++- **Action:** every remaining error fixed (annotations, host stubs for adapter mixins, `optional_ops`, guards that answer 404 instead of crashing); `bulk_runner.py` split off; menu is now «پنل‌ها و سرورها» / «پایش و سلامت» / «عملیات مدیریتی» (tabs ops + bulk). Decision: `docs/DECISIONS.md` (r16).
++- **After:** `mypy` clean on the whole package; API behaviour unchanged except clean 404/401 answers on vanished-row paths.
+ 
+ ## 2026-11-15 - Pre-release audit: menu regroup, migrate service, web-kit lockfile
+ - **Area:** admin-web / compose / ci / docs
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index f964bfa..d70fbb0 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -226,5 +226,8 @@ Source: `Melorin_Architecture_Admin_Audit.md` (the project has never been releas
+ - Still NOT run: a real PasarGuard panel, Telegram bots against Telegram, Caddy/Prometheus/Alertmanager profile, Zarinpal sandbox.
+ 
+ ## r16 - audit follow-up (branch `refactor/audit-r16-impl`)
+-- mypy gate widened to `reports`, `tickets`, `notifications`, `loyalty`, `webhooks`, `vpn_accounts` (plus `referral`, `broadcast`, `eventcenter`, which were already clean). Still outside the gate: `admin`, `panelops`, `panel_integrations` (adapters), `channels` (about 200 errors, mostly adapter payload dicts); they follow module by module, as in audit 8.5.
+-- Type-only changes, with one behaviour change on a failure path: `vpn_accounts.reconcile.reconcile_account` returns `missing` when the account points at a deleted panel (it used to raise `AttributeError`). Nothing else changes at runtime.
++- **mypy now gates the whole backend** (`files = ["melorin"]`, no ratchet entries): reports, tickets, notifications, loyalty, webhooks, vpn_accounts, admin, panelops, channels and the panel_integrations adapters joined the earlier packages (audit 8.5). Type-only fixes except the failure paths below.
++- Adapter mixins (`pasarguard/*`, `sanaei/*`) declare what their host class provides inside `if TYPE_CHECKING:` blocks (no runtime change). Optional adapter capabilities (`ensure_role`, `list_hosts`, ...) are reached through `optional_ops(adapter)` in `adapters/base.py`, always after a `supports()` gate.
++- Failure-path behaviour changes (a missing row used to raise `AttributeError`, now a clean answer): `reconcile_account` returns `missing` for a deleted panel; admin ticket message edit, panel admin password reset, server patch with a vanished panel, reconciliation issue action without an account and reseller approval without a target store answer 404 `NotFound`; the panel webhook for a vanished panel answers 401.
++- `panelops/bulk.py` is split: lifecycle and reporting stay in `bulk.py`, the worker side (`claim_next`, `execute`, `run_next`) moved unchanged to `panelops/bulk_runner.py`. The commit ratchet follows (6 + 6 = the old 12).
++- Infrastructure menu (audit 5.6): three entries, «پنل‌ها و سرورها», «پایش و سلامت» (was «سلامت زیرساخت») and «عملیات مدیریتی» (one hub, tabs «عملیات پنل» and «عملیات گروهی»; `#/panel-ops?tab=bulk`). The stand-alone bulk entry and its slug `bulk-operations` are gone; the dashboard queue «failed_bulk_operations» now links to `panel-ops`. Permission stays `infrastructure` for all three.
+diff --git a/e2e/tests/admin.storehub.spec.js b/e2e/tests/admin.storehub.spec.js
+index 63fdb06..d8669ef 100644
+--- a/e2e/tests/admin.storehub.spec.js
++++ b/e2e/tests/admin.storehub.spec.js
+@@ -70,7 +70,7 @@ test('API tab flips the switch with a PUT', async ({ page }) => {
+ });
+ 
+ const ROUTES =
+-  'admin-team audit broadcasts bulk-operations bundles button-styles coupons event-center home identity infra-health loyalty-club manual-tasks my-account orders panel-ops panels payments products referral-programs reports reseller-applications settings stores tickets users vpn'.split(
++  'admin-team audit broadcasts bundles button-styles coupons event-center home identity infra-health loyalty-club manual-tasks my-account orders panel-ops panels payments products referral-programs reports reseller-applications settings stores tickets users vpn'.split(
+     ' ',
+   );
+ 
+-- 
+2.43.0
+
