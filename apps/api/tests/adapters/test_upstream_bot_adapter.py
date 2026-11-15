@@ -6,7 +6,7 @@ import time
 import pytest
 
 from melorin.modules.panel_integrations.adapters.base import GB, AccountSpec, ErrorKind, PanelError
-from melorin.modules.panel_integrations.adapters.upstream_bot import UpstreamBotAdapter, adapter as mod, parsing
+from melorin.modules.panel_integrations.adapters.upstream_bot import UpstreamBotAdapter, parsing, state
 from melorin.modules.panel_integrations.adapters.upstream_bot.chat import Button, Msg
 
 DELIVERY = (
@@ -206,8 +206,8 @@ def spec(name="Mel_10G1", gb=10, days=30):
 
 @pytest.fixture(autouse=True)
 def _clean(monkeypatch):
-    mod._MEM.clear()
-    monkeypatch.setattr(mod, "_redis", lambda: None)
+    state._MEM.clear()
+    monkeypatch.setattr(state, "_redis", lambda: None)
 
 
 async def test_buy_flow_maps_upstream_name():
