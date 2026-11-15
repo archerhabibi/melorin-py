@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { typedClient } from '../../api/api.ts';
-import { ServerForm, ServerImport } from './ServerForm.tsx';
+import { ServerForm } from './ServerForm.tsx';
+import { ServerImport } from './ServerImport.tsx';
 import { TargetWizard } from './TargetPicker.tsx';
 import { confirmDialog } from '../../shared/ui.tsx';
 import {
-  InfraChain,
   clearParam,
   free,
   health,
@@ -15,6 +15,7 @@ import {
   useHashParams,
   useInfra,
 } from '../panel-operations/infra.tsx';
+import { InfraChain } from '../panel-operations/InfraChain.tsx';
 import {
   Empty,
   ErrorBar,

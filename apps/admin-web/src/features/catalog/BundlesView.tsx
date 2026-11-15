@@ -15,7 +15,8 @@ import {
   useAlive,
   useRows,
 } from '../../shared/kit.tsx';
-import { InfraChain, clearParam, memberIds, useHashParams, useInfra } from '../panel-operations/infra.tsx';
+import { clearParam, memberIds, useHashParams, useInfra } from '../panel-operations/infra.tsx';
+import { InfraChain } from '../panel-operations/InfraChain.tsx';
 import { API, groupIssue, GroupCard, GroupTable } from './bundles/BundleParts.tsx';
 import { GroupDrawer } from './bundles/BundleDrawer.tsx';
 import UnassignedProducts from './UnassignedProducts.tsx';

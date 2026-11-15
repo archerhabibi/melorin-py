@@ -19,7 +19,8 @@ import {
   useAlive,
   useRows,
 } from '../../shared/kit.tsx'; // #4
-import { InfraChain, clearParam, useHashParams, useInfra } from '../panel-operations/infra.tsx';
+import { clearParam, useHashParams, useInfra } from '../panel-operations/infra.tsx';
+import { InfraChain } from '../panel-operations/InfraChain.tsx';
 
 import { API } from './productsShared.tsx';
 import { ProductDrawer, ProductCard, ProductTable } from './ProductParts.tsx';
