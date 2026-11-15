@@ -1,5 +1,5 @@
 import { lazy } from 'react';
-import { authFetch } from './api.ts';
+import { useCall } from './api.ts';
 import type { Json, Toast, ViewApi } from './types.ts';
 import { ChangeAdminPassword } from './ChangeAdminPassword.tsx';
 const ReportsView = lazy(() => import('./ReportsView.tsx'));
@@ -37,7 +37,7 @@ function MyAccount({ api, toast }: { api: ViewApi; toast: Toast }) {
 }
 
 function Tickets({ api, toast }: { api?: Json; toast: Toast }) {
-  const call = (p: Json, o = {}) => authFetch(api.base, p, o);
+  const call = useCall(api);
   return <TicketsView call={call} toast={toast} />;
 }
 

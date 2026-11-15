@@ -13,7 +13,7 @@ import {
   UserPlus,
   XCircle,
 } from 'lucide-react';
-import { authFetch } from './api.ts';
+import { useCall } from './api.ts';
 import { Badge, confirmDialog, dt } from './ui.tsx';
 import {
   Drawer,
@@ -291,7 +291,7 @@ function ReviewDrawer({
 }
 
 export default function ResellerApplicationsView({ api, toast }: { api?: Json; toast: Toast }) {
-  const call = (p: Json, o = {}) => authFetch(api.base, p, o);
+  const call = useCall(api);
   const { rows, failed, load } = useRows(call, '/api/v1/admin/reseller-applications');
   const [filter, setFilter] = useState('pending');
   const [q, setQ] = useState('');

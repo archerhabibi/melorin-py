@@ -14,7 +14,7 @@ import {
   UserCog,
   XCircle,
 } from 'lucide-react';
-import { authFetch } from './api.ts';
+import { useCall as useApiCall } from './api.ts';
 import { Badge, confirmDialog, dt } from './ui.tsx';
 import SubBrandingCard from './SubBrandingCard.tsx';
 import {
@@ -511,7 +511,7 @@ function RequestDrawer({
 }
 
 export default function PanelAdminsView({ api, toast }: { api?: Json; toast: Toast }) {
-  const call = (p: Json, o = {}) => authFetch(api.base, p, o);
+  const call = useApiCall(api);
   const admins = useRows(call, '/api/v1/admin/panel-admins');
   const requests = useRows(call, '/api/v1/admin/panel-admin-requests?status='); // empty status = every request
   const [tab, setTab] = useState('admins');

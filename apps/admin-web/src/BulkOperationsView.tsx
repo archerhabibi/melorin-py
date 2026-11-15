@@ -2,7 +2,7 @@
 // Everything runs in the Core API worker; this screen only plans, confirms and shows progress. Nothing here deletes an account.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CheckCircle, Loader, RefreshCw, XCircle } from 'lucide-react';
-import { authFetch } from './api.ts';
+import { useCall } from './api.ts';
 import { confirmDialog } from './ui.tsx';
 import type { Json, Rec, Toast } from './types.ts';
 
@@ -48,7 +48,7 @@ async function readJson(r: Json) {
 }
 
 export default function BulkOperationsView({ api, toast }: { api?: Json; toast: Toast }) {
-  const call = useCallback((p: string, o?: RequestInit) => authFetch(api.base, p, o), [api.base]);
+  const call = useCall(api);
   const [panels, setPanels] = useState<Rec[]>([]);
   const [stores, setStores] = useState<Rec[]>([]);
   const [form, setForm] = useState({

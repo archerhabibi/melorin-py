@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { AlertTriangle, ChevronDown, Layers, MapPin, Plus, RefreshCw, Save, Server, Upload } from 'lucide-react';
-import { authFetch, typedClient } from './api.ts';
+import { typedClient } from './api.ts';
 import { Badge, dt, sid } from './ui.tsx';
 import {
   Drawer,
@@ -168,9 +168,7 @@ export function ServerForm({
       return;
     }
     const now = payload(f);
-    let body: Json = now,
-      url = '/api/v1/admin/servers',
-      method = 'POST';
+    let body: Json = now;
     if (edit) {
       const was: Rec = payload(fromServer(server));
       body = Object.fromEntries(Object.entries(now).filter(([k, v]) => JSON.stringify(v) !== JSON.stringify(was[k])));
@@ -178,15 +176,18 @@ export function ServerForm({
         onClose();
         return;
       }
-      url = `/api/v1/admin/servers/${server.id}`;
-      method = 'PATCH';
     }
     setBusy(true);
     setSrvErr('');
     try {
-      const r = await authFetch(api.base, url, { method, body: JSON.stringify(body) });
+      const client = typedClient(api.base);
+      const { response: r, error } = edit
+        ? await client.patch('/api/v1/admin/servers/{server_id}', { params: { path: { server_id: server.id } }, body })
+        : await client.post('/api/v1/admin/servers', { body });
       if (!r.ok) {
-        setSrvErr(await errText(r, edit ? 'ذخیره تغییرات ناموفق بود' : 'ثبت مقصد ناموفق بود'));
+        setSrvErr(
+          await errText({ json: async () => error }, edit ? 'ذخیره تغییرات ناموفق بود' : 'ثبت مقصد ناموفق بود'),
+        );
         return;
       }
       toast(edit ? 'تغییرات مقصد ذخیره شد' : 'مقصد ثبت شد');

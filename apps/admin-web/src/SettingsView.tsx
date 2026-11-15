@@ -1,7 +1,7 @@
 import { Segmented } from './kit.tsx';
 import type { ReactNode } from 'react';
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { authFetch } from './api.ts';
+import { useCall } from './api.ts';
 import { PasswordInput, confirmDialog } from './ui.tsx';
 import type { Json, Rec, Toast } from './types.ts';
 import { box, inp, btn, ghost, useList, Table } from './adminExtraKit.tsx';
@@ -40,7 +40,7 @@ const Toggle = ({ on, set, label }: { on?: Json; set?: Json; label?: Json }) => 
 );
 
 function Integrations({ api, toast, part }: { api?: Json; toast: Toast; part: 'integrations' | 'security' }) {
-  const call = (p: Json, o = {}) => authFetch(api.base, p, o);
+  const call = useCall(api);
   const [aa, setAa] = useState<Json>(null);
   const [ipText, setIpText] = useState('');
   const [em, setEm] = useState<Json>(null);

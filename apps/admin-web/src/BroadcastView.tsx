@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Clock, Megaphone, RefreshCw, Send, Users } from 'lucide-react';
 import { BODY_MAX, TITLE_MAX, useBroadcastComposer, usePollWhileQueued } from '@melorin/web-kit/broadcast.js';
-import { authFetch } from './api.ts';
+import { useCall } from './api.ts';
 import { confirmDialog, dt } from './ui.tsx';
 import { Empty, ErrorBar, Field, Section, errText, num, useRows } from './kit.tsx';
 import type { Json, Rec, Toast } from './types.ts';
@@ -48,7 +48,7 @@ export function DeliveryStats({ b }: { b?: Json }) {
 }
 
 export default function BroadcastView({ api, toast }: { api?: Json; toast: Toast }) {
-  const call = useCallback((p: Json, o = {}) => authFetch(api.base, p, o), [api.base]);
+  const call = useCall(api);
   const hist = useRows(call, '/api/v1/admin/broadcasts');
   const [groups, setGroups] = useState<Rec[]>([]);
   const [limit, setLimit] = useState<Json>(null);

@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { createApiClient } from '@melorin/api-client';
 import type { PathsWith } from '@melorin/api-client';
 import { getAccessToken, setTokens, clearTokens } from './auth.ts';
@@ -67,3 +68,17 @@ export const settled = (res: { response: Response; data?: unknown; error?: unkno
   r: res.response,
   d: ((res.response.ok ? res.data : res.error) ?? {}) as Record<string, unknown> & Json,
 });
+
+/**
+ * Stable `(path, init) => Response` bound to the API base, for screens that feed a generic path to shared helpers (useRows, web-kit hooks).
+ * The ONE place views reach `authFetch`; endpoints with a literal path should use `typedClient` instead (see the ratchet test).
+ */
+export const useCall = (api?: { base?: string } | null) => {
+  const base = api?.base ?? '';
+  return useMemo(
+    () =>
+      (p: string, o: RequestInit = {}) =>
+        authFetch(base, p, o),
+    [base],
+  );
+};

@@ -13,7 +13,7 @@ import type { ReactNode } from 'react';
 // where an item sits in the chain, what it depends on, and what is broken for sale.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, ArrowLeft, Boxes, Layers, PanelTop, Sparkles } from 'lucide-react';
-import { authFetch } from './api.ts';
+import { useCall } from './api.ts';
 import { Ring, num, tint, useRows } from './kit.tsx';
 import type { CallFn, Json, Rec } from './types.ts';
 
@@ -253,7 +253,7 @@ export function buildIndex(panels: Json, servers: Json, groups: Json, products: 
  * Default (no arg) fetches all four — backward-compatible. */
 export function useInfra(api: Json, { needs = ['panels', 'servers', 'groups', 'products'] } = {}) {
   const has = (k: Json) => needs.includes(k);
-  const call = useCallback((p: string, o?: RequestInit) => authFetch(api.base, p, o), [api.base]);
+  const call = useCall(api);
   const panels = useRows(call, '/api/v1/admin/panels', { skip: !has('panels') });
   const servers = useRows(call, '/api/v1/admin/servers', { skip: !has('servers') });
   const groups = useRows(call, '/api/v1/admin/bundles', { skip: !has('groups') });

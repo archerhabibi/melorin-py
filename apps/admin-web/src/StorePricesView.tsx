@@ -2,7 +2,7 @@
 // Only the reseller sets these (reseller panel / bot); the admin sees them next to the cost floor so a below-cost or unpriced
 // package is spotted without opening the reseller's panel. Source: GET /admin/stores/{id}/reseller-prices.
 import { useCallback, useEffect, useState } from 'react';
-import { authFetch } from './api.ts';
+import { useCall } from './api.ts';
 import { Empty, ErrorBar, num, useRows } from './kit.tsx';
 import type { Json, Rec, Toast } from './types.ts';
 
@@ -19,7 +19,7 @@ const unit = (c: Json) => ({ IRT: 'تومان', IRR: 'ریال' })[c as 'IRT' | 
 const price = (v: Json, c: Json) => (v ? `${num(v)} ${unit(c)}` : '—');
 
 export default function StorePricesView({ api, toast }: { api?: Json; toast: Toast }) {
-  const call = useCallback((p: string, o?: RequestInit) => authFetch(api.base, p, o), [api.base]);
+  const call = useCall(api);
   const { rows: stores, failed } = useRows(call, '/api/v1/admin/resellers');
   const [storeId, setStoreId] = useState('');
   const [table, setTable] = useState<Rec[] | null>(null);

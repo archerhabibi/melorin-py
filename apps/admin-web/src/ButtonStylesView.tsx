@@ -4,7 +4,7 @@
 // the bots download the result, and Telegram's own rules apply (custom emoji need a Premium bot owner).
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Info, Paintbrush, Plus, RotateCcw, Save, Send, Sparkles, Trash2 } from 'lucide-react';
-import { authFetch } from './api.ts';
+import { useCall } from './api.ts';
 import { Empty, ErrorBar, Field, Section, Switch, errText, num } from './kit.tsx';
 import { confirmDialog } from './ui.tsx';
 import {
@@ -299,7 +299,7 @@ function AddRule({
 }
 
 export default function ButtonStylesView({ api, toast }: { api: { base: string }; toast: Toast }) {
-  const call = useCallback((p: string, o: RequestInit = {}) => authFetch(api.base, p, o), [api.base]);
+  const call = useCall(api);
   const [data, setData] = useState<ButtonStylesPayload | null>(null);
   const [saved, setSaved] = useState<ButtonStyleConfig>(EMPTY);
   const [cfg, setCfg] = useState<ButtonStyleConfig>(EMPTY);

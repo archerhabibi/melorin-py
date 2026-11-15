@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { API_BASE, authFetch, getJson } from './api.ts';
+import { API_BASE, authFetch, getJson, typedClient } from './api.ts';
 import type { AdminMe, Json, Rec } from './types.ts';
 
 export function useCore() {
@@ -106,10 +106,10 @@ export async function downloadOrders(base: string) {
   URL.revokeObjectURL(url);
 }
 export async function refundPayment(base: string, paymentId: Json, reason: Json) {
-  const r = await authFetch(base, `/api/v1/admin/payments/${paymentId}/refund`, {
-    method: 'POST',
-    body: JSON.stringify({ reason }),
+  const { response: r, data } = await typedClient(base).post('/api/v1/admin/payments/{payment_id}/refund', {
+    params: { path: { payment_id: paymentId } },
+    body: { reason },
   });
   if (!r.ok) throw Error(`refund ${r.status}`);
-  return r.json();
+  return data;
 }

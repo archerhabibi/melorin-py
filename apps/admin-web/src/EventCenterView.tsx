@@ -3,14 +3,14 @@
 // sends a real test message to every configured Topic.
 import { useCallback } from 'react';
 import { AlertTriangle, BellRing, CheckCircle2, ListPlus, ScanSearch, Send, Trash2 } from 'lucide-react';
-import { authFetch } from './api.ts';
+import { useCall } from './api.ts';
 import { confirmDialog, dt } from './ui.tsx';
 import { useEventCenter } from '@melorin/web-kit/eventCenter.js';
 import { ErrorBar, Field, Section } from './kit.tsx';
 import type { Json, Rec, Toast } from './types.ts';
 
 export default function EventCenterView({ api, toast }: { api?: Json; toast: Toast }) {
-  const call = useCallback((p: Json, o = {}) => authFetch(api.base, p, o), [api.base]);
+  const call = useCall(api);
   const confirm = useCallback((m: string) => confirmDialog(m, { title: 'حذف گروه رویدادها', ok: 'حذف' }), []);
   const {
     data,

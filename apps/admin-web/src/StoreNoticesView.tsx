@@ -2,7 +2,7 @@
 // the setting belongs to one store, not to a panel. Also holds the store's own notice wording (vpn-notice-texts) and the
 // owner's daily digest switch (vpn-digest), which had no screen before.
 import { useCallback, useEffect, useState } from 'react';
-import { authFetch } from './api.ts';
+import { useCall } from './api.ts';
 import { canWrite } from './adminAccess.ts';
 import { Switch } from './kit.tsx';
 import type { CallFn, Toast } from './types.ts';
@@ -272,7 +272,7 @@ function DigestSwitch({
 }
 
 export default function StoreNoticesView({ api, toast }: { api?: HubApiProp; toast: Toast }) {
-  const call = useCallback((p: string, o?: RequestInit) => authFetch(api?.base ?? '', p, o), [api?.base]);
+  const call = useCall(api);
   const writable = canWrite(api?.perms, 'حجم فروشگاه‌ها');
   const [stores, setStores] = useState<StoreRow[]>([]);
   const [storeId, setStoreId] = useState('');
