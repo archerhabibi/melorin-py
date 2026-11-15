@@ -106,6 +106,8 @@ async def create_web_handoff(body: WebHandoffIn, auth: CurrentAuth, session: Ses
         raise AppError("RATE_LIMITED", "درخواست‌ها زیاد است؛ کمی بعد دوباره امتحان کنید.", 429)
     if body.store_id is not None and body.store_id != claims.store_id:
         raise channel.mismatch()  # a bot session can only hand off to its own store's website
+    if claims.store_id is None:
+        raise channel.mismatch()
     store = await session.get(Store, claims.store_id)
     domain = ((store.domain if store else None) or "").strip().lower().rstrip(".")
     base = f"https://{domain}" if domain else get_settings().store_web_url.rstrip("/")

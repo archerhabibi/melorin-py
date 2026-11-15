@@ -4,6 +4,7 @@ import base64
 import hashlib
 import logging
 from functools import lru_cache
+from typing import overload
 
 from cryptography.fernet import Fernet, InvalidToken
 
@@ -27,10 +28,18 @@ def _fernet() -> Fernet:
         raise RuntimeError("MELORIN_ENCRYPTION_KEY is not a valid Fernet key") from e
 
 
+@overload
+def encrypt(plain: str) -> str: ...
+@overload
+def encrypt(plain: None) -> None: ...
 def encrypt(plain: str | None) -> str | None:
     return None if plain is None else _fernet().encrypt(plain.encode()).decode()
 
 
+@overload
+def decrypt(cipher: str) -> str: ...
+@overload
+def decrypt(cipher: None) -> None: ...
 def decrypt(cipher: str | None) -> str | None:
     if cipher is None:
         return None

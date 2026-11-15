@@ -54,7 +54,7 @@ def normalize_domain(raw: str) -> str:
     return value
 
 
-def parse_bot_token(raw: str) -> tuple[str, str]:
+def parse_bot_token(raw: str | None) -> tuple[str, str]:
     """Return (token, bot_key). bot_key is the stable 'tg:<bot id>' identity and never contains the secret."""
     token = (raw or "").strip()
     m = _TOKEN.match(token)
