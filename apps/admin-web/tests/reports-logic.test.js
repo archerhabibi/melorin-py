@@ -10,7 +10,7 @@ import {
   heatLevel,
   share,
   WEEK_ORDER,
-} from '../src/reportsLogic.ts';
+} from '../src/features/reports/reportsLogic.ts';
 
 const base = () => ({
   currency: 'IRT',

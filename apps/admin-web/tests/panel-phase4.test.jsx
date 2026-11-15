@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import BulkOperationsView from '../src/BulkOperationsView.tsx';
-import StoreGovernanceView from '../src/StoreGovernanceView.tsx';
-import { extraRoutes } from '../src/AdminExtra.tsx';
+import BulkOperationsView from '../src/features/panel-operations/BulkOperationsView.tsx';
+import StoreGovernanceView from '../src/features/stores/StoreGovernanceView.tsx';
+import { extraRoutes } from '../src/app/AdminExtra.tsx';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
 const PANELS = [

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { extraRoutes } from '../src/AdminExtra.tsx';
-import { SECTION_AREA, sectionAllowed } from '../src/adminAccess.ts';
+import { extraRoutes } from '../src/app/AdminExtra.tsx';
+import { SECTION_AREA, sectionAllowed } from '../src/app/adminAccess.ts';
 
 describe('store hub', () => {
   it('the stores section is routed to the hub, and every tab section keeps its permission area', () => {

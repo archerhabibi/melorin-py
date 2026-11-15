@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import PanelOpsView from '../src/PanelOpsView.tsx';
-import StoreNoticesView from '../src/StoreNoticesView.tsx';
+import PanelOpsView from '../src/features/panel-operations/PanelOpsView.tsx';
+import StoreNoticesView from '../src/features/stores/StoreNoticesView.tsx';
 import PanelTabsHarness from './PanelTabsHarness.jsx';
 import { DialogHost } from '../src/ui.tsx';
 

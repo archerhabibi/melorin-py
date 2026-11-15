@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import StorePricesView from '../src/StorePricesView.tsx';
-import StoreApiView from '../src/StoreApiView.tsx';
+import StorePricesView from '../src/features/stores/StorePricesView.tsx';
+import StoreApiView from '../src/features/stores/StoreApiView.tsx';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
 const api = { base: 'http://core.test' };

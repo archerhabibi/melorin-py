@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import ReceiptReviewPanel, { clock } from '../src/ReceiptReviewPanel.tsx';
-import ReceiptOcrSettings from '../src/ReceiptOcrSettings.tsx';
+import ReceiptReviewPanel, { clock } from '../src/features/payments/ReceiptReviewPanel.tsx';
+import ReceiptOcrSettings from '../src/features/payments/ReceiptOcrSettings.tsx';
 import { DialogHost } from '../src/ui.tsx';
 
 const json = (body, status = 200) =>
