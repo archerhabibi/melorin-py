@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError
+from melorin.domain.timeutil import aware
 from melorin.core.security import new_opaque_token, token_hash
 from melorin.domain import account_linking as rules
 from melorin.kernel.models.identity import Identity, RefreshToken, User
@@ -18,12 +19,8 @@ from melorin.modules.identity.lookup import find_identity_any
 OP_TTL = dt.timedelta(minutes=10)
 
 
-def _aware(value: dt.datetime) -> dt.datetime:
-    return value.replace(tzinfo=value.tzinfo or dt.UTC)
-
-
 def is_expired(op: AccountLinkOperation) -> bool:
-    return _aware(op.expires_at) < utcnow()
+    return aware(op.expires_at) < utcnow()
 
 
 def _snapshot(i: Identity) -> dict:

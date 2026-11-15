@@ -391,6 +391,8 @@ PUBLIC_ROUTES = {
     # PasarGuard panel -> Melorin events (PG-03): authenticated by the per-panel shared secret (constant time, encrypted at rest),
     # unknown/unconnected panels answer like a wrong secret, per-IP + failed-secret rate limits, body cap; never a user session
     "/webhooks/pasarguard/{panel_id}",
+    # bot service -> Core: is this Telegram id attached to a person (X-Bot-Secret only, no names or balances)
+    "/internal/identity/telegram/status",
     "/health/live",
     "/healthz",
     "/health/ready",

@@ -50,7 +50,7 @@ async def link_operations(user: CurrentUser, session: Session):
     return await queries.operations(session, person.id)
 
 
-@router.get("/orders")
+@router.get("/history")
 async def unified_orders(user: CurrentUser, session: Session, limit: int = 50, offset: int = 0):
     person = await persons.ensure_person(session, user)
     return await queries.orders(session, person.id, min(max(limit, 1), 100), max(offset, 0))

@@ -37,6 +37,8 @@ AUTO_REASONS = {
 # Tables whose rows about a user carry no business value: they follow the identity (or die with the shell).
 DISPOSABLE_TABLES = {
     "identities",
+    "account_link_operations",  # linking attempts of the shell itself (own audit/evidence rows follow the person)
+    "account_link_evidence",
     "identity_link_reviews",
     "terms_acceptances",
     "notifications",

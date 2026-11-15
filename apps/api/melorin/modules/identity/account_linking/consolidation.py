@@ -7,6 +7,7 @@ is kept (status ``consolidated``) and the before/after totals are reconciled bef
 import uuid
 
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from melorin.core.config import get_settings
@@ -232,7 +233,7 @@ async def execute(
                 w.status, w.consolidated_into_id = "consolidated", target.id
             if moved != total_before:
                 raise AppError("CONSOLIDATION_RECONCILE", "جمع انتقال‌ها با موجودی مبدأ برابر نیست.", 500)
-    except Exception as exc:
+    except (AppError, SQLAlchemyError, ArithmeticError, AssertionError, KeyError) as exc:
         op.status = "failed"
         op.failure_reason = (exc.message if isinstance(exc, AppError) else type(exc).__name__)[:500]
         audit.log(
