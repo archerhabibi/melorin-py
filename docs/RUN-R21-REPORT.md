@@ -6,11 +6,11 @@
 | API unit suite | 2728 passed, 1 skipped |
 | admin-web tsc, eslint, vitest | clean, 309 passed |
 | Playwright (Chromium, mocked API) | 24 passed, 2 skipped (need a seeded staging stack) |
-| Docker: rebuild + upgrade of an existing r15 database to head 0056 | all services healthy |
+| Docker: rebuild + upgrade of an existing r15 database to the current head (see `docs/STATUS.md`) | all services healthy |
 | Live smoke scripts/e2e_smoke.py (API + worker + Postgres + Redis, mock panel) | ALL PASSED (32 checks) |
 | PostgreSQL 16 lane (TEST_PG_URL) | 8 passed |
 | integration + concurrency (PG 16 + Redis 7) | 11 passed, 1 skipped |
-| alembic upgrade head from empty, alembic check | head 0056, no drift |
+| alembic upgrade head from empty, alembic check | current head (see `docs/STATUS.md`), no drift |
 | test_deploy.sh, test_restore_drill.sh | passed |
 
 ## Findings
