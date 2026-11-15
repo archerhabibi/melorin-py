@@ -2340,7 +2340,7 @@ export interface paths {
         };
         /**
          * Report Summary
-         * @description Only successful payments count as sales, grouped by currency.
+         * @description Only successful payments count as sales, grouped by currency (computed by the reports module).
          */
         get: operations["report_summary_api_v1_admin_reports_summary_get"];
         put?: never;
