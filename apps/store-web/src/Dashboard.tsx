@@ -7,6 +7,8 @@ import { Empty, Loading, PageTitle, PasswordInput, fa, fd } from './ui.tsx';
 import { J, tabs, card, btn, inp, Orders, Vpn } from './dashboard/DashboardAccounts.tsx';
 import { Wallet } from './dashboard/DashboardWallet.tsx';
 import { Tickets } from './dashboard/DashboardTickets.tsx';
+import LinkedAccounts from './dashboard/DashboardLinking.tsx';
+import { LINKING_TAB_KEY } from './InfoSections.tsx';
 import type { Json } from './types';
 
 export { Wallet } from './dashboard/DashboardWallet.tsx';
@@ -257,7 +259,15 @@ export default function Dashboard({
   notify?: Json;
   onLogout?: Json;
 }) {
-  const [tab, setTab] = useState('orders');
+  const [tab, setTab] = useState(() => {
+    try {
+      const want = sessionStorage.getItem(LINKING_TAB_KEY); // set by the landing page entry point, used once
+      sessionStorage.removeItem(LINKING_TAB_KEY);
+      return want === 'linking' ? 'linking' : 'orders';
+    } catch {
+      return 'orders';
+    }
+  });
   const [unread, setUnread] = useState(0);
   useEffect(() => {
     coreFetch(`/api/v1/stores/${storeId}/notifications?unread_only=true&limit=1`)
@@ -336,6 +346,7 @@ export default function Dashboard({
           {tab === 'profile' && (
             <Profile coreFetch={coreFetch} storeId={storeId} account={account} notify={notify} reload={reload} />
           )}
+          {tab === 'linking' && <LinkedAccounts coreFetch={coreFetch} notify={notify} reload={reload} />}
           {tab === 'tickets' && <Tickets coreFetch={coreFetch} storeId={storeId} notify={notify} />}
         </section>
       </div>

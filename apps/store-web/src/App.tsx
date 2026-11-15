@@ -15,7 +15,7 @@ import { NAME_RE, TG_ERRORS, TG_RETRY, errOf } from './landing.tsx';
 import { SiteHeader } from './SiteHeader.tsx';
 import { HeroSection } from './HeroSection.tsx';
 import { PlansSection } from './PlansSection.tsx';
-import { HowSection, WhySection } from './InfoSections.tsx';
+import { HowSection, LinkAccountsSection, WhySection } from './InfoSections.tsx';
 import { AccountBanner } from './AccountBanner.tsx';
 import { SiteFooter } from './SiteFooter.tsx';
 import { MobileNav } from './MobileNav.tsx';
@@ -388,6 +388,8 @@ export default function App() {
             <HowSection />
 
             <WhySection />
+
+            <LinkAccountsSection goAccount={goAccount} />
 
             <AccountBanner wallet={wallet} orders={orders} goAccount={goAccount} accessToken={accessToken} />
             <Faq />
