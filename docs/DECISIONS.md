@@ -198,3 +198,8 @@ Source: `Melorin_Architecture_Admin_Audit.md` (the project has never been releas
 - **Vulture findings were false positives, now explicit**: `initiator` is the mandatory SQLAlchemy listener argument (renamed `_initiator`); `CursorResult` is named only inside a string `cast`, so it moved under `TYPE_CHECKING`.
 - Kept on purpose (audit §4, §7.6): Payments / Wallet, Orders / Provisioning, Identity / Authentication, PanelOps / Panel Integrations, Event Center / Notifications stay separate.
 - Still open (own PRs, not done here): move `/admin/reports/summary` and `/timeseries` into the analytics contract and switch `AdminSession.tsx` / `Trend.tsx` first; split `PanelAdminsView`, `kit.tsx`, `UpstreamBotFields`, `TicketConversation`, `ReportsView` as pure moves; widen mypy module by module (orders, identity, reseller, payments); drop `modules/admin/router.py` re-exports once no import uses them; split `panelops` files by capability.
+
+## r13b - mypy scope widened to orders, identity, reseller (audit 8.5)
+- **Decision:** orders, identity and reseller are now inside the mypy gate. 14 files that still carry Optional-narrowing errors (61 in total, mostly session.get() results used without a None check, in payment/provisioning/identity-merge paths) sit in an ignore_errors override list.
+- **Why a ratchet and not a mass fix:** these are money and provisioning paths; a blind assert or default value could change behaviour. Each file is cleaned together with a test that proves the None case, then removed from the list.
+- **Rule:** the list may only shrink. tests/contracts/test_mypy_ratchet.py fails if it grows.

@@ -29,12 +29,33 @@ line-ending = "lf"
 [tool.mypy]
 # T41: static typing is gated on core + worker + the pure domain and the kernel models; widen `files` as other packages are cleaned up.
 python_version = "3.12"
-files = ["melorin/core", "melorin/worker", "melorin/domain", "melorin/kernel", "melorin/modules/wallet", "melorin/modules/catalog"]
+files = ["melorin/core", "melorin/worker", "melorin/domain", "melorin/kernel", "melorin/modules/wallet", "melorin/modules/catalog",
+         "melorin/modules/orders", "melorin/modules/identity", "melorin/modules/reseller"]
 ignore_missing_imports = true
 follow_imports = "silent"
-# T-W07/T-R09: bodies of unannotated functions are checked too; widen `files` one package at a time (next: orders, identity, reseller).
+# T-W07/T-R09: bodies of unannotated functions are checked too; widen `files` one package at a time (r13: orders, identity, reseller are in scope; files in the ratchet list below still carry known Optional-narrowing errors and may only be removed from it, never added).
 check_untyped_defs = true
 warn_unused_ignores = true
+
+# r13 ratchet: known remaining errors (61 at the time of writing). tests/contracts/test_mypy_ratchet.py forbids growing this list.
+[[tool.mypy.overrides]]
+module = [
+  "melorin.modules.identity.auto_link",
+  "melorin.modules.identity.google",
+  "melorin.modules.identity.service",
+  "melorin.modules.identity.routes.account",
+  "melorin.modules.reseller.auto_approve",
+  "melorin.modules.reseller.auto_verify",
+  "melorin.modules.reseller.bots",
+  "melorin.modules.reseller.recheck",
+  "melorin.modules.reseller.routes.store_profile",
+  "melorin.modules.reseller.routes.applications",
+  "melorin.modules.orders.service.payment",
+  "melorin.modules.orders.service.create",
+  "melorin.modules.orders.router",
+  "melorin.modules.orders.provisioning",
+]
+ignore_errors = true
 
 [tool.pytest.ini_options]
 # T-R05: tests are grouped in sub-folders but still import shared helpers by bare module name (module basenames are unique).
