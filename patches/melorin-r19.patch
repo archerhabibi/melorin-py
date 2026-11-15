@@ -1,0 +1,2559 @@
+From a10a5321fb800ddcd3696ceb00801d7956a5fef4 Mon Sep 17 00:00:00 2001
+From: melorin-refactor <refactor@melorin.local>
+Date: Sun, 15 Nov 2026 12:41:03 +0000
+Subject: [PATCH 1/3] refactor(upstream_bot): extract config and state from
+ adapter.py; protocol flows stay in one ordered class
+
+---
+ .../adapters/upstream_bot/adapter.py          | 137 +-----------------
+ .../adapters/upstream_bot/config.py           |  33 +++++
+ .../adapters/upstream_bot/state.py            | 120 +++++++++++++++
+ .../adapters/test_upstream_bot_adapter.py     |   6 +-
+ 4 files changed, 160 insertions(+), 136 deletions(-)
+ create mode 100644 apps/api/melorin/modules/panel_integrations/adapters/upstream_bot/config.py
+ create mode 100644 apps/api/melorin/modules/panel_integrations/adapters/upstream_bot/state.py
+
+diff --git a/apps/api/melorin/modules/panel_integrations/adapters/upstream_bot/adapter.py b/apps/api/melorin/modules/panel_integrations/adapters/upstream_bot/adapter.py
+index cb5c7b5..86b237e 100644
+--- a/apps/api/melorin/modules/panel_integrations/adapters/upstream_bot/adapter.py
++++ b/apps/api/melorin/modules/panel_integrations/adapters/upstream_bot/adapter.py
+@@ -23,134 +23,19 @@ Honest limits
+ 
+ import asyncio
+ import datetime as dt
+-import json
+ import logging
+ import re
+ import time
+-import uuid
+ from typing import Any, NoReturn, cast
+ 
+ from melorin.modules.panel_integrations.adapters.base import GB, AccountSpec, Capabilities, ErrorKind, PanelAccount, PanelError
+ from melorin.modules.panel_integrations.adapters.upstream_bot import parsing
+ from melorin.modules.panel_integrations.adapters.upstream_bot.chat import Button, ChatClient, Msg
++from melorin.modules.panel_integrations.adapters.upstream_bot.config import DEFAULTS
++from melorin.modules.panel_integrations.adapters.upstream_bot.state import _ChatLock, _Store
+ 
+ log = logging.getLogger("melorin.upstream_bot")
+ 
+-DEFAULTS = {
+-    "menu_buy": "خرید اکانت",
+-    "service_button": "سرویس اقتصادی",
+-    "confirm_button": "تایید خرید",
+-    "cancel_button": "انصراف",
+-    "start_command": "/start",
+-    "menu_purchases": "خریدهای من",
+-    "search_button": "جستجوی اکانت",
+-    "refund_button": "مرجوعی اکانت",
+-    "refund_confirm_button": "تایید میکنم",
+-    "link_button": "لینک",
+-    "status_ttl": 60,  # seconds a live read of the account screen is reused
+-    "max_price": 0,  # toman; 0 = refuse to buy (forces the admin to set a safety cap)
+-    "step_timeout": 25,
+-    "delivery_timeout": 60,
+-    "poll_interval": 1.2,
+-    "lock_ttl": 180,
+-    "plans": [],  # optional explicit [{"traffic_gb": 10, "months": 1, "label": "10 گیگ یک ماهه"}]
+-    # Renewal (verified on the real screens, 24 Oct 2026). Set {"enabled": false} to turn automatic renewals off.
+-    "renew": {
+-        "enabled": True,
+-        "renew_button": "تمدید اکانت",
+-        "confirm_button": "تایید تمدید",
+-        "cancel_button": "برگشت",
+-        "success_words": ["با موفقیت تمدید"],
+-        "settle_window": 600,  # seconds a confirmed-but-unanswered renewal blocks a second payment (retry reads the account instead)
+-    },
+-}
+-
+-_MEM: dict[str, str] = {}
+-_LOCKS: dict[str, asyncio.Lock] = {}
+-
+-
+-def _redis():
+-    try:
+-        from melorin.core.redis import get_redis
+-
+-        return get_redis()
+-    except Exception:  # pragma: no cover
+-        return None
+-
+-
+-class _Store:
+-    """username -> upstream account metadata. Redis when available, process memory otherwise."""
+-
+-    def __init__(self, ns: str):
+-        self.ns = ns
+-
+-    def _k(self, username: str) -> str:
+-        return f"upstream_bot:{self.ns}:acc:{username}"
+-
+-    async def get(self, username: str) -> dict | None:
+-        r = _redis()
+-        raw = None
+-        if r is not None:
+-            try:
+-                raw = await r.get(self._k(username))
+-            except Exception:
+-                raw = None
+-        raw = raw or _MEM.get(self._k(username))
+-        return json.loads(raw) if raw else None
+-
+-    async def set(self, username: str, data: dict) -> None:
+-        raw = json.dumps(data, ensure_ascii=False)
+-        _MEM[self._k(username)] = raw
+-        r = _redis()
+-        if r is not None:
+-            try:
+-                await r.set(self._k(username), raw)
+-            except Exception:
+-                log.warning("upstream_bot: redis write failed for mapping", exc_info=True)
+-
+-    async def delete(self, username: str) -> None:
+-        _MEM.pop(self._k(username), None)
+-        r = _redis()
+-        if r is not None:
+-            try:
+-                await r.delete(self._k(username))
+-            except Exception:
+-                log.warning("upstream_bot: redis delete failed", exc_info=True)
+-
+-
+-class _ChatLock:
+-    def __init__(self, ns: str, ttl: int, wait: float):
+-        self.key, self.ttl, self.wait, self.token = f"upstream_bot:{ns}:lock", ttl, wait, uuid.uuid4().hex
+-        self._local = _LOCKS.setdefault(self.key, asyncio.Lock())
+-        self._held_redis = False
+-
+-    async def __aenter__(self):
+-        await asyncio.wait_for(self._local.acquire(), self.wait)
+-        r, end = _redis(), time.monotonic() + self.wait
+-        if r is not None:
+-            while True:
+-                try:
+-                    if await r.set(self.key, self.token, nx=True, ex=self.ttl):
+-                        self._held_redis = True
+-                        break
+-                except Exception:
+-                    break  # redis down: the process-local lock still serialises this worker
+-                if time.monotonic() > end:
+-                    self._local.release()
+-                    raise PanelError(ErrorKind.TRANSIENT, "upstream_bot: chat is busy, retry later")
+-                await asyncio.sleep(0.5)
+-        return self
+-
+-    async def __aexit__(self, *exc):
+-        r = _redis()
+-        if r is not None and self._held_redis:
+-            try:
+-                if await r.get(self.key) == self.token:
+-                    await r.delete(self.key)
+-            except Exception:
+-                log.warning("upstream_bot: redis delete failed", exc_info=True)
+-        self._local.release()
+-
+ 
+ def _months_between(now: dt.datetime, expire_at: dt.datetime | None) -> int:
+     if not expire_at:
+@@ -371,19 +256,7 @@ class UpstreamBotAdapter:
+         return None
+ 
+     async def _name_taken(self, upstream_name: str) -> bool:
+-        r = _redis()
+-        if r is None:
+-            return any(
+-                json.loads(v).get("ref") == upstream_name for k, v in _MEM.items() if k.startswith(f"upstream_bot:{self.store.ns}:acc:")
+-            )
+-        try:
+-            async for k in r.scan_iter(f"upstream_bot:{self.store.ns}:acc:*"):
+-                raw = await r.get(k)
+-                if raw and json.loads(raw).get("ref") == upstream_name:
+-                    return True
+-        except Exception:
+-            return False
+-        return False
++        return await self.store.name_taken(upstream_name)
+ 
+     @staticmethod
+     def _account(username: str, d: dict) -> PanelAccount:
+@@ -402,9 +275,7 @@ class UpstreamBotAdapter:
+ 
+     def remember(self, username: str, ref: str | None, subscription_url: str | None = None) -> None:
+         """Re-seed the mapping from VpnAccount.panel_ref / subscription_url (Redis may have been flushed)."""
+-        key = self.store._k(username)
+-        if ref and key not in _MEM:
+-            _MEM[key] = json.dumps({"status": "active", "ref": ref, "subscription_url": subscription_url}, ensure_ascii=False)
++        self.store.seed(username, ref, subscription_url)
+ 
+     async def get_account(self, username: str) -> PanelAccount | None:
+         d = await self.store.get(username)
+diff --git a/apps/api/melorin/modules/panel_integrations/adapters/upstream_bot/config.py b/apps/api/melorin/modules/panel_integrations/adapters/upstream_bot/config.py
+new file mode 100644
+index 0000000..ac77fc7
+--- /dev/null
++++ b/apps/api/melorin/modules/panel_integrations/adapters/upstream_bot/config.py
+@@ -0,0 +1,33 @@
++"""Default configuration of the upstream-bot adapter.
++
++Every button text is configurable because the parent bot may rename its menus. Pure data: no behaviour lives here.
++"""
++
++DEFAULTS = {
++    "menu_buy": "خرید اکانت",
++    "service_button": "سرویس اقتصادی",
++    "confirm_button": "تایید خرید",
++    "cancel_button": "انصراف",
++    "start_command": "/start",
++    "menu_purchases": "خریدهای من",
++    "search_button": "جستجوی اکانت",
++    "refund_button": "مرجوعی اکانت",
++    "refund_confirm_button": "تایید میکنم",
++    "link_button": "لینک",
++    "status_ttl": 60,  # seconds a live read of the account screen is reused
++    "max_price": 0,  # toman; 0 = refuse to buy (forces the admin to set a safety cap)
++    "step_timeout": 25,
++    "delivery_timeout": 60,
++    "poll_interval": 1.2,
++    "lock_ttl": 180,
++    "plans": [],  # optional explicit [{"traffic_gb": 10, "months": 1, "label": "10 گیگ یک ماهه"}]
++    # Renewal (verified on the real screens, 24 Oct 2026). Set {"enabled": false} to turn automatic renewals off.
++    "renew": {
++        "enabled": True,
++        "renew_button": "تمدید اکانت",
++        "confirm_button": "تایید تمدید",
++        "cancel_button": "برگشت",
++        "success_words": ["با موفقیت تمدید"],
++        "settle_window": 600,  # seconds a confirmed-but-unanswered renewal blocks a second payment (retry reads the account instead)
++    },
++}
+diff --git a/apps/api/melorin/modules/panel_integrations/adapters/upstream_bot/state.py b/apps/api/melorin/modules/panel_integrations/adapters/upstream_bot/state.py
+new file mode 100644
+index 0000000..ed74483
+--- /dev/null
++++ b/apps/api/melorin/modules/panel_integrations/adapters/upstream_bot/state.py
+@@ -0,0 +1,120 @@
++"""Shared state of the upstream-bot adapter: username -> upstream account mapping and the one-chat-one-flow lock.
++
++Redis is used when available; a process-local copy keeps the adapter working (and testable) without it.
++"""
++
++import asyncio
++import json
++import logging
++import time
++import uuid
++
++from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError
++
++log = logging.getLogger("melorin.upstream_bot")
++
++_MEM: dict[str, str] = {}
++_LOCKS: dict[str, asyncio.Lock] = {}
++
++
++def _redis():
++    try:
++        from melorin.core.redis import get_redis
++
++        return get_redis()
++    except Exception:  # pragma: no cover
++        return None
++
++
++class _Store:
++    """username -> upstream account metadata. Redis when available, process memory otherwise."""
++
++    def __init__(self, ns: str):
++        self.ns = ns
++
++    def _k(self, username: str) -> str:
++        return f"upstream_bot:{self.ns}:acc:{username}"
++
++    async def get(self, username: str) -> dict | None:
++        r = _redis()
++        raw = None
++        if r is not None:
++            try:
++                raw = await r.get(self._k(username))
++            except Exception:
++                raw = None
++        raw = raw or _MEM.get(self._k(username))
++        return json.loads(raw) if raw else None
++
++    async def set(self, username: str, data: dict) -> None:
++        raw = json.dumps(data, ensure_ascii=False)
++        _MEM[self._k(username)] = raw
++        r = _redis()
++        if r is not None:
++            try:
++                await r.set(self._k(username), raw)
++            except Exception:
++                log.warning("upstream_bot: redis write failed for mapping", exc_info=True)
++
++    async def delete(self, username: str) -> None:
++        _MEM.pop(self._k(username), None)
++        r = _redis()
++        if r is not None:
++            try:
++                await r.delete(self._k(username))
++            except Exception:
++                log.warning("upstream_bot: redis delete failed", exc_info=True)
++
++    async def name_taken(self, upstream_name: str) -> bool:
++        """Is this upstream account name already mapped to a Melorin username?"""
++        r = _redis()
++        if r is None:
++            return any(json.loads(v).get("ref") == upstream_name for k, v in _MEM.items() if k.startswith(f"upstream_bot:{self.ns}:acc:"))
++        try:
++            async for k in r.scan_iter(f"upstream_bot:{self.ns}:acc:*"):
++                raw = await r.get(k)
++                if raw and json.loads(raw).get("ref") == upstream_name:
++                    return True
++        except Exception:
++            return False
++        return False
++
++    def seed(self, username: str, ref: str | None, subscription_url: str | None = None) -> None:
++        """Re-seed the in-memory mapping (Redis may have been flushed). Never overwrites an existing entry."""
++        key = self._k(username)
++        if ref and key not in _MEM:
++            _MEM[key] = json.dumps({"status": "active", "ref": ref, "subscription_url": subscription_url}, ensure_ascii=False)
++
++
++class _ChatLock:
++    def __init__(self, ns: str, ttl: int, wait: float):
++        self.key, self.ttl, self.wait, self.token = f"upstream_bot:{ns}:lock", ttl, wait, uuid.uuid4().hex
++        self._local = _LOCKS.setdefault(self.key, asyncio.Lock())
++        self._held_redis = False
++
++    async def __aenter__(self):
++        await asyncio.wait_for(self._local.acquire(), self.wait)
++        r, end = _redis(), time.monotonic() + self.wait
++        if r is not None:
++            while True:
++                try:
++                    if await r.set(self.key, self.token, nx=True, ex=self.ttl):
++                        self._held_redis = True
++                        break
++                except Exception:
++                    break  # redis down: the process-local lock still serialises this worker
++                if time.monotonic() > end:
++                    self._local.release()
++                    raise PanelError(ErrorKind.TRANSIENT, "upstream_bot: chat is busy, retry later")
++                await asyncio.sleep(0.5)
++        return self
++
++    async def __aexit__(self, *exc):
++        r = _redis()
++        if r is not None and self._held_redis:
++            try:
++                if await r.get(self.key) == self.token:
++                    await r.delete(self.key)
++            except Exception:
++                log.warning("upstream_bot: redis delete failed", exc_info=True)
++        self._local.release()
+diff --git a/apps/api/tests/adapters/test_upstream_bot_adapter.py b/apps/api/tests/adapters/test_upstream_bot_adapter.py
+index 641fbfa..c77d9d9 100644
+--- a/apps/api/tests/adapters/test_upstream_bot_adapter.py
++++ b/apps/api/tests/adapters/test_upstream_bot_adapter.py
+@@ -6,7 +6,7 @@ import time
+ import pytest
+ 
+ from melorin.modules.panel_integrations.adapters.base import GB, AccountSpec, ErrorKind, PanelError
+-from melorin.modules.panel_integrations.adapters.upstream_bot import UpstreamBotAdapter, adapter as mod, parsing
++from melorin.modules.panel_integrations.adapters.upstream_bot import UpstreamBotAdapter, parsing, state
+ from melorin.modules.panel_integrations.adapters.upstream_bot.chat import Button, Msg
+ 
+ DELIVERY = (
+@@ -206,8 +206,8 @@ def spec(name="Mel_10G1", gb=10, days=30):
+ 
+ @pytest.fixture(autouse=True)
+ def _clean(monkeypatch):
+-    mod._MEM.clear()
+-    monkeypatch.setattr(mod, "_redis", lambda: None)
++    state._MEM.clear()
++    monkeypatch.setattr(state, "_redis", lambda: None)
+ 
+ 
+ async def test_buy_flow_maps_upstream_name():
+-- 
+2.43.0
+
+
+From 6018c03e2a4a9a4c7d30e7fed0d0eef5f7decf68 Mon Sep 17 00:00:00 2001
+From: melorin-refactor <refactor@melorin.local>
+Date: Sun, 15 Nov 2026 12:43:00 +0000
+Subject: [PATCH 2/3] refactor(admin-web): move shared kit, ui, charts, theme,
+ types, useDialog into src/shared (pure move)
+
+---
+ apps/admin-web/src/api/api.ts                             | 2 +-
+ apps/admin-web/src/app/AdminAuth.tsx                      | 2 +-
+ apps/admin-web/src/app/AdminExtra.tsx                     | 2 +-
+ apps/admin-web/src/app/AdminNavigation.tsx                | 4 ++--
+ apps/admin-web/src/app/AdminSections.tsx                  | 2 +-
+ apps/admin-web/src/app/AdminSession.tsx                   | 2 +-
+ apps/admin-web/src/app/AdminShell.tsx                     | 8 ++++----
+ apps/admin-web/src/app/App.tsx                            | 8 ++++----
+ apps/admin-web/src/app/adminExtraKit.tsx                  | 4 ++--
+ apps/admin-web/src/features/auth/AcceptInvite.tsx         | 4 ++--
+ apps/admin-web/src/features/broadcast/BroadcastView.tsx   | 6 +++---
+ apps/admin-web/src/features/catalog/BundlesView.tsx       | 6 +++---
+ .../src/features/catalog/ProductAvailability.tsx          | 4 ++--
+ apps/admin-web/src/features/catalog/ProductParts.tsx      | 6 +++---
+ apps/admin-web/src/features/catalog/ProductsView.tsx      | 6 +++---
+ .../admin-web/src/features/catalog/UnassignedProducts.tsx | 2 +-
+ .../src/features/catalog/bundles/BundleDrawer.tsx         | 6 +++---
+ .../src/features/catalog/bundles/BundleParts.tsx          | 4 ++--
+ apps/admin-web/src/features/catalog/productsShared.tsx    | 4 ++--
+ apps/admin-web/src/features/coupons/CouponsView.tsx       | 2 +-
+ apps/admin-web/src/features/customers/UsersView.tsx       | 8 ++++----
+ apps/admin-web/src/features/dashboard/Dashboard.tsx       | 6 +++---
+ .../src/features/event-center/EventCenterView.tsx         | 6 +++---
+ apps/admin-web/src/features/identity/IdentityAutoView.tsx | 6 +++---
+ apps/admin-web/src/features/identity/IdentityHubView.tsx  | 4 ++--
+ .../src/features/identity/IdentityReviewsView.tsx         | 6 +++---
+ apps/admin-web/src/features/loyalty/LoyaltyClubView.tsx   | 4 ++--
+ apps/admin-web/src/features/orders/OrdersView.tsx         | 8 ++++----
+ .../src/features/panel-operations/BulkOperationsView.tsx  | 4 ++--
+ .../src/features/panel-operations/InfraHealthView.tsx     | 2 +-
+ .../src/features/panel-operations/InfraOpsHubView.tsx     | 4 ++--
+ .../src/features/panel-operations/PanelOpsView.tsx        | 4 ++--
+ apps/admin-web/src/features/panel-operations/infra.tsx    | 4 ++--
+ apps/admin-web/src/features/panels/PanelAccessTab.tsx     | 6 +++---
+ apps/admin-web/src/features/panels/PanelAdminDrawer.tsx   | 6 +++---
+ apps/admin-web/src/features/panels/PanelAdminsView.tsx    | 6 +++---
+ apps/admin-web/src/features/panels/PanelCapacityTab.tsx   | 2 +-
+ apps/admin-web/src/features/panels/PanelConsoleTab.tsx    | 4 ++--
+ apps/admin-web/src/features/panels/PanelDetailDrawer.tsx  | 4 ++--
+ apps/admin-web/src/features/panels/PanelDrawer.tsx        | 8 ++++----
+ apps/admin-web/src/features/panels/PanelEventsTab.tsx     | 4 ++--
+ apps/admin-web/src/features/panels/PanelNodesTab.tsx      | 2 +-
+ apps/admin-web/src/features/panels/PanelPhase5Tab.tsx     | 4 ++--
+ apps/admin-web/src/features/panels/PanelRequestDrawer.tsx | 6 +++---
+ apps/admin-web/src/features/panels/PanelSection.tsx       | 6 +++---
+ apps/admin-web/src/features/panels/PanelTemplatesTab.tsx  | 4 ++--
+ apps/admin-web/src/features/panels/PanelsView.tsx         | 6 +++---
+ apps/admin-web/src/features/panels/ServerForm.tsx         | 6 +++---
+ apps/admin-web/src/features/panels/TargetPicker.tsx       | 4 ++--
+ apps/admin-web/src/features/panels/UpstreamBotFields.tsx  | 4 ++--
+ apps/admin-web/src/features/panels/UpstreamFlowParts.tsx  | 4 ++--
+ apps/admin-web/src/features/panels/panelAdminsShared.tsx  | 4 ++--
+ apps/admin-web/src/features/panels/panelUi.tsx            | 4 ++--
+ apps/admin-web/src/features/panels/targets.ts             | 2 +-
+ apps/admin-web/src/features/panels/upstreamBot.ts         | 2 +-
+ apps/admin-web/src/features/payments/BankSmsPanel.tsx     | 6 +++---
+ apps/admin-web/src/features/payments/PaymentParts.tsx     | 6 +++---
+ apps/admin-web/src/features/payments/PaymentsView.tsx     | 6 +++---
+ .../src/features/payments/ReceiptDuplicatePolicy.tsx      | 4 ++--
+ .../src/features/payments/ReceiptOcrSettings.tsx          | 4 ++--
+ .../src/features/payments/ReceiptReviewPanel.tsx          | 6 +++---
+ apps/admin-web/src/features/payments/paymentsShared.tsx   | 6 +++---
+ .../src/features/referrals/ReferralProgramsView.tsx       | 4 ++--
+ apps/admin-web/src/features/reports/ReportCharts.tsx      | 4 ++--
+ apps/admin-web/src/features/reports/ReportsParts.tsx      | 2 +-
+ apps/admin-web/src/features/reports/ReportsView.tsx       | 6 +++---
+ apps/admin-web/src/features/reports/reportsLogic.ts       | 4 ++--
+ apps/admin-web/src/features/resellers/ManualTasksView.tsx | 6 +++---
+ .../src/features/resellers/ResellerApplicationsView.tsx   | 6 +++---
+ apps/admin-web/src/features/settings/AdminTeamView.tsx    | 8 ++++----
+ apps/admin-web/src/features/settings/AuditView.tsx        | 8 ++++----
+ apps/admin-web/src/features/settings/ButtonStylesView.tsx | 6 +++---
+ .../src/features/settings/ChangeAdminPassword.tsx         | 4 ++--
+ .../src/features/settings/GoogleLoginSettings.tsx         | 2 +-
+ apps/admin-web/src/features/settings/MyAccountView.tsx    | 4 ++--
+ apps/admin-web/src/features/settings/SettingsView.tsx     | 6 +++---
+ .../src/features/settings/TelegramLoginSettings.tsx       | 4 ++--
+ .../src/features/stores/ResellerOnboardingView.tsx        | 4 ++--
+ apps/admin-web/src/features/stores/ResellersView.tsx      | 6 +++---
+ apps/admin-web/src/features/stores/StoreApiView.tsx       | 4 ++--
+ apps/admin-web/src/features/stores/StoreBotsView.tsx      | 4 ++--
+ .../admin-web/src/features/stores/StoreGovernanceView.tsx | 4 ++--
+ apps/admin-web/src/features/stores/StoreHubView.tsx       | 4 ++--
+ apps/admin-web/src/features/stores/StoreNoticesView.tsx   | 4 ++--
+ apps/admin-web/src/features/stores/StorePricesView.tsx    | 4 ++--
+ apps/admin-web/src/features/stores/StoresView.tsx         | 8 ++++----
+ apps/admin-web/src/features/stores/SubBrandingCard.tsx    | 4 ++--
+ apps/admin-web/src/features/tickets/TicketBubble.tsx      | 6 +++---
+ apps/admin-web/src/features/tickets/TicketComposer.tsx    | 4 ++--
+ .../admin-web/src/features/tickets/TicketConversation.tsx | 8 ++++----
+ apps/admin-web/src/features/tickets/TicketsView.tsx       | 6 +++---
+ apps/admin-web/src/features/tickets/ticketsShared.tsx     | 2 +-
+ .../src/features/vpn-accounts/AccountToolsPanel.tsx       | 6 +++---
+ .../src/features/vpn-accounts/AttachAccountForm.tsx       | 6 +++---
+ .../src/features/vpn-accounts/VpnAccountsView.tsx         | 8 ++++----
+ apps/admin-web/src/main.tsx                               | 4 ++--
+ apps/admin-web/src/{ => shared}/Trend.tsx                 | 2 +-
+ apps/admin-web/src/{ => shared}/charts.tsx                | 0
+ apps/admin-web/src/{ => shared}/dataKit.tsx               | 2 +-
+ apps/admin-web/src/{ => shared}/kit.tsx                   | 0
+ apps/admin-web/src/{ => shared}/kitDisplay.tsx            | 0
+ apps/admin-web/src/{ => shared}/kitFilters.tsx            | 0
+ apps/admin-web/src/{ => shared}/kitFormat.ts              | 0
+ apps/admin-web/src/{ => shared}/kitOverlays.tsx           | 0
+ apps/admin-web/src/{ => shared}/palette.tsx               | 0
+ apps/admin-web/src/{ => shared}/theme.ts                  | 0
+ apps/admin-web/src/{ => shared}/types.ts                  | 0
+ apps/admin-web/src/{ => shared}/ui.tsx                    | 0
+ apps/admin-web/src/{ => shared}/useDialog.ts              | 0
+ apps/admin-web/tests/bank-sms-panel.test.jsx              | 2 +-
+ apps/admin-web/tests/broadcast.test.jsx                   | 2 +-
+ apps/admin-web/tests/button-styles.test.jsx               | 2 +-
+ apps/admin-web/tests/data-kit.test.jsx                    | 4 ++--
+ apps/admin-web/tests/data-screens.test.jsx                | 4 ++--
+ apps/admin-web/tests/identity-auto.test.jsx               | 2 +-
+ apps/admin-web/tests/identity-hub.test.jsx                | 2 +-
+ apps/admin-web/tests/kit.test.jsx                         | 4 ++--
+ apps/admin-web/tests/panel-admins.test.jsx                | 2 +-
+ apps/admin-web/tests/panel-events.test.jsx                | 2 +-
+ apps/admin-web/tests/panel-ops.test.jsx                   | 2 +-
+ apps/admin-web/tests/panel-phase3.test.jsx                | 2 +-
+ apps/admin-web/tests/panel-phase5.test.jsx                | 2 +-
+ apps/admin-web/tests/panels-upstream-bot.test.jsx         | 2 +-
+ apps/admin-web/tests/receipt-review.test.jsx              | 2 +-
+ apps/admin-web/tests/tickets-images.test.jsx              | 2 +-
+ apps/admin-web/tests/ui.test.jsx                          | 4 ++--
+ apps/admin-web/tests/useDialog.test.jsx                   | 2 +-
+ apps/api/tests/contracts/test_source_helpers.py           | 2 +-
+ 128 files changed, 253 insertions(+), 253 deletions(-)
+ rename apps/admin-web/src/{ => shared}/Trend.tsx (99%)
+ rename apps/admin-web/src/{ => shared}/charts.tsx (100%)
+ rename apps/admin-web/src/{ => shared}/dataKit.tsx (99%)
+ rename apps/admin-web/src/{ => shared}/kit.tsx (100%)
+ rename apps/admin-web/src/{ => shared}/kitDisplay.tsx (100%)
+ rename apps/admin-web/src/{ => shared}/kitFilters.tsx (100%)
+ rename apps/admin-web/src/{ => shared}/kitFormat.ts (100%)
+ rename apps/admin-web/src/{ => shared}/kitOverlays.tsx (100%)
+ rename apps/admin-web/src/{ => shared}/palette.tsx (100%)
+ rename apps/admin-web/src/{ => shared}/theme.ts (100%)
+ rename apps/admin-web/src/{ => shared}/types.ts (100%)
+ rename apps/admin-web/src/{ => shared}/ui.tsx (100%)
+ rename apps/admin-web/src/{ => shared}/useDialog.ts (100%)
+
+diff --git a/apps/admin-web/src/api/api.ts b/apps/admin-web/src/api/api.ts
+index 9347949..973be00 100644
+--- a/apps/admin-web/src/api/api.ts
++++ b/apps/admin-web/src/api/api.ts
+@@ -2,7 +2,7 @@ import { useMemo } from 'react';
+ import { createApiClient } from '@melorin/api-client';
+ import type { PathsWith } from '@melorin/api-client';
+ import { getAccessToken, setTokens, clearTokens } from './auth.ts';
+-import type { Json } from '../types.ts';
++import type { Json } from '../shared/types.ts';
+ 
+ export const API_BASE = (import.meta.env?.VITE_MELORIN_API_URL || window.location.origin).replace(/\/$/, '');
+ 
+diff --git a/apps/admin-web/src/app/AdminAuth.tsx b/apps/admin-web/src/app/AdminAuth.tsx
+index d2add40..73f7913 100644
+--- a/apps/admin-web/src/app/AdminAuth.tsx
++++ b/apps/admin-web/src/app/AdminAuth.tsx
+@@ -2,7 +2,7 @@ import type { ChangeEvent, KeyboardEvent, ReactNode } from 'react';
+ import { useEffect, useState } from 'react';
+ import { CircleAlert, ShieldAlert } from 'lucide-react';
+ import { setTokens } from '../api/auth.ts';
+-import { PasswordInput, ThemeButton } from '../ui.tsx';
++import { PasswordInput, ThemeButton } from '../shared/ui.tsx';
+ import { GoogleSignInButton, useGoogleConfig } from '../features/auth/GoogleSignIn.tsx';
+ import {
+   codeFromResponse,
+diff --git a/apps/admin-web/src/app/AdminExtra.tsx b/apps/admin-web/src/app/AdminExtra.tsx
+index 2d96e47..05057fa 100644
+--- a/apps/admin-web/src/app/AdminExtra.tsx
++++ b/apps/admin-web/src/app/AdminExtra.tsx
+@@ -1,6 +1,6 @@
+ import { lazy } from 'react';
+ import { useCall } from '../api/api.ts';
+-import type { Json, Toast, ViewApi } from '../types.ts';
++import type { Json, Toast, ViewApi } from '../shared/types.ts';
+ import { ChangeAdminPassword } from '../features/settings/ChangeAdminPassword.tsx';
+ const ReportsView = lazy(() => import('../features/reports/ReportsView.tsx'));
+ const PanelsView = lazy(() => import('../features/panels/PanelsView.tsx'));
+diff --git a/apps/admin-web/src/app/AdminNavigation.tsx b/apps/admin-web/src/app/AdminNavigation.tsx
+index 0d5668c..5627c24 100644
+--- a/apps/admin-web/src/app/AdminNavigation.tsx
++++ b/apps/admin-web/src/app/AdminNavigation.tsx
+@@ -1,7 +1,7 @@
+-import { label } from '../ui.tsx';
++import { label } from '../shared/ui.tsx';
+ import { sectionAllowed } from './adminAccess.ts';
+ import type { Permissions } from './adminAccess.ts';
+-import type { Json } from '../types.ts';
++import type { Json } from '../shared/types.ts';
+ import { groups } from './adminNav.ts';
+ 
+ export function Nav({
+diff --git a/apps/admin-web/src/app/AdminSections.tsx b/apps/admin-web/src/app/AdminSections.tsx
+index daed50b..b45c2cc 100644
+--- a/apps/admin-web/src/app/AdminSections.tsx
++++ b/apps/admin-web/src/app/AdminSections.tsx
+@@ -1,7 +1,7 @@
+ import { Suspense } from 'react';
+ import { extraRoutes } from './AdminExtra.tsx';
+ import { sectionAllowed } from './adminAccess.ts';
+-import type { Json, Rec, Toast } from '../types.ts';
++import type { Json, Rec, Toast } from '../shared/types.ts';
+ 
+ function SectionFallback() {
+   return (
+diff --git a/apps/admin-web/src/app/AdminSession.tsx b/apps/admin-web/src/app/AdminSession.tsx
+index 432ac6e..257cb0d 100644
+--- a/apps/admin-web/src/app/AdminSession.tsx
++++ b/apps/admin-web/src/app/AdminSession.tsx
+@@ -1,6 +1,6 @@
+ import { useCallback, useEffect, useState } from 'react';
+ import { API_BASE, authFetch, getJson, typedClient } from '../api/api.ts';
+-import type { AdminMe, Json, Rec } from '../types.ts';
++import type { AdminMe, Json, Rec } from '../shared/types.ts';
+ 
+ export function useCore() {
+   const base = API_BASE;
+diff --git a/apps/admin-web/src/app/AdminShell.tsx b/apps/admin-web/src/app/AdminShell.tsx
+index c3cc3d8..170b884 100644
+--- a/apps/admin-web/src/app/AdminShell.tsx
++++ b/apps/admin-web/src/app/AdminShell.tsx
+@@ -1,13 +1,13 @@
+-import { backdropProps } from '../useDialog.ts';
++import { backdropProps } from '../shared/useDialog.ts';
+ import type { ReactNode } from 'react';
+ import { useEffect, useState } from 'react';
+ import { LogOut, KeyRound, ChevronDown, UserRound } from 'lucide-react';
+ import { getJson, typedClient } from '../api/api.ts';
+ import { clearTokens } from '../api/auth.ts';
+ import { googleSignOut } from '../features/auth/GoogleSignIn.tsx';
+-import { label } from '../ui.tsx';
+-import { useDialog } from '../useDialog.ts';
+-import type { AdminMe, Json, Toast } from '../types.ts';
++import { label } from '../shared/ui.tsx';
++import { useDialog } from '../shared/useDialog.ts';
++import type { AdminMe, Json, Toast } from '../shared/types.ts';
+ 
+ export const todayLabel = () =>
+   new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
+diff --git a/apps/admin-web/src/app/App.tsx b/apps/admin-web/src/app/App.tsx
+index 4ac40b1..1113000 100644
+--- a/apps/admin-web/src/app/App.tsx
++++ b/apps/admin-web/src/app/App.tsx
+@@ -2,11 +2,11 @@ import { downloadOrders } from './AdminSession.tsx';
+ import { useCallback, useEffect, useRef, useState } from 'react';
+ import { Bell, CircleAlert, Download, Menu, RefreshCw, Search, Moon, X } from 'lucide-react';
+ import { AdminSectionView } from './AdminSections.tsx';
+-import { DialogHost, ThemeButton, label } from '../ui.tsx';
+-import { Palette } from '../palette.tsx';
++import { DialogHost, ThemeButton, label } from '../shared/ui.tsx';
++import { Palette } from '../shared/palette.tsx';
+ import { sectionAllowed } from './adminAccess.ts';
+-import { toggleTheme } from '../theme.ts';
+-import type { Json } from '../types.ts';
++import { toggleTheme } from '../shared/theme.ts';
++import type { Json } from '../shared/types.ts';
+ import { flat } from './adminNav.ts';
+ import { fromHash } from './adminNav.ts';
+ import { Clock } from './AdminShell.tsx';
+diff --git a/apps/admin-web/src/app/adminExtraKit.tsx b/apps/admin-web/src/app/adminExtraKit.tsx
+index a60f59b..8fa5a42 100644
+--- a/apps/admin-web/src/app/adminExtraKit.tsx
++++ b/apps/admin-web/src/app/adminExtraKit.tsx
+@@ -1,8 +1,8 @@
+ import { useEffect, useState } from 'react';
+ import { useCall } from '../api/api.ts';
+ import { Plus, Search, X } from 'lucide-react';
+-import { Badge, isStatus } from '../ui.tsx';
+-import type { Json, Rec, Toast } from '../types.ts';
++import { Badge, isStatus } from '../shared/ui.tsx';
++import type { Json, Rec, Toast } from '../shared/types.ts';
+ // Shared primitives of the Coupons and Settings screens (moved verbatim out of AdminExtra.tsx).
+ export const money = (n: Json) => new Intl.NumberFormat('fa-IR').format(n || 0);
+ export const box = 'card';
+diff --git a/apps/admin-web/src/features/auth/AcceptInvite.tsx b/apps/admin-web/src/features/auth/AcceptInvite.tsx
+index 231d35d..9df58b3 100644
+--- a/apps/admin-web/src/features/auth/AcceptInvite.tsx
++++ b/apps/admin-web/src/features/auth/AcceptInvite.tsx
+@@ -4,8 +4,8 @@
+ import type { ChangeEvent } from 'react';
+ import { useMemo, useState } from 'react';
+ import { CheckCircle2, MailWarning, ShieldCheck, Smartphone } from 'lucide-react';
+-import { PasswordInput, ThemeButton } from '../../ui.tsx';
+-import type { AdminEnrollment, AdminInviteInfo } from '../../types.ts';
++import { PasswordInput, ThemeButton } from '../../shared/ui.tsx';
++import type { AdminEnrollment, AdminInviteInfo } from '../../shared/types.ts';
+ 
+ export const INVITE_HASH = '#/accept-invite';
+ export const isInviteHash = (hash: string) => hash === INVITE_HASH || hash.startsWith(`${INVITE_HASH}?`);
+diff --git a/apps/admin-web/src/features/broadcast/BroadcastView.tsx b/apps/admin-web/src/features/broadcast/BroadcastView.tsx
+index 9712c01..4786c88 100644
+--- a/apps/admin-web/src/features/broadcast/BroadcastView.tsx
++++ b/apps/admin-web/src/features/broadcast/BroadcastView.tsx
+@@ -4,9 +4,9 @@ import { useCallback, useEffect, useState } from 'react';
+ import { AlertTriangle, CheckCircle2, Clock, Megaphone, RefreshCw, Send, Users } from 'lucide-react';
+ import { BODY_MAX, TITLE_MAX, useBroadcastComposer, usePollWhileQueued } from '@melorin/web-kit/broadcast.js';
+ import { useCall } from '../../api/api.ts';
+-import { confirmDialog, dt } from '../../ui.tsx';
+-import { Empty, ErrorBar, Field, Section, errText, num, useRows } from '../../kit.tsx';
+-import type { Json, Rec, Toast } from '../../types.ts';
++import { confirmDialog, dt } from '../../shared/ui.tsx';
++import { Empty, ErrorBar, Field, Section, errText, num, useRows } from '../../shared/kit.tsx';
++import type { Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ function AudienceCard({ a, on, onPick }: { a?: Json; on?: Json; onPick?: Json }) {
+   return (
+diff --git a/apps/admin-web/src/features/catalog/BundlesView.tsx b/apps/admin-web/src/features/catalog/BundlesView.tsx
+index 8d27020..138078d 100644
+--- a/apps/admin-web/src/features/catalog/BundlesView.tsx
++++ b/apps/admin-web/src/features/catalog/BundlesView.tsx
+@@ -1,5 +1,5 @@
+ import { useEffect, useMemo, useState } from 'react';
+-import { confirmDialog } from '../../ui.tsx';
++import { confirmDialog } from '../../shared/ui.tsx';
+ import { CheckCircle2, Layers, Plus, ShieldAlert } from 'lucide-react';
+ import {
+   Empty,
+@@ -14,12 +14,12 @@ import {
+   removeEntity,
+   useAlive,
+   useRows,
+-} from '../../kit.tsx';
++} from '../../shared/kit.tsx';
+ import { InfraChain, clearParam, memberIds, useHashParams, useInfra } from '../panel-operations/infra.tsx';
+ import { API, groupIssue, GroupCard, GroupTable } from './bundles/BundleParts.tsx';
+ import { GroupDrawer } from './bundles/BundleDrawer.tsx';
+ import UnassignedProducts from './UnassignedProducts.tsx';
+-import type { Json, Rec, Toast } from '../../types.ts';
++import type { Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ // A sales bundle is a SALES BUNDLE (بسته فروش): panels + connection kind + the packages it sells, each with
+ // its own price. Customers pick a bundle, so the bundle is the only way an account gets sold; there is no
+diff --git a/apps/admin-web/src/features/catalog/ProductAvailability.tsx b/apps/admin-web/src/features/catalog/ProductAvailability.tsx
+index 8ff9024..1b5a7c7 100644
+--- a/apps/admin-web/src/features/catalog/ProductAvailability.tsx
++++ b/apps/admin-web/src/features/catalog/ProductAvailability.tsx
+@@ -1,8 +1,8 @@
+ // Per-store availability of one product (GET/POST /admin/products/{id}/availability?store_id=): sold in this store at all,
+ // and listed in its storefront. The reseller's own price is not touched here (the reseller sets it).
+ import { useEffect, useState } from 'react';
+-import { Toggle, errText } from '../../kit.tsx';
+-import type { CallFn } from '../../types.ts';
++import { Toggle, errText } from '../../shared/kit.tsx';
++import type { CallFn } from '../../shared/types.ts';
+ import { errMessage } from '../../app/adminHubTypes.ts';
+ import type { StoreRow } from '../../app/adminHubTypes.ts';
+ 
+diff --git a/apps/admin-web/src/features/catalog/ProductParts.tsx b/apps/admin-web/src/features/catalog/ProductParts.tsx
+index 572b112..2e57099 100644
+--- a/apps/admin-web/src/features/catalog/ProductParts.tsx
++++ b/apps/admin-web/src/features/catalog/ProductParts.tsx
+@@ -1,11 +1,11 @@
+ import { useEffect, useMemo, useRef, useState } from 'react';
+ 
+ import { Boxes, ChevronDown, Clock, Infinity as Inf, Pencil, Save, Smartphone, Tag, Zap } from 'lucide-react';
+-import type { CallFn, Json } from '../../types.ts';
++import type { CallFn, Json } from '../../shared/types.ts';
+ import type { StoreRow } from '../../app/adminHubTypes.ts';
+-import { Drawer, Field, NumInput, Section, Segmented, Switch, Toggle, DeleteButton, num, tint } from '../../kit.tsx'; // #4
++import { Drawer, Field, NumInput, Section, Segmented, Switch, Toggle, DeleteButton, num, tint } from '../../shared/kit.tsx'; // #4
+ 
+-import { focusOnMount } from '../../useDialog.ts';
++import { focusOnMount } from '../../shared/useDialog.ts';
+ import ProductAvailability from './ProductAvailability.tsx';
+ 
+ import { CUR, price, dur, gb, EMPTY, fromProduct, payload, validate, Route } from './productsShared.tsx';
+diff --git a/apps/admin-web/src/features/catalog/ProductsView.tsx b/apps/admin-web/src/features/catalog/ProductsView.tsx
+index 7399692..1429b49 100644
+--- a/apps/admin-web/src/features/catalog/ProductsView.tsx
++++ b/apps/admin-web/src/features/catalog/ProductsView.tsx
+@@ -1,9 +1,9 @@
+ import { useEffect, useMemo, useState } from 'react';
+-import { confirmDialog } from '../../ui.tsx';
++import { confirmDialog } from '../../shared/ui.tsx';
+ import { AlertTriangle, Boxes, CheckCircle2, PowerOff, Plus, Save, ShieldAlert, Tag, Wallet, X } from 'lucide-react';
+ import { asList } from '../../app/adminHubTypes.ts';
+ import type { StoreRow } from '../../app/adminHubTypes.ts';
+-import type { Json, Rec, Toast } from '../../types.ts';
++import type { Json, Rec, Toast } from '../../shared/types.ts';
+ import {
+   Empty,
+   ErrorBar,
+@@ -18,7 +18,7 @@ import {
+   removeEntity,
+   useAlive,
+   useRows,
+-} from '../../kit.tsx'; // #4
++} from '../../shared/kit.tsx'; // #4
+ import { InfraChain, clearParam, useHashParams, useInfra } from '../panel-operations/infra.tsx';
+ 
+ import { API } from './productsShared.tsx';
+diff --git a/apps/admin-web/src/features/catalog/UnassignedProducts.tsx b/apps/admin-web/src/features/catalog/UnassignedProducts.tsx
+index 1d444f2..d78c6da 100644
+--- a/apps/admin-web/src/features/catalog/UnassignedProducts.tsx
++++ b/apps/admin-web/src/features/catalog/UnassignedProducts.tsx
+@@ -1,7 +1,7 @@
+ // Warning card on the bundles screen: products no bundle sells (GET /admin/bundle-products/unassigned).
+ // Customers cannot buy them until an admin puts them in a bundle. Hidden when there are none.
+ import { useEffect, useState } from 'react';
+-import type { CallFn } from '../../types.ts';
++import type { CallFn } from '../../shared/types.ts';
+ import { asList } from '../../app/adminHubTypes.ts';
+ 
+ interface Unassigned {
+diff --git a/apps/admin-web/src/features/catalog/bundles/BundleDrawer.tsx b/apps/admin-web/src/features/catalog/bundles/BundleDrawer.tsx
+index c02d86f..aac9cf2 100644
+--- a/apps/admin-web/src/features/catalog/bundles/BundleDrawer.tsx
++++ b/apps/admin-web/src/features/catalog/bundles/BundleDrawer.tsx
+@@ -13,11 +13,11 @@ import {
+   errText,
+   num,
+   tint,
+-} from '../../../kit.tsx';
++} from '../../../shared/kit.tsx';
+ import { Dot, Warn, health as hs, infraHref, memberIds } from '../../panel-operations/infra.tsx';
+-import { focusOnMount } from '../../../useDialog.ts';
++import { focusOnMount } from '../../../shared/useDialog.ts';
+ import { API, MODES } from './BundleParts.tsx';
+-import type { CallFn, Json, Rec, Toast } from '../../../types.ts';
++import type { CallFn, Json, Rec, Toast } from '../../../shared/types.ts';
+ 
+ const EMPTY = {
+   name: '',
+diff --git a/apps/admin-web/src/features/catalog/bundles/BundleParts.tsx b/apps/admin-web/src/features/catalog/bundles/BundleParts.tsx
+index ce911d7..34c7c74 100644
+--- a/apps/admin-web/src/features/catalog/bundles/BundleParts.tsx
++++ b/apps/admin-web/src/features/catalog/bundles/BundleParts.tsx
+@@ -1,7 +1,7 @@
+ import { Layers, Pencil } from 'lucide-react';
+-import { Bar, Switch, DeleteButton, capTone, num, tint } from '../../../kit.tsx';
++import { Bar, Switch, DeleteButton, capTone, num, tint } from '../../../shared/kit.tsx';
+ import { Dot, Warn, health as hs, infraHref } from '../../panel-operations/infra.tsx';
+-import type { Json, Rec } from '../../../types.ts';
++import type { Json, Rec } from '../../../shared/types.ts';
+ 
+ export const API = '/api/v1/admin/bundles';
+ export const MODES = {
+diff --git a/apps/admin-web/src/features/catalog/productsShared.tsx b/apps/admin-web/src/features/catalog/productsShared.tsx
+index 1630bae..f05bcbb 100644
+--- a/apps/admin-web/src/features/catalog/productsShared.tsx
++++ b/apps/admin-web/src/features/catalog/productsShared.tsx
+@@ -1,6 +1,6 @@
+ import { AlertTriangle, Layers, ServerCog } from 'lucide-react';
+-import type { Json, Rec } from '../../types.ts';
+-import { num } from '../../kit.tsx'; // #4
++import type { Json, Rec } from '../../shared/types.ts';
++import { num } from '../../shared/kit.tsx'; // #4
+ import { infraHref } from '../panel-operations/infra.tsx';
+ 
+ export const API = '/api/v1/admin/products';
+diff --git a/apps/admin-web/src/features/coupons/CouponsView.tsx b/apps/admin-web/src/features/coupons/CouponsView.tsx
+index 49bd7f0..c430cde 100644
+--- a/apps/admin-web/src/features/coupons/CouponsView.tsx
++++ b/apps/admin-web/src/features/coupons/CouponsView.tsx
+@@ -1,5 +1,5 @@
+ import { useEffect, useState } from 'react';
+-import type { Json, Toast } from '../../types.ts';
++import type { Json, Toast } from '../../shared/types.ts';
+ import { money, box, inp, ghost, useList, Table, Form } from '../../app/adminExtraKit.tsx';
+ 
+ export default function Coupons({ api, toast }: { api?: Json; toast: Toast }) {
+diff --git a/apps/admin-web/src/features/customers/UsersView.tsx b/apps/admin-web/src/features/customers/UsersView.tsx
+index 3ec8a42..ea58fb6 100644
+--- a/apps/admin-web/src/features/customers/UsersView.tsx
++++ b/apps/admin-web/src/features/customers/UsersView.tsx
+@@ -2,8 +2,8 @@
+ // Data: GET /api/v1/admin/users (latest 500) and /stores for ownership. Read-only.
+ import { useMemo, useState } from 'react';
+ import { ShieldCheck, Store, UserCheck, UserX, Users } from 'lucide-react';
+-import { Drawer, Empty, ErrorBar, KpiBar, Paginator, SearchBox, SortSelect, Stat, tint, useRows } from '../../kit.tsx';
+-import { Badge, dt } from '../../ui.tsx';
++import { Drawer, Empty, ErrorBar, KpiBar, Paginator, SearchBox, SortSelect, Stat, tint, useRows } from '../../shared/kit.tsx';
++import { Badge, dt } from '../../shared/ui.tsx';
+ import {
+   Avatar,
+   Cell2,
+@@ -17,8 +17,8 @@ import {
+   matches,
+   pageOf,
+   useCall,
+-} from '../../dataKit.tsx';
+-import type { Json, Rec } from '../../types.ts';
++} from '../../shared/dataKit.tsx';
++import type { Json, Rec } from '../../shared/types.ts';
+ 
+ const CAP = 500;
+ const FILTERS: Rec = {
+diff --git a/apps/admin-web/src/features/dashboard/Dashboard.tsx b/apps/admin-web/src/features/dashboard/Dashboard.tsx
+index c812a47..07396da 100644
+--- a/apps/admin-web/src/features/dashboard/Dashboard.tsx
++++ b/apps/admin-web/src/features/dashboard/Dashboard.tsx
+@@ -1,8 +1,8 @@
+ import { refundPayment } from '../../app/AdminSession.tsx';
+ import { CircleAlert, Database, Package, ShieldCheck, Ticket, WalletCards, Store } from 'lucide-react';
+-import Trend from '../../Trend.tsx';
+-import { Badge, confirmDialog, label, sid, tone } from '../../ui.tsx';
+-import type { Json, Rec, Toast } from '../../types.ts';
++import Trend from '../../shared/Trend.tsx';
++import { Badge, confirmDialog, label, sid, tone } from '../../shared/ui.tsx';
++import type { Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ export const money = (v: Json) => new Intl.NumberFormat('fa-IR').format(v || 0);
+ export const moneyByCurrency = (rows: Json) =>
+diff --git a/apps/admin-web/src/features/event-center/EventCenterView.tsx b/apps/admin-web/src/features/event-center/EventCenterView.tsx
+index b385fbc..db602ad 100644
+--- a/apps/admin-web/src/features/event-center/EventCenterView.tsx
++++ b/apps/admin-web/src/features/event-center/EventCenterView.tsx
+@@ -4,10 +4,10 @@
+ import { useCallback } from 'react';
+ import { AlertTriangle, BellRing, CheckCircle2, ListPlus, ScanSearch, Send, Trash2 } from 'lucide-react';
+ import { useCall } from '../../api/api.ts';
+-import { confirmDialog, dt } from '../../ui.tsx';
++import { confirmDialog, dt } from '../../shared/ui.tsx';
+ import { useEventCenter } from '@melorin/web-kit/eventCenter.js';
+-import { ErrorBar, Field, Section } from '../../kit.tsx';
+-import type { Json, Rec, Toast } from '../../types.ts';
++import { ErrorBar, Field, Section } from '../../shared/kit.tsx';
++import type { Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ export default function EventCenterView({ api, toast }: { api?: Json; toast: Toast }) {
+   const call = useCall(api);
+diff --git a/apps/admin-web/src/features/identity/IdentityAutoView.tsx b/apps/admin-web/src/features/identity/IdentityAutoView.tsx
+index 4db0588..217669a 100644
+--- a/apps/admin-web/src/features/identity/IdentityAutoView.tsx
++++ b/apps/admin-web/src/features/identity/IdentityAutoView.tsx
+@@ -4,9 +4,9 @@ import type { ReactNode } from 'react';
+ import { useEffect, useState } from 'react';
+ import { ArrowLeftRight, Fingerprint, MonitorSmartphone, ShieldOff, UserRound, Users } from 'lucide-react';
+ import { typedClient, useCall } from '../../api/api.ts';
+-import { confirmDialog, dt, sid } from '../../ui.tsx';
+-import { Empty, ErrorBar, KpiBar, Pills, SearchBox, Segmented, Stat, errText, num, tint, useRows } from '../../kit.tsx';
+-import type { CallFn, Json, Rec, Toast } from '../../types.ts';
++import { confirmDialog, dt, sid } from '../../shared/ui.tsx';
++import { Empty, ErrorBar, KpiBar, Pills, SearchBox, Segmented, Stat, errText, num, tint, useRows } from '../../shared/kit.tsx';
++import type { CallFn, Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ const STATUS: Rec = {
+   active: ['فعال', 'ok'],
+diff --git a/apps/admin-web/src/features/identity/IdentityHubView.tsx b/apps/admin-web/src/features/identity/IdentityHubView.tsx
+index 8b62e78..92ea5ef 100644
+--- a/apps/admin-web/src/features/identity/IdentityHubView.tsx
++++ b/apps/admin-web/src/features/identity/IdentityHubView.tsx
+@@ -4,8 +4,8 @@
+ //   devices «دستگاه‌های مورداعتماد» browsers that sign visitors in without a manual step; trust can be revoked
+ import { lazy, Suspense, useEffect, useState } from 'react';
+ import { typedClient } from '../../api/api.ts';
+-import { Segmented, num } from '../../kit.tsx';
+-import type { Json, Toast } from '../../types.ts';
++import { Segmented, num } from '../../shared/kit.tsx';
++import type { Json, Toast } from '../../shared/types.ts';
+ 
+ const IdentityReviewsView = lazy(() => import('./IdentityReviewsView.tsx'));
+ const IdentityAutoView = lazy(() => import('./IdentityAutoView.tsx'));
+diff --git a/apps/admin-web/src/features/identity/IdentityReviewsView.tsx b/apps/admin-web/src/features/identity/IdentityReviewsView.tsx
+index 417b993..1da346e 100644
+--- a/apps/admin-web/src/features/identity/IdentityReviewsView.tsx
++++ b/apps/admin-web/src/features/identity/IdentityReviewsView.tsx
+@@ -18,7 +18,7 @@ import {
+   Users,
+ } from 'lucide-react';
+ import { typedClient, useCall } from '../../api/api.ts';
+-import { dt, sid } from '../../ui.tsx';
++import { dt, sid } from '../../shared/ui.tsx';
+ import {
+   Drawer,
+   Empty,
+@@ -33,8 +33,8 @@ import {
+   num,
+   tint,
+   useRows,
+-} from '../../kit.tsx';
+-import type { CallFn, Json, Rec, Toast } from '../../types.ts';
++} from '../../shared/kit.tsx';
++import type { CallFn, Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ const PROVIDERS: Rec = {
+   google: { label: 'Google', Icon: Globe, tone: 'in' },
+diff --git a/apps/admin-web/src/features/loyalty/LoyaltyClubView.tsx b/apps/admin-web/src/features/loyalty/LoyaltyClubView.tsx
+index 5ffb866..13a64cc 100644
+--- a/apps/admin-web/src/features/loyalty/LoyaltyClubView.tsx
++++ b/apps/admin-web/src/features/loyalty/LoyaltyClubView.tsx
+@@ -6,8 +6,8 @@ import { Award, Plus, Save, Trash2 } from 'lucide-react';
+ import { toInt, unitOf } from '@melorin/web-kit/referralPlan.js';
+ import { useLoyaltyClub } from '@melorin/web-kit/loyaltyClub.js';
+ import { useCall } from '../../api/api.ts';
+-import { Empty, Field, Section, num, toEn, useRows } from '../../kit.tsx';
+-import type { Json, Rec, Toast } from '../../types.ts';
++import { Empty, Field, Section, num, toEn, useRows } from '../../shared/kit.tsx';
++import type { Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ const intOf = toInt;
+ 
+diff --git a/apps/admin-web/src/features/orders/OrdersView.tsx b/apps/admin-web/src/features/orders/OrdersView.tsx
+index 1e1b4d4..511efd7 100644
+--- a/apps/admin-web/src/features/orders/OrdersView.tsx
++++ b/apps/admin-web/src/features/orders/OrdersView.tsx
+@@ -30,9 +30,9 @@ import {
+   errText,
+   tint,
+   useRows,
+-} from '../../kit.tsx';
++} from '../../shared/kit.tsx';
+ import { typedClient } from '../../api/api.ts';
+-import { Badge, confirmDialog, dt, promptDialog, sid } from '../../ui.tsx';
++import { Badge, confirmDialog, dt, promptDialog, sid } from '../../shared/ui.tsx';
+ import {
+   Cell2,
+   DataGrid,
+@@ -47,8 +47,8 @@ import {
+   money,
+   pageOf,
+   useCall,
+-} from '../../dataKit.tsx';
+-import type { AdminOrderRow, Json, Rec, Toast } from '../../types.ts';
++} from '../../shared/dataKit.tsx';
++import type { AdminOrderRow, Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ const IN_PROGRESS = ['pending', 'payment_pending', 'paid', 'processing', 'provisioning'];
+ const ATTENTION = ['provisioning_failed', 'manual_review', 'refund_pending', 'payment_failed'];
+diff --git a/apps/admin-web/src/features/panel-operations/BulkOperationsView.tsx b/apps/admin-web/src/features/panel-operations/BulkOperationsView.tsx
+index 4831c90..84d1d23 100644
+--- a/apps/admin-web/src/features/panel-operations/BulkOperationsView.tsx
++++ b/apps/admin-web/src/features/panel-operations/BulkOperationsView.tsx
+@@ -3,8 +3,8 @@
+ import { useCallback, useEffect, useRef, useState } from 'react';
+ import { CheckCircle, Loader, RefreshCw, XCircle } from 'lucide-react';
+ import { useCall } from '../../api/api.ts';
+-import { confirmDialog } from '../../ui.tsx';
+-import type { Json, Rec, Toast } from '../../types.ts';
++import { confirmDialog } from '../../shared/ui.tsx';
++import type { Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ const KINDS = [
+   ['extend_days', 'جبران زمان (افزودن روز)'],
+diff --git a/apps/admin-web/src/features/panel-operations/InfraHealthView.tsx b/apps/admin-web/src/features/panel-operations/InfraHealthView.tsx
+index ef6817d..ea5e232 100644
+--- a/apps/admin-web/src/features/panel-operations/InfraHealthView.tsx
++++ b/apps/admin-web/src/features/panel-operations/InfraHealthView.tsx
+@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
+ import { useState, useCallback } from 'react';
+ import { ShieldCheck, AlertTriangle, RefreshCw, Loader, CheckCircle, XCircle } from 'lucide-react';
+ import { useInfra } from './infra.tsx';
+-import type { Json, Rec, Toast } from '../../types.ts';
++import type { Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ // ---- Issue section helpers ----
+ function IssueSection({
+diff --git a/apps/admin-web/src/features/panel-operations/InfraOpsHubView.tsx b/apps/admin-web/src/features/panel-operations/InfraOpsHubView.tsx
+index 12cc2fc..ae307b0 100644
+--- a/apps/admin-web/src/features/panel-operations/InfraOpsHubView.tsx
++++ b/apps/admin-web/src/features/panel-operations/InfraOpsHubView.tsx
+@@ -3,8 +3,8 @@
+ //   bulk  «عملیات گروهی»   preview -> exact-count confirm -> resumable run over many accounts of one panel (BulkOperationsView)
+ // Both stay behind the `infrastructure` permission. Deep links: #/panel-ops (ops), #/panel-ops?tab=bulk.
+ import { lazy, Suspense, useState } from 'react';
+-import { Segmented } from '../../kit.tsx';
+-import type { Json, Toast } from '../../types.ts';
++import { Segmented } from '../../shared/kit.tsx';
++import type { Json, Toast } from '../../shared/types.ts';
+ 
+ const PanelOpsView = lazy(() => import('./PanelOpsView.tsx'));
+ const BulkOperationsView = lazy(() => import('./BulkOperationsView.tsx'));
+diff --git a/apps/admin-web/src/features/panel-operations/PanelOpsView.tsx b/apps/admin-web/src/features/panel-operations/PanelOpsView.tsx
+index a22988f..54bf363 100644
+--- a/apps/admin-web/src/features/panel-operations/PanelOpsView.tsx
++++ b/apps/admin-web/src/features/panel-operations/PanelOpsView.tsx
+@@ -3,8 +3,8 @@
+ import { useCallback, useEffect, useState } from 'react';
+ import { Activity, AlertTriangle, CheckCircle, Loader, RefreshCw, ShieldAlert } from 'lucide-react';
+ import { getJson, typedClient } from '../../api/api.ts';
+-import { confirmDialog, promptDialog } from '../../ui.tsx';
+-import type { CallFn, Json, Rec, Toast } from '../../types.ts';
++import { confirmDialog, promptDialog } from '../../shared/ui.tsx';
++import type { CallFn, Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ const KIND_LABEL: Rec = {
+   missing_on_panel: 'کاربر روی پنل نیست',
+diff --git a/apps/admin-web/src/features/panel-operations/infra.tsx b/apps/admin-web/src/features/panel-operations/infra.tsx
+index c3d5f5c..30e35a9 100644
+--- a/apps/admin-web/src/features/panel-operations/infra.tsx
++++ b/apps/admin-web/src/features/panel-operations/infra.tsx
+@@ -14,8 +14,8 @@ import type { ReactNode } from 'react';
+ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+ import { AlertTriangle, ArrowLeft, Boxes, Layers, PanelTop, Sparkles } from 'lucide-react';
+ import { useCall } from '../../api/api.ts';
+-import { Ring, num, tint, useRows } from '../../kit.tsx';
+-import type { CallFn, Json, Rec } from '../../types.ts';
++import { Ring, num, tint, useRows } from '../../shared/kit.tsx';
++import type { CallFn, Json, Rec } from '../../shared/types.ts';
+ 
+ /* ---------- chain definition ---------- */
+ export const CHAIN = [
+diff --git a/apps/admin-web/src/features/panels/PanelAccessTab.tsx b/apps/admin-web/src/features/panels/PanelAccessTab.tsx
+index ba89726..0b9113b 100644
+--- a/apps/admin-web/src/features/panels/PanelAccessTab.tsx
++++ b/apps/admin-web/src/features/panels/PanelAccessTab.tsx
+@@ -2,10 +2,10 @@
+ // admin (provision / rotate / list keys) and the store role new store admins get (plan / apply / revert).
+ // Reads need nothing. Every write asks the admin to type the panel name; the owner credential is sent once, never kept.
+ import { useCallback, useEffect, useState } from 'react';
+-import { Secret } from '../../kit.tsx';
++import { Secret } from '../../shared/kit.tsx';
+ import { getJson, typedClient } from '../../api/api.ts';
+-import { confirmDialog } from '../../ui.tsx';
+-import type { Toast } from '../../types.ts';
++import { confirmDialog } from '../../shared/ui.tsx';
++import type { Toast } from '../../shared/types.ts';
+ import { errMessage } from '../../app/adminHubTypes.ts';
+ 
+ interface Access {
+diff --git a/apps/admin-web/src/features/panels/PanelAdminDrawer.tsx b/apps/admin-web/src/features/panels/PanelAdminDrawer.tsx
+index c090261..89283a4 100644
+--- a/apps/admin-web/src/features/panels/PanelAdminDrawer.tsx
++++ b/apps/admin-web/src/features/panels/PanelAdminDrawer.tsx
+@@ -1,9 +1,9 @@
+ import { useEffect, useMemo, useState } from 'react';
+ import { AlertTriangle, Clock, ExternalLink, KeyRound, Pencil, RefreshCw, UserCog } from 'lucide-react';
+-import { Badge, confirmDialog, dt } from '../../ui.tsx';
++import { Badge, confirmDialog, dt } from '../../shared/ui.tsx';
+ import SubBrandingCard from '../stores/SubBrandingCard.tsx';
+-import { CopyButton, Drawer, Field, digits } from '../../kit.tsx';
+-import type { CallFn, Json, Toast } from '../../types.ts';
++import { CopyButton, Drawer, Field, digits } from '../../shared/kit.tsx';
++import type { CallFn, Json, Toast } from '../../shared/types.ts';
+ import { FIELDS, shown, ltr, KindBadge, useCall } from './panelAdminsShared.tsx';
+ 
+ export function AdminDrawer({
+diff --git a/apps/admin-web/src/features/panels/PanelAdminsView.tsx b/apps/admin-web/src/features/panels/PanelAdminsView.tsx
+index 185d7f2..918f914 100644
+--- a/apps/admin-web/src/features/panels/PanelAdminsView.tsx
++++ b/apps/admin-web/src/features/panels/PanelAdminsView.tsx
+@@ -1,9 +1,9 @@
+ import { useMemo, useState } from 'react';
+ import { AlertTriangle, CheckCircle2, Clock, Inbox, RefreshCw, Store, UserCog } from 'lucide-react';
+ import { useCall as useApiCall } from '../../api/api.ts';
+-import { Badge, dt } from '../../ui.tsx';
+-import { Empty, ErrorBar, KpiBar, Pills, SearchBox, Segmented, Stat, errText, num, useRows } from '../../kit.tsx';
+-import type { Json, Toast } from '../../types.ts';
++import { Badge, dt } from '../../shared/ui.tsx';
++import { Empty, ErrorBar, KpiBar, Pills, SearchBox, Segmented, Stat, errText, num, useRows } from '../../shared/kit.tsx';
++import type { Json, Toast } from '../../shared/types.ts';
+ import { LABEL, ltr, STATUS_PILLS, REQUEST_PILLS, KindBadge } from './panelAdminsShared.tsx';
+ import { RequestDrawer } from './PanelRequestDrawer.tsx';
+ import { AdminDrawer } from './PanelAdminDrawer.tsx';
+diff --git a/apps/admin-web/src/features/panels/PanelCapacityTab.tsx b/apps/admin-web/src/features/panels/PanelCapacityTab.tsx
+index 590f712..1221b3d 100644
+--- a/apps/admin-web/src/features/panels/PanelCapacityTab.tsx
++++ b/apps/admin-web/src/features/panels/PanelCapacityTab.tsx
+@@ -3,7 +3,7 @@
+ import { useCallback, useEffect, useState } from 'react';
+ import { AlertTriangle, CheckCircle, Loader, RefreshCw } from 'lucide-react';
+ import { getJson, typedClient } from '../../api/api.ts';
+-import type { Json, Rec, Toast } from '../../types.ts';
++import type { Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ const GROUP_LABEL: Rec = { healthy: 'سالم', degraded: 'مختل', blocked: 'مسدود' };
+ const GROUP_COLOR: Rec = { healthy: 'var(--ok)', degraded: 'var(--wn)', blocked: 'var(--bd)' };
+diff --git a/apps/admin-web/src/features/panels/PanelConsoleTab.tsx b/apps/admin-web/src/features/panels/PanelConsoleTab.tsx
+index 0ecb370..b426ee9 100644
+--- a/apps/admin-web/src/features/panels/PanelConsoleTab.tsx
++++ b/apps/admin-web/src/features/panels/PanelConsoleTab.tsx
+@@ -3,8 +3,8 @@
+ import { useCallback, useEffect, useState } from 'react';
+ import { AlertTriangle, CheckCircle, Loader, RefreshCw, XCircle } from 'lucide-react';
+ import { typedClient } from '../../api/api.ts';
+-import { confirmDialog, promptDialog } from '../../ui.tsx';
+-import type { Json, Rec, Toast } from '../../types.ts';
++import { confirmDialog, promptDialog } from '../../shared/ui.tsx';
++import type { Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ const NODE_COLOR: Rec = {
+   connected: 'var(--ok)',
+diff --git a/apps/admin-web/src/features/panels/PanelDetailDrawer.tsx b/apps/admin-web/src/features/panels/PanelDetailDrawer.tsx
+index 0649895..c3cbb52 100644
+--- a/apps/admin-web/src/features/panels/PanelDetailDrawer.tsx
++++ b/apps/admin-web/src/features/panels/PanelDetailDrawer.tsx
+@@ -1,6 +1,6 @@
+ import { useState } from 'react';
+ import { Activity } from 'lucide-react';
+-import { Drawer } from '../../kit.tsx';
++import { Drawer } from '../../shared/kit.tsx';
+ import PanelNodesTab from './PanelNodesTab.tsx';
+ import PanelConsoleTab from './PanelConsoleTab.tsx';
+ import PanelEventsTab from './PanelEventsTab.tsx';
+@@ -8,7 +8,7 @@ import PanelCapacityTab from './PanelCapacityTab.tsx';
+ import PanelTemplatesTab from './PanelTemplatesTab.tsx';
+ import PanelPhase5Tab from './PanelPhase5Tab.tsx';
+ import PanelAccessTab from './PanelAccessTab.tsx';
+-import type { Toast } from '../../types.ts';
++import type { Toast } from '../../shared/types.ts';
+ 
+ export const DETAIL_TABS: [string, string][] = [
+   ['nodes', 'نودها'],
+diff --git a/apps/admin-web/src/features/panels/PanelDrawer.tsx b/apps/admin-web/src/features/panels/PanelDrawer.tsx
+index d2e0b61..1aef384 100644
+--- a/apps/admin-web/src/features/panels/PanelDrawer.tsx
++++ b/apps/admin-web/src/features/panels/PanelDrawer.tsx
+@@ -1,9 +1,9 @@
+ import { useMemo, useRef, useState } from 'react';
+-import { Badge, dt, sid } from '../../ui.tsx';
++import { Badge, dt, sid } from '../../shared/ui.tsx';
+ import { Dot, health, memberIds } from '../panel-operations/infra.tsx';
+-import { Drawer, Field, NumInput, Section, Secret, Segmented, Switch, Toggle, DeleteButton, tint } from '../../kit.tsx';
++import { Drawer, Field, NumInput, Section, Secret, Segmented, Switch, Toggle, DeleteButton, tint } from '../../shared/kit.tsx';
+ import { Activity, AlertTriangle, Check, ChevronDown, Plus, RefreshCw, Save, ShieldCheck } from 'lucide-react';
+-import { focusOnMount } from '../../useDialog.ts';
++import { focusOnMount } from '../../shared/useDialog.ts';
+ import { UpstreamBotLink, UpstreamCredentials, UpstreamSettings } from './UpstreamBotFields.tsx';
+ import { UpstreamFlowSection } from './UpstreamFlowParts.tsx';
+ import {
+@@ -17,7 +17,7 @@ import {
+   ubValidate,
+ } from './upstreamBot.ts';
+ import { KINDS, kindOf, Chips } from './panelUi.tsx';
+-import type { Json, Rec } from '../../types.ts';
++import type { Json, Rec } from '../../shared/types.ts';
+ 
+ // ---------- panel add / edit form ----------
+ const EMPTY = {
+diff --git a/apps/admin-web/src/features/panels/PanelEventsTab.tsx b/apps/admin-web/src/features/panels/PanelEventsTab.tsx
+index d845fef..28607ea 100644
+--- a/apps/admin-web/src/features/panels/PanelEventsTab.tsx
++++ b/apps/admin-web/src/features/panels/PanelEventsTab.tsx
+@@ -3,8 +3,8 @@
+ import { useCallback, useEffect, useState } from 'react';
+ import { AlertTriangle, CheckCircle, Loader, Radio, RefreshCw } from 'lucide-react';
+ import { getJson, typedClient } from '../../api/api.ts';
+-import { confirmDialog } from '../../ui.tsx';
+-import type { Json, Rec, Toast } from '../../types.ts';
++import { confirmDialog } from '../../shared/ui.tsx';
++import type { Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ const ACTION_LABEL: Rec = {
+   user_created: 'ساخت کاربر',
+diff --git a/apps/admin-web/src/features/panels/PanelNodesTab.tsx b/apps/admin-web/src/features/panels/PanelNodesTab.tsx
+index ed1c728..7f09f27 100644
+--- a/apps/admin-web/src/features/panels/PanelNodesTab.tsx
++++ b/apps/admin-web/src/features/panels/PanelNodesTab.tsx
+@@ -2,7 +2,7 @@
+ import { useEffect, useState } from 'react';
+ import { AlertTriangle } from 'lucide-react';
+ import { getJson } from '../../api/api.ts';
+-import type { Json, Rec, Toast } from '../../types.ts';
++import type { Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ const NODE_COLOR: Rec = {
+   connected: 'var(--ok)',
+diff --git a/apps/admin-web/src/features/panels/PanelPhase5Tab.tsx b/apps/admin-web/src/features/panels/PanelPhase5Tab.tsx
+index 8042221..07dd65e 100644
+--- a/apps/admin-web/src/features/panels/PanelPhase5Tab.tsx
++++ b/apps/admin-web/src/features/panels/PanelPhase5Tab.tsx
+@@ -4,8 +4,8 @@
+ import { useCallback, useEffect, useState } from 'react';
+ import { AlertTriangle, CheckCircle, DatabaseBackup, Gauge, Info, Loader, RefreshCw } from 'lucide-react';
+ import { getJson, typedClient } from '../../api/api.ts';
+-import { promptDialog } from '../../ui.tsx';
+-import type { Json, Rec, Toast } from '../../types.ts';
++import { promptDialog } from '../../shared/ui.tsx';
++import type { Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ const FINDING_COLOR: Rec = { ok: 'var(--ok)', drift: 'var(--bd)', info: 'var(--mu)', unknown: 'var(--wn)' };
+ const FINDING_LABEL: Rec = { ok: 'سالم', drift: 'ناهمخوان', info: 'اطلاع', unknown: 'نامشخص' };
+diff --git a/apps/admin-web/src/features/panels/PanelRequestDrawer.tsx b/apps/admin-web/src/features/panels/PanelRequestDrawer.tsx
+index 3df526d..506f087 100644
+--- a/apps/admin-web/src/features/panels/PanelRequestDrawer.tsx
++++ b/apps/admin-web/src/features/panels/PanelRequestDrawer.tsx
+@@ -1,8 +1,8 @@
+ import { useState } from 'react';
+ import { CheckCircle2, Inbox, XCircle } from 'lucide-react';
+-import { Badge, confirmDialog, dt } from '../../ui.tsx';
+-import { Drawer, Field, digits, num } from '../../kit.tsx';
+-import type { CallFn, Json, Toast } from '../../types.ts';
++import { Badge, confirmDialog, dt } from '../../shared/ui.tsx';
++import { Drawer, Field, digits, num } from '../../shared/kit.tsx';
++import type { CallFn, Json, Toast } from '../../shared/types.ts';
+ import { FIELDS, LABEL, ltr, useCall } from './panelAdminsShared.tsx';
+ 
+ export function RequestDrawer({
+diff --git a/apps/admin-web/src/features/panels/PanelSection.tsx b/apps/admin-web/src/features/panels/PanelSection.tsx
+index 9ff1d8a..dd32284 100644
+--- a/apps/admin-web/src/features/panels/PanelSection.tsx
++++ b/apps/admin-web/src/features/panels/PanelSection.tsx
+@@ -1,8 +1,8 @@
+ import { useState } from 'react';
+ import { describeTarget, ago as lastAssigned } from './targets.ts';
+-import { Badge, dt } from '../../ui.tsx';
++import { Badge, dt } from '../../shared/ui.tsx';
+ import { Dot, HLABEL, RelChip, health, serverState, usage } from '../panel-operations/infra.tsx';
+-import { Ring, CopyButton, Switch, DeleteButton, capTone, num, tint } from '../../kit.tsx';
++import { Ring, CopyButton, Switch, DeleteButton, capTone, num, tint } from '../../shared/kit.tsx';
+ import {
+   AlertTriangle,
+   ChevronDown,
+@@ -18,7 +18,7 @@ import {
+ import { UpstreamSpecs } from './UpstreamFlowParts.tsx';
+ import { ubSummary } from './upstreamBot.ts';
+ import { ago, isStale, kindOf, Meter } from './panelUi.tsx';
+-import type { Json, Rec } from '../../types.ts';
++import type { Json, Rec } from '../../shared/types.ts';
+ 
+ // ---------- one panel with its servers ----------
+ function ServerRow({
+diff --git a/apps/admin-web/src/features/panels/PanelTemplatesTab.tsx b/apps/admin-web/src/features/panels/PanelTemplatesTab.tsx
+index e15e6ec..42872a4 100644
+--- a/apps/admin-web/src/features/panels/PanelTemplatesTab.tsx
++++ b/apps/admin-web/src/features/panels/PanelTemplatesTab.tsx
+@@ -2,9 +2,9 @@
+ // Melorin never edits a template it did not create (managed=false); every write is an audited admin action.
+ import { useCallback, useEffect, useState } from 'react';
+ import { AlertTriangle, CheckCircle, Loader, RefreshCw } from 'lucide-react';
+-import { confirmDialog } from '../../ui.tsx';
++import { confirmDialog } from '../../shared/ui.tsx';
+ import { getJson, typedClient } from '../../api/api.ts';
+-import type { Json, Rec, Toast } from '../../types.ts';
++import type { Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ const DRIFT_LABEL: Rec = { data_limit: 'حجم', expire_duration: 'مدت', group_ids: 'گروه‌ها' };
+ const driftText = (k: Json, v: Json) =>
+diff --git a/apps/admin-web/src/features/panels/PanelsView.tsx b/apps/admin-web/src/features/panels/PanelsView.tsx
+index 9a4e351..e2c6355 100644
+--- a/apps/admin-web/src/features/panels/PanelsView.tsx
++++ b/apps/admin-web/src/features/panels/PanelsView.tsx
+@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
+ import { typedClient } from '../../api/api.ts';
+ import { ServerForm, ServerImport } from './ServerForm.tsx';
+ import { TargetWizard } from './TargetPicker.tsx';
+-import { confirmDialog } from '../../ui.tsx';
++import { confirmDialog } from '../../shared/ui.tsx';
+ import {
+   InfraChain,
+   clearParam,
+@@ -28,13 +28,13 @@ import {
+   num,
+   removeEntity,
+   useAlive,
+-} from '../../kit.tsx';
++} from '../../shared/kit.tsx';
+ import { AlertTriangle, Plus, RefreshCw, Server, ServerCog, ShieldAlert, ShieldCheck } from 'lucide-react';
+ import { kindOf } from './panelUi.tsx';
+ import { PanelDrawer } from './PanelDrawer.tsx';
+ import { PanelDetailDrawer } from './PanelDetailDrawer.tsx';
+ import { PanelSection } from './PanelSection.tsx';
+-import type { Json, Rec, Toast } from '../../types.ts';
++import type { Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ // Panels and their servers are ONE screen: a server is only a capacity slot of a single panel,
+ // so it is created, edited and enabled right under the panel it belongs to. Group membership of a
+diff --git a/apps/admin-web/src/features/panels/ServerForm.tsx b/apps/admin-web/src/features/panels/ServerForm.tsx
+index e70f65f..8860e51 100644
+--- a/apps/admin-web/src/features/panels/ServerForm.tsx
++++ b/apps/admin-web/src/features/panels/ServerForm.tsx
+@@ -1,7 +1,7 @@
+ import { useMemo, useRef, useState } from 'react';
+ import { AlertTriangle, ChevronDown, Layers, MapPin, Plus, RefreshCw, Save, Server, Upload } from 'lucide-react';
+ import { typedClient } from '../../api/api.ts';
+-import { Badge, dt, sid } from '../../ui.tsx';
++import { Badge, dt, sid } from '../../shared/ui.tsx';
+ import {
+   Drawer,
+   Field,
+@@ -14,11 +14,11 @@ import {
+   errText,
+   num,
+   tint,
+-} from '../../kit.tsx';
++} from '../../shared/kit.tsx';
+ import { RelChip, Warn, serverState } from '../panel-operations/infra.tsx';
+ import { TargetPicker } from './TargetPicker.tsx';
+ import { ago, capacityLabel, describeTarget } from './targets.ts';
+-import type { Json, Rec, Toast } from '../../types.ts';
++import type { Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ // A server is only a capacity slot of ONE panel, so this form never asks "which panel":
+ // the panel is the context it is opened from (PanelsView). Moving a server to another panel is
+diff --git a/apps/admin-web/src/features/panels/TargetPicker.tsx b/apps/admin-web/src/features/panels/TargetPicker.tsx
+index dfffab1..489a92a 100644
+--- a/apps/admin-web/src/features/panels/TargetPicker.tsx
++++ b/apps/admin-web/src/features/panels/TargetPicker.tsx
+@@ -1,9 +1,9 @@
+ import { useEffect, useMemo, useState } from 'react';
+ import { AlertTriangle, Layers, RefreshCw, Wand2 } from 'lucide-react';
+ import { typedClient } from '../../api/api.ts';
+-import { Drawer, Field, NumInput, Section, Segmented, Toggle, errText, num, tint } from '../../kit.tsx';
++import { Drawer, Field, NumInput, Section, Segmented, Toggle, errText, num, tint } from '../../shared/kit.tsx';
+ import { capacityLabel, targetKind } from './targets.ts';
+-import type { Json, Rec, Toast } from '../../types.ts';
++import type { Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ /** GET /admin/panels/{id}/targets once per panel; `reload` re-asks (the panel may have new groups). */
+ export function usePanelTargets(api: Json, panelId: Json) {
+diff --git a/apps/admin-web/src/features/panels/UpstreamBotFields.tsx b/apps/admin-web/src/features/panels/UpstreamBotFields.tsx
+index 9a28f4c..4c3ad91 100644
+--- a/apps/admin-web/src/features/panels/UpstreamBotFields.tsx
++++ b/apps/admin-web/src/features/panels/UpstreamBotFields.tsx
+@@ -15,9 +15,9 @@ import {
+   Trash2,
+   X,
+ } from 'lucide-react';
+-import { CopyButton, Field, NumInput, Secret, Toggle, num } from '../../kit.tsx';
++import { CopyButton, Field, NumInput, Secret, Toggle, num } from '../../shared/kit.tsx';
+ import { PRICE_PRESETS, UB_NUM, UB_RENEW, UB_TEXT, botLooksLikeBot, botUrl, ubBot } from './upstreamBot.ts';
+-import type { Json } from '../../types.ts';
++import type { Json } from '../../shared/types.ts';
+ 
+ export function UpstreamBotLink({ ub, setUb, error }: { ub?: Json; setUb?: Json; error?: Json }) {
+   const bot = ubBot(ub),
+diff --git a/apps/admin-web/src/features/panels/UpstreamFlowParts.tsx b/apps/admin-web/src/features/panels/UpstreamFlowParts.tsx
+index bab1b96..076d53f 100644
+--- a/apps/admin-web/src/features/panels/UpstreamFlowParts.tsx
++++ b/apps/admin-web/src/features/panels/UpstreamFlowParts.tsx
+@@ -10,9 +10,9 @@ import {
+   ShieldCheck,
+   Terminal,
+ } from 'lucide-react';
+-import { Section, Segmented, num, tint } from '../../kit.tsx';
++import { Section, Segmented, num, tint } from '../../shared/kit.tsx';
+ import { UB_TEXT, parseBot, ubFlows } from './upstreamBot.ts';
+-import type { Json, Rec } from '../../types.ts';
++import type { Json, Rec } from '../../shared/types.ts';
+ 
+ export const fmt = (n: Json) => (n > 0 ? num(n) : '—');
+ 
+diff --git a/apps/admin-web/src/features/panels/panelAdminsShared.tsx b/apps/admin-web/src/features/panels/panelAdminsShared.tsx
+index 66eb74c..eaf55f3 100644
+--- a/apps/admin-web/src/features/panels/panelAdminsShared.tsx
++++ b/apps/admin-web/src/features/panels/panelAdminsShared.tsx
+@@ -1,6 +1,6 @@
+ import { useState } from 'react';
+-import { errText } from '../../kit.tsx';
+-import type { CallFn, Json, Toast } from '../../types.ts';
++import { errText } from '../../shared/kit.tsx';
++import type { CallFn, Json, Toast } from '../../shared/types.ts';
+ 
+ // key, label, hint, adminOnly - the same six fields as Core's PROFILE_FIELDS (a reseller may only ask for the first four)
+ export const FIELDS: [string, string, string, boolean][] = [
+diff --git a/apps/admin-web/src/features/panels/panelUi.tsx b/apps/admin-web/src/features/panels/panelUi.tsx
+index bab3c43..5c74473 100644
+--- a/apps/admin-web/src/features/panels/panelUi.tsx
++++ b/apps/admin-web/src/features/panels/panelUi.tsx
+@@ -1,9 +1,9 @@
+ import { useState } from 'react';
+ import { capacityLabel } from './targets.ts';
+ import { usage } from '../panel-operations/infra.tsx';
+-import { SegMeter, capTone, num } from '../../kit.tsx';
++import { SegMeter, capTone, num } from '../../shared/kit.tsx';
+ import { Bot, FlaskConical, Server, ServerCog, ShieldCheck, X } from 'lucide-react';
+-import type { Json, Rec } from '../../types.ts';
++import type { Json, Rec } from '../../shared/types.ts';
+ 
+ // ---------- helpers ----------
+ const STALE_MS = 24 * 3600 * 1000;
+diff --git a/apps/admin-web/src/features/panels/targets.ts b/apps/admin-web/src/features/panels/targets.ts
+index 76f7b93..40fcd0f 100644
+--- a/apps/admin-web/src/features/panels/targets.ts
++++ b/apps/admin-web/src/features/panels/targets.ts
+@@ -1,4 +1,4 @@
+-import type { Json, Rec } from '../../types.ts';
++import type { Json, Rec } from '../../shared/types.ts';
+ // Destination ("مقصد") helpers shared by the server form, the wizard, the panel list and the account drawer.
+ // A destination is a server slot's `target`: {group_ids} | {user_template_id} | {inbound_ids}; null = the panel's own config.
+ 
+diff --git a/apps/admin-web/src/features/panels/upstreamBot.ts b/apps/admin-web/src/features/panels/upstreamBot.ts
+index 1a8e259..2d4729a 100644
+--- a/apps/admin-web/src/features/panels/upstreamBot.ts
++++ b/apps/admin-web/src/features/panels/upstreamBot.ts
+@@ -1,4 +1,4 @@
+-import type { Json, Rec } from '../../types.ts';
++import type { Json, Rec } from '../../shared/types.ts';
+ // Pure logic of the `upstream_bot` panel form (no React): defaults, parsing, validation, payload building and the
+ // flow preview. The defaults mirror apps/api/melorin/modules/panel_integrations/adapters/upstream_bot/adapter.py (DEFAULTS); a field
+ // left empty means "use the adapter default", so only real overrides are stored in the panel config.
+diff --git a/apps/admin-web/src/features/payments/BankSmsPanel.tsx b/apps/admin-web/src/features/payments/BankSmsPanel.tsx
+index c7cb70c..42eb806 100644
+--- a/apps/admin-web/src/features/payments/BankSmsPanel.tsx
++++ b/apps/admin-web/src/features/payments/BankSmsPanel.tsx
+@@ -3,10 +3,10 @@
+ import { useCallback, useEffect, useState } from 'react';
+ import { Copy, KeyRound, RefreshCw, ShieldCheck, Smartphone } from 'lucide-react';
+ import { formFromSource, sourceBody } from '@melorin/web-kit/bankSms.js';
+-import { Empty, Field, Section, Switch, errText, num } from '../../kit.tsx';
+-import { confirmDialog, dt } from '../../ui.tsx';
++import { Empty, Field, Section, Switch, errText, num } from '../../shared/kit.tsx';
++import { confirmDialog, dt } from '../../shared/ui.tsx';
+ import ReceiptReviewPanel from './ReceiptReviewPanel.tsx';
+-import type { CallFn, Json, Rec, Toast } from '../../types.ts';
++import type { CallFn, Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ const STATUS: Rec = {
+   matched: ['شارژ شد', 'b-ok'],
+diff --git a/apps/admin-web/src/features/payments/PaymentParts.tsx b/apps/admin-web/src/features/payments/PaymentParts.tsx
+index 9a6c660..3dae23b 100644
+--- a/apps/admin-web/src/features/payments/PaymentParts.tsx
++++ b/apps/admin-web/src/features/payments/PaymentParts.tsx
+@@ -4,11 +4,11 @@
+ import { useEffect, useState } from 'react';
+ import { Check, ChevronDown, Copy, Receipt, Settings2, ShieldAlert, Undo2, X, XCircle } from 'lucide-react';
+ 
+-import { Drawer, Field, Section, Switch, num, tint } from '../../kit.tsx';
+-import { Badge, dt, sid } from '../../ui.tsx';
++import { Drawer, Field, Section, Switch, num, tint } from '../../shared/kit.tsx';
++import { Badge, dt, sid } from '../../shared/ui.tsx';
+ 
+ import { prov, reviewable, refundable, ago, copy, ProviderChip, Amount } from './paymentsShared.tsx';
+-import type { CallFn, Json, Toast } from '../../types.ts';
++import type { CallFn, Json, Toast } from '../../shared/types.ts';
+ 
+ export function RowActions({ p, busy, on, compact = false }: { p?: Json; busy?: Json; on?: Json; compact?: Json }) {
+   const b = compact ? '!px-2' : '';
+diff --git a/apps/admin-web/src/features/payments/PaymentsView.tsx b/apps/admin-web/src/features/payments/PaymentsView.tsx
+index 693c8a0..5a53773 100644
+--- a/apps/admin-web/src/features/payments/PaymentsView.tsx
++++ b/apps/admin-web/src/features/payments/PaymentsView.tsx
+@@ -5,14 +5,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
+ import { Clock, Download, RefreshCw, ShieldAlert, TrendingUp, Undo2, Wallet, XCircle } from 'lucide-react';
+ import type { RequestBody } from '@melorin/api-client';
+ import { typedClient, useCall } from '../../api/api.ts';
+-import { Empty, ErrorBar, KpiBar, Paginator, Pills, SearchBox, Stat, errText, num } from '../../kit.tsx';
+-import { Badge, confirmDialog, dt, promptDialog, sid } from '../../ui.tsx';
++import { Empty, ErrorBar, KpiBar, Paginator, Pills, SearchBox, Stat, errText, num } from '../../shared/kit.tsx';
++import { Badge, confirmDialog, dt, promptDialog, sid } from '../../shared/ui.tsx';
+ import BankSmsPanel from './BankSmsPanel.tsx';
+ import ReceiptOcrSettings from './ReceiptOcrSettings.tsx';
+ 
+ import { PAGE, prov, cur, reviewable, FILTERS, ago, sumBy, Metric, ProviderChip, Amount } from './paymentsShared.tsx';
+ import { RowActions, Queue, PaymentDrawer, GatewaySettings } from './PaymentParts.tsx';
+-import type { Json, Rec, Toast } from '../../types.ts';
++import type { Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ type DestinationBody = RequestBody<'/api/v1/admin/payment-destinations/{provider}', 'put'>;
+ 
+diff --git a/apps/admin-web/src/features/payments/ReceiptDuplicatePolicy.tsx b/apps/admin-web/src/features/payments/ReceiptDuplicatePolicy.tsx
+index 76d669f..c8b71d8 100644
+--- a/apps/admin-web/src/features/payments/ReceiptDuplicatePolicy.tsx
++++ b/apps/admin-web/src/features/payments/ReceiptDuplicatePolicy.tsx
+@@ -5,8 +5,8 @@
+ 
+ import { useCallback, useEffect, useState } from 'react';
+ import { Copy } from 'lucide-react';
+-import { Segmented, errText } from '../../kit.tsx';
+-import type { CallFn, Json, Rec, Toast } from '../../types.ts';
++import { Segmented, errText } from '../../shared/kit.tsx';
++import type { CallFn, Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ const OPTIONS = [
+   ['warn', 'فقط هشدار'],
+diff --git a/apps/admin-web/src/features/payments/ReceiptOcrSettings.tsx b/apps/admin-web/src/features/payments/ReceiptOcrSettings.tsx
+index 3d86f76..418b411 100644
+--- a/apps/admin-web/src/features/payments/ReceiptOcrSettings.tsx
++++ b/apps/admin-web/src/features/payments/ReceiptOcrSettings.tsx
+@@ -6,8 +6,8 @@
+ import { useCallback, useEffect, useState } from 'react';
+ import { AlertTriangle, Check, ChevronDown, Cpu, Eye, FlaskConical, Power, ScanText, Sparkles } from 'lucide-react';
+ import { settled, typedClient } from '../../api/api.ts';
+-import { Field, Secret } from '../../kit.tsx';
+-import type { Json, Rec, Toast } from '../../types.ts';
++import { Field, Secret } from '../../shared/kit.tsx';
++import type { Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ const ENGINES = [
+   {
+diff --git a/apps/admin-web/src/features/payments/ReceiptReviewPanel.tsx b/apps/admin-web/src/features/payments/ReceiptReviewPanel.tsx
+index 5c3b7ff..234baf0 100644
+--- a/apps/admin-web/src/features/payments/ReceiptReviewPanel.tsx
++++ b/apps/admin-web/src/features/payments/ReceiptReviewPanel.tsx
+@@ -6,10 +6,10 @@ import type { ReactNode } from 'react';
+ // queues with a live countdown and sends the human decision.
+ import { useCallback, useEffect, useRef, useState } from 'react';
+ import { AlertTriangle, Check, Clock, Copy, Hourglass, ImageIcon, Undo2 } from 'lucide-react';
+-import { Empty, Field, Section, Switch, errText, num } from '../../kit.tsx';
+-import { confirmDialog, dt } from '../../ui.tsx';
++import { Empty, Field, Section, Switch, errText, num } from '../../shared/kit.tsx';
++import { confirmDialog, dt } from '../../shared/ui.tsx';
+ import ReceiptDuplicatePolicy, { duplicateLine } from './ReceiptDuplicatePolicy.tsx';
+-import type { CallFn, Json, Rec, Toast } from '../../types.ts';
++import type { CallFn, Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ const JSON_H = { 'Content-Type': 'application/json' };
+ const CUR: Rec = { IRT: 'تومان', IRR: 'ریال' };
+diff --git a/apps/admin-web/src/features/payments/paymentsShared.tsx b/apps/admin-web/src/features/payments/paymentsShared.tsx
+index 067ff8f..f8766c5 100644
+--- a/apps/admin-web/src/features/payments/paymentsShared.tsx
++++ b/apps/admin-web/src/features/payments/paymentsShared.tsx
+@@ -4,9 +4,9 @@
+ 
+ import { Coins, CreditCard, Globe, Landmark, Star, Wallet } from 'lucide-react';
+ 
+-import { num, tint } from '../../kit.tsx';
+-import { dt } from '../../ui.tsx';
+-import type { Json, Rec, Toast } from '../../types.ts';
++import { num, tint } from '../../shared/kit.tsx';
++import { dt } from '../../shared/ui.tsx';
++import type { Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ export const PAGE = 15;
+ export const REVIEWABLE = ['pending', 'review', 'receipt_submitted', 'awaiting_review'];
+diff --git a/apps/admin-web/src/features/referrals/ReferralProgramsView.tsx b/apps/admin-web/src/features/referrals/ReferralProgramsView.tsx
+index 4188268..afdf63b 100644
+--- a/apps/admin-web/src/features/referrals/ReferralProgramsView.tsx
++++ b/apps/admin-web/src/features/referrals/ReferralProgramsView.tsx
+@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
+ import { Gift, Save } from 'lucide-react';
+ import { unitOf, usePlanForm } from '@melorin/web-kit/referralPlan.js';
+ import { useCall } from '../../api/api.ts';
+-import { Empty, Field, Section, errText, num, useRows } from '../../kit.tsx';
+-import type { Json, Rec, Toast } from '../../types.ts';
++import { Empty, Field, Section, errText, num, useRows } from '../../shared/kit.tsx';
++import type { Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ const KINDS = [
+   ['signup_reward', 'پاداش اولین خرید معرفی‌شده', 'یک‌بار، در اولین خرید مشتریِ دعوت‌شده در همین فروشگاه.'],
+diff --git a/apps/admin-web/src/features/reports/ReportCharts.tsx b/apps/admin-web/src/features/reports/ReportCharts.tsx
+index b192d15..333d4c7 100644
+--- a/apps/admin-web/src/features/reports/ReportCharts.tsx
++++ b/apps/admin-web/src/features/reports/ReportCharts.tsx
+@@ -1,9 +1,9 @@
+ // Dependency-free SVG/HTML chart primitives for the Reports screen. Colors come from --rc1..--rc8 (see styles.css),
+ // text always wears text tokens (never the series color), every chart has an aria-label and a keyboard path.
+ import { useId, useState } from 'react';
+-import { dayLong, dayShort } from '../../charts.tsx';
++import { dayLong, dayShort } from '../../shared/charts.tsx';
+ import { WEEKDAY_FA, WEEK_ORDER, donutSegments, fmt, fmtCompact, fmtPct, heatLevel, nf } from './reportsLogic.ts';
+-import type { Json } from '../../types.ts';
++import type { Json } from '../../shared/types.ts';
+ 
+ export const SERIES_COLORS = [
+   'var(--rc1)',
+diff --git a/apps/admin-web/src/features/reports/ReportsParts.tsx b/apps/admin-web/src/features/reports/ReportsParts.tsx
+index 9869771..9328434 100644
+--- a/apps/admin-web/src/features/reports/ReportsParts.tsx
++++ b/apps/admin-web/src/features/reports/ReportsParts.tsx
+@@ -5,7 +5,7 @@ import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react';
+ import { API_BASE, authFetch } from '../../api/api.ts';
+ import { Sparkline } from './ReportCharts.tsx';
+ import { deltaInfo } from './reportsLogic.ts';
+-import type { Json, Rec } from '../../types.ts';
++import type { Json, Rec } from '../../shared/types.ts';
+ 
+ export const RANGES = [7, 30, 90];
+ export const METRICS = [
+diff --git a/apps/admin-web/src/features/reports/ReportsView.tsx b/apps/admin-web/src/features/reports/ReportsView.tsx
+index 1049ef4..7ef7dda 100644
+--- a/apps/admin-web/src/features/reports/ReportsView.tsx
++++ b/apps/admin-web/src/features/reports/ReportsView.tsx
+@@ -17,7 +17,7 @@ import {
+   WalletCards,
+ } from 'lucide-react';
+ import { API_BASE, getJson } from '../../api/api.ts';
+-import { dayShort } from '../../charts.tsx';
++import { dayShort } from '../../shared/charts.tsx';
+ import { Funnel, HBars, Heatmap, Legend, SERIES_COLORS, CompareChart, Donut } from './ReportCharts.tsx';
+ import {
+   CHANNEL_LABELS,
+@@ -37,8 +37,8 @@ import {
+   pick,
+   share,
+ } from './reportsLogic.ts';
+-import { label as statusLabel } from '../../ui.tsx';
+-import type { Json, Rec, Toast } from '../../types.ts';
++import { label as statusLabel } from '../../shared/ui.tsx';
++import type { Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ import { RANGES, METRICS, TONES, Seg, Kpi, Card, DataTable, download, EXPORTS } from './ReportsParts.tsx';
+ export default function ReportsView({ api, toast }: { api?: Json; toast: Toast }) {
+diff --git a/apps/admin-web/src/features/reports/reportsLogic.ts b/apps/admin-web/src/features/reports/reportsLogic.ts
+index eb9597e..6e5f0af 100644
+--- a/apps/admin-web/src/features/reports/reportsLogic.ts
++++ b/apps/admin-web/src/features/reports/reportsLogic.ts
+@@ -1,7 +1,7 @@
+ // Pure helpers for the Reports & charts screen (no React, no DOM): formatting, labels, insights, chart geometry.
+ // Kept separate so every rule here is unit-tested (tests/reports-logic.test.js).
+-import { dayLong } from '../../charts.tsx';
+-import type { Json, Rec } from '../../types.ts';
++import { dayLong } from '../../shared/charts.tsx';
++import type { Json, Rec } from '../../shared/types.ts';
+ 
+ export const nf = new Intl.NumberFormat('fa-IR');
+ export const cf = new Intl.NumberFormat('fa-IR', { notation: 'compact', maximumFractionDigits: 1 });
+diff --git a/apps/admin-web/src/features/resellers/ManualTasksView.tsx b/apps/admin-web/src/features/resellers/ManualTasksView.tsx
+index c6a8468..c606c7a 100644
+--- a/apps/admin-web/src/features/resellers/ManualTasksView.tsx
++++ b/apps/admin-web/src/features/resellers/ManualTasksView.tsx
+@@ -3,9 +3,9 @@
+ import { useState } from 'react';
+ import { CheckCircle2, ClipboardCopy, Clock, ListChecks, RotateCcw } from 'lucide-react';
+ import { useCall } from '../../api/api.ts';
+-import { dt } from '../../ui.tsx';
+-import { Empty, ErrorBar, KpiBar, Pills, Stat, errText, useRows } from '../../kit.tsx';
+-import type { Json, Toast } from '../../types.ts';
++import { dt } from '../../shared/ui.tsx';
++import { Empty, ErrorBar, KpiBar, Pills, Stat, errText, useRows } from '../../shared/kit.tsx';
++import type { Json, Toast } from '../../shared/types.ts';
+ 
+ const FILTERS = [
+   ['open', 'در انتظار انجام'],
+diff --git a/apps/admin-web/src/features/resellers/ResellerApplicationsView.tsx b/apps/admin-web/src/features/resellers/ResellerApplicationsView.tsx
+index 584699c..e703b30 100644
+--- a/apps/admin-web/src/features/resellers/ResellerApplicationsView.tsx
++++ b/apps/admin-web/src/features/resellers/ResellerApplicationsView.tsx
+@@ -14,7 +14,7 @@ import {
+   XCircle,
+ } from 'lucide-react';
+ import { useCall } from '../../api/api.ts';
+-import { Badge, confirmDialog, dt } from '../../ui.tsx';
++import { Badge, confirmDialog, dt } from '../../shared/ui.tsx';
+ import {
+   Drawer,
+   Empty,
+@@ -28,8 +28,8 @@ import {
+   errText,
+   num,
+   useRows,
+-} from '../../kit.tsx';
+-import type { CallFn, Json, Toast } from '../../types.ts';
++} from '../../shared/kit.tsx';
++import type { CallFn, Json, Toast } from '../../shared/types.ts';
+ 
+ const STATUS_PILLS = [
+   ['pending', 'در انتظار'],
+diff --git a/apps/admin-web/src/features/settings/AdminTeamView.tsx b/apps/admin-web/src/features/settings/AdminTeamView.tsx
+index 76730e0..c0b4978 100644
+--- a/apps/admin-web/src/features/settings/AdminTeamView.tsx
++++ b/apps/admin-web/src/features/settings/AdminTeamView.tsx
+@@ -15,11 +15,11 @@ import {
+   Stat,
+   errText,
+   useRows,
+-} from '../../kit.tsx';
+-import { Avatar, Cell2, DataGrid, Facts, ScreenHead, Toolbar, When, matches, useCall } from '../../dataKit.tsx';
+-import { confirmDialog } from '../../ui.tsx';
++} from '../../shared/kit.tsx';
++import { Avatar, Cell2, DataGrid, Facts, ScreenHead, Toolbar, When, matches, useCall } from '../../shared/dataKit.tsx';
++import { confirmDialog } from '../../shared/ui.tsx';
+ import { AREA_LABEL, ROLE_TONE, TEAM_ERRORS } from '../../app/adminAccess.ts';
+-import type { AdminInviteResult, AdminMember, AdminRoleInfo, Toast, ViewApi } from '../../types.ts';
++import type { AdminInviteResult, AdminMember, AdminRoleInfo, Toast, ViewApi } from '../../shared/types.ts';
+ 
+ const BASE = '/api/v1/admin/admins';
+ const STATE: Record<string, [string, string]> = {
+diff --git a/apps/admin-web/src/features/settings/AuditView.tsx b/apps/admin-web/src/features/settings/AuditView.tsx
+index fbdd441..5032df1 100644
+--- a/apps/admin-web/src/features/settings/AuditView.tsx
++++ b/apps/admin-web/src/features/settings/AuditView.tsx
+@@ -14,8 +14,8 @@ import {
+   Stat,
+   tint,
+   useRows,
+-} from '../../kit.tsx';
+-import { dt, sid } from '../../ui.tsx';
++} from '../../shared/kit.tsx';
++import { dt, sid } from '../../shared/ui.tsx';
+ import {
+   Cell2,
+   DataGrid,
+@@ -29,8 +29,8 @@ import {
+   matches,
+   pageOf,
+   useCall,
+-} from '../../dataKit.tsx';
+-import type { Json, Rec } from '../../types.ts';
++} from '../../shared/dataKit.tsx';
++import type { Json, Rec } from '../../shared/types.ts';
+ 
+ const CAP = 500;
+ const DAY = 86400000;
+diff --git a/apps/admin-web/src/features/settings/ButtonStylesView.tsx b/apps/admin-web/src/features/settings/ButtonStylesView.tsx
+index 0d8d9c2..d5d18aa 100644
+--- a/apps/admin-web/src/features/settings/ButtonStylesView.tsx
++++ b/apps/admin-web/src/features/settings/ButtonStylesView.tsx
+@@ -5,8 +5,8 @@
+ import { useCallback, useEffect, useMemo, useState } from 'react';
+ import { Info, Paintbrush, Plus, RotateCcw, Save, Send, Sparkles, Trash2 } from 'lucide-react';
+ import { useCall } from '../../api/api.ts';
+-import { Empty, ErrorBar, Field, Section, Switch, errText, num } from '../../kit.tsx';
+-import { confirmDialog } from '../../ui.tsx';
++import { Empty, ErrorBar, Field, Section, Switch, errText, num } from '../../shared/kit.tsx';
++import { confirmDialog } from '../../shared/ui.tsx';
+ import {
+   SAMPLE_INLINE,
+   SAMPLE_REPLY,
+@@ -33,7 +33,7 @@ import type {
+   RenderedButton,
+   StyleName,
+ } from './buttonStyles.ts';
+-import type { Toast } from '../../types.ts';
++import type { Toast } from '../../shared/types.ts';
+ 
+ const EMPTY: ButtonStyleConfig = { enabled: false, rules: [] };
+ 
+diff --git a/apps/admin-web/src/features/settings/ChangeAdminPassword.tsx b/apps/admin-web/src/features/settings/ChangeAdminPassword.tsx
+index 2272367..22eb5ad 100644
+--- a/apps/admin-web/src/features/settings/ChangeAdminPassword.tsx
++++ b/apps/admin-web/src/features/settings/ChangeAdminPassword.tsx
+@@ -1,8 +1,8 @@
+ import type { ReactNode } from 'react';
+ import { useState } from 'react';
+ import { typedClient } from '../../api/api.ts';
+-import { PasswordInput } from '../../ui.tsx';
+-import type { Json, Toast } from '../../types.ts';
++import { PasswordInput } from '../../shared/ui.tsx';
++import type { Json, Toast } from '../../shared/types.ts';
+ import { box, inp, btn } from '../../app/adminExtraKit.tsx';
+ 
+ const Field = ({ label, children }: { label?: Json; children?: ReactNode }) => (
+diff --git a/apps/admin-web/src/features/settings/GoogleLoginSettings.tsx b/apps/admin-web/src/features/settings/GoogleLoginSettings.tsx
+index 0f6b8d6..30813e5 100644
+--- a/apps/admin-web/src/features/settings/GoogleLoginSettings.tsx
++++ b/apps/admin-web/src/features/settings/GoogleLoginSettings.tsx
+@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
+ import { useEffect, useMemo, useState } from 'react';
+ import { settled, typedClient } from '../../api/api.ts';
+ import { Check, ChevronDown, Copy, ExternalLink, ShieldCheck } from 'lucide-react';
+-import type { Json, Toast } from '../../types.ts';
++import type { Json, Toast } from '../../shared/types.ts';
+ 
+ const CLIENT_ID_RE = /^[0-9]{6,}-[A-Za-z0-9_-]+\.apps\.googleusercontent\.com$/;
+ 
+diff --git a/apps/admin-web/src/features/settings/MyAccountView.tsx b/apps/admin-web/src/features/settings/MyAccountView.tsx
+index 897d14c..e9bfe3a 100644
+--- a/apps/admin-web/src/features/settings/MyAccountView.tsx
++++ b/apps/admin-web/src/features/settings/MyAccountView.tsx
+@@ -2,9 +2,9 @@
+ // Data: GET /api/v1/admin/me (the same call App uses to filter the menu).
+ import type { ReactNode } from 'react';
+ import { ShieldCheck } from 'lucide-react';
+-import { Facts } from '../../dataKit.tsx';
++import { Facts } from '../../shared/dataKit.tsx';
+ import { AREA_LABEL, ROLE_TONE } from '../../app/adminAccess.ts';
+-import type { AdminMe } from '../../types.ts';
++import type { AdminMe } from '../../shared/types.ts';
+ 
+ export default function MyAccountView({ me, children }: { me: AdminMe | null | undefined; children?: ReactNode }) {
+   const perms: string[] = me?.permissions || [];
+diff --git a/apps/admin-web/src/features/settings/SettingsView.tsx b/apps/admin-web/src/features/settings/SettingsView.tsx
+index 4956e0b..d550701 100644
+--- a/apps/admin-web/src/features/settings/SettingsView.tsx
++++ b/apps/admin-web/src/features/settings/SettingsView.tsx
+@@ -1,9 +1,9 @@
+-import { Segmented } from '../../kit.tsx';
++import { Segmented } from '../../shared/kit.tsx';
+ import type { ReactNode } from 'react';
+ import { lazy, Suspense, useEffect, useState } from 'react';
+ import { useCall } from '../../api/api.ts';
+-import { PasswordInput, confirmDialog } from '../../ui.tsx';
+-import type { Json, Rec, Toast } from '../../types.ts';
++import { PasswordInput, confirmDialog } from '../../shared/ui.tsx';
++import type { Json, Rec, Toast } from '../../shared/types.ts';
+ import { box, inp, btn, ghost, useList, Table } from '../../app/adminExtraKit.tsx';
+ 
+ const GoogleLoginSettings = lazy(() => import('./GoogleLoginSettings.tsx'));
+diff --git a/apps/admin-web/src/features/settings/TelegramLoginSettings.tsx b/apps/admin-web/src/features/settings/TelegramLoginSettings.tsx
+index e4e415f..2de6902 100644
+--- a/apps/admin-web/src/features/settings/TelegramLoginSettings.tsx
++++ b/apps/admin-web/src/features/settings/TelegramLoginSettings.tsx
+@@ -9,8 +9,8 @@ import { useEffect, useState } from 'react';
+ import { settled, typedClient } from '../../api/api.ts';
+ import { Check, ChevronDown, Copy, ExternalLink, Send, ShieldCheck } from 'lucide-react';
+ import { CopyBox, Field, Step, Switch } from './GoogleLoginSettings.tsx';
+-import { PasswordInput } from '../../ui.tsx';
+-import type { Json, Rec, Toast } from '../../types.ts';
++import { PasswordInput } from '../../shared/ui.tsx';
++import type { Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ const CLIENT_ID_RE = /^[0-9]{5,20}$/;
+ const FIELDS = ['enabled', 'store_login', 'bot_login', 'number_match', 'ttl_seconds', 'oidc_login', 'client_id'];
+diff --git a/apps/admin-web/src/features/stores/ResellerOnboardingView.tsx b/apps/admin-web/src/features/stores/ResellerOnboardingView.tsx
+index fb560d9..9833414 100644
+--- a/apps/admin-web/src/features/stores/ResellerOnboardingView.tsx
++++ b/apps/admin-web/src/features/stores/ResellerOnboardingView.tsx
+@@ -3,9 +3,9 @@
+ //   tasks        «اقدامات تکمیلی»    what a human must still do outside Melorin after sign-up (Google, Telegram, domain)
+ import { lazy, Suspense, useEffect, useState } from 'react';
+ import { getJson } from '../../api/api.ts';
+-import { Segmented, num } from '../../kit.tsx';
++import { Segmented, num } from '../../shared/kit.tsx';
+ import { can } from '../../app/adminAccess.ts';
+-import type { Toast, ViewApi } from '../../types.ts';
++import type { Toast, ViewApi } from '../../shared/types.ts';
+ 
+ const ResellerApplicationsView = lazy(() => import('../resellers/ResellerApplicationsView.tsx'));
+ const ManualTasksView = lazy(() => import('../resellers/ManualTasksView.tsx'));
+diff --git a/apps/admin-web/src/features/stores/ResellersView.tsx b/apps/admin-web/src/features/stores/ResellersView.tsx
+index a007dd9..c597f49 100644
+--- a/apps/admin-web/src/features/stores/ResellersView.tsx
++++ b/apps/admin-web/src/features/stores/ResellersView.tsx
+@@ -15,7 +15,7 @@ import {
+   Unplug,
+ } from 'lucide-react';
+ import { useCall } from '../../api/api.ts';
+-import { PasswordInput, confirmDialog, dt } from '../../ui.tsx';
++import { PasswordInput, confirmDialog, dt } from '../../shared/ui.tsx';
+ import {
+   Drawer,
+   Empty,
+@@ -31,8 +31,8 @@ import {
+   errText,
+   num,
+   useRows,
+-} from '../../kit.tsx';
+-import type { CallFn, Json, Rec, Toast } from '../../types.ts';
++} from '../../shared/kit.tsx';
++import type { CallFn, Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ // Effective bot state computed by Core (stores/bots.py): what the admin should believe about the bot right now.
+ const BOT_STATE: Rec = {
+diff --git a/apps/admin-web/src/features/stores/StoreApiView.tsx b/apps/admin-web/src/features/stores/StoreApiView.tsx
+index 461360e..a02a948 100644
+--- a/apps/admin-web/src/features/stores/StoreApiView.tsx
++++ b/apps/admin-web/src/features/stores/StoreApiView.tsx
+@@ -3,8 +3,8 @@
+ import { useCallback, useState } from 'react';
+ import { useCall } from '../../api/api.ts';
+ import { canWrite } from '../../app/adminAccess.ts';
+-import { Empty, ErrorBar, Toggle, errText, useRows } from '../../kit.tsx';
+-import type { Json, Rec, Toast } from '../../types.ts';
++import { Empty, ErrorBar, Toggle, errText, useRows } from '../../shared/kit.tsx';
++import type { Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ export default function StoreApiView({ api, toast }: { api?: Json; toast: Toast }) {
+   const call = useCall(api);
+diff --git a/apps/admin-web/src/features/stores/StoreBotsView.tsx b/apps/admin-web/src/features/stores/StoreBotsView.tsx
+index 1d88313..c643be6 100644
+--- a/apps/admin-web/src/features/stores/StoreBotsView.tsx
++++ b/apps/admin-web/src/features/stores/StoreBotsView.tsx
+@@ -3,8 +3,8 @@
+ import { useCallback, useEffect, useState } from 'react';
+ import { useCall } from '../../api/api.ts';
+ import { canWrite } from '../../app/adminAccess.ts';
+-import { Empty, ErrorBar, errText, useRows } from '../../kit.tsx';
+-import type { Toast } from '../../types.ts';
++import { Empty, ErrorBar, errText, useRows } from '../../shared/kit.tsx';
++import type { Toast } from '../../shared/types.ts';
+ import { asList, errMessage } from '../../app/adminHubTypes.ts';
+ import type { HubApiProp, StoreRow } from '../../app/adminHubTypes.ts';
+ 
+diff --git a/apps/admin-web/src/features/stores/StoreGovernanceView.tsx b/apps/admin-web/src/features/stores/StoreGovernanceView.tsx
+index 81c5903..4ae19eb 100644
+--- a/apps/admin-web/src/features/stores/StoreGovernanceView.tsx
++++ b/apps/admin-web/src/features/stores/StoreGovernanceView.tsx
+@@ -2,8 +2,8 @@
+ import { useCallback, useEffect, useState } from 'react';
+ import { AlertTriangle, Loader, RefreshCw } from 'lucide-react';
+ import { useCall } from '../../api/api.ts';
+-import { promptDialog } from '../../ui.tsx';
+-import type { Json, Rec, Toast } from '../../types.ts';
++import { promptDialog } from '../../shared/ui.tsx';
++import type { Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ const STATUS_LABEL: Rec = { active: 'فعال', disabled: 'غیرفعال', limited: 'سقف پر شده' };
+ const fmt = (v: Json) => (v ? new Date(v).toLocaleString('fa-IR') : '—');
+diff --git a/apps/admin-web/src/features/stores/StoreHubView.tsx b/apps/admin-web/src/features/stores/StoreHubView.tsx
+index d7b9912..f8013bc 100644
+--- a/apps/admin-web/src/features/stores/StoreHubView.tsx
++++ b/apps/admin-web/src/features/stores/StoreHubView.tsx
+@@ -12,8 +12,8 @@
+ import type { LazyExoticComponent, ReactNode } from 'react';
+ import { lazy, Suspense, useState } from 'react';
+ import { sectionAllowed } from '../../app/adminAccess.ts';
+-import { Segmented } from '../../kit.tsx';
+-import type { Toast } from '../../types.ts';
++import { Segmented } from '../../shared/kit.tsx';
++import type { Toast } from '../../shared/types.ts';
+ 
+ /** The slice of the app-shell api the hub itself reads; the tab views get the whole object. */
+ interface HubApi {
+diff --git a/apps/admin-web/src/features/stores/StoreNoticesView.tsx b/apps/admin-web/src/features/stores/StoreNoticesView.tsx
+index 60c12f5..2b4ffc9 100644
+--- a/apps/admin-web/src/features/stores/StoreNoticesView.tsx
++++ b/apps/admin-web/src/features/stores/StoreNoticesView.tsx
+@@ -4,8 +4,8 @@
+ import { useCallback, useEffect, useState } from 'react';
+ import { useCall } from '../../api/api.ts';
+ import { canWrite } from '../../app/adminAccess.ts';
+-import { Switch } from '../../kit.tsx';
+-import type { CallFn, Toast } from '../../types.ts';
++import { Switch } from '../../shared/kit.tsx';
++import type { CallFn, Toast } from '../../shared/types.ts';
+ import { asList, errMessage } from '../../app/adminHubTypes.ts';
+ import type { ErrorBody, HubApiProp, NoticeCfg, NoticeTextMeta, StoreRow } from '../../app/adminHubTypes.ts';
+ 
+diff --git a/apps/admin-web/src/features/stores/StorePricesView.tsx b/apps/admin-web/src/features/stores/StorePricesView.tsx
+index 37bd58f..dbe801e 100644
+--- a/apps/admin-web/src/features/stores/StorePricesView.tsx
++++ b/apps/admin-web/src/features/stores/StorePricesView.tsx
+@@ -3,8 +3,8 @@
+ // package is spotted without opening the reseller's panel. Source: GET /admin/stores/{id}/reseller-prices.
+ import { useCallback, useEffect, useState } from 'react';
+ import { useCall } from '../../api/api.ts';
+-import { Empty, ErrorBar, num, useRows } from '../../kit.tsx';
+-import type { Json, Rec, Toast } from '../../types.ts';
++import { Empty, ErrorBar, num, useRows } from '../../shared/kit.tsx';
++import type { Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ const STATE: Rec = {
+   ok: ['b-ok', 'قابل فروش'],
+diff --git a/apps/admin-web/src/features/stores/StoresView.tsx b/apps/admin-web/src/features/stores/StoresView.tsx
+index 4b053ed..0195c7e 100644
+--- a/apps/admin-web/src/features/stores/StoresView.tsx
++++ b/apps/admin-web/src/features/stores/StoresView.tsx
+@@ -14,8 +14,8 @@ import {
+   ViewToggle,
+   tint,
+   useRows,
+-} from '../../kit.tsx';
+-import { Badge } from '../../ui.tsx';
++} from '../../shared/kit.tsx';
++import { Badge } from '../../shared/ui.tsx';
+ import {
+   Avatar,
+   Cell2,
+@@ -30,8 +30,8 @@ import {
+   matches,
+   pageOf,
+   useCall,
+-} from '../../dataKit.tsx';
+-import type { Json, Rec } from '../../types.ts';
++} from '../../shared/dataKit.tsx';
++import type { Json, Rec } from '../../shared/types.ts';
+ 
+ const FILTERS: Rec = {
+   all: () => true,
+diff --git a/apps/admin-web/src/features/stores/SubBrandingCard.tsx b/apps/admin-web/src/features/stores/SubBrandingCard.tsx
+index b426c90..3d2166a 100644
+--- a/apps/admin-web/src/features/stores/SubBrandingCard.tsx
++++ b/apps/admin-web/src/features/stores/SubBrandingCard.tsx
+@@ -3,8 +3,8 @@
+ // types the panel's name. Never automatic (decision 3); the server reads the admin back and reports success only if the panel kept it.
+ import { useCallback, useEffect, useState } from 'react';
+ import { Palette } from 'lucide-react';
+-import { errText } from '../../kit.tsx';
+-import type { CallFn, Json, Rec, Toast } from '../../types.ts';
++import { errText } from '../../shared/kit.tsx';
++import type { CallFn, Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ const LABELS: Rec = { melorin_brand_name: 'نام برند', melorin_support_url: 'لینک پشتیبانی', melorin_logo_url: 'لوگو' };
+ const ltr = (v: Json) => (
+diff --git a/apps/admin-web/src/features/tickets/TicketBubble.tsx b/apps/admin-web/src/features/tickets/TicketBubble.tsx
+index f2875ce..1277d07 100644
+--- a/apps/admin-web/src/features/tickets/TicketBubble.tsx
++++ b/apps/admin-web/src/features/tickets/TicketBubble.tsx
+@@ -1,9 +1,9 @@
+ import { useEffect, useRef, useState } from 'react';
+ import { Lock, Pencil } from 'lucide-react';
+-import { dt } from '../../ui.tsx';
+-import { focusOnMount } from '../../useDialog.ts';
++import { dt } from '../../shared/ui.tsx';
++import { focusOnMount } from '../../shared/useDialog.ts';
+ import { MAX, timeOnly, initials } from './ticketsShared.tsx';
+-import type { CallFn, Json } from '../../types.ts';
++import type { CallFn, Json } from '../../shared/types.ts';
+ 
+ export const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+ // Quick check before uploading; the server validates type, size and file signature again and has the last word.
+diff --git a/apps/admin-web/src/features/tickets/TicketComposer.tsx b/apps/admin-web/src/features/tickets/TicketComposer.tsx
+index da729c5..55771e8 100644
+--- a/apps/admin-web/src/features/tickets/TicketComposer.tsx
++++ b/apps/admin-web/src/features/tickets/TicketComposer.tsx
+@@ -1,9 +1,9 @@
+ import { useEffect, useRef, useState } from 'react';
+ import { CheckCheck, Lock, Paperclip, Send, Sparkles, X } from 'lucide-react';
+-import { Segmented, num } from '../../kit.tsx';
++import { Segmented, num } from '../../shared/kit.tsx';
+ import { QUICK, MAX } from './ticketsShared.tsx';
+ import { IMAGE_TYPES, imageProblem } from './TicketBubble.tsx';
+-import type { Json, Rec, Toast } from '../../types.ts';
++import type { Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ export function Composer({
+   onSend,
+diff --git a/apps/admin-web/src/features/tickets/TicketConversation.tsx b/apps/admin-web/src/features/tickets/TicketConversation.tsx
+index 4898543..10ecc49 100644
+--- a/apps/admin-web/src/features/tickets/TicketConversation.tsx
++++ b/apps/admin-web/src/features/tickets/TicketConversation.tsx
+@@ -1,10 +1,10 @@
+ import { useCallback, useEffect, useRef, useState } from 'react';
+ import { AlertTriangle, ArrowRight, CheckCheck, CircleDot, Clock, Pencil, RefreshCw, Store, X } from 'lucide-react';
+-import { confirmDialog, dt } from '../../ui.tsx';
+-import { Field, errText, useAlive } from '../../kit.tsx';
+-import { focusOnMount } from '../../useDialog.ts';
++import { confirmDialog, dt } from '../../shared/ui.tsx';
++import { Field, errText, useAlive } from '../../shared/kit.tsx';
++import { focusOnMount } from '../../shared/useDialog.ts';
+ import { PRIORITY, DEPARTMENTS, DEPT_LABEL, STATUS_OPTS, dayKey } from './ticketsShared.tsx';
+-import type { CallFn, Json, Toast } from '../../types.ts';
++import type { CallFn, Json, Toast } from '../../shared/types.ts';
+ import { Composer } from './TicketComposer.tsx';
+ import { Bubble } from './TicketBubble.tsx';
+ 
+diff --git a/apps/admin-web/src/features/tickets/TicketsView.tsx b/apps/admin-web/src/features/tickets/TicketsView.tsx
+index a94d367..3c26362 100644
+--- a/apps/admin-web/src/features/tickets/TicketsView.tsx
++++ b/apps/admin-web/src/features/tickets/TicketsView.tsx
+@@ -1,12 +1,12 @@
+ // Ticket desk: inbox + conversation side by side, inline editing, internal notes, quick replies.
+ import { useCallback, useEffect, useMemo, useState } from 'react';
+ import { CheckCheck, CircleDot, Inbox, Lock, MessageSquareText, RefreshCw, Search, Zap } from 'lucide-react';
+-import { Badge } from '../../ui.tsx';
+-import { Stat, num, useAlive } from '../../kit.tsx';
++import { Badge } from '../../shared/ui.tsx';
++import { Stat, num, useAlive } from '../../shared/kit.tsx';
+ 
+ import { fromNow, needsReply, PriorityPill } from './ticketsShared.tsx';
+ import { Conversation } from './TicketConversation.tsx';
+-import type { CallFn, Json, Rec, Toast } from '../../types.ts';
++import type { CallFn, Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ function TicketList({
+   rows,
+diff --git a/apps/admin-web/src/features/tickets/ticketsShared.tsx b/apps/admin-web/src/features/tickets/ticketsShared.tsx
+index 74ae218..8dc53b7 100644
+--- a/apps/admin-web/src/features/tickets/ticketsShared.tsx
++++ b/apps/admin-web/src/features/tickets/ticketsShared.tsx
+@@ -1,7 +1,7 @@
+ // Ticket desk: inbox + conversation side by side, inline editing, internal notes, quick replies.
+ 
+ import { Zap } from 'lucide-react';
+-import type { Json, Rec } from '../../types.ts';
++import type { Json, Rec } from '../../shared/types.ts';
+ 
+ export const PRIORITY: Rec = {
+   low: ['کم', 'mu'],
+diff --git a/apps/admin-web/src/features/vpn-accounts/AccountToolsPanel.tsx b/apps/admin-web/src/features/vpn-accounts/AccountToolsPanel.tsx
+index 7cf1df9..2c42fab 100644
+--- a/apps/admin-web/src/features/vpn-accounts/AccountToolsPanel.tsx
++++ b/apps/admin-web/src/features/vpn-accounts/AccountToolsPanel.tsx
+@@ -3,9 +3,9 @@
+ // panel cannot serve is shown disabled with the Core's own reason. Connection IPs are never shown.
+ import { useCallback, useEffect, useState } from 'react';
+ import { Loader } from 'lucide-react';
+-import { confirmDialog, promptDialog } from '../../ui.tsx';
+-import { fmtBytes } from '../../dataKit.tsx';
+-import type { CallFn, Json, Rec, Toast } from '../../types.ts';
++import { confirmDialog, promptDialog } from '../../shared/ui.tsx';
++import { fmtBytes } from '../../shared/dataKit.tsx';
++import type { CallFn, Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ const fmt = (v: Json) => (v ? new Date(v).toLocaleString('fa-IR') : '—');
+ 
+diff --git a/apps/admin-web/src/features/vpn-accounts/AttachAccountForm.tsx b/apps/admin-web/src/features/vpn-accounts/AttachAccountForm.tsx
+index 1292a02..475b6a9 100644
+--- a/apps/admin-web/src/features/vpn-accounts/AttachAccountForm.tsx
++++ b/apps/admin-web/src/features/vpn-accounts/AttachAccountForm.tsx
+@@ -1,9 +1,9 @@
+ // Manual fix for an order stuck in provisioning_failed / manual_review: the account already exists on the panel,
+ // so attach it to the order (POST /admin/orders/{id}/attach-account). The order completes with that account.
+ import { useEffect, useState } from 'react';
+-import { confirmDialog } from '../../ui.tsx';
+-import { errText } from '../../kit.tsx';
+-import type { CallFn } from '../../types.ts';
++import { confirmDialog } from '../../shared/ui.tsx';
++import { errText } from '../../shared/kit.tsx';
++import type { CallFn } from '../../shared/types.ts';
+ import { asList, errMessage } from '../../app/adminHubTypes.ts';
+ 
+ interface ServerRow {
+diff --git a/apps/admin-web/src/features/vpn-accounts/VpnAccountsView.tsx b/apps/admin-web/src/features/vpn-accounts/VpnAccountsView.tsx
+index 2fa75e2..6d9afe6 100644
+--- a/apps/admin-web/src/features/vpn-accounts/VpnAccountsView.tsx
++++ b/apps/admin-web/src/features/vpn-accounts/VpnAccountsView.tsx
+@@ -16,8 +16,8 @@ import {
+   num,
+   tint,
+   useRows,
+-} from '../../kit.tsx';
+-import { Badge, dt, sid } from '../../ui.tsx';
++} from '../../shared/kit.tsx';
++import { Badge, dt, sid } from '../../shared/ui.tsx';
+ import AccountToolsPanel from './AccountToolsPanel.tsx';
+ import {
+   Avatar,
+@@ -32,8 +32,8 @@ import {
+   indexBy,
+   useCall,
+   useDebounced,
+-} from '../../dataKit.tsx';
+-import type { CallFn, Json, Rec, Toast } from '../../types.ts';
++} from '../../shared/dataKit.tsx';
++import type { CallFn, Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ const PATH = '/api/v1/admin/vpn-accounts';
+ const EXPORT_CAP = 2000;
+diff --git a/apps/admin-web/src/main.tsx b/apps/admin-web/src/main.tsx
+index 3b887f6..c21f94f 100644
+--- a/apps/admin-web/src/main.tsx
++++ b/apps/admin-web/src/main.tsx
+@@ -7,8 +7,8 @@ import AdminAuth from './app/AdminAuth.tsx';
+ import AcceptInvite, { isInviteHash } from './features/auth/AcceptInvite.tsx';
+ import '@melorin/web-kit/tokens.css';
+ import './styles.css';
+-import './theme.ts';
+-import type { Json } from './types.ts';
++import './shared/theme.ts';
++import type { Json } from './shared/types.ts';
+ 
+ class AdminErrorBoundary extends React.Component<{ children?: React.ReactNode }, { error: Json }> {
+   constructor(props: Json) {
+diff --git a/apps/admin-web/src/Trend.tsx b/apps/admin-web/src/shared/Trend.tsx
+similarity index 99%
+rename from apps/admin-web/src/Trend.tsx
+rename to apps/admin-web/src/shared/Trend.tsx
+index b9301b7..f236454 100644
+--- a/apps/admin-web/src/Trend.tsx
++++ b/apps/admin-web/src/shared/Trend.tsx
+@@ -1,5 +1,5 @@
+ import { useEffect, useMemo, useState } from 'react';
+-import { API_BASE, getJson } from './api/api.ts';
++import { API_BASE, getJson } from '../api/api.ts';
+ import { TrendChart } from './charts.tsx';
+ import type { Json } from './types.ts';
+ 
+diff --git a/apps/admin-web/src/charts.tsx b/apps/admin-web/src/shared/charts.tsx
+similarity index 100%
+rename from apps/admin-web/src/charts.tsx
+rename to apps/admin-web/src/shared/charts.tsx
+diff --git a/apps/admin-web/src/dataKit.tsx b/apps/admin-web/src/shared/dataKit.tsx
+similarity index 99%
+rename from apps/admin-web/src/dataKit.tsx
+rename to apps/admin-web/src/shared/dataKit.tsx
+index 0208e3c..5f5bd2d 100644
+--- a/apps/admin-web/src/dataKit.tsx
++++ b/apps/admin-web/src/shared/dataKit.tsx
+@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
+ // table → detail drawer, with the same loading / empty / error / pagination states.
+ import { useEffect, useMemo, useState } from 'react';
+ import { Check, ChevronLeft, Copy, Download, RefreshCw } from 'lucide-react';
+-import { useCall } from './api/api.ts';
++import { useCall } from '../api/api.ts';
+ import { num } from './kit.tsx';
+ import type { Json, Rec } from './types.ts';
+ 
+diff --git a/apps/admin-web/src/kit.tsx b/apps/admin-web/src/shared/kit.tsx
+similarity index 100%
+rename from apps/admin-web/src/kit.tsx
+rename to apps/admin-web/src/shared/kit.tsx
+diff --git a/apps/admin-web/src/kitDisplay.tsx b/apps/admin-web/src/shared/kitDisplay.tsx
+similarity index 100%
+rename from apps/admin-web/src/kitDisplay.tsx
+rename to apps/admin-web/src/shared/kitDisplay.tsx
+diff --git a/apps/admin-web/src/kitFilters.tsx b/apps/admin-web/src/shared/kitFilters.tsx
+similarity index 100%
+rename from apps/admin-web/src/kitFilters.tsx
+rename to apps/admin-web/src/shared/kitFilters.tsx
+diff --git a/apps/admin-web/src/kitFormat.ts b/apps/admin-web/src/shared/kitFormat.ts
+similarity index 100%
+rename from apps/admin-web/src/kitFormat.ts
+rename to apps/admin-web/src/shared/kitFormat.ts
+diff --git a/apps/admin-web/src/kitOverlays.tsx b/apps/admin-web/src/shared/kitOverlays.tsx
+similarity index 100%
+rename from apps/admin-web/src/kitOverlays.tsx
+rename to apps/admin-web/src/shared/kitOverlays.tsx
+diff --git a/apps/admin-web/src/palette.tsx b/apps/admin-web/src/shared/palette.tsx
+similarity index 100%
+rename from apps/admin-web/src/palette.tsx
+rename to apps/admin-web/src/shared/palette.tsx
+diff --git a/apps/admin-web/src/theme.ts b/apps/admin-web/src/shared/theme.ts
+similarity index 100%
+rename from apps/admin-web/src/theme.ts
+rename to apps/admin-web/src/shared/theme.ts
+diff --git a/apps/admin-web/src/types.ts b/apps/admin-web/src/shared/types.ts
+similarity index 100%
+rename from apps/admin-web/src/types.ts
+rename to apps/admin-web/src/shared/types.ts
+diff --git a/apps/admin-web/src/ui.tsx b/apps/admin-web/src/shared/ui.tsx
+similarity index 100%
+rename from apps/admin-web/src/ui.tsx
+rename to apps/admin-web/src/shared/ui.tsx
+diff --git a/apps/admin-web/src/useDialog.ts b/apps/admin-web/src/shared/useDialog.ts
+similarity index 100%
+rename from apps/admin-web/src/useDialog.ts
+rename to apps/admin-web/src/shared/useDialog.ts
+diff --git a/apps/admin-web/tests/bank-sms-panel.test.jsx b/apps/admin-web/tests/bank-sms-panel.test.jsx
+index 07fe776..731a36c 100644
+--- a/apps/admin-web/tests/bank-sms-panel.test.jsx
++++ b/apps/admin-web/tests/bank-sms-panel.test.jsx
+@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
+ import { render, screen, waitFor } from '@testing-library/react';
+ import userEvent from '@testing-library/user-event';
+ import BankSmsPanel from '../src/features/payments/BankSmsPanel.tsx';
+-import { DialogHost } from '../src/ui.tsx';
++import { DialogHost } from '../src/shared/ui.tsx';
+ 
+ const json = (body, status = 200) =>
+   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+diff --git a/apps/admin-web/tests/broadcast.test.jsx b/apps/admin-web/tests/broadcast.test.jsx
+index e99cdfb..c332dd9 100644
+--- a/apps/admin-web/tests/broadcast.test.jsx
++++ b/apps/admin-web/tests/broadcast.test.jsx
+@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
+ import { render, screen, waitFor } from '@testing-library/react';
+ import userEvent from '@testing-library/user-event';
+ import BroadcastView from '../src/features/broadcast/BroadcastView.tsx';
+-import { DialogHost } from '../src/ui.tsx';
++import { DialogHost } from '../src/shared/ui.tsx';
+ 
+ const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
+ 
+diff --git a/apps/admin-web/tests/button-styles.test.jsx b/apps/admin-web/tests/button-styles.test.jsx
+index 6f41999..570d906 100644
+--- a/apps/admin-web/tests/button-styles.test.jsx
++++ b/apps/admin-web/tests/button-styles.test.jsx
+@@ -11,7 +11,7 @@ import {
+   ruleProblem,
+   toPayload,
+ } from '../src/features/settings/buttonStyles.ts';
+-import { DialogHost } from '../src/ui.tsx';
++import { DialogHost } from '../src/shared/ui.tsx';
+ 
+ const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
+ 
+diff --git a/apps/admin-web/tests/data-kit.test.jsx b/apps/admin-web/tests/data-kit.test.jsx
+index fcbba69..5e6d13c 100644
+--- a/apps/admin-web/tests/data-kit.test.jsx
++++ b/apps/admin-web/tests/data-kit.test.jsx
+@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
+ import { fireEvent, render, screen, within } from '@testing-library/react';
+ import userEvent from '@testing-library/user-event';
+ import OrdersView, { OrderFlow } from '../src/features/orders/OrdersView.tsx';
+-import { DataGrid } from '../src/dataKit.tsx';
+-import { Paginator, SearchBox, Stat } from '../src/kit.tsx';
++import { DataGrid } from '../src/shared/dataKit.tsx';
++import { Paginator, SearchBox, Stat } from '../src/shared/kit.tsx';
+ import { Package } from 'lucide-react';
+ 
+ const json = (body) =>
+diff --git a/apps/admin-web/tests/data-screens.test.jsx b/apps/admin-web/tests/data-screens.test.jsx
+index 1d7d5b6..517bf4c 100644
+--- a/apps/admin-web/tests/data-screens.test.jsx
++++ b/apps/admin-web/tests/data-screens.test.jsx
+@@ -6,8 +6,8 @@ import VpnAccountsView from '../src/features/vpn-accounts/VpnAccountsView.tsx';
+ import UsersView from '../src/features/customers/UsersView.tsx';
+ import StoresView from '../src/features/stores/StoresView.tsx';
+ import AuditView from '../src/features/settings/AuditView.tsx';
+-import { DialogHost } from '../src/ui.tsx';
+-import { csvCell, fmtBytes, matches, relTime } from '../src/dataKit.tsx';
++import { DialogHost } from '../src/shared/ui.tsx';
++import { csvCell, fmtBytes, matches, relTime } from '../src/shared/dataKit.tsx';
+ 
+ const json = (body, status = 200, headers = {}) =>
+   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...headers } });
+diff --git a/apps/admin-web/tests/identity-auto.test.jsx b/apps/admin-web/tests/identity-auto.test.jsx
+index 72e9c27..7542eee 100644
+--- a/apps/admin-web/tests/identity-auto.test.jsx
++++ b/apps/admin-web/tests/identity-auto.test.jsx
+@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
+ import { render, screen, waitFor, within } from '@testing-library/react';
+ import userEvent from '@testing-library/user-event';
+ import IdentityAutoView from '../src/features/identity/IdentityAutoView.tsx';
+-import { DialogHost } from '../src/ui.tsx';
++import { DialogHost } from '../src/shared/ui.tsx';
+ 
+ const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
+ const device = (over = {}) => ({
+diff --git a/apps/admin-web/tests/identity-hub.test.jsx b/apps/admin-web/tests/identity-hub.test.jsx
+index 7572bb2..3f1ac3e 100644
+--- a/apps/admin-web/tests/identity-hub.test.jsx
++++ b/apps/admin-web/tests/identity-hub.test.jsx
+@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
+ import { render, screen, waitFor } from '@testing-library/react';
+ import userEvent from '@testing-library/user-event';
+ import IdentityHubView from '../src/features/identity/IdentityHubView.tsx';
+-import { DialogHost } from '../src/ui.tsx';
++import { DialogHost } from '../src/shared/ui.tsx';
+ 
+ const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
+ const card = (id, name) => ({ id, display_name: name, email: `${name}@example.com`, orders: 1, providers: ['google'] });
+diff --git a/apps/admin-web/tests/kit.test.jsx b/apps/admin-web/tests/kit.test.jsx
+index ae9d7a7..6987ad9 100644
+--- a/apps/admin-web/tests/kit.test.jsx
++++ b/apps/admin-web/tests/kit.test.jsx
+@@ -2,8 +2,8 @@ import { act } from 'react';
+ import { describe, expect, it, vi } from 'vitest';
+ import { render, renderHook, screen, waitFor } from '@testing-library/react';
+ import userEvent from '@testing-library/user-event';
+-import { ChipList, capTone, digits, errText, num, removeEntity, tint, toEn, useRows } from '../src/kit.tsx';
+-import { DialogHost } from '../src/ui.tsx';
++import { ChipList, capTone, digits, errText, num, removeEntity, tint, toEn, useRows } from '../src/shared/kit.tsx';
++import { DialogHost } from '../src/shared/ui.tsx';
+ 
+ const res = (body, status = 200) => new Response(status === 204 ? null : JSON.stringify(body), { status });
+ 
+diff --git a/apps/admin-web/tests/panel-admins.test.jsx b/apps/admin-web/tests/panel-admins.test.jsx
+index a0eb358..556304a 100644
+--- a/apps/admin-web/tests/panel-admins.test.jsx
++++ b/apps/admin-web/tests/panel-admins.test.jsx
+@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
+ import userEvent from '@testing-library/user-event';
+ import PanelAdminsView from '../src/features/panels/PanelAdminsView.tsx';
+ import { extraRoutes } from '../src/app/AdminExtra.tsx';
+-import { DialogHost } from '../src/ui.tsx';
++import { DialogHost } from '../src/shared/ui.tsx';
+ 
+ const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
+ 
+diff --git a/apps/admin-web/tests/panel-events.test.jsx b/apps/admin-web/tests/panel-events.test.jsx
+index cb58817..27235e1 100644
+--- a/apps/admin-web/tests/panel-events.test.jsx
++++ b/apps/admin-web/tests/panel-events.test.jsx
+@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
+ import { render, screen, waitFor } from '@testing-library/react';
+ import userEvent from '@testing-library/user-event';
+ import PanelOpsView from './PanelTabsHarness.jsx';
+-import { DialogHost } from '../src/ui.tsx';
++import { DialogHost } from '../src/shared/ui.tsx';
+ 
+ const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
+ const panel = { id: 'p1', name: 'pg-main', kind: 'pasarguard', capabilities: {} };
+diff --git a/apps/admin-web/tests/panel-ops.test.jsx b/apps/admin-web/tests/panel-ops.test.jsx
+index 67d62d6..ee58694 100644
+--- a/apps/admin-web/tests/panel-ops.test.jsx
++++ b/apps/admin-web/tests/panel-ops.test.jsx
+@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
+ import PanelOpsView from '../src/features/panel-operations/PanelOpsView.tsx';
+ import StoreNoticesView from '../src/features/stores/StoreNoticesView.tsx';
+ import PanelTabsHarness from './PanelTabsHarness.jsx';
+-import { DialogHost } from '../src/ui.tsx';
++import { DialogHost } from '../src/shared/ui.tsx';
+ 
+ const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
+ const panel = {
+diff --git a/apps/admin-web/tests/panel-phase3.test.jsx b/apps/admin-web/tests/panel-phase3.test.jsx
+index dd04351..5fb0c9f 100644
+--- a/apps/admin-web/tests/panel-phase3.test.jsx
++++ b/apps/admin-web/tests/panel-phase3.test.jsx
+@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
+ import PanelCapacityTab from '../src/features/panels/PanelCapacityTab.tsx';
+ import PanelTemplatesTab from '../src/features/panels/PanelTemplatesTab.tsx';
+ import AccountToolsPanel from '../src/features/vpn-accounts/AccountToolsPanel.tsx';
+-import { DialogHost } from '../src/ui.tsx';
++import { DialogHost } from '../src/shared/ui.tsx';
+ 
+ const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
+ // Capacity talks to Core through the typed api-client (global fetch); the other tabs still take a `call` prop.
+diff --git a/apps/admin-web/tests/panel-phase5.test.jsx b/apps/admin-web/tests/panel-phase5.test.jsx
+index 358f0d1..225585d 100644
+--- a/apps/admin-web/tests/panel-phase5.test.jsx
++++ b/apps/admin-web/tests/panel-phase5.test.jsx
+@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
+ import { render, screen, waitFor } from '@testing-library/react';
+ import userEvent from '@testing-library/user-event';
+ import PanelOpsView from './PanelTabsHarness.jsx';
+-import { DialogHost } from '../src/ui.tsx';
++import { DialogHost } from '../src/shared/ui.tsx';
+ 
+ const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
+ const panel = { id: 'p1', name: 'pg-main', kind: 'pasarguard', capabilities: {} };
+diff --git a/apps/admin-web/tests/panels-upstream-bot.test.jsx b/apps/admin-web/tests/panels-upstream-bot.test.jsx
+index 3903ad6..943a68b 100644
+--- a/apps/admin-web/tests/panels-upstream-bot.test.jsx
++++ b/apps/admin-web/tests/panels-upstream-bot.test.jsx
+@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
+ import { render, screen, waitFor, within } from '@testing-library/react';
+ import userEvent from '@testing-library/user-event';
+ import PanelsView from '../src/features/panels/PanelsView.tsx';
+-import { DialogHost } from '../src/ui.tsx';
++import { DialogHost } from '../src/shared/ui.tsx';
+ 
+ const json = (body, status = 200) =>
+   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+diff --git a/apps/admin-web/tests/receipt-review.test.jsx b/apps/admin-web/tests/receipt-review.test.jsx
+index a18a124..cc0448a 100644
+--- a/apps/admin-web/tests/receipt-review.test.jsx
++++ b/apps/admin-web/tests/receipt-review.test.jsx
+@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
+ import userEvent from '@testing-library/user-event';
+ import ReceiptReviewPanel, { clock } from '../src/features/payments/ReceiptReviewPanel.tsx';
+ import ReceiptOcrSettings from '../src/features/payments/ReceiptOcrSettings.tsx';
+-import { DialogHost } from '../src/ui.tsx';
++import { DialogHost } from '../src/shared/ui.tsx';
+ 
+ const json = (body, status = 200) =>
+   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+diff --git a/apps/admin-web/tests/tickets-images.test.jsx b/apps/admin-web/tests/tickets-images.test.jsx
+index 30fc02f..a4b6c7d 100644
+--- a/apps/admin-web/tests/tickets-images.test.jsx
++++ b/apps/admin-web/tests/tickets-images.test.jsx
+@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
+ import { render, screen, waitFor } from '@testing-library/react';
+ import userEvent from '@testing-library/user-event';
+ import TicketsView from '../src/features/tickets/TicketsView.tsx';
+-import { PasswordInput } from '../src/ui.tsx';
++import { PasswordInput } from '../src/shared/ui.tsx';
+ 
+ const json = (body, status = 200) =>
+   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+diff --git a/apps/admin-web/tests/ui.test.jsx b/apps/admin-web/tests/ui.test.jsx
+index 521e947..ad8255e 100644
+--- a/apps/admin-web/tests/ui.test.jsx
++++ b/apps/admin-web/tests/ui.test.jsx
+@@ -14,8 +14,8 @@ import {
+   promptDialog,
+   sid,
+   tone,
+-} from '../src/ui.tsx';
+-import { getTheme } from '../src/theme.ts';
++} from '../src/shared/ui.tsx';
++import { getTheme } from '../src/shared/theme.ts';
+ 
+ describe('status helpers', () => {
+   it('maps known statuses to a Persian label and tone class, unknown ones to a muted raw value', () => {
+diff --git a/apps/admin-web/tests/useDialog.test.jsx b/apps/admin-web/tests/useDialog.test.jsx
+index fa21d16..3e1c83f 100644
+--- a/apps/admin-web/tests/useDialog.test.jsx
++++ b/apps/admin-web/tests/useDialog.test.jsx
+@@ -1,7 +1,7 @@
+ import { describe, expect, it, vi } from 'vitest';
+ import { render, screen } from '@testing-library/react';
+ import userEvent from '@testing-library/user-event';
+-import { backdropProps, focusOnMount, useDialog } from '../src/useDialog.ts';
++import { backdropProps, focusOnMount, useDialog } from '../src/shared/useDialog.ts';
+ 
+ function Box({ onClose, label, children }) {
+   const ref = useDialog(onClose);
+diff --git a/apps/api/tests/contracts/test_source_helpers.py b/apps/api/tests/contracts/test_source_helpers.py
+index 0dbe074..015f86e 100644
+--- a/apps/api/tests/contracts/test_source_helpers.py
++++ b/apps/api/tests/contracts/test_source_helpers.py
+@@ -28,6 +28,6 @@ def test_web_source_is_stable_under_prettier_layout():
+ def test_dialog_hook_is_identical_in_both_web_apps():
+     """Phase 6.4: one overlay behaviour (focus trap, Esc on the topmost dialog) shared byte-for-byte."""
+     apps = Path(__file__).resolve().parents[3]
+-    admin = (apps / "admin-web/src/useDialog.ts").read_bytes()
++    admin = (apps / "admin-web/src/shared/useDialog.ts").read_bytes()
+     store = (apps / "store-web/src/useDialog.ts").read_bytes()
+     assert admin == store
+-- 
+2.43.0
+
+
+From ceb30e33849837640762b5e127f5297ddc0e598e Mon Sep 17 00:00:00 2001
+From: melorin-refactor <refactor@melorin.local>
+Date: Sun, 15 Nov 2026 12:52:03 +0000
+Subject: [PATCH 3/3] docs: r19 audit status and decisions
+
+---
+ docs/AUDIT-R18-STATUS.md | 4 ++--
+ docs/DECISIONS.md        | 4 ++++
+ 2 files changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/docs/AUDIT-R18-STATUS.md b/docs/AUDIT-R18-STATUS.md
+index 5277e9b..34ec904 100644
+--- a/docs/AUDIT-R18-STATUS.md
++++ b/docs/AUDIT-R18-STATUS.md
+@@ -31,9 +31,9 @@
+ 
+ | # | Item | Why it stays open |
+ |---|---|---|
+-| 1 | `upstream_bot/adapter.py` (672 lines) | Interactive, order-dependent bot protocol; splitting it risks the message/state ordering. Deliberately not touched in r18. |
++| 1 | `upstream_bot/adapter.py` (543 lines after r19) | r19 moved the defaults (`config.py`) and the mapping store / chat lock (`state.py`) out. The purchase, renewal and refund flows stay in one class on purpose: they are an ordered, stateful bot protocol. |
+ | 2 | Large admin-web files (`ResellersView`, `PanelsView`, `AdminTeamView`, `UpstreamBotFields`, `TelegramLoginSettings`, `ServerForm`, `infra`, `OrdersView`, `ReportsView`, 530 to 640 lines each) | Moved into feature folders; splitting their bodies is a behaviour-risk change and needs its own pure-move PRs. |
+-| 3 | `shared/` folder in admin-web | `kit*`, `ui`, `dataKit`, `charts`, `palette`, `theme`, `Trend`, `types`, `useDialog` still at `src/`. `useDialog.ts` is byte-compared with store-web by a contract test, so move both together. |
++| 3 | ~~`shared/` folder in admin-web~~ | done in r19: `kit*`, `ui`, `dataKit`, `charts`, `palette`, `theme`, `Trend`, `types`, `useDialog` now live in `src/shared/`. |
+ | 4 | Evidence that needs real systems | real PasarGuard panel, real Telegram bots, Zarinpal, Caddy + Prometheus/Alertmanager profile, Playwright, backup restore drill, upgrade from an older database |
+ | 5 | Rotate the GitHub token that was pasted into chat | security hygiene, outside the repository |
+ 
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index fc59a21..5ee55ac 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -244,3 +244,7 @@ Source: `Melorin_Architecture_Admin_Audit.md` (the project has never been releas
+ - Large backend files split behind unchanged facades (`payments.bank_sms` package, `loyalty.service`, `referral.service`, `reports.analytics`). Public names, worker patch points and API contracts are unchanged. `upstream_bot/adapter.py` is intentionally left whole (ordered bot protocol).
+ - Dead code removed (unreferenced functions, schemas and admin-web exports). Backend modules are kept.
+ - admin-web moved to `app/`, `api/`, `features/*` (pure moves). `docs/AUDIT-R18-STATUS.md` is the live audit status and debt register; `docs/AUDIT-2026-11-15.md` is historical.
++
++## r19 - audit leftovers (branch refactor/audit-r19-impl)
++- `upstream_bot/adapter.py`: defaults moved to `config.py`, mapping store and chat lock to `state.py` (the test patch point is now `upstream_bot.state`). Flows deliberately stay in one class.
++- admin-web: shared kit/ui/charts/theme/types/useDialog moved to `src/shared/` (pure move, imports rewritten, tsc/eslint/vitest green).
+-- 
+2.43.0
+
