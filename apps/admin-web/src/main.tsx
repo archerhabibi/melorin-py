@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
 import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import App from './App.tsx';
-import { getAccessToken, setTokens } from './auth.ts';
-import AdminAuth from './AdminAuth.tsx';
-import AcceptInvite, { isInviteHash } from './AcceptInvite.tsx';
+import App from './app/App.tsx';
+import { getAccessToken, setTokens } from './api/auth.ts';
+import AdminAuth from './app/AdminAuth.tsx';
+import AcceptInvite, { isInviteHash } from './features/auth/AcceptInvite.tsx';
 import '@melorin/web-kit/tokens.css';
 import './styles.css';
 import './theme.ts';

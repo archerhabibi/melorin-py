@@ -5,7 +5,7 @@ import {
   failureFromError,
   LoginRequestError,
   sanitizeTotp,
-} from '../src/loginErrors.ts';
+} from '../src/features/auth/loginErrors.ts';
 
 describe('login failure messages', () => {
   it('tells a wrong password, a wrong TOTP, a missing TOTP and a reused TOTP apart', () => {

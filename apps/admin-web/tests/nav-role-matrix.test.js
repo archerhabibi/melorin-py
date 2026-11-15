@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { groups } from '../src/adminNav.ts';
-import { canWrite, sectionAllowed } from '../src/adminAccess.ts';
+import { groups } from '../src/app/adminNav.ts';
+import { canWrite, sectionAllowed } from '../src/app/adminAccess.ts';
 
 // Mirrors apps/api/melorin/domain/admin_access.py GRANTS (the server stays the authority; this pins what the menu shows per role).
 const ALL = ['overview', 'reports', 'orders', 'payments', 'catalog', 'infrastructure', 'resellers', 'customers', 'support'];

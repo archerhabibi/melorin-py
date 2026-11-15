@@ -1,6 +1,7 @@
+import re
 from pathlib import Path
 
-from _source import read_source
+from _source import read_source, web_file
 
 SRC = Path(__file__).parents[4].joinpath("apps", "admin-web", "src")
 
@@ -20,16 +21,21 @@ SCREEN_ROUTES = {
 def test_admin_sections_have_live_data_contracts():
     api = read_source(Path(__file__).parents[2].joinpath("melorin", "modules", "admin", "router.py"))
     for route, modules in SCREEN_ROUTES.items():
-        assert any(route in SRC.joinpath(m).read_text() for m in modules), f"{route} is not requested by {modules}"
+        assert any(route in web_file(SRC.joinpath(m)).read_text() for m in modules), f"{route} is not requested by {modules}"
     assert "async def vpn_accounts" in api
 
 
+def _lazy(view: str, source: str) -> bool:
+    """True when ``source`` lazy-loads ``<view>.tsx`` from any feature folder."""
+    return re.search(rf"import\('[./\w-]*/{view}\.tsx'\)", source) is not None
+
+
 def test_admin_screens_are_routed_to_their_views():
-    extra = SRC.joinpath("AdminExtra.tsx").read_text()
+    extra = web_file(SRC.joinpath("AdminExtra.tsx")).read_text()
     for view in ("OrdersView", "VpnAccountsView", "UsersView", "StoreHubView", "AuditView"):
-        assert f"import('./{view}.tsx')" in extra, f"{view} is not lazy-loaded by AdminExtra.tsx"
+        assert _lazy(view, extra), f"{view} is not lazy-loaded by AdminExtra.tsx"
         assert f": {view}," in extra, f"{view} is not mapped in extraRoutes"
     # the store hub renders the stores list (and the merged reseller / panel-access / volume screens) as tabs
-    hub = SRC.joinpath("StoreHubView.tsx").read_text()
+    hub = web_file(SRC.joinpath("StoreHubView.tsx")).read_text()
     for view in ("StoresView", "ResellersView", "PanelAdminsView", "StoreGovernanceView"):
-        assert f"import('./{view}.tsx')" in hub, f"{view} is not a tab of the store hub"
+        assert _lazy(view, hub), f"{view} is not a tab of the store hub"

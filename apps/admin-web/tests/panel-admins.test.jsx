@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import PanelAdminsView from '../src/PanelAdminsView.tsx';
-import { extraRoutes } from '../src/AdminExtra.tsx';
+import PanelAdminsView from '../src/features/panels/PanelAdminsView.tsx';
+import { extraRoutes } from '../src/app/AdminExtra.tsx';
 import { DialogHost } from '../src/ui.tsx';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status });

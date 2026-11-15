@@ -29,7 +29,7 @@ STORE_SHELL = (
 )
 store = "\n".join((root / "apps/store-web/src" / n).read_text() for n in STORE_SHELL)
 admin = "\n".join(  # App.tsx was split (admin UI r5): the shell is the sum of these files
-    (root / "apps/admin-web/src" / n).read_text()
+    next((root / "apps/admin-web/src").rglob(n)).read_text()
     for n in ("App.tsx", "AdminNavigation.tsx", "AdminShell.tsx", "Dashboard.tsx")
 )
 caddy = (root / "infra/Caddyfile").read_text()

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { groups, flat } from '../src/adminNav.ts';
-import { extraRoutes } from '../src/AdminExtra.tsx';
-import { SECTION_AREA, sectionAllowed } from '../src/adminAccess.ts';
+import { groups, flat } from '../src/app/adminNav.ts';
+import { extraRoutes } from '../src/app/AdminExtra.tsx';
+import { SECTION_AREA, sectionAllowed } from '../src/app/adminAccess.ts';
 
 const where = (label) => groups.find(([, items]) => items.some((i) => i[0] === label))?.[0];
 

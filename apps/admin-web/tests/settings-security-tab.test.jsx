@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import Settings from '../src/SettingsView.tsx';
+import Settings from '../src/features/settings/SettingsView.tsx';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
 const integrations = {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { PanelDetailTabs } from '../src/panels/PanelDetailDrawer.tsx';
+import { PanelDetailTabs } from '../src/features/panels/PanelDetailDrawer.tsx';
 
 /** Test-only stand-in for the former panel-ops screen: a panel selector above the panel-scoped tabs. */
 export default function PanelOpsView({ api, toast }) {

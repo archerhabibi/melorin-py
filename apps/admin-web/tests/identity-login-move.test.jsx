@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { render, screen } from '@testing-library/react';
-import IdentityHubView from '../src/IdentityHubView.tsx';
-import { extraRoutes } from '../src/AdminExtra.tsx';
-import { SECTION_AREA, sectionAllowed } from '../src/adminAccess.ts';
+import IdentityHubView from '../src/features/identity/IdentityHubView.tsx';
+import { extraRoutes } from '../src/app/AdminExtra.tsx';
+import { SECTION_AREA, sectionAllowed } from '../src/app/adminAccess.ts';
 
 const ROLES = {
   owner: ['overview:rw', 'customers:rw', 'system:rw', 'infrastructure:rw', 'resellers:rw'],
@@ -47,7 +47,7 @@ describe('store hub is the single entry point', () => {
   });
 
   it('identity sits in the customers group, not in system', () => {
-    const src = readFileSync('src/adminNav.ts', 'utf8');
+    const src = readFileSync('src/app/adminNav.ts', 'utf8');
     const grp = (name) => src.split(`'${name}',`)[1].split('\n  ],\n')[0];
     expect(grp('مشتریان')).toContain("'identity'");
     expect(grp('سیستم و امنیت')).not.toContain("'identity'");

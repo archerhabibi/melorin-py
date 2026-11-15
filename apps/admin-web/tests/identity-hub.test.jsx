@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import IdentityHubView from '../src/IdentityHubView.tsx';
+import IdentityHubView from '../src/features/identity/IdentityHubView.tsx';
 import { DialogHost } from '../src/ui.tsx';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
