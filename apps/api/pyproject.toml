@@ -33,16 +33,10 @@ files = ["melorin/core", "melorin/worker", "melorin/domain", "melorin/kernel", "
          "melorin/modules/orders", "melorin/modules/identity", "melorin/modules/reseller", "melorin/modules/payments"]
 ignore_missing_imports = true
 follow_imports = "silent"
-# T-W07/T-R09: bodies of unannotated functions are checked too; widen `files` one package at a time (r13: orders, identity, reseller are in scope; r14: payments too, with no ratchet entries; files in the ratchet list below still carry known Optional-narrowing errors and may only be removed from it, never added).
+# T-W07/T-R09: bodies of unannotated functions are checked too; widen `files` one package at a time (r13: orders, identity, reseller are in scope; r14: payments too, with no ratchet entries; r15: the ratchet is empty, every module in `files` is clean).
 check_untyped_defs = true
 warn_unused_ignores = true
 
-# r13 ratchet: known remaining errors (r14: only orders.provisioning remains). tests/contracts/test_mypy_ratchet.py forbids growing this list.
-[[tool.mypy.overrides]]
-module = [
-  "melorin.modules.orders.provisioning",
-]
-ignore_errors = true
 
 [tool.pytest.ini_options]
 # T-R05: tests are grouped in sub-folders but still import shared helpers by bare module name (module basenames are unique).
