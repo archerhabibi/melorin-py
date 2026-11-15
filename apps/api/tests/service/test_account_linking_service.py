@@ -105,3 +105,27 @@ async def test_debt_blocks_consolidation_but_keeps_accounts_linked():
         assert op.status == "blocked"
         assert (await _err(consolidation.execute(s, op, approver_id=None))).code == "CONSOLIDATION_BLOCKED"
         assert b.person_id == a.person_id and (await s.get(Wallet, wb.id)).balance == -50
+
+
+async def test_consolidation_keeps_stores_isolated_and_conserves_total():
+    async with open_session() as s:
+        s1, s2 = await make_store(s), await make_store(s)
+        a, b, _ = await _linked_pair(s)
+        for store, amount, key in ((s1, 300, "iso-1"), (s2, 700, "iso-2")):
+            wb = await wallets.get_wallet(s, b.id, store.id)
+            pay = [wallets.Posting(amount, wallet=wb), wallets.Posting(-amount, account="gateway:x:clearing", min_balance=None)]
+            await wallets.post(s, kind="topup", key=key, currency="IRT", postings=pay)
+        op = await consolidation.request(s, a, key="k-iso-12345")
+        await consolidation.execute(s, op, approver_id=None, actor_type="system")
+        c1 = await wallets.get_wallet(s, a.id, s1.id, route=False)
+        c2 = await wallets.get_wallet(s, a.id, s2.id, route=False)
+        assert (c1.balance, c2.balance) == (300, 700)  # per-store isolation is preserved
+        moved = (await s.scalars(select(WalletTransfer))).all()
+        assert sum(t.amount for t in moved) == 1000
+
+
+async def test_admin_account_is_never_consolidated():
+    async with open_session() as s:
+        a, b, _ = await _linked_pair(s)
+        b.is_super_admin = True
+        assert (await _err(consolidation.request(s, a, key="k-admin-1234"))).code == "ADMIN_ACCOUNT"
