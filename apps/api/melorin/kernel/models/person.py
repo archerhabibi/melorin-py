@@ -118,7 +118,9 @@ def _audit_is_append_only(mapper, connection, target):  # noqa: ARG001
 # Every account has a person and every identity names it, whichever code path created the row (service, CLI, admin invite, tests).
 # The hooks run inside the flush, in the same transaction, with the flush's own connection.
 # ----------------------------------------------------------------------------------------------------------------------
-from sqlalchemy import insert, select  # noqa: E402
+from typing import cast  # noqa: E402
+
+from sqlalchemy import Table, insert, select  # noqa: E402
 
 from melorin.kernel.base import utcnow  # noqa: E402
 from melorin.kernel.models.identity import Identity, User  # noqa: E402
@@ -129,7 +131,9 @@ def _user_gets_person(mapper, connection, target):  # noqa: ARG001
     if target.person_id is not None:
         return
     pid, now = uuid.uuid4(), utcnow()
-    connection.execute(insert(Person.__table__).values(id=pid, public_id=_public_id(), status="active", created_at=now, updated_at=now))
+    connection.execute(
+        insert(cast(Table, Person.__table__)).values(id=pid, public_id=_public_id(), status="active", created_at=now, updated_at=now)
+    )
     target.person_id = pid
 
 

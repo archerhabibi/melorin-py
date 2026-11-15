@@ -145,11 +145,10 @@ async def person_detail(session: AsyncSession, person_id: uuid.UUID) -> dict:
     accounts = await persons.accounts_of(session, person.id)
     ids = [a.id for a in accounts]
     wallets = (await session.scalars(select(Wallet).where(Wallet.user_id.in_(ids)).order_by(Wallet.created_at))).all() if ids else []
-    order_counts = (
-        dict((await session.execute(select(Order.user_id, func.count()).where(Order.user_id.in_(ids)).group_by(Order.user_id))).all())
-        if ids
-        else {}
-    )
+    order_counts: dict[uuid.UUID, int] = {}
+    if ids:
+        rows = await session.execute(select(Order.user_id, func.count()).where(Order.user_id.in_(ids)).group_by(Order.user_id))
+        order_counts = {uid: int(n) for uid, n in rows.all()}
     idents = await persons.identities_of(session, person.id, active_only=False)
     trail = (
         await session.scalars(
