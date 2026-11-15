@@ -206,7 +206,7 @@ async def test_only_one_operation_may_be_open_per_panel(panel_api):
 
 # ----------------------------------------------------------------------------------------------------------- panel actions
 async def test_disable_runs_in_chunks_marks_accounts_and_audits(panel_api, monkeypatch):
-    monkeypatch.setattr(bulk, "CHUNK", 2)
+    monkeypatch.setattr(bulk_runner, "CHUNK", 2)  # the runner imported the constant at the split
     async with open_schema_engine() as engine, async_sessionmaker(engine, expire_on_commit=False)() as s:
         user, store, panel, accounts = await _world(s, 5)
         op = await bulk.preview(s, kind="disable", selection=_sel(panel), reason="قطعی", actor_id=user.id)
@@ -222,7 +222,7 @@ async def test_disable_runs_in_chunks_marks_accounts_and_audits(panel_api, monke
 
 
 async def test_transient_error_stops_the_run_and_the_rest_resumes_without_repeating_done_chunks(panel_api, monkeypatch):
-    monkeypatch.setattr(bulk, "CHUNK", 2)
+    monkeypatch.setattr(bulk_runner, "CHUNK", 2)  # the runner imported the constant at the split
     async with open_schema_engine() as engine, async_sessionmaker(engine, expire_on_commit=False)() as s:
         user, store, panel, _ = await _world(s, 4)
         op = await bulk.preview(s, kind="reset_usage", selection=_sel(panel), reason="ریست", actor_id=user.id)
@@ -238,7 +238,7 @@ async def test_transient_error_stops_the_run_and_the_rest_resumes_without_repeat
 
 
 async def test_permanent_error_fails_items_and_resume_retries_only_those(panel_api, monkeypatch):
-    monkeypatch.setattr(bulk, "CHUNK", 2)
+    monkeypatch.setattr(bulk_runner, "CHUNK", 2)  # the runner imported the constant at the split
     async with open_schema_engine() as engine, async_sessionmaker(engine, expire_on_commit=False)() as s:
         user, store, panel, _ = await _world(s, 4)
         op = await bulk.preview(s, kind="rotate_links", selection=_sel(panel), reason="لینک", actor_id=user.id)
