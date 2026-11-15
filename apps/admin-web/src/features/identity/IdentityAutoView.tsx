@@ -5,7 +5,19 @@ import { useEffect, useState } from 'react';
 import { ArrowLeftRight, Fingerprint, MonitorSmartphone, ShieldOff, UserRound, Users } from 'lucide-react';
 import { typedClient, useCall } from '../../api/api.ts';
 import { confirmDialog, dt, sid } from '../../shared/ui.tsx';
-import { Empty, ErrorBar, KpiBar, Pills, SearchBox, Segmented, Stat, errText, num, tint, useRows } from '../../shared/kit.tsx';
+import {
+  Empty,
+  ErrorBar,
+  KpiBar,
+  Pills,
+  SearchBox,
+  Segmented,
+  Stat,
+  errText,
+  num,
+  tint,
+  useRows,
+} from '../../shared/kit.tsx';
 import type { CallFn, Json, Rec, Toast } from '../../shared/types.ts';
 
 const STATUS: Rec = {

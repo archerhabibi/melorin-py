@@ -3,7 +3,18 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Boxes, ChevronDown, Clock, Infinity as Inf, Pencil, Save, Smartphone, Tag, Zap } from 'lucide-react';
 import type { CallFn, Json } from '../../shared/types.ts';
 import type { StoreRow } from '../../app/adminHubTypes.ts';
-import { Drawer, Field, NumInput, Section, Segmented, Switch, Toggle, DeleteButton, num, tint } from '../../shared/kit.tsx'; // #4
+import {
+  Drawer,
+  Field,
+  NumInput,
+  Section,
+  Segmented,
+  Switch,
+  Toggle,
+  DeleteButton,
+  num,
+  tint,
+} from '../../shared/kit.tsx'; // #4
 
 import { focusOnMount } from '../../shared/useDialog.ts';
 import ProductAvailability from './ProductAvailability.tsx';

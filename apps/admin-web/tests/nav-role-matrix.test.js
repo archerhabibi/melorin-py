@@ -3,17 +3,45 @@ import { groups } from '../src/app/adminNav.ts';
 import { canWrite, sectionAllowed } from '../src/app/adminAccess.ts';
 
 // Mirrors apps/api/melorin/domain/admin_access.py GRANTS (the server stays the authority; this pins what the menu shows per role).
-const ALL = ['overview', 'reports', 'orders', 'payments', 'catalog', 'infrastructure', 'resellers', 'customers', 'support'];
+const ALL = [
+  'overview',
+  'reports',
+  'orders',
+  'payments',
+  'catalog',
+  'infrastructure',
+  'resellers',
+  'customers',
+  'support',
+];
 const perms = (map) => Object.entries(map).map(([area, mode]) => `${area}:${mode}`);
 const ROLES = {
   owner: perms({ ...Object.fromEntries([...ALL, 'system', 'audit', 'admins', 'self'].map((a) => [a, 'rw'])) }),
   manager: perms({ ...Object.fromEntries(ALL.map((a) => [a, 'rw'])), audit: 'r', self: 'rw' }),
-  finance: perms({ overview: 'r', reports: 'r', orders: 'rw', payments: 'rw', catalog: 'r', resellers: 'r', customers: 'r', self: 'rw' }),
-  support: perms({ overview: 'r', orders: 'r', payments: 'r', catalog: 'r', customers: 'rw', support: 'rw', self: 'rw' }),
+  finance: perms({
+    overview: 'r',
+    reports: 'r',
+    orders: 'rw',
+    payments: 'rw',
+    catalog: 'r',
+    resellers: 'r',
+    customers: 'r',
+    self: 'rw',
+  }),
+  support: perms({
+    overview: 'r',
+    orders: 'r',
+    payments: 'r',
+    catalog: 'r',
+    customers: 'rw',
+    support: 'rw',
+    self: 'rw',
+  }),
   viewer: perms({ ...Object.fromEntries(ALL.map((a) => [a, 'r'])), self: 'rw' }),
 };
 const COMMS = 'اعلان‌ها، ارتباطات و پشتیبانی';
-const visible = (role) => groups.map(([name, items]) => [name, items.filter(([label]) => sectionAllowed(ROLES[role], label)).map((i) => i[0])]);
+const visible = (role) =>
+  groups.map(([name, items]) => [name, items.filter(([label]) => sectionAllowed(ROLES[role], label)).map((i) => i[0])]);
 const commsOf = (role) => visible(role).find(([n]) => n === COMMS)[1];
 
 describe('admin menu per role (tickets live in the notifications / communications / support group)', () => {

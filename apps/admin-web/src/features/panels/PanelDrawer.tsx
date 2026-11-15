@@ -1,7 +1,18 @@
 import { useMemo, useRef, useState } from 'react';
 import { Badge, dt, sid } from '../../shared/ui.tsx';
 import { Dot, health, memberIds } from '../panel-operations/infra.tsx';
-import { Drawer, Field, NumInput, Section, Secret, Segmented, Switch, Toggle, DeleteButton, tint } from '../../shared/kit.tsx';
+import {
+  Drawer,
+  Field,
+  NumInput,
+  Section,
+  Secret,
+  Segmented,
+  Switch,
+  Toggle,
+  DeleteButton,
+  tint,
+} from '../../shared/kit.tsx';
 import { Activity, AlertTriangle, Check, ChevronDown, Plus, RefreshCw, Save, ShieldCheck } from 'lucide-react';
 import { focusOnMount } from '../../shared/useDialog.ts';
 import { UpstreamBotLink, UpstreamCredentials, UpstreamSettings } from './UpstreamBotFields.tsx';

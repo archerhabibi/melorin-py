@@ -2,7 +2,18 @@ import { useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Clock, Inbox, RefreshCw, Store, UserCog } from 'lucide-react';
 import { useCall as useApiCall } from '../../api/api.ts';
 import { Badge, dt } from '../../shared/ui.tsx';
-import { Empty, ErrorBar, KpiBar, Pills, SearchBox, Segmented, Stat, errText, num, useRows } from '../../shared/kit.tsx';
+import {
+  Empty,
+  ErrorBar,
+  KpiBar,
+  Pills,
+  SearchBox,
+  Segmented,
+  Stat,
+  errText,
+  num,
+  useRows,
+} from '../../shared/kit.tsx';
 import type { Json, Toast } from '../../shared/types.ts';
 import { LABEL, ltr, STATUS_PILLS, REQUEST_PILLS, KindBadge } from './panelAdminsShared.tsx';
 import { RequestDrawer } from './PanelRequestDrawer.tsx';

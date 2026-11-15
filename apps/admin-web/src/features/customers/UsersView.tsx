@@ -2,7 +2,18 @@
 // Data: GET /api/v1/admin/users (latest 500) and /stores for ownership. Read-only.
 import { useMemo, useState } from 'react';
 import { ShieldCheck, Store, UserCheck, UserX, Users } from 'lucide-react';
-import { Drawer, Empty, ErrorBar, KpiBar, Paginator, SearchBox, SortSelect, Stat, tint, useRows } from '../../shared/kit.tsx';
+import {
+  Drawer,
+  Empty,
+  ErrorBar,
+  KpiBar,
+  Paginator,
+  SearchBox,
+  SortSelect,
+  Stat,
+  tint,
+  useRows,
+} from '../../shared/kit.tsx';
 import { Badge, dt } from '../../shared/ui.tsx';
 import {
   Avatar,
