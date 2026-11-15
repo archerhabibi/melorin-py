@@ -32,7 +32,7 @@
 | # | Item | Why it stays open |
 |---|---|---|
 | 1 | `upstream_bot/adapter.py` (543 lines after r19) | r19 moved the defaults (`config.py`) and the mapping store / chat lock (`state.py`) out. The purchase, renewal and refund flows stay in one class on purpose: they are an ordered, stateful bot protocol. |
-| 2 | Large admin-web files (`ResellersView`, `PanelsView`, `AdminTeamView`, `UpstreamBotFields`, `TelegramLoginSettings`, `ServerForm`, `infra`, `OrdersView`, `ReportsView`, 530 to 640 lines each) | Moved into feature folders; splitting their bodies is a behaviour-risk change and needs its own pure-move PRs. |
+| 2 | (r19: AdminTeamView 620 to 156, ResellersView 643 to 203, OrdersView 533 to 328 via AdminTeamParts, ResellerParts, OrderParts, OrderDrawer) Remaining large admin-web files (`ResellersView`, `PanelsView`, `AdminTeamView`, `UpstreamBotFields`, `TelegramLoginSettings`, `ServerForm`, `infra`, `OrdersView`, `ReportsView`, 530 to 640 lines each) | Moved into feature folders; splitting their bodies is a behaviour-risk change and needs its own pure-move PRs. |
 | 3 | ~~`shared/` folder in admin-web~~ | done in r19: `kit*`, `ui`, `dataKit`, `charts`, `palette`, `theme`, `Trend`, `types`, `useDialog` now live in `src/shared/`. |
 | 4 | Evidence that needs real systems | real PasarGuard panel, real Telegram bots, Zarinpal, Caddy + Prometheus/Alertmanager profile, Playwright, backup restore drill, upgrade from an older database |
 | 5 | Rotate the GitHub token that was pasted into chat | security hygiene, outside the repository |

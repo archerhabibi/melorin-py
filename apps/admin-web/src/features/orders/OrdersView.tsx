@@ -1,25 +1,7 @@
-// Orders screen — KPI filters, search, store filter, sortable list and a detail drawer with the
-// admin actions the order state machine allows (retry / manual review / refund).
-// Data: GET /api/v1/admin/orders (+ /stores and /users to resolve names); actions: POST …/{retry|manual-review|refund}.
 import { useMemo, useState } from 'react';
-import type { ReactNode } from 'react';
 import AttachAccountForm from '../vpn-accounts/AttachAccountForm.tsx';
+import { AlertTriangle, CheckCircle2, Hourglass, Package } from 'lucide-react';
 import {
-  AlertTriangle,
-  Check,
-  CheckCircle2,
-  ClipboardCheck,
-  Clock,
-  Hourglass,
-  Minus,
-  Package,
-  RotateCcw,
-  Undo2,
-  X,
-  XCircle,
-} from 'lucide-react';
-import {
-  Drawer,
   Empty,
   ErrorBar,
   KpiBar,
@@ -28,15 +10,13 @@ import {
   SortSelect,
   Stat,
   errText,
-  tint,
   useRows,
 } from '../../shared/kit.tsx';
 import { typedClient } from '../../api/api.ts';
-import { Badge, confirmDialog, dt, promptDialog, sid } from '../../shared/ui.tsx';
+import { Badge, confirmDialog, promptDialog, sid } from '../../shared/ui.tsx';
 import {
   Cell2,
   DataGrid,
-  Facts,
   PAGE_SIZE,
   ScreenHead,
   Toolbar,
@@ -48,89 +28,9 @@ import {
   pageOf,
   useCall,
 } from '../../shared/dataKit.tsx';
-import type { AdminOrderRow, Json, Rec, Toast } from '../../shared/types.ts';
-
-const IN_PROGRESS = ['pending', 'payment_pending', 'paid', 'processing', 'provisioning'];
-const ATTENTION = ['provisioning_failed', 'manual_review', 'refund_pending', 'payment_failed'];
-const CLOSED = ['cancelled', 'refunded'];
-// Mirror apps/api/melorin/domain/order_state.py so the UI never offers an action the API would refuse.
-const RETRYABLE = ['provisioning_failed', 'manual_review'];
-const REVIEWABLE = ['provisioning_failed', 'refund_pending'];
-const REFUNDABLE = ['paid', 'provisioning_failed', 'manual_review', 'completed'];
-const CAP = 200; // the endpoint returns the latest 200 orders
-
-// Where an order is on its way: register → pay → build the account → done. `done` = steps fully completed;
-// the next step is the active one (tone = how it is going). `as` swaps in a label when the step went off the happy path.
-const STEPS = ['ثبت سفارش', 'پرداخت', 'ساخت اکانت', 'تکمیل'];
-const PROGRESS: Rec = {
-  pending: { done: 1, tone: 'wn' },
-  payment_pending: { done: 1, tone: 'wn' },
-  payment_failed: { done: 1, tone: 'bd', as: 'پرداخت ناموفق' },
-  paid: { done: 2, tone: 'in' },
-  processing: { done: 2, tone: 'in' },
-  provisioning: { done: 2, tone: 'in' },
-  manual_review: { done: 2, tone: 'wn', as: 'بررسی دستی' },
-  provisioning_failed: { done: 2, tone: 'bd', as: 'ساخت ناموفق' },
-  completed: { done: 4, tone: 'ok' },
-  refund_pending: { done: 3, tone: 'wn', as: 'در انتظار استرداد' },
-  refunded: { done: 3, tone: 'mu', as: 'مسترد شد' },
-  cancelled: { done: 1, tone: 'mu', as: 'لغو شد' },
-};
-const NodeIcon = ({ tone, status }: { tone?: Json; status?: Json }) =>
-  tone === 'bd' ? (
-    <X size={14} />
-  ) : tone === 'wn' ? (
-    <Clock size={14} />
-  ) : tone === 'mu' ? (
-    status === 'refunded' ? (
-      <Undo2 size={13} />
-    ) : (
-      <Minus size={14} />
-    )
-  ) : (
-    <i className="block h-2 w-2 rounded-full bg-current" />
-  );
-
-/** Order lifecycle tracker shown in the drawer. Renders nothing for a status it does not know. */
-export function OrderFlow({ status }: { status?: Json }) {
-  const p = PROGRESS[status];
-  if (!p) return null;
-  const cur = p.done < STEPS.length ? p.done : -1;
-  const label = (i: Json) => (i === cur && p.as ? p.as : STEPS[i]);
-  return (
-    <ol className="ostep" aria-label="مراحل سفارش" style={{ '--t': `var(--${p.tone})` }}>
-      {STEPS.map((_, i) => {
-        const state = i < p.done ? 'done' : i === cur ? 'cur' : 'todo';
-        return (
-          <li key={i} className={state} aria-current={state === 'cur' ? 'step' : undefined}>
-            <span className="dot" aria-hidden="true">
-              {state === 'done' ? (
-                <Check size={14} strokeWidth={3} />
-              ) : state === 'cur' ? (
-                <NodeIcon tone={p.tone} status={status} />
-              ) : null}
-            </span>
-            <span>{label(i)}</span>
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
-
-const needsAttention = (o: AdminOrderRow) => !!o.needs_review || ATTENTION.includes(o.status);
-const GROUPS: Record<string, (o: AdminOrderRow) => boolean> = {
-  all: () => true,
-  done: (o: AdminOrderRow) => o.status === 'completed',
-  progress: (o: AdminOrderRow) => IN_PROGRESS.includes(o.status),
-  attention: needsAttention,
-  closed: (o: AdminOrderRow) => CLOSED.includes(o.status),
-};
-const SORTS: Record<string, (a: AdminOrderRow, b: AdminOrderRow) => number> = {
-  new: (a: AdminOrderRow, b: AdminOrderRow) => String(b.created_at).localeCompare(String(a.created_at)),
-  old: (a: AdminOrderRow, b: AdminOrderRow) => String(a.created_at).localeCompare(String(b.created_at)),
-  high: (a: AdminOrderRow, b: AdminOrderRow) => Number(b.total || 0) - Number(a.total || 0),
-};
+import { AdminOrderRow, Json, Toast } from '../../shared/types.ts';
+import { RETRYABLE, CAP, needsAttention, GROUPS, SORTS } from './OrderParts.tsx';
+import { OrderDrawer } from './OrderDrawer.tsx';
 
 export default function OrdersView({ api, toast }: { api?: Json; toast: Toast }) {
   const call = useCall(api);
@@ -425,109 +325,4 @@ export default function OrdersView({ api, toast }: { api?: Json; toast: Toast })
   );
 }
 
-function OrderDrawer({
-  o,
-  busy,
-  customer,
-  email,
-  store,
-  onClose,
-  act,
-  attach,
-}: {
-  attach?: ReactNode;
-  o?: Json;
-  busy?: Json;
-  customer?: Json;
-  email?: Json;
-  store?: Json;
-  onClose?: Json;
-  act?: Json;
-}) {
-  const canRetry = RETRYABLE.includes(o.status);
-  const canReview = REVIEWABLE.includes(o.status);
-  const canRefund = REFUNDABLE.includes(o.status);
-  const none = !canRetry && !canReview && !canRefund;
-  return (
-    <Drawer
-      title={`سفارش ${o.number}`}
-      subtitle={`${store} · ${dt(o.created_at)}`}
-      icon={
-        <span className="tile h-10 w-10" style={tint(needsAttention(o) ? 'wn' : 'in')}>
-          <Package size={19} />
-        </span>
-      }
-      busy={busy}
-      onClose={onClose}
-      footer={
-        <>
-          {canRetry && (
-            <button className="btn !py-2 !text-sm" disabled={busy} onClick={() => act(o, 'retry', 'تلاش مجدد')}>
-              <RotateCcw size={14} />
-              تلاش مجدد
-            </button>
-          )}
-          {canReview && (
-            <button
-              className="btn btn-g !py-2 !text-sm"
-              disabled={busy}
-              onClick={() => act(o, 'manual-review', 'بررسی دستی')}
-            >
-              <ClipboardCheck size={14} />
-              ارجاع به بررسی دستی
-            </button>
-          )}
-        </>
-      }
-      danger={
-        canRefund && (
-          <button
-            className="btn btn-g btn-d !py-2 !text-sm"
-            disabled={busy}
-            onClick={() => act(o, 'refund', 'استرداد')}
-          >
-            <Undo2 size={14} />
-            استرداد
-          </button>
-        )
-      }
-    >
-      <div className="card flex flex-wrap items-center justify-between gap-3 p-4">
-        <div>
-          <p className="text-xs text-[var(--mu)]">مبلغ سفارش</p>
-          <p className="num mt-1 text-2xl font-extrabold">{money(o.total, o.currency)}</p>
-        </div>
-        <Badge s={o.status} />
-      </div>
-      {PROGRESS[o.status] && (
-        <section className="card p-4">
-          <h3 className="mb-3 text-[13px] font-extrabold">مسیر سفارش</h3>
-          <OrderFlow status={o.status} />
-        </section>
-      )}
-      {needsAttention(o) && (
-        <p className="flex items-start gap-2 rounded-xl bg-[var(--wnb)] p-3 text-xs leading-6 text-[var(--wn)]">
-          <AlertTriangle size={15} className="mt-0.5 shrink-0" />
-          این سفارش نیاز به بررسی دارد. از دکمه‌های پایین برای تلاش مجدد، ارجاع به بررسی دستی یا استرداد استفاده کنید.
-        </p>
-      )}
-      {none && (
-        <p className="flex items-start gap-2 rounded-xl bg-[var(--mb)] p-3 text-xs leading-6 text-[var(--mu)]">
-          <XCircle size={15} className="mt-0.5 shrink-0" />
-          در وضعیت فعلی، اقدام دستی برای این سفارش مجاز نیست.
-        </p>
-      )}
-      {attach}
-      <Facts
-        items={[
-          { label: 'شماره سفارش', value: o.number, ltr: true, copy: true },
-          { label: 'مشتری', value: customer },
-          { label: 'ایمیل', value: email, ltr: true, copy: true },
-          { label: 'فروشگاه', value: store },
-          { label: 'تاریخ ثبت', value: dt(o.created_at) },
-          { label: 'شناسه سفارش', value: o.id, ltr: true, copy: true },
-        ]}
-      />
-    </Drawer>
-  );
-}
+export { OrderFlow } from './OrderParts.tsx';
