@@ -12,6 +12,7 @@ from melorin.modules.admin.admins import router as admins_router
 from melorin.modules.admin.integrations import router as integrations_router
 from melorin.modules.admin.resellers import router as resellers_router
 from melorin.modules.admin.overview import router as overview_router
+from melorin.modules.reports.admin_router import router as reports_admin_router
 from melorin.modules.admin.products import router as products_router
 from melorin.modules.admin.panels import router as panels_router
 from melorin.modules.admin.panel_admins import router as panel_admins_router
@@ -46,6 +47,7 @@ router.include_router(resellers_router)
 for _family in (
     admins_router,
     overview_router,
+    reports_admin_router,
     products_router,
     panels_router,
     panel_admins_router,

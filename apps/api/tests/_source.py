@@ -92,7 +92,9 @@ def _raw_text(path: Path) -> str:
     """Raw text of ``path``; split entry points resolve to the whole family (Phase 3.3 admin router, Phase 3.4 main bot, Phase 3.15 reseller bot)."""
     path = Path(path)
     if _is_admin_router(path):
-        return "\n".join((path.parent / f"{name}.py").read_text(encoding="utf-8") for name in ADMIN_ROUTE_MODULES)
+        parts = [(path.parent / f"{name}.py").read_text(encoding="utf-8") for name in ADMIN_ROUTE_MODULES]
+        parts.append((path.parent.parent / "reports" / "admin_router.py").read_text(encoding="utf-8"))  # r15: reports owns /admin/reports/*
+        return "\n".join(parts)
     if _is_reseller_router(path):
         parts = [path.read_text(encoding="utf-8")]
         parts += [(path.parent / "routes" / f"{name}.py").read_text(encoding="utf-8") for name in RESELLER_ROUTE_MODULES]

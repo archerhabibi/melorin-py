@@ -48,7 +48,7 @@ export const CHAIN = [
   },
 ];
 
-/* ---------- hash routing helpers (#/servers?panel=<id>&add=1) ---------- */
+/* ---------- hash routing helpers (#/panels?id=<id>&add=server) ---------- */
 const readParams = () => new URLSearchParams(window.location.hash.split('?')[1] || '');
 export function useHashParams() {
   const [p, setP] = useState(readParams);
@@ -59,15 +59,7 @@ export function useHashParams() {
   }, []);
   return p;
 }
-/** "servers" no longer is a screen of its own: servers live inside their panel (#/panels). */
-const LEGACY: Rec = {
-  servers: (p: Json) => [
-    'panels',
-    { id: p.panel, group: p.group, product: p.product, add: p.add ? 'server' : undefined },
-  ],
-};
-export const infraHref = (slug: Json, params = {}) => {
-  if (LEGACY[slug]) [slug, params] = LEGACY[slug](params);
+export const infraHref = (slug: Json, params: Rec = {}) => {
   const qs = new URLSearchParams(
     Object.entries(params as Rec)
       .filter(([, v]) => v !== undefined && v !== null && v !== '')
@@ -75,24 +67,6 @@ export const infraHref = (slug: Json, params = {}) => {
   ).toString();
   return `#/${slug}${qs ? `?${qs}` : ''}`;
 };
-/** Old bookmarks (#/servers?panel=…) → new address, or null when the hash needs no rewrite. */
-export function legacyHash(hash: Json) {
-  const [path, q = ''] = hash.split('?');
-  if (path === '#/identity' && new URLSearchParams(q).get('tab') === 'login') return '#/settings?tab=login'; // sign-in methods moved to Settings (owner-only)
-  if (path === '#/identity-auto') return '#/identity?tab=devices'; // the two identity screens became one hub
-  // the store hub: resellers, panel access and volume governance became tabs of #/stores
-  const hubTab: Record<string, string> = {
-    '#/resellers': 'resellers',
-    '#/panel-admins': 'panels',
-    '#/store-governance': 'volume',
-  };
-  if (hubTab[path]) return `#/stores?tab=${hubTab[path]}`;
-  if (path === '#/panel-ops' && new URLSearchParams(q).get('tab') === 'notices') return '#/stores?tab=notices'; // per-store setting
-  if (path === '#/manual-tasks') return '#/reseller-applications?tab=tasks'; // manual tasks became a tab of the reseller onboarding desk
-  if (path !== '#/servers') return null;
-  const p = Object.fromEntries(new URLSearchParams(q));
-  return infraHref('servers', p);
-}
 /** Drop one-shot params (e.g. add=1) without adding a history entry. */
 export const clearParam = (name: Json) => {
   const [path, q = ''] = window.location.hash.split('?');

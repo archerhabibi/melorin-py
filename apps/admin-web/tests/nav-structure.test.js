@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { groups, flat } from '../src/adminNav.ts';
 import { extraRoutes } from '../src/AdminExtra.tsx';
 import { SECTION_AREA, sectionAllowed } from '../src/adminAccess.ts';
-import { legacyHash } from '../src/infra.tsx';
 
 const where = (label) => groups.find(([, items]) => items.some((i) => i[0] === label))?.[0];
 
@@ -16,7 +15,6 @@ describe('admin menu structure (architecture audit §5-§6)', () => {
     expect(Object.keys(extraRoutes)).not.toContain('کارهای دستی');
     expect(SECTION_AREA['کارهای دستی']).toBeUndefined();
     expect(where('درخواست‌های نمایندگی')).toBe('فروشگاه‌ها و نمایندگان');
-    expect(legacyHash('#/manual-tasks')).toBe('#/reseller-applications?tab=tasks');
   });
   it('keeps Telegram buttons with the owner-only system settings, matching their permission', () => {
     expect(where('دکمه‌های تلگرام')).toBe('سیستم و امنیت');

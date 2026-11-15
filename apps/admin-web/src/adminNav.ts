@@ -27,7 +27,6 @@ import {
   UsersRound,
   Zap,
 } from 'lucide-react';
-import { legacyHash } from './infra.tsx';
 
 // Section keys are Persian labels (AdminSections/AdminExtra route on them); slug drives the URL hash.
 export const groups: [string, [string, LucideIcon, string][], string?][] = [
@@ -100,10 +99,5 @@ export const groups: [string, [string, LucideIcon, string][], string?][] = [
   ],
 ];
 export const flat = groups.flatMap(([, items]) => items);
-// The hash may carry deep-link params (#/servers?panel=<id>); only the path picks the section.
-// Old bookmarks of the removed #/servers screen are rewritten to #/panels (servers live inside their panel now).
-if (typeof window !== 'undefined') {
-  const moved = legacyHash(window.location.hash);
-  if (moved) window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${moved}`);
-}
+// The hash may carry deep-link params (#/panels?id=<id>); only the path picks the section. No legacy aliases: Melorin has never been released.
 export const fromHash = () => (flat.find((x) => `#/${x[2]}` === window.location.hash.split('?')[0]) || flat[0])[0];
