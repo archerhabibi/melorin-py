@@ -28,6 +28,7 @@ import logging
 import re
 import time
 import uuid
+from typing import Any, NoReturn, cast
 
 from melorin.modules.panel_integrations.adapters.base import GB, AccountSpec, Capabilities, ErrorKind, PanelAccount, PanelError
 from melorin.modules.panel_integrations.adapters.upstream_bot import parsing
@@ -222,7 +223,9 @@ class UpstreamBotAdapter:
         if not m:
             raise PanelError(ErrorKind.TRANSIENT, f"upstream_bot: main menu button '{label}' did not appear after /start")
         mark = await self._top_id()
-        await c.click(m, self._find_button(m, label))
+        button = self._find_button(m, label)
+        assert button is not None  # the wait above only returns a message that carries it
+        await c.click(m, button)
         return mark, m
 
     async def _open_detail(self, ref: str) -> tuple[int, Msg, parsing.AccountDetail]:
@@ -233,7 +236,9 @@ class UpstreamBotAdapter:
         if not sm:
             raise PanelError(ErrorKind.TRANSIENT, "upstream_bot: purchases screen / search button did not appear")
         mark2 = await self._top_id()
-        await c.click(sm, self._find_button(sm, self.cfg["search_button"]))
+        search = self._find_button(sm, self.cfg["search_button"])
+        assert search is not None  # the wait above only returns a message that carries it
+        await c.click(sm, search)
         ask = await self._wait(lambda x: "اسم اکانت" in x.text or "نام اکانت" in x.text, after_id=mark2)
         if not ask:
             raise PanelError(ErrorKind.TRANSIENT, "upstream_bot: search prompt did not appear")
@@ -242,7 +247,9 @@ class UpstreamBotAdapter:
         det = await self._wait(lambda x: (d := parsing.parse_account_detail(x.text)) is not None and d.name == ref, after_id=mark3)
         if not det:
             raise PanelError(ErrorKind.PERMANENT, f"upstream_bot: account {ref} was not found in the parent bot")
-        return mark3, det, parsing.parse_account_detail(det.text)
+        detail = parsing.parse_account_detail(det.text)
+        assert detail is not None  # the wait above only returns a message that parses
+        return mark3, det, detail
 
     def _pick_plan(self, msg: Msg, spec: AccountSpec) -> tuple[Button, parsing.PlanButton]:
         gb = round(spec.traffic_bytes / GB, 2) if spec.traffic_bytes else 0
@@ -354,10 +361,10 @@ class UpstreamBotAdapter:
                 and m.date_ts >= float(rec.get("started", 0)) - 5
                 and parsing.parse_purchase_result(m.text)
             ):
-                taken = parsing.parse_purchase_result(m.text).name
-                if await self._name_taken(taken):
-                    continue
                 res = parsing.parse_purchase_result(m.text)
+                assert res is not None  # the condition above parsed it
+                if await self._name_taken(res.name):
+                    continue
                 data = {**rec, "status": "active", "ref": res.name, "subscription_url": res.subscription_url, "bought_at": time.time()}
                 await self.store.set(username, data)
                 return self._account(username, data)
@@ -467,7 +474,7 @@ class UpstreamBotAdapter:
         its printed amount is 0 in the real bot, so only 0 / the option price are accepted. After the confirm click every failure
         is UNKNOWN and a retry first reads the account screen: it never pays twice for one renewal.
         """
-        r = {**DEFAULTS["renew"], **(self.cfg.get("renew") or {})}
+        r = {**cast(dict[str, Any], DEFAULTS["renew"]), **(self.cfg.get("renew") or {})}
         if not r.get("enabled"):
             raise PanelError(ErrorKind.PERMANENT, "upstream_bot: renewal is not enabled (config.renew.enabled); needs manual handling")
         d = await self.store.get(username)
@@ -499,6 +506,7 @@ class UpstreamBotAdapter:
             if not opts:
                 await self._raise_unrecognised(mark, "renewal options did not appear")
             screen = parsing.parse_renew_screen(opts.text)
+            assert screen is not None  # the wait above only returns a message that parses
             if screen.name != ref:
                 raise PanelError(ErrorKind.PERMANENT, f"upstream_bot: renewal screen is for {screen.name}, expected {ref}")
             want_gb = round(traffic_bytes / GB, 2) if traffic_bytes else 0
@@ -598,7 +606,7 @@ class UpstreamBotAdapter:
         except PanelError:
             log.warning("upstream_bot: could not press cancel on a half-finished flow", exc_info=True)
 
-    async def _raise_unrecognised(self, mark: int, what: str) -> None:
+    async def _raise_unrecognised(self, mark: int, what: str) -> NoReturn:
         latest = await self._latest_text(mark)
         if parsing.is_operation_expired(latest):
             raise PanelError(ErrorKind.TRANSIENT, f"upstream_bot: {what}: the parent bot said the operation expired (stale buttons); retry")

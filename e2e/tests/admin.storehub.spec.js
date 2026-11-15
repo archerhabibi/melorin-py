@@ -49,10 +49,10 @@ async function openHub(page, tab) {
 test('store hub shows all eight tabs and deep links to a tab', async ({ page }) => {
   const assertNoErrors = failOnPageErrors(page);
   await openHub(page, 'prices');
-  const group = page.getByRole('radiogroup', { name: 'بخش فروشگاه' });
-  await expect(group).toBeVisible();
-  await expect(group.getByRole('radio')).toHaveCount(8);
-  await expect(group.getByRole('radio', { name: 'قیمت‌ها' })).toHaveAttribute('aria-checked', 'true');
+  const groups = page.getByRole('radiogroup', { name: /^بخش فروشگاه/ });
+  await expect(groups).toHaveCount(3);
+  await expect(groups.getByRole('radio')).toHaveCount(8);
+  await expect(page.getByRole('radio', { name: 'قیمت‌ها' })).toHaveAttribute('aria-checked', 'true');
   assertNoErrors();
 });
 
@@ -69,18 +69,8 @@ test('API tab flips the switch with a PUT', async ({ page }) => {
   await expect.poll(() => seen.some((k) => k.startsWith('PUT /api/v1/admin/reseller-stores/s9/api'))).toBe(true);
 });
 
-test('old panel-ops notices bookmark lands on the notices tab', async ({ page }) => {
-  await openHub(page, '');
-  await page.goto('about:blank');
-  await page.goto('/#/panel-ops?tab=notices');
-  await expect(page).toHaveURL(/#\/stores\?tab=notices/);
-  await expect(page.getByRole('radio', { name: 'اعلان‌ها' })).toHaveAttribute('aria-checked', 'true', {
-    timeout: 15000,
-  });
-});
-
 const ROUTES =
-  'admin-team audit broadcasts bulk-operations bundles button-styles coupons event-center home identity infra-health loyalty-club manual-tasks my-account orders panel-ops panels payments products referral-programs reports reseller-applications settings stores tickets users vpn'.split(
+  'admin-team audit broadcasts bundles button-styles coupons event-center home identity infra-health loyalty-club manual-tasks my-account orders panel-ops panels payments products referral-programs reports reseller-applications settings stores tickets users vpn'.split(
     ' ',
   );
 

@@ -49,7 +49,7 @@ def delivery_out(d):
 async def _safe(url: str):
     try:
         host = __import__("urllib.parse", fromlist=["urlsplit"]).urlsplit(url).hostname
-        ips = [x[4][0] for x in socket.getaddrinfo(host, None)] if host else []
+        ips = [str(x[4][0]) for x in socket.getaddrinfo(host, None)] if host else []
         return wh.check_url(url, resolved_ips=ips)
     except wh.WebhookUrlError as e:
         raise AppError("WEBHOOK_URL_FORBIDDEN", "آدرس وبهوک امن نیست.", 400) from e

@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import IdentityHubView from '../src/IdentityHubView.tsx';
-import { legacyHash } from '../src/infra.tsx';
 import { DialogHost } from '../src/ui.tsx';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
@@ -103,12 +102,5 @@ describe('admin «هویت» hub', () => {
     window.history.replaceState(null, '', '/#/identity?tab=devices');
     setup([]);
     expect(await screen.findByText('Chrome · Windows')).toBeInTheDocument();
-  });
-});
-
-describe('old bookmark of the former separate screen', () => {
-  it('#/identity-auto lands on the devices tab of the hub', () => {
-    expect(legacyHash('#/identity-auto')).toBe('#/identity?tab=devices');
-    expect(legacyHash('#/identity')).toBeNull();
   });
 });

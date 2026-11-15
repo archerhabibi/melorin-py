@@ -142,7 +142,7 @@ async def sync_usage(session: AsyncSession, panel: Panel, adapter=None) -> SyncS
         for row in rows:
             stats.checked += 1
             try:
-                detail = await adapter.get_admin_detail(int(row.remote_id))
+                detail = await adapter.get_admin_detail(int(row.remote_id or 0))
             except PanelError as exc:
                 row.governance_error = exc.message[:300]
                 stats.errors += 1

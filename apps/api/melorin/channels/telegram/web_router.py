@@ -4,6 +4,7 @@ Browser endpoints are public but rate limited; bot endpoints require the shared 
 scoped to the store the calling bot serves.
 """
 
+from typing import Any, cast
 import datetime as dt
 
 from fastapi import APIRouter, Depends, Request, Response
@@ -103,7 +104,7 @@ async def start(body: TelegramWebStart, session: Session, request: Request, resp
         qr=_qr(link),
         # A trusted browser is never shown a number: there is nothing to match (silent) or the bot link is the approval (auto).
         match_code=started.row.match_code if started.level == "manual" and web.number_match_enabled(cfg) else None,
-        level=started.level,
+        level=cast(Any, started.level),
         bot_username=started.bot_username,
         expires_in=web.seconds_left(started.row),
         poll_interval=web.POLL_INTERVAL_SECONDS,
@@ -121,7 +122,7 @@ async def poll(session_id: str, body: TelegramWebPoll, session: Session, request
         reason=result.reason,
         expires_in=result.expires_in,
         tokens=result.tokens,
-        level=result.level,
+        level=cast(Any, result.level),
         match_code=result.match_code,
     )
 
@@ -173,7 +174,7 @@ async def bot_decide(body: TelegramWebDecision, session: Session, bot: BotAuth):
 async def bot_devices(body: TelegramWebDevices, session: Session, bot: BotAuth):
     """Trusted browsers of the calling Telegram account in this store (the bot's /devices screen)."""
     await channel.bot_channel(session, bot, body.store_id)
-    return TelegramWebDevicesOut(devices=await web.list_devices(session, body.store_id, body.telegram_id))
+    return TelegramWebDevicesOut(devices=cast(Any, await web.list_devices(session, body.store_id, body.telegram_id)))
 
 
 @tgweb.post("/bot/revoke", response_model=TelegramWebRevokeOut)

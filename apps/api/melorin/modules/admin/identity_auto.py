@@ -9,7 +9,7 @@ import uuid
 
 from fastapi import APIRouter
 from pydantic import BaseModel
-from sqlalchemy import func, or_, select
+from sqlalchemy import ColumnElement, func, or_, select
 
 from melorin.core import audit
 from melorin.core.db import utcnow
@@ -30,6 +30,11 @@ def device_status(d: TrustedDevice, now: dt.datetime) -> str:
     if d.revoked_at is not None:
         return "revoked"
     return "expired" if _aware(d.expires_at) <= now else "active"
+
+
+def _pick(users: dict, key):
+    """``users[key]`` when ``key`` is a real id (an event without keeper/shell data has none)."""
+    return users.get(key) if key is not None else None
 
 
 def _uid(v) -> uuid.UUID | None:
@@ -63,7 +68,11 @@ async def trusted_devices(_: AdminUser, session: Session, status: str = "active"
     term = (q or "").strip().lower()[:100]
     if term:
         like = f"%{term}%"
-        conds = [func.lower(User.email).like(like), func.lower(User.display_name).like(like), func.lower(TrustedDevice.label).like(like)]
+        conds: list[ColumnElement[bool]] = [
+            func.lower(User.email).like(like),
+            func.lower(User.display_name).like(like),
+            func.lower(TrustedDevice.label).like(like),
+        ]
         if term.isdigit():
             conds.append(TrustedDevice.telegram_id == int(term))
         stmt = stmt.where(or_(*conds))
@@ -184,8 +193,8 @@ async def identity_auto_merges(_: AdminUser, session: Session, days: int = 90):
             "created_at": e.created_at,
             "rule": (e.data or {}).get("rule"),
             "providers": (e.data or {}).get("providers") or [],
-            "keeper": _user_card(users.get(_uid((e.data or {}).get("keeper")))),
-            "shell": _user_card(users.get(_uid((e.data or {}).get("shell")))),
+            "keeper": _user_card(_pick(users, _uid((e.data or {}).get("keeper")))),
+            "shell": _user_card(_pick(users, _uid((e.data or {}).get("shell")))),
         }
         for e in events
     ]

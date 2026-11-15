@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 // without a manual step, and accounts that were folded together automatically. The admin can revoke trust here.
 import { useEffect, useState } from 'react';
 import { ArrowLeftRight, Fingerprint, MonitorSmartphone, ShieldOff, UserRound, Users } from 'lucide-react';
-import { authFetch, typedClient } from './api.ts';
+import { typedClient, useCall } from './api.ts';
 import { confirmDialog, dt, sid } from './ui.tsx';
 import { Empty, ErrorBar, KpiBar, Pills, SearchBox, Segmented, Stat, errText, num, tint, useRows } from './kit.tsx';
 import type { CallFn, Json, Rec, Toast } from './types.ts';
@@ -217,7 +217,7 @@ function MergesTab({ call }: { call: CallFn }) {
 
 // `section` ('devices' | 'merges') pins the view to one tab when the screen is hosted inside the identity hub.
 export default function IdentityAutoView({ api, toast, section }: { api?: Json; toast: Toast; section?: Json }) {
-  const call = (p: Json, o = {}) => authFetch(api.base, p, o);
+  const call = useCall(api);
   const [tab, setTabState] = useState(section || 'devices');
   const setTab = (v: Json) => !section && setTabState(v);
   const [tick, setTick] = useState(0);

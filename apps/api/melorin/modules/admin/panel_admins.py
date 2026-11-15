@@ -39,7 +39,8 @@ def _bad(exc: svc.ProfileError) -> AppError:
 
 
 async def _out(session, rows):
-    panels, stores = {}, {}
+    panels: dict = {}
+    stores: dict = {}
     out = []
     for r in rows:
         panels[r.panel_id] = panels.get(r.panel_id) or await session.get(Panel, r.panel_id)
@@ -124,6 +125,8 @@ async def credentials(row_id: uuid.UUID, admin: AdminUser, session: Session):
 async def reset_password(row_id: uuid.UUID, admin: AdminUser, session: Session):
     row = await _row(session, row_id)
     panel = await session.get(Panel, row.panel_id)
+    if panel is None:
+        raise NotFound("پنل")
     try:
         password = await svc.reset_password(session, row, panel)
     except PanelError as exc:
@@ -188,7 +191,7 @@ async def list_requests(_: AdminUser, session: Session, status: str | None = "pe
             stores[r.store_id] = await session.get(Store, r.store_id)
             first = await queries.first_panel_admin(session, r.store_id)
             current[r.store_id] = dict(first.profile or {}) if first else {}
-    return [_req_out(r, stores[r.store_id].name if stores[r.store_id] else None, current[r.store_id]) for r in rows]
+    return [_req_out(r, (s.name if (s := stores[r.store_id]) else None), current[r.store_id]) for r in rows]
 
 
 async def _pending(session, request_id: uuid.UUID) -> PanelAdminChangeRequest:

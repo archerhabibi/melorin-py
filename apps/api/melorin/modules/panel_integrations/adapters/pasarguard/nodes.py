@@ -1,5 +1,6 @@
 """PasarGuard infrastructure listings: groups, user templates, destination picker (and, below, nodes)."""
 
+from typing import TYPE_CHECKING, Any
 from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError
 from melorin.modules.panel_integrations.adapters.pasarguard.core import as_rows
 
@@ -8,6 +9,10 @@ NODE_MAX_PAGES = 50  # 5,000 nodes: far beyond any real panel, but a runaway loo
 
 
 class NodesMixin:
+    if TYPE_CHECKING:  # what the host adapter class provides to this mixin (declared for the type checker only)
+
+        async def _req(self, method: str, path: str, *, ok404: bool = False, ok409: bool = False, **kw: Any) -> Any: ...
+
     async def list_groups(self) -> list[dict]:
         """Admin helper to pick group_ids."""
         data = await self._req("GET", "/api/groups/simple", ok404=True)

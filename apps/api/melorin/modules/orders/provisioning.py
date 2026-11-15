@@ -207,6 +207,9 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
             # Retry like any transient failure; auto-refund when retries exhausted.
             order.provisioning_attempts += 1
             return await _fail(session, order, e.message)
+    if panel is None or server is None:
+        # r15: an account pointing at a deleted panel/server must stop for a human instead of crashing below.
+        return await _needs_review(session, order, "پنل یا سرور این اکانت پیدا نشد؛ بررسی دستی لازم است.")
     order.provisioning_attempts += 1
     attempt = ProvisioningAttempt(
         order_id=order.id,

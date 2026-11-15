@@ -4,7 +4,8 @@ import { Dot, health, memberIds } from '../infra.tsx';
 import { Drawer, Field, NumInput, Section, Secret, Segmented, Switch, Toggle, DeleteButton, tint } from '../kit.tsx';
 import { Activity, AlertTriangle, Check, ChevronDown, Plus, RefreshCw, Save, ShieldCheck } from 'lucide-react';
 import { focusOnMount } from '../useDialog.ts';
-import { UpstreamBotLink, UpstreamCredentials, UpstreamFlowSection, UpstreamSettings } from '../UpstreamBotFields.tsx';
+import { UpstreamBotLink, UpstreamCredentials, UpstreamSettings } from '../UpstreamBotFields.tsx';
+import { UpstreamFlowSection } from '../UpstreamFlowParts.tsx';
 import {
   UB_KEYS,
   botUrl,

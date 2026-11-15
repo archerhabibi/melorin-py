@@ -17,7 +17,7 @@ import {
   UserRound,
   Users,
 } from 'lucide-react';
-import { authFetch, typedClient } from './api.ts';
+import { typedClient, useCall } from './api.ts';
 import { dt, sid } from './ui.tsx';
 import {
   Drawer,
@@ -329,7 +329,7 @@ function ReviewDrawer({
 }
 
 export default function IdentityReviewsView({ api, toast }: { api?: Json; toast: Toast }) {
-  const call = (p: Json, o = {}) => authFetch(api.base, p, o);
+  const call = useCall(api);
   const { rows, failed, load } = useRows(call, '/api/v1/admin/identity-link-reviews?status=all');
   const [status, setStatus] = useState('open');
   const [provider, setProvider] = useState('all');

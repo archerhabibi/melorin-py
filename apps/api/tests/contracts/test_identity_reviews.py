@@ -9,7 +9,7 @@ import pytest
 import melorin.models  # noqa: F401  (registers every table so FKs resolve)
 from melorin.core import db
 from melorin.core.errors import AppError
-from melorin.modules.admin import router as admin
+from melorin.modules.admin import identity_reviews as admin_identity_reviews
 from melorin.kernel.models.identity import Identity, IdentityLinkReview, User
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.system import AuditEvent
@@ -43,26 +43,26 @@ async def seed(s):
 
 async def test_list_carries_both_sides_and_filters_by_status(session):
     a, b, r = await seed(session)
-    rows = await admin.identity_link_reviews(None, session)
+    rows = await admin_identity_reviews.identity_link_reviews(None, session)
     assert len(rows) == 1 and rows[0]["source_user"]["display_name"] == "Guest" and rows[0]["source_user"]["is_guest"] is True
     assert rows[0]["candidates"][0]["email"] == "ali@x.io" and rows[0]["candidates"][0]["providers"] == ["email"]
     assert rows[0]["candidates"][0]["orders"] == 0 and rows[0]["resolved_at"] is None
-    assert await admin.identity_link_reviews(None, session, status="dismissed") == []
-    assert len(await admin.identity_link_reviews(None, session, status="all")) == 1
+    assert await admin_identity_reviews.identity_link_reviews(None, session, status="dismissed") == []
+    assert len(await admin_identity_reviews.identity_link_reviews(None, session, status="all")) == 1
     with pytest.raises(AppError):
-        await admin.identity_link_reviews(None, session, status="bogus")
+        await admin_identity_reviews.identity_link_reviews(None, session, status="bogus")
 
 
 async def test_rows_settled_by_core_are_flagged_auto_so_the_panel_keeps_them_out_of_the_manual_queue(session):
     a, b, r = await seed(session)
-    assert (await admin.identity_link_reviews(None, session))[0]["auto"] is False
+    assert (await admin_identity_reviews.identity_link_reviews(None, session))[0]["auto"] is False
     r.status, r.resolution_note = "linked", "auto:shell_into_other"
     await session.commit()
-    (row,) = await admin.identity_link_reviews(None, session, status="linked")
+    (row,) = await admin_identity_reviews.identity_link_reviews(None, session, status="linked")
     assert row["auto"] is True
     r.resolution_note = "merged by hand"  # an admin's own link is NOT automatic
     await session.commit()
-    assert (await admin.identity_link_reviews(None, session, status="linked"))[0]["auto"] is False
+    assert (await admin_identity_reviews.identity_link_reviews(None, session, status="linked"))[0]["auto"] is False
 
 
 async def test_dismiss_with_note_then_reopen(session):
@@ -70,8 +70,10 @@ async def test_dismiss_with_note_then_reopen(session):
     admin_user = User(display_name="adm")
     session.add(admin_user)
     await session.commit()
-    await admin.dismiss_identity_review(r.id, admin_user, session, admin.ReviewNoteIn(note="  دو نفر متفاوت  "))
-    row = (await admin.identity_link_reviews(None, session, status="dismissed"))[0]
+    await admin_identity_reviews.dismiss_identity_review(
+        r.id, admin_user, session, admin_identity_reviews.ReviewNoteIn(note="  دو نفر متفاوت  ")
+    )
+    row = (await admin_identity_reviews.identity_link_reviews(None, session, status="dismissed"))[0]
     assert (
         row["status"] == "dismissed"
         and row["resolution_note"] == "دو نفر متفاوت"
@@ -79,12 +81,12 @@ async def test_dismiss_with_note_then_reopen(session):
         and row["resolved_at"]
     )
     with pytest.raises(AppError):  # already closed
-        await admin.dismiss_identity_review(r.id, admin_user, session, None)
-    await admin.reopen_identity_review(r.id, admin_user, session)
-    row = (await admin.identity_link_reviews(None, session))[0]
+        await admin_identity_reviews.dismiss_identity_review(r.id, admin_user, session, None)
+    await admin_identity_reviews.reopen_identity_review(r.id, admin_user, session)
+    row = (await admin_identity_reviews.identity_link_reviews(None, session))[0]
     assert row["status"] == "open" and row["resolution_note"] is None and row["resolved_by"] is None
     with pytest.raises(AppError):  # only dismissed items can be reopened
-        await admin.reopen_identity_review(r.id, admin_user, session)
+        await admin_identity_reviews.reopen_identity_review(r.id, admin_user, session)
 
 
 async def test_dismiss_without_body_still_works_for_old_clients(session):
@@ -92,7 +94,7 @@ async def test_dismiss_without_body_still_works_for_old_clients(session):
     admin_user = User(display_name="adm")
     session.add(admin_user)
     await session.commit()
-    assert await admin.dismiss_identity_review(r.id, admin_user, session) == {"ok": True}
+    assert await admin_identity_reviews.dismiss_identity_review(r.id, admin_user, session) == {"ok": True}
 
 
 def test_screen_is_wired_into_the_admin_panel_and_bot_keeps_its_contract():

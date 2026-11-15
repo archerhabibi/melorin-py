@@ -8,6 +8,7 @@ Design rules (doc: PasarGuard roadmap section 3):
   a repeat would apply twice. Time/traffic compensation goes through ``extend_account`` with an absolute value instead;
 * ids are sent in chunks of ``BULK_CHUNK`` (the panel's own bulk limit used by ``bulk_set_owner``)."""
 
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
 import httpx
@@ -25,6 +26,13 @@ def _ids(values) -> list[int]:
 
 
 class OpsMixin:
+    if TYPE_CHECKING:  # what the host adapter class provides to this mixin (declared for the type checker only)
+
+        async def _req(self, method: str, path: str, *, ok404: bool = False, ok409: bool = False, **kw: Any) -> Any: ...
+
+        cfg: dict[str, Any]
+        timeout: Any
+
     # ------------------------------------------------------------------ NodeInsight (read-only)
     async def get_system_stats(self) -> dict:
         data = await self._req("GET", "/api/system")

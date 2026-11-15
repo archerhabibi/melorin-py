@@ -1,0 +1,325 @@
+From 6cec48d912b08e86d57e0e94b0bb15f7ace10e3f Mon Sep 17 00:00:00 2001
+From: Melorin Refactor <refactor@melorin.local>
+Date: Sun, 15 Nov 2026 09:28:43 +0000
+Subject: [PATCH] refactor(types): widen mypy gate to reports, tickets,
+ notifications, loyalty, webhooks, vpn_accounts (audit 8.5)
+
+Area: api / typing
+Action: type-only fixes; reconcile_account returns missing for a deleted panel instead of AttributeError
+---
+ apps/api/melorin/modules/loyalty/service.py     |  7 ++++---
+ .../api/melorin/modules/notifications/router.py |  6 ++++--
+ apps/api/melorin/modules/reports/analytics.py   | 17 +++++++++++------
+ apps/api/melorin/modules/reports/timeseries.py  |  5 +++++
+ apps/api/melorin/modules/tickets/schemas.py     |  2 +-
+ apps/api/melorin/modules/tickets/service.py     |  8 ++++----
+ apps/api/melorin/modules/vpn_accounts/live.py   |  8 ++++----
+ apps/api/melorin/modules/vpn_accounts/plans.py  |  6 ++++--
+ .../melorin/modules/vpn_accounts/reconcile.py   |  2 ++
+ apps/api/melorin/modules/vpn_accounts/router.py |  2 +-
+ apps/api/melorin/modules/webhooks/service.py    |  2 +-
+ apps/api/pyproject.toml                         |  4 +++-
+ docs/CHANGE_LOG.md                              |  7 +++++++
+ docs/DECISIONS.md                               |  4 ++++
+ 14 files changed, 55 insertions(+), 25 deletions(-)
+
+diff --git a/apps/api/melorin/modules/loyalty/service.py b/apps/api/melorin/modules/loyalty/service.py
+index 8ff98f7..6946e08 100644
+--- a/apps/api/melorin/modules/loyalty/service.py
++++ b/apps/api/melorin/modules/loyalty/service.py
+@@ -678,15 +678,16 @@ async def customer_summary(session: AsyncSession, store: Store, user_id: uuid.UU
+     upcoming, missing = rules.next_tier(tiers, acc.lifetime_earned)
+     rewards = await list_rewards(session, store.id, only_active=True)
+     recent, more = await history(session, store.id, user_id, limit=10)
+-    used = dict(
+-        (
++    used: dict[uuid.UUID, int] = {
++        row[0]: row[1]
++        for row in (
+             await session.execute(
+                 select(LoyaltyRedemption.reward_id, func.count())
+                 .where(LoyaltyRedemption.store_id == store.id, LoyaltyRedemption.user_id == user_id)
+                 .group_by(LoyaltyRedemption.reward_id)
+             )
+         ).all()
+-    )
++    }
+ 
+     def card(r: LoyaltyReward) -> dict:
+         try:
+diff --git a/apps/api/melorin/modules/notifications/router.py b/apps/api/melorin/modules/notifications/router.py
+index 18c562b..5d7d7d0 100644
+--- a/apps/api/melorin/modules/notifications/router.py
++++ b/apps/api/melorin/modules/notifications/router.py
+@@ -27,13 +27,15 @@ def _out(n: Notification) -> dict:
+ 
+ @router.get("")
+ async def list_notifications(ctx: StoreCtx, session: Session, unread_only: bool = False, limit: int = 50):
+-    unread, items = await queries.list_for_store(session, StoreScope.of(ctx).where(Notification), unread_only=unread_only, limit=limit)
++    unread, items = await queries.list_for_store(
++        session, list(StoreScope.of(ctx).where(Notification)), unread_only=unread_only, limit=limit
++    )
+     return {"unread": unread, "items": [_out(n) for n in items]}
+ 
+ 
+ @router.post("/read-all")
+ async def read_all(ctx: StoreCtx, session: Session):
+-    await queries.mark_all_read(session, StoreScope.of(ctx).where(Notification))
++    await queries.mark_all_read(session, list(StoreScope.of(ctx).where(Notification)))
+     await session.commit()
+     return {"ok": True}
+ 
+diff --git a/apps/api/melorin/modules/reports/analytics.py b/apps/api/melorin/modules/reports/analytics.py
+index ee1a176..fb214c0 100644
+--- a/apps/api/melorin/modules/reports/analytics.py
++++ b/apps/api/melorin/modules/reports/analytics.py
+@@ -18,7 +18,8 @@ from __future__ import annotations
+ import datetime as dt
+ import uuid
+ from collections import Counter, defaultdict
+-from typing import NamedTuple
++from collections.abc import Sequence
++from typing import Any, NamedTuple
+ from zoneinfo import ZoneInfo
+ 
+ from sqlalchemy import func, select
+@@ -82,8 +83,8 @@ def pct_change(cur: float, prev: float) -> float | None:
+     return round((cur - prev) / prev * 100, 1)
+ 
+ 
+-def _kpi(cur: float, prev: float, spark: list[float] | None = None) -> dict:
+-    out = {"value": cur, "previous": prev, "delta_pct": pct_change(cur, prev)}
++def _kpi(cur: float, prev: float, spark: Sequence[float] | None = None) -> dict:
++    out: dict[str, Any] = {"value": cur, "previous": prev, "delta_pct": pct_change(cur, prev)}
+     if spark is not None:
+         out["spark"] = spark
+     return out
+@@ -244,7 +245,7 @@ def compute_analytics(
+     def _split(bucket: dict[str, list[int]]) -> list[dict]:
+         return [{"key": k, "count": v[0], "revenue": v[1]} for k, v in sorted(bucket.items(), key=lambda kv: (-kv[1][1], -kv[1][0], kv[0]))]
+ 
+-    provider_rows = []
++    provider_rows: list[dict[str, Any]] = []
+     for name, c in providers.items():
+         ok, bad = c.get("succeeded", 0), c.get("failed", 0) + c.get("cancelled", 0)
+         provider_rows.append(
+@@ -393,7 +394,9 @@ async def _panel_aggregates(session: AsyncSession) -> list[dict]:
+ 
+ async def _snapshot(session: AsyncSession, now: dt.datetime) -> dict:
+     """Point-in-time operational numbers (not period based): VPN fleet, tickets, users."""
+-    vpn_status = dict((await session.execute(select(VpnAccount.status, func.count(VpnAccount.id)).group_by(VpnAccount.status))).all())
++    vpn_status: dict[str, int] = {
++        r[0]: r[1] for r in (await session.execute(select(VpnAccount.status, func.count(VpnAccount.id)).group_by(VpnAccount.status))).all()
++    }
+     soon = now + dt.timedelta(days=7)
+     expiring = (
+         await session.scalar(
+@@ -408,7 +411,9 @@ async def _snapshot(session: AsyncSession, now: dt.datetime) -> dict:
+     )
+     sold = await session.scalar(select(func.coalesce(func.sum(VpnAccount.sold_traffic_bytes), 0)).where(VpnAccount.status == "active")) or 0
+     panels = await _panel_aggregates(session)
+-    tickets = dict((await session.execute(select(Ticket.status, func.count(Ticket.id)).group_by(Ticket.status))).all())
++    tickets: dict[str, int] = {
++        r[0]: r[1] for r in (await session.execute(select(Ticket.status, func.count(Ticket.id)).group_by(Ticket.status))).all()
++    }
+     users_total = await session.scalar(select(func.count(User.id)).where(User.is_active.is_(True), User.is_guest.is_(False))) or 0
+     return {
+         "vpn": {
+diff --git a/apps/api/melorin/modules/reports/timeseries.py b/apps/api/melorin/modules/reports/timeseries.py
+index bef45b9..4064fae 100644
+--- a/apps/api/melorin/modules/reports/timeseries.py
++++ b/apps/api/melorin/modules/reports/timeseries.py
+@@ -12,6 +12,8 @@ see ``SOLD_STATUSES``) so it describes the same population as the sales series;
+ """
+ 
+ import datetime as dt
++from collections.abc import Sequence
++from typing import Any
+ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+ 
+ from sqlalchemy import func, select
+@@ -90,6 +92,9 @@ async def build_timeseries(session: AsyncSession, days: int = 30, now: dt.dateti
+     sold = [s.value for s in SOLD_STATUSES]
+     sql_side = dialect == "postgresql" or tz_name == "UTC"
+ 
++    pay_rows: Sequence[Any]
++    order_all_rows: Sequence[Any]
++    order_rows: Sequence[Any]
+     if sql_side:
+         sale_day = local_day(sale_at, dialect, tz_name)
+         pay_rows = (
+diff --git a/apps/api/melorin/modules/tickets/schemas.py b/apps/api/melorin/modules/tickets/schemas.py
+index 2fff622..b366dc1 100644
+--- a/apps/api/melorin/modules/tickets/schemas.py
++++ b/apps/api/melorin/modules/tickets/schemas.py
+@@ -13,7 +13,7 @@ class _NeedsTextOrImage(BaseModel):
+ 
+     @model_validator(mode="after")
+     def _text_or_image(self):
+-        if not self.body and not self.attachment_id:
++        if not getattr(self, "body", None) and not getattr(self, "attachment_id", None):
+             raise ValueError("متن یا تصویر پیوست لازم است.")
+         return self
+ 
+diff --git a/apps/api/melorin/modules/tickets/service.py b/apps/api/melorin/modules/tickets/service.py
+index c151459..ef83ba4 100644
+--- a/apps/api/melorin/modules/tickets/service.py
++++ b/apps/api/melorin/modules/tickets/service.py
+@@ -56,12 +56,12 @@ async def save_image(session: AsyncSession, *, user_id: uuid.UUID, store_id: uui
+     if content_type not in TICKET_IMAGE_TYPES:
+         raise AppError("UNSUPPORTED_FILE", "فقط تصویر (JPG، PNG یا WebP) مجاز است.", 415)
+     limit = get_settings().max_upload_bytes
+-    data = bytearray()
++    buf = bytearray()
+     while chunk := await file.read(1024 * 1024):
+-        data.extend(chunk)
+-        if len(data) > limit:
++        buf.extend(chunk)
++        if len(buf) > limit:
+             raise AppError("FILE_TOO_LARGE", "حجم تصویر زیاد است.", 413)
+-    data = bytes(data)
++    data = bytes(buf)
+     if not data:
+         raise AppError("EMPTY_FILE", "فایل خالی است.", 422)
+     digest = validate_upload(data, content_type)
+diff --git a/apps/api/melorin/modules/vpn_accounts/live.py b/apps/api/melorin/modules/vpn_accounts/live.py
+index 4887403..8d0f4c9 100644
+--- a/apps/api/melorin/modules/vpn_accounts/live.py
++++ b/apps/api/melorin/modules/vpn_accounts/live.py
+@@ -120,14 +120,14 @@ async def read(session, accounts: list[VpnAccount], *, fresh: bool = False) -> d
+             todo.setdefault(account.panel_id, []).append(account)
+     if todo:
+         panels = {p.id: p for p in (await session.scalars(select(Panel).where(Panel.id.in_(list(todo))))).all()}
+-        fresh: list[dict] = []
++        parts: list[dict] = []
+         for panel_id, group in todo.items():
+             panel = panels.get(panel_id)
+-            fresh.append(await _read_panel(panel, group) if panel is not None else {a.id: None for a in group})
++            parts.append(await _read_panel(panel, group) if panel is not None else {a.id: None for a in group})
+         if len(_cache) > CACHE_LIMIT:
+             _cache.clear()
+         stamp = time.monotonic()
+-        for part in fresh:
++        for part in parts:
+             for account_id, reading in part.items():
+                 _cache[account_id] = (stamp, reading)
+                 result[account_id] = reading
+@@ -273,5 +273,5 @@ async def card(session, account: VpnAccount) -> VpnAccountOut:
+ 
+ async def owner_cards(session, rows, owner_id: uuid.UUID):
+     """The store owner's cards (``rows`` = ``[(account, holder)]``) with the panel's numbers on them."""
+-    outs = [inquiry.owner_account_out(a, u, owner_id=owner_id) for a, u in rows]
++    outs: list[VpnAccountOut] = [inquiry.owner_account_out(a, u, owner_id=owner_id) for a, u in rows]
+     return await overlay_page(session, outs, [a for a, _ in rows])
+diff --git a/apps/api/melorin/modules/vpn_accounts/plans.py b/apps/api/melorin/modules/vpn_accounts/plans.py
+index b1ef455..b36a720 100644
+--- a/apps/api/melorin/modules/vpn_accounts/plans.py
++++ b/apps/api/melorin/modules/vpn_accounts/plans.py
+@@ -28,6 +28,7 @@ import dataclasses
+ import datetime as dt
+ import logging
+ import uuid
++from typing import Any
+ 
+ from sqlalchemy.ext.asyncio import AsyncSession
+ 
+@@ -220,9 +221,10 @@ async def change_plan(
+     before = {"product_id": str(account.product_id), "expires_at": account.sold_expires_at.isoformat() if account.sold_expires_at else None,
+               "traffic_limit_bytes": account.sold_traffic_bytes}  # fmt: skip
+     try:
+-        pa = await adapter.apply_template(account.username, template_id)
++        plan_ops: Any = adapter  # capability-checked above ("next_plan_ops"); not part of the base PanelAdapter protocol
++        pa = await plan_ops.apply_template(account.username, template_id)
+         if account.queued_plan:
+-            await adapter.clear_next_plan(account.username)
++            await plan_ops.clear_next_plan(account.username)
+             account.queued_plan = None
+     except PanelError as exc:
+         raise templates._panel_error(exc) from exc
+diff --git a/apps/api/melorin/modules/vpn_accounts/reconcile.py b/apps/api/melorin/modules/vpn_accounts/reconcile.py
+index 37f9b03..eca6edc 100644
+--- a/apps/api/melorin/modules/vpn_accounts/reconcile.py
++++ b/apps/api/melorin/modules/vpn_accounts/reconcile.py
+@@ -204,6 +204,8 @@ async def reconcile_account(session: AsyncSession, account_id: uuid.UUID) -> str
+     if not account or not account.panel_id:
+         return "missing"
+     panel = await session.get(Panel, account.panel_id)
++    if panel is None:  # the account points at a deleted panel: nothing to compare against
++        return "missing"
+     adapter = seed_adapter(build_adapter(panel), account)
+     now = utcnow()
+     result = PanelResult(panel_id=panel.id)
+diff --git a/apps/api/melorin/modules/vpn_accounts/router.py b/apps/api/melorin/modules/vpn_accounts/router.py
+index 303f05e..73b3011 100644
+--- a/apps/api/melorin/modules/vpn_accounts/router.py
++++ b/apps/api/melorin/modules/vpn_accounts/router.py
+@@ -21,7 +21,7 @@ out = inquiry.account_out
+ 
+ async def _with_returns(session, scope, accounts):
+     readings = await live.page_readings(session, accounts)  # ONE live read of the page: usage for the return rule AND the overlay
+-    used = {aid: r.traffic_used_bytes for aid, r in readings.items() if r is not None}
++    used: dict[uuid.UUID, int | None] = {aid: r.traffic_used_bytes for aid, r in readings.items() if r is not None}
+     elig = await returns.eligibility_for(session, scope, accounts, used=used)
+     outs = [returns.account_view(a, elig.get(a.id)) for a in accounts]
+     return await live.overlay_page(session, outs, accounts, readings)  # the panel's numbers, never an old copy
+diff --git a/apps/api/melorin/modules/webhooks/service.py b/apps/api/melorin/modules/webhooks/service.py
+index a3c53b8..23f66e2 100644
+--- a/apps/api/melorin/modules/webhooks/service.py
++++ b/apps/api/melorin/modules/webhooks/service.py
+@@ -49,7 +49,7 @@ def delivery_out(d):
+ async def _safe(url: str):
+     try:
+         host = __import__("urllib.parse", fromlist=["urlsplit"]).urlsplit(url).hostname
+-        ips = [x[4][0] for x in socket.getaddrinfo(host, None)] if host else []
++        ips = [str(x[4][0]) for x in socket.getaddrinfo(host, None)] if host else []
+         return wh.check_url(url, resolved_ips=ips)
+     except wh.WebhookUrlError as e:
+         raise AppError("WEBHOOK_URL_FORBIDDEN", "آدرس وبهوک امن نیست.", 400) from e
+diff --git a/apps/api/pyproject.toml b/apps/api/pyproject.toml
+index 1cc78c9..7218a02 100644
+--- a/apps/api/pyproject.toml
++++ b/apps/api/pyproject.toml
+@@ -30,7 +30,9 @@ line-ending = "lf"
+ # T41: static typing is gated on core + worker + the pure domain and the kernel models; widen `files` as other packages are cleaned up.
+ python_version = "3.12"
+ files = ["melorin/core", "melorin/worker", "melorin/domain", "melorin/kernel", "melorin/modules/wallet", "melorin/modules/catalog",
+-         "melorin/modules/orders", "melorin/modules/identity", "melorin/modules/reseller", "melorin/modules/payments"]
++         "melorin/modules/orders", "melorin/modules/identity", "melorin/modules/reseller", "melorin/modules/payments",
++         "melorin/modules/reports", "melorin/modules/tickets", "melorin/modules/notifications", "melorin/modules/loyalty", "melorin/modules/webhooks",
++         "melorin/modules/vpn_accounts", "melorin/modules/referral", "melorin/modules/broadcast", "melorin/modules/eventcenter"]
+ ignore_missing_imports = true
+ follow_imports = "silent"
+ # T-W07/T-R09: bodies of unannotated functions are checked too; widen `files` one package at a time (r13: orders, identity, reseller are in scope; r14: payments too, with no ratchet entries; r15: the ratchet is empty, every module in `files` is clean).
+diff --git a/docs/CHANGE_LOG.md b/docs/CHANGE_LOG.md
+index 684707c..bc94000 100644
+--- a/docs/CHANGE_LOG.md
++++ b/docs/CHANGE_LOG.md
+@@ -21,6 +21,13 @@ If `main` is protected, allow `github-actions[bot]` to bypass so the bot can pus
+ 
+ > Entries before 2026-11-09 were archived (T-R12) and live in git tag `changelog-archive-2026-11-09` (`git show changelog-archive-2026-11-09:docs/CHANGE_LOG.md`), per DOCUMENTATION-POLICY.
+ 
++## 2026-11-15 - mypy gate widened (reports, tickets, notifications, loyalty, webhooks, vpn_accounts)
++- **Area:** api / typing
++- **Before:** mypy gated 10 packages; 6 more carried 35 type errors.
++- **Problem:** the audit (8.5) asks for type checking to grow module by module, money and provisioning paths first.
++- **Action:** errors fixed without changing behaviour (annotations, comprehensions instead of `dict(rows)`, a renamed shadowed variable); `reconcile_account` answers `missing` for a deleted panel instead of crashing. Decision: `docs/DECISIONS.md` (r16).
++- **After:** `mypy` clean on the wider scope.
++
+ ## 2026-11-15 - Pre-release audit: menu regroup, migrate service, web-kit lockfile
+ - **Area:** admin-web / compose / ci / docs
+ - **Before:** bulk panel operations sat under sales operations, manual tasks and Telegram buttons had menus that did not match their owner or permission, compose could start API/worker before the schema existed, web-kit had no lockfile.
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index 675a41d..f964bfa 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -224,3 +224,7 @@ Source: `Melorin_Architecture_Admin_Audit.md` (the project has never been releas
+ - **Restore-drill finding, fixed:** `backup_secure.sh` called the `pg_dump` wrapper, which picks client 17 in the image (clients 16 and 17 are installed); that archive could NOT be restored into the PostgreSQL 16 server (`unrecognized configuration parameter "transaction_timeout"`). The script now asks the server for `server_version_num` and runs the matching `/usr/lib/postgresql/<major>/bin/pg_dump`. Guarded by `tests/contracts/test_backup_dump_client_matches_server.py`. Backups already made before this fix by the 17 client must be restored with a 17 server or client.
+ - Playwright specs for the removed legacy bookmarks were deleted; the store-hub spec now expects three captioned groups with eight tabs.
+ - Still NOT run: a real PasarGuard panel, Telegram bots against Telegram, Caddy/Prometheus/Alertmanager profile, Zarinpal sandbox.
++
++## r16 - audit follow-up (branch `refactor/audit-r16-impl`)
++- mypy gate widened to `reports`, `tickets`, `notifications`, `loyalty`, `webhooks`, `vpn_accounts` (plus `referral`, `broadcast`, `eventcenter`, which were already clean). Still outside the gate: `admin`, `panelops`, `panel_integrations` (adapters), `channels` (about 200 errors, mostly adapter payload dicts); they follow module by module, as in audit 8.5.
++- Type-only changes, with one behaviour change on a failure path: `vpn_accounts.reconcile.reconcile_account` returns `missing` when the account points at a deleted panel (it used to raise `AttributeError`). Nothing else changes at runtime.
+-- 
+2.43.0
+

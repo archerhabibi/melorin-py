@@ -206,6 +206,8 @@ async def issue_action(issue_id: uuid.UUID, body: IssueActionIn, admin: AdminUse
     if not issue:
         raise NotFound("مغایرت")
     account = await session.get(VpnAccount, issue.vpn_account_id)
+    if account is None:
+        raise NotFound("اکانت")
     await actions.apply_action(session, issue, account, action=body.action, reason=body.reason, orphan_id=body.orphan_id, actor_id=admin.id)
     store, panel = await session.get(Store, account.store_id), (await session.get(Panel, account.panel_id) if account.panel_id else None)
     return _issue_out(issue, account, store, panel)

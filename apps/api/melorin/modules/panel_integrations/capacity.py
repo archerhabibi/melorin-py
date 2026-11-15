@@ -220,7 +220,7 @@ def capacity_view(server: Server, melorin_active: int) -> dict:
         "capacity": int(server.capacity or 0),
         "melorin_accounts": melorin_active,
         "panel_users": panel_users(server),
-        "outside_melorin": max(0, panel_users(server) - melorin_active) if panel_users(server) is not None else None,
+        "outside_melorin": None if (pu := panel_users(server)) is None else max(0, pu - melorin_active),
         "source": server.capacity_source,
         "panel_users_as_of": server.capacity_checked_at,  # R7: a stored panel number is always shown with its age
         "used": used,

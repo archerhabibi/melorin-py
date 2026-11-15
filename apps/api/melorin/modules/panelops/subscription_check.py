@@ -17,6 +17,7 @@ from urllib.parse import urlsplit
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from melorin.modules.panel_integrations.adapters.base import optional_ops
 from melorin.modules.panel_integrations.adapters import providers
 from melorin.core import audit
 from melorin.core.db import utcnow
@@ -120,7 +121,7 @@ async def run(session: AsyncSession, panel_id: uuid.UUID, *, actor_id: uuid.UUID
         if not supports(adapter, "subscription_probe"):
             raise AppError("CAPABILITY_MISSING", "اتصال این پنل اجازهٔ خواندن تنظیمات اشتراک را ندارد (settings.read).", 409)
         try:
-            settings = await adapter.get_subscription_settings()
+            settings = await optional_ops(adapter).get_subscription_settings()
         except PanelError as exc:
             raise AppError("PANEL_ERROR", f"پنل پاسخ نداد: {exc.message[:200]}", 502) from exc
         prefix = str(settings.get("url_prefix") or "").strip() or None
@@ -143,7 +144,7 @@ async def run(session: AsyncSession, panel_id: uuid.UUID, *, actor_id: uuid.UUID
         if link and link.startswith("/"):  # relative link: the panel joins it with the prefix
             link = (prefix or sub_base or "").rstrip("/") + link
         allowed = {h for h in (_host(prefix), _host(sub_base), _host(panel.base_url)) if h}
-        probe = await adapter.probe_subscription(link, allowed_hosts=allowed) if link else None
+        probe = await optional_ops(adapter).probe_subscription(link, allowed_hosts=allowed) if link else None
         domains = [
             _sub_domain_host(a.profile) for a in (await session.scalars(select(PanelAdmin).where(PanelAdmin.panel_id == panel.id))).all()
         ]

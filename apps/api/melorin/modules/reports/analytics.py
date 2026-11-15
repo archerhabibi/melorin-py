@@ -18,7 +18,8 @@ from __future__ import annotations
 import datetime as dt
 import uuid
 from collections import Counter, defaultdict
-from typing import NamedTuple
+from collections.abc import Sequence
+from typing import Any, NamedTuple
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select
@@ -82,8 +83,8 @@ def pct_change(cur: float, prev: float) -> float | None:
     return round((cur - prev) / prev * 100, 1)
 
 
-def _kpi(cur: float, prev: float, spark: list[float] | None = None) -> dict:
-    out = {"value": cur, "previous": prev, "delta_pct": pct_change(cur, prev)}
+def _kpi(cur: float, prev: float, spark: Sequence[float] | None = None) -> dict:
+    out: dict[str, Any] = {"value": cur, "previous": prev, "delta_pct": pct_change(cur, prev)}
     if spark is not None:
         out["spark"] = spark
     return out
@@ -244,7 +245,7 @@ def compute_analytics(
     def _split(bucket: dict[str, list[int]]) -> list[dict]:
         return [{"key": k, "count": v[0], "revenue": v[1]} for k, v in sorted(bucket.items(), key=lambda kv: (-kv[1][1], -kv[1][0], kv[0]))]
 
-    provider_rows = []
+    provider_rows: list[dict[str, Any]] = []
     for name, c in providers.items():
         ok, bad = c.get("succeeded", 0), c.get("failed", 0) + c.get("cancelled", 0)
         provider_rows.append(
@@ -393,7 +394,9 @@ async def _panel_aggregates(session: AsyncSession) -> list[dict]:
 
 async def _snapshot(session: AsyncSession, now: dt.datetime) -> dict:
     """Point-in-time operational numbers (not period based): VPN fleet, tickets, users."""
-    vpn_status = dict((await session.execute(select(VpnAccount.status, func.count(VpnAccount.id)).group_by(VpnAccount.status))).all())
+    vpn_status: dict[str, int] = {
+        r[0]: r[1] for r in (await session.execute(select(VpnAccount.status, func.count(VpnAccount.id)).group_by(VpnAccount.status))).all()
+    }
     soon = now + dt.timedelta(days=7)
     expiring = (
         await session.scalar(
@@ -408,7 +411,9 @@ async def _snapshot(session: AsyncSession, now: dt.datetime) -> dict:
     )
     sold = await session.scalar(select(func.coalesce(func.sum(VpnAccount.sold_traffic_bytes), 0)).where(VpnAccount.status == "active")) or 0
     panels = await _panel_aggregates(session)
-    tickets = dict((await session.execute(select(Ticket.status, func.count(Ticket.id)).group_by(Ticket.status))).all())
+    tickets: dict[str, int] = {
+        r[0]: r[1] for r in (await session.execute(select(Ticket.status, func.count(Ticket.id)).group_by(Ticket.status))).all()
+    }
     users_total = await session.scalar(select(func.count(User.id)).where(User.is_active.is_(True), User.is_guest.is_(False))) or 0
     return {
         "vpn": {

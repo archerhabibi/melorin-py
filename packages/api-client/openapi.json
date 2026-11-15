@@ -16856,7 +16856,7 @@
     },
     "/api/v1/admin/reports/summary": {
       "get": {
-        "description": "Only successful payments count as sales, grouped by currency.",
+        "description": "Only successful payments count as sales, grouped by currency (computed by the reports module).",
         "operationId": "report_summary_api_v1_admin_reports_summary_get",
         "responses": {
           "200": {

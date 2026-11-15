@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { authFetch } from './api.ts';
+import { useCall } from './api.ts';
 import { Plus, Search, X } from 'lucide-react';
 import { Badge, isStatus } from './ui.tsx';
 import type { Json, Rec, Toast } from './types.ts';
@@ -13,7 +13,7 @@ export const ghost = 'btn btn-g';
 export function useList(api: Json, path: string, toast: Toast) {
   const [rows, setRows] = useState<Rec[]>([]);
   const [tick, setTick] = useState(0);
-  const call = (p: Json, o = {}) => authFetch(api.base, p, o);
+  const call = useCall(api);
   useEffect(() => {
     call(path)
       .then((r) => (r.ok ? r.json() : Promise.reject()))

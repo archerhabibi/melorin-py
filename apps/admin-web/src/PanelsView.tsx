@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { authFetch } from './api.ts';
+import { typedClient } from './api.ts';
 import { ServerForm, ServerImport } from './ServerForm.tsx';
 import { TargetWizard } from './TargetPicker.tsx';
 import { confirmDialog } from './ui.tsx';
@@ -101,9 +101,11 @@ export default function PanelsView({ api, toast }: { api?: Json; toast: Toast })
       let ok = false,
         healthy = false;
       try {
-        const r = await authFetch(api.base, `/api/v1/admin/panels/${p.id}/health`, { method: 'POST' });
+        const { response: r, data } = await typedClient(api.base).post('/api/v1/admin/panels/{panel_id}/health', {
+          params: { path: { panel_id: p.id } },
+        });
         ok = r.ok;
-        healthy = ok && (await r.json()).healthy;
+        healthy = ok && !!(data as { healthy?: boolean } | undefined)?.healthy;
       } catch {
         /* network */
       }
@@ -163,26 +165,33 @@ export default function PanelsView({ api, toast }: { api?: Json; toast: Toast })
   // One save = panel (+ first server on create) (+ group membership). Every step reports its own failure.
   const save = async (payload: Json, withCheck: Json, { server, gids, was }: Json) => {
     const editing = drawer !== 'add';
-    const r = await authFetch(api.base, editing ? `/api/v1/admin/panels/${drawer}` : '/api/v1/admin/panels', {
-      method: editing ? 'PATCH' : 'POST',
-      body: JSON.stringify(payload),
-    });
-    if (!r.ok) return errText(r, editing ? 'ذخیره تغییرات ناموفق بود' : 'ثبت پنل ناموفق بود');
-    const id = editing ? drawer : (await r.json())?.id;
+    const client = typedClient(api.base);
+    const {
+      response: r,
+      data,
+      error,
+    } = editing
+      ? await client.patch('/api/v1/admin/panels/{panel_id}', { params: { path: { panel_id: drawer } }, body: payload })
+      : await client.post('/api/v1/admin/panels', { body: payload });
+    // the typed client already consumed the body, so errText reads the parsed error
+    if (!r.ok) return errText({ json: async () => error }, editing ? 'ذخیره تغییرات ناموفق بود' : 'ثبت پنل ناموفق بود');
+    const id = editing ? drawer : (data as { id?: string } | undefined)?.id;
     const notes: Json[] = [];
     if (!editing && server && id) {
-      const sr = await authFetch(api.base, '/api/v1/admin/servers', {
-        method: 'POST',
-        body: JSON.stringify({
+      const { response: sr, error: serr } = await client.post('/api/v1/admin/servers', {
+        body: {
           name: server.name,
           panel_id: id,
           location: server.location || null,
           capacity: server.capacity,
           product_codes: null,
           allow_test: true,
-        }),
+        },
       });
-      if (!sr.ok) notes.push(`ساخت سرور ناموفق بود (${await errText(sr, 'خطا')}) — از «سرور جدید» اضافه کنید`);
+      if (!sr.ok)
+        notes.push(
+          `ساخت سرور ناموفق بود (${await errText({ json: async () => serr }, 'خطا')}) — از «سرور جدید» اضافه کنید`,
+        );
     }
     const toAdd = gids.filter((g: Json) => !was.includes(g)),
       toDel = was.filter((g: Json) => !gids.includes(g));
@@ -223,11 +232,11 @@ export default function PanelsView({ api, toast }: { api?: Json; toast: Toast })
     let ok = false;
     try {
       ok = (
-        await authFetch(api.base, `/api/v1/admin/panels/${p.id}/state`, {
-          method: 'POST',
-          body: JSON.stringify({ is_enabled: next }),
+        await typedClient(api.base).post('/api/v1/admin/panels/{panel_id}/state', {
+          params: { path: { panel_id: p.id } },
+          body: { is_enabled: next },
         })
-      ).ok;
+      ).response.ok;
     } catch {
       /* network */
     }
@@ -253,11 +262,11 @@ export default function PanelsView({ api, toast }: { api?: Json; toast: Toast })
     let ok = false;
     try {
       ok = (
-        await authFetch(api.base, `/api/v1/admin/servers/${s.id}/state`, {
-          method: 'POST',
-          body: JSON.stringify({ is_enabled: next }),
+        await typedClient(api.base).post('/api/v1/admin/servers/{server_id}/state', {
+          params: { path: { server_id: s.id } },
+          body: { is_enabled: next },
         })
-      ).ok;
+      ).response.ok;
     } catch {
       /* network */
     }

@@ -202,6 +202,8 @@ async def ticket_edit_message(ticket_id: uuid.UUID, message_id: uuid.UUID, body:
     if m.author_id != admin.id:
         raise AppError("FORBIDDEN", "فقط نویسندهٔ پیام می‌تواند آن را ویرایش کند.", 403)
     t = await session.get(Ticket, ticket_id)
+    if t is None:
+        raise NotFound("تیکت")
     new = body.body.strip()
     if not new:
         raise AppError("EMPTY_MESSAGE", "متن پیام نمی‌تواند خالی باشد.", 422)

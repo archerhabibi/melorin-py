@@ -28,6 +28,7 @@ import dataclasses
 import datetime as dt
 import logging
 import uuid
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -220,9 +221,10 @@ async def change_plan(
     before = {"product_id": str(account.product_id), "expires_at": account.sold_expires_at.isoformat() if account.sold_expires_at else None,
               "traffic_limit_bytes": account.sold_traffic_bytes}  # fmt: skip
     try:
-        pa = await adapter.apply_template(account.username, template_id)
+        plan_ops: Any = adapter  # capability-checked above ("next_plan_ops"); not part of the base PanelAdapter protocol
+        pa = await plan_ops.apply_template(account.username, template_id)
         if account.queued_plan:
-            await adapter.clear_next_plan(account.username)
+            await plan_ops.clear_next_plan(account.username)
             account.queued_plan = None
     except PanelError as exc:
         raise templates._panel_error(exc) from exc

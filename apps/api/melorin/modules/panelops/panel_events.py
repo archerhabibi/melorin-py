@@ -31,7 +31,7 @@ from melorin.domain.order_state import VpnStatus
 from melorin.kernel.models.vpn import Panel, PanelEvent, VpnAccount
 from melorin.modules.vpn_accounts import notices, reconcile, sync
 from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError
-from melorin.modules.panel_integrations.adapters.pasarguard.events import USER_EVENTS, ParsedBody
+from melorin.modules.panel_integrations.adapters.pasarguard.events import USER_EVENTS, ParsedBody, ParsedEvent
 from melorin.modules.panel_integrations.adapters.registry import build_adapter, seed_adapter
 
 log = logging.getLogger("melorin.panelops.panel_events")
@@ -87,7 +87,7 @@ async def ingest(session: AsyncSession, panel: Panel, parsed: ParsedBody, *, now
     now = now or utcnow()
     result = IngestResult(rejected=parsed.rejected)
     panel_id = panel.id
-    unique: dict[str, object] = {}
+    unique: dict[str, ParsedEvent] = {}
     for event in parsed.events:
         if event.dedup_key in unique:
             result.duplicates += 1

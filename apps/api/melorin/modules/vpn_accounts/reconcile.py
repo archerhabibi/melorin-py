@@ -204,6 +204,8 @@ async def reconcile_account(session: AsyncSession, account_id: uuid.UUID) -> str
     if not account or not account.panel_id:
         return "missing"
     panel = await session.get(Panel, account.panel_id)
+    if panel is None:  # the account points at a deleted panel: nothing to compare against
+        return "missing"
     adapter = seed_adapter(build_adapter(panel), account)
     now = utcnow()
     result = PanelResult(panel_id=panel.id)

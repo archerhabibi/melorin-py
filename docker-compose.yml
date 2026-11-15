@@ -42,6 +42,26 @@ services:
     networks: [backend]
     mem_limit: 256m
     cpus: 0.5
+  # One-shot schema migration (audit 8.2): api, worker and backup start only after it exits 0, so a bare `docker compose up -d` on a fresh
+  # host can no longer hit `relation "stores" does not exist`. Not counted in the steady-state memory budget (it has exited before the
+  # other services start); scripts/check_ops_p0.py skips restart:"no" services in that sum.
+  migrate:
+    logging: *default-logging
+    restart: "no"
+    image: ${MELORIN_IMAGE_REGISTRY:-melorin}/api:${MELORIN_IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    env_file: [.env]
+    command: alembic upgrade head
+    depends_on: {postgres: {condition: service_healthy}}
+    networks: [backend]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs: ["/tmp:size=64m,mode=1777"]
+    mem_limit: 256m
+    cpus: 0.5
   api:
     logging: *default-logging
     restart: unless-stopped
@@ -54,7 +74,7 @@ services:
     command: uvicorn melorin.app:app --host 0.0.0.0 --port 8000
     healthcheck: {test: [CMD, python, -c, 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8000/health/live", timeout=3)'], interval: 10s, timeout: 5s, retries: 12, start_period: 20s}
     volumes: [api_storage:/app/var]
-    depends_on: {postgres: {condition: service_healthy}, redis: {condition: service_healthy}}
+    depends_on: {postgres: {condition: service_healthy}, redis: {condition: service_healthy}, migrate: {condition: service_completed_successfully}}
     networks: [backend]
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
@@ -74,7 +94,7 @@ services:
     command: arq melorin.worker.arq_app.WorkerSettings
     healthcheck: {test: [CMD, python, -c, 'import os, redis; r=redis.Redis.from_url(os.environ["MELORIN_REDIS_URL"]); raise SystemExit(0 if r.get("melorin:worker:last_tick") else 1)'], interval: 15s, timeout: 5s, retries: 8, start_period: 25s}
     volumes: [api_storage:/app/var]
-    depends_on: {postgres: {condition: service_healthy}, redis: {condition: service_healthy}}
+    depends_on: {postgres: {condition: service_healthy}, redis: {condition: service_healthy}, migrate: {condition: service_completed_successfully}}
     networks: [backend]
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
@@ -98,7 +118,7 @@ services:
     volumes:
       - api_storage:/app/var
       - ./secrets/backup/recipients.txt:/run/melorin-backup/recipients.txt:ro
-    depends_on: {postgres: {condition: service_healthy}, redis: {condition: service_healthy}}
+    depends_on: {postgres: {condition: service_healthy}, redis: {condition: service_healthy}, migrate: {condition: service_completed_successfully}}
     networks: [backend]
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]

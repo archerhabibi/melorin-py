@@ -15,6 +15,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from melorin.modules.panel_integrations.adapters.base import optional_ops
 from melorin.core import audit
 from melorin.core.errors import AppError, NotFound
 from melorin.kernel.models.vpn import Panel, PanelNode
@@ -88,9 +89,9 @@ async def overview(session: AsyncSession, panel_id: uuid.UUID) -> dict:
         adapter = build_adapter(panel)
         if supports(adapter, "node_insight"):
             for name, call in (
-                ("system", adapter.get_system_stats),
-                ("resources", adapter.get_system_resources),
-                ("realtime", adapter.get_nodes_realtime),
+                ("system", optional_ops(adapter).get_system_stats),
+                ("resources", optional_ops(adapter).get_system_resources),
+                ("realtime", optional_ops(adapter).get_nodes_realtime),
             ):
                 try:
                     data = await call()
@@ -150,7 +151,7 @@ async def list_infra(session: AsyncSession, panel_id: uuid.UUID) -> dict:
             try:
                 out["groups"] = [
                     {"id": g.get("id"), "name": g.get("name"), "disabled": bool(g.get("is_disabled")), "total_users": g.get("total_users")}
-                    for g in await adapter.list_groups_full()
+                    for g in await optional_ops(adapter).list_groups_full()
                 ]
                 out["hosts"] = [
                     {
@@ -159,13 +160,13 @@ async def list_infra(session: AsyncSession, panel_id: uuid.UUID) -> dict:
                         "inbound_tag": h.get("inbound_tag"),
                         "disabled": bool(h.get("is_disabled")),
                     }
-                    for h in await adapter.list_hosts()
+                    for h in await optional_ops(adapter).list_hosts()
                 ]
             except PanelError as exc:
                 raise _panel_error(exc) from exc
         if supports(adapter, "infra_control"):
             try:
-                out["cores"] = [{"id": c.get("id"), "name": c.get("name")} for c in await adapter.list_cores()]
+                out["cores"] = [{"id": c.get("id"), "name": c.get("name")} for c in await optional_ops(adapter).list_cores()]
             except PanelError as exc:
                 raise _panel_error(exc) from exc
         return out
@@ -202,7 +203,11 @@ async def node_action(session: AsyncSession, panel_id: uuid.UUID, node_id: int, 
     try:
         _need(adapter, "node_control" if action == "reconnect" else "infra_control")
         try:
-            await (adapter.reconnect_node(int(node_id)) if action == "reconnect" else adapter.sync_node(int(node_id)))
+            await (
+                optional_ops(adapter).reconnect_node(int(node_id))
+                if action == "reconnect"
+                else optional_ops(adapter).sync_node(int(node_id))
+            )
         except PanelError as exc:
             raise _panel_error(exc) from exc
         await _refresh(session, panel, adapter)
@@ -223,7 +228,7 @@ async def core_restart(
     try:
         _need(adapter, "infra_control")
         try:
-            cores = await adapter.list_cores()
+            cores = await optional_ops(adapter).list_cores()
         except PanelError as exc:
             raise _panel_error(exc) from exc
         core = next((c for c in cores if c.get("id") == int(core_id)), None)
@@ -232,7 +237,7 @@ async def core_restart(
         if (confirm_name or "").strip() != str(core.get("name") or ""):
             raise AppError("CONFIRM_NAME_MISMATCH", "نام هسته را دقیقاً تایپ کنید تا ری‌استارت تأیید شود.", 409)
         try:
-            await adapter.restart_core(int(core_id))
+            await optional_ops(adapter).restart_core(int(core_id))
         except PanelError as exc:
             raise _panel_error(exc) from exc
     finally:
@@ -276,7 +281,11 @@ async def toggle(
     adapter = build_adapter(panel)
     try:
         _need(adapter, "infra_control")
-        call = {"nodes": adapter.set_nodes_disabled, "hosts": adapter.set_hosts_disabled, "groups": adapter.set_groups_disabled}[family]
+        call = {
+            "nodes": optional_ops(adapter).set_nodes_disabled,
+            "hosts": optional_ops(adapter).set_hosts_disabled,
+            "groups": optional_ops(adapter).set_groups_disabled,
+        }[family]
         try:
             await call(ids, disabled)
         except PanelError as exc:

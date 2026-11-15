@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Award, Plus, Save, Trash2 } from 'lucide-react';
 import { toInt, unitOf } from '@melorin/web-kit/referralPlan.js';
 import { useLoyaltyClub } from '@melorin/web-kit/loyaltyClub.js';
-import { authFetch } from './api.ts';
+import { useCall } from './api.ts';
 import { Empty, Field, Section, num, toEn, useRows } from './kit.tsx';
 import type { Json, Rec, Toast } from './types.ts';
 
@@ -330,7 +330,7 @@ function Adjust({ onSave }: { onSave?: Json }) {
 }
 
 export default function LoyaltyClubView({ api, toast }: { api?: Json; toast: Toast }) {
-  const call = useCallback((p: Json, o = {}) => authFetch(api.base, p, o), [api.base]);
+  const call = useCall(api);
   const stores = useRows(call, '/api/v1/admin/stores');
   const [storeId, setStoreId] = useState('');
   const store = useMemo(() => (stores.rows || []).find((s) => s.id === storeId), [stores.rows, storeId]);

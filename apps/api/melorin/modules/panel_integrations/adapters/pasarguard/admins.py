@@ -1,9 +1,14 @@
 """PasarGuard admins: one Operator admin per store, profile fields, bulk owner moves."""
 
+from typing import TYPE_CHECKING, Any
 from melorin.modules.panel_integrations.adapters.base import ErrorKind, PanelError
 
 
 class AdminsMixin:
+    if TYPE_CHECKING:  # what the host adapter class provides to this mixin (declared for the type checker only)
+
+        async def _req(self, method: str, path: str, *, ok404: bool = False, ok409: bool = False, **kw: Any) -> Any: ...
+
     async def _role_id(self, name: str) -> int:
         data = await self._req("GET", "/api/admin-roles/simple")
         roles = data.get("roles") if isinstance(data, dict) else data
@@ -35,7 +40,7 @@ class AdminsMixin:
         existing = await self.find_admin(username)
         if existing:
             body: dict = {"password": password, **self._profile_body(profile)}
-            current = existing.get("role") if isinstance(existing.get("role"), dict) else {}
+            current: dict = (existing.get("role") if isinstance(existing.get("role"), dict) else None) or {}
             if not current.get("is_owner"):  # an owner's role is never touched, whatever the caller asks for
                 wanted = await self._role_id(role)
                 have = current.get("id") if current.get("id") is not None else existing.get("role_id")

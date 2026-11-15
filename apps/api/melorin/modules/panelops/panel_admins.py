@@ -13,6 +13,7 @@
 
 from __future__ import annotations
 
+from typing import Any
 import logging
 import re
 import secrets
@@ -23,6 +24,7 @@ from urllib.parse import urlsplit
 from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 
+from melorin.modules.panel_integrations.adapters.base import optional_ops
 from melorin.modules.panel_integrations.adapters import providers
 from melorin.core.crypto import decrypt, encrypt
 from melorin.core.db import utcnow
@@ -258,7 +260,7 @@ async def sync_all(session, *, limit: int = 25, panel: Panel | None = None) -> d
         stmt = stmt.where(PanelAdmin.panel_id == panel.id)
     rows = (await session.scalars(stmt.order_by(PanelAdmin.created_at).limit(limit))).all()
     done = failed = 0
-    adapters: dict[uuid.UUID, object] = {}
+    adapters: dict[uuid.UUID, Any] = {}
     try:
         for row in rows:
             p = panel if panel and panel.id == row.panel_id else await session.get(Panel, row.panel_id)
@@ -324,7 +326,7 @@ async def apply_profile(session, store_id: uuid.UUID, changes: dict, *, panel_id
             adapter = None
             try:
                 adapter = registry.build_adapter(panel)
-                await adapter.update_admin_profile(row.remote_id, clean)
+                await optional_ops(adapter).update_admin_profile(row.remote_id, clean)
                 row.profile_synced = True
             except PanelError as exc:
                 error = exc.message[:300]
@@ -355,7 +357,7 @@ async def reset_password(session, row: PanelAdmin, panel: Panel) -> str:
     adapter = None
     try:
         adapter = registry.build_adapter(panel)
-        await adapter.update_admin_profile(row.remote_id, {}, password=password)
+        await optional_ops(adapter).update_admin_profile(row.remote_id, {}, password=password)
     except Exception:
         row.password_enc, row.profile_synced = previous, previous_flag
         await session.commit()

@@ -13,7 +13,7 @@ class _NeedsTextOrImage(BaseModel):
 
     @model_validator(mode="after")
     def _text_or_image(self):
-        if not self.body and not self.attachment_id:
+        if not getattr(self, "body", None) and not getattr(self, "attachment_id", None):
             raise ValueError("متن یا تصویر پیوست لازم است.")
         return self
 

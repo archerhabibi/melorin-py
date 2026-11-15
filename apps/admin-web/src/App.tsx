@@ -4,7 +4,6 @@ import { Bell, CircleAlert, Download, Menu, RefreshCw, Search, Moon, X } from 'l
 import { AdminSectionView } from './AdminSections.tsx';
 import { DialogHost, ThemeButton, label } from './ui.tsx';
 import { Palette } from './palette.tsx';
-import { legacyHash } from './infra.tsx';
 import { sectionAllowed } from './adminAccess.ts';
 import { toggleTheme } from './theme.ts';
 import type { Json } from './types.ts';
@@ -40,11 +39,6 @@ export default function App({ onLogout }: { onLogout?: Json }) {
   };
   useEffect(() => {
     const f = () => {
-      const moved = legacyHash(window.location.hash);
-      if (moved) {
-        window.location.replace(moved);
-        return;
-      }
       setSection(fromHash());
     };
     window.addEventListener('hashchange', f);

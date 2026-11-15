@@ -1,5 +1,6 @@
 """3x-ui 3.x (clients are first-class rows under /panel/api/clients/*)."""
 
+from typing import TYPE_CHECKING, Any
 import time
 
 
@@ -8,6 +9,18 @@ from melorin.modules.panel_integrations.adapters.sanaei.wire import TEMPLATE_TTL
 
 
 class V3Mixin:
+    if TYPE_CHECKING:  # what the host adapter class provides to this mixin (declared for the type checker only)
+
+        @staticmethod
+        def _q(v: str) -> str: ...
+        async def _req(self, method: str, path: str, *, ok_missing: bool = False, **kw: Any) -> dict | None: ...
+
+        cfg: dict[str, Any]
+        _template: tuple[dict, float] | None
+
+        @property
+        def inbound_ids(self) -> list[int]: ...
+
     async def _links(self, email: str) -> list[str]:
         if not self.cfg.get("fetch_links", True):
             return []
@@ -37,7 +50,7 @@ class V3Mixin:
         obj = (d or {}).get("obj")
         if isinstance(obj, dict):
             return obj
-        return rec.get("traffic") if isinstance(rec.get("traffic"), dict) else {}
+        return (rec.get("traffic") if isinstance(rec.get("traffic"), dict) else None) or {}
 
     async def _template_defaults(self) -> dict:
         """inboundIds/flow/limitIp from config, optionally copied from a manually created template client."""

@@ -19,7 +19,6 @@ import {
   Store,
   Layers,
   UserRound,
-  ListChecks,
   BellRing,
   Megaphone,
   UserPlus,
@@ -28,7 +27,6 @@ import {
   UsersRound,
   Zap,
 } from 'lucide-react';
-import { legacyHash } from './infra.tsx';
 
 // Section keys are Persian labels (AdminSections/AdminExtra route on them); slug drives the URL hash.
 export const groups: [string, [string, LucideIcon, string][], string?][] = [
@@ -40,23 +38,26 @@ export const groups: [string, [string, LucideIcon, string][], string?][] = [
     ],
   ],
   [
-    'عملیات',
+    'فروش و عملیات',
     [
       ['سفارش‌ها', Package, 'orders'],
       ['پرداخت‌ها', CreditCard, 'payments'],
       ['اکانت‌های VPN', Server, 'vpn'],
-      ['عملیات گروهی روی پنل', Zap, 'bulk-operations'], // acts on VPN accounts, so it sits next to them
       ['تیکت‌ها', Ticket, 'tickets'],
     ],
   ],
   [
-    'مشتریان و فروشگاه‌ها',
+    'مشتریان',
     [
       ['کاربران', Users, 'users'],
       ['هویت', Fingerprint, 'identity'], // customer identity review / auto-link / trusted devices
-      ['فروشگاه‌ها', Store, 'stores'],
-      ['درخواست‌های نمایندگی', UserPlus, 'reseller-applications'],
-      ['کارهای دستی', ListChecks, 'manual-tasks'],
+    ],
+  ],
+  [
+    'فروشگاه‌ها و نمایندگان',
+    [
+      ['فروشگاه‌ها', Store, 'stores'], // the store hub: profile, panel access, volume, prices, API, notices, bots
+      ['درخواست‌های نمایندگی', UserPlus, 'reseller-applications'], // + tab «اقدامات تکمیلی» (former «کارهای دستی»)
     ],
   ],
   [
@@ -71,25 +72,25 @@ export const groups: [string, [string, LucideIcon, string][], string?][] = [
     'مسیر فروش: پنل و سرور ← بسته فروش ← پکیج',
   ],
   [
+    'زیرساخت و عملیات پنل',
+    [
+      ['پنل‌ها و سرورها', PanelTop, 'panels'],
+      ['پایش و سلامت', ShieldCheck, 'infra-health'],
+      ['عملیات مدیریتی', Activity, 'panel-ops'], // tabs: عملیات پنل / عملیات گروهی (bulk runs: previews + resumable, infrastructure permission)
+    ],
+  ],
+  [
     'ارتباطات',
     [
       ['پیام همگانی', Megaphone, 'broadcasts'],
       ['مرکز رویداد', BellRing, 'event-center'],
-      ['دکمه‌های تلگرام', Paintbrush, 'button-styles'],
-    ],
-  ],
-  [
-    'زیرساخت',
-    [
-      ['پنل‌ها و سرورها', PanelTop, 'panels'],
-      ['سلامت زیرساخت', ShieldCheck, 'infra-health'],
-      ['عملیات پنل', Activity, 'panel-ops'],
     ],
   ],
   [
     'سیستم و امنیت',
     [
       ['تنظیمات', Settings, 'settings'],
+      ['دکمه‌های تلگرام', Paintbrush, 'button-styles'], // «system» permission (owner), so it lives with the owner-only settings
       ['ممیزی', ScrollText, 'audit'],
       ['تیم مدیریت', UsersRound, 'admin-team'],
       ['حساب من', UserRound, 'my-account'],
@@ -97,10 +98,5 @@ export const groups: [string, [string, LucideIcon, string][], string?][] = [
   ],
 ];
 export const flat = groups.flatMap(([, items]) => items);
-// The hash may carry deep-link params (#/servers?panel=<id>); only the path picks the section.
-// Old bookmarks of the removed #/servers screen are rewritten to #/panels (servers live inside their panel now).
-if (typeof window !== 'undefined') {
-  const moved = legacyHash(window.location.hash);
-  if (moved) window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${moved}`);
-}
+// The hash may carry deep-link params (#/panels?id=<id>); only the path picks the section. No legacy aliases: Melorin has never been released.
 export const fromHash = () => (flat.find((x) => `#/${x[2]}` === window.location.hash.split('?')[0]) || flat[0])[0];

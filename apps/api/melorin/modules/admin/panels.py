@@ -271,6 +271,8 @@ async def update_server(server_id: uuid.UUID, body: UpdateServer, admin: AdminUs
                 "SERVER_HAS_ACCOUNTS", "این سرور اکانت دارد و پنل آن قابل تغییر نیست. سرور جدید بسازید و این را غیرفعال کنید.", 409
             )
     target_panel = await session.get(Panel, patch.get("panel_id") or s.panel_id)
+    if target_panel is None:
+        raise NotFound("پنل")
     if "target" in patch or "panel_id" in patch:
         # a new panel needs its target re-checked against that panel's kind even when the target itself was not sent
         patch["target"] = check_target(target_panel, patch["target"] if "target" in patch else s.target)

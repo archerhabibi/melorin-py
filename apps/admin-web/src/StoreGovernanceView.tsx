@@ -1,7 +1,7 @@
 // PasarGuard Phase 4 (PG-12) — each store's panel admin: traffic cap, usage, panel status, and what a suspension does on the panel.
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, Loader, RefreshCw } from 'lucide-react';
-import { authFetch } from './api.ts';
+import { useCall } from './api.ts';
 import { promptDialog } from './ui.tsx';
 import type { Json, Rec, Toast } from './types.ts';
 
@@ -32,7 +32,7 @@ function Meter({ ratio }: { ratio?: Json }) {
 }
 
 export default function StoreGovernanceView({ api, toast }: { api?: Json; toast: Toast }) {
-  const call = useCallback((p: string, o?: RequestInit) => authFetch(api.base, p, o), [api.base]);
+  const call = useCall(api);
   const [rows, setRows] = useState<Json>(null);
   const [busy, setBusy] = useState('');
 

@@ -6,11 +6,11 @@ import type { ReactNode } from 'react';
 // The Client Secret is write-only: it is stored encrypted on the server and never sent back to the browser.
 
 import { useEffect, useState } from 'react';
-import { authFetch } from './api.ts';
+import { settled, typedClient } from './api.ts';
 import { Check, ChevronDown, Copy, ExternalLink, Send, ShieldCheck } from 'lucide-react';
 import { CopyBox, Field, Step, Switch } from './GoogleLoginSettings.tsx';
 import { PasswordInput } from './ui.tsx';
-import type { CallFn, Json, Rec, Toast } from './types.ts';
+import type { Json, Rec, Toast } from './types.ts';
 
 const CLIENT_ID_RE = /^[0-9]{5,20}$/;
 const FIELDS = ['enabled', 'store_login', 'bot_login', 'number_match', 'ttl_seconds', 'oidc_login', 'client_id'];
@@ -47,7 +47,7 @@ function CopyAll({ lines }: { lines?: Json }) {
 const USERNAME_RE = /^@?[A-Za-z0-9_]{3,64}$/;
 
 // Main store's bot @username: the deep link t.me/<bot>?start=wl_… cannot be built without it.
-function MainBotBox({ saved, call, toast, reload }: { saved?: Json; call: CallFn; toast: Toast; reload?: Json }) {
+function MainBotBox({ saved, base, toast, reload }: { saved?: Json; base: string; toast: Toast; reload?: Json }) {
   const [name, setName] = useState(saved.main_bot_username || '');
   const [busy, setBusy] = useState('');
   const current = saved.main_bot_username || '';
@@ -55,11 +55,9 @@ function MainBotBox({ saved, call, toast, reload }: { saved?: Json; call: CallFn
   const invalid = typed && !USERNAME_RE.test(typed) ? 'فقط حروف انگلیسی، عدد و _ (۳ تا ۶۴ نویسه).' : '';
   const run = async (username: Json, ok: Json) => {
     setBusy(username === null ? 'auto' : 'save');
-    const r = await call('/api/v1/admin/integrations/telegram/main-bot-username', {
-      method: 'PUT',
-      body: JSON.stringify({ username }),
-    });
-    const d = await r.json().catch(() => ({}));
+    const { r, d } = settled(
+      await typedClient(base).put('/api/v1/admin/integrations/telegram/main-bot-username', { body: { username } }),
+    );
     setBusy('');
     if (!r.ok) return toast(d?.error?.message || d?.detail?.message || 'ذخیرهٔ نام کاربری ربات ناموفق بود');
     toast(ok);
@@ -295,7 +293,6 @@ function Guide({ cfg }: { cfg?: Json }) {
 }
 
 export default function TelegramLoginSettings({ api, toast }: { api?: Json; toast: Toast }) {
-  const call = (p: Json, o = {}) => authFetch(api.base, p, o);
   const [cfg, setCfg] = useState<Json>(null);
   const [saved, setSaved] = useState<Json>(null); // the server's copy: badges and the connection test describe THIS, not the unsaved form
   const [secret, setSecret] = useState('');
@@ -304,8 +301,9 @@ export default function TelegramLoginSettings({ api, toast }: { api?: Json; toas
   const [result, setResult] = useState<Json>(null);
 
   const load = () =>
-    call('/api/v1/admin/integrations')
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
+    typedClient(api.base)
+      .get('/api/v1/admin/integrations')
+      .then(({ response: r, data }) => (r.ok ? (data as Json) : Promise.reject()))
       .then((d) => {
         setCfg(d.telegram);
         setSaved(d.telegram);
@@ -364,8 +362,7 @@ export default function TelegramLoginSettings({ api, toast }: { api?: Json; toas
       client_id: id,
       client_secret: secret.trim() ? secret.trim() : clearSecret ? '' : null,
     };
-    const r = await call('/api/v1/admin/integrations/telegram', { method: 'PUT', body: JSON.stringify(body) });
-    const d = await r.json().catch(() => ({}));
+    const { r, d } = settled(await typedClient(api.base).put('/api/v1/admin/integrations/telegram', { body }));
     setBusy('');
     if (!r.ok) return toast(d?.error?.message || d?.detail?.message || 'ذخیره ناموفق بود');
     toast('تنظیمات ورود با تلگرام ذخیره شد');
@@ -374,8 +371,9 @@ export default function TelegramLoginSettings({ api, toast }: { api?: Json; toas
   };
   const test = async () => {
     setBusy('test');
-    const r = await call('/api/v1/admin/integrations/telegram/test', { method: 'POST', body: '{}' });
-    const d = await r.json().catch(() => ({}));
+    const { r, d } = settled(
+      await typedClient(api.base).post('/api/v1/admin/integrations/telegram/test', { body: {} }),
+    );
     setBusy('');
     setResult(
       r.ok ? d : { ok: false, checks: [{ key: 'x', status: 'fail', message: d?.error?.message || 'تست انجام نشد' }] },
@@ -472,7 +470,7 @@ export default function TelegramLoginSettings({ api, toast }: { api?: Json; toas
           <MainBotBox
             key={saved.main_bot_username || 'none'}
             saved={saved}
-            call={call}
+            base={api.base}
             toast={toast}
             reload={reloadBot}
           />

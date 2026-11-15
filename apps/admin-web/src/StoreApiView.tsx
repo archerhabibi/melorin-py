@@ -1,13 +1,13 @@
 // «API» tab of the store hub: which reseller stores may create and use API keys for their own site.
 // One switch per store: PUT /admin/reseller-stores/{id}/api?enabled=. The keys themselves are managed by the reseller.
 import { useCallback, useState } from 'react';
-import { authFetch } from './api.ts';
+import { useCall } from './api.ts';
 import { canWrite } from './adminAccess.ts';
 import { Empty, ErrorBar, Toggle, errText, useRows } from './kit.tsx';
 import type { Json, Rec, Toast } from './types.ts';
 
 export default function StoreApiView({ api, toast }: { api?: Json; toast: Toast }) {
-  const call = useCallback((p: string, o?: RequestInit) => authFetch(api.base, p, o), [api.base]);
+  const call = useCall(api);
   const { rows, failed, load } = useRows(call, '/api/v1/admin/resellers');
   const [busy, setBusy] = useState('');
   const writable = canWrite(api?.perms, 'نمایندگان');

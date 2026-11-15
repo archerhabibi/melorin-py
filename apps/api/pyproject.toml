@@ -29,12 +29,13 @@ line-ending = "lf"
 [tool.mypy]
 # T41: static typing is gated on core + worker + the pure domain and the kernel models; widen `files` as other packages are cleaned up.
 python_version = "3.12"
-files = ["melorin/core", "melorin/worker", "melorin/domain", "melorin/kernel", "melorin/modules/wallet", "melorin/modules/catalog"]
+files = ["melorin"]
 ignore_missing_imports = true
 follow_imports = "silent"
-# T-W07/T-R09: bodies of unannotated functions are checked too; widen `files` one package at a time (next: orders, identity, reseller).
+# T-W07/T-R09: bodies of unannotated functions are checked too; widen `files` one package at a time (r13: orders, identity, reseller are in scope; r14: payments too, with no ratchet entries; r15: the ratchet is empty, every module in `files` is clean).
 check_untyped_defs = true
 warn_unused_ignores = true
+
 
 [tool.pytest.ini_options]
 # T-R05: tests are grouped in sub-folders but still import shared helpers by bare module name (module basenames are unique).

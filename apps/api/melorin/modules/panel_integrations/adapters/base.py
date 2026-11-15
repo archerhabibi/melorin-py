@@ -4,7 +4,7 @@ import datetime as dt
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 GB = 1024**3
 
@@ -350,6 +350,12 @@ def require(adapter, capability: str) -> None:
     """Raise a PERMANENT PanelError (not a crash) when a caller asks an adapter for something it cannot do."""
     if not supports(adapter, capability):
         raise PanelError(ErrorKind.PERMANENT, f"{getattr(adapter, 'kind', 'panel')}: capability '{capability}' is not available")
+
+
+def optional_ops(adapter: "PanelAdapter") -> "Any":
+    """The adapter seen through its optional capability methods (``ensure_role``, ``list_hosts``, ...). They are not part of the
+    :class:`PanelAdapter` protocol on purpose: callers gate them with :func:`supports` first, so the type checker cannot know them."""
+    return adapter
 
 
 class PanelAdapter(Protocol):

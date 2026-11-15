@@ -1,0 +1,256 @@
+From bf3216b36af1d3add5f33bbef25cbf487c2ba012 Mon Sep 17 00:00:00 2001
+From: melorin <dev@melorin.local>
+Date: Sun, 15 Nov 2026 08:20:30 +0000
+Subject: [PATCH] refactor(audit): eight files leave the mypy ratchet (9 -> 1);
+ dangling-user guards (r14c)
+
+---
+ apps/api/melorin/modules/identity/auto_link.py |  2 ++
+ apps/api/melorin/modules/identity/google.py    |  9 ++++++---
+ apps/api/melorin/modules/identity/service.py   | 15 ++++++++++++---
+ apps/api/melorin/modules/orders/router.py      |  2 +-
+ .../melorin/modules/orders/service/create.py   |  1 +
+ .../melorin/modules/reseller/auto_approve.py   |  2 +-
+ .../melorin/modules/reseller/auto_verify.py    |  4 ++--
+ apps/api/pyproject.toml                        | 10 +---------
+ apps/api/tests/contracts/test_mypy_ratchet.py  |  2 +-
+ .../tests/unit/test_identity_dangling_user.py  | 18 ++++++++++++++++++
+ docs/DECISIONS.md                              |  3 ++-
+ 11 files changed, 47 insertions(+), 21 deletions(-)
+ create mode 100644 apps/api/tests/unit/test_identity_dangling_user.py
+
+diff --git a/apps/api/melorin/modules/identity/auto_link.py b/apps/api/melorin/modules/identity/auto_link.py
+index 60b0b6b..2217796 100644
+--- a/apps/api/melorin/modules/identity/auto_link.py
++++ b/apps/api/melorin/modules/identity/auto_link.py
+@@ -159,6 +159,8 @@ async def try_auto_merge(session: AsyncSession, a: User, b: User, *, review: Ide
+     res = resolve(await _account(session, a), await _account(session, b))
+     if res.outcome is not Outcome.MERGE:
+         return None
++    if res.keeper is None or res.shell is None:
++        return None
+     by_id = {str(a.id): a, str(b.id): b}
+     await merge(session, by_id[res.keeper], by_id[res.shell], reason=res.reason, review=review)
+     return res
+diff --git a/apps/api/melorin/modules/identity/google.py b/apps/api/melorin/modules/identity/google.py
+index 630b284..92eeab9 100644
+--- a/apps/api/melorin/modules/identity/google.py
++++ b/apps/api/melorin/modules/identity/google.py
+@@ -143,7 +143,7 @@ async def link_google(session: AsyncSession, user: User, id_token: str, nonce: s
+             user_id=user.id, provider="google", subject=sub, verified_at=utcnow(), data={"email": email, "email_verified": email_verified}
+         )
+     )
+-    if email_verified and not user.email and not await _email_taken(session, email):
++    if email and email_verified and not user.email and not await _email_taken(session, email):
+         user.email = email
+     audit.record(session, "identity.linked", actor_id=user.id, entity_type="user", entity_id=user.id, data={"provider": "google"})
+     await session.commit()
+@@ -156,7 +156,10 @@ async def login_with_google(session: AsyncSession, id_token: str, nonce: str | N
+     sub, email = g["sub"], (g.get("email") or "").lower() or None
+     ident = await find_identity(session, "google", sub)
+     if ident:
+-        return await session.get(User, ident.user_id), False
++        found = await session.get(User, ident.user_id)
++        if found is None:
++            raise AppError("USER_NOT_FOUND", "کاربر یافت نشد.", 404)
++        return found, False
+     user: User | None = None
+     created = False
+     email_verified = email and str(g.get("email_verified")).lower() == "true"
+@@ -188,7 +191,7 @@ async def login_with_google(session: AsyncSession, id_token: str, nonce: str | N
+             audit.security_event(
+                 session, "identity_link_conflict", user.id, {"email": email, "candidate_user_ids": [str(x) for x in candidate_ids]}
+             )
+-        elif await _email_taken(session, email):
++        elif email and await _email_taken(session, email):
+             # User.email can be populated without an Identity in legacy data.
+             owner_id = await session.scalar(select(User.id).where(User.email == email))
+             user = User(display_name=g.get("name"), is_guest=True)
+diff --git a/apps/api/melorin/modules/identity/service.py b/apps/api/melorin/modules/identity/service.py
+index b8ef19b..93e8970 100644
+--- a/apps/api/melorin/modules/identity/service.py
++++ b/apps/api/melorin/modules/identity/service.py
+@@ -32,6 +32,14 @@ CODE_TTL = dt.timedelta(minutes=10)
+ MAX_CODE_ATTEMPTS = 5
+ 
+ 
++async def _owner_of(session: AsyncSession, user_id: uuid.UUID | None) -> User:
++    """The user an identity or link code points at; a dangling reference is a clear 404, not an AttributeError."""
++    user = await session.get(User, user_id) if user_id else None
++    if user is None:
++        raise AppError("USER_NOT_FOUND", "کاربر یافت نشد.", 404)
++    return user
++
++
+ async def user_by_referral_code(session: AsyncSession, code: str | None) -> User | None:
+     if not code:
+         return None
+@@ -127,7 +135,7 @@ async def get_or_create_user_for_identity(
+     if ident:
+         if data:
+             ident.data = data
+-        return await session.get(User, ident.user_id), False
++        return await _owner_of(session, ident.user_id), False
+     user = User(display_name=display_name, email=subject if provider == "email" else None)
+     session.add(user)
+     await session.flush()
+@@ -183,7 +191,7 @@ async def login_with_email_code(session: AsyncSession, email: str, code: str) ->
+     if ident:
+         if not ident.verified_at:
+             ident.verified_at = utcnow()
+-        return await session.get(User, ident.user_id), False
++        return await _owner_of(session, ident.user_id), False
+     # A user created without an email Identity (bootstrap admin, password-only accounts) already owns this
+     # address: the verified code proves ownership, so link a verified Identity instead of duplicating the user.
+     existing = await session.scalar(select(User).where(User.email == email))
+@@ -324,7 +332,7 @@ async def link_telegram(session: AsyncSession, code: str, p: TelegramProfile) ->
+     )
+     if not vc or vc.expires_at.replace(tzinfo=vc.expires_at.tzinfo or dt.UTC) < utcnow():
+         raise AppError("CODE_INVALID", "کد اتصال نامعتبر یا منقضی است.", 400)
+-    user = await session.get(User, vc.user_id)
++    user = await _owner_of(session, vc.user_id)
+     ident = await find_identity(session, "telegram", str(p.telegram_id))
+     if ident and ident.user_id != user.id:
+         # The link code (signed-in website user) and the bot (Telegram's own identity) prove both sides: fold an empty shell.
+@@ -333,6 +341,7 @@ async def link_telegram(session: AsyncSession, code: str, p: TelegramProfile) ->
+         if res is not None and res.keeper == str(user.id):
+             ident = await find_identity(session, "telegram", str(p.telegram_id))
+         elif res is not None:  # the link-code account was the shell: the Telegram account keeps living
++            assert other is not None  # res is only set when the other account exists
+             vc.used_at = utcnow()
+             await session.commit()
+             return other
+diff --git a/apps/api/melorin/modules/orders/router.py b/apps/api/melorin/modules/orders/router.py
+index 7ae06f1..b8e04e5 100644
+--- a/apps/api/melorin/modules/orders/router.py
++++ b/apps/api/melorin/modules/orders/router.py
+@@ -74,7 +74,7 @@ async def test_account(ctx: StoreCtx, session: Session):
+ @router.get("/stores/{store_id}/orders", response_model=list[OrderOut])
+ async def list_orders(ctx: StoreCtx, session: Session):
+     """Only the caller's own orders of THIS store."""
+-    rows = await queries.recent_for_scope(session, StoreScope.of(ctx).where(Order))
++    rows = await queries.recent_for_scope(session, list(StoreScope.of(ctx).where(Order)))
+     return [out(o) for o in rows]
+ 
+ 
+diff --git a/apps/api/melorin/modules/orders/service/create.py b/apps/api/melorin/modules/orders/service/create.py
+index bfb443f..c220aaa 100644
+--- a/apps/api/melorin/modules/orders/service/create.py
++++ b/apps/api/melorin/modules/orders/service/create.py
+@@ -79,6 +79,7 @@ async def create_order(
+         # plain ids above on purpose (see the note on rollback), not from ORM instances.
+         account = await StoreScope(store_id=store_id, user_id=user_id).lock(session, VpnAccount, vpn_account_id) if vpn_account_id else None
+         await renewal.check_renewable(session, account, user_id=user_id, store_id=store_id)
++        assert account is not None  # check_renewable refuses a missing account
+         if product_id != account.product_id:
+             raise AppError("RENEWAL_PRODUCT_MISMATCH", "تمدید فقط با همان پکیجی انجام می‌شود که اکانت با آن ساخته شده است.", 409)
+         try:
+diff --git a/apps/api/melorin/modules/reseller/auto_approve.py b/apps/api/melorin/modules/reseller/auto_approve.py
+index c8dc0f6..575c348 100644
+--- a/apps/api/melorin/modules/reseller/auto_approve.py
++++ b/apps/api/melorin/modules/reseller/auto_approve.py
+@@ -77,7 +77,7 @@ async def try_approve(session: AsyncSession, a: ResellerApplication) -> bool:
+         if await blockers(session, a):
+             return False
+         await identity.ensure_identity_free(
+-            session, domain=a.domain, bot_key=a.bot_key, bot_username=a.bot_username, exclude_application_id=a.id
++            session, domain=a.domain or "", bot_key=a.bot_key or "", bot_username=a.bot_username, exclude_application_id=a.id
+         )
+         target = await session.get(Store, a.target_store_id)
+         limit = max(0, int(get_settings().reseller_auto_approve_debt_limit))
+diff --git a/apps/api/melorin/modules/reseller/auto_verify.py b/apps/api/melorin/modules/reseller/auto_verify.py
+index b85abfd..51f56b2 100644
+--- a/apps/api/melorin/modules/reseller/auto_verify.py
++++ b/apps/api/melorin/modules/reseller/auto_verify.py
+@@ -97,7 +97,7 @@ async def host_is_public(domain: str) -> bool:
+     except OSError:
+         return False
+     addrs = {i[4][0] for i in infos}
+-    return bool(addrs) and all(is_public_ip(a) for a in addrs)
++    return bool(addrs) and all(is_public_ip(str(a)) for a in addrs)
+ 
+ 
+ # ---------------------------------------------------------------- network ----------------------------------------------
+@@ -107,7 +107,7 @@ async def check_dns(domain: str, value: str, *, transport: httpx.AsyncBaseTransp
+             r = await client.get(
+                 DOH_URL, params={"name": f"{TXT_PREFIX}.{domain}", "type": "TXT"}, headers={"accept": "application/dns-json"}
+             )
+-        return r.status_code == 200 and _txt_matches((r.json() or {}).get("Answer"), value)
++        return r.status_code == 200 and _txt_matches((r.json() or {}).get("Answer") or [], value)
+     except (httpx.HTTPError, ValueError):
+         return False
+ 
+diff --git a/apps/api/pyproject.toml b/apps/api/pyproject.toml
+index be15219..5915368 100644
+--- a/apps/api/pyproject.toml
++++ b/apps/api/pyproject.toml
+@@ -37,17 +37,9 @@ follow_imports = "silent"
+ check_untyped_defs = true
+ warn_unused_ignores = true
+ 
+-# r13 ratchet: known remaining errors (61 at the time of writing). tests/contracts/test_mypy_ratchet.py forbids growing this list.
++# r13 ratchet: known remaining errors (r14: only orders.provisioning remains). tests/contracts/test_mypy_ratchet.py forbids growing this list.
+ [[tool.mypy.overrides]]
+ module = [
+-  "melorin.modules.identity.auto_link",
+-  "melorin.modules.identity.google",
+-  "melorin.modules.identity.service",
+-  "melorin.modules.reseller.auto_approve",
+-  "melorin.modules.reseller.auto_verify",
+-  "melorin.modules.reseller.bots",
+-  "melorin.modules.orders.service.create",
+-  "melorin.modules.orders.router",
+   "melorin.modules.orders.provisioning",
+ ]
+ ignore_errors = true
+diff --git a/apps/api/tests/contracts/test_mypy_ratchet.py b/apps/api/tests/contracts/test_mypy_ratchet.py
+index a72a890..b86953a 100644
+--- a/apps/api/tests/contracts/test_mypy_ratchet.py
++++ b/apps/api/tests/contracts/test_mypy_ratchet.py
+@@ -2,7 +2,7 @@
+ import tomllib
+ from pathlib import Path
+ 
+-MAX_RATCHET = 9  # lower this number whenever a module is cleaned and removed from the override list
++MAX_RATCHET = 1  # lower this number whenever a module is cleaned and removed from the override list
+ 
+ 
+ def test_mypy_ratchet_only_shrinks():
+diff --git a/apps/api/tests/unit/test_identity_dangling_user.py b/apps/api/tests/unit/test_identity_dangling_user.py
+new file mode 100644
+index 0000000..873a4e2
+--- /dev/null
++++ b/apps/api/tests/unit/test_identity_dangling_user.py
+@@ -0,0 +1,18 @@
++"""r14: an identity or link code that points at a missing user fails with a 404 AppError, not an AttributeError."""
++
++import uuid
++from types import SimpleNamespace
++from unittest.mock import AsyncMock
++
++import pytest
++
++from melorin.core.errors import AppError
++from melorin.modules.identity import service
++
++
++@pytest.mark.parametrize("user_id", [uuid.uuid4(), None])
++async def test_missing_user_is_a_404(user_id):
++    session = SimpleNamespace(get=AsyncMock(return_value=None))
++    with pytest.raises(AppError) as exc:
++        await service._owner_of(session, user_id)
++    assert exc.value.code == "USER_NOT_FOUND" and exc.value.status == 404
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index e6a6684..3483f38 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -209,4 +209,5 @@ Source: `Melorin_Architecture_Admin_Audit.md` (the project has never been releas
+ - Pure moves (no logic change): `PanelAdminsView` -> `panelAdminsShared`, `PanelAdminDrawer`, `PanelRequestDrawer`; `TicketConversation` -> `TicketBubble`, `TicketComposer`; `UpstreamBotFields` -> `UpstreamFlowParts`; `kit.tsx` -> `kitFormat`, `kitDisplay`, `kitFilters`, `kitOverlays` (re-exported from `kit.tsx`).
+ - Reports vs Overview: the `/admin/reports/summary` calculation moved to `modules/reports/summary.py`; the Overview route only composes it. Paths and payloads are unchanged, because `AdminSession.tsx` and `Trend.tsx` still consume `/summary` and `/timeseries`; retiring them means moving both screens onto the analytics payload first.
+ - mypy now covers `modules/payments` with no ratchet entries (66 errors fixed). Behaviour changes, all failure paths: `mark_succeeded` / `mark_failed` on an unknown payment and `refund_payment` / callback on a vanished store return a 404 AppError instead of an AttributeError; the gateway callback keeps only string form fields; the receipt upload stores `""` instead of `None` as content type. Tests: `tests/unit/test_payments_service_guards.py`.
+-- Still open: move `AdminSession.tsx` / `Trend.tsx` to the analytics payload and then retire `/summary` and `/timeseries`; clear the 9 ratchet files (orders, identity, reseller); a limited support permission for bulk panel operations (product decision).
++- Still open: move `AdminSession.tsx` / `Trend.tsx` to the analytics payload and then retire `/summary` and `/timeseries`; clear the last ratchet file (`orders/provisioning.py`, 14 Optional-narrowing errors on panel/server placement: needs a design decision on what a missing panel means mid-provisioning); a limited support permission for bulk panel operations (product decision).
++- r14c: eight of nine ratchet files are clean and out of the list (`MAX_RATCHET` 9 -> 1). Failure-path behaviour only: a dangling identity/link-code user is a 404 `USER_NOT_FOUND` (`identity/service._owner_of`, Google login), `try_auto_merge` returns nothing when a merge result carries no keeper/shell, reseller auto-approval passes `""` for a missing domain/bot key, the DNS TXT check treats a missing `Answer` as no records. Test: `tests/unit/test_identity_dangling_user.py`.
+-- 
+2.43.0
+

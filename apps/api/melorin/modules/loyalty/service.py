@@ -678,15 +678,16 @@ async def customer_summary(session: AsyncSession, store: Store, user_id: uuid.UU
     upcoming, missing = rules.next_tier(tiers, acc.lifetime_earned)
     rewards = await list_rewards(session, store.id, only_active=True)
     recent, more = await history(session, store.id, user_id, limit=10)
-    used = dict(
-        (
+    used: dict[uuid.UUID, int] = {
+        row[0]: row[1]
+        for row in (
             await session.execute(
                 select(LoyaltyRedemption.reward_id, func.count())
                 .where(LoyaltyRedemption.store_id == store.id, LoyaltyRedemption.user_id == user_id)
                 .group_by(LoyaltyRedemption.reward_id)
             )
         ).all()
-    )
+    }
 
     def card(r: LoyaltyReward) -> dict:
         try:

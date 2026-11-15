@@ -31,8 +31,13 @@ print(u.username)
 PY
 )
 chmod 600 "$pgpass"
-PGHOST="${DB_PARTS[0]}" PGPORT="${DB_PARTS[1]}" PGDATABASE="${DB_PARTS[2]}" PGUSER="${DB_PARTS[3]}" PGPASSFILE="$pgpass" \
-  pg_dump --format=custom --no-owner --file="$raw"
+export PGHOST="${DB_PARTS[0]}" PGPORT="${DB_PARTS[1]}" PGDATABASE="${DB_PARTS[2]}" PGUSER="${DB_PARTS[3]}" PGPASSFILE="$pgpass"
+# r15 (restore drill finding): the image ships clients 16 AND 17 and the plain `pg_dump` wrapper picks 17, whose dump header
+# (and `SET transaction_timeout`) a PostgreSQL 16 server cannot restore. Dump with the client that matches the SERVER major.
+server_num="$(psql -Atc 'show server_version_num' 2>/dev/null || true)"
+PG_DUMP=pg_dump
+if [[ "$server_num" =~ ^[0-9]{6}$ && -x "/usr/lib/postgresql/${server_num:0:2}/bin/pg_dump" ]]; then PG_DUMP="/usr/lib/postgresql/${server_num:0:2}/bin/pg_dump"; fi
+"$PG_DUMP" --format=custom --no-owner --file="$raw"
 age --encrypt --recipients-file "$MELORIN_BACKUP_RECIPIENT_FILE" --output "$out" "$raw"
 sha256sum "$out" > "$out.sha256"
 sha256sum --check "$out.sha256"

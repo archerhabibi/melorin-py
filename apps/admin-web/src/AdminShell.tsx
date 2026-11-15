@@ -2,7 +2,7 @@ import { backdropProps } from './useDialog.ts';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { LogOut, KeyRound, ChevronDown, UserRound } from 'lucide-react';
-import { authFetch, getJson } from './api.ts';
+import { getJson, typedClient } from './api.ts';
 import { clearTokens } from './auth.ts';
 import { googleSignOut } from './GoogleSignIn.tsx';
 import { label } from './ui.tsx';
@@ -87,7 +87,7 @@ export function UserMenu({
     setBusy(true);
     let ok = false;
     try {
-      ok = (await authFetch(base, '/api/v1/auth/logout', { method: 'POST', body: '{}' })).ok;
+      ok = (await typedClient(base).post('/api/v1/auth/logout', { body: {} })).response.ok;
     } catch {
       ok = false;
     }

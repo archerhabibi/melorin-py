@@ -313,3 +313,27 @@ async def test_completed_provisioning_is_audited_and_counts_one_bundle_sale(pane
         assert w["group"].sold_count == 1
         audit = await s.scalar(select(AuditEvent).where(AuditEvent.action == "provisioning.completed"))
         assert audit is not None and audit.actor_type == "system"
+
+
+async def test_renewal_of_an_account_whose_panel_vanished_stops_for_review_instead_of_crashing(panel_factory, monkeypatch):
+    """r15 (mypy ratchet 1 -> 0): a dangling panel/server reference is a data defect no retry fixes; park the order, touch no panel."""
+    async with open_session() as s:
+        w = await _world(s)
+        panel = panel_factory(ScriptedPanel())
+        await vpn.provision_order(s, w["order"].id)
+        first = await s.get(Order, w["order"].id)
+        acc = await s.get(VpnAccount, first.vpn_account_id)
+        renewal = await make_order(s, user=w["user"], store=w["store"], product=w["product"], total=2_000, status="paid", number="RENEW2")
+        renewal.kind, renewal.vpn_account_id = "renewal", acc.id
+        await s.commit()
+        original_get = type(s).get
+
+        async def get_without_panel(self, entity, ident, *a, **kw):
+            if entity is vpn.Panel:
+                return None
+            return await original_get(self, entity, ident, *a, **kw)
+
+        monkeypatch.setattr(type(s), "get", get_without_panel)
+        assert await vpn.provision_order(s, renewal.id) == "needs_review"
+        assert renewal.status == "provisioning_failed" and renewal.needs_review is True
+        assert panel.extended == []

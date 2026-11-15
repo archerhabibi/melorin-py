@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { useState } from 'react';
-import { authFetch } from './api.ts';
+import { typedClient } from './api.ts';
 import { PasswordInput } from './ui.tsx';
 import type { Json, Toast } from './types.ts';
 import { box, inp, btn } from './adminExtraKit.tsx';
@@ -19,11 +19,10 @@ export function ChangeAdminPassword({ api, toast }: { api?: Json; toast: Toast }
     if (v.next.length < 12) return toast('رمز جدید باید حداقل ۱۲ کاراکتر باشد');
     if (v.next !== v.confirm) return toast('تکرار رمز جدید یکسان نیست');
     setBusy(true);
-    const r = await authFetch(api.base, '/api/v1/auth/admin/password', {
-      method: 'POST',
-      body: JSON.stringify({ current_password: v.current, new_password: v.next }),
+    const { response: r, error } = await typedClient(api.base).post('/api/v1/auth/admin/password', {
+      body: { current_password: v.current, new_password: v.next },
     });
-    const d = await r.json().catch(() => ({}));
+    const d = (error ?? {}) as { error?: { message?: string }; detail?: { message?: string } }; // the typed client already consumed the body
     setBusy(false);
     if (!r.ok) return toast(d?.error?.message || d?.detail?.message || 'تغییر رمز ناموفق بود');
     setV({ current: '', next: '', confirm: '' });

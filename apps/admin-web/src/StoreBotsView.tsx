@@ -1,7 +1,7 @@
 // «ربات‌ها» tab of the store hub: which Telegram bot belongs to which store (GET/POST /admin/bot-store-bindings).
 // A binding is how a bot key reaches its store; the reseller bot normally creates its own on onboarding, this is the admin's view and manual path.
 import { useCallback, useEffect, useState } from 'react';
-import { authFetch } from './api.ts';
+import { useCall } from './api.ts';
 import { canWrite } from './adminAccess.ts';
 import { Empty, ErrorBar, errText, useRows } from './kit.tsx';
 import type { Toast } from './types.ts';
@@ -11,7 +11,7 @@ import type { HubApiProp, StoreRow } from './adminHubTypes.ts';
 const KIND_LABEL: Record<string, string> = { main: 'ربات اصلی', reseller: 'ربات نماینده' };
 
 export default function StoreBotsView({ api, toast }: { api?: HubApiProp; toast: Toast }) {
-  const call = useCallback((p: string, o?: RequestInit) => authFetch(api?.base ?? '', p, o), [api?.base]);
+  const call = useCall(api);
   const { rows, failed, load } = useRows(call, '/api/v1/admin/bot-store-bindings');
   const [stores, setStores] = useState<StoreRow[]>([]);
   const [form, setForm] = useState({ bot_key: '', bot_username: '', store_id: '', bot_kind: 'reseller' });

@@ -15,6 +15,7 @@ given to anything that looks wrong:
 
 from __future__ import annotations
 
+from typing import Any
 import datetime as dt
 import logging
 import uuid
@@ -38,7 +39,7 @@ log = logging.getLogger(__name__)
 P = PaymentStatus
 KEY = "payments.grace.{}"
 DEFAULT: dict = {"enabled": False, "minutes": 5, "max_amount_rial": 5_000_000, "max_exposure_rial": 20_000_000, "max_open_per_user": 1}
-_RULES = (
+_RULES: tuple[tuple[str, type, Any, Any], ...] = (
     ("enabled", bool, None, None),
     ("minutes", int, 1, 60),
     ("max_amount_rial", int, 1, 10**12),
@@ -214,7 +215,7 @@ async def run_store(session: AsyncSession, store: Store, *, now: dt.datetime | N
     """Credit provisionally every receipt of this store that waited long enough and passes every guard."""
     store_id = store.id  # keep the plain id: a rollback below expires every ORM object, `store` included
     cfg = await get_config(session, store_id)
-    out = {"credited": 0, "blocked": {}}
+    out: dict[str, Any] = {"credited": 0, "blocked": {}}
     if not cfg["enabled"]:
         return out
     now = now or utcnow()
@@ -320,7 +321,7 @@ async def resolve(
         return await payments.mark_failed(session, p.id, actor_id=actor_id, reason=note)
     done = {"resolved_at": utcnow().isoformat(), "resolved_by": str(actor_id) if actor_id else None}
     if approve:
-        p.meta = {**p.meta, "provisional": {**s, **done, "state": "confirmed"}}
+        p.meta = {**(p.meta or {}), "provisional": {**s, **done, "state": "confirmed"}}
         audit.record(
             session,
             "payment.provisional_confirmed",
@@ -341,7 +342,7 @@ async def resolve(
     short = max(0, -int(getattr(w, "balance", 0) or 0))
     p.status = P.FAILED
     p.reviewed_by, p.reviewed_at = actor_id, utcnow()
-    p.meta = {**p.meta, "provisional": {**s, **done, "state": "revoked", "shortfall": short or None}}
+    p.meta = {**(p.meta or {}), "provisional": {**s, **done, "state": "revoked", "shortfall": short or None}}
     audit.record(
         session,
         "payment.provisional_revoked",

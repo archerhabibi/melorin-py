@@ -17,7 +17,8 @@ from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from melorin.core.db import Base
 from melorin.core.errors import AppError
-from melorin.modules.admin import router as admin
+from melorin.modules.admin import bundles as admin_bundles
+from melorin.modules.admin import products as admin_products
 from melorin.modules.admin.schemas import BundleProductIn, CreateBundle, CreateProduct, ProductPatch, UpdateBundle
 from melorin.modules.catalog import router as public
 from melorin.modules.catalog import service as catalog
@@ -232,49 +233,49 @@ async def test_admin_creates_a_bundle_with_kind_and_customer_labels(session):
     body = CreateBundle(
         name="Tunnel bundle", kind_label="tunnel", selection_mode="manual", panel_ids=[panel.id], member_labels={panel.id: " ترکیه "}
     )
-    out = await admin.create_bundle(body, ADMIN, session)
+    out = await admin_bundles.create_bundle(body, ADMIN, session)
     assert out["kind_label"] == "tunnel" and out["panels"][0]["label"] == "ترکیه"
-    out = await admin.update_bundle(out["id"], UpdateBundle(kind_label="softether", member_labels={panel.id: ""}), ADMIN, session)
+    out = await admin_bundles.update_bundle(out["id"], UpdateBundle(kind_label="softether", member_labels={panel.id: ""}), ADMIN, session)
     assert out["kind_label"] == "softether" and out["panels"][0]["label"] is None
 
 
 async def test_admin_sets_lists_and_removes_bundle_packages(session):
     g, _ = await bundle(session)
     p = await product(session, "a", 10, 1000, reseller=600)
-    out = await admin.set_bundle_product(g.id, p.id, BundleProductIn(main_price=1200), ADMIN, session)
-    assert [x["product_ids"] for x in await admin.list_bundles(ADMIN, session)] == [[str(p.id)]]
+    out = await admin_bundles.set_bundle_product(g.id, p.id, BundleProductIn(main_price=1200), ADMIN, session)
+    assert [x["product_ids"] for x in await admin_bundles.list_bundles(ADMIN, session)] == [[str(p.id)]]
     assert (out["main_price"], out["reseller_price"], out["base_main_price"]) == (1200, None, 1000)
-    out = await admin.set_bundle_product(g.id, p.id, BundleProductIn(main_price=None, is_listed=False, sort=3), ADMIN, session)
+    out = await admin_bundles.set_bundle_product(g.id, p.id, BundleProductIn(main_price=None, is_listed=False, sort=3), ADMIN, session)
     assert (out["main_price"], out["is_listed"], out["sort"]) == (None, False, 3)
-    assert [r["code"] for r in await admin.list_bundle_products(g.id, ADMIN, session)] == ["a"]
-    assert [r["code"] for r in await admin.unassigned_products(ADMIN, session)] == []
-    await admin.remove_bundle_product(g.id, p.id, ADMIN, session)
-    assert [r["code"] for r in await admin.unassigned_products(ADMIN, session)] == ["a"]
+    assert [r["code"] for r in await admin_bundles.list_bundle_products(g.id, ADMIN, session)] == ["a"]
+    assert [r["code"] for r in await admin_bundles.unassigned_products(ADMIN, session)] == []
+    await admin_bundles.remove_bundle_product(g.id, p.id, ADMIN, session)
+    assert [r["code"] for r in await admin_bundles.unassigned_products(ADMIN, session)] == ["a"]
 
 
 async def test_test_packages_cannot_be_sold_in_a_bundle_and_default_bundle_cannot_be_removed(session):
     g, _ = await bundle(session)
     t = await product(session, "t", 1, 0, is_test=True)
     with pytest.raises(AppError) as e:
-        await admin.set_bundle_product(g.id, t.id, BundleProductIn(), ADMIN, session)
+        await admin_bundles.set_bundle_product(g.id, t.id, BundleProductIn(), ADMIN, session)
     assert e.value.code == "TEST_PRODUCT_NOT_SELLABLE"
     p = await product(session, "a", 10, 1000, default_bundle_id=g.id)
-    await admin.set_bundle_product(g.id, p.id, BundleProductIn(), ADMIN, session)
+    await admin_bundles.set_bundle_product(g.id, p.id, BundleProductIn(), ADMIN, session)
     with pytest.raises(AppError) as e:
-        await admin.remove_bundle_product(g.id, p.id, ADMIN, session)
+        await admin_bundles.remove_bundle_product(g.id, p.id, ADMIN, session)
     assert e.value.code == "PRODUCT_DEFAULT_BUNDLE"
 
 
 async def test_choosing_a_default_bundle_also_makes_the_bundle_sell_the_package(session):
     g, _ = await bundle(session)
-    out = await admin.create_product(
+    out = await admin_products.create_product(
         CreateProduct(code="new", name="plan", duration_days=30, traffic_gb=10, main_price=1, reseller_price=1, default_bundle_id=g.id),
         ADMIN,
         session,
     )
     assert await session.scalar(sa.select(BundleProduct.id).where(BundleProduct.bundle_id == g.id, BundleProduct.product_id == out.id))
     p = await product(session, "b", 10, 1000)
-    await admin.update_product(p.id, ProductPatch(default_bundle_id=g.id), ADMIN, session)
+    await admin_products.update_product(p.id, ProductPatch(default_bundle_id=g.id), ADMIN, session)
     assert await session.scalar(sa.select(BundleProduct.id).where(BundleProduct.bundle_id == g.id, BundleProduct.product_id == p.id))
 
 
@@ -416,6 +417,8 @@ async def test_admin_availability_never_writes_a_resellers_customer_price(sessio
     await sell(session, g, p, reseller, reseller=20000, customer_price=26000)
     from melorin.modules.admin.schemas import Availability
 
-    await admin.set_availability(p.id, Availability(store_id=reseller.id, enabled=True, listed=False, customer_price=99), ADMIN, session)
+    await admin_products.set_availability(
+        p.id, Availability(store_id=reseller.id, enabled=True, listed=False, customer_price=99), ADMIN, session
+    )
     sp = await session.scalar(sa.select(StoreProduct).where(StoreProduct.store_id == reseller.id))
     assert sp.customer_price == 26000 and sp.is_listed is False

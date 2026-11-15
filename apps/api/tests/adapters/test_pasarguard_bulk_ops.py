@@ -15,7 +15,7 @@ from melorin.core.errors import AppError
 from melorin.domain.order_state import VpnStatus
 from melorin.kernel.models.system import AuditEvent
 from melorin.kernel.models.vpn import BulkOperation, BulkOperationItem, Panel, VpnAccount
-from melorin.modules.panelops import bulk
+from melorin.modules.panelops import bulk, bulk_runner
 from melorin.modules.panel_integrations.adapters.base import Capabilities, ErrorKind, PanelAccount, PanelError
 
 GIB = 1024**3
@@ -73,7 +73,7 @@ class FakePanel:
 @pytest.fixture
 def panel_api(monkeypatch):
     fake = FakePanel()
-    monkeypatch.setattr(bulk, "build_adapter", lambda panel, server=None: fake)
+    monkeypatch.setattr(bulk_runner, "build_adapter", lambda panel, server=None: fake)
     return fake
 
 
@@ -106,10 +106,10 @@ async def _items(s, op):
 
 async def _run_to_end(s, op_id, *, ticks=10):
     for _ in range(ticks):
-        claimed = await bulk.claim_next(s)
+        claimed = await bulk_runner.claim_next(s)
         if claimed is None:
             break
-        await bulk.execute(s, claimed, budget_seconds=5)
+        await bulk_runner.execute(s, claimed, budget_seconds=5)
     return await bulk.get(s, op_id)
 
 
@@ -174,7 +174,7 @@ async def test_confirmation_needs_the_exact_count(panel_api):
             await bulk.confirm(s, op.id, count=2, actor_id=user.id)
         assert e.value.code == "BULK_COUNT_MISMATCH"
         assert (await bulk.get(s, op.id)).status == "previewed"
-        assert await bulk.claim_next(s) is None  # an unconfirmed preview is never run
+        assert await bulk_runner.claim_next(s) is None  # an unconfirmed preview is never run
         await bulk.confirm(s, op.id, count=3, actor_id=user.id)
         assert (await bulk.get(s, op.id)).status == "confirmed"
         with pytest.raises(AppError) as e:  # confirming twice is refused, not repeated
@@ -206,7 +206,7 @@ async def test_only_one_operation_may_be_open_per_panel(panel_api):
 
 # ----------------------------------------------------------------------------------------------------------- panel actions
 async def test_disable_runs_in_chunks_marks_accounts_and_audits(panel_api, monkeypatch):
-    monkeypatch.setattr(bulk, "CHUNK", 2)
+    monkeypatch.setattr(bulk_runner, "CHUNK", 2)  # the runner imported the constant at the split
     async with open_schema_engine() as engine, async_sessionmaker(engine, expire_on_commit=False)() as s:
         user, store, panel, accounts = await _world(s, 5)
         op = await bulk.preview(s, kind="disable", selection=_sel(panel), reason="قطعی", actor_id=user.id)
@@ -222,14 +222,14 @@ async def test_disable_runs_in_chunks_marks_accounts_and_audits(panel_api, monke
 
 
 async def test_transient_error_stops_the_run_and_the_rest_resumes_without_repeating_done_chunks(panel_api, monkeypatch):
-    monkeypatch.setattr(bulk, "CHUNK", 2)
+    monkeypatch.setattr(bulk_runner, "CHUNK", 2)  # the runner imported the constant at the split
     async with open_schema_engine() as engine, async_sessionmaker(engine, expire_on_commit=False)() as s:
         user, store, panel, _ = await _world(s, 4)
         op = await bulk.preview(s, kind="reset_usage", selection=_sel(panel), reason="ریست", actor_id=user.id)
         await bulk.confirm(s, op.id, count=4, actor_id=user.id)
         panel_api.fail_next = [PanelError(ErrorKind.TRANSIENT, "502")]
-        claimed = await bulk.claim_next(s)
-        mid = await bulk.execute(s, claimed, budget_seconds=5)
+        claimed = await bulk_runner.claim_next(s)
+        mid = await bulk_runner.execute(s, claimed, budget_seconds=5)
         assert mid.status == "confirmed" and mid.succeeded == 0  # nothing marked done, picked up again on the next tick
         end = await _run_to_end(s, op.id)
         assert end.status == "done" and end.succeeded == 4
@@ -238,7 +238,7 @@ async def test_transient_error_stops_the_run_and_the_rest_resumes_without_repeat
 
 
 async def test_permanent_error_fails_items_and_resume_retries_only_those(panel_api, monkeypatch):
-    monkeypatch.setattr(bulk, "CHUNK", 2)
+    monkeypatch.setattr(bulk_runner, "CHUNK", 2)  # the runner imported the constant at the split
     async with open_schema_engine() as engine, async_sessionmaker(engine, expire_on_commit=False)() as s:
         user, store, panel, _ = await _world(s, 4)
         op = await bulk.preview(s, kind="rotate_links", selection=_sel(panel), reason="لینک", actor_id=user.id)
@@ -262,7 +262,7 @@ async def test_cancel_stops_a_confirmed_operation_before_anything_is_sent(panel_
         op = await bulk.preview(s, kind="disable", selection=_sel(panel), reason="تعلیق", actor_id=user.id)
         await bulk.confirm(s, op.id, count=2, actor_id=user.id)
         await bulk.cancel(s, op.id, actor_id=user.id)
-        assert await bulk.claim_next(s) is None and panel_api.calls == []
+        assert await bulk_runner.claim_next(s) is None and panel_api.calls == []
         with pytest.raises(AppError) as e:
             await bulk.cancel(s, op.id, actor_id=user.id)
         assert e.value.code == "BULK_FINISHED"
@@ -274,10 +274,10 @@ async def test_a_live_lease_blocks_a_second_runner(panel_api):
         op = await bulk.preview(s, kind="disable", selection=_sel(panel), reason="تعلیق", actor_id=user.id)
         await bulk.confirm(s, op.id, count=2, actor_id=user.id)
         # An explicit clock: NOW is fixed at import time, so mixing it with the real clock made this test depend on suite duration.
-        assert await bulk.claim_next(s, now=NOW) == op.id
-        assert await bulk.claim_next(s, now=NOW) is None  # leased
+        assert await bulk_runner.claim_next(s, now=NOW) == op.id
+        assert await bulk_runner.claim_next(s, now=NOW) is None  # leased
         stale = NOW + dt.timedelta(minutes=10)
-        assert await bulk.claim_next(s, now=stale) == op.id  # a crashed runner's lease expires
+        assert await bulk_runner.claim_next(s, now=stale) == op.id  # a crashed runner's lease expires
 
 
 async def test_a_panel_without_the_capability_fails_cleanly_and_sends_nothing(monkeypatch):
@@ -286,7 +286,7 @@ async def test_a_panel_without_the_capability_fails_cleanly_and_sends_nothing(mo
             return Capabilities(bulk_actions=False)
 
     fake = Limited()
-    monkeypatch.setattr(bulk, "build_adapter", lambda panel, server=None: fake)
+    monkeypatch.setattr(bulk_runner, "build_adapter", lambda panel, server=None: fake)
     async with open_schema_engine() as engine, async_sessionmaker(engine, expire_on_commit=False)() as s:
         user, store, panel, _ = await _world(s, 2)
         op = await bulk.preview(s, kind="disable", selection=_sel(panel), reason="تعلیق", actor_id=user.id)
@@ -320,8 +320,8 @@ async def test_extend_never_adds_twice_when_the_first_answer_was_lost(panel_api)
         await bulk.confirm(s, op.id, count=1, actor_id=user.id)
         panel_api.apply_then_fail_extend = True
         panel_api.fail_next = [PanelError(ErrorKind.UNKNOWN, "timeout")]  # applied on the panel, answer lost
-        claimed = await bulk.claim_next(s)
-        mid = await bulk.execute(s, claimed, budget_seconds=5)
+        claimed = await bulk_runner.claim_next(s)
+        mid = await bulk_runner.execute(s, claimed, budget_seconds=5)
         assert mid.status == "confirmed"
         after_first = panel_api.users["acc0"].expire_at
         end = await _run_to_end(s, op.id)

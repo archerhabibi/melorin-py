@@ -1,5 +1,6 @@
 """PasarGuard account lifecycle (user create/read/modify/delete/reset/rotate) plus per-user usage and devices."""
 
+from typing import TYPE_CHECKING, Any
 import datetime as dt
 from urllib.parse import quote
 
@@ -19,14 +20,14 @@ def build_create_payload(spec: AccountSpec, cfg: dict) -> dict:
             raise PanelError(ErrorKind.PERMANENT, "pasarguard: config.user_template_id must be an integer") from exc
         if template_id <= 0:
             raise PanelError(ErrorKind.PERMANENT, "pasarguard: config.user_template_id must be positive")
-        body = {"user_template_id": template_id, "username": spec.username}
+        body: dict = {"user_template_id": template_id, "username": spec.username}
         if spec.note:
             body["note"] = spec.note[:500]
         return body
     group_ids = [int(g) for g in (cfg.get("group_ids") or [])]
     if not group_ids:
         raise PanelError(ErrorKind.PERMANENT, "pasarguard: config.group_ids is required")
-    body: dict = {
+    body = {
         "username": spec.username,
         "status": "active",
         "group_ids": group_ids,
@@ -57,6 +58,14 @@ def build_modify_payload(
 
 
 class UsersMixin:
+    if TYPE_CHECKING:  # what the host adapter class provides to this mixin (declared for the type checker only)
+
+        async def _req(self, method: str, path: str, *, ok404: bool = False, ok409: bool = False, **kw: Any) -> Any: ...
+
+        base: str
+        cfg: dict[str, Any]
+        legacy: bool
+
     # ------------------------------------------------------------------ paths
     @staticmethod
     def _q(username: str) -> str:

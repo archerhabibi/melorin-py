@@ -15,7 +15,7 @@ import {
   RefreshCw,
   ServerCog,
 } from 'lucide-react';
-import { UpstreamSpecs } from '../UpstreamBotFields.tsx';
+import { UpstreamSpecs } from '../UpstreamFlowParts.tsx';
 import { ubSummary } from '../upstreamBot.ts';
 import { ago, isStale, kindOf, Meter } from './panelUi.tsx';
 import type { Json, Rec } from '../types.ts';

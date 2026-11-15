@@ -64,7 +64,7 @@ async def applications(_: AdminUser, session: Session, status: str | None = None
     if status:
         q = q.where(ResellerApplication.status == status)
     # Pending first (oldest first, so nobody waits behind newer requests), then history newest first.
-    rows = (await session.execute(q.order_by(ResellerApplication.created_at))).all()
+    rows = list((await session.execute(q.order_by(ResellerApplication.created_at))).all())
     rows.sort(key=lambda r: (r[0].status != "pending", r[0].created_at if r[0].status == "pending" else -r[0].created_at.timestamp()))
     return [_application_row(x, u, t) for x, u, t in rows]
 
@@ -110,7 +110,7 @@ async def review_application(application_id: uuid.UUID, body: ResellerApproval, 
             raise AppError("STORE_MEMBERSHIP_REQUIRED", "متقاضی دیگر عضو فعال فروشگاه مقصد نیست.", 409)
         if has_details:
             await identity.ensure_identity_free(
-                session, domain=a.domain, bot_key=a.bot_key, bot_username=a.bot_username, exclude_application_id=a.id
+                session, domain=a.domain or "", bot_key=a.bot_key or "", bot_username=a.bot_username, exclude_application_id=a.id
             )
     a.reviewed_by, a.reviewed_at = admin.id, utcnow()
     a.review_reason = reason
@@ -123,7 +123,9 @@ async def review_application(application_id: uuid.UUID, body: ResellerApproval, 
         a.status = "approved" if body.approve else "rejected"
         token_enc, a.bot_token_enc = a.bot_token_enc, None  # the secret moves to the Store (approve) or is dropped (reject)
         if body.approve:
-            await create_reseller_store(session, a, target, token_enc=token_enc, debt_limit=body.debt_limit)
+            if target is None:
+                raise NotFound("فروشگاه")
+            await create_reseller_store(session, a, target, token_enc=token_enc or "", debt_limit=body.debt_limit)
     from melorin.modules.reseller import onboarding
 
     await onboarding.complete_review_task(session, a, admin.id)
