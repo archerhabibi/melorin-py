@@ -71,7 +71,7 @@ Port 80/443 already used by another proxy? The menu detects it and switches to [
 | **Provisioning** | Automatic account creation on Sanaei, PasarGuard (and a Mock adapter); retry, manual review, reconciliation, renewal and inquiry |
 | **Resellers** | Two-step applications (web or bot), debt limit, scoped Reseller API with signed outgoing webhooks, per-reseller pricing |
 | **Growth** | First-touch referral attribution, configurable commissions and rewards, refund reversal and clawback |
-| **Identity** | E-mail code, password + TOTP, Google, Telegram bot and OIDC login, channel binding, verified-email linking with conflict review (no silent merges) |
+| **Identity** | E-mail code, password + TOTP, Google, Telegram bot and OIDC login, channel binding, verified-email linking with conflict review (no silent merges), person-level account linking (Telegram, several Google and e-mail logins on one profile; re-authentication for unlink; separate, admin-approved wallet consolidation through the ledger; site tab and bot button, see docs/25) |
 | **Operations** | Encrypted daily backups with weekly restore drill, Prometheus + Alertmanager, CI-gated deploy with automatic rollback, audit log, automatic change log |
 
 ---

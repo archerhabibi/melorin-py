@@ -20,10 +20,12 @@ Status verified against the current code, not the audit text.
 - [ ] 14. product decision: Telegram buttons permission area (needs owner)
 
 ## Account-linking (doc 25 "remaining")
-- [ ] A. Site UI "my linked accounts" page + landing entry (large frontend job, not started)
-- [ ] B. Telegram bot main-menu button and flows (needs real bot token to verify)
-- [ ] C. fuller HTTP and financial tests for consolidation
-- [ ] D. stronger reauth for passwordless users (needs product decision on method)
+- [x] A. Site UI: dashboard tab "linked accounts" + landing section (store-web, 4 tests)
+- [x] B. Telegram bot: always-visible main-menu button + screen (3 tests). Needs a real bot token to try live.
+- [x] C. HTTP and financial tests for consolidation (5 tests) and reauth/unlink (4 tests)
+- [x] D. Reauth for passwordless users: e-mail one-time code. Telegram/Google-only accounts without e-mail keep session proof + last-method guard (product decision pending, see below)
+- [ ] E. product decision: stronger proof for accounts with no password and no e-mail (e.g. a fresh Google sign-in or a bot confirmation)
+- [ ] F. README.fa.md mirror of the README identity row (not translated)
 
 ## Cannot be verified here
 Docker/Compose (no docker on the test server), real Telegram bots, payment gateways, PasarGuard, TLS/Caddy.
