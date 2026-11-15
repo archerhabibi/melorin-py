@@ -1,7 +1,7 @@
 From 2cc71e2480612c61375a43f069bc21856cfe7017 Mon Sep 17 00:00:00 2001
 From: archerhabibi <archerhabibi@users.noreply.github.com>
 Date: Sun, 15 Nov 2026 23:01:40 +0000
-Subject: [PATCH] feat(identity): Person/Account/Login-Identity linking,
+Subject: [PATCH 1/2] feat(identity): Person/Account/Login-Identity linking,
  conflict flow, ledgered wallet consolidation, admin API (migration 0057)
 
 ---
@@ -2994,6 +2994,225 @@ index 0000000..3ba529f
 +- تأیید ادمین برای انتقال مالی (`identity_consolidation_auto_approve` پیش‌فرض خاموش). audit فقط‌افزودنی (trigger دیتابیس).
 +- API: `/identity/*` (کاربر)، `/admin/identity/*`، `/internal/identity/telegram/status` (ربات).
 +- باقی‌مانده: UI سایت/ربات، تست‌های HTTP/مالی کامل‌تر، reauth قوی‌تر برای کاربران بدون رمز.
+-- 
+2.43.0
+
+
+From bbc8b8ba9eee90c86867f5f7c3b036f43278c86b Mon Sep 17 00:00:00 2001
+From: archerhabibi <archerhabibi@users.noreply.github.com>
+Date: Sun, 15 Nov 2026 23:20:37 +0000
+Subject: [PATCH 2/2] fix(identity): repo guards green, service tests for
+ linking and consolidation
+
+---
+ .../identity/account_linking/consolidation.py |   3 +-
+ .../identity/account_linking/linking.py       |   7 +-
+ .../identity/account_linking/router.py        |   2 +-
+ .../api/melorin/modules/identity/auto_link.py |   2 +
+ .../service/test_account_linking_service.py   | 107 ++++++++++++++++++
+ .../api/tests/service/test_channel_binding.py |   2 +
+ 6 files changed, 116 insertions(+), 7 deletions(-)
+ create mode 100644 apps/api/tests/service/test_account_linking_service.py
+
+diff --git a/apps/api/melorin/modules/identity/account_linking/consolidation.py b/apps/api/melorin/modules/identity/account_linking/consolidation.py
+index d4a4cf9..631b334 100644
+--- a/apps/api/melorin/modules/identity/account_linking/consolidation.py
++++ b/apps/api/melorin/modules/identity/account_linking/consolidation.py
+@@ -7,6 +7,7 @@ is kept (status ``consolidated``) and the before/after totals are reconciled bef
+ import uuid
+ 
+ from sqlalchemy import select
++from sqlalchemy.exc import SQLAlchemyError
+ from sqlalchemy.ext.asyncio import AsyncSession
+ 
+ from melorin.core.config import get_settings
+@@ -232,7 +233,7 @@ async def execute(
+                 w.status, w.consolidated_into_id = "consolidated", target.id
+             if moved != total_before:
+                 raise AppError("CONSOLIDATION_RECONCILE", "جمع انتقال‌ها با موجودی مبدأ برابر نیست.", 500)
+-    except Exception as exc:
++    except (AppError, SQLAlchemyError, ArithmeticError, AssertionError, KeyError) as exc:
+         op.status = "failed"
+         op.failure_reason = (exc.message if isinstance(exc, AppError) else type(exc).__name__)[:500]
+         audit.log(
+diff --git a/apps/api/melorin/modules/identity/account_linking/linking.py b/apps/api/melorin/modules/identity/account_linking/linking.py
+index f1e5c0d..21e1656 100644
+--- a/apps/api/melorin/modules/identity/account_linking/linking.py
++++ b/apps/api/melorin/modules/identity/account_linking/linking.py
+@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
+ 
+ from melorin.core.db import utcnow
+ from melorin.core.errors import AppError
++from melorin.domain.timeutil import aware
+ from melorin.core.security import new_opaque_token, token_hash
+ from melorin.domain import account_linking as rules
+ from melorin.kernel.models.identity import Identity, RefreshToken, User
+@@ -18,12 +19,8 @@ from melorin.modules.identity.lookup import find_identity_any
+ OP_TTL = dt.timedelta(minutes=10)
+ 
+ 
+-def _aware(value: dt.datetime) -> dt.datetime:
+-    return value.replace(tzinfo=value.tzinfo or dt.UTC)
+-
+-
+ def is_expired(op: AccountLinkOperation) -> bool:
+-    return _aware(op.expires_at) < utcnow()
++    return aware(op.expires_at) < utcnow()
+ 
+ 
+ def _snapshot(i: Identity) -> dict:
+diff --git a/apps/api/melorin/modules/identity/account_linking/router.py b/apps/api/melorin/modules/identity/account_linking/router.py
+index de791ae..2dae86b 100644
+--- a/apps/api/melorin/modules/identity/account_linking/router.py
++++ b/apps/api/melorin/modules/identity/account_linking/router.py
+@@ -50,7 +50,7 @@ async def link_operations(user: CurrentUser, session: Session):
+     return await queries.operations(session, person.id)
+ 
+ 
+-@router.get("/orders")
++@router.get("/history")
+ async def unified_orders(user: CurrentUser, session: Session, limit: int = 50, offset: int = 0):
+     person = await persons.ensure_person(session, user)
+     return await queries.orders(session, person.id, min(max(limit, 1), 100), max(offset, 0))
+diff --git a/apps/api/melorin/modules/identity/auto_link.py b/apps/api/melorin/modules/identity/auto_link.py
+index b52e9a5..0ca142f 100644
+--- a/apps/api/melorin/modules/identity/auto_link.py
++++ b/apps/api/melorin/modules/identity/auto_link.py
+@@ -37,6 +37,8 @@ AUTO_REASONS = {
+ # Tables whose rows about a user carry no business value: they follow the identity (or die with the shell).
+ DISPOSABLE_TABLES = {
+     "identities",
++    "account_link_operations",  # linking attempts of the shell itself (own audit/evidence rows follow the person)
++    "account_link_evidence",
+     "identity_link_reviews",
+     "terms_acceptances",
+     "notifications",
+diff --git a/apps/api/tests/service/test_account_linking_service.py b/apps/api/tests/service/test_account_linking_service.py
+new file mode 100644
+index 0000000..9c2c2e0
+--- /dev/null
++++ b/apps/api/tests/service/test_account_linking_service.py
+@@ -0,0 +1,107 @@
++# Linking + consolidation against real tables (docs/25).
++import uuid
++
++import pytest
++from sqlalchemy import select
++
++from _db import make_store, make_user, open_session
++from melorin.core.errors import AppError
++from melorin.domain.account_linking import Evidence
++from melorin.kernel.models.identity import Identity
++from melorin.kernel.models.person import AccountLinkAudit, WalletTransfer
++from melorin.kernel.models.wallet import LedgerEntry, Wallet
++from melorin.modules.identity.account_linking import consolidation, linking, queries, telegram
++from melorin.modules.wallet import service as wallets
++
++
++async def _attach(s, user, provider, subject, ev=Evidence.OAUTH_GOOGLE):
++    return await linking.attach_identity(s, user, provider, subject, evidence=ev)
++
++
++async def _err(coro):
++    with pytest.raises(AppError) as e:
++        await coro
++    return e.value
++
++
++async def _linked_pair(s):
++    a, b = await make_user(s), await make_user(s)
++    await _attach(s, a, "google", "ga")
++    await _attach(s, b, "google", "gb")
++    err = await _err(_attach(s, a, "google", "gb"))
++    await linking.confirm_person_link(s, a, uuid.UUID(err.details["operation_id"]))
++    await s.refresh(b)
++    return a, b, err
++
++
++async def test_multiple_google_one_telegram_and_conflict_is_never_silent():
++    async with open_session() as s:
++        a, b = await make_user(s), await make_user(s)
++        assert await _attach(s, a, "google", "g1") == "attached"
++        assert await _attach(s, a, "google", "g2") == "attached"
++        assert await _attach(s, a, "telegram", "100", Evidence.TELEGRAM_BOT) == "attached"
++        assert (await _err(_attach(s, a, "telegram", "101", Evidence.TELEGRAM_BOT))).code == "TELEGRAM_ALREADY_LINKED"
++        await _attach(s, b, "google", "g3")
++        err = await _err(_attach(s, a, "google", "g3"))
++        assert err.code == "IDENTITY_IN_USE" and err.details["operation_id"]
++        g3 = await s.scalar(select(Identity).where(Identity.subject == "g3"))
++        assert g3.person_id == b.person_id
++
++
++async def test_confirmed_link_moves_accounts_and_unlink_keeps_one_way_in():
++    async with open_session() as s:
++        a, b, err = await _linked_pair(s)
++        assert b.person_id == a.person_id
++        again = await linking.confirm_person_link(s, a, uuid.UUID(err.details["operation_id"]))
++        assert again["status"] == "confirmed"
++        idents = (await s.scalars(select(Identity).where(Identity.person_id == a.person_id))).all()
++        assert len(idents) == 2
++        await linking.unlink_identity(s, a, idents[0].id)
++        assert (await _err(linking.unlink_identity(s, a, idents[1].id))).code == "LAST_LOGIN_METHOD"
++        assert await s.scalar(select(AccountLinkAudit.id).where(AccountLinkAudit.action == "persons_linked"))
++
++
++async def test_telegram_token_is_single_use_and_replace_revokes_old():
++    async with open_session() as s:
++        a = await make_user(s)
++        await _attach(s, a, "telegram", "100", Evidence.TELEGRAM_BOT)
++        op, raw = await telegram.start(s, a)
++        assert op.operation_type == "replace"
++        await telegram.begin_completion(s, await telegram.find_operation(s, raw))
++        await linking.attach_identity(s, a, "telegram", "200", evidence=Evidence.TELEGRAM_BOT, replace=True, operation=op)
++        old = await s.scalar(select(Identity).where(Identity.subject == "100"))
++        assert old.status == "revoked"
++        assert await telegram.find_operation(s, raw) is None
++
++
++async def test_consolidation_moves_balance_through_ledger_once():
++    async with open_session() as s:
++        store = await make_store(s)
++        a, b, _ = await _linked_pair(s)
++        wb = await wallets.get_wallet(s, b.id, store.id)
++        pay = [wallets.Posting(500, wallet=wb), wallets.Posting(-500, account="gateway:x:clearing", min_balance=None)]
++        await wallets.post(s, kind="topup", key="t1", currency="IRT", postings=pay)
++        op = await consolidation.request(s, a, key="k-12345678")
++        assert op.status == "pending_approval"
++        assert (await consolidation.request(s, a, key="k-12345678")).id == op.id
++        done = await consolidation.execute(s, op, approver_id=None, actor_type="system")
++        assert done.status == "completed"
++        await consolidation.execute(s, done, approver_id=None)
++        central = await wallets.get_wallet(s, a.id, store.id, route=False)
++        assert central.balance == 500 and wb.balance == 0 and wb.status == "consolidated"
++        assert (await wallets.get_wallet(s, b.id, store.id)).id == central.id
++        assert len((await s.scalars(select(WalletTransfer))).all()) == 1
++        assert len((await s.scalars(select(LedgerEntry).where(LedgerEntry.wallet_id == wb.id))).all()) == 2
++        assert (await queries.person_detail(s, a.person_id))["consolidations"][0]["status"] == "completed"
++
++
++async def test_debt_blocks_consolidation_but_keeps_accounts_linked():
++    async with open_session() as s:
++        store = await make_store(s)
++        a, b, _ = await _linked_pair(s)
++        wb = await wallets.get_wallet(s, b.id, store.id)
++        wb.balance = -50
++        op = await consolidation.request(s, a, key="k-debt-1234")
++        assert op.status == "blocked"
++        assert (await _err(consolidation.execute(s, op, approver_id=None))).code == "CONSOLIDATION_BLOCKED"
++        assert b.person_id == a.person_id and (await s.get(Wallet, wb.id)).balance == -50
+diff --git a/apps/api/tests/service/test_channel_binding.py b/apps/api/tests/service/test_channel_binding.py
+index 2062ec6..ed7b0f7 100644
+--- a/apps/api/tests/service/test_channel_binding.py
++++ b/apps/api/tests/service/test_channel_binding.py
+@@ -391,6 +391,8 @@ PUBLIC_ROUTES = {
+     # PasarGuard panel -> Melorin events (PG-03): authenticated by the per-panel shared secret (constant time, encrypted at rest),
+     # unknown/unconnected panels answer like a wrong secret, per-IP + failed-secret rate limits, body cap; never a user session
+     "/webhooks/pasarguard/{panel_id}",
++    # bot service -> Core: is this Telegram id attached to a person (X-Bot-Secret only, no names or balances)
++    "/internal/identity/telegram/status",
+     "/health/live",
+     "/healthz",
+     "/health/ready",
 -- 
 2.43.0
 
