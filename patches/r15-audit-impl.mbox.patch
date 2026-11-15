@@ -1,0 +1,729 @@
+From fef621c80cd4e0007187760ca2360155c4f22a38 Mon Sep 17 00:00:00 2001
+From: Pori Toooni <poritoooni@gmail.com>
+Date: Sun, 15 Nov 2026 08:31:54 +0000
+Subject: [PATCH 1/3] refactor(audit): orders.provisioning typed, mypy ratchet
+ empty (r15a)
+
+---
+ apps/api/melorin/modules/orders/provisioning.py | 3 +++
+ apps/api/pyproject.toml                         | 8 +-------
+ apps/api/tests/contracts/test_mypy_ratchet.py   | 4 ++--
+ 3 files changed, 6 insertions(+), 9 deletions(-)
+
+diff --git a/apps/api/melorin/modules/orders/provisioning.py b/apps/api/melorin/modules/orders/provisioning.py
+index a919fb7..4eaa2ec 100644
+--- a/apps/api/melorin/modules/orders/provisioning.py
++++ b/apps/api/melorin/modules/orders/provisioning.py
+@@ -207,6 +207,9 @@ async def provision_order(session: AsyncSession, order_id: uuid.UUID) -> str:
+             # Retry like any transient failure; auto-refund when retries exhausted.
+             order.provisioning_attempts += 1
+             return await _fail(session, order, e.message)
++    if panel is None or server is None:
++        # r15: an account pointing at a deleted panel/server must stop for a human instead of crashing below.
++        return await _needs_review(session, order, "پنل یا سرور این اکانت پیدا نشد؛ بررسی دستی لازم است.")
+     order.provisioning_attempts += 1
+     attempt = ProvisioningAttempt(
+         order_id=order.id,
+diff --git a/apps/api/pyproject.toml b/apps/api/pyproject.toml
+index 5915368..1cc78c9 100644
+--- a/apps/api/pyproject.toml
++++ b/apps/api/pyproject.toml
+@@ -33,16 +33,10 @@ files = ["melorin/core", "melorin/worker", "melorin/domain", "melorin/kernel", "
+          "melorin/modules/orders", "melorin/modules/identity", "melorin/modules/reseller", "melorin/modules/payments"]
+ ignore_missing_imports = true
+ follow_imports = "silent"
+-# T-W07/T-R09: bodies of unannotated functions are checked too; widen `files` one package at a time (r13: orders, identity, reseller are in scope; r14: payments too, with no ratchet entries; files in the ratchet list below still carry known Optional-narrowing errors and may only be removed from it, never added).
++# T-W07/T-R09: bodies of unannotated functions are checked too; widen `files` one package at a time (r13: orders, identity, reseller are in scope; r14: payments too, with no ratchet entries; r15: the ratchet is empty, every module in `files` is clean).
+ check_untyped_defs = true
+ warn_unused_ignores = true
+ 
+-# r13 ratchet: known remaining errors (r14: only orders.provisioning remains). tests/contracts/test_mypy_ratchet.py forbids growing this list.
+-[[tool.mypy.overrides]]
+-module = [
+-  "melorin.modules.orders.provisioning",
+-]
+-ignore_errors = true
+ 
+ [tool.pytest.ini_options]
+ # T-R05: tests are grouped in sub-folders but still import shared helpers by bare module name (module basenames are unique).
+diff --git a/apps/api/tests/contracts/test_mypy_ratchet.py b/apps/api/tests/contracts/test_mypy_ratchet.py
+index b86953a..f229118 100644
+--- a/apps/api/tests/contracts/test_mypy_ratchet.py
++++ b/apps/api/tests/contracts/test_mypy_ratchet.py
+@@ -2,13 +2,13 @@
+ import tomllib
+ from pathlib import Path
+ 
+-MAX_RATCHET = 1  # lower this number whenever a module is cleaned and removed from the override list
++MAX_RATCHET = 0  # lower this number whenever a module is cleaned and removed from the override list
+ 
+ 
+ def test_mypy_ratchet_only_shrinks():
+     cfg = tomllib.loads((Path(__file__).resolve().parents[2] / "pyproject.toml").read_text(encoding="utf-8"))
+     mypy = cfg["tool"]["mypy"]
+-    ratchet = [m for o in mypy["overrides"] if o.get("ignore_errors") for m in o["module"]]
++    ratchet = [m for o in mypy.get("overrides", []) if o.get("ignore_errors") for m in o["module"]]
+     assert len(ratchet) <= MAX_RATCHET, "do not add modules to the mypy ratchet; fix the typing instead"
+     for pkg in ("orders", "identity", "reseller"):
+         assert f"melorin/modules/{pkg}" in mypy["files"]
+-- 
+2.43.0
+
+
+From f073f9fd18a7948a6d2cf7ff57636abd61040a63 Mon Sep 17 00:00:00 2001
+From: Pori Toooni <poritoooni@gmail.com>
+Date: Sun, 15 Nov 2026 08:37:25 +0000
+Subject: [PATCH 2/3] refactor(audit): reports own /admin/reports/*, legacy
+ hash aliases removed, store hub groups, decisions (r15b)
+
+---
+ apps/admin-web/src/App.tsx                    |   6 -
+ apps/admin-web/src/StoreHubView.tsx           |  55 +++++++--
+ apps/admin-web/src/adminNav.ts                |   8 +-
+ apps/admin-web/src/infra.tsx                  |  30 +----
+ apps/admin-web/tests/identity-hub.test.jsx    |   8 --
+ .../tests/identity-login-move.test.jsx        |   6 -
+ apps/admin-web/tests/nav-structure.test.js    |   2 -
+ apps/admin-web/tests/store-hub.test.jsx       |   9 --
+ apps/api/melorin/modules/admin/overview.py    | 104 +---------------
+ apps/api/melorin/modules/admin/router.py      |   2 +
+ .../melorin/modules/reports/admin_router.py   | 115 ++++++++++++++++++
+ apps/api/tests/_source.py                     |   4 +-
+ .../test_server_admin_ui_contract.py          |   4 +-
+ docs/DECISIONS.md                             |   8 ++
+ 14 files changed, 176 insertions(+), 185 deletions(-)
+ create mode 100644 apps/api/melorin/modules/reports/admin_router.py
+
+diff --git a/apps/admin-web/src/App.tsx b/apps/admin-web/src/App.tsx
+index 88e5fa2..4ec0345 100644
+--- a/apps/admin-web/src/App.tsx
++++ b/apps/admin-web/src/App.tsx
+@@ -4,7 +4,6 @@ import { Bell, CircleAlert, Download, Menu, RefreshCw, Search, Moon, X } from 'l
+ import { AdminSectionView } from './AdminSections.tsx';
+ import { DialogHost, ThemeButton, label } from './ui.tsx';
+ import { Palette } from './palette.tsx';
+-import { legacyHash } from './infra.tsx';
+ import { sectionAllowed } from './adminAccess.ts';
+ import { toggleTheme } from './theme.ts';
+ import type { Json } from './types.ts';
+@@ -40,11 +39,6 @@ export default function App({ onLogout }: { onLogout?: Json }) {
+   };
+   useEffect(() => {
+     const f = () => {
+-      const moved = legacyHash(window.location.hash);
+-      if (moved) {
+-        window.location.replace(moved);
+-        return;
+-      }
+       setSection(fromHash());
+     };
+     window.addEventListener('hashchange', f);
+diff --git a/apps/admin-web/src/StoreHubView.tsx b/apps/admin-web/src/StoreHubView.tsx
+index ed64a0d..2ddeca3 100644
+--- a/apps/admin-web/src/StoreHubView.tsx
++++ b/apps/admin-web/src/StoreHubView.tsx
+@@ -8,7 +8,7 @@
+ //   notices   «اعلان‌ها»         per-store low-traffic levels, customer notice texts and the owner digest
+ //   bots      «ربات‌ها»          bot key -> store bindings
+ // Each tab keeps its own permission area (SECTION_AREA of the section it came from), so a role sees only what it may open.
+-// Deep link: #/stores?tab=resellers (old #/resellers, #/panel-admins and #/store-governance are rewritten by legacyHash).
++// Deep link: #/stores?tab=resellers.
+ import type { LazyExoticComponent, ReactNode } from 'react';
+ import { lazy, Suspense, useState } from 'react';
+ import { sectionAllowed } from './adminAccess.ts';
+@@ -44,6 +44,23 @@ const TAB_DEFS: [string, string, string, HubView][] = [
+   ['bots', 'ربات‌ها', 'نمایندگان', StoreBotsView],
+ ];
+ 
++// r15 (audit 5.4): the eight tabs read as three visual groups; the data, permissions and deep links are unchanged.
++const GROUPS: [string, string][] = [
++  ['profile', 'مشخصات فروشگاه و نماینده'],
++  ['ops', 'تنظیمات عملیاتی فروشگاه'],
++  ['integrations', 'یکپارچه‌سازی‌ها و دسترسی‌ها'],
++];
++const TAB_GROUP: Record<string, string> = {
++  stores: 'profile',
++  resellers: 'profile',
++  prices: 'profile',
++  volume: 'ops',
++  notices: 'ops',
++  panels: 'integrations',
++  api: 'integrations',
++  bots: 'integrations',
++};
++
+ const tabFromHash = (ids: string[]) => {
+   const q = typeof window === 'undefined' ? '' : window.location.hash.split('?')[1] || '';
+   const t = new URLSearchParams(q).get('tab') ?? '';
+@@ -68,18 +85,30 @@ export default function StoreHubView({ api, toast }: { api?: HubApi; toast: Toas
+   const View = active[3];
+   return (
+     <div className="space-y-5">
+-      <Segmented
+-        label="بخش فروشگاه"
+-        value={active[0]}
+-        onChange={pick}
+-        options={tabs.map(([id, label]) => [
+-          id,
+-          <>
+-            {label}
+-            {id === 'panels' && (api?.pendingPanelReq ?? 0) > 0 && <b className="num mr-1">{api?.pendingPanelReq}</b>}
+-          </>,
+-        ])}
+-      />
++      <h2 className="text-lg font-extrabold">مدیریت فروشگاه‌ها و نمایندگان</h2>
++      {GROUPS.map(([gid, caption]) => {
++        const own = tabs.filter(([id]) => TAB_GROUP[id] === gid);
++        if (!own.length) return null;
++        return (
++          <div key={gid} className="space-y-1.5">
++            <div className="text-xs font-bold text-[var(--mu)]">{caption}</div>
++            <Segmented
++              label={`بخش فروشگاه: ${caption}`}
++              value={own.some(([id]) => id === active[0]) ? active[0] : ''}
++              onChange={pick}
++              options={own.map(([id, label]) => [
++                id,
++                <>
++                  {label}
++                  {id === 'panels' && (api?.pendingPanelReq ?? 0) > 0 && (
++                    <b className="num mr-1">{api?.pendingPanelReq}</b>
++                  )}
++                </>,
++              ])}
++            />
++          </div>
++        );
++      })}
+       <Suspense fallback={<div className="skel h-44" />}>
+         <View key={active[0]} api={api} toast={toast} />
+       </Suspense>
+diff --git a/apps/admin-web/src/adminNav.ts b/apps/admin-web/src/adminNav.ts
+index f4a5ad7..e807a4f 100644
+--- a/apps/admin-web/src/adminNav.ts
++++ b/apps/admin-web/src/adminNav.ts
+@@ -27,7 +27,6 @@ import {
+   UsersRound,
+   Zap,
+ } from 'lucide-react';
+-import { legacyHash } from './infra.tsx';
+ 
+ // Section keys are Persian labels (AdminSections/AdminExtra route on them); slug drives the URL hash.
+ export const groups: [string, [string, LucideIcon, string][], string?][] = [
+@@ -100,10 +99,5 @@ export const groups: [string, [string, LucideIcon, string][], string?][] = [
+   ],
+ ];
+ export const flat = groups.flatMap(([, items]) => items);
+-// The hash may carry deep-link params (#/servers?panel=<id>); only the path picks the section.
+-// Old bookmarks of the removed #/servers screen are rewritten to #/panels (servers live inside their panel now).
+-if (typeof window !== 'undefined') {
+-  const moved = legacyHash(window.location.hash);
+-  if (moved) window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${moved}`);
+-}
++// The hash may carry deep-link params (#/panels?id=<id>); only the path picks the section. No legacy aliases: Melorin has never been released.
+ export const fromHash = () => (flat.find((x) => `#/${x[2]}` === window.location.hash.split('?')[0]) || flat[0])[0];
+diff --git a/apps/admin-web/src/infra.tsx b/apps/admin-web/src/infra.tsx
+index dc5d4b2..1ed0a07 100644
+--- a/apps/admin-web/src/infra.tsx
++++ b/apps/admin-web/src/infra.tsx
+@@ -48,7 +48,7 @@ export const CHAIN = [
+   },
+ ];
+ 
+-/* ---------- hash routing helpers (#/servers?panel=<id>&add=1) ---------- */
++/* ---------- hash routing helpers (#/panels?id=<id>&add=server) ---------- */
+ const readParams = () => new URLSearchParams(window.location.hash.split('?')[1] || '');
+ export function useHashParams() {
+   const [p, setP] = useState(readParams);
+@@ -59,15 +59,7 @@ export function useHashParams() {
+   }, []);
+   return p;
+ }
+-/** "servers" no longer is a screen of its own: servers live inside their panel (#/panels). */
+-const LEGACY: Rec = {
+-  servers: (p: Json) => [
+-    'panels',
+-    { id: p.panel, group: p.group, product: p.product, add: p.add ? 'server' : undefined },
+-  ],
+-};
+-export const infraHref = (slug: Json, params = {}) => {
+-  if (LEGACY[slug]) [slug, params] = LEGACY[slug](params);
++export const infraHref = (slug: Json, params: Rec = {}) => {
+   const qs = new URLSearchParams(
+     Object.entries(params as Rec)
+       .filter(([, v]) => v !== undefined && v !== null && v !== '')
+@@ -75,24 +67,6 @@ export const infraHref = (slug: Json, params = {}) => {
+   ).toString();
+   return `#/${slug}${qs ? `?${qs}` : ''}`;
+ };
+-/** Old bookmarks (#/servers?panel=…) → new address, or null when the hash needs no rewrite. */
+-export function legacyHash(hash: Json) {
+-  const [path, q = ''] = hash.split('?');
+-  if (path === '#/identity' && new URLSearchParams(q).get('tab') === 'login') return '#/settings?tab=login'; // sign-in methods moved to Settings (owner-only)
+-  if (path === '#/identity-auto') return '#/identity?tab=devices'; // the two identity screens became one hub
+-  // the store hub: resellers, panel access and volume governance became tabs of #/stores
+-  const hubTab: Record<string, string> = {
+-    '#/resellers': 'resellers',
+-    '#/panel-admins': 'panels',
+-    '#/store-governance': 'volume',
+-  };
+-  if (hubTab[path]) return `#/stores?tab=${hubTab[path]}`;
+-  if (path === '#/panel-ops' && new URLSearchParams(q).get('tab') === 'notices') return '#/stores?tab=notices'; // per-store setting
+-  if (path === '#/manual-tasks') return '#/reseller-applications?tab=tasks'; // manual tasks became a tab of the reseller onboarding desk
+-  if (path !== '#/servers') return null;
+-  const p = Object.fromEntries(new URLSearchParams(q));
+-  return infraHref('servers', p);
+-}
+ /** Drop one-shot params (e.g. add=1) without adding a history entry. */
+ export const clearParam = (name: Json) => {
+   const [path, q = ''] = window.location.hash.split('?');
+diff --git a/apps/admin-web/tests/identity-hub.test.jsx b/apps/admin-web/tests/identity-hub.test.jsx
+index df0d099..5ac876b 100644
+--- a/apps/admin-web/tests/identity-hub.test.jsx
++++ b/apps/admin-web/tests/identity-hub.test.jsx
+@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
+ import { render, screen, waitFor } from '@testing-library/react';
+ import userEvent from '@testing-library/user-event';
+ import IdentityHubView from '../src/IdentityHubView.tsx';
+-import { legacyHash } from '../src/infra.tsx';
+ import { DialogHost } from '../src/ui.tsx';
+ 
+ const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
+@@ -105,10 +104,3 @@ describe('admin «هویت» hub', () => {
+     expect(await screen.findByText('Chrome · Windows')).toBeInTheDocument();
+   });
+ });
+-
+-describe('old bookmark of the former separate screen', () => {
+-  it('#/identity-auto lands on the devices tab of the hub', () => {
+-    expect(legacyHash('#/identity-auto')).toBe('#/identity?tab=devices');
+-    expect(legacyHash('#/identity')).toBeNull();
+-  });
+-});
+diff --git a/apps/admin-web/tests/identity-login-move.test.jsx b/apps/admin-web/tests/identity-login-move.test.jsx
+index 54b0bf9..91921f4 100644
+--- a/apps/admin-web/tests/identity-login-move.test.jsx
++++ b/apps/admin-web/tests/identity-login-move.test.jsx
+@@ -4,7 +4,6 @@ import { render, screen } from '@testing-library/react';
+ import IdentityHubView from '../src/IdentityHubView.tsx';
+ import { extraRoutes } from '../src/AdminExtra.tsx';
+ import { SECTION_AREA, sectionAllowed } from '../src/adminAccess.ts';
+-import { legacyHash } from '../src/infra.tsx';
+ 
+ const ROLES = {
+   owner: ['overview:rw', 'customers:rw', 'system:rw', 'infrastructure:rw', 'resellers:rw'],
+@@ -27,11 +26,6 @@ describe('sign-in methods moved from Identity to Settings', () => {
+     expect(screen.queryByRole('radio', { name: /روش‌های ورود/ })).toBeNull();
+   });
+ 
+-  it('rewrites the old #/identity?tab=login bookmark to Settings', () => {
+-    expect(legacyHash('#/identity?tab=login')).toBe('#/settings?tab=login');
+-    expect(legacyHash('#/identity?tab=auto')).toBeNull();
+-  });
+-
+   it('Settings (owner-only area) is where sign-in methods live', () => {
+     expect(SECTION_AREA['تنظیمات']).toBe('system');
+     for (const role of ['manager', 'finance', 'support', 'viewer'])
+diff --git a/apps/admin-web/tests/nav-structure.test.js b/apps/admin-web/tests/nav-structure.test.js
+index aaff267..64cd69e 100644
+--- a/apps/admin-web/tests/nav-structure.test.js
++++ b/apps/admin-web/tests/nav-structure.test.js
+@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
+ import { groups, flat } from '../src/adminNav.ts';
+ import { extraRoutes } from '../src/AdminExtra.tsx';
+ import { SECTION_AREA, sectionAllowed } from '../src/adminAccess.ts';
+-import { legacyHash } from '../src/infra.tsx';
+ 
+ const where = (label) => groups.find(([, items]) => items.some((i) => i[0] === label))?.[0];
+ 
+@@ -16,7 +15,6 @@ describe('admin menu structure (architecture audit §5-§6)', () => {
+     expect(Object.keys(extraRoutes)).not.toContain('کارهای دستی');
+     expect(SECTION_AREA['کارهای دستی']).toBeUndefined();
+     expect(where('درخواست‌های نمایندگی')).toBe('فروشگاه‌ها و نمایندگان');
+-    expect(legacyHash('#/manual-tasks')).toBe('#/reseller-applications?tab=tasks');
+   });
+   it('keeps Telegram buttons with the owner-only system settings, matching their permission', () => {
+     expect(where('دکمه‌های تلگرام')).toBe('سیستم و امنیت');
+diff --git a/apps/admin-web/tests/store-hub.test.jsx b/apps/admin-web/tests/store-hub.test.jsx
+index 258a9fb..e5a9abf 100644
+--- a/apps/admin-web/tests/store-hub.test.jsx
++++ b/apps/admin-web/tests/store-hub.test.jsx
+@@ -1,17 +1,8 @@
+ import { describe, expect, it } from 'vitest';
+-import { legacyHash } from '../src/infra.tsx';
+ import { extraRoutes } from '../src/AdminExtra.tsx';
+ import { SECTION_AREA, sectionAllowed } from '../src/adminAccess.ts';
+ 
+ describe('store hub', () => {
+-  it('old bookmarks of the merged screens land on the matching hub tab', () => {
+-    expect(legacyHash('#/resellers')).toBe('#/stores?tab=resellers');
+-    expect(legacyHash('#/panel-admins')).toBe('#/stores?tab=panels');
+-    expect(legacyHash('#/store-governance')).toBe('#/stores?tab=volume');
+-    expect(legacyHash('#/panel-ops?tab=notices')).toBe('#/stores?tab=notices');
+-    expect(legacyHash('#/stores')).toBeNull();
+-  });
+-
+   it('the stores section is routed to the hub, and every tab section keeps its permission area', () => {
+     expect(Object.keys(extraRoutes)).toContain('فروشگاه‌ها');
+     for (const s of ['فروشگاه‌ها', 'نمایندگان', 'اپراتور پنل فروشگاه', 'حجم فروشگاه‌ها'])
+diff --git a/apps/api/melorin/modules/admin/overview.py b/apps/api/melorin/modules/admin/overview.py
+index 998737b..737d17b 100644
+--- a/apps/api/melorin/modules/admin/overview.py
++++ b/apps/api/melorin/modules/admin/overview.py
+@@ -1,17 +1,10 @@
+ """Admin API - overview routes (split from the former 1,900-line router; paths unchanged)."""
+ 
+-import csv
+-import io
+ import logging
+-import re
+-import uuid
+-from fastapi import APIRouter, Query
+-from fastapi.responses import StreamingResponse
++from fastapi import APIRouter
+ from sqlalchemy import func, select
+ from melorin.core.deps import AdminUser, Session
+-from melorin.core.errors import AppError
+ from melorin.kernel.models.identity import User
+-from melorin.kernel.models.orders import Order
+ from melorin.modules.admin import bot_bindings
+ from melorin.kernel.models.system import BackupRun
+ from melorin.kernel.models.tickets import Ticket
+@@ -65,101 +58,6 @@ async def dashboard(_: AdminUser, session: Session):
+     }
+ 
+ 
+-@router.get("/reports/summary")
+-async def report_summary(_: AdminUser, session: Session):
+-    """Only successful payments count as sales, grouped by currency (computed by the reports module)."""
+-    from melorin.modules.reports.summary import build_summary
+-
+-    return await build_summary(session)
+-
+-
+-@router.get("/reports/timeseries")
+-async def report_timeseries(
+-    _: AdminUser,
+-    session: Session,
+-    days: int = Query(default=30, ge=7, le=90),
+-    tz: str = Query(default="UTC", max_length=64, description="IANA time zone used to bucket days, e.g. Asia/Tehran"),
+-):
+-    """Zero-filled daily orders + per-currency sales for the dashboard chart."""
+-    from melorin.modules.reports.timeseries import build_timeseries
+-
+-    try:
+-        return await build_timeseries(session, days, tz=tz)
+-    except ValueError as exc:
+-        raise AppError("INVALID_TIMEZONE", "منطقه زمانی نامعتبر است.", 422) from exc
+-
+-
+-@router.get("/reports/analytics")
+-async def report_analytics(
+-    _: AdminUser,
+-    session: Session,
+-    days: int = Query(default=30, ge=7, le=90),
+-    tz: str = Query(default="UTC", max_length=64, description="IANA time zone used to bucket days, e.g. Asia/Tehran"),
+-    currency: str | None = Query(default=None, min_length=2, max_length=8, description="report currency (default: top-selling one)"),
+-    store_id: uuid.UUID | None = Query(default=None, description="limit orders and payments to one store"),
+-):
+-    """Everything the Reports & charts screen needs in one currency-safe payload (KPIs vs previous period, series, breakdowns)."""
+-    from melorin.modules.reports.analytics import build_analytics
+-
+-    try:
+-        return await build_analytics(session, days, tz=tz, currency=currency.upper() if currency else None, store_id=store_id)
+-    except ValueError as exc:
+-        raise AppError("INVALID_TIMEZONE", "منطقه زمانی نامعتبر است.", 422) from exc
+-
+-
+-@router.get("/reports/analytics.csv")
+-async def export_analytics(
+-    _: AdminUser,
+-    session: Session,
+-    section: str = Query(default="daily", description="daily | products | stores | methods"),
+-    days: int = Query(default=30, ge=7, le=90),
+-    tz: str = Query(default="UTC", max_length=64),
+-    currency: str | None = Query(default=None, min_length=2, max_length=8),
+-    store_id: uuid.UUID | None = Query(default=None),
+-):
+-    """CSV of one analytics section (UTF-8 with BOM so Excel opens Persian names correctly)."""
+-    from melorin.modules.reports.analytics import CSV_SECTIONS, build_analytics, to_csv_rows
+-
+-    if section not in CSV_SECTIONS:
+-        raise AppError("INVALID_SECTION", "بخش گزارش نامعتبر است.", 422)
+-    try:
+-        payload = await build_analytics(session, days, tz=tz, currency=currency.upper() if currency else None, store_id=store_id)
+-    except ValueError as exc:
+-        raise AppError("INVALID_TIMEZONE", "منطقه زمانی نامعتبر است.", 422) from exc
+-    head, rows = to_csv_rows(payload, section)
+-    # the currency echoes the query when no data matched it: keep header-unsafe characters out of the file name
+-    safe_currency = re.sub(r"[^A-Za-z0-9]", "", str(payload["currency"]))[:8] or "XXX"
+-    buf = io.StringIO()
+-    writer = csv.writer(buf)
+-    writer.writerow(head)
+-    for row in rows:
+-        # Spreadsheet formula injection: names come from admins/resellers, so neutralise leading = + - @ in text cells.
+-        writer.writerow([f"'{c}" if isinstance(c, str) and c[:1] in ("=", "+", "-", "@", "\t", "\r") else c for c in row])
+-    return StreamingResponse(
+-        iter([buf.getvalue().encode("utf-8-sig")]),
+-        media_type="text/csv",
+-        headers={"Content-Disposition": f"attachment; filename=melorin-{section}-{safe_currency}-{days}d.csv"},
+-    )
+-
+-
+-@router.get("/reports/orders.csv")
+-async def export_orders(_: AdminUser, session: Session, status: str | None = Query(default=None)):
+-    q = select(Order).order_by(Order.created_at.desc()).limit(5000)
+-    if status:
+-        q = q.where(Order.status == status)
+-    rows = (await session.scalars(q)).all()
+-    buf = io.StringIO()
+-    writer = csv.writer(buf)
+-    writer.writerow(["id", "number", "store_id", "status", "total", "currency", "created_at"])
+-    for o in rows:
+-        writer.writerow([o.id, o.number, o.store_id, o.status, o.total, o.currency, o.created_at.isoformat()])
+-    return StreamingResponse(
+-        iter([buf.getvalue().encode("utf-8-sig")]),
+-        media_type="text/csv",
+-        headers={"Content-Disposition": "attachment; filename=melorin-orders.csv"},
+-    )
+-
+-
+ @router.get("/operations/backups", response_model=list[dict])
+ async def backup_status(_: AdminUser, session: Session):
+     """Read-only backup status for the Admin Web operations panel."""
+diff --git a/apps/api/melorin/modules/admin/router.py b/apps/api/melorin/modules/admin/router.py
+index c056aa5..0bbed38 100644
+--- a/apps/api/melorin/modules/admin/router.py
++++ b/apps/api/melorin/modules/admin/router.py
+@@ -12,6 +12,7 @@ from melorin.modules.admin.admins import router as admins_router
+ from melorin.modules.admin.integrations import router as integrations_router
+ from melorin.modules.admin.resellers import router as resellers_router
+ from melorin.modules.admin.overview import router as overview_router
++from melorin.modules.reports.admin_router import router as reports_admin_router
+ from melorin.modules.admin.products import router as products_router
+ from melorin.modules.admin.panels import router as panels_router
+ from melorin.modules.admin.panel_admins import router as panel_admins_router
+@@ -46,6 +47,7 @@ router.include_router(resellers_router)
+ for _family in (
+     admins_router,
+     overview_router,
++    reports_admin_router,
+     products_router,
+     panels_router,
+     panel_admins_router,
+diff --git a/apps/api/melorin/modules/reports/admin_router.py b/apps/api/melorin/modules/reports/admin_router.py
+new file mode 100644
+index 0000000..73dcb53
+--- /dev/null
++++ b/apps/api/melorin/modules/reports/admin_router.py
+@@ -0,0 +1,115 @@
++"""Admin API - business reports (r15: the reports module owns every /admin/reports/* route and its calculation).
++
++The admin overview (dashboard, health) only composes; sales summary, the daily series, analytics and the CSV exports are computed here
++and nowhere else. Paths, methods and payloads are unchanged.
++"""
++
++import csv
++import io
++import re
++import uuid
++
++from fastapi import APIRouter, Query
++from fastapi.responses import StreamingResponse
++from sqlalchemy import select
++
++from melorin.core.deps import AdminUser, Session
++from melorin.core.errors import AppError
++from melorin.kernel.models.orders import Order
++
++router = APIRouter(prefix="/admin", tags=["admin"])
++
++
++@router.get("/reports/summary")
++async def report_summary(_: AdminUser, session: Session):
++    """Only successful payments count as sales, grouped by currency (computed by the reports module)."""
++    from melorin.modules.reports.summary import build_summary
++
++    return await build_summary(session)
++
++
++@router.get("/reports/timeseries")
++async def report_timeseries(
++    _: AdminUser,
++    session: Session,
++    days: int = Query(default=30, ge=7, le=90),
++    tz: str = Query(default="UTC", max_length=64, description="IANA time zone used to bucket days, e.g. Asia/Tehran"),
++):
++    """Zero-filled daily orders + per-currency sales for the dashboard chart."""
++    from melorin.modules.reports.timeseries import build_timeseries
++
++    try:
++        return await build_timeseries(session, days, tz=tz)
++    except ValueError as exc:
++        raise AppError("INVALID_TIMEZONE", "منطقه زمانی نامعتبر است.", 422) from exc
++
++
++@router.get("/reports/analytics")
++async def report_analytics(
++    _: AdminUser,
++    session: Session,
++    days: int = Query(default=30, ge=7, le=90),
++    tz: str = Query(default="UTC", max_length=64, description="IANA time zone used to bucket days, e.g. Asia/Tehran"),
++    currency: str | None = Query(default=None, min_length=2, max_length=8, description="report currency (default: top-selling one)"),
++    store_id: uuid.UUID | None = Query(default=None, description="limit orders and payments to one store"),
++):
++    """Everything the Reports & charts screen needs in one currency-safe payload (KPIs vs previous period, series, breakdowns)."""
++    from melorin.modules.reports.analytics import build_analytics
++
++    try:
++        return await build_analytics(session, days, tz=tz, currency=currency.upper() if currency else None, store_id=store_id)
++    except ValueError as exc:
++        raise AppError("INVALID_TIMEZONE", "منطقه زمانی نامعتبر است.", 422) from exc
++
++
++@router.get("/reports/analytics.csv")
++async def export_analytics(
++    _: AdminUser,
++    session: Session,
++    section: str = Query(default="daily", description="daily | products | stores | methods"),
++    days: int = Query(default=30, ge=7, le=90),
++    tz: str = Query(default="UTC", max_length=64),
++    currency: str | None = Query(default=None, min_length=2, max_length=8),
++    store_id: uuid.UUID | None = Query(default=None),
++):
++    """CSV of one analytics section (UTF-8 with BOM so Excel opens Persian names correctly)."""
++    from melorin.modules.reports.analytics import CSV_SECTIONS, build_analytics, to_csv_rows
++
++    if section not in CSV_SECTIONS:
++        raise AppError("INVALID_SECTION", "بخش گزارش نامعتبر است.", 422)
++    try:
++        payload = await build_analytics(session, days, tz=tz, currency=currency.upper() if currency else None, store_id=store_id)
++    except ValueError as exc:
++        raise AppError("INVALID_TIMEZONE", "منطقه زمانی نامعتبر است.", 422) from exc
++    head, rows = to_csv_rows(payload, section)
++    # the currency echoes the query when no data matched it: keep header-unsafe characters out of the file name
++    safe_currency = re.sub(r"[^A-Za-z0-9]", "", str(payload["currency"]))[:8] or "XXX"
++    buf = io.StringIO()
++    writer = csv.writer(buf)
++    writer.writerow(head)
++    for row in rows:
++        # Spreadsheet formula injection: names come from admins/resellers, so neutralise leading = + - @ in text cells.
++        writer.writerow([f"'{c}" if isinstance(c, str) and c[:1] in ("=", "+", "-", "@", "\t", "\r") else c for c in row])
++    return StreamingResponse(
++        iter([buf.getvalue().encode("utf-8-sig")]),
++        media_type="text/csv",
++        headers={"Content-Disposition": f"attachment; filename=melorin-{section}-{safe_currency}-{days}d.csv"},
++    )
++
++
++@router.get("/reports/orders.csv")
++async def export_orders(_: AdminUser, session: Session, status: str | None = Query(default=None)):
++    q = select(Order).order_by(Order.created_at.desc()).limit(5000)
++    if status:
++        q = q.where(Order.status == status)
++    rows = (await session.scalars(q)).all()
++    buf = io.StringIO()
++    writer = csv.writer(buf)
++    writer.writerow(["id", "number", "store_id", "status", "total", "currency", "created_at"])
++    for o in rows:
++        writer.writerow([o.id, o.number, o.store_id, o.status, o.total, o.currency, o.created_at.isoformat()])
++    return StreamingResponse(
++        iter([buf.getvalue().encode("utf-8-sig")]),
++        media_type="text/csv",
++        headers={"Content-Disposition": "attachment; filename=melorin-orders.csv"},
++    )
+diff --git a/apps/api/tests/_source.py b/apps/api/tests/_source.py
+index 7903d23..a7bc237 100644
+--- a/apps/api/tests/_source.py
++++ b/apps/api/tests/_source.py
+@@ -92,7 +92,9 @@ def _raw_text(path: Path) -> str:
+     """Raw text of ``path``; split entry points resolve to the whole family (Phase 3.3 admin router, Phase 3.4 main bot, Phase 3.15 reseller bot)."""
+     path = Path(path)
+     if _is_admin_router(path):
+-        return "\n".join((path.parent / f"{name}.py").read_text(encoding="utf-8") for name in ADMIN_ROUTE_MODULES)
++        parts = [(path.parent / f"{name}.py").read_text(encoding="utf-8") for name in ADMIN_ROUTE_MODULES]
++        parts.append((path.parent.parent / "reports" / "admin_router.py").read_text(encoding="utf-8"))  # r15: reports owns /admin/reports/*
++        return "\n".join(parts)
+     if _is_reseller_router(path):
+         parts = [path.read_text(encoding="utf-8")]
+         parts += [(path.parent / "routes" / f"{name}.py").read_text(encoding="utf-8") for name in RESELLER_ROUTE_MODULES]
+diff --git a/apps/api/tests/contracts/test_server_admin_ui_contract.py b/apps/api/tests/contracts/test_server_admin_ui_contract.py
+index 0c7098e..c487d7e 100644
+--- a/apps/api/tests/contracts/test_server_admin_ui_contract.py
++++ b/apps/api/tests/contracts/test_server_admin_ui_contract.py
+@@ -38,8 +38,8 @@ def test_servers_live_inside_their_panel_screen():
+     assert '"panels"' in infra_group and '"bundles"' not in infra_group
+     catalog_group = app[app.index('"کاتالوگ و بازاریابی"') : app.index('"ارتباطات"')]
+     assert catalog_group.index('"bundles"') < catalog_group.index('"products"')
+-    # old bookmarks (#/servers?panel=<id>) still land on the merged screen
+-    assert "legacyHash" in app and "legacyHash" in _ui("infra.tsx")
++    # r15: Melorin has never been released, so no legacy hash aliases are kept
++    assert "legacyHash" not in app and "legacyHash" not in _ui("infra.tsx") and "legacyHash" not in _ui("App.tsx")
+ 
+ 
+ def test_infra_screens_share_one_dependency_model():
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index 3483f38..f2678c6 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -211,3 +211,11 @@ Source: `Melorin_Architecture_Admin_Audit.md` (the project has never been releas
+ - mypy now covers `modules/payments` with no ratchet entries (66 errors fixed). Behaviour changes, all failure paths: `mark_succeeded` / `mark_failed` on an unknown payment and `refund_payment` / callback on a vanished store return a 404 AppError instead of an AttributeError; the gateway callback keeps only string form fields; the receipt upload stores `""` instead of `None` as content type. Tests: `tests/unit/test_payments_service_guards.py`.
+ - Still open: move `AdminSession.tsx` / `Trend.tsx` to the analytics payload and then retire `/summary` and `/timeseries`; clear the last ratchet file (`orders/provisioning.py`, 14 Optional-narrowing errors on panel/server placement: needs a design decision on what a missing panel means mid-provisioning); a limited support permission for bulk panel operations (product decision).
+ - r14c: eight of nine ratchet files are clean and out of the list (`MAX_RATCHET` 9 -> 1). Failure-path behaviour only: a dangling identity/link-code user is a 404 `USER_NOT_FOUND` (`identity/service._owner_of`, Google login), `try_auto_merge` returns nothing when a merge result carries no keeper/shell, reseller auto-approval passes `""` for a missing domain/bot key, the DNS TXT check treats a missing `Answer` as no records. Test: `tests/unit/test_identity_dangling_user.py`.
++
++## r15 - audit follow-up (branch `refactor/audit-r15-impl`)
++- `orders/provisioning.py` is typed and the mypy ratchet is empty (`MAX_RATCHET = 0`, no `[[tool.mypy.overrides]]`). Design decision for the open question "what does a missing panel mean mid-provisioning": an order whose account points at a deleted panel or server stops in `provisioning_failed` with `needs_review = true` (a data defect no retry can fix), exactly like the existing renewal-without-template case; it never crashes with `AttributeError` and never guesses a replacement panel.
++- Legacy hash aliases are gone (`legacyHash`, `LEGACY` in `infra.tsx`): Melorin has never been released, so no bookmark needs a rewrite. Menu slugs are the only addresses. `infraHref` stays for building deep links.
++- Reports own `/admin/reports/*`: `summary`, `timeseries`, `analytics`, `analytics.csv` and `orders.csv` moved from `admin/overview.py` to `modules/reports/admin_router.py` (paths and payloads unchanged, attached to the admin composition root). Overview keeps only the dashboard queue, health and backup status. `/summary` and `/timeseries` are NOT retired: they are the all-time, every-currency dashboard contract, while `/analytics` is one currency over one period, so the analytics payload cannot replace them without losing the multi-currency headline cards. They stay documented here as the dashboard contract of Reports.
++- Store hub: the eight tabs are drawn as three captioned groups (profile, operational settings, integrations and access) under the heading «مدیریت فروشگاه‌ها و نمایندگان». Tab ids, permissions and `?tab=` deep links are unchanged.
++- Admin Team permission matrix, final: bulk panel operations stay `infrastructure` only; support gets no bulk operation. If support ever needs one, add a narrow dedicated permission, never the whole `infrastructure` area. Telegram buttons stay `system` (owner) and sit in «سیستم و امنیت».
++- Remaining `authFetch(` call sites (2) are binary CSV downloads (`reports/orders.csv`, report export), which need the raw `Response` and so cannot go through the JSON typed client; they keep the same transport rules.
+-- 
+2.43.0
+
+
+From 21a9483ec62ee98ce166351f1ebc20cfaea7b2f4 Mon Sep 17 00:00:00 2001
+From: Pori Toooni <poritoooni@gmail.com>
+Date: Sun, 15 Nov 2026 08:38:04 +0000
+Subject: [PATCH 3/3] test(provisioning): dangling panel parks the order for
+ review (r15c)
+
+---
+ .../api/tests/service/test_provisioning_db.py | 24 +++++++++++++++++++
+ 1 file changed, 24 insertions(+)
+
+diff --git a/apps/api/tests/service/test_provisioning_db.py b/apps/api/tests/service/test_provisioning_db.py
+index 24e2e9b..4d4263d 100644
+--- a/apps/api/tests/service/test_provisioning_db.py
++++ b/apps/api/tests/service/test_provisioning_db.py
+@@ -313,3 +313,27 @@ async def test_completed_provisioning_is_audited_and_counts_one_bundle_sale(pane
+         assert w["group"].sold_count == 1
+         audit = await s.scalar(select(AuditEvent).where(AuditEvent.action == "provisioning.completed"))
+         assert audit is not None and audit.actor_type == "system"
++
++
++async def test_renewal_of_an_account_whose_panel_vanished_stops_for_review_instead_of_crashing(panel_factory, monkeypatch):
++    """r15 (mypy ratchet 1 -> 0): a dangling panel/server reference is a data defect no retry fixes; park the order, touch no panel."""
++    async with open_session() as s:
++        w = await _world(s)
++        panel = panel_factory(ScriptedPanel())
++        await vpn.provision_order(s, w["order"].id)
++        first = await s.get(Order, w["order"].id)
++        acc = await s.get(VpnAccount, first.vpn_account_id)
++        renewal = await make_order(s, user=w["user"], store=w["store"], product=w["product"], total=2_000, status="paid", number="RENEW2")
++        renewal.kind, renewal.vpn_account_id = "renewal", acc.id
++        await s.commit()
++        original_get = type(s).get
++
++        async def get_without_panel(self, entity, ident, *a, **kw):
++            if entity is vpn.Panel:
++                return None
++            return await original_get(self, entity, ident, *a, **kw)
++
++        monkeypatch.setattr(type(s), "get", get_without_panel)
++        assert await vpn.provision_order(s, renewal.id) == "needs_review"
++        assert renewal.status == "provisioning_failed" and renewal.needs_review is True
++        assert panel.extended == []
+-- 
+2.43.0
+
