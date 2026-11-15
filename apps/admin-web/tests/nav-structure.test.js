@@ -34,4 +34,11 @@ describe('admin menu structure (architecture audit §5-§6)', () => {
     }
     for (const [label] of flat) expect(SECTION_AREA[label], label).toBeTruthy();
   });
+  it('puts tickets in the notifications, communications and support group (UI grouping only), not under sales', () => {
+    const group = 'اعلان‌ها، ارتباطات و پشتیبانی';
+    for (const label of ['پیام همگانی', 'مرکز رویداد', 'تیکت‌ها']) expect(where(label), label).toBe(group);
+    expect(where('سفارش‌ها')).toBe('فروش و عملیات');
+    expect(where('تیکت‌ها')).not.toBe('فروش و عملیات');
+    expect(groups.map(([name]) => name)).toHaveLength(8);
+  });
 });

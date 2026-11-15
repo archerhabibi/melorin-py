@@ -43,7 +43,6 @@ export const groups: [string, [string, LucideIcon, string][], string?][] = [
       ['سفارش‌ها', Package, 'orders'],
       ['پرداخت‌ها', CreditCard, 'payments'],
       ['اکانت‌های VPN', Server, 'vpn'],
-      ['تیکت‌ها', Ticket, 'tickets'],
     ],
   ],
   [
@@ -80,10 +79,11 @@ export const groups: [string, [string, LucideIcon, string][], string?][] = [
     ],
   ],
   [
-    'ارتباطات',
+    'اعلان‌ها، ارتباطات و پشتیبانی',
     [
       ['پیام همگانی', Megaphone, 'broadcasts'],
       ['مرکز رویداد', BellRing, 'event-center'],
+      ['تیکت‌ها', Ticket, 'tickets'], // UI grouping only: tickets stay their own backend module
     ],
   ],
   [
