@@ -61,6 +61,28 @@ class IdentityMixin:
             rows.insert(0, [("🌐 باز کردن حساب در سایت", url)])
         await self.screen(ctx, text, rows)
 
+    async def cmd_link_accounts(self, ctx, arg):
+        """"Link my accounts" screen (docs/25 section 8.1): what is linked now, and a one-tap way into the site's linking page.
+        The bot only shows what Core says; ownership proof for every new login method happens on the site and in Telegram."""
+        data = await self.api(ctx, "GET", "/api/v1/identity/linked-accounts")
+        idents = data.get("identities") or []
+        names = {"telegram": "تلگرام", "google": "Google", "email": "ایمیل"}
+        lines = [f"• {names.get(i.get('provider'), esc(i.get('provider')))}: <code>{esc(i.get('label'))}</code>" for i in idents]
+        lines = lines or ["• هنوز روشی ثبت نشده است."]
+        text = (
+            "🔗 <b>اتصال حساب‌های من</b>\n\n"
+            "تلگرام، Google و ایمیل خود را به یک پروفایل متصل کنید تا کیف پول و تاریخچه سفارش‌ها مشترک باشد.\n\n"
+            + "\n".join(lines)
+            + f"\n\nحساب‌های متصل: {len(data.get('accounts') or [])}\n"
+            "برای افزودن روش جدید دکمهٔ زیر را بزنید؛ اتصال فقط پس از تأیید مالکیت انجام می‌شود."
+        )
+        rows = []
+        url = await self.account_url(ctx)
+        if url:
+            rows.append([("🔗 مدیریت اتصال‌ها در سایت", url)])
+        rows.append([("🏠 خانه", "menu:home")])
+        await self.screen(ctx, text, rows)
+
     async def cmd_link(self, ctx, arg):
         code = arg.strip()
         if not code:
