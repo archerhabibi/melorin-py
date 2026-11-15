@@ -1,0 +1,532 @@
+From 4cd339c1c5f168e204fd9b736990e3f2cfcf4810 Mon Sep 17 00:00:00 2001
+From: Pori Toooni <poritoooni@gmail.com>
+Date: Sun, 15 Nov 2026 06:28:47 +0000
+Subject: [PATCH 1/2] refactor(audit): mypy gate covers orders, identity,
+ reseller with a shrink-only ratchet (r13b)
+
+---
+ apps/api/pyproject.toml                       | 25 +++++++++++++++++--
+ apps/api/tests/contracts/test_mypy_ratchet.py | 14 +++++++++++
+ docs/DECISIONS.md                             |  5 ++++
+ 3 files changed, 42 insertions(+), 2 deletions(-)
+ create mode 100644 apps/api/tests/contracts/test_mypy_ratchet.py
+
+diff --git a/apps/api/pyproject.toml b/apps/api/pyproject.toml
+index f0e4ae3..ed8ae5e 100644
+--- a/apps/api/pyproject.toml
++++ b/apps/api/pyproject.toml
+@@ -29,13 +29,34 @@ line-ending = "lf"
+ [tool.mypy]
+ # T41: static typing is gated on core + worker + the pure domain and the kernel models; widen `files` as other packages are cleaned up.
+ python_version = "3.12"
+-files = ["melorin/core", "melorin/worker", "melorin/domain", "melorin/kernel", "melorin/modules/wallet", "melorin/modules/catalog"]
++files = ["melorin/core", "melorin/worker", "melorin/domain", "melorin/kernel", "melorin/modules/wallet", "melorin/modules/catalog",
++         "melorin/modules/orders", "melorin/modules/identity", "melorin/modules/reseller"]
+ ignore_missing_imports = true
+ follow_imports = "silent"
+-# T-W07/T-R09: bodies of unannotated functions are checked too; widen `files` one package at a time (next: orders, identity, reseller).
++# T-W07/T-R09: bodies of unannotated functions are checked too; widen `files` one package at a time (r13: orders, identity, reseller are in scope; files in the ratchet list below still carry known Optional-narrowing errors and may only be removed from it, never added).
+ check_untyped_defs = true
+ warn_unused_ignores = true
+ 
++# r13 ratchet: known remaining errors (61 at the time of writing). tests/contracts/test_mypy_ratchet.py forbids growing this list.
++[[tool.mypy.overrides]]
++module = [
++  "melorin.modules.identity.auto_link",
++  "melorin.modules.identity.google",
++  "melorin.modules.identity.service",
++  "melorin.modules.identity.routes.account",
++  "melorin.modules.reseller.auto_approve",
++  "melorin.modules.reseller.auto_verify",
++  "melorin.modules.reseller.bots",
++  "melorin.modules.reseller.recheck",
++  "melorin.modules.reseller.routes.store_profile",
++  "melorin.modules.reseller.routes.applications",
++  "melorin.modules.orders.service.payment",
++  "melorin.modules.orders.service.create",
++  "melorin.modules.orders.router",
++  "melorin.modules.orders.provisioning",
++]
++ignore_errors = true
++
+ [tool.pytest.ini_options]
+ # T-R05: tests are grouped in sub-folders but still import shared helpers by bare module name (module basenames are unique).
+ pythonpath = [".", "tests", "tests/unit", "tests/service", "tests/http", "tests/adapters", "tests/contracts", "tests/postgres"]
+diff --git a/apps/api/tests/contracts/test_mypy_ratchet.py b/apps/api/tests/contracts/test_mypy_ratchet.py
+new file mode 100644
+index 0000000..87da5d2
+--- /dev/null
++++ b/apps/api/tests/contracts/test_mypy_ratchet.py
+@@ -0,0 +1,14 @@
++"""r13: the mypy error ratchet may only shrink (docs/DECISIONS.md r13b, audit section 8.5)."""
++import tomllib
++from pathlib import Path
++
++MAX_RATCHET = 14  # lower this number whenever a module is cleaned and removed from the override list
++
++
++def test_mypy_ratchet_only_shrinks():
++    cfg = tomllib.loads((Path(__file__).resolve().parents[2] / "pyproject.toml").read_text(encoding="utf-8"))
++    mypy = cfg["tool"]["mypy"]
++    ratchet = [m for o in mypy["overrides"] if o.get("ignore_errors") for m in o["module"]]
++    assert len(ratchet) <= MAX_RATCHET, "do not add modules to the mypy ratchet; fix the typing instead"
++    for pkg in ("orders", "identity", "reseller"):
++        assert f"melorin/modules/{pkg}" in mypy["files"]
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index ec43b52..b8b48a3 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -198,3 +198,8 @@ Source: `Melorin_Architecture_Admin_Audit.md` (the project has never been releas
+ - **Vulture findings were false positives, now explicit**: `initiator` is the mandatory SQLAlchemy listener argument (renamed `_initiator`); `CursorResult` is named only inside a string `cast`, so it moved under `TYPE_CHECKING`.
+ - Kept on purpose (audit §4, §7.6): Payments / Wallet, Orders / Provisioning, Identity / Authentication, PanelOps / Panel Integrations, Event Center / Notifications stay separate.
+ - Still open (own PRs, not done here): move `/admin/reports/summary` and `/timeseries` into the analytics contract and switch `AdminSession.tsx` / `Trend.tsx` first; split `PanelAdminsView`, `kit.tsx`, `UpstreamBotFields`, `TicketConversation`, `ReportsView` as pure moves; widen mypy module by module (orders, identity, reseller, payments); drop `modules/admin/router.py` re-exports once no import uses them; split `panelops` files by capability.
++
++## r13b - mypy scope widened to orders, identity, reseller (audit 8.5)
++- **Decision:** orders, identity and reseller are now inside the mypy gate. 14 files that still carry Optional-narrowing errors (61 in total, mostly session.get() results used without a None check, in payment/provisioning/identity-merge paths) sit in an ignore_errors override list.
++- **Why a ratchet and not a mass fix:** these are money and provisioning paths; a blind assert or default value could change behaviour. Each file is cleaned together with a test that proves the None case, then removed from the list.
++- **Rule:** the list may only shrink. tests/contracts/test_mypy_ratchet.py fails if it grows.
+-- 
+2.43.0
+
+
+From d5b7f0ef8a9311a22a552e20e16c4fa38109bd57 Mon Sep 17 00:00:00 2001
+From: Pori Toooni <poritoooni@gmail.com>
+Date: Sun, 15 Nov 2026 06:49:21 +0000
+Subject: [PATCH 2/2] refactor(audit): split ReportsView presentational parts;
+ fix stale server-UI and compose guard contract tests (r13c)
+
+---
+ apps/admin-web/src/ReportsParts.tsx           | 161 +++++++++++++++++
+ apps/admin-web/src/ReportsView.tsx            | 163 +-----------------
+ .../tests/contracts/test_release_guards.py    |   6 +-
+ .../test_server_admin_ui_contract.py          |   8 +-
+ 4 files changed, 171 insertions(+), 167 deletions(-)
+ create mode 100644 apps/admin-web/src/ReportsParts.tsx
+
+diff --git a/apps/admin-web/src/ReportsParts.tsx b/apps/admin-web/src/ReportsParts.tsx
+new file mode 100644
+index 0000000..f999a21
+--- /dev/null
++++ b/apps/admin-web/src/ReportsParts.tsx
+@@ -0,0 +1,161 @@
++import type { ReactNode } from 'react';
++// Admin → Reports & charts. One payload from GET /api/v1/admin/reports/analytics drives every card on the screen.
++// Currency-safe (one currency at a time), compared with the previous period, exportable, with a table view for accessibility.
++import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react';
++import { API_BASE, authFetch } from './api.ts';
++import { Sparkline } from './ReportCharts.tsx';
++import { deltaInfo } from './reportsLogic.ts';
++import type { Json, Rec } from './types.ts';
++
++export const RANGES = [7, 30, 90];
++export const METRICS = [
++  ['revenue', 'فروش'],
++  ['orders', 'سفارش'],
++  ['cash_in', 'ورودی نقدی'],
++  ['new_users', 'کاربر جدید'],
++  ['cumulative', 'تجمعی'],
++];
++export const TONES: Rec = { ok: 'b-ok', wn: 'b-wn', in: 'b-in', bd: 'b-bd' };
++
++export const Seg = ({ items, value, set, label }: { items?: Json; value?: Json; set?: Json; label?: Json }) => (
++  <div role="tablist" aria-label={label} className="inline-flex rounded-lg bg-[var(--mb)] p-0.5">
++    {items.map(([k, t]: Json) => (
++      <button
++        key={k}
++        role="tab"
++        aria-selected={value === k}
++        onClick={() => set(k)}
++        className={`rounded-md px-3 py-1 text-xs font-bold transition ${value === k ? 'bg-[var(--sf)] text-[var(--tx)] shadow-xs' : 'text-[var(--mu)]'}`}
++      >
++        {t}
++      </button>
++    ))}
++  </div>
++);
++
++export function Delta({ delta, invert }: { delta?: Json; invert?: Json }) {
++  const d = deltaInfo(delta, { invert });
++  const Icon = d.dir === 'up' ? ArrowUpRight : d.dir === 'down' ? ArrowDownRight : Minus;
++  const tone = d.good === null ? 'b-mu' : d.good ? 'b-ok' : 'b-bd';
++  return (
++    <span className={`badge ${tone} gap-1`} title="نسبت به بازه‌ی قبلیِ هم‌اندازه">
++      <Icon size={12} aria-hidden="true" />
++      {d.text}
++    </span>
++  );
++}
++
++export function Kpi({
++  title,
++  Icon,
++  value,
++  unit,
++  kpi,
++  color,
++  invert,
++  loading,
++  hint,
++}: {
++  title?: Json;
++  Icon?: Json;
++  value?: Json;
++  unit?: Json;
++  kpi?: Json;
++  color?: Json;
++  invert?: Json;
++  loading?: Json;
++  hint?: Json;
++}) {
++  return (
++    <div className="card rise p-4">
++      <div className="flex items-start justify-between gap-2">
++        <div className="text-sm text-[var(--mu)]">{title}</div>
++        <Icon size={16} className="text-[var(--mu)]" aria-hidden="true" />
++      </div>
++      {loading ? (
++        <div className="skel mt-4 h-8 w-2/3" />
++      ) : (
++        <div className="mt-3 flex items-end justify-between gap-2">
++          <div className="min-w-0">
++            <div className="truncate text-2xl font-extrabold tracking-tight" title={`${value} ${unit || ''}`}>
++              {value}
++              {unit && <span className="mr-1 text-xs font-bold text-[var(--mu)]">{unit}</span>}
++            </div>
++            {hint && <div className="mt-1 text-[11px] text-[var(--mu)]">{hint}</div>}
++          </div>
++          <Sparkline values={kpi?.spark} color={color} />
++        </div>
++      )}
++      <div className="mt-3 min-h-[22px]">{!loading && kpi && <Delta delta={kpi.delta_pct} invert={invert} />}</div>
++    </div>
++  );
++}
++
++export const Card = ({
++  title,
++  hint,
++  right,
++  children,
++  className = '',
++}: {
++  title?: Json;
++  hint?: Json;
++  right?: Json;
++  children?: ReactNode;
++  className?: string;
++}) => (
++  <section className={`card rise p-5 ${className}`}>
++    <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
++      <div>
++        <h3 className="font-extrabold">{title}</h3>
++        {hint && <p className="mt-1 text-xs text-[var(--mu)]">{hint}</p>}
++      </div>
++      {right}
++    </div>
++    {children}
++  </section>
++);
++
++export function DataTable({ cols, rows, caption }: { cols?: Json; rows?: Json; caption?: Json }) {
++  return (
++    <div className="max-h-[360px] overflow-auto rounded-xl border border-[var(--ln)]">
++      <table className="tbl min-w-[520px]">
++        <caption className="sr-only">{caption}</caption>
++        <thead>
++          <tr>
++            {cols.map((c: Json) => (
++              <th key={c}>{c}</th>
++            ))}
++          </tr>
++        </thead>
++        <tbody>
++          {rows.map((r: Json, i: Json) => (
++            <tr key={i}>
++              {r.map((c: Json, j: Json) => (
++                <td key={j}>{c}</td>
++              ))}
++            </tr>
++          ))}
++        </tbody>
++      </table>
++    </div>
++  );
++}
++
++export async function download(path: string, filename: Json) {
++  const r = await authFetch(API_BASE, path);
++  if (!r.ok) throw new Error(`export ${r.status}`);
++  const url = URL.createObjectURL(await r.blob());
++  const a = document.createElement('a');
++  a.href = url;
++  a.download = filename;
++  a.click();
++  URL.revokeObjectURL(url);
++}
++
++export const EXPORTS = [
++  ['daily', 'روزانه'],
++  ['products', 'محصولات'],
++  ['stores', 'فروشگاه‌ها'],
++  ['methods', 'روش پرداخت'],
++];
+diff --git a/apps/admin-web/src/ReportsView.tsx b/apps/admin-web/src/ReportsView.tsx
+index 4225f20..4bae6ba 100644
+--- a/apps/admin-web/src/ReportsView.tsx
++++ b/apps/admin-web/src/ReportsView.tsx
+@@ -1,14 +1,10 @@
+-import type { ReactNode } from 'react';
+ // Admin → Reports & charts. One payload from GET /api/v1/admin/reports/analytics drives every card on the screen.
+ // Currency-safe (one currency at a time), compared with the previous period, exportable, with a table view for accessibility.
+ import { useCallback, useEffect, useMemo, useState } from 'react';
+ import {
+-  ArrowDownRight,
+-  ArrowUpRight,
+   BarChart3,
+   Download,
+   Lightbulb,
+-  Minus,
+   Percent,
+   Receipt,
+   RefreshCw,
+@@ -20,9 +16,9 @@ import {
+   UserPlus,
+   WalletCards,
+ } from 'lucide-react';
+-import { API_BASE, authFetch, getJson } from './api.ts';
++import { API_BASE, getJson } from './api.ts';
+ import { dayShort } from './charts.tsx';
+-import { Funnel, HBars, Heatmap, Legend, SERIES_COLORS, Sparkline, CompareChart, Donut } from './ReportCharts.tsx';
++import { Funnel, HBars, Heatmap, Legend, SERIES_COLORS, CompareChart, Donut } from './ReportCharts.tsx';
+ import {
+   CHANNEL_LABELS,
+   KIND_LABELS,
+@@ -33,7 +29,6 @@ import {
+   buildInsights,
+   buildQuery,
+   dailyRows,
+-  deltaInfo,
+   fmt,
+   fmtBytes,
+   fmtPct,
+@@ -45,159 +40,7 @@ import {
+ import { label as statusLabel } from './ui.tsx';
+ import type { Json, Rec, Toast } from './types.ts';
+ 
+-const RANGES = [7, 30, 90];
+-const METRICS = [
+-  ['revenue', 'فروش'],
+-  ['orders', 'سفارش'],
+-  ['cash_in', 'ورودی نقدی'],
+-  ['new_users', 'کاربر جدید'],
+-  ['cumulative', 'تجمعی'],
+-];
+-const TONES: Rec = { ok: 'b-ok', wn: 'b-wn', in: 'b-in', bd: 'b-bd' };
+-
+-const Seg = ({ items, value, set, label }: { items?: Json; value?: Json; set?: Json; label?: Json }) => (
+-  <div role="tablist" aria-label={label} className="inline-flex rounded-lg bg-[var(--mb)] p-0.5">
+-    {items.map(([k, t]: Json) => (
+-      <button
+-        key={k}
+-        role="tab"
+-        aria-selected={value === k}
+-        onClick={() => set(k)}
+-        className={`rounded-md px-3 py-1 text-xs font-bold transition ${value === k ? 'bg-[var(--sf)] text-[var(--tx)] shadow-xs' : 'text-[var(--mu)]'}`}
+-      >
+-        {t}
+-      </button>
+-    ))}
+-  </div>
+-);
+-
+-function Delta({ delta, invert }: { delta?: Json; invert?: Json }) {
+-  const d = deltaInfo(delta, { invert });
+-  const Icon = d.dir === 'up' ? ArrowUpRight : d.dir === 'down' ? ArrowDownRight : Minus;
+-  const tone = d.good === null ? 'b-mu' : d.good ? 'b-ok' : 'b-bd';
+-  return (
+-    <span className={`badge ${tone} gap-1`} title="نسبت به بازه‌ی قبلیِ هم‌اندازه">
+-      <Icon size={12} aria-hidden="true" />
+-      {d.text}
+-    </span>
+-  );
+-}
+-
+-function Kpi({
+-  title,
+-  Icon,
+-  value,
+-  unit,
+-  kpi,
+-  color,
+-  invert,
+-  loading,
+-  hint,
+-}: {
+-  title?: Json;
+-  Icon?: Json;
+-  value?: Json;
+-  unit?: Json;
+-  kpi?: Json;
+-  color?: Json;
+-  invert?: Json;
+-  loading?: Json;
+-  hint?: Json;
+-}) {
+-  return (
+-    <div className="card rise p-4">
+-      <div className="flex items-start justify-between gap-2">
+-        <div className="text-sm text-[var(--mu)]">{title}</div>
+-        <Icon size={16} className="text-[var(--mu)]" aria-hidden="true" />
+-      </div>
+-      {loading ? (
+-        <div className="skel mt-4 h-8 w-2/3" />
+-      ) : (
+-        <div className="mt-3 flex items-end justify-between gap-2">
+-          <div className="min-w-0">
+-            <div className="truncate text-2xl font-extrabold tracking-tight" title={`${value} ${unit || ''}`}>
+-              {value}
+-              {unit && <span className="mr-1 text-xs font-bold text-[var(--mu)]">{unit}</span>}
+-            </div>
+-            {hint && <div className="mt-1 text-[11px] text-[var(--mu)]">{hint}</div>}
+-          </div>
+-          <Sparkline values={kpi?.spark} color={color} />
+-        </div>
+-      )}
+-      <div className="mt-3 min-h-[22px]">{!loading && kpi && <Delta delta={kpi.delta_pct} invert={invert} />}</div>
+-    </div>
+-  );
+-}
+-
+-const Card = ({
+-  title,
+-  hint,
+-  right,
+-  children,
+-  className = '',
+-}: {
+-  title?: Json;
+-  hint?: Json;
+-  right?: Json;
+-  children?: ReactNode;
+-  className?: string;
+-}) => (
+-  <section className={`card rise p-5 ${className}`}>
+-    <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+-      <div>
+-        <h3 className="font-extrabold">{title}</h3>
+-        {hint && <p className="mt-1 text-xs text-[var(--mu)]">{hint}</p>}
+-      </div>
+-      {right}
+-    </div>
+-    {children}
+-  </section>
+-);
+-
+-function DataTable({ cols, rows, caption }: { cols?: Json; rows?: Json; caption?: Json }) {
+-  return (
+-    <div className="max-h-[360px] overflow-auto rounded-xl border border-[var(--ln)]">
+-      <table className="tbl min-w-[520px]">
+-        <caption className="sr-only">{caption}</caption>
+-        <thead>
+-          <tr>
+-            {cols.map((c: Json) => (
+-              <th key={c}>{c}</th>
+-            ))}
+-          </tr>
+-        </thead>
+-        <tbody>
+-          {rows.map((r: Json, i: Json) => (
+-            <tr key={i}>
+-              {r.map((c: Json, j: Json) => (
+-                <td key={j}>{c}</td>
+-              ))}
+-            </tr>
+-          ))}
+-        </tbody>
+-      </table>
+-    </div>
+-  );
+-}
+-
+-async function download(path: string, filename: Json) {
+-  const r = await authFetch(API_BASE, path);
+-  if (!r.ok) throw new Error(`export ${r.status}`);
+-  const url = URL.createObjectURL(await r.blob());
+-  const a = document.createElement('a');
+-  a.href = url;
+-  a.download = filename;
+-  a.click();
+-  URL.revokeObjectURL(url);
+-}
+-
+-const EXPORTS = [
+-  ['daily', 'روزانه'],
+-  ['products', 'محصولات'],
+-  ['stores', 'فروشگاه‌ها'],
+-  ['methods', 'روش پرداخت'],
+-];
+-
++import { RANGES, METRICS, TONES, Seg, Kpi, Card, DataTable, download, EXPORTS } from './ReportsParts.tsx';
+ export default function ReportsView({ api, toast }: { api?: Json; toast: Toast }) {
+   const [days, setDays] = useState(30);
+   const [currency, setCurrency] = useState('');
+diff --git a/apps/api/tests/contracts/test_release_guards.py b/apps/api/tests/contracts/test_release_guards.py
+index 11a6a9d..df28875 100644
+--- a/apps/api/tests/contracts/test_release_guards.py
++++ b/apps/api/tests/contracts/test_release_guards.py
+@@ -107,7 +107,7 @@ def test_every_compose_service_is_memory_capped_within_budget():
+     guard = _load_guard()
+     compose = yaml.safe_load((ROOT / "docker-compose.yml").read_text())
+     assert guard.memory_problems(compose) == []
+-    total = sum(guard._mib(s["mem_limit"]) for s in compose["services"].values())
++    total = sum(guard._mib(s["mem_limit"]) for s in compose["services"].values() if str(s.get("restart", "")) != "no")  # the one-shot migrate service has exited before the rest start
+     assert total == guard.MEMORY_BUDGET_MIB == 3584
+     assert "3584 MiB" in (ROOT / "docs/RUNBOOK.md").read_text()
+ 
+@@ -147,8 +147,8 @@ def test_built_services_use_registry_aware_image_names():
+     compose = (ROOT / "docker-compose.yml").read_text()
+     for name in ("api", "store-web", "admin-web", "telegram-main", "telegram-reseller"):
+         assert f"${{MELORIN_IMAGE_REGISTRY:-melorin}}/{name}:${{MELORIN_IMAGE_TAG:-local}}" in compose, name
+-    # api, worker and backup share one image; every service that has a build: also has the image: line right above it
+-    assert len(re.findall(r"image: \$\{MELORIN_IMAGE_REGISTRY", compose)) == len(re.findall(r"^    build:$", compose, re.M)) == 7
++    # api, migrate, worker and backup share one image; every service that has a build: also has the image: line right above it
++    assert len(re.findall(r"image: \$\{MELORIN_IMAGE_REGISTRY", compose)) == len(re.findall(r"^    build:$", compose, re.M)) == 8
+ 
+ 
+ def test_deploy_workflow_builds_images_before_deploying_and_deploys_the_prepared_sha():
+diff --git a/apps/api/tests/contracts/test_server_admin_ui_contract.py b/apps/api/tests/contracts/test_server_admin_ui_contract.py
+index dcaaffb..0c7098e 100644
+--- a/apps/api/tests/contracts/test_server_admin_ui_contract.py
++++ b/apps/api/tests/contracts/test_server_admin_ui_contract.py
+@@ -16,8 +16,8 @@ def test_servers_ui_uses_only_endpoints_that_exist():
+     for route, decorator in (
+         ("/api/v1/admin/servers", '@router.get("/servers"'),
+         ("/api/v1/admin/servers", '@router.post("/servers"'),
+-        ("/api/v1/admin/servers/${server.id}", '@router.patch("/servers/{server_id}"'),
+-        ("/api/v1/admin/servers/${s.id}/state", '@router.post("/servers/{server_id}/state"'),
++        ("/api/v1/admin/servers/{server_id}", '@router.patch("/servers/{server_id}"'),
++        ("/api/v1/admin/servers/{server_id}/state", '@router.post("/servers/{server_id}/state"'),
+     ):
+         assert route in ui and decorator in ROUTER
+     infra = _ui("infra.tsx")
+@@ -34,7 +34,7 @@ def test_servers_live_inside_their_panel_screen():
+     app = _ui("adminNav.ts")  # menu groups live in adminNav.ts since the App.tsx split
+     assert '["پنل‌ها و سرورها", PanelTop, "panels"]' in app and '"servers"' not in app
+     # menu regroup: the panel screen leads the infrastructure group; bundles and products are catalog entries next to marketing
+-    infra_group = app[app.index('"زیرساخت"') : app.index('"سیستم و امنیت"')]
++    infra_group = app[app.index('"زیرساخت و عملیات پنل"') : app.index('"سیستم و امنیت"')]
+     assert '"panels"' in infra_group and '"bundles"' not in infra_group
+     catalog_group = app[app.index('"کاتالوگ و بازاریابی"') : app.index('"ارتباطات"')]
+     assert catalog_group.index('"bundles"') < catalog_group.index('"products"')
+@@ -56,7 +56,7 @@ def test_infra_screens_share_one_dependency_model():
+ 
+ def test_server_edit_never_resends_unchanged_fields():
+     form = _ui("ServerForm.tsx")
+-    assert 'method = "PATCH"' in form and "JSON.stringify(v) !== JSON.stringify(was[k])" in form
++    assert 'client.patch("/api/v1/admin/servers/{server_id}"' in form and "JSON.stringify(v) !== JSON.stringify(was[k])" in form
+ 
+ 
+ def test_group_membership_is_saved_with_the_field_the_api_reads():
+-- 
+2.43.0
+
