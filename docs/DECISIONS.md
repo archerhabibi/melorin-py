@@ -255,3 +255,6 @@ Source: `Melorin_Architecture_Admin_Audit.md` (the project has never been releas
 - Still open on purpose: remaining 500-600 line admin-web bodies (see docs/AUDIT-R18-STATUS.md debt register); rotate the GitHub token that was pasted into chat.
 
 - r20 (2): ServerForm to ServerImport, UpstreamBotFields to UpstreamGuide and UpstreamEditors, TelegramLoginSettings to TelegramLoginParts, infra to InfraChain, ReportsView to ReportsSections (typed ReportModel props). Pure moves; typing ratchet lowered 2031 to 2029; tsc, eslint, vitest 309 and 210 UI contract tests green.
+
+## r21 - final verification (branch refactor/audit-r21-verified)
+- Re-ran on the server from branch r20: lint-imports 8 kept, ruff clean (684 files), mypy clean (371 files), API suite 2728 passed / 1 skipped, admin-web tsc and eslint clean, vitest 309 passed (42 files). No code change; all audit items are implemented (see docs/AUDIT-R18-STATUS.md). Not run: real panels, Telegram bots, Playwright, restore drill.
