@@ -146,12 +146,6 @@ def mark_queued(
     }
 
 
-async def clear_queue_on_panel(adapter, account: VpnAccount) -> None:
-    """Drop a queued package (refund of a prepaid renewal). Nothing to do when none is queued."""
-    await adapter.clear_next_plan(account.username)
-    account.queued_plan = None
-
-
 async def settle_from_remote(
     session: AsyncSession, account: VpnAccount, remote, *, now: dt.datetime | None = None, notify: bool = True
 ) -> bool:

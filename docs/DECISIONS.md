@@ -238,3 +238,9 @@ Source: `Melorin_Architecture_Admin_Audit.md` (the project has never been releas
 - Product decisions unchanged from r15: bulk panel operations stay infrastructure-only, Telegram buttons stay system (owner).
 - r17 verification (2026-11-15, Ubuntu 24.04, Python 3.12, Node 22): lint-imports 8 contracts kept, ruff check and format clean, mypy clean on 349 files, admin-web eslint clean and vitest 303 passed, API suite (not integration, not concurrency) 2728 passed, 1 skipped after fixing 3 bulk tests that now patch bulk_runner.CHUNK.
 - r17 stabilization evidence: tests/postgres lane 8 passed on real PostgreSQL 16; alembic upgrade head from an empty DB reached the current head (see docs/STATUS.md) and alembic check found no drift. Not run here: upgrade from an older DB, real panels, Telegram bots, Playwright, backup restore drill (needs a Docker host).
+
+## r18 - audit implementation (branch refactor/audit-r18-impl)
+- Tickets moved to the menu group «اعلان‌ها، ارتباطات و پشتیبانی» (with broadcasts and the event center). UI grouping only: no backend module is merged. Still 8 groups; role matrix pinned by `nav-role-matrix.test.js`.
+- Large backend files split behind unchanged facades (`payments.bank_sms` package, `loyalty.service`, `referral.service`, `reports.analytics`). Public names, worker patch points and API contracts are unchanged. `upstream_bot/adapter.py` is intentionally left whole (ordered bot protocol).
+- Dead code removed (unreferenced functions, schemas and admin-web exports). Backend modules are kept.
+- admin-web moved to `app/`, `api/`, `features/*` (pure moves). `docs/AUDIT-R18-STATUS.md` is the live audit status and debt register; `docs/AUDIT-2026-11-15.md` is historical.

@@ -25,7 +25,6 @@ from sqlalchemy import func, select
 
 from melorin.core import audit, events
 from melorin.core.db import utcnow
-from melorin.core.deps import main_store
 from melorin.core.errors import AppError
 from melorin.kernel.models.identity import User
 from melorin.kernel.models.notifications import Broadcast, Notification
@@ -200,7 +199,3 @@ async def history(session, store: Store, *, limit: int = 30) -> list[dict]:
             }
         )
     return out
-
-
-async def sender_store_for_admin(session) -> Store:
-    return await main_store(session)

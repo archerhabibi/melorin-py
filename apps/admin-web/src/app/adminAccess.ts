@@ -1,6 +1,6 @@
 // Which admin screens a role may open. The server is the authority (apps/api/melorin/domain/admin_access.py decides every
 // request); this table only hides screens a role could not use anyway, so nobody meets a wall of 403s.
-// Keep SECTION_AREA in step with the nav in App.tsx (tests/admin-access.test.js fails when a screen has no area).
+// Keep SECTION_AREA in step with the nav in adminNav.ts (tests/admin-access.test.js fails when a screen has no area).
 
 /** Section key (Persian label used by the router) -> permission area. Sections not listed are owner-only. */
 export const SECTION_AREA: Record<string, string> = {

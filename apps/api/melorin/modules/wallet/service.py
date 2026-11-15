@@ -30,14 +30,6 @@ def acc_loyalty_expense(store_id) -> str:
     return f"store:{store_id}:loyalty_expense"
 
 
-def acc_clearing(provider: str) -> str:
-    return f"gateway:{provider}:clearing"
-
-
-def acc_manual(store_id) -> str:
-    return f"store:{store_id}:manual_adjustment"
-
-
 @dataclass
 class Posting:
     amount: int
@@ -79,10 +71,6 @@ def acc_store_topup(store_id, provider: str) -> str:
 def acc_reseller_cash(store_id) -> str:
     """Cash a reseller collected directly from its customers (manual top-ups by the reseller)."""
     return f"store:{store_id}:reseller_cash"
-
-
-def acc_coupon_platform(store_id) -> str:
-    return f"store:{store_id}:platform_coupon_expense"
 
 
 async def find_tx(session: AsyncSession, key: str) -> LedgerTransaction | None:

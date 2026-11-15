@@ -17,7 +17,7 @@ def test_reports_and_referrals_have_real_routes():
 
 def test_referral_rules_and_clawbacks_are_exposed_without_mutating_ledger_history():
     source = read_source(ROOT / "melorin/modules/referral/router.py")
-    service = read_source(ROOT / "melorin/modules/referral/service.py")
+    service = read_source(ROOT / "melorin/modules/referral/service.py") + read_source(ROOT / "melorin/modules/referral/commissions.py")
     assert "CommissionRule" in source
     assert "offset_amount" in source
     assert "claw" in service and "reversed_amount" in service

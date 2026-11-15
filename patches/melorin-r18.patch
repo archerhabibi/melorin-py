@@ -1,0 +1,3451 @@
+From 8c3d6131be8cbe6acd3d8f7426684dd6f81a3ae0 Mon Sep 17 00:00:00 2001
+From: melorin-refactor <refactor@melorin.local>
+Date: Sun, 15 Nov 2026 11:40:39 +0000
+Subject: [PATCH 1/3] refactor(admin-ui): move tickets into
+ notifications/communications/support group; split payments.bank_sms into a
+ package
+
+---
+ apps/admin-web/src/adminNav.ts                |   4 +-
+ apps/admin-web/tests/nav-structure.test.js    |   7 +
+ apps/api/melorin/modules/payments/bank_sms.py | 654 ------------------
+ .../modules/payments/bank_sms/__init__.py     |  61 ++
+ .../payments/bank_sms/authentication.py       | 106 +++
+ .../modules/payments/bank_sms/config.py       |  94 +++
+ .../modules/payments/bank_sms/ingestion.py    | 119 ++++
+ .../modules/payments/bank_sms/matching.py     | 214 ++++++
+ .../payments/bank_sms/reconciliation.py       |  56 ++
+ .../modules/payments/bank_sms/review.py       | 129 ++++
+ .../test_server_admin_ui_contract.py          |   2 +-
+ docs/DECISIONS.md                             |   2 +-
+ 12 files changed, 790 insertions(+), 658 deletions(-)
+ delete mode 100644 apps/api/melorin/modules/payments/bank_sms.py
+ create mode 100644 apps/api/melorin/modules/payments/bank_sms/__init__.py
+ create mode 100644 apps/api/melorin/modules/payments/bank_sms/authentication.py
+ create mode 100644 apps/api/melorin/modules/payments/bank_sms/config.py
+ create mode 100644 apps/api/melorin/modules/payments/bank_sms/ingestion.py
+ create mode 100644 apps/api/melorin/modules/payments/bank_sms/matching.py
+ create mode 100644 apps/api/melorin/modules/payments/bank_sms/reconciliation.py
+ create mode 100644 apps/api/melorin/modules/payments/bank_sms/review.py
+
+diff --git a/apps/admin-web/src/adminNav.ts b/apps/admin-web/src/adminNav.ts
+index f278621..4cb29b3 100644
+--- a/apps/admin-web/src/adminNav.ts
++++ b/apps/admin-web/src/adminNav.ts
+@@ -43,7 +43,6 @@ export const groups: [string, [string, LucideIcon, string][], string?][] = [
+       ['سفارش‌ها', Package, 'orders'],
+       ['پرداخت‌ها', CreditCard, 'payments'],
+       ['اکانت‌های VPN', Server, 'vpn'],
+-      ['تیکت‌ها', Ticket, 'tickets'],
+     ],
+   ],
+   [
+@@ -80,10 +79,11 @@ export const groups: [string, [string, LucideIcon, string][], string?][] = [
+     ],
+   ],
+   [
+-    'ارتباطات',
++    'اعلان‌ها، ارتباطات و پشتیبانی',
+     [
+       ['پیام همگانی', Megaphone, 'broadcasts'],
+       ['مرکز رویداد', BellRing, 'event-center'],
++      ['تیکت‌ها', Ticket, 'tickets'], // UI grouping only: tickets stay their own backend module
+     ],
+   ],
+   [
+diff --git a/apps/admin-web/tests/nav-structure.test.js b/apps/admin-web/tests/nav-structure.test.js
+index f52babf..3f35abd 100644
+--- a/apps/admin-web/tests/nav-structure.test.js
++++ b/apps/admin-web/tests/nav-structure.test.js
+@@ -34,4 +34,11 @@ describe('admin menu structure (architecture audit §5-§6)', () => {
+     }
+     for (const [label] of flat) expect(SECTION_AREA[label], label).toBeTruthy();
+   });
++  it('puts tickets in the notifications, communications and support group (UI grouping only), not under sales', () => {
++    const group = 'اعلان‌ها، ارتباطات و پشتیبانی';
++    for (const label of ['پیام همگانی', 'مرکز رویداد', 'تیکت‌ها']) expect(where(label), label).toBe(group);
++    expect(where('سفارش‌ها')).toBe('فروش و عملیات');
++    expect(where('تیکت‌ها')).not.toBe('فروش و عملیات');
++    expect(groups.map(([name]) => name)).toHaveLength(8);
++  });
+ });
+diff --git a/apps/api/melorin/modules/payments/bank_sms.py b/apps/api/melorin/modules/payments/bank_sms.py
+deleted file mode 100644
+index e382439..0000000
+--- a/apps/api/melorin/modules/payments/bank_sms.py
++++ /dev/null
+@@ -1,654 +0,0 @@
+-"""Card-to-card auto verification against the bank's deposit SMS.
+-
+-Flow: the store owner's phone forwards every bank SMS to ``POST /payments/bank-sms/{store_id}`` (token protected) ->
+-the SMS is parsed and stored once -> it is matched with a customer receipt that waits for review (same amount, the
+-time printed on the receipt agrees with the SMS, the SMS is not older than the request) -> only an unambiguous match
+-credits the wallet through the normal ``mark_succeeded`` path (row locks + ledger idempotency key, so a duplicate
+-SMS, a retry or a race can never credit twice). Everything else stays in the manual review queue.
+-"""
+-
+-from __future__ import annotations
+-
+-import datetime as dt
+-import hashlib
+-import hmac
+-import logging
+-import secrets
+-import uuid
+-from typing import Any, cast
+-
+-from sqlalchemy import select
+-from sqlalchemy.exc import IntegrityError
+-from sqlalchemy.ext.asyncio import AsyncSession
+-
+-from melorin.core import audit, events
+-from melorin.core.db import utcnow
+-from melorin.core.errors import AppError, NotFound
+-from melorin.domain import bank_sms as dom
+-from melorin.domain.order_state import PaymentStatus
+-from melorin.kernel.models.payments import BankSmsMessage, BankSmsSource, Payment
+-from melorin.kernel.models.stores import Store
+-from melorin.modules.payments import service as payments
+-from melorin.domain.timeutil import aware as _aware
+-
+-log = logging.getLogger("melorin.payments.bank_sms")
+-P = PaymentStatus
+-
+-MAX_SMS_CHARS = 1000
+-TOKEN_PREFIX = "mlr_sms_"
+-
+-# (key, kind, minimum, maximum, default) - the single place that defines which tuning knobs exist.
+-_SETTING_RULES: tuple[tuple[str, type, Any, Any, Any], ...] = (
+-    ("window_minutes", int, 5, 7 * 24 * 60, 720),
+-    ("time_tolerance_minutes", int, 0, 30, 5),
+-    ("require_claimed_time", bool, None, None, True),
+-    ("max_auto_amount_rial", int, 1, 10**13, None),
+-    ("account_number", str, 8, 26, None),
+-)
+-
+-
+-def hash_token(token: str) -> str:
+-    return hashlib.sha256(token.encode()).hexdigest()
+-
+-
+-def new_token() -> str:
+-    return TOKEN_PREFIX + secrets.token_urlsafe(32)
+-
+-
+-def clean_settings(raw: dict | None) -> dict:
+-    """Validate the tuning knobs (ordered rule table); unknown keys are rejected, ``None`` resets to the default."""
+-    raw = dict(raw or {})
+-    out: dict = {}
+-    for key, kind, lo, hi, _default in _SETTING_RULES:
+-        if key not in raw:
+-            continue
+-        value = raw.pop(key)
+-        if value is None:
+-            continue
+-        if kind is bool:
+-            if not isinstance(value, bool):
+-                raise AppError("BANK_SMS_SETTING_INVALID", f"مقدار «{key}» باید درست/نادرست باشد.", 422)
+-        elif kind is str:
+-            value = dom.digits_only(value) if isinstance(value, str) else ""
+-            if not (lo <= len(value) <= hi):
+-                raise AppError("BANK_SMS_SETTING_INVALID", "شماره حساب باید فقط عدد و بین ۸ تا ۲۶ رقم باشد.", 422)
+-        else:
+-            if isinstance(value, bool) or not isinstance(value, int) or not (lo <= value <= hi):
+-                raise AppError("BANK_SMS_SETTING_INVALID", f"مقدار «{key}» باید عددی بین {lo} و {hi} باشد.", 422)
+-        out[key] = value
+-    if raw:
+-        raise AppError("BANK_SMS_SETTING_INVALID", f"تنظیم ناشناخته: {', '.join(sorted(raw))}", 422)
+-    return out
+-
+-
+-def match_settings(source: BankSmsSource) -> dom.MatchSettings:
+-    s = source.settings or {}
+-    return dom.MatchSettings(
+-        window_minutes=int(s.get("window_minutes", 720)),
+-        time_tolerance_minutes=int(s.get("time_tolerance_minutes", 5)),
+-        require_claimed_time=bool(s.get("require_claimed_time", True)),
+-        max_auto_amount_rial=s.get("max_auto_amount_rial"),
+-    )
+-
+-
+-def source_out(src: BankSmsSource | None, *, store_id: uuid.UUID | None = None) -> dict:
+-    s = src.settings if src else {}
+-    return {
+-        "store_id": str(src.store_id if src else store_id),
+-        "configured": src is not None,
+-        "bank": src.bank if src else "mehr_iran",
+-        "is_enabled": src.is_enabled if src else False,
+-        "auto_verify": src.auto_verify if src else False,
+-        "has_token": bool(src and src.token_hash),
+-        "token_hint": src.token_hint if src else None,
+-        "senders": list(src.senders or []) if src else [],
+-        "settings": {
+-            "window_minutes": (s or {}).get("window_minutes", 720),
+-            "time_tolerance_minutes": (s or {}).get("time_tolerance_minutes", 5),
+-            "require_claimed_time": (s or {}).get("require_claimed_time", True),
+-            "max_auto_amount_rial": (s or {}).get("max_auto_amount_rial"),
+-            "account_number": (s or {}).get("account_number"),
+-        },
+-        "last_received_at": src.last_received_at if src else None,
+-    }
+-
+-
+-def message_out(m: BankSmsMessage) -> dict:
+-    return {
+-        "id": str(m.id),
+-        "store_id": str(m.store_id),
+-        "status": m.status,
+-        "direction": m.direction,
+-        "amount_rial": m.amount_rial,
+-        "balance_rial": m.balance_rial,
+-        "occurred_at": m.occurred_at,
+-        "serial": m.serial,
+-        "sender": m.sender,
+-        "payment_id": str(m.payment_id) if m.payment_id else None,
+-        "matched_by": m.matched_by,
+-        "note": m.note,
+-        "balance_gap": m.balance_gap,
+-        "created_at": m.created_at,
+-    }
+-
+-
+-# ------------------------------------------------------------------------------------------------ configuration
+-async def get_source(session: AsyncSession, store_id: uuid.UUID) -> BankSmsSource | None:
+-    return await session.scalar(select(BankSmsSource).where(BankSmsSource.store_id == store_id))
+-
+-
+-async def save_source(
+-    session: AsyncSession,
+-    store: Store,
+-    *,
+-    actor_id: uuid.UUID | None,
+-    actor_type: str,
+-    bank: str | None = None,
+-    is_enabled: bool | None = None,
+-    auto_verify: bool | None = None,
+-    senders: list[str] | None = None,
+-    settings: dict | None = None,
+-) -> tuple[BankSmsSource, str | None]:
+-    """Create/update the store's SMS source. Returns ``(source, plaintext_token_or_None)``: the token is only ever
+-    returned when it is created, so it can be copied once into the SMS forwarder app."""
+-    if dom.to_rial(1, store.currency) is None:
+-        raise AppError("BANK_SMS_CURRENCY", "تأیید خودکار فقط برای فروشگاه‌های ریالی/تومانی ممکن است.", 400)
+-    if bank is not None and bank not in dom.PARSERS:
+-        raise AppError("BANK_SMS_BANK_UNSUPPORTED", "قالب پیامک این بانک پشتیبانی نمی‌شود.", 400)
+-    src = await get_source(session, store.id)
+-    token = None
+-    if src is None:
+-        src = BankSmsSource(store_id=store.id, bank=bank or "mehr_iran", is_enabled=True, auto_verify=False)
+-        session.add(src)
+-        token = new_token()
+-        src.token_hash, src.token_hint = hash_token(token), token[-4:]
+-    if bank is not None:
+-        src.bank = bank
+-    if is_enabled is not None:
+-        src.is_enabled = is_enabled
+-    if auto_verify is not None:
+-        src.auto_verify = auto_verify
+-    if senders is not None:
+-        cleaned = sorted({x.strip() for x in senders if x and x.strip()})
+-        if len(cleaned) > 10 or any(len(x) > 40 for x in cleaned):
+-            raise AppError("BANK_SMS_SETTING_INVALID", "فهرست فرستنده‌ها نامعتبر است.", 422)
+-        src.senders = cleaned
+-    if settings is not None:
+-        src.settings = clean_settings(settings)
+-    src.updated_by = actor_id
+-    audit.record(
+-        session,
+-        "bank_sms.source_saved",
+-        actor_id=actor_id,
+-        actor_type=actor_type,
+-        entity_type="store",
+-        entity_id=store.id,
+-        store_id=store.id,
+-        data={"auto_verify": src.auto_verify, "enabled": src.is_enabled, "bank": src.bank, "token_created": token is not None},
+-    )
+-    await session.commit()
+-    return src, token
+-
+-
+-async def rotate_token(session: AsyncSession, store: Store, *, actor_id: uuid.UUID | None, actor_type: str) -> str:
+-    src = await get_source(session, store.id)
+-    if src is None:
+-        raise NotFound("منبع پیامک")
+-    token = new_token()
+-    src.token_hash, src.token_hint, src.updated_by = hash_token(token), token[-4:], actor_id
+-    audit.record(
+-        session,
+-        "bank_sms.token_rotated",
+-        actor_id=actor_id,
+-        actor_type=actor_type,
+-        entity_type="store",
+-        entity_id=store.id,
+-        store_id=store.id,
+-    )
+-    await session.commit()
+-    return token
+-
+-
+-async def authenticate(session: AsyncSession, store_id: uuid.UUID, token: str | None) -> BankSmsSource:
+-    """Constant-time check of the webhook token. One generic error for every failure: no store enumeration."""
+-    src = await get_source(session, store_id)
+-    given = hash_token(token or "")
+-    stored = (src.token_hash if src else None) or "0" * 64
+-    ok = hmac.compare_digest(given, stored)
+-    if not (src and src.is_enabled and src.token_hash and ok):
+-        raise AppError("BANK_SMS_UNAUTHORIZED", "دسترسی نامعتبر است.", 401)
+-    return src
+-
+-
+-# ----------------------------------------------------------------------------------------------------- matching
+-async def _candidates(session: AsyncSession, store: Store) -> tuple[list[dom.Candidate], dict[str, Payment]]:
+-    rows = (
+-        await session.scalars(
+-            select(Payment)
+-            .where(
+-                Payment.store_id == store.id,
+-                Payment.provider == "manual_card",
+-                Payment.purpose == "wallet_topup",
+-                Payment.status == P.AWAITING_REVIEW,
+-                Payment.receipt_file_id.is_not(None),
+-            )
+-            .order_by(Payment.created_at)
+-            .limit(500)
+-        )
+-    ).all()
+-    out: list[dom.Candidate] = []
+-    by_id: dict[str, Payment] = {}
+-    for p in rows:
+-        rial = dom.to_rial(p.amount, p.currency)
+-        if rial is None:
+-            continue
+-        claim = (p.meta or {}).get("receipt_claim") or {}
+-        claimed = None
+-        if claim.get("paid_at"):
+-            try:
+-                claimed = _aware(dt.datetime.fromisoformat(claim["paid_at"]))
+-            except ValueError:
+-                claimed = None
+-        seen = claim.get("amount_rial")
+-        blocked = "receipt_amount_mismatch" if isinstance(seen, int) and seen != rial else None
+-        out.append(dom.Candidate(str(p.id), rial, _aware(p.created_at), claimed, blocked))
+-        by_id[str(p.id)] = p
+-    return out, by_id
+-
+-
+-async def _notify(session: AsyncSession, store_id: uuid.UUID, text: str) -> None:
+-    await events.emit_store_notice(session, store_id, "payments", text)
+-
+-
+-async def _link(
+-    session: AsyncSession, sms_id: uuid.UUID, payment_id: uuid.UUID, *, by: str, actor_id=None, note: str | None = None
+-) -> bool:
+-    """Lock SMS + payment, link them and credit the wallet. ``False`` when someone else got there first."""
+-    sms = await session.get(BankSmsMessage, sms_id, with_for_update=True, populate_existing=True)
+-    if sms is None or sms.status == "matched":
+-        return False
+-    p = await session.get(Payment, payment_id, with_for_update=True, populate_existing=True)
+-    if p is None or p.store_id != sms.store_id or p.status != P.AWAITING_REVIEW:
+-        return False
+-    sms.status, sms.payment_id, sms.matched_by, sms.note = "matched", p.id, by, (note or sms.note)
+-    p.meta = {**(p.meta or {}), "bank_sms": {"sms_id": str(sms.id), "serial": sms.serial, "by": by}}
+-    try:
+-        await session.flush()
+-        audit.record(
+-            session,
+-            "payment.bank_sms_matched",
+-            actor_id=actor_id,
+-            actor_type="admin" if by == "admin" else "system",
+-            entity_type="payment",
+-            entity_id=p.id,
+-            store_id=p.store_id,
+-            data={"sms_id": str(sms.id), "serial": sms.serial, "amount_rial": sms.amount_rial, "by": by},
+-        )
+-        await payments.mark_succeeded(
+-            session,
+-            p.id,
+-            actor_id=actor_id,
+-            actor_type="admin" if by == "admin" else "system",
+-            note=f"bank_sms:{sms.serial or sms.id}",
+-        )
+-    except IntegrityError:
+-        await session.rollback()
+-        return False
+-    except Exception:
+-        await session.rollback()
+-        raise
+-    if by == "auto":
+-        await _notify(session, p.store_id, f"✅ شارژ خودکار با پیامک بانک\nمبلغ: {p.amount:,}\nشناسه: {p.id}")
+-        await session.commit()
+-    return True
+-
+-
+-async def _confirm_provisional(
+-    session: AsyncSession, sms: BankSmsMessage, source: BankSmsSource, store: Store, parsed: dom.ParsedSms
+-) -> bool:
+-    """A deposit SMS that arrives *after* a receipt was credited provisionally is the proof that was missing: when it
+-    matches exactly one provisional credit under the usual rules, that credit becomes final without a human."""
+-    rows = (
+-        await session.scalars(
+-            select(Payment)
+-            .where(Payment.store_id == store.id, Payment.provider == "manual_card", Payment.status == P.SUCCEEDED)
+-            .order_by(Payment.created_at.desc())
+-            .limit(200)
+-        )
+-    ).all()
+-    cands, by_id = [], {}
+-    for p in rows:
+-        if ((p.meta or {}).get("provisional") or {}).get("state") != "open":
+-            continue
+-        rial = dom.to_rial(p.amount, p.currency)
+-        claim = (p.meta or {}).get("receipt_claim") or {}
+-        try:
+-            claimed = _aware(dt.datetime.fromisoformat(claim["paid_at"])) if claim.get("paid_at") else None
+-        except ValueError:
+-            claimed = None
+-        seen = claim.get("amount_rial")
+-        if rial is not None:
+-            blocked = "receipt_amount_mismatch" if isinstance(seen, int) and seen != rial else None
+-            cands.append(dom.Candidate(str(p.id), rial, _aware(p.created_at), claimed, blocked))
+-            by_id[str(p.id)] = p
+-    if not cands:
+-        return False
+-    decision = dom.decide(parsed, cands, match_settings(source))
+-    if decision.kind != "matched":
+-        return False
+-    p = await session.get(Payment, uuid.UUID(decision.payment_id), with_for_update=True, populate_existing=True)  # type: ignore[assignment]  # re-read under lock; the None check follows
+-    sms = cast(BankSmsMessage, await session.get(BankSmsMessage, sms.id, with_for_update=True, populate_existing=True))
+-    prov = ((p.meta or {}).get("provisional") or {}) if p else {}
+-    if p is None or sms.status == "matched" or prov.get("state") != "open":
+-        return False
+-    sms.status, sms.payment_id, sms.matched_by, sms.note = "matched", p.id, "auto", "confirmed_provisional"
+-    p.meta = {
+-        **(p.meta or {}),
+-        "bank_sms": {"sms_id": str(sms.id), "serial": sms.serial, "by": "auto"},
+-        "provisional": {**prov, "state": "confirmed", "resolved_at": utcnow().isoformat(), "resolved_by": "bank_sms"},
+-    }
+-    try:
+-        await session.flush()
+-    except IntegrityError:
+-        await session.rollback()
+-        return False
+-    audit.record(
+-        session,
+-        "payment.provisional_confirmed",
+-        actor_type="system",
+-        entity_type="payment",
+-        entity_id=p.id,
+-        store_id=p.store_id,
+-        data={"sms_id": str(sms.id), "by": "bank_sms"},
+-    )
+-    await _notify(session, p.store_id, f"✅ تأیید موقت با پیامک بانک نهایی شد\nمبلغ: {p.amount:,}\nشناسه: {p.id}")
+-    await session.commit()
+-    return True
+-
+-
+-async def match_message(session: AsyncSession, sms: BankSmsMessage, source: BankSmsSource, store: Store) -> str:
+-    """Try to pay one stored SMS. Returns the resulting status."""
+-    if sms.status not in ("unmatched", "ambiguous") or sms.direction != "deposit" or sms.amount_rial is None:
+-        return sms.status
+-    parsed = dom.ParsedSms(
+-        bank=source.bank,
+-        direction="deposit",
+-        amount_rial=sms.amount_rial,
+-        occurred_at=cast(dt.datetime, _aware(sms.occurred_at)),
+-        serial=sms.serial,
+-        balance_rial=sms.balance_rial,
+-        fingerprint=sms.fingerprint,
+-    )
+-    candidates, _ = await _candidates(session, store)
+-    decision = dom.decide(parsed, candidates, match_settings(source))
+-    if (
+-        decision.kind != "matched"
+-        and source.is_enabled
+-        and source.auto_verify
+-        and await _confirm_provisional(session, sms, source, store, parsed)
+-    ):
+-        return "matched"
+-    if decision.kind == "matched":
+-        if not (source.is_enabled and source.auto_verify):
+-            sms.status, sms.note = "unmatched", f"suggested:{decision.payment_id}"
+-            await session.commit()
+-            return sms.status
+-        if await _link(session, sms.id, uuid.UUID(decision.payment_id), by="auto"):
+-            return "matched"
+-        await session.refresh(sms)
+-        return sms.status
+-    if decision.kind == "ambiguous":
+-        newly = sms.status != "ambiguous"
+-        sms.status, sms.note = "ambiguous", "candidates:" + ",".join(decision.candidate_ids)[:270]
+-        await session.commit()
+-        if newly:
+-            await _notify(
+-                session, sms.store_id, f"⚠️ چند رسید هم‌مبلغ برای یک پیامک بانکی؛ نیاز به بررسی دستی\nمبلغ: {sms.amount_rial:,} ریال"
+-            )
+-            await session.commit()
+-    elif sms.status == "ambiguous":
+-        sms.status, sms.note = "unmatched", decision.reason
+-        await session.commit()
+-    return sms.status
+-
+-
+-async def reconcile_store(session: AsyncSession, store: Store) -> dict:
+-    """Re-run matching for every open deposit SMS of a store (receipt uploaded after the SMS, clock skew, ...)."""
+-    src = await get_source(session, store.id)
+-    if not src or not src.is_enabled:
+-        return {"checked": 0, "matched": 0}
+-    since = utcnow() - dt.timedelta(minutes=match_settings(src).window_minutes + 60)
+-    ids = (
+-        await session.scalars(
+-            select(BankSmsMessage.id)
+-            .where(
+-                BankSmsMessage.store_id == store.id,
+-                BankSmsMessage.status.in_(("unmatched", "ambiguous")),
+-                BankSmsMessage.direction == "deposit",
+-                BankSmsMessage.created_at >= since,
+-            )
+-            .order_by(BankSmsMessage.occurred_at)
+-            .limit(200)
+-        )
+-    ).all()
+-    matched = 0
+-    for sid in ids:
+-        sms = await session.get(BankSmsMessage, sid, populate_existing=True)
+-        if sms and await match_message(session, sms, src, store) == "matched":
+-            matched += 1
+-    return {"checked": len(ids), "matched": matched}
+-
+-
+-async def try_auto_verify_payment(session: AsyncSession, payment: Payment) -> bool:
+-    """Called right after a receipt is attached: the deposit SMS may already be there. Never raises into the caller."""
+-    try:
+-        if payment.provider != "manual_card" or payment.status != P.AWAITING_REVIEW:
+-            return False
+-        store = await session.get(Store, payment.store_id)
+-        src = await get_source(session, payment.store_id)
+-        if not (store and src and src.is_enabled and src.auto_verify):
+-            return False
+-        res = await reconcile_store(session, store)
+-        return res["matched"] > 0
+-    except Exception:  # an SMS problem must never break the customer's receipt upload
+-        log.warning("auto verify after receipt failed payment=%s", payment.id, exc_info=True)
+-        await session.rollback()
+-        return False
+-
+-
+-# ---------------------------------------------------------------------------------------------------- ingestion
+-async def ingest(session: AsyncSession, src: BankSmsSource, text: str, *, sender: str | None = None) -> tuple[BankSmsMessage, bool]:
+-    """Store one forwarded SMS (idempotent) and try to match it. Returns ``(message, created)``."""
+-    text = (text or "").strip()
+-    if not text:
+-        raise AppError("BANK_SMS_EMPTY", "متن پیامک خالی است.", 422)
+-    if len(text) > MAX_SMS_CHARS:
+-        raise AppError("BANK_SMS_TOO_LONG", "متن پیامک بیش از حد طولانی است.", 413)
+-    sender = (sender or "").strip()[:64] or None
+-    if src.senders and (sender or "") not in set(src.senders):
+-        raise AppError("BANK_SMS_SENDER_REJECTED", "فرستنده‌ی پیامک مجاز نیست.", 403)
+-    store = await session.get(Store, src.store_id)
+-    src.last_received_at = utcnow()
+-    try:
+-        parsed = dom.parse_sms(text, src.bank)
+-    except dom.SmsParseError as exc:
+-        fp = hashlib.sha256(("raw:" + dom.normalize_text(text)).encode()).hexdigest()
+-        existing = await session.scalar(
+-            select(BankSmsMessage).where(BankSmsMessage.store_id == src.store_id, BankSmsMessage.fingerprint == fp)
+-        )
+-        if existing:
+-            await session.commit()
+-            return existing, False
+-        m = BankSmsMessage(
+-            store_id=src.store_id, source_id=src.id, fingerprint=fp, sender=sender, raw_text=text, status="unparsed", note=str(exc)[:200]
+-        )
+-        session.add(m)
+-        await session.commit()
+-        return m, True
+-    existing = await session.scalar(
+-        select(BankSmsMessage).where(BankSmsMessage.store_id == src.store_id, BankSmsMessage.fingerprint == parsed.fingerprint)
+-    )
+-    if existing:
+-        await session.commit()
+-        return existing, False
+-    account = (src.settings or {}).get("account_number")
+-    if account and parsed.serial != account:
+-        # The phone forwards every SMS; one that belongs to another account must never pay this store's receipts.
+-        m = BankSmsMessage(
+-            store_id=src.store_id,
+-            source_id=src.id,
+-            fingerprint=parsed.fingerprint,
+-            serial=parsed.serial,
+-            direction=parsed.direction,
+-            amount_rial=parsed.amount_rial,
+-            balance_rial=parsed.balance_rial,
+-            occurred_at=parsed.occurred_at,
+-            sender=sender,
+-            raw_text=text,
+-            status="ignored",
+-            note="other_account",
+-        )
+-        session.add(m)
+-        await session.commit()
+-        return m, True
+-    gap = False
+-    if parsed.balance_rial is not None and parsed.direction in ("deposit", "withdrawal"):
+-        prev = await session.scalar(
+-            select(BankSmsMessage)
+-            .where(
+-                BankSmsMessage.store_id == src.store_id,
+-                BankSmsMessage.balance_rial.is_not(None),
+-                BankSmsMessage.occurred_at < parsed.occurred_at,
+-            )
+-            .order_by(BankSmsMessage.occurred_at.desc())
+-            .limit(1)
+-        )
+-        if prev is not None:
+-            signed = parsed.amount_rial if parsed.direction == "deposit" else -parsed.amount_rial
+-            gap = (prev.balance_rial or 0) + signed != parsed.balance_rial
+-    m = BankSmsMessage(
+-        store_id=src.store_id,
+-        source_id=src.id,
+-        fingerprint=parsed.fingerprint,
+-        serial=parsed.serial,
+-        direction=parsed.direction,
+-        amount_rial=parsed.amount_rial,
+-        balance_rial=parsed.balance_rial,
+-        occurred_at=parsed.occurred_at,
+-        sender=sender,
+-        raw_text=text,
+-        status="unmatched" if parsed.direction == "deposit" else "ignored",
+-        note="withdrawal" if parsed.direction == "withdrawal" else None,
+-        balance_gap=gap,
+-    )
+-    session.add(m)
+-    try:
+-        await session.commit()
+-    except IntegrityError:  # two forwarders delivered the same SMS at once
+-        await session.rollback()
+-        dup = await session.scalar(
+-            select(BankSmsMessage).where(BankSmsMessage.store_id == src.store_id, BankSmsMessage.fingerprint == parsed.fingerprint)
+-        )
+-        if dup:
+-            return dup, False
+-        raise
+-    if gap:
+-        await _notify(session, src.store_id, "⚠️ مانده‌ی پیامک بانک با پیامک قبلی همخوان نیست؛ ممکن است پیامکی دریافت نشده باشد.")
+-        await session.commit()
+-    if m.status == "unmatched" and store is not None:
+-        await match_message(session, m, src, store)
+-    return m, True
+-
+-
+-# -------------------------------------------------------------------------------------------- human decisions
+-async def list_messages(session: AsyncSession, store_id: uuid.UUID, *, status: str | None = None, limit: int = 100) -> list[BankSmsMessage]:
+-    q = (
+-        select(BankSmsMessage)
+-        .where(BankSmsMessage.store_id == store_id)
+-        .order_by(BankSmsMessage.created_at.desc())
+-        .limit(min(max(limit, 1), 300))
+-    )
+-    if status:
+-        q = q.where(BankSmsMessage.status == status)
+-    return list((await session.scalars(q)).all())
+-
+-
+-async def manual_link(
+-    session: AsyncSession, store: Store, sms_id: uuid.UUID, payment_id: uuid.UUID, *, actor_id: uuid.UUID, actor_type: str
+-) -> BankSmsMessage:
+-    """A human pairs a deposit with a receipt (e.g. an ambiguous one). Amount must still be identical."""
+-    sms = await session.get(BankSmsMessage, sms_id)
+-    p = await session.get(Payment, payment_id)
+-    if not sms or sms.store_id != store.id:
+-        raise NotFound("پیامک")
+-    if not p or p.store_id != store.id:
+-        raise NotFound("پرداخت")
+-    if sms.status == "matched":
+-        raise AppError("BANK_SMS_ALREADY_MATCHED", "این پیامک قبلاً به یک پرداخت وصل شده است.", 409)
+-    if sms.direction != "deposit" or sms.amount_rial != dom.to_rial(p.amount, p.currency):
+-        raise AppError("BANK_SMS_AMOUNT_MISMATCH", "مبلغ پیامک با مبلغ پرداخت برابر نیست.", 409)
+-    if p.provider != "manual_card" or p.status != P.AWAITING_REVIEW:
+-        raise AppError("INVALID_PAYMENT_STATE", "این پرداخت در انتظار بررسی نیست.", 409)
+-    if not await _link(session, sms.id, p.id, by="admin", actor_id=actor_id):
+-        raise AppError("BANK_SMS_CONFLICT", "پیامک یا پرداخت هم‌زمان تغییر کرد؛ دوباره تلاش کنید.", 409)
+-    await session.refresh(sms)
+-    return sms
+-
+-
+-async def set_ignored(
+-    session: AsyncSession, store: Store, sms_id: uuid.UUID, *, ignored: bool, actor_id: uuid.UUID, actor_type: str
+-) -> BankSmsMessage:
+-    sms = await session.get(BankSmsMessage, sms_id)
+-    if not sms or sms.store_id != store.id:
+-        raise NotFound("پیامک")
+-    if sms.status == "matched":
+-        raise AppError("BANK_SMS_ALREADY_MATCHED", "این پیامک قبلاً به یک پرداخت وصل شده است.", 409)
+-    sms.status = "ignored" if ignored else ("unmatched" if sms.direction == "deposit" else "ignored")
+-    audit.record(
+-        session,
+-        "bank_sms.ignored" if ignored else "bank_sms.restored",
+-        actor_id=actor_id,
+-        actor_type=actor_type,
+-        entity_type="bank_sms",
+-        entity_id=sms.id,
+-        store_id=store.id,
+-    )
+-    await session.commit()
+-    return sms
+-
+-
+-def build_claim(customer: dict, facts, engine: str | None) -> dict:
+-    """What we know about the receipt: the OCR/vision reading, overridden by anything the customer typed explicitly."""
+-    claim: dict = dict(facts.to_claim()) if facts is not None else {}
+-    paid = claim.get("paid_at")
+-    if paid and _aware(dt.datetime.fromisoformat(paid)) > utcnow() + dt.timedelta(minutes=10):
+-        claim.pop("paid_at")  # a time in the future is a misread, never a fact
+-    claim.update(customer)
+-    claim["source"] = "customer" if customer.get("paid_at") else ("ocr" if claim.get("paid_at") else "none")
+-    if engine:
+-        claim["ocr_engine"] = engine
+-        claim["ocr_ok"] = bool(facts is not None and facts.found)
+-    return claim
+-
+-
+-def parse_claim(paid_at: str | None, reference: str | None, card_last4: str | None) -> dict:
+-    """The facts the customer read off the receipt. Stored with the payment; the image itself is never trusted."""
+-    claim: dict = {}
+-    if paid_at and paid_at.strip():
+-        when = dom.parse_datetime_text(paid_at)
+-        if when is None:
+-            raise AppError("RECEIPT_TIME_INVALID", "زمان رسید نامعتبر است؛ نمونه: 1405/08/02 22:50", 422)
+-        if when > utcnow() + dt.timedelta(minutes=10):
+-            raise AppError("RECEIPT_TIME_INVALID", "زمان رسید در آینده است.", 422)
+-        claim["paid_at"] = when.isoformat()
+-    if reference and reference.strip():
+-        ref = dom.digits_only(reference)
+-        if not (6 <= len(ref) <= 30):
+-            raise AppError("RECEIPT_REF_INVALID", "شماره مرجع نامعتبر است.", 422)
+-        claim["reference"] = ref
+-    if card_last4 and card_last4.strip():
+-        last4 = dom.digits_only(card_last4)
+-        if len(last4) != 4:
+-            raise AppError("RECEIPT_CARD_INVALID", "۴ رقم آخر کارت مبدأ را وارد کنید.", 422)
+-        claim["source_card_last4"] = last4
+-    return claim
+diff --git a/apps/api/melorin/modules/payments/bank_sms/__init__.py b/apps/api/melorin/modules/payments/bank_sms/__init__.py
+new file mode 100644
+index 0000000..63b9705
+--- /dev/null
++++ b/apps/api/melorin/modules/payments/bank_sms/__init__.py
+@@ -0,0 +1,61 @@
++"""Card-to-card auto verification against the bank's deposit SMS.
++
++Flow: the store owner's phone forwards every bank SMS to ``POST /payments/bank-sms/{store_id}`` (token protected) ->
++the SMS is parsed and stored once -> it is matched with a customer receipt that waits for review (same amount, the
++time printed on the receipt agrees with the SMS, the SMS is not older than the request) -> only an unambiguous match
++credits the wallet through the normal ``mark_succeeded`` path (row locks + ledger idempotency key, so a duplicate
++SMS, a retry or a race can never credit twice). Everything else stays in the manual review queue.
++
++Package layout: ``config`` (settings, source lookup), ``authentication`` (token + source credentials), ``matching``
++(candidate selection, linking, auto-confirm), ``reconciliation`` (re-match a store backlog), ``ingestion`` (parse + store one
++SMS), ``review`` (manual queue operations and claim helpers). Every public name stays importable from this package.
++"""
++
++from __future__ import annotations
++
++from melorin.modules.payments.bank_sms.config import (
++    log,
++    MAX_SMS_CHARS,
++    TOKEN_PREFIX,
++    _SETTING_RULES,
++    clean_settings,
++    match_settings,
++    source_out,
++    get_source,
++)  # noqa: F401
++from melorin.modules.payments.bank_sms.authentication import hash_token, new_token, save_source, rotate_token, authenticate  # noqa: F401
++from melorin.modules.payments.bank_sms.matching import P, _candidates, _notify, _link, _confirm_provisional, match_message  # noqa: F401
++from melorin.modules.payments.bank_sms.reconciliation import reconcile_store, try_auto_verify_payment  # noqa: F401
++from melorin.modules.payments.bank_sms.ingestion import ingest  # noqa: F401
++from melorin.modules.payments.bank_sms.review import message_out, list_messages, manual_link, set_ignored, build_claim, parse_claim  # noqa: F401
++
++__all__ = [
++    "log",
++    "MAX_SMS_CHARS",
++    "TOKEN_PREFIX",
++    "_SETTING_RULES",
++    "clean_settings",
++    "match_settings",
++    "source_out",
++    "get_source",
++    "hash_token",
++    "new_token",
++    "save_source",
++    "rotate_token",
++    "authenticate",
++    "P",
++    "_candidates",
++    "_notify",
++    "_link",
++    "_confirm_provisional",
++    "match_message",
++    "reconcile_store",
++    "try_auto_verify_payment",
++    "ingest",
++    "message_out",
++    "list_messages",
++    "manual_link",
++    "set_ignored",
++    "build_claim",
++    "parse_claim",
++]
+diff --git a/apps/api/melorin/modules/payments/bank_sms/authentication.py b/apps/api/melorin/modules/payments/bank_sms/authentication.py
+new file mode 100644
+index 0000000..6e74149
+--- /dev/null
++++ b/apps/api/melorin/modules/payments/bank_sms/authentication.py
+@@ -0,0 +1,106 @@
++"""Bank SMS auto-verification: authentication (see ``bank_sms/__init__.py`` for the overall flow)."""
++
++import hashlib
++import hmac
++import secrets
++import uuid
++
++from sqlalchemy.ext.asyncio import AsyncSession
++
++from melorin.core import audit
++from melorin.core.errors import AppError, NotFound
++from melorin.domain import bank_sms as dom
++from melorin.kernel.models.payments import BankSmsSource
++from melorin.kernel.models.stores import Store
++from melorin.modules.payments.bank_sms.config import TOKEN_PREFIX, clean_settings, get_source
++
++
++def hash_token(token: str) -> str:
++    return hashlib.sha256(token.encode()).hexdigest()
++
++
++def new_token() -> str:
++    return TOKEN_PREFIX + secrets.token_urlsafe(32)
++
++
++async def save_source(
++    session: AsyncSession,
++    store: Store,
++    *,
++    actor_id: uuid.UUID | None,
++    actor_type: str,
++    bank: str | None = None,
++    is_enabled: bool | None = None,
++    auto_verify: bool | None = None,
++    senders: list[str] | None = None,
++    settings: dict | None = None,
++) -> tuple[BankSmsSource, str | None]:
++    """Create/update the store's SMS source. Returns ``(source, plaintext_token_or_None)``: the token is only ever
++    returned when it is created, so it can be copied once into the SMS forwarder app."""
++    if dom.to_rial(1, store.currency) is None:
++        raise AppError("BANK_SMS_CURRENCY", "تأیید خودکار فقط برای فروشگاه‌های ریالی/تومانی ممکن است.", 400)
++    if bank is not None and bank not in dom.PARSERS:
++        raise AppError("BANK_SMS_BANK_UNSUPPORTED", "قالب پیامک این بانک پشتیبانی نمی‌شود.", 400)
++    src = await get_source(session, store.id)
++    token = None
++    if src is None:
++        src = BankSmsSource(store_id=store.id, bank=bank or "mehr_iran", is_enabled=True, auto_verify=False)
++        session.add(src)
++        token = new_token()
++        src.token_hash, src.token_hint = hash_token(token), token[-4:]
++    if bank is not None:
++        src.bank = bank
++    if is_enabled is not None:
++        src.is_enabled = is_enabled
++    if auto_verify is not None:
++        src.auto_verify = auto_verify
++    if senders is not None:
++        cleaned = sorted({x.strip() for x in senders if x and x.strip()})
++        if len(cleaned) > 10 or any(len(x) > 40 for x in cleaned):
++            raise AppError("BANK_SMS_SETTING_INVALID", "فهرست فرستنده‌ها نامعتبر است.", 422)
++        src.senders = cleaned
++    if settings is not None:
++        src.settings = clean_settings(settings)
++    src.updated_by = actor_id
++    audit.record(
++        session,
++        "bank_sms.source_saved",
++        actor_id=actor_id,
++        actor_type=actor_type,
++        entity_type="store",
++        entity_id=store.id,
++        store_id=store.id,
++        data={"auto_verify": src.auto_verify, "enabled": src.is_enabled, "bank": src.bank, "token_created": token is not None},
++    )
++    await session.commit()
++    return src, token
++
++
++async def rotate_token(session: AsyncSession, store: Store, *, actor_id: uuid.UUID | None, actor_type: str) -> str:
++    src = await get_source(session, store.id)
++    if src is None:
++        raise NotFound("منبع پیامک")
++    token = new_token()
++    src.token_hash, src.token_hint, src.updated_by = hash_token(token), token[-4:], actor_id
++    audit.record(
++        session,
++        "bank_sms.token_rotated",
++        actor_id=actor_id,
++        actor_type=actor_type,
++        entity_type="store",
++        entity_id=store.id,
++        store_id=store.id,
++    )
++    await session.commit()
++    return token
++
++
++async def authenticate(session: AsyncSession, store_id: uuid.UUID, token: str | None) -> BankSmsSource:
++    """Constant-time check of the webhook token. One generic error for every failure: no store enumeration."""
++    src = await get_source(session, store_id)
++    given = hash_token(token or "")
++    stored = (src.token_hash if src else None) or "0" * 64
++    ok = hmac.compare_digest(given, stored)
++    if not (src and src.is_enabled and src.token_hash and ok):
++        raise AppError("BANK_SMS_UNAUTHORIZED", "دسترسی نامعتبر است.", 401)
++    return src
+diff --git a/apps/api/melorin/modules/payments/bank_sms/config.py b/apps/api/melorin/modules/payments/bank_sms/config.py
+new file mode 100644
+index 0000000..8ab088b
+--- /dev/null
++++ b/apps/api/melorin/modules/payments/bank_sms/config.py
+@@ -0,0 +1,94 @@
++"""Bank SMS auto-verification: config (see ``bank_sms/__init__.py`` for the overall flow)."""
++
++import logging
++import uuid
++from typing import Any
++
++from sqlalchemy import select
++from sqlalchemy.ext.asyncio import AsyncSession
++
++from melorin.core.errors import AppError
++from melorin.domain import bank_sms as dom
++from melorin.kernel.models.payments import BankSmsSource
++
++
++log = logging.getLogger("melorin.payments.bank_sms")
++
++
++MAX_SMS_CHARS = 1000
++
++
++TOKEN_PREFIX = "mlr_sms_"
++
++
++# (key, kind, minimum, maximum, default) - the single place that defines which tuning knobs exist.
++_SETTING_RULES: tuple[tuple[str, type, Any, Any, Any], ...] = (
++    ("window_minutes", int, 5, 7 * 24 * 60, 720),
++    ("time_tolerance_minutes", int, 0, 30, 5),
++    ("require_claimed_time", bool, None, None, True),
++    ("max_auto_amount_rial", int, 1, 10**13, None),
++    ("account_number", str, 8, 26, None),
++)
++
++
++def clean_settings(raw: dict | None) -> dict:
++    """Validate the tuning knobs (ordered rule table); unknown keys are rejected, ``None`` resets to the default."""
++    raw = dict(raw or {})
++    out: dict = {}
++    for key, kind, lo, hi, _default in _SETTING_RULES:
++        if key not in raw:
++            continue
++        value = raw.pop(key)
++        if value is None:
++            continue
++        if kind is bool:
++            if not isinstance(value, bool):
++                raise AppError("BANK_SMS_SETTING_INVALID", f"مقدار «{key}» باید درست/نادرست باشد.", 422)
++        elif kind is str:
++            value = dom.digits_only(value) if isinstance(value, str) else ""
++            if not (lo <= len(value) <= hi):
++                raise AppError("BANK_SMS_SETTING_INVALID", "شماره حساب باید فقط عدد و بین ۸ تا ۲۶ رقم باشد.", 422)
++        else:
++            if isinstance(value, bool) or not isinstance(value, int) or not (lo <= value <= hi):
++                raise AppError("BANK_SMS_SETTING_INVALID", f"مقدار «{key}» باید عددی بین {lo} و {hi} باشد.", 422)
++        out[key] = value
++    if raw:
++        raise AppError("BANK_SMS_SETTING_INVALID", f"تنظیم ناشناخته: {', '.join(sorted(raw))}", 422)
++    return out
++
++
++def match_settings(source: BankSmsSource) -> dom.MatchSettings:
++    s = source.settings or {}
++    return dom.MatchSettings(
++        window_minutes=int(s.get("window_minutes", 720)),
++        time_tolerance_minutes=int(s.get("time_tolerance_minutes", 5)),
++        require_claimed_time=bool(s.get("require_claimed_time", True)),
++        max_auto_amount_rial=s.get("max_auto_amount_rial"),
++    )
++
++
++def source_out(src: BankSmsSource | None, *, store_id: uuid.UUID | None = None) -> dict:
++    s = src.settings if src else {}
++    return {
++        "store_id": str(src.store_id if src else store_id),
++        "configured": src is not None,
++        "bank": src.bank if src else "mehr_iran",
++        "is_enabled": src.is_enabled if src else False,
++        "auto_verify": src.auto_verify if src else False,
++        "has_token": bool(src and src.token_hash),
++        "token_hint": src.token_hint if src else None,
++        "senders": list(src.senders or []) if src else [],
++        "settings": {
++            "window_minutes": (s or {}).get("window_minutes", 720),
++            "time_tolerance_minutes": (s or {}).get("time_tolerance_minutes", 5),
++            "require_claimed_time": (s or {}).get("require_claimed_time", True),
++            "max_auto_amount_rial": (s or {}).get("max_auto_amount_rial"),
++            "account_number": (s or {}).get("account_number"),
++        },
++        "last_received_at": src.last_received_at if src else None,
++    }
++
++
++# ------------------------------------------------------------------------------------------------ configuration
++async def get_source(session: AsyncSession, store_id: uuid.UUID) -> BankSmsSource | None:
++    return await session.scalar(select(BankSmsSource).where(BankSmsSource.store_id == store_id))
+diff --git a/apps/api/melorin/modules/payments/bank_sms/ingestion.py b/apps/api/melorin/modules/payments/bank_sms/ingestion.py
+new file mode 100644
+index 0000000..a47f7ac
+--- /dev/null
++++ b/apps/api/melorin/modules/payments/bank_sms/ingestion.py
+@@ -0,0 +1,119 @@
++"""Bank SMS auto-verification: ingestion (see ``bank_sms/__init__.py`` for the overall flow)."""
++
++import hashlib
++
++from sqlalchemy import select
++from sqlalchemy.exc import IntegrityError
++from sqlalchemy.ext.asyncio import AsyncSession
++
++from melorin.core.db import utcnow
++from melorin.core.errors import AppError
++from melorin.domain import bank_sms as dom
++from melorin.kernel.models.payments import BankSmsMessage, BankSmsSource
++from melorin.kernel.models.stores import Store
++from melorin.modules.payments.bank_sms.config import MAX_SMS_CHARS
++from melorin.modules.payments.bank_sms.matching import _notify, match_message
++
++
++# ---------------------------------------------------------------------------------------------------- ingestion
++async def ingest(session: AsyncSession, src: BankSmsSource, text: str, *, sender: str | None = None) -> tuple[BankSmsMessage, bool]:
++    """Store one forwarded SMS (idempotent) and try to match it. Returns ``(message, created)``."""
++    text = (text or "").strip()
++    if not text:
++        raise AppError("BANK_SMS_EMPTY", "متن پیامک خالی است.", 422)
++    if len(text) > MAX_SMS_CHARS:
++        raise AppError("BANK_SMS_TOO_LONG", "متن پیامک بیش از حد طولانی است.", 413)
++    sender = (sender or "").strip()[:64] or None
++    if src.senders and (sender or "") not in set(src.senders):
++        raise AppError("BANK_SMS_SENDER_REJECTED", "فرستنده‌ی پیامک مجاز نیست.", 403)
++    store = await session.get(Store, src.store_id)
++    src.last_received_at = utcnow()
++    try:
++        parsed = dom.parse_sms(text, src.bank)
++    except dom.SmsParseError as exc:
++        fp = hashlib.sha256(("raw:" + dom.normalize_text(text)).encode()).hexdigest()
++        existing = await session.scalar(
++            select(BankSmsMessage).where(BankSmsMessage.store_id == src.store_id, BankSmsMessage.fingerprint == fp)
++        )
++        if existing:
++            await session.commit()
++            return existing, False
++        m = BankSmsMessage(
++            store_id=src.store_id, source_id=src.id, fingerprint=fp, sender=sender, raw_text=text, status="unparsed", note=str(exc)[:200]
++        )
++        session.add(m)
++        await session.commit()
++        return m, True
++    existing = await session.scalar(
++        select(BankSmsMessage).where(BankSmsMessage.store_id == src.store_id, BankSmsMessage.fingerprint == parsed.fingerprint)
++    )
++    if existing:
++        await session.commit()
++        return existing, False
++    account = (src.settings or {}).get("account_number")
++    if account and parsed.serial != account:
++        # The phone forwards every SMS; one that belongs to another account must never pay this store's receipts.
++        m = BankSmsMessage(
++            store_id=src.store_id,
++            source_id=src.id,
++            fingerprint=parsed.fingerprint,
++            serial=parsed.serial,
++            direction=parsed.direction,
++            amount_rial=parsed.amount_rial,
++            balance_rial=parsed.balance_rial,
++            occurred_at=parsed.occurred_at,
++            sender=sender,
++            raw_text=text,
++            status="ignored",
++            note="other_account",
++        )
++        session.add(m)
++        await session.commit()
++        return m, True
++    gap = False
++    if parsed.balance_rial is not None and parsed.direction in ("deposit", "withdrawal"):
++        prev = await session.scalar(
++            select(BankSmsMessage)
++            .where(
++                BankSmsMessage.store_id == src.store_id,
++                BankSmsMessage.balance_rial.is_not(None),
++                BankSmsMessage.occurred_at < parsed.occurred_at,
++            )
++            .order_by(BankSmsMessage.occurred_at.desc())
++            .limit(1)
++        )
++        if prev is not None:
++            signed = parsed.amount_rial if parsed.direction == "deposit" else -parsed.amount_rial
++            gap = (prev.balance_rial or 0) + signed != parsed.balance_rial
++    m = BankSmsMessage(
++        store_id=src.store_id,
++        source_id=src.id,
++        fingerprint=parsed.fingerprint,
++        serial=parsed.serial,
++        direction=parsed.direction,
++        amount_rial=parsed.amount_rial,
++        balance_rial=parsed.balance_rial,
++        occurred_at=parsed.occurred_at,
++        sender=sender,
++        raw_text=text,
++        status="unmatched" if parsed.direction == "deposit" else "ignored",
++        note="withdrawal" if parsed.direction == "withdrawal" else None,
++        balance_gap=gap,
++    )
++    session.add(m)
++    try:
++        await session.commit()
++    except IntegrityError:  # two forwarders delivered the same SMS at once
++        await session.rollback()
++        dup = await session.scalar(
++            select(BankSmsMessage).where(BankSmsMessage.store_id == src.store_id, BankSmsMessage.fingerprint == parsed.fingerprint)
++        )
++        if dup:
++            return dup, False
++        raise
++    if gap:
++        await _notify(session, src.store_id, "⚠️ مانده‌ی پیامک بانک با پیامک قبلی همخوان نیست؛ ممکن است پیامکی دریافت نشده باشد.")
++        await session.commit()
++    if m.status == "unmatched" and store is not None:
++        await match_message(session, m, src, store)
++    return m, True
+diff --git a/apps/api/melorin/modules/payments/bank_sms/matching.py b/apps/api/melorin/modules/payments/bank_sms/matching.py
+new file mode 100644
+index 0000000..4529591
+--- /dev/null
++++ b/apps/api/melorin/modules/payments/bank_sms/matching.py
+@@ -0,0 +1,214 @@
++"""Bank SMS auto-verification: matching (see ``bank_sms/__init__.py`` for the overall flow)."""
++
++import datetime as dt
++import uuid
++from typing import cast
++
++from sqlalchemy import select
++from sqlalchemy.exc import IntegrityError
++from sqlalchemy.ext.asyncio import AsyncSession
++
++from melorin.core import audit, events
++from melorin.core.db import utcnow
++from melorin.domain import bank_sms as dom
++from melorin.domain.order_state import PaymentStatus
++from melorin.kernel.models.payments import BankSmsMessage, BankSmsSource, Payment
++from melorin.kernel.models.stores import Store
++from melorin.modules.payments import service as payments
++from melorin.domain.timeutil import aware as _aware
++from melorin.modules.payments.bank_sms.config import match_settings
++
++
++P = PaymentStatus
++
++
++# ----------------------------------------------------------------------------------------------------- matching
++async def _candidates(session: AsyncSession, store: Store) -> tuple[list[dom.Candidate], dict[str, Payment]]:
++    rows = (
++        await session.scalars(
++            select(Payment)
++            .where(
++                Payment.store_id == store.id,
++                Payment.provider == "manual_card",
++                Payment.purpose == "wallet_topup",
++                Payment.status == P.AWAITING_REVIEW,
++                Payment.receipt_file_id.is_not(None),
++            )
++            .order_by(Payment.created_at)
++            .limit(500)
++        )
++    ).all()
++    out: list[dom.Candidate] = []
++    by_id: dict[str, Payment] = {}
++    for p in rows:
++        rial = dom.to_rial(p.amount, p.currency)
++        if rial is None:
++            continue
++        claim = (p.meta or {}).get("receipt_claim") or {}
++        claimed = None
++        if claim.get("paid_at"):
++            try:
++                claimed = _aware(dt.datetime.fromisoformat(claim["paid_at"]))
++            except ValueError:
++                claimed = None
++        seen = claim.get("amount_rial")
++        blocked = "receipt_amount_mismatch" if isinstance(seen, int) and seen != rial else None
++        out.append(dom.Candidate(str(p.id), rial, _aware(p.created_at), claimed, blocked))
++        by_id[str(p.id)] = p
++    return out, by_id
++
++
++async def _notify(session: AsyncSession, store_id: uuid.UUID, text: str) -> None:
++    await events.emit_store_notice(session, store_id, "payments", text)
++
++
++async def _link(
++    session: AsyncSession, sms_id: uuid.UUID, payment_id: uuid.UUID, *, by: str, actor_id=None, note: str | None = None
++) -> bool:
++    """Lock SMS + payment, link them and credit the wallet. ``False`` when someone else got there first."""
++    sms = await session.get(BankSmsMessage, sms_id, with_for_update=True, populate_existing=True)
++    if sms is None or sms.status == "matched":
++        return False
++    p = await session.get(Payment, payment_id, with_for_update=True, populate_existing=True)
++    if p is None or p.store_id != sms.store_id or p.status != P.AWAITING_REVIEW:
++        return False
++    sms.status, sms.payment_id, sms.matched_by, sms.note = "matched", p.id, by, (note or sms.note)
++    p.meta = {**(p.meta or {}), "bank_sms": {"sms_id": str(sms.id), "serial": sms.serial, "by": by}}
++    try:
++        await session.flush()
++        audit.record(
++            session,
++            "payment.bank_sms_matched",
++            actor_id=actor_id,
++            actor_type="admin" if by == "admin" else "system",
++            entity_type="payment",
++            entity_id=p.id,
++            store_id=p.store_id,
++            data={"sms_id": str(sms.id), "serial": sms.serial, "amount_rial": sms.amount_rial, "by": by},
++        )
++        await payments.mark_succeeded(
++            session,
++            p.id,
++            actor_id=actor_id,
++            actor_type="admin" if by == "admin" else "system",
++            note=f"bank_sms:{sms.serial or sms.id}",
++        )
++    except IntegrityError:
++        await session.rollback()
++        return False
++    except Exception:
++        await session.rollback()
++        raise
++    if by == "auto":
++        await _notify(session, p.store_id, f"✅ شارژ خودکار با پیامک بانک\nمبلغ: {p.amount:,}\nشناسه: {p.id}")
++        await session.commit()
++    return True
++
++
++async def _confirm_provisional(
++    session: AsyncSession, sms: BankSmsMessage, source: BankSmsSource, store: Store, parsed: dom.ParsedSms
++) -> bool:
++    """A deposit SMS that arrives *after* a receipt was credited provisionally is the proof that was missing: when it
++    matches exactly one provisional credit under the usual rules, that credit becomes final without a human."""
++    rows = (
++        await session.scalars(
++            select(Payment)
++            .where(Payment.store_id == store.id, Payment.provider == "manual_card", Payment.status == P.SUCCEEDED)
++            .order_by(Payment.created_at.desc())
++            .limit(200)
++        )
++    ).all()
++    cands, by_id = [], {}
++    for p in rows:
++        if ((p.meta or {}).get("provisional") or {}).get("state") != "open":
++            continue
++        rial = dom.to_rial(p.amount, p.currency)
++        claim = (p.meta or {}).get("receipt_claim") or {}
++        try:
++            claimed = _aware(dt.datetime.fromisoformat(claim["paid_at"])) if claim.get("paid_at") else None
++        except ValueError:
++            claimed = None
++        seen = claim.get("amount_rial")
++        if rial is not None:
++            blocked = "receipt_amount_mismatch" if isinstance(seen, int) and seen != rial else None
++            cands.append(dom.Candidate(str(p.id), rial, _aware(p.created_at), claimed, blocked))
++            by_id[str(p.id)] = p
++    if not cands:
++        return False
++    decision = dom.decide(parsed, cands, match_settings(source))
++    if decision.kind != "matched":
++        return False
++    p = await session.get(Payment, uuid.UUID(decision.payment_id), with_for_update=True, populate_existing=True)  # type: ignore[assignment]  # re-read under lock; the None check follows
++    sms = cast(BankSmsMessage, await session.get(BankSmsMessage, sms.id, with_for_update=True, populate_existing=True))
++    prov = ((p.meta or {}).get("provisional") or {}) if p else {}
++    if p is None or sms.status == "matched" or prov.get("state") != "open":
++        return False
++    sms.status, sms.payment_id, sms.matched_by, sms.note = "matched", p.id, "auto", "confirmed_provisional"
++    p.meta = {
++        **(p.meta or {}),
++        "bank_sms": {"sms_id": str(sms.id), "serial": sms.serial, "by": "auto"},
++        "provisional": {**prov, "state": "confirmed", "resolved_at": utcnow().isoformat(), "resolved_by": "bank_sms"},
++    }
++    try:
++        await session.flush()
++    except IntegrityError:
++        await session.rollback()
++        return False
++    audit.record(
++        session,
++        "payment.provisional_confirmed",
++        actor_type="system",
++        entity_type="payment",
++        entity_id=p.id,
++        store_id=p.store_id,
++        data={"sms_id": str(sms.id), "by": "bank_sms"},
++    )
++    await _notify(session, p.store_id, f"✅ تأیید موقت با پیامک بانک نهایی شد\nمبلغ: {p.amount:,}\nشناسه: {p.id}")
++    await session.commit()
++    return True
++
++
++async def match_message(session: AsyncSession, sms: BankSmsMessage, source: BankSmsSource, store: Store) -> str:
++    """Try to pay one stored SMS. Returns the resulting status."""
++    if sms.status not in ("unmatched", "ambiguous") or sms.direction != "deposit" or sms.amount_rial is None:
++        return sms.status
++    parsed = dom.ParsedSms(
++        bank=source.bank,
++        direction="deposit",
++        amount_rial=sms.amount_rial,
++        occurred_at=cast(dt.datetime, _aware(sms.occurred_at)),
++        serial=sms.serial,
++        balance_rial=sms.balance_rial,
++        fingerprint=sms.fingerprint,
++    )
++    candidates, _ = await _candidates(session, store)
++    decision = dom.decide(parsed, candidates, match_settings(source))
++    if (
++        decision.kind != "matched"
++        and source.is_enabled
++        and source.auto_verify
++        and await _confirm_provisional(session, sms, source, store, parsed)
++    ):
++        return "matched"
++    if decision.kind == "matched":
++        if not (source.is_enabled and source.auto_verify):
++            sms.status, sms.note = "unmatched", f"suggested:{decision.payment_id}"
++            await session.commit()
++            return sms.status
++        if await _link(session, sms.id, uuid.UUID(decision.payment_id), by="auto"):
++            return "matched"
++        await session.refresh(sms)
++        return sms.status
++    if decision.kind == "ambiguous":
++        newly = sms.status != "ambiguous"
++        sms.status, sms.note = "ambiguous", "candidates:" + ",".join(decision.candidate_ids)[:270]
++        await session.commit()
++        if newly:
++            await _notify(
++                session, sms.store_id, f"⚠️ چند رسید هم‌مبلغ برای یک پیامک بانکی؛ نیاز به بررسی دستی\nمبلغ: {sms.amount_rial:,} ریال"
++            )
++            await session.commit()
++    elif sms.status == "ambiguous":
++        sms.status, sms.note = "unmatched", decision.reason
++        await session.commit()
++    return sms.status
+diff --git a/apps/api/melorin/modules/payments/bank_sms/reconciliation.py b/apps/api/melorin/modules/payments/bank_sms/reconciliation.py
+new file mode 100644
+index 0000000..a418aa9
+--- /dev/null
++++ b/apps/api/melorin/modules/payments/bank_sms/reconciliation.py
+@@ -0,0 +1,56 @@
++"""Bank SMS auto-verification: reconciliation (see ``bank_sms/__init__.py`` for the overall flow)."""
++
++import datetime as dt
++
++from sqlalchemy import select
++from sqlalchemy.ext.asyncio import AsyncSession
++
++from melorin.core.db import utcnow
++from melorin.kernel.models.payments import BankSmsMessage, Payment
++from melorin.kernel.models.stores import Store
++from melorin.modules.payments.bank_sms.config import get_source, log, match_settings
++from melorin.modules.payments.bank_sms.matching import P, match_message
++
++
++async def reconcile_store(session: AsyncSession, store: Store) -> dict:
++    """Re-run matching for every open deposit SMS of a store (receipt uploaded after the SMS, clock skew, ...)."""
++    src = await get_source(session, store.id)
++    if not src or not src.is_enabled:
++        return {"checked": 0, "matched": 0}
++    since = utcnow() - dt.timedelta(minutes=match_settings(src).window_minutes + 60)
++    ids = (
++        await session.scalars(
++            select(BankSmsMessage.id)
++            .where(
++                BankSmsMessage.store_id == store.id,
++                BankSmsMessage.status.in_(("unmatched", "ambiguous")),
++                BankSmsMessage.direction == "deposit",
++                BankSmsMessage.created_at >= since,
++            )
++            .order_by(BankSmsMessage.occurred_at)
++            .limit(200)
++        )
++    ).all()
++    matched = 0
++    for sid in ids:
++        sms = await session.get(BankSmsMessage, sid, populate_existing=True)
++        if sms and await match_message(session, sms, src, store) == "matched":
++            matched += 1
++    return {"checked": len(ids), "matched": matched}
++
++
++async def try_auto_verify_payment(session: AsyncSession, payment: Payment) -> bool:
++    """Called right after a receipt is attached: the deposit SMS may already be there. Never raises into the caller."""
++    try:
++        if payment.provider != "manual_card" or payment.status != P.AWAITING_REVIEW:
++            return False
++        store = await session.get(Store, payment.store_id)
++        src = await get_source(session, payment.store_id)
++        if not (store and src and src.is_enabled and src.auto_verify):
++            return False
++        res = await reconcile_store(session, store)
++        return res["matched"] > 0
++    except Exception:  # an SMS problem must never break the customer's receipt upload
++        log.warning("auto verify after receipt failed payment=%s", payment.id, exc_info=True)
++        await session.rollback()
++        return False
+diff --git a/apps/api/melorin/modules/payments/bank_sms/review.py b/apps/api/melorin/modules/payments/bank_sms/review.py
+new file mode 100644
+index 0000000..85dabb0
+--- /dev/null
++++ b/apps/api/melorin/modules/payments/bank_sms/review.py
+@@ -0,0 +1,129 @@
++"""Bank SMS auto-verification: review (see ``bank_sms/__init__.py`` for the overall flow)."""
++
++import datetime as dt
++import uuid
++
++from sqlalchemy import select
++from sqlalchemy.ext.asyncio import AsyncSession
++
++from melorin.core import audit
++from melorin.core.db import utcnow
++from melorin.core.errors import AppError, NotFound
++from melorin.domain import bank_sms as dom
++from melorin.kernel.models.payments import BankSmsMessage, Payment
++from melorin.kernel.models.stores import Store
++from melorin.domain.timeutil import aware as _aware
++from melorin.modules.payments.bank_sms.matching import P, _link
++
++
++def message_out(m: BankSmsMessage) -> dict:
++    return {
++        "id": str(m.id),
++        "store_id": str(m.store_id),
++        "status": m.status,
++        "direction": m.direction,
++        "amount_rial": m.amount_rial,
++        "balance_rial": m.balance_rial,
++        "occurred_at": m.occurred_at,
++        "serial": m.serial,
++        "sender": m.sender,
++        "payment_id": str(m.payment_id) if m.payment_id else None,
++        "matched_by": m.matched_by,
++        "note": m.note,
++        "balance_gap": m.balance_gap,
++        "created_at": m.created_at,
++    }
++
++
++# -------------------------------------------------------------------------------------------- human decisions
++async def list_messages(session: AsyncSession, store_id: uuid.UUID, *, status: str | None = None, limit: int = 100) -> list[BankSmsMessage]:
++    q = (
++        select(BankSmsMessage)
++        .where(BankSmsMessage.store_id == store_id)
++        .order_by(BankSmsMessage.created_at.desc())
++        .limit(min(max(limit, 1), 300))
++    )
++    if status:
++        q = q.where(BankSmsMessage.status == status)
++    return list((await session.scalars(q)).all())
++
++
++async def manual_link(
++    session: AsyncSession, store: Store, sms_id: uuid.UUID, payment_id: uuid.UUID, *, actor_id: uuid.UUID, actor_type: str
++) -> BankSmsMessage:
++    """A human pairs a deposit with a receipt (e.g. an ambiguous one). Amount must still be identical."""
++    sms = await session.get(BankSmsMessage, sms_id)
++    p = await session.get(Payment, payment_id)
++    if not sms or sms.store_id != store.id:
++        raise NotFound("پیامک")
++    if not p or p.store_id != store.id:
++        raise NotFound("پرداخت")
++    if sms.status == "matched":
++        raise AppError("BANK_SMS_ALREADY_MATCHED", "این پیامک قبلاً به یک پرداخت وصل شده است.", 409)
++    if sms.direction != "deposit" or sms.amount_rial != dom.to_rial(p.amount, p.currency):
++        raise AppError("BANK_SMS_AMOUNT_MISMATCH", "مبلغ پیامک با مبلغ پرداخت برابر نیست.", 409)
++    if p.provider != "manual_card" or p.status != P.AWAITING_REVIEW:
++        raise AppError("INVALID_PAYMENT_STATE", "این پرداخت در انتظار بررسی نیست.", 409)
++    if not await _link(session, sms.id, p.id, by="admin", actor_id=actor_id):
++        raise AppError("BANK_SMS_CONFLICT", "پیامک یا پرداخت هم‌زمان تغییر کرد؛ دوباره تلاش کنید.", 409)
++    await session.refresh(sms)
++    return sms
++
++
++async def set_ignored(
++    session: AsyncSession, store: Store, sms_id: uuid.UUID, *, ignored: bool, actor_id: uuid.UUID, actor_type: str
++) -> BankSmsMessage:
++    sms = await session.get(BankSmsMessage, sms_id)
++    if not sms or sms.store_id != store.id:
++        raise NotFound("پیامک")
++    if sms.status == "matched":
++        raise AppError("BANK_SMS_ALREADY_MATCHED", "این پیامک قبلاً به یک پرداخت وصل شده است.", 409)
++    sms.status = "ignored" if ignored else ("unmatched" if sms.direction == "deposit" else "ignored")
++    audit.record(
++        session,
++        "bank_sms.ignored" if ignored else "bank_sms.restored",
++        actor_id=actor_id,
++        actor_type=actor_type,
++        entity_type="bank_sms",
++        entity_id=sms.id,
++        store_id=store.id,
++    )
++    await session.commit()
++    return sms
++
++
++def build_claim(customer: dict, facts, engine: str | None) -> dict:
++    """What we know about the receipt: the OCR/vision reading, overridden by anything the customer typed explicitly."""
++    claim: dict = dict(facts.to_claim()) if facts is not None else {}
++    paid = claim.get("paid_at")
++    if paid and _aware(dt.datetime.fromisoformat(paid)) > utcnow() + dt.timedelta(minutes=10):
++        claim.pop("paid_at")  # a time in the future is a misread, never a fact
++    claim.update(customer)
++    claim["source"] = "customer" if customer.get("paid_at") else ("ocr" if claim.get("paid_at") else "none")
++    if engine:
++        claim["ocr_engine"] = engine
++        claim["ocr_ok"] = bool(facts is not None and facts.found)
++    return claim
++
++
++def parse_claim(paid_at: str | None, reference: str | None, card_last4: str | None) -> dict:
++    """The facts the customer read off the receipt. Stored with the payment; the image itself is never trusted."""
++    claim: dict = {}
++    if paid_at and paid_at.strip():
++        when = dom.parse_datetime_text(paid_at)
++        if when is None:
++            raise AppError("RECEIPT_TIME_INVALID", "زمان رسید نامعتبر است؛ نمونه: 1405/08/02 22:50", 422)
++        if when > utcnow() + dt.timedelta(minutes=10):
++            raise AppError("RECEIPT_TIME_INVALID", "زمان رسید در آینده است.", 422)
++        claim["paid_at"] = when.isoformat()
++    if reference and reference.strip():
++        ref = dom.digits_only(reference)
++        if not (6 <= len(ref) <= 30):
++            raise AppError("RECEIPT_REF_INVALID", "شماره مرجع نامعتبر است.", 422)
++        claim["reference"] = ref
++    if card_last4 and card_last4.strip():
++        last4 = dom.digits_only(card_last4)
++        if len(last4) != 4:
++            raise AppError("RECEIPT_CARD_INVALID", "۴ رقم آخر کارت مبدأ را وارد کنید.", 422)
++        claim["source_card_last4"] = last4
++    return claim
+diff --git a/apps/api/tests/contracts/test_server_admin_ui_contract.py b/apps/api/tests/contracts/test_server_admin_ui_contract.py
+index c487d7e..b17ff72 100644
+--- a/apps/api/tests/contracts/test_server_admin_ui_contract.py
++++ b/apps/api/tests/contracts/test_server_admin_ui_contract.py
+@@ -36,7 +36,7 @@ def test_servers_live_inside_their_panel_screen():
+     # menu regroup: the panel screen leads the infrastructure group; bundles and products are catalog entries next to marketing
+     infra_group = app[app.index('"زیرساخت و عملیات پنل"') : app.index('"سیستم و امنیت"')]
+     assert '"panels"' in infra_group and '"bundles"' not in infra_group
+-    catalog_group = app[app.index('"کاتالوگ و بازاریابی"') : app.index('"ارتباطات"')]
++    catalog_group = app[app.index('"کاتالوگ و بازاریابی"') : app.index('"اعلان‌ها، ارتباطات و پشتیبانی"')]
+     assert catalog_group.index('"bundles"') < catalog_group.index('"products"')
+     # r15: Melorin has never been released, so no legacy hash aliases are kept
+     assert "legacyHash" not in app and "legacyHash" not in _ui("infra.tsx") and "legacyHash" not in _ui("App.tsx")
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index 3d99fad..3162115 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -188,7 +188,7 @@ _Merged from the former 12-Change-Log-v1.1.md._
+ 
+ Source: `Melorin_Architecture_Admin_Audit.md` (the project has never been released, so menu and compose structure may change freely; money, security and state machines still need tests).
+ 
+-- **Menu regrouped by the admin's job** (`adminNav.ts`): نمای کلی / فروش و عملیات / مشتریان / فروشگاه‌ها و نمایندگان / کاتالوگ و بازاریابی / زیرساخت و عملیات پنل / ارتباطات / سیستم و امنیت. Section keys (Persian labels) and slugs are unchanged except the removed one below, so permissions and deep links keep working.
++- **Menu regrouped by the admin's job** (`adminNav.ts`): نمای کلی / فروش و عملیات / مشتریان / فروشگاه‌ها و نمایندگان / کاتالوگ و بازاریابی / زیرساخت و عملیات پنل / اعلان‌ها، ارتباطات و پشتیبانی (پیام همگانی، مرکز رویداد، تیکت‌ها؛ فقط گروه‌بندی UI و بدون ادغام ماژول‌های backend) / سیستم و امنیت. Section keys (Persian labels) and slugs are unchanged except the removed one below, so permissions and deep links keep working.
+ - **«عملیات گروهی روی پنل» moved to the infrastructure group** (it already used the `infrastructure` permission). Whether support may also run bulk operations stays a product decision: if yes, add a narrow dedicated permission, never the whole `infrastructure` area.
+ - **«کارهای دستی» has no menu entry any more**: it is the tab «اقدامات تکمیلی» of «درخواست‌های نمایندگی» (`ResellerOnboardingView`, `#/reseller-applications?tab=tasks`). The tab is shown only to roles with the `customers` area (the manual-tasks API rule); the menu badge sums pending applications and open tasks. `legacyHash` rewrites `#/manual-tasks`. The API is untouched.
+ - **«دکمه‌های تلگرام» moved to «سیستم و امنیت»**: its permission is `system` (owner only), so it now sits with the owner-only settings instead of the communications group where a manager would see a wall of 403s.
+-- 
+2.43.0
+
+
+From 63c2a1746a0381f30543cbc61bb65a6c66512db2 Mon Sep 17 00:00:00 2001
+From: melorin-refactor <refactor@melorin.local>
+Date: Sun, 15 Nov 2026 11:41:39 +0000
+Subject: [PATCH 2/3] refactor(loyalty): split service.py into focused modules
+ behind a stable facade
+
+---
+ .../melorin/modules/loyalty/adjustments.py    |  62 ++
+ apps/api/melorin/modules/loyalty/common.py    |  26 +
+ apps/api/melorin/modules/loyalty/earning.py   | 179 ++++
+ apps/api/melorin/modules/loyalty/ledger.py    | 112 +++
+ apps/api/melorin/modules/loyalty/program.py   | 143 +++
+ .../api/melorin/modules/loyalty/redemption.py | 123 +++
+ apps/api/melorin/modules/loyalty/rewards.py   |  92 ++
+ apps/api/melorin/modules/loyalty/service.py   | 817 +-----------------
+ apps/api/melorin/modules/loyalty/summary.py   | 131 +++
+ apps/api/melorin/modules/loyalty/tiers.py     |  24 +
+ 10 files changed, 940 insertions(+), 769 deletions(-)
+ create mode 100644 apps/api/melorin/modules/loyalty/adjustments.py
+ create mode 100644 apps/api/melorin/modules/loyalty/common.py
+ create mode 100644 apps/api/melorin/modules/loyalty/earning.py
+ create mode 100644 apps/api/melorin/modules/loyalty/ledger.py
+ create mode 100644 apps/api/melorin/modules/loyalty/program.py
+ create mode 100644 apps/api/melorin/modules/loyalty/redemption.py
+ create mode 100644 apps/api/melorin/modules/loyalty/rewards.py
+ create mode 100644 apps/api/melorin/modules/loyalty/summary.py
+ create mode 100644 apps/api/melorin/modules/loyalty/tiers.py
+
+diff --git a/apps/api/melorin/modules/loyalty/adjustments.py b/apps/api/melorin/modules/loyalty/adjustments.py
+new file mode 100644
+index 0000000..6e2c0cd
+--- /dev/null
++++ b/apps/api/melorin/modules/loyalty/adjustments.py
+@@ -0,0 +1,62 @@
++"""Loyalty club: adjustments (see ``service.py`` for the facade and the overview)."""
++
++import uuid
++
++from sqlalchemy import select
++from sqlalchemy.ext.asyncio import AsyncSession
++
++from melorin.core import audit
++from melorin.core.errors import AppError, NotFound
++from melorin.kernel.models.loyalty import (
++    LoyaltyTransaction,
++)
++from melorin.kernel.models.stores import Store, StoreMembership
++from melorin.modules.loyalty.ledger import _post, get_account
++
++
++async def adjust(
++    session: AsyncSession,
++    store: Store,
++    user_id: uuid.UUID,
++    delta: int,
++    *,
++    reason: str,
++    actor_id: uuid.UUID,
++    actor_type: str,
++    idempotency_key: str | None = None,
++) -> LoyaltyTransaction:
++    """Owner/Admin grants (+) or deducts (-) points of one member of THIS store. A deduction never makes the balance negative and
++    never lowers the tier (only refunds do). Caller commits."""
++    if delta == 0:
++        raise AppError("LOYALTY_BAD_ADJUSTMENT", "مقدار تعدیل نمی‌تواند صفر باشد.", 400)
++    if not reason.strip():
++        raise AppError("LOYALTY_REASON_REQUIRED", "دلیل تعدیل امتیاز را بنویسید.", 400)
++    member = await session.scalar(
++        select(StoreMembership.id).where(StoreMembership.store_id == store.id, StoreMembership.user_id == user_id)
++    )
++    if not member and store.owner_user_id != user_id:
++        raise NotFound("کاربر")
++    acc = await get_account(session, store.id, user_id, lock=True)
++    tx, created = await _post(
++        session,
++        acc,
++        kind="admin_grant" if delta > 0 else "admin_deduct",
++        amount=delta,
++        key=f"loyalty:adjust:{store.id}:{user_id}:{idempotency_key or uuid.uuid4().hex}",
++        memo=reason.strip()[:255],
++        actor_id=actor_id,
++    )
++    if created:
++        if delta > 0:
++            acc.lifetime_earned += delta
++        audit.record(
++            session,
++            "loyalty.points.adjusted",
++            actor_id=actor_id,
++            actor_type=actor_type,
++            entity_type="loyalty_account",
++            entity_id=acc.id,
++            store_id=store.id,
++            data={"user_id": str(user_id), "delta": delta, "reason": reason.strip()[:255]},
++        )
++    return tx
+diff --git a/apps/api/melorin/modules/loyalty/common.py b/apps/api/melorin/modules/loyalty/common.py
+new file mode 100644
+index 0000000..be2dbde
+--- /dev/null
++++ b/apps/api/melorin/modules/loyalty/common.py
+@@ -0,0 +1,26 @@
++"""Loyalty club: common (see ``service.py`` for the facade and the overview)."""
++
++import datetime as dt
++import uuid
++
++
++from melorin.core.errors import AppError
++from melorin.domain.loyalty import LoyaltyError
++
++
++HISTORY_MAX = 100
++
++
++_REVERSIBLE = ("order_earn", "first_order_bonus", "referral_bonus")  # earnings that belong to an order and go back with it
++
++
++def _fail(e: LoyaltyError) -> AppError:
++    return AppError(e.code, e.message, 400)
++
++
++def _json(d: dict | None) -> dict | None:
++    return None if d is None else {k: str(v) if isinstance(v, uuid.UUID) else v for k, v in d.items()}
++
++
++def _now() -> dt.datetime:
++    return dt.datetime.now(dt.UTC)
+diff --git a/apps/api/melorin/modules/loyalty/earning.py b/apps/api/melorin/modules/loyalty/earning.py
+new file mode 100644
+index 0000000..c8dd1a3
+--- /dev/null
++++ b/apps/api/melorin/modules/loyalty/earning.py
+@@ -0,0 +1,179 @@
++"""Loyalty club: earning (see ``service.py`` for the facade and the overview)."""
++
++import uuid
++
++from sqlalchemy import func, select
++from sqlalchemy.ext.asyncio import AsyncSession
++
++from melorin.core import events
++from melorin.domain import loyalty as rules
++from melorin.domain.loyalty import Program, Tier
++from melorin.domain.order_kinds import is_revenue, revenue_only
++from melorin.domain.order_state import OrderStatus
++from melorin.kernel.models.loyalty import (
++    LoyaltyAccount,
++    LoyaltyTransaction,
++)
++from melorin.kernel.models.orders import Order
++from melorin.kernel.models.referral import ReferralRelationship
++from melorin.modules.loyalty.common import _REVERSIBLE
++from melorin.modules.loyalty.ledger import _find_tx, _post, get_account
++from melorin.modules.loyalty.program import get_program, program_rules
++from melorin.modules.loyalty.tiers import ladder, load_tiers
++
++
++async def _earn(
++    session: AsyncSession, acc: LoyaltyAccount, points: int, *, kind: str, key: str, order_id: uuid.UUID | None, memo: str
++) -> LoyaltyTransaction | None:
++    """Credit earned points: an older points debt is settled first, the tier counts everything that was earned."""
++    if points <= 0:
++        return None
++    credited, recovered = rules.offset_with_debt(points, acc.debt)
++    tx, created = await _post(session, acc, kind=kind, amount=credited, key=key, order_id=order_id, memo=memo, debt_recovered=recovered)
++    if created:
++        acc.debt -= recovered
++        acc.lifetime_earned += points
++    return tx
++
++
++async def _is_first_order(session: AsyncSession, order: Order) -> bool:
++    prior = await session.scalar(
++        select(func.count())
++        .select_from(Order)
++        .where(
++            Order.user_id == order.user_id,
++            Order.store_id == order.store_id,
++            Order.status == OrderStatus.COMPLETED,
++            revenue_only(Order.kind),
++            Order.total > 0,
++            Order.completed_at < order.completed_at,
++        )
++    )
++    return not prior
++
++
++async def on_order_completed(session: AsyncSession, order_id: uuid.UUID) -> None:
++    """Points for a completed order of THIS store's own club: the order points, the first-order bonus and the referrer's bonus."""
++    order = await session.get(Order, order_id)
++    if not order or not is_revenue(order.kind) or order.total <= 0:
++        return
++    row = await get_program(session, order.store_id)
++    if not row or not row.is_enabled:
++        return
++    program = program_rules(row)
++    tiers = ladder(await load_tiers(session, order.store_id))
++    acc = await get_account(session, order.store_id, order.user_id, lock=True)
++    tier_before = rules.tier_for(tiers, acc.lifetime_earned)
++    earned = 0
++    tx = await _earn(
++        session,
++        acc,
++        rules.order_points(order.total, program, rules.multiplier_for(tiers, acc.lifetime_earned)),
++        kind="order_earn",
++        key=f"loyalty:earn:{order.id}",
++        order_id=order.id,
++        memo=f"امتیاز سفارش {order.number}",
++    )
++    earned += (tx.amount + tx.debt_recovered) if tx else 0
++    first = program.first_order_bonus > 0 or program.referral_bonus > 0
++    if first and order.completed_at and await _is_first_order(session, order):
++        bonus = await _earn(
++            session,
++            acc,
++            program.first_order_bonus,
++            kind="first_order_bonus",
++            key=f"loyalty:first:{order.store_id}:{order.user_id}",
++            order_id=order.id,
++            memo="پاداش اولین خرید",
++        )
++        earned += (bonus.amount + bonus.debt_recovered) if bonus else 0
++        await _referrer_bonus(session, order, program)
++    tier_after = rules.tier_for(tiers, acc.lifetime_earned)
++    if earned > 0:
++        await _notify_earned(session, order, earned, tier_before, tier_after)
++
++
++async def _referrer_bonus(session: AsyncSession, order: Order, program: Program) -> None:
++    """The person who invited this customer into THIS store gets points once, when the friend completes the first order."""
++    if program.referral_bonus <= 0:
++        return
++    rel = await session.scalar(
++        select(ReferralRelationship).where(
++            ReferralRelationship.store_id == order.store_id, ReferralRelationship.referred_user_id == order.user_id
++        )
++    )
++    if not rel:
++        return
++    racc = await get_account(session, order.store_id, rel.referrer_user_id, lock=True)
++    await _earn(
++        session,
++        racc,
++        program.referral_bonus,
++        kind="referral_bonus",
++        key=f"loyalty:referral:{order.store_id}:{order.user_id}",
++        order_id=order.id,
++        memo="پاداش معرفی دوست",
++    )
++    await events.emit_user_notice(
++        session,
++        rel.referrer_user_id,
++        order.store_id,
++        "loyalty",
++        "امتیاز معرفی",
++        f"{program.referral_bonus:,} امتیاز بابت اولین خرید دوست شما به باشگاه مشتریان اضافه شد.",
++        dedup_key=f"notify:loyalty:referral:{order.store_id}:{order.user_id}",
++    )
++
++
++async def _notify_earned(session: AsyncSession, order: Order, earned: int, before: Tier | None, after: Tier | None) -> None:
++    body = f"{earned:,} امتیاز بابت سفارش {order.number} به باشگاه مشتریان شما اضافه شد."
++    if after and (before is None or after.name != before.name):
++        body += f"\nتبریک! به سطح «{after.name}» رسیدید."
++    await events.emit_user_notice(
++        session, order.user_id, order.store_id, "loyalty", "باشگاه مشتریان", body, dedup_key=f"notify:loyalty:{order.id}"
++    )
++
++
++async def on_order_refunded(session: AsyncSession, order_id: uuid.UUID) -> None:
++    """Take back every point this order created (its own points, the first-order bonus, the referrer's bonus).
++
++    What the balance still covers is removed now; what the customer already spent becomes a points debt recovered from his next
++    earnings. The tier follows, because the lifetime total shrinks by the whole reversed amount.
++    """
++    originals = (
++        await session.scalars(
++            select(LoyaltyTransaction).where(LoyaltyTransaction.order_id == order_id, LoyaltyTransaction.kind.in_(_REVERSIBLE))
++        )
++    ).all()
++    for tx in originals:
++        if await _find_tx(session, f"loyalty:reversal:{tx.id}"):
++            continue
++        acc = await session.scalar(
++            select(LoyaltyAccount).where(LoyaltyAccount.id == tx.account_id).with_for_update().execution_options(populate_existing=True)
++        )
++        if not acc:
++            continue
++        earned = tx.amount + tx.debt_recovered
++        take, owed = rules.split_reversal(earned, acc.balance)
++        _, created = await _post(
++            session,
++            acc,
++            kind="reversal",
++            amount=-take,
++            key=f"loyalty:reversal:{tx.id}",
++            order_id=order_id,
++            reverses_id=tx.id,
++            memo="برگشت امتیاز به‌دلیل استرداد سفارش",
++        )
++        if created:
++            acc.debt += owed
++            acc.lifetime_earned = max(0, acc.lifetime_earned - earned)
++            await events.emit_user_notice(
++                session,
++                acc.user_id,
++                acc.store_id,
++                "loyalty",
++                "باشگاه مشتریان",
++                f"{earned:,} امتیاز به‌دلیل استرداد سفارش از باشگاه مشتریان کسر شد.",
++                dedup_key=f"notify:loyalty:reversal:{tx.id}",
++            )
+diff --git a/apps/api/melorin/modules/loyalty/ledger.py b/apps/api/melorin/modules/loyalty/ledger.py
+new file mode 100644
+index 0000000..456908d
+--- /dev/null
++++ b/apps/api/melorin/modules/loyalty/ledger.py
+@@ -0,0 +1,112 @@
++"""Loyalty club: ledger (see ``service.py`` for the facade and the overview)."""
++
++import datetime as dt
++import uuid
++
++from sqlalchemy import select
++from sqlalchemy.exc import IntegrityError
++from sqlalchemy.ext.asyncio import AsyncSession
++
++from melorin.core.errors import AppError
++from melorin.kernel.models.loyalty import (
++    LoyaltyAccount,
++    LoyaltyTransaction,
++)
++from melorin.modules.loyalty.common import HISTORY_MAX
++
++
++# ---------------------------------------------------------------- the points purse
++async def get_account(session: AsyncSession, store_id: uuid.UUID, user_id: uuid.UUID, *, lock: bool = False) -> LoyaltyAccount:
++    """The customer's purse in this store (created on first use). ``lock`` serialises writers on the row."""
++    q = select(LoyaltyAccount).where(LoyaltyAccount.store_id == store_id, LoyaltyAccount.user_id == user_id)
++    if lock:
++        q = q.with_for_update().execution_options(populate_existing=True)
++    acc = await session.scalar(q)
++    if acc:
++        return acc
++    try:
++        async with session.begin_nested():
++            session.add(LoyaltyAccount(store_id=store_id, user_id=user_id, balance=0, lifetime_earned=0, debt=0))
++    except IntegrityError:  # concurrent creation
++        pass
++    return await session.scalar(q)  # type: ignore[return-value]
++
++
++async def _find_tx(session: AsyncSession, key: str) -> LoyaltyTransaction | None:
++    return await session.scalar(select(LoyaltyTransaction).where(LoyaltyTransaction.idempotency_key == key))
++
++
++async def _post(
++    session: AsyncSession,
++    acc: LoyaltyAccount,
++    *,
++    kind: str,
++    amount: int,
++    key: str,
++    order_id: uuid.UUID | None = None,
++    reward_id: uuid.UUID | None = None,
++    reverses_id: uuid.UUID | None = None,
++    memo: str | None = None,
++    actor_id: uuid.UUID | None = None,
++    debt_recovered: int = 0,
++) -> tuple[LoyaltyTransaction, bool]:
++    """Append one ledger row and move the balance. Same key => same row, nothing is posted twice. The caller locked ``acc``."""
++    existing = await _find_tx(session, key)
++    if existing:
++        return existing, False
++    after = acc.balance + amount
++    if after < 0:
++        raise AppError("LOYALTY_NOT_ENOUGH_POINTS", "امتیاز شما کافی نیست.", 400)
++    tx = LoyaltyTransaction(
++        store_id=acc.store_id,
++        user_id=acc.user_id,
++        account_id=acc.id,
++        kind=kind,
++        amount=amount,
++        balance_after=after,
++        order_id=order_id,
++        reward_id=reward_id,
++        reverses_id=reverses_id,
++        idempotency_key=key,
++        memo=memo,
++        actor_id=actor_id,
++        debt_recovered=debt_recovered,
++    )
++    try:
++        async with session.begin_nested():
++            session.add(tx)
++            await session.flush()
++    except IntegrityError:
++        existing = await _find_tx(session, key)
++        if existing:
++            return existing, False
++        raise
++    acc.balance = after
++    return tx, True
++
++
++# ---------------------------------------------------------------- what customers and owners read
++def tx_out(t: LoyaltyTransaction) -> dict:
++    return {
++        "id": t.id,
++        "kind": t.kind,
++        "amount": t.amount,
++        "balance_after": t.balance_after,
++        "order_id": t.order_id,
++        "memo": t.memo,
++        "created_at": t.created_at,
++    }
++
++
++async def history(
++    session: AsyncSession, store_id: uuid.UUID, user_id: uuid.UUID, *, limit: int = 20, before: dt.datetime | None = None
++) -> tuple[list[LoyaltyTransaction], bool]:
++    """One page of the customer's points entries in this store, newest first. Returns (rows, has_more)."""
++    limit = max(1, min(limit, HISTORY_MAX))
++    q = select(LoyaltyTransaction).where(LoyaltyTransaction.store_id == store_id, LoyaltyTransaction.user_id == user_id)
++    if before:
++        q = q.where(LoyaltyTransaction.created_at < before)
++    rows = list(
++        (await session.scalars(q.order_by(LoyaltyTransaction.created_at.desc(), LoyaltyTransaction.id.desc()).limit(limit + 1))).all()
++    )
++    return rows[:limit], len(rows) > limit
+diff --git a/apps/api/melorin/modules/loyalty/program.py b/apps/api/melorin/modules/loyalty/program.py
+new file mode 100644
+index 0000000..d166dc2
+--- /dev/null
++++ b/apps/api/melorin/modules/loyalty/program.py
+@@ -0,0 +1,143 @@
++"""Loyalty club: program (see ``service.py`` for the facade and the overview)."""
++
++import uuid
++
++from sqlalchemy import select
++from sqlalchemy.exc import IntegrityError
++from sqlalchemy.ext.asyncio import AsyncSession
++
++from melorin.core import audit
++from melorin.domain import loyalty as rules
++from melorin.domain.loyalty import LoyaltyError, Program, Tier
++from melorin.kernel.models.loyalty import (
++    LoyaltyProgram,
++    LoyaltyTier,
++)
++from melorin.kernel.models.stores import Store
++from melorin.modules.loyalty.common import _fail
++from melorin.modules.loyalty.tiers import load_tiers, tier_out
++
++
++# ---------------------------------------------------------------- program and ladder
++def program_rules(row: LoyaltyProgram) -> Program:
++    return Program(
++        earn_unit=row.earn_unit,
++        points_per_unit=row.points_per_unit,
++        max_points_per_order=row.max_points_per_order,
++        first_order_bonus=row.first_order_bonus,
++        referral_bonus=row.referral_bonus,
++    )
++
++
++async def get_program(session: AsyncSession, store_id: uuid.UUID) -> LoyaltyProgram | None:
++    return await session.scalar(select(LoyaltyProgram).where(LoyaltyProgram.store_id == store_id))
++
++
++async def ensure_program(session: AsyncSession, store: Store) -> LoyaltyProgram:
++    """The store's program row (created disabled with the default ladder on first use)."""
++    row = await get_program(session, store.id)
++    if row:
++        return row
++    try:  # two first requests racing each other: the unique key lets one win
++        async with session.begin_nested():
++            row = LoyaltyProgram(store_id=store.id, is_enabled=False)
++            session.add(row)
++            await session.flush()
++    except IntegrityError:
++        return await get_program(session, store.id)  # type: ignore[return-value]
++    if not await load_tiers(session, store.id):
++        session.add_all(
++            LoyaltyTier(store_id=store.id, name=t.name, min_points=t.min_points, multiplier_bp=t.multiplier_bp) for t in rules.DEFAULT_TIERS
++        )
++        await session.flush()
++    return row
++
++
++def program_out(row: LoyaltyProgram | None) -> dict:
++    if row is None:
++        return {
++            "enabled": False,
++            "earn_unit": None,
++            "points_per_unit": None,
++            "max_points_per_order": None,
++            "first_order_bonus": 0,
++            "referral_bonus": 0,
++        }
++    return {
++        "enabled": row.is_enabled,
++        "earn_unit": row.earn_unit,
++        "points_per_unit": row.points_per_unit,
++        "max_points_per_order": row.max_points_per_order,
++        "first_order_bonus": row.first_order_bonus,
++        "referral_bonus": row.referral_bonus,
++    }
++
++
++async def upsert_program(
++    session: AsyncSession,
++    store: Store,
++    *,
++    enabled: bool,
++    earn_unit: int,
++    points_per_unit: int,
++    max_points_per_order: int | None,
++    first_order_bonus: int,
++    referral_bonus: int,
++    actor_id: uuid.UUID,
++    actor_type: str,
++) -> LoyaltyProgram:
++    """Change the earning rules of ONE store. The caller has already proven it may act on ``store``; the caller commits."""
++    program = Program(earn_unit, points_per_unit, max_points_per_order, first_order_bonus, referral_bonus)
++    try:
++        rules.validate_program(program)
++    except LoyaltyError as e:
++        raise _fail(e) from e
++    row = await ensure_program(session, store)
++    before = program_out(row)
++    row.is_enabled, row.earn_unit, row.points_per_unit = enabled, earn_unit, points_per_unit
++    row.max_points_per_order, row.first_order_bonus, row.referral_bonus = max_points_per_order, first_order_bonus, referral_bonus
++    await session.flush()
++    audit.record(
++        session,
++        "loyalty.program.saved",
++        actor_id=actor_id,
++        actor_type=actor_type,
++        entity_type="loyalty_program",
++        entity_id=row.id,
++        store_id=store.id,
++        data={"before": before, "after": program_out(row)},
++    )
++    return row
++
++
++async def replace_tiers(
++    session: AsyncSession, store: Store, tiers: list[Tier], *, actor_id: uuid.UUID, actor_type: str
++) -> list[LoyaltyTier]:
++    """Replace the whole ladder of ONE store at once, so it is always valid (starts at 0, thresholds rise). Caller commits."""
++    try:
++        rules.validate_tiers(tiers)
++    except LoyaltyError as e:
++        raise _fail(e) from e
++    await ensure_program(session, store)
++    old = await load_tiers(session, store.id)
++    before = [tier_out(t) | {"id": str(t.id)} for t in old]
++    for t in old:
++        await session.delete(t)
++    await session.flush()
++    rows = [
++        LoyaltyTier(store_id=store.id, name=t.name.strip(), min_points=t.min_points, multiplier_bp=t.multiplier_bp)
++        for t in rules.sort_tiers(tiers)
++    ]
++    session.add_all(rows)
++    await session.flush()
++    audit.record(
++        session,
++        "loyalty.tiers.saved",
++        actor_id=actor_id,
++        actor_type=actor_type,
++        entity_type="loyalty_program",
++        entity_id=store.id,
++        store_id=store.id,
++        data={"before": before, "after": [{"name": r.name, "min_points": r.min_points, "multiplier_bp": r.multiplier_bp} for r in rows]},
++    )
++    return rows
+diff --git a/apps/api/melorin/modules/loyalty/redemption.py b/apps/api/melorin/modules/loyalty/redemption.py
+new file mode 100644
+index 0000000..305ff5c
+--- /dev/null
++++ b/apps/api/melorin/modules/loyalty/redemption.py
+@@ -0,0 +1,123 @@
++"""Loyalty club: redemption (see ``service.py`` for the facade and the overview)."""
++
++import uuid
++
++from sqlalchemy import func, select
++from sqlalchemy.exc import IntegrityError
++from sqlalchemy.ext.asyncio import AsyncSession
++
++from melorin.core import events
++from melorin.core.errors import AppError, NotFound
++from melorin.domain import loyalty as rules
++from melorin.domain.loyalty import LoyaltyError, Reward
++from melorin.kernel.models.identity import User
++from melorin.kernel.models.loyalty import (
++    LoyaltyRedemption,
++    LoyaltyReward,
++)
++from melorin.kernel.models.stores import Store
++from melorin.modules.wallet import service as wallet
++from melorin.modules.loyalty.common import _fail, _now
++from melorin.modules.loyalty.ledger import _post, get_account
++from melorin.modules.loyalty.program import get_program
++
++
++# ---------------------------------------------------------------- redeeming
++async def redeem(
++    session: AsyncSession, store: Store, user: User, reward_id: uuid.UUID, *, idempotency_key: str | None = None
++) -> tuple[LoyaltyRedemption, bool]:
++    """Spend the customer's points on one reward of THIS store. Returns (redemption, created); a retry with the same key
++    returns the first redemption and spends nothing more. The caller commits."""
++    row = await get_program(session, store.id)
++    if not row or not row.is_enabled:
++        raise AppError("LOYALTY_DISABLED", "باشگاه مشتریان این فروشگاه فعال نیست.", 400)
++    key = (idempotency_key or uuid.uuid4().hex)[:100]
++    replay = await session.scalar(
++        select(LoyaltyRedemption).where(
++            LoyaltyRedemption.store_id == store.id, LoyaltyRedemption.user_id == user.id, LoyaltyRedemption.idempotency_key == key
++        )
++    )
++    if replay:
++        if replay.reward_id != reward_id:
++            raise AppError("IDEMPOTENCY_KEY_REUSED", "این کلید برای جایزهٔ دیگری استفاده شده است.", 409)
++        return replay, False
++    acc = await get_account(session, store.id, user.id, lock=True)
++    reward = await session.scalar(
++        select(LoyaltyReward)
++        .where(LoyaltyReward.id == reward_id, LoyaltyReward.store_id == store.id)
++        .with_for_update()
++        .execution_options(populate_existing=True)
++    )
++    if not reward:
++        raise NotFound("جایزه")
++    used = await session.scalar(
++        select(func.count())
++        .select_from(LoyaltyRedemption)
++        .where(LoyaltyRedemption.user_id == user.id, LoyaltyRedemption.reward_id == reward.id)
++    )
++    try:
++        rules.check_redeem(
++            Reward(
++                reward.kind, reward.value, reward.cost_points, reward.stock, reward.redeemed_count, reward.per_user_limit, reward.is_active
++            ),
++            acc.balance,
++            int(used or 0),
++        )
++    except LoyaltyError as e:
++        raise _fail(e) from e
++    redemption = LoyaltyRedemption(
++        store_id=store.id,
++        user_id=user.id,
++        reward_id=reward.id,
++        points_spent=reward.cost_points,
++        value=reward.value,
++        currency=store.currency,
++        idempotency_key=key,
++        created_by=user.id,
++    )
++    try:
++        async with session.begin_nested():
++            session.add(redemption)
++            await session.flush()
++    except IntegrityError:  # the same retry racing itself: the other request won, return its result
++        again = await session.scalar(
++            select(LoyaltyRedemption).where(
++                LoyaltyRedemption.store_id == store.id, LoyaltyRedemption.user_id == user.id, LoyaltyRedemption.idempotency_key == key
++            )
++        )
++        if again:
++            return again, False
++        raise
++    ptx, _ = await _post(
++        session,
++        acc,
++        kind="redeem",
++        amount=-reward.cost_points,
++        key=f"loyalty:redeem:{redemption.id}",
++        reward_id=reward.id,
++        memo=f"دریافت جایزه: {reward.name}",
++        actor_id=user.id,
++    )
++    w = await wallet.get_wallet(session, user.id, store.id, currency=store.currency)
++    ltx, _ = await wallet.post(
++        session,
++        kind="loyalty_reward",
++        key=f"loyalty:redeem:{redemption.id}",
++        currency=store.currency,
++        store_id=store.id,
++        postings=[wallet.Posting(reward.value, wallet=w), wallet.Posting(-reward.value, account=wallet.acc_loyalty_expense(store.id))],
++        memo=f"جایزه باشگاه مشتریان: {reward.name}",
++        actor_id=user.id,
++    )
++    reward.redeemed_count += 1
++    redemption.points_tx_id, redemption.ledger_tx_id, redemption.completed_at = ptx.id, ltx.id, _now()
++    await events.emit_user_notice(
++        session,
++        user.id,
++        store.id,
++        "loyalty",
++        "جایزه باشگاه مشتریان",
++        f"مبلغ {reward.value:,} {store.currency} بابت «{reward.name}» به کیف پول شما اضافه شد.",
++        dedup_key=f"notify:loyalty:redeem:{redemption.id}",
++    )
++    return redemption, True
+diff --git a/apps/api/melorin/modules/loyalty/rewards.py b/apps/api/melorin/modules/loyalty/rewards.py
+new file mode 100644
+index 0000000..26e9a94
+--- /dev/null
++++ b/apps/api/melorin/modules/loyalty/rewards.py
+@@ -0,0 +1,92 @@
++"""Loyalty club: rewards (see ``service.py`` for the facade and the overview)."""
++
++import uuid
++
++from sqlalchemy import select
++from sqlalchemy.ext.asyncio import AsyncSession
++
++from melorin.core import audit
++from melorin.core.errors import AppError, NotFound
++from melorin.domain import loyalty as rules
++from melorin.domain.loyalty import LoyaltyError, Reward
++from melorin.kernel.models.loyalty import (
++    LoyaltyReward,
++)
++from melorin.kernel.models.stores import Store
++from melorin.modules.loyalty.common import _fail, _json
++
++
++def reward_out(r: LoyaltyReward) -> dict:
++    return {
++        "id": r.id,
++        "name": r.name,
++        "description": r.description,
++        "kind": r.kind,
++        "value": r.value,
++        "cost_points": r.cost_points,
++        "stock": r.stock,
++        "remaining": None if r.stock is None else max(0, r.stock - r.redeemed_count),
++        "per_user_limit": r.per_user_limit,
++        "redeemed_count": r.redeemed_count,
++        "sort_order": r.sort_order,
++        "is_active": r.is_active,
++    }
++
++
++async def list_rewards(session: AsyncSession, store_id: uuid.UUID, *, only_active: bool = False) -> list[LoyaltyReward]:
++    q = select(LoyaltyReward).where(LoyaltyReward.store_id == store_id)
++    if only_active:
++        q = q.where(LoyaltyReward.is_active.is_(True))
++    return list((await session.scalars(q.order_by(LoyaltyReward.sort_order, LoyaltyReward.cost_points, LoyaltyReward.created_at))).all())
++
++
++async def save_reward(
++    session: AsyncSession,
++    store: Store,
++    reward_id: uuid.UUID | None,
++    *,
++    name: str,
++    description: str | None,
++    kind: str,
++    value: int,
++    cost_points: int,
++    stock: int | None,
++    per_user_limit: int | None,
++    sort_order: int,
++    is_active: bool,
++    actor_id: uuid.UUID,
++    actor_type: str,
++) -> LoyaltyReward:
++    """Create (``reward_id`` None) or change a reward of ONE store; a reward id of another store is simply not found."""
++    if not name.strip():
++        raise AppError("LOYALTY_BAD_REWARD_NAME", "نام جایزه نامعتبر است.", 400)
++    row = None
++    if reward_id:
++        row = await session.scalar(
++            select(LoyaltyReward).where(LoyaltyReward.id == reward_id, LoyaltyReward.store_id == store.id).with_for_update()
++        )
++        if not row:
++            raise NotFound("جایزه")
++    try:
++        rules.validate_reward(Reward(kind, value, cost_points, stock, row.redeemed_count if row else 0, per_user_limit, is_active))
++    except LoyaltyError as e:
++        raise _fail(e) from e
++    before = reward_out(row) if row else None
++    if not row:
++        row = LoyaltyReward(store_id=store.id, redeemed_count=0)
++        session.add(row)
++    row.name, row.description, row.kind, row.value = name.strip(), description, kind, value
++    row.cost_points, row.stock, row.per_user_limit = cost_points, stock, per_user_limit
++    row.sort_order, row.is_active = sort_order, is_active
++    await session.flush()
++    audit.record(
++        session,
++        "loyalty.reward.saved",
++        actor_id=actor_id,
++        actor_type=actor_type,
++        entity_type="loyalty_reward",
++        entity_id=row.id,
++        store_id=store.id,
++        data={"before": _json(before), "after": _json(reward_out(row))},
++    )
++    return row
+diff --git a/apps/api/melorin/modules/loyalty/service.py b/apps/api/melorin/modules/loyalty/service.py
+index 6946e08..d48fe6a 100644
+--- a/apps/api/melorin/modules/loyalty/service.py
++++ b/apps/api/melorin/modules/loyalty/service.py
+@@ -4,774 +4,53 @@ Everything here belongs to ONE store: the program, the ladder, the rewards, ever
+ rewards are paid from. Nothing crosses stores, exactly like the referral programme (docs/17). Points are earned when an order
+ completes and taken back when it is refunded; a refund the customer already spent becomes a points debt recovered from his next
+ earnings, so a balance never goes negative. Every posting carries an idempotency key, so the outbox can retry safely.
+-"""
+-
+-import datetime as dt
+-import uuid
+-
+-from sqlalchemy import func, select
+-from sqlalchemy.exc import IntegrityError
+-from sqlalchemy.ext.asyncio import AsyncSession
+-
+-from melorin.core import audit, events
+-from melorin.core.errors import AppError, NotFound
+-from melorin.domain import loyalty as rules
+-from melorin.domain.loyalty import EARN_KINDS, LoyaltyError, Program, Reward, Tier
+-from melorin.domain.order_kinds import is_revenue, revenue_only
+-from melorin.domain.order_state import OrderStatus
+-from melorin.kernel.models.identity import User
+-from melorin.kernel.models.loyalty import (
+-    LoyaltyAccount,
+-    LoyaltyProgram,
+-    LoyaltyRedemption,
+-    LoyaltyReward,
+-    LoyaltyTier,
+-    LoyaltyTransaction,
+-)
+-from melorin.kernel.models.orders import Order
+-from melorin.kernel.models.referral import ReferralRelationship
+-from melorin.kernel.models.stores import Store, StoreMembership
+-from melorin.modules.wallet import service as wallet
+-
+-HISTORY_MAX = 100
+-_REVERSIBLE = ("order_earn", "first_order_bonus", "referral_bonus")  # earnings that belong to an order and go back with it
+-
+-
+-def _fail(e: LoyaltyError) -> AppError:
+-    return AppError(e.code, e.message, 400)
+-
+-
+-# ---------------------------------------------------------------- program and ladder
+-def program_rules(row: LoyaltyProgram) -> Program:
+-    return Program(
+-        earn_unit=row.earn_unit,
+-        points_per_unit=row.points_per_unit,
+-        max_points_per_order=row.max_points_per_order,
+-        first_order_bonus=row.first_order_bonus,
+-        referral_bonus=row.referral_bonus,
+-    )
+-
+-
+-async def get_program(session: AsyncSession, store_id: uuid.UUID) -> LoyaltyProgram | None:
+-    return await session.scalar(select(LoyaltyProgram).where(LoyaltyProgram.store_id == store_id))
+-
+-
+-async def load_tiers(session: AsyncSession, store_id: uuid.UUID) -> list[LoyaltyTier]:
+-    q = select(LoyaltyTier).where(LoyaltyTier.store_id == store_id).order_by(LoyaltyTier.min_points)
+-    return list((await session.scalars(q)).all())
+-
+-
+-def ladder(rows: list[LoyaltyTier]) -> list[Tier]:
+-    return [Tier(r.name, r.min_points, r.multiplier_bp) for r in rows]
+-
+-
+-async def ensure_program(session: AsyncSession, store: Store) -> LoyaltyProgram:
+-    """The store's program row (created disabled with the default ladder on first use)."""
+-    row = await get_program(session, store.id)
+-    if row:
+-        return row
+-    try:  # two first requests racing each other: the unique key lets one win
+-        async with session.begin_nested():
+-            row = LoyaltyProgram(store_id=store.id, is_enabled=False)
+-            session.add(row)
+-            await session.flush()
+-    except IntegrityError:
+-        return await get_program(session, store.id)  # type: ignore[return-value]
+-    if not await load_tiers(session, store.id):
+-        session.add_all(
+-            LoyaltyTier(store_id=store.id, name=t.name, min_points=t.min_points, multiplier_bp=t.multiplier_bp) for t in rules.DEFAULT_TIERS
+-        )
+-        await session.flush()
+-    return row
+-
+-
+-def program_out(row: LoyaltyProgram | None) -> dict:
+-    if row is None:
+-        return {
+-            "enabled": False,
+-            "earn_unit": None,
+-            "points_per_unit": None,
+-            "max_points_per_order": None,
+-            "first_order_bonus": 0,
+-            "referral_bonus": 0,
+-        }
+-    return {
+-        "enabled": row.is_enabled,
+-        "earn_unit": row.earn_unit,
+-        "points_per_unit": row.points_per_unit,
+-        "max_points_per_order": row.max_points_per_order,
+-        "first_order_bonus": row.first_order_bonus,
+-        "referral_bonus": row.referral_bonus,
+-    }
+-
+-
+-def tier_out(t: LoyaltyTier) -> dict:
+-    return {"id": t.id, "name": t.name, "min_points": t.min_points, "multiplier_bp": t.multiplier_bp}
+-
+-
+-def reward_out(r: LoyaltyReward) -> dict:
+-    return {
+-        "id": r.id,
+-        "name": r.name,
+-        "description": r.description,
+-        "kind": r.kind,
+-        "value": r.value,
+-        "cost_points": r.cost_points,
+-        "stock": r.stock,
+-        "remaining": None if r.stock is None else max(0, r.stock - r.redeemed_count),
+-        "per_user_limit": r.per_user_limit,
+-        "redeemed_count": r.redeemed_count,
+-        "sort_order": r.sort_order,
+-        "is_active": r.is_active,
+-    }
+-
+-
+-async def upsert_program(
+-    session: AsyncSession,
+-    store: Store,
+-    *,
+-    enabled: bool,
+-    earn_unit: int,
+-    points_per_unit: int,
+-    max_points_per_order: int | None,
+-    first_order_bonus: int,
+-    referral_bonus: int,
+-    actor_id: uuid.UUID,
+-    actor_type: str,
+-) -> LoyaltyProgram:
+-    """Change the earning rules of ONE store. The caller has already proven it may act on ``store``; the caller commits."""
+-    program = Program(earn_unit, points_per_unit, max_points_per_order, first_order_bonus, referral_bonus)
+-    try:
+-        rules.validate_program(program)
+-    except LoyaltyError as e:
+-        raise _fail(e) from e
+-    row = await ensure_program(session, store)
+-    before = program_out(row)
+-    row.is_enabled, row.earn_unit, row.points_per_unit = enabled, earn_unit, points_per_unit
+-    row.max_points_per_order, row.first_order_bonus, row.referral_bonus = max_points_per_order, first_order_bonus, referral_bonus
+-    await session.flush()
+-    audit.record(
+-        session,
+-        "loyalty.program.saved",
+-        actor_id=actor_id,
+-        actor_type=actor_type,
+-        entity_type="loyalty_program",
+-        entity_id=row.id,
+-        store_id=store.id,
+-        data={"before": before, "after": program_out(row)},
+-    )
+-    return row
+-
+-
+-async def replace_tiers(
+-    session: AsyncSession, store: Store, tiers: list[Tier], *, actor_id: uuid.UUID, actor_type: str
+-) -> list[LoyaltyTier]:
+-    """Replace the whole ladder of ONE store at once, so it is always valid (starts at 0, thresholds rise). Caller commits."""
+-    try:
+-        rules.validate_tiers(tiers)
+-    except LoyaltyError as e:
+-        raise _fail(e) from e
+-    await ensure_program(session, store)
+-    old = await load_tiers(session, store.id)
+-    before = [tier_out(t) | {"id": str(t.id)} for t in old]
+-    for t in old:
+-        await session.delete(t)
+-    await session.flush()
+-    rows = [
+-        LoyaltyTier(store_id=store.id, name=t.name.strip(), min_points=t.min_points, multiplier_bp=t.multiplier_bp)
+-        for t in rules.sort_tiers(tiers)
+-    ]
+-    session.add_all(rows)
+-    await session.flush()
+-    audit.record(
+-        session,
+-        "loyalty.tiers.saved",
+-        actor_id=actor_id,
+-        actor_type=actor_type,
+-        entity_type="loyalty_program",
+-        entity_id=store.id,
+-        store_id=store.id,
+-        data={"before": before, "after": [{"name": r.name, "min_points": r.min_points, "multiplier_bp": r.multiplier_bp} for r in rows]},
+-    )
+-    return rows
+-
+-
+-async def list_rewards(session: AsyncSession, store_id: uuid.UUID, *, only_active: bool = False) -> list[LoyaltyReward]:
+-    q = select(LoyaltyReward).where(LoyaltyReward.store_id == store_id)
+-    if only_active:
+-        q = q.where(LoyaltyReward.is_active.is_(True))
+-    return list((await session.scalars(q.order_by(LoyaltyReward.sort_order, LoyaltyReward.cost_points, LoyaltyReward.created_at))).all())
+-
+-
+-async def save_reward(
+-    session: AsyncSession,
+-    store: Store,
+-    reward_id: uuid.UUID | None,
+-    *,
+-    name: str,
+-    description: str | None,
+-    kind: str,
+-    value: int,
+-    cost_points: int,
+-    stock: int | None,
+-    per_user_limit: int | None,
+-    sort_order: int,
+-    is_active: bool,
+-    actor_id: uuid.UUID,
+-    actor_type: str,
+-) -> LoyaltyReward:
+-    """Create (``reward_id`` None) or change a reward of ONE store; a reward id of another store is simply not found."""
+-    if not name.strip():
+-        raise AppError("LOYALTY_BAD_REWARD_NAME", "نام جایزه نامعتبر است.", 400)
+-    row = None
+-    if reward_id:
+-        row = await session.scalar(
+-            select(LoyaltyReward).where(LoyaltyReward.id == reward_id, LoyaltyReward.store_id == store.id).with_for_update()
+-        )
+-        if not row:
+-            raise NotFound("جایزه")
+-    try:
+-        rules.validate_reward(Reward(kind, value, cost_points, stock, row.redeemed_count if row else 0, per_user_limit, is_active))
+-    except LoyaltyError as e:
+-        raise _fail(e) from e
+-    before = reward_out(row) if row else None
+-    if not row:
+-        row = LoyaltyReward(store_id=store.id, redeemed_count=0)
+-        session.add(row)
+-    row.name, row.description, row.kind, row.value = name.strip(), description, kind, value
+-    row.cost_points, row.stock, row.per_user_limit = cost_points, stock, per_user_limit
+-    row.sort_order, row.is_active = sort_order, is_active
+-    await session.flush()
+-    audit.record(
+-        session,
+-        "loyalty.reward.saved",
+-        actor_id=actor_id,
+-        actor_type=actor_type,
+-        entity_type="loyalty_reward",
+-        entity_id=row.id,
+-        store_id=store.id,
+-        data={"before": _json(before), "after": _json(reward_out(row))},
+-    )
+-    return row
+-
+-
+-def _json(d: dict | None) -> dict | None:
+-    return None if d is None else {k: str(v) if isinstance(v, uuid.UUID) else v for k, v in d.items()}
+-
+-
+-# ---------------------------------------------------------------- the points purse
+-async def get_account(session: AsyncSession, store_id: uuid.UUID, user_id: uuid.UUID, *, lock: bool = False) -> LoyaltyAccount:
+-    """The customer's purse in this store (created on first use). ``lock`` serialises writers on the row."""
+-    q = select(LoyaltyAccount).where(LoyaltyAccount.store_id == store_id, LoyaltyAccount.user_id == user_id)
+-    if lock:
+-        q = q.with_for_update().execution_options(populate_existing=True)
+-    acc = await session.scalar(q)
+-    if acc:
+-        return acc
+-    try:
+-        async with session.begin_nested():
+-            session.add(LoyaltyAccount(store_id=store_id, user_id=user_id, balance=0, lifetime_earned=0, debt=0))
+-    except IntegrityError:  # concurrent creation
+-        pass
+-    return await session.scalar(q)  # type: ignore[return-value]
+-
+-
+-async def _find_tx(session: AsyncSession, key: str) -> LoyaltyTransaction | None:
+-    return await session.scalar(select(LoyaltyTransaction).where(LoyaltyTransaction.idempotency_key == key))
+-
+-
+-async def _post(
+-    session: AsyncSession,
+-    acc: LoyaltyAccount,
+-    *,
+-    kind: str,
+-    amount: int,
+-    key: str,
+-    order_id: uuid.UUID | None = None,
+-    reward_id: uuid.UUID | None = None,
+-    reverses_id: uuid.UUID | None = None,
+-    memo: str | None = None,
+-    actor_id: uuid.UUID | None = None,
+-    debt_recovered: int = 0,
+-) -> tuple[LoyaltyTransaction, bool]:
+-    """Append one ledger row and move the balance. Same key => same row, nothing is posted twice. The caller locked ``acc``."""
+-    existing = await _find_tx(session, key)
+-    if existing:
+-        return existing, False
+-    after = acc.balance + amount
+-    if after < 0:
+-        raise AppError("LOYALTY_NOT_ENOUGH_POINTS", "امتیاز شما کافی نیست.", 400)
+-    tx = LoyaltyTransaction(
+-        store_id=acc.store_id,
+-        user_id=acc.user_id,
+-        account_id=acc.id,
+-        kind=kind,
+-        amount=amount,
+-        balance_after=after,
+-        order_id=order_id,
+-        reward_id=reward_id,
+-        reverses_id=reverses_id,
+-        idempotency_key=key,
+-        memo=memo,
+-        actor_id=actor_id,
+-        debt_recovered=debt_recovered,
+-    )
+-    try:
+-        async with session.begin_nested():
+-            session.add(tx)
+-            await session.flush()
+-    except IntegrityError:
+-        existing = await _find_tx(session, key)
+-        if existing:
+-            return existing, False
+-        raise
+-    acc.balance = after
+-    return tx, True
+-
+-
+-async def _earn(
+-    session: AsyncSession, acc: LoyaltyAccount, points: int, *, kind: str, key: str, order_id: uuid.UUID | None, memo: str
+-) -> LoyaltyTransaction | None:
+-    """Credit earned points: an older points debt is settled first, the tier counts everything that was earned."""
+-    if points <= 0:
+-        return None
+-    credited, recovered = rules.offset_with_debt(points, acc.debt)
+-    tx, created = await _post(session, acc, kind=kind, amount=credited, key=key, order_id=order_id, memo=memo, debt_recovered=recovered)
+-    if created:
+-        acc.debt -= recovered
+-        acc.lifetime_earned += points
+-    return tx
+-
+-
+-async def _is_first_order(session: AsyncSession, order: Order) -> bool:
+-    prior = await session.scalar(
+-        select(func.count())
+-        .select_from(Order)
+-        .where(
+-            Order.user_id == order.user_id,
+-            Order.store_id == order.store_id,
+-            Order.status == OrderStatus.COMPLETED,
+-            revenue_only(Order.kind),
+-            Order.total > 0,
+-            Order.completed_at < order.completed_at,
+-        )
+-    )
+-    return not prior
+-
+-
+-async def on_order_completed(session: AsyncSession, order_id: uuid.UUID) -> None:
+-    """Points for a completed order of THIS store's own club: the order points, the first-order bonus and the referrer's bonus."""
+-    order = await session.get(Order, order_id)
+-    if not order or not is_revenue(order.kind) or order.total <= 0:
+-        return
+-    row = await get_program(session, order.store_id)
+-    if not row or not row.is_enabled:
+-        return
+-    program = program_rules(row)
+-    tiers = ladder(await load_tiers(session, order.store_id))
+-    acc = await get_account(session, order.store_id, order.user_id, lock=True)
+-    tier_before = rules.tier_for(tiers, acc.lifetime_earned)
+-    earned = 0
+-    tx = await _earn(
+-        session,
+-        acc,
+-        rules.order_points(order.total, program, rules.multiplier_for(tiers, acc.lifetime_earned)),
+-        kind="order_earn",
+-        key=f"loyalty:earn:{order.id}",
+-        order_id=order.id,
+-        memo=f"امتیاز سفارش {order.number}",
+-    )
+-    earned += (tx.amount + tx.debt_recovered) if tx else 0
+-    first = program.first_order_bonus > 0 or program.referral_bonus > 0
+-    if first and order.completed_at and await _is_first_order(session, order):
+-        bonus = await _earn(
+-            session,
+-            acc,
+-            program.first_order_bonus,
+-            kind="first_order_bonus",
+-            key=f"loyalty:first:{order.store_id}:{order.user_id}",
+-            order_id=order.id,
+-            memo="پاداش اولین خرید",
+-        )
+-        earned += (bonus.amount + bonus.debt_recovered) if bonus else 0
+-        await _referrer_bonus(session, order, program)
+-    tier_after = rules.tier_for(tiers, acc.lifetime_earned)
+-    if earned > 0:
+-        await _notify_earned(session, order, earned, tier_before, tier_after)
+-
+-
+-async def _referrer_bonus(session: AsyncSession, order: Order, program: Program) -> None:
+-    """The person who invited this customer into THIS store gets points once, when the friend completes the first order."""
+-    if program.referral_bonus <= 0:
+-        return
+-    rel = await session.scalar(
+-        select(ReferralRelationship).where(
+-            ReferralRelationship.store_id == order.store_id, ReferralRelationship.referred_user_id == order.user_id
+-        )
+-    )
+-    if not rel:
+-        return
+-    racc = await get_account(session, order.store_id, rel.referrer_user_id, lock=True)
+-    await _earn(
+-        session,
+-        racc,
+-        program.referral_bonus,
+-        kind="referral_bonus",
+-        key=f"loyalty:referral:{order.store_id}:{order.user_id}",
+-        order_id=order.id,
+-        memo="پاداش معرفی دوست",
+-    )
+-    await events.emit_user_notice(
+-        session,
+-        rel.referrer_user_id,
+-        order.store_id,
+-        "loyalty",
+-        "امتیاز معرفی",
+-        f"{program.referral_bonus:,} امتیاز بابت اولین خرید دوست شما به باشگاه مشتریان اضافه شد.",
+-        dedup_key=f"notify:loyalty:referral:{order.store_id}:{order.user_id}",
+-    )
+-
+-
+-async def _notify_earned(session: AsyncSession, order: Order, earned: int, before: Tier | None, after: Tier | None) -> None:
+-    body = f"{earned:,} امتیاز بابت سفارش {order.number} به باشگاه مشتریان شما اضافه شد."
+-    if after and (before is None or after.name != before.name):
+-        body += f"\nتبریک! به سطح «{after.name}» رسیدید."
+-    await events.emit_user_notice(
+-        session, order.user_id, order.store_id, "loyalty", "باشگاه مشتریان", body, dedup_key=f"notify:loyalty:{order.id}"
+-    )
+-
+-
+-async def on_order_refunded(session: AsyncSession, order_id: uuid.UUID) -> None:
+-    """Take back every point this order created (its own points, the first-order bonus, the referrer's bonus).
+-
+-    What the balance still covers is removed now; what the customer already spent becomes a points debt recovered from his next
+-    earnings. The tier follows, because the lifetime total shrinks by the whole reversed amount.
+-    """
+-    originals = (
+-        await session.scalars(
+-            select(LoyaltyTransaction).where(LoyaltyTransaction.order_id == order_id, LoyaltyTransaction.kind.in_(_REVERSIBLE))
+-        )
+-    ).all()
+-    for tx in originals:
+-        if await _find_tx(session, f"loyalty:reversal:{tx.id}"):
+-            continue
+-        acc = await session.scalar(
+-            select(LoyaltyAccount).where(LoyaltyAccount.id == tx.account_id).with_for_update().execution_options(populate_existing=True)
+-        )
+-        if not acc:
+-            continue
+-        earned = tx.amount + tx.debt_recovered
+-        take, owed = rules.split_reversal(earned, acc.balance)
+-        _, created = await _post(
+-            session,
+-            acc,
+-            kind="reversal",
+-            amount=-take,
+-            key=f"loyalty:reversal:{tx.id}",
+-            order_id=order_id,
+-            reverses_id=tx.id,
+-            memo="برگشت امتیاز به‌دلیل استرداد سفارش",
+-        )
+-        if created:
+-            acc.debt += owed
+-            acc.lifetime_earned = max(0, acc.lifetime_earned - earned)
+-            await events.emit_user_notice(
+-                session,
+-                acc.user_id,
+-                acc.store_id,
+-                "loyalty",
+-                "باشگاه مشتریان",
+-                f"{earned:,} امتیاز به‌دلیل استرداد سفارش از باشگاه مشتریان کسر شد.",
+-                dedup_key=f"notify:loyalty:reversal:{tx.id}",
+-            )
+-
+-
+-# ---------------------------------------------------------------- redeeming
+-async def redeem(
+-    session: AsyncSession, store: Store, user: User, reward_id: uuid.UUID, *, idempotency_key: str | None = None
+-) -> tuple[LoyaltyRedemption, bool]:
+-    """Spend the customer's points on one reward of THIS store. Returns (redemption, created); a retry with the same key
+-    returns the first redemption and spends nothing more. The caller commits."""
+-    row = await get_program(session, store.id)
+-    if not row or not row.is_enabled:
+-        raise AppError("LOYALTY_DISABLED", "باشگاه مشتریان این فروشگاه فعال نیست.", 400)
+-    key = (idempotency_key or uuid.uuid4().hex)[:100]
+-    replay = await session.scalar(
+-        select(LoyaltyRedemption).where(
+-            LoyaltyRedemption.store_id == store.id, LoyaltyRedemption.user_id == user.id, LoyaltyRedemption.idempotency_key == key
+-        )
+-    )
+-    if replay:
+-        if replay.reward_id != reward_id:
+-            raise AppError("IDEMPOTENCY_KEY_REUSED", "این کلید برای جایزهٔ دیگری استفاده شده است.", 409)
+-        return replay, False
+-    acc = await get_account(session, store.id, user.id, lock=True)
+-    reward = await session.scalar(
+-        select(LoyaltyReward)
+-        .where(LoyaltyReward.id == reward_id, LoyaltyReward.store_id == store.id)
+-        .with_for_update()
+-        .execution_options(populate_existing=True)
+-    )
+-    if not reward:
+-        raise NotFound("جایزه")
+-    used = await session.scalar(
+-        select(func.count())
+-        .select_from(LoyaltyRedemption)
+-        .where(LoyaltyRedemption.user_id == user.id, LoyaltyRedemption.reward_id == reward.id)
+-    )
+-    try:
+-        rules.check_redeem(
+-            Reward(
+-                reward.kind, reward.value, reward.cost_points, reward.stock, reward.redeemed_count, reward.per_user_limit, reward.is_active
+-            ),
+-            acc.balance,
+-            int(used or 0),
+-        )
+-    except LoyaltyError as e:
+-        raise _fail(e) from e
+-    redemption = LoyaltyRedemption(
+-        store_id=store.id,
+-        user_id=user.id,
+-        reward_id=reward.id,
+-        points_spent=reward.cost_points,
+-        value=reward.value,
+-        currency=store.currency,
+-        idempotency_key=key,
+-        created_by=user.id,
+-    )
+-    try:
+-        async with session.begin_nested():
+-            session.add(redemption)
+-            await session.flush()
+-    except IntegrityError:  # the same retry racing itself: the other request won, return its result
+-        again = await session.scalar(
+-            select(LoyaltyRedemption).where(
+-                LoyaltyRedemption.store_id == store.id, LoyaltyRedemption.user_id == user.id, LoyaltyRedemption.idempotency_key == key
+-            )
+-        )
+-        if again:
+-            return again, False
+-        raise
+-    ptx, _ = await _post(
+-        session,
+-        acc,
+-        kind="redeem",
+-        amount=-reward.cost_points,
+-        key=f"loyalty:redeem:{redemption.id}",
+-        reward_id=reward.id,
+-        memo=f"دریافت جایزه: {reward.name}",
+-        actor_id=user.id,
+-    )
+-    w = await wallet.get_wallet(session, user.id, store.id, currency=store.currency)
+-    ltx, _ = await wallet.post(
+-        session,
+-        kind="loyalty_reward",
+-        key=f"loyalty:redeem:{redemption.id}",
+-        currency=store.currency,
+-        store_id=store.id,
+-        postings=[wallet.Posting(reward.value, wallet=w), wallet.Posting(-reward.value, account=wallet.acc_loyalty_expense(store.id))],
+-        memo=f"جایزه باشگاه مشتریان: {reward.name}",
+-        actor_id=user.id,
+-    )
+-    reward.redeemed_count += 1
+-    redemption.points_tx_id, redemption.ledger_tx_id, redemption.completed_at = ptx.id, ltx.id, _now()
+-    await events.emit_user_notice(
+-        session,
+-        user.id,
+-        store.id,
+-        "loyalty",
+-        "جایزه باشگاه مشتریان",
+-        f"مبلغ {reward.value:,} {store.currency} بابت «{reward.name}» به کیف پول شما اضافه شد.",
+-        dedup_key=f"notify:loyalty:redeem:{redemption.id}",
+-    )
+-    return redemption, True
+-
+-
+-def _now() -> dt.datetime:
+-    return dt.datetime.now(dt.UTC)
+-
+-
+-async def adjust(
+-    session: AsyncSession,
+-    store: Store,
+-    user_id: uuid.UUID,
+-    delta: int,
+-    *,
+-    reason: str,
+-    actor_id: uuid.UUID,
+-    actor_type: str,
+-    idempotency_key: str | None = None,
+-) -> LoyaltyTransaction:
+-    """Owner/Admin grants (+) or deducts (-) points of one member of THIS store. A deduction never makes the balance negative and
+-    never lowers the tier (only refunds do). Caller commits."""
+-    if delta == 0:
+-        raise AppError("LOYALTY_BAD_ADJUSTMENT", "مقدار تعدیل نمی‌تواند صفر باشد.", 400)
+-    if not reason.strip():
+-        raise AppError("LOYALTY_REASON_REQUIRED", "دلیل تعدیل امتیاز را بنویسید.", 400)
+-    member = await session.scalar(
+-        select(StoreMembership.id).where(StoreMembership.store_id == store.id, StoreMembership.user_id == user_id)
+-    )
+-    if not member and store.owner_user_id != user_id:
+-        raise NotFound("کاربر")
+-    acc = await get_account(session, store.id, user_id, lock=True)
+-    tx, created = await _post(
+-        session,
+-        acc,
+-        kind="admin_grant" if delta > 0 else "admin_deduct",
+-        amount=delta,
+-        key=f"loyalty:adjust:{store.id}:{user_id}:{idempotency_key or uuid.uuid4().hex}",
+-        memo=reason.strip()[:255],
+-        actor_id=actor_id,
+-    )
+-    if created:
+-        if delta > 0:
+-            acc.lifetime_earned += delta
+-        audit.record(
+-            session,
+-            "loyalty.points.adjusted",
+-            actor_id=actor_id,
+-            actor_type=actor_type,
+-            entity_type="loyalty_account",
+-            entity_id=acc.id,
+-            store_id=store.id,
+-            data={"user_id": str(user_id), "delta": delta, "reason": reason.strip()[:255]},
+-        )
+-    return tx
+-
+-
+-# ---------------------------------------------------------------- what customers and owners read
+-def tx_out(t: LoyaltyTransaction) -> dict:
+-    return {
+-        "id": t.id,
+-        "kind": t.kind,
+-        "amount": t.amount,
+-        "balance_after": t.balance_after,
+-        "order_id": t.order_id,
+-        "memo": t.memo,
+-        "created_at": t.created_at,
+-    }
+-
+-
+-async def history(
+-    session: AsyncSession, store_id: uuid.UUID, user_id: uuid.UUID, *, limit: int = 20, before: dt.datetime | None = None
+-) -> tuple[list[LoyaltyTransaction], bool]:
+-    """One page of the customer's points entries in this store, newest first. Returns (rows, has_more)."""
+-    limit = max(1, min(limit, HISTORY_MAX))
+-    q = select(LoyaltyTransaction).where(LoyaltyTransaction.store_id == store_id, LoyaltyTransaction.user_id == user_id)
+-    if before:
+-        q = q.where(LoyaltyTransaction.created_at < before)
+-    rows = list(
+-        (await session.scalars(q.order_by(LoyaltyTransaction.created_at.desc(), LoyaltyTransaction.id.desc()).limit(limit + 1))).all()
+-    )
+-    return rows[:limit], len(rows) > limit
+-
+-
+-async def customer_summary(session: AsyncSession, store: Store, user_id: uuid.UUID) -> dict:
+-    """What the club screen of ONE store shows: standing, the ladder, the rewards he can take and his latest entries."""
+-    row = await get_program(session, store.id)
+-    if not row or not row.is_enabled:
+-        return {"store_id": store.id, "enabled": False}
+-    tiers_rows = await load_tiers(session, store.id)
+-    tiers = ladder(tiers_rows)
+-    acc = await get_account(session, store.id, user_id)
+-    current = rules.tier_for(tiers, acc.lifetime_earned)
+-    upcoming, missing = rules.next_tier(tiers, acc.lifetime_earned)
+-    rewards = await list_rewards(session, store.id, only_active=True)
+-    recent, more = await history(session, store.id, user_id, limit=10)
+-    used: dict[uuid.UUID, int] = {
+-        row[0]: row[1]
+-        for row in (
+-            await session.execute(
+-                select(LoyaltyRedemption.reward_id, func.count())
+-                .where(LoyaltyRedemption.store_id == store.id, LoyaltyRedemption.user_id == user_id)
+-                .group_by(LoyaltyRedemption.reward_id)
+-            )
+-        ).all()
+-    }
+-
+-    def card(r: LoyaltyReward) -> dict:
+-        try:
+-            rules.check_redeem(
+-                Reward(r.kind, r.value, r.cost_points, r.stock, r.redeemed_count, r.per_user_limit, r.is_active),
+-                acc.balance,
+-                int(used.get(r.id, 0)),
+-            )
+-            blocked = None
+-        except LoyaltyError as e:
+-            blocked = e.code
+-        return reward_out(r) | {"affordable": acc.balance >= r.cost_points, "available": blocked is None, "blocked_reason": blocked}
+-
+-    return {
+-        "store_id": store.id,
+-        "enabled": True,
+-        "currency": store.currency,
+-        "balance": acc.balance,
+-        "lifetime_earned": acc.lifetime_earned,
+-        "debt": acc.debt,
+-        "tier": None if not current else {"name": current.name, "min_points": current.min_points, "multiplier_bp": current.multiplier_bp},
+-        "next_tier": None if not upcoming else {"name": upcoming.name, "min_points": upcoming.min_points, "points_missing": missing},
+-        "tiers": [tier_out(t) for t in tiers_rows],
+-        "program": program_out(row),
+-        "rewards": [card(r) for r in rewards],
+-        "history": [tx_out(t) for t in recent],
+-        "history_more": more,
+-    }
+ 
++This module is the stable facade: the implementation lives in ``common``, ``tiers``, ``program``, ``rewards``, ``ledger``,
++``earning`` (order completed / refunded), ``redemption``, ``adjustments`` and ``summary``. Callers keep importing
++``melorin.modules.loyalty.service``.
++"""
+ 
+-async def store_summary(session: AsyncSession, store_id: uuid.UUID, *, top: int = 5) -> dict:
+-    """Numbers of ONE store's club: members, points outstanding, what was issued and redeemed, and the tier distribution."""
+-    members = await session.scalar(select(func.count()).select_from(LoyaltyAccount).where(LoyaltyAccount.store_id == store_id)) or 0
+-    outstanding, debt = (
+-        await session.execute(
+-            select(func.coalesce(func.sum(LoyaltyAccount.balance), 0), func.coalesce(func.sum(LoyaltyAccount.debt), 0)).where(
+-                LoyaltyAccount.store_id == store_id
+-            )
+-        )
+-    ).one()
+-    issued = await session.scalar(
+-        select(func.coalesce(func.sum(LoyaltyTransaction.amount + LoyaltyTransaction.debt_recovered), 0)).where(
+-            LoyaltyTransaction.store_id == store_id, LoyaltyTransaction.kind.in_(EARN_KINDS)
+-        )
+-    )
+-    redeemed_points, redeemed_count, paid_value = (
+-        await session.execute(
+-            select(
+-                func.coalesce(func.sum(LoyaltyRedemption.points_spent), 0),
+-                func.count(),
+-                func.coalesce(func.sum(LoyaltyRedemption.value), 0),
+-            ).where(LoyaltyRedemption.store_id == store_id)
+-        )
+-    ).one()
+-    tiers_rows = await load_tiers(session, store_id)
+-    distribution = []
+-    for i, t in enumerate(tiers_rows):
+-        cond = [LoyaltyAccount.store_id == store_id, LoyaltyAccount.lifetime_earned >= t.min_points]
+-        if i + 1 < len(tiers_rows):
+-            cond.append(LoyaltyAccount.lifetime_earned < tiers_rows[i + 1].min_points)
+-        distribution.append(
+-            {
+-                "name": t.name,
+-                "min_points": t.min_points,
+-                "members": int(await session.scalar(select(func.count()).select_from(LoyaltyAccount).where(*cond)) or 0),
+-            }
+-        )
+-    leaders = (
+-        await session.execute(
+-            select(LoyaltyAccount.user_id, LoyaltyAccount.balance, LoyaltyAccount.lifetime_earned)
+-            .where(LoyaltyAccount.store_id == store_id)
+-            .order_by(LoyaltyAccount.lifetime_earned.desc())
+-            .limit(top)
+-        )
+-    ).all()
+-    return {
+-        "store_id": store_id,
+-        "members": int(members),
+-        "points_outstanding": int(outstanding),
+-        "points_debt": int(debt),
+-        "points_issued": int(issued or 0),
+-        "points_redeemed": int(redeemed_points),
+-        "redemptions": int(redeemed_count),
+-        "value_paid": int(paid_value),
+-        "tiers": distribution,
+-        "top_members": [{"user_id": u, "balance": int(b), "lifetime_earned": int(l)} for u, b, l in leaders],
+-    }
++from melorin.modules.loyalty.common import HISTORY_MAX, _REVERSIBLE, _fail, _json, _now  # noqa: F401
++from melorin.modules.loyalty.tiers import load_tiers, ladder, tier_out  # noqa: F401
++from melorin.modules.loyalty.program import program_rules, get_program, ensure_program, program_out, upsert_program, replace_tiers  # noqa: F401
++from melorin.modules.loyalty.rewards import reward_out, list_rewards, save_reward  # noqa: F401
++from melorin.modules.loyalty.ledger import get_account, _find_tx, _post, tx_out, history  # noqa: F401
++from melorin.modules.loyalty.earning import _earn, _is_first_order, on_order_completed, _referrer_bonus, _notify_earned, on_order_refunded  # noqa: F401
++from melorin.modules.loyalty.redemption import redeem  # noqa: F401
++from melorin.modules.loyalty.adjustments import adjust  # noqa: F401
++from melorin.modules.loyalty.summary import customer_summary, store_summary  # noqa: F401
++
++__all__ = [
++    "HISTORY_MAX",
++    "_REVERSIBLE",
++    "_fail",
++    "_json",
++    "_now",
++    "load_tiers",
++    "ladder",
++    "tier_out",
++    "program_rules",
++    "get_program",
++    "ensure_program",
++    "program_out",
++    "upsert_program",
++    "replace_tiers",
++    "reward_out",
++    "list_rewards",
++    "save_reward",
++    "get_account",
++    "_find_tx",
++    "_post",
++    "tx_out",
++    "history",
++    "_earn",
++    "_is_first_order",
++    "on_order_completed",
++    "_referrer_bonus",
++    "_notify_earned",
++    "on_order_refunded",
++    "redeem",
++    "adjust",
++    "customer_summary",
++    "store_summary",
++]
+diff --git a/apps/api/melorin/modules/loyalty/summary.py b/apps/api/melorin/modules/loyalty/summary.py
+new file mode 100644
+index 0000000..bae45d8
+--- /dev/null
++++ b/apps/api/melorin/modules/loyalty/summary.py
+@@ -0,0 +1,131 @@
++"""Loyalty club: summary (see ``service.py`` for the facade and the overview)."""
++
++import uuid
++
++from sqlalchemy import func, select
++from sqlalchemy.ext.asyncio import AsyncSession
++
++from melorin.domain import loyalty as rules
++from melorin.domain.loyalty import EARN_KINDS, LoyaltyError, Reward
++from melorin.kernel.models.loyalty import (
++    LoyaltyAccount,
++    LoyaltyRedemption,
++    LoyaltyReward,
++    LoyaltyTransaction,
++)
++from melorin.kernel.models.stores import Store
++from melorin.modules.loyalty.ledger import get_account, history, tx_out
++from melorin.modules.loyalty.program import get_program, program_out
++from melorin.modules.loyalty.rewards import list_rewards, reward_out
++from melorin.modules.loyalty.tiers import ladder, load_tiers, tier_out
++
++
++async def customer_summary(session: AsyncSession, store: Store, user_id: uuid.UUID) -> dict:
++    """What the club screen of ONE store shows: standing, the ladder, the rewards he can take and his latest entries."""
++    row = await get_program(session, store.id)
++    if not row or not row.is_enabled:
++        return {"store_id": store.id, "enabled": False}
++    tiers_rows = await load_tiers(session, store.id)
++    tiers = ladder(tiers_rows)
++    acc = await get_account(session, store.id, user_id)
++    current = rules.tier_for(tiers, acc.lifetime_earned)
++    upcoming, missing = rules.next_tier(tiers, acc.lifetime_earned)
++    rewards = await list_rewards(session, store.id, only_active=True)
++    recent, more = await history(session, store.id, user_id, limit=10)
++    used: dict[uuid.UUID, int] = {
++        row[0]: row[1]
++        for row in (
++            await session.execute(
++                select(LoyaltyRedemption.reward_id, func.count())
++                .where(LoyaltyRedemption.store_id == store.id, LoyaltyRedemption.user_id == user_id)
++                .group_by(LoyaltyRedemption.reward_id)
++            )
++        ).all()
++    }
++
++    def card(r: LoyaltyReward) -> dict:
++        try:
++            rules.check_redeem(
++                Reward(r.kind, r.value, r.cost_points, r.stock, r.redeemed_count, r.per_user_limit, r.is_active),
++                acc.balance,
++                int(used.get(r.id, 0)),
++            )
++            blocked = None
++        except LoyaltyError as e:
++            blocked = e.code
++        return reward_out(r) | {"affordable": acc.balance >= r.cost_points, "available": blocked is None, "blocked_reason": blocked}
++
++    return {
++        "store_id": store.id,
++        "enabled": True,
++        "currency": store.currency,
++        "balance": acc.balance,
++        "lifetime_earned": acc.lifetime_earned,
++        "debt": acc.debt,
++        "tier": None if not current else {"name": current.name, "min_points": current.min_points, "multiplier_bp": current.multiplier_bp},
++        "next_tier": None if not upcoming else {"name": upcoming.name, "min_points": upcoming.min_points, "points_missing": missing},
++        "tiers": [tier_out(t) for t in tiers_rows],
++        "program": program_out(row),
++        "rewards": [card(r) for r in rewards],
++        "history": [tx_out(t) for t in recent],
++        "history_more": more,
++    }
++
++
++async def store_summary(session: AsyncSession, store_id: uuid.UUID, *, top: int = 5) -> dict:
++    """Numbers of ONE store's club: members, points outstanding, what was issued and redeemed, and the tier distribution."""
++    members = await session.scalar(select(func.count()).select_from(LoyaltyAccount).where(LoyaltyAccount.store_id == store_id)) or 0
++    outstanding, debt = (
++        await session.execute(
++            select(func.coalesce(func.sum(LoyaltyAccount.balance), 0), func.coalesce(func.sum(LoyaltyAccount.debt), 0)).where(
++                LoyaltyAccount.store_id == store_id
++            )
++        )
++    ).one()
++    issued = await session.scalar(
++        select(func.coalesce(func.sum(LoyaltyTransaction.amount + LoyaltyTransaction.debt_recovered), 0)).where(
++            LoyaltyTransaction.store_id == store_id, LoyaltyTransaction.kind.in_(EARN_KINDS)
++        )
++    )
++    redeemed_points, redeemed_count, paid_value = (
++        await session.execute(
++            select(
++                func.coalesce(func.sum(LoyaltyRedemption.points_spent), 0),
++                func.count(),
++                func.coalesce(func.sum(LoyaltyRedemption.value), 0),
++            ).where(LoyaltyRedemption.store_id == store_id)
++        )
++    ).one()
++    tiers_rows = await load_tiers(session, store_id)
++    distribution = []
++    for i, t in enumerate(tiers_rows):
++        cond = [LoyaltyAccount.store_id == store_id, LoyaltyAccount.lifetime_earned >= t.min_points]
++        if i + 1 < len(tiers_rows):
++            cond.append(LoyaltyAccount.lifetime_earned < tiers_rows[i + 1].min_points)
++        distribution.append(
++            {
++                "name": t.name,
++                "min_points": t.min_points,
++                "members": int(await session.scalar(select(func.count()).select_from(LoyaltyAccount).where(*cond)) or 0),
++            }
++        )
++    leaders = (
++        await session.execute(
++            select(LoyaltyAccount.user_id, LoyaltyAccount.balance, LoyaltyAccount.lifetime_earned)
++            .where(LoyaltyAccount.store_id == store_id)
++            .order_by(LoyaltyAccount.lifetime_earned.desc())
++            .limit(top)
++        )
++    ).all()
++    return {
++        "store_id": store_id,
++        "members": int(members),
++        "points_outstanding": int(outstanding),
++        "points_debt": int(debt),
++        "points_issued": int(issued or 0),
++        "points_redeemed": int(redeemed_points),
++        "redemptions": int(redeemed_count),
++        "value_paid": int(paid_value),
++        "tiers": distribution,
++        "top_members": [{"user_id": u, "balance": int(b), "lifetime_earned": int(l)} for u, b, l in leaders],
++    }
+diff --git a/apps/api/melorin/modules/loyalty/tiers.py b/apps/api/melorin/modules/loyalty/tiers.py
+new file mode 100644
+index 0000000..3f01647
+--- /dev/null
++++ b/apps/api/melorin/modules/loyalty/tiers.py
+@@ -0,0 +1,24 @@
++"""Loyalty club: tiers (see ``service.py`` for the facade and the overview)."""
++
++import uuid
++
++from sqlalchemy import select
++from sqlalchemy.ext.asyncio import AsyncSession
++
++from melorin.domain.loyalty import Tier
++from melorin.kernel.models.loyalty import (
++    LoyaltyTier,
++)
++
++
++async def load_tiers(session: AsyncSession, store_id: uuid.UUID) -> list[LoyaltyTier]:
++    q = select(LoyaltyTier).where(LoyaltyTier.store_id == store_id).order_by(LoyaltyTier.min_points)
++    return list((await session.scalars(q)).all())
++
++
++def ladder(rows: list[LoyaltyTier]) -> list[Tier]:
++    return [Tier(r.name, r.min_points, r.multiplier_bp) for r in rows]
++
++
++def tier_out(t: LoyaltyTier) -> dict:
++    return {"id": t.id, "name": t.name, "min_points": t.min_points, "multiplier_bp": t.multiplier_bp}
+-- 
+2.43.0
+
+
+From 8e3b1eb33c2236c88512df27bb66da93f515aef8 Mon Sep 17 00:00:00 2001
+From: melorin-refactor <refactor@melorin.local>
+Date: Sun, 15 Nov 2026 11:47:41 +0000
+Subject: [PATCH 3/3] test(admin-ui): role matrix for the regrouped menu
+
+---
+ apps/admin-web/tests/nav-role-matrix.test.js | 45 ++++++++++++++++++++
+ 1 file changed, 45 insertions(+)
+ create mode 100644 apps/admin-web/tests/nav-role-matrix.test.js
+
+diff --git a/apps/admin-web/tests/nav-role-matrix.test.js b/apps/admin-web/tests/nav-role-matrix.test.js
+new file mode 100644
+index 0000000..22b4b83
+--- /dev/null
++++ b/apps/admin-web/tests/nav-role-matrix.test.js
+@@ -0,0 +1,45 @@
++import { describe, expect, it } from 'vitest';
++import { groups } from '../src/adminNav.ts';
++import { canWrite, sectionAllowed } from '../src/adminAccess.ts';
++
++// Mirrors apps/api/melorin/domain/admin_access.py GRANTS (the server stays the authority; this pins what the menu shows per role).
++const ALL = ['overview', 'reports', 'orders', 'payments', 'catalog', 'infrastructure', 'resellers', 'customers', 'support'];
++const perms = (map) => Object.entries(map).map(([area, mode]) => `${area}:${mode}`);
++const ROLES = {
++  owner: perms({ ...Object.fromEntries([...ALL, 'system', 'audit', 'admins', 'self'].map((a) => [a, 'rw'])) }),
++  manager: perms({ ...Object.fromEntries(ALL.map((a) => [a, 'rw'])), audit: 'r', self: 'rw' }),
++  finance: perms({ overview: 'r', reports: 'r', orders: 'rw', payments: 'rw', catalog: 'r', resellers: 'r', customers: 'r', self: 'rw' }),
++  support: perms({ overview: 'r', orders: 'r', payments: 'r', catalog: 'r', customers: 'rw', support: 'rw', self: 'rw' }),
++  viewer: perms({ ...Object.fromEntries(ALL.map((a) => [a, 'r'])), self: 'rw' }),
++};
++const COMMS = 'اعلان‌ها، ارتباطات و پشتیبانی';
++const visible = (role) => groups.map(([name, items]) => [name, items.filter(([label]) => sectionAllowed(ROLES[role], label)).map((i) => i[0])]);
++const commsOf = (role) => visible(role).find(([n]) => n === COMMS)[1];
++
++describe('admin menu per role (tickets live in the notifications / communications / support group)', () => {
++  it('owner and manager see the whole communications group', () => {
++    for (const role of ['owner', 'manager']) expect(commsOf(role)).toEqual(['پیام همگانی', 'مرکز رویداد', 'تیکت‌ها']);
++  });
++  it('support works tickets with write access; finance does not see them at all', () => {
++    expect(commsOf('support')).toContain('تیکت‌ها');
++    expect(canWrite(ROLES.support, 'تیکت‌ها')).toBe(true);
++    expect(commsOf('finance')).not.toContain('تیکت‌ها');
++  });
++  it('viewer sees tickets read-only', () => {
++    expect(commsOf('viewer')).toContain('تیکت‌ها');
++    expect(canWrite(ROLES.viewer, 'تیکت‌ها')).toBe(false);
++  });
++  it('only the owner reaches the system group settings and Telegram buttons', () => {
++    const sys = (role) => visible(role).find(([n]) => n === 'سیستم و امنیت')[1];
++    expect(sys('owner')).toEqual(expect.arrayContaining(['تنظیمات', 'دکمه‌های تلگرام', 'تیم مدیریت']));
++    for (const role of ['manager', 'finance', 'support', 'viewer']) {
++      expect(sys(role)).not.toContain('تنظیمات');
++      expect(sys(role)).not.toContain('دکمه‌های تلگرام');
++      expect(sys(role)).not.toContain('تیم مدیریت');
++    }
++  });
++  it('support never sees infrastructure screens', () => {
++    const infra = visible('support').find(([n]) => n === 'زیرساخت و عملیات پنل')[1];
++    expect(infra).toEqual([]);
++  });
++});
+-- 
+2.43.0
+

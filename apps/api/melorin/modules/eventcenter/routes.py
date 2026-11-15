@@ -4,15 +4,11 @@ from fastapi import APIRouter
 
 from melorin.core.deps import AdminUser, OwnerCtx, Session
 from melorin.kernel.models.stores import Store
-from melorin.modules.eventcenter import queries, service
+from melorin.modules.eventcenter import service
 from melorin.modules.eventcenter.schemas import EventCenterIn
 
 admin_router = APIRouter(prefix="/admin", tags=["admin"])
 reseller_router = APIRouter(tags=["reseller"])
-
-
-async def _main_store(session) -> Store | None:
-    return await queries.main_store(session)
 
 
 async def _read(session, store: Store | None) -> dict:

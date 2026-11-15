@@ -25,6 +25,7 @@ from melorin.kernel.models.stores import ResellerProfile, StoreMembership
 from melorin.kernel.models.system import AuditEvent
 from melorin.kernel.models.wallet import Wallet
 from melorin.modules.referral import router as referral_router
+from melorin.modules.referral import attach as referral_attach
 from melorin.modules.referral import service as referral
 
 AUTH = "/api/v1/auth"
@@ -639,7 +640,7 @@ async def test_two_racing_attachments_leave_exactly_one_relationship_and_no_erro
         rival = await make_user(s)
         s.add(StoreMembership(store_id=store_a.id, user_id=rival.id, role="customer"))
         await s.commit()
-        real = referral.has_store_history
+        real = referral_attach.has_store_history
 
         async def racing(session, store_id, user_id):
             # the rival wins the race: its own session on the SAME database commits the relationship first
@@ -648,7 +649,7 @@ async def test_two_racing_attachments_leave_exactly_one_relationship_and_no_erro
                 await other.commit()
             return await real(session, store_id, user_id)
 
-        monkeypatch.setattr(referral, "has_store_history", racing)
+        monkeypatch.setattr(referral_attach, "has_store_history", racing)  # patched where attach() looks it up
         assert await referral.attach(s, store_a.id, friend, referrer) is False
         await s.commit()
         rows = (await s.scalars(select(ReferralRelationship).where(ReferralRelationship.store_id == store_a.id))).all()

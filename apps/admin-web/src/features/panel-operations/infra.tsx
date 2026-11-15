@@ -261,24 +261,6 @@ export function useInfra(api: Json, { needs = ['panels', 'servers', 'groups', 'p
 }
 
 /* ---------- UI: links ---------- */
-export const InfraLink = ({
-  to,
-  params,
-  className = '',
-  children,
-  title,
-}: {
-  to?: Json;
-  params?: Json;
-  className?: string;
-  children?: ReactNode;
-  title?: Json;
-}) => (
-  <a href={infraHref(to, params)} title={title} className={`hover:text-[var(--ac)] hover:underline ${className}`}>
-    {children}
-  </a>
-);
-
 /** Small clickable chip that jumps to a related item in another screen. */
 export function RelChip({
   to,
@@ -309,16 +291,6 @@ export function RelChip({
     </a>
   );
 }
-
-/** Row "label · chips" used by cards to show a relation. */
-export const Rel = ({ label, children, empty }: { label?: Json; children?: ReactNode; empty?: Json }) => (
-  <div className="flex items-start gap-2 text-xs">
-    <span className="mt-1 w-14 shrink-0 text-[11px] text-[var(--mu)]">{label}</span>
-    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
-      {children || <span className="py-0.5 text-[11px] text-[var(--mu)]">{empty}</span>}
-    </div>
-  </div>
-);
 
 export const Warn = ({ children, tone = 'wn' }: { children?: ReactNode; tone?: Json }) => (
   <p className="flex items-start gap-2 rounded-lg px-3 py-2 text-[11px] font-bold leading-5" style={tint(tone)}>
