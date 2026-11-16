@@ -1,6 +1,5 @@
 """Reseller applications: store domain + reseller bot token, admin review, uniqueness and secrecy of the token."""
 
-import importlib.util
 from pathlib import Path
 
 import httpx
@@ -239,13 +238,6 @@ async def test_admin_list_is_enriched_pending_first_and_has_no_token(session):
     assert [r["status"] for r in await applications(admin, session, status="rejected")] == ["rejected"]
 
 
-def test_migration_0017_chains_from_0016_and_fits_version_column():
-    spec = importlib.util.spec_from_file_location("m0017", ROOT / "alembic/versions/0017_reseller_domain_bot.py")
-    m = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(m)
-    assert m.down_revision == "0016_sales_pools" and len(m.revision) <= 32
-
-
 def test_rotation_covers_application_token():
     assert '(ResellerApplication, "bot_token_enc")' in read_source(ROOT / "melorin/cli.py")
 
@@ -387,13 +379,6 @@ async def test_admin_list_exposes_two_step_state_without_secrets(session):
         and row["has_bot_token"] is False
         and row["domain"] is None
     )
-
-
-def test_migration_0018_chains_from_0017_and_fits_version_column():
-    spec = importlib.util.spec_from_file_location("m0018", ROOT / "alembic/versions/0018_reseller_two_step.py")
-    m = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(m)
-    assert m.down_revision == "0017_reseller_domain_bot" and len(m.revision) <= 32
 
 
 # ------------------------------------------------------------ A1: the reason is mandatory

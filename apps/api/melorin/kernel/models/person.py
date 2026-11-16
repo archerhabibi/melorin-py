@@ -1,4 +1,4 @@
-"""Person: the one real human behind several accounts and login methods (docs/25-Person-Account-Linking-Design.md).
+"""Person: the one real human behind several accounts and login methods (docs/07-DOMAIN-DATA-MODEL.md).
 
 Vocabulary mapping onto the existing schema (nothing was renamed, no id changed):
 

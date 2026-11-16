@@ -9,7 +9,6 @@ from melorin.core.config import get_settings
 from melorin.core.crypto import encrypt
 from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import AppError, NotFound
-from melorin.kernel.models.catalog import Product
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.vpn import Panel, PanelNode, PanelOrphan, Server, VpnAccount
 from melorin.kernel.models.bundles import Bundle, BundleMember
@@ -164,17 +163,6 @@ async def set_panel_state(panel_id: uuid.UUID, body: PanelState, admin: AdminUse
     return {"ok": True, "is_enabled": p.is_enabled}
 
 
-async def _clean_product_codes(session, raw: list[str] | None) -> list[str] | None:
-    """Normalise a server's product-code allow-list; None means "all products". Unknown codes are rejected."""
-    codes = sorted({c.strip() for c in (raw or []) if c and c.strip()})
-    if codes:
-        known = set((await session.scalars(select(Product.code).where(Product.code.in_(codes)))).all())
-        unknown = [c for c in codes if c not in known]
-        if unknown:
-            raise AppError("UNKNOWN_PRODUCT_CODES", "کد محصول نامعتبر است: " + "، ".join(unknown), 422)
-    return codes or None
-
-
 def _server_out(s: Server, panel: Panel, active: int = 0, total: int = 0, warnings: list[str] | None = None) -> ServerOut:
     return ServerOut(
         id=s.id,
@@ -183,7 +171,6 @@ def _server_out(s: Server, panel: Panel, active: int = 0, total: int = 0, warnin
         panel_name=panel.name,
         location=s.location,
         capacity=s.capacity,
-        product_codes=list(s.product_codes) if s.product_codes else None,
         allow_test=bool(s.allow_test),
         is_enabled=bool(s.is_enabled),
         active_accounts=active,
@@ -233,7 +220,7 @@ async def create_server(body: CreateServer, admin: AdminUser, session: Session):
     if not panel:
         raise NotFound("پنل")
     target = check_target(panel, body.target)  # 422 with every problem; the panel itself is only asked for warnings
-    body = body.model_copy(update={"product_codes": await _clean_product_codes(session, body.product_codes), "target": target})
+    body = body.model_copy(update={"target": target})
     s = Server(**body.model_dump())
     session.add(s)
     await session.flush()
@@ -254,8 +241,6 @@ async def update_server(server_id: uuid.UUID, body: UpdateServer, admin: AdminUs
     for required in ("name", "panel_id", "capacity", "allow_test"):
         if required in patch and patch[required] is None:
             raise AppError("VALIDATION_ERROR", "این فیلد نمی‌تواند خالی باشد.", 422, {"field": required})
-    if "product_codes" in patch:
-        patch["product_codes"] = await _clean_product_codes(session, patch["product_codes"])
     if "location" in patch and patch["location"] is not None:
         patch["location"] = patch["location"].strip() or None
     if "name" in patch:

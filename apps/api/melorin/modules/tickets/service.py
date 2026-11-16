@@ -7,7 +7,7 @@ from fastapi.responses import Response
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from melorin.core import events
+from melorin.core import audit, events
 from melorin.core.config import get_settings
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError, NotFound
@@ -162,3 +162,100 @@ async def notify_customer(session: AsyncSession, t: Ticket, text: str) -> None:
 
 def touch(t: Ticket) -> None:
     t.updated_at = utcnow()
+
+
+# ----------------------------------------------------------------------------------------------------------- staff-side lifecycle
+# The admin router only authenticates, parses and serialises. Every state change below is owned here, so the customer-visible /
+# internal-note rule, the audit trail and the TICKET_UPDATED event exist in exactly one place.
+
+
+async def get_ticket(session: AsyncSession, ticket_id: uuid.UUID) -> Ticket:
+    t = await session.get(Ticket, ticket_id)
+    if not t:
+        raise NotFound("تیکت")
+    return t
+
+
+async def staff_update(session: AsyncSession, t: Ticket, *, actor_id: uuid.UUID, raw: dict) -> bool:
+    """Apply a staff edit (status/priority/subject/department ...). Returns True when something changed. Commits."""
+    changes = {k: v for k, v in raw.items() if v is not None or k == "department"}
+    if "subject" in changes:
+        changes["subject"] = changes["subject"].strip()
+    if "department" in changes:
+        changes["department"] = (changes["department"] or "").strip() or None
+    before = {k: getattr(t, k) for k in changes}
+    changes = {k: v for k, v in changes.items() if v != before[k]}
+    if not changes:
+        return False
+    for k, v in changes.items():
+        setattr(t, k, v)
+    touch(t)
+    audit.record(
+        session,
+        "ticket.admin_updated",
+        actor_id=actor_id,
+        actor_type="admin",
+        entity_type="ticket",
+        entity_id=t.id,
+        store_id=t.store_id,
+        data={"before": {k: before[k] for k in changes}, "after": changes},
+    )
+    await events.emit(session, events.TICKET_UPDATED, {"ticket_id": t.id, "store_id": t.store_id})
+    await session.commit()
+    return True
+
+
+async def staff_reply(
+    session: AsyncSession, t: Ticket, *, actor_id: uuid.UUID, body: str, internal: bool, status: str | None, attachment_id: uuid.UUID | None
+) -> TicketMessage:
+    """Staff reply or internal note. Replies notify the customer; internal notes never leave the admin panel. Commits."""
+    text = body.strip()
+    if not text and not attachment_id:
+        raise AppError("EMPTY_MESSAGE", "متن یا تصویر پیوست لازم است.", 422)
+    claimed = await claim_attachment(session, attachment_id, user_id=actor_id)
+    m = TicketMessage(ticket_id=t.id, author_id=actor_id, is_staff=True, is_internal=internal, body=text, attachment_id=claimed)
+    session.add(m)
+    if not internal:
+        t.status = status or "answered"
+    elif status:
+        t.status = status
+    touch(t)
+    await session.flush()
+    audit.record(
+        session,
+        "ticket.note_added" if internal else "ticket.replied",
+        actor_id=actor_id,
+        actor_type="admin",
+        entity_type="ticket",
+        entity_id=t.id,
+        store_id=t.store_id,
+    )
+    await events.emit(session, events.TICKET_UPDATED, {"ticket_id": t.id, "store_id": t.store_id, "message_id": m.id})
+    if not internal and t.user_id != actor_id:
+        await notify_customer(session, t, body)
+    await session.commit()
+    return m
+
+
+async def staff_edit_message(session: AsyncSession, t: Ticket, m: TicketMessage, *, actor_id: uuid.UUID, body: str) -> TicketMessage:
+    """Staff may correct their own replies/notes; edits are stamped and audited. Commits."""
+    if m.author_id != actor_id:
+        raise AppError("FORBIDDEN", "فقط نویسندهٔ پیام می‌تواند آن را ویرایش کند.", 403)
+    new = body.strip()
+    if not new:
+        raise AppError("EMPTY_MESSAGE", "متن پیام نمی‌تواند خالی باشد.", 422)
+    if new != m.body:
+        m.body, m.edited_at = new, utcnow()
+        touch(t)
+        audit.record(
+            session,
+            "ticket.message_edited",
+            actor_id=actor_id,
+            actor_type="admin",
+            entity_type="ticket",
+            entity_id=t.id,
+            store_id=t.store_id,
+            data={"message_id": str(m.id)},
+        )
+        await session.commit()
+    return m

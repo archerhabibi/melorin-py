@@ -38,7 +38,6 @@ function ServerRow({
 }) {
   const st = serverState(s, panel),
     dim = s.is_enabled ? '' : 'opacity-60';
-  const limited = (s.product_codes || []).length;
   return (
     <li className="grid gap-3 px-4 py-3 transition-colors hover:bg-[var(--sf2)] md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto] md:items-center">
       <div className={`flex min-w-0 items-center gap-3 ${dim}`}>
@@ -53,11 +52,6 @@ function ServerRow({
             {!s.allow_test && (
               <span className="badge b-mu" title="اکانت تست روی این سرور ساخته نمی‌شود">
                 بدون تست
-              </span>
-            )}
-            {limited > 0 && (
-              <span className="badge b-wn" title="این سرور فقط برای محصولات انتخاب‌شده استفاده می‌شود">
-                فقط {num(limited)} محصول
               </span>
             )}
           </div>

@@ -29,8 +29,6 @@ const EMPTY = (panel: Json, name = '') => ({
   panel_id: panel?.id || '',
   location: '',
   capacity: '500',
-  all: true,
-  codes: [],
   allow_test: true,
   target: null,
 });
@@ -39,8 +37,6 @@ const fromServer = (s: Json) => ({
   panel_id: s.panel_id,
   location: s.location || '',
   capacity: String(s.capacity),
-  all: !s.product_codes?.length,
-  codes: s.product_codes || [],
   allow_test: !!s.allow_test,
   target: s.target || null,
 });
@@ -49,7 +45,6 @@ const payload = (f: Json) => ({
   panel_id: f.panel_id,
   location: f.location.trim() || null,
   capacity: Number(f.capacity),
-  product_codes: f.all ? null : [...f.codes].sort(),
   allow_test: f.allow_test,
   target: f.target,
 });
@@ -64,44 +59,7 @@ function validate(f: Json) {
     e.target = 'حداقل یک اینباند انتخاب کنید یا «ارث‌بری از پنل» را بزنید';
   const c = Number(f.capacity);
   if (!(c >= 1 && c <= 100000)) e.capacity = 'ظرفیت باید بین ۱ تا ۱۰۰٬۰۰۰ باشد';
-  if (!f.all && !f.codes.length) e.codes = 'حداقل یک محصول انتخاب کنید یا «همه محصولات» را بزنید';
   return e;
-}
-
-function ProductPicker({ products, value, onChange }: { products?: Json; value?: Json; onChange?: Json }) {
-  const known = new Set((products || []).map((p: Json) => p.code));
-  const toggle = (code: Json) =>
-    onChange(value.includes(code) ? value.filter((c: Json) => c !== code) : [...value, code]);
-  const items = [
-    ...(products || []).map((p: Json) => ({ code: p.code, name: p.name })),
-    ...value.filter((c: Json) => !known.has(c)).map((code: Json) => ({ code, name: 'محصول ناشناخته', stale: true })),
-  ];
-  if (products === null) return <div className="skel h-16" />;
-  if (!items.length)
-    return (
-      <p className="rounded-lg bg-[var(--sf2)] p-3 text-xs leading-6 text-[var(--mu)]">هنوز محصولی تعریف نشده است.</p>
-    );
-  return (
-    <div className="flex flex-wrap gap-2">
-      {items.map((it) => {
-        const on = value.includes(it.code);
-        return (
-          <button
-            key={it.code}
-            type="button"
-            aria-pressed={on}
-            onClick={() => toggle(it.code)}
-            className={`rounded-xl border px-3 py-2 text-right text-xs transition ${on ? 'border-[var(--ac)] bg-[var(--sf)] font-bold ring-2 ring-[color-mix(in_srgb,var(--ac)_22%,transparent)]' : 'border-[var(--ln)] bg-[var(--sf2)] hover:border-[var(--mu)]'} ${it.stale ? '!border-[var(--wn)]' : ''}`}
-          >
-            <span className="block">{it.name}</span>
-            <span dir="ltr" className="block text-right font-mono text-[10px] text-[var(--mu)]">
-              {it.code}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
 }
 
 /**
@@ -147,7 +105,7 @@ export function ServerForm({
   const [tried, setTried] = useState(false);
   const [busy, setBusy] = useState(false);
   const [srvErr, setSrvErr] = useState('');
-  const [adv, setAdv] = useState(() => !!server?.product_codes?.length);
+  const [adv, setAdv] = useState(false);
   const first = useRef<Json>(undefined);
   const set = (k: Json) => (v: Json) => {
     setSrvErr('');
@@ -164,7 +122,6 @@ export function ServerForm({
   const submit = async (another: Json) => {
     setTried(true);
     if (Object.keys(err).length) {
-      if (err.codes) setAdv(true);
       return;
     }
     const now = payload(f);
@@ -197,8 +154,6 @@ export function ServerForm({
           ...EMPTY(panel),
           location: f.location,
           capacity: f.capacity,
-          all: f.all,
-          codes: f.codes,
           allow_test: f.allow_test,
           target: null,
         };
@@ -376,30 +331,10 @@ export function ServerForm({
           onClick={() => setAdv(!adv)}
         >
           <ChevronDown size={14} className={adv ? '' : '-rotate-90'} />
-          تنظیمات پیشرفته{!f.all && <span className="badge b-wn">محدود به {num(f.codes.length)} محصول</span>}
+          تنظیمات پیشرفته
         </button>
         {adv && (
           <div className="mt-3 space-y-4">
-            <Section
-              title="محدود کردن محصولات"
-              hint="معمولاً لازم نیست: محصول از طریق «بسته فروش» به پنل می‌رسد. فقط وقتی استفاده کنید که این سرور باید اختصاصاً برای چند محصول مشخص باشد."
-            >
-              <Segmented
-                label="محدوده محصولات"
-                value={f.all ? 'all' : 'some'}
-                onChange={(v: Json) => set('all')(v === 'all')}
-                options={[
-                  ['all', 'همه محصولات'],
-                  ['some', 'فقط محصولات انتخابی'],
-                ]}
-              />
-              {!f.all && (
-                <>
-                  <ProductPicker products={products} value={f.codes} onChange={set('codes')} />
-                  {showErr('codes') && <p className="text-[11px] text-[var(--bd)]">{err.codes}</p>}
-                </>
-              )}
-            </Section>
             {canMove && (
               <Section title="انتقال به پنل دیگر" hint="فقط تا وقتی سرور هیچ اکانتی ندارد ممکن است.">
                 <select

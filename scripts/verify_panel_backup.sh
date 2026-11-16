@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # PG-16: NON-destructive restore test of a panel backup. Proves the artifact is intact and readable; it restores nothing and touches no
-# database. Run it after every change to the backup setup and at least monthly (docs/RUNBOOK.md, "Panel backup and recovery").
+# database. Run it after every change to the backup setup and at least monthly (docs/18-OPERATIONS-DEPLOYMENT-DR.md, "Panel backup and recovery").
 #
 #   BACKUP_ARCHIVE        path to panel-<stamp>.tar.age
 #   BACKUP_IDENTITY_FILE  the age PRIVATE key (kept offline, NOT on the server that makes the backups)

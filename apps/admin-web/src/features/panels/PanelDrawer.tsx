@@ -1,158 +1,16 @@
 import { useMemo, useRef, useState } from 'react';
 import { Badge, dt, sid } from '../../shared/ui.tsx';
 import { Dot, health, memberIds } from '../panel-operations/infra.tsx';
-import {
-  Drawer,
-  Field,
-  NumInput,
-  Section,
-  Secret,
-  Segmented,
-  Switch,
-  Toggle,
-  DeleteButton,
-  tint,
-} from '../../shared/kit.tsx';
-import { Activity, AlertTriangle, Check, ChevronDown, Plus, RefreshCw, Save, ShieldCheck } from 'lucide-react';
+import { Drawer, Field, NumInput, Section, Switch, Toggle, DeleteButton, tint } from '../../shared/kit.tsx';
+import { Activity, AlertTriangle, Check, ChevronDown, Plus, RefreshCw, Save } from 'lucide-react';
 import { focusOnMount } from '../../shared/useDialog.ts';
-import { UpstreamBotLink, UpstreamCredentials, UpstreamSettings } from './UpstreamBotFields.tsx';
+import { UpstreamBotLink } from './UpstreamBotFields.tsx';
 import { UpstreamFlowSection } from './UpstreamFlowParts.tsx';
-import {
-  UB_KEYS,
-  botUrl,
-  emptyUb,
-  ubBot,
-  ubBuildConfig,
-  ubCredentials,
-  ubFromPanel,
-  ubValidate,
-} from './upstreamBot.ts';
-import { KINDS, kindOf, Chips } from './panelUi.tsx';
-import type { Json, Rec } from '../../shared/types.ts';
-
-// ---------- panel add / edit form ----------
-const EMPTY = {
-  kind: 'sanaei',
-  name: '',
-  url: '',
-  auth: 'token',
-  token: '',
-  user: '',
-  pass: '',
-  inbounds: [],
-  subUrl: '',
-  apiStyle: 'auto',
-  groups: [],
-  tpl: '',
-  scope: 'groups',
-  verifyTls: true,
-  extra: '',
-  ub: emptyUb(),
-};
-const EMPTY_SRV = { on: true, name: '', location: '', capacity: '500' };
-const KNOWN: Rec = {
-  sanaei: ['inbound_ids', 'inbound_id', 'sub_base_url', 'api_style', 'verify_tls'],
-  pasarguard: ['group_ids', 'user_template_id', 'verify_tls'],
-  upstream_bot: UB_KEYS,
-  mock: [],
-};
-const ints = (a: Json) => (Array.isArray(a) ? a : []).map(Number).filter((n) => Number.isInteger(n) && n > 0);
-
-// Rebuild the form from a stored panel; config keys the form has no field for stay in the JSON box so a save never drops them.
-function fromPanel(p: Json) {
-  const c = p.config || {},
-    f: Rec = { ...EMPTY, kind: p.kind, name: p.name, url: p.base_url, verifyTls: c.verify_tls !== false };
-  if (p.kind === 'sanaei') {
-    f.inbounds = ints(c.inbound_ids ?? (c.inbound_id != null ? [c.inbound_id] : []));
-    f.subUrl = c.sub_base_url || '';
-    f.apiStyle = c.api_style || 'auto';
-  }
-  if (p.kind === 'pasarguard') {
-    if (c.user_template_id != null) {
-      f.scope = 'template';
-      f.tpl = String(c.user_template_id);
-    } else f.groups = ints(c.group_ids);
-  }
-  if (p.kind === 'upstream_bot') f.ub = ubFromPanel(p);
-  const rest = Object.fromEntries(Object.entries(c).filter(([k]) => !(KNOWN[p.kind] || []).includes(k)));
-  f.extra = Object.keys(rest).length ? JSON.stringify(rest, null, 2) : '';
-  return f;
-}
-const parseExtra = (t: Json) => {
-  if (!t.trim()) return {};
-  const x = JSON.parse(t);
-  if (!x || typeof x !== 'object' || Array.isArray(x)) throw new Error('obj');
-  return x;
-};
-
-function buildPayload(f: Json, withCreds: Json) {
-  if (f.kind === 'upstream_bot')
-    return {
-      name: f.name.trim(),
-      kind: f.kind,
-      base_url: botUrl(ubBot(f.ub)),
-      credentials: withCreds ? ubCredentials(f.ub) : {},
-      config: { ...ubBuildConfig(f.ub), ...parseExtra(f.extra) },
-    };
-  const credentials: Rec = {};
-  let config: Rec = {};
-  if (withCreds && f.kind !== 'mock') {
-    if (f.auth === 'token') credentials[f.kind === 'sanaei' ? 'api_token' : 'api_key'] = f.token.trim();
-    else {
-      credentials.username = f.user.trim();
-      credentials.password = f.pass;
-    }
-  }
-  if (f.kind === 'sanaei') config = { inbound_ids: f.inbounds, sub_base_url: f.subUrl.trim(), api_style: f.apiStyle };
-  else if (f.kind === 'pasarguard') {
-    if (f.scope === 'groups') config.group_ids = f.groups;
-    else config.user_template_id = parseInt(f.tpl, 10);
-  }
-  if (f.kind !== 'mock') config.verify_tls = f.verifyTls;
-  config = { ...config, ...parseExtra(f.extra) };
-  if (f.kind === 'sanaei' && !config.inbound_ids?.length) delete config.inbound_ids;
-  return { name: f.name.trim(), kind: f.kind, base_url: f.url.trim().replace(/\/+$/, ''), credentials, config };
-}
-function validate(f: Json, withCreds: Json, srv: Json, edit: Json) {
-  const e: Rec = {};
-  let extra: Rec = {};
-  if (f.extra.trim()) {
-    try {
-      extra = parseExtra(f.extra);
-    } catch {
-      e.extra = 'JSON پیشرفته نامعتبر است (باید یک شیء باشد)';
-    }
-  }
-  if (!f.name.trim()) e.name = 'نام پنل را وارد کنید';
-  if (f.kind === 'upstream_bot') Object.assign(e, ubValidate(f.ub, withCreds));
-  else {
-    try {
-      const u = new URL(f.url.trim());
-      if (!/^https?:$/.test(u.protocol)) throw 0;
-    } catch {
-      e.url = 'آدرس معتبر نیست (مثال: https://panel.example.com:2053/path)';
-    }
-  }
-  if (
-    withCreds &&
-    f.kind !== 'mock' &&
-    f.kind !== 'upstream_bot' &&
-    (f.auth === 'token' ? !f.token.trim() : !(f.user.trim() && f.pass))
-  )
-    e.auth = f.auth === 'token' ? 'توکن را وارد کنید' : 'نام کاربری و رمز عبور هر دو لازم است';
-  if (f.kind === 'sanaei') {
-    if (!/^https?:\/\//.test(f.subUrl.trim()))
-      e.subUrl = 'آدرس ساب‌اسکریپشن لازم است (مثال: https://sub.example.com:2096/sub)';
-    if (!f.inbounds.length && !extra.template_username) e.inbounds = 'حداقل یک Inbound ID لازم است';
-  }
-  if (f.kind === 'pasarguard') {
-    if (f.scope === 'groups' && !f.groups.length) e.scope = 'حداقل یک Group ID لازم است';
-    if (f.scope === 'template' && !(parseInt(f.tpl, 10) > 0)) e.scope = 'شناسه قالب باید عدد مثبت باشد';
-  }
-  if (!edit && srv.on && !(Number(srv.capacity) >= 1 && Number(srv.capacity) <= 100000))
-    e.capacity = 'ظرفیت باید بین ۱ تا ۱۰۰٬۰۰۰ باشد';
-  return e;
-}
+import { KINDS, kindOf } from './panelUi.tsx';
+import type { Json } from '../../shared/types.ts';
+import { EMPTY, EMPTY_SRV, fromPanel, buildPayload, validate } from './panelForm';
+import { PanelCredentialsSection } from './PanelCredentialsSection.tsx';
+import { PanelConnectionSection } from './PanelConnectionSection.tsx';
 
 export function PanelDrawer({
   panel,
@@ -377,162 +235,30 @@ export function PanelDrawer({
         )}
       </Section>
 
-      {f.kind !== 'mock' && (
-        <Section title={`${edit ? '' : '۳ · '}احراز هویت (رمزنگاری‌شده ذخیره می‌شود)`}>
-          {edit && panel.has_credentials && !changeCred ? (
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-[var(--sf2)] px-3 py-2.5">
-              <span className="flex items-center gap-2 text-xs">
-                <ShieldCheck size={15} className="text-[var(--ok)]" />
-                اعتبارنامه ذخیره شده است و نمایش داده نمی‌شود.
-              </span>
-              <button type="button" className="btn btn-g" onClick={() => setChangeCred(true)}>
-                تغییر اعتبارنامه
-              </button>
-            </div>
-          ) : (
-            <>
-              {isUb ? (
-                <UpstreamCredentials ub={f.ub} setUb={setUb} show={show} edit={edit} />
-              ) : (
-                <>
-                  <Segmented
-                    label="روش ورود"
-                    value={f.auth}
-                    onChange={set('auth')}
-                    options={[
-                      ['token', f.kind === 'sanaei' ? 'API Token' : 'API Key'],
-                      ['login', 'نام کاربری و رمز'],
-                    ]}
-                  />
-                  {f.auth === 'token' ? (
-                    <Field label={f.kind === 'sanaei' ? 'API Token' : 'API Key'} error={show('auth') || undefined}>
-                      <Secret value={f.token} onChange={set('token')} placeholder="••••••••" />
-                    </Field>
-                  ) : (
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Field label="نام کاربری">
-                        <input
-                          dir="ltr"
-                          autoComplete="off"
-                          className="inp"
-                          value={f.user}
-                          onChange={(e) => set('user')(e.target.value)}
-                        />
-                      </Field>
-                      <Field label="رمز عبور">
-                        <Secret value={f.pass} onChange={set('pass')} />
-                      </Field>
-                      {show('auth') && <p className="text-[11px] text-[var(--bd)] sm:col-span-2">{err.auth}</p>}
-                    </div>
-                  )}
-                  {f.kind === 'sanaei' && f.auth === 'login' && (
-                    <p className="text-[11px] leading-5 text-[var(--mu)]">
-                      اگر 2FA روی پنل فعال است، ورود با نام کاربری کار نمی‌کند؛ از API Token استفاده کنید.
-                    </p>
-                  )}
-                </>
-              )}
-              {edit && panel.has_credentials && (
-                <button
-                  type="button"
-                  className="text-xs font-bold text-[var(--mu)] underline"
-                  onClick={() => {
-                    setChangeCred(false);
-                    setF((x) => ({
-                      ...x,
-                      token: '',
-                      user: '',
-                      pass: '',
-                      ub: { ...x.ub, apiId: '', apiHash: '', session: '' },
-                    }));
-                  }}
-                >
-                  انصراف از تغییر اعتبارنامه
-                </button>
-              )}
-            </>
-          )}
-        </Section>
-      )}
-
-      {f.kind !== 'mock' && (
-        <Section title={`${edit ? '' : '۴ · '}تنظیمات ${k.title}`}>
-          {f.kind === 'sanaei' && (
-            <>
-              <Field
-                label="Inbound IDها"
-                error={show('inbounds') || undefined}
-                hint="شناسه Inboundهایی که کلاینت در آن‌ها ساخته می‌شود؛ بعد از هر عدد Enter بزنید"
-              >
-                <Chips values={f.inbounds} onChange={set('inbounds')} placeholder="مثلاً 1" />
-              </Field>
-              <Field
-                label="آدرس ساب‌اسکریپشن"
-                error={show('subUrl') || undefined}
-                hint="Sub Port + Sub Path از Settings → Subscription پنل"
-              >
-                <input
-                  dir="ltr"
-                  spellCheck={false}
-                  className="inp"
-                  value={f.subUrl}
-                  placeholder="https://sub.example.com:2096/sub"
-                  onChange={(e) => set('subUrl')(e.target.value)}
-                />
-              </Field>
-              <Field label="سبک API">
-                <Segmented
-                  label="سبک API"
-                  value={f.apiStyle}
-                  onChange={set('apiStyle')}
-                  options={[
-                    ['auto', 'خودکار'],
-                    ['v3', 'v3'],
-                    ['legacy', 'Legacy'],
-                  ]}
-                />
-              </Field>
-            </>
-          )}
-          {isUb && <UpstreamSettings ub={f.ub} setUb={setUb} err={err} show={show} />}
-          {f.kind === 'pasarguard' && (
-            <>
-              <Segmented
-                label="محدوده"
-                value={f.scope}
-                onChange={set('scope')}
-                options={[
-                  ['groups', 'Group IDs'],
-                  ['template', 'قالب کاربر'],
-                ]}
-              />
-              {f.scope === 'groups' ? (
-                <Field label="Group IDها" error={show('scope') || undefined}>
-                  <Chips values={f.groups} onChange={set('groups')} placeholder="مثلاً 1" />
-                </Field>
-              ) : (
-                <Field label="شناسه قالب کاربر" error={show('scope') || undefined}>
-                  <input
-                    dir="ltr"
-                    inputMode="numeric"
-                    className="inp"
-                    value={f.tpl}
-                    onChange={(e) => set('tpl')(e.target.value.replace(/\D/g, ''))}
-                  />
-                </Field>
-              )}
-            </>
-          )}
-          {!isUb && (
-            <Toggle
-              checked={f.verifyTls}
-              onChange={set('verifyTls')}
-              label="بررسی گواهی TLS"
-              hint="در محیط عملیاتی خاموش‌کردن آن مجاز نیست؛ فقط برای تست با گواهی self-signed."
-            />
-          )}
-        </Section>
-      )}
+      <PanelConnectionSection
+        changeCred={changeCred}
+        edit={edit}
+        err={err}
+        f={f}
+        isUb={isUb}
+        panel={panel}
+        set={set}
+        setChangeCred={setChangeCred}
+        setF={setF}
+        setUb={setUb}
+        show={show}
+      />
+      <PanelCredentialsSection
+        edit={edit}
+        err={err}
+        f={f}
+        groups={groups}
+        isUb={isUb}
+        k={k}
+        set={set}
+        setUb={setUb}
+        show={show}
+      />
       {isUb && <UpstreamFlowSection ub={f.ub} />}
 
       {!edit && (

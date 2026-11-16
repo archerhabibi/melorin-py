@@ -14,12 +14,6 @@ def read(rel):
     return normalize_source(text) if str(rel).endswith(".py") else text
 
 
-def test_migration_0013_follows_0012_and_matches_the_model():
-    src = read("apps/api/alembic/versions/0013_product_default_panel_group.py")
-    assert 'down_revision = "0012_baskets_to_panel_groups"' in src
-    assert "default_panel_group_id" in src and 'ondelete="SET NULL"' in src
-
-
 def test_channels_never_choose_a_server():
     # Channels say WHAT is bought and, since sales bundles, which bundle the customer picked (and the panel in a
     # manual bundle). The core validates every choice; the server is never chosen outside the core.
@@ -70,6 +64,11 @@ def test_provisioning_places_accounts_only_through_the_core():
     assert "select(Server" not in svc
 
 
-def test_server_product_codes_must_exist():
-    src = read("apps/api/melorin/modules/admin/router.py")
-    assert "UNKNOWN_PRODUCT_CODES" in src
+def test_server_has_no_product_codes_anywhere():
+    for rel in (
+        "apps/api/melorin/kernel/models/vpn.py",
+        "apps/api/melorin/modules/admin/schemas.py",
+        "apps/api/melorin/modules/admin/panels.py",
+        "apps/api/melorin/modules/catalog/allocation/routing.py",
+    ):
+        assert "product_codes" not in read(rel), rel

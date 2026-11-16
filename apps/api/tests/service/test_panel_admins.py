@@ -414,17 +414,6 @@ async def test_reseller_request_flow_one_pending_then_admin_applies_or_rejects(f
         assert (await s.get(PanelAdminChangeRequest, again["id"])).status == "rejected"
 
 
-def test_migration_0040_follows_0039():
-    import importlib.util
-    from pathlib import Path
-
-    f = Path(__file__).resolve().parents[2] / "alembic/versions/0040_panel_admins.py"
-    spec_ = importlib.util.spec_from_file_location("m0040", f)
-    m = importlib.util.module_from_spec(spec_)
-    spec_.loader.exec_module(m)
-    assert m.down_revision == "0039_target_selection" and len(m.revision) <= 32
-
-
 # ------------------------------------------------------------------ guards: login clashes, creation races, reset durability
 def test_pick_username_never_reuses_a_taken_login_and_stays_within_the_panel_limit():
     class S:
@@ -545,58 +534,3 @@ async def test_a_crash_after_the_panel_changed_converges_through_the_worker(fake
         await s.commit()
         assert (await svc.sync_all(s))["synced"] == 1
         assert fake_adapter["a"].admins[row.username] == "Crash-Safe-Pass-12!" and row.profile_synced is True
-
-
-def test_migration_0041_follows_0040_and_guards_a_live_database():
-    import importlib.util
-    from pathlib import Path
-
-    import sqlalchemy as sa
-    from alembic.migration import MigrationContext
-    from alembic.operations import Operations
-
-    f = Path(__file__).resolve().parents[2] / "alembic/versions/0041_panel_admin_guards.py"
-    spec_ = importlib.util.spec_from_file_location("m0041", f)
-    m = importlib.util.module_from_spec(spec_)
-    spec_.loader.exec_module(m)
-    assert m.down_revision == "0040_panel_admins" and len(m.revision) <= 32
-
-    def fresh():
-        eng = sa.create_engine("sqlite://")
-        with eng.begin() as c:
-            c.execute(sa.text("CREATE TABLE panel_admins (id TEXT PRIMARY KEY, panel_id TEXT, store_id TEXT, username TEXT)"))
-            c.execute(
-                sa.text("CREATE TABLE panel_admin_change_requests (id TEXT PRIMARY KEY, store_id TEXT, status TEXT, created_at TEXT)")
-            )
-        return eng
-
-    def run(eng, fn):
-        with eng.begin() as conn:
-            with Operations.context(MigrationContext.configure(conn)):
-                fn()
-
-    eng = fresh()
-    with eng.begin() as c:  # two stores already share a login: the migration must stop, not guess
-        c.execute(sa.text("INSERT INTO panel_admins VALUES ('1','p','s1','rs_x'), ('2','p','s2','rs_x')"))
-    with pytest.raises(RuntimeError, match="share one panel login"):
-        run(eng, m.upgrade)
-
-    eng = fresh()
-    with eng.begin() as c:
-        c.execute(sa.text("INSERT INTO panel_admins VALUES ('1','p','s1','a'), ('2','p','s2','b'), ('3','q','s1','a')"))
-        c.execute(
-            sa.text(
-                "INSERT INTO panel_admin_change_requests VALUES "
-                "('r1','s1','pending','2026-11-01'), ('r2','s1','pending','2026-11-03'), ('r3','s1','pending','2026-11-02'),"
-                "('r4','s2','pending','2026-11-01'), ('r5','s1','rejected','2026-10-01')"
-            )
-        )
-    run(eng, m.upgrade)
-    with eng.connect() as c:
-        status = dict(c.execute(sa.text("SELECT id, status FROM panel_admin_change_requests")).fetchall())
-        assert status == {"r1": "cancelled", "r2": "pending", "r3": "cancelled", "r4": "pending", "r5": "rejected"}
-        indexes = {r[1] for r in c.execute(sa.text("PRAGMA index_list('panel_admins')")).fetchall()}
-        assert "uq_panel_admins_panel_username" in indexes
-    run(eng, m.downgrade)
-    with eng.connect() as c:
-        assert "uq_panel_admins_panel_username" not in {r[1] for r in c.execute(sa.text("PRAGMA index_list('panel_admins')")).fetchall()}

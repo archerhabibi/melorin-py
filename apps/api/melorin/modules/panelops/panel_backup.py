@@ -1,7 +1,7 @@
 """Panel backup status (PG-16): is the PasarGuard panel itself backed up, how fresh, and does the last copy leave the server?
 
 Melorin's own database has ``backup_job``; the panel's database and data directory (certificates, node CA, env) are a different failure
-domain: lose the panel and Melorin can rebuild accounts from its own records only through reconcile (see ``docs/RUNBOOK.md``), but the
+domain: lose the panel and Melorin can rebuild accounts from its own records only through reconcile (see ``docs/18-OPERATIONS-DEPLOYMENT-DR.md``), but the
 panel's users, usage history and node trust come back only from this backup. Read-only: the status never touches the panel."""
 
 from __future__ import annotations

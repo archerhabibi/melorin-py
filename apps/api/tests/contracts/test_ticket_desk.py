@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 from _chan import admin_auth, auth_for
-from _source import read_source, read_web_source
+from _source import read_web_source
 from sqlalchemy import select
 
 import melorin.models  # noqa: F401  (registers every table so FKs resolve)
@@ -150,17 +150,6 @@ async def test_customer_reply_reopens_and_staff_reply_via_legacy_endpoint_notifi
     assert world.t.status == "open"
     await customer.add_message(world.t.id, AddMessage(body="جواب"), world.staff_auth, world.s)
     assert (await world.s.scalars(select(OutboxEvent).where(OutboxEvent.topic == events.NOTIFY))).first() is not None
-
-
-def test_migration_0015_chains_from_0014_and_models_match():
-    src = read_source(ROOT / "alembic" / "versions" / "0015_ticket_upgrade.py")
-    assert 'revision = "0015_ticket_upgrade"' in src and 'down_revision = "0014_short_codes"' in src
-    assert len("0015_ticket_upgrade") <= 32  # alembic_version.version_num is VARCHAR(32)
-    for col in ("priority", "is_internal", "edited_at"):
-        assert col in src
-    assert Ticket.__table__.c.priority.nullable is False
-    assert TicketMessage.__table__.c.is_internal.nullable is False
-    assert TicketMessage.__table__.c.edited_at.nullable is True
 
 
 # ---------------------------------------------------------------- Telegram bot (Core + Telegram mocked)

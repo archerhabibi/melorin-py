@@ -1,4 +1,4 @@
-"""Channel binding: Core decides, from facts it can verify, WHICH STORE a session belongs to (docs/16-Channel-Binding-Design.md).
+"""Channel binding: Core decides, from facts it can verify, WHICH STORE a session belongs to (docs/08-IDENTITY-ACCOUNT-PERSON.md).
 
 Why (business rule, non-negotiable): a request that comes from the website or the bot of store A must only ever act on
 store A. ``core.scope`` already guarantees that a customer sees only HIS rows inside the store named in the URL; what it

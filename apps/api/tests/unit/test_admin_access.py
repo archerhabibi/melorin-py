@@ -1,4 +1,4 @@
-"""Pure rules of the admin team: the permission matrix, the path -> area table and the password policy (docs/24-Admin-Team-Design.md)."""
+"""Pure rules of the admin team: the permission matrix, the path -> area table and the password policy (docs/09-ADMIN-UI-ARCHITECTURE.md)."""
 
 import pytest
 

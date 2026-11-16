@@ -1,5 +1,5 @@
 import type { Rec } from './types';
-// TelegramLogin.jsx — website login approved inside the Telegram bot (docs/TELEGRAM-WEB-LOGIN.md).
+// TelegramLogin.jsx — website login approved inside the Telegram bot (docs/08-IDENTITY-ACCOUNT-PERSON.md).
 // The browser starts a session, shows a deep link / QR code and a number-matching code, then polls with a secret
 // poll token (POST body, never a URL) until the bot approves. Nothing secret is persisted: tokens stay in memory.
 
@@ -17,7 +17,7 @@ const REASONS = {
   rate_limited: 'تلاش‌ها زیاد بود؛ کمی بعد دوباره امتحان کنید.',
   login_disabled: 'ورود با تلگرام موقتاً غیرفعال شده است.',
 };
-// Trusted browser (docs/23-Automatic-Identity-Verification.md): the server remembers this browser through an HttpOnly
+// Trusted browser (docs/08-IDENTITY-ACCOUNT-PERSON.md): the server remembers this browser through an HttpOnly
 // cookie, so this component keeps nothing in browser storage and page scripts can never read the device key.
 // Sign-out on a shared computer: ask the server to drop this browser's trust.
 export async function forgetDevice(base: Json) {

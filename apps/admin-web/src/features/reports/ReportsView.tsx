@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Ticket, Undo2 } from 'lucide-react';
 import { API_BASE, getJson } from '../../api/api.ts';
-import { Heatmap, SERIES_COLORS } from './ReportCharts.tsx';
+import { SERIES_COLORS } from './ReportCharts.tsx';
+import { Heatmap } from './DistributionCharts.tsx';
 import {
   STORE_KIND_LABELS,
   browserZone,
@@ -15,9 +16,11 @@ import {
 } from './reportsLogic.ts';
 import { label as statusLabel } from '../../shared/ui.tsx';
 import type { Json, Toast } from '../../shared/types.ts';
-import type { ReportModel } from './ReportsSections.tsx';
+import type { ReportModel } from './reportModel.ts';
 import { METRICS, Card, download } from './ReportsParts.tsx';
-import { ReportsFilters, ReportsKpis, ReportsMainChart, ReportsBreakdowns, ReportsTables } from './ReportsSections.tsx';
+import { ReportsFilters, ReportsKpis } from './ReportsSections.tsx';
+import { ReportsMainChart } from './ReportsMainChart.tsx';
+import { ReportsBreakdowns, ReportsTables } from './ReportsBreakdowns.tsx';
 
 export default function ReportsView({ api, toast }: { api?: Json; toast: Toast }) {
   const [days, setDays] = useState(30);

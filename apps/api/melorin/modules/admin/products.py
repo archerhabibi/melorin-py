@@ -12,7 +12,7 @@ from melorin.kernel.models.orders import Order
 from melorin.kernel.models.referral import CommissionRule
 from melorin.kernel.models.stores import Store
 from melorin.modules.reseller.linking import link_product_to_resellers
-from melorin.kernel.models.vpn import Server, VpnAccount
+from melorin.kernel.models.vpn import VpnAccount
 from melorin.kernel.models.bundles import Bundle, BundleProduct
 from melorin.modules.admin.schemas import (
     Availability,
@@ -200,18 +200,6 @@ async def delete_product(product_id: uuid.UUID, admin: AdminUser, session: Sessi
             f"این محصول {orders} سفارش و {accounts} اکانت دارد؛ حذف آن تاریخچه فروش را خراب می‌کند. به‌جای حذف، محصول را غیرفعال کنید.",
             409,
             {"orders": orders, "accounts": accounts},
-        )
-    servers = [
-        s.name
-        for s in (await session.scalars(select(Server).where(Server.product_codes.is_not(None)))).all()
-        if p.code in (s.product_codes or [])
-    ]
-    if servers:
-        raise AppError(
-            "PRODUCT_USED_BY_SERVERS",
-            f"این محصول در فهرست محصولاتِ سرورهای {_names(servers)} است. ابتدا آن را از فهرست سرورها بردارید.",
-            409,
-            {"servers": servers},
         )
     coupons = [
         c.code

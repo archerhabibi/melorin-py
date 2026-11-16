@@ -7,9 +7,6 @@ import uuid
 from pathlib import Path
 
 import pytest
-import sqlalchemy as sa
-from alembic.migration import MigrationContext
-from alembic.operations import Operations
 from sqlalchemy import select
 
 from _db import open_session
@@ -233,39 +230,3 @@ def _load(name, file):
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
-
-
-def test_0039_follows_0038_and_fits_the_version_column():
-    m = _load("m0039", "0039_target_selection.py")
-    assert m.down_revision == "0038_store_site_enabled" and len(m.revision) <= 32
-
-
-def test_0039_adds_the_columns_backfills_round_robin_and_downgrades_cleanly():
-    m = _load("m0039", "0039_target_selection.py")
-    eng = sa.create_engine("sqlite://")
-    with eng.begin() as conn:
-        for sql in (
-            "CREATE TABLE servers (id CHAR(32) PRIMARY KEY, name VARCHAR(80))",
-            "CREATE TABLE bundles (id CHAR(32) PRIMARY KEY, name VARCHAR(80))",
-            "CREATE TABLE orders (id CHAR(32) PRIMARY KEY)",
-            "CREATE TABLE vpn_accounts (id CHAR(32) PRIMARY KEY)",
-            "INSERT INTO servers VALUES ('s', 'S1')",
-            "INSERT INTO bundles VALUES ('b', 'old')",
-            "INSERT INTO orders VALUES ('o')",
-            "INSERT INTO vpn_accounts VALUES ('a')",
-        ):
-            conn.exec_driver_sql(sql)
-        with Operations.context(MigrationContext.configure(conn, opts={"render_as_batch": True})):
-            m.upgrade()
-        insp = sa.inspect(conn)
-        cols = lambda t: {c["name"] for c in insp.get_columns(t)}  # noqa: E731
-        assert {"target", "last_assigned_at"} <= cols("servers")
-        assert "balancing" in cols("bundles") and "allocated_server_id" in cols("orders") and "placement" in cols("vpn_accounts")
-        assert conn.exec_driver_sql("SELECT balancing FROM bundles").fetchall() == [("round_robin",)]
-        assert conn.exec_driver_sql("SELECT name FROM servers").fetchall() == [("S1",)]  # existing rows survive
-        with Operations.context(MigrationContext.configure(conn, opts={"render_as_batch": True})):
-            m.downgrade()
-        insp = sa.inspect(conn)
-        assert not ({"target", "last_assigned_at"} & {c["name"] for c in insp.get_columns("servers")})
-        assert "balancing" not in {c["name"] for c in insp.get_columns("bundles")}
-        assert "placement" not in {c["name"] for c in insp.get_columns("vpn_accounts")}

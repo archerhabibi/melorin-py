@@ -106,7 +106,6 @@ export function serverState(s: Json, panel: Json) {
 }
 export const free = (s: Json) => Math.max(0, (s.capacity || 0) - (s.active_accounts || 0));
 export const usage = (s: Json) => (s.capacity ? s.active_accounts / s.capacity : 0);
-export const serves = (s: Json, code: Json) => !s.product_codes?.length || s.product_codes.includes(code);
 
 /* ---------- derived index ---------- */
 export function buildIndex(panels: Json, servers: Json, groups: Json, products: Json) {
@@ -174,9 +173,9 @@ export function buildIndex(panels: Json, servers: Json, groups: Json, products: 
         );
       if (!issue && !panelIds.size) issue = 'بسته‌های این محصول پنل فعالی ندارند';
     }
-    const cands = issue ? [] : servers.filter((s: Json) => panelIds.has(s.panel_id) && serves(s, p.code));
+    const cands = issue ? [] : servers.filter((s: Json) => panelIds.has(s.panel_id));
     const live = cands.filter((s: Json) => serverState(s, panelById.get(s.panel_id)).ok);
-    if (!issue && !cands.length) issue = 'هیچ سروری روی پنل‌های این بسته‌ها این محصول را پوشش نمی‌دهد';
+    if (!issue && !cands.length) issue = 'هیچ سروری روی پنل‌های این بسته‌ها تعریف نشده است';
     else if (!issue && !live.length) issue = 'سرورهای سازگار همه غیرفعال، پر یا روی پنل ناسالم‌اند';
     return {
       group: gs[0] || null,
@@ -189,11 +188,10 @@ export function buildIndex(panels: Json, servers: Json, groups: Json, products: 
       ok: !issue,
     };
   };
-  /** Products that can end up on a server of `panelId` whose allow-list is `codes` (null/[] = all). */
-  const productsForPanel = (panelId: Json, codes: Json) =>
+  /** Products that can end up on a server of `panelId`: active products listed in an enabled bundle that has the panel enabled. */
+  const productsForPanel = (panelId: Json) =>
     products.filter((p: Json) => {
       if (!p.is_active) return false;
-      if (codes?.length && !codes.includes(p.code)) return false;
       return (groupsByProduct.get(p.id) || []).some(
         (g: Json) => g.is_enabled && (g.panels || []).some((m: Json) => m.is_enabled && m.panel_id === panelId),
       );
@@ -208,6 +206,7 @@ export function buildIndex(panels: Json, servers: Json, groups: Json, products: 
     groupStat,
     reach,
     productsForPanel,
+    groupsByProduct,
   };
 }
 

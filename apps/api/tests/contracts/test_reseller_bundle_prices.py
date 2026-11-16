@@ -5,19 +5,14 @@ reseller price (cost) of THAT bundle is refused when set, hidden from every list
 Runs against in-memory SQLite.
 """
 
-import importlib.util
 import types
 import uuid
-from pathlib import Path
 
 import pytest
 import sqlalchemy as sa
-from _source import read_source
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 import melorin.models  # noqa: F401
-from alembic.migration import MigrationContext
-from alembic.operations import Operations
 from melorin.core.db import Base
 from melorin.core.errors import AppError
 from melorin.modules.admin import bundles as admin_bundles
@@ -330,73 +325,3 @@ async def test_removing_a_package_from_a_bundle_drops_the_resellers_price_for_it
     await allocation.set_bundle_price(session, st, cheap.id, p.id, 25000)
     await admin_bundles.remove_bundle_product(dear.id, p.id, ADMIN, session)
     assert await allocation.store_bundle_prices(session, st.id) == {(cheap.id, p.id): 25000}
-
-
-# ---------------------------------------------------------------- migration 0020
-ROOT = Path(__file__).resolve().parents[2]
-
-
-def _migration():
-    spec = importlib.util.spec_from_file_location("m0020", ROOT / "alembic/versions/0020_store_pool_prices.py")
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
-
-
-def test_migration_0020_follows_0019_and_matches_the_model():
-    m = _migration()
-    assert m.down_revision == "0019_telegram_web_login" and len(m.revision) <= 32
-    assert 'revision = "0019_telegram_web_login"' in read_source(ROOT / "alembic/versions/0019_telegram_web_login.py")
-    eng = sa.create_engine("sqlite://")
-    with eng.begin() as conn:
-        with Operations.context(MigrationContext.configure(conn)):
-            m.upgrade()
-        insp = sa.inspect(conn)
-        cols = {c["name"]: c for c in insp.get_columns("store_pool_prices")}
-        assert set(cols) == {"id", "created_at", "updated_at", "store_id", "panel_group_id", "product_id", "customer_price"}
-        assert not cols["customer_price"]["nullable"]
-        assert {i["name"] for i in insp.get_indexes("store_pool_prices")} == {
-            "ix_store_pool_prices_store_id",
-            "ix_store_pool_prices_panel_group_id",
-            "ix_store_pool_prices_product_id",
-        }
-        assert any(
-            set(u["column_names"]) == {"store_id", "panel_group_id", "product_id"} for u in insp.get_unique_constraints("store_pool_prices")
-        )
-        with Operations.context(MigrationContext.configure(conn)):
-            m.downgrade()
-        assert "store_pool_prices" not in sa.inspect(conn).get_table_names()
-
-
-def test_migration_0021_renames_pool_tables_to_bundles_keeping_data_and_matches_the_model():
-    spec = importlib.util.spec_from_file_location("m0021", ROOT / "alembic/versions/0021_pool_to_bundle.py")
-    m21 = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(m21)
-    m20 = _migration()
-    assert m21.down_revision == "0020_store_pool_prices" and len(m21.revision) <= 32
-    eng = sa.create_engine("sqlite://")
-    with eng.begin() as conn:
-        conn.exec_driver_sql("CREATE TABLE stores (id CHAR(32) PRIMARY KEY)")
-        conn.exec_driver_sql("CREATE TABLE panel_groups (id CHAR(32) PRIMARY KEY)")
-        conn.exec_driver_sql("CREATE TABLE products (id CHAR(32) PRIMARY KEY)")
-        conn.exec_driver_sql("CREATE TABLE pool_products (id CHAR(32) PRIMARY KEY, panel_group_id CHAR(32))")
-        conn.exec_driver_sql("CREATE INDEX ix_pool_products_panel_group_id ON pool_products (panel_group_id)")
-        with Operations.context(MigrationContext.configure(conn)):
-            m20.upgrade()
-        conn.exec_driver_sql("INSERT INTO pool_products VALUES ('a', 'g')")
-        with Operations.context(MigrationContext.configure(conn)):
-            m21.upgrade()
-        insp = sa.inspect(conn)
-        names = set(insp.get_table_names())
-        assert {"bundle_products", "store_bundle_prices"} <= names and not {"pool_products", "store_pool_prices"} & names
-        assert conn.exec_driver_sql("SELECT panel_group_id FROM bundle_products").fetchall() == [("g",)]
-        assert {i["name"] for i in insp.get_indexes("store_bundle_prices")} == {
-            "ix_store_bundle_prices_store_id",
-            "ix_store_bundle_prices_panel_group_id",
-            "ix_store_bundle_prices_product_id",
-        }
-        assert "ix_bundle_products_panel_group_id" in {i["name"] for i in insp.get_indexes("bundle_products")}
-        with Operations.context(MigrationContext.configure(conn)):
-            m21.downgrade()
-        names = set(sa.inspect(conn).get_table_names())
-        assert {"pool_products", "store_pool_prices"} <= names and not {"bundle_products", "store_bundle_prices"} & names

@@ -1,0 +1,223 @@
+# معماری سیستم / System Architecture
+
+> **وضعیت / Status:** مرجع جاری / Current canonical
+> **آخرین بازبینی / Last review:** 2026-11-16
+> **فهرست / Index:** [00](00-DOCUMENTATION-INDEX.md)
+
+## بخش فارسی
+
+**هدف:** Modular Monolith، لایه‌ها و مرز ماژول‌ها.
+
+
+
+## English section
+
+**Purpose:** Modular Monolith, layers and module boundaries.
+
+
+
+## مواد ادغام‌شده / Merged source material
+
+> متن اصلی اسناد قبلی بدون حذف محتوا در این بخش حفظ شده است (هر متن به زبان اصلی خود). / Original text of the previous documents, preserved without dropping content (each in its original language).
+
+### منبع / Source: `05-SYSTEM-ARCHITECTURE.md`
+
+#### معماری Melorin
+**تصمیم:** Modular Monolith در V1؛ Microservices از ابتدا استفاده نمی‌شود. امکان اجرای چند Instance و جداسازی آینده حفظ می‌شود.
+
+```text
+Website / Admin / Main Bot / Reseller Bots / Reseller API / WebApp
+                         | REST/OpenAPI
+                      FastAPI Core
+                         |
+ Identity/Stores | Catalog/Pricing | Wallet/Ledger | Payment
+ Orders | VPN Accounts | Provisioning | Referral | Tickets
+ Notifications/Events | Audit/Security | Reporting/Config
+                         |
+                PostgreSQL / Redis / Workers
+                         |
+ Store-scoped Payment Adapters / Sanaei / PasarGuard / Telegram / Webhook Delivery / Storage
+```
+##### اصول
+- Core تنها مالک Business Logic و دسترسی مستقیم DB است.
+- Channelها فقط UI/API clients هستند.
+- StoreContext در تمام Use Caseهای Store-scoped اجباری است.
+- Domain Events و Outbox برای انتشار مطمئن رویدادها.
+- DB transaction برای تغییرات داخلی؛ شبکه/Panel/Gateway داخل transaction طولانی اجرا نشود.
+- عملیات خارجی با State Machine، Retry، Idempotency و Compensation.
+- Adapter مستقل برای Panel، Gateway، Telegram و Storage؛ تنظیمات Gateway و مقصد پرداخت در StoreContext نگهداری می‌شوند.
+- تمام خریدها از Wallet همان Store کسر می‌شوند؛ Gateway فقط شارژ Wallet را تأمین می‌کند.
+- نماینده پیش‌شرط عضویت فعال در Main Store دارد و فقط مشتریان عضو Store خودش را مدیریت می‌کند.
+- ARQ + Redis برای صف کارهای پس‌زمینه.
+- Outgoing Webhook از V1 با امضا، replay protection، retry و delivery log.
+- Redis برای cache/coordination/queue، نه مرجع مالی.
+- API تا حد امکان stateless؛ worker و scheduler جدا.
+##### ماژول‌ها
+Identity & Linking; Stores/Resellers; Authorization; Catalog; Pricing/Discount; Wallet/Ledger; Payment; Order; VPN Account; Server/Panel Registry; Provisioning/Reconciliation; Referral/Commission; Test Account; Ticket; Notification/Outbox; Audit/Security; Reporting/Search; Storage; Configuration/Feature Flags; Operations/Health.
+##### لایه‌بندی کد (Phase 3 — با import-linter اجباری می‌شود)
+جهت وابستگی همیشه رو به پایین است؛ هر قرارداد در `apps/api/pyproject.toml` تعریف شده و با `make lint` و CI اجرا می‌شود.
+
+| لایه | مسیر | مجاز به import |
+|---|---|---|
+| Domain (خالص) | `melorin/domain` | هیچ‌چیز از پروژه |
+| Kernel | `melorin/kernel` (مدل‌های ORM، `Base`) | فقط `domain` |
+| Core (زیرساخت) | `melorin/core` | فقط `kernel` و `domain` |
+| ماژول‌ها (پشتهٔ بدون دور) | `melorin/modules/*` | لایهٔ پایین‌تر از خودش: `admin` › `reports` › `reseller` › `orders/payments/identity` › `panelops` (عملیات روی پنل: کنسول، پایش، drift، پشتیبان، نقش فروشگاه، sub-branding؛ فقط `vpn` را import می‌کند و `vpn` هرگز آن را) › `catalog/referral/tickets` › `vpn/wallet/webhooks/notifications/stores/system` |
+| Channelها (Adapter) | `melorin/channels/*` (Telegram OIDC/web-login، Bot API) | هیچ‌گاه `admin`، `reseller`، `reports`، worker و نقاط ورودی |
+| نقاط ورودی | `app`، `cli`، `worker` | همه |
+
+- نیاز جدید بین دو ماژول از طریق لایهٔ پایین‌تر یا رویداد Outbox برآورده می‌شود، نه import معکوس.
+- مسیر مدل‌ها `melorin.kernel.models.<context>` است؛ `melorin.models` فقط برای ثبت کامل metadata (Alembic و تست‌ها) نگه داشته شده است.
+- فایل‌های بزرگ بر اساس خانوادهٔ مسیر یا مسئولیت تقسیم می‌شوند (مثلاً `modules/admin/<family>.py`، `modules/reseller/routes/`، `modules/catalog/allocation/`، `modules/identity/google.py`، `telegram-main/tgmain/handlers/`) و `router.py` فقط ریشهٔ ترکیب است.
+- ترتیب هر تغییر ساختاری: رفتار ثابت، OpenAPI بدون تغییر (مقایسهٔ بایت‌به‌بایت با `main`) و همهٔ تست‌ها سبز.
+##### Events
+`OrderCreated`, `PaymentSucceeded`, `WalletCredited`, `WalletDebited`, `ProvisioningStarted`, `ProvisioningCompleted`, `ProvisioningFailed`, `RefundCompleted`, `CustomerLinked`, `ResellerDebtLimitReached`.
+V1 از Event Dispatcher داخلی و Outbox table استفاده کند؛ Broker مستقل فقط در صورت نیاز واقعی.
+##### تصمیم‌های باز
+Nginx/Caddy، Sentry یا جایگزین، Local/S3-compatible، JWT/session، Monitoring/Log stack و Email authentication. ARQ + Redis تصمیم قطعی است.
+
+### منبع / Source: `05-SYSTEM-ARCHITECTURE.md`
+
+#### ایزوله‌سازی مشتری و فروشگاه (Store Isolation)
+
+> وضعیت: پیاده‌سازی‌شده. همه‌ی منطق در Core است؛ سایت و ربات فقط نمایش می‌دهند و هیچ قانونی خودشان ندارند.
+
+##### قانون
+1. **کاربر عادی** فقط اکانت‌ها، سفارش‌ها، پرداخت‌ها و اعلان‌های **خودش** را می‌بیند و مدیریت می‌کند، آن‌هم **فقط در همان فروشگاه** (سایت یا ربات) که در آن است.
+2. آنچه با همان ورود (login) در فروشگاه یا ربات دیگر خریده، در این فروشگاه **دیده نمی‌شود و تمدید هم نمی‌شود**.
+3. اکانت/سفارش مشتری دیگر هرگز در دسترس نیست. اکانتِ فروشگاه یا مشتری دیگر مثل «وجود ندارد» جواب می‌دهد (۴۰۴)، پس شناسه‌ها قابل حدس‌زدن نیستند.
+4. **صاحب فروشگاه نماینده** فقط اکانت‌های فروشگاه خودش را می‌بیند؛ حتی اکانت شخصی خودش که در فروشگاه دیگری خریده را نه.
+5. ادمین پلتفرم از مسیرهای `/admin/*` همه‌چیز را می‌بیند (جدا از مسیر مشتری).
+
+##### طراحی (همه در Core)
+| بخش | کجا | کار |
+|---|---|---|
+| `core/scope.py` — `StoreScope(store_id, user_id)` | Core | تنها محل ساخت شرط «کاربر + فروشگاه». `scope.where(Model)` برای فهرست/شمارنده/جستجو، `scope.get(...)` برای یک ردیف، `scope.require(row)` برای ردیف‌های لود‌شده. هیچ‌کدام از دو شناسه به‌تنهایی قابل استفاده نیست. |
+| `core/scope.py` — `OwnerScope(store_id, owner_id)` | Core | دید صاحب فروشگاه: فقط همان فروشگاه. |
+| مسیرها | همه زیر `/stores/{store_id}/…` | از `StoreCtx` استفاده می‌کنند (عضویت و تعلیق فروشگاه اول بررسی می‌شود) و `StoreScope.of(ctx)` را می‌سازند. مسیر «همه‌ی فروشگاه‌های من» وجود ندارد. |
+| سرویس‌ها | `vpn/inquiry.py` | `customer_accounts/summary/account` با scope اجباری (دیگر `store_id` اختیاری نیست). |
+| تمدید و خرید | `vpn/renewal.check_renewable`، `orders.create_order`، `catalog._quote` | قبلاً هم مالک **و** فروشگاه را می‌سنجیدند؛ حالا جست‌وجوی اکانت هم از scope می‌گذرد. قفل ردیفِ اکانت در تمدید هم scope‌دار است (بخش «قفل ردیف در تمدید» پایین). |
+
+##### مسیرهای مشتری (جایگزین مسیرهای سراسری قبلی)
+| قبلاً | اکنون |
+|---|---|
+| `GET /vpn-accounts` , `/summary` , `/{id}` , `/{id}/refresh` , `/{id}/qr.png` | `/stores/{store_id}/vpn-accounts…` |
+| `GET /orders/{id}` | `GET /stores/{store_id}/orders/{id}` (فهرست از قبل store-scoped بود) |
+| `GET /payments` , `/payments/{id}` , `POST /payments/{id}/receipt` | `/stores/{store_id}/payments…` |
+| `/me/notifications…` | `/stores/{store_id}/notifications…` (فقط اعلان‌هایی که برای همین فروشگاه ساخته شده) |
+`/payments/callbacks/{provider}` (فراخوان درگاه، server-to-server) سراسری می‌ماند.
+
+##### تست‌ها
+`tests/test_r01_store_isolation.py` — رفتار روی دیتابیس (اکانت، سفارش، پرداخت، اعلان، تمدید، QR، refresh) + دو نگهبان: هیچ مسیر مشتری خارج از `/stores/{store_id}/` نباید وجود داشته باشد، و روترهای مشتری نباید `CurrentUser` یا بررسی دستیِ `user_id` داشته باشند.
+
+##### قفل ردیف در تمدید (R02)
+> وضعیت: پیاده‌سازی‌شده روی `design/renewal-scoped-lock` (بالای `feat/store-isolation`).
+
+###### مسئله
+`create_order(kind="renewal")` اکانت را با `session.get(VpnAccount, id, with_for_update=True)` قفل می‌کرد و **بعد** `check_renewable` مالک و فروشگاه را می‌سنجید. یعنی هر شناسه‌ای که مشتری می‌فرستاد، حتی اکانتِ مشتری یا فروشگاه دیگر، برای لحظه‌ای قفل می‌شد. اثرها (روی PostgreSQL با همان سناریو بازتولید شد):
+1. درخواستِ بیرونی پشت قفل مالک واقعی صف می‌کشید و برعکس: مالک واقعی در تمدید خودش معطل درخواستِ غریبه می‌شد.
+2. زمان انتظار، شناسه‌ی «زنده» را از شناسه‌ی ناموجود جدا می‌کرد (side channel برای حدس شناسه‌ها)، خلاف قانون ۳ بالا.
+نشت داده یا تمدید غیرمجاز نبود، چون سنجش مالکیت بعد از قفل همچنان رد می‌کرد.
+
+###### طراحی
+| تصمیم | شرح |
+|---|---|
+| شرط scope داخل خودِ `SELECT … FOR UPDATE` | `StoreScope.lock(session, Model, id)` یک دستور می‌سازد: `WHERE id = :id AND user_id = :u AND store_id = :s FOR UPDATE`. ردیفِ خارج از scope هرگز قفل نمی‌شود. |
+| خروجی `None` برای ردیف خارج از scope | `create_order` همان `None` را به `check_renewable` می‌دهد؛ جواب مثل اکانت ناموجود است (`ACCOUNT_NOT_RENEWABLE`، ۴۰۹) و برای شناسه‌ی ناموجود، اکانتِ فروشگاه دیگر و اکانتِ مشتری دیگر **کاملاً یکسان** است (کد، پیام، وضعیت). |
+| `populate_existing` | اگر نمونه‌ی اکانت قبلاً در session لود شده بود، بعد از گرفتن قفل از دیتابیس تازه می‌شود تا بررسی «تمدید در جریان نیست» وضعیتِ commitشده‌ی درخواست موازی را ببیند. |
+| scope از شناسه‌های ساده ساخته می‌شود | `StoreScope(store_id=store_id, user_id=user_id)` با همان مقدارهای ساده‌ی بالای تابع، نه `ctx.store.id`: بعد از `rollback()` نمونه‌های ORM expire می‌شوند و در async قابل lazy-load نیستند. |
+| `check_renewable` دست نخورد | مالکیت و فروشگاه را دوباره می‌سنجد (دفاع در عمق). قفل scope‌دار جایگزین آن نیست، فقط جلوی قفل‌شدن ردیف‌های بیگانه را می‌گیرد. |
+| ترتیب قفل‌ها بدون تغییر | همچنان اول اکانت، سپس کوپن، و در پرداخت: پروفایل نماینده، بعد کیف‌پول‌ها (به ترتیب شناسه). فقط مجموعه‌ی ردیف‌های قابل قفل کوچک‌تر شد، پس بنِ‌بست جدیدی ممکن نیست. |
+| بدون migration | هیچ ستون یا ایندکسی عوض نشد؛ جست‌وجو با کلید اصلی `id` انجام می‌شود و دو شرط scope فقط فیلتر همان یک ردیف‌اند. |
+
+###### رفتار
+| درخواست | قبل | بعد |
+|---|---|---|
+| مالک، اکانت خودش در همین فروشگاه | قفل، ادامه | قفل، ادامه (بدون تغییر) |
+| همان مالک، دو تمدید موازی | دومی منتظر اولی | دومی منتظر اولی (بدون تغییر) |
+| شناسه‌ی اکانتِ فروشگاه دیگر / مشتری دیگر | قفل شدن آن ردیف، سپس ۴۰۹ | **بدون قفل**، همان ۴۰۹ |
+| شناسه‌ی ناموجود | بدون قفل، ۴۰۹ | بدون قفل، همان ۴۰۹ |
+
+###### تست‌ها
+* `tests/test_r02_scoped_renewal_lock.py` (SQLite، در CI معمولی): شکل SQL (وجود `FOR UPDATE` و هر دو شرط scope)، `lock` فقط ردیف همین کاربر در همین فروشگاه را می‌دهد، تازه‌سازی نمونه‌ی کش‌شده، رد تمدید اکانت بیگانه پیش از ساخته‌شدن سفارش یا حرکت پول، یکسان‌بودن جواب برای شناسه‌ی ناموجود/بیگانه، و نگهبان سورس: `create_order` دیگر اکانت را با شناسه‌ی لخت قفل نمی‌کند.
+* `tests/test_r02_scoped_renewal_lock_postgres.py` (فقط با `TEST_PG_URL`): سه session مستقل. درخواست فروشگاه دیگر و مشتری دیگر فوراً `None` می‌گیرند، و درخواست موازیِ خودِ مالک واقعاً منتظر می‌ماند تا قفل اول آزاد شود.
+
+###### گسترش
+`StoreScope.lock` برای هر مدلی با ستون‌های `user_id` و `store_id` کار می‌کند. هر جای مشتری‌محور که نیاز به قفل ردیف دارد (مثلاً مورد ۲ و ۳ گزارش: سهمیه‌ی تست، کوپن و رفرال) باید از همین راه بگذرد، نه `session.get(..., with_for_update=True)` با شناسه‌ی لخت. `OwnerScope` در صورت نیاز همین متد را می‌گیرد.
+
+##### سهمیه‌ی اکانت تست برای هر فروشگاه (R03)
+> وضعیت: پیاده‌سازی‌شده روی `design/test-grant-per-store` (بالای `design/renewal-scoped-lock`). تصمیم محصول: سهمیه‌ی تست مثل کیف پول، سفارش و اکانت «برای هر مشتری در هر فروشگاه» است.
+
+###### مسئله
+`create_test_order` همه‌ی `TestAccountGrant`‌های کاربر را در کل پلتفرم می‌شمرد و cooldown را هم از آخرین grant سراسری می‌گرفت. کسی که در ربات نماینده‌ی A تست گرفته بود، در ربات B نمی‌توانست بگیرد؛ این با قانون «هر فروشگاه جداست» نمی‌خواند. قفل همزمانی هم روی ردیف **کاربر** (سراسری) بود، پس درخواست او در دو فروشگاه بی‌دلیل پشت هم صف می‌کشید.
+
+###### طراحی
+| تصمیم | شرح |
+|---|---|
+| شمارش و cooldown با `StoreScope` | `select(TestAccountGrant).where(*scope.where(TestAccountGrant))`: فقط grantهای «همین کاربر در همین فروشگاه». شمارنده‌ی `test.max_per_user` و `test.cooldown_hours` همان کلیدهای قبلی‌اند، ولی معنی‌شان اکنون «برای هر کاربر در هر فروشگاه» است. |
+| قفل روی ردیف عضویت | به‌جای قفل ردیف `User`، ردیف `StoreMembership` همین (کاربر، فروشگاه) از راه `scope.lock(...)` (طراحی R02) قفل می‌شود. دو درخواست موازیِ یک فروشگاه پشت هم می‌ایستند؛ درخواست در فروشگاه دیگر قفل دیگری می‌گیرد و منتظر نمی‌ماند. |
+| عضویتِ فعال زیر قفل بازخوانی می‌شود | `resolve_store_context` همیشه عضویت می‌سازد یا مسدود را رد می‌کند؛ ولی بین آن لحظه و ثبت grant ممکن است عضو مسدود شود. زیر قفل وضعیت تازه خوانده می‌شود و عضو غیرفعال یا نبودن عضویت `NOT_A_MEMBER` (۴۰۳) می‌گیرد، مثل `create_order`. |
+| بدون migration | ستون `store_id` از ابتدا در `test_account_grants` بود. grantهای قدیمی در همان فروشگاهی می‌شمارند که داده شده‌اند. ایندکس `user_id` برای فیلتر یک کاربر کافی است (تعداد grant هر کاربر ناچیز است). |
+| پیام‌ها | `TEST_LIMIT` و `TEST_COOLDOWN` اکنون می‌گویند «در این فروشگاه». کدها و وضعیت HTTP تغییر نکرده‌اند، پس سایت و ربات تغییری نمی‌خواهند. |
+| `identity_keys` | فعلاً فقط ثبت می‌شود و جایی خوانده نمی‌شود (هیچ سد ضدسوءاستفاده‌ی بین هویت‌ها وجود ندارد). این تغییر آن را نه بدتر می‌کند نه بهتر. |
+
+###### پیامد پذیرفته‌شده
+هر مشتری حالا می‌تواند در هر فروشگاه یک تست بگیرد، پس تعداد کل تست‌های او با تعداد فروشگاه‌هایی که در آن‌ها فعال است بالا می‌رود. این نتیجه‌ی مستقیم «هر فروشگاه جدا» است. اگر هزینه‌ی تست‌ها برای پلتفرم مسئله شد، راهش یک سقف سراسری اختیاری (مثلاً کلید `test.max_per_user_platform`، پیش‌فرض بدون سقف) است که در Core و کنار همین شمارش اعمال شود؛ فعلاً ساخته نشده.
+
+###### تست‌ها
+* `tests/test_r03_test_account_per_store.py` (SQLite): تست یک فروشگاه سهمیه‌ی فروشگاه دیگر را مصرف نمی‌کند؛ سقف داخل همان فروشگاه برقرار است؛ cooldown هم per-store است و بعد از پنجره باز می‌شود؛ grant مشتری دیگر نمی‌شمارد؛ grant قدیمی فقط در فروشگاه خودش می‌شمارد؛ عضو مسدود یا عضویتِ فروشگاه دیگر رد می‌شود؛ نگهبان سورس (شمارش و قفل فقط از راه scope، نه با `user_id` تنها و نه قفل `User`). ۷ تا از این ۹ تست روی کد قبلی شکست می‌خورند.
+* `tests/test_r03_test_account_per_store_postgres.py` (فقط با `TEST_PG_URL`): شش ضربه‌ی موازی در یک فروشگاه دقیقاً یک تست می‌دهد؛ چهار درخواست هم‌زمان در دو فروشگاه یکی در هر فروشگاه می‌دهد.
+
+##### Rollout
+
+_Merged from the former 15-Store-Isolation-Rollout.md._
+
+> وضعیت: اجراشده. این سند توضیح می‌دهد سه برنچ چگونه و به چه ترتیب وارد `main` شدند و چرا انتشارشان امن است.
+> طراحی خودِ ایزوله‌سازی: `05-SYSTEM-ARCHITECTURE.md`.
+
+###### ۱. چه چیزی ادغام می‌شود
+سه برنچ **روی هم چیده شده‌اند** (هرکدام یک کامیت بالای قبلی) و هیچ‌کدام از `main` عقب نیست، پس ادغامِ نوک زنجیره همه‌ی آن‌ها را بدون تعارض می‌آورد.
+
+| ترتیب | برنچ | محتوا |
+|---|---|---|
+| ۱ | `feat/store-isolation` | `StoreScope`/`OwnerScope` در Core، مسیرهای مشتری زیر `/stores/{store_id}/…`، حذف مسیرهای سراسری |
+| ۲ | `design/renewal-scoped-lock` | R02: قفل ردیف اکانت در تمدید از راه scope (ردیف بیگانه هرگز قفل نمی‌شود) |
+| ۳ | `design/test-grant-per-store` | R03: سهمیه و cooldown اکانت تست برای هر مشتری در هر فروشگاه |
+
+###### ۲. تغییر ناسازگار (breaking) و چرا خطر ندارد
+مسیرهای سراسری مشتری حذف شده‌اند (`/vpn-accounts…`، `/orders/{id}`، `/payments…`، `/me/notifications…`). جایگزین همه‌شان زیر `/stores/{store_id}/…` است (جدول کامل در سند ۱۴).
+
+* **بررسی کلاینت‌ها:** در ریپو هیچ کلاینتی (سایت مشتری، ادمین‌وب، ربات اصلی، ربات نماینده، `e2e_smoke.py`) به مسیر حذف‌شده درخواست نمی‌زند.
+* **هم‌زمانی انتشار:** API، سایت و دو ربات در یک `docker-compose.yml` تعریف شده‌اند و `deploy.yml` همه را با یک `docker compose build && up -d` عوض می‌کند. هیچ نسخه‌ی قدیمیِ ربات یا سایت بعد از deploy باقی نمی‌ماند.
+* **بدون migration:** هیچ فایلی در `apps/api/alembic` تغییر نکرده و `alembic check` هیچ تغییر ناهمگونی نشان نمی‌دهد. پس بازگشت (rollback) فقط برگرداندن کد است و روی داده اثری ندارد.
+* **ستون‌ها از قبل بودند:** `store_id` در `test_account_grants` از ابتدا وجود داشت؛ grantهای قدیمی در همان فروشگاهی می‌شمارند که داده شده‌اند.
+
+###### ۳. پنجره‌ی ناسازگاری کوتاه (پذیرفته‌شده)
+بین بالا آمدن کانتینر جدید API و کانتینرهای جدید سایت/ربات چند ثانیه تا چند ده ثانیه فاصله است. در این بازه یک درخواست از کلاینتِ قدیمی ممکن است ۴۰۴ بگیرد. همچنین مرورگری که تب سایت قدیمی را باز نگه داشته تا refresh مسیرهای قدیمی را می‌زند. این به‌معنای نشت یا خطای مالی نیست (ردیف بیگانه همیشه ۴۰۴ است)؛ فقط یک خطای نمایشی موقت است و با بارگذاری دوباره‌ی صفحه برطرف می‌شود.
+
+###### ۴. شواهد پیش از ادغام
+اجراشده روی نوک زنجیره، با PostgreSQL 16 و Redis واقعی:
+* `pytest -m "not integration"` روی SQLite: ۹۰۱ موفق، ۶ skip (تست‌های PG).
+* همان مجموعه با `TEST_PG_URL` (لِین PostgreSQL مثل CI): **۹۰۴ موفق**، شامل `test_r02_*_postgres` و `test_r03_*_postgres` (قفل واقعی ردیف و هم‌زمانی).
+* `alembic upgrade head` از دیتابیس خالی + `alembic check`: بدون تغییر.
+* `scripts/postgres_concurrency_smoke.py`: موفق.
+* API زنده + worker + `scripts/e2e_smoke.py`: **ALL PASSED** (کیف پول، سفارش، provisioning، outbox، throttle).
+* build `store-web` و `admin-web` موفق؛ هر دو ربات کامپایل می‌شوند.
+* `ruff`: همان ۳ خطای از قبل موجود در `main`؛ این تغییرات خطای تازه نیاورده‌اند.
+
+###### ۵. ترتیب انتشار
+1. PR از `integrate/store-isolation` به `main`؛ CI کامل باید سبز شود.
+2. ادغام با merge commit (تا سه کامیت جدا و قابل پیگیری بمانند).
+3. `deploy.yml` به‌صورت خودکار اجرا می‌شود. بعد از آن: `GET /health/ready`، سلامت دو ربات (`telegram_healthcheck`)، و یک ورود و مشاهده‌ی «اکانت‌های من» در سایت.
+
+###### ۶. بازگشت (Rollback)
+چون migration ندارد: `git revert -m 1 <merge-commit>` روی `main` و deploy مجدد. هیچ داده‌ای تغییر نکرده، پس چیزی برای بازگردانی در دیتابیس نیست.
+
+###### ۷. کارهای باقی‌مانده (خارج از این ادغام)
+* **اتصال کانال به فروشگاه** (مهم‌ترین): توکن ورود هنوز سراسری است و فروشگاه از مسیر می‌آید؛ Core هنوز تضمین نمی‌کند درخواستِ سایت A فقط برای فروشگاه A باشد. راه: شناسه‌ی فروشگاه در توکن، یا اعتبارسنجی دامنه/ربات در Core.
+* بررسی محدودیت استفاده‌ی کوپن در هر کاربر و ثبت رفرال و تیکت، که بین فروشگاه‌ها قاطی نشود (هنوز بررسی نشده).
+* سقف سراسری اختیاری تست (`test.max_per_user_platform`) در صورت مسئله‌شدن هزینه.
+
+## منابع و ارجاع‌ها / References
+
+- کد و تست‌های مرتبط در `apps/` و `scripts/`؛ سند فهرست: [00](00-DOCUMENTATION-INDEX.md).

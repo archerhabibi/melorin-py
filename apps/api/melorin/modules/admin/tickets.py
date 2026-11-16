@@ -4,12 +4,12 @@ import logging
 import uuid
 from fastapi import APIRouter, File, Query, UploadFile
 from sqlalchemy import select
-from melorin.core import audit
 from melorin.core.deps import AdminUser, Session
-from melorin.core.errors import AppError, NotFound
+from melorin.core.errors import NotFound
 from melorin.kernel.models.identity import User
 from melorin.kernel.models.stores import Store
-from melorin.kernel.models.tickets import Ticket
+from melorin.kernel.models.tickets import Ticket, TicketMessage
+from melorin.modules.tickets import service as ticket_service
 from melorin.modules.tickets.schemas import AdminAddMessage, AdminUpdateTicket, AttachmentOut, EditMessage as EditTicketMessage
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -100,51 +100,19 @@ async def ticket_detail(ticket_id: uuid.UUID, admin: AdminUser, session: Session
 
 @router.patch("/tickets/{ticket_id}", response_model=dict)
 async def update_ticket(ticket_id: uuid.UUID, body: AdminUpdateTicket, admin: AdminUser, session: Session):
-    from melorin.core import events
-    from melorin.modules.tickets import service as ticket_service
-
-    t = await session.get(Ticket, ticket_id)
-    if not t:
-        raise NotFound("تیکت")
-    changes = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None or k == "department"}
-    if "subject" in changes:
-        changes["subject"] = changes["subject"].strip()
-    if "department" in changes:
-        changes["department"] = (changes["department"] or "").strip() or None
-    before = {k: getattr(t, k) for k in changes}
-    changes = {k: v for k, v in changes.items() if v != before[k]}
-    if changes:
-        for k, v in changes.items():
-            setattr(t, k, v)
-        ticket_service.touch(t)
-        audit.record(
-            session,
-            "ticket.admin_updated",
-            actor_id=admin.id,
-            actor_type="admin",
-            entity_type="ticket",
-            entity_id=t.id,
-            store_id=t.store_id,
-            data={"before": {k: before[k] for k in changes}, "after": changes},
-        )
-        await events.emit(session, events.TICKET_UPDATED, {"ticket_id": t.id, "store_id": t.store_id})
-        await session.commit()
+    t = await ticket_service.get_ticket(session, ticket_id)
+    await ticket_service.staff_update(session, t, actor_id=admin.id, raw=body.model_dump(exclude_unset=True))
     return (await _ticket_rows(session, [t]))[0]
 
 
 @router.post("/tickets/attachments", response_model=AttachmentOut, status_code=201)
 async def ticket_upload_attachment(admin: AdminUser, session: Session, file: UploadFile = File(...)):
     """Staff picture for a reply: upload first, then send the reply with the returned ``attachment_id``."""
-    from melorin.modules.tickets import service as ticket_service
-
     return await ticket_service.save_image(session, user_id=admin.id, store_id=None, file=file)
 
 
 @router.get("/tickets/{ticket_id}/messages/{message_id}/attachment")
 async def ticket_message_attachment(ticket_id: uuid.UUID, message_id: uuid.UUID, _: AdminUser, session: Session):
-    from melorin.modules.tickets import service as ticket_service
-    from melorin.kernel.models.tickets import TicketMessage
-
     m = await session.get(TicketMessage, message_id)
     if not m or m.ticket_id != ticket_id or not m.attachment_id:
         raise NotFound("تصویر")
@@ -153,72 +121,20 @@ async def ticket_message_attachment(ticket_id: uuid.UUID, message_id: uuid.UUID,
 
 @router.post("/tickets/{ticket_id}/messages", response_model=dict)
 async def ticket_reply(ticket_id: uuid.UUID, body: AdminAddMessage, admin: AdminUser, session: Session):
-    """Staff reply or internal note. Replies notify the customer; internal notes never leave the admin panel."""
-    from melorin.core import events
-    from melorin.modules.tickets import service as ticket_service
-    from melorin.kernel.models.tickets import TicketMessage
-
-    t = await session.get(Ticket, ticket_id)
-    if not t:
-        raise NotFound("تیکت")
-    text = body.body.strip()
-    if not text and not body.attachment_id:
-        raise AppError("EMPTY_MESSAGE", "متن یا تصویر پیوست لازم است.", 422)
-    attachment_id = await ticket_service.claim_attachment(session, body.attachment_id, user_id=admin.id)
-    m = TicketMessage(ticket_id=t.id, author_id=admin.id, is_staff=True, is_internal=body.internal, body=text, attachment_id=attachment_id)
-    session.add(m)
-    if not body.internal:
-        t.status = body.status or "answered"
-    elif body.status:
-        t.status = body.status
-    ticket_service.touch(t)
-    await session.flush()
-    audit.record(
-        session,
-        "ticket.note_added" if body.internal else "ticket.replied",
-        actor_id=admin.id,
-        actor_type="admin",
-        entity_type="ticket",
-        entity_id=t.id,
-        store_id=t.store_id,
+    """Staff reply or internal note (rules live in ``tickets.service.staff_reply``)."""
+    t = await ticket_service.get_ticket(session, ticket_id)
+    m = await ticket_service.staff_reply(
+        session, t, actor_id=admin.id, body=body.body, internal=body.internal, status=body.status, attachment_id=body.attachment_id
     )
-    await events.emit(session, events.TICKET_UPDATED, {"ticket_id": t.id, "store_id": t.store_id, "message_id": m.id})
-    if not body.internal and t.user_id != admin.id:
-        await ticket_service.notify_customer(session, t, body.body)
-    await session.commit()
     return {**ticket_service.message_out(m).model_dump(mode="json"), "ticket_status": t.status}
 
 
 @router.patch("/tickets/{ticket_id}/messages/{message_id}", response_model=dict)
 async def ticket_edit_message(ticket_id: uuid.UUID, message_id: uuid.UUID, body: EditTicketMessage, admin: AdminUser, session: Session):
-    """Staff may correct their own replies/notes; edits are stamped and audited."""
-    from melorin.core.db import utcnow
-    from melorin.modules.tickets import service as ticket_service
-    from melorin.kernel.models.tickets import TicketMessage
-
+    """Staff may correct their own replies/notes (rules live in ``tickets.service.staff_edit_message``)."""
     m = await session.get(TicketMessage, message_id)
     if not m or m.ticket_id != ticket_id:
         raise NotFound("پیام")
-    if m.author_id != admin.id:
-        raise AppError("FORBIDDEN", "فقط نویسندهٔ پیام می‌تواند آن را ویرایش کند.", 403)
-    t = await session.get(Ticket, ticket_id)
-    if t is None:
-        raise NotFound("تیکت")
-    new = body.body.strip()
-    if not new:
-        raise AppError("EMPTY_MESSAGE", "متن پیام نمی‌تواند خالی باشد.", 422)
-    if new != m.body:
-        m.body, m.edited_at = new, utcnow()
-        ticket_service.touch(t)
-        audit.record(
-            session,
-            "ticket.message_edited",
-            actor_id=admin.id,
-            actor_type="admin",
-            entity_type="ticket",
-            entity_id=t.id,
-            store_id=t.store_id,
-            data={"message_id": str(m.id)},
-        )
-        await session.commit()
+    t = await ticket_service.get_ticket(session, ticket_id)
+    m = await ticket_service.staff_edit_message(session, t, m, actor_id=admin.id, body=body.body)
     return ticket_service.message_out(m).model_dump(mode="json")

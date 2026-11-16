@@ -13,7 +13,6 @@ def cand(name, **kw):
         panel_enabled=True,
         panel_healthy=True,
         allow_test=True,
-        product_codes=(),
         capacity=10,
         active_on_server=0,
         active_on_panel=0,
@@ -22,15 +21,12 @@ def cand(name, **kw):
     return Candidate(**base)
 
 
-def test_wrong_product_code_is_rejected_with_reason():
-    c = cand("ws", product_codes=("mmmm",))
-    chosen, reasons = select_allocation([c], product_code="10", is_test=False)
-    assert chosen is None
-    assert reasons == ["ws: کد محصول 10 در لیست این سرور نیست"]
+def test_candidate_has_no_server_level_product_filter():
+    """Decision 3.5/B: product eligibility comes from bundle membership only; a Server carries no product allow-list."""
+    import dataclasses
 
-
-def test_empty_product_codes_accept_any_product():
-    c = cand("all", product_codes=())
+    assert "product_codes" not in {f.name for f in dataclasses.fields(Candidate)}
+    c = cand("any")
     chosen, _ = select_allocation([c], product_code="20", is_test=False)
     assert chosen is c
 

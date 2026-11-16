@@ -102,7 +102,6 @@ class ServersFromTargets(BaseModel):
     ids: list[int] = Field(min_length=1, max_length=200)
     capacity: int = Field(default=DEFAULT_CAPACITY, gt=0, le=100000)
     allow_test: bool = True
-    product_codes: list[str] | None = None
     limits_from: str | None = Field(default=None, pattern="^(product|template)$")  # templates only
     group_as_one: bool = False  # inbound only: put ALL chosen inbounds in ONE slot (a set) instead of one slot each
 
@@ -117,8 +116,6 @@ def _target_for(kind: str, value: list[int] | int, limits_from: str | None) -> d
 
 @router.post("/panels/{panel_id}/servers/from-targets", status_code=201)
 async def create_servers_from_targets(panel_id: uuid.UUID, body: ServersFromTargets, admin: AdminUser, session: Session):
-    from melorin.modules.admin.panels import _clean_product_codes  # same product-code rule as a single server
-
     panel = await session.get(Panel, panel_id)
     if not panel:
         raise NotFound("پنل")
@@ -126,7 +123,6 @@ async def create_servers_from_targets(panel_id: uuid.UUID, body: ServersFromTarg
         raise AppError("INVALID_TARGET", "گروه و تمپلیت فقط برای پنل پاسارگارد است.", 422)
     if body.kind == "inbound" and "inbound" not in providers.target_kinds(panel.kind):
         raise AppError("INVALID_TARGET", "اینباند فقط برای پنل سنایی است.", 422)
-    codes = await _clean_product_codes(session, body.product_codes)
     listing = await fetch_listing(panel) or {}
     names = {
         "group": {g["id"]: g["name"] for g in listing.get("groups", [])},
@@ -152,7 +148,6 @@ async def create_servers_from_targets(panel_id: uuid.UUID, body: ServersFromTarg
             panel_id=panel.id,
             capacity=body.capacity,
             allow_test=body.allow_test,
-            product_codes=codes,
             target=target,
         )
         session.add(server)

@@ -37,7 +37,6 @@ class Candidate:
     panel_enabled: bool
     panel_healthy: bool
     allow_test: bool
-    product_codes: tuple[str, ...]
     capacity: int
     active_on_server: int
     active_on_panel: int
@@ -67,8 +66,6 @@ def _reject_reason(
         return f"مقصد روی پنل قابل فروش نیست: {c.destination_reason or 'سلامت مقصد تأیید نشده'}"
     if is_test and not c.allow_test:
         return "اکانت تست برای این سرور مجاز نیست"
-    if c.product_codes and product_code not in c.product_codes:
-        return f"کد محصول {product_code} در لیست این سرور نیست"
     if group_mode is not None:
         if not c.member_enabled:
             return "عضویت پنل در بسته غیرفعال است"
@@ -276,7 +273,6 @@ def _candidate(server: Server, panel: Panel, member: BundleMember | None, active
         panel_enabled=bool(panel.is_enabled),
         panel_healthy=panel.health_status in SELLABLE_STATES,
         allow_test=bool(server.allow_test),
-        product_codes=tuple(server.product_codes or ()),
         capacity=int(server.capacity or 0),
         active_on_server=active_server,
         active_on_panel=active_panel,

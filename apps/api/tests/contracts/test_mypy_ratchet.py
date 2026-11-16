@@ -1,4 +1,4 @@
-"""r13: the mypy error ratchet may only shrink (docs/DECISIONS.md r13b, audit section 8.5)."""
+"""r13: the mypy error ratchet may only shrink (docs/06-ARCHITECTURE-DECISIONS.md r13b, audit section 8.5)."""
 
 import tomllib
 from pathlib import Path

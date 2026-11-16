@@ -4,12 +4,12 @@ Core routes live under `/api/v1`; every response carries `X-Request-ID` and erro
 `correlation_id`. The route tables at the bottom are **generated from the code**
 (`python scripts/gen_docs.py`) and checked in CI - do not edit between the markers. Behaviour that
 a table cannot express is kept in the notes below; the high-level contract is
-`docs/05-API-Contracts.md`. (This file replaces the former `API-ROUTES-ACTIVE.md` and
+`docs/11-API-CONTRACTS.md`. (This file replaces the former `API-ROUTES-ACTIVE.md` and
 `API-IMPLEMENTATION.md`, whose hand-written route lists drifted from the code.)
 
 ## Behavioural notes
 
-- Website login via Telegram bot (`docs/TELEGRAM-WEB-LOGIN.md`): browser `POST /api/v1/auth/telegram/web/sessions`, `POST …/sessions/{id}/poll`, `POST …/sessions/{id}/cancel`; bot runner (`X-Bot-Secret`) `POST …/web/bot/inspect`, `POST …/web/bot/decide`.
+- Website login via Telegram bot (`docs/08-IDENTITY-ACCOUNT-PERSON.md`): browser `POST /api/v1/auth/telegram/web/sessions`, `POST …/sessions/{id}/poll`, `POST …/sessions/{id}/cancel`; bot runner (`X-Bot-Secret`) `POST …/web/bot/inspect`, `POST …/web/bot/decide`.
 - Catalog: `GET /api/v1/stores/main`, `GET /api/v1/stores/by-slug/{slug}`, `GET /api/v1/stores/{store_id}`, `GET /api/v1/stores/{store_id}/catalog`.
 - Checkout: `POST /api/v1/stores/{store_id}/checkout/quote`, `POST /api/v1/stores/{store_id}/orders`, `GET /api/v1/stores/{store_id}/orders/{order_id}`.
 - Wallet/payment: `GET /api/v1/stores/{store_id}/wallet`, `POST /api/v1/stores/{store_id}/wallet/topups`, `GET /api/v1/stores/{store_id}/payments/{payment_id}`, `GET|POST /api/v1/payments/callbacks/{provider}` (server-to-server, global).

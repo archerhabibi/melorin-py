@@ -83,7 +83,7 @@ async def test_list_includes_panel_name_and_account_counts(session):
 
 async def test_update_is_partial_and_audited(session):
     p = await _panel(session)
-    sid = await _server(session, p, location="DE", product_codes=None)
+    sid = await _server(session, p, location="DE")
     out = await admin_panels.update_server(sid, UpdateServer(capacity=50), ADMIN, session)
     assert out.capacity == 50 and out.name == "DE-1" and out.location == "DE"  # untouched fields stay
     out = await admin_panels.update_server(sid, UpdateServer(location=None, allow_test=False), ADMIN, session)
@@ -112,18 +112,11 @@ async def test_update_rejects_null_required_fields_and_blank_name(session):
         assert e.value.status == 422
 
 
-async def test_product_codes_are_normalised_and_validated_on_update(session):
-    p = await _panel(session)
-    await _product(session, "vpn-1m")
-    await _product(session, "vpn-3m")
-    sid = await _server(session, p)
-    out = await admin_panels.update_server(sid, UpdateServer(product_codes=[" vpn-3m", "vpn-1m", "vpn-1m"]), ADMIN, session)
-    assert out.product_codes == ["vpn-1m", "vpn-3m"]
-    with pytest.raises(AppError) as e:
-        await admin_panels.update_server(sid, UpdateServer(product_codes=["nope"]), ADMIN, session)
-    assert e.value.code == "UNKNOWN_PRODUCT_CODES"
-    out = await admin_panels.update_server(sid, UpdateServer(product_codes=[]), ADMIN, session)
-    assert out.product_codes is None  # empty list = all products
+async def test_server_api_has_no_product_codes_field(session):
+    from melorin.modules.admin.schemas import ServerOut
+
+    for model in (CreateServer, UpdateServer, ServerOut):
+        assert "product_codes" not in model.model_fields
 
 
 async def test_moving_server_to_other_panel_is_blocked_once_it_has_accounts(session):

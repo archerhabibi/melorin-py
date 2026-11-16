@@ -1,6 +1,6 @@
 """Editing a coupon obeys the same rules as creating it, and a multi-store coupon is never paid by one reseller.
 
-Part of docs/17-Referral-Coupon-Store-Scope.md: a discount code belongs to ONE store/agency (its owner decides and pays for it);
+Part of docs/13-CATALOG-STORE-RESELLER.md: a discount code belongs to ONE store/agency (its owner decides and pays for it);
 only the platform may run a promotion across several stores, and then the platform pays.
 """
 

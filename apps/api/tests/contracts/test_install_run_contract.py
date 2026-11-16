@@ -7,8 +7,8 @@ ROOT = Path(__file__).resolve().parents[4]
 
 def test_release_checker_tracks_current_head_and_history_location():
     checker = read_source(ROOT / "scripts/check_release_matrix.py")
-    assert "docs/history/I33_DOCUMENTATION_STATUS.md" in checker
-    assert "0012_baskets_to_panel_groups" in checker
+    assert "docs/06-ARCHITECTURE-DECISIONS.md" in checker
+    assert "0001_initial_baseline" in checker
 
 
 def test_telegram_healthcheck_is_copied_into_both_images():

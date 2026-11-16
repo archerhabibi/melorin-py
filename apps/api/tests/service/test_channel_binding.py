@@ -1,4 +1,4 @@
-"""T01: channel binding. A session is opened THROUGH a verified channel and is bound to ONE store (docs/16-Channel-Binding-Design.md).
+"""T01: channel binding. A session is opened THROUGH a verified channel and is bound to ONE store (docs/08-IDENTITY-ACCOUNT-PERSON.md).
 
 Everything is decided in Core: the Host of the request (site), the runner's secret + the store it names (bot), or the admin
 panel's password+TOTP login (admin). A token of store A is refused on ``/stores/B/...`` before any query runs, a refresh
@@ -352,7 +352,7 @@ PUBLIC_ROUTES = {
     "/auth/refresh",
     "/auth/logout",
     # an invited admin accepts their invitation: the one-time token (SHA-256 stored, 72 h, single use) is the credential and no
-    # session is issued; the new admin then signs in with password + TOTP (docs/24-Admin-Team-Design.md)
+    # session is issued; the new admin then signs in with password + TOTP (docs/09-ADMIN-UI-ARCHITECTURE.md)
     "/auth/admin-invite/inspect",
     "/auth/admin-invite/enroll",
     "/auth/admin-invite/accept",

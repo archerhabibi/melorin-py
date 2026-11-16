@@ -1,4 +1,4 @@
-"""Admin team: invite a new admin, let them enrol, and manage the team (docs/24-Admin-Team-Design.md).
+"""Admin team: invite a new admin, let them enrol, and manage the team (docs/09-ADMIN-UI-ARCHITECTURE.md).
 
 The flow in one paragraph. An owner invites an e-mail address with a role. Core creates an inactive *shell* user (role in
 ``admin_roles``, no password, no authenticator) and a one-time invite whose token is stored only as a SHA-256. The invitee opens the

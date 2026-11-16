@@ -6,7 +6,7 @@ well-covered UI/admin area can no longer hide an untested ledger. Reads the ``co
 
 Usage: python scripts/check_coverage_floors.py [coverage.xml]   (default: apps/api/coverage.xml)
 Floors are measured as line coverage over every file whose path starts with the prefix. Raise them over time; never lower
-one without a note in docs/DECISIONS.md.
+one without a note in docs/06-ARCHITECTURE-DECISIONS.md.
 """
 
 from __future__ import annotations

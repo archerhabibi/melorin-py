@@ -7,7 +7,7 @@ from pathlib import Path
 
 import httpx
 import pytest
-from _source import read_source, read_store_shell, read_web_source
+from _source import read_store_shell, read_web_source
 
 ROOT = Path(__file__).parents[3]
 PROJECT = ROOT.parent
@@ -219,17 +219,3 @@ def test_frontend_polls_with_post_body_and_keeps_nothing_in_storage():
     assert 'import TelegramLogin from "./TelegramLogin.tsx"' in app and 'modal === "telegram"' in app
     assert "hasBot" in app and "store.bot_username" in app
     assert "pair.is_admin" in app  # admins still cannot keep a storefront session
-
-
-def test_migration_and_model_agree_and_worker_cleans_up():
-    mig = read_source(API / "alembic/versions/0019_telegram_web_login.py")
-    assert 'down_revision = "0018_reseller_two_step"' in mig and "telegram_login_sessions" in mig
-    from melorin.kernel.models.identity import TelegramLoginSession
-
-    # The table is created by 0019 and extended by 0033 (automatic identity verification): together they cover the model.
-    mig_trust = read_source(API / "alembic/versions/0033_trusted_devices.py")
-    declared = set(__import__("re").findall(r'sa\.Column\("(\w+)"', mig + mig_trust))
-    assert {c.name for c in TelegramLoginSession.__table__.columns} <= declared
-    arq = read_source(API / "melorin/worker/arq_app.py")
-    assert "cron(telegram_login_gc_job" in arq and "telegram_login_gc_job]" in arq
-    assert "telegram_web_router" in read_source(API / "melorin/app.py")

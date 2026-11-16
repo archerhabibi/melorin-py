@@ -6,18 +6,12 @@ import type { Json, Toast } from '../../shared/types.ts';
 
 /* ---------- bulk import of servers for ONE panel ---------- */
 export const parseLine = (line: Json) => {
-  const [name = '', location = '', capacity = '', codes = ''] = line.split(',').map((s: Json) => s.trim());
+  const [name = '', location = '', capacity = ''] = line.split(',').map((s: Json) => s.trim());
   const cap = capacity === '' ? 500 : parseInt(capacity, 10);
   return {
     name,
     location,
     capacity: cap,
-    product_codes: codes
-      ? codes
-          .split('|')
-          .map((s: Json) => s.trim())
-          .filter(Boolean)
-      : [],
     bad: !name ? 'نام خالی' : !(cap >= 1 && cap <= 100000) ? 'ظرفیت نامعتبر' : '',
   };
 };
@@ -58,7 +52,6 @@ export function ServerImport({
             name: r.name,
             location: r.location || null,
             capacity: r.capacity,
-            product_codes: r.product_codes.length ? r.product_codes : null,
             panel_id: panel.id,
             allow_test: true, // the server default; the generated type marks it required
           },
@@ -94,13 +87,13 @@ export function ServerImport({
     >
       <Section
         title="داده CSV"
-        hint="هر خط یک سرور: نام, موقعیت, ظرفیت, کدهای محصول با | (فقط نام لازم است؛ ظرفیت خالی = ۵۰۰). خط‌های شروع‌شده با # نادیده گرفته می‌شوند."
+        hint="هر خط یک سرور: نام, موقعیت, ظرفیت (فقط نام لازم است؛ ظرفیت خالی = ۵۰۰). خط‌های شروع‌شده با # نادیده گرفته می‌شوند."
       >
         <textarea
           dir="ltr"
           rows={7}
           className="inp font-mono text-xs"
-          placeholder={'de-1, Frankfurt, 100\nde-2, Frankfurt, 250, plan_1m|plan_3m'}
+          placeholder={'de-1, Frankfurt, 100\nde-2, Frankfurt, 250'}
           value={text}
           onChange={(e) => setText(e.target.value)}
         />
@@ -113,7 +106,6 @@ export function ServerImport({
                 <th>نام</th>
                 <th>موقعیت</th>
                 <th>ظرفیت</th>
-                <th>محصولات</th>
               </tr>
             </thead>
             <tbody>
@@ -125,7 +117,6 @@ export function ServerImport({
                   </td>
                   <td>{r.location || '—'}</td>
                   <td>{Number.isFinite(r.capacity) ? num(r.capacity) : '—'}</td>
-                  <td className="text-xs">{r.product_codes.join('، ') || 'همه'}</td>
                 </tr>
               ))}
             </tbody>

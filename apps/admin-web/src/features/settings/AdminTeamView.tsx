@@ -4,7 +4,9 @@ import { Empty, ErrorBar, KpiBar, Pills, SearchBox, Stat, useRows } from '../../
 import { Avatar, Cell2, DataGrid, ScreenHead, Toolbar, When, matches, useCall } from '../../shared/dataKit.tsx';
 import { ROLE_TONE } from '../../app/adminAccess.ts';
 import { AdminMember, AdminRoleInfo, Toast, ViewApi } from '../../shared/types.ts';
-import { BASE, RoleBadge, StateBadge, RoleGuide, InviteDrawer, AdminDrawer } from './AdminTeamParts.tsx';
+import { BASE, RoleBadge, StateBadge, RoleGuide } from './AdminTeamParts.tsx';
+import { InviteDrawer } from './InviteDrawer.tsx';
+import { AdminDrawer } from './AdminDrawer.tsx';
 
 export default function AdminTeamView({ api, toast }: { api: ViewApi; toast: Toast }) {
   const call = useCall(api);

@@ -140,7 +140,6 @@ class CreateServer(BaseModel):
     panel_id: uuid.UUID
     location: str | None = Field(default=None, max_length=100)
     capacity: int = Field(gt=0, le=100000)
-    product_codes: list[str] | None = None
     allow_test: bool = True
     target: dict | None = None  # destination on the panel (group/template/inbound set); null = inherit the panel config
 
@@ -152,7 +151,6 @@ class UpdateServer(BaseModel):
     panel_id: uuid.UUID | None = None
     location: str | None = Field(default=None, max_length=100)
     capacity: int | None = Field(default=None, gt=0, le=100000)
-    product_codes: list[str] | None = None
     allow_test: bool | None = None
     target: dict | None = None  # explicit null clears the target (= inherit panel.config)
     capacity_source: str | None = Field(default=None, pattern="^(melorin|panel)$")  # PG-08: whose count fills the destination
@@ -165,7 +163,6 @@ class ServerOut(BaseModel):
     panel_name: str
     location: str | None = None
     capacity: int
-    product_codes: list[str] | None = None
     allow_test: bool
     is_enabled: bool
     active_accounts: int = 0

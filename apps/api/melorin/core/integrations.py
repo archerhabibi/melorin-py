@@ -45,7 +45,7 @@ ADMIN_ACCESS_DEFAULT: dict = {"enabled": False, "ips": []}  # OFF by default: no
 GOOGLE_DEFAULT: dict = {"enabled": False, "client_id": "", "admin_login": True, "store_login": True}
 GOOGLE_CLIENT_ID_RE = re.compile(r"^[0-9]{6,}-[A-Za-z0-9_-]+\.apps\.googleusercontent\.com$")
 # Login with Telegram. Two independent methods share one master switch:
-#   * bot approval  (device-authorization flow, docs/TELEGRAM-WEB-LOGIN.md) - needs only the store's bot;
+#   * bot approval  (device-authorization flow, docs/08-IDENTITY-ACCOUNT-PERSON.md) - needs only the store's bot;
 #   * OIDC redirect (https://core.telegram.org/bots/telegram-login)       - needs the bot's Client ID + Client Secret
 #     that @BotFather shows under "Login Widget". The secret is stored Fernet-encrypted and never returned.
 # Admins never sign in through Telegram (they use password + TOTP), so there is no admin switch.

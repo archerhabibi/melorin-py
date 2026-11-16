@@ -172,7 +172,7 @@ def render_status(
 
 > **Machine-owned file.** Regenerate with `python scripts/gen_docs.py`; CI fails (`--check`) if the
 > migration head or API surface below is stale. Release approval is **not** stated here - the only
-> release-status source is `docs/RELEASE-EVIDENCE-MATRIX.md`.
+> release-status source is `docs/20-TESTING-QUALITY-RELEASE.md`.
 
 | Measurement | Value |
 |---|---|
@@ -186,8 +186,8 @@ def render_status(
 | Documents: repo root / `docs/` / `docs/history/` (tests only) | {inv["root"]} / {inv["docs"]} / {inv["history"]} |
 
 Where things live: requirements and design `docs/01`-`docs/17` (13-17 are design records; 12 and 15 were merged into `DECISIONS.md` and `14`); route list `docs/API.md`;
-operations `docs/RUNBOOK.md`; decisions `docs/DECISIONS.md`; change log `docs/CHANGE_LOG.md`;
-historical phase reports (evidence, never current status) in git tag `docs-history-2026-10-22`, indexed in `docs/HISTORY.md`.
+operations `docs/18-OPERATIONS-DEPLOYMENT-DR.md`; decisions `docs/06-ARCHITECTURE-DECISIONS.md`; change log `docs/06-ARCHITECTURE-DECISIONS.md`;
+historical phase reports (evidence, never current status) in git tag `docs-history-2026-10-22`, indexed in `docs/06-ARCHITECTURE-DECISIONS.md`.
 """
 
 
@@ -219,7 +219,7 @@ RETAINED_HISTORY = {
     "I39_IRT_IRR_AUDIT.md",
     "I40_CURRENCY_PAYMENT_CONTRACT.md",
     "I41_BACKUP_RESTORE_DRILL.md",
-}  # read by tests/guards; everything else lives in the history tag (docs/HISTORY.md)
+}  # read by tests/guards; everything else lives in the history tag (docs/06-ARCHITECTURE-DECISIONS.md)
 PHASE_REPORT = re.compile(
     r"^(Melorin_.*|FINAL_.*REPORT.*|REVIEW_CHANGES_.*|FULL_PROJECT_AUDIT.*)\.md$"
 )
@@ -264,12 +264,12 @@ def check(block: str, status_expected: str) -> list[str]:
     for p in DOCS.glob("*.md"):
         if PHASE_REPORT.match(p.name):
             problems.append(
-                f"docs/{p.name}: phase reports are not kept in docs/ (history tag, see docs/HISTORY.md)"
+                f"docs/{p.name}: phase reports are not kept in docs/ (history tag, see docs/06-ARCHITECTURE-DECISIONS.md)"
             )
     for p in (DOCS / "history").glob("*"):
         if p.name not in RETAINED_HISTORY:
             problems.append(
-                f"docs/history/{p.name}: not allowed; history lives in the tag (docs/HISTORY.md)"
+                f"docs/history/{p.name}: not allowed; history lives in the tag (docs/06-ARCHITECTURE-DECISIONS.md)"
             )
     for stale in ("FULL_PROJECT_AUDIT.md", "DOCUMENTATION-STATUS.md"):
         if (ROOT / stale).exists():

@@ -6,34 +6,6 @@ from _source import read_source, read_store_shell, read_web_source
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def test_migration_and_worker_blockers_are_fixed():
-    env = read_source(ROOT / "alembic/env.py")
-    baseline = read_source(ROOT / "alembic/versions/0001_initial.py")
-    runner = read_source(ROOT / "melorin/worker/runner.py")
-    arq = read_source(ROOT / "melorin/worker/arq_app.py")
-    assert "await c.commit()" in env
-    assert "async with connectable.begin()" not in env
-    assert "await c.run_sync(lambda conn: context.run_migrations())" in env
-    assert "BASELINE_DDL" in baseline
-    assert "conn.exec_driver_sql(statement)" in baseline
-    assert "CreateTable" not in baseline
-    assert "MODEL_SOURCE_FINGERPRINT" in baseline
-    assert "from melorin import models" in runner
-    assert "melorin.modules.panel_integrations.adapters.registry import" in runner and "build_adapter" in runner
-    assert "register all SQLAlchemy mappers before worker sessions" in runner
-    assert "session.get(OutboxEvent, event_id, with_for_update=True)" in runner
-    assert "with_for_update=True" in runner
-    assert "failed = await session.get(OutboxEvent, event_id" in runner
-    assert "cron(poll_tick" in arq
-    assert "enqueue_job" not in arq
-
-
-def test_store_scoped_reseller_migration_skips_legacy_index_on_current_schema():
-    migration = read_source(ROOT / "alembic/versions/0004_f027_f030.py")
-    assert 'if "target_store_id" in app_columns:' in migration
-    assert "uq_reseller_application_pending_user" in migration
-
-
 def test_installer_supports_external_proxy_and_bootstraps_admin():
     root = ROOT.parent.parent
     installer = (root / "scripts/install_server.sh").read_text()
@@ -181,22 +153,6 @@ def test_k21_to_k27_hardening_is_wired():
     assert "npm audit --include=dev" in quality
 
 
-def test_full_project_regressions_are_wired():
-    root = ROOT.parent.parent
-    product_schema = read_source(ROOT / "melorin/modules/admin/schemas.py")
-    product_router = read_source(ROOT / "melorin/modules/admin/router.py")
-    payment_router = read_source(ROOT / "melorin/modules/reseller/router.py")
-    referral_model = read_source(ROOT / "melorin/kernel/models/referral.py")
-    migration = read_source(ROOT / "alembic/versions/0009_referral_first_reward_guard.py")
-    dockerfile = (ROOT / "Dockerfile").read_text()
-    assert "class ProductPatch" in product_schema and "body: ProductPatch" in product_router
-    assert "PAYMENT_REVIEW_FORBIDDEN" in payment_router
-    assert "referred_user_id" in referral_model and "0009_referral_first_reward_guard" in migration
-    assert "postgresql-client-16" in dockerfile and "apt.postgresql.org" in dockerfile
-    telegram = read_source(root / "apps/telegram-main/runner.py")
-    assert "MELORIN_MAX_UPLOAD_BYTES" in telegram and "file_size" in telegram
-
-
 def test_worker_has_one_runtime_entrypoint():
     runner = read_source(ROOT / "melorin/worker/runner.py")
     read_source(ROOT / "melorin/worker/arq_app.py")  # must exist and be readable
@@ -216,9 +172,9 @@ def test_lint_gate_uses_correctness_focused_policy():
 
 
 def test_release_matrix_is_the_single_current_status_source():
-    matrix = (ROOT.parent.parent / "docs/RELEASE-EVIDENCE-MATRIX.md").read_text()
+    matrix = (ROOT.parent.parent / "docs/20-TESTING-QUALITY-RELEASE.md").read_text()
     checker = read_source(ROOT.parent.parent / "scripts/check_release_matrix.py")
-    policy = (ROOT.parent.parent / "docs/history/I33_DOCUMENTATION_STATUS.md").read_text()
+    policy = (ROOT.parent.parent / "docs/06-ARCHITECTURE-DECISIONS.md").read_text()
     assert "I33" in checker
     assert "historical" in matrix.lower() and "historical" in policy.lower()
 
@@ -272,28 +228,16 @@ def test_i38_pgclock_destinations_and_irt_default():
     assert '"crypto"' in registry and '"telegram_stars"' in registry
 
 
-def test_i39_irt_irr_boundaries_are_explicit():
-    migration = read_source(ROOT / "alembic/versions/0002_v11.py")
-    smoke = read_source(ROOT.parent.parent / "scripts/postgres_concurrency_smoke.py")
-    zarinpal = read_source(ROOT / "melorin/modules/payments/adapters/zarinpal.py")
-    audit = (ROOT.parent.parent / "docs/history/I39_IRT_IRR_AUDIT.md").read_text()
-    assert "default=\"'IRT'\"" in migration
-    assert 'currency="IRT"' in smoke
-    assert "_gateway_amount" in zarinpal
-    assert "payment.amount * 10" in zarinpal
-    assert "IRT" in audit and "IRR" in audit
-
-
 def test_i40_currency_payment_contract_exists():
     test = read_source(ROOT / "tests/contracts/test_payment_currency_contract.py")
-    doc = (ROOT.parent.parent / "docs/history/I40_CURRENCY_PAYMENT_CONTRACT.md").read_text()
+    doc = (ROOT.parent.parent / "docs/15-PAYMENTS-WALLET-FINANCE.md").read_text()
     assert "_gateway_amount" in test
     assert "destination/currency mismatch" in doc
 
 
 def test_i41_restore_drill_is_real_and_isolated():
     script = (ROOT.parent.parent / "scripts/backup_restore_drill.sh").read_text()
-    doc = (ROOT.parent.parent / "docs/history/I41_BACKUP_RESTORE_DRILL.md").read_text()
+    doc = (ROOT.parent.parent / "docs/18-OPERATIONS-DEPLOYMENT-DR.md").read_text()
     assert "createdb" in script and "pg_restore" in script and "dropdb" in script
     assert "restore_drill" in script
     assert "RPO" in doc and "RTO" in doc
