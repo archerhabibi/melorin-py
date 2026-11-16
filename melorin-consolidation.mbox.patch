@@ -1,7 +1,7 @@
 From 6d9a4f0362f5d56698feb641bc9e79b7d41f6a49 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Mon, 16 Nov 2026 02:37:49 +0000
-Subject: [PATCH 1/7] refactor(catalog): drop server-level product_codes;
+Subject: [PATCH 01/10] refactor(catalog): drop server-level product_codes;
  bundle membership is the only eligibility source
 
 ---
@@ -706,8 +706,8 @@ index 249cc20..c5251eb 100644
 From 70e308055e512a2e9a5d2a6d9441cdf0f680a6ad Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Mon, 16 Nov 2026 02:43:55 +0000
-Subject: [PATCH 2/7] refactor: single baseline migration, remove patch files,
- tickets staff lifecycle in tickets service, shared open-ticket query
+Subject: [PATCH 02/10] refactor: single baseline migration, remove patch
+ files, tickets staff lifecycle in tickets service, shared open-ticket query
 
 ---
  apps/api/alembic/versions/0001_initial.py     |   161 -
@@ -137767,8 +137767,8 @@ index c48fd28..0000000
 From 2ebbac736e552ba10aab0fa04850c31673af41ed Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Mon, 16 Nov 2026 02:56:28 +0000
-Subject: [PATCH 3/7] docs: consolidate into 22 bilingual reference documents,
- short READMEs, regenerate STATUS/API and API client
+Subject: [PATCH 03/10] docs: consolidate into 22 bilingual reference
+ documents, short READMEs, regenerate STATUS/API and API client
 
 ---
  .env.example                                  |    8 +-
@@ -159110,7 +159110,7 @@ index 5c566dd..87de911 100755
 From 577c959b2daaba72e074f1b010307f8b91c0eae5 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Mon, 16 Nov 2026 03:02:00 +0000
-Subject: [PATCH 4/7] test/docs: prune legacy migration-history tests, add
+Subject: [PATCH 04/10] test/docs: prune legacy migration-history tests, add
  baseline postgres test, fix README install gates, ruff
 
 ---
@@ -164364,7 +164364,7 @@ index 8fcf70b..8082006 100644
 From ccf2c68044915162e760e608abeb2deab82b48ab Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Mon, 16 Nov 2026 03:30:42 +0000
-Subject: [PATCH 5/7] style: ruff format test files touched by the baseline
+Subject: [PATCH 05/10] style: ruff format test files touched by the baseline
  cleanup
 
 ---
@@ -164630,7 +164630,7 @@ index 808b70f..3429824 100644
 From 9d7830c0f10837ed0a19a8270fed89fdd5c999c0 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Mon, 16 Nov 2026 06:56:09 +0000
-Subject: [PATCH 6/7] docs: canonical set is 24 files (22 hand-written +
+Subject: [PATCH 06/10] docs: canonical set is 24 files (22 hand-written +
  generated STATUS/API), guard test
 
 ---
@@ -164686,7 +164686,7 @@ index d3ac447..d5811dd 100644
 From 08e1564e5d9f1dd79840541961c8ec25565757b4 Mon Sep 17 00:00:00 2001
 From: Melorin Refactor <refactor@melorin.local>
 Date: Mon, 16 Nov 2026 07:05:57 +0000
-Subject: [PATCH 7/7] refactor(admin-web): split large files (pure moves) and
+Subject: [PATCH 07/10] refactor(admin-web): split large files (pure moves) and
  record in debt register
 
 ---
@@ -169336,6 +169336,2613 @@ index 40c4b90..222644a 100644
 +
 +- EN: pure moves, no behaviour change. `BundleDrawer` 695 to 397 (`BundlePackages`, `ResellerPrices`), `PanelDrawer` 648 to 505 (`panelForm.ts`), `PanelsView` 563 to about 440 (`panelsList.ts` pure list logic, `PanelsOverlays`), `ProductParts` 533 to 225 (`ProductDrawer`, `ProductSwitches`), `ReportsSections` 519 to 168, `ButtonStylesView` 508 to 222, `IdentityReviewsView` 483 to 162, `ResellerApplicationsView` 468 to 194. Still above 450 lines: `PanelDrawer`, `PanelsView`, `ReceiptReviewPanel`, `ReportCharts`, `AdminTeamParts`.
 +- FA: جابه‌جایی خالص بدون تغییر رفتاری انجام شد (اعداد بالا). هنوز بزرگ‌تر از ۴۵۰ خط: `PanelDrawer`، `PanelsView`، `ReceiptReviewPanel`، `ReportCharts`، `AdminTeamParts`.
+-- 
+2.43.0
+
+
+From dad041faf4eb156f900a552a344d15290aa77d8b Mon Sep 17 00:00:00 2001
+From: Melorin Refactor <refactor@melorin.local>
+Date: Mon, 16 Nov 2026 07:22:20 +0000
+Subject: [PATCH 08/10] refactor(admin-web): second split pass (PanelDrawer,
+ ReceiptReviewPanel, ReportCharts, AdminTeamParts); no file above 450 lines
+
+---
+ .../panels/PanelConnectionSection.tsx         |  99 +++++
+ .../panels/PanelCredentialsSection.tsx        |  88 ++++
+ .../src/features/panels/PanelDrawer.tsx       | 201 ++-------
+ .../features/payments/ReceiptReviewPanel.tsx  | 139 +-----
+ .../src/features/payments/ReceiptRow.tsx      | 114 +++++
+ .../src/features/payments/receiptHelpers.ts   |  21 +
+ .../src/features/reports/CompareChart.tsx     | 180 ++++++++
+ .../features/reports/DistributionCharts.tsx   | 225 ++++++++++
+ .../src/features/reports/ReportCharts.tsx     | 400 ------------------
+ .../features/reports/ReportsBreakdowns.tsx    |   3 +-
+ .../src/features/reports/ReportsMainChart.tsx |   3 +-
+ .../src/features/reports/ReportsView.tsx      |   3 +-
+ .../src/features/settings/AdminDrawer.tsx     | 231 ++++++++++
+ .../src/features/settings/AdminTeamParts.tsx  | 352 +--------------
+ .../src/features/settings/AdminTeamView.tsx   |   4 +-
+ .../src/features/settings/InviteDrawer.tsx    | 129 ++++++
+ apps/admin-web/tests/receipt-review.test.jsx  |   3 +-
+ docs/21-ROADMAP-TECHNICAL-DEBT.md             |   4 +-
+ 18 files changed, 1137 insertions(+), 1062 deletions(-)
+ create mode 100644 apps/admin-web/src/features/panels/PanelConnectionSection.tsx
+ create mode 100644 apps/admin-web/src/features/panels/PanelCredentialsSection.tsx
+ create mode 100644 apps/admin-web/src/features/payments/ReceiptRow.tsx
+ create mode 100644 apps/admin-web/src/features/payments/receiptHelpers.ts
+ create mode 100644 apps/admin-web/src/features/reports/CompareChart.tsx
+ create mode 100644 apps/admin-web/src/features/reports/DistributionCharts.tsx
+ create mode 100644 apps/admin-web/src/features/settings/AdminDrawer.tsx
+ create mode 100644 apps/admin-web/src/features/settings/InviteDrawer.tsx
+
+diff --git a/apps/admin-web/src/features/panels/PanelConnectionSection.tsx b/apps/admin-web/src/features/panels/PanelConnectionSection.tsx
+new file mode 100644
+index 0000000..72abba3
+--- /dev/null
++++ b/apps/admin-web/src/features/panels/PanelConnectionSection.tsx
+@@ -0,0 +1,99 @@
++import { Field, Section, Secret, Segmented } from '../../shared/kit.tsx';
++import { ShieldCheck } from 'lucide-react';
++import { UpstreamCredentials } from './UpstreamBotFields.tsx';
++
++export function PanelConnectionSection({
++  changeCred,
++  edit,
++  err,
++  f,
++  isUb,
++  panel,
++  set,
++  setChangeCred,
++  setF,
++  setUb,
++  show,
++}: Record<string, any>) {
++  return (
++    <>
++      {f.kind !== 'mock' && (
++        <Section title={`${edit ? '' : '۳ · '}احراز هویت (رمزنگاری‌شده ذخیره می‌شود)`}>
++          {edit && panel.has_credentials && !changeCred ? (
++            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-[var(--sf2)] px-3 py-2.5">
++              <span className="flex items-center gap-2 text-xs">
++                <ShieldCheck size={15} className="text-[var(--ok)]" />
++                اعتبارنامه ذخیره شده است و نمایش داده نمی‌شود.
++              </span>
++              <button type="button" className="btn btn-g" onClick={() => setChangeCred(true)}>
++                تغییر اعتبارنامه
++              </button>
++            </div>
++          ) : (
++            <>
++              {isUb ? (
++                <UpstreamCredentials ub={f.ub} setUb={setUb} show={show} edit={edit} />
++              ) : (
++                <>
++                  <Segmented
++                    label="روش ورود"
++                    value={f.auth}
++                    onChange={set('auth')}
++                    options={[
++                      ['token', f.kind === 'sanaei' ? 'API Token' : 'API Key'],
++                      ['login', 'نام کاربری و رمز'],
++                    ]}
++                  />
++                  {f.auth === 'token' ? (
++                    <Field label={f.kind === 'sanaei' ? 'API Token' : 'API Key'} error={show('auth') || undefined}>
++                      <Secret value={f.token} onChange={set('token')} placeholder="••••••••" />
++                    </Field>
++                  ) : (
++                    <div className="grid gap-3 sm:grid-cols-2">
++                      <Field label="نام کاربری">
++                        <input
++                          dir="ltr"
++                          autoComplete="off"
++                          className="inp"
++                          value={f.user}
++                          onChange={(e) => set('user')(e.target.value)}
++                        />
++                      </Field>
++                      <Field label="رمز عبور">
++                        <Secret value={f.pass} onChange={set('pass')} />
++                      </Field>
++                      {show('auth') && <p className="text-[11px] text-[var(--bd)] sm:col-span-2">{err.auth}</p>}
++                    </div>
++                  )}
++                  {f.kind === 'sanaei' && f.auth === 'login' && (
++                    <p className="text-[11px] leading-5 text-[var(--mu)]">
++                      اگر 2FA روی پنل فعال است، ورود با نام کاربری کار نمی‌کند؛ از API Token استفاده کنید.
++                    </p>
++                  )}
++                </>
++              )}
++              {edit && panel.has_credentials && (
++                <button
++                  type="button"
++                  className="text-xs font-bold text-[var(--mu)] underline"
++                  onClick={() => {
++                    setChangeCred(false);
++                    setF((x: { ub: Record<string, unknown> } & Record<string, unknown>) => ({
++                      ...x,
++                      token: '',
++                      user: '',
++                      pass: '',
++                      ub: { ...x.ub, apiId: '', apiHash: '', session: '' },
++                    }));
++                  }}
++                >
++                  انصراف از تغییر اعتبارنامه
++                </button>
++              )}
++            </>
++          )}
++        </Section>
++      )}
++    </>
++  );
++}
+diff --git a/apps/admin-web/src/features/panels/PanelCredentialsSection.tsx b/apps/admin-web/src/features/panels/PanelCredentialsSection.tsx
+new file mode 100644
+index 0000000..bbc0c39
+--- /dev/null
++++ b/apps/admin-web/src/features/panels/PanelCredentialsSection.tsx
+@@ -0,0 +1,88 @@
++import { Field, Section, Segmented, Toggle } from '../../shared/kit.tsx';
++import { UpstreamSettings } from './UpstreamBotFields.tsx';
++import { Chips } from './panelUi.tsx';
++
++export function PanelCredentialsSection({ edit, err, f, groups, isUb, k, set, setUb, show }: Record<string, any>) {
++  return (
++    <>
++      {f.kind !== 'mock' && (
++        <Section title={`${edit ? '' : '۴ · '}تنظیمات ${k.title}`}>
++          {f.kind === 'sanaei' && (
++            <>
++              <Field
++                label="Inbound IDها"
++                error={show('inbounds') || undefined}
++                hint="شناسه Inboundهایی که کلاینت در آن‌ها ساخته می‌شود؛ بعد از هر عدد Enter بزنید"
++              >
++                <Chips values={f.inbounds} onChange={set('inbounds')} placeholder="مثلاً 1" />
++              </Field>
++              <Field
++                label="آدرس ساب‌اسکریپشن"
++                error={show('subUrl') || undefined}
++                hint="Sub Port + Sub Path از Settings → Subscription پنل"
++              >
++                <input
++                  dir="ltr"
++                  spellCheck={false}
++                  className="inp"
++                  value={f.subUrl}
++                  placeholder="https://sub.example.com:2096/sub"
++                  onChange={(e) => set('subUrl')(e.target.value)}
++                />
++              </Field>
++              <Field label="سبک API">
++                <Segmented
++                  label="سبک API"
++                  value={f.apiStyle}
++                  onChange={set('apiStyle')}
++                  options={[
++                    ['auto', 'خودکار'],
++                    ['v3', 'v3'],
++                    ['legacy', 'Legacy'],
++                  ]}
++                />
++              </Field>
++            </>
++          )}
++          {isUb && <UpstreamSettings ub={f.ub} setUb={setUb} err={err} show={show} />}
++          {f.kind === 'pasarguard' && (
++            <>
++              <Segmented
++                label="محدوده"
++                value={f.scope}
++                onChange={set('scope')}
++                options={[
++                  ['groups', 'Group IDs'],
++                  ['template', 'قالب کاربر'],
++                ]}
++              />
++              {f.scope === 'groups' ? (
++                <Field label="Group IDها" error={show('scope') || undefined}>
++                  <Chips values={f.groups} onChange={set('groups')} placeholder="مثلاً 1" />
++                </Field>
++              ) : (
++                <Field label="شناسه قالب کاربر" error={show('scope') || undefined}>
++                  <input
++                    dir="ltr"
++                    inputMode="numeric"
++                    className="inp"
++                    value={f.tpl}
++                    onChange={(e) => set('tpl')(e.target.value.replace(/\D/g, ''))}
++                  />
++                </Field>
++              )}
++            </>
++          )}
++          {!isUb && (
++            <Toggle
++              checked={f.verifyTls}
++              onChange={set('verifyTls')}
++              label="بررسی گواهی TLS"
++              hint="در محیط عملیاتی خاموش‌کردن آن مجاز نیست؛ فقط برای تست با گواهی self-signed."
++            />
++          )}
++        </Section>
++      )}
++    </>
++  );
++}
+diff --git a/apps/admin-web/src/features/panels/PanelDrawer.tsx b/apps/admin-web/src/features/panels/PanelDrawer.tsx
+index c9f5bd6..4de7815 100644
+--- a/apps/admin-web/src/features/panels/PanelDrawer.tsx
++++ b/apps/admin-web/src/features/panels/PanelDrawer.tsx
+@@ -1,25 +1,16 @@
+ import { useMemo, useRef, useState } from 'react';
+ import { Badge, dt, sid } from '../../shared/ui.tsx';
+ import { Dot, health, memberIds } from '../panel-operations/infra.tsx';
+-import {
+-  Drawer,
+-  Field,
+-  NumInput,
+-  Section,
+-  Secret,
+-  Segmented,
+-  Switch,
+-  Toggle,
+-  DeleteButton,
+-  tint,
+-} from '../../shared/kit.tsx';
+-import { Activity, AlertTriangle, Check, ChevronDown, Plus, RefreshCw, Save, ShieldCheck } from 'lucide-react';
++import { Drawer, Field, NumInput, Section, Switch, Toggle, DeleteButton, tint } from '../../shared/kit.tsx';
++import { Activity, AlertTriangle, Check, ChevronDown, Plus, RefreshCw, Save } from 'lucide-react';
+ import { focusOnMount } from '../../shared/useDialog.ts';
+-import { UpstreamBotLink, UpstreamCredentials, UpstreamSettings } from './UpstreamBotFields.tsx';
++import { UpstreamBotLink } from './UpstreamBotFields.tsx';
+ import { UpstreamFlowSection } from './UpstreamFlowParts.tsx';
+-import { KINDS, kindOf, Chips } from './panelUi.tsx';
++import { KINDS, kindOf } from './panelUi.tsx';
+ import type { Json } from '../../shared/types.ts';
+ import { EMPTY, EMPTY_SRV, fromPanel, buildPayload, validate } from './panelForm';
++import { PanelCredentialsSection } from './PanelCredentialsSection.tsx';
++import { PanelConnectionSection } from './PanelConnectionSection.tsx';
+ 
+ export function PanelDrawer({
+   panel,
+@@ -244,162 +235,30 @@ export function PanelDrawer({
+         )}
+       </Section>
+ 
+-      {f.kind !== 'mock' && (
+-        <Section title={`${edit ? '' : '۳ · '}احراز هویت (رمزنگاری‌شده ذخیره می‌شود)`}>
+-          {edit && panel.has_credentials && !changeCred ? (
+-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-[var(--sf2)] px-3 py-2.5">
+-              <span className="flex items-center gap-2 text-xs">
+-                <ShieldCheck size={15} className="text-[var(--ok)]" />
+-                اعتبارنامه ذخیره شده است و نمایش داده نمی‌شود.
+-              </span>
+-              <button type="button" className="btn btn-g" onClick={() => setChangeCred(true)}>
+-                تغییر اعتبارنامه
+-              </button>
+-            </div>
+-          ) : (
+-            <>
+-              {isUb ? (
+-                <UpstreamCredentials ub={f.ub} setUb={setUb} show={show} edit={edit} />
+-              ) : (
+-                <>
+-                  <Segmented
+-                    label="روش ورود"
+-                    value={f.auth}
+-                    onChange={set('auth')}
+-                    options={[
+-                      ['token', f.kind === 'sanaei' ? 'API Token' : 'API Key'],
+-                      ['login', 'نام کاربری و رمز'],
+-                    ]}
+-                  />
+-                  {f.auth === 'token' ? (
+-                    <Field label={f.kind === 'sanaei' ? 'API Token' : 'API Key'} error={show('auth') || undefined}>
+-                      <Secret value={f.token} onChange={set('token')} placeholder="••••••••" />
+-                    </Field>
+-                  ) : (
+-                    <div className="grid gap-3 sm:grid-cols-2">
+-                      <Field label="نام کاربری">
+-                        <input
+-                          dir="ltr"
+-                          autoComplete="off"
+-                          className="inp"
+-                          value={f.user}
+-                          onChange={(e) => set('user')(e.target.value)}
+-                        />
+-                      </Field>
+-                      <Field label="رمز عبور">
+-                        <Secret value={f.pass} onChange={set('pass')} />
+-                      </Field>
+-                      {show('auth') && <p className="text-[11px] text-[var(--bd)] sm:col-span-2">{err.auth}</p>}
+-                    </div>
+-                  )}
+-                  {f.kind === 'sanaei' && f.auth === 'login' && (
+-                    <p className="text-[11px] leading-5 text-[var(--mu)]">
+-                      اگر 2FA روی پنل فعال است، ورود با نام کاربری کار نمی‌کند؛ از API Token استفاده کنید.
+-                    </p>
+-                  )}
+-                </>
+-              )}
+-              {edit && panel.has_credentials && (
+-                <button
+-                  type="button"
+-                  className="text-xs font-bold text-[var(--mu)] underline"
+-                  onClick={() => {
+-                    setChangeCred(false);
+-                    setF((x) => ({
+-                      ...x,
+-                      token: '',
+-                      user: '',
+-                      pass: '',
+-                      ub: { ...x.ub, apiId: '', apiHash: '', session: '' },
+-                    }));
+-                  }}
+-                >
+-                  انصراف از تغییر اعتبارنامه
+-                </button>
+-              )}
+-            </>
+-          )}
+-        </Section>
+-      )}
+-
+-      {f.kind !== 'mock' && (
+-        <Section title={`${edit ? '' : '۴ · '}تنظیمات ${k.title}`}>
+-          {f.kind === 'sanaei' && (
+-            <>
+-              <Field
+-                label="Inbound IDها"
+-                error={show('inbounds') || undefined}
+-                hint="شناسه Inboundهایی که کلاینت در آن‌ها ساخته می‌شود؛ بعد از هر عدد Enter بزنید"
+-              >
+-                <Chips values={f.inbounds} onChange={set('inbounds')} placeholder="مثلاً 1" />
+-              </Field>
+-              <Field
+-                label="آدرس ساب‌اسکریپشن"
+-                error={show('subUrl') || undefined}
+-                hint="Sub Port + Sub Path از Settings → Subscription پنل"
+-              >
+-                <input
+-                  dir="ltr"
+-                  spellCheck={false}
+-                  className="inp"
+-                  value={f.subUrl}
+-                  placeholder="https://sub.example.com:2096/sub"
+-                  onChange={(e) => set('subUrl')(e.target.value)}
+-                />
+-              </Field>
+-              <Field label="سبک API">
+-                <Segmented
+-                  label="سبک API"
+-                  value={f.apiStyle}
+-                  onChange={set('apiStyle')}
+-                  options={[
+-                    ['auto', 'خودکار'],
+-                    ['v3', 'v3'],
+-                    ['legacy', 'Legacy'],
+-                  ]}
+-                />
+-              </Field>
+-            </>
+-          )}
+-          {isUb && <UpstreamSettings ub={f.ub} setUb={setUb} err={err} show={show} />}
+-          {f.kind === 'pasarguard' && (
+-            <>
+-              <Segmented
+-                label="محدوده"
+-                value={f.scope}
+-                onChange={set('scope')}
+-                options={[
+-                  ['groups', 'Group IDs'],
+-                  ['template', 'قالب کاربر'],
+-                ]}
+-              />
+-              {f.scope === 'groups' ? (
+-                <Field label="Group IDها" error={show('scope') || undefined}>
+-                  <Chips values={f.groups} onChange={set('groups')} placeholder="مثلاً 1" />
+-                </Field>
+-              ) : (
+-                <Field label="شناسه قالب کاربر" error={show('scope') || undefined}>
+-                  <input
+-                    dir="ltr"
+-                    inputMode="numeric"
+-                    className="inp"
+-                    value={f.tpl}
+-                    onChange={(e) => set('tpl')(e.target.value.replace(/\D/g, ''))}
+-                  />
+-                </Field>
+-              )}
+-            </>
+-          )}
+-          {!isUb && (
+-            <Toggle
+-              checked={f.verifyTls}
+-              onChange={set('verifyTls')}
+-              label="بررسی گواهی TLS"
+-              hint="در محیط عملیاتی خاموش‌کردن آن مجاز نیست؛ فقط برای تست با گواهی self-signed."
+-            />
+-          )}
+-        </Section>
+-      )}
++      <PanelConnectionSection
++        changeCred={changeCred}
++        edit={edit}
++        err={err}
++        f={f}
++        isUb={isUb}
++        panel={panel}
++        set={set}
++        setChangeCred={setChangeCred}
++        setF={setF}
++        setUb={setUb}
++        show={show}
++      />
++      <PanelCredentialsSection
++        edit={edit}
++        err={err}
++        f={f}
++        groups={groups}
++        isUb={isUb}
++        k={k}
++        set={set}
++        setUb={setUb}
++        show={show}
++      />
+       {isUb && <UpstreamFlowSection ub={f.ub} />}
+ 
+       {!edit && (
+diff --git a/apps/admin-web/src/features/payments/ReceiptReviewPanel.tsx b/apps/admin-web/src/features/payments/ReceiptReviewPanel.tsx
+index 234baf0..b67bb18 100644
+--- a/apps/admin-web/src/features/payments/ReceiptReviewPanel.tsx
++++ b/apps/admin-web/src/features/payments/ReceiptReviewPanel.tsx
+@@ -1,141 +1,12 @@
+-import type { ReactNode } from 'react';
+-// ReceiptReviewPanel.tsx — time-boxed manual review of card-to-card receipts ("بازبینی سریع و تأیید موقت").
+-// An unclear receipt waits for a human. If nobody decides within N minutes the customer is credited *provisionally* and the
+-// payment moves to a fast-review list; the first admin/agent who comes online confirms it (credit stays) or revokes it
+-// (credit is reversed). Core makes every decision and enforces the caps; this panel edits the settings, shows the two
+-// queues with a live countdown and sends the human decision.
+ import { useCallback, useEffect, useRef, useState } from 'react';
+-import { AlertTriangle, Check, Clock, Copy, Hourglass, ImageIcon, Undo2 } from 'lucide-react';
++import { Check, Undo2 } from 'lucide-react';
+ import { Empty, Field, Section, Switch, errText, num } from '../../shared/kit.tsx';
+ import { confirmDialog, dt } from '../../shared/ui.tsx';
+-import ReceiptDuplicatePolicy, { duplicateLine } from './ReceiptDuplicatePolicy.tsx';
+-import type { CallFn, Json, Rec, Toast } from '../../shared/types.ts';
++import ReceiptDuplicatePolicy from './ReceiptDuplicatePolicy.tsx';
++import type { CallFn, Json, Toast } from '../../shared/types.ts';
++import { JSON_H, CUR, toInt, clock } from './receiptHelpers';
++import { Row } from './ReceiptRow';
+ 
+-const JSON_H = { 'Content-Type': 'application/json' };
+-const CUR: Rec = { IRT: 'تومان', IRR: 'ریال' };
+-const toInt = (s: Json) => {
+-  const t = String(s ?? '')
+-    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+-    .replace(/\D/g, '');
+-  return t === '' ? null : Number(t);
+-};
+-export const clock = (sec: Json) => {
+-  const s = Math.max(0, Math.floor(sec));
+-  return `${num(Math.floor(s / 60)).padStart(2, '۰')}:${num(s % 60).padStart(2, '۰')}`;
+-};
+-const ago = (sec: Json) => {
+-  const m = Math.floor(sec / 60);
+-  if (m < 1) return 'لحظاتی پیش';
+-  if (m < 60) return `${num(m)} دقیقه پیش`;
+-  return `${num(Math.floor(m / 60))} ساعت و ${num(m % 60)} دقیقه پیش`;
+-};
+-
+-function Facts({ r }: { r?: Json }) {
+-  if (!r) return <span className="text-[11px] text-[var(--mu)]">اطلاعاتی از روی رسید خوانده نشده</span>;
+-  const rows = [
+-    ['مبلغ رسید', r.amount_rial ? `${num(r.amount_rial)} ریال` : null],
+-    ['زمان', r.paid_at ? dt(r.paid_at) : null],
+-    ['کارت مبدأ', r.source_card_last4 ? `…${r.source_card_last4}` : null],
+-    ['مرجع', r.reference],
+-  ].filter(([, v]) => v);
+-  if (!rows.length) return <span className="text-[11px] text-[var(--mu)]">رسید خوانده نشد (بررسی چشمی لازم است)</span>;
+-  return (
+-    <span className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-[var(--mu)]">
+-      {rows.map(([k, v]) => (
+-        <span key={k}>
+-          {k}: <b dir="ltr">{v}</b>
+-        </span>
+-      ))}
+-    </span>
+-  );
+-}
+-
+-function Row({
+-  item,
+-  tone,
+-  now,
+-  minutes,
+-  children,
+-  onReceipt,
+-}: {
+-  item?: Json;
+-  tone?: Json;
+-  now?: Json;
+-  minutes?: Json;
+-  children?: ReactNode;
+-  onReceipt?: Json;
+-}) {
+-  const left = item.auto_approve_at ? (new Date(item.auto_approve_at).getTime() - now) / 1000 : null;
+-  const total = (minutes || 5) * 60;
+-  const pct = left == null ? 0 : Math.min(100, Math.max(0, ((total - left) / total) * 100));
+-  return (
+-    <li className="rounded-xl border p-3" style={{ borderColor: `var(--${tone}, var(--ln))` }}>
+-      <div className="flex flex-wrap items-start justify-between gap-3">
+-        <div className="min-w-0 space-y-1">
+-          <div className="flex flex-wrap items-center gap-2">
+-            <b className="text-sm">
+-              {num(item.amount)} {CUR[item.currency] || item.currency}
+-            </b>
+-            {item.block_text && (
+-              <span className="badge b-wn" title={item.block_text}>
+-                <AlertTriangle size={11} /> تأیید موقت نمی‌شود
+-              </span>
+-            )}
+-            {item.duplicate && (
+-              <span className="badge b-wn" title={duplicateLine(item.duplicate)}>
+-                <Copy size={11} /> تصویر تکراری
+-              </span>
+-            )}
+-            {item.shortfall ? <span className="badge b-bd">کسری کیف پول: {num(item.shortfall)}</span> : null}
+-          </div>
+-          {item.block_text && <div className="text-[11px] text-[var(--wn)]">{item.block_text}</div>}
+-          {item.duplicate && <div className="text-[11px] text-[var(--wn)]">{duplicateLine(item.duplicate)}</div>}
+-          <Facts r={item.receipt_read} />
+-        </div>
+-        <div className="flex flex-wrap items-center gap-1.5">
+-          {onReceipt && (
+-            <button className="btn btn-g !py-1.5" onClick={() => onReceipt(item)} aria-label="مشاهده تصویر رسید">
+-              <ImageIcon size={14} /> رسید
+-            </button>
+-          )}
+-          {children}
+-        </div>
+-      </div>
+-      {left != null && !item.block && (
+-        <div className="mt-2.5">
+-          <div className="mb-1 flex items-center justify-between text-[11px] text-[var(--mu)]">
+-            <span className="flex items-center gap-1">
+-              <Hourglass size={12} /> {left > 0 ? 'تا تأیید موقت' : 'در حال تأیید موقت…'}
+-            </span>
+-            <b dir="ltr" aria-live="off">
+-              {clock(left)}
+-            </b>
+-          </div>
+-          <div
+-            className="h-1.5 overflow-hidden rounded-full bg-[var(--bg2)]"
+-            role="progressbar"
+-            aria-valuemin={0}
+-            aria-valuemax={100}
+-            aria-valuenow={Math.round(pct)}
+-            aria-label="زمان باقی‌مانده تا تأیید موقت"
+-          >
+-            <div
+-              className="h-full rounded-full bg-[var(--wn)] transition-[width] duration-1000"
+-              style={{ width: `${pct}%` }}
+-            />
+-          </div>
+-        </div>
+-      )}
+-      {item.credited_at && (
+-        <div className="mt-1.5 flex items-center gap-1 text-[11px] text-[var(--mu)]">
+-          <Clock size={12} /> شارژ موقت: {ago((now - new Date(item.credited_at).getTime()) / 1000)}
+-        </div>
+-      )}
+-    </li>
+-  );
+-}
+-
+-/** ``base`` = store API root, e.g. ``/api/v1/admin/stores/<id>`` or ``/api/v1/stores/<id>/reseller``. */
+ export default function ReceiptReviewPanel({
+   call,
+   toast,
+diff --git a/apps/admin-web/src/features/payments/ReceiptRow.tsx b/apps/admin-web/src/features/payments/ReceiptRow.tsx
+new file mode 100644
+index 0000000..3c5906c
+--- /dev/null
++++ b/apps/admin-web/src/features/payments/ReceiptRow.tsx
+@@ -0,0 +1,114 @@
++import type { ReactNode } from 'react';
++import { AlertTriangle, Clock, Copy, Hourglass, ImageIcon } from 'lucide-react';
++import { num } from '../../shared/kit.tsx';
++import { dt } from '../../shared/ui.tsx';
++import { duplicateLine } from './ReceiptDuplicatePolicy.tsx';
++import type { Json } from '../../shared/types.ts';
++import { CUR, clock, ago } from './receiptHelpers';
++
++export function Facts({ r }: { r?: Json }) {
++  if (!r) return <span className="text-[11px] text-[var(--mu)]">اطلاعاتی از روی رسید خوانده نشده</span>;
++  const rows = [
++    ['مبلغ رسید', r.amount_rial ? `${num(r.amount_rial)} ریال` : null],
++    ['زمان', r.paid_at ? dt(r.paid_at) : null],
++    ['کارت مبدأ', r.source_card_last4 ? `…${r.source_card_last4}` : null],
++    ['مرجع', r.reference],
++  ].filter(([, v]) => v);
++  if (!rows.length) return <span className="text-[11px] text-[var(--mu)]">رسید خوانده نشد (بررسی چشمی لازم است)</span>;
++  return (
++    <span className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-[var(--mu)]">
++      {rows.map(([k, v]) => (
++        <span key={k}>
++          {k}: <b dir="ltr">{v}</b>
++        </span>
++      ))}
++    </span>
++  );
++}
++
++export function Row({
++  item,
++  tone,
++  now,
++  minutes,
++  children,
++  onReceipt,
++}: {
++  item?: Json;
++  tone?: Json;
++  now?: Json;
++  minutes?: Json;
++  children?: ReactNode;
++  onReceipt?: Json;
++}) {
++  const left = item.auto_approve_at ? (new Date(item.auto_approve_at).getTime() - now) / 1000 : null;
++  const total = (minutes || 5) * 60;
++  const pct = left == null ? 0 : Math.min(100, Math.max(0, ((total - left) / total) * 100));
++  return (
++    <li className="rounded-xl border p-3" style={{ borderColor: `var(--${tone}, var(--ln))` }}>
++      <div className="flex flex-wrap items-start justify-between gap-3">
++        <div className="min-w-0 space-y-1">
++          <div className="flex flex-wrap items-center gap-2">
++            <b className="text-sm">
++              {num(item.amount)} {CUR[item.currency] || item.currency}
++            </b>
++            {item.block_text && (
++              <span className="badge b-wn" title={item.block_text}>
++                <AlertTriangle size={11} /> تأیید موقت نمی‌شود
++              </span>
++            )}
++            {item.duplicate && (
++              <span className="badge b-wn" title={duplicateLine(item.duplicate)}>
++                <Copy size={11} /> تصویر تکراری
++              </span>
++            )}
++            {item.shortfall ? <span className="badge b-bd">کسری کیف پول: {num(item.shortfall)}</span> : null}
++          </div>
++          {item.block_text && <div className="text-[11px] text-[var(--wn)]">{item.block_text}</div>}
++          {item.duplicate && <div className="text-[11px] text-[var(--wn)]">{duplicateLine(item.duplicate)}</div>}
++          <Facts r={item.receipt_read} />
++        </div>
++        <div className="flex flex-wrap items-center gap-1.5">
++          {onReceipt && (
++            <button className="btn btn-g !py-1.5" onClick={() => onReceipt(item)} aria-label="مشاهده تصویر رسید">
++              <ImageIcon size={14} /> رسید
++            </button>
++          )}
++          {children}
++        </div>
++      </div>
++      {left != null && !item.block && (
++        <div className="mt-2.5">
++          <div className="mb-1 flex items-center justify-between text-[11px] text-[var(--mu)]">
++            <span className="flex items-center gap-1">
++              <Hourglass size={12} /> {left > 0 ? 'تا تأیید موقت' : 'در حال تأیید موقت…'}
++            </span>
++            <b dir="ltr" aria-live="off">
++              {clock(left)}
++            </b>
++          </div>
++          <div
++            className="h-1.5 overflow-hidden rounded-full bg-[var(--bg2)]"
++            role="progressbar"
++            aria-valuemin={0}
++            aria-valuemax={100}
++            aria-valuenow={Math.round(pct)}
++            aria-label="زمان باقی‌مانده تا تأیید موقت"
++          >
++            <div
++              className="h-full rounded-full bg-[var(--wn)] transition-[width] duration-1000"
++              style={{ width: `${pct}%` }}
++            />
++          </div>
++        </div>
++      )}
++      {item.credited_at && (
++        <div className="mt-1.5 flex items-center gap-1 text-[11px] text-[var(--mu)]">
++          <Clock size={12} /> شارژ موقت: {ago((now - new Date(item.credited_at).getTime()) / 1000)}
++        </div>
++      )}
++    </li>
++  );
++}
++
++/** ``base`` = store API root, e.g. ``/api/v1/admin/stores/<id>`` or ``/api/v1/stores/<id>/reseller``. */
+diff --git a/apps/admin-web/src/features/payments/receiptHelpers.ts b/apps/admin-web/src/features/payments/receiptHelpers.ts
+new file mode 100644
+index 0000000..591b4f1
+--- /dev/null
++++ b/apps/admin-web/src/features/payments/receiptHelpers.ts
+@@ -0,0 +1,21 @@
++import { num } from '../../shared/kit.tsx';
++import type { Json, Rec } from '../../shared/types.ts';
++
++export const JSON_H = { 'Content-Type': 'application/json' };
++export const CUR: Rec = { IRT: 'تومان', IRR: 'ریال' };
++export const toInt = (s: Json) => {
++  const t = String(s ?? '')
++    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
++    .replace(/\D/g, '');
++  return t === '' ? null : Number(t);
++};
++export const clock = (sec: Json) => {
++  const s = Math.max(0, Math.floor(sec));
++  return `${num(Math.floor(s / 60)).padStart(2, '۰')}:${num(s % 60).padStart(2, '۰')}`;
++};
++export const ago = (sec: Json) => {
++  const m = Math.floor(sec / 60);
++  if (m < 1) return 'لحظاتی پیش';
++  if (m < 60) return `${num(m)} دقیقه پیش`;
++  return `${num(Math.floor(m / 60))} ساعت و ${num(m % 60)} دقیقه پیش`;
++};
+diff --git a/apps/admin-web/src/features/reports/CompareChart.tsx b/apps/admin-web/src/features/reports/CompareChart.tsx
+new file mode 100644
+index 0000000..9b9f14e
+--- /dev/null
++++ b/apps/admin-web/src/features/reports/CompareChart.tsx
+@@ -0,0 +1,180 @@
++import { useId, useState } from 'react';
++import { dayLong, dayShort } from '../../shared/charts.tsx';
++import { fmt, fmtCompact } from './reportsLogic.ts';
++import type { Json } from '../../shared/types.ts';
++import { Donut } from './DistributionCharts';
++
++/**
++ * Multi-series line/area chart over a day axis with crosshair tooltip (pointer + arrow keys).
++ * series: [{ key, label, values, color, dashed?, area? }]
++ */
++export function CompareChart({
++  days,
++  series,
++  unit = '',
++  label,
++  h = 260,
++  bars = false,
++}: {
++  days?: Json;
++  series?: Json;
++  unit?: Json;
++  label?: Json;
++  h?: Json;
++  bars?: Json;
++}) {
++  const [hi, setHi] = useState<Json>(null);
++  const gid = useId().replace(/:/g, '');
++  const W = 760;
++  const P = { l: 54, r: 12, t: 14, b: 28 };
++  const n = days.length;
++  const max = Math.max(1, ...series.flatMap((s: Json) => s.values));
++  const iw = W - P.l - P.r;
++  const ih = h - P.t - P.b;
++  const x = (i: Json) => P.l + (n > 1 ? (i * iw) / (n - 1) : iw / 2);
++  const y = (v: Json) => P.t + ih * (1 - v / max);
++  const path = (vals: Json) =>
++    vals.map((v: Json, i: Json) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
++  const ticks = Array.from(new Set([0, 1, 2, 3, 4].map((k) => Math.round((k * (n - 1)) / 4))));
++  const bw = Math.max(2, Math.min(20, (iw / n) * 0.6));
++  const move = (e: Json) => {
++    const r = e.currentTarget.getBoundingClientRect();
++    const px = ((e.clientX - r.left) / r.width) * W;
++    setHi(Math.max(0, Math.min(n - 1, Math.round(((px - P.l) / iw) * (n - 1)))));
++  };
++  const key = (e: Json) => {
++    if (e.key === 'ArrowLeft') setHi((v: Json) => Math.min(n - 1, (v ?? -1) + 1));
++    else if (e.key === 'ArrowRight') setHi((v: Json) => Math.max(0, (v ?? n) - 1));
++    else if (e.key === 'Escape') setHi(null);
++    else return;
++    e.preventDefault();
++  };
++  return (
++    <div className="relative" dir="ltr">
++      <svg
++        viewBox={`0 0 ${W} ${h}`}
++        className="w-full touch-pan-y"
++        role="img"
++        tabIndex={0}
++        aria-label={`${label}. با کلیدهای جهت‌نما روزها را مرور کنید.`}
++        onPointerMove={move}
++        onPointerLeave={() => setHi(null)}
++        onKeyDown={key}
++        onBlur={() => setHi(null)}
++      >
++        <defs>
++          {series.map((s: Json) => (
++            <linearGradient key={s.key} id={`${gid}${s.key}`} x1="0" y1="0" x2="0" y2="1">
++              <stop offset="0%" stopColor={s.color} stopOpacity=".22" />
++              <stop offset="100%" stopColor={s.color} stopOpacity="0" />
++            </linearGradient>
++          ))}
++        </defs>
++        {[0, 0.5, 1].map((f) => (
++          <g key={f}>
++            <line
++              x1={P.l}
++              x2={W - P.r}
++              y1={y(max * f)}
++              y2={y(max * f)}
++              stroke="var(--ln)"
++              strokeDasharray={f ? '3 5' : ''}
++            />
++            <text x={P.l - 8} y={y(max * f) + 4} textAnchor="end" fontSize="11" fill="var(--mu)">
++              {fmtCompact(max * f)}
++            </text>
++          </g>
++        ))}
++        {ticks.map((i) => (
++          <text
++            key={i}
++            x={x(i)}
++            y={h - 8}
++            textAnchor={i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle'}
++            fontSize="11"
++            fill="var(--mu)"
++          >
++            {dayShort(days[i])}
++          </text>
++        ))}
++        {bars
++          ? series
++              .slice(0, 1)
++              .map((s: Json) =>
++                s.values.map((v: Json, i: Json) => (
++                  <rect
++                    key={i}
++                    x={x(i) - bw / 2}
++                    y={y(v)}
++                    width={bw}
++                    height={Math.max(0, y(0) - y(v))}
++                    rx="3"
++                    fill={s.color}
++                    opacity={hi === null || hi === i ? 0.95 : 0.4}
++                  />
++                )),
++              )
++          : series.map((s: Json) => (
++              <g key={s.key}>
++                {s.area && (
++                  <path d={`${path(s.values)} L${x(n - 1)},${y(0)} L${x(0)},${y(0)} Z`} fill={`url(#${gid}${s.key})`} />
++                )}
++                <path
++                  d={path(s.values)}
++                  fill="none"
++                  stroke={s.color}
++                  strokeWidth={s.dashed ? 1.8 : 2.4}
++                  strokeDasharray={s.dashed ? '5 4' : undefined}
++                  strokeLinejoin="round"
++                  strokeLinecap="round"
++                />
++              </g>
++            ))}
++        {hi !== null && (
++          <g>
++            <line x1={x(hi)} x2={x(hi)} y1={P.t} y2={y(0)} stroke="var(--mu)" strokeDasharray="3 4" />
++            {!bars &&
++              series.map((s: Json) => (
++                <circle
++                  key={s.key}
++                  cx={x(hi)}
++                  cy={y(s.values[hi])}
++                  r="5"
++                  fill="var(--sf)"
++                  stroke={s.color}
++                  strokeWidth="2.5"
++                />
++              ))}
++          </g>
++        )}
++      </svg>
++      {hi !== null && (
++        <div
++          role="status"
++          className="pointer-events-none absolute top-0 z-10 min-w-[9rem] -translate-x-1/2 rounded-lg bg-[var(--nav)] px-3 py-2 text-xs text-white shadow-lg"
++          dir="rtl"
++          style={{ left: `${Math.min(84, Math.max(16, (x(hi) / W) * 100))}%` }}
++        >
++          <div className="text-white/70">{dayLong(days[hi])}</div>
++          {series.map((s: Json) => (
++            <div key={s.key} className="mt-1 flex items-center justify-between gap-3">
++              <span className="flex items-center gap-1.5 text-white/80">
++                <span
++                  aria-hidden="true"
++                  className="inline-block h-2 w-2 rounded-full"
++                  style={{ background: s.color }}
++                />
++                {s.label}
++              </span>
++              <b>
++                {fmt(s.values[hi])} {unit}
++              </b>
++            </div>
++          ))}
++        </div>
++      )}
++    </div>
++  );
++}
++
++/** Donut with center total. items: [{ key, label, value, color }]. Always paired with a legend list (values in text). */
+diff --git a/apps/admin-web/src/features/reports/DistributionCharts.tsx b/apps/admin-web/src/features/reports/DistributionCharts.tsx
+new file mode 100644
+index 0000000..6947a2e
+--- /dev/null
++++ b/apps/admin-web/src/features/reports/DistributionCharts.tsx
+@@ -0,0 +1,225 @@
++import { useState } from 'react';
++import { WEEKDAY_FA, WEEK_ORDER, donutSegments, fmt, fmtPct, heatLevel, nf } from './reportsLogic.ts';
++import type { Json } from '../../shared/types.ts';
++
++/** Donut with center total. items: [{ key, label, value, color }]. Always paired with a legend list (values in text). */
++export function Donut({
++  items,
++  center,
++  sub,
++  label,
++  size = 150,
++  stack = false,
++}: {
++  items?: Json;
++  center?: Json;
++  sub?: Json;
++  label?: Json;
++  size?: Json;
++  stack?: Json;
++}) {
++  const segs = donutSegments(items);
++  const [on, setOn] = useState<Json>(null);
++  const total = items.reduce((a: Json, x: Json) => a + x.value, 0);
++  return (
++    <div className={stack ? 'flex flex-col items-center gap-4' : 'flex flex-wrap items-center gap-5'}>
++      <div className="relative shrink-0" style={{ width: size, height: size }}>
++        <svg viewBox="0 0 36 36" width={size} height={size} role="img" aria-label={label} className="-rotate-90">
++          <circle cx="18" cy="18" r="15.9155" fill="none" stroke="var(--mb)" strokeWidth="4.2" />
++          {segs.map((s: Json) => (
++            <circle
++              key={s.key}
++              cx="18"
++              cy="18"
++              r="15.9155"
++              fill="none"
++              stroke={s.color}
++              strokeWidth={on === s.key ? 5.2 : 4.2}
++              strokeDasharray={`${s.dash} ${100 - s.dash}`}
++              strokeDashoffset={s.offset}
++              onPointerEnter={() => setOn(s.key)}
++              onPointerLeave={() => setOn(null)}
++            >
++              <title>{`${s.label}: ${fmt(s.value)}`}</title>
++            </circle>
++          ))}
++        </svg>
++        <div className="pointer-events-none absolute inset-0 grid place-items-center text-center">
++          <div>
++            <div className="text-lg font-extrabold leading-tight">
++              {on ? fmtPct((items.find((x: Json) => x.key === on)?.value / (total || 1)) * 100) : center}
++            </div>
++            <div className="text-[10px] text-[var(--mu)]">
++              {on ? items.find((x: Json) => x.key === on)?.label : sub}
++            </div>
++          </div>
++        </div>
++      </div>
++      <ul className={`space-y-1.5 text-sm ${stack ? 'w-full' : 'min-w-[9rem] flex-1'}`}>
++        {items.map((it: Json) => (
++          <li
++            key={it.key}
++            className="flex items-center justify-between gap-3 rounded-md px-1.5 py-0.5"
++            onPointerEnter={() => setOn(it.key)}
++            onPointerLeave={() => setOn(null)}
++          >
++            <span className="flex items-center gap-2">
++              <span
++                aria-hidden="true"
++                className="inline-block h-2.5 w-2.5 rounded-sm"
++                style={{ background: it.color }}
++              />
++              {it.label}
++            </span>
++            <span className="text-xs text-[var(--mu)]">
++              <b className="text-[var(--tx)]">{fmt(it.value)}</b> · {fmtPct((it.value / (total || 1)) * 100)}
++            </span>
++          </li>
++        ))}
++      </ul>
++    </div>
++  );
++}
++
++/** Horizontal ranking bars. rows: [{ key, label, sub, value, display }]; all bars share one color (magnitude, not identity). */
++export function HBars({
++  rows,
++  color = 'var(--rc1)',
++  empty = 'داده‌ای برای نمایش نیست',
++}: {
++  rows?: Json;
++  color?: Json;
++  empty?: Json;
++}) {
++  if (!rows.length) return <p className="py-6 text-center text-sm text-[var(--mu)]">{empty}</p>;
++  const max = Math.max(...rows.map((r: Json) => r.value), 1);
++  return (
++    <ol className="space-y-3">
++      {rows.map((r: Json, i: Json) => (
++        <li key={r.key} title={r.label}>
++          <div className="flex items-baseline justify-between gap-3 text-sm">
++            <span className="flex min-w-0 items-baseline gap-2">
++              <span className="text-xs text-[var(--mu)]">{nf.format(i + 1)}</span>
++              <span className="truncate font-bold">{r.label}</span>
++              {r.sub && <span className="shrink-0 text-xs text-[var(--mu)]">{r.sub}</span>}
++            </span>
++            <span className="shrink-0 text-xs font-bold">{r.display}</span>
++          </div>
++          <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-[var(--mb)]" role="presentation">
++            <div
++              className="h-full rounded-full"
++              style={{ width: `${Math.max(2, (r.value / max) * 100)}%`, background: color }}
++            />
++          </div>
++        </li>
++      ))}
++    </ol>
++  );
++}
++
++/** Weekday x hour heatmap of sold orders (sequential single hue, sqrt intensity). */
++export function Heatmap({ matrix, peak }: { matrix?: Json; peak?: Json }) {
++  const [tip, setTip] = useState<Json>(null);
++  const max = Math.max(0, ...matrix.flat());
++  const hours = Array.from({ length: 24 }, (_, h) => h);
++  return (
++    <div>
++      <div className="overflow-x-auto pb-1" dir="ltr">
++        <div className="min-w-[560px]">
++          <div className="grid gap-[3px]" style={{ gridTemplateColumns: '64px repeat(24, minmax(0, 1fr))' }}>
++            <span />
++            {hours.map((h) => (
++              <span key={h} className="text-center text-[10px] text-[var(--mu)]">
++                {h % 3 === 0 ? nf.format(h) : ''}
++              </span>
++            ))}
++            {WEEK_ORDER.map((wd) => (
++              <div key={wd} className="contents">
++                <span className="self-center pr-2 text-right text-xs text-[var(--mu)]" dir="rtl">
++                  {WEEKDAY_FA[wd]}
++                </span>
++                {hours.map((h) => {
++                  const c = matrix[wd][h];
++                  const lv = heatLevel(c, max);
++                  return (
++                    <button
++                      key={h}
++                      type="button"
++                      className="rcell aspect-square w-full rounded-[4px] border-0 p-0"
++                      aria-label={`${WEEKDAY_FA[wd]} ساعت ${nf.format(h)}: ${fmt(c)} سفارش`}
++                      style={{
++                        background: lv
++                          ? `color-mix(in srgb, var(--rseq) ${Math.round(lv * 100)}%, var(--sf))`
++                          : 'var(--mb)',
++                      }}
++                      onPointerEnter={() => setTip({ wd, h, c })}
++                      onFocus={() => setTip({ wd, h, c })}
++                      onPointerLeave={() => setTip(null)}
++                      onBlur={() => setTip(null)}
++                    />
++                  );
++                })}
++              </div>
++            ))}
++          </div>
++        </div>
++      </div>
++      <div
++        className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--mu)]"
++        aria-live="polite"
++      >
++        <span>
++          {tip
++            ? `${WEEKDAY_FA[tip.wd]}، ساعت ${nf.format(tip.h)}: ${fmt(tip.c)} سفارش`
++            : peak
++              ? `اوج: ${WEEKDAY_FA[peak.weekday]} ساعت ${nf.format(peak.hour)} (${fmt(peak.count)} سفارش)`
++              : 'هنوز سفارشی در این بازه نیست'}
++        </span>
++        <span className="flex items-center gap-1.5" aria-hidden="true">
++          کم
++          {[0.15, 0.4, 0.7, 1].map((v) => (
++            <i
++              key={v}
++              className="inline-block h-3 w-4 rounded-sm"
++              style={{ background: `color-mix(in srgb, var(--rseq) ${v * 100}%, var(--sf))` }}
++            />
++          ))}
++          زیاد
++        </span>
++      </div>
++    </div>
++  );
++}
++
++/** Ordered funnel (ordinal single-hue ramp, light -> dark). stages: [{ key, label, value }]. */
++export function Funnel({ stages }: { stages?: Json }) {
++  const top = Math.max(stages[0]?.value || 0, 1);
++  const tint = [55, 75, 95];
++  return (
++    <ol className="space-y-2.5">
++      {stages.map((s: Json, i: Json) => {
++        const prev = i ? stages[i - 1].value : null;
++        return (
++          <li key={s.key}>
++            <div className="flex items-baseline justify-between text-sm">
++              <span className="font-bold">{s.label}</span>
++              <span className="text-xs text-[var(--mu)]">
++                <b className="text-[var(--tx)]">{fmt(s.value)}</b>
++                {prev ? ` · ${fmtPct((s.value / (prev || 1)) * 100)} از مرحله قبل` : ''}
++              </span>
++            </div>
++            <div className="mt-1 h-7 overflow-hidden rounded-md bg-[var(--mb)]" role="presentation">
++              <div
++                className="h-full rounded-md"
++                style={{
++                  width: `${Math.max(1.5, (s.value / top) * 100)}%`,
++                  background: `color-mix(in srgb, var(--rseq) ${tint[i % 3]}%, var(--sf))`,
++                }}
++              />
++            </div>
++          </li>
++        );
++      })}
++    </ol>
++  );
++}
+diff --git a/apps/admin-web/src/features/reports/ReportCharts.tsx b/apps/admin-web/src/features/reports/ReportCharts.tsx
+index 333d4c7..3350eef 100644
+--- a/apps/admin-web/src/features/reports/ReportCharts.tsx
++++ b/apps/admin-web/src/features/reports/ReportCharts.tsx
+@@ -1,8 +1,3 @@
+-// Dependency-free SVG/HTML chart primitives for the Reports screen. Colors come from --rc1..--rc8 (see styles.css),
+-// text always wears text tokens (never the series color), every chart has an aria-label and a keyboard path.
+-import { useId, useState } from 'react';
+-import { dayLong, dayShort } from '../../shared/charts.tsx';
+-import { WEEKDAY_FA, WEEK_ORDER, donutSegments, fmt, fmtCompact, fmtPct, heatLevel, nf } from './reportsLogic.ts';
+ import type { Json } from '../../shared/types.ts';
+ 
+ export const SERIES_COLORS = [
+@@ -63,398 +58,3 @@ export function Sparkline({
+     </svg>
+   );
+ }
+-
+-/**
+- * Multi-series line/area chart over a day axis with crosshair tooltip (pointer + arrow keys).
+- * series: [{ key, label, values, color, dashed?, area? }]
+- */
+-export function CompareChart({
+-  days,
+-  series,
+-  unit = '',
+-  label,
+-  h = 260,
+-  bars = false,
+-}: {
+-  days?: Json;
+-  series?: Json;
+-  unit?: Json;
+-  label?: Json;
+-  h?: Json;
+-  bars?: Json;
+-}) {
+-  const [hi, setHi] = useState<Json>(null);
+-  const gid = useId().replace(/:/g, '');
+-  const W = 760;
+-  const P = { l: 54, r: 12, t: 14, b: 28 };
+-  const n = days.length;
+-  const max = Math.max(1, ...series.flatMap((s: Json) => s.values));
+-  const iw = W - P.l - P.r;
+-  const ih = h - P.t - P.b;
+-  const x = (i: Json) => P.l + (n > 1 ? (i * iw) / (n - 1) : iw / 2);
+-  const y = (v: Json) => P.t + ih * (1 - v / max);
+-  const path = (vals: Json) =>
+-    vals.map((v: Json, i: Json) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+-  const ticks = Array.from(new Set([0, 1, 2, 3, 4].map((k) => Math.round((k * (n - 1)) / 4))));
+-  const bw = Math.max(2, Math.min(20, (iw / n) * 0.6));
+-  const move = (e: Json) => {
+-    const r = e.currentTarget.getBoundingClientRect();
+-    const px = ((e.clientX - r.left) / r.width) * W;
+-    setHi(Math.max(0, Math.min(n - 1, Math.round(((px - P.l) / iw) * (n - 1)))));
+-  };
+-  const key = (e: Json) => {
+-    if (e.key === 'ArrowLeft') setHi((v: Json) => Math.min(n - 1, (v ?? -1) + 1));
+-    else if (e.key === 'ArrowRight') setHi((v: Json) => Math.max(0, (v ?? n) - 1));
+-    else if (e.key === 'Escape') setHi(null);
+-    else return;
+-    e.preventDefault();
+-  };
+-  return (
+-    <div className="relative" dir="ltr">
+-      <svg
+-        viewBox={`0 0 ${W} ${h}`}
+-        className="w-full touch-pan-y"
+-        role="img"
+-        tabIndex={0}
+-        aria-label={`${label}. با کلیدهای جهت‌نما روزها را مرور کنید.`}
+-        onPointerMove={move}
+-        onPointerLeave={() => setHi(null)}
+-        onKeyDown={key}
+-        onBlur={() => setHi(null)}
+-      >
+-        <defs>
+-          {series.map((s: Json) => (
+-            <linearGradient key={s.key} id={`${gid}${s.key}`} x1="0" y1="0" x2="0" y2="1">
+-              <stop offset="0%" stopColor={s.color} stopOpacity=".22" />
+-              <stop offset="100%" stopColor={s.color} stopOpacity="0" />
+-            </linearGradient>
+-          ))}
+-        </defs>
+-        {[0, 0.5, 1].map((f) => (
+-          <g key={f}>
+-            <line
+-              x1={P.l}
+-              x2={W - P.r}
+-              y1={y(max * f)}
+-              y2={y(max * f)}
+-              stroke="var(--ln)"
+-              strokeDasharray={f ? '3 5' : ''}
+-            />
+-            <text x={P.l - 8} y={y(max * f) + 4} textAnchor="end" fontSize="11" fill="var(--mu)">
+-              {fmtCompact(max * f)}
+-            </text>
+-          </g>
+-        ))}
+-        {ticks.map((i) => (
+-          <text
+-            key={i}
+-            x={x(i)}
+-            y={h - 8}
+-            textAnchor={i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle'}
+-            fontSize="11"
+-            fill="var(--mu)"
+-          >
+-            {dayShort(days[i])}
+-          </text>
+-        ))}
+-        {bars
+-          ? series
+-              .slice(0, 1)
+-              .map((s: Json) =>
+-                s.values.map((v: Json, i: Json) => (
+-                  <rect
+-                    key={i}
+-                    x={x(i) - bw / 2}
+-                    y={y(v)}
+-                    width={bw}
+-                    height={Math.max(0, y(0) - y(v))}
+-                    rx="3"
+-                    fill={s.color}
+-                    opacity={hi === null || hi === i ? 0.95 : 0.4}
+-                  />
+-                )),
+-              )
+-          : series.map((s: Json) => (
+-              <g key={s.key}>
+-                {s.area && (
+-                  <path d={`${path(s.values)} L${x(n - 1)},${y(0)} L${x(0)},${y(0)} Z`} fill={`url(#${gid}${s.key})`} />
+-                )}
+-                <path
+-                  d={path(s.values)}
+-                  fill="none"
+-                  stroke={s.color}
+-                  strokeWidth={s.dashed ? 1.8 : 2.4}
+-                  strokeDasharray={s.dashed ? '5 4' : undefined}
+-                  strokeLinejoin="round"
+-                  strokeLinecap="round"
+-                />
+-              </g>
+-            ))}
+-        {hi !== null && (
+-          <g>
+-            <line x1={x(hi)} x2={x(hi)} y1={P.t} y2={y(0)} stroke="var(--mu)" strokeDasharray="3 4" />
+-            {!bars &&
+-              series.map((s: Json) => (
+-                <circle
+-                  key={s.key}
+-                  cx={x(hi)}
+-                  cy={y(s.values[hi])}
+-                  r="5"
+-                  fill="var(--sf)"
+-                  stroke={s.color}
+-                  strokeWidth="2.5"
+-                />
+-              ))}
+-          </g>
+-        )}
+-      </svg>
+-      {hi !== null && (
+-        <div
+-          role="status"
+-          className="pointer-events-none absolute top-0 z-10 min-w-[9rem] -translate-x-1/2 rounded-lg bg-[var(--nav)] px-3 py-2 text-xs text-white shadow-lg"
+-          dir="rtl"
+-          style={{ left: `${Math.min(84, Math.max(16, (x(hi) / W) * 100))}%` }}
+-        >
+-          <div className="text-white/70">{dayLong(days[hi])}</div>
+-          {series.map((s: Json) => (
+-            <div key={s.key} className="mt-1 flex items-center justify-between gap-3">
+-              <span className="flex items-center gap-1.5 text-white/80">
+-                <span
+-                  aria-hidden="true"
+-                  className="inline-block h-2 w-2 rounded-full"
+-                  style={{ background: s.color }}
+-                />
+-                {s.label}
+-              </span>
+-              <b>
+-                {fmt(s.values[hi])} {unit}
+-              </b>
+-            </div>
+-          ))}
+-        </div>
+-      )}
+-    </div>
+-  );
+-}
+-
+-/** Donut with center total. items: [{ key, label, value, color }]. Always paired with a legend list (values in text). */
+-export function Donut({
+-  items,
+-  center,
+-  sub,
+-  label,
+-  size = 150,
+-  stack = false,
+-}: {
+-  items?: Json;
+-  center?: Json;
+-  sub?: Json;
+-  label?: Json;
+-  size?: Json;
+-  stack?: Json;
+-}) {
+-  const segs = donutSegments(items);
+-  const [on, setOn] = useState<Json>(null);
+-  const total = items.reduce((a: Json, x: Json) => a + x.value, 0);
+-  return (
+-    <div className={stack ? 'flex flex-col items-center gap-4' : 'flex flex-wrap items-center gap-5'}>
+-      <div className="relative shrink-0" style={{ width: size, height: size }}>
+-        <svg viewBox="0 0 36 36" width={size} height={size} role="img" aria-label={label} className="-rotate-90">
+-          <circle cx="18" cy="18" r="15.9155" fill="none" stroke="var(--mb)" strokeWidth="4.2" />
+-          {segs.map((s: Json) => (
+-            <circle
+-              key={s.key}
+-              cx="18"
+-              cy="18"
+-              r="15.9155"
+-              fill="none"
+-              stroke={s.color}
+-              strokeWidth={on === s.key ? 5.2 : 4.2}
+-              strokeDasharray={`${s.dash} ${100 - s.dash}`}
+-              strokeDashoffset={s.offset}
+-              onPointerEnter={() => setOn(s.key)}
+-              onPointerLeave={() => setOn(null)}
+-            >
+-              <title>{`${s.label}: ${fmt(s.value)}`}</title>
+-            </circle>
+-          ))}
+-        </svg>
+-        <div className="pointer-events-none absolute inset-0 grid place-items-center text-center">
+-          <div>
+-            <div className="text-lg font-extrabold leading-tight">
+-              {on ? fmtPct((items.find((x: Json) => x.key === on)?.value / (total || 1)) * 100) : center}
+-            </div>
+-            <div className="text-[10px] text-[var(--mu)]">
+-              {on ? items.find((x: Json) => x.key === on)?.label : sub}
+-            </div>
+-          </div>
+-        </div>
+-      </div>
+-      <ul className={`space-y-1.5 text-sm ${stack ? 'w-full' : 'min-w-[9rem] flex-1'}`}>
+-        {items.map((it: Json) => (
+-          <li
+-            key={it.key}
+-            className="flex items-center justify-between gap-3 rounded-md px-1.5 py-0.5"
+-            onPointerEnter={() => setOn(it.key)}
+-            onPointerLeave={() => setOn(null)}
+-          >
+-            <span className="flex items-center gap-2">
+-              <span
+-                aria-hidden="true"
+-                className="inline-block h-2.5 w-2.5 rounded-sm"
+-                style={{ background: it.color }}
+-              />
+-              {it.label}
+-            </span>
+-            <span className="text-xs text-[var(--mu)]">
+-              <b className="text-[var(--tx)]">{fmt(it.value)}</b> · {fmtPct((it.value / (total || 1)) * 100)}
+-            </span>
+-          </li>
+-        ))}
+-      </ul>
+-    </div>
+-  );
+-}
+-
+-/** Horizontal ranking bars. rows: [{ key, label, sub, value, display }]; all bars share one color (magnitude, not identity). */
+-export function HBars({
+-  rows,
+-  color = 'var(--rc1)',
+-  empty = 'داده‌ای برای نمایش نیست',
+-}: {
+-  rows?: Json;
+-  color?: Json;
+-  empty?: Json;
+-}) {
+-  if (!rows.length) return <p className="py-6 text-center text-sm text-[var(--mu)]">{empty}</p>;
+-  const max = Math.max(...rows.map((r: Json) => r.value), 1);
+-  return (
+-    <ol className="space-y-3">
+-      {rows.map((r: Json, i: Json) => (
+-        <li key={r.key} title={r.label}>
+-          <div className="flex items-baseline justify-between gap-3 text-sm">
+-            <span className="flex min-w-0 items-baseline gap-2">
+-              <span className="text-xs text-[var(--mu)]">{nf.format(i + 1)}</span>
+-              <span className="truncate font-bold">{r.label}</span>
+-              {r.sub && <span className="shrink-0 text-xs text-[var(--mu)]">{r.sub}</span>}
+-            </span>
+-            <span className="shrink-0 text-xs font-bold">{r.display}</span>
+-          </div>
+-          <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-[var(--mb)]" role="presentation">
+-            <div
+-              className="h-full rounded-full"
+-              style={{ width: `${Math.max(2, (r.value / max) * 100)}%`, background: color }}
+-            />
+-          </div>
+-        </li>
+-      ))}
+-    </ol>
+-  );
+-}
+-
+-/** Weekday x hour heatmap of sold orders (sequential single hue, sqrt intensity). */
+-export function Heatmap({ matrix, peak }: { matrix?: Json; peak?: Json }) {
+-  const [tip, setTip] = useState<Json>(null);
+-  const max = Math.max(0, ...matrix.flat());
+-  const hours = Array.from({ length: 24 }, (_, h) => h);
+-  return (
+-    <div>
+-      <div className="overflow-x-auto pb-1" dir="ltr">
+-        <div className="min-w-[560px]">
+-          <div className="grid gap-[3px]" style={{ gridTemplateColumns: '64px repeat(24, minmax(0, 1fr))' }}>
+-            <span />
+-            {hours.map((h) => (
+-              <span key={h} className="text-center text-[10px] text-[var(--mu)]">
+-                {h % 3 === 0 ? nf.format(h) : ''}
+-              </span>
+-            ))}
+-            {WEEK_ORDER.map((wd) => (
+-              <div key={wd} className="contents">
+-                <span className="self-center pr-2 text-right text-xs text-[var(--mu)]" dir="rtl">
+-                  {WEEKDAY_FA[wd]}
+-                </span>
+-                {hours.map((h) => {
+-                  const c = matrix[wd][h];
+-                  const lv = heatLevel(c, max);
+-                  return (
+-                    <button
+-                      key={h}
+-                      type="button"
+-                      className="rcell aspect-square w-full rounded-[4px] border-0 p-0"
+-                      aria-label={`${WEEKDAY_FA[wd]} ساعت ${nf.format(h)}: ${fmt(c)} سفارش`}
+-                      style={{
+-                        background: lv
+-                          ? `color-mix(in srgb, var(--rseq) ${Math.round(lv * 100)}%, var(--sf))`
+-                          : 'var(--mb)',
+-                      }}
+-                      onPointerEnter={() => setTip({ wd, h, c })}
+-                      onFocus={() => setTip({ wd, h, c })}
+-                      onPointerLeave={() => setTip(null)}
+-                      onBlur={() => setTip(null)}
+-                    />
+-                  );
+-                })}
+-              </div>
+-            ))}
+-          </div>
+-        </div>
+-      </div>
+-      <div
+-        className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--mu)]"
+-        aria-live="polite"
+-      >
+-        <span>
+-          {tip
+-            ? `${WEEKDAY_FA[tip.wd]}، ساعت ${nf.format(tip.h)}: ${fmt(tip.c)} سفارش`
+-            : peak
+-              ? `اوج: ${WEEKDAY_FA[peak.weekday]} ساعت ${nf.format(peak.hour)} (${fmt(peak.count)} سفارش)`
+-              : 'هنوز سفارشی در این بازه نیست'}
+-        </span>
+-        <span className="flex items-center gap-1.5" aria-hidden="true">
+-          کم
+-          {[0.15, 0.4, 0.7, 1].map((v) => (
+-            <i
+-              key={v}
+-              className="inline-block h-3 w-4 rounded-sm"
+-              style={{ background: `color-mix(in srgb, var(--rseq) ${v * 100}%, var(--sf))` }}
+-            />
+-          ))}
+-          زیاد
+-        </span>
+-      </div>
+-    </div>
+-  );
+-}
+-
+-/** Ordered funnel (ordinal single-hue ramp, light -> dark). stages: [{ key, label, value }]. */
+-export function Funnel({ stages }: { stages?: Json }) {
+-  const top = Math.max(stages[0]?.value || 0, 1);
+-  const tint = [55, 75, 95];
+-  return (
+-    <ol className="space-y-2.5">
+-      {stages.map((s: Json, i: Json) => {
+-        const prev = i ? stages[i - 1].value : null;
+-        return (
+-          <li key={s.key}>
+-            <div className="flex items-baseline justify-between text-sm">
+-              <span className="font-bold">{s.label}</span>
+-              <span className="text-xs text-[var(--mu)]">
+-                <b className="text-[var(--tx)]">{fmt(s.value)}</b>
+-                {prev ? ` · ${fmtPct((s.value / (prev || 1)) * 100)} از مرحله قبل` : ''}
+-              </span>
+-            </div>
+-            <div className="mt-1 h-7 overflow-hidden rounded-md bg-[var(--mb)]" role="presentation">
+-              <div
+-                className="h-full rounded-md"
+-                style={{
+-                  width: `${Math.max(1.5, (s.value / top) * 100)}%`,
+-                  background: `color-mix(in srgb, var(--rseq) ${tint[i % 3]}%, var(--sf))`,
+-                }}
+-              />
+-            </div>
+-          </li>
+-        );
+-      })}
+-    </ol>
+-  );
+-}
+diff --git a/apps/admin-web/src/features/reports/ReportsBreakdowns.tsx b/apps/admin-web/src/features/reports/ReportsBreakdowns.tsx
+index b4c37b8..062688d 100644
+--- a/apps/admin-web/src/features/reports/ReportsBreakdowns.tsx
++++ b/apps/admin-web/src/features/reports/ReportsBreakdowns.tsx
+@@ -1,5 +1,6 @@
+ import { Server } from 'lucide-react';
+-import { Funnel, HBars, SERIES_COLORS, Donut } from './ReportCharts.tsx';
++import { SERIES_COLORS } from './ReportCharts.tsx';
++import { Funnel, HBars, Donut } from './DistributionCharts.tsx';
+ import {
+   CHANNEL_LABELS,
+   KIND_LABELS,
+diff --git a/apps/admin-web/src/features/reports/ReportsMainChart.tsx b/apps/admin-web/src/features/reports/ReportsMainChart.tsx
+index 1ae4115..eb2bf9c 100644
+--- a/apps/admin-web/src/features/reports/ReportsMainChart.tsx
++++ b/apps/admin-web/src/features/reports/ReportsMainChart.tsx
+@@ -1,6 +1,7 @@
+ import { Lightbulb, Table2 } from 'lucide-react';
+ import { dayShort } from '../../shared/charts.tsx';
+-import { Legend, CompareChart } from './ReportCharts.tsx';
++import { Legend } from './ReportCharts.tsx';
++import { CompareChart } from './CompareChart.tsx';
+ import { dailyRows, fmt, nf } from './reportsLogic.ts';
+ import type { Json } from '../../shared/types.ts';
+ import { METRICS, TONES, Seg, Card, DataTable } from './ReportsParts.tsx';
+diff --git a/apps/admin-web/src/features/reports/ReportsView.tsx b/apps/admin-web/src/features/reports/ReportsView.tsx
+index 1e69a93..d55b1d8 100644
+--- a/apps/admin-web/src/features/reports/ReportsView.tsx
++++ b/apps/admin-web/src/features/reports/ReportsView.tsx
+@@ -1,7 +1,8 @@
+ import { useCallback, useEffect, useMemo, useState } from 'react';
+ import { Ticket, Undo2 } from 'lucide-react';
+ import { API_BASE, getJson } from '../../api/api.ts';
+-import { Heatmap, SERIES_COLORS } from './ReportCharts.tsx';
++import { SERIES_COLORS } from './ReportCharts.tsx';
++import { Heatmap } from './DistributionCharts.tsx';
+ import {
+   STORE_KIND_LABELS,
+   browserZone,
+diff --git a/apps/admin-web/src/features/settings/AdminDrawer.tsx b/apps/admin-web/src/features/settings/AdminDrawer.tsx
+new file mode 100644
+index 0000000..24dbe36
+--- /dev/null
++++ b/apps/admin-web/src/features/settings/AdminDrawer.tsx
+@@ -0,0 +1,231 @@
++import { useState } from 'react';
++import { Clock, Mail, MailPlus, ShieldOff, UserCheck } from 'lucide-react';
++import { CopyButton, Drawer, Field } from '../../shared/kit.tsx';
++import { Avatar, Facts, useCall } from '../../shared/dataKit.tsx';
++import { confirmDialog } from '../../shared/ui.tsx';
++import { ROLE_TONE } from '../../app/adminAccess.ts';
++import { AdminInviteResult, AdminMember, AdminRoleInfo, Toast } from '../../shared/types.ts';
++import { BASE, RoleBadge, StateBadge, inviteLink, problem, RolePicker } from './AdminTeamParts.tsx';
++
++// ───── detail drawer ─────
++export function AdminDrawer({
++  call,
++  admin,
++  roles,
++  toast,
++  onClose,
++  onChanged,
++}: {
++  call: ReturnType<typeof useCall>;
++  admin: AdminMember;
++  roles: AdminRoleInfo[];
++  toast: Toast;
++  onClose: () => void;
++  onChanged: () => void;
++}) {
++  const [name, setName] = useState<string>(admin.display_name || '');
++  const [role, setRole] = useState<string>(admin.role || 'viewer');
++  const [busy, setBusy] = useState(false);
++  const [error, setError] = useState('');
++  const [fresh, setFresh] = useState<AdminInviteResult | null>(null);
++  const dirty = name !== (admin.display_name || '') || role !== admin.role;
++  const settled = admin.state === 'active' || admin.state === 'suspended';
++
++  const run = async (path: string, init: RequestInit, done: string, after?: (r: Response) => Promise<void> | void) => {
++    setBusy(true);
++    setError('');
++    try {
++      const r = await call(path, init);
++      if (!r.ok) return setError(await problem(r, 'عملیات ناموفق بود'));
++      await after?.(r);
++      toast(done);
++      onChanged();
++    } catch {
++      setError('ارتباط با سرور برقرار نشد');
++    } finally {
++      setBusy(false);
++    }
++  };
++
++  const save = () =>
++    run(
++      `${BASE}/${admin.id}`,
++      { method: 'PATCH', body: JSON.stringify({ display_name: name, role }) },
++      'تغییرات ذخیره شد',
++      onClose,
++    );
++
++  const confirmRun = async (
++    message: string,
++    opts: { title: string; ok: string; danger?: boolean },
++    path: string,
++    init: RequestInit,
++    done: string,
++    after?: (r: Response) => Promise<void> | void,
++  ) => {
++    if (await confirmDialog(message, opts)) await run(path, init, done, after);
++  };
++
++  const toggle = () =>
++    admin.state === 'suspended'
++      ? run(
++          `${BASE}/${admin.id}`,
++          { method: 'PATCH', body: JSON.stringify({ is_active: true }) },
++          'دسترسی دوباره فعال شد',
++          onClose,
++        )
++      : confirmRun(
++          `${admin.display_name || admin.email} تعلیق شود؟ همه‌ی نشست‌های او همین حالا بسته می‌شود.`,
++          { title: 'تعلیق ادمین', ok: 'تعلیق', danger: true },
++          `${BASE}/${admin.id}`,
++          { method: 'PATCH', body: JSON.stringify({ is_active: false }) },
++          'ادمین معلق شد',
++          onClose,
++        );
++
++  const reset = () =>
++    confirmRun(
++      'رمز عبور و کد احراز هویت این ادمین پاک می‌شود، همه‌ی نشست‌هایش بسته می‌شود و لینک دعوت تازه‌ای ساخته می‌شود. ادامه می‌دهید؟',
++      { title: 'بازنشانی دسترسی', ok: 'بازنشانی', danger: true },
++      `${BASE}/${admin.id}/reset-access`,
++      { method: 'POST', body: '{}' },
++      'لینک دعوت تازه ساخته شد',
++      async (r) => setFresh((await r.json()) as AdminInviteResult),
++    );
++
++  const signOutEverywhere = () =>
++    confirmRun(
++      'این ادمین از همه‌ی دستگاه‌ها خارج می‌شود (رمز و TOTP او تغییری نمی‌کند).',
++      { title: 'خروج از همه‌ی دستگاه‌ها', ok: 'خروج' },
++      `${BASE}/${admin.id}/revoke-sessions`,
++      { method: 'POST', body: '{}' },
++      'نشست‌ها بسته شد',
++    );
++
++  const remove = () =>
++    confirmRun(
++      `${admin.display_name || admin.email} از تیم حذف شود؟ دسترسی‌اش بسته می‌شود؛ سابقه‌ی کارهایش در ممیزی می‌ماند.`,
++      { title: 'حذف ادمین', ok: 'حذف', danger: true },
++      `${BASE}/${admin.id}`,
++      { method: 'DELETE' },
++      'ادمین حذف شد',
++      onClose,
++    );
++
++  if (fresh) {
++    const link = inviteLink(fresh);
++    return (
++      <Drawer
++        title="لینک دعوت تازه"
++        subtitle={admin.email}
++        icon={<Mail size={20} className="text-[var(--ac)]" />}
++        onClose={onClose}
++        footer={
++          <button className="btn !py-2 !text-sm" onClick={onClose}>
++            تمام
++          </button>
++        }
++      >
++        <p className="text-sm leading-7">
++          {fresh.emailed ? 'لینک به ایمیل او هم فرستاده شد.' : 'ایمیل ارسال نشد؛ لینک را خودتان برای او بفرستید.'}{' '}
++          دعوت‌های قبلی باطل شدند.
++        </p>
++        <div className="flex items-center gap-2">
++          <input
++            readOnly
++            dir="ltr"
++            className="inp flex-1 text-xs"
++            value={link}
++            onFocus={(e) => e.currentTarget.select()}
++          />
++          <CopyButton text={link} label="کپی لینک دعوت" />
++        </div>
++      </Drawer>
++    );
++  }
++
++  return (
++    <Drawer
++      title={admin.display_name || admin.email}
++      subtitle={admin.email}
++      icon={<Avatar name={admin.display_name || admin.email} tone={ROLE_TONE[admin.role ?? ''] || 'mu'} size={40} />}
++      dirty={dirty}
++      busy={busy}
++      error={error}
++      onClose={onClose}
++      footer={
++        <button className="btn !py-2 !text-sm" disabled={busy || !dirty} onClick={save}>
++          {busy ? 'در حال ذخیره…' : 'ذخیره'}
++        </button>
++      }
++    >
++      <div className="flex flex-wrap items-center gap-2">
++        <StateBadge state={admin.state} />
++        <RoleBadge role={admin.role} label={admin.role_label} />
++        {admin.is_self && <span className="badge b-in">حساب شما</span>}
++        <span className={`badge ${admin.totp_enabled ? 'b-ok' : 'b-wn'}`}>
++          {admin.totp_enabled ? 'TOTP فعال' : 'TOTP غیرفعال'}
++        </span>
++      </div>
++      <Facts
++        items={[
++          {
++            label: 'آخرین ورود',
++            value: admin.last_login_at ? new Date(admin.last_login_at).toLocaleString('fa-IR') : 'هنوز وارد نشده',
++          },
++          { label: 'عضو از', value: new Date(admin.created_at).toLocaleDateString('fa-IR') },
++          {
++            label: 'اعتبار دعوت تا',
++            value: admin.invite_expires_at ? new Date(admin.invite_expires_at).toLocaleString('fa-IR') : null,
++          },
++        ]}
++      />
++      <Field label="نام نمایشی">
++        <input className="inp" maxLength={200} value={name} onChange={(e) => setName(e.target.value)} />
++      </Field>
++      <div>
++        <div className="mb-2 text-xs font-bold text-[var(--mu)]">نقش</div>
++        {admin.is_self ? (
++          <p className="rounded-xl bg-[var(--mb)] p-3 text-xs leading-6 text-[var(--mu)]">
++            نقش حساب خودتان را نمی‌توانید تغییر دهید؛ از مالک دیگری بخواهید.
++          </p>
++        ) : (
++          <RolePicker roles={roles} value={role} onChange={setRole} />
++        )}
++      </div>
++
++      {!admin.is_self && (
++        <section className="space-y-2 rounded-xl border border-[var(--ln)] bg-[var(--sf)] p-4">
++          <h3 className="text-sm font-extrabold">امنیت و دسترسی</h3>
++          <div className="flex flex-wrap gap-2">
++            {settled && (
++              <button className="btn btn-g !py-2 !text-xs" disabled={busy} onClick={toggle}>
++                {admin.state === 'suspended' ? <UserCheck size={14} /> : <ShieldOff size={14} />}
++                {admin.state === 'suspended' ? 'فعال‌سازی دوباره' : 'تعلیق'}
++              </button>
++            )}
++            {admin.state === 'active' && (
++              <button className="btn btn-g !py-2 !text-xs" disabled={busy} onClick={signOutEverywhere}>
++                <Clock size={14} />
++                خروج از همه‌ی دستگاه‌ها
++              </button>
++            )}
++            <button className="btn btn-g !py-2 !text-xs" disabled={busy} onClick={reset}>
++              <MailPlus size={14} />
++              {admin.state === 'active' || admin.state === 'suspended' ? 'بازنشانی رمز و TOTP' : 'ارسال دوباره‌ی دعوت'}
++            </button>
++            <button className="btn btn-g !py-2 !text-xs !text-[var(--bd)]" disabled={busy} onClick={remove}>
++              حذف از تیم
++            </button>
++          </div>
++          <p className="text-[11px] leading-5 text-[var(--mu)]">
++            «بازنشانی» برای گوشی گمشده یا حساب مشکوک است: رمز و TOTP پاک می‌شود و او باید با لینک تازه دوباره راه‌اندازی
++            کند.
++          </p>
++        </section>
++      )}
++    </Drawer>
++  );
++}
++
++// ───── the screen ─────
+diff --git a/apps/admin-web/src/features/settings/AdminTeamParts.tsx b/apps/admin-web/src/features/settings/AdminTeamParts.tsx
+index 93cddb1..7dd9659 100644
+--- a/apps/admin-web/src/features/settings/AdminTeamParts.tsx
++++ b/apps/admin-web/src/features/settings/AdminTeamParts.tsx
+@@ -1,10 +1,6 @@
+-import { useState } from 'react';
+-import { Clock, Mail, MailPlus, ShieldOff, UserCheck, UserPlus } from 'lucide-react';
+-import { CopyButton, Drawer, Field, Segmented, errText } from '../../shared/kit.tsx';
+-import { Avatar, Facts, useCall } from '../../shared/dataKit.tsx';
+-import { confirmDialog } from '../../shared/ui.tsx';
++import { Segmented, errText } from '../../shared/kit.tsx';
+ import { AREA_LABEL, ROLE_TONE, TEAM_ERRORS } from '../../app/adminAccess.ts';
+-import { AdminInviteResult, AdminMember, AdminRoleInfo, Toast } from '../../shared/types.ts';
++import { AdminInviteResult, AdminRoleInfo } from '../../shared/types.ts';
+ 
+ export const BASE = '/api/v1/admin/admins';
+ export const STATE: Record<string, [string, string]> = {
+@@ -113,347 +109,3 @@ export function RolePicker({
+     </div>
+   );
+ }
+-
+-// ───── invite drawer ─────
+-export function InviteDrawer({
+-  call,
+-  roles,
+-  onClose,
+-  onDone,
+-}: {
+-  call: ReturnType<typeof useCall>;
+-  roles: AdminRoleInfo[];
+-  onClose: () => void;
+-  onDone: () => void;
+-}) {
+-  const [f, setF] = useState({ email: '', name: '', role: 'support' });
+-  const [busy, setBusy] = useState(false);
+-  const [error, setError] = useState('');
+-  const [sent, setSent] = useState<AdminInviteResult | null>(null);
+-  const valid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.email.trim());
+-
+-  const submit = async () => {
+-    setBusy(true);
+-    setError('');
+-    try {
+-      const r = await call(BASE, {
+-        method: 'POST',
+-        body: JSON.stringify({ email: f.email.trim(), display_name: f.name.trim() || null, role: f.role }),
+-      });
+-      if (!r.ok) return setError(await problem(r, 'ارسال دعوت ناموفق بود'));
+-      setSent((await r.json()) as AdminInviteResult);
+-      onDone();
+-    } catch {
+-      setError('ارتباط با سرور برقرار نشد');
+-    } finally {
+-      setBusy(false);
+-    }
+-  };
+-
+-  if (sent) {
+-    const link = inviteLink(sent);
+-    return (
+-      <Drawer
+-        title="دعوت ساخته شد"
+-        subtitle={sent.admin.email}
+-        icon={<MailPlus size={20} className="text-[var(--ok)]" />}
+-        onClose={onClose}
+-        footer={
+-          <button className="btn !py-2 !text-sm" onClick={onClose}>
+-            تمام
+-          </button>
+-        }
+-      >
+-        <div className="rounded-xl bg-[var(--okb)] p-4 text-sm leading-7 text-[var(--ok)]">
+-          {sent.emailed
+-            ? 'لینک دعوت به ایمیل او فرستاده شد. برای اطمینان می‌توانید همین لینک را هم خودتان برایش بفرستید.'
+-            : 'ایمیل ارسال نشد (سرویس ایمیل تنظیم نیست یا خطا داد). لینک زیر را خودتان برای او بفرستید.'}
+-        </div>
+-        <Field
+-          label="لینک یک‌بارمصرف دعوت"
+-          hint="این لینک فقط همین یک بار نمایش داده می‌شود؛ اگر گم شد، دعوت تازه بسازید."
+-        >
+-          <div className="flex items-center gap-2">
+-            <input
+-              readOnly
+-              dir="ltr"
+-              className="inp flex-1 text-xs"
+-              value={link}
+-              onFocus={(e) => e.currentTarget.select()}
+-            />
+-            <CopyButton text={link} label="کپی لینک دعوت" />
+-          </div>
+-        </Field>
+-        <Facts
+-          items={[
+-            { label: 'نقش', value: sent.admin.role_label },
+-            { label: 'اعتبار لینک تا', value: new Date(sent.expires_at).toLocaleString('fa-IR') },
+-          ]}
+-        />
+-        <p className="text-xs leading-6 text-[var(--mu)]">
+-          او خودش رمز عبور را می‌سازد و کد احراز هویت (TOTP) را روی گوشی خودش فعال می‌کند. شما هرگز رمز یا کد او را
+-          نمی‌بینید.
+-        </p>
+-      </Drawer>
+-    );
+-  }
+-
+-  return (
+-    <Drawer
+-      title="دعوت ادمین جدید"
+-      subtitle="او با لینک یک‌بارمصرف رمز و ورود دومرحله‌ای خودش را می‌سازد"
+-      icon={<UserPlus size={20} className="text-[var(--ac)]" />}
+-      dirty={Boolean(f.email || f.name)}
+-      busy={busy}
+-      error={error}
+-      onClose={onClose}
+-      footer={
+-        <button className="btn !py-2 !text-sm" disabled={busy || !valid} onClick={submit}>
+-          {busy ? 'در حال ارسال…' : 'ساخت و ارسال دعوت'}
+-        </button>
+-      }
+-    >
+-      <Field label="ایمیل">
+-        <input
+-          dir="ltr"
+-          type="email"
+-          autoComplete="off"
+-          className="inp"
+-          placeholder="name@example.com"
+-          value={f.email}
+-          onChange={(e) => setF({ ...f, email: e.target.value })}
+-        />
+-      </Field>
+-      <Field label="نام نمایشی (اختیاری)">
+-        <input className="inp" maxLength={200} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
+-      </Field>
+-      <div>
+-        <div className="mb-2 text-xs font-bold text-[var(--mu)]">نقش</div>
+-        <RolePicker roles={roles} value={f.role} onChange={(role) => setF({ ...f, role })} />
+-      </div>
+-    </Drawer>
+-  );
+-}
+-
+-// ───── detail drawer ─────
+-export function AdminDrawer({
+-  call,
+-  admin,
+-  roles,
+-  toast,
+-  onClose,
+-  onChanged,
+-}: {
+-  call: ReturnType<typeof useCall>;
+-  admin: AdminMember;
+-  roles: AdminRoleInfo[];
+-  toast: Toast;
+-  onClose: () => void;
+-  onChanged: () => void;
+-}) {
+-  const [name, setName] = useState<string>(admin.display_name || '');
+-  const [role, setRole] = useState<string>(admin.role || 'viewer');
+-  const [busy, setBusy] = useState(false);
+-  const [error, setError] = useState('');
+-  const [fresh, setFresh] = useState<AdminInviteResult | null>(null);
+-  const dirty = name !== (admin.display_name || '') || role !== admin.role;
+-  const settled = admin.state === 'active' || admin.state === 'suspended';
+-
+-  const run = async (path: string, init: RequestInit, done: string, after?: (r: Response) => Promise<void> | void) => {
+-    setBusy(true);
+-    setError('');
+-    try {
+-      const r = await call(path, init);
+-      if (!r.ok) return setError(await problem(r, 'عملیات ناموفق بود'));
+-      await after?.(r);
+-      toast(done);
+-      onChanged();
+-    } catch {
+-      setError('ارتباط با سرور برقرار نشد');
+-    } finally {
+-      setBusy(false);
+-    }
+-  };
+-
+-  const save = () =>
+-    run(
+-      `${BASE}/${admin.id}`,
+-      { method: 'PATCH', body: JSON.stringify({ display_name: name, role }) },
+-      'تغییرات ذخیره شد',
+-      onClose,
+-    );
+-
+-  const confirmRun = async (
+-    message: string,
+-    opts: { title: string; ok: string; danger?: boolean },
+-    path: string,
+-    init: RequestInit,
+-    done: string,
+-    after?: (r: Response) => Promise<void> | void,
+-  ) => {
+-    if (await confirmDialog(message, opts)) await run(path, init, done, after);
+-  };
+-
+-  const toggle = () =>
+-    admin.state === 'suspended'
+-      ? run(
+-          `${BASE}/${admin.id}`,
+-          { method: 'PATCH', body: JSON.stringify({ is_active: true }) },
+-          'دسترسی دوباره فعال شد',
+-          onClose,
+-        )
+-      : confirmRun(
+-          `${admin.display_name || admin.email} تعلیق شود؟ همه‌ی نشست‌های او همین حالا بسته می‌شود.`,
+-          { title: 'تعلیق ادمین', ok: 'تعلیق', danger: true },
+-          `${BASE}/${admin.id}`,
+-          { method: 'PATCH', body: JSON.stringify({ is_active: false }) },
+-          'ادمین معلق شد',
+-          onClose,
+-        );
+-
+-  const reset = () =>
+-    confirmRun(
+-      'رمز عبور و کد احراز هویت این ادمین پاک می‌شود، همه‌ی نشست‌هایش بسته می‌شود و لینک دعوت تازه‌ای ساخته می‌شود. ادامه می‌دهید؟',
+-      { title: 'بازنشانی دسترسی', ok: 'بازنشانی', danger: true },
+-      `${BASE}/${admin.id}/reset-access`,
+-      { method: 'POST', body: '{}' },
+-      'لینک دعوت تازه ساخته شد',
+-      async (r) => setFresh((await r.json()) as AdminInviteResult),
+-    );
+-
+-  const signOutEverywhere = () =>
+-    confirmRun(
+-      'این ادمین از همه‌ی دستگاه‌ها خارج می‌شود (رمز و TOTP او تغییری نمی‌کند).',
+-      { title: 'خروج از همه‌ی دستگاه‌ها', ok: 'خروج' },
+-      `${BASE}/${admin.id}/revoke-sessions`,
+-      { method: 'POST', body: '{}' },
+-      'نشست‌ها بسته شد',
+-    );
+-
+-  const remove = () =>
+-    confirmRun(
+-      `${admin.display_name || admin.email} از تیم حذف شود؟ دسترسی‌اش بسته می‌شود؛ سابقه‌ی کارهایش در ممیزی می‌ماند.`,
+-      { title: 'حذف ادمین', ok: 'حذف', danger: true },
+-      `${BASE}/${admin.id}`,
+-      { method: 'DELETE' },
+-      'ادمین حذف شد',
+-      onClose,
+-    );
+-
+-  if (fresh) {
+-    const link = inviteLink(fresh);
+-    return (
+-      <Drawer
+-        title="لینک دعوت تازه"
+-        subtitle={admin.email}
+-        icon={<Mail size={20} className="text-[var(--ac)]" />}
+-        onClose={onClose}
+-        footer={
+-          <button className="btn !py-2 !text-sm" onClick={onClose}>
+-            تمام
+-          </button>
+-        }
+-      >
+-        <p className="text-sm leading-7">
+-          {fresh.emailed ? 'لینک به ایمیل او هم فرستاده شد.' : 'ایمیل ارسال نشد؛ لینک را خودتان برای او بفرستید.'}{' '}
+-          دعوت‌های قبلی باطل شدند.
+-        </p>
+-        <div className="flex items-center gap-2">
+-          <input
+-            readOnly
+-            dir="ltr"
+-            className="inp flex-1 text-xs"
+-            value={link}
+-            onFocus={(e) => e.currentTarget.select()}
+-          />
+-          <CopyButton text={link} label="کپی لینک دعوت" />
+-        </div>
+-      </Drawer>
+-    );
+-  }
+-
+-  return (
+-    <Drawer
+-      title={admin.display_name || admin.email}
+-      subtitle={admin.email}
+-      icon={<Avatar name={admin.display_name || admin.email} tone={ROLE_TONE[admin.role ?? ''] || 'mu'} size={40} />}
+-      dirty={dirty}
+-      busy={busy}
+-      error={error}
+-      onClose={onClose}
+-      footer={
+-        <button className="btn !py-2 !text-sm" disabled={busy || !dirty} onClick={save}>
+-          {busy ? 'در حال ذخیره…' : 'ذخیره'}
+-        </button>
+-      }
+-    >
+-      <div className="flex flex-wrap items-center gap-2">
+-        <StateBadge state={admin.state} />
+-        <RoleBadge role={admin.role} label={admin.role_label} />
+-        {admin.is_self && <span className="badge b-in">حساب شما</span>}
+-        <span className={`badge ${admin.totp_enabled ? 'b-ok' : 'b-wn'}`}>
+-          {admin.totp_enabled ? 'TOTP فعال' : 'TOTP غیرفعال'}
+-        </span>
+-      </div>
+-      <Facts
+-        items={[
+-          {
+-            label: 'آخرین ورود',
+-            value: admin.last_login_at ? new Date(admin.last_login_at).toLocaleString('fa-IR') : 'هنوز وارد نشده',
+-          },
+-          { label: 'عضو از', value: new Date(admin.created_at).toLocaleDateString('fa-IR') },
+-          {
+-            label: 'اعتبار دعوت تا',
+-            value: admin.invite_expires_at ? new Date(admin.invite_expires_at).toLocaleString('fa-IR') : null,
+-          },
+-        ]}
+-      />
+-      <Field label="نام نمایشی">
+-        <input className="inp" maxLength={200} value={name} onChange={(e) => setName(e.target.value)} />
+-      </Field>
+-      <div>
+-        <div className="mb-2 text-xs font-bold text-[var(--mu)]">نقش</div>
+-        {admin.is_self ? (
+-          <p className="rounded-xl bg-[var(--mb)] p-3 text-xs leading-6 text-[var(--mu)]">
+-            نقش حساب خودتان را نمی‌توانید تغییر دهید؛ از مالک دیگری بخواهید.
+-          </p>
+-        ) : (
+-          <RolePicker roles={roles} value={role} onChange={setRole} />
+-        )}
+-      </div>
+-
+-      {!admin.is_self && (
+-        <section className="space-y-2 rounded-xl border border-[var(--ln)] bg-[var(--sf)] p-4">
+-          <h3 className="text-sm font-extrabold">امنیت و دسترسی</h3>
+-          <div className="flex flex-wrap gap-2">
+-            {settled && (
+-              <button className="btn btn-g !py-2 !text-xs" disabled={busy} onClick={toggle}>
+-                {admin.state === 'suspended' ? <UserCheck size={14} /> : <ShieldOff size={14} />}
+-                {admin.state === 'suspended' ? 'فعال‌سازی دوباره' : 'تعلیق'}
+-              </button>
+-            )}
+-            {admin.state === 'active' && (
+-              <button className="btn btn-g !py-2 !text-xs" disabled={busy} onClick={signOutEverywhere}>
+-                <Clock size={14} />
+-                خروج از همه‌ی دستگاه‌ها
+-              </button>
+-            )}
+-            <button className="btn btn-g !py-2 !text-xs" disabled={busy} onClick={reset}>
+-              <MailPlus size={14} />
+-              {admin.state === 'active' || admin.state === 'suspended' ? 'بازنشانی رمز و TOTP' : 'ارسال دوباره‌ی دعوت'}
+-            </button>
+-            <button className="btn btn-g !py-2 !text-xs !text-[var(--bd)]" disabled={busy} onClick={remove}>
+-              حذف از تیم
+-            </button>
+-          </div>
+-          <p className="text-[11px] leading-5 text-[var(--mu)]">
+-            «بازنشانی» برای گوشی گمشده یا حساب مشکوک است: رمز و TOTP پاک می‌شود و او باید با لینک تازه دوباره راه‌اندازی
+-            کند.
+-          </p>
+-        </section>
+-      )}
+-    </Drawer>
+-  );
+-}
+-
+-// ───── the screen ─────
+diff --git a/apps/admin-web/src/features/settings/AdminTeamView.tsx b/apps/admin-web/src/features/settings/AdminTeamView.tsx
+index 2f099d5..f94784d 100644
+--- a/apps/admin-web/src/features/settings/AdminTeamView.tsx
++++ b/apps/admin-web/src/features/settings/AdminTeamView.tsx
+@@ -4,7 +4,9 @@ import { Empty, ErrorBar, KpiBar, Pills, SearchBox, Stat, useRows } from '../../
+ import { Avatar, Cell2, DataGrid, ScreenHead, Toolbar, When, matches, useCall } from '../../shared/dataKit.tsx';
+ import { ROLE_TONE } from '../../app/adminAccess.ts';
+ import { AdminMember, AdminRoleInfo, Toast, ViewApi } from '../../shared/types.ts';
+-import { BASE, RoleBadge, StateBadge, RoleGuide, InviteDrawer, AdminDrawer } from './AdminTeamParts.tsx';
++import { BASE, RoleBadge, StateBadge, RoleGuide } from './AdminTeamParts.tsx';
++import { InviteDrawer } from './InviteDrawer.tsx';
++import { AdminDrawer } from './AdminDrawer.tsx';
+ 
+ export default function AdminTeamView({ api, toast }: { api: ViewApi; toast: Toast }) {
+   const call = useCall(api);
+diff --git a/apps/admin-web/src/features/settings/InviteDrawer.tsx b/apps/admin-web/src/features/settings/InviteDrawer.tsx
+new file mode 100644
+index 0000000..ebfb761
+--- /dev/null
++++ b/apps/admin-web/src/features/settings/InviteDrawer.tsx
+@@ -0,0 +1,129 @@
++import { useState } from 'react';
++import { MailPlus, UserPlus } from 'lucide-react';
++import { CopyButton, Drawer, Field } from '../../shared/kit.tsx';
++import { Facts, useCall } from '../../shared/dataKit.tsx';
++import { AdminInviteResult, AdminRoleInfo } from '../../shared/types.ts';
++import { BASE, inviteLink, problem, RolePicker } from './AdminTeamParts.tsx';
++
++// ───── invite drawer ─────
++export function InviteDrawer({
++  call,
++  roles,
++  onClose,
++  onDone,
++}: {
++  call: ReturnType<typeof useCall>;
++  roles: AdminRoleInfo[];
++  onClose: () => void;
++  onDone: () => void;
++}) {
++  const [f, setF] = useState({ email: '', name: '', role: 'support' });
++  const [busy, setBusy] = useState(false);
++  const [error, setError] = useState('');
++  const [sent, setSent] = useState<AdminInviteResult | null>(null);
++  const valid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.email.trim());
++
++  const submit = async () => {
++    setBusy(true);
++    setError('');
++    try {
++      const r = await call(BASE, {
++        method: 'POST',
++        body: JSON.stringify({ email: f.email.trim(), display_name: f.name.trim() || null, role: f.role }),
++      });
++      if (!r.ok) return setError(await problem(r, 'ارسال دعوت ناموفق بود'));
++      setSent((await r.json()) as AdminInviteResult);
++      onDone();
++    } catch {
++      setError('ارتباط با سرور برقرار نشد');
++    } finally {
++      setBusy(false);
++    }
++  };
++
++  if (sent) {
++    const link = inviteLink(sent);
++    return (
++      <Drawer
++        title="دعوت ساخته شد"
++        subtitle={sent.admin.email}
++        icon={<MailPlus size={20} className="text-[var(--ok)]" />}
++        onClose={onClose}
++        footer={
++          <button className="btn !py-2 !text-sm" onClick={onClose}>
++            تمام
++          </button>
++        }
++      >
++        <div className="rounded-xl bg-[var(--okb)] p-4 text-sm leading-7 text-[var(--ok)]">
++          {sent.emailed
++            ? 'لینک دعوت به ایمیل او فرستاده شد. برای اطمینان می‌توانید همین لینک را هم خودتان برایش بفرستید.'
++            : 'ایمیل ارسال نشد (سرویس ایمیل تنظیم نیست یا خطا داد). لینک زیر را خودتان برای او بفرستید.'}
++        </div>
++        <Field
++          label="لینک یک‌بارمصرف دعوت"
++          hint="این لینک فقط همین یک بار نمایش داده می‌شود؛ اگر گم شد، دعوت تازه بسازید."
++        >
++          <div className="flex items-center gap-2">
++            <input
++              readOnly
++              dir="ltr"
++              className="inp flex-1 text-xs"
++              value={link}
++              onFocus={(e) => e.currentTarget.select()}
++            />
++            <CopyButton text={link} label="کپی لینک دعوت" />
++          </div>
++        </Field>
++        <Facts
++          items={[
++            { label: 'نقش', value: sent.admin.role_label },
++            { label: 'اعتبار لینک تا', value: new Date(sent.expires_at).toLocaleString('fa-IR') },
++          ]}
++        />
++        <p className="text-xs leading-6 text-[var(--mu)]">
++          او خودش رمز عبور را می‌سازد و کد احراز هویت (TOTP) را روی گوشی خودش فعال می‌کند. شما هرگز رمز یا کد او را
++          نمی‌بینید.
++        </p>
++      </Drawer>
++    );
++  }
++
++  return (
++    <Drawer
++      title="دعوت ادمین جدید"
++      subtitle="او با لینک یک‌بارمصرف رمز و ورود دومرحله‌ای خودش را می‌سازد"
++      icon={<UserPlus size={20} className="text-[var(--ac)]" />}
++      dirty={Boolean(f.email || f.name)}
++      busy={busy}
++      error={error}
++      onClose={onClose}
++      footer={
++        <button className="btn !py-2 !text-sm" disabled={busy || !valid} onClick={submit}>
++          {busy ? 'در حال ارسال…' : 'ساخت و ارسال دعوت'}
++        </button>
++      }
++    >
++      <Field label="ایمیل">
++        <input
++          dir="ltr"
++          type="email"
++          autoComplete="off"
++          className="inp"
++          placeholder="name@example.com"
++          value={f.email}
++          onChange={(e) => setF({ ...f, email: e.target.value })}
++        />
++      </Field>
++      <Field label="نام نمایشی (اختیاری)">
++        <input className="inp" maxLength={200} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
++      </Field>
++      <div>
++        <div className="mb-2 text-xs font-bold text-[var(--mu)]">نقش</div>
++        <RolePicker roles={roles} value={f.role} onChange={(role) => setF({ ...f, role })} />
++      </div>
++    </Drawer>
++  );
++}
++
++// ───── detail drawer ─────
+diff --git a/apps/admin-web/tests/receipt-review.test.jsx b/apps/admin-web/tests/receipt-review.test.jsx
+index cc0448a..ef792c9 100644
+--- a/apps/admin-web/tests/receipt-review.test.jsx
++++ b/apps/admin-web/tests/receipt-review.test.jsx
+@@ -1,7 +1,8 @@
+ import { afterEach, describe, expect, it, vi } from 'vitest';
+ import { render, screen, waitFor } from '@testing-library/react';
+ import userEvent from '@testing-library/user-event';
+-import ReceiptReviewPanel, { clock } from '../src/features/payments/ReceiptReviewPanel.tsx';
++import ReceiptReviewPanel from '../src/features/payments/ReceiptReviewPanel.tsx';
++import { clock } from '../src/features/payments/receiptHelpers.ts';
+ import ReceiptOcrSettings from '../src/features/payments/ReceiptOcrSettings.tsx';
+ import { DialogHost } from '../src/shared/ui.tsx';
+ 
+diff --git a/docs/21-ROADMAP-TECHNICAL-DEBT.md b/docs/21-ROADMAP-TECHNICAL-DEBT.md
+index 222644a..35f273c 100644
+--- a/docs/21-ROADMAP-TECHNICAL-DEBT.md
++++ b/docs/21-ROADMAP-TECHNICAL-DEBT.md
+@@ -245,5 +245,5 @@ Docker/Compose (no docker on the test server), real Telegram bots, payment gatew
+ 
+ ### Update 2026-11-16: large admin-web files / به‌روزرسانی فایل‌های بزرگ
+ 
+-- EN: pure moves, no behaviour change. `BundleDrawer` 695 to 397 (`BundlePackages`, `ResellerPrices`), `PanelDrawer` 648 to 505 (`panelForm.ts`), `PanelsView` 563 to about 440 (`panelsList.ts` pure list logic, `PanelsOverlays`), `ProductParts` 533 to 225 (`ProductDrawer`, `ProductSwitches`), `ReportsSections` 519 to 168, `ButtonStylesView` 508 to 222, `IdentityReviewsView` 483 to 162, `ResellerApplicationsView` 468 to 194. Still above 450 lines: `PanelDrawer`, `PanelsView`, `ReceiptReviewPanel`, `ReportCharts`, `AdminTeamParts`.
+-- FA: جابه‌جایی خالص بدون تغییر رفتاری انجام شد (اعداد بالا). هنوز بزرگ‌تر از ۴۵۰ خط: `PanelDrawer`، `PanelsView`، `ReceiptReviewPanel`، `ReportCharts`، `AdminTeamParts`.
++- EN: pure moves, no behaviour change. `BundleDrawer` 695 to 397 (`BundlePackages`, `ResellerPrices`), `PanelDrawer` 648 to 505 (`panelForm.ts`), `PanelsView` 563 to about 440 (`panelsList.ts` pure list logic, `PanelsOverlays`), `ProductParts` 533 to 225 (`ProductDrawer`, `ProductSwitches`), `ReportsSections` 519 to 168, `ButtonStylesView` 508 to 222, `IdentityReviewsView` 483 to 162, `ResellerApplicationsView` 468 to 194. Second pass: `PanelDrawer` to 374 (`PanelConnectionSection`, `PanelCredentialsSection`), `ReceiptReviewPanel` to 376 (`ReceiptRow`, `receiptHelpers.ts`), `ReportCharts` to 61 (`CompareChart`, `DistributionCharts`), `AdminTeamParts` to 112 (`InviteDrawer`, `AdminDrawer`). No admin-web file is above 450 lines now.
++- FA: جابه‌جایی خالص بدون تغییر رفتاری انجام شد (اعداد بالا). بعد از دومین مرحله هیچ فایل admin-web بزرگ‌تر از ۴۵۰ خط نیست.
+-- 
+2.43.0
+
+
+From a06e2a5ef4e6efc2dde248a82a8026b3f2e21c59 Mon Sep 17 00:00:00 2001
+From: Melorin Refactor <refactor@melorin.local>
+Date: Mon, 16 Nov 2026 07:28:21 +0000
+Subject: [PATCH 09/10] test: drop dead tests/helpers that loaded deleted
+ legacy migrations (found by integration lane)
+
+---
+ .../test_migration_0003_downgrade.py          | 89 -------------------
+ .../contracts/test_reseller_bundle_prices.py  | 13 ---
+ .../api/tests/contracts/test_sales_bundles.py |  6 --
+ 3 files changed, 108 deletions(-)
+ delete mode 100644 apps/api/tests/contracts/test_migration_0003_downgrade.py
+
+diff --git a/apps/api/tests/contracts/test_migration_0003_downgrade.py b/apps/api/tests/contracts/test_migration_0003_downgrade.py
+deleted file mode 100644
+index 244794f..0000000
+--- a/apps/api/tests/contracts/test_migration_0003_downgrade.py
++++ /dev/null
+@@ -1,89 +0,0 @@
+-"""Migration 0003: downgrade must work on a fresh install, where the baseline created the three-column
+-idempotency constraint under a generated name, as well as on an already-swapped legacy schema."""
+-
+-import importlib.util
+-import os
+-import uuid
+-from pathlib import Path
+-from types import SimpleNamespace
+-
+-import pytest
+-import sqlalchemy as sa
+-from sqlalchemy.ext.asyncio import create_async_engine
+-
+-from alembic.migration import MigrationContext
+-from alembic.operations import Operations
+-
+-ROOT = Path(__file__).resolve().parents[2]
+-
+-
+-def _load():
+-    spec = importlib.util.spec_from_file_location("m0003", ROOT / "alembic/versions/0003_f001_f010_hardening.py")
+-    mod = importlib.util.module_from_spec(spec)
+-    spec.loader.exec_module(mod)
+-    return mod
+-
+-
+-class _Recorder:
+-    def __init__(self):
+-        self.calls = []
+-
+-    def get_bind(self):
+-        return object()
+-
+-    def drop_constraint(self, name, table, type_=None):
+-        self.calls.append(("drop", name, table))
+-
+-    def create_unique_constraint(self, name, table, cols):
+-        self.calls.append(("create", name, table, list(cols)))
+-
+-
+-def _run_downgrade(monkeypatch, layout):
+-    """layout: {table: [(constraint_name, [columns])]}"""
+-    m = _load()
+-    rec = _Recorder()
+-    inspector = SimpleNamespace(get_unique_constraints=lambda t: [{"name": n, "column_names": c} for n, c in layout[t]])
+-    monkeypatch.setattr(m, "op", rec)
+-    monkeypatch.setattr(m.sa, "inspect", lambda _bind: inspector)
+-    m.downgrade()
+-    return rec.calls
+-
+-
+-@pytest.mark.integration
+-async def test_downgrade_roundtrip_on_real_postgres():
+-    url = os.environ.get("TEST_PG_URL", "").strip() or os.environ.get("MELORIN_DATABASE_URL", "").strip()
+-    if not url.startswith("postgresql"):
+-        pytest.skip("needs PostgreSQL (TEST_PG_URL or MELORIN_DATABASE_URL)")
+-    m = _load()
+-    schema = f"t0003_{uuid.uuid4().hex[:8]}"
+-    engine = create_async_engine(url)
+-
+-    def _unique_sets(conn):
+-        insp = sa.inspect(conn)
+-        return {t: sorted(sorted(u["column_names"]) for u in insp.get_unique_constraints(t)) for t in ("payments", "orders")}
+-
+-    def _step(conn, fn):
+-        with Operations.context(MigrationContext.configure(conn)):
+-            fn()
+-
+-    legacy, wanted = ["idempotency_key", "user_id"], ["idempotency_key", "store_id", "user_id"]
+-    try:
+-        async with engine.begin() as conn:
+-            await conn.execute(sa.text(f'CREATE SCHEMA "{schema}"'))
+-            await conn.execute(sa.text(f'SET search_path TO "{schema}"'))
+-            for t in ("payments", "orders"):  # fresh-install shape: generated three-column constraint name
+-                await conn.execute(
+-                    sa.text(
+-                        f"CREATE TABLE {t} (user_id int, store_id int, idempotency_key text, UNIQUE (user_id, store_id, idempotency_key))"
+-                    )
+-                )
+-            await conn.run_sync(_step, m.downgrade)
+-            assert await conn.run_sync(_unique_sets) == {"payments": [legacy], "orders": [legacy]}
+-            await conn.run_sync(_step, m.downgrade)  # idempotent
+-            assert await conn.run_sync(_unique_sets) == {"payments": [legacy], "orders": [legacy]}
+-            await conn.run_sync(_step, m.upgrade)  # and the way back up
+-            assert await conn.run_sync(_unique_sets) == {"payments": [wanted], "orders": [wanted]}
+-    finally:
+-        async with engine.begin() as conn:
+-            await conn.execute(sa.text(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE'))
+-        await engine.dispose()
+diff --git a/apps/api/tests/contracts/test_reseller_bundle_prices.py b/apps/api/tests/contracts/test_reseller_bundle_prices.py
+index bfefd31..e6c4b87 100644
+--- a/apps/api/tests/contracts/test_reseller_bundle_prices.py
++++ b/apps/api/tests/contracts/test_reseller_bundle_prices.py
+@@ -5,10 +5,8 @@ reseller price (cost) of THAT bundle is refused when set, hidden from every list
+ Runs against in-memory SQLite.
+ """
+ 
+-import importlib.util
+ import types
+ import uuid
+-from pathlib import Path
+ 
+ import pytest
+ import sqlalchemy as sa
+@@ -327,14 +325,3 @@ async def test_removing_a_package_from_a_bundle_drops_the_resellers_price_for_it
+     await allocation.set_bundle_price(session, st, cheap.id, p.id, 25000)
+     await admin_bundles.remove_bundle_product(dear.id, p.id, ADMIN, session)
+     assert await allocation.store_bundle_prices(session, st.id) == {(cheap.id, p.id): 25000}
+-
+-
+-# ---------------------------------------------------------------- migration 0020
+-ROOT = Path(__file__).resolve().parents[2]
+-
+-
+-def _migration():
+-    spec = importlib.util.spec_from_file_location("m0020", ROOT / "alembic/versions/0020_store_pool_prices.py")
+-    mod = importlib.util.module_from_spec(spec)
+-    spec.loader.exec_module(mod)
+-    return mod
+diff --git a/apps/api/tests/contracts/test_sales_bundles.py b/apps/api/tests/contracts/test_sales_bundles.py
+index 071bca5..c7fd742 100644
+--- a/apps/api/tests/contracts/test_sales_bundles.py
++++ b/apps/api/tests/contracts/test_sales_bundles.py
+@@ -1,7 +1,6 @@
+ """Sales bundles (UI: بسته فروش): connection kind, per-bundle package prices, customer-facing bundle lists,
+ mandatory custom names and the admin rules around a bundle's packages. Runs against in-memory SQLite."""
+ 
+-import importlib.util
+ import types
+ import uuid
+ from pathlib import Path
+@@ -278,11 +277,6 @@ async def test_choosing_a_default_bundle_also_makes_the_bundle_sell_the_package(
+ 
+ 
+ # ---------------------------------------------------------------- migration 0016
+-def _load_migration():
+-    spec = importlib.util.spec_from_file_location("m0016", ROOT / "alembic/versions/0016_sales_pools.py")
+-    mod = importlib.util.module_from_spec(spec)
+-    spec.loader.exec_module(mod)
+-    return mod
+ 
+ 
+ async def test_plan_sale_is_the_single_core_answer_for_route_name_and_price(session):
+-- 
+2.43.0
+
+
+From 06ad599eb4a054fa1e7a090b17418a3acec7e714 Mon Sep 17 00:00:00 2001
+From: Melorin Refactor <refactor@melorin.local>
+Date: Mon, 16 Nov 2026 07:31:49 +0000
+Subject: [PATCH 10/10] docs: record r22 verification (docker, integration
+ lane, playwright)
+
+---
+ docs/21-ROADMAP-TECHNICAL-DEBT.md | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/docs/21-ROADMAP-TECHNICAL-DEBT.md b/docs/21-ROADMAP-TECHNICAL-DEBT.md
+index 35f273c..c42d7ef 100644
+--- a/docs/21-ROADMAP-TECHNICAL-DEBT.md
++++ b/docs/21-ROADMAP-TECHNICAL-DEBT.md
+@@ -247,3 +247,17 @@ Docker/Compose (no docker on the test server), real Telegram bots, payment gatew
+ 
+ - EN: pure moves, no behaviour change. `BundleDrawer` 695 to 397 (`BundlePackages`, `ResellerPrices`), `PanelDrawer` 648 to 505 (`panelForm.ts`), `PanelsView` 563 to about 440 (`panelsList.ts` pure list logic, `PanelsOverlays`), `ProductParts` 533 to 225 (`ProductDrawer`, `ProductSwitches`), `ReportsSections` 519 to 168, `ButtonStylesView` 508 to 222, `IdentityReviewsView` 483 to 162, `ResellerApplicationsView` 468 to 194. Second pass: `PanelDrawer` to 374 (`PanelConnectionSection`, `PanelCredentialsSection`), `ReceiptReviewPanel` to 376 (`ReceiptRow`, `receiptHelpers.ts`), `ReportCharts` to 61 (`CompareChart`, `DistributionCharts`), `AdminTeamParts` to 112 (`InviteDrawer`, `AdminDrawer`). No admin-web file is above 450 lines now.
+ - FA: جابه‌جایی خالص بدون تغییر رفتاری انجام شد (اعداد بالا). بعد از دومین مرحله هیچ فایل admin-web بزرگ‌تر از ۴۵۰ خط نیست.
++
++### Verification run r22 (2026-11-16, Ubuntu 24.04, Python 3.12, Node 22, Docker 29.1, PostgreSQL 16, Redis 7) / گزارش اجرای اعتبارسنجی
++
++| Control | Result |
++|---|---|
++| API suite (not integration, not concurrency) | 2708 passed, 1 skipped |
++| integration + concurrency markers (PostgreSQL 16 + Redis 7) | 12 passed, 1 skipped |
++| `alembic upgrade head` on an empty database, `alembic check`, baseline PostgreSQL test (upgrade, downgrade, upgrade) | passed, no drift |
++| ruff check/format, mypy (384 files), import-linter (8 contracts), `gen_docs --check` | clean |
++| admin-web tsc, eslint (max-warnings 0), vitest | 42 files / 309 tests passed; `vite build` ok |
++| Playwright E2E (Chromium, mocked API) | 24 passed, 2 skipped (they need a seeded staging stack) |
++| `docker compose up --build` postgres, redis, migrate, api on an empty volume | migrate reached `0001_initial_baseline`; api container healthy, `/healthz` 200 |
++
++Still not run: real PasarGuard/Sanaei panels, real Telegram bots, Zarinpal, Caddy + Prometheus/Alertmanager profile, backup restore drill from S3.
 -- 
 2.43.0
 
