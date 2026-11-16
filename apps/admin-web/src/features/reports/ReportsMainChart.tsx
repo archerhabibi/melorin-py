@@ -1,6 +1,7 @@
 import { Lightbulb, Table2 } from 'lucide-react';
 import { dayShort } from '../../shared/charts.tsx';
-import { Legend, CompareChart } from './ReportCharts.tsx';
+import { Legend } from './ReportCharts.tsx';
+import { CompareChart } from './CompareChart.tsx';
 import { dailyRows, fmt, nf } from './reportsLogic.ts';
 import type { Json } from '../../shared/types.ts';
 import { METRICS, TONES, Seg, Card, DataTable } from './ReportsParts.tsx';

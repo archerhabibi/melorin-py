@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Ticket, Undo2 } from 'lucide-react';
 import { API_BASE, getJson } from '../../api/api.ts';
-import { Heatmap, SERIES_COLORS } from './ReportCharts.tsx';
+import { SERIES_COLORS } from './ReportCharts.tsx';
+import { Heatmap } from './DistributionCharts.tsx';
 import {
   STORE_KIND_LABELS,
   browserZone,

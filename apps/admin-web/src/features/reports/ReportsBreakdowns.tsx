@@ -1,5 +1,6 @@
 import { Server } from 'lucide-react';
-import { Funnel, HBars, SERIES_COLORS, Donut } from './ReportCharts.tsx';
+import { SERIES_COLORS } from './ReportCharts.tsx';
+import { Funnel, HBars, Donut } from './DistributionCharts.tsx';
 import {
   CHANNEL_LABELS,
   KIND_LABELS,
