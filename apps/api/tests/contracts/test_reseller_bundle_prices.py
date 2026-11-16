@@ -5,10 +5,8 @@ reseller price (cost) of THAT bundle is refused when set, hidden from every list
 Runs against in-memory SQLite.
 """
 
-import importlib.util
 import types
 import uuid
-from pathlib import Path
 
 import pytest
 import sqlalchemy as sa
@@ -327,14 +325,3 @@ async def test_removing_a_package_from_a_bundle_drops_the_resellers_price_for_it
     await allocation.set_bundle_price(session, st, cheap.id, p.id, 25000)
     await admin_bundles.remove_bundle_product(dear.id, p.id, ADMIN, session)
     assert await allocation.store_bundle_prices(session, st.id) == {(cheap.id, p.id): 25000}
-
-
-# ---------------------------------------------------------------- migration 0020
-ROOT = Path(__file__).resolve().parents[2]
-
-
-def _migration():
-    spec = importlib.util.spec_from_file_location("m0020", ROOT / "alembic/versions/0020_store_pool_prices.py")
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod

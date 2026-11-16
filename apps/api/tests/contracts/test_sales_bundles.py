@@ -1,7 +1,6 @@
 """Sales bundles (UI: بسته فروش): connection kind, per-bundle package prices, customer-facing bundle lists,
 mandatory custom names and the admin rules around a bundle's packages. Runs against in-memory SQLite."""
 
-import importlib.util
 import types
 import uuid
 from pathlib import Path
@@ -278,11 +277,6 @@ async def test_choosing_a_default_bundle_also_makes_the_bundle_sell_the_package(
 
 
 # ---------------------------------------------------------------- migration 0016
-def _load_migration():
-    spec = importlib.util.spec_from_file_location("m0016", ROOT / "alembic/versions/0016_sales_pools.py")
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
 
 
 async def test_plan_sale_is_the_single_core_answer_for_route_name_and_price(session):
