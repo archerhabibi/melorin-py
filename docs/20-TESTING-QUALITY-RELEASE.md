@@ -169,6 +169,23 @@ the first real certificate issued for a reseller domain (needs public DNS), and 
 
 ### منبع / Source: `20-TESTING-QUALITY-RELEASE.md`
 
+#### r23 full verification (2026-11-16, Ubuntu 24.04, Docker 29, Chromium)
+
+| Lane | Result |
+|---|---|
+| lint-imports / ruff / ruff format / mypy (384 files) | clean, 8 contracts kept |
+| make guards (G001-G010, quality config, ops P0, gen_docs --check) | passed, head 0001_initial_baseline |
+| API suite (SQLite) | 2709 passed, 12 skipped, 2 failed before fix; the 2 (plus 1 identity-review contract) were stale file-path assertions after the admin-web splits, fixed in tests |
+| admin-web tsc, eslint, vitest, build | clean, 309 passed |
+| store-web lint, vitest, build | clean, 83 passed |
+| api-client tests | 6 passed |
+| alembic upgrade head on empty PostgreSQL 16, re-run, check, downgrade base, upgrade | ok, no drift, 82 tables |
+| Docker compose full stack (11 services, healthy) + scripts/e2e_smoke.py | ALL PASSED (32 checks) |
+| Playwright (Chromium) | 24 passed, 2 skipped |
+| PostgreSQL lane (tests/postgres, tests/http) | started, not finished in this session |
+
+Finding: infra/ files created with umask 077 keep Alertmanager unhealthy until `chmod -R a+rX infra` (environment issue).
+
 #### r21 full test run (2026-11-15, Ubuntu 24.04, Docker, Chromium)
 
 | Lane | Result |
