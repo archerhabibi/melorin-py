@@ -6,15 +6,23 @@
 
 ## بخش فارسی
 
-**هدف:** نیازمندی‌های کارکردی و غیرکارکردی.
+**هدف:** نیازمندی‌های کارکردی و غیرکارکردی و معیار پذیرش.
 
+**بخش‌های اصلی:** کانال‌ها، هویت و StoreContext، نقش‌ها، نمایندگان و فروشگاه‌ها، محصول و قیمت، VPN و پنل‌ها، سفارش و provisioning، Wallet و Ledger، پرداخت، Referral/Commission، Ticket و Notification، امنیت و Audit، API و Webhook.
 
+**تصمیم‌های مالک محصول:** ارز قابل تنظیم هر Store؛ خرید فقط از Wallet همان Store؛ نماینده از قبل مشتری Main Store؛ یک شخص، یک حساب مرکزی و یک کیف پول به ازای هر (Store، Currency).
+
+**معیار پذیرش:** هر قاعده با تست پوشش داده می‌شود و در Definition of Done (سند 20) ثبت است. موارد غیرالزامی V1 در مواد ادغام‌شده آمده‌اند.
 
 ## English section
 
-**Purpose:** Functional and non-functional requirements.
+**Purpose:** functional and non-functional requirements and acceptance criteria.
 
+**Main sections:** channels; identity and StoreContext; roles; resellers and stores; product and price; VPN and panels; order and provisioning; Wallet and ledger; payment; referral/commission; ticket and notification; security and audit; API and webhooks.
 
+**Product-owner decisions:** currency configurable per Store; purchases only from the Wallet of the same Store; a reseller is first a Main Store customer; one person, one central account, one wallet per (Store, Currency).
+
+**Acceptance:** every rule is covered by a test and recorded in the Definition of Done (doc 20). Non-mandatory V1 items are in the merged material.
 
 ## مواد ادغام‌شده / Merged source material
 

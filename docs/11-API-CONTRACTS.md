@@ -6,15 +6,15 @@
 
 ## بخش فارسی
 
-**هدف:** قرارداد API؛ فهرست کامل endpointها در API.md (تولیدشده).
+**هدف:** قرارداد API: پیشوند `/api/v1`، گروه‌های endpoint، خطاها، pagination و webhook. OpenAPI در CI بررسی می‌شود و جزئیات مسیرها در `docs/API.md` (تولیدشده) است.
 
-
+**اصول:** خطاهای پایدار با `code` و پیام امن، کلید idempotency برای عملیات مالی/اتصال، checkout wallet-first و کوپن، Reseller API با کلید نماینده. مسیرهای هویت: `/identity/link/*`، `/identity/unlink`، `/identity/consolidation`، `/identity/consolidation-status`.
 
 ## English section
 
-**Purpose:** API contracts; the full endpoint list is the generated API.md.
+**Purpose:** the API contract: the `/api/v1` prefix, endpoint groups, errors, pagination and webhooks. OpenAPI is checked in CI and route details are in the generated `docs/API.md`.
 
-
+**Principles:** stable errors with a `code` and a safe message; idempotency keys for financial/linking operations; wallet-first checkout and coupons; a Reseller API with a reseller key. Identity routes: `/identity/link/*`, `/identity/unlink`, `/identity/consolidation`, `/identity/consolidation-status`.
 
 ## مواد ادغام‌شده / Merged source material
 

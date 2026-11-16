@@ -6,15 +6,19 @@
 
 ## بخش فارسی
 
-**هدف:** قواعد کسب‌وکار، وضعیت‌ها و محدودیت‌ها.
+**هدف:** قواعد کسب‌وکار، وضعیت‌ها، محدودیت‌ها و invariantها.
 
+**قواعد کلیدی:** اول Wallet؛ هر تغییر موجودی دفترکلی و idempotent است؛ تمدید و استعلام یکسان برای سایت و ربات و همه عملیات در Core؛ رفرال، کوپن و باشگاه مشتریان هر فروشگاه جداست؛ سازگاری محصول←سرور فقط از مسیر محصول←بسته←پنل/سرور (`product_codes` حذف شد)؛ اتصال هویت فقط با اثبات مالکیت و رضایت؛ کیف پول‌های فروشگاه‌ها/ارزهای مختلف جمع نمی‌شوند.
 
+**معماری فنی و تمدید:** جزئیات Stack، Panel/Payment Adapter، Jobs، Concurrency، جریان تمدید و کدهای خطای 409 در مواد ادغام‌شده هستند.
 
 ## English section
 
-**Purpose:** Business rules, states, constraints and invariants.
+**Purpose:** business rules, statuses, limits and invariants.
 
+**Key rules:** wallet-first; every balance change is ledger-based and idempotent; renewal and inquiry are identical for site and bot and all operations live in Core; referral, coupons and loyalty are per store; product→server compatibility comes only from product→bundle→panel/server (`product_codes` removed); identity linking needs proof of ownership and consent; wallets of different stores/currencies are never summed.
 
+**Technical design and renewal:** the stack, Panel/Payment adapters, jobs, concurrency, the renewal flow and the 409 error codes are in the merged material.
 
 ## مواد ادغام‌شده / Merged source material
 

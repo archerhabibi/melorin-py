@@ -6,15 +6,27 @@
 
 ## بخش فارسی
 
-**هدف:** Modular Monolith، لایه‌ها و مرز ماژول‌ها.
+**هدف:** معماری کلان ملورین: یک **Modular Monolith** که فقط Core در آن مالک PostgreSQL و قواعد کسب‌وکار است. کانال‌ها (وب، ادمین، ربات اصلی، ربات نماینده، API نماینده) فقط نمایش و فراخوانی هستند.
 
+**لایه‌بندی (قراردادهای import-linter):** `domain` هیچ چیز از خودمان import نمی‌کند؛ `kernel` (مدل‌ها) لایهٔ پایه است؛ `core` فقط kernel و domain را import می‌کند؛ ماژول‌های `modules` یک پشتهٔ بدون چرخه می‌سازند (هر لایه فقط لایه‌های زیر خود را import می‌کند)؛ `channels` آداپتر هستند و admin/reseller/reports/worker را import نمی‌کنند. هشت قرارداد اجباری است.
 
+**دامنه‌های مستقل:** Payments/Wallet، Orders، VPN Accounts، PanelOps/Panel Integrations، Identity/Reseller، Notifications/Event Center/Broadcast، Tickets، Referral/Loyalty. اتصال بین دامنه‌ها از طریق سرویس‌ها و رویدادها (outbox) است.
+
+**ایزوله‌سازی فروشگاه (Store Isolation):** همهٔ مسیرهای مشتری با StoreContext کار می‌کنند؛ کیف پول، کوپن، رفرال و باشگاه هر فروشگاه جداست. قفل ردیف در تمدید و سهمیهٔ اکانت تست به ازای هر فروشگاه اعمال می‌شود.
+
+**رویدادها:** outbox تراکنشی با worker؛ جایگزینی broker بعداً ممکن است. نگاه به سندهای 06 (تصمیم‌ها) و 09 (پنل).
 
 ## English section
 
-**Purpose:** Modular Monolith, layers and module boundaries.
+**Purpose:** Melorin's overall architecture: a **modular monolith** in which only Core owns PostgreSQL and the business rules. Channels (web, admin, main bot, reseller bot, reseller API) only display and call.
 
+**Layering (import-linter contracts):** `domain` imports nothing of ours; `kernel` (models) is the bottom layer; `core` imports only kernel and domain; feature `modules` form an acyclic stack (a layer imports only layers below it); `channels` are adapters and never import admin, reseller, reports or the worker. Eight contracts are enforced.
 
+**Independent domains:** Payments/Wallet, Orders, VPN Accounts, PanelOps/Panel Integrations, Identity/Reseller, Notifications/Event Center/Broadcast, Tickets, Referral/Loyalty. They talk through services and events (outbox).
+
+**Store isolation:** every customer path runs with a StoreContext; wallets, coupons, referral and loyalty are per store. Row locking on renewals and a test-account quota apply per store.
+
+**Events:** transactional outbox plus a worker; the broker can be replaced later. See docs 06 (decisions) and 09 (admin panel).
 
 ## مواد ادغام‌شده / Merged source material
 

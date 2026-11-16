@@ -6,15 +6,27 @@
 
 ## بخش فارسی
 
-**هدف:** مدل تهدید، احراز هویت، نقش‌ها و ممیزی.
+**هدف:** مدل تهدید، احراز هویت، مجوزها، secrets و audit.
 
+**احراز هویت:** ایمیل/رمز، Google OAuth و تلگرام (تأیید در ربات یا ورود مستقیم) با نشست‌های کوتاه‌عمر؛ ادمین با TOTP. اتصال هویت فقط با اثبات مالکیت و رضایت (سند 08).
 
+**مجوزها:** نقش‌های ادمین با ماتریس r/rw و سطح `system` برای عملیات حساس (مثل دکمه‌های تلگرام)؛ دعوت‌نامه‌ها و حفاظت‌های تیم در سند 09. دسترسی هر فروشگاه از StoreContext می‌آید.
+
+**Secrets و حریم خصوصی:** مقادیر حساس رمزنگاری‌شده و فقط‌نوشتنی، در audit نمی‌آیند؛ `scripts/check_secrets.sh` در CI. سخت‌سازی میزبان: `scripts/harden_host.sh` و چرخش توکن‌ها قبل از هر مرحلهٔ پاک‌سازی (مواد ادغام‌شده).
+
+**Audit:** رویدادهای امنیتی و مالی ثبت می‌شوند؛ audit اتصال حساب‌ها فقط‌افزودنی است. نکتهٔ باز: اثبات مالکیت قوی‌تر برای حساب‌های بدون ایمیل (سند 21).
 
 ## English section
 
-**Purpose:** Threat model, authentication, roles and audit.
+**Purpose:** threat model, authentication, authorization, secrets and audit.
 
+**Authentication:** e-mail/password, Google OAuth and Telegram (confirmation in the bot or direct login) with short-lived sessions; admins use TOTP. Identity linking needs proof of ownership and consent (doc 08).
 
+**Authorization:** admin roles with an r/rw matrix and a `system` level for sensitive operations (for example the Telegram buttons); invitations and team safeguards are in doc 09. Store access comes from StoreContext.
+
+**Secrets and privacy:** sensitive values are encrypted and write-only and never reach the audit log; `scripts/check_secrets.sh` runs in CI. Host hardening: `scripts/harden_host.sh` and token rotation before each cleanup phase (merged material).
+
+**Audit:** security and financial events are recorded; the account-link audit is append-only. Open point: a stronger ownership proof for accounts without e-mail (doc 21).
 
 ## مواد ادغام‌شده / Merged source material
 

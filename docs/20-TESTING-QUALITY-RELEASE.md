@@ -6,15 +6,31 @@
 
 ## بخش فارسی
 
-**هدف:** تست‌ها، CI و معیارهای release.
+**هدف:** تست‌ها، CI، کیفیت و شواهد انتشار.
 
+**لایه‌ها:** تست واحد/سرویس/قرارداد/HTTP؛ مسیر PostgreSQL (`TEST_PG_URL`، تست‌های concurrency)؛ تست‌های فرانت (vitest) و E2E با Playwright.
 
+**دروازه‌های کیفیت (`make lint`, `make test`, `make quality-gate`):** ruff check/format، mypy، import-linter (۸ قرارداد)، bandit، `gen_docs --check`، حداقل پوشش، بودجهٔ بستهٔ فرانت.
+
+**واقعیت استقرار (2026-11-16):** مجموعهٔ کامل API شامل ۲۷۱۱ تست پاس و ۱۲ skip؛ baseline روی Postgres خالی با `alembic upgrade head` و `alembic check` بدون تفاوت با مدل‌ها.
+
+**مسیر انتشار:** بدون شواهد staging و ماتریس release تصمیم انتشار گرفته نمی‌شود (`scripts/check_release_matrix.py`). ناموفق‌ها و اجرا نشده‌ها در «مواد ادغام‌شده» با جزئیات ثبت شده‌اند.
+
+**اسناد تولیدشده:** `docs/STATUS.md` و `docs/API.md` خروجی `python scripts/gen_docs.py` هستند؛ دستی ویرایش نشوند، و `gen_docs.py --check` در CI انحراف را می‌گیرد.
 
 ## English section
 
-**Purpose:** Tests, CI and release criteria.
+**Purpose:** tests, CI, quality and release evidence.
 
+**Layers:** unit/service/contract/HTTP tests; a PostgreSQL lane (`TEST_PG_URL`, concurrency tests); frontend tests (vitest) and Playwright E2E.
 
+**Quality gates (`make lint`, `make test`, `make quality-gate`):** ruff check/format, mypy, import-linter (8 contracts), bandit, `gen_docs --check`, coverage floors and the frontend bundle budget.
+
+**Latest evidence (2026-11-16):** the full API suite passed with 2711 tests and 12 skipped; the baseline on empty Postgres passed `alembic upgrade head` and `alembic check` with no difference from the models.
+
+**Release path:** no release decision is made without staging evidence and the release matrix (`scripts/check_release_matrix.py`). Failures and not-run items are recorded in the merged material.
+
+**Generated docs:** `docs/STATUS.md` and `docs/API.md` are the output of `python scripts/gen_docs.py`; they are never edited by hand and `gen_docs.py --check` rejects drift in CI.
 
 ## مواد ادغام‌شده / Merged source material
 

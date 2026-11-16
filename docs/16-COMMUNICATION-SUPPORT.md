@@ -6,15 +6,15 @@
 
 ## بخش فارسی
 
-**هدف:** Tickets، Notifications، Event Center و Broadcast.
+**هدف:** Tickets، Notifications، Event Center، Broadcast و پشتیبانی.
 
-
+**جایگاه در پنل:** گروه ترکیبی «اعلان‌ها، ارتباطات و پشتیبانی» شامل Broadcast، Event Center و تیکت‌ها است؛ دامنهٔ بک‌اند Tickets مستقل می‌ماند. Event Center: رویدادهای ادمین در گروه تلگرام با Topicهای خودکار و گزارش شبانه. دکمه‌های رنگی/پریمیوم تلگرام در «سیستم و امنیت» و فقط با دسترسی `system` قابل ویرایش است. مشخصات کانال‌ها (پنل، وب، ربات‌ها، Reseller API) در مواد ادغام‌شده است.
 
 ## English section
 
-**Purpose:** Tickets, Notifications, Event Center and Broadcast.
+**Purpose:** Tickets, Notifications, Event Center, Broadcast and support.
 
-
+**In the panel:** the combined group "Notifications, Communication & Support" holds Broadcast, Event Center and Tickets; the Tickets backend domain stays independent. Event Center posts admin events to a Telegram group with automatic Topics and a nightly report. The coloured/premium Telegram buttons live in "System & Security" and are editable only with `system` access. Channel specifications (panel, web, bots, Reseller API) are in the merged material.
 
 ## مواد ادغام‌شده / Merged source material
 

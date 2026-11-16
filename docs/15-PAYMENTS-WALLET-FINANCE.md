@@ -6,15 +6,27 @@
 
 ## بخش فارسی
 
-**هدف:** پرداخت، دفترکل و یکپارچه‌سازی کیف پول.
+**هدف:** پرداخت، کیف پول، دفترکل و یکپارچه‌سازی کیف پول.
 
+**مسئولیت‌ها (تفکیک شده):** Payments دریافت و تأیید پول را انجام می‌دهد؛ Wallet اعتبار قابل استفاده مشتری را نگه می‌دارد؛ Consolidation اعتبار حساب‌های یک شخص را تجمیع می‌کند. تجربهٔ مشتری یک کیف پول است؛ بک‌اند سه مسئولیت جدا.
 
+**قواعد:** همهٔ خریدها از Wallet همان Store؛ پرداخت خارجی فقط شارژ است؛ هر تغییر موجودی یک تراکنش متوازن دفترکل با کلید idempotency است. کیف پول هر (Store، Currency) مستقل است و جمع نمی‌شود.
+
+**یکپارچه‌سازی:** کیف پول مبدأ حذف نمی‌شود (وضعیت `consolidated` + `consolidated_into_id`)؛ درخواست‌های جدید به کیف پول مرکزی می‌روند. مانع‌ها: پرداخت/سفارش در جریان، حساب نماینده، بدهی. جزئیات در سند 08.
+
+**کارت‌به‌کارت:** تأیید خودکار رسید با OCR و پیامک بانکی (تنظیمات ادمین؛ کلید API رمزنگاری و فقط‌نوشتنی)؛ قرارداد ارز/پرداخت I40 در مواد ادغام‌شده.
 
 ## English section
 
-**Purpose:** Payments, ledger and wallet consolidation.
+**Purpose:** payments, wallet, ledger and wallet consolidation.
 
+**Responsibilities (kept separate):** Payments receives and confirms money; Wallet holds the customer's usable credit; Consolidation merges the credit of one person's accounts. The customer sees one wallet; the backend keeps three responsibilities.
 
+**Rules:** every purchase is paid from the Wallet of the same Store; external payment only tops up; every balance change is a balanced ledger transaction with an idempotency key. Each (Store, Currency) wallet is independent and never summed with another.
+
+**Consolidation:** source wallets are not deleted (status `consolidated` + `consolidated_into_id`); new requests go to the central wallet. Blockers: in-flight payment/order, reseller account, debt. Details in doc 08.
+
+**Card-to-card:** automatic receipt verification with OCR and bank SMS (admin settings; the API key is encrypted and write-only); the I40 currency/payment contract is in the merged material.
 
 ## مواد ادغام‌شده / Merged source material
 

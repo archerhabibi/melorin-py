@@ -6,15 +6,15 @@
 
 ## بخش فارسی
 
-**هدف:** پنل‌ها، Adapterها و سرویس‌های بیرونی.
+**هدف:** پنل‌ها، Providerها، آداپترها، تلگرام/Google و سرویس‌های بیرونی.
 
-
+**خانواده‌های پنل:** Sanaei، PasarGuard و upstream bot همگی پشت یک انترفیس آداپتر. برای PasarGuard هر فروشگاه یک Operator دارد؛ نقش `melorin-store` و برندینگ/گزارش مصرف هر فروشگاه پیاده شده. اتصال Telegram/Google برای ورود در سند 08. راه‌اندازی و rollout هر پنل ابتدا در staging. پنل واقعی در این محیط آزمایش نشده (سند 21).
 
 ## English section
 
-**Purpose:** Panels, adapters and external services.
+**Purpose:** panels, providers, adapters, Telegram/Google and external services.
 
-
+**Panel families:** Sanaei, PasarGuard and the upstream bot all sit behind one adapter interface. For PasarGuard each store gets its own Operator; the `melorin-store` role and per-store subscription branding and usage reports are implemented. Telegram/Google sign-in is in doc 08. Each panel is rolled out on staging first; real panels were not exercised in this environment (doc 21).
 
 ## مواد ادغام‌شده / Merged source material
 

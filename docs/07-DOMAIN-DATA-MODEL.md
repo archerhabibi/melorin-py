@@ -6,15 +6,23 @@
 
 ## بخش فارسی
 
-**هدف:** موجودیت‌ها، مالکیت داده و مدل Person/Account.
+**هدف:** موجودیت‌ها، روابط، مالکیت داده و مدل Person/Account.
 
+**گروه‌ها:** Identity & Stores (`User`, `Identity`, `Person`, `Store`، reseller)؛ Catalog & Pricing (Product، Bundle، قیمت هر فروشگاه)؛ Finance (`Wallet`، ledger، Payment، Commission)؛ Orders & VPN (Order، VPN account، Panel، Server)؛ سایر (Ticket، Notification، Audit).
 
+**قیود مهم:** یکتایی کیف پول بر (user, store, kind, currency)؛ دفترکل فقط‌افزودنی؛ audit اتصال با trigger دیتابیس غیرقابل تغییر است؛ `Server` فیلد `product_codes` ندارد و سازگاری از Bundle می‌آید.
+
+**Person/Account:** `Person` ← چند `User` و چند `Identity`؛ `central_user_id` حساب مرکزی؛ `AccountLinkOperation/Evidence`، `AccountConsolidationOperation` و `WalletTransfer` سابقهٔ انتقال را نگه می‌دارند؛ جزئیات در سند 08.
 
 ## English section
 
-**Purpose:** Entities, data ownership and the Person/Account model.
+**Purpose:** entities, relationships, data ownership and the Person/Account model.
 
+**Groups:** Identity & Stores (`User`, `Identity`, `Person`, `Store`, reseller); Catalog & Pricing (Product, Bundle, per-store prices); Finance (`Wallet`, ledger, Payment, Commission); Orders & VPN (Order, VPN account, Panel, Server); Other (Ticket, Notification, Audit).
 
+**Key constraints:** a wallet is unique per (user, store, kind, currency); the ledger is append-only; the account-link audit is made immutable by a database trigger; `Server` has no `product_codes` field and compatibility comes from the Bundle.
+
+**Person/Account:** one `Person` owns several `User`s and `Identity`s; `central_user_id` is the central account; `AccountLinkOperation/Evidence`, `AccountConsolidationOperation` and `WalletTransfer` keep the transfer history; details in doc 08.
 
 ## مواد ادغام‌شده / Merged source material
 

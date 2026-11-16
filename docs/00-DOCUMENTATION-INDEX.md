@@ -6,15 +6,27 @@
 
 ## بخش فارسی
 
-**هدف:** نقشهٔ ۲۴ سند مرجع (۲۲ سند نگارش دستی + `STATUS.md` و `API.md` تولیدشده)، مالکیت موضوعات، قواعد نگارش و روش تولید STATUS/API.
+**هدف:** نقطهٔ ورود مستندات و نقشهٔ موضوعات: هر موضوع یک مرجع اصلی دارد و بقیه فقط خلاصه و لینک می‌دهند.
 
+**نقشه:** 01 محصول؛ 02–04 نیازمندی، واژه‌نامه و قواعد؛ 05–07 معماری، تصمیم‌ها و مدل داده؛ 08 هویت؛ 09–10 پنل و UX؛ 11–12 API و امنیت؛ 13–17 کاتالوگ، سفارش، مالی، ارتباطات و یکپارچه‌سازی؛ 18–20 عملیات، دیتابیس و کیفیت؛ 21 نقشه راه و بدهی.
 
+**قواعد نگارش:** هر سند ابتدا فارسی و سپس انگلیسی؛ اصطلاحات فنی و مسیرها به شکل اصلی؛ وضعیت کد فعلی بر گزارش قدیمی اولویت دارد؛ تصمیم جدید کاربر بر قدیم مقدم است و قدیمی در سند 06 با علت ثبت می‌شود.
+
+**اسناد تولیدشده:** `docs/STATUS.md` و `docs/API.md` از `python scripts/gen_docs.py` می‌آیند (ورودی: کد و OpenAPI)؛ دستی ویرایش نشوند و در این شمارش ۲۲ سند نمی‌آیند. بررسی انحراف: `gen_docs.py --check`.
+
+**به‌روزرسانی:** با هر تغییر رفتاری، سند مرجع همان موضوع و تاریخ «آخرین بازبینی» همان سند به‌روز می‌شود.
 
 ## English section
 
-**Purpose:** Map of the 24 canonical documents (22 hand-written + generated `STATUS.md` and `API.md`), topic ownership, writing rules, and how STATUS/API are generated.
+**Purpose:** the entry point and topic map: each topic has one primary reference and the rest only summarise and link.
 
+**Map:** 01 product; 02–04 requirements, glossary, rules; 05–07 architecture, decisions, data model; 08 identity; 09–10 admin panel and UX; 11–12 API and security; 13–17 catalog, orders, finance, communication, integrations; 18–20 operations, database, quality; 21 roadmap and debt.
 
+**Writing rules:** each document is Persian first, then English; technical terms and paths keep their original form; current code beats an old report; a new user decision beats an old one and the old one is recorded with its reason in doc 06.
+
+**Generated docs:** `docs/STATUS.md` and `docs/API.md` come from `python scripts/gen_docs.py` (inputs: code and OpenAPI); they are not edited by hand and not counted in the 22 canonical documents. Drift check: `gen_docs.py --check`.
+
+**Updating:** with every behaviour change, update the reference document of that topic and its "last review" date.
 
 ## مواد ادغام‌شده / Merged source material
 
