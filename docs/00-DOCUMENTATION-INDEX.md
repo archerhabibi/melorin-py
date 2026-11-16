@@ -6,13 +6,13 @@
 
 ## بخش فارسی
 
-**هدف:** نقشهٔ ۲۲ سند مرجع، مالکیت موضوعات، قواعد نگارش و روش تولید STATUS/API.
+**هدف:** نقشهٔ ۲۴ سند مرجع (۲۲ سند نگارش دستی + `STATUS.md` و `API.md` تولیدشده)، مالکیت موضوعات، قواعد نگارش و روش تولید STATUS/API.
 
 
 
 ## English section
 
-**Purpose:** Map of the 22 canonical documents, topic ownership, writing rules, and how STATUS/API are generated.
+**Purpose:** Map of the 24 canonical documents (22 hand-written + generated `STATUS.md` and `API.md`), topic ownership, writing rules, and how STATUS/API are generated.
 
 
 
