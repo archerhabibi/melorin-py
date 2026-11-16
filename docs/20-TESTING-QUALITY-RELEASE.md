@@ -174,7 +174,7 @@ the first real certificate issued for a reseller domain (needs public DNS), and 
 | Lane | Result |
 |---|---|
 | lint-imports / ruff / ruff format / mypy (384 files) | clean, 8 contracts kept |
-| make guards (G001-G010, quality config, ops P0, gen_docs --check) | passed, head 0001_initial_baseline |
+| make guards (G001-G010, quality config, ops P0, gen_docs --check) | passed; current head: `docs/STATUS.md` |
 | API suite (SQLite) | 2709 passed, 12 skipped, 2 failed before fix; the 2 (plus 1 identity-review contract) were stale file-path assertions after the admin-web splits, fixed in tests |
 | admin-web tsc, eslint, vitest, build | clean, 309 passed |
 | store-web lint, vitest, build | clean, 83 passed |
