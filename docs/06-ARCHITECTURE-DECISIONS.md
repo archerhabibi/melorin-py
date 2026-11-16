@@ -478,10 +478,10 @@ The same tag also holds the pre-merge document set (separate EN/FA setup guides,
 
 | File | Title |
 |---|---|
-| [`06-ARCHITECTURE-DECISIONS.md`](history/I33_DOCUMENTATION_STATUS.md) | I33: documentation status policy |
-| [`06-ARCHITECTURE-DECISIONS.md`](history/I39_IRT_IRR_AUDIT.md) | I39: IRT/IRR compatibility audit |
-| [`15-PAYMENTS-WALLET-FINANCE.md`](history/I40_CURRENCY_PAYMENT_CONTRACT.md) | I40: currency/payment contract |
-| [`18-OPERATIONS-DEPLOYMENT-DR.md`](history/I41_BACKUP_RESTORE_DRILL.md) | I41: backup and restore drill |
+| `06-ARCHITECTURE-DECISIONS.md` (archived in Git history) | I33: documentation status policy |
+| `06-ARCHITECTURE-DECISIONS.md` (archived in Git history) | I39: IRT/IRR compatibility audit |
+| `15-PAYMENTS-WALLET-FINANCE.md` (archived in Git history) | I40: currency/payment contract |
+| `18-OPERATIONS-DEPLOYMENT-DR.md` (archived in Git history) | I41: backup and restore drill |
 
 ##### Index of the 84 reports now only in the tag
 

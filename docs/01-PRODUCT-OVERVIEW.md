@@ -34,7 +34,7 @@ Melorin is a VPN sales and management platform: a main store, reseller stores, T
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
 
-[English](README.md) · [نصب](#-نصب-سریع) · [معماری](#-معماری) · [عملیات](#-عملیات-روزمره) · [توسعه](#-توسعهٔ-محلی) · [مستندات](#-مستندات)
+[English](../README.md) · [نصب](#-نصب-سریع) · [معماری](#-معماری) · [عملیات](#-عملیات-روزمره) · [توسعه](#-توسعهٔ-محلی) · [مستندات](#-مستندات)
 
 </div>
 
@@ -159,7 +159,7 @@ flowchart LR
 ##### 🔐 امنیت
 
 ورود ادمین با TOTP · کوکی refresh از نوع HttpOnly با access token فقط در حافظه · rate limit مبتنی بر Redis که fail-closed است · allowlist صریح CORS و هدرهای امنیتی · secret با حداقل دسترسی برای رانرهای ربات · وابستگی‌های پایتون با hash قفل‌شده، `pip-audit` و `npm audit` در CI، imageهای پایه با digest · پشتیبان رمزنگاری‌شده با age · محدودیت IP ادمین (اختیاری، به‌طور پیش‌فرض خاموش).
-جزئیات: [docs/12-SECURITY-AUTHORIZATION.md](docs/12-SECURITY-AUTHORIZATION.md).
+جزئیات: [docs/12-SECURITY-AUTHORIZATION.md](12-SECURITY-AUTHORIZATION.md).
 
 secretهای production مقدار یک‌بار-مصرف یا فقط‌زمان-اجرا هستند: `.env` را root-owned با دسترسی `600` نگه دارید، توکن را در خط فرمان وارد نکنید و هر توکن افشاشده را بچرخانید.
 
@@ -244,8 +244,8 @@ docker compose exec -T api python -m melorin.cli reset-admin-password admin@exam
 در زمان اجرا از پنل ادمین (تنظیمات ← یکپارچه‌سازی‌ها) فعال می‌شوند؛ بدون rebuild و بدون ویرایش `.env`:
 
 - **SMTP:** بدون آن فقط ورود با کد ایمیلی کار نمی‌کند.
-- **ورود با گوگل:** جریان ID-token؛ فقط Client ID لازم است. راهنما: [docs/08-IDENTITY-ACCOUNT-PERSON.md](docs/08-IDENTITY-ACCOUNT-PERSON.md).
-- **ورود با تلگرام:** OIDC / تأیید با ربات. راهنما: [docs/08-IDENTITY-ACCOUNT-PERSON.md](docs/08-IDENTITY-ACCOUNT-PERSON.md) و [docs/08-IDENTITY-ACCOUNT-PERSON.md](docs/08-IDENTITY-ACCOUNT-PERSON.md).
+- **ورود با گوگل:** جریان ID-token؛ فقط Client ID لازم است. راهنما: [docs/08-IDENTITY-ACCOUNT-PERSON.md](08-IDENTITY-ACCOUNT-PERSON.md).
+- **ورود با تلگرام:** OIDC / تأیید با ربات. راهنما: [docs/08-IDENTITY-ACCOUNT-PERSON.md](08-IDENTITY-ACCOUNT-PERSON.md) و [docs/08-IDENTITY-ACCOUNT-PERSON.md](08-IDENTITY-ACCOUNT-PERSON.md).
 - **پشتیبان S3 (خارج از سرور):** پشتیبان رمزنگاری‌شدهٔ age هر روز ساعت ۰۲:۰۰ UTC در volume محلی `api_storage` ذخیره می‌شود و اگر S3 فعال باشد روی آن هم کپی می‌شود.
 
 ---
@@ -270,7 +270,7 @@ docker compose exec -T api python -m melorin.cli reset-admin-password admin@exam
 3. در GitHub (Settings ← Secrets and variables ← Actions) این secretها را بسازید: `DEPLOY_HOST`، `DEPLOY_USER`، `DEPLOY_PORT`، `DEPLOY_SSH_KEY` (کلید خصوصی) و `DEPLOY_KNOWN_HOSTS`. کلید خصوصی فقط همان‌جا بماند.
 4. از تب Actions یک‌بار workflow را اجرا کنید و سبز بودنش را ببینید.
 
-**حالت registry (اختیاری):** برای اینکه روی production هرگز build نشود، متغیر repository به‌نام `DEPLOY_IMAGE_REGISTRY` (مثلاً `ghcr.io/<owner>/melorin`) و همان مقدار را با نام `MELORIN_IMAGE_REGISTRY` در `.env` سرور بگذارید. جزئیات: [docs/18-OPERATIONS-DEPLOYMENT-DR.md](docs/18-OPERATIONS-DEPLOYMENT-DR.md).
+**حالت registry (اختیاری):** برای اینکه روی production هرگز build نشود، متغیر repository به‌نام `DEPLOY_IMAGE_REGISTRY` (مثلاً `ghcr.io/<owner>/melorin`) و همان مقدار را با نام `MELORIN_IMAGE_REGISTRY` در `.env` سرور بگذارید. جزئیات: [docs/18-OPERATIONS-DEPLOYMENT-DR.md](18-OPERATIONS-DEPLOYMENT-DR.md).
 
 </details>
 
@@ -299,7 +299,7 @@ scripts/ops_log.sh                         # ثبت یادداشت (قبل / م�
 | **پشتیبان** | روزانه، رمزنگاری‌شده، نگهداری ۳۰ روزه. workflow هفتگی `restore-drill.yml` جدیدترین پشتیبان خارج از سرور را در یک دیتابیس موقت بازیابی می‌کند تا کارکردش اثبات شود (تا وقتی secretهایش تنظیم نشود رد می‌شود). کلید age را **خارج از سرور** نگه دارید |
 | **حافظه** | هر کانتینر سقف دارد و مجموع سقف‌ها ۳٫۵ گیگابایت است (دلیل پیشنهاد ۴ گیگ رم)؛ اگر سرویسی سقف نداشته باشد CI شکست می‌خورد |
 | **قطعی Redis** | در staging/production تا وقتی Redis از کار افتاده هیچ‌کس نمی‌تواند وارد شود (rate limit عمداً fail-closed است) |
-| **حوادث** | PostgreSQL، Redis، پنل‌ها، درگاه‌ها، چک‌لیست انتشار، rollback، دامنهٔ نمایندگان، زنجیرهٔ تأمین: [docs/18-OPERATIONS-DEPLOYMENT-DR.md](docs/18-OPERATIONS-DEPLOYMENT-DR.md) |
+| **حوادث** | PostgreSQL، Redis، پنل‌ها، درگاه‌ها، چک‌لیست انتشار، rollback، دامنهٔ نمایندگان، زنجیرهٔ تأمین: [docs/18-OPERATIONS-DEPLOYMENT-DR.md](18-OPERATIONS-DEPLOYMENT-DR.md) |
 
 ---
 
@@ -312,7 +312,7 @@ scripts/ops_log.sh                         # ثبت یادداشت (قبل / م�
 | `docs/06-ARCHITECTURE-DECISIONS.md` (کد در git) | workflow به‌نام `Changelog` روی هر push به `main` | trailerهای commit: `Problem:` `Action:` `After:` (و در صورت نیاز `Before:` و `Area:`)؛ `make setup-git` قالبش را فعال می‌کند |
 | `var/ops-log.md` روی سرور | `scripts/ops_watch.sh` (cron، هر ۵ دقیقه: تغییر commit، نام کلیدهای `.env`، فایل‌های دستکاری‌شده، ری‌استارت کانتینر) و workflow مربوط به deploy | `scripts/ops_log.sh` |
 
-هر ورودی شامل **قبل**، **مشکل**، **اقدام**، **بعد (نتیجهٔ تأییدشده)** و چه کسی/چه زمانی است. ورودی‌های خودکار هرگز چیزی از خود نمی‌سازند و secret هرگز در لاگ نمی‌آید. جزئیات: [CONTRIBUTING.md](CONTRIBUTING.md). این قانون برای همه است: اعضای تیم، پیمانکاران و دستیارهای هوش مصنوعی.
+هر ورودی شامل **قبل**، **مشکل**، **اقدام**، **بعد (نتیجهٔ تأییدشده)** و چه کسی/چه زمانی است. ورودی‌های خودکار هرگز چیزی از خود نمی‌سازند و secret هرگز در لاگ نمی‌آید. جزئیات: [CONTRIBUTING.md](../CONTRIBUTING.md). این قانون برای همه است: اعضای تیم، پیمانکاران و دستیارهای هوش مصنوعی.
 
 ---
 
@@ -350,7 +350,7 @@ curl http://127.0.0.1:18000/health/live
 | `make docs` | بازتولید `docs/STATUS.md` و جدول مسیرها در `docs/API.md` |
 | `make migration-smoke` | ارتقای یک PostgreSQL به head و تأیید revision ثبت‌شده (داخل محیط API) |
 
-مسیرهای تست: مجموعهٔ پیش‌فرض روی SQLite اجرا می‌شود؛ با `TEST_PG_URL=postgresql+asyncpg://...` همان تست‌ها روی PostgreSQL (schema جدا برای هر تست، به‌علاوهٔ تست‌های همزمانی) اجرا می‌شوند؛ `pytest -m integration` به PostgreSQL و Redis نیاز دارد. وب‌ها Vitest دارند (`npm test`) و تست ربات‌ها در `apps/telegram-main/tests` است. CI برای پوشش تست backend یک کف دارد که فقط اجازهٔ افزایش دارد. جزئیات: [docs/20-TESTING-QUALITY-RELEASE.md](docs/20-TESTING-QUALITY-RELEASE.md).
+مسیرهای تست: مجموعهٔ پیش‌فرض روی SQLite اجرا می‌شود؛ با `TEST_PG_URL=postgresql+asyncpg://...` همان تست‌ها روی PostgreSQL (schema جدا برای هر تست، به‌علاوهٔ تست‌های همزمانی) اجرا می‌شوند؛ `pytest -m integration` به PostgreSQL و Redis نیاز دارد. وب‌ها Vitest دارند (`npm test`) و تست ربات‌ها در `apps/telegram-main/tests` است. CI برای پوشش تست backend یک کف دارد که فقط اجازهٔ افزایش دارد. جزئیات: [docs/20-TESTING-QUALITY-RELEASE.md](20-TESTING-QUALITY-RELEASE.md).
 
 تغییر دیتابیس به migration نیاز دارد (`make revision`)؛ CI روی یک PostgreSQL خالی `alembic upgrade head` و `alembic check` را اجرا می‌کند. downgrade مربوط به baseline اولیه عمداً مسدود است.
 
@@ -380,13 +380,13 @@ get.sh, melorin.sh     ورودی نصب یک‌خطی و منوی مدیریت 
 
 | نیاز | مرجع |
 |---|---|
-| فهرست اسناد و نیازمندی‌ها | [docs/00-DOCUMENTATION-INDEX.md](docs/00-DOCUMENTATION-INDEX.md) و [docs/02-REQUIREMENTS-SRS.md](docs/02-REQUIREMENTS-SRS.md) |
-| معماری، طراحی فنی، مدل داده، قراردادهای API | `docs/02` تا `docs/05`؛ فهرست مسیرهای تولیدشده: [docs/API.md](docs/API.md) |
+| فهرست اسناد و نیازمندی‌ها | [docs/00-DOCUMENTATION-INDEX.md](00-DOCUMENTATION-INDEX.md) و [docs/02-REQUIREMENTS-SRS.md](02-REQUIREMENTS-SRS.md) |
+| معماری، طراحی فنی، مدل داده، قراردادهای API | `docs/02` تا `docs/05`؛ فهرست مسیرهای تولیدشده: [docs/API.md](API.md) |
 | امنیت، مالی/سفارش/ساخت سرویس، عملیات و DR، تست، نقشهٔ راه | `docs/06` تا `docs/10` |
 | کانال‌ها، تمدید، ایزوله‌سازی فروشگاه، اتصال کانال، دامنهٔ ارجاع/کوپن | `docs/11`، `docs/13`، `docs/14`، `docs/16`، `docs/17` |
-| راهنمای عملیات | [docs/18-OPERATIONS-DEPLOYMENT-DR.md](docs/18-OPERATIONS-DEPLOYMENT-DR.md) |
-| تصمیم‌ها و موارد باز | [docs/06-ARCHITECTURE-DECISIONS.md](docs/06-ARCHITECTURE-DECISIONS.md) |
-| سیاست مستندسازی | [docs/00-DOCUMENTATION-INDEX.md](docs/00-DOCUMENTATION-INDEX.md) |
+| راهنمای عملیات | [docs/18-OPERATIONS-DEPLOYMENT-DR.md](18-OPERATIONS-DEPLOYMENT-DR.md) |
+| تصمیم‌ها و موارد باز | [docs/06-ARCHITECTURE-DECISIONS.md](06-ARCHITECTURE-DECISIONS.md) |
+| سیاست مستندسازی | [docs/00-DOCUMENTATION-INDEX.md](00-DOCUMENTATION-INDEX.md) |
 
 هر وقت تنظیم، مسیر، مرحلهٔ نصب یا قاعدهٔ امنیتی عوض شد، این فایل، `README.md` و راهنمای عملیات را در همان تغییر به‌روز کنید و سپس `make docs` را اجرا کنید.
 
@@ -414,7 +414,7 @@ get.sh, melorin.sh     ورودی نصب یک‌خطی و منوی مدیریت 
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
 
-[فارسی](README.fa.md) · [Install](#-quick-install) · [Architecture](#-architecture) · [Operations](#-operating) · [Development](#-local-development) · [Docs](#-documentation)
+[فارسی](../README.fa.md) · [Install](#-quick-install) · [Architecture](#-architecture) · [Operations](#-operating) · [Development](#-local-development) · [Docs](#-documentation)
 
 </div>
 
@@ -540,7 +540,7 @@ Quality gates (CI and `make quality-gate`): ESLint 9 (react, hooks, jsx-a11y) wi
 ##### 🔐 Security
 
 Admin sign-in with TOTP · HttpOnly refresh cookie with an in-memory access token · Redis-backed rate limiting that fails closed · explicit CORS allowlists and security headers · least-privilege secrets for bot runners · hash-locked Python dependencies, `pip-audit` and `npm audit` in CI, digest-pinned base images · age-encrypted backups · optional admin IP allowlist (off by default).
-Details: [docs/12-SECURITY-AUTHORIZATION.md](docs/12-SECURITY-AUTHORIZATION.md).
+Details: [docs/12-SECURITY-AUTHORIZATION.md](12-SECURITY-AUTHORIZATION.md).
 
 Production secrets are one-time bootstrap or runtime-only values: keep `.env` root-owned with mode `600`, never pass tokens on the command line, and rotate any bot token that was exposed.
 
@@ -625,8 +625,8 @@ docker compose exec -T api python -m melorin.cli reset-admin-password admin@exam
 Configured at runtime in the Admin panel under *Settings → Integrations* (no rebuild, no `.env` edit):
 
 - **SMTP**: without it only e-mail-code login is unavailable.
-- **Google sign-in**: ID-token flow, only a Client ID is needed. Guide: [docs/08-IDENTITY-ACCOUNT-PERSON.md](docs/08-IDENTITY-ACCOUNT-PERSON.md).
-- **Telegram login**: OIDC / bot-approved website login. Guides: [docs/08-IDENTITY-ACCOUNT-PERSON.md](docs/08-IDENTITY-ACCOUNT-PERSON.md), [docs/08-IDENTITY-ACCOUNT-PERSON.md](docs/08-IDENTITY-ACCOUNT-PERSON.md).
+- **Google sign-in**: ID-token flow, only a Client ID is needed. Guide: [docs/08-IDENTITY-ACCOUNT-PERSON.md](08-IDENTITY-ACCOUNT-PERSON.md).
+- **Telegram login**: OIDC / bot-approved website login. Guides: [docs/08-IDENTITY-ACCOUNT-PERSON.md](08-IDENTITY-ACCOUNT-PERSON.md), [docs/08-IDENTITY-ACCOUNT-PERSON.md](08-IDENTITY-ACCOUNT-PERSON.md).
 - **Off-site S3 backup**: backups are always written age-encrypted to the local `api_storage` volume every day at 02:00 UTC; with S3 enabled the encrypted file is also copied there.
 
 ---
@@ -651,7 +651,7 @@ Configured at runtime in the Admin panel under *Settings → Integrations* (no r
 3. In GitHub (Settings → Secrets and variables → Actions) create `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_PORT`, `DEPLOY_SSH_KEY` (private key) and `DEPLOY_KNOWN_HOSTS`. Keep the private key only there.
 4. Run the workflow once from the Actions tab and check it is green.
 
-Optional **registry mode** (build once in CI, pull on the server, never build on production): set the repository variable `DEPLOY_IMAGE_REGISTRY` (e.g. `ghcr.io/<owner>/melorin`) and the same `MELORIN_IMAGE_REGISTRY` in the server's `.env`. Details: [docs/18-OPERATIONS-DEPLOYMENT-DR.md](docs/18-OPERATIONS-DEPLOYMENT-DR.md).
+Optional **registry mode** (build once in CI, pull on the server, never build on production): set the repository variable `DEPLOY_IMAGE_REGISTRY` (e.g. `ghcr.io/<owner>/melorin`) and the same `MELORIN_IMAGE_REGISTRY` in the server's `.env`. Details: [docs/18-OPERATIONS-DEPLOYMENT-DR.md](18-OPERATIONS-DEPLOYMENT-DR.md).
 
 </details>
 
@@ -680,7 +680,7 @@ scripts/ops_log.sh                         # add a note (before / problem / acti
 | **Backups** | Daily, encrypted, 30-day retention by default. The weekly `restore-drill.yml` workflow restores the newest off-site backup into a scratch database to prove it works (skipped until its secrets are set). Keep the age identity **off the server** |
 | **Memory** | Every container has a cap; the caps sum to 3.5 GiB (hence 4 GB RAM). CI fails when a service has no cap |
 | **Redis down** | In staging/production nobody can sign in while Redis is down (rate limiting fails closed on purpose) |
-| **Incidents** | PostgreSQL, Redis, panels, gateways, release checks, rollback, reseller domains, supply chain: [docs/18-OPERATIONS-DEPLOYMENT-DR.md](docs/18-OPERATIONS-DEPLOYMENT-DR.md) |
+| **Incidents** | PostgreSQL, Redis, panels, gateways, release checks, rollback, reseller domains, supply chain: [docs/18-OPERATIONS-DEPLOYMENT-DR.md](18-OPERATIONS-DEPLOYMENT-DR.md) |
 
 ---
 
@@ -693,7 +693,7 @@ scripts/ops_log.sh                         # add a note (before / problem / acti
 | `docs/06-ARCHITECTURE-DECISIONS.md` (code in git) | the `Changelog` workflow on every push to `main` | commit trailers `Problem:` `Action:` `After:` (`Before:`, `Area:`); `make setup-git` installs a template |
 | `var/ops-log.md` on the server | `scripts/ops_watch.sh` (cron, every 5 min: new commit, `.env` key names, hand-edited files, container restarts) and the deploy workflow | `scripts/ops_log.sh` |
 
-Each entry has **before**, **problem**, **action**, **after (verified)** and who/when. Auto-generated entries never invent facts, and secrets never go in a log. Details: [CONTRIBUTING.md](CONTRIBUTING.md). This applies equally to people, contractors and AI assistants.
+Each entry has **before**, **problem**, **action**, **after (verified)** and who/when. Auto-generated entries never invent facts, and secrets never go in a log. Details: [CONTRIBUTING.md](../CONTRIBUTING.md). This applies equally to people, contractors and AI assistants.
 
 ---
 
@@ -731,7 +731,7 @@ Without Docker (needs PostgreSQL and Redis from `.env`): `make api` · `make wor
 | `make docs` | Regenerate `docs/STATUS.md` and the route tables in `docs/API.md` |
 | `make migration-smoke` | Upgrade a PostgreSQL database to head and verify the recorded revision (inside the API environment) |
 
-Test lanes: the default suite runs on in-memory SQLite; `TEST_PG_URL=postgresql+asyncpg://...` runs the same tests on PostgreSQL (private schema per test, plus concurrency tests SQLite cannot prove); `pytest -m integration` needs PostgreSQL and Redis. Web apps use Vitest (`npm test`); the bots have tests under `apps/telegram-main/tests`. CI enforces a backend coverage floor that only goes up. See [docs/20-TESTING-QUALITY-RELEASE.md](docs/20-TESTING-QUALITY-RELEASE.md).
+Test lanes: the default suite runs on in-memory SQLite; `TEST_PG_URL=postgresql+asyncpg://...` runs the same tests on PostgreSQL (private schema per test, plus concurrency tests SQLite cannot prove); `pytest -m integration` needs PostgreSQL and Redis. Web apps use Vitest (`npm test`); the bots have tests under `apps/telegram-main/tests`. CI enforces a backend coverage floor that only goes up. See [docs/20-TESTING-QUALITY-RELEASE.md](20-TESTING-QUALITY-RELEASE.md).
 
 Database changes need an Alembic migration (`make revision`); CI runs `alembic upgrade head` and `alembic check` on an empty PostgreSQL. Downgrade of the initial baseline is intentionally blocked.
 
@@ -761,13 +761,13 @@ get.sh, melorin.sh     one-line installer entry point and the server menu
 
 | Need | Read |
 |---|---|
-| Index and requirements | [docs/00-DOCUMENTATION-INDEX.md](docs/00-DOCUMENTATION-INDEX.md), [docs/02-REQUIREMENTS-SRS.md](docs/02-REQUIREMENTS-SRS.md) |
-| Architecture, technical design, data model, API contracts | `docs/02` – `docs/05`; generated route list [docs/API.md](docs/API.md) |
+| Index and requirements | [docs/00-DOCUMENTATION-INDEX.md](00-DOCUMENTATION-INDEX.md), [docs/02-REQUIREMENTS-SRS.md](02-REQUIREMENTS-SRS.md) |
+| Architecture, technical design, data model, API contracts | `docs/02` – `docs/05`; generated route list [docs/API.md](API.md) |
 | Security, finance / order / provisioning, operations and DR, testing, roadmap | `docs/06` – `docs/10` |
 | Channels, renewal, store isolation, channel binding, referral / coupon scope | `docs/11`, `docs/13`, `docs/14`, `docs/16`, `docs/17` |
-| Operations runbook | [docs/18-OPERATIONS-DEPLOYMENT-DR.md](docs/18-OPERATIONS-DEPLOYMENT-DR.md) |
-| Decisions and open items | [docs/06-ARCHITECTURE-DECISIONS.md](docs/06-ARCHITECTURE-DECISIONS.md) |
-| Rules for changing docs | [docs/00-DOCUMENTATION-INDEX.md](docs/00-DOCUMENTATION-INDEX.md) |
+| Operations runbook | [docs/18-OPERATIONS-DEPLOYMENT-DR.md](18-OPERATIONS-DEPLOYMENT-DR.md) |
+| Decisions and open items | [docs/06-ARCHITECTURE-DECISIONS.md](06-ARCHITECTURE-DECISIONS.md) |
+| Rules for changing docs | [docs/00-DOCUMENTATION-INDEX.md](00-DOCUMENTATION-INDEX.md) |
 
 When a setting, route, install step or security rule changes, update this README, `README.fa.md` and the runbook in the same change, then run `make docs`.
 
