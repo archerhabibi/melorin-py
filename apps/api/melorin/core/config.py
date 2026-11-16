@@ -141,7 +141,7 @@ class Settings(BaseSettings):
     # Identity-link conflicts (same verified identity on two accounts) are settled automatically when one account is an
     # empty shell (docs/23). False = every conflict waits for an admin, as before.
     identity_auto_link: bool = True
-    # docs/25: a consolidation whose preflight is clean runs without an admin click. Off by default: money moves only with approval.
+    # docs/25: a consolidation whose preflight is clean runs without an admin click. On by default (docs/08): only blocked or risky cases wait for an admin; set False as an emergency kill-switch.
     identity_consolidation_auto_approve: bool = True
     # Reseller applications verify themselves (docs/23): bot re-checked and domain control proven (DNS TXT or a file on the
     # domain) by a worker job. ``reseller_require_domain_proof`` makes the proof mandatory before an admin can approve.
