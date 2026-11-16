@@ -6,15 +6,19 @@
 
 ## بخش فارسی
 
-**هدف:** نصب، اجرا، استقرار، پایش و بازیابی.
+**هدف:** نصب، اجرا، استقرار، پایش، پشتیبان‌گیری و بازیابی.
 
+**نصب و اجرا:** `get.sh`/`melorin.sh` و `scripts/install_server.sh`؛ Docker Compose شامل postgres، redis، سرویس یک‌بارمصرف `migrate` (با baseline)، api، worker، backup و caddy. بررسی: `/healthz`، Prometheus/Alertmanager، `make install-verify`.
 
+**بازیابی:** پشتیبان‌گیری رمزشده، تمرین restore (`scripts/backup_restore_drill.sh`)، runbook شکست PostgreSQL/Redis/پنل/درگاه و rollback. تمرین restore از S3 هنوز شواهد واقعی ندارد (سند 21).
 
 ## English section
 
-**Purpose:** Install, run, deploy, monitor and recover.
+**Purpose:** install, run, deploy, monitor, back up and recover.
 
+**Install and run:** `get.sh`/`melorin.sh` and `scripts/install_server.sh`; Docker Compose with postgres, redis, the one-shot `migrate` service (baseline), api, worker, backup and caddy. Checks: `/healthz`, Prometheus/Alertmanager, `make install-verify`.
 
+**Recovery:** encrypted backups, a restore drill (`scripts/backup_restore_drill.sh`), runbooks for PostgreSQL/Redis/panel/gateway failures, and rollback. The S3 restore drill has no real-environment evidence yet (doc 21).
 
 ## مواد ادغام‌شده / Merged source material
 

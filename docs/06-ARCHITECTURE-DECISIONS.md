@@ -6,15 +6,47 @@
 
 ## بخش فارسی
 
-**هدف:** تصمیم‌های تأییدشده، دلایل و تصمیم‌های superseded.
+**هدف:** ثبت تصمیم‌های معماری، دلیل‌ها، پیامدها و تصمیم‌های جایگزین‌شده (superseded). تصمیم جدید و صریح کاربر بر تصمیم قدیمی متعارض اولویت دارد؛ قدیمی با علت ثبت می‌شود نه اینکه بی‌صدا ناپدید شود.
 
+**تصمیم‌های تأییدشدهٔ جاری**
+1. **Modular Monolith:** فقط Core مالک PostgreSQL و قواعد کسب‌وکار است؛ مرزها با import-linter (۸ قرارداد) اعمال می‌شوند.
+2. **دفترکل append-only** منبع حقیقت مالی است؛ `balance` فقط یک اسقاط قفل‌شده است. ریال ایرانی پیش‌فرض و مبالغ عدد صحیح هستند.
+3. **Outbox داخلی** با worker polling؛ آداپترهای Sanaei و PasarGuard یک انترفیس استاندارد دارند.
+4. **همهٔ خریدها از Wallet همان Store**؛ درگاه/پرداخت دستی فقط Wallet را شارژ می‌کند. شکست provisioning هرگز بازپرداخت خودکار ندارد.
+5. **پنل ادمین:** هشت گروه اصلی حفظ شود؛ دکمه‌های تلگرام در «سیستم و امنیت» با دسترسی `system`؛ تیکت‌ها در «اعلان‌ها، ارتباطات و پشتیبانی» با دامنهٔ بک‌اند مستقل؛ Store Hub و Panel Operations Hub حفظ شده‌اند.
+6. **Person-centric:** یک شخص، یک حساب مرکزی، یک کیف پول به ازای هر (Store، Currency) — نگاه به سند 08. اتصال فقط با اثبات مالکیت و رضایت؛ یکپارچه‌سازی خودکار است مگر مانع وجود داشته باشد.
+7. **حذف `product_codes` سطح Server:** سازگاری محصول←سرور فقط از Bundle (تست‌های ضدبازگشت در `tests/contracts/test_core_allocation_contract.py`).
+8. **مهاجرت‌ها:** یک baseline (`0001_initial_baseline`) به جای ۵۷ مهاجرت قدیمی؛ Git history حفظ می‌شود.
 
+**تصمیم‌های جایگزین‌شده (Superseded)**
+- پیشنهاد گزارش قبلی برای حذف `Account Consolidation`، `WalletTransfer` و `Person.central_user_id` → **رد شد**؛ همه حفظ و تکمیل شدند.
+- «تأیید دستی ادمین برای هر انتقال مالی» (`identity_consolidation_auto_approve=False`) → **جایگزین شد** با انتقال خودکار پس از preflight موفق (پیش‌فرض روشن).
+- «محصولات مجاز» روی سرور (`product_codes`) → **حذف شد**.
+- زنجیرهٔ ۵۷گانهٔ مهاجرت‌ها → جایگزین با baseline.
+
+**تاریخچه:** تصمیم‌های مرحله‌ای r5 تا r23 و T-کدها در «مواد ادغام‌شده» همین سند هستند. تصمیم‌های باز قبل از production: ارائه‌دهندهٔ SMTP/Google OAuth، مرز debt limit، استراتژی نگهداری داده/RPO–RTO و سیاست 2FA.
 
 ## English section
 
-**Purpose:** Confirmed decisions, rationale and superseded decisions.
+**Purpose:** record architecture decisions, their reasons and consequences, and the superseded ones. A new explicit user decision beats an old conflicting one; the old one is recorded with its reason instead of silently disappearing.
 
+**Current confirmed decisions**
+1. **Modular monolith:** only Core owns PostgreSQL and business rules; boundaries are enforced by import-linter (8 contracts).
+2. **Append-only ledger** is the financial source of truth; `balance` is only a locked projection. Iranian Rial is the default currency and amounts are integers.
+3. **Internal outbox** with a polling worker; the Sanaei and PasarGuard adapters share one standard interface.
+4. **Every purchase is paid from the Wallet of the same Store**; gateway/manual payments only top up the Wallet. A provisioning failure never auto-refunds.
+5. **Admin panel:** the eight main groups stay; Telegram buttons stay in "System & Security" with `system` access; Tickets live in "Notifications, Communication & Support" while the backend domain stays separate; Store Hub and Panel Operations Hub stay.
+6. **Person-centric model:** one person, one central account, one wallet per (Store, Currency) — see doc 08. Linking needs proof of ownership and consent; consolidation is automatic unless a blocker exists.
+7. **Server-level `product_codes` removed:** product→server compatibility derives only from the Bundle (anti-regression tests in `tests/contracts/test_core_allocation_contract.py`).
+8. **Migrations:** one baseline (`0001_initial_baseline`) replaces the 57 old migrations; Git history is kept.
 
+**Superseded decisions**
+- The earlier report's proposal to remove `Account Consolidation`, `WalletTransfer` and `Person.central_user_id` → **rejected**; all are kept and completed.
+- "Manual admin approval for every money transfer" (`identity_consolidation_auto_approve=False`) → **replaced** by automatic transfer after a clean preflight (default on).
+- Per-server "allowed products" (`product_codes`) → **removed**.
+- The 57-step migration chain → replaced by the baseline.
+
+**History:** the r5 to r23 and T-code decisions are in the merged material of this document. Decisions still open before production: SMTP/Google OAuth provider, debt-limit boundary, backup RPO/RTO strategy and the 2FA policy.
 
 ## مواد ادغام‌شده / Merged source material
 
@@ -446,10 +478,10 @@ The same tag also holds the pre-merge document set (separate EN/FA setup guides,
 
 | File | Title |
 |---|---|
-| [`06-ARCHITECTURE-DECISIONS.md`](history/I33_DOCUMENTATION_STATUS.md) | I33: documentation status policy |
-| [`06-ARCHITECTURE-DECISIONS.md`](history/I39_IRT_IRR_AUDIT.md) | I39: IRT/IRR compatibility audit |
-| [`15-PAYMENTS-WALLET-FINANCE.md`](history/I40_CURRENCY_PAYMENT_CONTRACT.md) | I40: currency/payment contract |
-| [`18-OPERATIONS-DEPLOYMENT-DR.md`](history/I41_BACKUP_RESTORE_DRILL.md) | I41: backup and restore drill |
+| `06-ARCHITECTURE-DECISIONS.md` (archived in Git history) | I33: documentation status policy |
+| `06-ARCHITECTURE-DECISIONS.md` (archived in Git history) | I39: IRT/IRR compatibility audit |
+| `15-PAYMENTS-WALLET-FINANCE.md` (archived in Git history) | I40: currency/payment contract |
+| `18-OPERATIONS-DEPLOYMENT-DR.md` (archived in Git history) | I41: backup and restore drill |
 
 ##### Index of the 84 reports now only in the tag
 

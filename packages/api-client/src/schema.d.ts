@@ -4356,7 +4356,7 @@ export interface paths {
         };
         /**
          * Reauth Method
-         * @description Which proof a sensitive change needs for this account: ``password`` | ``email_code`` | ``session``.
+         * @description Which proof a sensitive change needs: ``password`` | ``email_code`` | ``google`` | ``telegram_code`` | ``session``.
          */
         get: operations["reauth_method_api_v1_identity_reauth_get"];
         put?: never;
@@ -4378,6 +4378,23 @@ export interface paths {
         put?: never;
         /** Reauth Email Start */
         post: operations["reauth_email_start_api_v1_identity_reauth_email_start_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/identity/reauth/telegram/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reauth Telegram Start */
+        post: operations["reauth_telegram_start_api_v1_identity_reauth_telegram_start_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -10270,6 +10287,8 @@ export interface components {
         UnlinkIn: {
             /** Current Password */
             current_password?: string | null;
+            /** Google Id Token */
+            google_id_token?: string | null;
             /**
              * Identity Id
              * Format: uuid
@@ -18869,6 +18888,26 @@ export interface operations {
         };
     };
     reauth_email_start_api_v1_identity_reauth_email_start_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    reauth_telegram_start_api_v1_identity_reauth_telegram_start_post: {
         parameters: {
             query?: never;
             header?: never;

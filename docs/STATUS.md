@@ -9,9 +9,9 @@
 | Alembic head | `0001_initial_baseline` |
 | Migrations | 1 |
 | ORM tables | 81 |
-| API operations | 438 |
-| API paths | 390 |
-| Test files / test functions (static count) | 254 / 2242 |
+| API operations | 439 |
+| API paths | 391 |
+| Test files / test functions (static count) | 250 / 2212 |
 | Coverage | not measured here (CI writes `apps/api/coverage.xml`; run `pytest --cov=melorin --cov-report=xml`) |
 | Documents: repo root / `docs/` / `docs/history/` (tests only) | 3 / 24 / 0 |
 

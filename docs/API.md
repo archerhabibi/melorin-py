@@ -330,7 +330,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/health/live` | Live |
 | GET | `/health/ready` | Ready |
 
-### `identity-linking` (15)
+### `identity-linking` (16)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -348,6 +348,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/api/v1/identity/me` | My Profile |
 | GET | `/api/v1/identity/reauth` | Reauth Method |
 | POST | `/api/v1/identity/reauth/email/start` | Reauth Email Start |
+| POST | `/api/v1/identity/reauth/telegram/start` | Reauth Telegram Start |
 | POST | `/api/v1/identity/unlink` | Unlink |
 
 ### `identity-linking-internal` (1)

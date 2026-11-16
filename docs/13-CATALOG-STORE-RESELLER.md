@@ -6,15 +6,19 @@
 
 ## بخش فارسی
 
-**هدف:** کاتالوگ، Bundle، Store، Reseller و قواعد سازگاری محصول/سرور.
+**هدف:** کاتالوگ، Bundle، Store و Reseller.
 
+**قاعدهٔ اصلی:** هر فروشگاه/نماینده رفرال، کمیسیون، کد تخفیف و باشگاه مشتریان خودش را دارد. محصول ← Bundle ← پنل/سرور مسیر واحد سازگاری است؛ محدودیت مستقل `product_codes` روی سرور وجود ندارد و مسیرهای تخصیص و انتخاب سرور فقط یک منطق مشترک (`catalog.allocation`) را صدا می‌زنند.
 
+**نمایندگان:** قیمت‌های نماینده، سقف بدهی، دامنههای جدای فروشگاه نماینده (Caddy)، باشگاه مشتریان با امتیاز، سطح و پاداش به ازای هر فروشگاه.
 
 ## English section
 
-**Purpose:** Catalog, Bundle, Store, Reseller and product/server eligibility.
+**Purpose:** catalog, Bundle, Store and Reseller.
 
+**Main rule:** every store/reseller has its own referral, commission, discount codes and loyalty club. Product → Bundle → panel/server is the single compatibility path; there is no standalone server-level `product_codes`, and allocation and server selection call one shared logic (`catalog.allocation`).
 
+**Resellers:** reseller prices, debt ceiling, separate reseller store domains (Caddy), and a customer club with points, levels and rewards per store.
 
 ## مواد ادغام‌شده / Merged source material
 
