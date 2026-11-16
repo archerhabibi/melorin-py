@@ -6,6 +6,7 @@ import uuid
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from melorin.core.config import get_settings
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError
 from melorin.domain.timeutil import aware
@@ -253,7 +254,22 @@ async def confirm_person_link(session: AsyncSession, user: User, operation_id: u
     op.status, op.completed_at = str(rules.OpStatus.CONFIRMED), utcnow()
     add_evidence(session, op, rules.Evidence.SESSION, subject=f"user:{user.id}")
     await session.commit()
+    if summary.get("consolidation_required") and get_settings().identity_consolidation_auto_approve:
+        summary["consolidation"] = await _continue_with_consolidation(session, user, op.id)
     return summary
+
+
+async def _continue_with_consolidation(session: AsyncSession, user: User, operation_id: uuid.UUID) -> dict:
+    """One product flow: after proof of ownership and consent, preflight and (when clean) consolidate. A failure here never undoes the link."""
+    from melorin.modules.identity.account_linking import consolidation
+
+    try:
+        cons = await consolidation.request(session, user, key=f"auto:{operation_id}", actor_type="system")
+        await session.commit()
+        return {"operation_id": str(cons.id), "status": cons.status}
+    except AppError as exc:
+        await session.rollback()
+        return {"status": "skipped", "code": exc.code}
 
 
 async def link_persons(

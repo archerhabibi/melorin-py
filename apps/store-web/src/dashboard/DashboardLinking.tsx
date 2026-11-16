@@ -29,6 +29,7 @@ export default function LinkedAccounts({
   const [mailSent, setMailSent] = useState(false);
   const [unlinking, setUnlinking] = useState<Json>(null);
   const [proof, setProof] = useState('');
+  const [googleProof, setGoogleProof] = useState('');
   const [cons, setCons] = useState<Json>([]);
   const post = (p: string, body?: Json) =>
     coreFetch(`${IDENTITY}${p}`, { method: 'POST', headers: J, body: body ? JSON.stringify(body) : undefined });
@@ -97,18 +98,27 @@ export default function LinkedAccounts({
   async function unlink() {
     const body: Json = { identity_id: unlinking.id };
     if (method === 'password') body.current_password = proof;
-    if (method === 'email_code') body.reauth_code = proof;
+    if (method === 'email_code' || method === 'telegram_code') body.reauth_code = proof;
+    if (method === 'google') body.google_id_token = googleProof;
     const r = await post('/unlink', body);
     if (r.ok) {
       notify('روش ورود قطع شد');
       setUnlinking(null);
       setProof('');
+      setGoogleProof('');
       load();
     } else await failed(r, 'قطع اتصال ناموفق بود');
   }
   async function sendReauth() {
-    const r = await post('/reauth/email/start');
-    notify(r.ok ? 'کد به ایمیل شما ارسال شد' : await msgOf(r, 'ارسال کد ناموفق بود'));
+    const viaTelegram = method === 'telegram_code';
+    const r = await post(`/reauth/${viaTelegram ? 'telegram' : 'email'}/start`);
+    notify(
+      r.ok
+        ? viaTelegram
+          ? 'کد به ربات تلگرام شما ارسال شد'
+          : 'کد به ایمیل شما ارسال شد'
+        : await msgOf(r, 'ارسال کد ناموفق بود'),
+    );
   }
   async function consolidate() {
     const r = await post('/consolidation', { idempotency_key: newKey() });
@@ -172,18 +182,28 @@ export default function LinkedAccounts({
               placeholder="رمز فعلی"
             />
           )}
-          {method === 'email_code' && (
+          {(method === 'email_code' || method === 'telegram_code') && (
             <div className="mt-3 flex gap-2">
               <input
-                aria-label="کد ایمیل"
+                aria-label={method === 'email_code' ? 'کد ایمیل' : 'کد تلگرام'}
                 className={inp}
                 value={proof}
                 onChange={(e) => setProof(e.target.value)}
-                placeholder="کد ایمیل"
+                placeholder={method === 'email_code' ? 'کد ایمیل' : 'کد تلگرام'}
               />
               <button className="rounded-xl border border-line px-3" onClick={sendReauth}>
                 ارسال کد
               </button>
+            </div>
+          )}
+          {method === 'google' && (
+            <div className="mt-3">
+              <p className="text-sm text-muted">برای ادامه، دوباره با یکی از حساب‌های Google متصل خود تأیید کنید.</p>
+              {googleProof ? (
+                <p className="mt-2 text-sm font-bold">تأیید Google دریافت شد.</p>
+              ) : (
+                <GoogleSignInButton onCredential={setGoogleProof} text="continue_with" className="mt-2" />
+              )}
             </div>
           )}
           <div className="mt-3 flex gap-2">

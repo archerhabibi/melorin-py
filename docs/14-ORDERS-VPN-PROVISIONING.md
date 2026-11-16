@@ -6,15 +6,15 @@
 
 ## بخش فارسی
 
-**هدف:** چرخهٔ سفارش، تخصیص و حساب‌های VPN.
+**هدف:** سفارش، چرخهٔ عمر سرویس، تمدید، تخصیص و provisioning.
 
-
+**قواعد:** مدل مالی عددصحیح؛ Wallet-first و شارژ در سطح Store؛ خرید نماینده با Debt Limit؛ atomicity و جبرانی؛ idempotency؛ ماشین‌وضعیت‌های سفارش و پرداخت؛ provisioning از آداپتر پنل. شکست provisioning به بررسی دستی می‌رود نه بازپرداخت خودکار. انتخاب سرور فقط از Bundle (سند 13).
 
 ## English section
 
-**Purpose:** Order lifecycle, allocation and VPN accounts.
+**Purpose:** orders, service lifecycle, renewal, allocation and provisioning.
 
-
+**Rules:** integer money model; wallet-first with store-scoped top-ups; reseller purchases under a Debt Limit; atomicity and compensation; idempotency; order and payment state machines; provisioning through the panel adapter. A provisioning failure goes to manual review, not an automatic refund. Server selection comes only from the Bundle (doc 13).
 
 ## مواد ادغام‌شده / Merged source material
 

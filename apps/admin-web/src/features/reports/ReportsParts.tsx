@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 // Admin → Reports & charts. One payload from GET /api/v1/admin/reports/analytics drives every card on the screen.
 // Currency-safe (one currency at a time), compared with the previous period, exportable, with a table view for accessibility.
 import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react';
-import { API_BASE, authFetch } from '../../api/api.ts';
+import { API_BASE, downloadFile } from '../../api/api.ts';
 import { Sparkline } from './ReportCharts.tsx';
 import { deltaInfo } from './reportsLogic.ts';
 import type { Json, Rec } from '../../shared/types.ts';
@@ -142,16 +142,7 @@ export function DataTable({ cols, rows, caption }: { cols?: Json; rows?: Json; c
   );
 }
 
-export async function download(path: string, filename: Json) {
-  const r = await authFetch(API_BASE, path);
-  if (!r.ok) throw new Error(`export ${r.status}`);
-  const url = URL.createObjectURL(await r.blob());
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
+export const download = (path: string, filename: Json) => downloadFile(API_BASE, path, String(filename));
 
 export const EXPORTS = [
   ['daily', 'روزانه'],

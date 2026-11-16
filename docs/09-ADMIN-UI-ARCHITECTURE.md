@@ -10,11 +10,15 @@
 
 **هشت گروه منو (حفظ‌شده):** نمای کلی؛ فروش و عملیات؛ مشتریان (کاربران، هویت)؛ فروشگاه‌ها و نمایندگان؛ کاتالوگ و بازاریابی؛ زیرساخت و عملیات پنل؛ اعلان‌ها، ارتباطات و پشتیبانی (Broadcast، Event Center، تیکت‌ها)؛ سیستم و امنیت (تنظیمات، دکمه‌های تلگرام با مجوز `system`، ممیزی، تیم، حساب من). انتقال تیکت‌ها فقط جابه‌جایی UI است؛ دامنهٔ Tickets در بک‌اند مستقل می‌ماند. Store Hub و Panel Operations Hub حفظ می‌شوند. منبع حقیقت منو: `apps/admin-web/src/app/adminNav.ts` و تست‌های `nav-structure` / `nav-role-matrix`.
 
+**ماتریس مجوز (`domain/admin_access.py`):** هر نقش برای هر ناحیه `r` یا `rw` دارد؛ مسیر ناشناخته به ناحیهٔ `system` (فقط owner) می‌افتد و نقش نامعتبر هیچ دسترسی ندارد. `owner`: همهٔ نواحی rw. `manager`: نواحی عملیاتی rw، audit فقط خواندنی. `finance`: orders و payments rw، بقیه خواندنی. `support`: customers و support rw، بقیه خواندنی. `viewer`: همه خواندنی. تأیید یکپارچه‌سازی کیف پول سطح `payments` است. دکمه‌های تلگرام (`admin/telegram`) در ناحیهٔ `system` و در گروه «سیستم و امنیت» می‌مانند، یعنی عمداً فقط owner؛ این تصمیم قطعی است و دیگر «تصمیم باز» نیست. عملیات گروهی روی پنل فقط ناحیهٔ `infrastructure` است.
+
 ## English section
 
 **Purpose:** Panel groups, menus, permissions and hubs.
 
 **Eight menu groups (kept):** Overview; Sales & Operations; Customers (users, identity); Stores & Resellers; Catalog & Marketing; Infrastructure & Panel Ops; Notifications, Communication & Support (Broadcast, Event Center, Tickets); System & Security (settings, Telegram buttons gated by the `system` permission, audit, team, my account). Moving Tickets is a UI-only change; the Tickets backend domain stays independent. Store Hub and Panel Operations Hub are kept. Source of truth for the menu: `apps/admin-web/src/app/adminNav.ts` and the `nav-structure` / `nav-role-matrix` tests.
+
+**Permission matrix (`domain/admin_access.py`):** each role holds `r` or `rw` per area; an unknown path falls into `system` (owner only) and an unknown role has no access. `owner`: all areas rw. `manager`: operational areas rw, audit read-only. `finance`: orders and payments rw, the rest read-only. `support`: customers and support rw, the rest read-only. `viewer`: everything read-only. Approving a wallet consolidation is a `payments`-level write. The Telegram buttons (`admin/telegram`) stay in the `system` area and in the "System & Security" group, i.e. owner only on purpose; this is a settled decision, no longer open. Bulk panel operations are limited to the `infrastructure` area.
 
 ## مواد ادغام‌شده / Merged source material
 

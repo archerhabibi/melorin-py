@@ -6,15 +6,33 @@
 
 ## بخش فارسی
 
-**هدف:** نقشه راه، بدهی فنی و ثبت یافته‌های ممیزی.
+**هدف:** نقشه راه، بدهی فنی و ثبت یافته‌های ممیزی. وضعیت کد فعلی بر گزارش قدیمی اولویت دارد. وضعیتها: `Confirmed`، `Fixed`، `Superseded`، `Not Reproducible`، `Open`.
 
+**رجیستری یافته‌ها (مطابق TODO و گزارش r22/r23)**
+- `Fixed`: محافظ gen_docs --check؛ گروه‌بندی منوی سیستم/امنیت؛ سرویس یک‌بارمصرف `migrate` در compose؛ mypy روی کل `melorin`؛ bandit B104؛ فایل‌های بزرگ admin-web (هیچ فایلی بیش از ۴۵۰ خط نیست)؛ نبود specهای Playwright اسکیپ‌شده؛ UI اتصال حساب‌ها، دکمهٔ ربات، تست‌های مالی و reauth.
+- `Superseded`: حذف consolidation؛ تأیید دستی همهٔ انتقال‌ها؛ `product_codes` (سند 06).
+- `Fixed` (این نوبت): اثبات مالکیت قوی‌تر برای حساب‌های فقط-Google/تلگرام (توکن Google یا کد ربات)؛ `authFetch` فقط در `api/api.ts` باقی است و دانلود فایل از `downloadFile` می‌گذرد؛ ارسال اعلان به تلگرام لغوشده؛ مجوز دکمه‌های تلگرام (فقط owner) تثبیت شد.
+- `Open`: فقط شواهد محیط واقعی (فهرست `Not verifiable here` پایین).
+- `Not verifiable here`: پنل واقعی PasarGuard/Sanaei، ربات واقعی تلگرام، زرین‌پال، Caddy + Prometheus، تمرین restore از S3.
 
+**گزارش اعتبارسنجی آخر:** مجموعهٔ تست API بدون خطا، baseline روی دیتابیس خالی بدون drift، lint/mypy/import-linter تمیز (جزئیات در سند 20).
+
+**نقشه راه:** ۰ تثبیت نیازمندی‌ها؛ ۱ Foundation؛ ۲ Catalog/Wallet/پرداخت؛ ۳ سفارش و پنل‌ها؛ ۴ ادمین، وب، ربات‌ها؛ ۵ Referral/Ticket/Reseller API؛ ۶ production hardening و E2E. همهٔ مراحل نماینده و ساخت تا سطح کد انجام شده‌اند؛ آنچه باقی است شواهد اجرای واقعی (staging) و release است.
 
 ## English section
 
-**Purpose:** Roadmap, technical debt and the audit findings register.
+**Purpose:** roadmap, technical debt and the audit-findings register. Current code beats an old report. Statuses: `Confirmed`, `Fixed`, `Superseded`, `Not Reproducible`, `Open`.
 
+**Findings register (from TODO and the r22/r23 reports)**
+- `Fixed`: gen_docs --check guard; system/security menu grouping; one-shot `migrate` service in compose; mypy over all of `melorin`; bandit B104; large admin-web files (none is above 450 lines now); no skipped Playwright specs; account-linking site UI, bot menu button, financial tests and reauth.
+- `Superseded`: removal of consolidation; manual approval of every transfer; `product_codes` (doc 06).
+- `Fixed` (this round): a stronger ownership proof for Google/Telegram-only accounts (Google token or bot code); `authFetch` now lives only in `api/api.ts` and file downloads go through `downloadFile`; notifications to a revoked Telegram; the Telegram-buttons permission (owner only) is settled.
+- `Open`: only real-environment evidence (the `Not verifiable here` list below).
+- `Not verifiable here`: real PasarGuard/Sanaei panels, real Telegram bots, Zarinpal, Caddy + Prometheus profile, the S3 restore drill.
 
+**Latest verification:** the API suite is green, the baseline on an empty database has no drift, and lint/mypy/import-linter are clean (details in doc 20).
+
+**Roadmap:** 0 requirements; 1 Foundation; 2 Catalog/Wallet/payments; 3 orders and panels; 4 admin, web and bots; 5 referral/ticket/reseller API; 6 production hardening and E2E. All phases are implemented in code; what remains is real-environment (staging) evidence and the release decision.
 
 ## مواد ادغام‌شده / Merged source material
 

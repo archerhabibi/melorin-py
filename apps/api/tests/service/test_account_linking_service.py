@@ -14,6 +14,14 @@ from melorin.modules.identity.account_linking import consolidation, linking, que
 from melorin.modules.wallet import service as wallets
 
 
+@pytest.fixture(autouse=True)
+def _manual_consolidation(monkeypatch):
+    """These tests exercise the manual-approval path (the exception path); automatic mode is the default and is tested separately."""
+    from melorin.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "identity_consolidation_auto_approve", False)
+
+
 async def _attach(s, user, provider, subject, ev=Evidence.OAUTH_GOOGLE):
     return await linking.attach_identity(s, user, provider, subject, evidence=ev)
 
@@ -129,3 +137,21 @@ async def test_admin_account_is_never_consolidated():
         a, b, _ = await _linked_pair(s)
         b.is_super_admin = True
         assert (await _err(consolidation.request(s, a, key="k-admin-1234"))).code == "ADMIN_ACCOUNT"
+
+
+async def test_auto_flow_consolidates_after_link_without_admin(monkeypatch):
+    """Proof of ownership + consent -> preflight -> consolidation in one flow; no manual admin step on the clean path."""
+    from melorin.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "identity_consolidation_auto_approve", True)
+    async with open_session() as s:
+        store = await make_store(s)
+        a, b, _ = await _linked_pair(s)
+        wb = await wallets.get_wallet(s, b.id, store.id)
+        pay = [wallets.Posting(700, wallet=wb), wallets.Posting(-700, account="gateway:x:clearing", min_balance=None)]
+        await wallets.post(s, kind="topup", key="t-auto", currency="IRT", postings=pay)
+        res = await linking._continue_with_consolidation(s, a, uuid.uuid4())
+        assert res["status"] == "completed"
+        assert (await wallets.get_wallet(s, b.id, store.id)).balance == 700  # routed to the central wallet
+        again = await linking._continue_with_consolidation(s, a, uuid.uuid4())
+        assert again["status"] in {"completed", "skipped"}

@@ -6,15 +6,11 @@
 
 ## بخش فارسی
 
-**هدف:** اصطلاحات دامنه و اختصارات.
-
-
+**هدف:** واژگان مشترک فارسی/انگلیسی دامنه. مهم‌ترین‌ها: **Person** (یک انسان)، **User/Account** (حساب عملیاتی)، **Identity** (روش ورود)، **Central Account/Wallet** (حساب و کیف پول مرکزی)، **Consolidation** (یکپارچه‌سازی)، **Store/StoreContext**، **Bundle**، **Ledger**، **Outbox**، **Provisioning**، **Panel/Server**. تعاریف کامل در جدول زیر آمده است.
 
 ## English section
 
-**Purpose:** Domain terms and abbreviations.
-
-
+**Purpose:** shared Persian/English domain vocabulary. Most important: **Person** (one human), **User/Account** (operational account), **Identity** (sign-in method), **Central Account/Wallet**, **Consolidation**, **Store/StoreContext**, **Bundle**, **Ledger**, **Outbox**, **Provisioning**, **Panel/Server**. Full definitions are in the table below.
 
 ## مواد ادغام‌شده / Merged source material
 

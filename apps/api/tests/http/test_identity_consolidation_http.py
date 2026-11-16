@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 import uuid
 
 from sqlalchemy import select
@@ -13,6 +14,15 @@ from melorin.domain.account_linking import Evidence
 from melorin.kernel.models.person import WalletTransfer
 from melorin.modules.identity.account_linking import linking
 from melorin.modules.wallet import service as wallets
+
+
+@pytest.fixture(autouse=True)
+def _manual_consolidation(monkeypatch):
+    """These tests exercise the manual-approval path (the exception path); automatic mode is the default and is tested separately."""
+    from melorin.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "identity_consolidation_auto_approve", False)
+
 
 ID = "/api/v1/identity"
 ADMIN = "/api/v1/admin/identity"

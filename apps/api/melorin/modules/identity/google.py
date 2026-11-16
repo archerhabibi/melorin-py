@@ -102,7 +102,7 @@ async def verify_google_token(id_token: str, client_id: str) -> dict:
     return claims
 
 
-async def _google_claims(session: AsyncSession, id_token: str, nonce: str | None) -> dict:
+async def google_claims(session: AsyncSession, id_token: str, nonce: str | None) -> dict:
     """Verified claims of a Google ID token that is bound to this browser's nonce cookie (see GET /auth/google/nonce)."""
     cfg = await integrations.get_google(session)
     if not integrations.google_ready(cfg):
@@ -116,7 +116,7 @@ async def _google_claims(session: AsyncSession, id_token: str, nonce: str | None
 async def link_google(session: AsyncSession, user: User, id_token: str, nonce: str | None = None) -> str:
     """Attach a Google account to the signed-in user (e.g. an account created from Telegram), so both logins open the
     same account. A Google account that already belongs to another user is never merged: it is reported for review."""
-    g = await _google_claims(session, id_token, nonce)
+    g = await google_claims(session, id_token, nonce)
     sub, email = g["sub"], (g.get("email") or "").lower() or None
     ident = await find_identity(session, "google", sub)
     if ident and ident.user_id == user.id:
@@ -171,7 +171,7 @@ async def link_google(session: AsyncSession, user: User, id_token: str, nonce: s
 async def login_with_google(session: AsyncSession, id_token: str, nonce: str | None = None) -> tuple[User, bool]:
     """``nonce`` is the value of the httpOnly nonce cookie issued by GET /auth/google/nonce; the ID token must carry
     the same value (it was passed to google.accounts.id.initialize), which binds the token to this browser."""
-    g = await _google_claims(session, id_token, nonce)
+    g = await google_claims(session, id_token, nonce)
     sub, email = g["sub"], (g.get("email") or "").lower() or None
     ident = await find_identity(session, "google", sub)
     if ident:
