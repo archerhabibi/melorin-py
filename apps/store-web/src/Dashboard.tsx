@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { Bell, ChevronDown, LogOut, Package, Store, Wallet as WalletIcon, ArrowRight } from 'lucide-react';
 import { GoogleSignInButton } from './GoogleSignIn.tsx';
 import Loyalty from './Loyalty.tsx';
@@ -7,9 +7,11 @@ import { Empty, Loading, PageTitle, PasswordInput, fa, fd } from './ui.tsx';
 import { J, tabs, card, btn, inp, Orders, Vpn } from './dashboard/DashboardAccounts.tsx';
 import { Wallet } from './dashboard/DashboardWallet.tsx';
 import { Tickets } from './dashboard/DashboardTickets.tsx';
-import LinkedAccounts from './dashboard/DashboardLinking.tsx';
-import { LINKING_TAB_KEY } from './InfoSections.tsx';
+import { LINKING_TAB_KEY } from './linkingTab.ts';
 import type { Json } from './types';
+
+// Rarely opened tab: keep it (and its Google/e-mail forms) out of the first-load chunk (bundle budget).
+const LinkedAccounts = lazy(() => import('./dashboard/DashboardLinking.tsx'));
 
 export { Wallet } from './dashboard/DashboardWallet.tsx';
 export { Tickets } from './dashboard/DashboardTickets.tsx';
@@ -346,7 +348,11 @@ export default function Dashboard({
           {tab === 'profile' && (
             <Profile coreFetch={coreFetch} storeId={storeId} account={account} notify={notify} reload={reload} />
           )}
-          {tab === 'linking' && <LinkedAccounts coreFetch={coreFetch} notify={notify} reload={reload} />}
+          {tab === 'linking' && (
+            <Suspense fallback={<Loading />}>
+              <LinkedAccounts coreFetch={coreFetch} notify={notify} reload={reload} />
+            </Suspense>
+          )}
           {tab === 'tickets' && <Tickets coreFetch={coreFetch} storeId={storeId} notify={notify} />}
         </section>
       </div>

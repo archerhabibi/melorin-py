@@ -15,7 +15,7 @@ import { NAME_RE, TG_ERRORS, TG_RETRY, errOf } from './landing.tsx';
 import { SiteHeader } from './SiteHeader.tsx';
 import { HeroSection } from './HeroSection.tsx';
 import { PlansSection } from './PlansSection.tsx';
-import { HowSection, LinkAccountsSection, WhySection } from './InfoSections.tsx';
+import { HowSection, WhySection } from './InfoSections.tsx';
 import { AccountBanner } from './AccountBanner.tsx';
 import { SiteFooter } from './SiteFooter.tsx';
 import { MobileNav } from './MobileNav.tsx';
@@ -24,6 +24,8 @@ import type { Json } from './types';
 
 // Reseller console is only needed by resellers: keep it out of the first-load bundle.
 const Reseller = lazy(() => import('./Reseller.tsx'));
+// Below-the-fold landing block: its own chunk keeps the first-load JS under budget.
+const LinkAccountsSection = lazy(() => import('./LinkAccountsSection.tsx'));
 
 export default function App() {
   const [active, setActive] = useState('Orbit');
@@ -389,7 +391,9 @@ export default function App() {
 
             <WhySection />
 
-            <LinkAccountsSection goAccount={goAccount} />
+            <Suspense fallback={<div className="min-h-40" aria-hidden="true" />}>
+              <LinkAccountsSection goAccount={goAccount} />
+            </Suspense>
 
             <AccountBanner wallet={wallet} orders={orders} goAccount={goAccount} accessToken={accessToken} />
             <Faq />
