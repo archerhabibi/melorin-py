@@ -142,7 +142,7 @@ class Settings(BaseSettings):
     # empty shell (docs/23). False = every conflict waits for an admin, as before.
     identity_auto_link: bool = True
     # docs/25: a consolidation whose preflight is clean runs without an admin click. Off by default: money moves only with approval.
-    identity_consolidation_auto_approve: bool = False
+    identity_consolidation_auto_approve: bool = True
     # Reseller applications verify themselves (docs/23): bot re-checked and domain control proven (DNS TXT or a file on the
     # domain) by a worker job. ``reseller_require_domain_proof`` makes the proof mandatory before an admin can approve.
     reseller_auto_verify: bool = True

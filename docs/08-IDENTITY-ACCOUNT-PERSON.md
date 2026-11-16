@@ -6,15 +6,39 @@
 
 ## بخش فارسی
 
-**هدف:** ورودها، اتصال حساب‌ها و اثبات مالکیت.
+**هدف:** یک انسان، یک حساب مرکزی، یک تجربهٔ کیف پول — با چند روش ورود معتبر.
 
+**مفاهیم.** `Person` مرجع هویت یک انسان است. هر `User` یک حساب عملیاتی است و هر `Identity` (telegram یا google یا email) یک روش ورود است. `Person.central_user_id` حساب مرکزی را مشخص می‌کند؛ اگر کاربر انتخاب نکرد، قدیمی‌ترین حساب انتخاب می‌شود (قاعدهٔ قطعی و قابل ممیزی). حساب‌های قدیمی هرگز حذف نمی‌شوند؛ `Person` ادغام‌شده با `merged_into_id` به مقصد اشاره می‌کند و کیف پول مبدأ با وضعیت `consolidated` و `consolidated_into_id` نگه داشته می‌شود.
 
+**گام اول: اتصال هویت (Linking).** اتصال فقط با اثبات مالکیت هر هویت (ایمیل‌کد، OAuth گوگل، تأیید در ربات) و رضایت صریح کاربر انجام می‌شود؛ یکسان بودن ایمیل کافی نیست. هر Person فقط یک تلگرام فعال دارد و در تعارض، کاربر می‌گوید کدام نگه دارد (`keep_telegram`). قطع اتصال نباید هیچ روش ورود قابل استفاده‌ای باقی نگذارد نکند. ورود با هر روش تأییدشده، نشست جدید برای حساب مرکزی صادر می‌کند و خرید، پرداخت و تمدید از همان حساب انجام می‌شود.
+
+**گام دوم: یکپارچه‌سازی (Consolidation).** پس از تأیید اتصال، همان جریان محصولی بلافاصله preflight را اجرا می‌کند (`linking._continue_with_consolidation`)؛ اگر مانعی نباشد انتقال بدون تأیید دستی ادمین انجام می‌شود (`identity_consolidation_auto_approve` پیش‌فرض روشن؛ دکمهٔ خاموش‌کنندهٔ اضطراری). موانع به صف بررسی ادمین می‌روند: پرداخت معلق، سفارش در جریان، حساب نماینده، بدهی، حساب مدیری. شکست در consolidation هرگز اتصال هویت را برنمی‌گرداند.
+
+**قوانین کیف پول.** هر انتقال یک تراکنش متوازن دفترکل با کلید idempotency است؛ تغییر مستقیم `balance` ممنوع است. جمع قبل و بعد تطبیق داده می‌شود و کیف پول‌ها قفل می‌شوند. هر (Store، Currency) یک استخر مستقل است و هرگز با دیگری جمع نمی‌شود. درخواست‌های جدید موجودی و پرداخت از طریق `wallet.service` به کیف پول مرکزی هدایت می‌شوند (حداکثر چهار هاپ).
+
+**پیشنهاد ورود با حساب قبلی.** اگر حساب مرتبط شناسایی شود، به کاربر پیشنهاد می‌شود با حساب قبلی وارد شود یا «فعلاً نه» بگوید. انتخاب «فعلاً نه» هیچ‌وقت خرید را مسدود نمی‌کند.
+
+**ادمین.** همهٔ رویدادهای اتصال، رضایت، انتخاب حساب مرکزی و انتقال در audit فقط‌افزودنی ثبت می‌شوند؛ صفحهٔ «هویت» تاریخچهٔ موفق/ناموفق را نشان می‌دهد. API: مسیرهای `/identity/link/*`، `/identity/unlink`، `/identity/consolidation` و `/identity/consolidation-status`.
+
+**کد و تست:** `modules/identity/account_linking/{linking,consolidation,persons}.py`، `domain/account_linking.py`، `modules/wallet/service.py`؛ تست‌ها: `tests/service/test_account_linking_service.py`، `tests/http/test_identity_consolidation_http.py`.
 
 ## English section
 
-**Purpose:** Logins, account linking and proof of ownership.
+**Purpose:** one human, one central account, one wallet experience — with several valid sign-in methods.
 
+**Concepts.** `Person` is the identity of one human. Each `User` is an operational account and each `Identity` (telegram, google or email) is a sign-in method. `Person.central_user_id` names the central account; when the user makes no choice the oldest account is picked (a fixed, auditable rule). Old accounts are never deleted: a merged `Person` points to its target through `merged_into_id`, and source wallets are kept with status `consolidated` and `consolidated_into_id`.
 
+**Step one: identity linking.** Linking happens only after proof of ownership of every identity (email code, Google OAuth, confirmation in the bot) and explicit user consent; an equal email address is not enough. A Person has at most one active Telegram and, on conflict, the user states which to keep (`keep_telegram`). Unlinking must leave at least one other usable sign-in. Signing in with any verified method issues a new session for the central account, and purchases, payments and renewals run from it.
+
+**Step two: consolidation.** After a link is confirmed, the same product flow runs the preflight immediately (`linking._continue_with_consolidation`). When it is clean, the transfer completes without a manual admin approval (`identity_consolidation_auto_approve`, on by default; the switch is an emergency kill-switch). Blockers go to the admin review queue: pending payment, in-flight order, reseller account, debt, admin account. A consolidation failure never undoes the identity link.
+
+**Wallet rules.** Every transfer is a balanced ledger transaction with an idempotency key; directly changing `balance` is forbidden. Before/after totals are reconciled and wallets are locked. Each (Store, Currency) is its own pool and is never summed with another. New balance and payment requests are routed to the central wallet through `wallet.service` (at most four hops).
+
+**"Sign in with your previous account" offer.** If a related account is detected, the user is offered to sign in with it or to answer "not now". "Not now" never blocks a purchase.
+
+**Admin.** Link, consent, central-account choice and transfer events are written to an append-only audit; the Identity screen shows successful and failed operations. API: `/identity/link/*`, `/identity/unlink`, `/identity/consolidation`, `/identity/consolidation-status`.
+
+**Code and tests:** `modules/identity/account_linking/{linking,consolidation,persons}.py`, `domain/account_linking.py`, `modules/wallet/service.py`; tests: `tests/service/test_account_linking_service.py`, `tests/http/test_identity_consolidation_http.py`.
 
 ## مواد ادغام‌شده / Merged source material
 
