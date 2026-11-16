@@ -1,41 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { typedClient } from '../../api/api.ts';
-import { ServerForm } from './ServerForm.tsx';
-import { ServerImport } from './ServerImport.tsx';
-import { TargetWizard } from './TargetPicker.tsx';
 import { confirmDialog } from '../../shared/ui.tsx';
-import {
-  clearParam,
-  free,
-  health,
-  memberIds,
-  saveGroupPanels,
-  serverState,
-  useHashParams,
-  useInfra,
-} from '../panel-operations/infra.tsx';
+import { clearParam, health, memberIds, saveGroupPanels, useHashParams, useInfra } from '../panel-operations/infra.tsx';
 import { InfraChain } from '../panel-operations/InfraChain.tsx';
-import {
-  Empty,
-  ErrorBar,
-  KpiBar,
-  Paginator,
-  SearchBox,
-  SortSelect,
-  Stat,
-  ViewToggle,
-  errText,
-  num,
-  removeEntity,
-  useAlive,
-} from '../../shared/kit.tsx';
-import { AlertTriangle, Plus, RefreshCw, Server, ServerCog, ShieldAlert, ShieldCheck } from 'lucide-react';
-import { kindOf } from './panelUi.tsx';
-import { PanelDrawer } from './PanelDrawer.tsx';
-import { PanelDetailDrawer } from './PanelDetailDrawer.tsx';
+import { Empty, ErrorBar, Paginator, errText, num, removeEntity, useAlive } from '../../shared/kit.tsx';
+import { AlertTriangle, Plus, Server } from 'lucide-react';
+import { capacityOf, countPanels, filterPanels, sortPanels } from './panelsList.ts';
 import { PanelSection } from './PanelSection.tsx';
 import { PanelsToolbar } from './PanelsToolbar.tsx';
-import type { Json, Rec, Toast } from '../../shared/types.ts';
+import type { Json, Toast } from '../../shared/types.ts';
+import { PanelsOverlays } from './PanelsOverlays.tsx';
 
 // Panels and their servers are ONE screen: a server is only a capacity slot of a single panel,
 // so it is created, edited and enabled right under the panel it belongs to. Group membership of a
@@ -321,25 +295,8 @@ export default function PanelsView({ api, toast }: { api?: Json; toast: Toast })
     }
   };
 
-  const attention = (p: Json) => p.is_enabled && health(p) !== 'healthy';
-  const counts = useMemo(() => {
-    const c = { all: 0, healthy: 0, attention: 0 };
-    (rows || []).forEach((p) => {
-      c.all++;
-      if (health(p) === 'healthy') c.healthy++;
-      if (attention(p)) c.attention++;
-    });
-    return c;
-  }, [rows]);
-  const cap = useMemo(() => {
-    let freeN = 0,
-      total = 0;
-    allServers.forEach((s) => {
-      total += s.capacity || 0;
-      if (serverState(s, idx.panelById.get(s.panel_id)).ok) freeN += free(s);
-    });
-    return { free: freeN, total };
-  }, [allServers, idx]);
+  const counts = useMemo(() => countPanels(rows || []), [rows]);
+  const cap = useMemo(() => capacityOf(allServers, idx), [allServers, idx]);
   const group: Json = groupF ? idx.groupById.get(groupF) : null;
   const groupPanels = useMemo(() => (group ? new Set(memberIds(group)) : null), [group]);
   const productObj = productF ? (infra.products.rows || []).find((x) => x.code === productF) : null;
@@ -348,47 +305,10 @@ export default function PanelsView({ api, toast }: { api?: Json; toast: Toast })
     : null;
   const serversOf = (p: Json) => idx.serversByPanel.get(p.id) || [];
   const filtered = useMemo(
-    () =>
-      (rows || []).filter(
-        (p) =>
-          (!only || p.id === only) &&
-          (filter === 'all' || (filter === 'healthy' ? health(p) === 'healthy' : attention(p))) &&
-          (!groupPanels || groupPanels.has(p.id)) &&
-          (!productPanels || productPanels.has(p.id)) &&
-          `${p.name} ${p.base_url} ${kindOf(p.kind).title} ${(idx.serversByPanel.get(p.id) || []).map((s: Json) => `${s.name} ${s.location || ''}`).join(' ')}`
-            .toLowerCase()
-            .includes(q.trim().toLowerCase()),
-      ),
+    () => filterPanels(rows || [], { filter, q, only, groupPanels, productPanels }, idx),
     [rows, filter, q, only, groupPanels, productF, idx, productObj],
   );
-  const sorted = useMemo(() => {
-    const rank = (p: Json) =>
-      !p.is_enabled
-        ? 4
-        : health(p) === 'unhealthy'
-          ? 0
-          : health(p) === 'degraded'
-            ? 1
-            : health(p) === 'unknown'
-              ? 2
-              : 3;
-    const by: Rec = {
-      attention: (a: Json, b: Json) => rank(a) - rank(b) || a.name.localeCompare(b.name, 'fa'),
-      name: (a: Json, b: Json) => a.name.localeCompare(b.name, 'fa'),
-      free: (a: Json, b: Json) =>
-        idx.panelStat(b.id).capacity -
-        idx.panelStat(b.id).active -
-        (idx.panelStat(a.id).capacity - idx.panelStat(a.id).active),
-      usage: (a: Json, b: Json) => {
-        const f = (p: Json) => {
-          const x = idx.panelStat(p.id);
-          return x.capacity ? x.active / x.capacity : 0;
-        };
-        return f(b) - f(a);
-      },
-    };
-    return [...filtered].sort(by[sort]);
-  }, [filtered, sort, idx]);
+  const sorted = useMemo(() => sortPanels(filtered, sort, idx), [filtered, sort, idx]);
   const shown = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const loading = rows === null || infra.loading;
   const editing = drawer && drawer !== 'add' ? (rows || []).find((p) => p.id === drawer) : null;
@@ -496,68 +416,33 @@ export default function PanelsView({ api, toast }: { api?: Json; toast: Toast })
         </>
       )}
 
-      {drawer && (drawer === 'add' || editing) && (
-        <PanelDrawer
-          key={drawer}
-          panel={drawer === 'add' ? null : editing}
-          groups={infra.groups.rows || []}
-          idx={idx}
-          onClose={() => setDrawer(null)}
-          onSubmit={save}
-          onToggle={toggle}
-          onDelete={removePanel}
-          toggling={editing ? busy.has(editing.id) : false}
-        />
-      )}
-      {detailFor && (
-        <PanelDetailDrawer
-          api={api}
-          toast={toast}
-          panel={
-            ((infra.panels?.rows || []).find((x: Json) => x.id === detailFor.id) as
-              { id: string; name: string } | undefined) || {
-              id: String(detailFor.id),
-              name: 'پنل',
-            }
-          }
-          tab={detailFor.tab}
-          onClose={() => setDetailFor(null)}
-        />
-      )}
-      {srvDrawer && srvPanel && (!srvDrawer.serverId || srvEditing) && (
-        <ServerForm
-          key={`${srvDrawer.panelId}:${srvDrawer.serverId || 'new'}`}
-          api={api}
-          toast={toast}
-          infra={infra}
-          panel={srvPanel}
-          server={srvEditing || null}
-          locations={locations}
-          toggling={srvEditing ? srvBusy.has(srvEditing.id) : false}
-          onToggle={srvToggle}
-          onDelete={removeServer}
-          onSaved={infra.reload}
-          onClose={() => setSrvDrawer(null)}
-        />
-      )}
-      {wizardFor && (
-        <TargetWizard
-          api={api}
-          toast={toast}
-          panel={wizardFor}
-          onClose={() => setWizardFor(null)}
-          onDone={infra.reload}
-        />
-      )}
-      {importFor && (
-        <ServerImport
-          api={api}
-          toast={toast}
-          panel={importFor}
-          onClose={() => setImportFor(null)}
-          onDone={infra.reload}
-        />
-      )}
+      <PanelsOverlays
+        api={api}
+        toast={toast}
+        infra={infra}
+        idx={idx}
+        drawer={drawer}
+        setDrawer={setDrawer}
+        editing={editing}
+        busy={busy}
+        save={save}
+        toggle={toggle}
+        removePanel={removePanel}
+        detailFor={detailFor}
+        setDetailFor={setDetailFor}
+        srvDrawer={srvDrawer}
+        setSrvDrawer={setSrvDrawer}
+        srvPanel={srvPanel}
+        srvEditing={srvEditing}
+        locations={locations}
+        srvBusy={srvBusy}
+        srvToggle={srvToggle}
+        removeServer={removeServer}
+        wizardFor={wizardFor}
+        setWizardFor={setWizardFor}
+        importFor={importFor}
+        setImportFor={setImportFor}
+      />
     </div>
   );
 }

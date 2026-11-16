@@ -23,7 +23,8 @@ import { clearParam, useHashParams, useInfra } from '../panel-operations/infra.t
 import { InfraChain } from '../panel-operations/InfraChain.tsx';
 
 import { API } from './productsShared.tsx';
-import { ProductDrawer, ProductCard, ProductTable } from './ProductParts.tsx';
+import { ProductDrawer } from './ProductDrawer.tsx';
+import { ProductCard, ProductTable } from './ProductParts.tsx';
 
 export default function ProductsView({ api, toast }: { api?: Json; toast: Toast }) {
   const infra = useInfra(api);

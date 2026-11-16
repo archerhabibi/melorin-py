@@ -242,3 +242,8 @@ Docker/Compose (no docker on the test server), real Telegram bots, payment gatew
 ## منابع و ارجاع‌ها / References
 
 - کد و تست‌های مرتبط در `apps/` و `scripts/`؛ سند فهرست: [00](00-DOCUMENTATION-INDEX.md).
+
+### Update 2026-11-16: large admin-web files / به‌روزرسانی فایل‌های بزرگ
+
+- EN: pure moves, no behaviour change. `BundleDrawer` 695 to 397 (`BundlePackages`, `ResellerPrices`), `PanelDrawer` 648 to 505 (`panelForm.ts`), `PanelsView` 563 to about 440 (`panelsList.ts` pure list logic, `PanelsOverlays`), `ProductParts` 533 to 225 (`ProductDrawer`, `ProductSwitches`), `ReportsSections` 519 to 168, `ButtonStylesView` 508 to 222, `IdentityReviewsView` 483 to 162, `ResellerApplicationsView` 468 to 194. Still above 450 lines: `PanelDrawer`, `PanelsView`, `ReceiptReviewPanel`, `ReportCharts`, `AdminTeamParts`.
+- FA: جابه‌جایی خالص بدون تغییر رفتاری انجام شد (اعداد بالا). هنوز بزرگ‌تر از ۴۵۰ خط: `PanelDrawer`، `PanelsView`، `ReceiptReviewPanel`، `ReportCharts`، `AdminTeamParts`.
