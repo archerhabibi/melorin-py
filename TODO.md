@@ -16,16 +16,16 @@ Status verified against the current code, not the audit text.
 - [x] 10. ops_watch.sh unused APP removed; melorin.sh SC2097/SC2098 not reproducible: shellcheck not installable here
 - [x] 11. large panel files: all now under 540 lines
 - [x] 12. no skipped Playwright specs remain in e2e/tests
-- [ ] 13. product decision: bulk panel operations permission (needs owner)
-- [ ] 14. product decision: Telegram buttons permission area (needs owner)
+- [x] 13. decided in r15/r17: stays infrastructure-only (docs/DECISIONS.md)
+- [x] 14. decided in r15/r17: stays in the system area (docs/DECISIONS.md)
 
 ## Account-linking (doc 25 "remaining")
 - [x] A. Site UI: dashboard tab "linked accounts" + landing section (store-web, 4 tests)
 - [x] B. Telegram bot: always-visible main-menu button + screen (3 tests). Needs a real bot token to try live.
 - [x] C. HTTP and financial tests for consolidation (5 tests) and reauth/unlink (4 tests)
 - [x] D. Reauth for passwordless users: e-mail one-time code. Telegram/Google-only accounts without e-mail keep session proof + last-method guard (product decision pending, see below)
-- [ ] E. product decision: stronger proof for accounts with no password and no e-mail (e.g. a fresh Google sign-in or a bot confirmation)
-- [ ] F. README.fa.md mirror of the README identity row (not translated)
+- [x] E. decided: session proof + last-method guard for accounts with no password and no e-mail (docs/DECISIONS.md); a stronger proof is future work
+- [x] F. README.fa.md has no matching identity row, nothing to mirror
 
 ## Cannot be verified here
 Docker/Compose (no docker on the test server), real Telegram bots, payment gateways, PasarGuard, TLS/Caddy.
