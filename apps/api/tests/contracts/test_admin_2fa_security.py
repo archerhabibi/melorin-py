@@ -15,5 +15,3 @@ def test_admin_requires_2fa_and_totp_replay_state_is_persisted():
     assert "def totp_counter" in security
     assert "counter <= user.totp_last_counter" in router
     assert "with_for_update()" in router
-
-

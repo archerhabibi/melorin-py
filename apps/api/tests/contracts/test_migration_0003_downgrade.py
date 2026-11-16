@@ -49,12 +49,6 @@ def _run_downgrade(monkeypatch, layout):
     return rec.calls
 
 
-
-
-
-
-
-
 @pytest.mark.integration
 async def test_downgrade_roundtrip_on_real_postgres():
     url = os.environ.get("TEST_PG_URL", "").strip() or os.environ.get("MELORIN_DATABASE_URL", "").strip()

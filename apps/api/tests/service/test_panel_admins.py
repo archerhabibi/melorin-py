@@ -414,8 +414,6 @@ async def test_reseller_request_flow_one_pending_then_admin_applies_or_rejects(f
         assert (await s.get(PanelAdminChangeRequest, again["id"])).status == "rejected"
 
 
-
-
 # ------------------------------------------------------------------ guards: login clashes, creation races, reset durability
 def test_pick_username_never_reuses_a_taken_login_and_stays_within_the_panel_limit():
     class S:
@@ -536,5 +534,3 @@ async def test_a_crash_after_the_panel_changed_converges_through_the_worker(fake
         await s.commit()
         assert (await svc.sync_all(s))["synced"] == 1
         assert fake_adapter["a"].admins[row.username] == "Crash-Safe-Pass-12!" and row.profile_synced is True
-
-

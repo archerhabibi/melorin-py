@@ -285,10 +285,6 @@ def _load_migration():
     return mod
 
 
-
-
-
-
 async def test_plan_sale_is_the_single_core_answer_for_route_name_and_price(session):
     p = await product(session, "30", 30, 30000, reseller=20000)
     g, _ = await bundle(session)

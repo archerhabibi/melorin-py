@@ -4,7 +4,6 @@ import importlib.util
 from pathlib import Path
 
 
-
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -13,10 +12,6 @@ def _load(name, file):
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
-
-
-
-
 
 
 def test_no_live_code_mentions_panel_groups_or_pools():

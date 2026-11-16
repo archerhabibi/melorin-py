@@ -152,8 +152,6 @@ async def test_customer_reply_reopens_and_staff_reply_via_legacy_endpoint_notifi
     assert (await world.s.scalars(select(OutboxEvent).where(OutboxEvent.topic == events.NOTIFY))).first() is not None
 
 
-
-
 # ---------------------------------------------------------------- Telegram bot (Core + Telegram mocked)
 import asyncio  # noqa: E402
 import importlib.util  # noqa: E402

@@ -238,8 +238,6 @@ async def test_admin_list_is_enriched_pending_first_and_has_no_token(session):
     assert [r["status"] for r in await applications(admin, session, status="rejected")] == ["rejected"]
 
 
-
-
 def test_rotation_covers_application_token():
     assert '(ResellerApplication, "bot_token_enc")' in read_source(ROOT / "melorin/cli.py")
 
@@ -381,8 +379,6 @@ async def test_admin_list_exposes_two_step_state_without_secrets(session):
         and row["has_bot_token"] is False
         and row["domain"] is None
     )
-
-
 
 
 # ------------------------------------------------------------ A1: the reason is mandatory

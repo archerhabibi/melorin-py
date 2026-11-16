@@ -6,10 +6,6 @@ from _source import read_source, read_store_shell, read_web_source
 ROOT = Path(__file__).resolve().parents[2]
 
 
-
-
-
-
 def test_installer_supports_external_proxy_and_bootstraps_admin():
     root = ROOT.parent.parent
     installer = (root / "scripts/install_server.sh").read_text()
@@ -157,8 +153,6 @@ def test_k21_to_k27_hardening_is_wired():
     assert "npm audit --include=dev" in quality
 
 
-
-
 def test_worker_has_one_runtime_entrypoint():
     runner = read_source(ROOT / "melorin/worker/runner.py")
     read_source(ROOT / "melorin/worker/arq_app.py")  # must exist and be readable
@@ -232,8 +226,6 @@ def test_i38_pgclock_destinations_and_irt_default():
     registry = read_source(ROOT / "melorin/modules/payments/adapters/registry.py")
     assert "DestinationAdapter" in registry
     assert '"crypto"' in registry and '"telegram_stars"' in registry
-
-
 
 
 def test_i40_currency_payment_contract_exists():

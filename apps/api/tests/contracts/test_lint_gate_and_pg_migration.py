@@ -16,8 +16,6 @@ def test_quality_gate_uses_the_correctness_policy_and_ci_runs_it():
     assert "ruff check melorin" in ci and "ruff format --check" in ci
 
 
-
-
 def test_ci_executes_real_postgresql_migration_smoke():
     ci = (ROOT / ".github/workflows/ci.yml").read_text()
     assert "bash ../../scripts/migration_smoke.sh" in ci

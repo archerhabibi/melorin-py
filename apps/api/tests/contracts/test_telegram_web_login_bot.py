@@ -219,5 +219,3 @@ def test_frontend_polls_with_post_body_and_keeps_nothing_in_storage():
     assert 'import TelegramLogin from "./TelegramLogin.tsx"' in app and 'modal === "telegram"' in app
     assert "hasBot" in app and "store.bot_username" in app
     assert "pair.is_admin" in app  # admins still cannot keep a storefront session
-
-

@@ -14,8 +14,6 @@ def read(rel):
     return normalize_source(text) if str(rel).endswith(".py") else text
 
 
-
-
 def test_channels_never_choose_a_server():
     # Channels say WHAT is bought and, since sales bundles, which bundle the customer picked (and the panel in a
     # manual bundle). The core validates every choice; the server is never chosen outside the core.

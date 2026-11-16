@@ -39,5 +39,3 @@ def test_alphabet_has_no_ambiguous_symbols():
 def test_provisioning_defaults_are_one_initial_plus_three_retries():
     assert settings_store.DEFAULTS["provisioning.max_attempts"] == 4
     assert settings_store.DEFAULTS["provisioning.backoff_seconds"] == [5, 7, 10]
-
-
