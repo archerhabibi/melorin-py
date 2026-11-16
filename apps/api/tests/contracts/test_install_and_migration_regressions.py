@@ -112,9 +112,9 @@ def test_store_frontend_does_not_fallback_to_demo_plans():
 def test_web_tokens_are_not_persisted_in_local_storage():
     for path in (
         ROOT.parent.parent / "apps/store-web/src/App.tsx",
-        ROOT.parent.parent / "apps/admin-web/src/AdminAuth.tsx",
-        ROOT.parent.parent / "apps/admin-web/src/AdminExtra.tsx",
-        ROOT.parent.parent / "apps/admin-web/src/AdminSections.tsx",
+        ROOT.parent.parent / "apps/admin-web/src/app/AdminAuth.tsx",
+        ROOT.parent.parent / "apps/admin-web/src/app/AdminExtra.tsx",
+        ROOT.parent.parent / "apps/admin-web/src/app/AdminSections.tsx",
     ):
         source = path.read_text()
         assert "localStorage.setItem" not in source

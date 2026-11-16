@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import OrdersView from '../src/OrdersView.tsx';
-import VpnAccountsView from '../src/VpnAccountsView.tsx';
-import UsersView from '../src/UsersView.tsx';
-import StoresView from '../src/StoresView.tsx';
-import AuditView from '../src/AuditView.tsx';
-import { DialogHost } from '../src/ui.tsx';
-import { csvCell, fmtBytes, matches, relTime } from '../src/dataKit.tsx';
+import OrdersView from '../src/features/orders/OrdersView.tsx';
+import VpnAccountsView from '../src/features/vpn-accounts/VpnAccountsView.tsx';
+import UsersView from '../src/features/customers/UsersView.tsx';
+import StoresView from '../src/features/stores/StoresView.tsx';
+import AuditView from '../src/features/settings/AuditView.tsx';
+import { DialogHost } from '../src/shared/ui.tsx';
+import { csvCell, fmtBytes, matches, relTime } from '../src/shared/dataKit.tsx';
 
 const json = (body, status = 200, headers = {}) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...headers } });

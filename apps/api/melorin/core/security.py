@@ -93,10 +93,6 @@ def _totp(secret: str, counter: int) -> str:
     return f"{code:06d}"
 
 
-def totp_verify(secret: str, code: str, window: int = 1) -> bool:
-    return totp_counter(secret, code, window) is not None
-
-
 def totp_counter(secret: str, code: str, window: int = 1) -> int | None:
     """Return the accepted RFC 6238 time-step, enabling replay protection."""
     if not secret or not code or not code.isdigit():

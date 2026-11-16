@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import AdminAuth from '../src/AdminAuth.tsx';
-import { clearTokens, getAccessToken } from '../src/auth.ts';
+import AdminAuth from '../src/app/AdminAuth.tsx';
+import { clearTokens, getAccessToken } from '../src/api/auth.ts';
 
-vi.mock('../src/GoogleSignIn.tsx', () => ({
+vi.mock('../src/features/auth/GoogleSignIn.tsx', () => ({
   GoogleSignInButton: () => null,
   useGoogleConfig: () => null,
 }));

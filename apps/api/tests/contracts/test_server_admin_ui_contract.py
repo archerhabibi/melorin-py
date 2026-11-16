@@ -36,7 +36,7 @@ def test_servers_live_inside_their_panel_screen():
     # menu regroup: the panel screen leads the infrastructure group; bundles and products are catalog entries next to marketing
     infra_group = app[app.index('"زیرساخت و عملیات پنل"') : app.index('"سیستم و امنیت"')]
     assert '"panels"' in infra_group and '"bundles"' not in infra_group
-    catalog_group = app[app.index('"کاتالوگ و بازاریابی"') : app.index('"ارتباطات"')]
+    catalog_group = app[app.index('"کاتالوگ و بازاریابی"') : app.index('"اعلان‌ها، ارتباطات و پشتیبانی"')]
     assert catalog_group.index('"bundles"') < catalog_group.index('"products"')
     # r15: Melorin has never been released, so no legacy hash aliases are kept
     assert "legacyHash" not in app and "legacyHash" not in _ui("infra.tsx") and "legacyHash" not in _ui("App.tsx")

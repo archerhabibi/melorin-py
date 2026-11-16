@@ -2,8 +2,8 @@ import { act } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { render, renderHook, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { ChipList, capTone, digits, errText, num, removeEntity, tint, toEn, useRows } from '../src/kit.tsx';
-import { DialogHost } from '../src/ui.tsx';
+import { ChipList, capTone, digits, errText, num, removeEntity, tint, toEn, useRows } from '../src/shared/kit.tsx';
+import { DialogHost } from '../src/shared/ui.tsx';
 
 const res = (body, status = 200) => new Response(status === 204 ? null : JSON.stringify(body), { status });
 

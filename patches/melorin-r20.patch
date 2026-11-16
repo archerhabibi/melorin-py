@@ -1,0 +1,3775 @@
+From e0bb6f98f67e56098480d4bb46d6dd1a7af43a36 Mon Sep 17 00:00:00 2001
+From: Melorin Dev <dev@melorin.local>
+Date: Sun, 15 Nov 2026 13:26:02 +0000
+Subject: [PATCH 1/3] refactor(admin-web): extract PanelsToolbar from
+ PanelsView (pure move); docs r20
+
+---
+ .../src/features/panels/PanelsToolbar.tsx     | 155 ++++++++++++++++++
+ .../src/features/panels/PanelsView.tsx        | 124 +++-----------
+ docs/DECISIONS.md                             |   5 +
+ 3 files changed, 184 insertions(+), 100 deletions(-)
+ create mode 100644 apps/admin-web/src/features/panels/PanelsToolbar.tsx
+
+diff --git a/apps/admin-web/src/features/panels/PanelsToolbar.tsx b/apps/admin-web/src/features/panels/PanelsToolbar.tsx
+new file mode 100644
+index 0000000..bc3e8b2
+--- /dev/null
++++ b/apps/admin-web/src/features/panels/PanelsToolbar.tsx
+@@ -0,0 +1,155 @@
++import { Plus, RefreshCw, Server, ServerCog, ShieldAlert, ShieldCheck } from 'lucide-react';
++import { KpiBar, SearchBox, SortSelect, Stat, ViewToggle, num } from '../../shared/kit.tsx';
++import type { Json } from '../../shared/types.ts';
++
++// KPI strip, search / filter / sort toolbar and the scope banner of the panels screen (pure move out of PanelsView).
++export function PanelsToolbar({
++  counts,
++  cap,
++  filter,
++  setFilter,
++  q,
++  setQ,
++  groups,
++  groupF,
++  setGroupF,
++  sort,
++  setSort,
++  dense,
++  setDense,
++  bulk,
++  checkAll,
++  onAdd,
++  hasScope,
++  only,
++  group,
++  productObj,
++  clearScope,
++}: {
++  counts: { all: number; healthy: number; attention: number };
++  cap: { free: number; total: number };
++  filter: string;
++  setFilter: (v: string) => void;
++  q: string;
++  setQ: (v: string) => void;
++  groups: Json[];
++  groupF: string;
++  setGroupF: (v: string) => void;
++  sort: string;
++  setSort: (v: string) => void;
++  dense: string;
++  setDense: (v: string) => void;
++  bulk: Json;
++  checkAll: () => void;
++  onAdd: () => void;
++  hasScope: boolean;
++  only: string;
++  group: Json;
++  productObj: Json;
++  clearScope: () => void;
++}) {
++  return (
++    <>
++      <KpiBar cols={4}>
++        <Stat
++          label="همه پنل‌ها"
++          value={counts.all}
++          tone="in"
++          Icon={Server}
++          active={filter === 'all'}
++          onClick={() => setFilter('all')}
++        />
++        <Stat
++          label="سالم"
++          value={counts.healthy}
++          tone="ok"
++          Icon={ShieldCheck}
++          active={filter === 'healthy'}
++          onClick={() => setFilter(filter === 'healthy' ? 'all' : 'healthy')}
++        />
++        <Stat
++          label="نیازمند بررسی (ناسالم / بررسی‌نشده)"
++          value={counts.attention}
++          tone={counts.attention ? 'bd' : 'mu'}
++          Icon={ShieldAlert}
++          active={filter === 'attention'}
++          onClick={() => setFilter(filter === 'attention' ? 'all' : 'attention')}
++        />
++        <Stat
++          label={`ظرفیت آزاد قابل فروش از ${num(cap.total)}`}
++          value={cap.free}
++          tone={cap.free ? 'ok' : 'bd'}
++          Icon={ServerCog}
++          ring={cap.total ? cap.free / cap.total : 0}
++        />
++      </KpiBar>
++
++      <div className="tool">
++        <SearchBox
++          label="جستجوی پنل یا سرور"
++          placeholder="جستجو در پنل، سرور، موقعیت یا آدرس…"
++          value={q}
++          onChange={setQ}
++        />
++        {!!groups.length && (
++          <select
++            aria-label="فیلتر بسته"
++            className="inp !w-auto !py-2 !text-xs font-bold"
++            value={groupF}
++            onChange={(e) => setGroupF(e.target.value)}
++          >
++            <option value="">همه بسته‌ها</option>
++            {groups.map((g) => (
++              <option key={g.id} value={g.id}>
++                {g.name}
++              </option>
++            ))}
++          </select>
++        )}
++        <SortSelect
++          value={sort}
++          onChange={setSort}
++          options={[
++            ['attention', 'مشکل‌دارها اول'],
++            ['name', 'نام'],
++            ['free', 'بیشترین ظرفیت آزاد'],
++            ['usage', 'بیشترین پُری'],
++          ]}
++        />
++        <ViewToggle
++          value={dense}
++          onChange={setDense}
++          options={[
++            ['full', 'کامل'],
++            ['dense', 'فشرده'],
++          ]}
++        />
++        <div className="mr-auto flex items-center gap-2">
++          <button className="btn btn-g !py-2 !text-sm" onClick={checkAll} disabled={!!bulk || !counts.all}>
++            <RefreshCw size={14} className={bulk ? 'animate-spin' : ''} />
++            {bulk ? `${num(bulk.done)} از ${num(bulk.total)}` : 'بررسی همه'}
++          </button>
++          <button className="btn" onClick={() => onAdd()}>
++            <Plus size={16} />
++            افزودن پنل
++          </button>
++        </div>
++      </div>
++
++      {hasScope && (
++        <p className="flex flex-wrap items-center gap-2 rounded-xl bg-[var(--inb)] px-3 py-2 text-xs font-bold text-[var(--in)]">
++          {only && <>فقط یک پنل نمایش داده می‌شود</>}
++          {group && <>پنل‌های بسته «{group.name}»</>}
++          {productObj && (
++            <>
++              {group || only ? ' · ' : ''}پنل‌ها و سرورهایی که «{productObj.name}» را پوشش می‌دهند
++            </>
++          )}
++          <button className="mr-auto underline" onClick={clearScope}>
++            نمایش همه
++          </button>
++        </p>
++      )}
++    </>
++  );
++}
+diff --git a/apps/admin-web/src/features/panels/PanelsView.tsx b/apps/admin-web/src/features/panels/PanelsView.tsx
+index e2c6355..78b21c3 100644
+--- a/apps/admin-web/src/features/panels/PanelsView.tsx
++++ b/apps/admin-web/src/features/panels/PanelsView.tsx
+@@ -34,6 +34,7 @@ import { kindOf } from './panelUi.tsx';
+ import { PanelDrawer } from './PanelDrawer.tsx';
+ import { PanelDetailDrawer } from './PanelDetailDrawer.tsx';
+ import { PanelSection } from './PanelSection.tsx';
++import { PanelsToolbar } from './PanelsToolbar.tsx';
+ import type { Json, Rec, Toast } from '../../shared/types.ts';
+ 
+ // Panels and their servers are ONE screen: a server is only a capacity slot of a single panel,
+@@ -409,106 +410,29 @@ export default function PanelsView({ api, toast }: { api?: Json; toast: Toast })
+   return (
+     <div className="space-y-5">
+       <InfraChain current="panels" infra={infra} />
+-      <KpiBar cols={4}>
+-        <Stat
+-          label="همه پنل‌ها"
+-          value={counts.all}
+-          tone="in"
+-          Icon={Server}
+-          active={filter === 'all'}
+-          onClick={() => setFilter('all')}
+-        />
+-        <Stat
+-          label="سالم"
+-          value={counts.healthy}
+-          tone="ok"
+-          Icon={ShieldCheck}
+-          active={filter === 'healthy'}
+-          onClick={() => setFilter(filter === 'healthy' ? 'all' : 'healthy')}
+-        />
+-        <Stat
+-          label="نیازمند بررسی (ناسالم / بررسی‌نشده)"
+-          value={counts.attention}
+-          tone={counts.attention ? 'bd' : 'mu'}
+-          Icon={ShieldAlert}
+-          active={filter === 'attention'}
+-          onClick={() => setFilter(filter === 'attention' ? 'all' : 'attention')}
+-        />
+-        <Stat
+-          label={`ظرفیت آزاد قابل فروش از ${num(cap.total)}`}
+-          value={cap.free}
+-          tone={cap.free ? 'ok' : 'bd'}
+-          Icon={ServerCog}
+-          ring={cap.total ? cap.free / cap.total : 0}
+-        />
+-      </KpiBar>
+-
+-      <div className="tool">
+-        <SearchBox
+-          label="جستجوی پنل یا سرور"
+-          placeholder="جستجو در پنل، سرور، موقعیت یا آدرس…"
+-          value={q}
+-          onChange={setQ}
+-        />
+-        {!!(infra.groups.rows || []).length && (
+-          <select
+-            aria-label="فیلتر بسته"
+-            className="inp !w-auto !py-2 !text-xs font-bold"
+-            value={groupF}
+-            onChange={(e) => setGroupF(e.target.value)}
+-          >
+-            <option value="">همه بسته‌ها</option>
+-            {(infra.groups.rows || []).map((g) => (
+-              <option key={g.id} value={g.id}>
+-                {g.name}
+-              </option>
+-            ))}
+-          </select>
+-        )}
+-        <SortSelect
+-          value={sort}
+-          onChange={setSort}
+-          options={[
+-            ['attention', 'مشکل‌دارها اول'],
+-            ['name', 'نام'],
+-            ['free', 'بیشترین ظرفیت آزاد'],
+-            ['usage', 'بیشترین پُری'],
+-          ]}
+-        />
+-        <ViewToggle
+-          value={dense}
+-          onChange={setDense}
+-          options={[
+-            ['full', 'کامل'],
+-            ['dense', 'فشرده'],
+-          ]}
+-        />
+-        <div className="mr-auto flex items-center gap-2">
+-          <button className="btn btn-g !py-2 !text-sm" onClick={checkAll} disabled={!!bulk || !counts.all}>
+-            <RefreshCw size={14} className={bulk ? 'animate-spin' : ''} />
+-            {bulk ? `${num(bulk.done)} از ${num(bulk.total)}` : 'بررسی همه'}
+-          </button>
+-          <button className="btn" onClick={() => setDrawer('add')}>
+-            <Plus size={16} />
+-            افزودن پنل
+-          </button>
+-        </div>
+-      </div>
+-
+-      {hasScope && (
+-        <p className="flex flex-wrap items-center gap-2 rounded-xl bg-[var(--inb)] px-3 py-2 text-xs font-bold text-[var(--in)]">
+-          {only && <>فقط یک پنل نمایش داده می‌شود</>}
+-          {group && <>پنل‌های بسته «{group.name}»</>}
+-          {productObj && (
+-            <>
+-              {group || only ? ' · ' : ''}پنل‌ها و سرورهایی که «{productObj.name}» را پوشش می‌دهند
+-            </>
+-          )}
+-          <button className="mr-auto underline" onClick={clearScope}>
+-            نمایش همه
+-          </button>
+-        </p>
+-      )}
++      <PanelsToolbar
++        counts={counts}
++        cap={cap}
++        filter={filter}
++        setFilter={setFilter}
++        q={q}
++        setQ={setQ}
++        groups={infra.groups.rows || []}
++        groupF={groupF}
++        setGroupF={setGroupF}
++        sort={sort}
++        setSort={setSort}
++        dense={dense}
++        setDense={setDense}
++        bulk={bulk}
++        checkAll={checkAll}
++        onAdd={() => setDrawer('add')}
++        hasScope={!!hasScope}
++        only={only}
++        group={group}
++        productObj={productObj}
++        clearScope={clearScope}
++      />
+ 
+       {failed && (
+         <ErrorBar onRetry={infra.reload}>
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index 5ee55ac..1382c55 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -248,3 +248,8 @@ Source: `Melorin_Architecture_Admin_Audit.md` (the project has never been releas
+ ## r19 - audit leftovers (branch refactor/audit-r19-impl)
+ - `upstream_bot/adapter.py`: defaults moved to `config.py`, mapping store and chat lock to `state.py` (the test patch point is now `upstream_bot.state`). Flows deliberately stay in one class.
+ - admin-web: shared kit/ui/charts/theme/types/useDialog moved to `src/shared/` (pure move, imports rewritten, tsc/eslint/vitest green).
++
++## r20 - audit follow-up (branch refactor/audit-r20-impl)
++- admin-web PanelsView: the KPI strip, search/filter/sort toolbar and scope banner moved to PanelsToolbar.tsx (pure move, 638 to 562 lines). No behaviour change.
++- Re-verified on a clean checkout: lint-imports 8 kept, ruff clean, mypy clean (371 files), admin-web tsc, eslint and vitest (42 files, 309 tests) green.
++- Still open on purpose: remaining 500-600 line admin-web bodies (see docs/AUDIT-R18-STATUS.md debt register); rotate the GitHub token that was pasted into chat.
+-- 
+2.43.0
+
+
+From f0e8fb3af269560012bc740b595bf84910cd691d Mon Sep 17 00:00:00 2001
+From: Melorin Dev <dev@melorin.local>
+Date: Sun, 15 Nov 2026 13:33:19 +0000
+Subject: [PATCH 2/3] chore: r20 patch file
+
+---
+ patches/melorin-r20.patch | 332 ++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 332 insertions(+)
+ create mode 100644 patches/melorin-r20.patch
+
+diff --git a/patches/melorin-r20.patch b/patches/melorin-r20.patch
+new file mode 100644
+index 0000000..9108ebc
+--- /dev/null
++++ b/patches/melorin-r20.patch
+@@ -0,0 +1,332 @@
++From e0bb6f98f67e56098480d4bb46d6dd1a7af43a36 Mon Sep 17 00:00:00 2001
++From: Melorin Dev <dev@melorin.local>
++Date: Sun, 15 Nov 2026 13:26:02 +0000
++Subject: [PATCH] refactor(admin-web): extract PanelsToolbar from PanelsView
++ (pure move); docs r20
++
++---
++ .../src/features/panels/PanelsToolbar.tsx     | 155 ++++++++++++++++++
++ .../src/features/panels/PanelsView.tsx        | 124 +++-----------
++ docs/DECISIONS.md                             |   5 +
++ 3 files changed, 184 insertions(+), 100 deletions(-)
++ create mode 100644 apps/admin-web/src/features/panels/PanelsToolbar.tsx
++
++diff --git a/apps/admin-web/src/features/panels/PanelsToolbar.tsx b/apps/admin-web/src/features/panels/PanelsToolbar.tsx
++new file mode 100644
++index 0000000..bc3e8b2
++--- /dev/null
+++++ b/apps/admin-web/src/features/panels/PanelsToolbar.tsx
++@@ -0,0 +1,155 @@
+++import { Plus, RefreshCw, Server, ServerCog, ShieldAlert, ShieldCheck } from 'lucide-react';
+++import { KpiBar, SearchBox, SortSelect, Stat, ViewToggle, num } from '../../shared/kit.tsx';
+++import type { Json } from '../../shared/types.ts';
+++
+++// KPI strip, search / filter / sort toolbar and the scope banner of the panels screen (pure move out of PanelsView).
+++export function PanelsToolbar({
+++  counts,
+++  cap,
+++  filter,
+++  setFilter,
+++  q,
+++  setQ,
+++  groups,
+++  groupF,
+++  setGroupF,
+++  sort,
+++  setSort,
+++  dense,
+++  setDense,
+++  bulk,
+++  checkAll,
+++  onAdd,
+++  hasScope,
+++  only,
+++  group,
+++  productObj,
+++  clearScope,
+++}: {
+++  counts: { all: number; healthy: number; attention: number };
+++  cap: { free: number; total: number };
+++  filter: string;
+++  setFilter: (v: string) => void;
+++  q: string;
+++  setQ: (v: string) => void;
+++  groups: Json[];
+++  groupF: string;
+++  setGroupF: (v: string) => void;
+++  sort: string;
+++  setSort: (v: string) => void;
+++  dense: string;
+++  setDense: (v: string) => void;
+++  bulk: Json;
+++  checkAll: () => void;
+++  onAdd: () => void;
+++  hasScope: boolean;
+++  only: string;
+++  group: Json;
+++  productObj: Json;
+++  clearScope: () => void;
+++}) {
+++  return (
+++    <>
+++      <KpiBar cols={4}>
+++        <Stat
+++          label="همه پنل‌ها"
+++          value={counts.all}
+++          tone="in"
+++          Icon={Server}
+++          active={filter === 'all'}
+++          onClick={() => setFilter('all')}
+++        />
+++        <Stat
+++          label="سالم"
+++          value={counts.healthy}
+++          tone="ok"
+++          Icon={ShieldCheck}
+++          active={filter === 'healthy'}
+++          onClick={() => setFilter(filter === 'healthy' ? 'all' : 'healthy')}
+++        />
+++        <Stat
+++          label="نیازمند بررسی (ناسالم / بررسی‌نشده)"
+++          value={counts.attention}
+++          tone={counts.attention ? 'bd' : 'mu'}
+++          Icon={ShieldAlert}
+++          active={filter === 'attention'}
+++          onClick={() => setFilter(filter === 'attention' ? 'all' : 'attention')}
+++        />
+++        <Stat
+++          label={`ظرفیت آزاد قابل فروش از ${num(cap.total)}`}
+++          value={cap.free}
+++          tone={cap.free ? 'ok' : 'bd'}
+++          Icon={ServerCog}
+++          ring={cap.total ? cap.free / cap.total : 0}
+++        />
+++      </KpiBar>
+++
+++      <div className="tool">
+++        <SearchBox
+++          label="جستجوی پنل یا سرور"
+++          placeholder="جستجو در پنل، سرور، موقعیت یا آدرس…"
+++          value={q}
+++          onChange={setQ}
+++        />
+++        {!!groups.length && (
+++          <select
+++            aria-label="فیلتر بسته"
+++            className="inp !w-auto !py-2 !text-xs font-bold"
+++            value={groupF}
+++            onChange={(e) => setGroupF(e.target.value)}
+++          >
+++            <option value="">همه بسته‌ها</option>
+++            {groups.map((g) => (
+++              <option key={g.id} value={g.id}>
+++                {g.name}
+++              </option>
+++            ))}
+++          </select>
+++        )}
+++        <SortSelect
+++          value={sort}
+++          onChange={setSort}
+++          options={[
+++            ['attention', 'مشکل‌دارها اول'],
+++            ['name', 'نام'],
+++            ['free', 'بیشترین ظرفیت آزاد'],
+++            ['usage', 'بیشترین پُری'],
+++          ]}
+++        />
+++        <ViewToggle
+++          value={dense}
+++          onChange={setDense}
+++          options={[
+++            ['full', 'کامل'],
+++            ['dense', 'فشرده'],
+++          ]}
+++        />
+++        <div className="mr-auto flex items-center gap-2">
+++          <button className="btn btn-g !py-2 !text-sm" onClick={checkAll} disabled={!!bulk || !counts.all}>
+++            <RefreshCw size={14} className={bulk ? 'animate-spin' : ''} />
+++            {bulk ? `${num(bulk.done)} از ${num(bulk.total)}` : 'بررسی همه'}
+++          </button>
+++          <button className="btn" onClick={() => onAdd()}>
+++            <Plus size={16} />
+++            افزودن پنل
+++          </button>
+++        </div>
+++      </div>
+++
+++      {hasScope && (
+++        <p className="flex flex-wrap items-center gap-2 rounded-xl bg-[var(--inb)] px-3 py-2 text-xs font-bold text-[var(--in)]">
+++          {only && <>فقط یک پنل نمایش داده می‌شود</>}
+++          {group && <>پنل‌های بسته «{group.name}»</>}
+++          {productObj && (
+++            <>
+++              {group || only ? ' · ' : ''}پنل‌ها و سرورهایی که «{productObj.name}» را پوشش می‌دهند
+++            </>
+++          )}
+++          <button className="mr-auto underline" onClick={clearScope}>
+++            نمایش همه
+++          </button>
+++        </p>
+++      )}
+++    </>
+++  );
+++}
++diff --git a/apps/admin-web/src/features/panels/PanelsView.tsx b/apps/admin-web/src/features/panels/PanelsView.tsx
++index e2c6355..78b21c3 100644
++--- a/apps/admin-web/src/features/panels/PanelsView.tsx
+++++ b/apps/admin-web/src/features/panels/PanelsView.tsx
++@@ -34,6 +34,7 @@ import { kindOf } from './panelUi.tsx';
++ import { PanelDrawer } from './PanelDrawer.tsx';
++ import { PanelDetailDrawer } from './PanelDetailDrawer.tsx';
++ import { PanelSection } from './PanelSection.tsx';
+++import { PanelsToolbar } from './PanelsToolbar.tsx';
++ import type { Json, Rec, Toast } from '../../shared/types.ts';
++ 
++ // Panels and their servers are ONE screen: a server is only a capacity slot of a single panel,
++@@ -409,106 +410,29 @@ export default function PanelsView({ api, toast }: { api?: Json; toast: Toast })
++   return (
++     <div className="space-y-5">
++       <InfraChain current="panels" infra={infra} />
++-      <KpiBar cols={4}>
++-        <Stat
++-          label="همه پنل‌ها"
++-          value={counts.all}
++-          tone="in"
++-          Icon={Server}
++-          active={filter === 'all'}
++-          onClick={() => setFilter('all')}
++-        />
++-        <Stat
++-          label="سالم"
++-          value={counts.healthy}
++-          tone="ok"
++-          Icon={ShieldCheck}
++-          active={filter === 'healthy'}
++-          onClick={() => setFilter(filter === 'healthy' ? 'all' : 'healthy')}
++-        />
++-        <Stat
++-          label="نیازمند بررسی (ناسالم / بررسی‌نشده)"
++-          value={counts.attention}
++-          tone={counts.attention ? 'bd' : 'mu'}
++-          Icon={ShieldAlert}
++-          active={filter === 'attention'}
++-          onClick={() => setFilter(filter === 'attention' ? 'all' : 'attention')}
++-        />
++-        <Stat
++-          label={`ظرفیت آزاد قابل فروش از ${num(cap.total)}`}
++-          value={cap.free}
++-          tone={cap.free ? 'ok' : 'bd'}
++-          Icon={ServerCog}
++-          ring={cap.total ? cap.free / cap.total : 0}
++-        />
++-      </KpiBar>
++-
++-      <div className="tool">
++-        <SearchBox
++-          label="جستجوی پنل یا سرور"
++-          placeholder="جستجو در پنل، سرور، موقعیت یا آدرس…"
++-          value={q}
++-          onChange={setQ}
++-        />
++-        {!!(infra.groups.rows || []).length && (
++-          <select
++-            aria-label="فیلتر بسته"
++-            className="inp !w-auto !py-2 !text-xs font-bold"
++-            value={groupF}
++-            onChange={(e) => setGroupF(e.target.value)}
++-          >
++-            <option value="">همه بسته‌ها</option>
++-            {(infra.groups.rows || []).map((g) => (
++-              <option key={g.id} value={g.id}>
++-                {g.name}
++-              </option>
++-            ))}
++-          </select>
++-        )}
++-        <SortSelect
++-          value={sort}
++-          onChange={setSort}
++-          options={[
++-            ['attention', 'مشکل‌دارها اول'],
++-            ['name', 'نام'],
++-            ['free', 'بیشترین ظرفیت آزاد'],
++-            ['usage', 'بیشترین پُری'],
++-          ]}
++-        />
++-        <ViewToggle
++-          value={dense}
++-          onChange={setDense}
++-          options={[
++-            ['full', 'کامل'],
++-            ['dense', 'فشرده'],
++-          ]}
++-        />
++-        <div className="mr-auto flex items-center gap-2">
++-          <button className="btn btn-g !py-2 !text-sm" onClick={checkAll} disabled={!!bulk || !counts.all}>
++-            <RefreshCw size={14} className={bulk ? 'animate-spin' : ''} />
++-            {bulk ? `${num(bulk.done)} از ${num(bulk.total)}` : 'بررسی همه'}
++-          </button>
++-          <button className="btn" onClick={() => setDrawer('add')}>
++-            <Plus size={16} />
++-            افزودن پنل
++-          </button>
++-        </div>
++-      </div>
++-
++-      {hasScope && (
++-        <p className="flex flex-wrap items-center gap-2 rounded-xl bg-[var(--inb)] px-3 py-2 text-xs font-bold text-[var(--in)]">
++-          {only && <>فقط یک پنل نمایش داده می‌شود</>}
++-          {group && <>پنل‌های بسته «{group.name}»</>}
++-          {productObj && (
++-            <>
++-              {group || only ? ' · ' : ''}پنل‌ها و سرورهایی که «{productObj.name}» را پوشش می‌دهند
++-            </>
++-          )}
++-          <button className="mr-auto underline" onClick={clearScope}>
++-            نمایش همه
++-          </button>
++-        </p>
++-      )}
+++      <PanelsToolbar
+++        counts={counts}
+++        cap={cap}
+++        filter={filter}
+++        setFilter={setFilter}
+++        q={q}
+++        setQ={setQ}
+++        groups={infra.groups.rows || []}
+++        groupF={groupF}
+++        setGroupF={setGroupF}
+++        sort={sort}
+++        setSort={setSort}
+++        dense={dense}
+++        setDense={setDense}
+++        bulk={bulk}
+++        checkAll={checkAll}
+++        onAdd={() => setDrawer('add')}
+++        hasScope={!!hasScope}
+++        only={only}
+++        group={group}
+++        productObj={productObj}
+++        clearScope={clearScope}
+++      />
++ 
++       {failed && (
++         <ErrorBar onRetry={infra.reload}>
++diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
++index 5ee55ac..1382c55 100644
++--- a/docs/DECISIONS.md
+++++ b/docs/DECISIONS.md
++@@ -248,3 +248,8 @@ Source: `Melorin_Architecture_Admin_Audit.md` (the project has never been releas
++ ## r19 - audit leftovers (branch refactor/audit-r19-impl)
++ - `upstream_bot/adapter.py`: defaults moved to `config.py`, mapping store and chat lock to `state.py` (the test patch point is now `upstream_bot.state`). Flows deliberately stay in one class.
++ - admin-web: shared kit/ui/charts/theme/types/useDialog moved to `src/shared/` (pure move, imports rewritten, tsc/eslint/vitest green).
+++
+++## r20 - audit follow-up (branch refactor/audit-r20-impl)
+++- admin-web PanelsView: the KPI strip, search/filter/sort toolbar and scope banner moved to PanelsToolbar.tsx (pure move, 638 to 562 lines). No behaviour change.
+++- Re-verified on a clean checkout: lint-imports 8 kept, ruff clean, mypy clean (371 files), admin-web tsc, eslint and vitest (42 files, 309 tests) green.
+++- Still open on purpose: remaining 500-600 line admin-web bodies (see docs/AUDIT-R18-STATUS.md debt register); rotate the GitHub token that was pasted into chat.
++-- 
++2.43.0
++
+-- 
+2.43.0
+
+
+From a2c2b0e77eeeb3b6755f72de70300148a47a8e25 Mon Sep 17 00:00:00 2001
+From: Melorin Dev <dev@melorin.local>
+Date: Sun, 15 Nov 2026 13:52:26 +0000
+Subject: [PATCH 3/3] refactor(admin-web): split ServerForm, UpstreamBotFields,
+ TelegramLoginSettings, infra and ReportsView (pure moves, typed props);
+ ratchet 2031 to 2029
+
+---
+ .../src/features/catalog/BundlesView.tsx      |   3 +-
+ .../src/features/catalog/ProductsView.tsx     |   3 +-
+ .../features/panel-operations/InfraChain.tsx  | 213 +++++++
+ .../src/features/panel-operations/infra.tsx   | 224 +-------
+ .../src/features/panels/PanelsView.tsx        |   5 +-
+ .../src/features/panels/ServerForm.tsx        | 134 +----
+ .../src/features/panels/ServerImport.tsx      | 137 +++++
+ .../src/features/panels/UpstreamBotFields.tsx | 279 +---------
+ .../src/features/panels/UpstreamEditors.tsx   | 197 +++++++
+ .../src/features/panels/UpstreamGuide.tsx     |  82 +++
+ .../src/features/reports/ReportsSections.tsx  | 519 ++++++++++++++++++
+ .../src/features/reports/ReportsView.tsx      | 431 ++-------------
+ .../features/settings/TelegramLoginParts.tsx  | 287 ++++++++++
+ .../settings/TelegramLoginSettings.tsx        | 283 +---------
+ apps/admin-web/tests/typing-ratchet.test.js   |   2 +-
+ 15 files changed, 1510 insertions(+), 1289 deletions(-)
+ create mode 100644 apps/admin-web/src/features/panel-operations/InfraChain.tsx
+ create mode 100644 apps/admin-web/src/features/panels/ServerImport.tsx
+ create mode 100644 apps/admin-web/src/features/panels/UpstreamEditors.tsx
+ create mode 100644 apps/admin-web/src/features/panels/UpstreamGuide.tsx
+ create mode 100644 apps/admin-web/src/features/reports/ReportsSections.tsx
+ create mode 100644 apps/admin-web/src/features/settings/TelegramLoginParts.tsx
+
+diff --git a/apps/admin-web/src/features/catalog/BundlesView.tsx b/apps/admin-web/src/features/catalog/BundlesView.tsx
+index 138078d..1002297 100644
+--- a/apps/admin-web/src/features/catalog/BundlesView.tsx
++++ b/apps/admin-web/src/features/catalog/BundlesView.tsx
+@@ -15,7 +15,8 @@ import {
+   useAlive,
+   useRows,
+ } from '../../shared/kit.tsx';
+-import { InfraChain, clearParam, memberIds, useHashParams, useInfra } from '../panel-operations/infra.tsx';
++import { clearParam, memberIds, useHashParams, useInfra } from '../panel-operations/infra.tsx';
++import { InfraChain } from '../panel-operations/InfraChain.tsx';
+ import { API, groupIssue, GroupCard, GroupTable } from './bundles/BundleParts.tsx';
+ import { GroupDrawer } from './bundles/BundleDrawer.tsx';
+ import UnassignedProducts from './UnassignedProducts.tsx';
+diff --git a/apps/admin-web/src/features/catalog/ProductsView.tsx b/apps/admin-web/src/features/catalog/ProductsView.tsx
+index 1429b49..2cd44cc 100644
+--- a/apps/admin-web/src/features/catalog/ProductsView.tsx
++++ b/apps/admin-web/src/features/catalog/ProductsView.tsx
+@@ -19,7 +19,8 @@ import {
+   useAlive,
+   useRows,
+ } from '../../shared/kit.tsx'; // #4
+-import { InfraChain, clearParam, useHashParams, useInfra } from '../panel-operations/infra.tsx';
++import { clearParam, useHashParams, useInfra } from '../panel-operations/infra.tsx';
++import { InfraChain } from '../panel-operations/InfraChain.tsx';
+ 
+ import { API } from './productsShared.tsx';
+ import { ProductDrawer, ProductCard, ProductTable } from './ProductParts.tsx';
+diff --git a/apps/admin-web/src/features/panel-operations/InfraChain.tsx b/apps/admin-web/src/features/panel-operations/InfraChain.tsx
+new file mode 100644
+index 0000000..e2182af
+--- /dev/null
++++ b/apps/admin-web/src/features/panel-operations/InfraChain.tsx
+@@ -0,0 +1,213 @@
++import { useMemo } from 'react';
++import { ArrowLeft, Sparkles } from 'lucide-react';
++import { Ring, num, tint } from '../../shared/kit.tsx';
++import type { Json, Rec } from '../../shared/types.ts';
++import { CHAIN, infraHref, health, serverState, free, usage } from './infra.tsx';
++
++/* ---------- guided next step ---------- */
++/** The first thing that still blocks selling, as { text, cta, href } — or null when everything is ready. */
++export function nextStep(infra: Json) {
++  if (infra.loading || infra.failed) return null;
++  const panels = infra.panels.rows || [],
++    products = infra.products.rows || [],
++    idx = infra.idx;
++  if (!panels.length)
++    return {
++      text: 'هنوز پنلی وصل نشده. اولین پنل را اضافه کنید؛ سرور (ظرفیت) همان‌جا ساخته می‌شود.',
++      cta: 'افزودن پنل',
++      href: infraHref('panels', { add: 1 }),
++    };
++  const noServer = panels.find((p: Json) => p.is_enabled && !(idx.serversByPanel.get(p.id) || []).length);
++  if (noServer)
++    return {
++      text: `پنل «${noServer.name}» سرور ندارد؛ تا ظرفیت تعریف نشود اکانتی روی آن ساخته نمی‌شود.`,
++      cta: 'افزودن سرور',
++      href: infraHref('panels', { id: noServer.id, add: 'server' }),
++    };
++  const sick = panels.find((p: Json) => p.is_enabled && health(p) !== 'healthy');
++  if (sick)
++    return {
++      text: `سلامت پنل «${sick.name}» ${health(sick) === 'unhealthy' ? 'ناسالم است' : 'هنوز بررسی نشده'}؛ تا سالم نشود فروشی روی آن انجام نمی‌شود.`,
++      cta: 'بررسی پنل',
++      href: infraHref('panels', { id: sick.id }),
++    };
++  if (!products.length)
++    return {
++      text: 'پنل‌ها آماده‌اند. حالا اولین محصول را بسازید؛ همان‌جا می‌توانید بسته فروش هم بسازید.',
++      cta: 'افزودن محصول',
++      href: infraHref('products', { add: 1 }),
++    };
++  const broken = products.filter((p: Json) => p.is_active && !idx.reach(p).ok);
++  if (broken.length)
++    return {
++      text: `${num(broken.length)} محصول فعال مسیر تخصیص ندارد و خریدش با خطا روبه‌رو می‌شود.`,
++      cta: 'مشاهده',
++      href: infraHref('products', { filter: 'broken' }),
++    };
++  return null;
++}
++
++/* ---------- UI: the chain header shown on top of all three screens ---------- */
++export function issuesOf(infra: Json) {
++  const { idx } = infra;
++  const panels = infra.panels.rows || [],
++    servers = infra.servers.rows || [],
++    groups = infra.groups.rows || [],
++    products = infra.products.rows || [];
++  const full = servers.filter((s: Json) => s.is_enabled && usage(s) >= 1).length;
++  return {
++    panels: {
++      n: panels.length,
++      bad: panels.filter((p: Json) => p.is_enabled && health(p) !== 'healthy').length,
++      badText: 'ناسالم/بررسی‌نشده',
++      empty: panels.filter((p: Json) => !(idx.serversByPanel.get(p.id) || []).length).length + full,
++      emptyText: 'بدون سرور یا ظرفیت پر',
++    },
++    groups: {
++      n: groups.length,
++      bad: groups.filter((g: Json) => g.is_enabled && !(g.panels || []).length).length,
++      badText: 'بدون پنل',
++      empty: groups.filter((g: Json) => !(idx.productsByGroup.get(g.id) || []).length).length,
++      emptyText: 'بدون پکیج',
++    },
++    products: {
++      n: products.length,
++      bad: products.filter((p: Json) => p.is_active && !idx.reach(p).ok).length,
++      badText: 'بدون مسیر تخصیص',
++      empty: 0,
++      emptyText: '',
++    },
++  };
++}
++
++/** Sellable-readiness of the whole chain: share of active products the core could allocate right now. */
++export function readiness(infra: Json) {
++  const { idx } = infra;
++  const prods = (infra.products.rows || []).filter((p: Json) => p.is_active);
++  const ok = prods.filter((p: Json) => idx.reach(p).ok).length;
++  let freeSlots = 0;
++  (infra.servers.rows || []).forEach((s: Json) => {
++    if (serverState(s, idx.panelById.get(s.panel_id)).ok) freeSlots += free(s);
++  });
++  return { total: prods.length, ok, freeSlots, value: prods.length ? ok / prods.length : 0 };
++}
++
++export function InfraChain({ current, infra }: { current?: Json; infra?: Json }) {
++  const st = useMemo(
++    () => issuesOf(infra),
++    // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
++    [infra.panels.rows, infra.servers.rows, infra.groups.rows, infra.products.rows],
++  );
++  const next = useMemo(
++    () => nextStep(infra),
++    // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
++    [infra.panels.rows, infra.servers.rows, infra.groups.rows, infra.products.rows, infra.loading, infra.failed],
++  );
++  const rd = useMemo(
++    () => readiness(infra),
++    // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
++    [infra.panels.rows, infra.servers.rows, infra.groups.rows, infra.products.rows],
++  );
++  const loading = infra.loading;
++  const rtone = !rd.total ? 'mu' : rd.value >= 1 ? 'ok' : rd.value >= 0.5 ? 'wn' : 'bd';
++  return (
++    <div className="space-y-3">
++      <nav aria-label="زنجیره زیرساخت" className="card rise pipe gap-2 p-2.5 lg:gap-4">
++        <div
++          className="flex items-center gap-3.5 rounded-xl bg-[var(--sf2)] px-4 py-3 lg:min-w-[15rem]"
++          title="سهم محصولات فعالی که هسته همین الان می‌تواند برایشان اکانت بسازد"
++        >
++          <Ring
++            value={loading ? 0 : rd.value}
++            size={58}
++            stroke={6}
++            tone={rtone}
++            label={loading ? undefined : `آمادگی فروش ${Math.round(rd.value * 100)} درصد`}
++          >
++            {loading ? (
++              <span className="skel h-4 w-7" />
++            ) : (
++              <b className="num text-[13px] font-extrabold">{num(Math.round(rd.value * 100))}٪</b>
++            )}
++          </Ring>
++          <div className="min-w-0">
++            <div className="text-[11px] font-bold text-[var(--mu)]">آمادگی فروش</div>
++            <div className="mt-0.5 text-sm font-extrabold">
++              {loading
++                ? '…'
++                : !rd.total
++                  ? 'محصول فعالی نیست'
++                  : rd.ok === rd.total
++                    ? 'همه‌چیز آماده است'
++                    : `${num(rd.ok)} از ${num(rd.total)} محصول قابل فروش`}
++            </div>
++            {!loading && (
++              <div className="mt-0.5 text-[11px] text-[var(--mu)]">
++                <b className="num text-[var(--tx)]">{num(rd.freeSlots)}</b> ظرفیت آزاد
++              </div>
++            )}
++          </div>
++        </div>
++        <ol className="pipe-steps">
++          {CHAIN.map((c, i) => {
++            const s = (st as Rec)[c.key],
++              on = c.key === current;
++            const warn = s.bad > 0;
++            return (
++              <li key={c.key} className="flex min-w-0 items-stretch">
++                <a href={infraHref(c.slug)} aria-current={on ? 'page' : undefined} className="step min-w-0 flex-1">
++                  <span className="tile relative h-11 w-11" style={tint(c.tone)}>
++                    <c.Icon size={20} />
++                    <span className="absolute -right-1.5 -top-1.5 grid h-[18px] w-[18px] place-items-center rounded-full bg-[var(--nav)] text-[10px] font-extrabold text-white ring-2 ring-[var(--sf)]">
++                      {num(i + 1)}
++                    </span>
++                  </span>
++                  <span className="min-w-0 flex-1">
++                    <span className="flex items-baseline gap-2">
++                      <b className="truncate text-sm">{c.title}</b>
++                      {loading ? (
++                        <span className="skel inline-block h-4 w-6" />
++                      ) : (
++                        <span className="num text-lg font-extrabold leading-none">{num(s.n)}</span>
++                      )}
++                    </span>
++                    <span className="mt-1 block truncate text-[11px] text-[var(--mu)]">
++                      {!loading && warn ? (
++                        <span className="font-bold text-[var(--bd)]">
++                          {num(s.bad)} {s.badText}
++                        </span>
++                      ) : !loading && s.empty > 0 ? (
++                        <span className="text-[var(--wn)]">
++                          {num(s.empty)} {s.emptyText}
++                        </span>
++                      ) : (
++                        c.hint
++                      )}
++                    </span>
++                  </span>
++                </a>
++                {i < CHAIN.length - 1 && (
++                  <span aria-hidden="true" className="link-arrow hidden px-0.5 lg:grid">
++                    <ArrowLeft size={16} />
++                  </span>
++                )}
++              </li>
++            );
++          })}
++        </ol>
++      </nav>
++      {next && (
++        <p
++          className="flex flex-wrap items-center gap-3 rounded-xl border border-[color-mix(in_srgb,var(--in)_30%,transparent)] px-4 py-2.5 text-xs font-bold leading-6"
++          style={tint('in')}
++        >
++          <Sparkles size={15} className="shrink-0" />
++          <span className="min-w-0 flex-1">قدم بعدی: {next.text}</span>
++          <a className="btn !py-1.5 !text-xs" href={next.href}>
++            {next.cta}
++          </a>
++        </p>
++      )}
++    </div>
++  );
++}
+diff --git a/apps/admin-web/src/features/panel-operations/infra.tsx b/apps/admin-web/src/features/panel-operations/infra.tsx
+index 30e35a9..487386c 100644
+--- a/apps/admin-web/src/features/panel-operations/infra.tsx
++++ b/apps/admin-web/src/features/panel-operations/infra.tsx
+@@ -1,20 +1,8 @@
+ import type { ReactNode } from 'react';
+-// Shared model + building blocks for the VPN infrastructure screens.
+-//
+-// Three screens form ONE chain that mirrors the allocation core (vpn/allocation.py):
+-//
+-//     پنل و سرورها (Panel + its Servers)  →  بسته فروش (Bundle = Bundle)  →  پکیج (BundleProduct)
+-//
+-// * a server is only a capacity slot of ONE panel, so servers are managed inside the panel screen;
+-// * a bundle collects panels (policy + sales limit) and is REQUIRED: there is no route without a bundle;
+-// * a product is sold through the bundles that list it (group.product_ids); core: bundle → panel → server.
+-//
+-// `useInfra` loads the lists once per screen and derives the relations so every screen can show
+-// where an item sits in the chain, what it depends on, and what is broken for sale.
+ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+-import { AlertTriangle, ArrowLeft, Boxes, Layers, PanelTop, Sparkles } from 'lucide-react';
++import { AlertTriangle, Boxes, Layers, PanelTop } from 'lucide-react';
+ import { useCall } from '../../api/api.ts';
+-import { Ring, num, tint, useRows } from '../../shared/kit.tsx';
++import { tint, useRows } from '../../shared/kit.tsx';
+ import type { CallFn, Json, Rec } from '../../shared/types.ts';
+ 
+ /* ---------- chain definition ---------- */
+@@ -320,211 +308,3 @@ export async function saveGroupPanels(call: CallFn, group: Json, panelIds: Json)
+     return 'تغییر پنل‌های بسته ناموفق بود';
+   }
+ }
+-
+-/* ---------- guided next step ---------- */
+-/** The first thing that still blocks selling, as { text, cta, href } — or null when everything is ready. */
+-export function nextStep(infra: Json) {
+-  if (infra.loading || infra.failed) return null;
+-  const panels = infra.panels.rows || [],
+-    products = infra.products.rows || [],
+-    idx = infra.idx;
+-  if (!panels.length)
+-    return {
+-      text: 'هنوز پنلی وصل نشده. اولین پنل را اضافه کنید؛ سرور (ظرفیت) همان‌جا ساخته می‌شود.',
+-      cta: 'افزودن پنل',
+-      href: infraHref('panels', { add: 1 }),
+-    };
+-  const noServer = panels.find((p: Json) => p.is_enabled && !(idx.serversByPanel.get(p.id) || []).length);
+-  if (noServer)
+-    return {
+-      text: `پنل «${noServer.name}» سرور ندارد؛ تا ظرفیت تعریف نشود اکانتی روی آن ساخته نمی‌شود.`,
+-      cta: 'افزودن سرور',
+-      href: infraHref('panels', { id: noServer.id, add: 'server' }),
+-    };
+-  const sick = panels.find((p: Json) => p.is_enabled && health(p) !== 'healthy');
+-  if (sick)
+-    return {
+-      text: `سلامت پنل «${sick.name}» ${health(sick) === 'unhealthy' ? 'ناسالم است' : 'هنوز بررسی نشده'}؛ تا سالم نشود فروشی روی آن انجام نمی‌شود.`,
+-      cta: 'بررسی پنل',
+-      href: infraHref('panels', { id: sick.id }),
+-    };
+-  if (!products.length)
+-    return {
+-      text: 'پنل‌ها آماده‌اند. حالا اولین محصول را بسازید؛ همان‌جا می‌توانید بسته فروش هم بسازید.',
+-      cta: 'افزودن محصول',
+-      href: infraHref('products', { add: 1 }),
+-    };
+-  const broken = products.filter((p: Json) => p.is_active && !idx.reach(p).ok);
+-  if (broken.length)
+-    return {
+-      text: `${num(broken.length)} محصول فعال مسیر تخصیص ندارد و خریدش با خطا روبه‌رو می‌شود.`,
+-      cta: 'مشاهده',
+-      href: infraHref('products', { filter: 'broken' }),
+-    };
+-  return null;
+-}
+-
+-/* ---------- UI: the chain header shown on top of all three screens ---------- */
+-function issuesOf(infra: Json) {
+-  const { idx } = infra;
+-  const panels = infra.panels.rows || [],
+-    servers = infra.servers.rows || [],
+-    groups = infra.groups.rows || [],
+-    products = infra.products.rows || [];
+-  const full = servers.filter((s: Json) => s.is_enabled && usage(s) >= 1).length;
+-  return {
+-    panels: {
+-      n: panels.length,
+-      bad: panels.filter((p: Json) => p.is_enabled && health(p) !== 'healthy').length,
+-      badText: 'ناسالم/بررسی‌نشده',
+-      empty: panels.filter((p: Json) => !(idx.serversByPanel.get(p.id) || []).length).length + full,
+-      emptyText: 'بدون سرور یا ظرفیت پر',
+-    },
+-    groups: {
+-      n: groups.length,
+-      bad: groups.filter((g: Json) => g.is_enabled && !(g.panels || []).length).length,
+-      badText: 'بدون پنل',
+-      empty: groups.filter((g: Json) => !(idx.productsByGroup.get(g.id) || []).length).length,
+-      emptyText: 'بدون پکیج',
+-    },
+-    products: {
+-      n: products.length,
+-      bad: products.filter((p: Json) => p.is_active && !idx.reach(p).ok).length,
+-      badText: 'بدون مسیر تخصیص',
+-      empty: 0,
+-      emptyText: '',
+-    },
+-  };
+-}
+-
+-/** Sellable-readiness of the whole chain: share of active products the core could allocate right now. */
+-function readiness(infra: Json) {
+-  const { idx } = infra;
+-  const prods = (infra.products.rows || []).filter((p: Json) => p.is_active);
+-  const ok = prods.filter((p: Json) => idx.reach(p).ok).length;
+-  let freeSlots = 0;
+-  (infra.servers.rows || []).forEach((s: Json) => {
+-    if (serverState(s, idx.panelById.get(s.panel_id)).ok) freeSlots += free(s);
+-  });
+-  return { total: prods.length, ok, freeSlots, value: prods.length ? ok / prods.length : 0 };
+-}
+-
+-export function InfraChain({ current, infra }: { current?: Json; infra?: Json }) {
+-  const st = useMemo(
+-    () => issuesOf(infra),
+-    // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
+-    [infra.panels.rows, infra.servers.rows, infra.groups.rows, infra.products.rows],
+-  );
+-  const next = useMemo(
+-    () => nextStep(infra),
+-    // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
+-    [infra.panels.rows, infra.servers.rows, infra.groups.rows, infra.products.rows, infra.loading, infra.failed],
+-  );
+-  const rd = useMemo(
+-    () => readiness(infra),
+-    // eslint-disable-next-line react-hooks/exhaustive-deps -- T-W08: reviewed, dependency list intentionally limited (adding the flagged value risks refetch loops); verify in a browser before changing
+-    [infra.panels.rows, infra.servers.rows, infra.groups.rows, infra.products.rows],
+-  );
+-  const loading = infra.loading;
+-  const rtone = !rd.total ? 'mu' : rd.value >= 1 ? 'ok' : rd.value >= 0.5 ? 'wn' : 'bd';
+-  return (
+-    <div className="space-y-3">
+-      <nav aria-label="زنجیره زیرساخت" className="card rise pipe gap-2 p-2.5 lg:gap-4">
+-        <div
+-          className="flex items-center gap-3.5 rounded-xl bg-[var(--sf2)] px-4 py-3 lg:min-w-[15rem]"
+-          title="سهم محصولات فعالی که هسته همین الان می‌تواند برایشان اکانت بسازد"
+-        >
+-          <Ring
+-            value={loading ? 0 : rd.value}
+-            size={58}
+-            stroke={6}
+-            tone={rtone}
+-            label={loading ? undefined : `آمادگی فروش ${Math.round(rd.value * 100)} درصد`}
+-          >
+-            {loading ? (
+-              <span className="skel h-4 w-7" />
+-            ) : (
+-              <b className="num text-[13px] font-extrabold">{num(Math.round(rd.value * 100))}٪</b>
+-            )}
+-          </Ring>
+-          <div className="min-w-0">
+-            <div className="text-[11px] font-bold text-[var(--mu)]">آمادگی فروش</div>
+-            <div className="mt-0.5 text-sm font-extrabold">
+-              {loading
+-                ? '…'
+-                : !rd.total
+-                  ? 'محصول فعالی نیست'
+-                  : rd.ok === rd.total
+-                    ? 'همه‌چیز آماده است'
+-                    : `${num(rd.ok)} از ${num(rd.total)} محصول قابل فروش`}
+-            </div>
+-            {!loading && (
+-              <div className="mt-0.5 text-[11px] text-[var(--mu)]">
+-                <b className="num text-[var(--tx)]">{num(rd.freeSlots)}</b> ظرفیت آزاد
+-              </div>
+-            )}
+-          </div>
+-        </div>
+-        <ol className="pipe-steps">
+-          {CHAIN.map((c, i) => {
+-            const s = (st as Rec)[c.key],
+-              on = c.key === current;
+-            const warn = s.bad > 0;
+-            return (
+-              <li key={c.key} className="flex min-w-0 items-stretch">
+-                <a href={infraHref(c.slug)} aria-current={on ? 'page' : undefined} className="step min-w-0 flex-1">
+-                  <span className="tile relative h-11 w-11" style={tint(c.tone)}>
+-                    <c.Icon size={20} />
+-                    <span className="absolute -right-1.5 -top-1.5 grid h-[18px] w-[18px] place-items-center rounded-full bg-[var(--nav)] text-[10px] font-extrabold text-white ring-2 ring-[var(--sf)]">
+-                      {num(i + 1)}
+-                    </span>
+-                  </span>
+-                  <span className="min-w-0 flex-1">
+-                    <span className="flex items-baseline gap-2">
+-                      <b className="truncate text-sm">{c.title}</b>
+-                      {loading ? (
+-                        <span className="skel inline-block h-4 w-6" />
+-                      ) : (
+-                        <span className="num text-lg font-extrabold leading-none">{num(s.n)}</span>
+-                      )}
+-                    </span>
+-                    <span className="mt-1 block truncate text-[11px] text-[var(--mu)]">
+-                      {!loading && warn ? (
+-                        <span className="font-bold text-[var(--bd)]">
+-                          {num(s.bad)} {s.badText}
+-                        </span>
+-                      ) : !loading && s.empty > 0 ? (
+-                        <span className="text-[var(--wn)]">
+-                          {num(s.empty)} {s.emptyText}
+-                        </span>
+-                      ) : (
+-                        c.hint
+-                      )}
+-                    </span>
+-                  </span>
+-                </a>
+-                {i < CHAIN.length - 1 && (
+-                  <span aria-hidden="true" className="link-arrow hidden px-0.5 lg:grid">
+-                    <ArrowLeft size={16} />
+-                  </span>
+-                )}
+-              </li>
+-            );
+-          })}
+-        </ol>
+-      </nav>
+-      {next && (
+-        <p
+-          className="flex flex-wrap items-center gap-3 rounded-xl border border-[color-mix(in_srgb,var(--in)_30%,transparent)] px-4 py-2.5 text-xs font-bold leading-6"
+-          style={tint('in')}
+-        >
+-          <Sparkles size={15} className="shrink-0" />
+-          <span className="min-w-0 flex-1">قدم بعدی: {next.text}</span>
+-          <a className="btn !py-1.5 !text-xs" href={next.href}>
+-            {next.cta}
+-          </a>
+-        </p>
+-      )}
+-    </div>
+-  );
+-}
+diff --git a/apps/admin-web/src/features/panels/PanelsView.tsx b/apps/admin-web/src/features/panels/PanelsView.tsx
+index 78b21c3..24a85be 100644
+--- a/apps/admin-web/src/features/panels/PanelsView.tsx
++++ b/apps/admin-web/src/features/panels/PanelsView.tsx
+@@ -1,10 +1,10 @@
+ import { useCallback, useEffect, useMemo, useState } from 'react';
+ import { typedClient } from '../../api/api.ts';
+-import { ServerForm, ServerImport } from './ServerForm.tsx';
++import { ServerForm } from './ServerForm.tsx';
++import { ServerImport } from './ServerImport.tsx';
+ import { TargetWizard } from './TargetPicker.tsx';
+ import { confirmDialog } from '../../shared/ui.tsx';
+ import {
+-  InfraChain,
+   clearParam,
+   free,
+   health,
+@@ -15,6 +15,7 @@ import {
+   useHashParams,
+   useInfra,
+ } from '../panel-operations/infra.tsx';
++import { InfraChain } from '../panel-operations/InfraChain.tsx';
+ import {
+   Empty,
+   ErrorBar,
+diff --git a/apps/admin-web/src/features/panels/ServerForm.tsx b/apps/admin-web/src/features/panels/ServerForm.tsx
+index 8860e51..6b10877 100644
+--- a/apps/admin-web/src/features/panels/ServerForm.tsx
++++ b/apps/admin-web/src/features/panels/ServerForm.tsx
+@@ -1,5 +1,5 @@
+ import { useMemo, useRef, useState } from 'react';
+-import { AlertTriangle, ChevronDown, Layers, MapPin, Plus, RefreshCw, Save, Server, Upload } from 'lucide-react';
++import { AlertTriangle, ChevronDown, Layers, MapPin, Plus, RefreshCw, Save, Server } from 'lucide-react';
+ import { typedClient } from '../../api/api.ts';
+ import { Badge, dt, sid } from '../../shared/ui.tsx';
+ import {
+@@ -447,135 +447,3 @@ export function ServerForm({
+     </Drawer>
+   );
+ }
+-
+-/* ---------- bulk import of servers for ONE panel ---------- */
+-const parseLine = (line: Json) => {
+-  const [name = '', location = '', capacity = '', codes = ''] = line.split(',').map((s: Json) => s.trim());
+-  const cap = capacity === '' ? 500 : parseInt(capacity, 10);
+-  return {
+-    name,
+-    location,
+-    capacity: cap,
+-    product_codes: codes
+-      ? codes
+-          .split('|')
+-          .map((s: Json) => s.trim())
+-          .filter(Boolean)
+-      : [],
+-    bad: !name ? 'نام خالی' : !(cap >= 1 && cap <= 100000) ? 'ظرفیت نامعتبر' : '',
+-  };
+-};
+-
+-export function ServerImport({
+-  api,
+-  panel,
+-  toast,
+-  onClose,
+-  onDone,
+-}: {
+-  api?: Json;
+-  panel?: Json;
+-  toast: Toast;
+-  onClose?: Json;
+-  onDone?: Json;
+-}) {
+-  const [text, setText] = useState('');
+-  const [busy, setBusy] = useState(false);
+-  const rows = useMemo(
+-    () =>
+-      text
+-        .split('\n')
+-        .map((l) => l.trim())
+-        .filter((l) => l && !l.startsWith('#'))
+-        .map(parseLine),
+-    [text],
+-  );
+-  const good = rows.filter((r) => !r.bad);
+-  const run = async () => {
+-    setBusy(true);
+-    let ok = 0,
+-      fail: string[] = [];
+-    for (const r of good) {
+-      try {
+-        const { response: res, error } = await typedClient(api.base).post('/api/v1/admin/servers', {
+-          body: {
+-            name: r.name,
+-            location: r.location || null,
+-            capacity: r.capacity,
+-            product_codes: r.product_codes.length ? r.product_codes : null,
+-            panel_id: panel.id,
+-            allow_test: true, // the server default; the generated type marks it required
+-          },
+-        });
+-        if (res.ok) ok++;
+-        else fail.push(`${r.name}: ${await errText({ json: async () => error }, 'ناموفق')}`);
+-      } catch {
+-        fail.push(`${r.name}: ارتباط برقرار نشد`);
+-      }
+-    }
+-    setBusy(false);
+-    toast(fail.length ? `${num(ok)} از ${num(good.length)} سرور ساخته شد — ${fail[0]}` : `${num(ok)} سرور ساخته شد`);
+-    if (ok) await onDone();
+-    if (!fail.length) onClose();
+-  };
+-  return (
+-    <Drawer
+-      title="ورود دسته‌جمعی مقصد"
+-      subtitle={`روی پنل «${panel.name}»`}
+-      icon={
+-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl" style={tint('in')}>
+-          <Upload size={20} />
+-        </span>
+-      }
+-      dirty={!!text.trim()}
+-      busy={busy}
+-      onClose={onClose}
+-      footer={
+-        <button className="btn" disabled={busy || !good.length} onClick={run}>
+-          {busy ? <RefreshCw size={15} className="animate-spin" /> : <Upload size={15} />}ساخت {num(good.length)} سرور
+-        </button>
+-      }
+-    >
+-      <Section
+-        title="داده CSV"
+-        hint="هر خط یک سرور: نام, موقعیت, ظرفیت, کدهای محصول با | (فقط نام لازم است؛ ظرفیت خالی = ۵۰۰). خط‌های شروع‌شده با # نادیده گرفته می‌شوند."
+-      >
+-        <textarea
+-          dir="ltr"
+-          rows={7}
+-          className="inp font-mono text-xs"
+-          placeholder={'de-1, Frankfurt, 100\nde-2, Frankfurt, 250, plan_1m|plan_3m'}
+-          value={text}
+-          onChange={(e) => setText(e.target.value)}
+-        />
+-      </Section>
+-      {rows.length > 0 && (
+-        <div className="overflow-auto rounded-xl border border-[var(--ln)]">
+-          <table className="tbl">
+-            <thead>
+-              <tr>
+-                <th>نام</th>
+-                <th>موقعیت</th>
+-                <th>ظرفیت</th>
+-                <th>محصولات</th>
+-              </tr>
+-            </thead>
+-            <tbody>
+-              {rows.map((r, i) => (
+-                <tr key={i} className={r.bad ? '!bg-[var(--bdb)]' : ''}>
+-                  <td>
+-                    {r.name || '—'}
+-                    {r.bad && <span className="mr-2 text-[11px] font-bold text-[var(--bd)]">{r.bad}</span>}
+-                  </td>
+-                  <td>{r.location || '—'}</td>
+-                  <td>{Number.isFinite(r.capacity) ? num(r.capacity) : '—'}</td>
+-                  <td className="text-xs">{r.product_codes.join('، ') || 'همه'}</td>
+-                </tr>
+-              ))}
+-            </tbody>
+-          </table>
+-        </div>
+-      )}
+-    </Drawer>
+-  );
+-}
+diff --git a/apps/admin-web/src/features/panels/ServerImport.tsx b/apps/admin-web/src/features/panels/ServerImport.tsx
+new file mode 100644
+index 0000000..55d0f2f
+--- /dev/null
++++ b/apps/admin-web/src/features/panels/ServerImport.tsx
+@@ -0,0 +1,137 @@
++import { useMemo, useState } from 'react';
++import { RefreshCw, Upload } from 'lucide-react';
++import { typedClient } from '../../api/api.ts';
++import { Drawer, Section, errText, num, tint } from '../../shared/kit.tsx';
++import type { Json, Toast } from '../../shared/types.ts';
++
++/* ---------- bulk import of servers for ONE panel ---------- */
++export const parseLine = (line: Json) => {
++  const [name = '', location = '', capacity = '', codes = ''] = line.split(',').map((s: Json) => s.trim());
++  const cap = capacity === '' ? 500 : parseInt(capacity, 10);
++  return {
++    name,
++    location,
++    capacity: cap,
++    product_codes: codes
++      ? codes
++          .split('|')
++          .map((s: Json) => s.trim())
++          .filter(Boolean)
++      : [],
++    bad: !name ? 'نام خالی' : !(cap >= 1 && cap <= 100000) ? 'ظرفیت نامعتبر' : '',
++  };
++};
++
++export function ServerImport({
++  api,
++  panel,
++  toast,
++  onClose,
++  onDone,
++}: {
++  api?: Json;
++  panel?: Json;
++  toast: Toast;
++  onClose?: Json;
++  onDone?: Json;
++}) {
++  const [text, setText] = useState('');
++  const [busy, setBusy] = useState(false);
++  const rows = useMemo(
++    () =>
++      text
++        .split('\n')
++        .map((l) => l.trim())
++        .filter((l) => l && !l.startsWith('#'))
++        .map(parseLine),
++    [text],
++  );
++  const good = rows.filter((r) => !r.bad);
++  const run = async () => {
++    setBusy(true);
++    let ok = 0,
++      fail: string[] = [];
++    for (const r of good) {
++      try {
++        const { response: res, error } = await typedClient(api.base).post('/api/v1/admin/servers', {
++          body: {
++            name: r.name,
++            location: r.location || null,
++            capacity: r.capacity,
++            product_codes: r.product_codes.length ? r.product_codes : null,
++            panel_id: panel.id,
++            allow_test: true, // the server default; the generated type marks it required
++          },
++        });
++        if (res.ok) ok++;
++        else fail.push(`${r.name}: ${await errText({ json: async () => error }, 'ناموفق')}`);
++      } catch {
++        fail.push(`${r.name}: ارتباط برقرار نشد`);
++      }
++    }
++    setBusy(false);
++    toast(fail.length ? `${num(ok)} از ${num(good.length)} سرور ساخته شد — ${fail[0]}` : `${num(ok)} سرور ساخته شد`);
++    if (ok) await onDone();
++    if (!fail.length) onClose();
++  };
++  return (
++    <Drawer
++      title="ورود دسته‌جمعی مقصد"
++      subtitle={`روی پنل «${panel.name}»`}
++      icon={
++        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl" style={tint('in')}>
++          <Upload size={20} />
++        </span>
++      }
++      dirty={!!text.trim()}
++      busy={busy}
++      onClose={onClose}
++      footer={
++        <button className="btn" disabled={busy || !good.length} onClick={run}>
++          {busy ? <RefreshCw size={15} className="animate-spin" /> : <Upload size={15} />}ساخت {num(good.length)} سرور
++        </button>
++      }
++    >
++      <Section
++        title="داده CSV"
++        hint="هر خط یک سرور: نام, موقعیت, ظرفیت, کدهای محصول با | (فقط نام لازم است؛ ظرفیت خالی = ۵۰۰). خط‌های شروع‌شده با # نادیده گرفته می‌شوند."
++      >
++        <textarea
++          dir="ltr"
++          rows={7}
++          className="inp font-mono text-xs"
++          placeholder={'de-1, Frankfurt, 100\nde-2, Frankfurt, 250, plan_1m|plan_3m'}
++          value={text}
++          onChange={(e) => setText(e.target.value)}
++        />
++      </Section>
++      {rows.length > 0 && (
++        <div className="overflow-auto rounded-xl border border-[var(--ln)]">
++          <table className="tbl">
++            <thead>
++              <tr>
++                <th>نام</th>
++                <th>موقعیت</th>
++                <th>ظرفیت</th>
++                <th>محصولات</th>
++              </tr>
++            </thead>
++            <tbody>
++              {rows.map((r, i) => (
++                <tr key={i} className={r.bad ? '!bg-[var(--bdb)]' : ''}>
++                  <td>
++                    {r.name || '—'}
++                    {r.bad && <span className="mr-2 text-[11px] font-bold text-[var(--bd)]">{r.bad}</span>}
++                  </td>
++                  <td>{r.location || '—'}</td>
++                  <td>{Number.isFinite(r.capacity) ? num(r.capacity) : '—'}</td>
++                  <td className="text-xs">{r.product_codes.join('، ') || 'همه'}</td>
++                </tr>
++              ))}
++            </tbody>
++          </table>
++        </div>
++      )}
++    </Drawer>
++  );
++}
+diff --git a/apps/admin-web/src/features/panels/UpstreamBotFields.tsx b/apps/admin-web/src/features/panels/UpstreamBotFields.tsx
+index 4c3ad91..c1cdc79 100644
+--- a/apps/admin-web/src/features/panels/UpstreamBotFields.tsx
++++ b/apps/admin-web/src/features/panels/UpstreamBotFields.tsx
+@@ -1,23 +1,18 @@
+-import type { ReactNode } from 'react';
+-import { useState } from 'react';
+ import {
+   AlertTriangle,
+   Check,
+-  ChevronDown,
+   ExternalLink,
+   Info,
+   Keyboard,
+   MousePointerClick,
+-  Plus,
+   RotateCcw,
+   ShieldCheck,
+-  Terminal,
+-  Trash2,
+-  X,
+ } from 'lucide-react';
+-import { CopyButton, Field, NumInput, Secret, Toggle, num } from '../../shared/kit.tsx';
++import { Field, NumInput, Secret, Toggle, num } from '../../shared/kit.tsx';
+ import { PRICE_PRESETS, UB_NUM, UB_RENEW, UB_TEXT, botLooksLikeBot, botUrl, ubBot } from './upstreamBot.ts';
+ import type { Json } from '../../shared/types.ts';
++import { Fold, TextOverride, WordChips, PlansEditor } from './UpstreamEditors.tsx';
++import { UpstreamGuide } from './UpstreamGuide.tsx';
+ 
+ export function UpstreamBotLink({ ub, setUb, error }: { ub?: Json; setUb?: Json; error?: Json }) {
+   const bot = ubBot(ub),
+@@ -72,82 +67,6 @@ export function UpstreamBotLink({ ub, setUb, error }: { ub?: Json; setUb?: Json;
+ }
+ 
+ // ---------- credentials ----------
+-function Step({ n, children }: { n?: Json; children?: ReactNode }) {
+-  return (
+-    <li className="flex items-start gap-2.5">
+-      <span className="sec-n mt-0.5 shrink-0">{n}</span>
+-      <span className="min-w-0 flex-1 leading-6">{children}</span>
+-    </li>
+-  );
+-}
+-function Cmd({ text }: { text?: Json }) {
+-  return (
+-    <span className="mt-1 flex items-center gap-1.5">
+-      <code
+-        dir="ltr"
+-        className="min-w-0 flex-1 break-all rounded-lg bg-[var(--sf2)] px-2.5 py-1.5 font-mono text-[11px]"
+-        title={text}
+-      >
+-        {text}
+-      </code>
+-      <CopyButton text={text} label="کپی دستور" />
+-    </span>
+-  );
+-}
+-
+-export function UpstreamGuide() {
+-  const [open, setOpen] = useState(false);
+-  return (
+-    <div className="rounded-xl border border-[var(--hair)] bg-[var(--sf2)]">
+-      <button
+-        type="button"
+-        aria-expanded={open}
+-        onClick={() => setOpen(!open)}
+-        className="flex w-full items-center gap-2 px-3 py-2.5 text-xs font-bold"
+-      >
+-        <Terminal size={14} className="text-[var(--in)]" />
+-        راهنمای گرفتن api_id، api_hash و session
+-        <ChevronDown size={14} className={`mr-auto text-[var(--mu)] ${open ? '' : '-rotate-90'}`} />
+-      </button>
+-      {open && (
+-        <ol className="space-y-3 border-t border-[var(--hair)] px-3 py-3 text-xs">
+-          <Step n="۱">
+-            یک اکانت تلگرام <b>جداگانه</b> بسازید (نه شماره‌ی شخصی) و از همان اکانت، کیف پول ربات والد را شارژ کنید.
+-          </Step>
+-          <Step n="۲">
+-            در{' '}
+-            <a
+-              className="font-bold text-[var(--ac)] underline"
+-              dir="ltr"
+-              href="https://my.telegram.org/apps"
+-              target="_blank"
+-              rel="noopener noreferrer"
+-            >
+-              my.telegram.org/apps
+-            </a>{' '}
+-            با همان شماره وارد شوید و یک اپلیکیشن بسازید؛ <b>api_id</b> و <b>api_hash</b> همان‌جا نمایش داده می‌شود.
+-          </Step>
+-          <Step n="۳">
+-            روی سروری که کد پروژه دارد، اسکریپت ورود را اجرا کنید؛ شماره، کد تلگرام و (در صورت وجود) رمز دومرحله‌ای را
+-            می‌پرسد:
+-            <Cmd text="pip install telethon" />
+-            <Cmd text="python scripts/upstream_bot_login.py" />
+-          </Step>
+-          <Step n="۴">
+-            خروجی آخر اسکریپت (رشته‌ی طولانی <b>StringSession</b>) را در فیلد «Session» بچسبانید.
+-          </Step>
+-          <li className="flex items-start gap-2 rounded-lg bg-[var(--wnb)] p-2.5 leading-6 text-[var(--wn)]">
+-            <AlertTriangle size={14} className="mt-1 shrink-0" />
+-            Session دسترسی کامل به آن اکانت تلگرام است؛ مثل رمز عبور نگه دارید و جایی منتشر نکنید. اگر لو رفت، از
+-            تنظیمات تلگرام (Devices) نشست را ببندید و دوباره بگیرید.
+-          </li>
+-        </ol>
+-      )}
+-    </div>
+-  );
+-}
+-
+-/** The three secrets, shown only while they are being (re)entered. All three are required together: the API replaces the whole secret. */
+ export function UpstreamCredentials({ ub, setUb, show, edit }: { ub?: Json; setUb?: Json; show?: Json; edit?: Json }) {
+   const set = (k: Json) => (v: Json) => setUb((u: Json) => ({ ...u, [k]: v }));
+   return (
+@@ -183,198 +102,6 @@ export function UpstreamCredentials({ ub, setUb, show, edit }: { ub?: Json; setU
+   );
+ }
+ 
+-// ---------- settings ----------
+-function Fold({
+-  title,
+-  hint,
+-  badge,
+-  children,
+-  defaultOpen = false,
+-  Icon,
+-}: {
+-  title?: Json;
+-  hint?: Json;
+-  badge?: Json;
+-  children?: ReactNode;
+-  defaultOpen?: Json;
+-  Icon?: Json;
+-}) {
+-  const [open, setOpen] = useState(defaultOpen);
+-  return (
+-    <div className="rounded-xl border border-[var(--hair)]">
+-      <button
+-        type="button"
+-        aria-expanded={open}
+-        onClick={() => setOpen(!open)}
+-        className="flex w-full items-center gap-2 px-3 py-2.5 text-xs font-bold"
+-      >
+-        {Icon && <Icon size={14} className="text-[var(--mu)]" />}
+-        {title}
+-        {badge}
+-        <ChevronDown size={14} className={`mr-auto text-[var(--mu)] ${open ? '' : '-rotate-90'}`} />
+-      </button>
+-      {open && (
+-        <div className="space-y-4 border-t border-[var(--hair)] px-3 py-3">
+-          {hint && <p className="text-[11px] leading-5 text-[var(--mu)]">{hint}</p>}
+-          {children}
+-        </div>
+-      )}
+-    </div>
+-  );
+-}
+-
+-/** Text override: empty = adapter default (shown as placeholder), a reset button appears once it is changed. */
+-function TextOverride({
+-  label,
+-  def,
+-  value,
+-  onChange,
+-  error,
+-  hint,
+-  ltr = false,
+-}: {
+-  label?: Json;
+-  def?: Json;
+-  value?: Json;
+-  onChange?: Json;
+-  error?: Json;
+-  hint?: Json;
+-  ltr?: Json;
+-}) {
+-  const changed = !!(value ?? '').trim() && value.trim() !== def;
+-  return (
+-    <Field label={label} error={error} hint={hint}>
+-      <div className="relative">
+-        <input
+-          dir={ltr ? 'ltr' : 'auto'}
+-          spellCheck={false}
+-          className={`inp ${changed ? '!pl-9' : ''}`}
+-          value={value ?? ''}
+-          placeholder={def}
+-          onChange={(e) => onChange(e.target.value)}
+-        />
+-        {changed && (
+-          <button
+-            type="button"
+-            aria-label={`بازگشت به پیش‌فرض: ${def}`}
+-            title={`بازگشت به پیش‌فرض: ${def}`}
+-            onClick={() => onChange('')}
+-            className="absolute left-2 top-1/2 -translate-y-1/2 text-[var(--mu)] hover:text-[var(--tx)]"
+-          >
+-            <RotateCcw size={14} />
+-          </button>
+-        )}
+-      </div>
+-    </Field>
+-  );
+-}
+-
+-function WordChips({ values, onChange, placeholder }: { values?: Json; onChange?: Json; placeholder?: Json }) {
+-  const [t, setT] = useState('');
+-  const add = () => {
+-    const w = t.trim();
+-    if (w && !values.includes(w)) onChange([...values, w]);
+-    setT('');
+-  };
+-  return (
+-    <div className="inp flex flex-wrap items-center gap-1.5 !py-1.5">
+-      {values.map((w: Json) => (
+-        <span
+-          key={w}
+-          className="inline-flex items-center gap-1 rounded-md bg-[var(--mb)] px-2 py-0.5 text-xs font-bold"
+-        >
+-          {w}
+-          <button type="button" aria-label={`حذف ${w}`} onClick={() => onChange(values.filter((x: Json) => x !== w))}>
+-            <X size={12} />
+-          </button>
+-        </span>
+-      ))}
+-      <input
+-        dir="auto"
+-        className="min-w-[8rem] flex-1 bg-transparent py-1 text-sm outline-hidden"
+-        value={t}
+-        placeholder={values.length ? '' : placeholder}
+-        onChange={(e) => setT(e.target.value)}
+-        onBlur={add}
+-        onKeyDown={(e) => {
+-          if (e.key === 'Enter' || e.key === ',' || e.key === '،') {
+-            e.preventDefault();
+-            add();
+-          } else if (e.key === 'Backspace' && !t && values.length) onChange(values.slice(0, -1));
+-        }}
+-      />
+-    </div>
+-  );
+-}
+-
+-function PlansEditor({ plans, onChange, error }: { plans?: Json; onChange?: Json; error?: Json }) {
+-  const upd = (i: Json, k: Json, v: Json) =>
+-    onChange(plans.map((p: Json, j: Json) => (j === i ? { ...p, [k]: v } : p)));
+-  return (
+-    <div className="space-y-2">
+-      {plans.length === 0 && (
+-        <p className="text-[11px] leading-5 text-[var(--mu)]">
+-          بدون پلن دستی: دکمه‌ی پلن از روی متن خودِ ربات والد (مثل «10 گیگ یک ماهه 60,000 تومان») خوانده می‌شود. فقط اگر
+-          متن دکمه‌ها غیرعادی است پلن دستی تعریف کنید.
+-        </p>
+-      )}
+-      {plans.map((p: Json, i: Json) => (
+-        <div key={i} className="grid grid-cols-[5.5rem_4.5rem_1fr_auto] items-end gap-2">
+-          <Field label={i === 0 ? 'حجم (GB)' : ' '}>
+-            <input
+-              dir="ltr"
+-              inputMode="decimal"
+-              className="inp"
+-              aria-label={`حجم پلن ${i + 1}`}
+-              value={p.traffic_gb}
+-              placeholder="10"
+-              onChange={(e) => upd(i, 'traffic_gb', e.target.value.replace(/[^\d.٫۰-۹٠-٩]/g, ''))}
+-            />
+-          </Field>
+-          <Field label={i === 0 ? 'ماه' : ' '}>
+-            <input
+-              dir="ltr"
+-              inputMode="numeric"
+-              className="inp"
+-              aria-label={`ماه پلن ${i + 1}`}
+-              value={p.months}
+-              placeholder="1"
+-              onChange={(e) => upd(i, 'months', e.target.value.replace(/[^\d۰-۹٠-٩]/g, ''))}
+-            />
+-          </Field>
+-          <Field label={i === 0 ? 'متن دکمه‌ی پلن در ربات' : ' '}>
+-            <input
+-              dir="auto"
+-              className="inp"
+-              aria-label={`متن دکمه پلن ${i + 1}`}
+-              value={p.label}
+-              placeholder="10 گیگ یک ماهه"
+-              onChange={(e) => upd(i, 'label', e.target.value)}
+-            />
+-          </Field>
+-          <button
+-            type="button"
+-            className="btn btn-g mb-0.5 !px-2"
+-            aria-label={`حذف پلن ${i + 1}`}
+-            onClick={() => onChange(plans.filter((_: Json, j: Json) => j !== i))}
+-          >
+-            <Trash2 size={14} />
+-          </button>
+-        </div>
+-      ))}
+-      {error && <p className="text-[11px] text-[var(--bd)]">{error}</p>}
+-      <button
+-        type="button"
+-        className="btn btn-g"
+-        onClick={() => onChange([...plans, { traffic_gb: '', months: '1', label: '' }])}
+-      >
+-        <Plus size={13} />
+-        افزودن پلن
+-      </button>
+-    </div>
+-  );
+-}
+-
+ export function UpstreamSettings({ ub, setUb, err, show }: { ub?: Json; setUb?: Json; err?: Json; show?: Json }) {
+   const t = (k: Json) => (v: Json) => setUb((u: Json) => ({ ...u, t: { ...u.t, [k]: v } }));
+   const n = (k: Json) => (v: Json) => setUb((u: Json) => ({ ...u, n: { ...u.n, [k]: v } }));
+diff --git a/apps/admin-web/src/features/panels/UpstreamEditors.tsx b/apps/admin-web/src/features/panels/UpstreamEditors.tsx
+new file mode 100644
+index 0000000..79b5b9a
+--- /dev/null
++++ b/apps/admin-web/src/features/panels/UpstreamEditors.tsx
+@@ -0,0 +1,197 @@
++import type { ReactNode } from 'react';
++import { useState } from 'react';
++import { ChevronDown, Plus, RotateCcw, Trash2, X } from 'lucide-react';
++import { Field } from '../../shared/kit.tsx';
++import type { Json } from '../../shared/types.ts';
++
++// ---------- settings ----------
++export function Fold({
++  title,
++  hint,
++  badge,
++  children,
++  defaultOpen = false,
++  Icon,
++}: {
++  title?: Json;
++  hint?: Json;
++  badge?: Json;
++  children?: ReactNode;
++  defaultOpen?: Json;
++  Icon?: Json;
++}) {
++  const [open, setOpen] = useState(defaultOpen);
++  return (
++    <div className="rounded-xl border border-[var(--hair)]">
++      <button
++        type="button"
++        aria-expanded={open}
++        onClick={() => setOpen(!open)}
++        className="flex w-full items-center gap-2 px-3 py-2.5 text-xs font-bold"
++      >
++        {Icon && <Icon size={14} className="text-[var(--mu)]" />}
++        {title}
++        {badge}
++        <ChevronDown size={14} className={`mr-auto text-[var(--mu)] ${open ? '' : '-rotate-90'}`} />
++      </button>
++      {open && (
++        <div className="space-y-4 border-t border-[var(--hair)] px-3 py-3">
++          {hint && <p className="text-[11px] leading-5 text-[var(--mu)]">{hint}</p>}
++          {children}
++        </div>
++      )}
++    </div>
++  );
++}
++
++/** Text override: empty = adapter default (shown as placeholder), a reset button appears once it is changed. */
++export function TextOverride({
++  label,
++  def,
++  value,
++  onChange,
++  error,
++  hint,
++  ltr = false,
++}: {
++  label?: Json;
++  def?: Json;
++  value?: Json;
++  onChange?: Json;
++  error?: Json;
++  hint?: Json;
++  ltr?: Json;
++}) {
++  const changed = !!(value ?? '').trim() && value.trim() !== def;
++  return (
++    <Field label={label} error={error} hint={hint}>
++      <div className="relative">
++        <input
++          dir={ltr ? 'ltr' : 'auto'}
++          spellCheck={false}
++          className={`inp ${changed ? '!pl-9' : ''}`}
++          value={value ?? ''}
++          placeholder={def}
++          onChange={(e) => onChange(e.target.value)}
++        />
++        {changed && (
++          <button
++            type="button"
++            aria-label={`بازگشت به پیش‌فرض: ${def}`}
++            title={`بازگشت به پیش‌فرض: ${def}`}
++            onClick={() => onChange('')}
++            className="absolute left-2 top-1/2 -translate-y-1/2 text-[var(--mu)] hover:text-[var(--tx)]"
++          >
++            <RotateCcw size={14} />
++          </button>
++        )}
++      </div>
++    </Field>
++  );
++}
++
++export function WordChips({ values, onChange, placeholder }: { values?: Json; onChange?: Json; placeholder?: Json }) {
++  const [t, setT] = useState('');
++  const add = () => {
++    const w = t.trim();
++    if (w && !values.includes(w)) onChange([...values, w]);
++    setT('');
++  };
++  return (
++    <div className="inp flex flex-wrap items-center gap-1.5 !py-1.5">
++      {values.map((w: Json) => (
++        <span
++          key={w}
++          className="inline-flex items-center gap-1 rounded-md bg-[var(--mb)] px-2 py-0.5 text-xs font-bold"
++        >
++          {w}
++          <button type="button" aria-label={`حذف ${w}`} onClick={() => onChange(values.filter((x: Json) => x !== w))}>
++            <X size={12} />
++          </button>
++        </span>
++      ))}
++      <input
++        dir="auto"
++        className="min-w-[8rem] flex-1 bg-transparent py-1 text-sm outline-hidden"
++        value={t}
++        placeholder={values.length ? '' : placeholder}
++        onChange={(e) => setT(e.target.value)}
++        onBlur={add}
++        onKeyDown={(e) => {
++          if (e.key === 'Enter' || e.key === ',' || e.key === '،') {
++            e.preventDefault();
++            add();
++          } else if (e.key === 'Backspace' && !t && values.length) onChange(values.slice(0, -1));
++        }}
++      />
++    </div>
++  );
++}
++
++export function PlansEditor({ plans, onChange, error }: { plans?: Json; onChange?: Json; error?: Json }) {
++  const upd = (i: Json, k: Json, v: Json) =>
++    onChange(plans.map((p: Json, j: Json) => (j === i ? { ...p, [k]: v } : p)));
++  return (
++    <div className="space-y-2">
++      {plans.length === 0 && (
++        <p className="text-[11px] leading-5 text-[var(--mu)]">
++          بدون پلن دستی: دکمه‌ی پلن از روی متن خودِ ربات والد (مثل «10 گیگ یک ماهه 60,000 تومان») خوانده می‌شود. فقط اگر
++          متن دکمه‌ها غیرعادی است پلن دستی تعریف کنید.
++        </p>
++      )}
++      {plans.map((p: Json, i: Json) => (
++        <div key={i} className="grid grid-cols-[5.5rem_4.5rem_1fr_auto] items-end gap-2">
++          <Field label={i === 0 ? 'حجم (GB)' : ' '}>
++            <input
++              dir="ltr"
++              inputMode="decimal"
++              className="inp"
++              aria-label={`حجم پلن ${i + 1}`}
++              value={p.traffic_gb}
++              placeholder="10"
++              onChange={(e) => upd(i, 'traffic_gb', e.target.value.replace(/[^\d.٫۰-۹٠-٩]/g, ''))}
++            />
++          </Field>
++          <Field label={i === 0 ? 'ماه' : ' '}>
++            <input
++              dir="ltr"
++              inputMode="numeric"
++              className="inp"
++              aria-label={`ماه پلن ${i + 1}`}
++              value={p.months}
++              placeholder="1"
++              onChange={(e) => upd(i, 'months', e.target.value.replace(/[^\d۰-۹٠-٩]/g, ''))}
++            />
++          </Field>
++          <Field label={i === 0 ? 'متن دکمه‌ی پلن در ربات' : ' '}>
++            <input
++              dir="auto"
++              className="inp"
++              aria-label={`متن دکمه پلن ${i + 1}`}
++              value={p.label}
++              placeholder="10 گیگ یک ماهه"
++              onChange={(e) => upd(i, 'label', e.target.value)}
++            />
++          </Field>
++          <button
++            type="button"
++            className="btn btn-g mb-0.5 !px-2"
++            aria-label={`حذف پلن ${i + 1}`}
++            onClick={() => onChange(plans.filter((_: Json, j: Json) => j !== i))}
++          >
++            <Trash2 size={14} />
++          </button>
++        </div>
++      ))}
++      {error && <p className="text-[11px] text-[var(--bd)]">{error}</p>}
++      <button
++        type="button"
++        className="btn btn-g"
++        onClick={() => onChange([...plans, { traffic_gb: '', months: '1', label: '' }])}
++      >
++        <Plus size={13} />
++        افزودن پلن
++      </button>
++    </div>
++  );
++}
+diff --git a/apps/admin-web/src/features/panels/UpstreamGuide.tsx b/apps/admin-web/src/features/panels/UpstreamGuide.tsx
+new file mode 100644
+index 0000000..cc9c56d
+--- /dev/null
++++ b/apps/admin-web/src/features/panels/UpstreamGuide.tsx
+@@ -0,0 +1,82 @@
++import type { ReactNode } from 'react';
++import { useState } from 'react';
++import { AlertTriangle, ChevronDown, Terminal } from 'lucide-react';
++import { CopyButton } from '../../shared/kit.tsx';
++import type { Json } from '../../shared/types.ts';
++
++export function Step({ n, children }: { n?: Json; children?: ReactNode }) {
++  return (
++    <li className="flex items-start gap-2.5">
++      <span className="sec-n mt-0.5 shrink-0">{n}</span>
++      <span className="min-w-0 flex-1 leading-6">{children}</span>
++    </li>
++  );
++}
++export function Cmd({ text }: { text?: Json }) {
++  return (
++    <span className="mt-1 flex items-center gap-1.5">
++      <code
++        dir="ltr"
++        className="min-w-0 flex-1 break-all rounded-lg bg-[var(--sf2)] px-2.5 py-1.5 font-mono text-[11px]"
++        title={text}
++      >
++        {text}
++      </code>
++      <CopyButton text={text} label="کپی دستور" />
++    </span>
++  );
++}
++
++export function UpstreamGuide() {
++  const [open, setOpen] = useState(false);
++  return (
++    <div className="rounded-xl border border-[var(--hair)] bg-[var(--sf2)]">
++      <button
++        type="button"
++        aria-expanded={open}
++        onClick={() => setOpen(!open)}
++        className="flex w-full items-center gap-2 px-3 py-2.5 text-xs font-bold"
++      >
++        <Terminal size={14} className="text-[var(--in)]" />
++        راهنمای گرفتن api_id، api_hash و session
++        <ChevronDown size={14} className={`mr-auto text-[var(--mu)] ${open ? '' : '-rotate-90'}`} />
++      </button>
++      {open && (
++        <ol className="space-y-3 border-t border-[var(--hair)] px-3 py-3 text-xs">
++          <Step n="۱">
++            یک اکانت تلگرام <b>جداگانه</b> بسازید (نه شماره‌ی شخصی) و از همان اکانت، کیف پول ربات والد را شارژ کنید.
++          </Step>
++          <Step n="۲">
++            در{' '}
++            <a
++              className="font-bold text-[var(--ac)] underline"
++              dir="ltr"
++              href="https://my.telegram.org/apps"
++              target="_blank"
++              rel="noopener noreferrer"
++            >
++              my.telegram.org/apps
++            </a>{' '}
++            با همان شماره وارد شوید و یک اپلیکیشن بسازید؛ <b>api_id</b> و <b>api_hash</b> همان‌جا نمایش داده می‌شود.
++          </Step>
++          <Step n="۳">
++            روی سروری که کد پروژه دارد، اسکریپت ورود را اجرا کنید؛ شماره، کد تلگرام و (در صورت وجود) رمز دومرحله‌ای را
++            می‌پرسد:
++            <Cmd text="pip install telethon" />
++            <Cmd text="python scripts/upstream_bot_login.py" />
++          </Step>
++          <Step n="۴">
++            خروجی آخر اسکریپت (رشته‌ی طولانی <b>StringSession</b>) را در فیلد «Session» بچسبانید.
++          </Step>
++          <li className="flex items-start gap-2 rounded-lg bg-[var(--wnb)] p-2.5 leading-6 text-[var(--wn)]">
++            <AlertTriangle size={14} className="mt-1 shrink-0" />
++            Session دسترسی کامل به آن اکانت تلگرام است؛ مثل رمز عبور نگه دارید و جایی منتشر نکنید. اگر لو رفت، از
++            تنظیمات تلگرام (Devices) نشست را ببندید و دوباره بگیرید.
++          </li>
++        </ol>
++      )}
++    </div>
++  );
++}
++
++/** The three secrets, shown only while they are being (re)entered. All three are required together: the API replaces the whole secret. */
+diff --git a/apps/admin-web/src/features/reports/ReportsSections.tsx b/apps/admin-web/src/features/reports/ReportsSections.tsx
+new file mode 100644
+index 0000000..d094dfe
+--- /dev/null
++++ b/apps/admin-web/src/features/reports/ReportsSections.tsx
+@@ -0,0 +1,519 @@
++import {
++  BarChart3,
++  Download,
++  Lightbulb,
++  Percent,
++  Receipt,
++  RefreshCw,
++  Server,
++  ShoppingBag,
++  Table2,
++  UserPlus,
++  WalletCards,
++} from 'lucide-react';
++import { dayShort } from '../../shared/charts.tsx';
++import { Funnel, HBars, Legend, SERIES_COLORS, CompareChart, Donut } from './ReportCharts.tsx';
++import {
++  CHANNEL_LABELS,
++  KIND_LABELS,
++  METHOD_LABELS,
++  PROVIDER_LABELS,
++  buildInsights,
++  dailyRows,
++  fmt,
++  fmtBytes,
++  fmtPct,
++  foldTail,
++  nf,
++  pick,
++} from './reportsLogic.ts';
++import type { Json, Toast } from '../../shared/types.ts';
++import { RANGES, METRICS, TONES, Seg, Kpi, Card, DataTable, EXPORTS } from './ReportsParts.tsx';
++import type { Dispatch, ReactNode, SetStateAction } from 'react';
++
++// Everything the report sections read from ReportsView (state, API payload, derived rows). Each section picks what it needs.
++export type ReportModel = {
++  days: number;
++  setDays: Dispatch<SetStateAction<number>>;
++  currency: string;
++  setCurrency: Dispatch<SetStateAction<string>>;
++  storeId: string;
++  setStoreId: Dispatch<SetStateAction<string>>;
++  metric: string;
++  setMetric: Dispatch<SetStateAction<string>>;
++  compare: boolean;
++  setCompare: Dispatch<SetStateAction<boolean>>;
++  table: boolean;
++  setTable: Dispatch<SetStateAction<boolean>>;
++  stores: { id: string; name: string }[];
++  data: Json;
++  err: boolean;
++  loading: boolean;
++  refresh: () => void;
++  exportCsv: (section: string) => void;
++  cur: string;
++  k: Json;
++  s: Json;
++  f: Json;
++  insights: ReturnType<typeof buildInsights>;
++  dim: string;
++  mainSeries: { key: string; label: string; values: number[]; color: string; dashed?: boolean; area?: boolean }[];
++  unit: string;
++  mainTitle: string;
++  lead: number[];
++  periodTotal: number;
++  statusItems: ReturnType<typeof foldTail>;
++  split: (
++    rows: { key: string; revenue: number }[] | undefined,
++    map: Record<string, string>,
++  ) => ReturnType<typeof foldTail>;
++  total: number;
++  productRows: { key: string; label: string; sub?: string; value: number; display?: ReactNode }[];
++  storeRows: { key: string; label: string; sub?: string; value: number; display?: ReactNode }[];
++  query: string;
++  tz: string;
++  api: { tick?: number } | undefined;
++  toast: Toast;
++};
++
++export function ReportsFilters({
++  days,
++  setDays,
++  setCurrency,
++  storeId,
++  setStoreId,
++  stores,
++  data,
++  loading,
++  refresh,
++  exportCsv,
++  cur,
++}: Pick<
++  ReportModel,
++  | 'days'
++  | 'setDays'
++  | 'setCurrency'
++  | 'storeId'
++  | 'setStoreId'
++  | 'stores'
++  | 'data'
++  | 'loading'
++  | 'refresh'
++  | 'exportCsv'
++  | 'cur'
++>) {
++  return (
++    <>
++      <section className="card rise flex flex-wrap items-center justify-between gap-3 p-4">
++        <div className="flex items-center gap-3">
++          <span className="grid h-10 w-10 place-items-center rounded-xl bg-[var(--inb)] text-[var(--in)]">
++            <BarChart3 size={20} aria-hidden="true" />
++          </span>
++          <div>
++            <h2 className="font-extrabold">گزارشات و نمودارها</h2>
++            <p className="text-xs text-[var(--mu)]">
++              {data
++                ? `${dayShort(data.period.from)} تا ${dayShort(data.period.to)} · ${data.period.timezone}`
++                : 'در حال دریافت…'}
++              {' · '}مقایسه با {nf.format(days)} روز قبل از آن
++            </p>
++          </div>
++        </div>
++        <div className="no-print flex flex-wrap items-center gap-2">
++          <Seg label="بازه" value={days} set={setDays} items={RANGES.map((d) => [d, `${nf.format(d)} روز`])} />
++          {data?.currencies?.length > 1 && (
++            <Seg label="ارز" value={cur} set={setCurrency} items={data.currencies.map((c: string) => [c, c])} />
++          )}
++          <select
++            aria-label="فروشگاه"
++            className="field !py-1.5 text-xs"
++            value={storeId}
++            onChange={(e) => setStoreId(e.target.value)}
++          >
++            <option value="">همه‌ی فروشگاه‌ها</option>
++            {stores.map((st) => (
++              <option key={st.id} value={st.id}>
++                {st.name}
++              </option>
++            ))}
++          </select>
++          <button className="btn btn-g" onClick={refresh} aria-label="به‌روزرسانی گزارش" title="به‌روزرسانی">
++            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
++          </button>
++          <details className="relative">
++            <summary className="btn cursor-pointer list-none">
++              <Download size={15} aria-hidden="true" />
++              خروجی CSV
++            </summary>
++            <div className="card absolute left-0 top-[calc(100%+6px)] z-20 w-40 p-1.5">
++              {EXPORTS.map(([sec, t]) => (
++                <button
++                  key={sec}
++                  onClick={(e) => {
++                    exportCsv(sec);
++                    (e.currentTarget.closest('details') as HTMLDetailsElement).open = false;
++                  }}
++                  className="flex w-full rounded-lg px-3 py-2 text-sm hover:bg-[var(--mb)]"
++                >
++                  {t}
++                </button>
++              ))}
++            </div>
++          </details>
++        </div>
++      </section>
++    </>
++  );
++}
++export function ReportsKpis({
++  data,
++  loading,
++  cur,
++  k,
++  dim,
++  unit,
++}: Pick<ReportModel, 'data' | 'loading' | 'cur' | 'k' | 'dim' | 'unit'>) {
++  return (
++    <>
++      <div className={`grid gap-4 sm:grid-cols-2 xl:grid-cols-3 ${dim}`}>
++        <Kpi
++          title="فروش"
++          Icon={WalletCards}
++          loading={!data}
++          value={fmt(k?.revenue.value)}
++          unit={cur}
++          kpi={k?.revenue}
++          color={SERIES_COLORS[0]}
++          hint={`میانگین روزانه ${fmt(data?.highlights.avg_daily_revenue)} ${cur}`}
++        />
++        <Kpi
++          title="سفارش‌های فروخته‌شده"
++          Icon={ShoppingBag}
++          loading={!data}
++          value={fmt(k?.orders_sold.value)}
++          kpi={k?.orders_sold}
++          color={SERIES_COLORS[0]}
++          hint={`${fmt(k?.orders_created.value)} سفارش ثبت‌شده`}
++        />
++        <Kpi
++          title="میانگین ارزش سفارش"
++          Icon={Receipt}
++          loading={!data}
++          value={fmt(k?.avg_order_value.value)}
++          unit={cur}
++          kpi={k?.avg_order_value}
++          color={SERIES_COLORS[1]}
++        />
++        <Kpi
++          title="ورودی نقدی"
++          Icon={WalletCards}
++          loading={!data}
++          value={fmt(k?.cash_in.value)}
++          unit={cur}
++          kpi={k?.cash_in}
++          color={SERIES_COLORS[2]}
++          hint="پرداخت‌های موفق کارت/درگاه"
++        />
++        <Kpi
++          title="کاربران جدید"
++          Icon={UserPlus}
++          loading={!data}
++          value={fmt(k?.new_users.value)}
++          kpi={k?.new_users}
++          color={SERIES_COLORS[6]}
++          hint={`${fmt(data?.users_total)} کاربر فعال کل`}
++        />
++        <Kpi
++          title="نرخ تبدیل به پرداخت"
++          Icon={Percent}
++          loading={!data}
++          value={fmtPct(k?.conversion_pct.value)}
++          kpi={k?.conversion_pct}
++          color={SERIES_COLORS[2]}
++          hint="سفارش‌های ثبت‌شده که پرداخت شدند"
++        />
++      </div>
++    </>
++  );
++}
++export function ReportsMainChart({
++  days,
++  metric,
++  setMetric,
++  compare,
++  setCompare,
++  table,
++  setTable,
++  data,
++  cur,
++  insights,
++  dim,
++  mainSeries,
++  unit,
++  mainTitle,
++  periodTotal,
++}: Pick<
++  ReportModel,
++  | 'days'
++  | 'metric'
++  | 'setMetric'
++  | 'compare'
++  | 'setCompare'
++  | 'table'
++  | 'setTable'
++  | 'data'
++  | 'cur'
++  | 'insights'
++  | 'dim'
++  | 'mainSeries'
++  | 'unit'
++  | 'mainTitle'
++  | 'periodTotal'
++>) {
++  return (
++    <>
++      <div className={`grid gap-6 xl:grid-cols-[1.7fr_1fr] ${dim}`}>
++        <Card
++          title={`روند ${mainTitle}`}
++          hint="روزانه، به وقت منطقه‌ی زمانی شما؛ فروش = سفارش‌های پرداخت‌شده‌ی لغو/استردادنشده"
++          right={
++            <div className="no-print flex flex-wrap items-center gap-2">
++              <Seg label="معیار" value={metric} set={setMetric} items={METRICS} />
++              {(metric === 'revenue' || metric === 'orders') && (
++                <label className="flex cursor-pointer items-center gap-1.5 text-xs text-[var(--mu)]">
++                  <input type="checkbox" checked={compare} onChange={(e) => setCompare(e.target.checked)} />
++                  بازه‌ی قبلی
++                </label>
++              )}
++              <button className="btn btn-g !py-1 text-xs" aria-pressed={table} onClick={() => setTable((x) => !x)}>
++                <Table2 size={14} aria-hidden="true" />
++                {table ? 'نمودار' : 'جدول'}
++              </button>
++            </div>
++          }
++        >
++          {!data ? (
++            <div className="skel h-[260px] w-full" />
++          ) : table ? (
++            <DataTable
++              caption="جدول روزانه‌ی گزارش"
++              cols={['روز', `فروش (${cur})`, 'سفارش', `ورودی نقدی (${cur})`, 'کاربر جدید']}
++              rows={dailyRows(data).map((r: Json) => [
++                dayShort(r.day),
++                fmt(r.revenue),
++                fmt(r.orders),
++                fmt(r.cash_in),
++                fmt(r.new_users),
++              ])}
++            />
++          ) : (
++            <>
++              <Legend
++                items={mainSeries.map((x) => ({ key: x.key, label: x.label, color: x.color, dashed: x.dashed }))}
++              />
++              <div className="mt-2">
++                <CompareChart
++                  days={data.days}
++                  series={mainSeries}
++                  unit={unit}
++                  bars={metric === 'orders' && !compare}
++                  label={`نمودار ${mainTitle} ${nf.format(days)} روز اخیر`}
++                />
++              </div>
++              <div className="mt-3 flex flex-wrap gap-x-8 gap-y-1 text-xs text-[var(--mu)]">
++                <span>
++                  مجموع بازه:{' '}
++                  <b className="text-[var(--tx)]">
++                    {fmt(periodTotal)} {unit}
++                  </b>
++                </span>
++                {data.highlights.wholesale_cost > 0 && metric === 'revenue' && (
++                  <span>
++                    بهای تمام‌شده‌ی عمده‌فروشی (نمایندگان):{' '}
++                    <b className="text-[var(--tx)]">
++                      {fmt(data.highlights.wholesale_cost)} {cur}
++                    </b>
++                  </span>
++                )}
++              </div>
++            </>
++          )}
++        </Card>
++
++        <Card
++          title="یافته‌های کلیدی"
++          hint="خلاصه‌ی خودکار از داده‌های همین بازه"
++          right={<Lightbulb size={18} className="text-[var(--mu)]" aria-hidden="true" />}
++        >
++          {!data ? (
++            <div className="skel h-40 w-full" />
++          ) : insights.length ? (
++            <ul className="space-y-2.5">
++              {insights.map((i) => (
++                <li key={i.id} className="flex gap-2.5 text-sm leading-6">
++                  <span className={`badge ${TONES[i.tone]} mt-0.5 h-5 shrink-0 px-1.5`} aria-hidden="true">
++                    {({ ok: '✓', wn: '!', in: 'i', bd: '✕' } as Record<string, string>)[i.tone]}
++                  </span>
++                  <span>{i.text}</span>
++                </li>
++              ))}
++            </ul>
++          ) : (
++            <p className="py-8 text-center text-sm text-[var(--mu)]">برای ساخت یافته‌ها داده‌ی بیشتری لازم است.</p>
++          )}
++        </Card>
++      </div>
++    </>
++  );
++}
++export function ReportsBreakdowns({
++  data,
++  cur,
++  k,
++  dim,
++  statusItems,
++  split,
++  f,
++  productRows,
++  storeRows,
++}: Pick<ReportModel, 'data' | 'cur' | 'k' | 'dim' | 'statusItems' | 'split' | 'f' | 'productRows' | 'storeRows'>) {
++  return (
++    <>
++      <div className={`grid gap-6 lg:grid-cols-2 ${dim}`}>
++        <Card title="قیف فروش" hint="سفارش‌های ثبت‌شده در این بازه و مسیر آن‌ها تا تحویل">
++          {!f ? (
++            <div className="skel h-40 w-full" />
++          ) : (
++            <>
++              <Funnel
++                stages={[
++                  { key: 'created', label: 'ثبت‌شده', value: f.created },
++                  { key: 'paid', label: 'پرداخت‌شده', value: f.paid },
++                  { key: 'completed', label: 'تحویل‌شده', value: f.completed },
++                ]}
++              />
++              <div className="mt-4 flex flex-wrap gap-2 text-xs">
++                <span className="badge b-bd">ناموفق: {fmt(f.failed)}</span>
++                <span className="badge b-mu">لغوشده: {fmt(f.cancelled)}</span>
++                <span className="badge b-wn">
++                  استرداد: {fmt(k.refunds.count)} ({fmtPct(k.refunds.rate_pct)})
++                </span>
++                <span className="badge b-ok">موفقیت تحویل: {fmtPct(f.provisioning_success_pct)}</span>
++              </div>
++            </>
++          )}
++        </Card>
++        <Card title="وضعیت سفارش‌ها" hint="سفارش‌های ثبت‌شده در این بازه">
++          {!data ? (
++            <div className="skel h-40 w-full" />
++          ) : statusItems.length ? (
++            <Donut items={statusItems} center={fmt(f.created)} sub="سفارش" label="نمودار دونات وضعیت سفارش‌ها" />
++          ) : (
++            <p className="py-10 text-center text-sm text-[var(--mu)]">سفارشی در این بازه ثبت نشده.</p>
++          )}
++        </Card>
++      </div>
++
++      <div className={`grid gap-6 lg:grid-cols-3 ${dim}`}>
++        {[
++          ['روش پرداخت', 'سهم از فروش', data?.by_method, METHOD_LABELS],
++          ['کانال فروش', 'سهم از فروش', data?.by_channel, CHANNEL_LABELS],
++          ['نوع سفارش', 'سهم از فروش', data?.by_kind, KIND_LABELS],
++        ].map(([t, h, rows, map]) => {
++          const items = split(rows, map);
++          return (
++            <Card key={t} title={t} hint={h}>
++              {!data ? (
++                <div className="skel h-32 w-full" />
++              ) : items.length ? (
++                <Donut
++                  stack
++                  items={items}
++                  size={130}
++                  center={fmt(items.reduce((a: number, x: { value: number }) => a + x.value, 0))}
++                  sub={cur}
++                  label={`نمودار ${t}`}
++                />
++              ) : (
++                <p className="py-8 text-center text-sm text-[var(--mu)]">فروشی ثبت نشده.</p>
++              )}
++            </Card>
++          );
++        })}
++      </div>
++
++      <div className={`grid gap-6 lg:grid-cols-2 ${dim}`}>
++        <Card title="پرفروش‌ترین محصولات" hint={`بر اساس فروش (${cur})`}>
++          {!data ? (
++            <div className="skel h-40 w-full" />
++          ) : (
++            <HBars rows={productRows} color={SERIES_COLORS[0]} empty="فروشی ثبت نشده" />
++          )}
++        </Card>
++        <Card title="فروشگاه‌ها و نمایندگان" hint={`سهم هر فروشگاه از فروش (${cur})`}>
++          {!data ? (
++            <div className="skel h-40 w-full" />
++          ) : (
++            <HBars rows={storeRows} color={SERIES_COLORS[0]} empty="فروشی ثبت نشده" />
++          )}
++        </Card>
++      </div>
++    </>
++  );
++}
++export function ReportsTables({ data, cur, dim }: Pick<ReportModel, 'data' | 'cur' | 'dim'>) {
++  return (
++    <>
++      <div className={`grid gap-6 lg:grid-cols-[1.2fr_1fr] ${dim}`}>
++        <Card title="سلامت روش‌های پرداخت" hint="پرداخت‌های ثبت‌شده در این بازه به تفکیک درگاه">
++          {!data ? (
++            <div className="skel h-32 w-full" />
++          ) : data.payment_providers.length ? (
++            <DataTable
++              caption="سلامت روش‌های پرداخت"
++              cols={['روش', 'موفق', 'ناموفق', 'در انتظار بررسی', `مبلغ (${cur})`, 'نرخ موفقیت']}
++              rows={data.payment_providers.map((p: Json) => [
++                pick(PROVIDER_LABELS, p.provider),
++                fmt(p.succeeded),
++                fmt(p.failed),
++                fmt(p.awaiting_review),
++                fmt(p.amount),
++                fmtPct(p.success_rate),
++              ])}
++            />
++          ) : (
++            <p className="py-8 text-center text-sm text-[var(--mu)]">پرداختی در این بازه ثبت نشده.</p>
++          )}
++        </Card>
++        <Card
++          title="وضعیت عملیاتی اکنون"
++          hint="لحظه‌ای؛ به بازه و فروشگاه انتخابی وابسته نیست"
++          right={<Server size={18} className="text-[var(--mu)]" aria-hidden="true" />}
++        >
++          {!data ? (
++            <div className="skel h-32 w-full" />
++          ) : (
++            <dl className="grid grid-cols-2 gap-3 text-sm">
++              {[
++                ['اکانت فعال', fmt(data.vpn.active)],
++                ['انقضا تا ۷ روز', fmt(data.vpn.expiring_7d)],
++                [
++                  'مصرف ترافیک فعال‌ها',
++                  `${fmtBytes(data.vpn.traffic_used_bytes)}${data.vpn.traffic_limit_bytes ? ` از ${fmtBytes(data.vpn.traffic_limit_bytes)}` : ''}`,
++                ],
++                ['تیکت باز', fmt(data.tickets.open)],
++                ['سفارش نیازمند توجه', fmt(data.attention_orders)],
++                ['کاربر فعال', fmt(data.users_total)],
++              ].map(([t, v]) => (
++                <div key={t} className="rounded-xl bg-[var(--mb)] p-3">
++                  <dt className="text-xs text-[var(--mu)]">{t}</dt>
++                  <dd className="mt-1 font-extrabold">{v}</dd>
++                </div>
++              ))}
++            </dl>
++          )}
++        </Card>
++      </div>
++    </>
++  );
++}
+diff --git a/apps/admin-web/src/features/reports/ReportsView.tsx b/apps/admin-web/src/features/reports/ReportsView.tsx
+index 7ef7dda..9285893 100644
+--- a/apps/admin-web/src/features/reports/ReportsView.tsx
++++ b/apps/admin-web/src/features/reports/ReportsView.tsx
+@@ -1,46 +1,24 @@
+-// Admin → Reports & charts. One payload from GET /api/v1/admin/reports/analytics drives every card on the screen.
+-// Currency-safe (one currency at a time), compared with the previous period, exportable, with a table view for accessibility.
+ import { useCallback, useEffect, useMemo, useState } from 'react';
+-import {
+-  BarChart3,
+-  Download,
+-  Lightbulb,
+-  Percent,
+-  Receipt,
+-  RefreshCw,
+-  Server,
+-  ShoppingBag,
+-  Table2,
+-  Ticket,
+-  Undo2,
+-  UserPlus,
+-  WalletCards,
+-} from 'lucide-react';
++import { Ticket, Undo2 } from 'lucide-react';
+ import { API_BASE, getJson } from '../../api/api.ts';
+-import { dayShort } from '../../shared/charts.tsx';
+-import { Funnel, HBars, Heatmap, Legend, SERIES_COLORS, CompareChart, Donut } from './ReportCharts.tsx';
++import { Heatmap, SERIES_COLORS } from './ReportCharts.tsx';
+ import {
+-  CHANNEL_LABELS,
+-  KIND_LABELS,
+-  METHOD_LABELS,
+-  PROVIDER_LABELS,
+   STORE_KIND_LABELS,
+   browserZone,
+   buildInsights,
+   buildQuery,
+-  dailyRows,
+   fmt,
+-  fmtBytes,
+   fmtPct,
+   foldTail,
+-  nf,
+   pick,
+   share,
+ } from './reportsLogic.ts';
+ import { label as statusLabel } from '../../shared/ui.tsx';
+-import type { Json, Rec, Toast } from '../../shared/types.ts';
++import type { Json, Toast } from '../../shared/types.ts';
++import type { ReportModel } from './ReportsSections.tsx';
++import { METRICS, Card, download } from './ReportsParts.tsx';
++import { ReportsFilters, ReportsKpis, ReportsMainChart, ReportsBreakdowns, ReportsTables } from './ReportsSections.tsx';
+ 
+-import { RANGES, METRICS, TONES, Seg, Kpi, Card, DataTable, download, EXPORTS } from './ReportsParts.tsx';
+ export default function ReportsView({ api, toast }: { api?: Json; toast: Toast }) {
+   const [days, setDays] = useState(30);
+   const [currency, setCurrency] = useState('');
+@@ -48,7 +26,7 @@ export default function ReportsView({ api, toast }: { api?: Json; toast: Toast }
+   const [metric, setMetric] = useState('revenue');
+   const [compare, setCompare] = useState(true);
+   const [table, setTable] = useState(false);
+-  const [stores, setStores] = useState<Rec[]>([]);
++  const [stores, setStores] = useState<ReportModel['stores']>([]);
+   const [data, setData] = useState<Json>(null);
+   const [err, setErr] = useState(false);
+   const [loading, setLoading] = useState(true);
+@@ -76,7 +54,7 @@ export default function ReportsView({ api, toast }: { api?: Json; toast: Toast }
+   }, [query, tick, api?.tick]);
+ 
+   const refresh = useCallback(() => setTick((x) => x + 1), []);
+-  const exportCsv = (section: Json) =>
++  const exportCsv = (section: string) =>
+     download(
+       `/api/v1/admin/reports/analytics.csv?section=${section}&${query}`,
+       `melorin-${section}-${days}d.csv`,
+@@ -90,7 +68,7 @@ export default function ReportsView({ api, toast }: { api?: Json; toast: Toast }
+ 
+   const mainSeries = useMemo(() => {
+     if (!s) return [];
+-    const base: Rec[] = (
++    const base: ReportModel['mainSeries'] = (
+       {
+         revenue: [{ key: 'cur', label: 'این بازه', values: s.revenue, color: SERIES_COLORS[0], area: true }],
+         orders: [{ key: 'cur', label: 'این بازه', values: s.orders, color: SERIES_COLORS[0] }],
+@@ -99,7 +77,7 @@ export default function ReportsView({ api, toast }: { api?: Json; toast: Toast }
+         cumulative: [
+           { key: 'cur', label: 'فروش تجمعی', values: s.cumulative_revenue, color: SERIES_COLORS[0], area: true },
+         ],
+-      } as Record<string, Rec[]>
++      } as Record<string, ReportModel['mainSeries']>
+     )[metric];
+     if (compare && (metric === 'revenue' || metric === 'orders')) {
+       const prev = metric === 'revenue' ? s.revenue_prev : s.orders_prev;
+@@ -112,17 +90,17 @@ export default function ReportsView({ api, toast }: { api?: Json; toast: Toast }
+   const mainTitle = METRICS.find((m) => m[0] === metric)![1];
+   const lead = mainSeries[0]?.values || [];
+   const periodTotal =
+-    metric === 'cumulative' ? lead[lead.length - 1] || 0 : lead.reduce((a: Json, b: Json) => a + b, 0);
++    metric === 'cumulative' ? lead[lead.length - 1] || 0 : lead.reduce((a: number, b: number) => a + b, 0);
+ 
+   const statusItems = foldTail(
+     (data?.orders_by_status || []).map((x: Json) => ({ key: x.status, label: statusLabel(x.status), value: x.count })),
+     6,
+-  ).map((x: Json, i: Json) => ({ ...x, color: SERIES_COLORS[i] }));
++  ).map((x: Json, i: number) => ({ ...x, color: SERIES_COLORS[i] }));
+   const split = (rows: Json, map: Json) =>
+     foldTail(
+       (rows || []).map((x: Json) => ({ key: x.key, label: pick(map, x.key), value: x.revenue })),
+       5,
+-    ).map((x: Json, i: Json) => ({ ...x, color: SERIES_COLORS[i] }));
++    ).map((x: Json, i: number) => ({ ...x, color: SERIES_COLORS[i] }));
+ 
+   const f = data?.funnel;
+   const total = k?.revenue.value || 0;
+@@ -151,64 +129,19 @@ export default function ReportsView({ api, toast }: { api?: Json; toast: Toast }
+ 
+   return (
+     <div className="rpt space-y-6" aria-busy={loading}>
+-      <section className="card rise flex flex-wrap items-center justify-between gap-3 p-4">
+-        <div className="flex items-center gap-3">
+-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-[var(--inb)] text-[var(--in)]">
+-            <BarChart3 size={20} aria-hidden="true" />
+-          </span>
+-          <div>
+-            <h2 className="font-extrabold">گزارشات و نمودارها</h2>
+-            <p className="text-xs text-[var(--mu)]">
+-              {data
+-                ? `${dayShort(data.period.from)} تا ${dayShort(data.period.to)} · ${data.period.timezone}`
+-                : 'در حال دریافت…'}
+-              {' · '}مقایسه با {nf.format(days)} روز قبل از آن
+-            </p>
+-          </div>
+-        </div>
+-        <div className="no-print flex flex-wrap items-center gap-2">
+-          <Seg label="بازه" value={days} set={setDays} items={RANGES.map((d) => [d, `${nf.format(d)} روز`])} />
+-          {data?.currencies?.length > 1 && (
+-            <Seg label="ارز" value={cur} set={setCurrency} items={data.currencies.map((c: Json) => [c, c])} />
+-          )}
+-          <select
+-            aria-label="فروشگاه"
+-            className="field !py-1.5 text-xs"
+-            value={storeId}
+-            onChange={(e) => setStoreId(e.target.value)}
+-          >
+-            <option value="">همه‌ی فروشگاه‌ها</option>
+-            {stores.map((st) => (
+-              <option key={st.id} value={st.id}>
+-                {st.name}
+-              </option>
+-            ))}
+-          </select>
+-          <button className="btn btn-g" onClick={refresh} aria-label="به‌روزرسانی گزارش" title="به‌روزرسانی">
+-            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+-          </button>
+-          <details className="relative">
+-            <summary className="btn cursor-pointer list-none">
+-              <Download size={15} aria-hidden="true" />
+-              خروجی CSV
+-            </summary>
+-            <div className="card absolute left-0 top-[calc(100%+6px)] z-20 w-40 p-1.5">
+-              {EXPORTS.map(([sec, t]) => (
+-                <button
+-                  key={sec}
+-                  onClick={(e) => {
+-                    exportCsv(sec);
+-                    (e.currentTarget.closest('details') as HTMLDetailsElement).open = false;
+-                  }}
+-                  className="flex w-full rounded-lg px-3 py-2 text-sm hover:bg-[var(--mb)]"
+-                >
+-                  {t}
+-                </button>
+-              ))}
+-            </div>
+-          </details>
+-        </div>
+-      </section>
++      <ReportsFilters
++        days={days}
++        setDays={setDays}
++        setCurrency={setCurrency}
++        storeId={storeId}
++        setStoreId={setStoreId}
++        stores={stores}
++        data={data}
++        loading={loading}
++        refresh={refresh}
++        exportCsv={exportCsv}
++        cur={cur}
++      />
+ 
+       {err && !data && (
+         <p role="alert" className="rounded-xl bg-[var(--wnb)] p-4 text-sm font-bold text-[var(--wn)]">
+@@ -221,236 +154,37 @@ export default function ReportsView({ api, toast }: { api?: Json; toast: Toast }
+         </p>
+       )}
+ 
+-      <div className={`grid gap-4 sm:grid-cols-2 xl:grid-cols-3 ${dim}`}>
+-        <Kpi
+-          title="فروش"
+-          Icon={WalletCards}
+-          loading={!data}
+-          value={fmt(k?.revenue.value)}
+-          unit={cur}
+-          kpi={k?.revenue}
+-          color={SERIES_COLORS[0]}
+-          hint={`میانگین روزانه ${fmt(data?.highlights.avg_daily_revenue)} ${cur}`}
+-        />
+-        <Kpi
+-          title="سفارش‌های فروخته‌شده"
+-          Icon={ShoppingBag}
+-          loading={!data}
+-          value={fmt(k?.orders_sold.value)}
+-          kpi={k?.orders_sold}
+-          color={SERIES_COLORS[0]}
+-          hint={`${fmt(k?.orders_created.value)} سفارش ثبت‌شده`}
+-        />
+-        <Kpi
+-          title="میانگین ارزش سفارش"
+-          Icon={Receipt}
+-          loading={!data}
+-          value={fmt(k?.avg_order_value.value)}
+-          unit={cur}
+-          kpi={k?.avg_order_value}
+-          color={SERIES_COLORS[1]}
+-        />
+-        <Kpi
+-          title="ورودی نقدی"
+-          Icon={WalletCards}
+-          loading={!data}
+-          value={fmt(k?.cash_in.value)}
+-          unit={cur}
+-          kpi={k?.cash_in}
+-          color={SERIES_COLORS[2]}
+-          hint="پرداخت‌های موفق کارت/درگاه"
+-        />
+-        <Kpi
+-          title="کاربران جدید"
+-          Icon={UserPlus}
+-          loading={!data}
+-          value={fmt(k?.new_users.value)}
+-          kpi={k?.new_users}
+-          color={SERIES_COLORS[6]}
+-          hint={`${fmt(data?.users_total)} کاربر فعال کل`}
+-        />
+-        <Kpi
+-          title="نرخ تبدیل به پرداخت"
+-          Icon={Percent}
+-          loading={!data}
+-          value={fmtPct(k?.conversion_pct.value)}
+-          kpi={k?.conversion_pct}
+-          color={SERIES_COLORS[2]}
+-          hint="سفارش‌های ثبت‌شده که پرداخت شدند"
+-        />
+-      </div>
+-
+-      <div className={`grid gap-6 xl:grid-cols-[1.7fr_1fr] ${dim}`}>
+-        <Card
+-          title={`روند ${mainTitle}`}
+-          hint="روزانه، به وقت منطقه‌ی زمانی شما؛ فروش = سفارش‌های پرداخت‌شده‌ی لغو/استردادنشده"
+-          right={
+-            <div className="no-print flex flex-wrap items-center gap-2">
+-              <Seg label="معیار" value={metric} set={setMetric} items={METRICS} />
+-              {(metric === 'revenue' || metric === 'orders') && (
+-                <label className="flex cursor-pointer items-center gap-1.5 text-xs text-[var(--mu)]">
+-                  <input type="checkbox" checked={compare} onChange={(e) => setCompare(e.target.checked)} />
+-                  بازه‌ی قبلی
+-                </label>
+-              )}
+-              <button className="btn btn-g !py-1 text-xs" aria-pressed={table} onClick={() => setTable((x) => !x)}>
+-                <Table2 size={14} aria-hidden="true" />
+-                {table ? 'نمودار' : 'جدول'}
+-              </button>
+-            </div>
+-          }
+-        >
+-          {!data ? (
+-            <div className="skel h-[260px] w-full" />
+-          ) : table ? (
+-            <DataTable
+-              caption="جدول روزانه‌ی گزارش"
+-              cols={['روز', `فروش (${cur})`, 'سفارش', `ورودی نقدی (${cur})`, 'کاربر جدید']}
+-              rows={dailyRows(data).map((r: Json) => [
+-                dayShort(r.day),
+-                fmt(r.revenue),
+-                fmt(r.orders),
+-                fmt(r.cash_in),
+-                fmt(r.new_users),
+-              ])}
+-            />
+-          ) : (
+-            <>
+-              <Legend
+-                items={mainSeries.map((x) => ({ key: x.key, label: x.label, color: x.color, dashed: x.dashed }))}
+-              />
+-              <div className="mt-2">
+-                <CompareChart
+-                  days={data.days}
+-                  series={mainSeries}
+-                  unit={unit}
+-                  bars={metric === 'orders' && !compare}
+-                  label={`نمودار ${mainTitle} ${nf.format(days)} روز اخیر`}
+-                />
+-              </div>
+-              <div className="mt-3 flex flex-wrap gap-x-8 gap-y-1 text-xs text-[var(--mu)]">
+-                <span>
+-                  مجموع بازه:{' '}
+-                  <b className="text-[var(--tx)]">
+-                    {fmt(periodTotal)} {unit}
+-                  </b>
+-                </span>
+-                {data.highlights.wholesale_cost > 0 && metric === 'revenue' && (
+-                  <span>
+-                    بهای تمام‌شده‌ی عمده‌فروشی (نمایندگان):{' '}
+-                    <b className="text-[var(--tx)]">
+-                      {fmt(data.highlights.wholesale_cost)} {cur}
+-                    </b>
+-                  </span>
+-                )}
+-              </div>
+-            </>
+-          )}
+-        </Card>
+-
+-        <Card
+-          title="یافته‌های کلیدی"
+-          hint="خلاصه‌ی خودکار از داده‌های همین بازه"
+-          right={<Lightbulb size={18} className="text-[var(--mu)]" aria-hidden="true" />}
+-        >
+-          {!data ? (
+-            <div className="skel h-40 w-full" />
+-          ) : insights.length ? (
+-            <ul className="space-y-2.5">
+-              {insights.map((i) => (
+-                <li key={i.id} className="flex gap-2.5 text-sm leading-6">
+-                  <span className={`badge ${TONES[i.tone]} mt-0.5 h-5 shrink-0 px-1.5`} aria-hidden="true">
+-                    {({ ok: '✓', wn: '!', in: 'i', bd: '✕' } as Rec)[i.tone]}
+-                  </span>
+-                  <span>{i.text}</span>
+-                </li>
+-              ))}
+-            </ul>
+-          ) : (
+-            <p className="py-8 text-center text-sm text-[var(--mu)]">برای ساخت یافته‌ها داده‌ی بیشتری لازم است.</p>
+-          )}
+-        </Card>
+-      </div>
+-
+-      <div className={`grid gap-6 lg:grid-cols-2 ${dim}`}>
+-        <Card title="قیف فروش" hint="سفارش‌های ثبت‌شده در این بازه و مسیر آن‌ها تا تحویل">
+-          {!f ? (
+-            <div className="skel h-40 w-full" />
+-          ) : (
+-            <>
+-              <Funnel
+-                stages={[
+-                  { key: 'created', label: 'ثبت‌شده', value: f.created },
+-                  { key: 'paid', label: 'پرداخت‌شده', value: f.paid },
+-                  { key: 'completed', label: 'تحویل‌شده', value: f.completed },
+-                ]}
+-              />
+-              <div className="mt-4 flex flex-wrap gap-2 text-xs">
+-                <span className="badge b-bd">ناموفق: {fmt(f.failed)}</span>
+-                <span className="badge b-mu">لغوشده: {fmt(f.cancelled)}</span>
+-                <span className="badge b-wn">
+-                  استرداد: {fmt(k.refunds.count)} ({fmtPct(k.refunds.rate_pct)})
+-                </span>
+-                <span className="badge b-ok">موفقیت تحویل: {fmtPct(f.provisioning_success_pct)}</span>
+-              </div>
+-            </>
+-          )}
+-        </Card>
+-        <Card title="وضعیت سفارش‌ها" hint="سفارش‌های ثبت‌شده در این بازه">
+-          {!data ? (
+-            <div className="skel h-40 w-full" />
+-          ) : statusItems.length ? (
+-            <Donut items={statusItems} center={fmt(f.created)} sub="سفارش" label="نمودار دونات وضعیت سفارش‌ها" />
+-          ) : (
+-            <p className="py-10 text-center text-sm text-[var(--mu)]">سفارشی در این بازه ثبت نشده.</p>
+-          )}
+-        </Card>
+-      </div>
+-
+-      <div className={`grid gap-6 lg:grid-cols-3 ${dim}`}>
+-        {[
+-          ['روش پرداخت', 'سهم از فروش', data?.by_method, METHOD_LABELS],
+-          ['کانال فروش', 'سهم از فروش', data?.by_channel, CHANNEL_LABELS],
+-          ['نوع سفارش', 'سهم از فروش', data?.by_kind, KIND_LABELS],
+-        ].map(([t, h, rows, map]) => {
+-          const items = split(rows, map);
+-          return (
+-            <Card key={t} title={t} hint={h}>
+-              {!data ? (
+-                <div className="skel h-32 w-full" />
+-              ) : items.length ? (
+-                <Donut
+-                  stack
+-                  items={items}
+-                  size={130}
+-                  center={fmt(items.reduce((a: Json, x: Json) => a + x.value, 0))}
+-                  sub={cur}
+-                  label={`نمودار ${t}`}
+-                />
+-              ) : (
+-                <p className="py-8 text-center text-sm text-[var(--mu)]">فروشی ثبت نشده.</p>
+-              )}
+-            </Card>
+-          );
+-        })}
+-      </div>
+-
+-      <div className={`grid gap-6 lg:grid-cols-2 ${dim}`}>
+-        <Card title="پرفروش‌ترین محصولات" hint={`بر اساس فروش (${cur})`}>
+-          {!data ? (
+-            <div className="skel h-40 w-full" />
+-          ) : (
+-            <HBars rows={productRows} color={SERIES_COLORS[0]} empty="فروشی ثبت نشده" />
+-          )}
+-        </Card>
+-        <Card title="فروشگاه‌ها و نمایندگان" hint={`سهم هر فروشگاه از فروش (${cur})`}>
+-          {!data ? (
+-            <div className="skel h-40 w-full" />
+-          ) : (
+-            <HBars rows={storeRows} color={SERIES_COLORS[0]} empty="فروشی ثبت نشده" />
+-          )}
+-        </Card>
+-      </div>
++      <ReportsKpis data={data} loading={loading} cur={cur} k={k} dim={dim} unit={unit} />
++
++      <ReportsMainChart
++        days={days}
++        metric={metric}
++        setMetric={setMetric}
++        compare={compare}
++        setCompare={setCompare}
++        table={table}
++        setTable={setTable}
++        data={data}
++        cur={cur}
++        insights={insights}
++        dim={dim}
++        mainSeries={mainSeries}
++        unit={unit}
++        mainTitle={mainTitle}
++        periodTotal={periodTotal}
++      />
++
++      <ReportsBreakdowns
++        data={data}
++        cur={cur}
++        k={k}
++        dim={dim}
++        statusItems={statusItems}
++        split={split}
++        f={f}
++        productRows={productRows}
++        storeRows={storeRows}
++      />
+ 
+       <Card
+         title="زمان‌های اوج فروش"
+@@ -464,56 +198,7 @@ export default function ReportsView({ api, toast }: { api?: Json; toast: Toast }
+         )}
+       </Card>
+ 
+-      <div className={`grid gap-6 lg:grid-cols-[1.2fr_1fr] ${dim}`}>
+-        <Card title="سلامت روش‌های پرداخت" hint="پرداخت‌های ثبت‌شده در این بازه به تفکیک درگاه">
+-          {!data ? (
+-            <div className="skel h-32 w-full" />
+-          ) : data.payment_providers.length ? (
+-            <DataTable
+-              caption="سلامت روش‌های پرداخت"
+-              cols={['روش', 'موفق', 'ناموفق', 'در انتظار بررسی', `مبلغ (${cur})`, 'نرخ موفقیت']}
+-              rows={data.payment_providers.map((p: Json) => [
+-                pick(PROVIDER_LABELS, p.provider),
+-                fmt(p.succeeded),
+-                fmt(p.failed),
+-                fmt(p.awaiting_review),
+-                fmt(p.amount),
+-                fmtPct(p.success_rate),
+-              ])}
+-            />
+-          ) : (
+-            <p className="py-8 text-center text-sm text-[var(--mu)]">پرداختی در این بازه ثبت نشده.</p>
+-          )}
+-        </Card>
+-        <Card
+-          title="وضعیت عملیاتی اکنون"
+-          hint="لحظه‌ای؛ به بازه و فروشگاه انتخابی وابسته نیست"
+-          right={<Server size={18} className="text-[var(--mu)]" aria-hidden="true" />}
+-        >
+-          {!data ? (
+-            <div className="skel h-32 w-full" />
+-          ) : (
+-            <dl className="grid grid-cols-2 gap-3 text-sm">
+-              {[
+-                ['اکانت فعال', fmt(data.vpn.active)],
+-                ['انقضا تا ۷ روز', fmt(data.vpn.expiring_7d)],
+-                [
+-                  'مصرف ترافیک فعال‌ها',
+-                  `${fmtBytes(data.vpn.traffic_used_bytes)}${data.vpn.traffic_limit_bytes ? ` از ${fmtBytes(data.vpn.traffic_limit_bytes)}` : ''}`,
+-                ],
+-                ['تیکت باز', fmt(data.tickets.open)],
+-                ['سفارش نیازمند توجه', fmt(data.attention_orders)],
+-                ['کاربر فعال', fmt(data.users_total)],
+-              ].map(([t, v]) => (
+-                <div key={t} className="rounded-xl bg-[var(--mb)] p-3">
+-                  <dt className="text-xs text-[var(--mu)]">{t}</dt>
+-                  <dd className="mt-1 font-extrabold">{v}</dd>
+-                </div>
+-              ))}
+-            </dl>
+-          )}
+-        </Card>
+-      </div>
++      <ReportsTables data={data} cur={cur} dim={dim} />
+ 
+       <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-[var(--mu)]">
+         <span>
+diff --git a/apps/admin-web/src/features/settings/TelegramLoginParts.tsx b/apps/admin-web/src/features/settings/TelegramLoginParts.tsx
+new file mode 100644
+index 0000000..329f39c
+--- /dev/null
++++ b/apps/admin-web/src/features/settings/TelegramLoginParts.tsx
+@@ -0,0 +1,287 @@
++import type { ReactNode } from 'react';
++import { useState } from 'react';
++import { settled, typedClient } from '../../api/api.ts';
++import { Check, ChevronDown, Copy, ExternalLink, ShieldCheck } from 'lucide-react';
++import { CopyBox, Step } from './GoogleLoginSettings.tsx';
++import type { Json, Toast } from '../../shared/types.ts';
++
++export const Chip = ({ ok, children }: { ok?: Json; children?: ReactNode }) => (
++  <span className={`badge ${ok === true ? 'b-ok' : ok === 'warn' ? 'b-wn' : 'b-mu'}`}>{children}</span>
++);
++
++export function CopyAll({ lines }: { lines?: Json }) {
++  const [done, setDone] = useState(false);
++  const copy = async () => {
++    try {
++      await navigator.clipboard.writeText(lines.join('\n'));
++      setDone(true);
++      setTimeout(() => setDone(false), 1500);
++    } catch {
++      /* clipboard blocked */
++    }
++  };
++  return (
++    <button type="button" className="btn btn-g !px-2 !py-1 text-xs" onClick={copy}>
++      {done ? <Check size={13} /> : <Copy size={13} />}
++      {done ? 'کپی شد' : 'کپی همهٔ آدرس‌ها'}
++    </button>
++  );
++}
++
++export const USERNAME_RE = /^@?[A-Za-z0-9_]{3,64}$/;
++
++// Main store's bot @username: the deep link t.me/<bot>?start=wl_… cannot be built without it.
++export function MainBotBox({
++  saved,
++  base,
++  toast,
++  reload,
++}: {
++  saved?: Json;
++  base: string;
++  toast: Toast;
++  reload?: Json;
++}) {
++  const [name, setName] = useState(saved.main_bot_username || '');
++  const [busy, setBusy] = useState('');
++  const current = saved.main_bot_username || '';
++  const typed = name.trim();
++  const invalid = typed && !USERNAME_RE.test(typed) ? 'فقط حروف انگلیسی، عدد و _ (۳ تا ۶۴ نویسه).' : '';
++  const run = async (username: Json, ok: Json) => {
++    setBusy(username === null ? 'auto' : 'save');
++    const { r, d } = settled(
++      await typedClient(base).put('/api/v1/admin/integrations/telegram/main-bot-username', { body: { username } }),
++    );
++    setBusy('');
++    if (!r.ok) return toast(d?.error?.message || d?.detail?.message || 'ذخیرهٔ نام کاربری ربات ناموفق بود');
++    toast(ok);
++    setName(d.main_bot_username || '');
++    reload(d);
++  };
++  return (
++    <div className="space-y-2 rounded-xl border border-[var(--ln)] p-3">
++      <div className="flex flex-wrap items-center justify-between gap-2">
++        <div className="text-sm font-bold">ربات اصلی فروشگاه</div>
++        {current ? (
++          <Chip ok>
++            <span dir="ltr">@{current}</span>
++          </Chip>
++        ) : (
++          <Chip ok="warn">نام کاربری ثبت نشده</Chip>
++        )}
++      </div>
++      {!current && (
++        <p className="text-xs leading-6 text-[var(--bd)]">
++          بدون نام کاربری ربات، لینک ورود ساخته نمی‌شود و دکمهٔ «ورود با تلگرام» نمایش داده نمی‌شود.
++        </p>
++      )}
++      <div className="flex flex-wrap items-start gap-2">
++        <button
++          type="button"
++          disabled={!!busy}
++          className="btn"
++          onClick={() => run(null, 'نام کاربری ربات از روی توکن تشخیص داده و ذخیره شد')}
++        >
++          {busy === 'auto' ? 'در حال تشخیص...' : 'تشخیص خودکار از توکن'}
++        </button>
++        <span className="py-2 text-xs text-[var(--mu)]">یا دستی:</span>
++        <div className="min-w-[12rem] flex-1">
++          <input
++            dir="ltr"
++            spellCheck={false}
++            autoComplete="off"
++            className="inp font-mono text-xs"
++            value={name}
++            onChange={(e) => setName(e.target.value)}
++            placeholder="@meeloorin_bot"
++          />
++          {invalid && <div className="mt-1 text-xs text-[var(--bd)]">{invalid}</div>}
++        </div>
++        <button
++          type="button"
++          disabled={!!busy || !typed || !!invalid || typed.replace(/^@/, '') === current}
++          className="btn btn-g"
++          onClick={() => run(typed.replace(/^@/, ''), 'نام کاربری ربات ذخیره شد')}
++        >
++          {busy === 'save' ? 'در حال ذخیره...' : 'ذخیره نام کاربری'}
++        </button>
++      </div>
++      <p className="text-xs text-[var(--mu)]">
++        نام کاربری با ربات واقعیِ توکن (getMe) تطبیق داده می‌شود و بلافاصله، بدون build مجدد، اعمال می‌شود. این بخش جدا
++        از دکمهٔ «ذخیره» بالا ذخیره می‌شود.
++      </p>
++    </div>
++  );
++}
++
++export function Guide({ cfg }: { cfg?: Json }) {
++  const ext = (href: string, text: Json) => (
++    <a
++      className="inline-flex items-center gap-1 text-[var(--ac)] underline"
++      href={href}
++      target="_blank"
++      rel="noreferrer noopener"
++    >
++      {text} <ExternalLink size={11} />
++    </a>
++  );
++  return (
++    <details className="group rounded-xl border border-[var(--ln)]">
++      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-4 text-sm font-bold">
++        <span>راهنمای کامل اتصال تلگرام (گام‌به‌گام)</span>
++        <ChevronDown size={16} className="transition group-open:rotate-180" />
++      </summary>
++      <div className="space-y-6 border-t border-[var(--ln)] p-4 text-sm">
++        <div className="space-y-2 rounded-xl bg-[var(--bg)] p-3 text-xs leading-7 text-[var(--mu)]">
++          <div className="font-bold text-[var(--tx)]">کدام روش را روشن کنم؟</div>
++          <p>
++            <b>تأیید در ربات</b> (پیش‌فرض): مشتری روی «ورود با تلگرام» می‌زند، ربات باز می‌شود و ورود را با انتخاب یک
++            عدد تأیید می‌کند. <b>هیچ داده‌ای از BotFather لازم نیست</b>؛ فقط ربات فروشگاه باید فعال باشد. امن‌ترین روش
++            در برابر فیشینگ است (تطبیق عدد + نمایش دستگاه/IP).
++          </p>
++          <p>
++            <b>ورود مستقیم (OpenID Connect)</b>: مشتری به صفحهٔ رسمی تلگرام می‌رود، با یک «تأیید» برمی‌گردد. سریع‌تر است
++            ولی نیاز به <b>Client ID</b> و <b>Client Secret</b> از BotFather دارد (راهنمای زیر). می‌توانید هر دو را
++            هم‌زمان روشن کنید؛ هر دو به <b>یک حساب</b> مشتری می‌رسند، چون شناسهٔ عددی تلگرام کاربر کلید حساب است.
++          </p>
++          <p>
++            ورود <b>ادمین</b> از طریق تلگرام وجود ندارد و عمداً بسته است؛ ادمین فقط با رمز + TOTP وارد می‌شود.
++          </p>
++        </div>
++
++        <div>
++          <div className="mb-3 font-extrabold">الف) روش «تأیید در ربات» — پیش‌نیازها</div>
++          <ul className="list-disc space-y-1.5 pr-5 text-xs leading-7 text-[var(--mu)]">
++            <li>
++              توکن ربات اصلی هنگام نصب ثبت شده و سرویس ربات (<code dir="ltr">telegram_main</code>) در حال اجراست؛ نام
++              کاربری ربات روی فروشگاه (<code dir="ltr">bot_username</code>) پر است
++              {cfg.main_bot_username ? (
++                <>
++                  {' '}
++                  (الان: <code dir="ltr">@{cfg.main_bot_username}</code>)
++                </>
++              ) : (
++                <> (الان خالی است)</>
++              )}
++              .
++            </li>
++            <li>ربات‌های نمایندگان خودکار با فروشگاه خودشان کار می‌کنند و تنظیم جدا ندارند.</li>
++            <li>
++              <b>تطبیق عدد</b> را روشن نگه دارید؛ خاموش‌کردنش فقط برای عیب‌یابی است. «مدت اعتبار» زمانی است که مشتری
++              برای تأیید در ربات دارد (۶۰ تا ۶۰۰ ثانیه، پیش‌فرض ۱۸۰).
++            </li>
++            <li>
++              دکمه‌ی «تست اتصال» توکن ربات را با <code dir="ltr">getMe</code> می‌سنجد و نام کاربری را با فروشگاه مقایسه
++              می‌کند.
++            </li>
++          </ul>
++        </div>
++
++        <div>
++          <div className="mb-3 font-extrabold">ب) روش «ورود مستقیم» — راه‌اندازی در BotFather</div>
++          <ol className="space-y-5">
++            <Step n="۱" title="ربات مناسب را انتخاب کنید">
++              <p>
++                معمولاً همان ربات اصلی فروشگاه. کاربر هنگام ورود، <b>نام و عکس همین ربات</b> را در پنجرهٔ تأیید تلگرام
++                می‌بیند؛ برای اعتماد بیشتر نام ربات را برند فروشگاه و عکسش را لوگوی فروشگاه بگذارید.
++              </p>
++            </Step>
++            <Step n="۲" title="باز کردن تنظیمات ورود در BotFather">
++              <p>
++                در تلگرام {ext('https://t.me/botfather?startapp', 'مینی‌اپ @BotFather')} را باز کنید (یا از @BotFather
++                روی دکمهٔ Open کنار پیام‌ها بزنید) ← ربات را انتخاب کنید ← <b>Bot Settings ← Web Login</b> (در برخی
++                نسخه‌ها با نام <b>Login Widget</b>) ← اگر پرسید، حالت <b>OpenID Connect</b> را انتخاب کنید.
++              </p>
++            </Step>
++            <Step n="۳" title="ثبت Allowed URLs">
++              <p>
++                تلگرام فقط به آدرس‌هایی که از قبل ثبت شده‌اند اجازهٔ ورود/بازگشت می‌دهد. <b>همه‌ی آدرس‌های زیر</b> را
++                (هر کدام یک ردیف) در بخش <b>Allowed URLs</b> اضافه کنید؛ دقیقاً به همین شکل، با https و بدون «/» پایانی.
++                اگر نماینده‌ای دامنهٔ اختصاصی دارد، آدرس آن هم در فهرست آمده است و باید ثبت شود.
++              </p>
++              <div className="space-y-1.5">
++                {[...cfg.origins, ...cfg.redirect_uris].map((u) => (
++                  <CopyBox key={u} text={u} />
++                ))}
++              </div>
++            </Step>
++            <Step n="۴" title="کپی Client ID و Client Secret">
++              <p>
++                در همان صفحه BotFather مقدار <b>Client ID</b> و <b>Client Secret</b> را نشان می‌دهد. Client ID یک{' '}
++                <b>عدد</b> است و همان شناسهٔ ربات است (عدد قبل از «:» در توکن ربات). Client Secret را جایی عمومی
++                نفرستید.
++              </p>
++              <p>
++                <b>الگوریتم امضا</b> را روی پیش‌فرض <code dir="ltr">RS256</code> (یا <code dir="ltr">ES256</code>) نگه
++                دارید. <code dir="ltr">EdDSA</code> و <code dir="ltr">ES256K</code> فقط scope پایه می‌دهند و شناسهٔ
++                کاربر را برنمی‌گردانند؛ ورود با آن‌ها کار نمی‌کند.
++              </p>
++            </Step>
++            <Step n="۵" title="ثبت در ملورین">
++              <p>
++                «ورود مستقیم» را روشن کنید، Client ID و Client Secret را در فیلدهای بالا بچسبانید و <b>ذخیره</b> کنید.
++                Secret رمزنگاری‌شده ذخیره می‌شود و دیگر نمایش داده نمی‌شود (برای تغییر، مقدار جدید را وارد کنید). سپس{' '}
++                <b>تست اتصال</b> را بزنید.
++              </p>
++            </Step>
++            <Step n="۶" title="آزمایش ورود واقعی">
++              <p>
++                در یک پنجرهٔ ناشناس به فروشگاه بروید ← «ورود» ← «ورود مستقیم با تلگرام». پس از تأیید در تلگرام به
++                داشبورد برمی‌گردید. نخستین بار حساب مشتری ساخته می‌شود؛ ثبت‌نام بسته (پرچم{' '}
++                <code dir="ltr">registration</code>) فقط حساب‌های جدید را رد می‌کند.
++              </p>
++              <p>
++                ملورین فقط scopeهای <code dir="ltr">openid profile</code> را می‌خواهد (نام، نام‌کاربری، شناسه). شمارهٔ
++                تلفن درخواست <b>نمی‌شود</b>.
++              </p>
++            </Step>
++          </ol>
++        </div>
++
++        <div className="rounded-xl border border-[var(--ln)] p-3">
++          <div className="mb-2 flex items-center gap-2 font-bold">
++            <ShieldCheck size={16} />
++            عیب‌یابی
++          </div>
++          <ul className="list-disc space-y-1.5 pr-5 text-xs leading-7 text-[var(--mu)]">
++            <li>
++              تلگرام خطای «redirect/URL not allowed» می‌دهد: آدرس بازگشت (ردیف‌های <code dir="ltr">…/callback</code>) یا
++              origin در Allowed URLs نیست یا با آن تفاوت جزئی دارد (http/https، www، «/» پایانی).
++            </li>
++            <li>
++              پس از برگشت، پیام «نشست ورود منقضی شد» (<code dir="ltr">session_expired</code>): بیش از ۱۰ دقیقه گذشته،
++              کوکی‌ها در مرورگر بسته‌اند، یا شروع ورود و بازگشت روی دو دامنهٔ متفاوت (مثلاً www و بدون www) بوده است.
++            </li>
++            <li>
++              <code dir="ltr">origin_mismatch</code>: دامنه‌ای که مشتری با آن آمده با{' '}
++              <code dir="ltr">MELORIN_STORE_WEB_URL</code> (یا دامنهٔ نماینده) یکی نیست. همان دامنه را در{' '}
++              <code dir="ltr">.env</code> اصلاح کنید.
++            </li>
++            <li>
++              پیام «ورود انجام نشد» (<code dir="ltr">failed</code>) بعد از تأیید: Client Secret اشتباه یا قدیمی است (در
++              BotFather دوباره بسازید و اینجا ذخیره کنید)، Client ID با ربات هم‌خوان نیست، یا الگوریتم امضا EdDSA/ES256K
++              است. «تست اتصال» را بزنید.
++            </li>
++            <li>
++              تست اتصال ناموفق: سرور API باید به <code dir="ltr">oauth.telegram.org</code> و{' '}
++              <code dir="ltr">api.telegram.org</code> روی پورت ۴۴۳ خروجی داشته باشد (فایروال، DNS یا فیلترینگ شبکهٔ سرور
++              را بررسی کنید).
++            </li>
++            <li>
++              مرورگر مشتری هم باید به <code dir="ltr">oauth.telegram.org</code> برسد. اگر در شبکهٔ مشتری باز نمی‌شود،
++              روش «تأیید در ربات» را روشن نگه دارید؛ آن روش فقط به خود اپ تلگرام نیاز دارد.
++            </li>
++            <li>
++              <code dir="ltr">admin_use_panel</code>: حساب تلگرامی که وارد شده به یک ادمین وصل است؛ ادمین‌ها فقط از پنل
++              مدیریت وارد می‌شوند. <code dir="ltr">account_disabled</code>: حساب مشتری غیرفعال است.
++            </li>
++            <li>
++              دکمه‌ی ورود نمایش داده نمی‌شود: کلید اصلی یا «ورود مشتریان» خاموش است، روش مربوط روشن نیست، یا (برای ورود
++              مستقیم) Client ID/Secret ذخیره نشده است. تغییرات بدون build مجدد اعمال می‌شود.
++            </li>
++          </ul>
++        </div>
++      </div>
++    </details>
++  );
++}
+diff --git a/apps/admin-web/src/features/settings/TelegramLoginSettings.tsx b/apps/admin-web/src/features/settings/TelegramLoginSettings.tsx
+index 2de6902..9c6bf55 100644
+--- a/apps/admin-web/src/features/settings/TelegramLoginSettings.tsx
++++ b/apps/admin-web/src/features/settings/TelegramLoginSettings.tsx
+@@ -1,16 +1,10 @@
+-import type { ReactNode } from 'react';
+-// TelegramLoginSettings.tsx — Admin > Settings > "ورود با تلگرام"
+-// Two independent customer login methods share one master switch:
+-//   1) تأیید در ربات  — device-authorization flow inside the store's bot (needs no extra data);
+-//   2) ورود مستقیم    — Telegram Login (OpenID Connect): needs the bot's Client ID + Client Secret from @BotFather.
+-// The Client Secret is write-only: it is stored encrypted on the server and never sent back to the browser.
+-
+ import { useEffect, useState } from 'react';
+ import { settled, typedClient } from '../../api/api.ts';
+-import { Check, ChevronDown, Copy, ExternalLink, Send, ShieldCheck } from 'lucide-react';
+-import { CopyBox, Field, Step, Switch } from './GoogleLoginSettings.tsx';
++import { Send } from 'lucide-react';
++import { CopyBox, Field, Switch } from './GoogleLoginSettings.tsx';
+ import { PasswordInput } from '../../shared/ui.tsx';
+ import type { Json, Rec, Toast } from '../../shared/types.ts';
++import { Chip, CopyAll, MainBotBox, Guide } from './TelegramLoginParts.tsx';
+ 
+ const CLIENT_ID_RE = /^[0-9]{5,20}$/;
+ const FIELDS = ['enabled', 'store_login', 'bot_login', 'number_match', 'ttl_seconds', 'oidc_login', 'client_id'];
+@@ -21,277 +15,6 @@ const MARK: Rec = {
+   fail: ['✕', 'text-[var(--bd)]'],
+ };
+ 
+-const Chip = ({ ok, children }: { ok?: Json; children?: ReactNode }) => (
+-  <span className={`badge ${ok === true ? 'b-ok' : ok === 'warn' ? 'b-wn' : 'b-mu'}`}>{children}</span>
+-);
+-
+-function CopyAll({ lines }: { lines?: Json }) {
+-  const [done, setDone] = useState(false);
+-  const copy = async () => {
+-    try {
+-      await navigator.clipboard.writeText(lines.join('\n'));
+-      setDone(true);
+-      setTimeout(() => setDone(false), 1500);
+-    } catch {
+-      /* clipboard blocked */
+-    }
+-  };
+-  return (
+-    <button type="button" className="btn btn-g !px-2 !py-1 text-xs" onClick={copy}>
+-      {done ? <Check size={13} /> : <Copy size={13} />}
+-      {done ? 'کپی شد' : 'کپی همهٔ آدرس‌ها'}
+-    </button>
+-  );
+-}
+-
+-const USERNAME_RE = /^@?[A-Za-z0-9_]{3,64}$/;
+-
+-// Main store's bot @username: the deep link t.me/<bot>?start=wl_… cannot be built without it.
+-function MainBotBox({ saved, base, toast, reload }: { saved?: Json; base: string; toast: Toast; reload?: Json }) {
+-  const [name, setName] = useState(saved.main_bot_username || '');
+-  const [busy, setBusy] = useState('');
+-  const current = saved.main_bot_username || '';
+-  const typed = name.trim();
+-  const invalid = typed && !USERNAME_RE.test(typed) ? 'فقط حروف انگلیسی، عدد و _ (۳ تا ۶۴ نویسه).' : '';
+-  const run = async (username: Json, ok: Json) => {
+-    setBusy(username === null ? 'auto' : 'save');
+-    const { r, d } = settled(
+-      await typedClient(base).put('/api/v1/admin/integrations/telegram/main-bot-username', { body: { username } }),
+-    );
+-    setBusy('');
+-    if (!r.ok) return toast(d?.error?.message || d?.detail?.message || 'ذخیرهٔ نام کاربری ربات ناموفق بود');
+-    toast(ok);
+-    setName(d.main_bot_username || '');
+-    reload(d);
+-  };
+-  return (
+-    <div className="space-y-2 rounded-xl border border-[var(--ln)] p-3">
+-      <div className="flex flex-wrap items-center justify-between gap-2">
+-        <div className="text-sm font-bold">ربات اصلی فروشگاه</div>
+-        {current ? (
+-          <Chip ok>
+-            <span dir="ltr">@{current}</span>
+-          </Chip>
+-        ) : (
+-          <Chip ok="warn">نام کاربری ثبت نشده</Chip>
+-        )}
+-      </div>
+-      {!current && (
+-        <p className="text-xs leading-6 text-[var(--bd)]">
+-          بدون نام کاربری ربات، لینک ورود ساخته نمی‌شود و دکمهٔ «ورود با تلگرام» نمایش داده نمی‌شود.
+-        </p>
+-      )}
+-      <div className="flex flex-wrap items-start gap-2">
+-        <button
+-          type="button"
+-          disabled={!!busy}
+-          className="btn"
+-          onClick={() => run(null, 'نام کاربری ربات از روی توکن تشخیص داده و ذخیره شد')}
+-        >
+-          {busy === 'auto' ? 'در حال تشخیص...' : 'تشخیص خودکار از توکن'}
+-        </button>
+-        <span className="py-2 text-xs text-[var(--mu)]">یا دستی:</span>
+-        <div className="min-w-[12rem] flex-1">
+-          <input
+-            dir="ltr"
+-            spellCheck={false}
+-            autoComplete="off"
+-            className="inp font-mono text-xs"
+-            value={name}
+-            onChange={(e) => setName(e.target.value)}
+-            placeholder="@meeloorin_bot"
+-          />
+-          {invalid && <div className="mt-1 text-xs text-[var(--bd)]">{invalid}</div>}
+-        </div>
+-        <button
+-          type="button"
+-          disabled={!!busy || !typed || !!invalid || typed.replace(/^@/, '') === current}
+-          className="btn btn-g"
+-          onClick={() => run(typed.replace(/^@/, ''), 'نام کاربری ربات ذخیره شد')}
+-        >
+-          {busy === 'save' ? 'در حال ذخیره...' : 'ذخیره نام کاربری'}
+-        </button>
+-      </div>
+-      <p className="text-xs text-[var(--mu)]">
+-        نام کاربری با ربات واقعیِ توکن (getMe) تطبیق داده می‌شود و بلافاصله، بدون build مجدد، اعمال می‌شود. این بخش جدا
+-        از دکمهٔ «ذخیره» بالا ذخیره می‌شود.
+-      </p>
+-    </div>
+-  );
+-}
+-
+-function Guide({ cfg }: { cfg?: Json }) {
+-  const ext = (href: string, text: Json) => (
+-    <a
+-      className="inline-flex items-center gap-1 text-[var(--ac)] underline"
+-      href={href}
+-      target="_blank"
+-      rel="noreferrer noopener"
+-    >
+-      {text} <ExternalLink size={11} />
+-    </a>
+-  );
+-  return (
+-    <details className="group rounded-xl border border-[var(--ln)]">
+-      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-4 text-sm font-bold">
+-        <span>راهنمای کامل اتصال تلگرام (گام‌به‌گام)</span>
+-        <ChevronDown size={16} className="transition group-open:rotate-180" />
+-      </summary>
+-      <div className="space-y-6 border-t border-[var(--ln)] p-4 text-sm">
+-        <div className="space-y-2 rounded-xl bg-[var(--bg)] p-3 text-xs leading-7 text-[var(--mu)]">
+-          <div className="font-bold text-[var(--tx)]">کدام روش را روشن کنم؟</div>
+-          <p>
+-            <b>تأیید در ربات</b> (پیش‌فرض): مشتری روی «ورود با تلگرام» می‌زند، ربات باز می‌شود و ورود را با انتخاب یک
+-            عدد تأیید می‌کند. <b>هیچ داده‌ای از BotFather لازم نیست</b>؛ فقط ربات فروشگاه باید فعال باشد. امن‌ترین روش
+-            در برابر فیشینگ است (تطبیق عدد + نمایش دستگاه/IP).
+-          </p>
+-          <p>
+-            <b>ورود مستقیم (OpenID Connect)</b>: مشتری به صفحهٔ رسمی تلگرام می‌رود، با یک «تأیید» برمی‌گردد. سریع‌تر است
+-            ولی نیاز به <b>Client ID</b> و <b>Client Secret</b> از BotFather دارد (راهنمای زیر). می‌توانید هر دو را
+-            هم‌زمان روشن کنید؛ هر دو به <b>یک حساب</b> مشتری می‌رسند، چون شناسهٔ عددی تلگرام کاربر کلید حساب است.
+-          </p>
+-          <p>
+-            ورود <b>ادمین</b> از طریق تلگرام وجود ندارد و عمداً بسته است؛ ادمین فقط با رمز + TOTP وارد می‌شود.
+-          </p>
+-        </div>
+-
+-        <div>
+-          <div className="mb-3 font-extrabold">الف) روش «تأیید در ربات» — پیش‌نیازها</div>
+-          <ul className="list-disc space-y-1.5 pr-5 text-xs leading-7 text-[var(--mu)]">
+-            <li>
+-              توکن ربات اصلی هنگام نصب ثبت شده و سرویس ربات (<code dir="ltr">telegram_main</code>) در حال اجراست؛ نام
+-              کاربری ربات روی فروشگاه (<code dir="ltr">bot_username</code>) پر است
+-              {cfg.main_bot_username ? (
+-                <>
+-                  {' '}
+-                  (الان: <code dir="ltr">@{cfg.main_bot_username}</code>)
+-                </>
+-              ) : (
+-                <> (الان خالی است)</>
+-              )}
+-              .
+-            </li>
+-            <li>ربات‌های نمایندگان خودکار با فروشگاه خودشان کار می‌کنند و تنظیم جدا ندارند.</li>
+-            <li>
+-              <b>تطبیق عدد</b> را روشن نگه دارید؛ خاموش‌کردنش فقط برای عیب‌یابی است. «مدت اعتبار» زمانی است که مشتری
+-              برای تأیید در ربات دارد (۶۰ تا ۶۰۰ ثانیه، پیش‌فرض ۱۸۰).
+-            </li>
+-            <li>
+-              دکمه‌ی «تست اتصال» توکن ربات را با <code dir="ltr">getMe</code> می‌سنجد و نام کاربری را با فروشگاه مقایسه
+-              می‌کند.
+-            </li>
+-          </ul>
+-        </div>
+-
+-        <div>
+-          <div className="mb-3 font-extrabold">ب) روش «ورود مستقیم» — راه‌اندازی در BotFather</div>
+-          <ol className="space-y-5">
+-            <Step n="۱" title="ربات مناسب را انتخاب کنید">
+-              <p>
+-                معمولاً همان ربات اصلی فروشگاه. کاربر هنگام ورود، <b>نام و عکس همین ربات</b> را در پنجرهٔ تأیید تلگرام
+-                می‌بیند؛ برای اعتماد بیشتر نام ربات را برند فروشگاه و عکسش را لوگوی فروشگاه بگذارید.
+-              </p>
+-            </Step>
+-            <Step n="۲" title="باز کردن تنظیمات ورود در BotFather">
+-              <p>
+-                در تلگرام {ext('https://t.me/botfather?startapp', 'مینی‌اپ @BotFather')} را باز کنید (یا از @BotFather
+-                روی دکمهٔ Open کنار پیام‌ها بزنید) ← ربات را انتخاب کنید ← <b>Bot Settings ← Web Login</b> (در برخی
+-                نسخه‌ها با نام <b>Login Widget</b>) ← اگر پرسید، حالت <b>OpenID Connect</b> را انتخاب کنید.
+-              </p>
+-            </Step>
+-            <Step n="۳" title="ثبت Allowed URLs">
+-              <p>
+-                تلگرام فقط به آدرس‌هایی که از قبل ثبت شده‌اند اجازهٔ ورود/بازگشت می‌دهد. <b>همه‌ی آدرس‌های زیر</b> را
+-                (هر کدام یک ردیف) در بخش <b>Allowed URLs</b> اضافه کنید؛ دقیقاً به همین شکل، با https و بدون «/» پایانی.
+-                اگر نماینده‌ای دامنهٔ اختصاصی دارد، آدرس آن هم در فهرست آمده است و باید ثبت شود.
+-              </p>
+-              <div className="space-y-1.5">
+-                {[...cfg.origins, ...cfg.redirect_uris].map((u) => (
+-                  <CopyBox key={u} text={u} />
+-                ))}
+-              </div>
+-            </Step>
+-            <Step n="۴" title="کپی Client ID و Client Secret">
+-              <p>
+-                در همان صفحه BotFather مقدار <b>Client ID</b> و <b>Client Secret</b> را نشان می‌دهد. Client ID یک{' '}
+-                <b>عدد</b> است و همان شناسهٔ ربات است (عدد قبل از «:» در توکن ربات). Client Secret را جایی عمومی
+-                نفرستید.
+-              </p>
+-              <p>
+-                <b>الگوریتم امضا</b> را روی پیش‌فرض <code dir="ltr">RS256</code> (یا <code dir="ltr">ES256</code>) نگه
+-                دارید. <code dir="ltr">EdDSA</code> و <code dir="ltr">ES256K</code> فقط scope پایه می‌دهند و شناسهٔ
+-                کاربر را برنمی‌گردانند؛ ورود با آن‌ها کار نمی‌کند.
+-              </p>
+-            </Step>
+-            <Step n="۵" title="ثبت در ملورین">
+-              <p>
+-                «ورود مستقیم» را روشن کنید، Client ID و Client Secret را در فیلدهای بالا بچسبانید و <b>ذخیره</b> کنید.
+-                Secret رمزنگاری‌شده ذخیره می‌شود و دیگر نمایش داده نمی‌شود (برای تغییر، مقدار جدید را وارد کنید). سپس{' '}
+-                <b>تست اتصال</b> را بزنید.
+-              </p>
+-            </Step>
+-            <Step n="۶" title="آزمایش ورود واقعی">
+-              <p>
+-                در یک پنجرهٔ ناشناس به فروشگاه بروید ← «ورود» ← «ورود مستقیم با تلگرام». پس از تأیید در تلگرام به
+-                داشبورد برمی‌گردید. نخستین بار حساب مشتری ساخته می‌شود؛ ثبت‌نام بسته (پرچم{' '}
+-                <code dir="ltr">registration</code>) فقط حساب‌های جدید را رد می‌کند.
+-              </p>
+-              <p>
+-                ملورین فقط scopeهای <code dir="ltr">openid profile</code> را می‌خواهد (نام، نام‌کاربری، شناسه). شمارهٔ
+-                تلفن درخواست <b>نمی‌شود</b>.
+-              </p>
+-            </Step>
+-          </ol>
+-        </div>
+-
+-        <div className="rounded-xl border border-[var(--ln)] p-3">
+-          <div className="mb-2 flex items-center gap-2 font-bold">
+-            <ShieldCheck size={16} />
+-            عیب‌یابی
+-          </div>
+-          <ul className="list-disc space-y-1.5 pr-5 text-xs leading-7 text-[var(--mu)]">
+-            <li>
+-              تلگرام خطای «redirect/URL not allowed» می‌دهد: آدرس بازگشت (ردیف‌های <code dir="ltr">…/callback</code>) یا
+-              origin در Allowed URLs نیست یا با آن تفاوت جزئی دارد (http/https، www، «/» پایانی).
+-            </li>
+-            <li>
+-              پس از برگشت، پیام «نشست ورود منقضی شد» (<code dir="ltr">session_expired</code>): بیش از ۱۰ دقیقه گذشته،
+-              کوکی‌ها در مرورگر بسته‌اند، یا شروع ورود و بازگشت روی دو دامنهٔ متفاوت (مثلاً www و بدون www) بوده است.
+-            </li>
+-            <li>
+-              <code dir="ltr">origin_mismatch</code>: دامنه‌ای که مشتری با آن آمده با{' '}
+-              <code dir="ltr">MELORIN_STORE_WEB_URL</code> (یا دامنهٔ نماینده) یکی نیست. همان دامنه را در{' '}
+-              <code dir="ltr">.env</code> اصلاح کنید.
+-            </li>
+-            <li>
+-              پیام «ورود انجام نشد» (<code dir="ltr">failed</code>) بعد از تأیید: Client Secret اشتباه یا قدیمی است (در
+-              BotFather دوباره بسازید و اینجا ذخیره کنید)، Client ID با ربات هم‌خوان نیست، یا الگوریتم امضا EdDSA/ES256K
+-              است. «تست اتصال» را بزنید.
+-            </li>
+-            <li>
+-              تست اتصال ناموفق: سرور API باید به <code dir="ltr">oauth.telegram.org</code> و{' '}
+-              <code dir="ltr">api.telegram.org</code> روی پورت ۴۴۳ خروجی داشته باشد (فایروال، DNS یا فیلترینگ شبکهٔ سرور
+-              را بررسی کنید).
+-            </li>
+-            <li>
+-              مرورگر مشتری هم باید به <code dir="ltr">oauth.telegram.org</code> برسد. اگر در شبکهٔ مشتری باز نمی‌شود،
+-              روش «تأیید در ربات» را روشن نگه دارید؛ آن روش فقط به خود اپ تلگرام نیاز دارد.
+-            </li>
+-            <li>
+-              <code dir="ltr">admin_use_panel</code>: حساب تلگرامی که وارد شده به یک ادمین وصل است؛ ادمین‌ها فقط از پنل
+-              مدیریت وارد می‌شوند. <code dir="ltr">account_disabled</code>: حساب مشتری غیرفعال است.
+-            </li>
+-            <li>
+-              دکمه‌ی ورود نمایش داده نمی‌شود: کلید اصلی یا «ورود مشتریان» خاموش است، روش مربوط روشن نیست، یا (برای ورود
+-              مستقیم) Client ID/Secret ذخیره نشده است. تغییرات بدون build مجدد اعمال می‌شود.
+-            </li>
+-          </ul>
+-        </div>
+-      </div>
+-    </details>
+-  );
+-}
+-
+ export default function TelegramLoginSettings({ api, toast }: { api?: Json; toast: Toast }) {
+   const [cfg, setCfg] = useState<Json>(null);
+   const [saved, setSaved] = useState<Json>(null); // the server's copy: badges and the connection test describe THIS, not the unsaved form
+diff --git a/apps/admin-web/tests/typing-ratchet.test.js b/apps/admin-web/tests/typing-ratchet.test.js
+index 4ccfe25..944b5d0 100644
+--- a/apps/admin-web/tests/typing-ratchet.test.js
++++ b/apps/admin-web/tests/typing-ratchet.test.js
+@@ -4,7 +4,7 @@ import { join } from 'node:path';
+ 
+ // Typing ratchet (T-O03 / T-R11): the loose `Json` / `Rec` aliases may only shrink.
+ // Lower BUDGET whenever a view gets real types; never raise it.
+-const BUDGET = 2031;
++const BUDGET = 2029;
+ 
+ function walk(dir) {
+   return readdirSync(dir).flatMap((n) => {
+-- 
+2.43.0
+

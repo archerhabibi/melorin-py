@@ -23,133 +23,18 @@ Honest limits
 
 import asyncio
 import datetime as dt
-import json
 import logging
 import re
 import time
-import uuid
 from typing import Any, NoReturn, cast
 
 from melorin.modules.panel_integrations.adapters.base import GB, AccountSpec, Capabilities, ErrorKind, PanelAccount, PanelError
 from melorin.modules.panel_integrations.adapters.upstream_bot import parsing
 from melorin.modules.panel_integrations.adapters.upstream_bot.chat import Button, ChatClient, Msg
+from melorin.modules.panel_integrations.adapters.upstream_bot.config import DEFAULTS
+from melorin.modules.panel_integrations.adapters.upstream_bot.state import _ChatLock, _Store
 
 log = logging.getLogger("melorin.upstream_bot")
-
-DEFAULTS = {
-    "menu_buy": "خرید اکانت",
-    "service_button": "سرویس اقتصادی",
-    "confirm_button": "تایید خرید",
-    "cancel_button": "انصراف",
-    "start_command": "/start",
-    "menu_purchases": "خریدهای من",
-    "search_button": "جستجوی اکانت",
-    "refund_button": "مرجوعی اکانت",
-    "refund_confirm_button": "تایید میکنم",
-    "link_button": "لینک",
-    "status_ttl": 60,  # seconds a live read of the account screen is reused
-    "max_price": 0,  # toman; 0 = refuse to buy (forces the admin to set a safety cap)
-    "step_timeout": 25,
-    "delivery_timeout": 60,
-    "poll_interval": 1.2,
-    "lock_ttl": 180,
-    "plans": [],  # optional explicit [{"traffic_gb": 10, "months": 1, "label": "10 گیگ یک ماهه"}]
-    # Renewal (verified on the real screens, 24 Oct 2026). Set {"enabled": false} to turn automatic renewals off.
-    "renew": {
-        "enabled": True,
-        "renew_button": "تمدید اکانت",
-        "confirm_button": "تایید تمدید",
-        "cancel_button": "برگشت",
-        "success_words": ["با موفقیت تمدید"],
-        "settle_window": 600,  # seconds a confirmed-but-unanswered renewal blocks a second payment (retry reads the account instead)
-    },
-}
-
-_MEM: dict[str, str] = {}
-_LOCKS: dict[str, asyncio.Lock] = {}
-
-
-def _redis():
-    try:
-        from melorin.core.redis import get_redis
-
-        return get_redis()
-    except Exception:  # pragma: no cover
-        return None
-
-
-class _Store:
-    """username -> upstream account metadata. Redis when available, process memory otherwise."""
-
-    def __init__(self, ns: str):
-        self.ns = ns
-
-    def _k(self, username: str) -> str:
-        return f"upstream_bot:{self.ns}:acc:{username}"
-
-    async def get(self, username: str) -> dict | None:
-        r = _redis()
-        raw = None
-        if r is not None:
-            try:
-                raw = await r.get(self._k(username))
-            except Exception:
-                raw = None
-        raw = raw or _MEM.get(self._k(username))
-        return json.loads(raw) if raw else None
-
-    async def set(self, username: str, data: dict) -> None:
-        raw = json.dumps(data, ensure_ascii=False)
-        _MEM[self._k(username)] = raw
-        r = _redis()
-        if r is not None:
-            try:
-                await r.set(self._k(username), raw)
-            except Exception:
-                log.warning("upstream_bot: redis write failed for mapping", exc_info=True)
-
-    async def delete(self, username: str) -> None:
-        _MEM.pop(self._k(username), None)
-        r = _redis()
-        if r is not None:
-            try:
-                await r.delete(self._k(username))
-            except Exception:
-                log.warning("upstream_bot: redis delete failed", exc_info=True)
-
-
-class _ChatLock:
-    def __init__(self, ns: str, ttl: int, wait: float):
-        self.key, self.ttl, self.wait, self.token = f"upstream_bot:{ns}:lock", ttl, wait, uuid.uuid4().hex
-        self._local = _LOCKS.setdefault(self.key, asyncio.Lock())
-        self._held_redis = False
-
-    async def __aenter__(self):
-        await asyncio.wait_for(self._local.acquire(), self.wait)
-        r, end = _redis(), time.monotonic() + self.wait
-        if r is not None:
-            while True:
-                try:
-                    if await r.set(self.key, self.token, nx=True, ex=self.ttl):
-                        self._held_redis = True
-                        break
-                except Exception:
-                    break  # redis down: the process-local lock still serialises this worker
-                if time.monotonic() > end:
-                    self._local.release()
-                    raise PanelError(ErrorKind.TRANSIENT, "upstream_bot: chat is busy, retry later")
-                await asyncio.sleep(0.5)
-        return self
-
-    async def __aexit__(self, *exc):
-        r = _redis()
-        if r is not None and self._held_redis:
-            try:
-                if await r.get(self.key) == self.token:
-                    await r.delete(self.key)
-            except Exception:
-                log.warning("upstream_bot: redis delete failed", exc_info=True)
-        self._local.release()
 
 
 def _months_between(now: dt.datetime, expire_at: dt.datetime | None) -> int:
@@ -371,19 +256,7 @@ class UpstreamBotAdapter:
         return None
 
     async def _name_taken(self, upstream_name: str) -> bool:
-        r = _redis()
-        if r is None:
-            return any(
-                json.loads(v).get("ref") == upstream_name for k, v in _MEM.items() if k.startswith(f"upstream_bot:{self.store.ns}:acc:")
-            )
-        try:
-            async for k in r.scan_iter(f"upstream_bot:{self.store.ns}:acc:*"):
-                raw = await r.get(k)
-                if raw and json.loads(raw).get("ref") == upstream_name:
-                    return True
-        except Exception:
-            return False
-        return False
+        return await self.store.name_taken(upstream_name)
 
     @staticmethod
     def _account(username: str, d: dict) -> PanelAccount:
@@ -402,9 +275,7 @@ class UpstreamBotAdapter:
 
     def remember(self, username: str, ref: str | None, subscription_url: str | None = None) -> None:
         """Re-seed the mapping from VpnAccount.panel_ref / subscription_url (Redis may have been flushed)."""
-        key = self.store._k(username)
-        if ref and key not in _MEM:
-            _MEM[key] = json.dumps({"status": "active", "ref": ref, "subscription_url": subscription_url}, ensure_ascii=False)
+        self.store.seed(username, ref, subscription_url)
 
     async def get_account(self, username: str) -> PanelAccount | None:
         d = await self.store.get(username)

@@ -129,7 +129,7 @@ def test_google_client_id_reaches_both_frontend_builds():
 
 def test_both_apps_use_googles_official_button_with_one_shared_initialisation():
     store = read_web_source(PROJECT / "apps/store-web/src/GoogleSignIn.tsx")
-    admin = read_web_source(PROJECT / "apps/admin-web/src/GoogleSignIn.tsx")
+    admin = read_web_source(PROJECT / "apps/admin-web/src/features/auth/GoogleSignIn.tsx")
     kit = read_web_source(PROJECT / "packages/web-kit/src/GoogleSignIn.jsx")  # the shared implementation (T14)
     # the two per-app bindings differ only by the surface constant and the header comment
     norm = lambda t: t.replace('"store"', '"X"').replace('"admin"', '"X"').replace("store-web", "APP").replace("admin-web", "APP")  # noqa: E731
@@ -149,11 +149,11 @@ def test_both_apps_use_googles_official_button_with_one_shared_initialisation():
 def test_login_pages_use_the_shared_button_and_no_legacy_hook():
     from _source import read_store_shell
 
-    for src in (read_store_shell(PROJECT), (PROJECT / "apps/admin-web/src/AdminAuth.tsx").read_text()):
+    for src in (read_store_shell(PROJECT), (PROJECT / "apps/admin-web/src/app/AdminAuth.tsx").read_text()):
         assert "<GoogleSignInButton" in src and "useGoogleSignIn" not in src
-    admin = read_web_source(PROJECT / "apps/admin-web/src/AdminAuth.tsx")
+    admin = read_web_source(PROJECT / "apps/admin-web/src/app/AdminAuth.tsx")
     assert "codeFromResponse" in admin  # the form reads the API error code through the shared helper ...
-    errors = read_web_source(PROJECT / "apps/admin-web/src/loginErrors.ts")
+    errors = read_web_source(PROJECT / "apps/admin-web/src/features/auth/loginErrors.ts")
     assert "error?.code" in errors  # ... which knows API errors are {error: {code}}
     for code in ("INVALID_CREDENTIALS", "TOTP_REQUIRED", "TOTP_INVALID", "TOTP_REPLAYED"):
         assert code in errors  # wrong password and the three TOTP failures each have their own message

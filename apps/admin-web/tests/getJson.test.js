@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { clearTokens, setTokens } from '../src/auth.ts';
-import { getJson } from '../src/api.ts';
+import { clearTokens, setTokens } from '../src/api/auth.ts';
+import { getJson } from '../src/api/api.ts';
 
 const reply = (status, body) => ({
   status,

@@ -373,9 +373,3 @@ class PanelAdapter(Protocol):
     # async def reset_traffic(self, username: str) -> PanelAccount: ...
     async def close(self) -> None: ...
     def normalize_status(self, raw: str) -> str: ...
-
-
-def classify_http(status: int) -> ErrorKind:
-    if status >= 500 or status in (408, 429):
-        return ErrorKind.TRANSIENT
-    return ErrorKind.PERMANENT

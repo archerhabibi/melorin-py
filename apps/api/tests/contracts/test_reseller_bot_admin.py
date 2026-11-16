@@ -272,6 +272,6 @@ def test_admin_ui_has_a_resellers_screen_and_never_asks_core_for_the_token():
     web = Path(__file__).parents[3] / "admin-web/src"
     assert "ResellersView" not in read_web_source(web / "AdminExtra.tsx")  # no stand-alone route: the store hub is the only entry
     assert '"resellers"' in read_web_source(web / "StoreHubView.tsx")  # a tab of the store hub
-    view = read_web_source(web / "ResellersView.tsx")
+    view = read_web_source(web / "ResellersView.tsx") + read_web_source(web / "ResellerParts.tsx")  # the screen body moved to ResellerParts
     assert "/api/v1/admin/resellers" in view and "/bot-token" in view and "/verify-bot" in view
     assert "bot_token" not in view  # the token is write-only: the screen only ever sends it
