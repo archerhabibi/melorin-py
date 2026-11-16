@@ -414,6 +414,103 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-11-16 08:21 UTC - Claude - tests, docs  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** ci: fix quality job (docs hard-coded Alembic head, ruff format of two contract tests)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (3):** `apps/api/tests/contracts/test_identity_reviews.py`, `apps/api/tests/contracts/test_server_admin_ui_contract.py`, `docs/20-TESTING-QUALITY-RELEASE.md`
+- **Ref:** `35eea15`
+
+### 2026-11-16 08:01 UTC - Melorin Refactor - docs  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** docs: record r23 full verification results
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `docs/20-TESTING-QUALITY-RELEASE.md`
+- **Ref:** `7a8a6e1`
+
+### 2026-11-16 07:51 UTC - Melorin Refactor - tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** test: follow the admin-web file splits in identity-review and server/bundle UI contracts (found by r23 full run)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `apps/api/tests/contracts/test_identity_reviews.py`, `apps/api/tests/contracts/test_server_admin_ui_contract.py`
+- **Ref:** `6625ab1`
+
+### 2026-11-16 07:31 UTC - Melorin Refactor - docs  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** docs: record r22 verification (docker, integration lane, playwright)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `docs/21-ROADMAP-TECHNICAL-DEBT.md`
+- **Ref:** `06ad599`
+
+### 2026-11-16 07:28 UTC - Melorin Refactor - tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** test: drop dead tests/helpers that loaded deleted legacy migrations (found by integration lane)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (3):** `apps/api/tests/contracts/test_migration_0003_downgrade.py`, `apps/api/tests/contracts/test_reseller_bundle_prices.py`, `apps/api/tests/contracts/test_sales_bundles.py`
+- **Ref:** `a06e2a5`
+
+### 2026-11-16 07:22 UTC - Melorin Refactor - admin-web, docs  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** refactor(admin-web): second split pass (PanelDrawer, ReceiptReviewPanel, ReportCharts, AdminTeamParts); no file above 450 lines
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (18):** `apps/admin-web/src/features/panels/PanelConnectionSection.tsx`, `apps/admin-web/src/features/panels/PanelCredentialsSection.tsx`, `apps/admin-web/src/features/panels/PanelDrawer.tsx`, `apps/admin-web/src/features/payments/ReceiptReviewPanel.tsx`, `apps/admin-web/src/features/payments/ReceiptRow.tsx`, `apps/admin-web/src/features/payments/receiptHelpers.ts`, `apps/admin-web/src/features/reports/CompareChart.tsx`, `apps/admin-web/src/features/reports/DistributionCharts.tsx` (+10 more)
+- **Ref:** `dad041f`
+
+### 2026-11-16 07:05 UTC - Melorin Refactor - admin-web, docs  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** refactor(admin-web): split large files (pure moves) and record in debt register
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (26):** `apps/admin-web/src/features/catalog/ProductDrawer.tsx`, `apps/admin-web/src/features/catalog/ProductParts.tsx`, `apps/admin-web/src/features/catalog/ProductSwitches.tsx`, `apps/admin-web/src/features/catalog/ProductsView.tsx`, `apps/admin-web/src/features/catalog/bundles/BundleDrawer.tsx`, `apps/admin-web/src/features/catalog/bundles/BundlePackages.tsx`, `apps/admin-web/src/features/catalog/bundles/ResellerPrices.tsx`, `apps/admin-web/src/features/identity/IdentityReviewDrawer.tsx` (+18 more)
+- **Ref:** `08e1564`
+
+### 2026-11-16 06:56 UTC - Melorin Refactor - tests, docs  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** docs: canonical set is 24 files (22 hand-written + generated STATUS/API), guard test
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `apps/api/tests/contracts/test_docs_canonical_set.py`, `docs/00-DOCUMENTATION-INDEX.md`
+- **Ref:** `9d7830c`
+
+### 2026-11-16 03:30 UTC - Melorin Refactor - tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** style: ruff format test files touched by the baseline cleanup
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (15):** `apps/api/tests/contracts/test_admin_2fa_security.py`, `apps/api/tests/contracts/test_catalog_bundles_contract.py`, `apps/api/tests/contracts/test_core_allocation_contract.py`, `apps/api/tests/contracts/test_install_and_migration_regressions.py`, `apps/api/tests/contracts/test_lint_gate_and_pg_migration.py`, `apps/api/tests/contracts/test_migration_0003_downgrade.py`, `apps/api/tests/contracts/test_migration_0022_bundles.py`, `apps/api/tests/contracts/test_reseller_applications.py` (+7 more)
+- **Ref:** `ccf2c68`
+
+### 2026-11-16 03:02 UTC - Melorin Refactor - other, db, api  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** test/docs: prune legacy migration-history tests, add baseline postgres test, fix README install gates, ruff
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (31):** `README.fa.md`, `README.md`, `apps/api/alembic/versions/0001_initial_baseline.py`, `apps/api/melorin/modules/admin/panels.py`, `apps/api/melorin/modules/admin/products.py`, `apps/api/melorin/modules/admin/tickets.py`, `apps/api/tests/contracts/test_admin_2fa_security.py`, `apps/api/tests/contracts/test_bot_store_binding.py` (+23 more)
+- **Ref:** `577c959`
+
+### 2026-11-16 02:43 UTC - Melorin Refactor - db, api, other  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** refactor: single baseline migration, remove patch files, tickets staff lifecycle in tickets service, shared open-ticket query
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (93):** `apps/api/alembic/versions/0001_initial.py`, `apps/api/alembic/versions/0001_initial_baseline.py`, `apps/api/alembic/versions/0002_v11.py`, `apps/api/alembic/versions/0003_f001_f010_hardening.py`, `apps/api/alembic/versions/0004_f027_f030.py`, `apps/api/alembic/versions/0005_orders_vpn_account_fk.py`, `apps/api/alembic/versions/0006_store_scoped_resellers.py`, `apps/api/alembic/versions/0007_admin_security.py` (+85 more)
+- **Ref:** `70e3080`
+
+### 2026-11-16 02:37 UTC - Melorin Refactor - admin-web, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** refactor(catalog): drop server-level product_codes; bundle membership is the only eligibility source
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (19):** `apps/admin-web/src/features/panel-operations/infra.tsx`, `apps/admin-web/src/features/panels/PanelSection.tsx`, `apps/admin-web/src/features/panels/PanelsView.tsx`, `apps/admin-web/src/features/panels/ServerForm.tsx`, `apps/admin-web/src/features/panels/ServerImport.tsx`, `apps/api/melorin/domain/server_selection.py`, `apps/api/melorin/kernel/models/vpn.py`, `apps/api/melorin/modules/admin/panels.py` (+11 more)
+- **Ref:** `6d9a4f0`
+
+
 ###### 2026-11-09 - Claude (with owner) - PG-12 per-store subscription branding
 - **Before:** every store's subscription page carried the shared panel branding; `stores.branding` was free-form JSON replaced wholesale by the owner patch.
 - **Problem:** a reseller could not show its own name, support link or logo; a free-form value that a panel page may print is an injection risk.
