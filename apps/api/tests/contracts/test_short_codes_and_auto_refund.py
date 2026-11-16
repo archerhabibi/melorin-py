@@ -4,7 +4,6 @@ import asyncio
 import re
 from pathlib import Path
 
-from _source import read_source
 
 from melorin.core import codes, settings_store
 
@@ -42,16 +41,3 @@ def test_provisioning_defaults_are_one_initial_plus_three_retries():
     assert settings_store.DEFAULTS["provisioning.backoff_seconds"] == [5, 7, 10]
 
 
-def test_migration_0014_chains_from_0013_and_models_match():
-    src = read_source(ROOT / "alembic" / "versions" / "0014_short_codes_and_auto_refund.py")
-    assert 'down_revision = "0013_product_default_panel_group"' in src
-    assert 'revision = "0014_short_codes"' in src
-    # system_settings.id has no server default, the INSERT must provide it
-    assert "gen_random_uuid()" in src
-
-    from melorin.kernel.models.orders import Order
-    from melorin.kernel.models.tickets import Ticket
-
-    assert Order.__table__.c.number.type.length == 6
-    assert Ticket.__table__.c.number.type.length == 6
-    assert Ticket.__table__.c.number.nullable is False

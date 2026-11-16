@@ -9,7 +9,6 @@ from melorin.core.config import get_settings
 from melorin.core.crypto import encrypt
 from melorin.core.deps import AdminUser, Session
 from melorin.core.errors import AppError, NotFound
-from melorin.kernel.models.catalog import Product
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.vpn import Panel, PanelNode, PanelOrphan, Server, VpnAccount
 from melorin.kernel.models.bundles import Bundle, BundleMember

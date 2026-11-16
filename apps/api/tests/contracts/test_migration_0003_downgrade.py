@@ -49,31 +49,10 @@ def _run_downgrade(monkeypatch, layout):
     return rec.calls
 
 
-def test_downgrade_on_fresh_install_drops_the_generated_name_and_restores_the_legacy_constraint(monkeypatch):
-    calls = _run_downgrade(
-        monkeypatch,
-        {
-            "payments": [("uq_payments_user_id_store_id_idempotency_key", ["user_id", "store_id", "idempotency_key"])],
-            "orders": [("uq_orders_user_id_store_id_idempotency_key", ["user_id", "store_id", "idempotency_key"])],
-        },
-    )
-    assert calls == [
-        ("drop", "uq_payments_user_id_store_id_idempotency_key", "payments"),
-        ("create", "uq_payments_user_id_idempotency_key", "payments", ["user_id", "idempotency_key"]),
-        ("drop", "uq_orders_user_id_store_id_idempotency_key", "orders"),
-        ("create", "uq_orders_user_id_idempotency_key", "orders", ["user_id", "idempotency_key"]),
-    ]
 
 
-def test_downgrade_is_a_noop_when_the_legacy_constraint_is_already_there(monkeypatch):
-    legacy = [("uq_x", ["user_id", "idempotency_key"])]
-    assert _run_downgrade(monkeypatch, {"payments": legacy, "orders": legacy}) == []
 
 
-def test_downgrade_never_touches_unrelated_unique_constraints(monkeypatch):
-    other = ("uq_payments_provider_external_ref", ["provider", "external_ref"])
-    calls = _run_downgrade(monkeypatch, {"payments": [other], "orders": [other]})
-    assert all(c[0] == "create" for c in calls) and len(calls) == 2
 
 
 @pytest.mark.integration

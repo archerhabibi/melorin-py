@@ -34,7 +34,7 @@ admin = "\n".join(  # App.tsx was split (admin UI r5): the shell is the sum of t
 )
 caddy = (root / "infra/Caddyfile").read_text()
 api = (root / "apps/api/melorin/app.py").read_text()
-base = (root / "apps/api/alembic/versions/0001_initial.py").read_text()
+base = (root / "apps/api/alembic/versions/0001_initial_baseline.py").read_text()
 req = (root / "apps/api/requirements-dev.txt").read_text()
 checks = {
     "G001": has("const [storeId, setStoreId]", store)

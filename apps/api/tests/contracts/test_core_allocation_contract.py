@@ -14,10 +14,6 @@ def read(rel):
     return normalize_source(text) if str(rel).endswith(".py") else text
 
 
-def test_migration_0013_follows_0012_and_matches_the_model():
-    src = read("apps/api/alembic/versions/0013_product_default_panel_group.py")
-    assert 'down_revision = "0012_baskets_to_panel_groups"' in src
-    assert "default_panel_group_id" in src and 'ondelete="SET NULL"' in src
 
 
 def test_channels_never_choose_a_server():

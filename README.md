@@ -18,6 +18,11 @@ alembic upgrade head && pytest -q
 
 Full install, deployment, backup/restore and local development: [docs/18-OPERATIONS-DEPLOYMENT-DR.md](docs/18-OPERATIONS-DEPLOYMENT-DR.md). Database baseline: [docs/19-DATABASE-MIGRATIONS.md](docs/19-DATABASE-MIGRATIONS.md).
 
+## Install notes
+
+- Recommended server: 4 GB RAM (the compose memory budget is 3584 MiB). With an external reverse proxy use `EXTERNAL_PROXY=true` and bind to `127.0.0.1:18080`: `docker compose -f docker-compose.yml -f docker-compose.external.yml up -d --build`.
+- Manual steps: `alembic upgrade head`, then the Admin bootstrap (create the first admin) and add panels / payment methods in the Admin panel; optional integrations (S3 backups, Google/Telegram login) are described in the docs below.
+
 ## Documentation
 
 All reference documents are bilingual (Persian first, then English). Start at [docs/00-DOCUMENTATION-INDEX.md](docs/00-DOCUMENTATION-INDEX.md).

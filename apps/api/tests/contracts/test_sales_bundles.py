@@ -13,8 +13,6 @@ from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 import melorin.models  # noqa: F401
-from alembic.migration import MigrationContext
-from alembic.operations import Operations
 from melorin.core.db import Base
 from melorin.core.errors import AppError
 from melorin.modules.admin import bundles as admin_bundles
@@ -287,33 +285,8 @@ def _load_migration():
     return mod
 
 
-def test_migration_0016_follows_0015_and_fits_alembic_version_column():
-    m = _load_migration()
-    assert m.down_revision == "0015_ticket_upgrade" and len(m.revision) <= 32
-    prev = read_source(ROOT / "alembic/versions/0015_ticket_upgrade.py")
-    assert 'revision = "0015_ticket_upgrade"' in prev
 
 
-def test_migration_0016_adds_columns_table_and_backfills_default_bundles():
-    m = _load_migration()
-    eng = sa.create_engine("sqlite://")
-    gid, pid, orphan = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
-    with eng.begin() as conn:
-        conn.exec_driver_sql("CREATE TABLE panel_groups (id CHAR(32) PRIMARY KEY, name VARCHAR(120))")
-        conn.exec_driver_sql("CREATE TABLE panel_group_members (id CHAR(32) PRIMARY KEY, panel_group_id CHAR(32))")
-        conn.exec_driver_sql("CREATE TABLE products (id CHAR(32) PRIMARY KEY, default_panel_group_id CHAR(32))")
-        conn.exec_driver_sql("INSERT INTO panel_groups VALUES (?, 'g')", (gid.hex,))
-        conn.exec_driver_sql("INSERT INTO products VALUES (?, ?)", (pid.hex, gid.hex))
-        conn.exec_driver_sql("INSERT INTO products VALUES (?, NULL)", (orphan.hex,))
-        with Operations.context(MigrationContext.configure(conn)):
-            m.upgrade()
-        rows = conn.exec_driver_sql("SELECT panel_group_id, product_id, main_price, is_listed FROM pool_products").fetchall()
-        assert [(r[0], r[1], r[2], bool(r[3])) for r in rows] == [(gid.hex, pid.hex, None, True)]  # the bundle-less product is left alone
-        cols = {c["name"]: c for c in sa.inspect(conn).get_columns("panel_groups")}
-        assert "kind_label" in cols and "label" in {c["name"] for c in sa.inspect(conn).get_columns("panel_group_members")}
-        with Operations.context(MigrationContext.configure(conn)):
-            m.downgrade()
-        assert "pool_products" not in sa.inspect(conn).get_table_names()
 
 
 async def test_plan_sale_is_the_single_core_answer_for_route_name_and_price(session):

@@ -12,7 +12,7 @@ from melorin.kernel.models.orders import Order
 from melorin.kernel.models.referral import CommissionRule
 from melorin.kernel.models.stores import Store
 from melorin.modules.reseller.linking import link_product_to_resellers
-from melorin.kernel.models.vpn import Server, VpnAccount
+from melorin.kernel.models.vpn import VpnAccount
 from melorin.kernel.models.bundles import Bundle, BundleProduct
 from melorin.modules.admin.schemas import (
     Availability,

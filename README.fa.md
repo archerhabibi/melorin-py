@@ -18,6 +18,11 @@ alembic upgrade head && pytest -q
 
 نصب کامل، استقرار، پشتیبان‌گیری و توسعهٔ محلی: [docs/18-OPERATIONS-DEPLOYMENT-DR.md](docs/18-OPERATIONS-DEPLOYMENT-DR.md). مهاجرت پایه: [docs/19-DATABASE-MIGRATIONS.md](docs/19-DATABASE-MIGRATIONS.md).
 
+## نکات نصب
+
+- سرور پیشنهادی: 4 GB RAM (بودجهٔ حافظهٔ compose برابر 3584 MiB). با پراکسی خارجی: `EXTERNAL_PROXY=true` و `127.0.0.1:18080`: `docker compose -f docker-compose.yml -f docker-compose.external.yml up -d --build`.
+- مراحل دستی: `alembic upgrade head` سپس Admin bootstrap (ساخت اولین ادمین) و افزودن پنل‌ها/روش‌های پرداخت در Admin panel؛ ابزارهای اختیاری (S3، ورود Google/Telegram) در اسناد زیر.
+
 ## مستندات
 
 همهٔ اسناد مرجع دوزبانه‌اند (ابتدا فارسی، سپس انگلیسی). نقطهٔ شروع: [docs/00-DOCUMENTATION-INDEX.md](docs/00-DOCUMENTATION-INDEX.md).

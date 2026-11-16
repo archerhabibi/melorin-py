@@ -4,9 +4,8 @@ import logging
 import uuid
 from fastapi import APIRouter, File, Query, UploadFile
 from sqlalchemy import select
-from melorin.core import audit
 from melorin.core.deps import AdminUser, Session
-from melorin.core.errors import AppError, NotFound
+from melorin.core.errors import NotFound
 from melorin.kernel.models.identity import User
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.tickets import Ticket, TicketMessage
