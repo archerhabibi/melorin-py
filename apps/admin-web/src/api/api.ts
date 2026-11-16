@@ -55,6 +55,18 @@ export async function authFetch(base: string, path: string, options: RequestInit
 export const typedClient = (base: string) =>
   createApiClient({ baseUrl: base, getAccessToken, refresh: () => refreshPair(base) });
 
+/** Authenticated file download (CSV/Blob): the ONE place a view reaches a raw `Response` body; keeps the bearer + refresh rules. */
+export async function downloadFile(base: string, path: string, filename: string): Promise<void> {
+  const r = await authFetch(base, path, { headers: { Accept: '*/*' } });
+  if (!r.ok) throw new Error(`export ${r.status}`);
+  const url = URL.createObjectURL(await r.blob());
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 /** GET + parse JSON through @melorin/api-client (T15): bearer token, one transparent refresh on 401. */
 export async function getJson<T = Json>(base: string, path: string): Promise<T> {
   const client = createApiClient({ baseUrl: base, getAccessToken, refresh: () => refreshPair(base) });

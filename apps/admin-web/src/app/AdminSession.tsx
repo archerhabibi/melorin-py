@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { API_BASE, authFetch, getJson, typedClient } from '../api/api.ts';
+import { API_BASE, downloadFile, getJson, typedClient } from '../api/api.ts';
 import type { AdminMe, Json, Rec } from '../shared/types.ts';
 
 export function useCore() {
@@ -94,17 +94,7 @@ export function useCore() {
   return { ...(data as Rec), base, refresh, tick } as Rec;
 }
 
-export async function downloadOrders(base: string) {
-  const r = await authFetch(base, '/api/v1/admin/reports/orders.csv');
-  if (!r.ok) throw Error(`export ${r.status}`);
-  const blob = await r.blob(),
-    url = URL.createObjectURL(blob),
-    a = document.createElement('a');
-  a.href = url;
-  a.download = 'melorin-orders.csv';
-  a.click();
-  URL.revokeObjectURL(url);
-}
+export const downloadOrders = (base: string) => downloadFile(base, '/api/v1/admin/reports/orders.csv', 'melorin-orders.csv');
 export async function refundPayment(base: string, paymentId: Json, reason: Json) {
   const { response: r, data } = await typedClient(base).post('/api/v1/admin/payments/{payment_id}/refund', {
     params: { path: { payment_id: paymentId } },
