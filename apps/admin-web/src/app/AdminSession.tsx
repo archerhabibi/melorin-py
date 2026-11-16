@@ -94,7 +94,8 @@ export function useCore() {
   return { ...(data as Rec), base, refresh, tick } as Rec;
 }
 
-export const downloadOrders = (base: string) => downloadFile(base, '/api/v1/admin/reports/orders.csv', 'melorin-orders.csv');
+export const downloadOrders = (base: string) =>
+  downloadFile(base, '/api/v1/admin/reports/orders.csv', 'melorin-orders.csv');
 export async function refundPayment(base: string, paymentId: Json, reason: Json) {
   const { response: r, data } = await typedClient(base).post('/api/v1/admin/payments/{payment_id}/refund', {
     params: { path: { payment_id: paymentId } },
