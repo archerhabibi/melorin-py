@@ -21,7 +21,9 @@ async def telegram_target(session: AsyncSession, user_id: uuid.UUID, store_id: u
 
     ``None`` always maps to the ``skipped`` notification status.
     """
-    identity = await session.scalar(select(Identity).where(Identity.user_id == user_id, Identity.provider == "telegram", Identity.status == "active"))
+    identity = await session.scalar(
+        select(Identity).where(Identity.user_id == user_id, Identity.provider == "telegram", Identity.status == "active")
+    )
     if not identity:
         return None
     store = await session.get(Store, store_id) if store_id else None

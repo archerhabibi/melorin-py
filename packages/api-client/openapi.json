@@ -8896,6 +8896,18 @@
             ],
             "title": "Current Password"
           },
+          "google_id_token": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Google Id Token"
+          },
           "identity_id": {
             "format": "uuid",
             "title": "Identity Id",
@@ -23005,7 +23017,7 @@
     },
     "/api/v1/identity/reauth": {
       "get": {
-        "description": "Which proof a sensitive change needs for this account: ``password`` | ``email_code`` | ``session``.",
+        "description": "Which proof a sensitive change needs: ``password`` | ``email_code`` | ``google`` | ``telegram_code`` | ``session``.",
         "operationId": "reauth_method_api_v1_identity_reauth_get",
         "responses": {
           "200": {
@@ -23047,6 +23059,30 @@
           }
         ],
         "summary": "Reauth Email Start",
+        "tags": [
+          "identity-linking"
+        ]
+      }
+    },
+    "/api/v1/identity/reauth/telegram/start": {
+      "post": {
+        "operationId": "reauth_telegram_start_api_v1_identity_reauth_telegram_start_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reauth Telegram Start",
         "tags": [
           "identity-linking"
         ]

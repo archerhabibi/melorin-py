@@ -10,7 +10,7 @@ from melorin.domain.account_linking import Evidence
 from melorin.kernel.models.identity import Identity, User
 from melorin.kernel.models.system import OutboxEvent
 from melorin.modules.identity import google as google_signin
-from melorin.modules.identity.account_linking import linking, persons
+from melorin.modules.identity.account_linking import linking
 
 ID = "/api/v1/identity"
 
