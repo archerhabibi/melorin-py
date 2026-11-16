@@ -160,7 +160,6 @@ async def test_manual_group_requires_a_member_panel(session):
 @pytest.mark.parametrize(
     "server_kw, kind, fragment",
     [
-        (dict(product_codes=["99"]), "purchase", "کد محصول"),
         (dict(capacity=0), "purchase", "ظرفیت"),
         (dict(allow_test=False), "test", "تست"),
         (dict(is_enabled=False), "purchase", "غیرفعال"),
@@ -174,7 +173,7 @@ async def test_group_routing_applies_the_same_eligibility_as_direct_routing(sess
 
 
 async def test_group_routing_skips_ineligible_server_and_uses_the_next_one(session):
-    group, _ = await make_group(session, servers=(("S1", "P1", dict(product_codes=["99"])), ("S2", "P1", dict(product_codes=["10"]))))
+    group, _ = await make_group(session, servers=(("S1", "P1", dict(is_enabled=False)), ("S2", "P1", dict())))
     server, panel, g = await resolve_allocation(session, order_for(group), make_product(group))
     assert (server.name, panel.name, g.id) == ("S2", "P1", group.id)
 

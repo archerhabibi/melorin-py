@@ -96,7 +96,7 @@ def test_panel_total_is_trusted_only_for_a_single_group_target():
 def _cand(**kw) -> Candidate:
     base = dict(
         server_id=uuid.uuid4(), server_name="s", panel_id=uuid.uuid4(), panel_name="p", server_enabled=True, panel_enabled=True,
-        panel_healthy=True, allow_test=True, product_codes=(), capacity=10, active_on_server=0, active_on_panel=0,
+        panel_healthy=True, allow_test=True, capacity=10, active_on_server=0, active_on_panel=0,
     )  # fmt: skip
     return Candidate(**{**base, **kw})
 

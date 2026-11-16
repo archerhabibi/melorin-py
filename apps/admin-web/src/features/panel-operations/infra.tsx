@@ -106,7 +106,6 @@ export function serverState(s: Json, panel: Json) {
 }
 export const free = (s: Json) => Math.max(0, (s.capacity || 0) - (s.active_accounts || 0));
 export const usage = (s: Json) => (s.capacity ? s.active_accounts / s.capacity : 0);
-export const serves = (s: Json, code: Json) => !s.product_codes?.length || s.product_codes.includes(code);
 
 /* ---------- derived index ---------- */
 export function buildIndex(panels: Json, servers: Json, groups: Json, products: Json) {
@@ -174,9 +173,9 @@ export function buildIndex(panels: Json, servers: Json, groups: Json, products: 
         );
       if (!issue && !panelIds.size) issue = 'بسته‌های این محصول پنل فعالی ندارند';
     }
-    const cands = issue ? [] : servers.filter((s: Json) => panelIds.has(s.panel_id) && serves(s, p.code));
+    const cands = issue ? [] : servers.filter((s: Json) => panelIds.has(s.panel_id));
     const live = cands.filter((s: Json) => serverState(s, panelById.get(s.panel_id)).ok);
-    if (!issue && !cands.length) issue = 'هیچ سروری روی پنل‌های این بسته‌ها این محصول را پوشش نمی‌دهد';
+    if (!issue && !cands.length) issue = 'هیچ سروری روی پنل‌های این بسته‌ها تعریف نشده است';
     else if (!issue && !live.length) issue = 'سرورهای سازگار همه غیرفعال، پر یا روی پنل ناسالم‌اند';
     return {
       group: gs[0] || null,

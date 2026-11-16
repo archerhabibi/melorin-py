@@ -11,7 +11,6 @@ import {
   memberIds,
   saveGroupPanels,
   serverState,
-  serves,
   useHashParams,
   useInfra,
 } from '../panel-operations/infra.tsx';
@@ -186,7 +185,6 @@ export default function PanelsView({ api, toast }: { api?: Json; toast: Toast })
           panel_id: id,
           location: server.location || null,
           capacity: server.capacity,
-          product_codes: null,
           allow_test: true,
         },
       });
@@ -345,8 +343,10 @@ export default function PanelsView({ api, toast }: { api?: Json; toast: Toast })
   const group: Json = groupF ? idx.groupById.get(groupF) : null;
   const groupPanels = useMemo(() => (group ? new Set(memberIds(group)) : null), [group]);
   const productObj = productF ? (infra.products.rows || []).find((x) => x.code === productF) : null;
-  const serversOf = (p: Json) =>
-    (idx.serversByPanel.get(p.id) || []).filter((s: Json) => !productF || serves(s, productF));
+  const productPanels = productObj
+    ? new Set((idx.groupsByProduct.get(productObj.id) || []).flatMap((g: Json) => memberIds(g)))
+    : null;
+  const serversOf = (p: Json) => idx.serversByPanel.get(p.id) || [];
   const filtered = useMemo(
     () =>
       (rows || []).filter(
@@ -354,12 +354,12 @@ export default function PanelsView({ api, toast }: { api?: Json; toast: Toast })
           (!only || p.id === only) &&
           (filter === 'all' || (filter === 'healthy' ? health(p) === 'healthy' : attention(p))) &&
           (!groupPanels || groupPanels.has(p.id)) &&
-          (!productF || (idx.serversByPanel.get(p.id) || []).some((s: Json) => serves(s, productF))) &&
+          (!productPanels || productPanels.has(p.id)) &&
           `${p.name} ${p.base_url} ${kindOf(p.kind).title} ${(idx.serversByPanel.get(p.id) || []).map((s: Json) => `${s.name} ${s.location || ''}`).join(' ')}`
             .toLowerCase()
             .includes(q.trim().toLowerCase()),
       ),
-    [rows, filter, q, only, groupPanels, productF, idx],
+    [rows, filter, q, only, groupPanels, productF, idx, productObj],
   );
   const sorted = useMemo(() => {
     const rank = (p: Json) =>

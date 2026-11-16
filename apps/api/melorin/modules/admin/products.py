@@ -201,18 +201,6 @@ async def delete_product(product_id: uuid.UUID, admin: AdminUser, session: Sessi
             409,
             {"orders": orders, "accounts": accounts},
         )
-    servers = [
-        s.name
-        for s in (await session.scalars(select(Server).where(Server.product_codes.is_not(None)))).all()
-        if p.code in (s.product_codes or [])
-    ]
-    if servers:
-        raise AppError(
-            "PRODUCT_USED_BY_SERVERS",
-            f"این محصول در فهرست محصولاتِ سرورهای {_names(servers)} است. ابتدا آن را از فهرست سرورها بردارید.",
-            409,
-            {"servers": servers},
-        )
     coupons = [
         c.code
         for c in (await session.scalars(select(Coupon).where(Coupon.product_ids.is_not(None)))).all()

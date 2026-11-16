@@ -143,14 +143,8 @@ async def test_product_with_orders_or_accounts_is_refused_and_kept(session):
     assert await _count(session, Product) == 1 and not await _audited(session, "product.deleted")
 
 
-async def test_product_still_referenced_by_a_server_coupon_or_rule_is_refused(session):
-    pan = await _panel(session)
+async def test_product_still_referenced_by_a_coupon_or_rule_is_refused(session):
     p = await _add(session, _product())
-    srv = await _server(session, pan, product_codes=[p.code])
-    await session.commit()
-    e = await _refused(admin_products.delete_product(p.id, ADMIN, session), "PRODUCT_USED_BY_SERVERS")
-    assert e.details == {"servers": ["S1"]}
-    srv.product_codes = None
     c = await _add(session, Coupon(code="OFF", owner_key="admin", scope="domain", product_ids=[str(p.id)]))
     await session.commit()
     await _refused(admin_products.delete_product(p.id, ADMIN, session), "PRODUCT_USED_BY_COUPONS")

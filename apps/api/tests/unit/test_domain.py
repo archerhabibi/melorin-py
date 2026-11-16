@@ -3,7 +3,6 @@ from melorin.domain.ledger import LedgerError, Line, apply_to_balance, validate_
 from melorin.domain.order_state import InvalidTransition, OrderStatus, assert_transition
 from melorin.domain.pricing import Discount, quote
 from melorin.domain.commission import commission_amount
-from melorin.domain.server_selection import ServerCandidate, select_server
 
 
 def test_balanced_double_entry():
@@ -57,15 +56,6 @@ def test_state_machine_rejects_skip():
         pass
     else:
         assert False
-
-
-def test_server_selection_health_capacity_and_fewest():
-    cs = [
-        ServerCandidate("a", True, True, 10, 3, None, "mock"),
-        ServerCandidate("b", True, True, 10, 1, ("p",), "mock"),
-        ServerCandidate("c", False, True, 10, 0, ("p",), "mock"),
-    ]
-    assert select_server(cs, "p").id == "b"
 
 
 def test_commission_basis_points():

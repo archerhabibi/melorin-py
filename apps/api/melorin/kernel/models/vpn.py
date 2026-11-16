@@ -67,7 +67,6 @@ class Server(IdMixin, TimestampMixin, Base):
     panel_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("panels.id"), index=True)
     location: Mapped[str | None] = mapped_column(String(100))
     capacity: Mapped[int] = mapped_column(Integer, default=500)
-    product_codes: Mapped[list | None] = mapped_column(JSON)  # None = all products
     allow_test: Mapped[bool] = mapped_column(Boolean, default=True)
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     # Where on the panel this slot sends new accounts: {"group_ids": [..]} | {"user_template_id": n[, "limits_from": ..]} |

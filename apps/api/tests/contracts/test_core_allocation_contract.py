@@ -70,6 +70,11 @@ def test_provisioning_places_accounts_only_through_the_core():
     assert "select(Server" not in svc
 
 
-def test_server_product_codes_must_exist():
-    src = read("apps/api/melorin/modules/admin/router.py")
-    assert "UNKNOWN_PRODUCT_CODES" in src
+def test_server_has_no_product_codes_anywhere():
+    for rel in (
+        "apps/api/melorin/kernel/models/vpn.py",
+        "apps/api/melorin/modules/admin/schemas.py",
+        "apps/api/melorin/modules/admin/panels.py",
+        "apps/api/melorin/modules/catalog/allocation/routing.py",
+    ):
+        assert "product_codes" not in read(rel), rel
