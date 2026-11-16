@@ -113,7 +113,11 @@ export default function LinkedAccounts({
     const viaTelegram = method === 'telegram_code';
     const r = await post(`/reauth/${viaTelegram ? 'telegram' : 'email'}/start`);
     notify(
-      r.ok ? (viaTelegram ? 'کد به ربات تلگرام شما ارسال شد' : 'کد به ایمیل شما ارسال شد') : await msgOf(r, 'ارسال کد ناموفق بود'),
+      r.ok
+        ? viaTelegram
+          ? 'کد به ربات تلگرام شما ارسال شد'
+          : 'کد به ایمیل شما ارسال شد'
+        : await msgOf(r, 'ارسال کد ناموفق بود'),
     );
   }
   async function consolidate() {
