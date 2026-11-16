@@ -11,7 +11,8 @@
 **رجیستری یافته‌ها (مطابق TODO و گزارش r22/r23)**
 - `Fixed`: محافظ gen_docs --check؛ گروه‌بندی منوی سیستم/امنیت؛ سرویس یک‌بارمصرف `migrate` در compose؛ mypy روی کل `melorin`؛ bandit B104؛ فایل‌های بزرگ admin-web (هیچ فایلی بیش از ۴۵۰ خط نیست)؛ نبود specهای Playwright اسکیپ‌شده؛ UI اتصال حساب‌ها، دکمهٔ ربات، تست‌های مالی و reauth.
 - `Superseded`: حذف consolidation؛ تأیید دستی همهٔ انتقال‌ها؛ `product_codes` (سند 06).
-- `Open` (کار باقی‌مانده): ۱) دو نقطهٔ `authFetch` برای دانلود CSV/Blob که عمداً باقی مانده‌اند؛ ۲) اثبات مالکیت قوی‌تر برای حساب‌های فقط-تلگرام/Google بدون ایمیل (فعلاً نشست + محافظ آخرین روش)؛
+- `Fixed` (این نوبت): اثبات مالکیت قوی‌تر برای حساب‌های فقط-Google/تلگرام (توکن Google یا کد ربات)؛ `authFetch` فقط در `api/api.ts` باقی است و دانلود فایل از `downloadFile` می‌گذرد؛ ارسال اعلان به تلگرام لغوشده؛ مجوز دکمه‌های تلگرام (فقط owner) تثبیت شد.
+- `Open`: فقط شواهد محیط واقعی (فهرست `Not verifiable here` پایین).
 - `Not verifiable here`: پنل واقعی PasarGuard/Sanaei، ربات واقعی تلگرام، زرین‌پال، Caddy + Prometheus، تمرین restore از S3.
 
 **گزارش اعتبارسنجی آخر:** مجموعهٔ تست API بدون خطا، baseline روی دیتابیس خالی بدون drift، lint/mypy/import-linter تمیز (جزئیات در سند 20).
@@ -25,7 +26,8 @@
 **Findings register (from TODO and the r22/r23 reports)**
 - `Fixed`: gen_docs --check guard; system/security menu grouping; one-shot `migrate` service in compose; mypy over all of `melorin`; bandit B104; large admin-web files (none is above 450 lines now); no skipped Playwright specs; account-linking site UI, bot menu button, financial tests and reauth.
 - `Superseded`: removal of consolidation; manual approval of every transfer; `product_codes` (doc 06).
-- `Open`: (1) two `authFetch` call sites for CSV/Blob downloads kept on purpose; (2) a stronger ownership proof for Telegram/Google-only accounts without e-mail (today: session proof plus last-method guard).
+- `Fixed` (this round): a stronger ownership proof for Google/Telegram-only accounts (Google token or bot code); `authFetch` now lives only in `api/api.ts` and file downloads go through `downloadFile`; notifications to a revoked Telegram; the Telegram-buttons permission (owner only) is settled.
+- `Open`: only real-environment evidence (the `Not verifiable here` list below).
 - `Not verifiable here`: real PasarGuard/Sanaei panels, real Telegram bots, Zarinpal, Caddy + Prometheus profile, the S3 restore drill.
 
 **Latest verification:** the API suite is green, the baseline on an empty database has no drift, and lint/mypy/import-linter are clean (details in doc 20).

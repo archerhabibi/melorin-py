@@ -14,7 +14,7 @@
 
 **Secrets و حریم خصوصی:** مقادیر حساس رمزنگاری‌شده و فقط‌نوشتنی، در audit نمی‌آیند؛ `scripts/check_secrets.sh` در CI. سخت‌سازی میزبان: `scripts/harden_host.sh` و چرخش توکن‌ها قبل از هر مرحلهٔ پاک‌سازی (مواد ادغام‌شده).
 
-**Audit:** رویدادهای امنیتی و مالی ثبت می‌شوند؛ audit اتصال حساب‌ها فقط‌افزودنی است. نکتهٔ باز: اثبات مالکیت قوی‌تر برای حساب‌های بدون ایمیل (سند 21).
+**Audit:** رویدادهای امنیتی و مالی ثبت می‌شوند؛ audit اتصال حساب‌ها فقط‌افزودنی است. اثبات مالکیت برای تغییرهای حساس بر اساس قوی‌ترین عامل واقعیِ حساب است (رمز، کد ایمیل، توکن تازهٔ Google یا کد ربات تلگرام؛ سند 08) و دیگر فقط به نشست تکیه نمی‌کند. اعلان‌ها هرگز به هویت تلگرام لغوشده ارسال نمی‌شوند.
 
 ## English section
 
@@ -26,7 +26,7 @@
 
 **Secrets and privacy:** sensitive values are encrypted and write-only and never reach the audit log; `scripts/check_secrets.sh` runs in CI. Host hardening: `scripts/harden_host.sh` and token rotation before each cleanup phase (merged material).
 
-**Audit:** security and financial events are recorded; the account-link audit is append-only. Open point: a stronger ownership proof for accounts without e-mail (doc 21).
+**Audit:** security and financial events are recorded; the account-link audit is append-only. Ownership proof for sensitive changes uses the strongest factor the account really owns (password, e-mail code, a fresh Google token or a Telegram bot code; doc 08) instead of the session alone. Notifications are never sent to a revoked Telegram identity.
 
 ## مواد ادغام‌شده / Merged source material
 

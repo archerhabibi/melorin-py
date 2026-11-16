@@ -22,6 +22,8 @@
 
 **کد و تست:** `modules/identity/account_linking/{linking,consolidation,persons}.py`، `domain/account_linking.py`، `modules/wallet/service.py`؛ تست‌ها: `tests/service/test_account_linking_service.py`، `tests/http/test_identity_consolidation_http.py`.
 
+**احراز مجدد برای تغییرهای حساس (قطع روش ورود):** هر حساب همان عاملی را اثبات می‌کند که واقعاً دارد، از قوی به ضعیف: `password` (رمز فعلی) ← `email_code` (کد ایمیل) ← `google` (توکن تازهٔ Google که به nonce همان مرورگر بسته است و باید متعلق به یکی از Googleهای همان Person باشد) ← `telegram_code` (کد یک‌بارمصرفی که ربات به تلگرام فعالِ Person می‌فرستد) ← `session` (فقط وقتی هیچ عامل دیگری وجود ندارد). کدها مخصوص همان کاربر و یک‌بارمصرف‌اند و تلگرام لغوشده هرگز کد دریافت نمی‌کند. محافظ «آخرین روش ورود» پس از اثبات هم همچنان اعمال می‌شود. کد: `modules/identity/account_linking/reauth.py`؛ تست: `tests/http/test_identity_reauth_strong_http.py`.
+
 ## English section
 
 **Purpose:** one human, one central account, one wallet experience — with several valid sign-in methods.
@@ -39,6 +41,8 @@
 **Admin.** Link, consent, central-account choice and transfer events are written to an append-only audit; the Identity screen shows successful and failed operations. API: `/identity/link/*`, `/identity/unlink`, `/identity/consolidation`, `/identity/consolidation-status`.
 
 **Code and tests:** `modules/identity/account_linking/{linking,consolidation,persons}.py`, `domain/account_linking.py`, `modules/wallet/service.py`; tests: `tests/service/test_account_linking_service.py`, `tests/http/test_identity_consolidation_http.py`.
+
+**Re-authentication for sensitive changes (unlinking a sign-in method):** each account proves the strongest factor it really owns: `password` (current password) -> `email_code` -> `google` (a fresh Google ID token bound to this browser's nonce and belonging to one of the person's own Google logins) -> `telegram_code` (a single-use code the bot sends to the person's active Telegram) -> `session` (only when no other factor exists). Codes are bound to the user and single use, and a revoked Telegram never receives one. The "last sign-in method" guard still applies after the proof. Code: `modules/identity/account_linking/reauth.py`; tests: `tests/http/test_identity_reauth_strong_http.py`.
 
 ## مواد ادغام‌شده / Merged source material
 
