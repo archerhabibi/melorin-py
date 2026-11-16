@@ -83,7 +83,7 @@ class VerificationCode(IdMixin, CreatedMixin, Base):
 
 
 class AdminInvite(IdMixin, CreatedMixin, Base):
-    """One-time invitation of a new admin (docs/24-Admin-Team-Design.md).
+    """One-time invitation of a new admin (docs/09-ADMIN-UI-ARCHITECTURE.md).
 
     The invited user already exists as an inactive shell (role in ``users.admin_roles``, no password, no 2FA). Only the SHA-256
     of the invite token is stored, so a leaked database cannot be used to accept an invite. The invitee sets their own password and
@@ -123,7 +123,7 @@ class IdentityLinkReview(IdMixin, TimestampMixin, Base):
 
 
 class TelegramLoginSession(IdMixin, CreatedMixin, Base):
-    """Website login that is approved inside the Telegram bot (device-authorization flow, see docs/TELEGRAM-WEB-LOGIN.md).
+    """Website login that is approved inside the Telegram bot (device-authorization flow, see docs/08-IDENTITY-ACCOUNT-PERSON.md).
 
     ``public_id`` travels in the deep link / QR code; ``secret_hash`` is the SHA-256 of the poll token that only the
     requesting browser holds, so whoever sees the link can never collect the session. Single use, short lived.
@@ -146,7 +146,7 @@ class TelegramLoginSession(IdMixin, CreatedMixin, Base):
     expires_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), index=True)
     decided_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     consumed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
-    # Automatic verification (docs/23-Automatic-Identity-Verification.md)
+    # Automatic verification (docs/08-IDENTITY-ACCOUNT-PERSON.md)
     device_key_hash: Mapped[str | None] = mapped_column(String(64), index=True)  # SHA-256 of the browser's device key
     remember: Mapped[bool] = mapped_column(Boolean, default=True)  # visitor allows this browser to be trusted
     auto_level: Mapped[str | None] = mapped_column(String(12))  # silent | auto | None (manual number match)

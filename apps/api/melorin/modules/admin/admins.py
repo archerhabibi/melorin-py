@@ -1,4 +1,4 @@
-"""Admin API - the admin team: who may use the admin panel and with which role (docs/24-Admin-Team-Design.md).
+"""Admin API - the admin team: who may use the admin panel and with which role (docs/09-ADMIN-UI-ARCHITECTURE.md).
 
 Everything under ``/admin/admins`` belongs to the ``admins`` area, i.e. to the owner role only (``domain/admin_access.py``). ``/admin/me``
 is the one call every admin may make: it tells the admin web which screens to show.

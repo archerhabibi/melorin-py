@@ -10,7 +10,7 @@ Every admin-panel session belongs to a user with ``is_super_admin`` (the gate fo
 * an admin whose role list is empty or unknown has no access at all (fail closed). ``0055_admin_team`` gives every existing
   admin the ``owner`` role, so nobody loses access on upgrade.
 
-Design notes and the permission matrix: docs/24-Admin-Team-Design.md.
+Design notes and the permission matrix: docs/09-ADMIN-UI-ARCHITECTURE.md.
 """
 
 from __future__ import annotations

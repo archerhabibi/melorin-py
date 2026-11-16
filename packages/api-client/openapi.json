@@ -2432,20 +2432,6 @@
             "title": "Panel Id",
             "type": "string"
           },
-          "product_codes": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Product Codes"
-          },
           "target": {
             "anyOf": [
               {
@@ -7044,20 +7030,6 @@
             "title": "Panel Name",
             "type": "string"
           },
-          "product_codes": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Product Codes"
-          },
           "sellable": {
             "default": true,
             "title": "Sellable",
@@ -7167,20 +7139,6 @@
               }
             ],
             "title": "Limits From"
-          },
-          "product_codes": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Product Codes"
           }
         },
         "required": [
@@ -9171,20 +9129,6 @@
               }
             ],
             "title": "Panel Id"
-          },
-          "product_codes": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Product Codes"
           },
           "target": {
             "anyOf": [
@@ -20250,7 +20194,7 @@
     },
     "/api/v1/admin/tickets/{ticket_id}/messages": {
       "post": {
-        "description": "Staff reply or internal note. Replies notify the customer; internal notes never leave the admin panel.",
+        "description": "Staff reply or internal note (rules live in ``tickets.service.staff_reply``).",
         "operationId": "ticket_reply_api_v1_admin_tickets__ticket_id__messages_post",
         "parameters": [
           {
@@ -20310,7 +20254,7 @@
     },
     "/api/v1/admin/tickets/{ticket_id}/messages/{message_id}": {
       "patch": {
-        "description": "Staff may correct their own replies/notes; edits are stamped and audited.",
+        "description": "Staff may correct their own replies/notes (rules live in ``tickets.service.staff_edit_message``).",
         "operationId": "ticket_edit_message_api_v1_admin_tickets__ticket_id__messages__message_id__patch",
         "parameters": [
           {

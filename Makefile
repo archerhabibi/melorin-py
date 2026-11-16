@@ -31,7 +31,7 @@ lint:; cd apps/api && lint-imports && ruff check melorin --config pyproject.toml
 api:; cd apps/api && uvicorn melorin.app:app --reload
 worker:; cd apps/api && arq melorin.worker.arq_app.WorkerSettings
 
-setup-git:; git config commit.template .gitmessage && echo 'commit template enabled (optional trailers fill docs/CHANGE_LOG.md)'
+setup-git:; git config commit.template .gitmessage && echo 'commit template enabled (optional trailers fill docs/06-ARCHITECTURE-DECISIONS.md)'
 
 # Phase 6 — frontend polish
 web-lint:; for a in apps/store-web apps/admin-web; do (cd $$a && npm run lint) || exit 1; done

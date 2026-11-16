@@ -56,7 +56,7 @@ def new_numeric_code(digits: int = 6) -> str:
 def create_access_token(
     user_id: uuid.UUID, is_admin: bool, *, store_id: uuid.UUID | None = None, channel: str | None = None
 ) -> tuple[str, int]:
-    """Short-lived JWT. Besides the user it carries WHERE the session was opened (docs/16-Channel-Binding-Design.md):
+    """Short-lived JWT. Besides the user it carries WHERE the session was opened (docs/08-IDENTITY-ACCOUNT-PERSON.md):
 
     * ``chn``: ``site`` | ``bot`` | ``admin``  (the channel Core verified at login, never what the client claimed);
     * ``sid``: the store that channel belongs to (absent only for ``admin`` sessions, which are platform-wide).

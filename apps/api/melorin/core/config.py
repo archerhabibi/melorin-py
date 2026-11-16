@@ -119,7 +119,7 @@ class Settings(BaseSettings):
     encryption_key: str = ""  # Fernet key (urlsafe base64, 32 bytes). REQUIRED outside development.
 
     bot_service_secret: str = "dev-bot-secret"  # shared secret between Core and bot runners
-    # Optional least-privilege secrets (docs/16-Channel-Binding-Design.md): with these set, the main runner can only open
+    # Optional least-privilege secrets (docs/08-IDENTITY-ACCOUNT-PERSON.md): with these set, the main runner can only open
     # sessions in the main store and the reseller runner only in reseller stores. The shared secret above keeps working
     # for both ("any"); a hardened install gives each runner its own secret and stops handing out the shared one.
     main_bot_secret: str = ""
@@ -131,7 +131,7 @@ class Settings(BaseSettings):
     otlp_service_name: str = "melorin-api"
     main_bot_token: str = ""
     google_client_id: str = ""
-    # Website login approved in the Telegram bot (docs/TELEGRAM-WEB-LOGIN.md)
+    # Website login approved in the Telegram bot (docs/08-IDENTITY-ACCOUNT-PERSON.md)
     telegram_web_login_ttl_seconds: int = 180
     telegram_web_login_number_match: bool = True
     # Automatic verification: a browser that was approved once is trusted for this many days (0 = off); inside the
@@ -176,7 +176,7 @@ class Settings(BaseSettings):
     ]
     storage_dir: str = "./var/storage"
     max_upload_bytes: int = 5 * 1024 * 1024
-    # Automatic reading of card-to-card receipts (docs/20-Card-Receipt-Auto-Verification.md): auto | vision | tesseract | off
+    # Automatic reading of card-to-card receipts (docs/15-PAYMENTS-WALLET-FINANCE.md): auto | vision | tesseract | off
     receipt_ocr_engine: Literal["auto", "vision", "tesseract", "off"] = "auto"
     receipt_ocr_api_key: str = ""  # vision engine only; the receipt image is sent to receipt_ocr_base_url
     receipt_ocr_base_url: str = "https://api.anthropic.com"

@@ -1,4 +1,4 @@
-"""T03: the reseller API key is the fourth channel (``api``) of docs/16-Channel-Binding-Design.md.
+"""T03: the reseller API key is the fourth channel (``api``) of docs/08-IDENTITY-ACCOUNT-PERSON.md.
 
 Same rule as sessions: Core derives the store from the KEY (never from the URL), the ``store_id`` in the path may only agree with
 it, and that comparison happens before any store row is read. Everything is decided in ``core.channel.api_channel``; the routes

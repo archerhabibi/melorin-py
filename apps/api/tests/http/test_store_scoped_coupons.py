@@ -1,4 +1,4 @@
-"""Discount codes stay inside the store/agency they were made for (docs/17-Referral-Coupon-Store-Scope.md)."""
+"""Discount codes stay inside the store/agency they were made for (docs/13-CATALOG-STORE-RESELLER.md)."""
 
 from __future__ import annotations
 

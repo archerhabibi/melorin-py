@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """M7.3 - fail-closed runtime evidence collector.
 
-Collects the runtime evidence that unit tests cannot provide and that ``docs/RELEASE-EVIDENCE-MATRIX.md`` requires:
+Collects the runtime evidence that unit tests cannot provide and that ``docs/20-TESTING-QUALITY-RELEASE.md`` requires:
 Telegram bots, the Zarinpal sandbox, real VPN panels, Docker image builds, Caddy configuration and the on-demand TLS
 gate, Prometheus scrape/rules and Alertmanager delivery.
 

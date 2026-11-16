@@ -1,4 +1,4 @@
-"""T02: referrals and coupons never mix stores (docs/17-Referral-Coupon-Store-Scope.md)."""
+"""T02: referrals and coupons never mix stores (docs/13-CATALOG-STORE-RESELLER.md)."""
 
 import datetime as dt
 

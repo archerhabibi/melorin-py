@@ -1,4 +1,4 @@
-"""HTTP surface of the "login to the website with the Telegram bot" flow (docs/TELEGRAM-WEB-LOGIN.md).
+"""HTTP surface of the "login to the website with the Telegram bot" flow (docs/08-IDENTITY-ACCOUNT-PERSON.md).
 
 Browser endpoints are public but rate limited; bot endpoints require the shared bot secret and are additionally
 scoped to the store the calling bot serves.

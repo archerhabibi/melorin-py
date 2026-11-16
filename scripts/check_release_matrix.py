@@ -6,7 +6,7 @@ ROOT = (
     Path(__file__).resolve().parents[1]
 )  # work from any cwd (CI runs this from apps/api)
 
-text = (ROOT / "docs/RELEASE-EVIDENCE-MATRIX.md").read_text()
+text = (ROOT / "docs/20-TESTING-QUALITY-RELEASE.md").read_text()
 head_migration = (
     ROOT / "apps/api/alembic/versions/0012_baskets_to_panel_groups.py"
 ).read_text()
@@ -23,6 +23,6 @@ assert (
 assert (
     ROOT / "scripts/runtime_evidence.py"
 ).is_file() and "Runtime evidence collector" in text  # merged into the matrix
-policy = (ROOT / "docs/history/I33_DOCUMENTATION_STATUS.md").read_text()
+policy = (ROOT / "docs/06-ARCHITECTURE-DECISIONS.md").read_text()
 assert "I33" in policy
 print("release evidence matrix is present and fail-closed")

@@ -1,6 +1,6 @@
 """Website login approved inside the Telegram bot.
 
-Design (docs/TELEGRAM-WEB-LOGIN.md): an OAuth device-authorization style flow with browser binding.
+Design (docs/08-IDENTITY-ACCOUNT-PERSON.md): an OAuth device-authorization style flow with browser binding.
 
 * The browser creates a session and receives two values: a *public id* (goes into the ``t.me`` deep link / QR code)
   and a *poll token* (secret, never leaves the browser; only its SHA-256 is stored).
@@ -8,7 +8,7 @@ Design (docs/TELEGRAM-WEB-LOGIN.md): an OAuth device-authorization style flow wi
   the website (phishing resistance: a link relayed to a victim is useless without the code on the attacker's screen).
 * Tokens are issued only to the holder of the poll token, exactly once, atomically (row lock + status transition).
 
-* Automatic verification (docs/23-Automatic-Identity-Verification.md): a browser approved once becomes a *trusted
+* Automatic verification (docs/08-IDENTITY-ACCOUNT-PERSON.md): a browser approved once becomes a *trusted
   device* (``trust.py``). Its next login skips the number match (``auto``: opening the bot link is the approval) or the
   bot altogether (``silent``: same network, seen recently). An unknown browser always gets the manual number match.
 

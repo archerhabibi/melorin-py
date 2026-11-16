@@ -111,7 +111,7 @@ def test_every_compose_service_is_memory_capped_within_budget():
         guard._mib(s["mem_limit"]) for s in compose["services"].values() if str(s.get("restart", "")) != "no"
     )  # the one-shot migrate service has exited before the rest start
     assert total == guard.MEMORY_BUDGET_MIB == 3584
-    assert "3584 MiB" in (ROOT / "docs/RUNBOOK.md").read_text()
+    assert "3584 MiB" in (ROOT / "docs/18-OPERATIONS-DEPLOYMENT-DR.md").read_text()
 
 
 def test_memory_guard_flags_uncapped_service_overbudget_and_unbounded_redis():

@@ -188,11 +188,10 @@ export function buildIndex(panels: Json, servers: Json, groups: Json, products: 
       ok: !issue,
     };
   };
-  /** Products that can end up on a server of `panelId` whose allow-list is `codes` (null/[] = all). */
-  const productsForPanel = (panelId: Json, codes: Json) =>
+  /** Products that can end up on a server of `panelId`: active products listed in an enabled bundle that has the panel enabled. */
+  const productsForPanel = (panelId: Json) =>
     products.filter((p: Json) => {
       if (!p.is_active) return false;
-      if (codes?.length && !codes.includes(p.code)) return false;
       return (groupsByProduct.get(p.id) || []).some(
         (g: Json) => g.is_enabled && (g.panels || []).some((m: Json) => m.is_enabled && m.panel_id === panelId),
       );
@@ -207,6 +206,7 @@ export function buildIndex(panels: Json, servers: Json, groups: Json, products: 
     groupStat,
     reach,
     productsForPanel,
+    groupsByProduct,
   };
 }
 

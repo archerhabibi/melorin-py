@@ -77,5 +77,5 @@ def test_redis_outage_policy_is_documented():
     from pathlib import Path
 
     assert "NOBODY CAN SIGN IN" in ratelimit.__doc__
-    runbook = (Path(__file__).resolve().parents[4] / "docs/RUNBOOK.md").read_text()
+    runbook = (Path(__file__).resolve().parents[4] / "docs/18-OPERATIONS-DEPLOYMENT-DR.md").read_text()
     assert "nobody can sign in" in runbook.lower()

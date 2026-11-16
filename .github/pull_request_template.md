@@ -6,6 +6,6 @@
 **After (how it was verified):**
 
 ## Checklist
-- [ ] Change log is covered: commit trailers (`Problem:` / `Action:` / `After:`) or an entry in `docs/CHANGE_LOG.md`
+- [ ] Change log is covered: commit trailers (`Problem:` / `Action:` / `After:`) or an entry in `docs/06-ARCHITECTURE-DECISIONS.md`
 - [ ] No secrets, `.env` values or certificates included
 - [ ] `make lint` and `make test` pass; migration added if the schema changed

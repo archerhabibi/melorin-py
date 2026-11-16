@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Auto-write docs/CHANGE_LOG.md entries for commits that did not add one themselves.
+"""Auto-write docs/06-ARCHITECTURE-DECISIONS.md entries for commits that did not add one themselves.
 
 Run by .github/workflows/changelog.yml on every push to main, so the log is filled for
 EVERYONE (owner, Claude, contractors) whether or not they know the log exists.
@@ -8,7 +8,7 @@ Authors can make entries richer with single-line trailers in the commit message:
     Area: api | Before: ... | Problem: ... | Action: ... | After: ...   (one per line)
 Missing fields are written as "not provided" - never invented.
 
-Usage: changelog_auto.py --before <sha> --after <sha> [--file docs/CHANGE_LOG.md] [--max 30]
+Usage: changelog_auto.py --before <sha> --after <sha> [--file docs/06-ARCHITECTURE-DECISIONS.md] [--max 30]
 """
 
 import argparse, datetime as dt, re, subprocess, sys
@@ -107,7 +107,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--before", required=True)
     ap.add_argument("--after", required=True)
-    ap.add_argument("--file", default="docs/CHANGE_LOG.md")
+    ap.add_argument("--file", default="docs/06-ARCHITECTURE-DECISIONS.md")
     ap.add_argument("--max", type=int, default=30)
     a = ap.parse_args()
 

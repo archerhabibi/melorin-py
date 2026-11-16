@@ -2,7 +2,7 @@
 
 ``inspect`` shows who is invited, ``enroll`` hands out the invitee's own authenticator seed, ``accept`` sets the password after one
 authenticator code. No session is issued: the new admin signs in afterwards through the normal password + TOTP login, which proves
-the password and the authenticator in one go. Flow and threat model: docs/24-Admin-Team-Design.md.
+the password and the authenticator in one go. Flow and threat model: docs/09-ADMIN-UI-ARCHITECTURE.md.
 """
 
 from fastapi import Depends

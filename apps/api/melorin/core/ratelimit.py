@@ -1,7 +1,7 @@
 """Fixed-window rate limiting with an explicit Redis outage policy.
 
 Redis is the coordination store for the counters. What happens while it is unreachable depends on the environment
-(documented in docs/RUNBOOK.md, "Redis failure"):
+(documented in docs/18-OPERATIONS-DEPLOYMENT-DR.md, "Redis failure"):
 
 * development/test: a process-local, bounded counter is used (logged once), so a laptop without Redis still works.
 * staging/production (``require_redis_rate_limit=true``, the default): FAIL CLOSED. Every rate-limited endpoint

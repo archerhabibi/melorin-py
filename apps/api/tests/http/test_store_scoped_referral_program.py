@@ -1,4 +1,4 @@
-"""Referral, commission and reward programmes are PER STORE (docs/17-Referral-Coupon-Store-Scope.md).
+"""Referral, commission and reward programmes are PER STORE (docs/13-CATALOG-STORE-RESELLER.md).
 
 Each store (the main one, every reseller's shop and bot) has its own invite link, its own first-touch attribution, its own plan, its own
 expense account and its own wallets. Nothing a customer does in one store changes what happens in another.

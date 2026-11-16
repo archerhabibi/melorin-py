@@ -216,9 +216,9 @@ def test_lint_gate_uses_correctness_focused_policy():
 
 
 def test_release_matrix_is_the_single_current_status_source():
-    matrix = (ROOT.parent.parent / "docs/RELEASE-EVIDENCE-MATRIX.md").read_text()
+    matrix = (ROOT.parent.parent / "docs/20-TESTING-QUALITY-RELEASE.md").read_text()
     checker = read_source(ROOT.parent.parent / "scripts/check_release_matrix.py")
-    policy = (ROOT.parent.parent / "docs/history/I33_DOCUMENTATION_STATUS.md").read_text()
+    policy = (ROOT.parent.parent / "docs/06-ARCHITECTURE-DECISIONS.md").read_text()
     assert "I33" in checker
     assert "historical" in matrix.lower() and "historical" in policy.lower()
 
@@ -276,7 +276,7 @@ def test_i39_irt_irr_boundaries_are_explicit():
     migration = read_source(ROOT / "alembic/versions/0002_v11.py")
     smoke = read_source(ROOT.parent.parent / "scripts/postgres_concurrency_smoke.py")
     zarinpal = read_source(ROOT / "melorin/modules/payments/adapters/zarinpal.py")
-    audit = (ROOT.parent.parent / "docs/history/I39_IRT_IRR_AUDIT.md").read_text()
+    audit = (ROOT.parent.parent / "docs/06-ARCHITECTURE-DECISIONS.md").read_text()
     assert "default=\"'IRT'\"" in migration
     assert 'currency="IRT"' in smoke
     assert "_gateway_amount" in zarinpal
@@ -286,14 +286,14 @@ def test_i39_irt_irr_boundaries_are_explicit():
 
 def test_i40_currency_payment_contract_exists():
     test = read_source(ROOT / "tests/contracts/test_payment_currency_contract.py")
-    doc = (ROOT.parent.parent / "docs/history/I40_CURRENCY_PAYMENT_CONTRACT.md").read_text()
+    doc = (ROOT.parent.parent / "docs/15-PAYMENTS-WALLET-FINANCE.md").read_text()
     assert "_gateway_amount" in test
     assert "destination/currency mismatch" in doc
 
 
 def test_i41_restore_drill_is_real_and_isolated():
     script = (ROOT.parent.parent / "scripts/backup_restore_drill.sh").read_text()
-    doc = (ROOT.parent.parent / "docs/history/I41_BACKUP_RESTORE_DRILL.md").read_text()
+    doc = (ROOT.parent.parent / "docs/18-OPERATIONS-DEPLOYMENT-DR.md").read_text()
     assert "createdb" in script and "pg_restore" in script and "dropdb" in script
     assert "restore_drill" in script
     assert "RPO" in doc and "RTO" in doc
