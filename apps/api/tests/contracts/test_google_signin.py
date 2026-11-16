@@ -9,6 +9,7 @@ import pytest
 from fastapi import Response
 
 import melorin.models  # noqa: F401  (registers every table so FKs resolve)
+from melorin.kernel.models.person import Person
 from melorin.core import db, integrations, settings_store
 from melorin.core.errors import AppError
 from melorin.core.security import _totp, totp_new_secret
@@ -22,6 +23,7 @@ from melorin.kernel.models.system import AuditEvent, SecurityEvent, SystemSettin
 ROOT = Path(__file__).resolve().parents[2]
 PROJECT = ROOT.parent.parent
 TABLES = [
+    Person.__table__,
     User.__table__,
     Identity.__table__,
     RefreshToken.__table__,

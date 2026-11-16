@@ -61,12 +61,15 @@ RESELLER_TOKEN_ERRORS = {
 # The account button opens the user's account on the store website (Telegram/Google login happens there).
 ACCOUNT_BUTTON = "🌐 حساب من در سایت"
 
+LINK_BUTTON = "🔗 اتصال حساب‌های من"  # docs/25: Telegram, Google and e-mail logins of one person
+
 LEGACY_ACCOUNT_BUTTON = "👤 حساب کاربری"  # cached reply keyboards still send this text
 
 # Must stay in sync with the public bot's Persian reply keyboard.
 MAIN_MENU = [
     ["🛒 خرید اکانت", "🔍 استعلام و تمدید اکانت"],
     ["💰 کیف پول و شارژ حساب", ACCOUNT_BUTTON],
+    [LINK_BUTTON],
     ["🎁 دعوت از دوستان", "🧪 دریافت اکانت تست"],
     ["📜 قوانین خرید و آموزش", "🎧 پشتیبانی"],
     ["🤖 درخواست ربات نماینده و همکاری"],
@@ -77,7 +80,7 @@ MENU = [
     [("🛒 خرید اکانت", "menu:plans"), ("💰 کیف پول", "menu:wallet")],
     [("📦 سفارش‌ها", "menu:orders"), ("🔑 اکانت‌ها", "menu:accounts")],
     [("🎫 تیکت‌ها", "menu:tickets"), ("🔔 اعلان‌ها", "menu:notifications")],
-    [("🏅 باشگاه مشتریان", "menu:club")],
+    [("🏅 باشگاه مشتریان", "menu:club"), ("🔗 اتصال حساب‌ها", "menu:link")],
 ]
 
 CURRENCY_LABEL = {"IRT": "تومان", "IRR": "ریال"}

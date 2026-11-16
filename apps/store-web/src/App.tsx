@@ -24,6 +24,8 @@ import type { Json } from './types';
 
 // Reseller console is only needed by resellers: keep it out of the first-load bundle.
 const Reseller = lazy(() => import('./Reseller.tsx'));
+// Below-the-fold landing block: its own chunk keeps the first-load JS under budget.
+const LinkAccountsSection = lazy(() => import('./LinkAccountsSection.tsx'));
 
 export default function App() {
   const [active, setActive] = useState('Orbit');
@@ -388,6 +390,10 @@ export default function App() {
             <HowSection />
 
             <WhySection />
+
+            <Suspense fallback={<div className="min-h-40" aria-hidden="true" />}>
+              <LinkAccountsSection goAccount={goAccount} />
+            </Suspense>
 
             <AccountBanner wallet={wallet} orders={orders} goAccount={goAccount} accessToken={accessToken} />
             <Faq />

@@ -35,7 +35,7 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 
 <!-- BEGIN GENERATED ROUTES (scripts/gen_docs.py) -->
 
-### `admin` (179)
+### `admin` (188)
 
 | Method | Path | Operation |
 |---|---|---|
@@ -77,6 +77,15 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/api/v1/admin/identity-link-reviews` | Identity Link Reviews |
 | POST | `/api/v1/admin/identity-link-reviews/{review_id}/dismiss` | Dismiss Identity Review |
 | POST | `/api/v1/admin/identity-link-reviews/{review_id}/reopen` | Reopen Identity Review |
+| GET | `/api/v1/admin/identity/consolidations` | List Consolidations |
+| GET | `/api/v1/admin/identity/consolidations/{consolidation_id}` | Get Consolidation |
+| POST | `/api/v1/admin/identity/consolidations/{consolidation_id}/approve` | Approve Consolidation |
+| GET | `/api/v1/admin/identity/link-conflicts` | Link Conflicts |
+| POST | `/api/v1/admin/identity/link-conflicts/{operation_id}/review` | Review Conflict |
+| GET | `/api/v1/admin/identity/persons/by-user/{user_id}` | Person Of User |
+| GET | `/api/v1/admin/identity/persons/{person_id}` | Person Detail |
+| GET | `/api/v1/admin/identity/persons/{person_id}/accounts` | Person Accounts |
+| GET | `/api/v1/admin/identity/persons/{person_id}/links` | Person Links |
 | GET | `/api/v1/admin/manual-tasks` | List Tasks |
 | POST | `/api/v1/admin/manual-tasks/{task_id}/done` | Mark Done |
 | POST | `/api/v1/admin/manual-tasks/{task_id}/reopen` | Reopen |
@@ -320,6 +329,32 @@ Some SRS surface area remains intentionally behind adapters/jobs: Telegram deliv
 | GET | `/health` | Health |
 | GET | `/health/live` | Live |
 | GET | `/health/ready` | Ready |
+
+### `identity-linking` (15)
+
+| Method | Path | Operation |
+|---|---|---|
+| POST | `/api/v1/identity/consolidation` | Request Consolidation |
+| GET | `/api/v1/identity/consolidation-status` | Consolidation Status |
+| GET | `/api/v1/identity/history` | Unified Orders |
+| GET | `/api/v1/identity/link-operations` | Link Operations |
+| POST | `/api/v1/identity/link/confirm` | Link Confirm |
+| POST | `/api/v1/identity/link/email/confirm` | Link Email Confirm |
+| POST | `/api/v1/identity/link/email/start` | Link Email Start |
+| POST | `/api/v1/identity/link/google` | Link Google |
+| POST | `/api/v1/identity/link/reject` | Link Reject |
+| POST | `/api/v1/identity/link/telegram/start` | Link Telegram Start |
+| GET | `/api/v1/identity/linked-accounts` | Linked Accounts |
+| GET | `/api/v1/identity/me` | My Profile |
+| GET | `/api/v1/identity/reauth` | Reauth Method |
+| POST | `/api/v1/identity/reauth/email/start` | Reauth Email Start |
+| POST | `/api/v1/identity/unlink` | Unlink |
+
+### `identity-linking-internal` (1)
+
+| Method | Path | Operation |
+|---|---|---|
+| GET | `/api/v1/internal/identity/telegram/status` | Telegram Status |
 
 ### `loyalty` (12)
 

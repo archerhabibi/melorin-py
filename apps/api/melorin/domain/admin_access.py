@@ -80,6 +80,9 @@ PATH_RULES: tuple[tuple[re.Pattern[str], str, bool], ...] = tuple(
         (r"^admin/me$", "self", False),
         (r"^auth/admin/password$", "self", False),
         # platform-wide settings and integrations: owner only
+        # person linking: approving a consolidation moves money, so it is a payments-level write; everything else is customer care
+        (r"^admin/identity/consolidations/[^/]+/approve$", "payments", True),
+        (r"^admin/identity(/|$)", "customers", False),
         (r"^admin/(settings|integrations|feature-flags|telegram)(/|$)", "system", False),
         (r"^admin/audit(/|$)", "audit", False),
         (r"^admin/(dashboard|health)(/|$)", "overview", False),

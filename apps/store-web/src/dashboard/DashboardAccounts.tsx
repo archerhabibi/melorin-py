@@ -3,6 +3,7 @@ import {
   Bell,
   Gauge,
   KeyRound,
+  Link2,
   LifeBuoy,
   Package,
   Wallet as WalletIcon,
@@ -24,6 +25,7 @@ export const tabs = [
   ['tickets', 'تیکت‌ها', LifeBuoy],
   ['notifications', 'اعلان‌ها', Bell],
   ['profile', 'پروفایل و امنیت', KeyRound],
+  ['linking', 'اتصال حساب‌ها', Link2],
 ];
 export const card = 'card';
 export const btn = 'btn-primary';

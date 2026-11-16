@@ -10,6 +10,7 @@ from _source import read_source, read_web_source
 from sqlalchemy import select
 
 import melorin.models  # noqa: F401  (registers every table so FKs resolve)
+from melorin.kernel.models.person import Person
 from melorin.core import db, events
 from melorin.core.errors import AppError
 from melorin.modules.admin import tickets as admin_tickets
@@ -22,6 +23,7 @@ from melorin.modules.tickets.schemas import AddMessage, AdminAddMessage, AdminUp
 
 ROOT = Path(__file__).parents[2]
 TABLES = [
+    Person.__table__,
     User.__table__,
     Identity.__table__,
     Store.__table__,

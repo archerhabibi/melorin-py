@@ -10,6 +10,7 @@ from sqlalchemy import select
 from starlette.datastructures import Headers, UploadFile
 
 import melorin.models  # noqa: F401  (registers every table so FKs resolve)
+from melorin.kernel.models.person import Person
 from melorin.core import codes, db, storage
 from melorin.core.errors import AppError
 from melorin.kernel.models.identity import Identity, User
@@ -23,6 +24,7 @@ from melorin.modules.tickets.schemas import AddMessage, AdminAddMessage, CreateT
 PNG = b"\x89PNG\r\n\x1a\n" + b"0" * 64
 JPEG = b"\xff\xd8\xff" + b"0" * 64
 TABLES = [
+    Person.__table__,
     User.__table__,
     Identity.__table__,
     Store.__table__,

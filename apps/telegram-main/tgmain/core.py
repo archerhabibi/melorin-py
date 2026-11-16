@@ -60,6 +60,7 @@ class TelegramRunner(TransportMixin, IdentityMixin, LoyaltyMixin, PlansMixin, Wa
             "/start": self.cmd_start,
             "/help": self.cmd_help,
             "/me": self.cmd_me,
+            "/accounts_link": self.cmd_link_accounts,
             "/plans": self.cmd_plans,
             "/wallet": self.cmd_wallet,
             "/topup": self.cmd_topup,
@@ -173,6 +174,7 @@ class TelegramRunner(TransportMixin, IdentityMixin, LoyaltyMixin, PlansMixin, Wa
             "🔍 استعلام و تمدید اکانت": self.cmd_accounts,
             "💰 کیف پول و شارژ حساب": self.cmd_wallet,
             ACCOUNT_BUTTON: self.cmd_me,
+            LINK_BUTTON: self.cmd_link_accounts,
             LEGACY_ACCOUNT_BUTTON: self.cmd_me,
             "🎁 دعوت از دوستان": self.cmd_referral,
             "🏅 باشگاه مشتریان": self.cmd_club,
@@ -324,6 +326,7 @@ class TelegramRunner(TransportMixin, IdentityMixin, LoyaltyMixin, PlansMixin, Wa
             "home": self.cmd_home,
             "devices": self.cmd_devices,
             "club": self.cmd_club,
+            "link": self.cmd_link_accounts,
         }.get(name)
         await (fn(ctx, "") if fn else self.cmd_help(ctx, ""))
 

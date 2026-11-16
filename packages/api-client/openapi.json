@@ -907,6 +907,21 @@
         "title": "ApplicationIn",
         "type": "object"
       },
+      "ApproveIn": {
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "ApproveIn",
+        "type": "object"
+      },
       "AttachExistingAccount": {
         "properties": {
           "panel_ref": {
@@ -1653,6 +1668,74 @@
         "title": "CommissionRuleIn",
         "type": "object"
       },
+      "ConfirmIn": {
+        "properties": {
+          "keep_telegram": {
+            "anyOf": [
+              {
+                "enum": [
+                  "target",
+                  "source"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Keep Telegram"
+          },
+          "operation_id": {
+            "format": "uuid",
+            "title": "Operation Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operation_id"
+        ],
+        "title": "ConfirmIn",
+        "type": "object"
+      },
+      "ConflictReviewIn": {
+        "properties": {
+          "action": {
+            "enum": [
+              "approve",
+              "reject"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "keep_telegram": {
+            "anyOf": [
+              {
+                "enum": [
+                  "target",
+                  "source"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Keep Telegram"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "reason"
+        ],
+        "title": "ConflictReviewIn",
+        "type": "object"
+      },
       "ConnectionsOut": {
         "description": "Admin-only view (decision 5). Read live from the panel, never stored.",
         "properties": {
@@ -1701,6 +1784,22 @@
           "offset"
         ],
         "title": "ConnectionsOut",
+        "type": "object"
+      },
+      "ConsolidationIn": {
+        "properties": {
+          "idempotency_key": {
+            "maxLength": 64,
+            "minLength": 8,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "title": "Idempotency Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotency_key"
+        ],
+        "title": "ConsolidationIn",
         "type": "object"
       },
       "CoreRestartIn": {
@@ -2681,6 +2780,27 @@
         "title": "EmailCodeVerify",
         "type": "object"
       },
+      "EmailConfirmIn": {
+        "properties": {
+          "code": {
+            "maxLength": 10,
+            "minLength": 4,
+            "title": "Code",
+            "type": "string"
+          },
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "code"
+        ],
+        "title": "EmailConfirmIn",
+        "type": "object"
+      },
       "EmailIn": {
         "properties": {
           "enabled": {
@@ -2739,6 +2859,20 @@
           "enabled"
         ],
         "title": "EmailIn",
+        "type": "object"
+      },
+      "EmailStartIn": {
+        "properties": {
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "EmailStartIn",
         "type": "object"
       },
       "EmailTestIn": {
@@ -2951,6 +3085,21 @@
           "id_token"
         ],
         "title": "GoogleLink",
+        "type": "object"
+      },
+      "GoogleLinkIn": {
+        "properties": {
+          "id_token": {
+            "maxLength": 4000,
+            "minLength": 20,
+            "title": "Id Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id_token"
+        ],
+        "title": "GoogleLinkIn",
         "type": "object"
       },
       "GoogleLogin": {
@@ -6150,6 +6299,20 @@
         "title": "RefreshRequest",
         "type": "object"
       },
+      "RejectIn": {
+        "properties": {
+          "operation_id": {
+            "format": "uuid",
+            "title": "Operation Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operation_id"
+        ],
+        "title": "RejectIn",
+        "type": "object"
+      },
       "RenewalAfter": {
         "description": "What the account will be once the renewal is done (the same as a new account of the package).",
         "properties": {
@@ -7581,6 +7744,46 @@
         "title": "TelegramLink",
         "type": "object"
       },
+      "TelegramStartOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "expires_in": {
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "operation_id": {
+            "format": "uuid",
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "replace": {
+            "title": "Replace",
+            "type": "boolean"
+          },
+          "telegram_deeplink": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Telegram Deeplink"
+          }
+        },
+        "required": [
+          "operation_id",
+          "code",
+          "expires_in",
+          "replace"
+        ],
+        "title": "TelegramStartOut",
+        "type": "object"
+      },
       "TelegramWebAppLogin": {
         "properties": {
           "init_data": {
@@ -8719,6 +8922,45 @@
           "otpauth_url"
         ],
         "title": "TotpSetupOut",
+        "type": "object"
+      },
+      "UnlinkIn": {
+        "properties": {
+          "current_password": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Password"
+          },
+          "identity_id": {
+            "format": "uuid",
+            "title": "Identity Id",
+            "type": "string"
+          },
+          "reauth_code": {
+            "anyOf": [
+              {
+                "maxLength": 12,
+                "minLength": 4,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reauth Code"
+          }
+        },
+        "required": [
+          "identity_id"
+        ],
+        "title": "UnlinkIn",
         "type": "object"
       },
       "UpdateBundle": {
@@ -11627,6 +11869,440 @@
           }
         ],
         "summary": "Reopen Identity Review",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/identity/consolidations": {
+      "get": {
+        "operationId": "list_consolidations_api_v1_admin_identity_consolidations_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "pending_approval",
+              "title": "Status",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Consolidations",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/identity/consolidations/{consolidation_id}": {
+      "get": {
+        "operationId": "get_consolidation_api_v1_admin_identity_consolidations__consolidation_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "consolidation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Consolidation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Consolidation",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/identity/consolidations/{consolidation_id}/approve": {
+      "post": {
+        "operationId": "approve_consolidation_api_v1_admin_identity_consolidations__consolidation_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "consolidation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Consolidation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Approve Consolidation",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/identity/link-conflicts": {
+      "get": {
+        "operationId": "link_conflicts_api_v1_admin_identity_link_conflicts_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "conflict",
+              "title": "Status",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Link Conflicts",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/identity/link-conflicts/{operation_id}/review": {
+      "post": {
+        "operationId": "review_conflict_api_v1_admin_identity_link_conflicts__operation_id__review_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConflictReviewIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Review Conflict",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/identity/persons/by-user/{user_id}": {
+      "get": {
+        "operationId": "person_of_user_api_v1_admin_identity_persons_by_user__user_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Person Of User",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/identity/persons/{person_id}": {
+      "get": {
+        "operationId": "person_detail_api_v1_admin_identity_persons__person_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "person_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Person Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Person Detail",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/identity/persons/{person_id}/accounts": {
+      "get": {
+        "operationId": "person_accounts_api_v1_admin_identity_persons__person_id__accounts_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "person_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Person Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Person Accounts",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/identity/persons/{person_id}/links": {
+      "get": {
+        "operationId": "person_links_api_v1_admin_identity_persons__person_id__links_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "person_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Person Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Person Links",
         "tags": [
           "admin"
         ]
@@ -21937,6 +22613,593 @@
         "summary": "Web Handoff Redeem",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/api/v1/identity/consolidation": {
+      "post": {
+        "operationId": "request_consolidation_api_v1_identity_consolidation_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsolidationIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Request Consolidation",
+        "tags": [
+          "identity-linking"
+        ]
+      }
+    },
+    "/api/v1/identity/consolidation-status": {
+      "get": {
+        "operationId": "consolidation_status_api_v1_identity_consolidation_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Consolidation Status",
+        "tags": [
+          "identity-linking"
+        ]
+      }
+    },
+    "/api/v1/identity/history": {
+      "get": {
+        "operationId": "unified_orders_api_v1_identity_history_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Unified Orders",
+        "tags": [
+          "identity-linking"
+        ]
+      }
+    },
+    "/api/v1/identity/link-operations": {
+      "get": {
+        "operationId": "link_operations_api_v1_identity_link_operations_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Link Operations",
+        "tags": [
+          "identity-linking"
+        ]
+      }
+    },
+    "/api/v1/identity/link/confirm": {
+      "post": {
+        "operationId": "link_confirm_api_v1_identity_link_confirm_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Link Confirm",
+        "tags": [
+          "identity-linking"
+        ]
+      }
+    },
+    "/api/v1/identity/link/email/confirm": {
+      "post": {
+        "operationId": "link_email_confirm_api_v1_identity_link_email_confirm_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailConfirmIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Link Email Confirm",
+        "tags": [
+          "identity-linking"
+        ]
+      }
+    },
+    "/api/v1/identity/link/email/start": {
+      "post": {
+        "operationId": "link_email_start_api_v1_identity_link_email_start_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailStartIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Link Email Start",
+        "tags": [
+          "identity-linking"
+        ]
+      }
+    },
+    "/api/v1/identity/link/google": {
+      "post": {
+        "description": "Complete a Google link. Same nonce-cookie binding as Google sign-in (``GET /auth/google/nonce`` is the *start*).",
+        "operationId": "link_google_api_v1_identity_link_google_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleLinkIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Link Google",
+        "tags": [
+          "identity-linking"
+        ]
+      }
+    },
+    "/api/v1/identity/link/reject": {
+      "post": {
+        "operationId": "link_reject_api_v1_identity_link_reject_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Link Reject",
+        "tags": [
+          "identity-linking"
+        ]
+      }
+    },
+    "/api/v1/identity/link/telegram/start": {
+      "post": {
+        "operationId": "link_telegram_start_api_v1_identity_link_telegram_start_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelegramStartOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Link Telegram Start",
+        "tags": [
+          "identity-linking"
+        ]
+      }
+    },
+    "/api/v1/identity/linked-accounts": {
+      "get": {
+        "operationId": "linked_accounts_api_v1_identity_linked_accounts_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Linked Accounts",
+        "tags": [
+          "identity-linking"
+        ]
+      }
+    },
+    "/api/v1/identity/me": {
+      "get": {
+        "operationId": "my_profile_api_v1_identity_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "My Profile",
+        "tags": [
+          "identity-linking"
+        ]
+      }
+    },
+    "/api/v1/identity/reauth": {
+      "get": {
+        "description": "Which proof a sensitive change needs for this account: ``password`` | ``email_code`` | ``session``.",
+        "operationId": "reauth_method_api_v1_identity_reauth_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reauth Method",
+        "tags": [
+          "identity-linking"
+        ]
+      }
+    },
+    "/api/v1/identity/reauth/email/start": {
+      "post": {
+        "operationId": "reauth_email_start_api_v1_identity_reauth_email_start_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reauth Email Start",
+        "tags": [
+          "identity-linking"
+        ]
+      }
+    },
+    "/api/v1/identity/unlink": {
+      "post": {
+        "operationId": "unlink_api_v1_identity_unlink_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnlinkIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Unlink",
+        "tags": [
+          "identity-linking"
+        ]
+      }
+    },
+    "/api/v1/internal/identity/telegram/status": {
+      "get": {
+        "description": "Is this Telegram id attached to a person, and to how many accounts / login methods? No names, no balances.",
+        "operationId": "telegram_status_api_v1_internal_identity_telegram_status_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "telegram_id",
+            "required": true,
+            "schema": {
+              "title": "Telegram Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-bot-secret",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "X-Bot-Secret",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Telegram Status",
+        "tags": [
+          "identity-linking-internal"
         ]
       }
     },

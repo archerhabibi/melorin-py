@@ -258,3 +258,8 @@ Source: `Melorin_Architecture_Admin_Audit.md` (the project has never been releas
 
 ## r21 - final verification (branch refactor/audit-r21-verified)
 - Re-ran on the server from branch r20: lint-imports 8 kept, ruff clean (684 files), mypy clean (371 files), API suite 2728 passed / 1 skipped, admin-web tsc and eslint clean, vitest 309 passed (42 files). No code change; all audit items are implemented (see docs/AUDIT-R18-STATUS.md). Not run: real panels, Telegram bots, Playwright, restore drill.
+
+## Person account linking follow-up
+
+- Re-authentication for sensitive linking changes: password if the account has one, else a single-use e-mail code (purpose identity_reauth, bound to the user id). Accounts with neither keep session proof plus the last-login-method guard: accepted for now because the access token is short-lived and a stronger proof (fresh Google sign-in or bot confirmation) would need a product call.
+- Audit 13 and 14 stay as decided in r15/r17: bulk panel operations infrastructure-only, Telegram buttons in the system area.
