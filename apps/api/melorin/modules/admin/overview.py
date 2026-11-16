@@ -7,7 +7,7 @@ from melorin.core.deps import AdminUser, Session
 from melorin.kernel.models.identity import User
 from melorin.modules.admin import bot_bindings
 from melorin.kernel.models.system import BackupRun
-from melorin.kernel.models.tickets import Ticket
+from melorin.modules.tickets import queries as ticket_queries
 from melorin.modules.admin.schemas import (
     CreateBotStoreBinding,
 )
@@ -54,7 +54,7 @@ async def dashboard(_: AdminUser, session: Session):
         "orders": await count_by_status(session),
         "attention": await operations_center.attention(session),
         "active_users": await session.scalar(select(func.count()).select_from(User).where(User.is_active.is_(True))),
-        "open_tickets": await session.scalar(select(func.count()).select_from(Ticket).where(Ticket.status == "open")) or 0,
+        "open_tickets": await ticket_queries.count_open(session),
     }
 
 

@@ -12,7 +12,7 @@ from melorin.kernel.models.identity import IdentityLinkReview
 from melorin.kernel.models.orders import Order
 from melorin.kernel.models.payments import Payment
 from melorin.kernel.models.stores import ResellerApplication
-from melorin.kernel.models.tickets import Ticket
+from melorin.modules.tickets import queries as ticket_queries
 from melorin.kernel.models.vpn import BulkOperation, PanelEvent, PanelOrphan, ReconciliationIssue
 
 # queue key -> (domain group, admin section slug that owns the remedy)
@@ -50,7 +50,7 @@ async def attention(session: AsyncSession) -> dict:
         "reseller_applications": await _count(
             session, ResellerApplication.id, ResellerApplication.status.in_(("pending", "awaiting_details"))
         ),
-        "open_tickets": await _count(session, Ticket.id, Ticket.status == "open"),
+        "open_tickets": await ticket_queries.count_open(session),
     }
     items = [{"key": key, "group": QUEUES[key][0], "section": QUEUES[key][1], "count": counts[key]} for key in QUEUES]
     return {"total": sum(counts.values()), "items": items}
