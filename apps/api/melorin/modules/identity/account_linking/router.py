@@ -100,9 +100,9 @@ async def link_reject(body: RejectIn, user: CurrentUser, session: Session):
 
 
 @router.get("/reauth")
-async def reauth_method(user: CurrentUser):
-    """Which proof a sensitive change needs for this account: ``password`` | ``email_code`` | ``session``."""
-    return {"method": reauth.method_for(user)}
+async def reauth_method(user: CurrentUser, session: Session):
+    """Which proof a sensitive change needs: ``password`` | ``email_code`` | ``google`` | ``telegram_code`` | ``session``."""
+    return {"method": await reauth.method_for(session, user)}
 
 
 @router.post("/reauth/email/start")
@@ -112,10 +112,25 @@ async def reauth_email_start(user: CurrentUser, session: Session):
     return {"ok": True, "expires_in": 600, **({"dev_code": dev_code} if dev_code else {})}
 
 
+@router.post("/reauth/telegram/start")
+async def reauth_telegram_start(user: CurrentUser, session: Session):
+    await _limit(user, "reauth-start", 5, 300)
+    dev_code = await reauth.start_telegram_code(session, user)
+    return {"ok": True, "expires_in": 600, **({"dev_code": dev_code} if dev_code else {})}
+
+
 @router.post("/unlink")
-async def unlink(body: UnlinkIn, user: CurrentUser, session: Session):
+async def unlink(body: UnlinkIn, user: CurrentUser, session: Session, request: Request, response: Response):
     await _limit(user, "unlink", 10, 300)
-    await reauth.require(session, user, password=body.current_password, code=body.reauth_code)
+    await reauth.require(
+        session,
+        user,
+        password=body.current_password,
+        code=body.reauth_code,
+        google_id_token=body.google_id_token,
+        google_nonce=(getattr(request, "cookies", None) or {}).get(GOOGLE_NONCE_COOKIE),
+    )
+    response.delete_cookie(GOOGLE_NONCE_COOKIE, path=GOOGLE_NONCE_PATH)  # the nonce is single use
     return await linking.unlink_identity(session, user, body.identity_id)
 
 
