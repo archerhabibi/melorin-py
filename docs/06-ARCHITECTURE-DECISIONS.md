@@ -446,6 +446,79 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-11-16 20:20 UTC - Claude - admin-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** style(admin-web): prettier-format AdminSession.tsx to fix CI format:check
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `apps/admin-web/src/app/AdminSession.tsx`
+- **Ref:** `f114b84`
+
+### 2026-11-16 20:03 UTC - Claude - store-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** style(store-web): prettier-format DashboardLinking.tsx to fix CI format:check
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `apps/store-web/src/dashboard/DashboardLinking.tsx`
+- **Ref:** `72e06b7`
+
+### 2026-11-16 12:48 UTC - Melorin Dev - docs  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** docs: record strong reauth, permission matrix, downloadFile, migration commands (docs 08-12, 19, 21)
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (7):** `docs/08-IDENTITY-ACCOUNT-PERSON.md`, `docs/09-ADMIN-UI-ARCHITECTURE.md`, `docs/10-UX-UI-DESIGN-SYSTEM.md`, `docs/11-API-CONTRACTS.md`, `docs/12-SECURITY-AUTHORIZATION.md`, `docs/19-DATABASE-MIGRATIONS.md`, `docs/21-ROADMAP-TECHNICAL-DEBT.md`
+- **Ref:** `d1ef471`
+
+### 2026-11-16 12:47 UTC - Melorin Dev - api, tests, docs  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** chore: regenerate api-client, API/STATUS docs; ruff fixes for reauth work
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (7):** `apps/api/melorin/modules/identity/account_linking/schemas.py`, `apps/api/melorin/modules/notifications/dispatch.py`, `apps/api/tests/http/test_identity_reauth_strong_http.py`, `docs/API.md`, `docs/STATUS.md`, `packages/api-client/openapi.json`, `packages/api-client/src/schema.d.ts`
+- **Ref:** `6faeab5`
+
+### 2026-11-16 12:44 UTC - Melorin Dev - admin-web, tests, store-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(web): reauth UI for Google/Telegram-only accounts; downloadFile helper replaces view-level authFetch
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (5):** `apps/admin-web/src/api/api.ts`, `apps/admin-web/src/app/AdminSession.tsx`, `apps/admin-web/src/features/reports/ReportsParts.tsx`, `apps/api/tests/contracts/test_admin_web_token_storage.py`, `apps/store-web/src/dashboard/DashboardLinking.tsx`
+- **Ref:** `e78cc59`
+
+### 2026-11-16 12:37 UTC - Melorin Dev - api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(identity): stronger re-authentication for Google/Telegram-only accounts; fix DM to revoked Telegram
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (6):** `apps/api/melorin/modules/identity/account_linking/reauth.py`, `apps/api/melorin/modules/identity/account_linking/router.py`, `apps/api/melorin/modules/identity/account_linking/schemas.py`, `apps/api/melorin/modules/identity/google.py`, `apps/api/melorin/modules/notifications/dispatch.py`, `apps/api/tests/http/test_identity_reauth_strong_http.py`
+- **Ref:** `0c079eb`
+
+### 2026-11-16 12:07 UTC - Pori Toooni - api, docs  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** chore: keep generated STATUS unchanged; correct config comment
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (2):** `apps/api/melorin/core/config.py`, `docs/STATUS.md`
+- **Ref:** `8e026e8`
+
+### 2026-11-16 12:06 UTC - Pori Toooni - api, tests, docs  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(identity): auto-continue consolidation after confirmed link (default on); docs 07/08 bilingual identity section
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (7):** `apps/api/melorin/core/config.py`, `apps/api/melorin/modules/identity/account_linking/linking.py`, `apps/api/tests/http/test_identity_consolidation_http.py`, `apps/api/tests/service/test_account_linking_service.py`, `docs/07-DOMAIN-DATA-MODEL.md`, `docs/08-IDENTITY-ACCOUNT-PERSON.md`, `docs/STATUS.md`
+- **Ref:** `328d61f`
+
+### 2026-11-16 11:52 UTC - Pori Toooni - docs  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** docs: drop stale server-level product_codes rule from business rules
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `docs/04-BUSINESS-RULES.md`
+- **Ref:** `fbe1d56`
+
+
 ### 2026-11-16 08:21 UTC - Claude - tests, docs  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
