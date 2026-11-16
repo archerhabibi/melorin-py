@@ -247,3 +247,17 @@ Docker/Compose (no docker on the test server), real Telegram bots, payment gatew
 
 - EN: pure moves, no behaviour change. `BundleDrawer` 695 to 397 (`BundlePackages`, `ResellerPrices`), `PanelDrawer` 648 to 505 (`panelForm.ts`), `PanelsView` 563 to about 440 (`panelsList.ts` pure list logic, `PanelsOverlays`), `ProductParts` 533 to 225 (`ProductDrawer`, `ProductSwitches`), `ReportsSections` 519 to 168, `ButtonStylesView` 508 to 222, `IdentityReviewsView` 483 to 162, `ResellerApplicationsView` 468 to 194. Second pass: `PanelDrawer` to 374 (`PanelConnectionSection`, `PanelCredentialsSection`), `ReceiptReviewPanel` to 376 (`ReceiptRow`, `receiptHelpers.ts`), `ReportCharts` to 61 (`CompareChart`, `DistributionCharts`), `AdminTeamParts` to 112 (`InviteDrawer`, `AdminDrawer`). No admin-web file is above 450 lines now.
 - FA: جابه‌جایی خالص بدون تغییر رفتاری انجام شد (اعداد بالا). بعد از دومین مرحله هیچ فایل admin-web بزرگ‌تر از ۴۵۰ خط نیست.
+
+### Verification run r22 (2026-11-16, Ubuntu 24.04, Python 3.12, Node 22, Docker 29.1, PostgreSQL 16, Redis 7) / گزارش اجرای اعتبارسنجی
+
+| Control | Result |
+|---|---|
+| API suite (not integration, not concurrency) | 2708 passed, 1 skipped |
+| integration + concurrency markers (PostgreSQL 16 + Redis 7) | 12 passed, 1 skipped |
+| `alembic upgrade head` on an empty database, `alembic check`, baseline PostgreSQL test (upgrade, downgrade, upgrade) | passed, no drift |
+| ruff check/format, mypy (384 files), import-linter (8 contracts), `gen_docs --check` | clean |
+| admin-web tsc, eslint (max-warnings 0), vitest | 42 files / 309 tests passed; `vite build` ok |
+| Playwright E2E (Chromium, mocked API) | 24 passed, 2 skipped (they need a seeded staging stack) |
+| `docker compose up --build` postgres, redis, migrate, api on an empty volume | migrate reached `0001_initial_baseline`; api container healthy, `/healthz` 200 |
+
+Still not run: real PasarGuard/Sanaei panels, real Telegram bots, Zarinpal, Caddy + Prometheus/Alertmanager profile, backup restore drill from S3.
