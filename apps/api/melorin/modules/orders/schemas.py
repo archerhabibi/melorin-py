@@ -43,22 +43,3 @@ class OrderOut(BaseModel):
     completed_at: dt.datetime | None
     payment_id: uuid.UUID | None = None
     payment_instructions: dict | None = None
-
-
-class AdminOrderOut(OrderOut):
-    reseller_cost: int | None
-    provisioning_attempts: int
-    last_error: str | None
-    pricing_snapshot: dict
-
-
-class AdminOrderAction(BaseModel):
-    reason: str | None = Field(default=None, max_length=500)
-
-
-class AttachAccount(BaseModel):
-    server_id: uuid.UUID
-    username: str
-    panel_ref: str | None = None
-    subscription_url: str | None = None
-    reason: str | None = None

@@ -47,9 +47,3 @@ def decrypt(cipher: str | None) -> str | None:
         return _fernet().decrypt(cipher.encode()).decode()
     except InvalidToken as e:  # key rotated / corrupted
         raise RuntimeError("cannot decrypt secret") from e
-
-
-def mask(secret: str | None, keep: int = 4) -> str:
-    if not secret:
-        return ""
-    return "*" * max(0, len(secret) - keep) + secret[-keep:]

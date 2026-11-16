@@ -1,0 +1,95 @@
+From 2a7fc889c5d9cd19765390a61814b33d6abc9632 Mon Sep 17 00:00:00 2001
+From: Melorin Dev <dev@melorin.local>
+Date: Sun, 15 Nov 2026 14:23:18 +0000
+Subject: [PATCH 1/2] docs: r21 final verification record
+
+---
+ docs/DECISIONS.md | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index ef36822..9b482e9 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -255,3 +255,6 @@ Source: `Melorin_Architecture_Admin_Audit.md` (the project has never been releas
+ - Still open on purpose: remaining 500-600 line admin-web bodies (see docs/AUDIT-R18-STATUS.md debt register); rotate the GitHub token that was pasted into chat.
+ 
+ - r20 (2): ServerForm to ServerImport, UpstreamBotFields to UpstreamGuide and UpstreamEditors, TelegramLoginSettings to TelegramLoginParts, infra to InfraChain, ReportsView to ReportsSections (typed ReportModel props). Pure moves; typing ratchet lowered 2031 to 2029; tsc, eslint, vitest 309 and 210 UI contract tests green.
++
++## r21 - final verification (branch refactor/audit-r21-verified)
++- Re-ran on the server from branch r20: lint-imports 8 kept, ruff clean (684 files), mypy clean (371 files), API suite 2728 passed / 1 skipped, admin-web tsc and eslint clean, vitest 309 passed (42 files). No code change; all audit items are implemented (see docs/AUDIT-R18-STATUS.md). Not run: real panels, Telegram bots, Playwright, restore drill.
+-- 
+2.43.0
+
+
+From 1312fc07a75519544b08cac05702ca29e7b52744 Mon Sep 17 00:00:00 2001
+From: Melorin Dev <dev@melorin.local>
+Date: Sun, 15 Nov 2026 14:46:36 +0000
+Subject: [PATCH 2/2] docs: r21 full test run report
+
+---
+ docs/RUN-R21-REPORT.md    | 21 +++++++++++++++++++++
+ patches/melorin-r21.patch | 23 +++++++++++++++++++++++
+ 2 files changed, 44 insertions(+)
+ create mode 100644 docs/RUN-R21-REPORT.md
+ create mode 100644 patches/melorin-r21.patch
+
+diff --git a/docs/RUN-R21-REPORT.md b/docs/RUN-R21-REPORT.md
+new file mode 100644
+index 0000000..73d44f9
+--- /dev/null
++++ b/docs/RUN-R21-REPORT.md
+@@ -0,0 +1,21 @@
++# r21 full test run (2026-11-15, Ubuntu 24.04, Docker, Chromium)
++
++| Lane | Result |
++|---|---|
++| lint-imports / ruff / mypy (371 files) | clean, 8 contracts kept |
++| API unit suite | 2728 passed, 1 skipped |
++| admin-web tsc, eslint, vitest | clean, 309 passed |
++| Playwright (Chromium, mocked API) | 24 passed, 2 skipped (need a seeded staging stack) |
++| Docker: rebuild + upgrade of an existing r15 database to head 0056 | all services healthy |
++| Live smoke scripts/e2e_smoke.py (API + worker + Postgres + Redis, mock panel) | ALL PASSED (32 checks) |
++| PostgreSQL 16 lane (TEST_PG_URL) | 8 passed |
++| integration + concurrency (PG 16 + Redis 7) | 11 passed, 1 skipped |
++| alembic upgrade head from empty, alembic check | head 0056, no drift |
++| test_deploy.sh, test_restore_drill.sh | passed |
++
++## Findings
++- Alertmanager restart loop (permission denied on the entrypoint bind mount) when the checkout dir and infra/ are mode 0700. Environment issue, fixed with chmod 755 on the checkout and infra/. No code defect.
++- No code defects found by any lane.
++
++## Not run
++Real PasarGuard panel, real Telegram bots, Zarinpal, Caddy TLS profile, real backup restore with age, the 2 seeded-stack Playwright tests.
+diff --git a/patches/melorin-r21.patch b/patches/melorin-r21.patch
+new file mode 100644
+index 0000000..04b6462
+--- /dev/null
++++ b/patches/melorin-r21.patch
+@@ -0,0 +1,23 @@
++From 2a7fc889c5d9cd19765390a61814b33d6abc9632 Mon Sep 17 00:00:00 2001
++From: Melorin Dev <dev@melorin.local>
++Date: Sun, 15 Nov 2026 14:23:18 +0000
++Subject: [PATCH] docs: r21 final verification record
++
++---
++ docs/DECISIONS.md | 3 +++
++ 1 file changed, 3 insertions(+)
++
++diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
++index ef36822..9b482e9 100644
++--- a/docs/DECISIONS.md
+++++ b/docs/DECISIONS.md
++@@ -255,3 +255,6 @@ Source: `Melorin_Architecture_Admin_Audit.md` (the project has never been releas
++ - Still open on purpose: remaining 500-600 line admin-web bodies (see docs/AUDIT-R18-STATUS.md debt register); rotate the GitHub token that was pasted into chat.
++ 
++ - r20 (2): ServerForm to ServerImport, UpstreamBotFields to UpstreamGuide and UpstreamEditors, TelegramLoginSettings to TelegramLoginParts, infra to InfraChain, ReportsView to ReportsSections (typed ReportModel props). Pure moves; typing ratchet lowered 2031 to 2029; tsc, eslint, vitest 309 and 210 UI contract tests green.
+++
+++## r21 - final verification (branch refactor/audit-r21-verified)
+++- Re-ran on the server from branch r20: lint-imports 8 kept, ruff clean (684 files), mypy clean (371 files), API suite 2728 passed / 1 skipped, admin-web tsc and eslint clean, vitest 309 passed (42 files). No code change; all audit items are implemented (see docs/AUDIT-R18-STATUS.md). Not run: real panels, Telegram bots, Playwright, restore drill.
++-- 
++2.43.0
++
+-- 
+2.43.0
+

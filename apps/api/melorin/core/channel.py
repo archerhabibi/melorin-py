@@ -332,11 +332,6 @@ async def api_channel(session, raw_key: str | None, *, store_id: uuid.UUID, scop
     return ApiAccess(Channel(API, store.id, cred.key_prefix, store.kind, store.status, store.owner_user_id, cred.id), cred, store)
 
 
-def of_refresh_row(row: Any) -> Channel:
-    """The binding a refresh-token family was created with (rotation re-issues exactly this)."""
-    return Channel(row.channel, row.store_id)
-
-
 # ---------------------------------------------------------------------------------------------- enforcement
 def ensure_store(claims: SessionClaims, store_id: uuid.UUID) -> None:
     """Customer plane: the session may act only in the store it was opened for (admin sessions are platform-wide).

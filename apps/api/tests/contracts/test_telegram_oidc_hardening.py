@@ -193,6 +193,6 @@ def test_storefront_uses_the_shared_buttons_and_retries_after_a_failed_redirect(
 
 
 def test_admin_panel_describes_saved_state_and_guards_unsaved_edits():
-    src = read_web_source(ROOT / "apps/admin-web/src/TelegramLoginSettings.tsx")
+    src = read_web_source(ROOT / "apps/admin-web/src/features/settings/TelegramLoginSettings.tsx")
     assert "const dirty" in src and "تغییرات ذخیره‌نشده" in src and "botReady" in src and "oidcReady" in src and "ttlError" in src
     assert "saved.store_login" in src  # the badge honours the storefront switch, like the server's public_telegram()

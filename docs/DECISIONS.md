@@ -156,7 +156,7 @@ _Merged from the former 12-Change-Log-v1.1.md._
 
 - r5 (verification, 2026-11-14): admin-web lint, typecheck, 299 tests (38 files), build and prettier all pass on this branch. Phase 3 (moving views to the typed api-client) is deliberately left for later, per the audit: gradual, endpoint by endpoint, not in this PR. Patch files: `patches/fix-arch-admin-ui-r5-identity-nav.*`.
 
-- r5 (phase 3, first step): `typedClient(base)` in `admin-web/src/api.ts` is the typed `@melorin/api-client` on the same transport rules as `authFetch` (in-memory bearer token, one shared refresh on 401). Identity reviews (list/dismiss/reopen) and Payments (list, destinations get/put) now use it; the remaining dynamic-path calls stay on `authFetch` until each endpoint is migrated. Note: the OpenAPI schema renders free-form objects as `Record<string, never>`, so destination bodies are cast once at the call site.
+- r5 (phase 3, first step): `typedClient(base)` in `admin-web/src/api/api.ts` is the typed `@melorin/api-client` on the same transport rules as `authFetch` (in-memory bearer token, one shared refresh on 401). Identity reviews (list/dismiss/reopen) and Payments (list, destinations get/put) now use it; the remaining dynamic-path calls stay on `authFetch` until each endpoint is migrated. Note: the OpenAPI schema renders free-form objects as `Record<string, never>`, so destination bodies are cast once at the call site.
 - r5 (phase 4, real stack, 2026-11-14): Docker Compose (postgres, redis, api, worker, store-web, admin-web) built and run from an empty DB through migration 0056; `scripts/e2e_smoke.py` (mock panel) passed all checks (wallet top-up approval, purchase, provisioning, outbox, 401/403, throttling). Finding fixed: refunding a payment whose provider has no automatic refund (manual card) raised an unhandled `NotImplementedError` (HTTP 500); it is now a 409 `REFUND_NOT_SUPPORTED` with the money untouched, with a regression test. Selected API tests (payments, wallet ledger, order money, contracts): 548 passed, 1 skipped; `lint-imports` 8/8. Still NOT run: a real PasarGuard panel, Telegram bots, Caddy/Prometheus/Alertmanager, a live Zarinpal sandbox, the Playwright suite against Compose, and the full API suite.
 
 - r5 (phase 4, real PasarGuard, 2026-11-14): a live PasarGuard panel was registered in the Compose stack with an API key (read-only checks only, no accounts created or changed on the panel). Panel registration, adapter health check and reconciliation all worked: health reported `degraded` because 4 of 8 panel nodes could not be reached from the panel itself (panel-side), reconciliation completed with 0 errors and listed the 2 panel users Melorin does not know as orphans. Not covered: provisioning/renewal/deletion of a real account, node traffic, and `scripts/pasarguard_contract.py diff` (the panel hides its public OpenAPI; export it inside the container as the script documents).
@@ -188,7 +188,7 @@ _Merged from the former 12-Change-Log-v1.1.md._
 
 Source: `Melorin_Architecture_Admin_Audit.md` (the project has never been released, so menu and compose structure may change freely; money, security and state machines still need tests).
 
-- **Menu regrouped by the admin's job** (`adminNav.ts`): نمای کلی / فروش و عملیات / مشتریان / فروشگاه‌ها و نمایندگان / کاتالوگ و بازاریابی / زیرساخت و عملیات پنل / ارتباطات / سیستم و امنیت. Section keys (Persian labels) and slugs are unchanged except the removed one below, so permissions and deep links keep working.
+- **Menu regrouped by the admin's job** (`adminNav.ts`): نمای کلی / فروش و عملیات / مشتریان / فروشگاه‌ها و نمایندگان / کاتالوگ و بازاریابی / زیرساخت و عملیات پنل / اعلان‌ها، ارتباطات و پشتیبانی (پیام همگانی، مرکز رویداد، تیکت‌ها؛ فقط گروه‌بندی UI و بدون ادغام ماژول‌های backend) / سیستم و امنیت. Section keys (Persian labels) and slugs are unchanged except the removed one below, so permissions and deep links keep working.
 - **«عملیات گروهی روی پنل» moved to the infrastructure group** (it already used the `infrastructure` permission). Whether support may also run bulk operations stays a product decision: if yes, add a narrow dedicated permission, never the whole `infrastructure` area.
 - **«کارهای دستی» has no menu entry any more**: it is the tab «اقدامات تکمیلی» of «درخواست‌های نمایندگی» (`ResellerOnboardingView`, `#/reseller-applications?tab=tasks`). The tab is shown only to roles with the `customers` area (the manual-tasks API rule); the menu badge sums pending applications and open tasks. `legacyHash` rewrites `#/manual-tasks`. The API is untouched.
 - **«دکمه‌های تلگرام» moved to «سیستم و امنیت»**: its permission is `system` (owner only), so it now sits with the owner-only settings instead of the communications group where a manager would see a wall of 403s.
@@ -238,3 +238,23 @@ Source: `Melorin_Architecture_Admin_Audit.md` (the project has never been releas
 - Product decisions unchanged from r15: bulk panel operations stay infrastructure-only, Telegram buttons stay system (owner).
 - r17 verification (2026-11-15, Ubuntu 24.04, Python 3.12, Node 22): lint-imports 8 contracts kept, ruff check and format clean, mypy clean on 349 files, admin-web eslint clean and vitest 303 passed, API suite (not integration, not concurrency) 2728 passed, 1 skipped after fixing 3 bulk tests that now patch bulk_runner.CHUNK.
 - r17 stabilization evidence: tests/postgres lane 8 passed on real PostgreSQL 16; alembic upgrade head from an empty DB reached the current head (see docs/STATUS.md) and alembic check found no drift. Not run here: upgrade from an older DB, real panels, Telegram bots, Playwright, backup restore drill (needs a Docker host).
+
+## r18 - audit implementation (branch refactor/audit-r18-impl)
+- Tickets moved to the menu group «اعلان‌ها، ارتباطات و پشتیبانی» (with broadcasts and the event center). UI grouping only: no backend module is merged. Still 8 groups; role matrix pinned by `nav-role-matrix.test.js`.
+- Large backend files split behind unchanged facades (`payments.bank_sms` package, `loyalty.service`, `referral.service`, `reports.analytics`). Public names, worker patch points and API contracts are unchanged. `upstream_bot/adapter.py` is intentionally left whole (ordered bot protocol).
+- Dead code removed (unreferenced functions, schemas and admin-web exports). Backend modules are kept.
+- admin-web moved to `app/`, `api/`, `features/*` (pure moves). `docs/AUDIT-R18-STATUS.md` is the live audit status and debt register; `docs/AUDIT-2026-11-15.md` is historical.
+
+## r19 - audit leftovers (branch refactor/audit-r19-impl)
+- `upstream_bot/adapter.py`: defaults moved to `config.py`, mapping store and chat lock to `state.py` (the test patch point is now `upstream_bot.state`). Flows deliberately stay in one class.
+- admin-web: shared kit/ui/charts/theme/types/useDialog moved to `src/shared/` (pure move, imports rewritten, tsc/eslint/vitest green).
+
+## r20 - audit follow-up (branch refactor/audit-r20-impl)
+- admin-web PanelsView: the KPI strip, search/filter/sort toolbar and scope banner moved to PanelsToolbar.tsx (pure move, 638 to 562 lines). No behaviour change.
+- Re-verified on a clean checkout: lint-imports 8 kept, ruff clean, mypy clean (371 files), admin-web tsc, eslint and vitest (42 files, 309 tests) green.
+- Still open on purpose: remaining 500-600 line admin-web bodies (see docs/AUDIT-R18-STATUS.md debt register); rotate the GitHub token that was pasted into chat.
+
+- r20 (2): ServerForm to ServerImport, UpstreamBotFields to UpstreamGuide and UpstreamEditors, TelegramLoginSettings to TelegramLoginParts, infra to InfraChain, ReportsView to ReportsSections (typed ReportModel props). Pure moves; typing ratchet lowered 2031 to 2029; tsc, eslint, vitest 309 and 210 UI contract tests green.
+
+## r21 - final verification (branch refactor/audit-r21-verified)
+- Re-ran on the server from branch r20: lint-imports 8 kept, ruff clean (684 files), mypy clean (371 files), API suite 2728 passed / 1 skipped, admin-web tsc and eslint clean, vitest 309 passed (42 files). No code change; all audit items are implemented (see docs/AUDIT-R18-STATUS.md). Not run: real panels, Telegram bots, Playwright, restore drill.

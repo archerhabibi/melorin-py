@@ -1,0 +1,117 @@
+// «فروشگاه‌ها» — the store hub: everything about a store (and its reseller) behind one menu entry, eight tabs:
+//   stores    «فروشگاه‌ها»       the list of stores
+//   resellers «نمایندگان»        reseller accounts of those stores
+//   panels    «دسترسی پنل»       panel operators (PanelAdmin) and sub branding, per store x panel
+//   volume    «حجم و سیاست»      store volume governance and the suspend policy
+//   prices    «قیمت‌ها»         read-only retail prices of a reseller store (the reseller sets them)
+//   api       «API»             per-store API access switch
+//   notices   «اعلان‌ها»         per-store low-traffic levels, customer notice texts and the owner digest
+//   bots      «ربات‌ها»          bot key -> store bindings
+// Each tab keeps its own permission area (SECTION_AREA of the section it came from), so a role sees only what it may open.
+// Deep link: #/stores?tab=resellers.
+import type { LazyExoticComponent, ReactNode } from 'react';
+import { lazy, Suspense, useState } from 'react';
+import { sectionAllowed } from '../../app/adminAccess.ts';
+import { Segmented } from '../../shared/kit.tsx';
+import type { Toast } from '../../shared/types.ts';
+
+/** The slice of the app-shell api the hub itself reads; the tab views get the whole object. */
+interface HubApi {
+  base?: string;
+  perms?: string[];
+  pendingPanelReq?: number;
+}
+
+const StoresView = lazy(() => import('./StoresView.tsx'));
+const ResellersView = lazy(() => import('./ResellersView.tsx'));
+const PanelAdminsView = lazy(() => import('../panels/PanelAdminsView.tsx'));
+const StoreGovernanceView = lazy(() => import('./StoreGovernanceView.tsx'));
+const StorePricesView = lazy(() => import('./StorePricesView.tsx'));
+const StoreApiView = lazy(() => import('./StoreApiView.tsx'));
+const StoreNoticesView = lazy(() => import('./StoreNoticesView.tsx'));
+const StoreBotsView = lazy(() => import('./StoreBotsView.tsx'));
+
+type HubView = LazyExoticComponent<(p: { api?: HubApi; toast: Toast }) => ReactNode>;
+// tab id -> [label, section key used for the permission check, component]
+const TAB_DEFS: [string, string, string, HubView][] = [
+  ['stores', 'فروشگاه‌ها', 'فروشگاه‌ها', StoresView],
+  ['resellers', 'پروفایل نماینده', 'نمایندگان', ResellersView],
+  ['panels', 'دسترسی پنل', 'اپراتور پنل فروشگاه', PanelAdminsView],
+  ['volume', 'حجم و سیاست', 'حجم فروشگاه‌ها', StoreGovernanceView],
+  ['prices', 'قیمت‌ها', 'محصولات VPN', StorePricesView],
+  ['api', 'API', 'نمایندگان', StoreApiView],
+  ['notices', 'اعلان‌ها', 'حجم فروشگاه‌ها', StoreNoticesView],
+  ['bots', 'ربات‌ها', 'نمایندگان', StoreBotsView],
+];
+
+// r15 (audit 5.4): the eight tabs read as three visual groups; the data, permissions and deep links are unchanged.
+const GROUPS: [string, string][] = [
+  ['profile', 'مشخصات فروشگاه و نماینده'],
+  ['ops', 'تنظیمات عملیاتی فروشگاه'],
+  ['integrations', 'یکپارچه‌سازی‌ها و دسترسی‌ها'],
+];
+const TAB_GROUP: Record<string, string> = {
+  stores: 'profile',
+  resellers: 'profile',
+  prices: 'profile',
+  volume: 'ops',
+  notices: 'ops',
+  panels: 'integrations',
+  api: 'integrations',
+  bots: 'integrations',
+};
+
+const tabFromHash = (ids: string[]) => {
+  const q = typeof window === 'undefined' ? '' : window.location.hash.split('?')[1] || '';
+  const t = new URLSearchParams(q).get('tab') ?? '';
+  return ids.includes(t) ? t : ids[0];
+};
+
+export default function StoreHubView({ api, toast }: { api?: HubApi; toast: Toast }) {
+  const tabs = TAB_DEFS.filter(([, , section]) => sectionAllowed(api?.perms, section));
+  const ids = tabs.map(([id]) => id);
+  const [tab, setTab] = useState(() => tabFromHash(ids));
+  const pick = (v: string) => {
+    setTab(v);
+    // replaceState: switching tabs adds no history entry
+    window.history.replaceState(
+      null,
+      '',
+      `${window.location.pathname}${window.location.search}#/stores${v === ids[0] ? '' : `?tab=${v}`}`,
+    );
+  };
+  const active = tabs.find(([id]) => id === tab) ?? tabs[0];
+  if (!active) return null;
+  const View = active[3];
+  return (
+    <div className="space-y-5">
+      <h2 className="text-lg font-extrabold">مدیریت فروشگاه‌ها و نمایندگان</h2>
+      {GROUPS.map(([gid, caption]) => {
+        const own = tabs.filter(([id]) => TAB_GROUP[id] === gid);
+        if (!own.length) return null;
+        return (
+          <div key={gid} className="space-y-1.5">
+            <div className="text-xs font-bold text-[var(--mu)]">{caption}</div>
+            <Segmented
+              label={`بخش فروشگاه: ${caption}`}
+              value={own.some(([id]) => id === active[0]) ? active[0] : ''}
+              onChange={pick}
+              options={own.map(([id, label]) => [
+                id,
+                <>
+                  {label}
+                  {id === 'panels' && (api?.pendingPanelReq ?? 0) > 0 && (
+                    <b className="num mr-1">{api?.pendingPanelReq}</b>
+                  )}
+                </>,
+              ])}
+            />
+          </div>
+        );
+      })}
+      <Suspense fallback={<div className="skel h-44" />}>
+        <View key={active[0]} api={api} toast={toast} />
+      </Suspense>
+    </div>
+  );
+}

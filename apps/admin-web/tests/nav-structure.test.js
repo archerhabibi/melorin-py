@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { groups, flat } from '../src/adminNav.ts';
-import { extraRoutes } from '../src/AdminExtra.tsx';
-import { SECTION_AREA, sectionAllowed } from '../src/adminAccess.ts';
+import { groups, flat } from '../src/app/adminNav.ts';
+import { extraRoutes } from '../src/app/AdminExtra.tsx';
+import { SECTION_AREA, sectionAllowed } from '../src/app/adminAccess.ts';
 
 const where = (label) => groups.find(([, items]) => items.some((i) => i[0] === label))?.[0];
 
@@ -33,5 +33,12 @@ describe('admin menu structure (architecture audit §5-§6)', () => {
       expect(Object.keys(extraRoutes), label).toContain(label);
     }
     for (const [label] of flat) expect(SECTION_AREA[label], label).toBeTruthy();
+  });
+  it('puts tickets in the notifications, communications and support group (UI grouping only), not under sales', () => {
+    const group = 'اعلان‌ها، ارتباطات و پشتیبانی';
+    for (const label of ['پیام همگانی', 'مرکز رویداد', 'تیکت‌ها']) expect(where(label), label).toBe(group);
+    expect(where('سفارش‌ها')).toBe('فروش و عملیات');
+    expect(where('تیکت‌ها')).not.toBe('فروش و عملیات');
+    expect(groups.map(([name]) => name)).toHaveLength(8);
   });
 });

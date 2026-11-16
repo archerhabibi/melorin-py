@@ -160,6 +160,18 @@ def read_store_shell(root: str | Path) -> str:
     return "\n".join(read_web_source(base / name) for name in STORE_SHELL_FILES)
 
 
+def web_file(path: str | Path) -> Path:
+    """Resolve a file of ``apps/admin-web/src`` by its path or, when it moved into ``features/*``, by its unique file name."""
+    p = Path(path)
+    if p.exists() or "admin-web" not in p.parts or "src" not in p.parts:
+        return p
+    root = Path(*p.parts[: p.parts.index("src") + 1])
+    hits = [h for h in root.rglob(p.name) if h.is_file()]
+    if len(hits) != 1:
+        raise FileNotFoundError(f"{p} ({len(hits)} matches under {root})")
+    return hits[0]
+
+
 def read_web_source(path: str | Path) -> str:
     """Return the normalised text of a JS/JSX file (needles must be written with double quotes)."""
-    return normalize_web_source(Path(path).read_text(encoding="utf-8"))
+    return normalize_web_source(web_file(path).read_text(encoding="utf-8"))
