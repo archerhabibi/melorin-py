@@ -35,6 +35,7 @@ from melorin.worker.jobs_identity import (
 from melorin.worker.jobs_payments import (
     bank_sms_reconcile_job,
     receipt_grace_job,
+    refund_recovery_job,
 )
 from melorin.worker.jobs_reports import (
     daily_report_job,
@@ -64,6 +65,7 @@ __all__ = [
     "privacy_retention_job",
     "bank_sms_reconcile_job",
     "receipt_grace_job",
+    "refund_recovery_job",
     "daily_report_job",
     "store_digest_job",
 ]

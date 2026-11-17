@@ -1793,6 +1793,35 @@ def upgrade() -> None:
     )
     op.create_index(op.f("ix_payment_attempts_payment_id"), "payment_attempts", ["payment_id"], unique=False)
     op.create_table(
+        "refund_operations",
+        sa.Column("payment_id", sa.Uuid(), nullable=False),
+        sa.Column("store_id", sa.Uuid(), nullable=False),
+        sa.Column("status", sa.String(length=20), nullable=False),
+        sa.Column("amount", sa.BigInteger(), nullable=False),
+        sa.Column("currency", sa.String(length=8), nullable=False),
+        sa.Column("idempotency_key", sa.String(length=100), nullable=False),
+        sa.Column("external_ref", sa.String(length=200), nullable=True),
+        sa.Column("attempts", sa.Integer(), server_default="0", nullable=False),
+        sa.Column("lease_owner", sa.String(length=64), nullable=True),
+        sa.Column("lease_expires_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("started_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("finished_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("last_error", sa.String(length=500), nullable=True),
+        sa.Column("requested_by", sa.Uuid(), nullable=True),
+        sa.Column("reason", sa.String(length=500), nullable=True),
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.ForeignKeyConstraint(["payment_id"], ["payments.id"], name=op.f("fk_refund_operations_payment_id_payments")),
+        sa.ForeignKeyConstraint(["store_id"], ["stores.id"], name=op.f("fk_refund_operations_store_id_stores")),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_refund_operations")),
+        sa.UniqueConstraint("idempotency_key", name=op.f("uq_refund_operations_idempotency_key")),
+        sa.UniqueConstraint("payment_id", name=op.f("uq_refund_operations_payment_id")),
+    )
+    op.create_index(op.f("ix_refund_operations_payment_id"), "refund_operations", ["payment_id"], unique=False)
+    op.create_index(op.f("ix_refund_operations_store_id"), "refund_operations", ["store_id"], unique=False)
+    op.create_index("ix_refund_operations_status_lease", "refund_operations", ["status", "lease_expires_at"], unique=False)
+    op.create_table(
         "payment_receipt_fingerprints",
         sa.Column("payment_id", sa.Uuid(), nullable=False),
         sa.Column("store_id", sa.Uuid(), nullable=False),
@@ -1882,6 +1911,10 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_payment_receipt_fingerprints_store_id"), table_name="payment_receipt_fingerprints")
     op.drop_index(op.f("ix_payment_receipt_fingerprints_payment_id"), table_name="payment_receipt_fingerprints")
     op.drop_table("payment_receipt_fingerprints")
+    op.drop_index("ix_refund_operations_status_lease", table_name="refund_operations")
+    op.drop_index(op.f("ix_refund_operations_store_id"), table_name="refund_operations")
+    op.drop_index(op.f("ix_refund_operations_payment_id"), table_name="refund_operations")
+    op.drop_table("refund_operations")
     op.drop_index(op.f("ix_payment_attempts_payment_id"), table_name="payment_attempts")
     op.drop_table("payment_attempts")
     op.drop_index(op.f("ix_panel_events_received_at"), table_name="panel_events")

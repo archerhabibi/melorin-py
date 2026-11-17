@@ -1,3 +1,4 @@
+import datetime as dt
 import json
 import logging
 import uuid
@@ -15,7 +16,7 @@ from melorin.kernel.models.identity import User
 from melorin.modules.payments import receipt_fingerprints
 from melorin.modules.payments.adapters.registry import get_adapter
 from melorin.modules.payments.gateway_catalog import validate_destination
-from melorin.kernel.models.payments import Payment, PaymentAttempt
+from melorin.kernel.models.payments import Payment, PaymentAttempt, RefundOperation
 from melorin.kernel.models.stores import Store, StorePaymentConfiguration
 from melorin.modules.wallet import service as wallet
 
@@ -231,56 +232,221 @@ async def mark_failed(session: AsyncSession, payment_id: uuid.UUID, *, actor_id=
     return p
 
 
-async def refund_payment(session: AsyncSession, payment_id: uuid.UUID, *, actor_id, reason: str | None = None) -> Payment:
-    """Refund the external payment, then reverse its wallet credit once."""
+REFUND_LEASE_SECONDS = 180  # > the adapters' HTTP timeouts; a longer silence means the worker died mid-call
+REFUND_MAX_ATTEMPTS = 5
+
+
+def _refund_key(payment_id: uuid.UUID) -> str:
+    return f"payment:{payment_id}:refund"
+
+
+async def _lock_payment(session: AsyncSession, payment_id: uuid.UUID) -> Payment:
     p = await session.get(Payment, payment_id, with_for_update=True, populate_existing=True)
     if not p:
         raise AppError("PAYMENT_NOT_FOUND", "پرداخت یافت نشد.", 404)
+    return p
+
+
+async def _get_payment(session: AsyncSession, payment_id: uuid.UUID) -> Payment:
+    p = await session.get(Payment, payment_id, populate_existing=True)
+    if p is None:
+        raise AppError("PAYMENT_NOT_FOUND", "پرداخت یافت نشد.", 404)
+    return p
+
+
+async def _lock_refund_op(session: AsyncSession, payment_id: uuid.UUID) -> RefundOperation | None:
+    return await session.scalar(
+        select(RefundOperation).where(RefundOperation.payment_id == payment_id).with_for_update().execution_options(populate_existing=True)
+    )
+
+
+def _lease_active(op: RefundOperation) -> bool:
+    exp = op.lease_expires_at
+    if exp is None:
+        return False
+    if exp.tzinfo is None:  # SQLite returns naive datetimes
+        exp = exp.replace(tzinfo=dt.timezone.utc)
+    return exp > utcnow()
+
+
+def _set_refund_meta(p: Payment, state: str, **extra) -> None:
+    p.meta = {**(p.meta or {}), "refund_operation": state, **extra}
+
+
+async def _claim_refund(session: AsyncSession, payment_id: uuid.UUID, *, actor_id, reason: str | None) -> tuple[RefundOperation, dict, str]:
+    """Phase 1 (short transaction): validate, create-or-reclaim the operation, take a lease, COMMIT (drops the row lock)."""
+    p = await _lock_payment(session, payment_id)
     if p.status == P.REFUNDED:
-        return p
+        raise _AlreadyRefunded(p)
     if p.status != P.SUCCEEDED:
         raise AppError("INVALID_PAYMENT_STATE", "فقط پرداخت موفق قابل استرداد است.", 409)
     store = await session.get(Store, p.store_id)
     if store is None:
         raise AppError("STORE_NOT_FOUND", "فروشگاه یافت نشد.", 404)
     cfg = await store_payment_settings(session, store, p.provider)
-    p.meta = {**(p.meta or {}), "refund_operation": "pending"}
-    await session.flush()
-    try:
-        result = await get_adapter(p.provider).refund(p, settings=cfg)
-    except Exception as exc:
-        log.warning("payment refund failed payment=%s provider=%s", p.id, p.provider, exc_info=True)
-        p.meta = {**(p.meta or {}), "refund_operation": "failed", "refund_error": str(exc)[:300]}
-        session.add(PaymentAttempt(payment_id=p.id, action="refund", result="failed", data={"error": str(exc)[:500]}))
-        await session.commit()
-        if isinstance(exc, NotImplementedError):
-            # manual card / destination providers have no automatic refund: a clean 409 for the admin, not a 500
-            raise AppError(
-                "REFUND_NOT_SUPPORTED",
-                "این روش پرداخت استرداد خودکار ندارد؛ جبران دستی از کیف پول انجام شود.",
-                409,
-            ) from exc
-        raise
-    tx = await wallet.find_tx(session, f"payment:{p.id}")
-    if tx:
-        await wallet.reverse(
-            session, tx, key=f"payment:{p.id}:refund", kind="topup_refund", actor_id=actor_id, memo=reason or "استرداد شارژ"
+    op = await _lock_refund_op(session, p.id)
+    if op is None:
+        op = RefundOperation(
+            payment_id=p.id,
+            store_id=p.store_id,
+            status="pending",
+            amount=p.amount,
+            currency=p.currency,
+            idempotency_key=_refund_key(p.id),
+            requested_by=actor_id,
+            reason=(reason or "")[:500] or None,
+            started_at=utcnow(),
         )
-    p.status = P.REFUNDED
-    p.meta = {**(p.meta or {}), "refund_operation": "succeeded", "refund_external_ref": result.external_ref}
-    session.add(PaymentAttempt(payment_id=p.id, action="refund", result="ok", data=result.raw))
-    audit.record(
-        session,
-        "payment.refunded",
-        actor_id=actor_id,
-        actor_type="admin",
-        entity_type="payment",
-        entity_id=p.id,
-        store_id=p.store_id,
-        data={"reason": reason, "external_ref": result.external_ref},
-    )
+        session.add(op)
+        await session.flush()
+    elif op.status == "manual_review":
+        raise AppError("REFUND_MANUAL_REVIEW", "این استرداد برای بررسی دستی علامت خورده است.", 409)
+    elif op.status == "processing" and _lease_active(op):
+        raise AppError("REFUND_IN_PROGRESS", "استرداد در حال انجام است.", 409)
+    elif op.status == "processing" and op.external_ref:
+        pass  # gateway already refunded; the caller finishes the ledger step without another gateway call
+    elif op.status == "processing":
+        # lease expired with no recorded gateway outcome: never re-send blindly
+        op.status, op.last_error = "manual_review", "gateway outcome unknown after lease expiry"
+        _set_refund_meta(p, "manual_review")
+        await session.commit()
+        raise AppError("REFUND_MANUAL_REVIEW", "نتیجهٔ استرداد نامشخص است؛ بررسی دستی لازم است.", 409)
+    if op.attempts >= REFUND_MAX_ATTEMPTS and not op.external_ref:
+        op.status, op.last_error = "manual_review", op.last_error or "max attempts reached"
+        _set_refund_meta(p, "manual_review")
+        await session.commit()
+        raise AppError("REFUND_MANUAL_REVIEW", "تعداد تلاش‌ها به سقف رسید؛ بررسی دستی لازم است.", 409)
+    op.status = "processing"
+    op.attempts += 1
+    op.lease_owner = uuid.uuid4().hex
+    op.lease_expires_at = utcnow() + dt.timedelta(seconds=REFUND_LEASE_SECONDS)
+    _set_refund_meta(p, "pending")
+    await session.commit()
+    return op, cfg, op.lease_owner
+
+
+class _AlreadyRefunded(Exception):
+    def __init__(self, payment: Payment):
+        self.payment = payment
+
+
+async def _record_refund_failure(session: AsyncSession, payment_id: uuid.UUID, lease: str, exc: Exception) -> None:
+    """Phase 2b (failure): release the lease. Money stays in the wallet; NotImplementedError goes to manual review."""
+    p = await _lock_payment(session, payment_id)
+    op = await _lock_refund_op(session, payment_id)
+    unsupported = isinstance(exc, NotImplementedError)
+    if op is not None and op.lease_owner == lease:
+        op.status = "manual_review" if unsupported else "failed"
+        op.last_error = str(exc)[:500]
+        op.lease_owner = op.lease_expires_at = None
+        op.finished_at = utcnow()
+    _set_refund_meta(p, "failed", refund_error=str(exc)[:300])
+    session.add(PaymentAttempt(payment_id=p.id, action="refund", result="failed", data={"error": str(exc)[:500]}))
+    await session.commit()
+
+
+async def finalize_refund(
+    session: AsyncSession, payment_id: uuid.UUID, *, actor_id=None, reason: str | None = None, raw: dict | None = None
+) -> Payment:
+    """Phase 3 (short transaction): the gateway outcome is recorded on the operation, so reverse the ledger exactly once
+    (idempotency key), mark the payment REFUNDED and close the operation. Safe to call again after a crash."""
+    p = await _lock_payment(session, payment_id)
+    op = await _lock_refund_op(session, payment_id)
+    if op is None or not op.external_ref:
+        raise AppError("REFUND_NOT_CONFIRMED", "نتیجهٔ درگاه برای این استرداد ثبت نشده است.", 409)
+    if p.status != P.REFUNDED:
+        tx = await wallet.find_tx(session, f"payment:{p.id}")
+        if tx:
+            await wallet.reverse(
+                session,
+                tx,
+                key=_refund_key(p.id),
+                kind="topup_refund",
+                actor_id=actor_id or op.requested_by,
+                memo=reason or op.reason or "استرداد شارژ",
+            )
+        p.status = P.REFUNDED
+        session.add(PaymentAttempt(payment_id=p.id, action="refund", result="ok", data=raw or {"external_ref": op.external_ref}))
+        audit.record(
+            session,
+            "payment.refunded",
+            actor_id=actor_id or op.requested_by,
+            actor_type="admin",
+            entity_type="payment",
+            entity_id=p.id,
+            store_id=p.store_id,
+            data={"reason": reason or op.reason, "external_ref": op.external_ref, "operation_id": str(op.id)},
+        )
+    op.status, op.finished_at, op.last_error = "succeeded", utcnow(), None
+    op.lease_owner = op.lease_expires_at = None
+    _set_refund_meta(p, "succeeded", refund_external_ref=op.external_ref)
     await session.commit()
     return p
+
+
+async def refund_payment(session: AsyncSession, payment_id: uuid.UUID, *, actor_id, reason: str | None = None) -> Payment:
+    """Refund the external payment, then reverse its wallet credit once (durable, three short transactions).
+
+    1. claim: lock the payment, create/reclaim the RefundOperation with a lease, commit;
+    2. gateway: call the adapter with NO transaction or lock open, then commit its outcome (external_ref) on the operation;
+    3. finalize: reverse the ledger (idempotent key), mark REFUNDED, close the operation.
+    A crash after 2 is repaired by ``recover_refunds`` (no second gateway call); an unknown gateway outcome goes to
+    manual_review instead of being retried blindly.
+    """
+    try:
+        op, cfg, lease = await _claim_refund(session, payment_id, actor_id=actor_id, reason=reason)
+    except _AlreadyRefunded as done:
+        return done.payment
+    p = await _get_payment(session, payment_id)
+    if not op.external_ref:
+        try:
+            result = await get_adapter(p.provider).refund(p, settings=cfg)
+        except Exception as exc:
+            log.warning("payment refund failed payment=%s provider=%s", payment_id, p.provider, exc_info=True)
+            await _record_refund_failure(session, payment_id, lease, exc)
+            if isinstance(exc, NotImplementedError):
+                # manual card / destination providers have no automatic refund: a clean 409 for the admin, not a 500
+                raise AppError(
+                    "REFUND_NOT_SUPPORTED",
+                    "این روش پرداخت استرداد خودکار ندارد؛ جبران دستی از کیف پول انجام شود.",
+                    409,
+                ) from exc
+            raise
+        await _lock_payment(session, payment_id)
+        confirmed = await _lock_refund_op(session, payment_id)
+        assert confirmed is not None
+        confirmed.external_ref = result.external_ref or f"refund-{confirmed.id}"
+        await session.commit()  # the gateway outcome is durable BEFORE the ledger changes
+        raw = result.raw
+    else:
+        raw = None
+    return await finalize_refund(session, payment_id, actor_id=actor_id, reason=reason, raw=raw)
+
+
+async def recover_refunds(session: AsyncSession, *, limit: int = 50) -> dict:
+    """Worker sweep: finish refunds whose gateway call succeeded but whose ledger step never committed, and park
+    operations whose lease expired without a gateway outcome in manual_review (never re-sent blindly)."""
+    ops = (
+        await session.scalars(
+            select(RefundOperation).where(RefundOperation.status == "processing", RefundOperation.lease_expires_at < utcnow()).limit(limit)
+        )
+    ).all()
+    out = {"finalized": 0, "manual_review": 0}
+    for stale in [(o.payment_id, o.external_ref) for o in ops]:
+        payment_id, ref = stale
+        if ref:
+            await finalize_refund(session, payment_id)
+            out["finalized"] += 1
+            continue
+        p = await _lock_payment(session, payment_id)
+        op = await _lock_refund_op(session, payment_id)
+        if op is not None and op.status == "processing" and not op.external_ref and not _lease_active(op):
+            op.status, op.last_error = "manual_review", "gateway outcome unknown after lease expiry"
+            op.lease_owner = op.lease_expires_at = None
+            _set_refund_meta(p, "manual_review")
+            out["manual_review"] += 1
+        await session.commit()
+    return out
 
 
 async def handle_callback(session: AsyncSession, provider: str, params: dict) -> Payment:

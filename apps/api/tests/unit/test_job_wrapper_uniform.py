@@ -40,9 +40,9 @@ def _all_jobs():
 
 def test_every_job_and_poll_tick_is_wrapped():
     names = _all_jobs()
-    assert len(names) == 22
+    assert len(names) == 23
     assert all(hasattr(getattr(jobs, n), "__wrapped__") for n in names), names
-    assert hasattr(arq_app.poll_tick, "__wrapped__")  # 22 jobs + poll_tick = the "23 jobs" of the audit
+    assert hasattr(arq_app.poll_tick, "__wrapped__")  # 23 jobs + poll_tick (refund_recovery_job added by the durable refund workflow)
 
 
 @pytest.mark.asyncio

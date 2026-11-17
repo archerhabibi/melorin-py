@@ -4,15 +4,15 @@
 هر دسته یک commit و یک push. وضعیت: `[x]` انجام شد، `[ ]` باقی‌مانده، `[~]` بخشی/نیازمند محیط واقعی.
 
 ## دسته ۱ — امنیت و پایداری (M-04, M-11)
-- [ ] M-04 Rate limiter محلی: سقف تعداد کلید + پاک‌سازی دوره‌ای + `time.monotonic()`
-- [ ] M-11 Health: `rate_limit` در production هنگام قطع Redis برابر `fail_closed`
+- [x] M-04 Rate limiter محلی: سقف تعداد کلید + پاک‌سازی دوره‌ای + `time.monotonic()`
+- [x] M-11 Health: `rate_limit` در production هنگام قطع Redis برابر `fail_closed`
 
 ## دسته ۲ — مالی / باگ (M-10, M-03)
-- [ ] M-10 جدول `refund_operations` (state machine، idempotency key یکتا، lease، تلاش، audit)
-- [ ] M-10 `refund_payment` دو‌فازی: commit قبل از Gateway، فراخوانی Gateway بیرون از تراکنش، فاز نهایی با ledger reversal یک‌بار
-- [ ] M-10 job بازیابی (lease منقضی → ادامه/manual_review)
-- [ ] M-03 تفکیک Refund واقعی Gateway از جبران دستی (manual_review به‌جای 500/NotImplemented)
-- [ ] تست‌ها: refund تکراری، شکست gateway، crash پس از gateway، lease
+- [x] M-10 جدول `refund_operations` (state machine، idempotency key یکتا، lease، تلاش، audit)
+- [x] M-10 `refund_payment` دو‌فازی: commit قبل از Gateway، فراخوانی Gateway بیرون از تراکنش، فاز نهایی با ledger reversal یک‌بار
+- [x] M-10 job بازیابی (lease منقضی → ادامه/manual_review)
+- [x] M-03 تفکیک Refund واقعی Gateway از جبران دستی (manual_review به‌جای 500/NotImplemented)
+- [x] تست‌ها: refund تکراری، شکست gateway، crash پس از gateway، lease
 
 ## دسته ۳ — معماری (M-06, M-12)
 - [ ] M-06 قرارداد: بررسی استفادهٔ API client (بخشی؛ مهاجرت کامل دو فرانت‌اند در حد این branch ممکن نیست)

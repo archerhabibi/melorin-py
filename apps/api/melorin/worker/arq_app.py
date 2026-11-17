@@ -17,6 +17,7 @@ from melorin.worker.runner import claim_batch, claim_webhook_batch, process_even
 from melorin.worker.jobs import (
     bank_sms_reconcile_job,
     receipt_grace_job,
+    refund_recovery_job,
     daily_report_job,
     expiry_job,
     near_expiry_job,
@@ -92,6 +93,7 @@ class WorkerSettings:
         privacy_retention_job,
         bank_sms_reconcile_job,
         receipt_grace_job,
+        refund_recovery_job,
         identity_auto_link_job,
         reseller_auto_verify_job,
         reseller_identity_recheck_job,
@@ -119,6 +121,7 @@ class WorkerSettings:
         cron(reseller_identity_recheck_job, minute=set(range(7, 60, 30)), unique=True),
         cron(bank_sms_reconcile_job, second={30}, unique=True),
         cron(receipt_grace_job, second={10}, unique=True),
+        cron(refund_recovery_job, minute={2, 12, 22, 32, 42, 52}, second={20}, unique=True),
     ]
     on_startup = startup
     on_shutdown = shutdown

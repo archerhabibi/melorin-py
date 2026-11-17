@@ -389,3 +389,107 @@ async def test_can_review_allows_super_admin_and_the_owner_of_a_reseller_store_o
         assert await payments.can_review(s, owner, p_res)
         assert not await payments.can_review(s, stranger, p_res)
         assert not await payments.can_review(s, owner, p_main)
+
+
+# ---- durable refund workflow (M-10): refund_operations, crash recovery, idempotency ----------------------------------
+
+
+async def _succeeded_payment(s, gateway):
+    store, user = await _setup(s)
+    admin = await make_user(s, super_admin=True)
+    p, _ = await _intent(s, store, user)
+    await payments.mark_succeeded(s, p.id)
+    return store, user, admin, p
+
+
+async def _op(s, payment_id):
+    from melorin.kernel.models.payments import RefundOperation
+
+    return await s.scalar(select(RefundOperation).where(RefundOperation.payment_id == payment_id))
+
+
+async def test_refund_records_a_succeeded_operation_with_the_gateway_reference(gateway):
+    async with open_session() as s:
+        _, _, admin, p = await _succeeded_payment(s, gateway)
+        await payments.refund_payment(s, p.id, actor_id=admin.id, reason="r")
+        op = await _op(s, p.id)
+        assert (op.status, op.external_ref, op.attempts, op.requested_by) == ("succeeded", "RF-1", 1, admin.id)
+        assert op.idempotency_key == f"payment:{p.id}:refund" and op.lease_owner is None
+
+
+async def test_failed_gateway_refund_can_be_retried_and_never_refunds_twice(gateway):
+    async with open_session() as s:
+        store, user, admin, p = await _succeeded_payment(s, gateway)
+        gateway.fail_refund = True
+        with pytest.raises(RuntimeError):
+            await payments.refund_payment(s, p.id, actor_id=admin.id)
+        assert (await _op(s, p.id)).status == "failed"
+        gateway.fail_refund = False
+        await payments.refund_payment(s, p.id, actor_id=admin.id)
+        await payments.refund_payment(s, p.id, actor_id=admin.id)
+        op = await _op(s, p.id)
+        assert op.status == "succeeded" and op.attempts == 2 and gateway.refunds == 1
+
+
+async def test_unsupported_refund_goes_to_manual_review_and_blocks_further_attempts(gateway):
+    async with open_session() as s:
+        _, _, admin, p = await _succeeded_payment(s, gateway)
+        gateway.refund_unsupported = True
+        with pytest.raises(AppError) as first:
+            await payments.refund_payment(s, p.id, actor_id=admin.id)
+        assert first.value.code == "REFUND_NOT_SUPPORTED"
+        assert (await _op(s, p.id)).status == "manual_review"
+        with pytest.raises(AppError) as again:
+            await payments.refund_payment(s, p.id, actor_id=admin.id)
+        assert again.value.code == "REFUND_MANUAL_REVIEW"
+
+
+async def test_refund_in_progress_with_live_lease_is_a_409(gateway):
+    async with open_session() as s:
+        _, _, admin, p = await _succeeded_payment(s, gateway)
+        op, _, _ = await payments._claim_refund(s, p.id, actor_id=admin.id, reason=None)
+        with pytest.raises(AppError) as exc:
+            await payments.refund_payment(s, p.id, actor_id=admin.id)
+        assert exc.value.code == "REFUND_IN_PROGRESS" and gateway.refunds == 0
+
+
+async def test_crash_after_gateway_success_is_finished_by_recovery_without_a_second_gateway_call(gateway):
+    import datetime as dt
+
+    async with open_session() as s:
+        store, user, admin, p = await _succeeded_payment(s, gateway)
+        op, _, _ = await payments._claim_refund(s, p.id, actor_id=admin.id, reason="r")
+        op.external_ref = "RF-CRASH"  # gateway answered, then the process died before the ledger step
+        op.lease_expires_at = op.lease_expires_at - dt.timedelta(hours=1)
+        await s.commit()
+        assert await _balance(s, user, store) == 5_000
+        assert await payments.recover_refunds(s) == {"finalized": 1, "manual_review": 0}
+        await s.refresh(p)
+        assert p.status == "refunded" and await _balance(s, user, store) == 0
+        assert gateway.refunds == 0 and (await _op(s, p.id)).status == "succeeded"
+        assert await payments.recover_refunds(s) == {"finalized": 0, "manual_review": 0}
+
+
+async def test_unknown_gateway_outcome_after_lease_expiry_is_parked_not_resent(gateway):
+    import datetime as dt
+
+    async with open_session() as s:
+        store, user, admin, p = await _succeeded_payment(s, gateway)
+        op, _, _ = await payments._claim_refund(s, p.id, actor_id=admin.id, reason=None)
+        op.lease_expires_at = op.lease_expires_at - dt.timedelta(hours=1)
+        await s.commit()
+        assert await payments.recover_refunds(s) == {"finalized": 0, "manual_review": 1}
+        assert (await _op(s, p.id)).status == "manual_review"
+        with pytest.raises(AppError) as exc:
+            await payments.refund_payment(s, p.id, actor_id=admin.id)
+        assert exc.value.code == "REFUND_MANUAL_REVIEW" and gateway.refunds == 0
+        assert await _balance(s, user, store) == 5_000
+
+
+async def test_finalize_is_idempotent_for_the_ledger(gateway):
+    async with open_session() as s:
+        store, user, admin, p = await _succeeded_payment(s, gateway)
+        await payments.refund_payment(s, p.id, actor_id=admin.id)
+        await payments.finalize_refund(s, p.id)
+        count = await s.scalar(select(func.count()).select_from(LedgerTransaction).where(LedgerTransaction.payment_id == p.id))
+        assert count == 2 and await _balance(s, user, store) == 0
