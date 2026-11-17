@@ -8,12 +8,12 @@
 |---|---|
 | Alembic head | `0001_initial_baseline` |
 | Migrations | 1 |
-| ORM tables | 81 |
+| ORM tables | 82 |
 | API operations | 439 |
 | API paths | 391 |
-| Test files / test functions (static count) | 250 / 2212 |
+| Test files / test functions (static count) | 251 / 2223 |
 | Coverage | not measured here (CI writes `apps/api/coverage.xml`; run `pytest --cov=melorin --cov-report=xml`) |
-| Documents: repo root / `docs/` / `docs/history/` (tests only) | 3 / 24 / 0 |
+| Documents: repo root / `docs/` / `docs/history/` (tests only) | 4 / 24 / 0 |
 
 Where things live: requirements and design `docs/01`-`docs/17` (13-17 are design records; 12 and 15 were merged into `DECISIONS.md` and `14`); route list `docs/API.md`;
 operations `docs/18-OPERATIONS-DEPLOYMENT-DR.md`; decisions `docs/06-ARCHITECTURE-DECISIONS.md`; change log `docs/06-ARCHITECTURE-DECISIONS.md`;
