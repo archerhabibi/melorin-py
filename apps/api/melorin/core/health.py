@@ -13,6 +13,7 @@ from dataclasses import dataclass
 
 from sqlalchemy import func, select, text
 
+from melorin.core.config import get_settings
 from melorin.core.db import session_factory
 from melorin.core.metrics import set_alert, set_gauge
 from melorin.core.redis import get_redis
@@ -199,11 +200,21 @@ def publish_signals(db: DatabaseProbe, worker: WorkerProbe) -> None:
     )
 
 
+def rate_limit_mode(redis_ok: bool) -> str:
+    """How rate limiting behaves right now (mirrors core/ratelimit.py's outage policy)."""
+    if redis_ok:
+        return "coordinated"
+    settings = get_settings()
+    if settings.env in {"staging", "production"} and settings.require_redis_rate_limit:
+        return "fail_closed"
+    return "local_degraded"
+
+
 def build_checks(db: DatabaseProbe, worker: WorkerProbe) -> dict:
     checks = {
         "database": "ok" if db.ok else "unavailable",
         "redis": "ok" if worker.redis_ok else "unavailable",
-        "rate_limit": "coordinated" if worker.redis_ok else "local_degraded",
+        "rate_limit": rate_limit_mode(worker.redis_ok),
         "worker": "ok" if worker.worker_ok else ("unavailable" if worker.redis_ok else "unknown"),  # T35: unknown = Redis down
         "worker_last_tick": worker.last_tick,
         "outbox_pending": db.pending,

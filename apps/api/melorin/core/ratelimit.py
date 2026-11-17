@@ -15,7 +15,6 @@ this outside development: Settings refuses ``require_redis_rate_limit=false`` in
 
 import logging
 import time
-from collections import defaultdict
 
 from fastapi import Request
 from melorin.core.errors import AppError
@@ -23,16 +22,36 @@ from melorin.core.redis import get_redis
 from melorin.core.config import get_settings
 from melorin.core.proxy import resolve_client_ip
 
-_mem: dict[str, list] = defaultdict(lambda: [0, 0.0])
+# Process-local fallback counters: key -> [count, window_start (monotonic), window_seconds]. Bounded (see _LOCAL_MAX_KEYS) so a flood of
+# distinct IPs/keys cannot grow memory without limit while Redis is down in development.
+_mem: dict[str, list] = {}
+_LOCAL_MAX_KEYS = 10_000
+_LOCAL_SWEEP_INTERVAL = 30.0
+_last_sweep = 0.0
 log = logging.getLogger("melorin.ratelimit")
 _redis_degraded = False
 
 
+def _sweep_local(now: float) -> None:
+    """Drop expired windows; if still over the cap, evict the oldest entries (never grows past _LOCAL_MAX_KEYS)."""
+    global _last_sweep
+    if now - _last_sweep < _LOCAL_SWEEP_INTERVAL and len(_mem) < _LOCAL_MAX_KEYS:
+        return
+    _last_sweep = now
+    for k in [k for k, (_, start, win) in _mem.items() if now - start > win]:
+        del _mem[k]
+    overflow = len(_mem) - _LOCAL_MAX_KEYS
+    if overflow > 0:
+        for k, _ in sorted(_mem.items(), key=lambda kv: kv[1][1])[:overflow]:
+            del _mem[k]
+
+
 async def _local_hit(key: str, limit: int, window: int) -> bool:
-    slot = _mem[key]
-    now = time.time()
-    if now - slot[1] > window:
-        slot[0], slot[1] = 0, now
+    now = time.monotonic()
+    _sweep_local(now)
+    slot = _mem.get(key)
+    if slot is None or now - slot[1] > window:
+        slot = _mem[key] = [0, now, window]
     slot[0] += 1
     return slot[0] <= limit
 
