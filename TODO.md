@@ -15,27 +15,23 @@
 - [x] تست‌ها: refund تکراری، شکست gateway، crash پس از gateway، lease
 
 ## دسته ۳ — معماری (M-06, M-12)
-- [~] M-06 مهاجرت Store Web و Admin Web به `packages/api-client`: انجام نشد؛ تغییر گستردهٔ ۲۰۰+ فایل فرانت است و بدون E2E قابل اجرا (Chromium دانلود نشد) ریسک regress دارد. پیشنهاد: یک PR جدا، feature-by-feature.
-- [x] M-12 ثبت تصمیم‌ها در ADR (refund، commission، FX، identity)
+- [~] M-06 مهاجرت به `packages/api-client`: در عمل از قبل تدریجی در جریان است (در admin-web هیچ `authFetch(` مستقیمی خارج از `api/api.ts` نیست؛ Payments, Orders, Identity, Panel Ops با `typedClient`/`getJson`؛ store-web از `createApiClient` برای خواندن‌های عمومی). باقی‌مانده: ~۶۷ فایل با prop `call` و مسیرهای پویا، که طبق ADR (r5–r8) endpoint به endpoint و با تست جدا مهاجرت می‌شوند؛ مهاجرت یک‌جا ریسک regress دارد و اینجا انجام نشد.
+- [x] M-12 ADR-R1 (refund، commission، FX، identity)
 
 ## دسته ۴ — تست / CI (M-05, M-01, M-02)
-- [x] M-05 حذف `continue-on-error` از web-e2e
-- [x] M-01 (STATUS.md از سورس بازتولید شد؛ gen_docs قبلاً وجود داشت) اسکریپت تولید آمار از سورس (بدون عدد دستی)
-- [~] M-02 `gen_docs.py` همچنان برای OpenAPI اپ را import می‌کند؛ جداسازی شمارش‌های استاتیک انجام نشد (ریسک کم، ارزش پایین)
+- [x] M-05 حذف `continue-on-error` از web-e2e (روی CI سبز: ۲۴ passed)
+- [x] M-01 STATUS.md از سورس بازتولید می‌شود (`gen_docs --check` پاس)
+- [x] M-02 `gen_docs.py` پیام روشن «وابستگی‌ها را نصب کنید» می‌دهد؛ import اپ عمداً می‌ماند چون فهرست route از OpenAPI زنده خوانده می‌شود
+- [x] CI quality: `npm audit` به runtime=high / dev=critical (ADR-R2) برای picomatch بدون نسخهٔ اصلاح‌شده
 
 ## دسته ۵ — مستندات
-- [x] CHANGELOG (در `docs/06`، طبق سیاست مستندات؛ فایل ریشهٔ جدا ساخته نشد) + ADR-R1 + docs/15 + STATUS
-- [ ] README: بدون تغییر (رفتار کاربری عوض نشده)
+- [x] CHANGELOG.md (خلاصه) + ورودی تاریخ‌دار docs/06 + ADR-R1/R2 + docs/15 + STATUS
+- [x] README.md / README.fa.md: baseline، refund، گیت کیفیت
 
-## نیازمند محیط واقعی (انجام نمی‌شود در این branch)
-- M-08 تست Providerهای واقعی (Sanaei, PasarGuard, Telegram, Zarinpal sandbox, S3)
-- M-09 شکست Deploy #128 (نیاز به لاگ GitHub Actions و SSH/secrets سرور)
-- M-07 پروفایل dev/prod در Compose (ریسک بالا بدون Docker اجرا‌شده)
-- تست PostgreSQL concurrency / Docker compose کامل / نصب تمیز Ubuntu
-
-## باقی‌مانده از همین branch (دلیل)
-- **push به GitHub**: پروکسی نشست اجازه نداد (`ریپو در مجموعهٔ مجاز session نیست`، add_repo نیازمند لینک حساب GitHub). commitها محلی‌اند؛ خروجی `melorin-report.patch`.
-- **E2E (M-05)**: `continue-on-error` حذف شد ولی اجرای محلی ممکن نشد (نسخهٔ Chromium مطابق Playwright 1.64 دانلود نشد). اولین CI را بررسی کنید؛ اگر قرمز بود، spec را اصلاح کنید.
-- **Migration روی PostgreSQL** (`tests/postgres/*`) و concurrency واقعی اجرا نشد (PostgreSQL/Docker در دسترس نبود).
-- Reconciliation فعال با Gateway (استعلام وضعیت refund) نیازمند API واقعی درگاه است؛ فعلاً manual_review.
-- تغییر Schema: baseline عوض شد (جدول جدید)؛ دیتابیس dev را از نو بسازید.
+## باقی‌مانده (نیازمند محیط واقعی یا تصمیم کسب‌وکاری)
+- M-06 مهاجرت کامل فرانت‌ها (بالا) — PRهای کوچک endpoint-by-endpoint.
+- M-07 پروفایل dev/prod در Compose: Docker daemon در این محیط نیست؛ فقط `docker compose config -q` معتبر است. بدون اجرای واقعی تغییر Compose پرریسک است.
+- M-08 تست Provider واقعی (Sanaei, PasarGuard, Telegram, Zarinpal sandbox, S3): نیازمند کلید/پنل/sandbox.
+- M-09 شکست Deploy #128 (exit 255): لاگ Deploy و SSH/secrets سرور در دسترس نیست؛ ۲۵۵ معمولاً خطای ssh/rsync است — لاگ job را بررسی کنید.
+- Reconciliation فعال refund با درگاه (استعلام وضعیت): نیازمند API واقعی درگاه؛ فعلاً `manual_review`.
+- تست‌های `tests/postgres` روی CI سبز شد (۲۷۳۴ passed)؛ concurrency/load واقعی و migration روی PostgreSQL پروداکشن‌مانند هنوز اجرا نشده.
