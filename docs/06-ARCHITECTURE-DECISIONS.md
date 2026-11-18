@@ -476,6 +476,23 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-11-17 23:12 UTC - archerhabibi - other, db, api  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** feat(payments): durable three-phase refund workflow with refund_operations (M-10, M-03) - - new refund_operations table (state machine pending/processing/succeeded/failed/manual_review, unique idempotency key + payment, lease, attempts, audit fields) in the baseline migration - refund_payment: clai…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (9):** `TODO.md`, `apps/api/alembic/versions/0001_initial_baseline.py`, `apps/api/melorin/kernel/models/payments.py`, `apps/api/melorin/modules/payments/service.py`, `apps/api/melorin/worker/arq_app.py`, `apps/api/melorin/worker/jobs.py`, `apps/api/melorin/worker/jobs_payments.py`, `apps/api/tests/service/test_payments_service_db.py` (+1 more)
+- **Ref:** `07c11ba`
+
+### 2026-11-17 18:09 UTC - archerhabibi - other, api, tests  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(core): bound local rate-limit counters and report fail_closed health (M-04, M-11) - - ratelimit: monotonic clock, per-key window, periodic sweep and hard key cap - health: rate_limit reports fail_closed in staging/production when Redis is down - add TODO.md with grouped remediation plan Decisio…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (5):** `TODO.md`, `apps/api/melorin/core/health.py`, `apps/api/melorin/core/ratelimit.py`, `apps/api/tests/unit/test_core_health_probes.py`, `apps/api/tests/unit/test_ratelimit_local_bounded.py`
+- **Ref:** `4f282ef`
+
+
 ### 2026-11-16 20:20 UTC - Claude - admin-web  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
