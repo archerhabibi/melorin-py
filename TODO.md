@@ -30,8 +30,12 @@
 
 ## باقی‌مانده (نیازمند محیط واقعی یا تصمیم کسب‌وکاری)
 - M-06 مهاجرت کامل فرانت‌ها (بالا) — PRهای کوچک endpoint-by-endpoint.
-- M-07 پروفایل dev/prod در Compose: Docker daemon در این محیط نیست؛ فقط `docker compose config -q` معتبر است. بدون اجرای واقعی تغییر Compose پرریسک است.
+- M-07 پروفایل dev/prod در Compose: عمداً تغییر نکرد (`integration_smoke.sh` وجود prometheus/alertmanager را الزامی می‌داند؛ تغییر رفتار پیش‌فرض نیازمند تصمیم محصول است). استک کامل روی سرور واقعی با موفقیت بالا آمد.
 - M-08 تست Provider واقعی (Sanaei, PasarGuard, Telegram, Zarinpal sandbox, S3): نیازمند کلید/پنل/sandbox.
-- M-09 شکست Deploy #128 (exit 255): لاگ Deploy و SSH/secrets سرور در دسترس نیست؛ ۲۵۵ معمولاً خطای ssh/rsync است — لاگ job را بررسی کنید.
+- M-09 علت دقیق شکست Deploy #128: باید از لاگ همان run خوانده شود؛ پیش‌بررسی SSH/secrets اضافه شد تا از این پس علت در لاگ روشن باشد.
 - Reconciliation فعال refund با درگاه (استعلام وضعیت): نیازمند API واقعی درگاه؛ فعلاً `manual_review`.
-- تست‌های `tests/postgres` روی CI سبز شد (۲۷۳۴ passed)؛ concurrency/load واقعی و migration روی PostgreSQL پروداکشن‌مانند هنوز اجرا نشده.
+
+## انجام‌شده روی سرور واقعی (2026-11-18)
+- [x] `tests/postgres` (۱۲ passed، شامل migration baseline و تست جدید هم‌زمانی refund)
+- [x] Docker Compose از دیتابیس خالی + `scripts/e2e_smoke.py` ALL PASSED
+- [x] load probe: 74 rps، p95 984ms، خطا ۰

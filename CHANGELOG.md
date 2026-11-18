@@ -23,5 +23,9 @@ release-oriented summary. The project is pre-release: breaking changes are allow
   patched release (ADR-R2).
 - `scripts/gen_docs.py` fails with an explicit "install the API dependencies" message instead of a bare ImportError (M-02).
 
+### Verification
+- PostgreSQL lane incl. real-lock refund concurrency test, Compose stack from an empty DB and `scripts/e2e_smoke.py` pass on a real host (details in docs/06).
+- `deploy.yml` diagnoses SSH/secret problems before the deploy step instead of a bare exit 255 (M-09).
+
 ### Docs
 - ADR-R1 (open business decisions: refund, commission, FX, identity), refund workflow in docs/15, regenerated `docs/STATUS.md`.

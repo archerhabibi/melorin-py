@@ -362,6 +362,12 @@ If `main` is protected, allow `github-actions[bot]` to bypass so the bot can pus
 
 > Entries before 2026-11-09 were archived (T-R12) and live in git tag `changelog-archive-2026-11-09` (`git show changelog-archive-2026-11-09:docs/06-ARCHITECTURE-DECISIONS.md`), per DOCUMENTATION-POLICY.
 
+##### 2026-11-18 - Verification on a real host (PostgreSQL 16, Redis 7, Docker Compose) and deploy diagnostics
+- **Area:** tests / ci / ops evidence
+- **Evidence (Ubuntu 24.04, 2 vCPU / 4 GB, branch `fix/report-implementation`):** `tests/postgres` 12 passed (including `test_migration_baseline` with `TEST_PG_ADMIN_URL`, and the new `test_refund_concurrency_postgres`: 5 parallel refunds -> 1 gateway call, 1 ledger reversal, the rest `REFUND_IN_PROGRESS`); `docker compose build` of all images; stack `postgres redis migrate api worker store_web admin_web` healthy from an empty database (`0001_initial_baseline`); `scripts/e2e_smoke.py` ALL PASSED (login with TOTP, catalog, top-up approval, purchase, provisioning with the mock panel, RBAC 401/403, channel mismatch, throttling, outbox drained); `load_probe` 30 workers x 20 s on `/health/ready` + `/api/v1/catalog`: 74 rps, p95 984 ms, error rate 0 (1 shared vCPU, includes the proxy-less API only).
+- **Deploy (audit M-09):** exit code 255 is ssh's connection-level failure. `deploy.yml` now checks the four secrets and SSH reachability first (`BatchMode`, `ConnectTimeout`) and names the cause (missing secret, wrong key, host key mismatch, unreachable host). The actual cause of run 128 still has to be read from that run's log.
+- **Not done:** real provider sandboxes (Sanaei, PasarGuard, Telegram, Zarinpal, S3) need credentials; the Telegram services were not started (no tokens).
+
 ##### 2026-11-18 - CI: npm audit policy split (runtime high, dev critical)
 - **Area:** ci / docs
 - **Before:** `npm audit --include=dev --audit-level=high` failed on an unpatchable dev-only advisory (picomatch).
