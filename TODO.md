@@ -16,7 +16,7 @@
 
 ## دسته ۳ — معماری (M-06, M-12)
 - [x] M-06 (ترنسپورت) همهٔ درخواست‌های admin-web از `@melorin/api-client` عبور می‌کنند: متد جدید `raw` (bearer + یک refresh مشترک روی 401، بدن verbatim)، `authFetch` فقط wrapper آن است و ۶۷ فایلِ `call` بدون تغییر رفتار روی همان سوارند؛ تست‌های api-client و admin-web سبز.
-- [~] M-06 (تایپ endpoint-به-endpoint) ~۲۱۰ call-site با مسیر پویا/الگوی `call(path, init)` هنوز مسیر literal ندارند تا schema بدنه را چک کند؛ ratchet جلوی افزایش را می‌گیرد. store-web: فراخوانی‌های خام `fetch` فقط bootstrap احراز هویت (google/email/handoff/refresh) هستند و عمداً ماندند.
+- [~] M-06 (تایپ endpoint-به-endpoint) ~۲۱۰ call-site با مسیر پویا/الگوی `call(path, init)` هنوز مسیر literal ندارند تا schema بدنه را چک کند؛ ratchet جلوی افزایش را می‌گیرد و تست `call-paths-contract` تضمین می‌کند هر مسیر literal هنوز در OpenAPI وجود دارد (drift-guard). store-web: فراخوانی‌های خام `fetch` فقط bootstrap احراز هویت (google/email/handoff/refresh) هستند و عمداً ماندند.
 - [x] M-12 ADR-R1 (refund، commission، FX، identity)
 
 ## دسته ۴ — تست / CI (M-05, M-01, M-02)
