@@ -133,6 +133,24 @@ jobs:
           printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+      - name: Check the deploy configuration and SSH reachability
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER_NAME: ${{ secrets.DEPLOY_USER }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          # ssh exits 255 for every connection-level failure (empty secret, wrong key, host-key mismatch, server down). Say which
+          # one it is before the real deploy step, instead of a bare "Process completed with exit code 255".
+          missing=""
+          for v in HOST USER_NAME SSH_KEY KNOWN_HOSTS; do [ -n "${!v}" ] || missing="$missing $v"; done
+          if [ -n "$missing" ]; then
+            echo "::error::missing repository secret(s) (HOST=DEPLOY_HOST, USER_NAME=DEPLOY_USER, SSH_KEY=DEPLOY_SSH_KEY, KNOWN_HOSTS=DEPLOY_KNOWN_HOSTS):$missing" >&2
+            exit 1
+          fi
+          ssh -i ~/.ssh/id_deploy -p "${PORT:-22}" -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=20 "$USER_NAME@$HOST" true \
+            || { rc=$?; echo "::error::cannot ssh to the deploy server (exit $rc): check that the host is reachable, DEPLOY_SSH_KEY is the authorized key and DEPLOY_KNOWN_HOSTS matches the server (ssh-keyscan -p PORT HOST)" >&2; exit "$rc"; }
       - name: Let the server pull from the registry (registry mode only)
         if: ${{ vars.DEPLOY_IMAGE_REGISTRY != '' }}
         env:
@@ -145,7 +163,7 @@ jobs:
         run: |
           # The run's own short-lived token (read access to this repo's packages) is sent over the SSH channel on stdin: it is
           # never written to the runner log or a file, and it stops working when this workflow run ends.
-          printf '%s' "$TOKEN" | ssh -i ~/.ssh/id_deploy -p "${PORT:-22}" -o IdentitiesOnly=yes "$USER_NAME@$HOST" \
+          printf '%s' "$TOKEN" | ssh -i ~/.ssh/id_deploy -p "${PORT:-22}" -o IdentitiesOnly=yes -o BatchMode=yes "$USER_NAME@$HOST" \
             "docker login '${REGISTRY%%/*}' -u '$ACTOR' --password-stdin >/dev/null"
       - name: Deploy (backup, migrate, health-check, automatic rollback)
         env:
@@ -156,5 +174,5 @@ jobs:
         run: |
           # The deploy script of the commit being deployed is streamed to the server (no copy to keep in sync, and the very
           # first deploy works before the server has scripts/deploy.sh). All logic, rollback included, lives in that script.
-          ssh -i ~/.ssh/id_deploy -p "${PORT:-22}" -o IdentitiesOnly=yes "$USER_NAME@$HOST" \
+          ssh -i ~/.ssh/id_deploy -p "${PORT:-22}" -o IdentitiesOnly=yes -o BatchMode=yes -o ServerAliveInterval=30 "$USER_NAME@$HOST" \
             "set -euo pipefail; cd /opt/melorin; git fetch --quiet --tags origin; git show ${SHA}:scripts/deploy.sh | APP_DIR=/opt/melorin bash -s -- --ref ${SHA}"

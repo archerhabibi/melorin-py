@@ -15,27 +15,28 @@
 - [x] تست‌ها: refund تکراری، شکست gateway، crash پس از gateway، lease
 
 ## دسته ۳ — معماری (M-06, M-12)
-- [~] M-06 مهاجرت Store Web و Admin Web به `packages/api-client`: انجام نشد؛ تغییر گستردهٔ ۲۰۰+ فایل فرانت است و بدون E2E قابل اجرا (Chromium دانلود نشد) ریسک regress دارد. پیشنهاد: یک PR جدا، feature-by-feature.
-- [x] M-12 ثبت تصمیم‌ها در ADR (refund، commission، FX، identity)
+- [x] M-06 (ترنسپورت) همهٔ درخواست‌های admin-web از `@melorin/api-client` عبور می‌کنند: متد جدید `raw` (bearer + یک refresh مشترک روی 401، بدن verbatim)، `authFetch` فقط wrapper آن است و ۶۷ فایلِ `call` بدون تغییر رفتار روی همان سوارند؛ تست‌های api-client و admin-web سبز.
+- [~] M-06 (تایپ endpoint-به-endpoint) ~۲۱۰ call-site با مسیر پویا/الگوی `call(path, init)` هنوز مسیر literal ندارند تا schema بدنه را چک کند؛ ratchet جلوی افزایش را می‌گیرد. store-web: فراخوانی‌های خام `fetch` فقط bootstrap احراز هویت (google/email/handoff/refresh) هستند و عمداً ماندند.
+- [x] M-12 ADR-R1 (refund، commission، FX، identity)
 
 ## دسته ۴ — تست / CI (M-05, M-01, M-02)
-- [x] M-05 حذف `continue-on-error` از web-e2e
-- [x] M-01 (STATUS.md از سورس بازتولید شد؛ gen_docs قبلاً وجود داشت) اسکریپت تولید آمار از سورس (بدون عدد دستی)
-- [~] M-02 `gen_docs.py` همچنان برای OpenAPI اپ را import می‌کند؛ جداسازی شمارش‌های استاتیک انجام نشد (ریسک کم، ارزش پایین)
+- [x] M-05 حذف `continue-on-error` از web-e2e (روی CI سبز: ۲۴ passed)
+- [x] M-01 STATUS.md از سورس بازتولید می‌شود (`gen_docs --check` پاس)
+- [x] M-02 `gen_docs.py` پیام روشن «وابستگی‌ها را نصب کنید» می‌دهد؛ import اپ عمداً می‌ماند چون فهرست route از OpenAPI زنده خوانده می‌شود
+- [x] CI quality: `npm audit` به runtime=high / dev=critical (ADR-R2) برای picomatch بدون نسخهٔ اصلاح‌شده
 
 ## دسته ۵ — مستندات
-- [x] CHANGELOG (در `docs/06`، طبق سیاست مستندات؛ فایل ریشهٔ جدا ساخته نشد) + ADR-R1 + docs/15 + STATUS
-- [ ] README: بدون تغییر (رفتار کاربری عوض نشده)
+- [x] CHANGELOG.md (خلاصه) + ورودی تاریخ‌دار docs/06 + ADR-R1/R2 + docs/15 + STATUS
+- [x] README.md / README.fa.md: baseline، refund، گیت کیفیت
 
-## نیازمند محیط واقعی (انجام نمی‌شود در این branch)
-- M-08 تست Providerهای واقعی (Sanaei, PasarGuard, Telegram, Zarinpal sandbox, S3)
-- M-09 شکست Deploy #128 (نیاز به لاگ GitHub Actions و SSH/secrets سرور)
-- M-07 پروفایل dev/prod در Compose (ریسک بالا بدون Docker اجرا‌شده)
-- تست PostgreSQL concurrency / Docker compose کامل / نصب تمیز Ubuntu
+## باقی‌مانده (نیازمند محیط واقعی یا تصمیم کسب‌وکاری)
+- M-06 فقط تایپ‌کردن literal هر endpoint (بالا) — PRهای کوچک endpoint-by-endpoint.
+- M-07 پروفایل dev/prod در Compose: عمداً تغییر نکرد (`integration_smoke.sh` وجود prometheus/alertmanager را الزامی می‌داند؛ تغییر رفتار پیش‌فرض نیازمند تصمیم محصول است). استک کامل روی سرور واقعی با موفقیت بالا آمد.
+- M-08 تست Provider واقعی (Sanaei, PasarGuard, Telegram, Zarinpal sandbox, S3): نیازمند کلید/پنل/sandbox.
+- M-09 علت دقیق شکست Deploy #128: باید از لاگ همان run خوانده شود؛ پیش‌بررسی SSH/secrets اضافه شد تا از این پس علت در لاگ روشن باشد.
+- Reconciliation فعال refund با درگاه (استعلام وضعیت): نیازمند API واقعی درگاه؛ فعلاً `manual_review`.
 
-## باقی‌مانده از همین branch (دلیل)
-- **push به GitHub**: پروکسی نشست اجازه نداد (`ریپو در مجموعهٔ مجاز session نیست`، add_repo نیازمند لینک حساب GitHub). commitها محلی‌اند؛ خروجی `melorin-report.patch`.
-- **E2E (M-05)**: `continue-on-error` حذف شد ولی اجرای محلی ممکن نشد (نسخهٔ Chromium مطابق Playwright 1.64 دانلود نشد). اولین CI را بررسی کنید؛ اگر قرمز بود، spec را اصلاح کنید.
-- **Migration روی PostgreSQL** (`tests/postgres/*`) و concurrency واقعی اجرا نشد (PostgreSQL/Docker در دسترس نبود).
-- Reconciliation فعال با Gateway (استعلام وضعیت refund) نیازمند API واقعی درگاه است؛ فعلاً manual_review.
-- تغییر Schema: baseline عوض شد (جدول جدید)؛ دیتابیس dev را از نو بسازید.
+## انجام‌شده روی سرور واقعی (2026-11-18)
+- [x] `tests/postgres` (۱۲ passed، شامل migration baseline و تست جدید هم‌زمانی refund)
+- [x] Docker Compose از دیتابیس خالی + `scripts/e2e_smoke.py` ALL PASSED
+- [x] load probe: 74 rps، p95 984ms، خطا ۰

@@ -23,6 +23,10 @@ Full install, deployment, backup/restore and local development: [docs/18-OPERATI
 - Recommended server: 4 GB RAM (the compose memory budget is 3584 MiB). With an external reverse proxy use `EXTERNAL_PROXY=true` and bind to `127.0.0.1:18080`: `docker compose -f docker-compose.yml -f docker-compose.external.yml up -d --build`.
 - Manual steps: `alembic upgrade head`, then the Admin bootstrap (create the first admin) and add panels / payment methods in the Admin panel; optional integrations (S3 backups, Google/Telegram login) are described in the docs below.
 
+- Database: this release changed the Alembic baseline (new `refund_operations` table). A pre-release development database must be recreated from the baseline (`alembic upgrade head` on an empty DB).
+- Refunds: gateway refunds run as a durable workflow (claim -> gateway call without locks -> ledger reversal); the worker's `refund_recovery_job` repairs interrupted ones, and providers without refund support (manual card) end in `manual_review`. Details: [docs/15-PAYMENTS-WALLET-FINANCE.md](docs/15-PAYMENTS-WALLET-FINANCE.md).
+- Quality gate: `make guards` / `scripts/run_quality_gate.sh`. `npm audit` blocks runtime dependencies at `high` and dev tooling at `critical` (ADR-R2 in [docs/06](docs/06-ARCHITECTURE-DECISIONS.md)). Browser E2E (`e2e/`) is a blocking CI job.
+
 ## Documentation
 
 All reference documents are bilingual (Persian first, then English). Start at [docs/00-DOCUMENTATION-INDEX.md](docs/00-DOCUMENTATION-INDEX.md).
