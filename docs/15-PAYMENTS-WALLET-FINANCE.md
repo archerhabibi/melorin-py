@@ -243,6 +243,20 @@ payment destination family. The tests prove that:
 This closes the application-level audit gap. Real Zarinpal and Telegram Stars
 callbacks still require sandbox credentials and runtime evidence.
 
+## Refund workflow (durable) / گردش استرداد پایدار
+
+`payments.service.refund_payment` never calls a gateway inside the transaction that locks the payment.
+
+1. **Claim** (short transaction): lock the payment, create or reclaim the `refund_operations` row (one per payment, unique `idempotency_key = payment:<id>:refund`), take a lease (`REFUND_LEASE_SECONDS`), commit.
+2. **Gateway** (no transaction, no lock): call the adapter; on success commit `external_ref` on the operation *before* touching the ledger.
+3. **Finalize** (short transaction): reverse the wallet credit with the idempotent ledger key, set the payment `refunded`, close the operation (`succeeded`).
+
+States: `pending -> processing -> succeeded | failed | manual_review`. `failed` may be retried (max `REFUND_MAX_ATTEMPTS`, then `manual_review`). Providers without refund support (manual card, destination) answer `409 REFUND_NOT_SUPPORTED` and park in `manual_review`.
+Recovery: `refund_recovery_job` (every 10 minutes) finishes operations that have `external_ref` but an expired lease (no second gateway call) and moves operations with an expired lease and no `external_ref` to `manual_review` (unknown outcome - never resent blindly; reconcile with the gateway by hand).
+API errors: `REFUND_IN_PROGRESS` (409, live lease), `REFUND_MANUAL_REVIEW` (409).
+
+استرداد در سه تراکنش کوتاه انجام می‌شود: ثبت عملیات و lease، تماس با درگاه بدون قفل، سپس معکوس‌سازی یک‌باره دفتر کل. نتیجهٔ نامعلوم درگاه هرگز دوباره ارسال نمی‌شود و به بررسی دستی می‌رود.
+
 ## منابع و ارجاع‌ها / References
 
 - کد و تست‌های مرتبط در `apps/` و `scripts/`؛ سند فهرست: [00](00-DOCUMENTATION-INDEX.md).

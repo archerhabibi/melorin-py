@@ -22,7 +22,8 @@ ruff check apps/api/melorin --config apps/api/pyproject.toml
 # T36: alembic migrations are part of the format gate (CI and `make lint` already check them).
 ruff format --check apps/api/melorin apps/api/tests apps/api/alembic --config apps/api/pyproject.toml
 for web in apps/store-web apps/admin-web; do
-  (cd "$web" && npm audit --include=dev --audit-level=high)
+  # Runtime deps: high. Dev tooling: critical only while GHSA-fc5q-39xc-vjpf (picomatch) has no patched release (ADR-R2).
+  (cd "$web" && npm audit --omit=dev --audit-level=high && npm audit --include=dev --audit-level=critical)
   # Phase 6: lint + formatting are part of the gate when dependencies are installed (CI always installs them).
   if [ -d "$web/node_modules/eslint" ]; then
     (cd "$web" && npm run lint && npm run format:check)

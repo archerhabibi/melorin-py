@@ -51,4 +51,5 @@ def test_production_redis_policy_and_frontend_audit_gate_are_explicit():
     runbook = read("docs/18-OPERATIONS-DEPLOYMENT-DR.md")
     gate = read("scripts/run_quality_gate.sh")
     assert "fails closed" in runbook
-    assert "npm audit --include=dev --audit-level=high" in gate
+    assert "npm audit --omit=dev --audit-level=high" in gate
+    assert "npm audit --include=dev --audit-level=critical" in gate  # ADR-R2

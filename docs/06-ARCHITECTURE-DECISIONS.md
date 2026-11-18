@@ -322,6 +322,23 @@ Source: `Melorin_Architecture_Admin_Audit.md` (the project has never been releas
 
 ### منبع / Source: `06-ARCHITECTURE-DECISIONS.md`
 
+#### ADR-R1 (2026-11-18): decisions taken for the open business items of audit M-12
+
+Pre-release defaults, recorded so schema and API match; any of them can change before the first release.
+
+| Topic | Decision |
+|---|---|
+| Refund | Gateway refund is an asynchronous-safe workflow (`refund_operations`). Providers without a refund API (manual card, destination) answer `REFUND_NOT_SUPPORTED` and park in `manual_review`; the admin compensates through an audited wallet reversal. An unknown gateway outcome is never resent blindly. |
+| Commission on refund | Commission already paid out is not clawed back automatically; it is flagged for manual review. |
+| Currency / FX | No implicit conversion between stores or currencies (unchanged, see I39). Cross-store transfers stay forbidden until a rate source and accounting document exist. |
+| Identity linking | Accounts with the same e-mail are never auto-linked without a verified e-mail proof; linking stays an explicit, audited action. |
+| Online gateway V1 | Zarinpal only; sandbox verification is a release blocker (M-08). |
+
+
+#### ADR-R2 (2026-11-18): npm audit policy while picomatch has no patched release
+
+`npm audit` failed the quality gate on GHSA-fc5q-39xc-vjpf (picomatch ReDoS, <=4.0.7, no fixed version published). It is reachable only through dev tooling (vite, vitest, eslint); runtime dependencies report 0 vulnerabilities. Policy: runtime audit (`--omit=dev`) blocks at `high`; dev-tooling audit blocks at `critical`. Revisit when picomatch publishes a fix (then restore `high` for both).
+
 #### Melorin Change Log
 
 Every change to the project (by anyone: owner, Claude, contractors) is recorded here,
@@ -344,6 +361,19 @@ Commits containing `[skip changelog]` and the bot's own commits are skipped.
 If `main` is protected, allow `github-actions[bot]` to bypass so the bot can push the log.
 
 > Entries before 2026-11-09 were archived (T-R12) and live in git tag `changelog-archive-2026-11-09` (`git show changelog-archive-2026-11-09:docs/06-ARCHITECTURE-DECISIONS.md`), per DOCUMENTATION-POLICY.
+
+##### 2026-11-18 - CI: npm audit policy split (runtime high, dev critical)
+- **Area:** ci / docs
+- **Before:** `npm audit --include=dev --audit-level=high` failed on an unpatchable dev-only advisory (picomatch).
+- **Action:** runtime deps still block at `high`; dev tooling blocks at `critical` (ADR-R2). Gate script and both CI jobs updated.
+- **After:** quality gate no longer red for a vulnerability that cannot be fixed and is not shipped.
+
+##### 2026-11-18 - Report remediation: durable refunds, bounded rate limiter, blocking E2E
+- **Area:** api / db / ci / docs
+- **Before:** `refund_payment` called the gateway while the payment row lock and DB transaction were open; the dev rate-limit fallback never evicted keys; `/health` said `local_degraded` in production while the limiter fails closed; `web-e2e` had `continue-on-error`.
+- **Problem:** deep technical audit M-04, M-05, M-10, M-11 (and M-03: manual-card refunds raised `NotImplementedError`).
+- **Action:** new `refund_operations` table (state machine pending/processing/succeeded/failed/manual_review, unique idempotency key, lease, attempts); refund = claim (commit) -> gateway without locks -> persist gateway ref -> ledger reversal once; `refund_recovery_job` finishes crashed refunds without a second gateway call and parks unknown outcomes in manual_review; local limiter counters use a monotonic clock, per-key windows, a sweep and a 10,000-key cap; health reports `fail_closed`; E2E job is blocking (not verified locally: no Chromium download in the audit sandbox).
+- **After:** a gateway/DB crash can no longer leave an unrecoverable refund; no blind resend. Schema baseline changed (1 new table, 82 total): rebuild dev databases from the baseline.
 
 ##### 2026-11-15 - Audit leftovers: whole-backend mypy, bulk split, infrastructure hub
 - **Area:** api / admin-web / typing / docs
