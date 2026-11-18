@@ -1,8 +1,6 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { Bell, ChevronDown, LogOut, Package, Store, Wallet as WalletIcon, ArrowRight } from 'lucide-react';
 import { GoogleSignInButton } from './GoogleSignIn.tsx';
-import Loyalty from './Loyalty.tsx';
-import Referral from './Referral.tsx';
 import { Empty, Loading, PageTitle, PasswordInput, fa, fd } from './ui.tsx';
 import { J, tabs, card, btn, inp, Orders, Vpn } from './dashboard/DashboardAccounts.tsx';
 import { Wallet } from './dashboard/DashboardWallet.tsx';
@@ -12,6 +10,9 @@ import type { Json } from './types';
 
 // Rarely opened tab: keep it (and its Google/e-mail forms) out of the first-load chunk (bundle budget).
 const LinkedAccounts = lazy(() => import('./dashboard/DashboardLinking.tsx'));
+// Profile-tab cards (loyalty club + referral) are only needed once the profile tab opens: own chunks keep first-load JS under budget.
+const Loyalty = lazy(() => import('./Loyalty.tsx'));
+const Referral = lazy(() => import('./Referral.tsx'));
 
 export { Wallet } from './dashboard/DashboardWallet.tsx';
 export { Tickets } from './dashboard/DashboardTickets.tsx';
@@ -161,8 +162,12 @@ function Profile({
           ذخیره
         </button>
       </div>
-      <Loyalty coreFetch={coreFetch} storeId={storeId} notify={notify} />
-      <Referral coreFetch={coreFetch} storeId={storeId} notify={notify} />
+      <Suspense fallback={<Loading />}>
+        <Loyalty coreFetch={coreFetch} storeId={storeId} notify={notify} />
+      </Suspense>
+      <Suspense fallback={<Loading />}>
+        <Referral coreFetch={coreFetch} storeId={storeId} notify={notify} />
+      </Suspense>
       <div className={card}>
         <h4 className="font-extrabold">اتصال تلگرام</h4>
         {link ? (

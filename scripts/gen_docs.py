@@ -88,8 +88,15 @@ def load_app():
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        from melorin.app import app
-        from melorin.models import Base
+        try:
+            from melorin.app import app
+            from melorin.models import Base
+        except ImportError as exc:  # M-02: the route list is read from the live app, so its dependencies must be installed
+            sys.exit(
+                f"gen_docs: cannot import the Melorin app ({exc}).\n"
+                "Install the locked API dependencies first: pip install -r apps/api/requirements-dev.txt "
+                "(this is an environment problem, not an application bug)."
+            )
 
         return app.openapi(), len(Base.metadata.tables)
 

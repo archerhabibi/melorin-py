@@ -746,7 +746,7 @@ apps/
   store-web/           React storefront, dashboard, reseller console
   telegram-main/       main Telegram bot
   telegram-reseller/   reseller-bot supervisor
-packages/api-client/   typed client generated from Core's OpenAPI snapshot (CI fails when stale; not yet used by the web apps)
+packages/api-client/   typed client generated from Core's OpenAPI snapshot (CI fails when stale; the single HTTP transport of admin-web — `authFetch`/`call` run on its `raw`, typed screens on `get/post/…`)
 docs/                  requirements, architecture, runbook, decisions, generated status
 infra/                 Caddyfile, Prometheus config and alert rules, Alertmanager entrypoint
 scripts/               installer, deploy with rollback, backup / restore drill, change-log automation, guards, smoke tests

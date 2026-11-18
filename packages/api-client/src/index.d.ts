@@ -49,6 +49,8 @@ export interface ApiClientOptions {
 }
 
 export interface ApiClient {
+  /** Same auth/refresh rules, unread Response, body sent verbatim; prefer the typed verbs for schema paths. */
+  raw(path: string, init?: RequestInit): Promise<Response>;
   request<P extends PathsWith<M>, M extends Method>(method: M, path: P, init?: RequestInitOf<P, M>): Promise<ApiResult<P, M>>;
   get<P extends PathsWith<'get'>>(path: P, init?: RequestInitOf<P, 'get'>): Promise<ApiResult<P, 'get'>>;
   post<P extends PathsWith<'post'>>(path: P, init?: RequestInitOf<P, 'post'>): Promise<ApiResult<P, 'post'>>;
