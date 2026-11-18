@@ -4,8 +4,10 @@ import functools
 import logging
 
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 
 from melorin.core.db import session_factory
+from melorin.core.errors import AppError
 from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
 from melorin.worker.wrap import item_failed, tracked_job
 
@@ -55,3 +57,22 @@ async def receipt_grace_job(ctx=None):
         if n:
             log.info("receipt grace: provisional credits=%s", n)
         return n
+
+
+@tracked_job
+async def refund_recovery_job(ctx=None):
+    """Finish refunds whose gateway call succeeded but whose ledger step never committed (crash between the two), and
+    park refunds with an unknown gateway outcome in manual_review. Idempotent; never calls the gateway."""
+    from melorin.modules.payments import service
+
+    async with session_factory()() as s:
+        try:
+            out = await service.recover_refunds(s)
+        except (SQLAlchemyError, AppError):
+            await s.rollback()
+            item_failed("refund_recovery_job")
+            log.warning("refund recovery failed", exc_info=True)
+            return 0
+        if out["finalized"] or out["manual_review"]:
+            log.warning("refund recovery: %s", out)
+        return out["finalized"] + out["manual_review"]

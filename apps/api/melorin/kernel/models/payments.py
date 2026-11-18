@@ -39,6 +39,39 @@ class PaymentAttempt(IdMixin, CreatedMixin, Base):
     data: Mapped[dict | None] = mapped_column(JSON)
 
 
+class RefundOperation(IdMixin, TimestampMixin, Base):
+    """Durable state of one gateway refund (docs/15-PAYMENTS-WALLET-FINANCE.md, "Refund workflow").
+
+    The gateway call never runs inside the payment-locking transaction: the operation is committed first, the gateway is
+    called with no DB lock held, and the outcome (``external_ref``) is committed before the ledger is reversed. A crashed
+    process is recovered from this row: ``processing`` + ``external_ref`` finishes the ledger step without a second gateway
+    call; ``processing`` without it is an unknown gateway outcome and goes to ``manual_review``.
+    One operation per payment (``idempotency_key`` is unique), so a repeated request can never refund twice.
+    """
+
+    __tablename__ = "refund_operations"
+    __table_args__ = (
+        UniqueConstraint("idempotency_key"),
+        UniqueConstraint("payment_id"),
+        Index("ix_refund_operations_status_lease", "status", "lease_expires_at"),
+    )
+    payment_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("payments.id"), index=True)
+    store_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("stores.id"), index=True)
+    status: Mapped[str] = mapped_column(String(20))  # pending|processing|succeeded|failed|manual_review
+    amount: Mapped[int] = mapped_column(BigInteger)
+    currency: Mapped[str] = mapped_column(String(8))
+    idempotency_key: Mapped[str] = mapped_column(String(100))
+    external_ref: Mapped[str | None] = mapped_column(String(200))
+    attempts: Mapped[int] = mapped_column(default=0, server_default="0")
+    lease_owner: Mapped[str | None] = mapped_column(String(64))
+    lease_expires_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    started_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error: Mapped[str | None] = mapped_column(String(500))
+    requested_by: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    reason: Mapped[str | None] = mapped_column(String(500))
+
+
 class PaymentReceiptFingerprint(IdMixin, CreatedMixin, Base):
     """What identifies one receipt picture, kept apart from the payment so duplicate detection survives a replaced file.
 

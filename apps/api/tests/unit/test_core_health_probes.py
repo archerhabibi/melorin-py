@@ -102,3 +102,20 @@ def test_a_silent_connected_panel_raises_the_webhook_alert_and_publishes_its_lag
     assert alerts["MelorinPanelWebhookSilent"] is True
     assert gauges[("melorin_panel_webhook_lag_seconds", (("panel", "p1"),))] == 90000.0
     assert gauges[("melorin_panel_events_pending", ())] == 4.0
+
+
+def test_rate_limit_mode_reflects_redis_outage_policy(monkeypatch):
+    from types import SimpleNamespace
+
+    from melorin.core import health
+
+    def use(env, require):
+        monkeypatch.setattr(health, "get_settings", lambda: SimpleNamespace(env=env, require_redis_rate_limit=require))
+
+    use("production", True)
+    assert health.rate_limit_mode(True) == "coordinated"
+    assert health.rate_limit_mode(False) == "fail_closed"
+    use("staging", True)
+    assert health.rate_limit_mode(False) == "fail_closed"
+    use("development", True)
+    assert health.rate_limit_mode(False) == "local_degraded"

@@ -69,7 +69,11 @@ jobs:
         working-directory: .
       - run: npm ci --include=dev --ignore-scripts --no-audit --no-fund
         working-directory: apps/store-web
-      - run: npm audit --audit-level=high
+      # Runtime dependencies must be clean at `high`. Dev tooling blocks only at `critical`: GHSA-fc5q-39xc-vjpf (picomatch ReDoS,
+      # via vite/vitest/eslint) has no patched release yet (docs/06, ADR-R2). Tighten back to `high` once one ships.
+      - run: npm audit --omit=dev --audit-level=high
+        working-directory: apps/store-web
+      - run: npm audit --include=dev --audit-level=critical
         working-directory: apps/store-web
       - run: npm run lint
         working-directory: apps/store-web
@@ -83,7 +87,11 @@ jobs:
         working-directory: apps/store-web
       - run: npm ci --include=dev --ignore-scripts --no-audit --no-fund
         working-directory: apps/admin-web
-      - run: npm audit --audit-level=high
+      # Runtime dependencies must be clean at `high`. Dev tooling blocks only at `critical`: GHSA-fc5q-39xc-vjpf (picomatch ReDoS,
+      # via vite/vitest/eslint) has no patched release yet (docs/06, ADR-R2). Tighten back to `high` once one ships.
+      - run: npm audit --omit=dev --audit-level=high
+        working-directory: apps/admin-web
+      - run: npm audit --include=dev --audit-level=critical
         working-directory: apps/admin-web
       - run: npm run lint
         working-directory: apps/admin-web
@@ -153,9 +161,8 @@ jobs:
         env: {MELORIN_DATABASE_URL: 'postgresql+asyncpg://melorin:test@localhost:5432/melorin', MELORIN_REDIS_URL: 'redis://localhost:6379/0', MELORIN_ALLOW_MOCK_PROVIDERS: 'true', MELORIN_BOOTSTRAP_ADMIN_EMAIL: admin@example.com, MELORIN_BOOTSTRAP_ADMIN_PASSWORD: 'Strong-admin-password-123456', MELORIN_BOOTSTRAP_ADMIN_TOTP_SECRET: JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP, E2E_ADMIN_PASSWORD: 'Strong-admin-password-123456', MELORIN_JWT_SECRET: ci-secret-ci-secret-ci-secret-1234}
 
   web-e2e:
-    # T42: browser E2E with a mocked Core API (e2e/). Non-blocking until the first green run on CI proves the specs.
+    # T42/M-05: browser E2E with a mocked Core API (e2e/). BLOCKING: a red spec fails CI (no continue-on-error).
     runs-on: ubuntu-latest
-    continue-on-error: true
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
