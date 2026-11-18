@@ -15,4 +15,6 @@ def test_frontend_runtime_and_build_dependencies_are_separated():
 
 def test_ci_audits_both_frontends():
     ci = (PROJECT / ".github/workflows/ci.yml").read_text()
-    assert ci.count("npm audit --audit-level=high") == 2
+    # ADR-R2: runtime deps block at high, dev tooling at critical (picomatch has no patched release yet).
+    assert ci.count("npm audit --omit=dev --audit-level=high") >= 2
+    assert ci.count("npm audit --include=dev --audit-level=critical") == 2

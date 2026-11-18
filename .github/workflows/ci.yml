@@ -69,7 +69,11 @@ jobs:
         working-directory: .
       - run: npm ci --include=dev --ignore-scripts --no-audit --no-fund
         working-directory: apps/store-web
-      - run: npm audit --audit-level=high
+      # Runtime dependencies must be clean at `high`. Dev tooling blocks only at `critical`: GHSA-fc5q-39xc-vjpf (picomatch ReDoS,
+      # via vite/vitest/eslint) has no patched release yet (docs/06, ADR-R2). Tighten back to `high` once one ships.
+      - run: npm audit --omit=dev --audit-level=high
+        working-directory: apps/store-web
+      - run: npm audit --include=dev --audit-level=critical
         working-directory: apps/store-web
       - run: npm run lint
         working-directory: apps/store-web
@@ -83,7 +87,11 @@ jobs:
         working-directory: apps/store-web
       - run: npm ci --include=dev --ignore-scripts --no-audit --no-fund
         working-directory: apps/admin-web
-      - run: npm audit --audit-level=high
+      # Runtime dependencies must be clean at `high`. Dev tooling blocks only at `critical`: GHSA-fc5q-39xc-vjpf (picomatch ReDoS,
+      # via vite/vitest/eslint) has no patched release yet (docs/06, ADR-R2). Tighten back to `high` once one ships.
+      - run: npm audit --omit=dev --audit-level=high
+        working-directory: apps/admin-web
+      - run: npm audit --include=dev --audit-level=critical
         working-directory: apps/admin-web
       - run: npm run lint
         working-directory: apps/admin-web
