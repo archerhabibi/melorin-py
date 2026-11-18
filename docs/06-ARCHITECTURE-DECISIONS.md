@@ -482,6 +482,31 @@ Never write secrets (tokens, passwords, keys, `.env` values) in this file.
 
 <!-- AUTO-ENTRIES-BELOW (newest first) -->
 
+### 2026-11-18 15:00 UTC - Claude - store-web  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** fix(store-web): lazy-load Loyalty/Referral profile cards to get first-load JS back under budget - CI quality job failed at scripts/check_bundle_budget.py: apps/store-web first-load JS was 274.2 kB against the 274 kB budget. The two profile-tab cards are only needed once the profile tab opens, so th…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (1):** `apps/store-web/src/Dashboard.tsx`
+- **Ref:** `6677d35`
+
+### 2026-11-18 12:01 UTC - Claude - other, admin-web, docs  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** refactor(web): run admin-web authFetch/call on @melorin/api-client raw transport (M-06) - Single HTTP transport (bearer, one shared refresh on 401) for all 67 call-prop files; per-endpoint literal typing stays incremental under the ratchet (see TODO.md). Co-Authored-By: Claude Sonnet 5.5 <noreply@a…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (7):** `CHANGELOG.md`, `TODO.md`, `apps/admin-web/src/api/api.ts`, `docs/01-PRODUCT-OVERVIEW.md`, `packages/api-client/src/index.d.ts`, `packages/api-client/src/index.js`, `packages/api-client/tests/client.test.js`
+- **Ref:** `cf8c3d3`
+
+### 2026-11-18 07:14 UTC - archerhabibi - other, scripts  _(auto)_
+- **Before:** _not provided by the author_
+- **Problem:** _not provided by the author_
+- **Action:** docs: add CHANGELOG, update READMEs and TODO; gen_docs gives an explicit dependency error (M-02) - - CHANGELOG.md (summary; detailed log stays in docs/06), README.md/README.fa.md notes on baseline, refund workflow, quality gate - gen_docs.py: explicit message when API dependencies are missing inste…
+- **After:** _not provided by the author_ (see CI/Actions result for this commit)
+- **Files (5):** `CHANGELOG.md`, `README.fa.md`, `README.md`, `TODO.md`, `scripts/gen_docs.py`
+- **Ref:** `d889746`
+
+
 ### 2026-11-17 23:12 UTC - archerhabibi - other, db, api  _(auto)_
 - **Before:** _not provided by the author_
 - **Problem:** _not provided by the author_
