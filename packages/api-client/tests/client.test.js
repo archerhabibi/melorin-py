@@ -59,3 +59,27 @@ test('204 yields undefined data', async () => {
   assert.equal(r.data, undefined);
   assert.equal(r.error, undefined);
 });
+
+test('raw: bearer + one refresh on 401, body verbatim, unread Response back', async () => {
+  const calls = [];
+  let token = 'old';
+  const fetch = async (url, init) => {
+    calls.push([url, init]);
+    return calls.length === 1 ? reply(401, {}) : reply(200, { ok: 1 });
+  };
+  const c = createApiClient({
+    baseUrl: 'https://x.test/',
+    fetch,
+    getAccessToken: () => token,
+    refresh: async () => ((token = 'new'), true),
+  });
+  const r = await c.raw('/a?b=1', { method: 'POST', body: '{"k":1}' });
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { ok: 1 });
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0][0], 'https://x.test/a?b=1');
+  assert.equal(calls[0][1].body, '{"k":1}');
+  assert.equal(calls[0][1].headers['Content-Type'], 'application/json');
+  assert.equal(calls[0][1].headers.Authorization, 'Bearer old');
+  assert.equal(calls[1][1].headers.Authorization, 'Bearer new');
+});

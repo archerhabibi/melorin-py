@@ -15,7 +15,8 @@
 - [x] تست‌ها: refund تکراری، شکست gateway، crash پس از gateway، lease
 
 ## دسته ۳ — معماری (M-06, M-12)
-- [~] M-06 مهاجرت به `packages/api-client`: در عمل از قبل تدریجی در جریان است (در admin-web هیچ `authFetch(` مستقیمی خارج از `api/api.ts` نیست؛ Payments, Orders, Identity, Panel Ops با `typedClient`/`getJson`؛ store-web از `createApiClient` برای خواندن‌های عمومی). باقی‌مانده: ~۶۷ فایل با prop `call` و مسیرهای پویا، که طبق ADR (r5–r8) endpoint به endpoint و با تست جدا مهاجرت می‌شوند؛ مهاجرت یک‌جا ریسک regress دارد و اینجا انجام نشد.
+- [x] M-06 (ترنسپورت) همهٔ درخواست‌های admin-web از `@melorin/api-client` عبور می‌کنند: متد جدید `raw` (bearer + یک refresh مشترک روی 401، بدن verbatim)، `authFetch` فقط wrapper آن است و ۶۷ فایلِ `call` بدون تغییر رفتار روی همان سوارند؛ تست‌های api-client و admin-web سبز.
+- [~] M-06 (تایپ endpoint-به-endpoint) ~۲۱۰ call-site با مسیر پویا/الگوی `call(path, init)` هنوز مسیر literal ندارند تا schema بدنه را چک کند؛ ratchet جلوی افزایش را می‌گیرد. store-web: فراخوانی‌های خام `fetch` فقط bootstrap احراز هویت (google/email/handoff/refresh) هستند و عمداً ماندند.
 - [x] M-12 ADR-R1 (refund، commission، FX، identity)
 
 ## دسته ۴ — تست / CI (M-05, M-01, M-02)
@@ -29,7 +30,7 @@
 - [x] README.md / README.fa.md: baseline، refund، گیت کیفیت
 
 ## باقی‌مانده (نیازمند محیط واقعی یا تصمیم کسب‌وکاری)
-- M-06 مهاجرت کامل فرانت‌ها (بالا) — PRهای کوچک endpoint-by-endpoint.
+- M-06 فقط تایپ‌کردن literal هر endpoint (بالا) — PRهای کوچک endpoint-by-endpoint.
 - M-07 پروفایل dev/prod در Compose: عمداً تغییر نکرد (`integration_smoke.sh` وجود prometheus/alertmanager را الزامی می‌داند؛ تغییر رفتار پیش‌فرض نیازمند تصمیم محصول است). استک کامل روی سرور واقعی با موفقیت بالا آمد.
 - M-08 تست Provider واقعی (Sanaei, PasarGuard, Telegram, Zarinpal sandbox, S3): نیازمند کلید/پنل/sandbox.
 - M-09 علت دقیق شکست Deploy #128: باید از لاگ همان run خوانده شود؛ پیش‌بررسی SSH/secrets اضافه شد تا از این پس علت در لاگ روشن باشد.

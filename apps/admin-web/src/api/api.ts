@@ -31,21 +31,9 @@ async function refreshPair(base: string) {
   return refreshing;
 }
 
-/** fetch with in-memory bearer token and a single transparent refresh on 401. */
-export async function authFetch(base: string, path: string, options: RequestInit = {}): Promise<Response> {
-  const build = () => ({
-    ...options,
-    headers: {
-      Accept: 'application/json',
-      ...(options.body && !(options.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
-      ...((options.headers as Record<string, string>) || {}),
-      ...(getAccessToken() ? { Authorization: `Bearer ${getAccessToken()}` } : {}),
-    },
-  });
-  let r = await fetch(`${base}${path}`, { ...build(), credentials: 'include' });
-  if (r.status === 401 && (await refreshPair(base))) r = await fetch(`${base}${path}`, build());
-  return r;
-}
+/** fetch with in-memory bearer token and a single transparent refresh on 401 — implemented by @melorin/api-client (`raw`). */
+export const authFetch = (base: string, path: string, options: RequestInit = {}): Promise<Response> =>
+  typedClient(base).raw(path, options);
 
 /**
  * Typed client on the SAME transport rules as authFetch (in-memory bearer token, one shared refresh on 401).

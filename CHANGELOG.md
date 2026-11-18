@@ -1,5 +1,7 @@
 # Changelog
 
+- `@melorin/api-client`: متد `raw(path, init)`؛ `authFetch` و `useCall` در admin-web روی آن اجرا می‌شوند (ترنسپورت واحد).
+
 All notable changes to Melorin. The detailed, dated engineering log lives in
 [docs/06-ARCHITECTURE-DECISIONS.md](docs/06-ARCHITECTURE-DECISIONS.md) ("Melorin Change Log"); this file is the short,
 release-oriented summary. The project is pre-release: breaking changes are allowed.

@@ -80,8 +80,38 @@ export function createApiClient({
     return response.ok ? { data: payload, error: undefined, response } : { data: undefined, error: payload, response };
   }
 
+  /**
+   * Same transport rules as `request` (bearer token, one shared refresh on 401, cookies) but hands back the unread
+   * `Response` and sends `init.body` verbatim (string/Blob/FormData). For views that stream or pre-serialise their body
+   * and for the generic `call(path, init)` helper; typed endpoints should use `get/post/...` instead.
+   * @param {string} path  Already-built path (query included).
+   * @param {RequestInit} [init]
+   * @returns {Promise<Response>}
+   */
+  async function raw(path, init = {}) {
+    const doFetch = fetchImpl || globalThis.fetch;
+    const send = () => {
+      const token = getAccessToken?.();
+      const body = init.body;
+      return doFetch(`${root}${path}`, {
+        ...init,
+        credentials,
+        headers: {
+          Accept: 'application/json',
+          ...(body && !(body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
+          ...(init.headers || {}),
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+    };
+    let response = await send();
+    if (response.status === 401 && refresh && (await refresh())) response = await send();
+    return response;
+  }
+
   return {
     request,
+    raw,
     /** @param {string} path @param {Parameters<typeof request>[2]} [init] */
     get: (path, init) => request('get', path, init),
     /** @param {string} path @param {Parameters<typeof request>[2]} [init] */
