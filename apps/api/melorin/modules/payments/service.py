@@ -148,6 +148,7 @@ async def attach_receipt(
     duplicate: dict | None = None,
     *,
     read_later: bool = False,
+    origin: str | None = None,
 ) -> None:
     """``claim`` = what the customer read off the receipt (time, reference, source card tail); used by bank-SMS matching.
 
@@ -163,7 +164,11 @@ async def attach_receipt(
     payment.meta = {**(payment.meta or {}), "receipt_attached_at": utcnow().isoformat()}  # start of the grace clock
     if claim:
         payment.meta = {**payment.meta, "receipt_claim": claim}
-    meta = {k: v for k, v in payment.meta.items() if k not in ("receipt_duplicate", "receipt_ocr")}  # a replaced receipt starts clean
+    meta = {
+        k: v for k, v in payment.meta.items() if k not in ("receipt_duplicate", "receipt_ocr", "receipt_origin")
+    }  # a replaced receipt starts clean
+    if origin:
+        meta["receipt_origin"] = origin  # keyed tag of the uploader's network (provisional.origin_tag), never the raw address
     meta = {**meta, "receipt_duplicate": duplicate} if duplicate else meta
     if read_later:
         from melorin.modules.payments import ocr_job  # deferred: ocr_job imports the bank-SMS package, which imports this module

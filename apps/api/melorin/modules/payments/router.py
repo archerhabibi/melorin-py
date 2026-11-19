@@ -6,12 +6,13 @@ from fastapi.responses import RedirectResponse
 
 from melorin.core import integrations
 from melorin.core.config import get_settings
-from melorin.core.deps import Session, StoreCtx
+from melorin.core import channel
+from melorin.core.deps import CurrentAuth, Session, StoreCtx
 from melorin.core.errors import AppError
 from melorin.core.scope import StoreScope
 from melorin.core.storage import get_storage, validate_upload
-from melorin.core.ratelimit import RateLimit
-from melorin.modules.payments import bank_sms, queries, receipt_fingerprints, receipt_ocr, service
+from melorin.core.ratelimit import RateLimit, client_ip
+from melorin.modules.payments import bank_sms, provisional, queries, receipt_fingerprints, receipt_ocr, service
 from melorin.kernel.models.payments import Payment
 from melorin.modules.payments.schemas import PaymentOut, TopupRequest, payment_out
 from melorin.kernel.models.system import FileObject
@@ -58,6 +59,8 @@ async def get_payment(payment_id: uuid.UUID, ctx: StoreCtx, session: Session):
     dependencies=[Depends(RateLimit("receipt-upload", 6, 60))],  # each upload may trigger a paid OCR call + a store notice (V-20/V-21)
 )
 async def upload_receipt(
+    request: Request,
+    auth: CurrentAuth,
     payment_id: uuid.UUID,
     ctx: StoreCtx,
     session: Session,
@@ -106,7 +109,11 @@ async def upload_receipt(
     await session.flush()
     await receipt_fingerprints.store_fingerprint(session, p, sha256=digest, file_unique_id=file_unique_id)
     duplicate = receipt_fingerprints.summarize(matches, store_id=p.store_id)
-    await service.attach_receipt(session, p, fo.id, claim, duplicate, read_later=read_later)  # commits the fingerprint with the receipt
+    # Only a website session carries the customer's own address; a bot session arrives from the bot's container, which says nothing.
+    origin = provisional.origin_tag(client_ip(request)) if auth.claims.channel == channel.SITE else None
+    await service.attach_receipt(
+        session, p, fo.id, claim, duplicate, read_later=read_later, origin=origin
+    )  # commits the fingerprint with the receipt
     await bank_sms.try_auto_verify_payment(session, p)
     await session.refresh(p)
     return payment_out(p)

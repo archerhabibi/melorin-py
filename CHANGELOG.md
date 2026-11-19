@@ -31,6 +31,8 @@ release-oriented summary. The project is pre-release: breaking changes are allow
 
 - Seventh pass (V-006 remainder): `scripts/host_watch.sh` is an out-of-stack watchdog installed with ops-watch (cron, every 5 min): it messages Telegram directly when disk or RAM run low, when any Compose service (API, worker, main/reseller bots, db, redis) is down or unhealthy for more than 10 minutes, or when a TLS certificate is close to expiry, so a dead API/Prometheus or a permanently broken main bot can no longer go unnoticed; the installer ends with a loud warning when no alert receiver is configured. The full API suite was run on PostgreSQL for the first time (2811 passed, 1 skipped; `tests/postgres` 12/12 with the migration baseline), closing the open V-031 lane. Closure table: docs/21-ROADMAP-TECHNICAL-DEBT.md.
 
+- Eighth pass (V-022 remainder, V01 V-21/V-22 regressions): the grace-credit sweep now also refuses a receipt whose uploader network (keyed HMAC tag of the IPv4 / IPv6 /64, never the raw address; website sessions only, because a bot session arrives from the bot container) already holds `max_open_per_origin` (default 2) open provisional credits or a revoked one (`origin_open_limit`, `origin_revoked_before`), closing the "fresh account bypasses the per-user guard" gap; admin panel field added. A known duplicate-image verdict now wins over `ocr_pending`, and the receipt tests no longer depend on `tesseract` being installed (conftest forces the OCR engine off).
+
 ## [Unreleased] - 2026-11-18
 
 ### Security / reliability

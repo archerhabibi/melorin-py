@@ -359,3 +359,27 @@ async def test_known_duplicate_verdict_wins_over_a_pending_reading():
     )
     cfg = dict(provisional.DEFAULT, enabled=True)
     assert await provisional._block_reason(None, pay, cfg, []) == "duplicate_image"
+
+
+async def test_same_network_cannot_open_many_provisional_credits_or_reuse_after_revoke():
+    """A fresh account from a network that already holds open / revoked credits is left to a human (V-022)."""
+    from types import SimpleNamespace
+
+    from melorin.modules.payments import provisional
+
+    tag = provisional.origin_tag("203.0.113.7")
+    assert tag == provisional.origin_tag("203.0.113.7") and tag != provisional.origin_tag("203.0.113.8")
+
+    def pay(i, state=None, origin=tag):
+        meta = {"receipt_claim": {"reference": f"ref-{i}"}, "receipt_origin": origin}
+        if state:
+            meta["provisional"] = {"state": state}
+        return SimpleNamespace(id=i, user_id=i, amount=150_000, currency="IRT", meta=meta, receipt_file_id=None)
+
+    cfg = dict(provisional.DEFAULT, enabled=True, min_account_age_hours=0, max_open_per_origin=2)
+    me = pay(10)
+    assert await provisional._block_reason(None, me, cfg, [me]) is None
+    two_open = [pay(1, "open"), pay(2, "open"), me]
+    assert await provisional._block_reason(None, me, cfg, two_open) == "origin_open_limit"
+    assert await provisional._block_reason(None, me, cfg, [pay(3, "revoked"), me]) == "origin_revoked_before"
+    assert await provisional._block_reason(None, me, cfg, [pay(1, "open"), pay(4, "open", origin="other"), me]) is None

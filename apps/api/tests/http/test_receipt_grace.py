@@ -228,3 +228,14 @@ async def test_one_failing_payment_does_not_stop_the_rest_of_the_sweep(monkeypat
             out = await provisional.run_store(s, await s.get(Store, main.id), now=utcnow() + dt.timedelta(minutes=10))
         assert out["credited"] == 1 and out["failed"] == 1
         assert await _balance(maker, sid) == 150_000
+
+
+async def test_site_upload_stores_a_keyed_network_tag_not_the_address():
+    async with api_client() as (c, maker, main):
+        h, sid = await _login(c, maker)
+        await _card(maker, main)
+        pid = await _topup(c, h, sid)
+        async with maker() as s:
+            p = await s.get(Payment, uuid.UUID(pid))
+            tag = (p.meta or {}).get("receipt_origin")
+        assert tag and len(tag) == 20 and "." not in tag and ":" not in tag

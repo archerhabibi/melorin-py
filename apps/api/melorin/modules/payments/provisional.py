@@ -17,6 +17,8 @@ from __future__ import annotations
 
 from typing import Any
 import datetime as dt
+import hashlib
+import hmac
 import logging
 import uuid
 
@@ -24,6 +26,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from melorin.core import audit, events, settings_store
+from melorin.core.config import get_settings
 from melorin.core.db import utcnow
 from melorin.core.errors import AppError, NotFound
 from melorin.domain import bank_sms as dom
@@ -45,6 +48,7 @@ DEFAULT: dict = {
     "max_amount_rial": 5_000_000,
     "max_exposure_rial": 20_000_000,
     "max_open_per_user": 1,
+    "max_open_per_origin": 2,  # one network (IPv4 / IPv6 /64) cannot hold many provisional credits through many fresh accounts (V-022)
     "min_account_age_hours": 24,  # a brand-new account never gets a loan of trust (forged receipt + fresh account = free money)
 }
 _RULES: tuple[tuple[str, type, Any, Any], ...] = (
@@ -53,6 +57,7 @@ _RULES: tuple[tuple[str, type, Any, Any], ...] = (
     ("max_amount_rial", int, 1, 10**12),
     ("max_exposure_rial", int, 1, 10**13),
     ("max_open_per_user", int, 1, 10),
+    ("max_open_per_origin", int, 1, 50),
     ("min_account_age_hours", int, 0, 24 * 90),
 )
 BLOCK_TEXT = {
@@ -61,6 +66,8 @@ BLOCK_TEXT = {
     "over_exposure_cap": "سقف کل اعتبارهای موقت باز فروشگاه پر است",
     "user_open_limit": "مشتری هم‌اکنون یک اعتبار موقت بازبینی‌نشده دارد",
     "user_revoked_before": "برای این مشتری قبلاً اعتبار موقت لغو شده است",
+    "origin_open_limit": "از همین شبکه قبلاً چند اعتبار موقت بازبینی‌نشده باز است",
+    "origin_revoked_before": "از همین شبکه قبلاً اعتبار موقت لغو شده است",
     "duplicate_image": "همین تصویر رسید قبلاً برای پرداخت دیگری ثبت شده",
     "duplicate_reference": "شماره مرجع این رسید قبلاً دیده شده",
     "currency": "ارز این پرداخت قابل بررسی نیست",
@@ -68,6 +75,16 @@ BLOCK_TEXT = {
     "new_account": "حساب مشتری هنوز به اندازهٔ کافی قدیمی نیست",
     "ocr_pending": "خواندن خودکار رسید هنوز تمام نشده است",
 }
+
+
+def origin_tag(ip: str) -> str:
+    """Keyed, non-reversible tag of the uploader's network (IPv4 or IPv6 /64), stored with the receipt instead of the raw address.
+
+    It lets the grace sweep see that several "different" fresh accounts upload from one place (V-022) without keeping personal
+    data: the tag is an HMAC under the server secret, truncated, and only ever compared for equality.
+    """
+    key = get_settings().jwt_secret.encode()
+    return hmac.new(key, f"receipt-origin:{ip}".encode(), hashlib.sha256).hexdigest()[:20]
 
 
 async def get_config(session: AsyncSession, store_id: uuid.UUID) -> dict:
@@ -160,6 +177,13 @@ async def _block_reason(session: AsyncSession, p: Payment, cfg: dict, history: l
         return "user_open_limit"
     if any((state(x) or {}).get("state") == "revoked" for x in mine):
         return "user_revoked_before"
+    origin = (p.meta or {}).get("receipt_origin")
+    if origin:  # the per-user guards above are bypassed by a new account; the network is the part a faker cannot change cheaply
+        same_net = [x for x in history if x.id != p.id and ((x.meta or {}).get("receipt_origin") == origin)]
+        if any((state(x) or {}).get("state") == "revoked" for x in same_net):
+            return "origin_revoked_before"
+        if sum(1 for x in same_net if (state(x) or {}).get("state") == "open") >= int(cfg.get("max_open_per_origin", 2)):
+            return "origin_open_limit"
     ref = claim.get("reference")
     if ref and any(x.id != p.id and ((x.meta or {}).get("receipt_claim") or {}).get("reference") == ref for x in history):
         return "duplicate_reference"

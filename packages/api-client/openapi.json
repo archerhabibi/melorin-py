@@ -3236,6 +3236,17 @@
             ],
             "title": "Max Exposure Rial"
           },
+          "max_open_per_origin": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Open Per Origin"
+          },
           "max_open_per_user": {
             "anyOf": [
               {
@@ -3246,6 +3257,17 @@
               }
             ],
             "title": "Max Open Per User"
+          },
+          "min_account_age_hours": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Account Age Hours"
           },
           "minutes": {
             "anyOf": [
