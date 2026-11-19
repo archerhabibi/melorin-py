@@ -23,6 +23,7 @@ from melorin.core import integrations
 from melorin.modules.panel_integrations.adapters.lifecycle import close_adapter
 from _jobs import patch_jobs
 from melorin.worker import jobs
+import melorin.worker.jobs_backup as backup_jobs
 
 
 @pytest.fixture
@@ -256,6 +257,22 @@ def backup_env(maker, monkeypatch, tmp_path):
 async def _runs(maker):
     async with maker() as s:
         return (await s.scalars(select(BackupRun))).all()
+
+
+async def test_backup_artifact_size_uses_a_worker_thread_and_handles_missing_files(monkeypatch, tmp_path):
+    artifact = tmp_path / "dump.enc"
+    artifact.write_bytes(b"backup")
+    original = backup_jobs.asyncio.to_thread
+    calls = []
+
+    async def observed_to_thread(func, *args, **kwargs):
+        calls.append(func)
+        return await original(func, *args, **kwargs)
+
+    monkeypatch.setattr(backup_jobs.asyncio, "to_thread", observed_to_thread)
+    assert await backup_jobs._artifact_size(str(artifact)) == 6
+    assert await backup_jobs._artifact_size(str(tmp_path / "missing.enc")) is None
+    assert len(calls) == 2 and all(getattr(call, "__name__", None) == "stat" for call in calls)
 
 
 async def test_backup_job_success_records_artifact_size_and_local_only_note(maker, backup_env):
