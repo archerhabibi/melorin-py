@@ -69,6 +69,25 @@ async def store_payment_settings(session: AsyncSession, store: Store, provider: 
     raise AppError("PAYMENT_METHOD_DISABLED", "روش شارژ برای این فروشگاه پیکربندی نشده است.", 400)
 
 
+def _existing_intent_result(payment: Payment) -> tuple[Payment, dict]:
+    """Return a completed intent, or fail closed when its provider outcome is not known.
+
+    A timeout/exception is not proof that a provider rejected the request: it may have
+    created a charge before the response was lost. Replaying the create call could then
+    create a second charge. Such intents must be reconciled with the provider first.
+    """
+    meta = payment.meta or {}
+    operation = meta.get("external_operation")
+    if operation == "created" and (payment.external_ref or meta.get("instructions") is not None):
+        return payment, meta.get("instructions") or {}
+    raise AppError(
+        "PAYMENT_INTENT_OUTCOME_UNKNOWN",
+        "نتیجه ایجاد پرداخت نزد درگاه هنوز مشخص نیست؛ برای جلوگیری از پرداخت تکراری، درخواست مجدداً ارسال نمی‌شود.",
+        409,
+        {"payment_id": str(payment.id), "action": "reconcile_with_provider"},
+    )
+
+
 async def create_intent(
     session: AsyncSession,
     *,
@@ -87,7 +106,7 @@ async def create_intent(
     if existing:
         if existing.amount != amount or existing.provider != provider or existing.purpose != purpose:
             raise AppError("IDEMPOTENCY_KEY_REUSE", "کلید idempotency با درخواست دیگری استفاده شده است.", 409)
-        return existing, (existing.meta or {}).get("instructions", {})
+        return _existing_intent_result(existing)
     if purpose != "wallet_topup":
         raise AppError("WALLET_ONLY", "پرداخت فقط برای شارژ کیف پول است؛ خرید از کیف پول انجام می‌شود.", 400)
     await flags.ensure_enabled(session, "payment", store_id=store.id)
@@ -109,7 +128,10 @@ async def create_intent(
         currency=store.currency,
         status=P.PENDING,
         idempotency_key=idempotency_key,
-        meta={},
+        # Persist an explicit in-flight marker before crossing the network boundary.
+        # A process crash at any point after this commit is treated as an unknown
+        # provider outcome and is never blindly replayed.
+        meta={"external_operation": "creating"},
     )
     session.add(p)
     try:
@@ -121,7 +143,7 @@ async def create_intent(
             select(Payment).where(Payment.user_id == user.id, Payment.store_id == store.id, Payment.idempotency_key == idempotency_key)
         )
         if existing:
-            return existing, (existing.meta or {}).get("instructions", {})
+            return _existing_intent_result(existing)
         raise
     try:
         res = await adapter.create_payment_intent(
@@ -129,8 +151,12 @@ async def create_intent(
         )
     except Exception as exc:
         log.warning("payment create failed payment=%s provider=%s", p.id, p.provider, exc_info=True)
-        p.meta = {"external_operation": "create_failed", "error": str(exc)[:300]}
-        session.add(PaymentAttempt(payment_id=p.id, action="create", result="failed", data={"error": str(exc)[:500]}))
+        # Any exception after sending the request is ambiguous unless an adapter can
+        # positively prove that no provider-side operation was created. The current
+        # adapter contract cannot make that distinction, so record UNKNOWN and require
+        # reconciliation instead of permitting an unsafe retry.
+        p.meta = {"external_operation": "unknown", "error_type": type(exc).__name__}
+        session.add(PaymentAttempt(payment_id=p.id, action="create", result="unknown", data={"error_type": type(exc).__name__}))
         await session.commit()
         raise
     p.external_ref = res.external_ref
