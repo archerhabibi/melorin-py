@@ -86,6 +86,30 @@ set_kv() { # set_kv KEY VALUE  (replace line or append)
   fi
 }
 
+# V-024: the bundled Compose network defaults to 172.28.0.0/16, which can overlap a provider/VPN route on the host. Pick the first
+# candidate that overlaps no existing IPv4 route; fall back to the default when python3/ip are unavailable.
+pick_subnet() {
+  command -v python3 >/dev/null 2>&1 && command -v ip >/dev/null 2>&1 || { printf '172.28.0.0/16'; return 0; }
+  ip -4 route show 2>/dev/null | python3 -c '
+import ipaddress, sys
+used = []
+for line in sys.stdin:
+    tok = line.split()
+    if tok and "/" in tok[0]:
+        try:
+            used.append(ipaddress.ip_network(tok[0], strict=False))
+        except ValueError:
+            pass
+for cand in ("172.28.0.0/16", "172.29.0.0/16", "172.30.0.0/16", "172.31.0.0/16", "10.213.0.0/16", "10.214.0.0/16"):
+    net = ipaddress.ip_network(cand)
+    if not any(net.overlaps(u) for u in used):
+        print(cand, end="")
+        break
+else:
+    print("172.28.0.0/16", end="")
+'
+}
+
 # Numeric Telegram ID of the main admin (not the @username). Digits only, 5-15 long; Persian and Arabic-Indic digits are folded.
 normalize_tg_id() { # normalize_tg_id VALUE -> prints ASCII digits or nothing
   local v="$1"
@@ -122,6 +146,9 @@ if [ ! -f .env ]; then
   cp .env.example "$ENV_FILE"
   PGPASS="$(rand)"
   set_kv MELORIN_ENV production
+  SUBNET="$(pick_subnet)"
+  set_kv MELORIN_SUBNET "$SUBNET"
+  set_kv MELORIN_TRUSTED_PROXY_IPS "[\"127.0.0.1\",\"::1\",\"${SUBNET}\"]"
   set_kv POSTGRES_PASSWORD "$PGPASS"
   set_kv MELORIN_DATABASE_URL "postgresql+asyncpg://melorin:${PGPASS}@postgres:5432/melorin"
   set_kv MELORIN_JWT_SECRET "$(rand)"
