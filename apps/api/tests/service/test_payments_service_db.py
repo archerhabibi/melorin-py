@@ -140,6 +140,40 @@ async def test_disabled_payment_method_and_kill_switch_block_new_intents(gateway
         assert exc.value.code == "FEATURE_DISABLED" and exc.value.status == 503
 
 
+async def test_disabling_gateway_blocks_new_intents_but_keeps_existing_refunds_available(gateway):
+    async with open_session() as s:
+        store, user = await _setup(s)
+        p, _ = await _intent(s, store, user)
+        await payments.mark_succeeded(s, p.id)
+        cfg = await s.scalar(select(StorePaymentConfiguration).where(StorePaymentConfiguration.store_id == store.id))
+        cfg.is_enabled = False
+        await s.commit()
+
+        with pytest.raises(AppError) as new_intent:
+            await _intent(s, store, user, key="new-after-disable")
+        assert new_intent.value.code == "PAYMENT_METHOD_DISABLED"
+
+        refunded = await payments.refund_payment(s, p.id, actor_id=user.id, reason="pre-release test")
+        assert refunded.status == "refunded"
+        assert gateway.refunds == 1
+        assert await _balance(s, user, store) == 0
+
+
+async def test_disabling_gateway_does_not_break_callback_for_an_existing_intent(gateway):
+    async with open_session() as s:
+        store, user = await _setup(s)
+        p, _ = await _intent(s, store, user)
+        cfg = await s.scalar(select(StorePaymentConfiguration).where(StorePaymentConfiguration.store_id == store.id))
+        cfg.is_enabled = False
+        await s.commit()
+
+        done = await payments.handle_callback(
+            s, "fake_gw", {"pid": str(p.id), "Status": "OK", "Authority": p.external_ref}
+        )
+        assert done.status == "succeeded"
+        assert await _balance(s, user, store) == 5_000
+
+
 async def test_only_wallet_topups_are_accepted_and_unknown_gateway_is_rejected(gateway):
     async with open_session() as s:
         store, user = await _setup(s)
