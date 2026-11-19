@@ -32,7 +32,7 @@ from melorin.kernel.models.identity import User
 from melorin.kernel.models.payments import Payment
 from melorin.kernel.models.stores import Store
 from melorin.kernel.models.system import FileObject
-from melorin.modules.payments import service as payments
+from melorin.modules.payments import ocr_job, service as payments
 from melorin.modules.wallet import service as wallet
 from melorin.domain.timeutil import aware as _aware
 
@@ -66,6 +66,7 @@ BLOCK_TEXT = {
     "currency": "ارز این پرداخت قابل بررسی نیست",
     "no_proof": "هیچ نشانهٔ قابل‌تطبیقی (مبلغ یا شماره مرجع) از رسید خوانده نشد",
     "new_account": "حساب مشتری هنوز به اندازهٔ کافی قدیمی نیست",
+    "ocr_pending": "خواندن خودکار رسید هنوز تمام نشده است",
 }
 
 
@@ -145,6 +146,8 @@ async def _block_reason(session: AsyncSession, p: Payment, cfg: dict, history: l
     rial = dom.to_rial(p.amount, p.currency)
     if rial is None:
         return "currency"
+    if ocr_job.blocks_credit(p):
+        return "ocr_pending"  # the reading may still reveal a mismatching amount or a duplicate reference (V01 V-21)
     claim = (p.meta or {}).get("receipt_claim") or {}
     seen = claim.get("amount_rial")
     if isinstance(seen, int) and seen != rial:

@@ -141,12 +141,21 @@ async def create_intent(
 
 
 async def attach_receipt(
-    session: AsyncSession, payment: Payment, file_id: uuid.UUID, claim: dict | None = None, duplicate: dict | None = None
+    session: AsyncSession,
+    payment: Payment,
+    file_id: uuid.UUID,
+    claim: dict | None = None,
+    duplicate: dict | None = None,
+    *,
+    read_later: bool = False,
 ) -> None:
     """``claim`` = what the customer read off the receipt (time, reference, source card tail); used by bank-SMS matching.
 
     ``duplicate`` = summary of earlier payments that used the same picture (see ``receipt_fingerprints.summarize``); it is
     kept on the payment and added to the reviewers' notice. The upload itself was already accepted by the store's policy.
+
+    ``read_later`` queues the automatic reading of the picture (OCR/vision) for the worker; ``claim`` then holds only what the
+    customer typed and is completed by ``ocr_job.run`` (V01 V-21). A replaced receipt discards the older reading.
     """
     if payment.provider != "manual_card" or payment.status not in (P.PENDING, P.AWAITING_REVIEW):
         raise AppError("INVALID_PAYMENT_STATE", "برای این پرداخت امکان ارسال رسید نیست.", 409)
@@ -154,8 +163,20 @@ async def attach_receipt(
     payment.meta = {**(payment.meta or {}), "receipt_attached_at": utcnow().isoformat()}  # start of the grace clock
     if claim:
         payment.meta = {**payment.meta, "receipt_claim": claim}
-    meta = {k: v for k, v in payment.meta.items() if k != "receipt_duplicate"}  # a replaced receipt starts clean
-    payment.meta = {**meta, "receipt_duplicate": duplicate} if duplicate else meta
+    meta = {k: v for k, v in payment.meta.items() if k not in ("receipt_duplicate", "receipt_ocr")}  # a replaced receipt starts clean
+    meta = {**meta, "receipt_duplicate": duplicate} if duplicate else meta
+    if read_later:
+        from melorin.modules.payments import ocr_job  # deferred: ocr_job imports the bank-SMS package, which imports this module
+
+        typed = {k: v for k, v in (claim or {}).items() if k in ("paid_at", "reference", "source_card_last4")}
+        meta["receipt_ocr"] = ocr_job.pending_state(file_id)
+        await events.emit(
+            session,
+            events.RECEIPT_OCR,
+            {"payment_id": payment.id, "store_id": payment.store_id, "file_id": file_id, "typed": typed},
+            dedup_key=f"receipt-ocr:{payment.id}:{file_id}",
+        )
+    payment.meta = meta
     payment.status = P.AWAITING_REVIEW
     note = receipt_fingerprints.warning_text(duplicate)
     await events.emit(

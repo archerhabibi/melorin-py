@@ -27,11 +27,13 @@ class PaymentOut(BaseModel):
 
 
 def _receipt_read(p) -> dict | None:
-    claim = (p.meta or {}).get("receipt_claim")
-    if not claim:
+    meta = p.meta or {}
+    claim = meta.get("receipt_claim")
+    ocr_state = (meta.get("receipt_ocr") or {}).get("state")  # "pending" while the worker has not read the picture yet
+    if not claim and not ocr_state:
         return None
     keys = ("paid_at", "amount_rial", "source_card_last4", "reference", "source", "ocr_engine")
-    return {k: claim.get(k) for k in keys}
+    return {**{k: (claim or {}).get(k) for k in keys}, "ocr_state": ocr_state}
 
 
 def payment_out(p) -> PaymentOut:

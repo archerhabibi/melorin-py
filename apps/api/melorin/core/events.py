@@ -30,6 +30,7 @@ EVENT_CENTER_DELIVER = "eventcenter.deliver"
 VPN_REVOKE = "vpn.revoke"
 VPN_RENEWAL_ROLLBACK = "vpn.renewal_rollback"
 TICKET_UPDATED = "ticket.updated"
+RECEIPT_OCR = "payments.receipt_ocr"  # V01 V-21: the receipt is read by the worker, never inside the upload request
 
 log = logging.getLogger("melorin.events")
 
@@ -56,6 +57,7 @@ PAYLOAD_SCHEMA: dict[str, tuple[frozenset[str], frozenset[str] | None]] = {
     VPN_REVOKE: (frozenset({"vpn_account_id"}), frozenset()),
     VPN_RENEWAL_ROLLBACK: (frozenset({"before", "mode", "vpn_account_id"}), frozenset()),
     TICKET_UPDATED: (frozenset({"store_id", "ticket_id"}), frozenset({"message_id"})),
+    RECEIPT_OCR: (frozenset({"file_id", "payment_id", "store_id"}), frozenset({"typed"})),
 }
 
 

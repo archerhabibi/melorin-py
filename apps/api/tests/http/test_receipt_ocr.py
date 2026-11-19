@@ -120,10 +120,40 @@ async def test_engine_failure_never_raises_and_pdf_is_skipped(monkeypatch):
 
 # ------------------------------------------------------------------------------------------------ end to end
 def _engine(monkeypatch, facts, name="vision"):
+    """A configured engine (the upload only queues a reading when one is set) whose result is ``facts``."""
+    from melorin.core import config
+
+    monkeypatch.setenv("MELORIN_RECEIPT_OCR_ENGINE", "vision")
+    monkeypatch.setenv("MELORIN_RECEIPT_OCR_API_KEY", "k-test")
+    config.get_settings.cache_clear()
+
     async def fake(data, content_type, cfg=None):
         return facts, name
 
     monkeypatch.setattr(receipt_ocr, "read_receipt", fake)
+
+
+async def _drain_ocr(maker) -> list[str]:
+    """Run the queued receipt readings the way the worker does (V01 V-21: the upload never reads the picture itself)."""
+    from sqlalchemy import select
+
+    from melorin.core import events
+    from melorin.kernel.models.system import OutboxEvent
+    from melorin.modules.payments import ocr_job
+
+    async with maker() as s:
+        payloads = [e.payload for e in (await s.scalars(select(OutboxEvent).where(OutboxEvent.topic == events.RECEIPT_OCR))).all()]
+    results = []
+    for payload in payloads:
+        async with maker() as s:
+            results.append(await ocr_job.run(s, payload))
+    return results
+
+
+async def _payment(c, h, sid, pid):
+    r = await c.get(f"/api/v1/stores/{sid}/payments/{pid}", headers=h)
+    assert r.status_code == 200, r.text
+    return r.json()
 
 
 async def _topup_plain(c, h, sid, *, amount=150_000, key="manual-key-1"):
@@ -147,7 +177,12 @@ async def test_customer_types_nothing_and_the_wallet_is_still_credited(monkeypat
         pid = await _topup_plain(c, h, sid)
         r = await _upload(c, h, sid, pid)  # no paid_at, no card digits, no reference
         assert r.status_code == 200
-        assert r.json()["receipt_read"]["source"] == "ocr" and r.json()["receipt_read"]["source_card_last4"] == "7931"
+        assert (
+            r.json()["receipt_read"]["ocr_state"] == "pending" and r.json()["receipt_read"]["source"] == "none"
+        )  # answered before reading
+        assert await _drain_ocr(maker) == ["done"]
+        read = (await _payment(c, h, sid, pid))["receipt_read"]
+        assert read["source"] == "ocr" and read["source_card_last4"] == "7931" and read["ocr_state"] == "done"
         assert (await _sms(c, main.id, token, sms_text(when=when))).json()["status"] == "matched"
         assert await _balance(maker, sid) == 150_000
 
@@ -160,6 +195,7 @@ async def test_receipt_amount_that_disagrees_with_the_request_is_never_auto_paid
         _engine(monkeypatch, ReceiptFacts(999_000, when, "7931", None))  # image says 99,900 toman, request is 150,000
         pid = await _topup_plain(c, h, sid)
         await _upload(c, h, sid, pid)
+        await _drain_ocr(maker)
         assert (await _sms(c, main.id, token, sms_text(when=when))).json()["status"] == "unmatched"
         assert await _balance(maker, sid) == 0
 
@@ -172,7 +208,9 @@ async def test_unreadable_receipt_waits_for_a_human_and_typed_time_is_only_a_fal
         _engine(monkeypatch, None, "tesseract")  # OCR could not read anything
         pid = await _topup_plain(c, h, sid)
         r = await _upload(c, h, sid, pid)
-        assert r.status_code == 200 and r.json()["status"] == "awaiting_review" and r.json()["receipt_read"]["source"] == "none"
+        assert r.status_code == 200 and r.json()["status"] == "awaiting_review"
+        await _drain_ocr(maker)
+        assert (await _payment(c, h, sid, pid))["receipt_read"]["source"] == "none"
         assert (await _sms(c, main.id, token, sms_text(when=when))).json()["status"] == "unmatched"
         r = await _upload(c, h, sid, pid, paid_at=dom.utc_to_jalali_text(when))  # fallback form, same receipt again
         assert r.json()["status"] == "succeeded" and r.json()["receipt_read"]["source"] == "customer"
@@ -199,6 +237,7 @@ async def test_sms_of_another_account_is_ignored_when_the_account_is_pinned(monk
         _engine(monkeypatch, ReceiptFacts(1_500_000, when, None, None))
         pid = await _topup_plain(c, h, sid)
         await _upload(c, h, sid, pid)
+        await _drain_ocr(maker)
         other = sms_text(when=when, serial="999999999999999999")
         assert (await _sms(c, main.id, token, other)).json()["status"] == "ignored"
         assert await _balance(maker, sid) == 0
@@ -209,3 +248,94 @@ def test_account_number_setting_is_validated():
     assert bank_sms.clean_settings({"account_number": "۳۰۲۵۷۰۰۰۹۱۵۲۳۲۵۰۰۱"}) == {"account_number": SERIAL}
     with pytest.raises(Exception):
         bank_sms.clean_settings({"account_number": "12"})
+
+
+# ------------------------------------------------------------------------------------------------ V01 V-21: reading is a worker job
+async def test_upload_never_reads_the_picture_itself(monkeypatch):
+    async with api_client() as (c, maker, main):
+        h, sid = await _login(c, maker)
+        await _setup_source(maker, main.id)
+        calls = []
+
+        async def fake(data, content_type, cfg=None):
+            calls.append(len(data))
+            return ReceiptFacts(1_500_000, _minute(), "7931", "286961122762"), "vision"
+
+        _engine(monkeypatch, None)
+        monkeypatch.setattr(receipt_ocr, "read_receipt", fake)
+        pid = await _topup_plain(c, h, sid)
+        r = await _upload(c, h, sid, pid)
+        assert r.status_code == 200 and calls == []  # the request returned without touching the engine
+        assert await _drain_ocr(maker) == ["done"] and len(calls) == 1
+        assert await _drain_ocr(maker) == ["stale"] and len(calls) == 1  # a re-delivered event does no second (paid) reading
+
+
+async def test_replacing_the_receipt_discards_the_older_reading(monkeypatch):
+    async with api_client() as (c, maker, main):
+        h, sid = await _login(c, maker)
+        await _setup_source(maker, main.id)
+        _engine(monkeypatch, ReceiptFacts(1_500_000, _minute(), "7931", None))
+        pid = await _topup_plain(c, h, sid)
+        await _upload(c, h, sid, pid)
+        first = await _drain_ocr(maker)
+        assert first == ["done"]
+        # same picture again: its fingerprint warns but the upload is accepted; the new file id gets its own queued reading
+        await c.post(f"/api/v1/stores/{sid}/payments/{pid}/receipt", files={"file": ("r2.png", PNG + b"\x00", "image/png")}, headers=h)
+        results = await _drain_ocr(maker)
+        assert results.count("stale") == 1 and results.count("done") == 1  # the old event is stale, only the new file was read once more
+
+
+async def test_daily_vision_budget_is_spent_in_the_worker_and_the_receipt_stays_with_a_human(monkeypatch):
+    from melorin.core import config
+
+    async with api_client() as (c, maker, main):
+        h, sid = await _login(c, maker)
+        await _setup_source(maker, main.id)
+        monkeypatch.setenv("MELORIN_RECEIPT_OCR_DAILY_CAP", "1")
+        _engine(monkeypatch, ReceiptFacts(1_500_000, _minute(), "7931", None))
+        config.get_settings.cache_clear()
+        a = await _topup_plain(c, h, sid, key="manual-key-a1")
+        b = await _topup_plain(c, h, sid, key="manual-key-b1")
+        for pid in (a, b):
+            assert (await _upload(c, h, sid, pid)).status_code == 200
+        assert sorted(await _drain_ocr(maker)) == ["done", "skipped"]
+        reads = [(await _payment(c, h, sid, pid))["receipt_read"] for pid in (a, b)]
+        assert sorted(x["source"] for x in reads) == ["none", "ocr"]
+        assert all(x["ocr_state"] in ("done", "skipped") for x in reads)
+    config.get_settings.cache_clear()
+
+
+async def test_engine_off_queues_nothing(monkeypatch):
+    from melorin.core import config
+
+    async with api_client() as (c, maker, main):
+        h, sid = await _login(c, maker)
+        await _setup_source(maker, main.id)
+        monkeypatch.setenv("MELORIN_RECEIPT_OCR_ENGINE", "off")
+        config.get_settings.cache_clear()
+        pid = await _topup_plain(c, h, sid)
+        r = await _upload(c, h, sid, pid)
+        assert r.status_code == 200 and r.json()["receipt_read"]["ocr_state"] is None
+        assert await _drain_ocr(maker) == []
+    config.get_settings.cache_clear()
+
+
+async def test_grace_credit_waits_for_a_pending_reading():
+    from types import SimpleNamespace
+
+    from melorin.core.db import utcnow
+    from melorin.modules.payments import ocr_job, provisional
+
+    def pay(state, minutes_ago):
+        queued = (utcnow() - dt.timedelta(minutes=minutes_ago)).isoformat()
+        return SimpleNamespace(
+            amount=150_000,
+            currency="IRT",
+            meta={"receipt_ocr": {"state": state, "queued_at": queued}, "receipt_claim": {"reference": "123456789"}},
+        )
+
+    assert ocr_job.blocks_credit(pay("pending", 2)) is True
+    assert ocr_job.blocks_credit(pay("done", 2)) is False
+    assert ocr_job.blocks_credit(pay("pending", 90)) is False  # a dead queue cannot park the money forever
+    cfg = dict(provisional.DEFAULT, enabled=True)
+    assert await provisional._block_reason(None, pay("pending", 2), cfg, []) == "ocr_pending"
