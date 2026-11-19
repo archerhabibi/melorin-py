@@ -53,7 +53,13 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast 
           manual_card: rows.find((x) => x.provider === 'manual_card')?.public_config,
           zarinpal: (() => {
             const z = rows.find((x) => x.provider === 'zarinpal');
-            return z && { merchant_id: z.merchant_id || '', sandbox: !!z.public_config?.sandbox, has_access_token: !!z.has_access_token };
+            return (
+              z && {
+                merchant_id: z.merchant_id || '',
+                sandbox: !!z.public_config?.sandbox,
+                has_access_token: !!z.has_access_token,
+              }
+            );
           })(),
         }),
       )
@@ -184,7 +190,9 @@ export default function PaymentsView({ api, toast }: { api?: Json; toast: Toast 
           provider === 'zarinpal'
             ? {
                 ...value,
-                has_access_token: value.clear_access_token ? false : !!value.access_token?.trim() || !!value.has_access_token,
+                has_access_token: value.clear_access_token
+                  ? false
+                  : !!value.access_token?.trim() || !!value.has_access_token,
                 access_token: '',
                 clear_access_token: false,
               }

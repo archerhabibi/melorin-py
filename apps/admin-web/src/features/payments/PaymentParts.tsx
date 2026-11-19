@@ -301,9 +301,27 @@ export function GatewaySettings({ obj, save }: { obj?: Json; save?: Json }) {
   const card = obj.manual_card || {};
   const zp = obj.zarinpal || {};
   const [c, setC] = useState({ card_number: '', holder: '', bank: '', ...card });
-  const [z, setZ] = useState({ merchant_id: '', sandbox: false, access_token: '', clear_access_token: false, has_access_token: false, ...zp });
+  const [z, setZ] = useState({
+    merchant_id: '',
+    sandbox: false,
+    access_token: '',
+    clear_access_token: false,
+    has_access_token: false,
+    ...zp,
+  });
   useEffect(() => setC({ card_number: '', holder: '', bank: '', ...(obj.manual_card || {}) }), [obj]);
-  useEffect(() => setZ({ merchant_id: '', sandbox: false, access_token: '', clear_access_token: false, has_access_token: false, ...(obj.zarinpal || {}) }), [obj]);
+  useEffect(
+    () =>
+      setZ({
+        merchant_id: '',
+        sandbox: false,
+        access_token: '',
+        clear_access_token: false,
+        has_access_token: false,
+        ...(obj.zarinpal || {}),
+      }),
+    [obj],
+  );
   const cardOk = !!(card.card_number && card.holder);
   const zpOk = !!zp.merchant_id;
   return (
@@ -411,7 +429,11 @@ export function GatewaySettings({ obj, save }: { obj?: Json; save?: Json }) {
                 <Switch checked={!!z.sandbox} onChange={(v: Json) => setZ({ ...z, sandbox: v })} label="حالت Sandbox" />
               </div>
             </div>
-            <button className="btn mt-4" disabled={!z.merchant_id.trim() || (!!z.clear_access_token && !!z.access_token.trim())} onClick={() => save('zarinpal', z)}>
+            <button
+              className="btn mt-4"
+              disabled={!z.merchant_id.trim() || (!!z.clear_access_token && !!z.access_token.trim())}
+              onClick={() => save('zarinpal', z)}
+            >
               ذخیره تنظیمات زرین‌پال
             </button>
           </div>
