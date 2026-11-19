@@ -286,8 +286,8 @@ Melorin-Py یک Modular Monolith نسبتاً بالغ است، نه یک سرو
 - یک HTTP scrape endpoint کوچک در processهای background یعنی ARQ worker و scheduler بکاپ روی `:8001/metrics` اضافه شده؛ بدون publish کردن port روی host و فقط در شبکهٔ داخلی Compose.
 - endpoint با همان `MELORIN_METRICS_TOKEN` احراز هویت Bearer می‌کند؛ در production نبود token به 503 منجر می‌شود و token اشتباه 401 می‌گیرد.
 - startup/shutdown مربوط به ARQ و lifecycle مربوط به scheduler بکاپ endpointها را مدیریت می‌کنند.
-- Prometheus target جدید `melorin-worker` هر دو سرویس `worker:8001` و `backup:8001` را scrape می‌کند؛ `honor_labels` برچسب نام job واقعی را حفظ می‌کند.
-- alert بحرانی `MelorinWorkerJobLockUnavailable` برای `outcome="lock_error"` اضافه شده است.
+- Prometheus دو target مستقل `melorin-worker` و `melorin-backup` را scrape می‌کند؛ `honor_labels` برچسب نام job واقعی را حفظ می‌کند.
+- alert بحرانی `MelorinWorkerJobLockUnavailable` برای `outcome="lock_error"` و alertهای مجزا برای از دسترس خارج شدن endpointهای worker و backup اضافه شده‌اند.
 - تست‌ها احراز هویت، مسیر توسعه، نبود token در production، lifecycle و پیکربندی scrape/alert را می‌پوشانند.
 
 اعتبارسنجی محلی: 19 تست مرتبط worker/metrics/backup موفق؛ Ruff، Mypy و format check موفق؛ `promtool check config` و `promtool check rules` موفق (25 rule). image مربوط به API نیز با Docker ساخته شد. CI کامل PR #135 هنوز باید بررسی شود.
