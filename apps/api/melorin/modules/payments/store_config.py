@@ -53,6 +53,7 @@ def admin_view(row: StorePaymentConfiguration) -> dict:
     }
     if row.provider == "zarinpal":
         out["merchant_id"] = secret.get("merchant_id", "")
+        out["has_access_token"] = bool(secret.get("access_token"))
     return out
 
 
@@ -87,10 +88,30 @@ async def upsert(
         row = StorePaymentConfiguration(store_id=store_id, provider=provider)
         session.add(row)
     row.is_enabled, row.public_config, row.updated_by = is_enabled, public_config, actor_id
+    secret_changed = secret is not None
+    if provider == "zarinpal" and secret is not None:
+        allowed = {"merchant_id", "access_token", "clear_access_token"}
+        if set(secret) - allowed:
+            raise AppError("PAYMENT_CONFIG_INVALID", "فیلد محرمانهٔ نامعتبر برای زرین‌پال ارسال شده است.", 422)
+        merchant_id = secret.get("merchant_id")
+        if not isinstance(merchant_id, str) or not merchant_id.strip():
+            raise AppError("PAYMENT_CONFIG_INVALID", "Merchant ID زرین‌پال الزامی است.", 422)
+        access_token = secret.get("access_token")
+        if access_token is not None and not isinstance(access_token, str):
+            raise AppError("PAYMENT_CONFIG_INVALID", "Access Token باید متن باشد.", 422)
+        clear_token = secret.get("clear_access_token", False)
+        if not isinstance(clear_token, bool) or (clear_token and access_token and access_token.strip()):
+            raise AppError("PAYMENT_CONFIG_INVALID", "برای جایگزینی یا حذف توکن فقط یک عملیات را انتخاب کنید.", 422)
+        old = json.loads(decrypt(row.secret_enc) or "{}") if row.secret_enc else {}
+        merged = {"merchant_id": merchant_id.strip()}
+        if clear_token:
+            pass  # explicit deletion; never infer deletion from an empty password field
+        elif access_token and access_token.strip():
+            merged["access_token"] = access_token.strip()
+        elif old.get("access_token"):
+            merged["access_token"] = old["access_token"]
+        secret = merged
     if secret is not None:
-        if provider == "zarinpal" and row.secret_enc:
-            old = json.loads(decrypt(row.secret_enc) or "{}")
-            secret = {**{k: v for k, v in old.items() if k == "access_token"}, **secret}
         row.secret_enc = encrypt(json.dumps(secret))
     audit.record(
         session,
@@ -100,7 +121,7 @@ async def upsert(
         entity_type="store",
         entity_id=store_id,
         store_id=store_id,
-        data={"provider": provider, "enabled": is_enabled, "secret_changed": secret is not None},
+        data={"provider": provider, "enabled": is_enabled, "secret_changed": secret_changed},
     )
     return row
 
