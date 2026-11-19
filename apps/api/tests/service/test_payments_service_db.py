@@ -151,18 +151,47 @@ async def test_only_wallet_topups_are_accepted_and_unknown_gateway_is_rejected(g
         assert exc.value.code == "GATEWAY_UNKNOWN"
 
 
-async def test_gateway_failure_on_create_is_recorded_and_reraised(gateway, monkeypatch):
+async def test_gateway_failure_on_create_is_unknown_and_never_blindly_retried(gateway, monkeypatch):
     async def boom(*a, **k):
-        raise RuntimeError("gateway 500")
+        gateway.intents += 1
+        raise RuntimeError("gateway response lost after request")
 
+    # Count calls independently of the fake's normal successful implementation.
     monkeypatch.setattr(gateway, "create_payment_intent", boom)
     async with open_session() as s:
         store, user = await _setup(s)
         with pytest.raises(RuntimeError):
             await _intent(s, store, user)
         p = await s.scalar(select(Payment))
-        assert p.meta["external_operation"] == "create_failed" and p.status == "pending"
-        assert (await s.scalar(select(PaymentAttempt.result).where(PaymentAttempt.payment_id == p.id))) == "failed"
+        assert p.meta["external_operation"] == "unknown" and p.status == "pending"
+        assert (await s.scalar(select(PaymentAttempt.result).where(PaymentAttempt.payment_id == p.id))) == "unknown"
+        with pytest.raises(AppError) as retry:
+            await _intent(s, store, user)
+        assert retry.value.code == "PAYMENT_INTENT_OUTCOME_UNKNOWN" and retry.value.status == 409
+        assert retry.value.details["payment_id"] == str(p.id)
+        assert gateway.intents == 1
+
+
+async def test_stale_creating_intent_is_not_replayed_after_process_crash(gateway):
+    async with open_session() as s:
+        store, user = await _setup(s)
+        p = Payment(
+            user_id=user.id,
+            store_id=store.id,
+            purpose="wallet_topup",
+            provider="fake_gw",
+            amount=5_000,
+            currency=store.currency,
+            status="pending",
+            idempotency_key="crashed-create",
+            meta={"external_operation": "creating"},
+        )
+        s.add(p)
+        await s.commit()
+        with pytest.raises(AppError) as retry:
+            await _intent(s, store, user, key="crashed-create")
+        assert retry.value.code == "PAYMENT_INTENT_OUTCOME_UNKNOWN"
+        assert gateway.intents == 0
 
 
 # ------------------------------------------------------------- callbacks
