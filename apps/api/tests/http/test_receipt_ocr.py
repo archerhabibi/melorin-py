@@ -339,3 +339,23 @@ async def test_grace_credit_waits_for_a_pending_reading():
     assert ocr_job.blocks_credit(pay("pending", 90)) is False  # a dead queue cannot park the money forever
     cfg = dict(provisional.DEFAULT, enabled=True)
     assert await provisional._block_reason(None, pay("pending", 2), cfg, []) == "ocr_pending"
+
+
+async def test_known_duplicate_verdict_wins_over_a_pending_reading():
+    """A fingerprint verdict is already known at upload time; waiting for OCR must not mask it behind ``ocr_pending``."""
+    from types import SimpleNamespace
+
+    from melorin.core.db import utcnow
+    from melorin.modules.payments import provisional
+
+    pay = SimpleNamespace(
+        amount=150_000,
+        currency="IRT",
+        meta={
+            "receipt_ocr": {"state": "pending", "queued_at": utcnow().isoformat()},
+            "receipt_claim": {"reference": "123456789"},
+            "receipt_duplicate": {"payments": [{"id": "x", "status": "succeeded"}], "other_stores": []},
+        },
+    )
+    cfg = dict(provisional.DEFAULT, enabled=True)
+    assert await provisional._block_reason(None, pay, cfg, []) == "duplicate_image"

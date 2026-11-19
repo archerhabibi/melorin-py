@@ -29,6 +29,9 @@ def _scrub() -> None:
     for key in [k for k in os.environ if k.startswith(_PREFIX)]:
         del os.environ[key]
     os.environ["MELORIN_JWT_SECRET"] = TEST_JWT_SECRET
+    # Hermetic receipt OCR: whether the machine happens to have `tesseract` must not change what an upload queues (with an
+    # engine configured the receipt stays "ocr_pending" until a worker reads it). Tests that need an engine opt in explicitly.
+    os.environ["MELORIN_RECEIPT_OCR_ENGINE"] = "off"
 
 
 def _restore() -> None:
