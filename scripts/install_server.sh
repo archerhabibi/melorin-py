@@ -261,7 +261,7 @@ fi
 echo "  SMTP / S3: not required. Enable them later in Admin -> Settings -> Integrations."
 echo "  Backups: encrypted, daily 02:00 UTC, stored locally in the api_storage volume (/app/var/backups)."
 echo "  Server log: changes made on this server are recorded automatically in ${APP_DIR}/var/ops-log.md (add reasons with scripts/ops_log.sh)."
-echo "  Reseller bots are disabled by default (compose profile 'reseller')."
+echo "  Reseller bots: the reseller runner always starts; it stays idle until a reseller registers a bot token in Core."
 if [ "${NEW_BACKUP_KEY:-0}" = 1 ]; then
   echo "  !! Copy ${APP_DIR}/secrets/backup/age-identity.txt to a safe place OFF this server."
   echo "     Without it the encrypted backups cannot be restored."

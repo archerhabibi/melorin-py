@@ -96,14 +96,23 @@ ask_domain() { # ask_domain "label" -> sets REPLY_DOMAIN
   done
 }
 
-valid_email() { [[ "$1" =~ ^[A-Za-z0-9._%+-]+@([A-Za-z0-9-]+\.)+[A-Za-z]{2,}$ ]]; }
+# V-004: the application's login validator (email-validator) rejects special-use domains; refuse them here too, otherwise the
+# admin account is created and can never sign in (HTTP 422 on every login).
+valid_email() {
+  [[ "$1" =~ ^[A-Za-z0-9._%+-]+@([A-Za-z0-9-]+\.)+[A-Za-z]{2,}$ ]] || return 1
+  local d="${1#*@}"
+  case "$d" in
+    *.test|*.local|*.localhost|*.invalid|*.onion|*.arpa|test|local|localhost|invalid) return 1 ;;
+  esac
+  return 0
+}
 ask_email() { # sets REPLY_EMAIL
   local e
   while true; do
     read -r -p "$1: " e || return 1
     e="${e,,}"; e="${e// /}"
     if valid_email "$e"; then REPLY_EMAIL="$e"; return 0; fi
-    warn "Not a valid e-mail address (example: you@example.com)."
+    warn "Not a usable e-mail address (.test/.local/.invalid/.onion domains are refused by the app's login validator)."
   done
 }
 

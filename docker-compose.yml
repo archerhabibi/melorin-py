@@ -1,13 +1,13 @@
 # Image names: by default the images are built on this host and tagged melorin/<name>:local. When MELORIN_IMAGE_REGISTRY is set in .env
 # (e.g. ghcr.io/<owner>/melorin) scripts/deploy.sh pulls the images CI built for the exact commit (MELORIN_IMAGE_TAG=<sha>) instead of building.
 name: melorin
-# MEMORY BUDGET (audit W6): every service has a mem_limit; the caps add up to 3584 MiB (3.5 GiB). That is the ceiling the host must be
+# MEMORY BUDGET (audit W6): every service has a mem_limit; the long-running services' caps add up to 3584 MiB (3.5 GiB; the one-shot migrate/secrets_init jobs have exited before the rest start and are excluded, so the sum of EVERY cap is 3856 MiB, V-05). That is the ceiling the host must be
 # able to honour, hence the 4 GB RAM recommendation in the README. scripts/check_ops_p0.py fails CI when a service has no cap or the
 # sum goes over MEMORY_BUDGET_MIB; raise the README recommendation together with that constant.
 # HARDENING (audit T-R08): first-party Python services drop every Linux capability, may not gain privileges and keep /tmp in a bounded
 # tmpfs; api and both bots also run with a read-only root filesystem (their only writable paths are named volumes). The backup
 # container (which owns rclone/age/pg_dump, T-R14) keeps a writable root because they write under the home directory. nginx web images only get no-new-privileges.
-# scripts/check_ops_p0.py enforces this list. NOTE: not exercised on a live Docker host in the audit sandbox - run `make deploy-test`.
+# scripts/check_ops_p0.py enforces this list. The stack was installed and exercised end to end on a real Ubuntu 24.04 host (V-AUDIT install run); `make deploy-test` repeats that check.
 # Log rotation (T06): the default json-file driver never rotates, so a chatty container could fill the 38 GB disk over months.
 x-logging: &default-logging
   driver: json-file

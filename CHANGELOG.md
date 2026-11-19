@@ -23,6 +23,8 @@ release-oriented summary. The project is pre-release: breaking changes are allow
 - Third pass: the OCR base URL goes through the shared outbound policy at save time and (resolved, non-blocking) before every vision call (V-021); a per-store daily cap (`MELORIN_RECEIPT_OCR_DAILY_CAP`, default 300) stops a customer burning the paid OCR budget (V-21); a failed Google sign-in also drops the single-use nonce cookie (V-11).
 - API runs 2 uvicorn workers by default (`MELORIN_API_WORKERS`) with a concurrency limit and 2 concurrent KDFs per process (V-028); CI gets a SQLite lane (V-40) and a gitleaks allow-list for fake fixtures (V-029).
 
+- Fourth pass (remaining V-AUDIT gaps): the admin bootstrap validates the e-mail with the same `email-validator` the login schema uses and the installer menu refuses `.test/.local/.invalid/.onion` up front, so an install can no longer create an admin who is locked out with HTTP 422 (V-004); in external-proxy mode the post-install check probes the loopback ports instead of `https://<domain>/` (no more ~1 min false warning per domain) and the "reseller bots disabled by default" message is corrected (V-010); backup checksums store the archive basename and the drill/verify scripts check from the archive's directory, and the restore drill now also requires an `alembic_version`, a non-empty `users` table and the same revision as the live database (V-027); `target="_blank"` links all carry `rel="noopener noreferrer"` (V-030); the compose memory comment states the 3584 MiB steady-state budget vs. the 3856 MiB sum of every cap (V-05).
+
 ## [Unreleased] - 2026-11-18
 
 ### Security / reliability

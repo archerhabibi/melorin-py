@@ -121,7 +121,7 @@ function TicketImage({ coreFetch, path }: { coreFetch?: Json; path?: Json }) {
   if (failed) return <span className="text-xs text-muted">تصویر بارگذاری نشد</span>;
   if (!src) return <div className="h-32 w-48 animate-pulse rounded-xl bg-surface2" aria-hidden="true" />;
   return (
-    <a href={src} target="_blank" rel="noreferrer" aria-label="مشاهدهٔ تصویر در اندازهٔ کامل" className="block">
+    <a href={src} target="_blank" rel="noopener noreferrer" aria-label="مشاهدهٔ تصویر در اندازهٔ کامل" className="block">
       <img src={src} alt="تصویر پیوست" className="max-h-64 max-w-full rounded-xl object-contain ring-1 ring-line" />
     </a>
   );

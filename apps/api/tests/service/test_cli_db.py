@@ -57,6 +57,16 @@ def use_settings(monkeypatch):
     return apply
 
 
+@pytest.mark.parametrize("domain", ["melorin.test", "corp.local", "x.invalid", "hidden.onion"])
+async def test_bootstrap_refuses_an_admin_email_the_login_validator_rejects(maker, use_settings, domain):
+    """V-004: the installer used to create a super-admin whose e-mail EmailStr then refused on every login (HTTP 422 forever)."""
+    use_settings(bootstrap_admin_email=f"admin@{domain}")
+    with pytest.raises(SystemExit, match="login validator"):
+        await cli.bootstrap()
+    async with maker() as session:
+        assert (await session.scalar(select(User).where(User.email == f"admin@{domain}"))) is None
+
+
 # --- bootstrap: refusals -------------------------------------------------------------------------------------------
 
 

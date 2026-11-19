@@ -27,6 +27,18 @@ async def bootstrap() -> None:
     settings = get_settings()
     if not settings.bootstrap_admin_email or not settings.bootstrap_admin_password:
         raise SystemExit("MELORIN_BOOTSTRAP_ADMIN_EMAIL and MELORIN_BOOTSTRAP_ADMIN_PASSWORD are required")
+    # V-004: the login schema uses pydantic's EmailStr (email-validator), which refuses special-use domains (.test, .local,
+    # .invalid ...). Validate with the SAME library here so an unusable admin e-mail fails the install loudly instead of
+    # creating a super-admin who is locked out forever with HTTP 422.
+    try:
+        from email_validator import EmailNotValidError, validate_email
+
+        validate_email(settings.bootstrap_admin_email.strip(), check_deliverability=False)
+    except EmailNotValidError as exc:
+        raise SystemExit(
+            f"MELORIN_BOOTSTRAP_ADMIN_EMAIL is not accepted by the login validator ({exc}). "
+            "Use a real address on a public domain (not .test/.local/.invalid/.example)."
+        ) from exc
     if len(settings.bootstrap_admin_password) < 24 or settings.bootstrap_admin_password in {"change-me-now", "password"}:
         raise SystemExit("MELORIN_BOOTSTRAP_ADMIN_PASSWORD must be a strong one-time credential")
     totp_secret = (settings.bootstrap_admin_totp_secret or "").strip().upper()

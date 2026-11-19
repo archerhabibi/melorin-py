@@ -232,7 +232,7 @@ export default function LinkedAccounts({
                 <a
                   href={tg.telegram_deeplink}
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                   className={`${btn} mt-3 block text-center`}
                 >
                   باز کردن در تلگرام
