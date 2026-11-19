@@ -176,39 +176,53 @@ async def test_outbox_replay_unknown_event_exits_and_malformed_id_is_rejected(ma
 # --- encryption key rotation ---------------------------------------------------------------------------------------
 
 
+def _dev_key() -> str:
+    """The key ``encrypt()`` uses in the hermetic test environment (derived from the dev JWT secret)."""
+    import base64
+    import hashlib
+
+    from melorin.core.config import get_settings
+
+    return base64.urlsafe_b64encode(hashlib.sha256(get_settings().jwt_secret.encode()).digest()).decode()
+
+
 async def test_rotate_encryption_key_reencrypts_known_columns_and_skips_empty_ones(maker, use_settings, capsys):
-    new_key = Fernet.generate_key().decode()
+    old_key, new_key = _dev_key(), Fernet.generate_key().decode()
     async with maker() as s:
         store = await make_store(s)
         store.bot_token_enc = encrypt("bot-token")
-        s.add(Panel(name="p", kind="mock", base_url="http://p", credentials_enc=encrypt('{"u":"x"}')))
+        s.add(Panel(name="p", kind="mock", base_url="http://p", credentials_enc=encrypt('{"u":"x"}'), webhook_secret_enc=encrypt("wh")))
         s.add(Panel(name="no-creds", kind="mock", base_url="http://q"))
         s.add(StorePaymentConfiguration(store_id=store.id, provider="zarinpal", secret_enc=encrypt("merchant")))
         s.add(User(display_name="a", totp_secret_enc=encrypt(TOTP), totp_enabled=True))
         s.add(WebhookEndpoint(store_id=store.id, url="https://h", secret_enc=encrypt("cur"), previous_secret_enc=encrypt("prev")))
         await s.commit()
-    await cli.rotate_encryption_key(new_key)
+    use_settings(encryption_key=new_key, encryption_key_previous=old_key)  # new primary + old key kept for decryption
+    await cli.rotate_encryption_key()
     f = Fernet(new_key.encode())
     async with maker() as s:
         assert f.decrypt((await s.scalar(select(Store))).bot_token_enc.encode()).decode() == "bot-token"
         panels = {p.name: p for p in (await s.scalars(select(Panel))).all()}
         assert f.decrypt(panels["p"].credentials_enc.encode()).decode() == '{"u":"x"}'
+        assert f.decrypt(panels["p"].webhook_secret_enc.encode()).decode() == "wh"
         assert panels["no-creds"].credentials_enc is None
         # every encrypted column the platform owns must follow the key, otherwise 2FA / payments / webhooks break
         assert f.decrypt((await s.scalar(select(StorePaymentConfiguration))).secret_enc.encode()).decode() == "merchant"
         assert f.decrypt((await s.scalar(select(User))).totp_secret_enc.encode()).decode() == TOTP
         hook = await s.scalar(select(WebhookEndpoint))
         assert (f.decrypt(hook.secret_enc.encode()).decode(), f.decrypt(hook.previous_secret_enc.encode()).decode()) == ("cur", "prev")
-    assert "encryption rotation completed" in capsys.readouterr().out
+    assert "re-encrypted" in capsys.readouterr().out
 
 
 async def test_rotate_encryption_key_requires_a_configured_current_key_and_a_valid_new_one(maker, use_settings):
     use_settings(encryption_key="")
     with pytest.raises(SystemExit, match="current MELORIN_ENCRYPTION_KEY"):
         await cli.rotate_encryption_key(Fernet.generate_key().decode())
-    use_settings()
+    use_settings(encryption_key=Fernet.generate_key().decode())
     with pytest.raises(ValueError):
         await cli.rotate_encryption_key("not-a-fernet-key")
+    with pytest.raises(SystemExit, match="must equal MELORIN_ENCRYPTION_KEY"):
+        await cli.rotate_encryption_key(Fernet.generate_key().decode())
 
 
 # --- admin recovery ------------------------------------------------------------------------------------------------
@@ -301,7 +315,7 @@ def test_main_routes_each_command(monkeypatch, dispatched, argv, expected):
     assert dispatched == [expected]
 
 
-@pytest.mark.parametrize("command", ["outbox-replay", "rotate-encryption-key", "reset-admin-password"])
+@pytest.mark.parametrize("command", ["outbox-replay", "reset-admin-password"])
 def test_main_requires_a_value_for_commands_that_need_one(monkeypatch, dispatched, command, capsys):
     monkeypatch.setattr(sys, "argv", ["melorin.cli", command])
     with pytest.raises(SystemExit) as exc:

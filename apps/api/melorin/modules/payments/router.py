@@ -52,7 +52,11 @@ async def get_payment(payment_id: uuid.UUID, ctx: StoreCtx, session: Session):
     return payment_out(await StoreScope.of(ctx).get(session, Payment, payment_id, "پرداخت"))
 
 
-@router.post("/stores/{store_id}/payments/{payment_id}/receipt", response_model=PaymentOut)
+@router.post(
+    "/stores/{store_id}/payments/{payment_id}/receipt",
+    response_model=PaymentOut,
+    dependencies=[Depends(RateLimit("receipt-upload", 6, 60))],  # each upload may trigger a paid OCR call + a store notice (V-20/V-21)
+)
 async def upload_receipt(
     payment_id: uuid.UUID,
     ctx: StoreCtx,

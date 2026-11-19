@@ -40,6 +40,7 @@ class CorrelationMiddleware:
         direct = (scope.get("client") or ("", 0))[0]
         fwd = headers.get(b"x-forwarded-for", b"").decode()
         ip = resolve_client_ip(direct, fwd, get_settings().trusted_proxy_ips)
+        scope.setdefault("state", {})["correlation_id"] = rid  # readable by the outermost 500 handler (contextvar is reset by then)
         t1 = correlation_id.set(rid)
         t2 = client_ip.set(ip)
         trace = parse_traceparent(headers.get(b"traceparent", b"").decode()) or new_trace_id()
