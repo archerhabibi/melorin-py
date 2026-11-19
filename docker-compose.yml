@@ -104,6 +104,16 @@ services:
     cpus: 1.0
   # Backups run here, not in the Worker (audit T-R14): rclone/age/pg_dump and their writable home live in this one container, a stuck
   # dump cannot delay business jobs, and the Worker above can run with a read-only root. Same image, same job code (worker/jobs_*.py).
+  # Creates the bind-mounted secret files when missing: Docker would otherwise create DIRECTORIES at those paths (audit V-34).
+  secrets_init:
+    image: postgres:16-alpine@sha256:aa6cb33cf4c19c765cefcf48d96176258800870a9a1e930ad126200f9d825139
+    restart: "no"
+    command: ["sh", "-c", "mkdir -p /s/backup && for f in /s/backup/recipients.txt /s/metrics-token; do [ -f \"$$f\" ] || : > \"$$f\"; done"]
+    volumes:
+      - ./secrets:/s
+    network_mode: none
+    cap_drop: [ALL]
+    mem_limit: 16m
   backup:
     logging: *default-logging
     restart: unless-stopped
@@ -118,7 +128,7 @@ services:
     volumes:
       - api_storage:/app/var
       - ./secrets/backup/recipients.txt:/run/melorin-backup/recipients.txt:ro
-    depends_on: {postgres: {condition: service_healthy}, redis: {condition: service_healthy}, migrate: {condition: service_completed_successfully}}
+    depends_on: {postgres: {condition: service_healthy}, redis: {condition: service_healthy}, migrate: {condition: service_completed_successfully}, secrets_init: {condition: service_completed_successfully}}
     networks: [backend]
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
@@ -266,12 +276,11 @@ services:
     command:
       - --config.file=/etc/prometheus/infra/prometheus.yml
       - --storage.tsdb.path=/prometheus
-      - --web.enable-lifecycle
     volumes:
       - ./infra:/etc/prometheus/infra:ro
       - ./secrets/metrics-token:/etc/prometheus/metrics-token:ro
       - prometheus_data:/prometheus
-    depends_on: {api: {condition: service_healthy}, alertmanager: {condition: service_healthy}}
+    depends_on: {api: {condition: service_healthy}, alertmanager: {condition: service_healthy}, secrets_init: {condition: service_completed_successfully}}
     healthcheck: {test: [CMD, wget, --spider, --quiet, http://127.0.0.1:9090/-/ready], interval: 15s, timeout: 5s, retries: 8}
     networks: [backend]
     mem_limit: 256m

@@ -16,8 +16,11 @@ set -euo pipefail
 umask 022
 
 REPO_URL="${REPO_URL:-https://github.com/archerhabibi/melorin-py.git}"
-# Pin production installs to a reviewed commit; override only during a deliberate release.
-REPO_REF="${REPO_REF:-9d8d4e0}"
+# Default ref: the newest release tag (vX.Y.Z), or `main` while no tag exists - the same rule as get.sh. Never a hidden commit pin.
+if [ -z "${REPO_REF:-}" ]; then
+  REPO_REF="$(git ls-remote --tags --refs "$REPO_URL" 'v[0-9]*' 2>/dev/null | sed 's#.*refs/tags/##' | sort -V | tail -n1)"
+  REPO_REF="${REPO_REF:-main}"
+fi
 APP_DIR="${APP_DIR:-/opt/melorin}"
 DOMAIN="${DOMAIN:?set DOMAIN, e.g. shop.example.com}"
 ADMIN_DOMAIN="${ADMIN_DOMAIN:?set ADMIN_DOMAIN, e.g. admin.example.com}"
@@ -161,7 +164,7 @@ if [ ! -f .env ]; then
       echo ">> could not verify the bot token with Telegram (network or wrong token); continuing." >&2
     fi
   else
-    echo ">> no bot token set: the main bot will not start until MELORIN_TELEGRAM_TOKEN is added to .env."
+    echo ">> no bot token set: the main bot stays idle (disabled) until MELORIN_TELEGRAM_TOKEN is added to .env."
   fi
   unset BOT
   mv -f "$ENV_FILE" .env

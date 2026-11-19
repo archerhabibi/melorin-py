@@ -6,6 +6,18 @@ All notable changes to Melorin. The detailed, dated engineering log lives in
 [docs/06-ARCHITECTURE-DECISIONS.md](docs/06-ARCHITECTURE-DECISIONS.md) ("Melorin Change Log"); this file is the short,
 release-oriented summary. The project is pre-release: breaking changes are allowed.
 
+## [Unreleased] - 2026-11-19
+
+### Audit remediation (V-AUDIT / V01 reports)
+- One outbound-address policy (`domain/netpolicy.py`): CGNAT, NAT64, 6to4, Teredo and mapped forms are refused; numeric hosts (`127.1`, `0x7f.1`, `2130706433`) are parsed; used by webhooks, domain verification and panel URLs (V-011).
+- Webhook delivery resolves once (non-blocking), validates every address and connects to that address with the real SNI/Host; a refusal is a counted failure that auto-disables the endpoint instead of an endless re-claim (V-012, V-013, V-014).
+- `admin_area_guard` fails closed for a customer session on an `/admin/` path (V-08).
+- Order/ticket codes work on SQLite (dev default) as well as PostgreSQL sequences (V-26).
+- Installer: no hidden commit pin (newest tag, else `main`); `melorin update` moves to the newest release tag; `secrets/` is git-ignored and `secrets_init` creates the bind-mounted files so Compose never creates directories (V-32, V-32a, V-34, V-35).
+- Web nginx: 6 MB bodies, 404 for missing assets, gzip; Prometheus lifecycle endpoint off (V-008, V-009, V-024).
+- Alerts: `MelorinApiDown` and `MelorinAlertSeriesAbsent`; the main Telegram bot idles (healthy) when no token is configured (V-006, V-005).
+- Python 3.12 is enforced at import (V-02); grace credit has a `min_account_age_hours` setting and needs a proof signal (V-22).
+
 ## [Unreleased] - 2026-11-18
 
 ### Security / reliability

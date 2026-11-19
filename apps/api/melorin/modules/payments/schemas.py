@@ -80,6 +80,7 @@ class GraceSettingsIn(BaseModel):
     max_amount_rial: StrictInt | None = None
     max_exposure_rial: StrictInt | None = None
     max_open_per_user: StrictInt | None = None
+    min_account_age_hours: StrictInt | None = None
 
 
 class GraceResolveIn(BaseModel):

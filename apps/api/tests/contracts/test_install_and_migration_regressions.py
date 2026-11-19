@@ -44,7 +44,7 @@ def test_quality_gate_has_no_broken_script_reference_and_ssrf_guard_is_live():
     assert "run_quality_gate.py" not in ci
     assert "run_quality_gate.sh" in ci
     assert "check_web_lockfiles.py" not in gate
-    assert "parsed_ip = None" in webhook
+    assert "parse_numeric_host" in webhook
     assert "if parsed_ip is not None and _blocked_ip(parsed_ip)" in webhook
 
 
@@ -134,7 +134,7 @@ def test_k11_to_k20_operational_controls_are_present():
         assert marker in arq
     assert "backup_main" in compose  # T-R14: backups run in their own container, not in the ARQ worker
     assert 'state="firing"} > 0' in alerts and "for: 5m" in alerts
-    assert "_public_panel_url" in registry and ".is_private" in registry
+    assert "_public_panel_url" in registry and "netpolicy.is_forbidden_ip" in registry
     assert "order_paid_retry:" in orders and "already_claimed" in vpn
 
 

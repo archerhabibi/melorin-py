@@ -53,13 +53,28 @@ async def _admin(c, maker):
 
 
 async def _enable(c, admin, store_id, **kw):
-    r = await c.put(f"{ADMIN}/stores/{store_id}/receipt-review/settings", json={"enabled": True, **kw}, headers=admin)
+    r = await c.put(
+        f"{ADMIN}/stores/{store_id}/receipt-review/settings", json={"enabled": True, "min_account_age_hours": 0, **kw}, headers=admin
+    )
     assert r.status_code == 200, r.text
     return r.json()
 
 
+async def _prove(s):
+    """The grace credit now needs a readable proof signal (audit V-22): give every unproven receipt an OCR-style amount claim."""
+    for pay in (await s.scalars(select(Payment))).all():
+        meta = dict(pay.meta or {})
+        if not (meta.get("receipt_claim") or {}).get("amount_rial") and not (meta.get("receipt_claim") or {}).get("reference"):
+            rial = dom.to_rial(pay.amount, pay.currency)
+            if rial is not None and pay.receipt_file_id:
+                meta["receipt_claim"] = {**(meta.get("receipt_claim") or {}), "amount_rial": rial}
+                pay.meta = meta
+    await s.commit()
+
+
 async def _sweep(maker, minutes_later):
     async with maker() as s:
+        await _prove(s)
         total = 0
         for sid in (await s.scalars(select(Store.id))).all():
             total += (await provisional.run_store(s, await s.get(Store, sid), now=utcnow() + dt.timedelta(minutes=minutes_later)))[
@@ -209,6 +224,7 @@ async def test_one_failing_payment_does_not_stop_the_rest_of_the_sweep(monkeypat
 
         monkeypatch.setattr(provisional, "_approve", flaky)
         async with maker() as s:
+            await _prove(s)
             out = await provisional.run_store(s, await s.get(Store, main.id), now=utcnow() + dt.timedelta(minutes=10))
         assert out["credited"] == 1 and out["failed"] == 1
         assert await _balance(maker, sid) == 150_000

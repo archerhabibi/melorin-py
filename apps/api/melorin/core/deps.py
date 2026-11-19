@@ -107,7 +107,12 @@ async def admin_area_guard(
     refusal) and leaves no role-denied event. A denied admin is logged as a security
     event, so a team member probing beyond their role is visible in the audit screen.
     """
-    if not (user.is_super_admin and auth.is_admin_session):
+    if not auth.is_admin_session:
+        # Fail closed: a customer-channel session must never reach an /admin/ path through a route that forgot AdminUser (audit V-08).
+        if admin_access.normalise(request.url.path).startswith("admin/"):
+            raise AppError("ADMIN_ROLE_FORBIDDEN", "نقش شما اجازه‌ی این کار را ندارد.", 403)
+        return
+    if not user.is_super_admin:
         return
     area, write = admin_access.area_for(request.url.path, request.method)
     if admin_access.allows(user.admin_roles, area, write=write):

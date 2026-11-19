@@ -257,6 +257,11 @@ do_update() {
   before="$(git rev-parse --short HEAD 2>/dev/null)"
   info "Fetching ($REPO_REF)..."
   git fetch --quiet --tags origin || { err "git fetch failed (network?)"; return 1; }
+  # A moving ref (main) would leave an install stuck behind newer releases: prefer the newest vX.Y.Z tag when one exists (audit V-32a).
+  if git rev-parse --verify --quiet "origin/${REPO_REF}^{commit}" >/dev/null; then
+    local newest; newest="$(git tag --list 'v[0-9]*' --sort=-v:refname | head -n1)"
+    if [ -n "$newest" ]; then info "Newest release tag is $newest; updating to it instead of moving '$REPO_REF'."; REPO_REF="$newest"; fi
+  fi
   git -c advice.detachedHead=false checkout --quiet --detach "$(resolve_ref)" \
     || { err "Checkout failed - there are local edits to tracked files in $APP_DIR."; return 1; }
   after="$(git rev-parse --short HEAD)"
