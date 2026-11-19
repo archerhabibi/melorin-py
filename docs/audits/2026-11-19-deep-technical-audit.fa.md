@@ -224,10 +224,10 @@ Melorin-Py یک Modular Monolith نسبتاً بالغ است، نه یک سرو
 
 | یافته | PR | وضعیت فعلی |
 |---|---|---|
-| AUD-001 — ایجاد پرداخت و retry امن | [#130](https://github.com/archerhabibi/melorin-py/pull/130) | باز؛ state machine fail-closed، ثبت کلید idempotency در مرورگر و پوشش legacy `create_failed` اضافه شده است. تست‌های محلی پرداخت/زرین‌پال 74 و تست‌های وب فروشگاه 85 مورد موفق؛ CI نهایی در حال اجراست. |
+| AUD-001 — ایجاد پرداخت و retry امن | [#130](https://github.com/archerhabibi/melorin-py/pull/130) | باز؛ state machine fail-closed، ثبت کلید idempotency در مرورگر و پوشش legacy `create_failed` اضافه شده است. تست‌های محلی پرداخت/زرین‌پال 74 و تست‌های وب فروشگاه 85 مورد موفق؛ هر سه job CI (quality، PostgreSQL، web E2E) موفق‌اند. |
 | AUD-002 — refund پس از disable درگاه | [#131](https://github.com/archerhabibi/melorin-py/pull/131) | باز؛ سه job CI موفق و تست‌های ترکیبی محلی موفق. |
 | AUD-003 — credential بازپرداخت زرین‌پال | [#132](https://github.com/archerhabibi/melorin-py/pull/132) | باز؛ سه job CI موفق و تست‌های Admin Web محلی موفق. |
-| AUD-004 — lock/quality در Dependabot | [#116](https://github.com/archerhabibi/melorin-py/pull/116) و [#133](https://github.com/archerhabibi/melorin-py/pull/133) | در head فعلی PR #116، `scripts/lock_requirements.sh --check` موفق است؛ شکست جاری quality از قانون جدید Ruff `ASYNC240` در دو فراخوانی هم‌زمان `Path.exists/stat` در worker backup است. PR #133 آن‌ها را با `asyncio.to_thread` اصلاح می‌کند؛ 55 تست محلی و Ruff 0.17.5 موفق، CI در حال اجراست. |
+| AUD-004 — lock/quality در Dependabot | [#116](https://github.com/archerhabibi/melorin-py/pull/116) و [#133](https://github.com/archerhabibi/melorin-py/pull/133) | در head فعلی PR #116، `scripts/lock_requirements.sh --check` موفق است؛ شکست جاری quality از قانون جدید Ruff `ASYNC240` در دو فراخوانی هم‌زمان `Path.exists/stat` در worker backup است. PR #133 آن‌ها را با `asyncio.to_thread` اصلاح می‌کند؛ 55 تست محلی و Ruff 0.17.5 موفق؛ هر سه job CI (quality، PostgreSQL، web E2E) موفق‌اند. |
  
 سه شاخهٔ #130، #131 و #132 به‌صورت محلی و موقت روی main ترکیب شدند؛ تعارض ادغام نداشتند و 86 تست ترکیبی مالی/درگاه/زرین‌پال موفق شدند. این آزمایش هیچ ref راه‌دور یا main را تغییر نداد.
 
@@ -273,3 +273,6 @@ Melorin-Py یک Modular Monolith نسبتاً بالغ است، نه یک سرو
 - `bash scripts/test_restore_drill.sh`: هر 3 سناریو موفق؛ انتخاب جدیدترین backup، پذیرش مسیر checksum خارجی، رد archive دست‌کاری‌شده و تشخیص backup خارج از RPO.
 
 این‌ها تست‌های آفلاین/شبیه‌سازی‌شده‌اند و جایگزین restore واقعی از backup رمزنگاری‌شده در مقصد مستقل یا deploy روی host Production نیستند.
+
+
+وضعیت CI پس از پیگیری: PRهای #130، #131، #132 و #133 همگی هر سه job را با موفقیت گذرانده‌اند. برای PR #134، web E2E موفق شده و quality و PostgreSQL هنوز در حال اجرا هستند؛ تا پایان آن‌ها این PR را تأیید نهایی‌شده تلقی نمی‌کنیم.
