@@ -301,9 +301,9 @@ export function GatewaySettings({ obj, save }: { obj?: Json; save?: Json }) {
   const card = obj.manual_card || {};
   const zp = obj.zarinpal || {};
   const [c, setC] = useState({ card_number: '', holder: '', bank: '', ...card });
-  const [z, setZ] = useState({ merchant_id: '', sandbox: false, ...zp });
+  const [z, setZ] = useState({ merchant_id: '', sandbox: false, access_token: '', clear_access_token: false, has_access_token: false, ...zp });
   useEffect(() => setC({ card_number: '', holder: '', bank: '', ...(obj.manual_card || {}) }), [obj]);
-  useEffect(() => setZ({ merchant_id: '', sandbox: false, ...(obj.zarinpal || {}) }), [obj]);
+  useEffect(() => setZ({ merchant_id: '', sandbox: false, access_token: '', clear_access_token: false, has_access_token: false, ...(obj.zarinpal || {}) }), [obj]);
   const cardOk = !!(card.card_number && card.holder);
   const zpOk = !!zp.merchant_id;
   return (
@@ -382,12 +382,36 @@ export function GatewaySettings({ obj, save }: { obj?: Json; save?: Json }) {
                   onChange={(e) => setZ({ ...z, merchant_id: e.target.value })}
                 />
               </Field>
+              <Field label="Access Token (محرمانه و فقط نوشتنی)">
+                <input
+                  dir="ltr"
+                  type="password"
+                  autoComplete="new-password"
+                  className="inp font-mono text-xs"
+                  value={z.access_token}
+                  placeholder={z.has_access_token ? 'توکن ذخیره شده؛ برای حفظ آن خالی بگذارید' : 'توکن دسترسی زرین‌پال'}
+                  onChange={(e) => setZ({ ...z, access_token: e.target.value, clear_access_token: false })}
+                />
+                <span className="mt-1 block text-xs text-[var(--mu)]">
+                  {z.has_access_token ? 'توکن فعلی ذخیره است و هرگز نمایش داده نمی‌شود.' : 'هنوز توکنی ذخیره نشده است.'}
+                </span>
+              </Field>
+              {z.has_access_token && (
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={!!z.clear_access_token}
+                    onChange={(e) => setZ({ ...z, clear_access_token: e.target.checked, access_token: '' })}
+                  />
+                  حذف توکن ذخیره‌شده
+                </label>
+              )}
               <div className="flex items-center justify-between rounded-xl bg-[var(--sf2)] px-3.5 py-3 text-sm font-bold">
                 حالت آزمایشی (Sandbox)
                 <Switch checked={!!z.sandbox} onChange={(v: Json) => setZ({ ...z, sandbox: v })} label="حالت Sandbox" />
               </div>
             </div>
-            <button className="btn mt-4" disabled={!z.merchant_id.trim()} onClick={() => save('zarinpal', z)}>
+            <button className="btn mt-4" disabled={!z.merchant_id.trim() || (!!z.clear_access_token && !!z.access_token.trim())} onClick={() => save('zarinpal', z)}>
               ذخیره تنظیمات زرین‌پال
             </button>
           </div>
