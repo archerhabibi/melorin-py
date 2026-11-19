@@ -9,6 +9,7 @@ release-oriented summary. The project is pre-release: breaking changes are allow
 ## [Unreleased] - 2026-11-19
 
 ### Audit remediation (V-AUDIT / V01 reports)
+- Receipt OCR is a worker job (`payments.receipt_ocr`, `modules/payments/ocr_job.py`), no longer part of the upload request (V01 V-21): the upload answers at once (`receipt_read.ocr_state = pending`), the per-store daily vision budget is spent in the worker, and the grace credit waits (`ocr_pending`, at most 1 h) for a pending reading.
 - One outbound-address policy (`domain/netpolicy.py`): CGNAT, NAT64, 6to4, Teredo and mapped forms are refused; numeric hosts (`127.1`, `0x7f.1`, `2130706433`) are parsed; used by webhooks, domain verification and panel URLs (V-011).
 - Webhook delivery resolves once (non-blocking), validates every address and connects to that address with the real SNI/Host; a refusal is a counted failure that auto-disables the endpoint instead of an endless re-claim (V-012, V-013, V-014).
 - `admin_area_guard` fails closed for a customer session on an `/admin/` path (V-08).
