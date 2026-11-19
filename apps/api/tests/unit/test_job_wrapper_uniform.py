@@ -80,7 +80,10 @@ async def test_lock_skips_overlap_and_is_released(fake_redis):
 
 
 @pytest.mark.asyncio
-async def test_lock_fails_open_when_redis_breaks(monkeypatch):
+async def test_lock_fails_closed_when_redis_breaks_and_records_metric(monkeypatch):
+    metrics.reset()
+    calls = 0
+
     def boom():
         raise RuntimeError("redis down")
 
@@ -88,9 +91,26 @@ async def test_lock_fails_open_when_redis_breaks(monkeypatch):
 
     @tracked_job
     async def x_job(ctx=None):
+        nonlocal calls
+        calls += 1
         return 1
 
-    assert await x_job() == 1
+    with pytest.raises(wrap.JobLockUnavailableError):
+        await x_job()
+    assert calls == 0
+    assert 'melorin_job_runs_total{job="x_job",outcome="lock_error"}' in metrics.render()
+
+
+@pytest.mark.asyncio
+async def test_lock_fails_closed_when_redis_is_not_configured(monkeypatch):
+    monkeypatch.setattr(wrap, "get_redis", lambda: None)
+
+    @tracked_job
+    async def x_job(ctx=None):
+        return 1
+
+    with pytest.raises(wrap.JobLockUnavailableError, match="not configured"):
+        await x_job()
 
 
 @pytest.mark.asyncio
