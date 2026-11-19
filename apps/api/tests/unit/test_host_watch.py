@@ -10,7 +10,11 @@ SCRIPT = ROOT / "scripts" / "host_watch.sh"
 
 
 def _fake_docker(bin_dir: Path, rows: list[str]) -> None:
-    body = "#!/bin/sh\ncase \"$1\" in\n  info) exit 1 ;;\n  ps) for i in " + " ".join(str(i) for i in range(len(rows))) + "; do echo c$i; done ;;\n  inspect) case \"$(echo \"$@\" | grep -o 'c[0-9]*$')\" in\n"
+    body = (
+        '#!/bin/sh\ncase "$1" in\n  info) exit 1 ;;\n  ps) for i in '
+        + " ".join(str(i) for i in range(len(rows)))
+        + '; do echo c$i; done ;;\n  inspect) case "$(echo "$@" | grep -o \'c[0-9]*$\')" in\n'
+    )
     for i, row in enumerate(rows):
         body += f"    c{i}) echo '{row}' ;;\n"
     body += "  esac ;;\nesac\n"

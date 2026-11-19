@@ -279,3 +279,16 @@ Docker/Compose (no docker on the test server), real Telegram bots, payment gatew
 | `docker compose up --build` postgres, redis, migrate, api on an empty volume | migrate reached `0001_initial_baseline`; api container healthy, `/healthz` 200 |
 
 Still not run: real PasarGuard/Sanaei panels, real Telegram bots, Zarinpal, Caddy + Prometheus/Alertmanager profile, backup restore drill from S3.
+
+### Audit closure 2026-11-19 (V-AUDIT V-001…V-032 + V01 report V-01…V-40) / بستن ممیزی
+
+| Area | Status |
+|---|---|
+| Input handling / auth (V-001, V-002, V-003, V-015, V-016, V-017, V-018, V-019; V01 V-07, V-08, V-12, V-14) | Done: ASCII-normalised digits + byte-wise compares, dummy-hash timing, parameterised scrypt + rehash, JWT `iss/aud/jti/kid`, per-(e-mail, IP) throttle, /64 IPv6 keys, 503 on Redis/DB outage, `MultiFernet` + re-encrypt CLI |
+| Payments (V01 V-15…V-25, V-30; V-022) | Done: destination whitelist (no secret echoed), no lock across the gateway call, refunded payments cannot be resurrected, refund finalisation parks in `manual_review` on inconsistent books, provisional credit needs a proof signal and cannot be rejected around, savepoint around the outbox insert, per-store OCR cap |
+| Outbound safety (V-011…V-014, V-021) | Done: one `netpolicy` module, pinned webhook delivery, non-blocking DNS, counted failures |
+| Observability (V-005, V-006, V-007, V-026) | Done: `MelorinApiDown` / `MelorinAlertSeriesAbsent`, idle main bot, ops-watch template, and (this pass) `scripts/host_watch.sh` out-of-stack watchdog + install-time receiver warning |
+| Installer / ops (V-004, V-008, V-009, V-010, V-020, V-025, V-027, V-028, V-030, V-032; V01 V-02, V-04, V-32, V-32a, V-33…V-37, V-40) | Done |
+| Tests (V-031) | PostgreSQL lane run in full: `tests/postgres` 12 passed / 0 skipped (with `TEST_PG_ADMIN_URL`), whole API suite on PostgreSQL 2811 passed / 1 skipped, SQLite lane 2798 passed / 11 skipped, Telegram main bot 104 passed |
+| **Deferred on purpose** | V-023 (stale pinned images), V-024 (container hardening) |
+| **Open by decision** | V-029: generated patch files remain in Git history (a history rewrite on a shared repository needs an explicit go-ahead; the gitleaks allow-list is in place). V01 V-21: OCR still runs inside the upload request (bounded by the per-store daily cap and 25 s timeout); moving it to an outbox event is the next step. V01 V-27: the single baseline `0001` is frozen the day the first real database exists; from then on only `0002_…` revisions (the baseline test pins the current single revision until that day). Not exercised: Playwright e2e, `e2e_smoke` on a Compose stack, real panels/bots/gateways |
