@@ -264,6 +264,10 @@ if [ -z "${BACKUP_OFFSITE_URI:-}" ] && ! grep -q '^MELORIN_BACKUP_OFFSITE_URI=.\
   echo "  !! No OFF-SITE backup target is configured: backups live on this same disk, so losing this server loses them too (audit V-027)."
   echo "     Set BACKUP_OFFSITE_URI (an rclone remote, e.g. s3:bucket/melorin) and re-run, or add MELORIN_BACKUP_OFFSITE_URI to .env."
 fi
+if ! grep -Eq '^ALERT_TELEGRAM_CHAT_ID=.+' .env 2>/dev/null && ! grep -Eq '^ALERT_SMTP_HOST=.+' .env 2>/dev/null; then
+  echo "  !! No ALERT RECEIVER is configured: alerts (API down, backup stale, ...) and the host watchdog have nobody to notify (audit V-006)."
+  echo "     Set ALERT_TELEGRAM_BOT_TOKEN + ALERT_TELEGRAM_CHAT_ID (or ALERT_SMTP_HOST/ALERT_SMTP_FROM/ALERT_EMAIL_TO) in .env and restart alertmanager."
+fi
 echo "  Server log: changes made on this server are recorded automatically in ${APP_DIR}/var/ops-log.md (add reasons with scripts/ops_log.sh)."
 echo "  Reseller bots: the reseller runner always starts; it stays idle until a reseller registers a bot token in Core."
 if [ "${NEW_BACKUP_KEY:-0}" = 1 ]; then
