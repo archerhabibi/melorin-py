@@ -214,3 +214,26 @@ Melorin-Py یک Modular Monolith نسبتاً بالغ است، نه یک سرو
 ممیزی کد، پایهٔ معماری و کنترل‌های دفاعی مناسبی را نشان می‌دهد؛ اما در مسیر مالی، رفتار retry ایجاد پرداخت و وابستگی refund به وضعیت فعال درگاه باید اصلاح شود. همچنین فرم زرین‌پال با نیاز credential مربوط به refund هم‌راستا نیست. در سطح عملیات، Deploy فعلی به علت SSH gate متوقف شده و شواهد چند integration و S3 restore هنوز کامل نیست.
 
 این گزارش فقط یافته‌ها و برنامهٔ اصلاح را ثبت می‌کند. **هیچ کد اجرایی، migration، تنظیمات Production یا secretی در این مرحله تغییر داده نشده است.**
+
+
+## 9. پیگیری پس از ممیزی — 2026-11-19
+
+این بخش شواهد و وضعیت اصلاحات پس از ثبت گزارش اولیه را نگه می‌دارد؛ یافته‌های بخش 4 همچنان snapshot زمان ممیزی هستند.
+
+### وضعیت اصلاحات کد
+
+| یافته | PR | وضعیت فعلی |
+|---|---|---|
+| AUD-001 — ایجاد پرداخت و retry امن | [#130](https://github.com/archerhabibi/melorin-py/pull/130) | باز؛ state machine fail-closed، ثبت کلید idempotency در مرورگر و پوشش legacy `create_failed` اضافه شده است. تست‌های محلی پرداخت/زرین‌پال 74 و تست‌های وب فروشگاه 85 مورد موفق؛ CI نهایی در حال اجراست. |
+| AUD-002 — refund پس از disable درگاه | [#131](https://github.com/archerhabibi/melorin-py/pull/131) | باز؛ سه job CI موفق و تست‌های ترکیبی محلی موفق. |
+| AUD-003 — credential بازپرداخت زرین‌پال | [#132](https://github.com/archerhabibi/melorin-py/pull/132) | باز؛ سه job CI موفق و تست‌های Admin Web محلی موفق. |
+| AUD-004 — lock/quality در Dependabot | [#116](https://github.com/archerhabibi/melorin-py/pull/116) و [#133](https://github.com/archerhabibi/melorin-py/pull/133) | در head فعلی PR #116، `scripts/lock_requirements.sh --check` موفق است؛ شکست جاری quality از قانون جدید Ruff `ASYNC240` در دو فراخوانی هم‌زمان `Path.exists/stat` در worker backup است. PR #133 آن‌ها را با `asyncio.to_thread` اصلاح می‌کند؛ 55 تست محلی و Ruff 0.17.5 موفق، CI در حال اجراست. |
+ 
+سه شاخهٔ #130، #131 و #132 به‌صورت محلی و موقت روی main ترکیب شدند؛ تعارض ادغام نداشتند و 86 تست ترکیبی مالی/درگاه/زرین‌پال موفق شدند. این آزمایش هیچ ref راه‌دور یا main را تغییر نداد.
+
+### شواهد عملیاتی تکمیلی
+
+- **AUD-005:** لاگ اجرای Deploy شمارهٔ `44536410368` علت را قطعی می‌کند: هر چهار secret لازم در سطح repository موجود نبوده‌اند: `DEPLOY_HOST`، `DEPLOY_USER`، `DEPLOY_SSH_KEY` و `DEPLOY_KNOWN_HOSTS`. این شکست ناشی از secret/configuration است، نه اثبات خطای کد. مقدار هیچ secretی خوانده یا افشا نشده است. رفع آن نیازمند اقدام مالک مخزن در تنظیمات GitHub است.
+- **AUD-006:** در محیط MCP بررسی‌شده، نام متغیرهای محیطی مربوط به Telegram، Zarinpal، PasarGuard/Sanaei، S3 و Deploy موجود نبود و container فعالی نیز اجرا نمی‌شد. بنابراین اجرای smoke test واقعی این providerها یا S3 restore از این محیط ممکن نبود؛ این موارد همچنان release gate هستند و نباید به‌عنوان تأییدشده علامت بخورند.
+
+هیچ‌یک از PRهای اصلاحی در این پیگیری به main ادغام نشده‌اند و هیچ secret یا تنظیم Production تغییر نکرده است.
