@@ -174,6 +174,33 @@ async def test_gateway_failure_is_unknown_and_same_key_never_reissues_create(gat
         assert retry.value.code == "PAYMENT_INTENT_OUTCOME_UNKNOWN" and calls == 1
 
 
+async def test_legacy_create_failed_payment_is_promoted_to_unknown_without_reissuing(gateway):
+    async with open_session() as s:
+        store, user = await _setup(s)
+        payment = Payment(
+            user_id=user.id,
+            store_id=store.id,
+            purpose="wallet_topup",
+            provider="fake_gw",
+            amount=5_000,
+            currency=store.currency,
+            status="pending",
+            idempotency_key="idem-legacy-failed",
+            meta={"external_operation": "create_failed", "error": "legacy adapter failure"},
+        )
+        s.add(payment)
+        await s.commit()
+
+        with pytest.raises(AppError) as exc:
+            await _intent(s, store, user, key="idem-legacy-failed")
+
+        assert exc.value.code == "PAYMENT_INTENT_OUTCOME_UNKNOWN"
+        await s.refresh(payment)
+        assert payment.meta["external_operation"] == "create_unknown"
+        assert payment.meta["reconciliation_required"] is True
+        assert gateway.intents == 0
+
+
 async def test_abandoned_create_lease_is_promoted_to_unknown_without_reissuing(gateway):
     async with open_session() as s:
         store, user = await _setup(s)
