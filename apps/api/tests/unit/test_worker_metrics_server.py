@@ -78,16 +78,22 @@ def test_prometheus_scrapes_worker_and_alerts_on_lock_failures():
     root = Path(__file__).resolve().parents[4]
     config = yaml.safe_load((root / "infra/prometheus.yml").read_text())
     worker = next(job for job in config["scrape_configs"] if job["job_name"] == "melorin-worker")
-    assert worker["static_configs"][0]["targets"] == ["worker:8001", "backup:8001"]
-    assert worker["bearer_token_file"] == "/etc/prometheus/metrics-token"
-    assert worker["honor_labels"] is True
+    backup = next(job for job in config["scrape_configs"] if job["job_name"] == "melorin-backup")
+    assert worker["static_configs"][0]["targets"] == ["worker:8001"]
+    assert backup["static_configs"][0]["targets"] == ["backup:8001"]
+    assert worker["bearer_token_file"] == backup["bearer_token_file"] == "/etc/prometheus/metrics-token"
+    assert worker["honor_labels"] is backup["honor_labels"] is True
 
     rules = yaml.safe_load((root / "infra/alerts.yml").read_text())
     alerts = [rule for group in rules["groups"] for rule in group["rules"]]
     item_failures = next(rule for rule in alerts if rule["alert"] == "MelorinJobItemFailures")
     lock_failures = next(rule for rule in alerts if rule["alert"] == "MelorinWorkerJobLockUnavailable")
+    worker_down = next(rule for rule in alerts if rule["alert"] == "MelorinWorkerMetricsUnavailable")
+    backup_down = next(rule for rule in alerts if rule["alert"] == "MelorinBackupMetricsUnavailable")
     assert "melorin_job_item_failures_total" in item_failures["expr"]
     assert 'outcome="lock_error"' in lock_failures["expr"]
+    assert 'job="melorin-worker"' in worker_down["expr"]
+    assert 'job="melorin-backup"' in backup_down["expr"]
 
 
 @pytest.mark.asyncio
